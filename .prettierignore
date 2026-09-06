@@ -6,3 +6,8 @@ pnpm-lock.yaml
 # hand-written prose and the generated design canvas
 docs/
 .claude/
+
+# generated native projects and Expo caches (expo prebuild — see apps/app/README.md)
+apps/*/android/
+apps/*/ios/
+apps/*/.expo/
