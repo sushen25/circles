@@ -138,7 +138,25 @@ write a new file and move it over the old one (never edit in place), and treat
 restoring the tree as part of the same task. A real fix is a `pnpm patch`, an
 upstream issue, or a version change.
 
-### 2.7 Extractors fail loudly or they lie
+### 2.7 Never stop a process by its port
+
+**What happened.** To stop a local `supabase functions serve`, the port it
+answered on was looked up and killed:
+
+```bash
+kill $(lsof -ti tcp:54321)   # don't
+```
+
+On macOS with Docker Desktop, that port belongs to the Docker backend, not to
+the process being targeted. It killed Docker itself, taking every container with
+it. Everything came back after `open -a Docker`, but nothing about the command
+said it was going to do that.
+
+**The rule.** Stop the thing you started, by its handle: the background task, or
+`pkill -f "<the command>"`. A port tells you what is listening, not what you may
+kill — and behind a container runtime it is almost never the process you mean.
+
+### 2.8 Extractors fail loudly or they lie
 
 **What happened.** The token generator matched CSS rules with `[^}]*`. Values in
 `gen.py` interpolate as `{T['ink2']}`, whose `}` truncated the match — so `.p`
@@ -151,7 +169,7 @@ does not understand, and name what it could not find. Never let a parse fall
 through to a default: the failure mode is silently wrong output that looks
 plausible.
 
-### 2.8 Verify a source exists before designing around it
+### 2.9 Verify a source exists before designing around it
 
 **What happened.** S0-03's plan assumed per-weight static TTFs at
 `github.com/google/fonts`. Every one of those paths 404s — the repository ships
@@ -162,14 +180,14 @@ sizes were checked first in order to ask permission accurately.
 on it. Checking costs one request. This one worked because the permission step
 forced the check — which is an argument for keeping that step.
 
-### 2.9 Stage by name
+### 2.10 Stage by name
 
 **The rule.** `git add -A` sweeps up untracked files that belong to the human or
 to another change. Add paths explicitly and read `git status --short` before
 committing. Untracked files travel across branch switches, so they will follow
 you into the wrong commit given the chance.
 
-### 2.10 Say what was not verified
+### 2.11 Say what was not verified
 
 **What happened.** S0-02's acceptance asked for the app running on web, iOS and
 Android. Web was verified end to end; iOS ran only through Expo Go; Android was
