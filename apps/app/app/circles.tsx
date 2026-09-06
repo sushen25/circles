@@ -12,6 +12,7 @@ export default function Route() {
     <CirclesListScreen
       fixture={fixture}
       onNext={() => router.push('/circles/sunday-crew')}
+      onNewCircle={() => router.push('/circles/create')}
       onBack={() => router.back()}
     />
   );

@@ -24,12 +24,19 @@ import type { ScreenState } from '../state';
  */
 export type SparkExpiredProps = {
   fixture: Fixture;
-  state?: ScreenState;
-  onNext?: () => void;
-  onBack?: () => void;
+  state?: ScreenState | undefined;
+  /** The screen's one decision. */
+  onNext?: (() => void) | undefined;
+  onBack?: (() => void) | undefined;
+  onBackToSundayCrew?: (() => void) | undefined;
+  onTryAgainAnotherTime?: (() => void) | undefined;
 };
 
-export function SparkExpiredScreen({ onNext, onBack }: SparkExpiredProps) {
+export function SparkExpiredScreen({
+  onBack,
+  onBackToSundayCrew,
+  onTryAgainAnotherTime,
+}: SparkExpiredProps) {
   return (
     <Screen>
       <TopBar onBack={onBack} backLabel={t('common', 'back')} />
@@ -45,9 +52,9 @@ export function SparkExpiredScreen({ onNext, onBack }: SparkExpiredProps) {
         <Button
           label={t('sparkExpired', 'try_again_another_time')}
           variant="secondary"
-          onPress={onNext}
+          onPress={onTryAgainAnotherTime}
         />
-        <Tertiary label={t('sparkExpired', 'back_to_sunday_crew')} onPress={onNext} />
+        <Tertiary label={t('sparkExpired', 'back_to_sunday_crew')} onPress={onBackToSundayCrew} />
       </Foot>
     </Screen>
   );

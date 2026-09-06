@@ -23,12 +23,15 @@ import type { ScreenState } from '../state';
  */
 export type WasThereProps = {
   fixture: Fixture;
-  state?: ScreenState;
-  onNext?: () => void;
-  onBack?: () => void;
+  state?: ScreenState | undefined;
+  /** The screen's one decision. */
+  onNext?: (() => void) | undefined;
+  onBack?: (() => void) | undefined;
+  onICouldntMakeIt?: (() => void) | undefined;
+  onNotNow?: (() => void) | undefined;
 };
 
-export function WasThereScreen({ onNext, onBack }: WasThereProps) {
+export function WasThereScreen({ onNext, onBack, onICouldntMakeIt, onNotNow }: WasThereProps) {
   return (
     <Screen>
       <TopBar onBack={onBack} backLabel={t('common', 'back')} />
@@ -41,8 +44,12 @@ export function WasThereScreen({ onNext, onBack }: WasThereProps) {
       </Body>
       <Foot>
         <Button label={t('wasThere', 'i_was_there')} onPress={onNext} />
-        <Button label={t('wasThere', 'i_couldnt_make_it')} variant="secondary" onPress={onNext} />
-        <Tertiary label={t('wasThere', 'not_now')} onPress={onNext} />
+        <Button
+          label={t('wasThere', 'i_couldnt_make_it')}
+          variant="secondary"
+          onPress={onICouldntMakeIt}
+        />
+        <Tertiary label={t('wasThere', 'not_now')} onPress={onNotNow} />
       </Foot>
     </Screen>
   );

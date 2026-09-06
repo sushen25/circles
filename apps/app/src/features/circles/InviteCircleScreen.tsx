@@ -26,12 +26,20 @@ import type { ScreenState } from '../state';
  */
 export type InviteCircleProps = {
   fixture: Fixture;
-  state?: ScreenState;
-  onNext?: () => void;
-  onBack?: () => void;
+  state?: ScreenState | undefined;
+  /** The screen's one decision. */
+  onNext?: (() => void) | undefined;
+  onBack?: (() => void) | undefined;
+  onCopyLink?: (() => void) | undefined;
+  onSkipForNowIll?: (() => void) | undefined;
 };
 
-export function InviteCircleScreen({ onNext, onBack }: InviteCircleProps) {
+export function InviteCircleScreen({
+  onNext,
+  onBack,
+  onCopyLink,
+  onSkipForNowIll,
+}: InviteCircleProps) {
   return (
     <Screen>
       <TopBar onBack={onBack} backLabel={t('common', 'back')} />
@@ -50,8 +58,11 @@ export function InviteCircleScreen({ onNext, onBack }: InviteCircleProps) {
       </Body>
       <Foot>
         <Button label={t('inviteCircle', 'share_to_group_chat')} onPress={onNext} />
-        <Button label={t('inviteCircle', 'copy_link')} variant="secondary" onPress={onNext} />
-        <Tertiary label={t('inviteCircle', 'skip_for_now_ill_plan_first')} onPress={onNext} />
+        <Button label={t('inviteCircle', 'copy_link')} variant="secondary" onPress={onCopyLink} />
+        <Tertiary
+          label={t('inviteCircle', 'skip_for_now_ill_plan_first')}
+          onPress={onSkipForNowIll}
+        />
       </Foot>
     </Screen>
   );

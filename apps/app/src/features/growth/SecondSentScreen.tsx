@@ -25,12 +25,14 @@ import type { ScreenState } from '../state';
  */
 export type SecondSentProps = {
   fixture: Fixture;
-  state?: ScreenState;
-  onNext?: () => void;
-  onBack?: () => void;
+  state?: ScreenState | undefined;
+  /** The screen's one decision. */
+  onNext?: (() => void) | undefined;
+  onBack?: (() => void) | undefined;
+  onNotNow?: (() => void) | undefined;
 };
 
-export function SecondSentScreen({ onNext, onBack }: SecondSentProps) {
+export function SecondSentScreen({ onNext, onBack, onNotNow }: SecondSentProps) {
   return (
     <Screen>
       <TopBar onBack={onBack} backLabel={t('common', 'back')} />
@@ -48,7 +50,7 @@ export function SecondSentScreen({ onNext, onBack }: SecondSentProps) {
           <Row>
             <Button label={t('secondSent', 'get_the_app')} onPress={onNext} />
           </Row>
-          <Tertiary label={t('secondSent', 'not_now')} onPress={onNext} />
+          <Tertiary label={t('secondSent', 'not_now')} onPress={onNotNow} />
         </Card>
         <Small>{t('secondSent', 'prefer_email_turn_on_updates_for_this')}</Small>
       </Body>

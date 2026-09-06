@@ -23,12 +23,23 @@ import type { ScreenState } from '../state';
  */
 export type InitiateGateProps = {
   fixture: Fixture;
-  state?: ScreenState;
-  onNext?: () => void;
-  onBack?: () => void;
+  state?: ScreenState | undefined;
+  /** The screen's one decision. */
+  onNext?: (() => void) | undefined;
+  onBack?: (() => void) | undefined;
+  onContinueWithApple?: (() => void) | undefined;
+  onContinueWithEmail?: (() => void) | undefined;
+  onContinueWithGoogle?: (() => void) | undefined;
+  onNotNow?: (() => void) | undefined;
 };
 
-export function InitiateGateScreen({ onNext, onBack }: InitiateGateProps) {
+export function InitiateGateScreen({
+  onBack,
+  onContinueWithApple,
+  onContinueWithEmail,
+  onContinueWithGoogle,
+  onNotNow,
+}: InitiateGateProps) {
   return (
     <Screen>
       <TopBar
@@ -45,23 +56,23 @@ export function InitiateGateScreen({ onNext, onBack }: InitiateGateProps) {
           <Button
             label={t('initiateGate', 'continue_with_apple')}
             variant="secondary"
-            onPress={onNext}
+            onPress={onContinueWithApple}
           />
           <Button
             label={t('initiateGate', 'continue_with_google')}
             variant="secondary"
-            onPress={onNext}
+            onPress={onContinueWithGoogle}
           />
           <Button
             label={t('initiateGate', 'continue_with_email')}
             variant="secondary"
-            onPress={onNext}
+            onPress={onContinueWithEmail}
           />
         </Stack>
         <Small>{t('initiateGate', 'this_links_your_existing_place_as_priya')}</Small>
       </Body>
       <Foot>
-        <Tertiary label={t('initiateGate', 'not_now')} onPress={onNext} />
+        <Tertiary label={t('initiateGate', 'not_now')} onPress={onNotNow} />
       </Foot>
     </Screen>
   );

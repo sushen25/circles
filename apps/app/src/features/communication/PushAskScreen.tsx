@@ -24,12 +24,14 @@ import type { ScreenState } from '../state';
  */
 export type PushAskProps = {
   fixture: Fixture;
-  state?: ScreenState;
-  onNext?: () => void;
-  onBack?: () => void;
+  state?: ScreenState | undefined;
+  /** The screen's one decision. */
+  onNext?: (() => void) | undefined;
+  onBack?: (() => void) | undefined;
+  onNotNow?: (() => void) | undefined;
 };
 
-export function PushAskScreen({ onNext, onBack }: PushAskProps) {
+export function PushAskScreen({ onNext, onBack, onNotNow }: PushAskProps) {
   return (
     <Screen>
       <TopBar onBack={onBack} backLabel={t('common', 'back')} />
@@ -56,7 +58,7 @@ export function PushAskScreen({ onNext, onBack }: PushAskProps) {
       </Body>
       <Foot>
         <Button label={t('pushAsk', 'turn_on_notifications')} onPress={onNext} />
-        <Tertiary label={t('pushAsk', 'not_now')} onPress={onNext} />
+        <Tertiary label={t('pushAsk', 'not_now')} onPress={onNotNow} />
       </Foot>
     </Screen>
   );

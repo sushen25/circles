@@ -26,12 +26,14 @@ import type { ScreenState } from '../state';
  */
 export type EmailVerifiedProps = {
   fixture: Fixture;
-  state?: ScreenState;
-  onNext?: () => void;
-  onBack?: () => void;
+  state?: ScreenState | undefined;
+  /** The screen's one decision. */
+  onNext?: (() => void) | undefined;
+  onBack?: (() => void) | undefined;
+  onSaveAccessOnEvery?: (() => void) | undefined;
 };
 
-export function EmailVerifiedScreen({ onNext, onBack }: EmailVerifiedProps) {
+export function EmailVerifiedScreen({ onNext, onBack, onSaveAccessOnEvery }: EmailVerifiedProps) {
   return (
     <Screen>
       <TopBar onBack={onBack} backLabel={t('common', 'back')} />
@@ -51,7 +53,10 @@ export function EmailVerifiedScreen({ onNext, onBack }: EmailVerifiedProps) {
       </Body>
       <Foot>
         <Button label={t('emailVerified', 'back_to_sunday_crew')} onPress={onNext} />
-        <Tertiary label={t('emailVerified', 'save_access_on_every_device')} onPress={onNext} />
+        <Tertiary
+          label={t('emailVerified', 'save_access_on_every_device')}
+          onPress={onSaveAccessOnEvery}
+        />
       </Foot>
     </Screen>
   );

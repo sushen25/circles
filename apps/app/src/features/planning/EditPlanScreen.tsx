@@ -28,12 +28,14 @@ import type { ScreenState } from '../state';
  */
 export type EditPlanProps = {
   fixture: Fixture;
-  state?: ScreenState;
-  onNext?: () => void;
-  onBack?: () => void;
+  state?: ScreenState | undefined;
+  /** The screen's one decision. */
+  onNext?: (() => void) | undefined;
+  onBack?: (() => void) | undefined;
+  onKeepThePlanAs?: (() => void) | undefined;
 };
 
-export function EditPlanScreen({ onNext, onBack }: EditPlanProps) {
+export function EditPlanScreen({ onNext, onBack, onKeepThePlanAs }: EditPlanProps) {
   return (
     <Screen>
       <TopBar title={t('editPlan', 'edit_plan')} onBack={onBack} backLabel={t('common', 'back')} />
@@ -77,7 +79,7 @@ export function EditPlanScreen({ onNext, onBack }: EditPlanProps) {
       </Body>
       <Foot>
         <Button label={t('editPlan', 'save_and_ask_again')} onPress={onNext} />
-        <Tertiary label={t('editPlan', 'keep_the_plan_as_it_is')} onPress={onNext} />
+        <Tertiary label={t('editPlan', 'keep_the_plan_as_it_is')} onPress={onKeepThePlanAs} />
       </Foot>
     </Screen>
   );

@@ -25,12 +25,14 @@ import type { ScreenState } from '../state';
  */
 export type CancelPlanProps = {
   fixture: Fixture;
-  state?: ScreenState;
-  onNext?: () => void;
-  onBack?: () => void;
+  state?: ScreenState | undefined;
+  /** The screen's one decision. */
+  onNext?: (() => void) | undefined;
+  onBack?: (() => void) | undefined;
+  onKeepIt?: (() => void) | undefined;
 };
 
-export function CancelPlanScreen({ onNext, onBack }: CancelPlanProps) {
+export function CancelPlanScreen({ onNext, onBack, onKeepIt }: CancelPlanProps) {
   return (
     <Screen>
       <TopBar title={t('cancelPlan', 'back')} onBack={onBack} backLabel={t('common', 'back')} />
@@ -47,7 +49,7 @@ export function CancelPlanScreen({ onNext, onBack }: CancelPlanProps) {
       </Body>
       <Foot>
         <Button label={t('cancelPlan', 'cancel_the_catch_up')} onPress={onNext} />
-        <Tertiary label={t('cancelPlan', 'keep_it')} onPress={onNext} />
+        <Tertiary label={t('cancelPlan', 'keep_it')} onPress={onKeepIt} />
       </Foot>
     </Screen>
   );

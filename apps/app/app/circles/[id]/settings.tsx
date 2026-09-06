@@ -8,5 +8,11 @@ export default function Route() {
   const router = useRouter();
   const fixture = useFixture();
 
-  return <SettingsScreen fixture={fixture} onBack={() => router.back()} />;
+  return (
+    <SettingsScreen
+      fixture={fixture}
+      onCopyLink={() => router.push('/circles/sunday-crew/invite')}
+      onBack={() => router.back()}
+    />
+  );
 }

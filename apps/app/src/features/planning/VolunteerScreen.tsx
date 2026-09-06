@@ -25,12 +25,15 @@ import type { ScreenState } from '../state';
  */
 export type VolunteerProps = {
   fixture: Fixture;
-  state?: ScreenState;
-  onNext?: () => void;
-  onBack?: () => void;
+  state?: ScreenState | undefined;
+  /** The screen's one decision. */
+  onNext?: (() => void) | undefined;
+  onBack?: (() => void) | undefined;
+  onNotThisOne?: (() => void) | undefined;
+  onSendMyTimes?: (() => void) | undefined;
 };
 
-export function VolunteerScreen({ onNext, onBack }: VolunteerProps) {
+export function VolunteerScreen({ onNext, onBack, onNotThisOne, onSendMyTimes }: VolunteerProps) {
   return (
     <Screen>
       <TopBar
@@ -51,8 +54,12 @@ export function VolunteerScreen({ onNext, onBack }: VolunteerProps) {
       </Body>
       <Foot>
         <Button label={t('volunteer', 'ill_pick_the_time')} onPress={onNext} />
-        <Button label={t('volunteer', 'send_my_times')} variant="secondary" onPress={onNext} />
-        <Tertiary label={t('volunteer', 'not_this_one')} onPress={onNext} />
+        <Button
+          label={t('volunteer', 'send_my_times')}
+          variant="secondary"
+          onPress={onSendMyTimes}
+        />
+        <Tertiary label={t('volunteer', 'not_this_one')} onPress={onNotThisOne} />
       </Foot>
     </Screen>
   );

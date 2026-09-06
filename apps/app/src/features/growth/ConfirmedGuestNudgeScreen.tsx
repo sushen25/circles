@@ -27,12 +27,21 @@ import type { ScreenState } from '../state';
  */
 export type ConfirmedGuestNudgeProps = {
   fixture: Fixture;
-  state?: ScreenState;
-  onNext?: () => void;
-  onBack?: () => void;
+  state?: ScreenState | undefined;
+  /** The screen's one decision. */
+  onNext?: (() => void) | undefined;
+  onBack?: (() => void) | undefined;
+  onGetTheApp?: (() => void) | undefined;
+  onICantMakeIt?: (() => void) | undefined;
 };
 
-export function ConfirmedGuestNudgeScreen({ fixture, onNext, onBack }: ConfirmedGuestNudgeProps) {
+export function ConfirmedGuestNudgeScreen({
+  fixture,
+  onNext,
+  onBack,
+  onGetTheApp,
+  onICantMakeIt,
+}: ConfirmedGuestNudgeProps) {
   return (
     <Screen invert>
       <TopBar
@@ -70,14 +79,17 @@ export function ConfirmedGuestNudgeScreen({ fixture, onNext, onBack }: Confirmed
             <Button
               label={t('confirmedGuestNudge', 'get_the_app')}
               variant="secondary"
-              onPress={onNext}
+              onPress={onGetTheApp}
             />
           </Row>
         </Card>
       </Body>
       <Foot>
         <Button label={t('confirmedGuestNudge', 'add_to_calendar')} onPress={onNext} />
-        <Tertiary label={t('confirmedGuestNudge', 'i_cant_make_it_after_all')} onPress={onNext} />
+        <Tertiary
+          label={t('confirmedGuestNudge', 'i_cant_make_it_after_all')}
+          onPress={onICantMakeIt}
+        />
       </Foot>
     </Screen>
   );

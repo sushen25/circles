@@ -12,6 +12,7 @@ export default function Route() {
     <CircleHomeScreen
       fixture={fixture}
       onNext={() => router.push('/circles/sunday-crew/plan/setup')}
+      onSeeHowItsLooking={() => router.push('/circles/sunday-crew/plan/thu-17/candidates')}
       onBack={() => router.back()}
     />
   );

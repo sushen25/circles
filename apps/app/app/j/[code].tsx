@@ -8,5 +8,11 @@ export default function Route() {
   const router = useRouter();
   const fixture = useFixture();
 
-  return <AvailabilityScreen fixture={fixture} onBack={() => router.back()} />;
+  return (
+    <AvailabilityScreen
+      fixture={fixture}
+      onNoneOfTheseDates={() => router.push('/j/[code]/none')}
+      onBack={() => router.back()}
+    />
+  );
 }

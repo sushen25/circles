@@ -27,12 +27,21 @@ import type { ScreenState } from '../state';
  */
 export type ConfirmedOrgProps = {
   fixture: Fixture;
-  state?: ScreenState;
-  onNext?: () => void;
-  onBack?: () => void;
+  state?: ScreenState | undefined;
+  /** The screen's one decision. */
+  onNext?: (() => void) | undefined;
+  onBack?: (() => void) | undefined;
+  onAddToMyCalendar?: (() => void) | undefined;
+  onChangeTheTimeCancel?: (() => void) | undefined;
 };
 
-export function ConfirmedOrgScreen({ fixture, onNext, onBack }: ConfirmedOrgProps) {
+export function ConfirmedOrgScreen({
+  fixture,
+  onNext,
+  onBack,
+  onAddToMyCalendar,
+  onChangeTheTimeCancel,
+}: ConfirmedOrgProps) {
   return (
     <Screen invert>
       <TopBar
@@ -63,9 +72,12 @@ export function ConfirmedOrgScreen({ fixture, onNext, onBack }: ConfirmedOrgProp
         <Button
           label={t('confirmedOrg', 'add_to_my_calendar')}
           variant="secondary"
-          onPress={onNext}
+          onPress={onAddToMyCalendar}
         />
-        <Tertiary label={t('confirmedOrg', 'change_the_time_cancel_this_plan')} onPress={onNext} />
+        <Tertiary
+          label={t('confirmedOrg', 'change_the_time_cancel_this_plan')}
+          onPress={onChangeTheTimeCancel}
+        />
       </Foot>
     </Screen>
   );

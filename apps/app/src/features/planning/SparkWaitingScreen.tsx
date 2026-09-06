@@ -26,12 +26,19 @@ import type { ScreenState } from '../state';
  */
 export type SparkWaitingProps = {
   fixture: Fixture;
-  state?: ScreenState;
-  onNext?: () => void;
-  onBack?: () => void;
+  state?: ScreenState | undefined;
+  /** The screen's one decision. */
+  onNext?: (() => void) | undefined;
+  onBack?: (() => void) | undefined;
+  onBackToSundayCrew?: (() => void) | undefined;
+  onWithdrawTheAsk?: (() => void) | undefined;
 };
 
-export function SparkWaitingScreen({ onNext, onBack }: SparkWaitingProps) {
+export function SparkWaitingScreen({
+  onBack,
+  onBackToSundayCrew,
+  onWithdrawTheAsk,
+}: SparkWaitingProps) {
   return (
     <Screen>
       <TopBar
@@ -62,9 +69,9 @@ export function SparkWaitingScreen({ onNext, onBack }: SparkWaitingProps) {
         <Button
           label={t('sparkWaiting', 'back_to_sunday_crew')}
           variant="secondary"
-          onPress={onNext}
+          onPress={onBackToSundayCrew}
         />
-        <Tertiary label={t('sparkWaiting', 'withdraw_the_ask')} onPress={onNext} />
+        <Tertiary label={t('sparkWaiting', 'withdraw_the_ask')} onPress={onWithdrawTheAsk} />
       </Foot>
     </Screen>
   );

@@ -27,12 +27,14 @@ import type { ScreenState } from '../state';
  */
 export type CandidatesProps = {
   fixture: Fixture;
-  state?: ScreenState;
-  onNext?: () => void;
-  onBack?: () => void;
+  state?: ScreenState | undefined;
+  /** The screen's one decision. */
+  onNext?: (() => void) | undefined;
+  onBack?: (() => void) | undefined;
+  onNudgeAlex?: (() => void) | undefined;
 };
 
-export function CandidatesScreen({ fixture, onNext, onBack }: CandidatesProps) {
+export function CandidatesScreen({ fixture, onNext, onBack, onNudgeAlex }: CandidatesProps) {
   return (
     <Screen>
       <TopBar
@@ -97,7 +99,7 @@ export function CandidatesScreen({ fixture, onNext, onBack }: CandidatesProps) {
       </Body>
       <Foot>
         <Button label={t('candidates', 'review_thursday')} onPress={onNext} />
-        <Tertiary label={t('candidates', 'nudge_alex')} onPress={onNext} />
+        <Tertiary label={t('candidates', 'nudge_alex')} onPress={onNudgeAlex} />
       </Foot>
     </Screen>
   );

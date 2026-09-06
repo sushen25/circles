@@ -25,9 +25,10 @@ import type { ScreenState } from '../state';
  */
 export type CustomWindowProps = {
   fixture: Fixture;
-  state?: ScreenState;
-  onNext?: () => void;
-  onBack?: () => void;
+  state?: ScreenState | undefined;
+  /** The screen's one decision. */
+  onNext?: (() => void) | undefined;
+  onBack?: (() => void) | undefined;
 };
 
 export function CustomWindowScreen({ onNext, onBack }: CustomWindowProps) {

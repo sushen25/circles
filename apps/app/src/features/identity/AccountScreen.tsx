@@ -13,12 +13,15 @@ import type { ScreenState } from '../state';
  */
 export type AccountProps = {
   fixture: Fixture;
-  state?: ScreenState;
-  onNext?: () => void;
-  onBack?: () => void;
+  state?: ScreenState | undefined;
+  /** The screen's one decision. */
+  onNext?: (() => void) | undefined;
+  onBack?: (() => void) | undefined;
+  onDeleteMyAccountAnd?: (() => void) | undefined;
+  onSignOut?: (() => void) | undefined;
 };
 
-export function AccountScreen({ onNext, onBack }: AccountProps) {
+export function AccountScreen({ onBack, onDeleteMyAccountAnd, onSignOut }: AccountProps) {
   return (
     <Screen>
       <TopBar title={t('account', 'account')} onBack={onBack} backLabel={t('common', 'back')} />
@@ -59,8 +62,11 @@ export function AccountScreen({ onNext, onBack }: AccountProps) {
             <Small>{t('account', 'meetup_updates')}</Small>
           </Stack>
         </Card>
-        <Tertiary label={t('account', 'sign_out')} onPress={onNext} />
-        <Tertiary label={t('account', 'delete_my_account_and_data')} onPress={onNext} />
+        <Tertiary label={t('account', 'sign_out')} onPress={onSignOut} />
+        <Tertiary
+          label={t('account', 'delete_my_account_and_data')}
+          onPress={onDeleteMyAccountAnd}
+        />
       </Body>
     </Screen>
   );

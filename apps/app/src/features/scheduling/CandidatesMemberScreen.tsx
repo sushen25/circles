@@ -26,12 +26,18 @@ import type { ScreenState } from '../state';
  */
 export type CandidatesMemberProps = {
   fixture: Fixture;
-  state?: ScreenState;
-  onNext?: () => void;
-  onBack?: () => void;
+  state?: ScreenState | undefined;
+  /** The screen's one decision. */
+  onNext?: (() => void) | undefined;
+  onBack?: (() => void) | undefined;
+  onChangeMyTimes?: (() => void) | undefined;
 };
 
-export function CandidatesMemberScreen({ fixture, onNext, onBack }: CandidatesMemberProps) {
+export function CandidatesMemberScreen({
+  fixture,
+  onBack,
+  onChangeMyTimes,
+}: CandidatesMemberProps) {
   return (
     <Screen>
       <TopBar
@@ -98,7 +104,7 @@ export function CandidatesMemberScreen({ fixture, onNext, onBack }: CandidatesMe
         <Button
           label={t('candidatesMember', 'change_my_times')}
           variant="secondary"
-          onPress={onNext}
+          onPress={onChangeMyTimes}
         />
       </Foot>
     </Screen>

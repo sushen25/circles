@@ -23,12 +23,14 @@ import type { ScreenState } from '../state';
  */
 export type EmailPrefsProps = {
   fixture: Fixture;
-  state?: ScreenState;
-  onNext?: () => void;
-  onBack?: () => void;
+  state?: ScreenState | undefined;
+  /** The screen's one decision. */
+  onNext?: (() => void) | undefined;
+  onBack?: (() => void) | undefined;
+  onRemoveThisEmailAddress?: (() => void) | undefined;
 };
 
-export function EmailPrefsScreen({ onNext, onBack }: EmailPrefsProps) {
+export function EmailPrefsScreen({ onBack, onRemoveThisEmailAddress }: EmailPrefsProps) {
   return (
     <Screen>
       <TopBar onBack={onBack} backLabel={t('common', 'back')} />
@@ -46,7 +48,10 @@ export function EmailPrefsScreen({ onNext, onBack }: EmailPrefsProps) {
           </Row>
         </Card>
         <Small>{t('emailPrefs', 'turning_this_off_stops_emails_for_this')}</Small>
-        <Tertiary label={t('emailPrefs', 'remove_this_email_address_entirely')} onPress={onNext} />
+        <Tertiary
+          label={t('emailPrefs', 'remove_this_email_address_entirely')}
+          onPress={onRemoveThisEmailAddress}
+        />
       </Body>
     </Screen>
   );

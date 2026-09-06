@@ -15,12 +15,20 @@ import type { ScreenState } from '../state';
  */
 export type WelcomeProps = {
   fixture: Fixture;
-  state?: ScreenState;
-  onNext?: () => void;
-  onBack?: () => void;
+  state?: ScreenState | undefined;
+  /** The screen's one decision. */
+  onNext?: (() => void) | undefined;
+  onBack?: (() => void) | undefined;
+  onContinueWithApple?: (() => void) | undefined;
+  onContinueWithEmail?: (() => void) | undefined;
+  onContinueWithGoogle?: (() => void) | undefined;
 };
 
-export function WelcomeScreen({ onNext }: WelcomeProps) {
+export function WelcomeScreen({
+  onContinueWithApple,
+  onContinueWithEmail,
+  onContinueWithGoogle,
+}: WelcomeProps) {
   return (
     <Screen>
       <Body>
@@ -33,17 +41,17 @@ export function WelcomeScreen({ onNext }: WelcomeProps) {
           <Button
             label={t('welcome', 'continue_with_apple')}
             variant="secondary"
-            onPress={onNext}
+            onPress={onContinueWithApple}
           />
           <Button
             label={t('welcome', 'continue_with_google')}
             variant="secondary"
-            onPress={onNext}
+            onPress={onContinueWithGoogle}
           />
           <Button
             label={t('welcome', 'continue_with_email')}
             variant="secondary"
-            onPress={onNext}
+            onPress={onContinueWithEmail}
           />
         </Stack>
         <Small>{t('welcome', 'friends_you_invite_never_need_an_account')}</Small>

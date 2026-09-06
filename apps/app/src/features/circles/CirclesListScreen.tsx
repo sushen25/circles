@@ -13,12 +13,14 @@ import type { ScreenState } from '../state';
  */
 export type CirclesListProps = {
   fixture: Fixture;
-  state?: ScreenState;
-  onNext?: () => void;
-  onBack?: () => void;
+  state?: ScreenState | undefined;
+  /** The screen's one decision. */
+  onNext?: (() => void) | undefined;
+  onBack?: (() => void) | undefined;
+  onNewCircle?: (() => void) | undefined;
 };
 
-export function CirclesListScreen({ onNext, onBack }: CirclesListProps) {
+export function CirclesListScreen({ onBack, onNewCircle }: CirclesListProps) {
   return (
     <Screen>
       <TopBar onBack={onBack} backLabel={t('common', 'back')} />
@@ -44,7 +46,7 @@ export function CirclesListScreen({ onNext, onBack }: CirclesListProps) {
         </Card>
       </Body>
       <Foot>
-        <Button label={t('circlesList', 'new_circle')} variant="secondary" onPress={onNext} />
+        <Button label={t('circlesList', 'new_circle')} variant="secondary" onPress={onNewCircle} />
       </Foot>
     </Screen>
   );

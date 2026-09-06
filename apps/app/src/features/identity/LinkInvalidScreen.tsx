@@ -13,12 +13,14 @@ import type { ScreenState } from '../state';
  */
 export type LinkInvalidProps = {
   fixture: Fixture;
-  state?: ScreenState;
-  onNext?: () => void;
-  onBack?: () => void;
+  state?: ScreenState | undefined;
+  /** The screen's one decision. */
+  onNext?: (() => void) | undefined;
+  onBack?: (() => void) | undefined;
+  onWhatIsBrand?: (() => void) | undefined;
 };
 
-export function LinkInvalidScreen({ onNext, onBack }: LinkInvalidProps) {
+export function LinkInvalidScreen({ onBack, onWhatIsBrand }: LinkInvalidProps) {
   return (
     <Screen>
       <TopBar onBack={onBack} backLabel={t('common', 'back')} />
@@ -29,7 +31,11 @@ export function LinkInvalidScreen({ onNext, onBack }: LinkInvalidProps) {
         </Stack>
       </Body>
       <Foot>
-        <Button label={t('linkInvalid', 'what_is_brand')} variant="secondary" onPress={onNext} />
+        <Button
+          label={t('linkInvalid', 'what_is_brand')}
+          variant="secondary"
+          onPress={onWhatIsBrand}
+        />
       </Foot>
     </Screen>
   );

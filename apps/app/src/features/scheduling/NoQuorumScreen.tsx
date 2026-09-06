@@ -25,9 +25,10 @@ import type { ScreenState } from '../state';
  */
 export type NoQuorumProps = {
   fixture: Fixture;
-  state?: ScreenState;
-  onNext?: () => void;
-  onBack?: () => void;
+  state?: ScreenState | undefined;
+  /** The screen's one decision. */
+  onNext?: (() => void) | undefined;
+  onBack?: (() => void) | undefined;
 };
 
 export function NoQuorumScreen({ fixture, onBack }: NoQuorumProps) {

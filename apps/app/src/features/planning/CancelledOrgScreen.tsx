@@ -23,12 +23,14 @@ import type { ScreenState } from '../state';
  */
 export type CancelledOrgProps = {
   fixture: Fixture;
-  state?: ScreenState;
-  onNext?: () => void;
-  onBack?: () => void;
+  state?: ScreenState | undefined;
+  /** The screen's one decision. */
+  onNext?: (() => void) | undefined;
+  onBack?: (() => void) | undefined;
+  onPlanAnother?: (() => void) | undefined;
 };
 
-export function CancelledOrgScreen({ onNext, onBack }: CancelledOrgProps) {
+export function CancelledOrgScreen({ onNext, onBack, onPlanAnother }: CancelledOrgProps) {
   return (
     <Screen>
       <TopBar
@@ -49,7 +51,11 @@ export function CancelledOrgScreen({ onNext, onBack }: CancelledOrgProps) {
       </Body>
       <Foot>
         <Button label={t('cancelledOrg', 'share_to_group_chat')} onPress={onNext} />
-        <Button label={t('cancelledOrg', 'plan_another')} variant="secondary" onPress={onNext} />
+        <Button
+          label={t('cancelledOrg', 'plan_another')}
+          variant="secondary"
+          onPress={onPlanAnother}
+        />
       </Foot>
     </Screen>
   );

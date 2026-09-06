@@ -8,5 +8,11 @@ export default function Route() {
   const router = useRouter();
   const fixture = useFixture();
 
-  return <CircleHomeConfirmedScreen fixture={fixture} onBack={() => router.back()} />;
+  return (
+    <CircleHomeConfirmedScreen
+      fixture={fixture}
+      onPlanAnother={() => router.push('/circles/sunday-crew/plan/another')}
+      onBack={() => router.back()}
+    />
+  );
 }
