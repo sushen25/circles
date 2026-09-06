@@ -21,6 +21,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@circles/domain": "workspace:*"
+    "@circles/domain": "workspace:*",
+    "zod": "^4.5.4"
   }
 }
