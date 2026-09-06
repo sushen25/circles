@@ -22,8 +22,17 @@ export const color = {
   supportSoft: '#E6EDE1',
   warnSurface: '#FBF0E4',
   warnInk: '#6B5427',
+  warnLine: '#EBD9C2',
+  supportLine: '#D3DFCC',
   invert: '#2E241C',
   invertAccent: '#E8A07A',
+  invertSurface: '#3A2E25',
+  invertLine: '#4E4034',
+  invertLineStrong: '#5A4B3E',
+  invertMarkLine: '#8A7A6A',
+  invertInk: '#F7F1EA',
+  invertInk2: '#CFC3B6',
+  invertInk3: '#A89B8D',
 } as const;
 
 /**

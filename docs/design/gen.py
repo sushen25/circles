@@ -4,7 +4,10 @@ import json, os
 T = dict(ground="#FBF7F1", surface="#FFFFFF", line="#EAE0D3", line_soft="#F1E9DE",
          ink="#221E19", ink2="#6C6156", ink3="#A0958A", accent="#C2542F", accent_dark="#A0431F",
          accent_soft="#F6E5DC", support="#4F6B45", support_soft="#E6EDE1",
-         warn_surface="#FBF0E4", warn_ink="#6B5427", invert="#2E241C", invert_accent="#E8A07A")
+         warn_surface="#FBF0E4", warn_ink="#6B5427", warn_line="#EBD9C2", support_line="#D3DFCC",
+         invert="#2E241C", invert_accent="#E8A07A", invert_surface="#3A2E25", invert_line="#4E4034",
+         invert_line_strong="#5A4B3E", invert_mark_line="#8A7A6A",
+         invert_ink="#F7F1EA", invert_ink2="#CFC3B6", invert_ink3="#A89B8D")
 
 W, H = 390, 844
 
@@ -14,33 +17,33 @@ BASE_CSS = f"""
     body {{ margin: 0; background: {T['ground']}; color: {T['ink']}; font-family: Figtree, system-ui, -apple-system, 'Segoe UI', sans-serif; font-size: 15px; line-height: 1.5; -webkit-font-smoothing: antialiased; text-wrap: pretty; }}
     a {{ color: {T['accent_dark']}; }} a:hover {{ color: {T['accent']}; }}
     .screen {{ width: {W}px; min-height: {H}px; display: flex; flex-direction: column; background: {T['ground']}; }}
-    .screen.invert {{ background: {T['invert']}; color: #F7F1EA; }}
+    .screen.invert {{ background: {T['invert']}; color: {T['invert_ink']}; }}
     .top {{ display: flex; align-items: center; justify-content: space-between; height: 56px; padding: 0 16px 0 12px; }}
     .top .t {{ font-family: Figtree; font-weight: 600; font-size: 15px; color: {T['ink2']}; }}
     .body {{ display: flex; flex-direction: column; gap: 22px; padding: 8px 22px 24px; flex-grow: 1; }}
     .foot {{ display: flex; flex-direction: column; gap: 10px; padding: 12px 22px 28px; }}
     .lbl {{ font-family: Figtree; font-weight: 600; font-size: 12px; line-height: 1.3; letter-spacing: 0.07em; text-transform: uppercase; color: {T['ink3']}; }}
     .invert .lbl {{ color: {T['invert_accent']}; }}
-    .invert .top .t {{ color: #CFC3B6; }}
+    .invert .top .t {{ color: {T['invert_ink2']}; }}
     .dxl {{ font-family: Newsreader, Georgia, 'Times New Roman', serif; font-weight: 400; font-size: 40px; line-height: 1.08; letter-spacing: -0.018em; margin: 0; }}
     .dl {{ font-family: Newsreader, Georgia, 'Times New Roman', serif; font-weight: 400; font-size: 31px; line-height: 1.12; letter-spacing: -0.015em; margin: 0; }}
     .date {{ font-family: Newsreader, Georgia, 'Times New Roman', serif; font-weight: 400; font-size: 24px; line-height: 1.1; margin: 0; font-variant-numeric: tabular-nums; }}
     .title {{ font-family: Figtree; font-weight: 600; font-size: 16px; line-height: 1.3; margin: 0; }}
     .p {{ font-family: Figtree; font-size: 15px; line-height: 1.5; color: {T['ink2']}; margin: 0; }}
-    .invert .p {{ color: #CFC3B6; }}
+    .invert .p {{ color: {T['invert_ink2']}; }}
     .sm {{ font-family: Figtree; font-size: 13px; line-height: 1.45; color: {T['ink3']}; margin: 0; }}
-    .invert .sm {{ color: #A89B8D; }}
+    .invert .sm {{ color: {T['invert_ink3']}; }}
     .num {{ font-variant-numeric: tabular-nums; }}
     .btn {{ display: flex; align-items: center; justify-content: center; height: 55px; border-radius: 14px; font-family: Figtree; font-weight: 600; font-size: 16px; text-decoration: none; }}
     .btn.pri {{ background: {T['accent']}; color: #FFFFFF; box-shadow: 0 1px 2px rgba(74,55,38,.04), 0 14px 30px -20px rgba(74,55,38,.28); }}
     .btn.sec {{ background: {T['surface']}; color: {T['ink2']}; border: 1px solid {T['line']}; }}
     .invert .btn.pri {{ background: {T['invert_accent']}; color: {T['invert']}; }}
-    .invert .btn.sec {{ background: transparent; color: #F7F1EA; border: 1px solid #5A4B3E; }}
+    .invert .btn.sec {{ background: transparent; color: {T['invert_ink']}; border: 1px solid {T['invert_line_strong']}; }}
     .ter {{ display: flex; align-items: center; justify-content: center; min-height: 44px; font-family: Figtree; font-size: 14px; color: {T['ink3']}; text-decoration: underline; text-underline-offset: 3px; }}
-    .invert .ter {{ color: #A89B8D; }}
+    .invert .ter {{ color: {T['invert_ink3']}; }}
     .card {{ background: {T['surface']}; border: 1px solid {T['line']}; border-radius: 18px; padding: 18px; display: flex; flex-direction: column; gap: 12px; }}
     .card.rec {{ border: 1.5px solid {T['accent']}; }}
-    .invert .card {{ background: #3A2E25; border-color: #4E4034; }}
+    .invert .card {{ background: {T['invert_surface']}; border-color: {T['invert_line']}; }}
     .chips {{ display: flex; flex-wrap: wrap; gap: 8px; }}
     .chip {{ display: flex; align-items: center; gap: 6px; height: 44px; padding: 0 16px; border-radius: 12px; background: {T['surface']}; border: 1px solid {T['line']}; font-family: Figtree; font-weight: 500; font-size: 14px; color: {T['ink']}; }}
     .chip.on {{ background: {T['accent']}; border-color: {T['accent']}; color: #FFFFFF; }}
@@ -50,10 +53,10 @@ BASE_CSS = f"""
     .mark.wait {{ background: transparent; border: 1.5px dashed {T['ink3']}; color: {T['ink3']}; }}
     .mark.lg {{ width: 36px; height: 36px; font-size: 14px; border-radius: 10px; margin-left: 0; border: 0; }}
     .invert .mark {{ border-color: {T['invert']}; background: #5A4030; color: {T['invert_accent']}; }}
-    .invert .mark.wait {{ background: transparent; border: 1.5px dashed #8A7A6A; color: #A89B8D; }}
+    .invert .mark.wait {{ background: transparent; border: 1.5px dashed {T['invert_mark_line']}; color: {T['invert_ink3']}; }}
     .notice {{ display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 14px; background: {T['surface']}; border: 1px solid {T['line']}; font-size: 13px; line-height: 1.45; color: {T['ink2']}; }}
-    .notice.warn {{ background: {T['warn_surface']}; border-color: #EBD9C2; color: {T['warn_ink']}; }}
-    .notice.ok {{ background: {T['support_soft']}; border-color: #D3DFCC; color: {T['support']}; }}
+    .notice.warn {{ background: {T['warn_surface']}; border-color: {T['warn_line']}; color: {T['warn_ink']}; }}
+    .notice.ok {{ background: {T['support_soft']}; border-color: {T['support_line']}; color: {T['support']}; }}
     .notice svg {{ flex-shrink: 0; margin-top: 1px; }}
     .row {{ display: flex; align-items: center; gap: 12px; }}
     .row > .btn {{ flex: 1; }}
@@ -70,7 +73,7 @@ BASE_CSS = f"""
     .li {{ display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 6px 0; }}
     .icon-sq {{ width: 44px; height: 44px; border-radius: 12px; background: {T['accent']}; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-family: Newsreader, Georgia, serif; font-size: 22px; }}
     .wordmark {{ font-family: Newsreader, Georgia, serif; font-size: 22px; letter-spacing: -0.01em; color: {T['ink']}; }}
-    .invert .wordmark {{ color: #F7F1EA; }}
+    .invert .wordmark {{ color: {T['invert_ink']}; }}
     .radio {{ width: 22px; height: 22px; border-radius: 999px; border: 1.5px solid {T['line']}; background: {T['surface']}; flex-shrink: 0; }}
     .radio.on {{ border: 7px solid {T['accent']}; }}
     .toggle {{ width: 46px; height: 28px; border-radius: 999px; background: {T['line']}; position: relative; flex-shrink: 0; }}
@@ -276,11 +279,11 @@ S["Sent"] = shell(
 )
 
 S["ConfirmedGuest"] = shell(
-    top("Sunday Crew", back=False, right=ic("share", 22, "#F7F1EA")) +
+    top("Sunday Crew", back=False, right=ic("share", 22, T["invert_ink"])) +
     body(
         lbl("Locked in"),
         stack(f'<div class="date" style="font-size:40px;line-height:1.05;">Thursday<br>17 September</div>', f'<div class="num" style="font-family:Newsreader,Georgia,serif;font-size:26px;color:{T["invert_accent"]};">6:30–8:30 pm</div>', gap=8),
-        stack(row(ic("pin", 18, "#CFC3B6"), title("Hope St Radio")), p("Brunswick East · <a href=\"#\" style=\"color:#E8A07A\">Open in Maps</a>"), gap=6),
+        stack(row(ic("pin", 18, T["invert_ink2"]), title("Hope St Radio")), p("Brunswick East · <a href=\"#\" style=\"color:#E8A07A\">Open in Maps</a>"), gap=6),
         card(between(stack(title("5 going · 1 to confirm"), sm("Maya, Priya, Tom, Jess, Sam · Alex to confirm"), gap=2), marks(["Maya","Priya","Tom","Jess","Sam","Alex"], waiting=("Alex",))),
              divider(),
              between(stack(title("You're going"), sm("Tap below if that changes"), gap=2), ic("check", 22, T["invert_accent"]))),
@@ -1061,11 +1064,11 @@ def nudge_card(title_t, body_t, cta, dismiss="Not now", icon="cal"):
     return card(row(ic(icon, 20, T["accent_dark"]), title(title_t)), p(body_t), row(pri(cta), gap=8), ter(dismiss), gap=10)
 
 S["ConfirmedGuestNudge"] = shell(
-    top("Sunday Crew", back=False, right=ic("share", 22, "#F7F1EA")) +
+    top("Sunday Crew", back=False, right=ic("share", 22, T["invert_ink"])) +
     body(
         lbl("Locked in"),
         stack(f'<div class="date" style="font-size:40px;line-height:1.05;">Thursday<br>17 September</div>', f'<div class="num" style="font-family:Newsreader,Georgia,serif;font-size:26px;color:{T["invert_accent"]};">6:30–8:30 pm</div>', gap=8),
-        stack(row(ic("pin", 18, "#CFC3B6"), title("Hope St Radio")), p("Brunswick East · <a href=\"#\" style=\"color:#E8A07A\">Open in Maps</a>"), gap=6),
+        stack(row(ic("pin", 18, T["invert_ink2"]), title("Hope St Radio")), p("Brunswick East · <a href=\"#\" style=\"color:#E8A07A\">Open in Maps</a>"), gap=6),
         card(between(stack(title("5 going · 1 to confirm"), sm("Maya, Priya, Tom, Jess, Sam · Alex to confirm"), gap=2), marks(["Maya","Priya","Tom","Jess","Sam","Alex"], waiting=("Alex",)))),
         card(row(ic("clock", 20, T["invert_accent"]), title("Want a nudge on Thursday?")), p("The app sends one reminder two hours before, and nothing else. Or add it to your calendar below."), row(sec("Get the app"), gap=8), gap=10),
     ) +
