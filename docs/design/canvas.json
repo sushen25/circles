@@ -1,0 +1,822 @@
+{
+  "artboards": [
+    {
+      "file": "Main.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "page": "guest",
+      "title": "Join \u00b7 invite landing"
+    },
+    {
+      "file": "ContinueAs.dc.html",
+      "x": 480,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "page": "guest",
+      "title": "Continue as \u00b7 returning member"
+    },
+    {
+      "file": "Name.dc.html",
+      "x": 960,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "page": "guest",
+      "title": "Name"
+    },
+    {
+      "file": "Availability.dc.html",
+      "x": 1440,
+      "y": 0,
+      "w": 390,
+      "h": 1090,
+      "page": "guest",
+      "title": "Availability \u00b7 partial"
+    },
+    {
+      "file": "NoneWork.dc.html",
+      "x": 1920,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "page": "guest",
+      "title": "None of these dates"
+    },
+    {
+      "file": "Sent.dc.html",
+      "x": 2400,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "page": "guest",
+      "title": "Sent \u00b7 email offer"
+    },
+    {
+      "file": "CheckEmail.dc.html",
+      "x": 0,
+      "y": 1300,
+      "w": 390,
+      "h": 960,
+      "page": "guest",
+      "title": "Check your email \u00b7 app nudge"
+    },
+    {
+      "file": "EmailVerified.dc.html",
+      "x": 480,
+      "y": 1300,
+      "w": 390,
+      "h": 844,
+      "page": "guest",
+      "title": "Email verified"
+    },
+    {
+      "file": "EmailPrefs.dc.html",
+      "x": 960,
+      "y": 1300,
+      "w": 390,
+      "h": 844,
+      "page": "guest",
+      "title": "Email preferences \u00b7 no sign-in"
+    },
+    {
+      "file": "SaveAccess.dc.html",
+      "x": 1440,
+      "y": 1300,
+      "w": 390,
+      "h": 844,
+      "page": "guest",
+      "title": "Save access \u00b7 claim account"
+    },
+    {
+      "file": "CandidatesMember.dc.html",
+      "x": 1920,
+      "y": 1300,
+      "w": 390,
+      "h": 1000,
+      "page": "guest",
+      "title": "Candidates \u00b7 member view"
+    },
+    {
+      "file": "ConfirmedGuest.dc.html",
+      "x": 2400,
+      "y": 1300,
+      "w": 390,
+      "h": 844,
+      "page": "guest",
+      "title": "Confirmed \u00b7 guest"
+    },
+    {
+      "file": "AddToCalendar.dc.html",
+      "x": 0,
+      "y": 2600,
+      "w": 390,
+      "h": 844,
+      "page": "guest",
+      "title": "Add to calendar sheet"
+    },
+    {
+      "file": "RescheduledGuest.dc.html",
+      "x": 480,
+      "y": 2600,
+      "w": 390,
+      "h": 844,
+      "page": "guest",
+      "title": "Rescheduled \u00b7 guest"
+    },
+    {
+      "file": "CancelledGuest.dc.html",
+      "x": 960,
+      "y": 2600,
+      "w": 390,
+      "h": 844,
+      "page": "guest",
+      "title": "Cancelled \u00b7 guest"
+    },
+    {
+      "file": "WasThere.dc.html",
+      "x": 1440,
+      "y": 2600,
+      "w": 390,
+      "h": 844,
+      "page": "guest",
+      "title": "Attendance \u00b7 morning after"
+    },
+    {
+      "file": "LinkInvalid.dc.html",
+      "x": 1920,
+      "y": 2600,
+      "w": 390,
+      "h": 844,
+      "page": "guest",
+      "title": "Invite link inactive"
+    },
+    {
+      "file": "Welcome.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "page": "first",
+      "title": "Welcome \u00b7 sign up or log in"
+    },
+    {
+      "file": "SignIn.dc.html",
+      "x": 480,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "page": "first",
+      "title": "Continue with email"
+    },
+    {
+      "file": "EnterCode.dc.html",
+      "x": 960,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "page": "first",
+      "title": "Enter code"
+    },
+    {
+      "file": "YourName.dc.html",
+      "x": 1440,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "page": "first",
+      "title": "Your name \u00b7 after SSO"
+    },
+    {
+      "file": "FirstCircle.dc.html",
+      "x": 1920,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "page": "first",
+      "title": "First circle"
+    },
+    {
+      "file": "InviteCircle.dc.html",
+      "x": 2400,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "page": "first",
+      "title": "Invite the circle"
+    },
+    {
+      "file": "CircleHomeJoining.dc.html",
+      "x": 0,
+      "y": 1300,
+      "w": 390,
+      "h": 844,
+      "page": "first",
+      "title": "Circle home \u00b7 people joining"
+    },
+    {
+      "file": "FirstPlan.dc.html",
+      "x": 480,
+      "y": 1300,
+      "w": 390,
+      "h": 844,
+      "page": "first",
+      "title": "First plan \u00b7 defaults accepted"
+    },
+    {
+      "file": "PlanShared.dc.html",
+      "x": 960,
+      "y": 1300,
+      "w": 390,
+      "h": 844,
+      "page": "first",
+      "title": "Plan shared \u00b7 paste to chat"
+    },
+    {
+      "file": "CircleHome.dc.html",
+      "x": 1440,
+      "y": 1300,
+      "w": 390,
+      "h": 844,
+      "page": "first",
+      "title": "Circle home \u00b7 finding a time"
+    },
+    {
+      "file": "EmptyCirclesList.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "page": "organiser",
+      "title": "Circles \u00b7 first run"
+    },
+    {
+      "file": "CirclesList.dc.html",
+      "x": 480,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "page": "organiser",
+      "title": "Circles list"
+    },
+    {
+      "file": "CreateCircle.dc.html",
+      "x": 960,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "page": "organiser",
+      "title": "Create circle"
+    },
+    {
+      "file": "ChooseMode.dc.html",
+      "x": 1440,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "page": "organiser",
+      "title": "Choose how to start"
+    },
+    {
+      "file": "PlanSetup.dc.html",
+      "x": 1920,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "page": "organiser",
+      "title": "Plan setup"
+    },
+    {
+      "file": "CustomWindow.dc.html",
+      "x": 2400,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "page": "organiser",
+      "title": "Custom window"
+    },
+    {
+      "file": "Waiting.dc.html",
+      "x": 0,
+      "y": 1300,
+      "w": 390,
+      "h": 844,
+      "page": "organiser",
+      "title": "Waiting \u00b7 no options yet"
+    },
+    {
+      "file": "Candidates.dc.html",
+      "x": 480,
+      "y": 1300,
+      "w": 390,
+      "h": 1040,
+      "page": "organiser",
+      "title": "Candidates \u00b7 partial replies"
+    },
+    {
+      "file": "DeadlinePassed.dc.html",
+      "x": 960,
+      "y": 1300,
+      "w": 390,
+      "h": 844,
+      "page": "organiser",
+      "title": "Replies closed \u00b7 no decision"
+    },
+    {
+      "file": "EditPlan.dc.html",
+      "x": 1440,
+      "y": 1300,
+      "w": 390,
+      "h": 844,
+      "page": "organiser",
+      "title": "Edit plan \u00b7 reconfirm warning"
+    },
+    {
+      "file": "ConfirmReview.dc.html",
+      "x": 1920,
+      "y": 1300,
+      "w": 390,
+      "h": 844,
+      "page": "organiser",
+      "title": "Confirm review"
+    },
+    {
+      "file": "ConfirmedOrg.dc.html",
+      "x": 2400,
+      "y": 1300,
+      "w": 390,
+      "h": 844,
+      "page": "organiser",
+      "title": "Confirmed \u00b7 organiser"
+    },
+    {
+      "file": "CircleHomeConfirmed.dc.html",
+      "x": 0,
+      "y": 2600,
+      "w": 390,
+      "h": 844,
+      "page": "organiser",
+      "title": "Circle home \u00b7 locked in"
+    },
+    {
+      "file": "ChangeTime.dc.html",
+      "x": 480,
+      "y": 2600,
+      "w": 390,
+      "h": 844,
+      "page": "organiser",
+      "title": "Change the time"
+    },
+    {
+      "file": "CancelPlan.dc.html",
+      "x": 960,
+      "y": 2600,
+      "w": 390,
+      "h": 844,
+      "page": "organiser",
+      "title": "Cancel plan"
+    },
+    {
+      "file": "CancelledOrg.dc.html",
+      "x": 1440,
+      "y": 2600,
+      "w": 390,
+      "h": 844,
+      "page": "organiser",
+      "title": "Cancelled \u00b7 organiser"
+    },
+    {
+      "file": "NoQuorum.dc.html",
+      "x": 1920,
+      "y": 2600,
+      "w": 390,
+      "h": 1000,
+      "page": "organiser",
+      "title": "No quorum"
+    },
+    {
+      "file": "Outcome.dc.html",
+      "x": 2400,
+      "y": 2600,
+      "w": 390,
+      "h": 844,
+      "page": "organiser",
+      "title": "Did it happen?"
+    },
+    {
+      "file": "CircleHomeDue.dc.html",
+      "x": 0,
+      "y": 3900,
+      "w": 390,
+      "h": 844,
+      "page": "organiser",
+      "title": "Circle home \u00b7 about time"
+    },
+    {
+      "file": "PlanAnother.dc.html",
+      "x": 480,
+      "y": 3900,
+      "w": 390,
+      "h": 844,
+      "page": "organiser",
+      "title": "Plan another \u00b7 prefilled"
+    },
+    {
+      "file": "Settings.dc.html",
+      "x": 960,
+      "y": 3900,
+      "w": 390,
+      "h": 980,
+      "page": "organiser",
+      "title": "Circle settings"
+    },
+    {
+      "file": "NotificationSettings.dc.html",
+      "x": 1440,
+      "y": 3900,
+      "w": 390,
+      "h": 844,
+      "page": "organiser",
+      "title": "Notification settings"
+    },
+    {
+      "file": "Account.dc.html",
+      "x": 1920,
+      "y": 3900,
+      "w": 390,
+      "h": 844,
+      "page": "organiser",
+      "title": "Account"
+    },
+    {
+      "file": "Privacy.dc.html",
+      "x": 2400,
+      "y": 3900,
+      "w": 390,
+      "h": 844,
+      "page": "organiser",
+      "title": "Privacy"
+    },
+    {
+      "file": "Diagnostics.dc.html",
+      "x": 0,
+      "y": 5200,
+      "w": 390,
+      "h": 844,
+      "page": "organiser",
+      "title": "Founder diagnostics"
+    },
+    {
+      "file": "SparkSetup.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "page": "quiet",
+      "title": "Quiet ask \u00b7 setup"
+    },
+    {
+      "file": "SparkWaiting.dc.html",
+      "x": 480,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "page": "quiet",
+      "title": "Quiet ask \u00b7 initiator waiting"
+    },
+    {
+      "file": "InterestPrompt.dc.html",
+      "x": 960,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "page": "quiet",
+      "title": "Interest prompt \u00b7 member"
+    },
+    {
+      "file": "ThresholdRole.dc.html",
+      "x": 1440,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "page": "quiet",
+      "title": "Threshold reached \u00b7 initiator"
+    },
+    {
+      "file": "Volunteer.dc.html",
+      "x": 1920,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "page": "quiet",
+      "title": "Started quietly \u00b7 keen member"
+    },
+    {
+      "file": "SparkOpenedMember.dc.html",
+      "x": 2400,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "page": "quiet",
+      "title": "Started quietly \u00b7 other member"
+    },
+    {
+      "file": "SparkExpired.dc.html",
+      "x": 0,
+      "y": 1300,
+      "w": 390,
+      "h": 844,
+      "page": "quiet",
+      "title": "Expired \u00b7 initiator"
+    },
+    {
+      "file": "PushAsk.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "page": "native",
+      "title": "Push permission \u00b7 contextual"
+    },
+    {
+      "file": "CalendarExplain.dc.html",
+      "x": 480,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "page": "native",
+      "title": "Calendar \u00b7 before permission"
+    },
+    {
+      "file": "CalendarPick.dc.html",
+      "x": 960,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "page": "native",
+      "title": "Calendar \u00b7 pick calendars"
+    },
+    {
+      "file": "AvailabilityOverlay.dc.html",
+      "x": 1440,
+      "y": 0,
+      "w": 390,
+      "h": 1120,
+      "page": "native",
+      "title": "Availability \u00b7 calendar overlay"
+    },
+    {
+      "file": "CalendarDenied.dc.html",
+      "x": 1920,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "page": "native",
+      "title": "Calendar \u00b7 denied"
+    },
+    {
+      "file": "ConversionMap.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 1400,
+      "h": 1100,
+      "page": "convert",
+      "title": "Guest \u2192 app \u00b7 the map"
+    },
+    {
+      "file": "ConfirmedGuestNudge.dc.html",
+      "x": 0,
+      "y": 1260,
+      "w": 390,
+      "h": 900,
+      "page": "convert",
+      "title": "Locked in \u00b7 reminder nudge"
+    },
+    {
+      "file": "AppSheet.dc.html",
+      "x": 480,
+      "y": 1260,
+      "w": 390,
+      "h": 900,
+      "page": "convert",
+      "title": "App sheet \u00b7 four things a browser can't do"
+    },
+    {
+      "file": "ReattachedNudge.dc.html",
+      "x": 960,
+      "y": 1260,
+      "w": 390,
+      "h": 844,
+      "page": "convert",
+      "title": "Rejoined \u00b7 save your place"
+    },
+    {
+      "file": "SecondSent.dc.html",
+      "x": 1440,
+      "y": 1260,
+      "w": 390,
+      "h": 844,
+      "page": "convert",
+      "title": "Second response \u00b7 app nudge"
+    },
+    {
+      "file": "AfterAttendance.dc.html",
+      "x": 1920,
+      "y": 1260,
+      "w": 390,
+      "h": 844,
+      "page": "convert",
+      "title": "After attendance \u00b7 start a circle"
+    },
+    {
+      "file": "InitiateGate.dc.html",
+      "x": 2400,
+      "y": 1260,
+      "w": 390,
+      "h": 844,
+      "page": "convert",
+      "title": "Wants to organise \u00b7 sign in first"
+    },
+    {
+      "file": "AppLanding.dc.html",
+      "x": 2880,
+      "y": 1260,
+      "w": 390,
+      "h": 844,
+      "page": "convert",
+      "title": "App first open \u00b7 linked"
+    },
+    {
+      "file": "EmptyCircle.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "page": "system",
+      "title": "Empty circle"
+    },
+    {
+      "file": "Offline.dc.html",
+      "x": 480,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "page": "system",
+      "title": "Offline and error"
+    },
+    {
+      "file": "Emails.dc.html",
+      "x": 960,
+      "y": 0,
+      "w": 1400,
+      "h": 560,
+      "page": "system",
+      "title": "Email templates"
+    },
+    {
+      "file": "Pushes.dc.html",
+      "x": 0,
+      "y": 1300,
+      "w": 1180,
+      "h": 520,
+      "page": "system",
+      "title": "Push copy"
+    },
+    {
+      "file": "ShareMessages.dc.html",
+      "x": 1300,
+      "y": 1300,
+      "w": 1180,
+      "h": 640,
+      "page": "system",
+      "title": "Share-sheet messages"
+    },
+    {
+      "file": "Components.dc.html",
+      "x": 0,
+      "y": 2600,
+      "w": 1180,
+      "h": 760,
+      "page": "system",
+      "title": "Components and tokens"
+    }
+  ],
+  "annotations": [
+    {
+      "id": "convert-note",
+      "x": 1520,
+      "y": 0,
+      "w": 420,
+      "page": "convert",
+      "text": "Guest \u2192 app. The map (left) says when a prompt may appear and for which conversion. The screens below are the prompts themselves, in the order a guest would meet them: the locked-in nudge (reminder), the app sheet (the only place the app is pitched in full), rejoined-twice, second response, after attendance (starts the cross-circle loop), the organiser gate (sign-in, not install), and what the app shows on first open once the same email links the identity.\nDesign rule from the manifesto: none of these appear before the person's answer is in, and each is one tap to dismiss."
+    },
+    {
+      "id": "first-flow",
+      "x": 0,
+      "y": -210,
+      "w": 900,
+      "page": "first",
+      "text": "First time, organiser, in reading order. Row 1: Welcome (Apple, Google or email) \u2192 email \u2192 code \u2192 name (prefilled from SSO, time zone from the phone) \u2192 first circle (name + loose cadence only) \u2192 invite link with the message ready to paste.\nRow 2: circle home as people join (no waiting required) \u2192 first plan with defaults accepted in one tap \u2192 paste-to-chat \u2192 circle home with the plan live.\nTwo inputs before the first real result (a name and a circle name). No permissions, no photo, no contacts, no calendar. SSO buttons carry the platform's own marks in the build; the circles here are placeholders."
+    },
+    {
+      "id": "first-note-sso",
+      "x": 0,
+      "y": -60,
+      "w": 390,
+      "page": "first",
+      "text": "Returning users land on the same Welcome; Apple/Google resolves to the existing account. Email path is the fallback for everyone else and the only path that needs a code."
+    },
+    {
+      "id": "guest-flow",
+      "x": 0,
+      "y": -190,
+      "w": 900,
+      "page": "guest",
+      "text": "Guest path, entirely on mobile web, in reading order. Row 1: link tapped from the group chat \u2192 Join \u2192 (returning with no session: Continue as) \u2192 Name \u2192 paint times \u2192 'none of these' branch \u2192 Sent with the optional email offer.\nRow 2: email verification and no-sign-in preferences \u2192 optional account claim \u2192 what a member (not the organiser) sees of the options \u2192 Confirmed.\nRow 3: add-to-calendar sheet, rescheduled and cancelled states, morning-after attendance, and an inactive invite link.\nZero account prompts before the answer."
+    },
+    {
+      "id": "guest-note-avail",
+      "x": 1440,
+      "y": -90,
+      "w": 390,
+      "page": "guest",
+      "text": "First-person willingness language, 30-min cells, range always rendered as text. 'I'm easy' is the plan-level flexible response (review 6.5)."
+    },
+    {
+      "id": "org-flow",
+      "x": 0,
+      "y": -210,
+      "w": 900,
+      "page": "organiser",
+      "text": "Organiser path (signed in by email code). Row 1: sign in \u2192 code \u2192 first-run and populated circle lists \u2192 create circle \u2192 circle home while finding a time.\nRow 2: choose how to start \u2192 plan setup (+ custom window) \u2192 paste-to-chat moment \u2192 waiting with no options yet \u2192 candidates.\nRow 3: replies closed with no decision \u2192 edit plan with reconfirm warning \u2192 confirm review \u2192 confirmed \u2192 circle home locked in \u2192 change the time.\nRow 4: cancel \u2192 cancelled \u2192 no quorum \u2192 did it happen \u2192 circle home when it's about time \u2192 plan another, prefilled.\nRow 5: circle, notification and account settings, privacy, founder diagnostics.\nNo pricing prompt in MVP. Cadence copy never says 'on track' or 'overdue'."
+    },
+    {
+      "id": "org-note-cand",
+      "x": 2400,
+      "y": 1170,
+      "w": 390,
+      "page": "organiser",
+      "text": "At most three options, each explains its rank, names who's in and who it doesn't work for. Never a heat map. The recommended card gets a 1.5px accent border, not a fill. Non-responders are never counted as available."
+    },
+    {
+      "id": "quiet-flow",
+      "x": 0,
+      "y": -190,
+      "w": 900,
+      "page": "quiet",
+      "text": "Quiet ask (spec 'quiet spark'). Setup \u2192 initiator waits with no counts \u2192 members get an aggregate prompt \u2192 at threshold (3) the initiator privately chooses to organise or ask for a volunteer (fixes the identity leak, review 6.1) \u2192 keen members and other members see 'started quietly' with counts only \u2192 or it expires with neutral copy.\nNo initiator name anywhere; no individual answers before threshold; no rejection counts."
+    },
+    {
+      "id": "native-note",
+      "x": 0,
+      "y": -170,
+      "w": 900,
+      "page": "native",
+      "text": "Native-only enhancements, deferred to Slice 3 (founder decision). Push permission is asked contextually after the first real plan, never at onboarding. The calendar check is explained before the OS prompt, reads selected calendars for the plan's dates on-device only, greys cells the person can paint over, and shows when it was last read. Denial leaves full manual parity with no nagging."
+    },
+    {
+      "id": "system-note",
+      "x": 0,
+      "y": -150,
+      "w": 900,
+      "page": "system",
+      "text": "States every screen owes (empty, offline, error with a reference to pass on), the operational email templates for web-only members, every push notification's copy and recipient, the share-sheet messages the organiser pastes into the chat, and the components sheet lifting tokens verbatim from design-manifesto.md \u00a75."
+    }
+  ],
+  "pages": [
+    {
+      "id": "first",
+      "name": "0 \u00b7 First time, organiser"
+    },
+    {
+      "id": "guest",
+      "name": "1 \u00b7 Guest path (web, no install)"
+    },
+    {
+      "id": "organiser",
+      "name": "2 \u00b7 Organiser path"
+    },
+    {
+      "id": "quiet",
+      "name": "3 \u00b7 Quiet ask"
+    },
+    {
+      "id": "native",
+      "name": "4 \u00b7 Native only (Slice 3)"
+    },
+    {
+      "id": "convert",
+      "name": "5 \u00b7 Guest \u2192 app"
+    },
+    {
+      "id": "system",
+      "name": "6 \u00b7 States, copy and components"
+    }
+  ],
+  "launch": {
+    "view": "canvas",
+    "page": "first"
+  }
+}

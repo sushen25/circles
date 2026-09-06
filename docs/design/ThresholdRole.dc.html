@@ -1,0 +1,90 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600&family=Newsreader:opsz,wght@6..72,400&display=swap');
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #FBF7F1; color: #221E19; font-family: Figtree, system-ui, -apple-system, 'Segoe UI', sans-serif; font-size: 15px; line-height: 1.5; -webkit-font-smoothing: antialiased; text-wrap: pretty; }
+    a { color: #A0431F; } a:hover { color: #C2542F; }
+    .screen { width: 390px; min-height: 844px; display: flex; flex-direction: column; background: #FBF7F1; }
+    .screen.invert { background: #2E241C; color: #F7F1EA; }
+    .top { display: flex; align-items: center; justify-content: space-between; height: 56px; padding: 0 16px 0 12px; }
+    .top .t { font-family: Figtree; font-weight: 600; font-size: 15px; color: #6C6156; }
+    .body { display: flex; flex-direction: column; gap: 22px; padding: 8px 22px 24px; flex-grow: 1; }
+    .foot { display: flex; flex-direction: column; gap: 10px; padding: 12px 22px 28px; }
+    .lbl { font-family: Figtree; font-weight: 600; font-size: 12px; line-height: 1.3; letter-spacing: 0.07em; text-transform: uppercase; color: #A0958A; }
+    .invert .lbl { color: #E8A07A; }
+    .invert .top .t { color: #CFC3B6; }
+    .dxl { font-family: Newsreader, Georgia, 'Times New Roman', serif; font-weight: 400; font-size: 40px; line-height: 1.08; letter-spacing: -0.018em; margin: 0; }
+    .dl { font-family: Newsreader, Georgia, 'Times New Roman', serif; font-weight: 400; font-size: 31px; line-height: 1.12; letter-spacing: -0.015em; margin: 0; }
+    .date { font-family: Newsreader, Georgia, 'Times New Roman', serif; font-weight: 400; font-size: 24px; line-height: 1.1; margin: 0; font-variant-numeric: tabular-nums; }
+    .title { font-family: Figtree; font-weight: 600; font-size: 16px; line-height: 1.3; margin: 0; }
+    .p { font-family: Figtree; font-size: 15px; line-height: 1.5; color: #6C6156; margin: 0; }
+    .invert .p { color: #CFC3B6; }
+    .sm { font-family: Figtree; font-size: 13px; line-height: 1.45; color: #A0958A; margin: 0; }
+    .invert .sm { color: #A89B8D; }
+    .num { font-variant-numeric: tabular-nums; }
+    .btn { display: flex; align-items: center; justify-content: center; height: 55px; border-radius: 14px; font-family: Figtree; font-weight: 600; font-size: 16px; text-decoration: none; }
+    .btn.pri { background: #C2542F; color: #FFFFFF; box-shadow: 0 1px 2px rgba(74,55,38,.04), 0 14px 30px -20px rgba(74,55,38,.28); }
+    .btn.sec { background: #FFFFFF; color: #6C6156; border: 1px solid #EAE0D3; }
+    .invert .btn.pri { background: #E8A07A; color: #2E241C; }
+    .invert .btn.sec { background: transparent; color: #F7F1EA; border: 1px solid #5A4B3E; }
+    .ter { display: flex; align-items: center; justify-content: center; min-height: 44px; font-family: Figtree; font-size: 14px; color: #A0958A; text-decoration: underline; text-underline-offset: 3px; }
+    .invert .ter { color: #A89B8D; }
+    .card { background: #FFFFFF; border: 1px solid #EAE0D3; border-radius: 18px; padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+    .card.rec { border: 1.5px solid #C2542F; }
+    .invert .card { background: #3A2E25; border-color: #4E4034; }
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+    .chip { display: flex; align-items: center; gap: 6px; height: 44px; padding: 0 16px; border-radius: 12px; background: #FFFFFF; border: 1px solid #EAE0D3; font-family: Figtree; font-weight: 500; font-size: 14px; color: #221E19; }
+    .chip.on { background: #C2542F; border-color: #C2542F; color: #FFFFFF; }
+    .marks { display: flex; align-items: center; }
+    .mark { width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-family: Figtree; font-weight: 600; font-size: 12px; margin-left: -5px; background: #F6E5DC; color: #A0431F; border: 2px solid #FBF7F1; }
+    .mark:first-child { margin-left: 0; }
+    .mark.wait { background: transparent; border: 1.5px dashed #A0958A; color: #A0958A; }
+    .mark.lg { width: 36px; height: 36px; font-size: 14px; border-radius: 10px; margin-left: 0; border: 0; }
+    .invert .mark { border-color: #2E241C; background: #5A4030; color: #E8A07A; }
+    .invert .mark.wait { background: transparent; border: 1.5px dashed #8A7A6A; color: #A89B8D; }
+    .notice { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 14px; background: #FFFFFF; border: 1px solid #EAE0D3; font-size: 13px; line-height: 1.45; color: #6C6156; }
+    .notice.warn { background: #FBF0E4; border-color: #EBD9C2; color: #6B5427; }
+    .notice.ok { background: #E6EDE1; border-color: #D3DFCC; color: #4F6B45; }
+    .notice svg { flex-shrink: 0; margin-top: 1px; }
+    .row { display: flex; align-items: center; gap: 12px; }
+    .row > .btn { flex: 1; }
+    .between { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .stack { display: flex; flex-direction: column; gap: 6px; }
+    .input { display: flex; align-items: center; height: 54px; padding: 0 16px; border-radius: 13px; background: #FFFFFF; border: 1px solid #EAE0D3; font-family: Figtree; font-size: 16px; color: #221E19; }
+    .input.ph { color: #A0958A; }
+    .divider { height: 1px; background: #F1E9DE; }
+    .track { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 3px; }
+    .cell { height: 42px; border-radius: 6px; background: #FFFFFF; border: 1px solid #EAE0D3; }
+    .cell.on { background: #C2542F; border-color: #C2542F; }
+    .cell.busy { background: #F1E9DE; border-color: #F1E9DE; }
+    .ticks { display: flex; justify-content: space-between; font-size: 11px; color: #A0958A; font-variant-numeric: tabular-nums; }
+    .li { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 6px 0; }
+    .icon-sq { width: 44px; height: 44px; border-radius: 12px; background: #C2542F; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-family: Newsreader, Georgia, serif; font-size: 22px; }
+    .wordmark { font-family: Newsreader, Georgia, serif; font-size: 22px; letter-spacing: -0.01em; color: #221E19; }
+    .invert .wordmark { color: #F7F1EA; }
+    .radio { width: 22px; height: 22px; border-radius: 999px; border: 1.5px solid #EAE0D3; background: #FFFFFF; flex-shrink: 0; }
+    .radio.on { border: 7px solid #C2542F; }
+    .toggle { width: 46px; height: 28px; border-radius: 999px; background: #EAE0D3; position: relative; flex-shrink: 0; }
+    .toggle.on { background: #C2542F; }
+    .toggle i { position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 999px; background: #fff; }
+    .toggle.on i { left: 21px; }
+</style>
+</helmet>
+<div class="screen" style="width:390px;min-height:844px;">
+<div class="top"><div style="width:44px;"></div><div class="t"></div><div style="display:flex;align-items:center;justify-content:flex-end;min-width:44px;height:44px;"><div class="wordmark">Circles</div></div></div><div class="body" style="gap:22px;padding:8px 22px 24px;"><div class="stack" style="gap:10px;"><div class="lbl">Sunday Crew</div><h1 class="dxl">Enough people are keen.</h1><p class="p">Three of you want to catch up this weekend. Someone needs to pick the time. That can be you, or you can ask for a volunteer.</p></div>
+<div class="card rec" style="gap:12px;padding:18px;"><div class="row" style="gap:12px;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#A0431F" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8.5" r="3.2"/><path d="M3.5 19c0-3 2.5-5 5.5-5s5.5 2 5.5 5"/><circle cx="16.5" cy="9.5" r="2.5"/><path d="M15.5 14.2c2.6.2 5 2 5 4.8"/></svg><div class="title">I'll organise</div></div>
+<p class="p">Your name will show as the organiser. We still won't say who asked first.</p></div>
+<div class="card" style="gap:12px;padding:18px;"><div class="row" style="gap:12px;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6C6156" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18M10.6 10.6a2 2 0 0 0 2.8 2.8M7.4 7.5C4.6 9.2 3 12 3 12s3.5 6 9 6c1.7 0 3.2-.5 4.5-1.2M10 6.2C10.6 6.1 11.3 6 12 6c5.5 0 9 6 9 6s-.8 1.4-2.3 2.9"/></svg><div class="title">Ask for a volunteer</div></div>
+<p class="p">Everyone who's keen sees a one-tap “I'll pick the time”. Your name stays out of it.</p></div></div><div class="foot"><p class="sm">If nobody volunteers before replies close, the circle owner gets a quiet nudge.</p></div>
+</div>
+</x-dc>
+</body>
+</html>
