@@ -44,9 +44,14 @@ function ScreenSurface({ children }: { children: ReactNode }) {
 }
 
 type TopBarProps = {
-  title?: string;
-  onBack?: () => void;
-  backLabel?: string;
+  title?: string | undefined;
+  /**
+   * `| undefined` explicitly: `exactOptionalPropertyTypes` is on, and a screen
+   * that passes `onBack={props.onBack}` is passing a value that may be
+   * undefined rather than omitting the prop.
+   */
+  onBack?: (() => void) | undefined;
+  backLabel?: string | undefined;
   right?: ReactNode;
 };
 

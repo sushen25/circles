@@ -30,10 +30,10 @@ type Props = {
   /** Minutes from midnight at the first cell. */
   startMinutes: number;
   /** Indices greyed by a local calendar overlay. Always overridable. */
-  busy?: readonly number[];
-  ticks?: readonly string[];
-  formatTime?: TimeFormatter;
-  noneLabel?: string;
+  busy?: readonly number[] | undefined;
+  ticks?: readonly string[] | undefined;
+  formatTime?: TimeFormatter | undefined;
+  noneLabel?: string | undefined;
 };
 
 /** Which cell a horizontal offset falls in, or -1 before the row has a width. */

@@ -1,0 +1,12 @@
+import { useRouter } from 'expo-router';
+
+import { useFixture } from '../../../src/data/fixtures/useFixture';
+import { CancelledGuestScreen } from '../../../src/features/confirmation/CancelledGuestScreen';
+
+/** Route only — thin composition, no logic (architecture §7.1). */
+export default function Route() {
+  const router = useRouter();
+  const fixture = useFixture();
+
+  return <CancelledGuestScreen fixture={fixture} onBack={() => router.back()} />;
+}
