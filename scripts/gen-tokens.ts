@@ -180,6 +180,31 @@ const cell = {
   gap: px(declaration(rule('track'), 'gap', 'the availability track rule'), 'the track gap'),
 };
 
+// ---------------------------------------------------------------- sizes
+
+/**
+ * Control heights. They are style values like any other, so components can hold
+ * to "tokens only" instead of scattering magic numbers that drift from the
+ * canvas.
+ */
+const size = {
+  button: px(declaration(rule('btn'), 'height', 'the button rule'), 'the button height'),
+  input: px(declaration(rule('input'), 'height', 'the input rule'), 'the input height'),
+  chip: px(declaration(rule('chip'), 'height', 'the chip rule'), 'the chip height'),
+  mark: px(declaration(rule('mark'), 'width', 'the member mark rule'), 'the mark size'),
+  markLarge: px(
+    declaration(rule('mark.lg'), 'width', 'the large mark rule'),
+    'the large mark size',
+  ),
+  topBar: px(declaration(rule('top'), 'height', 'the top bar rule'), 'the top bar height'),
+  iconSquare: px(declaration(rule('icon-sq'), 'width', 'the icon square rule'), 'the icon square'),
+};
+
+/** Member marks overlap by this much (a negative margin on the canvas). */
+const markOverlap = Math.abs(
+  px(declaration(rule('mark'), 'margin-left', 'the member mark rule'), 'the mark overlap'),
+);
+
 // ---------------------------------------------------------------- validation
 
 const EXPECTED_COLORS = [
@@ -226,7 +251,14 @@ if (extra.length > 0) {
   );
 }
 
-for (const [name, value] of Object.entries({ ...space, ...radius, hit, ...cell })) {
+for (const [name, value] of Object.entries({
+  ...space,
+  ...radius,
+  ...size,
+  hit,
+  markOverlap,
+  ...cell,
+})) {
   if (!Number.isFinite(value) || value <= 0) {
     throw new ExtractionError(`gen-tokens: extracted a nonsensical value for ${name}: ${value}`);
   }
@@ -268,8 +300,14 @@ export const radius = ${JSON.stringify(radius, null, 2)} as const;
  */
 export const shadow = ${JSON.stringify({ elevated: shadowCss }, null, 2)} as const;
 
+/** Control heights, in points. */
+export const size = ${JSON.stringify(size, null, 2)} as const;
+
 /** Minimum tap target, in points. */
 export const hit = ${hit};
+
+/** Member marks overlap by this much (manifesto §5.4). */
+export const markOverlap = ${markOverlap};
 
 /** The availability track: a ten-cell half-hour grid (manifesto §5.4). */
 export const cell = ${JSON.stringify(cell, null, 2)} as const;
@@ -280,7 +318,7 @@ const formatted = await format(body, { ...prettierConfig, parser: 'typescript' }
 
 const summary =
   `${EXPECTED_COLORS.length} colours, ${Object.keys(type).length} type roles, ` +
-  `${Object.keys(radius).length} radii`;
+  `${Object.keys(radius).length} radii, ${Object.keys(size).length} sizes`;
 
 if (process.argv.includes('--check')) {
   const current = existsSync(TARGET) ? readFileSync(TARGET, 'utf8') : '';

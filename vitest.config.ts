@@ -5,6 +5,6 @@ import { defineConfig } from 'vitest/config';
 // run in isolation too (`pnpm --filter @circles/domain test`).
 export default defineConfig({
   test: {
-    projects: ['packages/*'],
+    projects: ['packages/*', 'apps/*'],
   },
 });

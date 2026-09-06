@@ -2,6 +2,7 @@ import js from '@eslint/js';
 import boundaries from 'eslint-plugin-boundaries';
 import globals from 'globals';
 import prettier from 'eslint-config-prettier';
+import reactHooks from 'eslint-plugin-react-hooks';
 import tseslint from 'typescript-eslint';
 
 /**
@@ -146,6 +147,14 @@ export default tseslint.config(
       '@typescript-eslint/consistent-type-imports': 'error',
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
     },
+  },
+  {
+    // The Rules of Hooks are correctness for a React app, and the dependency
+    // rule catches exactly the kind of stale-closure bug the availability
+    // painter is prone to.
+    files: ['apps/**/*.{ts,tsx}'],
+    plugins: { 'react-hooks': reactHooks },
+    rules: reactHooks.configs.recommended.rules,
   },
   {
     // Repository tooling: Node scripts and build configs, outside the layers.
