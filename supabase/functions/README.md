@@ -5,6 +5,8 @@ Deno Edge Functions, one folder per use case (architecture §7.4). Land in
 themselves).
 
 This folder is a pnpm workspace member so shared dev dependencies resolve from
-the root. Functions import `@circles/domain` through an import map pointing at
-the package's built ESM output — hence `packages/domain` is built with
-`tsc -b` and keeps explicit `.js` extensions on relative imports.
+the root. Functions import `@circles/domain` and `@circles/contracts` through
+`import_map.json`, referenced by each function's `deno.json` — hence the
+packages are built with `tsc -b` and keep explicit `.js` extensions on relative
+imports. See [`../README.md`](../README.md) for the details and the reason it
+has to be wired that way.

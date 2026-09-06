@@ -1,0 +1,7 @@
+{
+  "imports": {
+    "@circles/domain": "../../packages/domain/dist/index.js",
+    "@circles/contracts": "../../packages/contracts/dist/index.js",
+    "zod": "npm:zod@^4.5.4"
+  }
+}
