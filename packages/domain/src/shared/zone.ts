@@ -1,0 +1,165 @@
+import { fromZonedTime } from 'date-fns-tz';
+
+import { type Instant, MINUTE_MILLIS, instant } from './instant.js';
+import { type LocalDate, fromParts, localDate } from './local-date.js';
+
+/**
+ * The only file in the domain that knows what a time zone is.
+ *
+ * Everything else works in `Instant` (absolute) or `LocalDate` +
+ * `minutesOfDay` (what a person reads on a clock). These two functions are the
+ * bridge, and they are the only place `date-fns-tz` may be imported — a lint
+ * rule enforces it, so a zone conversion cannot quietly appear in the middle of
+ * the candidate engine.
+ *
+ * Reading a zone offset uses `Intl`, which carries the tz database the runtime
+ * already trusts; writing one uses `date-fns-tz`. The policies for the two
+ * awkward days of the year are ours, stated below, not the library's.
+ */
+export type Zone = string & { readonly __brand: 'Zone' };
+
+export function zone(value: string): Zone {
+  try {
+    new Intl.DateTimeFormat('en', { timeZone: value });
+  } catch {
+    throw new RangeError(`Not an IANA time zone: ${value}`);
+  }
+  return value as Zone;
+}
+
+export type LocalTime = {
+  date: LocalDate;
+  /** Minutes since local midnight. 18:30 is 1110. */
+  minutesOfDay: number;
+};
+
+const PARTS = new Map<string, Intl.DateTimeFormat>();
+
+function formatter(z: Zone): Intl.DateTimeFormat {
+  let existing = PARTS.get(z);
+  if (!existing) {
+    existing = new Intl.DateTimeFormat('en-GB', {
+      timeZone: z,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    });
+    PARTS.set(z, existing);
+  }
+  return existing;
+}
+
+/** What a clock in `z` reads at this moment. Always defined, always unambiguous. */
+export function toLocal(value: Instant, z: Zone): LocalTime {
+  const parts = formatter(z).formatToParts(new Date(value));
+  const get = (type: Intl.DateTimeFormatPartTypes) =>
+    Number(parts.find((p) => p.type === type)?.value);
+
+  // `hour12: false` yields hour 24 for midnight in some runtimes.
+  const hour = get('hour') % 24;
+
+  return {
+    date: fromParts(get('year'), get('month'), get('day')),
+    minutesOfDay: hour * 60 + get('minute'),
+  };
+}
+
+/** The zone's offset from UTC at this moment, in minutes. */
+export function offsetMinutes(value: Instant, z: Zone): number {
+  const local = toLocal(value, z);
+  const { year, month, day } = splitDate(local.date);
+  const asIfUtc = Date.UTC(year, month - 1, day) + local.minutesOfDay * MINUTE_MILLIS;
+  return Math.round((asIfUtc - value) / MINUTE_MILLIS);
+}
+
+function splitDate(date: LocalDate): { year: number; month: number; day: number } {
+  const [y, m, d] = date.split('-') as [string, string, string];
+  return { year: Number(y), month: Number(m), day: Number(d) };
+}
+
+function pad(n: number): string {
+  return String(n).padStart(2, '0');
+}
+
+/**
+ * The moment a clock in `z` reads this wall time.
+ *
+ * Twice a year a wall time is not a moment, and the product has to pick one:
+ *
+ * - **Gap** (clocks spring forward — Melbourne, first Sunday in October, 02:00
+ *   becomes 03:00). 02:30 never happens. We **skip forward** to the first
+ *   moment after the gap, so a plan window that starts at 02:00 still starts.
+ *   Refusing would strand a plan on a date nobody chose deliberately.
+ * - **Overlap** (clocks fall back — Melbourne, first Sunday in April, 03:00
+ *   becomes 02:00). 02:30 happens twice. We take the **first occurrence**, the
+ *   earlier moment, because a person who says "half two" on that morning means
+ *   the first one they will live through.
+ *
+ * Both are asserted in `zone.test.ts` against real Melbourne and Adelaide
+ * transitions rather than trusted to the library.
+ */
+export function fromLocal(date: LocalDate, minutesOfDay: number, z: Zone): Instant {
+  if (!Number.isInteger(minutesOfDay) || minutesOfDay < 0 || minutesOfDay >= 24 * 60) {
+    throw new RangeError(`minutesOfDay out of range: ${minutesOfDay}`);
+  }
+
+  const hours = Math.floor(minutesOfDay / 60);
+  const minutes = minutesOfDay % 60;
+  const wall = `${date}T${pad(hours)}:${pad(minutes)}:00`;
+
+  const candidate = instant(fromZonedTime(wall, z).getTime());
+
+  // Did we land on the wall time we asked for?
+  const landed = toLocal(candidate, z);
+  const exact = landed.date === date && landed.minutesOfDay === minutesOfDay;
+
+  if (!exact) {
+    // A gap: the wall time does not exist. Skip forward to the first moment
+    // whose local time is past the one requested.
+    return firstMomentAfterGap(date, minutesOfDay, z, candidate);
+  }
+
+  // An overlap: an earlier moment may read the same wall time. Prefer it.
+  const anHourEarlier = instant(candidate - 60 * MINUTE_MILLIS);
+  const earlier = toLocal(anHourEarlier, z);
+  if (earlier.date === date && earlier.minutesOfDay === minutesOfDay) {
+    return anHourEarlier;
+  }
+
+  return candidate;
+}
+
+/**
+ * Walk forward in five-minute steps from the start of the gap. Transitions are
+ * at most a couple of hours and always land on a five-minute boundary, so this
+ * terminates quickly and needs no knowledge of the transition itself.
+ */
+function firstMomentAfterGap(
+  date: LocalDate,
+  minutesOfDay: number,
+  z: Zone,
+  from: Instant,
+): Instant {
+  const step = 5 * MINUTE_MILLIS;
+  let probe = instant(from - 3 * 60 * MINUTE_MILLIS);
+  const limit = instant(from + 6 * 60 * MINUTE_MILLIS);
+
+  while (probe <= limit) {
+    const local = toLocal(probe, z);
+    const past = local.date > date || (local.date === date && local.minutesOfDay >= minutesOfDay);
+    if (past) return probe;
+    probe = instant(probe + step);
+  }
+
+  // Unreachable for any real zone; better to say so than to return a wrong moment.
+  throw new RangeError(`Could not resolve ${date} ${minutesOfDay} in ${z}`);
+}
+
+/** Convenience for the common case of a whole hour. */
+export function atLocalTime(date: string, minutesOfDay: number, timeZone: string): Instant {
+  return fromLocal(localDate(date), minutesOfDay, zone(timeZone));
+}

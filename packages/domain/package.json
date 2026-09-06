@@ -19,5 +19,11 @@
     "build": "tsc -b",
     "clean": "tsc -b --clean",
     "test": "vitest run"
+  },
+  "dependencies": {
+    "date-fns-tz": "^3.2.0"
+  },
+  "devDependencies": {
+    "fast-check": "^4.9.0"
   }
 }
