@@ -3,6 +3,8 @@ import boundaries from 'eslint-plugin-boundaries';
 import globals from 'globals';
 import prettier from 'eslint-config-prettier';
 import reactHooks from 'eslint-plugin-react-hooks';
+
+import circles from './tooling/eslint-rules/index.mjs';
 import tseslint from 'typescript-eslint';
 
 /**
@@ -155,6 +157,22 @@ export default tseslint.config(
     files: ['apps/**/*.{ts,tsx}'],
     plugins: { 'react-hooks': reactHooks },
     rules: reactHooks.configs.recommended.rules,
+  },
+  {
+    // Copy is the only place user-facing strings live, so it is the only place
+    // the voice can be checked (design manifesto §4).
+    files: ['apps/*/src/copy/**/*.ts'],
+    plugins: { circles },
+    rules: { 'circles/copy-voice': 'error' },
+  },
+  {
+    // Screens and components compose copy; they never contain it. Tests are
+    // exempt: a test's strings are its fixtures, and routing them through the
+    // copy file would only make the test harder to read.
+    files: ['apps/*/src/features/**/*.tsx', 'apps/*/src/components/**/*.tsx'],
+    ignores: ['**/*.test.tsx'],
+    plugins: { circles },
+    rules: { 'circles/no-literal-jsx-strings': 'error' },
   },
   {
     // Repository tooling: Node scripts and build configs, outside the layers.

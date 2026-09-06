@@ -3,6 +3,8 @@ import { StyleSheet, View } from 'react-native';
 
 import { color, space } from '@circles/tokens';
 
+import { t } from '../../src/copy';
+
 import {
   Body,
   BodyText,
@@ -207,7 +209,12 @@ export default function ComponentsScreen() {
         </ButtonRow>
       </View>
 
-      <Sheet visible={sheetOpen} onDismiss={() => setSheetOpen(false)} label="Example sheet">
+      <Sheet
+        visible={sheetOpen}
+        onDismiss={() => setSheetOpen(false)}
+        label="Example sheet"
+        dismissLabel={t('addToCalendar', 'cancel')}
+      >
         <Title>Add to calendar</Title>
         <BodyText>A bottom sheet: 22 radius on the top corners, hairline, handle.</BodyText>
         <Button label="Done" onPress={() => setSheetOpen(false)} />

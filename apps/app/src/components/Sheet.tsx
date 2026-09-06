@@ -14,15 +14,17 @@ type Props = {
   visible: boolean;
   onDismiss: () => void;
   label: string;
+  /** What the scrim announces. Required: the component cannot know the words. */
+  dismissLabel: string;
   children: ReactNode;
 };
 
-export function Sheet({ visible, onDismiss, label, children }: Props) {
+export function Sheet({ visible, onDismiss, label, dismissLabel, children }: Props) {
   const palette = usePalette();
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onDismiss}>
-      <Pressable style={styles.scrim} role="button" aria-label="Dismiss" onPress={onDismiss} />
+      <Pressable style={styles.scrim} role="button" aria-label={dismissLabel} onPress={onDismiss} />
       <View
         accessibilityViewIsModal
         aria-modal

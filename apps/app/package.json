@@ -4,6 +4,7 @@
   "main": "expo-router/entry",
   "dependencies": {
     "@circles/config": "workspace:*",
+    "@circles/contracts": "workspace:^",
     "@circles/tokens": "workspace:*",
     "@supabase/supabase-js": "^2.115.0",
     "@tanstack/react-query": "^5.102.8",
