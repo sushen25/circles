@@ -6,21 +6,24 @@
     "node": ">=22"
   },
   "scripts": {
-    "check": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run test:unit && pnpm run db:test && pnpm run test:e2e:smoke",
+    "check": "pnpm run format:check && pnpm run lint && pnpm run check:brand && pnpm run typecheck && pnpm run test:unit && pnpm run db:test && pnpm run test:e2e:smoke",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint .",
-    "typecheck": "tsc -b && tsc -p tsconfig.tests.json",
+    "typecheck": "tsc -b && tsc -p tsconfig.tests.json && pnpm --filter app typecheck",
     "build": "tsc -b",
     "clean": "tsc -b --clean",
     "test:unit": "vitest run",
     "db:test": "node scripts/pending.mjs db:test S0-06",
-    "test:e2e:smoke": "node scripts/pending.mjs test:e2e:smoke S0-08",
+    "test:e2e:smoke": "pnpm --filter app run export && playwright test",
     "gen:types": "node scripts/pending.mjs gen:types S0-06",
-    "gen:tokens": "node scripts/pending.mjs gen:tokens S0-03"
+    "gen:tokens": "node scripts/pending.mjs gen:tokens S0-03",
+    "check:brand": "node scripts/check-brand.mjs"
   },
   "devDependencies": {
+    "@circles/config": "workspace:*",
     "@eslint/js": "^9.17.0",
+    "@playwright/test": "^1.49.1",
     "@types/node": "^22.10.2",
     "eslint": "^9.17.0",
     "eslint-config-prettier": "^10.0.0",

@@ -10,5 +10,5 @@
       "@circles/config": ["./packages/config/src/index.ts"]
     }
   },
-  "include": ["packages/*/src/**/*.test.ts", "*.config.ts"]
+  "include": ["packages/*/src/**/*.test.ts", "tests/**/*.ts", "*.config.ts"]
 }
