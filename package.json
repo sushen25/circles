@@ -6,7 +6,7 @@
     "node": ">=22"
   },
   "scripts": {
-    "check": "pnpm run format:check && pnpm run lint && pnpm run check:brand && pnpm run typecheck && pnpm run test:unit && pnpm run db:test && pnpm run test:e2e:smoke",
+    "check": "pnpm run format:check && pnpm run lint && pnpm run check:brand && pnpm run check:tokens && pnpm run typecheck && pnpm run test:unit && pnpm run db:test && pnpm run test:e2e:smoke",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint .",
@@ -17,8 +17,9 @@
     "db:test": "node scripts/pending.mjs db:test S0-06",
     "test:e2e:smoke": "pnpm --filter app run export && playwright test",
     "gen:types": "node scripts/pending.mjs gen:types S0-06",
-    "gen:tokens": "node scripts/pending.mjs gen:tokens S0-03",
-    "check:brand": "node scripts/check-brand.mjs"
+    "gen:tokens": "node --experimental-strip-types scripts/gen-tokens.ts",
+    "check:brand": "node scripts/check-brand.mjs",
+    "check:tokens": "pnpm run gen:tokens && git diff --exit-code -- packages/tokens/src/generated.ts"
   },
   "devDependencies": {
     "@circles/config": "workspace:*",
