@@ -192,8 +192,17 @@ const EXPECTED_COLORS = [
   'supportSoft',
   'warnSurface',
   'warnInk',
+  'warnLine',
+  'supportLine',
   'invert',
   'invertAccent',
+  'invertSurface',
+  'invertLine',
+  'invertLineStrong',
+  'invertMarkLine',
+  'invertInk',
+  'invertInk2',
+  'invertInk3',
 ];
 
 const missing = EXPECTED_COLORS.filter((key) => !(key in color));
