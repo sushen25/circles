@@ -70,6 +70,9 @@ Linear project **Circles MVP** (team Sushen). Ticket bodies cross-reference each
 
 ## Working a ticket
 
+The process, and the rules that came out of getting it wrong, are in
+[`working-process.md`](./working-process.md). In short:
+
 1. Read `AGENTS.md`, then the ticket's "Read first" list (spec/architecture sections and artboards).
 2. Check the ticket's blockers are done (Linear shows them).
 3. Branch from `main` using Linear's branch name; keep the PR to the ticket's scope; note anything the ticket asked you to decide in a PR comment and in the ticket.
