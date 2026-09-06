@@ -134,7 +134,7 @@ export default tseslint.config(
             '${file.type} is not allowed to import "${dependency.source}" (architecture §7.2)',
           rules: [
             // The domain stays pure: no React, no Supabase, no Deno, no I/O.
-            { from: ['domain'], allow: ['date-fns-tz', 'vitest'] },
+            { from: ['domain'], allow: ['date-fns-tz', 'fast-check', 'vitest'] },
             { from: ['contracts'], allow: ['@circles/domain', 'zod', 'vitest'] },
             { from: ['tokens'], allow: ['vitest'] },
             { from: ['config'], allow: ['zod', 'vitest'] },
@@ -157,6 +157,28 @@ export default tseslint.config(
     files: ['apps/**/*.{ts,tsx}'],
     plugins: { 'react-hooks': reactHooks },
     rules: reactHooks.configs.recommended.rules,
+  },
+  {
+    // Zone conversion is confined to one file (architecture §7.3). Everything
+    // else in the domain works in `Instant` or `LocalDate` + minutes, so a
+    // conversion cannot quietly appear in the middle of the candidate engine —
+    // which is exactly where a daylight-saving bug would be hardest to see.
+    files: ['packages/domain/src/**/*.ts'],
+    ignores: ['packages/domain/src/shared/zone.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: 'date-fns-tz',
+              message:
+                'Only shared/zone.ts may convert between zones. Use toLocal/fromLocal from there.',
+            },
+          ],
+        },
+      ],
+    },
   },
   {
     // Copy is the only place user-facing strings live, so it is the only place
