@@ -1,0 +1,35 @@
+{
+  "name": "circles",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "check": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run test:unit && pnpm run db:test && pnpm run test:e2e:smoke",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "eslint .",
+    "typecheck": "tsc -b && tsc -p tsconfig.tests.json",
+    "build": "tsc -b",
+    "clean": "tsc -b --clean",
+    "test:unit": "vitest run",
+    "db:test": "node scripts/pending.mjs db:test S0-06",
+    "test:e2e:smoke": "node scripts/pending.mjs test:e2e:smoke S0-08",
+    "gen:types": "node scripts/pending.mjs gen:types S0-06",
+    "gen:tokens": "node scripts/pending.mjs gen:tokens S0-03"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.17.0",
+    "@types/node": "^22.10.2",
+    "eslint": "^9.17.0",
+    "eslint-config-prettier": "^10.0.0",
+    "eslint-plugin-boundaries": "^5.0.1",
+    "globals": "^15.14.0",
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.2",
+    "typescript-eslint": "^8.18.1",
+    "vitest": "^3.2.0"
+  },
+  "packageManager": "pnpm@9.15.9+sha512.68046141893c66fad01c079231128e9afb89ef87e2691d69e4d40eee228988295fd4682181bae55b58418c3a253bde65a505ec7c5f9403ece5cc3cd37dcf2531"
+}

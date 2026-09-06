@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["node"],
+    "paths": {
+      "@circles/domain": ["./packages/domain/src/index.ts"],
+      "@circles/contracts": ["./packages/contracts/src/index.ts"],
+      "@circles/tokens": ["./packages/tokens/src/index.ts"],
+      "@circles/config": ["./packages/config/src/index.ts"]
+    }
+  },
+  "include": ["packages/*/src/**/*.test.ts", "*.config.ts"]
+}

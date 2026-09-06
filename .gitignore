@@ -1,1 +1,19 @@
 .DS_Store
+
+# dependencies
+node_modules/
+.pnpm-store/
+
+# build output
+dist/
+*.tsbuildinfo
+
+# test and tooling caches
+coverage/
+.vitest/
+.eslintcache
+
+# local environment
+.env
+.env.*
+!.env.example

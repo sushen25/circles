@@ -1,0 +1,8 @@
+node_modules/
+dist/
+*.tsbuildinfo
+pnpm-lock.yaml
+
+# hand-written prose and the generated design canvas
+docs/
+.claude/

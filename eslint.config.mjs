@@ -1,0 +1,149 @@
+import js from '@eslint/js';
+import boundaries from 'eslint-plugin-boundaries';
+import globals from 'globals';
+import prettier from 'eslint-config-prettier';
+import tseslint from 'typescript-eslint';
+
+/**
+ * Architecture §7.2 is enforced here, in two halves:
+ *
+ *   `boundaries/element-types` — which *folders* may import which, by path.
+ *     Notably, inside `apps/app`, `data` and `platform` never import `features`.
+ *   `boundaries/external`      — which *packages* each layer may import.
+ *     Notably, `packages/domain` may import nothing but `date-fns-tz`; a stray
+ *     `import 'react'` there is a lint error, not a review comment.
+ *
+ * `apps/app` (S0-02) and `supabase/functions` (S0-06) do not exist yet; their
+ * elements are declared now so those tickets inherit the rule rather than write it.
+ */
+const elements = [
+  { type: 'domain', pattern: 'packages/domain/**/*', mode: 'full' },
+  { type: 'contracts', pattern: 'packages/contracts/**/*', mode: 'full' },
+  { type: 'tokens', pattern: 'packages/tokens/**/*', mode: 'full' },
+  { type: 'config', pattern: 'packages/config/**/*', mode: 'full' },
+  { type: 'app-routes', pattern: 'apps/app/app/**/*', mode: 'full' },
+  { type: 'app-features', pattern: 'apps/app/src/features/**/*', mode: 'full' },
+  { type: 'app-components', pattern: 'apps/app/src/components/**/*', mode: 'full' },
+  { type: 'app-data', pattern: 'apps/app/src/data/**/*', mode: 'full' },
+  { type: 'app-platform', pattern: 'apps/app/src/platform/**/*', mode: 'full' },
+  { type: 'app-copy', pattern: 'apps/app/src/copy/**/*', mode: 'full' },
+  { type: 'app-analytics', pattern: 'apps/app/src/analytics/**/*', mode: 'full' },
+  { type: 'functions', pattern: 'supabase/functions/**/*', mode: 'full' },
+];
+
+const appLayers = [
+  'app-features',
+  'app-components',
+  'app-data',
+  'app-platform',
+  'app-copy',
+  'app-analytics',
+];
+
+const sharedPackages = ['contracts', 'domain', 'tokens', 'config'];
+
+const appExternals = [
+  '@circles/*',
+  'react',
+  'react-dom',
+  'react-native',
+  'react-native-*',
+  '@react-native/*',
+  'expo',
+  'expo-*',
+  '@expo/*',
+  '@supabase/*',
+  '@tanstack/*',
+  'zod',
+  'date-fns',
+  'date-fns-tz',
+  'vitest',
+  '@testing-library/*',
+];
+
+export default tseslint.config(
+  {
+    ignores: ['**/dist/**', '**/node_modules/**', 'docs/**', '.claude/**'],
+  },
+  js.configs.recommended,
+  ...tseslint.configs.recommended,
+  {
+    files: ['**/*.{ts,tsx,mts,cts,js,mjs,cjs}'],
+    plugins: { boundaries },
+    settings: {
+      // Source only. Build and tooling configs are not part of the architecture.
+      'boundaries/include': [
+        'apps/*/app/**/*',
+        'apps/*/src/**/*',
+        'packages/*/src/**/*',
+        'supabase/functions/*/**/*',
+      ],
+      'boundaries/elements': elements,
+    },
+    rules: {
+      'boundaries/element-types': [
+        'error',
+        {
+          default: 'disallow',
+          message: '${file.type} is not allowed to import ${dependency.type} (architecture §7.2)',
+          rules: [
+            { from: ['domain'], allow: ['domain'] },
+            { from: ['contracts'], allow: ['contracts', 'domain'] },
+            { from: ['tokens'], allow: ['tokens'] },
+            { from: ['config'], allow: ['config'] },
+            {
+              from: ['app-routes'],
+              allow: ['app-routes', 'app-features', ...appLayers, ...sharedPackages],
+            },
+            { from: ['app-features'], allow: [...appLayers, ...sharedPackages] },
+            {
+              from: ['app-components'],
+              allow: ['app-components', 'app-copy', 'tokens', 'domain', 'contracts'],
+            },
+            // `data` and `platform` never import `features`.
+            {
+              from: ['app-data', 'app-platform'],
+              allow: ['app-data', 'app-platform', 'contracts', 'domain', 'config'],
+            },
+            { from: ['app-copy'], allow: ['app-copy'] },
+            {
+              from: ['app-analytics'],
+              allow: ['app-analytics', 'app-data', 'contracts', 'domain', 'config'],
+            },
+            { from: ['functions'], allow: ['functions', 'contracts', 'domain', 'config'] },
+          ],
+        },
+      ],
+      'boundaries/external': [
+        'error',
+        {
+          default: 'disallow',
+          message:
+            '${file.type} is not allowed to import "${dependency.source}" (architecture §7.2)',
+          rules: [
+            // The domain stays pure: no React, no Supabase, no Deno, no I/O.
+            { from: ['domain'], allow: ['date-fns-tz', 'vitest'] },
+            { from: ['contracts'], allow: ['@circles/domain', 'zod', 'vitest'] },
+            { from: ['tokens'], allow: ['vitest'] },
+            { from: ['config'], allow: ['zod', 'vitest'] },
+            { from: ['app-routes', ...appLayers], allow: appExternals },
+            {
+              from: ['functions'],
+              allow: ['@circles/*', 'zod', 'vitest', 'resend', 'date-fns-tz', 'npm:*', 'jsr:*'],
+            },
+          ],
+        },
+      ],
+      '@typescript-eslint/consistent-type-imports': 'error',
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+    },
+  },
+  {
+    // Repository tooling: Node scripts and build configs, outside the layers.
+    files: ['scripts/**/*.{js,mjs,ts}', 'eslint.config.mjs', '**/*.config.{ts,mjs}'],
+    languageOptions: {
+      globals: globals.node,
+    },
+  },
+  prettier,
+);

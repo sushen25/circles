@@ -1,0 +1,7 @@
+{
+  "name": "@circles/functions",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Supabase Edge Functions (Deno). A workspace member so shared dev dependencies resolve; the functions themselves land in S0-06."
+}
