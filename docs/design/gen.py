@@ -1169,7 +1169,7 @@ flow = f"""
 S["ConversionMap"] = shell(flow, width=1400, minh=1100)
 
 # ============ write files ============
-out = "/home/claude/circles-design"
+out = os.environ.get("CIRCLES_DESIGN_OUT", os.path.dirname(os.path.abspath(__file__)))
 for name, html in S.items():
     with open(os.path.join(out, f"{name}.dc.html"), "w") as f:
         f.write(html)
