@@ -88,6 +88,14 @@ verification failed on formatting — after the commit.
 **The rule.** Any file touched by a temporary experiment gets a `git diff` before
 it is staged. `git checkout -- <file>` is safer than removing an edit by hand.
 
+**But `git checkout --` only works on a *tracked* file.** On a file that is new
+in the current branch it fails with `pathspec ... did not match any file(s)
+known to git`, and — if it was the second half of an `&&` chain, or its exit
+code went unread — the experiment stays in the file. This has happened twice: a
+deliberate `!` left in `en.ts`, and a `date-fns-tz` import left in
+`interval.ts`. Before probing a file, know whether it is tracked; if it is not,
+copy it aside and copy it back.
+
 ### 2.3 Exhaust the cheap diagnosis before redesigning
 
 **What happened.** `@circles/tokens/font-assets` failed to resolve on native with
@@ -216,3 +224,8 @@ that is 90% done and honestly labelled is worth more than one claimed complete.
   regenerates and diffs whenever `docs/design/` changes.
 - **Prose is not linted.** `docs/` and `.claude/` are excluded from Prettier so
   the specs keep their own line breaks.
+- **Documentation changes ride along with the work.** A rule learned while
+  working a ticket goes into the PR for that ticket, not a separate
+  documentation PR. One thing to review, and the lesson stays next to the change
+  that produced it. This file is the exception only when there is no ticket in
+  flight.
