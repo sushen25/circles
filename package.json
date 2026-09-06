@@ -19,7 +19,7 @@
     "gen:types": "node scripts/pending.mjs gen:types S0-06",
     "gen:tokens": "node --experimental-strip-types scripts/gen-tokens.ts",
     "check:brand": "node scripts/check-brand.mjs",
-    "check:tokens": "pnpm run gen:tokens && git diff --exit-code -- packages/tokens/src/generated.ts"
+    "check:tokens": "node --experimental-strip-types scripts/gen-tokens.ts --check"
   },
   "devDependencies": {
     "@circles/config": "workspace:*",

@@ -12,8 +12,13 @@
  * so a canvas edit cannot silently drift away from the app.
  *
  * Run: pnpm gen:tokens
+ *
+ * With `--check` it writes nothing and exits 1 if the file on disk differs from
+ * what the canvas would produce. That is the staleness question asked directly,
+ * rather than through `git diff`, which cannot tell "stale" from "regenerated
+ * but not yet committed".
  */
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -273,10 +278,29 @@ export const cell = ${JSON.stringify(cell, null, 2)} as const;
 const prettierConfig = await resolveConfig(TARGET);
 const formatted = await format(body, { ...prettierConfig, parser: 'typescript' });
 
-writeFileSync(TARGET, formatted);
+const summary =
+  `${EXPECTED_COLORS.length} colours, ${Object.keys(type).length} type roles, ` +
+  `${Object.keys(radius).length} radii`;
 
-console.log(
-  `gen:tokens: wrote packages/tokens/src/generated.ts — ` +
-    `${EXPECTED_COLORS.length} colours, ${Object.keys(type).length} type roles, ` +
-    `${Object.keys(radius).length} radii`,
-);
+if (process.argv.includes('--check')) {
+  const current = existsSync(TARGET) ? readFileSync(TARGET, 'utf8') : '';
+  if (current !== formatted) {
+    const currentLines = current.split('\n');
+    const changed = formatted
+      .split('\n')
+      .map((line, i) =>
+        currentLines[i] === line ? null : `  ${i + 1}: ${currentLines[i] ?? '(missing)'} → ${line}`,
+      )
+      .filter(Boolean)
+      .slice(0, 10);
+    console.error(
+      'check:tokens: packages/tokens/src/generated.ts is stale — docs/design/gen.py has moved on.\n' +
+        `${changed.join('\n')}\n\nRun \`pnpm gen:tokens\` and commit the result with the canvas change.`,
+    );
+    process.exit(1);
+  }
+  console.log(`check:tokens: tokens match the canvas — ${summary}`);
+} else {
+  writeFileSync(TARGET, formatted);
+  console.log(`gen:tokens: wrote packages/tokens/src/generated.ts — ${summary}`);
+}
