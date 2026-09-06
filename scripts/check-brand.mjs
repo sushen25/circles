@@ -14,7 +14,14 @@ const ALLOWED = new Set(['packages/config/src/brand.ts']);
 const RULES = [
   { name: 'display name', pattern: /\bCircles\b/ },
   { name: 'link domain', pattern: /\bcircles\.app\b/ },
-  { name: 'email address', pattern: /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/ },
+  {
+    name: 'email address',
+    pattern: /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/,
+    // RFC 2606 reserves these for documentation and examples. Placeholder copy
+    // seeded from the canvas uses them, and they can never reach a real inbox.
+    // `.example` is reserved too, and the canvas uses `someone@work.example`.
+    allow: /@(example\.(com|org|net)|[A-Za-z0-9.-]+\.example)\b/,
+  },
 ];
 
 function* walk(dir) {
@@ -43,7 +50,7 @@ for (const root of ROOTS) {
     const lines = readFileSync(path, 'utf8').split('\n');
     lines.forEach((line, index) => {
       for (const rule of RULES) {
-        if (rule.pattern.test(line)) {
+        if (rule.pattern.test(line) && !rule.allow?.test(line)) {
           failures.push(`${file}:${index + 1}  ${rule.name}: ${line.trim()}`);
         }
       }

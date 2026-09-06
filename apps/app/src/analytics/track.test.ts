@@ -1,0 +1,93 @@
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+import { bufferedEvents, configureAnalytics, flush, resetAnalytics, track } from './track';
+
+afterEach(resetAnalytics);
+
+const at = () => new Date('2026-09-17T08:30:00.000Z');
+
+describe('track', () => {
+  it('buffers a valid event with its catalogue version and time', () => {
+    configureAnalytics({ now: at });
+
+    expect(track('availability_submitted', { status: 'flexible' })).toBe(true);
+    expect(bufferedEvents()).toEqual([
+      {
+        name: 'availability_submitted',
+        version: 1,
+        occurred_at: '2026-09-17T08:30:00.000Z',
+        properties: { status: 'flexible' },
+      },
+    ]);
+  });
+
+  it('refuses a payload the catalogue does not declare', () => {
+    configureAnalytics({ now: at });
+    // `__DEV__` is undefined under the test runner, so this takes the
+    // production path: dropped, not thrown.
+    expect(track('circle_created', { email: 'redacted' } as never)).toBe(false);
+    expect(bufferedEvents()).toHaveLength(0);
+  });
+});
+
+describe('offline', () => {
+  it('keeps events when the send fails, and sends them on the next success', async () => {
+    const sent: unknown[][] = [];
+    let online = false;
+    configureAnalytics({
+      now: at,
+      transport: async (events) => {
+        if (!online) throw new Error('offline');
+        sent.push([...events]);
+      },
+    });
+
+    track('availability_started', {});
+    track('availability_submitted', { status: 'windows', window_count: 3 });
+    await flush();
+
+    expect(sent).toHaveLength(0);
+    expect(bufferedEvents()).toHaveLength(2);
+
+    online = true;
+    await flush();
+
+    expect(sent).toHaveLength(1);
+    expect(sent[0]).toHaveLength(2);
+    expect(bufferedEvents()).toHaveLength(0);
+  });
+
+  it('drops the oldest rather than growing without limit', async () => {
+    configureAnalytics({ now: at, transport: () => Promise.reject(new Error('offline')) });
+
+    for (let i = 0; i < 250; i += 1) track('circle_join_opened', {});
+    await flush();
+
+    expect(bufferedEvents().length).toBeLessThanOrEqual(200);
+  });
+
+  it('does not throw out of a tap handler when the transport explodes', async () => {
+    configureAnalytics({ now: at, transport: () => Promise.reject(new Error('boom')) });
+    expect(() => track('share_opened', { kind: 'invite' })).not.toThrow();
+    await expect(flush()).resolves.toBeUndefined();
+  });
+});
+
+describe('the catalogue is the contract', () => {
+  it('rejects an event name that is not declared', () => {
+    const unknown = 'made_up_event' as never;
+    expect(() => track(unknown, {} as never)).toThrow();
+  });
+
+  it('validates before buffering, so nothing undeclared can reach the wire', async () => {
+    const transport = vi.fn(async () => undefined);
+    configureAnalytics({ now: at, transport });
+
+    track('meetup_confirmed', { attending_count: 5, invited_count: 6 });
+    await flush();
+
+    expect(transport).toHaveBeenCalledOnce();
+    const [batch] = transport.mock.calls[0] as unknown as [{ properties: object }[]];
+    expect(Object.keys(batch[0]!.properties)).toEqual(['attending_count', 'invited_count']);
+  });
+});

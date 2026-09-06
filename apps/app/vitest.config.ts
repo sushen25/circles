@@ -23,6 +23,12 @@ export default defineConfig({
       '@circles/tokens': fileURLToPath(
         new URL('../../packages/tokens/src/index.ts', import.meta.url),
       ),
+      '@circles/contracts': fileURLToPath(
+        new URL('../../packages/contracts/src/index.ts', import.meta.url),
+      ),
+      '@circles/domain': fileURLToPath(
+        new URL('../../packages/domain/src/index.ts', import.meta.url),
+      ),
       '@circles/config': fileURLToPath(
         new URL('../../packages/config/src/index.ts', import.meta.url),
       ),
