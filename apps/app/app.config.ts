@@ -31,6 +31,11 @@ const appOrigin = process.env.EXPO_PUBLIC_APP_ORIGIN ?? `https://${brand.domain}
 // `circles` stays the identifier prefix whatever the product is called (§5.4).
 const bundleIdentifier = `app.circles.${appEnv}`;
 
+// Created by `eas init` as @sushen25/circles. Not a secret, and EAS needs it to
+// resolve the project, so it is committed rather than read from the
+// environment — a dynamic config cannot be written back to by the CLI.
+const easProjectId = '81371189-91d3-4ee8-859c-bf60a35ca7e0';
+
 const config: ExpoConfig = {
   name: brand.name,
   slug: 'circles',
@@ -53,6 +58,13 @@ const config: ExpoConfig = {
     },
     predictiveBackGestureEnabled: false,
   },
+  // EAS Update: one channel per build profile (see eas.json). `appVersion`
+  // ties the runtime to the version above, so a native change forces a build
+  // rather than silently shipping an incompatible update.
+  runtimeVersion: { policy: 'appVersion' },
+  updates: {
+    url: `https://u.expo.dev/${easProjectId}`,
+  },
   web: {
     bundler: 'metro',
     // Server output exists for exactly one route: link previews (ADR 0001).
@@ -74,9 +86,7 @@ const config: ExpoConfig = {
     supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
     supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
     turnstileSiteKey: process.env.EXPO_PUBLIC_TURNSTILE_SITE_KEY,
-    // Written by `eas init`; kept in the environment so this file stays the
-    // only description of the app and carries no account-specific ids.
-    eas: { projectId: process.env.EAS_PROJECT_ID },
+    eas: { projectId: easProjectId },
   },
 };
 

@@ -36,19 +36,26 @@ No product name, domain or sender is written anywhere but `packages/config/src/b
 ## EAS
 
 `eas.json` defines `development`, `preview` and `production`, each with a
-matching EAS Update channel. The EAS project itself is created once, by a human
-with an Expo account:
+matching EAS Update channel. The project is **@sushen25/circles**; its id is in
+`app.config.ts`, along with the EAS Update URL and an `appVersion` runtime
+version policy. (`eas update:configure` cannot write into a dynamic config, so
+those three values are set by hand — that is the whole of what it does.)
 
-```bash
-eas login
-eas init
-eas update:configure
-```
+Run EAS commands from this directory, not the repository root: `eas init` at the
+root writes a stray `app.json` next to `package.json` and then fails, because
+`expo` is not a dependency there.
 
-`eas init` prints a project id. Because the app is configured in `app.config.ts`
-rather than `app.json`, it cannot write the id back — put it in your environment
-(and in the EAS/CI environment) as `EAS_PROJECT_ID`; `app.config.ts` reads it
-into `extra.eas.projectId`.
+### Development builds
+
+Architecture §4 targets EAS Build development clients; Expo Go is not a target.
+`pnpm --filter app ios` runs `expo run:ios`, which needs Xcode and CocoaPods.
+
+**Local iOS builds are currently broken on Xcode 26.2** — `expo-modules-jsi@57.0.8`
+(the newest release for SDK 57) does not compile against its Swift/C++ interop:
+`SWIFT_RETURNS_RETAINED` on a non-shared-reference type, and, past that, Swift 6
+strict-concurrency errors in `JavaScriptRuntime.swift`. Nothing in this
+repository can fix it. Use EAS Build, which pins its own Xcode, or an older
+local Xcode, until Expo ships a fix.
 
 ## Structure
 
