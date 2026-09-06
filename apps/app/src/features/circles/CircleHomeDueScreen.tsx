@@ -26,12 +26,21 @@ import type { ScreenState } from '../state';
  */
 export type CircleHomeDueProps = {
   fixture: Fixture;
-  state?: ScreenState;
-  onNext?: () => void;
-  onBack?: () => void;
+  state?: ScreenState | undefined;
+  /** The screen's one decision. */
+  onNext?: (() => void) | undefined;
+  onBack?: (() => void) | undefined;
+  onSnoozeAMonth?: (() => void) | undefined;
+  onTurnOffNudges?: (() => void) | undefined;
 };
 
-export function CircleHomeDueScreen({ fixture, onNext, onBack }: CircleHomeDueProps) {
+export function CircleHomeDueScreen({
+  fixture,
+  onNext,
+  onBack,
+  onSnoozeAMonth,
+  onTurnOffNudges,
+}: CircleHomeDueProps) {
   return (
     <Screen>
       <TopBar onBack={onBack} backLabel={t('common', 'back')} />
@@ -49,12 +58,12 @@ export function CircleHomeDueScreen({ fixture, onNext, onBack }: CircleHomeDuePr
             <Button
               label={t('circleHomeDue', 'snooze_a_month')}
               variant="secondary"
-              onPress={onNext}
+              onPress={onSnoozeAMonth}
             />
             <Button
               label={t('circleHomeDue', 'turn_off_nudges')}
               variant="secondary"
-              onPress={onNext}
+              onPress={onTurnOffNudges}
             />
           </Row>
         </Card>

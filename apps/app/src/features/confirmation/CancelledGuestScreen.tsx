@@ -24,12 +24,14 @@ import type { ScreenState } from '../state';
  */
 export type CancelledGuestProps = {
   fixture: Fixture;
-  state?: ScreenState;
-  onNext?: () => void;
-  onBack?: () => void;
+  state?: ScreenState | undefined;
+  /** The screen's one decision. */
+  onNext?: (() => void) | undefined;
+  onBack?: (() => void) | undefined;
+  onBackToSundayCrew?: (() => void) | undefined;
 };
 
-export function CancelledGuestScreen({ onNext, onBack }: CancelledGuestProps) {
+export function CancelledGuestScreen({ onBack, onBackToSundayCrew }: CancelledGuestProps) {
   return (
     <Screen>
       <TopBar
@@ -54,7 +56,7 @@ export function CancelledGuestScreen({ onNext, onBack }: CancelledGuestProps) {
         <Button
           label={t('cancelledGuest', 'back_to_sunday_crew')}
           variant="secondary"
-          onPress={onNext}
+          onPress={onBackToSundayCrew}
         />
       </Foot>
     </Screen>

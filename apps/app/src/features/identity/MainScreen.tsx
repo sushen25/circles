@@ -26,12 +26,14 @@ import type { ScreenState } from '../state';
  */
 export type MainProps = {
   fixture: Fixture;
-  state?: ScreenState;
-  onNext?: () => void;
-  onBack?: () => void;
+  state?: ScreenState | undefined;
+  /** The screen's one decision. */
+  onNext?: (() => void) | undefined;
+  onBack?: (() => void) | undefined;
+  onWhatIsBrand?: (() => void) | undefined;
 };
 
-export function MainScreen({ fixture, onNext, onBack }: MainProps) {
+export function MainScreen({ fixture, onNext, onBack, onWhatIsBrand }: MainProps) {
   return (
     <Screen>
       <TopBar onBack={onBack} backLabel={t('common', 'back')} />
@@ -47,7 +49,7 @@ export function MainScreen({ fixture, onNext, onBack }: MainProps) {
       </Body>
       <Foot>
         <Button label={t('main', 'choose_my_times')} onPress={onNext} />
-        <Tertiary label={t('main', 'what_is_brand')} onPress={onNext} />
+        <Tertiary label={t('main', 'what_is_brand')} onPress={onWhatIsBrand} />
       </Foot>
     </Screen>
   );

@@ -25,12 +25,14 @@ import type { ScreenState } from '../state';
  */
 export type FirstPlanProps = {
   fixture: Fixture;
-  state?: ScreenState;
-  onNext?: () => void;
-  onBack?: () => void;
+  state?: ScreenState | undefined;
+  /** The screen's one decision. */
+  onNext?: (() => void) | undefined;
+  onBack?: (() => void) | undefined;
+  onSeeIfPeopleAre?: (() => void) | undefined;
 };
 
-export function FirstPlanScreen({ onNext, onBack }: FirstPlanProps) {
+export function FirstPlanScreen({ onNext, onBack, onSeeIfPeopleAre }: FirstPlanProps) {
   return (
     <Screen>
       <TopBar
@@ -79,7 +81,10 @@ export function FirstPlanScreen({ onNext, onBack }: FirstPlanProps) {
       </Body>
       <Foot>
         <Button label={t('firstPlan', 'ask_the_group')} onPress={onNext} />
-        <Tertiary label={t('firstPlan', 'see_if_people_are_keen_instead')} onPress={onNext} />
+        <Tertiary
+          label={t('firstPlan', 'see_if_people_are_keen_instead')}
+          onPress={onSeeIfPeopleAre}
+        />
       </Foot>
     </Screen>
   );

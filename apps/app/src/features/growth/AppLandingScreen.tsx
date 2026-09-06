@@ -27,9 +27,10 @@ import type { ScreenState } from '../state';
  */
 export type AppLandingProps = {
   fixture: Fixture;
-  state?: ScreenState;
-  onNext?: () => void;
-  onBack?: () => void;
+  state?: ScreenState | undefined;
+  /** The screen's one decision. */
+  onNext?: (() => void) | undefined;
+  onBack?: (() => void) | undefined;
 };
 
 export function AppLandingScreen({ onNext }: AppLandingProps) {

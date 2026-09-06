@@ -25,12 +25,14 @@ import type { ScreenState } from '../state';
  */
 export type SaveAccessProps = {
   fixture: Fixture;
-  state?: ScreenState;
-  onNext?: () => void;
-  onBack?: () => void;
+  state?: ScreenState | undefined;
+  /** The screen's one decision. */
+  onNext?: (() => void) | undefined;
+  onBack?: (() => void) | undefined;
+  onNotNow?: (() => void) | undefined;
 };
 
-export function SaveAccessScreen({ onNext, onBack }: SaveAccessProps) {
+export function SaveAccessScreen({ onNext, onBack, onNotNow }: SaveAccessProps) {
   return (
     <Screen>
       <TopBar
@@ -51,7 +53,7 @@ export function SaveAccessScreen({ onNext, onBack }: SaveAccessProps) {
       </Body>
       <Foot>
         <Button label={t('saveAccess', 'send_me_a_code')} onPress={onNext} />
-        <Tertiary label={t('saveAccess', 'not_now')} onPress={onNext} />
+        <Tertiary label={t('saveAccess', 'not_now')} onPress={onNotNow} />
       </Foot>
     </Screen>
   );

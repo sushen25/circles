@@ -26,12 +26,14 @@ import type { ScreenState } from '../state';
  */
 export type CircleHomeProps = {
   fixture: Fixture;
-  state?: ScreenState;
-  onNext?: () => void;
-  onBack?: () => void;
+  state?: ScreenState | undefined;
+  /** The screen's one decision. */
+  onNext?: (() => void) | undefined;
+  onBack?: (() => void) | undefined;
+  onSeeHowItsLooking?: (() => void) | undefined;
 };
 
-export function CircleHomeScreen({ fixture, onNext, onBack }: CircleHomeProps) {
+export function CircleHomeScreen({ fixture, onNext, onBack, onSeeHowItsLooking }: CircleHomeProps) {
   return (
     <Screen>
       <TopBar onBack={onBack} backLabel={t('common', 'back')} />
@@ -55,7 +57,7 @@ export function CircleHomeScreen({ fixture, onNext, onBack }: CircleHomeProps) {
           <Button
             label={t('circleHome', 'see_how_its_looking')}
             variant="secondary"
-            onPress={onNext}
+            onPress={onSeeHowItsLooking}
           />
         </Card>
         <Card>

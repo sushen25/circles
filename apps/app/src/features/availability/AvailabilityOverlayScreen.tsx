@@ -26,12 +26,19 @@ import type { ScreenState } from '../state';
  */
 export type AvailabilityOverlayProps = {
   fixture: Fixture;
-  state?: ScreenState;
-  onNext?: () => void;
-  onBack?: () => void;
+  state?: ScreenState | undefined;
+  /** The screen's one decision. */
+  onNext?: (() => void) | undefined;
+  onBack?: (() => void) | undefined;
+  onNoneOfTheseDates?: (() => void) | undefined;
 };
 
-export function AvailabilityOverlayScreen({ fixture, onNext, onBack }: AvailabilityOverlayProps) {
+export function AvailabilityOverlayScreen({
+  fixture,
+  onNext,
+  onBack,
+  onNoneOfTheseDates,
+}: AvailabilityOverlayProps) {
   return (
     <Screen>
       <TopBar
@@ -131,7 +138,7 @@ export function AvailabilityOverlayScreen({ fixture, onNext, onBack }: Availabil
         <Button label={t('availabilityOverlay', 'send_my_times')} onPress={onNext} />
         <Tertiary
           label={t('availabilityOverlay', 'none_of_these_dates_work_for_me')}
-          onPress={onNext}
+          onPress={onNoneOfTheseDates}
         />
       </Foot>
     </Screen>

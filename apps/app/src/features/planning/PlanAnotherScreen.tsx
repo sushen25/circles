@@ -27,12 +27,14 @@ import type { ScreenState } from '../state';
  */
 export type PlanAnotherProps = {
   fixture: Fixture;
-  state?: ScreenState;
-  onNext?: () => void;
-  onBack?: () => void;
+  state?: ScreenState | undefined;
+  /** The screen's one decision. */
+  onNext?: (() => void) | undefined;
+  onBack?: (() => void) | undefined;
+  onSeeIfPeopleAre?: (() => void) | undefined;
 };
 
-export function PlanAnotherScreen({ onNext, onBack }: PlanAnotherProps) {
+export function PlanAnotherScreen({ onNext, onBack, onSeeIfPeopleAre }: PlanAnotherProps) {
   return (
     <Screen>
       <TopBar
@@ -87,7 +89,7 @@ export function PlanAnotherScreen({ onNext, onBack }: PlanAnotherProps) {
         <Button
           label={t('planAnother', 'see_if_people_are_keen_instead')}
           variant="secondary"
-          onPress={onNext}
+          onPress={onSeeIfPeopleAre}
         />
       </Foot>
     </Screen>

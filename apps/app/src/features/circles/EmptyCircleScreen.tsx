@@ -25,12 +25,14 @@ import type { ScreenState } from '../state';
  */
 export type EmptyCircleProps = {
   fixture: Fixture;
-  state?: ScreenState;
-  onNext?: () => void;
-  onBack?: () => void;
+  state?: ScreenState | undefined;
+  /** The screen's one decision. */
+  onNext?: (() => void) | undefined;
+  onBack?: (() => void) | undefined;
+  onPlanACatchUp?: (() => void) | undefined;
 };
 
-export function EmptyCircleScreen({ onNext, onBack }: EmptyCircleProps) {
+export function EmptyCircleScreen({ onNext, onBack, onPlanACatchUp }: EmptyCircleProps) {
   return (
     <Screen>
       <TopBar onBack={onBack} backLabel={t('common', 'back')} />
@@ -53,7 +55,7 @@ export function EmptyCircleScreen({ onNext, onBack }: EmptyCircleProps) {
         <Button
           label={t('emptyCircle', 'plan_a_catch_up_anyway')}
           variant="secondary"
-          onPress={onNext}
+          onPress={onPlanACatchUp}
         />
       </Foot>
     </Screen>

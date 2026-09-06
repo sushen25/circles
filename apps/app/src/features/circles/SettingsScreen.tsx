@@ -26,12 +26,22 @@ import type { ScreenState } from '../state';
  */
 export type SettingsProps = {
   fixture: Fixture;
-  state?: ScreenState;
-  onNext?: () => void;
-  onBack?: () => void;
+  state?: ScreenState | undefined;
+  /** The screen's one decision. */
+  onNext?: (() => void) | undefined;
+  onBack?: (() => void) | undefined;
+  onArchiveThisCircle?: (() => void) | undefined;
+  onCopyLink?: (() => void) | undefined;
+  onResetLink?: (() => void) | undefined;
 };
 
-export function SettingsScreen({ fixture, onNext, onBack }: SettingsProps) {
+export function SettingsScreen({
+  fixture,
+  onBack,
+  onArchiveThisCircle,
+  onCopyLink,
+  onResetLink,
+}: SettingsProps) {
   return (
     <Screen>
       <TopBar
@@ -45,8 +55,8 @@ export function SettingsScreen({ fixture, onNext, onBack }: SettingsProps) {
           <Label>{t('settings', 'invite_link')}</Label>
           <Input placeholder={t('settings', 'domain_join_7f3k')} />
           <Row>
-            <Button label={t('settings', 'copy_link')} variant="secondary" onPress={onNext} />
-            <Button label={t('settings', 'reset_link')} variant="secondary" onPress={onNext} />
+            <Button label={t('settings', 'copy_link')} variant="secondary" onPress={onCopyLink} />
+            <Button label={t('settings', 'reset_link')} variant="secondary" onPress={onResetLink} />
           </Row>
           <Small>{t('settings', 'resetting_the_link_doesnt_affect_anyone_whos')}</Small>
         </Card>
@@ -113,7 +123,7 @@ export function SettingsScreen({ fixture, onNext, onBack }: SettingsProps) {
             <Small>{t('settings', 'remove')}</Small>
           </Card>
         </Stack>
-        <Tertiary label={t('settings', 'archive_this_circle')} onPress={onNext} />
+        <Tertiary label={t('settings', 'archive_this_circle')} onPress={onArchiveThisCircle} />
       </Body>
     </Screen>
   );

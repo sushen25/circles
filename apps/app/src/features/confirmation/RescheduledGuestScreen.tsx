@@ -26,12 +26,14 @@ import type { ScreenState } from '../state';
  */
 export type RescheduledGuestProps = {
   fixture: Fixture;
-  state?: ScreenState;
-  onNext?: () => void;
-  onBack?: () => void;
+  state?: ScreenState | undefined;
+  /** The screen's one decision. */
+  onNext?: (() => void) | undefined;
+  onBack?: (() => void) | undefined;
+  onNotThisTime?: (() => void) | undefined;
 };
 
-export function RescheduledGuestScreen({ onNext, onBack }: RescheduledGuestProps) {
+export function RescheduledGuestScreen({ onNext, onBack, onNotThisTime }: RescheduledGuestProps) {
   return (
     <Screen>
       <TopBar
@@ -62,7 +64,7 @@ export function RescheduledGuestScreen({ onNext, onBack }: RescheduledGuestProps
       </Body>
       <Foot>
         <Button label={t('rescheduledGuest', 'choose_my_times')} onPress={onNext} />
-        <Tertiary label={t('rescheduledGuest', 'not_this_time')} onPress={onNext} />
+        <Tertiary label={t('rescheduledGuest', 'not_this_time')} onPress={onNotThisTime} />
       </Foot>
     </Screen>
   );

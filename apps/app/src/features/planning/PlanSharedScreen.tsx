@@ -24,12 +24,15 @@ import type { ScreenState } from '../state';
  */
 export type PlanSharedProps = {
   fixture: Fixture;
-  state?: ScreenState;
-  onNext?: () => void;
-  onBack?: () => void;
+  state?: ScreenState | undefined;
+  /** The screen's one decision. */
+  onNext?: (() => void) | undefined;
+  onBack?: (() => void) | undefined;
+  onCopy?: (() => void) | undefined;
+  onShare?: (() => void) | undefined;
 };
 
-export function PlanSharedScreen({ onNext, onBack }: PlanSharedProps) {
+export function PlanSharedScreen({ onNext, onBack, onCopy, onShare }: PlanSharedProps) {
   return (
     <Screen>
       <TopBar onBack={onBack} backLabel={t('common', 'back')} />
@@ -42,8 +45,8 @@ export function PlanSharedScreen({ onNext, onBack }: PlanSharedProps) {
         <Card>
           <BodyText>{t('planShared', 'when_can_sunday_crew_actually_catch_up')}</BodyText>
           <Row>
-            <Button label={t('planShared', 'copy')} variant="secondary" onPress={onNext} />
-            <Button label={t('planShared', 'share')} variant="secondary" onPress={onNext} />
+            <Button label={t('planShared', 'copy')} variant="secondary" onPress={onCopy} />
+            <Button label={t('planShared', 'share')} variant="secondary" onPress={onShare} />
           </Row>
         </Card>
         <Small>{t('planShared', 'replies_close_tue_15_sep_6_pm')}</Small>

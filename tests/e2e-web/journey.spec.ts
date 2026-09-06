@@ -67,3 +67,29 @@ test.describe('the gallery', () => {
     await expect(page.getByText('73 screens', { exact: false })).toBeVisible();
   });
 });
+
+test.describe('secondary actions', () => {
+  test('“New circle” creates a circle rather than opening one', async ({ page }) => {
+    // It used to fire the journey's `onNext` and land on the circle home,
+    // which reads as the planning screen. A button that goes somewhere
+    // plausible and wrong is worse than one that does nothing.
+    await page.goto('/circles');
+    await page.getByRole('button', { name: /New circle/i }).click();
+
+    await expect(page).toHaveURL(/\/circles\/create/);
+  });
+
+  test('an action with nowhere to go yet does nothing, rather than something wrong', async ({
+    page,
+  }) => {
+    await page.goto('/circles/sunday-crew/plan/thu-17/confirmed');
+    const before = page.url();
+
+    // "Add to my calendar" has no destination until Slice 1 builds one. It
+    // must sit there inert, not inherit the journey's next step.
+    await page.getByRole('button', { name: /Add to my calendar/i }).click();
+    await page.waitForTimeout(200);
+
+    expect(page.url()).toBe(before);
+  });
+});

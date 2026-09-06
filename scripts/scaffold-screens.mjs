@@ -195,6 +195,31 @@ function has(node, name) {
   return node.cls.split(/\s+/).includes(name);
 }
 
+/**
+ * The callback an action gets.
+ *
+ * The first primary button is the screen's one decision, so it carries the
+ * journey's `onNext`. Everything else gets a callback named after its own
+ * label — a route wires the ones whose destination is known and leaves the rest
+ * undefined, so a button that has nowhere to go does nothing rather than going
+ * somewhere plausible and wrong.
+ */
+function handler(ctx, label, primary) {
+  if (primary && !ctx.claimedPrimary) {
+    ctx.claimedPrimary = true;
+    return 'onNext';
+  }
+  const name =
+    'on' +
+    slug(label)
+      .split('_')
+      .slice(0, 4)
+      .map((w) => w[0].toUpperCase() + w.slice(1))
+      .join('');
+  ctx.actions.add(name);
+  return name;
+}
+
 function render(node, ctx, depth) {
   const pad = '  '.repeat(depth);
   const key = (text) => {
@@ -229,12 +254,18 @@ function render(node, ctx, depth) {
 
   if (has(node, 'btn')) {
     const k = key(text);
+    if (!k) return '';
     const variant = has(node, 'sec') ? ' variant="secondary"' : '';
-    return k ? line(`<Button label={t('${ctx.screen}', ${k})}${variant} onPress={onNext} />`) : '';
+    return line(
+      `<Button label={t('${ctx.screen}', ${k})}${variant} onPress={${handler(ctx, text, has(node, 'pri'))}} />`,
+    );
   }
   if (has(node, 'ter')) {
     const k = key(text);
-    return k ? line(`<Tertiary label={t('${ctx.screen}', ${k})} onPress={onNext} />`) : '';
+    if (!k) return '';
+    return line(
+      `<Tertiary label={t('${ctx.screen}', ${k})} onPress={${handler(ctx, text, false)}} />`,
+    );
   }
   if (has(node, 'notice')) {
     const kind = has(node, 'warn') ? ' kind="warn"' : has(node, 'ok') ? ' kind="ok"' : '';
@@ -311,7 +342,14 @@ for (const [screen, [feature]] of Object.entries(SCREENS)) {
   const markup = html.slice(start, html.lastIndexOf('</div>'));
   const tree = parse(markup);
 
-  const ctx = { screen: camel(screen), keys: copyKeys(screen), used: new Set(), added: new Map() };
+  const ctx = {
+    screen: camel(screen),
+    keys: copyKeys(screen),
+    used: new Set(),
+    added: new Map(),
+    actions: new Set(),
+    claimedPrimary: false,
+  };
 
   const screenNode = tree.children.find((c) => has(c, 'screen')) ?? tree;
   const top = screenNode.children.find((c) => has(c, 'top'));
@@ -392,6 +430,7 @@ for (const [screen, [feature]] of Object.entries(SCREENS)) {
     usesFixture ? 'fixture' : null,
     usesNext ? 'onNext' : null,
     usesBack ? 'onBack' : null,
+    ...[...ctx.actions].sort(),
   ]
     .filter(Boolean)
     .join(', ');
@@ -410,9 +449,14 @@ for (const [screen, [feature]] of Object.entries(SCREENS)) {
  */
 export type ${screen}Props = {
   fixture: Fixture;
-  state?: ScreenState;
-  onNext?: () => void;
-  onBack?: () => void;
+  state?: ScreenState | undefined;
+  /** The screen's one decision. */
+  onNext?: (() => void) | undefined;
+  onBack?: (() => void) | undefined;
+${[...ctx.actions]
+  .sort()
+  .map((a) => `  ${a}?: (() => void) | undefined;`)
+  .join('\n')}
 };
 
 export function ${screen}Screen(${params ? `{ ${params} }: ${screen}Props` : `_props: ${screen}Props`}) {
@@ -475,6 +519,32 @@ const JOURNEY = [
   '/circles/[id]/plan/[planId]/outcome',
 ];
 
+/**
+ * Secondary actions whose destination is unambiguous from the label.
+ *
+ * Everything not listed here is left undefined on purpose: an unwired button
+ * does nothing, which is honest, where a button wired to the journey's next
+ * step would go somewhere plausible and wrong. Slice 1 wires the rest as it
+ * builds each flow.
+ */
+const DESTINATIONS = {
+  'CirclesList.onNewCircle': '/circles/create',
+  'EmptyCirclesList.onNewCircle': '/circles/create',
+  'CircleHome.onSeeHowItsLooking': '/circles/[id]/plan/[planId]/candidates',
+  'CircleHomeConfirmed.onPlanAnother': '/circles/[id]/plan/another',
+  'CircleHomeDue.onPlanAnother': '/circles/[id]/plan/another',
+  'Main.onWhatIsBrand': '/app',
+  'LinkInvalid.onWhatIsBrand': '/app',
+  'Availability.onNoneOfTheseDates': '/j/[code]/none',
+  'Sent.onGetTheApp': '/app',
+  'ConfirmedGuest.onGetTheApp': '/app',
+  'ConfirmedGuest.onICantMakeIt': '/p/[code]/attendance',
+  'Candidates.onNoneOfTheseDates': '/circles/[id]/plan/[planId]/no-quorum',
+  'Welcome.onContinueWithEmail': '/(auth)/sign-in',
+  'ConfirmReview.onNotThisOne': '/circles/[id]/plan/[planId]/candidates',
+  'Settings.onCopyLink': '/circles/[id]/invite',
+};
+
 /** Fixture ids, so a route with params still resolves when it is pushed. */
 const withIds = (route) => route.replace('[id]', 'sunday-crew').replace('[planId]', 'thu-17');
 
@@ -492,6 +562,19 @@ for (const [screen, [feature, route]] of Object.entries(SCREENS)) {
   const next = journeyAt >= 0 && journeyAt < JOURNEY.length - 1 ? JOURNEY[journeyAt + 1] : null;
   const depth = '../'.repeat(file.split('/').length - 3);
 
+  // Which of this screen's own actions we know a destination for.
+  const screenSource = readFileSync(`apps/app/src/features/${feature}/${screen}Screen.tsx`, 'utf8');
+  const actions = [...screenSource.matchAll(/^ {2}(on[A-Z]\w*)\?:/gm)]
+    .map((m) => m[1])
+    .filter((name) => DESTINATIONS[`${screen}.${name}`]);
+
+  const actionProps = actions
+    .map(
+      (name) =>
+        `      ${name}={() => router.push('${withIds(DESTINATIONS[`${screen}.${name}`])}')}`,
+    )
+    .join('\n');
+
   mkdirSync(dirname(file), { recursive: true });
   writeFileSync(
     file,
@@ -508,7 +591,7 @@ export default function Route() {
   return (
     <${screen}Screen
       fixture={fixture}
-${next ? `      onNext={() => router.push('${withIds(next)}')}\n` : ''}      onBack={() => router.back()}
+${next ? `      onNext={() => router.push('${withIds(next)}')}\n` : ''}${actionProps ? `${actionProps}\n` : ''}      onBack={() => router.back()}
     />
   );
 }

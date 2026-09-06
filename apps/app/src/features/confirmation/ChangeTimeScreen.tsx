@@ -26,12 +26,14 @@ import type { ScreenState } from '../state';
  */
 export type ChangeTimeProps = {
   fixture: Fixture;
-  state?: ScreenState;
-  onNext?: () => void;
-  onBack?: () => void;
+  state?: ScreenState | undefined;
+  /** The screen's one decision. */
+  onNext?: (() => void) | undefined;
+  onBack?: (() => void) | undefined;
+  onKeepThursday?: (() => void) | undefined;
 };
 
-export function ChangeTimeScreen({ onNext, onBack }: ChangeTimeProps) {
+export function ChangeTimeScreen({ onNext, onBack, onKeepThursday }: ChangeTimeProps) {
   return (
     <Screen>
       <TopBar title={t('changeTime', 'back')} onBack={onBack} backLabel={t('common', 'back')} />
@@ -52,7 +54,7 @@ export function ChangeTimeScreen({ onNext, onBack }: ChangeTimeProps) {
       </Body>
       <Foot>
         <Button label={t('changeTime', 'ask_again')} onPress={onNext} />
-        <Tertiary label={t('changeTime', 'keep_thursday')} onPress={onNext} />
+        <Tertiary label={t('changeTime', 'keep_thursday')} onPress={onKeepThursday} />
       </Foot>
     </Screen>
   );

@@ -25,12 +25,14 @@ import type { ScreenState } from '../state';
  */
 export type ContinueAsProps = {
   fixture: Fixture;
-  state?: ScreenState;
-  onNext?: () => void;
-  onBack?: () => void;
+  state?: ScreenState | undefined;
+  /** The screen's one decision. */
+  onNext?: (() => void) | undefined;
+  onBack?: (() => void) | undefined;
+  onImNewHere?: (() => void) | undefined;
 };
 
-export function ContinueAsScreen({ fixture, onNext, onBack }: ContinueAsProps) {
+export function ContinueAsScreen({ fixture, onBack, onImNewHere }: ContinueAsProps) {
   return (
     <Screen>
       <TopBar
@@ -76,7 +78,7 @@ export function ContinueAsScreen({ fixture, onNext, onBack }: ContinueAsProps) {
         </Card>
       </Body>
       <Foot>
-        <Button label={t('continueAs', 'im_new_here')} variant="secondary" onPress={onNext} />
+        <Button label={t('continueAs', 'im_new_here')} variant="secondary" onPress={onImNewHere} />
       </Foot>
     </Screen>
   );

@@ -24,12 +24,20 @@ import type { ScreenState } from '../state';
  */
 export type ReattachedNudgeProps = {
   fixture: Fixture;
-  state?: ScreenState;
-  onNext?: () => void;
-  onBack?: () => void;
+  state?: ScreenState | undefined;
+  /** The screen's one decision. */
+  onNext?: (() => void) | undefined;
+  onBack?: (() => void) | undefined;
+  onCarryOnToSunday?: (() => void) | undefined;
+  onNotNow?: (() => void) | undefined;
 };
 
-export function ReattachedNudgeScreen({ onNext, onBack }: ReattachedNudgeProps) {
+export function ReattachedNudgeScreen({
+  onNext,
+  onBack,
+  onCarryOnToSunday,
+  onNotNow,
+}: ReattachedNudgeProps) {
   return (
     <Screen>
       <TopBar
@@ -50,14 +58,14 @@ export function ReattachedNudgeScreen({ onNext, onBack }: ReattachedNudgeProps) 
           <Row>
             <Button label={t('reattachedNudge', 'save_my_place')} onPress={onNext} />
           </Row>
-          <Tertiary label={t('reattachedNudge', 'not_now')} onPress={onNext} />
+          <Tertiary label={t('reattachedNudge', 'not_now')} onPress={onNotNow} />
         </Card>
       </Body>
       <Foot>
         <Button
           label={t('reattachedNudge', 'carry_on_to_sunday_crew')}
           variant="secondary"
-          onPress={onNext}
+          onPress={onCarryOnToSunday}
         />
       </Foot>
     </Screen>

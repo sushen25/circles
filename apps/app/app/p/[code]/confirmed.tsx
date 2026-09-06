@@ -8,5 +8,11 @@ export default function Route() {
   const router = useRouter();
   const fixture = useFixture();
 
-  return <ConfirmedGuestScreen fixture={fixture} onBack={() => router.back()} />;
+  return (
+    <ConfirmedGuestScreen
+      fixture={fixture}
+      onICantMakeIt={() => router.push('/p/[code]/attendance')}
+      onBack={() => router.back()}
+    />
+  );
 }

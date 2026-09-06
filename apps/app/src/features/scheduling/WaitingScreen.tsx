@@ -28,12 +28,20 @@ import type { ScreenState } from '../state';
  */
 export type WaitingProps = {
   fixture: Fixture;
-  state?: ScreenState;
-  onNext?: () => void;
-  onBack?: () => void;
+  state?: ScreenState | undefined;
+  /** The screen's one decision. */
+  onNext?: (() => void) | undefined;
+  onBack?: (() => void) | undefined;
+  onEditThePlan?: (() => void) | undefined;
+  onShareTheLinkAgain?: (() => void) | undefined;
 };
 
-export function WaitingScreen({ fixture, onNext, onBack }: WaitingProps) {
+export function WaitingScreen({
+  fixture,
+  onBack,
+  onEditThePlan,
+  onShareTheLinkAgain,
+}: WaitingProps) {
   return (
     <Screen>
       <TopBar
@@ -76,8 +84,12 @@ export function WaitingScreen({ fixture, onNext, onBack }: WaitingProps) {
         <Small>{t('waiting', 'only_you_see_this_while_its_incomplete')}</Small>
       </Body>
       <Foot>
-        <Button label={t('waiting', 'share_the_link_again')} variant="secondary" onPress={onNext} />
-        <Tertiary label={t('waiting', 'edit_the_plan')} onPress={onNext} />
+        <Button
+          label={t('waiting', 'share_the_link_again')}
+          variant="secondary"
+          onPress={onShareTheLinkAgain}
+        />
+        <Tertiary label={t('waiting', 'edit_the_plan')} onPress={onEditThePlan} />
       </Foot>
     </Screen>
   );

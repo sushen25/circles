@@ -8,5 +8,11 @@ export default function Route() {
   const router = useRouter();
   const fixture = useFixture();
 
-  return <MainScreen fixture={fixture} onBack={() => router.back()} />;
+  return (
+    <MainScreen
+      fixture={fixture}
+      onWhatIsBrand={() => router.push('/app')}
+      onBack={() => router.back()}
+    />
+  );
 }

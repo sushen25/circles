@@ -24,12 +24,14 @@ import type { ScreenState } from '../state';
  */
 export type AfterAttendanceProps = {
   fixture: Fixture;
-  state?: ScreenState;
-  onNext?: () => void;
-  onBack?: () => void;
+  state?: ScreenState | undefined;
+  /** The screen's one decision. */
+  onNext?: (() => void) | undefined;
+  onBack?: (() => void) | undefined;
+  onMaybeLater?: (() => void) | undefined;
 };
 
-export function AfterAttendanceScreen({ onNext, onBack }: AfterAttendanceProps) {
+export function AfterAttendanceScreen({ onNext, onBack, onMaybeLater }: AfterAttendanceProps) {
   return (
     <Screen>
       <TopBar onBack={onBack} backLabel={t('common', 'back')} />
@@ -47,7 +49,7 @@ export function AfterAttendanceScreen({ onNext, onBack }: AfterAttendanceProps) 
           <Row>
             <Button label={t('afterAttendance', 'start_a_circle')} onPress={onNext} />
           </Row>
-          <Tertiary label={t('afterAttendance', 'maybe_later')} onPress={onNext} />
+          <Tertiary label={t('afterAttendance', 'maybe_later')} onPress={onMaybeLater} />
         </Card>
       </Body>
     </Screen>

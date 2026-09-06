@@ -23,12 +23,14 @@ import type { ScreenState } from '../state';
  */
 export type AppSheetProps = {
   fixture: Fixture;
-  state?: ScreenState;
-  onNext?: () => void;
-  onBack?: () => void;
+  state?: ScreenState | undefined;
+  /** The screen's one decision. */
+  onNext?: (() => void) | undefined;
+  onBack?: (() => void) | undefined;
+  onNotNow?: (() => void) | undefined;
 };
 
-export function AppSheetScreen({ onNext }: AppSheetProps) {
+export function AppSheetScreen({ onNext, onNotNow }: AppSheetProps) {
   return (
     <Screen>
       <Body>
@@ -58,7 +60,7 @@ export function AppSheetScreen({ onNext }: AppSheetProps) {
           </Stack>
         </Card>
         <Button label={t('appSheet', 'get_the_app')} onPress={onNext} />
-        <Tertiary label={t('appSheet', 'not_now')} onPress={onNext} />
+        <Tertiary label={t('appSheet', 'not_now')} onPress={onNotNow} />
         <Small>{t('appSheet', 'free_no_ads_well_remember_you_said')}</Small>
       </Body>
     </Screen>

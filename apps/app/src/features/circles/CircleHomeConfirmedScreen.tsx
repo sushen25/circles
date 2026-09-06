@@ -25,12 +25,22 @@ import type { ScreenState } from '../state';
  */
 export type CircleHomeConfirmedProps = {
   fixture: Fixture;
-  state?: ScreenState;
-  onNext?: () => void;
-  onBack?: () => void;
+  state?: ScreenState | undefined;
+  /** The screen's one decision. */
+  onNext?: (() => void) | undefined;
+  onBack?: (() => void) | undefined;
+  onDetails?: (() => void) | undefined;
+  onPlanAnother?: (() => void) | undefined;
+  onShare?: (() => void) | undefined;
 };
 
-export function CircleHomeConfirmedScreen({ fixture, onNext, onBack }: CircleHomeConfirmedProps) {
+export function CircleHomeConfirmedScreen({
+  fixture,
+  onBack,
+  onDetails,
+  onPlanAnother,
+  onShare,
+}: CircleHomeConfirmedProps) {
   return (
     <Screen>
       <TopBar onBack={onBack} backLabel={t('common', 'back')} />
@@ -54,12 +64,12 @@ export function CircleHomeConfirmedScreen({ fixture, onNext, onBack }: CircleHom
             <Button
               label={t('circleHomeConfirmed', 'details')}
               variant="secondary"
-              onPress={onNext}
+              onPress={onDetails}
             />
             <Button
               label={t('circleHomeConfirmed', 'share')}
               variant="secondary"
-              onPress={onNext}
+              onPress={onShare}
             />
           </Row>
         </Card>
@@ -87,7 +97,7 @@ export function CircleHomeConfirmedScreen({ fixture, onNext, onBack }: CircleHom
         <Button
           label={t('circleHomeConfirmed', 'plan_another')}
           variant="secondary"
-          onPress={onNext}
+          onPress={onPlanAnother}
         />
       </Foot>
     </Screen>

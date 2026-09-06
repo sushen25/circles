@@ -26,12 +26,14 @@ import type { ScreenState } from '../state';
  */
 export type SentProps = {
   fixture: Fixture;
-  state?: ScreenState;
-  onNext?: () => void;
-  onBack?: () => void;
+  state?: ScreenState | undefined;
+  /** The screen's one decision. */
+  onNext?: (() => void) | undefined;
+  onBack?: (() => void) | undefined;
+  onNotNow?: (() => void) | undefined;
 };
 
-export function SentScreen({ onNext, onBack }: SentProps) {
+export function SentScreen({ onNext, onBack, onNotNow }: SentProps) {
   return (
     <Screen>
       <TopBar onBack={onBack} backLabel={t('common', 'back')} />
@@ -48,7 +50,7 @@ export function SentScreen({ onNext, onBack }: SentProps) {
           <Small>{t('sent', 'well_send_the_confirmed_time_any_important')}</Small>
           <Input placeholder={t('sent', 'you_example_com')} />
           <Button label={t('sent', 'send_verification_email')} onPress={onNext} />
-          <Tertiary label={t('sent', 'not_now')} onPress={onNext} />
+          <Tertiary label={t('sent', 'not_now')} onPress={onNotNow} />
         </Card>
         <Small>{t('sent', 'optional_save_your_access_on_every_device')}</Small>
       </Body>

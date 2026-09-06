@@ -8,5 +8,11 @@ export default function Route() {
   const router = useRouter();
   const fixture = useFixture();
 
-  return <LinkInvalidScreen fixture={fixture} onBack={() => router.back()} />;
+  return (
+    <LinkInvalidScreen
+      fixture={fixture}
+      onWhatIsBrand={() => router.push('/app')}
+      onBack={() => router.back()}
+    />
+  );
 }

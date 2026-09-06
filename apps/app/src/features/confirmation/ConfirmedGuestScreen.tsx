@@ -27,12 +27,19 @@ import type { ScreenState } from '../state';
  */
 export type ConfirmedGuestProps = {
   fixture: Fixture;
-  state?: ScreenState;
-  onNext?: () => void;
-  onBack?: () => void;
+  state?: ScreenState | undefined;
+  /** The screen's one decision. */
+  onNext?: (() => void) | undefined;
+  onBack?: (() => void) | undefined;
+  onICantMakeIt?: (() => void) | undefined;
 };
 
-export function ConfirmedGuestScreen({ fixture, onNext, onBack }: ConfirmedGuestProps) {
+export function ConfirmedGuestScreen({
+  fixture,
+  onNext,
+  onBack,
+  onICantMakeIt,
+}: ConfirmedGuestProps) {
   return (
     <Screen invert>
       <TopBar
@@ -72,7 +79,7 @@ export function ConfirmedGuestScreen({ fixture, onNext, onBack }: ConfirmedGuest
       </Body>
       <Foot>
         <Button label={t('confirmedGuest', 'add_to_calendar')} onPress={onNext} />
-        <Tertiary label={t('confirmedGuest', 'i_cant_make_it_after_all')} onPress={onNext} />
+        <Tertiary label={t('confirmedGuest', 'i_cant_make_it_after_all')} onPress={onICantMakeIt} />
       </Foot>
     </Screen>
   );

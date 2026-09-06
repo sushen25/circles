@@ -23,12 +23,14 @@ import type { ScreenState } from '../state';
  */
 export type NoneWorkProps = {
   fixture: Fixture;
-  state?: ScreenState;
-  onNext?: () => void;
-  onBack?: () => void;
+  state?: ScreenState | undefined;
+  /** The screen's one decision. */
+  onNext?: (() => void) | undefined;
+  onBack?: (() => void) | undefined;
+  onBackToMyTimes?: (() => void) | undefined;
 };
 
-export function NoneWorkScreen({ onNext, onBack }: NoneWorkProps) {
+export function NoneWorkScreen({ onBack, onBackToMyTimes }: NoneWorkProps) {
   return (
     <Screen>
       <TopBar
@@ -61,7 +63,7 @@ export function NoneWorkScreen({ onNext, onBack }: NoneWorkProps) {
         </Card>
       </Body>
       <Foot>
-        <Tertiary label={t('noneWork', 'back_to_my_times')} onPress={onNext} />
+        <Tertiary label={t('noneWork', 'back_to_my_times')} onPress={onBackToMyTimes} />
       </Foot>
     </Screen>
   );

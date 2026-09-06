@@ -25,12 +25,14 @@ import type { ScreenState } from '../state';
  */
 export type SparkOpenedMemberProps = {
   fixture: Fixture;
-  state?: ScreenState;
-  onNext?: () => void;
-  onBack?: () => void;
+  state?: ScreenState | undefined;
+  /** The screen's one decision. */
+  onNext?: (() => void) | undefined;
+  onBack?: (() => void) | undefined;
+  onNotThisOne?: (() => void) | undefined;
 };
 
-export function SparkOpenedMemberScreen({ onNext, onBack }: SparkOpenedMemberProps) {
+export function SparkOpenedMemberScreen({ onNext, onBack, onNotThisOne }: SparkOpenedMemberProps) {
   return (
     <Screen>
       <TopBar onBack={onBack} backLabel={t('common', 'back')} />
@@ -47,7 +49,7 @@ export function SparkOpenedMemberScreen({ onNext, onBack }: SparkOpenedMemberPro
       </Body>
       <Foot>
         <Button label={t('sparkOpenedMember', 'choose_my_times')} onPress={onNext} />
-        <Tertiary label={t('sparkOpenedMember', 'not_this_one')} onPress={onNext} />
+        <Tertiary label={t('sparkOpenedMember', 'not_this_one')} onPress={onNotThisOne} />
       </Foot>
     </Screen>
   );

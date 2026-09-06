@@ -24,12 +24,19 @@ import type { ScreenState } from '../state';
  */
 export type InterestPromptProps = {
   fixture: Fixture;
-  state?: ScreenState;
-  onNext?: () => void;
-  onBack?: () => void;
+  state?: ScreenState | undefined;
+  /** The screen's one decision. */
+  onNext?: (() => void) | undefined;
+  onBack?: (() => void) | undefined;
+  onNotThisTime?: (() => void) | undefined;
 };
 
-export function InterestPromptScreen({ fixture, onNext, onBack }: InterestPromptProps) {
+export function InterestPromptScreen({
+  fixture,
+  onNext,
+  onBack,
+  onNotThisTime,
+}: InterestPromptProps) {
   return (
     <Screen>
       <TopBar onBack={onBack} backLabel={t('common', 'back')} />
@@ -48,7 +55,11 @@ export function InterestPromptScreen({ fixture, onNext, onBack }: InterestPrompt
       </Body>
       <Foot>
         <Button label={t('interestPrompt', 'im_keen')} onPress={onNext} />
-        <Button label={t('interestPrompt', 'not_this_time')} variant="secondary" onPress={onNext} />
+        <Button
+          label={t('interestPrompt', 'not_this_time')}
+          variant="secondary"
+          onPress={onNotThisTime}
+        />
         <Small>{t('interestPrompt', 'closes_friday_midday_if_it_goes_quiet')}</Small>
       </Foot>
     </Screen>

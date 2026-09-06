@@ -24,12 +24,14 @@ import type { ScreenState } from '../state';
  */
 export type CalendarExplainProps = {
   fixture: Fixture;
-  state?: ScreenState;
-  onNext?: () => void;
-  onBack?: () => void;
+  state?: ScreenState | undefined;
+  /** The screen's one decision. */
+  onNext?: (() => void) | undefined;
+  onBack?: (() => void) | undefined;
+  onKeepItManual?: (() => void) | undefined;
 };
 
-export function CalendarExplainScreen({ onNext, onBack }: CalendarExplainProps) {
+export function CalendarExplainScreen({ onNext, onBack, onKeepItManual }: CalendarExplainProps) {
   return (
     <Screen>
       <TopBar
@@ -62,7 +64,7 @@ export function CalendarExplainScreen({ onNext, onBack }: CalendarExplainProps) 
       </Body>
       <Foot>
         <Button label={t('calendarExplain', 'choose_calendars')} onPress={onNext} />
-        <Tertiary label={t('calendarExplain', 'keep_it_manual')} onPress={onNext} />
+        <Tertiary label={t('calendarExplain', 'keep_it_manual')} onPress={onKeepItManual} />
       </Foot>
     </Screen>
   );

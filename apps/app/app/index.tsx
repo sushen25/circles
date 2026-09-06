@@ -12,6 +12,7 @@ export default function Route() {
     <WelcomeScreen
       fixture={fixture}
       onNext={() => router.push('/circles')}
+      onContinueWithEmail={() => router.push('/(auth)/sign-in')}
       onBack={() => router.back()}
     />
   );

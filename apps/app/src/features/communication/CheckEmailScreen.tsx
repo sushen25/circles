@@ -27,12 +27,21 @@ import type { ScreenState } from '../state';
  */
 export type CheckEmailProps = {
   fixture: Fixture;
-  state?: ScreenState;
-  onNext?: () => void;
-  onBack?: () => void;
+  state?: ScreenState | undefined;
+  /** The screen's one decision. */
+  onNext?: (() => void) | undefined;
+  onBack?: (() => void) | undefined;
+  onBackToSundayCrew?: (() => void) | undefined;
+  onGetTheApp?: (() => void) | undefined;
+  onNotNow?: (() => void) | undefined;
 };
 
-export function CheckEmailScreen({ onNext, onBack }: CheckEmailProps) {
+export function CheckEmailScreen({
+  onBack,
+  onBackToSundayCrew,
+  onGetTheApp,
+  onNotNow,
+}: CheckEmailProps) {
   return (
     <Screen>
       <TopBar onBack={onBack} backLabel={t('common', 'back')} />
@@ -49,15 +58,19 @@ export function CheckEmailScreen({ onNext, onBack }: CheckEmailProps) {
             <Title>{t('checkEmail', 'rather_have_these_on_your_phone')}</Title>
           </Row>
           <BodyText>{t('checkEmail', 'the_app_gives_you_the_same_updates')}</BodyText>
-          <Button label={t('checkEmail', 'get_the_app')} variant="secondary" onPress={onNext} />
-          <Tertiary label={t('checkEmail', 'not_now')} onPress={onNext} />
+          <Button
+            label={t('checkEmail', 'get_the_app')}
+            variant="secondary"
+            onPress={onGetTheApp}
+          />
+          <Tertiary label={t('checkEmail', 'not_now')} onPress={onNotNow} />
         </Card>
       </Body>
       <Foot>
         <Button
           label={t('checkEmail', 'back_to_sunday_crew')}
           variant="secondary"
-          onPress={onNext}
+          onPress={onBackToSundayCrew}
         />
       </Foot>
     </Screen>

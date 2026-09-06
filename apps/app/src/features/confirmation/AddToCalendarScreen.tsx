@@ -13,12 +13,14 @@ import type { ScreenState } from '../state';
  */
 export type AddToCalendarProps = {
   fixture: Fixture;
-  state?: ScreenState;
-  onNext?: () => void;
-  onBack?: () => void;
+  state?: ScreenState | undefined;
+  /** The screen's one decision. */
+  onNext?: (() => void) | undefined;
+  onBack?: (() => void) | undefined;
+  onCancel?: (() => void) | undefined;
 };
 
-export function AddToCalendarScreen({ onNext }: AddToCalendarProps) {
+export function AddToCalendarScreen({ onCancel }: AddToCalendarProps) {
   return (
     <Screen>
       <Body>
@@ -38,7 +40,7 @@ export function AddToCalendarScreen({ onNext }: AddToCalendarProps) {
           </Stack>
         </Card>
         <Small>{t('addToCalendar', 'nothing_is_added_to_anyones_calendar_without')}</Small>
-        <Button label={t('addToCalendar', 'cancel')} variant="secondary" onPress={onNext} />
+        <Button label={t('addToCalendar', 'cancel')} variant="secondary" onPress={onCancel} />
       </Body>
     </Screen>
   );
