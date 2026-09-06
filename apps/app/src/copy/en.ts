@@ -15,6 +15,14 @@
  * Those move to `tests/fixtures` as S0-08 builds the screens that use them.
  */
 export const en = {
+  /** Shared across screens. Not from any one artboard. */
+  common: {
+    back: 'Back',
+    close: 'Close',
+    cancel: 'Cancel',
+    done: 'Done',
+    dismiss: 'Dismiss',
+  },
   account: {
     account: 'Account',
     you: 'You',
@@ -277,6 +285,8 @@ export const en = {
     keep_thursday: 'Keep Thursday',
   },
   checkEmail: {
+    wrong_address_use_a_different_one_or:
+      "Wrong address? Use a different one . Or resend the link if it hasn't arrived in a few minutes.",
     brand: '{brand}',
     sunday_crew: 'Sunday Crew',
     check_your_email: 'Check your email.',
@@ -449,6 +459,8 @@ export const en = {
       "Times are frozen once locked. Later replies won't move it.",
   },
   confirmedGuest: {
+    thursday_17_september: 'Thursday 17 September',
+    brunswick_east_open_in_maps: 'Brunswick East · Open in Maps',
     sunday_crew: 'Sunday Crew',
     locked_in: 'Locked in',
     thursday: 'Thursday',
@@ -467,6 +479,8 @@ export const en = {
     i_cant_make_it_after_all: "I can't make it after all",
   },
   confirmedGuestNudge: {
+    thursday_17_september: 'Thursday 17 September',
+    brunswick_east_open_in_maps: 'Brunswick East · Open in Maps',
     sunday_crew: 'Sunday Crew',
     locked_in: 'Locked in',
     thursday: 'Thursday',
@@ -485,6 +499,7 @@ export const en = {
     i_cant_make_it_after_all: "I can't make it after all",
   },
   confirmedOrg: {
+    thursday_17_september: 'Thursday 17 September',
     sunday_crew: 'Sunday Crew',
     locked_in: 'Locked in',
     thursday: 'Thursday',
@@ -743,6 +758,7 @@ export const en = {
     create_your_first_circle: 'Create your first circle',
   },
   enterCode: {
+    didnt_get_it_check_spam_or_send: "Didn't get it? Check spam, or send another .",
     enter_the_code_we_emailed: 'Enter the code we emailed',
     sent_to_maya_example_com_it_works: 'Sent to maya@example.com. It works for 10 minutes.',
     didnt_get_it_check_spam_or: "Didn't get it? Check spam, or",
@@ -1107,6 +1123,7 @@ export const en = {
     not_now: 'Not now',
   },
   secondSent: {
+    prefer_email_turn_on_updates_for_this: 'Prefer email? Turn on updates for this meetup .',
     brand: '{brand}',
     sunday_crew: 'Sunday Crew',
     thanks_priya_your_times_are_in: 'Thanks, Priya. Your times are in.',
@@ -1121,6 +1138,8 @@ export const en = {
     turn_on_updates_for_this_meetup: 'Turn on updates for this meetup',
   },
   sent: {
+    optional_save_your_access_on_every_device:
+      'Optional: save your access on every device so you never have to rejoin.',
     brand: '{brand}',
     sunday_crew: 'Sunday Crew',
     thanks_priya_your_times_are_in: 'Thanks, Priya. Your times are in.',

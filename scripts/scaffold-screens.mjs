@@ -1,0 +1,519 @@
+/**
+ * Scaffolds a feature screen per canvas artboard.
+ *
+ * Run once, then edit by hand — like `create-expo-app`, not like
+ * `gen-tokens.ts`. The canvas is the authority for *what a screen contains*;
+ * once Slice 1 wires real data into a screen, the file is the authority and
+ * this script must not be run over it again. It refuses to overwrite for that
+ * reason.
+ *
+ * It reads each artboard's markup and emits the same structure using the
+ * components from S0-04 and copy keys from S0-05, so the result is a screen
+ * that resembles its artboard rather than a placeholder. Anything it cannot map
+ * is emitted as a TODO comment naming the class, so nothing is dropped quietly.
+ *
+ * Run: node scripts/scaffold-screens.mjs [--force]
+ */
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname } from 'node:path';
+
+const FORCE = process.argv.includes('--force');
+
+/** artboard → [feature context, route path]. Routes follow architecture §7.1. */
+const SCREENS = {
+  // Guest, entirely on mobile web
+  Main: ['identity', '/join'],
+  ContinueAs: ['identity', '/join/continue'],
+  Name: ['identity', '/join/name'],
+  Availability: ['availability', '/j/[code]'],
+  NoneWork: ['availability', '/j/[code]/none'],
+  Sent: ['availability', '/j/[code]/sent'],
+  CheckEmail: ['communication', '/j/[code]/check-email'],
+  EmailVerified: ['communication', '/v/[token]'],
+  EmailPrefs: ['communication', '/e/[token]'],
+  SaveAccess: ['identity', '/a/[token]'],
+  CandidatesMember: ['scheduling', '/p/[code]'],
+  ConfirmedGuest: ['confirmation', '/p/[code]/confirmed'],
+  AddToCalendar: ['confirmation', '/p/[code]/calendar'],
+  RescheduledGuest: ['confirmation', '/p/[code]/rescheduled'],
+  CancelledGuest: ['confirmation', '/p/[code]/cancelled'],
+  WasThere: ['confirmation', '/p/[code]/attendance'],
+  LinkInvalid: ['identity', '/join/invalid'],
+
+  // First time, organiser
+  Welcome: ['identity', '/'],
+  SignIn: ['identity', '/(auth)/sign-in'],
+  EnterCode: ['identity', '/(auth)/code'],
+  YourName: ['identity', '/(auth)/name'],
+  FirstCircle: ['circles', '/circles/new'],
+  InviteCircle: ['circles', '/circles/[id]/invite'],
+  CircleHomeJoining: ['circles', '/circles/[id]/joining'],
+  FirstPlan: ['planning', '/circles/[id]/plan/new'],
+  PlanShared: ['planning', '/circles/[id]/plan/[planId]/shared'],
+  CircleHome: ['circles', '/circles/[id]'],
+
+  // Organiser
+  EmptyCirclesList: ['circles', '/circles/empty'],
+  CirclesList: ['circles', '/circles'],
+  CreateCircle: ['circles', '/circles/create'],
+  ChooseMode: ['planning', '/circles/[id]/plan/mode'],
+  PlanSetup: ['planning', '/circles/[id]/plan/setup'],
+  CustomWindow: ['planning', '/circles/[id]/plan/window'],
+  Waiting: ['scheduling', '/circles/[id]/plan/[planId]/waiting'],
+  Candidates: ['scheduling', '/circles/[id]/plan/[planId]/candidates'],
+  DeadlinePassed: ['scheduling', '/circles/[id]/plan/[planId]/deadline'],
+  EditPlan: ['planning', '/circles/[id]/plan/[planId]/edit'],
+  ConfirmReview: ['confirmation', '/circles/[id]/plan/[planId]/review'],
+  ConfirmedOrg: ['confirmation', '/circles/[id]/plan/[planId]/confirmed'],
+  CircleHomeConfirmed: ['circles', '/circles/[id]/confirmed'],
+  ChangeTime: ['confirmation', '/circles/[id]/plan/[planId]/change-time'],
+  CancelPlan: ['planning', '/circles/[id]/plan/[planId]/cancel'],
+  CancelledOrg: ['planning', '/circles/[id]/plan/[planId]/cancelled'],
+  NoQuorum: ['scheduling', '/circles/[id]/plan/[planId]/no-quorum'],
+  Outcome: ['confirmation', '/circles/[id]/plan/[planId]/outcome'],
+  CircleHomeDue: ['circles', '/circles/[id]/due'],
+  PlanAnother: ['planning', '/circles/[id]/plan/another'],
+  Settings: ['circles', '/circles/[id]/settings'],
+  NotificationSettings: ['communication', '/settings/notifications'],
+  Account: ['identity', '/settings/account'],
+  Privacy: ['identity', '/settings/privacy'],
+  Diagnostics: ['identity', '/settings/diagnostics'],
+
+  // Quiet ask
+  SparkSetup: ['planning', '/circles/[id]/quiet/new'],
+  SparkWaiting: ['planning', '/circles/[id]/quiet/waiting'],
+  InterestPrompt: ['planning', '/circles/[id]/quiet/interest'],
+  ThresholdRole: ['planning', '/circles/[id]/quiet/threshold'],
+  Volunteer: ['planning', '/circles/[id]/quiet/volunteer'],
+  SparkOpenedMember: ['planning', '/circles/[id]/quiet/opened'],
+  SparkExpired: ['planning', '/circles/[id]/quiet/expired'],
+
+  // Native only (Slice 3)
+  PushAsk: ['communication', '/settings/push'],
+  CalendarExplain: ['availability', '/j/[code]/calendar'],
+  CalendarPick: ['availability', '/j/[code]/calendar/pick'],
+  AvailabilityOverlay: ['availability', '/j/[code]/overlay'],
+  CalendarDenied: ['availability', '/j/[code]/calendar/denied'],
+
+  // Guest → app conversion
+  ConfirmedGuestNudge: ['growth', '/p/[code]/nudge'],
+  AppSheet: ['growth', '/app'],
+  ReattachedNudge: ['growth', '/join/rejoined'],
+  SecondSent: ['growth', '/j/[code]/sent-again'],
+  AfterAttendance: ['growth', '/p/[code]/after'],
+  InitiateGate: ['growth', '/circles/gate'],
+  AppLanding: ['growth', '/app/welcome'],
+
+  // States every screen owes, as their own artboards
+  EmptyCircle: ['circles', '/circles/[id]/empty'],
+  Offline: ['system', '/offline'],
+};
+
+// ---------------------------------------------------------------- html
+
+const VOID = new Set(['br', 'img', 'input', 'hr', 'meta', 'link']);
+
+function parse(html) {
+  const root = { tag: 'root', cls: '', children: [] };
+  const stack = [root];
+  const re = /<(\/?)([a-zA-Z0-9]+)([^>]*?)(\/?)>|([^<]+)/g;
+  let m;
+
+  while ((m = re.exec(html))) {
+    const [, closing, tag, attrs, selfClose, text] = m;
+
+    if (text !== undefined) {
+      const value = decode(text);
+      if (value.trim()) stack.at(-1).children.push({ tag: '#text', value: value.trim() });
+      continue;
+    }
+    if (closing) {
+      if (stack.length > 1) stack.pop();
+      continue;
+    }
+    const node = {
+      tag: tag.toLowerCase(),
+      cls: (/class="([^"]*)"/.exec(attrs)?.[1] ?? '').trim(),
+      title: /title="([^"]*)"/.exec(attrs)?.[1] ?? '',
+      children: [],
+    };
+    stack.at(-1).children.push(node);
+    if (!selfClose && !VOID.has(node.tag)) stack.push(node);
+  }
+  return root;
+}
+
+const ENTITIES = {
+  '&amp;': '&',
+  '&lt;': '<',
+  '&gt;': '>',
+  '&quot;': '"',
+  '&#39;': "'",
+  '&rsquo;': '’',
+  '&lsquo;': '‘',
+  '&mdash;': '—',
+  '&ndash;': '–',
+  '&nbsp;': ' ',
+  '&times;': '×',
+  '&hellip;': '…',
+};
+const decode = (s) => s.replace(/&[a-z#0-9]+;/gi, (e) => ENTITIES[e] ?? e).replace(/\s+/g, ' ');
+
+// ---------------------------------------------------------------- copy keys
+
+/** Must match `scripts/extract-copy.mjs`, or a key will not resolve. */
+const deBrand = (t) =>
+  t.replace(/\bcircles\.app\b/g, '{domain}').replace(/\bCircles\b/g, '{brand}');
+const slug = (text) =>
+  deBrand(text)
+    .toLowerCase()
+    .replace(/[‘’']/g, '')
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .split('_')
+    .slice(0, 7)
+    .join('_') || 'text';
+
+const camel = (s) => s[0].toLowerCase() + s.slice(1);
+
+/** The keys actually present for this screen, so a miss is caught here. */
+function copyKeys(screen) {
+  const source = readFileSync('apps/app/src/copy/en.ts', 'utf8');
+  const block = new RegExp(`^  ${camel(screen)}: \\{([\\s\\S]*?)^  \\},`, 'm').exec(source);
+  if (!block) return new Set();
+  return new Set([...block[1].matchAll(/^\s+'?([\w]+)'?:/gm)].map((m) => m[1]));
+}
+
+// ---------------------------------------------------------------- jsx
+
+function textOf(node) {
+  if (node.tag === '#text') return node.value;
+  return node.children.map(textOf).join(' ').replace(/\s+/g, ' ').trim();
+}
+
+function has(node, name) {
+  return node.cls.split(/\s+/).includes(name);
+}
+
+function render(node, ctx, depth) {
+  const pad = '  '.repeat(depth);
+  const key = (text) => {
+    const k = slug(text);
+    if (text.length < 2 || !/[a-z]/i.test(text)) return null;
+    ctx.used.add(k);
+    if (!ctx.keys.has(k)) ctx.added.set(k, deBrand(text));
+    return `'${k}'`;
+  };
+  const line = (s) => `${pad}${s}`;
+  const text = textOf(node);
+  /** `<Tag>{t(...)}</Tag>`, or nothing when the text is not copy. */
+  const el = (tag, extra = '') => {
+    const k = key(text);
+    return k ? line(`<${tag}${extra}>{t('${ctx.screen}', ${k})}</${tag}>`) : '';
+  };
+
+  if (node.tag === '#text') {
+    const k = key(text);
+    return k ? line(`{t('${ctx.screen}', ${k})}`) : '';
+  }
+  if (text && !/[a-z]/i.test(text) && node.children.every((c) => c.tag === '#text')) return '';
+
+  if (has(node, 'lbl')) return el('Label');
+  if (has(node, 'dxl')) return el('DisplayXL');
+  if (has(node, 'dl')) return el('DisplayL');
+  if (has(node, 'date')) return el('DateText');
+  if (has(node, 'title')) return el('Title');
+  if (has(node, 'wordmark')) return line(`<DisplayL>{brand.name}</DisplayL>`);
+  if (has(node, 'sm')) return el('Small');
+  if (node.tag === 'p' || has(node, 'p')) return el('BodyText');
+
+  if (has(node, 'btn')) {
+    const k = key(text);
+    const variant = has(node, 'sec') ? ' variant="secondary"' : '';
+    return k ? line(`<Button label={t('${ctx.screen}', ${k})}${variant} onPress={onNext} />`) : '';
+  }
+  if (has(node, 'ter')) {
+    const k = key(text);
+    return k ? line(`<Tertiary label={t('${ctx.screen}', ${k})} onPress={onNext} />`) : '';
+  }
+  if (has(node, 'notice')) {
+    const kind = has(node, 'warn') ? ' kind="warn"' : has(node, 'ok') ? ' kind="ok"' : '';
+    return el('Notice', kind);
+  }
+  if (has(node, 'input')) {
+    const k = key(text);
+    return k ? line(`<Input placeholder={t('${ctx.screen}', ${k})} />`) : line('<Input />');
+  }
+  if (has(node, 'marks')) {
+    // Names are data. The artboard shows the Sunday Crew; the screen shows
+    // whoever is in the circle.
+    ctx.usesFixture = true;
+    return line('<Marks members={fixture.circle.members} />');
+  }
+  if (has(node, 'chips')) {
+    const chips = node.children
+      .filter((c) => has(c, 'chip'))
+      .map((c) => {
+        const k = key(textOf(c));
+        return k
+          ? `${pad}  <Chip label={t('${ctx.screen}', ${k})} selected={${has(c, 'on')}} onPress={onNext} />`
+          : '';
+      })
+      .filter(Boolean);
+    return [line('<Chips>'), ...chips, line('</Chips>')].join('\n');
+  }
+  if (has(node, 'track')) {
+    return line(
+      `<Track day={fixture.plan.dayLabel} cells={fixture.plan.cells} onChange={() => undefined} startMinutes={fixture.plan.startMinutes} busy={fixture.plan.busy} ticks={fixture.plan.ticks} />`,
+    );
+  }
+  if (has(node, 'card')) {
+    const inner = node.children
+      .map((c) => render(c, ctx, depth + 1))
+      .filter(Boolean)
+      .join('\n');
+    return [line(`<Card${has(node, 'rec') ? ' recommended' : ''}>`), inner, line('</Card>')].join(
+      '\n',
+    );
+  }
+  if (has(node, 'divider')) return line('<Divider />');
+  if (node.tag === 'svg' || node.tag === 'path' || node.tag === 'circle' || node.tag === 'rect')
+    return '';
+
+  // Layout containers and anything else: keep the children, note the class.
+  const inner = node.children
+    .map((c) => render(c, ctx, depth + 1))
+    .filter(Boolean)
+    .join('\n');
+  if (!inner) return '';
+  if (has(node, 'row') || has(node, 'between')) {
+    return [line('<Row>'), inner, line('</Row>')].join('\n');
+  }
+  if (has(node, 'stack')) {
+    return [line('<Stack>'), inner, line('</Stack>')].join('\n');
+  }
+  return inner;
+}
+
+// ---------------------------------------------------------------- emit
+
+const report = { written: [], skipped: [], missing: {} };
+
+for (const [screen, [feature]] of Object.entries(SCREENS)) {
+  const file = `apps/app/src/features/${feature}/${screen}Screen.tsx`;
+  if (existsSync(file) && !FORCE) {
+    report.skipped.push(screen);
+    continue;
+  }
+
+  const html = readFileSync(`docs/design/${screen}.dc.html`, 'utf8');
+  const start = html.indexOf('<div class="screen');
+  const markup = html.slice(start, html.lastIndexOf('</div>'));
+  const tree = parse(markup);
+
+  const ctx = { screen: camel(screen), keys: copyKeys(screen), used: new Set(), added: new Map() };
+
+  const screenNode = tree.children.find((c) => has(c, 'screen')) ?? tree;
+  const top = screenNode.children.find((c) => has(c, 'top'));
+  const body = screenNode.children.find((c) => has(c, 'body'));
+  const foot = screenNode.children.find((c) => has(c, 'foot'));
+
+  const topTitle = top
+    ? textOf(top.children.find((c) => has(c, 't')) ?? { tag: '#text', value: '' })
+    : '';
+  const invert = has(screenNode, 'invert');
+
+  // A couple of artboards are bottom sheets drawn inline, with no `.body`
+  // wrapper. Render everything that is not the bar or the footer.
+  const bodySource = body
+    ? body.children
+    : screenNode.children.filter((c) => !has(c, 'top') && !has(c, 'foot'));
+  const bodyJsx = bodySource
+    .map((c) => render(c, ctx, 4))
+    .filter(Boolean)
+    .join('\n');
+  const footJsx = foot
+    ? foot.children
+        .map((c) => render(c, ctx, 4))
+        .filter(Boolean)
+        .join('\n')
+    : '';
+
+  if (ctx.added.size) report.missing[screen] = ctx.added;
+
+  const topJsx = top
+    ? `      <TopBar${topTitle ? ` title={t('${ctx.screen}', '${slug(topTitle)}')}` : ''} onBack={onBack} backLabel={t('common', 'back')} />`
+    : '';
+
+  const all = [topJsx, bodyJsx, footJsx].join('\n');
+  const uses = (name) => new RegExp(`<${name}[\\s/>]`).test(all);
+
+  const fromComponents = [
+    'BodyText',
+    'Button',
+    'Card',
+    'Chip',
+    'Chips',
+    'DateText',
+    'DisplayL',
+    'DisplayXL',
+    'Input',
+    'Label',
+    'Marks',
+    'Notice',
+    'Small',
+    'Tertiary',
+    'Title',
+    'Toggle',
+    'Track',
+  ].filter(uses);
+  const fromLayout = ['Divider', 'Row', 'Stack'].filter(uses);
+  // These come from the template below, not from the rendered children, so
+  // they are decided by what the template will actually emit.
+  const frame = ['Screen', 'Body'];
+  if (topJsx) frame.push('TopBar');
+  if (footJsx) frame.push('Foot');
+
+  const imports = [];
+  if (all.includes('brand.name')) imports.push("import { brand } from '@circles/config';", '');
+  imports.push(
+    `import { ${[...frame, ...fromComponents].sort().join(', ')} } from '../../components';`,
+  );
+  if (fromLayout.length)
+    imports.push(`import { ${fromLayout.join(', ')} } from '../../components/layout';`);
+  imports.push("import { t } from '../../copy';");
+  imports.push("import type { Fixture } from '../../data/fixtures';");
+  imports.push("import type { ScreenState } from '../state';");
+
+  const usesFixture = all.includes('fixture.');
+  const usesNext = all.includes('onNext');
+  const usesBack = all.includes('onBack');
+  const params = [
+    usesFixture ? 'fixture' : null,
+    usesNext ? 'onNext' : null,
+    usesBack ? 'onBack' : null,
+  ]
+    .filter(Boolean)
+    .join(', ');
+
+  mkdirSync(dirname(file), { recursive: true });
+  writeFileSync(
+    file,
+    `${imports.join('\n')}
+
+/**
+ * ${screen} — scaffolded from \`docs/design/${screen}.dc.html\`.
+ *
+ * Structure and copy come from the artboard; data comes from a fixture. Slice 1
+ * replaces \`fixture\` with real data and \`onNext\` with real navigation. Edit
+ * freely: \`scripts/scaffold-screens.mjs\` will not overwrite this file.
+ */
+export type ${screen}Props = {
+  fixture: Fixture;
+  state?: ScreenState;
+  onNext?: () => void;
+  onBack?: () => void;
+};
+
+export function ${screen}Screen(${params ? `{ ${params} }: ${screen}Props` : `_props: ${screen}Props`}) {
+  return (
+    <Screen${invert ? ' invert' : ''}>
+${topJsx}
+      <Body>
+${bodyJsx}
+      </Body>
+${footJsx ? `      <Foot>\n${footJsx}\n      </Foot>` : ''}
+    </Screen>
+  );
+}
+`,
+  );
+  report.written.push(screen);
+}
+
+// Copy the artboard has but `en.ts` lacks — usually a sentence the extractor
+// saw as two text nodes because of an inline link. Added to the screen's block
+// rather than left as a key that resolves to nothing.
+let addedCount = 0;
+if (Object.keys(report.missing).length) {
+  let copy = readFileSync('apps/app/src/copy/en.ts', 'utf8');
+  for (const [screen, entries] of Object.entries(report.missing)) {
+    const block = new RegExp(`(^  ${camel(screen)}: \\{\\n)`, 'm');
+    if (!block.test(copy)) continue;
+    const lines = [...entries]
+      .map(
+        ([k, text]) =>
+          `    ${/^[A-Za-z_$][\w$]*$/.test(k) ? k : `'${k}'`}: '${text.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}',`,
+      )
+      .join('\n');
+    copy = copy.replace(block, `$1${lines}\n`);
+    addedCount += entries.size;
+  }
+  writeFileSync('apps/app/src/copy/en.ts', copy);
+}
+
+console.log(
+  `scaffold-screens: wrote ${report.written.length}, skipped ${report.skipped.length}, added ${addedCount} copy keys`,
+);
+
+// ---------------------------------------------------------------- routes
+
+/**
+ * The named-plan journey, in order. Every other screen's primary action is a
+ * no-op until Slice 1 gives it somewhere to go; these nine are wired so the
+ * whole path is clickable on fixtures with no network (the Slice 0 exit).
+ */
+const JOURNEY = [
+  '/',
+  '/circles',
+  '/circles/[id]',
+  '/circles/[id]/plan/setup',
+  '/circles/[id]/plan/[planId]/shared',
+  '/circles/[id]/plan/[planId]/candidates',
+  '/circles/[id]/plan/[planId]/review',
+  '/circles/[id]/plan/[planId]/confirmed',
+  '/circles/[id]/plan/[planId]/outcome',
+];
+
+/** Fixture ids, so a route with params still resolves when it is pushed. */
+const withIds = (route) => route.replace('[id]', 'sunday-crew').replace('[planId]', 'thu-17');
+
+const routeFile = (route) => {
+  const parts = route === '/' ? ['index'] : route.slice(1).split('/');
+  return `apps/app/app/${parts.join('/')}.tsx`;
+};
+
+let routesWritten = 0;
+for (const [screen, [feature, route]] of Object.entries(SCREENS)) {
+  const file = routeFile(route);
+  if (existsSync(file) && !FORCE) continue;
+
+  const journeyAt = JOURNEY.indexOf(route);
+  const next = journeyAt >= 0 && journeyAt < JOURNEY.length - 1 ? JOURNEY[journeyAt + 1] : null;
+  const depth = '../'.repeat(file.split('/').length - 3);
+
+  mkdirSync(dirname(file), { recursive: true });
+  writeFileSync(
+    file,
+    `import { useRouter } from 'expo-router';
+
+import { useFixture } from '${depth}src/data/fixtures/useFixture';
+import { ${screen}Screen } from '${depth}src/features/${feature}/${screen}Screen';
+
+/** Route only — thin composition, no logic (architecture §7.1). */
+export default function Route() {
+  const router = useRouter();
+  const fixture = useFixture();
+
+  return (
+    <${screen}Screen
+      fixture={fixture}
+${next ? `      onNext={() => router.push('${withIds(next)}')}\n` : ''}      onBack={() => router.back()}
+    />
+  );
+}
+`,
+  );
+  routesWritten += 1;
+}
+console.log(`scaffold-screens: wrote ${routesWritten} routes`);

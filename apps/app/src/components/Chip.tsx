@@ -12,8 +12,8 @@ import { usePalette } from './theme';
  */
 type Props = {
   label: string;
-  selected?: boolean;
-  onPress?: () => void;
+  selected?: boolean | undefined;
+  onPress?: (() => void) | undefined;
 };
 
 export function Chip({ label, selected = false, onPress }: Props) {
