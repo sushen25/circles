@@ -9,10 +9,16 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
-    }
+    },
+    "./font-assets": {
+      "types": "./dist/font-assets.d.ts",
+      "default": "./dist/font-assets.js"
+    },
+    "./assets/fonts/*": "./assets/fonts/*"
   },
   "files": [
-    "dist"
+    "dist",
+    "assets"
   ],
   "sideEffects": false,
   "scripts": {

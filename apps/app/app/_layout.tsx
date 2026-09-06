@@ -7,6 +7,8 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
+import { fontAssets } from '@circles/tokens/font-assets';
+
 void SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient({
@@ -21,9 +23,10 @@ const queryClient = new QueryClient({
 });
 
 export default function RootLayout() {
-  // The gate exists now; S0-03 supplies the map (Newsreader, Figtree) from
-  // `@circles/tokens`. An empty map resolves immediately.
-  const [fontsLoaded, fontError] = useFonts({});
+  // Newsreader and Figtree, one registered face per weight (see
+  // `@circles/tokens` fonts.ts). If they fail to load we render anyway on the
+  // metric-compatible fallbacks rather than holding the screen back.
+  const [fontsLoaded, fontError] = useFonts(fontAssets);
 
   useEffect(() => {
     if (fontsLoaded || fontError) {

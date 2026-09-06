@@ -10,3 +10,5 @@
 export const PACKAGE_NAME = '@circles/tokens';
 
 export { cell, color, hit, radius, shadow, space, type } from './generated.js';
+export { faceFor, fontFace, fontFallback, fontFamily, fontStack } from './fonts.js';
+export type { FontFamily } from './fonts.js';

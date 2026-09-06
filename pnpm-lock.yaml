@@ -50,6 +50,9 @@ importers:
       '@circles/config':
         specifier: workspace:*
         version: link:../../packages/config
+      '@circles/tokens':
+        specifier: workspace:*
+        version: link:../../packages/tokens
       '@supabase/supabase-js':
         specifier: ^2.115.0
         version: 2.115.0
