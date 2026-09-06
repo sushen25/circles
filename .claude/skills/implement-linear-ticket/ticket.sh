@@ -53,8 +53,20 @@ cmd_check() {
     echo "== no package.json check script yet (S0-01 adds it); skipping pnpm check"
   fi
   if git diff --name-only "$(baseref)...HEAD" | grep -q '^docs/design/'; then
-    echo "== docs/design changed: design canvas check"
-    python3 .claude/skills/run-design-canvas/driver.py check || rc=1
+    # The canvas is generated. Regenerate it and fail if the committed
+    # artboards do not match gen.py — the same drift question the
+    # run-design-canvas skill used to ask, without depending on that skill.
+    echo "== docs/design changed: regenerating the canvas to check for drift"
+    if python3 docs/design/gen.py >/dev/null; then
+      if ! git diff --quiet -- docs/design/; then
+        echo "differs: docs/design is stale — regenerate and commit:" >&2
+        git diff --name-only -- docs/design/ | sed 's/^/  /' >&2
+        rc=1
+      fi
+    else
+      echo "docs/design/gen.py failed to run" >&2
+      rc=1
+    fi
   fi
   [ $rc -eq 0 ] && echo "check: ok" || echo "check: FAILED" >&2
   return $rc

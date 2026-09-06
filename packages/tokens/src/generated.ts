@@ -137,8 +137,22 @@ export const shadow = {
   elevated: '0 1px 2px rgba(74,55,38,.04), 0 14px 30px -20px rgba(74,55,38,.28)',
 } as const;
 
+/** Control heights, in points. */
+export const size = {
+  button: 55,
+  input: 54,
+  chip: 44,
+  mark: 28,
+  markLarge: 36,
+  topBar: 56,
+  iconSquare: 44,
+} as const;
+
 /** Minimum tap target, in points. */
 export const hit = 44;
+
+/** Member marks overlap by this much (manifesto §5.4). */
+export const markOverlap = 5;
 
 /** The availability track: a ten-cell half-hour grid (manifesto §5.4). */
 export const cell = {
