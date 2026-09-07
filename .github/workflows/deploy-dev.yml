@@ -1,0 +1,96 @@
+# Merges to `main` go to `dev` (architecture §5.1, §18).
+#
+# Every step is guarded on its secret being present. Until S0-11 creates the
+# hosted projects there are none, so this workflow runs, says exactly what is
+# missing, and succeeds — a red cross on `main` for infrastructure that was
+# never set up teaches people to ignore red crosses.
+name: deploy-dev
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: deploy-dev
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: deploy to dev
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: dev
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: What is configured
+        id: config
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DEV_PROJECT_REF: ${{ secrets.SUPABASE_DEV_PROJECT_REF }}
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          supabase=false; expo=false
+          [ -n "$SUPABASE_ACCESS_TOKEN" ] && [ -n "$SUPABASE_DEV_PROJECT_REF" ] && supabase=true
+          [ -n "$EXPO_TOKEN" ] && expo=true
+          echo "supabase=$supabase" >> "$GITHUB_OUTPUT"
+          echo "expo=$expo" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Deploy to dev"
+            echo ""
+            echo "| Target | Configured |"
+            echo "|---|---|"
+            echo "| Supabase (\`SUPABASE_ACCESS_TOKEN\`, \`SUPABASE_DEV_PROJECT_REF\`) | $supabase |"
+            echo "| Expo (\`EXPO_TOKEN\`) | $expo |"
+            echo ""
+            echo "Anything \`false\` is waiting on S0-11 to create the project and add the secret."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: pnpm/action-setup@v4
+        if: steps.config.outputs.expo == 'true'
+      - uses: actions/setup-node@v4
+        if: steps.config.outputs.expo == 'true'
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+        if: steps.config.outputs.expo == 'true'
+
+      - uses: supabase/setup-cli@v1
+        if: steps.config.outputs.supabase == 'true'
+        with:
+          version: latest
+
+      - name: Push migrations
+        if: steps.config.outputs.supabase == 'true'
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          supabase link --project-ref "${{ secrets.SUPABASE_DEV_PROJECT_REF }}"
+          supabase db push --linked
+
+      - name: Deploy Edge Functions
+        if: steps.config.outputs.supabase == 'true'
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: supabase functions deploy --project-ref "${{ secrets.SUPABASE_DEV_PROJECT_REF }}"
+
+      - name: Deploy the web build
+        if: steps.config.outputs.expo == 'true'
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          pnpm --filter app run export
+          pnpm --filter app exec eas deploy --alias dev --non-interactive
+
+      - name: Publish an update on the dev channel
+        if: steps.config.outputs.expo == 'true'
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: pnpm --filter app exec eas update --channel dev --message "${{ github.event.head_commit.message }}" --non-interactive

@@ -1,0 +1,67 @@
+# A web preview per pull request, so a screen can be looked at before it is
+# merged rather than described in the PR body.
+name: preview
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  preview:
+    name: preview
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Forks do not get the token, and should not.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+
+    steps:
+      - name: Is Expo configured
+        id: config
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          if [ -n "$EXPO_TOKEN" ]; then echo "ready=true" >> "$GITHUB_OUTPUT";
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "No EXPO_TOKEN yet — previews start once S0-11 sets up EAS Hosting." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.config.outputs.ready == 'true'
+      - uses: pnpm/action-setup@v4
+        if: steps.config.outputs.ready == 'true'
+      - uses: actions/setup-node@v4
+        if: steps.config.outputs.ready == 'true'
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+        if: steps.config.outputs.ready == 'true'
+
+      - name: Deploy to a per-PR alias
+        id: deploy
+        if: steps.config.outputs.ready == 'true'
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          pnpm --filter app run export
+          url=$(pnpm --filter app exec eas deploy \
+            --alias "pr-${{ github.event.pull_request.number }}" \
+            --non-interactive --json | tail -1 | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{console.log(JSON.parse(s).dashboardUrl??JSON.parse(s).url??"")}catch{console.log("")}})')
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+
+      - name: Say where it is
+        if: steps.config.outputs.ready == 'true' && steps.deploy.outputs.url != ''
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: preview
+          message: |
+            Preview for `${{ github.event.pull_request.head.sha }}`:
+            ${{ steps.deploy.outputs.url }}
