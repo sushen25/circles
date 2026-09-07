@@ -93,3 +93,54 @@ test.describe('secondary actions', () => {
     expect(page.url()).toBe(before);
   });
 });
+
+test.describe('the controls actually work', () => {
+  test('painting a cell changes the range in words', async ({ page }) => {
+    await page.goto('/j/abc');
+
+    const first = page.getByRole('checkbox', { name: /to \d/ }).first();
+    await expect(first).toHaveAttribute('aria-checked', 'false');
+
+    // The page is server-rendered, so the cell is clickable before React has
+    // attached to it. Retry the whole interaction rather than only the
+    // assertion, or the first click is silently lost.
+    await expect(async () => {
+      await first.click();
+      await expect(first).toHaveAttribute('aria-checked', 'true', { timeout: 1000 });
+    }).toPass();
+
+    // The fill is the affordance; the text is the answer (manifesto §5.4).
+    // Asserted without pinning a clock format — times follow the device locale
+    // (manifesto §6), so the shape is what matters: two runs, comma-separated.
+    await expect(page.getByText(/\d.*–.*,.*\d.*–/).first()).toBeVisible();
+  });
+
+  test('a chip group is a choice, not a link', async ({ page }) => {
+    await page.goto('/j/abc');
+
+    const all = page.getByRole('checkbox', { name: 'All evening' });
+    await expect(all).toHaveAttribute('aria-checked', 'false');
+
+    await expect(async () => {
+      await all.click();
+      await expect(all).toHaveAttribute('aria-checked', 'true', { timeout: 1000 });
+    }).toPass();
+    await expect(page.getByRole('checkbox', { name: 'After work' })).toHaveAttribute(
+      'aria-checked',
+      'false',
+    );
+    expect(page.url()).toContain('/j/abc');
+  });
+
+  test('a switch switches', async ({ page }) => {
+    await page.goto('/settings/notifications');
+
+    const first = page.getByRole('switch').first();
+    const before = await first.getAttribute('aria-checked');
+
+    await expect(async () => {
+      await first.click();
+      expect(await first.getAttribute('aria-checked')).not.toBe(before);
+    }).toPass();
+  });
+});

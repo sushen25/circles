@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 import {
   Body,
   BodyText,
@@ -9,6 +11,7 @@ import {
   Small,
   Tertiary,
   Title,
+  Toggle,
   TopBar,
   Track,
 } from '../../components';
@@ -39,6 +42,12 @@ export function AvailabilityOverlayScreen({
   onBack,
   onNoneOfTheseDates,
 }: AvailabilityOverlayProps) {
+  const [cells0, setCells0] = useState(fixture.plan.cells); // Track
+  const [cells1, setCells1] = useState(fixture.plan.cells); // Track
+  const [cells2, setCells2] = useState(fixture.plan.cells); // Track
+  const [cells3, setCells3] = useState(fixture.plan.cells); // Track
+  const [toggle0, setToggle0] = useState(false); // Toggle
+
   return (
     <Screen>
       <TopBar
@@ -64,8 +73,8 @@ export function AvailabilityOverlayScreen({
           </Row>
           <Track
             day={fixture.plan.dayLabel}
-            cells={fixture.plan.cells}
-            onChange={() => undefined}
+            cells={cells0}
+            onChange={setCells0}
             startMinutes={fixture.plan.startMinutes}
             busy={fixture.plan.busy}
             ticks={fixture.plan.ticks}
@@ -81,8 +90,8 @@ export function AvailabilityOverlayScreen({
           </Row>
           <Track
             day={fixture.plan.dayLabel}
-            cells={fixture.plan.cells}
-            onChange={() => undefined}
+            cells={cells1}
+            onChange={setCells1}
             startMinutes={fixture.plan.startMinutes}
             busy={fixture.plan.busy}
             ticks={fixture.plan.ticks}
@@ -98,8 +107,8 @@ export function AvailabilityOverlayScreen({
           </Row>
           <Track
             day={fixture.plan.dayLabel}
-            cells={fixture.plan.cells}
-            onChange={() => undefined}
+            cells={cells2}
+            onChange={setCells2}
             startMinutes={fixture.plan.startMinutes}
             busy={fixture.plan.busy}
             ticks={fixture.plan.ticks}
@@ -115,8 +124,8 @@ export function AvailabilityOverlayScreen({
           </Row>
           <Track
             day={fixture.plan.dayLabel}
-            cells={fixture.plan.cells}
-            onChange={() => undefined}
+            cells={cells3}
+            onChange={setCells3}
             startMinutes={fixture.plan.startMinutes}
             busy={fixture.plan.busy}
             ticks={fixture.plan.ticks}
@@ -131,6 +140,11 @@ export function AvailabilityOverlayScreen({
             <Title>{t('availabilityOverlay', 'im_easy')}</Title>
             <Small>{t('availabilityOverlay', 'count_me_in_for_whatever_works_for')}</Small>
           </Stack>
+          <Toggle
+            value={toggle0}
+            onValueChange={setToggle0}
+            label={t('availabilityOverlay', 'count_me_in_for_whatever_works_for')}
+          />
         </Row>
         <Notice>{t('availabilityOverlay', 'only_the_times_you_paint_are_sent')}</Notice>
       </Body>

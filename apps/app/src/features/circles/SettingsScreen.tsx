@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 import {
   Body,
   Button,
@@ -10,6 +12,7 @@ import {
   Small,
   Tertiary,
   Title,
+  Toggle,
   TopBar,
 } from '../../components';
 import { Divider, Row, Stack } from '../../components/layout';
@@ -42,6 +45,8 @@ export function SettingsScreen({
   onCopyLink,
   onResetLink,
 }: SettingsProps) {
+  const [toggle0, setToggle0] = useState(true); // Toggle
+
   return (
     <Screen>
       <TopBar
@@ -77,6 +82,7 @@ export function SettingsScreen({
             <Title>{t('settings', 'quiet_asks')}</Title>
             <Small>{t('settings', 'on')}</Small>
           </Stack>
+          <Toggle value={toggle0} onValueChange={setToggle0} label={t('settings', 'quiet_asks')} />
         </Card>
         <Stack>
           <Label>{t('settings', 'members')}</Label>

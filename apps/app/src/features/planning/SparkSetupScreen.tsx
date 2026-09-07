@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 import {
   Body,
   BodyText,
@@ -32,6 +34,10 @@ export type SparkSetupProps = {
 };
 
 export function SparkSetupScreen({ onNext, onBack }: SparkSetupProps) {
+  const [choice0, setChoice0] = useState(1); // Chip group
+  const [choice1, setChoice1] = useState(0); // Chip group
+  const [choice2, setChoice2] = useState(1); // Chip group
+
   return (
     <Screen>
       <TopBar
@@ -47,31 +53,75 @@ export function SparkSetupScreen({ onNext, onBack }: SparkSetupProps) {
         <Stack>
           <Label>{t('sparkSetup', 'for_when')}</Label>
           <Chips>
-            <Chip label={t('sparkSetup', 'tonight')} selected={false} onPress={onNext} />
-            <Chip label={t('sparkSetup', 'this_weekend')} selected={true} onPress={onNext} />
-            <Chip label={t('sparkSetup', 'next_7_days')} selected={false} onPress={onNext} />
-            <Chip label={t('sparkSetup', 'next_14_days')} selected={false} onPress={onNext} />
+            <Chip
+              label={t('sparkSetup', 'tonight')}
+              selected={choice0 === 0}
+              onPress={() => setChoice0(0)}
+            />
+            <Chip
+              label={t('sparkSetup', 'this_weekend')}
+              selected={choice0 === 1}
+              onPress={() => setChoice0(1)}
+            />
+            <Chip
+              label={t('sparkSetup', 'next_7_days')}
+              selected={choice0 === 2}
+              onPress={() => setChoice0(2)}
+            />
+            <Chip
+              label={t('sparkSetup', 'next_14_days')}
+              selected={choice0 === 3}
+              onPress={() => setChoice0(3)}
+            />
           </Chips>
         </Stack>
         <Stack>
           <Label>{t('sparkSetup', 'to_do_what')}</Label>
           <Chips>
-            <Chip label={t('sparkSetup', 'anything')} selected={true} onPress={onNext} />
-            <Chip label={t('sparkSetup', 'dinner')} selected={false} onPress={onNext} />
-            <Chip label={t('sparkSetup', 'drinks')} selected={false} onPress={onNext} />
-            <Chip label={t('sparkSetup', 'coffee')} selected={false} onPress={onNext} />
-            <Chip label={t('sparkSetup', 'activity')} selected={false} onPress={onNext} />
+            <Chip
+              label={t('sparkSetup', 'anything')}
+              selected={choice1 === 0}
+              onPress={() => setChoice1(0)}
+            />
+            <Chip
+              label={t('sparkSetup', 'dinner')}
+              selected={choice1 === 1}
+              onPress={() => setChoice1(1)}
+            />
+            <Chip
+              label={t('sparkSetup', 'drinks')}
+              selected={choice1 === 2}
+              onPress={() => setChoice1(2)}
+            />
+            <Chip
+              label={t('sparkSetup', 'coffee')}
+              selected={choice1 === 3}
+              onPress={() => setChoice1(3)}
+            />
+            <Chip
+              label={t('sparkSetup', 'activity')}
+              selected={choice1 === 4}
+              onPress={() => setChoice1(4)}
+            />
           </Chips>
         </Stack>
         <Stack>
           <Label>{t('sparkSetup', 'stop_asking')}</Label>
           <Chips>
-            <Chip label={t('sparkSetup', 'tonight_9_pm')} selected={false} onPress={onNext} />
-            <Chip label={t('sparkSetup', 'friday_midday')} selected={true} onPress={onNext} />
+            <Chip
+              label={t('sparkSetup', 'tonight_9_pm')}
+              selected={choice2 === 0}
+              onPress={() => setChoice2(0)}
+            />
+            <Chip
+              label={t('sparkSetup', 'friday_midday')}
+              selected={choice2 === 1}
+              onPress={() => setChoice2(1)}
+            />
             <Chip
               label={t('sparkSetup', 'when_the_weekend_starts')}
-              selected={false}
-              onPress={onNext}
+              selected={choice2 === 2}
+              onPress={() => setChoice2(2)}
             />
           </Chips>
         </Stack>

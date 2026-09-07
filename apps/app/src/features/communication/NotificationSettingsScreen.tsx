@@ -1,4 +1,6 @@
-import { Body, Card, DisplayL, Screen, Small, Title, TopBar } from '../../components';
+import { useState } from 'react';
+
+import { Body, Card, DisplayL, Screen, Small, Title, Toggle, TopBar } from '../../components';
 import { Divider, Row, Stack } from '../../components/layout';
 import { t } from '../../copy';
 import type { Fixture } from '../../data/fixtures';
@@ -20,6 +22,10 @@ export type NotificationSettingsProps = {
 };
 
 export function NotificationSettingsScreen({ onBack }: NotificationSettingsProps) {
+  const [toggle0, setToggle0] = useState(true); // Toggle
+  const [toggle1, setToggle1] = useState(true); // Toggle
+  const [toggle2, setToggle2] = useState(true); // Toggle
+
   return (
     <Screen>
       <TopBar
@@ -37,6 +43,11 @@ export function NotificationSettingsScreen({ onBack }: NotificationSettingsProps
                 {t('notificationSettings', 'new_plans_options_ready_locked_in_reminders')}
               </Small>
             </Stack>
+            <Toggle
+              value={toggle0}
+              onValueChange={setToggle0}
+              label={t('notificationSettings', 'new_plans_options_ready_locked_in_reminders')}
+            />
           </Row>
           <Divider />
           <Row>
@@ -44,6 +55,11 @@ export function NotificationSettingsScreen({ onBack }: NotificationSettingsProps
               <Title>{t('notificationSettings', 'quiet_asks_in_sunday_crew')}</Title>
               <Small>{t('notificationSettings', 'someone_wondering_if_people_are_keen')}</Small>
             </Stack>
+            <Toggle
+              value={toggle1}
+              onValueChange={setToggle1}
+              label={t('notificationSettings', 'someone_wondering_if_people_are_keen')}
+            />
           </Row>
           <Divider />
           <Row>
@@ -51,6 +67,11 @@ export function NotificationSettingsScreen({ onBack }: NotificationSettingsProps
               <Title>{t('notificationSettings', 'nudges_to_plan_the_next_one')}</Title>
               <Small>{t('notificationSettings', 'only_when_its_your_turn')}</Small>
             </Stack>
+            <Toggle
+              value={toggle2}
+              onValueChange={setToggle2}
+              label={t('notificationSettings', 'only_when_its_your_turn')}
+            />
           </Row>
         </Card>
         <Card>

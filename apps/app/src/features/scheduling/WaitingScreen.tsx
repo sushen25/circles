@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 import {
   Body,
   BodyText,
@@ -42,6 +44,8 @@ export function WaitingScreen({
   onEditThePlan,
   onShareTheLinkAgain,
 }: WaitingProps) {
+  const [cells0, setCells0] = useState(fixture.plan.cells); // Track
+
   return (
     <Screen>
       <TopBar
@@ -70,8 +74,8 @@ export function WaitingScreen({
             </Row>
             <Track
               day={fixture.plan.dayLabel}
-              cells={fixture.plan.cells}
-              onChange={() => undefined}
+              cells={cells0}
+              onChange={setCells0}
               startMinutes={fixture.plan.startMinutes}
               busy={fixture.plan.busy}
               ticks={fixture.plan.ticks}
