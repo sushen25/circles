@@ -60,7 +60,7 @@ export function DeadlinePassedScreen({ fixture, onNext, onBack }: DeadlinePassed
           </Row>
           <Stack>
             <DateText>{t('deadlinePassed', 'thu_17_sep')}</DateText>
-            {t('deadlinePassed', '6_30_8_30_pm')}
+            <BodyText>{t('deadlinePassed', '6_30_8_30_pm')}</BodyText>
           </Stack>
           <Row>
             <Marks members={fixture.circle.members} />

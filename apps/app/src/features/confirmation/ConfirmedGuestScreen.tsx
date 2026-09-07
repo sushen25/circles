@@ -51,7 +51,7 @@ export function ConfirmedGuestScreen({
         <Label>{t('confirmedGuest', 'locked_in')}</Label>
         <Stack>
           <DateText>{t('confirmedGuest', 'thursday_17_september')}</DateText>
-          {t('confirmedGuest', '6_30_8_30_pm')}
+          <BodyText>{t('confirmedGuest', '6_30_8_30_pm')}</BodyText>
         </Stack>
         <Stack>
           <Row>

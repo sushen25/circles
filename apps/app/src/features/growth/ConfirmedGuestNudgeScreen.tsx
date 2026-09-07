@@ -53,7 +53,7 @@ export function ConfirmedGuestNudgeScreen({
         <Label>{t('confirmedGuestNudge', 'locked_in')}</Label>
         <Stack>
           <DateText>{t('confirmedGuestNudge', 'thursday_17_september')}</DateText>
-          {t('confirmedGuestNudge', '6_30_8_30_pm')}
+          <BodyText>{t('confirmedGuestNudge', '6_30_8_30_pm')}</BodyText>
         </Stack>
         <Stack>
           <Row>

@@ -1,5 +1,6 @@
 import {
   Body,
+  BodyText,
   Button,
   DateText,
   Foot,
@@ -43,7 +44,7 @@ export function ConfirmReviewScreen({ fixture, onNext, onBack }: ConfirmReviewPr
         <Stack>
           <Label>{t('confirmReview', 'lock_it_in')}</Label>
           <DateText>{t('confirmReview', 'thursday_17_september')}</DateText>
-          {t('confirmReview', '6_30_8_30_pm')}
+          <BodyText>{t('confirmReview', '6_30_8_30_pm')}</BodyText>
         </Stack>
         <Row>
           <Marks members={fixture.circle.members} />

@@ -64,7 +64,7 @@ export function CandidatesMemberScreen({
           </Row>
           <Stack>
             <DateText>{t('candidatesMember', 'thu_17_sep')}</DateText>
-            {t('candidatesMember', '6_30_8_30_pm')}
+            <BodyText>{t('candidatesMember', '6_30_8_30_pm')}</BodyText>
           </Stack>
           <Row>
             <Marks members={fixture.circle.members} />
@@ -78,7 +78,7 @@ export function CandidatesMemberScreen({
           </Row>
           <Stack>
             <DateText>{t('candidatesMember', 'sat_19_sep')}</DateText>
-            {t('candidatesMember', '6_30_8_30_pm')}
+            <BodyText>{t('candidatesMember', '6_30_8_30_pm')}</BodyText>
           </Stack>
           <Row>
             <Marks members={fixture.circle.members} />
@@ -92,7 +92,7 @@ export function CandidatesMemberScreen({
           </Row>
           <Stack>
             <DateText>{t('candidatesMember', 'sun_20_sep')}</DateText>
-            {t('candidatesMember', '4_6_pm')}
+            <BodyText>{t('candidatesMember', '4_6_pm')}</BodyText>
           </Stack>
           <Row>
             <Marks members={fixture.circle.members} />

@@ -49,7 +49,9 @@ export function CircleHomeJoiningScreen({ fixture, onNext, onBack }: CircleHomeJ
               <Marks members={fixture.circle.members} />
               <Small>{t('circleHomeJoining', 'priya_and_tom_just_joined')}</Small>
             </Row>
-            <Row>{t('circleHomeJoining', 'share_again')}</Row>
+            <Row>
+              <BodyText>{t('circleHomeJoining', 'share_again')}</BodyText>
+            </Row>
           </Row>
         </Card>
         <Card recommended>

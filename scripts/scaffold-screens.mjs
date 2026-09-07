@@ -239,7 +239,10 @@ function render(node, ctx, depth) {
 
   if (node.tag === '#text') {
     const k = key(text);
-    return k ? line(`{t('${ctx.screen}', ${k})}`) : '';
+    // React Native has no bare strings: a text node must be inside a Text
+    // component or it throws. The canvas has plenty of loose text inside rows
+    // — links and inline labels — so they get the body style by default.
+    return k ? line(`<BodyText>{t('${ctx.screen}', ${k})}</BodyText>`) : '';
   }
   if (text && !/[a-z]/i.test(text) && node.children.every((c) => c.tag === '#text')) return '';
 

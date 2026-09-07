@@ -51,7 +51,7 @@ export function RescheduledGuestScreen({ onNext, onBack, onNotThisTime }: Resche
           <Row>
             <Stack>
               <Small>{t('rescheduledGuest', 'previously')}</Small>
-              {t('rescheduledGuest', 'thu_17_sep_6_30_8_30')}
+              <BodyText>{t('rescheduledGuest', 'thu_17_sep_6_30_8_30')}</BodyText>
             </Stack>
           </Row>
           <Row>

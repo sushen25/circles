@@ -1,5 +1,6 @@
 import {
   Body,
+  BodyText,
   Button,
   Card,
   DateText,
@@ -78,7 +79,9 @@ export function CircleHomeScreen({ fixture, onNext, onBack, onSeeHowItsLooking }
             <Marks members={fixture.circle.members} />
             <Small>{t('circleHome', '6_members')}</Small>
           </Row>
-          <Row>{t('circleHome', 'invite_link')}</Row>
+          <Row>
+            <BodyText>{t('circleHome', 'invite_link')}</BodyText>
+          </Row>
         </Row>
       </Body>
       <Foot>

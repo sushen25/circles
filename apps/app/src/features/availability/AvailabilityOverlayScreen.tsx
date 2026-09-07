@@ -60,7 +60,7 @@ export function AvailabilityOverlayScreen({
         <Stack>
           <Row>
             <Title>{t('availabilityOverlay', 'mon_14_sep')}</Title>
-            {t('availabilityOverlay', '8_10_30_pm')}
+            <BodyText>{t('availabilityOverlay', '8_10_30_pm')}</BodyText>
           </Row>
           <Track
             day={fixture.plan.dayLabel}
@@ -70,14 +70,14 @@ export function AvailabilityOverlayScreen({
             busy={fixture.plan.busy}
             ticks={fixture.plan.ticks}
           />
-          {t('availabilityOverlay', '5_30_pm')}
-          {t('availabilityOverlay', '8_pm')}
-          {t('availabilityOverlay', '10_30_pm')}
+          <BodyText>{t('availabilityOverlay', '5_30_pm')}</BodyText>
+          <BodyText>{t('availabilityOverlay', '8_pm')}</BodyText>
+          <BodyText>{t('availabilityOverlay', '10_30_pm')}</BodyText>
         </Stack>
         <Stack>
           <Row>
             <Title>{t('availabilityOverlay', 'tue_15_sep')}</Title>
-            {t('availabilityOverlay', 'not_this_day')}
+            <BodyText>{t('availabilityOverlay', 'not_this_day')}</BodyText>
           </Row>
           <Track
             day={fixture.plan.dayLabel}
@@ -87,14 +87,14 @@ export function AvailabilityOverlayScreen({
             busy={fixture.plan.busy}
             ticks={fixture.plan.ticks}
           />
-          {t('availabilityOverlay', '5_30_pm')}
-          {t('availabilityOverlay', '8_pm')}
-          {t('availabilityOverlay', '10_30_pm')}
+          <BodyText>{t('availabilityOverlay', '5_30_pm')}</BodyText>
+          <BodyText>{t('availabilityOverlay', '8_pm')}</BodyText>
+          <BodyText>{t('availabilityOverlay', '10_30_pm')}</BodyText>
         </Stack>
         <Stack>
           <Row>
             <Title>{t('availabilityOverlay', 'wed_16_sep')}</Title>
-            {t('availabilityOverlay', '7_9_30_pm')}
+            <BodyText>{t('availabilityOverlay', '7_9_30_pm')}</BodyText>
           </Row>
           <Track
             day={fixture.plan.dayLabel}
@@ -104,14 +104,14 @@ export function AvailabilityOverlayScreen({
             busy={fixture.plan.busy}
             ticks={fixture.plan.ticks}
           />
-          {t('availabilityOverlay', '5_30_pm')}
-          {t('availabilityOverlay', '8_pm')}
-          {t('availabilityOverlay', '10_30_pm')}
+          <BodyText>{t('availabilityOverlay', '5_30_pm')}</BodyText>
+          <BodyText>{t('availabilityOverlay', '8_pm')}</BodyText>
+          <BodyText>{t('availabilityOverlay', '10_30_pm')}</BodyText>
         </Stack>
         <Stack>
           <Row>
             <Title>{t('availabilityOverlay', 'thu_17_sep')}</Title>
-            {t('availabilityOverlay', '5_30_10_30_pm')}
+            <BodyText>{t('availabilityOverlay', '5_30_10_30_pm')}</BodyText>
           </Row>
           <Track
             day={fixture.plan.dayLabel}
@@ -121,9 +121,9 @@ export function AvailabilityOverlayScreen({
             busy={fixture.plan.busy}
             ticks={fixture.plan.ticks}
           />
-          {t('availabilityOverlay', '5_30_pm')}
-          {t('availabilityOverlay', '8_pm')}
-          {t('availabilityOverlay', '10_30_pm')}
+          <BodyText>{t('availabilityOverlay', '5_30_pm')}</BodyText>
+          <BodyText>{t('availabilityOverlay', '8_pm')}</BodyText>
+          <BodyText>{t('availabilityOverlay', '10_30_pm')}</BodyText>
         </Stack>
         <Small>{t('availabilityOverlay', 'grey_means_your_calendar_says_busy_tap')}</Small>
         <Row>

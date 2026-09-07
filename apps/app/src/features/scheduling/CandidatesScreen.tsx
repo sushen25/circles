@@ -61,7 +61,7 @@ export function CandidatesScreen({ fixture, onNext, onBack, onNudgeAlex }: Candi
           </Row>
           <Stack>
             <DateText>{t('candidates', 'thu_17_sep')}</DateText>
-            {t('candidates', '6_30_8_30_pm')}
+            <BodyText>{t('candidates', '6_30_8_30_pm')}</BodyText>
           </Stack>
           <Row>
             <Marks members={fixture.circle.members} />
@@ -75,7 +75,7 @@ export function CandidatesScreen({ fixture, onNext, onBack, onNudgeAlex }: Candi
           </Row>
           <Stack>
             <DateText>{t('candidates', 'sat_19_sep')}</DateText>
-            {t('candidates', '6_30_8_30_pm')}
+            <BodyText>{t('candidates', '6_30_8_30_pm')}</BodyText>
           </Stack>
           <Row>
             <Marks members={fixture.circle.members} />
@@ -89,7 +89,7 @@ export function CandidatesScreen({ fixture, onNext, onBack, onNudgeAlex }: Candi
           </Row>
           <Stack>
             <DateText>{t('candidates', 'sun_20_sep')}</DateText>
-            {t('candidates', '4_6_pm')}
+            <BodyText>{t('candidates', '4_6_pm')}</BodyText>
           </Stack>
           <Row>
             <Marks members={fixture.circle.members} />
