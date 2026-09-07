@@ -1,0 +1,69 @@
+# The gate. It runs exactly what `pnpm check` runs locally (architecture §16),
+# because a CI that checks something different is a CI people learn to ignore.
+name: check
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  # One run per branch. A newer push makes an older run irrelevant.
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: check
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Look for secrets before doing anything else
+        # Cheap, and the one failure where finishing the build first would be
+        # actively unhelpful.
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: pnpm exec playwright install --with-deps chromium
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start Supabase
+        # `pnpm check` resets the database and runs pgTAP, and `check:types`
+        # generates types from the live schema. Only the database is needed:
+        # every other service is time we would spend on nothing.
+        run: supabase start -x realtime,storage-api,imgproxy,studio,inbucket,edge-runtime,logflare,vector,supavisor
+
+      - name: pnpm check
+        run: pnpm check
+
+      - name: Upload the Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
