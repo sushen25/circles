@@ -1,5 +1,6 @@
 import {
   Body,
+  BodyText,
   Button,
   Card,
   DateText,
@@ -58,7 +59,7 @@ export function CircleHomeConfirmedScreen({
           </Row>
           <Stack>
             <DateText>{t('circleHomeConfirmed', 'thu_17_sep')}</DateText>
-            {t('circleHomeConfirmed', '6_30_8_30_pm_hope_st')}
+            <BodyText>{t('circleHomeConfirmed', '6_30_8_30_pm_hope_st')}</BodyText>
           </Stack>
           <Row>
             <Button
@@ -90,7 +91,9 @@ export function CircleHomeConfirmedScreen({
             <Marks members={fixture.circle.members} />
             <Small>{t('circleHomeConfirmed', '6_members')}</Small>
           </Row>
-          <Row>{t('circleHomeConfirmed', 'invite_link')}</Row>
+          <Row>
+            <BodyText>{t('circleHomeConfirmed', 'invite_link')}</BodyText>
+          </Row>
         </Row>
       </Body>
       <Foot>

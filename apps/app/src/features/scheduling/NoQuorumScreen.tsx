@@ -55,7 +55,7 @@ export function NoQuorumScreen({ fixture, onBack }: NoQuorumProps) {
           </Row>
           <Stack>
             <DateText>{t('noQuorum', 'fri_11_sep')}</DateText>
-            {t('noQuorum', '7_9_pm')}
+            <BodyText>{t('noQuorum', '7_9_pm')}</BodyText>
           </Stack>
           <Row>
             <Marks members={fixture.circle.members} />
@@ -69,7 +69,7 @@ export function NoQuorumScreen({ fixture, onBack }: NoQuorumProps) {
           </Row>
           <Stack>
             <DateText>{t('noQuorum', 'sat_12_sep')}</DateText>
-            {t('noQuorum', '6_30_8_30_pm')}
+            <BodyText>{t('noQuorum', '6_30_8_30_pm')}</BodyText>
           </Stack>
           <Row>
             <Marks members={fixture.circle.members} />

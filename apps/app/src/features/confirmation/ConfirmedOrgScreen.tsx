@@ -53,7 +53,7 @@ export function ConfirmedOrgScreen({
         <Label>{t('confirmedOrg', 'locked_in')}</Label>
         <Stack>
           <DateText>{t('confirmedOrg', 'thursday_17_september')}</DateText>
-          {t('confirmedOrg', '6_30_8_30_pm_hope_st')}
+          <BodyText>{t('confirmedOrg', '6_30_8_30_pm_hope_st')}</BodyText>
         </Stack>
         <Card>
           <Label>{t('confirmedOrg', 'ready_to_paste_into_the_group_chat')}</Label>

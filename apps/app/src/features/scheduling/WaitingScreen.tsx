@@ -66,7 +66,7 @@ export function WaitingScreen({
           <Stack>
             <Row>
               <Title>{t('waiting', 'thu_17_sep')}</Title>
-              {t('waiting', '6_30_10_30_pm_works_for')}
+              <BodyText>{t('waiting', '6_30_10_30_pm_works_for')}</BodyText>
             </Row>
             <Track
               day={fixture.plan.dayLabel}
@@ -76,9 +76,9 @@ export function WaitingScreen({
               busy={fixture.plan.busy}
               ticks={fixture.plan.ticks}
             />
-            {t('waiting', '5_30_pm')}
-            {t('waiting', '8_pm')}
-            {t('waiting', '10_30_pm')}
+            <BodyText>{t('waiting', '5_30_pm')}</BodyText>
+            <BodyText>{t('waiting', '8_pm')}</BodyText>
+            <BodyText>{t('waiting', '10_30_pm')}</BodyText>
           </Stack>
         </Card>
         <Small>{t('waiting', 'only_you_see_this_while_its_incomplete')}</Small>

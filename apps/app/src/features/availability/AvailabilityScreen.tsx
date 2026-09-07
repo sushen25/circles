@@ -61,7 +61,7 @@ export function AvailabilityScreen({
         <Stack>
           <Row>
             <Title>{t('availability', 'mon_14_sep')}</Title>
-            {t('availability', '6_30_10_30_pm')}
+            <BodyText>{t('availability', '6_30_10_30_pm')}</BodyText>
           </Row>
           <Track
             day={fixture.plan.dayLabel}
@@ -71,14 +71,14 @@ export function AvailabilityScreen({
             busy={fixture.plan.busy}
             ticks={fixture.plan.ticks}
           />
-          {t('availability', '5_30_pm')}
-          {t('availability', '8_pm')}
-          {t('availability', '10_30_pm')}
+          <BodyText>{t('availability', '5_30_pm')}</BodyText>
+          <BodyText>{t('availability', '8_pm')}</BodyText>
+          <BodyText>{t('availability', '10_30_pm')}</BodyText>
         </Stack>
         <Stack>
           <Row>
             <Title>{t('availability', 'tue_15_sep')}</Title>
-            {t('availability', 'not_this_day')}
+            <BodyText>{t('availability', 'not_this_day')}</BodyText>
           </Row>
           <Track
             day={fixture.plan.dayLabel}
@@ -88,14 +88,14 @@ export function AvailabilityScreen({
             busy={fixture.plan.busy}
             ticks={fixture.plan.ticks}
           />
-          {t('availability', '5_30_pm')}
-          {t('availability', '8_pm')}
-          {t('availability', '10_30_pm')}
+          <BodyText>{t('availability', '5_30_pm')}</BodyText>
+          <BodyText>{t('availability', '8_pm')}</BodyText>
+          <BodyText>{t('availability', '10_30_pm')}</BodyText>
         </Stack>
         <Stack>
           <Row>
             <Title>{t('availability', 'wed_16_sep')}</Title>
-            {t('availability', '7_9_30_pm')}
+            <BodyText>{t('availability', '7_9_30_pm')}</BodyText>
           </Row>
           <Track
             day={fixture.plan.dayLabel}
@@ -105,14 +105,14 @@ export function AvailabilityScreen({
             busy={fixture.plan.busy}
             ticks={fixture.plan.ticks}
           />
-          {t('availability', '5_30_pm')}
-          {t('availability', '8_pm')}
-          {t('availability', '10_30_pm')}
+          <BodyText>{t('availability', '5_30_pm')}</BodyText>
+          <BodyText>{t('availability', '8_pm')}</BodyText>
+          <BodyText>{t('availability', '10_30_pm')}</BodyText>
         </Stack>
         <Stack>
           <Row>
             <Title>{t('availability', 'thu_17_sep')}</Title>
-            {t('availability', '5_30_10_30_pm')}
+            <BodyText>{t('availability', '5_30_10_30_pm')}</BodyText>
           </Row>
           <Track
             day={fixture.plan.dayLabel}
@@ -122,9 +122,9 @@ export function AvailabilityScreen({
             busy={fixture.plan.busy}
             ticks={fixture.plan.ticks}
           />
-          {t('availability', '5_30_pm')}
-          {t('availability', '8_pm')}
-          {t('availability', '10_30_pm')}
+          <BodyText>{t('availability', '5_30_pm')}</BodyText>
+          <BodyText>{t('availability', '8_pm')}</BodyText>
+          <BodyText>{t('availability', '10_30_pm')}</BodyText>
         </Stack>
         <Row>
           <Stack>

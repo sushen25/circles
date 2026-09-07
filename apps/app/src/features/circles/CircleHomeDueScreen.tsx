@@ -84,7 +84,9 @@ export function CircleHomeDueScreen({
             <Marks members={fixture.circle.members} />
             <Small>{t('circleHomeDue', '6_members')}</Small>
           </Row>
-          <Row>{t('circleHomeDue', 'invite_link')}</Row>
+          <Row>
+            <BodyText>{t('circleHomeDue', 'invite_link')}</BodyText>
+          </Row>
         </Row>
       </Body>
       <Foot>
