@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 import {
   Body,
   Button,
@@ -36,6 +38,9 @@ export type EditPlanProps = {
 };
 
 export function EditPlanScreen({ onNext, onBack, onKeepThePlanAs }: EditPlanProps) {
+  const [choice0, setChoice0] = useState(4); // Chip group
+  const [choice1, setChoice1] = useState(2); // Chip group
+
   return (
     <Screen>
       <TopBar title={t('editPlan', 'edit_plan')} onBack={onBack} backLabel={t('common', 'back')} />
@@ -44,20 +49,56 @@ export function EditPlanScreen({ onNext, onBack, onKeepThePlanAs }: EditPlanProp
         <Stack>
           <Label>{t('editPlan', 'when')}</Label>
           <Chips>
-            <Chip label={t('editPlan', 'tonight')} selected={false} onPress={onNext} />
-            <Chip label={t('editPlan', 'this_weekend')} selected={false} onPress={onNext} />
-            <Chip label={t('editPlan', 'next_7_days')} selected={false} onPress={onNext} />
-            <Chip label={t('editPlan', 'next_14_days')} selected={false} onPress={onNext} />
-            <Chip label={t('editPlan', 'custom_21_27_sep')} selected={true} onPress={onNext} />
+            <Chip
+              label={t('editPlan', 'tonight')}
+              selected={choice0 === 0}
+              onPress={() => setChoice0(0)}
+            />
+            <Chip
+              label={t('editPlan', 'this_weekend')}
+              selected={choice0 === 1}
+              onPress={() => setChoice0(1)}
+            />
+            <Chip
+              label={t('editPlan', 'next_7_days')}
+              selected={choice0 === 2}
+              onPress={() => setChoice0(2)}
+            />
+            <Chip
+              label={t('editPlan', 'next_14_days')}
+              selected={choice0 === 3}
+              onPress={() => setChoice0(3)}
+            />
+            <Chip
+              label={t('editPlan', 'custom_21_27_sep')}
+              selected={choice0 === 4}
+              onPress={() => setChoice0(4)}
+            />
           </Chips>
         </Stack>
         <Stack>
           <Label>{t('editPlan', 'how_long')}</Label>
           <Chips>
-            <Chip label={t('editPlan', '1_hr')} selected={false} onPress={onNext} />
-            <Chip label={t('editPlan', '1_5_hrs')} selected={false} onPress={onNext} />
-            <Chip label={t('editPlan', '2_hrs')} selected={true} onPress={onNext} />
-            <Chip label={t('editPlan', '3_hrs')} selected={false} onPress={onNext} />
+            <Chip
+              label={t('editPlan', '1_hr')}
+              selected={choice1 === 0}
+              onPress={() => setChoice1(0)}
+            />
+            <Chip
+              label={t('editPlan', '1_5_hrs')}
+              selected={choice1 === 1}
+              onPress={() => setChoice1(1)}
+            />
+            <Chip
+              label={t('editPlan', '2_hrs')}
+              selected={choice1 === 2}
+              onPress={() => setChoice1(2)}
+            />
+            <Chip
+              label={t('editPlan', '3_hrs')}
+              selected={choice1 === 3}
+              onPress={() => setChoice1(3)}
+            />
           </Chips>
         </Stack>
         <Card>

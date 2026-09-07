@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 import {
   Body,
   BodyText,
@@ -35,6 +37,9 @@ export type PlanAnotherProps = {
 };
 
 export function PlanAnotherScreen({ onNext, onBack, onSeeIfPeopleAre }: PlanAnotherProps) {
+  const [choice0, setChoice0] = useState(0); // Chip group
+  const [choice1, setChoice1] = useState(3); // Chip group
+
   return (
     <Screen>
       <TopBar
@@ -50,21 +55,61 @@ export function PlanAnotherScreen({ onNext, onBack, onSeeIfPeopleAre }: PlanAnot
         <Stack>
           <Label>{t('planAnother', 'what_are_we_doing')}</Label>
           <Chips>
-            <Chip label={t('planAnother', 'catch_up')} selected={true} onPress={onNext} />
-            <Chip label={t('planAnother', 'dinner')} selected={false} onPress={onNext} />
-            <Chip label={t('planAnother', 'drinks')} selected={false} onPress={onNext} />
-            <Chip label={t('planAnother', 'coffee')} selected={false} onPress={onNext} />
-            <Chip label={t('planAnother', 'activity')} selected={false} onPress={onNext} />
+            <Chip
+              label={t('planAnother', 'catch_up')}
+              selected={choice0 === 0}
+              onPress={() => setChoice0(0)}
+            />
+            <Chip
+              label={t('planAnother', 'dinner')}
+              selected={choice0 === 1}
+              onPress={() => setChoice0(1)}
+            />
+            <Chip
+              label={t('planAnother', 'drinks')}
+              selected={choice0 === 2}
+              onPress={() => setChoice0(2)}
+            />
+            <Chip
+              label={t('planAnother', 'coffee')}
+              selected={choice0 === 3}
+              onPress={() => setChoice0(3)}
+            />
+            <Chip
+              label={t('planAnother', 'activity')}
+              selected={choice0 === 4}
+              onPress={() => setChoice0(4)}
+            />
           </Chips>
         </Stack>
         <Stack>
           <Label>{t('planAnother', 'when')}</Label>
           <Chips>
-            <Chip label={t('planAnother', 'tonight')} selected={false} onPress={onNext} />
-            <Chip label={t('planAnother', 'this_weekend')} selected={false} onPress={onNext} />
-            <Chip label={t('planAnother', 'next_7_days')} selected={false} onPress={onNext} />
-            <Chip label={t('planAnother', 'next_14_days')} selected={true} onPress={onNext} />
-            <Chip label={t('planAnother', 'custom')} selected={false} onPress={onNext} />
+            <Chip
+              label={t('planAnother', 'tonight')}
+              selected={choice1 === 0}
+              onPress={() => setChoice1(0)}
+            />
+            <Chip
+              label={t('planAnother', 'this_weekend')}
+              selected={choice1 === 1}
+              onPress={() => setChoice1(1)}
+            />
+            <Chip
+              label={t('planAnother', 'next_7_days')}
+              selected={choice1 === 2}
+              onPress={() => setChoice1(2)}
+            />
+            <Chip
+              label={t('planAnother', 'next_14_days')}
+              selected={choice1 === 3}
+              onPress={() => setChoice1(3)}
+            />
+            <Chip
+              label={t('planAnother', 'custom')}
+              selected={choice1 === 4}
+              onPress={() => setChoice1(4)}
+            />
           </Chips>
         </Stack>
         <Card>

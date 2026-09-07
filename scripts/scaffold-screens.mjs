@@ -246,6 +246,9 @@ function render(node, ctx, depth) {
   }
   if (text && !/[a-z]/i.test(text) && node.children.every((c) => c.tag === '#text')) return '';
 
+  if (has(node, 'title') || has(node, 'lbl') || node.tag === 'p') {
+    if (text) ctx.lastLabel = slug(text);
+  }
   if (has(node, 'lbl')) return el('Label');
   if (has(node, 'dxl')) return el('DisplayXL');
   if (has(node, 'dl')) return el('DisplayL');
@@ -285,21 +288,45 @@ function render(node, ctx, depth) {
     return line('<Marks members={fixture.circle.members} />');
   }
   if (has(node, 'chips')) {
+    const group = ctx.state.filter((s) => s.includes('Chip group')).length;
+    const setter = `setChoice${group}`;
+    const initial = node.children.findIndex((c) => has(c, 'chip') && has(c, 'on'));
+    ctx.state.push(
+      `const [choice${group}, ${setter}] = useState(${initial < 0 ? 0 : initial}); // Chip group`,
+    );
     const chips = node.children
       .filter((c) => has(c, 'chip'))
-      .map((c) => {
+      .map((c, i) => {
         const k = key(textOf(c));
         return k
-          ? `${pad}  <Chip label={t('${ctx.screen}', ${k})} selected={${has(c, 'on')}} onPress={onNext} />`
+          ? `${pad}  <Chip label={t('${ctx.screen}', ${k})} selected={choice${group} === ${i}} onPress={() => ${setter}(${i})} />`
           : '';
       })
       .filter(Boolean);
     return [line('<Chips>'), ...chips, line('</Chips>')].join('\n');
   }
   if (has(node, 'track')) {
+    // Painting has to actually paint, or the screen is a picture of a painter.
+    const n = ctx.state.filter((line) => line.endsWith('// Track')).length;
+    ctx.state.push(`const [cells${n}, setCells${n}] = useState(fixture.plan.cells); // Track`);
     return line(
-      `<Track day={fixture.plan.dayLabel} cells={fixture.plan.cells} onChange={() => undefined} startMinutes={fixture.plan.startMinutes} busy={fixture.plan.busy} ticks={fixture.plan.ticks} />`,
+      `<Track day={fixture.plan.dayLabel} cells={cells${n}} onChange={setCells${n}} ` +
+        'startMinutes={fixture.plan.startMinutes} busy={fixture.plan.busy} ticks={fixture.plan.ticks} />',
     );
+  }
+  if (has(node, 'toggle') || has(node, 'radio')) {
+    // A switch the canvas draws is a switch the screen has. These were being
+    // dropped: the element carries no text, so it fell through to the layout
+    // branch and vanished with its children.
+    const kind = has(node, 'toggle') ? 'Toggle' : 'Radio';
+    const n = ctx.state.filter((line) => line.endsWith(`// ${kind}`)).length;
+    const name = `${kind.toLowerCase()}${n}`;
+    const setter = `set${kind}${n}`;
+    ctx.state.push(`const [${name}, ${setter}] = useState(${has(node, 'on')}); // ${kind}`);
+    const label = ctx.lastLabel ? `t('${ctx.screen}', '${ctx.lastLabel}')` : `t('common', 'done')`;
+    return kind === 'Toggle'
+      ? line(`<Toggle value={${name}} onValueChange={${setter}} label={${label}} />`)
+      : line(`<Radio selected={${name}} onPress={() => ${setter}(!${name})} label={${label}} />`);
   }
   if (has(node, 'card')) {
     const inner = node.children
@@ -352,6 +379,8 @@ for (const [screen, [feature]] of Object.entries(SCREENS)) {
     added: new Map(),
     actions: new Set(),
     claimedPrimary: false,
+    state: [],
+    lastLabel: null,
   };
 
   const screenNode = tree.children.find((c) => has(c, 'screen')) ?? tree;
@@ -402,6 +431,7 @@ for (const [screen, [feature]] of Object.entries(SCREENS)) {
     'Label',
     'Marks',
     'Notice',
+    'Radio',
     'Small',
     'Tertiary',
     'Title',
@@ -422,6 +452,7 @@ for (const [screen, [feature]] of Object.entries(SCREENS)) {
   );
   if (fromLayout.length)
     imports.push(`import { ${fromLayout.join(', ')} } from '../../components/layout';`);
+  if (ctx.state.length) imports.unshift("import { useState } from 'react';", '');
   imports.push("import { t } from '../../copy';");
   imports.push("import type { Fixture } from '../../data/fixtures';");
   imports.push("import type { ScreenState } from '../state';");
@@ -463,7 +494,7 @@ ${[...ctx.actions]
 };
 
 export function ${screen}Screen(${params ? `{ ${params} }: ${screen}Props` : `_props: ${screen}Props`}) {
-  return (
+${ctx.state.map((line) => `  ${line}`).join('\n')}${ctx.state.length ? '\n\n' : ''}  return (
     <Screen${invert ? ' invert' : ''}>
 ${topJsx}
       <Body>

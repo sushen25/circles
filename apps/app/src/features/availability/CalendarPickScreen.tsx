@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 import {
   Body,
   BodyText,
@@ -8,6 +10,7 @@ import {
   Screen,
   Small,
   Title,
+  Toggle,
   TopBar,
 } from '../../components';
 import { Divider, Row, Stack } from '../../components/layout';
@@ -31,6 +34,11 @@ export type CalendarPickProps = {
 };
 
 export function CalendarPickScreen({ onNext, onBack }: CalendarPickProps) {
+  const [toggle0, setToggle0] = useState(true); // Toggle
+  const [toggle1, setToggle1] = useState(true); // Toggle
+  const [toggle2, setToggle2] = useState(false); // Toggle
+  const [toggle3, setToggle3] = useState(false); // Toggle
+
   return (
     <Screen>
       <TopBar
@@ -49,6 +57,11 @@ export function CalendarPickScreen({ onNext, onBack }: CalendarPickProps) {
               <Title>{t('calendarPick', 'personal')}</Title>
               <Small>{t('calendarPick', 'icloud')}</Small>
             </Stack>
+            <Toggle
+              value={toggle0}
+              onValueChange={setToggle0}
+              label={t('calendarPick', 'icloud')}
+            />
           </Row>
           <Divider />
           <Row>
@@ -56,6 +69,11 @@ export function CalendarPickScreen({ onNext, onBack }: CalendarPickProps) {
               <Title>{t('calendarPick', 'work')}</Title>
               <Small>{t('calendarPick', 'google_priya_work_example')}</Small>
             </Stack>
+            <Toggle
+              value={toggle1}
+              onValueChange={setToggle1}
+              label={t('calendarPick', 'google_priya_work_example')}
+            />
           </Row>
           <Divider />
           <Row>
@@ -63,6 +81,11 @@ export function CalendarPickScreen({ onNext, onBack }: CalendarPickProps) {
               <Title>{t('calendarPick', 'birthdays')}</Title>
               <Small>{t('calendarPick', 'all_day_marked_free_ignored_anyway')}</Small>
             </Stack>
+            <Toggle
+              value={toggle2}
+              onValueChange={setToggle2}
+              label={t('calendarPick', 'all_day_marked_free_ignored_anyway')}
+            />
           </Row>
           <Divider />
           <Row>
@@ -70,6 +93,11 @@ export function CalendarPickScreen({ onNext, onBack }: CalendarPickProps) {
               <Title>{t('calendarPick', 'footy_fixtures')}</Title>
               <Small>{t('calendarPick', 'subscribed')}</Small>
             </Stack>
+            <Toggle
+              value={toggle3}
+              onValueChange={setToggle3}
+              label={t('calendarPick', 'subscribed')}
+            />
           </Row>
         </Card>
       </Body>

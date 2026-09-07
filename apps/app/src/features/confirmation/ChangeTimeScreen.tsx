@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 import {
   Body,
   BodyText,
@@ -34,6 +36,8 @@ export type ChangeTimeProps = {
 };
 
 export function ChangeTimeScreen({ onNext, onBack, onKeepThursday }: ChangeTimeProps) {
+  const [choice0, setChoice0] = useState(1); // Chip group
+
   return (
     <Screen>
       <TopBar title={t('changeTime', 'back')} onBack={onBack} backLabel={t('common', 'back')} />
@@ -45,9 +49,21 @@ export function ChangeTimeScreen({ onNext, onBack, onKeepThursday }: ChangeTimeP
         <Stack>
           <Label>{t('changeTime', 'new_window')}</Label>
           <Chips>
-            <Chip label={t('changeTime', 'next_7_days')} selected={false} onPress={onNext} />
-            <Chip label={t('changeTime', 'next_14_days')} selected={true} onPress={onNext} />
-            <Chip label={t('changeTime', 'custom')} selected={false} onPress={onNext} />
+            <Chip
+              label={t('changeTime', 'next_7_days')}
+              selected={choice0 === 0}
+              onPress={() => setChoice0(0)}
+            />
+            <Chip
+              label={t('changeTime', 'next_14_days')}
+              selected={choice0 === 1}
+              onPress={() => setChoice0(1)}
+            />
+            <Chip
+              label={t('changeTime', 'custom')}
+              selected={choice0 === 2}
+              onPress={() => setChoice0(2)}
+            />
           </Chips>
         </Stack>
         <Notice kind="warn">{t('changeTime', 'everyone_will_see_thursday_is_off_and')}</Notice>

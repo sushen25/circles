@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 import {
   Body,
   BodyText,
@@ -11,6 +13,7 @@ import {
   Small,
   Tertiary,
   Title,
+  Toggle,
   TopBar,
   Track,
 } from '../../components';
@@ -41,6 +44,13 @@ export function AvailabilityScreen({
   onBack,
   onNoneOfTheseDates,
 }: AvailabilityProps) {
+  const [choice0, setChoice0] = useState(0); // Chip group
+  const [cells0, setCells0] = useState(fixture.plan.cells); // Track
+  const [cells1, setCells1] = useState(fixture.plan.cells); // Track
+  const [cells2, setCells2] = useState(fixture.plan.cells); // Track
+  const [cells3, setCells3] = useState(fixture.plan.cells); // Track
+  const [toggle0, setToggle0] = useState(false); // Toggle
+
   return (
     <Screen>
       <TopBar
@@ -54,9 +64,21 @@ export function AvailabilityScreen({
           <BodyText>{t('availability', 'catch_ups_run_about_2_hours_replies')}</BodyText>
         </Stack>
         <Chips>
-          <Chip label={t('availability', 'after_work')} selected={false} onPress={onNext} />
-          <Chip label={t('availability', 'all_evening')} selected={false} onPress={onNext} />
-          <Chip label={t('availability', 'any_time_that_day')} selected={false} onPress={onNext} />
+          <Chip
+            label={t('availability', 'after_work')}
+            selected={choice0 === 0}
+            onPress={() => setChoice0(0)}
+          />
+          <Chip
+            label={t('availability', 'all_evening')}
+            selected={choice0 === 1}
+            onPress={() => setChoice0(1)}
+          />
+          <Chip
+            label={t('availability', 'any_time_that_day')}
+            selected={choice0 === 2}
+            onPress={() => setChoice0(2)}
+          />
         </Chips>
         <Stack>
           <Row>
@@ -65,8 +87,8 @@ export function AvailabilityScreen({
           </Row>
           <Track
             day={fixture.plan.dayLabel}
-            cells={fixture.plan.cells}
-            onChange={() => undefined}
+            cells={cells0}
+            onChange={setCells0}
             startMinutes={fixture.plan.startMinutes}
             busy={fixture.plan.busy}
             ticks={fixture.plan.ticks}
@@ -82,8 +104,8 @@ export function AvailabilityScreen({
           </Row>
           <Track
             day={fixture.plan.dayLabel}
-            cells={fixture.plan.cells}
-            onChange={() => undefined}
+            cells={cells1}
+            onChange={setCells1}
             startMinutes={fixture.plan.startMinutes}
             busy={fixture.plan.busy}
             ticks={fixture.plan.ticks}
@@ -99,8 +121,8 @@ export function AvailabilityScreen({
           </Row>
           <Track
             day={fixture.plan.dayLabel}
-            cells={fixture.plan.cells}
-            onChange={() => undefined}
+            cells={cells2}
+            onChange={setCells2}
             startMinutes={fixture.plan.startMinutes}
             busy={fixture.plan.busy}
             ticks={fixture.plan.ticks}
@@ -116,8 +138,8 @@ export function AvailabilityScreen({
           </Row>
           <Track
             day={fixture.plan.dayLabel}
-            cells={fixture.plan.cells}
-            onChange={() => undefined}
+            cells={cells3}
+            onChange={setCells3}
             startMinutes={fixture.plan.startMinutes}
             busy={fixture.plan.busy}
             ticks={fixture.plan.ticks}
@@ -131,6 +153,11 @@ export function AvailabilityScreen({
             <Title>{t('availability', 'im_easy')}</Title>
             <Small>{t('availability', 'count_me_in_for_whatever_works_for')}</Small>
           </Stack>
+          <Toggle
+            value={toggle0}
+            onValueChange={setToggle0}
+            label={t('availability', 'count_me_in_for_whatever_works_for')}
+          />
         </Row>
         <Notice>{t('availability', 'your_friends_will_only_see_a_combined')}</Notice>
       </Body>

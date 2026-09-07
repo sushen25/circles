@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 import {
   Body,
   Button,
@@ -32,6 +34,8 @@ export type CustomWindowProps = {
 };
 
 export function CustomWindowScreen({ onNext, onBack }: CustomWindowProps) {
+  const [choice0, setChoice0] = useState(0); // Chip group
+
   return (
     <Screen>
       <TopBar title={t('customWindow', 'when')} onBack={onBack} backLabel={t('common', 'back')} />
@@ -51,15 +55,19 @@ export function CustomWindowScreen({ onNext, onBack }: CustomWindowProps) {
           <Chips>
             <Chip
               label={t('customWindow', 'evenings_5_30_10_30')}
-              selected={true}
-              onPress={onNext}
+              selected={choice0 === 0}
+              onPress={() => setChoice0(0)}
             />
             <Chip
               label={t('customWindow', 'weekend_days_9_10_30')}
-              selected={false}
-              onPress={onNext}
+              selected={choice0 === 1}
+              onPress={() => setChoice0(1)}
             />
-            <Chip label={t('customWindow', 'custom')} selected={false} onPress={onNext} />
+            <Chip
+              label={t('customWindow', 'custom')}
+              selected={choice0 === 2}
+              onPress={() => setChoice0(2)}
+            />
           </Chips>
         </Stack>
       </Body>

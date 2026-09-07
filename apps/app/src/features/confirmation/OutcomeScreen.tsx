@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 import {
   Body,
   BodyText,
@@ -7,6 +9,7 @@ import {
   Foot,
   Input,
   Label,
+  Radio,
   Screen,
   Title,
   TopBar,
@@ -32,6 +35,11 @@ export type OutcomeProps = {
 };
 
 export function OutcomeScreen({ onNext, onBack }: OutcomeProps) {
+  const [radio0, setRadio0] = useState(true); // Radio
+  const [radio1, setRadio1] = useState(false); // Radio
+  const [radio2, setRadio2] = useState(false); // Radio
+  const [radio3, setRadio3] = useState(false); // Radio
+
   return (
     <Screen>
       <TopBar onBack={onBack} backLabel={t('common', 'back')} />
@@ -42,18 +50,38 @@ export function OutcomeScreen({ onNext, onBack }: OutcomeProps) {
           <BodyText>{t('outcome', 'it_just_sets_when_the_circle_last')}</BodyText>
         </Stack>
         <Card>
+          <Radio
+            selected={radio0}
+            onPress={() => setRadio0(!radio0)}
+            label={t('outcome', 'it_just_sets_when_the_circle_last')}
+          />
           <Stack>
             <Title>{t('outcome', 'it_happened')}</Title>
           </Stack>
           <Divider />
+          <Radio
+            selected={radio1}
+            onPress={() => setRadio1(!radio1)}
+            label={t('outcome', 'it_happened')}
+          />
           <Stack>
             <Title>{t('outcome', 'it_was_cancelled')}</Title>
           </Stack>
           <Divider />
+          <Radio
+            selected={radio2}
+            onPress={() => setRadio2(!radio2)}
+            label={t('outcome', 'it_was_cancelled')}
+          />
           <Stack>
             <Title>{t('outcome', 'we_moved_it_outside_brand')}</Title>
           </Stack>
           <Divider />
+          <Radio
+            selected={radio3}
+            onPress={() => setRadio3(!radio3)}
+            label={t('outcome', 'we_moved_it_outside_brand')}
+          />
           <Stack>
             <Title>{t('outcome', 'not_sure')}</Title>
           </Stack>

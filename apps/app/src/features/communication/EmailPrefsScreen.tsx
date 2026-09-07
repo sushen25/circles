@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 import {
   Body,
   BodyText,
@@ -7,6 +9,7 @@ import {
   Small,
   Tertiary,
   Title,
+  Toggle,
   TopBar,
 } from '../../components';
 import { Row, Stack } from '../../components/layout';
@@ -31,6 +34,8 @@ export type EmailPrefsProps = {
 };
 
 export function EmailPrefsScreen({ onBack, onRemoveThisEmailAddress }: EmailPrefsProps) {
+  const [toggle0, setToggle0] = useState(true); // Toggle
+
   return (
     <Screen>
       <TopBar onBack={onBack} backLabel={t('common', 'back')} />
@@ -45,6 +50,11 @@ export function EmailPrefsScreen({ onBack, onRemoveThisEmailAddress }: EmailPref
               <Title>{t('emailPrefs', 'sunday_crew_catch_up_thu_17_sep')}</Title>
               <Small>{t('emailPrefs', 'confirmed_time_changes_and_one_reminder')}</Small>
             </Stack>
+            <Toggle
+              value={toggle0}
+              onValueChange={setToggle0}
+              label={t('emailPrefs', 'confirmed_time_changes_and_one_reminder')}
+            />
           </Row>
         </Card>
         <Small>{t('emailPrefs', 'turning_this_off_stops_emails_for_this')}</Small>

@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 import {
   Body,
   Button,
@@ -32,6 +34,8 @@ export type CreateCircleProps = {
 };
 
 export function CreateCircleScreen({ onNext, onBack }: CreateCircleProps) {
+  const [choice0, setChoice0] = useState(2); // Chip group
+
   return (
     <Screen>
       <TopBar
@@ -51,11 +55,31 @@ export function CreateCircleScreen({ onNext, onBack }: CreateCircleProps) {
         <Stack>
           <Label>{t('createCircle', 'how_often_would_you_like_to_catch')}</Label>
           <Chips>
-            <Chip label={t('createCircle', 'weekly')} selected={false} onPress={onNext} />
-            <Chip label={t('createCircle', 'fortnightly')} selected={false} onPress={onNext} />
-            <Chip label={t('createCircle', 'monthly')} selected={true} onPress={onNext} />
-            <Chip label={t('createCircle', 'every_two_months')} selected={false} onPress={onNext} />
-            <Chip label={t('createCircle', 'no_goal')} selected={false} onPress={onNext} />
+            <Chip
+              label={t('createCircle', 'weekly')}
+              selected={choice0 === 0}
+              onPress={() => setChoice0(0)}
+            />
+            <Chip
+              label={t('createCircle', 'fortnightly')}
+              selected={choice0 === 1}
+              onPress={() => setChoice0(1)}
+            />
+            <Chip
+              label={t('createCircle', 'monthly')}
+              selected={choice0 === 2}
+              onPress={() => setChoice0(2)}
+            />
+            <Chip
+              label={t('createCircle', 'every_two_months')}
+              selected={choice0 === 3}
+              onPress={() => setChoice0(3)}
+            />
+            <Chip
+              label={t('createCircle', 'no_goal')}
+              selected={choice0 === 4}
+              onPress={() => setChoice0(4)}
+            />
           </Chips>
           <Small>{t('createCircle', 'a_loose_aim_not_a_rule_well')}</Small>
         </Stack>
