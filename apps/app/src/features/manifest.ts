@@ -2,6 +2,9 @@
  * Every screen, its context and where it lives. Generated alongside the
  * screens by `scripts/scaffold-screens.mjs`; the gallery reads it so a new
  * screen appears there without anyone remembering to add it.
+ *
+ * A screen that is a *state* of another (manifesto §7) shares its route and is
+ * reached with `?state=` rather than a URL of its own.
  */
 export type ScreenEntry = {
   screen: string;
@@ -128,7 +131,7 @@ const SCREENS: ScreenEntry[] = [
   {
     screen: 'CircleHomeJoining',
     feature: 'circles',
-    href: '/circles/sunday-crew/joining',
+    href: '/circles/sunday-crew?state=joining',
   },
   {
     screen: 'FirstPlan',
@@ -208,7 +211,7 @@ const SCREENS: ScreenEntry[] = [
   {
     screen: 'CircleHomeConfirmed',
     feature: 'circles',
-    href: '/circles/sunday-crew/confirmed',
+    href: '/circles/sunday-crew?state=confirmed',
   },
   {
     screen: 'ChangeTime',
@@ -238,7 +241,7 @@ const SCREENS: ScreenEntry[] = [
   {
     screen: 'CircleHomeDue',
     feature: 'circles',
-    href: '/circles/sunday-crew/due',
+    href: '/circles/sunday-crew?state=due',
   },
   {
     screen: 'PlanAnother',
@@ -338,7 +341,7 @@ const SCREENS: ScreenEntry[] = [
   {
     screen: 'AppSheet',
     feature: 'growth',
-    href: '/app',
+    href: '/get-the-app',
   },
   {
     screen: 'ReattachedNudge',
@@ -363,12 +366,12 @@ const SCREENS: ScreenEntry[] = [
   {
     screen: 'AppLanding',
     feature: 'growth',
-    href: '/app/welcome',
+    href: '/get-the-app/welcome',
   },
   {
     screen: 'EmptyCircle',
     feature: 'circles',
-    href: '/circles/sunday-crew/empty',
+    href: '/circles/sunday-crew?state=empty',
   },
   {
     screen: 'Offline',

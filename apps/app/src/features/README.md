@@ -31,19 +31,19 @@ artboard.
 
 ### circles
 
-| Artboard                      | Route                     | Component                   |
-| ----------------------------- | ------------------------- | --------------------------- |
-| `CircleHome.dc.html`          | `/circles/[id]`           | `CircleHomeScreen`          |
-| `CircleHomeConfirmed.dc.html` | `/circles/[id]/confirmed` | `CircleHomeConfirmedScreen` |
-| `CircleHomeDue.dc.html`       | `/circles/[id]/due`       | `CircleHomeDueScreen`       |
-| `CircleHomeJoining.dc.html`   | `/circles/[id]/joining`   | `CircleHomeJoiningScreen`   |
-| `CirclesList.dc.html`         | `/circles`                | `CirclesListScreen`         |
-| `CreateCircle.dc.html`        | `/circles/create`         | `CreateCircleScreen`        |
-| `EmptyCircle.dc.html`         | `/circles/[id]/empty`     | `EmptyCircleScreen`         |
-| `EmptyCirclesList.dc.html`    | `/circles/empty`          | `EmptyCirclesListScreen`    |
-| `FirstCircle.dc.html`         | `/circles/new`            | `FirstCircleScreen`         |
-| `InviteCircle.dc.html`        | `/circles/[id]/invite`    | `InviteCircleScreen`        |
-| `Settings.dc.html`            | `/circles/[id]/settings`  | `SettingsScreen`            |
+| Artboard                      | Route                           | Component                   |
+| ----------------------------- | ------------------------------- | --------------------------- |
+| `CircleHome.dc.html`          | `/circles/[id]`                 | `CircleHomeScreen`          |
+| `CircleHomeConfirmed.dc.html` | `/circles/[id]?state=confirmed` | `CircleHomeConfirmedScreen` |
+| `CircleHomeDue.dc.html`       | `/circles/[id]?state=due`       | `CircleHomeDueScreen`       |
+| `CircleHomeJoining.dc.html`   | `/circles/[id]?state=joining`   | `CircleHomeJoiningScreen`   |
+| `CirclesList.dc.html`         | `/circles`                      | `CirclesListScreen`         |
+| `CreateCircle.dc.html`        | `/circles/create`               | `CreateCircleScreen`        |
+| `EmptyCircle.dc.html`         | `/circles/[id]?state=empty`     | `EmptyCircleScreen`         |
+| `EmptyCirclesList.dc.html`    | `/circles/empty`                | `EmptyCirclesListScreen`    |
+| `FirstCircle.dc.html`         | `/circles/new`                  | `FirstCircleScreen`         |
+| `InviteCircle.dc.html`        | `/circles/[id]/invite`          | `InviteCircleScreen`        |
+| `Settings.dc.html`            | `/circles/[id]/settings`        | `SettingsScreen`            |
 
 ### communication
 
@@ -74,8 +74,8 @@ artboard.
 | Artboard                      | Route                  | Component                   |
 | ----------------------------- | ---------------------- | --------------------------- |
 | `AfterAttendance.dc.html`     | `/p/[code]/after`      | `AfterAttendanceScreen`     |
-| `AppLanding.dc.html`          | `/app/welcome`         | `AppLandingScreen`          |
-| `AppSheet.dc.html`            | `/app`                 | `AppSheetScreen`            |
+| `AppLanding.dc.html`          | `/get-the-app/welcome` | `AppLandingScreen`          |
+| `AppSheet.dc.html`            | `/get-the-app`         | `AppSheetScreen`            |
 | `ConfirmedGuestNudge.dc.html` | `/p/[code]/nudge`      | `ConfirmedGuestNudgeScreen` |
 | `InitiateGate.dc.html`        | `/circles/gate`        | `InitiateGateScreen`        |
 | `ReattachedNudge.dc.html`     | `/join/rejoined`       | `ReattachedNudgeScreen`     |

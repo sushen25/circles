@@ -144,3 +144,27 @@ test.describe('the controls actually work', () => {
     }).toPass();
   });
 });
+
+test.describe('states are not routes', () => {
+  test('the circle home serves all four of its states from one route', async ({ page }) => {
+    for (const [state, expected] of [
+      ['joining', /just joined|so far/i],
+      ['confirmed', /Locked in/i],
+      ['due', /About time|been about/i],
+      ['empty', /first|nobody|invite/i],
+    ] as const) {
+      await page.goto(`/circles/sunday-crew?state=${state}`);
+      await expect(page.getByText(expected).first()).toBeVisible();
+    }
+  });
+
+  test('an unknown state falls back rather than 404s', async ({ page }) => {
+    await page.goto('/circles/sunday-crew?state=nonsense');
+    await expect(page.getByText(/Sunday Crew/i).first()).toBeVisible();
+  });
+
+  test('the app sheet says what it is in the URL', async ({ page }) => {
+    const response = await page.goto('/get-the-app');
+    expect(response?.status()).toBe(200);
+  });
+});
