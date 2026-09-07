@@ -1,0 +1,14 @@
+# JS-only changes reach existing development clients as an update rather than a
+# rebuild (architecture §18). The GitHub workflow calls `eas update` directly on
+# merge; this exists so the same thing can be run by hand from EAS.
+name: update-dev
+
+on:
+  workflow_dispatch:
+
+jobs:
+  update:
+    name: Publish to the dev channel
+    type: update
+    params:
+      channel: dev
