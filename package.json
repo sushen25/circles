@@ -28,7 +28,9 @@
     "gen:tokens": "node --experimental-strip-types scripts/gen-tokens.ts",
     "check:brand": "node scripts/check-brand.mjs",
     "check:tokens": "node --experimental-strip-types scripts/gen-tokens.ts --check",
-    "check:types": "supabase gen types typescript --local | diff -u packages/contracts/src/db.generated.ts - || (echo \"check:types: packages/contracts/src/db.generated.ts is stale — run pnpm gen:types\" >&2; exit 1)"
+    "check:types": "supabase gen types typescript --local | diff -u packages/contracts/src/db.generated.ts - || (echo \"check:types: packages/contracts/src/db.generated.ts is stale — run pnpm gen:types\" >&2; exit 1)",
+    "check:env": "node scripts/check-environment.mjs",
+    "check:client-env": "node scripts/check-client-env.mjs"
   },
   "devDependencies": {
     "@circles/config": "workspace:*",
