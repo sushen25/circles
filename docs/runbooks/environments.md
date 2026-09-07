@@ -15,10 +15,22 @@ Values, never — this file is in the repository.
 | Web | `pnpm dev` on Metro | EAS Hosting, `dev` alias + a per-PR alias | EAS Hosting on the custom domain |
 | Native | development build pointed at local or `dev` | development builds, EAS Update `development` channel | TestFlight / Play internal |
 | Purpose | everyday work; every test suite runs here | integration, PR previews | real groups |
-| Project ref | n/a | _fill in at setup_ | _fill in at setup_ |
+| Project ref | n/a | `pcfekupwqrdfryeaqggx` | `bhunoaqswteamabbyckp` |
+| Region | your laptop | `ap-south-1` (Mumbai) | `ap-southeast-1` (Singapore) |
+| Postgres | 17 (`config.toml`) | 17 | 17 |
 
-`local` is the only one that exists today. The other two columns are filled in
-by [`environment-setup.md`](./environment-setup.md).
+Project refs are not secret — they are the subdomain of a public API URL. Keys
+are, and none are in this file.
+
+Both hosted projects exist and are healthy. Everything else in
+[`environment-setup.md`](./environment-setup.md) is still outstanding.
+
+> **The two projects are in different regions.** A region cannot be changed
+> after creation; moving means a new project and a new ref. That makes `dev` a
+> poor latency proxy for `prod`, which matters when the candidate engine and the
+> plan state machine are being judged on how quick they feel. Neither region is
+> especially close to Australian users — `ap-southeast-2` (Sydney) is. Cheap to
+> fix while both are empty; expensive once `prod` has real circles in it.
 
 Free Supabase projects **pause after seven days of inactivity**, and a pg_cron
 heartbeat does not prevent it — pausing is measured on API requests, not

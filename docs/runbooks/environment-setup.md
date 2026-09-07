@@ -14,13 +14,18 @@ Reference for anything that needs explaining: [`environments.md`](./environments
 
 ## 1. Supabase projects — free, ~10 min
 
-- [ ] Create project **`circles-dev`**, region closest to you, Free plan.
-- [ ] Create project **`circles-prod`**, same region, Free plan.
+- [x] Create project **`circles-dev`**, region closest to you, Free plan.
+      → `pcfekupwqrdfryeaqggx`, `ap-south-1`
+- [x] Create project **`circles-prod`**, same region, Free plan.
+      → `bhunoaqswteamabbyckp`, `ap-southeast-1`
+      **The two are in different regions, and neither is Sydney.** See the note
+      in [`environments.md`](./environments.md) — worth settling now, while both
+      are empty, because a region is fixed at creation.
 - [ ] On **both**: Authentication → Providers → enable **Anonymous sign-ins**.
 - [ ] On **both**: Authentication → enable **Email OTP** (magic-code, not password).
 - [ ] On **both**: Authentication → Rate Limits → anonymous sign-ins **60/hour per IP**.
       The default is far lower and breaks households behind one address (§14).
-- [ ] Copy each **project ref** (the subdomain in the project URL) into the table
+- [x] Copy each **project ref** (the subdomain in the project URL) into the table
       in [`environments.md`](./environments.md). Refs are not secret.
 - [ ] Account → Access Tokens → create one named `github-actions`.
 
