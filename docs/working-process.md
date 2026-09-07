@@ -78,6 +78,12 @@ RC=$?
 git commit ...
 ```
 
+**And make sure it is the right signal.** Two workflows run on every push, so
+`gh run list --limit 1` returns whichever finished last — which was the trivially
+green `preview`, not `check`. Reading it produced a confident, wrong conclusion
+that CI was failing to catch a stale generated file. Name the workflow, or check
+the run's own `name` before believing its conclusion.
+
 ### 2.2 Read the diff before committing, not the file
 
 **What happened.** A deliberate boundary violation (`import 'react'` in
