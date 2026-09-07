@@ -12,6 +12,11 @@ concurrency:
   group: check-${{ github.ref }}
   cancel-in-progress: true
 
+# Least privilege. Gitleaks reads the PR's commits; nothing here writes.
+permissions:
+  contents: read
+  pull-requests: read
+
 jobs:
   check:
     name: check
