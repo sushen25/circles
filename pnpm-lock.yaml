@@ -59,6 +59,9 @@ importers:
       '@circles/contracts':
         specifier: workspace:^
         version: link:../../packages/contracts
+      '@circles/domain':
+        specifier: workspace:^
+        version: link:../../packages/domain
       '@circles/tokens':
         specifier: workspace:*
         version: link:../../packages/tokens
