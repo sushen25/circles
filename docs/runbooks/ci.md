@@ -113,6 +113,40 @@ resolve the required-status-check gap above. That is a decision about publishing
 the specs and the design canvas, not about cost — at 36 minutes for a heavy day,
 cost is not the pressure.
 
+## Build, update, deploy — three different things
+
+Expo uses three words that all sound like "ship it", and choosing the wrong one
+is how a fix appears to go out and reaches nobody.
+
+| | What it produces | Reaches | When you need it |
+|---|---|---|---|
+| **build** (`eas build`) | a native binary — `.ipa` / `.apk` | nobody until it is installed | native code or config changed: a new `expo-*` module, a config plugin, an SDK upgrade, a bundle id |
+| **update** (`eas update`) | a JavaScript and asset bundle | every installed binary listening on that **channel**, at next launch | JS-only changes — screens, copy, logic |
+| **deploy** (`eas deploy`) | the exported **web** build | anyone with the URL, immediately | any web change at all |
+
+A merge to `main` does two of the three: `deploy` for web, `update` for native.
+It never builds, because a merge that needs a build is a merge that changed
+native code, and that is a deliberate act.
+
+### The channel has to match
+
+An update goes to a **channel**; a build subscribes to one, set by its profile
+in `eas.json`. Ours are `development`, `preview` and `production`.
+
+Architecture §5.1 calls the hosted environment `dev`, and the first version of
+`deploy-dev.yml` accordingly published `--channel dev` — **a channel no build
+subscribes to**. The update would have succeeded and reached zero devices. The
+workflow uses `development` now: the channel a binary listens on is the
+authority, not the environment's nickname.
+
+### What stops an incompatible update
+
+`app.config.ts` sets `runtimeVersion: { policy: 'appVersion' }`. An update is
+only delivered to a binary with the same runtime version, so changing native
+code and bumping the version means old clients simply do not receive it — they
+wait for a build. That is the guard against shipping JS that calls into native
+code the installed app does not have.
+
 ## EAS workflows
 
 `.eas/workflows/build-development.yml` builds iOS and Android development

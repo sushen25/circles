@@ -11,4 +11,4 @@ jobs:
     name: Publish to the dev channel
     type: update
     params:
-      channel: dev
+      channel: development
