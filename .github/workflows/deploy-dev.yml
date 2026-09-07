@@ -89,8 +89,13 @@ jobs:
           pnpm --filter app run export
           pnpm --filter app exec eas deploy --alias dev --non-interactive
 
-      - name: Publish an update on the dev channel
+      - name: Publish an update to the development channel
+        # `development`, not `dev`: a channel only means anything if a build
+        # subscribes to it, and the `development` profile in eas.json is what
+        # the installed clients listen on. Architecture §5.1 calls this
+        # environment `dev`; the channel keeps the profile's name so the two
+        # cannot drift apart.
         if: steps.config.outputs.expo == 'true'
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: pnpm --filter app exec eas update --channel dev --message "${{ github.event.head_commit.message }}" --non-interactive
+        run: pnpm --filter app exec eas update --channel development --message "${{ github.event.head_commit.message }}" --non-interactive
