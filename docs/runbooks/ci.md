@@ -104,6 +104,9 @@ rounded-up minute — and a preview you have to remember to ask for is a preview
 nobody looks at. Revisit when there is a month of real numbers with S0-11's
 secrets in place, and compare against the table above.
 
+Tracked as **SUS-70**, blocked by S0-11 so it cannot be picked up before there
+is anything to measure.
+
 There is a larger lever behind it: **Actions is free and unlimited on public
 repositories**, and branch protection is free there too, which would also
 resolve the required-status-check gap above. That is a decision about publishing
