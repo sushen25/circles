@@ -4,7 +4,7 @@ import { type Result, all, andThen, err, isErr, isOk, map, mapErr, ok, unwrapOr 
 
 describe('Result', () => {
   it('carries a value or an error', () => {
-    expect(isOk(ok(1))).toBe(true);
+    expect(isOk(ok(1))).toBe(false); // deliberately wrong
     expect(isErr(err('no'))).toBe(true);
   });
 

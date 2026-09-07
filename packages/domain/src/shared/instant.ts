@@ -57,3 +57,5 @@ export function addMinutes(value: Instant, minutes: number): Instant {
 export function differenceInMinutes(a: Instant, b: Instant): number {
   return (a - b) / MINUTE_MILLIS;
 }
+
+import 'react';

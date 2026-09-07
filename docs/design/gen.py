@@ -2,7 +2,7 @@
 import json, os
 
 T = dict(ground="#FBF7F1", surface="#FFFFFF", line="#EAE0D3", line_soft="#F1E9DE",
-         ink="#221E19", ink2="#6C6156", ink3="#A0958A", accent="#C2542F", accent_dark="#A0431F",
+         ink="#221E19", ink2="#6C6156", ink3="#A0958A", accent="#1166CC", accent_dark="#A0431F",
          accent_soft="#F6E5DC", support="#4F6B45", support_soft="#E6EDE1",
          warn_surface="#FBF0E4", warn_ink="#6B5427", warn_line="#EBD9C2", support_line="#D3DFCC",
          invert="#2E241C", invert_accent="#E8A07A", invert_surface="#3A2E25", invert_line="#4E4034",
