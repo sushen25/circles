@@ -26,3 +26,6 @@ blob-report/
 
 # playwright artefacts
 test-results/
+
+# CI scan output
+*.sarif
