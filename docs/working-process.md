@@ -244,6 +244,11 @@ than no doc, because it sends the reader looking for a fault in their machine.
   regenerates and diffs whenever `docs/design/` changes.
 - **Prose is not linted.** `docs/` and `.claude/` are excluded from Prettier so
   the specs keep their own line breaks.
+- **Do not watch CI for a change CI cannot fail on.** A commit touching only
+  `docs/` or another prose file has nothing for the pipeline to catch — `docs/`
+  is not linted, not typechecked and not tested. Push it and move on. Wait on
+  the run when the change can plausibly break it: anything under `apps/`,
+  `packages/`, `supabase/`, `scripts/`, a workflow file, or a lockfile.
 - **Documentation changes ride along with the work.** A rule learned while
   working a ticket goes into the PR for that ticket, not a separate
   documentation PR. One thing to review, and the lesson stays next to the change
