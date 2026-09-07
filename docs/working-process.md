@@ -211,6 +211,20 @@ implying three ticks.
 **The rule.** Report what was actually run, on what, and what was not. A ticket
 that is 90% done and honestly labelled is worth more than one claimed complete.
 
+### 2.12 Run every command you write down
+
+**What happened.** S0-10 documents the commands a newcomer runs first. Two of
+them (`pnpm dev`, `pnpm test:e2e`) did not exist as root scripts when the prose
+naming them was written; they were added afterwards, once each documented
+command was checked against `package.json` and actually executed. In the same
+session, the smoke test of `pnpm dev` was wrapped in `timeout 30 …`, which does
+not exist on macOS — a command invented rather than run.
+
+**The rule.** A command in `AGENTS.md`, `README.md` or a runbook is a promise
+that it works. Execute it, or cross-check it against the script that defines it,
+before the commit lands. A wrong command in a getting-started doc costs more
+than no doc, because it sends the reader looking for a fault in their machine.
+
 ---
 
 ## 3. Standing conventions
