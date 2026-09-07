@@ -25,6 +25,11 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Gitleaks diffs the pull request against its base, so it needs the
+          # history. The default shallow clone leaves it with nothing to
+          # compare and it exits 1 having scanned nothing.
+          fetch-depth: 0
 
       - name: Look for secrets before doing anything else
         # Cheap, and the one failure where finishing the build first would be
