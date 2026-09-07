@@ -11,7 +11,7 @@ export default function Route() {
   return (
     <MainScreen
       fixture={fixture}
-      onWhatIsBrand={() => router.push('/app')}
+      onWhatIsBrand={() => router.push('/get-the-app')}
       onBack={() => router.back()}
     />
   );

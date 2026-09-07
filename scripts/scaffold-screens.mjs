@@ -19,6 +19,25 @@ import { dirname } from 'node:path';
 
 const FORCE = process.argv.includes('--force');
 
+/**
+ * Screens that are a *state* of another screen, not a page of their own.
+ *
+ * The manifesto is explicit that the eight states are props of a screen, never
+ * separate routes (§7): a circle that is empty, filling up, has a time locked
+ * in, or is about due is one screen showing one circle, and giving each its own
+ * URL would mean the router deciding something the data already decides.
+ *
+ * They keep their own components — the artboards are materially different
+ * compositions — but share a route, chosen by `?state=`. S1-23 owns collapsing
+ * them into one component with a `state` prop.
+ */
+const VARIANTS = {
+  CircleHomeJoining: { of: 'CircleHome', state: 'joining' },
+  CircleHomeConfirmed: { of: 'CircleHome', state: 'confirmed' },
+  CircleHomeDue: { of: 'CircleHome', state: 'due' },
+  EmptyCircle: { of: 'CircleHome', state: 'empty' },
+};
+
 /** artboard → [feature context, route path]. Routes follow architecture §7.1. */
 const SCREENS = {
   // Guest, entirely on mobile web
@@ -47,7 +66,7 @@ const SCREENS = {
   YourName: ['identity', '/(auth)/name'],
   FirstCircle: ['circles', '/circles/new'],
   InviteCircle: ['circles', '/circles/[id]/invite'],
-  CircleHomeJoining: ['circles', '/circles/[id]/joining'],
+  CircleHomeJoining: ['circles', '/circles/[id]?state=joining'],
   FirstPlan: ['planning', '/circles/[id]/plan/new'],
   PlanShared: ['planning', '/circles/[id]/plan/[planId]/shared'],
   CircleHome: ['circles', '/circles/[id]'],
@@ -65,13 +84,13 @@ const SCREENS = {
   EditPlan: ['planning', '/circles/[id]/plan/[planId]/edit'],
   ConfirmReview: ['confirmation', '/circles/[id]/plan/[planId]/review'],
   ConfirmedOrg: ['confirmation', '/circles/[id]/plan/[planId]/confirmed'],
-  CircleHomeConfirmed: ['circles', '/circles/[id]/confirmed'],
+  CircleHomeConfirmed: ['circles', '/circles/[id]?state=confirmed'],
   ChangeTime: ['confirmation', '/circles/[id]/plan/[planId]/change-time'],
   CancelPlan: ['planning', '/circles/[id]/plan/[planId]/cancel'],
   CancelledOrg: ['planning', '/circles/[id]/plan/[planId]/cancelled'],
   NoQuorum: ['scheduling', '/circles/[id]/plan/[planId]/no-quorum'],
   Outcome: ['confirmation', '/circles/[id]/plan/[planId]/outcome'],
-  CircleHomeDue: ['circles', '/circles/[id]/due'],
+  CircleHomeDue: ['circles', '/circles/[id]?state=due'],
   PlanAnother: ['planning', '/circles/[id]/plan/another'],
   Settings: ['circles', '/circles/[id]/settings'],
   NotificationSettings: ['communication', '/settings/notifications'],
@@ -97,15 +116,15 @@ const SCREENS = {
 
   // Guest → app conversion
   ConfirmedGuestNudge: ['growth', '/p/[code]/nudge'],
-  AppSheet: ['growth', '/app'],
+  AppSheet: ['growth', '/get-the-app'],
   ReattachedNudge: ['growth', '/join/rejoined'],
   SecondSent: ['growth', '/j/[code]/sent-again'],
   AfterAttendance: ['growth', '/p/[code]/after'],
   InitiateGate: ['growth', '/circles/gate'],
-  AppLanding: ['growth', '/app/welcome'],
+  AppLanding: ['growth', '/get-the-app/welcome'],
 
   // States every screen owes, as their own artboards
-  EmptyCircle: ['circles', '/circles/[id]/empty'],
+  EmptyCircle: ['circles', '/circles/[id]?state=empty'],
   Offline: ['system', '/offline'],
 };
 
@@ -567,11 +586,11 @@ const DESTINATIONS = {
   'CircleHome.onSeeHowItsLooking': '/circles/[id]/plan/[planId]/candidates',
   'CircleHomeConfirmed.onPlanAnother': '/circles/[id]/plan/another',
   'CircleHomeDue.onPlanAnother': '/circles/[id]/plan/another',
-  'Main.onWhatIsBrand': '/app',
-  'LinkInvalid.onWhatIsBrand': '/app',
+  'Main.onWhatIsBrand': '/get-the-app',
+  'LinkInvalid.onWhatIsBrand': '/get-the-app',
   'Availability.onNoneOfTheseDates': '/j/[code]/none',
-  'Sent.onGetTheApp': '/app',
-  'ConfirmedGuest.onGetTheApp': '/app',
+  'Sent.onGetTheApp': '/get-the-app',
+  'ConfirmedGuest.onGetTheApp': '/get-the-app',
   'ConfirmedGuest.onICantMakeIt': '/p/[code]/attendance',
   'Candidates.onNoneOfTheseDates': '/circles/[id]/plan/[planId]/no-quorum',
   'Welcome.onContinueWithEmail': '/(auth)/sign-in',
@@ -589,8 +608,13 @@ const routeFile = (route) => {
 
 let routesWritten = 0;
 for (const [screen, [feature, route]] of Object.entries(SCREENS)) {
+  // A variant has no route of its own; its base emits one route for all of them.
+  if (VARIANTS[screen]) continue;
+
   const file = routeFile(route);
   if (existsSync(file) && !FORCE) continue;
+
+  const variants = Object.entries(VARIANTS).filter(([, v]) => v.of === screen);
 
   const journeyAt = JOURNEY.indexOf(route);
   const next = journeyAt >= 0 && journeyAt < JOURNEY.length - 1 ? JOURNEY[journeyAt + 1] : null;
@@ -609,21 +633,58 @@ for (const [screen, [feature, route]] of Object.entries(SCREENS)) {
     )
     .join('\n');
 
+  const variantImports = variants
+    .map(
+      ([name]) =>
+        `import { ${name}Screen } from '${depth}src/features/${SCREENS[name][0]}/${name}Screen';`,
+    )
+    .join('\n');
+
+  const variantMap = variants.length
+    ? `
+/**
+ * States of this screen, not pages of their own (manifesto §7). The data will
+ * decide which one in Slice 1; until then \`?state=\` does.
+ */
+const STATES: Record<string, ComponentType<Common>> = {
+${variants.map(([name, v]) => `  ${v.state}: ${name}Screen,`).join('\n')}
+};
+`
+    : '';
+
   mkdirSync(dirname(file), { recursive: true });
   writeFileSync(
     file,
-    `import { useRouter } from 'expo-router';
-
+    `import { ${variants.length ? 'useLocalSearchParams, ' : ''}useRouter } from 'expo-router';
+${variants.length ? `import type { ComponentType } from 'react';\n` : ''}
 import { useFixture } from '${depth}src/data/fixtures/useFixture';
-import { ${screen}Screen } from '${depth}src/features/${feature}/${screen}Screen';
+import { ${screen}Screen } from '${depth}src/features/${feature}/${screen}Screen';${variantImports ? `\n${variantImports}` : ''}
+${
+  variants.length
+    ? `import type { Fixture } from '${depth}src/data/fixtures';
 
+type Common = {
+  fixture: Fixture;
+  onNext?: (() => void) | undefined;
+  onBack?: (() => void) | undefined;
+${actions.map((a) => `  ${a}?: (() => void) | undefined;`).join('\n')}
+};
+`
+    : ''
+}${variantMap}
 /** Route only — thin composition, no logic (architecture §7.1). */
 export default function Route() {
   const router = useRouter();
   const fixture = useFixture();
-
+${
+  variants.length
+    ? `  const { state } = useLocalSearchParams<{ state?: string }>();
+  const Screen = (state && STATES[state]) || ${screen}Screen;
+`
+    : ''
+}
   return (
-    <${screen}Screen
+    <${variants.length ? 'Screen' : `${screen}Screen`}
       fixture={fixture}
 ${next ? `      onNext={() => router.push('${withIds(next)}')}\n` : ''}${actionProps ? `${actionProps}\n` : ''}      onBack={() => router.back()}
     />
