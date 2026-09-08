@@ -9,6 +9,14 @@ name: deploy-dev
 on:
   push:
     branches: [main]
+    paths-ignore:
+      # A Markdown change cannot alter the bundle or the database. Unlike
+      # `check`, these produce artefacts rather than a verdict, and neither
+      # scans for secrets nor gates a merge, so skipping the run outright is
+      # safe. `docs/design/**` is deliberately absent: gen.py is the source the
+      # design tokens come from.
+      - '**.md'
+      - '.claude/**'
   workflow_dispatch:
 
 permissions:

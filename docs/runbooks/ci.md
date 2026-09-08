@@ -153,3 +153,34 @@ code the installed app does not have.
 clients; `update-dev.yml` publishes to the `dev` channel. Both are
 `workflow_dispatch` — native delivery starts in Slice 3, and until then a
 development client is only wanted when someone asks for one.
+
+## What runs, and when it does not
+
+A prose change cannot break the suites, so it does not pay for them. "Prose"
+means **Markdown anywhere and `.claude/`, and nothing else** — `docs/design/`
+is excluded on purpose, because `gen.py` is the source the design tokens are
+generated from and `check:tokens` reads it.
+
+| Workflow | On a prose-only change |
+|---|---|
+| `check` | Runs. gitleaks and `format:check` execute; the suites, Playwright and Supabase do not. |
+| `preview` | Does not run. |
+| `deploy-dev` | Does not run. |
+
+The two mechanisms differ on purpose:
+
+- `preview` and `deploy-dev` use `paths-ignore`, so the run never starts. They
+  produce artefacts, and a Markdown change cannot alter a bundle or a database.
+- `check` keeps running and skips steps instead, for two reasons.
+  **gitleaks must not be skipped** — a Markdown file is exactly where someone
+  pastes a token, and `paths-ignore` would turn off secret scanning on the
+  highest-risk file type. And a skipped job reports no conclusion, which leaves
+  a required status check pending forever once branch protection is on.
+
+`format:check` still runs on prose because root Markdown *is* formatted:
+`.prettierignore` excludes `docs/` and `.claude/`, but not `AGENTS.md`,
+`README.md` or `CLAUDE.md`. Prose skips the suites, not the gate.
+
+`scripts/ci-scope.mjs` makes the call and defaults to `code` whenever it cannot
+tell — an empty diff, a merge commit, an unrecognised path. Being wrong that way
+costs a slow run; being wrong the other way costs a broken `main`.

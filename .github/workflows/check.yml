@@ -38,6 +38,32 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: What kind of change is this
+        id: scope
+        # The job always runs and always reports, even for prose. Skipping it
+        # with `paths-ignore` would skip gitleaks too, and a Markdown file is
+        # exactly where somebody pastes a token. It would also leave a required
+        # status check permanently pending once branch protection is on.
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            base="origin/${{ github.base_ref }}"
+            files=$(git diff --name-only "$base...HEAD" 2>/dev/null || true)
+          else
+            before="${{ github.event.before }}"
+            if git cat-file -e "$before^{commit}" 2>/dev/null; then
+              files=$(git diff --name-only "$before" "${{ github.sha }}" 2>/dev/null || true)
+            else
+              files=""
+            fi
+          fi
+          kind=$(printf '%s\n' "$files" | node scripts/ci-scope.mjs)
+          echo "kind=$kind" >> "$GITHUB_OUTPUT"
+          echo "### Gate: $kind" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$kind" = "prose" ]; then
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "Only Markdown and \`.claude/\` changed. Secret scanning and \`format:check\` still ran; the suites cannot be affected by these files, so they did not." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
       - uses: pnpm/action-setup@v4
 
       - uses: actions/setup-node@v4
@@ -45,29 +71,39 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
 
+      # Needed either way: prose still gets Prettier. Root Markdown is
+      # formatted (`docs/` is not), so this is the one gate prose can fail.
       - run: pnpm install --frozen-lockfile
+
+      - name: Formatting only
+        if: steps.scope.outputs.kind == 'prose'
+        run: pnpm run format:check
 
       - name: Cache Playwright browsers
         id: playwright-cache
+        if: steps.scope.outputs.kind == 'code'
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
 
-      - if: steps.playwright-cache.outputs.cache-hit != 'true'
+      - if: steps.scope.outputs.kind == 'code' && steps.playwright-cache.outputs.cache-hit != 'true'
         run: pnpm exec playwright install --with-deps chromium
 
       - uses: supabase/setup-cli@v1
+        if: steps.scope.outputs.kind == 'code'
         with:
           version: latest
 
       - name: Start Supabase
+        if: steps.scope.outputs.kind == 'code'
         # `pnpm check` resets the database and runs pgTAP, and `check:types`
         # generates types from the live schema. Only the database is needed:
         # every other service is time we would spend on nothing.
         run: supabase start -x realtime,storage-api,imgproxy,studio,inbucket,edge-runtime,logflare,vector,supavisor
 
       - name: pnpm check
+        if: steps.scope.outputs.kind == 'code'
         run: pnpm check
 
       - name: Upload the Playwright report
