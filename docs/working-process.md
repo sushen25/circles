@@ -258,6 +258,15 @@ name the dependency where someone reordering the steps will read it.
 - **Decisions live in three places, once each**: the code comment says *why this
   line*, the PR body says *why this approach*, the Linear comment says *what the
   next ticket needs to know*. Do not paste the same paragraph into all three.
+- **A finding goes on the ticket that will act on it, not only the one that
+  found it.** A comment on the ticket you have just finished is read by nobody:
+  whoever picks up the next one opens *their* ticket and its "Read first" list.
+  So when work turns up something a later ticket must do differently — a column
+  that has to be nullable, a template that sends the wrong thing, a state the
+  designs need that the ticket did not name — write it as a comment on *that*
+  ticket, naming what to do and why. Blocking relations are not enough; they
+  say something is pending, not what was learned. Raise a new ticket only when
+  the work has no home yet.
 - **A reversed decision is recorded, not quietly overwritten.** The EAS project
   id moved from an environment variable to a committed constant between S0-02
   and its follow-up; the PR says so and why.

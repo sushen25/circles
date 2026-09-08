@@ -10,9 +10,10 @@
  * Relative imports inside this package carry an explicit `.js` extension —
  * the built ESM output is loaded by Deno through an import map (S0-06).
  *
- * `shared/` holds the value objects every context is built from. The contexts
- * themselves — circles, planning, availability, scheduling, confirmation,
- * communication, growth — land in Slice 1.
+ * `shared/` holds the value objects every context is built from. `circles/` is
+ * the authorisation root (S1-01). The remaining contexts — planning,
+ * availability, scheduling, confirmation, communication, growth — follow
+ * through Slice 1.
  */
 export const PACKAGE_NAME = '@circles/domain';
 
@@ -23,4 +24,5 @@ export * from './shared/interval.js';
 export * from './shared/result.js';
 export * from './shared/clock.js';
 export * from './shared/events.js';
-export * as fixtures from './shared/fixtures.js';
+export * from './circles/index.js';
+export * as fixtures from './fixtures.js';
