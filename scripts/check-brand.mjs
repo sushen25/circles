@@ -9,11 +9,25 @@ import { join, relative } from 'node:path';
 const ROOTS = ['apps', 'packages', 'supabase', 'scripts'];
 const SKIP_DIRS = new Set(['node_modules', 'dist', '.expo', 'assets', 'ios', 'android']);
 const EXTENSIONS = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.json'];
-const ALLOWED = new Set(['packages/config/src/brand.ts']);
+const BRAND_FILE = 'packages/config/src/brand.ts';
+const ALLOWED = new Set([BRAND_FILE]);
+
+// Read the current values out of brand.ts rather than repeating them here. A
+// checker with the domain hard-coded goes quietly useless the day the domain
+// changes — which is the one day it is most needed.
+const brandSource = readFileSync(BRAND_FILE, 'utf8');
+function brandValue(key) {
+  const found = new RegExp(`^\\s*${key}:\\s*'([^']+)'`, 'm').exec(brandSource);
+  if (!found?.[1]) {
+    throw new Error(`check-brand: could not read \`${key}\` from ${BRAND_FILE}`);
+  }
+  return found[1];
+}
+const escape = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 const RULES = [
-  { name: 'display name', pattern: /\bCircles\b/ },
-  { name: 'link domain', pattern: /\bcircles\.app\b/ },
+  { name: 'display name', pattern: new RegExp(`\\b${escape(brandValue('name'))}\\b`) },
+  { name: 'link domain', pattern: new RegExp(`\\b${escape(brandValue('domain'))}\\b`) },
   {
     name: 'email address',
     pattern: /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/,

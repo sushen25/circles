@@ -33,6 +33,7 @@
     "@testing-library/react": "^16.3.3",
     "@types/react": "~19.2.2",
     "@types/react-dom": "^19.2.7",
+    "eas-cli": "^23.2.0",
     "jsdom": "^30.0.1"
   },
   "scripts": {

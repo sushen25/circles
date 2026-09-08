@@ -235,6 +235,16 @@ otp_length = 6
 # Number of seconds before the email OTP expires (defaults to 1 hour).
 otp_expiry = 3600
 
+# Sign-in is a six-digit code, not a magic link (§10). The stock template sends
+# {{ .ConfirmationURL }}, so without this the local stack tests a flow the app
+# does not implement. Hosted projects carry their own templates in the
+# dashboard; S1-19 replaces both with React Email.
+[auth.email.template.magic_link]
+subject = "Your sign-in code"
+# Relative to the repository root, not to supabase/ — unlike the schema and
+# seed paths in this same file, which are relative to supabase/.
+content_path = "./supabase/templates/magic-link.html"
+
 # Use a production-ready SMTP server
 # [auth.email.smtp]
 # enabled = true

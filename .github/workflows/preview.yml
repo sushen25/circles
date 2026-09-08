@@ -45,16 +45,38 @@ jobs:
       - run: pnpm install --frozen-lockfile
         if: steps.config.outputs.ready == 'true'
 
+      # app.config.ts imports @circles/config, which resolves to dist/. dist/ is
+      # gitignored, so it exists only after a build. `pnpm check` gets away
+      # without this because `typecheck` runs `tsc -b` first and leaves the
+      # output behind; nothing on the deploy path does.
+      - name: Build the workspace packages
+        if: steps.config.outputs.ready == 'true'
+        run: pnpm run build
+
       - name: Deploy to a per-PR alias
         id: deploy
         if: steps.config.outputs.ready == 'true'
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          # Previews point at `dev`, never at production data.
+          EXPO_PUBLIC_APP_ENV: preview
+          EXPO_PUBLIC_SUPABASE_URL: ${{ vars.EXPO_PUBLIC_SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+          EXPO_PUBLIC_APP_ORIGIN: ${{ vars.EXPO_PUBLIC_APP_ORIGIN }}
+          EXPO_PUBLIC_TURNSTILE_SITE_KEY: ${{ vars.EXPO_PUBLIC_TURNSTILE_SITE_KEY }}
         run: |
+          # pipefail matters here: without it a failed `eas deploy` is masked by
+          # the exit status of the command it pipes into, and the step passes.
+          set -o pipefail
+          # Say which identity the token resolves to. An EAS permission error
+          # names the app but not the viewer, so without this the only way to
+          # tell a wrong role from a wrong account is to guess.
+          pnpm --filter app exec eas whoami
           pnpm --filter app run export
-          url=$(pnpm --filter app exec eas deploy \
+          pnpm --filter app exec eas deploy \
             --alias "pr-${{ github.event.pull_request.number }}" \
-            --non-interactive --json | tail -1 | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{console.log(JSON.parse(s).dashboardUrl??JSON.parse(s).url??"")}catch{console.log("")}})')
+            --non-interactive --json | tee eas-deploy.json
+          url=$(node scripts/deploy-url.mjs < eas-deploy.json)
           echo "url=$url" >> "$GITHUB_OUTPUT"
 
       - name: Say where it is

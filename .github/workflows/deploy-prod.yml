@@ -80,10 +80,38 @@ jobs:
       - run: pnpm install --frozen-lockfile
         if: steps.config.outputs.expo == 'true'
 
+      # app.config.ts imports @circles/config, which resolves to dist/. dist/ is
+      # gitignored, so it exists only after a build. `pnpm check` gets away
+      # without this because `typecheck` runs `tsc -b` first and leaves the
+      # output behind; nothing on the deploy path does.
+      - name: Build the workspace packages
+        if: steps.config.outputs.expo == 'true'
+        run: pnpm run build
+
+      # A web build with no EXPO_PUBLIC_SUPABASE_URL compiles, deploys and
+      # serves a client that cannot reach its backend. Fail here instead, where
+      # the message says which variable is missing.
+      - name: Check the client configuration
+        if: steps.config.outputs.expo == 'true'
+        env:
+          EXPO_PUBLIC_SUPABASE_URL: ${{ vars.EXPO_PUBLIC_SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+          EXPO_PUBLIC_APP_ORIGIN: ${{ vars.EXPO_PUBLIC_APP_ORIGIN }}
+          EXPO_PUBLIC_TURNSTILE_SITE_KEY: ${{ vars.EXPO_PUBLIC_TURNSTILE_SITE_KEY }}
+          REQUIRE_TURNSTILE: 'true'
+        run: node scripts/check-client-env.mjs
+
       - name: Deploy the web build
         if: steps.config.outputs.expo == 'true'
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          EXPO_PUBLIC_APP_ENV: production
+          EXPO_PUBLIC_SUPABASE_URL: ${{ vars.EXPO_PUBLIC_SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+          EXPO_PUBLIC_APP_ORIGIN: ${{ vars.EXPO_PUBLIC_APP_ORIGIN }}
+          EXPO_PUBLIC_TURNSTILE_SITE_KEY: ${{ vars.EXPO_PUBLIC_TURNSTILE_SITE_KEY }}
         run: |
+          set -o pipefail
+          pnpm --filter app exec eas whoami
           pnpm --filter app run export
           pnpm --filter app exec eas deploy --prod --non-interactive

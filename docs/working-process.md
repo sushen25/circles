@@ -225,6 +225,32 @@ that it works. Execute it, or cross-check it against the script that defines it,
 before the commit lands. A wrong command in a getting-started doc costs more
 than no doc, because it sends the reader looking for a fault in their machine.
 
+### 2.13 A path CI never takes is a path that does not work
+
+**What happened.** The three deploy workflows were written in S0-09 and could
+not run: no `EXPO_TOKEN` existed, so every one skipped and reported itself
+green. The first time one actually ran, months of confidence evaporated in
+four seconds — `expo export` could not read `app.config.ts`, because it imports
+`@circles/config` from `dist/`, `dist/` is gitignored, and nothing on the deploy
+path had built it. `pnpm check` hid this: `typecheck` runs `tsc -b` early and
+leaves the output behind, so every later step finds a `dist/` that CI's deploy
+path never creates.
+
+Turning it on found **three** defects in the same step, each hidden by the one
+in front of it: no build, so `expo export` could not read the config; no
+`eas-cli` installed at all, so `eas deploy` exited 254 with `Command "eas" not
+found`; and no `pipefail`, so that 254 was masked by the exit status of the
+command it piped into and the step reported success. The second failure was
+reported to the founder as a successful deploy before the third was found.
+
+**The rule.** A workflow that has only ever skipped is unexecuted code, and a
+green tick on a skipped job is worth nothing. Never pipe a command whose failure
+matters without `set -o pipefail`; the pipeline's exit status is the last
+command's, so the interesting one is discarded. Say so out loud when reporting it
+— "green, but the deploy steps skipped" — and treat the first real run as the
+actual test. When a gate passes only because an earlier step had a side effect,
+name the dependency where someone reordering the steps will read it.
+
 ---
 
 ## 3. Standing conventions

@@ -63,6 +63,9 @@ start: [`apps/app/README.md`](apps/app/README.md).
 | dev   | hosted project      | EAS Hosting                | `development` channel |
 | prod  | hosted project      | EAS Hosting, custom domain | `production` channel  |
 
-Only **local** exists today. The hosted environments are set up in S0-11; the
-deploy workflows are already written and wait on their secrets — see
-[`docs/runbooks/ci.md`](docs/runbooks/ci.md).
+Only **local** exists today. Everything the repository needs for `dev` and
+`prod` is written and waiting on accounts, a domain and a card: work through
+[`docs/runbooks/environment-setup.md`](docs/runbooks/environment-setup.md), then
+[`docs/runbooks/environments.md`](docs/runbooks/environments.md) is the reference
+for what ended up where. The deploy workflows succeed and say what is missing
+until then — see [`docs/runbooks/ci.md`](docs/runbooks/ci.md).
