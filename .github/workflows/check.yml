@@ -44,14 +44,20 @@ jobs:
         # with `paths-ignore` would skip gitleaks too, and a Markdown file is
         # exactly where somebody pastes a token. It would also leave a required
         # status check permanently pending once branch protection is on.
+        env:
+          # Through the environment for the same reason as deploy-dev: nothing
+          # from the event payload is interpolated into a script.
+          BEFORE: ${{ github.event.before }}
+          BASE_REF: ${{ github.base_ref }}
+          SHA: ${{ github.sha }}
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
-            base="origin/${{ github.base_ref }}"
+            base="origin/${BASE_REF}"
             files=$(git diff --name-only "$base...HEAD" 2>/dev/null || true)
           else
-            before="${{ github.event.before }}"
+            before="${BEFORE}"
             if git cat-file -e "$before^{commit}" 2>/dev/null; then
-              files=$(git diff --name-only "$before" "${{ github.sha }}" 2>/dev/null || true)
+              files=$(git diff --name-only "$before" "${SHA}" 2>/dev/null || true)
             else
               files=""
             fi

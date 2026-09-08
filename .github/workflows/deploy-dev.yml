@@ -139,4 +139,15 @@ jobs:
           EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
           EXPO_PUBLIC_APP_ORIGIN: ${{ vars.EXPO_PUBLIC_APP_ORIGIN }}
           EXPO_PUBLIC_TURNSTILE_SITE_KEY: ${{ vars.EXPO_PUBLIC_TURNSTILE_SITE_KEY }}
-        run: pnpm --filter app exec eas update --channel development --message "${{ github.event.head_commit.message }}" --non-interactive
+          # Through the environment, never interpolated into the script. A
+          # commit message is attacker-controllable text, and `${{ }}` is
+          # substituted before the shell sees it — so a message containing a
+          # quote and a semicolon would run as commands on a runner holding
+          # EXPO_TOKEN and SUPABASE_ACCESS_TOKEN.
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+          SHA: ${{ github.sha }}
+        run: |
+          # head_commit exists only on push. On workflow_dispatch it is empty,
+          # and `eas update` refuses an empty message.
+          message=$(printf '%s' "${COMMIT_MESSAGE:-Manual deploy of ${SHA}}" | head -1 | cut -c1-200)
+          pnpm --filter app exec eas update --channel development --message "$message" --non-interactive
