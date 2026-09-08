@@ -29,3 +29,6 @@ test-results/
 
 # CI scan output
 *.sarif
+
+# CI deploy output
+eas-deploy.json
