@@ -153,3 +153,5 @@ code the installed app does not have.
 clients; `update-dev.yml` publishes to the `dev` channel. Both are
 `workflow_dispatch` — native delivery starts in Slice 3, and until then a
 development client is only wanted when someone asks for one.
+
+<!-- throwaway: proving the prose lane skips the suites. -->
