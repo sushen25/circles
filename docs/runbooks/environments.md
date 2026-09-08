@@ -22,8 +22,17 @@ Values, never — this file is in the repository.
 Project refs are not secret — they are the subdomain of a public API URL. Keys
 are, and none are in this file.
 
-Both hosted projects exist and are healthy. Everything else in
-[`environment-setup.md`](./environment-setup.md) is still outstanding.
+Both hosted projects exist and are healthy, with anonymous sign-ins and the
+email provider enabled and Apple/Google not yet configured. That is readable
+from outside at any time, which is the quickest way to tell a misconfigured
+project from a broken deploy:
+
+```bash
+curl -s https://<ref>.supabase.co/auth/v1/settings -H "apikey: <anon key>" | jq .external
+```
+
+Everything else in [`environment-setup.md`](./environment-setup.md) is still
+outstanding.
 
 > **The two projects are in different regions.** A region cannot be changed
 > after creation; moving means a new project and a new ref. That makes `dev` a
