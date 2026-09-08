@@ -2,6 +2,7 @@
   "imports": {
     "@circles/domain": "../../packages/domain/dist/index.js",
     "@circles/contracts": "../../packages/contracts/dist/index.js",
+    "date-fns-tz": "npm:date-fns-tz@^3.2.0",
     "zod": "npm:zod@^4.5.4"
   }
 }
