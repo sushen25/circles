@@ -9,3 +9,4 @@
 export * from './shared/fixtures.js';
 export * from './circles/fixtures.js';
 export * from './planning/fixtures.js';
+export * from './availability/fixtures.js';

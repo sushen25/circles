@@ -12,8 +12,10 @@ import { type Zone, fromLocal, zone } from './zone.js';
  *
  * The shapes still here are structural placeholders. Each Slice 1 domain ticket
  * owns its aggregate and replaces the corresponding type with the real one —
- * S1-01 did that for `circle` and `member`, S1-02 for `plan`; they live in
- * their own contexts' `fixtures.ts`. `src/fixtures.ts` aggregates both, so callers still
+ * S1-01 did that for `circle` and `member`, S1-02 for `plan`, S1-03 for
+ * `response`; each lives in its own context's `fixtures.ts`. What stays here
+ * is the shared value-object builders: `window`, and the canvas's example
+ * dates. `src/fixtures.ts` aggregates both, so callers still
  * write `fixtures.circle()`.
  *
  * They live in the domain package rather than a root `tests/fixtures` (the
@@ -30,8 +32,6 @@ export const A_THURSDAY: LocalDate = localDate('2026-09-17');
 /** 6:30 pm Melbourne on that Thursday — the canvas's confirmed time. */
 export const AN_EVENING: Instant = fromLocal(A_THURSDAY, 18 * 60 + 30, MELBOURNE);
 
-type Overrides<T> = Partial<T>;
-
 export type WindowFixture = Interval;
 
 /** A willing window on a given local date, in minutes of the day. */
@@ -42,23 +42,4 @@ export function window(
   inZone: Zone = MELBOURNE,
 ): WindowFixture {
   return interval(fromLocal(date, fromMinutes, inZone), fromLocal(date, toMinutes, inZone));
-}
-
-export type ResponseFixture = {
-  id: string;
-  planId: string;
-  memberId: string;
-  status: 'windows' | 'flexible' | 'none_work';
-  windows: readonly Interval[];
-};
-
-export function response(overrides: Overrides<ResponseFixture> = {}): ResponseFixture {
-  return {
-    id: 'response-1',
-    planId: 'plan-1',
-    memberId: 'member-1',
-    status: 'windows',
-    windows: [window()],
-    ...overrides,
-  };
 }
