@@ -51,6 +51,11 @@ They must build the workspace packages themselves: `app.config.ts` imports
 because `typecheck` runs `tsc -b` first and leaves the output behind. `check:env` is deliberately outside it — it needs
 the network and a domain that exists.
 
+Edge Functions run on Deno, which has **no `node_modules`**. Every bare import
+reachable from `packages/*/dist` must be in `supabase/functions/import_map.json`
+as `npm:<name>@<range>`, or the deploy fails at bundle time. `pnpm check:imports`
+is inside `pnpm check` and catches it before CI does.
+
 Configuration: public values are `EXPO_PUBLIC_*`, listed in `.env.example`;
 everything else is an Edge Function secret. The line between them, and what is
 set where, is [`docs/runbooks/environments.md`](docs/runbooks/environments.md).
