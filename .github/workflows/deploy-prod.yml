@@ -111,5 +111,7 @@ jobs:
           EXPO_PUBLIC_APP_ORIGIN: ${{ vars.EXPO_PUBLIC_APP_ORIGIN }}
           EXPO_PUBLIC_TURNSTILE_SITE_KEY: ${{ vars.EXPO_PUBLIC_TURNSTILE_SITE_KEY }}
         run: |
+          set -o pipefail
+          pnpm --filter app exec eas whoami
           pnpm --filter app run export
           pnpm --filter app exec eas deploy --prod --non-interactive

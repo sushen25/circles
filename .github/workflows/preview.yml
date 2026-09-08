@@ -68,6 +68,10 @@ jobs:
           # pipefail matters here: without it a failed `eas deploy` is masked by
           # the exit status of the command it pipes into, and the step passes.
           set -o pipefail
+          # Say which identity the token resolves to. An EAS permission error
+          # names the app but not the viewer, so without this the only way to
+          # tell a wrong role from a wrong account is to guess.
+          pnpm --filter app exec eas whoami
           pnpm --filter app run export
           pnpm --filter app exec eas deploy \
             --alias "pr-${{ github.event.pull_request.number }}" \
