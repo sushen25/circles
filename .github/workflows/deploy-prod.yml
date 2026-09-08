@@ -80,6 +80,14 @@ jobs:
       - run: pnpm install --frozen-lockfile
         if: steps.config.outputs.expo == 'true'
 
+      # app.config.ts imports @circles/config, which resolves to dist/. dist/ is
+      # gitignored, so it exists only after a build. `pnpm check` gets away
+      # without this because `typecheck` runs `tsc -b` first and leaves the
+      # output behind; nothing on the deploy path does.
+      - name: Build the workspace packages
+        if: steps.config.outputs.expo == 'true'
+        run: pnpm run build
+
       # A web build with no EXPO_PUBLIC_SUPABASE_URL compiles, deploys and
       # serves a client that cannot reach its backend. Fail here instead, where
       # the message says which variable is missing.

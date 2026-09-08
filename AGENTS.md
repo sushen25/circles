@@ -37,8 +37,13 @@ pnpm test:e2e          # Playwright against the exported web build
 pnpm check:env <domain>  # a deployed environment from outside: HTTPS, HSTS, SPF/DKIM/DMARC
 ```
 
-`pnpm check` is the whole gate and CI runs exactly it. If it passes locally it
-passes in CI, and vice versa. `check:env` is deliberately outside it — it needs
+`pnpm check` is the whole gate and the `check` workflow runs exactly it. If it
+passes locally it passes there, and vice versa.
+
+The **deploy** workflows are not `pnpm check` and do not inherit that promise.
+They must build the workspace packages themselves: `app.config.ts` imports
+`@circles/config` from `dist/`, which is gitignored, and `check` only has it
+because `typecheck` runs `tsc -b` first and leaves the output behind. `check:env` is deliberately outside it — it needs
 the network and a domain that exists.
 
 Configuration: public values are `EXPO_PUBLIC_*`, listed in `.env.example`;
