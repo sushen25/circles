@@ -24,6 +24,7 @@
     "db:stop": "supabase stop",
     "db:reset": "supabase db reset",
     "db:test": "supabase db reset && supabase test db",
+    "mail": "node scripts/local-mail.mjs",
     "gen:types": "supabase gen types typescript --local > packages/contracts/src/db.generated.ts",
     "gen:tokens": "node --experimental-strip-types scripts/gen-tokens.ts",
     "check:brand": "node scripts/check-brand.mjs",

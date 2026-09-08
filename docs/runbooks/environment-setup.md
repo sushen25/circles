@@ -132,9 +132,9 @@ In the repository settings, **Secrets and variables → Actions**:
 
 ## 5. DNS and email authentication
 
-- [ ] EAS Hosting → attach **both** `meet.sushensatturu.com` and
-      `dev.sushensatturu.com`; add the records it asks for, per the Route 53
-      notes in step 2.
+- [ ] EAS Hosting → attach **`dev.sushensatturu.com`** only for now; add the
+      records it asks for, per the Route 53 notes in step 2.
+      `meet.sushensatturu.com` waits for the production environment (SUS-71).
 - [ ] Resend → add domain **`mail.meet.sushensatturu.com`**. Production only —
       `dev` does not send, and a second sending domain is a second set of
       records to keep warm for no benefit yet.
@@ -164,6 +164,10 @@ in the URL fragment, and a leaked referrer is how they escape (§14).
 
 ## 6. Resend
 
+**Deferred** (SUS-71, founder decision 8 Sep 2026). No environment sends real
+email; testing happens locally against Mailpit — see
+[`environments.md`](./environments.md). Due before S1-19.
+
 - [ ] API Keys → create one, **sending permission only**, named `circles-prod`.
 - [ ] Webhooks → add an endpoint. The URL is the `email-provider-webhook`
       function, which **does not exist until S1-19** — either come back for this
@@ -176,6 +180,11 @@ in the URL fragment, and a leaked referrer is how they escape (§14).
 
 ## 7. Cloudflare Turnstile — free
 
+**Deferred** (SUS-71). Anonymous joins are ungated on the deployed app, which
+is harmless while nothing real is deployed. `check-client-env.mjs` already
+refuses a **production** deploy without it, so this cannot be forgotten into
+production. Due before S1-14.
+
 - [ ] Turnstile → add a widget, **Invisible** mode. Add all three hostnames:
       `meet.sushensatturu.com`, `dev.sushensatturu.com` and `localhost`.
 
@@ -183,6 +192,8 @@ in the URL fragment, and a leaked referrer is how they escape (§14).
 `EXPO_PUBLIC_TURNSTILE_SITE_KEY`) and the **secret key** (→ step 9).
 
 ## 8. Apple and Google sign-in
+
+**Deferred** (SUS-71). Verified off on both projects. Due before S1-14.
 
 Slower than the rest; both can be done after Slice 1 starts, but before S1-14
 lands.
@@ -230,11 +241,10 @@ supabase secrets set --project-ref <ref> APPLE_PRIVATE_KEY="$(cat AuthKey_XXXX.p
 
 ## 10. Confirm the whole thing
 
-- [ ] `pnpm check:env meet.sushensatturu.com` — six for six, and
-      `pnpm check:env dev.sushensatturu.com --no-email`.
+- [ ] `pnpm check:env dev.sushensatturu.com --no-email` — the app checks pass.
 - [ ] Push to `main`; the `deploy-dev` run summary shows Supabase and Expo both
       `true` rather than "waiting on S0-11".
-- [ ] `https://meet.sushensatturu.com/` serves the app.
+- [ ] `https://dev.sushensatturu.com/` serves the app.
 - [ ] Open a throwaway PR and confirm the preview URL is posted on it.
 - [ ] gitleaks green on that PR — nothing from this checklist reached the repo.
 

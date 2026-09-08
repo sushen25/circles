@@ -69,9 +69,29 @@ user-visible points at it, and it arrives through `EXPO_PUBLIC_APP_ORIGIN`.
 
 Links are **never** shipped on `*.expo.app`.
 
-**Email is production-only for now.** `dev` has no sending domain, so
-`pnpm check:env dev.sushensatturu.com --no-email` is the right invocation for it.
-S1-19 decides whether dev ever needs its own.
+**No environment sends real email yet**, by decision — Resend is deferred, so
+neither `dev` nor `prod` has a sending domain and
+`pnpm check:env <host> --no-email` is the right invocation for both.
+
+Email is tested **locally** instead. `pnpm db:start` runs Mailpit next to
+Postgres and Auth; everything the stack sends is captured at
+`http://127.0.0.1:54324` and never leaves the machine.
+
+```bash
+pnpm mail                        # what has been caught
+pnpm mail someone@example.com    # that address's newest sign-in code
+```
+
+Sign-in is a **six-digit code, not a magic link** (§10). Supabase's stock
+template sends `{{ .ConfirmationURL }}`, so the local stack would otherwise
+exercise a flow the app does not implement; `supabase/templates/magic-link.html`
+overrides it and `config.toml` points at it. Verified end to end: request an OTP,
+read the code out of Mailpit, `/auth/v1/verify` returns a session.
+
+The hosted projects still carry Supabase's stock templates in their dashboards.
+They send links, and they will keep sending links until the email ticket lands —
+which is fine while nothing hosted signs anyone in, and a trap the moment
+something does.
 
 DNS records live **inside the existing `sushensatturu.com` hosted zone** — never
 a new zone per subdomain. Names are as typed in the Route 53 console, which

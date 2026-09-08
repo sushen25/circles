@@ -35,7 +35,12 @@ pnpm gen:types         # regenerate database types from the local schema
 pnpm gen:tokens        # regenerate design tokens from docs/design/gen.py
 pnpm test:e2e          # Playwright against the exported web build
 pnpm check:env <domain>  # a deployed environment from outside: HTTPS, HSTS, SPF/DKIM/DMARC
+pnpm mail [address]    # what the local mail catcher caught; with an address, the sign-in code
 ```
+
+Nothing local sends a real email. `pnpm db:start` runs Mailpit alongside
+Postgres, and every message the stack produces is captured at
+`http://127.0.0.1:54324`.
 
 `pnpm check` is the whole gate and the `check` workflow runs exactly it. If it
 passes locally it passes there, and vice versa.
