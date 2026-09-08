@@ -207,6 +207,22 @@ HTTPS, HSTS, `Referrer-Policy: no-referrer`, and SPF/DKIM/DMARC on `mail.<domain
 will cheerfully serve a record that was deleted an hour ago. Not part of
 `pnpm check`: it needs the network and a domain that exists.
 
+## Expected security-advisor warnings
+
+`get_advisors(type: "security")` on a hosted project reports four warnings that
+are **correct and expected**. Check any new one against this list before
+treating it as a finding:
+
+| Warning | Why it is fine |
+|---|---|
+| `auth_is_member` executable by `anon` and `authenticated` | Ours, and deliberate. The RLS policies call it, so it carries `revoke all … from public` followed by an explicit grant to exactly those two roles (§14). It is a stub returning `false` until S1-07 — it fails closed. |
+| `rls_auto_enable` executable by `anon` and `authenticated` | Not ours. A Supabase platform event-trigger function that auto-enables RLS on new public tables. It reads `pg_event_trigger_ddl_commands()`, so a direct call outside a DDL event does nothing. |
+| Anonymous access policies on `cron.job`, `cron.job_run_details` | pg_cron's own tables, created by the extension. |
+| Leaked-password protection disabled | There are no passwords. Sign-in is a six-digit code or an OAuth provider (§10). |
+
+Anything **outside** this table is a real finding. Re-check after every migration
+that adds a definer function or a table.
+
 ## Cost
 
 | | Now | Later |
