@@ -114,8 +114,11 @@ nothing. The scoping does the environment split:
 - **`production` environment variables** hold the live values and override the
   repository ones for `deploy-prod` only.
 
-`scripts/check-client-env.mjs` runs before every deploy and fails if one is
-missing or malformed. An `expo export` with no Supabase URL builds and deploys
+`scripts/check-client-env.mjs` runs before the `dev` and `prod` deploys and
+fails if one is missing or malformed. **Not before per-PR previews**, on
+purpose: a preview exists to look at screens, which are fixture-driven and need
+no backend, and a guard there would turn every PR red for a variable the PR did
+not change. An `expo export` with no Supabase URL builds and deploys
 perfectly happily, and every request fails in the browser.
 
 **Secret — set with `supabase secrets set`, on both projects:**
@@ -135,6 +138,12 @@ PR; a green run is evidence, not a formality.
 **GitHub secrets** (deploy credentials, genuinely secret):
 `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DEV_PROJECT_REF`, `SUPABASE_PROD_PROJECT_REF`,
 `EXPO_TOKEN`.
+
+**Setting `EXPO_TOKEN` is what switches the deploy workflows on.** Until it
+exists they skip and report; the moment it is set they run for real, and
+`check-client-env.mjs` fails the job if the `EXPO_PUBLIC_*` variables are not
+there yet. Set the variables first, then the token — in the other order the next
+push to `main` goes red for a reason that has nothing to do with the commit.
 
 Every deploy workflow is guarded on its secret being present and **succeeds**
 while the secret is absent, saying what is missing in the run summary. A red
