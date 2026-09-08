@@ -10,10 +10,11 @@ import { type Zone, fromLocal, zone } from './zone.js';
  * it is about: `plan({ quorum: 2 })` says "this test is about quorum" and stays
  * readable when a field is added later.
  *
- * The shapes here are structural placeholders. Each Slice 1 domain ticket owns
- * its aggregate and will replace the corresponding type with the real one; the
- * builder names are fixed now so those tickets change a type rather than every
- * test that used it.
+ * The shapes still here are structural placeholders. Each Slice 1 domain ticket
+ * owns its aggregate and replaces the corresponding type with the real one —
+ * S1-01 has done that for `circle` and `member`, which now live in
+ * `circles/fixtures.ts`. `src/fixtures.ts` aggregates both, so callers still
+ * write `fixtures.circle()`.
  *
  * They live in the domain package rather than a root `tests/fixtures` (the
  * architecture's layout) so they are typed against the domain without alias
@@ -30,49 +31,6 @@ export const A_THURSDAY: LocalDate = localDate('2026-09-17');
 export const AN_EVENING: Instant = fromLocal(A_THURSDAY, 18 * 60 + 30, MELBOURNE);
 
 type Overrides<T> = Partial<T>;
-
-export type CircleFixture = {
-  id: string;
-  name: string;
-  timeZone: Zone;
-  quorum: number;
-  durationMinutes: number;
-  cadence: 'weekly' | 'fortnightly' | 'monthly' | 'two_monthly' | 'none';
-};
-
-export function circle(overrides: Overrides<CircleFixture> = {}): CircleFixture {
-  return {
-    id: 'circle-1',
-    name: 'Sunday Crew',
-    timeZone: MELBOURNE,
-    quorum: 3,
-    durationMinutes: 120,
-    cadence: 'monthly',
-    ...overrides,
-  };
-}
-
-export type MemberFixture = {
-  id: string;
-  circleId: string;
-  name: string;
-  role: 'owner' | 'member';
-  status: 'active' | 'removed';
-  /** Members can sit in other zones; the engine has to cope (§12). */
-  timeZone: Zone;
-};
-
-export function member(overrides: Overrides<MemberFixture> = {}): MemberFixture {
-  return {
-    id: 'member-1',
-    circleId: 'circle-1',
-    name: 'Maya',
-    role: 'member',
-    status: 'active',
-    timeZone: MELBOURNE,
-    ...overrides,
-  };
-}
 
 export type PlanFixture = {
   id: string;
