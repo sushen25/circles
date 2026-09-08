@@ -26,7 +26,13 @@ const appEnv = resolveAppEnv();
 
 // Native builds fetch the one server route (the link-preview endpoint, §9.4)
 // with a relative path, so `origin` has to be set for them to resolve.
-const appOrigin = process.env.EXPO_PUBLIC_APP_ORIGIN ?? `https://${brand.domain}`;
+//
+// The fallback follows the environment. Falling back to the brand domain in
+// development pointed local runs at a host that does not resolve, which fails
+// only on native and only at the moment the route is fetched.
+const appOrigin =
+  process.env.EXPO_PUBLIC_APP_ORIGIN ??
+  (appEnv === 'development' ? 'http://localhost:8081' : `https://${brand.domain}`);
 
 // `circles` stays the identifier prefix whatever the product is called (§5.4).
 const bundleIdentifier = `app.circles.${appEnv}`;

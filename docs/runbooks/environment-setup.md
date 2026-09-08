@@ -43,19 +43,25 @@ Reference for anything that needs explaining: [`environments.md`](./environments
 > Free projects pause after 7 days of no API requests. If `dev` looks broken
 > after a quiet week, un-pause it before debugging anything else.
 
-## 2. Domain — free
+## 2. Domain — free, and deferred
 
-Settled: subdomains of the founder's existing Route 53 zone `sushensatturu.com`,
-rather than buying anything. They are temporary and get replaced when the product
-is named.
+**Deferred** (SUS-71, founder decision 8 Sep 2026). `dev` runs on the URL EAS
+Hosting assigns — `sushen25s-team-circles--dev.expo.app` — which is enough for
+integration testing and previews. The names below are settled and reserved; the
+DNS records are simply not written yet.
 
-- [x] `dev.sushensatturu.com` — the `dev` app host.
-- [x] `meet.sushensatturu.com` — the `prod` app host. `meet`, not the codename:
+The one hard boundary: **§5.2 forbids shipping links on `*.expo.app`**, and that
+still holds. Before any invite link reaches a person who is not the founder, the
+custom domain has to exist, because a link already in a group chat cannot be
+recalled.
+
+- [ ] `dev.sushensatturu.com` — the `dev` app host.
+- [ ] `meet.sushensatturu.com` — the `prod` app host. `meet`, not the codename:
       links already in a group chat keep working and keep saying whatever they
       said, so the one string you cannot take back should describe the job
       rather than the name (§5.4).
-- [x] `mail.meet.sushensatturu.com` — the sending domain. **Production only**;
-      `dev` does not send.
+- [ ] `mail.meet.sushensatturu.com` — the sending domain. **Production only**;
+      `dev` does not send. Deferred with Resend (SUS-71).
 
 Nothing to create yet. The records come from EAS (step 3) and Resend (step 6),
 and guessing them means deleting them later.
@@ -132,9 +138,10 @@ In the repository settings, **Secrets and variables → Actions**:
 
 ## 5. DNS and email authentication
 
-- [ ] EAS Hosting → attach **`dev.sushensatturu.com`** only for now; add the
-      records it asks for, per the Route 53 notes in step 2.
-      `meet.sushensatturu.com` waits for the production environment (SUS-71).
+- [ ] **Deferred.** No custom domain is attached; `dev` serves from
+      `sushen25s-team-circles--dev.expo.app`. When the domain is added, attach
+      `dev.sushensatturu.com` in EAS Hosting and add the records it asks for,
+      per the Route 53 notes in step 2.
 - [ ] Resend → add domain **`mail.meet.sushensatturu.com`**. Production only —
       `dev` does not send, and a second sending domain is a second set of
       records to keep warm for no benefit yet.
@@ -241,10 +248,13 @@ supabase secrets set --project-ref <ref> APPLE_PRIVATE_KEY="$(cat AuthKey_XXXX.p
 
 ## 10. Confirm the whole thing
 
-- [ ] `pnpm check:env dev.sushensatturu.com --no-email` — the app checks pass.
+- [ ] `pnpm check:env sushen25s-team-circles--dev.expo.app --no-email` — HTTPS
+      and HSTS pass. `Referrer-Policy` fails: EAS Hosting does not set one, and
+      `/j/<code>` and `/p/<code>` carry codes in the path. Fix before any link
+      goes to a real person (SUS-71).
 - [ ] Push to `main`; the `deploy-dev` run summary shows Supabase and Expo both
       `true` rather than "waiting on S0-11".
-- [ ] `https://dev.sushensatturu.com/` serves the app.
+- [ ] `https://sushen25s-team-circles--dev.expo.app/` serves the app.
 - [ ] Open a throwaway PR and confirm the preview URL is posted on it.
 - [ ] gitleaks green on that PR — nothing from this checklist reached the repo.
 

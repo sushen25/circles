@@ -53,10 +53,22 @@ Both environments are **subdomains of the founder's personal apex**,
 hosts (§5.2, ADR 0001) and will be replaced when the product is named — nothing
 may assume them.
 
-| | Host | Sends email |
+| | Host today | Host eventually |
 |---|---|---|
-| `dev` | `dev.sushensatturu.com` | no |
-| `prod` | `meet.sushensatturu.com` | yes, from `mail.meet.sushensatturu.com` |
+| `dev` | `sushen25s-team-circles--dev.expo.app` | `dev.sushensatturu.com` |
+| `prod` | none — not deployed | `meet.sushensatturu.com` |
+
+**`dev` runs without a custom domain for now** (founder decision, 8 September
+2026). EAS Hosting gives every alias a stable URL of the form
+`sushen25s-team-circles--<alias>.expo.app`, which is enough for integration
+testing and per-PR previews.
+
+This is not a licence to ignore §5.2. That rule — **never ship links on
+`*.expo.app`** — is about links a real person receives, and it still binds
+absolutely. The boundary is sharp: the first time an invite link is sent to
+anybody who is not the founder, the custom domain has to exist first, because a
+link already sitting in a group chat cannot be recalled. `dev` never sends
+invites, so it never crosses that line.
 
 `meet` rather than the codename, on purpose: a URL is the hardest thing to take
 back, because links already sitting in a group chat keep working and keep saying
