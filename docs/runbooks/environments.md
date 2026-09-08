@@ -135,6 +135,20 @@ The service-role key is never set by hand: Supabase injects it into functions.
 It must not appear in the client or the repository (§14). gitleaks runs on every
 PR; a green run is evidence, not a formality.
 
+## The EAS account
+
+The project, the paid plan and the CI robot must all be on **`sushen25s-team`**.
+They started out split — `eas init` created the project on the personal account
+while the robot was created on the organisation — and every deploy failed with
+`Entity not authorized: AppEntity[...] (viewer = RobotViewerContext)`, a message
+that names the app but never the viewer, so the role looked wrong when the
+account was.
+
+`owner` in `app.config.ts` now states the account, so a mismatch is an explicit
+error rather than a silent one. Every deploy step runs `eas whoami` first and
+prints the identity and its accounts; that line is the fastest way to tell a
+wrong role from a wrong account.
+
 **GitHub secrets** (deploy credentials, genuinely secret):
 `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DEV_PROJECT_REF`, `SUPABASE_PROD_PROJECT_REF`,
 `EXPO_TOKEN`.

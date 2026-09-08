@@ -31,12 +31,20 @@ const appOrigin = process.env.EXPO_PUBLIC_APP_ORIGIN ?? `https://${brand.domain}
 // `circles` stays the identifier prefix whatever the product is called (§5.4).
 const bundleIdentifier = `app.circles.${appEnv}`;
 
-// Created by `eas init` as @sushen25/circles. Not a secret, and EAS needs it to
-// resolve the project, so it is committed rather than read from the
-// environment — a dynamic config cannot be written back to by the CLI.
+// Created by `eas init`. Not a secret, and EAS needs it to resolve the project,
+// so it is committed rather than read from the environment — a dynamic config
+// cannot be written back to by the CLI.
 const easProjectId = '81371189-91d3-4ee8-859c-bf60a35ca7e0';
 
+// The EAS account that owns the project, the paid plan and the CI robot. All
+// three must be the same account: `eas init` put the project on the personal
+// account while the robot was created on the organisation, and every deploy
+// failed with a message that named the app but never the viewer. Stating the
+// owner here means a mismatch is a clear error instead of a silent one.
+const easOwner = 'sushen25s-team';
+
 const config: ExpoConfig = {
+  owner: easOwner,
   name: brand.name,
   slug: 'circles',
   scheme: brand.scheme,
