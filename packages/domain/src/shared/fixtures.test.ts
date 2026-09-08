@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import { circle, member } from '../circles/fixtures';
-import { MELBOURNE, plan, response, window } from './fixtures';
+import { plan } from '../planning/fixtures';
+import { MELBOURNE, response, window } from './fixtures';
 import { durationMinutes, isAligned30 } from './interval';
 import { localDate } from './local-date';
 import { toLocal } from './zone';

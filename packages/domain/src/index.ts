@@ -11,9 +11,9 @@
  * the built ESM output is loaded by Deno through an import map (S0-06).
  *
  * `shared/` holds the value objects every context is built from. `circles/` is
- * the authorisation root (S1-01). The remaining contexts — planning,
- * availability, scheduling, confirmation, communication, growth — follow
- * through Slice 1.
+ * the authorisation root (S1-01) and `planning/` carries the plan state
+ * machine (S1-02). The remaining contexts — availability, scheduling,
+ * confirmation, communication, growth — follow through Slice 1.
  */
 export const PACKAGE_NAME = '@circles/domain';
 
@@ -25,4 +25,5 @@ export * from './shared/result.js';
 export * from './shared/clock.js';
 export * from './shared/events.js';
 export * from './circles/index.js';
+export * from './planning/index.js';
 export * as fixtures from './fixtures.js';
