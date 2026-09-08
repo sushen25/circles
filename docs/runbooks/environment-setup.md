@@ -248,15 +248,19 @@ supabase secrets set --project-ref <ref> APPLE_PRIVATE_KEY="$(cat AuthKey_XXXX.p
 
 ## 10. Confirm the whole thing
 
-- [ ] `pnpm check:env sushen25s-team-circles--dev.expo.app --no-email` — HTTPS
-      and HSTS pass. `Referrer-Policy` fails: EAS Hosting does not set one, and
-      `/j/<code>` and `/p/<code>` carry codes in the path. Fix before any link
-      goes to a real person (SUS-71).
-- [ ] Push to `main`; the `deploy-dev` run summary shows Supabase and Expo both
+- [x] `pnpm check:env sushen25s-team-circles--dev.expo.app --no-email` — HTTPS
+      and HSTS pass. `Referrer-Policy` fails, as expected: EAS Hosting sets none,
+      and `/j/<code>` and `/p/<code>` carry codes in the path. Must be fixed
+      before any link goes to a real person (SUS-71).
+- [x] Push to `main`; the `deploy-dev` run summary shows Supabase and Expo both
       `true` rather than "waiting on S0-11".
-- [ ] `https://sushen25s-team-circles--dev.expo.app/` serves the app.
-- [ ] Open a throwaway PR and confirm the preview URL is posted on it.
-- [ ] gitleaks green on that PR — nothing from this checklist reached the repo.
+- [x] `https://sushen25s-team-circles--dev.expo.app/` serves the app, and
+      `https://pcfekupwqrdfryeaqggx.supabase.co/functions/v1/hello` returns
+      `{"domain":"@circles/domain","contracts":"@circles/contracts","validated":true}`
+      — which is ADR 0007's open question answered: the domain package really
+      does load and run inside Deno.
+- [x] Open a throwaway PR and confirm the preview URL is posted on it.
+- [x] gitleaks green on that PR — nothing from this checklist reached the repo.
 
 ---
 

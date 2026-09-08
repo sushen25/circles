@@ -31,8 +31,18 @@ project from a broken deploy:
 curl -s https://<ref>.supabase.co/auth/v1/settings -H "apikey: <anon key>" | jq .external
 ```
 
-Everything else in [`environment-setup.md`](./environment-setup.md) is still
-outstanding.
+**`dev` is live and verified end to end** (8 September 2026): migrations
+applied, Edge Functions deployed and answering, the web build serving on
+`sushen25s-team-circles--dev.expo.app`, and an EAS Update published to the
+`development` channel.
+
+`https://pcfekupwqrdfryeaqggx.supabase.co/functions/v1/hello` returns
+`{"domain":"@circles/domain","contracts":"@circles/contracts","validated":true}`,
+which closes the question ADR 0007 left open: the shared domain package really
+does load and run inside Deno, not only in the client and the test suites.
+
+`prod` is not deployed. Everything else in
+[`environment-setup.md`](./environment-setup.md) is deferred to SUS-71.
 
 > **The two projects are in different regions.** A region cannot be changed
 > after creation; moving means a new project and a new ref. That makes `dev` a
