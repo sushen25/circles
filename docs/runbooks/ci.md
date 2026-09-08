@@ -184,3 +184,37 @@ The two mechanisms differ on purpose:
 `scripts/ci-scope.mjs` makes the call and defaults to `code` whenever it cannot
 tell — an empty diff, a merge commit, an unrecognised path. Being wrong that way
 costs a slow run; being wrong the other way costs a broken `main`.
+
+## Never interpolate the event payload into a `run:` block
+
+`${{ ... }}` is substituted into the script **before the shell sees it**, so any
+attacker-controllable value becomes script text. `deploy-dev` passed a commit
+message that way:
+
+```yaml
+run: eas update --message "${{ github.event.head_commit.message }}" ...
+```
+
+A commit titled `oops"; echo PWNED; #` executes on a runner holding `EXPO_TOKEN`
+and `SUPABASE_ACCESS_TOKEN`. Verified by reproducing it, not by reasoning about
+it.
+
+Pass such values through `env:` instead. The shell then receives them as data,
+and quoting is the shell's problem rather than the templating engine's:
+
+```yaml
+env:
+  COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+run: |
+  message=$(printf '%s' "${COMMIT_MESSAGE:-fallback}" | head -1 | cut -c1-200)
+```
+
+Two values are still interpolated directly, and both are safe:
+`github.event.pull_request.number` is an integer, and
+`github.event.pull_request.head.sha` goes into a comment body as an action
+input, never into a script.
+
+The same step was also broken on `workflow_dispatch`: `head_commit` exists only
+on `push`, so a manual run sent an empty message and `eas update` refused it.
+Any value read from the event payload has to have a defined meaning under
+**every** trigger the workflow declares.
