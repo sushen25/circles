@@ -7,17 +7,26 @@
  * Run by hand after the vendor setup in docs/runbooks/environment-setup.md.
  * Not part of `pnpm check`: it needs the network and a domain that exists.
  *
- *   pnpm check:env example.com
+ *   pnpm check:env meet.example.com
+ *   pnpm check:env dev.example.com --no-email
  *
- * Reads nothing secret and sends nothing anywhere except DNS and a HEAD request
- * to the domain itself.
+ * `--no-email` is for an environment that does not send: only production has a
+ * sending domain today, and failing `dev` on records it was never meant to have
+ * is how a check gets ignored.
+ *
+ * Reads nothing secret and sends nothing anywhere except DNS and one GET to the
+ * domain itself.
  */
 
 import { Resolver } from 'node:dns/promises';
 
-const domain = process.argv[2] ?? process.env.APP_DOMAIN;
+const args = process.argv.slice(2);
+const skipEmail = args.includes('--no-email');
+const domain = args.find((a) => !a.startsWith('--')) ?? process.env.APP_DOMAIN;
 if (!domain) {
-  console.error('usage: pnpm check:env <domain>    e.g. pnpm check:env example.com');
+  console.error('usage: pnpm check:env <domain> [--no-email]');
+  console.error('   e.g. pnpm check:env meet.example.com');
+  console.error('        pnpm check:env dev.example.com --no-email');
   process.exit(2);
 }
 if (!/^[a-z0-9.-]+\.[a-z]{2,}$/i.test(domain)) {
@@ -66,28 +75,68 @@ try {
 }
 
 // --- email authentication on the sending subdomain ------------------------
-const mail = `mail.${domain}`;
+if (skipEmail) {
+  console.log(`\n${domain}  (email checks skipped: --no-email)`);
+} else {
+  const mail = `mail.${domain}`;
 
-const spf = (await txt(mail)).filter((v) => v.toLowerCase().startsWith('v=spf1'));
-record('SPF on ' + mail, spf.length === 1, spf[0] ?? 'no v=spf1 record found');
+  // Resend puts SPF and the bounce MX on a `send.` child of the sending domain,
+  // not on the sending domain itself, and keeps DKIM at the parent. Checking
+  // only one of the two produces a confident, wrong failure.
+  const spfHosts = [`send.${mail}`, mail];
+  let spfHost = null;
+  let spf = [];
+  for (const host of spfHosts) {
+    const found = (await txt(host)).filter((v) => v.toLowerCase().startsWith('v=spf1'));
+    if (found.length > 0) {
+      spfHost = host;
+      spf = found;
+      break;
+    }
+  }
+  record(
+    'SPF',
+    spf.length === 1,
+    spf.length > 0 ? `${spfHost}: ${spf[0]}` : `no v=spf1 at ${spfHosts.join(' or ')}`,
+  );
 
-// Resend publishes its DKIM key at this selector.
-const dkim = await txt(`resend._domainkey.${mail}`);
-record('DKIM (resend._domainkey)', dkim.length > 0, dkim.length > 0 ? 'present' : 'not found');
+  // Resend publishes its DKIM key at this selector, on the sending domain.
+  const dkim = await txt(`resend._domainkey.${mail}`);
+  record(
+    'DKIM',
+    dkim.length > 0,
+    dkim.length > 0 ? `resend._domainkey.${mail}` : `nothing at resend._domainkey.${mail}`,
+  );
 
-const dmarc = (await txt(`_dmarc.${mail}`)).filter((v) => v.toLowerCase().startsWith('v=dmarc1'));
-const policy = /p=(\w+)/.exec(dmarc[0] ?? '')?.[1];
-record(
-  'DMARC on ' + mail,
-  dmarc.length === 1,
-  dmarc.length === 1
-    ? `p=${policy}${policy === 'none' ? ' (raise to quarantine after warm-up)' : ''}`
-    : 'no v=DMARC1 record found',
-);
+  // Bounces and complaints come back over SMTP; without this Resend cannot tell
+  // a hard bounce from silence, and the suppression list never fills.
+  let mx = [];
+  try {
+    mx = await resolver.resolveMx(`send.${mail}`);
+  } catch {
+    mx = [];
+  }
+  record(
+    'Bounce MX',
+    mx.length > 0,
+    mx.length > 0 ? `send.${mail} -> ${mx[0]?.exchange}` : `nothing at send.${mail}`,
+  );
+
+  const dmarc = (await txt(`_dmarc.${mail}`)).filter((v) => v.toLowerCase().startsWith('v=dmarc1'));
+  const policy = /p=(\w+)/.exec(dmarc[0] ?? '')?.[1];
+  record(
+    'DMARC',
+    dmarc.length === 1,
+    dmarc.length === 1
+      ? `_dmarc.${mail}: p=${policy}${policy === 'none' ? ' (raise to quarantine after warm-up)' : ''}`
+      : `no v=DMARC1 at _dmarc.${mail}`,
+  );
+}
 
 // --- report ---------------------------------------------------------------
 const width = Math.max(...results.map((r) => r.name.length));
-console.log(`\n${domain}\n`);
+if (!skipEmail) console.log(`\n${domain}`);
+console.log('');
 for (const { name, ok, detail } of results) {
   console.log(`  ${ok ? 'ok  ' : 'FAIL'}  ${name.padEnd(width)}  ${detail}`);
 }

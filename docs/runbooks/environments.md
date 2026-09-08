@@ -48,21 +48,48 @@ moves to Pro the week the first non-founder circle is recruited (§5.1).
 
 ## Domains
 
-One domain serves the app and the links. Until the product is named, it is a
-neutral holding domain (§5.2, ADR 0001) — nothing may assume it. Everything
-user-visible reads from [`packages/config/src/brand.ts`](../../packages/config/src/brand.ts);
-changing the domain is an edit to that file plus the DNS and vendor steps below.
+Both environments are **subdomains of the founder's personal apex**,
+`sushensatturu.com`, which is already a Route 53 hosted zone. They are holding
+hosts (§5.2, ADR 0001) and will be replaced when the product is named — nothing
+may assume them.
+
+| | Host | Sends email |
+|---|---|---|
+| `dev` | `dev.sushensatturu.com` | no |
+| `prod` | `meet.sushensatturu.com` | yes, from `mail.meet.sushensatturu.com` |
+
+`meet` rather than the codename, on purpose: a URL is the hardest thing to take
+back, because links already sitting in a group chat keep working and keep saying
+whatever they said. `meet` describes the job, so it survives the rename.
+
+Everything user-visible reads from
+[`packages/config/src/brand.ts`](../../packages/config/src/brand.ts) — app host,
+sender, support address. `dev` is deliberately **not** in `brand.ts`: nothing
+user-visible points at it, and it arrives through `EXPO_PUBLIC_APP_ORIGIN`.
 
 Links are **never** shipped on `*.expo.app`.
 
-| Record | Host | Purpose |
-|---|---|---|
-| app | `@` and `www` | EAS Hosting, per its dashboard instructions |
-| SPF | `mail` | `v=spf1 include:amazonses.com ~all` (Resend's value; take it from their dashboard, not from here) |
-| DKIM | `resend._domainkey.mail` | Resend's key |
-| DMARC | `_dmarc.mail` | `p=none` at first, `p=quarantine` after warm-up |
+**Email is production-only for now.** `dev` has no sending domain, so
+`pnpm check:env dev.sushensatturu.com --no-email` is the right invocation for it.
+S1-19 decides whether dev ever needs its own.
 
-`.well-known/` on the apex is reserved for `apple-app-site-association` and
+DNS records live **inside the existing `sushensatturu.com` hosted zone** — never
+a new zone per subdomain. Names are as typed in the Route 53 console, which
+appends the zone for you:
+
+| Record | Name | Purpose |
+|---|---|---|
+| app | `meet`, `dev` | EAS Hosting; take the exact target from its dashboard |
+| SPF (TXT) | `send.mail.meet` | Resend's value. Note the `send.` child — Resend puts SPF and the bounce MX there, not on the sending domain itself |
+| Bounce MX | `send.mail.meet` | Without it Resend cannot tell a hard bounce from silence, and the suppression list never fills |
+| DKIM (TXT) | `resend._domainkey.mail.meet` | Resend's key, on the sending domain itself |
+| DMARC (TXT) | `_dmarc.mail.meet` | `p=none` at first, `p=quarantine` after warm-up |
+
+`support@meet.sushensatturu.com` is in `brand.ts` but **nothing receives mail
+there** — the zone has no MX for it. Arrange forwarding before any email
+carrying that address goes out, or a reply from a real person disappears.
+
+`.well-known/` on each app host is reserved for `apple-app-site-association` and
 `assetlinks.json` — Slice 3, but do not let anything else claim the path.
 
 Paths reserved on the domain (§5.2), so nothing else may take them:

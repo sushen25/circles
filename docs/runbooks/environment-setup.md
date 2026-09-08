@@ -43,15 +43,62 @@ Reference for anything that needs explaining: [`environments.md`](./environments
 > Free projects pause after 7 days of no API requests. If `dev` looks broken
 > after a quiet week, un-pause it before debugging anything else.
 
-## 2. Domain — ~US$20/year
+## 2. Domain — free
 
-- [ ] Buy a **neutral holding domain**. It is temporary: the real one gets
-      chosen with the product name, so pick something short and unloved, and do
-      not put the word "circles" in it — nothing may assume the final name (§5.4).
-- [ ] Use a registrar whose DNS panel you can edit directly (Cloudflare,
-      Porkbun, Namecheap). You will be adding TXT records in step 5.
+Settled: subdomains of the founder's existing Route 53 zone `sushensatturu.com`,
+rather than buying anything. They are temporary and get replaced when the product
+is named.
 
-**Hand back:** the domain.
+- [x] `dev.sushensatturu.com` — the `dev` app host.
+- [x] `meet.sushensatturu.com` — the `prod` app host. `meet`, not the codename:
+      links already in a group chat keep working and keep saying whatever they
+      said, so the one string you cannot take back should describe the job
+      rather than the name (§5.4).
+- [x] `mail.meet.sushensatturu.com` — the sending domain. **Production only**;
+      `dev` does not send.
+
+Nothing to create yet. The records come from EAS (step 3) and Resend (step 6),
+and guessing them means deleting them later.
+
+### How to add a record in Route 53
+
+The zone already exists, so **do not create a hosted zone for the subdomain.**
+A zone per subdomain costs US$0.50/month each and needs NS delegation records
+glued back to the parent; it is the standard way to lose an afternoon here.
+
+1. Route 53 → **Hosted zones** → `sushensatturu.com` → **Create record**.
+2. **Record name**: type the part *before* the zone only — `meet`, not
+   `meet.sushensatturu.com`. The console appends the rest and shows you the
+   full name underneath. Getting this wrong gives you
+   `meet.sushensatturu.com.sushensatturu.com`, which resolves for nobody.
+3. **Record type**: as the vendor says — `CNAME` for the app hosts, `TXT` for
+   SPF/DKIM/DMARC, `MX` for the bounce record.
+4. **Value**: paste exactly what the vendor gives.
+5. **TTL 300** while setting up. A mistake then expires in five minutes instead
+   of a day. Raise it once `pnpm check:env` is green.
+
+Two Route 53 specifics that bite:
+
+- **TXT values must be wrapped in double quotes.** `"v=spf1 include:amazonses.com ~all"`,
+  not the bare string. Route 53 rejects or mangles unquoted values.
+- **A TXT string cannot exceed 255 characters.** A 2048-bit DKIM key is longer,
+  and must be split into several quoted strings on one line —
+  `"p=MIIBIj...first255" "...remainder"` — which Route 53 then joins. Resend's
+  console usually shows it pre-split; if it does not, split it yourself.
+
+CLI equivalent, if you prefer:
+
+```bash
+aws route53 change-resource-record-sets \
+  --hosted-zone-id "$(aws route53 list-hosted-zones-by-name \
+      --dns-name sushensatturu.com --query 'HostedZones[0].Id' --output text)" \
+  --change-batch '{"Changes":[{"Action":"UPSERT","ResourceRecordSet":{
+      "Name":"meet.sushensatturu.com","Type":"CNAME","TTL":300,
+      "ResourceRecords":[{"Value":"<target from EAS>"}]}}]}'
+```
+
+The CLI wants the **full** name, unlike the console — the opposite convention,
+which is exactly why this is written down.
 
 ## 3. EAS Hosting — US$19/month
 
@@ -72,9 +119,10 @@ In the repository settings, **Secrets and variables → Actions**:
 - [ ] **Variables** (repository scope — these are the `dev` values, and previews
       read them):
       `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`,
-      `EXPO_PUBLIC_APP_ORIGIN` (`https://<domain>`).
+      `EXPO_PUBLIC_APP_ORIGIN` = `https://dev.sushensatturu.com`.
 - [ ] Environments → `production` → **Variables**: the same three names with the
-      **prod** project's values. These override the repository ones for
+      **prod** project's values, and `EXPO_PUBLIC_APP_ORIGIN` =
+      `https://meet.sushensatturu.com`. These override the repository ones for
       production deploys only.
 - [ ] Environments → `production` → add yourself as a **required reviewer**, so a
       production deploy pauses for a human.
@@ -84,10 +132,19 @@ In the repository settings, **Secrets and variables → Actions**:
 
 ## 5. DNS and email authentication
 
-- [ ] EAS Hosting → attach the custom domain; add the records it asks for.
-- [ ] Resend → add domain **`mail.<domain>`** (the subdomain, not the apex).
-- [ ] Add Resend's **SPF** and **DKIM** records to DNS, exactly as shown there.
-- [ ] Add DMARC on `_dmarc.mail`: `v=DMARC1; p=none; rua=mailto:<your address>`.
+- [ ] EAS Hosting → attach **both** `meet.sushensatturu.com` and
+      `dev.sushensatturu.com`; add the records it asks for, per the Route 53
+      notes in step 2.
+- [ ] Resend → add domain **`mail.meet.sushensatturu.com`**. Production only —
+      `dev` does not send, and a second sending domain is a second set of
+      records to keep warm for no benefit yet.
+- [ ] Add Resend's **SPF**, **DKIM** and **bounce MX** records exactly as shown.
+      Note that SPF and the MX go on `send.mail.meet`, a child of the sending
+      domain, while DKIM goes on `resend._domainkey.mail.meet`. The bounce MX is
+      the one people skip; without it Resend cannot tell a hard bounce from
+      silence and the suppression list never fills.
+- [ ] Add DMARC on `_dmarc.mail.meet`:
+      `"v=DMARC1; p=none; rua=mailto:<your address>"`.
       `p=none` first — it reports without rejecting, so a misconfiguration costs
       you a report rather than every email. Raise to `p=quarantine` after a week
       of clean reports.
@@ -95,12 +152,15 @@ In the repository settings, **Secrets and variables → Actions**:
 - [ ] Verify from the outside:
 
 ```bash
-pnpm check:env <domain>
+pnpm check:env meet.sushensatturu.com
+pnpm check:env dev.sushensatturu.com --no-email
 ```
 
-All six checks must pass. `Referrer-Policy: no-referrer` matters more than it
-looks: invite secrets ride in the URL fragment, and a leaked referrer is how
-they escape (§14).
+Production must be six for six; `dev` is the app checks only. Both currently
+report every record as missing and name each one, which is the shopping list.
+
+`Referrer-Policy: no-referrer` matters more than it looks: invite secrets ride
+in the URL fragment, and a leaked referrer is how they escape (§14).
 
 ## 6. Resend
 
@@ -116,8 +176,8 @@ they escape (§14).
 
 ## 7. Cloudflare Turnstile — free
 
-- [ ] Turnstile → add a widget, **Invisible** mode, hostname `<domain>`.
-- [ ] Add `localhost` as a second hostname so local development works.
+- [ ] Turnstile → add a widget, **Invisible** mode. Add all three hostnames:
+      `meet.sushensatturu.com`, `dev.sushensatturu.com` and `localhost`.
 
 **Hand back:** the **site key** (public → GitHub variables as
 `EXPO_PUBLIC_TURNSTILE_SITE_KEY`) and the **secret key** (→ step 9).
@@ -128,11 +188,13 @@ Slower than the rest; both can be done after Slice 1 starts, but before S1-14
 lands.
 
 - [ ] Apple Developer → **Services ID** for the web sign-in; return URL is
-      `https://<supabase-project>.supabase.co/auth/v1/callback`.
+      `https://bhunoaqswteamabbyckp.supabase.co/auth/v1/callback` for prod and
+      `https://pcfekupwqrdfryeaqggx.supabase.co/auth/v1/callback` for dev.
 - [ ] Apple → **Sign in with Apple key**; download the `.p8` **once** — it
       cannot be downloaded twice.
-- [ ] Google Cloud → OAuth consent screen, then **three** clients: web (origin
-      `https://<domain>`), iOS (bundle `app.circles.production`), Android
+- [ ] Google Cloud → OAuth consent screen, then **three** clients: web (origins
+      `https://meet.sushensatturu.com` and `https://dev.sushensatturu.com`),
+      iOS (bundle `app.circles.production`), Android
       (package + SHA-1 from EAS credentials).
 - [ ] Supabase → Authentication → Providers → configure Apple and Google on
       **both** projects.
@@ -159,8 +221,8 @@ The Apple private key is a file, so it goes as its contents:
 supabase secrets set --project-ref <ref> APPLE_PRIVATE_KEY="$(cat AuthKey_XXXX.p8)"
 ```
 
-- [ ] Set on `circles-dev`.
-- [ ] Set on `circles-prod`.
+- [ ] Set on `circles-dev` (`pcfekupwqrdfryeaqggx`).
+- [ ] Set on `circles-prod` (`bhunoaqswteamabbyckp`).
 - [ ] `supabase secrets list --project-ref <ref>` on both — it prints names and
       digests, never values. Confirm the names match
       [`environments.md`](./environments.md).
@@ -168,16 +230,23 @@ supabase secrets set --project-ref <ref> APPLE_PRIVATE_KEY="$(cat AuthKey_XXXX.p
 
 ## 10. Confirm the whole thing
 
-- [ ] `pnpm check:env <domain>` — six for six.
+- [ ] `pnpm check:env meet.sushensatturu.com` — six for six, and
+      `pnpm check:env dev.sushensatturu.com --no-email`.
 - [ ] Push to `main`; the `deploy-dev` run summary shows Supabase and Expo both
       `true` rather than "waiting on S0-11".
-- [ ] `https://<domain>/` serves the app.
+- [ ] `https://meet.sushensatturu.com/` serves the app.
 - [ ] Open a throwaway PR and confirm the preview URL is posted on it.
 - [ ] gitleaks green on that PR — nothing from this checklist reached the repo.
 
 ---
 
 ## What is still not done after this
+
+- **`support@meet.sushensatturu.com` receives nothing.** It is in `brand.ts` and
+  will appear in transactional email, but the zone has no MX for it. Before
+  S1-19 sends anything, either arrange forwarding (SES receipt rule, or a
+  forwarding service) or change `supportEmail` to an address that exists.
+  A support address that silently drops replies is worse than none.
 
 - **Store accounts** (Apple Developer US$99/yr, Play US$25 once) — Slice 3, S3-01.
 - **Supabase Pro** on `prod` — Slice 4, before the external cohort.
