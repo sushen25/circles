@@ -10,7 +10,7 @@
  * happen are replies to nothing.
  */
 
-import { type Instant, addMinutes, earliest, isAfter } from '../shared/instant.js';
+import { type Instant, addMinutes, earliest, isAfter, latest } from '../shared/instant.js';
 import { fromLocal } from '../shared/zone.js';
 import type { Plan, WindowPreset } from './types.js';
 
@@ -46,12 +46,23 @@ export function clampDeadline(deadline: Instant, latestStart: Instant): Instant 
  * Tonight is the tight one: the earlier of an hour from now and half an hour
  * before the last possible start. An hour is long enough for a group chat to
  * notice and short enough that "tonight" still means tonight.
+ *
+ * **Never before `createdAt`.** Subtracting the margin from a last possible
+ * start that is nearly upon us produces a deadline in the past, and a plan
+ * whose replies closed before it existed. `resolvePreset` refuses to offer such
+ * a window at all (`hasRoomToReply`), so reaching this floor means a plan was
+ * built by some other route — a hand-picked window, or a caller that skipped
+ * the preset. The floor keeps the invariant true regardless of the route in.
  */
 export function defaultDeadline(
   preset: WindowPreset,
   createdAt: Instant,
   latestStart: Instant,
 ): Instant {
+  return latest(createdAt, uncappedDefault(preset, createdAt, latestStart));
+}
+
+function uncappedDefault(preset: WindowPreset, createdAt: Instant, latestStart: Instant): Instant {
   switch (preset) {
     case 'tonight':
       return earliest(addMinutes(createdAt, HOUR), addMinutes(latestStart, -HALF_HOUR));

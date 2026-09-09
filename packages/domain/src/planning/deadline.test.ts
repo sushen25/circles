@@ -79,13 +79,25 @@ describe('defaultDeadline', () => {
       );
     });
 
-    it('is half an hour before the last start when the evening is nearly gone', () => {
-      // Created 22:50; the last start is 23:00. An hour from now is too late.
+    it('is half an hour before the last start when there is still room for that', () => {
+      // Created 21:00; the last start is 22:00, so half an hour before it is
+      // 21:30 — earlier than an hour from now, so the margin rule wins and the
+      // deadline is still comfortably after creation.
+      const created = fromISO('2026-09-17T11:00:00Z');
+      const tonightLatest = fromISO('2026-09-17T12:00:00Z');
+      expect(toISO(defaultDeadline('tonight', created, tonightLatest))).toBe(
+        '2026-09-17T11:30:00.000Z',
+      );
+    });
+
+    it('never lands before the plan was created', () => {
+      // Created 22:50 with a last start of 23:00: subtracting the margin gives
+      // 22:30, twenty minutes before the plan existed. `resolvePreset` refuses
+      // to offer such a window at all, so reaching this means a caller built
+      // the plan some other way — and the floor keeps the invariant true.
       const created = fromISO('2026-09-17T12:50:00Z');
       const tonightLatest = fromISO('2026-09-17T13:00:00Z');
-      expect(toISO(defaultDeadline('tonight', created, tonightLatest))).toBe(
-        '2026-09-17T12:30:00.000Z',
-      );
+      expect(defaultDeadline('tonight', created, tonightLatest)).toBe(created);
     });
   });
 });

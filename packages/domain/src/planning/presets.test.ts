@@ -8,6 +8,7 @@ import { MELBOURNE } from '../shared/fixtures.js';
 import type { DurationMinutes } from './types.js';
 import {
   dailyForRange,
+  hasRoomToReply,
   isViableBand,
   nextDays,
   resolvePreset,
@@ -66,14 +67,24 @@ describe('tonight', () => {
     );
   });
 
-  it('still offers a short meetup in the same half hour', () => {
-    // The band is exactly 60 minutes at 22:30, so an hour still fits.
+  it('refuses a meetup that fits exactly, because nobody could reply to it', () => {
+    // 22:30 leaves exactly 60 minutes, so an hour *fits* — and its last
+    // possible start is 22:30, this instant. The deadline default subtracts
+    // half an hour from that and lands before the plan was created.
+    // Fitting the duration was never the invariant; leaving room to reply is.
     const halfTen = fromISO('2026-09-17T12:30:00Z');
-    expect(tonight(halfTen, MELBOURNE, 60)?.daily).toEqual({
-      startMin: 22 * 60 + 30,
+    expect(tonight(halfTen, MELBOURNE, 60)).toBeUndefined();
+    expect(tonight(halfTen, MELBOURNE, 90)).toBeUndefined();
+  });
+
+  it('still offers a short meetup while there is genuinely room', () => {
+    // 21:30 leaves two hours: an hour-long meetup has a last possible start of
+    // 22:30, an hour away, so there is time to answer.
+    const halfNine = fromISO('2026-09-17T11:30:00Z');
+    expect(tonight(halfNine, MELBOURNE, 60)?.daily).toEqual({
+      startMin: 21 * 60 + 30,
       endMin: 23 * 60 + 30,
     });
-    expect(tonight(halfTen, MELBOURNE, 90)).toBeUndefined();
   });
 
   it('is measured in the plan zone, not UTC', () => {
@@ -137,7 +148,7 @@ describe('dailyForRange', () => {
 
 describe('resolvePreset', () => {
   it('caps a custom window at fourteen days', () => {
-    const tooLong = { start: localDate('2026-09-01'), end: localDate('2026-09-15') };
+    const tooLong = { start: localDate('2026-09-18'), end: localDate('2026-10-02') };
     expect(windowDays(tooLong)).toBe(15);
     expect(resolvePreset('custom', THURSDAY_6PM, MELBOURNE, opts(TWO_HOURS, tooLong))).toBe(
       'window_too_long',
@@ -145,7 +156,9 @@ describe('resolvePreset', () => {
   });
 
   it('accepts exactly fourteen days', () => {
-    const exact = { start: localDate('2026-09-01'), end: localDate('2026-09-14') };
+    // In the future: a fortnight that ended last week is refused for a better
+    // reason than its length, and this test is about the length.
+    const exact = { start: localDate('2026-09-18'), end: localDate('2026-10-01') };
     expect(resolvePreset('custom', THURSDAY_6PM, MELBOURNE, opts(TWO_HOURS, exact))).toMatchObject({
       window: exact,
     });
@@ -162,6 +175,26 @@ describe('resolvePreset', () => {
     expect(resolvePreset('custom', THURSDAY_6PM, MELBOURNE, opts())).toBe('window_backwards');
   });
 
+  it('refuses a window whose last possible start has already passed', () => {
+    // A 17:30–22:30 evening comfortably fits two hours, so the band check is
+    // happy. But if today is the only day and it is already 22:00, the last
+    // possible start was ninety minutes ago.
+    const tenPm = fromISO('2026-09-17T12:00:00Z');
+    const today = { start: localDate('2026-09-17'), end: localDate('2026-09-17') };
+    expect(isViableBand({ startMin: 17 * 60 + 30, endMin: 22 * 60 + 30 }, 120)).toBe(true);
+    expect(resolvePreset('custom', tenPm, MELBOURNE, opts(TWO_HOURS, today))).toBe(
+      'no_time_to_reply',
+    );
+  });
+
+  it('accepts the same window earlier in the day', () => {
+    const sixPm = fromISO('2026-09-17T08:00:00Z');
+    const today = { start: localDate('2026-09-17'), end: localDate('2026-09-17') };
+    expect(resolvePreset('custom', sixPm, MELBOURNE, opts(TWO_HOURS, today))).toMatchObject({
+      window: today,
+    });
+  });
+
   it('refuses any preset whose band is shorter than the meetup', () => {
     // A three-hour meetup does not fit a 17:30–22:30 weekday evening… it does,
     // just. Four hours would not, but the duration union stops at 180, so the
@@ -174,6 +207,24 @@ describe('resolvePreset', () => {
     expect(isViableBand({ startMin: 19 * 60, endMin: 20 * 60 }, 120)).toBe(false);
     expect(isViableBand({ startMin: 19 * 60, endMin: 21 * 60 }, 120)).toBe(true);
     expect(oneEvening.start).toBe('2026-09-17');
+  });
+});
+
+describe('hasRoomToReply', () => {
+  const today = { start: localDate('2026-09-17'), end: localDate('2026-09-17') };
+  const evening = { startMin: 17 * 60 + 30, endMin: 22 * 60 + 30 };
+
+  it('needs the last possible start to be at least the reply margin away', () => {
+    // Last possible start for a two-hour meetup is 20:30.
+    const at1959 = fromISO('2026-09-17T09:59:00Z'); // 19:59 — 31 minutes of room
+    const at2001 = fromISO('2026-09-17T10:01:00Z'); // 20:01 — 29 minutes of room
+    expect(hasRoomToReply(at1959, today, evening, 120, MELBOURNE)).toBe(true);
+    expect(hasRoomToReply(at2001, today, evening, 120, MELBOURNE)).toBe(false);
+  });
+
+  it('is false once the last possible start is behind us', () => {
+    const at2200 = fromISO('2026-09-17T12:00:00Z');
+    expect(hasRoomToReply(at2200, today, evening, 120, MELBOURNE)).toBe(false);
   });
 });
 

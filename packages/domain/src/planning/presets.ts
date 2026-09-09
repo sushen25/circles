@@ -11,7 +11,7 @@
 
 import type { Instant } from '../shared/instant.js';
 import { type LocalDate, addDays, isWeekend, weekday } from '../shared/local-date.js';
-import { type Zone, toLocal } from '../shared/zone.js';
+import { type Zone, fromLocal, toLocal } from '../shared/zone.js';
 import {
   MAX_WINDOW_DAYS,
   type DailyWindow,
@@ -38,12 +38,58 @@ export type PresetWindow = {
 };
 
 /**
- * A band has to be at least as long as the meetup, or the plan it produces
- * cannot happen: `lastPossibleStart` lands before the band opens, and the
- * deadline derived from it is already in the past at the moment of creation.
+ * The least time worth calling a chance to reply.
+ *
+ * It is also the margin the `tonight` deadline default subtracts from the last
+ * possible start, which is not a coincidence: a plan is only offerable if that
+ * subtraction still lands in the future.
+ */
+export const MIN_RESPONSE_MINUTES = 30;
+
+/**
+ * A band has to be at least as long as the meetup, or `lastPossibleStart` lands
+ * before the band opens.
+ *
+ * **Necessary but not sufficient.** A band can fit the meetup and still produce
+ * an impossible plan, because fitting says nothing about *when*: a 17:30–22:30
+ * evening comfortably fits two hours, and if today is the only day and it is
+ * already 22:00, the last possible start was ninety minutes ago. Use
+ * `hasRoomToReply` for the question that actually matters.
  */
 export function isViableBand(daily: DailyWindow, durationMinutes: number): boolean {
   return daily.endMin - daily.startMin >= durationMinutes;
+}
+
+/**
+ * The latest moment the meetup could still begin, for a window that is not yet
+ * a `Plan`. `deadline.ts` has the same calculation for one that is.
+ */
+export function lastStartOf(
+  window: DateWindow,
+  daily: DailyWindow,
+  durationMinutes: number,
+  z: Zone,
+): Instant {
+  return fromLocal(window.end, daily.endMin - durationMinutes, z);
+}
+
+/**
+ * Whether anyone could actually answer.
+ *
+ * This is the real viability test. A plan whose last possible start is already
+ * behind us — or so close that the deadline default lands before the plan was
+ * created — is not a plan, and the honest thing is to refuse to offer it rather
+ * than to create one whose replies closed before it existed.
+ */
+export function hasRoomToReply(
+  now: Instant,
+  window: DateWindow,
+  daily: DailyWindow,
+  durationMinutes: number,
+  z: Zone,
+): boolean {
+  const lastStart = lastStartOf(window, daily, durationMinutes, z);
+  return lastStart - now >= MIN_RESPONSE_MINUTES * 60_000;
 }
 
 /**
@@ -64,11 +110,16 @@ export function tonight(
   const local = toLocal(now, z);
   const startMin = roundUpToHalfHour(local.minutesOfDay);
   const daily = { startMin, endMin: LATEST_TONIGHT };
+  const window = { start: local.date, end: local.date };
 
   if (startMin >= LATEST_TONIGHT) return undefined;
   if (!isViableBand(daily, durationMinutes)) return undefined;
+  // Fitting is not enough. At 22:30 a one-hour meetup fits the remaining hour
+  // exactly, and its last possible start is 22:30 — now — so the deadline
+  // default lands half an hour before the plan was created.
+  if (!hasRoomToReply(now, window, daily, durationMinutes, z)) return undefined;
 
-  return { window: { start: local.date, end: local.date }, daily };
+  return { window, daily };
 }
 
 /**
@@ -113,7 +164,11 @@ export function dailyForRange(start: LocalDate, end: LocalDate): DailyWindow {
 }
 
 export type PresetError =
-  'too_late_for_tonight' | 'window_too_long' | 'window_backwards' | 'band_shorter_than_meetup';
+  | 'too_late_for_tonight'
+  | 'window_too_long'
+  | 'window_backwards'
+  | 'band_shorter_than_meetup'
+  | 'no_time_to_reply';
 
 export type PresetOptions = {
   readonly durationMinutes: DurationMinutes;
@@ -136,8 +191,13 @@ export function resolvePreset(
 ): PresetWindow | PresetError {
   const { durationMinutes, custom } = options;
 
-  const checked = (result: PresetWindow): PresetWindow | PresetError =>
-    isViableBand(result.daily, durationMinutes) ? result : 'band_shorter_than_meetup';
+  const checked = (result: PresetWindow): PresetWindow | PresetError => {
+    if (!isViableBand(result.daily, durationMinutes)) return 'band_shorter_than_meetup';
+    if (!hasRoomToReply(now, result.window, result.daily, durationMinutes, z)) {
+      return 'no_time_to_reply';
+    }
+    return result;
+  };
 
   switch (preset) {
     case 'tonight':
