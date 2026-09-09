@@ -2,11 +2,12 @@ import { describe, expect, it } from 'vitest';
 import fc from 'fast-check';
 
 import { plan } from '../planning/fixtures.js';
+import { cellCount, cellsToWindows, windowsToCells } from './cells.js';
 import { isErr, isOk } from '../shared/result.js';
-import { type Interval, durationMinutes, interval, isAligned30 } from '../shared/interval.js';
+import { type Interval, durationMinutes, interval } from '../shared/interval.js';
 import { localDate } from '../shared/local-date.js';
 import { MELBOURNE } from '../shared/fixtures.js';
-import { fromLocal, toLocal } from '../shared/zone.js';
+import { fromLocal, isAlignedToLocalSlot, toLocal, zone } from '../shared/zone.js';
 import {
   canHostDuration,
   isWithinPlan,
@@ -162,7 +163,10 @@ describe('normaliseWindows', () => {
 
         const windows = result.value;
         for (const w of windows) {
-          expect(isAligned30(w)).toBe(true);
+          // Local alignment, not epoch alignment: they differ in zones offset
+          // by 45 minutes, and local is what the painter produced.
+          expect(isAlignedToLocalSlot(w.start, p.zone)).toBe(true);
+          expect(isAlignedToLocalSlot(w.end, p.zone)).toBe(true);
           expect(w.end).toBeGreaterThan(w.start);
           expect(isWithinPlan(w, p)).toBe(true);
         }
@@ -173,6 +177,53 @@ describe('normaliseWindows', () => {
         }
       }),
     );
+  });
+});
+
+describe('in a zone offset by 45 minutes', () => {
+  // Asia/Kathmandu is UTC+05:45, so a locally tidy 09:00 sits at 03:15 UTC.
+  // A circle's zone comes from the creator's device, so one of these can
+  // genuinely arrive.
+  const KATHMANDU = zone('Asia/Kathmandu');
+  const DAY = localDate('2026-09-17');
+  const p = plan({
+    zone: KATHMANDU,
+    window: { start: DAY, end: DAY },
+    daily: { startMin: 9 * 60, endMin: 22 * 60 + 30 },
+  });
+  const localWindow = (fromMin: number, toMin: number) =>
+    interval(fromLocal(DAY, fromMin, KATHMANDU), fromLocal(DAY, toMin, KATHMANDU));
+
+  it('leaves an already-tidy local window exactly alone', () => {
+    // Rounding to epoch boundaries turned this into 09:15–09:45 — half of what
+    // the person offered, silently.
+    const result = normaliseWindows([localWindow(9 * 60, 10 * 60)], p);
+    expect(isOk(result)).toBe(true);
+    if (isOk(result)) {
+      const [only] = result.value;
+      expect(toLocal((only as Interval).start, KATHMANDU).minutesOfDay).toBe(9 * 60);
+      expect(toLocal((only as Interval).end, KATHMANDU).minutesOfDay).toBe(10 * 60);
+    }
+  });
+
+  it('still rounds a ragged window inward, in local terms', () => {
+    const result = normaliseWindows([localWindow(9 * 60 + 7, 10 * 60 + 52)], p);
+    expect(isOk(result)).toBe(true);
+    if (isOk(result)) {
+      const [only] = result.value;
+      expect(toLocal((only as Interval).start, KATHMANDU).minutesOfDay).toBe(9 * 60 + 30);
+      expect(toLocal((only as Interval).end, KATHMANDU).minutesOfDay).toBe(10 * 60 + 30);
+    }
+  });
+
+  it('round-trips through the painter, which builds its grid from local times', () => {
+    const painted = Array.from({ length: cellCount(p) }, (_, i) => i === 0 || i === 1);
+    const windows = cellsToWindows(DAY, painted, p);
+    const normalised = normaliseWindows(windows, p);
+    expect(isOk(normalised)).toBe(true);
+    if (isOk(normalised)) {
+      expect(windowsToCells(DAY, normalised.value, p)).toEqual(painted);
+    }
   });
 });
 

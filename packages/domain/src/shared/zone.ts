@@ -1,7 +1,7 @@
 import { fromZonedTime } from 'date-fns-tz';
 
 import { type Instant, MINUTE_MILLIS, instant } from './instant.js';
-import { type LocalDate, fromParts, localDate } from './local-date.js';
+import { type LocalDate, addDays, fromParts, localDate } from './local-date.js';
 
 /**
  * The only file in the domain that knows what a time zone is.
@@ -162,4 +162,44 @@ function firstMomentAfterGap(
 /** Convenience for the common case of a whole hour. */
 export function atLocalTime(date: string, minutesOfDay: number, timeZone: string): Instant {
   return fromLocal(localDate(date), minutesOfDay, zone(timeZone));
+}
+
+/**
+ * Half-hour boundaries **as a local clock shows them**.
+ *
+ * Not the same as boundaries measured from the Unix epoch. Most zones are
+ * offset from UTC by a whole or half hour, so the two coincide and the
+ * distinction never shows — but `Asia/Kathmandu` is +05:45 and `Pacific/Chatham`
+ * is +12:45, and there a locally tidy 09:00 sits at 03:15 UTC. Rounding such a
+ * window to epoch boundaries turns 09:00–10:00 into 09:15–09:45, silently
+ * discarding half of what somebody offered.
+ *
+ * The grid a person paints on is built from local times (`availability/cells`),
+ * so local is the only alignment that matches what they saw.
+ */
+const SLOT_MINUTES = 30;
+
+function roundLocal(value: Instant, z: Zone, round: (minutes: number) => number): Instant {
+  const local = toLocal(value, z);
+  const minutes = round(local.minutesOfDay / SLOT_MINUTES) * SLOT_MINUTES;
+
+  // Rounding up from the last half hour of the day lands on midnight, which is
+  // minute zero of the next date rather than minute 1440 of this one.
+  if (minutes >= 24 * 60) return fromLocal(addDays(local.date, 1), 0, z);
+  return fromLocal(local.date, minutes, z);
+}
+
+/** Down to the previous local half hour. */
+export function floorToLocalSlot(value: Instant, z: Zone): Instant {
+  return roundLocal(value, z, Math.floor);
+}
+
+/** Up to the next local half hour. */
+export function ceilToLocalSlot(value: Instant, z: Zone): Instant {
+  return roundLocal(value, z, Math.ceil);
+}
+
+/** Whether the moment falls on a local half-hour boundary. */
+export function isAlignedToLocalSlot(value: Instant, z: Zone): boolean {
+  return toLocal(value, z).minutesOfDay % SLOT_MINUTES === 0;
 }

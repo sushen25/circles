@@ -12,17 +12,9 @@
  */
 
 import { type Instant } from '../shared/instant.js';
-import {
-  type Interval,
-  ceilToSlot,
-  contains,
-  floorToSlot,
-  intersect,
-  interval,
-  merge,
-} from '../shared/interval.js';
+import { type Interval, contains, intersect, interval, merge } from '../shared/interval.js';
 import { addDays } from '../shared/local-date.js';
-import { fromLocal } from '../shared/zone.js';
+import { ceilToLocalSlot, floorToLocalSlot, fromLocal } from '../shared/zone.js';
 import { type Result, err, ok } from '../shared/result.js';
 import type { Plan } from '../planning/types.js';
 
@@ -94,8 +86,17 @@ export function normaliseWindows(
       return err({ code: 'outside_plan_window', window: raw });
     }
 
-    // Inward: start rounds up, end rounds down.
-    const aligned = { start: ceilToSlot(raw.start), end: floorToSlot(raw.end) };
+    // Inward: start rounds up, end rounds down — and to the plan zone's local
+    // half hours, not the epoch's. They coincide in most zones and do not in
+    // Kathmandu (+05:45) or Chatham (+12:45), where a locally tidy 09:00 sits
+    // at 03:15 UTC; rounding that to epoch boundaries turned 09:00–10:00 into
+    // 09:15–09:45 and threw away half of what the person offered. The painter
+    // builds its grid from local times, so local is the alignment that matches
+    // what they saw.
+    const aligned = {
+      start: ceilToLocalSlot(raw.start, plan.zone),
+      end: floorToLocalSlot(raw.end, plan.zone),
+    };
     if (aligned.end <= aligned.start) {
       // Smaller than a slot once aligned — a stray tap inside the plan. Dropping
       // it is right; it is not an error, because the person did not mean

@@ -3,7 +3,15 @@ import { describe, expect, it } from 'vitest';
 
 import { type Instant, MINUTE_MILLIS, instant, toISO } from './instant';
 import { localDate } from './local-date';
-import { fromLocal, offsetMinutes, toLocal, zone } from './zone';
+import {
+  ceilToLocalSlot,
+  floorToLocalSlot,
+  fromLocal,
+  isAlignedToLocalSlot,
+  offsetMinutes,
+  toLocal,
+  zone,
+} from './zone';
 
 const MELBOURNE = zone('Australia/Melbourne');
 const ADELAIDE = zone('Australia/Adelaide');
@@ -147,5 +155,46 @@ describe('fromLocal', () => {
   it('refuses minutes outside a day', () => {
     expect(() => fromLocal(localDate('2026-09-17'), -1, MELBOURNE)).toThrow(/out of range/);
     expect(() => fromLocal(localDate('2026-09-17'), 1440, MELBOURNE)).toThrow(/out of range/);
+  });
+});
+
+describe('local half-hour boundaries', () => {
+  // Most zones are offset by a whole or half hour, so local and epoch
+  // boundaries coincide. Kathmandu is +05:45, and there they do not.
+  const KATHMANDU = zone('Asia/Kathmandu');
+  const MELB = zone('Australia/Melbourne');
+  const DAY = localDate('2026-09-17');
+
+  it('is aligned when the local clock says so, whatever UTC says', () => {
+    const nineAm = fromLocal(DAY, 9 * 60, KATHMANDU);
+    expect(isAlignedToLocalSlot(nineAm, KATHMANDU)).toBe(true);
+    // …and the same instant is not on an epoch boundary.
+    expect(nineAm % (30 * 60_000)).not.toBe(0);
+  });
+
+  it('rounds down and up to the local half hour', () => {
+    const ragged = fromLocal(DAY, 9 * 60 + 7, KATHMANDU);
+    expect(toLocal(floorToLocalSlot(ragged, KATHMANDU), KATHMANDU).minutesOfDay).toBe(9 * 60);
+    expect(toLocal(ceilToLocalSlot(ragged, KATHMANDU), KATHMANDU).minutesOfDay).toBe(9 * 60 + 30);
+  });
+
+  it('leaves a boundary alone rather than moving it a slot', () => {
+    const onTheHalf = fromLocal(DAY, 9 * 60 + 30, KATHMANDU);
+    expect(floorToLocalSlot(onTheHalf, KATHMANDU)).toBe(onTheHalf);
+    expect(ceilToLocalSlot(onTheHalf, KATHMANDU)).toBe(onTheHalf);
+  });
+
+  it('rolls to the next day when rounding up from the last half hour', () => {
+    const lateNight = fromLocal(DAY, 23 * 60 + 40, KATHMANDU);
+    const rounded = ceilToLocalSlot(lateNight, KATHMANDU);
+    const local = toLocal(rounded, KATHMANDU);
+    expect(local.date).toBe('2026-09-18');
+    expect(local.minutesOfDay).toBe(0);
+  });
+
+  it('agrees with epoch rounding in an ordinary zone', () => {
+    const ragged = fromLocal(DAY, 18 * 60 + 7, MELB);
+    expect(floorToLocalSlot(ragged, MELB) % (30 * 60_000)).toBe(0);
+    expect(ceilToLocalSlot(ragged, MELB) % (30 * 60_000)).toBe(0);
   });
 });
