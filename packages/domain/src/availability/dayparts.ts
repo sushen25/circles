@@ -27,13 +27,45 @@ export type DayPart =
 
 const NOON = 12 * 60;
 const EVENING = 17 * 60;
+const END_OF_DAY = 24 * 60;
 
+const BANDS = [
+  { part: 'morning', startMin: 0, endMin: NOON },
+  { part: 'afternoon', startMin: NOON, endMin: EVENING },
+  { part: 'evening', startMin: EVENING, endMin: END_OF_DAY },
+] as const;
+
+/** The daypart a moment falls in. Where a window *starts*, not what it covers. */
 export function dayPartOf(window: Interval, zone: Zone): DayPart {
   const local = toLocal(window.start, zone);
   const weekend = isWeekend(local.date);
   const part =
     local.minutesOfDay < NOON ? 'morning' : local.minutesOfDay < EVENING ? 'afternoon' : 'evening';
   return `${weekend ? 'weekend' : 'weekday'}_${part}` as DayPart;
+}
+
+/**
+ * Every daypart the window actually covers.
+ *
+ * A window is not a point. Someone who offers 09:00–22:30 has offered their
+ * morning, afternoon and evening, and recording only the daypart it began in
+ * would pre-fill the next plan with a third of what they said — the failure
+ * being that the omission looks like a preference.
+ *
+ * Bands are compared in local minutes, so a window is attributed to the parts
+ * of the day the person experienced, not to UTC.
+ */
+export function dayPartsCovered(window: Interval, zone: Zone): DayPart[] {
+  const start = toLocal(window.start, zone);
+  const end = toLocal(window.end, zone);
+
+  // A window ending at local midnight lands on the next date at 0 minutes.
+  const endMin = end.date === start.date ? end.minutesOfDay : end.minutesOfDay + END_OF_DAY;
+  const prefix = isWeekend(start.date) ? 'weekend' : 'weekday';
+
+  return BANDS.filter((band) => start.minutesOfDay < band.endMin && endMin > band.startMin).map(
+    (band) => `${prefix}_${band.part}` as DayPart,
+  );
 }
 
 export type DayPartSummary = {
@@ -81,7 +113,9 @@ export function summariseDayparts(
 
     const counts = byMember.get(response.userId) ?? emptyCounts();
     for (const window of response.windows) {
-      counts[dayPartOf(window, zone)] += 1;
+      for (const part of dayPartsCovered(window, zone)) {
+        counts[part] += 1;
+      }
     }
     byMember.set(response.userId, counts);
   }

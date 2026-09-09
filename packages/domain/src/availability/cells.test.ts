@@ -6,7 +6,14 @@ import { MELBOURNE } from '../shared/fixtures.js';
 import { durationMinutes, type Interval } from '../shared/interval.js';
 import { localDate } from '../shared/local-date.js';
 import { toLocal } from '../shared/zone.js';
-import { VISIBLE_CELLS, cellCount, cellsToWindows, windowsToCells } from './cells.js';
+import {
+  VISIBLE_CELLS,
+  cellAt,
+  cellCount,
+  cellsFor,
+  cellsToWindows,
+  windowsToCells,
+} from './cells.js';
 
 const DAY = localDate('2026-09-17');
 
@@ -85,6 +92,75 @@ describe('windowsToCells', () => {
 
   it('is all false for a day with nothing painted', () => {
     expect(windowsToCells(DAY, [], p)).toEqual(new Array(cellCount(p)).fill(false));
+  });
+});
+
+describe('across a daylight-saving change', () => {
+  // Melbourne springs forward on 2026-10-04: 02:00 becomes 03:00, so wall-clock
+  // 02:00 and 02:30 never happen. A custom band can span that.
+  const SPRING = localDate('2026-10-04');
+  const spring = plan({
+    window: { start: SPRING, end: SPRING },
+    daily: { startMin: 60, endMin: 5 * 60 },
+  });
+
+  it('reports the half hours that do not exist', () => {
+    const cells = cellsFor(SPRING, spring);
+    // Indices 2 and 3 are the nominal 02:00 and 02:30.
+    expect(cells.map((c) => c === undefined)).toEqual([
+      false,
+      false,
+      true,
+      true,
+      false,
+      false,
+      false,
+      false,
+    ]);
+  });
+
+  it('keeps cells distinct, so painting one does not select three', () => {
+    // Deriving each end by adding thirty minutes gave 02:00, 02:30 and 03:00
+    // the same interval: painting 03:00 read back as all three painted.
+    const painted = new Array(cellCount(spring)).fill(false);
+    painted[4] = true; // the real 03:00
+    const windows = cellsToWindows(SPRING, painted, spring);
+    expect(windows).toHaveLength(1);
+    expect(windowsToCells(SPRING, windows, spring).filter(Boolean)).toHaveLength(1);
+    expect(windowsToCells(SPRING, windows, spring)[4]).toBe(true);
+  });
+
+  it('offers nothing for a half hour that did not happen', () => {
+    const painted = new Array(cellCount(spring)).fill(false);
+    painted[2] = true; // nominal 02:00, which never occurred
+    expect(cellsToWindows(SPRING, painted, spring)).toEqual([]);
+    // …and it reads back unpainted, because there is nothing to be free during.
+    expect(windowsToCells(SPRING, [], spring)[2]).toBe(false);
+  });
+
+  it('keeps a cell thirty minutes long when the clocks go back', () => {
+    // On 2026-04-05 Melbourne repeats 02:00–03:00. Wall-clock 02:30–03:00 spans
+    // ninety real minutes; taking all of it would claim an hour the person
+    // never saw.
+    const FALL = localDate('2026-04-05');
+    const fall = plan({
+      window: { start: FALL, end: FALL },
+      daily: { startMin: 60, endMin: 5 * 60 },
+    });
+    for (const cell of cellsFor(FALL, fall)) {
+      expect(cell).toBeDefined();
+      expect(durationMinutes(cell as Interval)).toBe(30);
+    }
+  });
+
+  it('round-trips on the transition day for the cells that exist', () => {
+    const count = cellCount(spring);
+    const painted = Array.from(
+      { length: count },
+      (_, i) => cellAt(SPRING, i, spring) !== undefined,
+    );
+    const windows = cellsToWindows(SPRING, painted, spring);
+    expect(windowsToCells(SPRING, windows, spring)).toEqual(painted);
   });
 });
 

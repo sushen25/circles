@@ -5,7 +5,7 @@ import { MELBOURNE } from '../shared/fixtures.js';
 import { interval } from '../shared/interval.js';
 import { localDate } from '../shared/local-date.js';
 import { fromLocal } from '../shared/zone.js';
-import { dayPartOf, summariseDayparts } from './dayparts.js';
+import { dayPartOf, dayPartsCovered, summariseDayparts } from './dayparts.js';
 import { response } from './fixtures.js';
 
 /** 17 Sep 2026 is a Thursday; 19 Sep is a Saturday. */
@@ -40,9 +40,59 @@ describe('dayPartOf', () => {
   });
 });
 
+describe('dayPartsCovered', () => {
+  it('counts every part a window spans, not only the one it starts in', () => {
+    // "Any time that day" on a weekend plan. Recording only the morning would
+    // pre-fill the next plan with a third of what the person offered, and the
+    // omission would look like a preference.
+    expect(dayPartsCovered(on(WEEKDAY, 9 * 60, 22 * 60 + 30), MELBOURNE)).toEqual([
+      'weekday_morning',
+      'weekday_afternoon',
+      'weekday_evening',
+    ]);
+  });
+
+  it('is a single part for a window inside one', () => {
+    expect(dayPartsCovered(on(WEEKDAY, 19 * 60, 21 * 60), MELBOURNE)).toEqual(['weekday_evening']);
+  });
+
+  it('does not count a part the window merely touches the boundary of', () => {
+    // Ending exactly at noon is a morning, not a morning and an afternoon:
+    // intervals are half-open.
+    expect(dayPartsCovered(on(WEEKDAY, 10 * 60, 12 * 60), MELBOURNE)).toEqual(['weekday_morning']);
+  });
+
+  it('spans two parts when it crosses one boundary', () => {
+    expect(dayPartsCovered(on(WEEKDAY, 11 * 60, 13 * 60), MELBOURNE)).toEqual([
+      'weekday_morning',
+      'weekday_afternoon',
+    ]);
+  });
+
+  it('uses the weekend prefix on a weekend', () => {
+    expect(dayPartsCovered(on(WEEKEND, 9 * 60, 22 * 60), MELBOURNE)).toEqual([
+      'weekend_morning',
+      'weekend_afternoon',
+      'weekend_evening',
+    ]);
+  });
+});
+
 describe('summariseDayparts', () => {
   const ann = userId('ann');
   const bo = userId('bo');
+
+  it('records every part of a wide window, so the pre-fill is not a third of the answer', () => {
+    const summaries = summariseDayparts(
+      [response({ userId: ann, windows: [on(WEEKDAY, 9 * 60, 22 * 60 + 30)] })],
+      MELBOURNE,
+    );
+    expect(summaries[0]?.parts).toEqual([
+      'weekday_morning',
+      'weekday_afternoon',
+      'weekday_evening',
+    ]);
+  });
 
   it('puts the most-offered part first', () => {
     const summaries = summariseDayparts(

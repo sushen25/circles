@@ -15,11 +15,18 @@
 
 import type { Plan } from '../planning/types.js';
 import { SLOT_MINUTES, type Interval, intersect, interval, merge } from '../shared/interval.js';
-import { addMinutes } from '../shared/instant.js';
+import { addMinutes, earliest } from '../shared/instant.js';
 import type { LocalDate } from '../shared/local-date.js';
 import { fromLocal } from '../shared/zone.js';
 
-/** How many half-hour cells a day of this plan has. */
+/**
+ * How many half-hour cells a day of this plan nominally has.
+ *
+ * Nominal because on the day the clocks go forward some of them do not exist —
+ * see `cellAt`. The count stays fixed so cell indices mean the same thing on
+ * every day of the window; the missing ones are reported by `cellAt` returning
+ * `undefined`.
+ */
 export function cellCount(plan: Plan): number {
   return Math.floor((plan.daily.endMin - plan.daily.startMin) / SLOT_MINUTES);
 }
@@ -27,9 +34,34 @@ export function cellCount(plan: Plan): number {
 /** How many cells the UI shows before scrolling. A viewport, not a data shape. */
 export const VISIBLE_CELLS = 10;
 
-function cellAt(date: LocalDate, index: number, plan: Plan): Interval {
-  const start = fromLocal(date, plan.daily.startMin + index * SLOT_MINUTES, plan.zone);
-  return interval(start, addMinutes(start, SLOT_MINUTES));
+/**
+ * One cell, or `undefined` when that half hour does not exist on that date.
+ *
+ * Both ends come from local wall-clock boundaries rather than from adding
+ * thirty minutes to the start, because on a day the clocks change those are not
+ * the same thing. On Melbourne's spring-forward, 02:00 and 02:30 do not happen:
+ * deriving the end by addition gave all three of the 02:00, 02:30 and 03:00
+ * cells the same interval, so painting one read back as three painted.
+ *
+ * The end is additionally capped at thirty minutes, which matters on the way
+ * back: when the clocks go back, wall-clock 02:30–03:00 spans ninety real
+ * minutes. Taking all of it would claim availability across an hour the person
+ * never saw on their screen, and this module claims less rather than more.
+ */
+export function cellAt(date: LocalDate, index: number, plan: Plan): Interval | undefined {
+  const startMin = plan.daily.startMin + index * SLOT_MINUTES;
+  const start = fromLocal(date, startMin, plan.zone);
+  const nextBoundary = fromLocal(date, startMin + SLOT_MINUTES, plan.zone);
+  const end = earliest(nextBoundary, addMinutes(start, SLOT_MINUTES));
+
+  // Zero-length: the whole half hour fell in a spring-forward gap.
+  if (end <= start) return undefined;
+  return interval(start, end);
+}
+
+/** Which cells exist on this date. Every index, so the UI can grey the gaps. */
+export function cellsFor(date: LocalDate, plan: Plan): (Interval | undefined)[] {
+  return Array.from({ length: cellCount(plan) }, (_, index) => cellAt(date, index, plan));
 }
 
 /**
@@ -42,7 +74,11 @@ export function cellsToWindows(date: LocalDate, cells: readonly boolean[], plan:
   const painted: Interval[] = [];
 
   for (let index = 0; index < Math.min(cells.length, count); index += 1) {
-    if (cells[index] === true) painted.push(cellAt(date, index, plan));
+    if (cells[index] !== true) continue;
+    // A painted cell that does not exist offers nothing, because there is no
+    // time to offer. Silently so: the person cannot have meant it.
+    const cell = cellAt(date, index, plan);
+    if (cell !== undefined) painted.push(cell);
   }
   return merge(painted);
 }
@@ -65,6 +101,10 @@ export function windowsToCells(
 
   for (let index = 0; index < count; index += 1) {
     const cell = cellAt(date, index, plan);
+    if (cell === undefined) {
+      cells.push(false);
+      continue;
+    }
     cells.push(
       windows.some((w) => {
         const overlap = intersect(w, cell);

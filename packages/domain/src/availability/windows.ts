@@ -15,6 +15,7 @@ import { type Instant } from '../shared/instant.js';
 import {
   type Interval,
   ceilToSlot,
+  contains,
   floorToSlot,
   intersect,
   interval,
@@ -84,11 +85,21 @@ export function normaliseWindows(
       return err({ code: 'not_a_window', window: raw });
     }
 
+    // Whether this belongs to the plan at all is asked of the **raw** window,
+    // before rounding. A fifteen-minute window on a date the plan never
+    // mentions is a caller/plan disagreement, and rounding it away first would
+    // report an empty response as though the person had deliberately given one.
+    const touchesPlan = days.some((day) => intersect(day, raw) !== null);
+    if (!touchesPlan) {
+      return err({ code: 'outside_plan_window', window: raw });
+    }
+
     // Inward: start rounds up, end rounds down.
     const aligned = { start: ceilToSlot(raw.start), end: floorToSlot(raw.end) };
     if (aligned.end <= aligned.start) {
-      // Smaller than a slot once aligned — a stray tap. Dropping it is right;
-      // it is not an error, because the person did not mean anything by it.
+      // Smaller than a slot once aligned — a stray tap inside the plan. Dropping
+      // it is right; it is not an error, because the person did not mean
+      // anything by it.
       continue;
     }
 
@@ -96,9 +107,9 @@ export function normaliseWindows(
       .map((day) => intersect(day, aligned as Interval))
       .filter((piece): piece is Interval => piece !== null);
 
-    if (pieces.length === 0) {
-      return err({ code: 'outside_plan_window', window: raw });
-    }
+    // In the plan's date range but only in the hours between two daily bands —
+    // an overnight sliver, say. Nothing survives, and nothing was meant.
+    if (pieces.length === 0) continue;
     kept.push(...pieces);
   }
 
@@ -115,7 +126,21 @@ export function canHostDuration(windows: readonly Interval[], durationMinutes: n
   return windows.some((w) => (w.end - w.start) / 60_000 >= durationMinutes);
 }
 
+/**
+ * Whether the **whole** window sits inside one of the plan's daily bands.
+ *
+ * Containment, not overlap. As an exported predicate this reads as a validity
+ * check, and a window that merely clips the edge of a band — or spans overnight
+ * between two of them — is not valid availability: part of it is time the plan
+ * never asked about. `normaliseWindows` is what turns an overlapping window
+ * into contained ones.
+ */
 export function isWithinPlan(window: Interval, plan: Plan): boolean {
+  return planDays(plan).some((day) => contains(day, window));
+}
+
+/** Whether any part of the window falls inside the plan. */
+export function overlapsPlan(window: Interval, plan: Plan): boolean {
   return planDays(plan).some((day) => intersect(day, window) !== null);
 }
 

@@ -11,6 +11,7 @@ import {
   canHostDuration,
   isWithinPlan,
   normaliseWindows,
+  overlapsPlan,
   planBounds,
   planDays,
   totalMinutes,
@@ -109,6 +110,30 @@ describe('normaliseWindows', () => {
     expect(isErr(result) && result.error.code).toBe('outside_plan_window');
   });
 
+  it('errors on a short out-of-plan window too, instead of rounding it away first', () => {
+    // Fifteen minutes on a date the plan never mentions. Aligning inward makes
+    // it empty, and dropping it there would report an empty response as though
+    // the person had deliberately given one — hiding a caller/plan mismatch.
+    const result = normaliseWindows([on('2026-10-01', 18 * 60, 18 * 60 + 15)], p);
+    expect(isErr(result) && result.error.code).toBe('outside_plan_window');
+  });
+
+  it('errors on an hour the plan never asked about, even on one of its own dates', () => {
+    // 03:00 on a day inside the plan's dates, but in none of its evenings.
+    // Same class of mismatch as the wrong date: the caller is answering a
+    // question that was not put.
+    const result = normaliseWindows([on('2026-09-17', 3 * 60, 3 * 60 + 15)], p);
+    expect(isErr(result) && result.error.code).toBe('outside_plan_window');
+  });
+
+  it('drops a tap that rounding pushes out of the band, without erroring', () => {
+    // 17:00–17:35 genuinely overlaps the 17:30 band, so it is not a mismatch.
+    // Rounding inward gives 17:00–17:30, which no longer touches it. The person
+    // tapped just before the evening opened; nothing was meant by it.
+    const result = normaliseWindows([on('2026-09-17', 17 * 60, 17 * 60 + 35)], p);
+    expect(isOk(result) && result.value).toEqual([]);
+  });
+
   it('errors on a zero-length or backwards window', () => {
     // `interval()` refuses to build one, so this can only arrive from outside —
     // a wire payload or a hand-built object. That is exactly why the guard is
@@ -148,6 +173,37 @@ describe('normaliseWindows', () => {
         }
       }),
     );
+  });
+});
+
+describe('isWithinPlan', () => {
+  const p = plan();
+
+  it('requires the whole window to sit inside one daily band', () => {
+    expect(isWithinPlan(on('2026-09-17', 18 * 60, 20 * 60), p)).toBe(true);
+  });
+
+  it('rejects a window that only clips the edge of a band', () => {
+    // 16:00–18:00 overlaps the 17:30 start but half of it is time the plan
+    // never asked about. As a validity check, overlap is not containment.
+    const clipping = on('2026-09-17', 16 * 60, 18 * 60);
+    expect(isWithinPlan(clipping, p)).toBe(false);
+    expect(overlapsPlan(clipping, p)).toBe(true);
+  });
+
+  it('rejects a window spanning overnight between two bands', () => {
+    const overnight = interval(
+      fromLocal(localDate('2026-09-17'), 20 * 60, MELBOURNE),
+      fromLocal(localDate('2026-09-18'), 20 * 60, MELBOURNE),
+    );
+    expect(isWithinPlan(overnight, p)).toBe(false);
+    expect(overlapsPlan(overnight, p)).toBe(true);
+  });
+
+  it('rejects a window wholly outside the plan on either predicate', () => {
+    const elsewhere = on('2026-10-01', 18 * 60, 20 * 60);
+    expect(isWithinPlan(elsewhere, p)).toBe(false);
+    expect(overlapsPlan(elsewhere, p)).toBe(false);
   });
 });
 
