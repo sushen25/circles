@@ -205,6 +205,22 @@ The version lives in one place, `package.json`, pinned exactly rather than to a
 range so a fresh resolve cannot move it. Upgrading is `pnpm add -D supabase@<v>`
 and nothing else.
 
+## A job installs before it uses pnpm, and `check:workflows` proves it
+
+`deploy-prod` ran `pnpm run build` and `pnpm exec supabase` **before**
+`pnpm install`. It would have failed on its first production deploy — the one
+run where a late failure costs most — and nothing would have caught it, because
+that workflow has never executed.
+
+`scripts/check-workflows.mjs` reads every job in `.github/workflows` and
+`.eas/workflows` and fails when a step uses `pnpm exec`, `pnpm run` or
+`pnpm --filter` before the job's `pnpm install`, or with no install at all. It
+is in `pnpm check`.
+
+This is the cheapest available answer to a problem that has now bitten twice: CI
+cannot exercise the deploy paths on a pull request, so the next best thing is a
+check that reads them.
+
 ## Never interpolate the event payload into a `run:` block
 
 `${{ ... }}` is substituted into the script **before the shell sees it**, so any

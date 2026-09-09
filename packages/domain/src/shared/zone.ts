@@ -1,7 +1,7 @@
 import { fromZonedTime } from 'date-fns-tz';
 
 import { type Instant, MINUTE_MILLIS, instant } from './instant.js';
-import { type LocalDate, addDays, fromParts, localDate } from './local-date.js';
+import { type LocalDate, fromParts, localDate } from './local-date.js';
 
 /**
  * The only file in the domain that knows what a time zone is.
@@ -68,12 +68,21 @@ export function toLocal(value: Instant, z: Zone): LocalTime {
   };
 }
 
-/** The zone's offset from UTC at this moment, in minutes. */
+/**
+ * The zone's offset from UTC at this moment, in minutes.
+ *
+ * Compared at whole-minute precision on purpose. `toLocal` reports minutes of
+ * the day and drops anything finer, so seconds or milliseconds in `value` would
+ * skew the difference and round to a neighbouring minute — Melbourne read as
+ * +599 rather than +600 for an instant carrying half a second. Offsets only
+ * ever change on a minute boundary, so flooring first loses nothing.
+ */
 export function offsetMinutes(value: Instant, z: Zone): number {
-  const local = toLocal(value, z);
+  const atMinute = Math.floor(value / MINUTE_MILLIS) * MINUTE_MILLIS;
+  const local = toLocal(instant(atMinute), z);
   const { year, month, day } = splitDate(local.date);
   const asIfUtc = Date.UTC(year, month - 1, day) + local.minutesOfDay * MINUTE_MILLIS;
-  return Math.round((asIfUtc - value) / MINUTE_MILLIS);
+  return Math.round((asIfUtc - atMinute) / MINUTE_MILLIS);
 }
 
 function splitDate(date: LocalDate): { year: number; month: number; day: number } {
@@ -178,15 +187,29 @@ export function atLocalTime(date: string, minutesOfDay: number, timeZone: string
  * so local is the only alignment that matches what they saw.
  */
 const SLOT_MINUTES = 30;
+const SLOT_MILLIS = SLOT_MINUTES * MINUTE_MILLIS;
 
-function roundLocal(value: Instant, z: Zone, round: (minutes: number) => number): Instant {
-  const local = toLocal(value, z);
-  const minutes = round(local.minutesOfDay / SLOT_MINUTES) * SLOT_MINUTES;
-
-  // Rounding up from the last half hour of the day lands on midnight, which is
-  // minute zero of the next date rather than minute 1440 of this one.
-  if (minutes >= 24 * 60) return fromLocal(addDays(local.date, 1), 0, z);
-  return fromLocal(local.date, minutes, z);
+/**
+ * Rounds on a local timeline built from the offset **at the input instant**,
+ * rather than by going through `toLocal` and back.
+ *
+ * The round trip loses information. When the clocks go back, a wall-clock time
+ * happens twice, `toLocal` cannot say which one it was, and `fromLocal` always
+ * rebuilds the first — so the second 02:15 rounded *up* to the first 02:30,
+ * forty-five minutes earlier than where it started. A window start moving
+ * backwards invents availability nobody offered.
+ *
+ * Holding the offset fixed keeps the occurrence, and keeps the ordering the
+ * names promise: floor never exceeds its input, ceil never precedes it.
+ *
+ * Where the rounded boundary lands the other side of a transition, the result
+ * follows the same skip-forward rule as `fromLocal` — it is the first real
+ * moment at or after the wall time asked for.
+ */
+function roundLocal(value: Instant, z: Zone, round: (slots: number) => number): Instant {
+  const offset = offsetMinutes(value, z) * MINUTE_MILLIS;
+  const onLocalTimeline = value + offset;
+  return instant(round(onLocalTimeline / SLOT_MILLIS) * SLOT_MILLIS - offset);
 }
 
 /** Down to the previous local half hour. */

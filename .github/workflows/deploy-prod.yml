@@ -52,6 +52,20 @@ jobs:
           echo "expo=$expo" >> "$GITHUB_OUTPUT"
 
       # Both consumers need dist/: app.config.ts imports @circles/config, and the
+      # Nothing below runs without this: `pnpm run build`, every
+      # `pnpm exec supabase`, and the export all go through pnpm. It sat after
+      # the Supabase steps until Codex noticed, which nothing else would have —
+      # this workflow has never run.
+      - uses: pnpm/action-setup@v4
+        if: steps.config.outputs.expo == 'true' || steps.config.outputs.supabase == 'true'
+      - uses: actions/setup-node@v4
+        if: steps.config.outputs.expo == 'true' || steps.config.outputs.supabase == 'true'
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+        if: steps.config.outputs.expo == 'true' || steps.config.outputs.supabase == 'true'
+
       # Edge Functions import @circles/domain through the import map. dist/ is
       # gitignored, so it exists only after a build. `pnpm check` gets away
       # without this because `typecheck` runs `tsc -b` first and leaves the
@@ -74,16 +88,6 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: pnpm exec supabase db push --linked
-
-      - uses: pnpm/action-setup@v4
-        if: steps.config.outputs.expo == 'true' || steps.config.outputs.supabase == 'true'
-      - uses: actions/setup-node@v4
-        if: steps.config.outputs.expo == 'true' || steps.config.outputs.supabase == 'true'
-        with:
-          node-version-file: .nvmrc
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-        if: steps.config.outputs.expo == 'true' || steps.config.outputs.supabase == 'true'
 
       # A web build with no EXPO_PUBLIC_SUPABASE_URL compiles, deploys and
       # serves a client that cannot reach its backend. Fail here instead, where

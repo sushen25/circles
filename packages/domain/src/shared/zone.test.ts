@@ -1,7 +1,7 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 
-import { type Instant, MINUTE_MILLIS, instant, toISO } from './instant';
+import { type Instant, MINUTE_MILLIS, fromISO, instant, toISO } from './instant';
 import { localDate } from './local-date';
 import {
   ceilToLocalSlot,
@@ -190,6 +190,51 @@ describe('local half-hour boundaries', () => {
     const local = toLocal(rounded, KATHMANDU);
     expect(local.date).toBe('2026-09-18');
     expect(local.minutesOfDay).toBe(0);
+  });
+
+  it('is not thrown off by seconds in the instant', () => {
+    // `toLocal` reports whole minutes, so an instant carrying half a second
+    // used to read as +599 rather than +600, and every rounding built on it
+    // landed a minute out. Latent until something passed an arbitrary instant.
+    const withSeconds = fromISO('2026-09-20T07:38:30.001Z');
+    expect(offsetMinutes(withSeconds, MELB)).toBe(600);
+    expect(toISO(floorToLocalSlot(withSeconds, MELB))).toBe('2026-09-20T07:30:00.000Z');
+    expect(isAlignedToLocalSlot(floorToLocalSlot(withSeconds, MELB), MELB)).toBe(true);
+  });
+
+  it('keeps the occurrence when a wall time happens twice', () => {
+    // Melbourne falls back on 2026-04-05: 03:00 becomes 02:00, so 02:15 happens
+    // twice — once at +11 and once at +10. Going through toLocal and back lost
+    // which one it was and always rebuilt the first, so the second 02:15
+    // rounded *up* to forty-five minutes before itself.
+    const first = fromISO('2026-04-04T15:15:00Z');
+    const second = fromISO('2026-04-04T16:15:00Z');
+
+    expect(toISO(ceilToLocalSlot(first, MELB))).toBe('2026-04-04T15:30:00.000Z');
+    expect(toISO(floorToLocalSlot(first, MELB))).toBe('2026-04-04T15:00:00.000Z');
+
+    expect(toISO(ceilToLocalSlot(second, MELB))).toBe('2026-04-04T16:30:00.000Z');
+    expect(toISO(floorToLocalSlot(second, MELB))).toBe('2026-04-04T16:00:00.000Z');
+  });
+
+  it('never rounds a boundary past its input, in any zone or season', () => {
+    // The guarantee the names make. A start that rounds backwards invents
+    // availability; an end that rounds forwards does the same.
+    const zones = [MELB, KATHMANDU, zone('Pacific/Chatham'), zone('UTC')];
+    fc.assert(
+      fc.property(
+        fc.integer({ min: Date.parse('2026-01-01'), max: Date.parse('2027-01-01') }),
+        fc.constantFrom(...zones),
+        (millis, z) => {
+          const value = instant(millis);
+          expect(floorToLocalSlot(value, z)).toBeLessThanOrEqual(value);
+          expect(ceilToLocalSlot(value, z)).toBeGreaterThanOrEqual(value);
+          // And never further than a slot away.
+          expect(value - floorToLocalSlot(value, z)).toBeLessThan(30 * MINUTE_MILLIS);
+          expect(ceilToLocalSlot(value, z) - value).toBeLessThan(30 * MINUTE_MILLIS);
+        },
+      ),
+    );
   });
 
   it('agrees with epoch rounding in an ordinary zone', () => {
