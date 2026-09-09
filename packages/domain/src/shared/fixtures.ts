@@ -1,4 +1,4 @@
-import { type Instant, fromISO } from './instant.js';
+import type { Instant } from './instant.js';
 import { type Interval, interval } from './interval.js';
 import { type LocalDate, localDate } from './local-date.js';
 import { type Zone, fromLocal, zone } from './zone.js';
@@ -12,8 +12,8 @@ import { type Zone, fromLocal, zone } from './zone.js';
  *
  * The shapes still here are structural placeholders. Each Slice 1 domain ticket
  * owns its aggregate and replaces the corresponding type with the real one —
- * S1-01 has done that for `circle` and `member`, which now live in
- * `circles/fixtures.ts`. `src/fixtures.ts` aggregates both, so callers still
+ * S1-01 did that for `circle` and `member`, S1-02 for `plan`; they live in
+ * their own contexts' `fixtures.ts`. `src/fixtures.ts` aggregates both, so callers still
  * write `fixtures.circle()`.
  *
  * They live in the domain package rather than a root `tests/fixtures` (the
@@ -31,32 +31,6 @@ export const A_THURSDAY: LocalDate = localDate('2026-09-17');
 export const AN_EVENING: Instant = fromLocal(A_THURSDAY, 18 * 60 + 30, MELBOURNE);
 
 type Overrides<T> = Partial<T>;
-
-export type PlanFixture = {
-  id: string;
-  circleId: string;
-  mode: 'named' | 'quiet';
-  window: Interval;
-  durationMinutes: number;
-  quorum: number;
-  responseDeadline: Instant;
-};
-
-export function plan(overrides: Overrides<PlanFixture> = {}): PlanFixture {
-  return {
-    id: 'plan-1',
-    circleId: 'circle-1',
-    mode: 'named',
-    window: interval(
-      fromLocal(localDate('2026-09-14'), 0, MELBOURNE),
-      fromLocal(localDate('2026-09-28'), 0, MELBOURNE),
-    ),
-    durationMinutes: 120,
-    quorum: 3,
-    responseDeadline: fromISO('2026-09-15T08:00:00.000Z'),
-    ...overrides,
-  };
-}
 
 export type WindowFixture = Interval;
 
