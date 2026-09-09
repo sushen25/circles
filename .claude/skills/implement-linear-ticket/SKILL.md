@@ -1,6 +1,6 @@
 ---
 name: implement-linear-ticket
-description: Work a Linear ticket end to end - fetch SUS-N from Linear, check its blockers, branch from main with Linear's branch name, implement it, run the repo checks, push, open a GitHub PR with gh, move the ticket to In Review, write findings onto the tickets that will act on them, and work the Codex review rounds until one comes back clean. Use when asked to implement, work, pick up, start, or ship a Linear ticket / issue (SUS-6, S1-02, "the monorepo ticket"), to open the PR for one, or to address review findings on one.
+description: Work a Linear ticket end to end - fetch SUS-N from Linear, check its blockers, branch from main with Linear's branch name, implement it, run the repo checks, push, open a GitHub PR with gh, move the ticket to In Review, write findings onto the tickets that will act on them, and work the review rounds until one comes back clean. Use when asked to implement, work, pick up, start, or ship a Linear ticket / issue (SUS-6, S1-02, "the monorepo ticket"), to open the PR for one, or to address review findings on one.
 ---
 
 Encodes the "Working a ticket" steps in `docs/tickets.md` for the Circles repo.
@@ -99,11 +99,20 @@ Steps, in order:
 
 ## Review
 
-`/codex:review --base main` from the ticket's branch. Expect several rounds —
-S1-02 took two and S1-03 five, and every round found something real. The ticket
-moves to Done only after a round comes back clean **and** the founder merges.
-Run it again after each fix: two of S1-03's findings were only reachable once an
-earlier fix had changed the shape of the code.
+An adversarial review runs against the branch and the agent works the findings.
+The ticket moves to Done only after a round comes back clean **and** the founder
+merges.
+
+**The founder triggers the review**, currently with `/codex:review --base main`
+from the ticket's branch — a plugin installed on their machine, not part of this
+repo, so do not assume it is available and do not try to invoke it. `/code-review`
+is the built-in alternative. What follows is about responding to findings, and
+holds whoever produced them.
+
+**Ask for another round after each fix**, rather than treating one clean-up as
+the end. S1-02 took two rounds and S1-03 five; every round found something real,
+and two of S1-03's findings were only reachable once an earlier fix had changed
+the shape of the code.
 
 **Verify before you fix.** Reproduce the finding against the built package —
 `pnpm run build` then a `node -e` import of `packages/domain/dist/…` — and keep
