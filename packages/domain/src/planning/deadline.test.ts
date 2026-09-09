@@ -51,17 +51,27 @@ describe('lastPossibleStart', () => {
 describe('defaultDeadline', () => {
   const latest = fromISO('2026-09-20T10:30:00Z'); // 20:30 Melbourne on the last day
 
+  /** Asserts a deadline exists and returns it, so the cases below stay readable. */
+  const must = (value: Instant | undefined): Instant => {
+    expect(value).toBeDefined();
+    return value as Instant;
+  };
+
   it('gives this weekend and next 7 days a day', () => {
     const created = fromISO('2026-09-17T08:00:00Z');
     for (const preset of ['this_weekend', 'next_7_days'] as const) {
-      expect(toISO(defaultDeadline(preset, created, latest))).toBe('2026-09-18T08:00:00.000Z');
+      expect(toISO(must(defaultDeadline(preset, created, latest)))).toBe(
+        '2026-09-18T08:00:00.000Z',
+      );
     }
   });
 
   it('gives a fortnight three days', () => {
     const created = fromISO('2026-09-01T08:00:00Z');
     const far = fromISO('2026-09-14T10:30:00Z');
-    expect(toISO(defaultDeadline('next_14_days', created, far))).toBe('2026-09-04T08:00:00.000Z');
+    expect(toISO(must(defaultDeadline('next_14_days', created, far)))).toBe(
+      '2026-09-04T08:00:00.000Z',
+    );
   });
 
   it('never runs past the last possible start, however long the default is', () => {
@@ -74,7 +84,7 @@ describe('defaultDeadline', () => {
     it('is an hour from now when there is plenty of evening left', () => {
       const created = fromISO('2026-09-17T08:00:00Z'); // 18:00 Melbourne
       const tonightLatest = fromISO('2026-09-17T13:30:00Z'); // 23:30 local
-      expect(toISO(defaultDeadline('tonight', created, tonightLatest))).toBe(
+      expect(toISO(must(defaultDeadline('tonight', created, tonightLatest)))).toBe(
         '2026-09-17T09:00:00.000Z',
       );
     });
@@ -85,9 +95,19 @@ describe('defaultDeadline', () => {
       // deadline is still comfortably after creation.
       const created = fromISO('2026-09-17T11:00:00Z');
       const tonightLatest = fromISO('2026-09-17T12:00:00Z');
-      expect(toISO(defaultDeadline('tonight', created, tonightLatest))).toBe(
+      expect(toISO(must(defaultDeadline('tonight', created, tonightLatest)))).toBe(
         '2026-09-17T11:30:00.000Z',
       );
+    });
+
+    it('has no deadline at all when the last possible start is already behind us', () => {
+      // No instant satisfies both invariants — not after the last possible
+      // start, and not before creation. Returning `createdAt` would break the
+      // first, which is what an earlier revision of this did.
+      const created = fromISO('2026-09-17T12:50:00Z');
+      const alreadyPast = fromISO('2026-09-17T12:00:00Z');
+      expect(defaultDeadline('tonight', created, alreadyPast)).toBeUndefined();
+      expect(defaultDeadline('next_7_days', created, alreadyPast)).toBeUndefined();
     });
 
     it('never lands before the plan was created', () => {
@@ -98,6 +118,8 @@ describe('defaultDeadline', () => {
       const created = fromISO('2026-09-17T12:50:00Z');
       const tonightLatest = fromISO('2026-09-17T13:00:00Z');
       expect(defaultDeadline('tonight', created, tonightLatest)).toBe(created);
+      // …and it still respects the upper bound.
+      expect(defaultDeadline('tonight', created, tonightLatest)).toBeLessThanOrEqual(tonightLatest);
     });
   });
 });

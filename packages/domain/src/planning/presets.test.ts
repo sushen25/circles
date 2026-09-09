@@ -8,7 +8,7 @@ import { MELBOURNE } from '../shared/fixtures.js';
 import type { DurationMinutes } from './types.js';
 import {
   dailyForRange,
-  hasRoomToReply,
+  hasFutureStart,
   isViableBand,
   nextDays,
   resolvePreset,
@@ -67,11 +67,12 @@ describe('tonight', () => {
     );
   });
 
-  it('refuses a meetup that fits exactly, because nobody could reply to it', () => {
+  it('refuses a meetup that fits exactly, because its own default deadline cannot work', () => {
     // 22:30 leaves exactly 60 minutes, so an hour *fits* — and its last
-    // possible start is 22:30, this instant. The deadline default subtracts
-    // half an hour from that and lands before the plan was created.
-    // Fitting the duration was never the invariant; leaving room to reply is.
+    // possible start is 22:30, this instant. Tonight's default deadline is the
+    // last possible start less the margin, which lands before the plan was
+    // created. That margin is the spec's rule for this preset; every other
+    // preset leaves the deadline to the organiser.
     const halfTen = fromISO('2026-09-17T12:30:00Z');
     expect(tonight(halfTen, MELBOURNE, 60)).toBeUndefined();
     expect(tonight(halfTen, MELBOURNE, 90)).toBeUndefined();
@@ -183,8 +184,18 @@ describe('resolvePreset', () => {
     const today = { start: localDate('2026-09-17'), end: localDate('2026-09-17') };
     expect(isViableBand({ startMin: 17 * 60 + 30, endMin: 22 * 60 + 30 }, 120)).toBe(true);
     expect(resolvePreset('custom', tenPm, MELBOURNE, opts(TWO_HOURS, today))).toBe(
-      'no_time_to_reply',
+      'window_has_passed',
     );
+  });
+
+  it('still offers a custom window with only minutes left, which the spec permits', () => {
+    // Twenty-nine minutes before the last possible start. Tight, not invalid:
+    // the organiser may set the deadline anywhere up to that point.
+    const at2001 = fromISO('2026-09-17T10:01:00Z');
+    const today = { start: localDate('2026-09-17'), end: localDate('2026-09-17') };
+    expect(resolvePreset('custom', at2001, MELBOURNE, opts(TWO_HOURS, today))).toMatchObject({
+      window: today,
+    });
   });
 
   it('accepts the same window earlier in the day', () => {
@@ -210,21 +221,30 @@ describe('resolvePreset', () => {
   });
 });
 
-describe('hasRoomToReply', () => {
+describe('hasFutureStart', () => {
   const today = { start: localDate('2026-09-17'), end: localDate('2026-09-17') };
   const evening = { startMin: 17 * 60 + 30, endMin: 22 * 60 + 30 };
+  // Last possible start for a two-hour meetup in this band is 20:30.
 
-  it('needs the last possible start to be at least the reply margin away', () => {
-    // Last possible start for a two-hour meetup is 20:30.
-    const at1959 = fromISO('2026-09-17T09:59:00Z'); // 19:59 — 31 minutes of room
-    const at2001 = fromISO('2026-09-17T10:01:00Z'); // 20:01 — 29 minutes of room
-    expect(hasRoomToReply(at1959, today, evening, 120, MELBOURNE)).toBe(true);
-    expect(hasRoomToReply(at2001, today, evening, 120, MELBOURNE)).toBe(false);
+  it('permits a tight window, because the spec does', () => {
+    // "Editable, never after the last possible start" (§5.3) sets an upper
+    // bound and no lower one. A plan with a minute left is tight, not invalid,
+    // and imposing a minimum here would be inventing a product rule.
+    expect(hasFutureStart(fromISO('2026-09-17T10:01:00Z'), today, evening, 120, MELBOURNE)).toBe(
+      true,
+    );
+    expect(hasFutureStart(fromISO('2026-09-17T10:29:00Z'), today, evening, 120, MELBOURNE)).toBe(
+      true,
+    );
   });
 
-  it('is false once the last possible start is behind us', () => {
-    const at2200 = fromISO('2026-09-17T12:00:00Z');
-    expect(hasRoomToReply(at2200, today, evening, 120, MELBOURNE)).toBe(false);
+  it('refuses only once the last possible start has actually passed', () => {
+    expect(hasFutureStart(fromISO('2026-09-17T10:30:00Z'), today, evening, 120, MELBOURNE)).toBe(
+      false,
+    );
+    expect(hasFutureStart(fromISO('2026-09-17T12:00:00Z'), today, evening, 120, MELBOURNE)).toBe(
+      false,
+    );
   });
 });
 

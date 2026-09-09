@@ -9,7 +9,8 @@
  * days, including the day the clocks change.
  */
 
-import type { Instant } from '../shared/instant.js';
+import { type Instant, isBefore } from '../shared/instant.js';
+import { defaultDeadline } from './deadline.js';
 import { type LocalDate, addDays, isWeekend, weekday } from '../shared/local-date.js';
 import { type Zone, fromLocal, toLocal } from '../shared/zone.js';
 import {
@@ -36,15 +37,6 @@ export type PresetWindow = {
   readonly window: DateWindow;
   readonly daily: DailyWindow;
 };
-
-/**
- * The least time worth calling a chance to reply.
- *
- * It is also the margin the `tonight` deadline default subtracts from the last
- * possible start, which is not a coincidence: a plan is only offerable if that
- * subtraction still lands in the future.
- */
-export const MIN_RESPONSE_MINUTES = 30;
 
 /**
  * A band has to be at least as long as the meetup, or `lastPossibleStart` lands
@@ -74,22 +66,22 @@ export function lastStartOf(
 }
 
 /**
- * Whether anyone could actually answer.
+ * Whether the meetup could still begin at all.
  *
- * This is the real viability test. A plan whose last possible start is already
- * behind us — or so close that the deadline default lands before the plan was
- * created — is not a plan, and the honest thing is to refuse to offer it rather
- * than to create one whose replies closed before it existed.
+ * This is the viability test, and it is deliberately the weakest one that is
+ * true: a plan whose last possible start has already passed cannot happen, and
+ * one with twenty minutes left is merely tight. The spec lets the organiser set
+ * a deadline anywhere up to the last possible start (§5.3), so a minimum
+ * response time would be a product rule this module has no business inventing.
  */
-export function hasRoomToReply(
+export function hasFutureStart(
   now: Instant,
   window: DateWindow,
   daily: DailyWindow,
   durationMinutes: number,
   z: Zone,
 ): boolean {
-  const lastStart = lastStartOf(window, daily, durationMinutes, z);
-  return lastStart - now >= MIN_RESPONSE_MINUTES * 60_000;
+  return isBefore(now, lastStartOf(window, daily, durationMinutes, z));
 }
 
 /**
@@ -114,10 +106,18 @@ export function tonight(
 
   if (startMin >= LATEST_TONIGHT) return undefined;
   if (!isViableBand(daily, durationMinutes)) return undefined;
-  // Fitting is not enough. At 22:30 a one-hour meetup fits the remaining hour
-  // exactly, and its last possible start is 22:30 — now — so the deadline
-  // default lands half an hour before the plan was created.
-  if (!hasRoomToReply(now, window, daily, durationMinutes, z)) return undefined;
+  if (!hasFutureStart(now, window, daily, durationMinutes, z)) return undefined;
+
+  // Tonight carries one extra condition, and it is the spec's own rather than
+  // an invented minimum: its default deadline is the last possible start less
+  // `TONIGHT_MARGIN_MINUTES`, so the preset is only worth offering when that
+  // default lands after the plan is created. At 22:30 a one-hour meetup has a
+  // last possible start of 22:30 — this instant — and a default deadline half
+  // an hour before the plan existed. Offering it produces a plan nobody can
+  // answer. Every other preset leaves the deadline entirely to the organiser.
+  const lastStart = lastStartOf(window, daily, durationMinutes, z);
+  const deadline = defaultDeadline('tonight', now, lastStart);
+  if (deadline === undefined || !isBefore(now, deadline)) return undefined;
 
   return { window, daily };
 }
@@ -168,7 +168,7 @@ export type PresetError =
   | 'window_too_long'
   | 'window_backwards'
   | 'band_shorter_than_meetup'
-  | 'no_time_to_reply';
+  | 'window_has_passed';
 
 export type PresetOptions = {
   readonly durationMinutes: DurationMinutes;
@@ -193,8 +193,8 @@ export function resolvePreset(
 
   const checked = (result: PresetWindow): PresetWindow | PresetError => {
     if (!isViableBand(result.daily, durationMinutes)) return 'band_shorter_than_meetup';
-    if (!hasRoomToReply(now, result.window, result.daily, durationMinutes, z)) {
-      return 'no_time_to_reply';
+    if (!hasFutureStart(now, result.window, result.daily, durationMinutes, z)) {
+      return 'window_has_passed';
     }
     return result;
   };

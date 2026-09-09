@@ -15,7 +15,14 @@ import { fromLocal } from '../shared/zone.js';
 import type { Plan, WindowPreset } from './types.js';
 
 const HOUR = 60;
-const HALF_HOUR = 30;
+
+/**
+ * The margin the **tonight** default leaves before the last possible start
+ * (spec §5.3). It is a property of that one default, not a rule about plans:
+ * the spec lets the organiser move the deadline anywhere up to the last
+ * possible start, and nothing here may narrow that.
+ */
+export const TONIGHT_MARGIN_MINUTES = 30;
 
 /**
  * The latest moment the meetup could still begin: the last day of the window,
@@ -41,31 +48,43 @@ export function clampDeadline(deadline: Instant, latestStart: Instant): Instant 
 }
 
 /**
- * The default the organiser is offered.
+ * The default the organiser is offered, or `undefined` when there is no valid
+ * deadline to offer.
  *
- * Tonight is the tight one: the earlier of an hour from now and half an hour
- * before the last possible start. An hour is long enough for a group chat to
- * notice and short enough that "tonight" still means tonight.
+ * Tonight is the tight one: the earlier of an hour from now and
+ * `TONIGHT_MARGIN_MINUTES` before the last possible start. An hour is long
+ * enough for a group chat to notice and short enough that "tonight" still means
+ * tonight.
  *
- * **Never before `createdAt`.** Subtracting the margin from a last possible
- * start that is nearly upon us produces a deadline in the past, and a plan
- * whose replies closed before it existed. `resolvePreset` refuses to offer such
- * a window at all (`hasRoomToReply`), so reaching this floor means a plan was
- * built by some other route — a hand-picked window, or a caller that skipped
- * the preset. The floor keeps the invariant true regardless of the route in.
+ * Two invariants bound the answer, and they can conflict:
+ *
+ * - **Never after the last possible start** (spec §5.3) — replies that arrive
+ *   once the plan cannot happen are replies to nothing.
+ * - **Never before `createdAt`** — a deadline in the past closes replies the
+ *   instant it is saved.
+ *
+ * When `latestStart` is already behind `createdAt` no instant satisfies both,
+ * and the honest answer is that this plan has no deadline rather than a value
+ * that breaks one of them. An earlier revision of this function floored at
+ * `createdAt` unconditionally, which produced a deadline *after* the last
+ * possible start — trading one broken invariant for the other.
  */
 export function defaultDeadline(
   preset: WindowPreset,
   createdAt: Instant,
   latestStart: Instant,
-): Instant {
+): Instant | undefined {
+  if (isAfter(createdAt, latestStart)) return undefined;
   return latest(createdAt, uncappedDefault(preset, createdAt, latestStart));
 }
 
 function uncappedDefault(preset: WindowPreset, createdAt: Instant, latestStart: Instant): Instant {
   switch (preset) {
     case 'tonight':
-      return earliest(addMinutes(createdAt, HOUR), addMinutes(latestStart, -HALF_HOUR));
+      return earliest(
+        addMinutes(createdAt, HOUR),
+        addMinutes(latestStart, -TONIGHT_MARGIN_MINUTES),
+      );
     case 'this_weekend':
     case 'next_7_days':
       return clampDeadline(addMinutes(createdAt, 24 * HOUR), latestStart);
@@ -78,9 +97,17 @@ function uncappedDefault(preset: WindowPreset, createdAt: Instant, latestStart: 
   }
 }
 
-/** Whether an organiser-chosen deadline is allowed (spec §5.3: "never after the last possible start"). */
-export function isDeadlineAllowed(deadline: Instant, latestStart: Instant): boolean {
-  return !isAfter(deadline, latestStart);
+/**
+ * Whether an organiser-chosen deadline is allowed.
+ *
+ * The spec's rule is the upper bound alone — "editable, never after the last
+ * possible start" (§5.3) — so a deadline half an hour away is permitted, and
+ * this must not invent a minimum. Pass `now` to also reject one in the past,
+ * which is the other end of the same sentence rather than a new rule.
+ */
+export function isDeadlineAllowed(deadline: Instant, latestStart: Instant, now?: Instant): boolean {
+  if (isAfter(deadline, latestStart)) return false;
+  return now === undefined || !isAfter(now, deadline);
 }
 
 /**
