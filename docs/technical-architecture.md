@@ -494,7 +494,7 @@ Every function: Zod-validated input, `X-Request-Id` echoed as the user-visible r
 
 ### 9.2 Reads
 
-Clients read through `supabase-js` with RLS: circles I belong to, active members, plans in my circles, my response and windows, candidate sets and candidates for plans I belong to, confirmations, attendance, outcomes, nudge states. Realtime is subscribed on `plans` and `candidate_sets` for the organiser's candidates screen only; everything else refetches on focus.
+Clients read through `supabase-js` with RLS: circles I belong to, active members, plans in my circles, my response and windows, candidate sets and candidates for plans I belong to, confirmations, attendance, outcomes, nudge states. **Everything refetches on focus; nothing subscribes to Realtime.** This paragraph previously claimed Realtime on `plans` and `candidate_sets` for the organiser's candidates screen — that was written before the question in §20 was answered "refetch on focus is fine", and the spec lists Realtime subscriptions as out of scope. Adding a subscription later is an ADR, not a preference: it introduces a websocket, a free-tier quota to watch, and a second path by which the client learns a plan changed.
 
 ### 9.3 Scheduled work
 

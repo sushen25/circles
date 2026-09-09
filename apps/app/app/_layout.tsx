@@ -14,8 +14,8 @@ void SplashScreen.preventAutoHideAsync();
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      // Screens refetch on focus; realtime is subscribed only where it earns
-      // its keep (architecture §9.2).
+      // Every screen refetches on focus. Nothing subscribes to Realtime —
+      // it is out of scope for the MVP, and adding it is an ADR (§9.2).
       staleTime: 30_000,
       retry: 2,
     },

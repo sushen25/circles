@@ -38,7 +38,7 @@ jobs:
           if [ -n "$EXPO_TOKEN" ]; then echo "ready=true" >> "$GITHUB_OUTPUT";
           else
             echo "ready=false" >> "$GITHUB_OUTPUT"
-            echo "No EXPO_TOKEN yet — previews start once S0-11 sets up EAS Hosting." >> "$GITHUB_STEP_SUMMARY"
+            echo "No EXPO_TOKEN — previews need it; see docs/runbooks/environments.md." >> "$GITHUB_STEP_SUMMARY"
           fi
 
       - uses: actions/checkout@v4

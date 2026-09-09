@@ -30,11 +30,23 @@ A failing run uploads the Playwright report as an artefact.
 
 ## `deploy-dev`, `deploy-prod`, `preview`
 
-None of these can do anything yet. Every step is guarded on its secret, and the
-run summary says which are missing rather than failing the build — a red cross
-on `main` for infrastructure nobody has set up teaches people to ignore red
-crosses. **S0-11 creates the projects and adds the secrets**, after which they
-start working with no change here.
+**`deploy-dev` and `preview` work.** Every secret they need is set, a merge to
+`main` deploys, and a PR gets a preview URL. `deploy-prod` has never run: it is
+`workflow_dispatch` only, the `production` environment does not exist yet, and
+its secrets are absent (SUS-71).
+
+Every step is still guarded on its secret, and the run summary says which are
+missing rather than failing the build — a red cross on `main` for infrastructure
+nobody has set up teaches people to ignore red crosses.
+
+**Treat `deploy-prod`'s first real run as untested.** Turning `deploy-dev` on
+found six defects in a path that had only ever skipped: no workspace build
+before the export, no `eas-cli` installed at all, no `pipefail` (which is why
+the second looked green), the build placed after the Supabase steps rather than
+before, `date-fns-tz` missing from the Edge Function import map, and a
+`workflow_dispatch` run sending an empty `eas update --message`. Two of those
+shapes are now caught locally by `check:client-env` and `check:imports`; the
+rest are working-process rule 2.13.
 
 | Secret | Used by | Comes from |
 |---|---|---|
@@ -77,11 +89,14 @@ Measured on 7 September 2026, before any deploy step was doing real work:
 About **7 billable minutes per push**, so roughly 285 pushes a month. A whole
 day of heavy work — twelve runs, five of them red — came to 36 minutes.
 
-**This grows once S0-11 lands.** `preview` exits in eight seconds today only
-because there is no token; once it exports and deploys it is nearer 3–4 minutes,
-and `deploy-dev` starts running on every merge. Expect **12–15 minutes per PR
-cycle**, so around 140 cycles a month. Overage is $0.008/min, so even a thousand
-minutes over is a few dollars.
+**This has now grown, as predicted.** `preview` really exports and deploys, at
+about 1m45s, and `deploy-dev` runs on every merge. A code PR costs roughly
+`check` (6 min) + `preview` (2 min), and a merge adds `deploy-dev` on top.
+
+Two things pull the other way. Prose-only changes take the fast lane — `check`
+in about a minute, no `preview`, no `deploy-dev` (SUS-72) — and Slice 0 produced
+a great deal of prose. Overage is $0.008/min, so even a thousand minutes over is
+a few dollars.
 
 ### The lever
 
@@ -99,13 +114,15 @@ jobs:
     if: contains(github.event.pull_request.labels.*.name, 'preview')
 ```
 
-**Do not pull this yet.** Right now it would save nothing — `preview` costs one
-rounded-up minute — and a preview you have to remember to ask for is a preview
-nobody looks at. Revisit when there is a month of real numbers with S0-11's
-secrets in place, and compare against the table above.
+**Now worth measuring rather than assuming.** The original reasoning — that
+`preview` cost one rounded-up minute, so gating it would save nothing — no
+longer holds: it exports and deploys for real, at about 1m45s a PR. A preview
+you have to remember to ask for is still a preview nobody looks at, so this is a
+trade rather than an obvious win.
 
-Tracked as **SUS-70**, blocked by S0-11 so it cannot be picked up before there
-is anything to measure.
+Tracked as **SUS-70**, and no longer blocked: S0-11 is done, so there is
+something to measure. Take a month of real numbers against the table above
+before pulling it.
 
 There is a larger lever behind it: **Actions is free and unlimited on public
 repositories**, and branch protection is free there too, which would also

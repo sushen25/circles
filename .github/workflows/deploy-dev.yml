@@ -1,9 +1,9 @@
 # Merges to `main` go to `dev` (architecture §5.1, §18).
 #
-# Every step is guarded on its secret being present. Until S0-11 creates the
-# hosted projects there are none, so this workflow runs, says exactly what is
-# missing, and succeeds — a red cross on `main` for infrastructure that was
-# never set up teaches people to ignore red crosses.
+# Every step is guarded on its secret being present. All of them are set, so
+# this deploys for real; the guards remain so that a rotated-away secret says
+# exactly what is missing rather than failing the build — a red cross on `main`
+# for infrastructure that was never set up teaches people to ignore red crosses.
 name: deploy-dev
 
 on:
@@ -57,7 +57,7 @@ jobs:
             echo "| Supabase (\`SUPABASE_ACCESS_TOKEN\`, \`SUPABASE_DEV_PROJECT_REF\`) | $supabase |"
             echo "| Expo (\`EXPO_TOKEN\`) | $expo |"
             echo ""
-            echo "Anything \`false\` is waiting on S0-11 to create the project and add the secret."
+            echo "Anything \`false\` is a missing secret — see docs/runbooks/environments.md."
           } >> "$GITHUB_STEP_SUMMARY"
 
       - uses: pnpm/action-setup@v4

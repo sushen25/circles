@@ -57,15 +57,21 @@ start: [`apps/app/README.md`](apps/app/README.md).
 
 ## Where it runs
 
-|       | Supabase            | Web                        | Native                |
-| ----- | ------------------- | -------------------------- | --------------------- |
-| local | CLI stack in Docker | `pnpm dev`                 | development build     |
-| dev   | hosted project      | EAS Hosting                | `development` channel |
-| prod  | hosted project      | EAS Hosting, custom domain | `production` channel  |
+|       | Supabase            | Web                                    | Native                |
+| ----- | ------------------- | -------------------------------------- | --------------------- |
+| local | CLI stack in Docker | `pnpm dev`                             | development build     |
+| dev   | `circles-dev`       | `sushen25s-team-circles--dev.expo.app` | `development` channel |
+| prod  | `circles-prod`      | not deployed                           | `production` channel  |
 
-Only **local** exists today. Everything the repository needs for `dev` and
-`prod` is written and waiting on accounts, a domain and a card: work through
-[`docs/runbooks/environment-setup.md`](docs/runbooks/environment-setup.md), then
+**`local` and `dev` both work.** A merge to `main` pushes migrations, deploys the
+Edge Functions and the web build, and publishes an update to the `development`
+channel.
+
+`prod` exists as a Supabase project but is not deployed, and neither host has a
+custom domain yet — `dev` runs on the URL EAS assigns. Links are never shipped on
+`*.expo.app` (architecture §5.2), so the domain has to exist before any invite
+reaches someone who is not the founder.
+
 [`docs/runbooks/environments.md`](docs/runbooks/environments.md) is the reference
-for what ended up where. The deploy workflows succeed and say what is missing
-until then — see [`docs/runbooks/ci.md`](docs/runbooks/ci.md).
+for what is where; [`environment-setup.md`](docs/runbooks/environment-setup.md)
+is the remaining setup, and the vendor work still outstanding is SUS-71.

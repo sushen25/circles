@@ -15,8 +15,9 @@ pnpm --filter app start
 `a` for the Android emulator. `pnpm --filter app export` produces the web build
 in `dist/` (`dist/client` and `dist/server`).
 
-Copy `.env.example` to `.env.local` and fill it in as the values arrive (S0-06
-for the local Supabase stack, S0-11 for the hosted projects).
+Copy `.env.example` to `.env.local` and fill it in. `pnpm db:start` prints the
+local Supabase values; the hosted ones are in
+[`docs/runbooks/environments.md`](../../docs/runbooks/environments.md).
 
 ## Configuration
 
