@@ -96,17 +96,19 @@ jobs:
       - if: steps.scope.outputs.kind == 'code' && steps.playwright-cache.outputs.cache-hit != 'true'
         run: pnpm exec playwright install --with-deps chromium
 
-      - uses: supabase/setup-cli@v1
-        if: steps.scope.outputs.kind == 'code'
-        with:
-          version: latest
-
       - name: Start Supabase
         if: steps.scope.outputs.kind == 'code'
+        # The workspace CLI, not `supabase/setup-cli`. There were two of them:
+        # the action installed `latest` for this step while `pnpm check`'s own
+        # `db:test` and `check:types` resolved the pinned devDependency through
+        # node_modules/.bin — so one job could use two versions, and CI could
+        # test against a CLI nobody has locally. The action also resolves
+        # `latest` through the GitHub API, which rate-limited and failed a run.
+        #
         # `pnpm check` resets the database and runs pgTAP, and `check:types`
         # generates types from the live schema. Only the database is needed:
         # every other service is time we would spend on nothing.
-        run: supabase start -x realtime,storage-api,imgproxy,studio,inbucket,edge-runtime,logflare,vector,supavisor
+        run: pnpm exec supabase start -x realtime,storage-api,imgproxy,studio,inbucket,edge-runtime,logflare,vector,supavisor
 
       - name: pnpm check
         if: steps.scope.outputs.kind == 'code'

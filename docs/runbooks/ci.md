@@ -185,6 +185,26 @@ The two mechanisms differ on purpose:
 tell — an empty diff, a merge commit, an unrecognised path. Being wrong that way
 costs a slow run; being wrong the other way costs a broken `main`.
 
+## One Supabase CLI, and it is the workspace's
+
+CI does not use `supabase/setup-cli`. Every workflow runs `pnpm exec supabase`,
+so the CLI is the pinned devDependency and `pnpm install --frozen-lockfile`
+already put it there.
+
+There used to be two. The action installed `latest` for `supabase start`, while
+`pnpm check`'s own `db:test` and `check:types` resolved the devDependency
+through `node_modules/.bin` — so a single job could run two versions, and the
+gate could test against a CLI nobody has locally. That is the failure mode
+`pnpm check` exists to prevent.
+
+It also removed a dependency on the GitHub API: resolving `latest` rate-limited
+and failed a run on 9 September 2026, on a change that had nothing to do with
+Supabase.
+
+The version lives in one place, `package.json`, pinned exactly rather than to a
+range so a fresh resolve cannot move it. Upgrading is `pnpm add -D supabase@<v>`
+and nothing else.
+
 ## Never interpolate the event payload into a `run:` block
 
 `${{ ... }}` is substituted into the script **before the shell sees it**, so any

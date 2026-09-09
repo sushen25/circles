@@ -39,7 +39,7 @@ importers:
         specifier: ^3.4.2
         version: 3.9.6
       supabase:
-        specifier: ^2.116.0
+        specifier: 2.116.0
         version: 2.116.0
       typescript:
         specifier: ^5.7.2

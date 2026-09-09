@@ -80,24 +80,19 @@ jobs:
         if: steps.config.outputs.expo == 'true' || steps.config.outputs.supabase == 'true'
         run: pnpm run build
 
-      - uses: supabase/setup-cli@v1
-        if: steps.config.outputs.supabase == 'true'
-        with:
-          version: latest
-
       - name: Push migrations
         if: steps.config.outputs.supabase == 'true'
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
-          supabase link --project-ref "${{ secrets.SUPABASE_DEV_PROJECT_REF }}"
-          supabase db push --linked
+          pnpm exec supabase link --project-ref "${{ secrets.SUPABASE_DEV_PROJECT_REF }}"
+          pnpm exec supabase db push --linked
 
       - name: Deploy Edge Functions
         if: steps.config.outputs.supabase == 'true'
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        run: supabase functions deploy --project-ref "${{ secrets.SUPABASE_DEV_PROJECT_REF }}"
+        run: pnpm exec supabase functions deploy --project-ref "${{ secrets.SUPABASE_DEV_PROJECT_REF }}"
 
       # A web build with no EXPO_PUBLIC_SUPABASE_URL compiles, deploys and
       # serves a client that cannot reach its backend. Fail here instead, where

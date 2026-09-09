@@ -61,24 +61,19 @@ jobs:
         if: steps.config.outputs.expo == 'true' || steps.config.outputs.supabase == 'true'
         run: pnpm run build
 
-      - uses: supabase/setup-cli@v1
-        if: steps.config.outputs.supabase == 'true'
-        with:
-          version: latest
-
       - name: Show the migration plan before applying it
         if: steps.config.outputs.supabase == 'true'
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
-          supabase link --project-ref "${{ secrets.SUPABASE_PROD_PROJECT_REF }}"
-          supabase db push --linked --dry-run
+          pnpm exec supabase link --project-ref "${{ secrets.SUPABASE_PROD_PROJECT_REF }}"
+          pnpm exec supabase db push --linked --dry-run
 
       - name: Push migrations
         if: steps.config.outputs.supabase == 'true'
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        run: supabase db push --linked
+        run: pnpm exec supabase db push --linked
 
       - uses: pnpm/action-setup@v4
         if: steps.config.outputs.expo == 'true' || steps.config.outputs.supabase == 'true'
