@@ -34,12 +34,16 @@ export function planDays(plan: Plan): Interval[] {
   const days: Interval[] = [];
   let date = plan.window.start;
   while (date <= plan.window.end) {
-    days.push(
-      interval(
-        fromLocal(date, plan.daily.startMin, plan.zone),
-        fromLocal(date, plan.daily.endMin, plan.zone),
-      ),
-    );
+    const start = fromLocal(date, plan.daily.startMin, plan.zone);
+    const end = fromLocal(date, plan.daily.endMin, plan.zone);
+
+    // A band can be empty for one day of a perfectly good plan: a 02:00–03:00
+    // band on the date the clocks go forward is an hour that does not happen,
+    // and both ends resolve to the same instant. That day simply has no time in
+    // it. Building an interval there threw, which took down `planDays` and with
+    // it every normalisation and predicate for the *whole* window — one
+    // impossible day breaking six workable ones.
+    if (end > start) days.push(interval(start, end));
     date = addDays(date, 1);
   }
   return days;

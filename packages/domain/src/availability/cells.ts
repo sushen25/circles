@@ -14,60 +14,60 @@
  */
 
 import type { Plan } from '../planning/types.js';
-import { SLOT_MINUTES, type Interval, intersect, interval, merge } from '../shared/interval.js';
+import { type Interval, intersect, interval, merge } from '../shared/interval.js';
 import type { LocalDate } from '../shared/local-date.js';
-import { fromLocal } from '../shared/zone.js';
+import { instant } from '../shared/instant.js';
+import { ceilToLocalSlot, fromLocal } from '../shared/zone.js';
 
 /**
- * How many half-hour cells a day of this plan nominally has.
+ * Every half-hour slot the day's band actually contains, in order.
  *
- * Nominal because on the day the clocks go forward some of them do not exist —
- * see `cellAt`. The count stays fixed so cell indices mean the same thing on
- * every day of the window; the missing ones are reported by `cellAt` returning
- * `undefined`.
+ * Enumerated from the band rather than computed from an index, because the
+ * number of real half hours in a wall-clock band is not fixed. On the day the
+ * clocks go forward some do not happen; on the day they go back, 02:00 and
+ * 02:30 happen twice and **both are real time somebody can be free during**.
+ *
+ * An earlier version had one cell per nominal local time, which meant the
+ * repeated hour shared a row with its first occurrence. A window on the second
+ * 02:00 then matched no cell, so reopening a saved response showed nothing
+ * painted and quietly discarded it. Giving each occurrence its own cell is what
+ * makes the painter and `normaliseWindows` agree about what exists.
  */
-export function cellCount(plan: Plan): number {
-  return Math.floor((plan.daily.endMin - plan.daily.startMin) / SLOT_MINUTES);
+export function cellsFor(date: LocalDate, plan: Plan): Interval[] {
+  const bandStart = fromLocal(date, plan.daily.startMin, plan.zone);
+  const bandEnd = fromLocal(date, plan.daily.endMin, plan.zone);
+
+  const cells: Interval[] = [];
+  let at = bandStart;
+  while (at < bandEnd) {
+    // The next moment whose local clock reads a half hour. Adding a millisecond
+    // first makes it strictly later, and `ceilToLocalSlot` keeps the occurrence.
+    const next = ceilToLocalSlot(instant(at + 1), plan.zone);
+    const end = next < bandEnd ? next : bandEnd;
+    if (end <= at) break; // defensive: the band cannot be walked
+    cells.push(interval(at, end));
+    at = end;
+  }
+  return cells;
+}
+
+/**
+ * How many cells this day has.
+ *
+ * Takes the date because the answer depends on it: ten for a weekday evening,
+ * twenty-seven for a weekend day (ADR 0009), and two more or two fewer on the
+ * days a clock changes.
+ */
+export function cellCount(date: LocalDate, plan: Plan): number {
+  return cellsFor(date, plan).length;
 }
 
 /** How many cells the UI shows before scrolling. A viewport, not a data shape. */
 export const VISIBLE_CELLS = 10;
 
-/**
- * One cell, or `undefined` when that half hour does not exist on that date.
- *
- * Both ends come from local wall-clock boundaries rather than from adding
- * thirty minutes to the start, because on a day the clocks change those are not
- * the same thing. On Melbourne's spring-forward, 02:00 and 02:30 do not happen:
- * deriving the end by addition gave all three of the 02:00, 02:30 and 03:00
- * cells the same interval, so painting one read back as three painted.
- *
- * A cell runs to **the next boundary**, not to its start plus thirty minutes.
- * When the clocks go back, wall-clock 02:30–03:00 is ninety real minutes, and
- * capping it at thirty made the cell end at the second 02:00 — so it rendered
- * as "2:30–2 am", ran backwards on the clock, and left the repeated hour in no
- * cell at all: painting every cell came to less time than the "any time"
- * shortcut for the same day.
- *
- * Running to the next boundary keeps the cells contiguous and each one true to
- * its own label. The instinct to claim less is right for rounding a window a
- * person dragged; it is wrong here, because the label is the promise and on
- * that date the clock really did take ninety minutes to get from 02:30 to
- * 03:00.
- */
+/** One cell, or `undefined` when the day has no cell at that index. */
 export function cellAt(date: LocalDate, index: number, plan: Plan): Interval | undefined {
-  const startMin = plan.daily.startMin + index * SLOT_MINUTES;
-  const start = fromLocal(date, startMin, plan.zone);
-  const end = fromLocal(date, startMin + SLOT_MINUTES, plan.zone);
-
-  // Zero-length: the whole half hour fell in a spring-forward gap.
-  if (end <= start) return undefined;
-  return interval(start, end);
-}
-
-/** Which cells exist on this date. Every index, so the UI can grey the gaps. */
-export function cellsFor(date: LocalDate, plan: Plan): (Interval | undefined)[] {
-  return Array.from({ length: cellCount(plan) }, (_, index) => cellAt(date, index, plan));
+  return cellsFor(date, plan)[index];
 }
 
 /**
@@ -76,15 +76,12 @@ export function cellsFor(date: LocalDate, plan: Plan): (Interval | undefined)[] 
  * what lets the engine find a 90-minute slot across the join.
  */
 export function cellsToWindows(date: LocalDate, cells: readonly boolean[], plan: Plan): Interval[] {
-  const count = cellCount(plan);
+  const dayCells = cellsFor(date, plan);
   const painted: Interval[] = [];
 
-  for (let index = 0; index < Math.min(cells.length, count); index += 1) {
-    if (cells[index] !== true) continue;
-    // A painted cell that does not exist offers nothing, because there is no
-    // time to offer. Silently so: the person cannot have meant it.
-    const cell = cellAt(date, index, plan);
-    if (cell !== undefined) painted.push(cell);
+  for (let index = 0; index < Math.min(cells.length, dayCells.length); index += 1) {
+    const cell = dayCells[index];
+    if (cells[index] === true && cell !== undefined) painted.push(cell);
   }
   return merge(painted);
 }
@@ -102,21 +99,10 @@ export function windowsToCells(
   windows: readonly Interval[],
   plan: Plan,
 ): boolean[] {
-  const count = cellCount(plan);
-  const cells: boolean[] = [];
-
-  for (let index = 0; index < count; index += 1) {
-    const cell = cellAt(date, index, plan);
-    if (cell === undefined) {
-      cells.push(false);
-      continue;
-    }
-    cells.push(
-      windows.some((w) => {
-        const overlap = intersect(w, cell);
-        return overlap !== null && overlap.start === cell.start && overlap.end === cell.end;
-      }),
-    );
-  }
-  return cells;
+  return cellsFor(date, plan).map((cell) =>
+    windows.some((w) => {
+      const overlap = intersect(w, cell);
+      return overlap !== null && overlap.start === cell.start && overlap.end === cell.end;
+    }),
+  );
 }

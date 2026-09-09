@@ -217,7 +217,7 @@ describe('in a zone offset by 45 minutes', () => {
   });
 
   it('round-trips through the painter, which builds its grid from local times', () => {
-    const painted = Array.from({ length: cellCount(p) }, (_, i) => i === 0 || i === 1);
+    const painted = Array.from({ length: cellCount(DAY, p) }, (_, i) => i === 0 || i === 1);
     const windows = cellsToWindows(DAY, painted, p);
     const normalised = normaliseWindows(windows, p);
     expect(isOk(normalised)).toBe(true);
