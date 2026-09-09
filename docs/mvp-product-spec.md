@@ -267,7 +267,7 @@ Quiet asks exist only inside a private circle; there is no anonymous text or tar
 
 #### Core interaction
 
-- The active date window is a mobile-friendly day list, one row per day, ten half-hour cells across the daily window, the selected range always rendered as text beside the date.
+- The active date window is a mobile-friendly day list, one row per day, half-hour cells across the daily window — about ten visible at once, the row scrolling horizontally on the longer bands (ADR 0009) — with the selected range always rendered as text beside the date.
 - First-person willingness language: "Times I'd actually be up for". Shortcuts: after work, all evening, morning, afternoon, any time that day.
 - Plan-level **I'm easy — count me in for whatever works for most people** toggle (the flexible response).
 - Explicit outcomes: submitted windows; flexible; interested but none of these dates work; **not enough notice — try me with more warning**; not this time. "None of these dates" opens a three-way choice rather than a bare decline.

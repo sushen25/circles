@@ -28,8 +28,17 @@ try {
 }
 
 const DIRS = ['.github/workflows', '.eas/workflows'];
-const USES_PNPM = /\bpnpm\s+(exec|run|--filter)\b/;
-const INSTALLS = /\bpnpm\s+install\b/;
+
+/**
+ * Any pnpm invocation at all, then the ones that are themselves the install.
+ *
+ * An earlier version listed the forms it knew — `exec`, `run`, `--filter` — and
+ * so did not recognise `pnpm check`, which is the single most important step in
+ * `check.yml`. A checker that enumerates what it expects will miss whatever it
+ * did not think of; enumerate the exception instead.
+ */
+const ANY_PNPM = /\bpnpm\b/;
+const IS_INSTALL = /\bpnpm\s+(install|add|remove|update|import|dlx)\b/;
 
 const problems = [];
 
@@ -53,20 +62,30 @@ for (const dir of DIRS) {
 
     for (const [jobName, job] of Object.entries(doc?.jobs ?? {})) {
       const steps = Array.isArray(job?.steps) ? job.steps : [];
-      const run = (step) => (typeof step?.run === 'string' ? step.run : '');
 
-      const installAt = steps.findIndex((s) => INSTALLS.test(run(s)));
-      const firstUseAt = steps.findIndex((s) => USES_PNPM.test(run(s)));
+      // Flattened to lines in order, so a step that installs and then uses pnpm
+      // in the same script is judged on the order within it rather than treated
+      // as doing both at once.
+      const lines = steps.flatMap((step, index) =>
+        (typeof step?.run === 'string' ? step.run.split('\n') : []).map((text) => ({
+          text,
+          step: index + 1,
+        })),
+      );
+
+      const installAt = lines.findIndex((l) => IS_INSTALL.test(l.text));
+      const firstUseAt = lines.findIndex((l) => ANY_PNPM.test(l.text) && !IS_INSTALL.test(l.text));
 
       if (firstUseAt === -1) continue;
+      const use = lines[firstUseAt];
 
       if (installAt === -1) {
         problems.push(
-          `${path} · ${jobName}: step ${firstUseAt + 1} uses pnpm, but the job never runs \`pnpm install\``,
+          `${path} · ${jobName}: step ${use.step} runs \`${use.text.trim()}\`, but the job never installs`,
         );
       } else if (installAt > firstUseAt) {
         problems.push(
-          `${path} · ${jobName}: step ${firstUseAt + 1} uses pnpm before \`pnpm install\` at step ${installAt + 1}`,
+          `${path} · ${jobName}: step ${use.step} runs \`${use.text.trim()}\` before the install at step ${lines[installAt].step}`,
         );
       }
     }

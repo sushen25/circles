@@ -1,11 +1,11 @@
 /**
  * The painter's grid (spec §5.5, architecture §11).
  *
- * **One cell is thirty minutes.** The spec describes "ten half-hour cells
- * across the daily window", which is exact for the 5-hour evening band and
- * cannot be for a 13.5-hour weekend day. The ticket settled it: keep 30-minute
- * cells and let the day row scroll horizontally, rather than stretching a cell
- * to 81 minutes so that ten of them fit.
+ * **One cell is thirty minutes** (ADR 0009). Ten of them is exactly the 5-hour
+ * evening band and nothing like a 13.5-hour weekend day, so the count varies
+ * and the row scrolls, rather than a cell stretching to 81 minutes so that ten
+ * fit. A cell meaning different amounts of time on different rows of the same
+ * plan is the thing that was avoided.
  *
  * That means **the number of cells varies by day** — ten for a weekday evening,
  * twenty-seven for a weekend day. Ten is a viewport, not a data shape, so it

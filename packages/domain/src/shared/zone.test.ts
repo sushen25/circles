@@ -192,6 +192,17 @@ describe('local half-hour boundaries', () => {
     expect(local.minutesOfDay).toBe(0);
   });
 
+  it('does not call a moment aligned when it carries seconds', () => {
+    // toLocal reports minutes and drops the rest, so checking only its output
+    // called 18:30:45 aligned. Callers use this to enforce the invariant that
+    // willing windows sit on half hours, so a malformed endpoint would pass.
+    const onBoundary = fromLocal(DAY, 18 * 60 + 30, MELB);
+    expect(isAlignedToLocalSlot(onBoundary, MELB)).toBe(true);
+    expect(isAlignedToLocalSlot(instant(onBoundary + 45_000), MELB)).toBe(false);
+    expect(isAlignedToLocalSlot(instant(onBoundary + 1), MELB)).toBe(false);
+    expect(isAlignedToLocalSlot(instant(onBoundary + MINUTE_MILLIS), MELB)).toBe(false);
+  });
+
   it('is not thrown off by seconds in the instant', () => {
     // `toLocal` reports whole minutes, so an instant carrying half a second
     // used to read as +599 rather than +600, and every rounding built on it

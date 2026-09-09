@@ -222,7 +222,15 @@ export function ceilToLocalSlot(value: Instant, z: Zone): Instant {
   return roundLocal(value, z, Math.ceil);
 }
 
-/** Whether the moment falls on a local half-hour boundary. */
+/**
+ * Whether the moment falls exactly on a local half-hour boundary.
+ *
+ * The sub-minute remainder is part of the question. `toLocal` reports minutes
+ * of the day and discards anything finer, so checking only its output called
+ * 18:30:45 aligned — and callers use this to enforce the invariant that willing
+ * windows sit on half hours, so a malformed endpoint would have passed.
+ */
 export function isAlignedToLocalSlot(value: Instant, z: Zone): boolean {
+  if (value % MINUTE_MILLIS !== 0) return false;
   return toLocal(value, z).minutesOfDay % SLOT_MINUTES === 0;
 }
