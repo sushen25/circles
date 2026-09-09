@@ -43,18 +43,38 @@ export type TransitionErrorCode =
   | 'needs_candidate'
   | 'plan_is_finished';
 
+/**
+ * A code and the context it happened in — **no message**.
+ *
+ * Wording is presentation and lives in `apps/app/src/copy`; the same code has
+ * to render differently in the app, in an email and in an Edge Function's JSON,
+ * and a string baked in here would be the app's version of it everywhere. The
+ * codes are shared with the SQL mirror (S1-08) so client and server name the
+ * same refusal.
+ *
+ * Whatever wording a caller chooses must say what is true without saying who
+ * did what — a quiet ask's initiator must not be inferable from an error.
+ */
 export type TransitionError = {
   readonly code: TransitionErrorCode;
   readonly action: PlanAction;
   readonly from: PlanState;
-  /** Safe to show: says what is true, never who did what (quiet-ask privacy). */
-  readonly message: string;
 };
 
 export type TransitionContext = {
   readonly actor: Actor;
   /** Required by `confirm`: the candidate being locked in. */
   readonly candidateId?: string | undefined;
+  /**
+   * The candidates currently on offer, from the plan's live candidate set.
+   *
+   * `confirm` checks membership rather than merely that an id was supplied: a
+   * candidate can stop being eligible between the organiser opening the review
+   * screen and tapping the button, because somebody withdrew a response. Absent
+   * means "unknown", and unknown fails closed — confirming a time nobody can
+   * make is worse than a refusal the organiser can retry.
+   */
+  readonly eligibleCandidateIds?: readonly string[] | undefined;
 };
 
 type Guard = 'member' | 'organiser' | 'permanent' | 'no_organiser_yet' | 'candidate';
@@ -83,16 +103,23 @@ export const TRANSITIONS: readonly Transition[] = [
   // enforcing "once" is the database's job, not this table's.
   { from: 'seeking', action: 'threshold_reached', to: 'collecting', guards: [] },
   { from: 'seeking', action: 'expire', to: 'expired', guards: [] },
-  {
-    from: 'seeking',
-    action: 'accept_organiser',
-    to: 'seeking',
-    guards: ['member', 'permanent', 'no_organiser_yet'],
-  },
+  // The role is offered **at** the threshold, not before it: the ThresholdRole
+  // screen opens with "Enough people are keen." Offering it during `seeking`
+  // would ask someone to organise a plan nobody yet knows has support.
   {
     from: 'collecting',
     action: 'accept_organiser',
     to: 'collecting',
+    guards: ['member', 'permanent', 'no_organiser_yet'],
+  },
+  // And it must survive replies closing. "If nobody volunteers before replies
+  // close, the circle owner gets a quiet nudge" — that nudge is worthless if
+  // the role can no longer be accepted, and a quiet plan whose candidates are
+  // ready with no organiser would otherwise be stuck until it expired.
+  {
+    from: 'ready',
+    action: 'accept_organiser',
+    to: 'ready',
     guards: ['member', 'permanent', 'no_organiser_yet'],
   },
   { from: 'seeking', action: 'cancel', to: 'cancelled', guards: ['organiser'] },
@@ -138,16 +165,6 @@ const GUARD_ERRORS: Record<Guard, TransitionErrorCode> = {
   candidate: 'needs_candidate',
 };
 
-const MESSAGES: Record<TransitionErrorCode, string> = {
-  wrong_state: 'That is not something this plan can do right now.',
-  not_a_member: 'Only members of the circle can do that.',
-  not_the_organiser: 'Only the organiser can do that.',
-  needs_permanent_identity: 'Save your place first so we can reach you about this.',
-  already_has_organiser: 'Someone is already organising this one.',
-  needs_candidate: 'Choose a time before locking it in.',
-  plan_is_finished: 'This plan is already finished.',
-};
-
 function fails(guard: Guard, context: TransitionContext): boolean {
   const { actor, candidateId } = context;
   switch (guard) {
@@ -159,8 +176,11 @@ function fails(guard: Guard, context: TransitionContext): boolean {
       return !actor.isPermanent;
     case 'no_organiser_yet':
       return false; // depends on the plan, checked in canTransition
-    case 'candidate':
-      return candidateId === undefined || candidateId.length === 0;
+    case 'candidate': {
+      if (candidateId === undefined || candidateId.length === 0) return true;
+      // Fails closed when the caller did not say what is on offer.
+      return context.eligibleCandidateIds?.includes(candidateId) !== true;
+    }
   }
 }
 
@@ -180,7 +200,7 @@ export function canTransition(
   context: TransitionContext,
 ): Result<TransitionError, Plan> {
   const fail = (code: TransitionErrorCode): Result<TransitionError, Plan> =>
-    err({ code, action, from: plan.state, message: MESSAGES[code] });
+    err({ code, action, from: plan.state });
 
   const transition = TRANSITIONS.find((t) => t.from === plan.state && t.action === action);
   if (transition === undefined) {

@@ -76,7 +76,11 @@ describe('every row is reachable and every non-row is refused', () => {
         // happy with an organiser in place.
         organiserUserId: action === 'accept_organiser' ? undefined : userId('user-owner'),
       });
-      const result = canTransition(before, action, { actor: ORGANISER, candidateId: 'cand-1' });
+      const result = canTransition(before, action, {
+        actor: ORGANISER,
+        candidateId: 'cand-1',
+        eligibleCandidateIds: ['cand-1'],
+      });
 
       expect(isOk(result), `${from} + ${action} was refused`).toBe(true);
       if (isOk(result)) {
@@ -101,6 +105,7 @@ describe('every row is reachable and every non-row is refused', () => {
     const result = canTransition(plan({ state }), action, {
       actor: ORGANISER,
       candidateId: 'cand-1',
+      eligibleCandidateIds: ['cand-1'],
     });
     expect(isErr(result)).toBe(true);
     if (isErr(result)) {
@@ -140,8 +145,54 @@ describe('guards', () => {
     expect(isErr(result) && result.error.code).toBe('needs_candidate');
   });
 
+  it('refuses a candidate that is not on offer', () => {
+    // The id is well-formed and simply does not exist. Checking only that a
+    // string was supplied would confirm a time nobody can make.
+    const result = canTransition(plan({ state: 'ready' }), 'confirm', {
+      actor: ORGANISER,
+      candidateId: 'does-not-exist',
+      eligibleCandidateIds: ['cand-1', 'cand-2'],
+    });
+    expect(isErr(result) && result.error.code).toBe('needs_candidate');
+  });
+
+  it('refuses a candidate that stopped being eligible while the organiser was deciding', () => {
+    const result = canTransition(plan({ state: 'ready' }), 'confirm', {
+      actor: ORGANISER,
+      candidateId: 'cand-1',
+      eligibleCandidateIds: ['cand-2'],
+    });
+    expect(isErr(result) && result.error.code).toBe('needs_candidate');
+  });
+
+  it('fails closed when the caller did not say what is on offer', () => {
+    const result = canTransition(plan({ state: 'ready' }), 'confirm', {
+      actor: ORGANISER,
+      candidateId: 'cand-1',
+    });
+    expect(isErr(result) && result.error.code).toBe('needs_candidate');
+  });
+
+  it('does not offer the organiser role before the threshold is reached', () => {
+    // The ThresholdRole screen opens with "Enough people are keen." Offering
+    // the role during `seeking` asks someone to organise a plan nobody yet
+    // knows has support.
+    const seeking = plan({ state: 'seeking', mode: 'quiet', organiserUserId: undefined });
+    const result = canTransition(seeking, 'accept_organiser', { actor: MEMBER });
+    expect(isErr(result) && result.error.code).toBe('wrong_state');
+  });
+
+  it('still offers the role once candidates are ready, or a quiet plan is stuck', () => {
+    // "If nobody volunteers before replies close, the circle owner gets a quiet
+    // nudge" — worthless if the role can no longer be accepted by then.
+    const ready = plan({ state: 'ready', mode: 'quiet', organiserUserId: undefined });
+    const result = canTransition(ready, 'accept_organiser', { actor: MEMBER });
+    expect(isOk(result) && result.value.organiserUserId).toBe('user-2');
+    expect(isOk(result) && result.value.state).toBe('ready');
+  });
+
   it('refuses accepting the organiser role when someone already has it', () => {
-    const taken = plan({ state: 'seeking', organiserUserId: userId('user-owner') });
+    const taken = plan({ state: 'collecting', organiserUserId: userId('user-owner') });
     const result = canTransition(taken, 'accept_organiser', { actor: MEMBER });
     expect(isErr(result) && result.error.code).toBe('already_has_organiser');
   });
@@ -149,7 +200,7 @@ describe('guards', () => {
 
 describe('what a transition changes', () => {
   it('appoints the accepting member as organiser', () => {
-    const quiet = plan({ state: 'seeking', mode: 'quiet', organiserUserId: undefined });
+    const quiet = plan({ state: 'collecting', mode: 'quiet', organiserUserId: undefined });
     const result = canTransition(quiet, 'accept_organiser', { actor: MEMBER });
     expect(isOk(result) && result.value.organiserUserId).toBe('user-2');
   });
@@ -173,6 +224,7 @@ describe('what a transition changes', () => {
     const confirmed = canTransition(plan({ state: 'ready', revision: 2 }), 'confirm', {
       actor: ORGANISER,
       candidateId: 'cand-1',
+      eligibleCandidateIds: ['cand-1'],
     });
     expect(isOk(confirmed) && confirmed.value.revision).toBe(2);
   });

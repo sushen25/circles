@@ -12,7 +12,13 @@
 import type { Instant } from '../shared/instant.js';
 import { type LocalDate, addDays, isWeekend, weekday } from '../shared/local-date.js';
 import { type Zone, toLocal } from '../shared/zone.js';
-import { MAX_WINDOW_DAYS, type DailyWindow, type DateWindow, type WindowPreset } from './types.js';
+import {
+  MAX_WINDOW_DAYS,
+  type DailyWindow,
+  type DateWindow,
+  type DurationMinutes,
+  type WindowPreset,
+} from './types.js';
 
 /** 17:30 and 22:30 as minutes since local midnight. */
 const WEEKDAY_EVENING: DailyWindow = { startMin: 17 * 60 + 30, endMin: 22 * 60 + 30 };
@@ -32,20 +38,37 @@ export type PresetWindow = {
 };
 
 /**
- * Tonight is the only preset that can fail: after 23:00 local there is no
- * half-hour band left before 23:30, and offering one would produce a plan
- * nobody can attend. The caller should hide or disable the preset rather than
- * substituting a different day — "tonight" meaning tomorrow is a lie.
+ * A band has to be at least as long as the meetup, or the plan it produces
+ * cannot happen: `lastPossibleStart` lands before the band opens, and the
+ * deadline derived from it is already in the past at the moment of creation.
  */
-export function tonight(now: Instant, z: Zone): PresetWindow | undefined {
+export function isViableBand(daily: DailyWindow, durationMinutes: number): boolean {
+  return daily.endMin - daily.startMin >= durationMinutes;
+}
+
+/**
+ * Tonight is the only preset that can fail, and it fails on the duration rather
+ * than on the clock alone.
+ *
+ * At 22:50 there is still half an hour before 23:30 — but not two hours, and a
+ * two-hour plan in a thirty-minute band is a plan nobody can attend, with a
+ * response deadline that has already passed. The caller should hide or disable
+ * the preset rather than substituting a different day: "tonight" meaning
+ * tomorrow is a lie.
+ */
+export function tonight(
+  now: Instant,
+  z: Zone,
+  durationMinutes: DurationMinutes,
+): PresetWindow | undefined {
   const local = toLocal(now, z);
   const startMin = roundUpToHalfHour(local.minutesOfDay);
-  if (startMin >= LATEST_TONIGHT) return undefined;
+  const daily = { startMin, endMin: LATEST_TONIGHT };
 
-  return {
-    window: { start: local.date, end: local.date },
-    daily: { startMin, endMin: LATEST_TONIGHT },
-  };
+  if (startMin >= LATEST_TONIGHT) return undefined;
+  if (!isViableBand(daily, durationMinutes)) return undefined;
+
+  return { window: { start: local.date, end: local.date }, daily };
 }
 
 /**
@@ -89,32 +112,47 @@ export function dailyForRange(start: LocalDate, end: LocalDate): DailyWindow {
   return WEEKEND_DAY;
 }
 
-export type PresetError = 'too_late_for_tonight' | 'window_too_long' | 'window_backwards';
+export type PresetError =
+  'too_late_for_tonight' | 'window_too_long' | 'window_backwards' | 'band_shorter_than_meetup';
+
+export type PresetOptions = {
+  readonly durationMinutes: DurationMinutes;
+  /** Required by `custom`: the dates the person picked. */
+  readonly custom?: DateWindow | undefined;
+};
 
 /**
- * Resolve a preset to a window. `custom` needs the dates the person picked and
- * is capped at 14 consecutive days (spec §5.3).
+ * Resolve a preset to a window, or say why it cannot be one.
+ *
+ * The duration is not decoration: a band shorter than the meetup produces a
+ * plan whose deadline has already passed, so every preset is checked against it
+ * rather than only `tonight`. A custom window can be narrow the same way.
  */
 export function resolvePreset(
   preset: WindowPreset,
   now: Instant,
   z: Zone,
-  custom?: DateWindow,
+  options: PresetOptions,
 ): PresetWindow | PresetError {
+  const { durationMinutes, custom } = options;
+
+  const checked = (result: PresetWindow): PresetWindow | PresetError =>
+    isViableBand(result.daily, durationMinutes) ? result : 'band_shorter_than_meetup';
+
   switch (preset) {
     case 'tonight':
-      return tonight(now, z) ?? 'too_late_for_tonight';
+      return tonight(now, z, durationMinutes) ?? 'too_late_for_tonight';
     case 'this_weekend':
-      return thisWeekend(now, z);
+      return checked(thisWeekend(now, z));
     case 'next_7_days':
-      return nextDays(now, z, 7);
+      return checked(nextDays(now, z, 7));
     case 'next_14_days':
-      return nextDays(now, z, MAX_WINDOW_DAYS);
+      return checked(nextDays(now, z, MAX_WINDOW_DAYS));
     case 'custom': {
       if (custom === undefined) return 'window_backwards';
       if (custom.end < custom.start) return 'window_backwards';
       if (windowDays(custom) > MAX_WINDOW_DAYS) return 'window_too_long';
-      return { window: custom, daily: dailyForRange(custom.start, custom.end) };
+      return checked({ window: custom, daily: dailyForRange(custom.start, custom.end) });
     }
   }
 }
