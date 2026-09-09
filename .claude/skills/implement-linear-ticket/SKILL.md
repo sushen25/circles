@@ -1,6 +1,6 @@
 ---
 name: implement-linear-ticket
-description: Work a Linear ticket end to end - fetch SUS-N from Linear, check its blockers, branch from main with Linear's branch name, implement it, run the repo checks, push, open a GitHub PR with gh, and move the ticket to In Review. Use when asked to implement, work, pick up, start, or ship a Linear ticket / issue (SUS-6, S1-02, "the monorepo ticket"), or to open the PR for one.
+description: Work a Linear ticket end to end - fetch SUS-N from Linear, check its blockers, branch from main with Linear's branch name, implement it, run the repo checks, push, open a GitHub PR with gh, move the ticket to In Review, write findings onto the tickets that will act on them, and work the Codex review rounds until one comes back clean. Use when asked to implement, work, pick up, start, or ship a Linear ticket / issue (SUS-6, S1-02, "the monorepo ticket"), to open the PR for one, or to address review findings on one.
 ---
 
 Encodes the "Working a ticket" steps in `docs/tickets.md` for the Circles repo.
@@ -88,7 +88,69 @@ Steps, in order:
    `issueId: "SUS-N"` and a short body: PR link, decisions taken, anything left
    out and why. (Linear also auto-links the PR because the branch name is its
    `gitBranchName` and the title starts with the id.)
-10. **Report** to the user: PR URL, checks run, decisions, open questions.
+10. **Write the findings onto the tickets that will act on them**, not only this
+    one. A comment here is read by nobody: whoever picks up the next ticket
+    opens *theirs*. Anything a later ticket must do differently — a column that
+    has to be nullable, a template that sends the wrong thing, a state the
+    designs need — goes on that ticket, naming what to do and why. Blocking
+    relations say something is pending, not what was learned.
+11. **Report** to the user: PR URL, checks run, decisions, open questions.
+12. **Review**, below. The ticket is not done when the PR opens.
+
+## Review
+
+`/codex:review --base main` from the ticket's branch. Expect several rounds —
+S1-02 took two and S1-03 five, and every round found something real. The ticket
+moves to Done only after a round comes back clean **and** the founder merges.
+Run it again after each fix: two of S1-03's findings were only reachable once an
+earlier fix had changed the shape of the code.
+
+**Verify before you fix.** Reproduce the finding against the built package —
+`pnpm run build` then a `node -e` import of `packages/domain/dist/…` — and keep
+the output. Then fix, and run the same reproduction again. On S1-03 a finding was twice
+real while the reported cause was not the whole cause, and once the obvious fix
+would have broken a different invariant.
+
+**Say so when a citation is weak, and separately whether the finding stands.**
+One review cited an AGENTS.md line about storing instants as requiring
+zone-local rounding. The line does not say that; the finding was right anyway
+for a better reason found in the code. Both halves are worth saying.
+
+**Write the test that would have caught it.** More than once the existing test
+passed on the broken code because it asserted the wrong property — cell
+*duration* when the bug was in the cell's *label*, or an epoch alignment when
+the painter produced local alignment. If a test would have passed before the
+fix, it is not the test.
+
+**`vitest run` does not typecheck tests.** `pnpm --filter … exec vitest run`
+passing means less than it looks; a changed return type broke four call sites
+that only `pnpm check` found. Report the gate, not the filtered run.
+
+**A finding about a product rule is an ADR, not a code change.** Non-negotiable
+1: product rules live in the spec and change only through an ADR. If the review
+says "the spec says X and the code does Y", either conform or write the ADR and
+update the spec — a decision recorded in a Linear ticket is not the spec, and a
+client built against the spec will disagree with the code.
+
+**Fixing an exported shape invalidates the notes you left.** When a fix changes
+a signature, an error shape or a documented behaviour, go back to the downstream
+tickets from step 10 and correct them. Three notes on SUS-31, SUS-42 and SUS-49
+told later tickets to use a `TransitionError.message` that review then removed.
+
+**Then reply on the PR** with what was found, what changed, what you pushed back
+on, and the reproduction output. `gh pr comment <n> --body "$(cat <<'BODY' … )"`.
+
+Two shapes account for most findings so far, and are worth looking for before
+the reviewer does:
+
+- **A guard that checks the form it anticipated rather than the property it
+  claims** — a non-empty candidate id instead of a real one, a band's length
+  instead of its position in time, an epoch boundary instead of one on
+  somebody's clock, an enumerated list of pnpm subcommands instead of "uses
+  pnpm".
+- **A constant or comment standing in for enforcement** — `STATUSES_WITHOUT_WINDOWS`
+  next to two independent fields, a doc comment promising a check "fails
+  loudly" when nothing called it.
 
 ## Run (human path)
 
@@ -97,13 +159,18 @@ equivalent. Nothing here is interactive except `gh auth login`.
 
 ## Test
 
-There is no test suite in the repo yet (S0-01 adds `pnpm check`).
-`ticket.sh check` is the gate; today it runs `git diff --check` and, when
-`docs/design/` changed, the design-canvas drift check.
+`ticket.sh check` is the gate. It runs `git diff --check`, the design-canvas
+drift check when `docs/design/` changed, and `pnpm check` — formatting, lint,
+the brand/token/type/import/workflow checks, typecheck, unit tests, pgTAP and
+the Playwright smoke suite.
 
 ```bash
 .claude/skills/implement-linear-ticket/ticket.sh check
 ```
+
+Read the **exit code**, not the tail of the output (working-process rule 2.1),
+and never substitute a filtered `vitest run` for it: that does not typecheck the
+tests.
 
 ## Gotchas
 
@@ -114,6 +181,10 @@ There is no test suite in the repo yet (S0-01 adds `pnpm check`).
   changes; untracked files (`.gitignore`, `docs/tickets.md` at the time of
   writing) come with you and can end up in the ticket's commit if you `git add -A`.
   Add files by name.
+- **Stacked PRs work.** Branch from the previous ticket's branch and
+  `gh pr create --base <that branch>` so the diff is only the new ticket;
+  merging the base retargets the child at `main` on its own. Rebase the child
+  after every push to the base, and say in the body that it is stacked.
 - **Linear branch names are long** and prefixed with the Linear username
   (`sushensatturu25/sus-69-…`). Use `gitBranchName` verbatim; do not invent one,
   Linear's PR auto-link depends on it.
@@ -122,9 +193,10 @@ There is no test suite in the repo yet (S0-01 adds `pnpm check`).
   acceptable, and it is interactive.
 - **`pr` refuses ids that are not `ABC-123`** and refuses to run on `main`.
 - **macOS has no `timeout`.** Nothing in the driver needs one, but do not add it.
-- **`check` is a placeholder until S0-01.** When `package.json` gains a `check`
-  script it runs `corepack pnpm check` automatically (`pnpm` is not installed
-  globally here; `corepack` ships with Node 24).
+- **`check` runs `corepack pnpm check`** (`pnpm` is not installed globally here;
+  `corepack` ships with Node 24). It takes about six minutes, or about one for a
+  change touching only Markdown and `.claude/` — those take the prose lane and
+  skip the suites, `preview` and `deploy-dev` (SUS-72).
 
 ## Troubleshooting
 
