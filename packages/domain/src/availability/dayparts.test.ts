@@ -123,6 +123,14 @@ describe('summariseDayparts', () => {
     expect(summaries.map((s) => s.userId).sort()).toEqual([ann, bo]);
   });
 
+  it('cannot be handed a withdrawal that still carries windows', () => {
+    // The union makes it a compile error, which is the point: a caller
+    // switching someone from `windows` to `not_this_time` without clearing the
+    // array would otherwise persist availability they had just withdrawn.
+    // @ts-expect-error `not_this_time` carries no windows
+    response({ userId: ann, status: 'not_this_time', windows: [on(WEEKDAY, 19 * 60, 20 * 60)] });
+  });
+
   it('leaves out a member with no pattern rather than reporting zeroes', () => {
     // "No pattern yet" and "a pattern of nothing" are different: only the first
     // should fall back to the plan defaults.

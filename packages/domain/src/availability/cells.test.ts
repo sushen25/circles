@@ -14,6 +14,8 @@ import {
   cellsToWindows,
   windowsToCells,
 } from './cells.js';
+import { rangeText } from './format.js';
+import { applyShortcut } from './shortcuts.js';
 
 const DAY = localDate('2026-09-17');
 
@@ -138,19 +140,54 @@ describe('across a daylight-saving change', () => {
     expect(windowsToCells(SPRING, [], spring)[2]).toBe(false);
   });
 
-  it('keeps a cell thirty minutes long when the clocks go back', () => {
-    // On 2026-04-05 Melbourne repeats 02:00–03:00. Wall-clock 02:30–03:00 spans
-    // ninety real minutes; taking all of it would claim an hour the person
-    // never saw.
+  describe('when the clocks go back', () => {
+    // Melbourne repeats 02:00–03:00 on 2026-04-05, so wall-clock 02:30–03:00
+    // is ninety real minutes.
     const FALL = localDate('2026-04-05');
     const fall = plan({
       window: { start: FALL, end: FALL },
       daily: { startMin: 60, endMin: 5 * 60 },
     });
-    for (const cell of cellsFor(FALL, fall)) {
-      expect(cell).toBeDefined();
-      expect(durationMinutes(cell as Interval)).toBe(30);
-    }
+
+    it('never renders a cell backwards', () => {
+      // Capping the cell at thirty minutes ended the 02:30 cell at the second
+      // 02:00, so it read "2:30–2 am".
+      for (const cell of cellsFor(FALL, fall)) {
+        expect(cell).toBeDefined();
+        expect((cell as Interval).end).toBeGreaterThan((cell as Interval).start);
+      }
+      expect(rangeText([cellAt(FALL, 3, fall) as Interval], MELBOURNE)).toBe('2:30–3 am');
+    });
+
+    it('lets one cell be longer than half an hour, because the clock was', () => {
+      expect(durationMinutes(cellAt(FALL, 3, fall) as Interval)).toBe(90);
+      expect(durationMinutes(cellAt(FALL, 2, fall) as Interval)).toBe(30);
+    });
+  });
+
+  describe('cells cover the band exactly', () => {
+    // The property that catches both DST directions: painting every cell has to
+    // come to the same time as the "any time" shortcut, or a boundary is wrong.
+    it.each([
+      ['an ordinary day', '2026-09-17'],
+      ['the day the clocks go back', '2026-04-05'],
+      ['the day the clocks go forward', '2026-10-04'],
+    ])('%s', (_label, date) => {
+      const day = localDate(date);
+      const p = plan({
+        window: { start: day, end: day },
+        daily: { startMin: 60, endMin: 5 * 60 },
+      });
+
+      const everyCell = cellsToWindows(day, new Array(cellCount(p)).fill(true), p);
+      const anyTime = applyShortcut('any_time', day, p) as Interval;
+
+      const painted = everyCell.reduce((total, w) => total + durationMinutes(w), 0);
+      expect(painted).toBe(durationMinutes(anyTime));
+      // Contiguous, so `merge` collapses them to one span covering the band.
+      expect(everyCell).toHaveLength(1);
+      expect(everyCell[0]).toEqual(anyTime);
+    });
   });
 
   it('round-trips on the transition day for the cells that exist', () => {

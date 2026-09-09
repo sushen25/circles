@@ -20,8 +20,10 @@ import type { Interval } from '../shared/interval.js';
  */
 export type ResponseStatus = 'windows' | 'flexible' | 'none_work' | 'more_notice' | 'not_this_time';
 
-/** Statuses that carry no windows. Anything else with windows is a bug. */
-export const STATUSES_WITHOUT_WINDOWS: readonly ResponseStatus[] = [
+/** Every status other than `windows`. These carry no availability. */
+export type StatusWithoutWindows = Exclude<ResponseStatus, 'windows'>;
+
+export const STATUSES_WITHOUT_WINDOWS: readonly StatusWithoutWindows[] = [
   'flexible',
   'none_work',
   'more_notice',
@@ -29,17 +31,15 @@ export const STATUSES_WITHOUT_WINDOWS: readonly ResponseStatus[] = [
 ];
 
 /**
- * A member's answer to one **revision** of a plan. An edit that changes the
- * question bumps the revision and the old answers stop counting — which is why
- * the revision is part of the identity here rather than a detail.
+ * What every answer carries, whatever it says.
+ *
+ * The **revision** is part of the identity rather than a detail: an edit that
+ * changes the question bumps it and the old answers stop counting.
  */
-export type Response = {
+type ResponseCore = {
   readonly planId: PlanId;
   readonly revision: number;
   readonly userId: UserId;
-  readonly status: ResponseStatus;
-  /** Empty unless the status is `windows`. Aligned, merged, sorted. */
-  readonly windows: readonly Interval[];
   /**
    * Whether the device calendar was used to help fill this in (Slice 3).
    * A flag only: no calendar data crosses the boundary (spec §5.5, §14).
@@ -47,6 +47,29 @@ export type Response = {
   readonly usedCalendarOverlay: boolean;
   readonly submittedAt: Instant;
 };
+
+/**
+ * A member's answer to one revision of a plan.
+ *
+ * A union rather than a status beside a list, so that "these statuses carry no
+ * windows" is enforced by the compiler instead of asserted in a comment. It was
+ * a comment, and `STATUSES_WITHOUT_WINDOWS` was a constant nothing consulted —
+ * a caller switching someone from `windows` to `not_this_time` without clearing
+ * the array would have persisted availability the person had just withdrawn.
+ *
+ * The empty tuple, rather than an absent field, keeps `response.windows`
+ * readable without narrowing first.
+ */
+export type Response =
+  | (ResponseCore & {
+      readonly status: 'windows';
+      /** Aligned, merged, sorted — see `normaliseWindows`. */
+      readonly windows: readonly Interval[];
+    })
+  | (ResponseCore & {
+      readonly status: StatusWithoutWindows;
+      readonly windows: readonly [];
+    });
 
 /** "I'm easy — count me in for whatever works for most people." */
 export function isFlexible(response: Response): boolean {

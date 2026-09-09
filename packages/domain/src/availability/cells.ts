@@ -15,7 +15,6 @@
 
 import type { Plan } from '../planning/types.js';
 import { SLOT_MINUTES, type Interval, intersect, interval, merge } from '../shared/interval.js';
-import { addMinutes, earliest } from '../shared/instant.js';
 import type { LocalDate } from '../shared/local-date.js';
 import { fromLocal } from '../shared/zone.js';
 
@@ -43,16 +42,23 @@ export const VISIBLE_CELLS = 10;
  * deriving the end by addition gave all three of the 02:00, 02:30 and 03:00
  * cells the same interval, so painting one read back as three painted.
  *
- * The end is additionally capped at thirty minutes, which matters on the way
- * back: when the clocks go back, wall-clock 02:30–03:00 spans ninety real
- * minutes. Taking all of it would claim availability across an hour the person
- * never saw on their screen, and this module claims less rather than more.
+ * A cell runs to **the next boundary**, not to its start plus thirty minutes.
+ * When the clocks go back, wall-clock 02:30–03:00 is ninety real minutes, and
+ * capping it at thirty made the cell end at the second 02:00 — so it rendered
+ * as "2:30–2 am", ran backwards on the clock, and left the repeated hour in no
+ * cell at all: painting every cell came to less time than the "any time"
+ * shortcut for the same day.
+ *
+ * Running to the next boundary keeps the cells contiguous and each one true to
+ * its own label. The instinct to claim less is right for rounding a window a
+ * person dragged; it is wrong here, because the label is the promise and on
+ * that date the clock really did take ninety minutes to get from 02:30 to
+ * 03:00.
  */
 export function cellAt(date: LocalDate, index: number, plan: Plan): Interval | undefined {
   const startMin = plan.daily.startMin + index * SLOT_MINUTES;
   const start = fromLocal(date, startMin, plan.zone);
-  const nextBoundary = fromLocal(date, startMin + SLOT_MINUTES, plan.zone);
-  const end = earliest(nextBoundary, addMinutes(start, SLOT_MINUTES));
+  const end = fromLocal(date, startMin + SLOT_MINUTES, plan.zone);
 
   // Zero-length: the whole half hour fell in a spring-forward gap.
   if (end <= start) return undefined;
