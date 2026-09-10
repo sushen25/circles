@@ -6,7 +6,7 @@
 -- later with a stray grant fails here by name.
 
 begin;
-select plan(61);
+select plan(68);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid language sql as $$
@@ -334,6 +334,28 @@ select lives_ok(
   format($$update private.email_contacts set status = 'suppressed', suppressed_at = now(), suppression_reason = 'bounced' where id = '%s'$$, :'contact'),
   'suppressed with both is'
 );
+select is(
+  (select reason from private.email_suppressions where email_hash = extensions.digest('priya@example.com', 'sha256')),
+  'bounced',
+  'and the address is remembered as suppressed, by hash, apart from the contact'
+);
+-- The contact goes with its owner; the promise does not.
+insert into private.email_contacts (user_id, email_normalized, status, suppressed_at, suppression_reason)
+values ('00000000-0000-0000-0000-0000000004a3', 'bounced@example.com', 'suppressed', now(), 'complained')
+returning id as bounced \gset
+delete from private.email_contacts where id = :'bounced';
+select ok(
+  exists (select 1 from private.email_suppressions where email_hash = extensions.digest('bounced@example.com', 'sha256')),
+  'the tombstone survives the contact'
+);
+insert into private.email_contacts (user_id, email_normalized)
+values ('00000000-0000-0000-0000-0000000004a1', 'bounced@example.com')
+returning id as reborn \gset
+select is(
+  (select (status, suppression_reason) from private.email_contacts where id = :'reborn'),
+  ('suppressed'::text, 'complained'::text),
+  'the same address under another identity arrives suppressed, not pending — no verification mail, no reactivation'
+);
 
 select throws_ok(
   format($$insert into private.email_subscriptions (contact_id, user_id, scope, consent_text_version)
@@ -377,6 +399,9 @@ select throws_ok(
   'reentry_token_for_permanent_identity',
   'and not for a saved-place member — they sign in'
 );
+-- The ownership references are deferred (a re-entry moves two rows); checked
+-- here at the statement, so the refusal is visible to the test.
+set constraints all immediate;
 select throws_ok(
   format($$insert into private.email_action_tokens (contact_id, purpose, token_hash, expires_at, membership_circle_id, membership_user_id)
     values ('%s', 'reentry', extensions.digest('t1', 'sha256'), now() + interval '1 day', '%s', '00000000-0000-0000-0000-0000000004a3')$$,
@@ -401,6 +426,30 @@ select throws_ok(
   null,
   'the same token hash twice is refused'
 );
+
+-- Re-entry moves the membership. The guest is back as a new identity; the
+-- membership and the contact move to it, and the token follows both. Done as
+-- the owner: reattach-member is a definer function (S1-13).
+select pg_temp.act_as_postgres();
+set constraints all deferred;
+select pg_temp.make_user('00000000-0000-0000-0000-0000000004a5', 'Guest again', true);
+select lives_ok(
+  format($$update public.circle_members set user_id = '00000000-0000-0000-0000-0000000004a5'
+    where circle_id = '%s' and user_id = '00000000-0000-0000-0000-0000000004a3'$$, (select circle_id from t)),
+  'the membership moves to the returning guest''s new identity'
+);
+select lives_ok(
+  format($$update private.email_contacts set user_id = '00000000-0000-0000-0000-0000000004a5' where id = '%s'$$, :'guest_contact'),
+  'and so does the contact'
+);
+select lives_ok('set constraints all immediate', 'and with both moved, the token is consistent at commit');
+set constraints all deferred;
+select is(
+  (select (membership_user_id, contact_id) from private.email_action_tokens where purpose = 'reentry'),
+  ('00000000-0000-0000-0000-0000000004a5'::uuid, :'guest_contact'::uuid),
+  'the token now names the new identity and still the same contact'
+);
+select pg_temp.act_as_service();
 
 select job as job from (select id as job from jobs.notification_jobs limit 1) s \gset
 select lives_ok(

@@ -330,6 +330,73 @@ create index email_contacts_user_idx on private.email_contacts (user_id);
 alter table jobs.notification_jobs
   add constraint notification_jobs_contact_fkey
   foreign key (contact_id) references private.email_contacts (id) on delete cascade;
+
+-- ---------------------------------------------------------------------------
+-- private.email_suppressions
+--
+-- "A suppressed address is resubmitted: no automatic reactivation" (spec §9).
+-- A contact row can go — its owner deletes their account and the cascade
+-- takes it — but the promise not to send again is not the contact's, it is
+-- the address's. So suppression is also recorded here, by hash and without
+-- the address, and a contact created later for the same hash arrives
+-- suppressed rather than pending. Nothing deletes from this table.
+-- ---------------------------------------------------------------------------
+
+create table private.email_suppressions (
+  email_hash bytea primary key,
+  reason text not null,
+  suppressed_at timestamptz not null default now(),
+  constraint email_suppressions_reason check (reason in ('bounced', 'complained', 'unsubscribed', 'deleted'))
+);
+
+comment on table private.email_suppressions is
+  'Hashes of addresses that must never be sent to again, kept after the contact is gone. A new contact for a suppressed hash is created suppressed.';
+
+create or replace function private.record_suppression()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if new.status = 'suppressed' and (tg_op = 'INSERT' or old.status is distinct from 'suppressed') then
+    insert into private.email_suppressions (email_hash, reason, suppressed_at)
+    values (new.email_hash, new.suppression_reason, new.suppressed_at)
+    on conflict (email_hash) do nothing;
+  end if;
+  return null;
+end;
+$$;
+
+create trigger email_contacts_record_suppression
+  after insert or update of status on private.email_contacts
+  for each row execute function private.record_suppression();
+
+create or replace function private.apply_suppression()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  tombstone private.email_suppressions;
+begin
+  select * into tombstone from private.email_suppressions t
+  where t.email_hash = extensions.digest(new.email_normalized, 'sha256');
+  if found then
+    new.status := 'suppressed';
+    new.suppression_reason := tombstone.reason;
+    new.suppressed_at := tombstone.suppressed_at;
+    new.verified_at := null;
+  end if;
+  return new;
+end;
+$$;
+
+create trigger email_contacts_apply_suppression
+  before insert on private.email_contacts
+  for each row execute function private.apply_suppression();
+
 -- The target of the composite references below: a subscription or a token
 -- names the contact *and* its owner, and the pair has to exist together.
 create unique index email_contacts_id_owner_idx on private.email_contacts (id, user_id);
@@ -367,7 +434,7 @@ create table private.email_subscriptions (
   -- paired user B with user A's address would send B's plan updates to A,
   -- who consented to nothing of the kind. The pair must exist on the contact.
   foreign key (contact_id, user_id)
-    references private.email_contacts (id, user_id) on delete cascade
+    references private.email_contacts (id, user_id) on delete cascade on update cascade
 );
 
 comment on table private.email_subscriptions is
@@ -408,14 +475,22 @@ create table private.email_action_tokens (
       else membership_circle_id is null and membership_user_id is null
     end
   ),
+  -- A re-entry *moves* a membership: the guest comes back as a fresh identity
+  -- and `reattach-member` (S1-13) rewrites `circle_members.user_id` and
+  -- `email_contacts.user_id` to it, in one transaction. Both references
+  -- follow (`on update cascade`) and are checked at commit (`deferrable
+  -- initially deferred`), because whichever row moves first leaves the token
+  -- pointing at a pair that does not exist until the other has moved too.
   foreign key (membership_circle_id, membership_user_id)
-    references public.circle_members (circle_id, user_id) on delete cascade,
+    references public.circle_members (circle_id, user_id)
+    on delete cascade on update cascade deferrable initially deferred,
   -- The membership a re-entry token returns somebody to is the contact
   -- owner's own: "a reattachment moves a membership only within a circle the
   -- guest already belongs to, never onto a saved-place member" (AGENTS.md).
   -- The pair (contact, membership user) must be a (contact, owner) pair.
   foreign key (contact_id, membership_user_id)
-    references private.email_contacts (id, user_id) on delete cascade
+    references private.email_contacts (id, user_id)
+    on delete cascade on update cascade deferrable initially deferred
 );
 
 comment on table private.email_action_tokens is
@@ -1121,6 +1196,7 @@ alter table private.email_contacts enable row level security;
 alter table private.email_subscriptions enable row level security;
 alter table private.email_action_tokens enable row level security;
 alter table private.email_delivery_events enable row level security;
+alter table private.email_suppressions enable row level security;
 alter table private.audit_log enable row level security;
 alter table analytics.events enable row level security;
 
@@ -1136,6 +1212,8 @@ grant select, insert, update, delete on
   private.push_devices, private.email_contacts, private.email_subscriptions,
   private.email_action_tokens, private.email_delivery_events
   to service_role;
+-- Read only: the tombstones are written by the trigger and deleted by nobody.
+grant select on private.email_suppressions to service_role;
 grant select, insert on private.audit_log to service_role;
 grant select, insert on analytics.events to service_role;
 grant usage on all sequences in schema jobs to service_role;
@@ -1157,6 +1235,10 @@ revoke all on function jobs.on_attendance_updated() from public;
 revoke all on function jobs.on_attendance_updated() from anon, authenticated;
 revoke all on function jobs.on_nudge_changed() from public;
 revoke all on function jobs.on_nudge_changed() from anon, authenticated;
+revoke all on function private.record_suppression() from public;
+revoke all on function private.record_suppression() from anon, authenticated;
+revoke all on function private.apply_suppression() from public;
+revoke all on function private.apply_suppression() from anon, authenticated;
 revoke all on function private.enforce_reentry_for_guests() from public;
 revoke all on function private.enforce_reentry_for_guests() from anon, authenticated;
 revoke all on function jobs.carries_content(jsonb) from public;
