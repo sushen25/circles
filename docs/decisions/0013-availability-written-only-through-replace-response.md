@@ -42,9 +42,13 @@ the caller's `auth.uid()` is the only user it will write for.
 - Architecture §8.4's write sentence is amended: responses and windows are
   written through `replace_response`; attendance, nudge state and profile
   columns remain direct.
-- `input_version` is still bumped by a trigger on both tables rather than by
-  the function, so the invariant holds for every write path there will ever
-  be — including a retention job or a migration.
+- `input_version` moves **exactly once per answer** through the function,
+  which bumps it itself and stands the triggers down for its own duration. The
+  triggers remain on both tables — statement-level, over transition tables —
+  so the invariant holds for every other write path there will ever be, a
+  retention job or a migration included, bumping once per statement. A
+  row-level trigger was the first attempt, and it made the version depend on
+  how many windows a person painted.
 - The client submits one JSON array of windows and receives one response row.
   Drafts that survive going offline (spec §5.5) are the client's to keep; the
   server only ever sees a complete answer.

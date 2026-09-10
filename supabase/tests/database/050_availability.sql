@@ -10,7 +10,7 @@
 -- made as somebody *else*.
 
 begin;
-select plan(50);
+select plan(54);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid language sql as $$
@@ -190,6 +190,17 @@ select throws_ok(
   null,
   'and one that ends before it starts'
 );
+-- 18:30 Thursday to 20:30 Friday: both ends are on half hours, both are inside
+-- some day's band, and the whole night is inside the window. The first version
+-- of the band check only looked at the end when it shared the start's date, so
+-- this went through — availability the person never painted.
+select throws_ok(
+  format($$select public.replace_response('%s', 'windows', jsonb_build_array(%L::jsonb))$$,
+    (select plan_id from tp), pg_temp.win('2099-09-17', 1110, 1440 + 1230)),
+  '23514',
+  null,
+  'and one that runs overnight into the next day''s band'
+);
 
 -- Alignment is judged in the plan's zone. Kathmandu is UTC+05:45, so 09:00 there
 -- is 03:15Z: judged in UTC it would be refused, and 09:15 local would pass.
@@ -263,6 +274,19 @@ select throws_ok(
   '23514',
   null,
   'as is a windows answer with no windows'
+);
+select throws_ok(
+  format($$select public.replace_response('%s', 'windows', null)$$, (select plan_id from tp)),
+  '23514',
+  null,
+  'and a SQL null is not an empty list — jsonb_array_length(null) is null, and null = 0 is not true'
+);
+select throws_ok(
+  format($$select public.replace_response('%s', 'windows', '{"start":"x"}'::jsonb)$$,
+    (select plan_id from tp)),
+  '23514',
+  null,
+  'nor is an object a list'
 );
 
 -- ---------------------------------------------------------------------------
@@ -390,10 +414,22 @@ select pg_temp.act_as('00000000-0000-0000-0000-0000000002a2');
 select public.replace_response((select plan_id from tp), 'windows',
   jsonb_build_array(pg_temp.win('2099-09-17', 1110, 1230)));
 select pg_temp.act_as_postgres();
-select cmp_ok(
+select is(
   (select input_version from public.plans where id = (select plan_id from tp)),
-  '>', :before_iv,
-  'an answer bumps the plan''s input_version — the stale-result check has something to compare'
+  :before_iv + 1,
+  'one answer is one bump, however many windows it carried — not one per row (ADR 0013)'
+);
+
+-- Everything else that writes these tables bumps too, once per statement:
+-- the trigger is the guarantee for the paths the RPC is not.
+select input_version as before_direct from public.plans where id = (select plan_id from tp) \gset
+delete from public.willing_windows ww
+using public.plan_responses r
+where ww.response_id = r.id and r.plan_id = (select plan_id from tp);
+select is(
+  (select input_version from public.plans where id = (select plan_id from tp)),
+  :before_direct + 1,
+  'a direct delete of windows bumps once, whatever it deleted'
 );
 
 -- ---------------------------------------------------------------------------

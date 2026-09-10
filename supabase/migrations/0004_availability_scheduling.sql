@@ -86,8 +86,9 @@ declare
   plan public.plans;
   local_start timestamp;
   local_end timestamp;
-  band_start timestamp;
-  band_end timestamp;
+  day date;
+  day_band_start timestamp;
+  day_band_end timestamp;
 begin
   select * into response from public.plan_responses r where r.id = new.response_id;
   select * into plan from public.plans p where p.id = response.plan_id;
@@ -110,18 +111,23 @@ begin
       using errcode = 'check_violation';
   end if;
 
-  -- Inside the plan: on a day of the window, within the daily band. Judged on
-  -- the local clock so the day the clocks change reads the way the person saw
-  -- it. The band end may be 1440, which is midnight and rolls to the next day.
-  band_start := (plan.window_start::timestamp + make_interval(mins => plan.daily_start_local));
-  band_end := (plan.window_end::timestamp + make_interval(mins => plan.daily_end_local));
-  if local_start < band_start or local_end > band_end
-     or (extract(hour from local_start) * 60 + extract(minute from local_start)) < plan.daily_start_local
-     or (
-       local_end::date = local_start::date
-       and (extract(hour from local_end) * 60 + extract(minute from local_end)) > plan.daily_end_local
-     ) then
-    raise exception 'window %–% lies outside the plan''s window', new.starts_at, new.ends_at
+  -- Inside the plan: the whole window fits the band of the day it starts on.
+  -- Judged on the local clock so the day the clocks change reads the way the
+  -- person saw it, and the band end may be 1440 — midnight, which rolls into
+  -- the next date and is why the end is compared as an instant rather than as
+  -- minutes-of-day.
+  --
+  -- One day, deliberately. The first version checked the end only when it fell
+  -- on the same date as the start, so 18:30 Thursday to 20:30 Friday sailed
+  -- through with the whole night inside it — availability the person never
+  -- painted, which the engine would then have offered. The domain's
+  -- `isWithinPlan` is containment in one day's band; this is the same rule.
+  day := local_start::date;
+  day_band_start := day::timestamp + make_interval(mins => plan.daily_start_local);
+  day_band_end := day::timestamp + make_interval(mins => plan.daily_end_local);
+  if day < plan.window_start or day > plan.window_end
+     or local_start < day_band_start or local_end > day_band_end then
+    raise exception 'window %–% lies outside the plan''s daily band', new.starts_at, new.ends_at
       using errcode = 'check_violation';
   end if;
 
@@ -147,46 +153,62 @@ create trigger willing_windows_shape
 -- stale set treated as fresh.
 -- ---------------------------------------------------------------------------
 
+-- Statement-level, over transition tables, and suppressed inside
+-- `replace_response`, which bumps exactly once itself. The first version was
+-- row-level: replacing two windows with two others bumped five times, and the
+-- version came to depend on how many windows a person painted — the per-row
+-- behaviour ADR 0013 exists to rule out. The trigger is still here for every
+-- other write path (a retention job, a migration), bumping once per statement.
 create or replace function public.bump_input_version()
 returns trigger
 language plpgsql
 security definer
 set search_path = ''
 as $$
-declare
-  target public.plan_responses;
-  window_response uuid;
 begin
-  -- Branch on the table before touching a field: `new.response_id` on a
-  -- `plan_responses` row is an error, not a null, and plpgsql evaluates a
-  -- `coalesce` of record fields eagerly.
-  if tg_table_name = 'plan_responses' then
-    if tg_op = 'DELETE' then target := old; else target := new; end if;
-  else
-    if tg_op = 'DELETE' then window_response := old.response_id;
-    else window_response := new.response_id; end if;
-    select * into target from public.plan_responses r where r.id = window_response;
-    -- Gone already when a response's delete cascades to its windows; that
-    -- response's own trigger has bumped, and there is nothing here to bump for.
-    if not found then return null; end if;
+  if coalesce(current_setting('circles.in_replace_response', true), '') = 'on' then
+    return null;
   end if;
 
-  -- Only the current revision. An old revision's rows do not change under the
-  -- RPC, but a retention job might touch them, and that is not a new answer.
-  update public.plans p
-  set input_version = p.input_version + 1
-  where p.id = target.plan_id and p.revision = target.revision;
-
+  if tg_table_name = 'plan_responses' then
+    update public.plans p
+    set input_version = p.input_version + 1
+    where (p.id, p.revision) in (
+      select r.plan_id, r.revision from changed r
+    );
+  else
+    update public.plans p
+    set input_version = p.input_version + 1
+    where (p.id, p.revision) in (
+      select r.plan_id, r.revision
+      from changed w
+      join public.plan_responses r on r.id = w.response_id
+    );
+  end if;
   return null;
 end;
 $$;
 
-create trigger plan_responses_bump_input_version
-  after insert or update or delete on public.plan_responses
-  for each row execute function public.bump_input_version();
-create trigger willing_windows_bump_input_version
-  after insert or update or delete on public.willing_windows
-  for each row execute function public.bump_input_version();
+-- One trigger per operation, because a transition table is named per operation
+-- and `changed` has to mean the rows this statement touched whichever it was.
+create trigger plan_responses_bump_on_insert
+  after insert on public.plan_responses referencing new table as changed
+  for each statement execute function public.bump_input_version();
+create trigger plan_responses_bump_on_update
+  after update on public.plan_responses referencing new table as changed
+  for each statement execute function public.bump_input_version();
+create trigger plan_responses_bump_on_delete
+  after delete on public.plan_responses referencing old table as changed
+  for each statement execute function public.bump_input_version();
+create trigger willing_windows_bump_on_insert
+  after insert on public.willing_windows referencing new table as changed
+  for each statement execute function public.bump_input_version();
+create trigger willing_windows_bump_on_update
+  after update on public.willing_windows referencing new table as changed
+  for each statement execute function public.bump_input_version();
+create trigger willing_windows_bump_on_delete
+  after delete on public.willing_windows referencing old table as changed
+  for each statement execute function public.bump_input_version();
 
 create trigger plan_responses_touch_updated_at
   before update on public.plan_responses
@@ -336,7 +358,6 @@ declare
   caller uuid := (select auth.uid());
   plan public.plans;
   response public.plan_responses;
-  w jsonb;
 begin
   if caller is null then
     raise exception 'not signed in' using errcode = 'insufficient_privilege';
@@ -369,6 +390,14 @@ begin
     raise exception 'replies closed at %', plan.response_deadline using errcode = 'check_violation';
   end if;
 
+  -- A SQL null is not an empty list: `jsonb_array_length(null)` is null, and
+  -- `null = 0` is not true, so a null slipped past this check and produced a
+  -- `windows` answer with no windows. Coalesce first, and insist on an array.
+  p_windows := coalesce(p_windows, '[]'::jsonb);
+  if jsonb_typeof(p_windows) <> 'array' then
+    raise exception 'windows must be a list' using errcode = 'check_violation';
+  end if;
+
   -- The domain's union, enforced: only a `windows` answer carries windows, and
   -- a `windows` answer carries at least one.
   if p_status = 'windows' and jsonb_array_length(p_windows) = 0 then
@@ -378,6 +407,10 @@ begin
     raise exception 'a % response carries no windows', p_status
       using errcode = 'check_violation';
   end if;
+
+  -- One bump for the whole answer, at the end; the row triggers stand down
+  -- for the length of this function.
+  perform set_config('circles.in_replace_response', 'on', true);
 
   -- Replace, not merge. The person's answer is the whole list they sent.
   delete from public.willing_windows ww
@@ -393,10 +426,12 @@ begin
         submitted_at = excluded.submitted_at
   returning * into response;
 
-  for w in select * from jsonb_array_elements(p_windows) loop
-    insert into public.willing_windows (response_id, starts_at, ends_at)
-    values (response.id, (w ->> 'start')::timestamptz, (w ->> 'end')::timestamptz);
-  end loop;
+  insert into public.willing_windows (response_id, starts_at, ends_at)
+  select response.id, (w ->> 'start')::timestamptz, (w ->> 'end')::timestamptz
+  from jsonb_array_elements(p_windows) as w;
+
+  perform set_config('circles.in_replace_response', 'off', true);
+  update public.plans p set input_version = p.input_version + 1 where p.id = plan.id;
 
   -- TODO(S1-11): write `availability.response_submitted` to `jobs.outbox` here.
   -- `020_outbox_dependency.sql` fails the build the day the table appears.
