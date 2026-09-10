@@ -9,6 +9,35 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      attendance: {
+        Row: {
+          confirmation_id: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          confirmation_id: string
+          status: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          confirmation_id?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_confirmation_id_fkey"
+            columns: ["confirmation_id"]
+            isOneToOne: false
+            referencedRelation: "meetup_confirmations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       candidate_sets: {
         Row: {
           active_member_count: number
@@ -266,6 +295,122 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      meetup_confirmations: {
+        Row: {
+          available_user_ids: string[]
+          candidate_id: string
+          confirmed_at: string
+          confirmed_by: string
+          created_at: string
+          ends_at: string
+          id: string
+          note: string | null
+          place_name: string | null
+          place_url: string | null
+          plan_id: string
+          revision: number
+          starts_at: string
+          status: string
+          superseded_at: string | null
+          superseded_reason: string | null
+          updated_at: string
+        }
+        Insert: {
+          available_user_ids: string[]
+          candidate_id: string
+          confirmed_at?: string
+          confirmed_by: string
+          created_at?: string
+          ends_at: string
+          id?: string
+          note?: string | null
+          place_name?: string | null
+          place_url?: string | null
+          plan_id: string
+          revision: number
+          starts_at: string
+          status?: string
+          superseded_at?: string | null
+          superseded_reason?: string | null
+          updated_at?: string
+        }
+        Update: {
+          available_user_ids?: string[]
+          candidate_id?: string
+          confirmed_at?: string
+          confirmed_by?: string
+          created_at?: string
+          ends_at?: string
+          id?: string
+          note?: string | null
+          place_name?: string | null
+          place_url?: string | null
+          plan_id?: string
+          revision?: number
+          starts_at?: string
+          status?: string
+          superseded_at?: string | null
+          superseded_reason?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meetup_confirmations_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plan_interest_counts"
+            referencedColumns: ["plan_id"]
+          },
+          {
+            foreignKeyName: "meetup_confirmations_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      outcome_reports: {
+        Row: {
+          chased_answer: string | null
+          confirmation_id: string
+          id: string
+          moved_outside: boolean | null
+          note: string | null
+          outcome: string
+          reported_at: string
+          reported_by: string
+        }
+        Insert: {
+          chased_answer?: string | null
+          confirmation_id: string
+          id?: string
+          moved_outside?: boolean | null
+          note?: string | null
+          outcome: string
+          reported_at?: string
+          reported_by: string
+        }
+        Update: {
+          chased_answer?: string | null
+          confirmation_id?: string
+          id?: string
+          moved_outside?: boolean | null
+          note?: string | null
+          outcome?: string
+          reported_at?: string
+          reported_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "outcome_reports_confirmation_id_fkey"
+            columns: ["confirmation_id"]
+            isOneToOne: false
+            referencedRelation: "meetup_confirmations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       plan_participants: {
         Row: {
