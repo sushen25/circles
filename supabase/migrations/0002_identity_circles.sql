@@ -44,7 +44,13 @@ as $$
         btrim(regexp_replace(value, E'[\\s\u00a0\u1680\u2000-\u200b\u2028\u2029\u202f\u205f\u3000]+', ' ', 'g')),
         NFD
       ),
-      E'[\u0300-\u036f]', '', 'g'
+      -- The same enumerated class as `COMBINING_MARKS` in the domain's
+      -- `display-name.ts`. Enumerated rather than a Unicode property escape
+      -- because Postgres has none, and the two engines have to state one rule
+      -- identically or the index stores a name the domain then refuses:
+      -- Latin, Cyrillic, Hebrew points, Arabic harakat, Syriac, Thaana, and
+      -- the three later combining blocks.
+      E'[\u0300-\u036f\u0483-\u0489\u0591-\u05c7\u0610-\u061a\u064b-\u065f\u0670\u06d6-\u06ed\u0711\u0730-\u074a\u07a6-\u07b0\u1ab0-\u1aff\u1dc0-\u1dff\u20d0-\u20f0\ufe20-\ufe2f]', '', 'g'
     )
   );
 $$;

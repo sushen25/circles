@@ -7,7 +7,7 @@
 -- apart on its own.
 
 begin;
-select plan(88);
+select plan(90);
 
 -- ---------------------------------------------------------------------------
 -- Fixtures. `handle_new_user()` makes the profile, which is part of what is
@@ -582,6 +582,22 @@ select is(public.canonical_display_name('  Priya '), 'priya', 'and the ends are 
 select is(public.canonical_display_name('Zoë'), 'zoe', 'diacritics do not make a different person');
 select is(public.canonical_display_name(E'Zo\u0308e'), 'zoe', 'however the accent was typed');
 select is(public.canonical_display_name(E'A\u00a0B'), 'a b', 'a non-breaking space is a space');
+
+-- Marks outside the Latin block, which is where the two engines used to part
+-- company: `\p{Diacritic}` in the domain removed Hebrew points and Arabic
+-- harakat, and the SQL class did not, so the database stored pairs the domain
+-- called duplicates. The class is enumerated identically on both sides now, and
+-- these are the same pairs `display-name.test.ts` asserts.
+select is(
+  public.canonical_display_name(E'\u05e9\u05b8\u05c1\u05dc\u05d5\u05b9\u05dd'),
+  public.canonical_display_name(E'\u05e9\u05dc\u05d5\u05dd'),
+  'a pointed Hebrew name is the unpointed one'
+);
+select is(
+  public.canonical_display_name(E'\u0645\u064f\u062d\u064e\u0645\u0651\u064e\u062f'),
+  public.canonical_display_name(E'\u0645\u062d\u0645\u062f'),
+  'and an Arabic name with harakat is the one without'
+);
 select is(public.canonical_display_name('   '), '', 'a name of nothing is nothing');
 
 select pg_temp.act_as_postgres();

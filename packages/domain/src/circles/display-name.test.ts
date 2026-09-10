@@ -48,6 +48,18 @@ describe('isDuplicateName', () => {
 
   it('ignores accents, because the members list reads the same either way', () => {
     expect(isDuplicateName(['Zoë'], 'Zoe')).toBe(true);
+    // However the accent was typed: precomposed, or e plus a combining mark.
+    expect(isDuplicateName(['Zoë'], 'Zo\u0308e'.normalize('NFC'))).toBe(true);
+  });
+
+  it('ignores marks outside the Latin block too', () => {
+    // The rule is combining marks, not Latin accents. Postgres has no Unicode
+    // property escapes, so `comparable` and `public.canonical_display_name`
+    // enumerate the same blocks — and a name whose marks fall outside the one
+    // block anybody thinks of first is exactly where the two used to part
+    // company, with the database storing what the domain refuses.
+    expect(isDuplicateName(['שָׁלוֹם'], 'שלום')).toBe(true);
+    expect(isDuplicateName(['مُحَمَّد'], 'محمد')).toBe(true);
   });
 
   it('does not flag a genuinely different name', () => {

@@ -195,7 +195,7 @@ Name; colour (solid, no image); primary IANA time zone defaulted from the creato
 #### Joining and membership
 
 - The owner shares one revocable circle link. Joining is immediate in the private beta; the owner can remove a member and reset the link without disturbing existing members.
-- Active members per circle: minimum 3 for quorum defaults, maximum 12.
+- Active members per circle: minimum 3 for quorum defaults, maximum 20 ([ADR 0012](decisions/0012-circle-member-cap-of-twenty.md)).
 - The interface shows who has joined but never exposes one member's availability to another as a personal schedule.
 
 #### Circle home
@@ -629,4 +629,4 @@ Start with Slice 1 and put it in one real group chat as quickly as possible. The
 | Competitive frame | 2024 WhatsApp | August 2026 WhatsApp polls/events acknowledged; differentiation restated |
 | Retention | Windows deleted after 30 days | 12 months plus day-part summary |
 | Architecture sections | In the spec | Moved to `technical-architecture.md`; summary kept in §12 |
-| Age and group size | Unstated | 18+; 3–12 members |
+| Age and group size | Unstated | 18+; 3–12 members (raised to 3–20 in [ADR 0012](decisions/0012-circle-member-cap-of-twenty.md)) |
