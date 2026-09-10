@@ -103,6 +103,7 @@ export type Database = {
           cadence_snoozed_until: string | null
           color: string
           created_at: string
+          creation_key: string | null
           default_area: string | null
           default_duration_minutes: number
           default_quorum: number | null
@@ -121,6 +122,7 @@ export type Database = {
           cadence_snoozed_until?: string | null
           color: string
           created_at?: string
+          creation_key?: string | null
           default_area?: string | null
           default_duration_minutes?: number
           default_quorum?: number | null
@@ -139,6 +141,7 @@ export type Database = {
           cadence_snoozed_until?: string | null
           color?: string
           created_at?: string
+          creation_key?: string | null
           default_area?: string | null
           default_duration_minutes?: number
           default_quorum?: number | null
@@ -210,6 +213,7 @@ export type Database = {
         Args: {
           cadence?: string
           color: string
+          idempotency_key?: string
           name: string
           time_zone: string
         }
@@ -218,6 +222,7 @@ export type Database = {
           cadence_snoozed_until: string | null
           color: string
           created_at: string
+          creation_key: string | null
           default_area: string | null
           default_duration_minutes: number
           default_quorum: number | null

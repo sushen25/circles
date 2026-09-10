@@ -7,7 +7,7 @@
 -- apart on its own.
 
 begin;
-select plan(63);
+select plan(69);
 
 -- ---------------------------------------------------------------------------
 -- Fixtures. `handle_new_user()` makes the profile, which is part of what is
@@ -496,6 +496,73 @@ select lives_ok(
 rollback to savepoint before_name_reuse;
 
 -- ---------------------------------------------------------------------------
+-- A rename cannot smuggle a duplicate past the index.
+--
+-- The roster shows the snapshot and `member_profiles` shows the profile, so a
+-- rename that only touched the profile would have shown two people with one
+-- name while the index saw nothing change.
+-- ---------------------------------------------------------------------------
+
+select pg_temp.act_as_postgres();
+update public.profiles set display_name = 'Prya'
+where user_id = '00000000-0000-0000-0000-00000000a002';
+select is(
+  (select display_name_snapshot from public.circle_members
+   where circle_id = (select id from t_circle)
+     and user_id = '00000000-0000-0000-0000-00000000a002'),
+  'Prya',
+  'an active membership follows the profile name'
+);
+
+select throws_ok(
+  $$update public.profiles set display_name = 'Maya'
+    where user_id = '00000000-0000-0000-0000-00000000a002'$$,
+  '23505',
+  null,
+  'and cannot be renamed to a co-member’s name'
+);
+
+savepoint before_removed_rename;
+update public.circle_members set status = 'removed'
+where circle_id = (select id from t_circle)
+  and user_id = '00000000-0000-0000-0000-00000000a002';
+update public.profiles set display_name = 'Somebody Else'
+where user_id = '00000000-0000-0000-0000-00000000a002';
+select is(
+  (select display_name_snapshot from public.circle_members
+   where circle_id = (select id from t_circle)
+     and user_id = '00000000-0000-0000-0000-00000000a002'),
+  'Prya',
+  'a removed membership keeps the name it had — the snapshot stops following'
+);
+rollback to savepoint before_removed_rename;
+
+-- ---------------------------------------------------------------------------
+-- Creating a circle twice.
+--
+-- The client cannot tell a timeout from a failure, and a person who taps again
+-- should not end up with two circles and no way to know which one they gave
+-- the link out for.
+-- ---------------------------------------------------------------------------
+
+select pg_temp.act_as('00000000-0000-0000-0000-00000000a003');
+select is(
+  (select (public.create_circle('Twice', 'sky', 'Australia/Melbourne', 'none', 'key-1')).id),
+  (select (public.create_circle('Twice', 'sky', 'Australia/Melbourne', 'none', 'key-1')).id),
+  'the same idempotency key returns the same circle'
+);
+select is(
+  (select count(*)::integer from public.circles where name = 'Twice'),
+  1,
+  'and makes exactly one'
+);
+select isnt(
+  (select (public.create_circle('Twice', 'sky', 'Australia/Melbourne', 'none', 'key-2')).id),
+  (select id from public.circles where name = 'Twice' and creation_key = 'key-1'),
+  'a different key is a different circle, because it is a different intention'
+);
+
+-- ---------------------------------------------------------------------------
 -- An owner stays a member.
 --
 -- Watching `circles` alone made this true only at the moment of creation:
@@ -647,7 +714,7 @@ select is(
 
 select pg_temp.act_as_postgres();
 select ok(
-  not has_function_privilege('anon', 'public.create_circle(text,text,text,text)', 'execute'),
+  not has_function_privilege('anon', 'public.create_circle(text,text,text,text,text)', 'execute'),
   'anon cannot even call create_circle'
 );
 select ok(

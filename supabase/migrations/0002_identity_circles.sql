@@ -75,6 +75,10 @@ create table public.circles (
   -- The `/join` path segment. Carries no secret; the invite secret rides in the
   -- URL fragment and is never sent to a server (§14).
   short_code text not null unique,
+  -- The caller's `Idempotency-Key` for the creation (architecture §9.1). Null
+  -- for a circle made without one; unique per creator when present, so a retried
+  -- request returns the circle it already made rather than a second one.
+  creation_key text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint circles_name_length check (char_length(name) between 1 and 40),
@@ -110,6 +114,8 @@ comment on table public.circles is
 create table public.circle_members (
   circle_id uuid not null references public.circles (id) on delete cascade,
   user_id uuid not null references auth.users (id) on delete cascade,
+  -- Follows the profile while the membership is active, and freezes on removal:
+  -- a removed member's history keeps the name they had (spec §5.2).
   display_name_snapshot text not null,
   role text not null default 'member',
   status text not null default 'active',
@@ -139,6 +145,10 @@ comment on table public.circle_members is
 create unique index circle_members_active_name_idx
   on public.circle_members (circle_id, lower(btrim(display_name_snapshot)))
   where status = 'active';
+
+create unique index circles_creation_key_idx
+  on public.circles (owner_user_id, creation_key)
+  where creation_key is not null;
 
 create index circle_members_user_id_idx on public.circle_members (user_id);
 create index circle_members_active_idx on public.circle_members (circle_id) where status = 'active';
@@ -323,6 +333,43 @@ create constraint trigger circle_members_owner_stays
   after update of status or delete on public.circle_members
   deferrable initially deferred
   for each row execute function public.enforce_owner_stays_member();
+
+-- ---------------------------------------------------------------------------
+-- Renaming.
+--
+-- The roster shows `display_name_snapshot` and `member_profiles` shows
+-- `profiles.display_name`, and the uniqueness index only covers the first. A
+-- member could therefore rename themselves to a co-member's name: the index saw
+-- nothing change, and the circle showed two people with one name.
+--
+-- So while a membership is active its snapshot *follows* the profile, and the
+-- index refuses the rename outright when it would collide. The snapshot stops
+-- following at the moment of removal, which is what it was always for: a
+-- removed member's history keeps the name they had.
+-- ---------------------------------------------------------------------------
+
+create or replace function public.sync_member_names()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  update public.circle_members m
+  set display_name_snapshot = new.display_name
+  where m.user_id = new.user_id
+    and m.status = 'active'
+    and m.display_name_snapshot is distinct from new.display_name;
+  return new;
+end;
+$$;
+
+comment on function public.sync_member_names() is
+  'Keeps an active membership''s name in step with the profile, so the uniqueness index sees a rename. Frozen on removal.';
+
+create trigger profiles_sync_member_names
+  after update of display_name on public.profiles
+  for each row execute function public.sync_member_names();
 
 -- ---------------------------------------------------------------------------
 -- Time zones.
@@ -517,6 +564,8 @@ revoke all on function public.touch_updated_at() from public;
 revoke all on function public.enforce_member_cap() from public;
 revoke all on function public.enforce_owner_is_member() from public;
 revoke all on function public.enforce_owner_stays_member() from public;
+revoke all on function public.sync_member_names() from public;
+revoke all on function public.sync_member_names() from anon, authenticated;
 revoke all on function public.enforce_iana_zone() from public;
 revoke all on function public.enforce_iana_zone() from anon, authenticated;
 revoke all on function public.handle_new_user() from public;
@@ -550,7 +599,8 @@ create or replace function public.create_circle(
   name text,
   color text,
   time_zone text,
-  cadence text default 'none'
+  cadence text default 'none',
+  idempotency_key text default null
 )
 returns public.circles
 language plpgsql
@@ -571,6 +621,19 @@ begin
     -- here it is simply a refusal.
     raise exception 'creating a circle needs a saved place'
       using errcode = 'insufficient_privilege';
+  end if;
+
+  -- A retry returns what the first attempt made. Creating a circle is the one
+  -- mutation where a lost response is expensive: the client cannot tell a
+  -- timeout from a failure, and trying again would leave the person with two
+  -- circles and no way to tell which one they gave the link out for.
+  if create_circle.idempotency_key is not null then
+    select * into created
+    from public.circles c
+    where c.owner_user_id = caller and c.creation_key = create_circle.idempotency_key;
+    if found then
+      return created;
+    end if;
   end if;
 
   select p.display_name into caller_name from public.profiles p where p.user_id = caller;
@@ -595,9 +658,10 @@ begin
     exit when not exists (select 1 from public.circles c where c.short_code = code);
   end loop;
 
-  insert into public.circles (owner_user_id, name, color, time_zone, cadence, short_code)
+  insert into public.circles
+    (owner_user_id, name, color, time_zone, cadence, short_code, creation_key)
   values (caller, create_circle.name, create_circle.color, create_circle.time_zone,
-          create_circle.cadence, code)
+          create_circle.cadence, code, create_circle.idempotency_key)
   returning * into created;
 
   insert into public.circle_members (circle_id, user_id, display_name_snapshot, role)
@@ -609,18 +673,30 @@ begin
   -- cannot be forgotten rather than merely noted.
 
   return created;
+
+exception
+  when unique_violation then
+    -- Two identical requests in flight at once: the index caught the second, and
+    -- the row the first one wrote is the answer.
+    select * into created
+    from public.circles c
+    where c.owner_user_id = caller and c.creation_key = create_circle.idempotency_key;
+    if found then
+      return created;
+    end if;
+    raise;
 end;
 $$;
 
-comment on function public.create_circle(text, text, text, text) is
+comment on function public.create_circle(text, text, text, text, text) is
   'Creates a circle and its owner membership in one transaction. Requires a permanent identity (ADR 0004).';
 
 -- Both revokes: `from public` removes the grant Postgres makes automatically,
 -- and `from anon, authenticated` removes the one Supabase's default privileges
 -- make by name. Either alone leaves the function callable.
-revoke all on function public.create_circle(text, text, text, text) from public;
-revoke all on function public.create_circle(text, text, text, text) from anon, authenticated;
-grant execute on function public.create_circle(text, text, text, text) to authenticated;
+revoke all on function public.create_circle(text, text, text, text, text) from public;
+revoke all on function public.create_circle(text, text, text, text, text) from anon, authenticated;
+grant execute on function public.create_circle(text, text, text, text, text) to authenticated;
 
 -- ---------------------------------------------------------------------------
 -- member_profiles
