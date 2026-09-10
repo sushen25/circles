@@ -230,6 +230,7 @@ declare
   n_pending_contacts integer;
   n_plan_contacts integer;
   n_summaries integer;
+  n_summaries_purged integer;
   n_windows_aged integer;
   n_windows_gone integer;
   n_anonymous integer;
@@ -274,7 +275,9 @@ begin
   -- to has finished. Every contact in the MVP is plan-only (spec §3: no
   -- marketing consent), so "plan-only" means "verified and not suppressed".
   -- A contact with a live subscription stays; one whose plans have all been
-  -- completed, cancelled or expired for 30 days goes, address and all.
+  -- completed, cancelled or expired for 30 days goes, address and all. A
+  -- withdrawn subscription keeps nothing: the person said stop, and the
+  -- address has no reason left to be here.
   delete from private.email_contacts c
   where c.status = 'verified'
     and not exists (
@@ -282,6 +285,7 @@ begin
       from private.email_subscriptions s
       join public.plans p on p.id = s.plan_id
       where s.contact_id = c.id
+        and s.status = 'active'
         and (p.state not in ('completed', 'cancelled', 'expired')
              or p.updated_at > now() - interval '30 days')
     )
@@ -340,6 +344,7 @@ begin
       (m.status = 'removed' and m.updated_at < now() - interval '30 days')
       or (c.status = 'archived' and c.updated_at < now() - interval '30 days')
     );
+  get diagnostics n_summaries_purged = row_count;
 
   delete from public.willing_windows w
   using public.plan_responses r, public.plans p, public.circles c, public.circle_members m
@@ -376,6 +381,7 @@ begin
     'pending_contacts', n_pending_contacts,
     'plan_only_contacts', n_plan_contacts,
     'daypart_summaries', n_summaries,
+    'daypart_summaries_purged', n_summaries_purged,
     'windows_aged', n_windows_aged,
     'windows_of_the_gone', n_windows_gone,
     'anonymous_identities', n_anonymous,

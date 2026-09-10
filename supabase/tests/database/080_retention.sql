@@ -6,7 +6,7 @@
 -- test that runs today.
 
 begin;
-select plan(39);
+select plan(40);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid language sql as $$
@@ -192,7 +192,8 @@ select id, 'verify', extensions.digest('t-retry', 'sha256'), now() + interval '1
 from private.email_contacts where email_normalized = 'tom-retry@example.com';
 insert into private.email_contacts (user_id, email_normalized, status, verified_at, created_at) values
   ('00000000-0000-0000-0000-0000000006a4', 'sam-done@example.com', 'verified', now() - interval '60 days', now() - interval '60 days'),
-  ('00000000-0000-0000-0000-0000000006a4', 'sam-live@example.com', 'verified', now() - interval '60 days', now() - interval '60 days');
+  ('00000000-0000-0000-0000-0000000006a4', 'sam-live@example.com', 'verified', now() - interval '60 days', now() - interval '60 days'),
+  ('00000000-0000-0000-0000-0000000006a4', 'sam-stopped@example.com', 'verified', now() - interval '60 days', now() - interval '60 days');
 insert into private.email_contacts (user_id, email_normalized, status, suppressed_at, suppression_reason, created_at) values
   ('00000000-0000-0000-0000-0000000006a4', 'sam-bounced@example.com', 'suppressed', now() - interval '400 days', 'bounced', now() - interval '400 days');
 select pg_temp.make_plan((select circle_id from t), 'pnretdd', date '2099-10-05') as plan_done \gset
@@ -206,6 +207,10 @@ alter table public.plans enable trigger plans_touch_updated_at;
 insert into private.email_subscriptions (contact_id, user_id, scope, plan_id, consent_text_version)
 select c.id, c.user_id, 'plan_updates', case c.email_normalized when 'sam-done@example.com' then :'plan_done'::uuid else :'plan_a'::uuid end, 'v1'
 from private.email_contacts c where c.email_normalized in ('sam-done@example.com', 'sam-live@example.com');
+-- Subscribed to a live plan, then said stop: the address has no reason left.
+insert into private.email_subscriptions (contact_id, user_id, scope, plan_id, consent_text_version, status, withdrawn_at)
+select c.id, c.user_id, 'plan_updates', :'plan_a'::uuid, 'v1', 'withdrawn', now() - interval '31 days'
+from private.email_contacts c where c.email_normalized = 'sam-stopped@example.com';
 
 -- Anonymous identities: abandoned, member, and a permanent one with nothing.
 select pg_temp.make_user('00000000-0000-0000-0000-0000000006b1', 'Ghost', true);
@@ -258,7 +263,7 @@ select is(
 select is(
   (select array_agg(email_normalized order by email_normalized) from private.email_contacts where user_id = '00000000-0000-0000-0000-0000000006a4'),
   array['sam-bounced@example.com', 'sam-live@example.com'],
-  'the verified contact whose only plan finished a month ago went; the live one stayed; the suppressed one is kept forever'
+  'the verified contact whose only plan finished a month ago went, and so did the one who withdrew; the live one stayed; the suppressed one is kept forever'
 );
 select is(
   (select array_agg(id::text order by id) from auth.users where id::text like '00000000-0000-0000-0000-0000000006b%'),
@@ -320,7 +325,7 @@ select is(
 -- Idempotent: a further run finds nothing.
 select is(
   (select jobs.run_retention() - 'daypart_summaries'),
-  '{"outbox": 0, "audit_rows": 0, "windows_aged": 0, "delivery_events": 0, "revoked_invites": 0, "pending_contacts": 0, "notification_jobs": 0, "plan_only_contacts": 0, "expired_action_links": 0, "windows_of_the_gone": 0, "anonymous_identities": 0}'::jsonb,
+  '{"outbox": 0, "audit_rows": 0, "windows_aged": 0, "delivery_events": 0, "revoked_invites": 0, "pending_contacts": 0, "notification_jobs": 0, "plan_only_contacts": 0, "expired_action_links": 0, "windows_of_the_gone": 0, "anonymous_identities": 0, "daypart_summaries_purged": 0}'::jsonb,
   'a second run deletes nothing'
 );
 
@@ -349,7 +354,7 @@ alter table public.circle_members disable trigger circle_members_touch_updated_a
 update public.circle_members set updated_at = now() - interval '31 days'
 where circle_id = (select circle_id from t) and user_id = '00000000-0000-0000-0000-0000000006a2';
 alter table public.circle_members enable trigger circle_members_touch_updated_at;
-select jobs.run_retention();
+select is((select jobs.run_retention() ->> 'daypart_summaries_purged')::integer, 1, 'the run counts the summary it purged');
 select is(
   (select count(*)::integer from public.member_dayparts where user_id = '00000000-0000-0000-0000-0000000006a2'),
   0, 'and thirty days after removal the summary is deleted with the windows'
