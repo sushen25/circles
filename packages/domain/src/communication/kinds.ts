@@ -6,9 +6,10 @@
  * about activity, streaks or news, ever" is a product promise, and the way to
  * keep it is to make an unlisted kind unrepresentable rather than discouraged.
  *
- * The rows are the "Push copy" artboard's rows, in its order, plus the one
- * email-only kind. No sentence lives here — `copyKey` names one, and the copy
- * package renders it (non-negotiable 6).
+ * The rows are the "Push copy" artboard's rows, in its order, plus the two the
+ * spec names elsewhere: `replies_closed` (§5.7, §5.8) and `verify_email`. No
+ * sentence lives here — `copyKey` names one, and the copy package renders it
+ * (non-negotiable 6).
  */
 
 /** Where a message can go. Web-only participants reach email by subscription. */
@@ -21,6 +22,7 @@ export type NotificationKind =
   | 'threshold_keen'
   | 'deadline_approaching'
   | 'options_ready'
+  | 'replies_closed'
   | 'locked_in'
   | 'changed'
   | 'cancelled'
@@ -55,6 +57,21 @@ export type NotificationSpec = {
   /** The copy package's key. The sentence is there, never here. */
   readonly copyKey: string;
   /**
+   * Whether email needs a **verified per-plan subscription** before it may be
+   * used (spec §5.8, §8.2).
+   *
+   * True for the member kinds. Being in a circle is not consent to be emailed:
+   * plan-update email is scoped to one plan, asked for explicitly, verified,
+   * and never marketing consent. False for the organiser kinds, which the spec
+   * sends by email "until they install the app" (review C6), and for
+   * `verify_email`, which is the request for that consent.
+   *
+   * The rule lives in the table rather than in a comment because a comment is
+   * what it was: `channels: ['push', 'email']` on `locked_in` had `channelFor`
+   * picking email off a members list.
+   */
+  readonly emailNeedsSubscription: boolean;
+  /**
    * Whether this kind waits until 08:00 rather than arriving at 11 pm.
    *
    * False for `locked_in` and `cancelled` (spec §5.8: "quiet hours 9 pm–8 am
@@ -77,6 +94,7 @@ export type NotificationSpec = {
 export const NOTIFICATION_KINDS: readonly NotificationSpec[] = [
   {
     kind: 'new_plan',
+    emailNeedsSubscription: true,
     audience: 'members',
     channels: ['push'],
     copyKey: 'push.new_plan',
@@ -84,6 +102,7 @@ export const NOTIFICATION_KINDS: readonly NotificationSpec[] = [
   },
   {
     kind: 'quiet_ask',
+    emailNeedsSubscription: true,
     audience: 'members_except_initiator',
     channels: ['push'],
     copyKey: 'push.quiet_ask',
@@ -91,6 +110,7 @@ export const NOTIFICATION_KINDS: readonly NotificationSpec[] = [
   },
   {
     kind: 'threshold_initiator',
+    emailNeedsSubscription: true,
     audience: 'quiet_initiator',
     channels: ['push'],
     copyKey: 'push.threshold_initiator',
@@ -98,6 +118,7 @@ export const NOTIFICATION_KINDS: readonly NotificationSpec[] = [
   },
   {
     kind: 'threshold_keen',
+    emailNeedsSubscription: true,
     audience: 'keen_members',
     channels: ['push'],
     copyKey: 'push.threshold_keen',
@@ -105,6 +126,7 @@ export const NOTIFICATION_KINDS: readonly NotificationSpec[] = [
   },
   {
     kind: 'deadline_approaching',
+    emailNeedsSubscription: true,
     audience: 'non_responders',
     channels: ['push'],
     copyKey: 'push.deadline_approaching',
@@ -113,13 +135,27 @@ export const NOTIFICATION_KINDS: readonly NotificationSpec[] = [
   {
     // An organiser kind: email until they install the app (review C6, §13).
     kind: 'options_ready',
+    emailNeedsSubscription: false,
     audience: 'organiser',
     channels: ['push', 'email'],
     copyKey: 'push.options_ready',
     respectsQuietHours: true,
   },
   {
+    // Not on the Pushes artboard, and required all the same: "replies closed
+    // with no decision" is in the organiser's email list (spec §5.8) and is the
+    // "one reminder at the deadline" of §5.7, which opens the DeadlinePassed
+    // screen — lock in the top option, hand it over, or give it one more day.
+    kind: 'replies_closed',
+    emailNeedsSubscription: false,
+    audience: 'organiser',
+    channels: ['push', 'email'],
+    copyKey: 'push.replies_closed',
+    respectsQuietHours: true,
+  },
+  {
     kind: 'locked_in',
+    emailNeedsSubscription: true,
     audience: 'members',
     channels: ['push', 'email'],
     copyKey: 'push.locked_in',
@@ -127,6 +163,7 @@ export const NOTIFICATION_KINDS: readonly NotificationSpec[] = [
   },
   {
     kind: 'changed',
+    emailNeedsSubscription: true,
     audience: 'members',
     channels: ['push', 'email'],
     copyKey: 'push.changed',
@@ -134,6 +171,7 @@ export const NOTIFICATION_KINDS: readonly NotificationSpec[] = [
   },
   {
     kind: 'cancelled',
+    emailNeedsSubscription: true,
     audience: 'members',
     channels: ['push', 'email'],
     copyKey: 'push.cancelled',
@@ -141,6 +179,7 @@ export const NOTIFICATION_KINDS: readonly NotificationSpec[] = [
   },
   {
     kind: 'reminder',
+    emailNeedsSubscription: true,
     audience: 'going_members',
     channels: ['push', 'email'],
     copyKey: 'push.reminder',
@@ -148,6 +187,7 @@ export const NOTIFICATION_KINDS: readonly NotificationSpec[] = [
   },
   {
     kind: 'did_it_happen',
+    emailNeedsSubscription: false,
     audience: 'organiser',
     channels: ['push', 'email'],
     copyKey: 'push.did_it_happen',
@@ -155,6 +195,7 @@ export const NOTIFICATION_KINDS: readonly NotificationSpec[] = [
   },
   {
     kind: 'about_time',
+    emailNeedsSubscription: false,
     audience: 'nudge_recipient',
     channels: ['push', 'email'],
     copyKey: 'push.about_time',
@@ -162,6 +203,7 @@ export const NOTIFICATION_KINDS: readonly NotificationSpec[] = [
   },
   {
     kind: 'verify_email',
+    emailNeedsSubscription: false,
     audience: 'the_address',
     channels: ['email'],
     copyKey: 'email.verify',

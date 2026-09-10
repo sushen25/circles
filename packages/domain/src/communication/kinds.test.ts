@@ -24,10 +24,17 @@ const ARTBOARD: readonly NotificationKind[] = [
 ];
 
 describe('the kind table', () => {
-  it('is exactly the artboard, and nothing else', () => {
-    // A kind not on an artboard is a message nobody designed. "Nothing about
-    // activity, streaks or news, ever" is kept by the list being closed.
-    expect(NOTIFICATION_KINDS.map((s) => s.kind)).toEqual([...ARTBOARD, 'verify_email']);
+  it('is the artboard plus the two the spec names elsewhere, and nothing else', () => {
+    // A kind not written down somewhere is a message nobody designed. "Nothing
+    // about activity, streaks or news, ever" is kept by the list being closed.
+    // `replies_closed` is §5.7's "one reminder at the deadline" and one of
+    // §5.8's four organiser email kinds; the Pushes artboard has no row for it.
+    expect(NOTIFICATION_KINDS.map((s) => s.kind)).toEqual([
+      ...ARTBOARD.slice(0, 6),
+      'replies_closed',
+      ...ARTBOARD.slice(6),
+      'verify_email',
+    ]);
   });
 
   it('has one row per kind, no duplicates', () => {
@@ -59,16 +66,34 @@ describe('the kind table', () => {
     expect(notificationSpec('changed').respectsQuietHours).toBe(true);
   });
 
-  it('gives the organiser kinds an email fallback and the member kinds none', () => {
+  it('gives the organiser kinds an unconditional email fallback', () => {
     // Review C6: the organiser gets these by email until they install the app,
-    // which is why Slice 1 needs no native build. A member without the app
-    // reaches email through a verified per-plan subscription instead.
-    for (const kind of ['options_ready', 'did_it_happen', 'about_time'] as const) {
-      expect(notificationSpec(kind).channels).toContain('email');
+    // which is why Slice 1 needs no native build.
+    for (const kind of [
+      'options_ready',
+      'replies_closed',
+      'did_it_happen',
+      'about_time',
+    ] as const) {
+      const spec = notificationSpec(kind);
+      expect(spec.channels).toContain('email');
+      expect(spec.emailNeedsSubscription).toBe(false);
     }
-    for (const kind of ['new_plan', 'quiet_ask', 'deadline_approaching'] as const) {
-      expect(notificationSpec(kind).channels).toEqual(['push']);
+  });
+
+  it('makes every member kind wait for a verified subscription', () => {
+    // Being in a circle is not consent to be emailed (§8.2). The rule is in the
+    // table because as a comment it was not a rule: `channels: [push, email]`
+    // had email picked off a members list.
+    for (const spec of NOTIFICATION_KINDS) {
+      if (spec.audience === 'organiser' || spec.audience === 'nudge_recipient') continue;
+      if (spec.kind === 'verify_email') continue;
+      expect(spec.emailNeedsSubscription).toBe(true);
     }
+  });
+
+  it('never asks the verification email for the consent it is asking for', () => {
+    expect(notificationSpec('verify_email').emailNeedsSubscription).toBe(false);
   });
 
   it('prefers push when both are possible, so email is the fallback and not the default', () => {

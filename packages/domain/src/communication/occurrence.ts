@@ -50,6 +50,7 @@ export function occurrenceFor(kind: NotificationKind, input: OccurrenceInput = {
     case 'threshold_initiator':
     case 'threshold_keen':
     case 'options_ready':
+    case 'replies_closed':
     case 'changed':
     case 'cancelled':
       return ONCE;

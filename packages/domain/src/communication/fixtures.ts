@@ -40,6 +40,10 @@ export function sundayCrewMembers(overrides: Partial<Record<UserId, Overrides<Me
 export const EVERYONE_HAS_PUSH = () => true;
 export const NOBODY_HAS_PUSH = () => false;
 
+/** Nobody asked to be emailed about this plan, which is the default state. */
+export const NOBODY_SUBSCRIBED = () => false;
+export const EVERYONE_SUBSCRIBED = () => true;
+
 /**
  * A context for the artboard's plan: six members, five answered, Alex has not.
  * `circle-1`'s owner is Sam, and Sam is the organiser.
@@ -54,6 +58,7 @@ export function eligibilityContext(
       plan,
       members: sundayCrewMembers(),
       responses: sundayCrewStoredResponses(plan),
+      participantIds: SUNDAY_CREW,
       hasPushDevice: EVERYONE_HAS_PUSH,
     },
     overrides,

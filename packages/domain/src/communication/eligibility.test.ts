@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { type UserId, userId } from '../circles/types.js';
+import { type UserId, circleId, userId } from '../circles/types.js';
 import { circle, member } from '../circles/fixtures.js';
 import { confirmation, sundayCrewPlan } from '../confirmation/fixtures.js';
 import { planId } from '../planning/types.js';
@@ -9,7 +9,13 @@ import { ALEX, JESS, NIC, PRIYA, SAM, SUNDAY_CREW, TOM } from '../scheduling/fix
 import { sundayCrewStoredResponses } from '../confirmation/fixtures.js';
 import { fromISO } from '../shared/instant.js';
 import { type EligibilityContext, channelFor, recipientsFor } from './eligibility.js';
-import { AN_OUTSIDER, NOBODY_HAS_PUSH, eligibilityContext, sundayCrewMembers } from './fixtures.js';
+import {
+  AN_OUTSIDER,
+  NOBODY_HAS_PUSH,
+  NOBODY_SUBSCRIBED,
+  eligibilityContext,
+  sundayCrewMembers,
+} from './fixtures.js';
 import type { NotificationKind } from './kinds.js';
 
 const ids = (kind: NotificationKind, context: EligibilityContext): readonly UserId[] =>
@@ -144,10 +150,12 @@ describe('channels', () => {
     expect(recipientsFor('did_it_happen', context)[0]?.channel).toBe('email');
   });
 
+  it('never falls back to email for a member kind on membership alone', () => {
+    const context = eligibilityContext({ hasPushDevice: NOBODY_HAS_PUSH, actorId: SAM });
+    expect(channelFor('locked_in', TOM, context)).toBeUndefined();
+  });
+
   it('sends nothing at all for a push-only kind when there is no device', () => {
-    // Not a fallback to email: a member without the app reaches email through a
-    // verified per-plan subscription with its own consent, not by being on a
-    // members list.
     const context = eligibilityContext({ hasPushDevice: NOBODY_HAS_PUSH, actorId: SAM });
     expect(recipientsFor('new_plan', context)).toEqual([]);
     expect(recipientsFor('deadline_approaching', context)).toEqual([]);
@@ -155,9 +163,14 @@ describe('channels', () => {
 
   it('picks per person, not per kind', () => {
     const hasPushDevice = (id: UserId) => id === PRIYA;
-    const context = eligibilityContext({ hasPushDevice, actorId: SAM });
+    const context = eligibilityContext({
+      hasPushDevice,
+      actorId: SAM,
+      hasPlanEmailSubscription: (id) => id === TOM,
+    });
     expect(channelFor('locked_in', PRIYA, context)).toBe('push');
     expect(channelFor('locked_in', TOM, context)).toBe('email');
+    expect(channelFor('locked_in', JESS, context)).toBeUndefined();
     expect(channelFor('new_plan', TOM, context)).toBeUndefined();
   });
 });
@@ -216,16 +229,100 @@ describe('a circle with nobody left to tell', () => {
 });
 
 describe('a member who joined after the plan', () => {
-  it('is told about it, and owes a reply like everyone else', () => {
-    // "New members may opt into the active plan" (spec §9). They have not
-    // answered, so the deadline reminder is for them too.
-    const newcomer = userId('user-newcomer');
-    const members = [
-      ...sundayCrewMembers(),
-      member({ userId: newcomer, displayName: 'Rowan', joinedAt: fromISO('2026-09-15T00:00:00Z') }),
-    ];
+  const newcomer = userId('user-newcomer');
+  const members = [
+    ...sundayCrewMembers(),
+    member({ userId: newcomer, displayName: 'Rowan', joinedAt: fromISO('2026-09-15T00:00:00Z') }),
+  ];
+
+  it('hears nothing about it until they opt in', () => {
+    // "New members may opt into the active plan" (spec §9) — an opt-in, so
+    // joining a circle on Tuesday must not make somebody a non-responder to a
+    // question they were never asked.
     const context = eligibilityContext({ members, actorId: SAM });
+    expect(ids('deadline_approaching', context)).toEqual([ALEX]);
+    expect(ids('locked_in', context)).not.toContain(newcomer);
+  });
+
+  it('is in everything once they have', () => {
+    const context = eligibilityContext({
+      members,
+      participantIds: [...SUNDAY_CREW, newcomer],
+      actorId: SAM,
+    });
     expect(ids('deadline_approaching', context)).toEqual([ALEX, newcomer]);
     expect(ids('locked_in', context)).toContain(newcomer);
+  });
+});
+
+describe('another circle', () => {
+  it('never sees this plan, however the caller assembled the list', () => {
+    // "Every plan belongs to one circle; only active members see or act on it"
+    // (§8.2) is structural, not a promise about how callers build arrays.
+    const stranger = member({ circleId: circleId('circle-2'), userId: AN_OUTSIDER });
+    const context = eligibilityContext({
+      members: [...sundayCrewMembers(), stranger],
+      participantIds: [...SUNDAY_CREW, AN_OUTSIDER],
+      actorId: SAM,
+    });
+    expect(ids('locked_in', context)).not.toContain(AN_OUTSIDER);
+    expect(ids('deadline_approaching', context)).toEqual([ALEX]);
+  });
+
+  it('gets nothing when the plan does not belong to the circle it was given', () => {
+    const context = eligibilityContext({
+      plan: sundayCrewPlan({ circleId: circleId('circle-2') }),
+    });
+    expect(recipientsFor('locked_in', context)).toEqual([]);
+  });
+});
+
+describe('email consent', () => {
+  const noPush = { hasPushDevice: NOBODY_HAS_PUSH };
+
+  it('is required before a member kind may use email', () => {
+    // Being in a circle is not consent to be emailed: the subscription is per
+    // plan, asked for explicitly and verified (§8.2). Silence is the answer.
+    const context = eligibilityContext({ ...noPush, actorId: SAM });
+    for (const kind of ['locked_in', 'changed', 'cancelled', 'reminder'] as const) {
+      expect(recipientsFor(kind, context)).toEqual([]);
+    }
+  });
+
+  it('lets the subscribed ones through, and only them', () => {
+    const context = eligibilityContext({
+      ...noPush,
+      actorId: SAM,
+      hasPlanEmailSubscription: (id) => id === PRIYA,
+    });
+    expect(recipientsFor('locked_in', context)).toEqual([{ userId: PRIYA, channel: 'email' }]);
+  });
+
+  it('is not required for the organiser kinds', () => {
+    // Review C6: the organiser is emailed until they install the app, which is
+    // what lets Slice 1 ship without a native build.
+    const context = eligibilityContext({ ...noPush, hasPlanEmailSubscription: NOBODY_SUBSCRIBED });
+    for (const kind of ['options_ready', 'replies_closed', 'did_it_happen'] as const) {
+      expect(recipientsFor(kind, context)).toEqual([{ userId: SAM, channel: 'email' }]);
+    }
+  });
+
+  it('does not change anything for someone with the app', () => {
+    const context = eligibilityContext({
+      actorId: SAM,
+      hasPlanEmailSubscription: NOBODY_SUBSCRIBED,
+    });
+    expect(recipientsFor('locked_in', context)[0]?.channel).toBe('push');
+  });
+});
+
+describe('replies closed with no decision', () => {
+  it('reaches the organiser, on paper or on their phone', () => {
+    // Spec §5.7's "one reminder at the deadline", and one of the four organiser
+    // email kinds in §5.8. It is on no push artboard, and required all the same.
+    expect(ids('replies_closed', eligibilityContext())).toEqual([SAM]);
+    expect(
+      recipientsFor('replies_closed', eligibilityContext({ hasPushDevice: NOBODY_HAS_PUSH })),
+    ).toEqual([{ userId: SAM, channel: 'email' }]);
   });
 });

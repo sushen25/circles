@@ -7,13 +7,19 @@
  * cannot come, a quiet ask that reaches its own initiator — and they are
  * impossible to test against Resend and Expo.
  *
- * Three rules cut across every kind, and they are applied last so that no
+ * Four rules cut across every kind, and they are applied last so that no
  * audience rule can forget them:
  *
+ * - a member of another circle is not a member of this one;
  * - a removed member is not a member;
  * - `mutedAll` means all, and `mutedQuietAsks` means the quiet ones;
  * - a recipient with no reachable channel is not a recipient, and the answer is
  *   silence rather than a fallback to somebody else.
+ *
+ * The first of those is not a caller's job. "Every plan belongs to one circle;
+ * only active members see or act on it" is a structural invariant (§8.2), and a
+ * rule that holds only when every caller assembles a perfect list is a rule
+ * that will be broken by the first caller who passes two circles' members.
  */
 
 import { type Circle, type Member, type UserId, isActive } from '../circles/types.js';
@@ -37,10 +43,29 @@ export type EligibilityContext = {
   readonly circle: Circle;
   readonly plan: Plan;
   readonly members: readonly Member[];
+  /**
+   * Who this plan was addressed to: the circle's active members when it was
+   * created, plus anyone who has since opted into it.
+   *
+   * Required, and not derived from `members`, because "new members may opt into
+   * the active plan" (spec §9) is an opt-in. A newcomer who has not taken it is
+   * neither told about the plan nor counted as owing a reply — otherwise
+   * joining a circle on Tuesday makes you a non-responder to a question you
+   * were never asked.
+   */
+  readonly participantIds: readonly UserId[];
   /** Answers to the plan's **current** revision. Older ones do not count. */
   readonly responses: readonly Response[];
   /** Whether this member has a registered device that can receive a push. */
   readonly hasPushDevice: (userId: UserId) => boolean;
+  /**
+   * Whether this member has a **verified** email subscription to this plan.
+   *
+   * Defaults to nobody. Being in a circle is not consent to be emailed: the
+   * subscription is asked for per plan, verified by a link, and is never
+   * marketing consent (§8.2).
+   */
+  readonly hasPlanEmailSubscription?: ((userId: UserId) => boolean) | undefined;
   /**
    * Whoever caused the event, if a person did.
    *
@@ -73,7 +98,15 @@ export type EligibilityContext = {
 
 /** Members still eligible to be told anything at all about this circle. */
 function reachableMembers(context: EligibilityContext): readonly Member[] {
-  return context.members.filter(isActive);
+  return context.members.filter((m) => m.circleId === context.circle.id && isActive(m));
+}
+
+/** The members this plan was actually addressed to. */
+function participants(context: EligibilityContext): readonly UserId[] {
+  const invited = new Set(context.participantIds);
+  return reachableMembers(context)
+    .map((m) => m.userId)
+    .filter((id) => invited.has(id));
 }
 
 function respondedUserIds(context: EligibilityContext): ReadonlySet<UserId> {
@@ -87,8 +120,23 @@ function respondedUserIds(context: EligibilityContext): ReadonlySet<UserId> {
 /** The audience, before the cross-cutting rules are applied. */
 function audienceFor(kind: NotificationKind, context: EligibilityContext): readonly UserId[] {
   const { audience } = notificationSpec(kind);
-  const members = reachableMembers(context);
-  const ids = members.map((m) => m.userId);
+
+  // The cadence nudge is about the circle and would be sent with no plan at
+  // all if the type allowed it, so it is answered before the plan is consulted.
+  if (audience === 'nudge_recipient') {
+    const chosen = nudgeRecipient({
+      circle: context.circle,
+      members: reachableMembers(context),
+      lastHappenedAttendees: context.nudge?.lastHappenedAttendees ?? [],
+      lastOrganiserId: context.nudge?.lastOrganiserId,
+    });
+    return chosen === undefined ? [] : [chosen];
+  }
+
+  // Everything else is plan-scoped: one circle, and only the people the plan
+  // was addressed to.
+  if (context.plan.circleId !== context.circle.id) return [];
+  const ids = participants(context);
 
   switch (audience) {
     case 'members':
@@ -119,16 +167,6 @@ function audienceFor(kind: NotificationKind, context: EligibilityContext): reado
         (context.attendance ?? []).filter((a) => a.status === 'going').map((a) => a.userId),
       );
       return ids.filter((id) => going.has(id));
-    }
-
-    case 'nudge_recipient': {
-      const chosen = nudgeRecipient({
-        circle: context.circle,
-        members: context.members,
-        lastHappenedAttendees: context.nudge?.lastHappenedAttendees ?? [],
-        lastOrganiserId: context.nudge?.lastOrganiserId,
-      });
-      return chosen === undefined ? [] : [chosen];
     }
 
     case 'the_address':
@@ -166,11 +204,29 @@ export function channelFor(
   userId: UserId,
   context: EligibilityContext,
 ): Channel | undefined {
-  for (const channel of notificationSpec(kind).channels) {
+  const spec = notificationSpec(kind);
+  for (const channel of spec.channels) {
     if (channel === 'push' && context.hasPushDevice(userId)) return 'push';
-    if (channel === 'email') return 'email';
+    if (channel === 'email' && mayEmail(spec, userId, context)) return 'email';
   }
   return undefined;
+}
+
+/**
+ * Whether email is allowed for this person and this kind.
+ *
+ * The member kinds need a verified per-plan subscription; the organiser kinds
+ * do not, which is the whole of review C6. Nothing here reads a members list to
+ * decide it — that was the bug: `channels: ['push', 'email']` made membership
+ * look like consent.
+ */
+function mayEmail(
+  spec: ReturnType<typeof notificationSpec>,
+  userId: UserId,
+  context: EligibilityContext,
+): boolean {
+  if (!spec.emailNeedsSubscription) return true;
+  return context.hasPlanEmailSubscription?.(userId) === true;
 }
 
 /**
