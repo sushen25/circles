@@ -259,6 +259,13 @@ export function generateCandidates(input: EngineInput): CandidateSet {
   const starts = enumerateCandidateStarts(plan, input.now);
   const scored = starts.map((start) => score(plan, input, start));
 
+  // Answers from members who have since left the circle count for nothing:
+  // `score` already skips them, because it walks `activeMemberIds`, and every
+  // other reading of "has anyone answered?" has to agree with that. A plan
+  // whose one reply came from a departed member is still waiting for its first.
+  const active = new Set(input.activeMemberIds);
+  const answered = input.responses.filter(([userId]) => active.has(userId));
+
   const eligible = scored.filter((s) => s.eligible).sort(compareCandidates);
   const picked = select(eligible, plan);
   const explanations = explain(picked, 'best_attendance');
@@ -275,7 +282,7 @@ export function generateCandidates(input: EngineInput): CandidateSet {
   let nearMisses: NearMiss[] = [];
   // Only once somebody has answered. Before the first reply there is nothing to
   // be close to, and the screen is showing the waiting state, not a shortfall.
-  if (candidates.length === 0 && input.responses.length > 0) {
+  if (candidates.length === 0 && answered.length > 0) {
     // Closest first: most people, then the same tie-breaks as a real ranking.
     //
     // A start nobody can make is not *near* anything, so it is never shown
@@ -320,7 +327,7 @@ export function generateCandidates(input: EngineInput): CandidateSet {
     stats: {
       startsConsidered: starts.length,
       eligibleCount: eligible.length,
-      respondedCount: input.responses.length,
+      respondedCount: answered.length,
       activeMemberCount: input.activeMemberIds.length,
     },
   };

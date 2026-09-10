@@ -538,7 +538,7 @@ Inputs: plan window and daily local window, duration, circle time zone, quorum, 
 4. Rank: `|available|` desc → sets with at least one explicit-window member before flexible-only sets → earlier local date → earlier local start.
 5. Select up to three with date diversity: take the top; then prefer the best candidate on a different date when its attendance equals the next best's; never pick two starts on the same date within `duration` of each other.
 6. Emit `explanation_code` per candidate (`best_attendance`, `same_attendance_weekend`, `same_attendance_later`, `one_fewer_sooner`, …) — copy maps codes to sentences.
-7. If nothing is eligible: return the top three near-misses with `near_miss_reason` (`quorum_short_by:n`, `required_missing:userId`) so the UI can offer lower quorum / wider window / close.
+7. If nothing is eligible: return up to three near-misses with `near_miss_reason` (`quorum_short_by:n`, `required_missing:userId`) so the UI can offer lower quorum / wider window / close. A near-miss is a start at least one active member can make; when no start has anyone, the top three overall stand in, and before the first reply from an active member there are none ([ADR 0011](decisions/0011-near-misses-need-someone.md)).
 
 Properties tested: determinism (same inputs → identical output, property-based), performance (8 members × 14 days × 30-minute starts < 50 ms in Node), DST transitions (Melbourne October and April), half-hour zones, cross-zone members, flexible-only ordering. `scoring_version` is stored with every set; changing the algorithm bumps it.
 

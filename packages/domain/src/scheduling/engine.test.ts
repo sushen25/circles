@@ -393,6 +393,24 @@ describe('near-misses when nothing is eligible', () => {
     ]);
   });
 
+  it('is still the waiting state when the only reply came from a departed member', () => {
+    // Scoring already ignores a response whose member is no longer active; the
+    // near-miss gate has to agree, or a circle that has heard from nobody gets
+    // a "widen the window" screen instead of "waiting for replies".
+    const departed = userId('rowan');
+    const set = generateCandidates(
+      sundayCrewInput({
+        responses: [
+          [departed, { status: 'windows', windows: [on('2026-09-17', 18 * 60, 20 * 60)] }],
+        ],
+      }),
+    );
+
+    expect(set.eligible).toEqual([]);
+    expect(set.nearMisses).toEqual([]);
+    expect(set.stats.respondedCount).toBe(0);
+  });
+
   it('still has something to show when every answer was "none of these work"', () => {
     // Six replies, nobody free at any time. Zero is as close as it got, and a
     // screen with an empty list and a "widen the window" button explains
