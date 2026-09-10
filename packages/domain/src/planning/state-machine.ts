@@ -32,15 +32,26 @@ export type Actor = {
   readonly isMember: boolean;
   readonly isOrganiser: boolean;
   readonly isOwner: boolean;
+  /**
+   * Started this quiet ask. Resolved by the caller from `private.plan_initiators`,
+   * which is the only place the fact lives — it is deliberately not on the plan,
+   * because a plan row is readable by the whole circle (spec §8.2).
+   */
+  readonly isInitiator?: boolean | undefined;
+  /** Answered a quiet ask with interest. */
+  readonly isKeen?: boolean | undefined;
 };
 
 export type TransitionErrorCode =
   | 'wrong_state'
   | 'not_a_member'
   | 'not_the_organiser'
+  | 'not_the_initiator'
+  | 'not_keen_initiator_or_owner'
   | 'needs_permanent_identity'
   | 'already_has_organiser'
   | 'needs_candidate'
+  | 'threshold_not_reached'
   | 'plan_is_finished';
 
 /**
@@ -75,9 +86,25 @@ export type TransitionContext = {
    * make is worse than a refusal the organiser can retry.
    */
   readonly eligibleCandidateIds?: readonly string[] | undefined;
+  /**
+   * Required by `threshold_reached`: how many members have answered a quiet
+   * ask with interest. Counted by the caller under the plan's row lock — the
+   * count and the transition have to be one transaction, or two answers
+   * arriving together both see the threshold met and both try to cross it.
+   * Absent means "unknown", and unknown fails closed.
+   */
+  readonly keenCount?: number | undefined;
 };
 
-type Guard = 'member' | 'organiser' | 'permanent' | 'no_organiser_yet' | 'candidate';
+type Guard =
+  | 'member'
+  | 'organiser'
+  | 'permanent'
+  | 'no_organiser_yet'
+  | 'candidate'
+  | 'initiator'
+  | 'keen_initiator_or_owner'
+  | 'threshold';
 
 export type Transition = {
   readonly from: PlanState;
@@ -100,8 +127,11 @@ export const TRANSITIONS: readonly Transition[] = [
   { from: 'draft', action: 'create_quiet', to: 'seeking', guards: ['member', 'permanent'] },
 
   // Quiet ask. The threshold transition is atomic and happens once (§6.2);
-  // enforcing "once" is the database's job, not this table's.
-  { from: 'seeking', action: 'threshold_reached', to: 'collecting', guards: [] },
+  // enforcing "once" is the row lock's job. Enforcing *the threshold itself* is
+  // this table's — it was guardless, and a guardless row is a row any caller
+  // can fire, which published a below-threshold interest count the moment
+  // somebody did.
+  { from: 'seeking', action: 'threshold_reached', to: 'collecting', guards: ['threshold'] },
   { from: 'seeking', action: 'expire', to: 'expired', guards: [] },
   // The role is offered **at** the threshold, not before it: the ThresholdRole
   // screen opens with "Enough people are keen." Offering it during `seeking`
@@ -110,7 +140,7 @@ export const TRANSITIONS: readonly Transition[] = [
     from: 'collecting',
     action: 'accept_organiser',
     to: 'collecting',
-    guards: ['member', 'permanent', 'no_organiser_yet'],
+    guards: ['member', 'permanent', 'no_organiser_yet', 'keen_initiator_or_owner'],
   },
   // And it must survive replies closing. "If nobody volunteers before replies
   // close, the circle owner gets a quiet nudge" — that nudge is worthless if
@@ -120,9 +150,14 @@ export const TRANSITIONS: readonly Transition[] = [
     from: 'ready',
     action: 'accept_organiser',
     to: 'ready',
-    guards: ['member', 'permanent', 'no_organiser_yet'],
+    guards: ['member', 'permanent', 'no_organiser_yet', 'keen_initiator_or_owner'],
   },
-  { from: 'seeking', action: 'cancel', to: 'cancelled', guards: ['organiser'] },
+  // Withdrawing a quiet ask before threshold. The guard is `initiator`, not
+  // `organiser`: a seeking plan has no organiser by definition, so `organiser`
+  // made this transition unreachable for every actor — the row was in the table
+  // and could never fire. "The initiator of a quiet ask withdraws it before
+  // threshold: closed privately, nobody told" (spec §5.4).
+  { from: 'seeking', action: 'cancel', to: 'cancelled', guards: ['member', 'initiator'] },
 
   // Collecting availability. `candidates_ready` and `candidates_gone` are the
   // engine's verdict, not a person's, so they carry no actor guard.
@@ -163,6 +198,9 @@ const GUARD_ERRORS: Record<Guard, TransitionErrorCode> = {
   permanent: 'needs_permanent_identity',
   no_organiser_yet: 'already_has_organiser',
   candidate: 'needs_candidate',
+  initiator: 'not_the_initiator',
+  keen_initiator_or_owner: 'not_keen_initiator_or_owner',
+  threshold: 'threshold_not_reached',
 };
 
 function fails(guard: Guard, context: TransitionContext): boolean {
@@ -175,7 +213,20 @@ function fails(guard: Guard, context: TransitionContext): boolean {
     case 'permanent':
       return !actor.isPermanent;
     case 'no_organiser_yet':
-      return false; // depends on the plan, checked in canTransition
+    case 'threshold':
+      return false; // both depend on the plan, checked in canTransition
+    case 'initiator':
+      return actor.isInitiator !== true;
+    case 'keen_initiator_or_owner':
+      // Architecture §9.1: "accept-organiser | keen member (quiet) or
+      // initiator". Somebody who answered `not_this_time`, or never answered,
+      // is not being offered the job of arranging it.
+      //
+      // Plus the owner, which §9.1 does not say and §5.4 requires: "if nobody
+      // volunteers before replies close, the circle owner gets a quiet nudge".
+      // A nudge to somebody the guard would refuse is a dead end, and it is the
+      // dead end that leaves a ready plan with no organiser at all.
+      return actor.isKeen !== true && actor.isInitiator !== true && !actor.isOwner;
     case 'candidate': {
       if (candidateId === undefined || candidateId.length === 0) return true;
       // Fails closed when the caller did not say what is on offer.
@@ -212,6 +263,16 @@ export function canTransition(
   for (const guard of transition.guards) {
     if (guard === 'no_organiser_yet') {
       if (plan.organiserUserId !== undefined) return fail('already_has_organiser');
+      continue;
+    }
+    if (guard === 'threshold') {
+      // Fails closed on an unknown count, and on a plan with no threshold —
+      // which the database refuses to store, but the domain should not rely on
+      // that to be safe.
+      const threshold = plan.quietThreshold;
+      if (threshold === undefined || (context.keenCount ?? 0) < threshold) {
+        return fail('threshold_not_reached');
+      }
       continue;
     }
     if (fails(guard, context)) return fail(GUARD_ERRORS[guard]);

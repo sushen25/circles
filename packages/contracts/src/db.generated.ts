@@ -157,6 +157,164 @@ export type Database = {
         }
         Relationships: []
       }
+      plan_participants: {
+        Row: {
+          joined_at: string
+          plan_id: string
+          revision: number
+          user_id: string
+        }
+        Insert: {
+          joined_at?: string
+          plan_id: string
+          revision: number
+          user_id: string
+        }
+        Update: {
+          joined_at?: string
+          plan_id?: string
+          revision?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_participants_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plan_interest_counts"
+            referencedColumns: ["plan_id"]
+          },
+          {
+            foreignKeyName: "plan_participants_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      plan_required_members: {
+        Row: {
+          plan_id: string
+          revision: number
+          user_id: string
+        }
+        Insert: {
+          plan_id: string
+          revision: number
+          user_id: string
+        }
+        Update: {
+          plan_id?: string
+          revision?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_required_members_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plan_interest_counts"
+            referencedColumns: ["plan_id"]
+          },
+          {
+            foreignKeyName: "plan_required_members_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      plans: {
+        Row: {
+          cancel_note: string | null
+          category: string
+          circle_id: string
+          created_at: string
+          daily_end_local: number
+          daily_start_local: number
+          duration_minutes: number
+          id: string
+          input_version: number
+          mode: string
+          organiser_user_id: string | null
+          quiet_expires_at: string | null
+          quiet_threshold: number | null
+          quorum: number
+          response_deadline: string
+          revision: number
+          scoring_version: number
+          short_code: string
+          state: string
+          time_zone: string
+          title: string
+          updated_at: string
+          window_end: string
+          window_start: string
+        }
+        Insert: {
+          cancel_note?: string | null
+          category?: string
+          circle_id: string
+          created_at?: string
+          daily_end_local: number
+          daily_start_local: number
+          duration_minutes: number
+          id?: string
+          input_version?: number
+          mode: string
+          organiser_user_id?: string | null
+          quiet_expires_at?: string | null
+          quiet_threshold?: number | null
+          quorum: number
+          response_deadline: string
+          revision?: number
+          scoring_version?: number
+          short_code: string
+          state?: string
+          time_zone: string
+          title: string
+          updated_at?: string
+          window_end: string
+          window_start: string
+        }
+        Update: {
+          cancel_note?: string | null
+          category?: string
+          circle_id?: string
+          created_at?: string
+          daily_end_local?: number
+          daily_start_local?: number
+          duration_minutes?: number
+          id?: string
+          input_version?: number
+          mode?: string
+          organiser_user_id?: string | null
+          quiet_expires_at?: string | null
+          quiet_threshold?: number | null
+          quorum?: number
+          response_deadline?: string
+          revision?: number
+          scoring_version?: number
+          short_code?: string
+          state?: string
+          time_zone?: string
+          title?: string
+          updated_at?: string
+          window_end?: string
+          window_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plans_circle_id_fkey"
+            columns: ["circle_id"]
+            isOneToOne: false
+            referencedRelation: "circles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           app_installed_at: string | null
@@ -204,6 +362,13 @@ export type Database = {
         }
         Relationships: []
       }
+      plan_interest_counts: {
+        Row: {
+          keen_count: number | null
+          plan_id: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       auth_is_member: { Args: { circle_id: string }; Returns: boolean }
@@ -245,6 +410,15 @@ export type Database = {
         }
       }
       member_cap: { Args: never; Returns: number }
+      plan_last_possible_start: {
+        Args: {
+          daily_end_local: number
+          duration_minutes: number
+          time_zone: string
+          window_end: string
+        }
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never

@@ -12,12 +12,19 @@ import {
 } from './state-machine.js';
 import { type PlanState, isTerminal } from './types.js';
 
+/**
+ * Everything at once, so the table-driven test below exercises the *rows*
+ * rather than the actor: a fixture that satisfies only some guards would make a
+ * row's absence and a guard's failure look the same.
+ */
 const ORGANISER: Actor = {
   userId: 'user-owner',
   isPermanent: true,
   isMember: true,
   isOrganiser: true,
   isOwner: true,
+  isInitiator: true,
+  isKeen: true,
 };
 
 const MEMBER: Actor = { ...ORGANISER, userId: 'user-2', isOrganiser: false, isOwner: false };
@@ -65,6 +72,82 @@ describe('the transition table', () => {
   });
 });
 
+describe("the quiet ask's two guards", () => {
+  it('lets the initiator withdraw before threshold, and nobody else', () => {
+    // The guard used to be `organiser`, and a seeking plan has no organiser by
+    // definition — so the row was in the table and could never fire for anyone.
+    const seeking = plan({ state: 'seeking', mode: 'quiet', organiserUserId: undefined });
+    const initiator: Actor = { ...MEMBER, isInitiator: true, isKeen: false };
+    const other: Actor = { ...MEMBER, isInitiator: false, isKeen: true };
+
+    expect(isOk(canTransition(seeking, 'cancel', { actor: initiator }))).toBe(true);
+    const refused = canTransition(seeking, 'cancel', { actor: other });
+    expect(isOk(refused)).toBe(false);
+    if (!isOk(refused)) expect(refused.error.code).toBe('not_the_initiator');
+  });
+
+  it('offers the organiser role to the keen and the initiator only', () => {
+    // Architecture §9.1: "accept-organiser | keen member (quiet) or initiator".
+    const collecting = plan({ state: 'collecting', mode: 'quiet', organiserUserId: undefined });
+    const keen: Actor = { ...MEMBER, isKeen: true, isInitiator: false };
+    const initiator: Actor = { ...MEMBER, isKeen: false, isInitiator: true };
+    const uninterested: Actor = { ...MEMBER, isKeen: false, isInitiator: false, isOwner: false };
+
+    expect(isOk(canTransition(collecting, 'accept_organiser', { actor: keen }))).toBe(true);
+    expect(isOk(canTransition(collecting, 'accept_organiser', { actor: initiator }))).toBe(true);
+
+    const refused = canTransition(collecting, 'accept_organiser', { actor: uninterested });
+    expect(isOk(refused)).toBe(false);
+    if (!isOk(refused)) expect(refused.error.code).toBe('not_keen_initiator_or_owner');
+  });
+
+  it('lets the owner take it when nobody volunteered', () => {
+    // "If nobody volunteers before replies close, the circle owner gets a quiet
+    // nudge" (§5.4). A nudge to somebody the guard refuses is a dead end, and
+    // the dead end leaves a ready plan with no organiser at all.
+    const ready = plan({ state: 'ready', mode: 'quiet', organiserUserId: undefined });
+    const owner: Actor = { ...MEMBER, isOwner: true, isKeen: false, isInitiator: false };
+    expect(isOk(canTransition(ready, 'accept_organiser', { actor: owner }))).toBe(true);
+  });
+
+  it('refuses an initiator who has left the circle', () => {
+    // The private initiator row outlives the membership, and removal revokes
+    // access immediately (§6.2). Being the initiator is not a way back in.
+    const seeking = plan({ state: 'seeking', mode: 'quiet', organiserUserId: undefined });
+    const gone: Actor = { ...MEMBER, isMember: false, isInitiator: true };
+    const refused = canTransition(seeking, 'cancel', { actor: gone });
+    expect(isOk(refused)).toBe(false);
+    if (!isOk(refused)) expect(refused.error.code).toBe('not_a_member');
+  });
+
+  it('crosses the threshold only when the count says so', () => {
+    // The row was guardless — "enforcing once is the database's job" — and a
+    // guardless row is one any caller can fire, which published a below-threshold
+    // count the moment somebody did.
+    const seeking = plan({ state: 'seeking', mode: 'quiet', quietThreshold: 3 });
+    const short = canTransition(seeking, 'threshold_reached', { actor: MEMBER, keenCount: 2 });
+    expect(isOk(short)).toBe(false);
+    if (!isOk(short)) expect(short.error.code).toBe('threshold_not_reached');
+
+    expect(isOk(canTransition(seeking, 'threshold_reached', { actor: MEMBER, keenCount: 3 }))).toBe(
+      true,
+    );
+  });
+
+  it('fails closed when the count is unknown', () => {
+    const seeking = plan({ state: 'seeking', mode: 'quiet', quietThreshold: 3 });
+    expect(isOk(canTransition(seeking, 'threshold_reached', { actor: MEMBER }))).toBe(false);
+  });
+
+  it('still requires a saved place, however keen somebody is', () => {
+    const collecting = plan({ state: 'collecting', mode: 'quiet', organiserUserId: undefined });
+    const keenGuest: Actor = { ...GUEST, isKeen: true };
+    const refused = canTransition(collecting, 'accept_organiser', { actor: keenGuest });
+    expect(isOk(refused)).toBe(false);
+    if (!isOk(refused)) expect(refused.error.code).toBe('needs_permanent_identity');
+  });
+});
+
 describe('every row is reachable and every non-row is refused', () => {
   // The positive half: each row does what it says.
   it.each(TRANSITIONS.map((t) => [t.from, t.action, t.to] as const))(
@@ -75,11 +158,15 @@ describe('every row is reachable and every non-row is refused', () => {
         // `accept_organiser` requires the seat to be empty; every other row is
         // happy with an organiser in place.
         organiserUserId: action === 'accept_organiser' ? undefined : userId('user-owner'),
+        // `threshold_reached` needs a threshold to have been reached.
+        mode: from === 'seeking' ? 'quiet' : 'named',
+        quietThreshold: from === 'seeking' ? 3 : undefined,
       });
       const result = canTransition(before, action, {
         actor: ORGANISER,
         candidateId: 'cand-1',
         eligibleCandidateIds: ['cand-1'],
+        keenCount: 99,
       });
 
       expect(isOk(result), `${from} + ${action} was refused`).toBe(true);
