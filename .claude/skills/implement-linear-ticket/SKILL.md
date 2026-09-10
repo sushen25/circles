@@ -100,7 +100,7 @@ Steps, in order:
 ## Review
 
 An adversarial review runs against the branch and the agent works the findings.
-The ticket moves to Done only after a round comes back clean **and** the founder
+The ticket moves to Done only after the rounds are finished **and** the founder
 merges.
 
 **The founder triggers the review**, currently with `/codex:review --base main`
@@ -109,10 +109,32 @@ repo, so do not assume it is available and do not try to invoke it. `/code-revie
 is the built-in alternative. What follows is about responding to findings, and
 holds whoever produced them.
 
-**Ask for another round after each fix**, rather than treating one clean-up as
-the end. S1-02 took two rounds and S1-03 five; every round found something real,
-and two of S1-03's findings were only reachable once an earlier fix had changed
-the shape of the code.
+**Every P0 and P1 is fixed, always.** There is no round budget for those and no
+judgement call about them: if the reviewer marks a finding P0 or P1, either the
+code changes or the finding is shown to be wrong, with the reproduction that
+shows it. S1-05's P1 was a token interpolated into an exception message, which
+means a token in a log — the kind of thing that is cheap now and unfixable
+later.
+
+**Three rounds, then stop.** Ask for another round after each fix, because
+findings surface in layers: S1-02 took two rounds and S1-03 five, and two of
+S1-03's findings were only reachable once an earlier fix had changed the shape
+of the code. But the returns fall off, and a fourth round on a P2 that is really
+a preference costs more attention than it buys.
+
+So: run at most **three** rounds of P2-and-below. If round three still comes back
+with P2s, write them up in the PR comment — what was found, why it was not done
+now, whether it belongs on a later ticket — and hand over. The exception is
+severity: **a P0 or P1 in any round restarts the obligation**, and rounds keep
+going until no P0 or P1 comes back. Ending on unaddressed P2s is a decision to
+state out loud, not a thing to do quietly.
+
+**Push every round before the founder merges.** A fix that is committed locally
+and not pushed is a fix that is not in the PR: S1-05 was merged at its first
+commit while four rounds of review fixes — the P1 included — sat on the branch
+behind it, and they needed a second PR to land. `git push` after each round, and
+check `gh pr view <n> --json headRefOid` against `git rev-parse HEAD` before
+saying a PR is ready.
 
 **Verify before you fix.** Reproduce the finding against the built package —
 `pnpm run build` then a `node -e` import of `packages/domain/dist/…` — and keep
@@ -147,7 +169,8 @@ tickets from step 10 and correct them. Three notes on SUS-31, SUS-42 and SUS-49
 told later tickets to use a `TransitionError.message` that review then removed.
 
 **Then reply on the PR** with what was found, what changed, what you pushed back
-on, and the reproduction output. `gh pr comment <n> --body "$(cat <<'BODY' … )"`.
+on, any P2 left open at round three and why, and the reproduction output.
+`gh pr comment <n> --body "$(cat <<'BODY' … )"`.
 
 Two shapes account for most findings so far, and are worth looking for before
 the reviewer does:
