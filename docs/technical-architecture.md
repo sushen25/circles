@@ -456,7 +456,7 @@ ready ─(response change)──▶ collecting ─ recalculate ──┘
 - `private`, `jobs`, `analytics`: no grants to `anon`/`authenticated`; reachable only through definer functions with `set search_path = ''` and the service role in Edge Functions.
 - Quiet interest before threshold is never joined into any public view; after threshold, a view `plan_interest_counts` exposes counts only.
 
-### 8.5 Retention jobs (pg_cron, daily)
+### 8.5 Retention jobs (pg_cron, daily, in the database — ADR 0014)
 
 | Data | Rule |
 |---|---|
@@ -495,7 +495,7 @@ ready ─(response change)──▶ collecting ─ recalculate ──┘
 | `generate-ics` | member | Standards-compliant `.ics` for a confirmation; no tokens in the file |
 | `record-nudge` | member | Apply nudge caps, record shown/answered |
 | `track-events` | any | Validate against the catalogue, strip anything not in the schema, insert |
-| `process-scheduled-jobs` | cron (service role) | Drain outbox → create notification jobs; send due jobs; expire quiet asks and plans; deadline reminders; cadence prompts; outcome prompts; retention; retries with capped backoff |
+| `process-scheduled-jobs` | cron (service role) | Drain outbox → create notification jobs; send due jobs; expire quiet asks and plans; deadline reminders; cadence prompts; outcome prompts; retries with capped backoff. Not retention — that is `jobs.run_retention()` in the database ([ADR 0014](decisions/0014-retention-runs-in-the-database.md)) |
 | `delete-account` | permanent | Revoke sessions, anonymise, enqueue purge |
 
 Every function: Zod-validated input, `X-Request-Id` echoed as the user-visible reference on errors ("Ref 7F3K-2Q"), structured JSON logs without PII, idempotent on a client-supplied `Idempotency-Key` for mutations.
@@ -506,7 +506,7 @@ Clients read through `supabase-js` with RLS: circles I belong to, active members
 
 ### 9.3 Scheduled work
 
-`pg_cron` runs `process-scheduled-jobs` every minute via `pg_net` (`jobs.invoke_process_scheduled_jobs()`, a no-op until `circles.functions_url` and `circles.cron_secret` are set on the database — see the environments runbook) with a job lease (`jobs.acquire_lease` on `jobs.cron_leases`) so overlapping invocations are no-ops. Retention (§8.5) runs daily at 03:15 as `jobs.run_retention()`, in the database as the owner. Work is discovered from data (`scheduled_for <= now()`, `quiet_expires_at <= now()`, `response_deadline <= now()`, cadence due dates), never from in-memory timers.
+`pg_cron` runs `process-scheduled-jobs` every minute via `pg_net` (`jobs.invoke_process_scheduled_jobs()`, a no-op until `circles.functions_url` and `circles.cron_secret` are set on the database — see the environments runbook) with a job lease (`jobs.acquire_lease` on `jobs.cron_leases`) so overlapping invocations are no-ops. Retention (§8.5) runs daily at 03:15 as `jobs.run_retention()`, in the database as the owner ([ADR 0014](decisions/0014-retention-runs-in-the-database.md)). Work is discovered from data (`scheduled_for <= now()`, `quiet_expires_at <= now()`, `response_deadline <= now()`, cadence due dates), never from in-memory timers.
 
 ### 9.4 The one server route in the app
 

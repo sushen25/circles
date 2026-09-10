@@ -17,6 +17,7 @@ Short records of decisions that shape the product or the code. A new ADR is requ
 | [0011](./0011-near-misses-need-someone.md) | A near-miss needs someone, unless nobody is anywhere | accepted |
 | [0012](./0012-circle-member-cap-of-twenty.md) | A circle holds up to twenty active members | accepted |
 | [0013](./0013-availability-written-only-through-replace-response.md) | A member's availability is written only through `replace_response` | accepted |
+| [0014](./0014-retention-runs-in-the-database.md) | Retention runs in the database from pg_cron, not in the dispatcher | accepted |
 
 ## Template
 

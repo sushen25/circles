@@ -124,10 +124,12 @@ select pg_temp.seed_user('00000000-0000-4000-8000-000000000105', 'Sam');
 select pg_temp.seed_user('00000000-0000-4000-8000-000000000106', 'Alex', true);
 select pg_temp.seed_user('00000000-0000-4000-8000-000000000107', 'Nic');
 
--- Dates: the plan window is next week, Monday to Sunday.
+-- Dates: the plan window is the coming week, Monday to Sunday — reset on a
+-- Thursday 10 September and the Sunday Crew's Thursday is the 17th, the
+-- scenario's own date (AGENTS.md). On a Monday, next Monday, not today.
 create temporary table dates on commit drop as
 select
-  (current_date + ((8 - extract(isodow from current_date)::integer) % 7) + 7)::date as next_monday;
+  (current_date + case extract(isodow from current_date)::integer when 1 then 7 else (8 - extract(isodow from current_date)::integer) % 7 end)::date as next_monday;
 grant select on dates to authenticated;
 
 -- ---------------------------------------------------------------------------
@@ -286,14 +288,24 @@ select planning.transition_plan('00000000-0000-4000-8000-000000000b02', 'confirm
     'chased_answer', 'none'
   ));
 
--- Five weeks ago, now. The deadline trigger still holds (it compares the
--- deadline with the window, and both move together).
+-- Five weeks ago, now — the plan, the answers, the candidate and the
+-- confirmation together, so the record is one the writers could have made.
+-- The deadline trigger still holds (it compares the deadline with the
+-- window, and both move together).
 update public.plans
 set window_start = window_start - 35, window_end = window_end - 35,
     response_deadline = response_deadline - interval '35 days'
 where id = '00000000-0000-4000-8000-000000000b02';
-update public.meetup_confirmations
+update public.willing_windows w
+set starts_at = w.starts_at - interval '35 days', ends_at = w.ends_at - interval '35 days'
+from public.plan_responses r
+where w.response_id = r.id and r.plan_id = '00000000-0000-4000-8000-000000000b02';
+update public.candidates
 set starts_at = starts_at - interval '35 days', ends_at = ends_at - interval '35 days'
+where candidate_set_id = '00000000-0000-4000-8000-000000000c02';
+update public.meetup_confirmations
+set starts_at = starts_at - interval '35 days', ends_at = ends_at - interval '35 days',
+    candidate_id = (starts_at - interval '35 days')::text
 where plan_id = '00000000-0000-4000-8000-000000000b02';
 
 -- The morning after: Priya was there, Tom was not; Nic says it happened.
