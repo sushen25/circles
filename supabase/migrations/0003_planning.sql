@@ -48,7 +48,7 @@ comment on table planning.transitions is
 insert into planning.transitions (from_state, action, to_state, guards, bumps_revision) values
   ('draft', 'create_named', 'collecting', array['member','permanent'], false),
   ('draft', 'create_quiet', 'seeking', array['member','permanent'], false),
-  ('seeking', 'threshold_reached', 'collecting', array[]::text[], false),
+  ('seeking', 'threshold_reached', 'collecting', array['threshold'], false),
   ('seeking', 'expire', 'expired', array[]::text[], false),
   ('collecting', 'accept_organiser', 'collecting', array['member','permanent','no_organiser_yet','keen_initiator_or_owner'], false),
   ('ready', 'accept_organiser', 'ready', array['member','permanent','no_organiser_yet','keen_initiator_or_owner'], false),
@@ -387,6 +387,23 @@ create trigger plans_state_guard
 -- payload, and returns the new row.
 -- ---------------------------------------------------------------------------
 
+-- The payload keys an action may carry. Anything else is refused, not ignored.
+create or replace function planning.allowed_keys(action text)
+returns text[]
+language sql
+immutable
+as $$
+  select case
+    when action in ('edit', 'reopen') then array[
+      'window_start', 'window_end', 'daily_start_local', 'daily_end_local',
+      'duration_minutes', 'quorum', 'response_deadline'
+    ]
+    when action = 'cancel' then array['cancel_note']
+    when action = 'confirm' then array['candidate_id']
+    else array[]::text[]
+  end;
+$$;
+
 create or replace function planning.transition_plan(
   p_plan_id uuid,
   p_action text,
@@ -487,6 +504,16 @@ begin
         ) then
           raise exception 'not_keen_initiator_or_owner' using errcode = 'P0001';
         end if;
+      when 'threshold' then
+        -- Counted here, under the row lock this function already holds, so the
+        -- count and the transition are one transaction: two answers arriving
+        -- together cannot both see the threshold met and both cross it.
+        if plan.quiet_threshold is null or (
+          select count(*) from private.plan_interest i
+          where i.plan_id = plan.id and i.response = 'keen'
+        ) < plan.quiet_threshold then
+          raise exception 'threshold_not_reached' using errcode = 'P0001';
+        end if;
       when 'candidate' then
         -- Presence, not eligibility — and presence is not the property this
         -- guard claims. The domain requires the id to be in the *current*
@@ -506,6 +533,19 @@ begin
     end case;
   end loop;
 
+  -- What the payload may carry depends on the action. The question — window,
+  -- band, duration, quorum, deadline — changes only through an `edit` or a
+  -- `reopen`, because changing it is what a new revision *means*: a `confirm`
+  -- carrying a lower `quorum` would confirm against responses collected for the
+  -- old one, with nothing bumped and nobody re-asked. Anything the action does
+  -- not expect is refused rather than ignored, so a caller finds out.
+  if exists (
+    select 1 from jsonb_object_keys(p_payload) k
+    where k <> all (planning.allowed_keys(p_action))
+  ) then
+    raise exception 'unexpected_payload' using errcode = 'P0001';
+  end if;
+
   next_revision := plan.revision + (case when rule.bumps_revision then 1 else 0 end);
 
   -- The one transition that appoints an organiser. Every other one leaves the
@@ -521,6 +561,8 @@ begin
       when p_action = 'accept_organiser' then p_actor
       else p.organiser_user_id
     end,
+    -- `allowed_keys` has already refused these on any other action, so the
+    -- coalesces only ever see a value on an edit or a reopen.
     window_start = coalesce((p_payload ->> 'window_start')::date, p.window_start),
     window_end = coalesce((p_payload ->> 'window_end')::date, p.window_end),
     daily_start_local = coalesce((p_payload ->> 'daily_start_local')::integer, p.daily_start_local),
@@ -548,6 +590,8 @@ $$;
 comment on function planning.transition_plan(uuid, text, uuid, jsonb) is
   'The only writer of plans.state (architecture §8.3). Evaluates planning.transitions, which is generated from the domain state machine.';
 
+revoke all on function planning.allowed_keys(text) from public;
+revoke all on function planning.allowed_keys(text) from anon, authenticated;
 revoke all on function planning.transition_plan(uuid, text, uuid, jsonb) from public;
 revoke all on function planning.transition_plan(uuid, text, uuid, jsonb) from anon, authenticated;
 

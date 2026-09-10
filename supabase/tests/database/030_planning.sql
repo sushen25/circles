@@ -8,7 +8,7 @@
 -- either, so most of this file is about trying to write it some other way.
 
 begin;
-select plan(71);
+select plan(77);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid
@@ -512,15 +512,70 @@ select is(
   'a seeking plan has no count at all — before threshold, a count that moves names the person who moved it'
 );
 
+-- Two keen answers against a threshold of three. The first version of this
+-- test transitioned anyway and asserted the count of two — it had encoded the
+-- bug: a guardless row that any caller could fire, publishing a below-threshold
+-- count the moment somebody did.
 select pg_temp.act_as_postgres();
+select throws_ok(
+  format($$select planning.transition_plan('%s', 'threshold_reached', '%s')$$,
+    :'plan_seeking', '00000000-0000-0000-0000-0000000001a1'),
+  'P0001',
+  'threshold_not_reached',
+  'the threshold transition refuses to fire below the threshold'
+);
+select pg_temp.act_as('00000000-0000-0000-0000-0000000001a2');
+select is(
+  (select count(*)::integer from public.plan_interest_counts where plan_id = :'plan_seeking'),
+  0,
+  'and so the count stays hidden'
+);
+
+select pg_temp.act_as_postgres();
+insert into private.plan_interest (plan_id, user_id, response)
+values (:'plan_seeking', '00000000-0000-0000-0000-0000000001a3', 'keen');
 select planning.transition_plan(:'plan_seeking', 'threshold_reached',
   '00000000-0000-0000-0000-0000000001a1');
 
 select pg_temp.act_as('00000000-0000-0000-0000-0000000001a2');
 select is(
   (select keen_count from public.plan_interest_counts where plan_id = :'plan_seeking'),
-  2,
-  'and a count once it has passed'
+  3,
+  'and a count once it has genuinely passed'
+);
+
+-- ---------------------------------------------------------------------------
+-- The payload can only say what the action is about.
+-- ---------------------------------------------------------------------------
+
+select pg_temp.act_as_postgres();
+select pg_temp.make_plan('pnuuuu', 'ready') as plan_pay \gset
+select throws_ok(
+  format(
+    $$select planning.transition_plan('%s', 'confirm', '%s',
+      '{"candidate_id":"x","quorum":2}'::jsonb)$$,
+    :'plan_pay', '00000000-0000-0000-0000-0000000001a1'
+  ),
+  'P0001',
+  'unexpected_payload',
+  'a confirm cannot smuggle a quorum change past the revision it would need'
+);
+select is(
+  (select quorum from public.plans where id = :'plan_pay'),
+  4,
+  'and the quorum is untouched — refused, not silently ignored'
+);
+select throws_ok(
+  format($$select planning.transition_plan('%s', 'cancel', '%s', '{"window_end":"2026-09-15"}'::jsonb)$$,
+    :'plan_pay', '00000000-0000-0000-0000-0000000001a1'),
+  'P0001',
+  'unexpected_payload',
+  'nor can a cancel move the window'
+);
+select lives_ok(
+  format($$select planning.transition_plan('%s', 'cancel', '%s', '{"cancel_note":"Rain"}'::jsonb)$$,
+    :'plan_pay', '00000000-0000-0000-0000-0000000001a1'),
+  'while a cancel note is exactly what a cancel carries'
 );
 
 select pg_temp.act_as('00000000-0000-0000-0000-0000000001a3');

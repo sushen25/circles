@@ -120,6 +120,25 @@ describe("the quiet ask's two guards", () => {
     if (!isOk(refused)) expect(refused.error.code).toBe('not_a_member');
   });
 
+  it('crosses the threshold only when the count says so', () => {
+    // The row was guardless — "enforcing once is the database's job" — and a
+    // guardless row is one any caller can fire, which published a below-threshold
+    // count the moment somebody did.
+    const seeking = plan({ state: 'seeking', mode: 'quiet', quietThreshold: 3 });
+    const short = canTransition(seeking, 'threshold_reached', { actor: MEMBER, keenCount: 2 });
+    expect(isOk(short)).toBe(false);
+    if (!isOk(short)) expect(short.error.code).toBe('threshold_not_reached');
+
+    expect(isOk(canTransition(seeking, 'threshold_reached', { actor: MEMBER, keenCount: 3 }))).toBe(
+      true,
+    );
+  });
+
+  it('fails closed when the count is unknown', () => {
+    const seeking = plan({ state: 'seeking', mode: 'quiet', quietThreshold: 3 });
+    expect(isOk(canTransition(seeking, 'threshold_reached', { actor: MEMBER }))).toBe(false);
+  });
+
   it('still requires a saved place, however keen somebody is', () => {
     const collecting = plan({ state: 'collecting', mode: 'quiet', organiserUserId: undefined });
     const keenGuest: Actor = { ...GUEST, isKeen: true };
@@ -139,11 +158,15 @@ describe('every row is reachable and every non-row is refused', () => {
         // `accept_organiser` requires the seat to be empty; every other row is
         // happy with an organiser in place.
         organiserUserId: action === 'accept_organiser' ? undefined : userId('user-owner'),
+        // `threshold_reached` needs a threshold to have been reached.
+        mode: from === 'seeking' ? 'quiet' : 'named',
+        quietThreshold: from === 'seeking' ? 3 : undefined,
       });
       const result = canTransition(before, action, {
         actor: ORGANISER,
         candidateId: 'cand-1',
         eligibleCandidateIds: ['cand-1'],
+        keenCount: 99,
       });
 
       expect(isOk(result), `${from} + ${action} was refused`).toBe(true);

@@ -51,6 +51,7 @@ export type TransitionErrorCode =
   | 'needs_permanent_identity'
   | 'already_has_organiser'
   | 'needs_candidate'
+  | 'threshold_not_reached'
   | 'plan_is_finished';
 
 /**
@@ -85,6 +86,14 @@ export type TransitionContext = {
    * make is worse than a refusal the organiser can retry.
    */
   readonly eligibleCandidateIds?: readonly string[] | undefined;
+  /**
+   * Required by `threshold_reached`: how many members have answered a quiet
+   * ask with interest. Counted by the caller under the plan's row lock — the
+   * count and the transition have to be one transaction, or two answers
+   * arriving together both see the threshold met and both try to cross it.
+   * Absent means "unknown", and unknown fails closed.
+   */
+  readonly keenCount?: number | undefined;
 };
 
 type Guard =
@@ -94,7 +103,8 @@ type Guard =
   | 'no_organiser_yet'
   | 'candidate'
   | 'initiator'
-  | 'keen_initiator_or_owner';
+  | 'keen_initiator_or_owner'
+  | 'threshold';
 
 export type Transition = {
   readonly from: PlanState;
@@ -117,8 +127,11 @@ export const TRANSITIONS: readonly Transition[] = [
   { from: 'draft', action: 'create_quiet', to: 'seeking', guards: ['member', 'permanent'] },
 
   // Quiet ask. The threshold transition is atomic and happens once (§6.2);
-  // enforcing "once" is the database's job, not this table's.
-  { from: 'seeking', action: 'threshold_reached', to: 'collecting', guards: [] },
+  // enforcing "once" is the row lock's job. Enforcing *the threshold itself* is
+  // this table's — it was guardless, and a guardless row is a row any caller
+  // can fire, which published a below-threshold interest count the moment
+  // somebody did.
+  { from: 'seeking', action: 'threshold_reached', to: 'collecting', guards: ['threshold'] },
   { from: 'seeking', action: 'expire', to: 'expired', guards: [] },
   // The role is offered **at** the threshold, not before it: the ThresholdRole
   // screen opens with "Enough people are keen." Offering it during `seeking`
@@ -187,6 +200,7 @@ const GUARD_ERRORS: Record<Guard, TransitionErrorCode> = {
   candidate: 'needs_candidate',
   initiator: 'not_the_initiator',
   keen_initiator_or_owner: 'not_keen_initiator_or_owner',
+  threshold: 'threshold_not_reached',
 };
 
 function fails(guard: Guard, context: TransitionContext): boolean {
@@ -199,7 +213,8 @@ function fails(guard: Guard, context: TransitionContext): boolean {
     case 'permanent':
       return !actor.isPermanent;
     case 'no_organiser_yet':
-      return false; // depends on the plan, checked in canTransition
+    case 'threshold':
+      return false; // both depend on the plan, checked in canTransition
     case 'initiator':
       return actor.isInitiator !== true;
     case 'keen_initiator_or_owner':
@@ -248,6 +263,16 @@ export function canTransition(
   for (const guard of transition.guards) {
     if (guard === 'no_organiser_yet') {
       if (plan.organiserUserId !== undefined) return fail('already_has_organiser');
+      continue;
+    }
+    if (guard === 'threshold') {
+      // Fails closed on an unknown count, and on a plan with no threshold —
+      // which the database refuses to store, but the domain should not rely on
+      // that to be safe.
+      const threshold = plan.quietThreshold;
+      if (threshold === undefined || (context.keenCount ?? 0) < threshold) {
+        return fail('threshold_not_reached');
+      }
       continue;
     }
     if (fails(guard, context)) return fail(GUARD_ERRORS[guard]);
