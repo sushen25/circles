@@ -52,7 +52,7 @@ select has_function(
 select is(
   public.auth_is_member('00000000-0000-0000-0000-000000000000'::uuid),
   false,
-  'auth_is_member fails closed until S1-07 gives it a body'
+  'auth_is_member says no for a circle that does not exist'
 );
 
 select * from finish();
