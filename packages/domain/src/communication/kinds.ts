@@ -29,6 +29,7 @@ export type NotificationKind =
   | 'reminder'
   | 'did_it_happen'
   | 'about_time'
+  | 'did_it_happen_participant'
   | 'verify_email';
 
 /**
@@ -46,6 +47,7 @@ export type Audience =
   | 'non_responders'
   | 'organiser'
   | 'going_members'
+  | 'subscribed_members'
   | 'nudge_recipient'
   | 'the_address';
 
@@ -199,6 +201,20 @@ export const NOTIFICATION_KINDS: readonly NotificationSpec[] = [
     audience: 'nudge_recipient',
     channels: ['push', 'email'],
     copyKey: 'push.about_time',
+    respectsQuietHours: true,
+  },
+  {
+    // The participant's half of "did it happen". §5.8 lists it among the five
+    // plan-update emails a verified subscriber receives — they are the ones who
+    // can say whether they were there — while the Pushes artboard's row is the
+    // organiser's. Two kinds rather than one with two audiences: the push
+    // version must never reach a subscriber, and a channel-dependent audience
+    // is a rule you cannot read off the table.
+    kind: 'did_it_happen_participant',
+    emailNeedsSubscription: true,
+    audience: 'subscribed_members',
+    channels: ['email'],
+    copyKey: 'email.did_it_happen',
     respectsQuietHours: true,
   },
   {

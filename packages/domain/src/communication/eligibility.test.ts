@@ -277,6 +277,47 @@ describe('another circle', () => {
   });
 });
 
+describe('a removed member', () => {
+  it('is not offered the organiser role, even as the quiet initiator', () => {
+    // `quiet_initiator` names one person rather than filtering a list, so it is
+    // the audience that would otherwise skip every check the others get free.
+    const members = sundayCrewMembers({ [PRIYA]: { status: 'removed' } });
+    const context = eligibilityContext({ members, quietInitiatorId: PRIYA });
+    expect(ids('threshold_initiator', context)).toEqual([]);
+  });
+
+  it("cannot have their mute settings read off another circle's row", () => {
+    // A map keyed on `userId` alone lets the second row win. If that row is
+    // from another circle, the flags come from the wrong membership.
+    const elsewhere = member({ circleId: circleId('circle-2'), userId: TOM, mutedAll: false });
+    const members = [...sundayCrewMembers({ [TOM]: { mutedAll: true } }), elsewhere];
+    expect(ids('locked_in', eligibilityContext({ members, actorId: SAM }))).not.toContain(TOM);
+  });
+});
+
+describe('the participant half of "did it happen"', () => {
+  it('goes to the verified subscribers, by email, and never by push', () => {
+    // §5.8 lists it among the five plan-update emails: a subscriber is the one
+    // person who can say whether they were actually there.
+    const context = eligibilityContext({
+      hasPlanEmailSubscription: (id) => id === PRIYA || id === TOM,
+    });
+    expect(recipientsFor('did_it_happen_participant', context)).toEqual([
+      { userId: PRIYA, channel: 'email' },
+      { userId: TOM, channel: 'email' },
+    ]);
+  });
+
+  it('reaches nobody who did not ask for it', () => {
+    expect(recipientsFor('did_it_happen_participant', eligibilityContext())).toEqual([]);
+  });
+
+  it("leaves the organiser's own version alone", () => {
+    const context = eligibilityContext({ hasPlanEmailSubscription: (id) => id === PRIYA });
+    expect(ids('did_it_happen', context)).toEqual([SAM]);
+  });
+});
+
 describe('email consent', () => {
   const noPush = { hasPushDevice: NOBODY_HAS_PUSH };
 

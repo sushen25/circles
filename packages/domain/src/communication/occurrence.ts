@@ -28,6 +28,11 @@ export type OccurrenceInput = {
   /** For `about_time`: the local date the circle became due. */
   readonly dueDate?: LocalDate | undefined;
   /**
+   * For `changed`: which material change this is. The domain event's id does
+   * the job — one event, one message.
+   */
+  readonly changeId?: string | undefined;
+  /**
    * For `verify_email`: the verification request. A resend invalidates the
    * previous token (spec §5.8) and is a new email, not a duplicate of the old.
    */
@@ -51,9 +56,16 @@ export function occurrenceFor(kind: NotificationKind, input: OccurrenceInput = {
     case 'threshold_keen':
     case 'options_ready':
     case 'replies_closed':
-    case 'changed':
     case 'cancelled':
       return ONCE;
+
+    // *Not* once per revision. A reschedule bumps the revision, but a place
+    // correction on a live confirmation does not — and §5.8 promises
+    // subscribers every material change of time or place. Two changes in one
+    // revision sharing an occurrence means the second one is dropped by the
+    // unique index and nobody is told the venue moved.
+    case 'changed':
+      return required(input.changeId, kind, 'the change id');
 
     // Also one per revision — and the cross-revision half of "at most one per
     // member per plan" is an audience rule, not a key: an edit bumps the
@@ -68,6 +80,7 @@ export function occurrenceFor(kind: NotificationKind, input: OccurrenceInput = {
     case 'locked_in':
     case 'reminder':
     case 'did_it_happen':
+    case 'did_it_happen_participant':
       return required(input.confirmationId, kind, 'a confirmation id');
 
     // Recurs for the life of the circle, with no plan to hang from. The due

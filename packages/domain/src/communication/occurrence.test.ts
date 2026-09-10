@@ -17,15 +17,29 @@ describe('occurrenceFor', () => {
       'threshold_keen',
       'deadline_approaching',
       'options_ready',
-      'changed',
+      'replies_closed',
       'cancelled',
     ] as const) {
       expect(occurrenceFor(kind)).toBe(ONCE);
     }
   });
 
+  it('gives each material change its own occurrence, not one per revision', () => {
+    // A reschedule bumps the revision; a place correction on a live
+    // confirmation does not. Sharing an occurrence means the unique index drops
+    // the second message and nobody is told the venue moved.
+    expect(occurrenceFor('changed', { changeId: 'event-1' })).toBe('event-1');
+    expect(occurrenceFor('changed', { changeId: 'event-2' })).not.toBe('event-1');
+    expect(() => occurrenceFor('changed')).toThrow(RangeError);
+  });
+
   it('ties the confirmation kinds to the confirmation', () => {
-    for (const kind of ['locked_in', 'reminder', 'did_it_happen'] as const) {
+    for (const kind of [
+      'locked_in',
+      'reminder',
+      'did_it_happen',
+      'did_it_happen_participant',
+    ] as const) {
       expect(occurrenceFor(kind, { confirmationId: A_CONFIRMATION })).toBe(A_CONFIRMATION);
     }
   });
@@ -65,6 +79,7 @@ describe('occurrenceFor', () => {
       confirmationId: A_CONFIRMATION,
       dueDate: A_DUE_DATE,
       verificationId: 'v1',
+      changeId: 'event-1',
     };
     for (const spec of NOTIFICATION_KINDS) {
       expect(occurrenceFor(spec.kind as NotificationKind, input).length).toBeGreaterThan(0);

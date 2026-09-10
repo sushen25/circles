@@ -33,6 +33,7 @@ describe('the kind table', () => {
       ...ARTBOARD.slice(0, 6),
       'replies_closed',
       ...ARTBOARD.slice(6),
+      'did_it_happen_participant',
       'verify_email',
     ]);
   });
@@ -90,6 +91,12 @@ describe('the kind table', () => {
       if (spec.kind === 'verify_email') continue;
       expect(spec.emailNeedsSubscription).toBe(true);
     }
+  });
+
+  it('never pushes the participant half of "did it happen"', () => {
+    // The Pushes artboard's row is the organiser's. A subscriber's copy is an
+    // email, and a channel list of one is how that stays true.
+    expect(notificationSpec('did_it_happen_participant').channels).toEqual(['email']);
   });
 
   it('never asks the verification email for the consent it is asking for', () => {

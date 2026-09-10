@@ -145,8 +145,14 @@ function audienceFor(kind: NotificationKind, context: EligibilityContext): reado
     case 'members_except_initiator':
       return ids.filter((id) => id !== context.quietInitiatorId);
 
-    case 'quiet_initiator':
-      return context.quietInitiatorId === undefined ? [] : [context.quietInitiatorId];
+    case 'quiet_initiator': {
+      // Through `ids`, so an initiator who has since left the circle is not
+      // offered the organiser role — this audience is the one that names a
+      // single person rather than filtering a list, and it would otherwise skip
+      // every check the others get for free.
+      const initiator = context.quietInitiatorId;
+      return initiator !== undefined && ids.includes(initiator) ? [initiator] : [];
+    }
 
     case 'keen_members':
       return ids.filter((id) => context.keenMemberIds?.includes(id) === true);
@@ -161,6 +167,12 @@ function audienceFor(kind: NotificationKind, context: EligibilityContext): reado
       const organiser = context.plan.organiserUserId;
       return organiser === undefined || !ids.includes(organiser) ? [] : [organiser];
     }
+
+    case 'subscribed_members':
+      // Everyone who asked, in writing, to hear about this plan by email. The
+      // subscription is the audience here rather than a channel gate, because
+      // the push version of this message goes to the organiser alone.
+      return ids.filter((id) => context.hasPlanEmailSubscription?.(id) === true);
 
     case 'going_members': {
       const going = new Set(
@@ -237,7 +249,10 @@ export function recipientsFor(
   kind: NotificationKind,
   context: EligibilityContext,
 ): readonly Recipient[] {
-  const byId = new Map(context.members.map((m) => [m.userId, m] as const));
+  // Built from the reachable members, not from `context.members`: a map keyed
+  // on `userId` alone lets another circle's row overwrite this one's, and the
+  // mute flags then come from the wrong membership.
+  const byId = new Map(reachableMembers(context).map((m) => [m.userId, m] as const));
 
   return audienceFor(kind, context)
     .filter((userId) => userId !== context.actorId)
