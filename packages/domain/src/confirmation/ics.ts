@@ -160,13 +160,34 @@ export function icsFor(input: IcsInput): string {
       ? []
       : [property('LOCATION', escapeText(confirmation.placeName))]),
     ...(body === undefined ? [] : [property('DESCRIPTION', escapeText(body))]),
-    property('STATUS', confirmation.status === 'cancelled' ? 'CANCELLED' : 'CONFIRMED'),
+    property('STATUS', icsStatus(confirmation.status)),
     'END:VEVENT',
     'END:VCALENDAR',
   ];
 
   // A trailing CRLF: the last line needs its terminator like any other.
   return `${lines.join(CRLF)}${CRLF}`;
+}
+
+/**
+ * `STATUS` for a confirmation's own status.
+ *
+ * A **superseded** confirmation is cancelled as far as a calendar is concerned:
+ * "Thursday is off the table" (spec §5.7), and a file exported for the old time
+ * after a reschedule would otherwise import as a live event. Written as an
+ * exhaustive map rather than "cancelled or else confirmed", so a fifth status
+ * cannot arrive and quietly default to live. A **completed** meetup happened,
+ * so it stays on the calendar as what it was.
+ */
+export function icsStatus(status: Confirmation['status']): 'CONFIRMED' | 'CANCELLED' {
+  switch (status) {
+    case 'active':
+    case 'completed':
+      return 'CONFIRMED';
+    case 'superseded':
+    case 'cancelled':
+      return 'CANCELLED';
+  }
 }
 
 /** The filename to offer the download as. ASCII only, for old browsers. */

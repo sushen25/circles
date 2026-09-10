@@ -141,6 +141,13 @@ describe('applyAttendance', () => {
     expect(result.ok && result.value).toEqual({ ...attendance, status: 'cant', updatedAt: now });
   });
 
+  it('is idempotent: the same choice twice is not a fresh answer', () => {
+    // The confirmed screen orders by `updatedAt`. Restamping a repeat tap would
+    // have it announce a change of mind nobody made.
+    const again = applyAttendance(attendance, 'going', fromISO('2026-09-16T02:00:00Z'));
+    expect(again.ok && again.value).toBe(attendance);
+  });
+
   it('passes a refusal through untouched, leaving the row alone', () => {
     const result = applyAttendance(
       { ...attendance, status: 'was_there' },

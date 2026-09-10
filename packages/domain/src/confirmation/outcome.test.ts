@@ -87,6 +87,25 @@ describe('reportOutcome', () => {
     expect(report({ note: 'x'.repeat(NOTE_MAX_LENGTH) }).ok).toBe(true);
   });
 
+  it('refuses to be answered before the meetup has finished', () => {
+    // Asked at 7 pm on the Thursday, "did it happen?" has no answer — and
+    // `happened` would set the circle's `lastMetAt` to an hour that has not
+    // arrived yet.
+    const duringIt = report({ now: fromISO('2026-09-17T09:00:00Z') });
+    expect(!duringIt.ok && duringIt.error.code).toBe('outcome_too_early');
+    // The instant it ends is early enough.
+    expect(report({ now: confirmation().candidate.end }).ok).toBe(true);
+  });
+
+  it('refuses a confirmation from a revision the plan has moved past', () => {
+    const reopened = sundayCrewPlan({ state: 'confirmed', revision: 2 });
+    const result = report({
+      plan: reopened,
+      confirmation: confirmation({ planId: reopened.id, revision: 1 }),
+    });
+    expect(!result.ok && result.error.code).toBe('stale_confirmation');
+  });
+
   it('refuses a plan that was never confirmed', () => {
     const result = report({ plan: sundayCrewPlan({ state: 'ready' }) });
     expect(!result.ok && result.error.code).toBe('wrong_state');

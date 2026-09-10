@@ -117,12 +117,22 @@ export function updateAttendance(
   return ok(choice);
 }
 
-/** The same move, applied to a stored row. */
+/**
+ * The same move, applied to a stored row — and idempotent, as every transition
+ * has to be (architecture §7.6).
+ *
+ * A repeat of the choice already recorded returns the row untouched rather than
+ * restamping it. Two taps on the same button, or a retried request, would
+ * otherwise look like a fresh answer: the confirmed screen orders by
+ * `updatedAt`, and "Priya just changed her mind" is a thing it would then say
+ * about somebody who did not.
+ */
 export function applyAttendance(
   attendance: Attendance,
   choice: AttendanceChoice,
   now: Instant,
 ): Result<AttendanceError, Attendance> {
+  if (attendance.status === choice) return ok(attendance);
   const next = updateAttendance(attendance.status, choice);
   return next.ok ? ok({ ...attendance, status: next.value, updatedAt: now }) : next;
 }

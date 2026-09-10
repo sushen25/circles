@@ -107,11 +107,15 @@ describe('icsFor', () => {
     expect(text).not.toContain('LOCATION');
   });
 
-  it('marks a cancelled confirmation as cancelled, so the calendar entry greys out', () => {
-    expect(build({ confirmation: confirmation({ status: 'cancelled' }) })).toContain(
-      'STATUS:CANCELLED',
-    );
-    expect(build()).toContain('STATUS:CONFIRMED');
+  it('marks a cancelled or superseded confirmation as cancelled', () => {
+    // "Thursday is off the table" has to be true of a file exported after the
+    // reschedule too, or the old time imports as a live event.
+    for (const status of ['cancelled', 'superseded'] as const) {
+      expect(build({ confirmation: confirmation({ status }) })).toContain('STATUS:CANCELLED');
+    }
+    for (const status of ['active', 'completed'] as const) {
+      expect(build({ confirmation: confirmation({ status }) })).toContain('STATUS:CONFIRMED');
+    }
   });
 
   it('is the same file twice for the same confirmation', () => {
