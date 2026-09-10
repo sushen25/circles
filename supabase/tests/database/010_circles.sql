@@ -891,9 +891,11 @@ select is(
      -- `canonical_display_name` is here because a check constraint is evaluated
      -- as the caller: without it a member cannot update their own row at all.
      -- It reads no data.
+     -- `replace_response` (S1-09) is the availability write path, and the
+     -- only one: a member's answer goes through it or not at all (ADR 0013).
      and p.proname not in (
        'auth_is_member', 'auth_is_owner', 'auth_is_permanent', 'create_circle',
-       'canonical_display_name'
+       'canonical_display_name', 'replace_response'
      )),
   '',
   'only the intended functions in public are callable by authenticated'

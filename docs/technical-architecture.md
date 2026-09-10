@@ -443,7 +443,7 @@ ready ─(response change)──▶ collecting ─ recalculate ──┘
 ### 8.4 Row-level security strategy
 
 - `public` tables: RLS on; default deny; one policy per operation; `select` policies use `exists (select 1 from circle_members m where m.circle_id = … and m.user_id = auth.uid() and m.status = 'active')`, wrapped in a stable helper `auth_is_member(circle_id)` for performance.
-- Writes: members may `insert/update` only their own `plan_responses`, `willing_windows`, `attendance`, `nudge_states`, `profiles`. All other writes go through functions.
+- Writes: members write their own `plan_responses` and `willing_windows` only through `replace_response`, which replaces an answer and its windows in one transaction ([ADR 0013](decisions/0013-availability-written-only-through-replace-response.md)); they may `insert/update` only their own `attendance`, `nudge_states` and permitted `profiles` columns directly. All other writes go through functions.
 - Anonymous identities (`auth.jwt() ->> 'is_anonymous' = 'true'`) are restricted with **restrictive** policies from creating plans or circles (the organiser gate).
 - `private`, `jobs`, `analytics`: no grants to `anon`/`authenticated`; reachable only through definer functions with `set search_path = ''` and the service role in Edge Functions.
 - Quiet interest before threshold is never joined into any public view; after threshold, a view `plan_interest_counts` exposes counts only.

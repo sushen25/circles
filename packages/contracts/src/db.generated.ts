@@ -9,6 +9,116 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      candidate_sets: {
+        Row: {
+          active_member_count: number
+          eligible_count: number
+          generated_at: string
+          id: string
+          input_hash: string
+          input_version: number
+          plan_id: string
+          responded_count: number
+          revision: number
+          scoring_version: number
+          starts_considered: number
+        }
+        Insert: {
+          active_member_count: number
+          eligible_count: number
+          generated_at?: string
+          id?: string
+          input_hash: string
+          input_version: number
+          plan_id: string
+          responded_count: number
+          revision: number
+          scoring_version: number
+          starts_considered: number
+        }
+        Update: {
+          active_member_count?: number
+          eligible_count?: number
+          generated_at?: string
+          id?: string
+          input_hash?: string
+          input_version?: number
+          plan_id?: string
+          responded_count?: number
+          revision?: number
+          scoring_version?: number
+          starts_considered?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "candidate_sets_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plan_interest_counts"
+            referencedColumns: ["plan_id"]
+          },
+          {
+            foreignKeyName: "candidate_sets_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      candidates: {
+        Row: {
+          available_user_ids: string[]
+          candidate_set_id: string
+          ends_at: string
+          explanation_code: string
+          explanation_count: number
+          explicit_count: number
+          flexible_count: number
+          id: string
+          is_near_miss: boolean
+          near_miss_reason: Json | null
+          rank: number
+          starts_at: string
+        }
+        Insert: {
+          available_user_ids: string[]
+          candidate_set_id: string
+          ends_at: string
+          explanation_code: string
+          explanation_count: number
+          explicit_count: number
+          flexible_count: number
+          id?: string
+          is_near_miss: boolean
+          near_miss_reason?: Json | null
+          rank: number
+          starts_at: string
+        }
+        Update: {
+          available_user_ids?: string[]
+          candidate_set_id?: string
+          ends_at?: string
+          explanation_code?: string
+          explanation_count?: number
+          explicit_count?: number
+          flexible_count?: number
+          id?: string
+          is_near_miss?: boolean
+          near_miss_reason?: Json | null
+          rank?: number
+          starts_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "candidates_candidate_set_id_fkey"
+            columns: ["candidate_set_id"]
+            isOneToOne: false
+            referencedRelation: "candidate_sets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       circle_invites: {
         Row: {
           circle_id: string
@@ -226,6 +336,57 @@ export type Database = {
           },
         ]
       }
+      plan_responses: {
+        Row: {
+          created_at: string
+          id: string
+          plan_id: string
+          revision: number
+          status: string
+          submitted_at: string
+          updated_at: string
+          used_calendar_overlay: boolean
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          plan_id: string
+          revision: number
+          status: string
+          submitted_at?: string
+          updated_at?: string
+          used_calendar_overlay?: boolean
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          plan_id?: string
+          revision?: number
+          status?: string
+          submitted_at?: string
+          updated_at?: string
+          used_calendar_overlay?: boolean
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_responses_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plan_interest_counts"
+            referencedColumns: ["plan_id"]
+          },
+          {
+            foreignKeyName: "plan_responses_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       plans: {
         Row: {
           cancel_note: string | null
@@ -345,6 +506,38 @@ export type Database = {
         }
         Relationships: []
       }
+      willing_windows: {
+        Row: {
+          created_at: string
+          ends_at: string
+          id: string
+          response_id: string
+          starts_at: string
+        }
+        Insert: {
+          created_at?: string
+          ends_at: string
+          id?: string
+          response_id: string
+          starts_at: string
+        }
+        Update: {
+          created_at?: string
+          ends_at?: string
+          id?: string
+          response_id?: string
+          starts_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "willing_windows_response_id_fkey"
+            columns: ["response_id"]
+            isOneToOne: false
+            referencedRelation: "plan_responses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       member_profiles: {
@@ -368,6 +561,31 @@ export type Database = {
           plan_id: string | null
         }
         Relationships: []
+      }
+      response_summaries: {
+        Row: {
+          plan_id: string | null
+          revision: number | null
+          status: string | null
+          submitted_at: string | null
+          user_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_responses_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plan_interest_counts"
+            referencedColumns: ["plan_id"]
+          },
+          {
+            foreignKeyName: "plan_responses_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Functions: {
@@ -418,6 +636,31 @@ export type Database = {
           window_end: string
         }
         Returns: string
+      }
+      replace_response: {
+        Args: {
+          p_plan_id: string
+          p_status: string
+          p_used_calendar_overlay?: boolean
+          p_windows?: Json
+        }
+        Returns: {
+          created_at: string
+          id: string
+          plan_id: string
+          revision: number
+          status: string
+          submitted_at: string
+          updated_at: string
+          used_calendar_overlay: boolean
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "plan_responses"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
     }
     Enums: {
