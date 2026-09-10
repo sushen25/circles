@@ -6,7 +6,7 @@
 -- test that runs today.
 
 begin;
-select plan(35);
+select plan(39);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid language sql as $$
@@ -294,7 +294,24 @@ select is(
   3, 'and that is everything that went: three windows, no more'
 );
 
--- Idempotent: a second run finds nothing.
+-- A second answer of Priya's crosses the line on a later night. The summary
+-- adds to what it holds; it does not start again from what is left.
+select pg_temp.make_plan((select circle_id from t), 'pnretcc', date '2099-10-05') as plan_c \gset
+select pg_temp.act_as('00000000-0000-0000-0000-0000000006a2');
+select public.replace_response(:'plan_c', 1, 'windows', jsonb_build_array(pg_temp.win('2099-10-10', 1080, 1200)));
+select pg_temp.act_as_postgres();
+update public.plan_responses set submitted_at = now() - interval '13 months'
+where plan_id = :'plan_c' and user_id = '00000000-0000-0000-0000-0000000006a2';
+select is((select jobs.run_retention() ->> 'windows_aged')::integer, 1, 'the next run ages the newly old window');
+select is(
+  (select summary from public.member_dayparts where circle_id = (select circle_id from t) and user_id = '00000000-0000-0000-0000-0000000006a2'),
+  '{"parts": ["weekday_evening", "weekend_morning", "weekend_afternoon", "weekend_evening"],
+    "counts": {"weekday_morning": 0, "weekday_afternoon": 0, "weekday_evening": 1,
+               "weekend_morning": 1, "weekend_afternoon": 1, "weekend_evening": 1}}'::jsonb,
+  'and the summary now carries both nights: the Saturday evening joined the earlier three, which were not recomputed away'
+);
+
+-- Idempotent: a further run finds nothing.
 select is(
   (select jobs.run_retention() - 'daypart_summaries'),
   '{"outbox": 0, "audit_rows": 0, "windows_aged": 0, "delivery_events": 0, "revoked_invites": 0, "pending_contacts": 0, "notification_jobs": 0, "plan_only_contacts": 0, "expired_action_links": 0, "windows_of_the_gone": 0, "anonymous_identities": 0}'::jsonb,
@@ -313,6 +330,24 @@ select throws_ok(
 );
 select pg_temp.act_as('00000000-0000-0000-0000-0000000006a1');
 select is((select count(*)::integer from public.member_dayparts), 0, 'Maya, the owner, reads nobody''s — it pre-fills, it does not score');
+
+-- Removed, Priya reads nothing; a month on, the summary itself goes.
+select pg_temp.act_as_postgres();
+update public.circle_members set status = 'removed'
+where circle_id = (select circle_id from t) and user_id = '00000000-0000-0000-0000-0000000006a2';
+select pg_temp.act_as('00000000-0000-0000-0000-0000000006a2');
+select is((select count(*)::integer from public.member_dayparts), 0, 'a removed member no longer reads their summary');
+select pg_temp.act_as_postgres();
+set constraints all immediate;
+alter table public.circle_members disable trigger circle_members_touch_updated_at;
+update public.circle_members set updated_at = now() - interval '31 days'
+where circle_id = (select circle_id from t) and user_id = '00000000-0000-0000-0000-0000000006a2';
+alter table public.circle_members enable trigger circle_members_touch_updated_at;
+select jobs.run_retention();
+select is(
+  (select count(*)::integer from public.member_dayparts where user_id = '00000000-0000-0000-0000-0000000006a2'),
+  0, 'and thirty days after removal the summary is deleted with the windows'
+);
 select pg_temp.act_as_service();
 select throws_ok('select jobs.run_retention()', '42501', null, 'the service role cannot run retention; cron does, as the owner');
 select throws_ok('select jobs.invoke_process_scheduled_jobs()', '42501', null, 'nor invoke the dispatcher by hand');

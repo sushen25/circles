@@ -112,7 +112,12 @@ create table public.member_dayparts (
 comment on table public.member_dayparts is
   'What a member usually offers, per circle — derived from their windows before retention deletes them (ADR 0005). Read only by that member, to pre-fill their own next response.';
 
-create or replace function jobs.daypart_summary(p_circle_id uuid, p_user_id uuid)
+-- The counts a set of responses contributes — computed over the windows that
+-- are about to go, and *added* to what the summary already holds. The
+-- summary is a running total across retention runs: a member whose answers
+-- cross the twelve-month line on different nights must not end up with only
+-- the last of them.
+create or replace function jobs.daypart_counts(p_response_ids uuid[])
 returns jsonb
 language sql
 stable
@@ -134,39 +139,65 @@ as $$
     from public.willing_windows w
     join public.plan_responses r on r.id = w.response_id
     join public.plans p on p.id = r.plan_id
-    where p.circle_id = p_circle_id and r.user_id = p_user_id and r.status = 'windows'
+    where r.id = any (p_response_ids) and r.status = 'windows'
   ),
-  bands (part, band_start, band_end, ordinal) as (
-    values ('morning', 0, 720, 1), ('afternoon', 720, 1020, 2), ('evening', 1020, 1440, 3)
+  bands (part, band_start, band_end) as (
+    values ('morning', 0, 720), ('afternoon', 720, 1020), ('evening', 1020, 1440)
   ),
   covered as (
-    select parts.prefix || '_' || bands.part as daypart,
-      case parts.prefix when 'weekday' then 0 else 3 end + bands.ordinal as ordinal
+    select parts.prefix || '_' || bands.part as daypart
     from parts
     join bands on parts.start_min < bands.band_end and parts.end_min > bands.band_start
-  ),
-  counted as (
-    select daypart, ordinal, count(*)::integer as n
-    from covered
-    group by daypart, ordinal
   ),
   all_parts (daypart, ordinal) as (
     values ('weekday_morning', 1), ('weekday_afternoon', 2), ('weekday_evening', 3),
            ('weekend_morning', 4), ('weekend_afternoon', 5), ('weekend_evening', 6)
   )
+  select jsonb_object_agg(a.daypart, coalesce(c.n, 0) order by a.ordinal)
+  from all_parts a
+  left join (select daypart, count(*)::integer as n from covered group by daypart) c on c.daypart = a.daypart;
+$$;
+
+comment on function jobs.daypart_counts(uuid[]) is
+  'How many of the given responses'' windows cover each of the six dayparts, by dayPartsCovered()''s rule.';
+
+-- `summariseDayparts()`'s shape from a set of counts: the parts most offered
+-- first, ties in the fixed order.
+create or replace function jobs.daypart_summary(p_counts jsonb)
+returns jsonb
+language sql
+immutable
+set search_path = ''
+as $$
+  with all_parts (daypart, ordinal) as (
+    values ('weekday_morning', 1), ('weekday_afternoon', 2), ('weekday_evening', 3),
+           ('weekend_morning', 4), ('weekend_afternoon', 5), ('weekend_evening', 6)
+  ),
+  counted as (
+    select a.daypart, a.ordinal, coalesce((p_counts ->> a.daypart)::integer, 0) as n
+    from all_parts a
+  )
   select jsonb_build_object(
-    'parts', coalesce((
-      select jsonb_agg(daypart order by n desc, ordinal) from counted
-    ), '[]'::jsonb),
-    'counts', (
-      select jsonb_object_agg(a.daypart, coalesce(c.n, 0) order by a.ordinal)
-      from all_parts a left join counted c on c.daypart = a.daypart
-    )
+    'parts', coalesce((select jsonb_agg(daypart order by n desc, ordinal) from counted where n > 0), '[]'::jsonb),
+    'counts', (select jsonb_object_agg(daypart, n order by ordinal) from counted)
   );
 $$;
 
-comment on function jobs.daypart_summary(uuid, uuid) is
-  'summariseDayparts() for one member in one circle, over the windows still stored: {parts, counts}.';
+comment on function jobs.daypart_summary(jsonb) is
+  'The stored shape — {parts, counts} — from a set of counts, as summariseDayparts() orders them.';
+
+create or replace function jobs.add_daypart_counts(p_a jsonb, p_b jsonb)
+returns jsonb
+language sql
+immutable
+set search_path = ''
+as $$
+  select jsonb_object_agg(k, coalesce((p_a ->> k)::integer, 0) + coalesce((p_b ->> k)::integer, 0))
+  from unnest(array[
+    'weekday_morning', 'weekday_afternoon', 'weekday_evening',
+    'weekend_morning', 'weekend_afternoon', 'weekend_evening'
+  ]) as k;
+$$;
 
 -- ---------------------------------------------------------------------------
 -- Retention (§8.5, ADR 0005).
@@ -268,9 +299,20 @@ begin
       and m.status = 'active'
       and exists (select 1 from public.willing_windows w where w.response_id = r.id);
 
+  -- Added to what is already summarised, never recomputed from what is left:
+  -- the windows that went last time are in the stored counts and nowhere else.
   insert into public.member_dayparts (circle_id, user_id, summary, computed_at)
-  select distinct a.circle_id, a.user_id, jobs.daypart_summary(a.circle_id, a.user_id), now()
-  from aged_responses a
+  select g.circle_id, g.user_id,
+    jobs.daypart_summary(jobs.add_daypart_counts(
+      coalesce((select d.summary -> 'counts' from public.member_dayparts d
+                where d.circle_id = g.circle_id and d.user_id = g.user_id), '{}'::jsonb),
+      jobs.daypart_counts(g.response_ids)
+    )),
+    now()
+  from (
+    select a.circle_id, a.user_id, array_agg(a.response_id) as response_ids
+    from aged_responses a group by a.circle_id, a.user_id
+  ) g
   on conflict (circle_id, user_id) do update
     set summary = excluded.summary, computed_at = excluded.computed_at;
   get diagnostics n_summaries = row_count;
@@ -281,8 +323,17 @@ begin
   get diagnostics n_windows_aged = row_count;
 
   -- Willing windows, rule two: 30 days after removal or archiving. No summary
-  -- — a removed member's pre-fill is nobody's to keep, and the row it would
-  -- hang off is the membership they no longer have.
+  -- — a removed member's pre-fill is nobody's to keep — and the summary that
+  -- was written while they were a member goes with the windows.
+  delete from public.member_dayparts d
+  using public.circle_members m, public.circles c
+  where m.circle_id = d.circle_id and m.user_id = d.user_id
+    and c.id = d.circle_id
+    and (
+      (m.status = 'removed' and m.updated_at < now() - interval '30 days')
+      or (c.status = 'archived' and c.updated_at < now() - interval '30 days')
+    );
+
   delete from public.willing_windows w
   using public.plan_responses r, public.plans p, public.circles c, public.circle_members m
   where w.response_id = r.id
@@ -384,11 +435,12 @@ select cron.schedule('retention', '15 3 * * *', $$select jobs.run_retention()$$)
 
 alter table public.member_dayparts enable row level security;
 
--- Own summary only: it exists to pre-fill this member's next answer and for
--- nothing else (ADR 0005). No client writes; retention writes it.
+-- Own summary only, and only while a member: it exists to pre-fill this
+-- member's next answer in this circle and for nothing else (ADR 0005). No
+-- client writes; retention writes it.
 create policy member_dayparts_select_own on public.member_dayparts
   for select to authenticated
-  using (user_id = (select auth.uid()));
+  using (user_id = (select auth.uid()) and public.auth_is_member(circle_id));
 
 revoke all on public.member_dayparts from anon, authenticated;
 grant select on public.member_dayparts to authenticated;
@@ -401,8 +453,12 @@ grant execute on function jobs.acquire_lease(text, interval, text) to service_ro
 revoke all on function jobs.release_lease(text, text) from public;
 revoke all on function jobs.release_lease(text, text) from anon, authenticated;
 grant execute on function jobs.release_lease(text, text) to service_role;
-revoke all on function jobs.daypart_summary(uuid, uuid) from public;
-revoke all on function jobs.daypart_summary(uuid, uuid) from anon, authenticated;
+revoke all on function jobs.daypart_counts(uuid[]) from public;
+revoke all on function jobs.daypart_counts(uuid[]) from anon, authenticated;
+revoke all on function jobs.daypart_summary(jsonb) from public;
+revoke all on function jobs.daypart_summary(jsonb) from anon, authenticated;
+revoke all on function jobs.add_daypart_counts(jsonb, jsonb) from public;
+revoke all on function jobs.add_daypart_counts(jsonb, jsonb) from anon, authenticated;
 revoke all on function jobs.run_retention() from public;
 revoke all on function jobs.run_retention() from anon, authenticated;
 revoke all on function jobs.run_retention() from service_role;

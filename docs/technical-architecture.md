@@ -420,7 +420,7 @@ All ids are `uuid` (v7 where ordering helps). All tables have `created_at`, `upd
 
 | Table | Columns of note | Constraints |
 |---|---|---|
-| `member_dayparts` | `circle_id`, `user_id`, `summary` (`{parts, counts}` — `DayPartSummary` without `userId`), `computed_at` | written by `jobs.run_retention()` from a member's windows before the 12-month rule deletes them (ADR 0005); readable by that member only; no client writes |
+| `member_dayparts` | `circle_id`, `user_id`, `summary` (`{parts, counts}` — `DayPartSummary` without `userId`), `computed_at` | a running total: each retention run adds the counts of the windows it is about to delete to what is stored, then re-derives `parts` (ADR 0005); readable by that member only, and only while a member; deleted 30 days after removal or archiving; no client writes |
 
 **Growth (`public`)**
 
