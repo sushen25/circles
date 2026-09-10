@@ -164,6 +164,13 @@ export default tseslint.config(
       ],
       '@typescript-eslint/consistent-type-imports': 'error',
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+      // A combining mark written as `\u0301` is somebody saying what they mean;
+      // one pasted in as a literal character, invisibly attached to the one
+      // before it, is the accident this rule exists to catch. Escapes are
+      // allowed so that a character class *of* combining marks — the
+      // display-name comparator has one, and it has to match a class in SQL —
+      // can be written plainly.
+      'no-misleading-character-class': ['error', { allowEscape: true }],
     },
   },
   {
