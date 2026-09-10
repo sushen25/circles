@@ -20,8 +20,15 @@ describe('quorumDefault', () => {
     [6, 4],
     [8, 5],
     [12, 8],
+    // The cap, which moved from 12 to 20 in ADR 0012. The formula is unchanged:
+    // 60% of twenty is the same proportion it is of every other size.
+    [20, 12],
   ])('%i active members needs %i', (members, expected) => {
     expect(quorumDefault(members)).toBe(expected);
+  });
+
+  it('asks for a majority at the cap, not a quorum frozen at the old one', () => {
+    expect(quorumDefault(memberLimits.max)).toBe(12);
   });
 
   it('never asks for fewer than two, because a meetup of one is not a meetup', () => {

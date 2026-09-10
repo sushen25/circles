@@ -100,7 +100,7 @@ Run each circle for 6–8 weeks. A shorter test validates one-off scheduling but
 | Guest → app | Prompts only after a value moment, one tap to dismiss, capped; sign-in gate only for organising | See §5.11 and the guest → app flow |
 | Public discovery | Excluded | Avoids marketplace cold start and stranger safety |
 | Web hosting and links | Custom domain from Slice 1; per-link Open Graph previews carrying the circle name only | A trust-first product cannot ship invite links on a vendor subdomain; the chat preview is the first brand moment |
-| Group size | 3–12 active members per circle | Candidate cards and the quiet threshold are designed for that range |
+| Group size | 3–20 active members per circle ([ADR 0012](decisions/0012-circle-member-cap-of-twenty.md)) | Small enough to hold in your head; large enough for a book club or an extended family without splitting the circle |
 | Age | 18+ in terms; not designed for minors | Australia's social-media minimum-age law is unlikely to apply but is deliberately broad |
 | Geography | Globally usable, locally seeded in Melbourne | Time-zone-safe architecture without diluting early recruitment |
 
@@ -195,7 +195,7 @@ Name; colour (solid, no image); primary IANA time zone defaulted from the creato
 #### Joining and membership
 
 - The owner shares one revocable circle link. Joining is immediate in the private beta; the owner can remove a member and reset the link without disturbing existing members.
-- Active members per circle: minimum 3 for quorum defaults, maximum 12.
+- Active members per circle: minimum 3 for quorum defaults, maximum 20 ([ADR 0012](decisions/0012-circle-member-cap-of-twenty.md)).
 - The interface shows who has joined but never exposes one member's availability to another as a personal schedule.
 
 #### Circle home
@@ -461,7 +461,7 @@ confirmed | ready | collecting ─cancel──▶ cancelled
 ## 9. Edge cases that must be designed, not deferred
 
 - A guest returns with no session (expected, not rare): Continue as; emailed re-entry; owner sees rejoins; duplicate memberships are removable by the owner.
-- A guest joins twice from different devices before reattaching: duplicate names shown; owner removes one.
+- A guest joins twice from different devices before reattaching: the second device is asked for a different display name, because duplicate active names in a circle are prevented (§5.1); the owner sees two memberships and removes one.
 - Membership changes during a plan: removed members are excluded on recalculation; new members may opt into the active plan.
 - A required person leaves: the plan becomes ineligible until the organiser changes required members or cancels.
 - Nobody meets quorum: near-misses and explicit resolution actions.
@@ -629,4 +629,4 @@ Start with Slice 1 and put it in one real group chat as quickly as possible. The
 | Competitive frame | 2024 WhatsApp | August 2026 WhatsApp polls/events acknowledged; differentiation restated |
 | Retention | Windows deleted after 30 days | 12 months plus day-part summary |
 | Architecture sections | In the spec | Moved to `technical-architecture.md`; summary kept in §12 |
-| Age and group size | Unstated | 18+; 3–12 members |
+| Age and group size | Unstated | 18+; 3–12 members (raised to 3–20 in [ADR 0012](decisions/0012-circle-member-cap-of-twenty.md)) |
