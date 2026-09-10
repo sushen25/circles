@@ -300,6 +300,7 @@ export type Database = {
         Row: {
           available_user_ids: string[]
           candidate_id: string
+          chased_answer: string | null
           confirmed_at: string
           confirmed_by: string
           created_at: string
@@ -319,6 +320,7 @@ export type Database = {
         Insert: {
           available_user_ids: string[]
           candidate_id: string
+          chased_answer?: string | null
           confirmed_at?: string
           confirmed_by: string
           created_at?: string
@@ -338,6 +340,7 @@ export type Database = {
         Update: {
           available_user_ids?: string[]
           candidate_id?: string
+          chased_answer?: string | null
           confirmed_at?: string
           confirmed_by?: string
           created_at?: string
@@ -373,7 +376,6 @@ export type Database = {
       }
       outcome_reports: {
         Row: {
-          chased_answer: string | null
           confirmation_id: string
           id: string
           moved_outside: boolean | null
@@ -383,7 +385,6 @@ export type Database = {
           reported_by: string
         }
         Insert: {
-          chased_answer?: string | null
           confirmation_id: string
           id?: string
           moved_outside?: boolean | null
@@ -393,7 +394,6 @@ export type Database = {
           reported_by: string
         }
         Update: {
-          chased_answer?: string | null
           confirmation_id?: string
           id?: string
           moved_outside?: boolean | null
@@ -804,6 +804,29 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "plan_responses"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      report_outcome: {
+        Args: {
+          p_confirmation_id: string
+          p_moved_outside?: boolean
+          p_note?: string
+          p_outcome: string
+        }
+        Returns: {
+          confirmation_id: string
+          id: string
+          moved_outside: boolean | null
+          note: string | null
+          outcome: string
+          reported_at: string
+          reported_by: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "outcome_reports"
           isOneToOne: true
           isSetofReturn: false
         }

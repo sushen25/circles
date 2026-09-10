@@ -6,7 +6,7 @@
 -- database's — and the rest is tested as the people who use it.
 
 begin;
-select plan(48);
+select plan(51);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid language sql as $$
@@ -332,8 +332,7 @@ update public.circles set last_met_at = null where id = (select circle_id from t
 -- Too early.
 select pg_temp.act_as('00000000-0000-0000-0000-0000000003a1');
 select throws_ok(
-  format($$insert into public.outcome_reports (confirmation_id, reported_by, outcome)
-    values ('%s', '00000000-0000-0000-0000-0000000003a1', 'happened')$$, :'future_conf'),
+  format($$select public.report_outcome('%s', 'happened')$$, :'future_conf'),
   '23514',
   'outcome_too_early',
   'the question has no answer before the evening has happened'
@@ -342,11 +341,17 @@ select throws_ok(
 -- Not the organiser.
 select pg_temp.act_as('00000000-0000-0000-0000-0000000003a2');
 select throws_ok(
+  format($$select public.report_outcome('%s', 'happened')$$, :'past_conf'),
+  '42501',
+  null,
+  'a member cannot file the outcome — that is the organiser''s, and members say "I was there" instead'
+);
+select throws_ok(
   format($$insert into public.outcome_reports (confirmation_id, reported_by, outcome)
     values ('%s', '00000000-0000-0000-0000-0000000003a2', 'happened')$$, :'past_conf'),
   '42501',
   null,
-  'a member cannot file the outcome — that is the organiser''s, and members say "I was there" instead'
+  'and nobody writes outcome_reports directly — report_outcome is the door'
 );
 
 -- Not `happened`: nothing moves.
@@ -355,9 +360,13 @@ select pg_temp.make_confirmed_plan('pncfnn', date '2020-08-01') as ns_plan \gset
 select pg_temp.confirm(:'ns_plan', date '2020-08-01') as ns_conf \gset
 select pg_temp.act_as('00000000-0000-0000-0000-0000000003a1');
 select lives_ok(
-  format($$insert into public.outcome_reports (confirmation_id, reported_by, outcome, chased_answer, moved_outside)
-    values ('%s', '00000000-0000-0000-0000-0000000003a1', 'not_sure', 'none', false)$$, :'ns_conf'),
+  format($$select public.report_outcome('%s', 'not_sure', null, false)$$, :'ns_conf'),
   'the organiser reports "not sure"'
+);
+select is(
+  (select reported_by from public.outcome_reports where confirmation_id = :'ns_conf'),
+  '00000000-0000-0000-0000-0000000003a1'::uuid,
+  'as themselves — the reporter is auth.uid(), not a parameter'
 );
 select is(
   (select last_met_at from public.circles where id = (select circle_id from t)),
@@ -377,8 +386,7 @@ select is(
 
 -- `happened`: it moves, to the time the circle met.
 select lives_ok(
-  format($$insert into public.outcome_reports (confirmation_id, reported_by, outcome, note)
-    values ('%s', '00000000-0000-0000-0000-0000000003a1', 'happened', 'Great night')$$, :'past_conf'),
+  format($$select public.report_outcome('%s', 'happened', 'Great night')$$, :'past_conf'),
   'the organiser reports it happened'
 );
 select is(
@@ -393,8 +401,7 @@ select pg_temp.make_confirmed_plan('pncfqq', date '2020-07-01') as old_plan \gse
 select pg_temp.confirm(:'old_plan', date '2020-07-01') as old_conf \gset
 select pg_temp.act_as('00000000-0000-0000-0000-0000000003a1');
 select lives_ok(
-  format($$insert into public.outcome_reports (confirmation_id, reported_by, outcome)
-    values ('%s', '00000000-0000-0000-0000-0000000003a1', 'happened')$$, :'old_conf'),
+  format($$select public.report_outcome('%s', 'happened')$$, :'old_conf'),
   'an older meetup is reported late'
 );
 select is(
@@ -408,8 +415,7 @@ select pg_temp.act_as_postgres();
 select pg_temp.make_confirmed_plan('pncfxx', date '2020-06-01') as x_plan \gset
 select pg_temp.confirm(:'x_plan', date '2020-06-01') as x_conf \gset
 select pg_temp.act_as('00000000-0000-0000-0000-0000000003a1');
-insert into public.outcome_reports (confirmation_id, reported_by, outcome)
-values (:'x_conf', '00000000-0000-0000-0000-0000000003a1', 'cancelled');
+select public.report_outcome(:'x_conf', 'cancelled');
 select is(
   (select status from public.meetup_confirmations where id = :'x_conf'),
   'cancelled',
@@ -434,11 +440,10 @@ update public.circle_members set status = 'removed'
 where circle_id = (select circle_id from t) and user_id = '00000000-0000-0000-0000-0000000003a3';
 select pg_temp.act_as('00000000-0000-0000-0000-0000000003a3');
 select throws_ok(
-  format($$insert into public.outcome_reports (confirmation_id, reported_by, outcome)
-    values ('%s', '00000000-0000-0000-0000-0000000003a3', 'happened')$$, :'gone_conf'),
-  '42501',
-  null,
-  'an organiser who has left the circle cannot report its outcome'
+  format($$select public.report_outcome('%s', 'happened')$$, :'gone_conf'),
+  'P0001',
+  'not_the_organiser',
+  'an organiser who has left the circle cannot report its outcome — the state machine''s guard, with its code, not a copy of it'
 );
 
 -- ---------------------------------------------------------------------------
@@ -509,11 +514,14 @@ select throws_ok(
   'an active confirmation cannot carry a superseded_at'
 );
 select throws_ok(
-  format($$insert into public.outcome_reports (confirmation_id, reported_by, outcome, chased_answer)
-    values ('%s', '00000000-0000-0000-0000-0000000003a1', 'not_sure', 'lots')$$, :'future_conf'),
+  format($$update public.meetup_confirmations set chased_answer = 'lots' where id = '%s'$$, :'future_conf'),
   '23514',
   null,
   'the chasing answer is none, one or more'
+);
+select ok(
+  not has_table_privilege('authenticated', 'public.outcome_reports', 'insert'),
+  'outcome_reports has no client insert privilege at all'
 );
 
 select * from finish();

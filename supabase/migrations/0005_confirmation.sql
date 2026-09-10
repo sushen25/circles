@@ -37,6 +37,11 @@ create table public.meetup_confirmations (
   -- An address or map link. `http(s)` only, as `isLink` in the domain has it.
   place_url text,
   note text,
+  -- "Did you have to chase anyone outside the app?" — asked on the confirmation
+  -- review (spec §5.10), so it lives here, with the confirmation it was asked
+  -- about, and not with the outcome that is reported days later. Evidence for
+  -- H2. `none` / `one` / `more`.
+  chased_answer text,
   confirmed_by uuid not null references auth.users (id),
   -- `superseded` is a reschedule; `cancelled` a decision to stop; `completed`
   -- an outcome having been reported. All three keep the row and its time:
@@ -59,6 +64,9 @@ create table public.meetup_confirmations (
   ),
   constraint meetup_confirmations_place_name_length check (
     place_name is null or char_length(place_name) <= 120
+  ),
+  constraint meetup_confirmations_chased check (
+    chased_answer is null or chased_answer in ('none', 'one', 'more')
   ),
   constraint meetup_confirmations_place_url_is_link check (
     place_url is null or place_url ~ '^https?://[^[:space:]]+$'
@@ -112,9 +120,10 @@ create index attendance_user_idx on public.attendance (user_id);
 -- ---------------------------------------------------------------------------
 -- outcome_reports
 --
--- "Did this catch-up happen?" (spec §5.10), plus the two-tap micro-survey that
--- is the evidence for H2: whether the organiser had to chase anyone outside the
--- app, and whether the plan changed outside it.
+-- "Did this catch-up happen?" (spec §5.10), plus the second tap of the H2
+-- micro-survey: whether the plan changed outside the app. Written only through
+-- `report_outcome` below — the trigger on insert is the invariant, the
+-- function is the door.
 -- ---------------------------------------------------------------------------
 
 create table public.outcome_reports (
@@ -123,19 +132,15 @@ create table public.outcome_reports (
   reported_by uuid not null references auth.users (id),
   outcome text not null,
   note text,
-  -- "Did you have to chase anyone outside the app?" — no / one person / more.
-  chased_answer text,
-  -- "Did the plan change outside the app?"
+  -- "Did the plan change outside the app?" — the outcome half of the H2
+  -- micro-survey; the chasing half is on the confirmation.
   moved_outside boolean,
   reported_at timestamptz not null default now(),
   unique (confirmation_id, reported_by),
   constraint outcome_reports_outcome check (
     outcome in ('happened', 'cancelled', 'moved_outside', 'not_sure')
   ),
-  constraint outcome_reports_note_length check (note is null or char_length(note) <= 280),
-  constraint outcome_reports_chased check (
-    chased_answer is null or chased_answer in ('none', 'one', 'more')
-  )
+  constraint outcome_reports_note_length check (note is null or char_length(note) <= 280)
 );
 
 comment on table public.outcome_reports is
@@ -350,6 +355,52 @@ create trigger outcome_reports_apply
   after insert on public.outcome_reports
   for each row execute function public.apply_outcome();
 
+-- The one way a client reports an outcome (architecture §8.4: attendance is
+-- the only confirmation table a member writes directly). The actor is
+-- `auth.uid()`, never a parameter, and `reported_at` is the server's clock.
+-- The organiser check here is the cheap, early one; the one that counts —
+-- organiser *and still a member* — is `transition_plan`'s, reached through the
+-- trigger, and it is not duplicated.
+create or replace function public.report_outcome(
+  p_confirmation_id uuid,
+  p_outcome text,
+  p_note text default null,
+  p_moved_outside boolean default null
+)
+returns public.outcome_reports
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  actor uuid := auth.uid();
+  organiser uuid;
+  report public.outcome_reports;
+begin
+  if actor is null then
+    raise exception 'report_outcome requires a signed-in actor' using errcode = 'insufficient_privilege';
+  end if;
+
+  select p.organiser_user_id into organiser
+  from public.meetup_confirmations c
+  join public.plans p on p.id = c.plan_id
+  where c.id = p_confirmation_id;
+
+  if organiser is distinct from actor then
+    raise exception 'only the organiser reports an outcome' using errcode = 'insufficient_privilege';
+  end if;
+
+  insert into public.outcome_reports (confirmation_id, reported_by, outcome, note, moved_outside)
+  values (p_confirmation_id, actor, p_outcome, p_note, p_moved_outside)
+  returning * into report;
+
+  return report;
+end;
+$$;
+
+comment on function public.report_outcome(uuid, text, text, boolean) is
+  'The organiser''s answer to "did this catch-up happen?". The only client write path to outcome_reports; the insert trigger does the rest.';
+
 -- ---------------------------------------------------------------------------
 -- Removal, continued.
 --
@@ -423,9 +474,10 @@ $$;
 -- Row-level security
 --
 -- Members read all three tables for their circles. A member writes their own
--- attendance row and nothing else; the organiser inserts an outcome report;
--- nobody inserts a confirmation from a client — `confirm-meetup` does, as the
--- service role, and even it cannot move a confirmation's status.
+-- attendance row and nothing else directly; the organiser reports an outcome
+-- through `report_outcome`; nobody inserts a confirmation from a client —
+-- `confirm-meetup` does, as the service role, and even it cannot move a
+-- confirmation's status.
 -- ---------------------------------------------------------------------------
 
 alter table public.meetup_confirmations enable row level security;
@@ -477,20 +529,6 @@ create policy outcome_reports_select_member on public.outcome_reports
     where c.id = confirmation_id and public.auth_is_member(p.circle_id)
   ));
 
--- The organiser, as themselves. The trigger then asks the state machine, which
--- also refuses an organiser who has left the circle.
-create policy outcome_reports_insert_organiser on public.outcome_reports
-  for insert to authenticated
-  with check (
-    reported_by = (select auth.uid())
-    and exists (
-      select 1
-      from public.meetup_confirmations c
-      join public.plans p on p.id = c.plan_id
-      where c.id = confirmation_id and p.organiser_user_id = (select auth.uid())
-    )
-  );
-
 revoke all on public.meetup_confirmations from anon, authenticated;
 revoke all on public.attendance from anon, authenticated;
 revoke all on public.outcome_reports from anon, authenticated;
@@ -498,7 +536,8 @@ revoke all on public.outcome_reports from anon, authenticated;
 grant select on public.meetup_confirmations to authenticated;
 grant select, insert on public.attendance to authenticated;
 grant update (status) on public.attendance to authenticated;
-grant select, insert on public.outcome_reports to authenticated;
+grant select on public.outcome_reports to authenticated;
+grant execute on function public.report_outcome(uuid, text, text, boolean) to authenticated;
 
 -- The service role writes confirmations (`confirm-meetup`) and the derived
 -- attendance rows, and nothing moves a confirmation's `status` but the two
@@ -506,7 +545,7 @@ grant select, insert on public.outcome_reports to authenticated;
 -- revoke alone leaves the table-level grant in place.
 revoke all on public.meetup_confirmations from service_role;
 grant select, insert on public.meetup_confirmations to service_role;
-grant update (place_name, place_url, note) on public.meetup_confirmations to service_role;
+grant update (place_name, place_url, note, chased_answer) on public.meetup_confirmations to service_role;
 
 revoke all on function public.supersede_on_leaving_confirmed() from public;
 revoke all on function public.supersede_on_leaving_confirmed() from anon, authenticated;
@@ -514,3 +553,5 @@ revoke all on function public.enforce_attendance_transition() from public;
 revoke all on function public.enforce_attendance_transition() from anon, authenticated;
 revoke all on function public.apply_outcome() from public;
 revoke all on function public.apply_outcome() from anon, authenticated;
+revoke all on function public.report_outcome(uuid, text, text, boolean) from public;
+revoke all on function public.report_outcome(uuid, text, text, boolean) from anon;
