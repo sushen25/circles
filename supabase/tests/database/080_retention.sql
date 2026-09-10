@@ -184,7 +184,12 @@ insert into private.email_action_tokens (contact_id, purpose, token_hash, expire
 -- verified with a live plan; suppressed old.
 insert into private.email_contacts (user_id, email_normalized, created_at) values
   ('00000000-0000-0000-0000-0000000006a3', 'tom-old@example.com', now() - interval '8 days'),
-  ('00000000-0000-0000-0000-0000000006a3', 'tom-new@example.com', now() - interval '1 day');
+  ('00000000-0000-0000-0000-0000000006a3', 'tom-new@example.com', now() - interval '1 day'),
+  ('00000000-0000-0000-0000-0000000006a3', 'tom-retry@example.com', now() - interval '8 days');
+-- The old-but-retrying one asked for a fresh link yesterday.
+insert into private.email_action_tokens (contact_id, purpose, token_hash, expires_at)
+select id, 'verify', extensions.digest('t-retry', 'sha256'), now() + interval '1 day'
+from private.email_contacts where email_normalized = 'tom-retry@example.com';
 insert into private.email_contacts (user_id, email_normalized, status, verified_at, created_at) values
   ('00000000-0000-0000-0000-0000000006a4', 'sam-done@example.com', 'verified', now() - interval '60 days', now() - interval '60 days'),
   ('00000000-0000-0000-0000-0000000006a4', 'sam-live@example.com', 'verified', now() - interval '60 days', now() - interval '60 days');
@@ -242,12 +247,13 @@ select is(
   2, 'the invite revoked a month ago went; the recent revocation and the live link stayed'
 );
 select is(
-  (select array_agg(encode(token_hash, 'hex') = encode(extensions.digest('t3', 'sha256'), 'hex')) from private.email_action_tokens),
+  (select array_agg(encode(token_hash, 'hex') = encode(extensions.digest('t3', 'sha256'), 'hex')) from private.email_action_tokens where contact_id = :'contact'),
   array[true], 'expired and used tokens went after a week; the live one stayed'
 );
 select is(
   (select array_agg(email_normalized order by email_normalized) from private.email_contacts where user_id = '00000000-0000-0000-0000-0000000006a3'),
-  array['tom-new@example.com'], 'the address nobody verified in a week went'
+  array['tom-new@example.com', 'tom-retry@example.com'],
+  'the address nobody verified in a week went; the one with a link still clickable did not'
 );
 select is(
   (select array_agg(email_normalized order by email_normalized) from private.email_contacts where user_id = '00000000-0000-0000-0000-0000000006a4'),

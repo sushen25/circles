@@ -258,9 +258,16 @@ begin
   get diagnostics n_tokens = row_count;
 
   -- Unverified contacts: 7 days. Somebody typed an address and never clicked
-  -- the link; the address does not stay.
-  delete from private.email_contacts
-  where status = 'pending' and created_at < now() - interval '7 days';
+  -- the link; the address does not stay — unless a link they could still
+  -- click exists, because a contact that asked for a fresh link yesterday is
+  -- not one that gave up a week ago, and the cascade would take the link.
+  delete from private.email_contacts c
+  where c.status = 'pending'
+    and c.created_at < now() - interval '7 days'
+    and not exists (
+      select 1 from private.email_action_tokens t
+      where t.contact_id = c.id and t.used_at is null and t.expires_at > now()
+    );
   get diagnostics n_pending_contacts = row_count;
 
   -- Verified plan-only contacts: 30 days after every plan they were subscribed
