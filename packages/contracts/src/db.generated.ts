@@ -640,6 +640,7 @@ export type Database = {
       replace_response: {
         Args: {
           p_plan_id: string
+          p_revision: number
           p_status: string
           p_used_calendar_overlay?: boolean
           p_windows?: Json

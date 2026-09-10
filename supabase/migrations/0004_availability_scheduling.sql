@@ -345,6 +345,11 @@ grant select on public.response_summaries to authenticated;
 -- `on conflict (plan_id, …)`, and plpgsql refuses to guess.
 create or replace function public.replace_response(
   p_plan_id uuid,
+  -- The revision the client is answering. Required, because an answer is an
+  -- answer to a *question*, and the question can change while a draft sits on
+  -- a phone with no signal (spec §5.5). Storing revision 1's windows under
+  -- revision 2 would be silently answering dates the person never saw.
+  p_revision integer,
   p_status text,
   p_windows jsonb default '[]'::jsonb,
   p_used_calendar_overlay boolean default false
@@ -370,6 +375,13 @@ begin
     -- The same answer for "no such plan" and "not your circle": telling them
     -- apart would confirm a plan id exists.
     raise exception 'plan not found' using errcode = 'insufficient_privilege';
+  end if;
+
+  -- The question moved on. Refused with its own code so the client can fetch
+  -- the plan again and re-ask, rather than being told its window was malformed.
+  if p_revision <> plan.revision then
+    raise exception 'stale_revision: answered % but the plan is at %', p_revision, plan.revision
+      using errcode = 'serialization_failure';
   end if;
 
   -- Addressed to this person: spec §9 makes joining an active plan an opt-in,
@@ -440,12 +452,12 @@ begin
 end;
 $$;
 
-comment on function public.replace_response(uuid, text, jsonb, boolean) is
-  'Replaces the caller''s answer to the plan''s current revision atomically. The only write path for responses and windows (ADR 0013).';
+comment on function public.replace_response(uuid, integer, text, jsonb, boolean) is
+  'Replaces the caller''s answer to the given plan revision atomically; refuses a revision the plan has moved past. The only write path for responses and windows (ADR 0013).';
 
-revoke all on function public.replace_response(uuid, text, jsonb, boolean) from public;
-revoke all on function public.replace_response(uuid, text, jsonb, boolean) from anon, authenticated;
-grant execute on function public.replace_response(uuid, text, jsonb, boolean) to authenticated;
+revoke all on function public.replace_response(uuid, integer, text, jsonb, boolean) from public;
+revoke all on function public.replace_response(uuid, integer, text, jsonb, boolean) from anon, authenticated;
+grant execute on function public.replace_response(uuid, integer, text, jsonb, boolean) to authenticated;
 
 revoke all on function public.enforce_window_shape() from public;
 revoke all on function public.enforce_window_shape() from anon, authenticated;
@@ -656,9 +668,17 @@ alter table public.willing_windows enable row level security;
 alter table public.candidate_sets enable row level security;
 alter table public.candidates enable row level security;
 
+-- Own, and still in the circle. The row is kept after removal — it is what the
+-- engine ran on — but removal revokes access immediately (§6.2), and a
+-- reattached anonymous session is another identity now.
 create policy plan_responses_select_own on public.plan_responses
   for select to authenticated
-  using (user_id = (select auth.uid()));
+  using (
+    user_id = (select auth.uid())
+    and exists (
+      select 1 from public.plans p where p.id = plan_id and public.auth_is_member(p.circle_id)
+    )
+  );
 
 -- Own windows only, through own response. There is no policy under which one
 -- member reads another's windows, and there must never be: it is the privacy
@@ -666,8 +686,12 @@ create policy plan_responses_select_own on public.plan_responses
 create policy willing_windows_select_own on public.willing_windows
   for select to authenticated
   using (exists (
-    select 1 from public.plan_responses r
-    where r.id = response_id and r.user_id = (select auth.uid())
+    select 1
+    from public.plan_responses r
+    join public.plans p on p.id = r.plan_id
+    where r.id = response_id
+      and r.user_id = (select auth.uid())
+      and public.auth_is_member(p.circle_id)
   ));
 
 create policy candidate_sets_select_member on public.candidate_sets

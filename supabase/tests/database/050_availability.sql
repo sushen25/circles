@@ -10,7 +10,7 @@
 -- made as somebody *else*.
 
 begin;
-select plan(54);
+select plan(57);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid language sql as $$
@@ -108,7 +108,7 @@ select has_table('public', 'willing_windows', 'willing_windows exists');
 select has_table('public', 'candidate_sets', 'candidate_sets exists');
 select has_table('public', 'candidates', 'candidates exists');
 select has_view('public', 'response_summaries', 'response_summaries exists');
-select has_function('public', 'replace_response', array['uuid', 'text', 'jsonb', 'boolean'],
+select has_function('public', 'replace_response', array['uuid', 'integer', 'text', 'jsonb', 'boolean'],
   'replace_response exists');
 
 select ok(
@@ -132,7 +132,7 @@ select ok(
 
 select pg_temp.act_as('00000000-0000-0000-0000-0000000002a2');
 select lives_ok(
-  format($$select public.replace_response('%s', 'windows', jsonb_build_array(%L::jsonb, %L::jsonb))$$,
+  format($$select public.replace_response('%s', 1, 'windows', jsonb_build_array(%L::jsonb, %L::jsonb))$$,
     (select plan_id from tp),
     pg_temp.win('2099-09-17', 1110, 1230),
     pg_temp.win('2099-09-19', 1140, 1260)),
@@ -154,14 +154,14 @@ select is(
 -- ---------------------------------------------------------------------------
 
 select throws_ok(
-  format($$select public.replace_response('%s', 'windows', jsonb_build_array(%L::jsonb))$$,
+  format($$select public.replace_response('%s', 1, 'windows', jsonb_build_array(%L::jsonb))$$,
     (select plan_id from tp), pg_temp.win('2099-09-17', 1117, 1230)),
   '23514',
   null,
   '18:37 is not a half hour'
 );
 select throws_ok(
-  format($$select public.replace_response('%s', 'windows', jsonb_build_array(%L::jsonb, %L::jsonb))$$,
+  format($$select public.replace_response('%s', 1, 'windows', jsonb_build_array(%L::jsonb, %L::jsonb))$$,
     (select plan_id from tp),
     pg_temp.win('2099-09-17', 1110, 1230),
     pg_temp.win('2099-09-17', 1170, 1290)),
@@ -170,21 +170,21 @@ select throws_ok(
   'two windows of one answer cannot overlap — the exclusion constraint, not a trigger'
 );
 select throws_ok(
-  format($$select public.replace_response('%s', 'windows', jsonb_build_array(%L::jsonb))$$,
+  format($$select public.replace_response('%s', 1, 'windows', jsonb_build_array(%L::jsonb))$$,
     (select plan_id from tp), pg_temp.win('2099-09-21', 1110, 1230)),
   '23514',
   null,
   'a window on a day outside the plan is refused'
 );
 select throws_ok(
-  format($$select public.replace_response('%s', 'windows', jsonb_build_array(%L::jsonb))$$,
+  format($$select public.replace_response('%s', 1, 'windows', jsonb_build_array(%L::jsonb))$$,
     (select plan_id from tp), pg_temp.win('2099-09-17', 960, 1080)),
   '23514',
   null,
   'and one before the daily band opens'
 );
 select throws_ok(
-  format($$select public.replace_response('%s', 'windows', jsonb_build_array(%L::jsonb))$$,
+  format($$select public.replace_response('%s', 1, 'windows', jsonb_build_array(%L::jsonb))$$,
     (select plan_id from tp), pg_temp.win('2099-09-17', 1230, 1110)),
   '23514',
   null,
@@ -195,7 +195,7 @@ select throws_ok(
 -- of the band check only looked at the end when it shared the start's date, so
 -- this went through — availability the person never painted.
 select throws_ok(
-  format($$select public.replace_response('%s', 'windows', jsonb_build_array(%L::jsonb))$$,
+  format($$select public.replace_response('%s', 1, 'windows', jsonb_build_array(%L::jsonb))$$,
     (select plan_id from tp), pg_temp.win('2099-09-17', 1110, 1440 + 1230)),
   '23514',
   null,
@@ -219,13 +219,13 @@ select id, 1, '00000000-0000-0000-0000-0000000002a2' from public.plans where sho
 
 select pg_temp.act_as('00000000-0000-0000-0000-0000000002a2');
 select lives_ok(
-  format($$select public.replace_response('%s', 'windows', jsonb_build_array(jsonb_build_object(
+  format($$select public.replace_response('%s', 1, 'windows', jsonb_build_array(jsonb_build_object(
       'start', timestamptz '2099-09-17T03:15:00Z', 'end', timestamptz '2099-09-17T04:15:00Z')))$$,
     (select id from public.plans where short_code = 'pnavkk')),
   '09:00–10:00 in Kathmandu is 03:15–04:15Z, and is on the half hour where it counts'
 );
 select throws_ok(
-  format($$select public.replace_response('%s', 'windows', jsonb_build_array(jsonb_build_object(
+  format($$select public.replace_response('%s', 1, 'windows', jsonb_build_array(jsonb_build_object(
       'start', timestamptz '2099-09-17T03:30:00Z', 'end', timestamptz '2099-09-17T04:30:00Z')))$$,
     (select id from public.plans where short_code = 'pnavkk')),
   '23514',
@@ -239,7 +239,7 @@ select throws_ok(
 
 select pg_temp.act_as('00000000-0000-0000-0000-0000000002a2');
 select lives_ok(
-  format($$select public.replace_response('%s', 'windows', jsonb_build_array(%L::jsonb))$$,
+  format($$select public.replace_response('%s', 1, 'windows', jsonb_build_array(%L::jsonb))$$,
     (select plan_id from tp), pg_temp.win('2099-09-18', 1110, 1230)),
   'answering again replaces the previous answer'
 );
@@ -252,7 +252,7 @@ select is(
 );
 
 select lives_ok(
-  format($$select public.replace_response('%s', 'flexible')$$, (select plan_id from tp)),
+  format($$select public.replace_response('%s', 1, 'flexible')$$, (select plan_id from tp)),
   'switching to "I''m easy"'
 );
 select is(
@@ -263,26 +263,26 @@ select is(
   'drops the windows: a flexible answer carries none, and leaving them would be availability the person withdrew'
 );
 select throws_ok(
-  format($$select public.replace_response('%s', 'not_this_time', jsonb_build_array(%L::jsonb))$$,
+  format($$select public.replace_response('%s', 1, 'not_this_time', jsonb_build_array(%L::jsonb))$$,
     (select plan_id from tp), pg_temp.win('2099-09-17', 1110, 1230)),
   '23514',
   null,
   'and a not-this-time with a window attached is refused outright'
 );
 select throws_ok(
-  format($$select public.replace_response('%s', 'windows', '[]'::jsonb)$$, (select plan_id from tp)),
+  format($$select public.replace_response('%s', 1, 'windows', '[]'::jsonb)$$, (select plan_id from tp)),
   '23514',
   null,
   'as is a windows answer with no windows'
 );
 select throws_ok(
-  format($$select public.replace_response('%s', 'windows', null)$$, (select plan_id from tp)),
+  format($$select public.replace_response('%s', 1, 'windows', null)$$, (select plan_id from tp)),
   '23514',
   null,
   'and a SQL null is not an empty list — jsonb_array_length(null) is null, and null = 0 is not true'
 );
 select throws_ok(
-  format($$select public.replace_response('%s', 'windows', '{"start":"x"}'::jsonb)$$,
+  format($$select public.replace_response('%s', 1, 'windows', '{"start":"x"}'::jsonb)$$,
     (select plan_id from tp)),
   '23514',
   null,
@@ -295,7 +295,7 @@ select throws_ok(
 
 select pg_temp.act_as('00000000-0000-0000-0000-0000000002a4');
 select throws_ok(
-  format($$select public.replace_response('%s', 'flexible')$$, (select plan_id from tp)),
+  format($$select public.replace_response('%s', 1, 'flexible')$$, (select plan_id from tp)),
   '42501',
   null,
   'somebody outside the circle cannot answer, and learns nothing about the plan from the refusal'
@@ -309,10 +309,22 @@ insert into public.circle_members (circle_id, user_id, display_name_snapshot)
 select circle_id, '00000000-0000-0000-0000-0000000002a5', 'Newcomer' from t;
 select pg_temp.act_as('00000000-0000-0000-0000-0000000002a5');
 select throws_ok(
-  format($$select public.replace_response('%s', 'flexible')$$, (select plan_id from tp)),
+  format($$select public.replace_response('%s', 1, 'flexible')$$, (select plan_id from tp)),
   '42501',
   null,
   'a member the plan was not addressed to cannot answer it'
+);
+
+-- A draft made against the question as it was. Drafts survive going offline
+-- (spec §5.5), and the organiser can edit while one sits on a phone with no
+-- signal; the answer is to the dates the person saw, not to whatever the plan
+-- says now.
+select pg_temp.act_as('00000000-0000-0000-0000-0000000002a3');
+select throws_ok(
+  format($$select public.replace_response('%s', 2, 'flexible')$$, (select plan_id from tp)),
+  '40001',
+  null,
+  'an answer to a revision the plan is not at is refused — with its own code, so the client re-asks'
 );
 
 -- Replies close at the deadline (spec §5.5) …
@@ -324,7 +336,7 @@ update public.plans set response_deadline = timestamptz '2020-09-01T00:00:00Z'
 where id = (select plan_id from tp);
 select pg_temp.act_as('00000000-0000-0000-0000-0000000002a3');
 select throws_ok(
-  format($$select public.replace_response('%s', 'flexible')$$, (select plan_id from tp)),
+  format($$select public.replace_response('%s', 1, 'flexible')$$, (select plan_id from tp)),
   '23514',
   null,
   'after the deadline, replies are closed'
@@ -348,7 +360,7 @@ insert into public.plan_participants (plan_id, revision, user_id)
 select id, 1, '00000000-0000-0000-0000-0000000002a3' from public.plans where short_code = 'pnavcc';
 select pg_temp.act_as('00000000-0000-0000-0000-0000000002a3');
 select throws_ok(
-  format($$select public.replace_response('%s', 'flexible')$$,
+  format($$select public.replace_response('%s', 1, 'flexible')$$,
     (select id from public.plans where short_code = 'pnavcc')),
   '23514',
   null,
@@ -360,7 +372,7 @@ select throws_ok(
 -- ---------------------------------------------------------------------------
 
 select pg_temp.act_as('00000000-0000-0000-0000-0000000002a3');
-select public.replace_response((select plan_id from tp), 'windows',
+select public.replace_response((select plan_id from tp), 1, 'windows',
   jsonb_build_array(pg_temp.win('2099-09-17', 1110, 1230)));
 
 -- Scoped to this plan: Priya also answered the Kathmandu plan above with a
@@ -404,6 +416,26 @@ select is(
   'somebody outside the circle sees no summaries'
 );
 
+-- Removal revokes access immediately (§6.2), and that includes your own old
+-- answer: the row is kept because the engine ran on it, not as a handle.
+select pg_temp.act_as_postgres();
+update public.circle_members set status = 'removed'
+where circle_id = (select circle_id from t) and user_id = '00000000-0000-0000-0000-0000000002a3';
+select pg_temp.act_as('00000000-0000-0000-0000-0000000002a3');
+select is(
+  (select count(*)::integer from public.plan_responses where plan_id = (select plan_id from tp)),
+  0,
+  'a removed member no longer reads their own response'
+);
+select is(
+  (select count(*)::integer from public.willing_windows),
+  0,
+  'nor their own windows'
+);
+select pg_temp.act_as_postgres();
+update public.circle_members set status = 'active'
+where circle_id = (select circle_id from t) and user_id = '00000000-0000-0000-0000-0000000002a3';
+
 -- ---------------------------------------------------------------------------
 -- input_version moves with every answer.
 -- ---------------------------------------------------------------------------
@@ -411,7 +443,7 @@ select is(
 select pg_temp.act_as_postgres();
 select input_version as before_iv from public.plans where id = (select plan_id from tp) \gset
 select pg_temp.act_as('00000000-0000-0000-0000-0000000002a2');
-select public.replace_response((select plan_id from tp), 'windows',
+select public.replace_response((select plan_id from tp), 1, 'windows',
   jsonb_build_array(pg_temp.win('2099-09-17', 1110, 1230)));
 select pg_temp.act_as_postgres();
 select is(
@@ -542,7 +574,7 @@ select throws_ok(
 -- the earlier answers had done that, but the set was written after them —
 -- the confirm went through, and the assertion had proved nothing.
 select pg_temp.act_as('00000000-0000-0000-0000-0000000002a2');
-select public.replace_response((select plan_id from tp), 'flexible');
+select public.replace_response((select plan_id from tp), 1, 'flexible');
 select pg_temp.act_as_postgres();
 select cmp_ok(
   (select input_version from public.plans where id = (select plan_id from tp)),
