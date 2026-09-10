@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { circleId } from '../circles/types.js';
 import { confirmationId } from '../confirmation/types.js';
 import { localDate } from '../shared/local-date.js';
 import { NOTIFICATION_KINDS, type NotificationKind } from './kinds.js';
@@ -50,11 +51,31 @@ describe('occurrenceFor', () => {
     expect(first).not.toBe(second);
   });
 
-  it('makes each month a different nudge', () => {
+  it('makes each month a different nudge, and each circle a different one again', () => {
     // `about_time` recurs for the life of the circle with no plan to hang from,
-    // so the due date is what separates September's nudge from October's.
-    expect(occurrenceFor('about_time', { dueDate: A_DUE_DATE })).toBe(A_DUE_DATE);
-    expect(occurrenceFor('about_time', { dueDate: localDate('2026-11-08') })).not.toBe(A_DUE_DATE);
+    // so the due date separates September's nudge from October's — and the
+    // circle separates two circles that fall due on the same day, which the
+    // idempotency key cannot, because it carries no plan for these sends.
+    const sunday = occurrenceFor('about_time', {
+      circleId: circleId('circle-1'),
+      dueDate: A_DUE_DATE,
+    });
+    const bookClub = occurrenceFor('about_time', {
+      circleId: circleId('circle-2'),
+      dueDate: A_DUE_DATE,
+    });
+    const november = occurrenceFor('about_time', {
+      circleId: circleId('circle-1'),
+      dueDate: localDate('2026-11-08'),
+    });
+    expect(new Set([sunday, bookClub, november]).size).toBe(3);
+  });
+
+  it('cannot have a circle id shift the boundary into the date', () => {
+    // Length-prefixed, so ("ab", "c") and ("a", "bc") stay different.
+    const left = occurrenceFor('about_time', { circleId: circleId('ab'), dueDate: 'c' as never });
+    const right = occurrenceFor('about_time', { circleId: circleId('a'), dueDate: 'bc' as never });
+    expect(left).not.toBe(right);
   });
 
   it('makes a resent verification a new email', () => {
@@ -69,9 +90,15 @@ describe('occurrenceFor', () => {
       expect(() => occurrenceFor(kind)).toThrow(RangeError);
     }
     expect(() => occurrenceFor('about_time')).toThrow(RangeError);
+    expect(() => occurrenceFor('about_time', { dueDate: A_DUE_DATE })).toThrow(RangeError);
+    expect(() => occurrenceFor('about_time', { circleId: circleId('circle-1') })).toThrow(
+      RangeError,
+    );
     expect(() => occurrenceFor('verify_email')).toThrow(RangeError);
     // An empty string is the same mistake wearing a value.
-    expect(() => occurrenceFor('about_time', { dueDate: '' as never })).toThrow(RangeError);
+    expect(() =>
+      occurrenceFor('about_time', { circleId: circleId('circle-1'), dueDate: '' as never }),
+    ).toThrow(RangeError);
   });
 
   it('answers for every kind in the table', () => {
@@ -80,6 +107,7 @@ describe('occurrenceFor', () => {
       dueDate: A_DUE_DATE,
       verificationId: 'v1',
       changeId: 'event-1',
+      circleId: circleId('circle-1'),
     };
     for (const spec of NOTIFICATION_KINDS) {
       expect(occurrenceFor(spec.kind as NotificationKind, input).length).toBeGreaterThan(0);

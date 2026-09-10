@@ -11,6 +11,7 @@
  * being a defence against retries.
  */
 
+import type { CircleId } from '../circles/types.js';
 import type { ConfirmationId } from '../confirmation/types.js';
 import type { LocalDate } from '../shared/local-date.js';
 import type { NotificationKind } from './kinds.js';
@@ -25,7 +26,8 @@ export const ONCE = 'once';
 export type OccurrenceInput = {
   /** For the kinds that belong to a confirmation rather than to a revision. */
   readonly confirmationId?: ConfirmationId | undefined;
-  /** For `about_time`: the local date the circle became due. */
+  /** For `about_time`: which circle is due, and the local date it became due. */
+  readonly circleId?: CircleId | undefined;
   readonly dueDate?: LocalDate | undefined;
   /**
    * For `changed`: which material change this is. The domain event's id does
@@ -38,6 +40,11 @@ export type OccurrenceInput = {
    */
   readonly verificationId?: string | undefined;
 };
+
+/** Length-prefixed, so a circle id containing a separator cannot shift a boundary. */
+function part(value: string): string {
+  return `${value.length}:${value}`;
+}
 
 function required(value: string | undefined, kind: NotificationKind, what: string): string {
   if (value === undefined || value.length === 0) {
@@ -83,10 +90,16 @@ export function occurrenceFor(kind: NotificationKind, input: OccurrenceInput = {
     case 'did_it_happen_participant':
       return required(input.confirmationId, kind, 'a confirmation id');
 
-    // Recurs for the life of the circle, with no plan to hang from. The due
-    // date is what makes September's nudge a different message from October's.
+    // Recurs for the life of the circle, with no plan to hang from — so the
+    // circle has to be in the occurrence, or one person who belongs to two
+    // circles that fall due on the same day gets one nudge instead of two and
+    // the second is discarded as a retry. The date is what makes September's
+    // nudge different from October's.
     case 'about_time':
-      return required(input.dueDate, kind, 'the due date');
+      return (
+        part(required(input.circleId, kind, 'the circle id')) +
+        part(required(input.dueDate, kind, 'the due date'))
+      );
 
     case 'verify_email':
       return required(input.verificationId, kind, 'a verification id');

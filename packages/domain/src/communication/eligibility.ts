@@ -24,7 +24,7 @@
 
 import { type Circle, type Member, type UserId, isActive } from '../circles/types.js';
 import { type NudgeInput, nudgeRecipient } from '../circles/nudge.js';
-import type { Attendance } from '../confirmation/types.js';
+import type { Attendance, ConfirmationId } from '../confirmation/types.js';
 import type { Response } from '../availability/types.js';
 import type { Plan } from '../planning/types.js';
 import {
@@ -81,8 +81,17 @@ export type EligibilityContext = {
   readonly quietInitiatorId?: UserId | undefined;
   /** Who answered a quiet ask with interest. */
   readonly keenMemberIds?: readonly UserId[] | undefined;
-  /** The confirmation's attendance, for `reminder`. */
+  /**
+   * The plan's attendance rows, for `reminder`, and the confirmation they must
+   * belong to.
+   *
+   * Both: a superseded confirmation keeps its rows — that is the point of
+   * superseding rather than mutating — so a `going` from the Thursday that was
+   * called off would put somebody on the reminder list for the Saturday they
+   * said they could not make.
+   */
   readonly attendance?: readonly Attendance[] | undefined;
+  readonly confirmationId?: ConfirmationId | undefined;
   /**
    * Members already sent this kind for this plan.
    *
@@ -175,8 +184,14 @@ function audienceFor(kind: NotificationKind, context: EligibilityContext): reado
       return ids.filter((id) => context.hasPlanEmailSubscription?.(id) === true);
 
     case 'going_members': {
+      // Nobody at all until the caller says which confirmation this is about:
+      // reminding the wrong evening's guests is worse than reminding nobody,
+      // and failing closed is the only safe reading of an ambiguous input.
+      if (context.confirmationId === undefined) return [];
       const going = new Set(
-        (context.attendance ?? []).filter((a) => a.status === 'going').map((a) => a.userId),
+        (context.attendance ?? [])
+          .filter((a) => a.confirmationId === context.confirmationId && a.status === 'going')
+          .map((a) => a.userId),
       );
       return ids.filter((id) => going.has(id));
     }

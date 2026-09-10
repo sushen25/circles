@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { type UserId, circleId, userId } from '../circles/types.js';
 import { circle, member } from '../circles/fixtures.js';
 import { confirmation, sundayCrewPlan } from '../confirmation/fixtures.js';
+import { confirmationId } from '../confirmation/types.js';
 import { planId } from '../planning/types.js';
 import { deriveAttendance } from '../confirmation/attendance.js';
 import { ALEX, JESS, NIC, PRIYA, SAM, SUNDAY_CREW, TOM } from '../scheduling/fixtures.js';
@@ -83,17 +84,36 @@ describe('audiences', () => {
       SUNDAY_CREW,
     );
     // Five going, Alex still unknown — and "unknown" is not "going".
-    expect(ids('reminder', eligibilityContext({ attendance }))).toEqual([
-      SAM,
-      PRIYA,
-      TOM,
-      JESS,
-      NIC,
-    ]);
+    const context = eligibilityContext({ attendance, confirmationId: confirmed.id });
+    expect(ids('reminder', context)).toEqual([SAM, PRIYA, TOM, JESS, NIC]);
   });
 
   it('sends a reminder to nobody when nobody has said they are coming', () => {
-    expect(ids('reminder', eligibilityContext({ attendance: [] }))).toEqual([]);
+    const context = eligibilityContext({ attendance: [], confirmationId: confirmation().id });
+    expect(ids('reminder', context)).toEqual([]);
+  });
+
+  it('ignores a "going" left behind by a confirmation that was superseded', () => {
+    // Superseding keeps the old rows — that is what makes "Thursday is off the
+    // table" stay true — so a `going` from the evening that was called off must
+    // not put somebody on the Saturday's reminder list.
+    const current = confirmation();
+    const abandoned = deriveAttendance(
+      confirmation({ id: confirmationId('confirmation-thursday') }),
+      sundayCrewStoredResponses(sundayCrewPlan()),
+      SUNDAY_CREW,
+    );
+    const context = eligibilityContext({ attendance: abandoned, confirmationId: current.id });
+    expect(ids('reminder', context)).toEqual([]);
+  });
+
+  it('reminds nobody at all until the caller says which confirmation it means', () => {
+    const attendance = deriveAttendance(
+      confirmation(),
+      sundayCrewStoredResponses(sundayCrewPlan()),
+      SUNDAY_CREW,
+    );
+    expect(ids('reminder', eligibilityContext({ attendance }))).toEqual([]);
   });
 
   it('selects nobody for a verification, because an address is not a member', () => {
