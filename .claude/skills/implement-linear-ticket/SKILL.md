@@ -116,18 +116,27 @@ shows it. S1-05's P1 was a token interpolated into an exception message, which
 means a token in a log — the kind of thing that is cheap now and unfixable
 later.
 
-**Three rounds, then stop.** Ask for another round after each fix, because
-findings surface in layers: S1-02 took two rounds and S1-03 five, and two of
-S1-03's findings were only reachable once an earlier fix had changed the shape
-of the code. But the returns fall off, and a fourth round on a P2 that is really
-a preference costs more attention than it buys.
+**The stopping condition is a clean round, not a round count.** Ask for
+another round after each fix, because findings surface in layers: S1-02 took two
+rounds and S1-03 five, and two of S1-03's findings were only reachable once an
+earlier fix had changed the shape of the code. S1-08's third round found two
+P1s — and the review stopped there, because "three rounds" had been read as the
+end. It is not. The rule, stated so it cannot be misread:
 
-So: run at most **three** rounds of P2-and-below. If round three still comes back
-with P2s, write them up in the PR comment — what was found, why it was not done
-now, whether it belongs on a later ticket — and hand over. The exception is
-severity: **a P0 or P1 in any round restarts the obligation**, and rounds keep
-going until no P0 or P1 comes back. Ending on unaddressed P2s is a decision to
-state out loud, not a thing to do quietly.
+- **Review again after every round that found a P0 or P1**, however many rounds
+  that takes. The review ends only when a round comes back with **no P0 and no
+  P1**. A fix is not verified by making it; it is verified by the next round
+  not finding it — and the next round is also the only thing that finds what
+  the fix broke.
+- **P2s stop being *fixed* after the third round**, because the returns fall
+  off and a fourth round on a P2 that is really a preference costs more
+  attention than it buys. They do not stop being *reviewed*: a P2 in round four
+  is written up in the PR comment — what was found, why it was not done now,
+  whether it belongs on a later ticket — rather than fixed. Ending on
+  unaddressed P2s is a decision to state out loud, not a thing to do quietly.
+
+So a ticket whose round three fixes a P1 gets a round four. If round four is
+P2-only, write those up and stop; if it finds a P1, fix it and run round five.
 
 **Push every round before the founder merges.** A fix that is committed locally
 and not pushed is a fix that is not in the PR: S1-05 was merged at its first
