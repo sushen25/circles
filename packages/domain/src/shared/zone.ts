@@ -223,6 +223,30 @@ export function ceilToLocalSlot(value: Instant, z: Zone): Instant {
 }
 
 /**
+ * Every moment in `[from, to)` whose local clock reads a half hour, in order.
+ *
+ * The count is not `(to - from) / 30 minutes`: on the day the clocks go forward
+ * some half hours do not happen, and on the day they go back two of them happen
+ * twice. Walking the local clock is the only way to get the real ones — and the
+ * painter's grid and the engine's start list have to agree about which exist,
+ * so they share this rather than each computing it.
+ */
+export function localSlotStarts(from: Instant, to: Instant, z: Zone): Instant[] {
+  const starts: Instant[] = [];
+  let at = isAlignedToLocalSlot(from, z) ? from : ceilToLocalSlot(from, z);
+
+  while (at < to) {
+    starts.push(at);
+    // A millisecond past the boundary so `ceil` moves on rather than standing
+    // still. It keeps the occurrence, so a repeated hour yields both.
+    const next = ceilToLocalSlot(instant(at + 1), z);
+    if (next <= at) break; // defensive: the clock is not advancing
+    at = next;
+  }
+  return starts;
+}
+
+/**
  * Whether the moment falls exactly on a local half-hour boundary.
  *
  * The sub-minute remainder is part of the question. `toLocal` reports minutes

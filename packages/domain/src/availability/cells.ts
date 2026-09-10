@@ -16,8 +16,7 @@
 import type { Plan } from '../planning/types.js';
 import { type Interval, intersect, interval, merge } from '../shared/interval.js';
 import type { LocalDate } from '../shared/local-date.js';
-import { instant } from '../shared/instant.js';
-import { ceilToLocalSlot, fromLocal } from '../shared/zone.js';
+import { fromLocal, localSlotStarts } from '../shared/zone.js';
 
 /**
  * Every half-hour slot the day's band actually contains, in order.
@@ -37,18 +36,14 @@ export function cellsFor(date: LocalDate, plan: Plan): Interval[] {
   const bandStart = fromLocal(date, plan.daily.startMin, plan.zone);
   const bandEnd = fromLocal(date, plan.daily.endMin, plan.zone);
 
-  const cells: Interval[] = [];
-  let at = bandStart;
-  while (at < bandEnd) {
-    // The next moment whose local clock reads a half hour. Adding a millisecond
-    // first makes it strictly later, and `ceilToLocalSlot` keeps the occurrence.
-    const next = ceilToLocalSlot(instant(at + 1), plan.zone);
-    const end = next < bandEnd ? next : bandEnd;
-    if (end <= at) break; // defensive: the band cannot be walked
-    cells.push(interval(at, end));
-    at = end;
-  }
-  return cells;
+  // The same walk the engine uses to enumerate starts, so the grid and the
+  // candidate list can never disagree about which half hours exist.
+  const starts = localSlotStarts(bandStart, bandEnd, plan.zone);
+
+  return starts.map((start, index) => {
+    const next = starts[index + 1] ?? bandEnd;
+    return interval(start, next);
+  });
 }
 
 /**

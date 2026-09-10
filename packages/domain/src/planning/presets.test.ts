@@ -10,6 +10,7 @@ import {
   dailyForRange,
   hasFutureStart,
   isViableBand,
+  validateBand,
   nextDays,
   resolvePreset,
   roundUpToHalfHour,
@@ -245,6 +246,52 @@ describe('hasFutureStart', () => {
     expect(hasFutureStart(fromISO('2026-09-17T12:00:00Z'), today, evening, 120, MELBOURNE)).toBe(
       false,
     );
+  });
+});
+
+describe('a chosen daily band', () => {
+  const today = { start: localDate('2026-09-18'), end: localDate('2026-09-20') };
+  const soon = fromISO('2026-09-17T02:00:00Z');
+
+  it('replaces the preset default, so any time of day can be asked about', () => {
+    // The presets suggest evenings for a mixed range. Spec §5.3 offers "custom"
+    // as a time-of-day option, and without this the suggestion was a cap: a plan
+    // could not ask about a Sunday afternoon, which the Candidates artboard shows.
+    const result = resolvePreset('custom', soon, MELBOURNE, {
+      durationMinutes: TWO_HOURS,
+      custom: today,
+      daily: { startMin: 9 * 60, endMin: 22 * 60 + 30 },
+    });
+    expect(result).toMatchObject({ daily: { startMin: 9 * 60, endMin: 22 * 60 + 30 } });
+  });
+
+  it('leaves the defaults alone when nothing is chosen', () => {
+    expect(resolvePreset('next_7_days', soon, MELBOURNE, opts())).toMatchObject({
+      daily: { startMin: 17 * 60 + 30, endMin: 22 * 60 + 30 },
+    });
+  });
+
+  it('refuses a band that runs backwards or escapes the day', () => {
+    expect(validateBand({ startMin: 14 * 60, endMin: 12 * 60 })).toBe('band_backwards');
+    expect(validateBand({ startMin: 22 * 60, endMin: 25 * 60 })).toBe('band_out_of_day');
+    expect(validateBand({ startMin: -30, endMin: 60 })).toBe('band_out_of_day');
+  });
+
+  it('requires half hours, because everything else works in them', () => {
+    // Not a limit on which hours: a band edge at 17:45 would put the first cell
+    // at 18:00 and quietly lose the quarter hour.
+    expect(validateBand({ startMin: 17 * 60 + 45, endMin: 22 * 60 })).toBe('band_unaligned');
+    expect(validateBand({ startMin: 17 * 60 + 30, endMin: 22 * 60 })).toBeUndefined();
+  });
+
+  it('is still judged on viability once chosen', () => {
+    expect(
+      resolvePreset('custom', soon, MELBOURNE, {
+        durationMinutes: 180,
+        custom: today,
+        daily: { startMin: 12 * 60, endMin: 13 * 60 },
+      }),
+    ).toBe('band_shorter_than_meetup');
   });
 });
 

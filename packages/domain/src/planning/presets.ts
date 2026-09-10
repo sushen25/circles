@@ -168,13 +168,41 @@ export type PresetError =
   | 'window_too_long'
   | 'window_backwards'
   | 'band_shorter_than_meetup'
-  | 'window_has_passed';
+  | 'window_has_passed'
+  | BandError;
 
 export type PresetOptions = {
   readonly durationMinutes: DurationMinutes;
   /** Required by `custom`: the dates the person picked. */
   readonly custom?: DateWindow | undefined;
+  /**
+   * An explicit daily band, overriding the preset's default.
+   *
+   * Spec §5.3 offers a time-of-day window "with preset defaults … ; custom" —
+   * the bands the presets suggest are **defaults, not limits**. This was simply
+   * never implemented: you could pick custom dates but not custom times, so the
+   * defaults acted as a cap and a plan could not ask about a Sunday at four
+   * o'clock even though the Candidates artboard shows one.
+   */
+  readonly daily?: DailyWindow | undefined;
 };
+
+export type BandError = 'band_backwards' | 'band_unaligned' | 'band_out_of_day';
+
+/**
+ * A band has to run forwards, fit inside a day, and sit on half hours.
+ *
+ * The half-hour rule is not a restriction on *which* hours — it is the
+ * granularity everything else already works in: the painter's cells, the
+ * engine's starts, and the willing windows people submit. A band edge at 17:45
+ * would put the first cell at 18:00 and quietly lose the quarter hour.
+ */
+export function validateBand(daily: DailyWindow): BandError | undefined {
+  if (daily.endMin <= daily.startMin) return 'band_backwards';
+  if (daily.startMin < 0 || daily.endMin > 24 * 60) return 'band_out_of_day';
+  if (daily.startMin % HALF_HOUR !== 0 || daily.endMin % HALF_HOUR !== 0) return 'band_unaligned';
+  return undefined;
+}
 
 /**
  * Resolve a preset to a window, or say why it cannot be one.
@@ -189,9 +217,19 @@ export function resolvePreset(
   z: Zone,
   options: PresetOptions,
 ): PresetWindow | PresetError {
-  const { durationMinutes, custom } = options;
+  const { durationMinutes, custom, daily } = options;
 
-  const checked = (result: PresetWindow): PresetWindow | PresetError => {
+  const checked = (base: PresetWindow): PresetWindow | PresetError => {
+    // An explicit band replaces the preset's suggestion before anything is
+    // judged, so the viability checks below apply to what was actually asked
+    // for rather than to a default nobody chose.
+    let result = base;
+    if (daily !== undefined) {
+      const invalid = validateBand(daily);
+      if (invalid !== undefined) return invalid;
+      result = { window: base.window, daily };
+    }
+
     if (!isViableBand(result.daily, durationMinutes)) return 'band_shorter_than_meetup';
     if (!hasFutureStart(now, result.window, result.daily, durationMinutes, z)) {
       return 'window_has_passed';
@@ -200,8 +238,13 @@ export function resolvePreset(
   };
 
   switch (preset) {
-    case 'tonight':
-      return tonight(now, z, durationMinutes) ?? 'too_late_for_tonight';
+    case 'tonight': {
+      const base = tonight(now, z, durationMinutes);
+      if (base === undefined) return 'too_late_for_tonight';
+      // Tonight's band starts at the next half hour, which an explicit band
+      // would otherwise silently move into the past.
+      return daily === undefined ? base : checked(base);
+    }
     case 'this_weekend':
       return checked(thisWeekend(now, z));
     case 'next_7_days':

@@ -27,4 +27,5 @@ export * from './shared/events.js';
 export * from './circles/index.js';
 export * from './planning/index.js';
 export * from './availability/index.js';
+export * from './scheduling/index.js';
 export * as fixtures from './fixtures.js';
