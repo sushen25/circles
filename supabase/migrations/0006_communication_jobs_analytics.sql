@@ -102,7 +102,14 @@ create table jobs.outbox (
   occurred_at timestamptz not null default now(),
   processed_at timestamptz,
   attempts integer not null default 0,
+  -- A code, not a message. The dispatcher writes what went wrong as a
+  -- classified code (`provider.bounced`, `http:502`, `db:23505`), never an
+  -- exception's text, because an exception's text is where addresses and
+  -- notes turn up (non-negotiable 8). The shape refuses a sentence.
   last_error text,
+  constraint outbox_last_error_is_a_code check (
+    last_error is null or last_error ~ '^[A-Za-z0-9_.:/-]{1,120}$'
+  ),
   -- The catalogue — `DOMAIN_EVENT_NAMES` in packages/domain/shared/events.ts,
   -- rendered by scripts/gen-events.mjs — as a constraint. A misspelt event is
   -- an event nobody consumes, and the build should say so before a dispatcher
@@ -203,6 +210,7 @@ create table jobs.notification_jobs (
   idempotency_key text not null unique,
   status text not null default 'scheduled',
   attempt_count integer not null default 0,
+  -- A code, not a message — see jobs.outbox.last_error.
   last_error text,
   sent_at timestamptz,
   provider_message_id text,
@@ -217,6 +225,9 @@ create table jobs.notification_jobs (
   constraint notification_jobs_status check (status in ('scheduled', 'sent', 'failed', 'skipped')),
   constraint notification_jobs_key_shape check (idempotency_key ~ '^[0-9a-f]{64}$'),
   constraint notification_jobs_attempts check (attempt_count >= 0),
+  constraint notification_jobs_last_error_is_a_code check (
+    last_error is null or last_error ~ '^[A-Za-z0-9_.:/-]{1,120}$'
+  ),
   -- A push goes to a user; an email goes to a contact — one recipient, named
   -- one way, so two ids that might belong to two people can never sit on one
   -- job. Written as a `case` so that a null in the wrong column is a
@@ -516,7 +527,7 @@ end;
 $$;
 
 create trigger email_action_tokens_guests_only
-  before insert on private.email_action_tokens
+  before insert or update of purpose, membership_user_id on private.email_action_tokens
   for each row execute function private.enforce_reentry_for_guests();
 
 create index email_action_tokens_contact_idx on private.email_action_tokens (contact_id);
@@ -1016,6 +1027,13 @@ begin
         if not planning.candidate_is_eligible(plan, p_payload ->> 'candidate_id') then
           raise exception 'needs_candidate' using errcode = 'P0001';
         end if;
+        -- `confirm()` in the domain: a candidate that begins in the past is
+        -- removed on recalculation (spec §9), and confirming one in the
+        -- meantime would lock in a time that has gone. Eligibility is about
+        -- the set; this is about the clock, and it is checked here too.
+        if (p_payload ->> 'candidate_id')::timestamptz <= now() then
+          raise exception 'candidate_has_passed' using errcode = 'P0001';
+        end if;
       else
         raise exception 'UNKNOWN_GUARD_%', guard using errcode = 'P0001';
     end case;
@@ -1268,9 +1286,16 @@ create policy nudge_states_insert_own on public.nudge_states
     ))
   );
 
+-- And, for a plan-bound row, still a member of its circle: a removed member
+-- keeps their own history to read, not to add to.
 create policy nudge_states_update_own on public.nudge_states
   for update to authenticated
-  using (user_id = (select auth.uid()))
+  using (
+    user_id = (select auth.uid())
+    and (plan_id is null or exists (
+      select 1 from public.plans p where p.id = plan_id and public.auth_is_member(p.circle_id)
+    ))
+  )
   with check (user_id = (select auth.uid()));
 
 revoke all on public.nudge_states from anon, authenticated;

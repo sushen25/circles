@@ -6,7 +6,7 @@
 -- count only (§6.3, §14).
 
 begin;
-select plan(37);
+select plan(38);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid language sql as $$
@@ -44,7 +44,8 @@ returns jsonb language sql as $$
 $$;
 
 -- A plan that is confirmed and reported on in one go, the way a seed does it:
--- a past window, a candidate, `confirm`, then the outcome.
+-- a candidate still ahead, `confirm`, the clock moved on by hand (the owner
+-- may; nobody else can), then the outcome.
 create or replace function pg_temp.make_confirmed_and_done() returns uuid language plpgsql as $$
 declare
   new_plan uuid;
@@ -56,8 +57,8 @@ begin
     duration_minutes, quorum, response_deadline, short_code
   )
   select circle_id, 'named', 'ready', '00000000-0000-0000-0000-0000000005a1',
-    'Catch up', 'Australia/Melbourne', date '2020-03-02', date '2020-03-05',
-    1050, 1350, 120, 2, timestamptz '2020-03-03T10:00:00Z', 'pnevdn'
+    'Catch up', 'Australia/Melbourne', date '2099-03-02', date '2099-03-05',
+    1050, 1350, 120, 2, timestamptz '2099-03-03T10:00:00Z', 'pnevdn'
   from t returning id into new_plan;
   insert into public.plan_participants (plan_id, revision, user_id)
   values (new_plan, 1, '00000000-0000-0000-0000-0000000005a1');
@@ -67,10 +68,13 @@ begin
   returning id into new_set;
   insert into public.candidates (candidate_set_id, is_near_miss, rank, starts_at, ends_at, available_user_ids,
     explicit_count, flexible_count, explanation_code, explanation_count)
-  values (new_set, false, 1, timestamptz '2020-03-02T07:30:00Z', timestamptz '2020-03-02T09:30:00Z',
+  values (new_set, false, 1, timestamptz '2099-03-02T07:30:00Z', timestamptz '2099-03-02T09:30:00Z',
     array['00000000-0000-0000-0000-0000000005a1']::uuid[], 1, 0, 'best_attendance', 1);
   perform planning.transition_plan(new_plan, 'confirm', '00000000-0000-0000-0000-0000000005a1',
-    '{"candidate_id": "2020-03-02T07:30:00Z"}'::jsonb);
+    '{"candidate_id": "2099-03-02T07:30:00Z"}'::jsonb);
+  update public.meetup_confirmations
+  set starts_at = timestamptz '2020-03-02T07:30:00Z', ends_at = timestamptz '2020-03-02T09:30:00Z'
+  where plan_id = new_plan;
   perform set_config('request.jwt.claims',
     jsonb_build_object('sub', '00000000-0000-0000-0000-0000000005a1', 'role', 'authenticated')::text, true);
   perform public.report_outcome(
@@ -355,6 +359,33 @@ select throws_ok(
   'P0001',
   null,
   'a key confirm does not take is refused'
+);
+-- A ready plan whose only option has already begun.
+select pg_temp.act_as_postgres();
+insert into public.plans (
+  circle_id, mode, state, organiser_user_id, title, time_zone,
+  window_start, window_end, daily_start_local, daily_end_local,
+  duration_minutes, quorum, response_deadline, short_code
+)
+select circle_id, 'named', 'ready', '00000000-0000-0000-0000-0000000005a1',
+  'Catch up', 'Australia/Melbourne', date '2020-01-06', date '2020-01-09',
+  1050, 1350, 120, 2, timestamptz '2020-01-07T10:00:00Z', 'pnevpp'
+from t returning id as passed_plan \gset
+insert into public.plan_participants (plan_id, revision, user_id) values (:'passed_plan', 1, '00000000-0000-0000-0000-0000000005a1');
+insert into public.candidate_sets (plan_id, revision, input_version, scoring_version, input_hash,
+  starts_considered, eligible_count, responded_count, active_member_count)
+select :'passed_plan', 1, p.input_version, p.scoring_version, 'h', 1, 1, 1, 1 from public.plans p where p.id = :'passed_plan'
+returning id as passed_set \gset
+insert into public.candidates (candidate_set_id, is_near_miss, rank, starts_at, ends_at, available_user_ids,
+  explicit_count, flexible_count, explanation_code, explanation_count)
+values (:'passed_set', false, 1, timestamptz '2020-01-06T07:30:00Z', timestamptz '2020-01-06T09:30:00Z',
+  array['00000000-0000-0000-0000-0000000005a1']::uuid[], 1, 0, 'best_attendance', 1);
+select throws_ok(
+  format($$select planning.transition_plan('%s', 'confirm', '00000000-0000-0000-0000-0000000005a1',
+    '{"candidate_id": "2020-01-06T07:30:00Z"}'::jsonb)$$, :'passed_plan'),
+  'P0001',
+  'candidate_has_passed',
+  'a candidate whose start has passed cannot be confirmed, however eligible the set says it is'
 );
 select ok(
   not has_table_privilege('service_role', 'public.meetup_confirmations', 'insert')

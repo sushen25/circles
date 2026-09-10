@@ -6,7 +6,7 @@
 -- later with a stray grant fails here by name.
 
 begin;
-select plan(68);
+select plan(74);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid language sql as $$
@@ -234,6 +234,18 @@ select throws_ok(
   null,
   'nor read the outbox'
 );
+select pg_temp.act_as_service();
+select throws_ok(
+  $$update jobs.outbox set last_error = 'smtp 550: user@example.com rejected' where event_name = 'circles.invite_rotated'$$,
+  '23514',
+  null,
+  'what went wrong is recorded as a code, never as a message that might carry an address'
+);
+select lives_ok(
+  $$update jobs.outbox set last_error = 'provider.bounced', attempts = 1 where event_name = 'circles.invite_rotated'$$,
+  'a code is fine'
+);
+select pg_temp.act_as('00000000-0000-0000-0000-0000000004a1');
 
 -- ---------------------------------------------------------------------------
 -- Notification jobs: the key is the design.
@@ -279,6 +291,12 @@ select throws_ok(
   '23514',
   null,
   'a push job cannot also carry a contact: one recipient, named one way'
+);
+select throws_ok(
+  $$update jobs.notification_jobs set last_error = 'Resend: "Sunday Crew" bounced' where idempotency_key = repeat('a', 64)$$,
+  '23514',
+  null,
+  'and a job''s failure is a code too'
 );
 select throws_ok(
   format($$insert into jobs.notification_jobs (channel, kind, user_id, plan_id, plan_revision, scheduled_for, idempotency_key)
@@ -419,6 +437,16 @@ select lives_ok(
     :'guest_contact', (select circle_id from t)),
   'a guest''s own membership, through their own address, is issued'
 );
+insert into private.email_action_tokens (contact_id, purpose, token_hash, expires_at)
+values (:'contact', 'verify', extensions.digest('t-priya', 'sha256'), now() + interval '1 day')
+returning id as priya_token \gset
+select throws_ok(
+  format($$update private.email_action_tokens set purpose = 'reentry', membership_circle_id = '%s', membership_user_id = '00000000-0000-0000-0000-0000000004a2' where id = '%s'$$,
+    (select circle_id from t), :'priya_token'),
+  '23514',
+  'reentry_token_for_permanent_identity',
+  'nor can a verify token be turned into a re-entry for a saved-place member after the fact'
+);
 select throws_ok(
   format($$insert into private.email_action_tokens (contact_id, purpose, token_hash, expires_at)
     values ('%s', 'verify', extensions.digest('t1', 'sha256'), now() + interval '1 day')$$, :'contact'),
@@ -529,6 +557,22 @@ select is(
   (select answer from public.nudge_states where moment = 'confirmed'),
   'dismissed',
   'and her update touched nothing: the row was never hers to match'
+);
+
+-- Removed, Priya keeps her history to read and not to add to.
+select pg_temp.act_as_postgres();
+update public.circle_members set status = 'removed'
+where circle_id = (select circle_id from t) and user_id = '00000000-0000-0000-0000-0000000004a2';
+select pg_temp.act_as('00000000-0000-0000-0000-0000000004a2');
+update public.nudge_states set answer = 'tapped' where moment = 'confirmed';
+select is(
+  (select answer from public.nudge_states where moment = 'confirmed'),
+  'dismissed',
+  'a removed member cannot change a plan-bound nudge: the update matches nothing'
+);
+select lives_ok(
+  $$update public.nudge_states set answer = 'tapped' where moment = 'reattached'$$,
+  'while a moment that was never about a plan is still theirs'
 );
 
 select * from finish();
