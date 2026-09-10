@@ -10,7 +10,7 @@
 -- made as somebody *else*.
 
 begin;
-select plan(65);
+select plan(68);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid language sql as $$
@@ -540,6 +540,30 @@ select throws_ok(
   null,
   'at most three of each kind'
 );
+-- `'{}' ->> 'kind'` is SQL null, an `or` of nulls is null, and a null CHECK
+-- passes — so an empty object was a valid reason until the check was coalesced.
+select throws_ok(
+  format($$insert into public.candidates
+      (candidate_set_id, is_near_miss, rank, starts_at, ends_at, available_user_ids,
+       explicit_count, flexible_count, explanation_code, explanation_count, near_miss_reason)
+    values ('%s', true, 2, timestamptz '2099-09-20T08:30:00Z', timestamptz '2099-09-20T10:30:00Z',
+      array[]::uuid[], 0, 0, 'also_n_later', 0, '{}'::jsonb)$$,
+    (select set_id from tcs)),
+  '23514',
+  null,
+  'a near-miss reason that says nothing is not a reason'
+);
+select throws_ok(
+  format($$insert into public.candidates
+      (candidate_set_id, is_near_miss, rank, starts_at, ends_at, available_user_ids,
+       explicit_count, flexible_count, explanation_code, explanation_count, near_miss_reason)
+    values ('%s', true, 2, timestamptz '2099-09-20T08:30:00Z', timestamptz '2099-09-20T10:30:00Z',
+      array[]::uuid[], 0, 0, 'also_n_later', 0, '"quorum_short"'::jsonb)$$,
+    (select set_id from tcs)),
+  '23514',
+  null,
+  'nor is a bare string'
+);
 
 select pg_temp.act_as('00000000-0000-0000-0000-0000000002a3');
 select is((select count(*)::integer from public.candidates), 2, 'a member reads the whole set');
@@ -702,6 +726,22 @@ select is(
 
 update public.circle_members set status = 'active'
 where circle_id = (select circle_id from t) and user_id = '00000000-0000-0000-0000-0000000002a3';
+
+-- Removing somebody who never answered still changes the engine's input — the
+-- active-member set is an input, and they counted toward "of 6" — so the
+-- bump cannot depend on there having been a response to delete.
+select pg_temp.act_as_postgres();
+select pg_temp.make_user('00000000-0000-0000-0000-0000000002a6', 'Silent');
+insert into public.circle_members (circle_id, user_id, display_name_snapshot)
+select circle_id, '00000000-0000-0000-0000-0000000002a6', 'Silent' from t;
+select input_version as iv_before_silent from public.plans where id = (select plan_id from tr) \gset
+update public.circle_members set status = 'removed'
+where circle_id = (select circle_id from t) and user_id = '00000000-0000-0000-0000-0000000002a6';
+select cmp_ok(
+  (select input_version from public.plans where id = (select plan_id from tr)),
+  '>', :iv_before_silent,
+  'removing a member who never answered still stales the set — they were part of "of 6"'
+);
 
 select * from finish();
 rollback;

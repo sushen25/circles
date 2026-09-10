@@ -287,10 +287,19 @@ create table public.candidates (
     (is_near_miss and near_miss_reason is not null)
     or (not is_near_miss and near_miss_reason is null)
   ),
+  -- Coalesced to false, and an object required: `'{}'::jsonb ->> 'kind'` is
+  -- SQL null, an `or` chain of nulls is null, and a null CHECK result passes.
+  -- The same trap `plans_quiet_threshold` fell into, from the other side.
   constraint candidates_reason_shape check (
     near_miss_reason is null
-    or (near_miss_reason ->> 'kind' = 'quorum_short' and (near_miss_reason ->> 'by')::integer >= 1)
-    or (near_miss_reason ->> 'kind' = 'required_missing' and (near_miss_reason ->> 'userId') is not null)
+    or (
+      jsonb_typeof(near_miss_reason) = 'object'
+      and coalesce(
+        (near_miss_reason ->> 'kind' = 'quorum_short' and (near_miss_reason ->> 'by')::integer >= 1)
+        or (near_miss_reason ->> 'kind' = 'required_missing' and (near_miss_reason ->> 'userId') is not null),
+        false
+      )
+    )
   ),
   constraint candidates_explanation_code check (
     explanation_code in (
@@ -709,11 +718,29 @@ begin
     return new;
   end if;
 
+  -- The same lock `replace_response` takes, taken first. Without it a first
+  -- answer could race the removal: the answer passes its membership check,
+  -- the removal deletes nothing because nothing is there yet, and the answer
+  -- then lands — availability belonging to somebody who has left. With it,
+  -- whichever of the two gets the plan first finishes first, and the other
+  -- sees the world it left: either the member is gone before the answer is
+  -- checked, or the answer is there for the removal to delete.
+  perform 1 from public.plans p where p.circle_id = new.circle_id for update;
+
   -- Their availability, on every plan of the circle. Windows cascade.
   delete from public.plan_responses r
   using public.plans p
   where r.plan_id = p.id
     and p.circle_id = new.circle_id and r.user_id = new.user_id;
+
+  -- The engine's input changed whether or not they had answered: the active
+  -- member set is an input too, and a member who never replied still counted
+  -- toward "5 of 6". An explicit bump on every open plan, rather than relying
+  -- on the delete above to have found a row to fire the trigger for.
+  update public.plans p
+  set input_version = p.input_version + 1
+  where p.circle_id = new.circle_id
+    and p.state in ('seeking', 'collecting', 'ready');
 
   -- Out of every open revision's participant list.
   delete from public.plan_participants pp
