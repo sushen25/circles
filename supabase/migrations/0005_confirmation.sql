@@ -299,8 +299,18 @@ declare
   confirmation public.meetup_confirmations;
   plan public.plans;
 begin
+  -- Lock order is plan, then confirmation — the same order `cancel` and
+  -- `reopen` take (`transition_plan` locks the plan; its trigger then writes
+  -- the confirmation). Locking the confirmation first here would let an
+  -- outcome racing a cancel deadlock instead of one of them simply losing.
+  -- The confirmation is read again after the lock, because the loser has to
+  -- see what the winner did.
+  select p.* into plan
+  from public.plans p
+  join public.meetup_confirmations c on c.plan_id = p.id
+  where c.id = new.confirmation_id
+  for update of p;
   select * into confirmation from public.meetup_confirmations c where c.id = new.confirmation_id;
-  select * into plan from public.plans p where p.id = confirmation.plan_id;
 
   -- Reporting on a superseded confirmation would attach an outcome to a time
   -- that was replaced — and, through the `last_met_at` move below, could set
