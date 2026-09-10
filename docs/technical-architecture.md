@@ -412,14 +412,14 @@ All ids are `uuid` (v7 where ordering helps). All tables have `created_at`, `upd
 | `private.email_action_tokens` | `contact_id`, `purpose` (`verify|prefs|reentry`), `token_hash`, `expires_at`, `used_at`, `membership_circle_id` + `membership_user_id` (required for `reentry`, forbidden otherwise) | hash unique; single use by `used_at` in the consuming statement |
 | `private.email_delivery_events` | `job_id`, `provider_message_id`, `event_type`, `provider_occurred_at`, `recorded_at` | unique `(provider_message_id, event_type)` |
 | `jobs.notification_jobs` | `channel` (`push|email`), `kind` (a `NotificationKind`), `user_id`, `contact_id`, `plan_id`, `plan_revision`, `scheduled_for`, `idempotency_key`, `status` (`scheduled|sent|failed|skipped`), `attempt_count`, `last_error`, `sent_at`, `provider_message_id` | `idempotency_key` unique, 64 hex (the domain's SHA-256); push needs `user_id`, email needs `contact_id` |
-| `jobs.outbox` | `seq` (drain order), `event_name`, `aggregate_type`, `aggregate_id`, `payload`, `occurred_at`, `processed_at`, `attempts`, `last_error` | `event_name` in the §6.3 catalogue; payload is an object carrying no `name|email|note|title|token|place_name|cancel_note` key; written only through `jobs.emit()` |
+| `jobs.outbox` | `seq` (drain order), `event_name`, `aggregate_type`, `aggregate_id`, `payload`, `occurred_at`, `processed_at`, `attempts`, `last_error` | `event_name` in the §6.3 catalogue; payload is an object carrying no `name|display_name|email|note|title|token|place_name|cancel_note` key **at any depth** (`jobs.carries_content()`, also on `audit_log.metadata` and `analytics.events.properties`); written only through `jobs.emit()` |
 | `jobs.cron_leases` | `name`, `leased_until`, `holder`, `last_started_at`, `last_finished_at` | one row per cron job |
 
 **Growth (`public`)**
 
 | Table | Columns of note | Constraints |
 |---|---|---|
-| `nudge_states` | `user_id`, `moment` (the catalogue's two `moment` enums), `plan_id` (null for a moment not about a plan), `shown_at`, `answer` (`dismissed|tapped`), `snoozed_until` | unique `(user_id, moment, plan_id)` with nulls not distinct; own rows only; a plan-bound row only for a plan in one's circles |
+| `nudge_states` | `user_id`, `moment` (the catalogue's two `moment` enums), `plan_id` (required for a plan-bound moment, forbidden for `reattached`/`settings` — a `case` constraint), `shown_at`, `answer` (`dismissed|tapped`), `snoozed_until` | unique `(user_id, moment, plan_id)` with nulls not distinct; own rows only; a plan-bound row only for a plan in one's circles |
 
 **Analytics & audit**
 

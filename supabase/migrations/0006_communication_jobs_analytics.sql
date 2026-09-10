@@ -26,6 +26,47 @@ grant usage on schema jobs to service_role;
 grant usage on schema analytics to service_role;
 
 -- ---------------------------------------------------------------------------
+-- Non-negotiable 8, as a function.
+--
+-- Three tables here hold free-form JSON that is read by the dispatcher, the
+-- notification pipeline and analytics, and none of them may be handed a
+-- name, an email, a note, a title or a token. This walks the whole document —
+-- objects inside arrays inside objects — because a check that looks only at
+-- the top level is a promise about the shape the writer happened to use, and
+-- `{"context": {"email": …}}` is a payload somebody will write in good faith.
+-- ---------------------------------------------------------------------------
+
+create or replace function jobs.carries_content(p_document jsonb)
+returns boolean
+language sql
+immutable
+set search_path = ''
+as $$
+  with recursive nodes (node) as (
+    select p_document
+    union all
+    select child
+    from nodes,
+    lateral (
+      select value from jsonb_each(case when jsonb_typeof(node) = 'object' then node else '{}'::jsonb end)
+      union all
+      select value from jsonb_array_elements(case when jsonb_typeof(node) = 'array' then node else '[]'::jsonb end)
+    ) as children (child)
+  )
+  select exists (
+    select 1
+    from nodes, jsonb_object_keys(case when jsonb_typeof(node) = 'object' then node else '{}'::jsonb end) as k
+    where lower(k) in (
+      'name', 'display_name', 'display_name_snapshot', 'email', 'email_normalized', 'note',
+      'title', 'token', 'token_hash', 'place_name', 'cancel_note'
+    )
+  );
+$$;
+
+comment on function jobs.carries_content(jsonb) is
+  'True when any object at any depth carries a key that names a person, an address, a note, a title or a token. The check constraint on outbox, audit_log and analytics.events.';
+
+-- ---------------------------------------------------------------------------
 -- jobs.outbox
 -- ---------------------------------------------------------------------------
 
@@ -61,15 +102,8 @@ create table jobs.outbox (
     'circle', 'plan', 'response', 'confirmation', 'contact', 'subscription', 'delivery', 'nudge', 'account'
   )),
   constraint outbox_payload_is_object check (jsonb_typeof(payload) = 'object'),
-  -- Non-negotiable 8, at the table: a payload is read by the dispatcher, the
-  -- notification pipeline and analytics, and none of them may be handed a
-  -- name, an email, a note, a title or a token. Ids only.
-  constraint outbox_payload_carries_no_content check (
-    not (payload ?| array[
-      'name', 'display_name', 'email', 'email_normalized', 'note', 'title',
-      'token', 'token_hash', 'place_name', 'cancel_note'
-    ])
-  ),
+  -- Non-negotiable 8, at the table. Ids only, at every depth.
+  constraint outbox_payload_carries_no_content check (not jobs.carries_content(payload)),
   constraint outbox_attempts check (attempts >= 0)
 );
 
@@ -359,12 +393,7 @@ create table private.audit_log (
   metadata jsonb not null default '{}'::jsonb,
   occurred_at timestamptz not null default now(),
   constraint audit_log_metadata_is_object check (jsonb_typeof(metadata) = 'object'),
-  constraint audit_log_metadata_carries_no_content check (
-    not (metadata ?| array[
-      'name', 'display_name', 'email', 'email_normalized', 'note', 'title',
-      'token', 'token_hash', 'place_name', 'cancel_note'
-    ])
-  )
+  constraint audit_log_metadata_carries_no_content check (not jobs.carries_content(metadata))
 );
 
 comment on table private.audit_log is
@@ -398,12 +427,7 @@ create table analytics.events (
   received_at timestamptz not null default now(),
   constraint events_schema_version check (schema_version >= 1),
   constraint events_properties_is_object check (jsonb_typeof(properties) = 'object'),
-  constraint events_properties_carry_no_content check (
-    not (properties ?| array[
-      'name', 'display_name', 'email', 'email_normalized', 'note', 'title',
-      'token', 'token_hash', 'place_name', 'cancel_note'
-    ])
-  )
+  constraint events_properties_carry_no_content check (not jobs.carries_content(properties))
 );
 
 comment on table analytics.events is
@@ -440,6 +464,17 @@ create table public.nudge_states (
     'after_answer', 'after_confirmed', 'settings'
   )),
   constraint nudge_states_answer check (answer is null or answer in ('dismissed', 'tapped')),
+  -- A moment is about a plan or it is not, and the row says which the same
+  -- way every time: a `confirmed` without a plan would consume the
+  -- once-per-moment key for no plan at all, and a `settings` with one would
+  -- be a second `settings`. A `case`, so a null does not pass.
+  constraint nudge_states_plan_shape check (
+    case moment
+      when 'reattached' then plan_id is null
+      when 'settings' then plan_id is null
+      else plan_id is not null
+    end
+  ),
   unique nulls not distinct (user_id, moment, plan_id)
 );
 
@@ -861,6 +896,11 @@ revoke all on function jobs.on_response_changed() from public;
 revoke all on function jobs.on_response_changed() from anon, authenticated;
 revoke all on function jobs.on_attendance_updated() from public;
 revoke all on function jobs.on_attendance_updated() from anon, authenticated;
+revoke all on function jobs.carries_content(jsonb) from public;
+revoke all on function jobs.carries_content(jsonb) from anon, authenticated;
+-- A check constraint is evaluated as the writer (0002 learnt this for
+-- `canonical_display_name`); the service role writes all three tables.
+grant execute on function jobs.carries_content(jsonb) to service_role;
 revoke all on function planning.event_for(text, text) from public;
 revoke all on function planning.event_for(text, text) from anon, authenticated;
 
@@ -872,7 +912,8 @@ create policy nudge_states_select_own on public.nudge_states
   using (user_id = (select auth.uid()));
 
 -- A plan-bound moment may be recorded only against a plan in one's own
--- circles; a nudge is never about somebody else's plan.
+-- circles; a nudge is never about somebody else's plan. Which moments are
+-- plan-bound is the table's constraint, not this policy's.
 create policy nudge_states_insert_own on public.nudge_states
   for insert to authenticated
   with check (

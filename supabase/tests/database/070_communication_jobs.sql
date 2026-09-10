@@ -6,7 +6,7 @@
 -- later with a stray grant fails here by name.
 
 begin;
-select plan(32);
+select plan(46);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid language sql as $$
@@ -130,10 +130,41 @@ select throws_ok(
   'a payload carrying an email is refused at the table'
 );
 select throws_ok(
+  format($$select jobs.emit('circles.invite_rotated', 'circle', '%s', '{"context": {"member": {"Email": "x@example.com"}}}')$$,
+    (select circle_id from t)),
+  '23514',
+  null,
+  'at any depth, in any case'
+);
+select throws_ok(
+  format($$select jobs.emit('circles.invite_rotated', 'circle', '%s', '{"members": [{"user_id": "u"}, {"display_name": "Maya"}]}')$$,
+    (select circle_id from t)),
+  '23514',
+  null,
+  'inside an array too'
+);
+select lives_ok(
+  format($$select jobs.emit('circles.invite_rotated', 'circle', '%s', '{"context": {"member": {"user_id": "u", "role": "owner"}}}')$$,
+    (select circle_id from t)),
+  'while ids at depth are fine'
+);
+select throws_ok(
   format($$select jobs.emit('circles.invite_rotated', 'circle', '%s', '[]')$$, (select circle_id from t)),
   '23514',
   null,
-  'and a payload that is not an object'
+  'and a payload that is not an object is refused'
+);
+select throws_ok(
+  $$insert into private.audit_log (action, resource_type, metadata) values ('x', 'circle', '{"before": {"name": "Sunday Crew"}}')$$,
+  '23514',
+  null,
+  'the audit log refuses a name at depth'
+);
+select throws_ok(
+  $$insert into analytics.events (event_name, schema_version, properties) values ('circle_created', 1, '{"circle": {"title": "x"}}')$$,
+  '23514',
+  null,
+  'so does analytics'
 );
 
 select pg_temp.act_as('00000000-0000-0000-0000-0000000004a1');
@@ -299,6 +330,50 @@ select throws_ok(
   '42501',
   null,
   'and not one shown to Maya'
+);
+select throws_ok(
+  $$insert into public.nudge_states (user_id, moment) values ('00000000-0000-0000-0000-0000000004a2', 'confirmed')$$,
+  '23514',
+  null,
+  'a plan-bound moment without a plan is refused'
+);
+select throws_ok(
+  format($$insert into public.nudge_states (user_id, moment, plan_id) values ('00000000-0000-0000-0000-0000000004a2', 'settings', '%s')$$, :'plan_a'),
+  '23514',
+  null,
+  'and a moment that is not about a plan cannot be given one'
+);
+select lives_ok(
+  $$insert into public.nudge_states (user_id, moment) values ('00000000-0000-0000-0000-0000000004a2', 'reattached')$$,
+  'a moment that is not about a plan is recorded without one'
+);
+
+-- Select and update: own rows, both ways.
+select is((select count(*)::integer from public.nudge_states), 2, 'Priya reads her own two rows');
+select lives_ok(
+  format($$update public.nudge_states set answer = 'dismissed' where user_id = '00000000-0000-0000-0000-0000000004a2' and moment = 'confirmed' and plan_id = '%s'$$, :'plan_a'),
+  'and records what she did with a prompt'
+);
+select is(
+  (select answer from public.nudge_states where moment = 'confirmed'),
+  'dismissed',
+  'which sticks'
+);
+select throws_ok(
+  $$update public.nudge_states set answer = 'tapped', user_id = '00000000-0000-0000-0000-0000000004a1' where moment = 'confirmed'$$,
+  '42501',
+  null,
+  'but cannot hand a row to Maya — user_id is not hers to write'
+);
+
+select pg_temp.act_as('00000000-0000-0000-0000-0000000004a1');
+select is((select count(*)::integer from public.nudge_states), 0, 'Maya reads none of them');
+update public.nudge_states set answer = 'tapped' where moment = 'confirmed';
+select pg_temp.act_as('00000000-0000-0000-0000-0000000004a2');
+select is(
+  (select answer from public.nudge_states where moment = 'confirmed'),
+  'dismissed',
+  'and her update touched nothing: the row was never hers to match'
 );
 
 select * from finish();
