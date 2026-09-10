@@ -3,7 +3,8 @@ import ICAL from 'ical.js';
 
 import { fromISO } from '../shared/instant.js';
 import { confirmation } from './fixtures.js';
-import { escapeText, foldLine, icsFilename, icsFor, isTokenFree, toIcsUtc } from './ics.js';
+import { escapeText, foldLine, icsFilename, icsFor, toIcsUtc } from './ics.js';
+import { isTokenFree } from './links.js';
 import type { IcsInput } from './ics.js';
 
 const IDENTITY = { domain: 'example.com', prodId: '-//Example//Meetups 1.0//EN' };
@@ -136,6 +137,7 @@ describe('icsFor', () => {
         expect((error as Error).message).not.toContain('example.com');
       }
     }
+    expect(() => build({ url: 'javascript:alert(1)' })).toThrow(RangeError);
     expect(() => build({ url: 'https://example.com/p/8k2v' })).not.toThrow();
     expect(unfold(build({ url: 'https://example.com/p/8k2v' }))).toContain(
       'https://example.com/p/8k2v',
@@ -149,6 +151,14 @@ describe('isTokenFree', () => {
     expect(isTokenFree('https://example.com/p/8k2v?x=1')).toBe(false);
     expect(isTokenFree('https://example.com/join#7f3k')).toBe(false);
     expect(isTokenFree('not a url')).toBe(false);
+  });
+
+  it('is false for a scheme that is not the web, however clean it looks', () => {
+    // `javascript:alert(1)` parses, and has neither a query nor a fragment. The
+    // file this guards is forwarded and opened by other people's software.
+    expect(isTokenFree('javascript:alert(1)')).toBe(false);
+    expect(isTokenFree('data:text/html,hi')).toBe(false);
+    expect(isTokenFree('file:///etc/passwd')).toBe(false);
   });
 });
 

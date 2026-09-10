@@ -107,7 +107,8 @@ export type AttendanceMoment = {
 };
 
 export type AttendanceError = {
-  readonly code: 'attendance_not_reversible' | 'attendance_too_early';
+  readonly code:
+    'attendance_not_reversible' | 'attendance_too_early' | 'attendance_wrong_confirmation';
   readonly from: AttendanceStatus;
   readonly to: AttendanceChoice;
 };
@@ -164,6 +165,17 @@ export function applyAttendance(
   confirmation: Confirmation,
   now: Instant,
 ): Result<AttendanceError, Attendance> {
+  // The two have to be the same meetup, or the timing guard above is answered
+  // by somebody else's evening: an already-ended confirmation would authorise
+  // `was_there` on a row belonging to a meetup that has not happened.
+  if (attendance.confirmationId !== confirmation.id) {
+    return err({
+      code: 'attendance_wrong_confirmation',
+      from: attendance.status,
+      to: choice,
+    });
+  }
+
   const moment = { meetupEnd: confirmation.candidate.end, now };
   const next = updateAttendance(attendance.status, choice, moment);
   if (!next.ok) return next;

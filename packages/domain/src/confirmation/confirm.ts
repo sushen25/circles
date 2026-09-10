@@ -20,6 +20,7 @@ import type { Candidate } from '../scheduling/types.js';
 import { SCORING_VERSION } from '../scheduling/types.js';
 import { type Instant, toISO } from '../shared/instant.js';
 import { type Result, err, ok } from '../shared/result.js';
+import { isLink } from './links.js';
 import {
   type CandidateId,
   type Confirmation,
@@ -93,22 +94,6 @@ export type Confirmed = {
   readonly plan: Plan;
 };
 
-/**
- * An address or a map link, and nothing exotic.
- *
- * `http` and `https` only: `javascript:` and `data:` are the reason this check
- * exists at all, and a relative string is not a link the confirmed screen can
- * open. Query strings are allowed — a map link is mostly query string.
- */
-export function isLink(value: string): boolean {
-  try {
-    const url = new URL(value);
-    return url.protocol === 'http:' || url.protocol === 'https:';
-  } catch {
-    return false;
-  }
-}
-
 function detailProblem(details: ConfirmationDetails): ConfirmErrorCode | undefined {
   if ((details.note?.length ?? 0) > NOTE_MAX_LENGTH) return 'note_too_long';
   if ((details.placeName?.length ?? 0) > PLACE_NAME_MAX_LENGTH) return 'place_name_too_long';
@@ -139,7 +124,12 @@ export function confirm(request: ConfirmRequest): Result<ConfirmError, Confirmed
   if (candidates.planId !== plan.id) return fail('wrong_plan');
   if (candidates.revision !== plan.revision) return fail('stale_candidates');
   if (candidates.inputVersion !== plan.inputVersion) return fail('stale_input_version');
-  if (candidates.set.scoringVersion !== SCORING_VERSION) return fail('stale_scoring_version');
+  // Against the plan *and* the deployed engine. Comparing only with the deployed
+  // constant accepts a set the plan does not know about — `Plan.scoringVersion`
+  // is "which version produced the current candidates", so a disagreement means
+  // one of the two is describing a set that no longer exists.
+  if (candidates.set.scoringVersion !== plan.scoringVersion) return fail('stale_scoring_version');
+  if (plan.scoringVersion !== SCORING_VERSION) return fail('stale_scoring_version');
 
   const candidate = candidates.set.eligible.find((c) => candidateIdOf(c) === candidateId);
   if (candidate === undefined) return fail('candidate_not_eligible');

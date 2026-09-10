@@ -12,7 +12,7 @@ import {
   updateAttendance,
 } from './attendance.js';
 import { confirmation, sundayCrewPlan, sundayCrewStoredResponses } from './fixtures.js';
-import type { AttendanceChoice, AttendanceStatus } from './types.js';
+import { type AttendanceChoice, type AttendanceStatus, confirmationId } from './types.js';
 
 const CHOICES: readonly AttendanceChoice[] = ['going', 'cant', 'was_there', 'missed'];
 const STATUSES: readonly AttendanceStatus[] = ['unknown', 'going', 'cant', 'was_there', 'missed'];
@@ -156,6 +156,7 @@ describe('updateAttendance', () => {
 
 describe('applyAttendance', () => {
   const confirmed = confirmation();
+  const MORNING_AFTER = fromISO('2026-09-17T22:00:00Z');
   const attendance = {
     confirmationId: confirmed.id,
     userId: SAM,
@@ -184,6 +185,14 @@ describe('applyAttendance', () => {
       fromISO('2026-09-16T02:00:00Z'),
     );
     expect(!early.ok && early.error.code).toBe('attendance_too_early');
+  });
+
+  it('refuses a row belonging to a different meetup', () => {
+    // Otherwise an already-ended confirmation answers the timing guard for a
+    // row whose own meetup has not happened.
+    const elsewhere = { ...attendance, confirmationId: confirmationId('confirmation-elsewhere') };
+    const result = applyAttendance(elsewhere, 'was_there', confirmed, MORNING_AFTER);
+    expect(!result.ok && result.error.code).toBe('attendance_wrong_confirmation');
   });
 
   it('passes a refusal through untouched, leaving the row alone', () => {

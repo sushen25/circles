@@ -14,9 +14,9 @@ import {
   activeConfirmation,
   candidateIdOf,
   confirm,
-  isLink,
   supersede,
 } from './confirm.js';
+import { isLink } from './links.js';
 import {
   A_CONFIRMATION_ID,
   A_STRANGER,
@@ -130,6 +130,14 @@ describe('confirm', () => {
     const candidates = sundayCrewCandidates();
     const set = { ...candidates.set, scoringVersion: SCORING_VERSION - 1 };
     expect(refusal({ candidates: { ...candidates, set } })).toBe('stale_scoring_version');
+  });
+
+  it('refuses a set the plan does not know about, even if this engine made it', () => {
+    // `Plan.scoringVersion` is "which version produced the current candidates".
+    // A set at the deployed version that the plan has not caught up to means one
+    // of the two is describing a set that no longer exists.
+    const plan = sundayCrewPlan({ scoringVersion: SCORING_VERSION - 1 });
+    expect(refusal({ plan, candidates: sundayCrewCandidates(plan) })).toBe('stale_scoring_version');
   });
 
   it('refuses a candidate that is not on offer', () => {
