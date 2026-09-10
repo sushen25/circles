@@ -181,7 +181,8 @@ select public.replace_response('00000000-0000-4000-8000-000000000b01', 1, 'windo
 
 -- The candidate set the engine would produce from those answers (S1-16
 -- computes it in production; the seed writes the same rows by hand, and
--- the same way: the quorum is 4, so Thursday with five is the one eligible
+-- the same way — 49 starts considered, seven half-hours a day that fit two
+-- hours inside 5:30–10:30 pm, over seven days; the quorum is 4, so Thursday with five is the one eligible
 -- option and Friday with three and Saturday with two are near misses, short
 -- by one and by two — ADR 0011).
 select pg_temp.act_as_postgres();
@@ -190,7 +191,7 @@ insert into public.candidate_sets (
   starts_considered, eligible_count, responded_count, active_member_count
 )
 select '00000000-0000-4000-8000-000000000c01', p.id, p.revision, p.input_version, p.scoring_version, 'seed',
-  70, 1, 5, 6
+  49, 1, 5, 6
 from public.plans p where p.id = '00000000-0000-4000-8000-000000000b01';
 
 insert into public.candidates (
@@ -262,7 +263,7 @@ insert into public.candidate_sets (
   starts_considered, eligible_count, responded_count, active_member_count
 )
 select '00000000-0000-4000-8000-000000000c02', p.id, p.revision, p.input_version, p.scoring_version, 'seed',
-  70, 1, 3, 3
+  49, 1, 3, 3
 from public.plans p where p.id = '00000000-0000-4000-8000-000000000b02';
 insert into public.candidates (
   candidate_set_id, is_near_miss, rank, starts_at, ends_at, available_user_ids,

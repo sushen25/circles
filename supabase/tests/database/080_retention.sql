@@ -6,7 +6,7 @@
 -- test that runs today.
 
 begin;
-select plan(40);
+select plan(41);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid language sql as $$
@@ -361,6 +361,10 @@ select is(
 );
 select pg_temp.act_as_service();
 select throws_ok('select jobs.run_retention()', '42501', null, 'the service role cannot run retention; cron does, as the owner');
+select throws_ok(
+  format($$insert into public.member_dayparts (circle_id, user_id, summary) values ('%s', '00000000-0000-0000-0000-0000000006a3', '{"parts": [], "counts": {}}')$$, (select circle_id from t)),
+  '42501', null, 'nor write a summary — the table is the database''s own'
+);
 select throws_ok('select jobs.invoke_process_scheduled_jobs()', '42501', null, 'nor invoke the dispatcher by hand');
 
 select * from finish();

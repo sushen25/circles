@@ -457,6 +457,10 @@ create policy member_dayparts_select_own on public.member_dayparts
 
 revoke all on public.member_dayparts from anon, authenticated;
 grant select on public.member_dayparts to authenticated;
+-- The service role bypasses RLS and arrives fully granted on a new public
+-- table; this table is the database's own, written by retention as the owner.
+revoke all on public.member_dayparts from service_role;
+grant select on public.member_dayparts to service_role;
 
 -- The lease is the dispatcher's; retention, the summary and the invoker are
 -- the database's own.
