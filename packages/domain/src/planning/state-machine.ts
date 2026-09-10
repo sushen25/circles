@@ -47,7 +47,7 @@ export type TransitionErrorCode =
   | 'not_a_member'
   | 'not_the_organiser'
   | 'not_the_initiator'
-  | 'not_keen_or_initiator'
+  | 'not_keen_initiator_or_owner'
   | 'needs_permanent_identity'
   | 'already_has_organiser'
   | 'needs_candidate'
@@ -94,7 +94,7 @@ type Guard =
   | 'no_organiser_yet'
   | 'candidate'
   | 'initiator'
-  | 'keen_or_initiator';
+  | 'keen_initiator_or_owner';
 
 export type Transition = {
   readonly from: PlanState;
@@ -127,7 +127,7 @@ export const TRANSITIONS: readonly Transition[] = [
     from: 'collecting',
     action: 'accept_organiser',
     to: 'collecting',
-    guards: ['member', 'permanent', 'no_organiser_yet', 'keen_or_initiator'],
+    guards: ['member', 'permanent', 'no_organiser_yet', 'keen_initiator_or_owner'],
   },
   // And it must survive replies closing. "If nobody volunteers before replies
   // close, the circle owner gets a quiet nudge" — that nudge is worthless if
@@ -137,14 +137,14 @@ export const TRANSITIONS: readonly Transition[] = [
     from: 'ready',
     action: 'accept_organiser',
     to: 'ready',
-    guards: ['member', 'permanent', 'no_organiser_yet', 'keen_or_initiator'],
+    guards: ['member', 'permanent', 'no_organiser_yet', 'keen_initiator_or_owner'],
   },
   // Withdrawing a quiet ask before threshold. The guard is `initiator`, not
   // `organiser`: a seeking plan has no organiser by definition, so `organiser`
   // made this transition unreachable for every actor — the row was in the table
   // and could never fire. "The initiator of a quiet ask withdraws it before
   // threshold: closed privately, nobody told" (spec §5.4).
-  { from: 'seeking', action: 'cancel', to: 'cancelled', guards: ['initiator'] },
+  { from: 'seeking', action: 'cancel', to: 'cancelled', guards: ['member', 'initiator'] },
 
   // Collecting availability. `candidates_ready` and `candidates_gone` are the
   // engine's verdict, not a person's, so they carry no actor guard.
@@ -186,7 +186,7 @@ const GUARD_ERRORS: Record<Guard, TransitionErrorCode> = {
   no_organiser_yet: 'already_has_organiser',
   candidate: 'needs_candidate',
   initiator: 'not_the_initiator',
-  keen_or_initiator: 'not_keen_or_initiator',
+  keen_initiator_or_owner: 'not_keen_initiator_or_owner',
 };
 
 function fails(guard: Guard, context: TransitionContext): boolean {
@@ -202,11 +202,16 @@ function fails(guard: Guard, context: TransitionContext): boolean {
       return false; // depends on the plan, checked in canTransition
     case 'initiator':
       return actor.isInitiator !== true;
-    case 'keen_or_initiator':
+    case 'keen_initiator_or_owner':
       // Architecture §9.1: "accept-organiser | keen member (quiet) or
       // initiator". Somebody who answered `not_this_time`, or never answered,
       // is not being offered the job of arranging it.
-      return actor.isKeen !== true && actor.isInitiator !== true;
+      //
+      // Plus the owner, which §9.1 does not say and §5.4 requires: "if nobody
+      // volunteers before replies close, the circle owner gets a quiet nudge".
+      // A nudge to somebody the guard would refuse is a dead end, and it is the
+      // dead end that leaves a ready plan with no organiser at all.
+      return actor.isKeen !== true && actor.isInitiator !== true && !actor.isOwner;
     case 'candidate': {
       if (candidateId === undefined || candidateId.length === 0) return true;
       // Fails closed when the caller did not say what is on offer.

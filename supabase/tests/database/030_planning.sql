@@ -8,7 +8,7 @@
 -- either, so most of this file is about trying to write it some other way.
 
 begin;
-select plan(68);
+select plan(71);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid
@@ -309,8 +309,20 @@ select throws_ok(
   format($$select planning.transition_plan('%s', 'accept_organiser', '%s')$$,
     :'plan_keen', '00000000-0000-0000-0000-0000000001a2'),
   'P0001',
-  'not_keen_or_initiator',
+  'not_keen_initiator_or_owner',
   'somebody who said not this time is not offered the job of arranging it'
+);
+
+-- The owner fallback (§5.4): "if nobody volunteers before replies close, the
+-- circle owner gets a quiet nudge". Maya owns this circle and is also the
+-- initiator here, so the case worth testing is an owner who is neither.
+select pg_temp.act_as_postgres();
+select pg_temp.make_plan('pnssss', 'ready', 'quiet', null) as plan_owner \gset
+select is(
+  (select organiser_user_id from planning.transition_plan(:'plan_owner', 'accept_organiser',
+    '00000000-0000-0000-0000-0000000001a1')),
+  '00000000-0000-0000-0000-0000000001a1'::uuid,
+  'the owner can take the role with no interest row and no initiator row at all'
 );
 select is(
   (select organiser_user_id from planning.transition_plan(:'plan_keen', 'accept_organiser',
@@ -334,11 +346,44 @@ select throws_ok(
   'not_the_initiator',
   'another member cannot withdraw somebody else''s quiet ask'
 );
+-- Being the initiator is not a way back into a circle you have left. The
+-- private row outlives the membership; removal revokes access immediately.
+update public.circle_members set status = 'removed'
+where circle_id = (select circle_id from t)
+  and user_id = '00000000-0000-0000-0000-0000000001a1';
+select throws_ok(
+  format($$select planning.transition_plan('%s', 'cancel', '%s')$$,
+    :'plan_wd', '00000000-0000-0000-0000-0000000001a1'),
+  'P0001',
+  'not_a_member',
+  'a removed initiator cannot withdraw their own ask'
+);
+update public.circle_members set status = 'active'
+where circle_id = (select circle_id from t)
+  and user_id = '00000000-0000-0000-0000-0000000001a1';
+
 select is(
   (select state from planning.transition_plan(:'plan_wd', 'cancel',
     '00000000-0000-0000-0000-0000000001a1')),
   'cancelled',
-  'and the initiator can (spec §5.4)'
+  'and the initiator can, while they are still in the circle (spec §5.4)'
+);
+
+-- A null CHECK result passes in Postgres, which is how a quiet ask with no
+-- threshold — one that could never leave `seeking` — used to be storable.
+select throws_ok(
+  $$insert into public.plans (
+      circle_id, mode, state, title, time_zone,
+      window_start, window_end, daily_start_local, daily_end_local,
+      duration_minutes, quorum, response_deadline, short_code
+    )
+    select circle_id, 'quiet', 'seeking', 'No threshold', 'Australia/Melbourne',
+      date '2026-09-14', date '2026-09-20', 1050, 1350, 120, 4,
+      timestamptz '2026-09-20T10:00:00Z', 'pnttttt'
+    from t$$,
+  '23514',
+  null,
+  'a quiet plan with no threshold is refused'
 );
 
 -- ---------------------------------------------------------------------------

@@ -91,14 +91,33 @@ describe("the quiet ask's two guards", () => {
     const collecting = plan({ state: 'collecting', mode: 'quiet', organiserUserId: undefined });
     const keen: Actor = { ...MEMBER, isKeen: true, isInitiator: false };
     const initiator: Actor = { ...MEMBER, isKeen: false, isInitiator: true };
-    const uninterested: Actor = { ...MEMBER, isKeen: false, isInitiator: false };
+    const uninterested: Actor = { ...MEMBER, isKeen: false, isInitiator: false, isOwner: false };
 
     expect(isOk(canTransition(collecting, 'accept_organiser', { actor: keen }))).toBe(true);
     expect(isOk(canTransition(collecting, 'accept_organiser', { actor: initiator }))).toBe(true);
 
     const refused = canTransition(collecting, 'accept_organiser', { actor: uninterested });
     expect(isOk(refused)).toBe(false);
-    if (!isOk(refused)) expect(refused.error.code).toBe('not_keen_or_initiator');
+    if (!isOk(refused)) expect(refused.error.code).toBe('not_keen_initiator_or_owner');
+  });
+
+  it('lets the owner take it when nobody volunteered', () => {
+    // "If nobody volunteers before replies close, the circle owner gets a quiet
+    // nudge" (§5.4). A nudge to somebody the guard refuses is a dead end, and
+    // the dead end leaves a ready plan with no organiser at all.
+    const ready = plan({ state: 'ready', mode: 'quiet', organiserUserId: undefined });
+    const owner: Actor = { ...MEMBER, isOwner: true, isKeen: false, isInitiator: false };
+    expect(isOk(canTransition(ready, 'accept_organiser', { actor: owner }))).toBe(true);
+  });
+
+  it('refuses an initiator who has left the circle', () => {
+    // The private initiator row outlives the membership, and removal revokes
+    // access immediately (§6.2). Being the initiator is not a way back in.
+    const seeking = plan({ state: 'seeking', mode: 'quiet', organiserUserId: undefined });
+    const gone: Actor = { ...MEMBER, isMember: false, isInitiator: true };
+    const refused = canTransition(seeking, 'cancel', { actor: gone });
+    expect(isOk(refused)).toBe(false);
+    if (!isOk(refused)) expect(refused.error.code).toBe('not_a_member');
   });
 
   it('still requires a saved place, however keen somebody is', () => {

@@ -50,9 +50,9 @@ insert into planning.transitions (from_state, action, to_state, guards, bumps_re
   ('draft', 'create_quiet', 'seeking', array['member','permanent'], false),
   ('seeking', 'threshold_reached', 'collecting', array[]::text[], false),
   ('seeking', 'expire', 'expired', array[]::text[], false),
-  ('collecting', 'accept_organiser', 'collecting', array['member','permanent','no_organiser_yet','keen_or_initiator'], false),
-  ('ready', 'accept_organiser', 'ready', array['member','permanent','no_organiser_yet','keen_or_initiator'], false),
-  ('seeking', 'cancel', 'cancelled', array['initiator'], false),
+  ('collecting', 'accept_organiser', 'collecting', array['member','permanent','no_organiser_yet','keen_initiator_or_owner'], false),
+  ('ready', 'accept_organiser', 'ready', array['member','permanent','no_organiser_yet','keen_initiator_or_owner'], false),
+  ('seeking', 'cancel', 'cancelled', array['member','initiator'], false),
   ('collecting', 'candidates_ready', 'ready', array[]::text[], false),
   ('collecting', 'edit', 'collecting', array['organiser'], true),
   ('collecting', 'expire', 'expired', array[]::text[], false),
@@ -145,8 +145,17 @@ create table public.plans (
   -- band opens.
   constraint plans_band_fits check (daily_end_local - daily_start_local >= duration_minutes),
   constraint plans_quorum check (quorum >= 2),
+  -- A `case`, not an `or` of two conjunctions. The first version read
+  -- `(mode = 'quiet' and quiet_threshold >= 2) or (mode = 'named' and …)`, and
+  -- for a quiet plan with a null threshold that is `null or false` = `null` —
+  -- which Postgres treats as *passing*. A quiet ask with no threshold can never
+  -- leave `seeking`.
   constraint plans_quiet_threshold check (
-    (mode = 'quiet' and quiet_threshold >= 2) or (mode = 'named' and quiet_threshold is null)
+    case mode
+      when 'quiet' then quiet_threshold is not null and quiet_threshold >= 2
+      when 'named' then quiet_threshold is null
+      else false
+    end
   ),
   constraint plans_revision check (revision >= 1),
   constraint plans_input_version check (input_version >= 1),
@@ -457,18 +466,26 @@ begin
         ) then
           raise exception 'not_the_initiator' using errcode = 'P0001';
         end if;
-      when 'keen_or_initiator' then
+      when 'keen_initiator_or_owner' then
         -- Architecture §9.1: "accept-organiser | keen member (quiet) or
         -- initiator". Somebody who answered `not_this_time`, or never answered,
         -- is not being offered the job of arranging it.
+        --
+        -- Plus the owner, which §5.4 requires: "if nobody volunteers before
+        -- replies close, the circle owner gets a quiet nudge". A nudge to
+        -- somebody this guard would refuse is a dead end, and the dead end
+        -- leaves a ready plan with no organiser at all.
         if not exists (
           select 1 from private.plan_interest i
           where i.plan_id = plan.id and i.user_id = p_actor and i.response = 'keen'
         ) and not exists (
           select 1 from private.plan_initiators pi
           where pi.plan_id = plan.id and pi.initiator_user_id = p_actor
+        ) and not exists (
+          select 1 from public.circles c
+          where c.id = plan.circle_id and c.owner_user_id = p_actor
         ) then
-          raise exception 'not_keen_or_initiator' using errcode = 'P0001';
+          raise exception 'not_keen_initiator_or_owner' using errcode = 'P0001';
         end if;
       when 'candidate' then
         -- Presence, not eligibility — and presence is not the property this
