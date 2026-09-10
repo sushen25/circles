@@ -6,7 +6,7 @@
 -- count only (§6.3, §14).
 
 begin;
-select plan(36);
+select plan(37);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid language sql as $$
@@ -41,6 +41,43 @@ returns jsonb language sql as $$
     'start', ((day::date::timestamp + make_interval(mins => from_min)) at time zone 'Australia/Melbourne'),
     'end', ((day::date::timestamp + make_interval(mins => to_min)) at time zone 'Australia/Melbourne')
   );
+$$;
+
+-- A plan that is confirmed and reported on in one go, the way a seed does it:
+-- a past window, a candidate, `confirm`, then the outcome.
+create or replace function pg_temp.make_confirmed_and_done() returns uuid language plpgsql as $$
+declare
+  new_plan uuid;
+  new_set uuid;
+begin
+  insert into public.plans (
+    circle_id, mode, state, organiser_user_id, title, time_zone,
+    window_start, window_end, daily_start_local, daily_end_local,
+    duration_minutes, quorum, response_deadline, short_code
+  )
+  select circle_id, 'named', 'ready', '00000000-0000-0000-0000-0000000005a1',
+    'Catch up', 'Australia/Melbourne', date '2020-03-02', date '2020-03-05',
+    1050, 1350, 120, 2, timestamptz '2020-03-03T10:00:00Z', 'pnevdn'
+  from t returning id into new_plan;
+  insert into public.plan_participants (plan_id, revision, user_id)
+  values (new_plan, 1, '00000000-0000-0000-0000-0000000005a1');
+  insert into public.candidate_sets (plan_id, revision, input_version, scoring_version, input_hash,
+    starts_considered, eligible_count, responded_count, active_member_count)
+  select new_plan, 1, p.input_version, p.scoring_version, 'h', 1, 1, 1, 1 from public.plans p where p.id = new_plan
+  returning id into new_set;
+  insert into public.candidates (candidate_set_id, is_near_miss, rank, starts_at, ends_at, available_user_ids,
+    explicit_count, flexible_count, explanation_code, explanation_count)
+  values (new_set, false, 1, timestamptz '2020-03-02T07:30:00Z', timestamptz '2020-03-02T09:30:00Z',
+    array['00000000-0000-0000-0000-0000000005a1']::uuid[], 1, 0, 'best_attendance', 1);
+  perform planning.transition_plan(new_plan, 'confirm', '00000000-0000-0000-0000-0000000005a1',
+    '{"candidate_id": "2020-03-02T07:30:00Z"}'::jsonb);
+  perform set_config('request.jwt.claims',
+    jsonb_build_object('sub', '00000000-0000-0000-0000-0000000005a1', 'role', 'authenticated')::text, true);
+  perform public.report_outcome(
+    (select id from public.meetup_confirmations where plan_id = new_plan and status = 'active'), 'happened');
+  perform set_config('request.jwt.claims', '', true);
+  return new_plan;
+end;
 $$;
 
 -- Events since a mark, as (name, payload). Read as the owner: the outbox is
@@ -341,6 +378,18 @@ select throws_ok(
   'confirmed_without_confirmation',
   'a plan cannot reach commit as confirmed without an active confirmation for its revision'
 );
+-- And the check is about the plan as it will be committed, not as it was when
+-- the event was queued: confirmed and then completed in one transaction is
+-- fine, because the confirmation is completed with it.
+select pg_temp.act_as_postgres();
+delete from public.plans where short_code = 'pnevbb';
+-- `set constraints all immediate` outlives the savepoint throws_ok wrapped it
+-- in; put the trigger back to commit-time or it fires between the state
+-- change and the confirmation insert inside transition_plan.
+set constraints all deferred;
+select pg_temp.make_confirmed_and_done() as done_plan \gset
+select lives_ok('set constraints all immediate', 'confirmed then completed in one transaction commits');
+set constraints all deferred;
 
 -- ---------------------------------------------------------------------------
 -- Attendance.
