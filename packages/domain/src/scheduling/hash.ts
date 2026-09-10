@@ -52,7 +52,12 @@ export function canonicalise(input: EngineInput): string {
     `m${plan.durationMinutes}`,
     `q${plan.quorum}`,
     `r${[...plan.requiredMemberIds].sort().join(',')}`,
-    `a${[...input.activeMemberIds].sort().join(',')}`,
+    // In order, not sorted. The members list order is what every set the engine
+    // returns is ordered by, so reordering it changes the answer — which makes
+    // it part of the input rather than a detail of how the caller assembled it.
+    // `requiredMemberIds` above is genuinely a set: the engine sorts what it
+    // derives from that one into this same order.
+    `a${input.activeMemberIds.join(',')}`,
     `n${input.now}`,
     responses,
   ].join('~');

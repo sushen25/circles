@@ -476,6 +476,42 @@ describe('determinism', () => {
     );
   });
 
+  it('names the same missing required member however the set was ordered', () => {
+    // `requiredMemberIds` is a set, and `canonicalise` sorts it — so two inputs
+    // that hash the same have to answer the same. Reporting whichever id came
+    // first in the array made the reason depend on how the caller built it.
+    const required = [PRIYA, TOM];
+    const answers = [
+      [SAM, { status: 'flexible' as const, windows: [] }],
+      [JESS, { status: 'flexible' as const, windows: [] }],
+    ] as const;
+    const forOrder = (requiredMemberIds: readonly (typeof PRIYA)[]) =>
+      generateCandidates(
+        sundayCrewInput({
+          plan: { ...NEXT_FORTNIGHT, quorum: 2, requiredMemberIds },
+          responses: [...answers],
+        }),
+      );
+
+    const forwards = forOrder(required);
+    const backwards = forOrder([...required].reverse());
+
+    expect(forwards.nearMisses[0]?.reason).toEqual({ kind: 'required_missing', userId: PRIYA });
+    expect(backwards).toEqual(forwards);
+    expect(backwards.inputHash).toBe(forwards.inputHash);
+  });
+
+  it('treats the members list order as input, because the answer is in it', () => {
+    // Reordering the list reorders every set the engine returns, so it cannot
+    // hash the same — that is exactly the staleness the hash exists to catch.
+    const base = sundayCrewInput();
+    const reordered = { ...base, activeMemberIds: [...base.activeMemberIds].reverse() };
+    expect(generateCandidates(reordered).eligible[0]?.availableUserIds).toEqual(
+      [...(generateCandidates(base).eligible[0]?.availableUserIds ?? [])].reverse(),
+    );
+    expect(generateCandidates(reordered).inputHash).not.toBe(generateCandidates(base).inputHash);
+  });
+
   it('hashes the same input the same way, and a changed one differently', () => {
     const base = sundayCrewInput();
     expect(generateCandidates(base).inputHash).toBe(generateCandidates(base).inputHash);

@@ -82,6 +82,23 @@ export function enumerateCandidateStarts(plan: EnginePlan, now: Instant): Instan
  * `none_work`, `more_notice`, `not_this_time` — is unavailable, and a
  * non-responder never appears in the available set (§5.6).
  */
+/**
+ * The members-list order, which is how the app renders people and so how the
+ * engine reports them.
+ *
+ * Every set the engine returns is ordered by this and nothing else. A required
+ * member who has since left the circle is not on the list; those sort last, by
+ * id, so the answer stays canonical rather than depending on the order the
+ * caller happened to pass `requiredMemberIds` in — that field is a set, and
+ * `canonicalise` sorts it, so two inputs with the same hash must give the same
+ * answer.
+ */
+function byMemberList(activeMemberIds: readonly UserId[]): (a: UserId, b: UserId) => number {
+  const position = new Map(activeMemberIds.map((id, index) => [id, index] as const));
+  const at = (id: UserId) => position.get(id) ?? Number.MAX_SAFE_INTEGER;
+  return (a, b) => at(a) - at(b) || a.localeCompare(b);
+}
+
 function score(plan: EnginePlan, input: EngineInput, start: Instant): Scored {
   const end = addMinutes(start, plan.durationMinutes);
   const local = toLocal(start, plan.zone);
@@ -103,11 +120,10 @@ function score(plan: EnginePlan, input: EngineInput, start: Instant): Scored {
     }
   }
 
-  const available = [...explicit, ...flexible].sort(
-    (a, b) => input.activeMemberIds.indexOf(a) - input.activeMemberIds.indexOf(b),
-  );
+  const order = byMemberList(input.activeMemberIds);
+  const available = [...explicit, ...flexible].sort(order);
   const availableSet = new Set(available);
-  const requiredMissing = plan.requiredMemberIds.filter((id) => !availableSet.has(id));
+  const requiredMissing = plan.requiredMemberIds.filter((id) => !availableSet.has(id)).sort(order);
 
   return {
     start,
