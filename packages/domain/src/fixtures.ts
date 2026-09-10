@@ -11,3 +11,4 @@ export * from './circles/fixtures.js';
 export * from './planning/fixtures.js';
 export * from './availability/fixtures.js';
 export * from './scheduling/fixtures.js';
+export * from './confirmation/fixtures.js';

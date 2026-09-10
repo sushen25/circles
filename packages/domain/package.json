@@ -24,6 +24,7 @@
     "date-fns-tz": "^3.2.0"
   },
   "devDependencies": {
-    "fast-check": "^4.9.0"
+    "fast-check": "^4.9.0",
+    "ical.js": "^2.2.1"
   }
 }

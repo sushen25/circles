@@ -168,6 +168,9 @@ importers:
       fast-check:
         specifier: ^4.9.0
         version: 4.9.0
+      ical.js:
+        specifier: ^2.2.1
+        version: 2.2.1
 
   packages/tokens: {}
 
@@ -3395,6 +3398,9 @@ packages:
 
   hyphenate-style-name@1.1.0:
     resolution: {integrity: sha512-WDC/ui2VVRrz3jOVi+XtjqkDjiVjTtFaAGiW37k6b+ohyQ5wYDOGkvCZa8+H0nx3gyvv0+BST9xuOgIyGQ00gw==}
+
+  ical.js@2.2.1:
+    resolution: {integrity: sha512-yK/UlPbEs316igb/tjRgbFA8ZV75rCsBJp/hWOatpyaPNlgw0dGDmU+FoicOcwX4xXkeXOkYiOmCqNPFpNPkQg==}
 
   iceberg-js@0.8.1:
     resolution: {integrity: sha512-1dhVQZXhcHje7798IVM+xoo/1ZdVfzOMIc8/rgVSijRK38EDqOJoGula9N/8ZI5RD8QTxNQtK/Gozpr+qUqRRA==}
@@ -9322,6 +9328,8 @@ snapshots:
   hyperlinker@1.0.0: {}
 
   hyphenate-style-name@1.1.0: {}
+
+  ical.js@2.2.1: {}
 
   iceberg-js@0.8.1: {}
 

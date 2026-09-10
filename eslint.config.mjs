@@ -20,6 +20,9 @@ import tseslint from 'typescript-eslint';
  * elements are declared now so those tickets inherit the rule rather than write it.
  */
 const elements = [
+  // Tests first: `boundaries` takes the first pattern that matches, and a test
+  // is allowed the test libraries that the package it tests is not.
+  { type: 'package-test', pattern: 'packages/*/src/**/*.test.ts', mode: 'full' },
   { type: 'domain', pattern: 'packages/domain/**/*', mode: 'full' },
   { type: 'contracts', pattern: 'packages/contracts/**/*', mode: 'full' },
   { type: 'tokens', pattern: 'packages/tokens/**/*', mode: 'full' },
@@ -100,6 +103,8 @@ export default tseslint.config(
           message: '${file.type} is not allowed to import ${dependency.type} (architecture §7.2)',
           rules: [
             { from: ['domain'], allow: ['domain'] },
+            // A test may reach into any package's source; that is what it is for.
+            { from: ['package-test'], allow: ['domain', 'contracts', 'tokens', 'config'] },
             { from: ['contracts'], allow: ['contracts', 'domain'] },
             { from: ['tokens'], allow: ['tokens'] },
             { from: ['config'], allow: ['config'] },
@@ -134,10 +139,21 @@ export default tseslint.config(
             '${file.type} is not allowed to import "${dependency.source}" (architecture §7.2)',
           rules: [
             // The domain stays pure: no React, no Supabase, no Deno, no I/O.
-            { from: ['domain'], allow: ['date-fns-tz', 'fast-check', 'vitest'] },
-            { from: ['contracts'], allow: ['@circles/domain', 'zod', 'vitest'] },
-            { from: ['tokens'], allow: ['vitest'] },
-            { from: ['config'], allow: ['zod', 'vitest'] },
+            // `date-fns-tz` and nothing else — and `shared/zone.ts` is the only
+            // file even that may reach, which `no-restricted-imports` enforces
+            // below. The test libraries are deliberately absent: a `vitest`
+            // import in `engine.ts` would compile and then fail on Deno, where
+            // there is no `node_modules` to find it in.
+            { from: ['domain'], allow: ['date-fns-tz'] },
+            { from: ['contracts'], allow: ['@circles/domain', 'zod'] },
+            { from: ['tokens'], allow: [] },
+            { from: ['config'], allow: ['zod'] },
+            // Test-only, and only in a test: `tsconfig` keeps `*.test.ts` out of
+            // `dist`, so none of these can reach an Edge Function.
+            {
+              from: ['package-test'],
+              allow: ['@circles/*', 'date-fns-tz', 'zod', 'vitest', 'fast-check', 'ical.js'],
+            },
             { from: ['app-routes', ...appLayers], allow: appExternals },
             {
               from: ['functions'],
