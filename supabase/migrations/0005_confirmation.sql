@@ -82,7 +82,7 @@ create table public.meetup_confirmations (
 );
 
 comment on table public.meetup_confirmations is
-  'A frozen copy of the chosen candidate. One active per (plan_id, revision); superseded rather than mutated on reschedule (architecture §6.2). Written only by confirm-meetup.';
+  'A frozen copy of the chosen candidate. One active per (plan_id, revision); superseded rather than mutated on reschedule (architecture §6.2). Written by transition_plan on confirm (0006).';
 
 -- The invariant, as an index: at most one `active` row per revision, and it
 -- holds under concurrent inserts where a trigger would not.

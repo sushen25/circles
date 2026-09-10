@@ -40,6 +40,13 @@ grant usage on schema analytics to service_role;
 -- `FORBIDDEN_PAYLOAD_KEYS` in packages/contracts/analytics.ts — the same list
 -- the analytics catalogue test applies — rendered here by
 -- scripts/gen-events.mjs, so the two cannot drift.
+--
+-- And values are checked, not only keys, because `{"value": "a@b.com"}` has
+-- an innocent key. A string in one of these documents is an id, an instant,
+-- an enum or a zone name — never words. So every string leaf must be at most
+-- 40 characters of `[A-Za-z0-9_./:+-]`: no `@` (an address), no space (a
+-- sentence), nothing a 256-bit token fits in. It cannot tell a one-word note
+-- from an enum; it can refuse everything the invariant actually names.
 -- ---------------------------------------------------------------------------
 
 create or replace function jobs.carries_content(p_document jsonb)
@@ -69,11 +76,16 @@ as $$
 -- END GENERATED: forbidden key fragments
       ) as fragment
     where lower(k) like '%' || fragment || '%'
+  )
+  or exists (
+    select 1 from nodes
+    where jsonb_typeof(node) = 'string'
+      and not ((node #>> '{}') ~ '^[A-Za-z0-9_./:+-]{1,40}$')
   );
 $$;
 
 comment on function jobs.carries_content(jsonb) is
-  'True when any object at any depth carries a key that names a person, an address, a note, a title or a token. The check constraint on outbox, audit_log and analytics.events.';
+  'True when any object at any depth carries a key naming a person, an address, a note, a title or a token, or any string value that is not an id, an instant, an enum or a zone. The check constraint on outbox, audit_log and analytics.events.';
 
 -- ---------------------------------------------------------------------------
 -- jobs.outbox
@@ -720,8 +732,8 @@ create trigger plan_responses_emit_changed
 -- `after` trigger still fires, so the comparison is made again here. On
 -- insert, one the member wrote themselves — a participant with no derived
 -- row yet answering for the first time — which is `auth.uid()` being the row's
--- user; the derived rows `confirm-meetup` writes as the service role have no
--- uid and are not "updates" anybody made.
+-- user and `transition_plan` not being in the middle of deriving; the rows it
+-- derives at confirmation are not "updates" anybody made.
 create or replace function jobs.on_attendance_updated()
 returns trigger
 language plpgsql
@@ -734,7 +746,10 @@ begin
   if tg_op = 'UPDATE' and new.status is not distinct from old.status then
     return new;
   end if;
-  if tg_op = 'INSERT' and new.user_id is distinct from auth.uid() then
+  if tg_op = 'INSERT' and (
+    new.user_id is distinct from auth.uid()
+    or coalesce(current_setting('circles.deriving_attendance', true), '') = 'on'
+  ) then
     return new;
   end if;
   select c.plan_id into plan_id from public.meetup_confirmations c where c.id = new.confirmation_id;
@@ -751,6 +766,25 @@ $$;
 create trigger attendance_emit_updated
   after insert or update of status on public.attendance
   for each row execute function jobs.on_attendance_updated();
+
+-- `confirm` now creates the confirmation (below), so its payload carries the
+-- confirmation's details as well as the candidate. Redefined from 0003 with
+-- that one change.
+create or replace function planning.allowed_keys(action text)
+returns text[]
+language sql
+immutable
+as $$
+  select case
+    when action in ('edit', 'reopen') then array[
+      'window_start', 'window_end', 'daily_start_local', 'daily_end_local',
+      'duration_minutes', 'quorum', 'response_deadline'
+    ]
+    when action = 'cancel' then array['cancel_note']
+    when action = 'confirm' then array['candidate_id', 'place_name', 'place_url', 'note', 'chased_answer']
+    else array[]::text[]
+  end;
+$$;
 
 -- The transition → event map. Immutable and total over `planning.transitions`;
 -- `075_outbox_events.sql` walks that table and fails if a row maps to null,
@@ -809,6 +843,7 @@ declare
   next_revision integer;
   event_name text;
   event_payload jsonb;
+  confirmation_id uuid;
 begin
   select * into plan from public.plans where id = p_plan_id for update;
   if not found then
@@ -926,6 +961,51 @@ begin
 
   perform set_config('circles.in_transition', 'off', true);
 
+  -- `confirm` is not a state change with a row to follow; it is the row. The
+  -- frozen copy of the candidate and the derived attendance are written here,
+  -- in the transaction that moves the plan and announces it, so that there is
+  -- no moment at which a plan is `confirmed` with nothing confirmed — and no
+  -- event about a confirmation that a later insert might fail to create. The
+  -- candidate was proven eligible by the guard above; this reads the same row.
+  if p_action = 'confirm' then
+    insert into public.meetup_confirmations (
+      plan_id, revision, candidate_id, starts_at, ends_at, available_user_ids,
+      place_name, place_url, note, chased_answer, confirmed_by
+    )
+    select plan.id, plan.revision, p_payload ->> 'candidate_id', c.starts_at, c.ends_at, c.available_user_ids,
+      p_payload ->> 'place_name', p_payload ->> 'place_url', p_payload ->> 'note', p_payload ->> 'chased_answer',
+      p_actor
+    from public.candidate_sets cs
+    join public.candidates c on c.candidate_set_id = cs.id
+    where cs.plan_id = plan.id
+      and cs.revision = plan.revision
+      and cs.input_version = plan.input_version
+      and cs.scoring_version = plan.scoring_version
+      and not c.is_near_miss
+      and c.starts_at = (p_payload ->> 'candidate_id')::timestamptz
+    returning id into confirmation_id;
+
+    -- `deriveAttendance`: `going` for anyone frozen in as available, `cant` for
+    -- anyone who answered this revision and is not, `unknown` for anyone who
+    -- never answered. Derived, not said — the marker keeps the attendance
+    -- trigger from announcing the organiser's own row as a fresh answer.
+    perform set_config('circles.deriving_attendance', 'on', true);
+    insert into public.attendance (confirmation_id, user_id, status)
+    select confirmation_id, pp.user_id,
+      case
+        when pp.user_id = any (c.available_user_ids) then 'going'
+        when exists (
+          select 1 from public.plan_responses r
+          where r.plan_id = plan.id and r.revision = plan.revision and r.user_id = pp.user_id
+        ) then 'cant'
+        else 'unknown'
+      end
+    from public.plan_participants pp
+    cross join (select available_user_ids from public.meetup_confirmations where id = confirmation_id) c
+    where pp.plan_id = plan.id and pp.revision = plan.revision;
+    perform set_config('circles.deriving_attendance', 'off', true);
+  end if;
+
   -- The event, in the same transaction as the change (ADR 0003). Its name
   -- comes from the transition, not from the caller, and a transition without
   -- a name is refused rather than silently unannounced — `075_outbox_events`
@@ -968,6 +1048,33 @@ begin
   return plan;
 end;
 $$;
+
+-- The backstop, at commit: a plan that is `confirmed` has an active
+-- confirmation for its revision. `transition_plan` makes this true by
+-- construction; this makes it impossible to be false by any other route.
+create or replace function public.enforce_confirmed_has_confirmation()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if new.state = 'confirmed' and not exists (
+    select 1 from public.meetup_confirmations c
+    where c.plan_id = new.id and c.revision = new.revision and c.status = 'active'
+  ) then
+    raise exception 'confirmed_without_confirmation' using errcode = 'check_violation';
+  end if;
+  return null;
+end;
+$$;
+
+create constraint trigger plans_confirmed_has_confirmation
+  after insert or update of state, revision on public.plans
+  deferrable initially deferred
+  for each row execute function public.enforce_confirmed_has_confirmation();
+
+revoke all on function public.enforce_confirmed_has_confirmation() from public;
+revoke all on function public.enforce_confirmed_has_confirmation() from anon, authenticated;
 
 -- ---------------------------------------------------------------------------
 -- Privileges

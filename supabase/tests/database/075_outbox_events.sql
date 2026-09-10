@@ -6,7 +6,7 @@
 -- count only (§6.3, §14).
 
 begin;
-select plan(27);
+select plan(33);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid language sql as $$
@@ -242,6 +242,85 @@ select is(
   (select array_agg(event_name order by event_name) from pg_temp.events_since(:'m8')),
   array['availability.response_cleared', 'circles.member_removed'],
   'removing a member announces the removal and the cleared answer'
+);
+
+-- ---------------------------------------------------------------------------
+-- Confirming: the plan, the confirmation, the attendance and the event, in
+-- one call.
+-- ---------------------------------------------------------------------------
+
+insert into public.plans (
+  circle_id, mode, state, organiser_user_id, title, time_zone,
+  window_start, window_end, daily_start_local, daily_end_local,
+  duration_minutes, quorum, response_deadline, short_code
+)
+select circle_id, 'named', 'collecting', '00000000-0000-0000-0000-0000000005a1',
+  'Catch up', 'Australia/Melbourne', date '2099-11-01', date '2099-11-04',
+  1050, 1350, 120, 2, timestamptz '2099-11-02T10:00:00Z', 'pnevrd'
+from t;
+select id as ready from public.plans where short_code = 'pnevrd' \gset
+insert into public.plan_participants (plan_id, revision, user_id)
+values (:'ready', 1, '00000000-0000-0000-0000-0000000005a1'), (:'ready', 1, '00000000-0000-0000-0000-0000000005a3');
+select pg_temp.act_as('00000000-0000-0000-0000-0000000005a3');
+select public.replace_response(:'ready', 1, 'not_this_time');
+select pg_temp.act_as_postgres();
+select planning.transition_plan(:'ready', 'candidates_ready', '00000000-0000-0000-0000-0000000005a1');
+insert into public.candidate_sets (plan_id, revision, input_version, scoring_version, input_hash,
+  starts_considered, eligible_count, responded_count, active_member_count)
+select :'ready', 1, p.input_version, p.scoring_version, 'h', 10, 1, 1, 2 from public.plans p where p.id = :'ready'
+returning id as cset \gset
+insert into public.candidates (candidate_set_id, is_near_miss, rank, starts_at, ends_at, available_user_ids,
+  explicit_count, flexible_count, explanation_code, explanation_count)
+values (:'cset', false, 1, timestamptz '2099-11-01T07:30:00Z', timestamptz '2099-11-01T09:30:00Z',
+  array['00000000-0000-0000-0000-0000000005a1']::uuid[], 1, 0, 'best_attendance', 1);
+
+select pg_temp.mark() as m14 \gset
+select planning.transition_plan(:'ready', 'confirm', '00000000-0000-0000-0000-0000000005a1',
+  '{"candidate_id": "2099-11-01T07:30:00Z", "place_name": "Hope St Radio", "note": "Bring a jumper"}'::jsonb);
+select is(
+  (select array_agg(event_name) from pg_temp.events_since(:'m14')),
+  array['confirmation.meetup_confirmed'],
+  'confirming announces meetup_confirmed, and only that'
+);
+select ok(
+  not exists (select 1 from pg_temp.events_since(:'m14') where payload ? 'note' or payload ? 'place_name'),
+  'without the note or the place'
+);
+select is(
+  (select (status, note, place_name, confirmed_by::text, cardinality(available_user_ids))
+   from public.meetup_confirmations where plan_id = :'ready' and revision = 1),
+  ('active'::text, 'Bring a jumper'::text, 'Hope St Radio'::text, '00000000-0000-0000-0000-0000000005a1'::text, 1),
+  'the confirmation row exists in the same call, frozen from the candidate, with the details'
+);
+select is(
+  (select array_agg(a.status order by a.user_id) from public.attendance a
+   join public.meetup_confirmations c on c.id = a.confirmation_id where c.plan_id = :'ready'),
+  array['going', 'cant'],
+  'and attendance is derived: Maya available → going, Tom answered and not available → cant'
+);
+select throws_ok(
+  format($$select planning.transition_plan('%s', 'confirm', '00000000-0000-0000-0000-0000000005a1',
+    '{"candidate_id": "2099-11-01T07:30:00Z", "attendee_email": "x"}'::jsonb)$$, :'ready'),
+  'P0001',
+  null,
+  'a key confirm does not take is refused'
+);
+
+-- The backstop: confirmed with nothing confirmed cannot commit.
+insert into public.plans (
+  circle_id, mode, state, organiser_user_id, title, time_zone,
+  window_start, window_end, daily_start_local, daily_end_local,
+  duration_minutes, quorum, response_deadline, short_code
+)
+select circle_id, 'named', 'confirmed', '00000000-0000-0000-0000-0000000005a1',
+  'Catch up', 'Australia/Melbourne', date '2099-12-01', date '2099-12-04',
+  1050, 1350, 120, 2, timestamptz '2099-12-02T10:00:00Z', 'pnevbb'
+from t;
+select throws_ok(
+  'set constraints all immediate',
+  '23514',
+  'confirmed_without_confirmation',
+  'a plan cannot reach commit as confirmed without an active confirmation for its revision'
 );
 
 -- ---------------------------------------------------------------------------

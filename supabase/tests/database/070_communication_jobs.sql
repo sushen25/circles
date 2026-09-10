@@ -6,7 +6,7 @@
 -- later with a stray grant fails here by name.
 
 begin;
-select plan(54);
+select plan(57);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid language sql as $$
@@ -154,10 +154,31 @@ select throws_ok(
   null,
   'a prefix does not launder a key: recipient_email and event_title are the same leak'
 );
-select lives_ok(
-  format($$select jobs.emit('circles.invite_rotated', 'circle', '%s', '{"context": {"member": {"user_id": "u", "role": "owner"}}}')$$,
+select throws_ok(
+  format($$select jobs.emit('circles.invite_rotated', 'circle', '%s', '{"value": "alice@example.com"}')$$,
     (select circle_id from t)),
-  'while ids at depth are fine'
+  '23514',
+  null,
+  'an address under an innocent key is still an address'
+);
+select throws_ok(
+  format($$select jobs.emit('circles.invite_rotated', 'circle', '%s', '{"detail": ["private note about someone"]}')$$,
+    (select circle_id from t)),
+  '23514',
+  null,
+  'and a sentence is still a sentence'
+);
+select throws_ok(
+  format($$select jobs.emit('circles.invite_rotated', 'circle', '%s', '{"ref": "%s"}')$$,
+    (select circle_id from t), repeat('a', 64)),
+  '23514',
+  null,
+  'and nothing a token fits in gets through'
+);
+select lives_ok(
+  format($$select jobs.emit('circles.invite_rotated', 'circle', '%s', '{"context": {"member": {"user_id": "u", "role": "owner", "zone": "Australia/Melbourne", "at": "2099-09-17T08:30:00.000Z", "n": 3, "ok": true}}}')$$,
+    (select circle_id from t)),
+  'while ids, enums, zones, instants, numbers and booleans at depth are fine'
 );
 select throws_ok(
   format($$select jobs.emit('circles.invite_rotated', 'circle', '%s', '[]')$$, (select circle_id from t)),
