@@ -77,8 +77,15 @@ create table public.plans (
   mode text not null,
   state text not null default 'draft',
   -- Null on a quiet ask until somebody accepts the role (ADR 0004, §6.2). Null
-  -- is also the whole of the confidentiality design: there is no initiator
-  -- column here, so no client query can reach one.
+  -- is also the whole of the confidentiality design.
+  --
+  -- There is deliberately **no `created_by`**. It was here, and it was the leak:
+  -- on a quiet ask the creator *is* the initiator, `plans` is readable by every
+  -- member, and `private.plan_initiators` protects a fact the public row was
+  -- handing out beside it. For a named plan the column said nothing
+  -- `organiser_user_id` did not; for a quiet one it said the one thing that must
+  -- never be said. Who created a plan belongs in the outbox event and the audit
+  -- log (S1-11), which no client reads.
   organiser_user_id uuid references auth.users (id),
   title text not null,
   category text not null default 'catch_up',
@@ -107,7 +114,6 @@ create table public.plans (
   input_version integer not null default 1,
   scoring_version integer not null default 1,
   short_code text not null unique,
-  created_by uuid not null references auth.users (id),
   -- The optional note from the CancelPlan screen. Never shown to explain a
   -- quiet ask's withdrawal, which is closed privately (§5.4).
   cancel_note text,
@@ -244,12 +250,17 @@ select
   count(*) filter (where i.response = 'keen')::integer as keen_count
 from public.plans p
 join private.plan_interest i on i.plan_id = p.id
-where p.state <> 'seeking'
+-- Only the states a plan can reach *through* `threshold_reached`. `expired` and
+-- `cancelled` are both reachable directly from `seeking` — an ask that ran out
+-- of time, or one its initiator withdrew — and `state <> 'seeking'` would have
+-- published a below-threshold count for exactly those two. In a circle of six,
+-- "one person was keen" is close to naming them.
+where p.state in ('collecting', 'ready', 'confirmed', 'completed')
   and public.auth_is_member(p.circle_id)
 group by p.id;
 
 comment on view public.plan_interest_counts is
-  'Keen counts for quiet asks that have passed threshold. No row at all while a plan is seeking, and never an individual answer.';
+  'Keen counts for quiet asks that have passed threshold. No row while seeking, none for an ask that expired or was withdrawn below it, and never an individual answer.';
 
 revoke all on public.plan_interest_counts from anon, authenticated;
 grant select on public.plan_interest_counts to authenticated;
@@ -413,7 +424,11 @@ begin
           raise exception 'not_a_member' using errcode = 'P0001';
         end if;
       when 'organiser' then
-        if plan.organiser_user_id is distinct from p_actor then
+        -- Membership as well as the role. An organiser removed from the circle
+        -- while their plan is still open would otherwise keep confirming,
+        -- editing and cancelling it: "removal revokes access immediately"
+        -- (§6.2) has to include the plan they were running.
+        if plan.organiser_user_id is distinct from p_actor or member.user_id is null then
           raise exception 'not_the_organiser' using errcode = 'P0001';
         end if;
       when 'permanent' then
@@ -425,6 +440,14 @@ begin
           raise exception 'already_has_organiser' using errcode = 'P0001';
         end if;
       when 'candidate' then
+        -- Presence, not eligibility — and presence is not the property this
+        -- guard claims. The domain requires the id to be in the *current*
+        -- eligible set, because a candidate can stop being eligible between the
+        -- organiser opening the review screen and tapping the button.
+        --
+        -- `public.candidates` lands in S1-09, so the real check cannot be
+        -- written yet. `040_candidate_guard_dependency.sql` fails the build the
+        -- day that table appears, with the query to write in its message.
         if coalesce(p_payload ->> 'candidate_id', '') = '' then
           raise exception 'needs_candidate' using errcode = 'P0001';
         end if;

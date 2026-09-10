@@ -8,7 +8,7 @@
 -- either, so most of this file is about trying to write it some other way.
 
 begin;
-select plan(52);
+select plan(61);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid
@@ -85,14 +85,13 @@ begin
   insert into public.plans (
     circle_id, mode, state, organiser_user_id, title, time_zone,
     window_start, window_end, daily_start_local, daily_end_local,
-    duration_minutes, quorum, response_deadline, short_code, created_by,
+    duration_minutes, quorum, response_deadline, short_code,
     quiet_threshold
   )
   values (
     (select circle_id from t), mode, state, organiser, 'Catch up', 'Australia/Melbourne',
     date '2026-09-14', date '2026-09-20', 17 * 60 + 30, 22 * 60 + 30,
     120, 4, timestamptz '2026-09-20T10:00:00Z', code,
-    '00000000-0000-0000-0000-0000000001a1',
     case when mode = 'quiet' then 3 else null end
   )
   returning id into new_id;
@@ -332,12 +331,11 @@ select throws_ok(
   $$insert into public.plans (
       circle_id, mode, state, organiser_user_id, title, time_zone,
       window_start, window_end, daily_start_local, daily_end_local,
-      duration_minutes, quorum, response_deadline, short_code, created_by
+      duration_minutes, quorum, response_deadline, short_code
     )
     select circle_id, 'named', 'collecting', '00000000-0000-0000-0000-0000000001a1',
       'Late', 'Australia/Melbourne', date '2026-09-14', date '2026-09-20',
-      1050, 1350, 120, 4, timestamptz '2026-09-20T23:00:00Z', 'pnffff',
-      '00000000-0000-0000-0000-0000000001a1'
+      1050, 1350, 120, 4, timestamptz '2026-09-20T23:00:00Z', 'pnffff'
     from t$$,
   '23514',
   null,
@@ -367,12 +365,20 @@ select ok(
   not has_table_privilege('anon', 'private.plan_initiators', 'select'),
   'nor read who started a quiet ask'
 );
-select ok(
-  not exists (
-    select 1 from information_schema.columns
-    where table_schema = 'public' and table_name = 'plans' and column_name like '%initiator%'
-  ),
-  'and `plans` has no initiator column for a query to reach'
+-- Not "no column called initiator" — that was the first version of this test,
+-- and it passed while `created_by` sat two columns away holding exactly the
+-- fact it was meant to protect. The property is that *no* column of the public
+-- row identifies a person other than the organiser, whose name is public by
+-- design.
+select is(
+  (select coalesce(string_agg(column_name, ', ' order by column_name), '')
+   from information_schema.columns
+   where table_schema = 'public'
+     and table_name = 'plans'
+     and (data_type = 'uuid' or column_name like '%user%' or column_name like '%by%')
+     and column_name not in ('id', 'circle_id', 'organiser_user_id')),
+  '',
+  'no column of a public plan row names anyone but the organiser'
 );
 
 select pg_temp.act_as_postgres();
@@ -405,6 +411,113 @@ select is(
   (select count(*)::integer from public.plan_interest_counts),
   0,
   'somebody outside the circle sees no counts'
+);
+
+-- An ask that never reached threshold keeps its count, whatever became of it.
+-- `state <> 'seeking'` was the first version of this rule, and `expired` and
+-- `cancelled` are both reachable straight from `seeking` — so it published a
+-- below-threshold count for exactly the two cases where the answer is nobody's
+-- business. In a circle of six, "one person was keen" is close to naming them.
+select pg_temp.act_as_postgres();
+select pg_temp.make_plan('pnkkkk', 'seeking', 'quiet', null) as plan_expired \gset
+insert into private.plan_interest (plan_id, user_id, response)
+values (:'plan_expired', '00000000-0000-0000-0000-0000000001a1', 'keen');
+select planning.transition_plan(:'plan_expired', 'expire', '00000000-0000-0000-0000-0000000001a1');
+
+select pg_temp.act_as('00000000-0000-0000-0000-0000000001a2');
+select is(
+  (select count(*)::integer from public.plan_interest_counts where plan_id = :'plan_expired'),
+  0,
+  'a quiet ask that expired below threshold still shows no count'
+);
+
+select pg_temp.act_as_postgres();
+select pg_temp.make_plan('pnmmmm', 'seeking', 'quiet',
+  '00000000-0000-0000-0000-0000000001a1') as plan_withdrawn \gset
+insert into private.plan_interest (plan_id, user_id, response)
+values (:'plan_withdrawn', '00000000-0000-0000-0000-0000000001a2', 'keen');
+select planning.transition_plan(:'plan_withdrawn', 'cancel',
+  '00000000-0000-0000-0000-0000000001a1');
+
+select pg_temp.act_as('00000000-0000-0000-0000-0000000001a2');
+select is(
+  (select count(*)::integer from public.plan_interest_counts where plan_id = :'plan_withdrawn'),
+  0,
+  'and one withdrawn before threshold shows none either'
+);
+
+-- ---------------------------------------------------------------------------
+-- An organiser who has left the circle is not the organiser.
+-- ---------------------------------------------------------------------------
+
+select pg_temp.act_as_postgres();
+select pg_temp.make_plan('pnpppp', 'ready',
+  'named', '00000000-0000-0000-0000-0000000001a2') as plan_gone \gset
+update public.circle_members set status = 'removed'
+where circle_id = (select circle_id from t)
+  and user_id = '00000000-0000-0000-0000-0000000001a2';
+
+select throws_ok(
+  format(
+    $$select planning.transition_plan('%s', 'confirm', '%s', '{"candidate_id":"x"}'::jsonb)$$,
+    :'plan_gone', '00000000-0000-0000-0000-0000000001a2'
+  ),
+  'P0001',
+  'not_the_organiser',
+  'a removed organiser cannot confirm their own plan — removal revokes access immediately'
+);
+select throws_ok(
+  format($$select planning.transition_plan('%s', 'cancel', '%s')$$,
+    :'plan_gone', '00000000-0000-0000-0000-0000000001a2'),
+  'P0001',
+  'not_the_organiser',
+  'nor cancel it'
+);
+
+update public.circle_members set status = 'active'
+where circle_id = (select circle_id from t)
+  and user_id = '00000000-0000-0000-0000-0000000001a2';
+select is(
+  (select state from planning.transition_plan(:'plan_gone', 'cancel',
+    '00000000-0000-0000-0000-0000000001a2')),
+  'cancelled',
+  'and can again once they are back in the circle'
+);
+
+-- ---------------------------------------------------------------------------
+-- The participant lists: who may read them, and who may not.
+-- ---------------------------------------------------------------------------
+
+select pg_temp.act_as_postgres();
+insert into public.plan_participants (plan_id, revision, user_id)
+values
+  (:'plan_a', 1, '00000000-0000-0000-0000-0000000001a1'),
+  (:'plan_a', 1, '00000000-0000-0000-0000-0000000001a2');
+insert into public.plan_required_members (plan_id, revision, user_id)
+values (:'plan_a', 1, '00000000-0000-0000-0000-0000000001a1');
+
+select pg_temp.act_as('00000000-0000-0000-0000-0000000001a2');
+select is(
+  (select count(*)::integer from public.plan_participants where plan_id = :'plan_a'),
+  2,
+  'a member reads the participant list of a plan in their circle'
+);
+select is(
+  (select count(*)::integer from public.plan_required_members where plan_id = :'plan_a'),
+  1,
+  'and the required-member list'
+);
+
+select pg_temp.act_as('00000000-0000-0000-0000-0000000001a3');
+select is(
+  (select count(*)::integer from public.plan_participants),
+  0,
+  'somebody outside the circle reads no participants'
+);
+select is(
+  (select count(*)::integer from public.plan_required_members),
+  0,
+  'and no required members'
 );
 
 -- ---------------------------------------------------------------------------
@@ -443,13 +556,12 @@ select throws_ok(
   $$insert into public.plans (
       circle_id, mode, state, organiser_user_id, title, time_zone,
       window_start, window_end, daily_start_local, daily_end_local,
-      duration_minutes, quorum, response_deadline, short_code, created_by
+      duration_minutes, quorum, response_deadline, short_code
     )
     select circle_id, 'named', 'collecting', '00000000-0000-0000-0000-0000000001a1',
       'Fortnight and a day', 'Australia/Melbourne',
       date '2026-09-01', date '2026-09-15', 1050, 1350, 120, 4,
-      timestamptz '2026-09-15T09:00:00Z', 'pnhhhh',
-      '00000000-0000-0000-0000-0000000001a1'
+      timestamptz '2026-09-15T09:00:00Z', 'pnhhhh'
     from t$$,
   '23514',
   null,

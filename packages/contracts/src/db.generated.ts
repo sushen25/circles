@@ -232,7 +232,6 @@ export type Database = {
           category: string
           circle_id: string
           created_at: string
-          created_by: string
           daily_end_local: number
           daily_start_local: number
           duration_minutes: number
@@ -259,7 +258,6 @@ export type Database = {
           category?: string
           circle_id: string
           created_at?: string
-          created_by: string
           daily_end_local: number
           daily_start_local: number
           duration_minutes: number
@@ -286,7 +284,6 @@ export type Database = {
           category?: string
           circle_id?: string
           created_at?: string
-          created_by?: string
           daily_end_local?: number
           daily_start_local?: number
           duration_minutes?: number
