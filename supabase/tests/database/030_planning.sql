@@ -1,0 +1,466 @@
+-- Planning, from the outside.
+--
+-- Numbered 030 because 020 is the outbox tripwire, which stays until S1-11
+-- lands the table both `create_circle` and `transition_plan` owe events to.
+--
+-- The claim under test is architecture §8.3's: "nothing else writes
+-- `plans.state`". A comment cannot make that true and a convention cannot
+-- either, so most of this file is about trying to write it some other way.
+
+begin;
+select plan(52);
+
+create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
+returns uuid
+language sql
+as $$
+  insert into auth.users (
+    id, instance_id, aud, role, email, is_anonymous, raw_app_meta_data, raw_user_meta_data,
+    created_at, updated_at
+  )
+  values (
+    id, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+    id::text || '@example.com',
+    anonymous,
+    jsonb_build_object('is_anonymous', anonymous),
+    jsonb_build_object('display_name', name, 'time_zone', 'Australia/Melbourne'),
+    now(), now()
+  )
+  returning id;
+$$;
+
+create or replace function pg_temp.act_as(id uuid, anonymous boolean default false)
+returns void
+language plpgsql
+as $$
+begin
+  perform set_config('role', 'authenticated', true);
+  perform set_config(
+    'request.jwt.claims',
+    jsonb_build_object('sub', id::text, 'role', 'authenticated', 'is_anonymous', anonymous)::text,
+    true
+  );
+end;
+$$;
+
+create or replace function pg_temp.act_as_postgres()
+returns void
+language plpgsql
+as $$
+begin
+  perform set_config('role', 'postgres', true);
+  perform set_config('request.jwt.claims', '', true);
+end;
+$$;
+
+select pg_temp.make_user('00000000-0000-0000-0000-0000000001a1', 'Maya');
+select pg_temp.make_user('00000000-0000-0000-0000-0000000001a2', 'Priya');
+select pg_temp.make_user('00000000-0000-0000-0000-0000000001a3', 'Outsider');
+select pg_temp.make_user('00000000-0000-0000-0000-0000000001a9', 'Guest', true);
+
+select pg_temp.act_as('00000000-0000-0000-0000-0000000001a1');
+select public.create_circle('Sunday Crew', 'sky', 'Australia/Melbourne', 'key-planning');
+
+select pg_temp.act_as_postgres();
+create temporary table t as select id as circle_id from public.circles where name = 'Sunday Crew';
+grant select on t to anon, authenticated;
+
+insert into public.circle_members (circle_id, user_id, display_name_snapshot)
+select circle_id, '00000000-0000-0000-0000-0000000001a2', 'Priya' from t;
+
+/* A plan in `collecting`, owned by Maya. Inserted directly, because creating one
+   is `create-plan`'s job (S1-15) and this ticket is the tables underneath it. */
+create or replace function pg_temp.make_plan(
+  code text,
+  state text default 'collecting',
+  mode text default 'named',
+  organiser uuid default '00000000-0000-0000-0000-0000000001a1'
+)
+returns uuid
+language plpgsql
+as $$
+declare
+  new_id uuid;
+begin
+  insert into public.plans (
+    circle_id, mode, state, organiser_user_id, title, time_zone,
+    window_start, window_end, daily_start_local, daily_end_local,
+    duration_minutes, quorum, response_deadline, short_code, created_by,
+    quiet_threshold
+  )
+  values (
+    (select circle_id from t), mode, state, organiser, 'Catch up', 'Australia/Melbourne',
+    date '2026-09-14', date '2026-09-20', 17 * 60 + 30, 22 * 60 + 30,
+    120, 4, timestamptz '2026-09-20T10:00:00Z', code,
+    '00000000-0000-0000-0000-0000000001a1',
+    case when mode = 'quiet' then 3 else null end
+  )
+  returning id into new_id;
+  return new_id;
+end;
+$$;
+
+-- ---------------------------------------------------------------------------
+-- The shape.
+-- ---------------------------------------------------------------------------
+
+select has_schema('planning', 'the planning schema exists');
+select has_table('public', 'plans', 'plans exists');
+select has_table('public', 'plan_participants', 'plan_participants exists');
+select has_table('public', 'plan_required_members', 'plan_required_members exists');
+select has_table('private', 'plan_initiators', 'private.plan_initiators exists');
+select has_table('private', 'plan_interest', 'private.plan_interest exists');
+select has_view('public', 'plan_interest_counts', 'plan_interest_counts exists');
+
+select ok(
+  (select relrowsecurity from pg_class where oid = 'public.plans'::regclass),
+  'RLS is on for plans'
+);
+select ok(
+  not has_schema_privilege('authenticated', 'planning', 'usage'),
+  'no client role can even look inside the planning schema'
+);
+select ok(
+  not has_function_privilege(
+    'authenticated', 'planning.transition_plan(uuid,text,uuid,jsonb)', 'execute'
+  ),
+  'and none can call transition_plan directly — Edge Functions do, as the service role'
+);
+
+-- ---------------------------------------------------------------------------
+-- The transition table is the domain's, not a retyping of it.
+-- ---------------------------------------------------------------------------
+
+select is(
+  (select count(*)::integer from planning.transitions),
+  19,
+  'nineteen transitions, seeded from the generated block'
+);
+select is(
+  (select guards from planning.transitions where from_state = 'ready' and action = 'confirm'),
+  array['organiser', 'candidate'],
+  'confirm carries both of its guards — a pair of booleans would have dropped one'
+);
+select ok(
+  (select bumps_revision from planning.transitions where from_state = 'confirmed' and action = 'reopen'),
+  'reopen bumps the revision'
+);
+select ok(
+  not exists (select 1 from planning.transitions where from_state in ('completed', 'expired', 'cancelled')),
+  'nothing moves out of a terminal state'
+);
+
+-- ---------------------------------------------------------------------------
+-- Nothing else writes `state`.
+-- ---------------------------------------------------------------------------
+
+select pg_temp.act_as_postgres();
+select pg_temp.make_plan('pnaaaa') as plan_a \gset
+
+select throws_ok(
+  format($$update public.plans set state = 'confirmed' where id = '%s'$$, :'plan_a'),
+  '42501',
+  null,
+  'not even postgres can write state directly'
+);
+select lives_ok(
+  format($$update public.plans set title = 'Dinner' where id = '%s'$$, :'plan_a'),
+  'but every other column is an ordinary update'
+);
+
+select is(
+  (select state from planning.transition_plan(:'plan_a', 'candidates_ready',
+    '00000000-0000-0000-0000-0000000001a1')),
+  'ready',
+  'transition_plan moves it'
+);
+select is(
+  (select state from public.plans where id = :'plan_a'),
+  'ready',
+  'and the row really changed'
+);
+select is(
+  current_setting('circles.in_transition', true),
+  'off',
+  'the guard closes behind it, so a later update in the same transaction is still refused'
+);
+select throws_ok(
+  format($$update public.plans set state = 'completed' where id = '%s'$$, :'plan_a'),
+  '42501',
+  null,
+  'proved: the same transaction cannot write state after a transition'
+);
+
+-- ---------------------------------------------------------------------------
+-- The guards.
+-- ---------------------------------------------------------------------------
+
+select throws_ok(
+  format(
+    $$select planning.transition_plan('%s', 'confirm', '%s', '{"candidate_id":"x"}'::jsonb)$$,
+    :'plan_a', '00000000-0000-0000-0000-0000000001a2'
+  ),
+  'P0001',
+  'not_the_organiser',
+  'a member cannot confirm'
+);
+select throws_ok(
+  format($$select planning.transition_plan('%s', 'confirm', '%s')$$,
+    :'plan_a', '00000000-0000-0000-0000-0000000001a1'),
+  'P0001',
+  'needs_candidate',
+  'and the organiser cannot confirm without naming a candidate'
+);
+select is(
+  (select state from planning.transition_plan(:'plan_a', 'confirm',
+    '00000000-0000-0000-0000-0000000001a1', '{"candidate_id":"2026-09-17T08:30:00.000Z"}'::jsonb)),
+  'confirmed',
+  'with one, they can'
+);
+
+select throws_ok(
+  format($$select planning.transition_plan('%s', 'candidates_ready', '%s')$$,
+    :'plan_a', '00000000-0000-0000-0000-0000000001a1'),
+  'P0001',
+  'wrong_state',
+  'an action with no row for this state is refused'
+);
+
+select pg_temp.make_plan('pnbbbb', 'cancelled') as plan_done \gset
+select throws_ok(
+  format($$select planning.transition_plan('%s', 'edit', '%s')$$,
+    :'plan_done', '00000000-0000-0000-0000-0000000001a1'),
+  'P0001',
+  'plan_is_finished',
+  'a finished plan says so, rather than "not right now"'
+);
+
+-- The organiser gate, ADR 0004, from the server side this time.
+select pg_temp.make_plan('pncccc', 'collecting', 'quiet', null) as plan_quiet \gset
+select throws_ok(
+  format($$select planning.transition_plan('%s', 'accept_organiser', '%s')$$,
+    :'plan_quiet', '00000000-0000-0000-0000-0000000001a9'),
+  'P0001',
+  'not_a_member',
+  'somebody outside the circle cannot take the role'
+);
+
+select pg_temp.act_as_postgres();
+insert into public.circle_members (circle_id, user_id, display_name_snapshot)
+select circle_id, '00000000-0000-0000-0000-0000000001a9', 'Guest' from t;
+
+select throws_ok(
+  format($$select planning.transition_plan('%s', 'accept_organiser', '%s')$$,
+    :'plan_quiet', '00000000-0000-0000-0000-0000000001a9'),
+  'P0001',
+  'needs_permanent_identity',
+  'and an anonymous member cannot either (ADR 0004)'
+);
+select is(
+  (select organiser_user_id from planning.transition_plan(:'plan_quiet', 'accept_organiser',
+    '00000000-0000-0000-0000-0000000001a2')),
+  '00000000-0000-0000-0000-0000000001a2'::uuid,
+  'a member with a saved place can, and becomes the organiser'
+);
+select throws_ok(
+  format($$select planning.transition_plan('%s', 'accept_organiser', '%s')$$,
+    :'plan_quiet', '00000000-0000-0000-0000-0000000001a1'),
+  'P0001',
+  'already_has_organiser',
+  'and nobody takes it twice'
+);
+
+-- ---------------------------------------------------------------------------
+-- Revisions.
+-- ---------------------------------------------------------------------------
+
+select pg_temp.make_plan('pndddd') as plan_edit \gset
+select pg_temp.act_as_postgres();
+update public.plans set input_version = 7 where id = :'plan_edit';
+
+select is(
+  (select revision from planning.transition_plan(:'plan_edit', 'edit',
+    '00000000-0000-0000-0000-0000000001a1', '{"quorum":3}'::jsonb)),
+  2,
+  'an edit bumps the revision'
+);
+select is(
+  (select input_version from public.plans where id = :'plan_edit'),
+  1,
+  'and resets input_version: a new question means the answers start again'
+);
+select is(
+  (select quorum from public.plans where id = :'plan_edit'),
+  3,
+  'the payload is applied'
+);
+select is(
+  (select title from public.plans where id = :'plan_edit'),
+  'Catch up',
+  'and what the payload does not mention is left alone'
+);
+
+select pg_temp.make_plan('pneeee', 'confirmed') as plan_reopen \gset
+select is(
+  (select revision from planning.transition_plan(:'plan_reopen', 'reopen',
+    '00000000-0000-0000-0000-0000000001a1')),
+  2,
+  'a reopen bumps it too'
+);
+select is(
+  (select state from public.plans where id = :'plan_reopen'),
+  'collecting',
+  'back to collecting'
+);
+
+-- ---------------------------------------------------------------------------
+-- The deadline never runs past the last possible start.
+-- ---------------------------------------------------------------------------
+
+select is(
+  public.plan_last_possible_start(date '2026-09-20', 22 * 60 + 30, 120, 'Australia/Melbourne'),
+  timestamptz '2026-09-20T10:30:00Z',
+  'a 2-hour meetup in a band ending 22:30 cannot start after 20:30 Melbourne'
+);
+select is(
+  public.plan_last_possible_start(date '2026-09-20', 1440, 120, 'Australia/Melbourne'),
+  timestamptz '2026-09-20T12:00:00Z',
+  'and a band running to midnight ends at 22:00 the same evening'
+);
+
+select throws_ok(
+  $$insert into public.plans (
+      circle_id, mode, state, organiser_user_id, title, time_zone,
+      window_start, window_end, daily_start_local, daily_end_local,
+      duration_minutes, quorum, response_deadline, short_code, created_by
+    )
+    select circle_id, 'named', 'collecting', '00000000-0000-0000-0000-0000000001a1',
+      'Late', 'Australia/Melbourne', date '2026-09-14', date '2026-09-20',
+      1050, 1350, 120, 4, timestamptz '2026-09-20T23:00:00Z', 'pnffff',
+      '00000000-0000-0000-0000-0000000001a1'
+    from t$$,
+  '23514',
+  null,
+  'a deadline after the last possible start is refused'
+);
+
+-- And moving the window under a good deadline is the same mistake.
+select throws_ok(
+  format(
+    $$update public.plans set window_end = date '2026-09-15' where id = '%s'$$,
+    :'plan_a'
+  ),
+  '23514',
+  null,
+  'shortening the window until the deadline no longer fits is refused too'
+);
+
+-- ---------------------------------------------------------------------------
+-- The quiet ask's two secrets.
+-- ---------------------------------------------------------------------------
+
+select ok(
+  not has_table_privilege('authenticated', 'private.plan_interest', 'select'),
+  'no client role can select individual interest answers'
+);
+select ok(
+  not has_table_privilege('anon', 'private.plan_initiators', 'select'),
+  'nor read who started a quiet ask'
+);
+select ok(
+  not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'plans' and column_name like '%initiator%'
+  ),
+  'and `plans` has no initiator column for a query to reach'
+);
+
+select pg_temp.act_as_postgres();
+select pg_temp.make_plan('pngggg', 'seeking', 'quiet', null) as plan_seeking \gset
+insert into private.plan_interest (plan_id, user_id, response)
+values
+  (:'plan_seeking', '00000000-0000-0000-0000-0000000001a1', 'keen'),
+  (:'plan_seeking', '00000000-0000-0000-0000-0000000001a2', 'keen');
+
+select pg_temp.act_as('00000000-0000-0000-0000-0000000001a2');
+select is(
+  (select count(*)::integer from public.plan_interest_counts where plan_id = :'plan_seeking'),
+  0,
+  'a seeking plan has no count at all — before threshold, a count that moves names the person who moved it'
+);
+
+select pg_temp.act_as_postgres();
+select planning.transition_plan(:'plan_seeking', 'threshold_reached',
+  '00000000-0000-0000-0000-0000000001a1');
+
+select pg_temp.act_as('00000000-0000-0000-0000-0000000001a2');
+select is(
+  (select keen_count from public.plan_interest_counts where plan_id = :'plan_seeking'),
+  2,
+  'and a count once it has passed'
+);
+
+select pg_temp.act_as('00000000-0000-0000-0000-0000000001a3');
+select is(
+  (select count(*)::integer from public.plan_interest_counts),
+  0,
+  'somebody outside the circle sees no counts'
+);
+
+-- ---------------------------------------------------------------------------
+-- Reads, and the absence of writes.
+-- ---------------------------------------------------------------------------
+
+select pg_temp.act_as('00000000-0000-0000-0000-0000000001a2');
+select ok(
+  (select count(*) from public.plans) > 0,
+  'a member sees their circle''s plans'
+);
+
+select pg_temp.act_as('00000000-0000-0000-0000-0000000001a3');
+select is((select count(*)::integer from public.plans), 0, 'a non-member sees none');
+
+select pg_temp.act_as('00000000-0000-0000-0000-0000000001a2');
+select ok(
+  not has_table_privilege('authenticated', 'public.plans', 'insert'),
+  'no client inserts a plan — create-plan does, with its own rules'
+);
+select ok(
+  not has_table_privilege('authenticated', 'public.plans', 'update'),
+  'and none updates one'
+);
+select ok(
+  not has_table_privilege('authenticated', 'public.plan_participants', 'insert'),
+  'nor opts themselves into a plan'
+);
+
+-- ---------------------------------------------------------------------------
+-- The window cap.
+-- ---------------------------------------------------------------------------
+
+select pg_temp.act_as_postgres();
+select throws_ok(
+  $$insert into public.plans (
+      circle_id, mode, state, organiser_user_id, title, time_zone,
+      window_start, window_end, daily_start_local, daily_end_local,
+      duration_minutes, quorum, response_deadline, short_code, created_by
+    )
+    select circle_id, 'named', 'collecting', '00000000-0000-0000-0000-0000000001a1',
+      'Fortnight and a day', 'Australia/Melbourne',
+      date '2026-09-01', date '2026-09-15', 1050, 1350, 120, 4,
+      timestamptz '2026-09-15T09:00:00Z', 'pnhhhh',
+      '00000000-0000-0000-0000-0000000001a1'
+    from t$$,
+  '23514',
+  null,
+  'fifteen consecutive days is refused; fourteen is the cap (spec §5.3)'
+);
+
+select ok(
+  (select count(*) from public.plans
+   where window_end - window_start = 13) >= 0,
+  'and the inclusive reading is what the constraint uses'
+);
+
+select * from finish();
+rollback;
