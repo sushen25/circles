@@ -399,8 +399,11 @@ begin
     perform planning.transition_plan(affected, 'candidates_gone', new.user_id);
   end loop;
 
-  -- Not coming to anything still ahead. History — `was_there`, `missed`, and
-  -- rows on completed confirmations — is left exactly as it was.
+  -- Not coming to anything still ahead. History is left exactly as it was:
+  -- `was_there` and `missed`, rows on closed confirmations, and rows on a
+  -- meetup that has ended but not yet been reported on — `active` alone does
+  -- not mean "ahead", and a `going` from last Thursday is part of the historic
+  -- aggregate §4.5 lets remain.
   update public.attendance a
   set status = 'cant', updated_at = now()
   from public.meetup_confirmations c
@@ -409,6 +412,7 @@ begin
     and a.user_id = new.user_id
     and p.circle_id = new.circle_id
     and c.status = 'active'
+    and c.ends_at > now()
     and a.status in ('going', 'unknown');
 
   return new;
@@ -434,14 +438,23 @@ create policy meetup_confirmations_select_member on public.meetup_confirmations
     select 1 from public.plans p where p.id = plan_id and public.auth_is_member(p.circle_id)
   ));
 
+-- "Going / Can't / To confirm" is the circle's business: the confirmed screen
+-- lists who is coming. "I was there" is not — "nobody is told who came" is on
+-- the Outcome screen and "Nobody keeps score" on WasThere — so a retrospective
+-- row is readable by its subject alone. Corroboration ("at least one other
+-- member confirms attendance", spec §5.10) is computed for the record, never
+-- shown as names; the analytics views (S1-11) read the table as owner.
 create policy attendance_select_member on public.attendance
   for select to authenticated
-  using (exists (
-    select 1
-    from public.meetup_confirmations c
-    join public.plans p on p.id = c.plan_id
-    where c.id = confirmation_id and public.auth_is_member(p.circle_id)
-  ));
+  using (
+    (user_id = (select auth.uid()) or status in ('going', 'cant', 'unknown'))
+    and exists (
+      select 1
+      from public.meetup_confirmations c
+      join public.plans p on p.id = c.plan_id
+      where c.id = confirmation_id and public.auth_is_member(p.circle_id)
+    )
+  );
 
 -- Own row only, and never `unknown` by choice: "has not said" is not a thing
 -- you can say. Everything else about the write — participant, timing, the

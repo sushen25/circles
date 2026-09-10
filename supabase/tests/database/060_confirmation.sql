@@ -6,7 +6,7 @@
 -- database's — and the rest is tested as the people who use it.
 
 begin;
-select plan(44);
+select plan(48);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid language sql as $$
@@ -282,6 +282,28 @@ select lives_ok(
   'while a mis-tap on the WasThere screen can be corrected'
 );
 
+-- Nobody is told who came.
+select pg_temp.act_as('00000000-0000-0000-0000-0000000003a1');
+select is(
+  (select count(*)::integer from public.attendance
+   where confirmation_id = :'past_conf' and user_id = '00000000-0000-0000-0000-0000000003a2'),
+  0,
+  'Priya''s answer about the past is not Maya''s to read — not even the organiser''s'
+);
+select is(
+  (select count(*)::integer from public.attendance
+   where confirmation_id = :'future_conf' and user_id = '00000000-0000-0000-0000-0000000003a2'),
+  1,
+  'while whether she is coming to the next one is the circle''s business'
+);
+select pg_temp.act_as('00000000-0000-0000-0000-0000000003a2');
+select is(
+  (select status from public.attendance
+   where confirmation_id = :'past_conf' and user_id = '00000000-0000-0000-0000-0000000003a2'),
+  'missed',
+  'and she can still read her own'
+);
+
 -- Somebody the plan was not addressed to.
 select pg_temp.act_as_postgres();
 select pg_temp.make_user('00000000-0000-0000-0000-0000000003a5', 'Newcomer');
@@ -441,6 +463,10 @@ select is(
   'cant',
   'a removed member is not coming to a live confirmation'
 );
+-- An evening that has ended but not yet been reported on: still `active`, but
+-- not ahead.
+select pg_temp.make_confirmed_plan('pncfuu', date '2020-04-01') as unreported_plan \gset
+select pg_temp.confirm(:'unreported_plan', date '2020-04-01') as unreported_conf \gset
 update public.circle_members set status = 'removed'
 where circle_id = (select circle_id from t) and user_id = '00000000-0000-0000-0000-0000000003a2';
 select is(
@@ -448,6 +474,12 @@ select is(
    where confirmation_id = :'past_conf' and user_id = '00000000-0000-0000-0000-0000000003a2'),
   :'was_there_before',
   'but what they said about a meetup that already happened stays as it was (spec §4.5)'
+);
+select is(
+  (select status from public.attendance
+   where confirmation_id = :'unreported_conf' and user_id = '00000000-0000-0000-0000-0000000003a2'),
+  'going',
+  'and so does a "going" to an evening that has ended but nobody has reported on yet'
 );
 
 -- ---------------------------------------------------------------------------
