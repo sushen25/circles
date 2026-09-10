@@ -10,7 +10,7 @@
 -- made as somebody *else*.
 
 begin;
-select plan(57);
+select plan(65);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid language sql as $$
@@ -396,12 +396,22 @@ select is(
   0,
   'never anybody else''s'
 );
+-- Spec §5.6: before any candidate exists, members see nothing; the organiser
+-- sees what has come in. No set exists for this plan yet.
+select is(
+  (select count(*)::integer from public.response_summaries
+   where plan_id = (select plan_id from tp)),
+  0,
+  'and, before options exist, sees no summaries at all — who has answered is the organiser''s to chase'
+);
+select pg_temp.act_as('00000000-0000-0000-0000-0000000002a1');
 select is(
   (select array_agg(status order by user_id) from public.response_summaries
    where plan_id = (select plan_id from tp)),
   array['flexible', 'windows'],
-  'but sees who has answered and how through the summary'
+  'while the organiser sees who has answered and how'
 );
+select pg_temp.act_as('00000000-0000-0000-0000-0000000002a2');
 select is(
   (select count(*)::integer from information_schema.columns
    where table_name = 'response_summaries' and column_name in ('starts_at', 'ends_at')),
@@ -533,6 +543,10 @@ select throws_ok(
 
 select pg_temp.act_as('00000000-0000-0000-0000-0000000002a3');
 select is((select count(*)::integer from public.candidates), 2, 'a member reads the whole set');
+select ok(
+  (select count(*) from public.response_summaries where plan_id = (select plan_id from tp)) > 0,
+  'and now that options exist, the summaries too'
+);
 select pg_temp.act_as('00000000-0000-0000-0000-0000000002a4');
 select is((select count(*)::integer from public.candidates), 0, 'an outsider reads none of it');
 select pg_temp.act_as('00000000-0000-0000-0000-0000000002a3');
@@ -576,6 +590,16 @@ select throws_ok(
 select pg_temp.act_as('00000000-0000-0000-0000-0000000002a2');
 select public.replace_response((select plan_id from tp), 1, 'flexible');
 select pg_temp.act_as_postgres();
+-- Architecture §8.3: `ready ─(response change)─▶ collecting`. Left in `ready`
+-- with no current set, every state-driven screen would have shown options
+-- that `confirm` was about to refuse as stale.
+select is(
+  (select state from public.plans where id = (select plan_id from tp)),
+  'collecting',
+  'an answer to a ready plan sends it back to collecting'
+);
+select planning.transition_plan((select plan_id from tp), 'candidates_ready',
+  '00000000-0000-0000-0000-0000000002a1');
 select cmp_ok(
   (select input_version from public.plans where id = (select plan_id from tp)),
   '>',
@@ -602,6 +626,82 @@ select is(
   'confirmed',
   'and an eligible candidate from the current set confirms'
 );
+
+-- ---------------------------------------------------------------------------
+-- Removal (spec §4.5): "loses circle and plan access immediately; … their
+-- availability is deleted."
+-- ---------------------------------------------------------------------------
+
+-- A fresh ready plan Tom has answered, with a current candidate set, so that
+-- every consequence of removing him is observable.
+select pg_temp.act_as_postgres();
+insert into public.plans (
+  circle_id, mode, state, organiser_user_id, title, time_zone,
+  window_start, window_end, daily_start_local, daily_end_local,
+  duration_minutes, quorum, response_deadline, short_code
+)
+select circle_id, 'named', 'collecting', '00000000-0000-0000-0000-0000000002a1',
+  'Removal', 'Australia/Melbourne', date '2099-10-01', date '2099-10-04',
+  -- 4 October 2099 is a Sunday and Melbourne's clocks go forward that
+  -- morning, so 20:30 local — the last possible start — is 09:30Z, and the
+  -- deadline has to sit before it. The 0003 trigger refused 10:00Z, correctly.
+  1050, 1350, 120, 2, timestamptz '2099-10-04T09:00:00Z', 'pnavrr'
+from t;
+create temporary table tr as select id as plan_id from public.plans where short_code = 'pnavrr';
+grant select on tr to anon, authenticated, service_role;
+insert into public.plan_participants (plan_id, revision, user_id)
+select plan_id, 1, u from tr, unnest(array[
+  '00000000-0000-0000-0000-0000000002a1'::uuid, '00000000-0000-0000-0000-0000000002a3'::uuid
+]) as u;
+
+select pg_temp.act_as('00000000-0000-0000-0000-0000000002a3');
+select public.replace_response((select plan_id from tr), 1, 'windows',
+  jsonb_build_array(pg_temp.win('2099-10-01', 1110, 1230)));
+select pg_temp.act_as_postgres();
+select planning.transition_plan((select plan_id from tr), 'candidates_ready',
+  '00000000-0000-0000-0000-0000000002a1');
+insert into public.candidate_sets
+  (plan_id, revision, input_version, scoring_version, input_hash,
+   starts_considered, eligible_count, responded_count, active_member_count)
+select id, revision, input_version, scoring_version, 'r', 8, 1, 1, 4
+from public.plans where id = (select plan_id from tr);
+select input_version as iv_before_removal from public.plans where id = (select plan_id from tr) \gset
+
+update public.circle_members set status = 'removed'
+where circle_id = (select circle_id from t) and user_id = '00000000-0000-0000-0000-0000000002a3';
+
+select is(
+  (select count(*)::integer from public.plan_responses
+   where user_id = '00000000-0000-0000-0000-0000000002a3'),
+  0,
+  'a removed member''s responses are deleted — on every plan of the circle'
+);
+select is(
+  (select count(*)::integer from public.willing_windows ww
+   join public.plan_responses r on r.id = ww.response_id
+   where r.user_id = '00000000-0000-0000-0000-0000000002a3'),
+  0,
+  'and their windows with them'
+);
+select is(
+  (select count(*)::integer from public.plan_participants
+   where plan_id = (select plan_id from tr) and user_id = '00000000-0000-0000-0000-0000000002a3'),
+  0,
+  'they leave the open plan''s participant list, so nobody waits on their reply'
+);
+select cmp_ok(
+  (select input_version from public.plans where id = (select plan_id from tr)),
+  '>', :iv_before_removal,
+  'the candidate set that counted them is stale'
+);
+select is(
+  (select state from public.plans where id = (select plan_id from tr)),
+  'collecting',
+  'and the ready plan is ready no longer — its options may have needed them'
+);
+
+update public.circle_members set status = 'active'
+where circle_id = (select circle_id from t) and user_id = '00000000-0000-0000-0000-0000000002a3';
 
 select * from finish();
 rollback;

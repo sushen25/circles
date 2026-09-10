@@ -319,14 +319,26 @@ create index candidates_set_rank_idx on public.candidates (candidate_set_id, is_
 -- express.
 -- ---------------------------------------------------------------------------
 
+-- Spec §5.6: "Before any candidate exists the organiser sees a waiting state
+-- with what has come in; members see nothing until options exist." So the
+-- organiser sees the summaries always, and everyone else only once the engine
+-- has run for the current revision. Before that, who has answered is the
+-- organiser's to chase, not the circle's to watch.
 create view public.response_summaries as
 select r.plan_id, r.revision, r.user_id, r.status, r.submitted_at
 from public.plan_responses r
 join public.plans p on p.id = r.plan_id
-where public.auth_is_member(p.circle_id);
+where public.auth_is_member(p.circle_id)
+  and (
+    p.organiser_user_id = (select auth.uid())
+    or exists (
+      select 1 from public.candidate_sets cs
+      where cs.plan_id = p.id and cs.revision = p.revision
+    )
+  );
 
 comment on view public.response_summaries is
-  'Who has answered a plan revision and with which status. Never a window: those are readable only by their owner.';
+  'Who has answered a plan revision and with which status — to the organiser always, to members once options exist (spec §5.6). Never a window.';
 
 revoke all on public.response_summaries from anon, authenticated;
 grant select on public.response_summaries to authenticated;
@@ -444,6 +456,16 @@ begin
 
   perform set_config('circles.in_replace_response', 'off', true);
   update public.plans p set input_version = p.input_version + 1 where p.id = plan.id;
+
+  -- Architecture §8.3: `ready ─(response change)─▶ collecting`. A ready plan
+  -- whose answers just moved has no current candidate set — `confirm` would
+  -- refuse the old one as stale while every state-driven screen and job still
+  -- saw "ready". `candidates_gone` is the engine's verdict and carries no
+  -- actor guard, so the person who answered can be the one to fire it; the
+  -- recalculation brings it back to ready.
+  if plan.state = 'ready' then
+    perform planning.transition_plan(plan.id, 'candidates_gone', caller);
+  end if;
 
   -- TODO(S1-11): write `availability.response_submitted` to `jobs.outbox` here.
   -- `020_outbox_dependency.sql` fails the build the day the table appears.
@@ -654,6 +676,73 @@ begin
   return plan;
 end;
 $$;
+
+-- ---------------------------------------------------------------------------
+-- Removal.
+--
+-- Spec §4.5: a removed member "loses circle and plan access immediately;
+-- historic aggregate attendance may remain; their availability is deleted."
+-- Three consequences, in one trigger so they cannot be applied separately:
+--
+--   * their responses and windows go — the cascade takes the windows, and the
+--     bump triggers on both tables stale every candidate set that counted them;
+--   * they leave the participant list of every plan revision still open, so
+--     the dispatcher stops treating them as a non-responder;
+--   * a `ready` plan they had answered goes back to `collecting`, because its
+--     candidate set may have needed them for quorum or as a required member,
+--     and `confirm` must not be able to lock in a time that depended on
+--     somebody who has left.
+--
+-- Historic attendance is S1-10's, and is deliberately not touched here.
+-- ---------------------------------------------------------------------------
+
+create or replace function public.on_member_removed()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  affected uuid;
+begin
+  if new.status <> 'removed' or old.status = 'removed' then
+    return new;
+  end if;
+
+  -- Their availability, on every plan of the circle. Windows cascade.
+  delete from public.plan_responses r
+  using public.plans p
+  where r.plan_id = p.id
+    and p.circle_id = new.circle_id and r.user_id = new.user_id;
+
+  -- Out of every open revision's participant list.
+  delete from public.plan_participants pp
+  using public.plans p
+  where pp.plan_id = p.id and pp.revision = p.revision and pp.user_id = new.user_id
+    and p.circle_id = new.circle_id
+    and p.state in ('seeking', 'collecting', 'ready');
+
+  -- And any ready plan is ready no longer.
+  for affected in
+    select p.id from public.plans p
+    where p.circle_id = new.circle_id and p.state = 'ready'
+  loop
+    perform planning.transition_plan(affected, 'candidates_gone', new.user_id);
+  end loop;
+
+  return new;
+end;
+$$;
+
+comment on function public.on_member_removed() is
+  'Spec §4.5: a removed member''s availability is deleted, they leave every open plan, and a ready plan goes back to collecting.';
+
+create trigger circle_members_on_removed
+  after update of status on public.circle_members
+  for each row execute function public.on_member_removed();
+
+revoke all on function public.on_member_removed() from public;
+revoke all on function public.on_member_removed() from anon, authenticated;
 
 -- ---------------------------------------------------------------------------
 -- Row-level security

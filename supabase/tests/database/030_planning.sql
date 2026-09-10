@@ -647,14 +647,15 @@ update public.circle_members set status = 'removed'
 where circle_id = (select circle_id from t)
   and user_id = '00000000-0000-0000-0000-0000000001a2';
 
-select throws_ok(
-  format(
-    $$select planning.transition_plan('%s', 'confirm', '%s', '{"candidate_id":"x"}'::jsonb)$$,
-    :'plan_gone', '00000000-0000-0000-0000-0000000001a2'
-  ),
-  'P0001',
-  'not_the_organiser',
-  'a removed organiser cannot confirm their own plan — removal revokes access immediately'
+-- Removing the organiser did more than revoke them: 0004's removal trigger
+-- sends a ready plan back to collecting, because its candidate set may have
+-- needed the person who left. So `confirm` here is `wrong_state` before it is
+-- anything else, and the organiser guard is exercised by `cancel` below, which
+-- exists in both states.
+select is(
+  (select state from public.plans where id = :'plan_gone'),
+  'collecting',
+  'removing the organiser sends their ready plan back to collecting'
 );
 select throws_ok(
   format($$select planning.transition_plan('%s', 'cancel', '%s')$$,
