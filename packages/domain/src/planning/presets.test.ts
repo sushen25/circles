@@ -277,6 +277,14 @@ describe('a chosen daily band', () => {
     expect(validateBand({ startMin: -30, endMin: 60 })).toBe('band_out_of_day');
   });
 
+  it('allows a band ending at midnight', () => {
+    // 24:00 is not a time of day, so `fromLocal` refuses it — but as the *end*
+    // of a band it is the obvious way to say "until midnight", and a band that
+    // could stop at 23:30 but not midnight would be a strange thing to explain.
+    expect(validateBand({ startMin: 21 * 60, endMin: 24 * 60 })).toBeUndefined();
+    expect(validateBand({ startMin: 21 * 60, endMin: 24 * 60 + 30 })).toBe('band_out_of_day');
+  });
+
   it('requires half hours, because everything else works in them', () => {
     // Not a limit on which hours: a band edge at 17:45 would put the first cell
     // at 18:00 and quietly lose the quarter hour.

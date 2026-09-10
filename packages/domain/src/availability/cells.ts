@@ -16,7 +16,7 @@
 import type { Plan } from '../planning/types.js';
 import { type Interval, intersect, interval, merge } from '../shared/interval.js';
 import type { LocalDate } from '../shared/local-date.js';
-import { fromLocal, localSlotStarts } from '../shared/zone.js';
+import { fromLocal, fromLocalEnd, localSlotStarts } from '../shared/zone.js';
 
 /**
  * Every half-hour slot the day's band actually contains, in order.
@@ -34,7 +34,7 @@ import { fromLocal, localSlotStarts } from '../shared/zone.js';
  */
 export function cellsFor(date: LocalDate, plan: Plan): Interval[] {
   const bandStart = fromLocal(date, plan.daily.startMin, plan.zone);
-  const bandEnd = fromLocal(date, plan.daily.endMin, plan.zone);
+  const bandEnd = fromLocalEnd(date, plan.daily.endMin, plan.zone);
 
   // The same walk the engine uses to enumerate starts, so the grid and the
   // candidate list can never disagree about which half hours exist.

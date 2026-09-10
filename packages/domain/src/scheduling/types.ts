@@ -59,10 +59,12 @@ export type EngineInput = {
 export type ExplanationCode =
   | 'best_attendance'
   | 'same_attendance_weekend'
+  | 'same_attendance_sooner'
   | 'same_attendance_later'
   | 'one_fewer_weekend'
   | 'one_fewer_sooner'
   | 'one_fewer_later'
+  | 'also_n_sooner'
   | 'also_n_later'
   /** The first near-miss, when nothing was eligible. */
   | 'closest';

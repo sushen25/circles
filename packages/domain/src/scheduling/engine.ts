@@ -11,7 +11,7 @@ import type { UserId } from '../circles/types.js';
 import { contains, interval } from '../shared/interval.js';
 import { type Instant, addMinutes } from '../shared/instant.js';
 import { isWeekend } from '../shared/local-date.js';
-import { fromLocal, localSlotStarts, toLocal } from '../shared/zone.js';
+import { fromLocal, fromLocalEnd, localSlotStarts, toLocal } from '../shared/zone.js';
 import { addDays } from '../shared/local-date.js';
 import { inputHash } from './hash.js';
 import {
@@ -57,7 +57,7 @@ export function enumerateCandidateStarts(plan: EnginePlan, now: Instant): Instan
 
   while (date <= plan.window.end) {
     const bandStart = fromLocal(date, plan.daily.startMin, plan.zone);
-    const bandEnd = fromLocal(date, plan.daily.endMin, plan.zone);
+    const bandEnd = fromLocalEnd(date, plan.daily.endMin, plan.zone);
 
     for (const start of localSlotStarts(bandStart, bandEnd, plan.zone)) {
       // The meetup has to finish inside the band, and it has to be in future.
@@ -201,13 +201,24 @@ function explain(
     const weekend = isWeekend(toLocal(candidate.start, plan.zone).date);
     const later = candidate.start > best.start;
 
-    let code: ExplanationCode;
-    if (fewer === 0) code = weekend ? 'same_attendance_weekend' : 'same_attendance_later';
-    else if (fewer === 1) {
-      code = weekend ? 'one_fewer_weekend' : later ? 'one_fewer_later' : 'one_fewer_sooner';
-    } else code = 'also_n_later';
+    // Every code that mentions time has to agree with the clock. Ranking is
+    // attendance first, so a lower-attendance option can easily fall *earlier*
+    // than the best one — a Friday of five above a Thursday of three — and
+    // calling that Thursday "a day later" is simply wrong.
+    const alsoN: ExplanationCode = later ? 'also_n_later' : 'also_n_sooner';
 
-    if (used.has(code)) code = 'also_n_later';
+    let code: ExplanationCode;
+    if (fewer === 0) {
+      code = weekend
+        ? 'same_attendance_weekend'
+        : later
+          ? 'same_attendance_later'
+          : 'same_attendance_sooner';
+    } else if (fewer === 1) {
+      code = weekend ? 'one_fewer_weekend' : later ? 'one_fewer_later' : 'one_fewer_sooner';
+    } else code = alsoN;
+
+    if (used.has(code)) code = alsoN;
     used.add(code);
     return { code, count };
   });

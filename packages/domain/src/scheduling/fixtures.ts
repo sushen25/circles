@@ -13,7 +13,7 @@ import { type Interval, interval } from '../shared/interval.js';
 import { fromISO } from '../shared/instant.js';
 import { localDate } from '../shared/local-date.js';
 import { MELBOURNE } from '../shared/fixtures.js';
-import { fromLocal } from '../shared/zone.js';
+import { fromLocal, fromLocalEnd } from '../shared/zone.js';
 import type { EngineInput, EnginePlan, MemberResponse } from './types.js';
 
 export const SAM: UserId = userId('sam');
@@ -28,11 +28,17 @@ export const SUNDAY_CREW: readonly UserId[] = [SAM, PRIYA, TOM, JESS, NIC, ALEX]
 
 const hm = (hours: number, minutes = 0) => hours * 60 + minutes;
 
-/** A willing window on a local date, in local hours. */
+/**
+ * A willing window on a local date, in local minutes.
+ *
+ * The end goes through `fromLocalEnd` so that `on(day, 22 * 60, 24 * 60)` means
+ * "until midnight" rather than throwing — the same reason a daily band may end
+ * there.
+ */
 export function on(date: string, fromMin: number, toMin: number): Interval {
   return interval(
     fromLocal(localDate(date), fromMin, MELBOURNE),
-    fromLocal(localDate(date), toMin, MELBOURNE),
+    fromLocalEnd(localDate(date), toMin, MELBOURNE),
   );
 }
 

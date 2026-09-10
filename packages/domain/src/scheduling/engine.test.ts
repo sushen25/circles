@@ -183,6 +183,84 @@ describe('eligibility', () => {
   });
 });
 
+describe('explanations agree with the clock', () => {
+  const THU = '2026-09-17';
+  const FRI = '2026-09-18';
+  const both = () => [on(THU, 18 * 60, 20 * 60), on(FRI, 18 * 60, 20 * 60)];
+  const fridayOnly = () => [on(FRI, 18 * 60, 20 * 60)];
+
+  it('says "sooner", not "later", for an option that falls earlier than the best', () => {
+    // Ranking is attendance first, so a smaller set can easily land earlier:
+    // five on the Friday outranks three on the Thursday. Calling the Thursday
+    // "a day later" would simply be false.
+    const set = generateCandidates(
+      sundayCrewInput({
+        plan: { ...NEXT_FORTNIGHT, quorum: 3 },
+        responses: [
+          [SAM, { status: 'windows', windows: both() }],
+          [PRIYA, { status: 'windows', windows: both() }],
+          [TOM, { status: 'windows', windows: both() }],
+          [JESS, { status: 'windows', windows: fridayOnly() }],
+          [NIC, { status: 'windows', windows: fridayOnly() }],
+        ],
+      }),
+    );
+
+    expect(set.eligible.map((c) => [toLocal(c.start, MELBOURNE).date, c.explanation.code])).toEqual(
+      [
+        ['2026-09-18', 'best_attendance'],
+        ['2026-09-17', 'also_n_sooner'],
+      ],
+    );
+  });
+
+  it('never describes an earlier option as later, whatever the ranking', () => {
+    const set = generateCandidates(sundayCrewInput());
+    const [best] = set.eligible;
+    for (const candidate of set.eligible.slice(1)) {
+      const isLater = candidate.start > (best as { start: Instant }).start;
+      if (candidate.explanation.code.endsWith('_later')) expect(isLater).toBe(true);
+      if (candidate.explanation.code.endsWith('_sooner')) expect(isLater).toBe(false);
+    }
+  });
+});
+
+describe('a band running to midnight', () => {
+  // `fromLocal` refuses 1440 because no clock reads 24:00, so a band ending at
+  // midnight validated and then threw inside cells, shortcuts and the engine.
+  // Refusing it would have meant a band could end at 23:30 but not at midnight.
+  const DAY = localDate('2026-09-17');
+  const lateEvening = {
+    ...NEXT_FORTNIGHT,
+    window: { start: DAY, end: DAY },
+    daily: { startMin: 21 * 60, endMin: 24 * 60 },
+    durationMinutes: 60,
+  };
+
+  it('enumerates starts up to the last that finishes by midnight', () => {
+    expect(enumerateCandidateStarts(lateEvening, fromISO('2026-09-01T00:00:00Z')).map(at)).toEqual([
+      '2026-09-17 21:00',
+      '2026-09-17 21:30',
+      '2026-09-17 22:00',
+      '2026-09-17 22:30',
+      '2026-09-17 23:00',
+    ]);
+  });
+
+  it('finds a time in it', () => {
+    const set = generateCandidates(
+      sundayCrewInput({
+        plan: { ...lateEvening, quorum: 1 },
+        responses: [[SAM, { status: 'windows', windows: [on('2026-09-17', 22 * 60, 24 * 60)] }]],
+        activeMemberIds: [SAM],
+      }),
+    );
+    // Two, an hour apart: 22:30 is dropped because it would overlap 22:00, and
+    // 23:00 is the last start that still finishes by midnight.
+    expect(set.eligible.map((c) => at(c.start))).toEqual(['2026-09-17 22:00', '2026-09-17 23:00']);
+  });
+});
+
 describe('enumeration', () => {
   it('skips starts whose meetup would run past the daily band', () => {
     const plan = {
