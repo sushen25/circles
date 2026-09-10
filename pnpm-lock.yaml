@@ -39,7 +39,7 @@ importers:
         specifier: ^3.4.2
         version: 3.9.6
       supabase:
-        specifier: ^2.116.0
+        specifier: 2.116.0
         version: 2.116.0
       typescript:
         specifier: ^5.7.2
@@ -50,6 +50,9 @@ importers:
       vitest:
         specifier: ^3.2.0
         version: 3.2.7(@types/node@22.20.1)(jsdom@30.0.1(@noble/hashes@1.8.0))(lightningcss@1.33.0)(terser@5.51.2)(yaml@2.9.0)
+      yaml:
+        specifier: 2.9.0
+        version: 2.9.0
 
   apps/app:
     dependencies:

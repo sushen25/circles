@@ -27,12 +27,19 @@ export function durationMinutes(i: Interval): number {
 }
 
 /**
- * Both ends fall on a half-hour boundary.
+ * Both ends fall on a half-hour boundary **measured from the epoch**.
  *
- * Measured from the epoch, which is the same boundary local clocks use in every
- * zone the product supports. (Zones offset by 45 minutes — Kathmandu, Chatham —
- * would need this rethought; none is in scope, and the check would fail loudly
- * rather than quietly accept a misaligned window.)
+ * That is not the same as a half hour on a local clock. It coincides in every
+ * zone offset from UTC by a whole or half hour, and does not in `Asia/Kathmandu`
+ * (+05:45) or `Pacific/Chatham` (+12:45).
+ *
+ * This function once claimed those zones were out of scope and that the check
+ * would "fail loudly" for them. It failed silently: a circle's zone comes from
+ * the creator's device, so nothing stops one arriving, and availability rounded
+ * to epoch boundaries there lost half of every window without complaint.
+ *
+ * **For availability, use `isAlignedToLocalSlot` from `shared/zone`.** This one
+ * is for spans that are genuinely absolute and zone-free.
  */
 export function isAligned30(i: Interval): boolean {
   return i.start % SLOT_MILLIS === 0 && i.end % SLOT_MILLIS === 0;

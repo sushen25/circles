@@ -12,6 +12,7 @@ Short records of decisions that shape the product or the code. A new ADR is requ
 | [0006](./0006-continue-as-reattachment-without-owner-approval.md) | Continue-as reattachment without owner approval | accepted |
 | [0007](./0007-pnpm-monorepo-with-shared-domain-package.md) | pnpm monorepo with a shared pure domain package | accepted |
 | [0008](./0008-react-email-templates-in-edge-functions.md) | React Email templates rendered in Edge Functions | accepted |
+| [0009](./0009-half-hour-availability-cells-with-a-scrolling-row.md) | Availability cells are half an hour each, and the day row scrolls | accepted |
 
 ## Template
 

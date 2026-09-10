@@ -202,6 +202,42 @@ The two mechanisms differ on purpose:
 tell — an empty diff, a merge commit, an unrecognised path. Being wrong that way
 costs a slow run; being wrong the other way costs a broken `main`.
 
+## One Supabase CLI, and it is the workspace's
+
+CI does not use `supabase/setup-cli`. Every workflow runs `pnpm exec supabase`,
+so the CLI is the pinned devDependency and `pnpm install --frozen-lockfile`
+already put it there.
+
+There used to be two. The action installed `latest` for `supabase start`, while
+`pnpm check`'s own `db:test` and `check:types` resolved the devDependency
+through `node_modules/.bin` — so a single job could run two versions, and the
+gate could test against a CLI nobody has locally. That is the failure mode
+`pnpm check` exists to prevent.
+
+It also removed a dependency on the GitHub API: resolving `latest` rate-limited
+and failed a run on 9 September 2026, on a change that had nothing to do with
+Supabase.
+
+The version lives in one place, `package.json`, pinned exactly rather than to a
+range so a fresh resolve cannot move it. Upgrading is `pnpm add -D supabase@<v>`
+and nothing else.
+
+## A job installs before it uses pnpm, and `check:workflows` proves it
+
+`deploy-prod` ran `pnpm run build` and `pnpm exec supabase` **before**
+`pnpm install`. It would have failed on its first production deploy — the one
+run where a late failure costs most — and nothing would have caught it, because
+that workflow has never executed.
+
+`scripts/check-workflows.mjs` reads every job in `.github/workflows` and
+`.eas/workflows` and fails when a step uses `pnpm exec`, `pnpm run` or
+`pnpm --filter` before the job's `pnpm install`, or with no install at all. It
+is in `pnpm check`.
+
+This is the cheapest available answer to a problem that has now bitten twice: CI
+cannot exercise the deploy paths on a pull request, so the next best thing is a
+check that reads them.
+
 ## Never interpolate the event payload into a `run:` block
 
 `${{ ... }}` is substituted into the script **before the shell sees it**, so any

@@ -1,9 +1,17 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 
-import { type Instant, MINUTE_MILLIS, instant, toISO } from './instant';
+import { type Instant, MINUTE_MILLIS, fromISO, instant, toISO } from './instant';
 import { localDate } from './local-date';
-import { fromLocal, offsetMinutes, toLocal, zone } from './zone';
+import {
+  ceilToLocalSlot,
+  floorToLocalSlot,
+  fromLocal,
+  isAlignedToLocalSlot,
+  offsetMinutes,
+  toLocal,
+  zone,
+} from './zone';
 
 const MELBOURNE = zone('Australia/Melbourne');
 const ADELAIDE = zone('Australia/Adelaide');
@@ -147,5 +155,102 @@ describe('fromLocal', () => {
   it('refuses minutes outside a day', () => {
     expect(() => fromLocal(localDate('2026-09-17'), -1, MELBOURNE)).toThrow(/out of range/);
     expect(() => fromLocal(localDate('2026-09-17'), 1440, MELBOURNE)).toThrow(/out of range/);
+  });
+});
+
+describe('local half-hour boundaries', () => {
+  // Most zones are offset by a whole or half hour, so local and epoch
+  // boundaries coincide. Kathmandu is +05:45, and there they do not.
+  const KATHMANDU = zone('Asia/Kathmandu');
+  const MELB = zone('Australia/Melbourne');
+  const DAY = localDate('2026-09-17');
+
+  it('is aligned when the local clock says so, whatever UTC says', () => {
+    const nineAm = fromLocal(DAY, 9 * 60, KATHMANDU);
+    expect(isAlignedToLocalSlot(nineAm, KATHMANDU)).toBe(true);
+    // …and the same instant is not on an epoch boundary.
+    expect(nineAm % (30 * 60_000)).not.toBe(0);
+  });
+
+  it('rounds down and up to the local half hour', () => {
+    const ragged = fromLocal(DAY, 9 * 60 + 7, KATHMANDU);
+    expect(toLocal(floorToLocalSlot(ragged, KATHMANDU), KATHMANDU).minutesOfDay).toBe(9 * 60);
+    expect(toLocal(ceilToLocalSlot(ragged, KATHMANDU), KATHMANDU).minutesOfDay).toBe(9 * 60 + 30);
+  });
+
+  it('leaves a boundary alone rather than moving it a slot', () => {
+    const onTheHalf = fromLocal(DAY, 9 * 60 + 30, KATHMANDU);
+    expect(floorToLocalSlot(onTheHalf, KATHMANDU)).toBe(onTheHalf);
+    expect(ceilToLocalSlot(onTheHalf, KATHMANDU)).toBe(onTheHalf);
+  });
+
+  it('rolls to the next day when rounding up from the last half hour', () => {
+    const lateNight = fromLocal(DAY, 23 * 60 + 40, KATHMANDU);
+    const rounded = ceilToLocalSlot(lateNight, KATHMANDU);
+    const local = toLocal(rounded, KATHMANDU);
+    expect(local.date).toBe('2026-09-18');
+    expect(local.minutesOfDay).toBe(0);
+  });
+
+  it('does not call a moment aligned when it carries seconds', () => {
+    // toLocal reports minutes and drops the rest, so checking only its output
+    // called 18:30:45 aligned. Callers use this to enforce the invariant that
+    // willing windows sit on half hours, so a malformed endpoint would pass.
+    const onBoundary = fromLocal(DAY, 18 * 60 + 30, MELB);
+    expect(isAlignedToLocalSlot(onBoundary, MELB)).toBe(true);
+    expect(isAlignedToLocalSlot(instant(onBoundary + 45_000), MELB)).toBe(false);
+    expect(isAlignedToLocalSlot(instant(onBoundary + 1), MELB)).toBe(false);
+    expect(isAlignedToLocalSlot(instant(onBoundary + MINUTE_MILLIS), MELB)).toBe(false);
+  });
+
+  it('is not thrown off by seconds in the instant', () => {
+    // `toLocal` reports whole minutes, so an instant carrying half a second
+    // used to read as +599 rather than +600, and every rounding built on it
+    // landed a minute out. Latent until something passed an arbitrary instant.
+    const withSeconds = fromISO('2026-09-20T07:38:30.001Z');
+    expect(offsetMinutes(withSeconds, MELB)).toBe(600);
+    expect(toISO(floorToLocalSlot(withSeconds, MELB))).toBe('2026-09-20T07:30:00.000Z');
+    expect(isAlignedToLocalSlot(floorToLocalSlot(withSeconds, MELB), MELB)).toBe(true);
+  });
+
+  it('keeps the occurrence when a wall time happens twice', () => {
+    // Melbourne falls back on 2026-04-05: 03:00 becomes 02:00, so 02:15 happens
+    // twice — once at +11 and once at +10. Going through toLocal and back lost
+    // which one it was and always rebuilt the first, so the second 02:15
+    // rounded *up* to forty-five minutes before itself.
+    const first = fromISO('2026-04-04T15:15:00Z');
+    const second = fromISO('2026-04-04T16:15:00Z');
+
+    expect(toISO(ceilToLocalSlot(first, MELB))).toBe('2026-04-04T15:30:00.000Z');
+    expect(toISO(floorToLocalSlot(first, MELB))).toBe('2026-04-04T15:00:00.000Z');
+
+    expect(toISO(ceilToLocalSlot(second, MELB))).toBe('2026-04-04T16:30:00.000Z');
+    expect(toISO(floorToLocalSlot(second, MELB))).toBe('2026-04-04T16:00:00.000Z');
+  });
+
+  it('never rounds a boundary past its input, in any zone or season', () => {
+    // The guarantee the names make. A start that rounds backwards invents
+    // availability; an end that rounds forwards does the same.
+    const zones = [MELB, KATHMANDU, zone('Pacific/Chatham'), zone('UTC')];
+    fc.assert(
+      fc.property(
+        fc.integer({ min: Date.parse('2026-01-01'), max: Date.parse('2027-01-01') }),
+        fc.constantFrom(...zones),
+        (millis, z) => {
+          const value = instant(millis);
+          expect(floorToLocalSlot(value, z)).toBeLessThanOrEqual(value);
+          expect(ceilToLocalSlot(value, z)).toBeGreaterThanOrEqual(value);
+          // And never further than a slot away.
+          expect(value - floorToLocalSlot(value, z)).toBeLessThan(30 * MINUTE_MILLIS);
+          expect(ceilToLocalSlot(value, z) - value).toBeLessThan(30 * MINUTE_MILLIS);
+        },
+      ),
+    );
+  });
+
+  it('agrees with epoch rounding in an ordinary zone', () => {
+    const ragged = fromLocal(DAY, 18 * 60 + 7, MELB);
+    expect(floorToLocalSlot(ragged, MELB) % (30 * 60_000)).toBe(0);
+    expect(ceilToLocalSlot(ragged, MELB) % (30 * 60_000)).toBe(0);
   });
 });
