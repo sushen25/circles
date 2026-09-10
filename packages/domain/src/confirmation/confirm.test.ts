@@ -117,6 +117,15 @@ describe('confirm', () => {
     expect(refusal({ candidates })).toBe('wrong_plan');
   });
 
+  it('refuses a set computed before somebody changed their answer', () => {
+    // Recalculation is asynchronous: between a withdrawn reply and the new set
+    // landing, the old one still names the right plan and revision. Freezing it
+    // would put someone on a card saying they are coming when they are not.
+    const plan = sundayCrewPlan({ inputVersion: 4 });
+    const candidates = { ...sundayCrewCandidates(plan), inputVersion: 3 };
+    expect(refusal({ plan, candidates })).toBe('stale_input_version');
+  });
+
   it('refuses a set from an older engine, because the ranking it shows is not ours', () => {
     const candidates = sundayCrewCandidates();
     const set = { ...candidates.set, scoringVersion: SCORING_VERSION - 1 };

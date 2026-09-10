@@ -85,36 +85,63 @@ describe('deriveAttendance', () => {
 });
 
 describe('updateAttendance', () => {
+  const MEETUP_END = confirmation().candidate.end;
+  /** The day before: the confirmed screen, where only Going and Can't exist. */
+  const before = { meetupEnd: MEETUP_END, now: fromISO('2026-09-16T09:00:00Z') };
+  /** The morning after: the WasThere screen. */
+  const after = { meetupEnd: MEETUP_END, now: fromISO('2026-09-17T22:00:00Z') };
+
   it('lets someone change their mind before the meetup, in both directions', () => {
-    expect(updateAttendance('going', 'cant')).toEqual({ ok: true, value: 'cant' });
-    expect(updateAttendance('cant', 'going')).toEqual({ ok: true, value: 'going' });
+    expect(updateAttendance('going', 'cant', before)).toEqual({ ok: true, value: 'cant' });
+    expect(updateAttendance('cant', 'going', before)).toEqual({ ok: true, value: 'going' });
   });
 
-  it('lets someone who never answered say anything', () => {
-    for (const choice of CHOICES) expect(canUpdateAttendance('unknown', choice)).toBe(true);
+  it('lets someone who never answered say anything, once there is anything to say', () => {
+    for (const choice of CHOICES) expect(canUpdateAttendance('unknown', choice, after)).toBe(true);
+  });
+
+  it('refuses a claim about an evening that has not happened yet', () => {
+    // "I was there" before Thursday is not an early answer, it is a false one —
+    // and `corroboration` would go on to count it as evidence.
+    for (const status of STATUSES) {
+      expect(canUpdateAttendance(status, 'was_there', before)).toBe(false);
+      expect(canUpdateAttendance(status, 'missed', before)).toBe(false);
+    }
+    expect(updateAttendance('going', 'was_there', before)).toEqual({
+      ok: false,
+      error: { code: 'attendance_too_early', from: 'going', to: 'was_there' },
+    });
+  });
+
+  it('allows it from the instant the meetup ends', () => {
+    const onTheDot = { meetupEnd: MEETUP_END, now: MEETUP_END };
+    expect(canUpdateAttendance('going', 'was_there', onTheDot)).toBe(true);
   });
 
   it('never turns an answer about the past back into a promise about the future', () => {
     // The WasThere screen is a different question from the confirmed screen.
     for (const past of ['was_there', 'missed'] as const) {
-      expect(canUpdateAttendance(past, 'going')).toBe(false);
-      expect(canUpdateAttendance(past, 'cant')).toBe(false);
+      expect(canUpdateAttendance(past, 'going', after)).toBe(false);
+      expect(canUpdateAttendance(past, 'cant', after)).toBe(false);
     }
-    expect(updateAttendance('was_there', 'going')).toEqual({
+    expect(updateAttendance('was_there', 'going', after)).toEqual({
       ok: false,
       error: { code: 'attendance_not_reversible', from: 'was_there', to: 'going' },
     });
   });
 
   it('lets someone correct a mis-tap on the WasThere screen', () => {
-    expect(updateAttendance('was_there', 'missed')).toEqual({ ok: true, value: 'missed' });
-    expect(updateAttendance('missed', 'was_there')).toEqual({ ok: true, value: 'was_there' });
+    expect(updateAttendance('was_there', 'missed', after)).toEqual({ ok: true, value: 'missed' });
+    expect(updateAttendance('missed', 'was_there', after)).toEqual({
+      ok: true,
+      value: 'was_there',
+    });
   });
 
   it('treats choosing what you already are as a success, not an error', () => {
     for (const status of STATUSES) {
       if (status === 'unknown') continue;
-      expect(updateAttendance(status, status)).toEqual({ ok: true, value: status });
+      expect(updateAttendance(status, status, after)).toEqual({ ok: true, value: status });
     }
   });
 
@@ -122,14 +149,15 @@ describe('updateAttendance', () => {
     // `unknown` means "has not said", which is not something you can say.
     for (const status of STATUSES) {
       // @ts-expect-error `unknown` is not an `AttendanceChoice`, which is the point.
-      expect(canUpdateAttendance(status, 'unknown')).toBe(status === 'unknown');
+      expect(canUpdateAttendance(status, 'unknown', after)).toBe(status === 'unknown');
     }
   });
 });
 
 describe('applyAttendance', () => {
+  const confirmed = confirmation();
   const attendance = {
-    confirmationId: confirmation().id,
+    confirmationId: confirmed.id,
     userId: SAM,
     status: 'going' as const,
     updatedAt: fromISO('2026-09-14T09:00:00Z'),
@@ -137,21 +165,32 @@ describe('applyAttendance', () => {
 
   it('stamps the change with the time it was made', () => {
     const now = fromISO('2026-09-16T02:00:00Z');
-    const result = applyAttendance(attendance, 'cant', now);
+    const result = applyAttendance(attendance, 'cant', confirmed, now);
     expect(result.ok && result.value).toEqual({ ...attendance, status: 'cant', updatedAt: now });
   });
 
   it('is idempotent: the same choice twice is not a fresh answer', () => {
     // The confirmed screen orders by `updatedAt`. Restamping a repeat tap would
     // have it announce a change of mind nobody made.
-    const again = applyAttendance(attendance, 'going', fromISO('2026-09-16T02:00:00Z'));
+    const again = applyAttendance(attendance, 'going', confirmed, fromISO('2026-09-16T02:00:00Z'));
     expect(again.ok && again.value).toBe(attendance);
+  });
+
+  it('takes the meetup end from the confirmation rather than from the caller', () => {
+    const early = applyAttendance(
+      attendance,
+      'was_there',
+      confirmed,
+      fromISO('2026-09-16T02:00:00Z'),
+    );
+    expect(!early.ok && early.error.code).toBe('attendance_too_early');
   });
 
   it('passes a refusal through untouched, leaving the row alone', () => {
     const result = applyAttendance(
       { ...attendance, status: 'was_there' },
       'going',
+      confirmed,
       fromISO('2026-09-18T00:00:00Z'),
     );
     expect(result.ok).toBe(false);

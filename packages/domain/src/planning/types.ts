@@ -97,6 +97,16 @@ export type Plan = {
    * reinterpreting them.
    */
   readonly revision: number;
+  /**
+   * Bumped every time an answer changes within the current revision
+   * (architecture §9.1: `submit-availability` bumps it, `recalculate-candidates`
+   * persists only if it is still current).
+   *
+   * A revision says the *question* changed; this says an *answer* did. Both
+   * make a candidate set stale, and they are separate because only one of them
+   * costs anybody a second reply.
+   */
+  readonly inputVersion: number;
   /** Which version of the candidate engine produced the current candidates. */
   readonly scoringVersion: number;
   /** The `/p/<code>` path segment. Carries no secret (architecture §5.2). */

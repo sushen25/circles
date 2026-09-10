@@ -56,6 +56,7 @@ export type ConfirmErrorCode =
   | TransitionError['code']
   | 'wrong_plan'
   | 'stale_candidates'
+  | 'stale_input_version'
   | 'stale_scoring_version'
   | 'candidate_not_eligible'
   | 'candidate_has_passed'
@@ -129,10 +130,15 @@ export function confirm(request: ConfirmRequest): Result<ConfirmError, Confirmed
   });
   if (!transition.ok) return fail(transition.error.code);
 
-  // The set has to be this plan's, this revision's, and this engine's. A
-  // candidate computed before an edit is a time somebody was never asked about.
+  // The set has to be this plan's, this revision's, this input's and this
+  // engine's. A candidate computed before an edit is a time somebody was never
+  // asked about; one computed before a withdrawn reply names people who are no
+  // longer free, and freezing it would put them on a card saying they are
+  // coming. Recalculation is asynchronous (§9.1), so this window is real rather
+  // than theoretical.
   if (candidates.planId !== plan.id) return fail('wrong_plan');
   if (candidates.revision !== plan.revision) return fail('stale_candidates');
+  if (candidates.inputVersion !== plan.inputVersion) return fail('stale_input_version');
   if (candidates.set.scoringVersion !== SCORING_VERSION) return fail('stale_scoring_version');
 
   const candidate = candidates.set.eligible.find((c) => candidateIdOf(c) === candidateId);
