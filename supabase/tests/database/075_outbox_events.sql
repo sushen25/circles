@@ -6,7 +6,7 @@
 -- count only (§6.3, §14).
 
 begin;
-select plan(25);
+select plan(27);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid language sql as $$
@@ -268,19 +268,19 @@ returning id as conf \gset
 
 select pg_temp.mark() as m9 \gset
 insert into public.attendance (confirmation_id, user_id, status) values
-  (:'conf', '00000000-0000-0000-0000-0000000005a1', 'going'),
-  (:'conf', '00000000-0000-0000-0000-0000000005a3', 'unknown');
+  (:'conf', '00000000-0000-0000-0000-0000000005a1', 'going');
 select is((select count(*)::integer from pg_temp.events_since(:'m9')), 0,
   'the derived rows written at confirmation are not "updates" anybody made');
 
+-- Tom has no derived row: his first answer is an insert, and it is his.
 select pg_temp.act_as('00000000-0000-0000-0000-0000000005a3');
-update public.attendance set status = 'going'
-where confirmation_id = :'conf' and user_id = '00000000-0000-0000-0000-0000000005a3';
+insert into public.attendance (confirmation_id, user_id, status)
+values (:'conf', '00000000-0000-0000-0000-0000000005a3', 'going');
 select pg_temp.act_as_postgres();
 select is(
   (select payload ->> 'status' from pg_temp.events_since(:'m9') where event_name = 'confirmation.attendance_updated'),
   'going',
-  'Tom saying he is coming is an attendance_updated'
+  'Tom saying he is coming, as his first word on it, is an attendance_updated'
 );
 select pg_temp.mark() as m10 \gset
 select pg_temp.act_as('00000000-0000-0000-0000-0000000005a3');
@@ -289,6 +289,28 @@ where confirmation_id = :'conf' and user_id = '00000000-0000-0000-0000-000000000
 select pg_temp.act_as_postgres();
 select is((select count(*)::integer from pg_temp.events_since(:'m10')), 0,
   'saying it again is not');
+
+-- Nudges: the client writes the row, the row announces itself.
+select pg_temp.mark() as m12 \gset
+select pg_temp.act_as('00000000-0000-0000-0000-0000000005a3');
+insert into public.nudge_states (user_id, moment, plan_id)
+values ('00000000-0000-0000-0000-0000000005a3', 'confirmed', :'confirmed');
+select pg_temp.act_as_postgres();
+select is(
+  (select array_agg(event_name) from pg_temp.events_since(:'m12')),
+  array['growth.nudge_shown'],
+  'a prompt shown is a nudge_shown'
+);
+select pg_temp.mark() as m13 \gset
+select pg_temp.act_as('00000000-0000-0000-0000-0000000005a3');
+update public.nudge_states set answer = 'dismissed'
+where user_id = '00000000-0000-0000-0000-0000000005a3' and moment = 'confirmed';
+select pg_temp.act_as_postgres();
+select is(
+  (select payload ->> 'answer' from pg_temp.events_since(:'m13') where event_name = 'growth.nudge_answered'),
+  'dismissed',
+  'and what was done with it is a nudge_answered'
+);
 
 -- Leaving `confirmed`.
 select pg_temp.mark() as m11 \gset

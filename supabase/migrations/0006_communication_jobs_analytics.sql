@@ -274,6 +274,9 @@ comment on table private.email_contacts is
   'The only table holding an email address. Hashed for dedupe; suppressed on bounce or complaint immediately and never automatically reactivated (§13, spec §9).';
 
 create index email_contacts_user_idx on private.email_contacts (user_id);
+-- The target of the composite references below: a subscription or a token
+-- names the contact *and* its owner, and the pair has to exist together.
+create unique index email_contacts_id_owner_idx on private.email_contacts (id, user_id);
 
 -- ---------------------------------------------------------------------------
 -- private.email_subscriptions
@@ -303,7 +306,12 @@ create table private.email_subscriptions (
   ),
   constraint email_subscriptions_withdrawn_shape check (
     case status when 'withdrawn' then withdrawn_at is not null else withdrawn_at is null end
-  )
+  ),
+  -- Consent is the contact owner's and nobody else's: a subscription that
+  -- paired user B with user A's address would send B's plan updates to A,
+  -- who consented to nothing of the kind. The pair must exist on the contact.
+  foreign key (contact_id, user_id)
+    references private.email_contacts (id, user_id) on delete cascade
 );
 
 comment on table private.email_subscriptions is
@@ -345,11 +353,40 @@ create table private.email_action_tokens (
     end
   ),
   foreign key (membership_circle_id, membership_user_id)
-    references public.circle_members (circle_id, user_id) on delete cascade
+    references public.circle_members (circle_id, user_id) on delete cascade,
+  -- The membership a re-entry token returns somebody to is the contact
+  -- owner's own: "a reattachment moves a membership only within a circle the
+  -- guest already belongs to, never onto a saved-place member" (AGENTS.md).
+  -- The pair (contact, membership user) must be a (contact, owner) pair.
+  foreign key (contact_id, membership_user_id)
+    references private.email_contacts (id, user_id) on delete cascade
 );
 
 comment on table private.email_action_tokens is
   'Hashes of verification, preference and re-entry tokens. The token is in the link and nowhere else; single use by `used_at`; never logged.';
+
+-- And the owner is a guest. A saved-place member signs in; a re-entry link
+-- for them would be a sign-in bypass, so it is refused at issue rather than
+-- trusted at consumption.
+create or replace function private.enforce_reentry_for_guests()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if new.purpose = 'reentry' and exists (
+    select 1 from public.profiles p
+    where p.user_id = new.membership_user_id and p.is_permanent
+  ) then
+    raise exception 'reentry_token_for_permanent_identity' using errcode = 'check_violation';
+  end if;
+  return new;
+end;
+$$;
+
+create trigger email_action_tokens_guests_only
+  before insert on private.email_action_tokens
+  for each row execute function private.enforce_reentry_for_guests();
 
 create index email_action_tokens_contact_idx on private.email_action_tokens (contact_id);
 create index email_action_tokens_expiry_idx on private.email_action_tokens (expires_at) where used_at is null;
@@ -485,6 +522,39 @@ create trigger nudge_states_touch_updated_at
   before update on public.nudge_states
   for each row execute function public.touch_updated_at();
 
+-- A client writes this table directly (§8.4) and cannot emit, so the row
+-- announces itself: shown on insert, answered when the answer changes.
+create or replace function jobs.on_nudge_changed()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if tg_op = 'INSERT' then
+    perform jobs.emit('growth.nudge_shown', 'nudge', new.id, jsonb_build_object(
+      'nudge_id', new.id, 'user_id', new.user_id, 'moment', new.moment, 'plan_id', new.plan_id
+    ));
+    if new.answer is not null then
+      perform jobs.emit('growth.nudge_answered', 'nudge', new.id, jsonb_build_object(
+        'nudge_id', new.id, 'user_id', new.user_id, 'moment', new.moment, 'plan_id', new.plan_id,
+        'answer', new.answer
+      ));
+    end if;
+  elsif new.answer is distinct from old.answer and new.answer is not null then
+    perform jobs.emit('growth.nudge_answered', 'nudge', new.id, jsonb_build_object(
+      'nudge_id', new.id, 'user_id', new.user_id, 'moment', new.moment, 'plan_id', new.plan_id,
+      'answer', new.answer
+    ));
+  end if;
+  return new;
+end;
+$$;
+
+create trigger nudge_states_emit_changed
+  after insert or update of answer on public.nudge_states
+  for each row execute function jobs.on_nudge_changed();
+
 -- ---------------------------------------------------------------------------
 -- updated_at, on the private tables that have one
 -- ---------------------------------------------------------------------------
@@ -603,11 +673,13 @@ create trigger plan_responses_emit_changed
   after insert or update or delete on public.plan_responses
   for each row execute function jobs.on_response_changed();
 
--- An update that changed the status. The `before` trigger in 0005 turns a
--- repeat of the same status into a no-op by returning the old row; the
--- `after` trigger still fires, so the comparison is made again here. The
--- derived rows written at confirmation are inserts, and are not "updates"
--- anybody made.
+-- A status somebody chose. On update, one that changed: the `before` trigger
+-- in 0005 turns a repeat into a no-op by returning the old row, but the
+-- `after` trigger still fires, so the comparison is made again here. On
+-- insert, one the member wrote themselves — a participant with no derived
+-- row yet answering for the first time — which is `auth.uid()` being the row's
+-- user; the derived rows `confirm-meetup` writes as the service role have no
+-- uid and are not "updates" anybody made.
 create or replace function jobs.on_attendance_updated()
 returns trigger
 language plpgsql
@@ -617,7 +689,10 @@ as $$
 declare
   plan_id uuid;
 begin
-  if new.status is not distinct from old.status then
+  if tg_op = 'UPDATE' and new.status is not distinct from old.status then
+    return new;
+  end if;
+  if tg_op = 'INSERT' and new.user_id is distinct from auth.uid() then
     return new;
   end if;
   select c.plan_id into plan_id from public.meetup_confirmations c where c.id = new.confirmation_id;
@@ -632,7 +707,7 @@ end;
 $$;
 
 create trigger attendance_emit_updated
-  after update of status on public.attendance
+  after insert or update of status on public.attendance
   for each row execute function jobs.on_attendance_updated();
 
 -- The transition → event map. Immutable and total over `planning.transitions`;
@@ -872,7 +947,12 @@ alter table analytics.events enable row level security;
 
 -- The service role: everything in `private` and `jobs`; append and read on the
 -- two logs, which nothing rewrites — retention runs as the owner from cron.
-grant select, insert, update, delete on jobs.outbox, jobs.notification_jobs, jobs.cron_leases to service_role;
+-- The outbox is appended through `jobs.emit` and nothing else: the dispatcher
+-- reads, marks and prunes, and cannot write a row with `processed_at` or
+-- `occurred_at` of its own choosing.
+grant select, delete on jobs.outbox to service_role;
+grant update (processed_at, attempts, last_error) on jobs.outbox to service_role;
+grant select, insert, update, delete on jobs.notification_jobs, jobs.cron_leases to service_role;
 grant select, insert, update, delete on
   private.push_devices, private.email_contacts, private.email_subscriptions,
   private.email_action_tokens, private.email_delivery_events
@@ -896,6 +976,10 @@ revoke all on function jobs.on_response_changed() from public;
 revoke all on function jobs.on_response_changed() from anon, authenticated;
 revoke all on function jobs.on_attendance_updated() from public;
 revoke all on function jobs.on_attendance_updated() from anon, authenticated;
+revoke all on function jobs.on_nudge_changed() from public;
+revoke all on function jobs.on_nudge_changed() from anon, authenticated;
+revoke all on function private.enforce_reentry_for_guests() from public;
+revoke all on function private.enforce_reentry_for_guests() from anon, authenticated;
 revoke all on function jobs.carries_content(jsonb) from public;
 revoke all on function jobs.carries_content(jsonb) from anon, authenticated;
 -- A check constraint is evaluated as the writer (0002 learnt this for

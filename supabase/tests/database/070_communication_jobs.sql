@@ -6,7 +6,7 @@
 -- later with a stray grant fails here by name.
 
 begin;
-select plan(46);
+select plan(50);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid language sql as $$
@@ -44,6 +44,7 @@ $$;
 
 select pg_temp.make_user('00000000-0000-0000-0000-0000000004a1', 'Maya');
 select pg_temp.make_user('00000000-0000-0000-0000-0000000004a2', 'Priya');
+select pg_temp.make_user('00000000-0000-0000-0000-0000000004a3', 'Guest', true);
 
 select pg_temp.act_as('00000000-0000-0000-0000-0000000004a1');
 select public.create_circle('Sunday Crew', 'sky', 'Australia/Melbourne', 'key-jobs');
@@ -51,7 +52,10 @@ select pg_temp.act_as_postgres();
 create temporary table t as select id as circle_id from public.circles where name = 'Sunday Crew';
 grant select on t to anon, authenticated, service_role;
 insert into public.circle_members (circle_id, user_id, display_name_snapshot)
-select circle_id, '00000000-0000-0000-0000-0000000004a2', 'Priya' from t;
+select circle_id, u, n from t, (values
+  ('00000000-0000-0000-0000-0000000004a2'::uuid, 'Priya'),
+  ('00000000-0000-0000-0000-0000000004a3'::uuid, 'Guest')
+) as v (u, n);
 
 insert into public.plans (
   circle_id, mode, state, organiser_user_id, title, time_zone,
@@ -167,6 +171,12 @@ select throws_ok(
   'so does analytics'
 );
 
+select ok(
+  not has_table_privilege('service_role', 'jobs.outbox', 'insert')
+  and not has_column_privilege('service_role', 'jobs.outbox', 'occurred_at', 'update'),
+  'the service role appends only through emit: no insert, no rewriting occurred_at'
+);
+
 select pg_temp.act_as('00000000-0000-0000-0000-0000000004a1');
 select throws_ok(
   format($$select jobs.emit('circles.invite_rotated', 'circle', '%s')$$, (select circle_id from t)),
@@ -262,6 +272,13 @@ select throws_ok(
   null,
   'plan_updates without a plan is refused — consent is per plan'
 );
+select throws_ok(
+  format($$insert into private.email_subscriptions (contact_id, user_id, scope, plan_id, consent_text_version)
+    values ('%s', '00000000-0000-0000-0000-0000000004a1', 'plan_updates', '%s', 'v1')$$, :'contact', :'plan_a'),
+  '23503',
+  null,
+  'never for somebody else through Priya''s address — consent is the owner''s'
+);
 select lives_ok(
   format($$insert into private.email_subscriptions (contact_id, user_id, scope, plan_id, consent_text_version)
     values ('%s', '00000000-0000-0000-0000-0000000004a2', 'plan_updates', '%s', 'v1')$$, :'contact', :'plan_a'),
@@ -282,11 +299,30 @@ select throws_ok(
   null,
   'a re-entry token without a membership is refused'
 );
-select lives_ok(
+select throws_ok(
   format($$insert into private.email_action_tokens (contact_id, purpose, token_hash, expires_at, membership_circle_id, membership_user_id)
     values ('%s', 'reentry', extensions.digest('t1', 'sha256'), now() + interval '1 day', '%s', '00000000-0000-0000-0000-0000000004a2')$$,
     :'contact', (select circle_id from t)),
-  'and with one is issued'
+  '23514',
+  'reentry_token_for_permanent_identity',
+  'and not for a saved-place member — they sign in'
+);
+select throws_ok(
+  format($$insert into private.email_action_tokens (contact_id, purpose, token_hash, expires_at, membership_circle_id, membership_user_id)
+    values ('%s', 'reentry', extensions.digest('t1', 'sha256'), now() + interval '1 day', '%s', '00000000-0000-0000-0000-0000000004a3')$$,
+    :'contact', (select circle_id from t)),
+  '23503',
+  null,
+  'nor for a membership that is not the contact owner''s — Priya''s address cannot return the guest'
+);
+insert into private.email_contacts (user_id, email_normalized, email_hash)
+values ('00000000-0000-0000-0000-0000000004a3', 'guest@example.com', extensions.digest('guest@example.com', 'sha256'))
+returning id as guest_contact \gset
+select lives_ok(
+  format($$insert into private.email_action_tokens (contact_id, purpose, token_hash, expires_at, membership_circle_id, membership_user_id)
+    values ('%s', 'reentry', extensions.digest('t1', 'sha256'), now() + interval '1 day', '%s', '00000000-0000-0000-0000-0000000004a3')$$,
+    :'guest_contact', (select circle_id from t)),
+  'a guest''s own membership, through their own address, is issued'
 );
 select throws_ok(
   format($$insert into private.email_action_tokens (contact_id, purpose, token_hash, expires_at)
