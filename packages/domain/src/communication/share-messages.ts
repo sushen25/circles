@@ -1,6 +1,6 @@
 /**
- * The three messages a confirmation produces for the group chat
- * (ShareMessages artboard, spec §5.7).
+ * The messages the organiser pastes into the group chat (ShareMessages
+ * artboard, spec §5.8).
  *
  * "Generated per state. The organiser never composes." That is the point: the
  * hardest part of telling six people a plan changed is writing the message, and
@@ -14,10 +14,12 @@
  * English, it gets a type error, which is the only version of non-negotiable 6
  * that a package outside `apps/app` can enforce.
  *
- * `EN_SHARE_TEMPLATES` is the artboard's wording, exported for the client's
- * copy layer to reference and for the email templates, which run on Deno and
- * cannot import `apps/app/src/copy`. Where that sentence should ultimately live
- * so that both read it from one place is S1-06's question, not this module's
+ * `EN_SHARE_TEMPLATES` is the artboard's wording, exported so that the client's
+ * copy layer and the email templates read the same sentence. S1-05 left where
+ * it should finally live as an open question and this is the answer: here. The
+ * templates run on Deno and cannot import `apps/app/src/copy`; the app cannot
+ * import a Deno function; the domain is the one place both already depend on,
+ * and one sentence in two places is one sentence that will drift.
  *
  * Dates are formatted by a **passed** formatter for the same reason `format.ts`
  * takes `hour12`: a domain that hard-codes "Thu 17 Sep" cannot be given another
@@ -27,7 +29,7 @@
 import { type TimeFormat, formatRange } from '../availability/format.js';
 import type { Instant } from '../shared/instant.js';
 import { type Zone, toLocal } from '../shared/zone.js';
-import type { Confirmation } from './types.js';
+import type { Confirmation } from '../confirmation/types.js';
 
 /**
  * How dates are written. Both take an instant and the plan's zone, because a
@@ -39,6 +41,30 @@ export type ShareDateFormat = {
   /** "Thursday" — the day on its own, when the sentence already has the date. */
   readonly weekday: (value: Instant, zone: Zone) => string;
   readonly time?: TimeFormat | undefined;
+};
+
+export type InviteParts = {
+  readonly circleName: string;
+  readonly url: string;
+};
+
+export type NewPlanParts = {
+  readonly circleName: string;
+  /**
+   * "in the next two weeks" — the window the organiser chose, in words.
+   *
+   * Optional, and supplied rather than derived: the artboard's phrase describes
+   * one particular fortnight, and a generated version would be wrong for any
+   * other window. The client knows which preset was picked; the sentence still
+   * stands without it.
+   */
+  readonly windowPhrase?: string | undefined;
+  readonly url: string;
+};
+
+export type WaitingParts = {
+  readonly remaining: number;
+  readonly url: string;
 };
 
 export type LockedInParts = {
@@ -62,6 +88,9 @@ export type CancelledParts = {
 };
 
 export type ShareTemplates = {
+  readonly invite: (parts: InviteParts) => string;
+  readonly newPlan: (parts: NewPlanParts) => string;
+  readonly waiting: (parts: WaitingParts) => string;
   readonly lockedIn: (parts: LockedInParts) => string;
   readonly changed: (parts: ChangedParts) => string;
   readonly cancelled: (parts: CancelledParts) => string;
@@ -78,6 +107,18 @@ export type ShareTemplates = {
  * knows the preset that was chosen.
  */
 export const EN_SHARE_TEMPLATES: ShareTemplates = {
+  invite: ({ circleName, url }) =>
+    `Made a ${circleName} circle so we stop losing catch-ups in the chat. ` +
+    `Join here, no app needed: ${url}`,
+
+  newPlan: ({ circleName, windowPhrase, url }) =>
+    `When can ${circleName} actually catch up? Mark the times you'd be up for` +
+    `${windowPhrase === undefined ? '' : ` ${windowPhrase}`}. Takes a minute: ${url}`,
+
+  waiting: ({ remaining, url }) =>
+    `We're waiting on ${remaining} ${remaining === 1 ? 'reply' : 'replies'} ` +
+    `before picking a time: ${url}`,
+
   lockedIn: ({ circleName, date, time, place, url }) =>
     `Locked in: ${circleName}, ${date}, ${time}${place === undefined ? '' : ` at ${place}`}. ` +
     `Details and add-to-calendar: ${url}`,
@@ -87,6 +128,39 @@ export const EN_SHARE_TEMPLATES: ShareTemplates = {
   cancelled: ({ circleName, weekday, note, url }) =>
     `Update: ${weekday}'s ${circleName} catch-up is off. ${note === undefined ? '' : `${note} `}${url}`,
 };
+
+/** What every message needs: where to send people, and in whose words. */
+export type ShareBase = {
+  readonly url: string;
+  readonly templates: ShareTemplates;
+};
+
+/** "Made a Sunday Crew circle so we stop losing catch-ups in the chat. …" */
+export function inviteMessage(input: ShareBase & { readonly circleName: string }): string {
+  return input.templates.invite({ circleName: input.circleName, url: input.url });
+}
+
+/** "When can Sunday Crew actually catch up? …" */
+export function newPlanMessage(
+  input: ShareBase & { readonly circleName: string; readonly windowPhrase?: string | undefined },
+): string {
+  return input.templates.newPlan({
+    circleName: input.circleName,
+    windowPhrase: input.windowPhrase,
+    url: input.url,
+  });
+}
+
+/**
+ * "We're waiting on 4 replies before picking a time: …"
+ *
+ * A count, never names: the waiting screen shows who has answered to the
+ * circle, but a message pasted into a chat is read by everyone and naming the
+ * four who have not replied is a nudge with an audience.
+ */
+export function waitingMessage(input: ShareBase & { readonly remaining: number }): string {
+  return input.templates.waiting({ remaining: input.remaining, url: input.url });
+}
 
 export type ShareInput = {
   readonly confirmation: Confirmation;

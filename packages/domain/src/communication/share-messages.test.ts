@@ -2,13 +2,16 @@ import { describe, expect, it } from 'vitest';
 
 import { MELBOURNE } from '../shared/fixtures.js';
 import { fromISO } from '../shared/instant.js';
-import { EN_FORMAT, confirmation } from './fixtures.js';
+import { EN_FORMAT, confirmation } from '../confirmation/fixtures.js';
 import {
   EN_SHARE_TEMPLATES,
   type ShareInput,
   cancelledMessage,
   changedMessage,
+  inviteMessage,
   lockedInMessage,
+  newPlanMessage,
+  waitingMessage,
 } from './share-messages.js';
 
 const LINK = 'example.com/p/8k2v';
@@ -116,5 +119,59 @@ describe("the wording is the caller's", () => {
     };
     expect(lockedInMessage(input({ format: iso }))).toContain('2026-09-17');
     expect(changedMessage(input({ format: iso }))).toContain('day four is off');
+  });
+});
+
+describe('inviteMessage', () => {
+  it('is the artboard, word for word', () => {
+    expect(
+      inviteMessage({ circleName: 'Sunday Crew', url: LINK, templates: EN_SHARE_TEMPLATES }),
+    ).toBe(
+      'Made a Sunday Crew circle so we stop losing catch-ups in the chat. ' +
+        `Join here, no app needed: ${LINK}`,
+    );
+  });
+});
+
+describe('newPlanMessage', () => {
+  const base = { circleName: 'Sunday Crew', url: LINK, templates: EN_SHARE_TEMPLATES };
+
+  it('is the artboard when the window is described', () => {
+    expect(newPlanMessage({ ...base, windowPhrase: 'in the next two weeks' })).toBe(
+      "When can Sunday Crew actually catch up? Mark the times you'd be up for " +
+        `in the next two weeks. Takes a minute: ${LINK}`,
+    );
+  });
+
+  it('still reads as a sentence without one', () => {
+    // The artboard's phrase describes one particular fortnight. Generating it
+    // would be wrong for any other window, so it is the client's to supply.
+    expect(newPlanMessage(base)).toBe(
+      "When can Sunday Crew actually catch up? Mark the times you'd be up for. " +
+        `Takes a minute: ${LINK}`,
+    );
+  });
+});
+
+describe('waitingMessage', () => {
+  it('is the artboard, word for word', () => {
+    expect(waitingMessage({ remaining: 4, url: LINK, templates: EN_SHARE_TEMPLATES })).toBe(
+      `We're waiting on 4 replies before picking a time: ${LINK}`,
+    );
+  });
+
+  it('says "reply" when there is one left', () => {
+    expect(waitingMessage({ remaining: 1, url: LINK, templates: EN_SHARE_TEMPLATES })).toContain(
+      'on 1 reply before',
+    );
+  });
+
+  it('counts, and never names', () => {
+    // Pasted into a chat everyone reads. Naming the four who have not replied
+    // is a nudge with an audience.
+    const text = waitingMessage({ remaining: 4, url: LINK, templates: EN_SHARE_TEMPLATES });
+    for (const name of ['Alex', 'Priya', 'Tom', 'Jess', 'Sam', 'Nic']) {
+      expect(text).not.toContain(name);
+    }
   });
 });
