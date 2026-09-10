@@ -68,15 +68,56 @@ describe('tonight', () => {
     );
   });
 
-  it('refuses a meetup that fits exactly, because its own default deadline cannot work', () => {
+  it('refuses a meetup that fits exactly, because it could only start in the past', () => {
     // 22:30 leaves exactly 60 minutes, so an hour *fits* — and its last
-    // possible start is 22:30, this instant. Tonight's default deadline is the
-    // last possible start less the margin, which lands before the plan was
-    // created. That margin is the spec's rule for this preset; every other
-    // preset leaves the deadline to the organiser.
+    // possible start is 22:30, this instant, which is not a future start. The
+    // reason is the clock, not the deadline: tonight's default deadline gives
+    // up its margin rather than the plan (see `defaultDeadline`), so a plan
+    // with fifteen minutes of reply time is offered and this one is not.
     const halfTen = fromISO('2026-09-17T12:30:00Z');
     expect(tonight(halfTen, MELBOURNE, 60)).toBeUndefined();
     expect(tonight(halfTen, MELBOURNE, 90)).toBeUndefined();
+  });
+
+  it('judges a chosen band, not the default one', () => {
+    // 20:45 with a three-hour meetup. The default band ends 23:30, which is
+    // fifteen minutes short — but an organiser who asked for one running to
+    // midnight has room, and refusing them would be enforcing a default.
+    const quarterToNine = fromISO('2026-09-17T10:45:00Z');
+    expect(toLocal(quarterToNine, MELBOURNE).minutesOfDay).toBe(20 * 60 + 45);
+    expect(tonight(quarterToNine, MELBOURNE, 180)).toBeUndefined();
+
+    const toMidnight = { startMin: 21 * 60, endMin: 24 * 60 };
+    expect(tonight(quarterToNine, MELBOURNE, 180, toMidnight)?.daily).toEqual(toMidnight);
+    expect(
+      resolvePreset('tonight', quarterToNine, MELBOURNE, {
+        durationMinutes: 180 as DurationMinutes,
+        daily: toMidnight,
+      }),
+    ).toEqual({
+      window: { start: localDate('2026-09-17'), end: localDate('2026-09-17') },
+      daily: toMidnight,
+    });
+  });
+
+  it('will not let a chosen band start tonight in the past', () => {
+    // "Tonight from 6 pm" asked at half past eight is tonight from 8:30.
+    const halfEight = fromISO('2026-09-17T10:30:00Z');
+    expect(
+      tonight(halfEight, MELBOURNE, TWO_HOURS, { startMin: 18 * 60, endMin: 24 * 60 })?.daily,
+    ).toEqual({ startMin: 20 * 60 + 30, endMin: 24 * 60 });
+  });
+
+  it('says what is wrong with a malformed band rather than blaming the hour', () => {
+    // Half past six, hours of evening left: `band_unaligned` is the honest
+    // answer, and `too_late_for_tonight` would send the organiser to fix the
+    // wrong thing.
+    expect(
+      resolvePreset('tonight', THURSDAY_6PM, MELBOURNE, {
+        durationMinutes: TWO_HOURS,
+        daily: { startMin: 19 * 60 + 7, endMin: 23 * 60 },
+      }),
+    ).toBe('band_unaligned');
   });
 
   it('still offers a short meetup while there is genuinely room', () => {

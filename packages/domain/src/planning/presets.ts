@@ -10,7 +10,6 @@
  */
 
 import { type Instant, isBefore } from '../shared/instant.js';
-import { defaultDeadline } from './deadline.js';
 import { type LocalDate, addDays, isWeekend, weekday } from '../shared/local-date.js';
 import { type Zone, fromLocal, toLocal } from '../shared/zone.js';
 import {
@@ -98,27 +97,31 @@ export function tonight(
   now: Instant,
   z: Zone,
   durationMinutes: DurationMinutes,
+  band?: DailyWindow,
 ): PresetWindow | undefined {
   const local = toLocal(now, z);
-  const startMin = roundUpToHalfHour(local.minutesOfDay);
-  const daily = { startMin, endMin: LATEST_TONIGHT };
+  const earliest = roundUpToHalfHour(local.minutesOfDay);
+
+  // A chosen band replaces the default 23:30 end, but cannot move the start
+  // into the past — "tonight" begins at the next half hour whatever was asked
+  // for. Judging the chosen band rather than the default matters: at 20:45 a
+  // three-hour meetup does not fit the default's 21:00–23:30, and does fit a
+  // band running to midnight.
+  const startMin = Math.max(band?.startMin ?? earliest, earliest);
+  const endMin = band?.endMin ?? LATEST_TONIGHT;
+  const daily = { startMin, endMin };
   const window = { start: local.date, end: local.date };
 
-  if (startMin >= LATEST_TONIGHT) return undefined;
+  if (startMin >= endMin) return undefined;
   if (!isViableBand(daily, durationMinutes)) return undefined;
   if (!hasFutureStart(now, window, daily, durationMinutes, z)) return undefined;
 
-  // Tonight carries one extra condition, and it is the spec's own rather than
-  // an invented minimum: its default deadline is the last possible start less
-  // `TONIGHT_MARGIN_MINUTES`, so the preset is only worth offering when that
-  // default lands after the plan is created. At 22:30 a one-hour meetup has a
-  // last possible start of 22:30 — this instant — and a default deadline half
-  // an hour before the plan existed. Offering it produces a plan nobody can
-  // answer. Every other preset leaves the deadline entirely to the organiser.
-  const lastStart = lastStartOf(window, daily, durationMinutes, z);
-  const deadline = defaultDeadline('tonight', now, lastStart);
-  if (deadline === undefined || !isBefore(now, deadline)) return undefined;
-
+  // No further condition. An earlier revision also required tonight's *default*
+  // deadline — the last possible start less `TONIGHT_MARGIN_MINUTES` — to land
+  // after creation, which refused every plan whose last start was under half an
+  // hour away: a thirty-minute minimum response time wearing a default's
+  // clothes, and §5.3 has no such rule. The deadline bends instead (see
+  // `defaultDeadline`); `hasFutureStart` is the only thing that can refuse.
   return { window, daily };
 }
 
@@ -239,11 +242,13 @@ export function resolvePreset(
 
   switch (preset) {
     case 'tonight': {
-      const base = tonight(now, z, durationMinutes);
-      if (base === undefined) return 'too_late_for_tonight';
-      // Tonight's band starts at the next half hour, which an explicit band
-      // would otherwise silently move into the past.
-      return daily === undefined ? base : checked(base);
+      // The band's shape is judged first, so a malformed one says what is wrong
+      // with it rather than reporting the hour.
+      if (daily !== undefined) {
+        const invalid = validateBand(daily);
+        if (invalid !== undefined) return invalid;
+      }
+      return tonight(now, z, durationMinutes, daily) ?? 'too_late_for_tonight';
     }
     case 'this_weekend':
       return checked(thisWeekend(now, z));

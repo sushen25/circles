@@ -328,6 +328,95 @@ describe('enumeration', () => {
   });
 });
 
+describe('ranking reads the clock people read', () => {
+  // Melbourne falls back on 5 April 2026: 03:00 becomes 02:00 and the half
+  // hours from 02:00 to 03:00 happen twice, an hour apart in real time.
+  const day = localDate('2026-04-05');
+  const plan = {
+    ...NEXT_FORTNIGHT,
+    window: { start: day, end: day },
+    daily: { startMin: 60, endMin: 5 * 60 }, // 01:00–05:00
+    durationMinutes: 60,
+    quorum: 1,
+  };
+  // Quarter past two, on the first pass through that hour: everything before
+  // it is in the past, so the earliest remaining start is the *second* 02:30.
+  const quarterPast = fromISO('2026-04-04T15:15:00Z');
+  const flexible = SUNDAY_CREW.map(
+    (m) => [m, { status: 'flexible' as const, windows: [] }] as const,
+  );
+
+  it('puts 2:00 above 2:30, even though that 2:00 is the later instant', () => {
+    const starts = enumerateCandidateStarts(plan, quarterPast);
+    const [firstRemaining] = starts;
+    expect(at(firstRemaining as Instant)).toBe('2026-04-05 2:30');
+
+    const set = generateCandidates({
+      plan,
+      responses: flexible,
+      activeMemberIds: SUNDAY_CREW,
+      now: quarterPast,
+    });
+
+    // Ordering by instant would have offered that 2:30 first, then the other
+    // 2:30 an hour later — the same time twice, above a 2:00 that was free.
+    expect(set.eligible.map((c) => at(c.start))).toEqual([
+      '2026-04-05 2:00',
+      '2026-04-05 3:00',
+      '2026-04-05 4:00',
+    ]);
+    expect(set.eligible[0]?.start).toBeGreaterThan(firstRemaining as Instant);
+  });
+});
+
+describe('near-misses when nothing is eligible', () => {
+  it('describes the second one by the clock, not always as later', () => {
+    // Attendance ranks near-misses too, so the closest can fall *after* the
+    // next one: three on the Thursday, two on the Wednesday before it.
+    const set = generateCandidates(
+      sundayCrewInput({
+        plan: { ...NEXT_FORTNIGHT, quorum: 6 },
+        responses: [
+          [SAM, { status: 'windows', windows: [on('2026-09-17', 18 * 60, 20 * 60)] }],
+          [PRIYA, { status: 'windows', windows: [on('2026-09-17', 18 * 60, 20 * 60)] }],
+          [TOM, { status: 'windows', windows: [on('2026-09-17', 18 * 60, 20 * 60)] }],
+          [JESS, { status: 'windows', windows: [on('2026-09-16', 18 * 60, 20 * 60)] }],
+          [NIC, { status: 'windows', windows: [on('2026-09-16', 18 * 60, 20 * 60)] }],
+        ],
+      }),
+    );
+
+    expect(set.eligible).toEqual([]);
+    expect(set.nearMisses.map((n) => [at(n.start), n.explanation])).toEqual([
+      ['2026-09-17 18:00', { code: 'closest', count: 3 }],
+      ['2026-09-16 18:00', { code: 'also_n_sooner', count: 2 }],
+    ]);
+  });
+
+  it('still has something to show when every answer was "none of these work"', () => {
+    // Six replies, nobody free at any time. Zero is as close as it got, and a
+    // screen with an empty list and a "widen the window" button explains
+    // nothing. Contrast the waiting state below, where nobody has answered.
+    const set = generateCandidates(
+      sundayCrewInput({
+        responses: SUNDAY_CREW.map(
+          (m) => [m, { status: 'none_work' as const, windows: [] }] as const,
+        ),
+      }),
+    );
+
+    expect(set.eligible).toEqual([]);
+    expect(set.nearMisses).toHaveLength(3);
+    for (const miss of set.nearMisses) {
+      expect(miss.availableUserIds).toEqual([]);
+      expect(miss.reason).toEqual({ kind: 'quorum_short', by: 4 });
+    }
+    expect(set.nearMisses[0]?.explanation).toEqual({ code: 'closest', count: 0 });
+    // Three different dates, not three times on one evening.
+    expect(new Set(set.nearMisses.map((n) => toLocal(n.start, MELBOURNE).date)).size).toBe(3);
+  });
+});
+
 describe('determinism', () => {
   it('gives the same answer for the same input, whatever order it arrives in', () => {
     const base = sundayCrewInput();

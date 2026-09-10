@@ -10,7 +10,7 @@
 import type { UserId } from '../circles/types.js';
 import { contains, interval } from '../shared/interval.js';
 import { type Instant, addMinutes } from '../shared/instant.js';
-import { isWeekend } from '../shared/local-date.js';
+import { type LocalDate, isWeekend } from '../shared/local-date.js';
 import { fromLocal, fromLocalEnd, localSlotStarts, toLocal } from '../shared/zone.js';
 import { addDays } from '../shared/local-date.js';
 import { inputHash } from './hash.js';
@@ -32,6 +32,9 @@ const MAX_RESULTS = 3;
 type Scored = {
   readonly start: Instant;
   readonly end: Instant;
+  /** The start read off a wall clock in the plan's zone — see `compareCandidates`. */
+  readonly localDate: LocalDate;
+  readonly localMinutes: number;
   readonly available: readonly UserId[];
   readonly explicitCount: number;
   readonly flexibleCount: number;
@@ -81,6 +84,7 @@ export function enumerateCandidateStarts(plan: EnginePlan, now: Instant): Instan
  */
 function score(plan: EnginePlan, input: EngineInput, start: Instant): Scored {
   const end = addMinutes(start, plan.durationMinutes);
+  const local = toLocal(start, plan.zone);
   const meetup = interval(start, end);
   const byId = new Map(input.responses);
 
@@ -108,6 +112,8 @@ function score(plan: EnginePlan, input: EngineInput, start: Instant): Scored {
   return {
     start,
     end,
+    localDate: local.date,
+    localMinutes: local.minutesOfDay,
     available,
     explicitCount: explicit.length,
     flexibleCount: flexible.length,
@@ -122,8 +128,14 @@ function score(plan: EnginePlan, input: EngineInput, start: Instant): Scored {
  *
  * More people first; then a set with at least one explicit answer ahead of a
  * flexible-only one, because "everyone said whatever suits" is weaker evidence
- * than "four people chose this"; then earlier. The plan has a single zone, so
- * earlier by instant is earlier by local date and local start together.
+ * than "four people chose this"; then earlier.
+ *
+ * Earlier means earlier *on the clock people read*, which is not the same as
+ * earlier by instant. On the day the clocks go back, 02:30 happens twice: the
+ * second 02:30 is a later instant than the 02:00 that follows the first one,
+ * so ordering by instant would list 02:30 above 02:00 and the screen would
+ * show a list that runs backwards. Local date, then local minutes, then the
+ * instant to separate the two occurrences of a repeated hour from each other.
  */
 export function compareCandidates(a: Scored, b: Scored): number {
   if (a.available.length !== b.available.length) return b.available.length - a.available.length;
@@ -132,11 +144,17 @@ export function compareCandidates(a: Scored, b: Scored): number {
   const bHasExplicit = b.explicitCount > 0 ? 1 : 0;
   if (aHasExplicit !== bHasExplicit) return bHasExplicit - aHasExplicit;
 
+  if (a.localDate !== b.localDate) return a.localDate < b.localDate ? -1 : 1;
+  if (a.localMinutes !== b.localMinutes) return a.localMinutes - b.localMinutes;
+
   return a.start - b.start;
 }
 
-function localDateOf(scored: Scored, plan: EnginePlan): string {
-  return toLocal(scored.start, plan.zone).date;
+/** Later on the wall clock, by the same reading `compareCandidates` uses. */
+function isLater(a: Scored, b: Scored): boolean {
+  if (a.localDate !== b.localDate) return a.localDate > b.localDate;
+  if (a.localMinutes !== b.localMinutes) return a.localMinutes > b.localMinutes;
+  return a.start > b.start;
 }
 
 /**
@@ -149,23 +167,23 @@ function localDateOf(scored: Scored, plan: EnginePlan): string {
  */
 function select(ranked: readonly Scored[], plan: EnginePlan): Scored[] {
   const picked: Scored[] = [];
-  const usedDates = new Set<string>();
+  const usedDates = new Set<LocalDate>();
 
   let remaining = [...ranked];
   while (picked.length < MAX_RESULTS && remaining.length > 0) {
     const best = remaining[0] as Scored;
     const tier = remaining.filter((c) => c.available.length === best.available.length);
-    const chosen = tier.find((c) => !usedDates.has(localDateOf(c, plan))) ?? best;
+    const chosen = tier.find((c) => !usedDates.has(c.localDate)) ?? best;
 
     picked.push(chosen);
-    usedDates.add(localDateOf(chosen, plan));
+    usedDates.add(chosen.localDate);
 
     remaining = remaining.filter(
       (c) =>
         c !== chosen &&
         // Never two on the same date within a duration of each other.
         !(
-          localDateOf(c, plan) === localDateOf(chosen, plan) &&
+          c.localDate === chosen.localDate &&
           Math.abs(c.start - chosen.start) < plan.durationMinutes * 60_000
         ),
     );
@@ -181,11 +199,7 @@ function select(ranked: readonly Scored[], plan: EnginePlan): Scored[] {
  * it falls back to `also_n_later`, which is what the design says: "Also four, a
  * day later".
  */
-function explain(
-  picked: readonly Scored[],
-  plan: EnginePlan,
-  firstCode: ExplanationCode,
-): Explanation[] {
+function explain(picked: readonly Scored[], firstCode: ExplanationCode): Explanation[] {
   const used = new Set<ExplanationCode>();
   const first = picked[0];
 
@@ -198,8 +212,8 @@ function explain(
 
     const best = first as Scored;
     const fewer = best.available.length - count;
-    const weekend = isWeekend(toLocal(candidate.start, plan.zone).date);
-    const later = candidate.start > best.start;
+    const weekend = isWeekend(candidate.localDate);
+    const later = isLater(candidate, best);
 
     // Every code that mentions time has to agree with the clock. Ranking is
     // attendance first, so a lower-attendance option can easily fall *earlier*
@@ -247,7 +261,7 @@ export function generateCandidates(input: EngineInput): CandidateSet {
 
   const eligible = scored.filter((s) => s.eligible).sort(compareCandidates);
   const picked = select(eligible, plan);
-  const explanations = explain(picked, plan, 'best_attendance');
+  const explanations = explain(picked, 'best_attendance');
 
   const candidates: Candidate[] = picked.map((s, index) => ({
     start: s.start,
@@ -259,13 +273,21 @@ export function generateCandidates(input: EngineInput): CandidateSet {
   }));
 
   let nearMisses: NearMiss[] = [];
-  if (candidates.length === 0) {
+  // Only once somebody has answered. Before the first reply there is nothing to
+  // be close to, and the screen is showing the waiting state, not a shortfall.
+  if (candidates.length === 0 && input.responses.length > 0) {
     // Closest first: most people, then the same tie-breaks as a real ranking.
-    // A start nobody can make is not *near* anything — offering it as the third
-    // best would say "and here is a time with nobody", which answers no
-    // question the screen asks.
-    const closest = [...scored].filter((s) => s.available.length > 0).sort(compareCandidates);
+    //
+    // A start nobody can make is not *near* anything, so it is never shown
+    // beside one somebody can — offering it as the third best would say "and
+    // here is a time with nobody", which answers no question the screen asks.
+    // But when every answer was `none_work`, zero is as close as it got, and
+    // "Closest: Tuesday, 0 of 5" is the sentence that earns the "widen the
+    // window" button. Dropping it left that screen with nothing on it at all.
+    const withSomeone = scored.filter((s) => s.available.length > 0);
+    const closest = [...(withSomeone.length > 0 ? withSomeone : scored)].sort(compareCandidates);
     const pickedMisses = select(closest, plan);
+    const firstMiss = pickedMisses[0];
 
     nearMisses = pickedMisses.map((s, index) => ({
       start: s.start,
@@ -275,9 +297,16 @@ export function generateCandidates(input: EngineInput): CandidateSet {
       // Near-misses are not ranked against each other the way candidates are —
       // nothing here is on offer, so "one fewer, weekend" would be explaining a
       // choice nobody is being given. The design says "Closest", then "Also
-      // three, a day later".
+      // three, a day later" — and, exactly as in `explain`, "later" has to be
+      // true of the clock. Attendance outranks time here too, so the second
+      // miss can sit before the first.
       explanation: {
-        code: index === 0 ? 'closest' : 'also_n_later',
+        code:
+          index === 0
+            ? 'closest'
+            : isLater(s, firstMiss as Scored)
+              ? 'also_n_later'
+              : 'also_n_sooner',
         count: s.available.length,
       },
     }));
