@@ -178,19 +178,22 @@ select public.replace_response('00000000-0000-4000-8000-000000000b01', 1, 'windo
   pg_temp.win((select next_monday + 5 from dates), 17 * 60 + 30, 19 * 60 + 30)));
 
 -- The candidate set the engine would produce from those answers (S1-16
--- computes it in production; the seed writes the same rows by hand).
+-- computes it in production; the seed writes the same rows by hand, and
+-- the same way: the quorum is 4, so Thursday with five is the one eligible
+-- option and Friday with three and Saturday with two are near misses, short
+-- by one and by two — ADR 0011).
 select pg_temp.act_as_postgres();
 insert into public.candidate_sets (
   id, plan_id, revision, input_version, scoring_version, input_hash,
   starts_considered, eligible_count, responded_count, active_member_count
 )
 select '00000000-0000-4000-8000-000000000c01', p.id, p.revision, p.input_version, p.scoring_version, 'seed',
-  70, 3, 5, 6
+  70, 1, 5, 6
 from public.plans p where p.id = '00000000-0000-4000-8000-000000000b01';
 
 insert into public.candidates (
   candidate_set_id, is_near_miss, rank, starts_at, ends_at, available_user_ids,
-  explicit_count, flexible_count, explanation_code, explanation_count
+  explicit_count, flexible_count, explanation_code, explanation_count, near_miss_reason
 )
 select '00000000-0000-4000-8000-000000000c01'::uuid, false, 1,
   ((next_monday + 3)::timestamp + interval '18 hours 30 minutes') at time zone 'Australia/Melbourne',
@@ -198,22 +201,22 @@ select '00000000-0000-4000-8000-000000000c01'::uuid, false, 1,
   array['00000000-0000-4000-8000-000000000101', '00000000-0000-4000-8000-000000000102',
         '00000000-0000-4000-8000-000000000103', '00000000-0000-4000-8000-000000000104',
         '00000000-0000-4000-8000-000000000105']::uuid[],
-  5, 0, 'best_attendance', 5
+  5, 0, 'best_attendance', 5, null::jsonb
 from dates
 union all
-select '00000000-0000-4000-8000-000000000c01', false, 2,
+select '00000000-0000-4000-8000-000000000c01', true, 1,
   ((next_monday + 4)::timestamp + interval '18 hours 30 minutes') at time zone 'Australia/Melbourne',
   ((next_monday + 4)::timestamp + interval '20 hours 30 minutes') at time zone 'Australia/Melbourne',
   array['00000000-0000-4000-8000-000000000102', '00000000-0000-4000-8000-000000000103',
         '00000000-0000-4000-8000-000000000104']::uuid[],
-  3, 0, 'also_n_later', 3
+  3, 0, 'closest', 3, '{"kind": "quorum_short", "by": 1}'::jsonb
 from dates
 union all
-select '00000000-0000-4000-8000-000000000c01', false, 3,
+select '00000000-0000-4000-8000-000000000c01', true, 2,
   ((next_monday + 5)::timestamp + interval '17 hours 30 minutes') at time zone 'Australia/Melbourne',
   ((next_monday + 5)::timestamp + interval '19 hours 30 minutes') at time zone 'Australia/Melbourne',
   array['00000000-0000-4000-8000-000000000102', '00000000-0000-4000-8000-000000000105']::uuid[],
-  2, 0, 'also_n_later', 2
+  2, 0, 'closest', 2, '{"kind": "quorum_short", "by": 2}'::jsonb
 from dates;
 
 select planning.transition_plan('00000000-0000-4000-8000-000000000b01', 'candidates_ready',
@@ -240,6 +243,18 @@ select pg_temp.named_plan(
   (select next_monday from dates), (select next_monday + 6 from dates),
   2, ((select next_monday + 1 from dates)::timestamp + interval '8 hours') at time zone 'Australia/Melbourne'
 );
+-- All three can do Thursday.
+select pg_temp.act_as('00000000-0000-4000-8000-000000000107');
+select public.replace_response('00000000-0000-4000-8000-000000000b02', 1, 'windows', jsonb_build_array(
+  pg_temp.win((select next_monday + 3 from dates), 18 * 60 + 30, 20 * 60 + 30)));
+select pg_temp.act_as('00000000-0000-4000-8000-000000000102');
+select public.replace_response('00000000-0000-4000-8000-000000000b02', 1, 'windows', jsonb_build_array(
+  pg_temp.win((select next_monday + 3 from dates), 18 * 60 + 30, 20 * 60 + 30)));
+select pg_temp.act_as('00000000-0000-4000-8000-000000000103');
+select public.replace_response('00000000-0000-4000-8000-000000000b02', 1, 'windows', jsonb_build_array(
+  pg_temp.win((select next_monday + 3 from dates), 18 * 60 + 30, 20 * 60 + 30)));
+select pg_temp.act_as_postgres();
+
 insert into public.candidate_sets (
   id, plan_id, revision, input_version, scoring_version, input_hash,
   starts_considered, eligible_count, responded_count, active_member_count
