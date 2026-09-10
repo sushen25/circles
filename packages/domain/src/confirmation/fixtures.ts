@@ -55,6 +55,7 @@ export function sundayCrewCandidates(plan: Plan = sundayCrewPlan()): PlanCandida
   return {
     planId: plan.id,
     revision: plan.revision,
+    inputVersion: plan.inputVersion,
     set: generateCandidates(sundayCrewInput()),
   };
 }

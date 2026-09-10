@@ -32,7 +32,8 @@ export type ReportOutcomeRequest = {
   readonly now: Instant;
 };
 
-export type OutcomeErrorCode = ConfirmErrorCode | 'confirmation_not_active';
+export type OutcomeErrorCode =
+  ConfirmErrorCode | 'confirmation_not_active' | 'stale_confirmation' | 'outcome_too_early';
 
 export type OutcomeError = Omit<ConfirmError, 'code'> & { readonly code: OutcomeErrorCode };
 
@@ -66,10 +67,20 @@ export function reportOutcome(
   if (!transition.ok) return fail(transition.error.code);
 
   if (confirmation.planId !== plan.id) return fail('wrong_plan');
+  // The plan's *current* revision, not merely its plan. A reopen bumps the
+  // revision and supersedes the old confirmation; if the two ever come apart,
+  // completing revision 2 with revision 1's evening would record a time that
+  // was explicitly abandoned.
+  if (confirmation.revision !== plan.revision) return fail('stale_confirmation');
   // Reporting on a superseded confirmation would attach an outcome to a time
   // that was replaced — and, through `lastMetAtAfter`, could move `lastMetAt`
   // to an evening the circle explicitly abandoned.
   if (confirmation.status !== 'active') return fail('confirmation_not_active');
+  // "The morning after a confirmed meetup" (spec §5.10). Asked any earlier, the
+  // question has no answer yet — and `happened` would set the circle's
+  // `lastMetAt` to an instant that has not arrived, which cadence then reads.
+  // Hiding the button is the client's job; refusing is this module's.
+  if (now < confirmation.candidate.end) return fail('outcome_too_early');
   if ((note?.length ?? 0) > NOTE_MAX_LENGTH) return fail('note_too_long');
 
   return ok({
@@ -116,8 +127,15 @@ export function corroboration(
   attendances: readonly Attendance[],
 ): Corroboration {
   if (report.outcome !== 'happened') return 'reported';
+  // Scoped to the confirmation being reported on. A `was_there` from another
+  // meetup is somebody confirming a different evening, and counting it would
+  // make the corroborated figure — the evidence for the north-star metric —
+  // quietly wrong in the direction that flatters it.
   const corroborated = attendances.some(
-    (a) => a.status === 'was_there' && a.userId !== report.reportedBy,
+    (a) =>
+      a.confirmationId === report.confirmationId &&
+      a.status === 'was_there' &&
+      a.userId !== report.reportedBy,
   );
   return corroborated ? 'corroborated' : 'reported';
 }

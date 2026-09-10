@@ -9,7 +9,7 @@ import { fromISO, toISO } from '../shared/instant.js';
 import { A_STRANGER, confirmation, sundayCrewPlan } from './fixtures.js';
 import { corroboration, lastMetAtAfter, reportOutcome, statusAfter } from './outcome.js';
 import type { Attendance, Outcome, OutcomeReport } from './types.js';
-import { NOTE_MAX_LENGTH } from './types.js';
+import { NOTE_MAX_LENGTH, confirmationId } from './types.js';
 
 const OUTCOMES: readonly Outcome[] = ['happened', 'cancelled', 'moved_outside', 'not_sure'];
 
@@ -87,6 +87,25 @@ describe('reportOutcome', () => {
     expect(report({ note: 'x'.repeat(NOTE_MAX_LENGTH) }).ok).toBe(true);
   });
 
+  it('refuses to be answered before the meetup has finished', () => {
+    // Asked at 7 pm on the Thursday, "did it happen?" has no answer — and
+    // `happened` would set the circle's `lastMetAt` to an hour that has not
+    // arrived yet.
+    const duringIt = report({ now: fromISO('2026-09-17T09:00:00Z') });
+    expect(!duringIt.ok && duringIt.error.code).toBe('outcome_too_early');
+    // The instant it ends is early enough.
+    expect(report({ now: confirmation().candidate.end }).ok).toBe(true);
+  });
+
+  it('refuses a confirmation from a revision the plan has moved past', () => {
+    const reopened = sundayCrewPlan({ state: 'confirmed', revision: 2 });
+    const result = report({
+      plan: reopened,
+      confirmation: confirmation({ planId: reopened.id, revision: 1 }),
+    });
+    expect(!result.ok && result.error.code).toBe('stale_confirmation');
+  });
+
   it('refuses a plan that was never confirmed', () => {
     const result = report({ plan: sundayCrewPlan({ state: 'ready' }) });
     expect(!result.ok && result.error.code).toBe('wrong_state');
@@ -146,6 +165,17 @@ describe('corroboration', () => {
 
   it('is "reported" when nobody has said anything', () => {
     expect(corroboration(base, [])).toBe('reported');
+  });
+
+  it('does not count a "was there" from a different meetup', () => {
+    // Corroboration is the evidence behind the north-star metric; counting
+    // another evening's attendance would flatter it.
+    const elsewhere: Attendance = {
+      ...wasThere(PRIYA),
+      confirmationId: confirmationId('confirmation-elsewhere'),
+    };
+    expect(corroboration(base, [elsewhere])).toBe('reported');
+    expect(corroboration(base, [elsewhere, wasThere(PRIYA)])).toBe('corroborated');
   });
 
   it('does not count someone who says they missed it', () => {

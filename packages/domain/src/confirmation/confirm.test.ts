@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { userId } from '../circles/types.js';
+import { type UserId, userId } from '../circles/types.js';
 import type { Actor } from '../planning/state-machine.js';
 import { planId } from '../planning/types.js';
 import { SCORING_VERSION } from '../scheduling/types.js';
@@ -11,11 +11,12 @@ import { toLocal } from '../shared/zone.js';
 import {
   type ConfirmErrorCode,
   type ConfirmRequest,
+  activeConfirmation,
   candidateIdOf,
   confirm,
-  isLink,
   supersede,
 } from './confirm.js';
+import { isLink } from './links.js';
 import {
   A_CONFIRMATION_ID,
   A_STRANGER,
@@ -82,12 +83,21 @@ describe('confirm', () => {
     expect(result.ok && result.value.plan.revision).toBe(sundayCrewPlan().revision);
   });
 
-  it('is a copy, not a reference: the confirmation does not share the candidate object', () => {
+  it('is a copy all the way down, so a reused candidate set cannot change it', () => {
     const candidates = sundayCrewCandidates();
+    const source = candidates.set.eligible[0];
     const result = confirm(request({ candidates }));
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.value.confirmation.candidate).not.toBe(candidates.set.eligible[0]);
+
+    const frozen = result.value.confirmation.candidate;
+    expect(frozen).not.toBe(source);
+    // The list too. `readonly` only stops *this* package writing through the
+    // reference; the caller still holds the array it passed in.
+    expect(frozen.availableUserIds).not.toBe(source?.availableUserIds);
+    (source?.availableUserIds as UserId[]).push(A_STRANGER);
+    expect(frozen.availableUserIds).toHaveLength(5);
+    expect(frozen.availableUserIds).not.toContain(A_STRANGER);
   });
 
   it('refuses anyone who is not the organiser', () => {
@@ -107,10 +117,27 @@ describe('confirm', () => {
     expect(refusal({ candidates })).toBe('wrong_plan');
   });
 
+  it('refuses a set computed before somebody changed their answer', () => {
+    // Recalculation is asynchronous: between a withdrawn reply and the new set
+    // landing, the old one still names the right plan and revision. Freezing it
+    // would put someone on a card saying they are coming when they are not.
+    const plan = sundayCrewPlan({ inputVersion: 4 });
+    const candidates = { ...sundayCrewCandidates(plan), inputVersion: 3 };
+    expect(refusal({ plan, candidates })).toBe('stale_input_version');
+  });
+
   it('refuses a set from an older engine, because the ranking it shows is not ours', () => {
     const candidates = sundayCrewCandidates();
     const set = { ...candidates.set, scoringVersion: SCORING_VERSION - 1 };
     expect(refusal({ candidates: { ...candidates, set } })).toBe('stale_scoring_version');
+  });
+
+  it('refuses a set the plan does not know about, even if this engine made it', () => {
+    // `Plan.scoringVersion` is "which version produced the current candidates".
+    // A set at the deployed version that the plan has not caught up to means one
+    // of the two is describing a set that no longer exists.
+    const plan = sundayCrewPlan({ scoringVersion: SCORING_VERSION - 1 });
+    expect(refusal({ plan, candidates: sundayCrewCandidates(plan) })).toBe('stale_scoring_version');
   });
 
   it('refuses a candidate that is not on offer', () => {
@@ -184,5 +211,27 @@ describe('supersede', () => {
       confirmationId: A_CONFIRMATION_ID,
       status: 'superseded',
     });
+  });
+});
+
+describe('activeConfirmation', () => {
+  const plan = sundayCrewPlan();
+  const mine = confirmation({ planId: plan.id, revision: 1 });
+
+  it('finds the one active confirmation for a plan revision', () => {
+    expect(activeConfirmation([mine], plan.id, 1)).toBe(mine);
+  });
+
+  it("never returns another plan's, because every plan starts at revision 1", () => {
+    const elsewhere = confirmation({ planId: planId('plan-elsewhere'), revision: 1 });
+    expect(activeConfirmation([elsewhere], plan.id, 1)).toBeUndefined();
+    expect(activeConfirmation([elsewhere, mine], plan.id, 1)).toBe(mine);
+  });
+
+  it('ignores a superseded one, and one from another revision', () => {
+    expect(
+      activeConfirmation([confirmation({ planId: plan.id, status: 'superseded' })], plan.id, 1),
+    ).toBeUndefined();
+    expect(activeConfirmation([mine], plan.id, 2)).toBeUndefined();
   });
 });

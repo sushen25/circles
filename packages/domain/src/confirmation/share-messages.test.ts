@@ -20,6 +20,7 @@ function input(overrides: Partial<ShareInput> = {}): ShareInput {
     zone: MELBOURNE,
     url: LINK,
     format: EN_FORMAT,
+    templates: EN_SHARE_TEMPLATES,
     ...overrides,
   };
 }
@@ -87,7 +88,16 @@ describe('cancelledMessage', () => {
   });
 });
 
-describe('the wording is replaceable', () => {
+describe("the wording is the caller's", () => {
+  it('has no default: a caller cannot get English by forgetting', () => {
+    // The type is the enforcement — `templates` is required, so the client
+    // passes ones built from its copy keys and the email templates pass their
+    // own. Non-negotiable 6 has no other reach into a package `apps/app` does
+    // not own.
+    // @ts-expect-error `templates` is required, which is the point of this test.
+    expect(() => lockedInMessage({ ...input(), templates: undefined })).toThrow();
+  });
+
   it('takes a different set of templates without touching the assembly', () => {
     const templates = {
       ...EN_SHARE_TEMPLATES,

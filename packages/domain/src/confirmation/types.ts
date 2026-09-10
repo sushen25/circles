@@ -49,6 +49,15 @@ export type CandidateId = string & { readonly __brand: 'CandidateId' };
 export type PlanCandidates = {
   readonly planId: PlanId;
   readonly revision: number;
+  /**
+   * The plan's `inputVersion` when this set was generated — `candidate_sets` is
+   * unique on `(plan_id, revision, input_version)` (architecture §8.2).
+   *
+   * Read from the stored row, never recomputed here: comparing it against the
+   * plan's current version is the freshness check `confirm-meetup` owes (§9.1),
+   * and a value derived from the set itself would compare equal to itself.
+   */
+  readonly inputVersion: number;
   readonly set: CandidateSet;
 };
 

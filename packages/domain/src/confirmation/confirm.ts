@@ -20,6 +20,7 @@ import type { Candidate } from '../scheduling/types.js';
 import { SCORING_VERSION } from '../scheduling/types.js';
 import { type Instant, toISO } from '../shared/instant.js';
 import { type Result, err, ok } from '../shared/result.js';
+import { isLink } from './links.js';
 import {
   type CandidateId,
   type Confirmation,
@@ -56,6 +57,7 @@ export type ConfirmErrorCode =
   | TransitionError['code']
   | 'wrong_plan'
   | 'stale_candidates'
+  | 'stale_input_version'
   | 'stale_scoring_version'
   | 'candidate_not_eligible'
   | 'candidate_has_passed'
@@ -92,22 +94,6 @@ export type Confirmed = {
   readonly plan: Plan;
 };
 
-/**
- * An address or a map link, and nothing exotic.
- *
- * `http` and `https` only: `javascript:` and `data:` are the reason this check
- * exists at all, and a relative string is not a link the confirmed screen can
- * open. Query strings are allowed — a map link is mostly query string.
- */
-export function isLink(value: string): boolean {
-  try {
-    const url = new URL(value);
-    return url.protocol === 'http:' || url.protocol === 'https:';
-  } catch {
-    return false;
-  }
-}
-
 function detailProblem(details: ConfirmationDetails): ConfirmErrorCode | undefined {
   if ((details.note?.length ?? 0) > NOTE_MAX_LENGTH) return 'note_too_long';
   if ((details.placeName?.length ?? 0) > PLACE_NAME_MAX_LENGTH) return 'place_name_too_long';
@@ -129,11 +115,21 @@ export function confirm(request: ConfirmRequest): Result<ConfirmError, Confirmed
   });
   if (!transition.ok) return fail(transition.error.code);
 
-  // The set has to be this plan's, this revision's, and this engine's. A
-  // candidate computed before an edit is a time somebody was never asked about.
+  // The set has to be this plan's, this revision's, this input's and this
+  // engine's. A candidate computed before an edit is a time somebody was never
+  // asked about; one computed before a withdrawn reply names people who are no
+  // longer free, and freezing it would put them on a card saying they are
+  // coming. Recalculation is asynchronous (§9.1), so this window is real rather
+  // than theoretical.
   if (candidates.planId !== plan.id) return fail('wrong_plan');
   if (candidates.revision !== plan.revision) return fail('stale_candidates');
-  if (candidates.set.scoringVersion !== SCORING_VERSION) return fail('stale_scoring_version');
+  if (candidates.inputVersion !== plan.inputVersion) return fail('stale_input_version');
+  // Against the plan *and* the deployed engine. Comparing only with the deployed
+  // constant accepts a set the plan does not know about — `Plan.scoringVersion`
+  // is "which version produced the current candidates", so a disagreement means
+  // one of the two is describing a set that no longer exists.
+  if (candidates.set.scoringVersion !== plan.scoringVersion) return fail('stale_scoring_version');
+  if (plan.scoringVersion !== SCORING_VERSION) return fail('stale_scoring_version');
 
   const candidate = candidates.set.eligible.find((c) => candidateIdOf(c) === candidateId);
   if (candidate === undefined) return fail('candidate_not_eligible');
@@ -159,7 +155,10 @@ function freeze(request: ConfirmRequest, candidate: Candidate): Confirmation {
     candidate: {
       start: candidate.start,
       end: candidate.end,
-      availableUserIds: candidate.availableUserIds,
+      // Copied, not shared. `readonly` stops *this* package writing through the
+      // reference; it does nothing about the caller who still holds the array,
+      // and "frozen" has to survive a caller who reuses their candidate set.
+      availableUserIds: [...candidate.availableUserIds],
     },
     placeName: details.placeName,
     placeUrl: details.placeUrl,
@@ -200,12 +199,22 @@ export function supersede(
   return ok({ ...confirmation, status: reason === 'reopen' ? 'superseded' : 'cancelled' });
 }
 
-/** The active confirmation for a revision, if there is one. At most one exists. */
+/**
+ * The active confirmation for one revision of one plan, if there is one. At
+ * most one exists — that is the context's rule and the database's constraint.
+ *
+ * The plan is part of the key, not context the caller can be trusted to have
+ * applied: every plan starts at revision 1, so a list spanning two plans would
+ * otherwise hand back the wrong meetup's confirmation.
+ */
 export function activeConfirmation(
   confirmations: readonly Confirmation[],
+  planId: PlanId,
   revision: number,
 ): Confirmation | undefined {
-  return confirmations.find((c) => c.revision === revision && c.status === 'active');
+  return confirmations.find(
+    (c) => c.planId === planId && c.revision === revision && c.status === 'active',
+  );
 }
 
 /** Who was frozen into the confirmation as able to make it. */

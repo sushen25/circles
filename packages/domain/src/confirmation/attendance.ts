@@ -7,10 +7,11 @@
  * it". Asking six people to re-confirm a thing they already answered is exactly
  * the friction the product exists to remove.
  *
- * Nothing here reads a clock. Whether the meetup has happened is the caller's
- * knowledge, and the transition table below is arranged so that a status about
- * the past never turns back into a promise about the future — which is the only
- * ordering rule a clock would have given us.
+ * The two questions are separated by the meetup itself, so the transitions need
+ * to know when that is: "I was there" before the evening has happened is not an
+ * early answer, it is a false one, and `corroboration` would go on to count it.
+ * An earlier revision left that to the client, which is a transition guard
+ * living outside the domain — precisely what §6.4 forbids.
  */
 
 import type { UserId } from '../circles/types.js';
@@ -90,14 +91,46 @@ const ALLOWED: Record<AttendanceStatus, readonly AttendanceChoice[]> = {
   missed: ['was_there'],
 };
 
+/** Claims about the past. Nobody may make one before the past exists. */
+const RETROSPECTIVE: readonly AttendanceChoice[] = ['was_there', 'missed'];
+
+/**
+ * When the meetup ends, and when the member is answering.
+ *
+ * Both, rather than a boolean the caller computes: "has it finished?" answered
+ * somewhere else is the guard living somewhere else.
+ */
+export type AttendanceMoment = {
+  /** The confirmed meetup's end — `confirmation.candidate.end`. */
+  readonly meetupEnd: Instant;
+  readonly now: Instant;
+};
+
 export type AttendanceError = {
-  readonly code: 'attendance_not_reversible';
+  readonly code:
+    'attendance_not_reversible' | 'attendance_too_early' | 'attendance_wrong_confirmation';
   readonly from: AttendanceStatus;
   readonly to: AttendanceChoice;
 };
 
-export function canUpdateAttendance(current: AttendanceStatus, choice: AttendanceChoice): boolean {
-  return current === choice || ALLOWED[current].includes(choice);
+function problem(
+  current: AttendanceStatus,
+  choice: AttendanceChoice,
+  moment: AttendanceMoment,
+): AttendanceError['code'] | undefined {
+  if (RETROSPECTIVE.includes(choice) && moment.now < moment.meetupEnd) {
+    return 'attendance_too_early';
+  }
+  if (current !== choice && !ALLOWED[current].includes(choice)) return 'attendance_not_reversible';
+  return undefined;
+}
+
+export function canUpdateAttendance(
+  current: AttendanceStatus,
+  choice: AttendanceChoice,
+  moment: AttendanceMoment,
+): boolean {
+  return problem(current, choice, moment) === undefined;
 }
 
 /**
@@ -110,21 +143,44 @@ export function canUpdateAttendance(current: AttendanceStatus, choice: Attendanc
 export function updateAttendance(
   current: AttendanceStatus,
   choice: AttendanceChoice,
+  moment: AttendanceMoment,
 ): Result<AttendanceError, AttendanceStatus> {
-  if (!canUpdateAttendance(current, choice)) {
-    return err({ code: 'attendance_not_reversible', from: current, to: choice });
-  }
-  return ok(choice);
+  const code = problem(current, choice, moment);
+  return code === undefined ? ok(choice) : err({ code, from: current, to: choice });
 }
 
-/** The same move, applied to a stored row. */
+/**
+ * The same move, applied to a stored row — and idempotent, as every transition
+ * has to be (architecture §7.6).
+ *
+ * A repeat of the choice already recorded returns the row untouched rather than
+ * restamping it. Two taps on the same button, or a retried request, would
+ * otherwise look like a fresh answer: the confirmed screen orders by
+ * `updatedAt`, and "Priya just changed her mind" is a thing it would then say
+ * about somebody who did not.
+ */
 export function applyAttendance(
   attendance: Attendance,
   choice: AttendanceChoice,
+  confirmation: Confirmation,
   now: Instant,
 ): Result<AttendanceError, Attendance> {
-  const next = updateAttendance(attendance.status, choice);
-  return next.ok ? ok({ ...attendance, status: next.value, updatedAt: now }) : next;
+  // The two have to be the same meetup, or the timing guard above is answered
+  // by somebody else's evening: an already-ended confirmation would authorise
+  // `was_there` on a row belonging to a meetup that has not happened.
+  if (attendance.confirmationId !== confirmation.id) {
+    return err({
+      code: 'attendance_wrong_confirmation',
+      from: attendance.status,
+      to: choice,
+    });
+  }
+
+  const moment = { meetupEnd: confirmation.candidate.end, now };
+  const next = updateAttendance(attendance.status, choice, moment);
+  if (!next.ok) return next;
+  if (attendance.status === choice) return ok(attendance);
+  return ok({ ...attendance, status: next.value, updatedAt: now });
 }
 
 export type AttendanceCounts = Readonly<Record<AttendanceStatus, number>>;

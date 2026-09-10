@@ -15,6 +15,7 @@
  */
 
 import { type Instant, toISO } from '../shared/instant.js';
+import { isTokenFree } from './links.js';
 import type { Confirmation } from './types.js';
 
 /** RFC 5545 §3.1: lines are at most 75 octets, excluding the CRLF. */
@@ -40,27 +41,14 @@ export type IcsInput = {
   /**
    * The plan's short link, which the description invites people to open.
    *
-   * Must carry **no token**: the invite secret rides in a URL fragment and
-   * action tokens ride in query strings (architecture §14), and an `.ics` is
-   * forwarded, synced to other devices and indexed by desktop search. Passing
-   * one throws rather than being quietly dropped — a silent drop is how the
-   * check stops being a check.
+   * Must be a bare `http(s)` link with **no token**: the invite secret rides in
+   * a URL fragment and action tokens ride in query strings (architecture §14),
+   * and an `.ics` is forwarded, synced to other devices and indexed by desktop
+   * search. Anything else throws rather than being quietly dropped — a silent
+   * drop is how the check stops being a check.
    */
   readonly url?: string | undefined;
 };
-
-/**
- * Whether a link is safe to put in a file that will be forwarded: no query
- * string and no fragment, which is where every secret this product has rides.
- */
-export function isTokenFree(value: string): boolean {
-  try {
-    const url = new URL(value);
-    return url.search === '' && url.hash === '';
-  } catch {
-    return false;
-  }
-}
 
 /** `2026-09-17T08:30:00.000Z` → `20260917T083000Z`. */
 export function toIcsUtc(value: Instant): string {
@@ -134,7 +122,10 @@ export function icsFor(input: IcsInput): string {
   const { confirmation, circleName, title, identity, stamp, url } = input;
 
   if (url !== undefined && !isTokenFree(url)) {
-    throw new RangeError(`ics: refusing to embed a link carrying a token: ${url}`);
+    // The offending value is deliberately absent: an exception message reaches
+    // a log, and a token in a log is the thing this check exists to prevent
+    // (non-negotiable 8). The caller knows which URL it passed.
+    throw new RangeError('ics: refusing to embed anything but a bare http(s) link');
   }
 
   const body = description(confirmation, url);
@@ -157,13 +148,34 @@ export function icsFor(input: IcsInput): string {
       ? []
       : [property('LOCATION', escapeText(confirmation.placeName))]),
     ...(body === undefined ? [] : [property('DESCRIPTION', escapeText(body))]),
-    property('STATUS', confirmation.status === 'cancelled' ? 'CANCELLED' : 'CONFIRMED'),
+    property('STATUS', icsStatus(confirmation.status)),
     'END:VEVENT',
     'END:VCALENDAR',
   ];
 
   // A trailing CRLF: the last line needs its terminator like any other.
   return `${lines.join(CRLF)}${CRLF}`;
+}
+
+/**
+ * `STATUS` for a confirmation's own status.
+ *
+ * A **superseded** confirmation is cancelled as far as a calendar is concerned:
+ * "Thursday is off the table" (spec §5.7), and a file exported for the old time
+ * after a reschedule would otherwise import as a live event. Written as an
+ * exhaustive map rather than "cancelled or else confirmed", so a fifth status
+ * cannot arrive and quietly default to live. A **completed** meetup happened,
+ * so it stays on the calendar as what it was.
+ */
+export function icsStatus(status: Confirmation['status']): 'CONFIRMED' | 'CANCELLED' {
+  switch (status) {
+    case 'active':
+    case 'completed':
+      return 'CONFIRMED';
+    case 'superseded':
+    case 'cancelled':
+      return 'CANCELLED';
+  }
 }
 
 /** The filename to offer the download as. ASCII only, for old browsers. */

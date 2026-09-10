@@ -32,6 +32,7 @@ export function plan(overrides: Overrides<Plan> = {}): Plan {
       requiredMemberIds: [userId('user-owner')],
       responseDeadline: fromISO('2026-09-15T08:00:00Z'),
       revision: 1,
+      inputVersion: 1,
       scoringVersion: 1,
       shortCode: 'abc123',
     },
