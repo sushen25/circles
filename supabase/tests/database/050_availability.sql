@@ -56,7 +56,7 @@ select pg_temp.act_as('00000000-0000-0000-0000-0000000002a1');
 select public.create_circle('Sunday Crew', 'sky', 'Australia/Melbourne', 'key-avail');
 
 select pg_temp.act_as_postgres();
-create temporary table t as select id as circle_id from public.circles where name = 'Sunday Crew';
+create temporary table t as select id as circle_id from public.circles where creation_key = 'key-avail';
 grant select on t to anon, authenticated, service_role;
 
 -- Cast, because a `union all` of quoted literals resolves them to text before
@@ -487,7 +487,7 @@ select lives_ok(
     from public.plans where id = '%s'$$, (select plan_id from tp)),
   'the service role writes a candidate set'
 );
-create temporary table tcs as select id as set_id from public.candidate_sets;
+create temporary table tcs as select id as set_id from public.candidate_sets where plan_id = (select plan_id from tp);
 grant select on tcs to anon, authenticated, service_role;
 
 select lives_ok(

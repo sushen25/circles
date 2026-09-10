@@ -177,6 +177,26 @@ The service-role key is never set by hand: Supabase injects it into functions.
 It must not appear in the client or the repository (§14). gitleaks runs on every
 PR; a green run is evidence, not a formality.
 
+**Database settings the cron job reads — set once per project, after the first
+deploy, never in a migration** (`0007_cron_retention.sql` explains why):
+
+```sql
+alter database postgres set circles.functions_url = 'https://<ref>.supabase.co/functions/v1';
+alter database postgres set circles.cron_secret = '<the same value as CRON_SECRET>';
+```
+
+`CRON_SECRET` is also set with `supabase secrets set`, because
+`process-scheduled-jobs` compares the bearer it receives against it. Until both
+settings exist the minute job is a no-op — `jobs.invoke_process_scheduled_jobs()`
+returns null and makes no call — so a fresh project or a local stack does not
+log a failed HTTP call every minute. To check a project: run the function by
+hand and read `cron.job_run_details` for the `process-jobs` job.
+
+A database setting is readable by any role that can open a connection, so this
+one guards only the cron → function hop and is not the service-role key. The
+job command in `cron.job` calls the definer function rather than spelling the
+header out, and the function is executable by nobody but the owner.
+
 ## The EAS account
 
 The project, the paid plan and the CI robot must all be on **`sushen25s-team`**.
