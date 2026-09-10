@@ -7,7 +7,7 @@
 -- apart on its own.
 
 begin;
-select plan(56);
+select plan(63);
 
 -- ---------------------------------------------------------------------------
 -- Fixtures. `handle_new_user()` makes the profile, which is part of what is
@@ -403,6 +403,97 @@ select throws_ok(
   null,
   'nobody promotes themselves to a saved place by updating a row'
 );
+
+-- ---------------------------------------------------------------------------
+-- Short codes are the ones the routes accept.
+-- ---------------------------------------------------------------------------
+
+select pg_temp.act_as_postgres();
+select matches(
+  (select short_code from public.circles where id = (select id from t_circle)),
+  '^[a-hjkmnp-z2-9]{6,12}$',
+  'the generated short code satisfies the ShortCode contract'
+);
+select throws_ok(
+  format(
+    $$update public.circles set short_code = 'l0okalike' where id = '%s'$$,
+    (select id from t_circle)
+  ),
+  '23514',
+  null,
+  'a code with characters that look like each other is refused'
+);
+
+-- ---------------------------------------------------------------------------
+-- A time zone is one the database knows.
+--
+-- `create_circle` is reached by RPC, so the Zod contract on the way in can be
+-- skipped entirely; every member of the circle would then hit a formatting
+-- error on a value one person typed.
+-- ---------------------------------------------------------------------------
+
+select pg_temp.act_as('00000000-0000-0000-0000-00000000a003');
+select throws_ok(
+  $$select public.create_circle('Mars Crew', 'sky', 'Mars/Olympus')$$,
+  '23514',
+  'Mars/Olympus is not an IANA time zone',
+  'a zone nobody has heard of is refused at the boundary'
+);
+select lives_ok(
+  $$select public.create_circle('Kathmandu Crew', 'sky', 'Asia/Kathmandu')$$,
+  'and a real one, three quarters of an hour off the hour, is fine'
+);
+
+-- ---------------------------------------------------------------------------
+-- Two active members of one circle cannot share a name.
+--
+-- In the database, because two people redeeming an invite at once is exactly
+-- when an application-level check loses.
+-- ---------------------------------------------------------------------------
+
+-- On the Kathmandu circle, which Tom owns and has room in — the Sunday Crew is
+-- full by this point in the file.
+select pg_temp.act_as_postgres();
+create temporary table t_other as
+  select id from public.circles where name = 'Kathmandu Crew';
+grant select on t_other to anon, authenticated;
+
+select pg_temp.make_user('00000000-0000-0000-0000-00000000d001', 'Tom Again');
+select throws_ok(
+  format(
+    $$insert into public.circle_members (circle_id, user_id, display_name_snapshot)
+      values ('%s', '%s', '  tom ')$$,
+    (select id from t_other), '00000000-0000-0000-0000-00000000d001'
+  ),
+  '23505',
+  null,
+  'a second Tom is refused, whatever the case and spacing'
+);
+select lives_ok(
+  format(
+    $$insert into public.circle_members (circle_id, user_id, display_name_snapshot)
+      values ('%s', '%s', 'Tam')$$,
+    (select id from t_other), '00000000-0000-0000-0000-00000000d001'
+  ),
+  'a different name is fine'
+);
+
+-- …and the name is freed when the first one leaves, because the index is on
+-- active memberships rather than on rows.
+savepoint before_name_reuse;
+select pg_temp.make_user('00000000-0000-0000-0000-00000000d002', 'Third');
+update public.circle_members set status = 'removed'
+where circle_id = (select id from t_other)
+  and user_id = '00000000-0000-0000-0000-00000000d001';
+select lives_ok(
+  format(
+    $$insert into public.circle_members (circle_id, user_id, display_name_snapshot)
+      values ('%s', '%s', 'Tam')$$,
+    (select id from t_other), '00000000-0000-0000-0000-00000000d002'
+  ),
+  'and freed once the first one leaves'
+);
+rollback to savepoint before_name_reuse;
 
 -- ---------------------------------------------------------------------------
 -- An owner stays a member.

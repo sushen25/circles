@@ -88,7 +88,12 @@ create table public.circles (
   constraint circles_default_duration check (default_duration_minutes in (60, 90, 120, 180)),
   -- Two is the floor the domain's `quorumDefault` never goes below: a meetup of
   -- one is not a meetup.
-  constraint circles_default_quorum check (default_quorum is null or default_quorum >= 2)
+  constraint circles_default_quorum check (default_quorum is null or default_quorum >= 2),
+  -- The `ShortCode` contract, in the database: lowercase, six to twelve, and no
+  -- character that looks like another one, because these are read aloud and
+  -- retyped. A generator that drifts from it fails here rather than persisting
+  -- a code the route will later refuse.
+  constraint circles_short_code_shape check (short_code ~ '^[a-hjkmnp-z2-9]{6,12}$')
 );
 
 comment on table public.circles is
@@ -124,6 +129,17 @@ comment on table public.circle_members is
 -- `auth_is_member` runs on every policy evaluation, so its lookup is by
 -- (circle_id, user_id) — the primary key. This one is for the other direction:
 -- "which circles am I in", the query circle list makes on every app open.
+-- "Duplicate active names in a circle are prevented" (spec §5.1). In the
+-- database rather than in the join flow, because two people redeeming an invite
+-- at once is exactly when an application-level check loses: the second write
+-- reads a roster that does not yet contain the first.
+--
+-- Case- and space-insensitive, because "priya" and "Priya " are the same person
+-- to everybody reading the roster.
+create unique index circle_members_active_name_idx
+  on public.circle_members (circle_id, lower(btrim(display_name_snapshot)))
+  where status = 'active';
+
 create index circle_members_user_id_idx on public.circle_members (user_id);
 create index circle_members_active_idx on public.circle_members (circle_id) where status = 'active';
 
@@ -309,6 +325,45 @@ create constraint trigger circle_members_owner_stays
   for each row execute function public.enforce_owner_stays_member();
 
 -- ---------------------------------------------------------------------------
+-- Time zones.
+--
+-- "Times are stored as instants with an IANA zone" — a zone the database does
+-- not recognise is not one. A check constraint cannot do this: `pg_timezone_names`
+-- is a view over the tz database and is not immutable, so the rule is a trigger.
+--
+-- It matters because `create_circle` is a definer function reached by RPC,
+-- which means the Zod contract on the way in can be skipped entirely. Every
+-- member of the circle would then hit a formatting error on a value one person
+-- typed.
+-- ---------------------------------------------------------------------------
+
+create or replace function public.enforce_iana_zone()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+declare
+  zone text := row_to_json(new) ->> tg_argv[0];
+begin
+  if not exists (select 1 from pg_catalog.pg_timezone_names z where z.name = zone) then
+    raise exception '% is not an IANA time zone', zone using errcode = 'check_violation';
+  end if;
+  return new;
+end;
+$$;
+
+comment on function public.enforce_iana_zone() is
+  'Rejects a time zone the database does not know. A trigger rather than a check because pg_timezone_names is not immutable.';
+
+create trigger circles_iana_zone
+  before insert or update of time_zone on public.circles
+  for each row execute function public.enforce_iana_zone('time_zone');
+
+create trigger profiles_iana_zone
+  before insert or update of time_zone on public.profiles
+  for each row execute function public.enforce_iana_zone('time_zone');
+
+-- ---------------------------------------------------------------------------
 -- The signup trigger.
 --
 -- `is_permanent` is derived from the auth row rather than trusted from a
@@ -462,6 +517,8 @@ revoke all on function public.touch_updated_at() from public;
 revoke all on function public.enforce_member_cap() from public;
 revoke all on function public.enforce_owner_is_member() from public;
 revoke all on function public.enforce_owner_stays_member() from public;
+revoke all on function public.enforce_iana_zone() from public;
+revoke all on function public.enforce_iana_zone() from anon, authenticated;
 revoke all on function public.handle_new_user() from public;
 revoke all on function public.handle_user_updated() from public;
 revoke all on function public.auth_is_member(uuid) from public;
@@ -501,10 +558,13 @@ security definer
 set search_path = ''
 as $$
 declare
+  -- The `ShortCode` contract's alphabet (`packages/contracts/src/ids.ts`).
+  alphabet constant text := 'abcdefghjkmnpqrstuvwxyz23456789';
   caller uuid := (select auth.uid());
   caller_name text;
   created public.circles;
   code text;
+  i integer;
 begin
   if not public.auth_is_permanent() then
     -- The organiser gate (ADR 0004). Worded as a practical need by the client;
@@ -518,12 +578,20 @@ begin
     raise exception 'no profile for %', caller using errcode = 'foreign_key_violation';
   end if;
 
-  -- 8 characters of base32-ish alphabet from 5 random bytes. Not a secret and
-  -- not required to be unguessable — the invite secret is the capability, and
-  -- it never reaches a server (§14). The unique index is what makes the retry
-  -- loop terminate honestly rather than a hope about collisions.
+  -- Ten characters from the `ShortCode` alphabet — no `0`/`o`, no `1`/`l`/`i`,
+  -- because a short code is read aloud and retyped. Not a secret and not
+  -- required to be unguessable: the invite secret is the capability, and it
+  -- never reaches a server (§14). The loop retries on collision rather than
+  -- hoping there is none.
   loop
-    code := lower(encode(extensions.gen_random_bytes(5), 'hex'));
+    code := '';
+    for i in 1..10 loop
+      code := code || substr(
+        alphabet,
+        1 + (get_byte(extensions.gen_random_bytes(1), 0) % length(alphabet)),
+        1
+      );
+    end loop;
     exit when not exists (select 1 from public.circles c where c.short_code = code);
   end loop;
 

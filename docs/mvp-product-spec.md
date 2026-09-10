@@ -461,7 +461,7 @@ confirmed | ready | collecting ─cancel──▶ cancelled
 ## 9. Edge cases that must be designed, not deferred
 
 - A guest returns with no session (expected, not rare): Continue as; emailed re-entry; owner sees rejoins; duplicate memberships are removable by the owner.
-- A guest joins twice from different devices before reattaching: duplicate names shown; owner removes one.
+- A guest joins twice from different devices before reattaching: the second device is asked for a different display name, because duplicate active names in a circle are prevented (§5.1); the owner sees two memberships and removes one.
 - Membership changes during a plan: removed members are excluded on recalculation; new members may opt into the active plan.
 - A required person leaves: the plan becomes ineligible until the organiser changes required members or cancels.
 - Nobody meets quorum: near-misses and explicit resolution actions.
