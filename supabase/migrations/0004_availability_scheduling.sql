@@ -487,8 +487,9 @@ begin
     perform planning.transition_plan(plan.id, 'candidates_gone', caller);
   end if;
 
-  -- TODO(S1-11): write `availability.response_submitted` to `jobs.outbox` here.
-  -- `020_outbox_dependency.sql` fails the build the day the table appears.
+  -- `availability.response_submitted` is written to `jobs.outbox` by the row
+  -- trigger on `plan_responses` (0006), in this transaction: one event per
+  -- answer, because the upsert above touches the row exactly once.
 
   return response;
 end;
@@ -691,7 +692,8 @@ begin
 
   perform set_config('circles.in_transition', 'off', true);
 
-  -- TODO(S1-11): write the planning.* outbox event here, in this transaction.
+  -- The outbox event is written by the redefinition of this function in 0006,
+  -- which is this body plus `jobs.emit`.
 
   return plan;
 end;

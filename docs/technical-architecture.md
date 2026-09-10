@@ -163,7 +163,7 @@ Context map: **Circles** is upstream of everything (membership is the authorisat
 
 ### 6.3 Domain events
 
-Emitted by aggregates, persisted in `public.domain_events` (outbox) by the same transaction that changes state, consumed by the Communication and Analytics contexts through the scheduled dispatcher. Names are past-tense, namespaced by context.
+Emitted by aggregates, persisted in `jobs.outbox` (ADR 0003) by the same transaction that changes state — through `jobs.emit()`, from row triggers for facts about rows (circle created, member joined/removed, response submitted/cleared, attendance updated) and from `planning.transition_plan()` for transitions (`planning.event_for(from_state, action)` names the event) — consumed by the Communication and Analytics contexts through the scheduled dispatcher. Names are past-tense, namespaced by context.
 
 ```text
 circles.circle_created          circles.member_joined         circles.member_removed
@@ -409,22 +409,23 @@ All ids are `uuid` (v7 where ordering helps). All tables have `created_at`, `upd
 | `private.push_devices` | `user_id`, `expo_push_token`, `platform`, `enabled`, `last_error_at` | token unique |
 | `private.email_contacts` | `user_id`, `email_normalized`, `email_hash`, `verified_at`, `status`, `suppressed_at`, `suppression_reason` | hash unique |
 | `private.email_subscriptions` | `contact_id`, `user_id`, `scope` (`plan_updates`), `plan_id`, `status`, `consented_at`, `withdrawn_at`, `consent_text_version` | `plan_id` required for `plan_updates` |
-| `private.email_action_tokens` | `contact_id`, `purpose` (`verify|prefs|reentry`), `token_hash`, `expires_at`, `used_at`, `membership_id` (for `reentry`) | hash unique; single use |
+| `private.email_action_tokens` | `contact_id`, `purpose` (`verify|prefs|reentry`), `token_hash`, `expires_at`, `used_at`, `membership_circle_id` + `membership_user_id` (required for `reentry`, forbidden otherwise) | hash unique; single use by `used_at` in the consuming statement |
 | `private.email_delivery_events` | `job_id`, `provider_message_id`, `event_type`, `provider_occurred_at`, `recorded_at` | unique `(provider_message_id, event_type)` |
-| `jobs.notification_jobs` | `channel` (`push|email`), `kind`, `user_id`, `contact_id`, `plan_id`, `plan_revision`, `scheduled_for`, `idempotency_key`, `status`, `attempt_count`, `last_error` | `idempotency_key` unique |
-| `jobs.outbox` | `event_name`, `aggregate_type`, `aggregate_id`, `payload`, `occurred_at`, `processed_at` | |
+| `jobs.notification_jobs` | `channel` (`push|email`), `kind` (a `NotificationKind`), `user_id`, `contact_id`, `plan_id`, `plan_revision`, `scheduled_for`, `idempotency_key`, `status` (`scheduled|sent|failed|skipped`), `attempt_count`, `last_error`, `sent_at`, `provider_message_id` | `idempotency_key` unique, 64 hex (the domain's SHA-256); push needs `user_id`, email needs `contact_id` |
+| `jobs.outbox` | `seq` (drain order), `event_name`, `aggregate_type`, `aggregate_id`, `payload`, `occurred_at`, `processed_at`, `attempts`, `last_error` | `event_name` in the §6.3 catalogue; payload is an object carrying no `name|email|note|title|token|place_name|cancel_note` key; written only through `jobs.emit()` |
+| `jobs.cron_leases` | `name`, `leased_until`, `holder`, `last_started_at`, `last_finished_at` | one row per cron job |
 
 **Growth (`public`)**
 
 | Table | Columns of note | Constraints |
 |---|---|---|
-| `nudge_states` | `user_id`, `moment`, `plan_id`, `shown_at`, `answer` (`dismissed|tapped`), `snoozed_until` | unique `(user_id, moment, plan_id)` |
+| `nudge_states` | `user_id`, `moment` (the catalogue's two `moment` enums), `plan_id` (null for a moment not about a plan), `shown_at`, `answer` (`dismissed|tapped`), `snoozed_until` | unique `(user_id, moment, plan_id)` with nulls not distinct; own rows only; a plan-bound row only for a plan in one's circles |
 
 **Analytics & audit**
 
 | Table | Columns of note |
 |---|---|
-| `analytics.events` | `event_name`, `schema_version`, `user_id`, `anonymous_id`, `circle_id`, `plan_id`, `properties jsonb`, `occurred_at` — validated against the catalogue in the ingest function |
+| `analytics.events` | `event_name`, `schema_version`, `user_id`, `anonymous_id`, `circle_id`, `plan_id`, `properties jsonb`, `occurred_at`, `received_at` — validated against the catalogue in the ingest function; no foreign keys (events outlive rows; deletion nulls identifiers); the table refuses a content key in `properties` |
 | `private.audit_log` | `actor_user_id`, `action`, `resource_type`, `resource_id`, `metadata`, `occurred_at` |
 
 ### 8.3 Plan state machine, enforced in one place
