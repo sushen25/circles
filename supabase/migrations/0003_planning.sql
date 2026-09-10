@@ -50,9 +50,9 @@ insert into planning.transitions (from_state, action, to_state, guards, bumps_re
   ('draft', 'create_quiet', 'seeking', array['member','permanent'], false),
   ('seeking', 'threshold_reached', 'collecting', array[]::text[], false),
   ('seeking', 'expire', 'expired', array[]::text[], false),
-  ('collecting', 'accept_organiser', 'collecting', array['member','permanent','no_organiser_yet'], false),
-  ('ready', 'accept_organiser', 'ready', array['member','permanent','no_organiser_yet'], false),
-  ('seeking', 'cancel', 'cancelled', array['organiser'], false),
+  ('collecting', 'accept_organiser', 'collecting', array['member','permanent','no_organiser_yet','keen_or_initiator'], false),
+  ('ready', 'accept_organiser', 'ready', array['member','permanent','no_organiser_yet','keen_or_initiator'], false),
+  ('seeking', 'cancel', 'cancelled', array['initiator'], false),
   ('collecting', 'candidates_ready', 'ready', array[]::text[], false),
   ('collecting', 'edit', 'collecting', array['organiser'], true),
   ('collecting', 'expire', 'expired', array[]::text[], false),
@@ -335,10 +335,17 @@ create trigger plans_touch_updated_at
 -- ---------------------------------------------------------------------------
 -- Nothing else writes `state`.
 --
--- The guard is a trigger rather than a revoked column privilege, because
--- `transition_plan` is a definer function running as the table's owner and a
--- column grant would not restrain it — the thing being restrained here is
--- *everything except one function*, which is not a role.
+-- Two mechanisms, because neither covers the other's case.
+--
+-- **A column privilege**, revoked from `service_role` below. That is the caller
+-- the Edge Functions run as, and it is the one that matters: a `set_config`
+-- marker is a *convention*, and any caller that can update the table can set it
+-- first. Privileges cannot be manufactured by the code they restrain.
+--
+-- **The trigger**, for the case a privilege cannot reach: the table's owner,
+-- which is `postgres` — migrations, psql, and `transition_plan` itself. The
+-- marker is honest there, because at that point the caller is trusted and what
+-- is being prevented is a mistake rather than an attack.
 -- ---------------------------------------------------------------------------
 
 create or replace function public.enforce_state_through_transition()
@@ -439,6 +446,30 @@ begin
         if plan.organiser_user_id is not null then
           raise exception 'already_has_organiser' using errcode = 'P0001';
         end if;
+      when 'initiator' then
+        -- Read from `private.plan_initiators`, which is why this check belongs
+        -- in a definer function: the fact has to be *checkable* without being
+        -- *readable*, and there is nowhere else it could live without the plan
+        -- row carrying it (spec §5.4, §8.2).
+        if not exists (
+          select 1 from private.plan_initiators pi
+          where pi.plan_id = plan.id and pi.initiator_user_id = p_actor
+        ) then
+          raise exception 'not_the_initiator' using errcode = 'P0001';
+        end if;
+      when 'keen_or_initiator' then
+        -- Architecture §9.1: "accept-organiser | keen member (quiet) or
+        -- initiator". Somebody who answered `not_this_time`, or never answered,
+        -- is not being offered the job of arranging it.
+        if not exists (
+          select 1 from private.plan_interest i
+          where i.plan_id = plan.id and i.user_id = p_actor and i.response = 'keen'
+        ) and not exists (
+          select 1 from private.plan_initiators pi
+          where pi.plan_id = plan.id and pi.initiator_user_id = p_actor
+        ) then
+          raise exception 'not_keen_or_initiator' using errcode = 'P0001';
+        end if;
       when 'candidate' then
         -- Presence, not eligibility — and presence is not the property this
         -- guard claims. The domain requires the id to be in the *current*
@@ -503,6 +534,13 @@ comment on function planning.transition_plan(uuid, text, uuid, jsonb) is
 revoke all on function planning.transition_plan(uuid, text, uuid, jsonb) from public;
 revoke all on function planning.transition_plan(uuid, text, uuid, jsonb) from anon, authenticated;
 
+-- The Edge Functions are the caller (architecture §9.1), and they hold
+-- `service_role`. A custom schema grants no `usage` by default, so without
+-- these two lines the documented path returns a permission error rather than a
+-- transition — the function existed and nothing could reach it.
+grant usage on schema planning to service_role;
+grant execute on function planning.transition_plan(uuid, text, uuid, jsonb) to service_role;
+
 revoke all on function public.plan_last_possible_start(date, integer, integer, text) from public;
 revoke all on function public.plan_last_possible_start(date, integer, integer, text)
   from anon, authenticated;
@@ -551,6 +589,24 @@ create policy plan_required_members_select_member on public.plan_required_member
 revoke all on public.plans from anon, authenticated;
 revoke all on public.plan_participants from anon, authenticated;
 revoke all on public.plan_required_members from anon, authenticated;
+
+-- `state` is not writable by the role the Edge Functions run as.
+--
+-- The table-wide grant has to go first: revoking one *column* leaves a
+-- table-level `update` in place, and a table-level update covers every column.
+-- What is granted back is the pair of counters an Edge Function legitimately
+-- moves without a transition — `submit-availability` bumps `input_version`
+-- (§9.1) and `recalculate-candidates` records the engine version it used.
+-- Everything else about a plan changes through `transition_plan`, which runs as
+-- the table's owner and so is not restrained by this. That is the point: the
+-- function is the exception, and it is one the caller cannot grant themselves.
+--
+-- This covers `update`. A service-role `insert` can still choose a starting
+-- state — every plan should be born in `draft` and walk from there — and that
+-- is closed when `create-plan` becomes a definer RPC beside `create_circle`
+-- (S1-15, noted on SUS-31).
+revoke update on public.plans from service_role;
+grant update (input_version, scoring_version) on public.plans to service_role;
 
 grant select on public.plans to authenticated;
 grant select on public.plan_participants to authenticated;

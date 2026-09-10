@@ -8,7 +8,7 @@
 -- either, so most of this file is about trying to write it some other way.
 
 begin;
-select plan(61);
+select plan(68);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid
@@ -123,7 +123,28 @@ select ok(
   not has_function_privilege(
     'authenticated', 'planning.transition_plan(uuid,text,uuid,jsonb)', 'execute'
   ),
-  'and none can call transition_plan directly — Edge Functions do, as the service role'
+  'and none can call transition_plan directly'
+);
+
+-- The documented caller has to be able to call it. A function nothing can reach
+-- is not a safe function, it is a broken one.
+select ok(
+  has_schema_privilege('service_role', 'planning', 'usage'),
+  'the service role can reach the planning schema'
+);
+select ok(
+  has_function_privilege(
+    'service_role', 'planning.transition_plan(uuid,text,uuid,jsonb)', 'execute'
+  ),
+  'and call transition_plan — this is the Edge Functions'' path (§9.1)'
+);
+
+-- …and cannot go around it. The marker the trigger reads is a custom GUC, which
+-- any caller able to update the table could have set first; the privilege is
+-- what the caller cannot manufacture.
+select ok(
+  not has_column_privilege('service_role', 'public.plans', 'state', 'update'),
+  'the service role cannot write plans.state at all, marker or no marker'
 );
 
 -- ---------------------------------------------------------------------------
@@ -236,6 +257,10 @@ select throws_ok(
 
 -- The organiser gate, ADR 0004, from the server side this time.
 select pg_temp.make_plan('pncccc', 'collecting', 'quiet', null) as plan_quiet \gset
+insert into private.plan_initiators (plan_id, initiator_user_id)
+values (:'plan_quiet', '00000000-0000-0000-0000-0000000001a1');
+insert into private.plan_interest (plan_id, user_id, response)
+values (:'plan_quiet', '00000000-0000-0000-0000-0000000001a2', 'keen');
 select throws_ok(
   format($$select planning.transition_plan('%s', 'accept_organiser', '%s')$$,
     :'plan_quiet', '00000000-0000-0000-0000-0000000001a9'),
@@ -267,6 +292,53 @@ select throws_ok(
   'P0001',
   'already_has_organiser',
   'and nobody takes it twice'
+);
+
+-- ---------------------------------------------------------------------------
+-- The two guards that read `private`, and could not be checked anywhere else.
+-- ---------------------------------------------------------------------------
+
+select pg_temp.act_as_postgres();
+select pg_temp.make_plan('pnqqqq', 'collecting', 'quiet', null) as plan_keen \gset
+insert into private.plan_initiators (plan_id, initiator_user_id)
+values (:'plan_keen', '00000000-0000-0000-0000-0000000001a1');
+insert into private.plan_interest (plan_id, user_id, response)
+values (:'plan_keen', '00000000-0000-0000-0000-0000000001a2', 'not_this_time');
+
+select throws_ok(
+  format($$select planning.transition_plan('%s', 'accept_organiser', '%s')$$,
+    :'plan_keen', '00000000-0000-0000-0000-0000000001a2'),
+  'P0001',
+  'not_keen_or_initiator',
+  'somebody who said not this time is not offered the job of arranging it'
+);
+select is(
+  (select organiser_user_id from planning.transition_plan(:'plan_keen', 'accept_organiser',
+    '00000000-0000-0000-0000-0000000001a1')),
+  '00000000-0000-0000-0000-0000000001a1'::uuid,
+  'the initiator can take it, without their identity leaving `private`'
+);
+
+-- Withdrawing before threshold. The guard used to be `organiser`, and a seeking
+-- plan has no organiser by definition — so the row was in the table and could
+-- never fire for anybody.
+select pg_temp.act_as_postgres();
+select pg_temp.make_plan('pnrrrr', 'seeking', 'quiet', null) as plan_wd \gset
+insert into private.plan_initiators (plan_id, initiator_user_id)
+values (:'plan_wd', '00000000-0000-0000-0000-0000000001a1');
+
+select throws_ok(
+  format($$select planning.transition_plan('%s', 'cancel', '%s')$$,
+    :'plan_wd', '00000000-0000-0000-0000-0000000001a2'),
+  'P0001',
+  'not_the_initiator',
+  'another member cannot withdraw somebody else''s quiet ask'
+);
+select is(
+  (select state from planning.transition_plan(:'plan_wd', 'cancel',
+    '00000000-0000-0000-0000-0000000001a1')),
+  'cancelled',
+  'and the initiator can (spec §5.4)'
 );
 
 -- ---------------------------------------------------------------------------
@@ -432,8 +504,9 @@ select is(
 );
 
 select pg_temp.act_as_postgres();
-select pg_temp.make_plan('pnmmmm', 'seeking', 'quiet',
-  '00000000-0000-0000-0000-0000000001a1') as plan_withdrawn \gset
+select pg_temp.make_plan('pnmmmm', 'seeking', 'quiet', null) as plan_withdrawn \gset
+insert into private.plan_initiators (plan_id, initiator_user_id)
+values (:'plan_withdrawn', '00000000-0000-0000-0000-0000000001a1');
 insert into private.plan_interest (plan_id, user_id, response)
 values (:'plan_withdrawn', '00000000-0000-0000-0000-0000000001a2', 'keen');
 select planning.transition_plan(:'plan_withdrawn', 'cancel',

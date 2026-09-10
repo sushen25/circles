@@ -12,12 +12,19 @@ import {
 } from './state-machine.js';
 import { type PlanState, isTerminal } from './types.js';
 
+/**
+ * Everything at once, so the table-driven test below exercises the *rows*
+ * rather than the actor: a fixture that satisfies only some guards would make a
+ * row's absence and a guard's failure look the same.
+ */
 const ORGANISER: Actor = {
   userId: 'user-owner',
   isPermanent: true,
   isMember: true,
   isOrganiser: true,
   isOwner: true,
+  isInitiator: true,
+  isKeen: true,
 };
 
 const MEMBER: Actor = { ...ORGANISER, userId: 'user-2', isOrganiser: false, isOwner: false };
@@ -62,6 +69,44 @@ describe('the transition table', () => {
     for (const t of TRANSITIONS.filter((x) => x.bumpsRevision === true)) {
       expect(['edit', 'reopen']).toContain(t.action);
     }
+  });
+});
+
+describe("the quiet ask's two guards", () => {
+  it('lets the initiator withdraw before threshold, and nobody else', () => {
+    // The guard used to be `organiser`, and a seeking plan has no organiser by
+    // definition — so the row was in the table and could never fire for anyone.
+    const seeking = plan({ state: 'seeking', mode: 'quiet', organiserUserId: undefined });
+    const initiator: Actor = { ...MEMBER, isInitiator: true, isKeen: false };
+    const other: Actor = { ...MEMBER, isInitiator: false, isKeen: true };
+
+    expect(isOk(canTransition(seeking, 'cancel', { actor: initiator }))).toBe(true);
+    const refused = canTransition(seeking, 'cancel', { actor: other });
+    expect(isOk(refused)).toBe(false);
+    if (!isOk(refused)) expect(refused.error.code).toBe('not_the_initiator');
+  });
+
+  it('offers the organiser role to the keen and the initiator only', () => {
+    // Architecture §9.1: "accept-organiser | keen member (quiet) or initiator".
+    const collecting = plan({ state: 'collecting', mode: 'quiet', organiserUserId: undefined });
+    const keen: Actor = { ...MEMBER, isKeen: true, isInitiator: false };
+    const initiator: Actor = { ...MEMBER, isKeen: false, isInitiator: true };
+    const uninterested: Actor = { ...MEMBER, isKeen: false, isInitiator: false };
+
+    expect(isOk(canTransition(collecting, 'accept_organiser', { actor: keen }))).toBe(true);
+    expect(isOk(canTransition(collecting, 'accept_organiser', { actor: initiator }))).toBe(true);
+
+    const refused = canTransition(collecting, 'accept_organiser', { actor: uninterested });
+    expect(isOk(refused)).toBe(false);
+    if (!isOk(refused)) expect(refused.error.code).toBe('not_keen_or_initiator');
+  });
+
+  it('still requires a saved place, however keen somebody is', () => {
+    const collecting = plan({ state: 'collecting', mode: 'quiet', organiserUserId: undefined });
+    const keenGuest: Actor = { ...GUEST, isKeen: true };
+    const refused = canTransition(collecting, 'accept_organiser', { actor: keenGuest });
+    expect(isOk(refused)).toBe(false);
+    if (!isOk(refused)) expect(refused.error.code).toBe('needs_permanent_identity');
   });
 });
 
