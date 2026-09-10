@@ -8,4 +8,3 @@ export * from './confirm.js';
 export * from './attendance.js';
 export * from './outcome.js';
 export * from './ics.js';
-export * from './share-messages.js';
