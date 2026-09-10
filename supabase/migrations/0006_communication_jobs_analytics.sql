@@ -217,12 +217,14 @@ create table jobs.notification_jobs (
   constraint notification_jobs_status check (status in ('scheduled', 'sent', 'failed', 'skipped')),
   constraint notification_jobs_key_shape check (idempotency_key ~ '^[0-9a-f]{64}$'),
   constraint notification_jobs_attempts check (attempt_count >= 0),
-  -- A push goes to a user; an email goes to a contact. Written as a `case` so
-  -- that a null in the wrong column is a refusal, not a pass.
+  -- A push goes to a user; an email goes to a contact — one recipient, named
+  -- one way, so two ids that might belong to two people can never sit on one
+  -- job. Written as a `case` so that a null in the wrong column is a
+  -- refusal, not a pass.
   constraint notification_jobs_recipient check (
     case channel
-      when 'push' then user_id is not null
-      when 'email' then contact_id is not null
+      when 'push' then user_id is not null and contact_id is null
+      when 'email' then contact_id is not null and user_id is null
     end
   ),
   constraint notification_jobs_sent_shape check (
@@ -483,6 +485,13 @@ create table private.audit_log (
   resource_id uuid,
   metadata jsonb not null default '{}'::jsonb,
   occurred_at timestamptz not null default now(),
+  -- `action` is a verb phrase from a fixed vocabulary shape, `resource_type`
+  -- an aggregate name: neither is a place for an exception message or an
+  -- address, and the shape check makes both impossible rather than unlikely.
+  constraint audit_log_action_shape check (action ~ '^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)*$' and char_length(action) <= 60),
+  constraint audit_log_resource_type check (resource_type in (
+    'circle', 'plan', 'response', 'confirmation', 'contact', 'subscription', 'delivery', 'nudge', 'account'
+  )),
   constraint audit_log_metadata_is_object check (jsonb_typeof(metadata) = 'object'),
   constraint audit_log_metadata_carries_no_content check (not jobs.carries_content(metadata))
 );
@@ -803,7 +812,11 @@ as $$
     when 'accept_organiser' then 'planning.organiser_accepted'
     when 'edit' then 'planning.plan_revised'
     when 'candidates_ready' then 'scheduling.candidates_generated'
-    when 'candidates_gone' then 'scheduling.no_eligible_candidates'
+    -- `candidates_gone` is the engine's bookkeeping: an answer moved, the set
+    -- is stale, a recalculation follows. It says nothing about whether options
+    -- exist, so it announces nothing — `scheduling.no_eligible_candidates` is
+    -- the recalculation's to emit, from what it actually found (S1-16).
+    when 'candidates_gone' then null
     when 'confirm' then 'confirmation.meetup_confirmed'
     when 'reopen' then 'confirmation.meetup_rescheduled'
     when 'report_outcome' then 'confirmation.outcome_reported'
@@ -818,7 +831,7 @@ as $$
 $$;
 
 comment on function planning.event_for(text, text) is
-  'The outbox event a transition announces. Total over planning.transitions, by test.';
+  'The outbox event a transition announces. Total over planning.transitions except the named silent bookkeeping actions, by test.';
 
 -- transition_plan, redefined whole from 0004 with the emit in place of the
 -- TODO. The body is otherwise byte-for-byte 0004's; the diff of this file
@@ -1009,9 +1022,10 @@ begin
   -- The event, in the same transaction as the change (ADR 0003). Its name
   -- comes from the transition, not from the caller, and a transition without
   -- a name is refused rather than silently unannounced — `075_outbox_events`
-  -- walks the table so a new row cannot arrive without one.
+  -- walks the table so a new row cannot arrive without one. The one silence is
+  -- named here and there: `candidates_gone`, see `event_for`.
   event_name := planning.event_for(rule.from_state, p_action);
-  if event_name is null then
+  if event_name is null and p_action not in ('candidates_gone') then
     raise exception 'no outbox event for transition % / %', rule.from_state, p_action
       using errcode = 'P0001';
   end if;
@@ -1042,7 +1056,9 @@ begin
   if p_action = 'confirm' then
     event_payload := event_payload || jsonb_build_object('candidate_id', p_payload ->> 'candidate_id');
   end if;
-  perform jobs.emit(event_name, 'plan', plan.id, event_payload);
+  if event_name is not null then
+    perform jobs.emit(event_name, 'plan', plan.id, event_payload);
+  end if;
 
 
   return plan;
@@ -1075,6 +1091,12 @@ create constraint trigger plans_confirmed_has_confirmation
 
 revoke all on function public.enforce_confirmed_has_confirmation() from public;
 revoke all on function public.enforce_confirmed_has_confirmation() from anon, authenticated;
+
+-- 0005 let the service role insert confirmations because confirm-meetup was
+-- going to. It is not, now: `transition_plan` is the one writer, and a row
+-- inserted beside it would sit on the one-active index in the way of a real
+-- confirm. The details remain updatable.
+revoke insert on public.meetup_confirmations from service_role;
 
 -- ---------------------------------------------------------------------------
 -- Privileges

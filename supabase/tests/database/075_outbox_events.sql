@@ -6,7 +6,7 @@
 -- count only (§6.3, §14).
 
 begin;
-select plan(33);
+select plan(36);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid language sql as $$
@@ -118,8 +118,8 @@ select is(
   (select coalesce(string_agg(from_state || '/' || action, ', '), '')
    from planning.transitions
    where planning.event_for(from_state, action) is null),
-  '',
-  'every transition in planning.transitions has an outbox event name'
+  'ready/candidates_gone',
+  'every transition in planning.transitions has an outbox event name, except the one named silence'
 );
 select is(planning.event_for('confirmed', 'cancel'), 'confirmation.meetup_cancelled',
   'cancelling a confirmed meetup is a meetup_cancelled, not a plan_cancelled');
@@ -244,6 +244,20 @@ select is(
   'removing a member announces the removal and the cleared answer'
 );
 
+-- A stale set is not "no options". Make the named plan ready, then move an
+-- answer: it goes back to collecting and says nothing about candidates.
+select planning.transition_plan(:'named', 'candidates_ready', '00000000-0000-0000-0000-0000000005a1');
+select pg_temp.mark() as m8b \gset
+select pg_temp.act_as('00000000-0000-0000-0000-0000000005a3');
+select public.replace_response(:'named', 1, 'not_this_time');
+select pg_temp.act_as_postgres();
+select is(
+  (select array_agg(event_name) from pg_temp.events_since(:'m8b')),
+  array['availability.response_submitted'],
+  'an answer that stales a candidate set announces the answer and not a verdict on the options'
+);
+select is((select state from public.plans where id = :'named'), 'collecting', 'though the plan did go back to collecting');
+
 -- ---------------------------------------------------------------------------
 -- Confirming: the plan, the confirmation, the attendance and the event, in
 -- one call.
@@ -304,6 +318,11 @@ select throws_ok(
   'P0001',
   null,
   'a key confirm does not take is refused'
+);
+select ok(
+  not has_table_privilege('service_role', 'public.meetup_confirmations', 'insert')
+  and has_column_privilege('service_role', 'public.meetup_confirmations', 'note', 'update'),
+  'and nobody else inserts a confirmation — transition_plan is the writer; the details stay editable'
 );
 
 -- The backstop: confirmed with nothing confirmed cannot commit.

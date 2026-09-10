@@ -6,7 +6,7 @@
 -- later with a stray grant fails here by name.
 
 begin;
-select plan(57);
+select plan(61);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid language sql as $$
@@ -187,10 +187,26 @@ select throws_ok(
   'and a payload that is not an object is refused'
 );
 select throws_ok(
-  $$insert into private.audit_log (action, resource_type, metadata) values ('x', 'circle', '{"before": {"name": "Sunday Crew"}}')$$,
+  $$insert into private.audit_log (action, resource_type, metadata) values ('circle.renamed', 'circle', '{"before": {"name": "Sunday Crew"}}')$$,
   '23514',
   null,
   'the audit log refuses a name at depth'
+);
+select throws_ok(
+  $$insert into private.audit_log (action, resource_type) values ('failed: mail to a@b.com', 'circle')$$,
+  '23514',
+  null,
+  'and an action that is a message rather than a verb'
+);
+select throws_ok(
+  $$insert into private.audit_log (action, resource_type) values ('circle.renamed', 'a@b.com')$$,
+  '23514',
+  null,
+  'and a resource type outside the aggregate vocabulary'
+);
+select lives_ok(
+  $$insert into private.audit_log (action, resource_type, actor_user_id) values ('circle.renamed', 'circle', '00000000-0000-0000-0000-0000000004a1')$$,
+  'while a verb on an aggregate is recorded'
 );
 select throws_ok(
   $$insert into analytics.events (event_name, schema_version, properties) values ('circle_created', 1, '{"circle": {"title": "x"}}')$$,
@@ -256,6 +272,13 @@ select throws_ok(
   '23503',
   null,
   'and one for a contact that does not exist'
+);
+select throws_ok(
+  format($$insert into jobs.notification_jobs (channel, kind, user_id, contact_id, plan_id, plan_revision, scheduled_for, idempotency_key)
+    values ('push', 'locked_in', '00000000-0000-0000-0000-0000000004a2', gen_random_uuid(), '%s', 1, now(), repeat('d', 64))$$, :'plan_a'),
+  '23514',
+  null,
+  'a push job cannot also carry a contact: one recipient, named one way'
 );
 select throws_ok(
   format($$insert into jobs.notification_jobs (channel, kind, user_id, plan_id, plan_revision, scheduled_for, idempotency_key)
