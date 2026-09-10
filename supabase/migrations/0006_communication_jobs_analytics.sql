@@ -34,6 +34,12 @@ grant usage on schema analytics to service_role;
 -- objects inside arrays inside objects — because a check that looks only at
 -- the top level is a promise about the shape the writer happened to use, and
 -- `{"context": {"email": …}}` is a payload somebody will write in good faith.
+--
+-- Keys are matched by *fragment*, not by name: `recipient_email` and
+-- `event_title` are the same leak with a prefix. The fragments are
+-- `FORBIDDEN_PAYLOAD_KEYS` in packages/contracts/analytics.ts — the same list
+-- the analytics catalogue test applies — rendered here by
+-- scripts/gen-events.mjs, so the two cannot drift.
 -- ---------------------------------------------------------------------------
 
 create or replace function jobs.carries_content(p_document jsonb)
@@ -55,11 +61,14 @@ as $$
   )
   select exists (
     select 1
-    from nodes, jsonb_object_keys(case when jsonb_typeof(node) = 'object' then node else '{}'::jsonb end) as k
-    where lower(k) in (
-      'name', 'display_name', 'display_name_snapshot', 'email', 'email_normalized', 'note',
-      'title', 'token', 'token_hash', 'place_name', 'cancel_note'
-    )
+    from nodes,
+      jsonb_object_keys(case when jsonb_typeof(node) = 'object' then node else '{}'::jsonb end) as k,
+      unnest(
+-- BEGIN GENERATED: forbidden key fragments (scripts/gen-events.mjs)
+    array['name', 'email', 'note', 'token', 'title', 'secret', 'address', 'phone', 'message']
+-- END GENERATED: forbidden key fragments
+      ) as fragment
+    where lower(k) like '%' || fragment || '%'
   );
 $$;
 
@@ -82,21 +91,43 @@ create table jobs.outbox (
   processed_at timestamptz,
   attempts integer not null default 0,
   last_error text,
-  -- The catalogue in architecture §6.3, as a constraint. A misspelt event is
+  -- The catalogue — `DOMAIN_EVENT_NAMES` in packages/domain/shared/events.ts,
+  -- rendered by scripts/gen-events.mjs — as a constraint. A misspelt event is
   -- an event nobody consumes, and the build should say so before a dispatcher
-  -- quietly skips it.
+  -- quietly skips it; a name the typed dispatcher cannot represent is refused
+  -- for the same reason.
   constraint outbox_event_name check (event_name in (
-    'circles.circle_created', 'circles.member_joined', 'circles.member_removed',
-    'circles.invite_rotated', 'circles.member_reattached',
-    'planning.plan_created', 'planning.plan_revised', 'planning.plan_expired',
-    'planning.plan_cancelled', 'planning.quiet_ask_created', 'planning.interest_recorded',
-    'planning.threshold_reached', 'planning.organiser_accepted', 'planning.deadline_passed',
-    'availability.response_submitted', 'availability.response_cleared',
-    'scheduling.candidates_generated', 'scheduling.no_eligible_candidates',
-    'confirmation.meetup_confirmed', 'confirmation.meetup_rescheduled', 'confirmation.meetup_cancelled',
-    'confirmation.attendance_updated', 'confirmation.outcome_reported',
-    'communication.contact_verified', 'communication.subscription_changed', 'communication.delivery_recorded',
-    'growth.nudge_shown', 'growth.nudge_answered', 'growth.account_claimed'
+-- BEGIN GENERATED: event names (scripts/gen-events.mjs)
+    'circles.circle_created',
+    'circles.member_joined',
+    'circles.member_removed',
+    'circles.invite_rotated',
+    'circles.member_reattached',
+    'planning.plan_created',
+    'planning.plan_revised',
+    'planning.plan_expired',
+    'planning.plan_cancelled',
+    'planning.quiet_ask_created',
+    'planning.interest_recorded',
+    'planning.threshold_reached',
+    'planning.organiser_accepted',
+    'planning.deadline_passed',
+    'availability.response_submitted',
+    'availability.response_cleared',
+    'scheduling.candidates_generated',
+    'scheduling.no_eligible_candidates',
+    'confirmation.meetup_confirmed',
+    'confirmation.meetup_rescheduled',
+    'confirmation.meetup_cancelled',
+    'confirmation.attendance_updated',
+    'confirmation.outcome_reported',
+    'communication.contact_verified',
+    'communication.subscription_changed',
+    'communication.delivery_recorded',
+    'growth.nudge_shown',
+    'growth.nudge_answered',
+    'growth.account_claimed'
+-- END GENERATED: event names
   )),
   constraint outbox_aggregate_type check (aggregate_type in (
     'circle', 'plan', 'response', 'confirmation', 'contact', 'subscription', 'delivery', 'nudge', 'account'
@@ -151,6 +182,8 @@ create table jobs.notification_jobs (
   -- `NotificationKind` in packages/domain/communication/kinds.ts.
   kind text not null,
   user_id uuid references auth.users (id) on delete cascade,
+  -- References private.email_contacts; the constraint is added once that
+  -- table exists, below.
   contact_id uuid,
   plan_id uuid references public.plans (id) on delete cascade,
   plan_revision integer,
@@ -243,8 +276,11 @@ create table private.email_contacts (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users (id) on delete cascade,
   email_normalized text not null,
-  -- SHA-256 of `email_normalized`; 32 bytes.
-  email_hash bytea not null unique,
+  -- SHA-256 of `email_normalized`, derived — a writer cannot pair an address
+  -- with a hash of something else, so the dedupe and the "already suppressed"
+  -- lookup by hash always find the address they are asked about.
+  email_hash bytea not null unique
+    generated always as (extensions.digest(email_normalized, 'sha256')) stored,
   status text not null default 'pending',
   verified_at timestamptz,
   suppressed_at timestamptz,
@@ -252,7 +288,6 @@ create table private.email_contacts (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint email_contacts_status check (status in ('pending', 'verified', 'suppressed')),
-  constraint email_contacts_hash_length check (octet_length(email_hash) = 32),
   constraint email_contacts_normalized check (
     email_normalized = lower(btrim(email_normalized)) and email_normalized ~ '^[^@[:space:]]+@[^@[:space:]]+$'
   ),
@@ -274,6 +309,13 @@ comment on table private.email_contacts is
   'The only table holding an email address. Hashed for dedupe; suppressed on bounce or complaint immediately and never automatically reactivated (§13, spec §9).';
 
 create index email_contacts_user_idx on private.email_contacts (user_id);
+
+-- `notification_jobs` was created before this table; the reference is made
+-- now. A job for a contact that does not exist is a job that cannot be sent,
+-- and a deleted contact takes its pending jobs with it.
+alter table jobs.notification_jobs
+  add constraint notification_jobs_contact_fkey
+  foreign key (contact_id) references private.email_contacts (id) on delete cascade;
 -- The target of the composite references below: a subscription or a token
 -- names the contact *and* its owner, and the pair has to exist together.
 create unique index email_contacts_id_owner_idx on private.email_contacts (id, user_id);

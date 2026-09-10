@@ -8,6 +8,10 @@ import type { Instant } from './instant.js';
  * analytics. Names are past tense and namespaced by context, because an event
  * is a record of something that happened, not an instruction.
  *
+ * This list is also the check constraint on `jobs.outbox.event_name`:
+ * `scripts/gen-events.mjs` renders it into the migration and `pnpm check`
+ * fails if the two have drifted. Add a name here, run `pnpm gen:events`.
+ *
  * Payloads are `unknown` until each context lands in Slice 1. The names are
  * fixed now so the outbox, the dispatcher and the tests can be written against
  * a closed set rather than a string.
@@ -44,6 +48,10 @@ export const DOMAIN_EVENT_NAMES = [
   'communication.contact_verified',
   'communication.subscription_changed',
   'communication.delivery_recorded',
+
+  'growth.nudge_shown',
+  'growth.nudge_answered',
+  'growth.account_claimed',
 ] as const;
 
 export type DomainEventName = (typeof DOMAIN_EVENT_NAMES)[number];

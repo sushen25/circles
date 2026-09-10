@@ -6,7 +6,7 @@
 -- later with a stray grant fails here by name.
 
 begin;
-select plan(50);
+select plan(54);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid language sql as $$
@@ -147,6 +147,13 @@ select throws_ok(
   null,
   'inside an array too'
 );
+select throws_ok(
+  format($$select jobs.emit('circles.invite_rotated', 'circle', '%s', '{"recipient_email": "x", "event_title": "y"}')$$,
+    (select circle_id from t)),
+  '23514',
+  null,
+  'a prefix does not launder a key: recipient_email and event_title are the same leak'
+);
 select lives_ok(
   format($$select jobs.emit('circles.invite_rotated', 'circle', '%s', '{"context": {"member": {"user_id": "u", "role": "owner"}}}')$$,
     (select circle_id from t)),
@@ -223,6 +230,13 @@ select throws_ok(
   'an email job without a contact is refused'
 );
 select throws_ok(
+  format($$insert into jobs.notification_jobs (channel, kind, contact_id, plan_id, plan_revision, scheduled_for, idempotency_key)
+    values ('email', 'locked_in', gen_random_uuid(), '%s', 1, now(), repeat('b', 64))$$, :'plan_a'),
+  '23503',
+  null,
+  'and one for a contact that does not exist'
+);
+select throws_ok(
   format($$insert into jobs.notification_jobs (channel, kind, user_id, plan_id, plan_revision, scheduled_for, idempotency_key)
     values ('push', 'streak_reminder', '00000000-0000-0000-0000-0000000004a2', '%s', 1, now(), repeat('c', 64))$$, :'plan_a'),
   '23514',
@@ -235,21 +249,33 @@ select throws_ok(
 -- ---------------------------------------------------------------------------
 
 select lives_ok(
-  $$insert into private.email_contacts (user_id, email_normalized, email_hash)
-    values ('00000000-0000-0000-0000-0000000004a2', 'priya@example.com', extensions.digest('priya@example.com', 'sha256'))$$,
+  $$insert into private.email_contacts (user_id, email_normalized)
+    values ('00000000-0000-0000-0000-0000000004a2', 'priya@example.com')$$,
   'a contact is created pending'
+);
+select is(
+  (select email_hash from private.email_contacts where user_id = '00000000-0000-0000-0000-0000000004a2'),
+  extensions.digest('priya@example.com', 'sha256'),
+  'with its hash derived from the address, not supplied'
+);
+select throws_ok(
+  $$insert into private.email_contacts (user_id, email_normalized, email_hash)
+    values ('00000000-0000-0000-0000-0000000004a1', 'other@example.com', extensions.digest('x', 'sha256'))$$,
+  '428C9',
+  null,
+  'and a supplied hash is refused outright'
 );
 select id as contact from private.email_contacts where user_id = '00000000-0000-0000-0000-0000000004a2' \gset
 select throws_ok(
-  $$insert into private.email_contacts (user_id, email_normalized, email_hash)
-    values ('00000000-0000-0000-0000-0000000004a1', 'priya@example.com', extensions.digest('priya@example.com', 'sha256'))$$,
+  $$insert into private.email_contacts (user_id, email_normalized)
+    values ('00000000-0000-0000-0000-0000000004a1', 'priya@example.com')$$,
   '23505',
   null,
   'the same address twice is one contact, by hash'
 );
 select throws_ok(
-  $$insert into private.email_contacts (user_id, email_normalized, email_hash)
-    values ('00000000-0000-0000-0000-0000000004a1', 'Maya@Example.com ', extensions.digest('x', 'sha256'))$$,
+  $$insert into private.email_contacts (user_id, email_normalized)
+    values ('00000000-0000-0000-0000-0000000004a1', 'Maya@Example.com ')$$,
   '23514',
   null,
   'an address that is not normalised is not stored'
@@ -315,8 +341,8 @@ select throws_ok(
   null,
   'nor for a membership that is not the contact owner''s — Priya''s address cannot return the guest'
 );
-insert into private.email_contacts (user_id, email_normalized, email_hash)
-values ('00000000-0000-0000-0000-0000000004a3', 'guest@example.com', extensions.digest('guest@example.com', 'sha256'))
+insert into private.email_contacts (user_id, email_normalized)
+values ('00000000-0000-0000-0000-0000000004a3', 'guest@example.com')
 returning id as guest_contact \gset
 select lives_ok(
   format($$insert into private.email_action_tokens (contact_id, purpose, token_hash, expires_at, membership_circle_id, membership_user_id)
