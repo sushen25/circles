@@ -110,16 +110,22 @@ describe('defaultDeadline', () => {
       expect(defaultDeadline('next_7_days', created, alreadyPast)).toBeUndefined();
     });
 
-    it('never lands before the plan was created', () => {
+    it('gives up the margin rather than the plan when the evening is tight', () => {
       // Created 22:50 with a last start of 23:00: subtracting the margin gives
-      // 22:30, twenty minutes before the plan existed. `resolvePreset` refuses
-      // to offer such a window at all, so reaching this means a caller built
-      // the plan some other way — and the floor keeps the invariant true.
+      // 22:30, twenty minutes before the plan existed. The answer is the last
+      // possible start — ten minutes, which is every minute there is — and not
+      // `createdAt`, which would close replies the moment the plan was saved.
       const created = fromISO('2026-09-17T12:50:00Z');
       const tonightLatest = fromISO('2026-09-17T13:00:00Z');
-      expect(defaultDeadline('tonight', created, tonightLatest)).toBe(created);
-      // …and it still respects the upper bound.
-      expect(defaultDeadline('tonight', created, tonightLatest)).toBeLessThanOrEqual(tonightLatest);
+      expect(defaultDeadline('tonight', created, tonightLatest)).toBe(tonightLatest);
+      expect(defaultDeadline('tonight', created, tonightLatest)).toBeGreaterThan(created);
+    });
+
+    it('has no deadline when the last possible start is this very instant', () => {
+      // The only value satisfying both bounds would be `createdAt` itself, and
+      // a deadline that closes on save is not a deadline.
+      const created = fromISO('2026-09-17T12:50:00Z');
+      expect(defaultDeadline('tonight', created, created)).toBeUndefined();
     });
   });
 });

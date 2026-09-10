@@ -220,7 +220,7 @@ No feed, chat, status posts, likes or generic calendar.
 - Duration: 60, 90, 120 or 180 minutes.
 - Quorum (defaults from the circle; required members count toward it).
 - Required members, optional; the organiser is required by default.
-- Response deadline defaults: tonight — the earlier of 60 minutes after creation and 30 minutes before the last possible start; this weekend / next 7 days — 24 hours; next 14 days — 72 hours. Editable, never after the last possible start.
+- Response deadline defaults: tonight — the earlier of 60 minutes after creation and 30 minutes before the last possible start; this weekend / next 7 days — 24 hours; next 14 days — 72 hours. Editable, never after the last possible start. When a default would fall at or before creation — tonight's margin, on a plan whose last possible start is under 30 minutes away — the default becomes the last possible start rather than the plan being refused ([ADR 0010](decisions/0010-tonight-deadline-gives-up-its-margin.md)).
 
 #### Plan creation result
 

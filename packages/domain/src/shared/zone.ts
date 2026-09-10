@@ -1,7 +1,7 @@
 import { fromZonedTime } from 'date-fns-tz';
 
 import { type Instant, MINUTE_MILLIS, instant } from './instant.js';
-import { type LocalDate, fromParts, localDate } from './local-date.js';
+import { type LocalDate, addDays, fromParts, localDate } from './local-date.js';
 
 /**
  * The only file in the domain that knows what a time zone is.
@@ -220,6 +220,47 @@ export function floorToLocalSlot(value: Instant, z: Zone): Instant {
 /** Up to the next local half hour. */
 export function ceilToLocalSlot(value: Instant, z: Zone): Instant {
   return roundLocal(value, z, Math.ceil);
+}
+
+/** Minutes in a day. `MINUTES_IN_DAY` as an end boundary means midnight. */
+export const MINUTES_IN_DAY = 24 * 60;
+
+/**
+ * The moment a clock in `z` reads this wall time, **as an exclusive end**.
+ *
+ * `fromLocal` refuses 1440 because it is not a time of day — no clock reads
+ * 24:00. As the *end* of a band it is the obvious way to say "until midnight",
+ * and refusing it would mean a band could end at 23:30 but not at midnight,
+ * which is a strange thing to tell somebody. Here it resolves to midnight
+ * opening the next date, which is the same instant.
+ */
+export function fromLocalEnd(date: LocalDate, minutesOfDay: number, z: Zone): Instant {
+  if (minutesOfDay === MINUTES_IN_DAY) return fromLocal(addDays(date, 1), 0, z);
+  return fromLocal(date, minutesOfDay, z);
+}
+
+/**
+ * Every moment in `[from, to)` whose local clock reads a half hour, in order.
+ *
+ * The count is not `(to - from) / 30 minutes`: on the day the clocks go forward
+ * some half hours do not happen, and on the day they go back two of them happen
+ * twice. Walking the local clock is the only way to get the real ones — and the
+ * painter's grid and the engine's start list have to agree about which exist,
+ * so they share this rather than each computing it.
+ */
+export function localSlotStarts(from: Instant, to: Instant, z: Zone): Instant[] {
+  const starts: Instant[] = [];
+  let at = isAlignedToLocalSlot(from, z) ? from : ceilToLocalSlot(from, z);
+
+  while (at < to) {
+    starts.push(at);
+    // A millisecond past the boundary so `ceil` moves on rather than standing
+    // still. It keeps the occurrence, so a repeated hour yields both.
+    const next = ceilToLocalSlot(instant(at + 1), z);
+    if (next <= at) break; // defensive: the clock is not advancing
+    at = next;
+  }
+  return starts;
 }
 
 /**

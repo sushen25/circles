@@ -14,7 +14,7 @@
 import { type Instant } from '../shared/instant.js';
 import { type Interval, contains, intersect, interval, merge } from '../shared/interval.js';
 import { addDays } from '../shared/local-date.js';
-import { ceilToLocalSlot, floorToLocalSlot, fromLocal } from '../shared/zone.js';
+import { ceilToLocalSlot, floorToLocalSlot, fromLocal, fromLocalEnd } from '../shared/zone.js';
 import { type Result, err, ok } from '../shared/result.js';
 import type { Plan } from '../planning/types.js';
 
@@ -35,7 +35,7 @@ export function planDays(plan: Plan): Interval[] {
   let date = plan.window.start;
   while (date <= plan.window.end) {
     const start = fromLocal(date, plan.daily.startMin, plan.zone);
-    const end = fromLocal(date, plan.daily.endMin, plan.zone);
+    const end = fromLocalEnd(date, plan.daily.endMin, plan.zone);
 
     // A band can be empty for one day of a perfectly good plan: a 02:00–03:00
     // band on the date the clocks go forward is an hour that does not happen,

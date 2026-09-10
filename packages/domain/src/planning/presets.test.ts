@@ -10,6 +10,7 @@ import {
   dailyForRange,
   hasFutureStart,
   isViableBand,
+  validateBand,
   nextDays,
   resolvePreset,
   roundUpToHalfHour,
@@ -67,15 +68,56 @@ describe('tonight', () => {
     );
   });
 
-  it('refuses a meetup that fits exactly, because its own default deadline cannot work', () => {
+  it('refuses a meetup that fits exactly, because it could only start in the past', () => {
     // 22:30 leaves exactly 60 minutes, so an hour *fits* — and its last
-    // possible start is 22:30, this instant. Tonight's default deadline is the
-    // last possible start less the margin, which lands before the plan was
-    // created. That margin is the spec's rule for this preset; every other
-    // preset leaves the deadline to the organiser.
+    // possible start is 22:30, this instant, which is not a future start. The
+    // reason is the clock, not the deadline: tonight's default deadline gives
+    // up its margin rather than the plan (see `defaultDeadline`), so a plan
+    // with fifteen minutes of reply time is offered and this one is not.
     const halfTen = fromISO('2026-09-17T12:30:00Z');
     expect(tonight(halfTen, MELBOURNE, 60)).toBeUndefined();
     expect(tonight(halfTen, MELBOURNE, 90)).toBeUndefined();
+  });
+
+  it('judges a chosen band, not the default one', () => {
+    // 20:45 with a three-hour meetup. The default band ends 23:30, which is
+    // fifteen minutes short — but an organiser who asked for one running to
+    // midnight has room, and refusing them would be enforcing a default.
+    const quarterToNine = fromISO('2026-09-17T10:45:00Z');
+    expect(toLocal(quarterToNine, MELBOURNE).minutesOfDay).toBe(20 * 60 + 45);
+    expect(tonight(quarterToNine, MELBOURNE, 180)).toBeUndefined();
+
+    const toMidnight = { startMin: 21 * 60, endMin: 24 * 60 };
+    expect(tonight(quarterToNine, MELBOURNE, 180, toMidnight)?.daily).toEqual(toMidnight);
+    expect(
+      resolvePreset('tonight', quarterToNine, MELBOURNE, {
+        durationMinutes: 180 as DurationMinutes,
+        daily: toMidnight,
+      }),
+    ).toEqual({
+      window: { start: localDate('2026-09-17'), end: localDate('2026-09-17') },
+      daily: toMidnight,
+    });
+  });
+
+  it('will not let a chosen band start tonight in the past', () => {
+    // "Tonight from 6 pm" asked at half past eight is tonight from 8:30.
+    const halfEight = fromISO('2026-09-17T10:30:00Z');
+    expect(
+      tonight(halfEight, MELBOURNE, TWO_HOURS, { startMin: 18 * 60, endMin: 24 * 60 })?.daily,
+    ).toEqual({ startMin: 20 * 60 + 30, endMin: 24 * 60 });
+  });
+
+  it('says what is wrong with a malformed band rather than blaming the hour', () => {
+    // Half past six, hours of evening left: `band_unaligned` is the honest
+    // answer, and `too_late_for_tonight` would send the organiser to fix the
+    // wrong thing.
+    expect(
+      resolvePreset('tonight', THURSDAY_6PM, MELBOURNE, {
+        durationMinutes: TWO_HOURS,
+        daily: { startMin: 19 * 60 + 7, endMin: 23 * 60 },
+      }),
+    ).toBe('band_unaligned');
   });
 
   it('still offers a short meetup while there is genuinely room', () => {
@@ -245,6 +287,60 @@ describe('hasFutureStart', () => {
     expect(hasFutureStart(fromISO('2026-09-17T12:00:00Z'), today, evening, 120, MELBOURNE)).toBe(
       false,
     );
+  });
+});
+
+describe('a chosen daily band', () => {
+  const today = { start: localDate('2026-09-18'), end: localDate('2026-09-20') };
+  const soon = fromISO('2026-09-17T02:00:00Z');
+
+  it('replaces the preset default, so any time of day can be asked about', () => {
+    // The presets suggest evenings for a mixed range. Spec §5.3 offers "custom"
+    // as a time-of-day option, and without this the suggestion was a cap: a plan
+    // could not ask about a Sunday afternoon, which the Candidates artboard shows.
+    const result = resolvePreset('custom', soon, MELBOURNE, {
+      durationMinutes: TWO_HOURS,
+      custom: today,
+      daily: { startMin: 9 * 60, endMin: 22 * 60 + 30 },
+    });
+    expect(result).toMatchObject({ daily: { startMin: 9 * 60, endMin: 22 * 60 + 30 } });
+  });
+
+  it('leaves the defaults alone when nothing is chosen', () => {
+    expect(resolvePreset('next_7_days', soon, MELBOURNE, opts())).toMatchObject({
+      daily: { startMin: 17 * 60 + 30, endMin: 22 * 60 + 30 },
+    });
+  });
+
+  it('refuses a band that runs backwards or escapes the day', () => {
+    expect(validateBand({ startMin: 14 * 60, endMin: 12 * 60 })).toBe('band_backwards');
+    expect(validateBand({ startMin: 22 * 60, endMin: 25 * 60 })).toBe('band_out_of_day');
+    expect(validateBand({ startMin: -30, endMin: 60 })).toBe('band_out_of_day');
+  });
+
+  it('allows a band ending at midnight', () => {
+    // 24:00 is not a time of day, so `fromLocal` refuses it — but as the *end*
+    // of a band it is the obvious way to say "until midnight", and a band that
+    // could stop at 23:30 but not midnight would be a strange thing to explain.
+    expect(validateBand({ startMin: 21 * 60, endMin: 24 * 60 })).toBeUndefined();
+    expect(validateBand({ startMin: 21 * 60, endMin: 24 * 60 + 30 })).toBe('band_out_of_day');
+  });
+
+  it('requires half hours, because everything else works in them', () => {
+    // Not a limit on which hours: a band edge at 17:45 would put the first cell
+    // at 18:00 and quietly lose the quarter hour.
+    expect(validateBand({ startMin: 17 * 60 + 45, endMin: 22 * 60 })).toBe('band_unaligned');
+    expect(validateBand({ startMin: 17 * 60 + 30, endMin: 22 * 60 })).toBeUndefined();
+  });
+
+  it('is still judged on viability once chosen', () => {
+    expect(
+      resolvePreset('custom', soon, MELBOURNE, {
+        durationMinutes: 180,
+        custom: today,
+        daily: { startMin: 12 * 60, endMin: 13 * 60 },
+      }),
+    ).toBe('band_shorter_than_meetup');
   });
 });
 

@@ -10,7 +10,7 @@
  * happen are replies to nothing.
  */
 
-import { type Instant, addMinutes, earliest, isAfter, latest } from '../shared/instant.js';
+import { type Instant, addMinutes, earliest, isAfter } from '../shared/instant.js';
 import { fromLocal } from '../shared/zone.js';
 import type { Plan, WindowPreset } from './types.js';
 
@@ -63,19 +63,27 @@ export function clampDeadline(deadline: Instant, latestStart: Instant): Instant 
  * - **Never before `createdAt`** — a deadline in the past closes replies the
  *   instant it is saved.
  *
- * When `latestStart` is already behind `createdAt` no instant satisfies both,
- * and the honest answer is that this plan has no deadline rather than a value
- * that breaks one of them. An earlier revision of this function floored at
+ * When `latestStart` is not after `createdAt` no instant satisfies both, and
+ * the honest answer is that this plan has no deadline rather than a value that
+ * breaks one of them. An earlier revision of this function floored at
  * `createdAt` unconditionally, which produced a deadline *after* the last
  * possible start — trading one broken invariant for the other.
+ *
+ * When the preferred default alone lands in the past — tonight's margin, on a
+ * plan whose last possible start is twenty minutes away — the answer is the
+ * last possible start itself, not `createdAt`. `createdAt` is a deadline that
+ * closes replies the moment the plan is saved; the last possible start is the
+ * latest value the spec allows and hands the circle every minute there is.
+ * Refusing instead would be a minimum response time, which §5.3 does not have.
  */
 export function defaultDeadline(
   preset: WindowPreset,
   createdAt: Instant,
   latestStart: Instant,
 ): Instant | undefined {
-  if (isAfter(createdAt, latestStart)) return undefined;
-  return latest(createdAt, uncappedDefault(preset, createdAt, latestStart));
+  if (!isAfter(latestStart, createdAt)) return undefined;
+  const preferred = uncappedDefault(preset, createdAt, latestStart);
+  return isAfter(preferred, createdAt) ? preferred : latestStart;
 }
 
 function uncappedDefault(preset: WindowPreset, createdAt: Instant, latestStart: Instant): Instant {

@@ -10,7 +10,7 @@
 import type { Plan } from '../planning/types.js';
 import { type Interval, intersect, interval } from '../shared/interval.js';
 import type { LocalDate } from '../shared/local-date.js';
-import { fromLocal } from '../shared/zone.js';
+import { fromLocal, fromLocalEnd } from '../shared/zone.js';
 
 export type ShortcutKind = 'after_work' | 'all_evening' | 'morning' | 'afternoon' | 'any_time';
 
@@ -36,7 +36,7 @@ export function applyShortcut(
 ): Interval | undefined {
   const dayBand = interval(
     fromLocal(date, plan.daily.startMin, plan.zone),
-    fromLocal(date, plan.daily.endMin, plan.zone),
+    fromLocalEnd(date, plan.daily.endMin, plan.zone),
   );
 
   const band = SHORTCUT_BANDS[kind];
@@ -50,7 +50,7 @@ export function applyShortcut(
 
   const wanted = interval(
     fromLocal(date, band.startMin, plan.zone),
-    fromLocal(date, endMin, plan.zone),
+    fromLocalEnd(date, endMin, plan.zone),
   );
 
   return intersect(dayBand, wanted) ?? undefined;
