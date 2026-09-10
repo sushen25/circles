@@ -12,8 +12,8 @@
  *
  * `shared/` holds the value objects every context is built from. `circles/` is
  * the authorisation root (S1-01) and `planning/` carries the plan state
- * machine (S1-02). The remaining contexts — availability, scheduling,
- * confirmation, communication, growth — follow through Slice 1.
+ * machine (S1-02). The remaining contexts — communication and growth —
+ * follow through Slice 1.
  */
 export const PACKAGE_NAME = '@circles/domain';
 
@@ -28,4 +28,5 @@ export * from './circles/index.js';
 export * from './planning/index.js';
 export * from './availability/index.js';
 export * from './scheduling/index.js';
+export * from './confirmation/index.js';
 export * as fixtures from './fixtures.js';
