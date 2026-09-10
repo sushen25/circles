@@ -338,11 +338,22 @@ select r.plan_id, r.revision, r.user_id, r.status, r.submitted_at
 from public.plan_responses r
 join public.plans p on p.id = r.plan_id
 where public.auth_is_member(p.circle_id)
+  -- The current question only: an edit bumps the revision and the old answers
+  -- stop being anybody's business.
+  and r.revision = p.revision
   and (
     p.organiser_user_id = (select auth.uid())
+    -- "Options exist" means a set for the plan *as it is now*. A set from
+    -- before the last answer is one `confirm` would refuse as stale, and a
+    -- plan that has gone back to `collecting` has no options to show —
+    -- matching on revision alone reopened the summaries the moment anyone
+    -- changed their mind.
     or exists (
       select 1 from public.candidate_sets cs
-      where cs.plan_id = p.id and cs.revision = p.revision
+      where cs.plan_id = p.id
+        and cs.revision = p.revision
+        and cs.input_version = p.input_version
+        and cs.scoring_version = p.scoring_version
     )
   );
 

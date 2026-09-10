@@ -10,7 +10,7 @@
 -- made as somebody *else*.
 
 begin;
-select plan(68);
+select plan(69);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid language sql as $$
@@ -622,6 +622,16 @@ select is(
   'collecting',
   'an answer to a ready plan sends it back to collecting'
 );
+-- …and the summaries close again for members: the set is stale, so there are
+-- no options, so there is nothing for anyone but the organiser to see.
+select pg_temp.act_as('00000000-0000-0000-0000-0000000002a3');
+select is(
+  (select count(*)::integer from public.response_summaries
+   where plan_id = (select plan_id from tp)),
+  0,
+  'a stale set does not count as options existing — the summaries close again'
+);
+select pg_temp.act_as_postgres();
 select planning.transition_plan((select plan_id from tp), 'candidates_ready',
   '00000000-0000-0000-0000-0000000002a1');
 select cmp_ok(
