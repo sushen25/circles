@@ -7,12 +7,17 @@
  * a product that leaves that to the organiser has not removed the work.
  *
  * These are whole sentences, which the rest of the domain deliberately avoids —
- * `availability/format` says so in as many words. They live here anyway because
- * the same sentence goes into the share sheet, an email and a push body, and
- * `apps/app/src/copy` cannot be imported by an Edge Function running on Deno.
- * One sentence in two places is one sentence that will drift. The wording is
- * exported as data so a second locale replaces it rather than reimplementing
- * this module.
+ * `availability/format` says so in as many words. What lives here is the
+ * *assembly*: which parts go in what order, the time in the circle's zone, the
+ * note that may or may not be there. The wording itself is an argument, and
+ * there is **no default** — a caller that forgets to pass one does not get
+ * English, it gets a type error, which is the only version of non-negotiable 6
+ * that a package outside `apps/app` can enforce.
+ *
+ * `EN_SHARE_TEMPLATES` is the artboard's wording, exported for the client's
+ * copy layer to reference and for the email templates, which run on Deno and
+ * cannot import `apps/app/src/copy`. Where that sentence should ultimately live
+ * so that both read it from one place is S1-06's question, not this module's
  *
  * Dates are formatted by a **passed** formatter for the same reason `format.ts`
  * takes `hour12`: a domain that hard-codes "Thu 17 Sep" cannot be given another
@@ -90,7 +95,8 @@ export type ShareInput = {
   /** The plan's short link. Carries no secret (architecture §5.2). */
   readonly url: string;
   readonly format: ShareDateFormat;
-  readonly templates?: ShareTemplates | undefined;
+  /** Required. See the note at the top: there is no default wording. */
+  readonly templates: ShareTemplates;
 };
 
 function timeRange(confirmation: Confirmation, zone: Zone, format?: TimeFormat): string {
@@ -104,8 +110,7 @@ function timeRange(confirmation: Confirmation, zone: Zone, format?: TimeFormat):
 
 /** "Locked in: Sunday Crew, Thu 17 Sep, 6:30–8:30 pm at Hope St Radio. …" */
 export function lockedInMessage(input: ShareInput): string {
-  const { confirmation, circleName, zone, url, format } = input;
-  const templates = input.templates ?? EN_SHARE_TEMPLATES;
+  const { confirmation, circleName, zone, url, format, templates } = input;
   return templates.lockedIn({
     circleName,
     date: format.shortDate(confirmation.candidate.start, zone),
@@ -117,8 +122,7 @@ export function lockedInMessage(input: ShareInput): string {
 
 /** "Change of plan: Thursday is off. New times, please: …" */
 export function changedMessage(input: ShareInput): string {
-  const { confirmation, zone, url, format } = input;
-  const templates = input.templates ?? EN_SHARE_TEMPLATES;
+  const { confirmation, zone, url, format, templates } = input;
   return templates.changed({
     weekday: format.weekday(confirmation.candidate.start, zone),
     url,
@@ -136,8 +140,7 @@ export function changedMessage(input: ShareInput): string {
 export function cancelledMessage(
   input: ShareInput & { readonly note?: string | undefined },
 ): string {
-  const { confirmation, circleName, zone, url, format, note } = input;
-  const templates = input.templates ?? EN_SHARE_TEMPLATES;
+  const { confirmation, circleName, zone, url, format, templates, note } = input;
   return templates.cancelled({
     circleName,
     weekday: format.weekday(confirmation.candidate.start, zone),

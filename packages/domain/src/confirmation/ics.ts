@@ -134,7 +134,10 @@ export function icsFor(input: IcsInput): string {
   const { confirmation, circleName, title, identity, stamp, url } = input;
 
   if (url !== undefined && !isTokenFree(url)) {
-    throw new RangeError(`ics: refusing to embed a link carrying a token: ${url}`);
+    // The offending value is deliberately absent: an exception message reaches
+    // a log, and a token in a log is the thing this check exists to prevent
+    // (non-negotiable 8). The caller knows which URL it passed.
+    throw new RangeError('ics: refusing to embed a link carrying a query string or fragment');
   }
 
   const body = description(confirmation, url);

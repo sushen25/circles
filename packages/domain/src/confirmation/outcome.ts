@@ -116,8 +116,15 @@ export function corroboration(
   attendances: readonly Attendance[],
 ): Corroboration {
   if (report.outcome !== 'happened') return 'reported';
+  // Scoped to the confirmation being reported on. A `was_there` from another
+  // meetup is somebody confirming a different evening, and counting it would
+  // make the corroborated figure — the evidence for the north-star metric —
+  // quietly wrong in the direction that flatters it.
   const corroborated = attendances.some(
-    (a) => a.status === 'was_there' && a.userId !== report.reportedBy,
+    (a) =>
+      a.confirmationId === report.confirmationId &&
+      a.status === 'was_there' &&
+      a.userId !== report.reportedBy,
   );
   return corroborated ? 'corroborated' : 'reported';
 }

@@ -9,7 +9,7 @@ import { fromISO, toISO } from '../shared/instant.js';
 import { A_STRANGER, confirmation, sundayCrewPlan } from './fixtures.js';
 import { corroboration, lastMetAtAfter, reportOutcome, statusAfter } from './outcome.js';
 import type { Attendance, Outcome, OutcomeReport } from './types.js';
-import { NOTE_MAX_LENGTH } from './types.js';
+import { NOTE_MAX_LENGTH, confirmationId } from './types.js';
 
 const OUTCOMES: readonly Outcome[] = ['happened', 'cancelled', 'moved_outside', 'not_sure'];
 
@@ -146,6 +146,17 @@ describe('corroboration', () => {
 
   it('is "reported" when nobody has said anything', () => {
     expect(corroboration(base, [])).toBe('reported');
+  });
+
+  it('does not count a "was there" from a different meetup', () => {
+    // Corroboration is the evidence behind the north-star metric; counting
+    // another evening's attendance would flatter it.
+    const elsewhere: Attendance = {
+      ...wasThere(PRIYA),
+      confirmationId: confirmationId('confirmation-elsewhere'),
+    };
+    expect(corroboration(base, [elsewhere])).toBe('reported');
+    expect(corroboration(base, [elsewhere, wasThere(PRIYA)])).toBe('corroborated');
   });
 
   it('does not count someone who says they missed it', () => {

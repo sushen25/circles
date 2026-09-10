@@ -159,7 +159,10 @@ function freeze(request: ConfirmRequest, candidate: Candidate): Confirmation {
     candidate: {
       start: candidate.start,
       end: candidate.end,
-      availableUserIds: candidate.availableUserIds,
+      // Copied, not shared. `readonly` stops *this* package writing through the
+      // reference; it does nothing about the caller who still holds the array,
+      // and "frozen" has to survive a caller who reuses their candidate set.
+      availableUserIds: [...candidate.availableUserIds],
     },
     placeName: details.placeName,
     placeUrl: details.placeUrl,
@@ -200,12 +203,22 @@ export function supersede(
   return ok({ ...confirmation, status: reason === 'reopen' ? 'superseded' : 'cancelled' });
 }
 
-/** The active confirmation for a revision, if there is one. At most one exists. */
+/**
+ * The active confirmation for one revision of one plan, if there is one. At
+ * most one exists — that is the context's rule and the database's constraint.
+ *
+ * The plan is part of the key, not context the caller can be trusted to have
+ * applied: every plan starts at revision 1, so a list spanning two plans would
+ * otherwise hand back the wrong meetup's confirmation.
+ */
 export function activeConfirmation(
   confirmations: readonly Confirmation[],
+  planId: PlanId,
   revision: number,
 ): Confirmation | undefined {
-  return confirmations.find((c) => c.revision === revision && c.status === 'active');
+  return confirmations.find(
+    (c) => c.planId === planId && c.revision === revision && c.status === 'active',
+  );
 }
 
 /** Who was frozen into the confirmation as able to make it. */

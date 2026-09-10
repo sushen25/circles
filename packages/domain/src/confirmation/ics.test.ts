@@ -121,6 +121,17 @@ describe('icsFor', () => {
   it('refuses to embed a link carrying a token, rather than quietly dropping it', () => {
     expect(() => build({ url: 'https://example.com/j/7f3k#secret' })).toThrow(RangeError);
     expect(() => build({ url: 'https://example.com/p/8k2v?token=abc' })).toThrow(RangeError);
+    // …and the refusal does not carry the token into a log (non-negotiable 8).
+    for (const leaky of ['https://example.com/j/7f3k#secret', 'https://example.com/p/8k2v?t=abc']) {
+      try {
+        build({ url: leaky });
+        throw new Error('expected a refusal');
+      } catch (error) {
+        expect((error as Error).message).not.toContain('secret');
+        expect((error as Error).message).not.toContain('abc');
+        expect((error as Error).message).not.toContain('example.com');
+      }
+    }
     expect(() => build({ url: 'https://example.com/p/8k2v' })).not.toThrow();
     expect(unfold(build({ url: 'https://example.com/p/8k2v' }))).toContain(
       'https://example.com/p/8k2v',
