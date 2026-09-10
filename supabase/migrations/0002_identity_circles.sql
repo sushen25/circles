@@ -260,6 +260,54 @@ create constraint trigger circles_owner_is_member
   deferrable initially deferred
   for each row execute function public.enforce_owner_is_member();
 
+-- The same invariant from the other side.
+--
+-- Watching `circles` alone leaves it true only at the moment a circle is
+-- created: removing the owner's membership later empties the ownership without
+-- touching the circles row, `auth_is_owner` goes permanently false, and every
+-- owner-only operation on that circle is refused for good. An owner who wants
+-- out hands the circle over first — that is a real operation with its own
+-- checks (spec §9), not a side effect of leaving.
+create or replace function public.enforce_owner_stays_member()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  row_circle uuid := coalesce(new.circle_id, old.circle_id);
+  row_user uuid := coalesce(new.user_id, old.user_id);
+begin
+  -- The circle itself may have gone in this transaction, taking its members
+  -- with it. Nothing to protect then.
+  if not exists (
+    select 1 from public.circles c
+    where c.id = row_circle and c.owner_user_id = row_user
+  ) then
+    return null;
+  end if;
+
+  if not exists (
+    select 1 from public.circle_members m
+    where m.circle_id = row_circle and m.user_id = row_user and m.status = 'active'
+  ) then
+    raise exception 'circle % cannot remove its owner %; hand the circle over first',
+      row_circle, row_user
+      using errcode = 'foreign_key_violation';
+  end if;
+
+  return null;
+end;
+$$;
+
+comment on function public.enforce_owner_stays_member() is
+  'An owner stays an active member. Deferred, so a hand-off may change the owner and the membership in either order within one transaction.';
+
+create constraint trigger circle_members_owner_stays
+  after update of status or delete on public.circle_members
+  deferrable initially deferred
+  for each row execute function public.enforce_owner_stays_member();
+
 -- ---------------------------------------------------------------------------
 -- The signup trigger.
 --
@@ -282,7 +330,9 @@ begin
     -- part of one: display names are shown to the whole circle (§14).
     coalesce(nullif(trim(new.raw_user_meta_data ->> 'display_name'), ''), 'Guest'),
     coalesce(nullif(trim(new.raw_user_meta_data ->> 'time_zone'), ''), 'UTC'),
-    not coalesce((new.raw_app_meta_data ->> 'is_anonymous')::boolean, false)
+    -- The column, not the `raw_app_meta_data` copy: it is what GoTrue sets and
+    -- what the JWT claim is derived from, so this cannot disagree with the gate.
+    not coalesce(new.is_anonymous, false)
   )
   on conflict (user_id) do nothing;
   return new;
@@ -295,6 +345,40 @@ comment on function public.handle_new_user() is
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
+
+-- Saving your place *updates* the auth row; it does not insert one.
+--
+-- `linkIdentity` attaches Apple, Google or an email identity to the anonymous
+-- user already signed in, so an insert-only trigger would leave the profile
+-- saying `is_permanent = false` forever. The JWT would be right and the durable
+-- record wrong, which is the direction that bites later: reattachment must
+-- never target a saved-place member, and it reads the record.
+--
+-- One direction only. There is no path back from a saved place to an anonymous
+-- session, and a trigger that could take one would be a way to shed an
+-- organiser role by unlinking.
+create or replace function public.handle_user_updated()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if not new.is_anonymous then
+    update public.profiles p
+    set is_permanent = true
+    where p.user_id = new.id and not p.is_permanent;
+  end if;
+  return new;
+end;
+$$;
+
+comment on function public.handle_user_updated() is
+  'Marks a profile permanent when the auth row stops being anonymous (linkIdentity). One direction only: a saved place cannot be given back.';
+
+create trigger on_auth_user_updated
+  after update of is_anonymous on auth.users
+  for each row execute function public.handle_user_updated();
 
 -- ---------------------------------------------------------------------------
 -- The authorisation helpers.
@@ -369,9 +453,29 @@ $$;
 comment on function public.auth_is_permanent() is
   'True when the caller has a saved place (Apple, Google or email code). Gates circle and plan creation (ADR 0004). A missing claim reads as anonymous.';
 
+-- Postgres grants `execute` on a new function to `PUBLIC`, which `anon` and
+-- `authenticated` inherit — so revoking from those two roles by name removes
+-- nothing. Every `revoke ... from public` below is the one that matters, and
+-- the default-privileges line further down is what stops the next migration
+-- having to know that.
+revoke all on function public.touch_updated_at() from public;
+revoke all on function public.enforce_member_cap() from public;
+revoke all on function public.enforce_owner_is_member() from public;
+revoke all on function public.enforce_owner_stays_member() from public;
+revoke all on function public.handle_new_user() from public;
+revoke all on function public.handle_user_updated() from public;
 revoke all on function public.auth_is_member(uuid) from public;
 revoke all on function public.auth_is_owner(uuid) from public;
 revoke all on function public.auth_is_permanent() from public;
+revoke all on function public.touch_updated_at() from anon, authenticated;
+revoke all on function public.enforce_member_cap() from anon, authenticated;
+revoke all on function public.enforce_owner_is_member() from anon, authenticated;
+revoke all on function public.enforce_owner_stays_member() from anon, authenticated;
+revoke all on function public.handle_new_user() from anon, authenticated;
+revoke all on function public.handle_user_updated() from anon, authenticated;
+revoke all on function public.auth_is_member(uuid) from anon, authenticated;
+revoke all on function public.auth_is_owner(uuid) from anon, authenticated;
+revoke all on function public.auth_is_permanent() from anon, authenticated;
 grant execute on function public.auth_is_member(uuid) to anon, authenticated;
 grant execute on function public.auth_is_owner(uuid) to anon, authenticated;
 grant execute on function public.auth_is_permanent() to anon, authenticated;
@@ -443,7 +547,11 @@ $$;
 comment on function public.create_circle(text, text, text, text) is
   'Creates a circle and its owner membership in one transaction. Requires a permanent identity (ADR 0004).';
 
+-- Both revokes: `from public` removes the grant Postgres makes automatically,
+-- and `from anon, authenticated` removes the one Supabase's default privileges
+-- make by name. Either alone leaves the function callable.
 revoke all on function public.create_circle(text, text, text, text) from public;
+revoke all on function public.create_circle(text, text, text, text) from anon, authenticated;
 grant execute on function public.create_circle(text, text, text, text) to authenticated;
 
 -- ---------------------------------------------------------------------------
@@ -530,10 +638,13 @@ create policy circle_members_select_member on public.circle_members
   for select to authenticated
   using (public.auth_is_member(circle_id));
 
+-- Their own row, and only while they are still in the circle: removal revokes
+-- access immediately (§6.2), and the row is kept for history rather than left
+-- as a handle a former member can still reach through.
 create policy circle_members_update_own on public.circle_members
   for update to authenticated
-  using (user_id = (select auth.uid()))
-  with check (user_id = (select auth.uid()));
+  using (user_id = (select auth.uid()) and public.auth_is_member(circle_id))
+  with check (user_id = (select auth.uid()) and public.auth_is_member(circle_id));
 
 -- circle_invites: nothing. Not a narrow policy — no policy at all, plus an
 -- explicit revoke, because the secret hash is the one thing in this schema
@@ -547,6 +658,18 @@ revoke all on public.circle_invites from anon, authenticated;
 alter default privileges in schema public revoke all on tables from anon, authenticated;
 alter default privileges in schema public revoke all on sequences from anon, authenticated;
 alter default privileges in schema public revoke all on functions from anon, authenticated;
+
+-- Functions are the one thing this cannot fix. Postgres grants `execute` on a
+-- new function to `PUBLIC`, which every role inherits, and
+-- `alter default privileges ... revoke execute on functions from public` does
+-- not take it away here — the default ACL records the revoke and a freshly
+-- created function still comes out with `=X`. Verified, not assumed.
+--
+-- So every function needs its own `revoke ... from public`, as §14 already
+-- says, and `010_circles.sql` walks `pg_proc` and fails the build if any
+-- function in `public` is callable by a client role that is not on its
+-- allow-list. A rule the next migration has to remember is a rule that will be
+-- forgotten; a test that names the forgetting is not.
 
 -- ---------------------------------------------------------------------------
 -- Grants.

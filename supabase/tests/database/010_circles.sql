@@ -7,7 +7,7 @@
 -- apart on its own.
 
 begin;
-select plan(45);
+select plan(56);
 
 -- ---------------------------------------------------------------------------
 -- Fixtures. `handle_new_user()` makes the profile, which is part of what is
@@ -19,12 +19,13 @@ returns uuid
 language sql
 as $$
   insert into auth.users (
-    id, instance_id, aud, role, email, raw_app_meta_data, raw_user_meta_data,
+    id, instance_id, aud, role, email, is_anonymous, raw_app_meta_data, raw_user_meta_data,
     created_at, updated_at
   )
   values (
     id, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
     id::text || '@example.com',
+    anonymous,
     jsonb_build_object('is_anonymous', anonymous),
     jsonb_build_object('display_name', name, 'time_zone', 'Australia/Melbourne'),
     now(), now()
@@ -401,6 +402,195 @@ select throws_ok(
   '42501',
   null,
   'nobody promotes themselves to a saved place by updating a row'
+);
+
+-- ---------------------------------------------------------------------------
+-- An owner stays a member.
+--
+-- Watching `circles` alone made this true only at the moment of creation:
+-- removing the owner's membership later left the circle owned by nobody, with
+-- `auth_is_owner` false for good and every owner-only operation refused.
+-- ---------------------------------------------------------------------------
+
+select pg_temp.act_as_postgres();
+
+-- The check is deferred to commit, and these tests never commit. Forcing it
+-- immediate inside the helper is how a rolled-back transaction can still see
+-- what a real one would have hit.
+create or replace function pg_temp.remove_member(circle uuid, member uuid, hard boolean default false)
+returns void
+language plpgsql
+as $$
+begin
+  -- Discharge whatever the fixtures queued — `create_circle` left a deferred
+  -- check holding the owner it saw — then defer again, so what fires below is
+  -- this statement's own check and not a stale one.
+  set constraints all immediate;
+  set constraints all deferred;
+  if hard then
+    delete from public.circle_members where circle_id = circle and user_id = member;
+  else
+    update public.circle_members set status = 'removed'
+    where circle_id = circle and user_id = member;
+  end if;
+  set constraints all immediate;
+end;
+$$;
+
+select throws_ok(
+  format(
+    $$select pg_temp.remove_member('%s', '%s')$$,
+    (select id from t_circle), '00000000-0000-0000-0000-00000000a001'
+  ),
+  '23503',
+  null,
+  'the owner cannot simply be removed from their own circle'
+);
+select throws_ok(
+  format(
+    $$select pg_temp.remove_member('%s', '%s', true)$$,
+    (select id from t_circle), '00000000-0000-0000-0000-00000000a001'
+  ),
+  '23503',
+  null,
+  'nor deleted out of it'
+);
+
+-- A hand-off is a hand-off: both halves in one transaction, in either order,
+-- because the check is deferred to commit.
+create or replace function pg_temp.hand_over(circle uuid, from_member uuid, to_member uuid)
+returns void
+language plpgsql
+as $$
+begin
+  set constraints all immediate;
+  set constraints all deferred;
+  update public.circles set owner_user_id = to_member where id = circle;
+  update public.circle_members set status = 'removed'
+  where circle_id = circle and user_id = from_member;
+  -- The check is deferred, so the two halves may land in either order.
+  set constraints all immediate;
+end;
+$$;
+
+savepoint before_handover;
+select lives_ok(
+  format(
+    $$select pg_temp.hand_over('%s', '%s', '%s')$$,
+    (select id from t_circle),
+    '00000000-0000-0000-0000-00000000a001',
+    '00000000-0000-0000-0000-00000000a002'
+  ),
+  'a hand-off can change the owner and remove the old one in one transaction'
+);
+rollback to savepoint before_handover;
+
+-- Deleting the circle takes its members with it and protects nothing.
+create or replace function pg_temp.drop_circle(circle uuid)
+returns void
+language plpgsql
+as $$
+begin
+  set constraints all immediate;
+  set constraints all deferred;
+  delete from public.circles where id = circle;
+  set constraints all immediate;
+end;
+$$;
+
+savepoint before_delete;
+select lives_ok(
+  format($$select pg_temp.drop_circle('%s')$$, (select id from t_circle)),
+  'deleting the circle is not blocked by its own owner invariant'
+);
+rollback to savepoint before_delete;
+
+-- ---------------------------------------------------------------------------
+-- Saving your place updates the auth row; it does not insert one.
+-- ---------------------------------------------------------------------------
+
+select is(
+  (select is_permanent from public.profiles where user_id = '00000000-0000-0000-0000-00000000a009'),
+  false,
+  'the guest is still a guest'
+);
+update auth.users set is_anonymous = false
+where id = '00000000-0000-0000-0000-00000000a009';
+select is(
+  (select is_permanent from public.profiles where user_id = '00000000-0000-0000-0000-00000000a009'),
+  true,
+  'and linking an identity marks the profile permanent, without a new auth row'
+);
+
+-- ---------------------------------------------------------------------------
+-- A removed member is a former member everywhere.
+-- ---------------------------------------------------------------------------
+
+select pg_temp.act_as_postgres();
+update public.circle_members set status = 'removed'
+where circle_id = (select id from t_circle)
+  and user_id = '00000000-0000-0000-0000-00000000a002';
+
+select pg_temp.act_as('00000000-0000-0000-0000-00000000a002');
+update public.circle_members set muted_all = true
+where user_id = '00000000-0000-0000-0000-00000000a002';
+
+-- Read back from outside: a removed member cannot select the row either, so
+-- asking them what it says would answer null whatever the update did.
+select pg_temp.act_as_postgres();
+select is(
+  (select muted_all from public.circle_members
+   where circle_id = (select id from t_circle)
+     and user_id = '00000000-0000-0000-0000-00000000a002'),
+  false,
+  'a removed member cannot still change their own mute settings'
+);
+
+-- ---------------------------------------------------------------------------
+-- Functions are not callable by default.
+--
+-- Postgres grants `execute` on a new function to PUBLIC, which both client
+-- roles inherit — so revoking from `anon` and `authenticated` by name removes
+-- nothing at all.
+-- ---------------------------------------------------------------------------
+
+select pg_temp.act_as_postgres();
+select ok(
+  not has_function_privilege('anon', 'public.create_circle(text,text,text,text)', 'execute'),
+  'anon cannot even call create_circle'
+);
+select ok(
+  not has_function_privilege('authenticated', 'public.handle_new_user()', 'execute'),
+  'and no client role can call the signup trigger by hand'
+);
+
+-- The allow-list. Everything else in `public` must be unreachable from a
+-- client, and this is the assertion that makes it stay that way: a later
+-- migration that forgets `revoke ... from public` fails here by name.
+--
+-- It has to be a test rather than a default privilege. `alter default
+-- privileges ... revoke execute on functions from public` records the revoke
+-- and a freshly created function still comes out with `=X` for PUBLIC, so the
+-- guarantee cannot live in the schema.
+select is(
+  (select coalesce(string_agg(p.proname, ', ' order by p.proname), '')
+   from pg_proc p
+   join pg_namespace n on n.oid = p.pronamespace
+   where n.nspname = 'public'
+     and has_function_privilege('authenticated', p.oid, 'execute')
+     and p.proname not in ('auth_is_member', 'auth_is_owner', 'auth_is_permanent', 'create_circle')),
+  '',
+  'only the four intended functions in public are callable by authenticated'
+);
+select is(
+  (select coalesce(string_agg(p.proname, ', ' order by p.proname), '')
+   from pg_proc p
+   join pg_namespace n on n.oid = p.pronamespace
+   where n.nspname = 'public'
+     and has_function_privilege('anon', p.oid, 'execute')
+     and p.proname not in ('auth_is_member', 'auth_is_owner', 'auth_is_permanent')),
+  '',
+  'and anon can call only the three read-only helpers'
 );
 
 select * from finish();
