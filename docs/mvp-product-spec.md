@@ -100,7 +100,7 @@ Run each circle for 6–8 weeks. A shorter test validates one-off scheduling but
 | Guest → app | Prompts only after a value moment, one tap to dismiss, capped; sign-in gate only for organising | See §5.11 and the guest → app flow |
 | Public discovery | Excluded | Avoids marketplace cold start and stranger safety |
 | Web hosting and links | Custom domain from Slice 1; per-link Open Graph previews carrying the circle name only | A trust-first product cannot ship invite links on a vendor subdomain; the chat preview is the first brand moment |
-| Group size | 3–12 active members per circle | Candidate cards and the quiet threshold are designed for that range |
+| Group size | 3–20 active members per circle ([ADR 0012](decisions/0012-circle-member-cap-of-twenty.md)) | Small enough to hold in your head; large enough for a book club or an extended family without splitting the circle |
 | Age | 18+ in terms; not designed for minors | Australia's social-media minimum-age law is unlikely to apply but is deliberately broad |
 | Geography | Globally usable, locally seeded in Melbourne | Time-zone-safe architecture without diluting early recruitment |
 

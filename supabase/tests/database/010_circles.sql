@@ -7,7 +7,7 @@
 -- apart on its own.
 
 begin;
-select plan(69);
+select plan(88);
 
 -- ---------------------------------------------------------------------------
 -- Fixtures. `handle_new_user()` makes the profile, which is part of what is
@@ -126,7 +126,7 @@ select is(
 select pg_temp.act_as('00000000-0000-0000-0000-00000000a009', true);
 select is(public.auth_is_permanent(), false, 'a guest has no saved place');
 select throws_ok(
-  $$select public.create_circle('Sunday Crew', 'sky', 'Australia/Melbourne')$$,
+  $$select public.create_circle('Sunday Crew', 'sky', 'Australia/Melbourne', 'key-sunday')$$,
   '42501',
   'creating a circle needs a saved place',
   'an anonymous identity cannot create a circle'
@@ -143,7 +143,7 @@ select pg_temp.act_as('00000000-0000-0000-0000-00000000a001');
 select is(public.auth_is_permanent(), true, 'a saved place is a saved place');
 
 select lives_ok(
-  $$select public.create_circle('Sunday Crew', 'sky', 'Australia/Melbourne', 'monthly')$$,
+  $$select public.create_circle('Sunday Crew', 'sky', 'Australia/Melbourne', 'key-sunday', 'monthly')$$,
   'a permanent identity can create a circle'
 );
 
@@ -310,8 +310,10 @@ declare
   i integer;
   member_id uuid;
 begin
-  -- Two members already. Ten more makes twelve.
-  for i in 3..12 loop
+  -- Two members already. Fill to exactly the cap, whatever the cap is: reading
+  -- `member_cap()` rather than retyping the number is what stops this test and
+  -- the domain's `memberLimits.max` drifting apart in silence.
+  for i in 3..public.member_cap() loop
     member_id := ('00000000-0000-0000-0000-00000000c0' || lpad(i::text, 2, '0'))::uuid;
     perform pg_temp.make_user(member_id, 'Member ' || i);
     insert into public.circle_members (circle_id, user_id, display_name_snapshot)
@@ -323,31 +325,32 @@ $$;
 select is(
   (select count(*)::integer from public.circle_members
    where circle_id = (select id from t_circle) and status = 'active'),
-  12,
-  'twelve active members is allowed'
+  public.member_cap(),
+  'a circle fills to exactly the cap'
 );
+select is(public.member_cap(), 20, 'and the cap is twenty (ADR 0012)');
 
-select pg_temp.make_user('00000000-0000-0000-0000-00000000cf13', 'Thirteen');
+select pg_temp.make_user('00000000-0000-0000-0000-00000000cf13', 'One Too Many');
 select throws_ok(
   format(
     $$insert into public.circle_members (circle_id, user_id, display_name_snapshot)
-      values ('%s', '%s', 'Thirteen')$$,
+      values ('%s', '%s', 'One Too Many')$$,
     (select id from t_circle), '00000000-0000-0000-0000-00000000cf13'
   ),
   '23514',
   null,
-  'the thirteenth is refused'
+  'the one after the cap is refused'
 );
 
 -- Removing somebody makes room, which is the point of a cap on *active*
 -- members rather than on rows.
 update public.circle_members set status = 'removed'
 where circle_id = (select id from t_circle)
-  and user_id = '00000000-0000-0000-0000-00000000c012';
+  and user_id = ('00000000-0000-0000-0000-00000000c0' || lpad(public.member_cap()::text, 2, '0'))::uuid;
 select lives_ok(
   format(
     $$insert into public.circle_members (circle_id, user_id, display_name_snapshot)
-      values ('%s', '%s', 'Thirteen')$$,
+      values ('%s', '%s', 'One Too Many')$$,
     (select id from t_circle), '00000000-0000-0000-0000-00000000cf13'
   ),
   'and allowed once a seat is free'
@@ -434,13 +437,13 @@ select throws_ok(
 
 select pg_temp.act_as('00000000-0000-0000-0000-00000000a003');
 select throws_ok(
-  $$select public.create_circle('Mars Crew', 'sky', 'Mars/Olympus')$$,
+  $$select public.create_circle('Mars Crew', 'sky', 'Mars/Olympus', 'key-mars')$$,
   '23514',
   'Mars/Olympus is not an IANA time zone',
   'a zone nobody has heard of is refused at the boundary'
 );
 select lives_ok(
-  $$select public.create_circle('Kathmandu Crew', 'sky', 'Asia/Kathmandu')$$,
+  $$select public.create_circle('Kathmandu Crew', 'sky', 'Asia/Kathmandu', 'key-kathmandu')$$,
   'and a real one, three quarters of an hour off the hour, is fine'
 );
 
@@ -547,8 +550,8 @@ rollback to savepoint before_removed_rename;
 
 select pg_temp.act_as('00000000-0000-0000-0000-00000000a003');
 select is(
-  (select (public.create_circle('Twice', 'sky', 'Australia/Melbourne', 'none', 'key-1')).id),
-  (select (public.create_circle('Twice', 'sky', 'Australia/Melbourne', 'none', 'key-1')).id),
+  (select (public.create_circle('Twice', 'sky', 'Australia/Melbourne', 'key-1')).id),
+  (select (public.create_circle('Twice', 'sky', 'Australia/Melbourne', 'key-1')).id),
   'the same idempotency key returns the same circle'
 );
 select is(
@@ -557,9 +560,142 @@ select is(
   'and makes exactly one'
 );
 select isnt(
-  (select (public.create_circle('Twice', 'sky', 'Australia/Melbourne', 'none', 'key-2')).id),
+  (select (public.create_circle('Twice', 'sky', 'Australia/Melbourne', 'key-2')).id),
   (select id from public.circles where name = 'Twice' and creation_key = 'key-1'),
   'a different key is a different circle, because it is a different intention'
+);
+
+-- ---------------------------------------------------------------------------
+-- The database's idea of a duplicate name is the domain's idea of one.
+--
+-- Lowercasing and trimming alone let "Tom  B" sit beside "Tom B" and "Zoë"
+-- beside "Zoe" — both duplicates by `comparable()` in
+-- `packages/domain/src/circles/display-name.ts`. An index that is almost the
+-- rule is not the rule, and the disagreement is silent: the domain refuses a
+-- name the database has already stored.
+-- ---------------------------------------------------------------------------
+
+select pg_temp.act_as_postgres();
+select is(public.canonical_display_name('Tom  B'), 'tom b', 'inner runs of space collapse');
+select is(public.canonical_display_name(E'Tom\tB'), 'tom b', 'a tab is whitespace too');
+select is(public.canonical_display_name('  Priya '), 'priya', 'and the ends are trimmed');
+select is(public.canonical_display_name('Zoë'), 'zoe', 'diacritics do not make a different person');
+select is(public.canonical_display_name(E'Zo\u0308e'), 'zoe', 'however the accent was typed');
+select is(public.canonical_display_name(E'A\u00a0B'), 'a b', 'a non-breaking space is a space');
+select is(public.canonical_display_name('   '), '', 'a name of nothing is nothing');
+
+select pg_temp.act_as_postgres();
+select pg_temp.make_user('00000000-0000-0000-0000-00000000e001', 'Spacer');
+select pg_temp.make_user('00000000-0000-0000-0000-00000000e003', 'Spacer Two');
+select lives_ok(
+  format(
+    $$insert into public.circle_members (circle_id, user_id, display_name_snapshot)
+      values ('%s', '%s', 'Sam  W')$$,
+    (select id from t_other), '00000000-0000-0000-0000-00000000e001'
+  ),
+  'a two-word name goes in'
+);
+select throws_ok(
+  format(
+    $$insert into public.circle_members (circle_id, user_id, display_name_snapshot)
+      values ('%s', '%s', 'Sam W')$$,
+    (select id from t_other), '00000000-0000-0000-0000-00000000e003'
+  ),
+  '23505',
+  null,
+  'and a name that differs from it only in spacing is the same name'
+);
+
+select pg_temp.make_user('00000000-0000-0000-0000-00000000e002', 'Accent');
+select throws_ok(
+  format(
+    $$insert into public.circle_members (circle_id, user_id, display_name_snapshot)
+      values ('%s', '%s', 'Tåm')$$,
+    (select id from t_other), '00000000-0000-0000-0000-00000000e002'
+  ),
+  '23505',
+  null,
+  'and one that differs only in accents'
+);
+
+-- ---------------------------------------------------------------------------
+-- A name has to be a name.
+--
+-- `authenticated` may update `display_name` directly, and `sync_member_names`
+-- pushes it to every active membership: a blank here is a blank roster entry
+-- for the whole circle.
+-- ---------------------------------------------------------------------------
+
+select throws_ok(
+  $$update public.profiles set display_name = '   '
+    where user_id = '00000000-0000-0000-0000-00000000a002'$$,
+  '23514',
+  null,
+  'a name of nothing but spaces is refused'
+);
+select throws_ok(
+  $$update public.profiles set display_name = E'\t\n '
+    where user_id = '00000000-0000-0000-0000-00000000a002'$$,
+  '23514',
+  null,
+  'tabs and newlines are not a name either'
+);
+
+-- ---------------------------------------------------------------------------
+-- Zones the client's runtime also calls zones.
+--
+-- `pg_timezone_names` and `Intl.DateTimeFormat` are not the same set in either
+-- direction: Postgres has `Factory` and the `posix/…` family, which `Intl`
+-- refuses, and `Intl` accepts lowercase names an exact-match lookup would not.
+-- ---------------------------------------------------------------------------
+
+select pg_temp.act_as('00000000-0000-0000-0000-00000000a003');
+select throws_ok(
+  $$select public.create_circle('Factory Crew', 'sky', 'Factory', 'key-factory')$$,
+  '23514',
+  null,
+  'a tzdata compatibility entry is not a time zone'
+);
+select throws_ok(
+  $$select public.create_circle('Posix Crew', 'sky', 'posix/Australia/Melbourne', 'key-posix')$$,
+  '23514',
+  null,
+  'nor is a posix/ alias, which the client runtime would refuse to format'
+);
+select lives_ok(
+  $$select public.create_circle('Lower Crew', 'sky', 'australia/melbourne', 'key-lower')$$,
+  'a lowercase name is accepted, because the client contract accepts it'
+);
+select is(
+  (select time_zone from public.circles where name = 'Lower Crew'),
+  'Australia/Melbourne',
+  'and stored in the spelling every runtime recognises'
+);
+
+-- The exclusion list was measured, not guessed: every name in this tzdata's
+-- `pg_timezone_names` was passed through Node's `Intl.DateTimeFormat`, and the
+-- ones it refused were exactly `Factory` and the `posix/…` family (`right/` is
+-- excluded for the same reason and is absent from this build). That check
+-- cannot live here, because pgTAP has no `Intl` — so what is asserted is the
+-- rule's behaviour on the named cases, and the residual risk is a future tzdata
+-- adding a family nobody re-diffed. Worth redoing when Postgres is upgraded.
+
+-- ---------------------------------------------------------------------------
+-- Creating a circle needs an idempotency key.
+-- ---------------------------------------------------------------------------
+
+select pg_temp.act_as('00000000-0000-0000-0000-00000000a003');
+select throws_ok(
+  $$select public.create_circle('Keyless', 'sky', 'Australia/Melbourne', null)$$,
+  '22004',
+  null,
+  'a creation with no key is refused, because an optional key is a key nobody sends'
+);
+select throws_ok(
+  $$select public.create_circle('Keyless', 'sky', 'Australia/Melbourne', '  ')$$,
+  '22004',
+  null,
+  'and neither is a blank one'
 );
 
 -- ---------------------------------------------------------------------------
@@ -736,9 +872,15 @@ select is(
    join pg_namespace n on n.oid = p.pronamespace
    where n.nspname = 'public'
      and has_function_privilege('authenticated', p.oid, 'execute')
-     and p.proname not in ('auth_is_member', 'auth_is_owner', 'auth_is_permanent', 'create_circle')),
+     -- `canonical_display_name` is here because a check constraint is evaluated
+     -- as the caller: without it a member cannot update their own row at all.
+     -- It reads no data.
+     and p.proname not in (
+       'auth_is_member', 'auth_is_owner', 'auth_is_permanent', 'create_circle',
+       'canonical_display_name'
+     )),
   '',
-  'only the four intended functions in public are callable by authenticated'
+  'only the intended functions in public are callable by authenticated'
 );
 select is(
   (select coalesce(string_agg(p.proname, ', ' order by p.proname), '')
@@ -746,9 +888,11 @@ select is(
    join pg_namespace n on n.oid = p.pronamespace
    where n.nspname = 'public'
      and has_function_privilege('anon', p.oid, 'execute')
-     and p.proname not in ('auth_is_member', 'auth_is_owner', 'auth_is_permanent')),
+     and p.proname not in (
+       'auth_is_member', 'auth_is_owner', 'auth_is_permanent', 'canonical_display_name'
+     )),
   '',
-  'and anon can call only the three read-only helpers'
+  'and anon can call only the read-only helpers'
 );
 
 select * from finish();

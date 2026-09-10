@@ -13,11 +13,17 @@ import { isActive } from './types.js';
  * Active members per circle (spec §5.2, architecture §6.2).
  *
  * The floor of 3 is what makes the 60% default meaningful — with two people
- * "most of us" is just "both of us". The ceiling of 12 is the point past which
- * a shared availability grid stops being readable and the product is no longer
- * the thing being tested.
+ * "most of us" is just "both of us". The ceiling of 20 is a group you can still
+ * hold in your head, and it is a product rule rather than a technical one: it
+ * moved from 12 through [ADR 0012](../../../../docs/decisions/0012-circle-member-cap-of-twenty.md),
+ * because twelve was splitting book clubs and extended families into two
+ * circles and halving the availability the engine works from.
+ *
+ * `public.member_cap()` is the other copy of this number, in SQL. Both are
+ * named rather than inline, and the pgTAP suite fills a circle to exactly
+ * `member_cap()` so the two cannot drift in silence.
  */
-export const memberLimits = { min: 3, max: 12 } as const;
+export const memberLimits = { min: 3, max: 20 } as const;
 
 /**
  * `max(2, ceil(n × 0.6))` — a clear majority, never fewer than two, because a

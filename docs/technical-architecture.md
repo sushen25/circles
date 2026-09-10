@@ -149,7 +149,7 @@ Seven contexts. Each owns its tables, its domain module, its Edge Functions and 
 | Context | Owns | Core aggregates | Key rules |
 |---|---|---|---|
 | **Identity & Access** | Auth users, profiles, sessions, reattachment, SSO linking | `Profile` | A permanent identity may absorb an anonymous one; reattachment is only within a circle the anonymous member already belongs to; organiser roles require a permanent identity |
-| **Circles** | Circles, members, invites, cadence settings | `Circle` (root) with `Member`, `Invite` | Owner is a member; invite secrets stored hashed; removal revokes access immediately; member cap 12, floor 3 for quorum defaults |
+| **Circles** | Circles, members, invites, cadence settings | `Circle` (root) with `Member`, `Invite` | Owner is a member; invite secrets stored hashed; removal revokes access immediately; member cap 20 ([ADR 0012](decisions/0012-circle-member-cap-of-twenty.md)), floor 3 for quorum defaults |
 | **Planning** | Plans, revisions, quiet asks, interest, organiser role | `Plan` (root) with `Revision`, `Interest` | State machine (§8.3); quiet initiator never exposed; threshold transition is atomic and once; a quiet plan has no organiser until accepted; deadline never after last possible start |
 | **Availability** | Responses, willing windows, calendar boundary | `Response` (root per member × revision) with `WillingWindow` | Windows are 30-minute aligned, non-overlapping, inside the plan window; `flexible` is explicit; raw calendar data never enters |
 | **Scheduling** | The candidate engine and its results | `CandidateSet` (root) with `Candidate` | Pure, deterministic, versioned; eligibility = required members ∧ quorum ∧ inside window; ranking = attendance → earlier date → earlier start; date diversity; non-responders unavailable; flexible-only sets rank below explicit ones |
@@ -368,7 +368,7 @@ All ids are `uuid` (v7 where ordering helps). All tables have `created_at`, `upd
 | Table | Columns of note | Constraints |
 |---|---|---|
 | `circles` | `id`, `owner_user_id`, `name`, `color`, `time_zone`, `cadence` (`weekly|fortnightly|monthly|two_monthly|none`), `nudge_policy` (`last_organiser|take_turns|owner`), `default_duration_minutes`, `default_quorum`, `default_area`, `status` (`active|archived`), `last_met_at`, `cadence_snoozed_until` | owner must be a member (trigger) |
-| `circle_members` | `circle_id`, `user_id`, `display_name_snapshot`, `role` (`owner|member`), `status` (`active|removed`), `joined_at`, `muted_quiet_asks`, `muted_all` | unique `(circle_id, user_id)`; active members ≤ 12 (trigger) |
+| `circle_members` | `circle_id`, `user_id`, `display_name_snapshot`, `role` (`owner|member`), `status` (`active|removed`), `joined_at`, `muted_quiet_asks`, `muted_all` | unique `(circle_id, user_id)`; active members ≤ 20 (trigger); one active display name per circle (partial unique index) |
 | `circle_invites` | `circle_id`, `secret_hash`, `created_by`, `revoked_at`, `use_count` | one non-revoked invite per circle (partial unique) |
 
 **Planning (`public` + `private`)**

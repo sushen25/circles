@@ -103,7 +103,7 @@ export type Database = {
           cadence_snoozed_until: string | null
           color: string
           created_at: string
-          creation_key: string | null
+          creation_key: string
           default_area: string | null
           default_duration_minutes: number
           default_quorum: number | null
@@ -122,7 +122,7 @@ export type Database = {
           cadence_snoozed_until?: string | null
           color: string
           created_at?: string
-          creation_key?: string | null
+          creation_key: string
           default_area?: string | null
           default_duration_minutes?: number
           default_quorum?: number | null
@@ -141,7 +141,7 @@ export type Database = {
           cadence_snoozed_until?: string | null
           color?: string
           created_at?: string
-          creation_key?: string | null
+          creation_key?: string
           default_area?: string | null
           default_duration_minutes?: number
           default_quorum?: number | null
@@ -209,11 +209,12 @@ export type Database = {
       auth_is_member: { Args: { circle_id: string }; Returns: boolean }
       auth_is_owner: { Args: { circle_id: string }; Returns: boolean }
       auth_is_permanent: { Args: never; Returns: boolean }
+      canonical_display_name: { Args: { value: string }; Returns: string }
       create_circle: {
         Args: {
           cadence?: string
           color: string
-          idempotency_key?: string
+          idempotency_key: string
           name: string
           time_zone: string
         }
@@ -222,7 +223,7 @@ export type Database = {
           cadence_snoozed_until: string | null
           color: string
           created_at: string
-          creation_key: string | null
+          creation_key: string
           default_area: string | null
           default_duration_minutes: number
           default_quorum: number | null
@@ -243,6 +244,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      member_cap: { Args: never; Returns: number }
     }
     Enums: {
       [_ in never]: never

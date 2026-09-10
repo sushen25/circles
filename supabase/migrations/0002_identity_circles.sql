@@ -11,11 +11,46 @@
 --      refuses that operation. Nothing relies on a client behaving.
 --   2. Writes that touch more than one row go through `security definer`
 --      functions, so the invariants — an owner is a member, a circle has at
---      most twelve — hold in one transaction rather than across two requests.
+--      most twenty — hold in one transaction rather than across two requests.
 --   3. Anonymous identities may join, answer and attend, and may not create
 --      (ADR 0004). That is a **restrictive** policy, not the absence of a
 --      permissive one, so a future permissive policy cannot open the gate by
 --      accident.
+
+-- ---------------------------------------------------------------------------
+-- What makes two names the same name.
+--
+-- This is `comparable()` from `packages/domain/src/circles/display-name.ts`,
+-- rewritten in SQL because the index has to agree with it. Two implementations
+-- of one rule is one rule that disagrees with itself, and here the disagreement
+-- is silent: the domain refuses a name the database has already accepted, and
+-- the roster shows two people called Zoe.
+--
+-- Collapse whitespace, trim, decompose, drop the diacritics, lowercase. Case is
+-- preserved in what is *stored* — people write their own names — and ignored in
+-- what is *compared*.
+-- ---------------------------------------------------------------------------
+
+create or replace function public.canonical_display_name(value text)
+returns text
+language sql
+immutable
+as $$
+  select lower(
+    regexp_replace(
+      -- NFD splits "ë" into "e" plus a combining diaeresis; the range is the
+      -- combining marks block, which the next step removes.
+      normalize(
+        btrim(regexp_replace(value, E'[\\s\u00a0\u1680\u2000-\u200b\u2028\u2029\u202f\u205f\u3000]+', ' ', 'g')),
+        NFD
+      ),
+      E'[\u0300-\u036f]', '', 'g'
+    )
+  );
+$$;
+
+comment on function public.canonical_display_name(text) is
+  'The form two display names are compared in. Mirrors comparable() in packages/domain/src/circles/display-name.ts; the unique index depends on it.';
 
 -- ---------------------------------------------------------------------------
 -- profiles
@@ -40,7 +75,12 @@ create table public.profiles (
   app_installed_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  constraint profiles_display_name_length check (char_length(display_name) between 1 and 40)
+  -- Length on the *canonical* form, so a name of nothing but spaces is not a
+  -- name. `authenticated` may update this column directly, and `sync_member_names`
+  -- pushes it to every active membership, so a blank here is a blank roster
+  -- entry for the whole circle. `isValidDisplayName` in the domain says the same.
+  constraint profiles_display_name_length
+    check (char_length(public.canonical_display_name(display_name)) between 1 and 40)
 );
 
 comment on table public.profiles is
@@ -75,10 +115,10 @@ create table public.circles (
   -- The `/join` path segment. Carries no secret; the invite secret rides in the
   -- URL fragment and is never sent to a server (§14).
   short_code text not null unique,
-  -- The caller's `Idempotency-Key` for the creation (architecture §9.1). Null
-  -- for a circle made without one; unique per creator when present, so a retried
-  -- request returns the circle it already made rather than a second one.
-  creation_key text,
+  -- The caller's `Idempotency-Key` for the creation (architecture §9.1). Unique
+  -- per creator, so a retried request returns the circle it already made rather
+  -- than a second one. Not nullable: an optional key is a key nobody sends.
+  creation_key text not null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   constraint circles_name_length check (char_length(name) between 1 and 40),
@@ -111,6 +151,17 @@ comment on table public.circles is
 -- name is snapshotted for the same reason.
 -- ---------------------------------------------------------------------------
 
+-- The cap, in one place. Twenty (ADR 0012); the domain's `memberLimits.max`
+-- is the other copy, and `010_circles.sql` fills a circle to exactly this many.
+create or replace function public.member_cap()
+returns integer
+language sql
+immutable
+as $$ select 20 $$;
+
+comment on function public.member_cap() is
+  'Maximum active members in a circle (ADR 0012). Mirrors memberLimits.max in packages/domain/src/circles/quorum.ts.';
+
 create table public.circle_members (
   circle_id uuid not null references public.circles (id) on delete cascade,
   user_id uuid not null references auth.users (id) on delete cascade,
@@ -125,6 +176,8 @@ create table public.circle_members (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   primary key (circle_id, user_id),
+  constraint circle_members_name_length
+    check (char_length(public.canonical_display_name(display_name_snapshot)) between 1 and 40),
   constraint circle_members_role check (role in ('owner', 'member')),
   constraint circle_members_status check (status in ('active', 'removed'))
 );
@@ -140,15 +193,16 @@ comment on table public.circle_members is
 -- at once is exactly when an application-level check loses: the second write
 -- reads a roster that does not yet contain the first.
 --
--- Case- and space-insensitive, because "priya" and "Priya " are the same person
--- to everybody reading the roster.
+-- Compared through `canonical_display_name`, which is the domain's own rule:
+-- lowercasing and trimming alone let "Tom  B" sit beside "Tom B" and "Zoë"
+-- beside "Zoe", both of which the domain calls duplicates. An index that is
+-- almost the rule is not the rule.
 create unique index circle_members_active_name_idx
-  on public.circle_members (circle_id, lower(btrim(display_name_snapshot)))
+  on public.circle_members (circle_id, public.canonical_display_name(display_name_snapshot))
   where status = 'active';
 
 create unique index circles_creation_key_idx
-  on public.circles (owner_user_id, creation_key)
-  where creation_key is not null;
+  on public.circles (owner_user_id, creation_key);
 
 create index circle_members_user_id_idx on public.circle_members (user_id);
 create index circle_members_active_idx on public.circle_members (circle_id) where status = 'active';
@@ -239,8 +293,9 @@ begin
     and status = 'active'
     and (tg_op = 'INSERT' or user_id <> new.user_id);
 
-  if active_count >= 12 then
-    raise exception 'circle % already has the maximum of 12 active members', new.circle_id
+  if active_count >= public.member_cap() then
+    raise exception 'circle % already has the maximum of % active members',
+      new.circle_id, public.member_cap()
       using errcode = 'check_violation';
   end if;
 
@@ -384,17 +439,44 @@ create trigger profiles_sync_member_names
 -- typed.
 -- ---------------------------------------------------------------------------
 
+-- `pg_timezone_names` and `Intl.DateTimeFormat` are not the same set, in both
+-- directions, and the client validates with `Intl` (`packages/contracts/src/time.ts`):
+--
+--   * Postgres accepts `Factory` and the whole `posix/…` and `right/…` families,
+--     which `Intl` refuses. Storing one means every member of that circle gets
+--     a crash where a time should be.
+--   * `Intl` accepts `australia/melbourne`; an exact-match lookup here refuses
+--     it, so a contract-valid zone would be rejected at the database.
+--
+-- So: match case-insensitively, refuse the compatibility families, and store
+-- the canonical spelling. `010_circles.sql` asserts that those families are the
+-- *only* disagreement in this tzdata, so a future one is a failing test rather
+-- than a surprise.
 create or replace function public.enforce_iana_zone()
 returns trigger
 language plpgsql
 set search_path = ''
 as $$
 declare
-  zone text := row_to_json(new) ->> tg_argv[0];
+  supplied text := row_to_json(new) ->> tg_argv[0];
+  canonical text;
 begin
-  if not exists (select 1 from pg_catalog.pg_timezone_names z where z.name = zone) then
-    raise exception '% is not an IANA time zone', zone using errcode = 'check_violation';
+  select z.name into canonical
+  from pg_catalog.pg_timezone_names z
+  where lower(z.name) = lower(supplied)
+    and z.name not like 'posix/%'
+    and z.name not like 'right/%'
+    and z.name <> 'Factory'
+  order by z.name
+  limit 1;
+
+  if canonical is null then
+    raise exception '% is not an IANA time zone', supplied using errcode = 'check_violation';
   end if;
+
+  -- Stored in the spelling the tz database uses, so every reader gets a name
+  -- their own runtime recognises.
+  new := jsonb_populate_record(new, jsonb_build_object(tg_argv[0], canonical));
   return new;
 end;
 $$;
@@ -564,6 +646,15 @@ revoke all on function public.touch_updated_at() from public;
 revoke all on function public.enforce_member_cap() from public;
 revoke all on function public.enforce_owner_is_member() from public;
 revoke all on function public.enforce_owner_stays_member() from public;
+revoke all on function public.member_cap() from public;
+revoke all on function public.member_cap() from anon, authenticated;
+-- Granted to the client roles, unlike everything else here, because a check
+-- constraint is evaluated as the *caller*: without it a member could not update
+-- their own mute flags — the row's name constraint would be unevaluatable. It
+-- is a pure function of a string with no data access, so the grant gives away
+-- nothing the caller did not already have in their hand.
+revoke all on function public.canonical_display_name(text) from public;
+grant execute on function public.canonical_display_name(text) to anon, authenticated;
 revoke all on function public.sync_member_names() from public;
 revoke all on function public.sync_member_names() from anon, authenticated;
 revoke all on function public.enforce_iana_zone() from public;
@@ -599,8 +690,12 @@ create or replace function public.create_circle(
   name text,
   color text,
   time_zone text,
-  cadence text default 'none',
-  idempotency_key text default null
+  -- Required, and therefore ahead of the optional cadence. §9.1 has every
+  -- mutation idempotent on a client-supplied key, and an optional one is a key
+  -- nobody sends: the retry it guards against is the one where the client never
+  -- saw a response and cannot tell a timeout from a failure.
+  idempotency_key text,
+  cadence text default 'none'
 )
 returns public.circles
 language plpgsql
@@ -623,17 +718,20 @@ begin
       using errcode = 'insufficient_privilege';
   end if;
 
+  if coalesce(btrim(create_circle.idempotency_key), '') = '' then
+    raise exception 'create_circle needs an idempotency key'
+      using errcode = 'null_value_not_allowed';
+  end if;
+
   -- A retry returns what the first attempt made. Creating a circle is the one
   -- mutation where a lost response is expensive: the client cannot tell a
   -- timeout from a failure, and trying again would leave the person with two
   -- circles and no way to tell which one they gave the link out for.
-  if create_circle.idempotency_key is not null then
-    select * into created
-    from public.circles c
-    where c.owner_user_id = caller and c.creation_key = create_circle.idempotency_key;
-    if found then
-      return created;
-    end if;
+  select * into created
+  from public.circles c
+  where c.owner_user_id = caller and c.creation_key = create_circle.idempotency_key;
+  if found then
+    return created;
   end if;
 
   select p.display_name into caller_name from public.profiles p where p.user_id = caller;

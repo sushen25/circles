@@ -15,6 +15,7 @@ Short records of decisions that shape the product or the code. A new ADR is requ
 | [0009](./0009-half-hour-availability-cells-with-a-scrolling-row.md) | Availability cells are half an hour each, and the day row scrolls | accepted |
 | [0010](./0010-tonight-deadline-gives-up-its-margin.md) | Tonight's deadline gives up its margin rather than the plan | accepted |
 | [0011](./0011-near-misses-need-someone.md) | A near-miss needs someone, unless nobody is anywhere | accepted |
+| [0012](./0012-circle-member-cap-of-twenty.md) | A circle holds up to twenty active members | accepted |
 
 ## Template
 
