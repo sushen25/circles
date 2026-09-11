@@ -2,7 +2,7 @@ import { ClaimIdentityRequest, type ClaimIdentityResponse } from '@circles/contr
 
 import { identify } from '../_shared/auth.ts';
 import { jsonHandler } from '../_shared/http.ts';
-import { Refusal } from '../_shared/problem.ts';
+import { Refusal, Unavailable } from '../_shared/problem.ts';
 
 /**
  * Saving your place, when the account turned out to exist already (§10).
@@ -27,10 +27,13 @@ Deno.serve(
       const previous = await identify(caller, body.anonymous_session);
 
       if (previous.outcome === 'unavailable') {
-        // Could not ask, rather than asked and told no. Reporting this as a refusal
-        // sent the client to a reason it branches away from retrying — about a
-        // session that is perfectly good.
-        throw Object.assign(new Error('the auth server could not be reached'), {});
+        // Could not ask, rather than asked and told no. A bare `Error` here was the
+        // worst of both: 500 to the caller, and — because the wrapper cannot place a
+        // failure with no SQLSTATE — the claim kept, so every retry of saving your
+        // place answered `in_progress` for the life of the row. During a transient
+        // auth blip, on the conversion path. `Unavailable` says what this is:
+        // nothing was done, give the key back, and tell them it is our end.
+        throw new Unavailable('That could not be confirmed just now. Try again.');
       }
 
       if (previous.outcome === 'rejected') {

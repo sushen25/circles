@@ -130,6 +130,19 @@ begin
         set status = 'removed'
         where m.circle_id = membership.circle_id and m.user_id = p_anonymous_user_id;
         removed := removed + 1;
+
+        -- The retired identity stays, and so does this `removed` row. That is not
+        -- the reattachment story — there the membership *leaves* the old identity,
+        -- which then has none and is swept by `run_retention` after thirty days
+        -- (ADR 0014: "a guest session that never joined anything"). This identity
+        -- joined something, so it is not abandoned by that definition and the sweep
+        -- will not take it.
+        --
+        -- Which is right, and is what happens to any guest an owner removes: the row
+        -- carries the `display_name_snapshot` the roster shows for somebody who is
+        -- no longer here (spec §5.2), and deleting the identity would delete the
+        -- name with it. Widening the sweep to `status = 'active'` would be a change
+        -- to a retention rule, which is §8.5's and wants an ADR, not a line here.
       else
         -- `status = 'active'` above, and not merely "has a row", because the
         -- account may hold a membership of this circle that *ended*. Treating

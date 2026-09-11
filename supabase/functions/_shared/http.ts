@@ -4,7 +4,8 @@ import { type Actor, bearerOf, identify } from './auth.ts';
 import { asCaller, asService, type Db } from './db.ts';
 import { claim, record, release } from './idempotency.ts';
 import { log } from './logging.ts';
-import { plainProblem, problemFor, reasonOf, Refusal, Unavailable } from './problem.ts';
+import { outcomeOf, plainProblem, problemFor, Refusal } from './problem.ts';
+import { CORS, reference, respond } from './respond.ts';
 
 /**
  * The skeleton every function follows (architecture §7.4), as one wrapper.
@@ -52,56 +53,6 @@ interface Spec<Schema extends z.ZodType> {
   handle: (context: Handling<z.infer<Schema>>) => Promise<unknown>;
   /** Body fields that are not part of the request's identity — see `claim`. */
   fingerprintExcludes?: readonly string[];
-}
-
-/**
- * A preflight that omits one header the browser is about to send fails the whole
- * request before the function runs at all — and `supabase-js` sends more than the
- * obvious two. `apikey` carries the publishable key (the SDK's own documentation:
- * "the API key is sent in the `apikey` header"), `x-client-info` its version, and
- * newer releases add `x-supabase-api-version`. These endpoints are web-first, so
- * getting this list wrong breaks the product in a browser while every test on the
- * server passes.
- */
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': [
-    'authorization',
-    'apikey',
-    'content-type',
-    'x-client-info',
-    'x-supabase-api-version',
-    'x-request-id',
-    'x-circles-platform',
-  ].join(', '),
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-};
-
-/** Exported so the suite can assert against the list rather than restating it. */
-export const ALLOWED_REQUEST_HEADERS = CORS['Access-Control-Allow-Headers'];
-
-/**
- * A reference a person can read out, minted here and never taken from the
- * caller.
- *
- * It used to accept a client-supplied `X-Request-Id` that matched
- * `^[A-Za-z0-9_-]{1,64}$`, on the reasoning that a shape check made the contents
- * known. It did the opposite: `OpaqueToken` in `packages/contracts` is
- * `^[A-Za-z0-9_-]+$`, so the filter admitted precisely the thing non-negotiable 8
- * forbids in a log — a re-entry token, passed as a header, copied into every line
- * this request writes. A name fits too.
- *
- * Correlation with a client-side id is not worth that, and nothing needed it.
- */
-function reference(): string {
-  return crypto.randomUUID();
-}
-
-function respond(status: number, body: unknown, requestId: string): Response {
-  return new Response(body === undefined ? null : JSON.stringify(body), {
-    status,
-    headers: { ...CORS, 'content-type': 'application/json', 'x-request-id': requestId },
-  });
 }
 
 export function jsonHandler<Schema extends z.ZodType>(
@@ -264,46 +215,13 @@ export function jsonHandler<Schema extends z.ZodType>(
       try {
         result = await spec.handle(context);
       } catch (duringWork) {
-        // The claim is given back *only when we know the work did not happen*.
-        //
-        // A refusal we can name — ours, or one the database raised by name — is a
-        // statement that the transaction aborted: nothing was written, and a
-        // retry is a genuine retry. Without releasing, the `in_flight` row would
-        // outlive the refusal and answer every retry with `in_progress` (and
-        // retention keeps unfinished rows on purpose, so "every retry" means
-        // forever) — so somebody refused for a duplicate name could neither try
-        // the same body nor a corrected one.
-        //
-        // An error we *cannot* name is the opposite case and must be left alone.
-        // This is only sound because the guard releases its own failures above:
-        // everything reaching *here* has called the product's RPC, so an
-        // unrecognised failure really is ambiguous rather than merely unmapped.
-        // A connection lost between Postgres committing and the answer arriving
-        // looks exactly like a failure from here, and a reattachment that already
-        // happened does not survive being done twice: the second attempt answers
-        // `member_not_found`, because the membership it names has moved. So the
-        // claim stays, the retry is told `in_progress`, and nothing is repeated.
-        //
-        // Releasing must not become the error the caller sees: its own failure is
-        // swallowed, because the original is the one worth reporting.
-        // "Known" is wider than "named". A PostgREST error carrying a five-character
-        // SQLSTATE — `23505`, `23503` — is Postgres reporting that it refused the
-        // statement, which means the transaction is gone and nothing committed. Only
-        // a failure with *no* such code is genuinely ambiguous: a socket closed
-        // between the commit and the answer. Treating an unmapped constraint
-        // violation as ambiguous held the key for ever, and retention keeps
-        // unfinished rows on purpose.
-        const sqlstate = (duringWork as { code?: unknown } | undefined)?.code;
-        const aborted = typeof sqlstate === 'string' && /^[0-9A-Z]{5}$/.test(sqlstate);
+        // The claim is given back only when we know the work did not happen —
+        // `outcomeOf` is where that judgement lives, next to the rest of the
+        // reasoning about failures. Releasing must not become the error the caller
+        // sees, so its own failure is swallowed: the original is worth reporting.
+        const outcome = outcomeOf(duringWork);
 
-        const known =
-          duringWork instanceof Refusal ||
-          // A handler that failed before reaching its RPC knows nothing committed.
-          duringWork instanceof Unavailable ||
-          reasonOf(duringWork as { message?: string } | undefined) !== undefined ||
-          aborted;
-
-        if (key !== undefined && known) {
+        if (key !== undefined && outcome.committed === 'no') {
           try {
             await release(service, spec.name, actor.userId, key as Parameters<typeof release>[3]);
           } catch {
@@ -314,7 +232,7 @@ export function jsonHandler<Schema extends z.ZodType>(
             fn: spec.name,
             request_id: requestId,
             event: 'claim_held',
-            reason: (duringWork as { code?: string } | undefined)?.code ?? 'unknown',
+            reason: outcome.code,
             duration_ms: Date.now() - started,
           });
         }
@@ -363,38 +281,25 @@ export function jsonHandler<Schema extends z.ZodType>(
       });
       return respond(200, result, requestId);
     } catch (thrown) {
-      const refusal =
-        thrown instanceof Refusal
-          ? thrown.reason
-          : reasonOf(thrown as { message?: string } | undefined);
+      const outcome = outcomeOf(thrown);
 
-      if (refusal !== undefined) {
+      if (outcome.reason !== undefined) {
         const message = thrown instanceof Refusal ? thrown.message : 'That did not work out.';
-        return fail(problemFor(refusal, message, requestId), refusal);
+        return fail(problemFor(outcome.reason, message, requestId), outcome.reason);
       }
 
-      // Something we depend on could not be reached, and the handler knew it before
-      // doing anything. 503 rather than 500, and the claim has already been given
-      // back above.
-      if (thrown instanceof Unavailable) {
-        return fail(plainProblem('unavailable', 503, (thrown as Unavailable).message, requestId));
+      if (outcome.unavailable) {
+        return fail(
+          plainProblem('unavailable', 503, (thrown as Error).message, requestId),
+          outcome.code,
+        );
       }
 
-      // Nothing from the thrown value reaches the response or the log except a
-      // SQLSTATE. A Postgres error message can quote the row that caused it.
-      const code = (thrown as { code?: string } | undefined)?.code;
-      log('error', {
-        fn: spec.name,
-        request_id: requestId,
-        event: 'failed',
-        status: 500,
-        reason: typeof code === 'string' ? code : 'unknown',
-        duration_ms: Date.now() - started,
-      });
-      return respond(
-        500,
-        plainProblem('unavailable', 500, 'Something went wrong at our end.', requestId).body,
-        requestId,
+      // Nothing from the thrown value reaches the response or the log except the
+      // code: a Postgres error message can quote the row that caused it.
+      return fail(
+        plainProblem('unavailable', 500, 'Something went wrong at our end.', requestId),
+        outcome.code,
       );
     }
   }

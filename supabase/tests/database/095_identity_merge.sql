@@ -7,7 +7,7 @@
 -- membership can never be moved onto somebody with a saved place.
 
 begin;
-select plan(132);
+select plan(133);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid
@@ -1066,6 +1066,10 @@ values (pg_temp.circle_id(), '95000000-0000-0000-0000-00000000f402', 'Kit'),
 insert into private.email_contacts (user_id, email_normalized)
 values ('95000000-0000-0000-0000-00000000f402', 'kit@example.com');
 
+insert into private.email_action_tokens (contact_id, purpose, token_hash, expires_at)
+select ec.id, 'verify', extensions.digest('kit-verify', 'sha256'), now() + interval '7 days'
+from private.email_contacts ec where ec.email_normalized = 'kit@example.com';
+
 insert into private.email_subscriptions (contact_id, user_id, scope, plan_id, consent_text_version)
 select ec.id, ec.user_id, 'plan_updates', pg_temp.plan_id(), 'v1'
 from private.email_contacts ec where ec.email_normalized = 'kit@example.com';
@@ -1106,6 +1110,20 @@ select is(
    where ec.email_normalized = 'kit@example.com'),
   2,
   'the contact was split rather than moved — two identities, one address, which 0009 made legal'
+);
+
+-- Round 12: a contact that survives keeps its own links. The statement that carries
+-- `verify`/`prefs` links to the destination used to run in the split branch too,
+-- where the source deliberately stays behind holding another circle's consent —
+-- leaving *it* with consent nobody can verify or manage, which is the same defect
+-- the other way round.
+select is(
+  (select count(*)::integer from private.email_action_tokens t
+   join private.email_contacts ec on ec.id = t.contact_id
+   where ec.user_id = '95000000-0000-0000-0000-00000000f402'
+     and t.purpose in ('verify', 'prefs')),
+  1,
+  'the contact that stayed kept the link that can verify it'
 );
 
 -- ---------------------------------------------------------------------------

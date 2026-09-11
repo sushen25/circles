@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { ProblemReason } from '@circles/contracts';
 
 import { bearerOf } from './auth.ts';
-import { ALLOWED_REQUEST_HEADERS } from './http.ts';
+import { ALLOWED_REQUEST_HEADERS } from './respond.ts';
 import { required } from './env.ts';
 import { sha256Hex } from './hash.ts';
 import { stableJson } from './idempotency.ts';

@@ -46,7 +46,19 @@ begin
   perform private.retire_reentry_links(p_circle_id, p_from, p_to);
 
   for contact in
-    select ec.id, ec.email_hash
+    select ec.id, ec.email_hash,
+      -- Whether this contact has anything outside the circle being moved, which
+      -- decides both whether it is split and whether it survives the move.
+      exists (
+        select 1 from private.email_subscriptions other
+        join public.plans pl on pl.id = other.plan_id
+        where other.contact_id = ec.id and pl.circle_id <> p_circle_id
+        union all
+        select 1 from private.email_action_tokens other
+        where other.contact_id = ec.id
+          and other.membership_circle_id is not null
+          and other.membership_circle_id <> p_circle_id
+      ) as keeps_other_circles
     from private.email_contacts ec
     where ec.user_id = p_from
       and (
@@ -66,25 +78,14 @@ begin
     where ec.user_id = p_to and ec.email_hash = contact.email_hash;
 
     if not found then
-      if exists (
-        -- Ties outside this circle, which must not travel.
-        select 1 from private.email_subscriptions other
-        join public.plans pl on pl.id = other.plan_id
-        where other.contact_id = contact.id and pl.circle_id <> p_circle_id
-        union all
-        select 1 from private.email_action_tokens other
-        where other.contact_id = contact.id
-          -- `is not null and <>`, not `is distinct from`. A `verify` or `prefs`
-          -- token has no membership at all — the constraint on
-          -- `email_action_tokens` requires it null for anything but `reentry` —
-          -- and `null is distinct from <uuid>` is true, so every contact with a
-          -- verification link outstanding looked like a contact tied to another
-          -- circle. It was split instead of travelling: the consent went to a
-          -- fresh copy with no links, the links stayed on an identity with no
-          -- consent, and retention eventually took both.
-          and other.membership_circle_id is not null
-          and other.membership_circle_id <> p_circle_id
-      ) then
+      -- `is not null and <>` inside `keeps_other_circles`, not `is distinct from`. A
+      -- `verify` or `prefs` token has no membership at all — the constraint on
+      -- `email_action_tokens` requires it null for anything but `reentry` — and
+      -- `null is distinct from <uuid>` is true, so every contact with a verification
+      -- link outstanding looked like a contact tied to another circle. It was split
+      -- instead of travelling: the consent went to a fresh copy with no links, the
+      -- links stayed on an identity with no consent, and retention took both.
+      if contact.keeps_other_circles then
         -- Split: a copy for the destination carrying the same address and the
         -- same standing — verified stays verified, because it is the same person
         -- and the same address, and suppressed stays suppressed, because that is
@@ -155,12 +156,19 @@ begin
     -- A `verify` or `prefs` token names no membership and must keep naming none
     -- (the `email_action_tokens_membership_for_reentry` constraint), but it is
     -- still this person's link to this address — the preferences page has to work
-    -- without a sign-in (spec §5.8) and unsubscribing is immediate (§14), so a link
-    -- already in somebody's inbox has to keep addressing the contact that holds
-    -- their consent.
-    update private.email_action_tokens tok
-    set contact_id = destination_contact
-    where tok.contact_id = contact.id and tok.membership_circle_id is null;
+    -- without a sign-in (spec §5.8) and unsubscribing is immediate (§14).
+    --
+    -- So it follows the contact only when the contact is going away. A source that
+    -- keeps another circle's consent keeps its own links too: moving them would
+    -- leave *it* with consent nobody can verify or manage, which is the same defect
+    -- the other way round. A person who ends up holding one address on two contacts
+    -- needs verification to be by address rather than by row — written on SUS-34,
+    -- which owns `verify-email-contact`.
+    if not contact.keeps_other_circles then
+      update private.email_action_tokens tok
+      set contact_id = destination_contact
+      where tok.contact_id = contact.id and tok.membership_circle_id is null;
+    end if;
 
     update jobs.notification_jobs job
     set contact_id = destination_contact

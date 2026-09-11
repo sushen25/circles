@@ -95,3 +95,52 @@ export function plainProblem(
 ): { status: number; body: Problem } {
   return { status, body: { error, message, reference: reference as Problem['reference'] } };
 }
+
+/**
+ * How to read a failure: what it was, and whether anything happened.
+ *
+ * Both questions at once, because the answers come from the same evidence and
+ * keeping them apart is how the wrapper's catch got this wrong in three different
+ * ways across eleven review rounds.
+ *
+ * `committed: 'no'` means the idempotency claim can be given back and a retry is a
+ * genuine retry. `'maybe'` means it must be kept: a failure with no SQLSTATE and no
+ * name of ours might be a connection lost after the commit, and a reattachment that
+ * already happened does not survive being done twice.
+ */
+export interface Outcome {
+  readonly reason?: ProblemReason;
+  readonly unavailable: boolean;
+  readonly committed: 'no' | 'maybe';
+  /** A SQLSTATE or a short word. Never a message: Postgres quotes rows in those. */
+  readonly code: string;
+}
+
+export function outcomeOf(thrown: unknown): Outcome {
+  if (thrown instanceof Refusal) {
+    return { reason: thrown.reason, unavailable: false, committed: 'no', code: thrown.reason };
+  }
+
+  if (thrown instanceof Unavailable) {
+    // Thrown by a handler that failed before it called anything.
+    return { unavailable: true, committed: 'no', code: 'unavailable' };
+  }
+
+  const named = reasonOf(thrown as { message?: string } | undefined);
+  if (named !== undefined) {
+    return { reason: named, unavailable: false, committed: 'no', code: named };
+  }
+
+  // A five-character SQLSTATE is Postgres reporting that it refused the statement,
+  // which means the transaction is gone — even when the reason is not one of ours.
+  // PostgREST's own codes are eight characters (`PGRST116`), so they cannot be
+  // mistaken for it.
+  const code = (thrown as { code?: unknown } | undefined)?.code;
+  const aborted = typeof code === 'string' && /^[0-9A-Z]{5}$/.test(code);
+
+  return {
+    unavailable: false,
+    committed: aborted ? 'no' : 'maybe',
+    code: typeof code === 'string' ? code : 'unknown',
+  };
+}
