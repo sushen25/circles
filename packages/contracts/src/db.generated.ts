@@ -374,6 +374,35 @@ export type Database = {
           },
         ]
       }
+      member_dayparts: {
+        Row: {
+          circle_id: string
+          computed_at: string
+          summary: Json
+          user_id: string
+        }
+        Insert: {
+          circle_id: string
+          computed_at?: string
+          summary: Json
+          user_id: string
+        }
+        Update: {
+          circle_id?: string
+          computed_at?: string
+          summary?: Json
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "member_dayparts_circle_id_user_id_fkey"
+            columns: ["circle_id", "user_id"]
+            isOneToOne: true
+            referencedRelation: "circle_members"
+            referencedColumns: ["circle_id", "user_id"]
+          },
+        ]
+      }
       nudge_states: {
         Row: {
           answer: string | null

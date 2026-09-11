@@ -148,7 +148,7 @@ select lives_ok(
 );
 
 select is(
-  (select count(*)::integer from public.circles where name = 'Sunday Crew'),
+  (select count(*)::integer from public.circles where creation_key = 'key-sunday'),
   1,
   'and can see the circle they just made'
 );
@@ -160,7 +160,7 @@ select is(
   'the creator is the owner, and a member, in the same transaction'
 );
 select isnt(
-  (select short_code from public.circles where name = 'Sunday Crew'),
+  (select short_code from public.circles where creation_key = 'key-sunday'),
   null,
   'the circle has a short code'
 );
@@ -171,7 +171,7 @@ select isnt(
 
 select pg_temp.act_as_postgres();
 create temporary table t_circle as
-  select id from public.circles where name = 'Sunday Crew';
+  select id from public.circles where creation_key = 'key-sunday';
 -- A test fixture, not product data: the client roles need to read it to ask
 -- the questions below as themselves.
 grant select on t_circle to anon, authenticated;

@@ -108,7 +108,7 @@ select pg_temp.mark() as m0 \gset
 select pg_temp.act_as('00000000-0000-0000-0000-0000000005a1');
 select public.create_circle('Sunday Crew', 'sky', 'Australia/Melbourne', 'key-events');
 select pg_temp.act_as_postgres();
-create temporary table t as select id as circle_id from public.circles where name = 'Sunday Crew';
+create temporary table t as select id as circle_id from public.circles where creation_key = 'key-events';
 grant select on t to anon, authenticated, service_role;
 
 select is(

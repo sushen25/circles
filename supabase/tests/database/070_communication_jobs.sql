@@ -49,7 +49,7 @@ select pg_temp.make_user('00000000-0000-0000-0000-0000000004a3', 'Guest', true);
 select pg_temp.act_as('00000000-0000-0000-0000-0000000004a1');
 select public.create_circle('Sunday Crew', 'sky', 'Australia/Melbourne', 'key-jobs');
 select pg_temp.act_as_postgres();
-create temporary table t as select id as circle_id from public.circles where name = 'Sunday Crew';
+create temporary table t as select id as circle_id from public.circles where creation_key = 'key-jobs';
 grant select on t to anon, authenticated, service_role;
 insert into public.circle_members (circle_id, user_id, display_name_snapshot)
 select circle_id, u, n from t, (values

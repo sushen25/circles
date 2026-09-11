@@ -414,7 +414,13 @@ All ids are `uuid` (v7 where ordering helps). All tables have `created_at`, `upd
 | `private.email_suppressions` | `email_hash`, `reason`, `suppressed_at` | written by trigger when a contact is suppressed; never deleted; a new contact for a suppressed hash is created suppressed (spec §9) |
 | `jobs.notification_jobs` | `channel` (`push|email`), `kind` (a `NotificationKind`), `user_id`, `contact_id` (→ `email_contacts`), `plan_id`, `plan_revision`, `scheduled_for`, `idempotency_key`, `status` (`scheduled|sent|failed|skipped`), `attempt_count`, `last_error`, `sent_at`, `provider_message_id` | `idempotency_key` unique, 64 hex (the domain's SHA-256); push needs `user_id` and no `contact_id`, email the reverse |
 | `jobs.outbox` | `seq` (drain order), `event_name`, `aggregate_type`, `aggregate_id`, `payload`, `occurred_at`, `processed_at`, `attempts`, `last_error` | `event_name` in `DOMAIN_EVENT_NAMES`, `last_error` a code (`^[A-Za-z0-9_.:/-]{1,120}$`, never a message) and payload keys at any depth free of the `FORBIDDEN_PAYLOAD_KEYS` fragments — both rendered into the migration by `scripts/gen-events.mjs`, checked by `pnpm check:events` (`jobs.carries_content()`, also on `audit_log.metadata` and `analytics.events.properties`); written only through `jobs.emit()` — the service role holds no insert; every string value at any depth is at most 40 characters of `[A-Za-z0-9_./:+-]` (an id, an instant, an enum, a zone — never an address, a sentence or a token) |
-| `jobs.cron_leases` | `name`, `leased_until`, `holder`, `last_started_at`, `last_finished_at` | one row per cron job |
+| `jobs.cron_leases` | `name`, `leased_until`, `holder`, `last_started_at`, `last_finished_at` | one row per cron job; taken with `jobs.acquire_lease(name, ttl, holder)` (one statement, one winner) and released with `jobs.release_lease(name, holder)` |
+
+**Availability memory (`public`)**
+
+| Table | Columns of note | Constraints |
+|---|---|---|
+| `member_dayparts` | `circle_id`, `user_id`, `summary` (`{parts, counts}` — `DayPartSummary` without `userId`), `computed_at` | a running total: each retention run adds the counts of the windows it is about to delete to what is stored, then re-derives `parts` (ADR 0005); readable by that member only, and only while a member; deleted 30 days after removal or archiving; no client writes |
 
 **Growth (`public`)**
 
@@ -450,15 +456,15 @@ ready ─(response change)──▶ collecting ─ recalculate ──┘
 - `private`, `jobs`, `analytics`: no grants to `anon`/`authenticated`; reachable only through definer functions with `set search_path = ''` and the service role in Edge Functions.
 - Quiet interest before threshold is never joined into any public view; after threshold, a view `plan_interest_counts` exposes counts only.
 
-### 8.5 Retention jobs (pg_cron, daily)
+### 8.5 Retention jobs (pg_cron, daily, in the database — ADR 0014)
 
 | Data | Rule |
 |---|---|
-| Willing windows | Keep 12 months for members of active circles (review 6.9); derived `usual_dayparts` summary kept per member × circle |
+| Willing windows | Keep 12 months for members of active circles (review 6.9); derived day-part summary written to `member_dayparts` per member × circle first; 30 days after the member is removed or the circle archived |
 | Revoked invite hashes | 30 days |
-| Notification jobs and delivery events | 30 days |
+| Outbox (processed rows only), notification jobs and delivery events | 30 days |
 | Unverified contacts and expired tokens | 7 days |
-| Verified plan-only contacts | 30 days after the plan completes or is cancelled |
+| Verified plan-only contacts | 30 days after every plan they are subscribed to has completed, expired or been cancelled; suppressed contacts and `email_suppressions` are never deleted |
 | Abandoned anonymous identities (no membership, > 30 days) | delete |
 | Audit log | 12 months |
 | Deleted accounts | revoke immediately; purge identifiers within 30 days |
@@ -489,7 +495,7 @@ ready ─(response change)──▶ collecting ─ recalculate ──┘
 | `generate-ics` | member | Standards-compliant `.ics` for a confirmation; no tokens in the file |
 | `record-nudge` | member | Apply nudge caps, record shown/answered |
 | `track-events` | any | Validate against the catalogue, strip anything not in the schema, insert |
-| `process-scheduled-jobs` | cron (service role) | Drain outbox → create notification jobs; send due jobs; expire quiet asks and plans; deadline reminders; cadence prompts; outcome prompts; retention; retries with capped backoff |
+| `process-scheduled-jobs` | cron (service role) | Drain outbox → create notification jobs; send due jobs; expire quiet asks and plans; deadline reminders; cadence prompts; outcome prompts; retries with capped backoff. Not retention — that is `jobs.run_retention()` in the database ([ADR 0014](decisions/0014-retention-runs-in-the-database.md)) |
 | `delete-account` | permanent | Revoke sessions, anonymise, enqueue purge |
 
 Every function: Zod-validated input, `X-Request-Id` echoed as the user-visible reference on errors ("Ref 7F3K-2Q"), structured JSON logs without PII, idempotent on a client-supplied `Idempotency-Key` for mutations.
@@ -500,7 +506,7 @@ Clients read through `supabase-js` with RLS: circles I belong to, active members
 
 ### 9.3 Scheduled work
 
-`pg_cron` runs `process-scheduled-jobs` every minute via `pg_net` with a job lease (`jobs.cron_leases` row lock) so overlapping invocations are no-ops. Work is discovered from data (`scheduled_for <= now()`, `quiet_expires_at <= now()`, `response_deadline <= now()`, cadence due dates), never from in-memory timers.
+`pg_cron` runs `process-scheduled-jobs` every minute via `pg_net` (`jobs.invoke_process_scheduled_jobs()`, a no-op until `circles.functions_url` and `circles.cron_secret` are set on the database — see the environments runbook) with a job lease (`jobs.acquire_lease` on `jobs.cron_leases`) so overlapping invocations are no-ops. Retention (§8.5) runs daily at 03:15 as `jobs.run_retention()`, in the database as the owner ([ADR 0014](decisions/0014-retention-runs-in-the-database.md)). Work is discovered from data (`scheduled_for <= now()`, `quiet_expires_at <= now()`, `response_deadline <= now()`, cadence due dates), never from in-memory timers.
 
 ### 9.4 The one server route in the app
 
