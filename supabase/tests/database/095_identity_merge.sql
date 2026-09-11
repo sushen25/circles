@@ -7,7 +7,7 @@
 -- membership can never be moved onto somebody with a saved place.
 
 begin;
-select plan(136);
+select plan(145);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid
@@ -118,9 +118,32 @@ select cs.id, false, 1, timestamptz '2099-09-17T08:30:00Z', timestamptz '2099-09
        array['95000000-0000-0000-0000-0000000000a1'::uuid], 0, 1, 'best_attendance', 1
 from public.candidate_sets cs where cs.plan_id = pg_temp.plan_id();
 
+insert into public.meetup_confirmations (plan_id, revision, candidate_id, starts_at, ends_at,
+  available_user_ids, confirmed_by)
+select pg_temp.plan_id(), 1, c.id, c.starts_at, c.ends_at,
+       array['95000000-0000-0000-0000-00000000e301'::uuid],
+       '95000000-0000-0000-0000-000000000001'
+from public.candidates c
+join public.candidate_sets cs on cs.id = c.candidate_set_id
+where cs.plan_id = pg_temp.plan_id()
+limit 1;
+
+create or replace function pg_temp.confirmation_id() returns uuid
+language sql security definer as $$
+  select id from public.meetup_confirmations where plan_id = pg_temp.plan_id() limit 1;
+$$;
+
 -- ---------------------------------------------------------------------------
 -- The move itself
 -- ---------------------------------------------------------------------------
+-- Round 14: what the plan's `input_version` was before the move, because rewriting
+-- `plan_responses.user_id` fires `bump_input_version` and a bump stales every
+-- candidate set in the circle — so `confirm` answered `needs_candidate` until
+-- somebody answered again. Spec §6.2's own journey from the other side: Priya comes
+-- back on a new device and Maya can no longer lock in.
+create temporary table version_before as
+select input_version from public.plans where id = pg_temp.plan_id();
+
 select pg_temp.act_as('95000000-0000-0000-0000-0000000000b1', true);
 
 select lives_ok(
@@ -182,9 +205,23 @@ select is(
   'and the candidate''s available set — which is what decides who is "going" at confirm'
 );
 
+-- Round 14: and the organiser can still lock in. Rewriting `plan_responses.user_id`
+-- fires `bump_input_version`, so a rejoin staled every candidate set in the circle
+-- and `confirm` answered `needs_candidate` until somebody answered again — spec
+-- §6.2's own journey from the other side: Priya comes back and Maya cannot confirm.
+select is(
+  (select p.input_version from public.plans p where p.id = pg_temp.plan_id()),
+  (select input_version from version_before),
+  'the plan''s inputs did not change: an identity move is not new availability'
+);
+
 select is(
   (select count(*)::integer from jobs.outbox o
-   where o.event_name = 'circles.member_reattached'),
+   where o.event_name = 'circles.member_reattached'
+     -- Scoped to this circle. Unscoped, one reattachment anywhere in the database
+     -- failed this and made the next assertion's scalar subquery return two rows,
+     -- which aborted the file and took 125 unrun assertions with it.
+     and o.payload ->> 'circle_id' = pg_temp.circle_id()::text),
   1,
   'the circle is told somebody rejoined'
 );
@@ -201,7 +238,8 @@ select is(
 
 select is(
   (select o.payload ->> 'source' from jobs.outbox o
-   where o.event_name = 'circles.member_reattached'),
+   where o.event_name = 'circles.member_reattached'
+     and o.payload ->> 'circle_id' = pg_temp.circle_id()::text),
   'list',
   'and told which way they came back, because the reattach rate is by source'
 );
@@ -211,7 +249,7 @@ select is(
    where o.event_name = 'circles.member_reattached'
      and o.payload::text like '%Priya%'),
   0,
-  'without a name in the payload (non-negotiable 8)'
+  'without a name in the payload (non-negotiable 8) — unscoped on purpose: no circle''s payload may carry one'
 );
 
 -- ---------------------------------------------------------------------------
@@ -341,6 +379,7 @@ select is(
 select is(
   (select o.payload ->> 'source' from jobs.outbox o
    where o.event_name = 'circles.member_reattached'
+     and o.payload ->> 'circle_id' = pg_temp.circle_id()::text
    order by o.seq desc limit 1),
   'email',
   'recorded as the emailed path, not the list'
@@ -789,6 +828,10 @@ values (pg_temp.plan_id(), 1, '95000000-0000-0000-0000-00000000c101')
 on conflict do nothing;
 insert into private.plan_interest (plan_id, user_id, response)
 values (pg_temp.plan_id(), '95000000-0000-0000-0000-00000000c101', 'keen');
+insert into public.nudge_states (user_id, moment, plan_id)
+values ('95000000-0000-0000-0000-00000000c101', 'after_answer', pg_temp.plan_id());
+insert into public.attendance (confirmation_id, user_id, status)
+values (pg_temp.confirmation_id(), '95000000-0000-0000-0000-00000000c101', 'going');
 
 create temporary table twice_claim as
 select * from public.claim_identity('95000000-0000-0000-0000-00000000c102',
@@ -866,6 +909,24 @@ select is(
      and i.user_id = '95000000-0000-0000-0000-00000000c101'),
   0,
   'rather than being counted a second time under an identity nobody can sign in as'
+);
+
+-- Round 14: the two statements in `adopt_membership_rows` that nothing had read.
+select is(
+  (select count(*)::integer from public.attendance a
+   where a.confirmation_id = pg_temp.confirmation_id()
+     and a.user_id = '95000000-0000-0000-0000-00000000c102'),
+  1,
+  'the duplicate''s attendance came across — it is the record that they turned up'
+);
+
+select is(
+  (select count(*)::integer from public.nudge_states n
+   where n.plan_id = pg_temp.plan_id()
+     and n.user_id = '95000000-0000-0000-0000-00000000c102'
+     and n.moment = 'after_answer'),
+  1,
+  'and so did the prompt they have already been shown, so they are not shown it again'
 );
 
 -- ---------------------------------------------------------------------------
@@ -956,23 +1017,16 @@ insert into public.plan_participants (plan_id, revision, user_id)
 values (pg_temp.plan_id(), 1, '95000000-0000-0000-0000-00000000e301')
 on conflict do nothing;
 
-insert into public.meetup_confirmations (plan_id, revision, candidate_id, starts_at, ends_at,
-  available_user_ids, confirmed_by)
-select pg_temp.plan_id(), 1, c.id, c.starts_at, c.ends_at,
-       array['95000000-0000-0000-0000-00000000e301'::uuid],
-       '95000000-0000-0000-0000-000000000001'
-from public.candidates c
-join public.candidate_sets cs on cs.id = c.candidate_set_id
-where cs.plan_id = pg_temp.plan_id()
-limit 1;
-
-create or replace function pg_temp.confirmation_id() returns uuid
-language sql security definer as $$
-  select id from public.meetup_confirmations where plan_id = pg_temp.plan_id() limit 1;
-$$;
-
 insert into public.attendance (confirmation_id, user_id, status)
 values (pg_temp.confirmation_id(), '95000000-0000-0000-0000-00000000e301', 'going');
+
+-- Round 14: the confirmation's own array, and a push already queued. Both statements
+-- in `move_membership` could have been deleted and the suite would not have noticed —
+-- the array because nothing read it afterwards, the push because no test made one.
+insert into jobs.notification_jobs (channel, kind, user_id, plan_id, plan_revision,
+  scheduled_for, idempotency_key)
+values ('push', 'locked_in', '95000000-0000-0000-0000-00000000e301', pg_temp.plan_id(), 1,
+        now(), repeat('e', 64));
 
 create temporary table attendance_before as
 select updated_at from public.attendance
@@ -990,22 +1044,47 @@ select lives_ok(
 select pg_temp.act_as_postgres();
 
 select is(
-  (select a.user_id from public.attendance a
-   where a.confirmation_id = pg_temp.confirmation_id()),
-  '95000000-0000-0000-0000-00000000e302'::uuid,
+  (select count(*)::integer from public.attendance a
+   where a.confirmation_id = pg_temp.confirmation_id()
+     and a.user_id = '95000000-0000-0000-0000-00000000e302'),
+  1,
   'and their "going" came with them, rather than staying with an identity nobody can sign in as'
 );
 
 select is(
+  (select count(*)::integer from public.attendance a
+   where a.confirmation_id = pg_temp.confirmation_id()
+     and a.user_id = '95000000-0000-0000-0000-00000000e301'),
+  0,
+  'with nothing left on the identity they have stopped using'
+);
+
+select is(
   (select a.status from public.attendance a
-   where a.confirmation_id = pg_temp.confirmation_id()),
+   where a.confirmation_id = pg_temp.confirmation_id()
+     and a.user_id = '95000000-0000-0000-0000-00000000e302'),
   'going',
   'unchanged, because an identity move is not a change of mind'
 );
 
 select is(
+  (select mc.available_user_ids from public.meetup_confirmations mc
+   where mc.id = pg_temp.confirmation_id()),
+  array['95000000-0000-0000-0000-00000000e302'::uuid],
+  'the confirmation''s own list of who could come names them too'
+);
+
+select is(
+  (select job.user_id from jobs.notification_jobs job
+   where job.idempotency_key = repeat('e', 64)),
+  '95000000-0000-0000-0000-00000000e302'::uuid,
+  'and a push already queued goes to the device they are actually holding'
+);
+
+select is(
   (select a.updated_at from public.attendance a
-   where a.confirmation_id = pg_temp.confirmation_id()),
+   where a.confirmation_id = pg_temp.confirmation_id()
+     and a.user_id = '95000000-0000-0000-0000-00000000e302'),
   (select updated_at from attendance_before),
   'and `updated_at` did not move: the confirmed screen orders by it'
 );
@@ -1024,7 +1103,8 @@ on conflict (confirmation_id, user_id) do update set status = 'going';
 
 select is(
   (select a.updated_at from public.attendance a
-   where a.confirmation_id = pg_temp.confirmation_id()),
+   where a.confirmation_id = pg_temp.confirmation_id()
+     and a.user_id = '95000000-0000-0000-0000-00000000e302'),
   (select updated_at from attendance_before),
   'answering "going" again still changes nothing at all'
 );
@@ -1449,6 +1529,16 @@ insert into public.plan_required_members (plan_id, revision, user_id)
 values (pg_temp.plan_id(), 1, '95000000-0000-0000-0000-0000000c3102');
 insert into public.nudge_states (user_id, moment, plan_id)
 values ('95000000-0000-0000-0000-0000000c3102', 'after_confirmed', pg_temp.plan_id());
+-- Round 14: and the other four tables `on_member_removed` leaves behind, each of
+-- which collides on the primary key. The clearer's statements for them were
+-- untested: all four could have been deleted and the suite would have passed.
+insert into public.plan_participants (plan_id, revision, user_id)
+values (pg_temp.plan_id(), 1, '95000000-0000-0000-0000-0000000c3102')
+on conflict do nothing;
+insert into public.plan_responses (plan_id, revision, user_id, status)
+values (pg_temp.plan_id(), 1, '95000000-0000-0000-0000-0000000c3102', 'flexible');
+insert into private.plan_interest (plan_id, user_id, response)
+values (pg_temp.plan_id(), '95000000-0000-0000-0000-0000000c3102', 'keen');
 
 -- Removed the way a removal actually happens, so the trigger runs.
 update public.circle_members m
@@ -1461,13 +1551,20 @@ select isnt_empty(
   'the removal left being required behind, as spec §9 intends'
 );
 
--- And back as a guest, required again and prompted again.
+-- And back as a guest, doing all of it again.
 insert into public.circle_members (circle_id, user_id, display_name_snapshot)
 values (pg_temp.circle_id(), '95000000-0000-0000-0000-0000000c3101', 'Lee');
 insert into public.plan_required_members (plan_id, revision, user_id)
 values (pg_temp.plan_id(), 1, '95000000-0000-0000-0000-0000000c3101');
 insert into public.nudge_states (user_id, moment, plan_id)
 values ('95000000-0000-0000-0000-0000000c3101', 'after_confirmed', pg_temp.plan_id());
+insert into public.plan_participants (plan_id, revision, user_id)
+values (pg_temp.plan_id(), 1, '95000000-0000-0000-0000-0000000c3101')
+on conflict do nothing;
+insert into public.plan_responses (plan_id, revision, user_id, status)
+values (pg_temp.plan_id(), 1, '95000000-0000-0000-0000-0000000c3101', 'flexible');
+insert into private.plan_interest (plan_id, user_id, response)
+values (pg_temp.plan_id(), '95000000-0000-0000-0000-0000000c3101', 'keen');
 
 select is(
   (select merged_memberships from public.claim_identity(
@@ -1499,6 +1596,24 @@ select is(
      and n.moment = 'after_confirmed'),
   1,
   'and one record of the prompt they have been shown'
+);
+
+-- One of each of the other four too, which is what "cleared the collision" means.
+select bag_eq(
+  format($$
+    select 'participants', count(*)::integer from public.plan_participants
+      where plan_id = %L and user_id = %L
+    union all
+    select 'responses', count(*)::integer from public.plan_responses
+      where plan_id = %L and user_id = %L
+    union all
+    select 'interest', count(*)::integer from private.plan_interest
+      where plan_id = %L and user_id = %L
+  $$, pg_temp.plan_id(), '95000000-0000-0000-0000-0000000c3102',
+      pg_temp.plan_id(), '95000000-0000-0000-0000-0000000c3102',
+      pg_temp.plan_id(), '95000000-0000-0000-0000-0000000c3102'),
+  $$ values ('participants', 1), ('responses', 1), ('interest', 1) $$,
+  'exactly one row each on the surviving identity, where two would have collided'
 );
 
 -- ---------------------------------------------------------------------------
@@ -1727,6 +1842,96 @@ select isnt_empty(
   $$ select 1 from private.email_contacts ec
      where ec.email_normalized = 'wren@example.com' and ec.verified_at is not null $$,
   'with a time on it, so retention does not treat it as a pending contact'
+);
+
+-- Round 14: the clearer's attendance statement, on a confirmation of its own.
+--
+-- Separate because the shared one is in 2099 and still `active`: `was_there` before a
+-- meetup is `attendance_too_early`, and removing somebody who is `going` to one still
+-- ahead trips the shipped defect raised as SUS-76. A completed confirmation is what a
+-- person who turned up actually has.
+select pg_temp.act_as_postgres();
+
+select pg_temp.make_user('95000000-0000-0000-0000-0000000f1101'::uuid, 'Turned Up Guest', true);
+select pg_temp.make_user('95000000-0000-0000-0000-0000000f1102'::uuid, 'Turned Up Account');
+
+insert into public.plans (
+  circle_id, mode, state, organiser_user_id, title, time_zone,
+  window_start, window_end, daily_start_local, daily_end_local,
+  duration_minutes, quorum, response_deadline, short_code
+)
+-- 'collecting', not 'confirmed': `enforce_confirmed_has_confirmation` is immediate,
+-- and the confirmation cannot exist before the plan it belongs to. The state is not
+-- what this case is about — the completed confirmation is.
+values (pg_temp.other_circle(), 'named', 'collecting',
+        '95000000-0000-0000-0000-00000000f401', 'Last month', 'Australia/Melbourne',
+        date '2026-02-01', date '2026-02-05', 1050, 1350, 120, 2,
+        timestamptz '2026-01-28T10:00:00Z', 'pastpn');
+
+create or replace function pg_temp.past_confirmation() returns uuid
+language sql security definer as $$
+  select c.id from public.meetup_confirmations c
+  join public.plans pl on pl.id = c.plan_id
+  where pl.short_code = 'pastpn';
+$$;
+
+insert into public.candidate_sets (plan_id, revision, input_version, scoring_version, input_hash,
+  starts_considered, eligible_count, responded_count, active_member_count)
+select pl.id, 1, 1, 1, repeat('f', 64), 10, 2, 2, 3
+from public.plans pl where pl.short_code = 'pastpn';
+
+insert into public.candidates (candidate_set_id, is_near_miss, rank, starts_at, ends_at,
+  available_user_ids, explicit_count, flexible_count, explanation_code, explanation_count)
+select cs.id, false, 1, timestamptz '2026-02-02T08:30:00Z', timestamptz '2026-02-02T10:30:00Z',
+       array['95000000-0000-0000-0000-0000000f1101'::uuid], 0, 1, 'best_attendance', 1
+from public.candidate_sets cs
+join public.plans pl on pl.id = cs.plan_id
+where pl.short_code = 'pastpn';
+
+insert into public.meetup_confirmations (plan_id, revision, candidate_id, starts_at, ends_at,
+  available_user_ids, confirmed_by, status, superseded_at, superseded_reason)
+select pl.id, 1, c.id, c.starts_at, c.ends_at, c.available_user_ids,
+       '95000000-0000-0000-0000-00000000f401', 'completed', now(), 'outcome'
+from public.candidates c
+join public.candidate_sets cs on cs.id = c.candidate_set_id
+join public.plans pl on pl.id = cs.plan_id
+where pl.short_code = 'pastpn';
+
+-- The account turned up, then left the circle.
+insert into public.circle_members (circle_id, user_id, display_name_snapshot)
+values (pg_temp.other_circle(), '95000000-0000-0000-0000-0000000f1102', 'Niamh before');
+insert into public.plan_participants (plan_id, revision, user_id)
+select pl.id, 1, '95000000-0000-0000-0000-0000000f1102'
+from public.plans pl where pl.short_code = 'pastpn';
+insert into public.attendance (confirmation_id, user_id, status)
+values (pg_temp.past_confirmation(), '95000000-0000-0000-0000-0000000f1102', 'was_there');
+
+update public.circle_members m set status = 'removed'
+where m.circle_id = pg_temp.other_circle()
+  and m.user_id = '95000000-0000-0000-0000-0000000f1102';
+
+-- And is back as a guest, who also turned up.
+insert into public.circle_members (circle_id, user_id, display_name_snapshot)
+values (pg_temp.other_circle(), '95000000-0000-0000-0000-0000000f1101', 'Niamh');
+insert into public.plan_participants (plan_id, revision, user_id)
+select pl.id, 1, '95000000-0000-0000-0000-0000000f1101'
+from public.plans pl where pl.short_code = 'pastpn';
+insert into public.attendance (confirmation_id, user_id, status)
+values (pg_temp.past_confirmation(), '95000000-0000-0000-0000-0000000f1101', 'was_there');
+
+select is(
+  (select merged_memberships from public.claim_identity(
+     '95000000-0000-0000-0000-0000000f1102', '95000000-0000-0000-0000-0000000f1101', 'settings')),
+  1,
+  'signing in again succeeds with attendance on both sides'
+);
+
+select is(
+  (select count(*)::integer from public.attendance a
+   where a.confirmation_id = pg_temp.past_confirmation()
+     and a.user_id = '95000000-0000-0000-0000-0000000f1102'),
+  1,
+  'and the colliding attendance was cleared, leaving one row where two would not fit'
 );
 
 select pg_temp.act_as_postgres();

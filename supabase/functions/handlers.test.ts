@@ -26,26 +26,40 @@ const state = vi.hoisted(() => ({
   fetched: [] as string[],
 }));
 
-vi.mock('@supabase/supabase-js', () => ({
-  createClient: () => ({
-    rpc: (fn: string, args: Record<string, unknown>) => {
-      state.rpcs.push({ fn, args });
-      return Promise.resolve(state.answer(fn));
+/**
+ * `_shared/db.ts` is mocked, not `@supabase/supabase-js`.
+ *
+ * Mocking the package worked when this project ran alone and silently did not when
+ * the whole workspace did — `apps/app` depends on the same package, and whichever
+ * specifier the mock registered was not the one `db.ts` resolved. The real `getUser`
+ * then went to the network, and `AuthRetryableFetchError`'s backoff took fifty
+ * seconds per test and starved two unrelated property-based suites into timing out.
+ *
+ * Our own module has one resolution and no network, so this cannot drift.
+ */
+const client = vi.hoisted(() => ({
+  rpc: (fn: string, args: Record<string, unknown>) => {
+    state.rpcs.push({ fn, args });
+    return Promise.resolve(state.answer(fn));
+  },
+  auth: {
+    getUser: (token: string) => {
+      state.tokens.push(token);
+      const next = state.users.shift();
+      if (next === undefined || 'error' in next) {
+        return Promise.resolve({
+          data: { user: null },
+          error: next?.error ?? { message: 'no', status: 401 },
+        });
+      }
+      return Promise.resolve({ data: { user: next }, error: null });
     },
-    auth: {
-      getUser: (token: string) => {
-        state.tokens.push(token);
-        const next = state.users.shift();
-        if (next === undefined || 'error' in next) {
-          return Promise.resolve({
-            data: { user: null },
-            error: next?.error ?? { message: 'no', status: 401 },
-          });
-        }
-        return Promise.resolve({ data: { user: next }, error: null });
-      },
-    },
-  }),
+  },
+}));
+
+vi.mock('./_shared/db.ts', () => ({
+  asCaller: () => client,
+  asService: () => client,
 }));
 
 (globalThis as { Deno?: unknown }).Deno = {
@@ -87,23 +101,34 @@ const PREVIOUS = '00000000-0000-4000-8000-00000000000p';
 const KEY = '00000000-0000-4000-8000-000000000001';
 
 /**
- * Each module is evaluated once — `Deno.serve` is an import-time side effect, and
- * ESM does not re-run it — so the handlers are collected here and the tests reuse
- * them. They read `state` when they are called, not when they were built, so one
- * instance serves every case.
+ * Loaded at module scope, before any test runs.
+ *
+ * Importing a handler pulls in `@circles/contracts` and `@circles/domain` through the
+ * aliases, which under a whole-workspace run costs more than a test's five-second
+ * budget — so the *first* test timed out, and the one after it inherited a half-shifted
+ * queue and failed for a reason that had nothing to do with it. Top-level `await` is
+ * outside that budget, and it makes the order of the tests irrelevant.
+ *
+ * Each module is evaluated once in any case: `Deno.serve` is an import-time side
+ * effect and ESM does not re-run it. The handlers read `state` when they are called,
+ * not when they were built, so one instance serves every case.
  */
-const handlers = new Map<string, (request: Request) => Promise<Response>>();
-
-async function load(name: string): Promise<(request: Request) => Promise<Response>> {
-  const already = handlers.get(name);
-  if (already !== undefined) return already;
-
+async function serveOf(name: string): Promise<(request: Request) => Promise<Response>> {
   state.served = [];
   await import(`./${name}/index.ts`);
   const handler = state.served[0];
   if (handler === undefined) throw new Error(`${name} did not serve a handler`);
-  handlers.set(name, handler);
   return handler;
+}
+
+const handlers = {
+  'claim-identity': await serveOf('claim-identity'),
+  'redeem-invite': await serveOf('redeem-invite'),
+  'reattach-member': await serveOf('reattach-member'),
+};
+
+function load(name: keyof typeof handlers): (request: Request) => Promise<Response> {
+  return handlers[name];
 }
 
 function post(body: unknown): Request {
@@ -158,7 +183,7 @@ describe('claim-identity', () => {
       { error: { message: 'fetch failed' } as { status?: number } },
     ];
 
-    const handler = await load('claim-identity');
+    const handler = load('claim-identity');
     const response = await handler(post(body));
 
     expect(response.status).toBe(503);
@@ -173,7 +198,7 @@ describe('claim-identity', () => {
       { id: PREVIOUS, is_anonymous: true },
     ];
 
-    const handler = await load('claim-identity');
+    const handler = load('claim-identity');
     const response = await handler(post(body));
 
     expect(await response.json()).toMatchObject({ reason: 'destination_is_not_permanent' });
@@ -198,7 +223,7 @@ describe('claim-identity', () => {
       return { data: null, error: null };
     };
 
-    const handler = await load('claim-identity');
+    const handler = load('claim-identity');
     const response = await handler(post(body));
 
     expect(await response.json()).toEqual({
@@ -224,7 +249,7 @@ describe('redeem-invite', () => {
   };
 
   it('joins, and answers with a DTO rather than the row', async () => {
-    const handler = await load('redeem-invite');
+    const handler = load('redeem-invite');
     const response = await handler(post(body));
 
     expect(response.status).toBe(200);
@@ -237,7 +262,7 @@ describe('redeem-invite', () => {
   });
 
   it('sends the digest of the secret, never the secret', async () => {
-    const handler = await load('redeem-invite');
+    const handler = load('redeem-invite');
     expect((await handler(post(body))).status).toBe(200);
 
     const sent = called('redeem_invite')[0]?.args['p_secret_hash'];
@@ -246,11 +271,15 @@ describe('redeem-invite', () => {
   });
 
   it('counts the attempt against the link and the address before doing anything', async () => {
-    const handler = await load('redeem-invite');
+    const handler = load('redeem-invite');
     expect((await handler(post(body))).status).toBe(200);
 
+    // Sorted: `enforce` runs the limits with `Promise.all` and each awaits its own
+    // digest first, so which RPC lands first is a race. Asserting the order would be
+    // asserting something the code never promised — and it failed about one run in
+    // three, which is worse than not testing it.
     const scopes = called('take_rate_token').map((call) => call.args['p_scope']);
-    expect(scopes).toEqual(['redeem_invite', 'redeem_ip']);
+    expect(scopes.sort()).toEqual(['redeem_invite', 'redeem_ip']);
   });
 
   it('does not run the guard at all for a retry that was already answered', async () => {
@@ -263,7 +292,7 @@ describe('redeem-invite', () => {
           }
         : { data: null, error: null };
 
-    const handler = await load('redeem-invite');
+    const handler = load('redeem-invite');
     const response = await handler(post(body));
 
     expect(response.status).toBe(200);
@@ -275,7 +304,7 @@ describe('redeem-invite', () => {
 describe('reattach-member', () => {
   it('hashes the re-entry token and keys a limit on it', async () => {
     const token = 'y'.repeat(43);
-    const handler = await load('reattach-member');
+    const handler = load('reattach-member');
     expect((await handler(post({ idempotency_key: KEY, reentry_token: token }))).status).toBe(200);
 
     const args = called('reattach_member')[0]?.args ?? {};
@@ -290,7 +319,7 @@ describe('reattach-member', () => {
   });
 
   it('counts against the circle when the membership was chosen from the list', async () => {
-    const handler = await load('reattach-member');
+    const handler = load('reattach-member');
     const answered = await handler(
       post({
         idempotency_key: KEY,
@@ -301,11 +330,11 @@ describe('reattach-member', () => {
     expect(answered.status).toBe(200);
 
     const scopes = called('take_rate_token').map((call) => call.args['p_scope']);
-    expect(scopes).toEqual(['reattach_ip', 'reattach_circle']);
+    expect(scopes.sort()).toEqual(['reattach_circle', 'reattach_ip']);
   });
 
   it('refuses a request that names both a membership and a token', async () => {
-    const handler = await load('reattach-member');
+    const handler = load('reattach-member');
     const response = await handler(
       post({
         idempotency_key: KEY,

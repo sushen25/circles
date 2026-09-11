@@ -35,6 +35,10 @@ security definer
 set search_path = ''
 as $$
 begin
+  -- The inputs are not changing, only whose they are — see `bump_input_version`.
+  -- Local to the transaction, so it cannot leak into anything else.
+  perform set_config('circles.moving_membership', 'on', true);
+
   -- Participation first: `enforce_attendance_transition` refuses an attendance
   -- row whose owner is not a participant of the confirmation's revision, so
   -- adopting attendance before participation would raise and take the whole
@@ -114,6 +118,7 @@ begin
     );
 
   perform private.reconcile_contacts(p_circle_id, p_from, p_to);
+  perform set_config('circles.moving_membership', 'off', true);
 end;
 $$;
 

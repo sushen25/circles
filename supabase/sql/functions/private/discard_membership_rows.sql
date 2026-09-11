@@ -20,6 +20,12 @@
 -- doing lately, and the account's are about a membership that ended — a `cant`
 -- written *by the removal itself* is not an answer anybody gave.
 --
+-- Which is a reason, not a promise: a removal-written `cant` on a meetup still ahead
+-- survives if the returning guest has no attendance of their own on it, because
+-- nothing collides and this function clears only collisions. Correcting that would
+-- mean knowing which `cant` the removal wrote, and `attendance` does not record it.
+-- The person can change their answer, which is what that screen is for.
+--
 -- Nothing else goes. Spec §4.5 lets a removed member's "historic aggregate
 -- attendance" remain and `on_member_removed` deliberately keeps a past
 -- `was_there`; clearing the lot threw away the record that somebody turned up,
@@ -44,6 +50,10 @@ security definer
 set search_path = ''
 as $$
 begin
+  -- The inputs are not changing, only whose they are — see `bump_input_version`.
+  -- Local to the transaction, so it cannot leak into anything else.
+  perform set_config('circles.moving_membership', 'on', true);
+
   delete from public.attendance a
   where a.user_id = p_user_id
     and a.confirmation_id in (
@@ -102,6 +112,7 @@ begin
 
   -- `member_dayparts` and any re-entry token go with the membership row itself,
   -- which references `circle_members` with `on delete cascade`.
+  perform set_config('circles.moving_membership', 'off', true);
 end;
 $$;
 

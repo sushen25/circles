@@ -37,6 +37,14 @@ export type CircleDto = z.infer<typeof CircleDto>;
  * exist cannot be added by accident.
  */
 export const GuestMemberOption = z.object({
+  /**
+   * The circle the list is about. Not decoration: `reattach-member` needs it, and a
+   * session that has just signed in anonymously has no other way to get one — RLS
+   * shows it no circle it is not a member of. Leaving it off here meant a client
+   * parsing the row through this schema lost the very field that makes the next call
+   * possible, because Zod strips what it does not declare.
+   */
+  circle_id: CircleId,
   member_user_id: UserId,
   display_name: z.string(),
 });

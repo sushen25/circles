@@ -459,6 +459,10 @@ security definer
 set search_path = ''
 as $$
 begin
+  -- The inputs are not changing, only whose they are — see `bump_input_version`.
+  -- Local to the transaction, so it cannot leak into anything else.
+  perform set_config('circles.moving_membership', 'on', true);
+
   -- Participation first: `enforce_attendance_transition` refuses an attendance
   -- row whose owner is not a participant of the confirmation's revision, so
   -- adopting attendance before participation would raise and take the whole
@@ -538,6 +542,7 @@ begin
     );
 
   perform private.reconcile_contacts(p_circle_id, p_from, p_to);
+  perform set_config('circles.moving_membership', 'off', true);
 end;
 $$;
 
@@ -570,6 +575,12 @@ revoke all on function private.adopt_membership_rows(uuid, uuid, uuid) from anon
 -- doing lately, and the account's are about a membership that ended — a `cant`
 -- written *by the removal itself* is not an answer anybody gave.
 --
+-- Which is a reason, not a promise: a removal-written `cant` on a meetup still ahead
+-- survives if the returning guest has no attendance of their own on it, because
+-- nothing collides and this function clears only collisions. Correcting that would
+-- mean knowing which `cant` the removal wrote, and `attendance` does not record it.
+-- The person can change their answer, which is what that screen is for.
+--
 -- Nothing else goes. Spec §4.5 lets a removed member's "historic aggregate
 -- attendance" remain and `on_member_removed` deliberately keeps a past
 -- `was_there`; clearing the lot threw away the record that somebody turned up,
@@ -594,6 +605,10 @@ security definer
 set search_path = ''
 as $$
 begin
+  -- The inputs are not changing, only whose they are — see `bump_input_version`.
+  -- Local to the transaction, so it cannot leak into anything else.
+  perform set_config('circles.moving_membership', 'on', true);
+
   delete from public.attendance a
   where a.user_id = p_user_id
     and a.confirmation_id in (
@@ -652,6 +667,7 @@ begin
 
   -- `member_dayparts` and any re-entry token go with the membership row itself,
   -- which references `circle_members` with `on delete cascade`.
+  perform set_config('circles.moving_membership', 'off', true);
 end;
 $$;
 
@@ -728,6 +744,10 @@ security definer
 set search_path = ''
 as $$
 begin
+  -- The inputs are not changing, only whose they are — see `bump_input_version`.
+  -- Local to the transaction, so it cannot leak into anything else.
+  perform set_config('circles.moving_membership', 'on', true);
+
   -- Outstanding emailed links first, while `membership_user_id` still names the
   -- identity they were issued against: the write below cascades that column, and
   -- `enforce_reentry_for_guests` fires on it. `private.retire_reentry_links` says
@@ -803,6 +823,7 @@ begin
   where j.user_id = p_from
     and j.sent_at is null
     and j.plan_id in (select p.id from public.plans p where p.circle_id = p_circle_id);
+  perform set_config('circles.moving_membership', 'off', true);
 end;
 $$;
 
@@ -1150,6 +1171,61 @@ comment on function public.begin_request(text, uuid, text, bytea) is
 revoke all on function public.begin_request(text, uuid, text, bytea) from public;
 revoke all on function public.begin_request(text, uuid, text, bytea) from anon, authenticated;
 grant execute on function public.begin_request(text, uuid, text, bytea) to service_role;
+
+-- supabase/sql/functions/public/bump_input_version.sql
+-- Statement-level, over transition tables, and suppressed inside
+-- `replace_response`, which bumps exactly once itself. The first version was
+-- row-level: replacing two windows with two others bumped five times, and the
+-- version came to depend on how many windows a person painted — the per-row
+-- behaviour ADR 0013 exists to rule out. The trigger is still here for every
+-- other write path (a retention job, a migration), bumping once per statement.
+
+create or replace function public.bump_input_version()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if coalesce(current_setting('circles.in_replace_response', true), '') = 'on' then
+    return null;
+  end if;
+
+  -- Nor when a membership is changing hands. `reattach_member` and
+  -- `claim_identity` rewrite `plan_responses.user_id`, which is the same
+  -- availability under a new name for the same person — and bumping for it staled
+  -- every candidate set in the circle, so an organiser could not confirm until
+  -- somebody answered again. That is spec §6.2's own journey, from the other side:
+  -- Priya rejoins from a new device and Maya can no longer lock in.
+  --
+  -- The movers update the candidate arrays in the same breath, so the set they
+  -- leave behind is correct rather than stale. Where a member genuinely *leaves*,
+  -- `on_member_removed` bumps on its own and this changes nothing about that.
+  if coalesce(current_setting('circles.moving_membership', true), '') = 'on' then
+    return null;
+  end if;
+
+  if tg_table_name = 'plan_responses' then
+    update public.plans p
+    set input_version = p.input_version + 1
+    where (p.id, p.revision) in (
+      select r.plan_id, r.revision from changed r
+    );
+  else
+    update public.plans p
+    set input_version = p.input_version + 1
+    where (p.id, p.revision) in (
+      select r.plan_id, r.revision
+      from changed w
+      join public.plan_responses r on r.id = w.response_id
+    );
+  end if;
+  return null;
+end;
+$$;
+
+revoke all on function public.bump_input_version() from public;
+revoke all on function public.bump_input_version() from anon, authenticated;
 
 -- supabase/sql/functions/public/claim_identity.sql
 -- ---------------------------------------------------------------------------
@@ -1614,7 +1690,19 @@ begin
   join public.circles c on c.id = m.circle_id
   join public.profiles p on p.user_id = m.user_id
   join auth.users u on u.id = m.user_id
-  where c.short_code = p_short_code
+  where (
+      c.short_code = p_short_code
+      -- "When someone opens a circle **or plan link** with no session … the page
+      -- lists the circle's guest members" (spec §5.1), and §6.2's journey is somebody
+      -- tapping "Locked in" in a chat, which is a `/p/:code` link. Taking only the
+      -- circle's code meant that arrival could not reach the list at all, and nothing
+      -- else maps a plan code to a circle for a caller with no membership. The
+      -- ticket says `circle_short_code`; the spec wins (non-negotiable 1).
+      or exists (
+        select 1 from public.plans pl
+        where pl.short_code = p_short_code and pl.circle_id = c.id
+      )
+    )
     and m.status = 'active'
     -- Two records of one fact, and the stricter reading wins. `profiles` is
     -- the durable record `handle_user_updated` maintains; `auth.users` is

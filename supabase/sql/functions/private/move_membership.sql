@@ -33,6 +33,10 @@ security definer
 set search_path = ''
 as $$
 begin
+  -- The inputs are not changing, only whose they are — see `bump_input_version`.
+  -- Local to the transaction, so it cannot leak into anything else.
+  perform set_config('circles.moving_membership', 'on', true);
+
   -- Outstanding emailed links first, while `membership_user_id` still names the
   -- identity they were issued against: the write below cascades that column, and
   -- `enforce_reentry_for_guests` fires on it. `private.retire_reentry_links` says
@@ -108,6 +112,7 @@ begin
   where j.user_id = p_from
     and j.sent_at is null
     and j.plan_id in (select p.id from public.plans p where p.circle_id = p_circle_id);
+  perform set_config('circles.moving_membership', 'off', true);
 end;
 $$;
 

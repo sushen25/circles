@@ -67,7 +67,19 @@ begin
   join public.circles c on c.id = m.circle_id
   join public.profiles p on p.user_id = m.user_id
   join auth.users u on u.id = m.user_id
-  where c.short_code = p_short_code
+  where (
+      c.short_code = p_short_code
+      -- "When someone opens a circle **or plan link** with no session … the page
+      -- lists the circle's guest members" (spec §5.1), and §6.2's journey is somebody
+      -- tapping "Locked in" in a chat, which is a `/p/:code` link. Taking only the
+      -- circle's code meant that arrival could not reach the list at all, and nothing
+      -- else maps a plan code to a circle for a caller with no membership. The
+      -- ticket says `circle_short_code`; the spec wins (non-negotiable 1).
+      or exists (
+        select 1 from public.plans pl
+        where pl.short_code = p_short_code and pl.circle_id = c.id
+      )
+    )
     and m.status = 'active'
     -- Two records of one fact, and the stricter reading wins. `profiles` is
     -- the durable record `handle_user_updated` maintains; `auth.users` is

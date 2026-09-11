@@ -8,7 +8,7 @@
 -- joining as guests — so that nothing here invents a second cast.
 
 begin;
-select plan(68);
+select plan(71);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid
@@ -248,7 +248,7 @@ delete from jobs.outbox where event_name in ('circles.member_joined', 'circles.m
 
 select pg_temp.act_as('90000000-0000-0000-0000-000000000003', true);
 select lives_ok(
-  $$ select public.redeem_invite(pg_temp.digest_of('live-secret'), 'Tom') $$,
+  $$ select public.redeem_invite(pg_temp.digest_of('live-secret'), 'Tom again') $$,
   'a removed member redeeming a live link joins again'
 );
 
@@ -256,6 +256,15 @@ select is(
   (pg_temp.membership(pg_temp.circle_id(), '90000000-0000-0000-0000-000000000003')).status,
   'active',
   'and is active once more'
+);
+
+-- Under the name they gave *this time*. The earlier version of this test rejoined as
+-- 'Tom', so the statement that writes the name could have been missing entirely and
+-- nothing would have noticed.
+select is(
+  (pg_temp.membership(pg_temp.circle_id(), '90000000-0000-0000-0000-000000000003')).display_name_snapshot,
+  'Tom again',
+  'under the name they gave this time, not the one they left under'
 );
 
 select is(
@@ -337,7 +346,7 @@ select pg_temp.act_as('90000000-0000-0000-0000-000000000004', true);
 select bag_eq(
   format($$ select display_name from public.guest_members_for_reattach(%L) $$,
          (select short_code from fixture)),
-  $$ values ('Priya'), ('Tom'), ('One Too Many') $$,
+  $$ values ('Priya'), ('Tom again'), ('One Too Many') $$,
   'the list is the circle''s active guests'
 );
 
@@ -394,6 +403,34 @@ select is(
    limit 1),
   pg_temp.circle_id(),
   'the list names the circle it is about, so Continue-as can actually call reattach'
+);
+
+-- Round 14: "a circle **or plan link**" (spec §5.1), and §6.2's journey is somebody
+-- tapping "Locked in" in a chat — which is a `/p/:code` link, not a circle's. Taking
+-- only the circle's code meant that arrival could not reach the list at all.
+select pg_temp.act_as_postgres();
+insert into public.plans (
+  circle_id, mode, state, organiser_user_id, title, time_zone,
+  window_start, window_end, daily_start_local, daily_end_local,
+  duration_minutes, quorum, response_deadline, short_code
+)
+select pg_temp.circle_id(), 'named', 'collecting', '90000000-0000-0000-0000-000000000001',
+       'Catch up', 'Australia/Melbourne', date '2099-09-17', date '2099-09-20',
+       1050, 1350, 120, 2, timestamptz '2099-09-20T10:00:00Z', 'jnpden';
+
+select pg_temp.act_as('90000000-0000-0000-0000-000000000004', true);
+
+select bag_eq(
+  $$ select display_name from public.guest_members_for_reattach('jnpden') $$,
+  $$ select display_name from public.guest_members_for_reattach(
+       (select short_code from fixture)) $$,
+  'a plan''s code reaches the same list as its circle''s'
+);
+
+select is(
+  (select circle_id from public.guest_members_for_reattach('jnpden') limit 1),
+  pg_temp.circle_id(),
+  'and names the circle, which is what the plan code could not otherwise be turned into'
 );
 
 -- ---------------------------------------------------------------------------
