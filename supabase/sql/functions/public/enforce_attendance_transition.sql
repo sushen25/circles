@@ -49,8 +49,23 @@ begin
 
   if tg_op = 'UPDATE' then
     if new.status = old.status then
-      -- Idempotent: return the old row untouched, `updated_at` included.
-      return old;
+      if new.user_id = old.user_id then
+        -- Idempotent: the same answer twice. Return the old row untouched,
+        -- `updated_at` included.
+        return old;
+      end if;
+
+      -- Not the same answer twice — the *same answer, a different identity*.
+      -- `reattach_member` and `claim_identity` rewrite `user_id` when somebody
+      -- comes back on a new device or saves their place, and the answer is
+      -- unchanged by definition. `return old` swallowed those updates in
+      -- silence, leaving attendance owned by an identity nobody can sign in as,
+      -- so "5 going" counted a person who could no longer be reached.
+      --
+      -- `updated_at` deliberately does not move: the confirmed screen orders by
+      -- it, and nobody changed their mind. `jobs.on_attendance_updated` fires
+      -- only on `status`, so nothing is announced either, which is right.
+      return new;
     end if;
 
     allowed := case old.status

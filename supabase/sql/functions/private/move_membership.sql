@@ -187,7 +187,52 @@ begin
       where job.contact_id = contact.id and job.sent_at is null;
 
       delete from private.email_contacts ec where ec.id = contact.id;
+    elsif exists (
+      -- The contact has ties outside this circle. One address, one identity, and
+      -- an identity can be in several circles — so moving the contact whole would
+      -- carry another circle's consent to an identity that is not a member of it,
+      -- and a re-entry token for that other membership would be left pointing at
+      -- a pair that no longer exists. "A reattachment moves a membership only
+      -- within a circle the guest already belongs to" (AGENTS.md) is about the
+      -- membership; it is just as true of what hangs off it.
+      select 1 from private.email_subscriptions other
+      join public.plans pl on pl.id = other.plan_id
+      where other.contact_id = contact.id and pl.circle_id <> p_circle_id
+      union all
+      select 1 from private.email_action_tokens other
+      where other.contact_id = contact.id
+        and other.membership_circle_id is distinct from p_circle_id
+    ) then
+      -- So the contact is *split*: a copy for the destination carrying the same
+      -- address and the same standing — verified stays verified, because it is
+      -- the same person and the same address, and suppressed stays suppressed,
+      -- because that is global by hash (spec §9) — and only this circle's consent
+      -- and links move onto it. Uniqueness is `(email_hash, user_id)`, so two
+      -- identities holding one address is exactly what 0009 made legal.
+      insert into private.email_contacts
+        (user_id, email_normalized, status, verified_at, suppressed_at, suppression_reason)
+      select p_to, ec.email_normalized, ec.status, ec.verified_at, ec.suppressed_at,
+             ec.suppression_reason
+      from private.email_contacts ec
+      where ec.id = contact.id
+      returning id into destination_contact;
+
+      update private.email_subscriptions sub
+      set contact_id = destination_contact, user_id = p_to
+      where sub.contact_id = contact.id
+        and sub.plan_id in (select pl.id from public.plans pl where pl.circle_id = p_circle_id);
+
+      update private.email_action_tokens tok
+      set contact_id = destination_contact
+      where tok.contact_id = contact.id and tok.membership_circle_id = p_circle_id;
+
+      update jobs.notification_jobs job
+      set contact_id = destination_contact
+      where job.contact_id = contact.id
+        and job.sent_at is null
+        and job.plan_id in (select pl.id from public.plans pl where pl.circle_id = p_circle_id);
     else
+      -- Everything this contact is tied to is in this circle, so it travels whole.
       update private.email_contacts ec set user_id = p_to where ec.id = contact.id;
     end if;
   end loop;

@@ -37,7 +37,10 @@ Deno.serve(
       // Continue-as list and make its membership unreattachable, locking the
       // person out of their own way back in, with no sign-in anywhere in sight.
       if (actor.isAnonymous) {
-        throw new Refusal('source_is_permanent', 'Sign in first, then save your place.');
+        // `destination_is_not_permanent`, not `source_is_permanent`: clients branch
+        // on the reason, and the thing that is wrong here is the caller, not the
+        // session being merged from.
+        throw new Refusal('destination_is_not_permanent', 'Sign in first, then save your place.');
       }
 
       // `linkIdentity` converts the anonymous user *in place*: same id, now

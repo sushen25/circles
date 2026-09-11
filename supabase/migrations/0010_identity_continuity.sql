@@ -561,7 +561,52 @@ begin
       where job.contact_id = contact.id and job.sent_at is null;
 
       delete from private.email_contacts ec where ec.id = contact.id;
+    elsif exists (
+      -- The contact has ties outside this circle. One address, one identity, and
+      -- an identity can be in several circles — so moving the contact whole would
+      -- carry another circle's consent to an identity that is not a member of it,
+      -- and a re-entry token for that other membership would be left pointing at
+      -- a pair that no longer exists. "A reattachment moves a membership only
+      -- within a circle the guest already belongs to" (AGENTS.md) is about the
+      -- membership; it is just as true of what hangs off it.
+      select 1 from private.email_subscriptions other
+      join public.plans pl on pl.id = other.plan_id
+      where other.contact_id = contact.id and pl.circle_id <> p_circle_id
+      union all
+      select 1 from private.email_action_tokens other
+      where other.contact_id = contact.id
+        and other.membership_circle_id is distinct from p_circle_id
+    ) then
+      -- So the contact is *split*: a copy for the destination carrying the same
+      -- address and the same standing — verified stays verified, because it is
+      -- the same person and the same address, and suppressed stays suppressed,
+      -- because that is global by hash (spec §9) — and only this circle's consent
+      -- and links move onto it. Uniqueness is `(email_hash, user_id)`, so two
+      -- identities holding one address is exactly what 0009 made legal.
+      insert into private.email_contacts
+        (user_id, email_normalized, status, verified_at, suppressed_at, suppression_reason)
+      select p_to, ec.email_normalized, ec.status, ec.verified_at, ec.suppressed_at,
+             ec.suppression_reason
+      from private.email_contacts ec
+      where ec.id = contact.id
+      returning id into destination_contact;
+
+      update private.email_subscriptions sub
+      set contact_id = destination_contact, user_id = p_to
+      where sub.contact_id = contact.id
+        and sub.plan_id in (select pl.id from public.plans pl where pl.circle_id = p_circle_id);
+
+      update private.email_action_tokens tok
+      set contact_id = destination_contact
+      where tok.contact_id = contact.id and tok.membership_circle_id = p_circle_id;
+
+      update jobs.notification_jobs job
+      set contact_id = destination_contact
+      where job.contact_id = contact.id
+        and job.sent_at is null
+        and job.plan_id in (select pl.id from public.plans pl where pl.circle_id = p_circle_id);
     else
+      -- Everything this contact is tied to is in this circle, so it travels whole.
       update private.email_contacts ec set user_id = p_to where ec.id = contact.id;
     end if;
   end loop;
@@ -795,6 +840,17 @@ begin
           and not exists (
             select 1 from public.attendance kept
             where kept.confirmation_id = a.confirmation_id and kept.user_id = p_user_id
+          )
+          -- `enforce_attendance_transition` requires the owner to be a
+          -- participant of the confirmation's revision, and the survivor may not
+          -- be one. Adopting such a row would raise `attendance_not_a_participant`
+          -- and take the whole claim with it, so it is left where it is —
+          -- `on_member_removed` will mark it `cant` along with the membership.
+          and exists (
+            select 1 from public.plan_participants pp
+            join public.meetup_confirmations c on c.id = a.confirmation_id
+            where pp.plan_id = c.plan_id and pp.revision = c.revision
+              and pp.user_id = p_user_id
           );
 
         update public.circle_members m
@@ -851,6 +907,101 @@ comment on function public.claim_identity(uuid, uuid, text) is
 revoke all on function public.claim_identity(uuid, uuid, text) from public;
 revoke all on function public.claim_identity(uuid, uuid, text) from anon, authenticated;
 grant execute on function public.claim_identity(uuid, uuid, text) to service_role;
+
+-- supabase/sql/functions/public/enforce_attendance_transition.sql
+-- ---------------------------------------------------------------------------
+-- Attendance transitions.
+--
+-- Mirrors `updateAttendance` / `applyAttendance` in the domain, rule for rule:
+--
+--   * before the meetup, `going` and `cant` swap freely; after it, `was_there`
+--     and `missed` swap freely; nothing goes back from an answer about the
+--     past to a promise about the future;
+--   * a retrospective status is refused before the meetup has ended — "I was
+--     there" before Thursday is not an early answer, it is a false one, and
+--     `corroboration` would go on to count it;
+--   * the same status twice is a no-op, not a fresh answer: the confirmed
+--     screen orders by `updated_at`, and a duplicate tap must not announce a
+--     change of mind nobody made;
+--   * only a participant of the confirmation's revision has a row, and only on
+--     a confirmation that is active or completed.
+-- ---------------------------------------------------------------------------
+
+create or replace function public.enforce_attendance_transition()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+declare
+  confirmation public.meetup_confirmations;
+  allowed text[];
+begin
+  select * into confirmation from public.meetup_confirmations c where c.id = new.confirmation_id;
+
+  if confirmation.id is null then
+    raise exception 'attendance_confirmation_missing' using errcode = 'foreign_key_violation';
+  end if;
+  if confirmation.status not in ('active', 'completed') then
+    raise exception 'attendance_confirmation_not_live' using errcode = 'check_violation';
+  end if;
+
+  if not exists (
+    select 1 from public.plan_participants pp
+    where pp.plan_id = confirmation.plan_id
+      and pp.revision = confirmation.revision
+      and pp.user_id = new.user_id
+  ) then
+    raise exception 'attendance_not_a_participant' using errcode = 'check_violation';
+  end if;
+
+  if new.status in ('was_there', 'missed') and now() < confirmation.ends_at then
+    raise exception 'attendance_too_early' using errcode = 'check_violation';
+  end if;
+
+  if tg_op = 'UPDATE' then
+    if new.status = old.status then
+      if new.user_id = old.user_id then
+        -- Idempotent: the same answer twice. Return the old row untouched,
+        -- `updated_at` included.
+        return old;
+      end if;
+
+      -- Not the same answer twice — the *same answer, a different identity*.
+      -- `reattach_member` and `claim_identity` rewrite `user_id` when somebody
+      -- comes back on a new device or saves their place, and the answer is
+      -- unchanged by definition. `return old` swallowed those updates in
+      -- silence, leaving attendance owned by an identity nobody can sign in as,
+      -- so "5 going" counted a person who could no longer be reached.
+      --
+      -- `updated_at` deliberately does not move: the confirmed screen orders by
+      -- it, and nobody changed their mind. `jobs.on_attendance_updated` fires
+      -- only on `status`, so nothing is announced either, which is right.
+      return new;
+    end if;
+
+    allowed := case old.status
+      when 'unknown' then array['going', 'cant', 'was_there', 'missed']
+      when 'going' then array['cant', 'was_there', 'missed']
+      when 'cant' then array['going', 'was_there', 'missed']
+      when 'was_there' then array['missed']
+      when 'missed' then array['was_there']
+    end;
+    if not (new.status = any (allowed)) then
+      raise exception 'attendance_not_reversible' using errcode = 'check_violation';
+    end if;
+
+    new.updated_at := now();
+  end if;
+
+  return new;
+end;
+$$;
+
+comment on function public.enforce_attendance_transition() is
+  'The attendance state machine, as updateAttendance() has it: no promise about the future after an answer about the past, no answer about the past before the meetup has ended, and a repeat is a no-op.';
+
+revoke all on function public.enforce_attendance_transition() from public;
+revoke all on function public.enforce_attendance_transition() from anon, authenticated;
 
 -- supabase/sql/functions/public/enforce_member_cap.sql
 -- ---------------------------------------------------------------------------

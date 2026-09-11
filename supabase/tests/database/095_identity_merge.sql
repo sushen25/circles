@@ -7,7 +7,7 @@
 -- membership can never be moved onto somebody with a saved place.
 
 begin;
-select plan(77);
+select plan(87);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid
@@ -864,6 +864,177 @@ select is(
    where job.idempotency_key = repeat('d', 64)),
   1,
   'so somebody waiting for "locked in" still gets it'
+);
+
+-- ---------------------------------------------------------------------------
+-- Round 4: attendance follows the person.
+--
+-- The test this file should have had from the start. `move_membership` updated
+-- `attendance.user_id`, and `enforce_attendance_transition` returned `old` for
+-- any update that left `status` alone — so the move was discarded in silence and
+-- "5 going" went on counting an identity nobody can sign in as.
+-- ---------------------------------------------------------------------------
+select pg_temp.act_as_postgres();
+
+select pg_temp.make_user('95000000-0000-0000-0000-00000000e301'::uuid, 'Going Guest', true);
+select pg_temp.make_user('95000000-0000-0000-0000-00000000e302'::uuid, 'New Device', true);
+
+insert into public.circle_members (circle_id, user_id, display_name_snapshot)
+values (pg_temp.circle_id(), '95000000-0000-0000-0000-00000000e301', 'Jules');
+insert into public.plan_participants (plan_id, revision, user_id)
+values (pg_temp.plan_id(), 1, '95000000-0000-0000-0000-00000000e301')
+on conflict do nothing;
+
+insert into public.meetup_confirmations (plan_id, revision, candidate_id, starts_at, ends_at,
+  available_user_ids, confirmed_by)
+select pg_temp.plan_id(), 1, c.id, c.starts_at, c.ends_at,
+       array['95000000-0000-0000-0000-00000000e301'::uuid],
+       '95000000-0000-0000-0000-000000000001'
+from public.candidates c
+join public.candidate_sets cs on cs.id = c.candidate_set_id
+where cs.plan_id = pg_temp.plan_id()
+limit 1;
+
+create or replace function pg_temp.confirmation_id() returns uuid
+language sql security definer as $$
+  select id from public.meetup_confirmations where plan_id = pg_temp.plan_id() limit 1;
+$$;
+
+insert into public.attendance (confirmation_id, user_id, status)
+values (pg_temp.confirmation_id(), '95000000-0000-0000-0000-00000000e301', 'going');
+
+create temporary table attendance_before as
+select updated_at from public.attendance
+where confirmation_id = pg_temp.confirmation_id()
+  and user_id = '95000000-0000-0000-0000-00000000e301';
+
+delete from jobs.outbox where event_name = 'confirmation.attendance_updated';
+
+select pg_temp.act_as('95000000-0000-0000-0000-00000000e302', true);
+select lives_ok(
+  $$ select public.reattach_member(pg_temp.circle_id(), '95000000-0000-0000-0000-00000000e301') $$,
+  'the guest comes back on a new device'
+);
+
+select pg_temp.act_as_postgres();
+
+select is(
+  (select a.user_id from public.attendance a
+   where a.confirmation_id = pg_temp.confirmation_id()),
+  '95000000-0000-0000-0000-00000000e302'::uuid,
+  'and their "going" came with them, rather than staying with an identity nobody can sign in as'
+);
+
+select is(
+  (select a.status from public.attendance a
+   where a.confirmation_id = pg_temp.confirmation_id()),
+  'going',
+  'unchanged, because an identity move is not a change of mind'
+);
+
+select is(
+  (select a.updated_at from public.attendance a
+   where a.confirmation_id = pg_temp.confirmation_id()),
+  (select updated_at from attendance_before),
+  'and `updated_at` did not move: the confirmed screen orders by it'
+);
+
+select is(
+  (select count(*)::integer from jobs.outbox o
+   where o.event_name = 'confirmation.attendance_updated'),
+  0,
+  'nor was anything announced — nobody''s attendance changed'
+);
+
+-- The same answer twice is still a no-op, which is what the old branch was for.
+insert into public.attendance (confirmation_id, user_id, status)
+values (pg_temp.confirmation_id(), '95000000-0000-0000-0000-00000000e302', 'going')
+on conflict (confirmation_id, user_id) do update set status = 'going';
+
+select is(
+  (select a.updated_at from public.attendance a
+   where a.confirmation_id = pg_temp.confirmation_id()),
+  (select updated_at from attendance_before),
+  'answering "going" again still changes nothing at all'
+);
+
+-- ---------------------------------------------------------------------------
+-- Round 4: one address, two circles.
+--
+-- A contact belongs to an identity, and an identity can be in several circles.
+-- Moving the contact whole carried the *other* circle's consent to an identity
+-- that is not a member of it.
+-- ---------------------------------------------------------------------------
+select pg_temp.make_user('95000000-0000-0000-0000-00000000f401'::uuid, 'Two Circles');
+select pg_temp.make_user('95000000-0000-0000-0000-00000000f402'::uuid, 'Elsewhere Guest', true);
+select pg_temp.make_user('95000000-0000-0000-0000-00000000f403'::uuid, 'Elsewhere Device', true);
+
+select pg_temp.act_as('95000000-0000-0000-0000-00000000f401');
+create temporary table other_fixture as
+select id as circle_id from public.create_circle('Other Crew', '#336699', 'Australia/Melbourne', 'uth-1');
+
+select pg_temp.act_as_postgres();
+create or replace function pg_temp.other_circle() returns uuid
+language sql security definer as $$ select circle_id from other_fixture $$;
+
+insert into public.plans (
+  circle_id, mode, state, organiser_user_id, title, time_zone,
+  window_start, window_end, daily_start_local, daily_end_local,
+  duration_minutes, quorum, response_deadline, short_code
+)
+values (pg_temp.other_circle(), 'named', 'collecting',
+        '95000000-0000-0000-0000-00000000f401', 'Other catch up', 'Australia/Melbourne',
+        date '2099-09-17', date '2099-09-20', 1050, 1350, 120, 2,
+        timestamptz '2099-09-20T10:00:00Z', 'uthpen');
+
+-- One guest identity, in both circles, reachable at one address.
+insert into public.circle_members (circle_id, user_id, display_name_snapshot)
+values (pg_temp.circle_id(), '95000000-0000-0000-0000-00000000f402', 'Kit'),
+       (pg_temp.other_circle(), '95000000-0000-0000-0000-00000000f402', 'Kit');
+
+insert into private.email_contacts (user_id, email_normalized)
+values ('95000000-0000-0000-0000-00000000f402', 'kit@example.com');
+
+insert into private.email_subscriptions (contact_id, user_id, scope, plan_id, consent_text_version)
+select ec.id, ec.user_id, 'plan_updates', pg_temp.plan_id(), 'v1'
+from private.email_contacts ec where ec.email_normalized = 'kit@example.com';
+
+insert into private.email_subscriptions (contact_id, user_id, scope, plan_id, consent_text_version)
+select ec.id, ec.user_id, 'plan_updates', pl.id, 'v1'
+from private.email_contacts ec, public.plans pl
+where ec.email_normalized = 'kit@example.com' and pl.short_code = 'uthpen';
+
+select pg_temp.act_as('95000000-0000-0000-0000-00000000f403', true);
+select lives_ok(
+  $$ select public.reattach_member(pg_temp.circle_id(), '95000000-0000-0000-0000-00000000f402') $$,
+  'reattaching in one circle succeeds'
+);
+
+select pg_temp.act_as_postgres();
+
+-- Scoped by address: earlier sections in this file have left their own
+-- subscriptions on this plan.
+select is(
+  (select sub.user_id from private.email_subscriptions sub
+   join private.email_contacts ec on ec.id = sub.contact_id
+   where sub.plan_id = pg_temp.plan_id() and ec.email_normalized = 'kit@example.com'),
+  '95000000-0000-0000-0000-00000000f403'::uuid,
+  'this circle''s consent moved to the returning identity'
+);
+
+select is(
+  (select sub.user_id from private.email_subscriptions sub
+   join public.plans pl on pl.id = sub.plan_id
+   where pl.short_code = 'uthpen'),
+  '95000000-0000-0000-0000-00000000f402'::uuid,
+  'and the other circle''s did not: it belongs to a membership this reattachment never touched'
+);
+
+select is(
+  (select count(*)::integer from private.email_contacts ec
+   where ec.email_normalized = 'kit@example.com'),
+  2,
+  'the contact was split rather than moved — two identities, one address, which 0009 made legal'
 );
 
 select pg_temp.act_as_postgres();

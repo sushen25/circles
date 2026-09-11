@@ -140,6 +140,17 @@ begin
           and not exists (
             select 1 from public.attendance kept
             where kept.confirmation_id = a.confirmation_id and kept.user_id = p_user_id
+          )
+          -- `enforce_attendance_transition` requires the owner to be a
+          -- participant of the confirmation's revision, and the survivor may not
+          -- be one. Adopting such a row would raise `attendance_not_a_participant`
+          -- and take the whole claim with it, so it is left where it is —
+          -- `on_member_removed` will mark it `cant` along with the membership.
+          and exists (
+            select 1 from public.plan_participants pp
+            join public.meetup_confirmations c on c.id = a.confirmation_id
+            where pp.plan_id = c.plan_id and pp.revision = c.revision
+              and pp.user_id = p_user_id
           );
 
         update public.circle_members m
