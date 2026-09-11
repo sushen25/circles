@@ -21,21 +21,20 @@ Deno.serve(
   jsonHandler({
     name: 'redeem-invite',
     schema: RedeemInviteRequest,
-    handle: async ({ body, actor, caller, service, request }): Promise<RedeemInviteResponse> => {
+    guard: async ({ body, service, request }) => {
       await verifyTurnstile(request, body.turnstile_token);
-
-      const digest = await sha256Hex(body.secret);
 
       await enforce(service, [
         // Per link rather than per circle: the circle is not known until the
         // invite has been found, and an invite belongs to exactly one circle, so
         // the two limits are the same limit (§14).
-        { scope: 'redeem_invite', key: digest, max: 20, window: '1 hour' },
+        { scope: 'redeem_invite', key: await sha256Hex(body.secret), max: 20, window: '1 hour' },
         { scope: 'redeem_ip', key: callerAddress(request), max: 10, window: '1 hour' },
       ]);
-
+    },
+    handle: async ({ body, actor, caller }): Promise<RedeemInviteResponse> => {
       const { data, error } = await caller.rpc('redeem_invite', {
-        p_secret_hash: digest,
+        p_secret_hash: await sha256Hex(body.secret),
         p_display_name: body.display_name,
       });
       if (error !== null) throw error;

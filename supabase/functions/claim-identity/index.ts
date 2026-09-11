@@ -65,7 +65,14 @@ Deno.serve(
       });
       if (error !== null) throw error;
 
-      return { user_id: actor.userId, merged_memberships: typeof data === 'number' ? data : 0 };
+      const counts = (Array.isArray(data) ? data[0] : data) as
+        { merged_memberships?: number; duplicates_removed?: number } | undefined;
+
+      return {
+        user_id: actor.userId,
+        merged_memberships: counts?.merged_memberships ?? 0,
+        duplicates_removed: counts?.duplicates_removed ?? 0,
+      };
     },
   }),
 );

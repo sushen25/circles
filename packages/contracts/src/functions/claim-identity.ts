@@ -26,5 +26,14 @@ export const ClaimIdentityResponse = z.object({
   user_id: UserId,
   /** How many memberships moved across. Zero is the ordinary answer. */
   merged_memberships: z.int().nonnegative(),
+  /**
+   * How many duplicate guest memberships were retired — the same person having
+   * joined twice, from two devices (spec §9).
+   *
+   * Reported because the client has an analytics event for exactly this
+   * (`duplicate_member_removed`) and no other way to know: the removal emits the
+   * ordinary `circles.member_removed`, which does not say why.
+   */
+  duplicates_removed: z.int().nonnegative(),
 });
 export type ClaimIdentityResponse = z.infer<typeof ClaimIdentityResponse>;

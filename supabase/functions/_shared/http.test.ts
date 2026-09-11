@@ -422,3 +422,54 @@ describe('when the function itself is not in a fit state', () => {
     expect(await response.text()).not.toContain('SUPABASE_URL');
   });
 });
+
+describe('the guard phase', () => {
+  it('runs before the key is claimed, so a throttled request spends none', async () => {
+    // The point of the split: a refusal from an abuse control leaves nothing
+    // behind at all, so there is no claim to release and no judgement to make in
+    // the catch about whether the work might have committed.
+    const handler = jsonHandler({
+      name: 'test-fn',
+      schema: Body,
+      guard: () => Promise.reject(new Refusal('too_many_requests', 'Slow down.')),
+      handle: () => Promise.reject(new Error('the work must not run')),
+    });
+
+    const response = await handler(post({ idempotency_key: KEY, display_name: 'Priya' }));
+
+    expect(response.status).toBe(429);
+    expect(called('begin_request')).toHaveLength(0);
+    expect(called('release_request')).toHaveLength(0);
+  });
+
+  it('leaves no claim behind when it fails in a way nobody mapped', async () => {
+    // A rate-counter RPC that errors, or a Turnstile fetch that throws. These
+    // cannot have committed anything — and when they ran *after* the claim, their
+    // unrecognised failures poisoned the key: retention keeps unfinished rows, so
+    // every retry was told `in_progress` for ever.
+    const handler = jsonHandler({
+      name: 'test-fn',
+      schema: Body,
+      guard: () => Promise.reject(new Error('the counter is unreachable')),
+      handle: () => Promise.resolve({}),
+    });
+
+    const response = await handler(post({ idempotency_key: KEY, display_name: 'Priya' }));
+
+    expect(response.status).toBe(500);
+    expect(called('begin_request')).toHaveLength(0);
+  });
+
+  it('lets the work run when it passes', async () => {
+    const handler = jsonHandler({
+      name: 'test-fn',
+      schema: Body,
+      guard: () => Promise.resolve(),
+      handle: () => Promise.resolve({ joined: true }),
+    });
+
+    const response = await handler(post({ idempotency_key: KEY, display_name: 'Priya' }));
+    expect(await response.json()).toEqual({ joined: true });
+    expect(called('begin_request')).toHaveLength(1);
+  });
+});

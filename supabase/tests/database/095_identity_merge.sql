@@ -7,7 +7,7 @@
 -- membership can never be moved onto somebody with a saved place.
 
 begin;
-select plan(100);
+select plan(102);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid
@@ -393,8 +393,8 @@ select ok(
 );
 
 select is(
-  public.claim_identity('95000000-0000-0000-0000-0000000000f1',
-                        '95000000-0000-0000-0000-0000000000e2', 'after_answer'),
+  (select merged_memberships from public.claim_identity('95000000-0000-0000-0000-0000000000f1',
+                        '95000000-0000-0000-0000-0000000000e2', 'after_answer')),
   1,
   'saving a place onto an account that already existed merges the one membership'
 );
@@ -432,8 +432,8 @@ select is(
 );
 
 select is(
-  public.claim_identity('95000000-0000-0000-0000-0000000000f1',
-                        '95000000-0000-0000-0000-0000000000e2', 'after_answer'),
+  (select merged_memberships from public.claim_identity('95000000-0000-0000-0000-0000000000f1',
+                        '95000000-0000-0000-0000-0000000000e2', 'after_answer')),
   0,
   'saying it again merges nothing'
 );
@@ -445,14 +445,14 @@ select is(
 );
 
 select throws_ok(
-  $$ select public.claim_identity('95000000-0000-0000-0000-0000000000f1',
+  $$ select * from public.claim_identity('95000000-0000-0000-0000-0000000000f1',
                                   '95000000-0000-0000-0000-000000000001', 'settings') $$,
   'source_is_permanent',
   'memberships are never moved off another saved place: that would be taking an account'
 );
 
 select throws_ok(
-  $$ select public.claim_identity('95000000-0000-0000-0000-0000000000f1',
+  $$ select * from public.claim_identity('95000000-0000-0000-0000-0000000000f1',
                                   '95000000-0000-0000-0000-0000000000e3', 'whenever') $$,
   'claim_identity got an unknown moment',
   'and a moment the analytics catalogue does not know is refused here, not dropped later'
@@ -468,8 +468,8 @@ insert into public.plan_responses (plan_id, revision, user_id, status)
 values (pg_temp.plan_id(), 1, '95000000-0000-0000-0000-0000000000a9', 'flexible');
 
 select is(
-  public.claim_identity('95000000-0000-0000-0000-0000000000f1',
-                        '95000000-0000-0000-0000-0000000000a9', 'settings'),
+  (select merged_memberships from public.claim_identity('95000000-0000-0000-0000-0000000000f1',
+                        '95000000-0000-0000-0000-0000000000a9', 'settings')),
   0,
   'a membership that would collide is not moved'
 );
@@ -573,8 +573,8 @@ from private.email_contacts ec
 where ec.user_id = '95000000-0000-0000-0000-0000000000e5';
 
 select is(
-  public.claim_identity('95000000-0000-0000-0000-0000000000e6',
-                        '95000000-0000-0000-0000-0000000000e5', 'after_answer'),
+  (select merged_memberships from public.claim_identity('95000000-0000-0000-0000-0000000000e6',
+                        '95000000-0000-0000-0000-0000000000e5', 'after_answer')),
   1,
   'the membership moves even though both identities hold the address'
 );
@@ -612,8 +612,8 @@ select is(
 select pg_temp.make_user('95000000-0000-0000-0000-0000000000f7'::uuid, 'Linked In Place');
 
 select is(
-  public.claim_identity('95000000-0000-0000-0000-0000000000f7',
-                        '95000000-0000-0000-0000-0000000000f7', 'settings'),
+  (select merged_memberships from public.claim_identity('95000000-0000-0000-0000-0000000000f7',
+                        '95000000-0000-0000-0000-0000000000f7', 'settings')),
   0,
   'claiming with one identity on both sides merges nothing and is not an error'
 );
@@ -626,7 +626,7 @@ select ok(
 
 select pg_temp.make_user('95000000-0000-0000-0000-0000000000f8'::uuid, 'Still A Guest', true);
 select throws_ok(
-  $$ select public.claim_identity('95000000-0000-0000-0000-0000000000f8',
+  $$ select * from public.claim_identity('95000000-0000-0000-0000-0000000000f8',
                                   '95000000-0000-0000-0000-0000000000f8', 'settings') $$,
   'destination_is_not_permanent',
   'an anonymous caller cannot mark itself permanent — that would lock it out of its own way back in'
@@ -693,8 +693,8 @@ insert into public.plan_responses (plan_id, revision, user_id, status)
 values (pg_temp.plan_id(), 1, '95000000-0000-0000-0000-00000000b101', 'flexible');
 
 select is(
-  public.claim_identity('95000000-0000-0000-0000-00000000b102',
-                        '95000000-0000-0000-0000-00000000b101', 'after_answer'),
+  (select merged_memberships from public.claim_identity('95000000-0000-0000-0000-00000000b102',
+                        '95000000-0000-0000-0000-00000000b101', 'after_answer')),
   1,
   'the live membership moves across rather than being treated as a duplicate'
 );
@@ -790,11 +790,20 @@ on conflict do nothing;
 insert into private.plan_interest (plan_id, user_id, response)
 values (pg_temp.plan_id(), '95000000-0000-0000-0000-00000000c101', 'keen');
 
+create temporary table twice_claim as
+select * from public.claim_identity('95000000-0000-0000-0000-00000000c102',
+                                    '95000000-0000-0000-0000-00000000c101', 'settings');
+
 select is(
-  public.claim_identity('95000000-0000-0000-0000-00000000c102',
-                        '95000000-0000-0000-0000-00000000c101', 'settings'),
+  (select merged_memberships from twice_claim),
   0,
   'the duplicate is reconciled rather than moved: the survivor is already here'
+);
+
+select is(
+  (select duplicates_removed from twice_claim),
+  1,
+  'and it is reported, so the client can emit `duplicate_member_removed`'
 );
 
 select is(
@@ -817,6 +826,16 @@ select is(
 -- not a participant of the revision cannot be edited and is not counted as a
 -- reply; an interest answer left behind would count this person twice towards a
 -- quiet ask's threshold, which is the one number it turns on.
+-- And the count the client needs: `duplicate_member_removed` is in the analytics
+-- catalogue and nothing could produce it, because the removal emits the ordinary
+-- `circles.member_removed`, which does not say why. Only this function knows.
+select is(
+  (select duplicates_removed from public.claim_identity(
+     '95000000-0000-0000-0000-00000000c102', '95000000-0000-0000-0000-00000000c101', 'settings')),
+  0,
+  'asked again, there is no duplicate left to report'
+);
+
 select is(
   (select count(*)::integer from public.plan_participants pp
    where pp.plan_id = pg_temp.plan_id()
@@ -883,8 +902,8 @@ where ec.email_normalized = 'nic@example.com'
   and ec.user_id = '95000000-0000-0000-0000-00000000d201';
 
 select is(
-  public.claim_identity('95000000-0000-0000-0000-00000000d202',
-                        '95000000-0000-0000-0000-00000000d201', 'settings'),
+  (select merged_memberships from public.claim_identity('95000000-0000-0000-0000-00000000d202',
+                        '95000000-0000-0000-0000-00000000d201', 'settings')),
   1,
   'two consents to one plan at one address do not roll the whole claim back'
 );
@@ -1178,8 +1197,8 @@ insert into public.plan_required_members (plan_id, revision, user_id)
 values (pg_temp.plan_id(), 1, '95000000-0000-0000-0000-0000000a6101');
 
 select is(
-  public.claim_identity('95000000-0000-0000-0000-0000000a6102',
-                        '95000000-0000-0000-0000-0000000a6101', 'settings'),
+  (select merged_memberships from public.claim_identity('95000000-0000-0000-0000-0000000a6102',
+                        '95000000-0000-0000-0000-0000000a6101', 'settings')),
   0,
   'the duplicate is reconciled'
 );

@@ -119,9 +119,16 @@ begin
     return chosen;
   end if;
 
+  -- `for update` on the membership itself, not only on the circle. The circle lock
+  -- above serialises two reattachments; it does nothing about `claim_identity`,
+  -- which locks `circle_members` rows instead. Without this, a claim running on
+  -- another device could move the membership between this check and the move — and
+  -- the move would match no rows while the audit row, the event and a successful
+  -- answer all went out to a caller who had been given nothing.
   if not exists (
     select 1 from public.circle_members m
     where m.circle_id = target_circle and m.user_id = target and m.status = 'active'
+    for update
   ) then
     raise exception 'member_not_found' using errcode = 'no_data_found';
   end if;
@@ -187,6 +194,16 @@ begin
   -- lists means one of them forgets a table and a guest comes back to find
   -- their answers gone.
   perform private.move_membership(target_circle, target, caller);
+
+  -- And the lock is not taken on trust. If the membership is not the caller's by
+  -- now, something moved it and this reattachment achieved nothing — so it says
+  -- so, rather than announcing a rejoin that did not happen.
+  if not exists (
+    select 1 from public.circle_members m
+    where m.circle_id = target_circle and m.user_id = caller and m.status = 'active'
+  ) then
+    raise exception 'member_not_found' using errcode = 'no_data_found';
+  end if;
 
   -- Ids only (non-negotiable 8). The two ids are what makes the chain above
   -- walkable; a display name here would be the leak the constraint on this

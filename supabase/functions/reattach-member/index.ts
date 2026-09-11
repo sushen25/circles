@@ -21,7 +21,7 @@ Deno.serve(
   jsonHandler({
     name: 'reattach-member',
     schema: ReattachMemberRequest,
-    handle: async ({ body, actor, caller, service, request }): Promise<ReattachMemberResponse> => {
+    guard: async ({ body, service, request }) => {
       // Per circle as well as per address, because §9.1 says this endpoint is
       // "rate-limited per circle" and the rule ADR 0006 names is per *membership*
       // — which a script does not have to reuse. Requests spread across addresses
@@ -47,7 +47,8 @@ Deno.serve(
             ]
           : []),
       ]);
-
+    },
+    handle: async ({ body, actor, caller }): Promise<ReattachMemberResponse> => {
       const { data, error } = await caller.rpc('reattach_member', {
         p_circle_id: body.circle_id ?? null,
         p_target_user_id: body.target_member_user_id ?? null,

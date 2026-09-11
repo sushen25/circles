@@ -34,6 +34,16 @@ interface Spec<Schema extends z.ZodType> {
   /** The function's own name, as the folder and the idempotency record use it. */
   name: string;
   schema: Schema;
+  /**
+   * Abuse controls — Turnstile, rate counters — and nothing that writes.
+   *
+   * Run **before** the idempotency key is claimed, which is what makes the two
+   * phases distinguishable when something goes wrong. A failure here cannot have
+   * committed anything, because nothing has been claimed or called yet; a failure
+   * in `handle` might have. The wrapper's catch can then act on the difference
+   * without guessing at it, and throttling a request no longer spends a key on it.
+   */
+  guard?: (context: Handling<z.infer<Schema>>) => Promise<void>;
   handle: (context: Handling<z.infer<Schema>>) => Promise<unknown>;
 }
 
@@ -185,6 +195,45 @@ export function jsonHandler<Schema extends z.ZodType>(
 
     const body = parsed.data as { idempotency_key?: string };
     const key = body.idempotency_key;
+    const context = {
+      body: parsed.data,
+      actor,
+      caller,
+      service,
+      request,
+      requestId,
+    };
+
+    try {
+      // Before the claim, so that a refusal here leaves nothing behind at all.
+      if (spec.guard !== undefined) await spec.guard(context);
+    } catch (beforeClaiming) {
+      const refusal =
+        beforeClaiming instanceof Refusal
+          ? beforeClaiming.reason
+          : reasonOf(beforeClaiming as { message?: string } | undefined);
+
+      if (refusal !== undefined) {
+        const message =
+          beforeClaiming instanceof Refusal ? beforeClaiming.message : 'That did not work out.';
+        return fail(problemFor(refusal, message, requestId), refusal);
+      }
+
+      const code = (beforeClaiming as { code?: string } | undefined)?.code;
+      log('error', {
+        fn: spec.name,
+        request_id: requestId,
+        event: 'failed',
+        status: 500,
+        reason: typeof code === 'string' ? code : 'unknown',
+        duration_ms: Date.now() - started,
+      });
+      return respond(
+        500,
+        plainProblem('unavailable', 500, 'Something went wrong at our end.', requestId).body,
+        requestId,
+      );
+    }
 
     try {
       if (key !== undefined) {
@@ -209,14 +258,7 @@ export function jsonHandler<Schema extends z.ZodType>(
 
       let result: unknown;
       try {
-        result = await spec.handle({
-          body: parsed.data,
-          actor,
-          caller,
-          service,
-          request,
-          requestId,
-        });
+        result = await spec.handle(context);
       } catch (duringWork) {
         // The claim is given back *only when we know the work did not happen*.
         //
@@ -229,6 +271,9 @@ export function jsonHandler<Schema extends z.ZodType>(
         // the same body nor a corrected one.
         //
         // An error we *cannot* name is the opposite case and must be left alone.
+        // This is only sound because the abuse controls ran in `guard`, before the
+        // claim: everything reaching here has called the product's RPC, so an
+        // unrecognised failure really is ambiguous rather than merely unmapped.
         // A connection lost between Postgres committing and the answer arriving
         // looks exactly like a failure from here, and a reattachment that already
         // happened does not survive being done twice: the second attempt answers

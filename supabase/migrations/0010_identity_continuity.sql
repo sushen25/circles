@@ -898,13 +898,19 @@ create or replace function public.claim_identity(
   p_anonymous_user_id uuid,
   p_moment text
 )
-returns integer
+returns table (merged_memberships integer, duplicates_removed integer)
 language plpgsql
 security definer
 set search_path = ''
 as $$
 declare
   merged integer := 0;
+  -- Counted separately because the client has an analytics event for it —
+  -- `duplicate_member_removed` in `packages/contracts/analytics.ts` — and nothing
+  -- could produce it: the row's removal emits the ordinary
+  -- `circles.member_removed`, which says nothing about *why*. Only this function
+  -- knows, so only this function can report it.
+  removed integer := 0;
   membership record;
 begin
   if p_user_id is null or p_anonymous_user_id is null then
@@ -988,6 +994,7 @@ begin
         update public.circle_members m
         set status = 'removed'
         where m.circle_id = membership.circle_id and m.user_id = p_anonymous_user_id;
+        removed := removed + 1;
       else
         -- `status = 'active'` above, and not merely "has a row", because the
         -- account may hold a membership of this circle that *ended*. Treating
@@ -1029,12 +1036,12 @@ begin
       jsonb_build_object('user_id', p_user_id, 'moment', p_moment));
   end if;
 
-  return merged;
+  return query select merged, removed;
 end;
 $$;
 
 comment on function public.claim_identity(uuid, uuid, text) is
-  'Reconciles an anonymous identity''s memberships onto a permanent one after sign-in (§10). Service role only: the anonymous identity is a parameter, and its proof is a token only the Edge Function can check.';
+  'Reconciles an anonymous identity''s memberships onto a permanent one after sign-in (§10), returning how many moved and how many duplicates were removed. Service role only: the anonymous identity is a parameter, and its proof is a token only the Edge Function can check.';
 
 revoke all on function public.claim_identity(uuid, uuid, text) from public;
 revoke all on function public.claim_identity(uuid, uuid, text) from anon, authenticated;
@@ -1428,9 +1435,16 @@ begin
     return chosen;
   end if;
 
+  -- `for update` on the membership itself, not only on the circle. The circle lock
+  -- above serialises two reattachments; it does nothing about `claim_identity`,
+  -- which locks `circle_members` rows instead. Without this, a claim running on
+  -- another device could move the membership between this check and the move — and
+  -- the move would match no rows while the audit row, the event and a successful
+  -- answer all went out to a caller who had been given nothing.
   if not exists (
     select 1 from public.circle_members m
     where m.circle_id = target_circle and m.user_id = target and m.status = 'active'
+    for update
   ) then
     raise exception 'member_not_found' using errcode = 'no_data_found';
   end if;
@@ -1496,6 +1510,16 @@ begin
   -- lists means one of them forgets a table and a guest comes back to find
   -- their answers gone.
   perform private.move_membership(target_circle, target, caller);
+
+  -- And the lock is not taken on trust. If the membership is not the caller's by
+  -- now, something moved it and this reattachment achieved nothing — so it says
+  -- so, rather than announcing a rejoin that did not happen.
+  if not exists (
+    select 1 from public.circle_members m
+    where m.circle_id = target_circle and m.user_id = caller and m.status = 'active'
+  ) then
+    raise exception 'member_not_found' using errcode = 'no_data_found';
+  end if;
 
   -- Ids only (non-negotiable 8). The two ids are what makes the chain above
   -- walkable; a display name here would be the leak the constraint on this

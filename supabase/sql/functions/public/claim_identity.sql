@@ -33,13 +33,19 @@ create or replace function public.claim_identity(
   p_anonymous_user_id uuid,
   p_moment text
 )
-returns integer
+returns table (merged_memberships integer, duplicates_removed integer)
 language plpgsql
 security definer
 set search_path = ''
 as $$
 declare
   merged integer := 0;
+  -- Counted separately because the client has an analytics event for it —
+  -- `duplicate_member_removed` in `packages/contracts/analytics.ts` — and nothing
+  -- could produce it: the row's removal emits the ordinary
+  -- `circles.member_removed`, which says nothing about *why*. Only this function
+  -- knows, so only this function can report it.
+  removed integer := 0;
   membership record;
 begin
   if p_user_id is null or p_anonymous_user_id is null then
@@ -123,6 +129,7 @@ begin
         update public.circle_members m
         set status = 'removed'
         where m.circle_id = membership.circle_id and m.user_id = p_anonymous_user_id;
+        removed := removed + 1;
       else
         -- `status = 'active'` above, and not merely "has a row", because the
         -- account may hold a membership of this circle that *ended*. Treating
@@ -164,12 +171,12 @@ begin
       jsonb_build_object('user_id', p_user_id, 'moment', p_moment));
   end if;
 
-  return merged;
+  return query select merged, removed;
 end;
 $$;
 
 comment on function public.claim_identity(uuid, uuid, text) is
-  'Reconciles an anonymous identity''s memberships onto a permanent one after sign-in (§10). Service role only: the anonymous identity is a parameter, and its proof is a token only the Edge Function can check.';
+  'Reconciles an anonymous identity''s memberships onto a permanent one after sign-in (§10), returning how many moved and how many duplicates were removed. Service role only: the anonymous identity is a parameter, and its proof is a token only the Edge Function can check.';
 
 revoke all on function public.claim_identity(uuid, uuid, text) from public;
 revoke all on function public.claim_identity(uuid, uuid, text) from anon, authenticated;

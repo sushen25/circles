@@ -837,7 +837,10 @@ export type Database = {
           p_moment: string
           p_user_id: string
         }
-        Returns: number
+        Returns: {
+          duplicates_removed: number
+          merged_memberships: number
+        }[]
       }
       create_circle: {
         Args: {
