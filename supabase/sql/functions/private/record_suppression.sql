@@ -15,6 +15,11 @@
 --
 -- The recursion terminates because the sibling update only touches rows that
 -- are not yet suppressed, so the trigger it fires finds none.
+--
+-- Two webhooks suppressing two siblings at the same instant can deadlock, each
+-- holding one row and reaching for the other. The window is inside a single
+-- statement and a provider webhook retries, so this is left as a retry rather
+-- than serialised behind a lock that every suppression would pay for.
 create or replace function private.record_suppression()
 returns trigger
 language plpgsql

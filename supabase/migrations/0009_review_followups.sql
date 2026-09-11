@@ -106,6 +106,11 @@ comment on constraint email_contacts_address_per_identity on private.email_conta
 --
 -- The recursion terminates because the sibling update only touches rows that
 -- are not yet suppressed, so the trigger it fires finds none.
+--
+-- Two webhooks suppressing two siblings at the same instant can deadlock, each
+-- holding one row and reaching for the other. The window is inside a single
+-- statement and a provider webhook retries, so this is left as a retry rather
+-- than serialised behind a lock that every suppression would pay for.
 create or replace function private.record_suppression()
 returns trigger
 language plpgsql
@@ -199,8 +204,12 @@ begin
   -- this far without `transition_plan` agreeing the actor is a member, but a
   -- replay skips it — and `outcome_reports_select_member` would not show this
   -- row to somebody who has left the circle, so neither will this.
+  -- The same refusal a first call would have met. `transition_plan`'s organiser
+  -- guard means "the organiser, and still a member", and raises this; a replay
+  -- never reaches it. Two codes for one situation would let the client's
+  -- behaviour turn on whether the first attempt's answer was lost.
   if not public.auth_is_member(circle) then
-    raise exception 'not_a_member_of_this_circle' using errcode = 'insufficient_privilege';
+    raise exception 'not_the_organiser' using errcode = 'P0001';
   end if;
 
   select * into report from public.outcome_reports r

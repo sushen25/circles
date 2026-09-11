@@ -6,7 +6,7 @@
 -- database's — and the rest is tested as the people who use it.
 
 begin;
-select plan(57);
+select plan(60);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid language sql as $$
@@ -299,6 +299,25 @@ select is(
   'cant',
   'an unqualified update by a removed member changes nothing'
 );
+
+-- The insert half needs arranging, because a BEFORE ROW trigger runs before
+-- RLS's `with check`: a removed member's insert dies in
+-- `enforce_attendance_transition`, whose unprivileged read of the confirmation
+-- finds nothing, and a test asserting 42501 would pass for that reason rather
+-- than for the policy. Give the trigger the privileges it lacks, for the length
+-- of this assertion, and what answers is the policy alone.
+select pg_temp.act_as_postgres();
+alter function public.enforce_attendance_transition() security definer;
+select pg_temp.act_as('00000000-0000-0000-0000-0000000003a3');
+select throws_ok(
+  format($$insert into public.attendance (confirmation_id, user_id, status)
+    values ('%s', '00000000-0000-0000-0000-0000000003a3', 'going')$$, :'past_conf'),
+  '42501',
+  null,
+  'and the policy — not the trigger''s luck — is what refuses a removed member''s insert'
+);
+select pg_temp.act_as_postgres();
+alter function public.enforce_attendance_transition() security invoker;
 update public.circle_members set status = 'active'
 where circle_id = (select circle_id from t) and user_id = '00000000-0000-0000-0000-0000000003a3';
 
@@ -499,6 +518,35 @@ select throws_ok(
   'not_the_organiser',
   'an organiser who has left the circle cannot report its outcome — the state machine''s guard, with its code, not a copy of it'
 );
+
+-- And a replay by one answers the same way. The point of idempotence is that a
+-- lost response is indistinguishable from none; two different refusals for one
+-- situation would put that back, decided by whether the network dropped a reply.
+select pg_temp.act_as_postgres();
+-- The block above left Tom removed; he has to be a member to report at all.
+update public.circle_members set status = 'active'
+where circle_id = (select circle_id from t) and user_id = '00000000-0000-0000-0000-0000000003a3';
+select pg_temp.make_confirmed_plan('pncfhh', date '2020-04-02') as left_plan \gset
+select pg_temp.confirm(:'left_plan', date '2020-04-02') as left_conf \gset
+update public.plans set organiser_user_id = '00000000-0000-0000-0000-0000000003a3' where id = :'left_plan';
+select pg_temp.act_as('00000000-0000-0000-0000-0000000003a3');
+select lives_ok(
+  format($$select public.report_outcome('%s', 'happened')$$, :'left_conf'),
+  'Tom reports while he is still a member'
+);
+select pg_temp.act_as_postgres();
+update public.circle_members set status = 'removed'
+where circle_id = (select circle_id from t) and user_id = '00000000-0000-0000-0000-0000000003a3';
+select pg_temp.act_as('00000000-0000-0000-0000-0000000003a3');
+select throws_ok(
+  format($$select public.report_outcome('%s', 'happened')$$, :'left_conf'),
+  'P0001',
+  'not_the_organiser',
+  'and once removed, replaying it is refused exactly as a first call would be'
+);
+select pg_temp.act_as_postgres();
+update public.circle_members set status = 'active'
+where circle_id = (select circle_id from t) and user_id = '00000000-0000-0000-0000-0000000003a3';
 
 -- ---------------------------------------------------------------------------
 -- Removal, continued: not coming to anything still ahead; history untouched.

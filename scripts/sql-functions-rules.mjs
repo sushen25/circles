@@ -22,6 +22,15 @@ const CREATES = new RegExp(
   'gim',
 );
 const DROPS = new RegExp(String.raw`^[ \t]*drop\s+function(?:\s+if\s+exists)?\s`, 'gim');
+/**
+ * The other ways to change a function's definition by hand. A file is supposed
+ * to hold the body, the comment *and* the grants, and an ACL is the part most
+ * likely to be adjusted in a hurry.
+ */
+const TOUCHES = new RegExp(
+  String.raw`^[ \t]*(?:(?:revoke|grant)\b[^;]*?\bon\s+function|alter\s+function|comment\s+on\s+function)\s+(?:[^;(]*?\s)?(${NAME})\s*\(`,
+  'gim',
+);
 const NAMES = new RegExp(NAME, 'g');
 
 /**
@@ -221,13 +230,28 @@ function checkHandEdits(migrationFiles, sources, problems) {
   for (const entry of entries.slice(entries.indexOf(firstGenerated))) {
     const sql = migrationFiles.get(entry);
     const spans = blockSpans(sql);
+    const outside = (at) => !spans.some(([start, finish]) => at >= start && at < finish);
+    const handled = new Set();
+
     for (const { name, at, dropping } of operations(sql)) {
-      if (dropping || !sources.has(name)) continue;
-      if (spans.some(([start, finish]) => at >= start && at < finish)) continue;
+      if (dropping || !sources.has(name) || !outside(at)) continue;
+      handled.add(name);
       problems.push(
         `${entry} defines ${name} by hand, outside the generated block, and ${sources.get(name).where} ` +
           'is supposed to be where that definition lives. The database would run the migration ' +
           'and the tree would never know. Move the change into the file and run `pnpm gen:functions`.',
+      );
+    }
+
+    for (const match of sql.matchAll(TOUCHES)) {
+      const name = normalise(match[1]);
+      if (!sources.has(name) || handled.has(name) || !outside(match.index)) continue;
+      handled.add(name);
+      problems.push(
+        `${entry} changes ${name}'s grants, comment or attributes by hand, outside the generated ` +
+          `block. Those belong in ${sources.get(name).where} with the body — "what is this and who ` +
+          'may call it" is meant to be one file — so make the change there and run ' +
+          '`pnpm gen:functions`.',
       );
     }
   }

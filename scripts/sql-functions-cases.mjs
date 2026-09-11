@@ -186,6 +186,39 @@ export const CASES = [
     expect: 'by hand, outside the generated block',
   },
   {
+    // The rule has to look at the newest migration too — that is the one a
+    // developer is editing, and so the likeliest place for a hand-written
+    // definition to land.
+    label: 'including when the hand edit is in the newest migration of all',
+    files: clean(),
+    migrations: new Map([
+      ['0008_seam.sql', generated(`-- ${FILE}\n${sample()}`)],
+      [
+        '0009_current.sql',
+        `create or replace function public.example()\nreturns integer\n${generated()}`,
+      ],
+    ]),
+    expect: 'by hand, outside the generated block',
+  },
+  {
+    label: 'a grant changed by hand after the seam, away from the file that holds it',
+    files: clean(),
+    migrations: new Map([
+      ['0008_seam.sql', generated(`-- ${FILE}\n${sample()}`)],
+      ['0010_acl.sql', 'grant execute on function public.example() to anon;\n'],
+    ]),
+    expect: 'grants, comment or attributes',
+  },
+  {
+    label: 'and so is an alter that changes what it runs as',
+    files: clean(),
+    migrations: new Map([
+      ['0008_seam.sql', generated(`-- ${FILE}\n${sample()}`)],
+      ['0010_alter.sql', 'alter function public.example() security definer;\n'],
+    ]),
+    expect: 'grants, comment or attributes',
+  },
+  {
     label: 'but the same definition inside a later generated block is the normal way',
     files: clean(),
     migrations: new Map([

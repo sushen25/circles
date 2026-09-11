@@ -63,11 +63,19 @@ function main() {
     }
   }
 
+  // Every migration, including the one being written: a hand-written
+  // definition is likeliest to land in *that* file, and leaving it out of the
+  // rules meant the one migration a developer is actually editing was the one
+  // nobody checked. Only the comparison that decides what to re-emit excludes
+  // it, because a block cannot be diffed against itself.
   const migrationFiles = new Map(
     readdirSync(MIGRATIONS)
       .sort()
-      .filter((entry) => entry.endsWith('.sql') && join(MIGRATIONS, entry) !== MIGRATION)
+      .filter((entry) => entry.endsWith('.sql'))
       .map((entry) => [entry, readFileSync(join(MIGRATIONS, entry), 'utf8')]),
+  );
+  const earlier = new Map(
+    [...migrationFiles].filter(([entry]) => join(MIGRATIONS, entry) !== MIGRATION),
   );
 
   const { problems, sources } = analyse(walk(SOURCE), migrationFiles);
@@ -86,7 +94,7 @@ function main() {
     process.exit(2);
   }
 
-  const { text: rendered, changed } = render(sources, priorRenderings(migrationFiles));
+  const { text: rendered, changed } = render(sources, priorRenderings(earlier));
   const current = migration.slice(start, finish + END.length);
 
   if (checking) {

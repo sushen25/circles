@@ -62,8 +62,12 @@ begin
   -- this far without `transition_plan` agreeing the actor is a member, but a
   -- replay skips it — and `outcome_reports_select_member` would not show this
   -- row to somebody who has left the circle, so neither will this.
+  -- The same refusal a first call would have met. `transition_plan`'s organiser
+  -- guard means "the organiser, and still a member", and raises this; a replay
+  -- never reaches it. Two codes for one situation would let the client's
+  -- behaviour turn on whether the first attempt's answer was lost.
   if not public.auth_is_member(circle) then
-    raise exception 'not_a_member_of_this_circle' using errcode = 'insufficient_privilege';
+    raise exception 'not_the_organiser' using errcode = 'P0001';
   end if;
 
   select * into report from public.outcome_reports r

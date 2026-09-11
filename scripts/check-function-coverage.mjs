@@ -48,12 +48,18 @@ function supabase(args, options = {}) {
   });
 }
 
+/** Jobs that were running before this script paused them, to put back exactly. */
+let pausedJobs = [];
+
 function databaseUrl() {
   let status;
   try {
     status = supabase(['status', '-o', 'env']);
-  } catch {
-    console.error('check:function-coverage: the local stack is not running (`supabase start`).');
+  } catch (reason) {
+    console.error(
+      `check:function-coverage: could not ask the local stack where it is — ${reason.message}\n` +
+        '  If it is not running, `supabase start`.',
+    );
     process.exit(2);
   }
   const line = status.split('\n').find((candidate) => candidate.startsWith('DB_URL='));
@@ -79,7 +85,9 @@ const admin = url.replace('://postgres:', '://supabase_admin:');
 function startCounting() {
   try {
     query(`alter database ${new URL(url).pathname.slice(1)} set track_functions = 'all'`, admin);
-    query('update cron.job set active = false', admin);
+    pausedJobs = query('update cron.job set active = false where active returning jobname', admin)
+      .split('\n')
+      .filter((name) => name !== '');
     query('select pg_stat_reset()', admin);
     return true;
   } catch (reason) {
@@ -94,13 +102,35 @@ function startCounting() {
   }
 }
 
-/** Cron is the database's, not this script's: give it back. */
+/**
+ * Cron is the database's, not this script's: give back exactly what was taken,
+ * and give it back however this run ends. Without the signal handler, a Ctrl-C
+ * during the suites left `process-jobs` disabled until the next `db reset`, and
+ * the only sign was scheduled work silently never firing.
+ */
 function stopCounting() {
+  if (pausedJobs.length === 0) return;
   try {
-    query('update cron.job set active = true', admin);
+    query(
+      `update cron.job set active = true where jobname in (${pausedJobs
+        .map((name) => `'${name}'`)
+        .join(', ')})`,
+      admin,
+    );
+    pausedJobs = [];
   } catch {
-    console.warn('check:function-coverage: could not re-enable pg_cron; `supabase db reset` will.');
+    console.warn(
+      `check:function-coverage: could not re-enable pg_cron (${pausedJobs.join(', ')}). ` +
+        '`supabase db reset` will.',
+    );
   }
+}
+
+for (const signal of ['SIGINT', 'SIGTERM']) {
+  process.on(signal, () => {
+    stopCounting();
+    process.exit(130);
+  });
 }
 
 const tracking = startCounting();
