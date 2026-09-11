@@ -231,11 +231,28 @@ select throws_ok(
   'needs_candidate',
   'and the organiser cannot confirm without naming a candidate'
 );
+-- The guard checks eligibility, not presence (tightened in 0004 once
+-- `public.candidates` existed), so the id has to name an eligible candidate in
+-- the plan's *current* set.
+select pg_temp.act_as_postgres();
+insert into public.candidate_sets
+  (plan_id, revision, input_version, scoring_version, input_hash,
+   starts_considered, eligible_count, responded_count, active_member_count)
+select id, revision, input_version, scoring_version, 'h', 10, 1, 2, 2
+from public.plans where id = :'plan_a';
+insert into public.candidates
+  (candidate_set_id, is_near_miss, rank, starts_at, ends_at, available_user_ids,
+   explicit_count, flexible_count, explanation_code, explanation_count)
+select cs.id, false, 1, timestamptz '2026-09-17T08:30:00Z', timestamptz '2026-09-17T10:30:00Z',
+  array['00000000-0000-0000-0000-0000000001a1', '00000000-0000-0000-0000-0000000001a2']::uuid[],
+  2, 0, 'best_attendance', 2
+from public.candidate_sets cs where cs.plan_id = :'plan_a';
+
 select is(
   (select state from planning.transition_plan(:'plan_a', 'confirm',
     '00000000-0000-0000-0000-0000000001a1', '{"candidate_id":"2026-09-17T08:30:00.000Z"}'::jsonb)),
   'confirmed',
-  'with one, they can'
+  'with an eligible one from the current set, they can'
 );
 
 select throws_ok(
@@ -630,14 +647,15 @@ update public.circle_members set status = 'removed'
 where circle_id = (select circle_id from t)
   and user_id = '00000000-0000-0000-0000-0000000001a2';
 
-select throws_ok(
-  format(
-    $$select planning.transition_plan('%s', 'confirm', '%s', '{"candidate_id":"x"}'::jsonb)$$,
-    :'plan_gone', '00000000-0000-0000-0000-0000000001a2'
-  ),
-  'P0001',
-  'not_the_organiser',
-  'a removed organiser cannot confirm their own plan — removal revokes access immediately'
+-- Removing the organiser did more than revoke them: 0004's removal trigger
+-- sends a ready plan back to collecting, because its candidate set may have
+-- needed the person who left. So `confirm` here is `wrong_state` before it is
+-- anything else, and the organiser guard is exercised by `cancel` below, which
+-- exists in both states.
+select is(
+  (select state from public.plans where id = :'plan_gone'),
+  'collecting',
+  'removing the organiser sends their ready plan back to collecting'
 );
 select throws_ok(
   format($$select planning.transition_plan('%s', 'cancel', '%s')$$,
