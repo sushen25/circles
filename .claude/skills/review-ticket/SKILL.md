@@ -171,6 +171,12 @@ copies are currently correct.
 
 ## For whoever spawned this review
 
+You are usually here because Codex could not review the branch — it is tried
+first, and a usage limit or a failed turn falls through to this agent rather
+than to waiting. `implement-linear-ticket` has that order and, more importantly,
+how to tell "Codex found nothing" from "Codex did not run": the second is not a
+clean round, and ending the loop on it hands over work nobody read.
+
 The loop, from `implement-linear-ticket`:
 
 - **Every P0 and P1 is fixed, always** — or shown to be wrong, with the

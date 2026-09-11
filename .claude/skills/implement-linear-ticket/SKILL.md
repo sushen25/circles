@@ -103,19 +103,50 @@ An adversarial review runs against the branch and the agent works the findings.
 The ticket moves to Done only after the rounds are finished **and** the founder
 merges.
 
-**The reviewer's own brief is a skill**: `.claude/skills/review-ticket/SKILL.md`
-holds the standards to judge against, this repo's reproduction traps, the
-severity scale and the report format. Spawn the reviewer with the `Agent` tool
-and `model: 'fable'`, tell it which PR and base and which claims to attack, and
-tell it to invoke that skill — do not retype the brief. What follows here is
-about *responding* to findings, and holds whoever produced them.
+### Who does the reviewing
 
-**Either the founder or the agent triggers the review.** The founder uses
-`/codex:review --base main`
-from the ticket's branch — a plugin installed on their machine, not part of this
-repo, so do not assume it is available and do not try to invoke it. `/code-review`
-is the built-in alternative. What follows is about responding to findings, and
-holds whoever produced them.
+**Codex first.** From the ticket's branch:
+
+```
+/codex:review --base <the PR's base>
+```
+
+The base is the PR's base, which for a stacked PR is the **previous ticket's
+branch**, not `main` — a review against the wrong base reads the whole stack and
+wastes the round. **Always run it in the foreground and wait**; never background
+it, and never ask which to do.
+
+**Then tell a clean round from a broken one, because they look alike and mean
+opposite things.**
+
+- *Codex reviewed the branch and found nothing* — a clean round. It ends the
+  loop.
+- *Codex did not review the branch* — "Reviewer failed to output a response",
+  "Turn failed", or a usage-limit line naming a time it will be back. **This is
+  not a clean round.** Nothing has been reviewed, and stopping here would hand
+  over work nobody looked at. It has happened twice.
+
+**On a broken round, fall back to the agent** rather than waiting for limits to
+reset — unless the founder says to wait. Spawn it with the `Agent` tool and
+`model: 'fable'`, in the foreground, and tell it:
+
+- the PR number, the branch, and the base;
+- what the change is trying to do, and which of its claims to attack hardest;
+- to invoke **`review-ticket`** for the standards, the traps and the report
+  format — do not retype the brief;
+- where the previous rounds' findings are, when you are asking it to confirm
+  them.
+
+The two reviewers are not interchangeable, which is the other reason to keep the
+fallback: Codex reads the diff, while the agent can reach the running database
+and reproduce a claim. Findings from either are worked the same way, and a round
+by either counts as a round.
+
+`/code-review` is the built-in third option if both are unavailable.
+
+### Working the findings
+
+What follows holds whoever produced them.
 
 **Every P0 and P1 is fixed, always.** There is no round budget for those and no
 judgement call about them: if the reviewer marks a finding P0 or P1, either the
@@ -189,17 +220,11 @@ told later tickets to use a `TransitionError.message` that review then removed.
 on, any P2 left open at round three and why, and the reproduction output.
 `gh pr comment <n> --body "$(cat <<'BODY' … )"`.
 
-Two shapes account for most findings so far, and are worth looking for before
-the reviewer does:
-
-- **A guard that checks the form it anticipated rather than the property it
-  claims** — a non-empty candidate id instead of a real one, a band's length
-  instead of its position in time, an epoch boundary instead of one on
-  somebody's clock, an enumerated list of pnpm subcommands instead of "uses
-  pnpm".
-- **A constant or comment standing in for enforcement** — `STATUSES_WITHOUT_WINDOWS`
-  next to two independent fields, a doc comment promising a check "fails
-  loudly" when nothing called it.
+**Two shapes account for most findings here**, and they are worth looking for
+before the reviewer does — a guard that checks the form it anticipated rather
+than the property it claims, and a constant or comment standing in for
+enforcement. They are described with their examples in `review-ticket`, which is
+where the reviewer reads them; one copy, so the two cannot drift apart.
 
 ## Run (human path)
 
