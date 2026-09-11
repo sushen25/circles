@@ -547,6 +547,79 @@ comment on function private.adopt_membership_rows(uuid, uuid, uuid) is
 revoke all on function private.adopt_membership_rows(uuid, uuid, uuid) from public;
 revoke all on function private.adopt_membership_rows(uuid, uuid, uuid) from anon, authenticated;
 
+-- supabase/sql/functions/private/discard_membership_rows.sql
+-- ---------------------------------------------------------------------------
+-- What a membership that ended left behind.
+--
+-- `on_member_removed` does not clear everything when somebody is removed, and
+-- deliberately: being required stays (spec §9 makes a required person leaving the
+-- organiser's problem to resolve), a `going` on a meetup that has already happened
+-- stays as part of the historic aggregate §4.5 allows, and a `going` still ahead
+-- becomes `cant` rather than disappearing.
+--
+-- All of which is correct for a removal, and all of which is in the way when the
+-- *same person* comes back. `claim_identity` meets that: an account was in this
+-- circle and left, the person returned through the link as a guest — Continue-as
+-- cannot list a saved place, so they had no choice — and now signs in. The
+-- account's residue collides with the guest's rows on every table keyed by
+-- `(plan, revision, user)`, and the first version of this branch deleted only the
+-- membership row, so the claim aborted on a primary key.
+--
+-- The residue goes, and the guest's rows become the truth. Two reasons that is the
+-- right way round rather than the other: the guest rows are what this person has
+-- been doing lately, and the account's are about a membership that ended — a
+-- `cant` written *by the removal itself* is not an answer anybody gave.
+-- ---------------------------------------------------------------------------
+
+create or replace function private.discard_membership_rows(
+  p_circle_id uuid,
+  p_user_id uuid
+)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  delete from public.attendance a
+  where a.user_id = p_user_id
+    and a.confirmation_id in (
+      select c.id from public.meetup_confirmations c
+      join public.plans pl on pl.id = c.plan_id
+      where pl.circle_id = p_circle_id
+    );
+
+  delete from public.plan_responses r
+  where r.user_id = p_user_id
+    and r.plan_id in (select pl.id from public.plans pl where pl.circle_id = p_circle_id);
+
+  delete from public.plan_participants pp
+  where pp.user_id = p_user_id
+    and pp.plan_id in (select pl.id from public.plans pl where pl.circle_id = p_circle_id);
+
+  delete from public.plan_required_members rm
+  where rm.user_id = p_user_id
+    and rm.plan_id in (select pl.id from public.plans pl where pl.circle_id = p_circle_id);
+
+  delete from public.nudge_states n
+  where n.user_id = p_user_id
+    and n.plan_id in (select pl.id from public.plans pl where pl.circle_id = p_circle_id);
+
+  delete from private.plan_interest i
+  where i.user_id = p_user_id
+    and i.plan_id in (select pl.id from public.plans pl where pl.circle_id = p_circle_id);
+
+  -- `member_dayparts` and any re-entry token go with the membership row itself,
+  -- which references `circle_members` with `on delete cascade`.
+end;
+$$;
+
+comment on function private.discard_membership_rows(uuid, uuid) is
+  'Clears what a removed membership left behind in one circle, so the same person returning as a guest can be merged onto it without colliding.';
+
+revoke all on function private.discard_membership_rows(uuid, uuid) from public;
+revoke all on function private.discard_membership_rows(uuid, uuid) from anon, authenticated;
+
 -- supabase/sql/functions/private/enforce_reentry_for_guests.sql
 -- And the owner is a guest. A saved-place member signs in; a re-entry link
 -- for them would be a sign-in bypass, so it is refused at issue rather than
@@ -614,30 +687,12 @@ security definer
 set search_path = ''
 as $$
 begin
-  -- A re-entry token is a guest's way back in *without* signing in, which is why
-  -- `enforce_reentry_for_guests` refuses to issue one against a saved place. When
-  -- a membership becomes a saved-place member's, any live token bound to it has to
-  -- stop working for exactly that reason — and before the membership moves,
-  -- because `email_action_tokens.membership_user_id` follows `circle_members` by
-  -- cascade.
-  --
-  -- **Spent, not deleted.** Deleting it left an emailed `/a/<token>` link
-  -- answering `token_invalid`, when §10 asks for a third outcome: "if the
-  -- membership belongs to a permanent identity, the page offers that identity's
-  -- sign-in instead". `reattach_member` can only say that if the row is still
-  -- there to be found. Spending it is what stops it being a bypass; the trigger
-  -- allows a spent token to follow the membership for the same reason.
-  if exists (select 1 from public.profiles p where p.user_id = p_to and p.is_permanent)
-    or exists (
-      select 1 from auth.users u where u.id = p_to and not coalesce(u.is_anonymous, false)
-    )
-  then
-    update private.email_action_tokens t
-    set used_at = coalesce(t.used_at, now())
-    where t.purpose = 'reentry'
-      and t.membership_circle_id = p_circle_id
-      and t.membership_user_id = p_from;
-  end if;
+  -- Outstanding emailed links first, while `membership_user_id` still names the
+  -- identity they were issued against: the write below cascades that column, and
+  -- `enforce_reentry_for_guests` fires on it. `private.retire_reentry_links` says
+  -- what happens and why, and `reconcile_contacts` calls it too — the
+  -- duplicate-merge path reaches the same tokens by a different route.
+  perform private.retire_reentry_links(p_circle_id, p_from, p_to);
 
   -- The membership itself, first: the cascading references follow this write.
   update public.circle_members m
@@ -756,6 +811,14 @@ declare
   contact record;
   destination_contact uuid;
 begin
+  -- Before the contact is touched at all. Every branch below either moves the
+  -- contact — whose `user_id` cascades into `email_action_tokens.membership_user_id`
+  -- — or re-points the token's `contact_id`, and an unspent re-entry token arriving
+  -- at a permanent identity is refused by `enforce_reentry_for_guests`. That
+  -- refusal took the whole claim with it, which made saving your place impossible
+  -- for exactly the people who had asked to be emailed.
+  perform private.retire_reentry_links(p_circle_id, p_from, p_to);
+
   for contact in
     select ec.id, ec.email_hash
     from private.email_contacts ec
@@ -840,8 +903,14 @@ begin
     where sub.contact_id = contact.id
       and sub.plan_id in (select pl.id from public.plans pl where pl.circle_id = p_circle_id);
 
+    -- The membership as well as the contact. In the move path the cascade has
+    -- already taken `membership_user_id` to `p_to`; in the duplicate-merge path the
+    -- membership never moved, and leaving the token on the identity being retired
+    -- both breaks the composite foreign key — `(contact_id, membership_user_id)`
+    -- must be a real `(id, user_id)` pair on `email_contacts` — and leaves an
+    -- emailed link pointing at a membership that is about to be removed.
     update private.email_action_tokens tok
-    set contact_id = destination_contact
+    set contact_id = destination_contact, membership_user_id = p_to
     where tok.contact_id = contact.id and tok.membership_circle_id = p_circle_id;
 
     update jobs.notification_jobs job
@@ -866,6 +935,62 @@ comment on function private.reconcile_contacts(uuid, uuid, uuid) is
 
 revoke all on function private.reconcile_contacts(uuid, uuid, uuid) from public;
 revoke all on function private.reconcile_contacts(uuid, uuid, uuid) from anon, authenticated;
+
+-- supabase/sql/functions/private/retire_reentry_links.sql
+-- ---------------------------------------------------------------------------
+-- A membership is about to belong to somebody with a saved place, so its
+-- emailed way in without signing in has to stop being one.
+--
+-- `enforce_reentry_for_guests` refuses to *issue* a re-entry token against a
+-- permanent identity, and the same rule has to hold when a membership becomes a
+-- permanent identity's. Spent rather than deleted, so that following the link
+-- still finds something and `reattach_member` can offer that identity's sign-in
+-- (§10's third outcome) instead of calling the link broken.
+--
+-- Called from two places, and the reason is ordering rather than duplication:
+--
+--   * `move_membership`, *before* it rewrites `circle_members.user_id`, because
+--     `email_action_tokens.membership_user_id` follows that by cascade and the
+--     trigger fires on it;
+--   * `reconcile_contacts`, at the top, because the duplicate-merge path never
+--     moves the membership at all — it reaches the token through the *contact*,
+--     and the same refusal was waiting there.
+--
+-- Idempotent: `coalesce` leaves an already-spent token alone.
+-- ---------------------------------------------------------------------------
+
+create or replace function private.retire_reentry_links(
+  p_circle_id uuid,
+  p_from uuid,
+  p_to uuid
+)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if not exists (select 1 from public.profiles p where p.user_id = p_to and p.is_permanent)
+    and not exists (
+      select 1 from auth.users u where u.id = p_to and not coalesce(u.is_anonymous, true)
+    )
+  then
+    return;
+  end if;
+
+  update private.email_action_tokens t
+  set used_at = coalesce(t.used_at, now())
+  where t.purpose = 'reentry'
+    and t.membership_circle_id = p_circle_id
+    and t.membership_user_id = p_from;
+end;
+$$;
+
+comment on function private.retire_reentry_links(uuid, uuid, uuid) is
+  'Spends a membership''s outstanding re-entry links when it passes to an identity with a saved place. Spent, not deleted, so the emailed link can still route to sign-in.';
+
+revoke all on function private.retire_reentry_links(uuid, uuid, uuid) from public;
+revoke all on function private.retire_reentry_links(uuid, uuid, uuid) from anon, authenticated;
 
 -- supabase/sql/functions/public/begin_request.sql
 -- ---------------------------------------------------------------------------
@@ -1083,6 +1208,14 @@ begin
         -- answers are long gone. It is deleted to make room rather than revived:
         -- the membership that matters is the live one, and a primary key of
         -- `(circle_id, user_id)` has room for exactly one.
+        -- The residue first. A real removal is an UPDATE, so `on_member_removed`
+        -- ran — and it leaves being required, the participant row on a confirmed
+        -- plan, the prompts already shown, an interest answer, and an attendance
+        -- it rewrote to `cant`. Every one of those collides with the guest's row
+        -- for the same plan, and deleting only the membership row let the claim
+        -- abort on a primary key instead.
+        perform private.discard_membership_rows(membership.circle_id, p_user_id);
+
         delete from public.circle_members m
         where m.circle_id = membership.circle_id and m.user_id = p_user_id
           and m.status = 'removed';
@@ -1520,8 +1653,22 @@ begin
   end if;
 
   if target = caller then
-    -- Already theirs. A retry, or the link opened twice: the answer is the
-    -- circle, and no second row in the audit log spending the allowance.
+    -- Already theirs — but *only* if it is. This return used to come before any
+    -- membership check at all, so any anonymous session that knew a circle's uuid
+    -- could name itself as the target and be handed the circle: the name, the
+    -- colour, the zone, the cadence, the short code. RLS refuses that same read,
+    -- and §9.4 exposes the name alone and nothing else. It was also an existence
+    -- oracle over circle uuids.
+    --
+    -- A genuine retry is served by the idempotency record before it ever reaches
+    -- this function, so nothing is lost by asking.
+    if not exists (
+      select 1 from public.circle_members m
+      where m.circle_id = target_circle and m.user_id = caller and m.status = 'active'
+    ) then
+      raise exception 'member_not_found' using errcode = 'no_data_found';
+    end if;
+
     return chosen;
   end if;
 

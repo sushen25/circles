@@ -129,8 +129,22 @@ begin
   end if;
 
   if target = caller then
-    -- Already theirs. A retry, or the link opened twice: the answer is the
-    -- circle, and no second row in the audit log spending the allowance.
+    -- Already theirs — but *only* if it is. This return used to come before any
+    -- membership check at all, so any anonymous session that knew a circle's uuid
+    -- could name itself as the target and be handed the circle: the name, the
+    -- colour, the zone, the cadence, the short code. RLS refuses that same read,
+    -- and §9.4 exposes the name alone and nothing else. It was also an existence
+    -- oracle over circle uuids.
+    --
+    -- A genuine retry is served by the idempotency record before it ever reaches
+    -- this function, so nothing is lost by asking.
+    if not exists (
+      select 1 from public.circle_members m
+      where m.circle_id = target_circle and m.user_id = caller and m.status = 'active'
+    ) then
+      raise exception 'member_not_found' using errcode = 'no_data_found';
+    end if;
+
     return chosen;
   end if;
 

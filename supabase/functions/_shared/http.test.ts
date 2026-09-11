@@ -17,6 +17,10 @@ const state = vi.hoisted(() => ({
     id: string;
     is_anonymous: boolean;
   } | null,
+  // `supabase-js` returns an `AuthRetryableFetchError` here rather than throwing,
+  // and it carries no HTTP status — which is how "could not ask" is told apart
+  // from "asked and told no".
+  authError: null as { message: string; status?: number } | null,
 }));
 
 vi.mock('@supabase/supabase-js', () => ({
@@ -28,9 +32,11 @@ vi.mock('@supabase/supabase-js', () => ({
     auth: {
       getUser: () =>
         Promise.resolve(
-          state.user === null
-            ? { data: { user: null }, error: new Error('no') }
-            : { data: { user: state.user }, error: null },
+          state.authError !== null
+            ? { data: { user: null }, error: state.authError }
+            : state.user === null
+              ? { data: { user: null }, error: Object.assign(new Error('no'), { status: 401 }) }
+              : { data: { user: state.user }, error: null },
         ),
     },
   }),
@@ -58,6 +64,7 @@ beforeEach(() => {
   process.env.SUPABASE_SERVICE_ROLE_KEY = 'service';
   state.calls = [];
   state.user = { id: '00000000-0000-4000-8000-00000000user', is_anonymous: true };
+  state.authError = null;
   state.answer = (fn) =>
     fn === 'begin_request'
       ? { data: [{ state: 'fresh', response_status: null, response_body: null }], error: null }
@@ -543,5 +550,71 @@ describe('what identifies a request', () => {
     await handler(post({ idempotency_key: KEY, display_name: 'Tom', turnstile_token: 'one' }));
 
     expect(fingerprintOf()).not.toBe(first);
+  });
+});
+
+describe('telling a refusal from a failure', () => {
+  it('gives the claim back when Postgres refused a statement', async () => {
+    // A PostgREST error carrying a five-character SQLSTATE is Postgres saying it
+    // refused the statement, so the transaction is gone and nothing committed —
+    // even when the reason is not one of ours. Treating an unmapped constraint
+    // violation as *ambiguous* held the key for ever, and both of round ten's
+    // merge bugs ended exactly there.
+    const handler = jsonHandler({
+      name: 'test-fn',
+      schema: Body,
+      handle: () =>
+        Promise.reject(
+          Object.assign(new Error('duplicate key value violates unique constraint'), {
+            code: '23505',
+          }),
+        ),
+    });
+
+    const response = await handler(post({ idempotency_key: KEY, display_name: 'Priya' }));
+
+    expect(response.status).toBe(500);
+    expect(called('release_request')).toHaveLength(1);
+  });
+
+  it('still keeps it when the failure carries no SQLSTATE at all', async () => {
+    const handler = jsonHandler({
+      name: 'test-fn',
+      schema: Body,
+      handle: () => Promise.reject(new Error('socket hang up')),
+    });
+
+    await handler(post({ idempotency_key: KEY, display_name: 'Priya' }));
+    expect(called('release_request')).toHaveLength(0);
+  });
+
+  it('says "ours" rather than "sign in again" when the auth server cannot be asked', async () => {
+    // The failure mode this replaces: somebody perfectly well signed in, told to
+    // sign in again, about a blip that would have resolved itself.
+    state.authError = { message: 'fetch failed' };
+
+    const handler = jsonHandler({
+      name: 'test-fn',
+      schema: Body,
+      handle: () => Promise.resolve({}),
+    });
+
+    const response = await handler(post({ idempotency_key: KEY, display_name: 'Priya' }));
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toMatchObject({ error: 'unavailable' });
+  });
+
+  it('and "sign in again" when it was asked and said no', async () => {
+    state.user = null;
+
+    const handler = jsonHandler({
+      name: 'test-fn',
+      schema: Body,
+      handle: () => Promise.resolve({}),
+    });
+
+    const response = await handler(post({ idempotency_key: KEY, display_name: 'Priya' }));
+    expect(response.status).toBe(401);
   });
 });

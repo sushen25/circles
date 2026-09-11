@@ -143,6 +143,14 @@ begin
         -- answers are long gone. It is deleted to make room rather than revived:
         -- the membership that matters is the live one, and a primary key of
         -- `(circle_id, user_id)` has room for exactly one.
+        -- The residue first. A real removal is an UPDATE, so `on_member_removed`
+        -- ran — and it leaves being required, the participant row on a confirmed
+        -- plan, the prompts already shown, an interest answer, and an attendance
+        -- it rewrote to `cant`. Every one of those collides with the guest's row
+        -- for the same plan, and deleting only the membership row let the claim
+        -- abort on a primary key instead.
+        perform private.discard_membership_rows(membership.circle_id, p_user_id);
+
         delete from public.circle_members m
         where m.circle_id = membership.circle_id and m.user_id = p_user_id
           and m.status = 'removed';

@@ -1,6 +1,6 @@
 import { ClaimIdentityRequest, type ClaimIdentityResponse } from '@circles/contracts';
 
-import { actorFrom } from '../_shared/auth.ts';
+import { identify } from '../_shared/auth.ts';
 import { jsonHandler } from '../_shared/http.ts';
 import { Refusal } from '../_shared/problem.ts';
 
@@ -24,9 +24,16 @@ Deno.serve(
     name: 'claim-identity',
     schema: ClaimIdentityRequest,
     handle: async ({ body, actor, caller, service }): Promise<ClaimIdentityResponse> => {
-      const previous = await actorFrom(caller, body.anonymous_session);
+      const previous = await identify(caller, body.anonymous_session);
 
-      if (previous === undefined) {
+      if (previous.outcome === 'unavailable') {
+        // Could not ask, rather than asked and told no. Reporting this as a refusal
+        // sent the client to a reason it branches away from retrying — about a
+        // session that is perfectly good.
+        throw Object.assign(new Error('the auth server could not be reached'), {});
+      }
+
+      if (previous.outcome === 'rejected') {
         // An expired or forged token proves nothing.
         throw new Refusal('source_is_permanent', 'That session could not be confirmed.');
       }
@@ -49,7 +56,7 @@ Deno.serve(
       // anonymous" is only true when the two identities differ. Asserting it
       // unconditionally rejected the ordinary save-your-place flow outright
       // (§10), which is the one this endpoint exists for.
-      if (previous.userId !== actor.userId && !previous.isAnonymous) {
+      if (previous.actor.userId !== actor.userId && !previous.actor.isAnonymous) {
         // Two saved places are two accounts. Moving memberships between them on
         // one caller's word is how an account is taken.
         throw new Refusal('source_is_permanent', 'That session belongs to a different account.');
@@ -60,7 +67,7 @@ Deno.serve(
       // Returning early would be a second opinion about idempotence.
       const { data, error } = await service.rpc('claim_identity', {
         p_user_id: actor.userId,
-        p_anonymous_user_id: previous.userId,
+        p_anonymous_user_id: previous.actor.userId,
         p_moment: body.moment,
       });
       if (error !== null) throw error;

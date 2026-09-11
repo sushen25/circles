@@ -1,6 +1,6 @@
 import type { z } from 'zod';
 
-import { type Actor, actorFrom, bearerOf } from './auth.ts';
+import { type Actor, bearerOf, identify } from './auth.ts';
 import { asCaller, asService, type Db } from './db.ts';
 import { claim, record, release } from './idempotency.ts';
 import { log } from './logging.ts';
@@ -195,10 +195,17 @@ export function jsonHandler<Schema extends z.ZodType>(
     const caller = asCaller(authorization);
     const service = asService();
 
-    const actor = await actorFrom(caller, token);
-    if (actor === undefined) {
+    const identified = await identify(caller, token);
+    if (identified.outcome === 'unavailable') {
+      // The auth server could not be asked. Telling somebody to sign in again, when
+      // they are signed in and it would have worked a second later, sends them to
+      // fix a problem that is ours.
+      return fail(plainProblem('unavailable', 503, 'Something went wrong at our end.', requestId));
+    }
+    if (identified.outcome === 'rejected') {
       return fail(plainProblem('unauthorised', 401, 'Sign in and try again.', requestId));
     }
+    const actor: Actor = identified.actor;
 
     const body = parsed.data as { idempotency_key?: string };
     const key = body.idempotency_key;
@@ -279,9 +286,20 @@ export function jsonHandler<Schema extends z.ZodType>(
         //
         // Releasing must not become the error the caller sees: its own failure is
         // swallowed, because the original is the one worth reporting.
+        // "Known" is wider than "named". A PostgREST error carrying a five-character
+        // SQLSTATE — `23505`, `23503` — is Postgres reporting that it refused the
+        // statement, which means the transaction is gone and nothing committed. Only
+        // a failure with *no* such code is genuinely ambiguous: a socket closed
+        // between the commit and the answer. Treating an unmapped constraint
+        // violation as ambiguous held the key for ever, and retention keeps
+        // unfinished rows on purpose.
+        const sqlstate = (duringWork as { code?: unknown } | undefined)?.code;
+        const aborted = typeof sqlstate === 'string' && /^[0-9A-Z]{5}$/.test(sqlstate);
+
         const known =
           duringWork instanceof Refusal ||
-          reasonOf(duringWork as { message?: string } | undefined) !== undefined;
+          reasonOf(duringWork as { message?: string } | undefined) !== undefined ||
+          aborted;
 
         if (key !== undefined && known) {
           try {

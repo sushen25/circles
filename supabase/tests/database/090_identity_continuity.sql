@@ -652,5 +652,11 @@ select ok(
 
 select pg_temp.act_as_postgres();
 
+-- Deferred constraints are checked at commit, and this suite rolls back — so a
+-- violation of one was invisible here, which is exactly how the re-entry token's
+-- composite foreign key got through ten rounds of review. Forcing them now is the
+-- only way this file can see them at all.
+set constraints all immediate;
+
 select * from finish();
 rollback;

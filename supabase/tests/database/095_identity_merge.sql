@@ -7,7 +7,7 @@
 -- membership can never be moved onto somebody with a saved place.
 
 begin;
-select plan(111);
+select plan(122);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid
@@ -1353,6 +1353,136 @@ select isnt_empty(
   'with the time it happened still recorded'
 );
 
+-- ---------------------------------------------------------------------------
+-- Round 10: three ways the merge and the reattachment gave away more than asked.
+-- ---------------------------------------------------------------------------
+select pg_temp.act_as_postgres();
+
+-- (a) Naming yourself as the target used to answer before checking anything, so
+--     any session that knew a circle's uuid was handed the circle — the name, the
+--     colour, the zone, the short code — which RLS refuses and §9.4 deliberately
+--     narrows to the name alone. It was an existence oracle over uuids too.
+select pg_temp.make_user('95000000-0000-0000-0000-0000000c1101'::uuid, 'Total Stranger', true);
+select pg_temp.act_as('95000000-0000-0000-0000-0000000c1101', true);
+
+select is_empty(
+  format($$ select 1 from public.circles where id = %L $$, pg_temp.circle_id()),
+  'a stranger reads nothing of this circle through RLS'
+);
+
+select throws_ok(
+  $$ select public.reattach_member(pg_temp.circle_id(), '95000000-0000-0000-0000-0000000c1101') $$,
+  'member_not_found',
+  'and nothing through reattach_member by naming themselves, either'
+);
+
+-- (b) A duplicate merge with an unspent emailed link outstanding. The token's
+--     composite foreign key is deferred, so this failed *at commit* — which a
+--     suite that always rolls back could never see. Hence `set constraints all
+--     immediate` at the end of this file.
+select pg_temp.act_as_postgres();
+select pg_temp.make_user('95000000-0000-0000-0000-0000000c2101'::uuid, 'Emailed Guest', true);
+select pg_temp.make_user('95000000-0000-0000-0000-0000000c2102'::uuid, 'Emailed Account');
+
+insert into public.circle_members (circle_id, user_id, display_name_snapshot)
+values (pg_temp.circle_id(), '95000000-0000-0000-0000-0000000c2101', 'Ira on the phone'),
+       (pg_temp.circle_id(), '95000000-0000-0000-0000-0000000c2102', 'Ira');
+
+insert into private.email_contacts (user_id, email_normalized)
+values ('95000000-0000-0000-0000-0000000c2101', 'ira@example.com');
+
+insert into private.email_action_tokens (
+  contact_id, purpose, token_hash, expires_at, membership_circle_id, membership_user_id
+)
+select ec.id, 'reentry', extensions.digest('ira-reentry', 'sha256'),
+       now() + interval '7 days', pg_temp.circle_id(), '95000000-0000-0000-0000-0000000c2101'
+from private.email_contacts ec where ec.email_normalized = 'ira@example.com';
+
+select is(
+  (select duplicates_removed from public.claim_identity(
+     '95000000-0000-0000-0000-0000000c2102', '95000000-0000-0000-0000-0000000c2101', 'settings')),
+  1,
+  'saving a place works for somebody who had asked to be emailed'
+);
+
+select isnt_empty(
+  $$ select 1 from private.email_action_tokens
+     where token_hash = extensions.digest('ira-reentry', 'sha256') and used_at is not null $$,
+  'their outstanding link is spent, so it is no longer a way in without signing in'
+);
+
+select is(
+  (select membership_user_id from private.email_action_tokens
+   where token_hash = extensions.digest('ira-reentry', 'sha256')),
+  '95000000-0000-0000-0000-0000000c2102'::uuid,
+  'and bound to the membership that survived, not the one that was retired'
+);
+
+-- (c) The account was here, left, and came back as a guest — Continue-as cannot
+--     list a saved place, so there was no other way back. `on_member_removed`
+--     leaves being required and the prompts already shown behind, and both collided
+--     with the guest's rows on the primary key.
+select pg_temp.make_user('95000000-0000-0000-0000-0000000c3101'::uuid, 'Returned Guest', true);
+select pg_temp.make_user('95000000-0000-0000-0000-0000000c3102'::uuid, 'Returned Account');
+
+insert into public.circle_members (circle_id, user_id, display_name_snapshot)
+values (pg_temp.circle_id(), '95000000-0000-0000-0000-0000000c3102', 'Lee back then');
+insert into public.plan_required_members (plan_id, revision, user_id)
+values (pg_temp.plan_id(), 1, '95000000-0000-0000-0000-0000000c3102');
+insert into public.nudge_states (user_id, moment, plan_id)
+values ('95000000-0000-0000-0000-0000000c3102', 'after_confirmed', pg_temp.plan_id());
+
+-- Removed the way a removal actually happens, so the trigger runs.
+update public.circle_members m
+set status = 'removed'
+where m.circle_id = pg_temp.circle_id() and m.user_id = '95000000-0000-0000-0000-0000000c3102';
+
+select isnt_empty(
+  $$ select 1 from public.plan_required_members
+     where user_id = '95000000-0000-0000-0000-0000000c3102' $$,
+  'the removal left being required behind, as spec §9 intends'
+);
+
+-- And back as a guest, required again and prompted again.
+insert into public.circle_members (circle_id, user_id, display_name_snapshot)
+values (pg_temp.circle_id(), '95000000-0000-0000-0000-0000000c3101', 'Lee');
+insert into public.plan_required_members (plan_id, revision, user_id)
+values (pg_temp.plan_id(), 1, '95000000-0000-0000-0000-0000000c3101');
+insert into public.nudge_states (user_id, moment, plan_id)
+values ('95000000-0000-0000-0000-0000000c3101', 'after_confirmed', pg_temp.plan_id());
+
+select is(
+  (select merged_memberships from public.claim_identity(
+     '95000000-0000-0000-0000-0000000c3102', '95000000-0000-0000-0000-0000000c3101', 'settings')),
+  1,
+  'signing in again succeeds instead of aborting on a primary key'
+);
+
+select is(
+  (select m.display_name_snapshot from public.circle_members m
+   where m.circle_id = pg_temp.circle_id()
+     and m.user_id = '95000000-0000-0000-0000-0000000c3102' and m.status = 'active'),
+  'Lee',
+  'under the name the circle knows them by now'
+);
+
+select is(
+  (select count(*)::integer from public.plan_required_members rm
+   where rm.plan_id = pg_temp.plan_id()
+     and rm.user_id = '95000000-0000-0000-0000-0000000c3102'),
+  1,
+  'with one required-member row, not the two that used to collide'
+);
+
+select is(
+  (select count(*)::integer from public.nudge_states n
+   where n.plan_id = pg_temp.plan_id()
+     and n.user_id = '95000000-0000-0000-0000-0000000c3102'
+     and n.moment = 'after_confirmed'),
+  1,
+  'and one record of the prompt they have been shown'
+);
+
 select pg_temp.act_as_postgres();
 
 -- ---------------------------------------------------------------------------
@@ -1397,14 +1527,29 @@ select bag_eq(
   'every table referencing an identity is classified as moving or staying'
 );
 
+-- Matched as a *statement*, not as a substring. `position(name in definition)` was
+-- satisfied by the table being mentioned in a comment, or keyed some other way —
+-- `jobs.notification_jobs` passed that way while nothing updated it by user id. A
+-- table is handled when something writes to it.
+create or replace function pg_temp.writes_to(p_function text, p_table text)
+returns boolean
+language sql
+as $$
+  select pg_get_functiondef(p_function::regprocedure) ~*
+    -- `public.` is optional because `regclass::text` drops it for tables on the
+    -- search path, while the function bodies always qualify (`set search_path = ''`
+    -- leaves them no choice). Dots in a qualified name are escaped so that
+    -- `private.plan_interest` cannot be matched by anything else.
+    ('(update|delete[[:space:]]+from)[[:space:]]+(public\.)?'
+      || replace(p_table, '.', '\.') || '[[:space:]]');
+$$;
+
 select bag_eq(
   $$ select name from identity_tables where moves
-     and position(split_part(name, '.', case when name like '%.%' then 2 else 1 end)
-                  in pg_get_functiondef('private.move_membership(uuid, uuid, uuid)'::regprocedure)
-                    || pg_get_functiondef(
-                      'private.reconcile_contacts(uuid, uuid, uuid)'::regprocedure)) = 0 $$,
+     and not pg_temp.writes_to('private.move_membership(uuid, uuid, uuid)', name)
+     and not pg_temp.writes_to('private.reconcile_contacts(uuid, uuid, uuid)', name) $$,
   $$ select null::text where false $$,
-  'and each one that moves is named in move_membership, or in the contact reconciliation it delegates to'
+  'and each one that moves is written to by move_membership, or by the contact reconciliation it delegates to'
 );
 
 -- There are two movers now, and the second one is the gap-filler
@@ -1413,19 +1558,34 @@ select bag_eq(
 -- bug of round 6, where the answer came across and the participation did not.
 --
 -- Read against the adopter *and* `reconcile_contacts`, which both movers delegate
--- the address to. One table is named as deliberately absent: the membership row
--- itself, which a duplicate merge *removes* rather than moves.
+-- the address to. Two tables are named as deliberately absent: the membership row
+-- itself, which a duplicate merge *removes* rather than moves, and
+-- `jobs.notification_jobs`, whose email rows are keyed by contact and re-pointed
+-- there (a push row belongs to a saved place, which a duplicate guest is not).
 select bag_eq(
   $$ select name from identity_tables where moves
-     and name not in ('circle_members')
-     and position(split_part(name, '.', case when name like '%.%' then 2 else 1 end)
-                  in pg_get_functiondef(
-                       'private.adopt_membership_rows(uuid, uuid, uuid)'::regprocedure)
-                     || pg_get_functiondef(
-                       'private.reconcile_contacts(uuid, uuid, uuid)'::regprocedure)) = 0 $$,
+     and name not in ('circle_members', 'jobs.notification_jobs')
+     and not pg_temp.writes_to('private.adopt_membership_rows(uuid, uuid, uuid)', name)
+     and not pg_temp.writes_to('private.reconcile_contacts(uuid, uuid, uuid)', name) $$,
   $$ select null::text where false $$,
-  'and each one is named in adopt_membership_rows too, or excused here by name'
+  'and each one is written to by adopt_membership_rows too, or excused here by name'
 );
+
+-- And the branch that retires a returning account's old membership clears the same
+-- tables, or its rows collide with the guest's on the primary key.
+select bag_eq(
+  $$ select name from identity_tables where moves
+     and name not in ('circle_members', 'jobs.notification_jobs', 'private.email_contacts')
+     and not pg_temp.writes_to('private.discard_membership_rows(uuid, uuid)', name) $$,
+  $$ select null::text where false $$,
+  'and discard_membership_rows clears every one of them as well'
+);
+
+-- Deferred constraints are checked at commit, and this suite rolls back — so a
+-- violation of one was invisible here, which is exactly how the re-entry token's
+-- composite foreign key got through ten rounds of review. Forcing them now is the
+-- only way this file can see them at all.
+set constraints all immediate;
 
 select * from finish();
 rollback;

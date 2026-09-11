@@ -37,6 +37,14 @@ declare
   contact record;
   destination_contact uuid;
 begin
+  -- Before the contact is touched at all. Every branch below either moves the
+  -- contact — whose `user_id` cascades into `email_action_tokens.membership_user_id`
+  -- — or re-points the token's `contact_id`, and an unspent re-entry token arriving
+  -- at a permanent identity is refused by `enforce_reentry_for_guests`. That
+  -- refusal took the whole claim with it, which made saving your place impossible
+  -- for exactly the people who had asked to be emailed.
+  perform private.retire_reentry_links(p_circle_id, p_from, p_to);
+
   for contact in
     select ec.id, ec.email_hash
     from private.email_contacts ec
@@ -121,8 +129,14 @@ begin
     where sub.contact_id = contact.id
       and sub.plan_id in (select pl.id from public.plans pl where pl.circle_id = p_circle_id);
 
+    -- The membership as well as the contact. In the move path the cascade has
+    -- already taken `membership_user_id` to `p_to`; in the duplicate-merge path the
+    -- membership never moved, and leaving the token on the identity being retired
+    -- both breaks the composite foreign key — `(contact_id, membership_user_id)`
+    -- must be a real `(id, user_id)` pair on `email_contacts` — and leaves an
+    -- emailed link pointing at a membership that is about to be removed.
     update private.email_action_tokens tok
-    set contact_id = destination_contact
+    set contact_id = destination_contact, membership_user_id = p_to
     where tok.contact_id = contact.id and tok.membership_circle_id = p_circle_id;
 
     update jobs.notification_jobs job

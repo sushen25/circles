@@ -33,30 +33,12 @@ security definer
 set search_path = ''
 as $$
 begin
-  -- A re-entry token is a guest's way back in *without* signing in, which is why
-  -- `enforce_reentry_for_guests` refuses to issue one against a saved place. When
-  -- a membership becomes a saved-place member's, any live token bound to it has to
-  -- stop working for exactly that reason — and before the membership moves,
-  -- because `email_action_tokens.membership_user_id` follows `circle_members` by
-  -- cascade.
-  --
-  -- **Spent, not deleted.** Deleting it left an emailed `/a/<token>` link
-  -- answering `token_invalid`, when §10 asks for a third outcome: "if the
-  -- membership belongs to a permanent identity, the page offers that identity's
-  -- sign-in instead". `reattach_member` can only say that if the row is still
-  -- there to be found. Spending it is what stops it being a bypass; the trigger
-  -- allows a spent token to follow the membership for the same reason.
-  if exists (select 1 from public.profiles p where p.user_id = p_to and p.is_permanent)
-    or exists (
-      select 1 from auth.users u where u.id = p_to and not coalesce(u.is_anonymous, false)
-    )
-  then
-    update private.email_action_tokens t
-    set used_at = coalesce(t.used_at, now())
-    where t.purpose = 'reentry'
-      and t.membership_circle_id = p_circle_id
-      and t.membership_user_id = p_from;
-  end if;
+  -- Outstanding emailed links first, while `membership_user_id` still names the
+  -- identity they were issued against: the write below cascades that column, and
+  -- `enforce_reentry_for_guests` fires on it. `private.retire_reentry_links` says
+  -- what happens and why, and `reconcile_contacts` calls it too — the
+  -- duplicate-merge path reaches the same tokens by a different route.
+  perform private.retire_reentry_links(p_circle_id, p_from, p_to);
 
   -- The membership itself, first: the cascading references follow this write.
   update public.circle_members m
