@@ -110,67 +110,15 @@ begin
         -- twice, from two devices, under two names (spec §9). The saved place is
         -- the one that keeps working, so it stays and the guest row goes.
         --
-        -- But an answer the guest gave and the survivor never did is an answer
-        -- this person really made, and `on_member_removed` deletes the removed
-        -- member's availability (spec §4.5). So it is adopted first, and only
-        -- what is genuinely duplicated is left to be deleted. Removing the row
-        -- before this would be "saving your place loses your answer", which is
-        -- not a trade anybody agreed to.
-        update public.plan_responses r
-        set user_id = p_user_id
-        where r.user_id = p_anonymous_user_id
-          and r.plan_id in (
-            select pl.id from public.plans pl where pl.circle_id = membership.circle_id
-          )
-          and not exists (
-            select 1 from public.plan_responses kept
-            where kept.plan_id = r.plan_id
-              and kept.revision = r.revision
-              and kept.user_id = p_user_id
-          );
-
-        update public.attendance a
-        set user_id = p_user_id
-        where a.user_id = p_anonymous_user_id
-          and a.confirmation_id in (
-            select c.id from public.meetup_confirmations c
-            join public.plans pl on pl.id = c.plan_id
-            where pl.circle_id = membership.circle_id
-          )
-          and not exists (
-            select 1 from public.attendance kept
-            where kept.confirmation_id = a.confirmation_id and kept.user_id = p_user_id
-          )
-          -- `enforce_attendance_transition` requires the owner to be a
-          -- participant of the confirmation's revision, and the survivor may not
-          -- be one. Adopting such a row would raise `attendance_not_a_participant`
-          -- and take the whole claim with it, so it is left where it is —
-          -- `on_member_removed` will mark it `cant` along with the membership.
-          and exists (
-            select 1 from public.plan_participants pp
-            join public.meetup_confirmations c on c.id = a.confirmation_id
-            where pp.plan_id = c.plan_id and pp.revision = c.revision
-              and pp.user_id = p_user_id
-          );
-
-        -- And the organiser's decision that *this person* has to be there.
-        -- `on_member_removed` leaves `plan_required_members` alone on purpose —
-        -- spec §9 makes a required person leaving the organiser's problem to
-        -- resolve — but nobody has left here, so the requirement follows them.
-        -- Otherwise an active plan would go on requiring an identity that can no
-        -- longer answer, and never produce an eligible candidate.
-        update public.plan_required_members rm
-        set user_id = p_user_id
-        where rm.user_id = p_anonymous_user_id
-          and rm.plan_id in (
-            select pl.id from public.plans pl where pl.circle_id = membership.circle_id
-          )
-          and not exists (
-            select 1 from public.plan_required_members kept
-            where kept.plan_id = rm.plan_id
-              and kept.revision = rm.revision
-              and kept.user_id = p_user_id
-          );
+        -- Everything the survivor does not already have is adopted first.
+        -- `on_member_removed` deletes or neutralises what is left on the removed
+        -- membership (spec §4.5), and an answer this person gave is not a thing to
+        -- delete because they signed in. `private.adopt_membership_rows` holds the
+        -- list, so it is one list with `move_membership` rather than a handful of
+        -- updates written out here and forgotten about separately.
+        perform private.adopt_membership_rows(
+          membership.circle_id, p_anonymous_user_id, p_user_id
+        );
 
         update public.circle_members m
         set status = 'removed'

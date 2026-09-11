@@ -7,7 +7,7 @@
 -- membership can never be moved onto somebody with a saved place.
 
 begin;
-select plan(95);
+select plan(100);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid
@@ -780,9 +780,15 @@ insert into public.circle_members (circle_id, user_id, display_name_snapshot)
 values (pg_temp.circle_id(), '95000000-0000-0000-0000-00000000c101', 'Alex on the bus'),
        (pg_temp.circle_id(), '95000000-0000-0000-0000-00000000c102', 'Alex');
 
--- Only the guest device answered.
+-- Only the guest device answered, was listed as a participant, and said it was
+-- interested.
 insert into public.plan_responses (plan_id, revision, user_id, status)
 values (pg_temp.plan_id(), 1, '95000000-0000-0000-0000-00000000c101', 'flexible');
+insert into public.plan_participants (plan_id, revision, user_id)
+values (pg_temp.plan_id(), 1, '95000000-0000-0000-0000-00000000c101')
+on conflict do nothing;
+insert into private.plan_interest (plan_id, user_id, response)
+values (pg_temp.plan_id(), '95000000-0000-0000-0000-00000000c101', 'keen');
 
 select is(
   public.claim_identity('95000000-0000-0000-0000-00000000c102',
@@ -805,6 +811,42 @@ select is(
      and r.user_id = '95000000-0000-0000-0000-00000000c102'),
   1,
   'and the answer only the duplicate had given is the survivor''s now'
+);
+
+-- Round 6: and everything else the duplicate alone had. An answer whose owner is
+-- not a participant of the revision cannot be edited and is not counted as a
+-- reply; an interest answer left behind would count this person twice towards a
+-- quiet ask's threshold, which is the one number it turns on.
+select is(
+  (select count(*)::integer from public.plan_participants pp
+   where pp.plan_id = pg_temp.plan_id()
+     and pp.user_id = '95000000-0000-0000-0000-00000000c102'),
+  1,
+  'the survivor is a participant of the revision, so the answer it just adopted is theirs to edit'
+);
+
+select is(
+  (select count(*)::integer from public.plan_participants pp
+   where pp.plan_id = pg_temp.plan_id()
+     and pp.user_id = '95000000-0000-0000-0000-00000000c101'),
+  0,
+  'and the retired identity is not one'
+);
+
+select is(
+  (select count(*)::integer from private.plan_interest i
+   where i.plan_id = pg_temp.plan_id()
+     and i.user_id = '95000000-0000-0000-0000-00000000c102'),
+  1,
+  'the interest answer came across too'
+);
+
+select is(
+  (select count(*)::integer from private.plan_interest i
+   where i.plan_id = pg_temp.plan_id()
+     and i.user_id = '95000000-0000-0000-0000-00000000c101'),
+  0,
+  'rather than being counted a second time under an identity nobody can sign in as'
 );
 
 -- ---------------------------------------------------------------------------
@@ -1208,6 +1250,25 @@ select bag_eq(
                   in pg_get_functiondef('private.move_membership(uuid, uuid, uuid)'::regprocedure)) = 0 $$,
   $$ select null::text where false $$,
   'and each one that moves is actually named in move_membership'
+);
+
+-- There are two movers now, and the second one is the gap-filler
+-- `adopt_membership_rows`. They will drift unless something says they must not:
+-- a table the unconditional move handles and the duplicate merge forgets is the
+-- bug of round 6, where the answer came across and the participation did not.
+--
+-- Three tables are named here as deliberately absent from the adopter, each for a
+-- reason in its header: the membership row itself is *removed* rather than moved,
+-- and the contact and its queued mail stay with the identity being retired, whose
+-- membership is about to be ineligible for anything.
+select bag_eq(
+  $$ select name from identity_tables where moves
+     and name not in ('circle_members', 'private.email_contacts', 'jobs.notification_jobs')
+     and position(split_part(name, '.', case when name like '%.%' then 2 else 1 end)
+                  in pg_get_functiondef(
+                       'private.adopt_membership_rows(uuid, uuid, uuid)'::regprocedure)) = 0 $$,
+  $$ select null::text where false $$,
+  'and each one is named in adopt_membership_rows too, or excused here by name'
 );
 
 select * from finish();

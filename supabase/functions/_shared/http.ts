@@ -64,14 +64,20 @@ const CORS = {
 export const ALLOWED_REQUEST_HEADERS = CORS['Access-Control-Allow-Headers'];
 
 /**
- * A reference a person can read out, and nothing else. An id the client sent is
- * accepted only if it *looks* like an id — an arbitrary header would otherwise
- * be echoed into a log, and the whole point of logging the reference instead of
- * the person is that its contents are known.
+ * A reference a person can read out, minted here and never taken from the
+ * caller.
+ *
+ * It used to accept a client-supplied `X-Request-Id` that matched
+ * `^[A-Za-z0-9_-]{1,64}$`, on the reasoning that a shape check made the contents
+ * known. It did the opposite: `OpaqueToken` in `packages/contracts` is
+ * `^[A-Za-z0-9_-]+$`, so the filter admitted precisely the thing non-negotiable 8
+ * forbids in a log — a re-entry token, passed as a header, copied into every line
+ * this request writes. A name fits too.
+ *
+ * Correlation with a client-side id is not worth that, and nothing needed it.
  */
-function referenceFor(request: Request): string {
-  const given = request.headers.get('x-request-id');
-  return given !== null && /^[A-Za-z0-9_-]{1,64}$/.test(given) ? given : crypto.randomUUID();
+function reference(): string {
+  return crypto.randomUUID();
 }
 
 function respond(status: number, body: unknown, requestId: string): Response {
@@ -86,7 +92,7 @@ export function jsonHandler<Schema extends z.ZodType>(
 ): (request: Request) => Promise<Response> {
   return async function serve(request: Request): Promise<Response> {
     const started = Date.now();
-    const requestId = referenceFor(request);
+    const requestId = reference();
 
     const fail = (problem: { status: number; body: unknown }, reason?: string): Response => {
       log(problem.status >= 500 ? 'error' : 'warn', {
@@ -101,6 +107,36 @@ export function jsonHandler<Schema extends z.ZodType>(
     };
 
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
+
+    try {
+      return await handle(request, requestId, started, fail);
+    } catch (beforeTheWork) {
+      // Constructing a client throws when a secret is missing, and `getUser` can
+      // reject on a transient network failure — both outside the inner try, so
+      // the promise rejected and the caller got no `Problem`, no reference and no
+      // CORS headers. The wrapper promises those for every answer it gives.
+      log('error', {
+        fn: spec.name,
+        request_id: requestId,
+        event: 'failed',
+        status: 503,
+        reason: (beforeTheWork as { code?: string } | undefined)?.code ?? 'unconfigured',
+        duration_ms: Date.now() - started,
+      });
+      return respond(
+        503,
+        plainProblem('unavailable', 503, 'Something went wrong at our end.', requestId).body,
+        requestId,
+      );
+    }
+  };
+
+  async function handle(
+    request: Request,
+    requestId: string,
+    started: number,
+    fail: (problem: { status: number; body: unknown }, reason?: string) => Response,
+  ): Promise<Response> {
     if (request.method !== 'POST') {
       return fail(plainProblem('invalid_request', 405, 'That address takes a POST.', requestId));
     }
@@ -292,5 +328,5 @@ export function jsonHandler<Schema extends z.ZodType>(
         requestId,
       );
     }
-  };
+  }
 }

@@ -80,33 +80,32 @@ describe('a request that works', () => {
     expect(called('release_request')).toHaveLength(0);
   });
 
-  it('echoes a request id the caller can read back', async () => {
+  it('gives a reference of its own making', async () => {
     const handler = jsonHandler({
       name: 'test-fn',
       schema: Body,
       handle: () => Promise.resolve({}),
     });
-    const response = await handler(
-      post({ idempotency_key: KEY, display_name: 'Priya' }, { 'x-request-id': 'REF-123' }),
-    );
-    expect(response.headers.get('x-request-id')).toBe('REF-123');
+    const response = await handler(post({ idempotency_key: KEY, display_name: 'Priya' }));
+    expect(response.headers.get('x-request-id')).toMatch(/^[0-9a-f-]{36}$/);
   });
 
-  it('makes up a reference when the client offers a junk one', async () => {
+  it('never takes the reference from the caller', async () => {
+    // The reference goes into every log line this request writes. It used to be
+    // accepted from `X-Request-Id` whenever it matched `^[A-Za-z0-9_-]{1,64}$`, on
+    // the reasoning that a shape check made the contents known — and `OpaqueToken`
+    // in `packages/contracts` is `^[A-Za-z0-9_-]+$`, so the filter admitted exactly
+    // the thing non-negotiable 8 forbids in a log.
+    const tokenShaped = 'x'.repeat(43);
     const handler = jsonHandler({
       name: 'test-fn',
       schema: Body,
       handle: () => Promise.resolve({}),
     });
     const response = await handler(
-      post(
-        { idempotency_key: KEY, display_name: 'Priya' },
-        { 'x-request-id': 'priya@example.com' },
-      ),
+      post({ idempotency_key: KEY, display_name: 'Priya' }, { 'x-request-id': tokenShaped }),
     );
-    // An arbitrary header would be echoed into a log, and the point of logging a
-    // reference rather than a person is that its contents are known.
-    expect(response.headers.get('x-request-id')).not.toBe('priya@example.com');
+    expect(response.headers.get('x-request-id')).not.toBe(tokenShaped);
   });
 });
 
@@ -387,5 +386,39 @@ describe('what never reaches the handler', () => {
     // Zod's own message quotes what it was given, and what it was given is
     // somebody's name (non-negotiable 8).
     expect(body.message).not.toContain('Priya');
+  });
+});
+
+describe('when the function itself is not in a fit state', () => {
+  it('still answers with a Problem, a reference and the CORS headers', async () => {
+    // Constructing a client throws when a secret is missing, and that happens
+    // before any of the work — so the promise used to reject and the caller got
+    // none of the three things this wrapper promises for every answer it gives.
+    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    const handler = jsonHandler({
+      name: 'test-fn',
+      schema: Body,
+      handle: () => Promise.resolve({}),
+    });
+    const response = await handler(post({ idempotency_key: KEY, display_name: 'Priya' }));
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toMatchObject({ error: 'unavailable' });
+    expect(response.headers.get('x-request-id')).toMatch(/^[0-9a-f-]{36}$/);
+    expect(response.headers.get('Access-Control-Allow-Origin')).toBe('*');
+  });
+
+  it('says nothing about which secret is missing', async () => {
+    delete process.env.SUPABASE_URL;
+
+    const handler = jsonHandler({
+      name: 'test-fn',
+      schema: Body,
+      handle: () => Promise.resolve({}),
+    });
+    const response = await handler(post({ idempotency_key: KEY, display_name: 'Priya' }));
+
+    expect(await response.text()).not.toContain('SUPABASE_URL');
   });
 });

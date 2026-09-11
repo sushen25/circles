@@ -22,8 +22,30 @@ Deno.serve(
     name: 'reattach-member',
     schema: ReattachMemberRequest,
     handle: async ({ body, actor, caller, service, request }): Promise<ReattachMemberResponse> => {
+      // Per circle as well as per address, because §9.1 says this endpoint is
+      // "rate-limited per circle" and the rule ADR 0006 names is per *membership*
+      // — which a script does not have to reuse. Requests spread across addresses
+      // and memberships had no counter scoped to the circle at all.
+      //
+      // The token path cannot be keyed by circle: the circle is inside the token,
+      // and only the database can read it. So it is keyed by the token's own
+      // digest, which is stricter — a single-use link tried four times is
+      // somebody guessing.
       await enforce(service, [
         { scope: 'reattach_ip', key: callerAddress(request), max: 10, window: '1 hour' },
+        ...(body.circle_id !== undefined
+          ? [{ scope: 'reattach_circle', key: body.circle_id, max: 20, window: '1 hour' }]
+          : []),
+        ...(body.reentry_token !== undefined
+          ? [
+              {
+                scope: 'reattach_token',
+                key: await sha256Hex(body.reentry_token),
+                max: 3,
+                window: '1 hour',
+              },
+            ]
+          : []),
       ]);
 
       const { data, error } = await caller.rpc('reattach_member', {
