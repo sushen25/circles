@@ -55,9 +55,17 @@ corepack pnpm exec supabase status -o env | grep '^DB_URL' | cut -d'"' -f2
 ```
 
 `psql` is on the PATH. Read-only queries and `begin … rollback` transactions are
-free; use them freely. `corepack pnpm exec supabase db reset` and
+free; use them freely — but note that **`psql -Atc "a; b; c"` prints only the
+last result**. Feed a multi-step probe on stdin or with `-f`, and open it with
+`\set ON_ERROR_ROLLBACK on` when some steps are *expected* to error, or the
+first one aborts the rest. `corepack pnpm exec supabase db reset` and
 `supabase test db` are available, as are `check:functions`, `check:events`,
-`check:transitions`, `gen:functions` and `db:test`.
+`check:transitions`, `gen:functions` and `db:test`. The suites roll back what
+they do, so `supabase test db` and `node scripts/check-function-coverage.mjs`
+can be run **without** a reset — a minute you do not need to spend. Reset only
+after a migration changes, and remember that `supabase test db` alone does *not*
+re-apply migrations, so a function you just regenerated is not in the database
+until you do.
 
 **Things that will bite you in a reproduction**, all of them learned the hard
 way in this repo:
@@ -79,10 +87,20 @@ way in this repo:
   statement has to read columns. An `update … where` and an unqualified
   `update` are *different attack surfaces* — test both, or a refutation is
   half a refutation.
+- **RLS on `INSERT`**: a `BEFORE ROW` trigger runs *before* the policy's
+  `WITH CHECK`. So a write that dies in a trigger proves nothing about the
+  policy, and a deny test asserting `42501` may be passing for the wrong
+  reason. To test the policy alone, give the trigger the privileges it lacks
+  for the length of the assertion — `alter function … security definer` inside
+  the rolled-back transaction — and see what answers then.
 - **Superuser**: the `postgres` role is not one. `supabase_admin` is, on the
   same credentials — swap the user in `DB_URL`.
 - **Read the exit code, never the tail.** `cmd | tail` reports `tail`'s status.
   A command's last line looking fine is not the command passing.
+- **macOS has no `timeout` or `setsid`**, and a foreground `sleep` is blocked.
+  `perl -e 'setpgrp(0,0); exec @ARGV' <cmd>` gives a process group you can
+  signal, and `perl -e 'select(undef,undef,undef,2)'` waits two seconds — which
+  is how you test what an interrupted run leaves behind.
 
 ## Severity
 
@@ -115,6 +133,24 @@ say that plainly instead of padding.
 Two things are more useful than a clean bill, so say them when they are true:
 that a fix is more machinery than the problem deserves, and that a failure
 message would not help the person who hits it.
+
+## Reviewing a generator or a check script
+
+Several of the gate's rules are plain functions over strings — `analyse`,
+`render` and `selfTest` in `scripts/sql-functions-rules.mjs`, for instance — and
+they are exported. **Import them into a scratch file and feed them a tree that
+does not exist.** It is faster than editing migrations to see what fires, it
+cannot dirty the repository, and it is how the sharpest finding of the skill's
+first outing was made: that the rule was never shown the one file a developer
+edits. Put the scratch file in the session scratchpad, not the repo.
+
+## When you are asked to confirm a previous round
+
+The findings are on the PR: `gh pr view <n> --comments`. Confirm each one
+yourself rather than taking the author's word — a fix that closes the reported
+symptom and leaves the cause is the common failure — and then look again with
+fresh eyes, because the fixes are new code and new code is where the next
+finding usually is.
 
 ## Two shapes account for most findings here
 
