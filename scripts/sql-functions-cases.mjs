@@ -5,7 +5,7 @@
 // cannot then pass with a broken guard. Each case names the message it expects,
 // so a case cannot pass because some unrelated rule happened to fire, and the
 // cases without an expectation assert that a clean tree stays quiet.
-import { analyse } from './sql-functions-rules.mjs';
+import { BEGIN, END, analyse } from './sql-functions-rules.mjs';
 
 /** A minimal well-formed function file, for the cases to break. */
 function sample(name = 'public.example', extra = '') {
@@ -22,6 +22,11 @@ ${extra}`;
 
 const FILE = 'supabase/sql/functions/public/example.sql';
 const clean = () => new Map([[FILE, sample()]]);
+
+/** A migration that carries a generated block holding exactly these files. */
+function generated(...chunks) {
+  return [BEGIN, ...chunks, END].join('\n\n');
+}
 
 export const CASES = [
   { label: 'a clean tree', files: clean(), migrations: new Map() },
@@ -167,6 +172,34 @@ export const CASES = [
       ],
     ]),
     expect: 'has no file',
+  },
+  {
+    // The quietest way to break ADR 0015: the database runs the hand-written
+    // body, the file still matches what the generator last wrote, and nothing
+    // drifts.
+    label: 'a filed function redefined by hand after the tree took over',
+    files: clean(),
+    migrations: new Map([
+      ['0008_seam.sql', generated(`-- ${FILE}\n${sample()}`)],
+      ['0010_hotfix.sql', 'create or replace function public.example()\nreturns integer\n'],
+    ]),
+    expect: 'by hand, outside the generated block',
+  },
+  {
+    label: 'but the same definition inside a later generated block is the normal way',
+    files: clean(),
+    migrations: new Map([
+      ['0008_seam.sql', generated(`-- ${FILE}\n${sample()}`)],
+      ['0010_proper.sql', generated(`-- ${FILE}\n${sample()}`)],
+    ]),
+  },
+  {
+    label: 'and the migrations before the seam are where these definitions came from',
+    files: clean(),
+    migrations: new Map([
+      ['0002_origin.sql', 'create or replace function public.example()\nreturns integer\n'],
+      ['0008_seam.sql', generated(`-- ${FILE}\n${sample()}`)],
+    ]),
   },
   {
     label: 'and a dropped overload does not excuse its surviving sibling',

@@ -6,7 +6,7 @@
 -- later with a stray grant fails here by name.
 
 begin;
-select plan(77);
+select plan(79);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid language sql as $$
@@ -370,6 +370,23 @@ select is(
   (select reason from private.email_suppressions where email_hash = extensions.digest('priya@example.com', 'sha256')),
   'bounced',
   'and the address is remembered as suppressed, by hash, apart from the contact'
+);
+-- The sibling. Two identities hold this address, the webhook named one of them,
+-- and a suppression belongs to the address: leaving the other `verified` would
+-- have the dispatcher mailing an address that complained. The tombstone does
+-- not cover this on its own — it is read on insert, and the sibling is already
+-- there.
+select is(
+  (select array_agg(distinct status) from private.email_contacts
+   where email_normalized = 'priya@example.com'),
+  array['suppressed'],
+  'and every other identity holding that address is suppressed with it'
+);
+select is(
+  (select count(*)::integer from private.email_contacts
+   where email_normalized = 'priya@example.com' and verified_at is not null),
+  0,
+  'none of them left verified'
 );
 -- The contact goes with its owner; the promise does not.
 insert into private.email_contacts (user_id, email_normalized, status, suppressed_at, suppression_reason)

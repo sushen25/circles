@@ -187,6 +187,52 @@ function checkSourceFile(where, sql, sources, problems) {
  * filename order and each file's statements in the order they appear, so
  * "last" means last.
  */
+/** Where each generated block starts and ends, so a create can be placed. */
+function blockSpans(sql) {
+  const spans = [];
+  let from = 0;
+  for (;;) {
+    const start = sql.indexOf(BEGIN, from);
+    if (start === -1) break;
+    const finish = sql.indexOf(END, start);
+    if (finish === -1) break;
+    spans.push([start, finish + END.length]);
+    from = finish + END.length;
+  }
+  return spans;
+}
+
+/**
+ * A filed function redefined by hand in a migration, outside any generated
+ * block, after the tree took over.
+ *
+ * This is the failure ADR 0015 exists to prevent, in its quietest form: the
+ * hand-written definition is what the database ends up running, the file still
+ * matches whatever the generator last wrote, so nothing drifts and nothing
+ * complains — and the tree, which the ADR promises is the truth, is a lie. The
+ * earlier migrations are exempt because that is where these definitions came
+ * from; the rule starts at the first migration that carries a generated block.
+ */
+function checkHandEdits(migrationFiles, sources, problems) {
+  const entries = [...migrationFiles.keys()];
+  const firstGenerated = entries.find((entry) => blockSpans(migrationFiles.get(entry)).length > 0);
+  if (firstGenerated === undefined) return;
+
+  for (const entry of entries.slice(entries.indexOf(firstGenerated))) {
+    const sql = migrationFiles.get(entry);
+    const spans = blockSpans(sql);
+    for (const { name, at, dropping } of operations(sql)) {
+      if (dropping || !sources.has(name)) continue;
+      if (spans.some(([start, finish]) => at >= start && at < finish)) continue;
+      problems.push(
+        `${entry} defines ${name} by hand, outside the generated block, and ${sources.get(name).where} ` +
+          'is supposed to be where that definition lives. The database would run the migration ' +
+          'and the tree would never know. Move the change into the file and run `pnpm gen:functions`.',
+      );
+    }
+  }
+}
+
 function checkMigrations(migrationFiles, sources, problems) {
   const history = new Map();
   for (const [entry, sql] of migrationFiles) {
@@ -233,6 +279,7 @@ export function analyse(sourceFiles, migrationFiles) {
     checkSourceFile(where, raw.trimEnd(), sources, problems);
   }
   checkMigrations(migrationFiles, sources, problems);
+  checkHandEdits(migrationFiles, sources, problems);
   return { problems, sources };
 }
 

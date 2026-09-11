@@ -426,9 +426,9 @@ select lives_ok(
   'the same report again succeeds, rather than failing on the unique index'
 );
 select is(
-  (select outcome from public.outcome_reports where confirmation_id = :'past_conf'),
+  (select (public.report_outcome(:'past_conf', 'happened', 'Great night')).outcome),
   'happened',
-  'and returns the report the first call wrote'
+  'and what it returns is the report the first call wrote, not null'
 );
 select pg_temp.act_as_postgres();
 select is(

@@ -21,6 +21,11 @@
 // A database recreated by `db reset` loses the setting, which is why it is set
 // on every run.
 //
+// pg_cron is paused for the duration, because it is not a test: it calls
+// `jobs.invoke_process_scheduled_jobs` every minute and `jobs.run_retention`
+// at 03:15, and a suite that runs for more than a minute would otherwise count
+// those as reached whether or not anything tests them.
+//
 // It fails on a function that is **newly** unreached, against the baseline in
 // `supabase/tests/function-coverage.txt`. Demanding that every function be
 // reached today would fail the gate on the day it landed; stopping the number
@@ -44,11 +49,16 @@ function supabase(args, options = {}) {
 }
 
 function databaseUrl() {
-  const line = supabase(['status', '-o', 'env'])
-    .split('\n')
-    .find((candidate) => candidate.startsWith('DB_URL='));
-  if (line === undefined) {
+  let status;
+  try {
+    status = supabase(['status', '-o', 'env']);
+  } catch {
     console.error('check:function-coverage: the local stack is not running (`supabase start`).');
+    process.exit(2);
+  }
+  const line = status.split('\n').find((candidate) => candidate.startsWith('DB_URL='));
+  if (line === undefined) {
+    console.error('check:function-coverage: `supabase status` reported no DB_URL.');
     process.exit(2);
   }
   return line.slice('DB_URL='.length).replace(/^"|"$/g, '');
@@ -58,24 +68,38 @@ const url = databaseUrl();
 const query = (sql, as = url) =>
   execFileSync('psql', [as, '-Atc', sql], { encoding: 'utf8' }).trim();
 
+const admin = url.replace('://postgres:', '://supabase_admin:');
+
 /**
- * Turn the counters on and zero them. Returns false when that is not possible,
- * in which case the suites still run and their result is still what matters —
- * an environment that cannot measure coverage does not deserve a red build for
- * it.
+ * Turn the counters on, stop cron from contributing to them, and zero them.
+ * Returns false when that is not possible — locally the suites still run and
+ * their result is what matters, but in CI an unmeasured run is a silent hole in
+ * the gate, so it fails there.
  */
 function startCounting() {
-  const admin = url.replace('://postgres:', '://supabase_admin:');
   try {
     query(`alter database ${new URL(url).pathname.slice(1)} set track_functions = 'all'`, admin);
+    query('update cron.job set active = false', admin);
     query('select pg_stat_reset()', admin);
     return true;
-  } catch {
-    console.warn(
-      'check:function-coverage: could not turn on track_functions (it needs a superuser), ' +
-        'so coverage is not measured on this run.',
-    );
+  } catch (reason) {
+    const message = `check:function-coverage: coverage could not be measured — ${reason.message}`;
+    if (process.env.CI !== undefined) {
+      console.error(message);
+      console.error('  In CI an unmeasured run is a hole in the gate, so this is a failure.');
+      process.exit(1);
+    }
+    console.warn(`${message}\n  Carrying on; the test result below still stands.`);
     return false;
+  }
+}
+
+/** Cron is the database's, not this script's: give it back. */
+function stopCounting() {
+  try {
+    query('update cron.job set active = true', admin);
+  } catch {
+    console.warn('check:function-coverage: could not re-enable pg_cron; `supabase db reset` will.');
   }
 }
 
@@ -85,8 +109,8 @@ const tests = spawnSync('corepack', ['pnpm', 'exec', 'supabase', 'test', 'db'], 
   cwd: root,
   stdio: 'inherit',
 });
+if (tracking) stopCounting();
 if (tests.status !== 0) process.exit(tests.status ?? 1);
-
 if (!tracking) process.exit(0);
 
 const unreached = query(`

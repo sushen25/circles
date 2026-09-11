@@ -88,6 +88,52 @@ comment on constraint email_contacts_address_per_identity on private.email_conta
 
 -- BEGIN GENERATED: function definitions (scripts/gen-sql-functions.mjs)
 
+-- supabase/sql/functions/private/record_suppression.sql
+-- A suppression is the address's, not the contact's.
+--
+-- Two things follow from that, and both are here because both have to happen
+-- together. The tombstone in `private.email_suppressions` outlives the contact,
+-- so an address that complained stays suppressed even after its contact is
+-- deleted and a new one is created later — `apply_suppression` reads it on
+-- insert.
+--
+-- And **every contact already holding that address is suppressed with it.**
+-- Since uniqueness moved to `(email_hash, user_id)` (0009) two identities can
+-- be reachable at one address, so suppressing only the row the webhook named
+-- would leave a sibling `verified` and the dispatcher would keep mailing an
+-- address that complained. The tombstone alone does not cover this: it is
+-- consulted on insert, and the sibling already exists.
+--
+-- The recursion terminates because the sibling update only touches rows that
+-- are not yet suppressed, so the trigger it fires finds none.
+create or replace function private.record_suppression()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if new.status = 'suppressed' and (tg_op = 'INSERT' or old.status is distinct from 'suppressed') then
+    insert into private.email_suppressions (email_hash, reason, suppressed_at)
+    values (new.email_hash, new.suppression_reason, new.suppressed_at)
+    on conflict (email_hash) do nothing;
+
+    update private.email_contacts c
+    set status = 'suppressed',
+        suppressed_at = new.suppressed_at,
+        suppression_reason = new.suppression_reason,
+        verified_at = null
+    where c.email_hash = new.email_hash
+      and c.id <> new.id
+      and c.status <> 'suppressed';
+  end if;
+  return null;
+end;
+$$;
+
+revoke all on function private.record_suppression() from public;
+revoke all on function private.record_suppression() from anon, authenticated;
+
 -- supabase/sql/functions/public/report_outcome.sql
 -- The one way a client reports an outcome (architecture §8.4: attendance is
 -- the only confirmation table a member writes directly). The actor is
@@ -100,7 +146,8 @@ comment on constraint email_contacts_address_per_identity on private.email_conta
 -- one is tapped on a phone the morning after a catch-up: a retry whose first
 -- attempt committed but whose answer was lost must not report failure for
 -- something that worked, or the organiser will sensibly try again. So a second
--- call with the same answer returns the report the first one wrote — the
+-- call with the same answer — the same payload, field for field, a null `note`
+-- included — returns the report the first one wrote; the
 -- insert does not happen, so `apply_outcome` does not fire, so nothing is
 -- recorded or announced twice. A second call with a *different* answer is not
 -- a retry but a change of mind, and there is no way to take an outcome back:
@@ -120,13 +167,14 @@ as $$
 declare
   actor uuid := auth.uid();
   organiser uuid;
+  circle uuid;
   report public.outcome_reports;
 begin
   if actor is null then
     raise exception 'report_outcome requires a signed-in actor' using errcode = 'insufficient_privilege';
   end if;
 
-  select p.organiser_user_id into organiser
+  select p.organiser_user_id, p.circle_id into organiser, circle
   from public.meetup_confirmations c
   join public.plans p on p.id = c.plan_id
   where c.id = p_confirmation_id;
@@ -145,6 +193,16 @@ begin
   end if;
 
   -- The conflict: this organiser has already answered for this confirmation.
+  --
+  -- This is the one branch that *returns* a row rather than writing one, so it
+  -- is the one branch that has to ask about membership. A first call never gets
+  -- this far without `transition_plan` agreeing the actor is a member, but a
+  -- replay skips it — and `outcome_reports_select_member` would not show this
+  -- row to somebody who has left the circle, so neither will this.
+  if not public.auth_is_member(circle) then
+    raise exception 'not_a_member_of_this_circle' using errcode = 'insufficient_privilege';
+  end if;
+
   select * into report from public.outcome_reports r
   where r.confirmation_id = p_confirmation_id and r.reported_by = actor;
 

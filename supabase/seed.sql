@@ -5,7 +5,6 @@
 -- extension it will never call.
 create extension if not exists pgtap with schema extensions;
 
-
 -- ---------------------------------------------------------------------------
 -- Scenarios (architecture §7.1, spec §16).
 --
