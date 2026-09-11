@@ -8,7 +8,8 @@
 // SQL the ordinary way: `CREATE OR REPLACE FUNCTION` in capitals, a bare
 // `create function`, an indented statement, a quoted identifier, a `grant`
 // without parentheses. Matching only the house style would leave the rule
-// catching the one form that was never the risk.
+// catching the one form that was never the risk — which is this repository's
+// most common defect, and the reason these are as loose as they are.
 
 /** The fences around a generated block: `blockSpans` reads them, the generator writes them. */
 export const BEGIN = '-- BEGIN GENERATED: function definitions (scripts/gen-sql-functions.mjs)';
@@ -35,15 +36,17 @@ export const DROPS = new RegExp(String.raw`^[ \t]*drop\s+function(?:\s+if\s+exis
  * the shortest thing a hurried hand types, is always legal here and would
  * always have slipped past a rule that demanded `f(`.
  *
- * It reads the first function a statement names, which is one per line: a
- * `grant … on function a(), b()` is caught by `a` and the mention of `b` is
- * lost. Anything reaching every function at once is `BULK_ACL`'s.
+ * This matches the *head* of such a statement; the names are then read from
+ * the rest of it, the way a `drop` is, so that a list — `grant … on function
+ * a, b to anon`, legal and with no parentheses to separate the names — is read
+ * whole rather than stopping at the first. Bare words like `execute` or `anon`
+ * come back too and are harmless: a filed function is always `schema.name`, so
+ * a word with no dot can never match one.
  */
-export const TOUCHES = new RegExp(
+export const TOUCH_HEADS = new RegExp(
   String.raw`^[ \t]*(?:(?:revoke|grant)\b[^;]*?\bon\s+(?:function|routine|procedure)` +
     String.raw`|alter\s+(?:function|routine|procedure)` +
-    String.raw`|comment\s+on\s+(?:function|routine|procedure))` +
-    String.raw`\s+(${NAME})\s*[(;\s]`,
+    String.raw`|comment\s+on\s+(?:function|routine|procedure))\s`,
   'gim',
 );
 

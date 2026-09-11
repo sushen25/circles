@@ -46,7 +46,10 @@ const afterSeam = (label, sql, expect) =>
 const inTree = (label, files, expect) => ({ label, files, migrations: new Map(), expect });
 
 const UNFILED = 'has no file';
-const BY_HAND = 'by hand, outside the generated block';
+// Unique to the redefinition rule. The ACL rule's message also contains
+// "by hand, outside the generated block", so that phrase alone would not
+// tell the two apart, and a case could pass on the wrong one.
+const BY_HAND = 'is supposed to be where that definition lives';
 const NOT_THE_BODY = 'grants, comment or attributes';
 
 export const CASES = [
@@ -214,6 +217,11 @@ export const CASES = [
   afterSeam(
     'a grant written without parentheses, which is always legal here',
     'grant execute on function public.example to anon;\n',
+    NOT_THE_BODY,
+  ),
+  afterSeam(
+    'and one naming several of them, with no parentheses to separate the names',
+    'grant execute on function public.other, public.example to anon;\n',
     NOT_THE_BODY,
   ),
   afterSeam(

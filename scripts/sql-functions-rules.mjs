@@ -10,8 +10,9 @@
 import {
   BEGIN,
   BULK_ACL,
+  NAMES,
   END,
-  TOUCHES,
+  TOUCH_HEADS,
   blockSpans,
   createdIn,
   normalise,
@@ -123,16 +124,19 @@ function checkHandEdits(migrationFiles, sources, problems) {
       );
     }
 
-    for (const match of sql.matchAll(TOUCHES)) {
-      const name = normalise(match[1]);
-      if (!sources.has(name) || handled.has(name) || !outside(match.index)) continue;
-      handled.add(name);
-      problems.push(
-        `${entry} changes ${name}'s grants, comment or attributes by hand, outside the generated ` +
-          `block. Those belong in ${sources.get(name).where} with the body — "what is this and who ` +
-          'may call it" is meant to be one file — so make the change there and run ' +
-          '`pnpm gen:functions`.',
-      );
+    for (const match of sql.matchAll(TOUCH_HEADS)) {
+      if (!outside(match.index)) continue;
+      const statement = sql.slice(match.index + match[0].length).split(';')[0];
+      for (const name of (statement.match(NAMES) ?? []).map(normalise)) {
+        if (!sources.has(name) || handled.has(name)) continue;
+        handled.add(name);
+        problems.push(
+          `${entry} changes ${name}'s grants, comment or attributes by hand, outside the generated ` +
+            `block. Those belong in ${sources.get(name).where} with the body — "what is this and ` +
+            'who may call it" is meant to be one file — so make the change there and run ' +
+            '`pnpm gen:functions`.',
+        );
+      }
     }
   }
 }
@@ -222,19 +226,13 @@ function chunkFor({ where, sql }) {
 export function priorRenderings(migrationFiles) {
   const prior = new Map();
   for (const [, sql] of migrationFiles) {
-    let from = 0;
-    for (;;) {
-      const start = sql.indexOf(BEGIN, from);
-      if (start === -1) break;
-      const finish = sql.indexOf(END, start);
-      if (finish === -1) break;
-      const block = sql.slice(start + BEGIN.length, finish);
+    for (const [start, finish] of blockSpans(sql)) {
+      const block = sql.slice(start + BEGIN.length, finish - END.length);
       for (const chunk of block.split(/\n\n(?=-- supabase\/sql\/functions\/)/)) {
         const trimmed = chunk.trim();
         const named = /^-- (supabase\/sql\/functions\/\S+)\n/.exec(trimmed);
         if (named) prior.set(named[1], trimmed);
       }
-      from = finish + END.length;
     }
   }
   return prior;

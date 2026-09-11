@@ -112,10 +112,12 @@ function startCounting() {
  * silently never firing and nothing to say why.
  *
  * Note what actually does the putting back. `spawnSync` blocks the event loop,
- * so the signal handler's *body* does not run while the suites are going; what
- * the handler buys is that the signal does not kill node on its default
- * disposition, so control reaches the call below. Moving the restore into the
- * handler would look tidier and would not work.
+ * so the signal handler's body never runs — not during the suites, and not
+ * afterwards either, since Node's signal handle is unref'd. All the handler
+ * does is exist: registering one stops the signal killing node on its default
+ * disposition, so control reaches the unconditional call below. That is why it
+ * has no body worth writing, and why moving the restore *into* it would look
+ * tidier and would silently stop working.
  */
 function stopCounting() {
   if (pausedJobs.length === 0) return;
@@ -135,12 +137,8 @@ function stopCounting() {
   }
 }
 
-for (const signal of ['SIGINT', 'SIGTERM']) {
-  process.on(signal, () => {
-    stopCounting();
-    process.exit(130);
-  });
-}
+// Registered for its existence, not its body — see `stopCounting` above.
+for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => {});
 
 const tracking = startCounting();
 
