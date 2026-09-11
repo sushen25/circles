@@ -7,7 +7,7 @@
 -- membership can never be moved onto somebody with a saved place.
 
 begin;
-select plan(122);
+select plan(132);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid
@@ -1483,6 +1483,188 @@ select is(
   'and one record of the prompt they have been shown'
 );
 
+-- ---------------------------------------------------------------------------
+-- Round 11: a link with no membership, history that collides with nothing, and a
+-- link burned for nothing.
+-- ---------------------------------------------------------------------------
+select pg_temp.act_as_postgres();
+
+-- (a) A `verify` or `prefs` token names no membership — the constraint requires
+--     null — and `null is distinct from <uuid>` is true, so every contact with a
+--     verification link outstanding looked like a contact tied to another circle and
+--     was split: consent on a copy with no links, links on an identity with no
+--     consent.
+select pg_temp.make_user('95000000-0000-0000-0000-0000000d1101'::uuid, 'Verify Guest', true);
+select pg_temp.make_user('95000000-0000-0000-0000-0000000d1102'::uuid, 'Verify Account');
+
+insert into public.circle_members (circle_id, user_id, display_name_snapshot)
+values (pg_temp.circle_id(), '95000000-0000-0000-0000-0000000d1101', 'Van');
+
+insert into private.email_contacts (user_id, email_normalized)
+values ('95000000-0000-0000-0000-0000000d1101', 'van@example.com');
+
+insert into private.email_subscriptions (contact_id, user_id, scope, plan_id, consent_text_version)
+select ec.id, ec.user_id, 'plan_updates', pg_temp.plan_id(), 'v1'
+from private.email_contacts ec where ec.email_normalized = 'van@example.com';
+
+insert into private.email_action_tokens (contact_id, purpose, token_hash, expires_at)
+select ec.id, 'verify', extensions.digest('van-verify', 'sha256'), now() + interval '7 days'
+from private.email_contacts ec where ec.email_normalized = 'van@example.com';
+
+insert into private.email_action_tokens (contact_id, purpose, token_hash, expires_at)
+select ec.id, 'prefs', extensions.digest('van-prefs', 'sha256'), now() + interval '7 days'
+from private.email_contacts ec where ec.email_normalized = 'van@example.com';
+
+select is(
+  (select merged_memberships from public.claim_identity(
+     '95000000-0000-0000-0000-0000000d1102', '95000000-0000-0000-0000-0000000d1101', 'settings')),
+  1,
+  'the membership moves with a verification link outstanding'
+);
+
+select is(
+  (select count(*)::integer from private.email_contacts ec
+   where ec.email_normalized = 'van@example.com'),
+  1,
+  'and the contact travelled rather than being split in two'
+);
+
+select is(
+  (select ec.user_id from private.email_contacts ec
+   where ec.email_normalized = 'van@example.com'),
+  '95000000-0000-0000-0000-0000000d1102'::uuid,
+  'onto the identity that now holds the membership'
+);
+
+select is(
+  (select count(*)::integer from private.email_action_tokens t
+   join private.email_contacts ec on ec.id = t.contact_id
+   where ec.email_normalized = 'van@example.com'
+     and t.purpose in ('verify', 'prefs')
+     and t.used_at is null),
+  2,
+  'with both emailed links still live and still addressing the contact that holds the consent'
+);
+
+select isnt_empty(
+  $$ select 1 from private.email_subscriptions sub
+     join private.email_contacts ec on ec.id = sub.contact_id
+     where ec.email_normalized = 'van@example.com' $$,
+  'which is the same contact the consent is on — "verify" and "manage preferences" both work (spec §5.8)'
+);
+
+-- (b) History that collides with nothing stays. Spec §4.5 lets a removed member's
+--     historic attendance remain, and `on_member_removed` keeps a past `was_there`
+--     on purpose; clearing the lot threw away the record that somebody turned up.
+select pg_temp.make_user('95000000-0000-0000-0000-0000000d2101'::uuid, 'History Guest', true);
+select pg_temp.make_user('95000000-0000-0000-0000-0000000d2102'::uuid, 'History Account');
+
+insert into public.circle_members (circle_id, user_id, display_name_snapshot)
+values (pg_temp.circle_id(), '95000000-0000-0000-0000-0000000d2102', 'Kay before');
+insert into public.plan_participants (plan_id, revision, user_id)
+values (pg_temp.plan_id(), 1, '95000000-0000-0000-0000-0000000d2102')
+on conflict do nothing;
+insert into public.attendance (confirmation_id, user_id, status)
+values (pg_temp.confirmation_id(), '95000000-0000-0000-0000-0000000d2102', 'going');
+
+-- The meetup has happened and been reported on. Not incidental: `on_member_removed`
+-- rewrites a `going` to `cant` only on a confirmation that is still `active` and
+-- still ahead, and it deletes the participant row first — so removing a member who
+-- is "going" to something ahead raises `attendance_not_a_participant` and fails
+-- outright. That is a defect in shipped code (0004 and 0005 together), not in this
+-- change; it is written up on its own ticket, and this fixture stays clear of it.
+update public.meetup_confirmations c
+set status = 'completed', superseded_at = now(), superseded_reason = 'outcome'
+where c.id = pg_temp.confirmation_id();
+
+update public.circle_members m set status = 'removed'
+where m.circle_id = pg_temp.circle_id() and m.user_id = '95000000-0000-0000-0000-0000000d2102';
+
+-- Back as a guest, with nothing on that confirmation of their own.
+insert into public.circle_members (circle_id, user_id, display_name_snapshot)
+values (pg_temp.circle_id(), '95000000-0000-0000-0000-0000000d2101', 'Kay');
+
+select is(
+  (select merged_memberships from public.claim_identity(
+     '95000000-0000-0000-0000-0000000d2102', '95000000-0000-0000-0000-0000000d2101', 'settings')),
+  1,
+  'signing in again succeeds'
+);
+
+select isnt_empty(
+  $$ select 1 from public.attendance a
+     where a.confirmation_id = pg_temp.confirmation_id()
+       and a.user_id = '95000000-0000-0000-0000-0000000d2102' $$,
+  'and the attendance nothing collided with is still there — it is the record that somebody turned up'
+);
+
+-- (c) And a link is not burned for a no-op. Somebody who follows their own emailed
+--     link while the session still works gets "already theirs" — and used to lose
+--     the link they would need when it stopped working.
+select pg_temp.make_user('95000000-0000-0000-0000-0000000d3101'::uuid, 'Self Link', true);
+insert into public.circle_members (circle_id, user_id, display_name_snapshot)
+values (pg_temp.circle_id(), '95000000-0000-0000-0000-0000000d3101', 'Ros');
+
+insert into private.email_contacts (user_id, email_normalized)
+values ('95000000-0000-0000-0000-0000000d3101', 'ros@example.com');
+insert into private.email_action_tokens (
+  contact_id, purpose, token_hash, expires_at, membership_circle_id, membership_user_id
+)
+select ec.id, 'reentry', extensions.digest('ros-reentry', 'sha256'),
+       now() + interval '7 days', pg_temp.circle_id(), '95000000-0000-0000-0000-0000000d3101'
+from private.email_contacts ec where ec.email_normalized = 'ros@example.com';
+
+select pg_temp.act_as('95000000-0000-0000-0000-0000000d3101', true);
+select lives_ok(
+  format($$ select public.reattach_member(null, null, %L) $$,
+         extensions.digest('ros-reentry', 'sha256')),
+  'following your own link while still signed in is answered, not refused'
+);
+
+select pg_temp.act_as_postgres();
+select isnt_empty(
+  $$ select 1 from private.email_action_tokens
+     where token_hash = extensions.digest('ros-reentry', 'sha256') and used_at is null $$,
+  'and the link is still unspent, for the day the session stops working'
+);
+
+create or replace function pg_temp.writes_to(p_function text, p_table text)
+returns boolean
+language sql
+as $$
+  -- Comments stripped first. Round 10 changed this from "the name appears" to "a
+  -- write appears" and left it reading the raw body, so `-- delete from
+  -- private.plan_interest …` satisfied it: a statement commented out was
+  -- indistinguishable from a statement. An outright deletion was caught; the one
+  -- edit somebody is most likely to make while debugging was not.
+  select regexp_replace(
+           regexp_replace(pg_get_functiondef(p_function::regprocedure), '--[^\n]*', '', 'g'),
+           '/\*.*?\*/', '', 'gs'
+         ) ~*
+    -- `public.` is optional because `regclass::text` drops it for tables on the
+    -- search path, while the function bodies always qualify (`set search_path = ''`
+    -- leaves them no choice). Dots in a qualified name are escaped so that
+    -- `private.plan_interest` cannot be matched by anything else.
+    ('(update|delete[[:space:]]+from)[[:space:]]+(public\.)?'
+      || replace(p_table, '.', '\.') || '[[:space:]]');
+$$;
+
+-- (d) The guard itself: a write that is only a comment is not a write.
+create or replace function pg_temp.only_a_comment()
+returns void
+language plpgsql
+as $$
+begin
+  -- delete from public.nudge_states n where false;
+  return;
+end;
+$$;
+
+select ok(
+  not pg_temp.writes_to('pg_temp.only_a_comment()', 'nudge_states'),
+  'a commented-out statement does not satisfy the completeness guard'
+);
+
 select pg_temp.act_as_postgres();
 
 -- ---------------------------------------------------------------------------
@@ -1531,19 +1713,6 @@ select bag_eq(
 -- satisfied by the table being mentioned in a comment, or keyed some other way —
 -- `jobs.notification_jobs` passed that way while nothing updated it by user id. A
 -- table is handled when something writes to it.
-create or replace function pg_temp.writes_to(p_function text, p_table text)
-returns boolean
-language sql
-as $$
-  select pg_get_functiondef(p_function::regprocedure) ~*
-    -- `public.` is optional because `regclass::text` drops it for tables on the
-    -- search path, while the function bodies always qualify (`set search_path = ''`
-    -- leaves them no choice). Dots in a qualified name are escaped so that
-    -- `private.plan_interest` cannot be matched by anything else.
-    ('(update|delete[[:space:]]+from)[[:space:]]+(public\.)?'
-      || replace(p_table, '.', '\.') || '[[:space:]]');
-$$;
-
 select bag_eq(
   $$ select name from identity_tables where moves
      and not pg_temp.writes_to('private.move_membership(uuid, uuid, uuid)', name)
@@ -1576,7 +1745,7 @@ select bag_eq(
 select bag_eq(
   $$ select name from identity_tables where moves
      and name not in ('circle_members', 'jobs.notification_jobs', 'private.email_contacts')
-     and not pg_temp.writes_to('private.discard_membership_rows(uuid, uuid)', name) $$,
+     and not pg_temp.writes_to('private.discard_membership_rows(uuid, uuid, uuid)', name) $$,
   $$ select null::text where false $$,
   'and discard_membership_rows clears every one of them as well'
 );

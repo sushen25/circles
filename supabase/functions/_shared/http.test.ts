@@ -43,7 +43,7 @@ vi.mock('@supabase/supabase-js', () => ({
 }));
 
 const { jsonHandler } = await import('./http.ts');
-const { Refusal } = await import('./problem.ts');
+const { Refusal, Unavailable } = await import('./problem.ts');
 
 const KEY = '00000000-0000-4000-8000-000000000001';
 const Body = z.object({ idempotency_key: z.string(), display_name: z.string().max(5) });
@@ -616,5 +616,41 @@ describe('telling a refusal from a failure', () => {
 
     const response = await handler(post({ idempotency_key: KEY, display_name: 'Priya' }));
     expect(response.status).toBe(401);
+  });
+});
+
+describe('a dependency that could not be reached', () => {
+  it('gives the claim back and answers 503', async () => {
+    // `claim-identity` verifies the replaced session before it calls anything, so a
+    // GoTrue blip there means nothing was done — and a bare `Error` made the wrapper
+    // keep the claim, so every retry of saving your place said `in_progress` for the
+    // life of the row. On the conversion path, for a problem that fixes itself.
+    const handler = jsonHandler({
+      name: 'test-fn',
+      schema: Body,
+      handle: () => Promise.reject(new Unavailable('That could not be confirmed just now.')),
+    });
+
+    const response = await handler(post({ idempotency_key: KEY, display_name: 'Priya' }));
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toMatchObject({ error: 'unavailable' });
+    expect(called('release_request')).toHaveLength(1);
+  });
+
+  it('says nothing a caller could mistake for their own fault', async () => {
+    const handler = jsonHandler({
+      name: 'test-fn',
+      schema: Body,
+      handle: () => Promise.reject(new Unavailable()),
+    });
+
+    const body = (await (
+      await handler(post({ idempotency_key: KEY, display_name: 'Priya' }))
+    ).json()) as { reason?: string };
+
+    // No `reason`: there is nothing for a screen to branch on, and nothing for the
+    // person to do but try again.
+    expect(body.reason).toBeUndefined();
   });
 });

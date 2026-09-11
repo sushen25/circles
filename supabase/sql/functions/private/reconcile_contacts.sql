@@ -74,7 +74,16 @@ begin
         union all
         select 1 from private.email_action_tokens other
         where other.contact_id = contact.id
-          and other.membership_circle_id is distinct from p_circle_id
+          -- `is not null and <>`, not `is distinct from`. A `verify` or `prefs`
+          -- token has no membership at all — the constraint on
+          -- `email_action_tokens` requires it null for anything but `reentry` —
+          -- and `null is distinct from <uuid>` is true, so every contact with a
+          -- verification link outstanding looked like a contact tied to another
+          -- circle. It was split instead of travelling: the consent went to a
+          -- fresh copy with no links, the links stayed on an identity with no
+          -- consent, and retention eventually took both.
+          and other.membership_circle_id is not null
+          and other.membership_circle_id <> p_circle_id
       ) then
         -- Split: a copy for the destination carrying the same address and the
         -- same standing — verified stays verified, because it is the same person
@@ -129,15 +138,29 @@ begin
     where sub.contact_id = contact.id
       and sub.plan_id in (select pl.id from public.plans pl where pl.circle_id = p_circle_id);
 
-    -- The membership as well as the contact. In the move path the cascade has
-    -- already taken `membership_user_id` to `p_to`; in the duplicate-merge path the
-    -- membership never moved, and leaving the token on the identity being retired
-    -- both breaks the composite foreign key — `(contact_id, membership_user_id)`
-    -- must be a real `(id, user_id)` pair on `email_contacts` — and leaves an
-    -- emailed link pointing at a membership that is about to be removed.
+    -- Two kinds of link, and they move differently.
+    --
+    -- A `reentry` token names a membership, so it takes the new identity with it.
+    -- In the move path the cascade has already done that; in the duplicate-merge
+    -- path the membership never moved, and leaving the token behind both breaks the
+    -- composite foreign key — `(contact_id, membership_user_id)` must be a real
+    -- `(id, user_id)` pair on `email_contacts` — and points an emailed link at a
+    -- membership about to be removed.
     update private.email_action_tokens tok
     set contact_id = destination_contact, membership_user_id = p_to
-    where tok.contact_id = contact.id and tok.membership_circle_id = p_circle_id;
+    where tok.contact_id = contact.id
+      and tok.purpose = 'reentry'
+      and tok.membership_circle_id = p_circle_id;
+
+    -- A `verify` or `prefs` token names no membership and must keep naming none
+    -- (the `email_action_tokens_membership_for_reentry` constraint), but it is
+    -- still this person's link to this address — the preferences page has to work
+    -- without a sign-in (spec §5.8) and unsubscribing is immediate (§14), so a link
+    -- already in somebody's inbox has to keep addressing the contact that holds
+    -- their consent.
+    update private.email_action_tokens tok
+    set contact_id = destination_contact
+    where tok.contact_id = contact.id and tok.membership_circle_id is null;
 
     update jobs.notification_jobs job
     set contact_id = destination_contact

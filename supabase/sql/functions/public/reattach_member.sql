@@ -117,8 +117,6 @@ begin
 
     target_circle := token.membership_circle_id;
     target := token.membership_user_id;
-
-    update private.email_action_tokens t set used_at = now() where t.id = token.id;
   end if;
 
   -- Serialises two reattachments of the same membership: without it both read
@@ -222,6 +220,15 @@ begin
   -- `claim_identity`: one list of the tables a membership owns, because two
   -- lists means one of them forgets a table and a guest comes back to find
   -- their answers gone.
+  if p_reentry_token_hash is not null then
+    -- Spent here rather than on the way in. The early return above answers "already
+    -- theirs" for somebody who follows their own link while the session still works,
+    -- and burning the link for that is a link they cannot use when they actually
+    -- need it. Inside the same transaction either way, so a later failure rolls the
+    -- spend back with it.
+    update private.email_action_tokens t set used_at = now() where t.id = token.id;
+  end if;
+
   perform private.move_membership(target_circle, target, caller);
 
   -- And the lock is not taken on trust. If the membership is not the caller's by

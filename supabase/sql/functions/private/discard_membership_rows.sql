@@ -15,15 +15,28 @@
 -- `(plan, revision, user)`, and the first version of this branch deleted only the
 -- membership row, so the claim aborted on a primary key.
 --
--- The residue goes, and the guest's rows become the truth. Two reasons that is the
--- right way round rather than the other: the guest rows are what this person has
--- been doing lately, and the account's are about a membership that ended — a
--- `cant` written *by the removal itself* is not an answer anybody gave.
+-- The *colliding* residue goes, and the guest's rows become the truth there. Two
+-- reasons that is the right way round: the guest rows are what this person has been
+-- doing lately, and the account's are about a membership that ended — a `cant`
+-- written *by the removal itself* is not an answer anybody gave.
+--
+-- Nothing else goes. Spec §4.5 lets a removed member's "historic aggregate
+-- attendance" remain and `on_member_removed` deliberately keeps a past
+-- `was_there`; clearing the lot threw away the record that somebody turned up,
+-- which is the one thing this product is trying to measure.
 -- ---------------------------------------------------------------------------
 
 create or replace function private.discard_membership_rows(
   p_circle_id uuid,
-  p_user_id uuid
+  p_user_id uuid,
+  /**
+   * The identity whose rows are about to take their place. Only what *collides*
+   * with that identity is cleared, which is the whole job: spec §4.5 lets "historic
+   * aggregate attendance" remain for a removed member, and `on_member_removed`
+   * goes out of its way to keep a past `was_there`. Deleting all of it — which this
+   * function did at first — threw away the evidence that somebody turned up.
+   */
+  p_in_favour_of uuid
 )
 returns void
 language plpgsql
@@ -37,35 +50,63 @@ begin
       select c.id from public.meetup_confirmations c
       join public.plans pl on pl.id = c.plan_id
       where pl.circle_id = p_circle_id
+    )
+    and exists (
+      select 1 from public.attendance mine
+      where mine.confirmation_id = a.confirmation_id and mine.user_id = p_in_favour_of
     );
 
   delete from public.plan_responses r
   where r.user_id = p_user_id
-    and r.plan_id in (select pl.id from public.plans pl where pl.circle_id = p_circle_id);
+    and r.plan_id in (select pl.id from public.plans pl where pl.circle_id = p_circle_id)
+    and exists (
+      select 1 from public.plan_responses mine
+      where mine.plan_id = r.plan_id and mine.revision = r.revision
+        and mine.user_id = p_in_favour_of
+    );
 
   delete from public.plan_participants pp
   where pp.user_id = p_user_id
-    and pp.plan_id in (select pl.id from public.plans pl where pl.circle_id = p_circle_id);
+    and pp.plan_id in (select pl.id from public.plans pl where pl.circle_id = p_circle_id)
+    and exists (
+      select 1 from public.plan_participants mine
+      where mine.plan_id = pp.plan_id and mine.revision = pp.revision
+        and mine.user_id = p_in_favour_of
+    );
 
   delete from public.plan_required_members rm
   where rm.user_id = p_user_id
-    and rm.plan_id in (select pl.id from public.plans pl where pl.circle_id = p_circle_id);
+    and rm.plan_id in (select pl.id from public.plans pl where pl.circle_id = p_circle_id)
+    and exists (
+      select 1 from public.plan_required_members mine
+      where mine.plan_id = rm.plan_id and mine.revision = rm.revision
+        and mine.user_id = p_in_favour_of
+    );
 
   delete from public.nudge_states n
   where n.user_id = p_user_id
-    and n.plan_id in (select pl.id from public.plans pl where pl.circle_id = p_circle_id);
+    and n.plan_id in (select pl.id from public.plans pl where pl.circle_id = p_circle_id)
+    and exists (
+      select 1 from public.nudge_states mine
+      where mine.user_id = p_in_favour_of and mine.moment = n.moment
+        and mine.plan_id is not distinct from n.plan_id
+    );
 
   delete from private.plan_interest i
   where i.user_id = p_user_id
-    and i.plan_id in (select pl.id from public.plans pl where pl.circle_id = p_circle_id);
+    and i.plan_id in (select pl.id from public.plans pl where pl.circle_id = p_circle_id)
+    and exists (
+      select 1 from private.plan_interest mine
+      where mine.plan_id = i.plan_id and mine.user_id = p_in_favour_of
+    );
 
   -- `member_dayparts` and any re-entry token go with the membership row itself,
   -- which references `circle_members` with `on delete cascade`.
 end;
 $$;
 
-comment on function private.discard_membership_rows(uuid, uuid) is
-  'Clears what a removed membership left behind in one circle, so the same person returning as a guest can be merged onto it without colliding.';
+comment on function private.discard_membership_rows(uuid, uuid, uuid) is
+  'Clears only what a removed membership left behind that would collide with the identity taking its place. History that collides with nothing stays (spec §4.5).';
 
-revoke all on function private.discard_membership_rows(uuid, uuid) from public;
-revoke all on function private.discard_membership_rows(uuid, uuid) from anon, authenticated;
+revoke all on function private.discard_membership_rows(uuid, uuid, uuid) from public;
+revoke all on function private.discard_membership_rows(uuid, uuid, uuid) from anon, authenticated;

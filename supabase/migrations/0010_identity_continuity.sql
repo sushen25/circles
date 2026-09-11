@@ -565,15 +565,28 @@ revoke all on function private.adopt_membership_rows(uuid, uuid, uuid) from anon
 -- `(plan, revision, user)`, and the first version of this branch deleted only the
 -- membership row, so the claim aborted on a primary key.
 --
--- The residue goes, and the guest's rows become the truth. Two reasons that is the
--- right way round rather than the other: the guest rows are what this person has
--- been doing lately, and the account's are about a membership that ended — a
--- `cant` written *by the removal itself* is not an answer anybody gave.
+-- The *colliding* residue goes, and the guest's rows become the truth there. Two
+-- reasons that is the right way round: the guest rows are what this person has been
+-- doing lately, and the account's are about a membership that ended — a `cant`
+-- written *by the removal itself* is not an answer anybody gave.
+--
+-- Nothing else goes. Spec §4.5 lets a removed member's "historic aggregate
+-- attendance" remain and `on_member_removed` deliberately keeps a past
+-- `was_there`; clearing the lot threw away the record that somebody turned up,
+-- which is the one thing this product is trying to measure.
 -- ---------------------------------------------------------------------------
 
 create or replace function private.discard_membership_rows(
   p_circle_id uuid,
-  p_user_id uuid
+  p_user_id uuid,
+  /**
+   * The identity whose rows are about to take their place. Only what *collides*
+   * with that identity is cleared, which is the whole job: spec §4.5 lets "historic
+   * aggregate attendance" remain for a removed member, and `on_member_removed`
+   * goes out of its way to keep a past `was_there`. Deleting all of it — which this
+   * function did at first — threw away the evidence that somebody turned up.
+   */
+  p_in_favour_of uuid
 )
 returns void
 language plpgsql
@@ -587,38 +600,66 @@ begin
       select c.id from public.meetup_confirmations c
       join public.plans pl on pl.id = c.plan_id
       where pl.circle_id = p_circle_id
+    )
+    and exists (
+      select 1 from public.attendance mine
+      where mine.confirmation_id = a.confirmation_id and mine.user_id = p_in_favour_of
     );
 
   delete from public.plan_responses r
   where r.user_id = p_user_id
-    and r.plan_id in (select pl.id from public.plans pl where pl.circle_id = p_circle_id);
+    and r.plan_id in (select pl.id from public.plans pl where pl.circle_id = p_circle_id)
+    and exists (
+      select 1 from public.plan_responses mine
+      where mine.plan_id = r.plan_id and mine.revision = r.revision
+        and mine.user_id = p_in_favour_of
+    );
 
   delete from public.plan_participants pp
   where pp.user_id = p_user_id
-    and pp.plan_id in (select pl.id from public.plans pl where pl.circle_id = p_circle_id);
+    and pp.plan_id in (select pl.id from public.plans pl where pl.circle_id = p_circle_id)
+    and exists (
+      select 1 from public.plan_participants mine
+      where mine.plan_id = pp.plan_id and mine.revision = pp.revision
+        and mine.user_id = p_in_favour_of
+    );
 
   delete from public.plan_required_members rm
   where rm.user_id = p_user_id
-    and rm.plan_id in (select pl.id from public.plans pl where pl.circle_id = p_circle_id);
+    and rm.plan_id in (select pl.id from public.plans pl where pl.circle_id = p_circle_id)
+    and exists (
+      select 1 from public.plan_required_members mine
+      where mine.plan_id = rm.plan_id and mine.revision = rm.revision
+        and mine.user_id = p_in_favour_of
+    );
 
   delete from public.nudge_states n
   where n.user_id = p_user_id
-    and n.plan_id in (select pl.id from public.plans pl where pl.circle_id = p_circle_id);
+    and n.plan_id in (select pl.id from public.plans pl where pl.circle_id = p_circle_id)
+    and exists (
+      select 1 from public.nudge_states mine
+      where mine.user_id = p_in_favour_of and mine.moment = n.moment
+        and mine.plan_id is not distinct from n.plan_id
+    );
 
   delete from private.plan_interest i
   where i.user_id = p_user_id
-    and i.plan_id in (select pl.id from public.plans pl where pl.circle_id = p_circle_id);
+    and i.plan_id in (select pl.id from public.plans pl where pl.circle_id = p_circle_id)
+    and exists (
+      select 1 from private.plan_interest mine
+      where mine.plan_id = i.plan_id and mine.user_id = p_in_favour_of
+    );
 
   -- `member_dayparts` and any re-entry token go with the membership row itself,
   -- which references `circle_members` with `on delete cascade`.
 end;
 $$;
 
-comment on function private.discard_membership_rows(uuid, uuid) is
-  'Clears what a removed membership left behind in one circle, so the same person returning as a guest can be merged onto it without colliding.';
+comment on function private.discard_membership_rows(uuid, uuid, uuid) is
+  'Clears only what a removed membership left behind that would collide with the identity taking its place. History that collides with nothing stays (spec §4.5).';
 
-revoke all on function private.discard_membership_rows(uuid, uuid) from public;
-revoke all on function private.discard_membership_rows(uuid, uuid) from anon, authenticated;
+revoke all on function private.discard_membership_rows(uuid, uuid, uuid) from public;
+revoke all on function private.discard_membership_rows(uuid, uuid, uuid) from anon, authenticated;
 
 -- supabase/sql/functions/private/enforce_reentry_for_guests.sql
 -- And the owner is a guest. A saved-place member signs in; a re-entry link
@@ -848,7 +889,16 @@ begin
         union all
         select 1 from private.email_action_tokens other
         where other.contact_id = contact.id
-          and other.membership_circle_id is distinct from p_circle_id
+          -- `is not null and <>`, not `is distinct from`. A `verify` or `prefs`
+          -- token has no membership at all — the constraint on
+          -- `email_action_tokens` requires it null for anything but `reentry` —
+          -- and `null is distinct from <uuid>` is true, so every contact with a
+          -- verification link outstanding looked like a contact tied to another
+          -- circle. It was split instead of travelling: the consent went to a
+          -- fresh copy with no links, the links stayed on an identity with no
+          -- consent, and retention eventually took both.
+          and other.membership_circle_id is not null
+          and other.membership_circle_id <> p_circle_id
       ) then
         -- Split: a copy for the destination carrying the same address and the
         -- same standing — verified stays verified, because it is the same person
@@ -903,15 +953,29 @@ begin
     where sub.contact_id = contact.id
       and sub.plan_id in (select pl.id from public.plans pl where pl.circle_id = p_circle_id);
 
-    -- The membership as well as the contact. In the move path the cascade has
-    -- already taken `membership_user_id` to `p_to`; in the duplicate-merge path the
-    -- membership never moved, and leaving the token on the identity being retired
-    -- both breaks the composite foreign key — `(contact_id, membership_user_id)`
-    -- must be a real `(id, user_id)` pair on `email_contacts` — and leaves an
-    -- emailed link pointing at a membership that is about to be removed.
+    -- Two kinds of link, and they move differently.
+    --
+    -- A `reentry` token names a membership, so it takes the new identity with it.
+    -- In the move path the cascade has already done that; in the duplicate-merge
+    -- path the membership never moved, and leaving the token behind both breaks the
+    -- composite foreign key — `(contact_id, membership_user_id)` must be a real
+    -- `(id, user_id)` pair on `email_contacts` — and points an emailed link at a
+    -- membership about to be removed.
     update private.email_action_tokens tok
     set contact_id = destination_contact, membership_user_id = p_to
-    where tok.contact_id = contact.id and tok.membership_circle_id = p_circle_id;
+    where tok.contact_id = contact.id
+      and tok.purpose = 'reentry'
+      and tok.membership_circle_id = p_circle_id;
+
+    -- A `verify` or `prefs` token names no membership and must keep naming none
+    -- (the `email_action_tokens_membership_for_reentry` constraint), but it is
+    -- still this person's link to this address — the preferences page has to work
+    -- without a sign-in (spec §5.8) and unsubscribing is immediate (§14), so a link
+    -- already in somebody's inbox has to keep addressing the contact that holds
+    -- their consent.
+    update private.email_action_tokens tok
+    set contact_id = destination_contact
+    where tok.contact_id = contact.id and tok.membership_circle_id is null;
 
     update jobs.notification_jobs job
     set contact_id = destination_contact
@@ -1214,7 +1278,9 @@ begin
         -- it rewrote to `cant`. Every one of those collides with the guest's row
         -- for the same plan, and deleting only the membership row let the claim
         -- abort on a primary key instead.
-        perform private.discard_membership_rows(membership.circle_id, p_user_id);
+        perform private.discard_membership_rows(
+          membership.circle_id, p_user_id, p_anonymous_user_id
+        );
 
         delete from public.circle_members m
         where m.circle_id = membership.circle_id and m.user_id = p_user_id
@@ -1641,8 +1707,6 @@ begin
 
     target_circle := token.membership_circle_id;
     target := token.membership_user_id;
-
-    update private.email_action_tokens t set used_at = now() where t.id = token.id;
   end if;
 
   -- Serialises two reattachments of the same membership: without it both read
@@ -1746,6 +1810,15 @@ begin
   -- `claim_identity`: one list of the tables a membership owns, because two
   -- lists means one of them forgets a table and a guest comes back to find
   -- their answers gone.
+  if p_reentry_token_hash is not null then
+    -- Spent here rather than on the way in. The early return above answers "already
+    -- theirs" for somebody who follows their own link while the session still works,
+    -- and burning the link for that is a link they cannot use when they actually
+    -- need it. Inside the same transaction either way, so a later failure rolls the
+    -- spend back with it.
+    update private.email_action_tokens t set used_at = now() where t.id = token.id;
+  end if;
+
   perform private.move_membership(target_circle, target, caller);
 
   -- And the lock is not taken on trust. If the membership is not the caller's by

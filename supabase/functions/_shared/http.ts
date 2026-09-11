@@ -4,7 +4,7 @@ import { type Actor, bearerOf, identify } from './auth.ts';
 import { asCaller, asService, type Db } from './db.ts';
 import { claim, record, release } from './idempotency.ts';
 import { log } from './logging.ts';
-import { plainProblem, problemFor, reasonOf, Refusal } from './problem.ts';
+import { plainProblem, problemFor, reasonOf, Refusal, Unavailable } from './problem.ts';
 
 /**
  * The skeleton every function follows (architecture §7.4), as one wrapper.
@@ -298,6 +298,8 @@ export function jsonHandler<Schema extends z.ZodType>(
 
         const known =
           duringWork instanceof Refusal ||
+          // A handler that failed before reaching its RPC knows nothing committed.
+          duringWork instanceof Unavailable ||
           reasonOf(duringWork as { message?: string } | undefined) !== undefined ||
           aborted;
 
@@ -369,6 +371,13 @@ export function jsonHandler<Schema extends z.ZodType>(
       if (refusal !== undefined) {
         const message = thrown instanceof Refusal ? thrown.message : 'That did not work out.';
         return fail(problemFor(refusal, message, requestId), refusal);
+      }
+
+      // Something we depend on could not be reached, and the handler knew it before
+      // doing anything. 503 rather than 500, and the claim has already been given
+      // back above.
+      if (thrown instanceof Unavailable) {
+        return fail(plainProblem('unavailable', 503, (thrown as Unavailable).message, requestId));
       }
 
       // Nothing from the thrown value reaches the response or the log except a

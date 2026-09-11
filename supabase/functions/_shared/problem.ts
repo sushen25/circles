@@ -21,6 +21,22 @@ export class Refusal extends Error {
   }
 }
 
+/**
+ * Something we depend on could not be reached — and nothing was done.
+ *
+ * Distinct from `Refusal`, which says *no*, and from a bare `Error`, which the
+ * wrapper has to treat as possibly-committed and therefore keeps the idempotency
+ * claim for. A handler that fails before it calls the product's RPC knows that much
+ * and can say so: the claim is given back, and the caller is told 503 rather than
+ * being sent to fix something that is ours.
+ */
+export class Unavailable extends Error {
+  constructor(override readonly message = 'Something went wrong at our end.') {
+    super(message);
+    this.name = 'Unavailable';
+  }
+}
+
 /** What each reason means to HTTP, and what we are willing to say about it. */
 const REASONS: Record<ProblemReason, { status: number; error: Problem['error'] }> = {
   // A link that is not live is indistinguishable from one that never existed,

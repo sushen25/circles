@@ -149,7 +149,9 @@ begin
         -- it rewrote to `cant`. Every one of those collides with the guest's row
         -- for the same plan, and deleting only the membership row let the claim
         -- abort on a primary key instead.
-        perform private.discard_membership_rows(membership.circle_id, p_user_id);
+        perform private.discard_membership_rows(
+          membership.circle_id, p_user_id, p_anonymous_user_id
+        );
 
         delete from public.circle_members m
         where m.circle_id = membership.circle_id and m.user_id = p_user_id
