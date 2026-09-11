@@ -424,10 +424,9 @@ describe('when the function itself is not in a fit state', () => {
 });
 
 describe('the guard phase', () => {
-  it('runs before the key is claimed, so a throttled request spends none', async () => {
-    // The point of the split: a refusal from an abuse control leaves nothing
-    // behind at all, so there is no claim to release and no judgement to make in
-    // the catch about whether the work might have committed.
+  it('gives the claim back when it refuses, so the request can be made again', async () => {
+    // The guard writes nothing the caller asked for, so there is never anything to
+    // protect a retry from — a throttled request must leave the key usable.
     const handler = jsonHandler({
       name: 'test-fn',
       schema: Body,
@@ -438,15 +437,14 @@ describe('the guard phase', () => {
     const response = await handler(post({ idempotency_key: KEY, display_name: 'Priya' }));
 
     expect(response.status).toBe(429);
-    expect(called('begin_request')).toHaveLength(0);
-    expect(called('release_request')).toHaveLength(0);
+    expect(called('release_request')).toHaveLength(1);
+    expect(called('finish_request')).toHaveLength(0);
   });
 
-  it('leaves no claim behind when it fails in a way nobody mapped', async () => {
-    // A rate-counter RPC that errors, or a Turnstile fetch that throws. These
-    // cannot have committed anything — and when they ran *after* the claim, their
-    // unrecognised failures poisoned the key: retention keeps unfinished rows, so
-    // every retry was told `in_progress` for ever.
+  it('gives it back even when it fails in a way nobody mapped', async () => {
+    // A rate-counter RPC that errors, or a Turnstile fetch that throws. Unlike a
+    // failure in `handle`, these cannot have committed anything — so they get no
+    // benefit of the doubt and the key is released.
     const handler = jsonHandler({
       name: 'test-fn',
       schema: Body,
@@ -457,7 +455,38 @@ describe('the guard phase', () => {
     const response = await handler(post({ idempotency_key: KEY, display_name: 'Priya' }));
 
     expect(response.status).toBe(500);
-    expect(called('begin_request')).toHaveLength(0);
+    expect(called('release_request')).toHaveLength(1);
+  });
+
+  it('does not run at all for a retry that has already been answered', async () => {
+    // Turnstile tokens are single-use. Running the guard before looking for the
+    // recorded response meant a retry of a *successful* web redemption could never
+    // be answered: refused as a reused token, or — with a fresh one — as a changed
+    // fingerprint.
+    state.answer = (fn) =>
+      fn === 'begin_request'
+        ? {
+            data: [{ state: 'done', response_status: 200, response_body: { joined: true } }],
+            error: null,
+          }
+        : { data: null, error: null };
+
+    let guarded = 0;
+    const handler = jsonHandler({
+      name: 'test-fn',
+      schema: Body,
+      guard: () => {
+        guarded += 1;
+        return Promise.reject(new Refusal('too_many_requests', 'That token is spent.'));
+      },
+      handle: () => Promise.reject(new Error('the work must not run again')),
+    });
+
+    const response = await handler(post({ idempotency_key: KEY, display_name: 'Priya' }));
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ joined: true });
+    expect(guarded).toBe(0);
   });
 
   it('lets the work run when it passes', async () => {
@@ -471,5 +500,48 @@ describe('the guard phase', () => {
     const response = await handler(post({ idempotency_key: KEY, display_name: 'Priya' }));
     expect(await response.json()).toEqual({ joined: true });
     expect(called('begin_request')).toHaveLength(1);
+  });
+});
+
+describe('what identifies a request', () => {
+  const fingerprintOf = () =>
+    called('begin_request')[0]?.args['p_fingerprint'] as string | undefined;
+
+  it('ignores the fields a function declares volatile', async () => {
+    // A fresh Turnstile token on a retry is the same request asked again, and
+    // fingerprinting it turned every honest retry into `idempotency_mismatch`.
+    const Web = Body.extend({ turnstile_token: z.string() });
+    const handler = jsonHandler({
+      name: 'test-fn',
+      schema: Web,
+      fingerprintExcludes: ['turnstile_token'],
+      handle: () => Promise.resolve({}),
+    });
+
+    await handler(post({ idempotency_key: KEY, display_name: 'Priya', turnstile_token: 'one' }));
+    const first = fingerprintOf();
+
+    state.calls = [];
+    await handler(post({ idempotency_key: KEY, display_name: 'Priya', turnstile_token: 'two' }));
+
+    expect(fingerprintOf()).toBe(first);
+  });
+
+  it('still notices a different request under the same key', async () => {
+    const Web = Body.extend({ turnstile_token: z.string() });
+    const handler = jsonHandler({
+      name: 'test-fn',
+      schema: Web,
+      fingerprintExcludes: ['turnstile_token'],
+      handle: () => Promise.resolve({}),
+    });
+
+    await handler(post({ idempotency_key: KEY, display_name: 'Priya', turnstile_token: 'one' }));
+    const first = fingerprintOf();
+
+    state.calls = [];
+    await handler(post({ idempotency_key: KEY, display_name: 'Tom', turnstile_token: 'one' }));
+
+    expect(fingerprintOf()).not.toBe(first);
   });
 });

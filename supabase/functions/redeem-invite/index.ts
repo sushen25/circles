@@ -21,6 +21,10 @@ Deno.serve(
   jsonHandler({
     name: 'redeem-invite',
     schema: RedeemInviteRequest,
+    // A Turnstile token is single-use and fetched fresh on every attempt, so it
+    // cannot be part of what identifies the request: fingerprinting it made an
+    // honest retry with a new token an `idempotency_mismatch`.
+    fingerprintExcludes: ['turnstile_token'],
     guard: async ({ body, service, request }) => {
       await verifyTurnstile(request, body.turnstile_token);
 

@@ -37,14 +37,21 @@ interface Spec<Schema extends z.ZodType> {
   /**
    * Abuse controls — Turnstile, rate counters — and nothing that writes.
    *
-   * Run **before** the idempotency key is claimed, which is what makes the two
-   * phases distinguishable when something goes wrong. A failure here cannot have
-   * committed anything, because nothing has been claimed or called yet; a failure
-   * in `handle` might have. The wrapper's catch can then act on the difference
-   * without guessing at it, and throttling a request no longer spends a key on it.
+   * Run after the key is claimed and before the work, and the ordering has been
+   * wrong in both directions. Before the claim, a retry of a successful web
+   * redemption ran Turnstile again: the tokens are single-use, so the stored
+   * response could never be handed back — refused as a reused token, or, with a
+   * fresh one, as a changed fingerprint. After the claim without the distinction
+   * below, an unreachable rate counter left the key claimed for ever.
+   *
+   * So: a *replay* is answered before this runs at all, and a failure here always
+   * releases the claim, because nothing it does can have committed. Only `handle`
+   * gets the benefit of the doubt.
    */
   guard?: (context: Handling<z.infer<Schema>>) => Promise<void>;
   handle: (context: Handling<z.infer<Schema>>) => Promise<unknown>;
+  /** Body fields that are not part of the request's identity — see `claim`. */
+  fingerprintExcludes?: readonly string[];
 }
 
 /**
@@ -205,37 +212,8 @@ export function jsonHandler<Schema extends z.ZodType>(
     };
 
     try {
-      // Before the claim, so that a refusal here leaves nothing behind at all.
-      if (spec.guard !== undefined) await spec.guard(context);
-    } catch (beforeClaiming) {
-      const refusal =
-        beforeClaiming instanceof Refusal
-          ? beforeClaiming.reason
-          : reasonOf(beforeClaiming as { message?: string } | undefined);
-
-      if (refusal !== undefined) {
-        const message =
-          beforeClaiming instanceof Refusal ? beforeClaiming.message : 'That did not work out.';
-        return fail(problemFor(refusal, message, requestId), refusal);
-      }
-
-      const code = (beforeClaiming as { code?: string } | undefined)?.code;
-      log('error', {
-        fn: spec.name,
-        request_id: requestId,
-        event: 'failed',
-        status: 500,
-        reason: typeof code === 'string' ? code : 'unknown',
-        duration_ms: Date.now() - started,
-      });
-      return respond(
-        500,
-        plainProblem('unavailable', 500, 'Something went wrong at our end.', requestId).body,
-        requestId,
-      );
-    }
-
-    try {
+      // The claim comes first, so that a retry of something that already worked is
+      // answered from the record instead of being put through the guard again.
       if (key !== undefined) {
         const replayed = await claim(
           service,
@@ -243,6 +221,7 @@ export function jsonHandler<Schema extends z.ZodType>(
           actor.userId,
           key as Parameters<typeof claim>[3],
           parsed.data,
+          spec.fingerprintExcludes ?? [],
         );
         if (replayed !== undefined) {
           log('info', {
@@ -253,6 +232,24 @@ export function jsonHandler<Schema extends z.ZodType>(
             duration_ms: Date.now() - started,
           });
           return respond(replayed.status, replayed.body, requestId);
+        }
+      }
+
+      // The guard, now that we know this is not a replay. A failure here always
+      // gives the claim back: Turnstile and the counters write nothing the caller
+      // asked for, so there is never anything to protect a retry from.
+      if (spec.guard !== undefined) {
+        try {
+          await spec.guard(context);
+        } catch (duringGuard) {
+          if (key !== undefined) {
+            try {
+              await release(service, spec.name, actor.userId, key as Parameters<typeof release>[3]);
+            } catch {
+              /* the request already failed; this would only hide why */
+            }
+          }
+          throw duringGuard;
         }
       }
 
@@ -271,8 +268,8 @@ export function jsonHandler<Schema extends z.ZodType>(
         // the same body nor a corrected one.
         //
         // An error we *cannot* name is the opposite case and must be left alone.
-        // This is only sound because the abuse controls ran in `guard`, before the
-        // claim: everything reaching here has called the product's RPC, so an
+        // This is only sound because the guard releases its own failures above:
+        // everything reaching *here* has called the product's RPC, so an
         // unrecognised failure really is ambiguous rather than merely unmapped.
         // A connection lost between Postgres committing and the answer arriving
         // looks exactly like a failure from here, and a reattachment that already

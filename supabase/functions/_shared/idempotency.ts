@@ -28,6 +28,15 @@ export async function claim(
   userId: string,
   key: IdempotencyKey,
   body: unknown,
+  /**
+   * Fields that are not part of *what is being asked*.
+   *
+   * A Turnstile token is a proof of humanity, single-use and fetched fresh on
+   * every attempt — so two requests differing only in their token are the same
+   * request, and fingerprinting it made every honest retry an
+   * `idempotency_mismatch`.
+   */
+  volatile: readonly string[] = [],
 ): Promise<Replay | undefined> {
   const { data, error } = await db.rpc('begin_request', {
     p_function: fn,
@@ -36,7 +45,7 @@ export async function claim(
     // The *request*, not the response: the same key with a different body is a
     // client bug, and answering it with the first body would be confidently
     // wrong. Keys are sorted so that two encodings of one object agree.
-    p_fingerprint: await sha256Hex(stableJson(body)),
+    p_fingerprint: await sha256Hex(stableJson(withoutVolatile(body, volatile))),
   });
   if (error !== null) throw error;
 
@@ -103,4 +112,13 @@ export async function release(
     p_key: key,
   });
   if (error !== null) throw error;
+}
+
+/** The body as the idempotency key sees it: without the fields that are not the request. */
+export function withoutVolatile(body: unknown, volatile: readonly string[]): unknown {
+  if (body === null || typeof body !== 'object' || Array.isArray(body)) return body;
+  const kept = Object.fromEntries(
+    Object.entries(body as Record<string, unknown>).filter(([key]) => !volatile.includes(key)),
+  );
+  return kept;
 }
