@@ -66,14 +66,13 @@ begin
       where mine.confirmation_id = a.confirmation_id and mine.user_id = p_in_favour_of
     );
 
-  delete from public.plan_responses r
-  where r.user_id = p_user_id
-    and r.plan_id in (select pl.id from public.plans pl where pl.circle_id = p_circle_id)
-    and exists (
-      select 1 from public.plan_responses mine
-      where mine.plan_id = r.plan_id and mine.revision = r.revision
-        and mine.user_id = p_in_favour_of
-    );
+  -- `plan_responses` is deliberately absent. Every route to `removed` is an UPDATE,
+  -- so `on_member_removed` has already deleted that member's answers for the whole
+  -- circle (spec §4.5) — a statement here could never match, and it would be the one
+  -- statement in this function capable of deleting a *live* answer while
+  -- `circles.moving_membership` suppressed the version bump that should follow.
+  -- Better absent than present and unreachable: an unreachable guard is a guard
+  -- nobody knows is doing nothing.
 
   delete from public.plan_participants pp
   where pp.user_id = p_user_id

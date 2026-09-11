@@ -7,7 +7,7 @@
 -- membership can never be moved onto somebody with a saved place.
 
 begin;
-select plan(145);
+select plan(146);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid
@@ -458,14 +458,21 @@ select ok(
 );
 
 select is(
-  (select count(*)::integer from jobs.outbox o where o.event_name = 'growth.account_claimed'),
+  (select count(*)::integer from jobs.outbox o
+   where o.event_name = 'growth.account_claimed'
+     -- Scoped to this account. Unscoped, one claim made anywhere else — a probe, a
+     -- seeded scenario — failed this and made the next assertion's scalar subquery
+     -- return two rows, which aborts the file and takes a hundred unrun assertions
+     -- with it. Round 14 fixed the same shape for `member_reattached`.
+     and o.aggregate_id = '95000000-0000-0000-0000-0000000000f1'),
   1,
   'the claim is announced once'
 );
 
 select is(
   (select o.payload ->> 'moment' from jobs.outbox o
-   where o.event_name = 'growth.account_claimed'),
+   where o.event_name = 'growth.account_claimed'
+     and o.aggregate_id = '95000000-0000-0000-0000-0000000000f1'),
   'after_answer',
   'with the moment it happened at, which is what the funnel is measured by'
 );
@@ -478,7 +485,9 @@ select is(
 );
 
 select is(
-  (select count(*)::integer from jobs.outbox o where o.event_name = 'growth.account_claimed'),
+  (select count(*)::integer from jobs.outbox o
+   where o.event_name = 'growth.account_claimed'
+     and o.aggregate_id = '95000000-0000-0000-0000-0000000000f1'),
   1,
   'and does not count a second conversion'
 );
@@ -1091,7 +1100,8 @@ select is(
 
 select is(
   (select count(*)::integer from jobs.outbox o
-   where o.event_name = 'confirmation.attendance_updated'),
+   where o.event_name = 'confirmation.attendance_updated'
+     and o.payload ->> 'confirmation_id' = pg_temp.confirmation_id()::text),
   0,
   'nor was anything announced — nobody''s attendance changed'
 );
@@ -1897,6 +1907,19 @@ join public.candidate_sets cs on cs.id = c.candidate_set_id
 join public.plans pl on pl.id = cs.plan_id
 where pl.short_code = 'pastpn';
 
+-- The plan has run its course. Not incidental: `on_member_removed` deletes a leaving
+-- member's `plan_participants` only for plans still `seeking`, `collecting` or
+-- `ready`, so a plan past those is the case where the participant row survives the
+-- removal — and therefore the only case where the clearer's statement for it has
+-- anything to do. Nothing set that up until now, so that statement could have been
+-- deleted and the suite would have passed.
+-- `plans.state` is written only by `planning.transition_plan`, and this fixture has
+-- no interest in walking a plan through its machine to get there — the marker that
+-- function sets is the same one the guard reads.
+select set_config('circles.in_transition', 'on', true);
+update public.plans pl set state = 'expired' where pl.short_code = 'pastpn';
+select set_config('circles.in_transition', 'off', true);
+
 -- The account turned up, then left the circle.
 insert into public.circle_members (circle_id, user_id, display_name_snapshot)
 values (pg_temp.other_circle(), '95000000-0000-0000-0000-0000000f1102', 'Niamh before');
@@ -1932,6 +1955,15 @@ select is(
      and a.user_id = '95000000-0000-0000-0000-0000000f1102'),
   1,
   'and the colliding attendance was cleared, leaving one row where two would not fit'
+);
+
+select is(
+  (select count(*)::integer from public.plan_participants pp
+   join public.plans pl on pl.id = pp.plan_id
+   where pl.short_code = 'pastpn'
+     and pp.user_id = '95000000-0000-0000-0000-0000000f1102'),
+  1,
+  'so was the participant row the removal left behind, which only a plan past `ready` has'
 );
 
 select pg_temp.act_as_postgres();
@@ -2011,9 +2043,12 @@ select bag_eq(
 
 -- And the branch that retires a returning account's old membership clears the same
 -- tables, or its rows collide with the guest's on the primary key.
+-- `plan_responses` is excused: `on_member_removed` deletes a removed member's
+-- answers for the whole circle, so nothing is ever left for the clearer to clear.
 select bag_eq(
   $$ select name from identity_tables where moves
-     and name not in ('circle_members', 'jobs.notification_jobs', 'private.email_contacts')
+     and name not in ('circle_members', 'jobs.notification_jobs', 'private.email_contacts',
+                      'plan_responses')
      and not pg_temp.writes_to('private.discard_membership_rows(uuid, uuid, uuid)', name) $$,
   $$ select null::text where false $$,
   'and discard_membership_rows clears every one of them as well'
