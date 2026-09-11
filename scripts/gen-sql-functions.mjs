@@ -29,15 +29,23 @@
 // rule the other two generators carry.
 import { readFileSync, writeFileSync, readdirSync, statSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { dirname, join, relative, sep } from 'node:path';
+import { basename, dirname, join, relative, sep } from 'node:path';
 
-import { BEGIN, END, analyse, render } from './sql-functions-rules.mjs';
-import { CASES, selfTest } from './sql-functions-cases.mjs';
+import {
+  BEGIN,
+  END,
+  analyse,
+  migrationsFor,
+  priorRenderings,
+  render,
+} from './sql-functions-rules.mjs';
+import { CLAIMS, selfTest } from './sql-functions-cases.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SOURCE = join(root, 'supabase/sql/functions');
 const MIGRATIONS = join(root, 'supabase/migrations');
-const MIGRATION = join(MIGRATIONS, '0008_function_definitions.sql');
+// `0008` has shipped; a function change goes in a new migration (ADR 0015).
+const MIGRATION = join(MIGRATIONS, '0009_review_followups.sql');
 
 function walk(dir, into = new Map()) {
   for (const entry of readdirSync(dir).sort()) {
@@ -62,14 +70,17 @@ function main() {
     }
   }
 
-  const migrationFiles = new Map(
-    readdirSync(MIGRATIONS)
-      .sort()
-      .filter((entry) => entry.endsWith('.sql') && join(MIGRATIONS, entry) !== MIGRATION)
-      .map((entry) => [entry, readFileSync(join(MIGRATIONS, entry), 'utf8')]),
+  const { checked, earlier } = migrationsFor(
+    new Map(
+      readdirSync(MIGRATIONS)
+        .sort()
+        .filter((entry) => entry.endsWith('.sql'))
+        .map((entry) => [entry, readFileSync(join(MIGRATIONS, entry), 'utf8')]),
+    ),
+    basename(MIGRATION),
   );
 
-  const { problems, sources } = analyse(walk(SOURCE), migrationFiles);
+  const { problems, sources } = analyse(walk(SOURCE), checked);
 
   if (problems.length > 0) {
     console.error(`${checking ? 'check' : 'gen'}:functions:\n`);
@@ -85,7 +96,7 @@ function main() {
     process.exit(2);
   }
 
-  const rendered = render(sources);
+  const { text: rendered, changed } = render(sources, priorRenderings(earlier));
   const current = migration.slice(start, finish + END.length);
 
   if (checking) {
@@ -97,7 +108,10 @@ function main() {
       );
       process.exit(1);
     }
-    console.log(`check:functions: ok (${sources.size} functions, ${CASES.length} rules proven)`);
+    console.log(
+      `check:functions: ok (${sources.size} functions, ${changed.length} carried by ` +
+        `${relative(root, MIGRATION)}, ${CLAIMS} rules proven)`,
+    );
     process.exit(0);
   }
 
@@ -105,7 +119,11 @@ function main() {
     MIGRATION,
     migration.slice(0, start) + rendered + migration.slice(finish + END.length),
   );
-  console.log(`gen:functions: wrote ${sources.size} functions to ${relative(root, MIGRATION)}`);
+  console.log(
+    `gen:functions: ${changed.length} of ${sources.size} function(s) changed ` +
+      `(${changed.map(({ where }) => where.split('/').pop()).join(', ') || 'none'}); wrote to ` +
+      `${relative(root, MIGRATION)}`,
+  );
 }
 
 // Only when run, never when imported: importing a module should not rewrite a

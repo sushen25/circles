@@ -96,7 +96,13 @@ already exists in exactly that form, applying it changes nothing.
 - To change a function you edit its file and run `pnpm gen:functions`; the gate
   refuses the commit if you forget.
 - Once `0008` ships, a change means a new migration and moving `MIGRATION` in
-  the generator, exactly as the other two generators already require.
+  the generator, exactly as the other two generators already require. That
+  migration carries **only the functions whose files changed** — the generator
+  compares each file against what earlier migrations last said about it. The
+  first ticket to use the flow (SUS-75) changed two functions, and its migration
+  contains two, not forty-seven; without that, every function-touching ticket
+  would have added two and a half thousand lines of `create or replace` that no
+  reviewer could read past.
 - The generated migration is large (about 2,400 lines) and nobody reads it,
   which is the same bargain as the transition table and the event catalogue.
 - `pg_get_functiondef` and the ACL of all 47 functions were captured before and

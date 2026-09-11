@@ -6,7 +6,7 @@
 -- database's — and the rest is tested as the people who use it.
 
 begin;
-select plan(51);
+select plan(60);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid language sql as $$
@@ -282,6 +282,45 @@ select lives_ok(
   'while a mis-tap on the WasThere screen can be corrected'
 );
 
+-- A removed member cannot write attendance — and by the policy, not by luck.
+-- The unqualified form is the one that matters: an `update ... where` never
+-- finds the row, but this one reaches the trigger, and until the policy said
+-- `auth_is_member` the only thing stopping it was that trigger happening to
+-- lack `security definer`.
+select pg_temp.act_as_postgres();
+update public.circle_members set status = 'removed'
+where circle_id = (select circle_id from t) and user_id = '00000000-0000-0000-0000-0000000003a3';
+select pg_temp.act_as('00000000-0000-0000-0000-0000000003a3');
+update public.attendance set status = 'going';
+select pg_temp.act_as_postgres();
+select is(
+  (select status from public.attendance
+   where confirmation_id = :'future_conf' and user_id = '00000000-0000-0000-0000-0000000003a3'),
+  'cant',
+  'an unqualified update by a removed member changes nothing'
+);
+
+-- The insert half needs arranging, because a BEFORE ROW trigger runs before
+-- RLS's `with check`: a removed member's insert dies in
+-- `enforce_attendance_transition`, whose unprivileged read of the confirmation
+-- finds nothing, and a test asserting 42501 would pass for that reason rather
+-- than for the policy. Give the trigger the privileges it lacks, for the length
+-- of this assertion, and what answers is the policy alone.
+select pg_temp.act_as_postgres();
+alter function public.enforce_attendance_transition() security definer;
+select pg_temp.act_as('00000000-0000-0000-0000-0000000003a3');
+select throws_ok(
+  format($$insert into public.attendance (confirmation_id, user_id, status)
+    values ('%s', '00000000-0000-0000-0000-0000000003a3', 'going')$$, :'past_conf'),
+  '42501',
+  null,
+  'and the policy — not the trigger''s luck — is what refuses a removed member''s insert'
+);
+select pg_temp.act_as_postgres();
+alter function public.enforce_attendance_transition() security invoker;
+update public.circle_members set status = 'active'
+where circle_id = (select circle_id from t) and user_id = '00000000-0000-0000-0000-0000000003a3';
+
 -- Nobody is told who came.
 select pg_temp.act_as('00000000-0000-0000-0000-0000000003a1');
 select is(
@@ -395,6 +434,40 @@ select is(
   'last_met_at is the confirmation''s start, not now()'
 );
 
+-- The morning-after screen is tapped on a phone. A retry whose first attempt
+-- committed must not report failure for something that worked.
+select pg_temp.act_as_postgres();
+select count(*)::integer as events_before from jobs.outbox
+where event_name = 'confirmation.outcome_reported' \gset
+select pg_temp.act_as('00000000-0000-0000-0000-0000000003a1');
+select lives_ok(
+  format($$select public.report_outcome('%s', 'happened', 'Great night')$$, :'past_conf'),
+  'the same report again succeeds, rather than failing on the unique index'
+);
+select is(
+  (select (public.report_outcome(:'past_conf', 'happened', 'Great night')).outcome),
+  'happened',
+  'and what it returns is the report the first call wrote, not null'
+);
+select pg_temp.act_as_postgres();
+select is(
+  (select count(*)::integer from jobs.outbox where event_name = 'confirmation.outcome_reported'),
+  :'events_before'::integer,
+  'nothing is announced twice: the insert did not happen, so the trigger did not fire'
+);
+select is(
+  (select last_met_at from public.circles where id = (select circle_id from t)),
+  timestamptz '2020-09-17T08:30:00Z',
+  'and last_met_at did not move again'
+);
+select pg_temp.act_as('00000000-0000-0000-0000-0000000003a1');
+select throws_ok(
+  format($$select public.report_outcome('%s', 'cancelled')$$, :'past_conf'),
+  '23514',
+  'outcome_already_reported',
+  'but a different answer is a change of mind, not a retry, and there is no taking it back'
+);
+
 -- And never backwards.
 select pg_temp.act_as_postgres();
 select pg_temp.make_confirmed_plan('pncfqq', date '2020-07-01') as old_plan \gset
@@ -445,6 +518,35 @@ select throws_ok(
   'not_the_organiser',
   'an organiser who has left the circle cannot report its outcome — the state machine''s guard, with its code, not a copy of it'
 );
+
+-- And a replay by one answers the same way. The point of idempotence is that a
+-- lost response is indistinguishable from none; two different refusals for one
+-- situation would put that back, decided by whether the network dropped a reply.
+select pg_temp.act_as_postgres();
+-- The block above left Tom removed; he has to be a member to report at all.
+update public.circle_members set status = 'active'
+where circle_id = (select circle_id from t) and user_id = '00000000-0000-0000-0000-0000000003a3';
+select pg_temp.make_confirmed_plan('pncfhh', date '2020-04-02') as left_plan \gset
+select pg_temp.confirm(:'left_plan', date '2020-04-02') as left_conf \gset
+update public.plans set organiser_user_id = '00000000-0000-0000-0000-0000000003a3' where id = :'left_plan';
+select pg_temp.act_as('00000000-0000-0000-0000-0000000003a3');
+select lives_ok(
+  format($$select public.report_outcome('%s', 'happened')$$, :'left_conf'),
+  'Tom reports while he is still a member'
+);
+select pg_temp.act_as_postgres();
+update public.circle_members set status = 'removed'
+where circle_id = (select circle_id from t) and user_id = '00000000-0000-0000-0000-0000000003a3';
+select pg_temp.act_as('00000000-0000-0000-0000-0000000003a3');
+select throws_ok(
+  format($$select public.report_outcome('%s', 'happened')$$, :'left_conf'),
+  'P0001',
+  'not_the_organiser',
+  'and once removed, replaying it is refused exactly as a first call would be'
+);
+select pg_temp.act_as_postgres();
+update public.circle_members set status = 'active'
+where circle_id = (select circle_id from t) and user_id = '00000000-0000-0000-0000-0000000003a3';
 
 -- ---------------------------------------------------------------------------
 -- Removal, continued: not coming to anything still ahead; history untouched.

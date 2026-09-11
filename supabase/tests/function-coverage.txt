@@ -1,0 +1,13 @@
+# Functions in public, planning, private and jobs that no database test
+# reaches. Read and enforced by scripts/check-function-coverage.mjs, which
+# `pnpm db:test` runs: a function that stops being reached fails the gate, and
+# adding it here is the last resort rather than the fix.
+#
+# The list is empty, and that is the point. SUS-74's review observed that 29 of
+# the 47 functions are never *named* in supabase/tests — true, and it is the
+# wrong measure: most are triggers, and Postgres counts a call whether it came
+# from a test's SQL, from another function's body, or from a trigger firing.
+# Measured with track_functions = all, the suites reach all 47.
+#
+# So there is nothing to excuse. If a name appears below, it wants a reason
+# beside it and a ticket to remove it again.
