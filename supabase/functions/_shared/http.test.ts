@@ -169,6 +169,36 @@ describe('a request that is refused', () => {
     expect(await response.json()).toMatchObject({ reason: 'invite_inactive' });
   });
 
+  it('keeps the claim when the failure could have committed', async () => {
+    // A connection lost between Postgres committing and the answer arriving looks
+    // exactly like a failure from here. Releasing would let the retry run a
+    // mutation that already happened — and a reattachment done twice answers
+    // `member_not_found`, because the membership it names has moved.
+    const handler = jsonHandler({
+      name: 'test-fn',
+      schema: Body,
+      handle: () => Promise.reject(new Error('socket hang up')),
+    });
+
+    const response = await handler(post({ idempotency_key: KEY, display_name: 'Priya' }));
+
+    expect(response.status).toBe(500);
+    expect(called('release_request')).toHaveLength(0);
+  });
+
+  it('gives it back when the database refused by name', async () => {
+    // A named refusal is a statement that the transaction aborted, so the retry
+    // is a genuine retry.
+    const handler = jsonHandler({
+      name: 'test-fn',
+      schema: Body,
+      handle: () => Promise.reject(Object.assign(new Error('circle_full'), { code: 'P0001' })),
+    });
+
+    await handler(post({ idempotency_key: KEY, display_name: 'Priya' }));
+    expect(called('release_request')).toHaveLength(1);
+  });
+
   it('says nothing about an error it does not recognise', async () => {
     const handler = jsonHandler({
       name: 'test-fn',
@@ -191,7 +221,6 @@ describe('a request that is refused', () => {
     // A Postgres message can quote the row that caused it (non-negotiable 8).
     expect(body).not.toContain('priya@example.com');
     expect(body).not.toContain('duplicate key');
-    expect(called('release_request')).toHaveLength(1);
   });
 });
 

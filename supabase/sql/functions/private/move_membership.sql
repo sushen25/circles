@@ -144,97 +144,90 @@ begin
     from private.email_contacts ec
     where ec.user_id = p_to and ec.email_hash = contact.email_hash;
 
-    if found then
-      -- Consent and any outstanding link are re-pointed at the contact the
-      -- destination already owns, and the duplicate row goes. Its `status` is
-      -- deliberately left alone: a pending contact stays pending, so nothing is
-      -- ever sent to an address this identity has not verified — the safe
-      -- direction, and the one the suppression rules assume.
-      --
-      -- Consent first, and a *collision* is consent the destination already
-      -- gave: `email_subscriptions_one_per_plan_idx` is on
-      -- `(contact_id, scope, plan_id)`, so when both contacts are subscribed to
-      -- the same plan, re-pointing the second one onto the first violates it and
-      -- rolls the whole claim back. The surviving row is the destination's,
-      -- because it belongs to the identity that persists; the duplicate is
-      -- dropped rather than merged, since two consents to one plan at one address
-      -- say nothing different from one.
-      delete from private.email_subscriptions sub
-      where sub.contact_id = contact.id
-        and exists (
-          select 1 from private.email_subscriptions kept
-          where kept.contact_id = destination_contact
-            and kept.scope = sub.scope
-            and kept.plan_id is not distinct from sub.plan_id
-        );
-
-      update private.email_subscriptions sub
-      set contact_id = destination_contact, user_id = p_to
-      where sub.contact_id = contact.id;
-
-      update private.email_action_tokens tok
-      set contact_id = destination_contact
-      where tok.contact_id = contact.id;
-
-      -- Mail already queued for this address. An email job names a *contact* and
-      -- carries no `user_id` at all (the recipient check in 0006 forbids both at
-      -- once), so the `user_id` update further down cannot save it — and
-      -- `notification_jobs_contact_fkey` is `on delete cascade`, which means the
-      -- delete below would take every unsent message with it. Silently: somebody
-      -- waiting for "locked in" would simply never get it.
-      update jobs.notification_jobs job
-      set contact_id = destination_contact
-      where job.contact_id = contact.id and job.sent_at is null;
-
-      delete from private.email_contacts ec where ec.id = contact.id;
-    elsif exists (
-      -- The contact has ties outside this circle. One address, one identity, and
-      -- an identity can be in several circles — so moving the contact whole would
-      -- carry another circle's consent to an identity that is not a member of it,
-      -- and a re-entry token for that other membership would be left pointing at
-      -- a pair that no longer exists. "A reattachment moves a membership only
-      -- within a circle the guest already belongs to" (AGENTS.md) is about the
-      -- membership; it is just as true of what hangs off it.
-      select 1 from private.email_subscriptions other
-      join public.plans pl on pl.id = other.plan_id
-      where other.contact_id = contact.id and pl.circle_id <> p_circle_id
-      union all
-      select 1 from private.email_action_tokens other
-      where other.contact_id = contact.id
-        and other.membership_circle_id is distinct from p_circle_id
-    ) then
-      -- So the contact is *split*: a copy for the destination carrying the same
-      -- address and the same standing — verified stays verified, because it is
-      -- the same person and the same address, and suppressed stays suppressed,
-      -- because that is global by hash (spec §9) — and only this circle's consent
-      -- and links move onto it. Uniqueness is `(email_hash, user_id)`, so two
-      -- identities holding one address is exactly what 0009 made legal.
-      insert into private.email_contacts
-        (user_id, email_normalized, status, verified_at, suppressed_at, suppression_reason)
-      select p_to, ec.email_normalized, ec.status, ec.verified_at, ec.suppressed_at,
-             ec.suppression_reason
-      from private.email_contacts ec
-      where ec.id = contact.id
-      returning id into destination_contact;
-
-      update private.email_subscriptions sub
-      set contact_id = destination_contact, user_id = p_to
-      where sub.contact_id = contact.id
-        and sub.plan_id in (select pl.id from public.plans pl where pl.circle_id = p_circle_id);
-
-      update private.email_action_tokens tok
-      set contact_id = destination_contact
-      where tok.contact_id = contact.id and tok.membership_circle_id = p_circle_id;
-
-      update jobs.notification_jobs job
-      set contact_id = destination_contact
-      where job.contact_id = contact.id
-        and job.sent_at is null
-        and job.plan_id in (select pl.id from public.plans pl where pl.circle_id = p_circle_id);
-    else
-      -- Everything this contact is tied to is in this circle, so it travels whole.
-      update private.email_contacts ec set user_id = p_to where ec.id = contact.id;
+    if not found then
+      if exists (
+        -- Ties outside this circle. One address, one identity, and an identity can
+        -- be in several circles — so handing the contact over whole would carry
+        -- another circle's consent to an identity that is not a member of it, and
+        -- leave a re-entry token for that other membership pointing at a pair that
+        -- no longer exists. "A reattachment moves a membership only within a
+        -- circle the guest already belongs to" (AGENTS.md) is about the
+        -- membership; it is just as true of what hangs off it.
+        select 1 from private.email_subscriptions other
+        join public.plans pl on pl.id = other.plan_id
+        where other.contact_id = contact.id and pl.circle_id <> p_circle_id
+        union all
+        select 1 from private.email_action_tokens other
+        where other.contact_id = contact.id
+          and other.membership_circle_id is distinct from p_circle_id
+      ) then
+        -- Split: a copy for the destination carrying the same address and the
+        -- same standing — verified stays verified, because it is the same person
+        -- and the same address, and suppressed stays suppressed, because that is
+        -- global by hash (spec §9). Uniqueness is `(email_hash, user_id)`, so two
+        -- identities holding one address is what 0009 made legal.
+        insert into private.email_contacts
+          (user_id, email_normalized, status, verified_at, suppressed_at, suppression_reason)
+        select p_to, ec.email_normalized, ec.status, ec.verified_at, ec.suppressed_at,
+               ec.suppression_reason
+        from private.email_contacts ec
+        where ec.id = contact.id
+        returning id into destination_contact;
+      else
+        -- Nothing outside this circle, and nowhere to merge into: the contact
+        -- itself travels, and everything hanging off it comes by cascade.
+        update private.email_contacts ec set user_id = p_to where ec.id = contact.id;
+        continue;
+      end if;
     end if;
+
+    -- From here one rule, whichever branch arrived: **only this circle's rows
+    -- move**, onto `destination_contact`.
+    --
+    -- Consent first, and a collision is consent the destination already gave.
+    -- `email_subscriptions_one_per_plan_idx` is on `(contact_id, scope, plan_id)`,
+    -- so re-pointing a second subscription for one plan violates it and rolls the
+    -- whole move back. The destination's row survives, because it belongs to the
+    -- identity that persists; two consents to one plan at one address say nothing
+    -- different from one.
+    delete from private.email_subscriptions sub
+    where sub.contact_id = contact.id
+      and sub.plan_id in (select pl.id from public.plans pl where pl.circle_id = p_circle_id)
+      and exists (
+        select 1 from private.email_subscriptions kept
+        where kept.contact_id = destination_contact
+          and kept.scope = sub.scope
+          and kept.plan_id is not distinct from sub.plan_id
+      );
+
+    update private.email_subscriptions sub
+    set contact_id = destination_contact, user_id = p_to
+    where sub.contact_id = contact.id
+      and sub.plan_id in (select pl.id from public.plans pl where pl.circle_id = p_circle_id);
+
+    update private.email_action_tokens tok
+    set contact_id = destination_contact
+    where tok.contact_id = contact.id and tok.membership_circle_id = p_circle_id;
+
+    -- Mail already queued for this address. An email job names a *contact* and
+    -- carries no `user_id` at all (0006 forbids both at once), so the `user_id`
+    -- update below cannot save it — and `notification_jobs_contact_fkey` is
+    -- `on delete cascade`, so the delete that follows would take every unsent
+    -- message with it. Silently: somebody waiting for "locked in" would never
+    -- get it.
+    update jobs.notification_jobs job
+    set contact_id = destination_contact
+    where job.contact_id = contact.id
+      and job.sent_at is null
+      and job.plan_id in (select pl.id from public.plans pl where pl.circle_id = p_circle_id);
+
+    -- And the old row goes only once nothing points at it any more. A contact
+    -- still holding another circle's consent is that circle's, and stays.
+    delete from private.email_contacts ec
+    where ec.id = contact.id
+      and not exists (select 1 from private.email_subscriptions sub where sub.contact_id = ec.id)
+      and not exists (select 1 from private.email_action_tokens tok where tok.contact_id = ec.id)
+      and not exists (select 1 from jobs.notification_jobs job where job.contact_id = ec.id);
   end loop;
 
   -- Queued mail for the person, not yet sent. A job left on the old identity is

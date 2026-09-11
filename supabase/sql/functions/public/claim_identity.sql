@@ -153,6 +153,25 @@ begin
               and pp.user_id = p_user_id
           );
 
+        -- And the organiser's decision that *this person* has to be there.
+        -- `on_member_removed` leaves `plan_required_members` alone on purpose —
+        -- spec §9 makes a required person leaving the organiser's problem to
+        -- resolve — but nobody has left here, so the requirement follows them.
+        -- Otherwise an active plan would go on requiring an identity that can no
+        -- longer answer, and never produce an eligible candidate.
+        update public.plan_required_members rm
+        set user_id = p_user_id
+        where rm.user_id = p_anonymous_user_id
+          and rm.plan_id in (
+            select pl.id from public.plans pl where pl.circle_id = membership.circle_id
+          )
+          and not exists (
+            select 1 from public.plan_required_members kept
+            where kept.plan_id = rm.plan_id
+              and kept.revision = rm.revision
+              and kept.user_id = p_user_id
+          );
+
         update public.circle_members m
         set status = 'removed'
         where m.circle_id = membership.circle_id and m.user_id = p_anonymous_user_id;

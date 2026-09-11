@@ -7,7 +7,7 @@
 -- membership can never be moved onto somebody with a saved place.
 
 begin;
-select plan(87);
+select plan(95);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid
@@ -187,6 +187,16 @@ select is(
    where o.event_name = 'circles.member_reattached'),
   1,
   'the circle is told somebody rejoined'
+);
+
+select is(
+  (select count(*)::integer from jobs.outbox o
+   where o.event_name = 'availability.response_submitted'
+     -- Scoped to this plan: the seed's own scenarios have answered their plans,
+     -- and those events are in the outbox too.
+     and o.payload ->> 'plan_id' = pg_temp.plan_id()::text),
+  1,
+  'and is not told they answered again — one event, from giving the answer, not from moving it'
 );
 
 select is(
@@ -1035,6 +1045,117 @@ select is(
    where ec.email_normalized = 'kit@example.com'),
   2,
   'the contact was split rather than moved — two identities, one address, which 0009 made legal'
+);
+
+-- ---------------------------------------------------------------------------
+-- Round 5: the merge branch is scoped too.
+--
+-- The destination already holds the address *and* the guest's contact carries
+-- another circle's consent. The merge used to move everything onto the
+-- destination's contact, handing that other circle's consent to an identity that
+-- is not a member of it.
+--
+-- Shown through `reattach_member`, which moves one membership. `claim_identity`
+-- moves every circle the identity is in, so it cannot tell this apart.
+-- ---------------------------------------------------------------------------
+select pg_temp.act_as_postgres();
+
+select pg_temp.make_user('95000000-0000-0000-0000-0000000a5101'::uuid, 'Both Guest', true);
+select pg_temp.make_user('95000000-0000-0000-0000-0000000a5102'::uuid, 'Both Devices', true);
+
+insert into public.circle_members (circle_id, user_id, display_name_snapshot)
+values (pg_temp.circle_id(), '95000000-0000-0000-0000-0000000a5101', 'Rae'),
+       (pg_temp.other_circle(), '95000000-0000-0000-0000-0000000a5101', 'Rae');
+
+-- Both identities hold the address, and the guest is consented in both circles.
+insert into private.email_contacts (user_id, email_normalized)
+values ('95000000-0000-0000-0000-0000000a5101', 'rae@example.com'),
+       ('95000000-0000-0000-0000-0000000a5102', 'rae@example.com');
+
+insert into private.email_subscriptions (contact_id, user_id, scope, plan_id, consent_text_version)
+select ec.id, ec.user_id, 'plan_updates', pg_temp.plan_id(), 'v1'
+from private.email_contacts ec
+where ec.email_normalized = 'rae@example.com'
+  and ec.user_id = '95000000-0000-0000-0000-0000000a5101';
+
+insert into private.email_subscriptions (contact_id, user_id, scope, plan_id, consent_text_version)
+select ec.id, ec.user_id, 'plan_updates', pl.id, 'v1'
+from private.email_contacts ec, public.plans pl
+where ec.email_normalized = 'rae@example.com'
+  and ec.user_id = '95000000-0000-0000-0000-0000000a5101'
+  and pl.short_code = 'uthpen';
+
+select pg_temp.act_as('95000000-0000-0000-0000-0000000a5102', true);
+select lives_ok(
+  $$ select public.reattach_member(pg_temp.circle_id(), '95000000-0000-0000-0000-0000000a5101') $$,
+  'the membership moves even with a contact on both sides and consent elsewhere'
+);
+
+select pg_temp.act_as_postgres();
+
+select is(
+  (select sub.user_id from private.email_subscriptions sub
+   join private.email_contacts ec on ec.id = sub.contact_id
+   where sub.plan_id = pg_temp.plan_id() and ec.email_normalized = 'rae@example.com'),
+  '95000000-0000-0000-0000-0000000a5102'::uuid,
+  'this circle''s consent is the returning identity''s now'
+);
+
+select is(
+  (select sub.user_id from private.email_subscriptions sub
+   join private.email_contacts ec on ec.id = sub.contact_id
+   join public.plans pl on pl.id = sub.plan_id
+   where pl.short_code = 'uthpen' and ec.email_normalized = 'rae@example.com'),
+  '95000000-0000-0000-0000-0000000a5101'::uuid,
+  'and the other circle''s is untouched, on a contact that was not merged away'
+);
+
+select is(
+  (select count(*)::integer from private.email_contacts ec
+   where ec.email_normalized = 'rae@example.com'),
+  2,
+  'so the guest''s contact survives: it still holds a circle this move never touched'
+);
+
+-- ---------------------------------------------------------------------------
+-- Round 5: being required follows the person through a duplicate merge.
+--
+-- `on_member_removed` leaves `plan_required_members` alone on purpose — spec §9
+-- makes a required person leaving the organiser's problem — but nobody leaves
+-- here, so an active plan would have gone on requiring an identity that could no
+-- longer answer, and never produced an eligible candidate.
+-- ---------------------------------------------------------------------------
+select pg_temp.make_user('95000000-0000-0000-0000-0000000a6101'::uuid, 'Needed Guest', true);
+select pg_temp.make_user('95000000-0000-0000-0000-0000000a6102'::uuid, 'Needed Saved');
+
+insert into public.circle_members (circle_id, user_id, display_name_snapshot)
+values (pg_temp.circle_id(), '95000000-0000-0000-0000-0000000a6101', 'Fran on her phone'),
+       (pg_temp.circle_id(), '95000000-0000-0000-0000-0000000a6102', 'Fran');
+
+insert into public.plan_required_members (plan_id, revision, user_id)
+values (pg_temp.plan_id(), 1, '95000000-0000-0000-0000-0000000a6101');
+
+select is(
+  public.claim_identity('95000000-0000-0000-0000-0000000a6102',
+                        '95000000-0000-0000-0000-0000000a6101', 'settings'),
+  0,
+  'the duplicate is reconciled'
+);
+
+select is(
+  (select count(*)::integer from public.plan_required_members rm
+   where rm.plan_id = pg_temp.plan_id()
+     and rm.user_id = '95000000-0000-0000-0000-0000000a6102'),
+  1,
+  'and the organiser''s "this person has to be there" follows them'
+);
+
+select is(
+  (select count(*)::integer from public.plan_required_members rm
+   where rm.plan_id = pg_temp.plan_id()
+     and rm.user_id = '95000000-0000-0000-0000-0000000a6101'),
+  0,
+  'rather than staying on an identity that can no longer answer'
 );
 
 select pg_temp.act_as_postgres();

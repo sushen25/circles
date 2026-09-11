@@ -1,4 +1,4 @@
-import { isValidDisplayName } from '@circles/domain';
+import { isValidDisplayName, normaliseDisplayName } from '@circles/domain';
 import { z } from 'zod';
 
 import { CircleDto } from '../dtos.js';
@@ -28,7 +28,15 @@ export const RedeemInviteRequest = Mutation.extend({
    * does not map — a 500 where the client should have been told to try another
    * name.
    */
-  display_name: z.string().refine(isValidDisplayName, 'not a usable display name'),
+  display_name: z
+    .string()
+    // Normalised *before* it is judged, and therefore before it is stored.
+    // Refining alone validated the collapsed form and then passed the original
+    // through, so `"  Priya\nSmith  "` was accepted and kept its newline, and a
+    // forty-character name padded with spaces stored more than forty characters.
+    // The value the schema yields is the value SQL gets.
+    .transform(normaliseDisplayName)
+    .refine(isValidDisplayName, 'not a usable display name'),
 });
 export type RedeemInviteRequest = z.infer<typeof RedeemInviteRequest>;
 

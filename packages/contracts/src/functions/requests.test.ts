@@ -49,6 +49,14 @@ describe('RedeemInviteRequest', () => {
     ).toBe(true);
   });
 
+  it('stores the name the way it measures it', () => {
+    // The refinement alone validated the collapsed form and passed the original
+    // through, so a newline reached the column and a padded forty-character name
+    // stored more than forty characters.
+    const parsed = RedeemInviteRequest.parse({ ...body, display_name: '  Priya   Sharma \n' });
+    expect(parsed.display_name).toBe('Priya Sharma');
+  });
+
   it('refuses a secret too short to be one', () => {
     expect(RedeemInviteRequest.safeParse({ ...body, secret: 'short' }).success).toBe(false);
   });

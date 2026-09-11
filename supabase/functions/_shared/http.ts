@@ -182,22 +182,43 @@ export function jsonHandler<Schema extends z.ZodType>(
           requestId,
         });
       } catch (duringWork) {
-        // The claim is given back before the failure is reported. Without this the
-        // `in_flight` row outlives the failure and answers every retry with
-        // `in_progress` — and retention keeps unfinished rows on purpose, so
-        // "every retry" means forever. A client refused for a duplicate name
-        // could then neither retry with the same body (`in_progress`) nor with a
-        // corrected one (`idempotency_mismatch`), which is the opposite of what
-        // ADR 0016 promises.
+        // The claim is given back *only when we know the work did not happen*.
+        //
+        // A refusal we can name — ours, or one the database raised by name — is a
+        // statement that the transaction aborted: nothing was written, and a
+        // retry is a genuine retry. Without releasing, the `in_flight` row would
+        // outlive the refusal and answer every retry with `in_progress` (and
+        // retention keeps unfinished rows on purpose, so "every retry" means
+        // forever) — so somebody refused for a duplicate name could neither try
+        // the same body nor a corrected one.
+        //
+        // An error we *cannot* name is the opposite case and must be left alone.
+        // A connection lost between Postgres committing and the answer arriving
+        // looks exactly like a failure from here, and a reattachment that already
+        // happened does not survive being done twice: the second attempt answers
+        // `member_not_found`, because the membership it names has moved. So the
+        // claim stays, the retry is told `in_progress`, and nothing is repeated.
         //
         // Releasing must not become the error the caller sees: its own failure is
         // swallowed, because the original is the one worth reporting.
-        if (key !== undefined) {
+        const known =
+          duringWork instanceof Refusal ||
+          reasonOf(duringWork as { message?: string } | undefined) !== undefined;
+
+        if (key !== undefined && known) {
           try {
             await release(service, spec.name, actor.userId, key as Parameters<typeof release>[3]);
           } catch {
             /* the request already failed; this would only hide why */
           }
+        } else if (key !== undefined) {
+          log('warn', {
+            fn: spec.name,
+            request_id: requestId,
+            event: 'claim_held',
+            reason: (duringWork as { code?: string } | undefined)?.code ?? 'unknown',
+            duration_ms: Date.now() - started,
+          });
         }
         throw duringWork;
       }
