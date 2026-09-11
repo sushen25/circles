@@ -51,11 +51,32 @@ function argumentsFrom(sql, open) {
   return '';
 }
 
+/** The parameters, split on the commas that separate them and not on any other. */
+function parametersOf(list) {
+  const parameters = [];
+  let depth = 0;
+  let current = '';
+  for (const character of list) {
+    if (character === '(') depth += 1;
+    else if (character === ')') depth -= 1;
+    if (character === ',' && depth === 0) {
+      parameters.push(current);
+      current = '';
+      continue;
+    }
+    current += character;
+  }
+  if (current.trim() !== '') parameters.push(current);
+  return parameters;
+}
+
 /**
  * A parameter list reduced to what identifies the function — as far as a
- * script can honestly go. Comments and default values are dropped, because
- * `create or replace` may add a default without changing the signature, and
- * whitespace and case are folded.
+ * script can honestly go. Comments go, and so does each parameter's default,
+ * because `create or replace` may add one without changing the signature. The
+ * split is per parameter rather than by regex over the whole list, so a default
+ * containing its own comma — `default format('%s,%s', a, b)` — does not leave
+ * half of itself behind.
  *
  * It stops there. It does not know that `timestamptz` and `timestamp with time
  * zone` are one type, or that a parameter's *name* is no part of its identity,
@@ -64,7 +85,12 @@ function argumentsFrom(sql, open) {
  * the message that uses it says as much.
  */
 function signatureOf(args) {
-  return normalise(args.replace(/--[^\n]*/g, ' ').replace(/\bdefault\b[^,]*/gi, ''));
+  const plain = args.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/--[^\n]*/g, ' ');
+  return normalise(
+    parametersOf(plain)
+      .map((parameter) => parameter.split(/\bdefault\b|=/i)[0])
+      .join(','),
+  );
 }
 
 /**

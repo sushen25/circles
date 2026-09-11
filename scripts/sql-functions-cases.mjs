@@ -207,6 +207,44 @@ export const CASES = [
       ],
     ]),
   },
+  {
+    // A default may contain a comma of its own; stripping defaults with a regex
+    // over the whole list left `1, 2)` behind, and it read as a second signature.
+    label: 'even when that default contains its own comma',
+    files: clean(),
+    migrations: new Map([
+      [
+        '0009_comma.sql',
+        'create or replace function public.u(a text, b integer)\n' +
+          "create or replace function public.u(a text default format('%s,%s', 1, 2), b integer)\n" +
+          'drop function public.u(text, integer);\n',
+      ],
+    ]),
+  },
+  {
+    label: 'or is spelled with = instead of the word default',
+    files: clean(),
+    migrations: new Map([
+      [
+        '0009_equals.sql',
+        'create or replace function public.u(a integer)\n' +
+          'create or replace function public.u(a integer = 3)\n' +
+          'drop function public.u(integer);\n',
+      ],
+    ]),
+  },
+  {
+    label: 'or the redefinition only added a block comment',
+    files: clean(),
+    migrations: new Map([
+      [
+        '0009_comment.sql',
+        'create or replace function public.u(a integer)\n' +
+          'create or replace function public.u(a integer /* the one */)\n' +
+          'drop function public.u(integer);\n',
+      ],
+    ]),
+  },
 ];
 
 /** The labels of cases whose rule did not fire as intended. */
