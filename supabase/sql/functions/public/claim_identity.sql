@@ -106,10 +106,42 @@ begin
         where m.circle_id = membership.circle_id and m.user_id = p_user_id
           and m.status = 'active'
       ) then
-        -- Both identities are *active* in this circle. The saved place is the one
-        -- that keeps working on another device, so it stays and the guest row
-        -- goes. `on_member_removed` does the rest — the duplicate's answers, its
-        -- place in the participant list, and its `going` on anything still ahead.
+        -- Both identities are *active* in this circle: one person who joined
+        -- twice, from two devices, under two names (spec §9). The saved place is
+        -- the one that keeps working, so it stays and the guest row goes.
+        --
+        -- But an answer the guest gave and the survivor never did is an answer
+        -- this person really made, and `on_member_removed` deletes the removed
+        -- member's availability (spec §4.5). So it is adopted first, and only
+        -- what is genuinely duplicated is left to be deleted. Removing the row
+        -- before this would be "saving your place loses your answer", which is
+        -- not a trade anybody agreed to.
+        update public.plan_responses r
+        set user_id = p_user_id
+        where r.user_id = p_anonymous_user_id
+          and r.plan_id in (
+            select pl.id from public.plans pl where pl.circle_id = membership.circle_id
+          )
+          and not exists (
+            select 1 from public.plan_responses kept
+            where kept.plan_id = r.plan_id
+              and kept.revision = r.revision
+              and kept.user_id = p_user_id
+          );
+
+        update public.attendance a
+        set user_id = p_user_id
+        where a.user_id = p_anonymous_user_id
+          and a.confirmation_id in (
+            select c.id from public.meetup_confirmations c
+            join public.plans pl on pl.id = c.plan_id
+            where pl.circle_id = membership.circle_id
+          )
+          and not exists (
+            select 1 from public.attendance kept
+            where kept.confirmation_id = a.confirmation_id and kept.user_id = p_user_id
+          );
+
         update public.circle_members m
         set status = 'removed'
         where m.circle_id = membership.circle_id and m.user_id = p_anonymous_user_id;

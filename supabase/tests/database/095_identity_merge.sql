@@ -7,7 +7,7 @@
 -- membership can never be moved onto somebody with a saved place.
 
 begin;
-select plan(69);
+select plan(77);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid
@@ -750,6 +750,120 @@ select throws_ok(
   $$ select public.guest_members_for_reattach('zzzzzzzzzz') $$,
   'too_many_requests',
   'the thirty-first is refused, whether it comes through the client or the RPC'
+);
+
+-- ---------------------------------------------------------------------------
+-- Round 3: the answer the duplicate gave.
+--
+-- One person, two devices, two memberships in one circle (spec §9). The saved
+-- place survives and the guest row goes — but an answer the guest gave and the
+-- survivor never did is an answer this person really made, and
+-- `on_member_removed` deletes a removed member's availability (spec §4.5). So it
+-- is adopted before the row goes, not lost with it.
+-- ---------------------------------------------------------------------------
+select pg_temp.act_as_postgres();
+
+select pg_temp.make_user('95000000-0000-0000-0000-00000000c101'::uuid, 'Twice Guest', true);
+select pg_temp.make_user('95000000-0000-0000-0000-00000000c102'::uuid, 'Twice Saved');
+
+insert into public.circle_members (circle_id, user_id, display_name_snapshot)
+values (pg_temp.circle_id(), '95000000-0000-0000-0000-00000000c101', 'Alex on the bus'),
+       (pg_temp.circle_id(), '95000000-0000-0000-0000-00000000c102', 'Alex');
+
+-- Only the guest device answered.
+insert into public.plan_responses (plan_id, revision, user_id, status)
+values (pg_temp.plan_id(), 1, '95000000-0000-0000-0000-00000000c101', 'flexible');
+
+select is(
+  public.claim_identity('95000000-0000-0000-0000-00000000c102',
+                        '95000000-0000-0000-0000-00000000c101', 'settings'),
+  0,
+  'the duplicate is reconciled rather than moved: the survivor is already here'
+);
+
+select is(
+  (select m.status from public.circle_members m
+   where m.circle_id = pg_temp.circle_id()
+     and m.user_id = '95000000-0000-0000-0000-00000000c101'),
+  'removed',
+  'the duplicate membership goes, as spec §9 says it should'
+);
+
+select is(
+  (select count(*)::integer from public.plan_responses r
+   where r.plan_id = pg_temp.plan_id()
+     and r.user_id = '95000000-0000-0000-0000-00000000c102'),
+  1,
+  'and the answer only the duplicate had given is the survivor''s now'
+);
+
+-- ---------------------------------------------------------------------------
+-- Round 3: what hangs off a shared address, on the branch where the membership
+-- actually moves.
+--
+-- The account was in this circle, subscribed to the plan at its address, and
+-- left. The same person is back as a guest, subscribed to the same plan at the
+-- same address, with a message already queued. The contact merge has to reconcile
+-- both: `email_subscriptions_one_per_plan_idx` is on `(contact_id, scope,
+-- plan_id)`, and `notification_jobs_contact_fkey` is `on delete cascade`.
+-- ---------------------------------------------------------------------------
+select pg_temp.make_user('95000000-0000-0000-0000-00000000d201'::uuid, 'Nic Guest', true);
+select pg_temp.make_user('95000000-0000-0000-0000-00000000d202'::uuid, 'Nic Saved');
+
+insert into public.circle_members (circle_id, user_id, display_name_snapshot, status)
+values (pg_temp.circle_id(), '95000000-0000-0000-0000-00000000d202', 'Nic from before', 'removed');
+insert into public.circle_members (circle_id, user_id, display_name_snapshot)
+values (pg_temp.circle_id(), '95000000-0000-0000-0000-00000000d201', 'Nic');
+
+insert into private.email_contacts (user_id, email_normalized)
+values ('95000000-0000-0000-0000-00000000d201', 'nic@example.com'),
+       ('95000000-0000-0000-0000-00000000d202', 'nic@example.com');
+
+insert into private.email_subscriptions (contact_id, user_id, scope, plan_id, consent_text_version)
+select ec.id, ec.user_id, 'plan_updates', pg_temp.plan_id(), 'v1'
+from private.email_contacts ec where ec.email_normalized = 'nic@example.com';
+
+insert into jobs.notification_jobs (channel, kind, contact_id, plan_id, plan_revision,
+  scheduled_for, idempotency_key)
+select 'email', 'locked_in', ec.id, pg_temp.plan_id(), 1, now(), repeat('d', 64)
+from private.email_contacts ec
+where ec.email_normalized = 'nic@example.com'
+  and ec.user_id = '95000000-0000-0000-0000-00000000d201';
+
+select is(
+  public.claim_identity('95000000-0000-0000-0000-00000000d202',
+                        '95000000-0000-0000-0000-00000000d201', 'settings'),
+  1,
+  'two consents to one plan at one address do not roll the whole claim back'
+);
+
+select is(
+  (select count(*)::integer from private.email_contacts ec
+   where ec.email_normalized = 'nic@example.com'),
+  1,
+  'one contact for the address'
+);
+
+select is(
+  (select count(*)::integer from private.email_subscriptions sub
+   join private.email_contacts ec on ec.id = sub.contact_id
+   where ec.email_normalized = 'nic@example.com' and sub.plan_id = pg_temp.plan_id()),
+  1,
+  'and one consent for the plan, rather than a unique violation'
+);
+
+select is(
+  (select job.contact_id from jobs.notification_jobs job
+   where job.idempotency_key = repeat('d', 64)),
+  (select ec.id from private.email_contacts ec where ec.email_normalized = 'nic@example.com'),
+  'the queued message was re-pointed, not cascaded away — an email job has no user_id to follow'
+);
+
+select is(
+  (select count(*)::integer from jobs.notification_jobs job
+   where job.idempotency_key = repeat('d', 64)),
+  1,
+  'so somebody waiting for "locked in" still gets it'
 );
 
 select pg_temp.act_as_postgres();

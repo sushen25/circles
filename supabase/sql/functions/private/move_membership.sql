@@ -150,6 +150,24 @@ begin
       -- deliberately left alone: a pending contact stays pending, so nothing is
       -- ever sent to an address this identity has not verified — the safe
       -- direction, and the one the suppression rules assume.
+      --
+      -- Consent first, and a *collision* is consent the destination already
+      -- gave: `email_subscriptions_one_per_plan_idx` is on
+      -- `(contact_id, scope, plan_id)`, so when both contacts are subscribed to
+      -- the same plan, re-pointing the second one onto the first violates it and
+      -- rolls the whole claim back. The surviving row is the destination's,
+      -- because it belongs to the identity that persists; the duplicate is
+      -- dropped rather than merged, since two consents to one plan at one address
+      -- say nothing different from one.
+      delete from private.email_subscriptions sub
+      where sub.contact_id = contact.id
+        and exists (
+          select 1 from private.email_subscriptions kept
+          where kept.contact_id = destination_contact
+            and kept.scope = sub.scope
+            and kept.plan_id is not distinct from sub.plan_id
+        );
+
       update private.email_subscriptions sub
       set contact_id = destination_contact, user_id = p_to
       where sub.contact_id = contact.id;
@@ -157,6 +175,16 @@ begin
       update private.email_action_tokens tok
       set contact_id = destination_contact
       where tok.contact_id = contact.id;
+
+      -- Mail already queued for this address. An email job names a *contact* and
+      -- carries no `user_id` at all (the recipient check in 0006 forbids both at
+      -- once), so the `user_id` update further down cannot save it — and
+      -- `notification_jobs_contact_fkey` is `on delete cascade`, which means the
+      -- delete below would take every unsent message with it. Silently: somebody
+      -- waiting for "locked in" would simply never get it.
+      update jobs.notification_jobs job
+      set contact_id = destination_contact
+      where job.contact_id = contact.id and job.sent_at is null;
 
       delete from private.email_contacts ec where ec.id = contact.id;
     else
