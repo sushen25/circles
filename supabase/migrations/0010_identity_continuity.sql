@@ -440,10 +440,12 @@ revoke all on function jobs.run_retention() from service_role;
 -- point: that one moves rows unconditionally, because the destination has no
 -- membership to collide with. This one moves only into the gaps.
 --
--- `email_contacts` is deliberately absent. The duplicate's contact stays with the
--- identity being retired, whose membership is about to be `removed` and therefore
--- ineligible for any notification — so the subscription goes quiet on its own,
--- without this function having to reconcile two consents at one address.
+-- The address is reconciled too, through the same `private.reconcile_contacts`
+-- the move path uses. Leaving the duplicate's contact behind was the first
+-- version of this, on the reasoning that a removed membership is ineligible for
+-- notification anyway — but it also leaves any emailed `/a/<token>` link bound to
+-- a membership that no longer exists, and an email already sent is not ours to
+-- break (spec §5.1).
 -- ---------------------------------------------------------------------------
 
 create or replace function private.adopt_membership_rows(
@@ -534,6 +536,8 @@ begin
       where kept.user_id = p_to and kept.moment = n.moment
         and kept.plan_id is not distinct from n.plan_id
     );
+
+  perform private.reconcile_contacts(p_circle_id, p_from, p_to);
 end;
 $$;
 
@@ -542,6 +546,37 @@ comment on function private.adopt_membership_rows(uuid, uuid, uuid) is
 
 revoke all on function private.adopt_membership_rows(uuid, uuid, uuid) from public;
 revoke all on function private.adopt_membership_rows(uuid, uuid, uuid) from anon, authenticated;
+
+-- supabase/sql/functions/private/enforce_reentry_for_guests.sql
+-- And the owner is a guest. A saved-place member signs in; a re-entry link
+-- for them would be a sign-in bypass, so it is refused at issue rather than
+-- trusted at consumption.
+
+create or replace function private.enforce_reentry_for_guests()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  -- A spent token is history, not a bypass. The rule here is about *issuing* one
+  -- — "refused at issue rather than trusted at consumption", as the header says —
+  -- and a membership that becomes a saved place drags its tokens along by
+  -- cascade, which used to trip this and take the whole merge with it. The
+  -- alternative was deleting them, and that left an emailed `/a/<token>` link
+  -- answering `token_invalid` instead of offering the account's sign-in, which is
+  -- the third outcome §10 asks for.
+  if new.purpose = 'reentry' and new.used_at is null and exists (
+    select 1 from public.profiles p
+    where p.user_id = new.membership_user_id and p.is_permanent
+  ) then
+    raise exception 'reentry_token_for_permanent_identity' using errcode = 'check_violation';
+  end if;
+  return new;
+end;
+$$;
+
+revoke all on function private.enforce_reentry_for_guests() from public;
+revoke all on function private.enforce_reentry_for_guests() from anon, authenticated;
 
 -- supabase/sql/functions/private/move_membership.sql
 -- ---------------------------------------------------------------------------
@@ -578,26 +613,27 @@ language plpgsql
 security definer
 set search_path = ''
 as $$
-declare
-  contact record;
-  destination_contact uuid;
 begin
   -- A re-entry token is a guest's way back in *without* signing in, which is why
   -- `enforce_reentry_for_guests` refuses to issue one against a saved place. When
-  -- a membership becomes a saved-place member's, any token bound to it has to go
-  -- for exactly that reason — and it has to go *first*, because
-  -- `email_action_tokens.membership_user_id` follows `circle_members` by cascade
-  -- and the trigger fires on that update, refusing the whole move.
+  -- a membership becomes a saved-place member's, any live token bound to it has to
+  -- stop working for exactly that reason — and before the membership moves,
+  -- because `email_action_tokens.membership_user_id` follows `circle_members` by
+  -- cascade.
   --
-  -- Deleted rather than marked spent: the trigger watches every update of the
-  -- column, so a spent row would be carried across and refused just the same.
-  -- Nothing is lost — a token that matches no row is already `token_invalid`.
+  -- **Spent, not deleted.** Deleting it left an emailed `/a/<token>` link
+  -- answering `token_invalid`, when §10 asks for a third outcome: "if the
+  -- membership belongs to a permanent identity, the page offers that identity's
+  -- sign-in instead". `reattach_member` can only say that if the row is still
+  -- there to be found. Spending it is what stops it being a bypass; the trigger
+  -- allows a spent token to follow the membership for the same reason.
   if exists (select 1 from public.profiles p where p.user_id = p_to and p.is_permanent)
     or exists (
       select 1 from auth.users u where u.id = p_to and not coalesce(u.is_anonymous, false)
     )
   then
-    delete from private.email_action_tokens t
+    update private.email_action_tokens t
+    set used_at = coalesce(t.used_at, now())
     where t.purpose = 'reentry'
       and t.membership_circle_id = p_circle_id
       and t.membership_user_id = p_from;
@@ -658,18 +694,68 @@ begin
   where p_from = any (mc.available_user_ids)
     and mc.plan_id in (select p.id from public.plans p where p.circle_id = p_circle_id);
 
-  -- The member's own email contact, where one is tied to this circle. It has to
-  -- come along: a re-entry token's `(contact_id, membership_user_id)` pair is
-  -- checked against `email_contacts (id, user_id)` at commit, so a contact left
-  -- behind fails the deferred constraint and takes the whole move with it.
-  --
-  -- **Merged, not moved**, when the destination already holds that address.
-  -- Uniqueness is `(email_hash, user_id)` (0009), so moving would collide and
-  -- roll back everything above it — and the architecture's table for
-  -- `email_action_tokens` says so in as many words: "It must **merge** rather
-  -- than move the *contact*". The case is ordinary rather than exotic: a guest
-  -- asks for plan-update email at an address, then saves their place and turns
-  -- out to have an account at the same address.
+  -- The address this membership is reachable at, and everything hanging off it.
+  -- In `private.reconcile_contacts`, shared with `adopt_membership_rows`, because
+  -- the duplicate-merge path needs exactly the same work and having it here only
+  -- left that path stranding a retired membership's consent and links.
+  perform private.reconcile_contacts(p_circle_id, p_from, p_to);
+
+  -- Queued mail for the person, not yet sent. A job left on the old identity is
+  -- a message the dispatcher either sends to nobody or drops when retention
+  -- takes the abandoned identity with it.
+  update jobs.notification_jobs j set user_id = p_to
+  where j.user_id = p_from
+    and j.sent_at is null
+    and j.plan_id in (select p.id from public.plans p where p.circle_id = p_circle_id);
+end;
+$$;
+
+comment on function private.move_membership(uuid, uuid, uuid) is
+  'Moves one circle membership and every row scoped to it from one identity to another. Shared by reattach_member and claim_identity; decides nothing.';
+
+revoke all on function private.move_membership(uuid, uuid, uuid) from public;
+revoke all on function private.move_membership(uuid, uuid, uuid) from anon, authenticated;
+
+-- supabase/sql/functions/private/reconcile_contacts.sql
+-- ---------------------------------------------------------------------------
+-- The address a membership is reachable at, when the membership changes hands.
+--
+-- Shared by `move_membership` (the destination has no membership here) and
+-- `adopt_membership_rows` (it has one, and the duplicate is being retired),
+-- because the work is the same either way and the first version of this ticket
+-- had it in one and not the other — which left a retired duplicate's consent and
+-- its emailed links bound to a membership that no longer exists.
+--
+-- Three rules, in order of how badly getting them wrong would hurt:
+--
+--   * **Only this circle's rows move.** A contact belongs to an identity and an
+--     identity can be in several circles, so handing the contact over whole would
+--     carry another circle's consent to an identity that is not a member of it.
+--   * **A withdrawal survives a merge.** Where both identities hold consent for
+--     one plan at one address, the result is withdrawn if *either* of them is.
+--     Choosing by identity — "the destination's row is the one that persists" —
+--     discards an unsubscribe, and unsubscribing is immediate here (§14, and the
+--     Spam Act).
+--   * **Queued mail is re-pointed before anything is deleted.** An email job names
+--     a contact and carries no `user_id` at all, and
+--     `notification_jobs_contact_fkey` is `on delete cascade`: the tidy-up would
+--     otherwise take away messages somebody is waiting for, without a word.
+-- ---------------------------------------------------------------------------
+
+create or replace function private.reconcile_contacts(
+  p_circle_id uuid,
+  p_from uuid,
+  p_to uuid
+)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  contact record;
+  destination_contact uuid;
+begin
   for contact in
     select ec.id, ec.email_hash
     from private.email_contacts ec
@@ -692,13 +778,7 @@ begin
 
     if not found then
       if exists (
-        -- Ties outside this circle. One address, one identity, and an identity can
-        -- be in several circles — so handing the contact over whole would carry
-        -- another circle's consent to an identity that is not a member of it, and
-        -- leave a re-entry token for that other membership pointing at a pair that
-        -- no longer exists. "A reattachment moves a membership only within a
-        -- circle the guest already belongs to" (AGENTS.md) is about the
-        -- membership; it is just as true of what hangs off it.
+        -- Ties outside this circle, which must not travel.
         select 1 from private.email_subscriptions other
         join public.plans pl on pl.id = other.plan_id
         where other.contact_id = contact.id and pl.circle_id <> p_circle_id
@@ -720,30 +800,39 @@ begin
         where ec.id = contact.id
         returning id into destination_contact;
       else
-        -- Nothing outside this circle, and nowhere to merge into: the contact
+        -- Nothing outside this circle and nowhere to merge into: the contact
         -- itself travels, and everything hanging off it comes by cascade.
         update private.email_contacts ec set user_id = p_to where ec.id = contact.id;
         continue;
       end if;
     end if;
 
-    -- From here one rule, whichever branch arrived: **only this circle's rows
-    -- move**, onto `destination_contact`.
-    --
-    -- Consent first, and a collision is consent the destination already gave.
-    -- `email_subscriptions_one_per_plan_idx` is on `(contact_id, scope, plan_id)`,
-    -- so re-pointing a second subscription for one plan violates it and rolls the
-    -- whole move back. The destination's row survives, because it belongs to the
-    -- identity that persists; two consents to one plan at one address say nothing
-    -- different from one.
-    delete from private.email_subscriptions sub
-    where sub.contact_id = contact.id
-      and sub.plan_id in (select pl.id from public.plans pl where pl.circle_id = p_circle_id)
+    -- Consent, where the destination already has some for the same plan. The
+    -- unique index is on `(contact_id, scope, plan_id)`, so the two cannot simply
+    -- both be re-pointed — and which one survives is not a question about
+    -- identities.
+    update private.email_subscriptions kept
+    set status = 'withdrawn',
+        withdrawn_at = coalesce(kept.withdrawn_at, source.withdrawn_at, now())
+    from private.email_subscriptions source
+    where kept.contact_id = destination_contact
+      and source.contact_id = contact.id
+      and source.scope = kept.scope
+      and source.plan_id is not distinct from kept.plan_id
+      and source.plan_id in (select pl.id from public.plans pl where pl.circle_id = p_circle_id)
+      -- Either side having withdrawn makes the answer withdrawn. A merge is not a
+      -- new consent, and it must never be a way to undo an unsubscribe.
+      and 'withdrawn' in (source.status, kept.status)
+      and kept.status <> 'withdrawn';
+
+    delete from private.email_subscriptions source
+    where source.contact_id = contact.id
+      and source.plan_id in (select pl.id from public.plans pl where pl.circle_id = p_circle_id)
       and exists (
         select 1 from private.email_subscriptions kept
         where kept.contact_id = destination_contact
-          and kept.scope = sub.scope
-          and kept.plan_id is not distinct from sub.plan_id
+          and kept.scope = source.scope
+          and kept.plan_id is not distinct from source.plan_id
       );
 
     update private.email_subscriptions sub
@@ -755,42 +844,28 @@ begin
     set contact_id = destination_contact
     where tok.contact_id = contact.id and tok.membership_circle_id = p_circle_id;
 
-    -- Mail already queued for this address. An email job names a *contact* and
-    -- carries no `user_id` at all (0006 forbids both at once), so the `user_id`
-    -- update below cannot save it — and `notification_jobs_contact_fkey` is
-    -- `on delete cascade`, so the delete that follows would take every unsent
-    -- message with it. Silently: somebody waiting for "locked in" would never
-    -- get it.
     update jobs.notification_jobs job
     set contact_id = destination_contact
     where job.contact_id = contact.id
       and job.sent_at is null
       and job.plan_id in (select pl.id from public.plans pl where pl.circle_id = p_circle_id);
 
-    -- And the old row goes only once nothing points at it any more. A contact
-    -- still holding another circle's consent is that circle's, and stays.
+    -- The old row goes only once nothing points at it any more. A contact still
+    -- holding another circle's consent is that circle's, and stays.
     delete from private.email_contacts ec
     where ec.id = contact.id
       and not exists (select 1 from private.email_subscriptions sub where sub.contact_id = ec.id)
       and not exists (select 1 from private.email_action_tokens tok where tok.contact_id = ec.id)
       and not exists (select 1 from jobs.notification_jobs job where job.contact_id = ec.id);
   end loop;
-
-  -- Queued mail for the person, not yet sent. A job left on the old identity is
-  -- a message the dispatcher either sends to nobody or drops when retention
-  -- takes the abandoned identity with it.
-  update jobs.notification_jobs j set user_id = p_to
-  where j.user_id = p_from
-    and j.sent_at is null
-    and j.plan_id in (select p.id from public.plans p where p.circle_id = p_circle_id);
 end;
 $$;
 
-comment on function private.move_membership(uuid, uuid, uuid) is
-  'Moves one circle membership and every row scoped to it from one identity to another. Shared by reattach_member and claim_identity; decides nothing.';
+comment on function private.reconcile_contacts(uuid, uuid, uuid) is
+  'Moves one circle''s email consent, links and queued mail from one identity to another, merging where both hold the address. A withdrawal survives the merge.';
 
-revoke all on function private.move_membership(uuid, uuid, uuid) from public;
-revoke all on function private.move_membership(uuid, uuid, uuid) from anon, authenticated;
+revoke all on function private.reconcile_contacts(uuid, uuid, uuid) from public;
+revoke all on function private.reconcile_contacts(uuid, uuid, uuid) from anon, authenticated;
 
 -- supabase/sql/functions/public/begin_request.sql
 -- ---------------------------------------------------------------------------
@@ -1413,6 +1488,21 @@ begin
       and t.expires_at > now();
 
     if not found then
+      -- Before calling it invalid: a token whose membership has since become a
+      -- saved place is not a broken link, it is a link to an account. §10 — "if
+      -- the membership belongs to a permanent identity, the page offers that
+      -- identity's sign-in instead" — and the client can only show that if it is
+      -- told which of the two happened. Saying so to the holder of the emailed
+      -- token reveals nothing they did not already have.
+      if exists (
+        select 1
+        from private.email_action_tokens t
+        join public.profiles p on p.user_id = t.membership_user_id
+        where t.token_hash = p_reentry_token_hash and t.purpose = 'reentry' and p.is_permanent
+      ) then
+        raise exception 'target_is_permanent' using errcode = 'insufficient_privilege';
+      end if;
+
       raise exception 'token_invalid' using errcode = 'no_data_found';
     end if;
 

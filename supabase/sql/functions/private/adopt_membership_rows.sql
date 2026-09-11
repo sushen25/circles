@@ -16,10 +16,12 @@
 -- point: that one moves rows unconditionally, because the destination has no
 -- membership to collide with. This one moves only into the gaps.
 --
--- `email_contacts` is deliberately absent. The duplicate's contact stays with the
--- identity being retired, whose membership is about to be `removed` and therefore
--- ineligible for any notification — so the subscription goes quiet on its own,
--- without this function having to reconcile two consents at one address.
+-- The address is reconciled too, through the same `private.reconcile_contacts`
+-- the move path uses. Leaving the duplicate's contact behind was the first
+-- version of this, on the reasoning that a removed membership is ineligible for
+-- notification anyway — but it also leaves any emailed `/a/<token>` link bound to
+-- a membership that no longer exists, and an email already sent is not ours to
+-- break (spec §5.1).
 -- ---------------------------------------------------------------------------
 
 create or replace function private.adopt_membership_rows(
@@ -110,6 +112,8 @@ begin
       where kept.user_id = p_to and kept.moment = n.moment
         and kept.plan_id is not distinct from n.plan_id
     );
+
+  perform private.reconcile_contacts(p_circle_id, p_from, p_to);
 end;
 $$;
 

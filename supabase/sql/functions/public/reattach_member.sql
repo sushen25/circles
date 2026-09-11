@@ -97,6 +97,21 @@ begin
       and t.expires_at > now();
 
     if not found then
+      -- Before calling it invalid: a token whose membership has since become a
+      -- saved place is not a broken link, it is a link to an account. §10 — "if
+      -- the membership belongs to a permanent identity, the page offers that
+      -- identity's sign-in instead" — and the client can only show that if it is
+      -- told which of the two happened. Saying so to the holder of the emailed
+      -- token reveals nothing they did not already have.
+      if exists (
+        select 1
+        from private.email_action_tokens t
+        join public.profiles p on p.user_id = t.membership_user_id
+        where t.token_hash = p_reentry_token_hash and t.purpose = 'reentry' and p.is_permanent
+      ) then
+        raise exception 'target_is_permanent' using errcode = 'insufficient_privilege';
+      end if;
+
       raise exception 'token_invalid' using errcode = 'no_data_found';
     end if;
 

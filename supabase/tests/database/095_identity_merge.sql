@@ -7,7 +7,7 @@
 -- membership can never be moved onto somebody with a saved place.
 
 begin;
-select plan(102);
+select plan(111);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid
@@ -1219,6 +1219,140 @@ select is(
   'rather than staying on an identity that can no longer answer'
 );
 
+-- ---------------------------------------------------------------------------
+-- Round 8: three things about an address that has already been written to.
+-- ---------------------------------------------------------------------------
+select pg_temp.act_as_postgres();
+
+-- (a) An emailed link whose membership has since become a saved place is not a
+--     broken link. §10: "the page offers that identity's sign-in instead" — which
+--     the client can only do if it is told which of the two happened. Deleting the
+--     token made every such link answer `token_invalid`.
+select pg_temp.make_user('95000000-0000-0000-0000-0000000b7101'::uuid, 'Linked Guest', true);
+select pg_temp.make_user('95000000-0000-0000-0000-0000000b7102'::uuid, 'Linked Account');
+select pg_temp.make_user('95000000-0000-0000-0000-0000000b7103'::uuid, 'A Third Device', true);
+
+insert into public.circle_members (circle_id, user_id, display_name_snapshot)
+values (pg_temp.circle_id(), '95000000-0000-0000-0000-0000000b7101', 'Mo');
+
+insert into private.email_contacts (user_id, email_normalized)
+values ('95000000-0000-0000-0000-0000000b7101', 'mo@example.com');
+
+insert into private.email_action_tokens (
+  contact_id, purpose, token_hash, expires_at, membership_circle_id, membership_user_id
+)
+select ec.id, 'reentry', extensions.digest('mo-reentry', 'sha256'),
+       now() + interval '7 days', pg_temp.circle_id(), '95000000-0000-0000-0000-0000000b7101'
+from private.email_contacts ec where ec.email_normalized = 'mo@example.com';
+
+select is(
+  (select merged_memberships from public.claim_identity(
+     '95000000-0000-0000-0000-0000000b7102', '95000000-0000-0000-0000-0000000b7101', 'settings')),
+  1,
+  'saving a place with an outstanding re-entry link succeeds'
+);
+
+select isnt_empty(
+  $$ select 1 from private.email_action_tokens
+     where token_hash = extensions.digest('mo-reentry', 'sha256') $$,
+  'and the link is still on record rather than deleted'
+);
+
+select isnt_empty(
+  $$ select 1 from private.email_action_tokens
+     where token_hash = extensions.digest('mo-reentry', 'sha256') and used_at is not null $$,
+  'spent, so it is no longer a way in without signing in'
+);
+
+select pg_temp.act_as('95000000-0000-0000-0000-0000000b7103', true);
+select throws_ok(
+  format($$ select public.reattach_member(null, null, %L) $$,
+         extensions.digest('mo-reentry', 'sha256')),
+  'target_is_permanent',
+  'so following it says "this is an account now", not "this link is broken"'
+);
+
+-- (b) The duplicate-merge path reconciles the address too. Leaving the contact
+--     behind stranded its consent and its links on a membership about to be
+--     removed.
+select pg_temp.act_as_postgres();
+select pg_temp.make_user('95000000-0000-0000-0000-0000000b8101'::uuid, 'Dup Guest', true);
+select pg_temp.make_user('95000000-0000-0000-0000-0000000b8102'::uuid, 'Dup Account');
+
+insert into public.circle_members (circle_id, user_id, display_name_snapshot)
+values (pg_temp.circle_id(), '95000000-0000-0000-0000-0000000b8101', 'Ash on the train'),
+       (pg_temp.circle_id(), '95000000-0000-0000-0000-0000000b8102', 'Ash');
+
+insert into private.email_contacts (user_id, email_normalized)
+values ('95000000-0000-0000-0000-0000000b8101', 'ash@example.com');
+
+insert into private.email_subscriptions (contact_id, user_id, scope, plan_id, consent_text_version)
+select ec.id, ec.user_id, 'plan_updates', pg_temp.plan_id(), 'v1'
+from private.email_contacts ec where ec.email_normalized = 'ash@example.com';
+
+select is(
+  (select duplicates_removed from public.claim_identity(
+     '95000000-0000-0000-0000-0000000b8102', '95000000-0000-0000-0000-0000000b8101', 'settings')),
+  1,
+  'the duplicate is retired'
+);
+
+select is(
+  (select sub.user_id from private.email_subscriptions sub
+   join private.email_contacts ec on ec.id = sub.contact_id
+   where ec.email_normalized = 'ash@example.com'),
+  '95000000-0000-0000-0000-0000000b8102'::uuid,
+  'and its consent went to the membership that survived, not down with the one that did not'
+);
+
+-- (c) A withdrawal survives a merge. Choosing the surviving row by identity
+--     discarded an unsubscribe, and unsubscribing is immediate here (§14).
+select pg_temp.make_user('95000000-0000-0000-0000-0000000b9101'::uuid, 'Quiet Guest', true);
+select pg_temp.make_user('95000000-0000-0000-0000-0000000b9102'::uuid, 'Quiet Account');
+
+insert into public.circle_members (circle_id, user_id, display_name_snapshot)
+values (pg_temp.circle_id(), '95000000-0000-0000-0000-0000000b9101', 'Bo');
+
+insert into private.email_contacts (user_id, email_normalized)
+values ('95000000-0000-0000-0000-0000000b9101', 'bo@example.com'),
+       ('95000000-0000-0000-0000-0000000b9102', 'bo@example.com');
+
+-- The guest unsubscribed; the account never did.
+insert into private.email_subscriptions
+  (contact_id, user_id, scope, plan_id, consent_text_version, status, withdrawn_at)
+select ec.id, ec.user_id, 'plan_updates', pg_temp.plan_id(), 'v1', 'withdrawn', now()
+from private.email_contacts ec
+where ec.email_normalized = 'bo@example.com'
+  and ec.user_id = '95000000-0000-0000-0000-0000000b9101';
+
+insert into private.email_subscriptions (contact_id, user_id, scope, plan_id, consent_text_version)
+select ec.id, ec.user_id, 'plan_updates', pg_temp.plan_id(), 'v1'
+from private.email_contacts ec
+where ec.email_normalized = 'bo@example.com'
+  and ec.user_id = '95000000-0000-0000-0000-0000000b9102';
+
+select is(
+  (select merged_memberships from public.claim_identity(
+     '95000000-0000-0000-0000-0000000b9102', '95000000-0000-0000-0000-0000000b9101', 'settings')),
+  1,
+  'the membership moves'
+);
+
+select is(
+  (select sub.status from private.email_subscriptions sub
+   join private.email_contacts ec on ec.id = sub.contact_id
+   where ec.email_normalized = 'bo@example.com' and sub.plan_id = pg_temp.plan_id()),
+  'withdrawn',
+  'and the surviving consent is withdrawn: a merge is not a way to undo an unsubscribe'
+);
+
+select isnt_empty(
+  $$ select 1 from private.email_subscriptions sub
+     join private.email_contacts ec on ec.id = sub.contact_id
+     where ec.email_normalized = 'bo@example.com' and sub.withdrawn_at is not null $$,
+  'with the time it happened still recorded'
+);
+
 select pg_temp.act_as_postgres();
 
 -- ---------------------------------------------------------------------------
@@ -1266,9 +1400,11 @@ select bag_eq(
 select bag_eq(
   $$ select name from identity_tables where moves
      and position(split_part(name, '.', case when name like '%.%' then 2 else 1 end)
-                  in pg_get_functiondef('private.move_membership(uuid, uuid, uuid)'::regprocedure)) = 0 $$,
+                  in pg_get_functiondef('private.move_membership(uuid, uuid, uuid)'::regprocedure)
+                    || pg_get_functiondef(
+                      'private.reconcile_contacts(uuid, uuid, uuid)'::regprocedure)) = 0 $$,
   $$ select null::text where false $$,
-  'and each one that moves is actually named in move_membership'
+  'and each one that moves is named in move_membership, or in the contact reconciliation it delegates to'
 );
 
 -- There are two movers now, and the second one is the gap-filler
@@ -1276,16 +1412,17 @@ select bag_eq(
 -- a table the unconditional move handles and the duplicate merge forgets is the
 -- bug of round 6, where the answer came across and the participation did not.
 --
--- Three tables are named here as deliberately absent from the adopter, each for a
--- reason in its header: the membership row itself is *removed* rather than moved,
--- and the contact and its queued mail stay with the identity being retired, whose
--- membership is about to be ineligible for anything.
+-- Read against the adopter *and* `reconcile_contacts`, which both movers delegate
+-- the address to. One table is named as deliberately absent: the membership row
+-- itself, which a duplicate merge *removes* rather than moves.
 select bag_eq(
   $$ select name from identity_tables where moves
-     and name not in ('circle_members', 'private.email_contacts', 'jobs.notification_jobs')
+     and name not in ('circle_members')
      and position(split_part(name, '.', case when name like '%.%' then 2 else 1 end)
                   in pg_get_functiondef(
-                       'private.adopt_membership_rows(uuid, uuid, uuid)'::regprocedure)) = 0 $$,
+                       'private.adopt_membership_rows(uuid, uuid, uuid)'::regprocedure)
+                     || pg_get_functiondef(
+                       'private.reconcile_contacts(uuid, uuid, uuid)'::regprocedure)) = 0 $$,
   $$ select null::text where false $$,
   'and each one is named in adopt_membership_rows too, or excused here by name'
 );
