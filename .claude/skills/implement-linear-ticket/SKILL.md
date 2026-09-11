@@ -103,7 +103,15 @@ An adversarial review runs against the branch and the agent works the findings.
 The ticket moves to Done only after the rounds are finished **and** the founder
 merges.
 
-**The founder triggers the review**, currently with `/codex:review --base main`
+**The reviewer's own brief is a skill**: `.claude/skills/review-ticket/SKILL.md`
+holds the standards to judge against, this repo's reproduction traps, the
+severity scale and the report format. Spawn the reviewer with the `Agent` tool
+and `model: 'fable'`, tell it which PR and base and which claims to attack, and
+tell it to invoke that skill — do not retype the brief. What follows here is
+about *responding* to findings, and holds whoever produced them.
+
+**Either the founder or the agent triggers the review.** The founder uses
+`/codex:review --base main`
 from the ticket's branch — a plugin installed on their machine, not part of this
 repo, so do not assume it is available and do not try to invoke it. `/code-review`
 is the built-in alternative. What follows is about responding to findings, and
