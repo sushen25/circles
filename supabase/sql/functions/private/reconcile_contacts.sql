@@ -106,6 +106,23 @@ begin
       end if;
     end if;
 
+    -- An address this person has already verified stays verified. The split branch
+    -- copies `status` and `verified_at` "because it is the same person and the same
+    -- address", and the merge branch was re-pointing consent onto a `pending` row and
+    -- leaving it pending — so saving your place could *unverify* an address, and
+    -- retention's seven-day rule for pending contacts could then sweep the consent.
+    --
+    -- One direction only. A suppressed contact is never promoted: suppression is
+    -- global by hash (spec §9), `record_suppression` keeps it that way, and "no
+    -- automatic reactivation" is the rule.
+    update private.email_contacts kept
+    set status = 'verified', verified_at = coalesce(kept.verified_at, source.verified_at, now())
+    from private.email_contacts source
+    where kept.id = destination_contact
+      and source.id = contact.id
+      and kept.status = 'pending'
+      and source.status = 'verified';
+
     -- Consent, where the destination already has some for the same plan. The
     -- unique index is on `(contact_id, scope, plan_id)`, so the two cannot simply
     -- both be re-pointed — and which one survives is not a question about

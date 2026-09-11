@@ -8,7 +8,7 @@
 -- joining as guests — so that nothing here invents a second cast.
 
 begin;
-select plan(67);
+select plan(68);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid
@@ -374,14 +374,26 @@ select set_eq(
   $$ select unnest(proargnames) from pg_proc
      where pronamespace = 'public'::regnamespace and proname = 'guest_members_for_reattach'
        and proargmodes is not null $$,
-  $$ values ('p_short_code'), ('member_user_id'), ('display_name') $$,
-  'it returns a name and an id, and nothing that says whether they have replied'
+  $$ values ('p_short_code'), ('circle_id'), ('member_user_id'), ('display_name') $$,
+  'it returns the circle, a name and an id, and nothing that says whether they have replied'
 );
 
 select is(
   (select count(*)::integer from public.guest_members_for_reattach('zzzzzzzzzz')),
   0,
   'an unknown short code is an empty list, not an error that confirms nothing is there'
+);
+
+-- The list has to hand back everything the next call needs, because a session that
+-- has just signed in anonymously has no other way to get it: RLS shows it no circle
+-- it is not a member of, and nothing else maps a short code to an id. Asserted from
+-- the *caller's* side — the earlier tests take the circle id from a fixture, which is
+-- exactly how this went unnoticed.
+select is(
+  (select circle_id from public.guest_members_for_reattach((select short_code from fixture))
+   limit 1),
+  pg_temp.circle_id(),
+  'the list names the circle it is about, so Continue-as can actually call reattach'
 );
 
 -- ---------------------------------------------------------------------------

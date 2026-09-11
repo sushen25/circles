@@ -889,6 +889,7 @@ export type Database = {
       guest_members_for_reattach: {
         Args: { p_short_code: string }
         Returns: {
+          circle_id: string
           display_name: string
           member_user_id: string
         }[]

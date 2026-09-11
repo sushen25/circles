@@ -20,6 +20,8 @@ const state = vi.hoisted(() => ({
   answer: (_fn: string) => ({ data: null as unknown, error: null as unknown }),
   /** One entry per `getUser` call, in order: the caller first, then any token a handler checks. */
   users: [] as ({ id: string; is_anonymous: boolean } | { error: { status?: number } })[],
+  /** Every token `getUser` was actually given — the mock used to ignore its argument. */
+  tokens: [] as string[],
   served: [] as ((request: Request) => Promise<Response>)[],
   fetched: [] as string[],
 }));
@@ -31,7 +33,8 @@ vi.mock('@supabase/supabase-js', () => ({
       return Promise.resolve(state.answer(fn));
     },
     auth: {
-      getUser: () => {
+      getUser: (token: string) => {
+        state.tokens.push(token);
         const next = state.users.shift();
         if (next === undefined || 'error' in next) {
           return Promise.resolve({
@@ -56,6 +59,27 @@ vi.mock('@supabase/supabase-js', () => ({
 (globalThis as { fetch?: unknown }).fetch = (url: string) => {
   state.fetched.push(String(url));
   return Promise.resolve(new Response(JSON.stringify({ success: true })));
+};
+
+/**
+ * A circle as the row comes back. Not `null`: answering `null` made `circleDto`
+ * throw, so the handler returned 500 and six of these tests passed anyway — each
+ * asserted which RPCs were called and never looked at the response. A real-shaped
+ * row is also the only thing in the repo that exercises `circleDto` at all.
+ */
+const CIRCLE_ROW = {
+  id: '00000000-0000-4000-8000-0000000000c1',
+  name: 'Sunday Crew',
+  color: '#336699',
+  time_zone: 'Australia/Melbourne',
+  cadence: 'fortnightly',
+  short_code: 'jmhzcew29t',
+  status: 'active',
+  last_met_at: null,
+  // Columns a DTO must not carry through (§7.4: "never the raw row").
+  owner_user_id: '00000000-0000-4000-8000-000000000001',
+  creation_key: 'secret-key',
+  default_quorum: 3,
 };
 
 const CALLER = '00000000-0000-4000-8000-00000000000c';
@@ -99,6 +123,7 @@ beforeEach(() => {
   delete process.env.TURNSTILE_SECRET_KEY;
   state.rpcs = [];
   state.fetched = [];
+  state.tokens = [];
   state.users = [{ id: CALLER, is_anonymous: true }];
   state.answer = (fn) => {
     if (fn === 'begin_request') {
@@ -108,6 +133,9 @@ beforeEach(() => {
       };
     }
     if (fn === 'take_rate_token') return { data: true, error: null };
+    if (fn === 'redeem_invite' || fn === 'reattach_member') {
+      return { data: CIRCLE_ROW, error: null };
+    }
     return { data: null, error: null };
   };
 });
@@ -179,7 +207,11 @@ describe('claim-identity', () => {
       duplicates_removed: 0,
     });
     // The identity it acts on is the one the *token* resolved to, never one the body
-    // named — the body has no field for it.
+    // named — the body has no field for it. Asserted against the token the mock was
+    // actually handed, because the mock used to ignore its argument: pointing the
+    // handler at an entirely different token passed nine out of nine.
+    expect(state.tokens[0]).toBe('a.token');
+    expect(state.tokens[1]).toBe(body.anonymous_session);
     expect(called('claim_identity')[0]?.args['p_anonymous_user_id']).toBe(PREVIOUS);
   });
 });
@@ -191,9 +223,22 @@ describe('redeem-invite', () => {
     display_name: 'Priya',
   };
 
+  it('joins, and answers with a DTO rather than the row', async () => {
+    const handler = await load('redeem-invite');
+    const response = await handler(post(body));
+
+    expect(response.status).toBe(200);
+    const answered = (await response.json()) as { circle: Record<string, unknown> };
+    expect(answered.circle['name']).toBe('Sunday Crew');
+    // §7.4: "Return a DTO; never the raw row."
+    expect(answered.circle).not.toHaveProperty('owner_user_id');
+    expect(answered.circle).not.toHaveProperty('creation_key');
+    expect(answered.circle).not.toHaveProperty('default_quorum');
+  });
+
   it('sends the digest of the secret, never the secret', async () => {
     const handler = await load('redeem-invite');
-    await handler(post(body));
+    expect((await handler(post(body))).status).toBe(200);
 
     const sent = called('redeem_invite')[0]?.args['p_secret_hash'];
     expect(sent).toMatch(/^\\x[0-9a-f]{64}$/);
@@ -202,7 +247,7 @@ describe('redeem-invite', () => {
 
   it('counts the attempt against the link and the address before doing anything', async () => {
     const handler = await load('redeem-invite');
-    await handler(post(body));
+    expect((await handler(post(body))).status).toBe(200);
 
     const scopes = called('take_rate_token').map((call) => call.args['p_scope']);
     expect(scopes).toEqual(['redeem_invite', 'redeem_ip']);
@@ -231,7 +276,7 @@ describe('reattach-member', () => {
   it('hashes the re-entry token and keys a limit on it', async () => {
     const token = 'y'.repeat(43);
     const handler = await load('reattach-member');
-    await handler(post({ idempotency_key: KEY, reentry_token: token }));
+    expect((await handler(post({ idempotency_key: KEY, reentry_token: token }))).status).toBe(200);
 
     const args = called('reattach_member')[0]?.args ?? {};
     expect(args['p_reentry_token_hash']).toMatch(/^\\x[0-9a-f]{64}$/);
@@ -246,13 +291,14 @@ describe('reattach-member', () => {
 
   it('counts against the circle when the membership was chosen from the list', async () => {
     const handler = await load('reattach-member');
-    await handler(
+    const answered = await handler(
       post({
         idempotency_key: KEY,
         circle_id: '00000000-0000-4000-8000-0000000000c1',
         target_member_user_id: '00000000-0000-4000-8000-0000000000a1',
       }),
     );
+    expect(answered.status).toBe(200);
 
     const scopes = called('take_rate_token').map((call) => call.args['p_scope']);
     expect(scopes).toEqual(['reattach_ip', 'reattach_circle']);

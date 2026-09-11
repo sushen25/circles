@@ -7,7 +7,7 @@
 -- membership can never be moved onto somebody with a saved place.
 
 begin;
-select plan(133);
+select plan(136);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid
@@ -1681,6 +1681,52 @@ $$;
 select ok(
   not pg_temp.writes_to('pg_temp.only_a_comment()', 'nudge_states'),
   'a commented-out statement does not satisfy the completeness guard'
+);
+
+-- Round 13: a verified address is not unverified by signing in. The merge branch
+-- re-pointed consent onto a `pending` destination row and left it pending, so an
+-- address this person had already verified came out unverified — and retention's
+-- seven-day rule for pending contacts could then sweep the consent.
+select pg_temp.act_as_postgres();
+
+select pg_temp.make_user('95000000-0000-0000-0000-0000000e1101'::uuid, 'Verified Guest', true);
+select pg_temp.make_user('95000000-0000-0000-0000-0000000e1102'::uuid, 'Pending Account');
+
+-- In the *other* circle: this file's first circle is at `member_cap()` by now, and
+-- the cap is a rule rather than a nuisance.
+insert into public.circle_members (circle_id, user_id, display_name_snapshot)
+values (pg_temp.other_circle(), '95000000-0000-0000-0000-0000000e1101', 'Wren');
+
+insert into private.email_contacts (user_id, email_normalized, status, verified_at)
+values ('95000000-0000-0000-0000-0000000e1101', 'wren@example.com', 'verified', now());
+insert into private.email_contacts (user_id, email_normalized)
+values ('95000000-0000-0000-0000-0000000e1102', 'wren@example.com');
+
+insert into private.email_subscriptions (contact_id, user_id, scope, plan_id, consent_text_version)
+select ec.id, ec.user_id, 'plan_updates', pl.id, 'v1'
+from private.email_contacts ec, public.plans pl
+where ec.email_normalized = 'wren@example.com'
+  and ec.user_id = '95000000-0000-0000-0000-0000000e1101'
+  and pl.short_code = 'uthpen';
+
+select is(
+  (select merged_memberships from public.claim_identity(
+     '95000000-0000-0000-0000-0000000e1102', '95000000-0000-0000-0000-0000000e1101', 'settings')),
+  1,
+  'the membership moves onto the account'
+);
+
+select is(
+  (select ec.status from private.email_contacts ec
+   where ec.email_normalized = 'wren@example.com'),
+  'verified',
+  'and the address stays verified — it is the same person and the same address'
+);
+
+select isnt_empty(
+  $$ select 1 from private.email_contacts ec
+     where ec.email_normalized = 'wren@example.com' and ec.verified_at is not null $$,
+  'with a time on it, so retention does not treat it as a pending contact'
 );
 
 select pg_temp.act_as_postgres();

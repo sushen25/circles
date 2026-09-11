@@ -921,6 +921,23 @@ begin
       end if;
     end if;
 
+    -- An address this person has already verified stays verified. The split branch
+    -- copies `status` and `verified_at` "because it is the same person and the same
+    -- address", and the merge branch was re-pointing consent onto a `pending` row and
+    -- leaving it pending — so saving your place could *unverify* an address, and
+    -- retention's seven-day rule for pending contacts could then sweep the consent.
+    --
+    -- One direction only. A suppressed contact is never promoted: suppression is
+    -- global by hash (spec §9), `record_suppression` keeps it that way, and "no
+    -- automatic reactivation" is the rule.
+    update private.email_contacts kept
+    set status = 'verified', verified_at = coalesce(kept.verified_at, source.verified_at, now())
+    from private.email_contacts source
+    where kept.id = destination_contact
+      and source.id = contact.id
+      and kept.status = 'pending'
+      and source.status = 'verified';
+
     -- Consent, where the destination already has some for the same plan. The
     -- unique index is on `(contact_id, scope, plan_id)`, so the two cannot simply
     -- both be re-pointed — and which one survives is not a question about
@@ -1542,6 +1559,15 @@ grant execute on function public.finish_request(text, uuid, text, integer, jsonb
 -- Keyed by short code rather than circle id, like the link-preview route
 -- (§9.4): the short code is what the person actually has.
 --
+-- And it hands the circle id *back*, because `reattach_member` needs one and a
+-- session that has just signed in anonymously has no way to get it: RLS shows it no
+-- circle it is not a member of, and nothing else maps a code to an id. Without this
+-- the sequence §10 describes — call the list, then call `reattach-member` with what
+-- it returned — could not be completed by the client the contract is written for.
+-- The pgTAP tests missed it by passing a circle id from a `postgres`-side fixture;
+-- no client can do that. It reveals nothing: the caller already holds the code, and
+-- needs the id to make the very next call.
+--
 -- Granted to `authenticated` only, which includes an anonymous session but not
 -- the `anon` role. A visitor arriving with no session at all signs in
 -- anonymously first — the client has to do that anyway before it can reattach,
@@ -1563,7 +1589,7 @@ grant execute on function public.finish_request(text, uuid, text, integer, jsonb
 -- function the planner cannot fold into a surrounding query; the benefit is that
 -- the limit cannot be skipped by the one caller it is meant for.
 create or replace function public.guest_members_for_reattach(p_short_code text)
-returns table (member_user_id uuid, display_name text)
+returns table (circle_id uuid, member_user_id uuid, display_name text)
 language plpgsql
 security definer
 set search_path = ''
@@ -1583,7 +1609,7 @@ begin
   end if;
 
   return query
-  select m.user_id, m.display_name_snapshot
+  select m.circle_id, m.user_id, m.display_name_snapshot
   from public.circle_members m
   join public.circles c on c.id = m.circle_id
   join public.profiles p on p.user_id = m.user_id

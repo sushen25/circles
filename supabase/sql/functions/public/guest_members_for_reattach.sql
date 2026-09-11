@@ -12,6 +12,15 @@
 -- Keyed by short code rather than circle id, like the link-preview route
 -- (§9.4): the short code is what the person actually has.
 --
+-- And it hands the circle id *back*, because `reattach_member` needs one and a
+-- session that has just signed in anonymously has no way to get it: RLS shows it no
+-- circle it is not a member of, and nothing else maps a code to an id. Without this
+-- the sequence §10 describes — call the list, then call `reattach-member` with what
+-- it returned — could not be completed by the client the contract is written for.
+-- The pgTAP tests missed it by passing a circle id from a `postgres`-side fixture;
+-- no client can do that. It reveals nothing: the caller already holds the code, and
+-- needs the id to make the very next call.
+--
 -- Granted to `authenticated` only, which includes an anonymous session but not
 -- the `anon` role. A visitor arriving with no session at all signs in
 -- anonymously first — the client has to do that anyway before it can reattach,
@@ -33,7 +42,7 @@
 -- function the planner cannot fold into a surrounding query; the benefit is that
 -- the limit cannot be skipped by the one caller it is meant for.
 create or replace function public.guest_members_for_reattach(p_short_code text)
-returns table (member_user_id uuid, display_name text)
+returns table (circle_id uuid, member_user_id uuid, display_name text)
 language plpgsql
 security definer
 set search_path = ''
@@ -53,7 +62,7 @@ begin
   end if;
 
   return query
-  select m.user_id, m.display_name_snapshot
+  select m.circle_id, m.user_id, m.display_name_snapshot
   from public.circle_members m
   join public.circles c on c.id = m.circle_id
   join public.profiles p on p.user_id = m.user_id
