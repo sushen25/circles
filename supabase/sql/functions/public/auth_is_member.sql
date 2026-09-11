@@ -27,7 +27,5 @@ comment on function public.auth_is_member(uuid) is
   'True when the caller is an active member of the circle. The select policy on every circle-scoped table in the product.';
 
 revoke all on function public.auth_is_member(uuid) from public;
-grant execute on function public.auth_is_member(uuid) to anon, authenticated;
-revoke all on function public.auth_is_member(uuid) from public;
 revoke all on function public.auth_is_member(uuid) from anon, authenticated;
 grant execute on function public.auth_is_member(uuid) to anon, authenticated;

@@ -23,9 +23,12 @@ const on = (date: string, fromMin: number, toMin: number) =>
  * `jobs.daypart_summary` in SQL, because retention has to write the summary in
  * the same transaction that deletes the windows it summarises (ADR 0005,
  * ADR 0014). Two implementations of one rule is the shape this repo has been
- * bitten by, so they are pinned to the same case: the windows and the expected
- * result below are the ones `supabase/tests/database/080_retention.sql`
- * asserts against the database. Change one and the other suite fails.
+ * bitten by, so they are pinned to the same case: the same weekday and weekend
+ * days, the same clock times in the same zone, and the same expected result as
+ * `supabase/tests/database/080_retention.sql` asserts against the database.
+ * (That suite dates its fixtures 2099 so they cannot expire; these are 2026.
+ * Both are a Thursday and a Saturday in Melbourne, which is what the rule
+ * reads.) Change the rule on either side and the other suite fails.
  */
 describe('the summary SQL also has to produce', () => {
   it('a Thursday evening and a Saturday morning-into-afternoon', () => {

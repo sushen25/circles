@@ -13,11 +13,14 @@
 -- Every statement here is a `create or replace` of a function that already
 -- exists in exactly this form, so applying this migration to a database built
 -- from 0001–0007 changes nothing. That is the point: it is the seam where the
--- tree takes over, and `080`'s equivalence assertions are what prove it.
+-- tree takes over. What proves it is a snapshot — `pg_get_functiondef`, the
+-- ACL, `prosecdef`, volatility and `proconfig` for all 47 functions, taken
+-- with this migration withheld and again with it applied, and diffed. That
+-- comparison is recorded in ADR 0015 and on the pull request rather than as a
+-- pgTAP assertion, because a test inside the database cannot read this file to
+-- know what it would have replayed.
 
 -- BEGIN GENERATED: function definitions (scripts/gen-sql-functions.mjs)
-
-set check_function_bodies = off;
 
 -- supabase/sql/functions/jobs/acquire_lease.sql
 -- ---------------------------------------------------------------------------
@@ -1259,8 +1262,6 @@ comment on function public.auth_is_member(uuid) is
   'True when the caller is an active member of the circle. The select policy on every circle-scoped table in the product.';
 
 revoke all on function public.auth_is_member(uuid) from public;
-grant execute on function public.auth_is_member(uuid) to anon, authenticated;
-revoke all on function public.auth_is_member(uuid) from public;
 revoke all on function public.auth_is_member(uuid) from anon, authenticated;
 grant execute on function public.auth_is_member(uuid) to anon, authenticated;
 
@@ -2439,7 +2440,5 @@ $$;
 
 revoke all on function public.touch_updated_at() from public;
 revoke all on function public.touch_updated_at() from anon, authenticated;
-
-reset check_function_bodies;
 
 -- END GENERATED: function definitions
