@@ -124,6 +124,17 @@ exception
       raise exception 'duplicate_name' using errcode = 'unique_violation';
     end if;
     raise;
+  when check_violation then
+    -- `circle_members_name_length` is on the *canonical* form, which strips
+    -- combining marks — so a name of nothing but marks passes the request schema
+    -- (the domain normalises whitespace, not marks) and fails here. Named rather
+    -- than caught wholesale, so that the member cap and every other check keep
+    -- their own answers.
+    get stacked diagnostics violated = constraint_name;
+    if violated = 'circle_members_name_length' then
+      raise exception 'display_name_unusable' using errcode = 'check_violation';
+    end if;
+    raise;
 end;
 $$;
 

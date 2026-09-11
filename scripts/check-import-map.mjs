@@ -59,6 +59,11 @@ function deployed(file) {
 // type-only import is skipped because `verbatimModuleSyntax` erases it outright —
 // nothing is left for the bundler to resolve.
 const BARE = /(?:^|\s)(?:import|export)\s+(?!type\s)[^'"]*?from\s*['"]([^./][^'"]*)['"]/g;
+// And `import 'some-polyfill'`, which has no `from` and so matched nothing above.
+// The bundler resolves it exactly like any other, and a function that needed one
+// would have passed this check and failed the deploy — which is the single thing
+// this script exists to prevent.
+const SIDE_EFFECT = /(?:^|\s)import\s*['"]([^./][^'"]*)['"]/g;
 
 const problems = new Map();
 const scanned = [
@@ -69,7 +74,7 @@ const scanned = [
 for (const file of scanned) {
   {
     const source = readFileSync(file, 'utf8');
-    for (const [, specifier] of source.matchAll(BARE)) {
+    for (const [, specifier] of [...source.matchAll(BARE), ...source.matchAll(SIDE_EFFECT)]) {
       if (specifier.startsWith('node:')) continue;
       // A subpath import (`foo/bar`) is satisfied by a `foo/` prefix entry.
       const mapped =

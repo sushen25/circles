@@ -7,7 +7,7 @@
 -- membership can never be moved onto somebody with a saved place.
 
 begin;
-select plan(49);
+select plan(62);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid
@@ -478,6 +478,154 @@ select is(
      and r.user_id = '95000000-0000-0000-0000-0000000000a9'),
   0,
   'and removal takes its answers with it, as removal always does'
+);
+
+-- ---------------------------------------------------------------------------
+-- Round 1: the history can be a cycle.
+--
+-- A membership moves A→B; later, from the session on device A that is still
+-- perfectly valid, it moves B→A. The audit chain now loops, and the walk that
+-- counts it followed A→B→A→B with `union all` until the server gave up. The
+-- timeout below is the assertion: a regression does not fail this test slowly, it
+-- hangs the suite, and that is worth making impossible.
+-- ---------------------------------------------------------------------------
+select pg_temp.act_as_postgres();
+set local statement_timeout = '10s';
+
+select pg_temp.make_user('95000000-0000-0000-0000-00000000c0d1'::uuid, 'Cycle Owner');
+select pg_temp.make_user('95000000-0000-0000-0000-00000000c0d2'::uuid, 'Device One', true);
+select pg_temp.make_user('95000000-0000-0000-0000-00000000c0d3'::uuid, 'Device Two', true);
+select pg_temp.make_user('95000000-0000-0000-0000-00000000c0d4'::uuid, 'Device Three', true);
+
+select pg_temp.act_as('95000000-0000-0000-0000-00000000c0d1');
+create temporary table cycle_fixture as
+select id as circle_id from public.create_circle('Cycle Crew', '#336699', 'Australia/Melbourne', 'cyc-1');
+
+select pg_temp.act_as_postgres();
+create or replace function pg_temp.cycle_circle() returns uuid
+language sql security definer as $$ select circle_id from cycle_fixture $$;
+
+insert into public.circle_members (circle_id, user_id, display_name_snapshot)
+values (pg_temp.cycle_circle(), '95000000-0000-0000-0000-00000000c0d2', 'Nic');
+
+select pg_temp.act_as('95000000-0000-0000-0000-00000000c0d3', true);
+select lives_ok(
+  $$ select public.reattach_member(pg_temp.cycle_circle(), '95000000-0000-0000-0000-00000000c0d2') $$,
+  'the membership moves to the second device'
+);
+
+-- And back again, from the first device, whose session never stopped working.
+select pg_temp.act_as('95000000-0000-0000-0000-00000000c0d2', true);
+select lives_ok(
+  $$ select public.reattach_member(pg_temp.cycle_circle(), '95000000-0000-0000-0000-00000000c0d3') $$,
+  'and back to the first, which is what makes the history a loop'
+);
+
+select pg_temp.act_as('95000000-0000-0000-0000-00000000c0d4', true);
+select lives_ok(
+  $$ select public.reattach_member(pg_temp.cycle_circle(), '95000000-0000-0000-0000-00000000c0d2') $$,
+  'a third move terminates instead of walking the loop for ever'
+);
+
+select pg_temp.act_as('95000000-0000-0000-0000-00000000c0d3', true);
+select throws_ok(
+  $$ select public.reattach_member(pg_temp.cycle_circle(), '95000000-0000-0000-0000-00000000c0d4') $$,
+  'reattach_limit',
+  'and the loop is still counted as three moves, not as two or as infinity'
+);
+
+-- ---------------------------------------------------------------------------
+-- Round 1: the email contact is merged, not moved.
+--
+-- A guest asks for plan-update email at an address, then saves their place and
+-- turns out to have an account at the same address. Uniqueness is
+-- `(email_hash, user_id)`, so moving the contact collided and rolled back the
+-- whole merge — the architecture's own table for `email_action_tokens` says this
+-- must merge, and SUS-75 left the note there.
+-- ---------------------------------------------------------------------------
+select pg_temp.act_as_postgres();
+
+select pg_temp.make_user('95000000-0000-0000-0000-0000000000e5'::uuid, 'Jess Guest', true);
+select pg_temp.make_user('95000000-0000-0000-0000-0000000000e6'::uuid, 'Jess Saved');
+
+insert into public.circle_members (circle_id, user_id, display_name_snapshot)
+values (pg_temp.circle_id(), '95000000-0000-0000-0000-0000000000e5', 'Jess');
+
+-- Both identities hold the same address: the guest through the plan, the account
+-- from before.
+insert into private.email_contacts (user_id, email_normalized)
+values ('95000000-0000-0000-0000-0000000000e5', 'jess@example.com'),
+       ('95000000-0000-0000-0000-0000000000e6', 'jess@example.com');
+
+insert into private.email_subscriptions (contact_id, user_id, scope, plan_id, consent_text_version)
+select ec.id, ec.user_id, 'plan_updates', pg_temp.plan_id(), 'v1'
+from private.email_contacts ec
+where ec.user_id = '95000000-0000-0000-0000-0000000000e5';
+
+select is(
+  public.claim_identity('95000000-0000-0000-0000-0000000000e6',
+                        '95000000-0000-0000-0000-0000000000e5', 'after_answer'),
+  1,
+  'the membership moves even though both identities hold the address'
+);
+
+select is(
+  (select count(*)::integer from private.email_contacts ec
+   where ec.email_normalized = 'jess@example.com'),
+  1,
+  'one contact for the address, not two'
+);
+
+select is(
+  (select ec.user_id from private.email_contacts ec
+   where ec.email_normalized = 'jess@example.com'),
+  '95000000-0000-0000-0000-0000000000e6'::uuid,
+  'and it is the one the saved place already owned'
+);
+
+select is(
+  (select s.user_id from private.email_subscriptions s where s.plan_id = pg_temp.plan_id()),
+  '95000000-0000-0000-0000-0000000000e6'::uuid,
+  'the consent came across to it rather than being lost'
+);
+
+select is(
+  (select ec.status from private.email_contacts ec
+   where ec.email_normalized = 'jess@example.com'),
+  'pending',
+  'and a pending contact stays pending: nothing is sent to an address this identity has not verified'
+);
+
+-- ---------------------------------------------------------------------------
+-- Round 1: `linkIdentity` is the ordinary path, and the caller must have signed in.
+-- ---------------------------------------------------------------------------
+select pg_temp.make_user('95000000-0000-0000-0000-0000000000f7'::uuid, 'Linked In Place');
+
+select is(
+  public.claim_identity('95000000-0000-0000-0000-0000000000f7',
+                        '95000000-0000-0000-0000-0000000000f7', 'settings'),
+  0,
+  'claiming with one identity on both sides merges nothing and is not an error'
+);
+
+select ok(
+  (select p.is_permanent from public.profiles p
+   where p.user_id = '95000000-0000-0000-0000-0000000000f7'),
+  'and still records the saved place, which is the whole point of the call'
+);
+
+select pg_temp.make_user('95000000-0000-0000-0000-0000000000f8'::uuid, 'Still A Guest', true);
+select throws_ok(
+  $$ select public.claim_identity('95000000-0000-0000-0000-0000000000f8',
+                                  '95000000-0000-0000-0000-0000000000f8', 'settings') $$,
+  'destination_is_not_permanent',
+  'an anonymous caller cannot mark itself permanent — that would lock it out of its own way back in'
+);
+
+select ok(
+  not (select p.is_permanent from public.profiles p
+       where p.user_id = '95000000-0000-0000-0000-0000000000f8'),
+  'and its profile is untouched'
 );
 
 -- ---------------------------------------------------------------------------

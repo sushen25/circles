@@ -1,3 +1,4 @@
+import { isValidDisplayName } from '@circles/domain';
 import { z } from 'zod';
 
 import { CircleDto } from '../dtos.js';
@@ -19,7 +20,15 @@ export const RedeemInviteRequest = Mutation.extend({
   secret: z.string().min(32).max(256),
   /** Required on web, where Turnstile guards anonymous joins; absent on native. */
   turnstile_token: z.string().max(4096).optional(),
-  display_name: z.string().min(1).max(80),
+  /**
+   * The domain's own rule, not a length of its own. `z.string().min(1).max(80)`
+   * was both too lax and differently lax than `circle_members_name_length`,
+   * which is on the *canonical* form: a name of 50 characters, or of nothing but
+   * spaces, passed the schema and then tripped a check constraint the function
+   * does not map — a 500 where the client should have been told to try another
+   * name.
+   */
+  display_name: z.string().refine(isValidDisplayName, 'not a usable display name'),
 });
 export type RedeemInviteRequest = z.infer<typeof RedeemInviteRequest>;
 

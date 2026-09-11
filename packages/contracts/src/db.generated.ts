@@ -960,6 +960,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      release_request: {
+        Args: { p_function: string; p_key: string; p_user: string }
+        Returns: undefined
+      }
       replace_response: {
         Args: {
           p_plan_id: string

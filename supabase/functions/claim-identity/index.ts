@@ -31,18 +31,30 @@ Deno.serve(
         throw new Refusal('source_is_permanent', 'That session could not be confirmed.');
       }
 
-      if (!previous.isAnonymous) {
-        // Checked here as well as in SQL, because here it can be said precisely:
-        // the token verified, and the identity behind it has a saved place of its
-        // own. Merging two accounts on one caller's word is how an account is
-        // taken.
+      // The caller must actually have saved a place. Without this an anonymous
+      // session could present its *own* valid token with both ids the same and
+      // have `profiles.is_permanent` set — which would take it off every
+      // Continue-as list and make its membership unreattachable, locking the
+      // person out of their own way back in, with no sign-in anywhere in sight.
+      if (actor.isAnonymous) {
+        throw new Refusal('source_is_permanent', 'Sign in first, then save your place.');
+      }
+
+      // `linkIdentity` converts the anonymous user *in place*: same id, now
+      // permanent. So the old access token resolves to this very caller, and it
+      // resolves as non-anonymous — which means "the previous session must be
+      // anonymous" is only true when the two identities differ. Asserting it
+      // unconditionally rejected the ordinary save-your-place flow outright
+      // (§10), which is the one this endpoint exists for.
+      if (previous.userId !== actor.userId && !previous.isAnonymous) {
+        // Two saved places are two accounts. Moving memberships between them on
+        // one caller's word is how an account is taken.
         throw new Refusal('source_is_permanent', 'That session belongs to a different account.');
       }
 
-      // When the two are the same identity — `linkIdentity` on the session that
-      // is still signed in — there is nothing to merge, and the call still goes
-      // through: the database marks the profile and writes `account_claimed`
-      // once. Returning early here would be a second opinion about idempotence.
+      // Same identity means nothing to merge, and the call still goes through:
+      // the database marks the profile and writes `account_claimed` once.
+      // Returning early would be a second opinion about idempotence.
       const { data, error } = await service.rpc('claim_identity', {
         p_user_id: actor.userId,
         p_anonymous_user_id: previous.userId,

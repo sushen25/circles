@@ -35,6 +35,8 @@ const REASONS: Record<ProblemReason, { status: number; error: Problem['error'] }
   reattach_limit: { status: 429, error: 'rate_limited' },
   token_invalid: { status: 404, error: 'not_found' },
   source_is_permanent: { status: 403, error: 'forbidden' },
+  destination_is_not_permanent: { status: 403, error: 'forbidden' },
+  display_name_unusable: { status: 400, error: 'invalid_request' },
   idempotency_mismatch: { status: 409, error: 'conflict' },
   in_progress: { status: 409, error: 'conflict' },
   too_many_requests: { status: 429, error: 'rate_limited' },

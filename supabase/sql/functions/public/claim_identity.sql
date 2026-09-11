@@ -56,6 +56,19 @@ begin
       using errcode = 'invalid_parameter_value';
   end if;
 
+  -- A saved place is what is being claimed, so the destination must have one.
+  -- Without this check an anonymous caller could have its own profile marked
+  -- permanent — which takes it off every Continue-as list and makes its
+  -- membership unreattachable, locking somebody out of their own way back in
+  -- without a sign-in anywhere in the story. Read from `auth.users`, which only
+  -- the auth server writes.
+  if not exists (
+    select 1 from auth.users u
+    where u.id = p_user_id and not coalesce(u.is_anonymous, true)
+  ) then
+    raise exception 'destination_is_not_permanent' using errcode = 'insufficient_privilege';
+  end if;
+
   -- The durable record of the saved place. `handle_user_updated` sets this when
   -- the auth row stops being anonymous, which covers the `linkIdentity` case;
   -- this covers the other one, where the permanent user existed already and its

@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { ProblemReason } from '@circles/contracts';
 
 import { bearerOf } from './auth.ts';
+import { ALLOWED_REQUEST_HEADERS } from './http.ts';
 import { required } from './env.ts';
 import { sha256Hex } from './hash.ts';
 import { stableJson } from './idempotency.ts';
@@ -161,5 +162,27 @@ describe('required', () => {
     // The failure mode this replaces is a module-level `!` that turns a missing
     // secret into a function that will not boot, with the reason in a deploy log.
     expect(() => required('CIRCLES_NO_SUCH_SETTING')).toThrow(/CIRCLES_NO_SUCH_SETTING/);
+  });
+});
+
+describe('the CORS preflight', () => {
+  // A browser asks permission for every header it is about to send, and one
+  // missing name fails the whole request before the function runs. These
+  // endpoints are web-first, so this is the one list whose omission breaks the
+  // product while every server-side test passes.
+  it.each([
+    // `supabase-js` sends the publishable key in `apikey`, not in Authorization.
+    'apikey',
+    'authorization',
+    'content-type',
+    // Its own version, on every request the SDK makes.
+    'x-client-info',
+    // Sent by newer releases of the SDK.
+    'x-supabase-api-version',
+    // Ours: the reference a person reads back, and the platform Turnstile turns on.
+    'x-request-id',
+    'x-circles-platform',
+  ])('allows %s', (header) => {
+    expect(ALLOWED_REQUEST_HEADERS.split(', ')).toContain(header);
   });
 });

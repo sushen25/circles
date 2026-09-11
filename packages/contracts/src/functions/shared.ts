@@ -46,6 +46,10 @@ export const ProblemReason = z.enum([
   'token_invalid',
   /** `claim-identity`: the session being merged from is not an anonymous one. */
   'source_is_permanent',
+  /** `claim-identity`: the caller has not signed in, so there is no place to save. */
+  'destination_is_not_permanent',
+  /** `redeem-invite`: the name is empty, or too long, once whitespace is collapsed. */
+  'display_name_unusable',
   /** Any mutation: this idempotency key was used for a different body. */
   'idempotency_mismatch',
   /** Any mutation: the first attempt with this key has not finished yet. */

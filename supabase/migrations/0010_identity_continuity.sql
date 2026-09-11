@@ -406,6 +406,9 @@ language plpgsql
 security definer
 set search_path = ''
 as $$
+declare
+  contact record;
+  destination_contact uuid;
 begin
   -- A re-entry token is a guest's way back in *without* signing in, which is why
   -- `enforce_reentry_for_guests` refuses to issue one against a saved place. When
@@ -484,23 +487,56 @@ begin
     and mc.plan_id in (select p.id from public.plans p where p.circle_id = p_circle_id);
 
   -- The member's own email contact, where one is tied to this circle. It has to
-  -- move: a re-entry token's `(contact_id, membership_user_id)` pair is checked
-  -- against `email_contacts (id, user_id)` at commit, so a contact left behind
-  -- fails the deferred constraint and takes the whole move with it.
-  -- `email_subscriptions` follows by cascade.
-  update private.email_contacts ec set user_id = p_to
-  where ec.user_id = p_from
-    and (
-      exists (
-        select 1 from private.email_subscriptions s
-        join public.plans p on p.id = s.plan_id
-        where s.contact_id = ec.id and p.circle_id = p_circle_id
+  -- come along: a re-entry token's `(contact_id, membership_user_id)` pair is
+  -- checked against `email_contacts (id, user_id)` at commit, so a contact left
+  -- behind fails the deferred constraint and takes the whole move with it.
+  --
+  -- **Merged, not moved**, when the destination already holds that address.
+  -- Uniqueness is `(email_hash, user_id)` (0009), so moving would collide and
+  -- roll back everything above it — and the architecture's table for
+  -- `email_action_tokens` says so in as many words: "It must **merge** rather
+  -- than move the *contact*". The case is ordinary rather than exotic: a guest
+  -- asks for plan-update email at an address, then saves their place and turns
+  -- out to have an account at the same address.
+  for contact in
+    select ec.id, ec.email_hash
+    from private.email_contacts ec
+    where ec.user_id = p_from
+      and (
+        exists (
+          select 1 from private.email_subscriptions s
+          join public.plans p on p.id = s.plan_id
+          where s.contact_id = ec.id and p.circle_id = p_circle_id
+        )
+        or exists (
+          select 1 from private.email_action_tokens t
+          where t.contact_id = ec.id and t.membership_circle_id = p_circle_id
+        )
       )
-      or exists (
-        select 1 from private.email_action_tokens t
-        where t.contact_id = ec.id and t.membership_circle_id = p_circle_id
-      )
-    );
+  loop
+    select ec.id into destination_contact
+    from private.email_contacts ec
+    where ec.user_id = p_to and ec.email_hash = contact.email_hash;
+
+    if found then
+      -- Consent and any outstanding link are re-pointed at the contact the
+      -- destination already owns, and the duplicate row goes. Its `status` is
+      -- deliberately left alone: a pending contact stays pending, so nothing is
+      -- ever sent to an address this identity has not verified — the safe
+      -- direction, and the one the suppression rules assume.
+      update private.email_subscriptions sub
+      set contact_id = destination_contact, user_id = p_to
+      where sub.contact_id = contact.id;
+
+      update private.email_action_tokens tok
+      set contact_id = destination_contact
+      where tok.contact_id = contact.id;
+
+      delete from private.email_contacts ec where ec.id = contact.id;
+    else
+      update private.email_contacts ec set user_id = p_to where ec.id = contact.id;
+    end if;
+  end loop;
 
   -- Queued mail for the person, not yet sent. A job left on the old identity is
   -- a message the dispatcher either sends to nobody or drops when retention
@@ -645,6 +681,19 @@ begin
     ('after_answer', 'after_confirmed', 'after_attendance', 'settings') then
     raise exception 'claim_identity got an unknown moment'
       using errcode = 'invalid_parameter_value';
+  end if;
+
+  -- A saved place is what is being claimed, so the destination must have one.
+  -- Without this check an anonymous caller could have its own profile marked
+  -- permanent — which takes it off every Continue-as list and makes its
+  -- membership unreattachable, locking somebody out of their own way back in
+  -- without a sign-in anywhere in the story. Read from `auth.users`, which only
+  -- the auth server writes.
+  if not exists (
+    select 1 from auth.users u
+    where u.id = p_user_id and not coalesce(u.is_anonymous, true)
+  ) then
+    raise exception 'destination_is_not_permanent' using errcode = 'insufficient_privilege';
   end if;
 
   -- The durable record of the saved place. `handle_user_updated` sets this when
@@ -1015,15 +1064,23 @@ begin
   -- never seen. The audit rows form a chain — each names the identity it moved
   -- from and the one it moved to — and the membership's history is the walk
   -- backwards along it.
-  with recursive chain (from_id, to_id) as (
-    select a.metadata ->> 'from_user_id', a.metadata ->> 'to_user_id'
+  --
+  -- `union`, not `union all`, and the row's own id in the result — because the
+  -- chain can be a *cycle*. A membership moves A→B, and later, from the session
+  -- on device A that is still valid, B→A. The history then loops A→B→A→B, and
+  -- `union all` follows it until the statement is cancelled or the server runs
+  -- out of memory. `union` discards a row already in the result, so revisiting
+  -- the same audit row ends the recursion; carrying the id keeps two genuinely
+  -- separate moves between the same pair of identities counted as two.
+  with recursive chain (id, from_id, to_id) as (
+    select a.id, a.metadata ->> 'from_user_id', a.metadata ->> 'to_user_id'
     from private.audit_log a
     where a.action = 'circles.member_reattached'
       and a.resource_id = target_circle
       and a.occurred_at > now() - interval '7 days'
       and a.metadata ->> 'to_user_id' = target::text
-    union all
-    select a.metadata ->> 'from_user_id', a.metadata ->> 'to_user_id'
+    union
+    select a.id, a.metadata ->> 'from_user_id', a.metadata ->> 'to_user_id'
     from private.audit_log a
     join chain on a.metadata ->> 'to_user_id' = chain.from_id
     where a.action = 'circles.member_reattached'
@@ -1192,6 +1249,17 @@ exception
       raise exception 'duplicate_name' using errcode = 'unique_violation';
     end if;
     raise;
+  when check_violation then
+    -- `circle_members_name_length` is on the *canonical* form, which strips
+    -- combining marks — so a name of nothing but marks passes the request schema
+    -- (the domain normalises whitespace, not marks) and fails here. Named rather
+    -- than caught wholesale, so that the member cap and every other check keep
+    -- their own answers.
+    get stacked diagnostics violated = constraint_name;
+    if violated = 'circle_members_name_length' then
+      raise exception 'display_name_unusable' using errcode = 'check_violation';
+    end if;
+    raise;
 end;
 $$;
 
@@ -1201,6 +1269,50 @@ comment on function public.redeem_invite(bytea, text) is
 revoke all on function public.redeem_invite(bytea, text) from public;
 revoke all on function public.redeem_invite(bytea, text) from anon, authenticated;
 grant execute on function public.redeem_invite(bytea, text) to authenticated;
+
+-- supabase/sql/functions/public/release_request.sql
+-- ---------------------------------------------------------------------------
+-- The claim, given back.
+--
+-- `begin_request` writes an `in_flight` row before the work starts, so that a
+-- duplicate arriving mid-flight is told "not yet" rather than doing the work a
+-- second time. If the work then *fails*, that row is a lie: nothing was served,
+-- and the key now answers `in_flight` to every retry for as long as the row
+-- lives — which retention deliberately makes forever, because an unfinished row
+-- is evidence a function died.
+--
+-- The first version of this kit had no such function, and the hole it left was
+-- the one ADR 0016 exists to close: a client that asked once, was refused for a
+-- duplicate name, and asked again with a new name got `idempotency_mismatch`,
+-- and with the same name got `in_progress`. Either way it could never ask again.
+--
+-- Only an unfinished claim is released. A `done` row is an answer somebody has
+-- been given and must keep being given.
+-- ---------------------------------------------------------------------------
+
+create or replace function public.release_request(
+  p_function text,
+  p_user uuid,
+  p_key text
+)
+returns void
+language sql
+security definer
+set search_path = ''
+as $$
+  delete from jobs.idempotent_requests r
+  where r.function_name = p_function
+    and r.user_id = p_user
+    and r.key = p_key
+    and r.status = 'in_flight';
+$$;
+
+comment on function public.release_request(text, uuid, text) is
+  'Gives back an unfinished idempotency claim so a failed request can be retried. Never touches a served one.';
+
+revoke all on function public.release_request(text, uuid, text) from public;
+revoke all on function public.release_request(text, uuid, text) from anon, authenticated;
+grant execute on function public.release_request(text, uuid, text) to service_role;
 
 -- supabase/sql/functions/public/take_rate_token.sql
 -- ---------------------------------------------------------------------------

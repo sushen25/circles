@@ -2,7 +2,7 @@ import type { z } from 'zod';
 
 import { type Actor, actorFrom, bearerOf } from './auth.ts';
 import { asCaller, asService, type Db } from './db.ts';
-import { claim, record } from './idempotency.ts';
+import { claim, record, release } from './idempotency.ts';
 import { log } from './logging.ts';
 import { plainProblem, problemFor, reasonOf, Refusal } from './problem.ts';
 
@@ -37,11 +37,31 @@ interface Spec<Schema extends z.ZodType> {
   handle: (context: Handling<z.infer<Schema>>) => Promise<unknown>;
 }
 
+/**
+ * A preflight that omits one header the browser is about to send fails the whole
+ * request before the function runs at all — and `supabase-js` sends more than the
+ * obvious two. `apikey` carries the publishable key (the SDK's own documentation:
+ * "the API key is sent in the `apikey` header"), `x-client-info` its version, and
+ * newer releases add `x-supabase-api-version`. These endpoints are web-first, so
+ * getting this list wrong breaks the product in a browser while every test on the
+ * server passes.
+ */
 const CORS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, content-type, x-request-id, x-circles-platform',
+  'Access-Control-Allow-Headers': [
+    'authorization',
+    'apikey',
+    'content-type',
+    'x-client-info',
+    'x-supabase-api-version',
+    'x-request-id',
+    'x-circles-platform',
+  ].join(', '),
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
+
+/** Exported so the suite can assert against the list rather than restating it. */
+export const ALLOWED_REQUEST_HEADERS = CORS['Access-Control-Allow-Headers'];
 
 /**
  * A reference a person can read out, and nothing else. An id the client sent is
@@ -151,24 +171,46 @@ export function jsonHandler<Schema extends z.ZodType>(
         }
       }
 
-      const result = await spec.handle({
-        body: parsed.data,
-        actor,
-        caller,
-        service,
-        request,
-        requestId,
-      });
-
-      if (key !== undefined) {
-        await record(
+      let result: unknown;
+      try {
+        result = await spec.handle({
+          body: parsed.data,
+          actor,
+          caller,
           service,
-          spec.name,
-          actor.userId,
-          key as Parameters<typeof record>[3],
-          200,
-          result,
-        );
+          request,
+          requestId,
+        });
+
+        if (key !== undefined) {
+          await record(
+            service,
+            spec.name,
+            actor.userId,
+            key as Parameters<typeof record>[3],
+            200,
+            result,
+          );
+        }
+      } catch (duringWork) {
+        // The claim is given back before the failure is reported. Without this the
+        // `in_flight` row outlives the failure and answers every retry with
+        // `in_progress` — and retention keeps unfinished rows on purpose, so
+        // "every retry" means forever. A client refused for a duplicate name
+        // could then neither retry with the same body (`in_progress`) nor with a
+        // corrected one (`idempotency_mismatch`), which is the opposite of what
+        // ADR 0016 promises.
+        //
+        // Releasing must not become the error the caller sees: its own failure is
+        // swallowed, because the original is the one worth reporting.
+        if (key !== undefined) {
+          try {
+            await release(service, spec.name, actor.userId, key as Parameters<typeof release>[3]);
+          } catch {
+            /* the request already failed; this would only hide why */
+          }
+        }
+        throw duringWork;
       }
 
       log('info', {

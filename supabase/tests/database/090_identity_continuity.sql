@@ -8,7 +8,7 @@
 -- joining as guests — so that nothing here invents a second cast.
 
 begin;
-select plan(56);
+select plan(67);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid
@@ -218,6 +218,20 @@ select pg_temp.act_as('90000000-0000-0000-0000-000000000005');
 select lives_ok(
   $$ select public.redeem_invite(pg_temp.digest_of('live-secret'), 'Sam') $$,
   'a saved-place identity can redeem an invite too'
+);
+
+-- A name of nothing but combining marks (review round 1). The request schema
+-- uses the domain's rule, which normalises whitespace and not marks, so this
+-- reaches SQL — where `circle_members_name_length` is on the *canonical* form and
+-- refuses it. Mapped by name, so it is a 400 rather than the 500 it used to be.
+select pg_temp.act_as_postgres();
+select pg_temp.make_user('90000000-0000-0000-0000-0000000009fe', 'Marks Only', true);
+select pg_temp.act_as('90000000-0000-0000-0000-0000000009fe', true);
+
+select throws_ok(
+  $$ select public.redeem_invite(pg_temp.digest_of('live-secret'), E'\u0301\u0302') $$,
+  'display_name_unusable',
+  'a name that canonicalises to nothing is refused as a name, not as a server error'
 );
 
 -- ---------------------------------------------------------------------------
@@ -557,6 +571,83 @@ select throws_ok(
   '22023',
   'take_rate_token needs a positive limit and window',
   'a limit of zero is a programming error, not a permanent refusal'
+);
+
+-- A claim given back (review round 1). Without `release_request` an `in_flight`
+-- row outlived every failure, and since retention keeps unfinished rows on
+-- purpose, the key answered `in_progress` to every retry forever.
+select is(
+  (select state from public.begin_request(
+     'reattach-member', '90000000-0000-0000-0000-000000000003', 'key-failed',
+     pg_temp.digest_of('a body'))),
+  'fresh',
+  'a claim is taken before the work starts'
+);
+
+select lives_ok(
+  $$ select public.release_request('reattach-member', '90000000-0000-0000-0000-000000000003',
+                                   'key-failed') $$,
+  'and given back when the work fails'
+);
+
+select is(
+  (select state from public.begin_request(
+     'reattach-member', '90000000-0000-0000-0000-000000000003', 'key-failed',
+     pg_temp.digest_of('a body'))),
+  'fresh',
+  'so the retry is a retry, and not in_progress forever'
+);
+
+-- The case that was actually broken: refused for a duplicate name, the client
+-- asks again with a different one. Released, the key takes the new body; unreleased
+-- it answered `idempotency_mismatch` and the person could never join at all.
+select lives_ok(
+  $$ select public.release_request('reattach-member', '90000000-0000-0000-0000-000000000003',
+                                   'key-failed') $$,
+  'released again after a second failure'
+);
+
+select is(
+  (select state from public.begin_request(
+     'reattach-member', '90000000-0000-0000-0000-000000000003', 'key-failed',
+     pg_temp.digest_of('a corrected body'))),
+  'fresh',
+  'the same key with a corrected body is a fresh request, not a mismatch'
+);
+
+-- A served answer is not a claim and is never given back.
+select lives_ok(
+  $$ select public.finish_request('reattach-member', '90000000-0000-0000-0000-000000000003',
+                                  'key-failed', 200, '{"ok": true}'::jsonb) $$,
+  'once an answer is recorded'
+);
+select lives_ok(
+  $$ select public.release_request('reattach-member', '90000000-0000-0000-0000-000000000003',
+                                   'key-failed') $$,
+  'releasing it does nothing at all'
+);
+select is(
+  (select state from public.begin_request(
+     'reattach-member', '90000000-0000-0000-0000-000000000003', 'key-failed',
+     pg_temp.digest_of('a corrected body'))),
+  'done',
+  'because an answer somebody has been given has to keep being given'
+);
+
+-- The fingerprint is checked before the status, which is the right order: one key
+-- and two bodies is a client bug whether or not the first has finished, and
+-- handing back an answer to a question nobody asked would be worse than an error.
+select is(
+  (select state from public.begin_request(
+     'reattach-member', '90000000-0000-0000-0000-000000000003', 'key-failed',
+     pg_temp.digest_of('a third body'))),
+  'mismatch',
+  'and a served key asked with a different body is still a mismatch'
+);
+
+select ok(
+  not has_function_privilege('authenticated', 'public.release_request(text, uuid, text)', 'execute'),
+  'and no client can give back a claim it cannot make'
 );
 
 select pg_temp.act_as_postgres();

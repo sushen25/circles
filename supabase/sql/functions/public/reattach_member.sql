@@ -139,15 +139,23 @@ begin
   -- never seen. The audit rows form a chain — each names the identity it moved
   -- from and the one it moved to — and the membership's history is the walk
   -- backwards along it.
-  with recursive chain (from_id, to_id) as (
-    select a.metadata ->> 'from_user_id', a.metadata ->> 'to_user_id'
+  --
+  -- `union`, not `union all`, and the row's own id in the result — because the
+  -- chain can be a *cycle*. A membership moves A→B, and later, from the session
+  -- on device A that is still valid, B→A. The history then loops A→B→A→B, and
+  -- `union all` follows it until the statement is cancelled or the server runs
+  -- out of memory. `union` discards a row already in the result, so revisiting
+  -- the same audit row ends the recursion; carrying the id keeps two genuinely
+  -- separate moves between the same pair of identities counted as two.
+  with recursive chain (id, from_id, to_id) as (
+    select a.id, a.metadata ->> 'from_user_id', a.metadata ->> 'to_user_id'
     from private.audit_log a
     where a.action = 'circles.member_reattached'
       and a.resource_id = target_circle
       and a.occurred_at > now() - interval '7 days'
       and a.metadata ->> 'to_user_id' = target::text
-    union all
-    select a.metadata ->> 'from_user_id', a.metadata ->> 'to_user_id'
+    union
+    select a.id, a.metadata ->> 'from_user_id', a.metadata ->> 'to_user_id'
     from private.audit_log a
     join chain on a.metadata ->> 'to_user_id' = chain.from_id
     where a.action = 'circles.member_reattached'

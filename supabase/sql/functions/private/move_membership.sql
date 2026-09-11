@@ -32,6 +32,9 @@ language plpgsql
 security definer
 set search_path = ''
 as $$
+declare
+  contact record;
+  destination_contact uuid;
 begin
   -- A re-entry token is a guest's way back in *without* signing in, which is why
   -- `enforce_reentry_for_guests` refuses to issue one against a saved place. When
@@ -110,23 +113,56 @@ begin
     and mc.plan_id in (select p.id from public.plans p where p.circle_id = p_circle_id);
 
   -- The member's own email contact, where one is tied to this circle. It has to
-  -- move: a re-entry token's `(contact_id, membership_user_id)` pair is checked
-  -- against `email_contacts (id, user_id)` at commit, so a contact left behind
-  -- fails the deferred constraint and takes the whole move with it.
-  -- `email_subscriptions` follows by cascade.
-  update private.email_contacts ec set user_id = p_to
-  where ec.user_id = p_from
-    and (
-      exists (
-        select 1 from private.email_subscriptions s
-        join public.plans p on p.id = s.plan_id
-        where s.contact_id = ec.id and p.circle_id = p_circle_id
+  -- come along: a re-entry token's `(contact_id, membership_user_id)` pair is
+  -- checked against `email_contacts (id, user_id)` at commit, so a contact left
+  -- behind fails the deferred constraint and takes the whole move with it.
+  --
+  -- **Merged, not moved**, when the destination already holds that address.
+  -- Uniqueness is `(email_hash, user_id)` (0009), so moving would collide and
+  -- roll back everything above it — and the architecture's table for
+  -- `email_action_tokens` says so in as many words: "It must **merge** rather
+  -- than move the *contact*". The case is ordinary rather than exotic: a guest
+  -- asks for plan-update email at an address, then saves their place and turns
+  -- out to have an account at the same address.
+  for contact in
+    select ec.id, ec.email_hash
+    from private.email_contacts ec
+    where ec.user_id = p_from
+      and (
+        exists (
+          select 1 from private.email_subscriptions s
+          join public.plans p on p.id = s.plan_id
+          where s.contact_id = ec.id and p.circle_id = p_circle_id
+        )
+        or exists (
+          select 1 from private.email_action_tokens t
+          where t.contact_id = ec.id and t.membership_circle_id = p_circle_id
+        )
       )
-      or exists (
-        select 1 from private.email_action_tokens t
-        where t.contact_id = ec.id and t.membership_circle_id = p_circle_id
-      )
-    );
+  loop
+    select ec.id into destination_contact
+    from private.email_contacts ec
+    where ec.user_id = p_to and ec.email_hash = contact.email_hash;
+
+    if found then
+      -- Consent and any outstanding link are re-pointed at the contact the
+      -- destination already owns, and the duplicate row goes. Its `status` is
+      -- deliberately left alone: a pending contact stays pending, so nothing is
+      -- ever sent to an address this identity has not verified — the safe
+      -- direction, and the one the suppression rules assume.
+      update private.email_subscriptions sub
+      set contact_id = destination_contact, user_id = p_to
+      where sub.contact_id = contact.id;
+
+      update private.email_action_tokens tok
+      set contact_id = destination_contact
+      where tok.contact_id = contact.id;
+
+      delete from private.email_contacts ec where ec.id = contact.id;
+    else
+      update private.email_contacts ec set user_id = p_to where ec.id = contact.id;
+    end if;
+  end loop;
 
   -- Queued mail for the person, not yet sent. A job left on the old identity is
   -- a message the dispatcher either sends to nobody or drops when retention

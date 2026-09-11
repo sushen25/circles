@@ -85,3 +85,22 @@ export function stableJson(value: unknown): string {
     .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
   return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${stableJson(v)}`).join(',')}}`;
 }
+
+/**
+ * Gives an unfinished claim back, so a refused or failed request can be asked
+ * again. Without it the `in_flight` row written by `claim` outlives the failure
+ * and answers every retry with `in_progress`.
+ */
+export async function release(
+  db: Db,
+  fn: string,
+  userId: string,
+  key: IdempotencyKey,
+): Promise<void> {
+  const { error } = await db.rpc('release_request', {
+    p_function: fn,
+    p_user: userId,
+    p_key: key,
+  });
+  if (error !== null) throw error;
+}
