@@ -187,6 +187,7 @@ growth.nudge_shown              growth.nudge_answered         growth.account_cla
 |---|---|---|
 | Pure calculation | `packages/domain` | Candidate ranking, quorum default, deadline defaults, nudge eligibility |
 | State transition guard | `packages/domain` (pure) **and** Postgres function (authoritative) | `canTransition(plan, 'confirm', actor)`; `planning.transition_plan()` |
+| A Postgres function's definition | `supabase/sql/functions/<schema>/<name>.sql`, one file each, rendered into a migration ([ADR 0015](decisions/0015-sql-functions-live-in-one-file-each.md)) | `supabase/sql/functions/planning/transition_plan.sql` |
 | Invariant on data shape | Postgres constraints | One active confirmation per revision (partial unique index); windows 30-minute aligned (check); non-overlap (exclusion constraint) |
 | Authorisation | RLS policies + `security definer` functions with pinned `search_path` | A member selects only circles they belong to |
 | Orchestration | Edge Functions (application layer) | `confirm-meetup` validates, calls the transition function, writes the outbox, returns the DTO |
@@ -245,7 +246,11 @@ The client imports the same `packages/domain` the server uses, so the app can sh
 │   └── config/                     # brand.ts (name, domain, sender), feature flags, environment schema
 ├── supabase/
 │   ├── config.toml
-│   ├── migrations/                 # versioned SQL; the only way schema changes
+│   ├── migrations/                 # versioned SQL; the only way schema changes. Function
+│   │                               # definitions here are generated — see sql/functions
+│   ├── sql/functions/<schema>/     # one file per database function: body, comment and grants.
+│   │                               # The source of truth (ADR 0015); `pnpm gen:functions`
+│   │                               # renders them into a migration, `pnpm check` gates drift
 │   ├── seed.sql                    # three circles incl. incomplete responses and a quiet ask
 │   ├── functions/
 │   │   ├── _shared/                # auth, zod, outbox, resend, push, logging, errors

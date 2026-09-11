@@ -18,6 +18,7 @@ Short records of decisions that shape the product or the code. A new ADR is requ
 | [0012](./0012-circle-member-cap-of-twenty.md) | A circle holds up to twenty active members | accepted |
 | [0013](./0013-availability-written-only-through-replace-response.md) | A member's availability is written only through `replace_response` | accepted |
 | [0014](./0014-retention-runs-in-the-database.md) | Retention runs in the database from pg_cron, not in the dispatcher | accepted |
+| [0015](./0015-sql-functions-live-in-one-file-each.md) | A database function's definition lives in one file, generated into migrations | accepted |
 
 ## Template
 

@@ -18,6 +18,43 @@ const on = (date: string, fromMin: number, toMin: number) =>
     fromLocal(localDate(date), toMin, MELBOURNE),
   );
 
+/**
+ * The rule exists twice — here, and as `jobs.daypart_counts` /
+ * `jobs.daypart_summary` in SQL, because retention has to write the summary in
+ * the same transaction that deletes the windows it summarises (ADR 0005,
+ * ADR 0014). Two implementations of one rule is the shape this repo has been
+ * bitten by, so they are pinned to the same case: the windows and the expected
+ * result below are the ones `supabase/tests/database/080_retention.sql`
+ * asserts against the database. Change one and the other suite fails.
+ */
+describe('the summary SQL also has to produce', () => {
+  it('a Thursday evening and a Saturday morning-into-afternoon', () => {
+    const summaries = summariseDayparts(
+      [
+        response({
+          windows: [on(WEEKDAY, 17 * 60 + 30, 19 * 60 + 30), on(WEEKEND, 10 * 60, 13 * 60)],
+        }),
+      ],
+      MELBOURNE,
+    );
+
+    expect(summaries).toHaveLength(1);
+    expect(summaries[0]?.parts).toEqual([
+      'weekday_evening',
+      'weekend_morning',
+      'weekend_afternoon',
+    ]);
+    expect(summaries[0]?.counts).toEqual({
+      weekday_morning: 0,
+      weekday_afternoon: 0,
+      weekday_evening: 1,
+      weekend_morning: 1,
+      weekend_afternoon: 1,
+      weekend_evening: 0,
+    });
+  });
+});
+
 describe('dayPartOf', () => {
   it('splits the day at noon and five', () => {
     expect(dayPartOf(on(WEEKDAY, 10 * 60, 11 * 60), MELBOURNE)).toBe('weekday_morning');

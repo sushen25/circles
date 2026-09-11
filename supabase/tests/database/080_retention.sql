@@ -290,6 +290,11 @@ select is(
     "counts": {"weekday_morning": 0, "weekday_afternoon": 0, "weekday_evening": 1,
                "weekend_morning": 1, "weekend_afternoon": 1, "weekend_evening": 0}}'::jsonb,
   'but what she usually offers was written first — a Saturday 10–1 counts as morning and afternoon, as dayPartsCovered has it'
+  -- The same windows and the same expected result are asserted against
+  -- `summariseDayparts()` in packages/domain/src/availability/dayparts.test.ts.
+  -- The rule lives in two languages because retention must write the summary
+  -- in the transaction that deletes the windows; pinning both suites to one
+  -- case is what keeps the two honest.
 );
 select is(
   (select count(*)::integer from public.willing_windows w join public.plan_responses r on r.id = w.response_id
