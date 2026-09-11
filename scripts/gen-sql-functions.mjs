@@ -48,10 +48,7 @@ const CREATES = new RegExp(
   String.raw`^[ \t]*create\s+(?:or\s+replace\s+)?function\s+(${NAME})\s*\(`,
   'gim',
 );
-const VERBS = new RegExp(
-  String.raw`^[ \t]*(create\s+(?:or\s+replace\s+)?function|drop\s+function(?:\s+if\s+exists)?)\s`,
-  'gim',
-);
+const DROPS = new RegExp(String.raw`^[ \t]*drop\s+function(?:\s+if\s+exists)?\s`, 'gim');
 const NAMES = new RegExp(NAME, 'g');
 
 /**
@@ -68,26 +65,48 @@ function createdIn(sql) {
   return [...sql.matchAll(CREATES)].map((match) => normalise(match[1]));
 }
 
+/** The parameter list, by matching parentheses — defaults may contain their own. */
+function argumentsFrom(sql, open) {
+  let depth = 0;
+  for (let at = open; at < sql.length; at += 1) {
+    if (sql[at] === '(') depth += 1;
+    else if (sql[at] === ')') {
+      depth -= 1;
+      if (depth === 0) return sql.slice(open + 1, at);
+    }
+  }
+  return '';
+}
+
 /**
  * Every create and drop, in the order they appear, so a drop cannot excuse a
  * create that comes after it. A single `drop function a(…), b(…)` drops both,
  * so a drop's names are read from its whole statement rather than just the
  * first one.
+ *
+ * A create also carries its normalised parameter list, because `create or
+ * replace` of the *same* signature is a redefinition — which the history here
+ * is full of — while a different one is an overload. Only the second is
+ * ambiguous when a drop arrives.
  */
 function operations(sql) {
   const ops = [];
-  for (const match of sql.matchAll(VERBS)) {
-    if (!/^\s*drop/i.test(match[1])) {
-      const created = new RegExp(CREATES.source, 'im').exec(sql.slice(match.index));
-      if (created) ops.push({ name: normalise(created[1]), dropping: false });
-      continue;
-    }
+  for (const match of sql.matchAll(CREATES)) {
+    const open = match.index + match[0].length - 1;
+    ops.push({
+      at: match.index,
+      name: normalise(match[1]),
+      signature: normalise(argumentsFrom(sql, open)),
+      dropping: false,
+    });
+  }
+  for (const match of sql.matchAll(DROPS)) {
     const statement = sql.slice(match.index + match[0].length).split(';')[0];
     for (const name of statement.match(NAMES) ?? []) {
-      ops.push({ name: normalise(name), dropping: true });
+      ops.push({ at: match.index, name: normalise(name), dropping: true });
     }
   }
-  return ops;
+  return ops.sort((earlier, later) => earlier.at - later.at);
 }
 
 /**
@@ -163,29 +182,33 @@ export function analyse(sourceFiles, migrationFiles) {
   // appear, so "last" means last.
   const history = new Map();
   for (const [entry, sql] of migrationFiles) {
-    for (const { name, dropping } of operations(sql)) {
-      const seen = history.get(name) ?? { creates: 0, entry };
+    for (const { name, signature, dropping } of operations(sql)) {
+      const seen = history.get(name) ?? { signatures: new Set(), entry };
+      if (!dropping) seen.signatures.add(signature);
       history.set(name, {
-        creates: seen.creates + (dropping ? 0 : 1),
+        signatures: seen.signatures,
         dropping,
         entry: dropping ? seen.entry : entry,
       });
     }
   }
-  for (const [name, { creates, dropping, entry }] of history) {
+  for (const [name, { signatures, dropping, entry }] of history) {
     if (sources.has(name)) continue;
     if (!dropping) {
       problems.push(
         `${name} is defined in ${entry} but has no file under supabase/sql/functions/. ` +
           'Move the definition there and run `pnpm gen:functions`.',
       );
-    } else if (creates > 1) {
-      // The tree is keyed by name, so it cannot hold two signatures, and this
-      // script cannot tell which one a `drop` removed. Rather than guess in
-      // the permissive direction, say so.
+    } else if (signatures.size > 1) {
+      // Overloads only. A name created repeatedly with one signature is a
+      // redefinition, and a drop ends it cleanly. Two signatures and a drop is
+      // genuinely ambiguous — the tree is keyed by name and cannot hold both,
+      // and this script cannot tell which one went — so it says so rather than
+      // guessing in the permissive direction.
       problems.push(
-        `${name} was created ${creates} times and then dropped; with overloads this script ` +
-          'cannot tell which signature survives. Give the surviving one a file, or drop them all.',
+        `${name} has ${signatures.size} signatures in the migrations and was then dropped; ` +
+          'the tree is keyed by name and cannot say which survives. Give the surviving one a ' +
+          'file, or drop them all.',
       );
     }
   }
@@ -359,7 +382,36 @@ const CASES = [
           'drop function public.u(text);\n',
       ],
     ]),
-    expect: 'cannot tell which signature survives',
+    expect: 'cannot say which survives',
+  },
+  {
+    // The history here is full of these: transition_plan was `create or
+    // replace`d three times with one signature. Dropping it is unambiguous,
+    // and the guard must not ask for a survivor that cannot exist.
+    label: 'while one signature redefined and then dropped is simply gone',
+    files: clean(),
+    migrations: new Map([
+      [
+        '0009_redefined.sql',
+        'create or replace function public.u(a uuid)\ncreate or replace function public.u(\n  a uuid\n)\n' +
+          'drop function public.u(uuid);\n',
+      ],
+    ]),
+  },
+  {
+    label: 'one function in two files',
+    files: new Map([
+      [FILE, sample()],
+      ['supabase/sql/functions/public/example_copy.sql', sample()],
+    ]),
+    migrations: new Map(),
+    expect: 'is defined in two files',
+  },
+  {
+    label: 'authenticated alone left undecided',
+    files: new Map([[FILE, sample().replace('from anon, authenticated;', 'from anon;')]]),
+    migrations: new Map(),
+    expect: 'authenticated is neither revoked nor granted',
   },
 ];
 

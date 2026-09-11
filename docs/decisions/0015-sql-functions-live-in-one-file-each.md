@@ -55,14 +55,17 @@ This is the third generator on the same pattern: `gen-transitions.mjs` renders
 the state machine from `packages/domain`, `gen-events.mjs` the event catalogue
 and the forbidden-key list. A rule with two copies gets a generator.
 
-Two of them now meet, and the order matters. `jobs.carries_content` — the
-function that refuses a payload carrying a name, an address or a token — has
-`FORBIDDEN_PAYLOAD_KEYS` rendered into its body, so `gen-events.mjs` writes
-into the tree as well as into the migration that first created the function,
-and `gen:functions` runs after it. Writing only the migration would have let a
-new forbidden key be added, pass `check:events`, and then be silently reverted
-by the functions migration on every fresh database, with nothing in `pnpm
-check` noticing: the generated block belongs wherever the live definition is.
+Two of them now meet, and it settles where a generated block belongs.
+`jobs.carries_content` — the function that refuses a payload carrying a name,
+an address or a token — has `FORBIDDEN_PAYLOAD_KEYS` rendered into its body.
+`gen-events.mjs` therefore writes that block into the **tree file**, not into
+the migration that first created the function, and `gen:functions` carries it
+onward. Writing the migration instead would have let a new forbidden key be
+added, pass `check:events`, and then be silently reverted by the functions
+migration on every fresh database, with nothing in `pnpm check` noticing — and
+writing both would mean editing a shipped migration the first time the list
+changed after release. A generated block belongs wherever the live definition
+is, and for a function that is now the tree.
 
 Migrations `0001`–`0007` are not edited. They are history, and `0002`/`0003`
 have shipped. `0008` re-creates every function from the tree, which is the seam

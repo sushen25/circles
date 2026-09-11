@@ -10,18 +10,23 @@
 //   pnpm check:events    fail if they no longer match
 //
 // The two lists have different homes, because they are enforced in different
-// kinds of thing. The event names are a **table constraint** on `jobs.outbox`,
-// so they live in the migration that creates the table. The fragments are the
-// body of **`jobs.carries_content`**, and a function's definition lives in
-// `supabase/sql/functions/` (ADR 0015) — which is the copy a database actually
-// ends up with, because `0008` re-creates every function from the tree after
-// this migration has run. Writing only the migration would let a new fragment
-// be added, checked, and then silently reverted.
+// kinds of thing, and each is written in exactly one place.
 //
-// **Once this migration has shipped**, a change to the event names means a new
+// The event names are a **table constraint** on `jobs.outbox`, so they live in
+// the migration that creates the table — `MIGRATION` below.
+//
+// The fragments are the body of **`jobs.carries_content`**, and a function's
+// definition lives in `supabase/sql/functions/` (ADR 0015). That is the copy a
+// database ends up with, because the functions migration re-creates every
+// function from the tree after this one has run, so the tree is the only place
+// worth writing. `0006` contains an older copy of the block, markers and all,
+// from when the function was first created; it is history and is deliberately
+// not regenerated. Do not edit it, and do not trust it — read the tree.
+//
+// **Once `MIGRATION` has shipped**, a change to the event names means a new
 // migration that replaces the constraint, and `MIGRATION` moves to it. The
-// fragments need no new migration: the tree is regenerated into whichever
-// functions migration is current.
+// fragments need no new migration at all: the tree is rendered into whichever
+// functions migration is current, by `gen-sql-functions.mjs`.
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -57,9 +62,8 @@ const BLOCKS = [
   {
     begin: '-- BEGIN GENERATED: forbidden key fragments (scripts/gen-events.mjs)',
     end: '-- END GENERATED: forbidden key fragments',
-    // Both homes: the migration that first created the function, and the tree
-    // file that is now its definition. See the header.
-    files: [MIGRATION, CARRIES_CONTENT],
+    // The tree only. `0006`'s copy is the historical one — see the header.
+    files: [CARRIES_CONTENT],
     render: () => `    array[${FORBIDDEN_PAYLOAD_KEYS.map((k) => `'${k}'`).join(', ')}]`,
   },
 ];
