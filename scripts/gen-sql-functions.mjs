@@ -37,7 +37,12 @@ const END = '-- END GENERATED: function definitions';
 
 /** `create or replace function public.foo(` → `public.foo`, args on any line. */
 const DEFINES = /^create or replace function\s+([A-Za-z_][\w.]*)\s*\(/gm;
-const DROPS = /^drop function(?: if exists)?\s+([A-Za-z_][\w.]*)\s*\(/gm;
+/**
+ * Creates and drops in one pass, so their order is the order they appear.
+ * Scanning for each separately would let a drop anywhere in history excuse a
+ * create anywhere else — including a later one.
+ */
+const OPS = /^(create or replace function|drop function(?: if exists)?)\s+([A-Za-z_][\w.]*)\s*\(/gm;
 
 function namesIn(sql, pattern) {
   return [...sql.matchAll(pattern)].map((match) => match[1]);
@@ -102,14 +107,19 @@ export function analyse(sourceFiles, migrationFiles) {
 
   // Nothing may be defined in a migration and left unfiled, or the next
   // ticket adds a function the old way and the tree quietly stops being true.
-  const dropped = new Set();
-  const inMigrations = new Map();
+  //
+  // What matters is each function's *last* word: created and later dropped
+  // needs no file, but dropped and later created again does. Migrations are
+  // read in filename order and each file's statements in the order they
+  // appear, so "last" means last.
+  const latest = new Map();
   for (const [entry, sql] of migrationFiles) {
-    for (const name of namesIn(sql, DEFINES)) inMigrations.set(name, entry);
-    for (const name of namesIn(sql, DROPS)) dropped.add(name);
+    for (const [, verb, name] of sql.matchAll(OPS)) {
+      latest.set(name, { dropped: verb.startsWith('drop'), entry });
+    }
   }
-  for (const [name, entry] of inMigrations) {
-    if (!sources.has(name) && !dropped.has(name)) {
+  for (const [name, { dropped, entry }] of latest) {
+    if (!dropped && !sources.has(name)) {
       problems.push(
         `${name} is defined in ${entry} but has no file under supabase/sql/functions/. ` +
           'Move the definition there and run `pnpm gen:functions`.',
@@ -189,13 +199,44 @@ export function selfTest() {
       true,
     ],
     [
-      'unless that migration also drops it',
+      'unless a later migration drops it',
       new Map([[path, sample()]]),
       new Map([
         ['0009_new.sql', 'create or replace function public.unfiled(a uuid)\n'],
         ['0010_gone.sql', 'drop function public.unfiled(uuid);\n'],
       ]),
       false,
+    ],
+    [
+      'created and dropped within one migration',
+      new Map([[path, sample()]]),
+      new Map([
+        [
+          '0009_both.sql',
+          'create or replace function public.unfiled(a uuid)\ndrop function public.unfiled(uuid);\n',
+        ],
+      ]),
+      false,
+    ],
+    [
+      'but a drop does not excuse a later create',
+      new Map([[path, sample()]]),
+      new Map([
+        ['0009_gone.sql', 'drop function public.unfiled(uuid);\n'],
+        ['0010_back.sql', 'create or replace function public.unfiled(a uuid)\n'],
+      ]),
+      true,
+    ],
+    [
+      'nor one recreated further down the same migration',
+      new Map([[path, sample()]]),
+      new Map([
+        [
+          '0009_churn.sql',
+          'drop function public.unfiled(uuid);\ncreate or replace function public.unfiled(a uuid)\n',
+        ],
+      ]),
+      true,
     ],
   ];
 
