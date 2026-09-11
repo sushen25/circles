@@ -895,7 +895,9 @@ select is(
      -- only one: a member's answer goes through it or not at all (ADR 0013).
      and p.proname not in (
        'auth_is_member', 'auth_is_owner', 'auth_is_permanent', 'create_circle',
-       'canonical_display_name', 'replace_response'
+       'canonical_display_name', 'replace_response',
+       -- `report_outcome` (S1-10) is the outcome write path.
+       'report_outcome'
      )),
   '',
   'only the intended functions in public are callable by authenticated'
