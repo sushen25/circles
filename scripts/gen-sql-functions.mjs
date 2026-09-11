@@ -29,10 +29,17 @@
 // rule the other two generators carry.
 import { readFileSync, writeFileSync, readdirSync, statSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { dirname, join, relative, sep } from 'node:path';
+import { basename, dirname, join, relative, sep } from 'node:path';
 
-import { BEGIN, END, analyse, priorRenderings, render } from './sql-functions-rules.mjs';
-import { CASES, selfTest } from './sql-functions-cases.mjs';
+import {
+  BEGIN,
+  END,
+  analyse,
+  migrationsFor,
+  priorRenderings,
+  render,
+} from './sql-functions-rules.mjs';
+import { CLAIMS, selfTest } from './sql-functions-cases.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SOURCE = join(root, 'supabase/sql/functions');
@@ -63,22 +70,17 @@ function main() {
     }
   }
 
-  // Every migration, including the one being written: a hand-written
-  // definition is likeliest to land in *that* file, and leaving it out of the
-  // rules meant the one migration a developer is actually editing was the one
-  // nobody checked. Only the comparison that decides what to re-emit excludes
-  // it, because a block cannot be diffed against itself.
-  const migrationFiles = new Map(
-    readdirSync(MIGRATIONS)
-      .sort()
-      .filter((entry) => entry.endsWith('.sql'))
-      .map((entry) => [entry, readFileSync(join(MIGRATIONS, entry), 'utf8')]),
-  );
-  const earlier = new Map(
-    [...migrationFiles].filter(([entry]) => join(MIGRATIONS, entry) !== MIGRATION),
+  const { checked, earlier } = migrationsFor(
+    new Map(
+      readdirSync(MIGRATIONS)
+        .sort()
+        .filter((entry) => entry.endsWith('.sql'))
+        .map((entry) => [entry, readFileSync(join(MIGRATIONS, entry), 'utf8')]),
+    ),
+    basename(MIGRATION),
   );
 
-  const { problems, sources } = analyse(walk(SOURCE), migrationFiles);
+  const { problems, sources } = analyse(walk(SOURCE), checked);
 
   if (problems.length > 0) {
     console.error(`${checking ? 'check' : 'gen'}:functions:\n`);
@@ -108,7 +110,7 @@ function main() {
     }
     console.log(
       `check:functions: ok (${sources.size} functions, ${changed.length} carried by ` +
-        `${relative(root, MIGRATION)}, ${CASES.length} rules proven)`,
+        `${relative(root, MIGRATION)}, ${CLAIMS} rules proven)`,
     );
     process.exit(0);
   }

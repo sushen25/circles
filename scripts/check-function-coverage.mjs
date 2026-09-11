@@ -91,6 +91,9 @@ function startCounting() {
     query('select pg_stat_reset()', admin);
     return true;
   } catch (reason) {
+    // The pause is the second of three steps, so a failure in the third leaves
+    // cron off. Put it back before doing anything else.
+    stopCounting();
     const message = `check:function-coverage: coverage could not be measured — ${reason.message}`;
     if (process.env.CI !== undefined) {
       console.error(message);
@@ -104,9 +107,15 @@ function startCounting() {
 
 /**
  * Cron is the database's, not this script's: give back exactly what was taken,
- * and give it back however this run ends. Without the signal handler, a Ctrl-C
- * during the suites left `process-jobs` disabled until the next `db reset`, and
- * the only sign was scheduled work silently never firing.
+ * and give it back however this run ends — a Ctrl-C during the suites used to
+ * leave `process-jobs` disabled until the next `db reset`, with scheduled work
+ * silently never firing and nothing to say why.
+ *
+ * Note what actually does the putting back. `spawnSync` blocks the event loop,
+ * so the signal handler's *body* does not run while the suites are going; what
+ * the handler buys is that the signal does not kill node on its default
+ * disposition, so control reaches the call below. Moving the restore into the
+ * handler would look tidier and would not work.
  */
 function stopCounting() {
   if (pausedJobs.length === 0) return;
@@ -139,7 +148,7 @@ const tests = spawnSync('corepack', ['pnpm', 'exec', 'supabase', 'test', 'db'], 
   cwd: root,
   stdio: 'inherit',
 });
-if (tracking) stopCounting();
+stopCounting();
 if (tests.status !== 0) process.exit(tests.status ?? 1);
 if (!tracking) process.exit(0);
 
@@ -191,6 +200,11 @@ if (newlyUnreached.length > 0) {
     '\nEither reach them from a test in supabase/tests/database/, or — if one is genuinely ' +
       'dead — delete it. Adding it to supabase/tests/function-coverage.txt is the last resort ' +
       'and wants a reason beside it.',
+  );
+  console.error(
+    '\nOne false alarm to know about: Postgres does not count a `language sql` function the ' +
+      'planner has inlined, which it may do when the function has no `security definer` and no ' +
+      '`set` clause. If one of these is plainly called by a test, that is why.',
   );
   process.exit(1);
 }
