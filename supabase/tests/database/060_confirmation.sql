@@ -6,7 +6,7 @@
 -- database's — and the rest is tested as the people who use it.
 
 begin;
-select plan(51);
+select plan(57);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid language sql as $$
@@ -282,6 +282,26 @@ select lives_ok(
   'while a mis-tap on the WasThere screen can be corrected'
 );
 
+-- A removed member cannot write attendance — and by the policy, not by luck.
+-- The unqualified form is the one that matters: an `update ... where` never
+-- finds the row, but this one reaches the trigger, and until the policy said
+-- `auth_is_member` the only thing stopping it was that trigger happening to
+-- lack `security definer`.
+select pg_temp.act_as_postgres();
+update public.circle_members set status = 'removed'
+where circle_id = (select circle_id from t) and user_id = '00000000-0000-0000-0000-0000000003a3';
+select pg_temp.act_as('00000000-0000-0000-0000-0000000003a3');
+update public.attendance set status = 'going';
+select pg_temp.act_as_postgres();
+select is(
+  (select status from public.attendance
+   where confirmation_id = :'future_conf' and user_id = '00000000-0000-0000-0000-0000000003a3'),
+  'cant',
+  'an unqualified update by a removed member changes nothing'
+);
+update public.circle_members set status = 'active'
+where circle_id = (select circle_id from t) and user_id = '00000000-0000-0000-0000-0000000003a3';
+
 -- Nobody is told who came.
 select pg_temp.act_as('00000000-0000-0000-0000-0000000003a1');
 select is(
@@ -393,6 +413,40 @@ select is(
   (select last_met_at from public.circles where id = (select circle_id from t)),
   timestamptz '2020-09-17T08:30:00Z',
   'last_met_at is the confirmation''s start, not now()'
+);
+
+-- The morning-after screen is tapped on a phone. A retry whose first attempt
+-- committed must not report failure for something that worked.
+select pg_temp.act_as_postgres();
+select count(*)::integer as events_before from jobs.outbox
+where event_name = 'confirmation.outcome_reported' \gset
+select pg_temp.act_as('00000000-0000-0000-0000-0000000003a1');
+select lives_ok(
+  format($$select public.report_outcome('%s', 'happened', 'Great night')$$, :'past_conf'),
+  'the same report again succeeds, rather than failing on the unique index'
+);
+select is(
+  (select outcome from public.outcome_reports where confirmation_id = :'past_conf'),
+  'happened',
+  'and returns the report the first call wrote'
+);
+select pg_temp.act_as_postgres();
+select is(
+  (select count(*)::integer from jobs.outbox where event_name = 'confirmation.outcome_reported'),
+  :'events_before'::integer,
+  'nothing is announced twice: the insert did not happen, so the trigger did not fire'
+);
+select is(
+  (select last_met_at from public.circles where id = (select circle_id from t)),
+  timestamptz '2020-09-17T08:30:00Z',
+  'and last_met_at did not move again'
+);
+select pg_temp.act_as('00000000-0000-0000-0000-0000000003a1');
+select throws_ok(
+  format($$select public.report_outcome('%s', 'cancelled')$$, :'past_conf'),
+  '23514',
+  'outcome_already_reported',
+  'but a different answer is a change of mind, not a retry, and there is no taking it back'
 );
 
 -- And never backwards.

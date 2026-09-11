@@ -6,7 +6,7 @@
 -- later with a stray grant fails here by name.
 
 begin;
-select plan(74);
+select plan(77);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid language sql as $$
@@ -328,12 +328,26 @@ select throws_ok(
   'and a supplied hash is refused outright'
 );
 select id as contact from private.email_contacts where user_id = '00000000-0000-0000-0000-0000000004a2' \gset
+-- Spec §9: "one verified address on multiple guest memberships in one plan".
+-- Two people sharing a mailbox, or one person back from a second device, are
+-- two identities reachable at one address — so the address is unique *per
+-- identity*, not per table.
+select lives_ok(
+  $$insert into private.email_contacts (user_id, email_normalized)
+    values ('00000000-0000-0000-0000-0000000004a1', 'priya@example.com')$$,
+  'a second identity may be reachable at the same address (spec §9)'
+);
 select throws_ok(
   $$insert into private.email_contacts (user_id, email_normalized)
     values ('00000000-0000-0000-0000-0000000004a1', 'priya@example.com')$$,
   '23505',
   null,
-  'the same address twice is one contact, by hash'
+  'but one identity cannot hold it twice'
+);
+select is(
+  (select count(*)::integer from private.email_contacts where email_normalized = 'priya@example.com'),
+  2,
+  'so one address, two contacts, and neither knows about the other'
 );
 select throws_ok(
   $$insert into private.email_contacts (user_id, email_normalized)
@@ -373,6 +387,16 @@ select is(
   (select (status, suppression_reason) from private.email_contacts where id = :'reborn'),
   ('suppressed'::text, 'complained'::text),
   'the same address under another identity arrives suppressed, not pending — no verification mail, no reactivation'
+);
+-- Which is the rule that made global uniqueness look necessary. It is not:
+-- suppression is by hash in email_suppressions and applies to every identity.
+insert into private.email_contacts (user_id, email_normalized)
+values ('00000000-0000-0000-0000-0000000004a3', 'bounced@example.com')
+returning id as third \gset
+select is(
+  (select status from private.email_contacts where id = :'third'),
+  'suppressed',
+  'and so does a third identity''s — per-identity uniqueness did not make suppression per-identity'
 );
 
 select throws_ok(

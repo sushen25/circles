@@ -236,8 +236,51 @@ export function analyse(sourceFiles, migrationFiles) {
   return { problems, sources };
 }
 
-export function render(sources) {
-  return [BEGIN, ...[...sources.values()].map(({ where, sql }) => `-- ${where}\n${sql}`), END].join(
-    '\n\n',
+/** One function's contribution to a generated block: its path, then its file. */
+function chunkFor({ where, sql }) {
+  return `-- ${where}\n${sql}`;
+}
+
+/**
+ * What earlier migrations already said, chunk by chunk, in filename order — so
+ * the last word wins, as everywhere else here.
+ *
+ * This is what makes a second functions migration small. `0008` carries all 47
+ * definitions because it was the seam; every migration after it should carry
+ * only what changed, or a one-line fix to one function would be two and a half
+ * thousand lines of `create or replace` that a reviewer cannot read past.
+ */
+export function priorRenderings(migrationFiles) {
+  const prior = new Map();
+  for (const [, sql] of migrationFiles) {
+    let from = 0;
+    for (;;) {
+      const start = sql.indexOf(BEGIN, from);
+      if (start === -1) break;
+      const finish = sql.indexOf(END, start);
+      if (finish === -1) break;
+      const block = sql.slice(start + BEGIN.length, finish);
+      for (const chunk of block.split(/\n\n(?=-- supabase\/sql\/functions\/)/)) {
+        const trimmed = chunk.trim();
+        const named = /^-- (supabase\/sql\/functions\/\S+)\n/.exec(trimmed);
+        if (named) prior.set(named[1], trimmed);
+      }
+      from = finish + END.length;
+    }
+  }
+  return prior;
+}
+
+/**
+ * The generated block, and the list of what went into it: every function whose
+ * file differs from what the earlier migrations last said about it, and nothing
+ * else. A file that has not changed is already in the database from the
+ * migration that carried it, and restating it would be noise a reviewer has to
+ * read past.
+ */
+export function render(sources, prior = new Map()) {
+  const changed = [...sources.values()].filter(
+    (source) => prior.get(source.where) !== chunkFor(source),
   );
+  return { text: [BEGIN, ...changed.map(chunkFor), END].join('\n\n'), changed };
 }
