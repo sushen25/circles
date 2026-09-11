@@ -374,6 +374,57 @@ export type Database = {
           },
         ]
       }
+      nudge_states: {
+        Row: {
+          answer: string | null
+          created_at: string
+          id: string
+          moment: string
+          plan_id: string | null
+          shown_at: string
+          snoozed_until: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          answer?: string | null
+          created_at?: string
+          id?: string
+          moment: string
+          plan_id?: string | null
+          shown_at?: string
+          snoozed_until?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          answer?: string | null
+          created_at?: string
+          id?: string
+          moment?: string
+          plan_id?: string | null
+          shown_at?: string
+          snoozed_until?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nudge_states_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plan_interest_counts"
+            referencedColumns: ["plan_id"]
+          },
+          {
+            foreignKeyName: "nudge_states_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       outcome_reports: {
         Row: {
           confirmation_id: string

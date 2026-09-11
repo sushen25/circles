@@ -771,10 +771,10 @@ begin
   insert into public.circle_members (circle_id, user_id, display_name_snapshot, role)
   values (created.id, caller, caller_name, 'owner');
 
-  -- TODO(S1-11): write `circles.circle_created` and `circles.member_joined` to
-  -- `jobs.outbox` here, in this transaction. The table does not exist yet, and
-  -- `020_outbox_dependency.sql` fails the build the day it does — so this
-  -- cannot be forgotten rather than merely noted.
+  -- `circles.circle_created` and `circles.member_joined` are written to
+  -- `jobs.outbox` by the row triggers in 0006, in this transaction — on the
+  -- rows rather than here, so that every writer of a circle or a membership
+  -- announces it, not only this function.
 
   return created;
 

@@ -163,7 +163,7 @@ Context map: **Circles** is upstream of everything (membership is the authorisat
 
 ### 6.3 Domain events
 
-Emitted by aggregates, persisted in `public.domain_events` (outbox) by the same transaction that changes state, consumed by the Communication and Analytics contexts through the scheduled dispatcher. Names are past-tense, namespaced by context.
+Emitted by aggregates, persisted in `jobs.outbox` (ADR 0003) by the same transaction that changes state — through `jobs.emit()`, from row triggers for facts about rows (circle created, member joined/removed, response submitted/cleared, attendance updated, nudge shown/answered) and from `planning.transition_plan()` for transitions (`planning.event_for(from_state, action)` names the event; `candidates_gone` is bookkeeping and announces nothing — `scheduling.no_eligible_candidates` is the recalculation's, from what it found) — consumed by the Communication and Analytics contexts through the scheduled dispatcher. Names are past-tense, namespaced by context.
 
 ```text
 circles.circle_created          circles.member_joined         circles.member_removed
@@ -398,7 +398,7 @@ All ids are `uuid` (v7 where ordering helps). All tables have `created_at`, `upd
 
 | Table | Columns of note | Constraints |
 |---|---|---|
-| `meetup_confirmations` | `plan_id`, `revision`, `candidate_id`, `starts_at`, `ends_at`, `available_user_ids uuid[]` (frozen at confirm), `place_name`, `place_url`, `note`, `chased_answer` (`none|one|more`, asked on the confirmation review), `confirmed_by`, `confirmed_at`, `status` (`active|superseded|cancelled|completed`), `superseded_at`, `superseded_reason` (`reopen|cancel|outcome`) | one `active` per `(plan_id, revision)` (partial unique); `place_url` http(s); `note` ≤ 280; status leaves `active` only through the triggers on `plans` (reopen/cancel) and `outcome_reports` — not even `service_role` may update it |
+| `meetup_confirmations` | `plan_id`, `revision`, `candidate_id`, `starts_at`, `ends_at`, `available_user_ids uuid[]` (frozen at confirm), `place_name`, `place_url`, `note`, `chased_answer` (`none|one|more`, asked on the confirmation review), `confirmed_by`, `confirmed_at`, `status` (`active|superseded|cancelled|completed`), `superseded_at`, `superseded_reason` (`reopen|cancel|outcome`) | one `active` per `(plan_id, revision)` (partial unique); **written by `transition_plan(…, 'confirm', …)`** in the same transaction as the state change, the derived attendance rows and the `meetup_confirmed` event (payload keys `candidate_id, place_name, place_url, note, chased_answer`; refused as `candidate_has_passed` once the candidate's start is behind `now()`, as `confirm()` has it); a deferred constraint trigger refuses a commit with a `confirmed` plan lacking an active confirmation; `place_url` http(s); `note` ≤ 280; status leaves `active` only through the triggers on `plans` (reopen/cancel) and `outcome_reports` — not even `service_role` may update it |
 | `attendance` | `confirmation_id`, `user_id`, `status` (`going|cant|unknown|was_there|missed`), `updated_at` | unique `(confirmation_id, user_id)`; participant of the confirmation's revision; transitions per `updateAttendance` enforced by trigger (no retrospective status before `ends_at`; a repeat is a no-op); members update only their own row, and only `status`; `was_there`/`missed` rows are readable by their subject alone ("nobody is told who came") — corroboration is computed, never shown as names |
 | `outcome_reports` | `confirmation_id`, `reported_by`, `outcome` (`happened|cancelled|moved_outside|not_sure`), `note`, `moved_outside`, `reported_at` | one per confirmation per reporter; written only through `report_outcome(confirmation_id, outcome, note, moved_outside)` (actor = `auth.uid()`), only after `ends_at`, by the organiser; the insert trigger runs `report_outcome` through `transition_plan`, closes the confirmation (`cancelled` for a `cancelled` outcome, else `completed`) and moves `circles.last_met_at` to `starts_at` for `happened` only, never backwards |
 
@@ -407,25 +407,27 @@ All ids are `uuid` (v7 where ordering helps). All tables have `created_at`, `upd
 | Table | Columns of note | Constraints |
 |---|---|---|
 | `private.push_devices` | `user_id`, `expo_push_token`, `platform`, `enabled`, `last_error_at` | token unique |
-| `private.email_contacts` | `user_id`, `email_normalized`, `email_hash`, `verified_at`, `status`, `suppressed_at`, `suppression_reason` | hash unique |
-| `private.email_subscriptions` | `contact_id`, `user_id`, `scope` (`plan_updates`), `plan_id`, `status`, `consented_at`, `withdrawn_at`, `consent_text_version` | `plan_id` required for `plan_updates` |
-| `private.email_action_tokens` | `contact_id`, `purpose` (`verify|prefs|reentry`), `token_hash`, `expires_at`, `used_at`, `membership_id` (for `reentry`) | hash unique; single use |
+| `private.email_contacts` | `user_id`, `email_normalized`, `email_hash` (generated: SHA-256 of `email_normalized`), `verified_at`, `status`, `suppressed_at`, `suppression_reason` | hash unique; status shape (`verified` ⇒ `verified_at`; `suppressed` ⇒ time and reason) |
+| `private.email_subscriptions` | `contact_id`, `user_id`, `scope` (`plan_updates`), `plan_id`, `status`, `consented_at`, `withdrawn_at`, `consent_text_version` | `plan_id` required for `plan_updates`; `(contact_id, user_id)` references the contact and its owner together — consent is the owner's |
+| `private.email_action_tokens` | `contact_id`, `purpose` (`verify|prefs|reentry`), `token_hash`, `expires_at`, `used_at`, `membership_circle_id` + `membership_user_id` (required for `reentry`, forbidden otherwise) | hash unique; single use by `used_at` in the consuming statement; `(contact_id, membership_user_id)` references the contact and its owner, and a `reentry` token is refused at issue for a permanent identity; both references `on update cascade`, deferred, so `reattach-member` can move the membership and the contact to the returning guest's new identity |
 | `private.email_delivery_events` | `job_id`, `provider_message_id`, `event_type`, `provider_occurred_at`, `recorded_at` | unique `(provider_message_id, event_type)` |
-| `jobs.notification_jobs` | `channel` (`push|email`), `kind`, `user_id`, `contact_id`, `plan_id`, `plan_revision`, `scheduled_for`, `idempotency_key`, `status`, `attempt_count`, `last_error` | `idempotency_key` unique |
-| `jobs.outbox` | `event_name`, `aggregate_type`, `aggregate_id`, `payload`, `occurred_at`, `processed_at` | |
+| `private.email_suppressions` | `email_hash`, `reason`, `suppressed_at` | written by trigger when a contact is suppressed; never deleted; a new contact for a suppressed hash is created suppressed (spec §9) |
+| `jobs.notification_jobs` | `channel` (`push|email`), `kind` (a `NotificationKind`), `user_id`, `contact_id` (→ `email_contacts`), `plan_id`, `plan_revision`, `scheduled_for`, `idempotency_key`, `status` (`scheduled|sent|failed|skipped`), `attempt_count`, `last_error`, `sent_at`, `provider_message_id` | `idempotency_key` unique, 64 hex (the domain's SHA-256); push needs `user_id` and no `contact_id`, email the reverse |
+| `jobs.outbox` | `seq` (drain order), `event_name`, `aggregate_type`, `aggregate_id`, `payload`, `occurred_at`, `processed_at`, `attempts`, `last_error` | `event_name` in `DOMAIN_EVENT_NAMES`, `last_error` a code (`^[A-Za-z0-9_.:/-]{1,120}$`, never a message) and payload keys at any depth free of the `FORBIDDEN_PAYLOAD_KEYS` fragments — both rendered into the migration by `scripts/gen-events.mjs`, checked by `pnpm check:events` (`jobs.carries_content()`, also on `audit_log.metadata` and `analytics.events.properties`); written only through `jobs.emit()` — the service role holds no insert; every string value at any depth is at most 40 characters of `[A-Za-z0-9_./:+-]` (an id, an instant, an enum, a zone — never an address, a sentence or a token) |
+| `jobs.cron_leases` | `name`, `leased_until`, `holder`, `last_started_at`, `last_finished_at` | one row per cron job |
 
 **Growth (`public`)**
 
 | Table | Columns of note | Constraints |
 |---|---|---|
-| `nudge_states` | `user_id`, `moment`, `plan_id`, `shown_at`, `answer` (`dismissed|tapped`), `snoozed_until` | unique `(user_id, moment, plan_id)` |
+| `nudge_states` | `user_id`, `moment` (the catalogue's two `moment` enums), `plan_id` (required for a plan-bound moment, forbidden for `reattached`/`settings` — a `case` constraint), `shown_at`, `answer` (`dismissed|tapped`), `snoozed_until` | unique `(user_id, moment, plan_id)` with nulls not distinct; own rows only; a plan-bound row only for a plan in one's circles |
 
 **Analytics & audit**
 
 | Table | Columns of note |
 |---|---|
-| `analytics.events` | `event_name`, `schema_version`, `user_id`, `anonymous_id`, `circle_id`, `plan_id`, `properties jsonb`, `occurred_at` — validated against the catalogue in the ingest function |
-| `private.audit_log` | `actor_user_id`, `action`, `resource_type`, `resource_id`, `metadata`, `occurred_at` |
+| `analytics.events` | `event_name`, `schema_version`, `user_id`, `anonymous_id`, `circle_id`, `plan_id`, `properties jsonb`, `occurred_at`, `received_at` — validated against the catalogue in the ingest function; no foreign keys (events outlive rows; deletion nulls identifiers); the table refuses a content key in `properties` |
+| `private.audit_log` | `actor_user_id`, `action` (a dotted verb, `^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)*$`, ≤60), `resource_type` (an aggregate name), `resource_id`, `metadata` (same no-content rule as the outbox), `occurred_at` |
 
 ### 8.3 Plan state machine, enforced in one place
 
