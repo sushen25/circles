@@ -39,7 +39,7 @@ end;
 $$;
 
 comment on function public.enforce_member_cap() is
-  'Member cap of 12 (spec §5.2). A trigger rather than a check because the rule is about the table, not the row.';
+  'Holds a circle to member_cap() active members (ADR 0012). A trigger rather than a check because the rule is about the table, not the row.';
 
 revoke all on function public.enforce_member_cap() from public;
 revoke all on function public.enforce_member_cap() from anon, authenticated;

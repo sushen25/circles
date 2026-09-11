@@ -33,6 +33,8 @@ declare
   n_windows_aged integer;
   n_windows_gone integer;
   n_anonymous integer;
+  n_requests integer;
+  n_counters integer;
   n_audit integer;
   result jsonb;
 begin
@@ -165,6 +167,25 @@ begin
     and not exists (select 1 from public.circle_members m where m.user_id = u.id);
   get diagnostics n_anonymous = row_count;
 
+  -- The Edge Function kit's own bookkeeping (S1-13). Both of these are written
+  -- on every request and read only by the request after it, so without a rule
+  -- they are the two tables in the schema that grow forever.
+  --
+  -- Seven days for a served request, which is a retry window with a great deal
+  -- of room in it: a client that has not retried inside a week is a client that
+  -- has moved on, and the mutations themselves are idempotent by their own state
+  -- anyway. An *unfinished* one is kept, however old — it means a function died
+  -- between claiming a key and answering, and that is worth being able to find.
+  delete from jobs.idempotent_requests
+  where status = 'done' and completed_at < now() - interval '7 days';
+  get diagnostics n_requests = row_count;
+
+  -- A counter outside its own window can never be read again: `take_rate_token`
+  -- computes `window_start` from the clock and only ever touches the current
+  -- one. A day's grace, so that nothing is deleted while it is still counting.
+  delete from jobs.rate_counters where window_start < now() - interval '1 day';
+  get diagnostics n_counters = row_count;
+
   -- Audit log: 12 months.
   delete from private.audit_log where occurred_at < now() - interval '12 months';
   get diagnostics n_audit = row_count;
@@ -184,6 +205,8 @@ begin
     'windows_aged', n_windows_aged,
     'windows_of_the_gone', n_windows_gone,
     'anonymous_identities', n_anonymous,
+    'served_requests', n_requests,
+    'rate_counters', n_counters,
     'audit_rows', n_audit
   );
 

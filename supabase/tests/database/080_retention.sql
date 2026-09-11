@@ -6,7 +6,7 @@
 -- test that runs today.
 
 begin;
-select plan(41);
+select plan(45);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid language sql as $$
@@ -327,10 +327,68 @@ select is(
   'and the summary now carries both nights: the Saturday evening joined the earlier three, which were not recomputed away'
 );
 
+-- ---------------------------------------------------------------------------
+-- The Edge Function kit's bookkeeping (S1-13). One row each rule must delete
+-- and one it must not, like every rule above.
+-- ---------------------------------------------------------------------------
+select pg_temp.act_as_postgres();
+
+select pg_temp.make_user('80000000-0000-0000-0000-00000000beef', 'Kit Caller');
+
+insert into jobs.idempotent_requests
+  (function_name, user_id, key, request_fingerprint, status, response_status, response_body,
+   created_at, completed_at)
+values
+  -- Served, and long enough ago that nobody is still retrying it.
+  ('redeem-invite', '80000000-0000-0000-0000-00000000beef', 'old-and-done',
+   extensions.digest('body', 'sha256'), 'done', 200, '{"ok": true}'::jsonb,
+   now() - interval '40 days', now() - interval '40 days'),
+  -- Served yesterday: a retry is still plausible.
+  ('redeem-invite', '80000000-0000-0000-0000-00000000beef', 'recent-and-done',
+   extensions.digest('body', 'sha256'), 'done', 200, '{"ok": true}'::jsonb,
+   now() - interval '1 day', now() - interval '1 day'),
+  -- Claimed and never finished, forty days ago. This one is evidence: a function
+  -- died between taking the key and answering.
+  ('redeem-invite', '80000000-0000-0000-0000-00000000beef', 'old-and-stuck',
+   extensions.digest('body', 'sha256'), 'in_flight', null, null,
+   now() - interval '40 days', null);
+
+insert into jobs.rate_counters (scope, key_hash, window_start, count)
+values
+  ('redeem_ip', extensions.digest('yesterday', 'sha256'), now() - interval '3 days', 7),
+  ('redeem_ip', extensions.digest('right now', 'sha256'), now(), 1);
+
+select is(
+  (select jobs.run_retention() -> 'served_requests')::integer,
+  1,
+  'a request served forty days ago is swept'
+);
+
+select bag_eq(
+  $$ select key from jobs.idempotent_requests
+     where user_id = '80000000-0000-0000-0000-00000000beef' $$,
+  $$ values ('recent-and-done'), ('old-and-stuck') $$,
+  'yesterday''s answer stays, and so does the one that never got an answer at all'
+);
+
+select is(
+  (select count(*)::integer from jobs.rate_counters
+   where key_hash = extensions.digest('yesterday', 'sha256')),
+  0,
+  'a counter from a window that can never be read again is gone'
+);
+
+select is(
+  (select count(*)::integer from jobs.rate_counters
+   where key_hash = extensions.digest('right now', 'sha256')),
+  1,
+  'and the one still counting is left alone'
+);
+
 -- Idempotent: a further run finds nothing.
 select is(
   (select jobs.run_retention() - 'daypart_summaries'),
-  '{"outbox": 0, "audit_rows": 0, "windows_aged": 0, "delivery_events": 0, "revoked_invites": 0, "pending_contacts": 0, "notification_jobs": 0, "plan_only_contacts": 0, "expired_action_links": 0, "windows_of_the_gone": 0, "anonymous_identities": 0, "daypart_summaries_purged": 0}'::jsonb,
+  '{"outbox": 0, "audit_rows": 0, "windows_aged": 0, "rate_counters": 0, "delivery_events": 0, "revoked_invites": 0, "pending_contacts": 0, "served_requests": 0, "notification_jobs": 0, "plan_only_contacts": 0, "expired_action_links": 0, "windows_of_the_gone": 0, "anonymous_identities": 0, "daypart_summaries_purged": 0}'::jsonb,
   'a second run deletes nothing'
 );
 

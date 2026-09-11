@@ -1,0 +1,534 @@
+-- Moving a membership between identities: Continue as (ADR 0006) and saving a
+-- place on top of an account that already existed (§10).
+--
+-- The thing worth testing here is not that one row changes. It is that *every*
+-- row a member owns goes with them — a guest who comes back and finds their
+-- answers gone is the failure this whole design exists to prevent — and that a
+-- membership can never be moved onto somebody with a saved place.
+
+begin;
+select plan(49);
+
+create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
+returns uuid
+language sql
+as $$
+  insert into auth.users (
+    id, instance_id, aud, role, email, is_anonymous, raw_app_meta_data, raw_user_meta_data,
+    created_at, updated_at
+  )
+  values (
+    id, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+    id::text || '@example.com', anonymous,
+    jsonb_build_object('is_anonymous', anonymous),
+    jsonb_build_object('display_name', name, 'time_zone', 'Australia/Melbourne'),
+    now(), now()
+  )
+  returning id;
+$$;
+
+create or replace function pg_temp.act_as(id uuid, anonymous boolean default false)
+returns void
+language plpgsql
+as $$
+begin
+  perform set_config('role', 'authenticated', true);
+  perform set_config(
+    'request.jwt.claims',
+    jsonb_build_object('sub', id::text, 'role', 'authenticated', 'is_anonymous', anonymous)::text,
+    true
+  );
+end;
+$$;
+
+create or replace function pg_temp.act_as_postgres()
+returns void
+language plpgsql
+as $$
+begin
+  perform set_config('role', 'postgres', true);
+  perform set_config('request.jwt.claims', '', true);
+end;
+$$;
+
+-- ---------------------------------------------------------------------------
+-- Sunday Crew: Maya owns it, Priya is a guest with a full history, and three
+-- spare devices stand by for the chain.
+-- ---------------------------------------------------------------------------
+select pg_temp.make_user('95000000-0000-0000-0000-000000000001', 'Maya');
+select pg_temp.make_user('95000000-0000-0000-0000-0000000000a1', 'Priya', true);
+select pg_temp.make_user('95000000-0000-0000-0000-0000000000b1', 'Device B', true);
+select pg_temp.make_user('95000000-0000-0000-0000-0000000000c1', 'Device C', true);
+select pg_temp.make_user('95000000-0000-0000-0000-0000000000d1', 'Device D', true);
+select pg_temp.make_user('95000000-0000-0000-0000-0000000000e1', 'Device E', true);
+select pg_temp.make_user('95000000-0000-0000-0000-0000000000f1', 'Priya Saved');
+select pg_temp.make_user('95000000-0000-0000-0000-0000000000f2', 'Tom', true);
+
+select pg_temp.act_as('95000000-0000-0000-0000-000000000001');
+create temporary table fixture as
+select id as circle_id, short_code
+from public.create_circle('Sunday Crew', '#336699', 'Australia/Melbourne', 'sus29-merge');
+
+select pg_temp.act_as_postgres();
+
+create or replace function pg_temp.circle_id() returns uuid
+language sql security definer as $$ select circle_id from fixture $$;
+
+insert into public.circle_members (circle_id, user_id, display_name_snapshot)
+values (pg_temp.circle_id(), '95000000-0000-0000-0000-0000000000a1', 'Priya'),
+       (pg_temp.circle_id(), '95000000-0000-0000-0000-0000000000f2', 'Tom');
+
+insert into public.plans (
+  circle_id, mode, state, organiser_user_id, title, time_zone,
+  window_start, window_end, daily_start_local, daily_end_local,
+  duration_minutes, quorum, response_deadline, short_code
+)
+values (pg_temp.circle_id(), 'named', 'collecting',
+        '95000000-0000-0000-0000-000000000001', 'Catch up', 'Australia/Melbourne',
+        date '2099-09-17', date '2099-09-20', 1050, 1350, 120, 2,
+        timestamptz '2099-09-20T10:00:00Z', 'mrgpen');
+
+create or replace function pg_temp.plan_id() returns uuid
+language sql security definer as $$
+  select id from public.plans where short_code = 'mrgpen';
+$$;
+
+insert into public.plan_responses (plan_id, revision, user_id, status)
+values (pg_temp.plan_id(), 1, '95000000-0000-0000-0000-0000000000a1', 'flexible');
+insert into public.plan_participants (plan_id, revision, user_id)
+values (pg_temp.plan_id(), 1, '95000000-0000-0000-0000-0000000000a1')
+on conflict do nothing;
+insert into public.plan_required_members (plan_id, revision, user_id)
+values (pg_temp.plan_id(), 1, '95000000-0000-0000-0000-0000000000a1')
+on conflict do nothing;
+insert into public.nudge_states (user_id, moment, plan_id)
+values ('95000000-0000-0000-0000-0000000000a1', 'after_answer', pg_temp.plan_id());
+
+insert into public.candidate_sets (
+  plan_id, revision, input_version, scoring_version, input_hash,
+  starts_considered, eligible_count, responded_count, active_member_count
+)
+values (pg_temp.plan_id(), 1, 1, 1, repeat('a', 64), 10, 1, 1, 3);
+
+insert into public.candidates (
+  candidate_set_id, is_near_miss, rank, starts_at, ends_at, available_user_ids,
+  explicit_count, flexible_count, explanation_code, explanation_count
+)
+select cs.id, false, 1, timestamptz '2099-09-17T08:30:00Z', timestamptz '2099-09-17T10:30:00Z',
+       array['95000000-0000-0000-0000-0000000000a1'::uuid], 0, 1, 'best_attendance', 1
+from public.candidate_sets cs where cs.plan_id = pg_temp.plan_id();
+
+-- ---------------------------------------------------------------------------
+-- The move itself
+-- ---------------------------------------------------------------------------
+select pg_temp.act_as('95000000-0000-0000-0000-0000000000b1', true);
+
+select lives_ok(
+  $$ select public.reattach_member(pg_temp.circle_id(), '95000000-0000-0000-0000-0000000000a1') $$,
+  'a guest with no session reattaches to the name they picked from the list'
+);
+
+select pg_temp.act_as_postgres();
+
+select is(
+  (select m.user_id from public.circle_members m
+   where m.circle_id = pg_temp.circle_id() and m.display_name_snapshot = 'Priya'),
+  '95000000-0000-0000-0000-0000000000b1'::uuid,
+  'the membership is the new identity''s'
+);
+
+select is(
+  (select count(*)::integer from public.circle_members m
+   where m.circle_id = pg_temp.circle_id()
+     and m.user_id = '95000000-0000-0000-0000-0000000000a1'),
+  0,
+  'and the old one holds nothing in this circle'
+);
+
+select isnt_empty(
+  $$ select 1 from auth.users where id = '95000000-0000-0000-0000-0000000000a1' $$,
+  'the abandoned identity is left for retention to sweep, not deleted here'
+);
+
+select is(
+  (select r.user_id from public.plan_responses r where r.plan_id = pg_temp.plan_id()),
+  '95000000-0000-0000-0000-0000000000b1'::uuid,
+  'the answer they gave came with them'
+);
+
+select is(
+  (select pp.user_id from public.plan_participants pp where pp.plan_id = pg_temp.plan_id()),
+  '95000000-0000-0000-0000-0000000000b1'::uuid,
+  'so did their place in the participant list'
+);
+
+select is(
+  (select rm.user_id from public.plan_required_members rm where rm.plan_id = pg_temp.plan_id()),
+  '95000000-0000-0000-0000-0000000000b1'::uuid,
+  'and their place among the required members'
+);
+
+select is(
+  (select n.user_id from public.nudge_states n where n.plan_id = pg_temp.plan_id()),
+  '95000000-0000-0000-0000-0000000000b1'::uuid,
+  'and the prompts they have already been shown, so they are not shown again'
+);
+
+select is(
+  (select c.available_user_ids from public.candidates c
+   join public.candidate_sets cs on cs.id = c.candidate_set_id
+   where cs.plan_id = pg_temp.plan_id()),
+  array['95000000-0000-0000-0000-0000000000b1'::uuid],
+  'and the candidate''s available set — which is what decides who is "going" at confirm'
+);
+
+select is(
+  (select count(*)::integer from jobs.outbox o
+   where o.event_name = 'circles.member_reattached'),
+  1,
+  'the circle is told somebody rejoined'
+);
+
+select is(
+  (select o.payload ->> 'source' from jobs.outbox o
+   where o.event_name = 'circles.member_reattached'),
+  'list',
+  'and told which way they came back, because the reattach rate is by source'
+);
+
+select is(
+  (select count(*)::integer from jobs.outbox o
+   where o.event_name = 'circles.member_reattached'
+     and o.payload::text like '%Priya%'),
+  0,
+  'without a name in the payload (non-negotiable 8)'
+);
+
+-- ---------------------------------------------------------------------------
+-- Three in seven days, and the fourth is refused (ADR 0006). The count walks a
+-- chain of identities, because every move changes the one the rows name.
+-- ---------------------------------------------------------------------------
+select pg_temp.act_as('95000000-0000-0000-0000-0000000000c1', true);
+select lives_ok(
+  $$ select public.reattach_member(pg_temp.circle_id(), '95000000-0000-0000-0000-0000000000b1') $$,
+  'a second move is allowed'
+);
+
+select pg_temp.act_as('95000000-0000-0000-0000-0000000000d1', true);
+select lives_ok(
+  $$ select public.reattach_member(pg_temp.circle_id(), '95000000-0000-0000-0000-0000000000c1') $$,
+  'and a third'
+);
+
+select pg_temp.act_as('95000000-0000-0000-0000-0000000000e1', true);
+select throws_ok(
+  $$ select public.reattach_member(pg_temp.circle_id(), '95000000-0000-0000-0000-0000000000d1') $$,
+  'reattach_limit',
+  'the fourth inside seven days is refused'
+);
+
+select pg_temp.act_as_postgres();
+select is(
+  (select r.user_id from public.plan_responses r where r.plan_id = pg_temp.plan_id()),
+  '95000000-0000-0000-0000-0000000000d1'::uuid,
+  'the answer followed the membership along the whole chain'
+);
+
+-- The limit is seven days, not forever: age the chain and the door opens again.
+update private.audit_log a
+set occurred_at = occurred_at - interval '8 days'
+where a.action = 'circles.member_reattached';
+
+select pg_temp.act_as('95000000-0000-0000-0000-0000000000e1', true);
+select lives_ok(
+  $$ select public.reattach_member(pg_temp.circle_id(), '95000000-0000-0000-0000-0000000000d1') $$,
+  'once the week has passed, the allowance is back'
+);
+
+-- ---------------------------------------------------------------------------
+-- Who may not be moved, and who may not do the moving
+-- ---------------------------------------------------------------------------
+select pg_temp.act_as('95000000-0000-0000-0000-0000000000c1', true);
+select throws_ok(
+  $$ select public.reattach_member(pg_temp.circle_id(), '95000000-0000-0000-0000-000000000001') $$,
+  'target_is_permanent',
+  'a saved-place member can never be reattached to'
+);
+
+select throws_ok(
+  $$ select public.reattach_member(pg_temp.circle_id(), '95000000-0000-0000-0000-00000000dead') $$,
+  'member_not_found',
+  'and neither can somebody who is not in the circle'
+);
+
+select pg_temp.act_as('95000000-0000-0000-0000-0000000000f1');
+select throws_ok(
+  $$ select public.reattach_member(pg_temp.circle_id(), '95000000-0000-0000-0000-0000000000e1') $$,
+  'caller_is_permanent',
+  'a caller with a saved place signs in instead of reattaching'
+);
+
+select pg_temp.act_as('95000000-0000-0000-0000-0000000000f2', true);
+select throws_ok(
+  $$ select public.reattach_member(pg_temp.circle_id(), '95000000-0000-0000-0000-0000000000e1') $$,
+  'already_member',
+  'a caller already in the circle under their own name is told so'
+);
+
+select throws_ok(
+  $$ select public.reattach_member() $$,
+  'reattach_member takes a target membership or a re-entry token, not both and not neither',
+  'neither a membership nor a token is a programming error, not a silent no-op'
+);
+
+select throws_ok(
+  format($$ select public.reattach_member(%L, %L, %L) $$,
+         pg_temp.circle_id(), '95000000-0000-0000-0000-0000000000e1',
+         extensions.digest('anything', 'sha256')),
+  'reattach_member takes a target membership or a re-entry token, not both and not neither',
+  'and so is both at once'
+);
+
+select pg_temp.act_as('95000000-0000-0000-0000-0000000000c1', true);
+select throws_ok(
+  format($$ select public.reattach_member(null, null, %L) $$,
+         extensions.digest('never-issued', 'sha256')),
+  'token_invalid',
+  'a token nobody issued authorises nothing'
+);
+
+-- ---------------------------------------------------------------------------
+-- The emailed way back in (§10, §14: single-use, 7-day, bound to a membership)
+-- ---------------------------------------------------------------------------
+select pg_temp.act_as_postgres();
+insert into private.email_contacts (user_id, email_normalized)
+values ('95000000-0000-0000-0000-0000000000e1', 'priya@example.com');
+
+insert into private.email_action_tokens (
+  contact_id, purpose, token_hash, expires_at, membership_circle_id, membership_user_id
+)
+select ec.id, 'reentry', extensions.digest('reentry-secret', 'sha256'),
+       now() + interval '7 days', pg_temp.circle_id(), '95000000-0000-0000-0000-0000000000e1'
+from private.email_contacts ec where ec.email_normalized = 'priya@example.com';
+
+select pg_temp.make_user('95000000-0000-0000-0000-0000000000e2', 'Device E2', true);
+select pg_temp.act_as('95000000-0000-0000-0000-0000000000e2', true);
+
+select lives_ok(
+  format($$ select public.reattach_member(null, null, %L) $$,
+         extensions.digest('reentry-secret', 'sha256')),
+  'an emailed re-entry token moves the membership without the list'
+);
+
+select pg_temp.act_as_postgres();
+select is(
+  (select m.user_id from public.circle_members m
+   where m.circle_id = pg_temp.circle_id() and m.display_name_snapshot = 'Priya'),
+  '95000000-0000-0000-0000-0000000000e2'::uuid,
+  'onto the identity that held the token'
+);
+
+select is(
+  (select o.payload ->> 'source' from jobs.outbox o
+   where o.event_name = 'circles.member_reattached'
+   order by o.seq desc limit 1),
+  'email',
+  'recorded as the emailed path, not the list'
+);
+
+select is(
+  (select ec.user_id from private.email_contacts ec
+   where ec.email_normalized = 'priya@example.com'),
+  '95000000-0000-0000-0000-0000000000e2'::uuid,
+  'and their email contact came too — the token''s deferred constraint requires it'
+);
+
+select isnt_empty(
+  $$ select 1 from private.email_action_tokens where used_at is not null $$,
+  'the token is spent'
+);
+
+select pg_temp.make_user('95000000-0000-0000-0000-0000000000e3', 'Device E3', true);
+select pg_temp.act_as('95000000-0000-0000-0000-0000000000e3', true);
+select throws_ok(
+  format($$ select public.reattach_member(null, null, %L) $$,
+         extensions.digest('reentry-secret', 'sha256')),
+  'token_invalid',
+  'and cannot be spent twice'
+);
+
+-- ---------------------------------------------------------------------------
+-- claim_identity (§10)
+-- ---------------------------------------------------------------------------
+select pg_temp.act_as_postgres();
+
+select ok(
+  not has_function_privilege('authenticated', 'public.claim_identity(uuid, uuid, text)', 'execute'),
+  'no client may call claim_identity: the identity it acts on is an argument'
+);
+
+select ok(
+  not has_function_privilege('anon', 'public.claim_identity(uuid, uuid, text)', 'execute'),
+  'not even to try'
+);
+
+select ok(
+  has_function_privilege('service_role', 'public.claim_identity(uuid, uuid, text)', 'execute'),
+  'only the Edge Function, which has checked the old session''s token'
+);
+
+select ok(
+  not has_function_privilege('authenticated', 'private.move_membership(uuid, uuid, uuid)', 'execute'),
+  'and the move itself is reachable by nobody outside the database'
+);
+
+select is(
+  public.claim_identity('95000000-0000-0000-0000-0000000000f1',
+                        '95000000-0000-0000-0000-0000000000e2', 'after_answer'),
+  1,
+  'saving a place onto an account that already existed merges the one membership'
+);
+
+select is(
+  (select m.user_id from public.circle_members m
+   where m.circle_id = pg_temp.circle_id() and m.display_name_snapshot = 'Priya'),
+  '95000000-0000-0000-0000-0000000000f1'::uuid,
+  'the membership is now the saved-place identity''s'
+);
+
+select is(
+  (select r.user_id from public.plan_responses r where r.plan_id = pg_temp.plan_id()),
+  '95000000-0000-0000-0000-0000000000f1'::uuid,
+  'with the answers still attached'
+);
+
+select ok(
+  (select p.is_permanent from public.profiles p
+   where p.user_id = '95000000-0000-0000-0000-0000000000f1'),
+  'and the profile records the saved place'
+);
+
+select is(
+  (select count(*)::integer from jobs.outbox o where o.event_name = 'growth.account_claimed'),
+  1,
+  'the claim is announced once'
+);
+
+select is(
+  (select o.payload ->> 'moment' from jobs.outbox o
+   where o.event_name = 'growth.account_claimed'),
+  'after_answer',
+  'with the moment it happened at, which is what the funnel is measured by'
+);
+
+select is(
+  public.claim_identity('95000000-0000-0000-0000-0000000000f1',
+                        '95000000-0000-0000-0000-0000000000e2', 'after_answer'),
+  0,
+  'saying it again merges nothing'
+);
+
+select is(
+  (select count(*)::integer from jobs.outbox o where o.event_name = 'growth.account_claimed'),
+  1,
+  'and does not count a second conversion'
+);
+
+select throws_ok(
+  $$ select public.claim_identity('95000000-0000-0000-0000-0000000000f1',
+                                  '95000000-0000-0000-0000-000000000001', 'settings') $$,
+  'source_is_permanent',
+  'memberships are never moved off another saved place: that would be taking an account'
+);
+
+select throws_ok(
+  $$ select public.claim_identity('95000000-0000-0000-0000-0000000000f1',
+                                  '95000000-0000-0000-0000-0000000000e3', 'whenever') $$,
+  'claim_identity got an unknown moment',
+  'and a moment the analytics catalogue does not know is refused here, not dropped later'
+);
+
+-- A collision: the saved-place identity is already in the circle under its own
+-- name, and the guest row it is merging is a second membership in the same one.
+select pg_temp.make_user('95000000-0000-0000-0000-0000000000a9', 'Jess', true);
+select pg_temp.act_as_postgres();
+insert into public.circle_members (circle_id, user_id, display_name_snapshot)
+values (pg_temp.circle_id(), '95000000-0000-0000-0000-0000000000a9', 'Jess on her phone');
+insert into public.plan_responses (plan_id, revision, user_id, status)
+values (pg_temp.plan_id(), 1, '95000000-0000-0000-0000-0000000000a9', 'flexible');
+
+select is(
+  public.claim_identity('95000000-0000-0000-0000-0000000000f1',
+                        '95000000-0000-0000-0000-0000000000a9', 'settings'),
+  0,
+  'a membership that would collide is not moved'
+);
+
+select is(
+  (select m.status from public.circle_members m
+   where m.circle_id = pg_temp.circle_id()
+     and m.user_id = '95000000-0000-0000-0000-0000000000a9'),
+  'removed',
+  'the duplicate is removed instead — the saved place is the one that keeps working'
+);
+
+select is(
+  (select count(*)::integer from public.plan_responses r
+   where r.plan_id = pg_temp.plan_id()
+     and r.user_id = '95000000-0000-0000-0000-0000000000a9'),
+  0,
+  'and removal takes its answers with it, as removal always does'
+);
+
+-- ---------------------------------------------------------------------------
+-- The list of tables a membership owns will rot. This is the guard that makes
+-- it rot loudly: every table that points at an identity is either moved by
+-- `move_membership` or named here as one that deliberately stays.
+-- ---------------------------------------------------------------------------
+create temporary table identity_tables (name text primary key, moves boolean);
+
+insert into identity_tables (name, moves) values
+  -- Moved: rows a member owns inside one circle.
+  ('circle_members', true),
+  ('plan_responses', true),
+  ('plan_participants', true),
+  ('plan_required_members', true),
+  ('attendance', true),
+  ('nudge_states', true),
+  ('private.plan_interest', true),
+  ('private.email_contacts', true),
+  ('jobs.notification_jobs', true),
+  -- Stays: a record of something that happened, or a role a guest cannot hold.
+  ('private.email_subscriptions', false),   -- follows email_contacts by cascade
+  ('private.push_devices', false),          -- a device, not a membership
+  ('private.plan_initiators', false),       -- initiating needs a saved place (ADR 0004)
+  ('profiles', false),                      -- the identity itself
+  ('circles', false),                       -- owning needs a saved place (ADR 0004)
+  ('circle_invites', false),                -- created_by: who issued it, historically
+  ('plans', false),                         -- organising needs a saved place (ADR 0004)
+  ('meetup_confirmations', false),          -- confirmed_by: who decided, historically
+  ('outcome_reports', false),               -- reported_by: who said so, historically
+  -- A request one identity already made and was already answered. The answer
+  -- went to that session; a new identity has made no requests yet.
+  ('jobs.idempotent_requests', false);
+
+select bag_eq(
+  $$ select distinct con.conrelid::regclass::text
+     from pg_constraint con
+     where con.contype = 'f'
+       and con.confrelid = 'auth.users'::regclass
+       and con.conrelid::regclass::text not like 'auth.%' $$,
+  $$ select name from identity_tables $$,
+  'every table referencing an identity is classified as moving or staying'
+);
+
+select bag_eq(
+  $$ select name from identity_tables where moves
+     and position(split_part(name, '.', case when name like '%.%' then 2 else 1 end)
+                  in pg_get_functiondef('private.move_membership(uuid, uuid, uuid)'::regprocedure)) = 0 $$,
+  $$ select null::text where false $$,
+  'and each one that moves is actually named in move_membership'
+);
+
+select * from finish();
+rollback;

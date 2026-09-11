@@ -331,6 +331,13 @@ Each function is one use case with the same skeleton:
 
 Functions are thin; if a function grows a second responsibility it becomes two functions.
 
+Steps 1, 2 and 5 are `supabase/functions/_shared/` (S1-13) rather than written out each time: `http.ts` wraps a handler with parsing, authentication, the idempotency record and the `Problem` mapping; `db.ts` offers the two clients; `idempotency.ts`, `rate.ts` and `turnstile.ts` are the rest of the kit. Two rules govern what may live there and what may not:
+
+- **Authorisation is in the database, never in the kit.** A definer function decides who may do a thing, and the Edge Function calls it with the *caller's* JWT so `auth.uid()` is the person who asked. A guard written in a function is a guard the next function has to remember; a guard in SQL holds even for a client that calls the RPC directly. The service-role client exists for the kit's own bookkeeping and for `claim-identity`, whose authorisation is a second token the database cannot see.
+- **What the kit adds is volume control, not permission.** Turnstile and the rate counters make abuse expensive; skipping them lets somebody make more requests, never a request the database would have refused.
+
+Errors carry two levels: `Problem.error` is the coarse category that picks the status code, and `Problem.reason` is the precise cause a *screen* turns on (`invite_inactive`, `duplicate_name`). Clients branch on the reason and never on the message, which is copy.
+
 ### 7.5 Screens ↔ routes ↔ canvas
 
 Every artboard in `docs/design/` maps to one route + one feature component; the mapping lives in `apps/app/src/features/README.md` and is kept current in PRs. The route file renders exactly one feature screen and passes params; states (empty, partial, loading, error, offline, denied, expired) are props of the feature screen, not separate routes.
@@ -503,7 +510,7 @@ ready ─(response change)──▶ collecting ─ recalculate ──┘
 | `process-scheduled-jobs` | cron (service role) | Drain outbox → create notification jobs; send due jobs; expire quiet asks and plans; deadline reminders; cadence prompts; outcome prompts; retries with capped backoff. Not retention — that is `jobs.run_retention()` in the database ([ADR 0014](decisions/0014-retention-runs-in-the-database.md)) |
 | `delete-account` | permanent | Revoke sessions, anonymise, enqueue purge |
 
-Every function: Zod-validated input, `X-Request-Id` echoed as the user-visible reference on errors ("Ref 7F3K-2Q"), structured JSON logs without PII, idempotent on a client-supplied `Idempotency-Key` for mutations.
+Every function: Zod-validated input, `X-Request-Id` echoed as the user-visible reference on errors ("Ref 7F3K-2Q"), structured JSON logs without PII, idempotent on a client-supplied `idempotency_key` **in the request body** for mutations ([ADR 0016](decisions/0016-idempotency-key-travels-in-the-request-body.md)) — inside the request's own schema, so a client that omits it fails at the boundary rather than at the retry.
 
 ### 9.2 Reads
 
@@ -521,7 +528,7 @@ Clients read through `supabase-js` with RLS: circles I belong to, active members
 
 - **Owner sign-in**: Sign in with Apple (`expo-apple-authentication` → `supabase.auth.signInWithIdToken`), Google (`@react-native-google-signin/google-signin` on native, Google Identity Services on web → `signInWithIdToken`), or email OTP (6-digit code). No passwords.
 - **Guest**: `supabase.auth.signInAnonymously()` on first join, Turnstile-protected on web. Session persisted in `localStorage` (web) or `expo-secure-store` (native).
-- **Continue as**: when a request hits a circle route with no session or a session that holds no membership, the client calls a definer function returning the circle's anonymous members (display names only, no reply state) and offers `Continue as`. Selecting one calls `reattach-member`. Owners see "Priya rejoined from a new device" on circle home. Limits: 3 reattachments per membership per 7 days; a permanent member can never be reattached to.
+- **Continue as**: when a request hits a circle route with no session or a session that holds no membership, the client **signs in anonymously first**, then calls `public.guest_members_for_reattach(short_code)` — a definer function returning the circle's anonymous members (display names only, no reply state) — and offers `Continue as`. The session comes first because the function is granted to `authenticated` and not to `anon`: the client needs one to reattach in any case, so the flow loses nothing, and reading a circle's guest roster then costs an anonymous identity per attempt against the per-IP limit rather than being free with the publishable key. Selecting one calls `reattach-member`. Owners see "Priya rejoined from a new device" on circle home. Limits: 3 reattachments per membership per 7 days; a permanent member can never be reattached to.
 - **Save your place / organiser gate**: `linkIdentity` (email OTP) or `signInWithIdToken` (Apple/Google) on the anonymous session, then `claim-identity` to reconcile memberships if the permanent identity already existed.
 - **Email re-entry**: every plan-update email deep-links to `/a/<token>`; the token is single-use, 7-day, and bound to a membership. Consuming it does not mint a session (Supabase has no custom-token sign-in for anonymous users). Instead: if the browser already holds the right identity, it simply routes to the plan; if it holds no session, the client creates a fresh anonymous session and calls `reattach-member` with the token as authorisation, which moves the membership to the new identity without the "Continue as" list; if the membership belongs to a permanent identity, the page offers that identity's sign-in (Apple/Google/email code) instead. This reuses one reattachment path for both the manual and the emailed case.
 - **Universal links**: once the app is installed and the person has signed in with the same identity, chat links open in-app; the web fallback is the same route.

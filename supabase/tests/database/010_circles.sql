@@ -897,7 +897,13 @@ select is(
        'auth_is_member', 'auth_is_owner', 'auth_is_permanent', 'create_circle',
        'canonical_display_name', 'replace_response',
        -- `report_outcome` (S1-10) is the outcome write path.
-       'report_outcome'
+       'report_outcome',
+       -- S1-13. The three identity-continuity calls a client makes: joining by
+       -- link, reading the Continue-as list, and moving a guest membership onto
+       -- the session in front of it. Each acts on `auth.uid()` and refuses on
+       -- its own; `claim_identity` is deliberately *not* here, because the
+       -- identity it acts on is an argument rather than the caller.
+       'redeem_invite', 'guest_members_for_reattach', 'reattach_member'
      )),
   '',
   'only the intended functions in public are callable by authenticated'

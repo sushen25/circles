@@ -156,8 +156,22 @@ export default tseslint.config(
             },
             { from: ['app-routes', ...appLayers], allow: appExternals },
             {
+              // `@supabase/*` is the client an Edge Function reaches the database
+              // with — the service-role one in §7.4's step 4, and the
+              // caller-scoped one that makes `auth.uid()` mean the caller. It is
+              // allowed here and nowhere else: the domain importing it is the
+              // thing the dependency rule exists to stop.
               from: ['functions'],
-              allow: ['@circles/*', 'zod', 'vitest', 'resend', 'date-fns-tz', 'npm:*', 'jsr:*'],
+              allow: [
+                '@circles/*',
+                '@supabase/*',
+                'zod',
+                'vitest',
+                'resend',
+                'date-fns-tz',
+                'npm:*',
+                'jsr:*',
+              ],
             },
           ],
         },
