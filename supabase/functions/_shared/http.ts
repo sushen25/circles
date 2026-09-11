@@ -181,17 +181,6 @@ export function jsonHandler<Schema extends z.ZodType>(
           request,
           requestId,
         });
-
-        if (key !== undefined) {
-          await record(
-            service,
-            spec.name,
-            actor.userId,
-            key as Parameters<typeof record>[3],
-            200,
-            result,
-          );
-        }
       } catch (duringWork) {
         // The claim is given back before the failure is reported. Without this the
         // `in_flight` row outlives the failure and answers every retry with
@@ -211,6 +200,39 @@ export function jsonHandler<Schema extends z.ZodType>(
           }
         }
         throw duringWork;
+      }
+
+      // Recording is deliberately *outside* the release above, and deliberately
+      // cannot fail the request. By this line the work has committed. Releasing
+      // the claim now would let a retry run a mutation that has already
+      // happened — and reattachment is not harmless to repeat: the second
+      // attempt answers `member_not_found`, because the membership it names has
+      // already moved. Failing the request would be worse still, reporting an
+      // error for something that worked.
+      //
+      // So the claim stays, the answer goes out, and the narrow case left is a
+      // client that never saw this response *and* a recording that failed, which
+      // gets `in_progress` on its retry. That is honest: we cannot replay an
+      // answer we did not manage to store.
+      if (key !== undefined) {
+        try {
+          await record(
+            service,
+            spec.name,
+            actor.userId,
+            key as Parameters<typeof record>[3],
+            200,
+            result,
+          );
+        } catch {
+          log('warn', {
+            fn: spec.name,
+            request_id: requestId,
+            event: 'unrecorded',
+            status: 200,
+            duration_ms: Date.now() - started,
+          });
+        }
       }
 
       log('info', {

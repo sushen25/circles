@@ -60,9 +60,23 @@ begin
 
   -- A saved-place identity does not reattach: it signs in. §10 — "if the
   -- membership belongs to a permanent identity, the page offers that identity's
-  -- sign-in instead". Reading the JWT rather than `profiles`, because a row the
-  -- caller can update is not a credential (`auth_is_permanent`).
-  if public.auth_is_permanent() then
+  -- sign-in instead".
+  --
+  -- Three records of the same fact, and the strictest wins, which is the rule
+  -- this function already applies to the *target* and had no business not
+  -- applying to the caller. `auth_is_permanent()` reads the JWT, and a JWT
+  -- outlives the event it describes: `linkIdentity` converts the user in place,
+  -- so an access token issued minutes earlier keeps `is_anonymous: true` for the
+  -- rest of its hour (§14) while `auth.users` and `profiles` have already moved
+  -- on. For that hour the stale token was enough to take a *second* guest
+  -- membership and attach it to a saved place, where Continue-as can never move
+  -- it again.
+  if public.auth_is_permanent()
+    or exists (select 1 from public.profiles p where p.user_id = caller and p.is_permanent)
+    or exists (
+      select 1 from auth.users u where u.id = caller and not coalesce(u.is_anonymous, true)
+    )
+  then
     raise exception 'caller_is_permanent' using errcode = 'insufficient_privilege';
   end if;
 

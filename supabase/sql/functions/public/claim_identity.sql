@@ -104,15 +104,32 @@ begin
       if exists (
         select 1 from public.circle_members m
         where m.circle_id = membership.circle_id and m.user_id = p_user_id
+          and m.status = 'active'
       ) then
-        -- Both identities are in this circle. The saved place is the one that
-        -- keeps working on another device, so it stays and the guest row goes.
-        -- `on_member_removed` does the rest — the duplicate's answers, its place
-        -- in the participant list, and its `going` on anything still ahead.
+        -- Both identities are *active* in this circle. The saved place is the one
+        -- that keeps working on another device, so it stays and the guest row
+        -- goes. `on_member_removed` does the rest — the duplicate's answers, its
+        -- place in the participant list, and its `going` on anything still ahead.
         update public.circle_members m
         set status = 'removed'
         where m.circle_id = membership.circle_id and m.user_id = p_anonymous_user_id;
       else
+        -- `status = 'active'` above, and not merely "has a row", because the
+        -- account may hold a membership of this circle that *ended*. Treating
+        -- that as a collision removed the guest's live membership and
+        -- `on_member_removed` deleted the availability they had just submitted —
+        -- so saving your place cost you the circle, which is the opposite of
+        -- "linking the existing guest membership. Nothing already sent changes"
+        -- (spec §5.1).
+        --
+        -- The old row is the same person's, under the name they had then, and its
+        -- answers are long gone. It is deleted to make room rather than revived:
+        -- the membership that matters is the live one, and a primary key of
+        -- `(circle_id, user_id)` has room for exactly one.
+        delete from public.circle_members m
+        where m.circle_id = membership.circle_id and m.user_id = p_user_id
+          and m.status = 'removed';
+
         -- The name the circle knows them by travels with the membership rather
         -- than being replaced by the profile's. Nobody's roster entry should
         -- change because somebody else signed in.

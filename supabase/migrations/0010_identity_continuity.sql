@@ -731,15 +731,32 @@ begin
       if exists (
         select 1 from public.circle_members m
         where m.circle_id = membership.circle_id and m.user_id = p_user_id
+          and m.status = 'active'
       ) then
-        -- Both identities are in this circle. The saved place is the one that
-        -- keeps working on another device, so it stays and the guest row goes.
-        -- `on_member_removed` does the rest — the duplicate's answers, its place
-        -- in the participant list, and its `going` on anything still ahead.
+        -- Both identities are *active* in this circle. The saved place is the one
+        -- that keeps working on another device, so it stays and the guest row
+        -- goes. `on_member_removed` does the rest — the duplicate's answers, its
+        -- place in the participant list, and its `going` on anything still ahead.
         update public.circle_members m
         set status = 'removed'
         where m.circle_id = membership.circle_id and m.user_id = p_anonymous_user_id;
       else
+        -- `status = 'active'` above, and not merely "has a row", because the
+        -- account may hold a membership of this circle that *ended*. Treating
+        -- that as a collision removed the guest's live membership and
+        -- `on_member_removed` deleted the availability they had just submitted —
+        -- so saving your place cost you the circle, which is the opposite of
+        -- "linking the existing guest membership. Nothing already sent changes"
+        -- (spec §5.1).
+        --
+        -- The old row is the same person's, under the name they had then, and its
+        -- answers are long gone. It is deleted to make room rather than revived:
+        -- the membership that matters is the live one, and a primary key of
+        -- `(circle_id, user_id)` has room for exactly one.
+        delete from public.circle_members m
+        where m.circle_id = membership.circle_id and m.user_id = p_user_id
+          and m.status = 'removed';
+
         -- The name the circle knows them by travels with the membership rather
         -- than being replaced by the profile's. Nobody's roster entry should
         -- change because somebody else signed in.
@@ -883,21 +900,44 @@ grant execute on function public.finish_request(text, uuid, text, integer, jsonb
 -- Granted to `authenticated` only, which includes an anonymous session but not
 -- the `anon` role. A visitor arriving with no session at all signs in
 -- anonymously first — the client has to do that anyway before it can reattach,
--- so it costs the flow nothing, and it means scraping the guest roster of a
--- circle costs one anonymous identity per attempt against Supabase's per-IP
--- limit (§14) rather than being free with the publishable key.
+-- so it costs the flow nothing.
+--
+-- That grant is **not** a volume control, and this comment used to claim it was:
+-- "scraping costs one anonymous identity per attempt". It does not. One
+-- anonymous session can call this as often as it likes with as many short codes
+-- as it likes, and Supabase's per-IP signup limit never comes into it. So the
+-- limit is here, in the function, where a client calling the RPC directly meets
+-- it too: thirty lookups per caller per hour, which is far more than a person
+-- opening a link will ever need and far less than a scrape.
 --
 -- Saved-place members are excluded, so the list never names somebody this
 -- function could not then be used to reattach to.
 -- ---------------------------------------------------------------------------
 
+-- `volatile`, not `stable`, because counting a lookup is a write. The cost is a
+-- function the planner cannot fold into a surrounding query; the benefit is that
+-- the limit cannot be skipped by the one caller it is meant for.
 create or replace function public.guest_members_for_reattach(p_short_code text)
 returns table (member_user_id uuid, display_name text)
-language sql
-stable
+language plpgsql
 security definer
 set search_path = ''
 as $$
+declare
+  caller uuid := (select auth.uid());
+begin
+  if caller is null then
+    raise exception 'guest_members_for_reattach requires a signed-in actor'
+      using errcode = 'insufficient_privilege';
+  end if;
+
+  if not public.take_rate_token(
+    'roster_lookup', extensions.digest(caller::text, 'sha256'), 30, interval '1 hour'
+  ) then
+    raise exception 'too_many_requests' using errcode = 'too_many_rows';
+  end if;
+
+  return query
   select m.user_id, m.display_name_snapshot
   from public.circle_members m
   join public.circles c on c.id = m.circle_id
@@ -913,6 +953,7 @@ as $$
     and not p.is_permanent
     and u.is_anonymous
   order by m.display_name_snapshot, m.user_id;
+end;
 $$;
 
 comment on function public.guest_members_for_reattach(text) is
@@ -985,9 +1026,23 @@ begin
 
   -- A saved-place identity does not reattach: it signs in. §10 — "if the
   -- membership belongs to a permanent identity, the page offers that identity's
-  -- sign-in instead". Reading the JWT rather than `profiles`, because a row the
-  -- caller can update is not a credential (`auth_is_permanent`).
-  if public.auth_is_permanent() then
+  -- sign-in instead".
+  --
+  -- Three records of the same fact, and the strictest wins, which is the rule
+  -- this function already applies to the *target* and had no business not
+  -- applying to the caller. `auth_is_permanent()` reads the JWT, and a JWT
+  -- outlives the event it describes: `linkIdentity` converts the user in place,
+  -- so an access token issued minutes earlier keeps `is_anonymous: true` for the
+  -- rest of its hour (§14) while `auth.users` and `profiles` have already moved
+  -- on. For that hour the stale token was enough to take a *second* guest
+  -- membership and attach it to a saved place, where Continue-as can never move
+  -- it again.
+  if public.auth_is_permanent()
+    or exists (select 1 from public.profiles p where p.user_id = caller and p.is_permanent)
+    or exists (
+      select 1 from auth.users u where u.id = caller and not coalesce(u.is_anonymous, true)
+    )
+  then
     raise exception 'caller_is_permanent' using errcode = 'insufficient_privilege';
   end if;
 

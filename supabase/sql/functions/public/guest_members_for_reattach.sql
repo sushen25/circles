@@ -15,21 +15,44 @@
 -- Granted to `authenticated` only, which includes an anonymous session but not
 -- the `anon` role. A visitor arriving with no session at all signs in
 -- anonymously first — the client has to do that anyway before it can reattach,
--- so it costs the flow nothing, and it means scraping the guest roster of a
--- circle costs one anonymous identity per attempt against Supabase's per-IP
--- limit (§14) rather than being free with the publishable key.
+-- so it costs the flow nothing.
+--
+-- That grant is **not** a volume control, and this comment used to claim it was:
+-- "scraping costs one anonymous identity per attempt". It does not. One
+-- anonymous session can call this as often as it likes with as many short codes
+-- as it likes, and Supabase's per-IP signup limit never comes into it. So the
+-- limit is here, in the function, where a client calling the RPC directly meets
+-- it too: thirty lookups per caller per hour, which is far more than a person
+-- opening a link will ever need and far less than a scrape.
 --
 -- Saved-place members are excluded, so the list never names somebody this
 -- function could not then be used to reattach to.
 -- ---------------------------------------------------------------------------
 
+-- `volatile`, not `stable`, because counting a lookup is a write. The cost is a
+-- function the planner cannot fold into a surrounding query; the benefit is that
+-- the limit cannot be skipped by the one caller it is meant for.
 create or replace function public.guest_members_for_reattach(p_short_code text)
 returns table (member_user_id uuid, display_name text)
-language sql
-stable
+language plpgsql
 security definer
 set search_path = ''
 as $$
+declare
+  caller uuid := (select auth.uid());
+begin
+  if caller is null then
+    raise exception 'guest_members_for_reattach requires a signed-in actor'
+      using errcode = 'insufficient_privilege';
+  end if;
+
+  if not public.take_rate_token(
+    'roster_lookup', extensions.digest(caller::text, 'sha256'), 30, interval '1 hour'
+  ) then
+    raise exception 'too_many_requests' using errcode = 'too_many_rows';
+  end if;
+
+  return query
   select m.user_id, m.display_name_snapshot
   from public.circle_members m
   join public.circles c on c.id = m.circle_id
@@ -45,6 +68,7 @@ as $$
     and not p.is_permanent
     and u.is_anonymous
   order by m.display_name_snapshot, m.user_id;
+end;
 $$;
 
 comment on function public.guest_members_for_reattach(text) is

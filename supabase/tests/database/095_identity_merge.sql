@@ -7,7 +7,7 @@
 -- membership can never be moved onto somebody with a saved place.
 
 begin;
-select plan(62);
+select plan(69);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid
@@ -627,6 +627,132 @@ select ok(
        where p.user_id = '95000000-0000-0000-0000-0000000000f8'),
   'and its profile is untouched'
 );
+
+-- ---------------------------------------------------------------------------
+-- Round 2: a JWT outlives the event it describes.
+--
+-- `linkIdentity` converts the user in place, so an access token issued minutes
+-- earlier keeps `is_anonymous: true` for the rest of its hour while `auth.users`
+-- and `profiles` have already moved on. For that hour the stale token was enough
+-- to take a second guest membership and attach it to a saved place, where
+-- Continue-as can never move it again.
+-- ---------------------------------------------------------------------------
+select pg_temp.act_as_postgres();
+
+select pg_temp.make_user('95000000-0000-0000-0000-00000000a101'::uuid, 'Just Linked', true);
+select pg_temp.make_user('95000000-0000-0000-0000-00000000a102'::uuid, 'Someone Else', true);
+
+insert into public.circle_members (circle_id, user_id, display_name_snapshot)
+values (pg_temp.circle_id(), '95000000-0000-0000-0000-00000000a102', 'Tom on his laptop');
+
+-- What `linkIdentity` leaves behind: the durable records say permanent, and the
+-- token in the caller's hand still says otherwise.
+update auth.users set is_anonymous = false
+where id = '95000000-0000-0000-0000-00000000a101';
+update public.profiles set is_permanent = true
+where user_id = '95000000-0000-0000-0000-00000000a101';
+
+select pg_temp.act_as('95000000-0000-0000-0000-00000000a101', true);
+
+select throws_ok(
+  $$ select public.reattach_member(pg_temp.circle_id(), '95000000-0000-0000-0000-00000000a102') $$,
+  'caller_is_permanent',
+  'a stale anonymous claim does not make a saved-place caller a guest again'
+);
+
+-- ---------------------------------------------------------------------------
+-- Round 2: the account may hold a membership of this circle that *ended*.
+--
+-- Treating that as a collision removed the guest's live membership and
+-- `on_member_removed` deleted the availability they had just submitted. Saving
+-- your place cost you the circle.
+-- ---------------------------------------------------------------------------
+select pg_temp.act_as_postgres();
+
+select pg_temp.make_user('95000000-0000-0000-0000-00000000b101'::uuid, 'Sam Guest', true);
+select pg_temp.make_user('95000000-0000-0000-0000-00000000b102'::uuid, 'Sam Saved');
+
+-- The account was in this circle once and left.
+insert into public.circle_members (circle_id, user_id, display_name_snapshot, status)
+values (pg_temp.circle_id(), '95000000-0000-0000-0000-00000000b102', 'Sam from before', 'removed');
+
+-- And is back as a guest, with an answer already given.
+insert into public.circle_members (circle_id, user_id, display_name_snapshot)
+values (pg_temp.circle_id(), '95000000-0000-0000-0000-00000000b101', 'Sam');
+insert into public.plan_responses (plan_id, revision, user_id, status)
+values (pg_temp.plan_id(), 1, '95000000-0000-0000-0000-00000000b101', 'flexible');
+
+select is(
+  public.claim_identity('95000000-0000-0000-0000-00000000b102',
+                        '95000000-0000-0000-0000-00000000b101', 'after_answer'),
+  1,
+  'the live membership moves across rather than being treated as a duplicate'
+);
+
+select is(
+  (select m.status from public.circle_members m
+   where m.circle_id = pg_temp.circle_id()
+     and m.user_id = '95000000-0000-0000-0000-00000000b102'),
+  'active',
+  'and the person is an active member, not a removed one'
+);
+
+select is(
+  (select count(*)::integer from public.plan_responses r
+   where r.plan_id = pg_temp.plan_id()
+     and r.user_id = '95000000-0000-0000-0000-00000000b102'),
+  1,
+  'with the availability they submitted a moment ago still there (spec §5.1)'
+);
+
+select is(
+  (select m.display_name_snapshot from public.circle_members m
+   where m.circle_id = pg_temp.circle_id()
+     and m.user_id = '95000000-0000-0000-0000-00000000b102'),
+  'Sam',
+  'under the name the circle knows them by now, not the one on the old row'
+);
+
+-- ---------------------------------------------------------------------------
+-- Round 2: the roster read is limited per caller.
+--
+-- The grant to `authenticated` is not a volume control — one anonymous session
+-- can ask about any number of short codes — and the comment used to claim it was.
+-- ---------------------------------------------------------------------------
+-- A loop, not `generate_series … lateral f(constant)`: the planner evaluates a
+-- set-returning function whose arguments do not vary **once**, so the obvious
+-- form of this test called the function a single time and then asserted happily
+-- that the thirty-first call was refused. It was the first.
+select pg_temp.act_as_postgres();
+create or replace function pg_temp.lookups(p_times integer, p_code text)
+returns integer
+language plpgsql
+as $$
+declare
+  i integer;
+begin
+  for i in 1..p_times loop
+    perform 1 from public.guest_members_for_reattach(p_code);
+  end loop;
+  return p_times;
+end;
+$$;
+
+select pg_temp.act_as('95000000-0000-0000-0000-00000000a102', true);
+
+select is(
+  pg_temp.lookups(30, 'zzzzzzzzzz'),
+  30,
+  'thirty lookups in an hour are fine — far more than opening a link needs'
+);
+
+select throws_ok(
+  $$ select public.guest_members_for_reattach('zzzzzzzzzz') $$,
+  'too_many_requests',
+  'the thirty-first is refused, whether it comes through the client or the RPC'
+);
+
+select pg_temp.act_as_postgres();
 
 -- ---------------------------------------------------------------------------
 -- The list of tables a membership owns will rot. This is the guard that makes
