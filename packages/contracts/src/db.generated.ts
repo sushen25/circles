@@ -817,7 +817,31 @@ export type Database = {
       auth_is_member: { Args: { circle_id: string }; Returns: boolean }
       auth_is_owner: { Args: { circle_id: string }; Returns: boolean }
       auth_is_permanent: { Args: never; Returns: boolean }
+      begin_request: {
+        Args: {
+          p_fingerprint: string
+          p_function: string
+          p_key: string
+          p_user: string
+        }
+        Returns: {
+          response_body: Json
+          response_status: number
+          state: string
+        }[]
+      }
       canonical_display_name: { Args: { value: string }; Returns: string }
+      claim_identity: {
+        Args: {
+          p_anonymous_user_id: string
+          p_moment: string
+          p_user_id: string
+        }
+        Returns: {
+          duplicates_removed: number
+          merged_memberships: number
+        }[]
+      }
       create_circle: {
         Args: {
           cadence?: string
@@ -852,6 +876,24 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      finish_request: {
+        Args: {
+          p_body: Json
+          p_function: string
+          p_key: string
+          p_status: number
+          p_user: string
+        }
+        Returns: undefined
+      }
+      guest_members_for_reattach: {
+        Args: { p_short_code: string }
+        Returns: {
+          circle_id: string
+          display_name: string
+          member_user_id: string
+        }[]
+      }
       member_cap: { Args: never; Returns: number }
       plan_last_possible_start: {
         Args: {
@@ -861,6 +903,70 @@ export type Database = {
           window_end: string
         }
         Returns: string
+      }
+      reattach_member: {
+        Args: {
+          p_circle_id?: string
+          p_reentry_token_hash?: string
+          p_target_user_id?: string
+        }
+        Returns: {
+          cadence: string
+          cadence_snoozed_until: string | null
+          color: string
+          created_at: string
+          creation_key: string
+          default_area: string | null
+          default_duration_minutes: number
+          default_quorum: number | null
+          id: string
+          last_met_at: string | null
+          name: string
+          nudge_policy: string | null
+          owner_user_id: string
+          short_code: string
+          status: string
+          time_zone: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "circles"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      redeem_invite: {
+        Args: { p_display_name: string; p_secret_hash: string }
+        Returns: {
+          cadence: string
+          cadence_snoozed_until: string | null
+          color: string
+          created_at: string
+          creation_key: string
+          default_area: string | null
+          default_duration_minutes: number
+          default_quorum: number | null
+          id: string
+          last_met_at: string | null
+          name: string
+          nudge_policy: string | null
+          owner_user_id: string
+          short_code: string
+          status: string
+          time_zone: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "circles"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      release_request: {
+        Args: { p_function: string; p_key: string; p_user: string }
+        Returns: undefined
       }
       replace_response: {
         Args: {
@@ -910,6 +1016,15 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      take_rate_token: {
+        Args: {
+          p_key_hash: string
+          p_limit: number
+          p_scope: string
+          p_window: string
+        }
+        Returns: boolean
       }
     }
     Enums: {

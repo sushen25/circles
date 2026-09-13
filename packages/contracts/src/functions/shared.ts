@@ -14,6 +14,52 @@ import { IdempotencyKey, RequestId } from '../ids.js';
 export const Mutation = z.object({ idempotency_key: IdempotencyKey });
 
 /**
+ * Why a request failed, precisely — the cause a *screen* turns on.
+ *
+ * `Problem.error` below is the category that picks the HTTP status, and it is
+ * deliberately coarse: four different refusals are all `conflict`. But a client
+ * has a different screen for an invite that has been rotated (LinkInvalid) than
+ * for a name somebody else is already using (ask for another one), and "decide
+ * by parsing the message" is how a copy edit becomes a broken branch.
+ *
+ * So: the category decides the status, the reason decides the screen. Every
+ * function documents the reasons it can return; later tickets add their own.
+ */
+export const ProblemReason = z.enum([
+  /** `redeem-invite`: no live invite has that secret — rotated, or never issued. */
+  'invite_inactive',
+  /** `redeem-invite`: the circle holds the maximum active members (ADR 0012). */
+  'circle_full',
+  /** `redeem-invite`: somebody active in the circle already uses that name. */
+  'duplicate_name',
+  /** `reattach-member`: no active guest membership answers to that id or token. */
+  'member_not_found',
+  /** `reattach-member`: the target has a saved place, so it signs in instead. */
+  'target_is_permanent',
+  /** `reattach-member`: so does the caller. */
+  'caller_is_permanent',
+  /** `reattach-member`: the caller is already in this circle under their own name. */
+  'already_member',
+  /** `reattach-member`: three moves in seven days is the limit (ADR 0006). */
+  'reattach_limit',
+  /** `reattach-member`: the re-entry token is unknown, spent or expired. */
+  'token_invalid',
+  /** `claim-identity`: the session being merged from is not an anonymous one. */
+  'source_is_permanent',
+  /** `claim-identity`: the caller has not signed in, so there is no place to save. */
+  'destination_is_not_permanent',
+  /** `redeem-invite`: the name is empty, or too long, once whitespace is collapsed. */
+  'display_name_unusable',
+  /** Any mutation: this idempotency key was used for a different body. */
+  'idempotency_mismatch',
+  /** Any mutation: the first attempt with this key has not finished yet. */
+  'in_progress',
+  /** Any endpoint: an abuse limit, not an authorisation decision. Retry later. */
+  'too_many_requests',
+]);
+export type ProblemReason = z.infer<typeof ProblemReason>;
+
+/**
  * The error shape. `reference` is the short string a person can read back to
  * us ("Ref 7F3K-2Q") — it identifies the request, never the person.
  */
@@ -28,6 +74,11 @@ export const Problem = z.object({
     'invalid_request',
     'unavailable',
   ]),
+  /**
+   * The precise cause, when there is one a client can act on. Absent for
+   * failures with nothing to say beyond the category.
+   */
+  reason: ProblemReason.optional(),
   /** Plain language, safe to show. Never contains anyone's data. */
   message: z.string(),
   reference: RequestId,

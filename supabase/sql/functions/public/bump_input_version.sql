@@ -16,6 +16,20 @@ begin
     return null;
   end if;
 
+  -- Nor when a membership is changing hands. `reattach_member` and
+  -- `claim_identity` rewrite `plan_responses.user_id`, which is the same
+  -- availability under a new name for the same person — and bumping for it staled
+  -- every candidate set in the circle, so an organiser could not confirm until
+  -- somebody answered again. That is spec §6.2's own journey, from the other side:
+  -- Priya rejoins from a new device and Maya can no longer lock in.
+  --
+  -- The movers update the candidate arrays in the same breath, so the set they
+  -- leave behind is correct rather than stale. Where a member genuinely *leaves*,
+  -- `on_member_removed` bumps on its own and this changes nothing about that.
+  if coalesce(current_setting('circles.moving_membership', true), '') = 'on' then
+    return null;
+  end if;
+
   if tg_table_name = 'plan_responses' then
     update public.plans p
     set input_version = p.input_version + 1

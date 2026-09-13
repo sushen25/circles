@@ -3,5 +3,11 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Supabase Edge Functions (Deno). A workspace member so shared dev dependencies resolve; the functions themselves land in S0-06."
+  "description": "Supabase Edge Functions (Deno). A workspace member so shared dev dependencies and the types for npm imports resolve; the functions import @circles/* through import_map.json.",
+  "dependencies": {
+    "@circles/contracts": "workspace:*",
+    "@circles/domain": "workspace:*",
+    "@supabase/supabase-js": "^2.115.0",
+    "zod": "^4.5.4"
+  }
 }

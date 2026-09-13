@@ -16,5 +16,6 @@ export * from './ids.js';
 export * from './time.js';
 export * from './analytics.js';
 export * from './deeplinks.js';
+export * from './dtos.js';
 export * from './functions/index.js';
 export type { Database, Enums, Tables, TablesInsert, TablesUpdate } from './db.generated.js';

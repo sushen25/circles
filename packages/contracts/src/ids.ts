@@ -12,7 +12,13 @@ function uuid<Brand extends string>(_brand: Brand) {
 }
 
 export const CircleId = uuid('CircleId');
-export const MemberId = uuid('MemberId');
+/**
+ * A membership has no id of its own. `circle_members` is keyed by
+ * `(circle_id, user_id)` and the domain identifies members by `UserId`
+ * throughout (`activeMemberIds`, `requiredMemberIds`), so a separate `MemberId`
+ * brand was a third name for the same thing — and the one that disagreed with
+ * the other two. A member is a `UserId` in a circle.
+ */
 export const UserId = uuid('UserId');
 export const PlanId = uuid('PlanId');
 export const RevisionId = uuid('RevisionId');
@@ -24,7 +30,6 @@ export const InviteId = uuid('InviteId');
 export const ContactId = uuid('ContactId');
 
 export type CircleId = z.infer<typeof CircleId>;
-export type MemberId = z.infer<typeof MemberId>;
 export type UserId = z.infer<typeof UserId>;
 export type PlanId = z.infer<typeof PlanId>;
 export type RevisionId = z.infer<typeof RevisionId>;

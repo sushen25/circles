@@ -20,6 +20,19 @@ begin
     end if;
     return old;
   end if;
+  -- An update that changes only *who owns* the answer is not an answer.
+  -- `reattach_member` and `claim_identity` rewrite `user_id` when somebody comes
+  -- back on a new device or saves their place, and emitting here told the circle
+  -- they had answered again — a second "Priya answered" for a reply she made
+  -- yesterday, and a second row in the analytics that measures replies.
+  if tg_op = 'UPDATE'
+    and new.status = old.status
+    and new.used_calendar_overlay = old.used_calendar_overlay
+    and new.submitted_at = old.submitted_at
+  then
+    return new;
+  end if;
+
   perform jobs.emit('availability.response_submitted', 'plan', new.plan_id, jsonb_build_object(
     'plan_id', new.plan_id,
     'revision', new.revision,

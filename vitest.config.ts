@@ -5,6 +5,8 @@ import { defineConfig } from 'vitest/config';
 // run in isolation too (`pnpm --filter @circles/domain test`).
 export default defineConfig({
   test: {
-    projects: ['packages/*', 'apps/*'],
+    // `supabase/functions` is named rather than globbed: the glob would also
+    // match `supabase/migrations` and `supabase/tests`, which hold SQL.
+    projects: ['packages/*', 'apps/*', 'supabase/functions'],
   },
 });
