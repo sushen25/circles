@@ -37,6 +37,15 @@ begin
   -- Locked, because two dispatcher workers draining two jobs for one contact
   -- would otherwise each spend the other's token and send two letters of which
   -- only the later works.
+  --
+  -- This takes the contact before the tokens, while `verify_email_contact`
+  -- takes the token before the contacts — so a click that lands while a resend
+  -- is being sent can deadlock, and Postgres will kill one of them. Accepted
+  -- rather than ordered, as 0009 accepted the same shape between two webhooks
+  -- ("left as a retry"): the loser's token is not consumed, the reader is told
+  -- to try again, and the second tap works. Ordering them would mean reading
+  -- the token without consuming it and locking by hash first, which puts a
+  -- window between the read and the spend — a worse trade for a rarer fault.
   select * into contact from private.email_contacts c where c.id = p_contact_id for update;
 
   if not found or contact.status <> 'pending' then

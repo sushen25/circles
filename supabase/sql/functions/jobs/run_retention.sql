@@ -72,6 +72,10 @@ begin
   -- ago, let the link lapse and asked again would have had this run delete the
   -- contact, the queued email and the consent in the gap before the dispatcher
   -- drained it, having just been told to check their email.
+  --
+  -- It cannot keep a contact for ever: the `notification_jobs` rule above runs
+  -- first in this same function and takes any job older than thirty days, so a
+  -- job that never drains stops sparing its contact a month later.
   delete from private.email_contacts c
   where c.status = 'pending'
     and c.created_at < now() - interval '7 days'

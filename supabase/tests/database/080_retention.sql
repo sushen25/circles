@@ -186,7 +186,8 @@ insert into private.email_contacts (user_id, email_normalized, created_at) value
   ('00000000-0000-0000-0000-0000000006a3', 'tom-old@example.com', now() - interval '8 days'),
   ('00000000-0000-0000-0000-0000000006a3', 'tom-new@example.com', now() - interval '1 day'),
   ('00000000-0000-0000-0000-0000000006a3', 'tom-retry@example.com', now() - interval '8 days'),
-  ('00000000-0000-0000-0000-0000000006a3', 'tom-queued@example.com', now() - interval '8 days');
+  ('00000000-0000-0000-0000-0000000006a3', 'tom-queued@example.com', now() - interval '8 days'),
+  ('00000000-0000-0000-0000-0000000006a3', 'tom-sent@example.com', now() - interval '8 days');
 -- The old-but-retrying one asked for a fresh link yesterday.
 insert into private.email_action_tokens (contact_id, purpose, token_hash, expires_at)
 select id, 'verify', extensions.digest('t-retry', 'sha256'), now() + interval '1 day'
@@ -202,6 +203,17 @@ insert into jobs.notification_jobs (
 select 'email', 'verify_email', c.id, null, null, now(),
   encode(extensions.digest('t-queued-key', 'sha256'), 'hex')
 from private.email_contacts c where c.email_normalized = 'tom-queued@example.com';
+-- And one whose verification was sent a week ago and never clicked: the letter
+-- went, the link expired, nobody came back. Only a *scheduled* job means an
+-- email still to be written, so this one is not spared — without it, replacing
+-- the status test with `true` would leave every assertion passing.
+insert into jobs.notification_jobs (
+  channel, kind, contact_id, plan_id, plan_revision, scheduled_for, status, sent_at, idempotency_key
+)
+select 'email', 'verify_email', c.id, null, null, now() - interval '7 days',
+  'sent', now() - interval '7 days',
+  encode(extensions.digest('t-sent-key', 'sha256'), 'hex')
+from private.email_contacts c where c.email_normalized = 'tom-sent@example.com';
 insert into private.email_contacts (user_id, email_normalized, status, verified_at, created_at) values
   ('00000000-0000-0000-0000-0000000006a4', 'sam-done@example.com', 'verified', now() - interval '60 days', now() - interval '60 days'),
   ('00000000-0000-0000-0000-0000000006a4', 'sam-live@example.com', 'verified', now() - interval '60 days', now() - interval '60 days'),
@@ -274,7 +286,7 @@ select is(
 select is(
   (select array_agg(email_normalized order by email_normalized) from private.email_contacts where user_id = '00000000-0000-0000-0000-0000000006a3'),
   array['tom-new@example.com', 'tom-queued@example.com', 'tom-retry@example.com'],
-  'the address nobody verified in a week went; the one with a link still clickable stayed, and so did the one whose link has not been minted yet'
+  'the addresses nobody verified in a week went, the one whose email was already sent included; the one with a link still clickable stayed, and so did the one whose link has not been minted yet'
 );
 select is(
   (select array_agg(email_normalized order by email_normalized) from private.email_contacts where user_id = '00000000-0000-0000-0000-0000000006a4'),

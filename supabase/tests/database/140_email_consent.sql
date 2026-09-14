@@ -13,7 +13,7 @@
 -- outcomes.
 
 begin;
-select plan(59);
+select plan(60);
 
 create or replace function pg_temp.make_user(id uuid, name text, permanent boolean default false)
 returns uuid language sql as $$
@@ -405,11 +405,43 @@ select is(
   'and viewing changes nothing'
 );
 
+-- Narrow in *plans*, and the test has to be able to see that: with only one
+-- plan in play, dropping `and s.plan_id = p_plan_id` from the function changes
+-- nothing any assertion reads. So the sibling contact takes a second plan first.
+select pg_temp.act_as_postgres();
+insert into public.plans (
+  circle_id, mode, state, organiser_user_id, title, time_zone,
+  window_start, window_end, daily_start_local, daily_end_local,
+  duration_minutes, quorum, response_deadline, short_code
+)
+select circle_id, 'named', 'collecting', '00000000-0000-0000-0000-0000000008a1',
+  'Another one', 'Australia/Melbourne', date '2099-09-17', date '2099-09-20',
+  1050, 1350, 120, 2, timestamptz '2099-09-20T10:00:00Z', 'pnemkb'
+from t;
+
+insert into private.email_subscriptions (contact_id, user_id, scope, plan_id, status, consent_text_version)
+select c.id, c.user_id, 'plan_updates',
+  (select id from public.plans where short_code = 'pnemkb'), 'active', '2026-09-14'
+from private.email_contacts c
+where c.email_normalized = 'jules@example.com'
+  and c.user_id = '00000000-0000-0000-0000-0000000008a1';
+
+select pg_temp.act_as_service();
 select lives_ok(
   format($$ select public.email_preferences(pg_temp.hash_of('t-prefs'), 'stop_plan', %L) $$,
     pg_temp.plan_id()),
   'one tap stops this meetup''s email'
 );
+
+select pg_temp.act_as_postgres();
+select is(
+  (select s.status from private.email_subscriptions s
+   join private.email_contacts c on c.id = s.contact_id
+   where s.plan_id = (select id from public.plans where short_code = 'pnemkb')),
+  'active',
+  'and stops nothing else: "this meetup" is one meetup, at that address and every other'
+);
+select pg_temp.act_as_service();
 
 select pg_temp.act_as_postgres();
 select is(
@@ -434,9 +466,10 @@ select is(
 select is(
   (select count(*)::integer from private.email_subscriptions s
    join private.email_contacts c on c.id = s.contact_id
-   where c.email_normalized = 'jules@example.com' and s.status = 'active'),
+   where c.email_normalized = 'jules@example.com'
+     and s.plan_id = pg_temp.plan_id() and s.status = 'active'),
   0,
-  'which is both consents withdrawn, each with an event of its own'
+  'which is both consents to *this* meetup withdrawn, each with an event of its own'
 );
 
 select is(

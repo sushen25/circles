@@ -2095,6 +2095,34 @@ describe('verify-email-contact', () => {
     expect(JSON.stringify(args)).not.toContain(TOKEN);
   });
 
+  it('refuses an unusable link by naming the field and never the token', async () => {
+    // `linkHandler`'s one privacy-bearing branch, and nothing else asserted it:
+    // a validation failure reports *field names*, because the field here is
+    // called `token` and its value is the one thing in the product that must
+    // never reach a response or a log (§14). Zod's own message would quote it.
+    // Long enough, but not the alphabet a token is in — so it is refused, and
+    // it is exactly the sort of string somebody pastes out of an email.
+    const secret = 'S3cret.Token.That.Must.Not.Be.Logged.Ever';
+    const lines: string[] = [];
+    const sinks = (['log', 'warn', 'error'] as const).map((level) =>
+      vi.spyOn(console, level).mockImplementation((...args: unknown[]) => {
+        lines.push(args.map(String).join(' '));
+      }),
+    );
+
+    try {
+      const response = await load('verify-email-contact')(postWithoutSession({ token: secret }));
+
+      expect(response.status).toBe(400);
+      const body = await response.text();
+      expect(body).toContain('token');
+      expect(body).not.toContain(secret);
+      expect(lines.join('\n')).not.toContain(secret);
+    } finally {
+      for (const sink of sinks) sink.mockRestore();
+    }
+  });
+
   it('says one thing about a spent, expired or invented link', async () => {
     state.answer = (fn) => {
       if (fn === 'take_rate_token') return { data: true, error: null };
