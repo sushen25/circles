@@ -918,6 +918,44 @@ describe('revise-plan', () => {
     expect(called('revise_plan')).toHaveLength(0);
   });
 
+  it('will not reopen a plan into a deadline that has passed', async () => {
+    // A reopen is a fresh ask (spec §5.7), and `replace_response` refuses every
+    // reply once the deadline is behind us — so this reopened the plan, told
+    // everybody, and left them unable to answer.
+    state.rows = {
+      ...state.rows,
+      plans: { ...current, response_deadline: '2020-01-01T00:00:00.000Z' },
+    };
+
+    const response = await load('revise-plan')(
+      post({ idempotency_key: KEY, plan_id: PLAN_ID, reopen: true }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ reason: 'deadline_out_of_range' });
+    expect(called('revise_plan')).toHaveLength(0);
+  });
+
+  it('reopens it once the organiser says when replies close', async () => {
+    state.rows = {
+      ...state.rows,
+      plans: { ...current, response_deadline: '2020-01-01T00:00:00.000Z' },
+    };
+
+    await load('revise-plan')(
+      post({
+        idempotency_key: KEY,
+        plan_id: PLAN_ID,
+        reopen: true,
+        response_deadline: '2099-09-18T10:00:00.000Z',
+      }),
+    );
+
+    expect(called('revise_plan')[0]?.args['p_payload']).toEqual({
+      response_deadline: '2099-09-18T10:00:00.000Z',
+    });
+  });
+
   it('refuses an edit that changes nothing', async () => {
     const response = await load('revise-plan')(post({ idempotency_key: KEY, plan_id: PLAN_ID }));
     expect(response.status).toBe(400);

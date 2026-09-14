@@ -121,17 +121,25 @@ Deno.serve(
       // up after it — the database refused that with a constraint the client
       // could not read, which made a perfectly ordinary edit a 500.
       //
-      // "Not in the past" applies only to a deadline that is being set. One that
-      // has quietly passed is not an error to fix: §5.7 offers "give it one more
-      // day" for exactly that plan, and refusing the request because a
-      // resubmitted form carried the old value would make it uneditable at the
-      // moment it most needs editing.
+      // "Not in the past" applies to a deadline that is being set, and to every
+      // deadline a reopen leaves behind. One that has quietly passed is
+      // otherwise not an error to fix: §5.7 offers "give it one more day" for
+      // exactly that plan, and refusing the request because a resubmitted form
+      // carried the old value would make it uneditable at the moment it most
+      // needs editing.
+      //
+      // A reopen is the exception because it is a fresh ask (§5.7), and a fresh
+      // ask needs time to answer in: reopening a plan whose deadline has passed
+      // moved it to `collecting`, told everybody, and then had
+      // `replace_response` refuse every reply as closed. So the organiser
+      // reopening an old plan has to say when replies close, which is the one
+      // thing they are in a position to know.
       const effectiveDeadline = changedDeadline ?? before.response_deadline;
       if (
         !isDeadlineAllowed(
           toInstant(effectiveDeadline),
           lastPossibleStart(after),
-          changedDeadline === undefined ? undefined : now(),
+          changedDeadline === undefined && !body.reopen ? undefined : now(),
         )
       ) {
         throw new Refusal(

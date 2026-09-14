@@ -8,7 +8,7 @@
 -- either, so most of this file is about trying to write it some other way.
 
 begin;
-select plan(84);
+select plan(85);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid
@@ -391,8 +391,8 @@ select throws_ok(
   format($$select planning.transition_plan('%s', 'cancel', '%s', '{"cancel_note":"Nobody keen"}'::jsonb)$$,
     :'plan_wd', '00000000-0000-0000-0000-0000000001a1'),
   'P0001',
-  'unexpected_payload',
-  'a quiet ask is withdrawn without a note'
+  'note_not_allowed',
+  'a quiet ask is withdrawn without a note, and with a reason an endpoint can translate'
 );
 -- Being the initiator is not a way back into a circle you have left. The
 -- private row outlives the membership; removal revokes access immediately.
@@ -828,6 +828,16 @@ select is(
   'a confirmed plan keeps the removed member on the revision that was confirmed'
 );
 
+-- And the warning names who will actually be asked. `public.revise_plan` reads
+-- this before the transition, so a name here is a name in `asked_again`.
+select pg_temp.act_as('00000000-0000-0000-0000-0000000001a1');
+select is(
+  (select array_agg(member_user_id) from public.reask_audience(:'plan_left')),
+  array['00000000-0000-0000-0000-0000000001a1'::uuid],
+  'the re-ask audience leaves out the member who has gone, who will not be asked and could not answer'
+);
+select pg_temp.act_as_postgres();
+
 select is(
   (select revision from planning.transition_plan(:'plan_left', 'reopen',
     '00000000-0000-0000-0000-0000000001a1')),
@@ -842,11 +852,16 @@ select is(
   'which is addressed to the people still in the circle, and not to the one who left'
 );
 
+-- The required row is the opposite case, and the two are opposite on purpose.
+-- Spec §9: "a required person leaves: the plan becomes ineligible until the
+-- organiser changes required members or cancels" — two things that have to
+-- happen, neither of which is "somebody edited the window". `on_member_removed`
+-- keeps the row for that reason and the carry forward keeps it for the same one.
 select is(
-  (select count(*)::integer from public.plan_required_members
+  (select array_agg(user_id) from public.plan_required_members
    where plan_id = :'plan_left' and revision = 2),
-  0,
-  'nor required of them: a plan cannot wait for an answer that can never come'
+  array['00000000-0000-0000-0000-0000000001a2'::uuid],
+  'while the requirement they left behind survives: an edit is not the organiser deciding'
 );
 
 select * from finish();

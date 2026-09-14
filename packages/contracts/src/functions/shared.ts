@@ -105,6 +105,12 @@ export const ProblemReason = z.enum([
   /** A chosen deadline after the last possible start, or already past (spec §5.3). */
   'deadline_out_of_range',
   /**
+   * `cancel-plan`: a quiet ask withdrawn before threshold is "closed privately,
+   * nobody told" (spec §9), so its note would have no reader and `plans` is
+   * readable by the whole circle. Every other cancellation takes one.
+   */
+  'note_not_allowed',
+  /**
    * `revise-plan`: every value in the request is the value the plan already has.
    * Saving it would emit "the plan changed" and, for a quorum, throw away a
    * candidate set — over a form resubmitted unedited.

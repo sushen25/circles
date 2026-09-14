@@ -57,6 +57,13 @@ begin
     raise exception 'not_the_organiser' using errcode = 'P0001';
   end if;
 
+  -- Active members only, which matters on exactly one kind of plan: a confirmed
+  -- one. `on_member_removed` clears a departed member out of open plans and
+  -- keeps the rows on a confirmed one, because the confirmation's attendance is
+  -- about who was there — so reopening was the case where this listed somebody
+  -- who will not be asked again and could not answer if they were. Everywhere
+  -- else the filter removes nothing, and "only active members" is the invariant
+  -- either way.
   return query
   select pp.user_id,
     exists (
@@ -65,6 +72,10 @@ begin
     )
   from public.plan_participants pp
   where pp.plan_id = plan.id and pp.revision = plan.revision
+    and exists (
+      select 1 from public.circle_members m
+      where m.circle_id = plan.circle_id and m.user_id = pp.user_id and m.status = 'active'
+    )
   order by pp.user_id;
 end;
 $$;

@@ -66,8 +66,13 @@ begin
   -- a quiet ask withdrawn before threshold tells nobody (spec §9) — while
   -- `plans` is readable by the whole circle, so a note left on the row is the
   -- announcement in another form, with the initiator's own words in it.
+  --
+  -- Its own name rather than `unexpected_payload`, which no endpoint can
+  -- translate: `cancel-plan` takes an optional note for every plan, so a client
+  -- that offers one here is wrong in a way a person should be told about — and
+  -- answering 500 left the ask open as well.
   if rule.from_state = 'seeking' and p_action = 'cancel' and p_payload ? 'cancel_note' then
-    raise exception 'unexpected_payload' using errcode = 'P0001';
+    raise exception 'note_not_allowed' using errcode = 'P0001';
   end if;
 
   foreach guard in array rule.guards loop
@@ -215,14 +220,22 @@ begin
         where m.circle_id = plan.circle_id and m.user_id = pp.user_id and m.status = 'active'
       );
 
+    -- Required members are carried *unfiltered*, which is the opposite of the
+    -- line above and deliberately so. Spec §9: "a required person leaves: the
+    -- plan becomes ineligible until the organiser changes required members or
+    -- cancels." `on_member_removed` leaves the row for exactly that reason, and
+    -- dropping it here would have let an unrelated edit to the window quietly
+    -- make the plan eligible again — neither of the two things §9 says have to
+    -- happen, and nobody would have been told either.
+    --
+    -- The two tables answer different questions. Participants are who is being
+    -- asked, and asking somebody who has left is meaningless. Required members
+    -- are a condition on the answer, and a condition does not stop applying
+    -- because the person it names walked away.
     insert into public.plan_required_members (plan_id, revision, user_id)
     select plan.id, plan.revision, rm.user_id
     from public.plan_required_members rm
-    where rm.plan_id = plan.id and rm.revision = plan.revision - 1
-      and exists (
-        select 1 from public.circle_members m
-        where m.circle_id = plan.circle_id and m.user_id = rm.user_id and m.status = 'active'
-      );
+    where rm.plan_id = plan.id and rm.revision = plan.revision - 1;
   end if;
 
   -- `confirm` is not a state change with a row to follow; it is the row. The
