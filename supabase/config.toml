@@ -434,3 +434,12 @@ enabled = true
 # it reads nothing and returns two constants and a boolean.
 [functions.hello]
 verify_jwt = false
+
+# The engine, for the cases no member's request covers (architecture §9.1 marks
+# it internal). The bearer is `CRON_SECRET`, which is a shared secret and not a
+# Supabase JWT, so the gateway cannot be the thing that checks it — the function
+# does, in constant time, and refuses every call when the secret is unset. This
+# is the same bearer `jobs.invoke_process_scheduled_jobs()` sends, and
+# `process-scheduled-jobs` will want the same line for the same reason (S1-20).
+[functions.recalculate-candidates]
+verify_jwt = false

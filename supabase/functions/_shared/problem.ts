@@ -81,6 +81,13 @@ const REASONS: Record<ProblemReason, { status: number; error: Problem['error'] }
   band_out_of_day: { status: 400, error: 'invalid_request' },
   deadline_out_of_range: { status: 400, error: 'invalid_request' },
   not_a_participant: { status: 400, error: 'invalid_request' },
+
+  // S1-16. An answer refused for what it says, or for when it arrived.
+  stale_revision: { status: 409, error: 'conflict' },
+  replies_closed: { status: 409, error: 'conflict' },
+  windows_do_not_match_status: { status: 400, error: 'invalid_request' },
+  outside_plan_window: { status: 400, error: 'invalid_request' },
+  not_a_window: { status: 400, error: 'invalid_request' },
   preview_is_stale: { status: 409, error: 'conflict' },
   nothing_to_change: { status: 400, error: 'invalid_request' },
   note_not_allowed: { status: 400, error: 'invalid_request' },
@@ -170,5 +177,38 @@ export function outcomeOf(thrown: unknown): Outcome {
     unavailable: false,
     committed: aborted ? 'no' : 'maybe',
     code: typeof code === 'string' ? code : 'unknown',
+  };
+}
+
+/**
+ * A thrown value as the answer the caller gets.
+ *
+ * The same three cases every wrapper has to get right, in one place rather than
+ * once per skeleton: a refusal says its reason and its own words; something we
+ * depend on being unreachable is 503 and says so; and anything else is 500 with
+ * *nothing* of the thrown value in it — a Postgres error message can quote the
+ * row that caused it (non-negotiable 8).
+ */
+export function problemOf(
+  thrown: unknown,
+  reference: string,
+): { status: number; body: Problem; code: string } {
+  const outcome = outcomeOf(thrown);
+
+  if (outcome.reason !== undefined) {
+    const message = thrown instanceof Refusal ? thrown.message : 'That did not work out.';
+    return { ...problemFor(outcome.reason, message, reference), code: outcome.reason };
+  }
+
+  if (outcome.unavailable) {
+    return {
+      ...plainProblem('unavailable', 503, (thrown as Error).message, reference),
+      code: outcome.code,
+    };
+  }
+
+  return {
+    ...plainProblem('unavailable', 500, 'Something went wrong at our end.', reference),
+    code: outcome.code,
   };
 }

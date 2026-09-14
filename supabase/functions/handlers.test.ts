@@ -166,16 +166,18 @@ const handlers = {
   'create-plan': await serveOf('create-plan'),
   'revise-plan': await serveOf('revise-plan'),
   'cancel-plan': await serveOf('cancel-plan'),
+  'submit-availability': await serveOf('submit-availability'),
+  'recalculate-candidates': await serveOf('recalculate-candidates'),
 };
 
 function load(name: keyof typeof handlers): (request: Request) => Promise<Response> {
   return handlers[name];
 }
 
-function post(body: unknown): Request {
+function post(body: unknown, bearer = 'a.token'): Request {
   return new Request('https://example.test/fn', {
     method: 'POST',
-    headers: { authorization: 'Bearer a.token', 'content-type': 'application/json' },
+    headers: { authorization: `Bearer ${bearer}`, 'content-type': 'application/json' },
     body: JSON.stringify(body),
   });
 }
@@ -187,6 +189,7 @@ beforeEach(() => {
   process.env.SUPABASE_ANON_KEY = 'anon';
   process.env.SUPABASE_SERVICE_ROLE_KEY = 'service';
   delete process.env.TURNSTILE_SECRET_KEY;
+  delete process.env.CRON_SECRET;
   state.rpcs = [];
   state.fetched = [];
   state.tokens = [];
@@ -635,6 +638,45 @@ describe('revise-plan', () => {
         };
       }
       if (fn === 'take_rate_token') return { data: true, error: null };
+      // A save stales the set — a quorum change, a new required member, a new
+      // revision — so it recalculates, the way an answer does (ADR 0018).
+      if (fn === 'engine_input') {
+        return {
+          data: {
+            plan: {
+              id: PLAN_ID,
+              circle_id: CIRCLE_ID,
+              state: 'collecting',
+              revision: 1,
+              input_version: 7,
+              scoring_version: 1,
+              time_zone: 'Australia/Melbourne',
+              window_start: '2099-09-17',
+              window_end: '2099-09-20',
+              daily_start_local: 1050,
+              daily_end_local: 1350,
+              duration_minutes: 120,
+              quorum: 3,
+              required_member_ids: [],
+            },
+            active_member_ids: [],
+            responses: [],
+          },
+          error: null,
+        };
+      }
+      if (fn === 'store_candidate_set') {
+        return {
+          data: {
+            stored: true,
+            state: 'collecting',
+            eligible: 0,
+            near_misses: 0,
+            input_version: 8,
+          },
+          error: null,
+        };
+      }
       if (fn === 'reask_audience') {
         return {
           data: [
@@ -1069,6 +1111,28 @@ describe('revise-plan', () => {
     expect(called('revise_plan')[0]?.args['p_expected_version']).toBeNull();
   });
 
+  it('recalculates after a save, because an adjustment stales the set', async () => {
+    // Spec §5.6 offers "lower the quorum" on the no-quorum screen, and nothing
+    // else would have recalculated until somebody answered — so the action the
+    // screen offers would have changed nothing on it.
+    await load('revise-plan')(post({ idempotency_key: KEY, plan_id: PLAN_ID, quorum: 5 }));
+
+    expect(called('engine_input')).toHaveLength(1);
+  });
+
+  it('does not recalculate for a preview, which changes nothing', async () => {
+    await load('revise-plan')(
+      post({
+        idempotency_key: KEY,
+        plan_id: PLAN_ID,
+        window: { start: '2099-09-17', end: '2099-09-18' },
+        preview: true,
+      }),
+    );
+
+    expect(called('engine_input')).toHaveLength(0);
+  });
+
   it('refuses an edit that changes nothing', async () => {
     const response = await load('revise-plan')(post({ idempotency_key: KEY, plan_id: PLAN_ID }));
     expect(response.status).toBe(400);
@@ -1093,5 +1157,361 @@ describe('cancel-plan', () => {
   it('sends null rather than an empty note', async () => {
     await load('cancel-plan')(post({ idempotency_key: KEY, plan_id: PLAN_ID }));
     expect(called('cancel_plan')[0]?.args['p_note']).toBeNull();
+  });
+});
+
+describe('submit-availability', () => {
+  const plan = {
+    window_start: '2099-09-17',
+    window_end: '2099-09-20',
+    daily_start_local: 1050,
+    daily_end_local: 1350,
+    duration_minutes: 120,
+    time_zone: 'Australia/Melbourne',
+  };
+
+  /**
+   * 19:00–20:00 Melbourne on the 17th, as instants. What a painted 18:37–20:22
+   * becomes: rounding is **inward**, because a window is a claim about when
+   * somebody is genuinely free and the safe error is to claim less.
+   */
+  const roundedInward = { start: '2099-09-17T09:00:00.000Z', end: '2099-09-17T10:00:00.000Z' };
+
+  const summary = {
+    stored: true,
+    candidate_set_id: '00000000-0000-4000-8000-0000000000e1',
+    state: 'ready',
+    eligible: 4,
+    near_misses: 0,
+    input_version: 7,
+  };
+
+  beforeEach(() => {
+    state.users = [{ id: CALLER, is_anonymous: false }];
+    state.rows = { plans: { ...plan, revision: 1 } };
+    state.answer = (fn) => {
+      if (fn === 'begin_request') {
+        return {
+          data: [{ state: 'fresh', response_status: null, response_body: null }],
+          error: null,
+        };
+      }
+      if (fn === 'take_rate_token') return { data: true, error: null };
+      if (fn === 'replace_response') {
+        return { data: { id: '00000000-0000-4000-8000-0000000000r1', revision: 1 }, error: null };
+      }
+      if (fn === 'engine_input') {
+        return {
+          data: {
+            plan: {
+              id: PLAN_ID,
+              circle_id: '00000000-0000-4000-8000-0000000000c1',
+              state: 'collecting',
+              revision: 1,
+              input_version: 7,
+              scoring_version: 1,
+              required_member_ids: [],
+              ...plan,
+              quorum: 2,
+            },
+            active_member_ids: [CALLER],
+            responses: [],
+          },
+          error: null,
+        };
+      }
+      if (fn === 'store_candidate_set') return { data: summary, error: null };
+      return { data: null, error: null };
+    };
+  });
+
+  it('normalises what was painted before storing it', async () => {
+    // A finger on a touch screen produces 18:37–20:22, and what is stored is
+    // 19:00–20:00: rounding outward would invent availability nobody offered,
+    // and the cost of that is a meetup somebody cannot actually attend. The
+    // database refuses an unaligned window outright, so this is also the
+    // difference between an answer and a 500.
+    await load('submit-availability')(
+      post({
+        idempotency_key: KEY,
+        plan_id: PLAN_ID,
+        revision: 1,
+        status: 'windows',
+        windows: [{ start: '2099-09-17T08:37:00.000Z', end: '2099-09-17T10:22:00.000Z' }],
+      }),
+    );
+
+    expect(called('replace_response')[0]?.args['p_windows']).toEqual([roundedInward]);
+  });
+
+  it('refuses a window on a date the plan never mentions', async () => {
+    // Not dropped. A caller and a plan disagreeing about what was asked is worth
+    // saying out loud; an answer that quietly lost half of what somebody painted
+    // is not.
+    const response = await load('submit-availability')(
+      post({
+        idempotency_key: KEY,
+        plan_id: PLAN_ID,
+        revision: 1,
+        status: 'windows',
+        windows: [{ start: '2099-10-01T08:30:00.000Z', end: '2099-10-01T10:30:00.000Z' }],
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ reason: 'outside_plan_window' });
+    expect(called('replace_response')).toHaveLength(0);
+  });
+
+  it('refuses a windows answer whose windows all aligned away', async () => {
+    // Ten minutes inside the band is a stray tap: the domain drops it rather
+    // than calling it an error, which leaves a `windows` answer carrying none.
+    const response = await load('submit-availability')(
+      post({
+        idempotency_key: KEY,
+        plan_id: PLAN_ID,
+        revision: 1,
+        status: 'windows',
+        windows: [{ start: '2099-09-17T08:35:00.000Z', end: '2099-09-17T08:45:00.000Z' }],
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ reason: 'windows_do_not_match_status' });
+    expect(called('replace_response')).toHaveLength(0);
+  });
+
+  it('tells an offline draft the question changed, not that its windows are wrong', async () => {
+    // A draft survives going offline (spec §5.5) and comes back addressed to
+    // the revision the person was shown. If the organiser has moved the dates
+    // since, normalising first judges yesterday's windows against today's
+    // window and calls them malformed — when what the client needs to hear is
+    // "fetch the plan and ask again".
+    state.rows = { plans: { ...plan, revision: 2 } };
+
+    const response = await load('submit-availability')(
+      post({
+        idempotency_key: KEY,
+        plan_id: PLAN_ID,
+        revision: 1,
+        status: 'windows',
+        windows: [{ start: '2099-09-17T08:30:00.000Z', end: '2099-09-17T10:30:00.000Z' }],
+      }),
+    );
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({ reason: 'stale_revision' });
+    expect(called('replace_response')).toHaveLength(0);
+  });
+
+  it('sends the revision being answered, not the one the plan is at', async () => {
+    // An answer is an answer to a question, and the question can change while a
+    // draft sits on a phone with no signal. `replace_response` is what refuses a
+    // stale one; the handler's job is to pass on what the person was actually
+    // shown.
+    state.rows = { plans: { ...plan, revision: 3 } };
+
+    await load('submit-availability')(
+      post({ idempotency_key: KEY, plan_id: PLAN_ID, revision: 3, status: 'flexible' }),
+    );
+
+    expect(called('replace_response')[0]?.args['p_revision']).toBe(3);
+    expect(called('replace_response')[0]?.args['p_status']).toBe('flexible');
+    expect(called('replace_response')[0]?.args['p_windows']).toEqual([]);
+  });
+
+  it('runs the engine in the same request and answers with what it found', async () => {
+    // Architecture §9.1 puts the recalculation inline: the alternative is a
+    // screen that says "thanks" and shows nothing until a scheduled job catches
+    // up a minute later.
+    const response = await load('submit-availability')(
+      post({ idempotency_key: KEY, plan_id: PLAN_ID, revision: 1, status: 'flexible' }),
+    );
+
+    expect(called('engine_input')).toHaveLength(1);
+    expect(await response.json()).toMatchObject({
+      revision: 1,
+      candidates: { state: 'ready', eligible: 4, input_version: 7 },
+    });
+  });
+
+  it('hands the engine the version it read, so a racing answer discards it', async () => {
+    // The whole of the stale-result protection: the version goes back with the
+    // result, and `store_candidate_set` compares it under the plan's lock.
+    await load('submit-availability')(
+      post({ idempotency_key: KEY, plan_id: PLAN_ID, revision: 1, status: 'flexible' }),
+    );
+
+    expect(called('store_candidate_set')[0]?.args['p_input_version']).toBe(7);
+    expect(called('store_candidate_set')[0]?.args['p_revision']).toBe(1);
+  });
+
+  it("sends the engine's instants as ISO, which is what Postgres reads", async () => {
+    await load('submit-availability')(
+      post({ idempotency_key: KEY, plan_id: PLAN_ID, revision: 1, status: 'flexible' }),
+    );
+
+    const sent = called('store_candidate_set')[0]?.args['p_set'] as {
+      scoringVersion: number;
+      eligible: { start: string }[];
+    };
+    expect(sent.scoringVersion).toBe(1);
+    for (const candidate of sent.eligible) {
+      expect(candidate.start).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    }
+  });
+
+  it('stores the answer even when the engine cannot run', async () => {
+    // The answer is a committed transaction of its own. Reporting an error for
+    // it would be false, and the retry would be refused as a replay of
+    // something that worked (ADR 0018) — so the failure is a log line and the
+    // response simply says nothing about candidates.
+    state.answer = (fn) => {
+      if (fn === 'begin_request') {
+        return {
+          data: [{ state: 'fresh', response_status: null, response_body: null }],
+          error: null,
+        };
+      }
+      if (fn === 'take_rate_token') return { data: true, error: null };
+      if (fn === 'replace_response') {
+        return { data: { id: '00000000-0000-4000-8000-0000000000r1', revision: 1 }, error: null };
+      }
+      return { data: null, error: { message: 'connection lost', code: undefined } };
+    };
+
+    const response = await load('submit-availability')(
+      post({ idempotency_key: KEY, plan_id: PLAN_ID, revision: 1, status: 'flexible' }),
+    );
+
+    expect(response.status).toBe(200);
+    const answered = (await response.json()) as { response_id: string; candidates?: unknown };
+    expect(answered.response_id).toBe('00000000-0000-4000-8000-0000000000r1');
+    expect(answered.candidates).toBeUndefined();
+  });
+
+  it('says nothing about a plan the caller cannot see', async () => {
+    state.rows = {};
+
+    const response = await load('submit-availability')(
+      post({ idempotency_key: KEY, plan_id: PLAN_ID, revision: 1, status: 'flexible' }),
+    );
+
+    expect(response.status).toBe(404);
+    expect(await response.json()).toMatchObject({ reason: 'plan_not_found' });
+  });
+
+  it("turns the database's refusals into reasons a client can act on", async () => {
+    // `replace_response` raises these by name, and the kit maps the name. A
+    // message with the two revision numbers in it matched nothing, so the one
+    // refusal a client knows how to recover from arrived as a 500.
+    state.answer = (fn) => {
+      if (fn === 'begin_request') {
+        return {
+          data: [{ state: 'fresh', response_status: null, response_body: null }],
+          error: null,
+        };
+      }
+      if (fn === 'take_rate_token') return { data: true, error: null };
+      if (fn === 'replace_response') {
+        return { data: null, error: { message: 'stale_revision', code: '40001' } };
+      }
+      return { data: null, error: null };
+    };
+
+    const response = await load('submit-availability')(
+      post({ idempotency_key: KEY, plan_id: PLAN_ID, revision: 1, status: 'flexible' }),
+    );
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({ reason: 'stale_revision' });
+  });
+});
+
+describe('recalculate-candidates', () => {
+  beforeEach(() => {
+    process.env.CRON_SECRET = 'a-shared-secret';
+    state.answer = (fn) => {
+      if (fn === 'engine_input') {
+        return {
+          data: {
+            plan: {
+              id: PLAN_ID,
+              circle_id: '00000000-0000-4000-8000-0000000000c1',
+              state: 'collecting',
+              revision: 1,
+              input_version: 2,
+              scoring_version: 1,
+              time_zone: 'Australia/Melbourne',
+              window_start: '2099-09-17',
+              window_end: '2099-09-20',
+              daily_start_local: 1050,
+              daily_end_local: 1350,
+              duration_minutes: 120,
+              quorum: 2,
+              required_member_ids: [],
+            },
+            active_member_ids: [CALLER],
+            responses: [],
+          },
+          error: null,
+        };
+      }
+      if (fn === 'store_candidate_set') {
+        return {
+          data: {
+            stored: true,
+            state: 'collecting',
+            eligible: 0,
+            near_misses: 0,
+            input_version: 2,
+          },
+          error: null,
+        };
+      }
+      return { data: null, error: null };
+    };
+  });
+
+  it('is not something a member can call', async () => {
+    // Internal (architecture §9.1). A member's own JWT is not the bearer this
+    // takes, and the refusal says nothing about which part was wrong.
+    const response = await load('recalculate-candidates')(post({ plan_id: PLAN_ID }));
+
+    expect(response.status).toBe(401);
+    expect(called('engine_input')).toHaveLength(0);
+  });
+
+  it('runs for the dispatcher, which knows the secret', async () => {
+    const response = await load('recalculate-candidates')(
+      post({ plan_id: PLAN_ID }, 'a-shared-secret'),
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ state: 'collecting', eligible: 0 });
+  });
+
+  it('is off entirely when no secret is configured', async () => {
+    // An internal endpoint anybody can reach because a secret is missing is
+    // worse than one nobody can reach.
+    delete process.env.CRON_SECRET;
+
+    const response = await load('recalculate-candidates')(
+      post({ plan_id: PLAN_ID }, 'a-shared-secret'),
+    );
+
+    expect(response.status).toBe(401);
+    expect(called('engine_input')).toHaveLength(0);
+  });
+
+  it('takes no version from its caller', async () => {
+    // A caller who could name one could pin a recalculation to a version the
+    // plan has left — the exact staleness the design exists to notice.
+    const response = await load('recalculate-candidates')(
+      post({ plan_id: PLAN_ID, input_version: 1 }, 'a-shared-secret'),
+    );
+
+    expect(response.status).toBe(200);
+    expect(called('store_candidate_set')[0]?.args['p_input_version']).toBe(2);
   });
 });

@@ -98,6 +98,14 @@ export type NearMiss = {
   readonly start: Instant;
   readonly end: Instant;
   readonly availableUserIds: readonly UserId[];
+  /**
+   * Split the same way a candidate's is. A near-miss is rendered by the same
+   * card as an option — "Closest: Tuesday, 3 of 6" — and the server stores both
+   * in one table, where the counts have to add up to the list beside them. They
+   * were missing here only because nothing had yet stored one.
+   */
+  readonly explicitCount: number;
+  readonly flexibleCount: number;
   readonly reason: NearMissReason;
   readonly explanation: Explanation;
 };

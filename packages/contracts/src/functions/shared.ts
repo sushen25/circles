@@ -127,6 +127,32 @@ export const ProblemReason = z.enum([
    */
   'nothing_to_change',
   /**
+   * `submit-availability`: the plan has moved to a later revision, so this
+   * answer is to a question that is no longer being asked. Fetch the plan again
+   * and answer the new one — the windows are about different dates now.
+   */
+  'stale_revision',
+  /**
+   * `submit-availability`: the deadline has passed or the plan has been
+   * confirmed. "Editing is allowed until confirmation or the deadline" (§5.5).
+   */
+  'replies_closed',
+  /**
+   * `submit-availability`: a `windows` answer with no windows, or any other
+   * status carrying some. The union in `packages/domain` has this shape for a
+   * reason — switching somebody to "not this time" without clearing the array
+   * would store availability they had just withdrawn.
+   */
+  'windows_do_not_match_status',
+  /**
+   * `submit-availability`: a window on a date the plan never mentions. Not a
+   * stray tap, which is dropped — a caller and a plan disagreeing about what
+   * was asked.
+   */
+  'outside_plan_window',
+  /** `submit-availability`: a window that ends before it starts. */
+  'not_a_window',
+  /**
    * `revise-plan`: somebody named as required was never asked. Joining an active
    * plan is an opt-in (spec §9), so a member who joined the circle afterwards is
    * not a participant and cannot answer — requiring them would strand the plan.

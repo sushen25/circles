@@ -21,6 +21,7 @@ Short records of decisions that shape the product or the code. A new ADR is requ
 | [0015](./0015-sql-functions-live-in-one-file-each.md) | A database function's definition lives in one file, generated into migrations | accepted |
 | [0016](./0016-idempotency-key-travels-in-the-request-body.md) | The idempotency key travels in the request body, not in a header | accepted |
 | [0017](./0017-quorum-and-deadline-adjust-a-plan-without-a-revision.md) | Changing a quorum or a deadline adjusts a plan; it does not revise it | accepted |
+| [0018](./0018-the-recalculation-runs-in-the-request-that-caused-it.md) | The recalculation runs in the request that caused it | accepted |
 
 ## Template
 

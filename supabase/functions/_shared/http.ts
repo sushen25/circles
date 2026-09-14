@@ -4,7 +4,7 @@ import { type Actor, bearerOf, identify } from './auth.ts';
 import { asCaller, asService, type Db } from './db.ts';
 import { claim, record, release } from './idempotency.ts';
 import { log } from './logging.ts';
-import { outcomeOf, plainProblem, problemFor, Refusal } from './problem.ts';
+import { outcomeOf, plainProblem, problemOf } from './problem.ts';
 import { CORS, reference, respond } from './respond.ts';
 
 /**
@@ -281,26 +281,8 @@ export function jsonHandler<Schema extends z.ZodType>(
       });
       return respond(200, result, requestId);
     } catch (thrown) {
-      const outcome = outcomeOf(thrown);
-
-      if (outcome.reason !== undefined) {
-        const message = thrown instanceof Refusal ? thrown.message : 'That did not work out.';
-        return fail(problemFor(outcome.reason, message, requestId), outcome.reason);
-      }
-
-      if (outcome.unavailable) {
-        return fail(
-          plainProblem('unavailable', 503, (thrown as Error).message, requestId),
-          outcome.code,
-        );
-      }
-
-      // Nothing from the thrown value reaches the response or the log except the
-      // code: a Postgres error message can quote the row that caused it.
-      return fail(
-        plainProblem('unavailable', 500, 'Something went wrong at our end.', requestId),
-        outcome.code,
-      );
+      const problem = problemOf(thrown, requestId);
+      return fail(problem, problem.code);
     }
   }
 }

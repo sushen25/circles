@@ -21,7 +21,11 @@ export const CircleId = uuid('CircleId');
  */
 export const UserId = uuid('UserId');
 export const PlanId = uuid('PlanId');
-export const RevisionId = uuid('RevisionId');
+// No `RevisionId`. A revision is a counter on the plan — `plans.revision`, an
+// integer that an edit increments — and a uuid for it was a scaffold's guess
+// that nothing ever issued. The one place that referenced it asked callers for
+// a uuid where `replace_response` takes an integer, so the id a client sent
+// could never have matched the revision it was answering.
 export const ResponseId = uuid('ResponseId');
 export const CandidateSetId = uuid('CandidateSetId');
 export const CandidateId = uuid('CandidateId');
@@ -32,7 +36,6 @@ export const ContactId = uuid('ContactId');
 export type CircleId = z.infer<typeof CircleId>;
 export type UserId = z.infer<typeof UserId>;
 export type PlanId = z.infer<typeof PlanId>;
-export type RevisionId = z.infer<typeof RevisionId>;
 export type ResponseId = z.infer<typeof ResponseId>;
 export type CandidateSetId = z.infer<typeof CandidateSetId>;
 export type CandidateId = z.infer<typeof CandidateId>;

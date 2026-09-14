@@ -14,6 +14,7 @@ import {
   type UserId,
 } from '@circles/domain';
 
+import { recalculateAfterWriting } from '../_shared/engine.ts';
 import { jsonHandler } from '../_shared/http.ts';
 import { now, toInstant, toLocalDate, toZone } from '../_shared/moment.ts';
 import { Refusal } from '../_shared/problem.ts';
@@ -52,7 +53,7 @@ Deno.serve(
   jsonHandler({
     name: 'revise-plan',
     schema: RevisePlanRequest,
-    handle: async ({ body, caller }): Promise<RevisePlanResponse> => {
+    handle: async ({ body, caller, service, requestId }): Promise<RevisePlanResponse> => {
       const before = await readPlan(caller, body.plan_id);
 
       // Whether this is a thing that can be done from where the plan is, asked
@@ -274,6 +275,17 @@ Deno.serve(
         p_expected_version: body.expected_version ?? null,
       });
       if (error !== null) throw error;
+
+      // The set the plan was holding is now about a question it is no longer
+      // asking: a quorum change, a new required member and a new revision all
+      // stale it, and `revise_plan` fires `candidates_gone` for the first two.
+      // Nothing else would recalculate until somebody answered — so spec §5.6's
+      // "lower the quorum", which is one of the three actions the no-quorum
+      // screen offers, would have changed nothing on that screen. The engine
+      // runs here for the same reason it runs in `submit-availability`, and
+      // cannot fail this request for the same reason (ADR 0018): the edit is
+      // already committed.
+      await recalculateAfterWriting(service, body.plan_id, requestId);
 
       // The audience as it was inside that transaction, not as it was one round
       // trip ago.

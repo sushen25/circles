@@ -33,14 +33,21 @@ begin
   if not found or not public.auth_is_member(plan.circle_id) then
     -- The same answer for "no such plan" and "not your circle": telling them
     -- apart would confirm a plan id exists.
-    raise exception 'plan not found' using errcode = 'insufficient_privilege';
+    raise exception 'plan_not_found' using errcode = 'insufficient_privilege';
   end if;
 
   -- The question moved on. Refused with its own code so the client can fetch
   -- the plan again and re-ask, rather than being told its window was malformed.
+  --
+  -- The two revisions go in `detail`, not in the message: `_shared/problem.ts`
+  -- turns an exception's text into a `ProblemReason` by exact match, so a
+  -- message with numbers in it is a refusal no endpoint can translate — the
+  -- client got 500 for the one refusal it knows how to recover from. The
+  -- numbers are still in the database log, where whoever is debugging is.
   if p_revision <> plan.revision then
-    raise exception 'stale_revision: answered % but the plan is at %', p_revision, plan.revision
-      using errcode = 'serialization_failure';
+    raise exception 'stale_revision'
+      using errcode = 'serialization_failure',
+            detail = format('answered %s but the plan is at %s', p_revision, plan.revision);
   end if;
 
   -- Addressed to this person: spec §9 makes joining an active plan an opt-in,
@@ -50,15 +57,19 @@ begin
     select 1 from public.plan_participants pp
     where pp.plan_id = plan.id and pp.revision = plan.revision and pp.user_id = caller
   ) then
-    raise exception 'not a participant in this plan' using errcode = 'insufficient_privilege';
+    raise exception 'not_a_participant' using errcode = 'insufficient_privilege';
   end if;
 
-  -- "Editing is allowed until confirmation or the deadline" (spec §5.5).
+  -- "Editing is allowed until confirmation or the deadline" (spec §5.5). One
+  -- name for both, because they are one answer to the person: replies are
+  -- closed. Which of the two it was goes in `detail`.
   if plan.state not in ('collecting', 'ready') then
-    raise exception 'replies are closed: plan is %', plan.state using errcode = 'check_violation';
+    raise exception 'replies_closed' using errcode = 'check_violation',
+      detail = format('the plan is %s', plan.state);
   end if;
   if now() >= plan.response_deadline then
-    raise exception 'replies closed at %', plan.response_deadline using errcode = 'check_violation';
+    raise exception 'replies_closed' using errcode = 'check_violation',
+      detail = format('the deadline passed at %s', plan.response_deadline);
   end if;
 
   -- A SQL null is not an empty list: `jsonb_array_length(null)` is null, and
@@ -66,17 +77,18 @@ begin
   -- `windows` answer with no windows. Coalesce first, and insist on an array.
   p_windows := coalesce(p_windows, '[]'::jsonb);
   if jsonb_typeof(p_windows) <> 'array' then
-    raise exception 'windows must be a list' using errcode = 'check_violation';
+    raise exception 'windows_do_not_match_status' using errcode = 'check_violation',
+      detail = 'windows must be a list';
   end if;
 
   -- The domain's union, enforced: only a `windows` answer carries windows, and
-  -- a `windows` answer carries at least one.
-  if p_status = 'windows' and jsonb_array_length(p_windows) = 0 then
-    raise exception 'a windows response needs at least one window' using errcode = 'check_violation';
-  end if;
-  if p_status <> 'windows' and jsonb_array_length(p_windows) > 0 then
-    raise exception 'a % response carries no windows', p_status
-      using errcode = 'check_violation';
+  -- a `windows` answer carries at least one. One name, because it is one
+  -- mistake from either side — and a name rather than a sentence, so that a
+  -- caller who reaches this function directly gets the same 400 the request
+  -- schema would have given.
+  if (p_status = 'windows') <> (jsonb_array_length(p_windows) > 0) then
+    raise exception 'windows_do_not_match_status' using errcode = 'check_violation',
+      detail = format('a %s answer carries %s windows', p_status, jsonb_array_length(p_windows));
   end if;
 
   -- One bump for the whole answer, at the end; the row triggers stand down
