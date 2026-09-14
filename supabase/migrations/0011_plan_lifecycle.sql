@@ -769,6 +769,17 @@ begin
     raise exception 'circle_archived' using errcode = 'check_violation';
   end if;
 
+  -- The deadline's other end, checked where it is true. `plans_deadline` bounds
+  -- it above and cannot bound it below: "not already past" is about now, which
+  -- a check constraint may not read. The Edge Function asks the domain the same
+  -- question a moment earlier, and a moment is exactly the problem — tonight's
+  -- default can be the last possible start itself, so a deadline that was
+  -- seconds away when the request was validated is seconds gone when the row is
+  -- written, and the plan arrives with its replies already closed.
+  if p_response_deadline <= now() then
+    raise exception 'deadline_out_of_range' using errcode = 'P0001';
+  end if;
+
   -- The same alphabet as a circle's, and the same reason: a plan's code is read
   -- aloud and pasted into a chat (`/p/:code`), so no `o`, `l`, `i`, `0` or `1`.
   loop
@@ -1141,7 +1152,9 @@ create or replace function public.revise_plan(
   -- Null means "leave them alone". An empty array means nobody is required,
   -- which is a different answer and is kept as one — the same distinction
   -- `create_plan` draws.
-  p_required_member_ids uuid[] default null
+  p_required_member_ids uuid[] default null,
+  -- What the preview said the plan was. Null means the caller did not preview.
+  p_expected_version text default null
 )
 returns jsonb
 language plpgsql
@@ -1174,6 +1187,19 @@ begin
     raise exception 'plan_not_found' using errcode = 'P0001';
   end if;
 
+  -- Under the lock, before anything is read or written: the warning the
+  -- organiser agreed to was about a particular version of this plan, and an
+  -- answer arriving since has moved it. §5.3 promises the cost is shown
+  -- *before* saving, and a save that costs more than the preview said breaks
+  -- that promise however accurately it reports itself afterwards. The same
+  -- argument `replace_response` makes about answering a question that has
+  -- changed, one level up.
+  if p_expected_version is not null
+    and p_expected_version is distinct from (plan.revision || '.' || plan.input_version)
+  then
+    raise exception 'preview_is_stale' using errcode = 'P0001';
+  end if;
+
   -- Through `reask_audience` rather than a second copy of its query: the
   -- preview and the save have to answer the same question the same way, and
   -- two queries that agree today are two queries that can stop agreeing. Its
@@ -1198,6 +1224,19 @@ begin
     )
   ) then
     raise exception 'not_a_participant' using errcode = 'P0001';
+  end if;
+
+  -- The end of the deadline rule the table cannot check. `plans_deadline` bounds
+  -- it above — never after the last possible start — and "not already past" is
+  -- not a constraint a table can hold, because it is about now. The handler
+  -- checks it too, and this is the one that is inside the transaction: a
+  -- deadline that was a minute away when the request was validated can be a
+  -- minute gone by the time it is written, and a plan whose replies closed on
+  -- arrival is one nobody can answer.
+  if coalesce(p_payload, '{}'::jsonb) ? 'response_deadline'
+    and (p_payload ->> 'response_deadline')::timestamptz <= now()
+  then
+    raise exception 'deadline_out_of_range' using errcode = 'P0001';
   end if;
 
   -- Which action this is, from what is being changed rather than from what the
@@ -1264,15 +1303,21 @@ begin
   -- so one object: the handler needs the new revision to report and the old
   -- audience to warn about, and computing the second anywhere else reintroduces
   -- the gap this function was given the lock to close.
-  return jsonb_build_object('plan', to_jsonb(revised), 'audience', audience);
+  return jsonb_build_object(
+    'plan', to_jsonb(revised),
+    'audience', audience,
+    -- The version the audience was read at, which is the version this answer
+    -- describes — not the one the change has just produced.
+    'version', plan.revision || '.' || plan.input_version
+  );
 end;
 $$;
 
-comment on function public.revise_plan(uuid, boolean, jsonb, uuid[]) is
+comment on function public.revise_plan(uuid, boolean, jsonb, uuid[], text) is
   'Edits a plan, or reopens a confirmed one, as the calling organiser. Returns the revised plan and the audience it had before the change, derived under the same lock. A fixed set of actions over planning.transition_plan, which no client can call.';
 
-revoke all on function public.revise_plan(uuid, boolean, jsonb, uuid[]) from public;
-revoke all on function public.revise_plan(uuid, boolean, jsonb, uuid[]) from anon, authenticated;
-grant execute on function public.revise_plan(uuid, boolean, jsonb, uuid[]) to authenticated;
+revoke all on function public.revise_plan(uuid, boolean, jsonb, uuid[], text) from public;
+revoke all on function public.revise_plan(uuid, boolean, jsonb, uuid[], text) from anon, authenticated;
+grant execute on function public.revise_plan(uuid, boolean, jsonb, uuid[], text) to authenticated;
 
 -- END GENERATED: function definitions

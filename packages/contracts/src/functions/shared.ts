@@ -116,6 +116,11 @@ export const ProblemReason = z.enum([
    */
   'note_not_allowed',
   /**
+   * `revise-plan`: the plan moved between the preview and the save, so the cost
+   * the organiser was shown is no longer the cost. Fetch the preview again.
+   */
+  'preview_is_stale',
+  /**
    * `revise-plan`: every value in the request is the value the plan already has.
    * Saving it would emit "the plan changed" and, for a quorum, throw away a
    * candidate set — over a form resubmitted unedited.

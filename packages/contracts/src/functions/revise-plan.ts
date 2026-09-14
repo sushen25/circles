@@ -43,6 +43,23 @@ export const RevisePlanRequest = Mutation.extend({
   reopen: z.boolean().default(false),
   /** Answer the question and change nothing. The warning before saving. */
   preview: z.boolean().default(false),
+  /**
+   * The `version` a preview came back with, sent back when the edit is saved.
+   *
+   * §5.3's promise is that the organiser sees the cost **before** paying it, and
+   * an answer arriving between the two calls made the preview wrong about the
+   * one person it was most about: they were shown as a fresh ask, and the save
+   * cleared a reply they had already given. The save reports the truth — it
+   * reads the audience under the plan's lock — but "shown afterwards" is not
+   * what the sentence says.
+   *
+   * So this is the token that says which plan the warning was about, in the
+   * spirit of `replace_response`'s revision argument: send it and a plan that
+   * has moved is refused rather than quietly costing somebody more than they
+   * were told. Optional, because an edit that asks nobody again has no cost to
+   * be shown and needs no preview.
+   */
+  expected_version: z.string().max(40).optional(),
 }).refine(
   (body) =>
     body.window !== undefined ||
@@ -71,5 +88,13 @@ export const RevisePlanResponse = z.object({
   invalidating: z.array(z.enum(['window', 'daily', 'duration'])),
   /** Whether saving this would start a new revision and clear the answers. */
   bumps_revision: z.boolean(),
+  /**
+   * Which version of the plan this answer describes — its revision and the
+   * count of changes to its inputs, which an arriving answer moves.
+   *
+   * Send it back as `expected_version` when saving what was previewed. Opaque
+   * on purpose: it is a token to hand back, not two numbers to reason about.
+   */
+  version: z.string(),
 });
 export type RevisePlanResponse = z.infer<typeof RevisePlanResponse>;

@@ -6,7 +6,7 @@
 -- would all say yes.
 
 begin;
-select plan(78);
+select plan(80);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid
@@ -694,6 +694,27 @@ select is(
   'which stales the set for the same reason: a required person narrows which times qualify'
 );
 
+-- Round 9: the version the warning was about. An answer landing between the
+-- preview and the save moves `input_version`, and §5.3's promise is that the
+-- cost is shown *before* it is paid — so a save quoting a version the plan has
+-- moved past is refused rather than costing somebody a reply they were told
+-- they would keep.
+select pg_temp.act_as('10000000-0000-0000-0000-000000000001');
+select throws_ok(
+  format($$ select public.revise_plan(%L, false, '{"quorum": 2}'::jsonb, null, '1.0') $$,
+         pg_temp.edited_id()),
+  'preview_is_stale',
+  'a save that quotes a version the plan has moved past is refused'
+);
+
+select lives_ok(
+  format($$ select public.revise_plan(%L, false, '{"quorum": 2}'::jsonb, null,
+       (select p.revision || '.' || p.input_version from public.plans p where p.id = %L)) $$,
+         pg_temp.edited_id(), pg_temp.edited_id()),
+  'and the version the plan is actually at goes through'
+);
+select pg_temp.act_as_postgres();
+
 -- ---------------------------------------------------------------------------
 -- Round 2: the audience comes back with the plan, read before the change.
 --
@@ -787,7 +808,7 @@ select throws_ok(
 select pg_temp.act_as_postgres();
 
 select ok(
-  not has_function_privilege('anon', 'public.revise_plan(uuid, boolean, jsonb, uuid[])', 'execute'),
+  not has_function_privilege('anon', 'public.revise_plan(uuid, boolean, jsonb, uuid[], text)', 'execute'),
   'nor revise a plan'
 );
 

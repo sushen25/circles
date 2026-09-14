@@ -606,6 +606,7 @@ describe('revise-plan', () => {
     quorum: 3,
     response_deadline: '2099-09-16T10:00:00.000Z',
     revision: 1,
+    input_version: 7,
     state: 'collecting',
   };
 
@@ -650,6 +651,7 @@ describe('revise-plan', () => {
         return {
           data: {
             plan: { revision: 2 },
+            version: '1.4',
             audience: [
               { member_user_id: '00000000-0000-4000-8000-0000000000a1', has_responded: true },
               { member_user_id: '00000000-0000-4000-8000-0000000000a2', has_responded: true },
@@ -1034,6 +1036,37 @@ describe('revise-plan', () => {
     );
 
     expect(await response.json()).toMatchObject({ reason: 'plan_is_finished' });
+  });
+
+  it('hands back the version its warning was about', async () => {
+    // And the save sends it on, so a plan that moved between the two is refused
+    // rather than costing somebody more than they were shown (spec §5.3).
+    const preview = await load('revise-plan')(
+      post({
+        idempotency_key: KEY,
+        plan_id: PLAN_ID,
+        window: { start: '2099-09-17', end: '2099-09-18' },
+        preview: true,
+      }),
+    );
+    expect(await preview.json()).toMatchObject({ version: '1.7' });
+
+    state.users = [{ id: CALLER, is_anonymous: false }];
+    state.rpcs = [];
+    await load('revise-plan')(
+      post({
+        idempotency_key: KEY,
+        plan_id: PLAN_ID,
+        window: { start: '2099-09-17', end: '2099-09-18' },
+        expected_version: '1.7',
+      }),
+    );
+    expect(called('revise_plan')[0]?.args['p_expected_version']).toBe('1.7');
+  });
+
+  it('sends no version the caller did not offer', async () => {
+    await load('revise-plan')(post({ idempotency_key: KEY, plan_id: PLAN_ID, quorum: 5 }));
+    expect(called('revise_plan')[0]?.args['p_expected_version']).toBeNull();
   });
 
   it('refuses an edit that changes nothing', async () => {

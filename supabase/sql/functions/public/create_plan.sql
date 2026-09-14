@@ -76,6 +76,17 @@ begin
     raise exception 'circle_archived' using errcode = 'check_violation';
   end if;
 
+  -- The deadline's other end, checked where it is true. `plans_deadline` bounds
+  -- it above and cannot bound it below: "not already past" is about now, which
+  -- a check constraint may not read. The Edge Function asks the domain the same
+  -- question a moment earlier, and a moment is exactly the problem — tonight's
+  -- default can be the last possible start itself, so a deadline that was
+  -- seconds away when the request was validated is seconds gone when the row is
+  -- written, and the plan arrives with its replies already closed.
+  if p_response_deadline <= now() then
+    raise exception 'deadline_out_of_range' using errcode = 'P0001';
+  end if;
+
   -- The same alphabet as a circle's, and the same reason: a plan's code is read
   -- aloud and pasted into a chat (`/p/:code`), so no `o`, `l`, `i`, `0` or `1`.
   loop

@@ -81,6 +81,7 @@ const REASONS: Record<ProblemReason, { status: number; error: Problem['error'] }
   band_out_of_day: { status: 400, error: 'invalid_request' },
   deadline_out_of_range: { status: 400, error: 'invalid_request' },
   not_a_participant: { status: 400, error: 'invalid_request' },
+  preview_is_stale: { status: 409, error: 'conflict' },
   nothing_to_change: { status: 400, error: 'invalid_request' },
   note_not_allowed: { status: 400, error: 'invalid_request' },
 };

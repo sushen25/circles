@@ -1128,6 +1128,7 @@ export type Database = {
       }
       revise_plan: {
         Args: {
+          p_expected_version?: string
           p_payload?: Json
           p_plan_id: string
           p_reopen?: boolean

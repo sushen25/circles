@@ -191,7 +191,7 @@ Deno.serve(
       // Parsed on the way out, like every DTO here: the domain brands a `UserId`
       // one way and the contract another, and the parse is what makes the two
       // agree rather than a cast asserting that they do.
-      const answerFor = (rows: AudienceRow[]): RevisePlanResponse => {
+      const answerFor = (rows: AudienceRow[], version: string): RevisePlanResponse => {
         const cost = invalidatedResponses(
           beforeTiming,
           after,
@@ -210,6 +210,7 @@ Deno.serve(
           fresh_ask: [...cost.freshAsk],
           invalidating: [...cost.changes],
           bumps_revision: cost.bumpsRevision,
+          version,
         });
       };
 
@@ -254,7 +255,10 @@ Deno.serve(
           p_plan_id: body.plan_id,
         });
         if (audienceError !== null) throw audienceError;
-        return answerFor((audience ?? []) as AudienceRow[]);
+        return answerFor(
+          (audience ?? []) as AudienceRow[],
+          `${before.revision}.${before.input_version}`,
+        );
       }
 
       const { data, error } = await caller.rpc('revise_plan', {
@@ -265,13 +269,23 @@ Deno.serve(
         // required — so both the absent case and the unchanged one are passed as
         // null rather than collapsed into an empty list.
         p_required_member_ids: changedRequired ?? null,
+        // Checked under the plan's lock, where "has anything moved?" can still
+        // be answered truthfully. Null when the client did not preview.
+        p_expected_version: body.expected_version ?? null,
       });
       if (error !== null) throw error;
 
       // The audience as it was inside that transaction, not as it was one round
       // trip ago.
-      const result = data as { plan: { revision: number }; audience: AudienceRow[] };
-      return { ...answerFor(result.audience ?? []), revision: result.plan.revision };
+      const result = data as {
+        plan: { revision: number };
+        audience: AudienceRow[];
+        version: string;
+      };
+      return {
+        ...answerFor(result.audience ?? [], result.version),
+        revision: result.plan.revision,
+      };
     },
   }),
 );
@@ -337,12 +351,13 @@ async function readPlan(
   quorum: number;
   response_deadline: string;
   revision: number;
+  input_version: number;
   state: string;
 }> {
   const { data, error } = await caller
     .from('plans')
     .select(
-      'window_start, window_end, daily_start_local, daily_end_local, duration_minutes, time_zone, quorum, response_deadline, revision, state',
+      'window_start, window_end, daily_start_local, daily_end_local, duration_minutes, time_zone, quorum, response_deadline, revision, input_version, state',
     )
     .eq('id', planId)
     .maybeSingle();
