@@ -5,6 +5,7 @@ import {
   icsFilename,
   icsFor,
   planId,
+  toLocal,
   userId,
   type Confirmation,
   type ConfirmationStatus,
@@ -12,7 +13,7 @@ import {
 
 import { downloadHandler } from '../_shared/download.ts';
 import { optional } from '../_shared/env.ts';
-import { now, toInstant } from '../_shared/moment.ts';
+import { now, toInstant, toZone } from '../_shared/moment.ts';
 import { Refusal } from '../_shared/problem.ts';
 
 /**
@@ -43,7 +44,7 @@ Deno.serve(
       const { data, error } = await caller
         .from('meetup_confirmations')
         .select(
-          'id, plan_id, revision, starts_at, ends_at, available_user_ids, place_name, place_url, note, confirmed_by, status, confirmed_at, plans(title, short_code, circles(name))',
+          'id, plan_id, revision, starts_at, ends_at, available_user_ids, place_name, place_url, note, confirmed_by, status, confirmed_at, plans(title, short_code, time_zone, circles(name))',
         )
         .eq('id', query.confirmation_id)
         .maybeSingle();
@@ -67,7 +68,12 @@ Deno.serve(
         confirmed_by: string;
         status: ConfirmationStatus;
         confirmed_at: string;
-        plans: { title: string; short_code: string; circles: { name: string } };
+        plans: {
+          title: string;
+          short_code: string;
+          time_zone: string;
+          circles: { name: string };
+        };
       };
 
       // Through the domain's own constructors rather than a cast: `UserId`,
@@ -108,12 +114,19 @@ Deno.serve(
           url: `${origin()}${DEEP_LINK_ROUTES.plan.replace(':code', row.plans.short_code)}`,
         }),
         contentType: 'text/calendar; charset=utf-8',
-        // `<circle>-<date>.ics`. One slug function, given both halves: a person
-        // with three of these in a downloads folder can tell them apart.
-        filename: icsFilename(`${circleName} ${row.starts_at.slice(0, 10)}`),
-        // Five minutes. A confirmation changes rarely and a stale file is a
-        // wrong time in somebody's calendar; `private`, because it is theirs.
-        maxAge: 300,
+        // `<circle>-<date>.ics`, and the date is the one on the invitation —
+        // the local date in the plan's zone. Slicing the instant gives the UTC
+        // date, which for 6:30 pm in Los Angeles is the *next* day: a file
+        // named for a Thursday that says Wednesday inside it.
+        filename: icsFilename(
+          `${circleName} ${toLocal(confirmation.candidate.start, toZone(row.plans.time_zone)).date}`,
+        ),
+        // Not cached. A confirmation is exactly the kind of thing that changes
+        // — rescheduled, cancelled — and a file served from a five-minute cache
+        // would say `STATUS:CONFIRMED` about a time that is off the table
+        // (spec §5.7). Re-fetching a two-kilobyte file is cheaper than being
+        // wrong about when somebody is meeting.
+        maxAge: 0,
       };
     },
   }),

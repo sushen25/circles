@@ -1839,7 +1839,12 @@ describe('generate-ics', () => {
         confirmed_by: CALLER,
         status: 'active',
         confirmed_at: '2099-09-16T00:00:00+00:00',
-        plans: { title: 'Catch up', short_code: 'pncfmt', circles: { name: 'Sunday Crew' } },
+        plans: {
+          title: 'Catch up',
+          short_code: 'pncfmt',
+          time_zone: 'Australia/Melbourne',
+          circles: { name: 'Sunday Crew' },
+        },
       },
     };
   });
@@ -1849,9 +1854,15 @@ describe('generate-ics', () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get('content-type')).toBe('text/calendar; charset=utf-8');
+    // The date on the invitation, not the one in UTC. 18:30 in Melbourne is
+    // 08:30Z the same day; in Los Angeles the same evening is the *next* day in
+    // UTC, and a file named for a Thursday that says Wednesday inside it is a
+    // file somebody will open twice.
     expect(response.headers.get('content-disposition')).toBe(
       'attachment; filename="sunday-crew-2099-09-17.ics"',
     );
+    // Nothing cached: a confirmation is the kind of thing that gets cancelled.
+    expect(response.headers.get('cache-control')).toBe('no-store');
 
     const body = await response.text();
     // DTSTART is UTC, whatever zone the circle keeps: a calendar reads the
@@ -1870,6 +1881,29 @@ describe('generate-ics', () => {
 
     expect(body).toContain('/p/pncfmt');
     expect(body).not.toMatch(/token|secret|[?]t=/i);
+  });
+
+  it('names the file for the local date, not the UTC one', async () => {
+    // 18:30 on the 17th in Los Angeles is 01:30Z on the 18th.
+    state.rows = {
+      meetup_confirmations: {
+        ...(state.rows['meetup_confirmations'] as Record<string, unknown>),
+        starts_at: '2099-09-18T01:30:00+00:00',
+        ends_at: '2099-09-18T03:30:00+00:00',
+        plans: {
+          title: 'Catch up',
+          short_code: 'pncfmt',
+          time_zone: 'America/Los_Angeles',
+          circles: { name: 'Sunday Crew' },
+        },
+      },
+    };
+
+    const response = await load('generate-ics')(get({ confirmation_id: CONFIRMATION_ID }));
+
+    expect(response.headers.get('content-disposition')).toBe(
+      'attachment; filename="sunday-crew-2099-09-17.ics"',
+    );
   });
 
   it('marks a rescheduled meetup cancelled rather than refusing the file', async () => {

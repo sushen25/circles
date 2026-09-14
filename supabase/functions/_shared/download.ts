@@ -36,7 +36,12 @@ export interface Download {
   /** With its charset: a calendar file is not ASCII and a name can hold anything. */
   contentType: string;
   filename: string;
-  /** Seconds. A confirmation changes rarely, and a stale file is a wrong time. */
+  /**
+   * Seconds a browser may reuse the answer for. **Zero means `no-store`**, not
+   * "stale immediately": a file describing something that can be cancelled is
+   * worth re-fetching, and a cache that serves the old one is wrong about when
+   * somebody is meeting.
+   */
   maxAge: number;
 }
 
@@ -140,7 +145,7 @@ export function downloadHandler<Schema extends z.ZodType>(
           // slugs it), so there is no header injection to worry about and no
           // `filename*` encoding to get wrong.
           'content-disposition': `attachment; filename="${file.filename}"`,
-          'cache-control': `private, max-age=${file.maxAge}`,
+          'cache-control': file.maxAge === 0 ? 'no-store' : `private, max-age=${file.maxAge}`,
           'x-request-id': requestId,
         },
       });
