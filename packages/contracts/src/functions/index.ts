@@ -9,6 +9,7 @@ export * from './answer-interest.js';
 export * from './cancel-plan.js';
 export * from './claim-identity.js';
 export * from './confirm-meetup.js';
+export * from './create-circle.js';
 export * from './create-plan.js';
 export * from './delete-account.js';
 export * from './email-provider-webhook.js';

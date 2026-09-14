@@ -56,6 +56,40 @@ export const ProblemReason = z.enum([
   'in_progress',
   /** Any endpoint: an abuse limit, not an authorisation decision. Retry later. */
   'too_many_requests',
+
+  // S1-15, the plan lifecycle.
+
+  /** `create-circle`, `create-plan`: creating needs a saved place (ADR 0004). The InitiateGate. */
+  'requires_saved_place',
+  /** `create-plan`: quiet asks land in S2-02. Not a refusal of this person, of this feature. */
+  'not_yet',
+  /** `create-circle`: handing out the way in is the owner's alone (spec §5.2). */
+  'not_the_owner',
+  /** `revise-plan`, `cancel-plan`: only the organiser edits or cancels. */
+  'not_the_organiser',
+  /** The plan is over — completed, expired or already cancelled. */
+  'plan_is_finished',
+  /** The plan is in a state this action does not exist from (e.g. reopening one never confirmed). */
+  'wrong_state',
+  'plan_not_found',
+  'circle_not_found',
+  /** An archived circle stops all prompts (spec §5.2), and a new plan is the loudest. */
+  'circle_archived',
+
+  // What the domain says about a window it cannot resolve. Each is a screen:
+  // "too late for tonight" offers tomorrow, "window has passed" re-opens the
+  // picker. They are the domain's own error names, unchanged, so that a reader
+  // can find the rule that produced one.
+  'too_late_for_tonight',
+  'window_too_long',
+  'window_backwards',
+  'window_has_passed',
+  'band_shorter_than_meetup',
+  'band_backwards',
+  'band_unaligned',
+  'band_out_of_day',
+  /** A chosen deadline after the last possible start, or already past (spec §5.3). */
+  'deadline_out_of_range',
 ]);
 export type ProblemReason = z.infer<typeof ProblemReason>;
 

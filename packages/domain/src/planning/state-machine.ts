@@ -18,6 +18,7 @@ export type PlanAction =
   | 'candidates_ready'
   | 'candidates_gone'
   | 'edit'
+  | 'adjust'
   | 'confirm'
   | 'reopen'
   | 'cancel'
@@ -169,12 +170,29 @@ export const TRANSITIONS: readonly Transition[] = [
     guards: ['organiser'],
     bumpsRevision: true,
   },
+  // Changing the quorum or the deadline is not an edit, and this is the
+  // difference spec §5.3 draws: those "change what happens to the answers, not
+  // the question, so they cost nobody a second reply". `edit` bumps the
+  // revision and responses are keyed by revision, so routing a quorum change
+  // through it silently asked the whole circle again — which nobody would have
+  // seen until an organiser nudged a number and watched five answers vanish.
+  //
+  // A separate action rather than a conditional bump, because the distinction
+  // is then *structural*: `planning.allowed_keys('adjust')` is quorum and
+  // deadline alone, so a window cannot ride along on one.
+  { from: 'collecting', action: 'adjust', to: 'collecting', guards: ['organiser'] },
   { from: 'collecting', action: 'expire', to: 'expired', guards: [] },
   { from: 'collecting', action: 'cancel', to: 'cancelled', guards: ['organiser'] },
 
   // Ready. A response can be withdrawn or changed, which can take the plan back.
   { from: 'ready', action: 'candidates_gone', to: 'collecting', guards: [] },
   { from: 'ready', action: 'edit', to: 'collecting', guards: ['organiser'], bumpsRevision: true },
+  // From `ready` it stays `ready`: the candidate set was computed from
+  // availability, which an adjustment does not touch. A quorum change does make
+  // a different set of candidates *eligible*, but that is
+  // `candidate_is_eligible` reading the plan's quorum at confirm time, not a
+  // reason to throw the set away.
+  { from: 'ready', action: 'adjust', to: 'ready', guards: ['organiser'] },
   { from: 'ready', action: 'confirm', to: 'confirmed', guards: ['organiser', 'candidate'] },
   { from: 'ready', action: 'expire', to: 'expired', guards: [] },
   { from: 'ready', action: 'cancel', to: 'cancelled', guards: ['organiser'] },

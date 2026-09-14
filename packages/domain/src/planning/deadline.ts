@@ -12,7 +12,7 @@
 
 import { type Instant, addMinutes, earliest, isAfter } from '../shared/instant.js';
 import { fromLocal } from '../shared/zone.js';
-import type { Plan, WindowPreset } from './types.js';
+import type { PlanTiming, WindowPreset } from './types.js';
 
 const HOUR = 60;
 
@@ -32,7 +32,7 @@ export const TONIGHT_MARGIN_MINUTES = 30;
  * Computed in the plan's zone, so a window whose last day crosses a DST change
  * still ends at the local hour people were shown.
  */
-export function lastPossibleStart(plan: Plan): Instant {
+export function lastPossibleStart(plan: PlanTiming): Instant {
   const latestStartMin = plan.daily.endMin - plan.durationMinutes;
   if (latestStartMin < plan.daily.startMin) {
     // The band is shorter than the meetup. Not a valid plan; the earliest

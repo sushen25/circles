@@ -9,7 +9,7 @@
  */
 
 import type { UserId } from '../circles/types.js';
-import type { DailyWindow, DateWindow, Plan } from './types.js';
+import type { DailyWindow, DateWindow, PlanTiming } from './types.js';
 
 /**
  * Changes that alter *what was asked*. Quorum and deadline change what happens
@@ -25,7 +25,10 @@ function sameDaily(a: DailyWindow, b: DailyWindow): boolean {
   return a.startMin === b.startMin && a.endMin === b.endMin;
 }
 
-export function invalidatingChanges(before: Plan, after: Plan): readonly InvalidatingChange[] {
+export function invalidatingChanges(
+  before: PlanTiming,
+  after: PlanTiming,
+): readonly InvalidatingChange[] {
   const changes: InvalidatingChange[] = [];
   if (!sameWindow(before.window, after.window)) changes.push('window');
   if (!sameDaily(before.daily, after.daily)) changes.push('daily');
@@ -50,8 +53,8 @@ export type ReAskPlan = {
  * because being asked twice is a different imposition from being asked once.
  */
 export function invalidatedResponses(
-  before: Plan,
-  after: Plan,
+  before: PlanTiming,
+  after: PlanTiming,
   members: readonly UserId[],
   responded: readonly UserId[],
 ): ReAskPlan {

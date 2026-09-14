@@ -8,7 +8,7 @@
 -- either, so most of this file is about trying to write it some other way.
 
 begin;
-select plan(77);
+select plan(79);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid
@@ -153,8 +153,26 @@ select ok(
 
 select is(
   (select count(*)::integer from planning.transitions),
-  19,
-  'nineteen transitions, seeded from the generated block'
+  21,
+  'twenty-one transitions, seeded from the generated block'
+);
+
+-- Two of them are `adjust`, and the point of it is the column it does *not*
+-- set. Changing the quorum or the deadline "changes what happens to the answers,
+-- not the question" (spec §5.3), so it must not start a revision — responses are
+-- keyed by revision, and bumping one silently asks the whole circle again.
+select is(
+  (select array_agg(from_state order by from_state) from planning.transitions
+   where action = 'adjust' and not bumps_revision),
+  array['collecting', 'ready'],
+  'a quorum or deadline change adjusts the plan without starting a revision'
+);
+
+select is(
+  (select array_agg(from_state order by from_state) from planning.transitions
+   where action = 'edit' and bumps_revision),
+  array['collecting', 'ready'],
+  'while an edit — the window, the band, the duration — does'
 );
 select is(
   (select guards from planning.transitions where from_state = 'ready' and action = 'confirm'),

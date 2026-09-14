@@ -11,6 +11,11 @@ language sql
 immutable
 as $$
   select case
+    -- `adjust` takes these two and *only* these two, which is what makes the
+    -- split between "changes the question" and "changes what happens to the
+    -- answers" structural rather than a comparison somebody has to remember
+    -- (spec §5.3). A window cannot ride along on an adjustment.
+    when action = 'adjust' then array['quorum', 'response_deadline']
     when action in ('edit', 'reopen') then array[
       'window_start', 'window_end', 'daily_start_local', 'daily_end_local',
       'duration_minutes', 'quorum', 'response_deadline'

@@ -22,6 +22,12 @@ const state = vi.hoisted(() => ({
   users: [] as ({ id: string; is_anonymous: boolean } | { error: { status?: number } })[],
   /** Every token `getUser` was actually given — the mock used to ignore its argument. */
   tokens: [] as string[],
+  /** What a `from(table).select(...)` answers, by table. */
+  rows: {} as Record<string, unknown>,
+  /** Rows a `count: 'exact'` head request reports. */
+  counts: {} as Record<string, number>,
+  /** Every table read, so a handler that reads through the service client is visible. */
+  reads: [] as string[],
   served: [] as ((request: Request) => Promise<Response>)[],
   fetched: [] as string[],
 }));
@@ -41,6 +47,37 @@ const client = vi.hoisted(() => ({
   rpc: (fn: string, args: Record<string, unknown>) => {
     state.rpcs.push({ fn, args });
     return Promise.resolve(state.answer(fn));
+  },
+  /**
+   * Just enough of PostgREST's builder to be chained and awaited.
+   *
+   * Every method returns the builder and the builder is thenable, which is what
+   * makes `.select(…).eq(…).eq(…)` and `.select(…).eq(…).maybeSingle()` both
+   * work without modelling a query. An earlier version returned a promise from
+   * `select` when a count was asked for, and the next `.eq()` in the chain found
+   * a promise with no such method — so four handlers answered 500 and three
+   * tests were asserting against it.
+   */
+  from: (table: string) => {
+    state.reads.push(table);
+    let counting = false;
+    const builder: Record<string, unknown> = {
+      then: (resolve: (value: unknown) => unknown) =>
+        resolve(
+          counting
+            ? { count: state.counts[table] ?? 0, data: null, error: null }
+            : { data: state.rows[table] ?? null, error: null },
+        ),
+      maybeSingle: () => Promise.resolve({ data: state.rows[table] ?? null, error: null }),
+    };
+    builder['single'] = builder['maybeSingle'];
+    for (const method of ['select', 'eq', 'neq', 'in', 'order', 'limit']) {
+      builder[method] = (_first?: unknown, options?: { head?: boolean }): unknown => {
+        if (options?.head === true) counting = true;
+        return builder;
+      };
+    }
+    return builder;
   },
   auth: {
     getUser: (token: string) => {
@@ -125,6 +162,10 @@ const handlers = {
   'claim-identity': await serveOf('claim-identity'),
   'redeem-invite': await serveOf('redeem-invite'),
   'reattach-member': await serveOf('reattach-member'),
+  'create-circle': await serveOf('create-circle'),
+  'create-plan': await serveOf('create-plan'),
+  'revise-plan': await serveOf('revise-plan'),
+  'cancel-plan': await serveOf('cancel-plan'),
 };
 
 function load(name: keyof typeof handlers): (request: Request) => Promise<Response> {
@@ -149,6 +190,9 @@ beforeEach(() => {
   state.rpcs = [];
   state.fetched = [];
   state.tokens = [];
+  state.reads = [];
+  state.rows = {};
+  state.counts = {};
   state.users = [{ id: CALLER, is_anonymous: true }];
   state.answer = (fn) => {
     if (fn === 'begin_request') {
@@ -346,5 +390,294 @@ describe('reattach-member', () => {
 
     expect(response.status).toBe(400);
     expect(called('reattach_member')).toHaveLength(0);
+  });
+});
+
+const CIRCLE_ID = '00000000-0000-4000-8000-0000000000c1';
+const PLAN_ID = '00000000-0000-4000-8000-0000000000p1'.replace('p', 'e');
+
+describe('create-circle', () => {
+  const body = {
+    idempotency_key: KEY,
+    name: 'Sunday Crew',
+    color: '#336699',
+    time_zone: 'Australia/Melbourne',
+    cadence: 'fortnightly' as const,
+  };
+
+  beforeEach(() => {
+    state.answer = (fn) => {
+      if (fn === 'begin_request') {
+        return {
+          data: [{ state: 'fresh', response_status: null, response_body: null }],
+          error: null,
+        };
+      }
+      if (fn === 'take_rate_token') return { data: true, error: null };
+      if (fn === 'create_circle') return { data: CIRCLE_ROW, error: null };
+      return { data: null, error: null };
+    };
+  });
+
+  it('refuses a guest with the reason that opens InitiateGate', async () => {
+    // Not a generic forbidden: `requires_saved_place` is what tells the client to
+    // offer sign-in rather than show a failure (ADR 0004).
+    state.users = [{ id: CALLER, is_anonymous: true }];
+
+    const response = await load('create-circle')(post(body));
+
+    expect(await response.json()).toMatchObject({ reason: 'requires_saved_place' });
+    expect(called('create_circle')).toHaveLength(0);
+  });
+
+  it('makes the circle and its first link', async () => {
+    state.users = [{ id: CALLER, is_anonymous: false }];
+
+    const response = await load('create-circle')(post(body));
+    const answered = (await response.json()) as { invite_secret: string; circle: object };
+
+    expect(response.status).toBe(200);
+    expect(called('create_circle')).toHaveLength(1);
+    expect(called('issue_invite')).toHaveLength(1);
+    expect(answered.circle).not.toHaveProperty('creation_key');
+  });
+
+  it('gives the database the digest and never the secret', async () => {
+    // §14 puts the secret in the fragment, which no server sees, and stores only
+    // its SHA-256. So it must not be a statement parameter anywhere: not in
+    // `issue_invite`, not in `create_circle`.
+    state.users = [{ id: CALLER, is_anonymous: false }];
+
+    const response = await load('create-circle')(post(body));
+    const { invite_secret: secret } = (await response.json()) as { invite_secret: string };
+
+    expect(secret.length).toBeGreaterThanOrEqual(43);
+    expect(called('issue_invite')[0]?.args['p_secret_hash']).toMatch(/^\\x[0-9a-f]{64}$/);
+
+    const toTheProduct = [...called('issue_invite'), ...called('create_circle')];
+    expect(JSON.stringify(toTheProduct)).not.toContain(secret);
+  });
+
+  it('does keep it in the idempotency record, which is the point of one', async () => {
+    // The deliberate exception, asserted so that it is a decision rather than an
+    // oversight: a retry whose first attempt was lost has to come back with the
+    // *same* link. The record lives in `jobs`, which no client role can read, and
+    // retention sweeps it after seven days.
+    state.users = [{ id: CALLER, is_anonymous: false }];
+
+    const response = await load('create-circle')(post(body));
+    const { invite_secret: secret } = (await response.json()) as { invite_secret: string };
+
+    expect(JSON.stringify(called('finish_request'))).toContain(secret);
+  });
+
+  it('gives a different secret every time', async () => {
+    state.users = [{ id: CALLER, is_anonymous: false }];
+    const first = (await (await load('create-circle')(post(body))).json()) as {
+      invite_secret: string;
+    };
+    state.users = [{ id: CALLER, is_anonymous: false }];
+    const second = (await (await load('create-circle')(post(body))).json()) as {
+      invite_secret: string;
+    };
+    expect(first.invite_secret).not.toBe(second.invite_secret);
+  });
+});
+
+describe('create-plan', () => {
+  const body = {
+    idempotency_key: KEY,
+    circle_id: CIRCLE_ID,
+    title: 'Catch up',
+    preset: 'next_14_days' as const,
+  };
+
+  beforeEach(() => {
+    state.users = [{ id: CALLER, is_anonymous: false }];
+    state.rows = {
+      circles: {
+        time_zone: 'Australia/Melbourne',
+        status: 'active',
+        default_duration_minutes: 120,
+        default_quorum: null,
+      },
+    };
+    state.counts = { circle_members: 6 };
+    state.answer = (fn) => {
+      if (fn === 'begin_request') {
+        return {
+          data: [{ state: 'fresh', response_status: null, response_body: null }],
+          error: null,
+        };
+      }
+      if (fn === 'take_rate_token') return { data: true, error: null };
+      if (fn === 'create_plan') {
+        return { data: { id: PLAN_ID, short_code: 'jmhzcew2', quorum: 4 }, error: null };
+      }
+      return { data: null, error: null };
+    };
+  });
+
+  it('refuses a quiet ask as not-yet rather than as a failure', async () => {
+    const response = await load('create-plan')(post({ ...body, mode: 'quiet' }));
+
+    expect(await response.json()).toMatchObject({ reason: 'not_yet' });
+    expect(called('create_plan')).toHaveLength(0);
+  });
+
+  it('resolves the preset and the defaults, and sends what they resolved to', async () => {
+    // The numbers a screen must never compute: the window from `resolvePreset`,
+    // the deadline from `defaultDeadline`, the quorum from `quorumDefault(6)`.
+    const response = await load('create-plan')(post(body));
+    const sent = called('create_plan')[0]?.args ?? {};
+
+    expect(response.status).toBe(200);
+    expect(sent['p_window_start']).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(sent['p_duration_minutes']).toBe(120);
+    // max(2, ceil(6 × 0.6)) = 4.
+    expect(sent['p_quorum']).toBe(4);
+    expect(sent['p_response_deadline']).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+  });
+
+  it('passes the domain’s own word for a window that cannot be', async () => {
+    // `custom` with no dates is `window_backwards`, and the reason travels
+    // unchanged so a reader can find the rule that produced it.
+    const response = await load('create-plan')(post({ ...body, preset: 'custom' }));
+
+    expect(await response.json()).toMatchObject({ reason: 'window_backwards' });
+    expect(called('create_plan')).toHaveLength(0);
+  });
+
+  it('refuses a deadline after the last possible start', async () => {
+    const response = await load('create-plan')(
+      post({ ...body, response_deadline: '2099-12-31T00:00:00Z' }),
+    );
+
+    expect(await response.json()).toMatchObject({ reason: 'deadline_out_of_range' });
+  });
+
+  it('will not plan in an archived circle', async () => {
+    state.rows = {
+      circles: {
+        time_zone: 'Australia/Melbourne',
+        status: 'archived',
+        default_duration_minutes: 120,
+        default_quorum: null,
+      },
+    };
+
+    const response = await load('create-plan')(post(body));
+    expect(await response.json()).toMatchObject({ reason: 'circle_archived' });
+  });
+});
+
+describe('revise-plan', () => {
+  const current = {
+    window_start: '2099-09-17',
+    window_end: '2099-09-20',
+    daily_start_local: 1050,
+    daily_end_local: 1350,
+    duration_minutes: 120,
+    time_zone: 'Australia/Melbourne',
+  };
+
+  beforeEach(() => {
+    state.users = [{ id: CALLER, is_anonymous: false }];
+    state.rows = { plans: current };
+    state.answer = (fn) => {
+      if (fn === 'begin_request') {
+        return {
+          data: [{ state: 'fresh', response_status: null, response_body: null }],
+          error: null,
+        };
+      }
+      if (fn === 'take_rate_token') return { data: true, error: null };
+      if (fn === 'reask_audience') {
+        return {
+          data: [
+            { member_user_id: '00000000-0000-4000-8000-0000000000a1', has_responded: true },
+            { member_user_id: '00000000-0000-4000-8000-0000000000a2', has_responded: false },
+          ],
+          error: null,
+        };
+      }
+      if (fn === 'revise_plan') return { data: { revision: 2 }, error: null };
+      return { data: null, error: null };
+    };
+  });
+
+  it('answers the warning without saving anything', async () => {
+    // Spec §5.3: the organiser sees the cost *before* paying it.
+    const response = await load('revise-plan')(
+      post({
+        idempotency_key: KEY,
+        plan_id: PLAN_ID,
+        window: { start: '2099-09-17', end: '2099-09-18' },
+        preview: true,
+      }),
+    );
+    const answer = (await response.json()) as { asked_again: string[]; bumps_revision: boolean };
+
+    expect(answer.asked_again).toEqual(['00000000-0000-4000-8000-0000000000a1']);
+    expect(answer.bumps_revision).toBe(true);
+    expect(called('revise_plan')).toHaveLength(0);
+  });
+
+  it('costs nobody a reply when only the quorum moves', async () => {
+    const response = await load('revise-plan')(
+      post({ idempotency_key: KEY, plan_id: PLAN_ID, quorum: 4 }),
+    );
+    const answer = (await response.json()) as { asked_again: string[]; bumps_revision: boolean };
+
+    expect(answer.asked_again).toEqual([]);
+    expect(answer.bumps_revision).toBe(false);
+    expect(called('revise_plan')[0]?.args['p_payload']).toEqual({ quorum: 4 });
+  });
+
+  it('does not send a window that has not changed', async () => {
+    // Re-sending the current window would make `revise_plan` call it an `edit`,
+    // bump a revision and clear every answer — over a no-op.
+    await load('revise-plan')(
+      post({
+        idempotency_key: KEY,
+        plan_id: PLAN_ID,
+        window: { start: current.window_start, end: current.window_end },
+        quorum: 5,
+      }),
+    );
+
+    expect(called('revise_plan')[0]?.args['p_payload']).toEqual({ quorum: 5 });
+  });
+
+  it('asks for a reopen by name rather than by inference', async () => {
+    await load('revise-plan')(post({ idempotency_key: KEY, plan_id: PLAN_ID, reopen: true }));
+
+    expect(called('revise_plan')[0]?.args['p_reopen']).toBe(true);
+  });
+
+  it('refuses an edit that changes nothing', async () => {
+    const response = await load('revise-plan')(post({ idempotency_key: KEY, plan_id: PLAN_ID }));
+    expect(response.status).toBe(400);
+    expect(called('revise_plan')).toHaveLength(0);
+  });
+});
+
+describe('cancel-plan', () => {
+  beforeEach(() => {
+    state.users = [{ id: CALLER, is_anonymous: false }];
+  });
+
+  it('carries the note to the row', async () => {
+    const response = await load('cancel-plan')(
+      post({ idempotency_key: KEY, plan_id: PLAN_ID, note: 'Something came up' }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(called('cancel_plan')[0]?.args['p_note']).toBe('Something came up');
+  });
+
+  it('sends null rather than an empty note', async () => {
+    await load('cancel-plan')(post({ idempotency_key: KEY, plan_id: PLAN_ID }));
+    expect(called('cancel_plan')[0]?.args['p_note']).toBeNull();
   });
 });

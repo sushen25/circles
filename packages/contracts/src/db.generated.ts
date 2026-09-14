@@ -830,6 +830,41 @@ export type Database = {
           state: string
         }[]
       }
+      cancel_plan: {
+        Args: { p_note?: string; p_plan_id: string }
+        Returns: {
+          cancel_note: string | null
+          category: string
+          circle_id: string
+          created_at: string
+          daily_end_local: number
+          daily_start_local: number
+          duration_minutes: number
+          id: string
+          input_version: number
+          mode: string
+          organiser_user_id: string | null
+          quiet_expires_at: string | null
+          quiet_threshold: number | null
+          quorum: number
+          response_deadline: string
+          revision: number
+          scoring_version: number
+          short_code: string
+          state: string
+          time_zone: string
+          title: string
+          updated_at: string
+          window_end: string
+          window_start: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "plans"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       canonical_display_name: { Args: { value: string }; Returns: string }
       claim_identity: {
         Args: {
@@ -876,6 +911,53 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      create_plan: {
+        Args: {
+          p_category: string
+          p_circle_id: string
+          p_daily_end_local: number
+          p_daily_start_local: number
+          p_duration_minutes: number
+          p_quorum: number
+          p_required_member_ids?: string[]
+          p_response_deadline: string
+          p_title: string
+          p_window_end: string
+          p_window_start: string
+        }
+        Returns: {
+          cancel_note: string | null
+          category: string
+          circle_id: string
+          created_at: string
+          daily_end_local: number
+          daily_start_local: number
+          duration_minutes: number
+          id: string
+          input_version: number
+          mode: string
+          organiser_user_id: string | null
+          quiet_expires_at: string | null
+          quiet_threshold: number | null
+          quorum: number
+          response_deadline: string
+          revision: number
+          scoring_version: number
+          short_code: string
+          state: string
+          time_zone: string
+          title: string
+          updated_at: string
+          window_end: string
+          window_start: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "plans"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       finish_request: {
         Args: {
           p_body: Json
@@ -894,6 +976,25 @@ export type Database = {
           member_user_id: string
         }[]
       }
+      issue_invite: {
+        Args: { p_circle_id: string; p_secret_hash: string }
+        Returns: {
+          circle_id: string
+          created_at: string
+          created_by: string
+          id: string
+          revoked_at: string | null
+          secret_hash: string
+          updated_at: string
+          use_count: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "circle_invites"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       member_cap: { Args: never; Returns: number }
       plan_last_possible_start: {
         Args: {
@@ -903,6 +1004,13 @@ export type Database = {
           window_end: string
         }
         Returns: string
+      }
+      reask_audience: {
+        Args: { p_plan_id: string }
+        Returns: {
+          has_responded: boolean
+          member_user_id: string
+        }[]
       }
       reattach_member: {
         Args: {
@@ -1013,6 +1121,41 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "outcome_reports"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      revise_plan: {
+        Args: { p_payload?: Json; p_plan_id: string; p_reopen?: boolean }
+        Returns: {
+          cancel_note: string | null
+          category: string
+          circle_id: string
+          created_at: string
+          daily_end_local: number
+          daily_start_local: number
+          duration_minutes: number
+          id: string
+          input_version: number
+          mode: string
+          organiser_user_id: string | null
+          quiet_expires_at: string | null
+          quiet_threshold: number | null
+          quorum: number
+          response_deadline: string
+          revision: number
+          scoring_version: number
+          short_code: string
+          state: string
+          time_zone: string
+          title: string
+          updated_at: string
+          window_end: string
+          window_start: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "plans"
           isOneToOne: true
           isSetofReturn: false
         }

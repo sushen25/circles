@@ -56,6 +56,28 @@ const REASONS: Record<ProblemReason, { status: number; error: Problem['error'] }
   idempotency_mismatch: { status: 409, error: 'conflict' },
   in_progress: { status: 409, error: 'conflict' },
   too_many_requests: { status: 429, error: 'rate_limited' },
+
+  // S1-15. The three that are about *who* are `forbidden`; the rest are the
+  // caller asking for something that cannot be, which is `invalid_request`
+  // unless the thing itself is missing or gone.
+  requires_saved_place: { status: 403, error: 'forbidden' },
+  not_the_owner: { status: 403, error: 'forbidden' },
+  not_the_organiser: { status: 403, error: 'forbidden' },
+  not_yet: { status: 501, error: 'unavailable' },
+  plan_is_finished: { status: 409, error: 'conflict' },
+  wrong_state: { status: 409, error: 'conflict' },
+  plan_not_found: { status: 404, error: 'not_found' },
+  circle_not_found: { status: 404, error: 'not_found' },
+  circle_archived: { status: 409, error: 'conflict' },
+  too_late_for_tonight: { status: 400, error: 'invalid_request' },
+  window_too_long: { status: 400, error: 'invalid_request' },
+  window_backwards: { status: 400, error: 'invalid_request' },
+  window_has_passed: { status: 400, error: 'invalid_request' },
+  band_shorter_than_meetup: { status: 400, error: 'invalid_request' },
+  band_backwards: { status: 400, error: 'invalid_request' },
+  band_unaligned: { status: 400, error: 'invalid_request' },
+  band_out_of_day: { status: 400, error: 'invalid_request' },
+  deadline_out_of_range: { status: 400, error: 'invalid_request' },
 };
 
 /**
