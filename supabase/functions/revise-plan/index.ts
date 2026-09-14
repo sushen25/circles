@@ -84,6 +84,12 @@ Deno.serve(
       // bump `input_version` and drop a `ready` plan back to `collecting` over
       // nothing. The window has been compared this way since the first round;
       // these two were not compared at all.
+      // What an edit would actually change, decided once and used three times:
+      // whether the deadline has to be live, what goes in the payload, and who
+      // gets asked again.
+      const changes = invalidatingChanges(beforeTiming, after);
+      const invalidating = changes.length > 0 || body.reopen;
+
       const changedQuorum = body.quorum === before.quorum ? undefined : body.quorum;
       const changedDeadline =
         body.response_deadline !== undefined &&
@@ -128,18 +134,20 @@ Deno.serve(
       // carried the old value would make it uneditable at the moment it most
       // needs editing.
       //
-      // A reopen is the exception because it is a fresh ask (§5.7), and a fresh
-      // ask needs time to answer in: reopening a plan whose deadline has passed
-      // moved it to `collecting`, told everybody, and then had
-      // `replace_response` refuse every reply as closed. So the organiser
-      // reopening an old plan has to say when replies close, which is the one
-      // thing they are in a position to know.
+      // Every edit that starts a revision is the exception, because every one of
+      // them is a fresh ask (§5.3, §5.7): the answers are cleared and the same
+      // people are asked the new question. Done to a plan whose deadline has
+      // passed, that moved it along, told everybody, and then had
+      // `replace_response` refuse every reply as closed — a plan asking a
+      // question nobody is allowed to answer. So an organiser who reopens or
+      // re-asks has to say when replies close, which is the one thing they are
+      // in a position to know.
       const effectiveDeadline = changedDeadline ?? before.response_deadline;
       if (
         !isDeadlineAllowed(
           toInstant(effectiveDeadline),
           lastPossibleStart(after),
-          changedDeadline === undefined && !body.reopen ? undefined : now(),
+          changedDeadline === undefined && !invalidating ? undefined : now(),
         )
       ) {
         throw new Refusal(
@@ -193,13 +201,12 @@ Deno.serve(
         return answerFor((audience ?? []) as AudienceRow[]);
       }
 
-      // Only what actually changed, and `invalidatingChanges` is the authority on
-      // that — the same comparison the preview's answer is built from, over the
-      // same two timings, so the payload and the warning cannot disagree. A
-      // client that re-sends the current window unchanged is not editing
-      // anything, and putting it in the payload would make `revise_plan` call it
-      // an `edit` and bump a revision, clearing every answer over a no-op.
-      const changes = invalidatingChanges(beforeTiming, after);
+      // Only what actually changed, and `changes` above is the authority on that
+      // — the same comparison the preview's answer is built from, over the same
+      // two timings, so the payload and the warning cannot disagree. A client
+      // that re-sends the current window unchanged is not editing anything, and
+      // putting it in the payload would make `revise_plan` call it an `edit` and
+      // bump a revision, clearing every answer over a no-op.
       const payload: Record<string, unknown> = {};
       if (changes.includes('window') && body.window !== undefined) {
         payload['window_start'] = body.window.start;

@@ -20,7 +20,12 @@ export const CreatePlanRequest = Mutation.extend({
   circle_id: CircleId,
   /** Quiet asks land in S2-02; until then this refuses them with `not_yet`. */
   mode: z.enum(['named', 'quiet']).default('named'),
-  title: z.string().min(1).max(60),
+  /**
+   * Trimmed here, because `plans_title_length` counts the trimmed length: a
+   * title of three spaces satisfied `min(1)`, reached the RPC and came back as
+   * an unclassified 500 for what is an ordinary invalid request.
+   */
+  title: z.string().trim().min(1).max(60),
   category: z.enum(['catch_up', 'dinner', 'drinks', 'coffee', 'activity']).default('catch_up'),
   preset: z.enum(['tonight', 'this_weekend', 'next_7_days', 'next_14_days', 'custom']),
   /** Required by `custom`, ignored otherwise: the dates the person picked. */

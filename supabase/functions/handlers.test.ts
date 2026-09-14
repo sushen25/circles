@@ -121,7 +121,7 @@ vi.mock('./_shared/db.ts', () => ({
 const CIRCLE_ROW = {
   id: '00000000-0000-4000-8000-0000000000c1',
   name: 'Sunday Crew',
-  color: '#336699',
+  color: 'sky',
   time_zone: 'Australia/Melbourne',
   cadence: 'fortnightly',
   short_code: 'jmhzcew29t',
@@ -400,7 +400,7 @@ describe('create-circle', () => {
   const body = {
     idempotency_key: KEY,
     name: 'Sunday Crew',
-    color: '#336699',
+    color: 'sky',
     time_zone: 'Australia/Melbourne',
     cadence: 'fortnightly' as const,
   };
@@ -954,6 +954,41 @@ describe('revise-plan', () => {
     expect(called('revise_plan')[0]?.args['p_payload']).toEqual({
       response_deadline: '2099-09-18T10:00:00.000Z',
     });
+  });
+
+  it('will not start a revision into a deadline that has passed', async () => {
+    // A new revision is a fresh ask of the same people (spec §5.3), and
+    // `replace_response` refuses every reply once the deadline is behind us —
+    // so this cleared the answers, asked again, and let nobody answer.
+    state.rows = {
+      ...state.rows,
+      plans: { ...current, response_deadline: '2020-01-01T00:00:00.000Z' },
+    };
+
+    const response = await load('revise-plan')(
+      post({
+        idempotency_key: KEY,
+        plan_id: PLAN_ID,
+        window: { start: '2099-09-17', end: '2099-09-19' },
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ reason: 'deadline_out_of_range' });
+    expect(called('revise_plan')).toHaveLength(0);
+  });
+
+  it('leaves a passed deadline alone for an edit that asks nobody again', async () => {
+    // §5.7's "give it one more day" is for exactly this plan, and a quorum is
+    // not a new question.
+    state.rows = {
+      ...state.rows,
+      plans: { ...current, response_deadline: '2020-01-01T00:00:00.000Z' },
+    };
+
+    await load('revise-plan')(post({ idempotency_key: KEY, plan_id: PLAN_ID, quorum: 5 }));
+
+    expect(called('revise_plan')[0]?.args['p_payload']).toEqual({ quorum: 5 });
   });
 
   it('refuses an edit that changes nothing', async () => {

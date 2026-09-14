@@ -6,7 +6,7 @@
 -- would all say yes.
 
 begin;
-select plan(77);
+select plan(78);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid
@@ -75,7 +75,7 @@ select pg_temp.make_user('10000000-0000-0000-0000-000000000004', 'Sam');
 
 select pg_temp.act_as('10000000-0000-0000-0000-000000000001');
 create temporary table fixture as
-select id as circle_id from public.create_circle('Sunday Crew', '#336699', 'Australia/Melbourne', 'sus31');
+select id as circle_id from public.create_circle('Sunday Crew', 'sky', 'Australia/Melbourne', 'sus31');
 
 select pg_temp.act_as_postgres();
 create or replace function pg_temp.circle_id() returns uuid
@@ -134,7 +134,7 @@ select is(
 -- error. Given the digest, `create_circle` issues the link itself.
 select pg_temp.act_as('10000000-0000-0000-0000-000000000001');
 create temporary table linked as
-select id from public.create_circle('Linked Crew', '#336699', 'Australia/Melbourne',
+select id from public.create_circle('Linked Crew', 'sky', 'Australia/Melbourne',
   'sus31-linked', 'none', pg_temp.digest_of('made-together'));
 
 select is(
@@ -271,21 +271,31 @@ select is(
   'an empty list means nobody is required, which is not the same as saying nothing'
 );
 
--- A name that is not in the circle cannot be required into it.
+-- A name that is not in the circle cannot be required into it — and round seven
+-- changed what "cannot" does. Dropping the name and creating the plan anyway
+-- left the organiser believing four people had to be there while three could
+-- confirm it, and nothing anywhere said so. The member who left while the form
+-- was open is the same request.
 select pg_temp.make_user('10000000-0000-0000-0000-00000000000f', 'An Outsider');
 select pg_temp.act_as('10000000-0000-0000-0000-000000000001');
-create temporary table outsider_plan as
-select * from public.create_plan(pg_temp.circle_id(), 'Drinks', 'drinks',
-  date '2099-12-01', date '2099-12-05', 1050, 1350, 120, 2,
-  timestamptz '2099-11-30T10:00:00Z',
-  array['10000000-0000-0000-0000-00000000000f'::uuid]);
+select throws_ok(
+  $$ select public.create_plan(pg_temp.circle_id(), 'Drinks', 'drinks',
+       date '2099-12-01', date '2099-12-05', 1050, 1350, 120, 2,
+       timestamptz '2099-11-30T10:00:00Z',
+       array['10000000-0000-0000-0000-00000000000f'::uuid]) $$,
+  'not_a_participant',
+  'somebody outside the circle is refused rather than quietly dropped'
+);
 
-select pg_temp.act_as_postgres();
-select is(
-  (select count(*)::integer from public.plan_required_members
-   where plan_id = (select id from outsider_plan)),
-  0,
-  'somebody outside the circle is not required into it'
+-- Naming the same person twice is naming them. `unnest` produced two rows and
+-- the primary key aborted the whole creation over a repeated id.
+select lives_ok(
+  $$ select public.create_plan(pg_temp.circle_id(), 'Twice named', 'catch_up',
+       date '2099-12-01', date '2099-12-05', 1050, 1350, 120, 2,
+       timestamptz '2099-11-30T10:00:00Z',
+       array['10000000-0000-0000-0000-000000000002'::uuid,
+             '10000000-0000-0000-0000-000000000002'::uuid]) $$,
+  'a list naming somebody twice is a list naming them'
 );
 
 -- An archived circle stops all prompts (spec §5.2), and a new plan is the loudest.

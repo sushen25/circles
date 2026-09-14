@@ -114,13 +114,26 @@ begin
   -- "The organiser is required by default" (spec §5.3). An explicit list
   -- replaces that rather than adding to it: an organiser who says "these three
   -- have to be there" has said something about themselves too.
+  --
+  -- Refused, not filtered. A list that quietly loses the member who left while
+  -- the form was open produces a plan the organiser believes needs four people
+  -- and that can be confirmed with three — and nothing anywhere says so.
+  -- `revise_plan` refuses the same request for the same reason.
+  if exists (
+    select 1 from unnest(coalesce(p_required_member_ids, array[caller])) as required
+    where not exists (
+      select 1 from public.circle_members m
+      where m.circle_id = p_circle_id and m.user_id = required and m.status = 'active'
+    )
+  ) then
+    raise exception 'not_a_participant' using errcode = 'P0001';
+  end if;
+
+  -- `distinct`, because a list naming somebody twice is a list naming them, and
+  -- the primary key would otherwise abort the whole creation over a repeat.
   insert into public.plan_required_members (plan_id, revision, user_id)
-  select created.id, created.revision, required
-  from unnest(coalesce(p_required_member_ids, array[caller])) as required
-  where exists (
-    select 1 from public.circle_members m
-    where m.circle_id = p_circle_id and m.user_id = required and m.status = 'active'
-  );
+  select distinct created.id, created.revision, required
+  from unnest(coalesce(p_required_member_ids, array[caller])) as required;
 
   -- And out of `draft` by the only route there is. The guards — an active
   -- member with a saved place — run here, so an anonymous caller's plan is

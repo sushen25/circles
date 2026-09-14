@@ -23,8 +23,20 @@ export const CreateCircleRequest = Mutation.extend({
   // a person's display name governs it: collapsed whitespace, one to forty
   // characters of something.
   name: z.string().transform(normaliseDisplayName).refine(isValidDisplayName, 'not a usable name'),
-  /** A solid colour from the palette. No images (spec §5.2). */
-  color: z.string().regex(/^#[0-9a-f]{6}$/i, 'not a colour'),
+  /**
+   * A palette **token** — `sky`, not `#87ceeb`. Solid; no images (spec §5.2).
+   *
+   * `circles.color` says why in the column's own comment: "a token name
+   * ('sky'), never a hex value: the palette is generated from the design source
+   * and a stored hex would outlive the token it came from." Accepting a hex
+   * here was a schema letting in the one value the table says must never
+   * arrive.
+   *
+   * The shape, not the set. The circle palette is the design canvas's and is not
+   * in `@circles/tokens` yet — those are the UI's roles, not a circle's choices —
+   * and an enum written here would be a list invented in the wrong place.
+   */
+  color: z.string().regex(/^[a-z][a-z0-9]{1,23}$/, 'not a palette token'),
   /** From the device, not guessed by the server. */
   time_zone: Zone,
   cadence: z.enum(['weekly', 'fortnightly', 'monthly', 'two_monthly', 'none']).default('none'),
