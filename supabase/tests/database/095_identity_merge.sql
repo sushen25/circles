@@ -7,7 +7,7 @@
 -- membership can never be moved onto somebody with a saved place.
 
 begin;
-select plan(146);
+select plan(147);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid
@@ -1029,6 +1029,21 @@ on conflict do nothing;
 insert into public.attendance (confirmation_id, user_id, status)
 values (pg_temp.confirmation_id(), '95000000-0000-0000-0000-00000000e301', 'going');
 
+-- S1-16: the one id a near-miss carries. `{"kind":"required_missing","userId":…}`
+-- is the single rule the no-quorum screen shows (spec §5.6), and it names
+-- somebody who is by definition *not* available — so the `available_user_ids`
+-- rewrite above never touches it, and left behind it would blame an identity
+-- nobody can sign in as for a plan the person in front of you is blocking.
+insert into public.candidates (
+  candidate_set_id, is_near_miss, rank, starts_at, ends_at, available_user_ids,
+  explicit_count, flexible_count, explanation_code, explanation_count, near_miss_reason
+)
+select cs.id, true, 1, timestamptz '2099-09-18T08:30:00Z', timestamptz '2099-09-18T10:30:00Z',
+       array[]::uuid[], 0, 0, 'closest', 0,
+       jsonb_build_object('kind', 'required_missing',
+                          'userId', '95000000-0000-0000-0000-00000000e301')
+from public.candidate_sets cs where cs.plan_id = pg_temp.plan_id();
+
 -- Round 14: the confirmation's own array, and a push already queued. Both statements
 -- in `move_membership` could have been deleted and the suite would not have noticed —
 -- the array because nothing read it afterwards, the push because no test made one.
@@ -1088,6 +1103,14 @@ select is(
    where job.idempotency_key = repeat('e', 64)),
   '95000000-0000-0000-0000-00000000e302'::uuid,
   'and a push already queued goes to the device they are actually holding'
+);
+
+select is(
+  (select c.near_miss_reason ->> 'userId' from public.candidates c
+   join public.candidate_sets cs on cs.id = c.candidate_set_id
+   where cs.plan_id = pg_temp.plan_id() and c.is_near_miss),
+  '95000000-0000-0000-0000-00000000e302',
+  'and the one rule blocking a near-miss names the identity they are using now'
 );
 
 select is(

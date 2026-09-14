@@ -89,16 +89,29 @@ begin
   -- somebody who was never asked, or somebody whose membership moved while the
   -- engine was running.
   if exists (
-    select 1
-    from jsonb_array_elements(
-      coalesce(p_set -> 'eligible', '[]'::jsonb) || coalesce(p_set -> 'nearMisses', '[]'::jsonb)
-    ) as item
-    cross join lateral jsonb_array_elements_text(item.value -> 'availableUserIds') as named(user_id)
+    with named as (
+      select item.value as entry
+      from jsonb_array_elements(
+        coalesce(p_set -> 'eligible', '[]'::jsonb) || coalesce(p_set -> 'nearMisses', '[]'::jsonb)
+      ) as item
+    ),
+    -- Every id the set names, and a near-miss names one the array does not: the
+    -- required member whose absence is the blocking rule (spec §5.6) is by
+    -- definition not available. Checking the array alone let exactly that id
+    -- through, which is the one the no-quorum screen puts a name to.
+    ids as (
+      select user_id from named, lateral jsonb_array_elements_text(entry -> 'availableUserIds')
+        as available(user_id)
+      union
+      select entry -> 'reason' ->> 'userId' from named
+      where entry -> 'reason' ->> 'kind' = 'required_missing'
+    )
+    select 1 from ids
     where not exists (
       select 1 from public.plan_participants pp
       where pp.plan_id = plan.id
         and pp.revision = plan.revision
-        and pp.user_id = named.user_id::uuid
+        and pp.user_id = ids.user_id::uuid
     )
   ) then
     return public.candidate_summary(plan, false);

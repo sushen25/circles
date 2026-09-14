@@ -94,6 +94,23 @@ begin
       where p.circle_id = p_circle_id
     );
 
+  -- And the one id a near-miss carries. `{"kind":"required_missing","userId":…}`
+  -- is the single rule the no-quorum screen shows — "the closest near-misses,
+  -- the blocking rule, and three actions" (spec §5.6) — and it names somebody
+  -- who is *not* available, so the array above never touches it. Left behind, it
+  -- would name an identity that has just stopped being a member, and the screen
+  -- would blame a person who is not there for a plan the person who *is* there
+  -- is blocking.
+  update public.candidates c
+  set near_miss_reason = jsonb_set(c.near_miss_reason, '{userId}', to_jsonb(p_to::text))
+  where c.near_miss_reason ->> 'kind' = 'required_missing'
+    and c.near_miss_reason ->> 'userId' = p_from::text
+    and c.candidate_set_id in (
+      select cs.id from public.candidate_sets cs
+      join public.plans p on p.id = cs.plan_id
+      where p.circle_id = p_circle_id
+    );
+
   update public.meetup_confirmations mc
   set available_user_ids = array_replace(mc.available_user_ids, p_from, p_to)
   where p_from = any (mc.available_user_ids)

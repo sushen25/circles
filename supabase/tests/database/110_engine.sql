@@ -16,7 +16,7 @@
 -- recalculations racing is a thing to reproduce, not to reason about.
 
 begin;
-select plan(46);
+select plan(47);
 
 create or replace function pg_temp.make_user(id uuid, name text)
 returns uuid language sql as $$
@@ -316,6 +316,20 @@ select is(
   (select count(*)::integer from public.candidate_sets where plan_id = pg_temp.plan_id()),
   0,
   'and writes nothing'
+);
+
+-- Round 2: and the id a near-miss names, which the array above does not carry.
+-- `{"kind":"required_missing","userId":…}` is the single rule the no-quorum
+-- screen shows, and it names somebody who is by definition *not* available — so
+-- checking `availableUserIds` alone let exactly the id the screen puts a name to
+-- through.
+select is(
+  (select public.store_candidate_set(pg_temp.plan_id(), pg_temp.version(), 1,
+     jsonb_set(pg_temp.result(0, 1), '{nearMisses,0,reason}',
+       jsonb_build_object('kind', 'required_missing',
+                          'userId', '00000000-0000-0000-0000-0000000000ff'))) ->> 'stored'),
+  'false',
+  'a near-miss blaming somebody the plan is not asking is discarded too'
 );
 
 -- ---------------------------------------------------------------------------
