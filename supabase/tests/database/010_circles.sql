@@ -866,7 +866,7 @@ select is(
 
 select pg_temp.act_as_postgres();
 select ok(
-  not has_function_privilege('anon', 'public.create_circle(text,text,text,text,text)', 'execute'),
+  not has_function_privilege('anon', 'public.create_circle(text,text,text,text,text,bytea)', 'execute'),
   'anon cannot even call create_circle'
 );
 select ok(
@@ -903,7 +903,15 @@ select is(
        -- the session in front of it. Each acts on `auth.uid()` and refuses on
        -- its own; `claim_identity` is deliberately *not* here, because the
        -- identity it acts on is an argument rather than the caller.
-       'redeem_invite', 'guest_members_for_reattach', 'reattach_member'
+       'redeem_invite', 'guest_members_for_reattach', 'reattach_member',
+       -- S1-15. The plan lifecycle's three. They sit in `public` because
+       -- PostgREST exposes nothing else, not because they are public in any
+       -- other sense: `issue_invite` is the owner's alone, `reask_audience` the
+       -- organiser's, and `create_plan` needs an active member with a saved
+       -- place — which it gets from the state machine rather than by asking
+       -- itself. Editing, cancelling and reopening add nothing here: they are
+       -- `planning.transition_plan`, which no client can call.
+       'create_plan', 'issue_invite', 'reask_audience', 'revise_plan', 'cancel_plan'
      )),
   '',
   'only the intended functions in public are callable by authenticated'

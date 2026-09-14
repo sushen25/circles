@@ -8,7 +8,7 @@
 -- either, so most of this file is about trying to write it some other way.
 
 begin;
-select plan(77);
+select plan(85);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid
@@ -153,8 +153,26 @@ select ok(
 
 select is(
   (select count(*)::integer from planning.transitions),
-  19,
-  'nineteen transitions, seeded from the generated block'
+  21,
+  'twenty-one transitions, seeded from the generated block'
+);
+
+-- Two of them are `adjust`, and the point of it is the column it does *not*
+-- set. Changing the quorum or the deadline "changes what happens to the answers,
+-- not the question" (spec §5.3), so it must not start a revision — responses are
+-- keyed by revision, and bumping one silently asks the whole circle again.
+select is(
+  (select array_agg(from_state order by from_state) from planning.transitions
+   where action = 'adjust' and not bumps_revision),
+  array['collecting', 'ready'],
+  'a quorum or deadline change adjusts the plan without starting a revision'
+);
+
+select is(
+  (select array_agg(from_state order by from_state) from planning.transitions
+   where action = 'edit' and bumps_revision),
+  array['collecting', 'ready'],
+  'while an edit — the window, the band, the duration — does'
 );
 select is(
   (select guards from planning.transitions where from_state = 'ready' and action = 'confirm'),
@@ -362,6 +380,19 @@ select throws_ok(
   'P0001',
   'not_the_initiator',
   'another member cannot withdraw somebody else''s quiet ask'
+);
+
+-- Round 5: and not with a note. "Closed privately, nobody told" (spec §9) is
+-- what the silence in `event_for` is for, and `plans` is readable by the whole
+-- circle — so a cancel note would be the announcement in another form, in the
+-- initiator's own words. Refused rather than dropped: a client that sent one
+-- has misunderstood what a quiet withdrawal is.
+select throws_ok(
+  format($$select planning.transition_plan('%s', 'cancel', '%s', '{"cancel_note":"Nobody keen"}'::jsonb)$$,
+    :'plan_wd', '00000000-0000-0000-0000-0000000001a1'),
+  'P0001',
+  'note_not_allowed',
+  'a quiet ask is withdrawn without a note, and with a reason an endpoint can translate'
 );
 -- Being the initiator is not a way back into a circle you have left. The
 -- private row outlives the membership; removal revokes access immediately.
@@ -661,7 +692,7 @@ select throws_ok(
   format($$select planning.transition_plan('%s', 'cancel', '%s')$$,
     :'plan_gone', '00000000-0000-0000-0000-0000000001a2'),
   'P0001',
-  'not_the_organiser',
+  'not_the_organiser_or_owner',
   'nor cancel it'
 );
 
@@ -763,6 +794,74 @@ select ok(
   (select count(*) from public.plans
    where window_end - window_start = 13) >= 0,
   'and the inclusive reading is what the constraint uses'
+);
+
+-- ---------------------------------------------------------------------------
+-- Round 4: a reopen must not carry somebody who has left.
+--
+-- `on_member_removed` clears a removed member out of the revisions of `seeking`,
+-- `collecting` and `ready` plans and deliberately leaves the rows on a
+-- `confirmed` one, because the confirmation's attendance is about who was there.
+-- `reopen` is the transition that crosses from one to the other, so the carry
+-- forward was copying somebody who had left into a live revision — where
+-- `reask_audience` names them and, required, the plan waits for an answer that
+-- cannot come.
+--
+-- Last in the file: removing a member touches every open plan in the circle.
+-- ---------------------------------------------------------------------------
+select pg_temp.make_plan('rjnpen', 'confirmed') as plan_left \gset
+
+insert into public.plan_participants (plan_id, revision, user_id)
+values (:'plan_left', 1, '00000000-0000-0000-0000-0000000001a1'),
+       (:'plan_left', 1, '00000000-0000-0000-0000-0000000001a2');
+insert into public.plan_required_members (plan_id, revision, user_id)
+values (:'plan_left', 1, '00000000-0000-0000-0000-0000000001a2');
+
+update public.circle_members set status = 'removed'
+where circle_id = (select circle_id from t)
+  and user_id = '00000000-0000-0000-0000-0000000001a2';
+
+select is(
+  (select count(*)::integer from public.plan_participants
+   where plan_id = :'plan_left' and revision = 1),
+  2,
+  'a confirmed plan keeps the removed member on the revision that was confirmed'
+);
+
+-- And the warning names who will actually be asked. `public.revise_plan` reads
+-- this before the transition, so a name here is a name in `asked_again`.
+select pg_temp.act_as('00000000-0000-0000-0000-0000000001a1');
+select is(
+  (select array_agg(member_user_id) from public.reask_audience(:'plan_left')),
+  array['00000000-0000-0000-0000-0000000001a1'::uuid],
+  'the re-ask audience leaves out the member who has gone, who will not be asked and could not answer'
+);
+select pg_temp.act_as_postgres();
+
+select is(
+  (select revision from planning.transition_plan(:'plan_left', 'reopen',
+    '00000000-0000-0000-0000-0000000001a1')),
+  2,
+  'and reopening it asks a new revision'
+);
+
+select is(
+  (select array_agg(user_id) from public.plan_participants
+   where plan_id = :'plan_left' and revision = 2),
+  array['00000000-0000-0000-0000-0000000001a1'::uuid],
+  'which is addressed to the people still in the circle, and not to the one who left'
+);
+
+-- The required row is the opposite case, and the two are opposite on purpose.
+-- Spec §9: "a required person leaves: the plan becomes ineligible until the
+-- organiser changes required members or cancels" — two things that have to
+-- happen, neither of which is "somebody edited the window". `on_member_removed`
+-- keeps the row for that reason and the carry forward keeps it for the same one.
+select is(
+  (select array_agg(user_id) from public.plan_required_members
+   where plan_id = :'plan_left' and revision = 2),
+  array['00000000-0000-0000-0000-0000000001a2'::uuid],
+  'while the requirement they left behind survives: an edit is not the organiser deciding'
 );
 
 select * from finish();

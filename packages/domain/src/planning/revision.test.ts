@@ -72,6 +72,21 @@ describe('invalidatedResponses', () => {
   it('does not invent a revision when nothing changed at all', () => {
     expect(invalidatedResponses(before, plan(), members, members).bumpsRevision).toBe(false);
   });
+
+  it('asks everybody again when the change is not one the timing shows', () => {
+    // Reopening a confirmed plan: "Thursday is off the table" and "a fresh ask"
+    // (spec §5.7). The timings are identical, and every answer is cleared all
+    // the same — so a comparison of timings alone named nobody while costing
+    // everybody, which is the warning being wrong about the most expensive edit
+    // there is.
+    const result = invalidatedResponses(before, plan(), members, [priya, tom], true);
+    expect(result).toMatchObject({
+      askedAgain: [priya, tom],
+      freshAsk: [alex],
+      changes: [],
+      bumpsRevision: true,
+    });
+  });
 });
 
 describe('joinNames', () => {

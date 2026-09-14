@@ -78,7 +78,7 @@ select pg_temp.make_user('90000000-0000-0000-0000-000000000005', 'Sam');
 select pg_temp.act_as('90000000-0000-0000-0000-000000000001');
 create temporary table fixture as
 select id as circle_id, short_code
-from public.create_circle('Sunday Crew', '#336699', 'Australia/Melbourne', 'sus29-join');
+from public.create_circle('Sunday Crew', 'sky', 'Australia/Melbourne', 'sus29-join');
 grant select on fixture to authenticated, anon;
 
 select pg_temp.act_as_postgres();

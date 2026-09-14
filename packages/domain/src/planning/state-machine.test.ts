@@ -221,10 +221,41 @@ describe('guards', () => {
   });
 
   it('refuses a non-organiser the organiser actions', () => {
-    for (const action of ['edit', 'cancel'] as const) {
-      const result = canTransition(plan({ state: 'collecting' }), action, { actor: MEMBER });
-      expect(isErr(result) && result.error.code, action).toBe('not_the_organiser');
+    const result = canTransition(plan({ state: 'collecting' }), 'edit', { actor: MEMBER });
+    expect(isErr(result) && result.error.code).toBe('not_the_organiser');
+  });
+
+  it('lets the circle owner cancel a plan somebody else is organising', () => {
+    // Spec §4.5 says so in as many words, and the organiser-only guard said
+    // otherwise the moment a plan had an organiser who was not the owner.
+    const owner: Actor = { ...MEMBER, isOwner: true };
+    for (const state of ['collecting', 'ready', 'confirmed'] as const) {
+      expect(isOk(canTransition(plan({ state }), 'cancel', { actor: owner })), state).toBe(true);
     }
+  });
+
+  it('offers adjust from exactly the states that offer edit', () => {
+    // `revise-plan` asks the mirror whether `edit` exists from a plan's state
+    // and lets that answer stand for `adjust` too, because deriving which of the
+    // two a request is would be a second copy of the derivation SQL owns. This
+    // is what makes the shortcut true rather than convenient.
+    const from = (action: PlanAction): string[] =>
+      TRANSITIONS.filter((t) => t.action === action)
+        .map((t) => t.from)
+        .sort();
+    expect(from('adjust')).toEqual(from('edit'));
+  });
+
+  it('refuses a member who is neither', () => {
+    const result = canTransition(plan({ state: 'collecting' }), 'cancel', { actor: MEMBER });
+    expect(isErr(result) && result.error.code).toBe('not_the_organiser_or_owner');
+  });
+
+  it('refuses an owner who has been removed from their own circle', () => {
+    // An id on a row is not membership.
+    const departed: Actor = { ...MEMBER, isOwner: true, isMember: false };
+    const result = canTransition(plan({ state: 'ready' }), 'cancel', { actor: departed });
+    expect(isErr(result) && result.error.code).toBe('not_the_organiser_or_owner');
   });
 
   it('refuses a confirm with no candidate chosen', () => {

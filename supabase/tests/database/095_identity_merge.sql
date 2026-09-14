@@ -67,7 +67,7 @@ select pg_temp.make_user('95000000-0000-0000-0000-0000000000f2', 'Tom', true);
 select pg_temp.act_as('95000000-0000-0000-0000-000000000001');
 create temporary table fixture as
 select id as circle_id, short_code
-from public.create_circle('Sunday Crew', '#336699', 'Australia/Melbourne', 'sus29-merge');
+from public.create_circle('Sunday Crew', 'sky', 'Australia/Melbourne', 'sus29-merge');
 
 select pg_temp.act_as_postgres();
 
@@ -557,7 +557,7 @@ select pg_temp.make_user('95000000-0000-0000-0000-00000000c0d4'::uuid, 'Device T
 
 select pg_temp.act_as('95000000-0000-0000-0000-00000000c0d1');
 create temporary table cycle_fixture as
-select id as circle_id from public.create_circle('Cycle Crew', '#336699', 'Australia/Melbourne', 'cyc-1');
+select id as circle_id from public.create_circle('Cycle Crew', 'sky', 'Australia/Melbourne', 'cyc-1');
 
 select pg_temp.act_as_postgres();
 create or replace function pg_temp.cycle_circle() returns uuid
@@ -1132,7 +1132,7 @@ select pg_temp.make_user('95000000-0000-0000-0000-00000000f403'::uuid, 'Elsewher
 
 select pg_temp.act_as('95000000-0000-0000-0000-00000000f401');
 create temporary table other_fixture as
-select id as circle_id from public.create_circle('Other Crew', '#336699', 'Australia/Melbourne', 'uth-1');
+select id as circle_id from public.create_circle('Other Crew', 'sky', 'Australia/Melbourne', 'uth-1');
 
 select pg_temp.act_as_postgres();
 create or replace function pg_temp.other_circle() returns uuid

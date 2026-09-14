@@ -26,7 +26,11 @@ declare
 begin
   select * into plan from public.plans where id = p_plan_id for update;
   if not found then
-    raise exception 'PLAN_NOT_FOUND' using errcode = 'P0001';
+    -- Lower case, like every other name raised here. `_shared/problem.ts` maps
+    -- an exception's text to a `ProblemReason` by exact match, so the shout was
+    -- the one refusal no endpoint could translate: `cancel-plan` answered 500
+    -- for a plan that simply is not there, where its own contract says 404.
+    raise exception 'plan_not_found' using errcode = 'P0001';
   end if;
 
   select * into rule
@@ -57,6 +61,20 @@ begin
     raise exception 'unexpected_payload' using errcode = 'P0001';
   end if;
 
+  -- The one key whose acceptability depends on the state it is used in, so
+  -- `allowed_keys` cannot say it. A cancel note is something to tell people, and
+  -- a quiet ask withdrawn before threshold tells nobody (spec §9) — while
+  -- `plans` is readable by the whole circle, so a note left on the row is the
+  -- announcement in another form, with the initiator's own words in it.
+  --
+  -- Its own name rather than `unexpected_payload`, which no endpoint can
+  -- translate: `cancel-plan` takes an optional note for every plan, so a client
+  -- that offers one here is wrong in a way a person should be told about — and
+  -- answering 500 left the ask open as well.
+  if rule.from_state = 'seeking' and p_action = 'cancel' and p_payload ? 'cancel_note' then
+    raise exception 'note_not_allowed' using errcode = 'P0001';
+  end if;
+
   foreach guard in array rule.guards loop
     case guard
       when 'member' then
@@ -66,6 +84,20 @@ begin
       when 'organiser' then
         if plan.organiser_user_id is distinct from p_actor or member.user_id is null then
           raise exception 'not_the_organiser' using errcode = 'P0001';
+        end if;
+      when 'organiser_or_owner' then
+        -- Spec §4.5 gives the circle owner "cancel plans" in as many words, and
+        -- the organiser-only guard took it away the moment a plan had an
+        -- organiser who was not the owner. Membership as well as the role: a
+        -- removed owner is not an owner of anything they can still act on.
+        if member.user_id is null or (
+          plan.organiser_user_id is distinct from p_actor
+          and not exists (
+            select 1 from public.circles c
+            where c.id = plan.circle_id and c.owner_user_id = p_actor
+          )
+        ) then
+          raise exception 'not_the_organiser_or_owner' using errcode = 'P0001';
         end if;
       when 'permanent' then
         if not coalesce(is_permanent, false) then
@@ -126,7 +158,17 @@ begin
   update public.plans p set
     state = rule.to_state,
     revision = next_revision,
-    input_version = case when rule.bumps_revision then 1 else p.input_version end,
+    input_version = case
+      when rule.bumps_revision then 1
+      -- A quorum change makes the stored candidate set *wrong*, and nothing else
+      -- would have noticed: `candidate_is_eligible` checks the set's versions and
+      -- the near-miss flag and never reads the plan's quorum, so raising it from
+      -- four to five left a four-person candidate confirmable. Bumping the input
+      -- version is the narrow way to say "recompute": it does not touch the
+      -- revision, so nobody is asked again, and it does not touch the answers.
+      when p_payload ? 'quorum' then p.input_version + 1
+      else p.input_version
+    end,
     organiser_user_id = case
       when p_action = 'accept_organiser' then p_actor
       else p.organiser_user_id
@@ -146,6 +188,55 @@ begin
   returning * into plan;
 
   perform set_config('circles.in_transition', 'off', true);
+
+  -- A new revision is a new question, asked of the same people. Nothing used to
+  -- carry them across, so an edited plan arrived at revision 2 addressed to
+  -- nobody: `replace_response` refuses a member who is not a participant of the
+  -- current revision, so *no one could answer it*, and `reask_audience` had
+  -- nobody to name. The gap was unreachable until S1-15 gave anyone a way to
+  -- edit a plan.
+  --
+  -- The audience is carried rather than recomputed from `circle_members`, and
+  -- the difference matters: spec §9 makes joining an active plan an opt-in, so
+  -- somebody who joined the circle after the plan was created is not silently
+  -- added to it by the organiser fixing a date.
+  --
+  -- Filtered on active membership all the same, and the comment here used to
+  -- say instead that it did not need to be: `on_member_removed` takes a removed
+  -- member out of the revisions of `seeking`, `collecting` and `ready` plans,
+  -- and deliberately leaves the rows on a `confirmed` one, because the
+  -- confirmation's attendance is about who was there. `reopen` is the transition
+  -- that crosses that line — from `confirmed`, bumping the revision — so it was
+  -- the one case where the assumption was false, and it copied somebody who had
+  -- left into a live revision. `reask_audience` then named them, and required
+  -- of them, a plan can wait for an answer that cannot come.
+  if rule.bumps_revision then
+    insert into public.plan_participants (plan_id, revision, user_id, joined_at)
+    select plan.id, plan.revision, pp.user_id, pp.joined_at
+    from public.plan_participants pp
+    where pp.plan_id = plan.id and pp.revision = plan.revision - 1
+      and exists (
+        select 1 from public.circle_members m
+        where m.circle_id = plan.circle_id and m.user_id = pp.user_id and m.status = 'active'
+      );
+
+    -- Required members are carried *unfiltered*, which is the opposite of the
+    -- line above and deliberately so. Spec §9: "a required person leaves: the
+    -- plan becomes ineligible until the organiser changes required members or
+    -- cancels." `on_member_removed` leaves the row for exactly that reason, and
+    -- dropping it here would have let an unrelated edit to the window quietly
+    -- make the plan eligible again — neither of the two things §9 says have to
+    -- happen, and nobody would have been told either.
+    --
+    -- The two tables answer different questions. Participants are who is being
+    -- asked, and asking somebody who has left is meaningless. Required members
+    -- are a condition on the answer, and a condition does not stop applying
+    -- because the person it names walked away.
+    insert into public.plan_required_members (plan_id, revision, user_id)
+    select plan.id, plan.revision, rm.user_id
+    from public.plan_required_members rm
+    where rm.plan_id = plan.id and rm.revision = plan.revision - 1;
+  end if;
 
   -- `confirm` is not a state change with a row to follow; it is the row. The
   -- frozen copy of the candidate and the derived attendance are written here,
@@ -195,10 +286,14 @@ begin
   -- The event, in the same transaction as the change (ADR 0003). Its name
   -- comes from the transition, not from the caller, and a transition without
   -- a name is refused rather than silently unannounced — `075_outbox_events`
-  -- walks the table so a new row cannot arrive without one. The one silence is
-  -- named here and there: `candidates_gone`, see `event_for`.
+  -- walks the table so a new row cannot arrive without one. The two silences
+  -- are named here and there: `candidates_gone`, and a quiet ask withdrawn
+  -- before threshold, which spec §9 closes "privately, nobody told". See
+  -- `event_for`.
   event_name := planning.event_for(rule.from_state, p_action);
-  if event_name is null and p_action not in ('candidates_gone') then
+  if event_name is null
+    and not (p_action = 'candidates_gone' or (p_action = 'cancel' and rule.from_state = 'seeking'))
+  then
     raise exception 'no outbox event for transition % / %', rule.from_state, p_action
       using errcode = 'P0001';
   end if;

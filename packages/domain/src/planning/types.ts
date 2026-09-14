@@ -72,6 +72,22 @@ export const DURATIONS: readonly DurationMinutes[] = [60, 90, 120, 180];
 /** A window may span at most 14 consecutive days (spec §5.3). */
 export const MAX_WINDOW_DAYS = 14;
 
+/**
+ * The four fields the timing and re-ask rules actually read.
+ *
+ * Named because both questions get asked about a plan that does not exist yet:
+ * `create-plan` needs the last possible start to pick a default deadline, and
+ * an *edit* is judged by comparing what the plan is against what it would
+ * become. Demanding a whole `Plan` made a caller invent an id and a state to ask
+ * about a window. A `Plan` satisfies it, so nothing that passed one stops.
+ */
+export type PlanTiming = {
+  readonly window: DateWindow;
+  readonly daily: DailyWindow;
+  readonly durationMinutes: DurationMinutes;
+  readonly zone: Zone;
+};
+
 export type Plan = {
   readonly id: PlanId;
   readonly circleId: CircleId;

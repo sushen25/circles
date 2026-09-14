@@ -14,6 +14,18 @@ import { IdempotencyKey, RequestId } from '../ids.js';
 export const Mutation = z.object({ idempotency_key: IdempotencyKey });
 
 /**
+ * At least two, because "a meetup of one is not a meetup" — the same floor
+ * `quorumDefault` applies and `plans_quorum` enforces.
+ *
+ * Declared here rather than as a bare positive integer because the boundary is
+ * where a `1` should be refused: sent onward it trips a check constraint, whose
+ * SQLSTATE has no reason to map to, so an ordinary invalid request came back as
+ * a 500.
+ */
+export const Quorum = z.int().min(2);
+export type Quorum = z.infer<typeof Quorum>;
+
+/**
  * Why a request failed, precisely — the cause a *screen* turns on.
  *
  * `Problem.error` below is the category that picks the HTTP status, and it is
@@ -56,6 +68,70 @@ export const ProblemReason = z.enum([
   'in_progress',
   /** Any endpoint: an abuse limit, not an authorisation decision. Retry later. */
   'too_many_requests',
+
+  // S1-15, the plan lifecycle.
+
+  /** `create-circle`, `create-plan`: creating needs a saved place (ADR 0004). The InitiateGate. */
+  'requires_saved_place',
+  /** `create-plan`: quiet asks land in S2-02. Not a refusal of this person, of this feature. */
+  'not_yet',
+  /** `create-circle`: handing out the way in is the owner's alone (spec §5.2). */
+  'not_the_owner',
+  /** `revise-plan`: only the organiser edits. */
+  'not_the_organiser',
+  /**
+   * `cancel-plan`: a quiet ask is withdrawn by whoever started it (spec §5.4).
+   * Nobody else, and the plan says nothing about who that is (§14).
+   */
+  'not_the_initiator',
+  /** `cancel-plan`: the organiser or the circle's owner, and nobody else (spec §4.5). */
+  'not_the_organiser_or_owner',
+  /** The plan is over — completed, expired or already cancelled. */
+  'plan_is_finished',
+  /** The plan is in a state this action does not exist from (e.g. reopening one never confirmed). */
+  'wrong_state',
+  'plan_not_found',
+  'circle_not_found',
+  /** An archived circle stops all prompts (spec §5.2), and a new plan is the loudest. */
+  'circle_archived',
+
+  // What the domain says about a window it cannot resolve. Each is a screen:
+  // "too late for tonight" offers tomorrow, "window has passed" re-opens the
+  // picker. They are the domain's own error names, unchanged, so that a reader
+  // can find the rule that produced one.
+  'too_late_for_tonight',
+  'window_too_long',
+  'window_backwards',
+  'window_has_passed',
+  'band_shorter_than_meetup',
+  'band_backwards',
+  'band_unaligned',
+  'band_out_of_day',
+  /** A chosen deadline after the last possible start, or already past (spec §5.3). */
+  'deadline_out_of_range',
+  /**
+   * `cancel-plan`: a quiet ask withdrawn before threshold is "closed privately,
+   * nobody told" (spec §9), so its note would have no reader and `plans` is
+   * readable by the whole circle. Every other cancellation takes one.
+   */
+  'note_not_allowed',
+  /**
+   * `revise-plan`: the plan moved between the preview and the save, so the cost
+   * the organiser was shown is no longer the cost. Fetch the preview again.
+   */
+  'preview_is_stale',
+  /**
+   * `revise-plan`: every value in the request is the value the plan already has.
+   * Saving it would emit "the plan changed" and, for a quorum, throw away a
+   * candidate set — over a form resubmitted unedited.
+   */
+  'nothing_to_change',
+  /**
+   * `revise-plan`: somebody named as required was never asked. Joining an active
+   * plan is an opt-in (spec §9), so a member who joined the circle afterwards is
+   * not a participant and cannot answer — requiring them would strand the plan.
+   */
+  'not_a_participant',
 ]);
 export type ProblemReason = z.infer<typeof ProblemReason>;
 

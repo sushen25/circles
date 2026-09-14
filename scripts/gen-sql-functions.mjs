@@ -45,7 +45,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SOURCE = join(root, 'supabase/sql/functions');
 const MIGRATIONS = join(root, 'supabase/migrations');
 // `0008` has shipped; a function change goes in a new migration (ADR 0015).
-const MIGRATION = join(MIGRATIONS, '0010_identity_continuity.sql');
+const MIGRATION = join(MIGRATIONS, '0011_plan_lifecycle.sql');
 
 function walk(dir, into = new Map()) {
   for (const entry of readdirSync(dir).sort()) {

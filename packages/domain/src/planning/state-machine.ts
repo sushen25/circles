@@ -18,6 +18,7 @@ export type PlanAction =
   | 'candidates_ready'
   | 'candidates_gone'
   | 'edit'
+  | 'adjust'
   | 'confirm'
   | 'reopen'
   | 'cancel'
@@ -46,6 +47,7 @@ export type TransitionErrorCode =
   | 'wrong_state'
   | 'not_a_member'
   | 'not_the_organiser'
+  | 'not_the_organiser_or_owner'
   | 'not_the_initiator'
   | 'not_keen_initiator_or_owner'
   | 'needs_permanent_identity'
@@ -99,6 +101,7 @@ export type TransitionContext = {
 type Guard =
   | 'member'
   | 'organiser'
+  | 'organiser_or_owner'
   | 'permanent'
   | 'no_organiser_yet'
   | 'candidate'
@@ -157,6 +160,11 @@ export const TRANSITIONS: readonly Transition[] = [
   // made this transition unreachable for every actor — the row was in the table
   // and could never fire. "The initiator of a quiet ask withdraws it before
   // threshold: closed privately, nobody told" (spec §5.4).
+  // Not `organiser_or_owner`, which the other three cancels are. A quiet ask has
+  // no organiser, and its initiator is the one fact a plan row must never give
+  // away (§14) — so calling it off is theirs. The owner is not locked out: §5.4
+  // nudges them when nobody volunteers, and `keen_initiator_or_owner` lets them
+  // accept the role, after which they can cancel as the organiser they now are.
   { from: 'seeking', action: 'cancel', to: 'cancelled', guards: ['member', 'initiator'] },
 
   // Collecting availability. `candidates_ready` and `candidates_gone` are the
@@ -169,15 +177,35 @@ export const TRANSITIONS: readonly Transition[] = [
     guards: ['organiser'],
     bumpsRevision: true,
   },
+  // Changing the quorum or the deadline is not an edit, and this is the
+  // difference spec §5.3 draws: those "change what happens to the answers, not
+  // the question, so they cost nobody a second reply". `edit` bumps the
+  // revision and responses are keyed by revision, so routing a quorum change
+  // through it silently asked the whole circle again — which nobody would have
+  // seen until an organiser nudged a number and watched five answers vanish.
+  //
+  // A separate action rather than a conditional bump, because the distinction
+  // is then *structural*: `planning.allowed_keys('adjust')` is quorum and
+  // deadline alone, so a window cannot ride along on one.
+  { from: 'collecting', action: 'adjust', to: 'collecting', guards: ['organiser'] },
   { from: 'collecting', action: 'expire', to: 'expired', guards: [] },
-  { from: 'collecting', action: 'cancel', to: 'cancelled', guards: ['organiser'] },
+  { from: 'collecting', action: 'cancel', to: 'cancelled', guards: ['organiser_or_owner'] },
 
   // Ready. A response can be withdrawn or changed, which can take the plan back.
   { from: 'ready', action: 'candidates_gone', to: 'collecting', guards: [] },
   { from: 'ready', action: 'edit', to: 'collecting', guards: ['organiser'], bumpsRevision: true },
+  // From `ready` it stays `ready`: the candidate set was computed from
+  // availability, which an adjustment does not touch. A *quorum* change does
+  // stale it — `candidate_is_eligible` never reads the plan's quorum, so a
+  // four-person candidate stayed confirmable after the quorum went to five — and
+  // `public.revise_plan` follows that one with `candidates_gone`, the action
+  // that already means "recompute" (ADR 0017). Not a second `adjust` row,
+  // because it is not a different adjustment: it is an adjustment and then a
+  // recalculation, which is exactly what a withdrawn response does.
+  { from: 'ready', action: 'adjust', to: 'ready', guards: ['organiser'] },
   { from: 'ready', action: 'confirm', to: 'confirmed', guards: ['organiser', 'candidate'] },
   { from: 'ready', action: 'expire', to: 'expired', guards: [] },
-  { from: 'ready', action: 'cancel', to: 'cancelled', guards: ['organiser'] },
+  { from: 'ready', action: 'cancel', to: 'cancelled', guards: ['organiser_or_owner'] },
 
   // Confirmed. "Change the time" is a reopen: a new revision, and the previous
   // confirmation is superseded rather than edited (spec §5.7).
@@ -188,13 +216,14 @@ export const TRANSITIONS: readonly Transition[] = [
     guards: ['organiser'],
     bumpsRevision: true,
   },
-  { from: 'confirmed', action: 'cancel', to: 'cancelled', guards: ['organiser'] },
+  { from: 'confirmed', action: 'cancel', to: 'cancelled', guards: ['organiser_or_owner'] },
   { from: 'confirmed', action: 'report_outcome', to: 'completed', guards: ['organiser'] },
 ];
 
 const GUARD_ERRORS: Record<Guard, TransitionErrorCode> = {
   member: 'not_a_member',
   organiser: 'not_the_organiser',
+  organiser_or_owner: 'not_the_organiser_or_owner',
   permanent: 'needs_permanent_identity',
   no_organiser_yet: 'already_has_organiser',
   candidate: 'needs_candidate',
@@ -210,6 +239,19 @@ function fails(guard: Guard, context: TransitionContext): boolean {
       return !actor.isMember;
     case 'organiser':
       return !actor.isOrganiser;
+    case 'organiser_or_owner':
+      // Spec §4.5: the circle owner "can edit circle settings, rotate the join
+      // link, remove members, **cancel plans**, archive the circle". The
+      // organiser-only guard locked them out of their own circle's plans —
+      // reachable the moment a plan has an organiser who is not the owner,
+      // which is any plan somebody else started and every quiet ask somebody
+      // accepted.
+      //
+      // Membership as well as the role, because a removed owner is not an
+      // owner of anything they can still act on: the same lesson
+      // `reask_audience` learned in round one, that an id on a row is not
+      // membership.
+      return !actor.isMember || !(actor.isOrganiser || actor.isOwner);
     case 'permanent':
       return !actor.isPermanent;
     case 'no_organiser_yet':

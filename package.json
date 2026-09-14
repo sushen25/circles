@@ -6,7 +6,7 @@
     "node": ">=22"
   },
   "scripts": {
-    "check": "pnpm run format:check && pnpm run lint && pnpm run check:brand && pnpm run check:tokens && pnpm run check:types && pnpm run typecheck && pnpm run check:imports && pnpm run check:transitions && pnpm run check:events && pnpm run check:functions && pnpm run check:workflows && pnpm run test:unit && pnpm run db:test && pnpm run test:e2e:smoke",
+    "check": "pnpm run format:check && pnpm run lint && pnpm run check:brand && pnpm run check:tokens && pnpm run typecheck && pnpm run check:imports && pnpm run check:transitions && pnpm run check:events && pnpm run check:functions && pnpm run check:workflows && pnpm run test:unit && pnpm run db:test && pnpm run check:types && pnpm run test:e2e:smoke",
     "dev": "pnpm --filter app exec expo start",
     "dev:web": "pnpm --filter app exec expo start --web",
     "dev:ios": "pnpm --filter app run ios",

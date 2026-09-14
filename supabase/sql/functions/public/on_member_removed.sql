@@ -18,8 +18,19 @@
 --     History is untouched: answers about evenings that have happened, and
 --     rows on closed confirmations, stay exactly as they were.
 --
--- The plan rows are locked first, so a removal racing a first answer cannot
--- let the answer land behind it.
+-- The circle row and then the plan rows are locked first, so a removal racing a
+-- first answer cannot let the answer land behind it — and nor can a removal
+-- racing a *new plan*. Locking the plans alone was not enough for that one:
+-- `create_plan` reads the circle's active members and inserts its participant
+-- rows in a transaction this trigger cannot see, so a removal committing in the
+-- middle of it locked nothing the creation held, deleted nothing that existed
+-- yet, and left the departed member on the roster of a plan created after they
+-- had gone. `create_plan` takes the circle row for update for its own reasons;
+-- taking the same one here is what makes the two wait for each other.
+--
+-- Circle before plans, which is the order `create_plan` locks in too. Two
+-- transactions taking the same locks in the same order cannot deadlock over
+-- them.
 -- ---------------------------------------------------------------------------
 
 create or replace function public.on_member_removed()
@@ -35,6 +46,7 @@ begin
     return new;
   end if;
 
+  perform 1 from public.circles c where c.id = new.circle_id for update;
   perform 1 from public.plans p where p.circle_id = new.circle_id for update;
 
   delete from public.plan_responses r
