@@ -23,6 +23,7 @@ Short records of decisions that shape the product or the code. A new ADR is requ
 | [0017](./0017-quorum-and-deadline-adjust-a-plan-without-a-revision.md) | Changing a quorum or a deadline adjusts a plan; it does not revise it | accepted |
 | [0018](./0018-the-recalculation-runs-in-the-request-that-caused-it.md) | The recalculation runs in the request that caused it | accepted |
 | [0019](./0019-consent-is-recorded-when-it-is-given.md) | Consent is recorded when it is given, and a preferences link does not expire on use | accepted |
+| [0020](./0020-the-verification-token-is-minted-by-the-sender.md) | The verification token is minted by whoever sends the email | accepted |
 
 ## Template
 
