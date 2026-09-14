@@ -22,9 +22,9 @@ import { fromInstant, toInstant } from '../_shared/moment.ts';
  * The one thing this endpoint adds is the difference between "your screen is out
  * of date" (`stale_candidates`, refetch) and "that is not one of the options"
  * (`needs_candidate`) — which the SQL raises separately so that a client can
- * tell an organiser something true. "Out of date" is measured against the
- * version the organiser was *shown*, which they send: by the time a tap
- * arrives, an answer may have produced a whole new current set.
+ * tell an organiser something true. "Out of date" is measured against the set
+ * the organiser was *shown*, whose id they send: by the time a tap arrives, an
+ * answer may have produced a whole new current set.
  */
 Deno.serve(
   jsonHandler({
@@ -34,9 +34,9 @@ Deno.serve(
       const { data, error } = await caller.rpc('confirm_meetup', {
         p_plan_id: body.plan_id,
         p_candidate_id: body.candidate_id,
-        // Checked under the plan's lock, where "has anything moved?" can still
-        // be answered truthfully.
-        p_expected_version: body.expected_version,
+        // Checked under the plan's lock, where "is this still the set you were
+        // looking at?" can still be answered truthfully.
+        p_expected_set_id: body.expected_set_id,
         p_place_name: body.place_name ?? null,
         p_place_url: body.place_url ?? null,
         p_note: body.note ?? null,

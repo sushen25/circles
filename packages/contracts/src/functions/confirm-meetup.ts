@@ -1,7 +1,7 @@
 import { NOTE_MAX_LENGTH, PLACE_NAME_MAX_LENGTH, isLink } from '@circles/domain';
 import { z } from 'zod';
 
-import { ConfirmationId, PlanId, UserId } from '../ids.js';
+import { CandidateSetId, ConfirmationId, PlanId, UserId } from '../ids.js';
 import { Instant } from '../time.js';
 import { Mutation } from './shared.js';
 
@@ -37,9 +37,8 @@ export const ConfirmMeetupRequest = Mutation.extend({
    */
   chased_answer: z.enum(['none', 'one', 'more']),
   /**
-   * Which version of the plan the candidates on the screen came from, as
-   * `<revision>.<input_version>` — the same token `revise-plan` uses, and
-   * readable from the `candidate_sets` row the client already loaded.
+   * The candidate set the options on the screen came from — the `id` of the
+   * `candidate_sets` row the client already loaded to render them.
    *
    * Required, because "check the candidate belongs to the current set"
    * (architecture §9.1) is a question about *which* set was on the screen. An
@@ -49,8 +48,11 @@ export const ConfirmMeetupRequest = Mutation.extend({
    * time they picked is still eligible in it, confirming freezes an availability
    * list nobody looked at. Somebody who withdrew is on the card; somebody who
    * just answered is not.
+   *
+   * The id rather than a version number: a set is also replaced when the engine
+   * changes, which moves no version the client can see.
    */
-  expected_version: z.string().max(40),
+  expected_set_id: CandidateSetId,
 });
 export type ConfirmMeetupRequest = z.infer<typeof ConfirmMeetupRequest>;
 

@@ -1556,7 +1556,7 @@ describe('confirm-meetup', () => {
     plan_id: PLAN_ID,
     candidate_id: '2099-09-17T08:30:00.000Z',
     chased_answer: 'none' as const,
-    expected_version: '1.7',
+    expected_set_id: '00000000-0000-4000-8000-0000000000e1',
   };
 
   beforeEach(() => {
@@ -1617,17 +1617,19 @@ describe('confirm-meetup', () => {
     expect(called('confirm_meetup')).toHaveLength(0);
   });
 
-  it('sends the version the organiser was shown, not the one that is current', async () => {
+  it('sends the set the organiser was shown, not the one that is current', async () => {
     // An answer landing while the review screen is open recalculates inline,
     // so by the time the tap arrives there is a new current set. Confirming
     // against it would freeze an availability list nobody looked at.
     await load('confirm-meetup')(post(body));
 
-    expect(called('confirm_meetup')[0]?.args['p_expected_version']).toBe('1.7');
+    expect(called('confirm_meetup')[0]?.args['p_expected_set_id']).toBe(
+      '00000000-0000-4000-8000-0000000000e1',
+    );
   });
 
   it('will not confirm without saying which set it saw', async () => {
-    const response = await load('confirm-meetup')(post({ ...body, expected_version: undefined }));
+    const response = await load('confirm-meetup')(post({ ...body, expected_set_id: undefined }));
 
     expect(response.status).toBe(400);
     expect(called('confirm_meetup')).toHaveLength(0);
@@ -1698,6 +1700,7 @@ describe('report-outcome', () => {
         confirmation_id: CONFIRMATION_ID,
         outcome: 'happened',
         note: 'Great night',
+        moved_outside: false,
       }),
     );
 
@@ -1710,7 +1713,12 @@ describe('report-outcome', () => {
     // §11.1 counts the two separately: "reported happened" is the organiser's
     // word for it, "corroborated happened" is a second person's.
     const response = await load('report-outcome')(
-      post({ idempotency_key: KEY, confirmation_id: CONFIRMATION_ID, outcome: 'happened' }),
+      post({
+        idempotency_key: KEY,
+        confirmation_id: CONFIRMATION_ID,
+        outcome: 'happened',
+        moved_outside: false,
+      }),
     );
 
     expect(await response.json()).toMatchObject({
@@ -1741,6 +1749,32 @@ describe('report-outcome', () => {
     ]);
   });
 
+  it('will not take an outcome without the second tap of the survey', async () => {
+    // "Two taps each; this is the evidence for H2" (spec §5.10). An optional
+    // half of a two-tap survey is a question most people never answer.
+    const response = await load('report-outcome')(
+      post({ idempotency_key: KEY, confirmation_id: CONFIRMATION_ID, outcome: 'happened' }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(called('report_outcome')).toHaveLength(0);
+  });
+
+  it('does not ask a member answering for themselves', async () => {
+    // The survey is the organiser's, on the outcome screen. A member saying "I
+    // was there" is not being asked whether the plan moved outside the app.
+    const response = await load('report-outcome')(
+      post({
+        idempotency_key: KEY,
+        confirmation_id: CONFIRMATION_ID,
+        attendance: 'was_there',
+        moved_outside: false,
+      }),
+    );
+
+    expect(response.status).toBe(400);
+  });
+
   it('refuses an outcome and an attendance in one request', async () => {
     // A statement about the evening and a statement about one person. Somebody
     // who is both the organiser and an attendee makes them one at a time.
@@ -1749,6 +1783,7 @@ describe('report-outcome', () => {
         idempotency_key: KEY,
         confirmation_id: CONFIRMATION_ID,
         outcome: 'happened',
+        moved_outside: false,
         attendance: 'was_there',
       }),
     );
@@ -1772,7 +1807,12 @@ describe('report-outcome', () => {
     };
 
     const response = await load('report-outcome')(
-      post({ idempotency_key: KEY, confirmation_id: CONFIRMATION_ID, outcome: 'happened' }),
+      post({
+        idempotency_key: KEY,
+        confirmation_id: CONFIRMATION_ID,
+        outcome: 'happened',
+        moved_outside: false,
+      }),
     );
 
     expect(response.status).toBe(403);

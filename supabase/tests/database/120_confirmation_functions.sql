@@ -9,7 +9,7 @@
 -- the options" are different sentences, and only one of them is true at a time.
 
 begin;
-select plan(23);
+select plan(24);
 
 create or replace function pg_temp.make_user(id uuid, name text)
 returns uuid language sql as $$
@@ -119,22 +119,27 @@ select pg_temp.make_set();
 select planning.transition_plan(pg_temp.plan_id(), 'candidates_ready',
   '00000000-0000-0000-0000-0000000007a1');
 
--- What the organiser's screen would have been showing: the plan's revision and
--- input version, which is the token they send back when they tap.
-create or replace function pg_temp.version() returns text
+-- What the organiser's screen would have been showing: the set the options were
+-- rendered from, whose id they send back when they tap.
+create or replace function pg_temp.set_id() returns uuid
 language sql security definer as $$
-  select p.revision || '.' || p.input_version from public.plans p where p.id = pg_temp.plan_id()
+  select cs.id from public.candidate_sets cs
+  join public.plans p on p.id = cs.plan_id
+  where cs.plan_id = pg_temp.plan_id()
+    and cs.revision = p.revision
+    and cs.input_version = p.input_version
+    and cs.scoring_version = p.scoring_version
 $$;
 
 -- ---------------------------------------------------------------------------
 -- Who may call it
 -- ---------------------------------------------------------------------------
 select ok(
-  has_function_privilege('authenticated', 'public.confirm_meetup(uuid, text, text, text, text, text, text)', 'execute'),
+  has_function_privilege('authenticated', 'public.confirm_meetup(uuid, text, uuid, text, text, text, text)', 'execute'),
   'a signed-in caller can try to confirm — whether they may is the machine''s answer, not the grant''s'
 );
 select ok(
-  not has_function_privilege('anon', 'public.confirm_meetup(uuid, text, text, text, text, text, text)', 'execute'),
+  not has_function_privilege('anon', 'public.confirm_meetup(uuid, text, uuid, text, text, text, text)', 'execute'),
   'and nobody who is not signed in can'
 );
 
@@ -143,7 +148,7 @@ select ok(
 -- ---------------------------------------------------------------------------
 select pg_temp.act_as('00000000-0000-0000-0000-0000000007a2');
 select throws_ok(
-  format($$ select public.confirm_meetup(%L, '2099-09-17T08:30:00+00:00', pg_temp.version(), 'none') $$, pg_temp.plan_id()),
+  format($$ select public.confirm_meetup(%L, '2099-09-17T08:30:00+00:00', pg_temp.set_id(), 'none') $$, pg_temp.plan_id()),
   'not_the_organiser',
   'a member cannot lock in a time: only the organiser confirms (spec §5.6)'
 );
@@ -158,55 +163,75 @@ select throws_ok(
 -- ---------------------------------------------------------------------------
 select pg_temp.act_as('00000000-0000-0000-0000-0000000007a1');
 select throws_ok(
-  format($$ select public.confirm_meetup(%L, '2099-09-17T08:30:00+00:00', '1.0', 'none') $$, pg_temp.plan_id()),
+  format($$ select public.confirm_meetup(%L, '2099-09-17T08:30:00+00:00', '00000000-0000-0000-0000-0000000000aa'::uuid, 'none') $$, pg_temp.plan_id()),
   'stale_candidates',
-  'a version the plan has moved past is refused, even with a current set and an eligible time'
+  'a set the plan has moved past is refused, even with a current set and an eligible time'
 );
 
 select throws_ok(
-  format($$ select public.confirm_meetup(%L, '2099-09-17T08:30:00+00:00', pg_temp.version(), null) $$, pg_temp.plan_id()),
+  format($$ select public.confirm_meetup(%L, '2099-09-17T08:30:00+00:00', pg_temp.set_id(), null) $$, pg_temp.plan_id()),
   'chased_answer_required',
   'and the survey is required by the function as well as by the schema: this is callable directly'
 );
 
 -- ---------------------------------------------------------------------------
--- A stale screen, in each of the three ways a plan moves under one
+-- A stale screen, in each of the three ways a set is replaced
+--
+-- The organiser holds the id of the set they were shown. What changes under
+-- them is which set is *current* — and the three ways that happens are a new
+-- revision, an answer moving the input version, and the engine's scoring
+-- version changing, which moves nothing the client can see and is the reason
+-- the token is an id rather than a pair of numbers.
 -- ---------------------------------------------------------------------------
 select pg_temp.act_as_postgres();
+select pg_temp.set_id() as shown_set \gset
 update public.plans set input_version = input_version + 1 where id = pg_temp.plan_id();
+select pg_temp.make_set();
 select pg_temp.act_as('00000000-0000-0000-0000-0000000007a1');
 select throws_ok(
-  format($$ select public.confirm_meetup(%L, '2099-09-17T08:30:00+00:00', pg_temp.version(), 'none') $$, pg_temp.plan_id()),
+  format($$ select public.confirm_meetup(%L, '2099-09-17T08:30:00+00:00', %L::uuid, 'none') $$,
+    pg_temp.plan_id(), :'shown_set'),
   'stale_candidates',
   'somebody answered while the review screen was open, so the times on it are not the times on offer'
 );
 
 select pg_temp.act_as_postgres();
-select pg_temp.make_set();
+select pg_temp.set_id() as before_engine \gset
 update public.plans set scoring_version = scoring_version + 1 where id = pg_temp.plan_id();
+select pg_temp.make_set();
 select pg_temp.act_as('00000000-0000-0000-0000-0000000007a1');
 select throws_ok(
-  format($$ select public.confirm_meetup(%L, '2099-09-17T08:30:00+00:00', pg_temp.version(), 'none') $$, pg_temp.plan_id()),
+  format($$ select public.confirm_meetup(%L, '2099-09-17T08:30:00+00:00', %L::uuid, 'none') $$,
+    pg_temp.plan_id(), :'before_engine'),
   'stale_candidates',
-  'and a set from an engine the plan has moved past is stale in the same way'
+  'and a set the engine replaced is stale too, though no version the client can see has moved'
 );
 
 select pg_temp.act_as_postgres();
 update public.plans set scoring_version = scoring_version - 1 where id = pg_temp.plan_id();
 select pg_temp.make_set();
 
+select pg_temp.act_as('00000000-0000-0000-0000-0000000007a1');
+select throws_ok(
+  format($$ select public.confirm_meetup(%L, '2099-09-17T08:30:00+00:00', null, 'none') $$,
+    pg_temp.plan_id()),
+  'stale_candidates',
+  'and naming no set at all is not a way past the check — `null is distinct from null` is false'
+);
+select pg_temp.act_as_postgres();
+
 -- ---------------------------------------------------------------------------
 -- A current set, and a time that is not in it
 -- ---------------------------------------------------------------------------
 select pg_temp.act_as('00000000-0000-0000-0000-0000000007a1');
 select throws_ok(
-  format($$ select public.confirm_meetup(%L, '2099-09-19T08:30:00+00:00', pg_temp.version(), 'none') $$, pg_temp.plan_id()),
+  format($$ select public.confirm_meetup(%L, '2099-09-19T08:30:00+00:00', pg_temp.set_id(), 'none') $$, pg_temp.plan_id()),
   'needs_candidate',
   'with the set current, an id that is not in it means that time is not on offer — a different sentence'
 );
 
 select throws_ok(
-  format($$ select public.confirm_meetup(%L, 'not-a-time', pg_temp.version(), 'none') $$, pg_temp.plan_id()),
+  format($$ select public.confirm_meetup(%L, 'not-a-time', pg_temp.set_id(), 'none') $$, pg_temp.plan_id()),
   'needs_candidate',
   'and anything that is not an instant is not a candidate, rather than an error about parsing'
 );
@@ -216,7 +241,7 @@ select throws_ok(
 -- ---------------------------------------------------------------------------
 select is(
   (select (public.confirm_meetup(
-     pg_temp.plan_id(), '2099-09-17T08:30:00+00:00', pg_temp.version(), 'one',
+     pg_temp.plan_id(), '2099-09-17T08:30:00+00:00', pg_temp.set_id(), 'one',
      'Hope St Radio', 'https://maps.example/hope-st', 'Upstairs')).status),
   'active',
   'the organiser locks it in'
@@ -272,14 +297,14 @@ select is(
 -- ---------------------------------------------------------------------------
 select pg_temp.act_as('00000000-0000-0000-0000-0000000007a1');
 select throws_ok(
-  format($$ select public.confirm_meetup(%L, '2099-09-17T08:30:00+00:00', pg_temp.version(), 'none') $$, pg_temp.plan_id()),
+  format($$ select public.confirm_meetup(%L, '2099-09-17T08:30:00+00:00', pg_temp.set_id(), 'none') $$, pg_temp.plan_id()),
   'wrong_state',
   'a confirmed plan cannot be confirmed again: there is one active confirmation per revision'
 );
 
 select throws_ok(
   $$ select public.confirm_meetup('00000000-0000-0000-0000-0000000000ff'::uuid,
-       '2099-09-17T08:30:00+00:00', '1.1', 'none') $$,
+       '2099-09-17T08:30:00+00:00', '00000000-0000-0000-0000-0000000000aa'::uuid, 'none') $$,
   'plan_not_found',
   'and a plan that is not there says so by name'
 );

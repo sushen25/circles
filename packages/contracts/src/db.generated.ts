@@ -888,7 +888,7 @@ export type Database = {
         Args: {
           p_candidate_id: string
           p_chased_answer: string
-          p_expected_version: string
+          p_expected_set_id: string
           p_note?: string
           p_place_name?: string
           p_place_url?: string

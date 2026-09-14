@@ -28,7 +28,12 @@ export const ReportOutcomeRequest = Mutation.extend({
   outcome: z.enum(['happened', 'cancelled', 'moved_outside', 'not_sure']).optional(),
   /** One line for the circle's record. Optional, and never shown as a score. */
   note: z.string().trim().min(1).max(NOTE_MAX_LENGTH).optional(),
-  /** The second tap of the survey: "did the plan change outside the app?" (§5.10). */
+  /**
+   * The second tap of the survey: "did the plan change outside the app?"
+   * (§5.10). Required with an outcome and refused without one — "two taps each;
+   * this is the evidence for H2", and an optional half of a two-tap survey is a
+   * question most people never answer.
+   */
   moved_outside: z.boolean().optional(),
   /**
    * A member's own answer, from circle home or the emailed link. Not `going` or
@@ -43,6 +48,10 @@ export const ReportOutcomeRequest = Mutation.extend({
   .refine((body) => body.attendance === undefined || body.note === undefined, {
     message: 'the note belongs to the outcome, which is the organiser’s',
     path: ['note'],
+  })
+  .refine((body) => (body.outcome === undefined) === (body.moved_outside === undefined), {
+    message: 'the survey is asked with the outcome, and only with it',
+    path: ['moved_outside'],
   });
 export type ReportOutcomeRequest = z.infer<typeof ReportOutcomeRequest>;
 

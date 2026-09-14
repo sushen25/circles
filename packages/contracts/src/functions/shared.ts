@@ -162,10 +162,20 @@ export const ProblemReason = z.enum([
   /** `report-outcome`, `generate-ics`: no such confirmation, or not one of yours. */
   'confirmation_not_found',
   /**
-   * `generate-ics`: the meetup was called off or rescheduled. The file would
-   * import as a live event for a time that is off the table.
+   * `report-outcome`: the confirmation has been superseded or cancelled — the
+   * evening being reported on is not the one that is live.
    */
-  'confirmation_not_live',
+  'confirmation_not_active',
+  /** `report-outcome`: the plan has moved to a revision this confirmation is not of. */
+  'stale_confirmation',
+  /** `report-outcome`: "did it happen?" before it has finished happening. */
+  'outcome_too_early',
+  /** `report-outcome`: the confirmation an attendance names is not there. */
+  'attendance_confirmation_missing',
+  /** `report-outcome`: attendance on a confirmation that is no longer live. */
+  'attendance_confirmation_not_live',
+  /** `report-outcome`: this plan was never asked of you, so there is nothing to attend. */
+  'attendance_not_a_participant',
 
   /**
    * `submit-availability`: the plan has moved to a later revision, so this

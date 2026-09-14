@@ -91,7 +91,12 @@ const REASONS: Record<ProblemReason, { status: number; error: Problem['error'] }
   attendance_too_early: { status: 409, error: 'conflict' },
   attendance_not_reversible: { status: 409, error: 'conflict' },
   confirmation_not_found: { status: 404, error: 'not_found' },
-  confirmation_not_live: { status: 409, error: 'conflict' },
+  confirmation_not_active: { status: 409, error: 'conflict' },
+  stale_confirmation: { status: 409, error: 'conflict' },
+  outcome_too_early: { status: 409, error: 'conflict' },
+  attendance_confirmation_missing: { status: 404, error: 'not_found' },
+  attendance_confirmation_not_live: { status: 409, error: 'conflict' },
+  attendance_not_a_participant: { status: 400, error: 'invalid_request' },
 
   // S1-16. An answer refused for what it says, or for when it arrived.
   stale_revision: { status: 409, error: 'conflict' },
