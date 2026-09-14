@@ -52,6 +52,24 @@ Deno.serve(
     handle: async ({ body, caller, service, requestId }): Promise<SubmitAvailabilityResponse> => {
       const plan = await readPlan(caller, body.plan_id);
 
+      // The question first, and then the answer to it. A draft survives going
+      // offline (spec §5.5) and comes back addressed to the revision the person
+      // was shown — which the organiser may have moved on from since, dates and
+      // all. Normalising first would judge yesterday's windows against today's
+      // window and refuse them as `outside_plan_window`: a complaint about the
+      // shape of an answer, when what happened is that the question changed and
+      // the client needs to fetch it and ask again.
+      //
+      // `replace_response` checks this too, under the plan's row lock, and that
+      // is the one that decides — this is the same refusal, arriving before the
+      // work rather than after it.
+      if (body.revision !== plan.revision) {
+        throw new Refusal(
+          'stale_revision',
+          'The plan changed while you were answering. Have another look.',
+        );
+      }
+
       // Normalised against the plan as the person was shown it. A window on a
       // date the plan never mentions is the caller and the plan disagreeing
       // about what was asked, and it is refused rather than quietly dropped —
@@ -140,11 +158,12 @@ async function readPlan(
   daily_end_local: number;
   duration_minutes: number;
   time_zone: string;
+  revision: number;
 }> {
   const { data, error } = await caller
     .from('plans')
     .select(
-      'window_start, window_end, daily_start_local, daily_end_local, duration_minutes, time_zone',
+      'window_start, window_end, daily_start_local, daily_end_local, duration_minutes, time_zone, revision',
     )
     .eq('id', planId)
     .maybeSingle();

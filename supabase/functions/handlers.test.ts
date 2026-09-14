@@ -1188,7 +1188,7 @@ describe('submit-availability', () => {
 
   beforeEach(() => {
     state.users = [{ id: CALLER, is_anonymous: false }];
-    state.rows = { plans: plan };
+    state.rows = { plans: { ...plan, revision: 1 } };
     state.answer = (fn) => {
       if (fn === 'begin_request') {
         return {
@@ -1281,11 +1281,36 @@ describe('submit-availability', () => {
     expect(called('replace_response')).toHaveLength(0);
   });
 
+  it('tells an offline draft the question changed, not that its windows are wrong', async () => {
+    // A draft survives going offline (spec §5.5) and comes back addressed to
+    // the revision the person was shown. If the organiser has moved the dates
+    // since, normalising first judges yesterday's windows against today's
+    // window and calls them malformed — when what the client needs to hear is
+    // "fetch the plan and ask again".
+    state.rows = { plans: { ...plan, revision: 2 } };
+
+    const response = await load('submit-availability')(
+      post({
+        idempotency_key: KEY,
+        plan_id: PLAN_ID,
+        revision: 1,
+        status: 'windows',
+        windows: [{ start: '2099-09-17T08:30:00.000Z', end: '2099-09-17T10:30:00.000Z' }],
+      }),
+    );
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({ reason: 'stale_revision' });
+    expect(called('replace_response')).toHaveLength(0);
+  });
+
   it('sends the revision being answered, not the one the plan is at', async () => {
     // An answer is an answer to a question, and the question can change while a
     // draft sits on a phone with no signal. `replace_response` is what refuses a
     // stale one; the handler's job is to pass on what the person was actually
     // shown.
+    state.rows = { plans: { ...plan, revision: 3 } };
+
     await load('submit-availability')(
       post({ idempotency_key: KEY, plan_id: PLAN_ID, revision: 3, status: 'flexible' }),
     );

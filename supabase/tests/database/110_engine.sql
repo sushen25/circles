@@ -16,7 +16,7 @@
 -- recalculations racing is a thing to reproduce, not to reason about.
 
 begin;
-select plan(47);
+select plan(48);
 
 create or replace function pg_temp.make_user(id uuid, name text)
 returns uuid language sql as $$
@@ -317,6 +317,27 @@ select is(
   0,
   'and writes nothing'
 );
+
+-- Round 3: and a required member who has left is exactly the near-miss spec §9
+-- asks for — "a required person leaves: the plan becomes ineligible until the
+-- organiser changes required members or cancels". `on_member_removed` takes
+-- their participant row and leaves the required one, so the blocking rule names
+-- somebody who is not a participant *by design*. Checking that id against the
+-- participants refused the only result that can describe the state §9 wants,
+-- and left the plan showing the set from before they left.
+select is(
+  (select public.store_candidate_set(pg_temp.plan_id(), pg_temp.version(), 1,
+     jsonb_set(pg_temp.result(0, 1), '{nearMisses,0,reason}',
+       jsonb_build_object('kind', 'required_missing',
+                          'userId', '00000000-0000-0000-0000-0000000006a1'))) ->> 'stored'),
+  'true',
+  'a near-miss blocked on a required member is stored, which is how the plan becomes ineligible'
+);
+
+select pg_temp.act_as_postgres();
+delete from public.candidate_sets where plan_id = pg_temp.plan_id();
+update public.plans set input_version = input_version + 1 where id = pg_temp.plan_id();
+select pg_temp.act_as_service();
 
 -- Round 2: and the id a near-miss names, which the array above does not carry.
 -- `{"kind":"required_missing","userId":…}` is the single rule the no-quorum

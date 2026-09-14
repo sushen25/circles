@@ -624,31 +624,46 @@ begin
   -- an id that is not a participant of this revision is either somebody who left,
   -- somebody who was never asked, or somebody whose membership moved while the
   -- engine was running.
+  -- Each id against the list it came from, which is not the same list twice.
+  --
+  -- An **available** id is somebody the plan asked, so it has to be a
+  -- participant. A **`required_missing`** id is the opposite kind of fact: the
+  -- blocking rule names a required member who is *not* available, and spec §9's
+  -- "a required person leaves: the plan becomes ineligible until the organiser
+  -- changes required members or cancels" is precisely a required member who is
+  -- no longer a participant. Checking that one against `plan_participants` —
+  -- which an earlier draft of this guard did — refused the only result that can
+  -- ever describe the state §9 asks for, leaving the plan showing the set from
+  -- before they left.
+  --
+  -- Both lists move together when a membership does: `move_membership` rewrites
+  -- `plan_participants` and `plan_required_members` alike, so a result computed
+  -- before a move is still discarded either way.
   if exists (
     with named as (
       select item.value as entry
       from jsonb_array_elements(
         coalesce(p_set -> 'eligible', '[]'::jsonb) || coalesce(p_set -> 'nearMisses', '[]'::jsonb)
       ) as item
-    ),
-    -- Every id the set names, and a near-miss names one the array does not: the
-    -- required member whose absence is the blocking rule (spec §5.6) is by
-    -- definition not available. Checking the array alone let exactly that id
-    -- through, which is the one the no-quorum screen puts a name to.
-    ids as (
-      select user_id from named, lateral jsonb_array_elements_text(entry -> 'availableUserIds')
-        as available(user_id)
-      union
-      select entry -> 'reason' ->> 'userId' from named
-      where entry -> 'reason' ->> 'kind' = 'required_missing'
     )
-    select 1 from ids
+    select 1
+    from named, lateral jsonb_array_elements_text(entry -> 'availableUserIds') as available(user_id)
     where not exists (
       select 1 from public.plan_participants pp
       where pp.plan_id = plan.id
         and pp.revision = plan.revision
-        and pp.user_id = ids.user_id::uuid
+        and pp.user_id = available.user_id::uuid
     )
+    union all
+    select 1
+    from named
+    where entry -> 'reason' ->> 'kind' = 'required_missing'
+      and not exists (
+        select 1 from public.plan_required_members rm
+        where rm.plan_id = plan.id
+          and rm.revision = plan.revision
+          and rm.user_id = (entry -> 'reason' ->> 'userId')::uuid
+      )
   ) then
     return public.candidate_summary(plan, false);
   end if;
