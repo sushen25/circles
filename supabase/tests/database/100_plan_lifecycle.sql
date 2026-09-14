@@ -6,7 +6,7 @@
 -- would all say yes.
 
 begin;
-select plan(80);
+select plan(85);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid
@@ -693,6 +693,55 @@ select is(
   'collecting',
   'which stales the set for the same reason: a required person narrows which times qualify'
 );
+
+-- Round 10: and the rules the handler applies, applied here too. This function
+-- is callable by any signed-in client, so a rule that lives only in the Edge
+-- Function is a rule the authoritative layer does not have (AGENTS.md §6.4).
+select pg_temp.act_as('10000000-0000-0000-0000-000000000001');
+select throws_ok(
+  format($$ select public.revise_plan(%L, false, '{}'::jsonb) $$, pg_temp.edited_id()),
+  'nothing_to_change',
+  'a request that changes nothing is refused rather than announced to the circle'
+);
+
+select throws_ok(
+  format($$ select public.revise_plan(%L, false,
+       jsonb_build_object('quorum', (select p.quorum from public.plans p where p.id = %L))) $$,
+         pg_temp.edited_id(), pg_temp.edited_id()),
+  'nothing_to_change',
+  'and a quorum that has not moved does not throw away a candidate set'
+);
+
+select throws_ok(
+  format($$ select public.revise_plan(%L, false, '{"response_deadline": null}'::jsonb) $$,
+         pg_temp.edited_id()),
+  'nothing_to_change',
+  'a key whose value is null is the same no-op wearing a value'
+);
+
+-- Round 10: a new revision is a fresh ask, and a fresh ask needs time to answer
+-- in. `replace_response` refuses a reply once the deadline has gone.
+select pg_temp.act_as_postgres();
+update public.plans set response_deadline = now() - interval '1 day'
+where id = pg_temp.edited_id();
+
+select pg_temp.act_as('10000000-0000-0000-0000-000000000001');
+select throws_ok(
+  format($$ select public.revise_plan(%L, false, '{"window_start": "2099-09-16"}'::jsonb) $$,
+         pg_temp.edited_id()),
+  'deadline_out_of_range',
+  'an edit into a deadline that has passed asks a question nobody may answer'
+);
+
+select lives_ok(
+  format($$ select public.revise_plan(%L, false, '{"quorum": 5}'::jsonb) $$,
+         pg_temp.edited_id()),
+  'while an adjustment leaves the answers alone, and a passed deadline is what "one more day" is for'
+);
+
+select pg_temp.act_as_postgres();
+update public.plans set response_deadline = timestamptz '2099-09-16T10:00:00Z'
+where id = pg_temp.edited_id();
 
 -- Round 9: the version the warning was about. An answer landing between the
 -- preview and the save moves `input_version`, and §5.3's promise is that the
