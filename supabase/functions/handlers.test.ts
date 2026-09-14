@@ -28,6 +28,8 @@ const state = vi.hoisted(() => ({
   counts: {} as Record<string, number>,
   /** Every table read, so a handler that reads through the service client is visible. */
   reads: [] as string[],
+  /** Every write that goes through a policy rather than a function. */
+  writes: [] as { table: string; method: string; values?: unknown }[],
   served: [] as ((request: Request) => Promise<Response>)[],
   fetched: [] as string[],
 }));
@@ -74,6 +76,17 @@ const client = vi.hoisted(() => ({
     for (const method of ['select', 'eq', 'neq', 'in', 'order', 'limit']) {
       builder[method] = (_first?: unknown, options?: { head?: boolean }): unknown => {
         if (options?.head === true) counting = true;
+        return builder;
+      };
+    }
+    // The write half. Absent, these threw "not a function" — and the test of the
+    // one handler that writes through a policy rather than a function passed
+    // anyway, because it asserted which RPCs were *not* called and never looked
+    // at the response. Recorded rather than swallowed, so a test can say what
+    // was written and to where.
+    for (const method of ['insert', 'update', 'upsert', 'delete']) {
+      builder[method] = (values?: unknown): unknown => {
+        state.writes.push({ table, method, values });
         return builder;
       };
     }
@@ -168,6 +181,9 @@ const handlers = {
   'cancel-plan': await serveOf('cancel-plan'),
   'submit-availability': await serveOf('submit-availability'),
   'recalculate-candidates': await serveOf('recalculate-candidates'),
+  'confirm-meetup': await serveOf('confirm-meetup'),
+  'report-outcome': await serveOf('report-outcome'),
+  'generate-ics': await serveOf('generate-ics'),
 };
 
 function load(name: keyof typeof handlers): (request: Request) => Promise<Response> {
@@ -182,6 +198,13 @@ function post(body: unknown, bearer = 'a.token'): Request {
   });
 }
 
+/** `generate-ics` is a GET: a browser has to be able to navigate to a download. */
+function get(query: Record<string, string>): Request {
+  const url = new URL('https://example.test/fn');
+  for (const [key, value] of Object.entries(query)) url.searchParams.set(key, value);
+  return new Request(url, { headers: { authorization: 'Bearer a.token' } });
+}
+
 const called = (fn: string) => state.rpcs.filter((call) => call.fn === fn);
 
 beforeEach(() => {
@@ -194,6 +217,7 @@ beforeEach(() => {
   state.fetched = [];
   state.tokens = [];
   state.reads = [];
+  state.writes = [];
   state.rows = {};
   state.counts = {};
   state.users = [{ id: CALLER, is_anonymous: true }];
@@ -1513,5 +1537,405 @@ describe('recalculate-candidates', () => {
 
     expect(response.status).toBe(200);
     expect(called('store_candidate_set')[0]?.args['p_input_version']).toBe(2);
+  });
+});
+
+describe('confirm-meetup', () => {
+  const CONFIRMATION = {
+    id: '00000000-0000-4000-8000-0000000000f1',
+    starts_at: '2099-09-17T08:30:00+00:00',
+    ends_at: '2099-09-17T10:30:00+00:00',
+    available_user_ids: [
+      '00000000-0000-4000-8000-0000000000a1',
+      '00000000-0000-4000-8000-0000000000a2',
+    ],
+  };
+
+  const body = {
+    idempotency_key: KEY,
+    plan_id: PLAN_ID,
+    candidate_id: '2099-09-17T08:30:00.000Z',
+    chased_answer: 'none' as const,
+    expected_set_id: '00000000-0000-4000-8000-0000000000e1',
+  };
+
+  beforeEach(() => {
+    state.users = [{ id: CALLER, is_anonymous: false }];
+    state.answer = (fn) => {
+      if (fn === 'begin_request') {
+        return {
+          data: [{ state: 'fresh', response_status: null, response_body: null }],
+          error: null,
+        };
+      }
+      if (fn === 'confirm_meetup') return { data: CONFIRMATION, error: null };
+      return { data: null, error: null };
+    };
+  });
+
+  it('locks in the time the organiser chose, by the time itself', async () => {
+    // A candidate's identity is its start instant, not a row id: the set is
+    // recomputed whenever anybody answers, so an id the organiser was holding
+    // would point at a row that no longer exists.
+    const response = await load('confirm-meetup')(post(body));
+
+    expect(response.status).toBe(200);
+    expect(called('confirm_meetup')[0]?.args['p_candidate_id']).toBe('2099-09-17T08:30:00.000Z');
+    expect(await response.json()).toMatchObject({
+      confirmation_id: CONFIRMATION.id,
+      going: CONFIRMATION.available_user_ids,
+    });
+  });
+
+  it('carries the place, the note and the survey answer', async () => {
+    await load('confirm-meetup')(
+      post({
+        ...body,
+        place_name: 'Hope St Radio',
+        place_url: 'https://maps.example/hope-st',
+        note: 'Upstairs',
+        chased_answer: 'one',
+      }),
+    );
+
+    const args = called('confirm_meetup')[0]?.args;
+    expect(args?.['p_place_name']).toBe('Hope St Radio');
+    expect(args?.['p_note']).toBe('Upstairs');
+    // Spec §5.10's micro-survey, asked on the review screen and stored with the
+    // confirmation it is about. The evidence for H2.
+    expect(args?.['p_chased_answer']).toBe('one');
+  });
+
+  it('refuses a place link that is not a link', async () => {
+    // The confirmed screen turns this into something people tap, and a
+    // `javascript:` URL is not a place.
+    const response = await load('confirm-meetup')(
+      post({ ...body, place_url: 'javascript:alert(1)' }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(called('confirm_meetup')).toHaveLength(0);
+  });
+
+  it('sends the set the organiser was shown, not the one that is current', async () => {
+    // An answer landing while the review screen is open recalculates inline,
+    // so by the time the tap arrives there is a new current set. Confirming
+    // against it would freeze an availability list nobody looked at.
+    await load('confirm-meetup')(post(body));
+
+    expect(called('confirm_meetup')[0]?.args['p_expected_set_id']).toBe(
+      '00000000-0000-4000-8000-0000000000e1',
+    );
+  });
+
+  it('will not confirm without saying which set it saw', async () => {
+    const response = await load('confirm-meetup')(post({ ...body, expected_set_id: undefined }));
+
+    expect(response.status).toBe(400);
+    expect(called('confirm_meetup')).toHaveLength(0);
+  });
+
+  it('tells a stale screen apart from a time that is not on offer', async () => {
+    // `candidate_is_eligible` answers one boolean for both, and they are
+    // different sentences: one means "look again", the other means "not that
+    // one". The SQL raises them separately so the client can say which.
+    state.answer = (fn) => {
+      if (fn === 'begin_request') {
+        return {
+          data: [{ state: 'fresh', response_status: null, response_body: null }],
+          error: null,
+        };
+      }
+      if (fn === 'confirm_meetup') {
+        return { data: null, error: { message: 'stale_candidates', code: 'P0001' } };
+      }
+      return { data: null, error: null };
+    };
+
+    const response = await load('confirm-meetup')(post(body));
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({ reason: 'stale_candidates' });
+  });
+
+  it('will not confirm without answering the survey', async () => {
+    const withoutSurvey = { ...body, chased_answer: undefined };
+    const response = await load('confirm-meetup')(post(withoutSurvey));
+
+    expect(response.status).toBe(400);
+    expect(called('confirm_meetup')).toHaveLength(0);
+  });
+});
+
+describe('report-outcome', () => {
+  const CONFIRMATION_ID = '00000000-0000-4000-8000-0000000000f1';
+
+  beforeEach(() => {
+    state.users = [{ id: CALLER, is_anonymous: false }];
+    state.rows = {};
+    state.answer = (fn) => {
+      if (fn === 'begin_request') {
+        return {
+          data: [{ state: 'fresh', response_status: null, response_body: null }],
+          error: null,
+        };
+      }
+      if (fn === 'confirmation_evidence') {
+        // Counts and one comparison, never identities: the policy shows a
+        // retrospective answer only to the person who gave it, so this is the
+        // only way the organiser learns they were corroborated.
+        return {
+          data: { outcome: 'happened', was_there: 2, missed: 0, someone_else_was_there: true },
+          error: null,
+        };
+      }
+      return { data: null, error: null };
+    };
+  });
+
+  it('files the organiser’s answer through the one write path there is', async () => {
+    await load('report-outcome')(
+      post({
+        idempotency_key: KEY,
+        confirmation_id: CONFIRMATION_ID,
+        outcome: 'happened',
+        note: 'Great night',
+        moved_outside: false,
+      }),
+    );
+
+    const args = called('report_outcome')[0]?.args;
+    expect(args?.['p_outcome']).toBe('happened');
+    expect(args?.['p_note']).toBe('Great night');
+  });
+
+  it('says corroborated when somebody other than the reporter was there', async () => {
+    // §11.1 counts the two separately: "reported happened" is the organiser's
+    // word for it, "corroborated happened" is a second person's.
+    const response = await load('report-outcome')(
+      post({
+        idempotency_key: KEY,
+        confirmation_id: CONFIRMATION_ID,
+        outcome: 'happened',
+        moved_outside: false,
+      }),
+    );
+
+    expect(await response.json()).toMatchObject({
+      corroboration: 'corroborated',
+      was_there: 2,
+    });
+  });
+
+  it('writes a member’s own attendance within what a member may write', async () => {
+    // `grant update (status) on public.attendance` and nothing else: a plain
+    // upsert assigns every column it was given on conflict, and Postgres
+    // refuses it for want of the grant — which would have made the ordinary
+    // case, a row derived when the meetup was confirmed, the failing one. So:
+    // insert if missing, then set the status.
+    const response = await load('report-outcome')(
+      post({ idempotency_key: KEY, confirmation_id: CONFIRMATION_ID, attendance: 'was_there' }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(called('report_outcome')).toHaveLength(0);
+    expect(state.writes).toEqual([
+      {
+        table: 'attendance',
+        method: 'upsert',
+        values: { confirmation_id: CONFIRMATION_ID, user_id: CALLER, status: 'was_there' },
+      },
+      { table: 'attendance', method: 'update', values: { status: 'was_there' } },
+    ]);
+  });
+
+  it('will not take an outcome without the second tap of the survey', async () => {
+    // "Two taps each; this is the evidence for H2" (spec §5.10). An optional
+    // half of a two-tap survey is a question most people never answer.
+    const response = await load('report-outcome')(
+      post({ idempotency_key: KEY, confirmation_id: CONFIRMATION_ID, outcome: 'happened' }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(called('report_outcome')).toHaveLength(0);
+  });
+
+  it('does not ask a member answering for themselves', async () => {
+    // The survey is the organiser's, on the outcome screen. A member saying "I
+    // was there" is not being asked whether the plan moved outside the app.
+    const response = await load('report-outcome')(
+      post({
+        idempotency_key: KEY,
+        confirmation_id: CONFIRMATION_ID,
+        attendance: 'was_there',
+        moved_outside: false,
+      }),
+    );
+
+    expect(response.status).toBe(400);
+  });
+
+  it('refuses an outcome and an attendance in one request', async () => {
+    // A statement about the evening and a statement about one person. Somebody
+    // who is both the organiser and an attendee makes them one at a time.
+    const response = await load('report-outcome')(
+      post({
+        idempotency_key: KEY,
+        confirmation_id: CONFIRMATION_ID,
+        outcome: 'happened',
+        moved_outside: false,
+        attendance: 'was_there',
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(called('report_outcome')).toHaveLength(0);
+  });
+
+  it('turns the database’s refusal into a reason', async () => {
+    state.answer = (fn) => {
+      if (fn === 'begin_request') {
+        return {
+          data: [{ state: 'fresh', response_status: null, response_body: null }],
+          error: null,
+        };
+      }
+      if (fn === 'report_outcome') {
+        return { data: null, error: { message: 'not_the_organiser', code: '42501' } };
+      }
+      return { data: null, error: null };
+    };
+
+    const response = await load('report-outcome')(
+      post({
+        idempotency_key: KEY,
+        confirmation_id: CONFIRMATION_ID,
+        outcome: 'happened',
+        moved_outside: false,
+      }),
+    );
+
+    expect(response.status).toBe(403);
+    expect(await response.json()).toMatchObject({ reason: 'not_the_organiser' });
+  });
+});
+
+describe('generate-ics', () => {
+  const CONFIRMATION_ID = '00000000-0000-4000-8000-0000000000f1';
+
+  beforeEach(() => {
+    state.users = [{ id: CALLER, is_anonymous: false }];
+    state.rows = {
+      meetup_confirmations: {
+        id: CONFIRMATION_ID,
+        plan_id: PLAN_ID,
+        revision: 1,
+        starts_at: '2099-09-17T08:30:00+00:00',
+        ends_at: '2099-09-17T10:30:00+00:00',
+        available_user_ids: [CALLER],
+        place_name: 'Hope St Radio',
+        place_url: null,
+        note: null,
+        confirmed_by: CALLER,
+        status: 'active',
+        confirmed_at: '2099-09-16T00:00:00+00:00',
+        plans: {
+          title: 'Catch up',
+          short_code: 'pncfmt',
+          time_zone: 'Australia/Melbourne',
+          circles: { name: 'Sunday Crew' },
+        },
+      },
+    };
+  });
+
+  it('answers with a calendar file a browser will save', async () => {
+    const response = await load('generate-ics')(get({ confirmation_id: CONFIRMATION_ID }));
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toBe('text/calendar; charset=utf-8');
+    // The date on the invitation, not the one in UTC. 18:30 in Melbourne is
+    // 08:30Z the same day; in Los Angeles the same evening is the *next* day in
+    // UTC, and a file named for a Thursday that says Wednesday inside it is a
+    // file somebody will open twice.
+    expect(response.headers.get('content-disposition')).toBe(
+      'attachment; filename="sunday-crew-2099-09-17.ics"',
+    );
+    // Nothing cached: a confirmation is the kind of thing that gets cancelled.
+    expect(response.headers.get('cache-control')).toBe('no-store');
+
+    const body = await response.text();
+    // DTSTART is UTC, whatever zone the circle keeps: a calendar reads the
+    // instant, and the local time is what the app renders.
+    expect(body).toContain('DTSTART:20990917T083000Z');
+    expect(body).toContain('SUMMARY:Sunday Crew · Catch up');
+    expect(body).toContain('STATUS:CONFIRMED');
+  });
+
+  it('carries the plan’s short link and no token of any kind', async () => {
+    // An `.ics` is forwarded, synced and indexed by desktop search
+    // (architecture §14), so the only link in it is a public path.
+    const body = await (
+      await load('generate-ics')(get({ confirmation_id: CONFIRMATION_ID }))
+    ).text();
+
+    expect(body).toContain('/p/pncfmt');
+    expect(body).not.toMatch(/token|secret|[?]t=/i);
+  });
+
+  it('names the file for the local date, not the UTC one', async () => {
+    // 18:30 on the 17th in Los Angeles is 01:30Z on the 18th.
+    state.rows = {
+      meetup_confirmations: {
+        ...(state.rows['meetup_confirmations'] as Record<string, unknown>),
+        starts_at: '2099-09-18T01:30:00+00:00',
+        ends_at: '2099-09-18T03:30:00+00:00',
+        plans: {
+          title: 'Catch up',
+          short_code: 'pncfmt',
+          time_zone: 'America/Los_Angeles',
+          circles: { name: 'Sunday Crew' },
+        },
+      },
+    };
+
+    const response = await load('generate-ics')(get({ confirmation_id: CONFIRMATION_ID }));
+
+    expect(response.headers.get('content-disposition')).toBe(
+      'attachment; filename="sunday-crew-2099-09-17.ics"',
+    );
+  });
+
+  it('marks a rescheduled meetup cancelled rather than refusing the file', async () => {
+    // "Thursday is off the table" (spec §5.7) is a thing a calendar has to be
+    // told; refusing would leave the old event sitting in it.
+    state.rows = {
+      meetup_confirmations: {
+        ...(state.rows['meetup_confirmations'] as object),
+        status: 'superseded',
+      },
+    };
+
+    const body = await (
+      await load('generate-ics')(get({ confirmation_id: CONFIRMATION_ID }))
+    ).text();
+
+    expect(body).toContain('STATUS:CANCELLED');
+  });
+
+  it('says nothing about a confirmation the caller cannot see', async () => {
+    // RLS answers "may this person see this?", so a stranger and a
+    // confirmation that does not exist get the same answer.
+    state.rows = {};
+
+    const response = await load('generate-ics')(get({ confirmation_id: CONFIRMATION_ID }));
+
+    expect(response.status).toBe(404);
+    expect(await response.json()).toMatchObject({ reason: 'confirmation_not_found' });
+  });
+
+  it('takes a GET and nothing else', async () => {
+    const response = await load('generate-ics')(post({ confirmation_id: CONFIRMATION_ID }));
+    expect(response.status).toBe(405);
   });
 });

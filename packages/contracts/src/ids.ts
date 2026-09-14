@@ -21,6 +21,14 @@ export const CircleId = uuid('CircleId');
  */
 export const UserId = uuid('UserId');
 export const PlanId = uuid('PlanId');
+// No `CandidateId` either, and for a sharper reason: a candidate's identity *is*
+// the instant it starts. The domain says so (`candidateIdOf` returns the ISO
+// start) and so does the column that stores it — "the client's candidate id is
+// the ISO start" — because the set is recomputed whenever anybody answers, and a
+// row id the organiser was holding would point at a row that no longer exists
+// while the time they chose is still the time they chose. `confirm-meetup` takes
+// an `Instant`.
+
 // No `RevisionId`. A revision is a counter on the plan — `plans.revision`, an
 // integer that an edit increments — and a uuid for it was a scaffold's guess
 // that nothing ever issued. The one place that referenced it asked callers for
@@ -28,7 +36,6 @@ export const PlanId = uuid('PlanId');
 // could never have matched the revision it was answering.
 export const ResponseId = uuid('ResponseId');
 export const CandidateSetId = uuid('CandidateSetId');
-export const CandidateId = uuid('CandidateId');
 export const ConfirmationId = uuid('ConfirmationId');
 export const InviteId = uuid('InviteId');
 export const ContactId = uuid('ContactId');
@@ -38,7 +45,6 @@ export type UserId = z.infer<typeof UserId>;
 export type PlanId = z.infer<typeof PlanId>;
 export type ResponseId = z.infer<typeof ResponseId>;
 export type CandidateSetId = z.infer<typeof CandidateSetId>;
-export type CandidateId = z.infer<typeof CandidateId>;
 export type ConfirmationId = z.infer<typeof ConfirmationId>;
 export type InviteId = z.infer<typeof InviteId>;
 export type ContactId = z.infer<typeof ContactId>;

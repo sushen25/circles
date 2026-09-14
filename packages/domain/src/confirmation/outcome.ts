@@ -122,6 +122,24 @@ export function lastMetAtAfter(
  * Only `happened` can be corroborated: there is nothing for a second person to
  * confirm about a cancellation, and "corroborated not sure" is not a sentence.
  */
+/**
+ * The rule itself, separated from the rows it is usually read off.
+ *
+ * The server cannot count the rows: `attendance_select_member` shows a
+ * retrospective answer only to the person who gave it, deliberately — "nobody is
+ * told who came" (spec §5.10) — so an organiser reading the table sees none of
+ * the `was_there` rows that would corroborate them. The count comes from a
+ * definer function instead, and this is what turns it into the word, so the
+ * metric and the screen cannot disagree about what corroboration means.
+ */
+export function corroborationOf(outcome: Outcome, someoneElseWasThere: boolean): Corroboration {
+  // Only `happened` can be corroborated: there is nothing for a second person
+  // to confirm about a cancellation, and "corroborated not sure" is not a
+  // sentence.
+  if (outcome !== 'happened') return 'reported';
+  return someoneElseWasThere ? 'corroborated' : 'reported';
+}
+
 export function corroboration(
   report: OutcomeReport,
   attendances: readonly Attendance[],
@@ -137,5 +155,5 @@ export function corroboration(
       a.status === 'was_there' &&
       a.userId !== report.reportedBy,
   );
-  return corroborated ? 'corroborated' : 'reported';
+  return corroborationOf(report.outcome, corroborated);
 }

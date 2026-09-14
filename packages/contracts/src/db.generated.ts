@@ -884,6 +884,47 @@ export type Database = {
           merged_memberships: number
         }[]
       }
+      confirm_meetup: {
+        Args: {
+          p_candidate_id: string
+          p_chased_answer: string
+          p_expected_set_id: string
+          p_note?: string
+          p_place_name?: string
+          p_place_url?: string
+          p_plan_id: string
+        }
+        Returns: {
+          available_user_ids: string[]
+          candidate_id: string
+          chased_answer: string | null
+          confirmed_at: string
+          confirmed_by: string
+          created_at: string
+          ends_at: string
+          id: string
+          note: string | null
+          place_name: string | null
+          place_url: string | null
+          plan_id: string
+          revision: number
+          starts_at: string
+          status: string
+          superseded_at: string | null
+          superseded_reason: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "meetup_confirmations"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      confirmation_evidence: {
+        Args: { p_confirmation_id: string }
+        Returns: Json
+      }
       create_circle: {
         Args: {
           cadence?: string

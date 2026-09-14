@@ -126,6 +126,57 @@ export const ProblemReason = z.enum([
    * candidate set — over a form resubmitted unedited.
    */
   'nothing_to_change',
+  // S1-17, the confirmation and the outcome.
+
+  /**
+   * `confirm-meetup`: the candidate set the organiser was looking at is not the
+   * one the plan has now — somebody answered, or the plan was edited. The times
+   * on the screen may no longer be on offer, so the client refetches and shows
+   * what is. Never a silent substitution: confirming "the top option" from a set
+   * that has moved is how a person locks in a time they did not choose.
+   */
+  'stale_candidates',
+  /**
+   * `confirm-meetup`: that time is not one of the options. A set that is current
+   * and an id that is not in it — a client holding a stale screen gets
+   * `stale_candidates` instead.
+   */
+  'needs_candidate',
+  /** `confirm-meetup`: the time has passed while the review screen was open. */
+  'candidate_has_passed',
+  /**
+   * `confirm-meetup`: the survey on the review screen was not answered. Two taps
+   * (spec §5.10), required by the endpoint *and* by the RPC behind it — the
+   * evidence for H2 is not optional because of the door somebody came through.
+   */
+  'chased_answer_required',
+  /** `report-outcome`: an outcome has been reported, and a different one cannot replace it. */
+  'outcome_already_reported',
+  /** `report-outcome`: "I was there" before the meetup has ended is not an early answer. */
+  'attendance_too_early',
+  /**
+   * `report-outcome`: an answer about the past cannot become a promise about the
+   * future — `was_there` does not go back to `going`.
+   */
+  'attendance_not_reversible',
+  /** `report-outcome`, `generate-ics`: no such confirmation, or not one of yours. */
+  'confirmation_not_found',
+  /**
+   * `report-outcome`: the confirmation has been superseded or cancelled — the
+   * evening being reported on is not the one that is live.
+   */
+  'confirmation_not_active',
+  /** `report-outcome`: the plan has moved to a revision this confirmation is not of. */
+  'stale_confirmation',
+  /** `report-outcome`: "did it happen?" before it has finished happening. */
+  'outcome_too_early',
+  /** `report-outcome`: the confirmation an attendance names is not there. */
+  'attendance_confirmation_missing',
+  /** `report-outcome`: attendance on a confirmation that is no longer live. */
+  'attendance_confirmation_not_live',
+  /** `report-outcome`: this plan was never asked of you, so there is nothing to attend. */
+  'attendance_not_a_participant',
+
   /**
    * `submit-availability`: the plan has moved to a later revision, so this
    * answer is to a question that is no longer being asked. Fetch the plan again
