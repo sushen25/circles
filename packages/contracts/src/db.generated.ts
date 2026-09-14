@@ -1126,7 +1126,12 @@ export type Database = {
         }
       }
       revise_plan: {
-        Args: { p_payload?: Json; p_plan_id: string; p_reopen?: boolean }
+        Args: {
+          p_payload?: Json
+          p_plan_id: string
+          p_reopen?: boolean
+          p_required_member_ids?: string[]
+        }
         Returns: {
           cancel_note: string | null
           category: string

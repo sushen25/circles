@@ -126,7 +126,17 @@ begin
   update public.plans p set
     state = rule.to_state,
     revision = next_revision,
-    input_version = case when rule.bumps_revision then 1 else p.input_version end,
+    input_version = case
+      when rule.bumps_revision then 1
+      -- A quorum change makes the stored candidate set *wrong*, and nothing else
+      -- would have noticed: `candidate_is_eligible` checks the set's versions and
+      -- the near-miss flag and never reads the plan's quorum, so raising it from
+      -- four to five left a four-person candidate confirmable. Bumping the input
+      -- version is the narrow way to say "recompute": it does not touch the
+      -- revision, so nobody is asked again, and it does not touch the answers.
+      when p_payload ? 'quorum' then p.input_version + 1
+      else p.input_version
+    end,
     organiser_user_id = case
       when p_action = 'accept_organiser' then p_actor
       else p.organiser_user_id
@@ -146,6 +156,31 @@ begin
   returning * into plan;
 
   perform set_config('circles.in_transition', 'off', true);
+
+  -- A new revision is a new question, asked of the same people. Nothing used to
+  -- carry them across, so an edited plan arrived at revision 2 addressed to
+  -- nobody: `replace_response` refuses a member who is not a participant of the
+  -- current revision, so *no one could answer it*, and `reask_audience` had
+  -- nobody to name. The gap was unreachable until S1-15 gave anyone a way to
+  -- edit a plan.
+  --
+  -- The audience is carried rather than recomputed from `circle_members`, and
+  -- the difference matters: spec §9 makes joining an active plan an opt-in, so
+  -- somebody who joined the circle after the plan was created is not silently
+  -- added to it by the organiser fixing a date. Anyone who has left is dropped,
+  -- because `on_member_removed` already took them out of the revision they were
+  -- in and there is nothing to carry.
+  if rule.bumps_revision then
+    insert into public.plan_participants (plan_id, revision, user_id, joined_at)
+    select plan.id, plan.revision, pp.user_id, pp.joined_at
+    from public.plan_participants pp
+    where pp.plan_id = plan.id and pp.revision = plan.revision - 1;
+
+    insert into public.plan_required_members (plan_id, revision, user_id)
+    select plan.id, plan.revision, rm.user_id
+    from public.plan_required_members rm
+    where rm.plan_id = plan.id and rm.revision = plan.revision - 1;
+  end if;
 
   -- `confirm` is not a state change with a row to follow; it is the row. The
   -- frozen copy of the candidate and the derived attendance are written here,

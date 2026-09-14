@@ -518,6 +518,27 @@ describe('create-plan', () => {
     };
   });
 
+  it('refuses a guest with the reason that opens InitiateGate', async () => {
+    // The state machine refuses this too, but it says `needs_permanent_identity`
+    // — not a `ProblemReason` — so the client got a 500 and no way to know it
+    // should offer sign-in (ADR 0004).
+    state.users = [{ id: CALLER, is_anonymous: true }];
+
+    const response = await load('create-plan')(post(body));
+
+    expect(await response.json()).toMatchObject({ reason: 'requires_saved_place' });
+    expect(called('create_plan')).toHaveLength(0);
+  });
+
+  it('refuses a quorum of one before it reaches a check constraint', async () => {
+    // `plans_quorum` would raise 23514, whose SQLSTATE maps to no reason — so an
+    // ordinary invalid request came back as a 500.
+    const response = await load('create-plan')(post({ ...body, quorum: 1 }));
+
+    expect(response.status).toBe(400);
+    expect(called('create_plan')).toHaveLength(0);
+  });
+
   it('refuses a quiet ask as not-yet rather than as a failure', async () => {
     const response = await load('create-plan')(post({ ...body, mode: 'quiet' }));
 
@@ -647,6 +668,36 @@ describe('revise-plan', () => {
     );
 
     expect(called('revise_plan')[0]?.args['p_payload']).toEqual({ quorum: 5 });
+  });
+
+  it('passes a changed required-member list through', async () => {
+    // Spec §9's answer to "a required person leaves" is that the organiser
+    // changes them — and until this there was no way to.
+    await load('revise-plan')(
+      post({
+        idempotency_key: KEY,
+        plan_id: PLAN_ID,
+        required_member_ids: ['00000000-0000-4000-8000-0000000000a2'],
+      }),
+    );
+
+    expect(called('revise_plan')[0]?.args['p_required_member_ids']).toEqual([
+      '00000000-0000-4000-8000-0000000000a2',
+    ]);
+  });
+
+  it('distinguishes "leave them alone" from "nobody is required"', async () => {
+    await load('revise-plan')(post({ idempotency_key: KEY, plan_id: PLAN_ID, quorum: 4 }));
+    expect(called('revise_plan')[0]?.args['p_required_member_ids']).toBeNull();
+
+    // A second request needs a second identification: the mock's queue is
+    // consumed, and an empty one is a rejected caller rather than this caller.
+    state.users = [{ id: CALLER, is_anonymous: false }];
+    state.rpcs = [];
+    await load('revise-plan')(
+      post({ idempotency_key: KEY, plan_id: PLAN_ID, required_member_ids: [] }),
+    );
+    expect(called('revise_plan')[0]?.args['p_required_member_ids']).toEqual([]);
   });
 
   it('asks for a reopen by name rather than by inference', async () => {

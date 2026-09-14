@@ -41,7 +41,19 @@ begin
     raise exception 'PLAN_NOT_FOUND' using errcode = 'P0001';
   end if;
 
-  if plan.organiser_user_id is distinct from (select auth.uid()) then
+  -- Organiser *and still a member*, which is the same pair `transition_plan`'s
+  -- `organiser` guard checks. Comparing the id alone left a removed organiser
+  -- able to call this and read every participant — "only active members see or
+  -- act on it" (AGENTS.md) is a privacy invariant, and an id on a row is not
+  -- membership.
+  if plan.organiser_user_id is distinct from (select auth.uid())
+    or not exists (
+      select 1 from public.circle_members m
+      where m.circle_id = plan.circle_id
+        and m.user_id = (select auth.uid())
+        and m.status = 'active'
+    )
+  then
     raise exception 'not_the_organiser' using errcode = 'P0001';
   end if;
 

@@ -14,6 +14,18 @@ import { IdempotencyKey, RequestId } from '../ids.js';
 export const Mutation = z.object({ idempotency_key: IdempotencyKey });
 
 /**
+ * At least two, because "a meetup of one is not a meetup" — the same floor
+ * `quorumDefault` applies and `plans_quorum` enforces.
+ *
+ * Declared here rather than as a bare positive integer because the boundary is
+ * where a `1` should be refused: sent onward it trips a check constraint, whose
+ * SQLSTATE has no reason to map to, so an ordinary invalid request came back as
+ * a 500.
+ */
+export const Quorum = z.int().min(2);
+export type Quorum = z.infer<typeof Quorum>;
+
+/**
  * Why a request failed, precisely — the cause a *screen* turns on.
  *
  * `Problem.error` below is the category that picks the HTTP status, and it is

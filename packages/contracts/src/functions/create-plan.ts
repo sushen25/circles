@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 import { CircleId, PlanId, ShortCode, UserId } from '../ids.js';
 import { DailyWindow, DateWindow, DurationMinutes, Instant } from '../time.js';
-import { Mutation } from './shared.js';
+import { Mutation, Quorum } from './shared.js';
 
 /**
  * `create-plan` — a named plan, from a preset and the circle's defaults.
@@ -32,7 +32,7 @@ export const CreatePlanRequest = Mutation.extend({
   daily: DailyWindow.optional(),
   duration_minutes: DurationMinutes.optional(),
   /** Absent means the circle's default, or `max(2, ceil(n × 0.6))` if it has none. */
-  quorum: z.int().positive().optional(),
+  quorum: Quorum.optional(),
   /** Absent means "the organiser alone"; an empty array means nobody. */
   required_member_ids: z.array(UserId).optional(),
   /** Absent means the preset's default deadline. */
@@ -47,7 +47,7 @@ export const CreatePlanResponse = z.object({
   window: DateWindow,
   daily: DailyWindow,
   duration_minutes: DurationMinutes,
-  quorum: z.int().positive(),
+  quorum: Quorum,
   response_deadline: Instant,
 });
 export type CreatePlanResponse = z.infer<typeof CreatePlanResponse>;

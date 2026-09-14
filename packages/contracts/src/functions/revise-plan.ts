@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 import { PlanId, UserId } from '../ids.js';
 import { DailyWindow, DateWindow, DurationMinutes, Instant } from '../time.js';
+import { Quorum } from './shared.js';
 import { Mutation } from './shared.js';
 
 /**
@@ -23,7 +24,17 @@ export const RevisePlanRequest = Mutation.extend({
   daily: DailyWindow.optional(),
   duration_minutes: DurationMinutes.optional(),
   response_deadline: Instant.optional(),
-  quorum: z.int().positive().optional(),
+  quorum: Quorum.optional(),
+  /**
+   * Who has to be there. Spec §9: when a required person leaves, the plan is
+   * ineligible "until the organiser changes required members or cancels" — so
+   * this is how they change them. Absent leaves them alone; an empty array means
+   * nobody is required.
+   *
+   * Not an edit: it changes which times are eligible, not what anybody was asked,
+   * so it starts no revision and costs nobody a reply.
+   */
+  required_member_ids: z.array(UserId).optional(),
   /**
    * Unpick a confirmed meetup and go back to collecting (§5.7's "change time").
    * A different transition with a different event, so it is said rather than
@@ -39,6 +50,7 @@ export const RevisePlanRequest = Mutation.extend({
     body.duration_minutes !== undefined ||
     body.response_deadline !== undefined ||
     body.quorum !== undefined ||
+    body.required_member_ids !== undefined ||
     body.reopen,
   { message: 'an edit that changes nothing is not an edit' },
 );

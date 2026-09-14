@@ -112,6 +112,9 @@ Deno.serve(
         p_plan_id: body.plan_id,
         p_reopen: body.reopen,
         p_payload: payload,
+        // `null` and `[]` mean different things — leave them alone, and nobody is
+        // required — so the absent case is passed as null rather than collapsed.
+        p_required_member_ids: body.required_member_ids ?? null,
       });
       if (error !== null) throw error;
 

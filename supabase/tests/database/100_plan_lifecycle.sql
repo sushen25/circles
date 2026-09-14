@@ -6,7 +6,7 @@
 -- would all say yes.
 
 begin;
-select plan(49);
+select plan(63);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid
@@ -429,6 +429,175 @@ select throws_ok(
 );
 
 -- ---------------------------------------------------------------------------
+-- Round 1: a revision is a new question asked of the same people.
+--
+-- Nothing carried the audience across, so an edited plan arrived at revision 2
+-- addressed to nobody — `replace_response` refuses a member who is not a
+-- participant of the current revision, so no one could answer it at all. The gap
+-- was unreachable until this ticket gave anyone a way to edit a plan.
+-- ---------------------------------------------------------------------------
+select pg_temp.act_as('10000000-0000-0000-0000-000000000001');
+create temporary table edited as
+select * from public.create_plan(pg_temp.circle_id(), 'Carried', 'catch_up',
+  date '2099-09-17', date '2099-09-20', 1050, 1350, 120, 2,
+  timestamptz '2099-09-16T10:00:00Z');
+
+select pg_temp.act_as_postgres();
+create or replace function pg_temp.edited_id() returns uuid
+language sql security definer as $$ select id from edited $$;
+
+select is(
+  (select count(*)::integer from public.plan_participants
+   where plan_id = pg_temp.edited_id() and revision = 1),
+  4,
+  'revision one is addressed to the circle'
+);
+
+select pg_temp.act_as('10000000-0000-0000-0000-000000000001');
+select is(
+  (select revision from public.revise_plan(
+     pg_temp.edited_id(), false, '{"window_end": "2099-09-19"}'::jsonb)),
+  2,
+  'an edit starts a revision'
+);
+
+select pg_temp.act_as_postgres();
+select is(
+  (select count(*)::integer from public.plan_participants
+   where plan_id = pg_temp.edited_id() and revision = 2),
+  4,
+  'and the same people are asked again — a plan addressed to nobody can be answered by nobody'
+);
+
+select is(
+  (select array_agg(user_id) from public.plan_required_members
+   where plan_id = pg_temp.edited_id() and revision = 2),
+  array['10000000-0000-0000-0000-000000000001'::uuid],
+  'with whoever had to be there still having to be'
+);
+
+-- Carried, not recomputed from the roster: joining an active plan is an opt-in
+-- (spec §9), so somebody who joined the circle after it was created is not added
+-- to it by the organiser fixing a date.
+select pg_temp.make_user('10000000-0000-0000-0000-00000000001a', 'Late Arrival', true);
+insert into public.circle_members (circle_id, user_id, display_name_snapshot)
+values (pg_temp.circle_id(), '10000000-0000-0000-0000-00000000001a', 'Nic');
+
+select pg_temp.act_as('10000000-0000-0000-0000-000000000001');
+select is(
+  (select revision from public.revise_plan(
+     pg_temp.edited_id(), false, '{"window_end": "2099-09-18"}'::jsonb)),
+  3,
+  'another edit, another revision'
+);
+
+select pg_temp.act_as_postgres();
+select is(
+  (select count(*)::integer from public.plan_participants
+   where plan_id = pg_temp.edited_id() and revision = 3),
+  4,
+  'and the member who joined afterwards is still not on it: opting in is theirs to do'
+);
+
+-- ---------------------------------------------------------------------------
+-- Round 1: a quorum change makes the stored candidates wrong.
+--
+-- `candidate_is_eligible` checks the set's versions and the near-miss flag and
+-- never reads the plan's quorum — so raising it from four to five left a
+-- four-person candidate confirmable.
+-- ---------------------------------------------------------------------------
+insert into public.candidate_sets (plan_id, revision, input_version, scoring_version, input_hash,
+  starts_considered, eligible_count, responded_count, active_member_count)
+select pg_temp.edited_id(), p.revision, p.input_version, p.scoring_version, repeat('a', 64), 10, 1, 1, 4
+from public.plans p where p.id = pg_temp.edited_id();
+
+select is(
+  (select count(*)::integer from public.candidate_sets cs
+   join public.plans p on p.id = cs.plan_id
+   where cs.plan_id = pg_temp.edited_id()
+     and cs.input_version = p.input_version),
+  1,
+  'the set is current for the plan as it stands'
+);
+
+select pg_temp.act_as('10000000-0000-0000-0000-000000000001');
+select is(
+  (select revision from public.revise_plan(pg_temp.edited_id(), false, '{"quorum": 3}'::jsonb)),
+  3,
+  'raising the quorum starts no revision'
+);
+
+select pg_temp.act_as_postgres();
+select is(
+  (select count(*)::integer from public.candidate_sets cs
+   join public.plans p on p.id = cs.plan_id
+   where cs.plan_id = pg_temp.edited_id()
+     and cs.input_version = p.input_version),
+  0,
+  'but does stale the candidate set, because which times are eligible depends on it'
+);
+
+-- ---------------------------------------------------------------------------
+-- Round 1: required members can be changed, which spec §9 requires and nothing
+-- could do.
+-- ---------------------------------------------------------------------------
+select pg_temp.act_as('10000000-0000-0000-0000-000000000001');
+select lives_ok(
+  format($$ select public.revise_plan(%L, false, '{}'::jsonb,
+       array['10000000-0000-0000-0000-000000000002'::uuid]) $$, pg_temp.edited_id()),
+  'the organiser changes who has to be there'
+);
+
+select pg_temp.act_as_postgres();
+select is(
+  (select array_agg(user_id) from public.plan_required_members
+   where plan_id = pg_temp.edited_id()
+     and revision = (select revision from public.plans where id = pg_temp.edited_id())),
+  array['10000000-0000-0000-0000-000000000002'::uuid],
+  'and the list is the list, not an addition to it'
+);
+
+select pg_temp.act_as('10000000-0000-0000-0000-000000000001');
+select lives_ok(
+  format($$ select public.revise_plan(%L, false, '{}'::jsonb, array[]::uuid[]) $$,
+         pg_temp.edited_id()),
+  'an empty list is allowed'
+);
+
+select pg_temp.act_as_postgres();
+select is(
+  (select count(*)::integer from public.plan_required_members
+   where plan_id = pg_temp.edited_id()
+     and revision = (select revision from public.plans where id = pg_temp.edited_id())),
+  0,
+  'and means nobody is required, which is how an ineligible plan is unstuck (spec §9)'
+);
+
+-- ---------------------------------------------------------------------------
+-- Round 1: a removed organiser is not an organiser.
+-- ---------------------------------------------------------------------------
+select pg_temp.make_user('10000000-0000-0000-0000-00000000002a', 'Departed');
+insert into public.circle_members (circle_id, user_id, display_name_snapshot)
+values (pg_temp.circle_id(), '10000000-0000-0000-0000-00000000002a', 'Departed');
+
+select pg_temp.act_as('10000000-0000-0000-0000-00000000002a');
+create temporary table their_plan as
+select * from public.create_plan(pg_temp.circle_id(), 'Theirs', 'catch_up',
+  date '2099-09-17', date '2099-09-20', 1050, 1350, 120, 2,
+  timestamptz '2099-09-16T10:00:00Z');
+
+select pg_temp.act_as_postgres();
+update public.circle_members m set status = 'removed'
+where m.circle_id = pg_temp.circle_id() and m.user_id = '10000000-0000-0000-0000-00000000002a';
+
+select pg_temp.act_as('10000000-0000-0000-0000-00000000002a');
+select throws_ok(
+  format($$ select public.reask_audience(%L) $$, (select id from their_plan)),
+  'not_the_organiser',
+  'a removed organiser cannot read the roster: an id on a row is not membership'
+);
+
+-- ---------------------------------------------------------------------------
 -- Who may call what (§14)
 -- ---------------------------------------------------------------------------
 select pg_temp.act_as_nobody();
@@ -451,7 +620,7 @@ select throws_ok(
 select pg_temp.act_as_postgres();
 
 select ok(
-  not has_function_privilege('anon', 'public.revise_plan(uuid, boolean, jsonb)', 'execute'),
+  not has_function_privilege('anon', 'public.revise_plan(uuid, boolean, jsonb, uuid[])', 'execute'),
   'nor revise a plan'
 );
 

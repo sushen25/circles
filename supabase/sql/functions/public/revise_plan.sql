@@ -20,7 +20,11 @@
 create or replace function public.revise_plan(
   p_plan_id uuid,
   p_reopen boolean default false,
-  p_payload jsonb default '{}'::jsonb
+  p_payload jsonb default '{}'::jsonb,
+  -- Null means "leave them alone". An empty array means nobody is required,
+  -- which is a different answer and is kept as one — the same distinction
+  -- `create_plan` draws.
+  p_required_member_ids uuid[] default null
 )
 returns public.plans
 language plpgsql
@@ -29,6 +33,7 @@ set search_path = ''
 as $$
 declare
   caller uuid := (select auth.uid());
+  revised public.plans;
 begin
   if caller is null then
     raise exception 'revise_plan requires a signed-in actor'
@@ -45,7 +50,7 @@ begin
   -- the expensive change. It could not get far if it tried —
   -- `planning.allowed_keys('adjust')` is those two keys alone — but the caller
   -- having no say is simpler than the caller being caught.
-  return planning.transition_plan(
+  revised := planning.transition_plan(
     p_plan_id,
     case
       when p_reopen then 'reopen'
@@ -57,12 +62,41 @@ begin
     caller,
     coalesce(p_payload, '{}'::jsonb)
   );
+
+  -- Who has to be there, if the organiser said. Spec §9's answer to "a required
+  -- person leaves" is that "the plan becomes ineligible until the organiser
+  -- changes required members or cancels" — so there had to be a way to change
+  -- them, and there was none.
+  --
+  -- Not a revision: it does not change what anybody was asked, so nobody answers
+  -- again. It *does* change which times are eligible, so the candidate set has to
+  -- be recomputed for the same reason a quorum change does — and after the
+  -- transition, so that the rows land on the revision the plan is on now.
+  if p_required_member_ids is not null then
+    delete from public.plan_required_members rm
+    where rm.plan_id = revised.id and rm.revision = revised.revision;
+
+    insert into public.plan_required_members (plan_id, revision, user_id)
+    select revised.id, revised.revision, required
+    from unnest(p_required_member_ids) as required
+    where exists (
+      select 1 from public.circle_members m
+      where m.circle_id = revised.circle_id and m.user_id = required and m.status = 'active'
+    );
+
+    update public.plans p
+    set input_version = p.input_version + 1
+    where p.id = revised.id
+    returning * into revised;
+  end if;
+
+  return revised;
 end;
 $$;
 
-comment on function public.revise_plan(uuid, boolean, jsonb) is
+comment on function public.revise_plan(uuid, boolean, jsonb, uuid[]) is
   'Edits a plan, or reopens a confirmed one, as the calling organiser. A fixed pair of actions over planning.transition_plan, which no client can call.';
 
-revoke all on function public.revise_plan(uuid, boolean, jsonb) from public;
-revoke all on function public.revise_plan(uuid, boolean, jsonb) from anon, authenticated;
-grant execute on function public.revise_plan(uuid, boolean, jsonb) to authenticated;
+revoke all on function public.revise_plan(uuid, boolean, jsonb, uuid[]) from public;
+revoke all on function public.revise_plan(uuid, boolean, jsonb, uuid[]) from anon, authenticated;
+grant execute on function public.revise_plan(uuid, boolean, jsonb, uuid[]) to authenticated;

@@ -32,6 +32,15 @@ Deno.serve(
     name: 'create-plan',
     schema: CreatePlanRequest,
     guard: async ({ body, actor, service }) => {
+      if (actor.isAnonymous) {
+        // The state machine refuses this too, and that is the enforcement
+        // (ADR 0004). Saying it here first is what makes the *reason* right:
+        // `transition_plan` raises `needs_permanent_identity`, which is not a
+        // `ProblemReason`, so the client got a 500 and no way to know it should
+        // offer InitiateGate.
+        throw new Refusal('requires_saved_place', 'Save your place first, then start a plan.');
+      }
+
       if (body.mode === 'quiet') {
         // Not a refusal of this person: the quiet ask is S2-02. Saying so with
         // its own reason keeps the client from showing a failure for a feature
