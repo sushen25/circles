@@ -60,12 +60,19 @@ export const SubmitAvailabilityRequest = Mutation.extend({
   revision: z.int().positive(),
   status: z.enum(['windows', 'flexible', 'none_work', 'more_notice', 'not_this_time']),
   /**
-   * Absolute spans, half-hour aligned in the plan's zone once normalised. The
-   * cap is generous on purpose: a fortnight of alternating half hours is about
-   * 140 disjoint windows, and a schema that refused it would refuse a real
-   * answer somebody had spent a minute painting.
+   * Absolute spans, half-hour aligned in the plan's zone once normalised.
+   *
+   * The cap is the largest answer a valid plan can produce, derived rather than
+   * guessed: 14 days is the window maximum (`plans_window_length`), a daily band
+   * may run the whole day (`validateBand` allows 00:00–24:00), and alternating
+   * half-hour cells across 24 hours is 24 disjoint windows — so 336. An earlier
+   * 200 was a round number that would have refused a real answer somebody had
+   * spent a minute painting, before normalisation had a chance to merge it.
    */
-  windows: z.array(Interval).max(200).default([]),
+  windows: z
+    .array(Interval)
+    .max(14 * 24)
+    .default([]),
   /**
    * Whether the device calendar helped fill this in (Slice 3). A flag and
    * nothing else: raw calendar events never cross the boundary (spec §5.5).
