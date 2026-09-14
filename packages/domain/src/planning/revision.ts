@@ -57,11 +57,26 @@ export function invalidatedResponses(
   after: PlanTiming,
   members: readonly UserId[],
   responded: readonly UserId[],
+  /**
+   * A change that invalidates every answer without changing the timing.
+   *
+   * Reopening a confirmed plan is the one: "Thursday is off the table" and "a
+   * fresh ask" (spec §5.7) — the question is the same question, and everybody
+   * answers it again because the plan they answered about has been unpicked.
+   * The timing comparison cannot see that, so the caller says so, and the
+   * caller is the state machine's `bumpsRevision` rather than an opinion:
+   * `reopen` carries it, `adjust` does not.
+   *
+   * Without this, a reopen reported nobody in either list while clearing every
+   * response — the organiser told the change cost nothing, and six people asked
+   * again anyway.
+   */
+  alsoInvalidating = false,
 ): ReAskPlan {
   const changes = invalidatingChanges(before, after);
   const hasResponded = (id: UserId): boolean => responded.includes(id);
 
-  if (changes.length === 0) {
+  if (changes.length === 0 && !alsoInvalidating) {
     return { askedAgain: [], freshAsk: [], changes, bumpsRevision: false };
   }
 

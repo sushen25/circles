@@ -49,15 +49,15 @@ insert into planning.transitions (from_state, action, to_state, guards, bumps_re
   ('collecting', 'edit', 'collecting', array['organiser'], true),
   ('collecting', 'adjust', 'collecting', array['organiser'], false),
   ('collecting', 'expire', 'expired', array[]::text[], false),
-  ('collecting', 'cancel', 'cancelled', array['organiser'], false),
+  ('collecting', 'cancel', 'cancelled', array['organiser_or_owner'], false),
   ('ready', 'candidates_gone', 'collecting', array[]::text[], false),
   ('ready', 'edit', 'collecting', array['organiser'], true),
   ('ready', 'adjust', 'ready', array['organiser'], false),
   ('ready', 'confirm', 'confirmed', array['organiser','candidate'], false),
   ('ready', 'expire', 'expired', array[]::text[], false),
-  ('ready', 'cancel', 'cancelled', array['organiser'], false),
+  ('ready', 'cancel', 'cancelled', array['organiser_or_owner'], false),
   ('confirmed', 'reopen', 'collecting', array['organiser'], true),
-  ('confirmed', 'cancel', 'cancelled', array['organiser'], false),
+  ('confirmed', 'cancel', 'cancelled', array['organiser_or_owner'], false),
   ('confirmed', 'report_outcome', 'completed', array['organiser'], false);
 -- END GENERATED: transitions
 
@@ -211,6 +211,20 @@ begin
       when 'organiser' then
         if plan.organiser_user_id is distinct from p_actor or member.user_id is null then
           raise exception 'not_the_organiser' using errcode = 'P0001';
+        end if;
+      when 'organiser_or_owner' then
+        -- Spec §4.5 gives the circle owner "cancel plans" in as many words, and
+        -- the organiser-only guard took it away the moment a plan had an
+        -- organiser who was not the owner. Membership as well as the role: a
+        -- removed owner is not an owner of anything they can still act on.
+        if member.user_id is null or (
+          plan.organiser_user_id is distinct from p_actor
+          and not exists (
+            select 1 from public.circles c
+            where c.id = plan.circle_id and c.owner_user_id = p_actor
+          )
+        ) then
+          raise exception 'not_the_organiser_or_owner' using errcode = 'P0001';
         end if;
       when 'permanent' then
         if not coalesce(is_permanent, false) then

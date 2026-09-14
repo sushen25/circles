@@ -600,6 +600,8 @@ describe('revise-plan', () => {
     daily_end_local: 1350,
     duration_minutes: 120,
     time_zone: 'Australia/Melbourne',
+    quorum: 3,
+    response_deadline: '2099-09-16T10:00:00.000Z',
   };
 
   beforeEach(() => {
@@ -712,6 +714,69 @@ describe('revise-plan', () => {
       post({ idempotency_key: KEY, plan_id: PLAN_ID, required_member_ids: [] }),
     );
     expect(called('revise_plan')[0]?.args['p_required_member_ids']).toEqual([]);
+  });
+
+  it('names everybody a reopen will ask again', async () => {
+    // "Thursday is off the table" and "a fresh ask" (spec §5.7). A reopen
+    // changes no timing, so the comparison found nothing and the warning named
+    // nobody — while the revision bump cleared every answer there was.
+    const response = await load('revise-plan')(
+      post({ idempotency_key: KEY, plan_id: PLAN_ID, reopen: true }),
+    );
+    const answer = (await response.json()) as { asked_again: string[]; bumps_revision: boolean };
+
+    expect(answer.asked_again).toEqual([
+      '00000000-0000-4000-8000-0000000000a1',
+      '00000000-0000-4000-8000-0000000000a2',
+    ]);
+    expect(answer.bumps_revision).toBe(true);
+  });
+
+  it('separates the fresh ask from the second ask when previewing a reopen', async () => {
+    const response = await load('revise-plan')(
+      post({ idempotency_key: KEY, plan_id: PLAN_ID, reopen: true, preview: true }),
+    );
+    const answer = (await response.json()) as { asked_again: string[]; fresh_ask: string[] };
+
+    expect(answer.asked_again).toEqual(['00000000-0000-4000-8000-0000000000a1']);
+    expect(answer.fresh_ask).toEqual(['00000000-0000-4000-8000-0000000000a2']);
+    expect(called('revise_plan')).toHaveLength(0);
+  });
+
+  it('refuses a form resubmitted with the values the plan already has', async () => {
+    // Sent, not changed. A `quorum` key on a plan whose quorum is already that
+    // emits "the plan changed", bumps `input_version` and drops a ready plan
+    // back to collecting — over a form nobody edited.
+    const response = await load('revise-plan')(
+      post({
+        idempotency_key: KEY,
+        plan_id: PLAN_ID,
+        quorum: current.quorum,
+        response_deadline: current.response_deadline,
+        window: { start: current.window_start, end: current.window_end },
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ reason: 'nothing_to_change' });
+    expect(called('revise_plan')).toHaveLength(0);
+  });
+
+  it('does not refuse a deadline that has passed when it is not the thing changing', async () => {
+    // §5.7 offers "give it one more day" *after* replies close, so a plan whose
+    // deadline has gone is exactly the plan an organiser needs to edit.
+    state.rows = { plans: { ...current, response_deadline: '2020-01-01T00:00:00.000Z' } };
+
+    await load('revise-plan')(
+      post({
+        idempotency_key: KEY,
+        plan_id: PLAN_ID,
+        response_deadline: '2020-01-01T00:00:00.000Z',
+        quorum: 5,
+      }),
+    );
+
+    expect(called('revise_plan')[0]?.args['p_payload']).toEqual({ quorum: 5 });
   });
 
   it('asks for a reopen by name rather than by inference', async () => {

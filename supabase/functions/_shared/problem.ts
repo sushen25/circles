@@ -63,6 +63,7 @@ const REASONS: Record<ProblemReason, { status: number; error: Problem['error'] }
   requires_saved_place: { status: 403, error: 'forbidden' },
   not_the_owner: { status: 403, error: 'forbidden' },
   not_the_organiser: { status: 403, error: 'forbidden' },
+  not_the_organiser_or_owner: { status: 403, error: 'forbidden' },
   not_yet: { status: 501, error: 'unavailable' },
   plan_is_finished: { status: 409, error: 'conflict' },
   wrong_state: { status: 409, error: 'conflict' },
@@ -79,6 +80,7 @@ const REASONS: Record<ProblemReason, { status: number; error: Problem['error'] }
   band_out_of_day: { status: 400, error: 'invalid_request' },
   deadline_out_of_range: { status: 400, error: 'invalid_request' },
   not_a_participant: { status: 400, error: 'invalid_request' },
+  nothing_to_change: { status: 400, error: 'invalid_request' },
 };
 
 /**

@@ -6,7 +6,7 @@
 -- would all say yes.
 
 begin;
-select plan(74);
+select plan(75);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid
@@ -395,8 +395,8 @@ select is(
 select pg_temp.act_as('10000000-0000-0000-0000-000000000004');
 select throws_ok(
   $$ select public.cancel_plan(pg_temp.plan_id()) $$,
-  'not_the_organiser',
-  'only the organiser cancels'
+  'not_the_organiser_or_owner',
+  'a member who is neither the organiser nor the circle''s owner cannot cancel'
 );
 
 select pg_temp.act_as('10000000-0000-0000-0000-000000000001');
@@ -717,6 +717,18 @@ select throws_ok(
   format($$ select public.reask_audience(%L) $$, (select id from their_plan)),
   'not_the_organiser',
   'a removed organiser cannot read the roster: an id on a row is not membership'
+);
+
+-- Round 3: and somebody has to be able to call the thing off. Spec §4.5 gives
+-- the circle owner "cancel plans" in as many words; the organiser-only guard
+-- took it away from them the moment a plan had an organiser who was not the
+-- owner — which is any plan somebody else started, including this one, whose
+-- organiser has left and is never coming back to cancel it.
+select pg_temp.act_as('10000000-0000-0000-0000-000000000001');
+select is(
+  (select state from public.cancel_plan((select id from their_plan), 'Their organiser left')),
+  'cancelled',
+  'the circle owner calls off a plan they are not organising'
 );
 
 -- ---------------------------------------------------------------------------

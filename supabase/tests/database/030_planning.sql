@@ -679,7 +679,7 @@ select throws_ok(
   format($$select planning.transition_plan('%s', 'cancel', '%s')$$,
     :'plan_gone', '00000000-0000-0000-0000-0000000001a2'),
   'P0001',
-  'not_the_organiser',
+  'not_the_organiser_or_owner',
   'nor cancel it'
 );
 

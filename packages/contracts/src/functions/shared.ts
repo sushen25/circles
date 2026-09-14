@@ -77,8 +77,10 @@ export const ProblemReason = z.enum([
   'not_yet',
   /** `create-circle`: handing out the way in is the owner's alone (spec §5.2). */
   'not_the_owner',
-  /** `revise-plan`, `cancel-plan`: only the organiser edits or cancels. */
+  /** `revise-plan`: only the organiser edits. */
   'not_the_organiser',
+  /** `cancel-plan`: the organiser or the circle's owner, and nobody else (spec §4.5). */
+  'not_the_organiser_or_owner',
   /** The plan is over — completed, expired or already cancelled. */
   'plan_is_finished',
   /** The plan is in a state this action does not exist from (e.g. reopening one never confirmed). */
@@ -102,6 +104,12 @@ export const ProblemReason = z.enum([
   'band_out_of_day',
   /** A chosen deadline after the last possible start, or already past (spec §5.3). */
   'deadline_out_of_range',
+  /**
+   * `revise-plan`: every value in the request is the value the plan already has.
+   * Saving it would emit "the plan changed" and, for a quorum, throw away a
+   * candidate set — over a form resubmitted unedited.
+   */
+  'nothing_to_change',
   /**
    * `revise-plan`: somebody named as required was never asked. Joining an active
    * plan is an opt-in (spec §9), so a member who joined the circle afterwards is

@@ -74,6 +74,19 @@ Deno.serve(
         zone: after.zone,
       };
 
+      // Changed, not merely sent. An edit form resubmits every field it shows,
+      // so `quorum: 4` on a plan whose quorum is already 4 is a form, not an
+      // edit — and putting it in the payload would emit "the plan changed",
+      // bump `input_version` and drop a `ready` plan back to `collecting` over
+      // nothing. The window has been compared this way since the first round;
+      // these two were not compared at all.
+      const changedQuorum = body.quorum === before.quorum ? undefined : body.quorum;
+      const changedDeadline =
+        body.response_deadline !== undefined &&
+        toInstant(body.response_deadline) !== toInstant(before.response_deadline)
+          ? body.response_deadline
+          : undefined;
+
       // "Never after the last possible start" (spec §5.3), and never already
       // past — ADR 0010's deadline is a promise about when replies close, and a
       // deadline in the past closes them the instant it is saved, leaving a plan
@@ -81,10 +94,13 @@ Deno.serve(
       // window, because one request may move both. `create-plan` asks the same
       // domain function the same way; a plan could be created only with a valid
       // deadline and then edited to any deadline at all.
-      if (body.response_deadline !== undefined) {
-        if (
-          !isDeadlineAllowed(toInstant(body.response_deadline), lastPossibleStart(after), now())
-        ) {
+      //
+      // Only when it is changing: a plan whose deadline has quietly passed is
+      // still editable (§5.7 offers "give it one more day"), and refusing the
+      // whole request because a resubmitted form carried the old value would
+      // make it uneditable at exactly the moment it most needs editing.
+      if (changedDeadline !== undefined) {
+        if (!isDeadlineAllowed(toInstant(changedDeadline), lastPossibleStart(after), now())) {
           throw new Refusal(
             'deadline_out_of_range',
             'Replies have to close in the future and before the last possible start.',
@@ -101,12 +117,19 @@ Deno.serve(
           after,
           rows.map((row) => row.member_user_id as UserId),
           rows.filter((row) => row.has_responded).map((row) => row.member_user_id as UserId),
+          // A reopen invalidates everything while changing no timing at all, so
+          // the comparison cannot see it: "Thursday is off the table … and a
+          // fresh ask" (spec §5.7). Reported as `bumps_revision` alone, it said
+          // a new revision was coming and named nobody it would cost — which is
+          // the whole warning, missing for the one edit that always costs the
+          // most.
+          body.reopen,
         );
         return RevisePlanResponse.parse({
           asked_again: [...cost.askedAgain],
           fresh_ask: [...cost.freshAsk],
           invalidating: [...cost.changes],
-          bumps_revision: cost.bumpsRevision || body.reopen,
+          bumps_revision: cost.bumpsRevision,
         });
       };
 
@@ -137,9 +160,21 @@ Deno.serve(
       if (changes.includes('duration') && body.duration_minutes !== undefined) {
         payload['duration_minutes'] = body.duration_minutes;
       }
-      if (body.quorum !== undefined) payload['quorum'] = body.quorum;
-      if (body.response_deadline !== undefined) {
-        payload['response_deadline'] = body.response_deadline;
+      if (changedQuorum !== undefined) payload['quorum'] = changedQuorum;
+      if (changedDeadline !== undefined) payload['response_deadline'] = changedDeadline;
+
+      // Everything in it is what the plan already says. `revise_plan` would
+      // still transition — an `adjust` with an empty payload, an event saying
+      // the plan changed, and a revision number that has to be explained to
+      // whoever reads the history. Refused with its own reason rather than
+      // answered with a shrug, because a client that sent this has a bug in its
+      // form and should hear so.
+      if (
+        Object.keys(payload).length === 0 &&
+        body.required_member_ids === undefined &&
+        !body.reopen
+      ) {
+        throw new Refusal('nothing_to_change', 'Nothing in that is different from the plan.');
       }
 
       const { data, error } = await caller.rpc('revise_plan', {
@@ -170,11 +205,13 @@ async function readPlan(
   daily_end_local: number;
   duration_minutes: number;
   time_zone: string;
+  quorum: number;
+  response_deadline: string;
 }> {
   const { data, error } = await caller
     .from('plans')
     .select(
-      'window_start, window_end, daily_start_local, daily_end_local, duration_minutes, time_zone',
+      'window_start, window_end, daily_start_local, daily_end_local, duration_minutes, time_zone, quorum, response_deadline',
     )
     .eq('id', planId)
     .maybeSingle();
