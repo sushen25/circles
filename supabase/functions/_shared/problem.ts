@@ -85,6 +85,8 @@ const REASONS: Record<ProblemReason, { status: number; error: Problem['error'] }
   // S1-18. A link in an email: spent, expired or never ours, and one answer for
   // all three — telling them apart would say whether a token existed.
   link_expired: { status: 404, error: 'not_found' },
+  not_a_member: { status: 403, error: 'forbidden' },
+  no_verified_contact: { status: 409, error: 'conflict' },
 
   // S1-17. Locking a time in, and saying afterwards what became of it.
   stale_candidates: { status: 409, error: 'conflict' },

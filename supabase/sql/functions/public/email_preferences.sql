@@ -12,6 +12,11 @@
 -- somebody to choose between two uuids, and those two names are what the email
 -- that carried this link already told this reader. No member names, no
 -- addresses, no quiet-ask state.
+--
+-- `remove_contact` deletes the contact rather than marking it: the address is
+-- the private thing, and "remove" has to mean the address is gone. What stays
+-- is the hash in `email_suppressions`, which is what makes the promise
+-- permanent — a contact created for that address later arrives suppressed.
 -- ---------------------------------------------------------------------------
 
 create or replace function public.email_preferences(
@@ -26,6 +31,7 @@ set search_path = ''
 as $$
 declare
   token private.email_action_tokens;
+  stopped private.email_subscriptions;
   removed boolean := false;
 begin
   select * into token
@@ -43,27 +49,59 @@ begin
     set status = 'withdrawn', withdrawn_at = now(), updated_at = now()
     where s.contact_id = token.contact_id
       and s.plan_id = p_plan_id
-      and s.status = 'active';
+      and s.status = 'active'
+    returning * into stopped;
+
+    if stopped.id is not null then
+      perform jobs.emit('communication.subscription_changed', 'subscription', stopped.id,
+        jsonb_build_object(
+          'subscription_id', stopped.id,
+          'contact_id', stopped.contact_id,
+          'plan_id', stopped.plan_id,
+          'status', 'withdrawn'
+        ));
+    end if;
 
   elsif p_action = 'remove_contact' then
-    update private.email_subscriptions s
-    set status = 'withdrawn', withdrawn_at = now(), updated_at = now()
-    where s.contact_id = token.contact_id and s.status = 'active';
+    for stopped in
+      update private.email_subscriptions s
+      set status = 'withdrawn', withdrawn_at = now(), updated_at = now()
+      where s.contact_id = token.contact_id and s.status = 'active'
+      returning *
+    loop
+      perform jobs.emit('communication.subscription_changed', 'subscription', stopped.id,
+        jsonb_build_object(
+          'subscription_id', stopped.id,
+          'contact_id', stopped.contact_id,
+          'plan_id', stopped.plan_id,
+          'status', 'withdrawn'
+        ));
+    end loop;
 
-    -- Suppressed by the address's own request, which is what `unsubscribed`
-    -- means here: recorded by hash in a table nothing deletes from, so the
-    -- promise survives the contact row being purged by retention — and so that
-    -- somebody re-adding the address later cannot restart the email for them.
+    -- Suppressed first, because that is what writes the tombstone: the
+    -- `record_suppression` trigger records the hash in a table nothing deletes
+    -- from, and carries the suppression across every other contact holding the
+    -- same address. Doing the insert here by hand would be the same rule
+    -- written twice.
     update private.email_contacts c
     set status = 'suppressed',
         suppressed_at = now(),
         suppression_reason = 'unsubscribed',
+        verified_at = null,
         updated_at = now()
     where c.id = token.contact_id and c.status <> 'suppressed';
 
-    insert into private.email_suppressions (email_hash, reason)
-    select c.email_hash, 'unsubscribed' from private.email_contacts c where c.id = token.contact_id
-    on conflict (email_hash) do nothing;
+    -- And then the address itself goes. "Remove" is what the link says and what
+    -- §14 promises — "purges private data" — so leaving the plaintext in
+    -- `email_normalized` for ever because the row is merely marked suppressed
+    -- would be answering a different request. The tombstone is a hash and
+    -- survives; so does the promise it carries, because a contact inserted for
+    -- that address later arrives suppressed.
+    --
+    -- The cascade takes the subscriptions, the tokens — including this one, so
+    -- the link stops working, which is the honest state — and any queued email.
+    -- Somebody who asked to be forgotten should not receive tomorrow's reminder.
+    delete from private.email_contacts c where c.id = token.contact_id;
 
     removed := true;
 

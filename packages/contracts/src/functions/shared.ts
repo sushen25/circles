@@ -135,6 +135,13 @@ export const ProblemReason = z.enum([
    * same either way — ask for a new one.
    */
   'link_expired',
+  /**
+   * A re-entry link was asked for on a circle this person is not in, or before
+   * they have a verified address to send it to. Never reached by a client
+   * today: S1-19's templates call it, and a reason beats a SQLSTATE when they do.
+   */
+  'not_a_member',
+  'no_verified_contact',
 
   // S1-17, the confirmation and the outcome.
 

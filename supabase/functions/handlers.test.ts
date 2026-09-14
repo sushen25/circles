@@ -2021,10 +2021,18 @@ describe('request-email-updates', () => {
     expect(called('request_email_updates')[0]?.args['p_consent_version']).toBe(CONSENT.version);
   });
 
-  it('counts the attempt against the address, the caller and the connection', async () => {
+  it('counts the attempt against this person and this address, not the address', async () => {
+    // A counter keyed on the address alone is shared by everybody who can name
+    // it — and `take_rate_token` counts refusals — so three requests naming
+    // somebody else's address would lock its real owner out for the day, and a
+    // 429 on a first attempt would say that somebody else had asked about it.
     await load('request-email-updates')(post(body));
 
     expect(called('take_rate_token')).toHaveLength(3);
+    const scopes = called('take_rate_token').map((call) => call.args['p_scope']);
+    expect(scopes).toEqual(['email_request', 'email_request_user', 'email_request_ip']);
+    // Hashed before it leaves, like every rate key: an address is a person.
+    expect(JSON.stringify(called('take_rate_token'))).not.toContain('jules@example.com');
   });
 
   it('refuses a request that is not an address', async () => {

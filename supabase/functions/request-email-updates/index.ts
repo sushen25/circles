@@ -28,12 +28,18 @@ Deno.serve(
     name: 'request-email-updates',
     schema: RequestEmailUpdatesRequest,
     guard: async ({ actor, body, service, request }) => {
-      // Three a day per address, because a resend is legitimate and a hundred
-      // is somebody using us to send mail to a stranger; five a day per caller,
-      // because an anonymous identity is cheap and a member is not. Neither is
-      // authorisation: the membership check in the database is.
+      // Three a day for *this person and this address*, not for the address
+      // alone. A counter keyed on the address is shared by everybody who can
+      // name it, and `take_rate_token` counts refusals too — so three requests
+      // naming somebody else's address would lock the real owner out for the
+      // day, and a 429 on a first attempt would tell the sender that somebody
+      // else had asked about it. The pair is what a resend is.
+      //
+      // Five a day per caller and twenty per connection stand behind it, for
+      // the volume the pair cannot see: an anonymous identity is cheap.
+      // None of this is authorisation — the membership check in the database is.
       await enforce(service, [
-        { scope: 'email_request_address', key: body.email, max: 3, window: '1 day' },
+        { scope: 'email_request', key: `${actor.userId}:${body.email}`, max: 3, window: '1 day' },
         { scope: 'email_request_user', key: actor.userId, max: 5, window: '1 day' },
         { scope: 'email_request_ip', key: callerAddress(request), max: 20, window: '1 day' },
       ]);

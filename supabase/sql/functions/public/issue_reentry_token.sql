@@ -31,6 +31,17 @@ declare
   contact_id uuid;
   token_id uuid;
 begin
+  -- The membership has to be one. A token for a circle this person is not in
+  -- would be a link back into somebody else's circle, and the foreign key that
+  -- would have caught it raises a SQLSTATE nothing can translate — a 500 for an
+  -- ordinary mistake.
+  if not exists (
+    select 1 from public.circle_members m
+    where m.circle_id = p_circle_id and m.user_id = p_user_id and m.status = 'active'
+  ) then
+    raise exception 'not_a_member' using errcode = 'P0001';
+  end if;
+
   -- The contact this belongs to: a re-entry link travels in an email, so there
   -- is one. Its owner and the membership's owner are the same person, which the
   -- table's own foreign key insists on as well.

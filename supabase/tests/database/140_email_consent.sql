@@ -13,7 +13,7 @@
 -- outcomes.
 
 begin;
-select plan(35);
+select plan(43);
 
 create or replace function pg_temp.make_user(id uuid, name text, permanent boolean default false)
 returns uuid language sql as $$
@@ -178,23 +178,26 @@ select is(
   'and the first link stops working: one live token, not two'
 );
 
--- An address that belongs to somebody else is an address this caller learns
--- nothing about.
+-- Round 1: one address, two people. Uniqueness has been `(email_hash, user_id)`
+-- since 0009 — "two guest memberships may each be reachable at the same
+-- address" (spec §9) — and the commonest real case is one person: a guest loses
+-- their session, rejoins as a new identity, and asks again with the same
+-- address. Refusing that told them "check your email" for ever.
 select pg_temp.act_as_service();
 select is(
   (select public.request_email_updates(pg_temp.plan_id(),
      '00000000-0000-0000-0000-0000000008a1', 'jules@example.com',
      pg_temp.hash_of('t-maya'), '2026-09-14') ->> 'sent'),
-  'false',
-  'an address already held by another member writes nothing — and answers the same way'
+  'true',
+  'a second identity asking with the same address is answered, not silently refused'
 );
 
 select pg_temp.act_as_postgres();
 select is(
   (select count(*)::integer from private.email_contacts c
    where c.email_normalized = 'jules@example.com'),
-  1,
-  'there is still one contact for it, belonging to the person who proved it'
+  2,
+  'which is one contact per identity, as the constraint has said since 0009'
 );
 
 -- ---------------------------------------------------------------------------
@@ -214,10 +217,18 @@ select is(
 
 select pg_temp.act_as_postgres();
 select is(
-  (select count(*)::integer from private.email_contacts c
+  (select c.status from private.email_contacts c
+   where c.email_normalized = 'bounced@example.com'),
+  'suppressed',
+  'the contact arrives suppressed, by the trigger that reads the tombstone — not pending'
+);
+
+select is(
+  (select count(*)::integer from private.email_subscriptions s
+   join private.email_contacts c on c.id = s.contact_id
    where c.email_normalized = 'bounced@example.com'),
   0,
-  'nothing is written for it at all'
+  'and no consent, no token and no email are written for it'
 );
 
 -- ---------------------------------------------------------------------------
@@ -238,14 +249,24 @@ select is(
 
 select pg_temp.act_as_postgres();
 select is(
-  (select c.status from private.email_contacts c where c.email_normalized = 'jules@example.com'),
-  'verified',
-  'the contact is verified — which is the thing that was unproven, not the consent'
+  (select array_agg(distinct c.status) from private.email_contacts c
+   where c.email_normalized = 'jules@example.com'),
+  array['verified'],
+  'every contact holding that address is verified, not only the one the link named'
 );
 
+-- Round 1: and this is why. Retention deletes a *pending* contact after seven
+-- days and the cascade takes its subscription, so a sibling left pending is a
+-- consent that disappears without anybody withdrawing it.
 select is(
-  (select count(*)::integer from private.email_recipients_for(pg_temp.plan_id())),
-  1,
+  (select count(*)::integer from private.email_contacts c
+   where c.email_normalized = 'jules@example.com' and c.status = 'pending'),
+  0,
+  'so no consent is left waiting to be deleted by retention'
+);
+
+select ok(
+  (select count(*) from private.email_recipients_for(pg_temp.plan_id())) >= 1,
   'and now there is somebody to email about this plan'
 );
 
@@ -313,9 +334,13 @@ select is(
 -- ---------------------------------------------------------------------------
 -- Preferences, with no sign-in
 -- ---------------------------------------------------------------------------
+-- One contact's link, not the address's: a preferences token belongs to the row
+-- it was issued for, and there are two rows for this address now.
 insert into private.email_action_tokens (contact_id, purpose, token_hash, expires_at)
 select c.id, 'prefs', pg_temp.hash_of('t-prefs'), now() + interval '90 days'
-from private.email_contacts c where c.email_normalized = 'jules@example.com';
+from private.email_contacts c
+where c.email_normalized = 'jules@example.com'
+  and c.user_id = '00000000-0000-0000-0000-0000000008a2';
 
 select pg_temp.act_as_service();
 select is(
@@ -339,15 +364,27 @@ select lives_ok(
 
 select pg_temp.act_as_postgres();
 select is(
-  (select count(*)::integer from private.email_recipients_for(pg_temp.plan_id())),
+  (select count(*)::integer from private.email_recipients_for(pg_temp.plan_id()) r
+   join private.email_contacts c on c.id = r.contact_id
+   where c.user_id = '00000000-0000-0000-0000-0000000008a2'),
   0,
-  'and nothing more is sent about it'
+  'and nothing more is sent to them about it'
+);
+
+-- The other identity reachable at the same address is untouched: a preferences
+-- link belongs to the contact it was issued for, and stopping one person's
+-- email is not stopping everybody's.
+select ok(
+  (select count(*) from private.email_recipients_for(pg_temp.plan_id())) >= 1,
+  'while the other contact for that address, which nobody stopped, still hears about it'
 );
 
 select is(
-  (select c.status from private.email_contacts c where c.email_normalized = 'jules@example.com'),
+  (select c.status from private.email_contacts c
+   where c.email_normalized = 'jules@example.com'
+     and c.user_id = '00000000-0000-0000-0000-0000000008a2'),
   'verified',
-  'while the address itself is untouched: stopping one meetup is not asking to be forgotten'
+  'and the address itself is untouched: stopping one meetup is not asking to be forgotten'
 );
 
 select pg_temp.act_as_service();
@@ -359,17 +396,35 @@ select is(
 
 select pg_temp.act_as_postgres();
 select is(
-  (select array[c.status, c.suppression_reason] from private.email_contacts c
-   where c.email_normalized = 'jules@example.com'),
-  array['suppressed', 'unsubscribed'],
-  'which suppresses the contact'
+  (select count(*)::integer from private.email_contacts c
+   where c.email_normalized = 'jules@example.com'
+     and c.user_id = '00000000-0000-0000-0000-0000000008a2'),
+  0,
+  'which takes the address with it: "remove" has to mean the plaintext is gone (§14)'
 );
 
 select is(
   (select count(*)::integer from private.email_suppressions s
    where s.email_hash = pg_temp.hash_of('jules@example.com')),
   1,
-  'and records the address by hash, where nothing deletes it — so re-adding it cannot restart the email'
+  'while the hash stays, where nothing deletes it — so re-adding the address cannot restart the email'
+);
+
+-- And the sibling contact for the same address is suppressed with it, by the
+-- trigger: suppression is the address's, not the row's.
+select is(
+  (select c.status from private.email_contacts c
+   where c.email_normalized = 'jules@example.com'
+     and c.user_id = '00000000-0000-0000-0000-0000000008a1'),
+  'suppressed',
+  'and every other contact holding that address stops too'
+);
+
+select pg_temp.act_as_service();
+select throws_ok(
+  $$ select public.email_preferences(pg_temp.hash_of('t-prefs'), 'view') $$,
+  'link_expired',
+  'the link itself stops working, which is the honest state for a contact that is gone'
 );
 
 select pg_temp.act_as_service();
@@ -377,6 +432,105 @@ select throws_ok(
   $$ select public.email_preferences(extensions.digest('not-a-prefs-token', 'sha256'), 'view') $$,
   'link_expired',
   'a preferences link that is not ours says the same as one that has expired'
+);
+
+-- ---------------------------------------------------------------------------
+-- Round 1: a plan that is over, and a member who has left
+--
+-- Two ways an email can be stale, and neither of them is about the address.
+-- ---------------------------------------------------------------------------
+select pg_temp.act_as_postgres();
+insert into public.plans (
+  circle_id, mode, state, organiser_user_id, title, time_zone,
+  window_start, window_end, daily_start_local, daily_end_local,
+  duration_minutes, quorum, response_deadline, short_code
+)
+select circle_id, 'named', 'cancelled', '00000000-0000-0000-0000-0000000008a1',
+  'Called off', 'Australia/Melbourne', date '2099-09-17', date '2099-09-20',
+  1050, 1350, 120, 2, timestamptz '2099-09-20T10:00:00Z', 'pnemgn'
+from t;
+
+select pg_temp.make_user('00000000-0000-0000-0000-0000000008a5', 'Asker');
+insert into public.circle_members (circle_id, user_id, display_name_snapshot)
+select circle_id, '00000000-0000-0000-0000-0000000008a5'::uuid, 'Asker' from t;
+
+select pg_temp.act_as_service();
+select throws_ok(
+  format($$ select public.request_email_updates(%L, %L, 'asker@example.com',
+       pg_temp.hash_of('t-over'), '2026-09-14') $$,
+    (select id from public.plans where short_code = 'pnemgn'),
+    '00000000-0000-0000-0000-0000000008a5'),
+  'plan_is_finished',
+  'nobody is asked to verify an address for a meetup that is already off'
+);
+
+-- A member who is removed between asking and verifying hears nothing more: the
+-- plan is not theirs any more, whatever channel it would have reached them on.
+select pg_temp.act_as_postgres();
+insert into public.plans (
+  circle_id, mode, state, organiser_user_id, title, time_zone,
+  window_start, window_end, daily_start_local, daily_end_local,
+  duration_minutes, quorum, response_deadline, short_code
+)
+select circle_id, 'named', 'ready', '00000000-0000-0000-0000-0000000008a1',
+  'Left behind', 'Australia/Melbourne', date '2099-09-17', date '2099-09-20',
+  1050, 1350, 120, 2, timestamptz '2099-09-20T10:00:00Z', 'pnemhn'
+from t;
+
+select pg_temp.make_user('00000000-0000-0000-0000-0000000008a6', 'Departing');
+insert into public.circle_members (circle_id, user_id, display_name_snapshot)
+select circle_id, '00000000-0000-0000-0000-0000000008a6'::uuid, 'Departing' from t;
+insert into public.plan_participants (plan_id, revision, user_id)
+select id, 1, '00000000-0000-0000-0000-0000000008a6'::uuid
+from public.plans where short_code = 'pnemhn';
+
+select pg_temp.act_as_service();
+select public.request_email_updates(
+  (select id from public.plans where short_code = 'pnemhn'),
+  '00000000-0000-0000-0000-0000000008a6', 'departing@example.com',
+  pg_temp.hash_of('t-departing'), '2026-09-14');
+
+-- The meetup is locked in, and then they leave.
+select pg_temp.act_as_postgres();
+insert into public.candidate_sets (
+  plan_id, revision, input_version, scoring_version, input_hash,
+  starts_considered, eligible_count, responded_count, active_member_count
+)
+select p.id, p.revision, p.input_version, p.scoring_version, 'seed', 10, 1, 1, 3
+from public.plans p where p.short_code = 'pnemhn';
+
+insert into public.candidates (
+  candidate_set_id, is_near_miss, rank, starts_at, ends_at, available_user_ids,
+  explicit_count, flexible_count, explanation_code, explanation_count
+)
+select cs.id, false, 1, timestamptz '2099-09-17T08:30:00Z', timestamptz '2099-09-17T10:30:00Z',
+  array['00000000-0000-0000-0000-0000000008a6'::uuid], 1, 0, 'best_attendance', 1
+from public.candidate_sets cs
+join public.plans p on p.id = cs.plan_id where p.short_code = 'pnemhn';
+
+select planning.transition_plan(
+  (select id from public.plans where short_code = 'pnemhn'), 'confirm',
+  '00000000-0000-0000-0000-0000000008a1',
+  jsonb_build_object('candidate_id', '2099-09-17T08:30:00+00:00'));
+
+update public.circle_members set status = 'removed'
+where circle_id = (select circle_id from t)
+  and user_id = '00000000-0000-0000-0000-0000000008a6';
+
+select pg_temp.act_as_service();
+select is(
+  (select public.verify_email_contact(pg_temp.hash_of('t-departing')) -> 'active_plan_ids'),
+  '[]'::jsonb,
+  'somebody removed from the circle hears about none of its plans, however verified their address'
+);
+
+select pg_temp.act_as_postgres();
+select is(
+  (select count(*)::integer from jobs.notification_jobs j
+   join private.email_contacts c on c.id = j.contact_id
+   where c.email_normalized = 'departing@example.com' and j.kind = 'locked_in'),
+  0,
+  'and no "locked in" is queued for them: the plan stopped being theirs when the membership did'
 );
 
 -- ---------------------------------------------------------------------------
