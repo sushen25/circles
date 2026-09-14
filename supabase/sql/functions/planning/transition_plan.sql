@@ -26,7 +26,11 @@ declare
 begin
   select * into plan from public.plans where id = p_plan_id for update;
   if not found then
-    raise exception 'PLAN_NOT_FOUND' using errcode = 'P0001';
+    -- Lower case, like every other name raised here. `_shared/problem.ts` maps
+    -- an exception's text to a `ProblemReason` by exact match, so the shout was
+    -- the one refusal no endpoint could translate: `cancel-plan` answered 500
+    -- for a plan that simply is not there, where its own contract says 404.
+    raise exception 'plan_not_found' using errcode = 'P0001';
   end if;
 
   select * into rule
@@ -181,19 +185,35 @@ begin
   -- The audience is carried rather than recomputed from `circle_members`, and
   -- the difference matters: spec §9 makes joining an active plan an opt-in, so
   -- somebody who joined the circle after the plan was created is not silently
-  -- added to it by the organiser fixing a date. Anyone who has left is dropped,
-  -- because `on_member_removed` already took them out of the revision they were
-  -- in and there is nothing to carry.
+  -- added to it by the organiser fixing a date.
+  --
+  -- Filtered on active membership all the same, and the comment here used to
+  -- say instead that it did not need to be: `on_member_removed` takes a removed
+  -- member out of the revisions of `seeking`, `collecting` and `ready` plans,
+  -- and deliberately leaves the rows on a `confirmed` one, because the
+  -- confirmation's attendance is about who was there. `reopen` is the transition
+  -- that crosses that line — from `confirmed`, bumping the revision — so it was
+  -- the one case where the assumption was false, and it copied somebody who had
+  -- left into a live revision. `reask_audience` then named them, and required
+  -- of them, a plan can wait for an answer that cannot come.
   if rule.bumps_revision then
     insert into public.plan_participants (plan_id, revision, user_id, joined_at)
     select plan.id, plan.revision, pp.user_id, pp.joined_at
     from public.plan_participants pp
-    where pp.plan_id = plan.id and pp.revision = plan.revision - 1;
+    where pp.plan_id = plan.id and pp.revision = plan.revision - 1
+      and exists (
+        select 1 from public.circle_members m
+        where m.circle_id = plan.circle_id and m.user_id = pp.user_id and m.status = 'active'
+      );
 
     insert into public.plan_required_members (plan_id, revision, user_id)
     select plan.id, plan.revision, rm.user_id
     from public.plan_required_members rm
-    where rm.plan_id = plan.id and rm.revision = plan.revision - 1;
+    where rm.plan_id = plan.id and rm.revision = plan.revision - 1
+      and exists (
+        select 1 from public.circle_members m
+        where m.circle_id = plan.circle_id and m.user_id = rm.user_id and m.status = 'active'
+      );
   end if;
 
   -- `confirm` is not a state change with a row to follow; it is the row. The

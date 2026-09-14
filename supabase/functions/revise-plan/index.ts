@@ -108,6 +108,18 @@ Deno.serve(
         }
       }
 
+      // The same question of the required list: sent is not changed. An edit form
+      // that shows who has to be there sends them back unedited, and rewriting
+      // the identical rows bumps `input_version`, emits "the plan changed" and —
+      // since round two — drops a ready plan to collecting. Compared as a set,
+      // because an order is not a change and neither is a repeat.
+      const changedRequired =
+        body.required_member_ids === undefined
+          ? undefined
+          : await changedRequiredMembers(caller, body.plan_id, before.revision, [
+              ...body.required_member_ids,
+            ]);
+
       // Parsed on the way out, like every DTO here: the domain brands a `UserId`
       // one way and the contract another, and the parse is what makes the two
       // agree rather than a cast asserting that they do.
@@ -169,11 +181,7 @@ Deno.serve(
       // whoever reads the history. Refused with its own reason rather than
       // answered with a shrug, because a client that sent this has a bug in its
       // form and should hear so.
-      if (
-        Object.keys(payload).length === 0 &&
-        body.required_member_ids === undefined &&
-        !body.reopen
-      ) {
+      if (Object.keys(payload).length === 0 && changedRequired === undefined && !body.reopen) {
         throw new Refusal('nothing_to_change', 'Nothing in that is different from the plan.');
       }
 
@@ -182,8 +190,9 @@ Deno.serve(
         p_reopen: body.reopen,
         p_payload: payload,
         // `null` and `[]` mean different things — leave them alone, and nobody is
-        // required — so the absent case is passed as null rather than collapsed.
-        p_required_member_ids: body.required_member_ids ?? null,
+        // required — so both the absent case and the unchanged one are passed as
+        // null rather than collapsed into an empty list.
+        p_required_member_ids: changedRequired ?? null,
       });
       if (error !== null) throw error;
 
@@ -194,6 +203,35 @@ Deno.serve(
     },
   }),
 );
+
+/**
+ * The required list the request would set, or `undefined` if it is the list the
+ * plan already has.
+ *
+ * A set comparison, on the revision the plan is on now — the one the rewrite
+ * would replace. Two organisers editing at the same moment could each read
+ * before the other writes; the cost of that is a redundant rewrite of identical
+ * rows, which is what this is avoiding rather than what it is guarding.
+ */
+async function changedRequiredMembers(
+  caller: Db,
+  planId: string,
+  revision: number,
+  sent: string[],
+): Promise<string[] | undefined> {
+  const { data, error } = await caller
+    .from('plan_required_members')
+    .select('user_id')
+    .eq('plan_id', planId)
+    .eq('revision', revision);
+  if (error !== null) throw error;
+
+  const current = (data ?? []).map((row) => row.user_id).sort();
+  const wanted = [...new Set(sent)].sort();
+  const same =
+    current.length === wanted.length && current.every((id, index) => id === wanted[index]);
+  return same ? undefined : wanted;
+}
 
 async function readPlan(
   caller: Db,
@@ -207,11 +245,12 @@ async function readPlan(
   time_zone: string;
   quorum: number;
   response_deadline: string;
+  revision: number;
 }> {
   const { data, error } = await caller
     .from('plans')
     .select(
-      'window_start, window_end, daily_start_local, daily_end_local, duration_minutes, time_zone, quorum, response_deadline',
+      'window_start, window_end, daily_start_local, daily_end_local, duration_minutes, time_zone, quorum, response_deadline, revision',
     )
     .eq('id', planId)
     .maybeSingle();

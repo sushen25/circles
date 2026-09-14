@@ -6,7 +6,7 @@
 -- would all say yes.
 
 begin;
-select plan(75);
+select plan(77);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid
@@ -126,6 +126,29 @@ select is(
   pg_temp.live_invites(pg_temp.circle_id()),
   1,
   'still one live invite — a reset that left two would invalidate nothing'
+);
+
+-- Round 4: a circle and the link that fills it are one step of one flow
+-- (spec §5.1), and were two RPCs — so a failure between them left a circle
+-- nobody could be invited to, an event announcing it, and a person reading an
+-- error. Given the digest, `create_circle` issues the link itself.
+select pg_temp.act_as('10000000-0000-0000-0000-000000000001');
+create temporary table linked as
+select id from public.create_circle('Linked Crew', '#336699', 'Australia/Melbourne',
+  'sus31-linked', 'none', pg_temp.digest_of('made-together'));
+
+select is(
+  pg_temp.live_invites((select id from linked)),
+  1,
+  'a circle made with a digest already has its link'
+);
+
+select pg_temp.act_as_postgres();
+select is(
+  (select count(*)::integer from jobs.outbox o
+   where o.event_name = 'circles.invite_rotated' and o.aggregate_id = (select id from linked)),
+  0,
+  'and it is still a first link rather than a rotation, so nobody is told the old one stopped working'
 );
 
 select pg_temp.act_as_postgres();

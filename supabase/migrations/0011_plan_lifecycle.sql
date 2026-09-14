@@ -61,6 +61,15 @@ insert into planning.transitions (from_state, action, to_state, guards, bumps_re
   ('confirmed', 'report_outcome', 'completed', array['organiser'], false);
 -- END GENERATED: transitions
 
+-- ---------------------------------------------------------------------------
+-- `create_circle` gains the invite digest, so a circle and the link that fills
+-- it are made together or not at all (spec §5.1). A new parameter is a new
+-- function rather than a replacement, and leaving the old one would make every
+-- call that does not name the digest ambiguous — so the shipped signature goes
+-- here, once, before the generated block redefines it.
+-- ---------------------------------------------------------------------------
+drop function if exists public.create_circle(text, text, text, text, text);
+
 -- BEGIN GENERATED: function definitions (scripts/gen-sql-functions.mjs)
 
 -- supabase/sql/functions/planning/allowed_keys.sql
@@ -171,7 +180,11 @@ declare
 begin
   select * into plan from public.plans where id = p_plan_id for update;
   if not found then
-    raise exception 'PLAN_NOT_FOUND' using errcode = 'P0001';
+    -- Lower case, like every other name raised here. `_shared/problem.ts` maps
+    -- an exception's text to a `ProblemReason` by exact match, so the shout was
+    -- the one refusal no endpoint could translate: `cancel-plan` answered 500
+    -- for a plan that simply is not there, where its own contract says 404.
+    raise exception 'plan_not_found' using errcode = 'P0001';
   end if;
 
   select * into rule
@@ -326,19 +339,35 @@ begin
   -- The audience is carried rather than recomputed from `circle_members`, and
   -- the difference matters: spec §9 makes joining an active plan an opt-in, so
   -- somebody who joined the circle after the plan was created is not silently
-  -- added to it by the organiser fixing a date. Anyone who has left is dropped,
-  -- because `on_member_removed` already took them out of the revision they were
-  -- in and there is nothing to carry.
+  -- added to it by the organiser fixing a date.
+  --
+  -- Filtered on active membership all the same, and the comment here used to
+  -- say instead that it did not need to be: `on_member_removed` takes a removed
+  -- member out of the revisions of `seeking`, `collecting` and `ready` plans,
+  -- and deliberately leaves the rows on a `confirmed` one, because the
+  -- confirmation's attendance is about who was there. `reopen` is the transition
+  -- that crosses that line — from `confirmed`, bumping the revision — so it was
+  -- the one case where the assumption was false, and it copied somebody who had
+  -- left into a live revision. `reask_audience` then named them, and required
+  -- of them, a plan can wait for an answer that cannot come.
   if rule.bumps_revision then
     insert into public.plan_participants (plan_id, revision, user_id, joined_at)
     select plan.id, plan.revision, pp.user_id, pp.joined_at
     from public.plan_participants pp
-    where pp.plan_id = plan.id and pp.revision = plan.revision - 1;
+    where pp.plan_id = plan.id and pp.revision = plan.revision - 1
+      and exists (
+        select 1 from public.circle_members m
+        where m.circle_id = plan.circle_id and m.user_id = pp.user_id and m.status = 'active'
+      );
 
     insert into public.plan_required_members (plan_id, revision, user_id)
     select plan.id, plan.revision, rm.user_id
     from public.plan_required_members rm
-    where rm.plan_id = plan.id and rm.revision = plan.revision - 1;
+    where rm.plan_id = plan.id and rm.revision = plan.revision - 1
+      and exists (
+        select 1 from public.circle_members m
+        where m.circle_id = plan.circle_id and m.user_id = rm.user_id and m.status = 'active'
+      );
   end if;
 
   -- `confirm` is not a state change with a row to follow; it is the row. The
@@ -489,6 +518,144 @@ comment on function public.cancel_plan(uuid, text) is
 revoke all on function public.cancel_plan(uuid, text) from public;
 revoke all on function public.cancel_plan(uuid, text) from anon, authenticated;
 grant execute on function public.cancel_plan(uuid, text) to authenticated;
+
+-- supabase/sql/functions/public/create_circle.sql
+-- ---------------------------------------------------------------------------
+-- create_circle
+--
+-- The only way a circle comes into existence. A definer function rather than an
+-- insert policy, because a circle and its owner's membership have to appear
+-- together — an insert policy would leave a window in which a circle exists
+-- with no members and therefore no one who can see it.
+--
+-- The invite link is here for the same reason, one step further out. Spec §5.1
+-- makes the circle and the link one step of one flow, and `create-circle` used
+-- to make them with two RPCs: a failure between them left a circle nobody could
+-- be invited to, a `circles.circle_created` event about it, and a person looking
+-- at an error message. Given a digest, the link is issued in this transaction,
+-- so the answer to "did that work?" is the same answer for both.
+-- ---------------------------------------------------------------------------
+
+create or replace function public.create_circle(
+  name text,
+  color text,
+  time_zone text,
+  -- Required, and therefore ahead of the optional cadence. §9.1 has every
+  -- mutation idempotent on a client-supplied key, and an optional one is a key
+  -- nobody sends: the retry it guards against is the one where the client never
+  -- saw a response and cannot tell a timeout from a failure.
+  idempotency_key text,
+  cadence text default 'none',
+  -- SHA-256 of the invite secret, which the server never sees (§14). Optional
+  -- because a circle is a circle without a link — fixtures and tests make them
+  -- that way — and passed by `create-circle` always, because the flow it serves
+  -- promises both.
+  invite_secret_hash bytea default null
+)
+returns public.circles
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  -- The `ShortCode` contract's alphabet (`packages/contracts/src/ids.ts`).
+  alphabet constant text := 'abcdefghjkmnpqrstuvwxyz23456789';
+  caller uuid := (select auth.uid());
+  caller_name text;
+  created public.circles;
+  code text;
+  i integer;
+begin
+  if not public.auth_is_permanent() then
+    -- The organiser gate (ADR 0004). Worded as a practical need by the client;
+    -- here it is simply a refusal.
+    raise exception 'creating a circle needs a saved place'
+      using errcode = 'insufficient_privilege';
+  end if;
+
+  if coalesce(btrim(create_circle.idempotency_key), '') = '' then
+    raise exception 'create_circle needs an idempotency key'
+      using errcode = 'null_value_not_allowed';
+  end if;
+
+  -- A retry returns what the first attempt made. Creating a circle is the one
+  -- mutation where a lost response is expensive: the client cannot tell a
+  -- timeout from a failure, and trying again would leave the person with two
+  -- circles and no way to tell which one they gave the link out for.
+  select * into created
+  from public.circles c
+  where c.owner_user_id = caller and c.creation_key = create_circle.idempotency_key;
+  if found then
+    return created;
+  end if;
+
+  select p.display_name into caller_name from public.profiles p where p.user_id = caller;
+  if caller_name is null then
+    raise exception 'no profile for %', caller using errcode = 'foreign_key_violation';
+  end if;
+
+  -- Ten characters from the `ShortCode` alphabet — no `0`/`o`, no `1`/`l`/`i`,
+  -- because a short code is read aloud and retyped. Not a secret and not
+  -- required to be unguessable: the invite secret is the capability, and it
+  -- never reaches a server (§14). The loop retries on collision rather than
+  -- hoping there is none.
+  loop
+    code := '';
+    for i in 1..10 loop
+      code := code || substr(
+        alphabet,
+        1 + (get_byte(extensions.gen_random_bytes(1), 0) % length(alphabet)),
+        1
+      );
+    end loop;
+    exit when not exists (select 1 from public.circles c where c.short_code = code);
+  end loop;
+
+  insert into public.circles
+    (owner_user_id, name, color, time_zone, cadence, short_code, creation_key)
+  values (caller, create_circle.name, create_circle.color, create_circle.time_zone,
+          create_circle.cadence, code, create_circle.idempotency_key)
+  returning * into created;
+
+  insert into public.circle_members (circle_id, user_id, display_name_snapshot, role)
+  values (created.id, caller, caller_name, 'owner');
+
+  -- The link, in the same transaction, through the function that owns what
+  -- issuing one means: the audit row, the revocation of any earlier link, and
+  -- the rule that the first link announces nothing because the circle's own
+  -- creation already did. It checks that the caller owns the circle, which they
+  -- do — they are two statements away from having made it.
+  if create_circle.invite_secret_hash is not null then
+    perform public.issue_invite(created.id, create_circle.invite_secret_hash);
+  end if;
+
+  -- `circles.circle_created` and `circles.member_joined` are written to
+  -- `jobs.outbox` by the row triggers in 0006, in this transaction — on the
+  -- rows rather than here, so that every writer of a circle or a membership
+  -- announces it, not only this function.
+
+  return created;
+
+exception
+  when unique_violation then
+    -- Two identical requests in flight at once: the index caught the second, and
+    -- the row the first one wrote is the answer.
+    select * into created
+    from public.circles c
+    where c.owner_user_id = caller and c.creation_key = create_circle.idempotency_key;
+    if found then
+      return created;
+    end if;
+    raise;
+end;
+$$;
+
+comment on function public.create_circle(text, text, text, text, text, bytea) is
+  'Creates a circle, its owner membership and — given a digest — its invite link, in one transaction. Requires a permanent identity (ADR 0004).';
+
+revoke all on function public.create_circle(text, text, text, text, text, bytea) from public;
+revoke all on function public.create_circle(text, text, text, text, text, bytea) from anon, authenticated;
+grant execute on function public.create_circle(text, text, text, text, text, bytea) to authenticated;
 
 -- supabase/sql/functions/public/create_plan.sql
 -- ---------------------------------------------------------------------------
@@ -753,7 +920,7 @@ declare
 begin
   select * into plan from public.plans p where p.id = p_plan_id;
   if not found then
-    raise exception 'PLAN_NOT_FOUND' using errcode = 'P0001';
+    raise exception 'plan_not_found' using errcode = 'P0001';
   end if;
 
   -- Organiser *and still a member*, which is the same pair `transition_plan`'s
@@ -915,7 +1082,7 @@ begin
     where rm.plan_id = revised.id and rm.revision = revised.revision;
 
     insert into public.plan_required_members (plan_id, revision, user_id)
-    select revised.id, revised.revision, required
+    select distinct revised.id, revised.revision, required
     from unnest(p_required_member_ids) as required;
 
     update public.plans p

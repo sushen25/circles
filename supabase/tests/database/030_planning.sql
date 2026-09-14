@@ -8,7 +8,7 @@
 -- either, so most of this file is about trying to write it some other way.
 
 begin;
-select plan(79);
+select plan(83);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid
@@ -781,6 +781,59 @@ select ok(
   (select count(*) from public.plans
    where window_end - window_start = 13) >= 0,
   'and the inclusive reading is what the constraint uses'
+);
+
+-- ---------------------------------------------------------------------------
+-- Round 4: a reopen must not carry somebody who has left.
+--
+-- `on_member_removed` clears a removed member out of the revisions of `seeking`,
+-- `collecting` and `ready` plans and deliberately leaves the rows on a
+-- `confirmed` one, because the confirmation's attendance is about who was there.
+-- `reopen` is the transition that crosses from one to the other, so the carry
+-- forward was copying somebody who had left into a live revision — where
+-- `reask_audience` names them and, required, the plan waits for an answer that
+-- cannot come.
+--
+-- Last in the file: removing a member touches every open plan in the circle.
+-- ---------------------------------------------------------------------------
+select pg_temp.make_plan('rjnpen', 'confirmed') as plan_left \gset
+
+insert into public.plan_participants (plan_id, revision, user_id)
+values (:'plan_left', 1, '00000000-0000-0000-0000-0000000001a1'),
+       (:'plan_left', 1, '00000000-0000-0000-0000-0000000001a2');
+insert into public.plan_required_members (plan_id, revision, user_id)
+values (:'plan_left', 1, '00000000-0000-0000-0000-0000000001a2');
+
+update public.circle_members set status = 'removed'
+where circle_id = (select circle_id from t)
+  and user_id = '00000000-0000-0000-0000-0000000001a2';
+
+select is(
+  (select count(*)::integer from public.plan_participants
+   where plan_id = :'plan_left' and revision = 1),
+  2,
+  'a confirmed plan keeps the removed member on the revision that was confirmed'
+);
+
+select is(
+  (select revision from planning.transition_plan(:'plan_left', 'reopen',
+    '00000000-0000-0000-0000-0000000001a1')),
+  2,
+  'and reopening it asks a new revision'
+);
+
+select is(
+  (select array_agg(user_id) from public.plan_participants
+   where plan_id = :'plan_left' and revision = 2),
+  array['00000000-0000-0000-0000-0000000001a1'::uuid],
+  'which is addressed to the people still in the circle, and not to the one who left'
+);
+
+select is(
+  (select count(*)::integer from public.plan_required_members
+   where plan_id = :'plan_left' and revision = 2),
+  0,
+  'nor required of them: a plan cannot wait for an answer that can never come'
 );
 
 select * from finish();

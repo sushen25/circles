@@ -38,7 +38,7 @@ declare
 begin
   select * into plan from public.plans p where p.id = p_plan_id;
   if not found then
-    raise exception 'PLAN_NOT_FOUND' using errcode = 'P0001';
+    raise exception 'plan_not_found' using errcode = 'P0001';
   end if;
 
   -- Organiser *and still a member*, which is the same pair `transition_plan`'s

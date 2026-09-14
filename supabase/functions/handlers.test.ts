@@ -437,22 +437,25 @@ describe('create-circle', () => {
     const answered = (await response.json()) as { invite_secret: string; circle: object };
 
     expect(response.status).toBe(200);
+    // One call, so there is no moment at which the circle exists without the
+    // link the same request promised: a failure between two RPCs left a circle
+    // nobody could be invited to and a person reading an error.
     expect(called('create_circle')).toHaveLength(1);
-    expect(called('issue_invite')).toHaveLength(1);
+    expect(called('issue_invite')).toHaveLength(0);
+    expect(called('create_circle')[0]?.args['invite_secret_hash']).toMatch(/^\\x[0-9a-f]{64}$/);
     expect(answered.circle).not.toHaveProperty('creation_key');
   });
 
   it('gives the database the digest and never the secret', async () => {
     // §14 puts the secret in the fragment, which no server sees, and stores only
-    // its SHA-256. So it must not be a statement parameter anywhere: not in
-    // `issue_invite`, not in `create_circle`.
+    // its SHA-256. So it must not be a statement parameter anywhere.
     state.users = [{ id: CALLER, is_anonymous: false }];
 
     const response = await load('create-circle')(post(body));
     const { invite_secret: secret } = (await response.json()) as { invite_secret: string };
 
     expect(secret.length).toBeGreaterThanOrEqual(43);
-    expect(called('issue_invite')[0]?.args['p_secret_hash']).toMatch(/^\\x[0-9a-f]{64}$/);
+    expect(called('create_circle')[0]?.args['invite_secret_hash']).toMatch(/^\\x[0-9a-f]{64}$/);
 
     const toTheProduct = [...called('issue_invite'), ...called('create_circle')];
     expect(JSON.stringify(toTheProduct)).not.toContain(secret);
@@ -606,7 +609,11 @@ describe('revise-plan', () => {
 
   beforeEach(() => {
     state.users = [{ id: CALLER, is_anonymous: false }];
-    state.rows = { plans: current };
+    // Maya has to be there, which is `create_plan`'s default.
+    state.rows = {
+      plans: current,
+      plan_required_members: [{ user_id: '00000000-0000-4000-8000-0000000000a1' }],
+    };
     state.answer = (fn) => {
       if (fn === 'begin_request') {
         return {
@@ -713,7 +720,27 @@ describe('revise-plan', () => {
     await load('revise-plan')(
       post({ idempotency_key: KEY, plan_id: PLAN_ID, required_member_ids: [] }),
     );
+    // Spec §9: "nobody is required" is how an ineligible plan is unstuck, so an
+    // empty list is an instruction and not an absence.
     expect(called('revise_plan')[0]?.args['p_required_member_ids']).toEqual([]);
+  });
+
+  it('does not rewrite a required list that came back unchanged', async () => {
+    // An edit form shows who has to be there and sends them back. Rewriting the
+    // identical rows bumps `input_version`, says the plan changed and drops a
+    // ready plan to collecting — over a form nobody edited. Order is not a
+    // change either, so the comparison is of sets.
+    const response = await load('revise-plan')(
+      post({
+        idempotency_key: KEY,
+        plan_id: PLAN_ID,
+        required_member_ids: ['00000000-0000-4000-8000-0000000000a1'],
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ reason: 'nothing_to_change' });
+    expect(called('revise_plan')).toHaveLength(0);
   });
 
   it('names everybody a reopen will ask again', async () => {

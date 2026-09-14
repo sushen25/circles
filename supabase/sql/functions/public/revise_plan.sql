@@ -121,7 +121,7 @@ begin
     where rm.plan_id = revised.id and rm.revision = revised.revision;
 
     insert into public.plan_required_members (plan_id, revision, user_id)
-    select revised.id, revised.revision, required
+    select distinct revised.id, revised.revision, required
     from unnest(p_required_member_ids) as required;
 
     update public.plans p
