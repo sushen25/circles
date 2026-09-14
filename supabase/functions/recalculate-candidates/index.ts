@@ -31,7 +31,7 @@ Deno.serve(
   internalHandler({
     name: 'recalculate-candidates',
     schema: RecalculateCandidatesRequest,
-    handle: async ({ body, service }): Promise<RecalculateCandidatesResponse> =>
-      recalculate(service, body.plan_id),
+    handle: async ({ body, service, requestId }): Promise<RecalculateCandidatesResponse> =>
+      recalculate(service, body.plan_id, requestId),
   }),
 );

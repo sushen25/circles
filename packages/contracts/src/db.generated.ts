@@ -1005,6 +1005,7 @@ export type Database = {
         }
       }
       member_cap: { Args: never; Returns: number }
+      plan_candidate_summary: { Args: { p_plan_id: string }; Returns: Json }
       plan_last_possible_start: {
         Args: {
           daily_end_local: number

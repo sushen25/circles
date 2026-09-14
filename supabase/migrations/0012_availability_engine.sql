@@ -72,7 +72,12 @@ as $$
     'input_version', plan.input_version,
     'state', case
       when plan.state = 'ready' then 'ready'
-      when plan.state not in ('collecting', 'seeking', 'draft') then 'closed'
+      -- Anything that is not collecting availability is `closed` to this
+      -- screen, and that includes a quiet ask still `seeking` and a plan still
+      -- in `draft`: nothing is being collected for either, and answering
+      -- "collecting" about one would be the screen waiting for replies nobody
+      -- has been asked for.
+      when plan.state <> 'collecting' then 'closed'
       when coalesce((select near_misses from live), 0) > 0 then 'no_quorum'
       else 'collecting'
     end,
@@ -142,18 +147,34 @@ as $$
         where rm.plan_id = p.id and rm.revision = p.revision
       )
     ),
-    -- Order is part of the input, not a detail of the read: every available
-    -- list the engine returns is sorted into this order, and `inputHash`
-    -- includes it unsorted for exactly that reason. Joining date first, id to
-    -- break ties — stable, and the order a roster is read in.
+    -- **Who the plan was asked of**, not who is in the circle. The two are
+    -- different lists and the database already says which one means what:
+    -- `plan_participants` is the audience of a revision, `replace_response`
+    -- refuses anybody else with `not_a_participant`, and `transition_plan`
+    -- carries the audience across an edit rather than recomputing it, because
+    -- spec §9 makes joining an active plan an opt-in — "new members may opt into
+    -- the active plan", not "new members are added to it".
+    --
+    -- Reading `circle_members` here would have been a second definition of the
+    -- same thing, and the two disagree the moment somebody joins mid-plan: the
+    -- engine would count them in `active_member_count`, the screens would show
+    -- "4 of 7" and a dashed mark against a person who was never asked and whom
+    -- `replace_response` will not let answer.
+    --
+    -- Still filtered on active membership, because a participant who has left is
+    -- not being asked either. Order is part of the input rather than a detail of
+    -- the read — every available list the engine returns is sorted into it, and
+    -- `inputHash` includes it unsorted for that reason.
     'active_member_ids', (
-      select coalesce(jsonb_agg(m.user_id order by m.joined_at, m.user_id), '[]'::jsonb)
-      from public.circle_members m
-      where m.circle_id = p.circle_id and m.status = 'active'
+      select coalesce(jsonb_agg(pp.user_id order by pp.joined_at, pp.user_id), '[]'::jsonb)
+      from public.plan_participants pp
+      join public.circle_members m
+        on m.circle_id = p.circle_id and m.user_id = pp.user_id and m.status = 'active'
+      where pp.plan_id = p.id and pp.revision = p.revision
     ),
-    -- Answers to the revision being asked, from members who are still here. The
-    -- engine filters by active membership too — it walks `active_member_ids` —
-    -- and this filter is what keeps `responded_count` honest as well: a plan
+    -- Answers to the revision being asked, from people who are still being
+    -- asked. The engine filters by the roster too — it walks `active_member_ids`
+    -- — and this filter is what keeps `responded_count` honest as well: a plan
     -- whose one reply came from somebody who has left is still waiting for its
     -- first.
     'responses', (
@@ -179,6 +200,8 @@ as $$
         '[]'::jsonb
       )
       from public.plan_responses r
+      join public.plan_participants pp
+        on pp.plan_id = r.plan_id and pp.revision = r.revision and pp.user_id = r.user_id
       join public.circle_members m
         on m.circle_id = p.circle_id and m.user_id = r.user_id and m.status = 'active'
       where r.plan_id = p.id and r.revision = p.revision
@@ -194,6 +217,35 @@ comment on function public.engine_input(uuid) is
 revoke all on function public.engine_input(uuid) from public;
 revoke all on function public.engine_input(uuid) from anon, authenticated;
 grant execute on function public.engine_input(uuid) to service_role;
+
+-- supabase/sql/functions/public/plan_candidate_summary.sql
+-- ---------------------------------------------------------------------------
+-- Where a plan stands, asked about the plan rather than handed one.
+--
+-- `candidate_summary` takes a `public.plans` row because its callers already
+-- hold one under a lock. This is for the caller that does not: the Edge
+-- Function's path where the recalculation itself failed, and the answer that
+-- prompted it has nonetheless been stored (ADR 0018). Reporting an error for a
+-- request that worked would be false, so the endpoint says where the plan is —
+-- and it needs a way to ask that does not involve running the engine again.
+-- ---------------------------------------------------------------------------
+
+create or replace function public.plan_candidate_summary(p_plan_id uuid)
+returns jsonb
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select public.candidate_summary(p, false) from public.plans p where p.id = p_plan_id;
+$$;
+
+comment on function public.plan_candidate_summary(uuid) is
+  'Where a plan stands for the candidates screen, by plan id. Service role only; the summary reports nothing a member could not read from candidate_sets.';
+
+revoke all on function public.plan_candidate_summary(uuid) from public;
+revoke all on function public.plan_candidate_summary(uuid) from anon, authenticated;
+grant execute on function public.plan_candidate_summary(uuid) to service_role;
 
 -- supabase/sql/functions/public/replace_response.sql
 -- Parameters carry a `p_` prefix, as `transition_plan`'s do: a parameter named
@@ -415,6 +467,37 @@ begin
     return public.candidate_summary(plan, false);
   end if;
 
+  -- The third way a result can be about a plan that has changed, and the one a
+  -- version cannot see. `private.move_membership` — a reattachment, or a guest
+  -- claiming a saved place — rewrites `plan_responses.user_id`,
+  -- `plan_participants.user_id` and the ids inside existing `candidates` rows,
+  -- and it deliberately does *not* bump `input_version`: nothing about the
+  -- answers changed, only whose they are. A result computed before that move and
+  -- stored after it passes the version check and writes the old id into a fresh
+  -- set — after which `confirm` freezes that id into the confirmation and marks
+  -- the person, who is available and present, as `cant`.
+  --
+  -- So the set has to be about people the plan is currently asking. That is a
+  -- stronger statement than "the versions match" and subsumes it for this case:
+  -- an id that is not a participant of this revision is either somebody who left,
+  -- somebody who was never asked, or somebody whose membership moved while the
+  -- engine was running.
+  if exists (
+    select 1
+    from jsonb_array_elements(
+      coalesce(p_set -> 'eligible', '[]'::jsonb) || coalesce(p_set -> 'nearMisses', '[]'::jsonb)
+    ) as item
+    cross join lateral jsonb_array_elements_text(item.value -> 'availableUserIds') as named(user_id)
+    where not exists (
+      select 1 from public.plan_participants pp
+      where pp.plan_id = plan.id
+        and pp.revision = plan.revision
+        and pp.user_id = named.user_id::uuid
+    )
+  ) then
+    return public.candidate_summary(plan, false);
+  end if;
+
   -- What the plan knew a moment ago, read before the delete takes it away. Both
   -- halves of "did options disappear?" — the state, and the set the state was
   -- derived from — because a plan can hold a set with options while sitting in
@@ -426,7 +509,10 @@ begin
   limit 1;
   was_ready := plan.state = 'ready';
 
-  -- One live set per revision. An older one is not history anybody reads:
+  -- One live set for the revision being recalculated — earlier revisions keep
+  -- theirs, which is bounded by how many times a plan has been edited and is
+  -- what a confirmation on an earlier revision was chosen from. Within this
+  -- revision, an older set is not history anybody reads:
   -- `candidate_is_eligible` matches on the plan's current versions and ignores
   -- everything else, the screens read the current set, and a confirmation keeps
   -- its own frozen copy of the time it locked in. Keeping them would add a row

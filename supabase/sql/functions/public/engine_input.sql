@@ -51,18 +51,34 @@ as $$
         where rm.plan_id = p.id and rm.revision = p.revision
       )
     ),
-    -- Order is part of the input, not a detail of the read: every available
-    -- list the engine returns is sorted into this order, and `inputHash`
-    -- includes it unsorted for exactly that reason. Joining date first, id to
-    -- break ties — stable, and the order a roster is read in.
+    -- **Who the plan was asked of**, not who is in the circle. The two are
+    -- different lists and the database already says which one means what:
+    -- `plan_participants` is the audience of a revision, `replace_response`
+    -- refuses anybody else with `not_a_participant`, and `transition_plan`
+    -- carries the audience across an edit rather than recomputing it, because
+    -- spec §9 makes joining an active plan an opt-in — "new members may opt into
+    -- the active plan", not "new members are added to it".
+    --
+    -- Reading `circle_members` here would have been a second definition of the
+    -- same thing, and the two disagree the moment somebody joins mid-plan: the
+    -- engine would count them in `active_member_count`, the screens would show
+    -- "4 of 7" and a dashed mark against a person who was never asked and whom
+    -- `replace_response` will not let answer.
+    --
+    -- Still filtered on active membership, because a participant who has left is
+    -- not being asked either. Order is part of the input rather than a detail of
+    -- the read — every available list the engine returns is sorted into it, and
+    -- `inputHash` includes it unsorted for that reason.
     'active_member_ids', (
-      select coalesce(jsonb_agg(m.user_id order by m.joined_at, m.user_id), '[]'::jsonb)
-      from public.circle_members m
-      where m.circle_id = p.circle_id and m.status = 'active'
+      select coalesce(jsonb_agg(pp.user_id order by pp.joined_at, pp.user_id), '[]'::jsonb)
+      from public.plan_participants pp
+      join public.circle_members m
+        on m.circle_id = p.circle_id and m.user_id = pp.user_id and m.status = 'active'
+      where pp.plan_id = p.id and pp.revision = p.revision
     ),
-    -- Answers to the revision being asked, from members who are still here. The
-    -- engine filters by active membership too — it walks `active_member_ids` —
-    -- and this filter is what keeps `responded_count` honest as well: a plan
+    -- Answers to the revision being asked, from people who are still being
+    -- asked. The engine filters by the roster too — it walks `active_member_ids`
+    -- — and this filter is what keeps `responded_count` honest as well: a plan
     -- whose one reply came from somebody who has left is still waiting for its
     -- first.
     'responses', (
@@ -88,6 +104,8 @@ as $$
         '[]'::jsonb
       )
       from public.plan_responses r
+      join public.plan_participants pp
+        on pp.plan_id = r.plan_id and pp.revision = r.revision and pp.user_id = r.user_id
       join public.circle_members m
         on m.circle_id = p.circle_id and m.user_id = r.user_id and m.status = 'active'
       where r.plan_id = p.id and r.revision = p.revision

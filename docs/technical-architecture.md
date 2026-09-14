@@ -493,8 +493,8 @@ ready ─(response change)──▶ collecting ─ recalculate ──┘
 | `create-plan` | permanent member | Named or quiet; applies defaults from the circle; validates window/deadline; enqueues notifications |
 | `answer-interest` | member | Records interest in `private`; atomically evaluates threshold under a plan row lock; transitions once |
 | `accept-organiser` | keen member (quiet) or initiator | Sets `organiser_user_id` on a quiet plan with none; first writer wins |
-| `submit-availability` | member | Validates windows, replaces the member's response for the current revision, bumps `input_version`, schedules recalculation |
-| `recalculate-candidates` | internal | Loads inputs, runs `generateCandidates`, persists if `input_version` still current, transitions `collecting ↔ ready` |
+| `submit-availability` | member | Validates and normalises windows, replaces the member's response for the current revision (bumping `input_version`), then **runs the recalculation inline, in the same request** ([ADR 0018](decisions/0018-the-recalculation-runs-in-the-request-that-caused-it.md)) — the compare-and-set in `store_candidate_set` is what makes that safe, and a recalculation that fails does not fail the answer |
+| `recalculate-candidates` | internal (`CRON_SECRET`) | The same work for a plan with no request of its own to run in — a removal, a deadline, a recalculation that lost its compare-and-set. Loads inputs, runs `generateCandidates`, persists if `input_version` and `revision` are still current, transitions `collecting ↔ ready` |
 | `confirm-meetup` | organiser | Candidate freshness check, one active confirmation, freezes times, enqueues confirmations and reminders |
 | `revise-plan` | organiser | Edits window/duration/band → new revision, invalidating responses and enqueuing a re-ask; **adjusts** quorum, deadline or required members without one ([ADR 0017](decisions/0017-quorum-and-deadline-adjust-a-plan-without-a-revision.md)); `preview` answers what an edit would cost without making it (spec §5.3); reopens a confirmed plan |
 | `cancel-plan` | organiser | Final state with optional note; enqueues cancellation notices |

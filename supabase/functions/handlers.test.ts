@@ -638,6 +638,45 @@ describe('revise-plan', () => {
         };
       }
       if (fn === 'take_rate_token') return { data: true, error: null };
+      // A save stales the set — a quorum change, a new required member, a new
+      // revision — so it recalculates, the way an answer does (ADR 0018).
+      if (fn === 'engine_input') {
+        return {
+          data: {
+            plan: {
+              id: PLAN_ID,
+              circle_id: CIRCLE_ID,
+              state: 'collecting',
+              revision: 1,
+              input_version: 7,
+              scoring_version: 1,
+              time_zone: 'Australia/Melbourne',
+              window_start: '2099-09-17',
+              window_end: '2099-09-20',
+              daily_start_local: 1050,
+              daily_end_local: 1350,
+              duration_minutes: 120,
+              quorum: 3,
+              required_member_ids: [],
+            },
+            active_member_ids: [],
+            responses: [],
+          },
+          error: null,
+        };
+      }
+      if (fn === 'store_candidate_set') {
+        return {
+          data: {
+            stored: true,
+            state: 'collecting',
+            eligible: 0,
+            near_misses: 0,
+            input_version: 8,
+          },
+          error: null,
+        };
+      }
       if (fn === 'reask_audience') {
         return {
           data: [
@@ -1072,6 +1111,28 @@ describe('revise-plan', () => {
     expect(called('revise_plan')[0]?.args['p_expected_version']).toBeNull();
   });
 
+  it('recalculates after a save, because an adjustment stales the set', async () => {
+    // Spec §5.6 offers "lower the quorum" on the no-quorum screen, and nothing
+    // else would have recalculated until somebody answered — so the action the
+    // screen offers would have changed nothing on it.
+    await load('revise-plan')(post({ idempotency_key: KEY, plan_id: PLAN_ID, quorum: 5 }));
+
+    expect(called('engine_input')).toHaveLength(1);
+  });
+
+  it('does not recalculate for a preview, which changes nothing', async () => {
+    await load('revise-plan')(
+      post({
+        idempotency_key: KEY,
+        plan_id: PLAN_ID,
+        window: { start: '2099-09-17', end: '2099-09-18' },
+        preview: true,
+      }),
+    );
+
+    expect(called('engine_input')).toHaveLength(0);
+  });
+
   it('refuses an edit that changes nothing', async () => {
     const response = await load('revise-plan')(post({ idempotency_key: KEY, plan_id: PLAN_ID }));
     expect(response.status).toBe(400);
@@ -1273,6 +1334,35 @@ describe('submit-availability', () => {
     for (const candidate of sent.eligible) {
       expect(candidate.start).toMatch(/^\d{4}-\d{2}-\d{2}T/);
     }
+  });
+
+  it('stores the answer even when the engine cannot run', async () => {
+    // The answer is a committed transaction of its own. Reporting an error for
+    // it would be false, and the retry would be refused as a replay of
+    // something that worked (ADR 0018) — so the failure is a log line and the
+    // response simply says nothing about candidates.
+    state.answer = (fn) => {
+      if (fn === 'begin_request') {
+        return {
+          data: [{ state: 'fresh', response_status: null, response_body: null }],
+          error: null,
+        };
+      }
+      if (fn === 'take_rate_token') return { data: true, error: null };
+      if (fn === 'replace_response') {
+        return { data: { id: '00000000-0000-4000-8000-0000000000r1', revision: 1 }, error: null };
+      }
+      return { data: null, error: { message: 'connection lost', code: undefined } };
+    };
+
+    const response = await load('submit-availability')(
+      post({ idempotency_key: KEY, plan_id: PLAN_ID, revision: 1, status: 'flexible' }),
+    );
+
+    expect(response.status).toBe(200);
+    const answered = (await response.json()) as { response_id: string; candidates?: unknown };
+    expect(answered.response_id).toBe('00000000-0000-4000-8000-0000000000r1');
+    expect(answered.candidates).toBeUndefined();
   });
 
   it('says nothing about a plan the caller cannot see', async () => {

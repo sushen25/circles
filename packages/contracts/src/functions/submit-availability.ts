@@ -82,10 +82,16 @@ export const SubmitAvailabilityResponse = z.object({
   /** The revision the answer was stored against — the one that was asked. */
   revision: z.int().positive(),
   /**
-   * The engine ran in the same request (architecture §9.1), and this is what it
-   * found. The plan's `input_version` is in here rather than beside it: there is
-   * one version being described, and two copies of it could disagree.
+   * The engine ran in the same request ([ADR 0018](../../../../docs/decisions/0018-the-recalculation-runs-in-the-request-that-caused-it.md)),
+   * and this is what it found. The plan's `input_version` is in here rather than
+   * beside it: there is one version being described, and two copies of it could
+   * disagree.
+   *
+   * **Absent when the recalculation could not run.** The answer is stored either
+   * way — it is a committed transaction of its own — and saying nothing about
+   * the candidates is the honest report of not knowing. Everything refetches on
+   * focus (§9.2), so a client told nothing asks again.
    */
-  candidates: CandidateSummary,
+  candidates: CandidateSummary.optional(),
 });
 export type SubmitAvailabilityResponse = z.infer<typeof SubmitAvailabilityResponse>;

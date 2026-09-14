@@ -33,6 +33,10 @@ import { Refusal } from './problem.ts';
  * 3. `public.store_candidate_set` writes it only if the plan is still at the
  *    version step 1 read. A result computed without somebody's answer must not
  *    become the set `confirm` locks in.
+ *
+ * `recalculate` throws on failure, which is right for the endpoint that exists
+ * only to do this. `recalculateAfterWriting` does not, which is right for the
+ * one where an answer has already been stored (ADR 0018).
  */
 
 type EngineInputRow = {
@@ -64,7 +68,11 @@ type EngineInputRow = {
  */
 const SLOW_MS = 500;
 
-export async function recalculate(service: Db, planId: string): Promise<CandidateSummary> {
+export async function recalculate(
+  service: Db,
+  planId: string,
+  requestId: string,
+): Promise<CandidateSummary> {
   const { data, error } = await service.rpc('engine_input', { p_plan_id: planId });
   if (error !== null) throw error;
   if (data === null) throw new Refusal('plan_not_found', 'That plan is not there.');
@@ -79,7 +87,7 @@ export async function recalculate(service: Db, planId: string): Promise<Candidat
   if (engineMs >= SLOW_MS) {
     log('warn', {
       fn: 'recalculate',
-      request_id: planId.slice(0, 8),
+      request_id: requestId,
       event: 'slow_engine',
       duration_ms: engineMs,
     });
@@ -105,6 +113,52 @@ export async function recalculate(service: Db, planId: string): Promise<Candidat
     near_misses: summary.near_misses,
     input_version: summary.input_version,
   };
+}
+
+/**
+ * The recalculation, when the answer that prompted it has already committed.
+ *
+ * ADR 0018: reporting an error for a request that worked is false, and the
+ * retry that follows is refused as a replay of something that succeeded — so the
+ * person is told to try again and cannot. What is stale is the *set*, which is
+ * the condition `recalculate-candidates` exists to repair, so the endpoint says
+ * where the plan stands and lets the failure be a log line rather than the
+ * answer.
+ *
+ * It never throws. If even the summary cannot be read, the answer is that we do
+ * not know where the plan stands — which the caller reports by saying nothing
+ * about it, rather than by inventing a state or by failing a request that
+ * worked. Everything refetches on focus (§9.2), so a client that is told
+ * nothing asks again.
+ */
+export async function recalculateAfterWriting(
+  service: Db,
+  planId: string,
+  requestId: string,
+): Promise<CandidateSummary | undefined> {
+  try {
+    return await recalculate(service, planId, requestId);
+  } catch (thrown) {
+    log('warn', {
+      fn: 'recalculate',
+      request_id: requestId,
+      event: 'not_recalculated',
+      reason: (thrown as { code?: string } | undefined)?.code ?? 'unknown',
+    });
+
+    const { data, error } = await service.rpc('plan_candidate_summary', { p_plan_id: planId });
+    if (error !== null || data === null) return undefined;
+    const summary = data as unknown as CandidateSummary;
+    return {
+      ...(summary.candidate_set_id === undefined || summary.candidate_set_id === null
+        ? {}
+        : { candidate_set_id: summary.candidate_set_id }),
+      state: summary.state,
+      eligible: summary.eligible,
+      near_misses: summary.near_misses,
+      input_version: summary.input_version,
+    };
+  }
 }
 
 /** The row as the engine's own vocabulary. Nothing is decided here. */

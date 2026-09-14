@@ -16,7 +16,7 @@
 -- recalculations racing is a thing to reproduce, not to reason about.
 
 begin;
-select plan(41);
+select plan(46);
 
 create or replace function pg_temp.make_user(id uuid, name text)
 returns uuid language sql as $$
@@ -193,7 +193,24 @@ select is(
     '00000000-0000-0000-0000-0000000006a3',
     '00000000-0000-0000-0000-0000000006a4'
   ),
-  'and the roster in joining order — which is the order every available list comes back in'
+  'and the audience in joining order — which is the order every available list comes back in'
+);
+
+-- Round 1: the audience of the plan, not the roster of the circle. Spec §9 makes
+-- joining an active plan an opt-in — "new members may opt into the active plan"
+-- — so somebody who arrives mid-plan was never asked, cannot answer
+-- (`replace_response` refuses them), and must not be counted as a non-responder
+-- against the people who were.
+select pg_temp.act_as_postgres();
+select pg_temp.make_user('00000000-0000-0000-0000-0000000006a5', 'Newcomer');
+insert into public.circle_members (circle_id, user_id, display_name_snapshot)
+select circle_id, '00000000-0000-0000-0000-0000000006a5'::uuid, 'Newcomer' from t;
+
+select pg_temp.act_as_service();
+select is(
+  (select jsonb_array_length(public.engine_input(pg_temp.plan_id()) -> 'active_member_ids')),
+  4,
+  'a member who joined after the plan is not among the people it is asking'
 );
 
 select is(
@@ -279,6 +296,26 @@ select is(
      pg_temp.result(4)) ->> 'stored'),
   'false',
   'nor is one from a revision the plan has left — a different question entirely'
+);
+
+-- Round 1: a set about somebody the plan is not asking. `move_membership` — a
+-- reattachment, or a guest claiming a saved place — rewrites the ids on
+-- responses, participants and existing candidates, and deliberately bumps no
+-- version, because nothing about the answers changed. A result computed before
+-- that move would otherwise pass the version check and write the old id into a
+-- fresh set, after which `confirm` freezes it into the confirmation and marks a
+-- person who is there as `cant`.
+select is(
+  (select public.store_candidate_set(pg_temp.plan_id(), pg_temp.version(), 1,
+     jsonb_set(pg_temp.result(4), '{eligible,0,availableUserIds}',
+       jsonb_build_array('00000000-0000-0000-0000-0000000000ff'))) ->> 'stored'),
+  'false',
+  'a set naming somebody the plan is not asking is discarded, however unmoved the version looks'
+);
+select is(
+  (select count(*)::integer from public.candidate_sets where plan_id = pg_temp.plan_id()),
+  0,
+  'and writes nothing'
 );
 
 -- ---------------------------------------------------------------------------
@@ -455,6 +492,24 @@ select is(
 -- ---------------------------------------------------------------------------
 -- candidate_summary — the three words a screen has, and the fourth it needs
 -- ---------------------------------------------------------------------------
+-- Asked about a plan rather than handed one: the path where the recalculation
+-- itself failed and the answer that prompted it has been stored all the same
+-- (ADR 0018).
+select pg_temp.act_as_service();
+select is(
+  (select public.plan_candidate_summary(pg_temp.plan_id()) ->> 'stored'),
+  'false',
+  'asking where a plan stands stores nothing'
+);
+select is(
+  (select array[
+     public.plan_candidate_summary(pg_temp.plan_id()) ->> 'state',
+     public.plan_candidate_summary(pg_temp.plan_id()) ->> 'eligible'
+   ]),
+  array['no_quorum', '0'],
+  'and describes the set the plan is actually holding — here, the near-miss one it was left with'
+);
+
 select pg_temp.act_as_service();
 select is(
   (select public.store_candidate_set(pg_temp.plan_id(), pg_temp.version(), 1,

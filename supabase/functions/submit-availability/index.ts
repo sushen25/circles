@@ -5,7 +5,7 @@ import {
 } from '@circles/contracts';
 import { normaliseWindows, isErr } from '@circles/domain';
 
-import { recalculate } from '../_shared/engine.ts';
+import { recalculateAfterWriting } from '../_shared/engine.ts';
 import { jsonHandler } from '../_shared/http.ts';
 import { fromInstant, toInstant, toLocalDate, toZone } from '../_shared/moment.ts';
 import { Refusal } from '../_shared/problem.ts';
@@ -49,7 +49,7 @@ Deno.serve(
         { scope: 'submit_availability', key: actor.userId, max: 120, window: '1 hour' },
       ]);
     },
-    handle: async ({ body, caller, service }): Promise<SubmitAvailabilityResponse> => {
+    handle: async ({ body, caller, service, requestId }): Promise<SubmitAvailabilityResponse> => {
       const plan = await readPlan(caller, body.plan_id);
 
       // Normalised against the plan as the person was shown it. A window on a
@@ -115,12 +115,16 @@ Deno.serve(
       // answer and the person who just replied may read only their own
       // (`plan_responses_select_own`). What comes back is the combined result,
       // which is the only form of it anybody sees (spec §5.5).
-      const candidates = await recalculate(service, body.plan_id);
+      //
+      // And it cannot fail this request: the answer above is committed, so an
+      // error here would report a failure for something that worked and leave
+      // the retry refused as a replay (ADR 0018).
+      const candidates = await recalculateAfterWriting(service, body.plan_id, requestId);
 
       return {
         response_id: response.id as SubmitAvailabilityResponse['response_id'],
         revision: response.revision,
-        candidates,
+        ...(candidates === undefined ? {} : { candidates }),
       };
     },
   }),

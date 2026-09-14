@@ -73,6 +73,37 @@ begin
     return public.candidate_summary(plan, false);
   end if;
 
+  -- The third way a result can be about a plan that has changed, and the one a
+  -- version cannot see. `private.move_membership` — a reattachment, or a guest
+  -- claiming a saved place — rewrites `plan_responses.user_id`,
+  -- `plan_participants.user_id` and the ids inside existing `candidates` rows,
+  -- and it deliberately does *not* bump `input_version`: nothing about the
+  -- answers changed, only whose they are. A result computed before that move and
+  -- stored after it passes the version check and writes the old id into a fresh
+  -- set — after which `confirm` freezes that id into the confirmation and marks
+  -- the person, who is available and present, as `cant`.
+  --
+  -- So the set has to be about people the plan is currently asking. That is a
+  -- stronger statement than "the versions match" and subsumes it for this case:
+  -- an id that is not a participant of this revision is either somebody who left,
+  -- somebody who was never asked, or somebody whose membership moved while the
+  -- engine was running.
+  if exists (
+    select 1
+    from jsonb_array_elements(
+      coalesce(p_set -> 'eligible', '[]'::jsonb) || coalesce(p_set -> 'nearMisses', '[]'::jsonb)
+    ) as item
+    cross join lateral jsonb_array_elements_text(item.value -> 'availableUserIds') as named(user_id)
+    where not exists (
+      select 1 from public.plan_participants pp
+      where pp.plan_id = plan.id
+        and pp.revision = plan.revision
+        and pp.user_id = named.user_id::uuid
+    )
+  ) then
+    return public.candidate_summary(plan, false);
+  end if;
+
   -- What the plan knew a moment ago, read before the delete takes it away. Both
   -- halves of "did options disappear?" — the state, and the set the state was
   -- derived from — because a plan can hold a set with options while sitting in
@@ -84,7 +115,10 @@ begin
   limit 1;
   was_ready := plan.state = 'ready';
 
-  -- One live set per revision. An older one is not history anybody reads:
+  -- One live set for the revision being recalculated — earlier revisions keep
+  -- theirs, which is bounded by how many times a plan has been edited and is
+  -- what a confirmation on an earlier revision was chosen from. Within this
+  -- revision, an older set is not history anybody reads:
   -- `candidate_is_eligible` matches on the plan's current versions and ignores
   -- everything else, the screens read the current set, and a confirmation keeps
   -- its own frozen copy of the time it locked in. Keeping them would add a row

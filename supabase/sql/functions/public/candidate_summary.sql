@@ -41,7 +41,12 @@ as $$
     'input_version', plan.input_version,
     'state', case
       when plan.state = 'ready' then 'ready'
-      when plan.state not in ('collecting', 'seeking', 'draft') then 'closed'
+      -- Anything that is not collecting availability is `closed` to this
+      -- screen, and that includes a quiet ask still `seeking` and a plan still
+      -- in `draft`: nothing is being collected for either, and answering
+      -- "collecting" about one would be the screen waiting for replies nobody
+      -- has been asked for.
+      when plan.state <> 'collecting' then 'closed'
       when coalesce((select near_misses from live), 0) > 0 then 'no_quorum'
       else 'collecting'
     end,
