@@ -496,7 +496,7 @@ ready ─(response change)──▶ collecting ─ recalculate ──┘
 | `submit-availability` | member | Validates windows, replaces the member's response for the current revision, bumps `input_version`, schedules recalculation |
 | `recalculate-candidates` | internal | Loads inputs, runs `generateCandidates`, persists if `input_version` still current, transitions `collecting ↔ ready` |
 | `confirm-meetup` | organiser | Candidate freshness check, one active confirmation, freezes times, enqueues confirmations and reminders |
-| `revise-plan` | organiser | Edits window/duration/quorum/deadline → new revision; invalidates responses; enqueues re-ask |
+| `revise-plan` | organiser | Edits window/duration/band → new revision, invalidating responses and enqueuing a re-ask; **adjusts** quorum, deadline or required members without one ([ADR 0017](decisions/0017-quorum-and-deadline-adjust-a-plan-without-a-revision.md)); `preview` answers what an edit would cost without making it (spec §5.3); reopens a confirmed plan |
 | `cancel-plan` | organiser | Final state with optional note; enqueues cancellation notices |
 | `report-outcome` | organiser (or member for attendance) | Records outcome/attendance; sets `last_met_at` on `happened` |
 | `request-email-updates` | member | Normalise, dedupe, create contact + subscription (pending), issue verification token, send verification email |

@@ -622,7 +622,21 @@ describe('revise-plan', () => {
           error: null,
         };
       }
-      if (fn === 'revise_plan') return { data: { revision: 2 }, error: null };
+      if (fn === 'revise_plan') {
+        // The plan *and* the audience it had, derived under the same lock. The
+        // audience deliberately differs from `reask_audience`'s above: a save
+        // that still used that one would report the stale answer.
+        return {
+          data: {
+            plan: { revision: 2 },
+            audience: [
+              { member_user_id: '00000000-0000-4000-8000-0000000000a1', has_responded: true },
+              { member_user_id: '00000000-0000-4000-8000-0000000000a2', has_responded: true },
+            ],
+          },
+          error: null,
+        };
+      }
       return { data: null, error: null };
     };
   });
@@ -704,6 +718,77 @@ describe('revise-plan', () => {
     await load('revise-plan')(post({ idempotency_key: KEY, plan_id: PLAN_ID, reopen: true }));
 
     expect(called('revise_plan')[0]?.args['p_reopen']).toBe(true);
+  });
+
+  it('reports the audience the save saw, not the one a preview would have', async () => {
+    // An answer landing between the two calls was cleared by the revision bump
+    // and then named as somebody who had never answered — the warning wrong
+    // about exactly the person it was most about. `revise_plan` reads the
+    // audience under the plan's lock and returns it, so there is no between.
+    const response = await load('revise-plan')(
+      post({
+        idempotency_key: KEY,
+        plan_id: PLAN_ID,
+        window: { start: '2099-09-17', end: '2099-09-18' },
+      }),
+    );
+    const answer = (await response.json()) as { asked_again: string[]; fresh_ask: string[] };
+
+    expect(answer.asked_again).toEqual([
+      '00000000-0000-4000-8000-0000000000a1',
+      '00000000-0000-4000-8000-0000000000a2',
+    ]);
+    expect(answer.fresh_ask).toEqual([]);
+    // And the round trip that opened the gap is not made at all.
+    expect(called('reask_audience')).toHaveLength(0);
+  });
+
+  it('refuses a deadline that has already passed', async () => {
+    // "Editable, never after the last possible start" (spec §5.3) has two ends,
+    // and a deadline in the past closes replies the instant it is saved.
+    const response = await load('revise-plan')(
+      post({
+        idempotency_key: KEY,
+        plan_id: PLAN_ID,
+        response_deadline: '2020-01-01T00:00:00.000Z',
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ reason: 'deadline_out_of_range' });
+    expect(called('revise_plan')).toHaveLength(0);
+  });
+
+  it('refuses a deadline after the last possible start', async () => {
+    const response = await load('revise-plan')(
+      post({
+        idempotency_key: KEY,
+        plan_id: PLAN_ID,
+        response_deadline: '2099-10-01T00:00:00.000Z',
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ reason: 'deadline_out_of_range' });
+  });
+
+  it('judges the deadline against the window the request is setting', async () => {
+    // Both move in one request: the deadline is fine for the window the plan
+    // has and past the end of the one it is being given. Judged against the old
+    // one it would have been saved, and replies would have closed after the
+    // meetup could no longer start.
+    const response = await load('revise-plan')(
+      post({
+        idempotency_key: KEY,
+        plan_id: PLAN_ID,
+        window: { start: '2099-09-17', end: '2099-09-18' },
+        response_deadline: '2099-09-19T10:00:00.000Z',
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ reason: 'deadline_out_of_range' });
+    expect(called('revise_plan')).toHaveLength(0);
   });
 
   it('refuses an edit that changes nothing', async () => {

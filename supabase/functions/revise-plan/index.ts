@@ -1,10 +1,19 @@
 import { DurationMinutes, RevisePlanRequest, RevisePlanResponse } from '@circles/contracts';
-import { invalidatedResponses, type UserId } from '@circles/domain';
+import {
+  invalidatedResponses,
+  invalidatingChanges,
+  isDeadlineAllowed,
+  lastPossibleStart,
+  type UserId,
+} from '@circles/domain';
 
 import { jsonHandler } from '../_shared/http.ts';
-import { toLocalDate, toZone } from '../_shared/moment.ts';
+import { now, toInstant, toLocalDate, toZone } from '../_shared/moment.ts';
 import { Refusal } from '../_shared/problem.ts';
 import type { Db } from '../_shared/db.ts';
+
+/** What `public.reask_audience` returns, and what `revise_plan` hands back. */
+type AudienceRow = { member_user_id: string; has_responded: boolean };
 
 /**
  * Editing a plan, and the warning that has to come first.
@@ -20,6 +29,13 @@ import type { Db } from '../_shared/db.ts';
  * facts only the server can see: `public.reask_audience` returns who the plan
  * was addressed to and which of them have answered, because a member may read
  * only their *own* response and that is deliberate.
+ *
+ * A preview asks that function directly. A save does not: `public.revise_plan`
+ * runs it under the plan's row lock and returns the answer with the plan, so
+ * that the audience reported is the audience the change actually cleared. Read
+ * from here, an answer arriving between the two calls was wiped by the revision
+ * bump and named in `fresh_ask` — the warning wrong about exactly the person it
+ * was most about.
  *
  * `reopen` is the same endpoint because it is the same decision — "this time
  * does not work, let us look again" (§5.7) — but a different transition, with
@@ -48,59 +64,77 @@ Deno.serve(
         zone: toZone(before.time_zone),
       };
 
-      const { data: audience, error: audienceError } = await caller.rpc('reask_audience', {
-        p_plan_id: body.plan_id,
-      });
-      if (audienceError !== null) throw audienceError;
-
-      const rows = (audience ?? []) as { member_user_id: string; has_responded: boolean }[];
-      const members = rows.map((row) => row.member_user_id as UserId);
-      const responded = rows
-        .filter((row) => row.has_responded)
-        .map((row) => row.member_user_id as UserId);
-
-      const cost = invalidatedResponses(
-        {
-          window: {
-            start: toLocalDate(before.window_start),
-            end: toLocalDate(before.window_end),
-          },
-          daily: { startMin: before.daily_start_local, endMin: before.daily_end_local },
-          durationMinutes: DurationMinutes.parse(before.duration_minutes),
-          zone: after.zone,
+      const beforeTiming = {
+        window: {
+          start: toLocalDate(before.window_start),
+          end: toLocalDate(before.window_end),
         },
-        after,
-        members,
-        responded,
-      );
+        daily: { startMin: before.daily_start_local, endMin: before.daily_end_local },
+        durationMinutes: DurationMinutes.parse(before.duration_minutes),
+        zone: after.zone,
+      };
+
+      // "Never after the last possible start" (spec §5.3), and never already
+      // past — ADR 0010's deadline is a promise about when replies close, and a
+      // deadline in the past closes them the instant it is saved, leaving a plan
+      // that can be neither answered nor recalculated. Judged against the *new*
+      // window, because one request may move both. `create-plan` asks the same
+      // domain function the same way; a plan could be created only with a valid
+      // deadline and then edited to any deadline at all.
+      if (body.response_deadline !== undefined) {
+        if (
+          !isDeadlineAllowed(toInstant(body.response_deadline), lastPossibleStart(after), now())
+        ) {
+          throw new Refusal(
+            'deadline_out_of_range',
+            'Replies have to close in the future and before the last possible start.',
+          );
+        }
+      }
 
       // Parsed on the way out, like every DTO here: the domain brands a `UserId`
       // one way and the contract another, and the parse is what makes the two
       // agree rather than a cast asserting that they do.
-      const answer = RevisePlanResponse.parse({
-        asked_again: [...cost.askedAgain],
-        fresh_ask: [...cost.freshAsk],
-        invalidating: [...cost.changes],
-        bumps_revision: cost.bumpsRevision || body.reopen,
-      });
+      const answerFor = (rows: AudienceRow[]): RevisePlanResponse => {
+        const cost = invalidatedResponses(
+          beforeTiming,
+          after,
+          rows.map((row) => row.member_user_id as UserId),
+          rows.filter((row) => row.has_responded).map((row) => row.member_user_id as UserId),
+        );
+        return RevisePlanResponse.parse({
+          asked_again: [...cost.askedAgain],
+          fresh_ask: [...cost.freshAsk],
+          invalidating: [...cost.changes],
+          bumps_revision: cost.bumpsRevision || body.reopen,
+        });
+      };
 
-      if (body.preview) return answer;
+      if (body.preview) {
+        const { data: audience, error: audienceError } = await caller.rpc('reask_audience', {
+          p_plan_id: body.plan_id,
+        });
+        if (audienceError !== null) throw audienceError;
+        return answerFor((audience ?? []) as AudienceRow[]);
+      }
 
-      // Only what actually changed, and `cost.changes` is the authority on that —
-      // the same answer the preview just gave. A client that re-sends the current
-      // window unchanged is not editing anything, and putting it in the payload
-      // would make `revise_plan` call it an `edit` and bump a revision, clearing
-      // every answer over a no-op.
+      // Only what actually changed, and `invalidatingChanges` is the authority on
+      // that — the same comparison the preview's answer is built from, over the
+      // same two timings, so the payload and the warning cannot disagree. A
+      // client that re-sends the current window unchanged is not editing
+      // anything, and putting it in the payload would make `revise_plan` call it
+      // an `edit` and bump a revision, clearing every answer over a no-op.
+      const changes = invalidatingChanges(beforeTiming, after);
       const payload: Record<string, unknown> = {};
-      if (cost.changes.includes('window') && body.window !== undefined) {
+      if (changes.includes('window') && body.window !== undefined) {
         payload['window_start'] = body.window.start;
         payload['window_end'] = body.window.end;
       }
-      if (cost.changes.includes('daily') && body.daily !== undefined) {
+      if (changes.includes('daily') && body.daily !== undefined) {
         payload['daily_start_local'] = body.daily.startMin;
         payload['daily_end_local'] = body.daily.endMin;
       }
-      if (cost.changes.includes('duration') && body.duration_minutes !== undefined) {
+      if (changes.includes('duration') && body.duration_minutes !== undefined) {
         payload['duration_minutes'] = body.duration_minutes;
       }
       if (body.quorum !== undefined) payload['quorum'] = body.quorum;
@@ -118,8 +152,10 @@ Deno.serve(
       });
       if (error !== null) throw error;
 
-      const plan = (Array.isArray(data) ? data[0] : data) as { revision: number };
-      return { ...answer, revision: plan.revision };
+      // The audience as it was inside that transaction, not as it was one round
+      // trip ago.
+      const result = data as { plan: { revision: number }; audience: AudienceRow[] };
+      return { ...answerFor(result.audience ?? []), revision: result.plan.revision };
     },
   }),
 );

@@ -78,6 +78,7 @@ const REASONS: Record<ProblemReason, { status: number; error: Problem['error'] }
   band_unaligned: { status: 400, error: 'invalid_request' },
   band_out_of_day: { status: 400, error: 'invalid_request' },
   deadline_out_of_range: { status: 400, error: 'invalid_request' },
+  not_a_participant: { status: 400, error: 'invalid_request' },
 };
 
 /**

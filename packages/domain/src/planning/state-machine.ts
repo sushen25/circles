@@ -188,10 +188,13 @@ export const TRANSITIONS: readonly Transition[] = [
   { from: 'ready', action: 'candidates_gone', to: 'collecting', guards: [] },
   { from: 'ready', action: 'edit', to: 'collecting', guards: ['organiser'], bumpsRevision: true },
   // From `ready` it stays `ready`: the candidate set was computed from
-  // availability, which an adjustment does not touch. A quorum change does make
-  // a different set of candidates *eligible*, but that is
-  // `candidate_is_eligible` reading the plan's quorum at confirm time, not a
-  // reason to throw the set away.
+  // availability, which an adjustment does not touch. A *quorum* change does
+  // stale it — `candidate_is_eligible` never reads the plan's quorum, so a
+  // four-person candidate stayed confirmable after the quorum went to five — and
+  // `public.revise_plan` follows that one with `candidates_gone`, the action
+  // that already means "recompute" (ADR 0017). Not a second `adjust` row,
+  // because it is not a different adjustment: it is an adjustment and then a
+  // recalculation, which is exactly what a withdrawn response does.
   { from: 'ready', action: 'adjust', to: 'ready', guards: ['organiser'] },
   { from: 'ready', action: 'confirm', to: 'confirmed', guards: ['organiser', 'candidate'] },
   { from: 'ready', action: 'expire', to: 'expired', guards: [] },

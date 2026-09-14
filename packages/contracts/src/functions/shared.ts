@@ -102,6 +102,12 @@ export const ProblemReason = z.enum([
   'band_out_of_day',
   /** A chosen deadline after the last possible start, or already past (spec §5.3). */
   'deadline_out_of_range',
+  /**
+   * `revise-plan`: somebody named as required was never asked. Joining an active
+   * plan is an opt-in (spec §9), so a member who joined the circle afterwards is
+   * not a participant and cannot answer — requiring them would strand the plan.
+   */
+  'not_a_participant',
 ]);
 export type ProblemReason = z.infer<typeof ProblemReason>;
 

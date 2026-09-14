@@ -1132,38 +1132,7 @@ export type Database = {
           p_reopen?: boolean
           p_required_member_ids?: string[]
         }
-        Returns: {
-          cancel_note: string | null
-          category: string
-          circle_id: string
-          created_at: string
-          daily_end_local: number
-          daily_start_local: number
-          duration_minutes: number
-          id: string
-          input_version: number
-          mode: string
-          organiser_user_id: string | null
-          quiet_expires_at: string | null
-          quiet_threshold: number | null
-          quorum: number
-          response_deadline: string
-          revision: number
-          scoring_version: number
-          short_code: string
-          state: string
-          time_zone: string
-          title: string
-          updated_at: string
-          window_end: string
-          window_start: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "plans"
-          isOneToOne: true
-          isSetofReturn: false
-        }
+        Returns: Json
       }
       take_rate_token: {
         Args: {

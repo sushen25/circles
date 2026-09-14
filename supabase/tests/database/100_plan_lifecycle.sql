@@ -6,7 +6,7 @@
 -- would all say yes.
 
 begin;
-select plan(63);
+select plan(74);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid
@@ -59,6 +59,12 @@ begin
   perform set_config('request.jwt.claims', '', true);
 end;
 $$;
+
+-- `revise_plan` returns the plan *and* the audience it had before the change,
+-- because the audience has to be read under the same lock (ADR 0017). So the
+-- revision is a field of the answer rather than the whole of it.
+create or replace function pg_temp.revision_of(result jsonb) returns integer
+language sql immutable as $$ select (result -> 'plan' ->> 'revision')::integer $$;
 
 -- Sunday Crew again: Maya owns it, Priya and Tom are guests, Sam has a saved
 -- place and is a member but not the organiser.
@@ -312,7 +318,7 @@ select throws_ok(
 
 select pg_temp.act_as('10000000-0000-0000-0000-000000000001');
 select is(
-  (select revision from public.revise_plan(pg_temp.plan_id(), false, '{"quorum": 3}'::jsonb)),
+  pg_temp.revision_of(public.revise_plan(pg_temp.plan_id(), false, '{"quorum": 3}'::jsonb)),
   1,
   'a quorum change starts no revision'
 );
@@ -334,14 +340,14 @@ select is(
 
 select pg_temp.act_as('10000000-0000-0000-0000-000000000001');
 select is(
-  (select revision from public.revise_plan(
+  pg_temp.revision_of(public.revise_plan(
      pg_temp.plan_id(), false, '{"response_deadline": "2099-09-15T10:00:00Z"}'::jsonb)),
   1,
   'nor does moving the deadline'
 );
 
 select is(
-  (select revision from public.revise_plan(
+  pg_temp.revision_of(public.revise_plan(
      pg_temp.plan_id(), false, '{"window_end": "2099-09-19"}'::jsonb)),
   2,
   'changing the window does: it is a different question'
@@ -370,7 +376,7 @@ select is(
 -- `allowed_keys('adjust')` is the two keys alone.
 select pg_temp.act_as('10000000-0000-0000-0000-000000000001');
 select is(
-  (select revision from public.revise_plan(pg_temp.plan_id(), false,
+  pg_temp.revision_of(public.revise_plan(pg_temp.plan_id(), false,
      '{"quorum": 4, "window_end": "2099-09-18"}'::jsonb)),
   3,
   'a quorum change alongside a window change is an edit, and starts a revision'
@@ -455,7 +461,7 @@ select is(
 
 select pg_temp.act_as('10000000-0000-0000-0000-000000000001');
 select is(
-  (select revision from public.revise_plan(
+  pg_temp.revision_of(public.revise_plan(
      pg_temp.edited_id(), false, '{"window_end": "2099-09-19"}'::jsonb)),
   2,
   'an edit starts a revision'
@@ -485,7 +491,7 @@ values (pg_temp.circle_id(), '10000000-0000-0000-0000-00000000001a', 'Nic');
 
 select pg_temp.act_as('10000000-0000-0000-0000-000000000001');
 select is(
-  (select revision from public.revise_plan(
+  pg_temp.revision_of(public.revise_plan(
      pg_temp.edited_id(), false, '{"window_end": "2099-09-18"}'::jsonb)),
   3,
   'another edit, another revision'
@@ -522,7 +528,7 @@ select is(
 
 select pg_temp.act_as('10000000-0000-0000-0000-000000000001');
 select is(
-  (select revision from public.revise_plan(pg_temp.edited_id(), false, '{"quorum": 3}'::jsonb)),
+  pg_temp.revision_of(public.revise_plan(pg_temp.edited_id(), false, '{"quorum": 3}'::jsonb)),
   3,
   'raising the quorum starts no revision'
 );
@@ -571,6 +577,122 @@ select is(
      and revision = (select revision from public.plans where id = pg_temp.edited_id())),
   0,
   'and means nobody is required, which is how an ineligible plan is unstuck (spec §9)'
+);
+
+-- ---------------------------------------------------------------------------
+-- Round 2: required means required of somebody who was asked.
+--
+-- An active member who joined after the plan is deliberately not a participant
+-- (spec §9 makes joining an active plan an opt-in), and `replace_response`
+-- refuses a non-participant — so requiring one produced a plan that could never
+-- be eligible again and nobody who could fix it.
+-- ---------------------------------------------------------------------------
+select pg_temp.act_as('10000000-0000-0000-0000-000000000001');
+select throws_ok(
+  format($$ select public.revise_plan(%L, false, '{}'::jsonb,
+       array['10000000-0000-0000-0000-00000000001a'::uuid]) $$, pg_temp.edited_id()),
+  'not_a_participant',
+  'somebody who was never asked cannot be made required: they cannot answer, and the plan would wait forever'
+);
+
+-- ---------------------------------------------------------------------------
+-- Round 2: an adjustment that stales the set does not leave the plan `ready`.
+--
+-- `input_version` says "recompute" to the engine and says nothing to the state:
+-- `confirm` would have refused the candidates the screen was still showing,
+-- because `candidate_is_eligible` checks the versions. `candidates_gone` is how
+-- a changed answer already handles this, and a changed quorum is the same
+-- problem (ADR 0017).
+-- ---------------------------------------------------------------------------
+select pg_temp.act_as_postgres();
+select is(
+  (select state from planning.transition_plan(
+     pg_temp.edited_id(), 'candidates_ready', '10000000-0000-0000-0000-000000000001')),
+  'ready',
+  'the engine finds times and the plan is ready'
+);
+
+select pg_temp.act_as('10000000-0000-0000-0000-000000000001');
+select is(
+  pg_temp.revision_of(public.revise_plan(
+    pg_temp.edited_id(), false, '{"response_deadline": "2099-09-15T09:00:00Z"}'::jsonb)),
+  3,
+  'moving the deadline starts no revision'
+);
+
+select pg_temp.act_as_postgres();
+select is(
+  (select state from public.plans where id = pg_temp.edited_id()),
+  'ready',
+  'and leaves a ready plan ready: when replies close changes nothing about which times work'
+);
+
+select pg_temp.act_as('10000000-0000-0000-0000-000000000001');
+select lives_ok(
+  format($$ select public.revise_plan(%L, false, '{"quorum": 4}'::jsonb) $$, pg_temp.edited_id()),
+  'the organiser raises the quorum on a ready plan'
+);
+
+select pg_temp.act_as_postgres();
+select is(
+  (select state from public.plans where id = pg_temp.edited_id()),
+  'collecting',
+  'which puts it back to collecting, because the candidates it was showing are no longer the candidates'
+);
+
+select is(
+  (select state from planning.transition_plan(
+     pg_temp.edited_id(), 'candidates_ready', '10000000-0000-0000-0000-000000000001')),
+  'ready',
+  'ready again once the engine has recalculated'
+);
+
+select pg_temp.act_as('10000000-0000-0000-0000-000000000001');
+select lives_ok(
+  format($$ select public.revise_plan(%L, false, '{}'::jsonb,
+       array['10000000-0000-0000-0000-000000000002'::uuid]) $$, pg_temp.edited_id()),
+  'and the organiser changes who has to be there'
+);
+
+select pg_temp.act_as_postgres();
+select is(
+  (select state from public.plans where id = pg_temp.edited_id()),
+  'collecting',
+  'which stales the set for the same reason: a required person narrows which times qualify'
+);
+
+-- ---------------------------------------------------------------------------
+-- Round 2: the audience comes back with the plan, read before the change.
+--
+-- The handler used to ask `reask_audience` and then call this, and an answer
+-- landing between the two was cleared by the revision bump while being reported
+-- as somebody who had never answered — the warning wrong about precisely the
+-- person it was most about. Read under this function's lock, Priya is somebody
+-- who is being asked again.
+-- ---------------------------------------------------------------------------
+insert into public.plan_responses (plan_id, revision, user_id, status)
+select pg_temp.edited_id(), p.revision, '10000000-0000-0000-0000-000000000002', 'flexible'
+from public.plans p where p.id = pg_temp.edited_id();
+
+select pg_temp.act_as('10000000-0000-0000-0000-000000000001');
+create temporary table revised as
+select public.revise_plan(pg_temp.edited_id(), false, '{"window_end": "2099-09-20"}'::jsonb) as result;
+
+select pg_temp.act_as_postgres();
+select is(
+  (select jsonb_agg(entry.value ->> 'member_user_id' order by entry.value ->> 'member_user_id')
+   from revised, jsonb_array_elements(result -> 'audience') as entry
+   where (entry.value ->> 'has_responded')::boolean),
+  '["10000000-0000-0000-0000-000000000002"]'::jsonb,
+  'the answer names who had answered when the edit was made'
+);
+
+select is(
+  (select count(*)::integer from public.plan_responses r
+   join public.plans p on p.id = r.plan_id and p.revision = r.revision
+   where p.id = pg_temp.edited_id()),
+  0,
+  'which the same edit then cleared — read afterwards, she would have been called a fresh ask'
 );
 
 -- ---------------------------------------------------------------------------
