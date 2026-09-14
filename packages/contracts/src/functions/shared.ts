@@ -144,6 +144,12 @@ export const ProblemReason = z.enum([
   'needs_candidate',
   /** `confirm-meetup`: the time has passed while the review screen was open. */
   'candidate_has_passed',
+  /**
+   * `confirm-meetup`: the survey on the review screen was not answered. Two taps
+   * (spec §5.10), required by the endpoint *and* by the RPC behind it — the
+   * evidence for H2 is not optional because of the door somebody came through.
+   */
+  'chased_answer_required',
   /** `report-outcome`: an outcome has been reported, and a different one cannot replace it. */
   'outcome_already_reported',
   /** `report-outcome`: "I was there" before the meetup has ended is not an early answer. */

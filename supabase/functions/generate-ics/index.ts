@@ -122,11 +122,15 @@ Deno.serve(
 /**
  * Where the link in the file points.
  *
- * `brand.domain` is the canonical link host and is right for production. A
- * deployed dev stack is the reason for the override: a file downloaded there
- * would otherwise send whoever opens it to the real product, which is worse
- * than a link that does not resolve.
+ * `EXPO_PUBLIC_APP_ORIGIN` is the variable this repository already has for
+ * "where the app is" — `.env.example` lists it and the deploy workflows set it
+ * — so the function reads that one rather than inventing a second name for the
+ * same thing, which is how a dev stack ends up linking into production because
+ * nobody set the new one.
+ *
+ * `brand.domain` is the fallback and is right in production, where the app is
+ * served from the link host itself.
  */
 function origin(): string {
-  return optional('APP_ORIGIN') ?? `https://${brand.domain}`;
+  return optional('EXPO_PUBLIC_APP_ORIGIN') ?? `https://${brand.domain}`;
 }

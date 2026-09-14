@@ -1556,6 +1556,7 @@ describe('confirm-meetup', () => {
     plan_id: PLAN_ID,
     candidate_id: '2099-09-17T08:30:00.000Z',
     chased_answer: 'none' as const,
+    expected_version: '1.7',
   };
 
   beforeEach(() => {
@@ -1616,6 +1617,22 @@ describe('confirm-meetup', () => {
     expect(called('confirm_meetup')).toHaveLength(0);
   });
 
+  it('sends the version the organiser was shown, not the one that is current', async () => {
+    // An answer landing while the review screen is open recalculates inline,
+    // so by the time the tap arrives there is a new current set. Confirming
+    // against it would freeze an availability list nobody looked at.
+    await load('confirm-meetup')(post(body));
+
+    expect(called('confirm_meetup')[0]?.args['p_expected_version']).toBe('1.7');
+  });
+
+  it('will not confirm without saying which set it saw', async () => {
+    const response = await load('confirm-meetup')(post({ ...body, expected_version: undefined }));
+
+    expect(response.status).toBe(400);
+    expect(called('confirm_meetup')).toHaveLength(0);
+  });
+
   it('tells a stale screen apart from a time that is not on offer', async () => {
     // `candidate_is_eligible` answers one boolean for both, and they are
     // different sentences: one means "look again", the other means "not that
@@ -1650,28 +1667,23 @@ describe('confirm-meetup', () => {
 
 describe('report-outcome', () => {
   const CONFIRMATION_ID = '00000000-0000-4000-8000-0000000000f1';
-  const ORGANISER = CALLER;
-  const OTHER = '00000000-0000-4000-8000-0000000000a2';
 
   beforeEach(() => {
     state.users = [{ id: CALLER, is_anonymous: false }];
-    state.rows = {
-      attendance: [
-        { user_id: ORGANISER, status: 'was_there', updated_at: '2099-09-17T11:00:00+00:00' },
-        { user_id: OTHER, status: 'was_there', updated_at: '2099-09-17T11:05:00+00:00' },
-      ],
-      outcome_reports: {
-        confirmation_id: CONFIRMATION_ID,
-        reported_by: ORGANISER,
-        outcome: 'happened',
-        reported_at: '2099-09-18T00:00:00+00:00',
-        meetup_confirmations: { plans: { circle_id: CIRCLE_ID } },
-      },
-    };
+    state.rows = {};
     state.answer = (fn) => {
       if (fn === 'begin_request') {
         return {
           data: [{ state: 'fresh', response_status: null, response_body: null }],
+          error: null,
+        };
+      }
+      if (fn === 'confirmation_evidence') {
+        // Counts and one comparison, never identities: the policy shows a
+        // retrospective answer only to the person who gave it, so this is the
+        // only way the organiser learns they were corroborated.
+        return {
+          data: { outcome: 'happened', was_there: 2, missed: 0, someone_else_was_there: true },
           error: null,
         };
       }
@@ -1707,21 +1719,26 @@ describe('report-outcome', () => {
     });
   });
 
-  it('writes a member’s own attendance directly, with no function in the way', async () => {
-    // `attendance_update_own` lets a person write their own row and nobody
-    // else's, and `enforce_attendance_transition` holds the rules. A definer
-    // function would be a second authority over a row the policy governs.
+  it('writes a member’s own attendance within what a member may write', async () => {
+    // `grant update (status) on public.attendance` and nothing else: a plain
+    // upsert assigns every column it was given on conflict, and Postgres
+    // refuses it for want of the grant — which would have made the ordinary
+    // case, a row derived when the meetup was confirmed, the failing one. So:
+    // insert if missing, then set the status.
     const response = await load('report-outcome')(
       post({ idempotency_key: KEY, confirmation_id: CONFIRMATION_ID, attendance: 'was_there' }),
     );
 
     expect(response.status).toBe(200);
     expect(called('report_outcome')).toHaveLength(0);
-    expect(state.writes).toContainEqual({
-      table: 'attendance',
-      method: 'upsert',
-      values: { confirmation_id: CONFIRMATION_ID, user_id: CALLER, status: 'was_there' },
-    });
+    expect(state.writes).toEqual([
+      {
+        table: 'attendance',
+        method: 'upsert',
+        values: { confirmation_id: CONFIRMATION_ID, user_id: CALLER, status: 'was_there' },
+      },
+      { table: 'attendance', method: 'update', values: { status: 'was_there' } },
+    ]);
   });
 
   it('refuses an outcome and an attendance in one request', async () => {

@@ -97,16 +97,23 @@ export function downloadHandler<Schema extends z.ZodType>(
       );
     }
 
-    const caller = asCaller(authorization);
-    const identified = await identify(caller, token);
-    if (identified.outcome === 'unavailable') {
-      return fail(plainProblem('unavailable', 503, 'Something went wrong at our end.', requestId));
-    }
-    if (identified.outcome === 'rejected') {
-      return fail(plainProblem('unauthorised', 401, 'Sign in and try again.', requestId));
-    }
-
     try {
+      // Inside the try, because both of these can fail before any handler runs:
+      // constructing a client throws when a secret is missing, and `getUser`
+      // rejects on a transient network failure. Outside it, the promise simply
+      // rejected — no `Problem`, no reference, no CORS headers, which is the
+      // one thing every wrapper here promises for every answer it gives.
+      const caller = asCaller(authorization);
+      const identified = await identify(caller, token);
+      if (identified.outcome === 'unavailable') {
+        return fail(
+          plainProblem('unavailable', 503, 'Something went wrong at our end.', requestId),
+        );
+      }
+      if (identified.outcome === 'rejected') {
+        return fail(plainProblem('unauthorised', 401, 'Sign in and try again.', requestId));
+      }
+
       const file = await spec.handle({
         query: parsed.data,
         actor: identified.actor,

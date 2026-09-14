@@ -28,7 +28,11 @@ export const CORS = {
     'x-request-id',
     'x-circles-platform',
   ].join(', '),
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  // `GET` for `generate-ics`, which is a download a browser navigates to. It
+  // carries a bearer, so the browser preflights it — and a preflight that does
+  // not name the method blocks the request that follows, with nothing in the
+  // network tab but a CORS error.
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
 };
 
 /** Exported so the suite can assert against the list rather than restating it. */

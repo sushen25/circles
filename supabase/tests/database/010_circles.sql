@@ -919,7 +919,13 @@ select is(
        -- here: `engine_input` and `store_candidate_set` are the service role's,
        -- because the first is everybody's answers at once and the second is a
        -- write no member makes.
-       'confirm_meetup'
+       'confirm_meetup',
+       -- And the counting a member may not do for themselves:
+       -- `attendance_select_member` shows a retrospective answer only to the
+       -- person who gave it, so "was my report corroborated?" has to be asked
+       -- of a function that can see the rows and answers without naming
+       -- anybody (spec §5.10, §11.1).
+       'confirmation_evidence'
      )),
   '',
   'only the intended functions in public are callable by authenticated'

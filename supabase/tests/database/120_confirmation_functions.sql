@@ -9,7 +9,7 @@
 -- the options" are different sentences, and only one of them is true at a time.
 
 begin;
-select plan(16);
+select plan(23);
 
 create or replace function pg_temp.make_user(id uuid, name text)
 returns uuid language sql as $$
@@ -119,15 +119,22 @@ select pg_temp.make_set();
 select planning.transition_plan(pg_temp.plan_id(), 'candidates_ready',
   '00000000-0000-0000-0000-0000000007a1');
 
+-- What the organiser's screen would have been showing: the plan's revision and
+-- input version, which is the token they send back when they tap.
+create or replace function pg_temp.version() returns text
+language sql security definer as $$
+  select p.revision || '.' || p.input_version from public.plans p where p.id = pg_temp.plan_id()
+$$;
+
 -- ---------------------------------------------------------------------------
 -- Who may call it
 -- ---------------------------------------------------------------------------
 select ok(
-  has_function_privilege('authenticated', 'public.confirm_meetup(uuid, text, text, text, text, text)', 'execute'),
+  has_function_privilege('authenticated', 'public.confirm_meetup(uuid, text, text, text, text, text, text)', 'execute'),
   'a signed-in caller can try to confirm — whether they may is the machine''s answer, not the grant''s'
 );
 select ok(
-  not has_function_privilege('anon', 'public.confirm_meetup(uuid, text, text, text, text, text)', 'execute'),
+  not has_function_privilege('anon', 'public.confirm_meetup(uuid, text, text, text, text, text, text)', 'execute'),
   'and nobody who is not signed in can'
 );
 
@@ -136,9 +143,30 @@ select ok(
 -- ---------------------------------------------------------------------------
 select pg_temp.act_as('00000000-0000-0000-0000-0000000007a2');
 select throws_ok(
-  format($$ select public.confirm_meetup(%L, '2099-09-17T08:30:00+00:00') $$, pg_temp.plan_id()),
+  format($$ select public.confirm_meetup(%L, '2099-09-17T08:30:00+00:00', pg_temp.version(), 'none') $$, pg_temp.plan_id()),
   'not_the_organiser',
   'a member cannot lock in a time: only the organiser confirms (spec §5.6)'
+);
+
+-- ---------------------------------------------------------------------------
+-- Round 1: the set the organiser was *looking at*
+--
+-- An answer landing while the review screen is open recalculates inline
+-- (ADR 0018), so there is a new current set by the time the tap arrives. If the
+-- chosen time is still eligible in it, confirming without saying which version
+-- was on the screen freezes an availability list nobody saw.
+-- ---------------------------------------------------------------------------
+select pg_temp.act_as('00000000-0000-0000-0000-0000000007a1');
+select throws_ok(
+  format($$ select public.confirm_meetup(%L, '2099-09-17T08:30:00+00:00', '1.0', 'none') $$, pg_temp.plan_id()),
+  'stale_candidates',
+  'a version the plan has moved past is refused, even with a current set and an eligible time'
+);
+
+select throws_ok(
+  format($$ select public.confirm_meetup(%L, '2099-09-17T08:30:00+00:00', pg_temp.version(), null) $$, pg_temp.plan_id()),
+  'chased_answer_required',
+  'and the survey is required by the function as well as by the schema: this is callable directly'
 );
 
 -- ---------------------------------------------------------------------------
@@ -148,7 +176,7 @@ select pg_temp.act_as_postgres();
 update public.plans set input_version = input_version + 1 where id = pg_temp.plan_id();
 select pg_temp.act_as('00000000-0000-0000-0000-0000000007a1');
 select throws_ok(
-  format($$ select public.confirm_meetup(%L, '2099-09-17T08:30:00+00:00') $$, pg_temp.plan_id()),
+  format($$ select public.confirm_meetup(%L, '2099-09-17T08:30:00+00:00', pg_temp.version(), 'none') $$, pg_temp.plan_id()),
   'stale_candidates',
   'somebody answered while the review screen was open, so the times on it are not the times on offer'
 );
@@ -158,7 +186,7 @@ select pg_temp.make_set();
 update public.plans set scoring_version = scoring_version + 1 where id = pg_temp.plan_id();
 select pg_temp.act_as('00000000-0000-0000-0000-0000000007a1');
 select throws_ok(
-  format($$ select public.confirm_meetup(%L, '2099-09-17T08:30:00+00:00') $$, pg_temp.plan_id()),
+  format($$ select public.confirm_meetup(%L, '2099-09-17T08:30:00+00:00', pg_temp.version(), 'none') $$, pg_temp.plan_id()),
   'stale_candidates',
   'and a set from an engine the plan has moved past is stale in the same way'
 );
@@ -172,13 +200,13 @@ select pg_temp.make_set();
 -- ---------------------------------------------------------------------------
 select pg_temp.act_as('00000000-0000-0000-0000-0000000007a1');
 select throws_ok(
-  format($$ select public.confirm_meetup(%L, '2099-09-19T08:30:00+00:00') $$, pg_temp.plan_id()),
+  format($$ select public.confirm_meetup(%L, '2099-09-19T08:30:00+00:00', pg_temp.version(), 'none') $$, pg_temp.plan_id()),
   'needs_candidate',
   'with the set current, an id that is not in it means that time is not on offer — a different sentence'
 );
 
 select throws_ok(
-  format($$ select public.confirm_meetup(%L, 'not-a-time') $$, pg_temp.plan_id()),
+  format($$ select public.confirm_meetup(%L, 'not-a-time', pg_temp.version(), 'none') $$, pg_temp.plan_id()),
   'needs_candidate',
   'and anything that is not an instant is not a candidate, rather than an error about parsing'
 );
@@ -188,8 +216,8 @@ select throws_ok(
 -- ---------------------------------------------------------------------------
 select is(
   (select (public.confirm_meetup(
-     pg_temp.plan_id(), '2099-09-17T08:30:00+00:00',
-     'Hope St Radio', 'https://maps.example/hope-st', 'Upstairs', 'one')).status),
+     pg_temp.plan_id(), '2099-09-17T08:30:00+00:00', pg_temp.version(), 'one',
+     'Hope St Radio', 'https://maps.example/hope-st', 'Upstairs')).status),
   'active',
   'the organiser locks it in'
 );
@@ -244,15 +272,79 @@ select is(
 -- ---------------------------------------------------------------------------
 select pg_temp.act_as('00000000-0000-0000-0000-0000000007a1');
 select throws_ok(
-  format($$ select public.confirm_meetup(%L, '2099-09-17T08:30:00+00:00') $$, pg_temp.plan_id()),
+  format($$ select public.confirm_meetup(%L, '2099-09-17T08:30:00+00:00', pg_temp.version(), 'none') $$, pg_temp.plan_id()),
   'wrong_state',
   'a confirmed plan cannot be confirmed again: there is one active confirmation per revision'
 );
 
 select throws_ok(
-  $$ select public.confirm_meetup('00000000-0000-0000-0000-0000000000ff'::uuid, '2099-09-17T08:30:00+00:00') $$,
+  $$ select public.confirm_meetup('00000000-0000-0000-0000-0000000000ff'::uuid,
+       '2099-09-17T08:30:00+00:00', '1.1', 'none') $$,
   'plan_not_found',
   'and a plan that is not there says so by name'
+);
+
+-- ---------------------------------------------------------------------------
+-- Round 1: counting what a member may not count for themselves
+--
+-- `attendance_select_member` shows a retrospective answer only to the person
+-- who gave it — "nobody is scored and nobody is told who came" (spec §5.10) —
+-- so the organiser, the one person who needs to know whether their report was
+-- corroborated, is exactly the person who cannot see the rows that would do it.
+-- Counted by a definer function instead, which returns no identity at all.
+-- ---------------------------------------------------------------------------
+select pg_temp.act_as_postgres();
+create or replace function pg_temp.confirmation_id() returns uuid
+language sql security definer as $$
+  select id from public.meetup_confirmations where plan_id = pg_temp.plan_id()
+$$;
+
+-- The meetup has to be over before anybody can say they were there.
+update public.meetup_confirmations
+set starts_at = now() - interval '3 hours', ends_at = now() - interval '1 hour'
+where plan_id = pg_temp.plan_id();
+
+select pg_temp.act_as('00000000-0000-0000-0000-0000000007a2');
+update public.attendance set status = 'was_there'
+where confirmation_id = pg_temp.confirmation_id()
+  and user_id = '00000000-0000-0000-0000-0000000007a2';
+
+select pg_temp.act_as('00000000-0000-0000-0000-0000000007a1');
+select is(
+  (select public.confirmation_evidence(pg_temp.confirmation_id()) ->> 'was_there'),
+  '1',
+  'the organiser learns that one person said they were there'
+);
+
+select is(
+  (select public.confirmation_evidence(pg_temp.confirmation_id()) ->> 'someone_else_was_there'),
+  'false',
+  'and that nobody has corroborated anything, because nobody has reported anything yet'
+);
+
+select lives_ok(
+  format($$ select public.report_outcome(%L, 'happened') $$, pg_temp.confirmation_id()),
+  'the organiser says it happened'
+);
+
+select is(
+  (select public.confirmation_evidence(pg_temp.confirmation_id()) ->> 'someone_else_was_there'),
+  'true',
+  'and now somebody other than the reporter has said they were there: corroborated (§11.1)'
+);
+
+-- And this is why it takes a function at all. The same count, asked by the
+-- organiser through their own session, is zero: the policy shows a
+-- retrospective answer only to the person who gave it, so the one person who
+-- needs to know whether they were corroborated is the one person who cannot see
+-- it. An endpoint counting these rows through the caller's client would have
+-- reported "nobody" for ever, and the north-star metric's second number would
+-- have been a flat zero nobody noticed was zero.
+select is(
+  (select count(*)::integer from public.attendance a
+   where a.confirmation_id = pg_temp.confirmation_id() and a.status = 'was_there'),
+  0,
+  'while the organiser''s own session sees none of those rows at all'
 );
 
 select * from finish();

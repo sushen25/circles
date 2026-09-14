@@ -1,18 +1,8 @@
 import { ReportOutcomeRequest, ReportOutcomeResponse } from '@circles/contracts';
-import {
-  circleId,
-  confirmationId,
-  corroboration,
-  userId,
-  type Attendance,
-  type AttendanceStatus,
-  type Outcome,
-  type OutcomeReport,
-} from '@circles/domain';
+import { corroborationOf, type Outcome } from '@circles/domain';
 
 import type { Db } from '../_shared/db.ts';
 import { jsonHandler } from '../_shared/http.ts';
-import { toInstant } from '../_shared/moment.ts';
 
 /**
  * "Did this catch-up happen?", and "I was there" (spec §5.10).
@@ -51,22 +41,32 @@ Deno.serve(
         });
         if (error !== null) throw error;
       } else {
-        // Upsert, because the row may not exist: attendance is derived for
-        // every participant when the meetup is confirmed, but somebody who
-        // joined the plan later, or whose row was never written, still gets to
-        // say they were there.
+        // Two statements, because of what a member is allowed to write:
+        // `grant update (status) on public.attendance` and nothing else. A
+        // plain upsert assigns every column it was given on conflict —
+        // `confirmation_id` and `user_id` included — and Postgres refuses it
+        // for want of the grant, which would have made the ordinary case (a row
+        // derived when the meetup was confirmed) the failing one.
+        //
+        // So: insert if it is missing and do nothing if it is not, which needs
+        // only INSERT; then set the status, which needs only UPDATE(status).
+        // `enforce_attendance_transition` holds the rules either way, and the
+        // same status twice is a no-op rather than a fresh answer.
+        const { error: inserting } = await caller.from('attendance').upsert(
+          {
+            confirmation_id: body.confirmation_id,
+            user_id: actor.userId,
+            status: body.attendance,
+          },
+          { onConflict: 'confirmation_id,user_id', ignoreDuplicates: true },
+        );
+        if (inserting !== null) throw inserting;
+
         const { error } = await caller
           .from('attendance')
-          .upsert(
-            {
-              confirmation_id: body.confirmation_id,
-              user_id: actor.userId,
-              status: body.attendance,
-            },
-            { onConflict: 'confirmation_id,user_id' },
-          )
-          .select('status')
-          .maybeSingle();
+          .update({ status: body.attendance })
+          .eq('confirmation_id', body.confirmation_id)
+          .eq('user_id', actor.userId);
         if (error !== null) throw error;
       }
 
@@ -76,69 +76,42 @@ Deno.serve(
 );
 
 /**
- * Where the meetup stands, read after the write rather than assumed from it.
+ * Where the meetup stands, counted by the database rather than by the caller.
  *
- * Both callers need the same answer and neither can compute it alone: a
- * member's "I was there" can be the thing that corroborates an outcome reported
- * days ago, and an organiser's `happened` can be corroborated by an answer that
- * was already there. So it is one read of what is stored, through the caller's
- * own client — `attendance_select_member` shows a member the retrospective
- * answers of others, which is exactly the counting this does.
+ * The obvious version of this reads `attendance` and counts — and it is wrong,
+ * silently, in the one direction that matters. `attendance_select_member` shows
+ * a **retrospective** answer only to the person who gave it: "nobody is scored
+ * and nobody is told who came" (spec §5.10) is a policy, not a copy decision. So
+ * an organiser reading the table through their own session sees none of the
+ * `was_there` rows that would corroborate their report, and the north-star
+ * metric's second number (§11.1) would be a flat zero nobody would notice was
+ * zero.
+ *
+ * `public.confirmation_evidence` does the counting where the rows can be seen,
+ * and returns no identity at all — how many, and whether anybody other than the
+ * reporter said they were there. The word for that is the domain's.
  */
 async function summaryOf(caller: Db, confirmationFor: string): Promise<ReportOutcomeResponse> {
-  const { data: rows, error } = await caller
-    .from('attendance')
-    .select('user_id, status, updated_at')
-    .eq('confirmation_id', confirmationFor);
+  const { data, error } = await caller.rpc('confirmation_evidence', {
+    p_confirmation_id: confirmationFor,
+  });
   if (error !== null) throw error;
 
-  const id = confirmationId(confirmationFor);
-  const attendances = (rows ?? []).map((row): Attendance => ({
-    confirmationId: id,
-    userId: userId(row.user_id),
-    status: row.status as AttendanceStatus,
-    updatedAt: toInstant(row.updated_at),
-  }));
-
-  const { data: report, error: reportError } = await caller
-    .from('outcome_reports')
-    // The circle comes along because `OutcomeReport` carries it: a report is
-    // about a circle's evening, and the metric counts per circle (§11.1).
-    .select(
-      'confirmation_id, reported_by, outcome, reported_at, meetup_confirmations(plans(circle_id))',
-    )
-    .eq('confirmation_id', confirmationFor)
-    // At most one: only the organiser may report, and `(confirmation_id,
-    // reported_by)` is unique. Limited anyway, because `maybeSingle` treats a
-    // second row as an error and a 500 is the wrong answer to "somebody else
-    // also reported".
-    .order('reported_at', { ascending: true })
-    .limit(1)
-    .maybeSingle();
-  if (reportError !== null) throw reportError;
+  const evidence = data as unknown as {
+    outcome: Outcome | null;
+    was_there: number;
+    missed: number;
+    someone_else_was_there: boolean;
+  };
 
   return ReportOutcomeResponse.parse({
     // Absent until the organiser has answered: a member's "I was there"
     // corroborates nothing on its own, and saying `reported` would claim an
     // outcome nobody has given.
-    ...(report === null
+    ...(evidence.outcome === null
       ? {}
-      : {
-          corroboration: corroboration(
-            {
-              confirmationId: id,
-              circleId: circleId(
-                (report as unknown as { meetup_confirmations: { plans: { circle_id: string } } })
-                  .meetup_confirmations.plans.circle_id,
-              ),
-              reportedBy: userId(report.reported_by),
-              outcome: report.outcome as Outcome,
-              reportedAt: toInstant(report.reported_at),
-            } satisfies OutcomeReport,
-            attendances,
-          ),
-        }),
-    was_there: attendances.filter((a) => a.status === 'was_there').length,
-    missed: attendances.filter((a) => a.status === 'missed').length,
+      : { corroboration: corroborationOf(evidence.outcome, evidence.someone_else_was_there) }),
+    was_there: evidence.was_there,
+    missed: evidence.missed,
   });
 }

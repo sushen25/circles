@@ -36,6 +36,21 @@ export const ConfirmMeetupRequest = Mutation.extend({
    * optional: a survey nobody answers measures nothing, and `none` is an answer.
    */
   chased_answer: z.enum(['none', 'one', 'more']),
+  /**
+   * Which version of the plan the candidates on the screen came from, as
+   * `<revision>.<input_version>` — the same token `revise-plan` uses, and
+   * readable from the `candidate_sets` row the client already loaded.
+   *
+   * Required, because "check the candidate belongs to the current set"
+   * (architecture §9.1) is a question about *which* set was on the screen. An
+   * answer arriving while the review screen is open recalculates inline
+   * ([ADR 0018](../../../../docs/decisions/0018-the-recalculation-runs-in-the-request-that-caused-it.md)),
+   * so by the time the organiser taps there is a new current set — and if the
+   * time they picked is still eligible in it, confirming freezes an availability
+   * list nobody looked at. Somebody who withdrew is on the card; somebody who
+   * just answered is not.
+   */
+  expected_version: z.string().max(40),
 });
 export type ConfirmMeetupRequest = z.infer<typeof ConfirmMeetupRequest>;
 

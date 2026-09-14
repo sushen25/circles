@@ -86,6 +86,7 @@ const REASONS: Record<ProblemReason, { status: number; error: Problem['error'] }
   stale_candidates: { status: 409, error: 'conflict' },
   needs_candidate: { status: 409, error: 'conflict' },
   candidate_has_passed: { status: 409, error: 'conflict' },
+  chased_answer_required: { status: 400, error: 'invalid_request' },
   outcome_already_reported: { status: 409, error: 'conflict' },
   attendance_too_early: { status: 409, error: 'conflict' },
   attendance_not_reversible: { status: 409, error: 'conflict' },

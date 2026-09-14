@@ -887,7 +887,8 @@ export type Database = {
       confirm_meetup: {
         Args: {
           p_candidate_id: string
-          p_chased_answer?: string
+          p_chased_answer: string
+          p_expected_version: string
           p_note?: string
           p_place_name?: string
           p_place_url?: string
@@ -919,6 +920,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      confirmation_evidence: {
+        Args: { p_confirmation_id: string }
+        Returns: Json
       }
       create_circle: {
         Args: {

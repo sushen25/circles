@@ -49,6 +49,13 @@
 -- So the staleness is compared here, ahead of the guard, and raised as
 -- `stale_candidates`. What reaches `needs_candidate` afterwards is then true:
 -- the set is current and the id is not in it.
+--
+-- And "current" is measured against the version the *organiser* was shown,
+-- which they send, rather than against whatever is current by the time the tap
+-- arrives. An answer landing while the review screen is open recalculates
+-- inline (ADR 0018): there is a new current set, the chosen time may still be
+-- eligible in it, and confirming would freeze an availability list nobody
+-- looked at.
 -- ---------------------------------------------------------------------------
 
 create or replace function public.confirm_meetup(
@@ -56,11 +63,22 @@ create or replace function public.confirm_meetup(
   -- The ISO start of the chosen candidate. A candidate's identity is its time
   -- (`candidateIdOf`), because the set is recomputed whenever anybody answers.
   p_candidate_id text,
+  -- The version of the plan the organiser was looking at when they chose, as
+  -- `<revision>.<input_version>`. Not optional: "load the current candidate set
+  -- and check the candidate belongs to it" (architecture §9.1) is a question
+  -- about *which* set was on the screen, and a caller who cannot say has not
+  -- made the check — they have skipped it.
+  p_expected_version text,
+  -- "Did you have to chase anyone outside the app?" (spec §5.10). Required
+  -- here as well as in the request schema: this function is granted to
+  -- `authenticated`, so a client going straight to PostgREST is a client the
+  -- schema never saw, and the evidence for H2 is not optional because of the
+  -- door somebody came through. Ahead of the optional details for the ordinary
+  -- reason — a parameter with no default cannot follow one that has it.
+  p_chased_answer text,
   p_place_name text default null,
   p_place_url text default null,
-  p_note text default null,
-  -- "Did you have to chase anyone outside the app?" (spec §5.10).
-  p_chased_answer text default null
+  p_note text default null
 )
 returns public.meetup_confirmations
 language plpgsql
@@ -82,12 +100,29 @@ begin
     raise exception 'plan_not_found' using errcode = 'P0001';
   end if;
 
-  -- Is there a set for this plan as it stands? The three versions are the three
-  -- ways it can have moved since the organiser looked: a new revision (the
-  -- question changed), a new input version (somebody answered), a new scoring
-  -- version (the engine changed). `planning.candidate_is_eligible` compares the
-  -- same three — this is the same test, asked so that the answer can be a
-  -- reason rather than a boolean.
+  if p_chased_answer is null or p_chased_answer not in ('none', 'one', 'more') then
+    raise exception 'chased_answer_required' using errcode = 'P0001';
+  end if;
+
+  -- **The set the organiser was looking at**, not merely a set that is current.
+  --
+  -- Asking "is there a current set?" was not the freshness check it looked
+  -- like. An answer landing while the review screen is open recalculates
+  -- inline (ADR 0018), so by the time the organiser taps there is a *new*
+  -- current set — and if the time they chose is still eligible in it, the
+  -- confirmation freezes an availability list they never saw. Somebody who
+  -- withdrew appears on the card; somebody who just answered does not.
+  --
+  -- So the caller says which version they were shown, and it is compared here,
+  -- under the lock. The same argument `revise_plan` makes about a preview, and
+  -- the same token.
+  if p_expected_version is distinct from (plan.revision || '.' || plan.input_version) then
+    raise exception 'stale_candidates' using errcode = 'P0001';
+  end if;
+
+  -- And that version has to have a set, which is the other half: a plan can sit
+  -- at a version whose recalculation has not landed yet, and confirming then
+  -- would be confirming from a set that does not exist.
   if not exists (
     select 1 from public.candidate_sets cs
     where cs.plan_id = plan.id
@@ -123,12 +158,100 @@ begin
 end;
 $$;
 
-comment on function public.confirm_meetup(uuid, text, text, text, text, text) is
+comment on function public.confirm_meetup(uuid, text, text, text, text, text, text) is
   'Locks in a candidate as the calling organiser, through planning.transition_plan, and distinguishes a stale candidate set from a candidate that is not on offer.';
 
-revoke all on function public.confirm_meetup(uuid, text, text, text, text, text) from public;
-revoke all on function public.confirm_meetup(uuid, text, text, text, text, text) from anon, authenticated;
-grant execute on function public.confirm_meetup(uuid, text, text, text, text, text) to authenticated;
+revoke all on function public.confirm_meetup(uuid, text, text, text, text, text, text) from public;
+revoke all on function public.confirm_meetup(uuid, text, text, text, text, text, text) from anon, authenticated;
+grant execute on function public.confirm_meetup(uuid, text, text, text, text, text, text) to authenticated;
+
+-- supabase/sql/functions/public/confirmation_evidence.sql
+-- ---------------------------------------------------------------------------
+-- What became of a meetup, in numbers rather than names.
+--
+-- `attendance_select_member` shows a **retrospective** answer only to the person
+-- who gave it: "nobody is scored and nobody is told who came" (spec §5.10) is a
+-- policy, not a copy decision. Which means the organiser — the one person who
+-- needs to know whether their report was corroborated — cannot see the
+-- `was_there` rows that would corroborate it, and neither can the endpoint
+-- reading through their session.
+--
+-- So the counting happens here, where a definer function can see the rows, and
+-- what comes back has no identity in it at all: how many said they were there,
+-- how many said they missed it, and the one comparison the corroboration rule
+-- needs — whether anybody *other than the reporter* said they were there
+-- (§11.1: "corroborated happened" = at least one other member confirms).
+--
+-- The rule itself is not here. `corroborationOf` in `packages/domain` turns
+-- these facts into the word, because the metric and the screen have to agree
+-- about what corroboration means and a second copy of that is how they stop.
+-- ---------------------------------------------------------------------------
+
+create or replace function public.confirmation_evidence(p_confirmation_id uuid)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  confirmation public.meetup_confirmations;
+  circle uuid;
+  reporter uuid;
+  reported text;
+begin
+  select * into confirmation
+  from public.meetup_confirmations c where c.id = p_confirmation_id;
+  if not found then
+    raise exception 'confirmation_not_found' using errcode = 'P0001';
+  end if;
+
+  select p.circle_id into circle from public.plans p where p.id = confirmation.plan_id;
+
+  -- Definer, so RLS is not answering: the membership question has to be asked
+  -- out loud. Only active members of the circle see any of this (§8.2), and a
+  -- non-member gets the same answer as a confirmation that is not there.
+  if not public.auth_is_member(circle) then
+    raise exception 'confirmation_not_found' using errcode = 'P0001';
+  end if;
+
+  select r.reported_by, r.outcome into reporter, reported
+  from public.outcome_reports r
+  where r.confirmation_id = p_confirmation_id
+  order by r.reported_at
+  limit 1;
+
+  return jsonb_build_object(
+    'outcome', reported,
+    'was_there', (
+      select count(*) from public.attendance a
+      where a.confirmation_id = p_confirmation_id and a.status = 'was_there'
+    ),
+    'missed', (
+      select count(*) from public.attendance a
+      where a.confirmation_id = p_confirmation_id and a.status = 'missed'
+    ),
+    -- The one comparison, made here because it needs the ids and returns none
+    -- of them. False when nobody has reported: there is no reporter to be
+    -- "other than" yet.
+    'someone_else_was_there', coalesce((
+      select exists (
+        select 1 from public.attendance a
+        where a.confirmation_id = p_confirmation_id
+          and a.status = 'was_there'
+          and a.user_id is distinct from reporter
+      ) and reporter is not null
+    ), false)
+  );
+end;
+$$;
+
+comment on function public.confirmation_evidence(uuid) is
+  'How many said they were there or missed it, and whether anybody other than the reporter did — counts only, never identities. For members of the circle.';
+
+revoke all on function public.confirmation_evidence(uuid) from public;
+revoke all on function public.confirmation_evidence(uuid) from anon;
+grant execute on function public.confirmation_evidence(uuid) to authenticated;
 
 -- supabase/sql/functions/public/report_outcome.sql
 -- The one way a client reports an outcome (architecture §8.4: attendance is
