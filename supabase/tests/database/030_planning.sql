@@ -8,7 +8,7 @@
 -- either, so most of this file is about trying to write it some other way.
 
 begin;
-select plan(83);
+select plan(84);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid
@@ -380,6 +380,19 @@ select throws_ok(
   'P0001',
   'not_the_initiator',
   'another member cannot withdraw somebody else''s quiet ask'
+);
+
+-- Round 5: and not with a note. "Closed privately, nobody told" (spec §9) is
+-- what the silence in `event_for` is for, and `plans` is readable by the whole
+-- circle — so a cancel note would be the announcement in another form, in the
+-- initiator's own words. Refused rather than dropped: a client that sent one
+-- has misunderstood what a quiet withdrawal is.
+select throws_ok(
+  format($$select planning.transition_plan('%s', 'cancel', '%s', '{"cancel_note":"Nobody keen"}'::jsonb)$$,
+    :'plan_wd', '00000000-0000-0000-0000-0000000001a1'),
+  'P0001',
+  'unexpected_payload',
+  'a quiet ask is withdrawn without a note'
 );
 -- Being the initiator is not a way back into a circle you have left. The
 -- private row outlives the membership; removal revokes access immediately.

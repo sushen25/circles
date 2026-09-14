@@ -882,6 +882,7 @@ export type Database = {
           cadence?: string
           color: string
           idempotency_key: string
+          invite_secret_hash?: string
           name: string
           time_zone: string
         }

@@ -61,6 +61,15 @@ begin
     raise exception 'unexpected_payload' using errcode = 'P0001';
   end if;
 
+  -- The one key whose acceptability depends on the state it is used in, so
+  -- `allowed_keys` cannot say it. A cancel note is something to tell people, and
+  -- a quiet ask withdrawn before threshold tells nobody (spec §9) — while
+  -- `plans` is readable by the whole circle, so a note left on the row is the
+  -- announcement in another form, with the initiator's own words in it.
+  if rule.from_state = 'seeking' and p_action = 'cancel' and p_payload ? 'cancel_note' then
+    raise exception 'unexpected_payload' using errcode = 'P0001';
+  end if;
+
   foreach guard in array rule.guards loop
     case guard
       when 'member' then
@@ -264,10 +273,14 @@ begin
   -- The event, in the same transaction as the change (ADR 0003). Its name
   -- comes from the transition, not from the caller, and a transition without
   -- a name is refused rather than silently unannounced — `075_outbox_events`
-  -- walks the table so a new row cannot arrive without one. The one silence is
-  -- named here and there: `candidates_gone`, see `event_for`.
+  -- walks the table so a new row cannot arrive without one. The two silences
+  -- are named here and there: `candidates_gone`, and a quiet ask withdrawn
+  -- before threshold, which spec §9 closes "privately, nobody told". See
+  -- `event_for`.
   event_name := planning.event_for(rule.from_state, p_action);
-  if event_name is null and p_action not in ('candidates_gone') then
+  if event_name is null
+    and not (p_action = 'candidates_gone' or (p_action = 'cancel' and rule.from_state = 'seeking'))
+  then
     raise exception 'no outbox event for transition % / %', rule.from_state, p_action
       using errcode = 'P0001';
   end if;

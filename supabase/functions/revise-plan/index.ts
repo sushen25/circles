@@ -1,9 +1,13 @@
 import { DurationMinutes, RevisePlanRequest, RevisePlanResponse } from '@circles/contracts';
 import {
+  MAX_WINDOW_DAYS,
   invalidatedResponses,
   invalidatingChanges,
   isDeadlineAllowed,
+  isViableBand,
   lastPossibleStart,
+  validateBand,
+  windowDays,
   type UserId,
 } from '@circles/domain';
 
@@ -87,25 +91,53 @@ Deno.serve(
           ? body.response_deadline
           : undefined;
 
+      // The rules `create-plan` applies to a window, applied to the window an
+      // edit would leave behind. `plans` has a check constraint for each of
+      // these, so without them the answer to "180 minutes in a two-hour
+      // evening" was a constraint violation with no `ProblemReason` — an HTTP
+      // 500 for an ordinary mistake, and a preview that said it was fine.
+      const badBand = validateBand(after.daily);
+      if (badBand !== undefined) throw new Refusal(badBand, 'That time of day does not work.');
+      if (!isViableBand(after.daily, after.durationMinutes)) {
+        throw new Refusal('band_shorter_than_meetup', 'That is longer than the evening allows.');
+      }
+      if (after.window.end < after.window.start) {
+        throw new Refusal('window_backwards', 'That window ends before it starts.');
+      }
+      if (windowDays(after.window) > MAX_WINDOW_DAYS) {
+        throw new Refusal('window_too_long', `A window covers at most ${MAX_WINDOW_DAYS} days.`);
+      }
+
       // "Never after the last possible start" (spec §5.3), and never already
       // past — ADR 0010's deadline is a promise about when replies close, and a
       // deadline in the past closes them the instant it is saved, leaving a plan
-      // that can be neither answered nor recalculated. Judged against the *new*
-      // window, because one request may move both. `create-plan` asks the same
-      // domain function the same way; a plan could be created only with a valid
-      // deadline and then edited to any deadline at all.
+      // that can be neither answered nor recalculated. `create-plan` asks the
+      // same domain function the same way; a plan could be created only with a
+      // valid deadline and then edited to any deadline at all.
       //
-      // Only when it is changing: a plan whose deadline has quietly passed is
-      // still editable (§5.7 offers "give it one more day"), and refusing the
-      // whole request because a resubmitted form carried the old value would
-      // make it uneditable at exactly the moment it most needs editing.
-      if (changedDeadline !== undefined) {
-        if (!isDeadlineAllowed(toInstant(changedDeadline), lastPossibleStart(after), now())) {
-          throw new Refusal(
-            'deadline_out_of_range',
-            'Replies have to close in the future and before the last possible start.',
-          );
-        }
+      // The deadline judged is the one the plan would be left with, changed or
+      // not, against the window it would be left with. Shortening a window moves
+      // the last possible start *earlier*, so a deadline nobody touched can end
+      // up after it — the database refused that with a constraint the client
+      // could not read, which made a perfectly ordinary edit a 500.
+      //
+      // "Not in the past" applies only to a deadline that is being set. One that
+      // has quietly passed is not an error to fix: §5.7 offers "give it one more
+      // day" for exactly that plan, and refusing the request because a
+      // resubmitted form carried the old value would make it uneditable at the
+      // moment it most needs editing.
+      const effectiveDeadline = changedDeadline ?? before.response_deadline;
+      if (
+        !isDeadlineAllowed(
+          toInstant(effectiveDeadline),
+          lastPossibleStart(after),
+          changedDeadline === undefined ? undefined : now(),
+        )
+      ) {
+        throw new Refusal(
+          'deadline_out_of_range',
+          'Replies have to close in the future and before the last possible start.',
+        );
       }
 
       // The same question of the required list: sent is not changed. An edit form

@@ -137,8 +137,15 @@ as $$
     when 'report_outcome' then 'confirmation.outcome_reported'
     -- Cancelling a confirmed meetup is a different message from withdrawing
     -- an ask: "Thursday is off" goes to everyone who had it in a calendar.
+    --
+    -- And withdrawing a quiet ask before threshold is not a message at all:
+    -- "closed privately, nobody told" (spec §9). The circle was never told the
+    -- ask existed — `planning.quiet_ask_created` is addressed to the circle
+    -- without naming who — so an event saying it has been cancelled tells them
+    -- both that it existed and, by its timing, who ended it (§14).
     when 'cancel' then case p_from_state
       when 'confirmed' then 'confirmation.meetup_cancelled'
+      when 'seeking' then null
       else 'planning.plan_cancelled'
     end
     else null
@@ -212,6 +219,15 @@ begin
     select 1 from jsonb_object_keys(p_payload) k
     where k <> all (planning.allowed_keys(p_action))
   ) then
+    raise exception 'unexpected_payload' using errcode = 'P0001';
+  end if;
+
+  -- The one key whose acceptability depends on the state it is used in, so
+  -- `allowed_keys` cannot say it. A cancel note is something to tell people, and
+  -- a quiet ask withdrawn before threshold tells nobody (spec §9) — while
+  -- `plans` is readable by the whole circle, so a note left on the row is the
+  -- announcement in another form, with the initiator's own words in it.
+  if rule.from_state = 'seeking' and p_action = 'cancel' and p_payload ? 'cancel_note' then
     raise exception 'unexpected_payload' using errcode = 'P0001';
   end if;
 
@@ -418,10 +434,14 @@ begin
   -- The event, in the same transaction as the change (ADR 0003). Its name
   -- comes from the transition, not from the caller, and a transition without
   -- a name is refused rather than silently unannounced — `075_outbox_events`
-  -- walks the table so a new row cannot arrive without one. The one silence is
-  -- named here and there: `candidates_gone`, see `event_for`.
+  -- walks the table so a new row cannot arrive without one. The two silences
+  -- are named here and there: `candidates_gone`, and a quiet ask withdrawn
+  -- before threshold, which spec §9 closes "privately, nobody told". See
+  -- `event_for`.
   event_name := planning.event_for(rule.from_state, p_action);
-  if event_name is null and p_action not in ('candidates_gone') then
+  if event_name is null
+    and not (p_action = 'candidates_gone' or (p_action = 'cancel' and rule.from_state = 'seeking'))
+  then
     raise exception 'no outbox event for transition % / %', rule.from_state, p_action
       using errcode = 'P0001';
   end if;

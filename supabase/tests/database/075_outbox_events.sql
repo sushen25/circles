@@ -6,7 +6,7 @@
 -- count only (§6.3, §14).
 
 begin;
-select plan(38);
+select plan(39);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid language sql as $$
@@ -159,8 +159,13 @@ select is(
   (select coalesce(string_agg(from_state || '/' || action, ', '), '')
    from planning.transitions
    where planning.event_for(from_state, action) is null),
-  'ready/candidates_gone',
-  'every transition in planning.transitions has an outbox event name, except the one named silence'
+  'seeking/cancel, ready/candidates_gone',
+  'every transition in planning.transitions has an outbox event name, except the two named silences'
+);
+select is(
+  planning.event_for('seeking', 'cancel'),
+  null,
+  'withdrawing a quiet ask before threshold is "closed privately, nobody told" (spec §9) — an event would say it existed and, by its timing, who ended it'
 );
 select is(planning.event_for('confirmed', 'cancel'), 'confirmation.meetup_cancelled',
   'cancelling a confirmed meetup is a meetup_cancelled, not a plan_cancelled');

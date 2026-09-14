@@ -30,8 +30,15 @@ as $$
     when 'report_outcome' then 'confirmation.outcome_reported'
     -- Cancelling a confirmed meetup is a different message from withdrawing
     -- an ask: "Thursday is off" goes to everyone who had it in a calendar.
+    --
+    -- And withdrawing a quiet ask before threshold is not a message at all:
+    -- "closed privately, nobody told" (spec §9). The circle was never told the
+    -- ask existed — `planning.quiet_ask_created` is addressed to the circle
+    -- without naming who — so an event saying it has been cancelled tells them
+    -- both that it existed and, by its timing, who ended it (§14).
     when 'cancel' then case p_from_state
       when 'confirmed' then 'confirmation.meetup_cancelled'
+      when 'seeking' then null
       else 'planning.plan_cancelled'
     end
     else null

@@ -883,6 +883,41 @@ describe('revise-plan', () => {
     expect(called('revise_plan')).toHaveLength(0);
   });
 
+  it('refuses a duration the evening cannot hold', async () => {
+    // `plans_band_fits` refused this with a constraint the client cannot read,
+    // so an ordinary mistake was a 500 and the preview said it was fine.
+    const response = await load('revise-plan')(
+      post({
+        idempotency_key: KEY,
+        plan_id: PLAN_ID,
+        daily: { startMin: 1050, endMin: 1170 },
+        duration_minutes: 180,
+        preview: true,
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ reason: 'band_shorter_than_meetup' });
+  });
+
+  it('refuses a window that no longer leaves room for the deadline it keeps', async () => {
+    // Shortening a window moves the last possible start earlier, so a deadline
+    // nobody touched ends up after it. The plan's own deadline is 16 September;
+    // a window ending on the 15th puts it past the last moment the meetup could
+    // begin, and replies would close after the plan could no longer happen.
+    const response = await load('revise-plan')(
+      post({
+        idempotency_key: KEY,
+        plan_id: PLAN_ID,
+        window: { start: '2099-09-14', end: '2099-09-15' },
+      }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ reason: 'deadline_out_of_range' });
+    expect(called('revise_plan')).toHaveLength(0);
+  });
+
   it('refuses an edit that changes nothing', async () => {
     const response = await load('revise-plan')(post({ idempotency_key: KEY, plan_id: PLAN_ID }));
     expect(response.status).toBe(400);
