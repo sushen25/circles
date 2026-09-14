@@ -1,3 +1,4 @@
+import { CONSENT } from '@circles/config';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
@@ -184,6 +185,9 @@ const handlers = {
   'confirm-meetup': await serveOf('confirm-meetup'),
   'report-outcome': await serveOf('report-outcome'),
   'generate-ics': await serveOf('generate-ics'),
+  'request-email-updates': await serveOf('request-email-updates'),
+  'verify-email-contact': await serveOf('verify-email-contact'),
+  'manage-email-preferences': await serveOf('manage-email-preferences'),
 };
 
 function load(name: keyof typeof handlers): (request: Request) => Promise<Response> {
@@ -194,6 +198,15 @@ function post(body: unknown, bearer = 'a.token'): Request {
   return new Request('https://example.test/fn', {
     method: 'POST',
     headers: { authorization: `Bearer ${bearer}`, 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+}
+
+/** A link in an email is opened by somebody with no session at all. */
+function postWithoutSession(body: unknown): Request {
+  return new Request('https://example.test/fn', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body),
   });
 }
@@ -1937,5 +1950,198 @@ describe('generate-ics', () => {
   it('takes a GET and nothing else', async () => {
     const response = await load('generate-ics')(post({ confirmation_id: CONFIRMATION_ID }));
     expect(response.status).toBe(405);
+  });
+});
+
+describe('request-email-updates', () => {
+  const body = { idempotency_key: KEY, plan_id: PLAN_ID, email: 'Jules@example.com ' };
+
+  beforeEach(() => {
+    state.users = [{ id: CALLER, is_anonymous: false }];
+    state.answer = (fn) => {
+      if (fn === 'begin_request') {
+        return {
+          data: [{ state: 'fresh', response_status: null, response_body: null }],
+          error: null,
+        };
+      }
+      if (fn === 'take_rate_token') return { data: true, error: null };
+      if (fn === 'request_email_updates') return { data: { sent: true }, error: null };
+      return { data: null, error: null };
+    };
+  });
+
+  it('normalises the address before anybody stores or counts it', async () => {
+    // Trimmed, lower-cased, NFC. A person who typed the same address twice on
+    // two keyboards should not end up with two contacts, and the rate limit
+    // counts one address rather than its spellings.
+    await load('request-email-updates')(post(body));
+
+    expect(called('request_email_updates')[0]?.args['p_email']).toBe('jules@example.com');
+  });
+
+  it('says only "check your email", whatever happened', async () => {
+    // Verified already, suppressed after a bounce, held by somebody else, never
+    // seen: one answer. Anything else lets a member walk a list of addresses
+    // through a plan and learn which of their friends use the product.
+    state.answer = (fn) => {
+      if (fn === 'begin_request') {
+        return {
+          data: [{ state: 'fresh', response_status: null, response_body: null }],
+          error: null,
+        };
+      }
+      if (fn === 'take_rate_token') return { data: true, error: null };
+      if (fn === 'request_email_updates') return { data: { sent: false }, error: null };
+      return { data: null, error: null };
+    };
+
+    const response = await load('request-email-updates')(post(body));
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ status: 'check_email' });
+  });
+
+  it('sends the database a digest and keeps the token', async () => {
+    // The readable token exists in this request and in the email. It is never a
+    // statement parameter, because statement parameters end up in logs (§14).
+    const response = await load('request-email-updates')(post(body));
+    const answered = JSON.stringify(await response.json());
+
+    const hash = called('request_email_updates')[0]?.args['p_token_hash'] as string;
+    expect(hash).toMatch(/^\\x[0-9a-f]{64}$/);
+    expect(answered).not.toContain(hash);
+    expect(answered).not.toContain('jules@example.com');
+  });
+
+  it('records which words were consented to', async () => {
+    await load('request-email-updates')(post(body));
+
+    // A consent record that cannot say what was agreed is not one.
+    expect(called('request_email_updates')[0]?.args['p_consent_version']).toBe(CONSENT.version);
+  });
+
+  it('counts the attempt against the address, the caller and the connection', async () => {
+    await load('request-email-updates')(post(body));
+
+    expect(called('take_rate_token')).toHaveLength(3);
+  });
+
+  it('refuses a request that is not an address', async () => {
+    const response = await load('request-email-updates')(post({ ...body, email: 'not-an-email' }));
+
+    expect(response.status).toBe(400);
+    expect(called('request_email_updates')).toHaveLength(0);
+  });
+});
+
+describe('verify-email-contact', () => {
+  const TOKEN = 'a'.repeat(43);
+
+  beforeEach(() => {
+    state.answer = (fn) => {
+      if (fn === 'take_rate_token') return { data: true, error: null };
+      if (fn === 'verify_email_contact') {
+        return { data: { active_plan_ids: [PLAN_ID], already_confirmed: true }, error: null };
+      }
+      return { data: null, error: null };
+    };
+  });
+
+  it('takes no session at all', async () => {
+    // Somebody verifying may have cleared their storage or be on another
+    // device. Requiring a sign-in to confirm an address asks them to do the
+    // thing the address exists to avoid.
+    const response = await load('verify-email-contact')(postWithoutSession({ token: TOKEN }));
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      active_plan_ids: [PLAN_ID],
+      already_confirmed: true,
+    });
+  });
+
+  it('hashes the token on the way in', async () => {
+    await load('verify-email-contact')(postWithoutSession({ token: TOKEN }));
+
+    const args = called('verify_email_contact')[0]?.args;
+    expect(args?.['p_token_hash']).toMatch(/^\\x[0-9a-f]{64}$/);
+    expect(JSON.stringify(args)).not.toContain(TOKEN);
+  });
+
+  it('says one thing about a spent, expired or invented link', async () => {
+    state.answer = (fn) => {
+      if (fn === 'take_rate_token') return { data: true, error: null };
+      if (fn === 'verify_email_contact') {
+        return { data: null, error: { message: 'link_expired', code: 'P0001' } };
+      }
+      return { data: null, error: null };
+    };
+
+    const response = await load('verify-email-contact')(postWithoutSession({ token: TOKEN }));
+
+    expect(response.status).toBe(404);
+    expect(await response.json()).toMatchObject({ reason: 'link_expired' });
+  });
+});
+
+describe('manage-email-preferences', () => {
+  const TOKEN = 'b'.repeat(43);
+
+  beforeEach(() => {
+    state.answer = (fn) => {
+      if (fn === 'take_rate_token') return { data: true, error: null };
+      if (fn === 'email_preferences') {
+        return {
+          data: {
+            removed: false,
+            subscriptions: [
+              {
+                plan_id: PLAN_ID,
+                plan_title: 'Catch up',
+                circle_name: 'Sunday Crew',
+                active: true,
+              },
+            ],
+          },
+          error: null,
+        };
+      }
+      return { data: null, error: null };
+    };
+  });
+
+  it('shows what an address hears about, with no sign-in', async () => {
+    const response = await load('manage-email-preferences')(
+      postWithoutSession({ token: TOKEN, action: 'view' }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      subscriptions: [{ circle_name: 'Sunday Crew', active: true }],
+    });
+  });
+
+  it('stops one meetup, and needs to know which', async () => {
+    // "Stop emails for this meetup" is the narrow link; the broad one is a
+    // different action, not the same one with a field left out.
+    const refused = await load('manage-email-preferences')(
+      postWithoutSession({ token: TOKEN, action: 'stop_plan' }),
+    );
+    expect(refused.status).toBe(400);
+
+    await load('manage-email-preferences')(
+      postWithoutSession({ token: TOKEN, action: 'stop_plan', plan_id: PLAN_ID }),
+    );
+    expect(called('email_preferences')[0]?.args['p_plan_id']).toBe(PLAN_ID);
+  });
+
+  it('refuses a plan on an action that is not about one', async () => {
+    const response = await load('manage-email-preferences')(
+      postWithoutSession({ token: TOKEN, action: 'remove_contact', plan_id: PLAN_ID }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(called('email_preferences')).toHaveLength(0);
   });
 });

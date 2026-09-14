@@ -82,6 +82,10 @@ const REASONS: Record<ProblemReason, { status: number; error: Problem['error'] }
   deadline_out_of_range: { status: 400, error: 'invalid_request' },
   not_a_participant: { status: 400, error: 'invalid_request' },
 
+  // S1-18. A link in an email: spent, expired or never ours, and one answer for
+  // all three — telling them apart would say whether a token existed.
+  link_expired: { status: 404, error: 'not_found' },
+
   // S1-17. Locking a time in, and saying afterwards what became of it.
   stale_candidates: { status: 409, error: 'conflict' },
   needs_candidate: { status: 409, error: 'conflict' },

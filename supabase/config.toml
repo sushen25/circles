@@ -443,3 +443,13 @@ verify_jwt = false
 # `process-scheduled-jobs` will want the same line for the same reason (S1-20).
 [functions.recalculate-candidates]
 verify_jwt = false
+
+# The two links in an email. Opened by somebody who may have no account and no
+# session — an unsubscribe that needed a sign-in would not be one (spec §5.8) —
+# so the gateway has no JWT to check and the token in the body is the whole of
+# the authorisation: 256 bits, stored as a digest, single-use or expiring.
+[functions.verify-email-contact]
+verify_jwt = false
+
+[functions.manage-email-preferences]
+verify_jwt = false

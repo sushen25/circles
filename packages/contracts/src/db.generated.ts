@@ -1007,6 +1007,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      email_preferences: {
+        Args: { p_action: string; p_plan_id?: string; p_token_hash: string }
+        Returns: Json
+      }
       engine_input: { Args: { p_plan_id: string }; Returns: Json }
       finish_request: {
         Args: {
@@ -1044,6 +1048,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      issue_reentry_token: {
+        Args: { p_circle_id: string; p_token_hash: string; p_user_id: string }
+        Returns: string
       }
       member_cap: { Args: never; Returns: number }
       plan_candidate_summary: { Args: { p_plan_id: string }; Returns: Json }
@@ -1176,6 +1184,16 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      request_email_updates: {
+        Args: {
+          p_consent_version: string
+          p_email: string
+          p_plan_id: string
+          p_token_hash: string
+          p_user_id: string
+        }
+        Returns: Json
+      }
       revise_plan: {
         Args: {
           p_expected_version?: string
@@ -1204,6 +1222,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      verify_email_contact: { Args: { p_token_hash: string }; Returns: Json }
     }
     Enums: {
       [_ in never]: never

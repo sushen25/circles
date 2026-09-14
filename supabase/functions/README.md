@@ -8,22 +8,25 @@ function's `deno.json` points at.
 
 ## What is here
 
-| Folder                                                | What it does                                                                                                                                                |
-| ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`_shared/`](./_shared)                               | The kit every function is built from (S1-13)                                                                                                                |
-| [`redeem-invite/`](./redeem-invite)                   | Join a circle from its link (spec §5.1)                                                                                                                     |
-| [`reattach-member/`](./reattach-member)               | "Continue as", and the emailed way back in ([ADR 0006](../../docs/decisions/0006-continue-as-reattachment-without-owner-approval.md))                       |
-| [`claim-identity/`](./claim-identity)                 | Reconcile memberships when somebody saves their place (§10)                                                                                                 |
-| [`create-circle/`](./create-circle)                   | A circle and the link that fills it, in one transaction (§5.1)                                                                                              |
-| [`create-plan/`](./create-plan)                       | A named plan, from a preset and the circle's defaults (§5.3)                                                                                                |
-| [`revise-plan/`](./revise-plan)                       | Edit, adjust or reopen — and say first what it would cost ([ADR 0017](../../docs/decisions/0017-quorum-and-deadline-adjust-a-plan-without-a-revision.md))   |
-| [`cancel-plan/`](./cancel-plan)                       | Call it off, with an optional note (§5.7)                                                                                                                   |
-| [`submit-availability/`](./submit-availability)       | One member's answer, and the engine run in the same request ([ADR 0018](../../docs/decisions/0018-the-recalculation-runs-in-the-request-that-caused-it.md)) |
-| [`recalculate-candidates/`](./recalculate-candidates) | The engine, for a plan with no request of its own. Internal                                                                                                 |
-| [`confirm-meetup/`](./confirm-meetup)                 | The organiser locks a time in; it freezes there (§5.7)                                                                                                      |
-| [`report-outcome/`](./report-outcome)                 | "Did this catch-up happen?", and "I was there" (§5.10)                                                                                                      |
-| [`generate-ics/`](./generate-ics)                     | The confirmed meetup as a calendar file. A GET                                                                                                              |
-| [`hello/`](./hello)                                   | The import-path smoke test from S0-06. Not a product endpoint                                                                                               |
+| Folder                                                    | What it does                                                                                                                                                |
+| --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`_shared/`](./_shared)                                   | The kit every function is built from (S1-13)                                                                                                                |
+| [`redeem-invite/`](./redeem-invite)                       | Join a circle from its link (spec §5.1)                                                                                                                     |
+| [`reattach-member/`](./reattach-member)                   | "Continue as", and the emailed way back in ([ADR 0006](../../docs/decisions/0006-continue-as-reattachment-without-owner-approval.md))                       |
+| [`claim-identity/`](./claim-identity)                     | Reconcile memberships when somebody saves their place (§10)                                                                                                 |
+| [`create-circle/`](./create-circle)                       | A circle and the link that fills it, in one transaction (§5.1)                                                                                              |
+| [`create-plan/`](./create-plan)                           | A named plan, from a preset and the circle's defaults (§5.3)                                                                                                |
+| [`revise-plan/`](./revise-plan)                           | Edit, adjust or reopen — and say first what it would cost ([ADR 0017](../../docs/decisions/0017-quorum-and-deadline-adjust-a-plan-without-a-revision.md))   |
+| [`cancel-plan/`](./cancel-plan)                           | Call it off, with an optional note (§5.7)                                                                                                                   |
+| [`submit-availability/`](./submit-availability)           | One member's answer, and the engine run in the same request ([ADR 0018](../../docs/decisions/0018-the-recalculation-runs-in-the-request-that-caused-it.md)) |
+| [`recalculate-candidates/`](./recalculate-candidates)     | The engine, for a plan with no request of its own. Internal                                                                                                 |
+| [`confirm-meetup/`](./confirm-meetup)                     | The organiser locks a time in; it freezes there (§5.7)                                                                                                      |
+| [`report-outcome/`](./report-outcome)                     | "Did this catch-up happen?", and "I was there" (§5.10)                                                                                                      |
+| [`generate-ics/`](./generate-ics)                         | The confirmed meetup as a calendar file. A GET                                                                                                              |
+| [`request-email-updates/`](./request-email-updates)       | "Email me about this meetup", per plan and verified (§5.8)                                                                                                  |
+| [`verify-email-contact/`](./verify-email-contact)         | The link in the verification email. No session                                                                                                              |
+| [`manage-email-preferences/`](./manage-email-preferences) | Stopping it, with no sign-in. No session                                                                                                                    |
+| [`hello/`](./hello)                                       | The import-path smoke test from S0-06. Not a product endpoint                                                                                               |
 
 ## The shape of a function
 
@@ -48,10 +51,11 @@ Two other skeletons exist, for the two shapes that are not that one. Each keeps
 the reference, the CORS headers, the PII-free log line and the `Problem`
 mapping, and drops the steps that would be a lie for it:
 
-| Wrapper                                    | For                                                                                                             |
-| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------- |
-| [`internalHandler`](./_shared/internal.ts) | A function no person calls. The bearer is `CRON_SECRET`, checked in constant time; no actor, no idempotency key |
-| [`downloadHandler`](./_shared/download.ts) | A **GET** that answers with a file. Query string instead of a body; `Content-Disposition` instead of JSON       |
+| Wrapper                                    | For                                                                                                                   |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
+| [`internalHandler`](./_shared/internal.ts) | A function no person calls. The bearer is `CRON_SECRET`, checked in constant time; no actor, no idempotency key       |
+| [`downloadHandler`](./_shared/download.ts) | A **GET** that answers with a file. Query string instead of a body; `Content-Disposition` instead of JSON             |
+| [`linkHandler`](./_shared/link.ts)         | A function a **link** authorises. No actor at all: the token in the body is ≥256 bits and the whole of the permission |
 
 A mode on `jsonHandler` would have been worse than a second function: every step
 that differs is a step it must _not_ take — `getUser` on a shared secret is a
@@ -94,6 +98,21 @@ re-derive what the trigger already knows.
 through the same policy for the same reason. It is an endpoint only because the
 organiser's outcome, which is not a member's row at all, is the other half of
 the same screen's work.
+
+## Two other things that are deliberately not a function
+
+**An address never leaves.** `private.email_contacts` is the only table that
+holds one, and nothing above it returns one: not a DTO, not a log line, not an
+analytics payload, not a `Problem`. `request-email-updates` answers
+`{ status: 'check_email' }` whether the address was new, already verified, held
+by somebody else or suppressed after a bounce — because four different answers
+would let a member walk a list of addresses through a plan and learn which of
+their friends use the product.
+
+**A token is minted here and stored as a digest.** `_shared/tokens.ts` generates
+32 bytes and passes the SHA-256; the readable form exists in the request that
+made it and in the email, and nowhere else. A token generated in SQL would have
+been a statement parameter, and statement parameters end up in logs.
 
 ## Errors
 
