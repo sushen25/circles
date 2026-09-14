@@ -16,7 +16,17 @@ import { type Interval, contains, intersect, interval, merge } from '../shared/i
 import { addDays } from '../shared/local-date.js';
 import { ceilToLocalSlot, floorToLocalSlot, fromLocal, fromLocalEnd } from '../shared/zone.js';
 import { type Result, err, ok } from '../shared/result.js';
-import type { Plan } from '../planning/types.js';
+import type { PlanTiming } from '../planning/types.js';
+
+/**
+ * What any of this needs to know about a plan: when it runs, not what it is.
+ *
+ * `PlanTiming` rather than `Plan`, because the server has a database row and
+ * not an aggregate — `submit-availability` reads six columns to normalise an
+ * answer, and requiring the whole plan would have it assemble an organiser, a
+ * title and a short code to ask which half hours exist. The same widening the
+ * deadline rules took, for the same reason.
+ */
 
 export type WindowError =
   | { readonly code: 'outside_plan_window'; readonly window: Interval }
@@ -30,7 +40,7 @@ export type WindowError =
  * day the clocks change is 23 or 25 hours long and the band still starts and
  * ends at the local times people were shown.
  */
-export function planDays(plan: Plan): Interval[] {
+export function planDays(plan: PlanTiming): Interval[] {
   const days: Interval[] = [];
   let date = plan.window.start;
   while (date <= plan.window.end) {
@@ -50,7 +60,7 @@ export function planDays(plan: Plan): Interval[] {
 }
 
 /** The whole plan, end to end, for a cheap "is this anywhere near it?" test. */
-export function planBounds(plan: Plan): Interval {
+export function planBounds(plan: PlanTiming): Interval {
   const days = planDays(plan);
   const first = days[0];
   const last = days[days.length - 1];
@@ -71,7 +81,7 @@ export function planBounds(plan: Plan): Interval {
  */
 export function normaliseWindows(
   windows: readonly Interval[],
-  plan: Plan,
+  plan: PlanTiming,
 ): Result<WindowError, Interval[]> {
   const days = planDays(plan);
   const kept: Interval[] = [];
@@ -140,16 +150,16 @@ export function canHostDuration(windows: readonly Interval[], durationMinutes: n
  * never asked about. `normaliseWindows` is what turns an overlapping window
  * into contained ones.
  */
-export function isWithinPlan(window: Interval, plan: Plan): boolean {
+export function isWithinPlan(window: Interval, plan: PlanTiming): boolean {
   return planDays(plan).some((day) => contains(day, window));
 }
 
 /** Whether any part of the window falls inside the plan. */
-export function overlapsPlan(window: Interval, plan: Plan): boolean {
+export function overlapsPlan(window: Interval, plan: PlanTiming): boolean {
   return planDays(plan).some((day) => intersect(day, window) !== null);
 }
 
 /** The day a moment belongs to, as one of the plan's day spans. */
-export function dayOf(plan: Plan, at: Instant): Interval | undefined {
+export function dayOf(plan: PlanTiming, at: Instant): Interval | undefined {
   return planDays(plan).find((day) => at >= day.start && at < day.end);
 }

@@ -865,6 +865,13 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      candidate_summary: {
+        Args: {
+          p_stored: boolean
+          plan: Database["public"]["Tables"]["plans"]["Row"]
+        }
+        Returns: Json
+      }
       canonical_display_name: { Args: { value: string }; Returns: string }
       claim_identity: {
         Args: {
@@ -959,6 +966,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      engine_input: { Args: { p_plan_id: string }; Returns: Json }
       finish_request: {
         Args: {
           p_body: Json
@@ -1133,6 +1141,15 @@ export type Database = {
           p_plan_id: string
           p_reopen?: boolean
           p_required_member_ids?: string[]
+        }
+        Returns: Json
+      }
+      store_candidate_set: {
+        Args: {
+          p_input_version: number
+          p_plan_id: string
+          p_revision: number
+          p_set: Json
         }
         Returns: Json
       }

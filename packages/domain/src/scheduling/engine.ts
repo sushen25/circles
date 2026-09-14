@@ -316,6 +316,8 @@ export function generateCandidates(input: EngineInput): CandidateSet {
       start: s.start,
       end: s.end,
       availableUserIds: s.available,
+      explicitCount: s.explicitCount,
+      flexibleCount: s.flexibleCount,
       reason: nearMissReason(s, plan),
       // Near-misses are not ranked against each other the way candidates are —
       // nothing here is on offer, so "one fewer, weekend" would be explaining a

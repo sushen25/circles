@@ -297,7 +297,7 @@ select pg_temp.act_as('00000000-0000-0000-0000-0000000002a4');
 select throws_ok(
   format($$select public.replace_response('%s', 1, 'flexible')$$, (select plan_id from tp)),
   '42501',
-  null,
+  'plan_not_found',
   'somebody outside the circle cannot answer, and learns nothing about the plan from the refusal'
 );
 
@@ -311,7 +311,7 @@ select pg_temp.act_as('00000000-0000-0000-0000-0000000002a5');
 select throws_ok(
   format($$select public.replace_response('%s', 1, 'flexible')$$, (select plan_id from tp)),
   '42501',
-  null,
+  'not_a_participant',
   'a member the plan was not addressed to cannot answer it'
 );
 
@@ -323,8 +323,8 @@ select pg_temp.act_as('00000000-0000-0000-0000-0000000002a3');
 select throws_ok(
   format($$select public.replace_response('%s', 2, 'flexible')$$, (select plan_id from tp)),
   '40001',
-  null,
-  'an answer to a revision the plan is not at is refused — with its own code, so the client re-asks'
+  'stale_revision',
+  'an answer to a revision the plan is not at is refused — by a name an endpoint can translate, so the client re-asks rather than seeing a 500'
 );
 
 -- Replies close at the deadline (spec §5.5) …
@@ -338,7 +338,7 @@ select pg_temp.act_as('00000000-0000-0000-0000-0000000002a3');
 select throws_ok(
   format($$select public.replace_response('%s', 1, 'flexible')$$, (select plan_id from tp)),
   '23514',
-  null,
+  'replies_closed',
   'after the deadline, replies are closed'
 );
 select pg_temp.act_as_postgres();

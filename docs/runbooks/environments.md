@@ -185,8 +185,12 @@ alter database postgres set circles.functions_url = 'https://<ref>.supabase.co/f
 alter database postgres set circles.cron_secret = '<the same value as CRON_SECRET>';
 ```
 
-`CRON_SECRET` is also set with `supabase secrets set`, because
-`process-scheduled-jobs` compares the bearer it receives against it. Until both
+`CRON_SECRET` is also set with `supabase secrets set`, because the internal
+functions compare the bearer they receive against it — `process-scheduled-jobs`,
+and `recalculate-candidates`, which the dispatcher calls for a plan whose inputs
+changed with no request of its own to run in. Until it is set they refuse every
+call, which is the safe direction: an internal endpoint anybody can reach
+because a secret is missing is worse than one nobody can reach. Until both
 settings exist the minute job is a no-op — `jobs.invoke_process_scheduled_jobs()`
 returns null and makes no call — so a fresh project or a local stack does not
 log a failed HTTP call every minute. To check a project: run the function by
