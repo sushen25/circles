@@ -152,6 +152,13 @@ grant execute on function private.email_recipients_for(uuid) to service_role;
 -- the private thing, and "remove" has to mean the address is gone. What stays
 -- is the hash in `email_suppressions`, which is what makes the promise
 -- permanent — a contact created for that address later arrives suppressed.
+--
+-- **Every contact holding that address, not only this one.** Suppression has
+-- crossed the siblings since 0009, and retention "deliberately does not delete
+-- suppressed contacts" — so deleting one row and suppressing the rest left the
+-- plaintext sitting in a sibling for ever, which is the thing the link promised
+-- to undo. The siblings are already unreachable by then; what was left was the
+-- address and nothing else.
 -- ---------------------------------------------------------------------------
 
 create or replace function public.email_preferences(
@@ -166,6 +173,7 @@ set search_path = ''
 as $$
 declare
   token private.email_action_tokens;
+  owner private.email_contacts;
   stopped private.email_subscriptions;
   removed boolean := false;
 begin
@@ -176,6 +184,8 @@ begin
   if not found then
     raise exception 'link_expired' using errcode = 'P0001';
   end if;
+
+  select * into owner from private.email_contacts c where c.id = token.contact_id;
 
   if p_action = 'stop_plan' then
     -- Immediately, and only this plan's. "Stop emails for this meetup" is the
@@ -198,11 +208,18 @@ begin
     end if;
 
   elsif p_action = 'remove_contact' then
+    -- Withdrawn across the address, one row at a time so that every consent
+    -- ending has an event of its own: a subscription that vanished with its
+    -- contact and told nothing downstream is a consent record that stops
+    -- without a reason attached to it.
     for stopped in
       update private.email_subscriptions s
       set status = 'withdrawn', withdrawn_at = now(), updated_at = now()
-      where s.contact_id = token.contact_id and s.status = 'active'
-      returning *
+      from private.email_contacts c
+      where c.id = s.contact_id
+        and c.email_hash = owner.email_hash
+        and s.status = 'active'
+      returning s.*
     loop
       perform jobs.emit('communication.subscription_changed', 'subscription', stopped.id,
         jsonb_build_object(
@@ -215,28 +232,27 @@ begin
 
     -- Suppressed first, because that is what writes the tombstone: the
     -- `record_suppression` trigger records the hash in a table nothing deletes
-    -- from, and carries the suppression across every other contact holding the
-    -- same address. Doing the insert here by hand would be the same rule
-    -- written twice.
+    -- from. Doing the insert here by hand would be the same rule written twice.
     update private.email_contacts c
     set status = 'suppressed',
         suppressed_at = now(),
         suppression_reason = 'unsubscribed',
         verified_at = null,
         updated_at = now()
-    where c.id = token.contact_id and c.status <> 'suppressed';
+    where c.email_hash = owner.email_hash and c.status <> 'suppressed';
 
-    -- And then the address itself goes. "Remove" is what the link says and what
-    -- §14 promises — "purges private data" — so leaving the plaintext in
-    -- `email_normalized` for ever because the row is merely marked suppressed
-    -- would be answering a different request. The tombstone is a hash and
-    -- survives; so does the promise it carries, because a contact inserted for
-    -- that address later arrives suppressed.
+    -- And then the address itself goes, from every row that held it. "Remove"
+    -- is what the link says and what §14 promises — "purges private data" — so
+    -- leaving the plaintext in a sibling's `email_normalized` for ever because
+    -- that row is merely marked suppressed would be answering a different
+    -- request, and retention never comes for a suppressed contact. The
+    -- tombstone is a hash and survives; so does the promise it carries, because
+    -- a contact inserted for that address later arrives suppressed.
     --
     -- The cascade takes the subscriptions, the tokens — including this one, so
     -- the link stops working, which is the honest state — and any queued email.
     -- Somebody who asked to be forgotten should not receive tomorrow's reminder.
-    delete from private.email_contacts c where c.id = token.contact_id;
+    delete from private.email_contacts c where c.email_hash = owner.email_hash;
 
     removed := true;
 
@@ -253,13 +269,18 @@ begin
             'plan_id', s.plan_id,
             'plan_title', p.title,
             'circle_name', ci.name,
-            'active', s.status = 'active'
+            -- Active means "will actually be emailed", which is the
+            -- question the page is answering. A subscription left active
+            -- under a contact that bounced, or that a sibling had removed,
+            -- would show as on while `email_recipients_for` skips it.
+            'active', s.status = 'active' and c.status = 'verified'
           )
           order by p.window_start desc, s.plan_id
         ),
         '[]'::jsonb
       )
       from private.email_subscriptions s
+      join private.email_contacts c on c.id = s.contact_id
       join public.plans p on p.id = s.plan_id
       join public.circles ci on ci.id = p.circle_id
       where s.contact_id = token.contact_id
@@ -269,7 +290,7 @@ end;
 $$;
 
 comment on function public.email_preferences(bytea, text, uuid) is
-  'Reads or withdraws one contact''s plan-update subscriptions from a long-lived prefs token, with no sign-in. Removing the contact suppresses the address by hash, permanently. Service role only.';
+  'Reads or withdraws one contact''s plan-update subscriptions from a long-lived prefs token, with no sign-in. Removing suppresses the address by hash, permanently, and deletes every contact that held it. Service role only.';
 
 revoke all on function public.email_preferences(bytea, text, uuid) from public;
 revoke all on function public.email_preferences(bytea, text, uuid) from anon, authenticated;
@@ -285,10 +306,14 @@ grant execute on function public.email_preferences(bytea, text, uuid) to service
 -- single-use, and consumed by `reattach-member` (S1-13), which moves the
 -- membership onto whatever identity the browser has now.
 --
--- Refused for a saved-place identity, and not by this function: the trigger
--- `enforce_reentry_for_guests` does it, because a re-entry link for somebody
--- who signs in is a sign-in bypass, and that is a rule the table holds rather
--- than one each caller remembers.
+-- **Null for a saved-place identity**, because that is not a fault. Every event
+-- email carries a re-entry link and permanent members get event email too; the
+-- template simply leaves the link out for somebody who can sign in. Reaching
+-- the table's own guard instead — `enforce_reentry_for_guests`, which raises
+-- `check_violation` — turned an ordinary rendering decision into a SQLSTATE
+-- nothing can translate and a 500 for the reader. The trigger stays: it is the
+-- rule, and this is the answer the one caller needs. A sign-in bypass is still
+-- impossible, now twice over.
 --
 -- Service role only. It mints nothing itself — the Edge Function generates the
 -- token and passes the digest, so the readable form is never a statement
@@ -309,6 +334,13 @@ declare
   contact_id uuid;
   token_id uuid;
 begin
+  -- Somebody who signs in needs no way back, so there is nothing to issue and
+  -- nothing has gone wrong. Checked before the membership, because a permanent
+  -- identity's membership is beside the point.
+  if exists (select 1 from public.profiles pr where pr.user_id = p_user_id and pr.is_permanent) then
+    return null;
+  end if;
+
   -- The membership has to be one. A token for a circle this person is not in
   -- would be a link back into somebody else's circle, and the foreign key that
   -- would have caught it raises a SQLSTATE nothing can translate — a 500 for an
@@ -344,20 +376,93 @@ end;
 $$;
 
 comment on function public.issue_reentry_token(uuid, uuid, bytea) is
-  'Stores the digest of a seven-day single-use re-entry token for a guest membership. The token itself is minted in the Edge Function and never reaches the database. Service role only.';
+  'Stores the digest of a seven-day single-use re-entry token for a guest membership, and returns null for a saved-place identity, which needs no link. The token itself is minted in the Edge Function and never reaches the database. Service role only.';
 
 revoke all on function public.issue_reentry_token(uuid, uuid, bytea) from public;
 revoke all on function public.issue_reentry_token(uuid, uuid, bytea) from anon, authenticated;
 grant execute on function public.issue_reentry_token(uuid, uuid, bytea) to service_role;
 
+-- supabase/sql/functions/public/issue_verification_token.sql
+-- ---------------------------------------------------------------------------
+-- The link that goes in the verification email, minted when the email is sent.
+--
+-- The readable token exists in two places and no others: the sender's memory
+-- for the length of one send, and the letter itself (§14). That is only
+-- possible if it is made at send time — a token minted when the person asked
+-- would have to travel to the sender somehow, and every route is one this
+-- repository has closed: `jobs.notification_jobs` carries ids and no payload,
+-- `jobs.outbox` refuses a key called `token`, and the token table holds a
+-- digest. ADR 0020 records the decision; `request_email_updates` writes the
+-- job that brings the dispatcher here.
+--
+-- **Null is an ordinary answer.** By the time a queued `verify_email` is
+-- drained, the contact may have been verified by another link, suppressed by a
+-- bounce, or removed by its owner. None of those is a failure the sender should
+-- retry — the job is simply skipped — and an exception for each would make a
+-- routine outcome look like a fault.
+--
+-- "Resend invalidates the previous token" (spec §5.8) lives here now, because
+-- here is where a token starts existing. Spent rather than deleted, so somebody
+-- clicking the older link is told it is used rather than that it never was.
+-- ---------------------------------------------------------------------------
+
+create or replace function public.issue_verification_token(
+  p_contact_id uuid,
+  p_token_hash bytea
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  contact private.email_contacts;
+  token_id uuid;
+begin
+  -- Locked, because two dispatcher workers draining two jobs for one contact
+  -- would otherwise each spend the other's token and send two letters of which
+  -- only the later works.
+  select * into contact from private.email_contacts c where c.id = p_contact_id for update;
+
+  if not found or contact.status <> 'pending' then
+    return null;
+  end if;
+
+  update private.email_action_tokens t
+  set used_at = now()
+  where t.contact_id = p_contact_id and t.purpose = 'verify' and t.used_at is null;
+
+  insert into private.email_action_tokens (contact_id, purpose, token_hash, expires_at)
+  values (p_contact_id, 'verify', p_token_hash, now() + interval '24 hours')
+  returning id into token_id;
+
+  return token_id;
+end;
+$$;
+
+comment on function public.issue_verification_token(uuid, bytea) is
+  'Stores the digest of a 24-hour single-use verification token and spends the contact''s previous ones. Null when there is nothing left to verify, which the sender treats as a skipped job. The token itself is minted in the Edge Function. Service role only.';
+
+revoke all on function public.issue_verification_token(uuid, bytea) from public;
+revoke all on function public.issue_verification_token(uuid, bytea) from anon, authenticated;
+grant execute on function public.issue_verification_token(uuid, bytea) to service_role;
+
 -- supabase/sql/functions/public/request_email_updates.sql
 -- ---------------------------------------------------------------------------
 -- "Email me about this meetup."
 --
--- Four writes that have to happen together or not at all: the contact, the
--- consent, the verification token, and the job that sends it. A contact with no
--- token is an address stored for nothing; a token with no job is a link nobody
--- receives; a job with no subscription would send an email nobody asked for.
+-- Three writes that have to happen together or not at all: the contact, the
+-- consent, and the job that sends the verification email. A contact with no job
+-- is an address stored for nothing; a job with no subscription would send an
+-- email nobody asked for.
+--
+-- **The token is not one of them.** It is minted when the email is sent, by
+-- whoever sends it (ADR 0020) — a token minted here has no way of reaching the
+-- letter: `jobs.notification_jobs` carries ids and no payload, the outbox
+-- refuses any key named `token`, and the row in `email_action_tokens` holds
+-- only a digest. An earlier draft took `p_token_hash`, wrote the row, and threw
+-- the readable half away in the Edge Function, which made every verification
+-- link unsendable and every token row expire unused.
 --
 -- **One address can belong to two identities.** Uniqueness has been
 -- `(email_hash, user_id)` since 0009 — "two guest memberships may each be
@@ -387,8 +492,12 @@ create or replace function public.request_email_updates(
   -- Already trimmed, lower-cased and NFC-normalised by the request schema; the
   -- column's own check refuses anything else, so the two agree.
   p_email text,
-  p_token_hash bytea,
-  p_consent_version text
+  p_consent_version text,
+  -- The request this is, which is what architecture §13 calls the occurrence
+  -- for `verify_email`: a retry never reaches this function (the idempotency
+  -- claim answers it), and a genuine resend is a new request and so a new
+  -- email. Not a token id any more, because there is no token here to name.
+  p_request_id text
 )
 returns jsonb
 language plpgsql
@@ -399,7 +508,6 @@ declare
   plan public.plans;
   contact private.email_contacts;
   subscription private.email_subscriptions;
-  token_id uuid;
 begin
   select * into plan from public.plans p where p.id = p_plan_id;
   if not found then
@@ -476,44 +584,35 @@ begin
     return jsonb_build_object('sent', false);
   end if;
 
-  -- "Resend invalidates the previous token" (spec §5.8). Spent rather than
-  -- deleted, so a person clicking the older link is told it is used rather than
-  -- that it never existed.
-  update private.email_action_tokens t
-  set used_at = now()
-  where t.contact_id = contact.id and t.purpose = 'verify' and t.used_at is null;
-
-  insert into private.email_action_tokens (contact_id, purpose, token_hash, expires_at)
-  values (contact.id, 'verify', p_token_hash, now() + interval '24 hours')
-  returning id into token_id;
-
   insert into jobs.notification_jobs (
     channel, kind, contact_id, plan_id, plan_revision, scheduled_for, idempotency_key
   )
   values (
     'email', 'verify_email', contact.id, p_plan_id, plan.revision, now(),
-    -- Architecture §13's key, composed here because the occurrence is the token
-    -- this statement just made: a retry of the same request finds the same
-    -- token and writes no second email, while a genuine resend mints a new one
-    -- and therefore is one.
+    -- Architecture §13's key, composed the one way (`jobs.idempotency_key`).
+    -- The dispatcher will mint the token for this job when it sends it and
+    -- spend whatever came before (`public.issue_verification_token`), which is
+    -- where "resend invalidates the previous token" (spec §5.8) now lives:
+    -- one job, one letter, one live link.
     jobs.idempotency_key(
       'email', contact.id::text, p_plan_id::text, plan.revision::text,
-      'verify_email', token_id::text)
+      'verify_email', p_request_id)
   )
-  -- A retry of the same request makes no second email; a genuine resend carries
-  -- a new token, and the token's id is the occurrence in the key.
+  -- Belt and braces behind the idempotency claim in the Edge Function, which is
+  -- what actually answers a retry: the same request id twice is the same key,
+  -- and the second insert is the no-op it should be.
   on conflict (idempotency_key) do nothing;
 
-  return jsonb_build_object('sent', true, 'token_id', token_id);
+  return jsonb_build_object('sent', true);
 end;
 $$;
 
-comment on function public.request_email_updates(uuid, uuid, text, bytea, text) is
-  'Records consent to plan-update email for one plan, mints the verification token and enqueues the email. One address may belong to two identities; suppression is decided by the insert trigger. Answers the same way whatever happened. Service role only.';
+comment on function public.request_email_updates(uuid, uuid, text, text, text) is
+  'Records consent to plan-update email for one plan and enqueues the verification email; the token is minted by the sender (ADR 0020). One address may belong to two identities; suppression is decided by the insert trigger. Answers the same way whatever happened. Service role only.';
 
-revoke all on function public.request_email_updates(uuid, uuid, text, bytea, text) from public;
-revoke all on function public.request_email_updates(uuid, uuid, text, bytea, text) from anon, authenticated;
-grant execute on function public.request_email_updates(uuid, uuid, text, bytea, text) to service_role;
+revoke all on function public.request_email_updates(uuid, uuid, text, text, text) from public;
+revoke all on function public.request_email_updates(uuid, uuid, text, text, text) from anon, authenticated;
+grant execute on function public.request_email_updates(uuid, uuid, text, text, text) to service_role;
 
 -- supabase/sql/functions/public/verify_email_contact.sql
 -- ---------------------------------------------------------------------------
@@ -548,10 +647,9 @@ as $$
 declare
   token private.email_action_tokens;
   contact private.email_contacts;
-  live_plans uuid[];
-  confirmed_plan uuid;
-  confirmation uuid;
-  confirmed_revision integer;
+  own_plans uuid[];
+  decided record;
+  already_confirmed boolean;
 begin
   update private.email_action_tokens t
   set used_at = now()
@@ -593,43 +691,68 @@ begin
     and p.id = s.plan_id
     and p.state in ('completed', 'cancelled', 'expired');
 
-  -- What this address will now hear about: an active subscription held by a
-  -- contact whose owner is still an active member. A removal ends the plan for
+  -- What *this* identity will now hear about: an active subscription of their
+  -- own, on a plan whose circle they are still in. A removal ends the plan for
   -- them (AGENTS.md: "only active members see or act on it"), and the channel
   -- being email does not change that.
+  --
+  -- Their own, and not the address's: verification crosses the siblings because
+  -- the address is what is being proved, but the *answer* goes to one browser
+  -- held by one identity, and the plans another identity is subscribed to are
+  -- not theirs to be told about. Spec §9: memberships are not revealed to each
+  -- other, and two guests at one mailbox are still two people.
   select coalesce(array_agg(distinct s.plan_id), array[]::uuid[])
-  into live_plans
+  into own_plans
   from private.email_subscriptions s
-  join private.email_contacts c on c.id = s.contact_id
   join public.plans p on p.id = s.plan_id
-  join public.circle_members m on m.circle_id = p.circle_id and m.user_id = c.user_id
-  where c.email_hash = contact.email_hash
+  join public.circle_members m on m.circle_id = p.circle_id and m.user_id = contact.user_id
+  where s.contact_id = contact.id
     and s.status = 'active'
     and m.status = 'active';
 
-  -- The current state, once, for somebody who verified after it was decided.
-  select mc.plan_id, mc.id, mc.revision into confirmed_plan, confirmation, confirmed_revision
-  from public.meetup_confirmations mc
-  where mc.plan_id = any (live_plans) and mc.status = 'active'
-  order by mc.confirmed_at desc
-  limit 1;
+  -- The current state, once, for somebody who verified after it was decided —
+  -- and once *per subscription*, against the contact that holds it.
+  --
+  -- The recipient is the subscription's contact, never the one the link named.
+  -- Writing `contact.id` for a sibling's plan produced a job for somebody who
+  -- is not in that circle: `email_recipients_for` names a different contact, so
+  -- a drain racing this verification sends the same letter twice; the re-entry
+  -- link the template needs raises `not_a_member`; and the "stop this meetup"
+  -- link in it is scoped to a subscription that does not exist. One row per
+  -- (contact, confirmed plan), for the same reason `live_plans` was a set: an
+  -- address subscribed to two decided plans is owed both.
+  already_confirmed := false;
 
-  if confirmation is not null then
+  for decided in
+    select s.contact_id, s.plan_id, mc.id as confirmation_id, mc.revision
+    from private.email_subscriptions s
+    join private.email_contacts c on c.id = s.contact_id
+    join public.plans p on p.id = s.plan_id
+    join public.circle_members m on m.circle_id = p.circle_id and m.user_id = c.user_id
+    join public.meetup_confirmations mc on mc.plan_id = p.id and mc.status = 'active'
+    where c.email_hash = contact.email_hash
+      and s.status = 'active'
+      and m.status = 'active'
+  loop
     insert into jobs.notification_jobs (
       channel, kind, contact_id, plan_id, plan_revision, scheduled_for, idempotency_key
     )
     values (
-      'email', 'locked_in', contact.id, confirmed_plan, confirmed_revision, now(),
+      'email', 'locked_in', decided.contact_id, decided.plan_id, decided.revision, now(),
       -- Architecture §13's key, composed the one way (`jobs.idempotency_key`),
       -- so that the dispatcher's own `locked_in` for this recipient and this
       -- confirmation *is* this job: verifying late cannot produce a second copy
       -- of an email they have already had.
       jobs.idempotency_key(
-        'email', contact.id::text, confirmed_plan::text, confirmed_revision::text,
-        'locked_in', confirmation::text)
+        'email', decided.contact_id::text, decided.plan_id::text, decided.revision::text,
+        'locked_in', decided.confirmation_id::text)
     )
     on conflict (idempotency_key) do nothing;
-  end if;
+
+    if decided.plan_id = any (own_plans) then
+      already_confirmed := true;
+    end if;
+  end loop;
 
   -- About the contact, not about a plan: this happens once per address, and
   -- which plans it turned out to be subscribed to is a consequence rather than
@@ -639,14 +762,14 @@ begin
     jsonb_build_object('contact_id', contact.id, 'user_id', contact.user_id));
 
   return jsonb_build_object(
-    'active_plan_ids', to_jsonb(live_plans),
-    'already_confirmed', confirmation is not null
+    'active_plan_ids', to_jsonb(own_plans),
+    'already_confirmed', already_confirmed
   );
 end;
 $$;
 
 comment on function public.verify_email_contact(bytea) is
-  'Consumes a verification token in one statement and verifies every contact holding that address, drops subscriptions to finished plans and to circles the person has left, and sends the current state once if a meetup is already locked in. Service role only.';
+  'Consumes a verification token in one statement and verifies every contact holding that address, drops subscriptions to finished plans, and queues the current state for each decided plan against the contact that subscribed to it. Answers with the clicking identity''s own plans only. Service role only.';
 
 revoke all on function public.verify_email_contact(bytea) from public;
 revoke all on function public.verify_email_contact(bytea) from anon, authenticated;

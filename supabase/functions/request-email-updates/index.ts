@@ -3,7 +3,6 @@ import { RequestEmailUpdatesRequest, type RequestEmailUpdatesResponse } from '@c
 
 import { jsonHandler } from '../_shared/http.ts';
 import { callerAddress, enforce } from '../_shared/rate.ts';
-import { mintToken, tokenHash } from '../_shared/tokens.ts';
 
 /**
  * "Email me about this meetup" (spec §5.8).
@@ -44,23 +43,27 @@ Deno.serve(
         { scope: 'email_request_ip', key: callerAddress(request), max: 20, window: '1 day' },
       ]);
     },
-    handle: async ({ body, actor, service }): Promise<RequestEmailUpdatesResponse> => {
-      // Minted here and hashed on the way in: the readable token exists in this
-      // request and in the email, and is never a statement parameter (§14).
-      const token = mintToken();
-
+    handle: async ({ body, actor, service, requestId }): Promise<RequestEmailUpdatesResponse> => {
+      // No token is minted here. The one in the email is minted by whoever
+      // sends the email (ADR 0020) — `issueVerificationToken`, from the job
+      // this call writes — because a token made in this request has no way of
+      // reaching the letter: the job row carries ids and no payload. Making one
+      // here and dropping it is what an earlier draft did, and it left every
+      // verification link unsendable.
+      //
+      // `requestId` is the occurrence in the job's idempotency key: a retry is
+      // answered by the claim above and never arrives, and a genuine resend is
+      // a different request and so a different email.
       const { error } = await service.rpc('request_email_updates', {
         p_plan_id: body.plan_id,
         p_user_id: actor.userId,
         p_email: body.email,
-        p_token_hash: await tokenHash(token),
         p_consent_version: CONSENT.version,
+        p_request_id: requestId,
       });
       if (error !== null) throw error;
 
-      // The token goes no further. S1-19's template reads it from the job the
-      // database just wrote — this response carries nothing an attacker could
-      // use, and nothing that says whether anything was sent.
+      // Nothing about the address, and nothing about what happened to it.
       return { status: 'check_email' };
     },
   }),

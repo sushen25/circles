@@ -13,7 +13,7 @@
 -- outcomes.
 
 begin;
-select plan(43);
+select plan(57);
 
 create or replace function pg_temp.make_user(id uuid, name text, permanent boolean default false)
 returns uuid language sql as $$
@@ -54,6 +54,13 @@ $$;
 create or replace function pg_temp.hash_of(token text) returns bytea
 language sql as $$ select extensions.digest(token, 'sha256') $$;
 
+/** One identity's contact for one address — there may be two. */
+create or replace function pg_temp.contact_of(addr text, who uuid) returns uuid
+language sql security definer as $$
+  select c.id from private.email_contacts c
+  where c.email_normalized = addr and c.user_id = who
+$$;
+
 -- Maya owns the circle; Jules is a guest who reads email; Nobody is elsewhere.
 select pg_temp.make_user('00000000-0000-0000-0000-0000000008a1', 'Maya', true);
 select pg_temp.make_user('00000000-0000-0000-0000-0000000008a2', 'Jules');
@@ -88,10 +95,11 @@ language sql security definer as $$ select plan_id from tp $$;
 -- Who may call any of this
 -- ---------------------------------------------------------------------------
 select ok(
-  not has_function_privilege('authenticated', 'public.request_email_updates(uuid, uuid, text, bytea, text)', 'execute')
+  not has_function_privilege('authenticated', 'public.request_email_updates(uuid, uuid, text, text, text)', 'execute')
   and not has_function_privilege('authenticated', 'public.verify_email_contact(bytea)', 'execute')
   and not has_function_privilege('authenticated', 'public.email_preferences(bytea, text, uuid)', 'execute')
-  and not has_function_privilege('authenticated', 'public.issue_reentry_token(uuid, uuid, bytea)', 'execute'),
+  and not has_function_privilege('authenticated', 'public.issue_reentry_token(uuid, uuid, bytea)', 'execute')
+  and not has_function_privilege('authenticated', 'public.issue_verification_token(uuid, bytea)', 'execute'),
   'no client role touches an address, a token or a consent record: the Edge Function is the door'
 );
 select ok(
@@ -107,7 +115,7 @@ select pg_temp.act_as_service();
 
 select throws_ok(
   format($$ select public.request_email_updates(%L, %L, 'nobody@example.com',
-       pg_temp.hash_of('t-nobody'), '2026-09-14') $$,
+       '2026-09-14', 't-nobody') $$,
     pg_temp.plan_id(), '00000000-0000-0000-0000-0000000008a3'),
   'plan_not_found',
   'somebody outside the circle cannot subscribe an address to its plan, and learns nothing from the refusal'
@@ -116,7 +124,7 @@ select throws_ok(
 select is(
   (select public.request_email_updates(pg_temp.plan_id(),
      '00000000-0000-0000-0000-0000000008a2', 'jules@example.com',
-     pg_temp.hash_of('t-first'), '2026-09-14') ->> 'sent'),
+     '2026-09-14', 't-first') ->> 'sent'),
   'true',
   'a member asks for email about their plan'
 );
@@ -137,19 +145,22 @@ select is(
   'with the consent recorded now, and the words it was given for'
 );
 
+-- Round 2's P1. Asking mints no token: `jobs.notification_jobs` carries ids and
+-- no payload, so a token made here has no route to the letter and would expire
+-- unused. The sender mints it (ADR 0020).
 select is(
   (select count(*)::integer from private.email_action_tokens tok
    join private.email_contacts c on c.id = tok.contact_id
-   where c.email_normalized = 'jules@example.com' and tok.purpose = 'verify' and tok.used_at is null),
-  1,
-  'one live verification token'
+   where c.email_normalized = 'jules@example.com' and tok.purpose = 'verify'),
+  0,
+  'asking writes no token at all: the link is minted by whoever sends the email'
 );
 
 select is(
   (select count(*)::integer from jobs.notification_jobs j
    where j.kind = 'verify_email' and j.plan_id = pg_temp.plan_id()),
   1,
-  'and one email to send'
+  'what it writes is one email to send'
 );
 
 -- Nothing is sent yet, and that is the point of verification.
@@ -159,14 +170,39 @@ select is(
   'an unverified contact receives nothing, however active the subscription says it is'
 );
 
--- "Resend invalidates the previous token" (spec §5.8).
+-- The dispatcher (S1-20) draws that job and mints the link it carries.
 select pg_temp.act_as_service();
+select ok(
+  (select public.issue_verification_token(
+     pg_temp.contact_of('jules@example.com', '00000000-0000-0000-0000-0000000008a2'),
+     pg_temp.hash_of('t-first'))) is not null,
+  'sending it is what mints the link, and only the digest reaches the table'
+);
+
+-- "Resend invalidates the previous token" (spec §5.8) — at the mint, because
+-- that is where a token starts existing now.
 select is(
   (select public.request_email_updates(pg_temp.plan_id(),
      '00000000-0000-0000-0000-0000000008a2', 'jules@example.com',
-     pg_temp.hash_of('t-second'), '2026-09-14') ->> 'sent'),
+     '2026-09-14', 't-second') ->> 'sent'),
   'true',
   'asking again sends again'
+);
+
+select pg_temp.act_as_postgres();
+select is(
+  (select count(*)::integer from jobs.notification_jobs j
+   where j.kind = 'verify_email' and j.plan_id = pg_temp.plan_id()),
+  2,
+  'which is a second letter and not a duplicate: the request is the occurrence'
+);
+
+select pg_temp.act_as_service();
+select ok(
+  (select public.issue_verification_token(
+     pg_temp.contact_of('jules@example.com', '00000000-0000-0000-0000-0000000008a2'),
+     pg_temp.hash_of('t-second'))) is not null,
+  'and sending the second one mints a second link'
 );
 
 select pg_temp.act_as_postgres();
@@ -175,7 +211,7 @@ select is(
    join private.email_contacts c on c.id = tok.contact_id
    where c.email_normalized = 'jules@example.com' and tok.purpose = 'verify' and tok.used_at is null),
   1,
-  'and the first link stops working: one live token, not two'
+  'while the first link stops working: one live token, not two'
 );
 
 -- Round 1: one address, two people. Uniqueness has been `(email_hash, user_id)`
@@ -187,7 +223,7 @@ select pg_temp.act_as_service();
 select is(
   (select public.request_email_updates(pg_temp.plan_id(),
      '00000000-0000-0000-0000-0000000008a1', 'jules@example.com',
-     pg_temp.hash_of('t-maya'), '2026-09-14') ->> 'sent'),
+     '2026-09-14', 't-maya') ->> 'sent'),
   'true',
   'a second identity asking with the same address is answered, not silently refused'
 );
@@ -210,7 +246,7 @@ select pg_temp.act_as_service();
 select is(
   (select public.request_email_updates(pg_temp.plan_id(),
      '00000000-0000-0000-0000-0000000008a2', 'bounced@example.com',
-     pg_temp.hash_of('t-bounced'), '2026-09-14') ->> 'sent'),
+     '2026-09-14', 't-bounced') ->> 'sent'),
   'false',
   'a suppressed address is not resubscribed by somebody else asking'
 );
@@ -281,9 +317,19 @@ select throws_ok(
 select is(
   (select public.request_email_updates(pg_temp.plan_id(),
      '00000000-0000-0000-0000-0000000008a2', 'jules@example.com',
-     pg_temp.hash_of('t-again'), '2026-09-14') ->> 'sent'),
+     '2026-09-14', 't-again') ->> 'sent'),
   'false',
   'asking again on a verified address sends nothing: there is nothing left to prove'
+);
+
+-- And if a job for it were drained anyway — one queued before the click, say —
+-- the sender is told there is nothing to mint rather than made to fail. Null is
+-- "skip this job", which is what a verified, suppressed or removed contact is.
+select ok(
+  (select public.issue_verification_token(
+     pg_temp.contact_of('jules@example.com', '00000000-0000-0000-0000-0000000008a2'),
+     pg_temp.hash_of('t-too-late'))) is null,
+  'and a queued verification for an address already proved mints nothing'
 );
 
 -- ---------------------------------------------------------------------------
@@ -308,7 +354,10 @@ select pg_temp.act_as_service();
 select public.request_email_updates(
   (select id from public.plans where short_code = 'pnemdn'),
   '00000000-0000-0000-0000-0000000008a4', 'late@example.com',
-  pg_temp.hash_of('t-late'), '2026-09-14');
+  '2026-09-14', 't-late');
+select public.issue_verification_token(
+  pg_temp.contact_of('late@example.com', '00000000-0000-0000-0000-0000000008a4'),
+  pg_temp.hash_of('t-late'));
 
 select pg_temp.act_as_postgres();
 select planning.transition_plan(
@@ -410,14 +459,28 @@ select is(
   'while the hash stays, where nothing deletes it — so re-adding the address cannot restart the email'
 );
 
--- And the sibling contact for the same address is suppressed with it, by the
--- trigger: suppression is the address's, not the row's.
+-- Round 2's P1: and the sibling goes with it. Suppression crosses the rows (the
+-- trigger does that), but retention never deletes a suppressed contact — so
+-- marking the sibling and stopping there left the plaintext address sitting in
+-- it for ever, which is exactly what the link promised to undo.
 select is(
-  (select c.status from private.email_contacts c
-   where c.email_normalized = 'jules@example.com'
-     and c.user_id = '00000000-0000-0000-0000-0000000008a1'),
-  'suppressed',
-  'and every other contact holding that address stops too'
+  (select count(*)::integer from private.email_contacts c
+   where c.email_normalized = 'jules@example.com'),
+  0,
+  'and no row holding that address is left anywhere, not even a suppressed one'
+);
+
+-- Every consent at that address *ended* — it did not merely vanish with the
+-- row it hung from. Maya's was still live when the link was tapped, so there is
+-- an event saying it was withdrawn; a subscription that disappeared under a
+-- cascade would have told nothing downstream.
+select is(
+  (select count(*)::integer from jobs.outbox o
+   where o.event_name = 'communication.subscription_changed'
+     and o.payload ->> 'status' = 'withdrawn'
+     and o.payload ->> 'plan_id' = pg_temp.plan_id()::text),
+  2,
+  'and every consent at that address ended on the record: one stopped, one removed'
 );
 
 select pg_temp.act_as_service();
@@ -432,6 +495,46 @@ select throws_ok(
   $$ select public.email_preferences(extensions.digest('not-a-prefs-token', 'sha256'), 'view') $$,
   'link_expired',
   'a preferences link that is not ours says the same as one that has expired'
+);
+
+-- ---------------------------------------------------------------------------
+-- Round 2: what the page says has to be what will happen
+-- ---------------------------------------------------------------------------
+select pg_temp.act_as_postgres();
+insert into private.email_contacts (user_id, email_normalized, status, verified_at)
+values ('00000000-0000-0000-0000-0000000008a4', 'bouncing@example.com', 'verified', now());
+
+insert into private.email_subscriptions (contact_id, user_id, scope, plan_id, status, consent_text_version)
+select c.id, c.user_id, 'plan_updates', pg_temp.plan_id(), 'active', '2026-09-14'
+from private.email_contacts c where c.email_normalized = 'bouncing@example.com';
+
+insert into private.email_action_tokens (contact_id, purpose, token_hash, expires_at)
+select c.id, 'prefs', pg_temp.hash_of('t-bounce-prefs'), now() + interval '90 days'
+from private.email_contacts c where c.email_normalized = 'bouncing@example.com';
+
+select pg_temp.act_as_service();
+select is(
+  (select public.email_preferences(pg_temp.hash_of('t-bounce-prefs'), 'view')
+   -> 'subscriptions' -> 0 ->> 'active'),
+  'true',
+  'a verified contact with a live subscription reads as on'
+);
+
+-- A bounce suppresses the contact and leaves the subscription alone: nobody
+-- withdrew it. `email_recipients_for` skips it all the same, so a page that
+-- read the subscription only would tell somebody email was coming when it
+-- never would.
+select pg_temp.act_as_postgres();
+update private.email_contacts
+set status = 'suppressed', suppressed_at = now(), suppression_reason = 'bounced', verified_at = null
+where email_normalized = 'bouncing@example.com';
+
+select pg_temp.act_as_service();
+select is(
+  (select public.email_preferences(pg_temp.hash_of('t-bounce-prefs'), 'view')
+   -> 'subscriptions' -> 0 ->> 'active'),
+  'false',
+  'and after a bounce it reads as off, which is what will actually happen'
 );
 
 -- ---------------------------------------------------------------------------
@@ -457,7 +560,7 @@ select circle_id, '00000000-0000-0000-0000-0000000008a5'::uuid, 'Asker' from t;
 select pg_temp.act_as_service();
 select throws_ok(
   format($$ select public.request_email_updates(%L, %L, 'asker@example.com',
-       pg_temp.hash_of('t-over'), '2026-09-14') $$,
+       '2026-09-14', 't-over') $$,
     (select id from public.plans where short_code = 'pnemgn'),
     '00000000-0000-0000-0000-0000000008a5'),
   'plan_is_finished',
@@ -488,7 +591,10 @@ select pg_temp.act_as_service();
 select public.request_email_updates(
   (select id from public.plans where short_code = 'pnemhn'),
   '00000000-0000-0000-0000-0000000008a6', 'departing@example.com',
-  pg_temp.hash_of('t-departing'), '2026-09-14');
+  '2026-09-14', 't-departing');
+select public.issue_verification_token(
+  pg_temp.contact_of('departing@example.com', '00000000-0000-0000-0000-0000000008a6'),
+  pg_temp.hash_of('t-departing'));
 
 -- The meetup is locked in, and then they leave.
 select pg_temp.act_as_postgres();
@@ -558,12 +664,152 @@ select ok(
 -- saved-place identity is a sign-in bypass, refused by the table rather than by
 -- whoever remembers.
 select pg_temp.act_as_service();
-select throws_ok(
-  format($$ select public.issue_reentry_token(%L, %L, extensions.digest('t-maya-reentry', 'sha256')) $$,
-    (select circle_id from t), '00000000-0000-0000-0000-0000000008a1'),
-  'no_verified_contact',
-  'and the owner, who signs in, has no re-entry link to be issued'
+select ok(
+  (select public.issue_reentry_token(
+     (select circle_id from t), '00000000-0000-0000-0000-0000000008a1',
+     extensions.digest('t-maya-reentry', 'sha256'))) is null,
+  'and the owner, who signs in, gets null: the email is the same without a link'
 );
+
+-- Round 2: null, not a raise. The table's guard raises `check_violation`, which
+-- nothing translates — a 500 for an email that simply has no link in it. The
+-- guard stays; this is the answer the one caller needs.
+select pg_temp.act_as_postgres();
+select is(
+  (select count(*)::integer from private.email_action_tokens tok
+   where tok.purpose = 'reentry'
+     and tok.membership_user_id = '00000000-0000-0000-0000-0000000008a1'),
+  0,
+  'and nothing was written for them either'
+);
+
+-- A guest with no verified address is a different thing, and still an error:
+-- a re-entry link travels in an email, so there has to be one.
+select pg_temp.act_as_service();
+select throws_ok(
+  format($$ select public.issue_reentry_token(%L, %L, extensions.digest('t-asker', 'sha256')) $$,
+    (select circle_id from t), '00000000-0000-0000-0000-0000000008a5'),
+  'no_verified_contact',
+  'while a guest with no address to send it to is told so'
+);
+
+-- ---------------------------------------------------------------------------
+-- Round 2: two people, one mailbox, one of their meetups decided
+--
+-- Verification crosses the address (0009), so one click proves it for both. The
+-- two things that must *not* cross it are the letter's recipient and the
+-- answer's contents: a job written against the clicking contact for somebody
+-- else's plan names a person who is not in that circle — the dispatcher would
+-- address it to the wrong contact, its re-entry link would raise `not_a_member`
+-- and its "stop this meetup" link would point at a subscription that is not
+-- there. And the browser holding the click belongs to one identity.
+-- ---------------------------------------------------------------------------
+select pg_temp.act_as_postgres();
+select pg_temp.make_user('00000000-0000-0000-0000-0000000008a7', 'Twin One');
+select pg_temp.make_user('00000000-0000-0000-0000-0000000008a8', 'Twin Two');
+insert into public.circle_members (circle_id, user_id, display_name_snapshot)
+select circle_id, '00000000-0000-0000-0000-0000000008a7'::uuid, 'Twin One' from t;
+insert into public.circle_members (circle_id, user_id, display_name_snapshot)
+select circle_id, '00000000-0000-0000-0000-0000000008a8'::uuid, 'Twin Two' from t;
+
+insert into public.plans (
+  circle_id, mode, state, organiser_user_id, title, time_zone,
+  window_start, window_end, daily_start_local, daily_end_local,
+  duration_minutes, quorum, response_deadline, short_code
+)
+select circle_id, 'named', 'collecting', '00000000-0000-0000-0000-0000000008a1',
+  'Twin one''s', 'Australia/Melbourne', date '2099-09-17', date '2099-09-20',
+  1050, 1350, 120, 2, timestamptz '2099-09-20T10:00:00Z', 'pnemra'
+from t;
+
+insert into public.plans (
+  circle_id, mode, state, organiser_user_id, title, time_zone,
+  window_start, window_end, daily_start_local, daily_end_local,
+  duration_minutes, quorum, response_deadline, short_code
+)
+select circle_id, 'named', 'ready', '00000000-0000-0000-0000-0000000008a1',
+  'Twin two''s', 'Australia/Melbourne', date '2099-09-17', date '2099-09-20',
+  1050, 1350, 120, 2, timestamptz '2099-09-20T10:00:00Z', 'pnemrb'
+from t;
+
+insert into public.plan_participants (plan_id, revision, user_id)
+select id, 1, '00000000-0000-0000-0000-0000000008a8'::uuid
+from public.plans where short_code = 'pnemrb';
+
+-- Both of them ask, at the same address.
+select pg_temp.act_as_service();
+select public.request_email_updates(
+  (select id from public.plans where short_code = 'pnemra'),
+  '00000000-0000-0000-0000-0000000008a7', 'twins@example.com', '2026-09-14', 't-twin-one');
+select public.request_email_updates(
+  (select id from public.plans where short_code = 'pnemrb'),
+  '00000000-0000-0000-0000-0000000008a8', 'twins@example.com', '2026-09-14', 't-twin-two');
+select public.issue_verification_token(
+  pg_temp.contact_of('twins@example.com', '00000000-0000-0000-0000-0000000008a7'),
+  pg_temp.hash_of('t-twin-one'));
+
+-- The second one's meetup is locked in before either link is clicked.
+select pg_temp.act_as_postgres();
+insert into public.candidate_sets (
+  plan_id, revision, input_version, scoring_version, input_hash,
+  starts_considered, eligible_count, responded_count, active_member_count
+)
+select p.id, p.revision, p.input_version, p.scoring_version, 'seed', 10, 1, 1, 4
+from public.plans p where p.short_code = 'pnemrb';
+
+insert into public.candidates (
+  candidate_set_id, is_near_miss, rank, starts_at, ends_at, available_user_ids,
+  explicit_count, flexible_count, explanation_code, explanation_count
+)
+select cs.id, false, 1, timestamptz '2099-09-18T08:30:00Z', timestamptz '2099-09-18T10:30:00Z',
+  array['00000000-0000-0000-0000-0000000008a8'::uuid], 1, 0, 'best_attendance', 1
+from public.candidate_sets cs
+join public.plans p on p.id = cs.plan_id where p.short_code = 'pnemrb';
+
+select planning.transition_plan(
+  (select id from public.plans where short_code = 'pnemrb'), 'confirm',
+  '00000000-0000-0000-0000-0000000008a1',
+  jsonb_build_object('candidate_id', '2099-09-18T08:30:00+00:00'));
+
+-- Twin One clicks.
+select pg_temp.act_as_service();
+select is(
+  (select public.verify_email_contact(pg_temp.hash_of('t-twin-one')) -> 'active_plan_ids'),
+  to_jsonb(array[(select id from public.plans where short_code = 'pnemra')]),
+  'the click answers with the clicking identity''s own plans, and not the other twin''s'
+);
+
+select throws_ok(
+  $$ select public.verify_email_contact(pg_temp.hash_of('t-twin-one')) $$,
+  'link_expired',
+  'and the link is spent, so there is no second answer to read either'
+);
+
+select pg_temp.act_as_postgres();
+select is(
+  (select array_agg(distinct c.status) from private.email_contacts c
+   where c.email_normalized = 'twins@example.com'),
+  array['verified'],
+  'while the address itself is proved for both of them: that is what was proved'
+);
+
+-- Two rows, so that the assertion below is comparing two different contacts
+-- rather than one contact with itself.
+select is(
+  (select count(*)::integer from private.email_contacts c
+   where c.email_normalized = 'twins@example.com'),
+  2,
+  'there really are two contacts at that address'
+);
+
+select is(
+  (select j.contact_id from jobs.notification_jobs j
+   where j.kind = 'locked_in'
+     and j.plan_id = (select id from public.plans where short_code = 'pnemrb')),
+  pg_temp.contact_of('twins@example.com', '00000000-0000-0000-0000-0000000008a8'),
+  'and the "locked in" for the other twin''s meetup is addressed to the contact that subscribed to it'
+);
+
 
 select * from finish();
 rollback;

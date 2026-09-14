@@ -1,10 +1,18 @@
 -- ---------------------------------------------------------------------------
 -- "Email me about this meetup."
 --
--- Four writes that have to happen together or not at all: the contact, the
--- consent, the verification token, and the job that sends it. A contact with no
--- token is an address stored for nothing; a token with no job is a link nobody
--- receives; a job with no subscription would send an email nobody asked for.
+-- Three writes that have to happen together or not at all: the contact, the
+-- consent, and the job that sends the verification email. A contact with no job
+-- is an address stored for nothing; a job with no subscription would send an
+-- email nobody asked for.
+--
+-- **The token is not one of them.** It is minted when the email is sent, by
+-- whoever sends it (ADR 0020) — a token minted here has no way of reaching the
+-- letter: `jobs.notification_jobs` carries ids and no payload, the outbox
+-- refuses any key named `token`, and the row in `email_action_tokens` holds
+-- only a digest. An earlier draft took `p_token_hash`, wrote the row, and threw
+-- the readable half away in the Edge Function, which made every verification
+-- link unsendable and every token row expire unused.
 --
 -- **One address can belong to two identities.** Uniqueness has been
 -- `(email_hash, user_id)` since 0009 — "two guest memberships may each be
@@ -34,8 +42,12 @@ create or replace function public.request_email_updates(
   -- Already trimmed, lower-cased and NFC-normalised by the request schema; the
   -- column's own check refuses anything else, so the two agree.
   p_email text,
-  p_token_hash bytea,
-  p_consent_version text
+  p_consent_version text,
+  -- The request this is, which is what architecture §13 calls the occurrence
+  -- for `verify_email`: a retry never reaches this function (the idempotency
+  -- claim answers it), and a genuine resend is a new request and so a new
+  -- email. Not a token id any more, because there is no token here to name.
+  p_request_id text
 )
 returns jsonb
 language plpgsql
@@ -46,7 +58,6 @@ declare
   plan public.plans;
   contact private.email_contacts;
   subscription private.email_subscriptions;
-  token_id uuid;
 begin
   select * into plan from public.plans p where p.id = p_plan_id;
   if not found then
@@ -123,41 +134,32 @@ begin
     return jsonb_build_object('sent', false);
   end if;
 
-  -- "Resend invalidates the previous token" (spec §5.8). Spent rather than
-  -- deleted, so a person clicking the older link is told it is used rather than
-  -- that it never existed.
-  update private.email_action_tokens t
-  set used_at = now()
-  where t.contact_id = contact.id and t.purpose = 'verify' and t.used_at is null;
-
-  insert into private.email_action_tokens (contact_id, purpose, token_hash, expires_at)
-  values (contact.id, 'verify', p_token_hash, now() + interval '24 hours')
-  returning id into token_id;
-
   insert into jobs.notification_jobs (
     channel, kind, contact_id, plan_id, plan_revision, scheduled_for, idempotency_key
   )
   values (
     'email', 'verify_email', contact.id, p_plan_id, plan.revision, now(),
-    -- Architecture §13's key, composed here because the occurrence is the token
-    -- this statement just made: a retry of the same request finds the same
-    -- token and writes no second email, while a genuine resend mints a new one
-    -- and therefore is one.
+    -- Architecture §13's key, composed the one way (`jobs.idempotency_key`).
+    -- The dispatcher will mint the token for this job when it sends it and
+    -- spend whatever came before (`public.issue_verification_token`), which is
+    -- where "resend invalidates the previous token" (spec §5.8) now lives:
+    -- one job, one letter, one live link.
     jobs.idempotency_key(
       'email', contact.id::text, p_plan_id::text, plan.revision::text,
-      'verify_email', token_id::text)
+      'verify_email', p_request_id)
   )
-  -- A retry of the same request makes no second email; a genuine resend carries
-  -- a new token, and the token's id is the occurrence in the key.
+  -- Belt and braces behind the idempotency claim in the Edge Function, which is
+  -- what actually answers a retry: the same request id twice is the same key,
+  -- and the second insert is the no-op it should be.
   on conflict (idempotency_key) do nothing;
 
-  return jsonb_build_object('sent', true, 'token_id', token_id);
+  return jsonb_build_object('sent', true);
 end;
 $$;
 
-comment on function public.request_email_updates(uuid, uuid, text, bytea, text) is
-  'Records consent to plan-update email for one plan, mints the verification token and enqueues the email. One address may belong to two identities; suppression is decided by the insert trigger. Answers the same way whatever happened. Service role only.';
+comment on function public.request_email_updates(uuid, uuid, text, text, text) is
+  'Records consent to plan-update email for one plan and enqueues the verification email; the token is minted by the sender (ADR 0020). One address may belong to two identities; suppression is decided by the insert trigger. Answers the same way whatever happened. Service role only.';
 
-revoke all on function public.request_email_updates(uuid, uuid, text, bytea, text) from public;
-revoke all on function public.request_email_updates(uuid, uuid, text, bytea, text) from anon, authenticated;
-grant execute on function public.request_email_updates(uuid, uuid, text, bytea, text) to service_role;
+revoke all on function public.request_email_updates(uuid, uuid, text, text, text) from public;
+revoke all on function public.request_email_updates(uuid, uuid, text, text, text) from anon, authenticated;
+grant execute on function public.request_email_updates(uuid, uuid, text, text, text) to service_role;

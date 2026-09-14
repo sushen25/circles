@@ -7,10 +7,14 @@
 -- single-use, and consumed by `reattach-member` (S1-13), which moves the
 -- membership onto whatever identity the browser has now.
 --
--- Refused for a saved-place identity, and not by this function: the trigger
--- `enforce_reentry_for_guests` does it, because a re-entry link for somebody
--- who signs in is a sign-in bypass, and that is a rule the table holds rather
--- than one each caller remembers.
+-- **Null for a saved-place identity**, because that is not a fault. Every event
+-- email carries a re-entry link and permanent members get event email too; the
+-- template simply leaves the link out for somebody who can sign in. Reaching
+-- the table's own guard instead — `enforce_reentry_for_guests`, which raises
+-- `check_violation` — turned an ordinary rendering decision into a SQLSTATE
+-- nothing can translate and a 500 for the reader. The trigger stays: it is the
+-- rule, and this is the answer the one caller needs. A sign-in bypass is still
+-- impossible, now twice over.
 --
 -- Service role only. It mints nothing itself — the Edge Function generates the
 -- token and passes the digest, so the readable form is never a statement
@@ -31,6 +35,13 @@ declare
   contact_id uuid;
   token_id uuid;
 begin
+  -- Somebody who signs in needs no way back, so there is nothing to issue and
+  -- nothing has gone wrong. Checked before the membership, because a permanent
+  -- identity's membership is beside the point.
+  if exists (select 1 from public.profiles pr where pr.user_id = p_user_id and pr.is_permanent) then
+    return null;
+  end if;
+
   -- The membership has to be one. A token for a circle this person is not in
   -- would be a link back into somebody else's circle, and the foreign key that
   -- would have caught it raises a SQLSTATE nothing can translate — a 500 for an
@@ -66,7 +77,7 @@ end;
 $$;
 
 comment on function public.issue_reentry_token(uuid, uuid, bytea) is
-  'Stores the digest of a seven-day single-use re-entry token for a guest membership. The token itself is minted in the Edge Function and never reaches the database. Service role only.';
+  'Stores the digest of a seven-day single-use re-entry token for a guest membership, and returns null for a saved-place identity, which needs no link. The token itself is minted in the Edge Function and never reaches the database. Service role only.';
 
 revoke all on function public.issue_reentry_token(uuid, uuid, bytea) from public;
 revoke all on function public.issue_reentry_token(uuid, uuid, bytea) from anon, authenticated;

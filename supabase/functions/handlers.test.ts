@@ -2002,16 +2002,29 @@ describe('request-email-updates', () => {
     expect(await response.json()).toEqual({ status: 'check_email' });
   });
 
-  it('sends the database a digest and keeps the token', async () => {
-    // The readable token exists in this request and in the email. It is never a
-    // statement parameter, because statement parameters end up in logs (§14).
+  it('mints no token, because a token minted here could never reach the email', async () => {
+    // Round 2's P1. An earlier draft made one, hashed it into the database and
+    // dropped the readable half — `jobs.notification_jobs` has no payload
+    // column, so there was no route from here to the letter, and every
+    // verification link was unsendable. The sender mints it now (ADR 0020).
     const response = await load('request-email-updates')(post(body));
     const answered = JSON.stringify(await response.json());
+    const args = called('request_email_updates')[0]?.args ?? {};
 
-    const hash = called('request_email_updates')[0]?.args['p_token_hash'] as string;
-    expect(hash).toMatch(/^\\x[0-9a-f]{64}$/);
-    expect(answered).not.toContain(hash);
+    expect(Object.keys(args)).not.toContain('p_token_hash');
     expect(answered).not.toContain('jules@example.com');
+  });
+
+  it('names the request as the occurrence, so a resend is a second email', async () => {
+    // A retry never reaches the function — the idempotency claim answers it —
+    // and a genuine resend is a different request, so the job it writes has a
+    // different key rather than being swallowed as a duplicate.
+    const response = await load('request-email-updates')(post(body));
+    const requestId = response.headers.get('x-request-id');
+    const passed = called('request_email_updates')[0]?.args['p_request_id'];
+
+    expect(typeof passed).toBe('string');
+    expect(passed).toBe(requestId);
   });
 
   it('records which words were consented to', async () => {
@@ -2029,8 +2042,13 @@ describe('request-email-updates', () => {
     await load('request-email-updates')(post(body));
 
     expect(called('take_rate_token')).toHaveLength(3);
-    const scopes = called('take_rate_token').map((call) => call.args['p_scope']);
-    expect(scopes).toEqual(['email_request', 'email_request_user', 'email_request_ip']);
+    // Sorted, because `enforce` runs the three counters in one `Promise.all`
+    // and the order they land in is whichever hash finished first. Asserting
+    // the arrival order made this pass or fail by timing.
+    const scopes = called('take_rate_token')
+      .map((call) => call.args['p_scope'])
+      .sort();
+    expect(scopes).toEqual(['email_request', 'email_request_ip', 'email_request_user']);
     // Hashed before it leaves, like every rate key: an address is a person.
     expect(JSON.stringify(called('take_rate_token'))).not.toContain('jules@example.com');
   });

@@ -28,6 +28,34 @@ export function tokenHash(token: string): Promise<string> {
 }
 
 /**
+ * The link in the verification email, minted at the moment it is sent.
+ *
+ * Not when the person asked: a token minted there has no way of reaching the
+ * letter. `jobs.notification_jobs` carries ids and no payload, the outbox
+ * refuses a key called `token`, and the token row holds a digest — so the
+ * readable half would simply be dropped, which is what an earlier draft did
+ * (ADR 0020). `request_email_updates` writes the job; S1-20's dispatcher drains
+ * it and comes here.
+ *
+ * **Null means skip this job.** By the time it is drained the contact may have
+ * been verified by another link, suppressed by a bounce, or removed by its
+ * owner. None of those is a failure to retry, and the previous token is spent
+ * only when a new one replaces it (spec §5.8's "resend invalidates").
+ */
+export async function issueVerificationToken(
+  service: Db,
+  contactId: string,
+): Promise<string | null> {
+  const token = mintToken();
+  const { data, error } = await service.rpc('issue_verification_token', {
+    p_contact_id: contactId,
+    p_token_hash: await tokenHash(token),
+  });
+  if (error !== null) throw error;
+  return data === null ? null : token;
+}
+
+/**
  * The single-use link back into a circle for a guest with no session.
  *
  * Every event email carries one (spec §5.8, §5.11): a guest who reads it on a
@@ -40,18 +68,24 @@ export function tokenHash(token: string): Promise<string> {
  * Here, in the kit, because the templates that embed it are S1-19's and the
  * dispatcher that renders them is S1-20's: both need one link per email, and
  * neither should be minting capabilities of its own.
+ *
+ * **Null for a saved-place identity**, who needs no way back: the template
+ * leaves the link out and the email is otherwise the same. That is an ordinary
+ * outcome rather than an error — treating it as one made a permanent member's
+ * event email unrenderable, since the table's guard raises a SQLSTATE the kit
+ * turns into a 500.
  */
 export async function issueReentryToken(
   service: Db,
   circleId: string,
   userId: string,
-): Promise<string> {
+): Promise<string | null> {
   const token = mintToken();
-  const { error } = await service.rpc('issue_reentry_token', {
+  const { data, error } = await service.rpc('issue_reentry_token', {
     p_circle_id: circleId,
     p_user_id: userId,
     p_token_hash: await tokenHash(token),
   });
   if (error !== null) throw error;
-  return token;
+  return data === null ? null : token;
 }
