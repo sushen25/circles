@@ -13,7 +13,7 @@
 -- outcomes.
 
 begin;
-select plan(57);
+select plan(59);
 
 create or replace function pg_temp.make_user(id uuid, name text, permanent boolean default false)
 returns uuid language sql as $$
@@ -420,12 +420,23 @@ select is(
   'and nothing more is sent to them about it'
 );
 
--- The other identity reachable at the same address is untouched: a preferences
--- link belongs to the contact it was issued for, and stopping one person's
--- email is not stopping everybody's.
-select ok(
-  (select count(*) from private.email_recipients_for(pg_temp.plan_id())) >= 1,
-  'while the other contact for that address, which nobody stopped, still hears about it'
+-- Round 3's P1. The mailbox is what stops, not the row: "one copy per event"
+-- is the dispatcher's `distinct email_hash` (0009), so a letter reaches this
+-- mailbox carrying one contact's link — and stopping only that contact left the
+-- next copy to be sent through the sibling, to the same inbox, about the same
+-- meetup, after somebody tapped the Spam Act's one-tap unsubscribe.
+select is(
+  (select count(*)::integer from private.email_recipients_for(pg_temp.plan_id())),
+  0,
+  'and no other contact at that address hears about it either: the tap stops the mailbox'
+);
+
+select is(
+  (select count(*)::integer from private.email_subscriptions s
+   join private.email_contacts c on c.id = s.contact_id
+   where c.email_normalized = 'jules@example.com' and s.status = 'active'),
+  0,
+  'which is both consents withdrawn, each with an event of its own'
 );
 
 select is(
@@ -638,6 +649,25 @@ select is(
   0,
   'and no "locked in" is queued for them: the plan stopped being theirs when the membership did'
 );
+
+-- Round 3's P1: what the page says has to be what will happen, and a plan whose
+-- circle they have left is neither. `email_recipients_for` is the one query
+-- that decides, so the page asks it rather than restating two of its three
+-- conditions — restating them is how "verified and active" came to say yes to
+-- somebody who had been removed, and how the row went on showing the plan's
+-- title as it is edited afterwards.
+select pg_temp.act_as_postgres();
+insert into private.email_action_tokens (contact_id, purpose, token_hash, expires_at)
+select c.id, 'prefs', pg_temp.hash_of('t-left-prefs'), now() + interval '90 days'
+from private.email_contacts c where c.email_normalized = 'departing@example.com';
+
+select pg_temp.act_as_service();
+select is(
+  (select public.email_preferences(pg_temp.hash_of('t-left-prefs'), 'view') -> 'subscriptions'),
+  '[]'::jsonb,
+  'somebody removed from the circle is shown none of its plans, and not their titles'
+);
+
 
 -- ---------------------------------------------------------------------------
 -- The way back in

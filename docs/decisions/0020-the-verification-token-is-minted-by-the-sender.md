@@ -81,8 +81,12 @@ Edge Function mints, the database stores the digest.
 - `public.request_email_updates` no longer takes `p_token_hash`; it takes
   `p_request_id`. Nothing outside this slice calls it.
 - A contact can hold a `verify_email` job with no token row until the job is
-  drained. That is the correct intermediate state: a person who never receives
-  the email has nothing to click either way, and retention's seven-day rule for
-  a pending contact reads the *token* only to avoid deleting a link somebody
-  could still use — a contact with no token yet and a job still queued is one
-  the queue will reach long before seven days.
+  drained, and **retention had to learn about that state**. Its seven-day rule
+  for a pending contact spared one holding a live token; a contact whose token
+  has not been minted yet looked identical to one that gave up a week ago. For
+  a *new* contact the age check covers it, but a resend keeps the original
+  `created_at` (`on conflict … do update`), so somebody who asked eight days
+  ago, let the link lapse and asked again could have the run delete the
+  contact, the queued email and the consent in the minute before the dispatcher
+  drained it — having just been told to check their email. `jobs.run_retention`
+  now also spares a contact with a scheduled `verify_email`.

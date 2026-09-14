@@ -31,6 +31,7 @@ declare
   token private.email_action_tokens;
   contact private.email_contacts;
   own_plans uuid[];
+  stopped private.email_subscriptions;
   decided record;
   already_confirmed boolean;
 begin
@@ -65,14 +66,31 @@ begin
   -- The plans that are over take their subscriptions with them, across all of
   -- them: "verification after the plan completed or was cancelled: no stale
   -- mail is sent" (spec §9).
-  update private.email_subscriptions s
-  set status = 'withdrawn', withdrawn_at = now(), updated_at = now()
-  from public.plans p, private.email_contacts c
-  where c.email_hash = contact.email_hash
-    and s.contact_id = c.id
-    and s.status = 'active'
-    and p.id = s.plan_id
-    and p.state in ('completed', 'cancelled', 'expired');
+  --
+  -- Row by row, because each one is a consent ending and a consent that ends
+  -- without an event is a consent that stops for reasons nothing downstream can
+  -- see. `email_preferences` says the same thing the same way; a withdrawal
+  -- that emits in one function and not in the other is one rule written twice,
+  -- differently.
+  for stopped in
+    update private.email_subscriptions s
+    set status = 'withdrawn', withdrawn_at = now(), updated_at = now()
+    from public.plans p, private.email_contacts c
+    where c.email_hash = contact.email_hash
+      and s.contact_id = c.id
+      and s.status = 'active'
+      and p.id = s.plan_id
+      and p.state in ('completed', 'cancelled', 'expired')
+    returning s.*
+  loop
+    perform jobs.emit('communication.subscription_changed', 'subscription', stopped.id,
+      jsonb_build_object(
+        'subscription_id', stopped.id,
+        'contact_id', stopped.contact_id,
+        'plan_id', stopped.plan_id,
+        'status', 'withdrawn'
+      ));
+  end loop;
 
   -- What *this* identity will now hear about: an active subscription of their
   -- own, on a plan whose circle they are still in. A removal ends the plan for

@@ -55,14 +55,27 @@ begin
   if p_action = 'stop_plan' then
     -- Immediately, and only this plan's. "Stop emails for this meetup" is the
     -- narrow one, offered in every event email beside the broader link.
-    update private.email_subscriptions s
-    set status = 'withdrawn', withdrawn_at = now(), updated_at = now()
-    where s.contact_id = token.contact_id
-      and s.plan_id = p_plan_id
-      and s.status = 'active'
-    returning * into stopped;
-
-    if stopped.id is not null then
+    --
+    -- Narrow in *plans*, not in rows: every contact holding this address stops
+    -- hearing about this meetup. One address can be held by two identities
+    -- (0009) and the dispatcher sends "one copy per event, by `distinct
+    -- email_hash`" — so one letter reaches the mailbox carrying one contact's
+    -- link, and stopping only that contact left the next copy to be sent
+    -- through the sibling. A one-tap unsubscribe that does not stop the email
+    -- is not one, and this is the Spam Act's tap (spec §13).
+    --
+    -- It tells the tapper nothing they did not already have: the letter they
+    -- are holding named this plan and this circle.
+    for stopped in
+      update private.email_subscriptions s
+      set status = 'withdrawn', withdrawn_at = now(), updated_at = now()
+      from private.email_contacts c
+      where c.id = s.contact_id
+        and c.email_hash = owner.email_hash
+        and s.plan_id = p_plan_id
+        and s.status = 'active'
+      returning s.*
+    loop
       perform jobs.emit('communication.subscription_changed', 'subscription', stopped.id,
         jsonb_build_object(
           'subscription_id', stopped.id,
@@ -70,7 +83,7 @@ begin
           'plan_id', stopped.plan_id,
           'status', 'withdrawn'
         ));
-    end if;
+    end loop;
 
   elsif p_action = 'remove_contact' then
     -- Withdrawn across the address, one row at a time so that every consent
@@ -134,11 +147,16 @@ begin
             'plan_id', s.plan_id,
             'plan_title', p.title,
             'circle_name', ci.name,
-            -- Active means "will actually be emailed", which is the
-            -- question the page is answering. A subscription left active
-            -- under a contact that bounced, or that a sibling had removed,
-            -- would show as on while `email_recipients_for` skips it.
-            'active', s.status = 'active' and c.status = 'verified'
+            -- Active means "will actually be emailed", which is the question
+            -- the page is answering — so it is asked of the one query that
+            -- decides, rather than of a predicate that looks like it. Spelling
+            -- out "verified and active" here missed the third condition,
+            -- membership, and told somebody who had been removed from the
+            -- circle that their email was on.
+            'active', exists (
+              select 1 from private.email_recipients_for(s.plan_id) r
+              where r.contact_id = s.contact_id
+            )
           )
           order by p.window_start desc, s.plan_id
         ),
@@ -148,6 +166,13 @@ begin
       join private.email_contacts c on c.id = s.contact_id
       join public.plans p on p.id = s.plan_id
       join public.circles ci on ci.id = p.circle_id
+      -- And a plan whose circle they have left is not listed at all. Nothing
+      -- will be sent about it, so there is nothing to stop — and the row
+      -- carried the plan's title *as it is now*, which is a live feed of a
+      -- circle they are no longer in (AGENTS.md: "only active members see or
+      -- act on it").
+      join public.circle_members m
+        on m.circle_id = p.circle_id and m.user_id = c.user_id and m.status = 'active'
       where s.contact_id = token.contact_id
     )
   );

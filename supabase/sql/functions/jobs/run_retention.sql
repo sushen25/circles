@@ -63,12 +63,25 @@ begin
   -- the link; the address does not stay — unless a link they could still
   -- click exists, because a contact that asked for a fresh link yesterday is
   -- not one that gave up a week ago, and the cascade would take the link.
+  --
+  -- Or unless the link has not been *made* yet. Since ADR 0020 the token is
+  -- minted when the email is sent, so a contact that asked a minute ago holds
+  -- a queued `verify_email` and no token at all. That is fine for a new
+  -- contact — `created_at` is a minute old — and wrong for a resend, because
+  -- the upsert keeps the original `created_at`: somebody who asked eight days
+  -- ago, let the link lapse and asked again would have had this run delete the
+  -- contact, the queued email and the consent in the gap before the dispatcher
+  -- drained it, having just been told to check their email.
   delete from private.email_contacts c
   where c.status = 'pending'
     and c.created_at < now() - interval '7 days'
     and not exists (
       select 1 from private.email_action_tokens t
       where t.contact_id = c.id and t.used_at is null and t.expires_at > now()
+    )
+    and not exists (
+      select 1 from jobs.notification_jobs j
+      where j.contact_id = c.id and j.kind = 'verify_email' and j.status = 'scheduled'
     );
   get diagnostics n_pending_contacts = row_count;
 
