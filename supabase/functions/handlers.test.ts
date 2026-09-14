@@ -2068,7 +2068,20 @@ describe('verify-email-contact', () => {
     state.answer = (fn) => {
       if (fn === 'take_rate_token') return { data: true, error: null };
       if (fn === 'verify_email_contact') {
-        return { data: { active_plan_ids: [PLAN_ID], already_confirmed: true }, error: null };
+        return {
+          data: {
+            active_plans: [
+              {
+                plan_id: PLAN_ID,
+                short_code: 'pnemab',
+                plan_title: 'Catch up',
+                circle_name: 'Sunday Crew',
+              },
+            ],
+            already_confirmed: true,
+          },
+          error: null,
+        };
       }
       return { data: null, error: null };
     };
@@ -2081,8 +2094,10 @@ describe('verify-email-contact', () => {
     const response = await load('verify-email-contact')(postWithoutSession({ token: TOKEN }));
 
     expect(response.status).toBe(200);
+    // Named, not numbered: the page is opened wherever the mail was read, so
+    // there is usually no session and a plan is readable only by a member.
     expect(await response.json()).toMatchObject({
-      active_plan_ids: [PLAN_ID],
+      active_plans: [{ plan_id: PLAN_ID, short_code: 'pnemab', circle_name: 'Sunday Crew' }],
       already_confirmed: true,
     });
   });

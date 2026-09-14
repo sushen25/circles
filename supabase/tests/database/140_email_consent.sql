@@ -366,7 +366,7 @@ select planning.transition_plan(
 
 select pg_temp.act_as_service();
 select is(
-  (select public.verify_email_contact(pg_temp.hash_of('t-late')) -> 'active_plan_ids'),
+  (select public.verify_email_contact(pg_temp.hash_of('t-late')) -> 'active_plans'),
   '[]'::jsonb,
   'verifying after the plan was called off activates nothing — no stale mail is sent (spec §9)'
 );
@@ -669,7 +669,7 @@ where circle_id = (select circle_id from t)
 
 select pg_temp.act_as_service();
 select is(
-  (select public.verify_email_contact(pg_temp.hash_of('t-departing')) -> 'active_plan_ids'),
+  (select public.verify_email_contact(pg_temp.hash_of('t-departing')) -> 'active_plans'),
   '[]'::jsonb,
   'somebody removed from the circle hears about none of its plans, however verified their address'
 );
@@ -837,9 +837,14 @@ select planning.transition_plan(
 -- Twin One clicks.
 select pg_temp.act_as_service();
 select is(
-  (select public.verify_email_contact(pg_temp.hash_of('t-twin-one')) -> 'active_plan_ids'),
-  to_jsonb(array[(select id from public.plans where short_code = 'pnemra')]),
-  'the click answers with the clicking identity''s own plans, and not the other twin''s'
+  (select public.verify_email_contact(pg_temp.hash_of('t-twin-one')) -> 'active_plans'),
+  jsonb_build_array(jsonb_build_object(
+    'plan_id', (select id from public.plans where short_code = 'pnemra'),
+    'short_code', 'pnemra',
+    'plan_title', 'Twin one''s',
+    'circle_name', 'Sunday Crew'
+  )),
+  'the click answers with the clicking identity''s own plans, named so an unauthenticated page can read them — and not the other twin''s'
 );
 
 select throws_ok(

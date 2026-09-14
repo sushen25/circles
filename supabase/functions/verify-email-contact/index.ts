@@ -34,12 +34,15 @@ Deno.serve(
       if (error !== null) throw error;
 
       const result = data as unknown as {
-        active_plan_ids: string[];
+        active_plans: readonly unknown[];
         already_confirmed: boolean;
       };
 
+      // Parsed rather than passed through: the plans are named now — title,
+      // circle, short code — and the schema is what says those four fields are
+      // all that leaves the database (ADR 0019's audience rule, spec §5.8).
       return VerifyEmailContactResponse.parse({
-        active_plan_ids: result.active_plan_ids,
+        active_plans: result.active_plans,
         already_confirmed: result.already_confirmed,
       });
     },

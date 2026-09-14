@@ -927,6 +927,7 @@ declare
   token private.email_action_tokens;
   contact private.email_contacts;
   own_plans uuid[];
+  own jsonb;
   stopped private.email_subscriptions;
   decided record;
   already_confirmed boolean;
@@ -951,7 +952,7 @@ begin
   -- A suppressed address stays suppressed. Clicking a link that predates the
   -- bounce is not the address asking to hear from us again (spec §9).
   if contact.status = 'suppressed' then
-    return jsonb_build_object('active_plan_ids', '[]'::jsonb, 'already_confirmed', false);
+    return jsonb_build_object('active_plans', '[]'::jsonb, 'already_confirmed', false);
   end if;
 
   -- Every contact holding this address, not only the one the link named.
@@ -998,14 +999,42 @@ begin
   -- held by one identity, and the plans another identity is subscribed to are
   -- not theirs to be told about. Spec §9: memberships are not revealed to each
   -- other, and two guests at one mailbox are still two people.
-  select coalesce(array_agg(distinct s.plan_id), array[]::uuid[])
-  into own_plans
-  from private.email_subscriptions s
-  join public.plans p on p.id = s.plan_id
-  join public.circle_members m on m.circle_id = p.circle_id and m.user_id = contact.user_id
-  where s.contact_id = contact.id
-    and s.status = 'active'
-    and m.status = 'active';
+  -- Named, not numbered. This page is opened wherever the mail was read, so
+  -- the browser usually holds no session and often a brand-new anonymous one —
+  -- and `plans_select_member` means a non-member resolves none of these ids to
+  -- anything. Returning bare uuids left the screen with nothing to put on the
+  -- button and nowhere to send it (`/p/` takes a short code).
+  --
+  -- The same two facts `email_preferences` already returns, for the same
+  -- reason, and safe for the same reason: whoever holds this token proved
+  -- control of the address, and the email that carried it named the plan and
+  -- the circle to this reader already. Nothing else comes with them — no member
+  -- names, no addresses, no quiet-ask state (§5.8).
+  select
+    coalesce(
+      jsonb_agg(
+        jsonb_build_object(
+          'plan_id', x.plan_id,
+          'short_code', x.short_code,
+          'plan_title', x.plan_title,
+          'circle_name', x.circle_name
+        )
+        order by x.plan_title, x.plan_id
+      ),
+      '[]'::jsonb
+    ),
+    coalesce(array_agg(x.plan_id), array[]::uuid[])
+  into own, own_plans
+  from (
+    select distinct p.id as plan_id, p.short_code, p.title as plan_title, ci.name as circle_name
+    from private.email_subscriptions s
+    join public.plans p on p.id = s.plan_id
+    join public.circles ci on ci.id = p.circle_id
+    join public.circle_members m on m.circle_id = p.circle_id and m.user_id = contact.user_id
+    where s.contact_id = contact.id
+      and s.status = 'active'
+      and m.status = 'active'
+  ) x;
 
   -- The current state, once, for somebody who verified after it was decided —
   -- and once *per subscription*, against the contact that holds it.
@@ -1059,14 +1088,14 @@ begin
     jsonb_build_object('contact_id', contact.id, 'user_id', contact.user_id));
 
   return jsonb_build_object(
-    'active_plan_ids', to_jsonb(own_plans),
+    'active_plans', own,
     'already_confirmed', already_confirmed
   );
 end;
 $$;
 
 comment on function public.verify_email_contact(bytea) is
-  'Consumes a verification token in one statement and verifies every contact holding that address, drops subscriptions to finished plans, and queues the current state for each decided plan against the contact that subscribed to it. Answers with the clicking identity''s own plans only. Service role only.';
+  'Consumes a verification token in one statement and verifies every contact holding that address, drops subscriptions to finished plans, and queues the current state for each decided plan against the contact that subscribed to it. Answers with the clicking identity''s own plans, named so an unauthenticated page can read them. Service role only.';
 
 revoke all on function public.verify_email_contact(bytea) from public;
 revoke all on function public.verify_email_contact(bytea) from anon, authenticated;
