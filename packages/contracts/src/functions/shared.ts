@@ -79,6 +79,11 @@ export const ProblemReason = z.enum([
   'not_the_owner',
   /** `revise-plan`: only the organiser edits. */
   'not_the_organiser',
+  /**
+   * `cancel-plan`: a quiet ask is withdrawn by whoever started it (spec §5.4).
+   * Nobody else, and the plan says nothing about who that is (§14).
+   */
+  'not_the_initiator',
   /** `cancel-plan`: the organiser or the circle's owner, and nobody else (spec §4.5). */
   'not_the_organiser_or_owner',
   /** The plan is over — completed, expired or already cancelled. */

@@ -605,6 +605,14 @@ describe('revise-plan', () => {
     time_zone: 'Australia/Melbourne',
     quorum: 3,
     response_deadline: '2099-09-16T10:00:00.000Z',
+    revision: 1,
+    state: 'collecting',
+  };
+
+  // A reopen is only a reopen from `confirmed`, which the mirror in
+  // `packages/domain` is now asked about before anything else happens.
+  const confirmed = (): void => {
+    state.rows = { ...state.rows, plans: { ...current, state: 'confirmed' } };
   };
 
   beforeEach(() => {
@@ -613,6 +621,10 @@ describe('revise-plan', () => {
     state.rows = {
       plans: current,
       plan_required_members: [{ user_id: '00000000-0000-4000-8000-0000000000a1' }],
+      plan_participants: [
+        { user_id: '00000000-0000-4000-8000-0000000000a1' },
+        { user_id: '00000000-0000-4000-8000-0000000000a2' },
+      ],
     };
     state.answer = (fn) => {
       if (fn === 'begin_request') {
@@ -744,6 +756,7 @@ describe('revise-plan', () => {
   });
 
   it('names everybody a reopen will ask again', async () => {
+    confirmed();
     // "Thursday is off the table" and "a fresh ask" (spec §5.7). A reopen
     // changes no timing, so the comparison found nothing and the warning named
     // nobody — while the revision bump cleared every answer there was.
@@ -760,6 +773,7 @@ describe('revise-plan', () => {
   });
 
   it('separates the fresh ask from the second ask when previewing a reopen', async () => {
+    confirmed();
     const response = await load('revise-plan')(
       post({ idempotency_key: KEY, plan_id: PLAN_ID, reopen: true, preview: true }),
     );
@@ -807,6 +821,7 @@ describe('revise-plan', () => {
   });
 
   it('asks for a reopen by name rather than by inference', async () => {
+    confirmed();
     await load('revise-plan')(post({ idempotency_key: KEY, plan_id: PLAN_ID, reopen: true }));
 
     expect(called('revise_plan')[0]?.args['p_reopen']).toBe(true);
@@ -924,7 +939,7 @@ describe('revise-plan', () => {
     // everybody, and left them unable to answer.
     state.rows = {
       ...state.rows,
-      plans: { ...current, response_deadline: '2020-01-01T00:00:00.000Z' },
+      plans: { ...current, state: 'confirmed', response_deadline: '2020-01-01T00:00:00.000Z' },
     };
 
     const response = await load('revise-plan')(
@@ -939,7 +954,7 @@ describe('revise-plan', () => {
   it('reopens it once the organiser says when replies close', async () => {
     state.rows = {
       ...state.rows,
-      plans: { ...current, response_deadline: '2020-01-01T00:00:00.000Z' },
+      plans: { ...current, state: 'confirmed', response_deadline: '2020-01-01T00:00:00.000Z' },
     };
 
     await load('revise-plan')(
@@ -989,6 +1004,36 @@ describe('revise-plan', () => {
     await load('revise-plan')(post({ idempotency_key: KEY, plan_id: PLAN_ID, quorum: 5 }));
 
     expect(called('revise_plan')[0]?.args['p_payload']).toEqual({ quorum: 5 });
+  });
+
+  it('refuses to preview what it would refuse to save', async () => {
+    // A preview is a promise about what saving would do. Editing a confirmed
+    // plan without reopening previewed as fine and then failed on save with
+    // `wrong_state`, which is a warning about an edit that was never possible.
+    state.rows = { ...state.rows, plans: { ...current, state: 'confirmed' } };
+
+    const response = await load('revise-plan')(
+      post({
+        idempotency_key: KEY,
+        plan_id: PLAN_ID,
+        window: { start: '2099-09-17', end: '2099-09-18' },
+        preview: true,
+      }),
+    );
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({ reason: 'wrong_state' });
+    expect(called('reask_audience')).toHaveLength(0);
+  });
+
+  it('says a finished plan is finished rather than out of order', async () => {
+    state.rows = { ...state.rows, plans: { ...current, state: 'cancelled' } };
+
+    const response = await load('revise-plan')(
+      post({ idempotency_key: KEY, plan_id: PLAN_ID, quorum: 5 }),
+    );
+
+    expect(await response.json()).toMatchObject({ reason: 'plan_is_finished' });
   });
 
   it('refuses an edit that changes nothing', async () => {

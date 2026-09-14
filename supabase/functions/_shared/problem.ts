@@ -63,6 +63,7 @@ const REASONS: Record<ProblemReason, { status: number; error: Problem['error'] }
   requires_saved_place: { status: 403, error: 'forbidden' },
   not_the_owner: { status: 403, error: 'forbidden' },
   not_the_organiser: { status: 403, error: 'forbidden' },
+  not_the_initiator: { status: 403, error: 'forbidden' },
   not_the_organiser_or_owner: { status: 403, error: 'forbidden' },
   not_yet: { status: 501, error: 'unavailable' },
   plan_is_finished: { status: 409, error: 'conflict' },

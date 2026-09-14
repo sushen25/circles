@@ -4,10 +4,13 @@ import {
   invalidatedResponses,
   invalidatingChanges,
   isDeadlineAllowed,
+  isTerminal,
   isViableBand,
   lastPossibleStart,
+  transitionsFrom,
   validateBand,
   windowDays,
+  type PlanState,
   type UserId,
 } from '@circles/domain';
 
@@ -51,6 +54,23 @@ Deno.serve(
     schema: RevisePlanRequest,
     handle: async ({ body, caller }): Promise<RevisePlanResponse> => {
       const before = await readPlan(caller, body.plan_id);
+
+      // Whether this is a thing that can be done from where the plan is, asked
+      // of `packages/domain` — the mirror of `planning.transitions` that exists
+      // so a client can ask before the server decides (architecture §8.3). Not a
+      // second copy of the rule: the same table, read from the other side.
+      //
+      // `edit` stands for `adjust` as well, because the two exist from exactly
+      // the same states; `state-machine.test.ts` holds them to that, so the
+      // shortcut cannot quietly stop being true.
+      const state = before.state as PlanState;
+      const action = body.reopen ? 'reopen' : 'edit';
+      if (!transitionsFrom(state).some((transition) => transition.action === action)) {
+        throw new Refusal(
+          isTerminal(state) ? 'plan_is_finished' : 'wrong_state',
+          isTerminal(state) ? 'That plan is over.' : 'That cannot be done to the plan right now.',
+        );
+      }
 
       const after = {
         window: {
@@ -165,7 +185,7 @@ Deno.serve(
         body.required_member_ids === undefined
           ? undefined
           : await changedRequiredMembers(caller, body.plan_id, before.revision, [
-              ...body.required_member_ids,
+              ...new Set(body.required_member_ids),
             ]);
 
       // Parsed on the way out, like every DTO here: the domain brands a `UserId`
@@ -192,14 +212,6 @@ Deno.serve(
           bumps_revision: cost.bumpsRevision,
         });
       };
-
-      if (body.preview) {
-        const { data: audience, error: audienceError } = await caller.rpc('reask_audience', {
-          p_plan_id: body.plan_id,
-        });
-        if (audienceError !== null) throw audienceError;
-        return answerFor((audience ?? []) as AudienceRow[]);
-      }
 
       // Only what actually changed, and `changes` above is the authority on that
       // — the same comparison the preview's answer is built from, over the same
@@ -230,6 +242,19 @@ Deno.serve(
       // form and should hear so.
       if (Object.keys(payload).length === 0 && changedRequired === undefined && !body.reopen) {
         throw new Refusal('nothing_to_change', 'Nothing in that is different from the plan.');
+      }
+
+      // The preview answers last, not first. A preview is a promise about what
+      // saving would do, so every refusal the save would give has to come first
+      // or the promise is not one: an edit of a confirmed plan, a required
+      // member who was never asked, a form resubmitted unchanged — each of them
+      // previewed as fine and then failed on save.
+      if (body.preview) {
+        const { data: audience, error: audienceError } = await caller.rpc('reask_audience', {
+          p_plan_id: body.plan_id,
+        });
+        if (audienceError !== null) throw audienceError;
+        return answerFor((audience ?? []) as AudienceRow[]);
       }
 
       const { data, error } = await caller.rpc('revise_plan', {
@@ -274,10 +299,29 @@ async function changedRequiredMembers(
   if (error !== null) throw error;
 
   const current = (data ?? []).map((row) => row.user_id).sort();
-  const wanted = [...new Set(sent)].sort();
+  const wanted = [...sent].sort();
   const same =
     current.length === wanted.length && current.every((id, index) => id === wanted[index]);
-  return same ? undefined : wanted;
+  if (same) return undefined;
+
+  // Required of somebody who was asked. `revise_plan` refuses this too, and that
+  // is the enforcement; asking here is what lets a *preview* refuse it, which is
+  // the whole difference between a preview and a guess.
+  const { data: asked, error: askedError } = await caller
+    .from('plan_participants')
+    .select('user_id')
+    .eq('plan_id', planId)
+    .eq('revision', revision);
+  if (askedError !== null) throw askedError;
+
+  const participants = new Set((asked ?? []).map((row) => row.user_id));
+  if (wanted.some((id) => !participants.has(id))) {
+    throw new Refusal(
+      'not_a_participant',
+      'Somebody on that list was never asked, so they cannot answer.',
+    );
+  }
+  return wanted;
 }
 
 async function readPlan(
@@ -293,11 +337,12 @@ async function readPlan(
   quorum: number;
   response_deadline: string;
   revision: number;
+  state: string;
 }> {
   const { data, error } = await caller
     .from('plans')
     .select(
-      'window_start, window_end, daily_start_local, daily_end_local, duration_minutes, time_zone, quorum, response_deadline, revision',
+      'window_start, window_end, daily_start_local, daily_end_local, duration_minutes, time_zone, quorum, response_deadline, revision, state',
     )
     .eq('id', planId)
     .maybeSingle();

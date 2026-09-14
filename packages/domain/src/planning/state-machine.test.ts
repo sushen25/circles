@@ -234,6 +234,18 @@ describe('guards', () => {
     }
   });
 
+  it('offers adjust from exactly the states that offer edit', () => {
+    // `revise-plan` asks the mirror whether `edit` exists from a plan's state
+    // and lets that answer stand for `adjust` too, because deriving which of the
+    // two a request is would be a second copy of the derivation SQL owns. This
+    // is what makes the shortcut true rather than convenient.
+    const from = (action: PlanAction): string[] =>
+      TRANSITIONS.filter((t) => t.action === action)
+        .map((t) => t.from)
+        .sort();
+    expect(from('adjust')).toEqual(from('edit'));
+  });
+
   it('refuses a member who is neither', () => {
     const result = canTransition(plan({ state: 'collecting' }), 'cancel', { actor: MEMBER });
     expect(isErr(result) && result.error.code).toBe('not_the_organiser_or_owner');
