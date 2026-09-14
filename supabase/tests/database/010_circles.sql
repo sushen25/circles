@@ -911,7 +911,15 @@ select is(
        -- place — which it gets from the state machine rather than by asking
        -- itself. Editing, cancelling and reopening add nothing here: they are
        -- `planning.transition_plan`, which no client can call.
-       'create_plan', 'issue_invite', 'reask_audience', 'revise_plan', 'cancel_plan'
+       'create_plan', 'issue_invite', 'reask_audience', 'revise_plan', 'cancel_plan',
+       -- S1-17. Locking a time in is the organiser's, and the guard that says
+       -- so is `transition_plan`'s — this wrapper exists to tell a stale
+       -- candidate set apart from a candidate that is not on offer, which the
+       -- machine's single boolean cannot. The engine's own functions are not
+       -- here: `engine_input` and `store_candidate_set` are the service role's,
+       -- because the first is everybody's answers at once and the second is a
+       -- write no member makes.
+       'confirm_meetup'
      )),
   '',
   'only the intended functions in public are callable by authenticated'

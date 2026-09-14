@@ -382,8 +382,8 @@ select pg_temp.act_as('00000000-0000-0000-0000-0000000003a2');
 select throws_ok(
   format($$select public.report_outcome('%s', 'happened')$$, :'past_conf'),
   '42501',
-  null,
-  'a member cannot file the outcome — that is the organiser''s, and members say "I was there" instead'
+  'not_the_organiser',
+  'a member cannot file the outcome — that is the organiser''s, and members say "I was there" instead, with a name an endpoint can translate rather than a sentence'
 );
 select throws_ok(
   format($$insert into public.outcome_reports (confirmation_id, reported_by, outcome)

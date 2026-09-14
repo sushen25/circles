@@ -126,6 +126,41 @@ export const ProblemReason = z.enum([
    * candidate set — over a form resubmitted unedited.
    */
   'nothing_to_change',
+  // S1-17, the confirmation and the outcome.
+
+  /**
+   * `confirm-meetup`: the candidate set the organiser was looking at is not the
+   * one the plan has now — somebody answered, or the plan was edited. The times
+   * on the screen may no longer be on offer, so the client refetches and shows
+   * what is. Never a silent substitution: confirming "the top option" from a set
+   * that has moved is how a person locks in a time they did not choose.
+   */
+  'stale_candidates',
+  /**
+   * `confirm-meetup`: that time is not one of the options. A set that is current
+   * and an id that is not in it — a client holding a stale screen gets
+   * `stale_candidates` instead.
+   */
+  'needs_candidate',
+  /** `confirm-meetup`: the time has passed while the review screen was open. */
+  'candidate_has_passed',
+  /** `report-outcome`: an outcome has been reported, and a different one cannot replace it. */
+  'outcome_already_reported',
+  /** `report-outcome`: "I was there" before the meetup has ended is not an early answer. */
+  'attendance_too_early',
+  /**
+   * `report-outcome`: an answer about the past cannot become a promise about the
+   * future — `was_there` does not go back to `going`.
+   */
+  'attendance_not_reversible',
+  /** `report-outcome`, `generate-ics`: no such confirmation, or not one of yours. */
+  'confirmation_not_found',
+  /**
+   * `generate-ics`: the meetup was called off or rescheduled. The file would
+   * import as a live event for a time that is off the table.
+   */
+  'confirmation_not_live',
+
   /**
    * `submit-availability`: the plan has moved to a later revision, so this
    * answer is to a question that is no longer being asked. Fetch the plan again

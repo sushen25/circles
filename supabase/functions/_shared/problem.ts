@@ -82,6 +82,16 @@ const REASONS: Record<ProblemReason, { status: number; error: Problem['error'] }
   deadline_out_of_range: { status: 400, error: 'invalid_request' },
   not_a_participant: { status: 400, error: 'invalid_request' },
 
+  // S1-17. Locking a time in, and saying afterwards what became of it.
+  stale_candidates: { status: 409, error: 'conflict' },
+  needs_candidate: { status: 409, error: 'conflict' },
+  candidate_has_passed: { status: 409, error: 'conflict' },
+  outcome_already_reported: { status: 409, error: 'conflict' },
+  attendance_too_early: { status: 409, error: 'conflict' },
+  attendance_not_reversible: { status: 409, error: 'conflict' },
+  confirmation_not_found: { status: 404, error: 'not_found' },
+  confirmation_not_live: { status: 409, error: 'conflict' },
+
   // S1-16. An answer refused for what it says, or for when it arrived.
   stale_revision: { status: 409, error: 'conflict' },
   replies_closed: { status: 409, error: 'conflict' },

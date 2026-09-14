@@ -8,13 +8,22 @@ function's `deno.json` points at.
 
 ## What is here
 
-| Folder                                  | What it does                                                                                                                          |
-| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| [`_shared/`](./_shared)                 | The kit every function is built from (S1-13)                                                                                          |
-| [`redeem-invite/`](./redeem-invite)     | Join a circle from its link (spec §5.1)                                                                                               |
-| [`reattach-member/`](./reattach-member) | "Continue as", and the emailed way back in ([ADR 0006](../../docs/decisions/0006-continue-as-reattachment-without-owner-approval.md)) |
-| [`claim-identity/`](./claim-identity)   | Reconcile memberships when somebody saves their place (§10)                                                                           |
-| [`hello/`](./hello)                     | The import-path smoke test from S0-06. Not a product endpoint                                                                         |
+| Folder                                                | What it does                                                                                                                                                |
+| ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`_shared/`](./_shared)                               | The kit every function is built from (S1-13)                                                                                                                |
+| [`redeem-invite/`](./redeem-invite)                   | Join a circle from its link (spec §5.1)                                                                                                                     |
+| [`reattach-member/`](./reattach-member)               | "Continue as", and the emailed way back in ([ADR 0006](../../docs/decisions/0006-continue-as-reattachment-without-owner-approval.md))                       |
+| [`claim-identity/`](./claim-identity)                 | Reconcile memberships when somebody saves their place (§10)                                                                                                 |
+| [`create-circle/`](./create-circle)                   | A circle and the link that fills it, in one transaction (§5.1)                                                                                              |
+| [`create-plan/`](./create-plan)                       | A named plan, from a preset and the circle's defaults (§5.3)                                                                                                |
+| [`revise-plan/`](./revise-plan)                       | Edit, adjust or reopen — and say first what it would cost ([ADR 0017](../../docs/decisions/0017-quorum-and-deadline-adjust-a-plan-without-a-revision.md))   |
+| [`cancel-plan/`](./cancel-plan)                       | Call it off, with an optional note (§5.7)                                                                                                                   |
+| [`submit-availability/`](./submit-availability)       | One member's answer, and the engine run in the same request ([ADR 0018](../../docs/decisions/0018-the-recalculation-runs-in-the-request-that-caused-it.md)) |
+| [`recalculate-candidates/`](./recalculate-candidates) | The engine, for a plan with no request of its own. Internal                                                                                                 |
+| [`confirm-meetup/`](./confirm-meetup)                 | The organiser locks a time in; it freezes there (§5.7)                                                                                                      |
+| [`report-outcome/`](./report-outcome)                 | "Did this catch-up happen?", and "I was there" (§5.10)                                                                                                      |
+| [`generate-ics/`](./generate-ics)                     | The confirmed meetup as a calendar file. A GET                                                                                                              |
+| [`hello/`](./hello)                                   | The import-path smoke test from S0-06. Not a product endpoint                                                                                               |
 
 ## The shape of a function
 
@@ -35,6 +44,20 @@ schema, verify the JWT and load the actor, claim the idempotency key, map
 whatever goes wrong to a `Problem`, and echo `X-Request-Id`. What is left is the
 use case.
 
+Two other skeletons exist, for the two shapes that are not that one. Each keeps
+the reference, the CORS headers, the PII-free log line and the `Problem`
+mapping, and drops the steps that would be a lie for it:
+
+| Wrapper                                    | For                                                                                                             |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------- |
+| [`internalHandler`](./_shared/internal.ts) | A function no person calls. The bearer is `CRON_SECRET`, checked in constant time; no actor, no idempotency key |
+| [`downloadHandler`](./_shared/download.ts) | A **GET** that answers with a file. Query string instead of a body; `Content-Disposition` instead of JSON       |
+
+A mode on `jsonHandler` would have been worse than a second function: every step
+that differs is a step it must _not_ take — `getUser` on a shared secret is a
+round trip that can only fail, and an idempotency claim needs a user to belong
+to.
+
 ## The two rules worth knowing before writing one
 
 **Authorisation lives in the database.** A `security definer` function decides
@@ -54,6 +77,23 @@ somebody make _more_ requests; it must never let them make a request the
 database would have refused. Nothing in `_shared/rate.ts` or `turnstile.ts` is
 ever the only thing standing between a caller and something they should not
 have.
+
+## What is deliberately not a function
+
+**Correcting your attendance before the meetup.** `going ↔ cant` from the
+confirmed screen is an ordinary write to `public.attendance` through the
+client's own session: `attendance_update_own` lets a person write their own row
+and nobody else's, and `enforce_attendance_transition` holds the rules — not
+before the meetup has ended for a retrospective answer, never back from an
+answer about the past to a promise about the future, and the same answer twice
+changes nothing (S1-10). A definer function would be a second authority over a
+row the policy already governs, and the endpoint it sat behind would have to
+re-derive what the trigger already knows.
+
+`report-outcome` writes the _retrospective_ half — `was_there` / `missed` —
+through the same policy for the same reason. It is an endpoint only because the
+organiser's outcome, which is not a member's row at all, is the other half of
+the same screen's work.
 
 ## Errors
 

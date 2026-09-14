@@ -42,8 +42,14 @@ begin
   join public.plans p on p.id = c.plan_id
   where c.id = p_confirmation_id;
 
+  -- By name, because `_shared/problem.ts` turns an exception's text into a
+  -- `ProblemReason` by exact match: a sentence matches nothing, so the endpoint
+  -- answered 500 for an ordinary "this is not yours to answer".
+  if organiser is null then
+    raise exception 'confirmation_not_found' using errcode = 'no_data_found';
+  end if;
   if organiser is distinct from actor then
-    raise exception 'only the organiser reports an outcome' using errcode = 'insufficient_privilege';
+    raise exception 'not_the_organiser' using errcode = 'insufficient_privilege';
   end if;
 
   insert into public.outcome_reports (confirmation_id, reported_by, outcome, note, moved_outside)
