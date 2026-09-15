@@ -13,9 +13,16 @@
  * rename. It will be replaced; nothing may assume it. Links are never shipped
  * on `*.expo.app` (architecture §5.2).
  *
- * `dev.sushensatturu.com` is the matching non-production host. It is not
- * written here because nothing user-visible ever points at it — it arrives
- * through `EXPO_PUBLIC_APP_ORIGIN`.
+ * There is no matching non-production host. EAS Hosting allows one custom
+ * domain per project and `meet` takes it, so `dev` stays on the `expo.app`
+ * URL — which is fine, because nothing user-visible ever points at `dev`: it
+ * arrives through `EXPO_PUBLIC_APP_ORIGIN`.
+ *
+ * Replacing the domain is expected and cheap **until the first invite link
+ * reaches somebody who is not the founder**. After that the old host has to go
+ * on answering for as long as links sitting in group chats matter, and EAS
+ * serves only one custom domain per project, so that redirect has to live
+ * somewhere other than EAS.
  */
 export const brand = {
   /** Display name, used in UI, emails and store metadata. */
