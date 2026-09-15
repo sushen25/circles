@@ -37,6 +37,16 @@ const REQUIRED = [
 
 // Turnstile gates anonymous joins (§14). Missing on dev is a nuisance; missing
 // on production means the join flow is open to anything that can POST.
+//
+// Cloudflare's documented dummy sitekeys — `1x`/`2x`/`3x` followed by twenty
+// zeroes and two letters — are the right thing to develop against and the
+// wrong thing to deploy: the always-passes pair lets every caller through
+// while looking, from here, exactly like a configured widget. `length > 0` was
+// the whole production guard, and a dummy key satisfies it. It has to be a
+// separate refusal rather than a stricter format check, because the useful
+// half of the message is *which* key this is, not that it is malformed.
+const DUMMY_SITEKEY = /^[123]x0{20}[A-Z]{2}$/;
+
 const TURNSTILE = {
   name: 'EXPO_PUBLIC_TURNSTILE_SITE_KEY',
   where: 'Cloudflare dashboard → Turnstile → the widget for this domain',
@@ -44,7 +54,16 @@ const TURNSTILE = {
 
 const required = [...REQUIRED];
 if (process.env.REQUIRE_TURNSTILE === 'true') {
-  required.push({ ...TURNSTILE, check: (v) => (v.length > 0 ? null : 'is empty') });
+  required.push({
+    ...TURNSTILE,
+    check: (v) => {
+      if (v.length === 0) return 'is empty';
+      if (DUMMY_SITEKEY.test(v)) {
+        return `is Cloudflare's test key ${v}, which gates nothing — every caller passes`;
+      }
+      return null;
+    },
+  });
 }
 
 const problems = [];

@@ -407,6 +407,16 @@ these are secret; they are in Cloudflare's public documentation. They are still
 not a substitute for the real widget: they prove the wiring, not that anyone is
 being turned away.
 
+**Production refuses all five of them.** The split above works because two
+scopes hold different keys, and the thing that can quietly undo it is the
+production scope ending up with a dummy — an environment variable deleted, a
+scope confused, a value copied from this table. `check-client-env.mjs` tested
+`length > 0`, which every dummy key satisfies, so the guard that exists to keep
+the join flow closed would have passed the one configuration that opens it. It
+now names the key and refuses it when `REQUIRE_TURNSTILE=true`. Dev and
+previews are untouched: they never set that variable, and the dummy key there
+is deliberate.
+
 ## 8. Apple and Google sign-in
 
 Verified off on both projects (`/auth/v1/settings` reports `apple: false,
