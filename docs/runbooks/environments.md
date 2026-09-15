@@ -84,12 +84,19 @@ that reach a real person, and `dev` never sends an invite.
 `sushen25s-team-circles--<alias>.expo.app`, which is enough for integration
 testing and per-PR previews.
 
-That deferral ends with SUS-71 (founder decision, 15 September 2026): the
-domain is attached **before** the Turnstile widget and the OAuth clients,
-because each of those is bound to a hostname and doing them against the
-`expo.app` host means doing them twice — and the Google web client has to be
-re-created rather than edited. See
-[`environment-setup.md`](./environment-setup.md) step 2.
+It is not a deferral any more, it is the arrangement (founder decision, 15
+September 2026). `dev` keeps the `expo.app` host permanently, because EAS
+Hosting allows one custom domain per project and `meet.sushensatturu.com` takes
+it.
+
+The Turnstile widget and the OAuth clients are still configured against the
+final hostname rather than the `expo.app` one, so each is created once — but
+they are configured **before** the domain is attached, not after. Both store a
+hostname as text and check no DNS when saved, so a settled name is all they
+need. The attachment itself waits on a production deployment, and
+`deploy-prod.yml` will not deploy without the Turnstile site key, so the
+reverse order is a deadlock. See
+[`environment-setup.md`](./environment-setup.md) steps 2 and 7.
 
 This is not a licence to ignore §5.2. That rule — **never ship links on
 `*.expo.app`** — is about links a real person receives, and it still binds

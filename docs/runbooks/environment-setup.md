@@ -224,10 +224,16 @@ In the repository settings, **Secrets and variables → Actions**:
       read them):
       `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`,
       `EXPO_PUBLIC_APP_ORIGIN`. All three confirmed present.
-      `APP_ORIGIN` is `https://sushen25s-team-circles--dev.expo.app`, **not**
-      `https://dev.sushensatturu.com`, because step 2 is deferred and `dev` has
-      no custom domain. Change it when the domain is attached, not before — an
-      origin that does not resolve is worse than an ugly one that does.
+      `APP_ORIGIN` is `https://sushen25s-team-circles--dev.expo.app`, and
+      **never changes.** It is not a placeholder waiting for a domain: step 2
+      settled that `dev` keeps the `expo.app` host permanently, because EAS
+      Hosting allows one custom domain per project and `meet` takes it.
+      Repository scope is read by `deploy-dev` and by every per-PR preview, so
+      pointing it at `meet.sushensatturu.com` when the domain is attached would
+      aim dev deploys, dev updates and every preview at the production origin —
+      which is why this says so here rather than leaving it to be inferred.
+      Production overrides it from the `production` environment; that is the
+      only place the live origin belongs.
 - [x] `EXPO_PUBLIC_TURNSTILE_SITE_KEY` (repository scope). Set 15 September
       2026 to the **dummy always-passes** site key `1x00000000000000000000BB`,
       not the real one — deliberately. `preview.yml` and `deploy-dev.yml` both
@@ -443,11 +449,14 @@ google: false`). Due before S1-14.
 Slower than the rest; both can be done after Slice 1 starts, but before S1-14
 lands.
 
-**Do step 2 first.** Founder decision, 15 September 2026: attach the domain
-before creating any OAuth client, so one web client covers both origins and is
-created once. The alternative considered was a throwaway dev client against the
-`expo.app` origin to unblock S1-14 sooner; it was not taken, because the client
-that would have to be re-created later is the one carrying real consent grants.
+**The name has to be settled, not attached.** Founder decision, 15 September
+2026: create the web client once, against the final origin, rather than against
+the `expo.app` host and again later — the client that would be re-created is
+the one carrying real consent grants. But an OAuth client stores its origin as
+text and checks no DNS when you save it, so "settled" is the whole
+requirement, and `meet.sushensatturu.com` has been settled since 15 September.
+Do not wait for step 2's attachment, which needs a production deployment that
+in turn waits on S1-32.
 
 S1-14 is not idle while this happens — the email-code path, anonymous sessions,
 session persistence, identity linking and the guards all work against the local
