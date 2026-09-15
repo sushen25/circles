@@ -113,6 +113,9 @@ async function loadAppInstalled(session: Session | null): Promise<void> {
 
 let started = false;
 
+/** Bumped by every auth state change, so a slow lookup knows it has been overtaken. */
+let generation = 0;
+
 /**
  * Begins watching the session. Idempotent; called from the root layout.
  *
@@ -149,8 +152,13 @@ export function startSessionTracking(): () => void {
     return () => undefined;
   }
 
+  generation += 1;
+  const initial = generation;
   void client.auth.getSession().then(async ({ data }) => {
     await loadAppInstalled(data.session);
+    // Same rule as below: if a state change arrived while this was reading, it
+    // knows something newer than the stored session does.
+    if (initial !== generation) return;
     setAccessToken(data.session?.access_token);
     publish(data.session);
   });
@@ -161,7 +169,21 @@ export function startSessionTracking(): () => void {
     // identity is worse than one attributed to nobody.
     setAccessToken(session?.access_token);
 
+    /**
+     * Only the newest change gets to publish.
+     *
+     * `loadAppInstalled` is a database round trip, and sign-out during a
+     * sign-in — or one identity replacing another, which is exactly what saving
+     * a place does — leaves two of them in flight. Whichever query finishes
+     * last would otherwise publish last, so a slow lookup for the identity
+     * somebody has *left* can overwrite the identity they are now, and every
+     * guard and `useSession` then reports the wrong person.
+     */
+    generation += 1;
+    const mine = generation;
+
     void loadAppInstalled(session).then(() => {
+      if (mine !== generation) return;
       publish(session);
     });
   });
@@ -201,6 +223,7 @@ export async function signOut(): Promise<void> {
 /** Resets module state so a test starts from nothing. */
 export function resetSessionForTests(): void {
   state = SIGNED_OUT;
+  generation = 0;
   appInstalled = false;
   started = false;
   listeners.clear();

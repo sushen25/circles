@@ -86,8 +86,9 @@ describe('native, where values are chunked', () => {
 
   it('reads a half-written value as absent rather than as a truncated session', async () => {
     await secure.setItem('k', 'D'.repeat(CHUNK_SIZE * 3));
-    // An app killed mid-write, or a partial restore from a backup.
-    store.delete('k.1');
+    // A partial restore from a backup. The write order makes this unreachable
+    // by interruption; it is still what a reader must not misread.
+    store.delete('k.a.1');
 
     // Not the prefix: `supabase-js` would be handed unparseable JSON on every
     // start, and the person would be stuck rather than merely signed out.
@@ -105,6 +106,33 @@ describe('native, where values are chunked', () => {
   it('returns null for a key it has never seen', async () => {
     expect(await secure.getItem('nothing')).toBeNull();
   });
+
+  it('keeps the previous session when a write fails halfway', async () => {
+    /**
+     * Token refresh runs roughly hourly, so a write that can strand the user is
+     * a write that strands users regularly. Clearing first and writing second
+     * loses a *valid* refresh token to any failure in between; this writes a new
+     * generation and switches the header last, so an interrupted write is
+     * invisible.
+     */
+    const first = 'A'.repeat(CHUNK_SIZE * 3);
+    await secure.setItem('k', first);
+
+    let writes = 0;
+    const realSet = store.set.bind(store);
+    const failing = (key: string, value: string) => {
+      writes += 1;
+      if (writes === 2) throw new Error('secure store said no');
+      realSet(key, value);
+    };
+    vi.spyOn(store, 'set').mockImplementation(failing as never);
+
+    await expect(secure.setItem('k', 'B'.repeat(CHUNK_SIZE * 3))).rejects.toThrow();
+    vi.restoreAllMocks();
+
+    // The old session is still there and still whole.
+    expect(await secure.getItem('k')).toBe(first);
+  });
 });
 
 describe('web, where storage is allowed to refuse', () => {
@@ -114,7 +142,7 @@ describe('web, where storage is allowed to refuse', () => {
     expect(web.getItem('k')).toBe('value');
   });
 
-  it('reads as signed-out when the browser throws instead of answering', () => {
+  it('reads as signed-out when the browser throws and nothing was written', () => {
     // Private mode, or site data blocked. `localStorage` throws on access
     // rather than returning null, and an unhandled throw here takes down the
     // auth client on a browser that is merely private.
@@ -122,20 +150,41 @@ describe('web, where storage is allowed to refuse', () => {
       throw new Error('denied');
     });
 
-    expect(web.getItem('k')).toBeNull();
+    expect(web.getItem('refused-and-never-written')).toBeNull();
     vi.restoreAllMocks();
   });
 
-  it('does not throw when a write is refused', () => {
+  it('keeps the session readable when the write is refused', () => {
+    /**
+     * The failure this exists for, and it is not "does not throw".
+     *
+     * `supabase-js` keeps no session of its own — `getSession()` reads back
+     * through this adapter. So a `setItem` that swallows the error and stores
+     * nothing means sign-in appears to succeed and the next request goes out
+     * with the anon key instead. An earlier version did exactly that, and said
+     * in a comment that the session stayed in memory. Nothing was keeping it
+     * there.
+     */
     vi.spyOn(globalThis.Storage.prototype, 'setItem').mockImplementation(() => {
       throw new Error('quota');
     });
 
-    // The session stays in memory for this tab, which is enough to finish what
-    // the person is doing. Throwing would end it instead.
-    expect(() => {
-      web.setItem('k', 'value');
-    }).not.toThrow();
+    web.setItem('quota-key', 'the.session');
+
+    expect(web.getItem('quota-key')).toBe('the.session');
     vi.restoreAllMocks();
+  });
+
+  it('forgets it again on sign-out', () => {
+    vi.spyOn(globalThis.Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('quota');
+    });
+    web.setItem('quota-key-2', 'the.session');
+    vi.restoreAllMocks();
+
+    web.removeItem('quota-key-2');
+
+    // A mirror that outlived the sign-out would answer for somebody who left.
+    expect(web.getItem('quota-key-2')).toBeNull();
   });
 });

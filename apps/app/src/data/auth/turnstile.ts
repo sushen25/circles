@@ -41,6 +41,8 @@ interface TurnstileApi {
       callback: (token: string) => void;
       'error-callback': () => void;
       'timeout-callback'?: () => void;
+      'before-interactive-callback'?: () => void;
+      'after-interactive-callback'?: () => void;
       appearance?: string;
     },
   ) => string;
@@ -107,13 +109,42 @@ export async function getTurnstileToken(): Promise<string | undefined> {
   const turnstile = api();
   if (turnstile === undefined) return undefined;
 
-  // Off-screen rather than `display: none`: a hidden container can stop the
-  // widget from running at all, and an invisible challenge still needs a box
-  // the browser considers real.
+  /**
+   * Out of the way while it is invisible, and **in front of the person the
+   * moment it is not**.
+   *
+   * `interaction-only` means Cloudflare decides: most visitors never see
+   * anything, and some are asked to solve a challenge. Parking the container
+   * off-screen for ever handles the first group and strands the second — the
+   * widget renders a puzzle 9,999 pixels to the left, nobody can reach it, this
+   * times out, and the join is refused for having no token. On a hosted project
+   * that is a person who simply cannot join, with no way to tell why.
+   *
+   * So it starts off-screen and `before-interactive-callback` brings it back.
+   */
   const container = globalThis.document.createElement('div');
-  container.style.position = 'absolute';
-  container.style.left = '-9999px';
-  container.style.top = '0';
+  const hide = (): void => {
+    container.style.position = 'absolute';
+    container.style.left = '-9999px';
+    container.style.top = '0';
+    container.style.zIndex = '';
+    container.style.transform = '';
+    container.style.background = '';
+    container.style.padding = '';
+  };
+  const show = (): void => {
+    // Centred and above everything. Deliberately plain: this is Cloudflare's
+    // widget, shown for as long as it takes, and dressing it up would make a
+    // security challenge look like part of the product.
+    container.style.position = 'fixed';
+    container.style.left = '50%';
+    container.style.top = '50%';
+    container.style.transform = 'translate(-50%, -50%)';
+    container.style.zIndex = '2147483647';
+    container.style.background = '#fff';
+    container.style.padding = '16px';
+  };
+  hide();
   globalThis.document.body.append(container);
 
   let widgetId: string | undefined;
@@ -149,6 +180,14 @@ export async function getTurnstileToken(): Promise<string | undefined> {
       widgetId = turnstile.render(container, {
         sitekey,
         appearance: 'interaction-only',
+        'before-interactive-callback': () => {
+          show();
+          // A person solving a puzzle is not a stalled request. The twenty
+          // seconds is there to stop an invisible check hanging a join, and it
+          // would otherwise cancel the visible one mid-solve.
+          clearTimeout(timer);
+        },
+        'after-interactive-callback': hide,
         callback: (token: string) => {
           done(token);
         },
