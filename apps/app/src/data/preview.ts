@@ -16,9 +16,17 @@ import { EN_PREVIEW_TEMPLATES, ogDescription, ogTitle } from '@circles/domain';
  * out of that thread.
  */
 
-/** A chat app fetching a card, rather than a person opening a link. */
+/**
+ * A chat app fetching a card, rather than a person opening a link.
+ *
+ * Bot names only. `pinterest` and `flipboard` were here and matched those
+ * apps' *in-app browsers* too — a real person, handed a card whose own refresh
+ * points back at the URL it was served on, which served them the card again. A
+ * blank page reloading for ever, for anybody who opened a link inside one of
+ * those apps.
+ */
 const PREVIEW_AGENTS =
-  /whatsapp|facebookexternalhit|facebookcatalog|twitterbot|slackbot|discordbot|telegrambot|linkedinbot|applebot|skypeuripreview|redditbot|embedly|pinterest|vkshare|bitlybot|flipboard|iframely|bingbot|quora link preview/i;
+  /whatsapp|facebookexternalhit|facebookcatalog|twitterbot|slackbot-linkexpanding|slackbot\b|discordbot|telegrambot|linkedinbot|applebot|skypeuripreview|redditbot|embedly|pinterestbot|vkshare|bitlybot|iframely|bingbot|quora link preview/i;
 
 /** The three link shapes, and the one a preview can never resolve. */
 export const PREVIEW_KINDS = new Set(['j', 'p', 'join']);

@@ -8,7 +8,7 @@
 -- readable by nobody who is not deliberately named in a table.
 
 begin;
-select plan(31);
+select plan(33);
 
 create or replace function pg_temp.make_user(id uuid, name text, permanent boolean default true)
 returns uuid language sql as $$
@@ -375,6 +375,43 @@ select is(
    join public.circles c on c.id = f.circle_id where c.creation_key = 'key-never'),
   false,
   'and a circle that has confirmed nothing reads false rather than null, so counting the failures finds them'
+);
+
+-- The two views nothing else asserts. `plan_timings` is the §11.4 gate about
+-- how long a reply takes; `reattach_rate` is the one about getting back in.
+-- In a month of its own, because the seed's circles make plans too and a
+-- median over a month they share is a median of somebody else's numbers.
+update public.plans set created_at = timestamptz '2026-04-10T02:00:00Z'
+where short_code = 'pnanaa';
+insert into public.plan_responses (plan_id, revision, user_id, status, submitted_at)
+select p.id, p.revision, '00000000-0000-0000-0000-00000000aa02', 'flexible',
+       p.created_at + interval '90 seconds'
+from public.plans p where p.short_code = 'pnanaa';
+
+select is(
+  (select median_seconds_to_first_response::integer from analytics.plan_timings
+   where month = timestamp '2026-04-01'),
+  90,
+  'the median wait for a first reply is measured from the plan, in the circle''s own month'
+);
+
+select pg_temp.act_as_service();
+select public.record_events(jsonb_build_array(
+  jsonb_build_object('event_id', '00000000-0000-0000-0000-0000000000e4',
+    'event_name', 'session_missing_on_return', 'schema_version', 1,
+    'properties', '{}'::jsonb, 'occurred_at', '2026-03-02T00:00:00Z'),
+  jsonb_build_object('event_id', '00000000-0000-0000-0000-0000000000e5',
+    'event_name', 'member_reattached', 'schema_version', 1,
+    'properties', jsonb_build_object('source', 'email'),
+    'occurred_at', '2026-03-02T00:00:00Z')
+));
+
+select pg_temp.act_as_postgres();
+select is(
+  (select array[sessions_missing, reattached, reattached_from_email, reattached_from_list]
+   from analytics.reattach_rate where month = timestamptz '2026-03-01T00:00:00Z'),
+  array[1::bigint, 1::bigint, 1::bigint, 0::bigint],
+  'and a return with no session is counted against the reattachment that answered it, by route'
 );
 
 -- ---------------------------------------------------------------------------

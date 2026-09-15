@@ -50,10 +50,11 @@ Architecture §9.4 is corrected to say this.
 - **Give the web server the service-role key.** Rejected for the reason above:
   the blast radius of that key in that process is far larger than unmetered
   reads of a public name.
-- **Cache the card at the edge and call it a limit.** The response already
-  carries `cache-control: public, max-age=300`, which does flatten repeated
-  fetches of the *same* code. It does nothing about a walk across codes, so it
-  is worth having and not worth claiming as the control.
+- **Cache the card at the edge and call it a limit.** Rejected, and then
+  ruled out entirely: the card is served at the URL people tap, and an edge
+  cache there hands a person the card instead of the app. Every preview
+  response is `no-store`, and so is the page HTML beside it — so there is no
+  caching here to mistake for a limit.
 
 ## Consequences
 

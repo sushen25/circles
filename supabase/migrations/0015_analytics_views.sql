@@ -224,14 +224,17 @@ with reported as (
 -- a quiet month. A `union` of the months that happen to have rows skips the
 -- silence, and the silence is the thing worth seeing.
 months as (
+  -- Cast, because `greatest` with a `timestamptz` would coerce the whole
+  -- series and hand this one view a `month` of a different type from every
+  -- other — which a reader of `founder_summary` would have to special-case.
   select generate_series(
     (select min(activated_month) from analytics.circle_activation),
     greatest(
-      date_trunc('month', now()),
-      coalesce((select max(month) from reported), date_trunc('month', now()))
+      date_trunc('month', now() at time zone 'UTC'),
+      coalesce((select max(month) from reported), date_trunc('month', now() at time zone 'UTC'))
     ),
     interval '1 month'
-  ) as month
+  )::timestamp as month
 )
 select
   m.month,

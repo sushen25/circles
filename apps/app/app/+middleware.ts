@@ -50,5 +50,12 @@ export default async function middleware(request: Request): Promise<Response | u
  * from doing anything: a comment standing in for the enforcement beside it.
  */
 export const unstable_settings = {
-  matcher: { methods: ['GET', 'HEAD'], patterns: ['/join', '/j/[code]', '/p/[code]'] },
+  // `/join/` is spelled out because a pattern with no `[param]` is compared as
+  // an exact string — `/join` does not match `/join/`, while `/j/[code]` does
+  // match a trailing slash. Without both, `previewTargetFor`'s trailing-slash
+  // branch is code no request reaches.
+  matcher: {
+    methods: ['GET', 'HEAD'],
+    patterns: ['/join', '/join/', '/j/[code]', '/p/[code]'],
+  },
 };

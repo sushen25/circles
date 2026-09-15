@@ -84,6 +84,11 @@ describe('who gets a card', () => {
   it.each([
     'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Safari/604.1',
     'Mozilla/5.0 (Linux; Android 14) Chrome/120.0.0.0 Mobile Safari/537.36',
+    // An in-app browser is a person. Matching the brand name handed them the
+    // card, whose refresh points at the URL it was served on — a blank page
+    // reloading for ever, with no way out.
+    'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6) AppleWebKit/605.1.15 Mobile/20A362 [Pinterest/iOS]',
+    'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0) AppleWebKit/605.1.15 Flipboard/4.3.15',
   ])('%s is a person, who wants the app', (agent) => {
     expect(isPreviewAgent(agent)).toBe(false);
   });
