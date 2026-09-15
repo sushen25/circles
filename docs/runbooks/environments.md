@@ -158,9 +158,24 @@ verified in Resend on 15 September — so `pnpm check:env meet.sushensatturu.com
 runs the email checks and passes them. `dev` has none and never will: it does
 not send, and `--no-email` is the right invocation there.
 
-No environment sends real email *yet* all the same, because the client that
-would ask for it does not exist until S1-19. What changed is that the domain is
-ready, not that anything is using it.
+Nothing sends *product* email yet — the templates and the sending code arrive
+with S1-19, so nothing has used that domain.
+
+**Supabase Auth is a different sender, and it is already live.** Sign-in codes
+do not go through Resend; the hosted project sends them itself. With email OTP
+enabled, `disable_signup` false and the publishable key readable in the bundle,
+anyone can POST to `/auth/v1/otp` and make `circles-prod` send a real email to
+a real address. Two things follow, and neither is hypothetical:
+
+- What it sends is Supabase's **stock magic-link** template, not the six-digit
+  code the product implements — so the first email production ever sends is one
+  the app cannot handle. `supabase/templates/magic-link.html` overrides this
+  locally and the hosted dashboards are untouched.
+- It is rate-limited hard on the Free plan and the quota is shared, so it is
+  also a way for someone else to exhaust it.
+
+Fix the hosted templates when S1-19 lands, or turn `disable_signup` on until
+then; see the deployment note above for the same lever.
 
 Email is tested **locally** instead. `pnpm db:start` runs Mailpit next to
 Postgres and Auth; everything the stack sends is captured at

@@ -525,6 +525,29 @@ The Apple private key is a file, so it goes as its contents:
 supabase secrets set --project-ref <ref> APPLE_PRIVATE_KEY="$(cat AuthKey_XXXX.p8)"
 ```
 
+**The two projects do not take the same set**, so one command for both is wrong
+in whichever direction you write it — it either gives `dev` a sending key it
+must not have, or leaves out `CRON_SECRET` and the internal functions refuse
+every call. Per project, matching the table below:
+
+```bash
+# circles-prod — the real Turnstile secret, and the only project that sends
+supabase secrets set --project-ref bhunoaqswteamabbyckp \
+  CRON_SECRET=... \
+  TURNSTILE_SECRET_KEY=... \
+  RESEND_API_KEY=... \
+  RESEND_WEBHOOK_SECRET=...        # S1-19; the endpoint does not exist yet
+```
+
+```bash
+# circles-dev — the dummy Turnstile secret, and no Resend at all
+supabase secrets set --project-ref pcfekupwqrdfryeaqggx \
+  CRON_SECRET=... \
+  TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA
+```
+
+`APPLE_*` and `GOOGLE_*` go on both, and on neither yet — S1-14b.
+
 **Where this stands, 15 September 2026.** Everything but Apple and Google is set;
 those wait on S1-14b, which is why this step cannot be ticked whole:
 
