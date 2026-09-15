@@ -8,7 +8,7 @@
 -- readable by nobody who is not deliberately named in a table.
 
 begin;
-select plan(33);
+select plan(34);
 
 create or replace function pg_temp.make_user(id uuid, name text, permanent boolean default true)
 returns uuid language sql as $$
@@ -62,6 +62,13 @@ select pg_temp.act_as('00000000-0000-0000-0000-00000000aa01');
 select public.create_circle('Sunday Crew', 'sky', 'Australia/Melbourne', 'key-analytics');
 
 select pg_temp.act_as_postgres();
+-- Backdated so that "within seven days of being made" is a question about this
+-- circle rather than about a fixture that confirmed before it existed. Its
+-- first meetup is confirmed on 5 March, three days later, so it activates in
+-- §11.2's sense and belongs in the north star's denominator.
+update public.circles set created_at = timestamptz '2026-03-01T00:00:00Z'
+where creation_key = 'key-analytics';
+
 create temporary table t as select id as circle_id from public.circles where creation_key = 'key-analytics';
 grant select on t to anon, authenticated, service_role;
 create or replace function pg_temp.circle() returns uuid
@@ -356,15 +363,11 @@ select is(
   'the chasing survey is counted by answer, because a chased reply looks like any other reply'
 );
 
--- Backdated, so that "within seven days of being made" is a question about
--- this circle rather than about a fixture that confirmed before it existed.
-update public.circles set created_at = timestamptz '2026-01-01T00:00:00Z'
-where id = pg_temp.circle();
 select is(
   (select activated_within_7_days from analytics.funnel_by_circle
    where circle_id = pg_temp.circle()),
-  false,
-  'a circle whose first meetup came nineteen days later did not activate in §11.2''s sense'
+  true,
+  'a circle that confirmed three days after it was made activated, in §11.2''s sense'
 );
 
 select pg_temp.act_as('00000000-0000-0000-0000-00000000aa04');
@@ -412,6 +415,51 @@ select is(
    from analytics.reattach_rate where month = timestamptz '2026-03-01T00:00:00Z'),
   array[1::bigint, 1::bigint, 1::bigint, 0::bigint],
   'and a return with no session is counted against the reattachment that answered it, by route'
+);
+
+-- Round 4: the north star counts meetups *per activated circle*, and §11.2 says
+-- activated means "confirms first meetup within 7 days". A circle that took
+-- three weeks to get going is not in the denominator — and its meetups must not
+-- be in the numerator either, or the rate is one no circle actually achieves.
+select pg_temp.act_as('00000000-0000-0000-0000-00000000aa04');
+select public.create_circle('Slow Crew', 'sky', 'Australia/Melbourne', 'key-slow');
+select pg_temp.act_as_postgres();
+update public.circles set created_at = timestamptz '2026-03-01T00:00:00Z'
+where creation_key = 'key-slow';
+
+insert into public.plans (
+  circle_id, mode, state, organiser_user_id, title, time_zone,
+  window_start, window_end, daily_start_local, daily_end_local,
+  duration_minutes, quorum, response_deadline, short_code
+)
+select c.id, 'named', 'confirmed', '00000000-0000-0000-0000-00000000aa04',
+  'Eventually', 'Australia/Melbourne', date '2026-03-25', date '2026-03-28',
+  1050, 1350, 120, 2, timestamptz '2026-03-25T05:00:00Z', 'pnanbs'
+from public.circles c where c.creation_key = 'key-slow';
+
+insert into public.meetup_confirmations (
+  plan_id, revision, candidate_id, starts_at, ends_at, available_user_ids, confirmed_by,
+  status, confirmed_at
+)
+select p.id, 1, '2026-03-25T08:30:00+00:00',
+  timestamptz '2026-03-25T08:30:00Z', timestamptz '2026-03-25T10:30:00Z',
+  array['00000000-0000-0000-0000-00000000aa04'::uuid],
+  '00000000-0000-0000-0000-00000000aa04', 'active', timestamptz '2026-03-25T00:00:00Z'
+from public.plans p where p.short_code = 'pnanbs';
+
+insert into public.plan_participants (plan_id, revision, user_id)
+select id, 1, '00000000-0000-0000-0000-00000000aa04' from public.plans where short_code = 'pnanbs';
+
+insert into public.outcome_reports (confirmation_id, reported_by, outcome, reported_at)
+select mc.id, '00000000-0000-0000-0000-00000000aa04', 'happened', timestamptz '2026-03-26T09:00:00Z'
+from public.meetup_confirmations mc
+join public.plans p on p.id = mc.plan_id where p.short_code = 'pnanbs';
+
+select is(
+  (select array[activated_circles, happened_reported] from analytics.north_star_monthly
+   where month = timestamp '2026-03-01'),
+  array[1::bigint, 2::bigint],
+  'a circle that took three weeks to get going is in neither half of the rate'
 );
 
 -- ---------------------------------------------------------------------------

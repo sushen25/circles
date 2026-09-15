@@ -9,7 +9,15 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { fontAssets } from '@circles/tokens/font-assets';
 
+import { configureAnalytics } from '../src/analytics/track';
+import { trackEventsTransport } from '../src/analytics/transport';
+
 void SplashScreen.preventAutoHideAsync();
+
+// Once, at the root, before any screen can record anything. `track()` buffers
+// until a transport exists; without this line every event in the product
+// accumulates in memory and the funnel reads zero (architecture §15).
+configureAnalytics({ transport: trackEventsTransport() });
 
 const queryClient = new QueryClient({
   defaultOptions: {

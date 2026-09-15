@@ -56,12 +56,12 @@ alter table private.allowlist enable row level security;
 -- ---------------------------------------------------------------------------
 -- When a circle became a circle that meets.
 --
--- Written once because two views need it and they must not disagree: §11.2's
--- activation ("confirms first meetup within 7 days") is a *rate* — did this
--- circle get going quickly — while the north star's denominator is every
--- circle that has ever got going at all. Both are read from this, so the
--- difference between them stays a deliberate one sentence apart rather than
--- two subqueries that drifted.
+-- Written once because two views need it and they must not disagree. §11.2 is
+-- the definition: "Activation — circle confirms first meetup within 7 days",
+-- and §11.1's "per activated circle" is that same word. An earlier draft of
+-- this view let the north star count every circle that had ever confirmed, on
+-- the reasoning that a slow circle is still a live one — which is a change to a
+-- product rule, and those go through an ADR rather than through a denominator.
 --
 -- The month is the circle's own, not UTC. A meetup confirmed at 9 am on the
 -- first of October in Melbourne is an October meetup, and `date_trunc` on a
@@ -71,7 +71,8 @@ create view analytics.circle_activation as
 select
   p.circle_id,
   min(mc.confirmed_at) as first_confirmed_at,
-  date_trunc('month', min(mc.confirmed_at at time zone c.time_zone)) as activated_month
+  date_trunc('month', min(mc.confirmed_at at time zone c.time_zone)) as activated_month,
+  min(mc.confirmed_at) <= min(c.created_at) + interval '7 days' as within_7_days
 from public.meetup_confirmations mc
 join public.plans p on p.id = mc.plan_id
 join public.circles c on c.id = p.circle_id
@@ -106,12 +107,10 @@ select
     join public.plans p on p.id = mc.plan_id
     where p.circle_id = c.id and o.outcome = 'happened') as happened,
   a.first_confirmed_at,
-  -- Activation, as §11.2 defines it: a first meetup confirmed within seven days
-  -- of the circle being created. False rather than null for a circle that has
-  -- confirmed nothing — `null <= x` is null, and a consumer counting `false`
-  -- would miss exactly the circles that did not activate.
-  coalesce(a.first_confirmed_at <= c.created_at + interval '7 days', false)
-    as activated_within_7_days
+  -- False rather than null for a circle that has confirmed nothing — `null <=
+  -- x` is null, and a consumer counting `false` would miss exactly the circles
+  -- that did not activate.
+  coalesce(a.within_7_days, false) as activated_within_7_days
 from public.circles c
 left join analytics.circle_activation a on a.circle_id = c.id;
 
@@ -202,14 +201,20 @@ group by 1;
 -- side by side rather than one replacing the other, because the difference
 -- between them is the thing worth watching.
 --
--- The denominator is `analytics.circle_activation`, counted **on or before**
--- that month: a circle that confirmed its first meetup in March is part of
--- April's denominator too, or the rate would rise every time an old circle went
--- quiet. Note that this is "has ever confirmed", not §11.2's seven-day
--- activation — which `funnel_by_circle` reports, from the same source.
+-- The denominator is the circles §11.2 calls activated — first meetup confirmed
+-- within seven days — counted **on or before** that month: one that activated
+-- in March is part of April's denominator too, or the rate would rise every
+-- time an old circle went quiet.
+--
+-- The numerator is restricted to the same circles, which is the half that is
+-- easy to get wrong: counting every circle's meetups over a denominator of
+-- activated ones would report a rate no circle actually achieves.
 -- ---------------------------------------------------------------------------
 create view analytics.north_star_monthly as
-with reported as (
+with activated as (
+  select * from analytics.circle_activation where within_7_days
+),
+reported as (
   select
     date_trunc('month', o.reported_at at time zone c.time_zone) as month,
     o.confirmation_id,
@@ -218,6 +223,7 @@ with reported as (
   join public.meetup_confirmations mc on mc.id = o.confirmation_id
   join public.plans p on p.id = mc.plan_id
   join public.circles c on c.id = p.circle_id
+  join activated a on a.circle_id = p.circle_id
   where o.outcome = 'happened'
 ),
 -- Every month from the first activation to this one, so a quiet month reads as
@@ -228,7 +234,7 @@ months as (
   -- series and hand this one view a `month` of a different type from every
   -- other — which a reader of `founder_summary` would have to special-case.
   select generate_series(
-    (select min(activated_month) from analytics.circle_activation),
+    (select min(activated_month) from activated),
     greatest(
       date_trunc('month', now() at time zone 'UTC'),
       coalesce((select max(month) from reported), date_trunc('month', now() at time zone 'UTC'))
@@ -238,8 +244,7 @@ months as (
 )
 select
   m.month,
-  (select count(*) from analytics.circle_activation a where a.activated_month <= m.month)
-    as activated_circles,
+  (select count(*) from activated a where a.activated_month <= m.month) as activated_circles,
   (select count(*) from reported r where r.month = m.month) as happened_reported,
   (select count(*) from reported r
     where r.month = m.month

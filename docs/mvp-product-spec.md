@@ -160,7 +160,7 @@ Returning users land on the same Welcome; Apple and Google resolve to the existi
 
 #### Invitee entry (canvas page 1)
 
-- A circle invite opens a responsive mobile-web route. The link preview in the chat shows the circle name and "Pick the times you'd actually be up for. No app needed." Nothing else.
+- A circle invite opens a responsive mobile-web route. The link preview in the chat shows "Pick the times you'd actually be up for. No app needed." Nothing else. A **plan** link (`/j/<code>`, `/p/<code>`) also names the circle; a **circle invite** (`/join#<secret>`) cannot, because its secret lives in the URL fragment and a fragment is never sent to a server — so nothing that draws the card can know which circle it is ([ADR 0021](decisions/0021-the-link-preview-is-not-rate-limited.md)).
 - Before any prompt the page shows: circle name, inviter's name, who is in so far, a one-sentence privacy statement, and the expected effort.
 - **Choose my times** creates an anonymous session tied to that browser and asks for a display name. Duplicate active names in a circle are prevented; the owner can resolve accidents.
 - After the first useful response, a skippable **Get updates about this meetup by email** card appears (§5.8). Dismissal is one tap. No marketing checkbox exists.

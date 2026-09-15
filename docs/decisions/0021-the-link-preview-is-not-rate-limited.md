@@ -56,6 +56,23 @@ Architecture §9.4 is corrected to say this.
   response is `no-store`, and so is the page HTML beside it — so there is no
   caching here to mistake for a limit.
 
+## A second thing this settles: `/join` has no named card
+
+Spec §5.1 said the invite's chat preview "shows the circle name". It cannot.
+`/join#<secret>` carries its secret in the fragment, and a fragment is never
+sent to a server — so the route that draws the card cannot know which circle
+the link is for, and `preview_for_code` refuses that kind outright rather than
+pretending.
+
+The generic card is what an invite gets: "Pick the times you'd actually be up
+for. No app needed." A plan link (`/j/<code>`, `/p/<code>`) carries a code in
+the path and is named. §5.1 is corrected to say both.
+
+This is not a loss worth engineering around. Putting the circle in the path
+would mean a link that names the circle to anybody who sees the URL, in a chat
+the invite may be forwarded well beyond — and the whole reason the secret is in
+a fragment is that the server never needs it.
+
 ## Consequences
 
 - An attacker with a list of valid plan codes can read those circles' names.
