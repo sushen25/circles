@@ -234,9 +234,13 @@ describe('a claim that never got an answer', () => {
     // Give the call a turn to reach the transport, then look at storage as a
     // killed process would leave it.
     await new Promise((resolve) => setTimeout(resolve, 0));
-    const stored = globalThis.localStorage.getItem('circles.pending_claim');
+    const stored = globalThis.localStorage.getItem('circles.pending_claims');
     expect(stored).not.toBeNull();
-    expect(JSON.parse(stored ?? '{}')).toMatchObject({ anonymous_session: 'anon.token' });
+    // Keyed by the identity it is for, so one browser can hold several.
+    expect(JSON.parse(stored ?? '{}')[SAVED_ID]).toMatchObject({
+      anonymous_session: 'anon.token',
+      destination_user_id: SAVED_ID,
+    });
 
     release();
     await inFlight;
@@ -291,6 +295,39 @@ describe('a claim that never got an answer', () => {
     state.session = SAVED;
     await resumePendingClaim();
     expect(state.invocations).toHaveLength(1);
+  });
+
+  it('is not overwritten by the next person to save their place here', async () => {
+    /**
+     * A shared laptop. One claim strands; a different guest then saves their
+     * place in the same browser. With a single stored record the second write
+     * erased the first person's only evidence, and their memberships were gone
+     * with no error anywhere.
+     */
+    state.answers = [{ error: new Error('network') }];
+    await expect(
+      savePlace({ moment: 'after_answer', signIn: async () => ({ session: SAVED as never }) }),
+    ).rejects.toBeInstanceOf(SavePlaceError);
+
+    // Somebody else, from a fresh guest session, succeeding.
+    const OTHER_ID = '44444444-4444-4444-8444-444444444444';
+    state.session = ANON;
+    await savePlace({
+      moment: 'settings',
+      signIn: async () => ({
+        session: {
+          access_token: 'other.token',
+          user: { id: OTHER_ID, is_anonymous: false },
+        } as never,
+      }),
+    });
+
+    // The first person's claim survived, and still finishes.
+    state.invocations = [];
+    state.session = SAVED;
+    await resumePendingClaim();
+    expect(state.invocations).toHaveLength(1);
+    expect(state.invocations[0]?.body.anonymous_session).toBe('anon.token');
   });
 
   it('does nothing when there is nothing pending', async () => {

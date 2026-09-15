@@ -66,8 +66,14 @@ export class SavePlaceError extends Error {
  * already stored there and that expires on its own. The key and the moment go
  * with it: retrying under the same key is what makes the retry a resume rather
  * than a second claim.
+ *
+ * **Keyed by destination, so there can be more than one.** A single record
+ * meant the next claim overwrote whatever was waiting: a stranded claim for one
+ * identity, then a fresh guest on the same browser saving their place, and the
+ * first person's only evidence was gone. One browser can carry claims for
+ * several people — a shared laptop is the ordinary case, not the exotic one.
  */
-const PENDING_KEY = 'circles.pending_claim';
+const PENDING_KEY = 'circles.pending_claims';
 
 interface PendingClaim {
   anonymous_session: string;
@@ -85,38 +91,58 @@ interface PendingClaim {
   destination_user_id: string;
 }
 
-async function rememberClaim(claim: PendingClaim): Promise<void> {
+function usable(claim: PendingClaim | undefined): claim is PendingClaim {
+  // A record missing any part is not resumable, and that includes one written
+  // by an older build with a different shape.
+  return (
+    typeof claim?.anonymous_session === 'string' &&
+    typeof claim.idempotency_key === 'string' &&
+    typeof claim.destination_user_id === 'string'
+  );
+}
+
+async function allClaims(): Promise<Record<string, PendingClaim>> {
   try {
-    await sessionStorage.setItem(PENDING_KEY, JSON.stringify(claim));
+    const raw = await sessionStorage.getItem(PENDING_KEY);
+    if (raw === null || raw === undefined) return {};
+    const parsed = JSON.parse(raw) as Record<string, PendingClaim>;
+    if (typeof parsed !== 'object' || parsed === null) return {};
+    return Object.fromEntries(Object.entries(parsed).filter(([, claim]) => usable(claim)));
+  } catch {
+    return {};
+  }
+}
+
+async function writeClaims(claims: Record<string, PendingClaim>): Promise<void> {
+  try {
+    if (Object.keys(claims).length === 0) {
+      await sessionStorage.removeItem(PENDING_KEY);
+      return;
+    }
+    await sessionStorage.setItem(PENDING_KEY, JSON.stringify(claims));
   } catch {
     // Storage refusing is not a reason to lose the error the caller is about
     // to see; the claim is simply not resumable on this device.
   }
 }
 
-async function forgetClaim(): Promise<void> {
-  try {
-    await sessionStorage.removeItem(PENDING_KEY);
-  } catch {
-    // Nothing to do.
-  }
+async function rememberClaim(claim: PendingClaim): Promise<void> {
+  const claims = await allClaims();
+  claims[claim.destination_user_id] = claim;
+  await writeClaims(claims);
 }
 
-async function pendingClaim(): Promise<PendingClaim | undefined> {
-  try {
-    const raw = await sessionStorage.getItem(PENDING_KEY);
-    if (raw === null || raw === undefined) return undefined;
-    const parsed = JSON.parse(raw) as PendingClaim;
-    // A record missing any half is not resumable, and that includes one written
-    // by an older build that did not store the destination.
-    return typeof parsed.anonymous_session === 'string' &&
-      typeof parsed.idempotency_key === 'string' &&
-      typeof parsed.destination_user_id === 'string'
-      ? parsed
-      : undefined;
-  } catch {
-    return undefined;
-  }
+/** Drops one identity's claim and leaves everybody else's alone. */
+async function forgetClaim(destinationUserId: string): Promise<void> {
+  const claims = await allClaims();
+  if (!(destinationUserId in claims)) return;
+  delete claims[destinationUserId];
+  await writeClaims(claims);
+}
+
+async function pendingClaim(destinationUserId: string): Promise<PendingClaim | undefined> {
+  const claim = (await allClaims())[destinationUserId];
+  return usable(claim) ? claim : undefined;
 }
 
 /**
@@ -196,13 +222,13 @@ async function claimIdentity(
   const settle = async (error: unknown): Promise<never> => {
     const problem = error instanceof SavePlaceError ? error.problem : undefined;
     // An answer, and not one asking again will change: stop keeping the record.
-    if (!stillOpen(problem)) await forgetClaim();
+    if (!stillOpen(problem)) await forgetClaim(destinationUserId);
     throw error;
   };
 
   try {
     const answered = await attempt();
-    await forgetClaim();
+    await forgetClaim(destinationUserId);
     return answered;
   } catch (error) {
     const problem = error instanceof SavePlaceError ? error.problem : undefined;
@@ -219,7 +245,7 @@ async function claimIdentity(
     if (problem?.error === 'unavailable' && problem.reason === undefined) {
       try {
         const answered = await attempt();
-        await forgetClaim();
+        await forgetClaim(destinationUserId);
         return answered;
       } catch (again) {
         return await settle(again);
@@ -240,23 +266,16 @@ async function claimIdentity(
  * for ever, but it is recoverable for as long as the evidence is good.
  */
 export async function resumePendingClaim(): Promise<ClaimIdentityResponse | undefined> {
-  const pending = await pendingClaim();
-  if (pending === undefined) return undefined;
-
   const { data } = await authClient().auth.getSession();
-  // Only a permanent session can be the destination; asking from an anonymous
-  // one is refused with `destination_is_not_permanent`.
+  // Only a permanent session can be a destination; asking from an anonymous one
+  // is refused with `destination_is_not_permanent`.
   if (data.session === null || data.session.user.is_anonymous === true) return undefined;
 
-  /**
-   * And it has to be the *same* permanent session the claim was made for.
-   *
-   * On a shared browser somebody signs out and somebody else signs in; without
-   * this, the next account to appear collects the first person's circles. The
-   * record is kept rather than dropped — the right identity may well come back
-   * — and it expires on its own with the token it holds.
-   */
-  if (data.session.user.id !== pending.destination_user_id) return undefined;
+  // Only this identity's claim. Anybody else's stays where it is, waiting for
+  // them — on a shared browser the next account to sign in would otherwise
+  // collect the first person's circles.
+  const pending = await pendingClaim(data.session.user.id);
+  if (pending === undefined) return undefined;
 
   const answered = await claimIdentity(
     pending.anonymous_session,
@@ -264,7 +283,7 @@ export async function resumePendingClaim(): Promise<ClaimIdentityResponse | unde
     pending.destination_user_id,
     pending.idempotency_key,
   );
-  await forgetClaim();
+  await forgetClaim(pending.destination_user_id);
   return answered;
 }
 
@@ -310,7 +329,7 @@ export async function savePlace(options: SavePlaceOptions): Promise<SavedPlace> 
   }
 
   const claimed = await claimIdentity(anonymousToken, options.moment, signedIn.session.user.id);
-  await forgetClaim();
+  await forgetClaim(signedIn.session.user.id);
   return {
     ...signedIn,
     mergedMemberships: claimed.merged_memberships,

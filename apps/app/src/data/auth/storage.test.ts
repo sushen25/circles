@@ -10,7 +10,7 @@ import { storageForTests } from './storage';
  * half is where the interesting failures are, and jsdom is not Android.
  */
 
-const { web, secure, CHUNK_SIZE } = storageForTests;
+const { web, secure, CHUNK_BYTES } = storageForTests;
 
 /** A minimal in-memory `expo-secure-store` with Android's one real constraint. */
 const store = new Map<string, string>();
@@ -43,7 +43,7 @@ describe('native, where values are chunked', () => {
 
   it('round-trips a session far larger than Android will take', async () => {
     // What a real one looks like: two JWTs and a user object with metadata.
-    const session = 'x'.repeat(CHUNK_SIZE * 3 + 17);
+    const session = 'x'.repeat(CHUNK_BYTES * 3 + 17);
 
     await secure.setItem('k', session);
 
@@ -51,15 +51,15 @@ describe('native, where values are chunked', () => {
   });
 
   it('reads correctly across a shrink and a re-grow', async () => {
-    const long = 'A'.repeat(CHUNK_SIZE * 4);
-    const short = 'B'.repeat(CHUNK_SIZE * 2);
+    const long = 'A'.repeat(CHUNK_BYTES * 4);
+    const short = 'B'.repeat(CHUNK_BYTES * 2);
 
     await secure.setItem('k', long);
     await secure.setItem('k', short);
     expect(await secure.getItem('k')).toBe(short);
 
-    await secure.setItem('k', 'C'.repeat(CHUNK_SIZE * 4));
-    expect(await secure.getItem('k')).toBe('C'.repeat(CHUNK_SIZE * 4));
+    await secure.setItem('k', 'C'.repeat(CHUNK_BYTES * 4));
+    expect(await secure.getItem('k')).toBe('C'.repeat(CHUNK_BYTES * 4));
   });
 
   it('leaves nothing on disk after a shrink, so sign-out can clear all of it', async () => {
@@ -76,8 +76,8 @@ describe('native, where values are chunked', () => {
      * and passed against code with the clear removed — which is how I found
      * out it was asserting the wrong property.
      */
-    await secure.setItem('k', 'A'.repeat(CHUNK_SIZE * 4));
-    await secure.setItem('k', 'B'.repeat(CHUNK_SIZE * 2));
+    await secure.setItem('k', 'A'.repeat(CHUNK_BYTES * 4));
+    await secure.setItem('k', 'B'.repeat(CHUNK_BYTES * 2));
 
     await secure.removeItem('k');
 
@@ -85,7 +85,7 @@ describe('native, where values are chunked', () => {
   });
 
   it('reads a half-written value as absent rather than as a truncated session', async () => {
-    await secure.setItem('k', 'D'.repeat(CHUNK_SIZE * 3));
+    await secure.setItem('k', 'D'.repeat(CHUNK_BYTES * 3));
     // A partial restore from a backup. The write order makes this unreachable
     // by interruption; it is still what a reader must not misread.
     store.delete('k.a.1');
@@ -96,11 +96,46 @@ describe('native, where values are chunked', () => {
   });
 
   it('removes every chunk, so nothing is recoverable after a sign-out', async () => {
-    await secure.setItem('k', 'E'.repeat(CHUNK_SIZE * 3));
+    await secure.setItem('k', 'E'.repeat(CHUNK_BYTES * 3));
 
     await secure.removeItem('k');
 
     expect(store.size).toBe(0);
+  });
+
+  it('measures Android\u2019s limit in bytes, not characters', async () => {
+    /**
+     * A session carries `user_metadata`, which carries whatever an SSO provider
+     * says somebody is called. At two to four UTF-8 bytes per character, 1536
+     * characters can be 4608 bytes — refused by SecureStore, on the accounts of
+     * people whose names are not ASCII and nobody else's.
+     */
+    const japanese = '\u3042'.repeat(2000); // 3 bytes each: 6000 bytes
+
+    await secure.setItem('k', japanese);
+
+    expect(await secure.getItem('k')).toBe(japanese);
+    // Every stored part is inside the ceiling the mock enforces.
+    for (const [storedKey, part] of store) {
+      if (storedKey === 'k') continue;
+      expect(new TextEncoder().encode(part).length).toBeLessThanOrEqual(2048);
+    }
+  });
+
+  it('never splits a surrogate pair', async () => {
+    // Emoji and much of CJK beyond the basic plane are two UTF-16 units. Slicing
+    // by `.length` can put one half in one chunk and the other in the next.
+    const emoji = '\u{1F642}'.repeat(1000);
+
+    await secure.setItem('k', emoji);
+
+    expect(await secure.getItem('k')).toBe(emoji);
+    for (const [storedKey, part] of store) {
+      if (storedKey === 'k') continue;
+      // A lone surrogate survives a Map and not a store that encodes to UTF-8.
+      expect(part).not.toMatch(/[\uD800-\uDBFF]$/);
+      expect(part).not.toMatch(/^[\uDC00-\uDFFF]/);
+    }
   });
 
   it('returns null for a key it has never seen', async () => {
@@ -115,7 +150,7 @@ describe('native, where values are chunked', () => {
      * generation and switches the header last, so an interrupted write is
      * invisible.
      */
-    const first = 'A'.repeat(CHUNK_SIZE * 3);
+    const first = 'A'.repeat(CHUNK_BYTES * 3);
     await secure.setItem('k', first);
 
     let writes = 0;
@@ -127,7 +162,7 @@ describe('native, where values are chunked', () => {
     };
     vi.spyOn(store, 'set').mockImplementation(failing as never);
 
-    await expect(secure.setItem('k', 'B'.repeat(CHUNK_SIZE * 3))).rejects.toThrow();
+    await expect(secure.setItem('k', 'B'.repeat(CHUNK_BYTES * 3))).rejects.toThrow();
     vi.restoreAllMocks();
 
     // The old session is still there and still whole.
@@ -206,6 +241,28 @@ describe('web, where storage is allowed to refuse', () => {
     globalThis.localStorage.removeItem('shared-key'); // the other tab
 
     expect(web.getItem('shared-key')).toBeNull();
+  });
+
+  it('drops the mirror when another tab changes that key', () => {
+    /**
+     * The tension this resolves. Preferring the mirror for a key we failed to
+     * write is right for a token refresh — the durable copy is stale. It is
+     * wrong for a sign-out in another tab, where Supabase broadcasts over a
+     * BroadcastChannel and never calls this adapter: the durable key goes null
+     * while we keep answering with a JWT. A read cannot tell the two apart; the
+     * `storage` event fires in this tab exactly when another one wrote.
+     */
+    vi.spyOn(globalThis.Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('quota');
+    });
+    web.setItem('cross-tab', 'the.session');
+    vi.restoreAllMocks();
+    expect(web.getItem('cross-tab')).toBe('the.session');
+
+    // The other tab signs out.
+    globalThis.dispatchEvent(new StorageEvent('storage', { key: 'cross-tab', newValue: null }));
+
+    expect(web.getItem('cross-tab')).toBeNull();
   });
 
   it('forgets it again on sign-out', () => {
