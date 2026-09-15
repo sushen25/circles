@@ -22,10 +22,15 @@ Values, never — this file is in the repository.
 Project refs are not secret — they are the subdomain of a public API URL. Keys
 are, and none are in this file.
 
-Both hosted projects exist and are healthy, with anonymous sign-ins and the
-email provider enabled and Apple/Google not yet configured. That is readable
-from outside at any time, which is the quickest way to tell a misconfigured
-project from a broken deploy:
+Both hosted projects exist, with anonymous sign-ins and the email provider
+enabled and Apple/Google not yet configured. `dev` is healthy; **`prod` is
+paused** — it was created on 7 September and has never been called, which is
+exactly the seven-day inactivity rule below doing what it says. Resume it from
+the dashboard before configuring anything on it, or the configuration call
+fails in a way that reads like a credentials problem.
+
+Provider state is readable from outside at any time, which is the quickest way
+to tell a misconfigured project from a broken deploy:
 
 ```bash
 curl -s https://<ref>.supabase.co/auth/v1/settings -H "apikey: <anon key>" | jq .external
@@ -240,6 +245,15 @@ HTTPS, HSTS, `Referrer-Policy: no-referrer`, and SPF/DKIM/DMARC on `mail.<domain
 — queried against 1.1.1.1 rather than the system resolver, because a local cache
 will cheerfully serve a record that was deleted an hour ago. Not part of
 `pnpm check`: it needs the network and a domain that exists.
+
+HSTS comes from EAS Hosting. **`Referrer-Policy` comes from the app**, set by
+the `expo-router` plugin in [`apps/app/app.config.ts`](../../apps/app/app.config.ts),
+because EAS Hosting has no header configuration and sets none of its own. It
+applies to every HTML and API-route response, which is everything that can
+carry an invite secret in the fragment or a plan code in the path; it does not
+apply to redirects or to static assets, neither of which carries either. A
+route that sets the header itself takes precedence, so a server route is free
+to be stricter and cannot accidentally be laxer than this.
 
 ## Expected security-advisor warnings
 

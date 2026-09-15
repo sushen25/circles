@@ -89,7 +89,19 @@ const config: ExpoConfig = {
     // `origin` polyfills relative fetches in production builds, so native can
     // reach the one server route (link previews, §9.4) — the caveat ADR 0001
     // calls out. The app itself never calls it; link fetchers do.
-    ['expo-router', { origin: appOrigin }],
+    //
+    // `headers` applies to every HTML and API-route response the server output
+    // serves. `Referrer-Policy: no-referrer` is the one §14 names, and it is
+    // load-bearing rather than hygiene: an invite secret rides in the URL
+    // fragment and a plan code in the path, so a referrer sent to whatever the
+    // landing page links out to is exactly how either escapes. EAS Hosting
+    // sets no referrer policy of its own, so without this the deployed app
+    // serves none — `pnpm check:env` fails on it, which is how this was found.
+    //
+    // Two limits worth knowing before trusting it: it does not apply to
+    // redirect responses, and it does not apply to static assets. Neither
+    // carries a secret. A route that sets the header itself still wins.
+    ['expo-router', { origin: appOrigin, headers: { 'Referrer-Policy': 'no-referrer' } }],
     'expo-font',
     'expo-secure-store',
     'expo-splash-screen',

@@ -35,13 +35,22 @@ Reference for anything that needs explaining: [`environments.md`](./environments
       exposes this value, so it is the one item in step 1 taken on trust.
 - [x] Copy each **project ref** (the subdomain in the project URL) into the table
       in [`environments.md`](./environments.md). Refs are not secret.
-- [ ] Account → Access Tokens → create one named `github-actions`.
+- [x] Account → Access Tokens → create one named `github-actions`.
+      Confirmed: the `SUPABASE_ACCESS_TOKEN` repository secret exists (8 September
+      2026) and the `deploy-dev` workflow authenticates with it.
 
 **Hand back:** the two project refs, the access token, and each project's
 **Project URL** and **anon key** (Settings → API).
 
 > Free projects pause after 7 days of no API requests. If `dev` looks broken
 > after a quiet week, un-pause it before debugging anything else.
+
+> **`circles-prod` is paused right now** — `list_projects` reports it `INACTIVE`,
+> which is what a project created on 7 September and never called since looks
+> like. Nothing is wrong with it, but it has to be resumed from the dashboard
+> before any of steps 8 and 9 can be applied to it: a paused project answers no
+> API call, so configuring a provider or setting a secret on it fails in a way
+> that reads like a credentials problem.
 
 ## 2. Domain — free, and deferred
 
@@ -108,8 +117,11 @@ which is exactly why this is written down.
 
 ## 3. EAS Hosting — US$19/month
 
-- [ ] Upgrade the `@sushen25` account to **Starter**: <https://expo.dev/accounts/sushen25/settings/billing>
-- [ ] Create an **access token** (Account → Access Tokens) named `github-actions`.
+- [x] Upgrade the `@sushen25` account to **Starter**: <https://expo.dev/accounts/sushen25/settings/billing>
+      Taken on the founder's word, and corroborated: the `dev` alias serves.
+- [x] Create an **access token** (Account → Access Tokens) named `github-actions`.
+      Confirmed: the `EXPO_TOKEN` repository secret exists (8 September 2026),
+      which is also the switch that turns the deploy workflows on.
 
 **Hand back:** the token.
 
@@ -120,16 +132,27 @@ which is exactly why this is written down.
 
 In the repository settings, **Secrets and variables → Actions**:
 
-- [ ] Secrets → `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DEV_PROJECT_REF`,
-      `SUPABASE_PROD_PROJECT_REF`, `EXPO_TOKEN`.
-- [ ] **Variables** (repository scope — these are the `dev` values, and previews
+- [x] Secrets → `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DEV_PROJECT_REF`,
+      `SUPABASE_PROD_PROJECT_REF`, `EXPO_TOKEN`. All four confirmed present.
+- [x] **Variables** (repository scope — these are the `dev` values, and previews
       read them):
       `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`,
-      `EXPO_PUBLIC_APP_ORIGIN` = `https://dev.sushensatturu.com`.
-- [ ] Environments → `production` → **Variables**: the same three names with the
+      `EXPO_PUBLIC_APP_ORIGIN`. All three confirmed present.
+      `APP_ORIGIN` is `https://sushen25s-team-circles--dev.expo.app`, **not**
+      `https://dev.sushensatturu.com`, because step 2 is deferred and `dev` has
+      no custom domain. Change it when the domain is attached, not before — an
+      origin that does not resolve is worse than an ugly one that does.
+- [ ] `EXPO_PUBLIC_TURNSTILE_SITE_KEY` (repository scope). **Missing**, and
+      that is step 7. Anonymous joins on the deployed app are ungated until it
+      is set. Confirmed absent from both the repository and the `dev`
+      environment.
+- [ ] Environments → `production` → **Variables**: the same names with the
       **prod** project's values, and `EXPO_PUBLIC_APP_ORIGIN` =
       `https://meet.sushensatturu.com`. These override the repository ones for
       production deploys only.
+      **The `production` environment does not exist** — `dev` is the only one.
+      Create it here; `deploy-prod.yml` already names it, so until it exists a
+      production deploy has no approval gate to wait on.
 - [ ] Environments → `production` → add yourself as a **required reviewer**, so a
       production deploy pauses for a human.
 
@@ -198,6 +221,25 @@ production. Due before S1-14.
 **Hand back:** the **site key** (public → GitHub variables as
 `EXPO_PUBLIC_TURNSTILE_SITE_KEY`) and the **secret key** (→ step 9).
 
+**This does not block writing the Turnstile code.** Cloudflare publishes dummy
+keys that behave deterministically, so the widget, the token round-trip and the
+failure path can all be built and tested before the real widget exists. Use the
+**invisible** pair, because that is the mode the product uses — the visible
+`…AA` sitekey renders a widget the app never asks for:
+
+| | Site key | Secret key |
+|---|---|---|
+| always passes | `1x00000000000000000000BB` | `1x0000000000000000000000000000000AA` |
+| always fails | `2x00000000000000000000BB` | `2x0000000000000000000000000000000AA` |
+| token already spent | — | `3x0000000000000000000000000000000AA` |
+
+A test secret key accepts **only** the dummy token and rejects real ones, and a
+real secret rejects the dummy — so a pair that has been half-swapped fails
+closed rather than passing everything, which is the direction you want. None of
+these are secret; they are in Cloudflare's public documentation. They are still
+not a substitute for the real widget: they prove the wiring, not that anyone is
+being turned away.
+
 ## 8. Apple and Google sign-in
 
 **Deferred** (SUS-71). Verified off on both projects. Due before S1-14.
@@ -249,9 +291,15 @@ supabase secrets set --project-ref <ref> APPLE_PRIVATE_KEY="$(cat AuthKey_XXXX.p
 ## 10. Confirm the whole thing
 
 - [x] `pnpm check:env sushen25s-team-circles--dev.expo.app --no-email` — HTTPS
-      and HSTS pass. `Referrer-Policy` fails, as expected: EAS Hosting sets none,
-      and `/j/<code>` and `/p/<code>` carry codes in the path. Must be fixed
-      before any link goes to a real person (SUS-71).
+      and HSTS pass. `Referrer-Policy` failed: EAS Hosting sets none, and
+      `/j/<code>` and `/p/<code>` carry codes in the path.
+      **Fixed in the app rather than in the host** — the `expo-router` plugin in
+      `apps/app/app.config.ts` now sets it on every HTML and API-route response,
+      which is the only place that can set it, since EAS Hosting has no header
+      configuration of its own. Verified against an exported build served by
+      `expo serve`: `/` and `/j/<code>` both answer `referrer-policy: no-referrer`.
+      The deployed app keeps failing this check until the next `deploy-dev` run
+      ships the change; re-run the check then.
 - [x] Push to `main`; the `deploy-dev` run summary shows Supabase and Expo both
       `true` rather than "waiting on S0-11".
 - [x] `https://sushen25s-team-circles--dev.expo.app/` serves the app, and
