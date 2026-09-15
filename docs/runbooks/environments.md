@@ -46,8 +46,24 @@ applied, Edge Functions deployed and answering, the web build serving on
 which closes the question ADR 0007 left open: the shared domain package really
 does load and run inside Deno, not only in the client and the test suites.
 
-`prod` is not deployed. Everything else in
-[`environment-setup.md`](./environment-setup.md) is deferred to SUS-71.
+**`prod` is deployed** as of 15 September 2026: migrations `0001`–`0015`, all
+Edge Functions, and the web build on `meet.sushensatturu.com` with a Google
+Trust Services certificate. `pnpm check:env meet.sushensatturu.com` passes
+seven of seven.
+
+That is a deployed environment, **not a released product.** The client is still
+fixture-driven — `/join` renders a fixture and never reads the invite secret
+out of the fragment, nothing calls `redeem-invite`, `create-circle` or
+`create-plan`, and `src/data/session.ts` holds a null token until S1-14 sets
+one. So production serves a screen gallery in front of a complete backend.
+Nothing can mint an invite link and nothing could redeem one, which is why
+§5.2's boundary has not been crossed by deploying: there is no link to ship.
+
+Two settings are deliberately unset on `circles-prod`: `circles.functions_url`
+and `circles.cron_secret`. Their only reader posts to `process-scheduled-jobs`,
+which does not exist until S1-20, so setting them early would turn a clean
+no-op into a POST to a 404 every minute. `cron.job_run_details` shows the
+`process-jobs` job succeeding and returning null, which is the no-op working.
 
 > **The two projects are in different regions.** A region cannot be changed
 > after creation; moving means a new project and a new ref. That makes `dev` a
@@ -71,7 +87,7 @@ may assume them.
 | | Host today | Host eventually |
 |---|---|---|
 | `dev` | `sushen25s-team-circles--dev.expo.app` | unchanged — see below |
-| `prod` | none — not deployed | `meet.sushensatturu.com` |
+| `prod` | `meet.sushensatturu.com` | unchanged |
 
 **EAS Hosting allows one custom domain per project**, assigned to the
 production deployment, so the two environments cannot both have one. `meet`
