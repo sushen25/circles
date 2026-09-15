@@ -81,6 +81,21 @@ begin
   where i.user_id = p_from
     and i.plan_id in (select p.id from public.plans p where p.circle_id = p_circle_id);
 
+  -- The measurements follow the person too, which is easy to miss because this
+  -- is the one table here with no foreign key to `auth.users` — an event
+  -- outlives the row it was about, so it deliberately holds ids rather than
+  -- references. `plan_timings` matches a member's link-open event to their
+  -- answer on `user_id`, and leaving the event behind broke that join the
+  -- moment somebody reattached: their open-to-response wait vanished from
+  -- §11.4's gate, and yesterday's figure changed today. The gate would have
+  -- been measured over exactly the members who never came back on a new device.
+  update analytics.events e set user_id = p_to
+  where e.user_id = p_from
+    and (
+      e.circle_id = p_circle_id
+      or e.plan_id in (select p.id from public.plans p where p.circle_id = p_circle_id)
+    );
+
   -- The availability snapshots name who could come, and `transition_plan` reads
   -- the candidate's array at confirm time to decide who is `going`. A stale id
   -- there is this person marked `unknown` at the one moment the product is

@@ -8,7 +8,7 @@
 -- readable by nobody who is not deliberately named in a table.
 
 begin;
-select plan(38);
+select plan(42);
 
 create or replace function pg_temp.make_user(id uuid, name text, permanent boolean default true)
 returns uuid language sql as $$
@@ -172,6 +172,27 @@ select throws_ok(
   'and a payload carrying somebody''s words is refused by the table as well as by the catalogue'
 );
 
+-- The two rules the ingest follows, kept by the table as well: AGENTS.md wants
+-- the privacy invariants structural rather than procedural, and both of these
+-- lived only in TypeScript until now.
+select throws_ok(
+  $$insert into analytics.events (event_id, event_name, schema_version, anonymous_id, properties)
+    values (gen_random_uuid(), 'circle_join_opened', 1, 'browser-abc12345', '{}'::jsonb)$$,
+  '23514',
+  null,
+  'a browser id that is not a digest is refused: a re-entry token is base64url and fits the wire shape exactly'
+);
+
+select throws_ok(
+  format($$insert into analytics.events
+    (event_id, event_name, schema_version, user_id, anonymous_id, properties)
+    values (gen_random_uuid(), 'circle_join_opened', 1, %L, repeat('a', 64), '{}'::jsonb)$$,
+    '00000000-0000-0000-0000-00000000aa01'),
+  '23514',
+  null,
+  'and a row carrying both is refused: that is the join from a browser''s history to the account it signed in to'
+);
+
 select pg_temp.act_as_service();
 select is(
   public.record_events(jsonb_build_array(
@@ -299,7 +320,7 @@ select is(
   (select activated_circles from analytics.north_star_monthly
    where month = date_trunc('month', timestamptz '2026-03-06T09:00:00Z')),
   1::bigint,
-  'against a denominator of circles that have ever confirmed a meetup'
+  'against a denominator of the circles §11.2 calls activated'
 );
 
 -- ---------------------------------------------------------------------------
@@ -464,6 +485,33 @@ select is(
    from analytics.plan_timings where month = timestamp '2026-04-01'),
   array[90, 660],
   'first and last are both reported, because §11.2 asks for both'
+);
+
+-- Round 9: a measurement follows the person. `analytics.events` is the one
+-- table here with no foreign key to `auth.users` — an event outlives the row it
+-- was about — which is exactly why it was left behind when a guest came back on
+-- a new device or saved their place. The open then belonged to the old identity
+-- and the answer to the new one, the join found nothing, and that member
+-- dropped out of §11.4's gate: the figure was computed over the people who
+-- never did the two things the product most wants them to do, and changed
+-- retroactively when they did.
+select pg_temp.make_user('00000000-0000-0000-0000-00000000aa05', 'Priya Again', false);
+select private.move_membership(
+  pg_temp.circle(), '00000000-0000-0000-0000-00000000aa02', '00000000-0000-0000-0000-00000000aa05');
+
+select is(
+  (select median_seconds_from_open_to_response::integer from analytics.plan_timings
+   where month = timestamp '2026-04-01'),
+  315,
+  'and reattaching on a new device does not lose the wait that was already measured'
+);
+
+select is(
+  (select count(*)::integer from analytics.events e
+   where e.user_id = '00000000-0000-0000-0000-00000000aa05'
+     and e.event_name = 'availability_started'),
+  1,
+  'because the event moved with the membership, like every other row they own'
 );
 
 -- Round 8: changing an answer is not answering late. `replace_response` moves
