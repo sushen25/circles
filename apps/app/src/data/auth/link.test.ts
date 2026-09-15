@@ -20,7 +20,11 @@ import { SavePlaceError, resumePendingClaim, savePlace } from './link';
 const ANON_ID = '11111111-1111-4111-8111-111111111111';
 const SAVED_ID = '22222222-2222-4222-8222-222222222222';
 
-const ANON = { access_token: 'anon.token', user: { id: ANON_ID, is_anonymous: true } };
+const ANON = {
+  access_token: 'anon.token',
+  refresh_token: 'anon.refresh.v1',
+  user: { id: ANON_ID, is_anonymous: true },
+};
 const SAVED = { access_token: 'saved.token', user: { id: SAVED_ID, is_anonymous: false } };
 
 const state = vi.hoisted(() => ({
@@ -57,6 +61,11 @@ function problemResponse(status: number, body: unknown): { context: Response } {
 }
 
 beforeEach(() => {
+  // `freshAnonymousToken` exchanges the stored refresh token against these.
+  // Without them it returns the stale access token without calling out, which
+  // silently skipped the exchange in the first draft of these tests.
+  process.env.EXPO_PUBLIC_SUPABASE_URL = 'https://stack.test';
+  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY = 'anon-key';
   state.session = ANON;
   state.invocations = [];
   state.answers = [];
@@ -328,6 +337,92 @@ describe('a claim that never got an answer', () => {
     await resumePendingClaim();
     expect(state.invocations).toHaveLength(1);
     expect(state.invocations[0]?.body.anonymous_session).toBe('anon.token');
+  });
+
+  it('keeps the refresh token when a resume does not succeed', async () => {
+    /**
+     * The sixty-minute fuse, put back by the fix for it. `freshAnonymousToken`
+     * wrote the rotated token back and the `claimIdentity` that followed
+     * overwrote the record without it — so one failed retry, or an app started
+     * before the radio was up, left only an access token that expires within
+     * the hour. Reproduced by the reviewer against the real module.
+     */
+    state.answers = [{ error: new Error('network') }];
+    await expect(
+      savePlace({ moment: 'after_answer', signIn: async () => ({ session: SAVED as never }) }),
+    ).rejects.toBeInstanceOf(SavePlaceError);
+
+    const before = JSON.parse(globalThis.localStorage.getItem('circles.pending_claims') ?? '{}');
+    expect(before[SAVED_ID].anonymous_refresh_token).toBe('anon.refresh.v1');
+
+    // A resume where the exchange works and the claim then fails again.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({ access_token: 'anon.access.v2', refresh_token: 'anon.refresh.v2' }),
+          ),
+      ),
+    );
+    state.session = SAVED;
+    state.answers = [{ error: new Error('network again') }];
+    await expect(resumePendingClaim()).rejects.toBeInstanceOf(SavePlaceError);
+    vi.unstubAllGlobals();
+
+    const after = JSON.parse(globalThis.localStorage.getItem('circles.pending_claims') ?? '{}');
+    expect(after[SAVED_ID]).toMatchObject({
+      anonymous_session: 'anon.access.v2',
+      anonymous_refresh_token: 'anon.refresh.v2',
+    });
+  });
+
+  it('keeps the record when the token endpoint is merely unreachable', async () => {
+    // A 502 from the gateway, GoTrue restarting, or the token endpoint's own
+    // rate limit at app start. Reading those as "expired" dropped the record
+    // and lost the membership over a blip.
+    state.answers = [{ error: new Error('network') }];
+    await expect(
+      savePlace({ moment: 'after_answer', signIn: async () => ({ session: SAVED as never }) }),
+    ).rejects.toBeInstanceOf(SavePlaceError);
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('', { status: 503 })),
+    );
+    state.session = SAVED;
+    state.invocations = [];
+    // The claim itself is still down too, so nothing clears the record for a
+    // reason other than the one under test.
+    state.answers = [{ error: new Error('still down') }];
+    await expect(resumePendingClaim()).rejects.toBeInstanceOf(SavePlaceError);
+    vi.unstubAllGlobals();
+
+    const kept = JSON.parse(globalThis.localStorage.getItem('circles.pending_claims') ?? '{}');
+    expect(kept[SAVED_ID]).toBeDefined();
+    // It tried anyway, with the token it already had.
+    expect(state.invocations[0]?.body.anonymous_session).toBe('anon.token');
+  });
+
+  it('drops it when the auth server says the token is no good', async () => {
+    state.answers = [{ error: new Error('network') }];
+    await expect(
+      savePlace({ moment: 'after_answer', signIn: async () => ({ session: SAVED as never }) }),
+    ).rejects.toBeInstanceOf(SavePlaceError);
+
+    // 400 `invalid_grant`: an answer about this token, and asking again will
+    // not change it.
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('{}', { status: 400 })),
+    );
+    state.session = SAVED;
+    state.invocations = [];
+    await expect(resumePendingClaim()).resolves.toBeUndefined();
+    vi.unstubAllGlobals();
+
+    expect(state.invocations).toEqual([]);
+    expect(globalThis.localStorage.getItem('circles.pending_claims')).toBeNull();
   });
 
   it('does nothing when there is nothing pending', async () => {

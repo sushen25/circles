@@ -167,7 +167,7 @@ export default tseslint.config(
             },
             {
               from: ['app-integration-test'],
-              allow: [...appExternals, 'node:child_process'],
+              allow: [...appExternals, 'node:child_process', 'node:path'],
             },
             { from: ['app-routes', ...appLayers], allow: appExternals },
             {

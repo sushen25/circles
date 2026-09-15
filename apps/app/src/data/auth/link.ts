@@ -141,9 +141,24 @@ async function writeClaims(claims: Record<string, PendingClaim>): Promise<void> 
   }
 }
 
-async function rememberClaim(claim: PendingClaim): Promise<void> {
+/**
+ * Merges, rather than replaces.
+ *
+ * Replacing lost the refresh token on every resume that did not succeed:
+ * `freshAnonymousToken` wrote the rotated one back, and the `claimIdentity`
+ * that followed immediately overwrote the record without it — so a failed
+ * retry, or an app simply started before the radio was up, put the sixty-minute
+ * fuse back with nothing to say it had. A record is built up by more than one
+ * caller; only the fields a caller actually has should move.
+ */
+async function rememberClaim(
+  claim: Partial<PendingClaim> & { destination_user_id: string },
+): Promise<void> {
   const claims = await allClaims();
-  claims[claim.destination_user_id] = claim;
+  const existing = claims[claim.destination_user_id];
+  const merged = { ...existing, ...claim } as PendingClaim;
+  if (!usable(merged)) return;
+  claims[claim.destination_user_id] = merged;
   await writeClaims(claims);
 }
 
@@ -340,7 +355,19 @@ async function freshAnonymousToken(pending: PendingClaim): Promise<string | unde
       headers: { apikey: key, 'content-type': 'application/json' },
       body: JSON.stringify({ refresh_token: pending.anonymous_refresh_token }),
     });
-    if (!response.ok) return undefined;
+    /**
+     * Only a refusal means the evidence is gone.
+     *
+     * A 502 from Kong, GoTrue restarting, or the token endpoint's own per-IP
+     * limit at app start are all `!ok`, and reading them as "expired" dropped
+     * the record and lost the membership — for a blip. A 4xx is the auth server
+     * answering about this token (`invalid_grant`, already used, unknown);
+     * anything else is it not answering at all, and the record should wait.
+     */
+    if (!response.ok) {
+      if (response.status >= 400 && response.status < 500) return undefined;
+      return pending.anonymous_session;
+    }
 
     const body = (await response.json()) as { access_token?: string; refresh_token?: string };
     if (typeof body.access_token !== 'string') return undefined;

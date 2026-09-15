@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import { resolve } from 'node:path';
 
 import { createClient } from '@supabase/supabase-js';
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -23,16 +24,45 @@ import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
  * container on its own.
  */
 
-const SUPABASE_URL = 'http://127.0.0.1:54321';
-const ANON_KEY =
-  'READ_FROM_SUPABASE_STATUS';
-const MAILPIT = 'http://127.0.0.1:54324';
-/** Local-only, from `supabase status`. */
-const DB_URL = 'postgresql://postgres:postgres@127.0.0.1:54322/postgres';
+/**
+ * Read from the running stack, never written down.
+ *
+ * The local anon key is a published demo value, not a secret — and it is still
+ * a JWT, which is why gitleaks refused every commit on this branch once it was
+ * pasted here. The scan is right to be blunt: a rule that lets a *shaped*
+ * credential through because this one happens to be harmless is a rule that
+ * lets the next one through too, and the fix for a failing secret scan is never
+ * an allowlist. So the values come from `supabase status`, which also means
+ * this keeps working if the local keys ever change.
+ */
+let SUPABASE_URL = '';
+let ANON_KEY = '';
+let MAILPIT = '';
+let DB_URL = '';
 
-// The module reads these at first use. Set before anything imports the client.
-process.env.EXPO_PUBLIC_SUPABASE_URL = SUPABASE_URL;
-process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY = ANON_KEY;
+function readStackConfig(): void {
+  // The binary directly, not through `pnpm exec`: pnpm runs via corepack here
+  // and is not itself on PATH, so spawning it fails with ENOENT. And from
+  // `process.cwd()` rather than `import.meta.url`, which Vite rewrites to a
+  // `/@fs/...` URL that is not a filesystem path.
+  const repoRoot = resolve(process.cwd(), '../..');
+  const raw = execFileSync(
+    resolve(repoRoot, 'node_modules/.bin/supabase'),
+    ['status', '-o', 'json'],
+    { encoding: 'utf8', cwd: repoRoot },
+  );
+  const status = JSON.parse(raw.slice(raw.indexOf('{'))) as Record<string, string>;
+  SUPABASE_URL = status.API_URL ?? '';
+  ANON_KEY = status.ANON_KEY ?? '';
+  MAILPIT = status.MAILPIT_URL ?? status.INBUCKET_URL ?? '';
+  DB_URL = status.DB_URL ?? '';
+  if (SUPABASE_URL === '' || ANON_KEY === '' || DB_URL === '') {
+    throw new Error('could not read the local stack config — is it up? `pnpm db:start`');
+  }
+  // The module reads these at first use, and every test imports it lazily.
+  process.env.EXPO_PUBLIC_SUPABASE_URL = SUPABASE_URL;
+  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY = ANON_KEY;
+}
 
 /** A fresh address per run, so "the newest message to this address" is unambiguous. */
 function someone(role: string): string {
@@ -176,6 +206,8 @@ async function accountFor(address: string): Promise<string> {
 }
 
 beforeAll(async () => {
+  readStackConfig();
+
   const health = await fetch(`${SUPABASE_URL}/auth/v1/health`, { headers: { apikey: ANON_KEY } });
   if (!health.ok) throw new Error('local stack is not up — run `pnpm db:start`');
 
