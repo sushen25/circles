@@ -8,7 +8,7 @@
 -- readable by nobody who is not deliberately named in a table.
 
 begin;
-select plan(37);
+select plan(38);
 
 create or replace function pg_temp.make_user(id uuid, name text, permanent boolean default true)
 returns uuid language sql as $$
@@ -393,9 +393,9 @@ select is(
 -- median over a month they share is a median of somebody else's numbers.
 update public.plans set created_at = timestamptz '2026-04-10T02:00:00Z'
 where short_code = 'pnanaa';
-insert into public.plan_responses (plan_id, revision, user_id, status, submitted_at)
+insert into public.plan_responses (plan_id, revision, user_id, status, submitted_at, created_at)
 select p.id, p.revision, '00000000-0000-0000-0000-00000000aa02', 'flexible',
-       p.created_at + interval '90 seconds'
+       p.created_at + interval '90 seconds', p.created_at + interval '90 seconds'
 from public.plans p where p.short_code = 'pnanaa';
 
 select is(
@@ -433,9 +433,9 @@ select is(
 -- made this the median of the *fastest person in each group*: ten seconds and
 -- ten minutes reported ten seconds.
 select pg_temp.act_as_postgres();
-insert into public.plan_responses (plan_id, revision, user_id, status, submitted_at)
+insert into public.plan_responses (plan_id, revision, user_id, status, submitted_at, created_at)
 select p.id, p.revision, '00000000-0000-0000-0000-00000000aa03', 'flexible',
-       p.created_at + interval '11 minutes'
+       p.created_at + interval '11 minutes', p.created_at + interval '11 minutes'
 from public.plans p where p.short_code = 'pnanaa';
 
 select pg_temp.act_as_service();
@@ -464,6 +464,23 @@ select is(
    from analytics.plan_timings where month = timestamp '2026-04-01'),
   array[90, 660],
   'first and last are both reported, because §11.2 asks for both'
+);
+
+-- Round 8: changing an answer is not answering late. `replace_response` moves
+-- `submitted_at` when somebody edits a window, so measuring from it reported a
+-- thirty-second reply edited the next day as having taken a day — worst in
+-- exactly the circles that use the product most.
+update public.plan_responses
+set submitted_at = submitted_at + interval '1 day'
+where user_id = '00000000-0000-0000-0000-00000000aa02'
+  and plan_id = (select id from public.plans where short_code = 'pnanaa');
+
+select is(
+  (select array[median_seconds_to_first_response::integer,
+                median_seconds_to_last_response::integer]
+   from analytics.plan_timings where month = timestamp '2026-04-01'),
+  array[90, 660],
+  'and an edit the next day does not move any of them: the question is when they first answered'
 );
 
 select pg_temp.act_as_service();

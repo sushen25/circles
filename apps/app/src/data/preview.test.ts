@@ -77,6 +77,11 @@ describe('who gets a card', () => {
     'Twitterbot/1.0',
     'Slackbot-LinkExpanding 1.0',
     'Mozilla/5.0 (Macintosh) AppleWebKit/605.1.15 (KHTML, like Gecko) Applebot/0.1',
+    // iMessage, when it identifies itself at all — see the note on
+    // PREVIEW_AGENTS: much of the time it fetches as Safari and cannot be told
+    // apart, which is why the durable fix does not test the user agent.
+    'com.apple.WebKit.Networking/8617.1.17.10.9 CFNetwork/1474 Darwin/23.0.0',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 LinkPresentation/1.0',
   ])('%s is a chat app drawing a preview', (agent) => {
     expect(isPreviewAgent(agent)).toBe(true);
   });

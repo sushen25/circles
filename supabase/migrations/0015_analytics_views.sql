@@ -137,11 +137,19 @@ left join analytics.circle_activation a on a.circle_id = c.id;
 -- are the organiser's own and are always available.
 -- ---------------------------------------------------------------------------
 create view analytics.plan_timings as
+-- **`created_at`, not `submitted_at`.** A member may change their answer, and
+-- `replace_response` moves `submitted_at` when they do (`on conflict … do
+-- update set submitted_at = excluded.submitted_at`). So somebody who answered
+-- in thirty seconds and edited a window the next day was reported as having
+-- taken a day, which would have made the §11.4 gate unmeasurable in exactly the
+-- circles that used the product most. `created_at` is only ever set by the
+-- insert, so it is when they first answered — which is what every one of these
+-- numbers is about.
 with answers as (
   select
     r.plan_id,
     r.user_id,
-    r.submitted_at,
+    r.created_at as answered_at,
     -- When this person last opened the link before answering. §11.4's gate is
     -- "median response after link open", and the wait a member experiences
     -- starts when they tap — not when the organiser made the plan, which may
@@ -151,7 +159,7 @@ with answers as (
      where e.plan_id = r.plan_id
        and e.user_id = r.user_id
        and e.event_name in ('circle_join_opened', 'availability_started')
-       and e.occurred_at <= r.submitted_at) as opened_at
+       and e.occurred_at <= r.created_at) as opened_at
   from public.plan_responses r
 ),
 per_plan as (
@@ -159,16 +167,16 @@ per_plan as (
     p.id as plan_id,
     date_trunc('month', p.created_at at time zone c.time_zone) as month,
     p.created_at,
-    (select min(r.submitted_at) from public.plan_responses r where r.plan_id = p.id) as first_at,
+    (select min(r.created_at) from public.plan_responses r where r.plan_id = p.id) as first_at,
     -- §11.2 asks for first, median *and* last: "time to first/median/last
     -- response". The last one is the wait the organiser actually sits through,
     -- and the median is the one that says whether the group is with them.
     -- `percentile_disc` rather than `percentile_cont`: there is no halfway
     -- point between two instants, and the middle answer is a real one somebody
     -- actually gave.
-    (select percentile_disc(0.5) within group (order by r.submitted_at)
+    (select percentile_disc(0.5) within group (order by r.created_at)
      from public.plan_responses r where r.plan_id = p.id) as median_at,
-    (select max(r.submitted_at) from public.plan_responses r where r.plan_id = p.id) as last_at,
+    (select max(r.created_at) from public.plan_responses r where r.plan_id = p.id) as last_at,
     (select min(mc.confirmed_at) from public.meetup_confirmations mc
      where mc.plan_id = p.id) as confirmed_at
   from public.plans p
@@ -182,7 +190,7 @@ select
   -- in each group and not the number the gate is about: ten seconds and ten
   -- minutes reported ten seconds.
   (select percentile_cont(0.5) within group (
-     order by extract(epoch from (a.submitted_at - a.opened_at)))
+     order by extract(epoch from (a.answered_at - a.opened_at)))
    from answers a
    join per_plan inner_plan on inner_plan.plan_id = a.plan_id
    where inner_plan.month = pp.month and a.opened_at is not null

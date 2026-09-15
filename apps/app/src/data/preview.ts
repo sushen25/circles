@@ -24,9 +24,23 @@ import { EN_PREVIEW_TEMPLATES, ogDescription, ogTitle } from '@circles/domain';
  * points back at the URL it was served on, which served them the card again. A
  * blank page reloading for ever, for anybody who opened a link inside one of
  * those apps.
+ *
+ * **iMessage is the one this cannot fully answer.** Apple's LinkPresentation
+ * fetches with `com.apple.WebKit.Networking` or a `LinkPresentation` token
+ * sometimes, and with a user agent identical to Safari's the rest of the time —
+ * by design, and there is no header that separates them. Those two signatures
+ * are here and they are a partial answer: a message thread that fetches as
+ * Safari gets the app shell and its generic head instead of a card.
+ *
+ * The durable fix does not test the user agent at all — the card's own
+ * metadata would be served to everybody, with the redirect carrying a mark the
+ * middleware skips so a person is not sent round a loop. That costs every human
+ * an extra hop on the product's front door, so it is a decision rather than a
+ * tidy-up; it is written up on SUS-47, which owns the messenger user-agent
+ * suite and is where it would be proved.
  */
 const PREVIEW_AGENTS =
-  /whatsapp|facebookexternalhit|facebookcatalog|twitterbot|slackbot-linkexpanding|slackbot\b|discordbot|telegrambot|linkedinbot|applebot|skypeuripreview|redditbot|embedly|pinterestbot|vkshare|bitlybot|iframely|bingbot|quora link preview/i;
+  /whatsapp|facebookexternalhit|facebookcatalog|twitterbot|slackbot-linkexpanding|slackbot\b|discordbot|telegrambot|linkedinbot|applebot|com\.apple\.webkit\.networking|linkpresentation|skypeuripreview|redditbot|embedly|pinterestbot|vkshare|bitlybot|iframely|bingbot|quora link preview/i;
 
 /** The three link shapes, and the one a preview can never resolve. */
 export const PREVIEW_KINDS = new Set(['j', 'p', 'join']);
