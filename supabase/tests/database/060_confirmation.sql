@@ -6,7 +6,7 @@
 -- database's — and the rest is tested as the people who use it.
 
 begin;
-select plan(60);
+select plan(63);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid language sql as $$
@@ -587,6 +587,56 @@ select is(
    where confirmation_id = :'unreported_conf' and user_id = '00000000-0000-0000-0000-0000000003a2'),
   'going',
   'and so does a "going" to an evening that has ended but nobody has reported on yet'
+);
+
+-- `unknown` goes the same way as `going`, and says so out loud: the rewrite
+-- covers both, because somebody who never answered is not coming either, and
+-- leaving them `unknown` keeps them on the chase list for an evening they have
+-- been removed from.
+select pg_temp.make_confirmed_plan('pncfss', date '2099-11-05') as silent_plan \gset
+select pg_temp.confirm(:'silent_plan', date '2099-11-05') as silent_conf \gset
+update public.circle_members set status = 'active'
+where circle_id = (select circle_id from t) and user_id = '00000000-0000-0000-0000-0000000003a3';
+
+update public.circle_members set status = 'removed'
+where circle_id = (select circle_id from t) and user_id = '00000000-0000-0000-0000-0000000003a3';
+select is(
+  (select status from public.attendance
+   where confirmation_id = :'silent_conf' and user_id = '00000000-0000-0000-0000-0000000003a3'),
+  'cant',
+  'somebody who never answered is not coming either: `unknown` goes to `cant` as well'
+);
+
+-- And it is announced once, so the dispatcher's "5 going" and the reminder
+-- list both learn about it. The rows `pg_temp.confirm` derives emit nothing —
+-- `on_attendance_updated` ignores an insert that is not the member's own — so
+-- the only event on this confirmation is the one the removal wrote.
+select is(
+  (select array_agg(o.payload ->> 'status') from jobs.outbox o
+   where o.event_name = 'confirmation.attendance_updated'
+     and o.aggregate_id = :'silent_conf'),
+  array['cant'],
+  'and announced exactly once, as a change of status rather than a new answer'
+);
+
+-- The pairing SUS-76 asked about, stated as the property that makes the two
+-- triggers safe together rather than as a sequence inside one of them.
+-- `on_member_removed` deletes participant rows for plans that are still open
+-- and then rewrites attendance on confirmations that are still active; those
+-- two sets never meet, because leaving `confirmed` supersedes the confirmation
+-- in the same statement (`supersede_on_leaving_confirmed`). If that ever stops
+-- being true, the removal starts failing on `attendance_not_a_participant` —
+-- so the invariant is asserted here, where the failure would be read.
+--
+-- Not vacuous: `pncfrr` above was confirmed and then reopened, so it is a
+-- `collecting` plan with a confirmation, and the assertion is about whether
+-- that confirmation is still active.
+select is(
+  (select count(*)::integer from public.meetup_confirmations c
+   join public.plans p on p.id = c.plan_id
+   where c.status = 'active' and p.state in ('seeking', 'collecting', 'ready')),
+  0,
+  'no plan that is still being decided holds an active confirmation — which is what lets a removal rewrite attendance after it has removed the participant'
 );
 
 -- ---------------------------------------------------------------------------
