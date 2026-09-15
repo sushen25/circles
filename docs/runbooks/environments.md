@@ -22,12 +22,12 @@ Values, never — this file is in the repository.
 Project refs are not secret — they are the subdomain of a public API URL. Keys
 are, and none are in this file.
 
-Both hosted projects exist, with anonymous sign-ins and the email provider
-enabled and Apple/Google not yet configured. `dev` is healthy; **`prod` is
-paused** — it was created on 7 September and has never been called, which is
-exactly the seven-day inactivity rule below doing what it says. Resume it from
-the dashboard before configuring anything on it, or the configuration call
-fails in a way that reads like a credentials problem.
+Both hosted projects exist and are healthy, with anonymous sign-ins and the
+email provider enabled and Apple/Google not yet configured. `prod` was paused
+once, on the seven-day inactivity rule below, and was resumed on 15 September
+to be deployed to. Expect it again after any quiet week: a paused project
+answers no API call, so configuring one fails in a way that reads like a
+credentials problem.
 
 Provider state is readable from outside at any time, which is the quickest way
 to tell a misconfigured project from a broken deploy:
@@ -56,8 +56,29 @@ fixture-driven — `/join` renders a fixture and never reads the invite secret
 out of the fragment, nothing calls `redeem-invite`, `create-circle` or
 `create-plan`, and `src/data/session.ts` holds a null token until S1-14 sets
 one. So production serves a screen gallery in front of a complete backend.
-Nothing can mint an invite link and nothing could redeem one, which is why
-§5.2's boundary has not been crossed by deploying: there is no link to ship.
+
+**That is a statement about the client, not about the system — and the
+difference matters.** The backend is live and publicly reachable. The bundle
+served from `meet.sushensatturu.com` necessarily carries
+`EXPO_PUBLIC_SUPABASE_URL` and the publishable key, email OTP is enabled, and
+`disable_signup` is `false`. So anybody can sign up with any address, become a
+permanent identity, and call `create-circle` directly: its guard refuses only
+anonymous callers, and it answers with an `invite_secret`. From there
+`redeem-invite` accepts an anonymous caller with that secret. Nothing about a
+fixture-driven UI prevents any of it; rate limits (10 circles per user per
+hour, 20 per IP) are the only brake.
+
+What is true is narrower: **no invite link has been shipped**, and none can
+reach anyone through the product, so §5.2's boundary — which is about links
+arriving in somebody's chat — has not been crossed by deploying. The honest
+summary is that production is an open backend with no front door advertised,
+not a closed system.
+
+The lever, if that is not wanted before S1-32, is `disable_signup` on
+`circles-prod`: with signups off nobody new can reach a permanent identity, and
+`create-circle` becomes unreachable from outside. It is a dashboard toggle and
+it is reversible. It has deliberately **not** been set, so that it stays a
+decision somebody made rather than a default nobody noticed.
 
 Two settings are deliberately unset on `circles-prod`: `circles.functions_url`
 and `circles.cron_secret`. Their only reader posts to `process-scheduled-jobs`,
@@ -132,9 +153,14 @@ user-visible points at it, and it arrives through `EXPO_PUBLIC_APP_ORIGIN`.
 
 Links are **never** shipped on `*.expo.app`.
 
-**No environment sends real email yet**, by decision — Resend is deferred, so
-neither `dev` nor `prod` has a sending domain and
-`pnpm check:env <host> --no-email` is the right invocation for both.
+**`prod` has an authenticated sending domain**, `mail.meet.sushensatturu.com`,
+verified in Resend on 15 September — so `pnpm check:env meet.sushensatturu.com`
+runs the email checks and passes them. `dev` has none and never will: it does
+not send, and `--no-email` is the right invocation there.
+
+No environment sends real email *yet* all the same, because the client that
+would ask for it does not exist until S1-19. What changed is that the domain is
+ready, not that anything is using it.
 
 Email is tested **locally** instead. `pnpm db:start` runs Mailpit next to
 Postgres and Auth; everything the stack sends is captured at

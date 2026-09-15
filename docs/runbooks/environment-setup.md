@@ -361,12 +361,14 @@ host, then SPF, DKIM, bounce MX and DMARC on the sending domain. The last three
 app checks only run if the first one connects, so a host that does not resolve
 reports one failure rather than three.
 
-As of 15 September 2026 `meet` reports **four of five**: all four email checks
-pass, and `HTTPS serves the app` fails with `fetch failed` because `meet` has
-no record at all until the domain is attached — which needs a production
-deploy (step 2). That failure is the honest state of things, not a
-misconfiguration, and it is the last thing standing between this file and a
-green run.
+As of 15 September 2026 `meet` reports **seven of seven**. It reported four of
+five earlier the same day — the four email checks passing and `HTTPS serves the
+app` failing with `fetch failed`, because `meet` had no record at all until the
+domain was attached, which needed a production deploy. Both numbers are worth
+keeping in mind when a future run comes back short: a host that does not
+resolve reports *one* failure rather than three, because the HSTS and
+`Referrer-Policy` rows only run if the fetch connects. Five checks reported
+instead of seven means the domain is gone, not that two checks passed.
 
 The second command names the `expo.app` host because `dev.sushensatturu.com` is
 never created (step 2).
