@@ -122,9 +122,31 @@ left join analytics.circle_activation a on a.circle_id = c.id;
 -- written as a median ("median response after link open under two minutes").
 -- ---------------------------------------------------------------------------
 create view analytics.plan_timings as
+with answers as (
+  select
+    r.plan_id,
+    r.submitted_at,
+    -- When this person last opened the link before answering. §11.4's gate is
+    -- "median response after link open", and the wait a member actually
+    -- experiences starts when they tap — not when the organiser made the plan,
+    -- which may have been the night before.
+    (select max(e.occurred_at)
+     from analytics.events e
+     where e.plan_id = r.plan_id
+       and e.user_id = r.user_id
+       and e.event_name in ('circle_join_opened', 'availability_started')
+       and e.occurred_at <= r.submitted_at) as opened_at
+  from public.plan_responses r
+)
 select
   date_trunc('month', p.created_at at time zone c.time_zone) as month,
   count(*) as plans,
+  -- From the open, which is the gate.
+  percentile_cont(0.5) within group (
+    order by extract(epoch from (opened.submitted_at - opened.opened_at))
+  ) as median_seconds_from_open_to_response,
+  -- And from the plan, which is what the organiser waits and what exists even
+  -- for a member whose open was never recorded.
   percentile_cont(0.5) within group (
     order by extract(epoch from (first_response.at - p.created_at))
   ) as median_seconds_to_first_response,
@@ -139,6 +161,12 @@ left join lateral (
 left join lateral (
   select min(mc.confirmed_at) as at from public.meetup_confirmations mc where mc.plan_id = p.id
 ) as confirmed on true
+left join lateral (
+  select a.submitted_at, a.opened_at from answers a
+  where a.plan_id = p.id and a.opened_at is not null
+  order by a.submitted_at
+  limit 1
+) as opened on true
 group by 1;
 
 -- ---------------------------------------------------------------------------

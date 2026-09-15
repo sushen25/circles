@@ -66,3 +66,48 @@ export function trackEventsTransport(options: TransportOptions = {}) {
     if (!response.ok) throw new Error(`analytics: ${response.status}`);
   };
 }
+
+/**
+ * Try again when the device comes back, rather than when the person happens to
+ * do something else.
+ *
+ * `flush()` is otherwise only reached by the next `track()` call. A guest who
+ * answers on a train and then puts their phone away has a buffer that never
+ * drains and is lost on reload — which is the exact journey the offline
+ * buffering exists for, so "buffers while offline and flushes when a send
+ * succeeds" was only half true.
+ *
+ * Returns the teardown, so a caller that mounts this can unmount it.
+ */
+export function retryWhenReachable(flush: () => Promise<void>): () => void {
+  const attempt = (): void => {
+    void flush();
+  };
+
+  const teardowns: (() => void)[] = [];
+
+  // Web: the browser says so.
+  const target = globalThis as unknown as {
+    addEventListener?: (type: string, handler: () => void) => void;
+    removeEventListener?: (type: string, handler: () => void) => void;
+    document?: { visibilityState?: string };
+  };
+  if (typeof target.addEventListener === 'function') {
+    for (const event of ['online', 'focus']) {
+      target.addEventListener(event, attempt);
+      teardowns.push(() => target.removeEventListener?.(event, attempt));
+    }
+  }
+
+  // And a slow heartbeat for everything else — a native app coming back to the
+  // foreground, a tab that never fires either event. It does nothing when the
+  // buffer is empty, which is almost always.
+  const timer = setInterval(attempt, 60_000);
+  teardowns.push(() => {
+    clearInterval(timer);
+  });
+
+  return () => {
+    for (const teardown of teardowns) teardown();
+  };
+}

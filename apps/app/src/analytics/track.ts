@@ -34,6 +34,14 @@ export type Transport = (events: TrackedEvent[]) => Promise<void>;
 const MAX_BUFFERED = 200;
 
 /**
+ * What `TrackEventsRequest` accepts in one call. Written here rather than
+ * imported as a number nobody can trace: the two must agree, and the failure
+ * when they do not is silent and permanent — a refused batch goes back into the
+ * buffer and is refused again for ever.
+ */
+const MAX_PER_BATCH = 50;
+
+/**
  * `crypto.randomUUID` where it exists — every browser and Hermes build this
  * ships on — and a random fallback for anywhere it does not, because an event
  * without an id would be dropped by the ingest and a missing measurement is a
@@ -124,15 +132,27 @@ export async function flush(): Promise<void> {
   if (flushing || transport === null || buffer.length === 0) return;
 
   flushing = true;
-  const batch = buffer;
-  buffer = [];
-
   try {
-    await transport(batch);
-  } catch {
-    // Still offline. Put the batch back in front of anything recorded since,
-    // and let the cap drop the oldest if it has grown meanwhile.
-    buffer = [...batch, ...buffer].slice(-MAX_BUFFERED);
+    // A chunk at a time, because the ingest refuses more than `MAX_PER_BATCH`
+    // and the buffer holds four times that. Sending the whole buffer after a
+    // long outage got a 400, put the oversized batch back, and left analytics
+    // wedged for the rest of the session: every later flush sent the same
+    // too-large batch and got the same refusal. Each chunk that lands is gone
+    // from the buffer, so the queue drains even if a later one fails.
+    while (buffer.length > 0) {
+      const batch = buffer.slice(0, MAX_PER_BATCH);
+      const rest = buffer.slice(MAX_PER_BATCH);
+      buffer = rest;
+
+      try {
+        await transport(batch);
+      } catch {
+        // Still offline. Put this chunk back in front of anything recorded
+        // since, and let the cap drop the oldest if it has grown meanwhile.
+        buffer = [...batch, ...buffer].slice(-MAX_BUFFERED);
+        return;
+      }
+    }
   } finally {
     flushing = false;
   }

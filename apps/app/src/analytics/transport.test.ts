@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { trackEventsTransport } from './transport';
+import { retryWhenReachable, trackEventsTransport } from './transport';
 
 const EVENT = {
   event_id: '00000000-0000-4000-8000-00000000000a',
@@ -61,5 +61,44 @@ describe('the analytics transport', () => {
 
     await expect(trackEventsTransport()([EVENT])).rejects.toThrow('no Supabase URL');
     expect(fetched).not.toHaveBeenCalled();
+  });
+});
+
+describe('retrying when the device comes back', () => {
+  it('flushes on the events a browser fires, and stops when torn down', async () => {
+    const listeners = new Map<string, () => void>();
+    vi.stubGlobal('addEventListener', (type: string, handler: () => void) => {
+      listeners.set(type, handler);
+    });
+    vi.stubGlobal('removeEventListener', (type: string) => {
+      listeners.delete(type);
+    });
+
+    const flushed = vi.fn(async () => {});
+    const teardown = retryWhenReachable(flushed);
+
+    listeners.get('online')?.();
+    expect(flushed).toHaveBeenCalledTimes(1);
+
+    teardown();
+    expect(listeners.size).toBe(0);
+  });
+
+  it('keeps a slow heartbeat for runtimes that fire neither', () => {
+    vi.useFakeTimers();
+    try {
+      const flushed = vi.fn(async () => {});
+      const teardown = retryWhenReachable(flushed);
+
+      vi.advanceTimersByTime(60_000);
+      expect(flushed).toHaveBeenCalled();
+
+      teardown();
+      const before = flushed.mock.calls.length;
+      vi.advanceTimersByTime(180_000);
+      expect(flushed.mock.calls.length).toBe(before);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

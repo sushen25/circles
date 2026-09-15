@@ -8,7 +8,7 @@
 -- readable by nobody who is not deliberately named in a table.
 
 begin;
-select plan(34);
+select plan(35);
 
 create or replace function pg_temp.make_user(id uuid, name text, permanent boolean default true)
 returns uuid language sql as $$
@@ -396,6 +396,30 @@ select is(
    where month = timestamp '2026-04-01'),
   90,
   'the median wait for a first reply is measured from the plan, in the circle''s own month'
+);
+
+-- §11.4's gate is the *other* wait: "median response after link open". The
+-- organiser may have made the plan the night before, and none of that is time
+-- the member spent deciding. It needs an event, because tapping a link leaves
+-- no row behind.
+select pg_temp.act_as_service();
+select public.record_events(jsonb_build_array(
+  jsonb_build_object(
+    'event_id', '00000000-0000-0000-0000-0000000000e6',
+    'event_name', 'availability_started', 'schema_version', 1,
+    'user_id', '00000000-0000-0000-0000-00000000aa02',
+    'plan_id', (select id from public.plans where short_code = 'pnanaa'),
+    'properties', '{}'::jsonb,
+    'occurred_at', (select created_at + interval '60 seconds' from public.plans
+                    where short_code = 'pnanaa'))
+));
+
+select pg_temp.act_as_postgres();
+select is(
+  (select median_seconds_from_open_to_response::integer from analytics.plan_timings
+   where month = timestamp '2026-04-01'),
+  30,
+  'and the gate is measured from the tap, not from whenever the organiser made the plan'
 );
 
 select pg_temp.act_as_service();

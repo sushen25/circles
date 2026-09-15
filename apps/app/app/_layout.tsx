@@ -9,8 +9,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { fontAssets } from '@circles/tokens/font-assets';
 
-import { configureAnalytics } from '../src/analytics/track';
-import { trackEventsTransport } from '../src/analytics/transport';
+import { configureAnalytics, flush } from '../src/analytics/track';
+import { retryWhenReachable, trackEventsTransport } from '../src/analytics/transport';
 
 void SplashScreen.preventAutoHideAsync();
 
@@ -41,6 +41,11 @@ export default function RootLayout() {
       void SplashScreen.hideAsync();
     }
   }, [fontsLoaded, fontError]);
+
+  // A buffer only drains on the next `track()` otherwise, so somebody who
+  // answers on a train and puts their phone away loses the session they were
+  // counted for.
+  useEffect(() => retryWhenReachable(flush), []);
 
   if (!fontsLoaded && !fontError) {
     return null;
