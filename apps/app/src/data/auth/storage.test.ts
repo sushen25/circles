@@ -138,6 +138,24 @@ describe('native, where values are chunked', () => {
     }
   });
 
+  it('does not interleave two writes that overlap', async () => {
+    /**
+     * Reproduced before the fix: both writers read the same header, both pick
+     * the generation it does not name, and both write into it — so a reader
+     * joins chunks from two different sessions, `supabase-js` fails
+     * `_isValidSession`, and the person is signed out. Reachable because
+     * `supabase-js` uses a no-op lock on native, so an auto-refresh tick can
+     * land while `verifyOtp` is saving.
+     */
+    const first = 'A'.repeat(CHUNK_BYTES * 3);
+    const second = 'B'.repeat(CHUNK_BYTES * 2);
+
+    await Promise.all([secure.setItem('k', first), secure.setItem('k', second)]);
+
+    // Whichever landed last, it is one of them and not a blend of both.
+    expect([first, second]).toContain(await secure.getItem('k'));
+  });
+
   it('returns null for a key it has never seen', async () => {
     expect(await secure.getItem('nothing')).toBeNull();
   });

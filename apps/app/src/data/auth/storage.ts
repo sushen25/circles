@@ -231,6 +231,31 @@ async function deleteGeneration(key: string, header: Header): Promise<void> {
   }
 }
 
+/**
+ * One write at a time.
+ *
+ * The generational scheme is safe against *interruption* and not against
+ * *overlap*: two writers both read the same header, both pick the generation it
+ * does not name, and both write into it. The reader then joins chunks from two
+ * different sessions, `supabase-js` fails `_isValidSession`, and the person is
+ * signed out. Reproduced with two concurrent `setItem`s of three and two chunks.
+ *
+ * It is reachable because `supabase-js` uses a no-op lock on native: an
+ * auto-refresh tick landing while `verifyOtp` saves, or two resumed claims
+ * writing at once. Serialising in this module is the narrow fix — the races are
+ * all inside one JavaScript process, so a promise chain is a real lock here,
+ * and it leaves the on-disk format alone.
+ */
+let writes: Promise<unknown> = Promise.resolve();
+
+function serialise<T>(work: () => Promise<T>): Promise<T> {
+  const next = writes.then(work, work);
+  // Keep the chain alive even when a write rejects, or one failure would
+  // deadlock every write after it.
+  writes = next.catch(() => undefined);
+  return next;
+}
+
 const secureStorage = {
   async getItem(key: string): Promise<string | null> {
     const raw = await SecureStore.getItemAsync(key);
@@ -253,6 +278,15 @@ const secureStorage = {
   },
 
   async setItem(key: string, value: string): Promise<void> {
+    return await serialise(() => secureStorage.write(key, value));
+  },
+
+  async removeItem(key: string): Promise<void> {
+    return await serialise(() => secureStorage.erase(key));
+  },
+
+  /** The body of `setItem`, run under the queue above. */
+  async write(key: string, value: string): Promise<void> {
     const previous = await readHeader(key);
     // The generation the current header does *not* name, so writing it cannot
     // touch anything a concurrent reader is reading.
@@ -273,7 +307,8 @@ const secureStorage = {
     if (previous !== undefined) await deleteGeneration(key, previous);
   },
 
-  async removeItem(key: string): Promise<void> {
+  /** The body of `removeItem`, run under the queue above. */
+  async erase(key: string): Promise<void> {
     const header = await readHeader(key);
     if (header !== undefined) await deleteGeneration(key, header);
     // Both generations: a write interrupted before its header landed leaves

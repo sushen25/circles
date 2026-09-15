@@ -52,7 +52,7 @@ export type Membership = 'member' | 'not_member' | 'unknown';
 export interface GuardInput {
   route: RouteKind;
   session: SessionState;
-  /** Only meaningful for `guest` routes; ignored elsewhere. */
+  /** Read on `guest` and `organiser` routes; ignored on `public` and `saved`. */
   membership?: Membership;
 }
 

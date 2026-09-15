@@ -89,6 +89,21 @@ interface PendingClaim {
    * two halves and storing one of them is not storing the claim.
    */
   destination_user_id: string;
+  /**
+   * The anonymous session's **refresh** token, which is what makes the record
+   * outlive the hour.
+   *
+   * An access token expires in `jwt_expiry`, one hour by default. Storing only
+   * that gave the recovery a sixty-minute fuse: an app killed mid-claim and
+   * reopened the next morning replayed a JWT the auth server no longer
+   * accepted, `claim-identity` answered `source_is_permanent`, and the record
+   * was dropped as a definitive refusal — the membership lost silently, which
+   * is the outcome the whole mechanism exists to prevent. The refresh token is
+   * in hand at the same moment as the access token, so keeping it costs a
+   * field and buys the difference between "recoverable today" and
+   * "recoverable".
+   */
+  anonymous_refresh_token?: string;
 }
 
 function usable(claim: PendingClaim | undefined): claim is PendingClaim {
@@ -183,6 +198,7 @@ async function claimIdentity(
   moment: SaveMoment,
   destinationUserId: string,
   existingKey?: string,
+  anonymousRefreshToken?: string,
 ): Promise<ClaimIdentityResponse> {
   // One key across every attempt, including a resumed one. That is what makes a
   // retry safe rather than a second claim: the key is the thing the server
@@ -206,6 +222,9 @@ async function claimIdentity(
     idempotency_key: key,
     moment,
     destination_user_id: destinationUserId,
+    ...(anonymousRefreshToken === undefined
+      ? {}
+      : { anonymous_refresh_token: anonymousRefreshToken }),
   });
 
   const attempt = async (): Promise<ClaimIdentityResponse> => {
@@ -277,14 +296,67 @@ export async function resumePendingClaim(): Promise<ClaimIdentityResponse | unde
   const pending = await pendingClaim(data.session.user.id);
   if (pending === undefined) return undefined;
 
+  // The stored access token may be hours old. Mint a fresh one rather than
+  // find out from a refusal that cannot be told apart from a real one.
+  const token = await freshAnonymousToken(pending);
+  if (token === undefined) {
+    // The evidence really has expired. Nothing can be claimed with it again, so
+    // keeping the record would only strand it somewhere it cannot be seen.
+    await forgetClaim(pending.destination_user_id);
+    return undefined;
+  }
+
   const answered = await claimIdentity(
-    pending.anonymous_session,
+    token,
     pending.moment,
     pending.destination_user_id,
     pending.idempotency_key,
   );
   await forgetClaim(pending.destination_user_id);
   return answered;
+}
+
+/**
+ * A usable access token for the abandoned anonymous session.
+ *
+ * Exchanged directly rather than through `supabase-js`, because every method
+ * that refreshes also *installs* the result as the current session — and the
+ * current session is the permanent identity we are claiming *into*. This has to
+ * mint a token for somebody else without becoming them.
+ *
+ * The rotated refresh token is written back, so a second interrupted attempt
+ * has something good to use rather than a token already spent.
+ */
+async function freshAnonymousToken(pending: PendingClaim): Promise<string | undefined> {
+  if (pending.anonymous_refresh_token === undefined) return pending.anonymous_session;
+
+  const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
+  const key = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+  if (url === undefined || key === undefined) return pending.anonymous_session;
+
+  try {
+    const response = await fetch(`${url}/auth/v1/token?grant_type=refresh_token`, {
+      method: 'POST',
+      headers: { apikey: key, 'content-type': 'application/json' },
+      body: JSON.stringify({ refresh_token: pending.anonymous_refresh_token }),
+    });
+    if (!response.ok) return undefined;
+
+    const body = (await response.json()) as { access_token?: string; refresh_token?: string };
+    if (typeof body.access_token !== 'string') return undefined;
+
+    await rememberClaim({
+      ...pending,
+      anonymous_session: body.access_token,
+      ...(typeof body.refresh_token === 'string'
+        ? { anonymous_refresh_token: body.refresh_token }
+        : {}),
+    });
+    return body.access_token;
+  } catch {
+    // Offline. The record stays; the next start tries again.
+    return pending.anonymous_session;
+  }
 }
 
 /**
@@ -318,6 +390,9 @@ export async function savePlace(options: SavePlaceOptions): Promise<SavedPlace> 
   const { data } = await authClient().auth.getSession();
   const previous = data.session;
   const anonymousToken = isAnonymous(previous) ? previous?.access_token : undefined;
+  // Captured in the same breath as the access token, and for the same reason:
+  // after `signIn()` neither exists anywhere the client can reach.
+  const anonymousRefresh = isAnonymous(previous) ? previous?.refresh_token : undefined;
 
   const signedIn = await options.signIn();
 
@@ -328,7 +403,13 @@ export async function savePlace(options: SavePlaceOptions): Promise<SavedPlace> 
     return { ...signedIn, mergedMemberships: 0, duplicatesRemoved: 0 };
   }
 
-  const claimed = await claimIdentity(anonymousToken, options.moment, signedIn.session.user.id);
+  const claimed = await claimIdentity(
+    anonymousToken,
+    options.moment,
+    signedIn.session.user.id,
+    undefined,
+    anonymousRefresh,
+  );
   await forgetClaim(signedIn.session.user.id);
   return {
     ...signedIn,

@@ -1,3 +1,5 @@
+import { execFileSync } from 'node:child_process';
+
 import { createClient } from '@supabase/supabase-js';
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
@@ -25,6 +27,8 @@ const SUPABASE_URL = 'http://127.0.0.1:54321';
 const ANON_KEY =
   'READ_FROM_SUPABASE_STATUS';
 const MAILPIT = 'http://127.0.0.1:54324';
+/** Local-only, from `supabase status`. */
+const DB_URL = 'postgresql://postgres:postgres@127.0.0.1:54322/postgres';
 
 // The module reads these at first use. Set before anything imports the client.
 process.env.EXPO_PUBLIC_SUPABASE_URL = SUPABASE_URL;
@@ -116,6 +120,37 @@ async function circleWithInvite(): Promise<{ circleId: string; secret: string }>
   return { circleId: response.circle.id, secret: response.invite_secret };
 }
 
+/**
+ * Did `claim-identity` actually run for this identity?
+ *
+ * The honest question, and the reason it has to be asked: on the in-place route
+ * **nothing else the test can see depends on the claim**. The membership row's
+ * `user_id` never changes, and `is_permanent` is set by the `handle_user_updated`
+ * trigger the moment the auth row stops being anonymous. So a regression that
+ * skipped the call — exactly what `link.ts` says must never happen — passed the
+ * first version of this test, and `mergedMemberships === 0` is also what the
+ * early return produces. The audit row is the one artefact only the function
+ * writes.
+ *
+ * Read over psql rather than through the client, because PostgREST exposes only
+ * `public` — `070_communication_jobs.sql` asserts that, and `private.audit_log`
+ * being unreachable from any client is the same property that makes this row
+ * worth asserting on: nothing but the function can write it.
+ */
+function claimWasRecorded(userId: string): boolean {
+  const rows = execFileSync(
+    'psql',
+    [
+      DB_URL,
+      '-tAc',
+      `select count(*) from private.audit_log
+       where action = 'growth.account_claimed' and resource_id = '${userId}'`,
+    ],
+    { encoding: 'utf8' },
+  );
+  return Number.parseInt(rows.trim(), 10) > 0;
+}
+
 /** An account that already owns an address, so a guest can meet it. */
 async function accountFor(address: string): Promise<string> {
   const other = createClient(SUPABASE_URL, ANON_KEY, {
@@ -143,6 +178,19 @@ async function accountFor(address: string): Promise<string> {
 beforeAll(async () => {
   const health = await fetch(`${SUPABASE_URL}/auth/v1/health`, { headers: { apikey: ANON_KEY } });
   if (!health.ok) throw new Error('local stack is not up — run `pnpm db:start`');
+
+  /**
+   * `redeem-invite` allows ten redemptions per IP per hour, and every run of
+   * this file spends two of them from the same address.
+   *
+   * Inside `pnpm check` that never bites, because `db:test` resets the database
+   * immediately before and the counters go with it. Run on its own a few times
+   * — which is what writing it looks like — and the fifth run fails with a 429
+   * that has nothing to do with the code under test. Clearing the counters
+   * costs nothing here: the limits themselves are covered by pgTAP, and a test
+   * that fails for a reason it is not about is worse than no test.
+   */
+  execFileSync('psql', [DB_URL, '-tAc', 'delete from jobs.rate_counters'], { encoding: 'utf8' });
 });
 
 /**
@@ -237,6 +285,10 @@ describe('a guest who joins a circle and then saves their place', () => {
       .eq('user_id', guestId)
       .single();
     expect(profile.data?.is_permanent).toBe(true);
+
+    // And the claim genuinely ran, which nothing above could tell us: the
+    // trigger sets `is_permanent` on its own, and the membership never moved.
+    expect(claimWasRecorded(guestId)).toBe(true);
   });
 
   it('carries the membership across when the address already has an account', async () => {
@@ -291,5 +343,6 @@ describe('a guest who joins a circle and then saves their place', () => {
       { user_id: existingId, display_name_snapshot: 'Tom', status: 'active' },
     ]);
     expect(after.data?.some((m) => m.user_id === guestId)).toBe(false);
+    expect(claimWasRecorded(existingId)).toBe(true);
   });
 });

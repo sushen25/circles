@@ -99,8 +99,32 @@ export type LinkRoute = 'new_identity' | 'existing_account';
  * to reconcile never get the chance.
  */
 export async function requestLinkCode(address: string): Promise<LinkRoute> {
-  const { error } = await authClient().auth.updateUser({ email: address });
-  if (error === null) return 'new_identity';
+  const { data, error } = await authClient().auth.updateUser({ email: address });
+  if (error === null) {
+    /**
+     * It only *asked* if the project requires confirmation.
+     *
+     * With `enable_confirmations` off, the auth server attaches the address,
+     * stamps `email_confirmed_at`, flips `is_anonymous` and sends nothing — so
+     * a guest saves their place under an address they have never proved they
+     * own, and the real owner signing in later lands in their account. The
+     * local stack was configured that way until this ticket, and on a hosted
+     * project it is one dashboard toggle away with nothing in the client able
+     * to tell.
+     *
+     * The returned user says which happened: a code in flight leaves
+     * `is_anonymous` true and the address parked in `new_email`. Refusing here
+     * is the same shape as the Turnstile fix — fail closed on the server being
+     * configured the way the product needs, rather than assume it.
+     */
+    if (data.user?.is_anonymous === false) {
+      throw new Error(
+        'saving a place attached the address without sending a code — ' +
+          'the project has email confirmations disabled',
+      );
+    }
+    return 'new_identity';
+  }
 
   // The one refusal that is not a failure. Anything else is.
   const code = (error as { code?: string }).code;
