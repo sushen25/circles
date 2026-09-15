@@ -175,6 +175,20 @@ describe('web, where storage is allowed to refuse', () => {
     vi.restoreAllMocks();
   });
 
+  it('does not resurrect a session another tab signed out', () => {
+    /**
+     * The mirror must never answer a *successful* `null`. Another tab signing
+     * out clears the shared `localStorage` and Supabase broadcasts `SIGNED_OUT`,
+     * but nothing reaches this module's private Map — so answering from it
+     * would keep authenticating with a JWT somebody deliberately threw away,
+     * for the rest of its lifetime.
+     */
+    web.setItem('shared-key', 'the.session');
+    globalThis.localStorage.removeItem('shared-key'); // the other tab
+
+    expect(web.getItem('shared-key')).toBeNull();
+  });
+
   it('forgets it again on sign-out', () => {
     vi.spyOn(globalThis.Storage.prototype, 'setItem').mockImplementation(() => {
       throw new Error('quota');

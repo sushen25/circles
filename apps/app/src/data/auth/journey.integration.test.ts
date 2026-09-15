@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 /**
  * The acceptance criterion, against the real thing.
@@ -116,9 +116,55 @@ async function circleWithInvite(): Promise<{ circleId: string; secret: string }>
   return { circleId: response.circle.id, secret: response.invite_secret };
 }
 
+/** An account that already owns an address, so a guest can meet it. */
+async function accountFor(address: string): Promise<string> {
+  const other = createClient(SUPABASE_URL, ANON_KEY, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+      storageKey: 'circles.test.other',
+    },
+  });
+  const sent = await other.auth.signInWithOtp({
+    email: address,
+    options: { shouldCreateUser: true },
+  });
+  expect(sent.error).toBeNull();
+  const verified = await other.auth.verifyOtp({
+    email: address,
+    token: await codeFor(address),
+    type: 'email',
+  });
+  expect(verified.error).toBeNull();
+  return verified.data.user?.id ?? '';
+}
+
 beforeAll(async () => {
   const health = await fetch(`${SUPABASE_URL}/auth/v1/health`, { headers: { apikey: ANON_KEY } });
   if (!health.ok) throw new Error('local stack is not up — run `pnpm db:start`');
+});
+
+/**
+ * A browser that has never been here before.
+ *
+ * The module owns **one** client and one session, deliberately — two over one
+ * storage key is a refresh race. That is right for an app and a trap for a
+ * suite: without this, the second test inherited the first test's *permanent*
+ * session, `ensureGuestSession()` honoured it rather than signing in anonymously,
+ * and the test silently exercised a signed-in user saving their place again.
+ * It failed on a count, which is the lucky version; it could as easily have
+ * passed and proved nothing.
+ */
+beforeEach(async () => {
+  const { authClient, resetAuthClientForTests } = await import('./client');
+  try {
+    await authClient().auth.signOut();
+  } catch {
+    // Nothing signed in, which is the state we are asking for anyway.
+  }
+  globalThis.localStorage.clear();
+  resetAuthClientForTests();
 });
 
 describe('a guest who joins a circle and then saves their place', () => {
@@ -156,8 +202,10 @@ describe('a guest who joins a circle and then saves their place', () => {
     const saved = await savePlace({
       moment: 'after_answer',
       signIn: async () => {
-        await requestLinkCode(address);
-        return await submitLinkCode(address, await codeFor(address));
+        const route = await requestLinkCode(address);
+        // A fresh address converts the anonymous user in place.
+        expect(route).toBe('new_identity');
+        return await submitLinkCode(address, await codeFor(address), route);
       },
     });
 
@@ -189,5 +237,59 @@ describe('a guest who joins a circle and then saves their place', () => {
       .eq('user_id', guestId)
       .single();
     expect(profile.data?.is_permanent).toBe(true);
+  });
+
+  it('carries the membership across when the address already has an account', async () => {
+    /**
+     * The return visit, and the case §10 names `claim-identity` for:
+     * "reconcile memberships **if the permanent identity already existed**".
+     * Somebody makes an account on their laptop, then answers a plan link on
+     * their phone as a guest, then saves their place with the same address.
+     *
+     * `updateUser({ email })` cannot do this — it refuses with `email_exists`
+     * (422) — so the guest simply could not save their place, and this is the
+     * only route on which `merged_memberships` is ever non-zero.
+     */
+    const { authClient } = await import('./client');
+    const { ensureGuestSession } = await import('./guest');
+    const { savePlace } = await import('./link');
+    const { requestLinkCode, submitLinkCode } = await import('./providers/email');
+
+    const { circleId, secret } = await circleWithInvite();
+
+    const address = someone('returning');
+    const existingId = await accountFor(address);
+
+    const guest = await ensureGuestSession();
+    const guestId = guest.user.id;
+    expect(guestId).not.toBe(existingId);
+
+    const joined = await authClient().functions.invoke('redeem-invite', {
+      body: { idempotency_key: globalThis.crypto.randomUUID(), secret, display_name: 'Tom' },
+    });
+    expect(joined.error).toBeNull();
+
+    const saved = await savePlace({
+      moment: 'after_answer',
+      signIn: async () => {
+        const route = await requestLinkCode(address);
+        expect(route).toBe('existing_account');
+        return await submitLinkCode(address, await codeFor(address), route);
+      },
+    });
+
+    // A different identity from the guest's — the one that already existed.
+    expect(saved.session.user.id).toBe(existingId);
+    expect(saved.mergedMemberships).toBeGreaterThanOrEqual(1);
+
+    // And the membership came with them, under the name they joined as.
+    const after = await authClient()
+      .from('circle_members')
+      .select('user_id, display_name_snapshot, status')
+      .eq('circle_id', circleId);
+    expect(after.data?.filter((m) => m.user_id === existingId)).toEqual([
+      { user_id: existingId, display_name_snapshot: 'Tom', status: 'active' },
+    ]);
+    expect(after.data?.some((m) => m.user_id === guestId)).toBe(false);
   });
 });

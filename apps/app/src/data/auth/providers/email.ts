@@ -66,26 +66,69 @@ export async function submitSignInCode(address: string, code: string): Promise<S
 }
 
 /**
- * Step one of a guest saving their place: attach an address to the session
- * they already have.
+ * Which route saving a place took, because step two has to match it.
+ *
+ * - `new_identity` — the address was unused, so the anonymous user *became*
+ *   permanent in place. Same id; nothing to merge.
+ * - `existing_account` — the address already belonged to somebody, so the
+ *   anonymous session is replaced by **that** account's. Different id, and the
+ *   guest's memberships have to be carried across, which is exactly what
+ *   `claim-identity` is for (§10: "reconcile memberships if the permanent
+ *   identity already existed").
+ *
+ * Returned rather than remembered, because the two steps are on different
+ * routes: the address is typed on one screen and the code on another, and a
+ * module holding "which flow are we in" across a navigation is a bug waiting
+ * for a refresh.
+ */
+export type LinkRoute = 'new_identity' | 'existing_account';
+
+/**
+ * Step one of a guest saving their place.
  *
  * **`linkIdentity` is not this.** It looks like the right call and the ticket
  * named it, but `supabase-js` types it for `SignInWithOAuthCredentials` and
  * `SignInWithIdTokenCredentials` only — it is the SSO path, and S1-14b will use
- * it for exactly that. There is no email variant. Converting an anonymous user
- * with an address goes through `updateUser`, which sends a confirmation to the
- * new address, and `verifyOtp({ type: 'email_change' })`.
+ * it for exactly that. There is no email variant.
  *
- * The distinction matters beyond the call name: this keeps the **same user id**
- * and marks it permanent in place, so nothing needs to move. `claim-identity`
- * is still called afterwards — see `link.ts` for why that is not redundant.
+ * **And `updateUser` alone is not enough either.** It refuses an address that
+ * already has an account, with `email_exists` (422) — which is not an edge
+ * case but the *return visit*: somebody who made an account on their laptop,
+ * then answered a plan link on their phone as a guest. Without the fallback
+ * below they simply cannot save their place, and the memberships §10 promises
+ * to reconcile never get the chance.
  */
-export async function requestLinkCode(address: string): Promise<void> {
+export async function requestLinkCode(address: string): Promise<LinkRoute> {
   const { error } = await authClient().auth.updateUser({ email: address });
-  if (error !== null) throw error;
+  if (error === null) return 'new_identity';
+
+  // The one refusal that is not a failure. Anything else is.
+  const code = (error as { code?: string }).code;
+  if (code !== 'email_exists') throw error;
+
+  // Sign in to the account that already owns it. `shouldCreateUser: false`
+  // because we know it exists — and because creating one here would silently
+  // make a *third* identity if the check above were ever wrong.
+  const { error: otpError } = await authClient().auth.signInWithOtp({
+    email: address,
+    options: { shouldCreateUser: false },
+  });
+  if (otpError !== null) throw otpError;
+  return 'existing_account';
 }
 
-/** Step two of saving a place. */
-export async function submitLinkCode(address: string, code: string): Promise<SignedIn> {
-  return await verify(address, code, 'email_change');
+/**
+ * Step two of saving a place, told which route step one took.
+ *
+ * The verification type is not interchangeable: a code minted for an email
+ * change is not accepted as a sign-in and the reverse is also true, so guessing
+ * — or trying one and falling back to the other — turns a wrong answer into a
+ * confusing one.
+ */
+export async function submitLinkCode(
+  address: string,
+  code: string,
+  route: LinkRoute,
+): Promise<SignedIn> {
+  return await verify(address, code, route === 'new_identity' ? 'email_change' : 'email');
 }
