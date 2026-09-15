@@ -225,7 +225,17 @@ enable_signup = true
 # addresses. If disabled, only the new email is required to confirm.
 double_confirm_changes = true
 # If enabled, users need to confirm their email address before signing in.
-enable_confirmations = false
+#
+# **On, and it is load-bearing for saving a place.** With it off,
+# `updateUser({ email })` on an anonymous session attaches the address, stamps
+# `email_confirmed_at`, flips `is_anonymous` to false and sends nothing — so a
+# guest could save their place under an address they do not control, and the
+# six-digit code spec §5.1 promises on that path never happens. Verified against
+# the local stack on 15 September 2026, which is how this was found.
+#
+# Sign-in is unaffected: `signInWithOtp` still sends a code, and verifying it is
+# what confirms the address.
+enable_confirmations = true
 # If enabled, users will need to reauthenticate or have logged in recently to change their password.
 secure_password_change = false
 # Controls the minimum amount of time that must pass before sending another signup confirmation or password reset email.
@@ -242,15 +252,32 @@ otp_length = 6
 # alongside the templates that still send a magic link).
 otp_expiry = 600
 
-# Sign-in is a six-digit code, not a magic link (§10). The stock template sends
-# {{ .ConfirmationURL }}, so without this the local stack tests a flow the app
-# does not implement. Hosted projects carry their own templates in the
+# Sign-in is a six-digit code, not a magic link (§10). Every stock template
+# sends {{ .ConfirmationURL }}, so without these the local stack tests a flow
+# the app does not implement. Hosted projects carry their own templates in the
 # dashboard; S1-19 replaces both with React Email.
+#
+# **All three, not just magic_link.** Which template the auth server reaches for
+# depends on why it is sending: `magic_link` when a known address signs in
+# again, `confirmation` the first time an address is used, and `email_change`
+# when a guest attaches an address to the anonymous session they already have —
+# which is what saving a place *is*. Overriding one of the three leaves the
+# other two sending links, and the gap is invisible until somebody walks that
+# exact path.
+#
+# Paths are relative to the repository root, not to supabase/ — unlike the
+# schema and seed paths in this same file, which are relative to supabase/.
 [auth.email.template.magic_link]
 subject = "Your sign-in code"
-# Relative to the repository root, not to supabase/ — unlike the schema and
-# seed paths in this same file, which are relative to supabase/.
-content_path = "./supabase/templates/magic-link.html"
+content_path = "./supabase/templates/code.html"
+
+[auth.email.template.confirmation]
+subject = "Your sign-in code"
+content_path = "./supabase/templates/code.html"
+
+[auth.email.template.email_change]
+subject = "Your code to save your place"
+content_path = "./supabase/templates/code.html"
 
 # Use a production-ready SMTP server
 # [auth.email.smtp]
