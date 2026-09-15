@@ -386,10 +386,8 @@ describe('a claim that never got an answer', () => {
       savePlace({ moment: 'after_answer', signIn: async () => ({ session: SAVED as never }) }),
     ).rejects.toBeInstanceOf(SavePlaceError);
 
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(async () => new Response('', { status: 503 })),
-    );
+    const exchange = vi.fn(async () => new Response('', { status: 503 }));
+    vi.stubGlobal('fetch', exchange);
     state.session = SAVED;
     state.invocations = [];
     // The claim itself is still down too, so nothing clears the record for a
@@ -402,6 +400,32 @@ describe('a claim that never got an answer', () => {
     expect(kept[SAVED_ID]).toBeDefined();
     // It tried anyway, with the token it already had.
     expect(state.invocations[0]?.body.anonymous_session).toBe('anon.token');
+    // And it genuinely attempted the exchange. Without this the early return
+    // for missing `EXPO_PUBLIC_*` produces an identical observable outcome, so
+    // the test would pass whether or not the code under test ran.
+    expect(exchange).toHaveBeenCalledOnce();
+  });
+
+  it('keeps the record when the token endpoint rate-limits the app start', async () => {
+    // 429 is "later", not "never" — and an app start is exactly when the token
+    // endpoint's per-IP limit is hit. Dropping on any 4xx lost the membership
+    // to a busy minute.
+    state.answers = [{ error: new Error('network') }];
+    await expect(
+      savePlace({ moment: 'after_answer', signIn: async () => ({ session: SAVED as never }) }),
+    ).rejects.toBeInstanceOf(SavePlaceError);
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('', { status: 429 })),
+    );
+    state.session = SAVED;
+    state.answers = [{ error: new Error('still down') }];
+    await expect(resumePendingClaim()).rejects.toBeInstanceOf(SavePlaceError);
+    vi.unstubAllGlobals();
+
+    const kept = JSON.parse(globalThis.localStorage.getItem('circles.pending_claims') ?? '{}');
+    expect(kept[SAVED_ID]).toBeDefined();
   });
 
   it('drops it when the auth server says the token is no good', async () => {

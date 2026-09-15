@@ -187,7 +187,16 @@ async function pendingClaim(destinationUserId: string): Promise<PendingClaim | u
 function stillOpen(problem: Problem | undefined): boolean {
   if (problem === undefined) return true; // No HTTP response: the transport failed.
   if (problem.reason === undefined) return problem.error === 'unavailable';
-  return problem.reason === 'in_progress' || problem.reason === 'too_many_requests';
+  return (
+    problem.reason === 'in_progress' ||
+    problem.reason === 'too_many_requests' ||
+    // The server fingerprints the whole body, and a resumed claim can carry a
+    // re-minted token under the old key — or arrive while the first attempt is
+    // still in flight. Either way the question has not been answered, and
+    // dropping the record here would discard the only evidence over a
+    // bookkeeping collision.
+    problem.reason === 'idempotency_mismatch'
+  );
 }
 
 function newIdempotencyKey(): IdempotencyKey {
@@ -313,8 +322,8 @@ export async function resumePendingClaim(): Promise<ClaimIdentityResponse | unde
 
   // The stored access token may be hours old. Mint a fresh one rather than
   // find out from a refusal that cannot be told apart from a real one.
-  const token = await freshAnonymousToken(pending);
-  if (token === undefined) {
+  const fresh = await freshAnonymousToken(pending);
+  if (fresh === undefined) {
     // The evidence really has expired. Nothing can be claimed with it again, so
     // keeping the record would only strand it somewhere it cannot be seen.
     await forgetClaim(pending.destination_user_id);
@@ -322,10 +331,15 @@ export async function resumePendingClaim(): Promise<ClaimIdentityResponse | unde
   }
 
   const answered = await claimIdentity(
-    token,
+    fresh.token,
     pending.moment,
     pending.destination_user_id,
-    pending.idempotency_key,
+    // A re-minted token is a **different body**, and the server fingerprints
+    // the whole body against the key. Replaying the old key would answer
+    // `idempotency_mismatch` rather than resuming. A fresh key is safe here
+    // precisely because `public.claim_identity` is idempotent in the database:
+    // the key stops a double *request*, and the SQL stops a double *claim*.
+    fresh.reminted ? undefined : pending.idempotency_key,
   );
   await forgetClaim(pending.destination_user_id);
   return answered;
@@ -342,12 +356,18 @@ export async function resumePendingClaim(): Promise<ClaimIdentityResponse | unde
  * The rotated refresh token is written back, so a second interrupted attempt
  * has something good to use rather than a token already spent.
  */
-async function freshAnonymousToken(pending: PendingClaim): Promise<string | undefined> {
-  if (pending.anonymous_refresh_token === undefined) return pending.anonymous_session;
+async function freshAnonymousToken(
+  pending: PendingClaim,
+): Promise<{ token: string; reminted: boolean } | undefined> {
+  if (pending.anonymous_refresh_token === undefined) {
+    return { token: pending.anonymous_session, reminted: false };
+  }
 
   const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
   const key = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
-  if (url === undefined || key === undefined) return pending.anonymous_session;
+  if (url === undefined || key === undefined) {
+    return { token: pending.anonymous_session, reminted: false };
+  }
 
   try {
     const response = await fetch(`${url}/auth/v1/token?grant_type=refresh_token`, {
@@ -364,9 +384,19 @@ async function freshAnonymousToken(pending: PendingClaim): Promise<string | unde
      * answering about this token (`invalid_grant`, already used, unknown);
      * anything else is it not answering at all, and the record should wait.
      */
+    /**
+     * Only a 400 is a verdict on *this token*.
+     *
+     * GoTrue answers 400 with `validation_failed`, `refresh_token_not_found` or
+     * `refresh_token_already_used` — all final. Everything else is about
+     * something other than the token and must not discard it: 429 is the token
+     * endpoint's own rate limit, which an app start can hit, and 401 is the
+     * gateway rejecting the *anon key*, which a build with a rotated key
+     * produces for every stranded claim it ever sees.
+     */
     if (!response.ok) {
-      if (response.status >= 400 && response.status < 500) return undefined;
-      return pending.anonymous_session;
+      if (response.status === 400) return undefined;
+      return { token: pending.anonymous_session, reminted: false };
     }
 
     const body = (await response.json()) as { access_token?: string; refresh_token?: string };
@@ -379,10 +409,10 @@ async function freshAnonymousToken(pending: PendingClaim): Promise<string | unde
         ? { anonymous_refresh_token: body.refresh_token }
         : {}),
     });
-    return body.access_token;
+    return { token: body.access_token, reminted: true };
   } catch {
     // Offline. The record stays; the next start tries again.
-    return pending.anonymous_session;
+    return { token: pending.anonymous_session, reminted: false };
   }
 }
 

@@ -45,6 +45,8 @@ function readStackConfig(): void {
   // and is not itself on PATH, so spawning it fails with ENOENT. And from
   // `process.cwd()` rather than `import.meta.url`, which Vite rewrites to a
   // `/@fs/...` URL that is not a filesystem path.
+  // Assumes the vitest cwd is `apps/app`, which is what `pnpm --filter app exec`
+  // gives it — the only way this suite is run, locally and in CI.
   const repoRoot = resolve(process.cwd(), '../..');
   const raw = execFileSync(
     resolve(repoRoot, 'node_modules/.bin/supabase'),

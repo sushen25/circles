@@ -44,7 +44,19 @@ Postgres, and every message the stack produces is captured at
 `http://127.0.0.1:54324`.
 
 `pnpm check` is the whole gate and the `check` workflow runs exactly it. If it
-passes locally it passes there, and vice versa.
+passes locally it passes there, and vice versa — **with one exception, and it is
+the one that bites**: CI also runs **gitleaks**, which `pnpm check` does not,
+and gitleaks scans the branch's _history_ rather than its working tree. So a
+secret committed and then removed still fails CI while the local gate is green,
+and the fix is never an allowlist — it is to keep the value out of the history.
+S1-14 reported "gate: ok" for eight review rounds while every CI run on the
+branch was red for exactly this. **Check `gh run list` after pushing; the local
+gate is not the whole answer.**
+
+The other way the two can drift is the gate growing a dependency CI does not
+start. `check.yml` starts Supabase with a service exclusion list; anything
+`pnpm check` needs has to be off that list, and `packages/*/dist` has to exist
+_before_ the stack starts, because the Edge runtime reads it.
 
 The **deploy** workflows are not `pnpm check` and do not inherit that promise.
 They must build the workspace packages themselves: `app.config.ts` imports
