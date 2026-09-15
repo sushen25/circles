@@ -8,6 +8,15 @@ Work top to bottom: later steps need earlier ones. Tick as you go. Nothing here
 is reversible-by-accident, but **step 3 costs money** and **step 2 spends about
 US$20/year**.
 
+**One exception to top-to-bottom: do step 7 (Turnstile) before step 2 (the
+domain).** Attaching the domain needs a production deployment, and a production
+deploy refuses to run without the Turnstile site key, so the numbered order is
+a deadlock. The numbers are left alone because they are referred to from the
+other runbook, from the workflows' comments and from several Linear tickets;
+renaming them to fix one edge would break more than it mends. Turnstile can go
+first safely — a widget lists hostnames without resolving them, so it does not
+need the domain to exist.
+
 Reference for anything that needs explaining: [`environments.md`](./environments.md).
 
 ---
@@ -64,8 +73,17 @@ to its return URLs. Doing those against the `expo.app` host means doing them
 twice, and the Google web client has to be **re-created** rather than edited,
 because a client that has been live carries consent grants tied to it.
 
-So the order is: domain, then Turnstile, then Apple and Google. One DNS session
-covers the app records here and Resend's records in step 5.
+So the order is: **Turnstile, then the domain, then Apple and Google.** One DNS
+session covers the app records here and Resend's records in step 5.
+
+Turnstile comes before the domain rather than after it, despite the domain
+being what the OAuth clients are waiting on, because attaching the domain
+requires a production deployment and a production deploy refuses to run without
+`EXPO_PUBLIC_TURNSTILE_SITE_KEY` (`REQUIRE_TURNSTILE=true`). Ordering the
+domain first reads as the tidier sequence and is a deadlock: the domain waits
+on the deploy, the deploy waits on Turnstile. Turnstile has nothing to wait
+for — a widget lists hostnames without resolving them, so it can be created
+before any of them exist.
 
 The one hard boundary: **§5.2 forbids shipping links on `*.expo.app`**, and that
 still holds. Before any invite link reaches a person who is not the founder, the
@@ -442,9 +460,13 @@ the only parts that need this step.
 - [ ] Apple → **Sign in with Apple key**; download the `.p8` **once** — it
       cannot be downloaded twice.
 - [ ] Google Cloud → OAuth consent screen, then **three** clients: web (origins
-      `https://meet.sushensatturu.com` and `https://dev.sushensatturu.com`),
-      iOS (bundle `app.circles.production`), Android
-      (package + SHA-1 from EAS credentials).
+      `https://meet.sushensatturu.com` and
+      `https://sushen25s-team-circles--dev.expo.app`), iOS (bundle
+      `app.circles.production`), Android (package + SHA-1 from EAS
+      credentials).
+      **The `expo.app` host, not `dev.sushensatturu.com`** — step 2 decided
+      that name is never created, and an origin that does not exist authorises
+      nothing while the origin that does is rejected as a mismatch.
 - [ ] Supabase → Authentication → Providers → configure Apple and Google on
       **both** projects.
 
@@ -463,6 +485,21 @@ supabase secrets set --project-ref <ref> \
   APPLE_TEAM_ID=... APPLE_KEY_ID=... APPLE_SERVICES_ID=... \
   GOOGLE_CLIENT_ID=... GOOGLE_CLIENT_SECRET=...
 ```
+
+**`TURNSTILE_SECRET_KEY` is the one value that differs between the two
+projects, and copying the real one to both breaks `dev`.** Step 7 puts the
+dummy *site* key at repository scope, so `dev` and every per-PR preview send a
+dummy token — and a real secret rejects a dummy token, which is the same
+property that makes a half-swapped pair fail closed. The result would be that
+every web join against `dev` fails Turnstile verification, in an environment
+whose whole job is to find that out before production does. So:
+
+| Project | `TURNSTILE_SECRET_KEY` |
+|---|---|
+| `circles-dev` (`pcfekupwqrdfryeaqggx`) | `1x0000000000000000000000000000000AA` — the always-passes dummy, matching the dummy site key at repository scope |
+| `circles-prod` (`bhunoaqswteamabbyckp`) | the real secret from step 7 |
+
+Every other secret in the block is the same on both.
 
 The Apple private key is a file, so it goes as its contents:
 
