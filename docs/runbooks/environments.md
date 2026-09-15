@@ -78,6 +78,13 @@ may assume them.
 `sushen25s-team-circles--<alias>.expo.app`, which is enough for integration
 testing and per-PR previews.
 
+That deferral ends with SUS-71 (founder decision, 15 September 2026): the
+domain is attached **before** the Turnstile widget and the OAuth clients,
+because each of those is bound to a hostname and doing them against the
+`expo.app` host means doing them twice — and the Google web client has to be
+re-created rather than edited. See
+[`environment-setup.md`](./environment-setup.md) step 2.
+
 This is not a licence to ignore §5.2. That rule — **never ship links on
 `*.expo.app`** — is about links a real person receives, and it still binds
 absolutely. The boundary is sharp: the first time an invite link is sent to

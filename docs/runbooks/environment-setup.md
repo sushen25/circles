@@ -54,10 +54,18 @@ Reference for anything that needs explaining: [`environments.md`](./environments
 
 ## 2. Domain — free, and deferred
 
-**Deferred** (SUS-71, founder decision 8 Sep 2026). `dev` runs on the URL EAS
-Hosting assigns — `sushen25s-team-circles--dev.expo.app` — which is enough for
-integration testing and previews. The names below are settled and reserved; the
-DNS records are simply not written yet.
+**No longer deferred, and now the first step that matters** (founder decision,
+15 September 2026). It was deferred on 8 September because `dev` runs perfectly
+well on the URL EAS Hosting assigns — `sushen25s-team-circles--dev.expo.app` —
+and that is still true. What changed is that steps 7 and 8 bind vendor
+configuration to hostnames: a Turnstile widget lists the hosts it will answer
+for, a Google web OAuth client is bound to its origin, and an Apple Services ID
+to its return URLs. Doing those against the `expo.app` host means doing them
+twice, and the Google web client has to be **re-created** rather than edited,
+because a client that has been live carries consent grants tied to it.
+
+So the order is: domain, then Turnstile, then Apple and Google. One DNS session
+covers the app records here and Resend's records in step 5.
 
 The one hard boundary: **§5.2 forbids shipping links on `*.expo.app`**, and that
 still holds. Before any invite link reaches a person who is not the founder, the
@@ -242,10 +250,22 @@ being turned away.
 
 ## 8. Apple and Google sign-in
 
-**Deferred** (SUS-71). Verified off on both projects. Due before S1-14.
+Verified off on both projects (`/auth/v1/settings` reports `apple: false,
+google: false`). Due before S1-14.
 
 Slower than the rest; both can be done after Slice 1 starts, but before S1-14
 lands.
+
+**Do step 2 first.** Founder decision, 15 September 2026: attach the domain
+before creating any OAuth client, so one web client covers both origins and is
+created once. The alternative considered was a throwaway dev client against the
+`expo.app` origin to unblock S1-14 sooner; it was not taken, because the client
+that would have to be re-created later is the one carrying real consent grants.
+
+S1-14 is not idle while this happens — the email-code path, anonymous sessions,
+session persistence, identity linking and the guards all work against the local
+stack, and the Turnstile path has the dummy keys in step 7. Apple and Google are
+the only parts that need this step.
 
 - [ ] Apple Developer → **Services ID** for the web sign-in; return URL is
       `https://bhunoaqswteamabbyckp.supabase.co/auth/v1/callback` for prod and
