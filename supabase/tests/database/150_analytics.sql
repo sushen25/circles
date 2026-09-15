@@ -305,13 +305,20 @@ select is(
 -- ---------------------------------------------------------------------------
 -- The rest of the six, on the same scenario.
 -- ---------------------------------------------------------------------------
--- A meetup reported at midnight on 1 February in Melbourne is a February
--- meetup. `date_trunc` on a `timestamptz` runs in the database's zone, which is
--- UTC, and would have filed it under January.
+-- Two things about which month a meetup belongs to, and they are different
+-- questions. It is the month the *meetup* was in, not the month somebody got
+-- round to reporting it: this one happens on 1 February in Melbourne and is
+-- reported four days later. And it is the circle's month, not UTC's:
+-- 9am on 1 February in Melbourne is still 31 January in UTC.
 select pg_temp.confirmed_plan('pnanbc', date '2026-01-20') as summer \gset
+update public.meetup_confirmations
+set starts_at = timestamptz '2026-01-31T22:00:00Z',
+    ends_at = timestamptz '2026-02-01T00:00:00Z'
+where id = :'summer';
+
 insert into public.outcome_reports (confirmation_id, reported_by, outcome, reported_at)
 values (:'summer', '00000000-0000-0000-0000-00000000aa01', 'happened',
-        timestamptz '2026-01-31T13:00:00Z');
+        timestamptz '2026-02-05T09:00:00Z');
 
 select is(
   (select array[
@@ -319,7 +326,7 @@ select is(
      (select happened_reported from analytics.north_star_monthly where month = timestamp '2026-02-01')
    ]),
   array[0::bigint, 1::bigint],
-  'a meetup is counted in the month the circle was in, not the month UTC was in'
+  'a meetup counts in the month it happened, in the circle''s own zone — not when it was reported, and not in UTC'
 );
 
 -- And the months in between are months, not gaps: a chart that skips a quiet

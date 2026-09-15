@@ -279,7 +279,11 @@ with activated as (
 ),
 reported as (
   select
-    date_trunc('month', o.reported_at at time zone c.time_zone) as month,
+    -- The month the meetup **happened**, not the month somebody got round to
+    -- saying so. A Saturday-night catch-up reported on Sunday the first was
+    -- counting against the wrong month, and "meetups per circle per month"
+    -- (§11.1) is a question about evenings rather than about paperwork.
+    date_trunc('month', mc.starts_at at time zone c.time_zone) as month,
     o.confirmation_id,
     o.reported_by
   from public.outcome_reports o

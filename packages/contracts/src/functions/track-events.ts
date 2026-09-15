@@ -18,11 +18,16 @@ import { TrackedEvent } from '../analytics.js';
 export const TrackEventsRequest = z.object({
   events: z.array(TrackedEvent).min(1).max(50),
   /**
-   * The browser or device, for the events that happen before anybody signs in —
-   * a link opened from a group chat is the top of the funnel and by definition
-   * precedes a session. Opaque and client-minted: it identifies a *browser*, is
-   * never joined to a person, and is dropped by account deletion along with the
-   * rest of the identifiers.
+   * The browser, for the events that happen before anybody signs in — a link
+   * opened from a group chat is the top of the funnel and by definition
+   * precedes a session.
+   *
+   * Two things make "never joined to a person" true rather than intended, and
+   * both are the ingest's, because this schema cannot enforce either. It is
+   * **hashed** before it is stored, since any base64url string of this length
+   * fits — a re-entry token included — and a token in an analytics row is what
+   * non-negotiable 8 forbids. And it is **dropped entirely once a bearer
+   * identifies somebody**, because a row carrying both is the join.
    */
   anonymous_id: z
     .string()

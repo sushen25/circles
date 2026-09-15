@@ -1,5 +1,6 @@
 import { acceptEvent, TrackEventsRequest, type TrackEventsResponse } from '@circles/contracts';
 
+import { sha256Hex } from '../_shared/hash.ts';
 import { ingestHandler } from '../_shared/ingest.ts';
 import { callerAddress, enforce } from '../_shared/rate.ts';
 
@@ -66,6 +67,24 @@ Deno.serve(
       const rows = [];
       const now = Date.now();
 
+      // **Hashed, and only when there is nobody signed in.**
+      //
+      // Hashed because the schema cannot tell a browser id from anything else
+      // of the same shape — a re-entry token is base64url and fits it exactly —
+      // and a token in `analytics.events` is the thing non-negotiable 8 forbids
+      // outright. A digest is as good an identifier and cannot be spent.
+      //
+      // Dropped when a bearer identified somebody, because storing both on one
+      // row is a join from everything this browser did before signing in to the
+      // account it signed in to. The contract promises the id is never joined
+      // to a person; this is where that is true or false.
+      // `sha256Hex` returns the `\x…` form a `bytea` parameter takes; this
+      // column is `text`, so the prefix comes off.
+      const anonymousId =
+        actor === undefined && body.anonymous_id !== undefined
+          ? (await sha256Hex(body.anonymous_id)).replace(/^\\x/, '')
+          : null;
+
       for (const event of body.events) {
         const accepted = acceptEvent(event.name, event.properties);
         if (accepted === null) continue;
@@ -85,7 +104,7 @@ Deno.serve(
           event_name: accepted.name,
           schema_version: accepted.version,
           user_id: actor?.userId ?? null,
-          anonymous_id: body.anonymous_id ?? null,
+          anonymous_id: anonymousId,
           circle_id: typeof circleId === 'string' ? circleId : null,
           plan_id: typeof planId === 'string' ? planId : null,
           properties,

@@ -2090,7 +2090,20 @@ describe('track-events', () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({ accepted: 1, rejected: 0 });
     const rows = called('record_events')[0]?.args['p_rows'] as Record<string, unknown>[];
-    expect(rows[0]).toMatchObject({ user_id: null, anonymous_id: 'browser-abc12345' });
+    expect(rows[0]).toMatchObject({ user_id: null });
+    // Hashed, never stored as sent: the schema cannot tell a browser id from a
+    // re-entry token, which is base64url and exactly this length.
+    expect(rows[0]?.['anonymous_id']).toMatch(/^[0-9a-f]{64}$/);
+    expect(JSON.stringify(rows)).not.toContain('browser-abc12345');
+  });
+
+  it('drops the browser id once a bearer says who this is', async () => {
+    // A row carrying both is a join from everything this browser did before
+    // signing in to the account it signed in to.
+    await load('track-events')(post({ events: [EVENT], anonymous_id: 'browser-abc12345' }));
+
+    const rows = called('record_events')[0]?.args['p_rows'] as Record<string, unknown>[];
+    expect(rows[0]).toMatchObject({ user_id: CALLER, anonymous_id: null });
   });
 
   it('attributes an event to the caller when the bearer is a real user', async () => {
