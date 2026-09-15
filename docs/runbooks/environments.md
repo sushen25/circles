@@ -22,10 +22,15 @@ Values, never — this file is in the repository.
 Project refs are not secret — they are the subdomain of a public API URL. Keys
 are, and none are in this file.
 
-Both hosted projects exist and are healthy, with anonymous sign-ins and the
-email provider enabled and Apple/Google not yet configured. That is readable
-from outside at any time, which is the quickest way to tell a misconfigured
-project from a broken deploy:
+Both hosted projects exist, with anonymous sign-ins and the email provider
+enabled and Apple/Google not yet configured. `dev` is healthy; **`prod` is
+paused** — it was created on 7 September and has never been called, which is
+exactly the seven-day inactivity rule below doing what it says. Resume it from
+the dashboard before configuring anything on it, or the configuration call
+fails in a way that reads like a credentials problem.
+
+Provider state is readable from outside at any time, which is the quickest way
+to tell a misconfigured project from a broken deploy:
 
 ```bash
 curl -s https://<ref>.supabase.co/auth/v1/settings -H "apikey: <anon key>" | jq .external
@@ -65,13 +70,33 @@ may assume them.
 
 | | Host today | Host eventually |
 |---|---|---|
-| `dev` | `sushen25s-team-circles--dev.expo.app` | `dev.sushensatturu.com` |
+| `dev` | `sushen25s-team-circles--dev.expo.app` | unchanged — see below |
 | `prod` | none — not deployed | `meet.sushensatturu.com` |
+
+**EAS Hosting allows one custom domain per project**, assigned to the
+production deployment, so the two environments cannot both have one. `meet`
+takes it (founder decision, 15 September 2026) and `dev` keeps the `expo.app`
+host permanently rather than temporarily. That costs nothing: §5.2 binds links
+that reach a real person, and `dev` never sends an invite.
 
 **`dev` runs without a custom domain for now** (founder decision, 8 September
 2026). EAS Hosting gives every alias a stable URL of the form
 `sushen25s-team-circles--<alias>.expo.app`, which is enough for integration
 testing and per-PR previews.
+
+It is not a deferral any more, it is the arrangement (founder decision, 15
+September 2026). `dev` keeps the `expo.app` host permanently, because EAS
+Hosting allows one custom domain per project and `meet.sushensatturu.com` takes
+it.
+
+The Turnstile widget and the OAuth clients are still configured against the
+final hostname rather than the `expo.app` one, so each is created once — but
+they are configured **before** the domain is attached, not after. Both store a
+hostname as text and check no DNS when saved, so a settled name is all they
+need. The attachment itself waits on a production deployment, and
+`deploy-prod.yml` will not deploy without the Turnstile site key, so the
+reverse order is a deadlock. See
+[`environment-setup.md`](./environment-setup.md) steps 2 and 7.
 
 This is not a licence to ignore §5.2. That rule — **never ship links on
 `*.expo.app`** — is about links a real person receives, and it still binds
@@ -122,10 +147,13 @@ appends the zone for you:
 | Record | Name | Purpose |
 |---|---|---|
 | app | `meet`, `dev` | EAS Hosting; take the exact target from its dashboard |
-| SPF (TXT) | `send.mail.meet` | Resend's value. Note the `send.` child — Resend puts SPF and the bounce MX there, not on the sending domain itself |
-| Bounce MX | `send.mail.meet` | Without it Resend cannot tell a hard bounce from silence, and the suppression list never fills |
-| DKIM (TXT) | `resend._domainkey.mail.meet` | Resend's key, on the sending domain itself |
-| DMARC (TXT) | `_dmarc.mail.meet` | `p=none` at first, `p=quarantine` after warm-up |
+| SPF + bounce MX | `send.mail.meet` | **A CNAME to `send.forge.rmta.net`**, not records of its own — Resend delegates, and resolution follows it to a `v=spf1 … ~all` TXT and an MX at `feedback.forge.rmta.net`. Both answer at `send.mail.meet`, which is all `check:env` and every receiving server care about. Without the MX, Resend cannot tell a hard bounce from silence and the suppression list never fills |
+| Return path | `rsend.mail.meet` | CNAME to `rsend-apne1.forge.rmta.net`. **`rsend` is not a typo of `send`**; they are separate records and both are required |
+| DKIM (TXT) | `resend._domainkey.mail.meet` | Resend's key, on the sending domain itself — the name that has to align with the header `From` |
+| DMARC (TXT) | `_dmarc.mail.meet` | `p=none` at first, `p=quarantine` after warm-up. No `rua=`: a reporting address on a domain you do not control needs a `_report._dmarc` authorisation record there (RFC 7489 §7.1), and Gmail publishes none — see `environment-setup.md` step 5 |
+
+Nothing else may ever be added at `send.mail.meet` or `rsend.mail.meet`: a
+CNAME cannot coexist with another record at the same name.
 
 `support@meet.sushensatturu.com` is in `brand.ts` but **nothing receives mail
 there** — the zone has no MX for it. Arrange forwarding before any email
@@ -169,7 +197,7 @@ perfectly happily, and every request fails in the browser.
 |---|---|
 | `RESEND_API_KEY` | Resend → API Keys |
 | `RESEND_WEBHOOK_SECRET` | Resend → Webhooks, on the endpoint |
-| `TURNSTILE_SECRET` | Cloudflare → Turnstile, pairs with the site key |
+| `TURNSTILE_SECRET_KEY` | Cloudflare → Turnstile, pairs with the site key. **The name matters:** `_shared/turnstile.ts` reads exactly this, and skips the check when it is unset rather than failing — so a secret stored under any other name leaves web joins unverified and looks configured |
 | `APPLE_TEAM_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY`, `APPLE_SERVICES_ID` | Apple Developer |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google Cloud → Credentials |
 
@@ -241,6 +269,15 @@ HTTPS, HSTS, `Referrer-Policy: no-referrer`, and SPF/DKIM/DMARC on `mail.<domain
 will cheerfully serve a record that was deleted an hour ago. Not part of
 `pnpm check`: it needs the network and a domain that exists.
 
+HSTS comes from EAS Hosting. **`Referrer-Policy` comes from the app**, set by
+the `expo-router` plugin in [`apps/app/app.config.ts`](../../apps/app/app.config.ts),
+because EAS Hosting has no header configuration and sets none of its own. It
+applies to every HTML and API-route response, which is everything that can
+carry an invite secret in the fragment or a plan code in the path; it does not
+apply to redirects or to static assets, neither of which carries either. A
+route that sets the header itself takes precedence, so a server route is free
+to be stricter and cannot accidentally be laxer than this.
+
 ## Expected security-advisor warnings
 
 `get_advisors(type: "security")` on a hosted project reports four warnings that
@@ -278,7 +315,8 @@ It will — the holding domain is temporary. In order:
 3. Resend: add and verify the new sending domain; the old one keeps working
    until deleted, so verify before deleting.
 4. EAS Hosting: attach the new domain.
-5. Turnstile: the widget is bound to a hostname — add the new one.
+5. Turnstile: the widget is bound to a hostname — add the new one. The
+   `expo.app` host stays on the widget too; `dev` is always reached that way.
 6. **Google OAuth: the web client must be re-created.** Authorised origins can
    be edited, but a client that has been live on the old origin carries consent
    grants tied to it; re-create rather than edit.

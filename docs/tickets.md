@@ -29,7 +29,8 @@ Linear project **Circles MVP** (team Sushen). Ticket bodies cross-reference each
 | S1-12 | SUS-28 | Database · cron, retention, seed scenarios |
 | S1-12b | SUS-74 | Database · one home per SQL function (ADR 0015) |
 | S1-13 | SUS-29 | Edge Functions kit + `redeem-invite`, `reattach-member`, `claim-identity` |
-| S1-14 | SUS-30 | Client auth module (Apple, Google, email, anonymous, linking, guards) |
+| S1-14 | SUS-30 | Client auth module (email code, anonymous, linking, guards) |
+| S1-14b | SUS-77 | Apple and Google sign-in: providers, OAuth clients, Supabase providers |
 | S1-15 | SUS-31 | `create-circle`, `create-plan`, `revise-plan`, `cancel-plan` |
 | S1-16 | SUS-32 | `submit-availability`, `recalculate-candidates` |
 | S1-17 | SUS-33 | `confirm-meetup`, `report-outcome`, `generate-ics` |

@@ -71,6 +71,28 @@ jobs:
       # without this because `typecheck` runs `tsc -b` first and leaves the
       # output behind; nothing on the deploy path does. This has to come before
       # the Supabase steps, not just before the export.
+      # A web build with no EXPO_PUBLIC_SUPABASE_URL compiles, deploys and
+      # serves a client that cannot reach its backend. Fail here instead, where
+      # the message says which variable is missing.
+      #
+      # Before the Supabase steps, not after them. It used to sit just above the
+      # web deploy, which reads as the right place — it guards the export — but
+      # the two steps it was sitting below both change the project for good. A
+      # missing variable then left production with a new schema and new
+      # functions and no client, from a job that reported failure: the one
+      # guard whose whole purpose is to fail early, failing last. Nothing here
+      # touches anything outside the runner, so the only cost of moving it up
+      # is that it runs on deploys that would not have used it.
+      - name: Check the client configuration
+        if: steps.config.outputs.expo == 'true'
+        env:
+          EXPO_PUBLIC_SUPABASE_URL: ${{ vars.EXPO_PUBLIC_SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+          EXPO_PUBLIC_APP_ORIGIN: ${{ vars.EXPO_PUBLIC_APP_ORIGIN }}
+          EXPO_PUBLIC_TURNSTILE_SITE_KEY: ${{ vars.EXPO_PUBLIC_TURNSTILE_SITE_KEY }}
+          REQUIRE_TURNSTILE: 'true'
+        run: node scripts/check-client-env.mjs
+
       - name: Build the workspace packages
         if: steps.config.outputs.expo == 'true' || steps.config.outputs.supabase == 'true'
         run: pnpm run build
@@ -102,20 +124,6 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: pnpm exec supabase functions deploy --project-ref "${{ secrets.SUPABASE_PROD_PROJECT_REF }}"
-
-      # A web build with no EXPO_PUBLIC_SUPABASE_URL compiles, deploys and
-      # serves a client that cannot reach its backend. Fail here instead, where
-      # the message says which variable is missing.
-      - name: Check the client configuration
-        if: steps.config.outputs.expo == 'true'
-        env:
-          EXPO_PUBLIC_SUPABASE_URL: ${{ vars.EXPO_PUBLIC_SUPABASE_URL }}
-          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
-          EXPO_PUBLIC_APP_ORIGIN: ${{ vars.EXPO_PUBLIC_APP_ORIGIN }}
-          EXPO_PUBLIC_TURNSTILE_SITE_KEY: ${{ vars.EXPO_PUBLIC_TURNSTILE_SITE_KEY }}
-          REQUIRE_TURNSTILE: 'true'
-        run: node scripts/check-client-env.mjs
-
       - name: Deploy the web build
         if: steps.config.outputs.expo == 'true'
         env:
