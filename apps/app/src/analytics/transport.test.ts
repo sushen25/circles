@@ -102,3 +102,30 @@ describe('retrying when the device comes back', () => {
     }
   });
 });
+
+describe('attribution', () => {
+  beforeEach(() => {
+    process.env.EXPO_PUBLIC_SUPABASE_URL = 'https://db.test';
+    process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY = 'publishable-key';
+  });
+
+  it('reads the token on every send, so signing in mid-session starts attributing', async () => {
+    // Captured once, a guest who signs in halfway through would go on sending
+    // as nobody for the rest of the session.
+    const fetched = vi.fn(async () => new Response(null, { status: 200 }));
+    vi.stubGlobal('fetch', fetched);
+
+    const session: { token: string | undefined } = { token: undefined };
+    const send = trackEventsTransport({ accessToken: () => session.token });
+
+    await send([EVENT]);
+    session.token = 'a-session-token';
+    await send([EVENT]);
+
+    const authorisations = (fetched.mock.calls as unknown as [string, RequestInit][]).map(
+      ([, init]) => init.headers as Record<string, string>,
+    );
+    expect(authorisations[0]?.['Authorization']).toBe('Bearer publishable-key');
+    expect(authorisations[1]?.['Authorization']).toBe('Bearer a-session-token');
+  });
+});

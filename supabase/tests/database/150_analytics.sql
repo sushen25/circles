@@ -8,7 +8,7 @@
 -- readable by nobody who is not deliberately named in a table.
 
 begin;
-select plan(35);
+select plan(37);
 
 create or replace function pg_temp.make_user(id uuid, name text, permanent boolean default true)
 returns uuid language sql as $$
@@ -420,6 +420,43 @@ select is(
    where month = timestamp '2026-04-01'),
   30,
   'and the gate is measured from the tap, not from whenever the organiser made the plan'
+);
+
+-- Over every answer, not the first one per plan. Taking one response a plan
+-- made this the median of the *fastest person in each group*: ten seconds and
+-- ten minutes reported ten seconds.
+select pg_temp.act_as_postgres();
+insert into public.plan_responses (plan_id, revision, user_id, status, submitted_at)
+select p.id, p.revision, '00000000-0000-0000-0000-00000000aa03', 'flexible',
+       p.created_at + interval '11 minutes'
+from public.plans p where p.short_code = 'pnanaa';
+
+select pg_temp.act_as_service();
+select public.record_events(jsonb_build_array(
+  jsonb_build_object(
+    'event_id', '00000000-0000-0000-0000-0000000000e7',
+    'event_name', 'availability_started', 'schema_version', 1,
+    'user_id', '00000000-0000-0000-0000-00000000aa03',
+    'plan_id', (select id from public.plans where short_code = 'pnanaa'),
+    'properties', '{}'::jsonb,
+    'occurred_at', (select created_at + interval '60 seconds' from public.plans
+                    where short_code = 'pnanaa'))
+));
+
+select pg_temp.act_as_postgres();
+select is(
+  (select median_seconds_from_open_to_response::integer from analytics.plan_timings
+   where month = timestamp '2026-04-01'),
+  315,
+  'and a second, slower answer moves it: the median is of answers, not of plans'
+);
+
+select is(
+  (select array[median_seconds_to_first_response::integer,
+                median_seconds_to_last_response::integer]
+   from analytics.plan_timings where month = timestamp '2026-04-01'),
+  array[90, 660],
+  'first and last are both reported, because §11.2 asks for both'
 );
 
 select pg_temp.act_as_service();

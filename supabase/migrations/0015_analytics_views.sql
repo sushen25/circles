@@ -93,8 +93,15 @@ select
   c.created_at,
   (select count(*) from analytics.events e
     where e.circle_id = c.id and e.event_name = 'circle_join_opened') as opens,
+  -- Two different things, because they were one and it was wrong. `joins` is
+  -- the funnel stage — "join-link opens → joins" (§11.2) — and comes from the
+  -- events, so it counts what happened and keeps counting it after somebody
+  -- leaves. `active_members` is the roster as it stands, which includes the
+  -- owner, who created the circle rather than joining it.
+  (select count(*) from analytics.events e
+    where e.circle_id = c.id and e.event_name = 'circle_joined') as joins,
   (select count(*) from public.circle_members m
-    where m.circle_id = c.id and m.status = 'active') as members,
+    where m.circle_id = c.id and m.status = 'active') as active_members,
   (select count(distinct r.user_id) from public.plan_responses r
     join public.plans p on p.id = r.plan_id
     where p.circle_id = c.id) as members_who_responded,
@@ -115,21 +122,30 @@ from public.circles c
 left join analytics.circle_activation a on a.circle_id = c.id;
 
 -- ---------------------------------------------------------------------------
--- 2. plan_timings — how long the two waits actually are.
+-- 2. plan_timings — how long the waits actually are.
 --
 -- Medians rather than averages: one plan that sat for a fortnight would move a
 -- mean and tells you nothing about the common case, and the gate in §11.4 is
--- written as a median ("median response after link open under two minutes").
+-- written as a median.
+--
+-- **Two different waits, because §11.4 names one and the organiser feels the
+-- other.** "Median response after link open, under two minutes" is the
+-- member's: they tap, they answer, and the organiser planning the night before
+-- is nothing to do with it. That one needs an event, because a row exists only
+-- once somebody answers and the tap that preceded it leaves nothing behind —
+-- so it is null until the client is emitting. The waits measured from the plan
+-- are the organiser's own and are always available.
 -- ---------------------------------------------------------------------------
 create view analytics.plan_timings as
 with answers as (
   select
     r.plan_id,
+    r.user_id,
     r.submitted_at,
     -- When this person last opened the link before answering. §11.4's gate is
-    -- "median response after link open", and the wait a member actually
-    -- experiences starts when they tap — not when the organiser made the plan,
-    -- which may have been the night before.
+    -- "median response after link open", and the wait a member experiences
+    -- starts when they tap — not when the organiser made the plan, which may
+    -- have been the night before.
     (select max(e.occurred_at)
      from analytics.events e
      where e.plan_id = r.plan_id
@@ -137,37 +153,56 @@ with answers as (
        and e.event_name in ('circle_join_opened', 'availability_started')
        and e.occurred_at <= r.submitted_at) as opened_at
   from public.plan_responses r
+),
+per_plan as (
+  select
+    p.id as plan_id,
+    date_trunc('month', p.created_at at time zone c.time_zone) as month,
+    p.created_at,
+    (select min(r.submitted_at) from public.plan_responses r where r.plan_id = p.id) as first_at,
+    -- §11.2 asks for first, median *and* last: "time to first/median/last
+    -- response". The last one is the wait the organiser actually sits through,
+    -- and the median is the one that says whether the group is with them.
+    -- `percentile_disc` rather than `percentile_cont`: there is no halfway
+    -- point between two instants, and the middle answer is a real one somebody
+    -- actually gave.
+    (select percentile_disc(0.5) within group (order by r.submitted_at)
+     from public.plan_responses r where r.plan_id = p.id) as median_at,
+    (select max(r.submitted_at) from public.plan_responses r where r.plan_id = p.id) as last_at,
+    (select min(mc.confirmed_at) from public.meetup_confirmations mc
+     where mc.plan_id = p.id) as confirmed_at
+  from public.plans p
+  join public.circles c on c.id = p.circle_id
 )
 select
-  date_trunc('month', p.created_at at time zone c.time_zone) as month,
+  pp.month,
   count(*) as plans,
-  -- From the open, which is the gate.
-  percentile_cont(0.5) within group (
-    order by extract(epoch from (opened.submitted_at - opened.opened_at))
+  -- Over **every** answer, not the first one per plan. Taking one response a
+  -- plan made this the median of first responders, which is the fastest person
+  -- in each group and not the number the gate is about: ten seconds and ten
+  -- minutes reported ten seconds.
+  (select percentile_cont(0.5) within group (
+     order by extract(epoch from (a.submitted_at - a.opened_at)))
+   from answers a
+   join per_plan inner_plan on inner_plan.plan_id = a.plan_id
+   where inner_plan.month = pp.month and a.opened_at is not null
   ) as median_seconds_from_open_to_response,
-  -- And from the plan, which is what the organiser waits and what exists even
-  -- for a member whose open was never recorded.
+  -- And the waits measured from the plan, which exist even for a member whose
+  -- open was never recorded.
   percentile_cont(0.5) within group (
-    order by extract(epoch from (first_response.at - p.created_at))
+    order by extract(epoch from (pp.first_at - pp.created_at))
   ) as median_seconds_to_first_response,
   percentile_cont(0.5) within group (
-    order by extract(epoch from (confirmed.at - p.created_at))
+    order by extract(epoch from (pp.median_at - pp.created_at))
+  ) as median_seconds_to_median_response,
+  percentile_cont(0.5) within group (
+    order by extract(epoch from (pp.last_at - pp.created_at))
+  ) as median_seconds_to_last_response,
+  percentile_cont(0.5) within group (
+    order by extract(epoch from (pp.confirmed_at - pp.created_at))
   ) as median_seconds_to_confirmed
-from public.plans p
-join public.circles c on c.id = p.circle_id
-left join lateral (
-  select min(r.submitted_at) as at from public.plan_responses r where r.plan_id = p.id
-) as first_response on true
-left join lateral (
-  select min(mc.confirmed_at) as at from public.meetup_confirmations mc where mc.plan_id = p.id
-) as confirmed on true
-left join lateral (
-  select a.submitted_at, a.opened_at from answers a
-  where a.plan_id = p.id and a.opened_at is not null
-  order by a.submitted_at
-  limit 1
-) as opened on true
-group by 1;
+from per_plan pp
+group by pp.month;
 
 -- ---------------------------------------------------------------------------
 -- 3. reattach_rate — returns with no session, and how many of them got back in.
