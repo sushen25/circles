@@ -1,3 +1,5 @@
+import { mayOrganiseInCircle, mayStartCircle } from '@circles/domain';
+
 import type { SessionState } from './session';
 
 /**
@@ -5,10 +7,16 @@ import type { SessionState } from './session';
  *
  * A pure function over the session and one server-answered fact, returning a
  * decision rather than performing a navigation. Non-negotiable 2: a screen
- * never decides whether something is allowed. It also makes every branch here
- * testable without a router, a session or a network — which matters, because
- * the branches are the product's whole authorisation story on the client and
- * the expensive ones are the rare combinations.
+ * never decides whether something is allowed.
+ *
+ * **And neither does this.** Whether somebody may organise is a product rule,
+ * so it lives in `packages/domain` (`mayStartCircle`, `mayOrganiseInCircle`)
+ * and this file asks it. What is left here is the mapping from that answer to a
+ * screen, plus the two things the domain has no opinion about: whether the
+ * session has finished loading, and whether we have heard back about
+ * membership yet. A second copy of the rule here would be one that can drift
+ * from the domain's and the database's, and the way it drifts is that somebody
+ * is sent to the wrong screen.
  *
  * The client's answer is never the authority. `create-circle` and `create-plan`
  * refuse an anonymous caller with `requires_saved_place` whatever this returns,
@@ -74,28 +82,30 @@ export function guard({ route, session, membership = 'unknown' }: GuardInput): G
 
   if (route === 'public') return { kind: 'allow' };
 
-  // Guests and strangers get the same screen on either organising route,
-  // because they need the same thing. It is worded as a practical need — "so we
-  // can find you again on any device" — not as a wall (§5.1).
-  const hasSavedPlace = session.status !== 'none' && session.status !== 'guest';
+  const isPermanent = session.status !== 'none' && session.status !== 'guest';
 
   if (route === 'saved') {
-    return hasSavedPlace ? { kind: 'allow' } : { kind: 'needs_saved_place' };
+    // Guests and strangers get the same screen, because they need the same
+    // thing. It is worded as a practical need — "so we can find you again on
+    // any device" — not as a wall (§5.1).
+    return mayStartCircle({ isPermanent }) === 'allowed'
+      ? { kind: 'allow' }
+      : { kind: 'needs_saved_place' };
   }
 
   if (route === 'organiser') {
-    if (!hasSavedPlace) return { kind: 'needs_saved_place' };
-    // And a member of *this* circle. A saved place following a link to a circle
-    // they have never joined would otherwise reach the plan composer and be
-    // refused only on submit — after filling it in. `create-plan` refuses them
-    // server-side either way; this is about which screen they see.
-    switch (membership) {
-      case 'member':
+    // Membership is the one input the domain cannot supply for itself, and
+    // "not heard back yet" is not an answer to give it: `isMember: false` while
+    // a lookup is in flight would refuse a member on their first frame.
+    if (isPermanent && membership === 'unknown') return { kind: 'wait' };
+
+    switch (mayOrganiseInCircle({ isPermanent, isMember: membership === 'member' })) {
+      case 'allowed':
         return { kind: 'allow' };
-      case 'not_member':
+      case 'needs_saved_place':
+        return { kind: 'needs_saved_place' };
+      case 'needs_membership':
         return { kind: 'continue_as' };
-      case 'unknown':
-        return { kind: 'wait' };
     }
   }
 

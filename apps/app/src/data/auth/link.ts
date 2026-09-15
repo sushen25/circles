@@ -73,6 +73,16 @@ interface PendingClaim {
   anonymous_session: string;
   idempotency_key: string;
   moment: SaveMoment;
+  /**
+   * The identity the memberships were being moved **to**.
+   *
+   * Without it the record says only where they came from, and resuming it for
+   * whoever happens to be signed in later hands a stranger the guest's circles
+   * — a shared browser, a sign-out, the next person's sign-in, and their
+   * account receives somebody else's memberships. The claim is a sentence with
+   * two halves and storing one of them is not storing the claim.
+   */
+  destination_user_id: string;
 }
 
 async function rememberClaim(claim: PendingClaim): Promise<void> {
@@ -97,8 +107,11 @@ async function pendingClaim(): Promise<PendingClaim | undefined> {
     const raw = await sessionStorage.getItem(PENDING_KEY);
     if (raw === null || raw === undefined) return undefined;
     const parsed = JSON.parse(raw) as PendingClaim;
+    // A record missing any half is not resumable, and that includes one written
+    // by an older build that did not store the destination.
     return typeof parsed.anonymous_session === 'string' &&
-      typeof parsed.idempotency_key === 'string'
+      typeof parsed.idempotency_key === 'string' &&
+      typeof parsed.destination_user_id === 'string'
       ? parsed
       : undefined;
   } catch {
@@ -142,6 +155,7 @@ async function problemOf(error: unknown): Promise<Problem | undefined> {
 async function claimIdentity(
   anonymousSession: string,
   moment: SaveMoment,
+  destinationUserId: string,
   existingKey?: string,
 ): Promise<ClaimIdentityResponse> {
   // One key across every attempt, including a resumed one. That is what makes a
@@ -161,7 +175,12 @@ async function claimIdentity(
    * on the ordinary path and is the only version that survives the failure it
    * is for.
    */
-  await rememberClaim({ anonymous_session: anonymousSession, idempotency_key: key, moment });
+  await rememberClaim({
+    anonymous_session: anonymousSession,
+    idempotency_key: key,
+    moment,
+    destination_user_id: destinationUserId,
+  });
 
   const attempt = async (): Promise<ClaimIdentityResponse> => {
     const { data, error } = await authClient().functions.invoke('claim-identity', {
@@ -229,9 +248,20 @@ export async function resumePendingClaim(): Promise<ClaimIdentityResponse | unde
   // one is refused with `destination_is_not_permanent`.
   if (data.session === null || data.session.user.is_anonymous === true) return undefined;
 
+  /**
+   * And it has to be the *same* permanent session the claim was made for.
+   *
+   * On a shared browser somebody signs out and somebody else signs in; without
+   * this, the next account to appear collects the first person's circles. The
+   * record is kept rather than dropped — the right identity may well come back
+   * — and it expires on its own with the token it holds.
+   */
+  if (data.session.user.id !== pending.destination_user_id) return undefined;
+
   const answered = await claimIdentity(
     pending.anonymous_session,
     pending.moment,
+    pending.destination_user_id,
     pending.idempotency_key,
   );
   await forgetClaim();
@@ -279,7 +309,7 @@ export async function savePlace(options: SavePlaceOptions): Promise<SavedPlace> 
     return { ...signedIn, mergedMemberships: 0, duplicatesRemoved: 0 };
   }
 
-  const claimed = await claimIdentity(anonymousToken, options.moment);
+  const claimed = await claimIdentity(anonymousToken, options.moment, signedIn.session.user.id);
   await forgetClaim();
   return {
     ...signedIn,

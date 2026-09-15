@@ -57,6 +57,14 @@ reachable from `packages/*/dist` must be in `supabase/functions/import_map.json`
 as `npm:<name>@<range>`, or the deploy fails at bundle time. `pnpm check:imports`
 is inside `pnpm check` and catches it before CI does.
 
+**Add a new file to `packages/*/dist` and the local Edge Functions stop
+booting** until `pnpm db:stop && pnpm db:start`. The runtime container bind-mounts
+the repository, and a file created after it started is invisible inside it — the
+symptom is `BOOT_ERROR` from every function and a log line naming a module that
+plainly exists on disk. Editing an existing file is fine; it is creation that
+does it, so it lands the first time you add a module to `domain` or `contracts`
+and touches nothing else. Restarting that one container is not enough.
+
 Configuration: public values are `EXPO_PUBLIC_*`, listed in `.env.example`;
 everything else is an Edge Function secret. The line between them, and what is
 set where, is [`docs/runbooks/environments.md`](docs/runbooks/environments.md).

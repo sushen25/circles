@@ -175,6 +175,25 @@ describe('web, where storage is allowed to refuse', () => {
     vi.restoreAllMocks();
   });
 
+  it('prefers the fresh copy when the durable one is known to be stale', () => {
+    /**
+     * The refresh case, which is the common one: `supabase-js` rewrites the
+     * session hourly. A write refused once leaves the *previous* session in
+     * `localStorage` with a refresh token that has just been spent — so
+     * answering from durable storage because it is non-null signs the person
+     * out about an hour later, from one transient failure.
+     */
+    web.setItem('rotating', 'session.v1');
+
+    vi.spyOn(globalThis.Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('quota');
+    });
+    web.setItem('rotating', 'session.v2');
+    vi.restoreAllMocks();
+
+    expect(web.getItem('rotating')).toBe('session.v2');
+  });
+
   it('does not resurrect a session another tab signed out', () => {
     /**
      * The mirror must never answer a *successful* `null`. Another tab signing

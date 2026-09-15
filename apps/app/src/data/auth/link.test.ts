@@ -266,6 +266,33 @@ describe('a claim that never got an answer', () => {
     expect(state.invocations).toEqual([]);
   });
 
+  it('is not handed to whoever signs in next', async () => {
+    /**
+     * A shared browser: the guest's claim times out, they sign out, and
+     * somebody else signs in. Without binding the record to the identity it was
+     * made for, that person's account collects the first person's circles.
+     */
+    state.answers = [{ error: new Error('network') }];
+    await expect(
+      savePlace({ moment: 'after_answer', signIn: async () => ({ session: SAVED as never }) }),
+    ).rejects.toBeInstanceOf(SavePlaceError);
+
+    state.invocations = [];
+    // A different permanent account, on the same browser.
+    state.session = {
+      access_token: 'stranger.token',
+      user: { id: '33333333-3333-4333-8333-333333333333', is_anonymous: false },
+    };
+
+    await expect(resumePendingClaim()).resolves.toBeUndefined();
+    expect(state.invocations).toEqual([]);
+
+    // And it is still there for the identity it belongs to.
+    state.session = SAVED;
+    await resumePendingClaim();
+    expect(state.invocations).toHaveLength(1);
+  });
+
   it('does nothing when there is nothing pending', async () => {
     state.session = SAVED;
 
