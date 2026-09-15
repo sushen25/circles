@@ -453,3 +453,13 @@ verify_jwt = false
 
 [functions.manage-email-preferences]
 verify_jwt = false
+
+# The analytics ingest. The top of the funnel is measured before anybody has
+# joined anything — a link opened from a group chat precedes a session by
+# definition — so the gateway has no user JWT to check and refusing on its
+# absence would lose exactly the events the funnel is about. The function reads
+# the bearer when there is one and records the event without a `user_id` when
+# there is not; what stops abuse is the rate limit, and what stops a bad payload
+# is the catalogue and `jobs.carries_content`.
+[functions.track-events]
+verify_jwt = false

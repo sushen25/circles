@@ -22,6 +22,12 @@ export interface Limit {
   key: string;
   max: number;
   window: string;
+  /**
+   * How much this attempt costs, when one request carries many of the thing
+   * being limited. A batch of fifty analytics events is fifty events; charging
+   * it as one turns "six hundred a minute" into thirty thousand.
+   */
+  cost?: number;
 }
 
 export async function within(db: Db, limit: Limit): Promise<boolean> {
@@ -30,6 +36,7 @@ export async function within(db: Db, limit: Limit): Promise<boolean> {
     p_key_hash: await sha256Hex(limit.key),
     p_limit: limit.max,
     p_window: limit.window,
+    p_cost: limit.cost ?? 1,
   });
   if (error !== null) throw error;
   return data === true;
@@ -52,10 +59,32 @@ export async function enforce(db: Db, limits: readonly Limit[]): Promise<void> {
 
 /**
  * The caller's address, as the edge saw it. Only ever used as a hash input.
- * `x-forwarded-for` is a list; the first entry is the client.
+ *
+ * `cf-connecting-ip`, then `x-real-ip`: both are written by the proxy in front
+ * of us and neither can be set by a client that reaches it. `x-forwarded-for`
+ * is the fallback and it is a compromise — it is a *list* a client can start,
+ * so its first entry is a value the caller chose and a determined one can vary
+ * it to get a fresh bucket.
+ *
+ * The first entry anyway, rather than the last. The last is the hop our own
+ * proxy added, which sounds safer and is worse where it is wrong: if that hop
+ * is a gateway rather than the client — which is exactly what it is locally,
+ * and may be what a Cloudflare edge is — then every caller in the world shares
+ * one bucket and the limit denies service to everybody at once. A key that one
+ * attacker can sidestep beats a key that locks everyone out.
+ *
+ * Which header actually arrives is a deployment fact and is not yet settled;
+ * SUS-71 carries the check.
  */
 export function callerAddress(request: Request): string {
-  const forwarded = request.headers.get('x-forwarded-for');
-  const first = forwarded?.split(',')[0]?.trim();
-  return first !== undefined && first !== '' ? first : 'unknown';
+  for (const header of ['cf-connecting-ip', 'x-real-ip']) {
+    const direct = request.headers.get(header)?.trim();
+    if (direct !== undefined && direct !== '') return direct;
+  }
+
+  const hops = (request.headers.get('x-forwarded-for') ?? '')
+    .split(',')
+    .map((hop) => hop.trim())
+    .filter((hop) => hop !== '');
+  return hops[0] ?? 'unknown';
 }

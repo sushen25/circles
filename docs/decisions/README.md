@@ -24,6 +24,7 @@ Short records of decisions that shape the product or the code. A new ADR is requ
 | [0018](./0018-the-recalculation-runs-in-the-request-that-caused-it.md) | The recalculation runs in the request that caused it | accepted |
 | [0019](./0019-consent-is-recorded-when-it-is-given.md) | Consent is recorded when it is given, and a preferences link does not expire on use | accepted |
 | [0020](./0020-the-verification-token-is-minted-by-the-sender.md) | The verification token is minted by whoever sends the email | accepted |
+| [0021](./0021-the-link-preview-is-not-rate-limited.md) | The link preview is not rate-limited; the code space is the control | accepted |
 
 ## Template
 

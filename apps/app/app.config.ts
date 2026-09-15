@@ -89,7 +89,29 @@ const config: ExpoConfig = {
     // `origin` polyfills relative fetches in production builds, so native can
     // reach the one server route (link previews, §9.4) — the caveat ADR 0001
     // calls out. The app itself never calls it; link fetchers do.
-    ['expo-router', { origin: appOrigin }],
+    [
+      'expo-router',
+      {
+        origin: appOrigin,
+        // `app/+middleware.ts` serves the link-preview card on the paths people
+        // actually paste — `/join`, `/j/<code>`, `/p/<code>` — which are client
+        // pages, and a page and an API route cannot share a path. Without this
+        // the card exists only at `/og/...`, where no chat app ever asks for it.
+        unstable_useServerMiddleware: true,
+        // **The page HTML is not cached at the edge, and that is what makes the
+        // card work.** A cached response is served before the middleware runs,
+        // so one person opening `/j/<code>` put the app shell in the CDN under
+        // that URL and every chat app that fetched it afterwards got the shell
+        // instead of a preview — for an hour, and for ever on `/join`, which is
+        // one URL for every invite in the product.
+        //
+        // The cost is the HTML itself, which is a small shell; the bundles,
+        // images and fonts it points at are static assets with their own
+        // caching and are untouched. Correctness at the product's front door is
+        // worth more than an edge hit on 50 KB.
+        headers: { 'Cache-Control': 'no-store' },
+      },
+    ],
     'expo-font',
     'expo-secure-store',
     'expo-splash-screen',

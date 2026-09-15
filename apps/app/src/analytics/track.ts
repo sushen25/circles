@@ -33,6 +33,37 @@ export type Transport = (events: TrackedEvent[]) => Promise<void>;
  */
 const MAX_BUFFERED = 200;
 
+/**
+ * What `TrackEventsRequest` accepts in one call. Written here rather than
+ * imported as a number nobody can trace: the two must agree, and the failure
+ * when they do not is silent and permanent — a refused batch goes back into the
+ * buffer and is refused again for ever.
+ */
+const MAX_PER_BATCH = 50;
+
+/**
+ * `crypto.randomUUID` where it exists — every browser and Hermes build this
+ * ships on — and a random fallback for anywhere it does not, because an event
+ * without an id would be dropped by the ingest and a missing measurement is a
+ * worse failure than a slightly weaker id.
+ *
+ * The fallback fills the bytes itself when `getRandomValues` is missing too.
+ * Leaving them zero would have given every event on that device the same id,
+ * and `on conflict do nothing` would have collapsed a whole session to one row
+ * — the exact failure the id exists to prevent, arriving silently.
+ */
+function newEventId(): string {
+  const source = globalThis.crypto;
+  if (typeof source?.randomUUID === 'function') return source.randomUUID();
+  const bytes = new Uint8Array(16);
+  if (typeof source?.getRandomValues === 'function') source.getRandomValues(bytes);
+  else for (let i = 0; i < bytes.length; i += 1) bytes[i] = Math.floor(Math.random() * 256);
+  bytes[6] = (bytes[6]! & 0x0f) | 0x40;
+  bytes[8] = (bytes[8]! & 0x3f) | 0x80;
+  const hex = [...bytes].map((b) => b.toString(16).padStart(2, '0')).join('');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
 let transport: Transport | null = null;
 let buffer: TrackedEvent[] = [];
 let flushing = false;
@@ -76,6 +107,11 @@ export function track<E extends EventName>(name: E, payload: EventPayload<E>): b
   }
 
   buffer.push({
+    // Minted here, so that a batch put back after a failed flush is the same
+    // batch when it lands: the transport cannot tell "the server never saw it"
+    // from "the server saw it and the answer was lost", and the ingest settles
+    // that with the id rather than by guessing.
+    event_id: newEventId(),
     name: validated.name,
     version: validated.version,
     occurred_at: clock().toISOString(),
@@ -96,15 +132,27 @@ export async function flush(): Promise<void> {
   if (flushing || transport === null || buffer.length === 0) return;
 
   flushing = true;
-  const batch = buffer;
-  buffer = [];
-
   try {
-    await transport(batch);
-  } catch {
-    // Still offline. Put the batch back in front of anything recorded since,
-    // and let the cap drop the oldest if it has grown meanwhile.
-    buffer = [...batch, ...buffer].slice(-MAX_BUFFERED);
+    // A chunk at a time, because the ingest refuses more than `MAX_PER_BATCH`
+    // and the buffer holds four times that. Sending the whole buffer after a
+    // long outage got a 400, put the oversized batch back, and left analytics
+    // wedged for the rest of the session: every later flush sent the same
+    // too-large batch and got the same refusal. Each chunk that lands is gone
+    // from the buffer, so the queue drains even if a later one fails.
+    while (buffer.length > 0) {
+      const batch = buffer.slice(0, MAX_PER_BATCH);
+      const rest = buffer.slice(MAX_PER_BATCH);
+      buffer = rest;
+
+      try {
+        await transport(batch);
+      } catch {
+        // Still offline. Put this chunk back in front of anything recorded
+        // since, and let the cap drop the oldest if it has grown meanwhile.
+        buffer = [...batch, ...buffer].slice(-MAX_BUFFERED);
+        return;
+      }
+    }
   } finally {
     flushing = false;
   }

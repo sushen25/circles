@@ -925,7 +925,14 @@ select is(
        -- person who gave it, so "was my report corroborated?" has to be asked
        -- of a function that can see the rows and answers without naming
        -- anybody (spec §5.10, §11.1).
-       'confirmation_evidence'
+       'confirmation_evidence',
+       -- S1-21. Two that live in `public` because a caller has to be able to
+       -- reach them, and each narrow for its own reason. `preview_for_code`
+       -- answers an unauthenticated stranger — a chat app drawing a link card —
+       -- with a circle's name, and has no field anything else could be added
+       -- to. `founder_summary` answers only a user named in
+       -- `private.allowlist`, which is empty until somebody is put in it.
+       'preview_for_code', 'founder_summary'
      )),
   '',
   'only the intended functions in public are callable by authenticated'
@@ -937,7 +944,13 @@ select is(
    where n.nspname = 'public'
      and has_function_privilege('anon', p.oid, 'execute')
      and p.proname not in (
-       'auth_is_member', 'auth_is_owner', 'auth_is_permanent', 'canonical_display_name'
+       'auth_is_member', 'auth_is_owner', 'auth_is_permanent', 'canonical_display_name',
+       -- The one function in the product that answers somebody with no session
+       -- at all: a chat app fetching a link-preview card (architecture §9.4).
+       -- It returns a circle's name for a plan short code and null for
+       -- everything else, including a code that does not exist — so the
+       -- short-code space cannot be walked for circles that do.
+       'preview_for_code'
      )),
   '',
   'and anon can call only the read-only helpers'

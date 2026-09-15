@@ -9,7 +9,20 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { fontAssets } from '@circles/tokens/font-assets';
 
+import { configureAnalytics, flush } from '../src/analytics/track';
+import { retryWhenReachable, trackEventsTransport } from '../src/analytics/transport';
+import { accessToken } from '../src/data/session';
+
 void SplashScreen.preventAutoHideAsync();
+
+// Once, at the root, before any screen can record anything. `track()` buffers
+// until a transport exists; without this line every event in the product
+// accumulates in memory and the funnel reads zero (architecture §15).
+// `accessToken` is read on every send rather than captured once, so the events
+// a guest records before signing in are attributed to nobody and everything
+// after is attributed to them — without this module knowing when that happened.
+// It returns nothing until the auth module (S1-14) calls `setAccessToken`.
+configureAnalytics({ transport: trackEventsTransport({ accessToken }) });
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -33,6 +46,11 @@ export default function RootLayout() {
       void SplashScreen.hideAsync();
     }
   }, [fontsLoaded, fontError]);
+
+  // A buffer only drains on the next `track()` otherwise, so somebody who
+  // answers on a train and puts their phone away loses the session they were
+  // counted for.
+  useEffect(() => retryWhenReachable(flush), []);
 
   if (!fontsLoaded && !fontError) {
     return null;

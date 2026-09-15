@@ -8,7 +8,7 @@
 -- joining as guests — so that nothing here invents a second cast.
 
 begin;
-select plan(71);
+select plan(74);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid
@@ -478,7 +478,7 @@ select ok(
 );
 
 select ok(
-  not has_function_privilege('authenticated', 'public.take_rate_token(text, bytea, integer, interval)', 'execute'),
+  not has_function_privilege('authenticated', 'public.take_rate_token(text, bytea, integer, interval, integer)', 'execute'),
   'and so are the rate counters'
 );
 
@@ -618,8 +618,28 @@ select is(
 select throws_ok(
   $$ select public.take_rate_token('redeem_ip', '\x00'::bytea, 0, interval '1 hour') $$,
   '22023',
-  'take_rate_token needs a positive limit and window',
+  'take_rate_token needs a positive limit, window and cost',
   'a limit of zero is a programming error, not a permanent refusal'
+);
+
+-- And so is an attempt that costs nothing: a batch charged zero is a batch
+-- with no limit at all.
+select throws_ok(
+  $$ select public.take_rate_token('redeem_ip', '\x00'::bytea, 5, interval '1 hour', 0) $$,
+  '22023',
+  'take_rate_token needs a positive limit, window and cost',
+  'and a cost of zero is the same mistake in the other direction'
+);
+
+-- A batch charges for what it carries: two attempts of three take six of the
+-- five allowed, so the second is refused even though it is only the second.
+select ok(
+  public.take_rate_token('batch_scope', pg_temp.digest_of('a-batch'), 5, interval '1 hour', 3),
+  'a batch that fits is allowed'
+);
+select ok(
+  not public.take_rate_token('batch_scope', pg_temp.digest_of('a-batch'), 5, interval '1 hour', 3),
+  'and the next one is not: the limit counts events, not requests'
 );
 
 -- A claim given back (review round 1). Without `release_request` an `in_flight`
