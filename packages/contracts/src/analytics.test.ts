@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
-import { FORBIDDEN_PAYLOAD_KEYS, catalogue, validateEvent } from './analytics';
+import {
+  FORBIDDEN_PAYLOAD_KEYS,
+  NUDGE_MOMENTS,
+  acceptEvent,
+  catalogue,
+  validateEvent,
+} from './analytics';
 
 const entries = Object.entries(catalogue);
 
@@ -124,5 +130,50 @@ describe('validateEvent', () => {
     expect(validateEvent('availability_submitted', { status: 'nonsense' })).toBeNull();
     // The value is irrelevant — it is the *key* that must never be accepted.
     expect(validateEvent('circle_created', { email: 'redacted' })).toBeNull();
+  });
+});
+
+describe('acceptEvent, which is what the ingest uses', () => {
+  it('drops a key the catalogue does not declare rather than losing the event', () => {
+    // Architecture §15: "unknown keys are dropped". A tab open since before a
+    // deploy should still be counted for the release the count is about.
+    expect(acceptEvent('availability_submitted', { status: 'flexible', added_later: 7 })).toEqual({
+      name: 'availability_submitted',
+      version: 1,
+      properties: { status: 'flexible' },
+    });
+  });
+
+  it('drops a forbidden key instead of carrying it into the table', () => {
+    const accepted = acceptEvent('circle_created', { email: 'someone@example.com' });
+
+    expect(accepted).toEqual({ name: 'circle_created', version: 1, properties: {} });
+    expect(JSON.stringify(accepted)).not.toContain('@');
+  });
+
+  it('still refuses an event whose declared fields are wrong', () => {
+    // Dropping happens before validation, not instead of it.
+    expect(acceptEvent('availability_submitted', { status: 'nonsense' })).toBeNull();
+    expect(acceptEvent('availability_submitted', {})).toBeNull();
+  });
+
+  it('refuses a name the catalogue does not declare', () => {
+    expect(acceptEvent('made_up_event', {})).toBeNull();
+    expect(acceptEvent('constructor', {})).toBeNull();
+  });
+});
+
+describe('the nudge moments', () => {
+  it('are the union of the two enums that use them', () => {
+    // `nudge_states.moment` (0006) is checked against exactly this list, and
+    // `150_analytics.sql` asserts the constraint matches. A moment added to the
+    // catalogue and not to the constraint is a write that fails in production
+    // with a check violation; this is the half of that guard that lives here.
+    const fromCatalogue = new Set([
+      ...(catalogue.app_nudge_shown.payload.shape.moment.options as string[]),
+      ...(catalogue.account_claimed.payload.shape.moment.options as string[]),
+    ]);
+
+    expect([...fromCatalogue].sort()).toEqual([...NUDGE_MOMENTS]);
   });
 });

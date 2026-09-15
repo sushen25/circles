@@ -33,6 +33,23 @@ export type Transport = (events: TrackedEvent[]) => Promise<void>;
  */
 const MAX_BUFFERED = 200;
 
+/**
+ * `crypto.randomUUID` where it exists — every browser and Hermes build this
+ * ships on — and a random fallback for anywhere it does not, because an event
+ * without an id would be dropped by the ingest and a missing measurement is a
+ * worse failure than a slightly weaker id.
+ */
+function newEventId(): string {
+  const source = globalThis.crypto;
+  if (typeof source?.randomUUID === 'function') return source.randomUUID();
+  const bytes = new Uint8Array(16);
+  source?.getRandomValues?.(bytes);
+  bytes[6] = (bytes[6]! & 0x0f) | 0x40;
+  bytes[8] = (bytes[8]! & 0x3f) | 0x80;
+  const hex = [...bytes].map((b) => b.toString(16).padStart(2, '0')).join('');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
 let transport: Transport | null = null;
 let buffer: TrackedEvent[] = [];
 let flushing = false;
@@ -76,6 +93,11 @@ export function track<E extends EventName>(name: E, payload: EventPayload<E>): b
   }
 
   buffer.push({
+    // Minted here, so that a batch put back after a failed flush is the same
+    // batch when it lands: the transport cannot tell "the server never saw it"
+    // from "the server saw it and the answer was lost", and the ingest settles
+    // that with the id rather than by guessing.
+    event_id: newEventId(),
     name: validated.name,
     version: validated.version,
     occurred_at: clock().toISOString(),

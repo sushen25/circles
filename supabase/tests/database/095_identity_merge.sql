@@ -2021,7 +2021,10 @@ insert into identity_tables (name, moves) values
   ('outcome_reports', false),               -- reported_by: who said so, historically
   -- A request one identity already made and was already answered. The answer
   -- went to that session; a new identity has made no requests yet.
-  ('jobs.idempotent_requests', false);
+  ('jobs.idempotent_requests', false),
+  -- Who may read the numbers. Nothing to do with a membership, and a guest
+  -- identity being merged into a saved place does not inherit it.
+  ('private.allowlist', false);
 
 select bag_eq(
   $$ select distinct con.conrelid::regclass::text

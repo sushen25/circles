@@ -1022,6 +1022,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      founder_summary: { Args: never; Returns: Json }
       guest_members_for_reattach: {
         Args: { p_short_code: string }
         Returns: {
@@ -1068,6 +1069,10 @@ export type Database = {
         }
         Returns: string
       }
+      preview_for_code: {
+        Args: { p_code: string; p_kind: string }
+        Returns: string
+      }
       reask_audience: {
         Args: { p_plan_id: string }
         Returns: {
@@ -1107,6 +1112,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      record_events: { Args: { p_rows: Json }; Returns: number }
       redeem_invite: {
         Args: { p_display_name: string; p_secret_hash: string }
         Returns: {

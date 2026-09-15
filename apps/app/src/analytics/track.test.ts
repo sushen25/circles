@@ -13,12 +13,28 @@ describe('track', () => {
     expect(track('availability_submitted', { status: 'flexible' })).toBe(true);
     expect(bufferedEvents()).toEqual([
       {
+        // Minted per event, so that a batch put back after a failed flush is
+        // the same batch when it lands: the ingest settles a resend by id
+        // rather than by counting it twice.
+        event_id: expect.stringMatching(
+          /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+        ),
         name: 'availability_submitted',
         version: 1,
         occurred_at: '2026-09-17T08:30:00.000Z',
         properties: { status: 'flexible' },
       },
     ]);
+  });
+
+  it('gives every event its own id', () => {
+    configureAnalytics({ now: at });
+
+    track('availability_started', {});
+    track('availability_started', {});
+
+    const [first, second] = bufferedEvents();
+    expect(first?.event_id).not.toBe(second?.event_id);
   });
 
   it('refuses a payload the catalogue does not declare', () => {

@@ -188,6 +188,7 @@ const handlers = {
   'request-email-updates': await serveOf('request-email-updates'),
   'verify-email-contact': await serveOf('verify-email-contact'),
   'manage-email-preferences': await serveOf('manage-email-preferences'),
+  'track-events': await serveOf('track-events'),
 };
 
 function load(name: keyof typeof handlers): (request: Request) => Promise<Response> {
@@ -2058,6 +2059,144 @@ describe('request-email-updates', () => {
 
     expect(response.status).toBe(400);
     expect(called('request_email_updates')).toHaveLength(0);
+  });
+});
+
+describe('track-events', () => {
+  const EVENT = {
+    event_id: '00000000-0000-4000-8000-0000000000f1',
+    name: 'circle_join_opened',
+    version: 1,
+    occurred_at: '2026-03-01T00:00:00.000Z',
+    properties: {},
+  };
+
+  beforeEach(() => {
+    state.answer = (fn) => {
+      if (fn === 'take_rate_token') return { data: true, error: null };
+      if (fn === 'record_events') return { data: 1, error: null };
+      return { data: null, error: null };
+    };
+  });
+
+  it('counts the top of the funnel for somebody who has no session at all', async () => {
+    // A link opened from a group chat precedes a join by definition. Refusing
+    // an event because nobody is signed in would lose exactly the events the
+    // funnel is about.
+    const response = await load('track-events')(
+      postWithoutSession({ events: [EVENT], anonymous_id: 'browser-abc12345' }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ accepted: 1, rejected: 0 });
+    const rows = called('record_events')[0]?.args['p_rows'] as Record<string, unknown>[];
+    expect(rows[0]).toMatchObject({ user_id: null, anonymous_id: 'browser-abc12345' });
+  });
+
+  it('attributes an event to the caller when the bearer is a real user', async () => {
+    await load('track-events')(post({ events: [EVENT] }));
+
+    const rows = called('record_events')[0]?.args['p_rows'] as Record<string, unknown>[];
+    expect(rows[0]).toMatchObject({ user_id: CALLER });
+  });
+
+  it('records anonymously rather than refusing when the bearer is not a user token', async () => {
+    // `supabase-js` sends the publishable key when there is no session, and a
+    // tab open for a week sends a JWT that has expired. Neither is a refusal:
+    // it is an event with no `user_id`, which is what `anonymous_id` is for.
+    state.users = [{ error: { status: 401 } }];
+
+    const response = await load('track-events')(post({ events: [EVENT] }));
+
+    expect(response.status).toBe(200);
+    const rows = called('record_events')[0]?.args['p_rows'] as Record<string, unknown>[];
+    expect(rows[0]).toMatchObject({ user_id: null });
+  });
+
+  it('keeps the batch when the auth server cannot be asked', async () => {
+    // Attribution survives an outage: 503 means the client holds the batch and
+    // tries again, rather than silently recording a week of events as nobody's.
+    state.users = [{ error: {} }];
+
+    const response = await load('track-events')(post({ events: [EVENT] }));
+
+    expect(response.status).toBe(503);
+    expect(called('record_events')).toHaveLength(0);
+  });
+
+  it('accepts what the catalogue knows and drops the rest, in one batch', async () => {
+    const response = await load('track-events')(
+      post({
+        events: [
+          EVENT,
+          { ...EVENT, event_id: '00000000-0000-4000-8000-0000000000f2', name: 'not_an_event' },
+          {
+            ...EVENT,
+            event_id: '00000000-0000-4000-8000-0000000000f3',
+            name: 'availability_submitted',
+            properties: { status: 'made_up' },
+          },
+        ],
+      }),
+    );
+
+    expect(await response.json()).toMatchObject({ accepted: 1, rejected: 2 });
+  });
+
+  it('drops a key the catalogue does not declare without losing the event', async () => {
+    await load('track-events')(
+      post({
+        events: [
+          {
+            ...EVENT,
+            name: 'circle_created',
+            properties: { note: 'dinner with Maya', circle_id: CIRCLE_ID },
+          },
+        ],
+      }),
+    );
+
+    const rows = called('record_events')[0]?.args['p_rows'] as Record<string, unknown>[];
+    expect(rows).toHaveLength(1);
+    // The id is lifted into its own column and the words never existed.
+    expect(rows[0]).toMatchObject({ circle_id: CIRCLE_ID, properties: {} });
+    expect(JSON.stringify(rows)).not.toContain('Maya');
+  });
+
+  it('refuses a version the catalogue does not hold', async () => {
+    // An old client sending a shape that has since changed, or a new one ahead
+    // of the server: either way the payload's meaning is not knowable.
+    const response = await load('track-events')(post({ events: [{ ...EVENT, version: 99 }] }));
+
+    expect(await response.json()).toMatchObject({ accepted: 0, rejected: 1 });
+    expect(called('record_events')).toHaveLength(0);
+  });
+
+  it('counts the attempt against the connection as well as the caller', async () => {
+    await load('track-events')(post({ events: [EVENT] }));
+
+    const scopes = called('take_rate_token')
+      .map((call) => call.args['p_scope'])
+      .sort();
+    expect(scopes).toEqual(['track_ip', 'track_user']);
+  });
+
+  it('counts only the connection when there is nobody to count against', async () => {
+    await load('track-events')(postWithoutSession({ events: [EVENT] }));
+
+    expect(called('take_rate_token').map((call) => call.args['p_scope'])).toEqual(['track_ip']);
+  });
+
+  it('refuses a batch bigger than the cap rather than trimming it silently', async () => {
+    const events = Array.from({ length: 51 }, (_, index) => ({
+      ...EVENT,
+      event_id: `00000000-0000-4000-8000-${String(index).padStart(12, '0')}`,
+    }));
+
+    const response = await load('track-events')(post({ events }));
+
+    expect(response.status).toBe(400);
+    expect(called('record_events')).toHaveLength(0);
   });
 });
 
