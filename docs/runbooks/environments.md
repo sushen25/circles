@@ -70,8 +70,14 @@ may assume them.
 
 | | Host today | Host eventually |
 |---|---|---|
-| `dev` | `sushen25s-team-circles--dev.expo.app` | `dev.sushensatturu.com` |
+| `dev` | `sushen25s-team-circles--dev.expo.app` | unchanged — see below |
 | `prod` | none — not deployed | `meet.sushensatturu.com` |
+
+**EAS Hosting allows one custom domain per project**, assigned to the
+production deployment, so the two environments cannot both have one. `meet`
+takes it (founder decision, 15 September 2026) and `dev` keeps the `expo.app`
+host permanently rather than temporarily. That costs nothing: §5.2 binds links
+that reach a real person, and `dev` never sends an invite.
 
 **`dev` runs without a custom domain for now** (founder decision, 8 September
 2026). EAS Hosting gives every alias a stable URL of the form
@@ -299,7 +305,8 @@ It will — the holding domain is temporary. In order:
 3. Resend: add and verify the new sending domain; the old one keeps working
    until deleted, so verify before deleting.
 4. EAS Hosting: attach the new domain.
-5. Turnstile: the widget is bound to a hostname — add the new one.
+5. Turnstile: the widget is bound to a hostname — add the new one. The
+   `expo.app` host stays on the widget too; `dev` is always reached that way.
 6. **Google OAuth: the web client must be re-created.** Authorised origins can
    be edited, but a client that has been live on the old origin carries consent
    grants tied to it; re-create rather than edit.

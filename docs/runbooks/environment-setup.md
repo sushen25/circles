@@ -72,16 +72,51 @@ still holds. Before any invite link reaches a person who is not the founder, the
 custom domain has to exist, because a link already in a group chat cannot be
 recalled.
 
-- [ ] `dev.sushensatturu.com` — the `dev` app host.
-- [ ] `meet.sushensatturu.com` — the `prod` app host. `meet`, not the codename:
-      links already in a group chat keep working and keep saying whatever they
-      said, so the one string you cannot take back should describe the job
-      rather than the name (§5.4).
-- [ ] `mail.meet.sushensatturu.com` — the sending domain. **Production only**;
-      `dev` does not send. Deferred with Resend (SUS-71).
+**EAS Hosting allows exactly one custom domain per project**, assigned to the
+production deployment. This checklist used to ask for two; that was never
+possible. Founder decision, 15 September 2026:
 
-Nothing to create yet. The records come from EAS (step 3) and Resend (step 6),
-and guessing them means deleting them later.
+- [ ] `meet.sushensatturu.com` — the `prod` app host, and **the one that takes
+      the slot**. `meet`, not the codename: links already in a group chat keep
+      working and keep saying whatever they said, so the one string you cannot
+      take back should describe the job rather than the name (§5.4).
+- [x] `dev.sushensatturu.com` — **not created.** `dev` stays on
+      `sushen25s-team-circles--dev.expo.app`, which costs nothing, because §5.2
+      binds links that reach a real person and `dev` never sends an invite.
+      Expo's suggestion for a second name is a bare CNAME to `origin.expo.app`,
+      but its documentation does not say whether a TLS certificate is issued
+      for one, and an environment nobody outside sees is a poor place to find
+      out. Google's web OAuth client lists both origins instead — the
+      `expo.app` host and `meet` — which costs one line and no uncertainty.
+- [ ] `mail.meet.sushensatturu.com` — the sending domain. **Production only**;
+      `dev` does not send. Comes with Resend, step 6, in this same DNS session.
+
+The records come from EAS and from Resend, and guessing them means deleting
+them later. Attaching the domain is **dashboard-only** — `eas-cli` 23.2.0 has
+no hosting or domain command, so there is nothing to automate here.
+
+### Attaching `meet` in the EAS dashboard
+
+<https://expo.dev/accounts/sushen25s-team/projects/circles/hosting> → settings →
+custom domain. It then asks for three records, and the order matters — add each
+one and refresh before adding the next, or the check runs against a record that
+is not visible yet:
+
+| # | Name | Type | Purpose |
+|---|---|---|---|
+| 1 | `_cf-custom-hostname.meet` | TXT | proves you own the domain |
+| 2 | `_acme-challenge.meet` | CNAME | proves it to the certificate authority, so a certificate can be issued |
+| 3 | `meet` | CNAME | routes requests, to `origin.expo.app` |
+
+Only the third value is predictable; the first two carry per-domain tokens that
+the dashboard generates.
+
+> **`meet` will serve nothing until production is deployed**, because the custom
+> domain points at the production deployment and there has never been one. So
+> `pnpm check:env meet.sushensatturu.com` cannot pass its first row on DNS
+> alone — it needs step 4's `production` environment, a resumed `circles-prod`,
+> and one `deploy-prod` run. Attaching the domain early is still right: the
+> certificate takes time, and steps 7 and 8 need the name to be settled.
 
 ### How to add a record in Route 53
 
