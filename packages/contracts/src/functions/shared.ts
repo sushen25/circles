@@ -126,6 +126,23 @@ export const ProblemReason = z.enum([
    * candidate set — over a form resubmitted unedited.
    */
   'nothing_to_change',
+  // S1-18. Asking for email, and stopping it.
+
+  /**
+   * `verify-email-contact`, `manage-email-preferences`: the link is spent,
+   * expired, or was never one of ours. One reason for all three: telling them
+   * apart would say whether a token *existed*, and the screen's answer is the
+   * same either way — ask for a new one.
+   */
+  'link_expired',
+  /**
+   * A re-entry link was asked for on a circle this person is not in, or before
+   * they have a verified address to send it to. Never reached by a client
+   * today: S1-19's templates call it, and a reason beats a SQLSTATE when they do.
+   */
+  'not_a_member',
+  'no_verified_contact',
+
   // S1-17, the confirmation and the outcome.
 
   /**

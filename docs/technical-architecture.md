@@ -499,8 +499,8 @@ ready ─(response change)──▶ collecting ─ recalculate ──┘
 | `revise-plan` | organiser | Edits window/duration/band → new revision, invalidating responses and enqueuing a re-ask; **adjusts** quorum, deadline or required members without one ([ADR 0017](decisions/0017-quorum-and-deadline-adjust-a-plan-without-a-revision.md)); `preview` answers what an edit would cost without making it (spec §5.3); reopens a confirmed plan |
 | `cancel-plan` | organiser | Final state with optional note; enqueues cancellation notices |
 | `report-outcome` | organiser (or member for attendance) | Records outcome/attendance; sets `last_met_at` on `happened` |
-| `request-email-updates` | member | Normalise, dedupe, create contact + subscription (pending), issue verification token, send verification email |
-| `verify-email-contact` | token | Consume single-use token, verify, activate subscription, send any still-relevant current update |
+| `request-email-updates` | member | Normalise, dedupe per identity, create the contact and record the consent as given ([ADR 0019](decisions/0019-consent-is-recorded-when-it-is-given.md)), enqueue the verification email — whose token is minted by the sender ([ADR 0020](decisions/0020-the-verification-token-is-minted-by-the-sender.md)). Answers identically for a new, verified, shared or suppressed address |
+| `verify-email-contact` | token | Consume the single-use token, verify **every contact holding that address**, drop subscriptions to finished plans and to circles the person has left, send the current state once if a meetup is already locked in |
 | `manage-email-preferences` | token | Show/disable subscriptions without sign-in |
 | `email-provider-webhook` | Resend signature | Dedupe by provider message id, record delivery, suppress on hard bounce/complaint |
 | `register-push-device` | permanent | Upsert Expo push token |
@@ -588,7 +588,7 @@ domain event (outbox) → dispatcher → eligibility(recipient, kind, state) →
 | Email addresses | `private` schema; never in DTOs, analytics, logs; hashed for dedupe; consent version recorded |
 | Invite links | ≥256-bit secret in the URL fragment; SHA-256 stored; `Referrer-Policy: no-referrer`; rotation invalidates immediately; redemption rate-limited per IP and per circle |
 | Anonymous abuse | Turnstile on web joins; Supabase anonymous IP rate limit raised to 60/hour for shared-network households; abandoned-identity cleanup |
-| Tokens | Verification/preference/re-entry tokens ≥256-bit, hashed, single-use, expiring; never logged |
+| Tokens | Verification/preference/re-entry tokens ≥256-bit, hashed, expiring; never logged. Minted by whoever sends the thing that carries them, because a job row holds ids and no payload ([ADR 0020](decisions/0020-the-verification-token-is-minted-by-the-sender.md)). Verification and re-entry are single-use because they grant something; a preferences link is reusable, because an unsubscribe that expires on use is not one ([ADR 0019](decisions/0019-consent-is-recorded-when-it-is-given.md)) |
 | Service role | Only in Edge Function secrets; never in the client or repository; CI secret scanning |
 | Transport | HTTPS everywhere; HSTS on the domain; Supabase JWT expiry 1 h with refresh |
 | Definer functions | `security definer` + `set search_path = ''` + explicit `revoke` from `public`; each has a pgTAP test that `anon` cannot call it where not intended |

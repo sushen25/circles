@@ -1,3 +1,4 @@
+import { CONSENT } from '@circles/config';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
@@ -184,6 +185,9 @@ const handlers = {
   'confirm-meetup': await serveOf('confirm-meetup'),
   'report-outcome': await serveOf('report-outcome'),
   'generate-ics': await serveOf('generate-ics'),
+  'request-email-updates': await serveOf('request-email-updates'),
+  'verify-email-contact': await serveOf('verify-email-contact'),
+  'manage-email-preferences': await serveOf('manage-email-preferences'),
 };
 
 function load(name: keyof typeof handlers): (request: Request) => Promise<Response> {
@@ -194,6 +198,15 @@ function post(body: unknown, bearer = 'a.token'): Request {
   return new Request('https://example.test/fn', {
     method: 'POST',
     headers: { authorization: `Bearer ${bearer}`, 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+}
+
+/** A link in an email is opened by somebody with no session at all. */
+function postWithoutSession(body: unknown): Request {
+  return new Request('https://example.test/fn', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body),
   });
 }
@@ -1937,5 +1950,267 @@ describe('generate-ics', () => {
   it('takes a GET and nothing else', async () => {
     const response = await load('generate-ics')(post({ confirmation_id: CONFIRMATION_ID }));
     expect(response.status).toBe(405);
+  });
+});
+
+describe('request-email-updates', () => {
+  const body = { idempotency_key: KEY, plan_id: PLAN_ID, email: 'Jules@example.com ' };
+
+  beforeEach(() => {
+    state.users = [{ id: CALLER, is_anonymous: false }];
+    state.answer = (fn) => {
+      if (fn === 'begin_request') {
+        return {
+          data: [{ state: 'fresh', response_status: null, response_body: null }],
+          error: null,
+        };
+      }
+      if (fn === 'take_rate_token') return { data: true, error: null };
+      if (fn === 'request_email_updates') return { data: { sent: true }, error: null };
+      return { data: null, error: null };
+    };
+  });
+
+  it('normalises the address before anybody stores or counts it', async () => {
+    // Trimmed, lower-cased, NFC. A person who typed the same address twice on
+    // two keyboards should not end up with two contacts, and the rate limit
+    // counts one address rather than its spellings.
+    await load('request-email-updates')(post(body));
+
+    expect(called('request_email_updates')[0]?.args['p_email']).toBe('jules@example.com');
+  });
+
+  it('says only "check your email", whatever happened', async () => {
+    // Verified already, suppressed after a bounce, held by somebody else, never
+    // seen: one answer. Anything else lets a member walk a list of addresses
+    // through a plan and learn which of their friends use the product.
+    state.answer = (fn) => {
+      if (fn === 'begin_request') {
+        return {
+          data: [{ state: 'fresh', response_status: null, response_body: null }],
+          error: null,
+        };
+      }
+      if (fn === 'take_rate_token') return { data: true, error: null };
+      if (fn === 'request_email_updates') return { data: { sent: false }, error: null };
+      return { data: null, error: null };
+    };
+
+    const response = await load('request-email-updates')(post(body));
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ status: 'check_email' });
+  });
+
+  it('mints no token, because a token minted here could never reach the email', async () => {
+    // Round 2's P1. An earlier draft made one, hashed it into the database and
+    // dropped the readable half — `jobs.notification_jobs` has no payload
+    // column, so there was no route from here to the letter, and every
+    // verification link was unsendable. The sender mints it now (ADR 0020).
+    const response = await load('request-email-updates')(post(body));
+    const answered = JSON.stringify(await response.json());
+    const args = called('request_email_updates')[0]?.args ?? {};
+
+    expect(Object.keys(args)).not.toContain('p_token_hash');
+    expect(answered).not.toContain('jules@example.com');
+  });
+
+  it('names the request as the occurrence, so a resend is a second email', async () => {
+    // A retry never reaches the function — the idempotency claim answers it —
+    // and a genuine resend is a different request, so the job it writes has a
+    // different key rather than being swallowed as a duplicate.
+    const response = await load('request-email-updates')(post(body));
+    const requestId = response.headers.get('x-request-id');
+    const passed = called('request_email_updates')[0]?.args['p_request_id'];
+
+    expect(typeof passed).toBe('string');
+    expect(passed).toBe(requestId);
+  });
+
+  it('records which words were consented to', async () => {
+    await load('request-email-updates')(post(body));
+
+    // A consent record that cannot say what was agreed is not one.
+    expect(called('request_email_updates')[0]?.args['p_consent_version']).toBe(CONSENT.version);
+  });
+
+  it('counts the attempt against this person and this address, not the address', async () => {
+    // A counter keyed on the address alone is shared by everybody who can name
+    // it — and `take_rate_token` counts refusals — so three requests naming
+    // somebody else's address would lock its real owner out for the day, and a
+    // 429 on a first attempt would say that somebody else had asked about it.
+    await load('request-email-updates')(post(body));
+
+    expect(called('take_rate_token')).toHaveLength(3);
+    // Sorted, because `enforce` runs the three counters in one `Promise.all`
+    // and the order they land in is whichever hash finished first. Asserting
+    // the arrival order made this pass or fail by timing.
+    const scopes = called('take_rate_token')
+      .map((call) => call.args['p_scope'])
+      .sort();
+    expect(scopes).toEqual(['email_request', 'email_request_ip', 'email_request_user']);
+    // Hashed before it leaves, like every rate key: an address is a person.
+    expect(JSON.stringify(called('take_rate_token'))).not.toContain('jules@example.com');
+  });
+
+  it('refuses a request that is not an address', async () => {
+    const response = await load('request-email-updates')(post({ ...body, email: 'not-an-email' }));
+
+    expect(response.status).toBe(400);
+    expect(called('request_email_updates')).toHaveLength(0);
+  });
+});
+
+describe('verify-email-contact', () => {
+  const TOKEN = 'a'.repeat(43);
+
+  beforeEach(() => {
+    state.answer = (fn) => {
+      if (fn === 'take_rate_token') return { data: true, error: null };
+      if (fn === 'verify_email_contact') {
+        return {
+          data: {
+            active_plans: [
+              {
+                plan_id: PLAN_ID,
+                short_code: 'pnemab',
+                plan_title: 'Catch up',
+                circle_name: 'Sunday Crew',
+              },
+            ],
+            already_confirmed: true,
+          },
+          error: null,
+        };
+      }
+      return { data: null, error: null };
+    };
+  });
+
+  it('takes no session at all', async () => {
+    // Somebody verifying may have cleared their storage or be on another
+    // device. Requiring a sign-in to confirm an address asks them to do the
+    // thing the address exists to avoid.
+    const response = await load('verify-email-contact')(postWithoutSession({ token: TOKEN }));
+
+    expect(response.status).toBe(200);
+    // Named, not numbered: the page is opened wherever the mail was read, so
+    // there is usually no session and a plan is readable only by a member.
+    expect(await response.json()).toMatchObject({
+      active_plans: [{ plan_id: PLAN_ID, short_code: 'pnemab', circle_name: 'Sunday Crew' }],
+      already_confirmed: true,
+    });
+  });
+
+  it('hashes the token on the way in', async () => {
+    await load('verify-email-contact')(postWithoutSession({ token: TOKEN }));
+
+    const args = called('verify_email_contact')[0]?.args;
+    expect(args?.['p_token_hash']).toMatch(/^\\x[0-9a-f]{64}$/);
+    expect(JSON.stringify(args)).not.toContain(TOKEN);
+  });
+
+  it('refuses an unusable link by naming the field and never the token', async () => {
+    // `linkHandler`'s one privacy-bearing branch, and nothing else asserted it:
+    // a validation failure reports *field names*, because the field here is
+    // called `token` and its value is the one thing in the product that must
+    // never reach a response or a log (§14). Zod's own message would quote it.
+    // Long enough, but not the alphabet a token is in — so it is refused, and
+    // it is exactly the sort of string somebody pastes out of an email.
+    const secret = 'S3cret.Token.That.Must.Not.Be.Logged.Ever';
+    const lines: string[] = [];
+    const sinks = (['log', 'warn', 'error'] as const).map((level) =>
+      vi.spyOn(console, level).mockImplementation((...args: unknown[]) => {
+        lines.push(args.map(String).join(' '));
+      }),
+    );
+
+    try {
+      const response = await load('verify-email-contact')(postWithoutSession({ token: secret }));
+
+      expect(response.status).toBe(400);
+      const body = await response.text();
+      expect(body).toContain('token');
+      expect(body).not.toContain(secret);
+      expect(lines.join('\n')).not.toContain(secret);
+    } finally {
+      for (const sink of sinks) sink.mockRestore();
+    }
+  });
+
+  it('says one thing about a spent, expired or invented link', async () => {
+    state.answer = (fn) => {
+      if (fn === 'take_rate_token') return { data: true, error: null };
+      if (fn === 'verify_email_contact') {
+        return { data: null, error: { message: 'link_expired', code: 'P0001' } };
+      }
+      return { data: null, error: null };
+    };
+
+    const response = await load('verify-email-contact')(postWithoutSession({ token: TOKEN }));
+
+    expect(response.status).toBe(404);
+    expect(await response.json()).toMatchObject({ reason: 'link_expired' });
+  });
+});
+
+describe('manage-email-preferences', () => {
+  const TOKEN = 'b'.repeat(43);
+
+  beforeEach(() => {
+    state.answer = (fn) => {
+      if (fn === 'take_rate_token') return { data: true, error: null };
+      if (fn === 'email_preferences') {
+        return {
+          data: {
+            removed: false,
+            subscriptions: [
+              {
+                plan_id: PLAN_ID,
+                plan_title: 'Catch up',
+                circle_name: 'Sunday Crew',
+                active: true,
+              },
+            ],
+          },
+          error: null,
+        };
+      }
+      return { data: null, error: null };
+    };
+  });
+
+  it('shows what an address hears about, with no sign-in', async () => {
+    const response = await load('manage-email-preferences')(
+      postWithoutSession({ token: TOKEN, action: 'view' }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      subscriptions: [{ circle_name: 'Sunday Crew', active: true }],
+    });
+  });
+
+  it('stops one meetup, and needs to know which', async () => {
+    // "Stop emails for this meetup" is the narrow link; the broad one is a
+    // different action, not the same one with a field left out.
+    const refused = await load('manage-email-preferences')(
+      postWithoutSession({ token: TOKEN, action: 'stop_plan' }),
+    );
+    expect(refused.status).toBe(400);
+
+    await load('manage-email-preferences')(
+      postWithoutSession({ token: TOKEN, action: 'stop_plan', plan_id: PLAN_ID }),
+    );
+    expect(called('email_preferences')[0]?.args['p_plan_id']).toBe(PLAN_ID);
+  });
+
+  it('refuses a plan on an action that is not about one', async () => {
+    const response = await load('manage-email-preferences')(
+      postWithoutSession({ token: TOKEN, action: 'remove_contact', plan_id: PLAN_ID }),
+    );
+
+    expect(response.status).toBe(400);
+    expect(called('email_preferences')).toHaveLength(0);
   });
 });
