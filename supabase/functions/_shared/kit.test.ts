@@ -128,11 +128,22 @@ describe('sha256Hex', () => {
 });
 
 describe('callerAddress', () => {
-  it('takes the client from the front of the forwarded list', () => {
+  it('takes the address the proxy added, not the one the caller wrote', () => {
+    // `x-forwarded-for` is a list a client can *start*: whatever it sends
+    // arrives first, with the observed address appended after it. Counting the
+    // first entry counted a value the caller chose, so a per-address limit
+    // could be stepped around by varying a header.
     const request = new Request('https://example.test', {
       headers: { 'x-forwarded-for': '203.0.113.7, 70.41.3.18' },
     });
-    expect(callerAddress(request)).toBe('203.0.113.7');
+    expect(callerAddress(request)).toBe('70.41.3.18');
+  });
+
+  it('prefers the header a client cannot write at all', () => {
+    const request = new Request('https://example.test', {
+      headers: { 'cf-connecting-ip': '198.51.100.9', 'x-forwarded-for': '203.0.113.7' },
+    });
+    expect(callerAddress(request)).toBe('198.51.100.9');
   });
 
   it('has a constant to count against when there is no header', () => {

@@ -54,6 +54,30 @@ comment on table private.allowlist is
 alter table private.allowlist enable row level security;
 
 -- ---------------------------------------------------------------------------
+-- When a circle became a circle that meets.
+--
+-- Written once because two views need it and they must not disagree: §11.2's
+-- activation ("confirms first meetup within 7 days") is a *rate* — did this
+-- circle get going quickly — while the north star's denominator is every
+-- circle that has ever got going at all. Both are read from this, so the
+-- difference between them stays a deliberate one sentence apart rather than
+-- two subqueries that drifted.
+--
+-- The month is the circle's own, not UTC. A meetup confirmed at 9 am on the
+-- first of October in Melbourne is an October meetup, and `date_trunc` on a
+-- `timestamptz` would file it under September.
+-- ---------------------------------------------------------------------------
+create view analytics.circle_activation as
+select
+  p.circle_id,
+  min(mc.confirmed_at) as first_confirmed_at,
+  date_trunc('month', min(mc.confirmed_at at time zone c.time_zone)) as activated_month
+from public.meetup_confirmations mc
+join public.plans p on p.id = mc.plan_id
+join public.circles c on c.id = p.circle_id
+group by p.circle_id, c.time_zone;
+
+-- ---------------------------------------------------------------------------
 -- 1. funnel_by_circle — opens → joins → first response → confirmed → happened.
 --
 -- The first two stages have no row to count: a link preview impression is
@@ -81,15 +105,15 @@ select
     join public.meetup_confirmations mc on mc.id = o.confirmation_id
     join public.plans p on p.id = mc.plan_id
     where p.circle_id = c.id and o.outcome = 'happened') as happened,
+  a.first_confirmed_at,
   -- Activation, as §11.2 defines it: a first meetup confirmed within seven days
-  -- of the circle being created.
-  (select min(mc.confirmed_at) from public.meetup_confirmations mc
-    join public.plans p on p.id = mc.plan_id
-    where p.circle_id = c.id) as first_confirmed_at,
-  (select min(mc.confirmed_at) from public.meetup_confirmations mc
-    join public.plans p on p.id = mc.plan_id
-    where p.circle_id = c.id) <= c.created_at + interval '7 days' as activated_within_7_days
-from public.circles c;
+  -- of the circle being created. False rather than null for a circle that has
+  -- confirmed nothing — `null <= x` is null, and a consumer counting `false`
+  -- would miss exactly the circles that did not activate.
+  coalesce(a.first_confirmed_at <= c.created_at + interval '7 days', false)
+    as activated_within_7_days
+from public.circles c
+left join analytics.circle_activation a on a.circle_id = c.id;
 
 -- ---------------------------------------------------------------------------
 -- 2. plan_timings — how long the two waits actually are.
@@ -171,36 +195,41 @@ group by 1;
 -- side by side rather than one replacing the other, because the difference
 -- between them is the thing worth watching.
 --
--- The denominator is circles activated **on or before** that month — a circle
--- that confirmed its first meetup in March is part of April's denominator too,
--- or the rate would rise every time an old circle went quiet.
+-- The denominator is `analytics.circle_activation`, counted **on or before**
+-- that month: a circle that confirmed its first meetup in March is part of
+-- April's denominator too, or the rate would rise every time an old circle went
+-- quiet. Note that this is "has ever confirmed", not §11.2's seven-day
+-- activation — which `funnel_by_circle` reports, from the same source.
 -- ---------------------------------------------------------------------------
 create view analytics.north_star_monthly as
 with reported as (
   select
-    date_trunc('month', o.reported_at) as month,
+    date_trunc('month', o.reported_at at time zone c.time_zone) as month,
     o.confirmation_id,
-    o.reported_by,
-    p.circle_id
+    o.reported_by
   from public.outcome_reports o
   join public.meetup_confirmations mc on mc.id = o.confirmation_id
   join public.plans p on p.id = mc.plan_id
+  join public.circles c on c.id = p.circle_id
   where o.outcome = 'happened'
 ),
-activations as (
-  select p.circle_id, date_trunc('month', min(mc.confirmed_at)) as activated_month
-  from public.meetup_confirmations mc
-  join public.plans p on p.id = mc.plan_id
-  group by 1
-),
+-- Every month from the first activation to this one, so a quiet month reads as
+-- a quiet month. A `union` of the months that happen to have rows skips the
+-- silence, and the silence is the thing worth seeing.
 months as (
-  select distinct month from reported
-  union
-  select distinct activated_month from activations
+  select generate_series(
+    (select min(activated_month) from analytics.circle_activation),
+    greatest(
+      date_trunc('month', now()),
+      coalesce((select max(month) from reported), date_trunc('month', now()))
+    ),
+    interval '1 month'
+  ) as month
 )
 select
   m.month,
-  (select count(*) from activations a where a.activated_month <= m.month) as activated_circles,
+  (select count(*) from analytics.circle_activation a where a.activated_month <= m.month)
+    as activated_circles,
   (select count(*) from reported r where r.month = m.month) as happened_reported,
   (select count(*) from reported r
     where r.month = m.month
@@ -224,20 +253,34 @@ order by m.month;
 -- ---------------------------------------------------------------------------
 create view analytics.chasing as
 select
-  date_trunc('month', mc.confirmed_at) as month,
+  date_trunc('month', mc.confirmed_at at time zone c.time_zone) as month,
   mc.chased_answer,
   count(*) as confirmations
 from public.meetup_confirmations mc
+join public.plans p on p.id = mc.plan_id
+join public.circles c on c.id = p.circle_id
 where mc.chased_answer is not null
 group by 1, 2;
 
 -- The views are read through `analytics.founder_summary()` and nowhere else.
+revoke all on analytics.circle_activation from public, anon, authenticated, service_role;
 revoke all on analytics.funnel_by_circle from public, anon, authenticated, service_role;
 revoke all on analytics.plan_timings from public, anon, authenticated, service_role;
 revoke all on analytics.reattach_rate from public, anon, authenticated, service_role;
 revoke all on analytics.nudge_conversion from public, anon, authenticated, service_role;
 revoke all on analytics.north_star_monthly from public, anon, authenticated, service_role;
 revoke all on analytics.chasing from public, anon, authenticated, service_role;
+
+-- ---------------------------------------------------------------------------
+-- `take_rate_token` learns a cost, and the old arity has to go.
+--
+-- A default parameter makes a new signature rather than replacing the old one:
+-- `create or replace` leaves the four-argument version in place, and a call
+-- with four arguments then matches both — "function is not unique", from every
+-- caller in the product. Dropped here, before the generated block creates the
+-- five-argument one; existing callers bind to it through the default.
+-- ---------------------------------------------------------------------------
+drop function if exists public.take_rate_token(text, bytea, integer, interval);
 
 -- BEGIN GENERATED: function definitions (scripts/gen-sql-functions.mjs)
 
@@ -434,5 +477,70 @@ comment on function public.record_events(jsonb) is
 revoke all on function public.record_events(jsonb) from public;
 revoke all on function public.record_events(jsonb) from anon, authenticated;
 grant execute on function public.record_events(jsonb) to service_role;
+
+-- supabase/sql/functions/public/take_rate_token.sql
+-- ---------------------------------------------------------------------------
+-- One fixed window, one counter, one answer: may this happen?
+--
+-- The window is derived from the clock rather than stored, so there is no
+-- bookkeeping to get wrong and no row to expire before it is read: every caller
+-- in the same window computes the same `window_start` and lands on the same row.
+--
+-- Counting happens whether or not the answer is yes. A refused attempt is still
+-- an attempt, and a limiter that only counts successes is one that can be held
+-- open indefinitely by failing.
+--
+-- In `public` although everything it touches is in `jobs`: PostgREST exposes
+-- `public` and nothing else, and `supabase/config.toml` is explicit that adding
+-- a schema there "is a privacy decision". An Edge Function reaches this over
+-- HTTP, so it has to be callable — and a `public` function granted to
+-- `service_role` alone widens nothing, which `090_identity_continuity.sql`
+-- asserts rather than assumes.
+-- ---------------------------------------------------------------------------
+
+create or replace function public.take_rate_token(
+  p_scope text,
+  p_key_hash bytea,
+  p_limit integer,
+  p_window interval,
+  -- What this attempt costs. One for a request; more for a request that carries
+  -- many of whatever is being limited — a batch of fifty analytics events is
+  -- fifty events, and charging it as one made "six hundred a minute" mean
+  -- thirty thousand.
+  p_cost integer default 1
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  seconds double precision := extract(epoch from p_window);
+  bucket_start timestamptz;
+  taken integer;
+begin
+  if p_limit < 1 or seconds <= 0 or p_cost < 1 then
+    raise exception 'take_rate_token needs a positive limit, window and cost'
+      using errcode = 'invalid_parameter_value';
+  end if;
+
+  bucket_start := to_timestamp(floor(extract(epoch from clock_timestamp()) / seconds) * seconds);
+
+  insert into jobs.rate_counters (scope, key_hash, window_start, count)
+  values (p_scope, p_key_hash, bucket_start, p_cost)
+  on conflict (scope, key_hash, window_start)
+    do update set count = jobs.rate_counters.count + p_cost
+  returning count into taken;
+
+  return taken <= p_limit;
+end;
+$$;
+
+comment on function public.take_rate_token(text, bytea, integer, interval, integer) is
+  'Counts an attempt in the current fixed window and says whether it is within the limit — `p_cost` for a request that carries many of whatever is limited. Counts refusals too.';
+
+revoke all on function public.take_rate_token(text, bytea, integer, interval, integer) from public;
+revoke all on function public.take_rate_token(text, bytea, integer, interval, integer) from anon, authenticated;
+grant execute on function public.take_rate_token(text, bytea, integer, interval, integer) to service_role;
 
 -- END GENERATED: function definitions

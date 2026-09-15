@@ -89,7 +89,17 @@ const config: ExpoConfig = {
     // `origin` polyfills relative fetches in production builds, so native can
     // reach the one server route (link previews, §9.4) — the caveat ADR 0001
     // calls out. The app itself never calls it; link fetchers do.
-    ['expo-router', { origin: appOrigin }],
+    [
+      'expo-router',
+      {
+        origin: appOrigin,
+        // `app/+middleware.ts` serves the link-preview card on the paths people
+        // actually paste — `/join`, `/j/<code>`, `/p/<code>` — which are client
+        // pages, and a page and an API route cannot share a path. Without this
+        // the card exists only at `/og/...`, where no chat app ever asks for it.
+        unstable_useServerMiddleware: true,
+      },
+    ],
     'expo-font',
     'expo-secure-store',
     'expo-splash-screen',

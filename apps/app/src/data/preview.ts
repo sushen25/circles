@@ -41,6 +41,30 @@ export function escapeHtml(value: string): string {
     .replace(/'/g, '&#39;');
 }
 
+/**
+ * The three paths a shared link can be, as a path rather than a route
+ * parameter: `/join`, `/j/<code>` and `/p/<code>` (architecture §5). Anything
+ * else is not a link anybody pasted and gets no card.
+ */
+export function previewTargetFor(pathname: string): { kind: string; code: string | null } | null {
+  const [, first, second] = pathname.split('/');
+  if (first === 'join' && second === undefined) return { kind: 'join', code: null };
+  if ((first === 'j' || first === 'p') && second !== undefined && second !== '') {
+    return { kind: first, code: decodeURIComponent(second) };
+  }
+  return null;
+}
+
+/**
+ * The origin to build absolute URLs from. The configured one where there is
+ * one, and the request's own otherwise — a redirect to a relative URL throws,
+ * and a misconfigured deployment should still serve the app rather than a 500.
+ */
+export function originOf(url: URL): string {
+  const configured = process.env.EXPO_PUBLIC_APP_ORIGIN;
+  return configured !== undefined && configured !== '' ? configured : url.origin;
+}
+
 /** Where a person should end up: the client route this card is about. */
 export function destinationFor(origin: string, kind: string, code: string | null): string {
   if (kind === 'join' || code === null) return `${origin}/join`;
@@ -86,4 +110,34 @@ export function previewCard({ circleName, target, imageUrl }: Card): string {
 <script>location.replace(${JSON.stringify(target)} + location.hash);</script>
 </body>
 </html>`;
+}
+
+/**
+ * The circle's name behind a short code, or null for anything we will not or
+ * cannot resolve.
+ *
+ * PostgREST directly rather than through a client library: this runs on a
+ * server with no session, and the one thing it does is call a function granted
+ * to `anon`. Every failure is a generic card and never an error page — a group
+ * chat should not learn that our database is having a bad morning.
+ */
+export async function lookupCircleName(kind: string, code: string | null): Promise<string | null> {
+  if (kind === 'join' || code === null) return null;
+
+  const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
+  const key = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+  if (url === undefined || key === undefined || url === '' || key === '') return null;
+
+  try {
+    const response = await fetch(`${url}/rest/v1/rpc/preview_for_code`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', apikey: key, Authorization: `Bearer ${key}` },
+      body: JSON.stringify({ p_kind: kind, p_code: code }),
+    });
+    if (!response.ok) return null;
+    const name: unknown = await response.json();
+    return typeof name === 'string' && name.length > 0 ? name : null;
+  } catch {
+    return null;
+  }
 }

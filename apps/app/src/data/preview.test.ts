@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { destinationFor, escapeHtml, isPreviewAgent, previewCard } from './preview';
+import {
+  destinationFor,
+  escapeHtml,
+  isPreviewAgent,
+  originOf,
+  previewCard,
+  previewTargetFor,
+} from './preview';
 
 const ORIGIN = 'https://example.com';
 
@@ -98,5 +105,35 @@ describe('where a tap ends up', () => {
 
   it('encodes a code rather than trusting it into a URL', () => {
     expect(destinationFor(ORIGIN, 'p', '../../etc')).toBe(`${ORIGIN}/p/..%2F..%2Fetc`);
+  });
+});
+
+describe('which paths get a card', () => {
+  it('recognises the three shapes a shared link can be', () => {
+    // These are the paths the share messages actually produce. A card served
+    // only at `/og/...` is a card no chat app ever asks for.
+    expect(previewTargetFor('/join')).toEqual({ kind: 'join', code: null });
+    expect(previewTargetFor('/j/pnanaa')).toEqual({ kind: 'j', code: 'pnanaa' });
+    expect(previewTargetFor('/p/pnanaa')).toEqual({ kind: 'p', code: 'pnanaa' });
+  });
+
+  it('leaves everything else to the app', () => {
+    for (const path of ['/', '/circles', '/j', '/p/', '/join/extra', '/settings/account']) {
+      expect(previewTargetFor(path), path).toBeNull();
+    }
+  });
+});
+
+describe('originOf', () => {
+  it("falls back to the request's own origin when nothing is configured", () => {
+    // `Response.redirect` throws on a relative URL, so an unset variable would
+    // turn every human's request into a 500 instead of the app.
+    const previous = process.env.EXPO_PUBLIC_APP_ORIGIN;
+    delete process.env.EXPO_PUBLIC_APP_ORIGIN;
+    try {
+      expect(originOf(new URL('https://circles.test/j/pnanaa'))).toBe('https://circles.test');
+    } finally {
+      if (previous !== undefined) process.env.EXPO_PUBLIC_APP_ORIGIN = previous;
+    }
   });
 });

@@ -2172,6 +2172,54 @@ describe('track-events', () => {
     expect(called('record_events')).toHaveLength(0);
   });
 
+  it('records an unbelievable clock as now rather than losing the batch', async () => {
+    // `z.iso.datetime` accepts a year Postgres will not store, and one such
+    // event raises inside `record_events` and takes the other forty-nine with
+    // it. A plausible-but-wrong clock is quieter and worse: a real event filed
+    // in a month nobody looks at.
+    await load('track-events')(
+      post({
+        events: [
+          { ...EVENT, occurred_at: '0000-01-01T00:00:00.000Z' },
+          {
+            ...EVENT,
+            event_id: '00000000-0000-4000-8000-0000000000f4',
+            occurred_at: '1970-01-01T00:00:00.000Z',
+          },
+        ],
+      }),
+    );
+
+    const rows = called('record_events')[0]?.args['p_rows'] as { occurred_at: string }[];
+    expect(rows).toHaveLength(2);
+    for (const row of rows) {
+      expect(Date.parse(row.occurred_at)).toBeGreaterThan(Date.now() - 60_000);
+    }
+  });
+
+  it('keeps a clock that is merely a little off', async () => {
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+    await load('track-events')(post({ events: [{ ...EVENT, occurred_at: yesterday }] }));
+
+    const rows = called('record_events')[0]?.args['p_rows'] as { occurred_at: string }[];
+    expect(rows[0]?.occurred_at).toBe(yesterday);
+  });
+
+  it('charges the limit for every event, not once for the batch', async () => {
+    // A batch is up to fifty. Charging one token a request made "six hundred a
+    // minute" mean thirty thousand.
+    await load('track-events')(
+      post({
+        events: [EVENT, { ...EVENT, event_id: '00000000-0000-4000-8000-0000000000f5' }],
+      }),
+    );
+
+    for (const call of called('take_rate_token')) {
+      expect(call.args['p_cost']).toBe(2);
+    }
+  });
+
   it('counts the attempt against the connection as well as the caller', async () => {
     await load('track-events')(post({ events: [EVENT] }));
 

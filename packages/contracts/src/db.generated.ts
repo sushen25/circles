@@ -1225,6 +1225,7 @@ export type Database = {
       }
       take_rate_token: {
         Args: {
+          p_cost?: number
           p_key_hash: string
           p_limit: number
           p_scope: string

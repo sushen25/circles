@@ -1,71 +1,50 @@
-import { PREVIEW_KINDS, destinationFor, isPreviewAgent, previewCard } from '../../src/data/preview';
+import {
+  PREVIEW_KINDS,
+  destinationFor,
+  isPreviewAgent,
+  lookupCircleName,
+  originOf,
+  previewCard,
+} from '../../src/data/preview';
 
 /**
- * The one server route in the app (ADR 0001, architecture §9.4).
+ * The link-preview card, addressed directly (architecture §9.4, ADR 0001).
  *
- * Route only — the card, the escaping and the user-agent test are in
- * `src/data/preview.ts`, where they are tested. What is here is the fetch and
- * the two answers: a card for a chat app, a redirect for a person.
+ * `+middleware.ts` is what a chat app actually reaches, because the links
+ * people paste are `/join`, `/j/<code>` and `/p/<code>` and those are client
+ * pages. This route is the same card at an address of its own: somewhere to
+ * point a fetcher that cannot be intercepted, and the thing to curl when asking
+ * "what does the card say" without pretending to be WhatsApp.
  *
- * **The invite secret cannot reach this route.** `/join#<secret>` carries it in
- * the fragment, which a browser never sends to a server — so this could not
- * resolve a circle invite even if it wanted to, and `preview_for_code` refuses
- * that kind outright. What it can resolve is a plan short code, which carries
- * no secret and is in the path anyway.
+ * Route only — the card, the escaping, the user-agent test and the lookup are
+ * in `src/data/preview.ts`, where they are tested.
  */
-
-function origin(): string {
-  return process.env.EXPO_PUBLIC_APP_ORIGIN ?? '';
-}
-
-/**
- * The circle's name, or null for anything we will not or cannot resolve.
- *
- * PostgREST directly rather than through a client library: this runs on a
- * server with no session, and the one thing it does is call a function granted
- * to `anon`. Every failure is a generic card and never an error page — a group
- * chat should not learn that our database is having a bad morning.
- */
-async function circleName(kind: string, code: string): Promise<string | null> {
-  const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
-  const key = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
-  if (url === undefined || key === undefined || url === '' || key === '') return null;
-
-  try {
-    const response = await fetch(`${url}/rest/v1/rpc/preview_for_code`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', apikey: key, Authorization: `Bearer ${key}` },
-      body: JSON.stringify({ p_kind: kind, p_code: code }),
-    });
-    if (!response.ok) return null;
-    const name: unknown = await response.json();
-    return typeof name === 'string' && name.length > 0 ? name : null;
-  } catch {
-    return null;
-  }
-}
-
 export async function GET(request: Request, params: Record<string, string>): Promise<Response> {
+  const url = new URL(request.url);
+  const origin = originOf(url);
   const kind = params['kind'] ?? '';
-  const code = new URL(request.url).searchParams.get('c');
-  const target = destinationFor(origin(), kind, code);
+  const code = url.searchParams.get('c');
 
-  if (!PREVIEW_KINDS.has(kind)) return Response.redirect(`${origin()}/`, 302);
+  if (!PREVIEW_KINDS.has(kind)) return Response.redirect(`${origin}/`, 302);
+
+  const target = destinationFor(origin, kind, code);
 
   // A person wants the app, not a card — and the fragment survives a redirect,
   // because the browser reattaches it to the destination.
   if (!isPreviewAgent(request.headers.get('user-agent'))) return Response.redirect(target, 302);
 
-  const name = kind === 'join' || code === null ? null : await circleName(kind, code);
+  const name = await lookupCircleName(kind, code);
 
   return new Response(
-    previewCard({ circleName: name, target, imageUrl: `${origin()}/og-card.png` }),
+    previewCard({ circleName: name, target, imageUrl: `${origin}/og-card.png` }),
     {
       status: 200,
       headers: {
         'content-type': 'text/html; charset=utf-8',
         // Nothing about where the link was opened from travels onward.
         'referrer-policy': 'no-referrer',
+        // A shared cache must not hand a person the card instead of the app.
+        vary: 'User-Agent',
         'cache-control': 'public, max-age=300',
         'x-content-type-options': 'nosniff',
       },

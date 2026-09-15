@@ -38,12 +38,18 @@ const MAX_BUFFERED = 200;
  * ships on — and a random fallback for anywhere it does not, because an event
  * without an id would be dropped by the ingest and a missing measurement is a
  * worse failure than a slightly weaker id.
+ *
+ * The fallback fills the bytes itself when `getRandomValues` is missing too.
+ * Leaving them zero would have given every event on that device the same id,
+ * and `on conflict do nothing` would have collapsed a whole session to one row
+ * — the exact failure the id exists to prevent, arriving silently.
  */
 function newEventId(): string {
   const source = globalThis.crypto;
   if (typeof source?.randomUUID === 'function') return source.randomUUID();
   const bytes = new Uint8Array(16);
-  source?.getRandomValues?.(bytes);
+  if (typeof source?.getRandomValues === 'function') source.getRandomValues(bytes);
+  else for (let i = 0; i < bytes.length; i += 1) bytes[i] = Math.floor(Math.random() * 256);
   bytes[6] = (bytes[6]! & 0x0f) | 0x40;
   bytes[8] = (bytes[8]! & 0x3f) | 0x80;
   const hex = [...bytes].map((b) => b.toString(16).padStart(2, '0')).join('');

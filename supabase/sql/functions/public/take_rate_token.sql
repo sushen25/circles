@@ -21,7 +21,12 @@ create or replace function public.take_rate_token(
   p_scope text,
   p_key_hash bytea,
   p_limit integer,
-  p_window interval
+  p_window interval,
+  -- What this attempt costs. One for a request; more for a request that carries
+  -- many of whatever is being limited — a batch of fifty analytics events is
+  -- fifty events, and charging it as one made "six hundred a minute" mean
+  -- thirty thousand.
+  p_cost integer default 1
 )
 returns boolean
 language plpgsql
@@ -33,26 +38,26 @@ declare
   bucket_start timestamptz;
   taken integer;
 begin
-  if p_limit < 1 or seconds <= 0 then
-    raise exception 'take_rate_token needs a positive limit and window'
+  if p_limit < 1 or seconds <= 0 or p_cost < 1 then
+    raise exception 'take_rate_token needs a positive limit, window and cost'
       using errcode = 'invalid_parameter_value';
   end if;
 
   bucket_start := to_timestamp(floor(extract(epoch from clock_timestamp()) / seconds) * seconds);
 
   insert into jobs.rate_counters (scope, key_hash, window_start, count)
-  values (p_scope, p_key_hash, bucket_start, 1)
+  values (p_scope, p_key_hash, bucket_start, p_cost)
   on conflict (scope, key_hash, window_start)
-    do update set count = jobs.rate_counters.count + 1
+    do update set count = jobs.rate_counters.count + p_cost
   returning count into taken;
 
   return taken <= p_limit;
 end;
 $$;
 
-comment on function public.take_rate_token(text, bytea, integer, interval) is
-  'Counts one attempt in the current fixed window and says whether it is within the limit. Counts refusals too.';
+comment on function public.take_rate_token(text, bytea, integer, interval, integer) is
+  'Counts an attempt in the current fixed window and says whether it is within the limit — `p_cost` for a request that carries many of whatever is limited. Counts refusals too.';
 
-revoke all on function public.take_rate_token(text, bytea, integer, interval) from public;
-revoke all on function public.take_rate_token(text, bytea, integer, interval) from anon, authenticated;
-grant execute on function public.take_rate_token(text, bytea, integer, interval) to service_role;
+revoke all on function public.take_rate_token(text, bytea, integer, interval, integer) from public;
+revoke all on function public.take_rate_token(text, bytea, integer, interval, integer) from anon, authenticated;
+grant execute on function public.take_rate_token(text, bytea, integer, interval, integer) to service_role;

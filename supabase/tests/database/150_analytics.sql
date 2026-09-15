@@ -8,7 +8,7 @@
 -- readable by nobody who is not deliberately named in a table.
 
 begin;
-select plan(27);
+select plan(31);
 
 create or replace function pg_temp.make_user(id uuid, name text, permanent boolean default true)
 returns uuid language sql as $$
@@ -298,14 +298,40 @@ select is(
 -- ---------------------------------------------------------------------------
 -- The rest of the six, on the same scenario.
 -- ---------------------------------------------------------------------------
+-- A meetup reported at midnight on 1 February in Melbourne is a February
+-- meetup. `date_trunc` on a `timestamptz` runs in the database's zone, which is
+-- UTC, and would have filed it under January.
+select pg_temp.confirmed_plan('pnanbc', date '2026-01-20') as summer \gset
+insert into public.outcome_reports (confirmation_id, reported_by, outcome, reported_at)
+values (:'summer', '00000000-0000-0000-0000-00000000aa01', 'happened',
+        timestamptz '2026-01-31T13:00:00Z');
+
+select is(
+  (select array[
+     (select happened_reported from analytics.north_star_monthly where month = timestamp '2026-01-01'),
+     (select happened_reported from analytics.north_star_monthly where month = timestamp '2026-02-01')
+   ]),
+  array[0::bigint, 1::bigint],
+  'a meetup is counted in the month the circle was in, not the month UTC was in'
+);
+
+-- And the months in between are months, not gaps: a chart that skips a quiet
+-- month shows no dip, which is the one thing a north-star chart is for.
+select is(
+  (select array_agg(happened_reported order by month) from analytics.north_star_monthly
+   where month between timestamp '2026-04-01' and timestamp '2026-06-01'),
+  array[0::bigint, 0::bigint, 0::bigint],
+  'and the quiet months between are present and empty rather than missing'
+);
+
 select is(
   (select confirmations from analytics.funnel_by_circle where circle_id = pg_temp.circle()),
-  2::bigint,
+  3::bigint,
   'the funnel counts confirmations from the rows, not from events that an ad-blocker can eat'
 );
 select is(
   (select happened from analytics.funnel_by_circle where circle_id = pg_temp.circle()),
-  2::bigint,
+  3::bigint,
   'and the same for what happened'
 );
 
@@ -328,6 +354,27 @@ select is(
    where chased_answer = 'one' and month = date_trunc('month', timestamptz '2026-03-05T00:00:00Z')),
   1::bigint,
   'the chasing survey is counted by answer, because a chased reply looks like any other reply'
+);
+
+-- Backdated, so that "within seven days of being made" is a question about
+-- this circle rather than about a fixture that confirmed before it existed.
+update public.circles set created_at = timestamptz '2026-01-01T00:00:00Z'
+where id = pg_temp.circle();
+select is(
+  (select activated_within_7_days from analytics.funnel_by_circle
+   where circle_id = pg_temp.circle()),
+  false,
+  'a circle whose first meetup came nineteen days later did not activate in §11.2''s sense'
+);
+
+select pg_temp.act_as('00000000-0000-0000-0000-00000000aa04');
+select public.create_circle('Never Met', 'sky', 'Australia/Melbourne', 'key-never');
+select pg_temp.act_as_postgres();
+select is(
+  (select activated_within_7_days from analytics.funnel_by_circle f
+   join public.circles c on c.id = f.circle_id where c.creation_key = 'key-never'),
+  false,
+  'and a circle that has confirmed nothing reads false rather than null, so counting the failures finds them'
 );
 
 -- ---------------------------------------------------------------------------
@@ -357,9 +404,13 @@ select is(
   6,
   'somebody on the allowlist gets all six views in one answer'
 );
+-- The seed has a circle of its own that met this month, so this asks about the
+-- month the fixture built rather than about the whole table.
 select is(
-  (select public.founder_summary() -> 'north_star_monthly' -> 0 ->> 'happened_reported'),
-  '2',
+  (select array[e ->> 'happened_reported', e ->> 'happened_corroborated']
+   from jsonb_array_elements(public.founder_summary() -> 'north_star_monthly') e
+   where e ->> 'month' like '2026-03%'),
+  array['2', '1'],
   'and the numbers in it are the views'' own'
 );
 select is(

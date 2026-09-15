@@ -522,7 +522,7 @@ Clients read through `supabase-js` with RLS: circles I belong to, active members
 
 ### 9.4 The one server route in the app
 
-`apps/app/app/og/[kind]+api.ts` (web `server` output) answers link-preview fetchers for `/join`, `/j/:code`, `/p/:code` with an HTML shell carrying `og:title` (circle name only), `og:description`, `og:image` (static), and a client redirect. It reads nothing but the circle's name via a public, rate-limited definer function keyed by short code. It never receives the invite secret (fragment) and never emits member names, dates or quiet-ask state.
+`apps/app/app/og/[kind]+api.ts` (web `server` output) answers link-preview fetchers for `/join`, `/j/:code`, `/p/:code` with an HTML shell carrying `og:title` (circle name only), `og:description`, `og:image` (static), and a client redirect. It reads nothing but the circle's name via a public definer function keyed by short code — not rate-limited, because a definer function called as `anon` has no caller to count and the eight-character code space is the control ([ADR 0021](decisions/0021-the-link-preview-is-not-rate-limited.md)). It never receives the invite secret (fragment) and never emits member names, dates or quiet-ask state.
 
 ## 10. Identity, sessions and continuity
 

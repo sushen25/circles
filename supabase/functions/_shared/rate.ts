@@ -22,6 +22,12 @@ export interface Limit {
   key: string;
   max: number;
   window: string;
+  /**
+   * How much this attempt costs, when one request carries many of the thing
+   * being limited. A batch of fifty analytics events is fifty events; charging
+   * it as one turns "six hundred a minute" into thirty thousand.
+   */
+  cost?: number;
 }
 
 export async function within(db: Db, limit: Limit): Promise<boolean> {
@@ -30,6 +36,7 @@ export async function within(db: Db, limit: Limit): Promise<boolean> {
     p_key_hash: await sha256Hex(limit.key),
     p_limit: limit.max,
     p_window: limit.window,
+    p_cost: limit.cost ?? 1,
   });
   if (error !== null) throw error;
   return data === true;
@@ -52,10 +59,21 @@ export async function enforce(db: Db, limits: readonly Limit[]): Promise<void> {
 
 /**
  * The caller's address, as the edge saw it. Only ever used as a hash input.
- * `x-forwarded-for` is a list; the first entry is the client.
+ *
+ * `cf-connecting-ip` first, because the proxy in front of us writes it and a
+ * client cannot. `x-forwarded-for` is a *list* a client can start: whatever it
+ * sends arrives as the first entry, with the observed address appended after
+ * it — so reading the first entry reads a value the caller chose, which is a
+ * per-address limit anybody can step around by varying a header. The last entry
+ * is the one our own proxy added.
  */
 export function callerAddress(request: Request): string {
-  const forwarded = request.headers.get('x-forwarded-for');
-  const first = forwarded?.split(',')[0]?.trim();
-  return first !== undefined && first !== '' ? first : 'unknown';
+  const direct = request.headers.get('cf-connecting-ip')?.trim();
+  if (direct !== undefined && direct !== '') return direct;
+
+  const hops = (request.headers.get('x-forwarded-for') ?? '')
+    .split(',')
+    .map((hop) => hop.trim())
+    .filter((hop) => hop !== '');
+  return hops.at(-1) ?? 'unknown';
 }
