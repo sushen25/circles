@@ -54,12 +54,12 @@ Reference for anything that needs explaining: [`environments.md`](./environments
 > Free projects pause after 7 days of no API requests. If `dev` looks broken
 > after a quiet week, un-pause it before debugging anything else.
 
-> **`circles-prod` is paused right now** — `list_projects` reports it `INACTIVE`,
-> which is what a project created on 7 September and never called since looks
-> like. Nothing is wrong with it, but it has to be resumed from the dashboard
-> before any of steps 8 and 9 can be applied to it: a paused project answers no
-> API call, so configuring a provider or setting a secret on it fails in a way
-> that reads like a credentials problem.
+> **`circles-prod` was paused, and was resumed on 15 September 2026** to be
+> deployed to. It is healthy now. The episode is left here because it will
+> happen again after any quiet week and it does not look like what it is: a
+> paused project answers no API call, so configuring a provider or setting a
+> secret on it fails in a way that reads like a credentials problem. Check
+> `list_projects` for `INACTIVE` before debugging anything else.
 
 ## 2. Domain — free, and deferred
 
@@ -378,9 +378,18 @@ in the URL fragment, and a leaked referrer is how they escape (§14).
 
 ## 6. Resend
 
-**Deferred** (SUS-71, founder decision 8 Sep 2026). No environment sends real
-email; testing happens locally against Mailpit — see
-[`environments.md`](./environments.md). Due before S1-19.
+**Product email is deferred**, not all email. The Resend sending domain is
+verified and its API key is on `circles-prod`, but nothing uses either until
+S1-19 brings the templates and the sending code; the webhook below waits on the
+same ticket. Testing happens locally against Mailpit — see
+[`environments.md`](./environments.md).
+
+**Supabase Auth already sends, and it is not Resend.** Sign-in codes come from
+the hosted project itself, and with email OTP enabled and `disable_signup`
+false anyone holding the publishable key can make `circles-prod` send a real
+stock magic-link email — a template the product does not implement — against a
+small shared Free-plan quota. See `environments.md`; the lever is
+`disable_signup`.
 
 - [x] API Keys → create one, **sending permission only**, named `circles-prod`.
       Set on `circles-prod` as `RESEND_API_KEY`. Not on `circles-dev`, and that
@@ -493,31 +502,20 @@ the only parts that need this step.
 
 ## 9. Secrets onto the projects
 
-Never into the repository, never into `.env`. For each project:
+Never into the repository, never into `.env`. **The two projects take different
+sets**, so there is deliberately no single command for both — one would be wrong
+in whichever direction it was written.
 
-```bash
-supabase secrets set --project-ref <ref> \
-  RESEND_API_KEY=... \
-  RESEND_WEBHOOK_SECRET=... \
-  TURNSTILE_SECRET_KEY=... \
-  APPLE_TEAM_ID=... APPLE_KEY_ID=... APPLE_SERVICES_ID=... \
-  GOOGLE_CLIENT_ID=... GOOGLE_CLIENT_SECRET=...
-```
+**`TURNSTILE_SECRET_KEY` is the trap.** Step 7 puts the dummy *site* key at
+repository scope, so `dev` and every per-PR preview send a dummy token — and a
+real secret rejects a dummy token, the same property that makes a half-swapped
+pair fail closed. Copy the real secret to `dev` and every web join there fails
+verification, in the environment whose whole job is to catch that before
+production does.
 
-**`TURNSTILE_SECRET_KEY` is the one value that differs between the two
-projects, and copying the real one to both breaks `dev`.** Step 7 puts the
-dummy *site* key at repository scope, so `dev` and every per-PR preview send a
-dummy token — and a real secret rejects a dummy token, which is the same
-property that makes a half-swapped pair fail closed. The result would be that
-every web join against `dev` fails Turnstile verification, in an environment
-whose whole job is to find that out before production does. So:
-
-| Project | `TURNSTILE_SECRET_KEY` |
-|---|---|
-| `circles-dev` (`pcfekupwqrdfryeaqggx`) | `1x0000000000000000000000000000000AA` — the always-passes dummy, matching the dummy site key at repository scope |
-| `circles-prod` (`bhunoaqswteamabbyckp`) | the real secret from step 7 |
-
-Every other secret in the block is the same on both.
+**`RESEND_*` is the other one**, in the opposite direction: `dev` must not have
+a sending key at all, because `dev` does not send and email is tested against
+Mailpit.
 
 The Apple private key is a file, so it goes as its contents:
 
@@ -548,8 +546,9 @@ supabase secrets set --project-ref pcfekupwqrdfryeaqggx \
 
 `APPLE_*` and `GOOGLE_*` go on both, and on neither yet — S1-14b.
 
-**Where this stands, 15 September 2026.** Everything but Apple and Google is set;
-those wait on S1-14b, which is why this step cannot be ticked whole:
+**Where this stands, 15 September 2026.** Apple, Google and the Resend webhook
+secret are unset — S1-14b and S1-19 respectively — which is why this step cannot
+be ticked whole. Everything else is in place:
 
 | Secret | `circles-dev` | `circles-prod` |
 |---|---|---|

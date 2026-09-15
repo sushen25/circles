@@ -248,15 +248,21 @@ no backend, and a guard there would turn every PR red for a variable the PR did
 not change. An `expo export` with no Supabase URL builds and deploys
 perfectly happily, and every request fails in the browser.
 
-**Secret — set with `supabase secrets set`, on both projects:**
+**Secret — set with `supabase secrets set`. Not the same set on both projects**,
+which is the part that gets got wrong in both directions:
 
-| Name | From |
-|---|---|
-| `RESEND_API_KEY` | Resend → API Keys |
-| `RESEND_WEBHOOK_SECRET` | Resend → Webhooks, on the endpoint |
-| `TURNSTILE_SECRET_KEY` | Cloudflare → Turnstile, pairs with the site key. **The name matters:** `_shared/turnstile.ts` reads exactly this, and skips the check when it is unset rather than failing — so a secret stored under any other name leaves web joins unverified and looks configured |
-| `APPLE_TEAM_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY`, `APPLE_SERVICES_ID` | Apple Developer |
-| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google Cloud → Credentials |
+| Name | From | `dev` | `prod` |
+|---|---|---|---|
+| `CRON_SECRET` | **nobody — you invent it.** Its only job is that `jobs.invoke_process_scheduled_jobs()` and `_shared/internal.ts` agree on it. It cannot be read back, and S1-20 needs the same string for `circles.cron_secret` | own value | own value |
+| `TURNSTILE_SECRET_KEY` | Cloudflare → Turnstile, pairs with the site key. **The name matters:** `_shared/turnstile.ts` reads exactly this, and skips the check when it is unset rather than failing — so a secret stored under any other name leaves web joins unverified and looks configured | the **dummy** `1x0000000000000000000000000000000AA`, pairing with the dummy site key at repository scope | the real one |
+| `RESEND_API_KEY` | Resend → API Keys | **never** — `dev` does not send | yes |
+| `RESEND_WEBHOOK_SECRET` | Resend → Webhooks, on the endpoint | never | S1-19 |
+| `APPLE_TEAM_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY`, `APPLE_SERVICES_ID` | Apple Developer | S1-14b | S1-14b |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google Cloud → Credentials | S1-14b | S1-14b |
+
+A real Turnstile secret on `dev` fails every web join there; a Resend key on
+`dev` gives an environment that is not supposed to send the means to. Both look
+configured.
 
 The service-role key is never set by hand: Supabase injects it into functions.
 It must not appear in the client or the repository (§14). gitleaks runs on every
