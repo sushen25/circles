@@ -18,3 +18,10 @@ packages/contracts/src/db.generated.ts
 
 # written into the workspace by the gitleaks step in CI
 *.sarif
+
+# written by the Supabase CLI whenever it links a project — `supabase link`,
+# and `secrets list`/`db push` against a `--project-ref`. `supabase/.gitignore`
+# already keeps it out of git, so without this line `pnpm check` fails on a
+# file nobody is allowed to commit, and `prettier --write` reformats something
+# the CLI rewrites on its next run.
+supabase/.temp/

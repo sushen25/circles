@@ -22,12 +22,12 @@ Values, never — this file is in the repository.
 Project refs are not secret — they are the subdomain of a public API URL. Keys
 are, and none are in this file.
 
-Both hosted projects exist, with anonymous sign-ins and the email provider
-enabled and Apple/Google not yet configured. `dev` is healthy; **`prod` is
-paused** — it was created on 7 September and has never been called, which is
-exactly the seven-day inactivity rule below doing what it says. Resume it from
-the dashboard before configuring anything on it, or the configuration call
-fails in a way that reads like a credentials problem.
+Both hosted projects exist and are healthy, with anonymous sign-ins and the
+email provider enabled and Apple/Google not yet configured. `prod` was paused
+once, on the seven-day inactivity rule below, and was resumed on 15 September
+to be deployed to. Expect it again after any quiet week: a paused project
+answers no API call, so configuring one fails in a way that reads like a
+credentials problem.
 
 Provider state is readable from outside at any time, which is the quickest way
 to tell a misconfigured project from a broken deploy:
@@ -46,8 +46,45 @@ applied, Edge Functions deployed and answering, the web build serving on
 which closes the question ADR 0007 left open: the shared domain package really
 does load and run inside Deno, not only in the client and the test suites.
 
-`prod` is not deployed. Everything else in
-[`environment-setup.md`](./environment-setup.md) is deferred to SUS-71.
+**`prod` is deployed** as of 15 September 2026: migrations `0001`–`0015`, all
+Edge Functions, and the web build on `meet.sushensatturu.com` with a Google
+Trust Services certificate. `pnpm check:env meet.sushensatturu.com` passes
+seven of seven.
+
+That is a deployed environment, **not a released product.** The client is still
+fixture-driven — `/join` renders a fixture and never reads the invite secret
+out of the fragment, nothing calls `redeem-invite`, `create-circle` or
+`create-plan`, and `src/data/session.ts` holds a null token until S1-14 sets
+one. So production serves a screen gallery in front of a complete backend.
+
+**That is a statement about the client, not about the system — and the
+difference matters.** The backend is live and publicly reachable. The bundle
+served from `meet.sushensatturu.com` necessarily carries
+`EXPO_PUBLIC_SUPABASE_URL` and the publishable key, email OTP is enabled, and
+`disable_signup` is `false`. So anybody can sign up with any address, become a
+permanent identity, and call `create-circle` directly: its guard refuses only
+anonymous callers, and it answers with an `invite_secret`. From there
+`redeem-invite` accepts an anonymous caller with that secret. Nothing about a
+fixture-driven UI prevents any of it; rate limits (10 circles per user per
+hour, 20 per IP) are the only brake.
+
+What is true is narrower: **no invite link has been shipped**, and none can
+reach anyone through the product, so §5.2's boundary — which is about links
+arriving in somebody's chat — has not been crossed by deploying. The honest
+summary is that production is an open backend with no front door advertised,
+not a closed system.
+
+The lever, if that is not wanted before S1-32, is `disable_signup` on
+`circles-prod`: with signups off nobody new can reach a permanent identity, and
+`create-circle` becomes unreachable from outside. It is a dashboard toggle and
+it is reversible. It has deliberately **not** been set, so that it stays a
+decision somebody made rather than a default nobody noticed.
+
+Two settings are deliberately unset on `circles-prod`: `circles.functions_url`
+and `circles.cron_secret`. Their only reader posts to `process-scheduled-jobs`,
+which does not exist until S1-20, so setting them early would turn a clean
+no-op into a POST to a 404 every minute. `cron.job_run_details` shows the
+`process-jobs` job succeeding and returning null, which is the no-op working.
 
 > **The two projects are in different regions.** A region cannot be changed
 > after creation; moving means a new project and a new ref. That makes `dev` a
@@ -71,7 +108,7 @@ may assume them.
 | | Host today | Host eventually |
 |---|---|---|
 | `dev` | `sushen25s-team-circles--dev.expo.app` | unchanged — see below |
-| `prod` | none — not deployed | `meet.sushensatturu.com` |
+| `prod` | `meet.sushensatturu.com` | unchanged |
 
 **EAS Hosting allows one custom domain per project**, assigned to the
 production deployment, so the two environments cannot both have one. `meet`
@@ -116,9 +153,29 @@ user-visible points at it, and it arrives through `EXPO_PUBLIC_APP_ORIGIN`.
 
 Links are **never** shipped on `*.expo.app`.
 
-**No environment sends real email yet**, by decision — Resend is deferred, so
-neither `dev` nor `prod` has a sending domain and
-`pnpm check:env <host> --no-email` is the right invocation for both.
+**`prod` has an authenticated sending domain**, `mail.meet.sushensatturu.com`,
+verified in Resend on 15 September — so `pnpm check:env meet.sushensatturu.com`
+runs the email checks and passes them. `dev` has none and never will: it does
+not send, and `--no-email` is the right invocation there.
+
+Nothing sends *product* email yet — the templates and the sending code arrive
+with S1-19, so nothing has used that domain.
+
+**Supabase Auth is a different sender, and it is already live.** Sign-in codes
+do not go through Resend; the hosted project sends them itself. With email OTP
+enabled, `disable_signup` false and the publishable key readable in the bundle,
+anyone can POST to `/auth/v1/otp` and make `circles-prod` send a real email to
+a real address. Two things follow, and neither is hypothetical:
+
+- What it sends is Supabase's **stock magic-link** template, not the six-digit
+  code the product implements — so the first email production ever sends is one
+  the app cannot handle. `supabase/templates/magic-link.html` overrides this
+  locally and the hosted dashboards are untouched.
+- It is rate-limited hard on the Free plan and the quota is shared, so it is
+  also a way for someone else to exhaust it.
+
+Fix the hosted templates when S1-19 lands, or turn `disable_signup` on until
+then; see the deployment note above for the same lever.
 
 Email is tested **locally** instead. `pnpm db:start` runs Mailpit next to
 Postgres and Auth; everything the stack sends is captured at
@@ -191,15 +248,21 @@ no backend, and a guard there would turn every PR red for a variable the PR did
 not change. An `expo export` with no Supabase URL builds and deploys
 perfectly happily, and every request fails in the browser.
 
-**Secret — set with `supabase secrets set`, on both projects:**
+**Secret — set with `supabase secrets set`. Not the same set on both projects**,
+which is the part that gets got wrong in both directions:
 
-| Name | From |
-|---|---|
-| `RESEND_API_KEY` | Resend → API Keys |
-| `RESEND_WEBHOOK_SECRET` | Resend → Webhooks, on the endpoint |
-| `TURNSTILE_SECRET_KEY` | Cloudflare → Turnstile, pairs with the site key. **The name matters:** `_shared/turnstile.ts` reads exactly this, and skips the check when it is unset rather than failing — so a secret stored under any other name leaves web joins unverified and looks configured |
-| `APPLE_TEAM_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY`, `APPLE_SERVICES_ID` | Apple Developer |
-| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google Cloud → Credentials |
+| Name | From | `dev` | `prod` |
+|---|---|---|---|
+| `CRON_SECRET` | **nobody — you invent it.** Its only job is that `jobs.invoke_process_scheduled_jobs()` and `_shared/internal.ts` agree on it. It cannot be read back, and S1-20 needs the same string for `circles.cron_secret` | own value | own value |
+| `TURNSTILE_SECRET_KEY` | Cloudflare → Turnstile, pairs with the site key. **The name matters:** `_shared/turnstile.ts` reads exactly this, and skips the check when it is unset rather than failing — so a secret stored under any other name leaves web joins unverified and looks configured | the **dummy** `1x0000000000000000000000000000000AA`, pairing with the dummy site key at repository scope | the real one |
+| `RESEND_API_KEY` | Resend → API Keys | **never** — `dev` does not send | yes |
+| `RESEND_WEBHOOK_SECRET` | Resend → Webhooks, on the endpoint | never | S1-19 |
+| `APPLE_TEAM_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY`, `APPLE_SERVICES_ID` | Apple Developer | S1-14b | S1-14b |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google Cloud → Credentials | S1-14b | S1-14b |
+
+A real Turnstile secret on `dev` fails every web join there; a Resend key on
+`dev` gives an environment that is not supposed to send the means to. Both look
+configured.
 
 The service-role key is never set by hand: Supabase injects it into functions.
 It must not appear in the client or the repository (§14). gitleaks runs on every

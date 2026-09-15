@@ -54,12 +54,12 @@ Reference for anything that needs explaining: [`environments.md`](./environments
 > Free projects pause after 7 days of no API requests. If `dev` looks broken
 > after a quiet week, un-pause it before debugging anything else.
 
-> **`circles-prod` is paused right now** — `list_projects` reports it `INACTIVE`,
-> which is what a project created on 7 September and never called since looks
-> like. Nothing is wrong with it, but it has to be resumed from the dashboard
-> before any of steps 8 and 9 can be applied to it: a paused project answers no
-> API call, so configuring a provider or setting a secret on it fails in a way
-> that reads like a credentials problem.
+> **`circles-prod` was paused, and was resumed on 15 September 2026** to be
+> deployed to. It is healthy now. The episode is left here because it will
+> happen again after any quiet week and it does not look like what it is: a
+> paused project answers no API call, so configuring a provider or setting a
+> secret on it fails in a way that reads like a credentials problem. Check
+> `list_projects` for `INACTIVE` before debugging anything else.
 
 ## 2. Domain — free, and deferred
 
@@ -94,8 +94,11 @@ recalled.
 production deployment. This checklist used to ask for two; that was never
 possible. Founder decision, 15 September 2026:
 
-- [ ] `meet.sushensatturu.com` — the `prod` app host, and **the one that takes
-      the slot**. `meet`, not the codename: links already in a group chat keep
+- [x] `meet.sushensatturu.com` — the `prod` app host, and **the one that takes
+      the slot**. **Attached and Active, 15 September 2026.** All three records
+      written to Route 53 (`Z02124241V4I670RZ3CSK`) and confirmed resolving
+      through both `1.1.1.1` and `8.8.8.8`; certificate issued by Google Trust
+      Services, valid to 14 December 2026. `meet`, not the codename: links already in a group chat keep
       working and keep saying whatever they said, so the one string you cannot
       take back should describe the job rather than the name (§5.4).
 - [x] `dev.sushensatturu.com` — **not created.** `dev` stays on
@@ -106,8 +109,8 @@ possible. Founder decision, 15 September 2026:
       for one, and an environment nobody outside sees is a poor place to find
       out. Google's web OAuth client lists both origins instead — the
       `expo.app` host and `meet` — which costs one line and no uncertainty.
-- [ ] `mail.meet.sushensatturu.com` — the sending domain. **Production only**;
-      `dev` does not send. Comes with Resend, step 6, in this same DNS session.
+- [x] `mail.meet.sushensatturu.com` — the sending domain. **Production only**;
+      `dev` does not send. Done with Resend, step 6, in the same DNS session.
 
 The records come from EAS and from Resend, and guessing them means deleting
 them later. Attaching the domain is **dashboard-only** — `eas-cli` 23.2.0 has
@@ -250,10 +253,11 @@ In the repository settings, **Secrets and variables → Actions**:
       `EXPO_PUBLIC_TURNSTILE_SITE_KEY` (the real key),
       `EXPO_PUBLIC_APP_ORIGIN` = `https://meet.sushensatturu.com`, and
       `EXPO_PUBLIC_SUPABASE_URL` = `https://bhunoaqswteamabbyckp.supabase.co`.
-- [ ] `EXPO_PUBLIC_SUPABASE_ANON_KEY` on `production` — **still missing**. It is
-      `circles-prod` → Settings → API. Public, like the `dev` one already in the
+- [x] `EXPO_PUBLIC_SUPABASE_ANON_KEY` on `production` — set 15 September 2026 to
+      the **publishable** key (`sb_publishable_…`), matching the form `dev`
+      uses rather than the legacy `anon` JWT. Public, like the `dev` one in the
       repository variables. A production deploy fails the client-config check
-      without it.
+      without it, which is what it was doing.
 - [ ] Environments → `production` → add yourself as a **required reviewer**, so a
       production deploy pauses for a human.
       **Blocked, not forgotten:** environment protection rules on a *private*
@@ -342,9 +346,10 @@ In the repository settings, **Secrets and variables → Actions**:
       authorisation so reports actually arrive) or no `rua` at all. Nothing
       sends until S1-19, so there is nothing to report on yet; wire a service
       then, as a one-record edit.
-- [ ] Wait for Resend to show the domain **verified** (minutes to hours). The
+- [x] Wait for Resend to show the domain **verified** (minutes to hours). The
       records are live; this is Resend's own check catching up.
-- [ ] Verify from the outside:
+- [x] Verify from the outside — **seven of seven, 15 September 2026**, the first
+      time this has passed:
 
 ```bash
 pnpm check:env meet.sushensatturu.com
@@ -356,12 +361,14 @@ host, then SPF, DKIM, bounce MX and DMARC on the sending domain. The last three
 app checks only run if the first one connects, so a host that does not resolve
 reports one failure rather than three.
 
-As of 15 September 2026 `meet` reports **four of five**: all four email checks
-pass, and `HTTPS serves the app` fails with `fetch failed` because `meet` has
-no record at all until the domain is attached — which needs a production
-deploy (step 2). That failure is the honest state of things, not a
-misconfiguration, and it is the last thing standing between this file and a
-green run.
+As of 15 September 2026 `meet` reports **seven of seven**. It reported four of
+five earlier the same day — the four email checks passing and `HTTPS serves the
+app` failing with `fetch failed`, because `meet` had no record at all until the
+domain was attached, which needed a production deploy. Both numbers are worth
+keeping in mind when a future run comes back short: a host that does not
+resolve reports *one* failure rather than three, because the HSTS and
+`Referrer-Policy` rows only run if the fetch connects. Five checks reported
+instead of seven means the domain is gone, not that two checks passed.
 
 The second command names the `expo.app` host because `dev.sushensatturu.com` is
 never created (step 2).
@@ -371,11 +378,22 @@ in the URL fragment, and a leaked referrer is how they escape (§14).
 
 ## 6. Resend
 
-**Deferred** (SUS-71, founder decision 8 Sep 2026). No environment sends real
-email; testing happens locally against Mailpit — see
-[`environments.md`](./environments.md). Due before S1-19.
+**Product email is deferred**, not all email. The Resend sending domain is
+verified and its API key is on `circles-prod`, but nothing uses either until
+S1-19 brings the templates and the sending code; the webhook below waits on the
+same ticket. Testing happens locally against Mailpit — see
+[`environments.md`](./environments.md).
 
-- [ ] API Keys → create one, **sending permission only**, named `circles-prod`.
+**Supabase Auth already sends, and it is not Resend.** Sign-in codes come from
+the hosted project itself, and with email OTP enabled and `disable_signup`
+false anyone holding the publishable key can make `circles-prod` send a real
+stock magic-link email — a template the product does not implement — against a
+small shared Free-plan quota. See `environments.md`; the lever is
+`disable_signup`.
+
+- [x] API Keys → create one, **sending permission only**, named `circles-prod`.
+      Set on `circles-prod` as `RESEND_API_KEY`. Not on `circles-dev`, and that
+      is correct: `dev` does not send, and email is tested against Mailpit.
 - [ ] Webhooks → add an endpoint. The URL is the `email-provider-webhook`
       function, which **does not exist until S1-19** — either come back for this
       one, or create it now against the expected URL and expect failures until
@@ -484,31 +502,20 @@ the only parts that need this step.
 
 ## 9. Secrets onto the projects
 
-Never into the repository, never into `.env`. For each project:
+Never into the repository, never into `.env`. **The two projects take different
+sets**, so there is deliberately no single command for both — one would be wrong
+in whichever direction it was written.
 
-```bash
-supabase secrets set --project-ref <ref> \
-  RESEND_API_KEY=... \
-  RESEND_WEBHOOK_SECRET=... \
-  TURNSTILE_SECRET_KEY=... \
-  APPLE_TEAM_ID=... APPLE_KEY_ID=... APPLE_SERVICES_ID=... \
-  GOOGLE_CLIENT_ID=... GOOGLE_CLIENT_SECRET=...
-```
+**`TURNSTILE_SECRET_KEY` is the trap.** Step 7 puts the dummy *site* key at
+repository scope, so `dev` and every per-PR preview send a dummy token — and a
+real secret rejects a dummy token, the same property that makes a half-swapped
+pair fail closed. Copy the real secret to `dev` and every web join there fails
+verification, in the environment whose whole job is to catch that before
+production does.
 
-**`TURNSTILE_SECRET_KEY` is the one value that differs between the two
-projects, and copying the real one to both breaks `dev`.** Step 7 puts the
-dummy *site* key at repository scope, so `dev` and every per-PR preview send a
-dummy token — and a real secret rejects a dummy token, which is the same
-property that makes a half-swapped pair fail closed. The result would be that
-every web join against `dev` fails Turnstile verification, in an environment
-whose whole job is to find that out before production does. So:
-
-| Project | `TURNSTILE_SECRET_KEY` |
-|---|---|
-| `circles-dev` (`pcfekupwqrdfryeaqggx`) | `1x0000000000000000000000000000000AA` — the always-passes dummy, matching the dummy site key at repository scope |
-| `circles-prod` (`bhunoaqswteamabbyckp`) | the real secret from step 7 |
-
-Every other secret in the block is the same on both.
+**`RESEND_*` is the other one**, in the opposite direction: `dev` must not have
+a sending key at all, because `dev` does not send and email is tested against
+Mailpit.
 
 The Apple private key is a file, so it goes as its contents:
 
@@ -516,12 +523,64 @@ The Apple private key is a file, so it goes as its contents:
 supabase secrets set --project-ref <ref> APPLE_PRIVATE_KEY="$(cat AuthKey_XXXX.p8)"
 ```
 
-- [ ] Set on `circles-dev` (`pcfekupwqrdfryeaqggx`).
-- [ ] Set on `circles-prod` (`bhunoaqswteamabbyckp`).
-- [ ] `supabase secrets list --project-ref <ref>` on both — it prints names and
-      digests, never values. Confirm the names match
+**The two projects do not take the same set**, so one command for both is wrong
+in whichever direction you write it — it either gives `dev` a sending key it
+must not have, or leaves out `CRON_SECRET` and the internal functions refuse
+every call. Per project, matching the table below:
+
+```bash
+# circles-prod — the real Turnstile secret, and the only project that sends
+supabase secrets set --project-ref bhunoaqswteamabbyckp \
+  CRON_SECRET=... \
+  TURNSTILE_SECRET_KEY=... \
+  RESEND_API_KEY=... \
+  RESEND_WEBHOOK_SECRET=...        # S1-19; the endpoint does not exist yet
+```
+
+```bash
+# circles-dev — the dummy Turnstile secret, and no Resend at all
+supabase secrets set --project-ref pcfekupwqrdfryeaqggx \
+  CRON_SECRET=... \
+  TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA
+```
+
+`APPLE_*` and `GOOGLE_*` go on both, and on neither yet — S1-14b.
+
+**Where this stands, 15 September 2026.** Apple, Google and the Resend webhook
+secret are unset — S1-14b and S1-19 respectively — which is why this step cannot
+be ticked whole. Everything else is in place:
+
+| Secret | `circles-dev` | `circles-prod` |
+|---|---|---|
+| `CRON_SECRET` | set | set |
+| `TURNSTILE_SECRET_KEY` | the dummy, **verified** | the real one |
+| `RESEND_API_KEY` | — by design, `dev` does not send | set |
+| `RESEND_WEBHOOK_SECRET` | — | S1-19, the endpoint does not exist yet |
+| `APPLE_*`, `GOOGLE_*` | — | — S1-14b |
+
+`CRON_SECRET` is the odd one out: **no vendor issues it.** It is a value you
+invent, and its only job is that the database and the Edge Function agree on
+it — `jobs.invoke_process_scheduled_jobs()` sends it as a bearer, and
+`_shared/internal.ts` compares what arrives. Generate it with a password
+manager rather than by hand, because it cannot be read back afterwards and
+S1-20 needs the same string again for `circles.cron_secret`.
+
+> **You can prove a secret is the value you meant, without reading it.** The
+> `value` field `supabase secrets list` returns is a plain SHA-256 of the
+> secret — verified against a secret whose value is known, `SUPABASE_URL`.
+> So for a value that is *already public*, hashing the candidate and comparing
+> settles it. That is how `circles-dev`'s `TURNSTILE_SECRET_KEY` was confirmed
+> to be Cloudflare's always-passes dummy rather than the real secret — the
+> exact confusion this runbook used to invite, and the one thing that would
+> have failed every web join on `dev`. It works only because the candidate is
+> public knowledge; it says nothing about a secret you do not already have.
+
+- [x] Set on `circles-dev` (`pcfekupwqrdfryeaqggx`). Apple and Google pending.
+- [x] Set on `circles-prod` (`bhunoaqswteamabbyckp`). Apple and Google pending.
+- [x] `supabase secrets list --project-ref <ref>` on both — it prints names and
+      digests, never values. Names confirmed against
       [`environments.md`](./environments.md).
-- [ ] Delete the `.p8` from Downloads.
+- [ ] Delete the `.p8` from Downloads. Nothing to delete yet — S1-14b.
 
 ## 10. Confirm the whole thing
 
