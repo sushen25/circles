@@ -233,7 +233,14 @@ max_frequency = "1s"
 # Number of characters used in the email OTP.
 otp_length = 6
 # Number of seconds before the email OTP expires (defaults to 1 hour).
-otp_expiry = 3600
+#
+# Ten minutes, because spec §5.1 says ten minutes: "address → six-digit code
+# (10-minute validity)". The default hour is not a small difference — a
+# six-digit code is a million guesses, and the window is the whole rate budget
+# an attacker gets against one address. The hosted projects still carry the
+# default and are a dashboard edit, not this file (S1-19 owns that visit,
+# alongside the templates that still send a magic link).
+otp_expiry = 600
 
 # Sign-in is a six-digit code, not a magic link (§10). The stock template sends
 # {{ .ConfirmationURL }}, so without this the local stack tests a flow the app
