@@ -15,11 +15,14 @@
 -- because they move themselves — both reference `circle_members` with
 -- `on update cascade`, which 0006 and 0007 put there for this moment.
 --
--- `analytics.events` is also deliberately absent, and it is the one table here
--- that *should* be: an event is a record of something that happened to an
--- identity at a time, and rewriting it would be rewriting history rather than
--- following a person. It has no foreign key to `auth.users`, so nothing
--- cascades it away either.
+-- `analytics.events` **is** here, and it took a review round to see why. It has
+-- no foreign key to `auth.users` — an event outlives the row it was about — so
+-- it is invisible to the guard in `095_identity_merge.sql` that catches a table
+-- this function forgot. The argument for leaving it alone was that an event
+-- records what happened to an identity at a time; the argument that wins is
+-- that `plan_timings` joins a member's link-open to their answer on `user_id`,
+-- and leaving the event behind broke that join for everybody who came back on a
+-- new device — measuring §11.4's gate over exactly the people who did not.
 -- ---------------------------------------------------------------------------
 
 create or replace function private.move_membership(

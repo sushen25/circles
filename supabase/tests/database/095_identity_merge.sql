@@ -7,7 +7,7 @@
 -- membership can never be moved onto somebody with a saved place.
 
 begin;
-select plan(147);
+select plan(148);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid
@@ -841,6 +841,12 @@ insert into public.nudge_states (user_id, moment, plan_id)
 values ('95000000-0000-0000-0000-00000000c101', 'after_answer', pg_temp.plan_id());
 insert into public.attendance (confirmation_id, user_id, status)
 values (pg_temp.confirmation_id(), '95000000-0000-0000-0000-00000000c101', 'going');
+-- And the measurement of the answer they gave. `analytics.events` has no
+-- foreign key to `auth.users`, so the guard below cannot see it and it has to
+-- be asserted by hand.
+insert into analytics.events (event_id, event_name, schema_version, user_id, plan_id, properties)
+values (gen_random_uuid(), 'availability_started', 1,
+        '95000000-0000-0000-0000-00000000c101', pg_temp.plan_id(), '{}'::jsonb);
 
 create temporary table twice_claim as
 select * from public.claim_identity('95000000-0000-0000-0000-00000000c102',
@@ -872,6 +878,15 @@ select is(
      and r.user_id = '95000000-0000-0000-0000-00000000c102'),
   1,
   'and the answer only the duplicate had given is the survivor''s now'
+);
+
+select is(
+  (select count(*)::integer from analytics.events e
+   where e.plan_id = pg_temp.plan_id()
+     and e.user_id = '95000000-0000-0000-0000-00000000c102'
+     and e.event_name = 'availability_started'),
+  1,
+  'and so is the record of them answering: `plan_timings` matches an open to an answer by user, and a measurement left on the retired identity is a member who drops out of the gate'
 );
 
 -- Round 6: and everything else the duplicate alone had. An answer whose owner is
