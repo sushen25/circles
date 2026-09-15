@@ -295,7 +295,13 @@ select planning.transition_plan('00000000-0000-4000-8000-000000000b02', 'confirm
 -- window, and both move together).
 update public.plans
 set window_start = window_start - 35, window_end = window_end - 35,
-    response_deadline = response_deadline - interval '35 days'
+    response_deadline = response_deadline - interval '35 days',
+    -- The plan was *made* five weeks ago too. Left at `now()`, the meetup
+    -- happened five weeks before the plan that arranged it — which cannot
+    -- happen in the product and made two analytics views disagree about the
+    -- one meetup in the seed: `funnel_by_circle` counted it, and
+    -- `north_star_monthly` filed it under a month its series never reached.
+    created_at = created_at - interval '35 days'
 where id = '00000000-0000-4000-8000-000000000b02';
 update public.willing_windows w
 set starts_at = w.starts_at - interval '35 days', ends_at = w.ends_at - interval '35 days'
@@ -306,8 +312,18 @@ set starts_at = starts_at - interval '35 days', ends_at = ends_at - interval '35
 where candidate_set_id = '00000000-0000-4000-8000-000000000c02';
 update public.meetup_confirmations
 set starts_at = starts_at - interval '35 days', ends_at = ends_at - interval '35 days',
-    candidate_id = (starts_at - interval '35 days')::text
+    candidate_id = (starts_at - interval '35 days')::text,
+    -- And it was decided before it happened, which is the order these things
+    -- occur in.
+    confirmed_at = confirmed_at - interval '36 days'
 where plan_id = '00000000-0000-4000-8000-000000000b02';
+
+-- The circle existed before any of it. `circle_activation` reads this to decide
+-- whether a circle got going within seven days (§11.2), and a circle created
+-- after its own first meetup is not a scenario anybody can learn from.
+update public.circles
+set created_at = created_at - interval '40 days'
+where id = '00000000-0000-4000-8000-000000000a02';
 
 -- The morning after: Priya was there, Tom was not; Nic says it happened.
 create or replace function pg_temp.conf_b() returns uuid language sql as $$

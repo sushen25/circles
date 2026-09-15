@@ -15,11 +15,14 @@
 -- because they move themselves — both reference `circle_members` with
 -- `on update cascade`, which 0006 and 0007 put there for this moment.
 --
--- `analytics.events` is also deliberately absent, and it is the one table here
--- that *should* be: an event is a record of something that happened to an
--- identity at a time, and rewriting it would be rewriting history rather than
--- following a person. It has no foreign key to `auth.users`, so nothing
--- cascades it away either.
+-- `analytics.events` **is** here, and it took a review round to see why. It has
+-- no foreign key to `auth.users` — an event outlives the row it was about — so
+-- it is invisible to the guard in `095_identity_merge.sql` that catches a table
+-- this function forgot. The argument for leaving it alone was that an event
+-- records what happened to an identity at a time; the argument that wins is
+-- that `plan_timings` joins a member's link-open to their answer on `user_id`,
+-- and leaving the event behind broke that join for everybody who came back on a
+-- new device — measuring §11.4's gate over exactly the people who did not.
 -- ---------------------------------------------------------------------------
 
 create or replace function private.move_membership(
@@ -80,6 +83,21 @@ begin
   update private.plan_interest i set user_id = p_to
   where i.user_id = p_from
     and i.plan_id in (select p.id from public.plans p where p.circle_id = p_circle_id);
+
+  -- The measurements follow the person too, which is easy to miss because this
+  -- is the one table here with no foreign key to `auth.users` — an event
+  -- outlives the row it was about, so it deliberately holds ids rather than
+  -- references. `plan_timings` matches a member's link-open event to their
+  -- answer on `user_id`, and leaving the event behind broke that join the
+  -- moment somebody reattached: their open-to-response wait vanished from
+  -- §11.4's gate, and yesterday's figure changed today. The gate would have
+  -- been measured over exactly the members who never came back on a new device.
+  update analytics.events e set user_id = p_to
+  where e.user_id = p_from
+    and (
+      e.circle_id = p_circle_id
+      or e.plan_id in (select p.id from public.plans p where p.circle_id = p_circle_id)
+    );
 
   -- The availability snapshots name who could come, and `transition_plan` reads
   -- the candidate's array at confirm time to decide who is `going`. A stale id

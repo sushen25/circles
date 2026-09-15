@@ -44,8 +44,8 @@ import { CLAIMS, selfTest } from './sql-functions-cases.mjs';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SOURCE = join(root, 'supabase/sql/functions');
 const MIGRATIONS = join(root, 'supabase/migrations');
-// `0013` has shipped; a function change goes in a new migration (ADR 0015).
-const MIGRATION = join(MIGRATIONS, '0014_email_consent.sql');
+// `0014` has shipped; a function change goes in a new migration (ADR 0015).
+const MIGRATION = join(MIGRATIONS, '0015_analytics_views.sql');
 
 function walk(dir, into = new Map()) {
   for (const entry of readdirSync(dir).sort()) {

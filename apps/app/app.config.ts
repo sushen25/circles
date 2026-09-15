@@ -89,19 +89,45 @@ const config: ExpoConfig = {
     // `origin` polyfills relative fetches in production builds, so native can
     // reach the one server route (link previews, §9.4) — the caveat ADR 0001
     // calls out. The app itself never calls it; link fetchers do.
-    //
-    // `headers` applies to every HTML and API-route response the server output
-    // serves. `Referrer-Policy: no-referrer` is the one §14 names, and it is
-    // load-bearing rather than hygiene: an invite secret rides in the URL
-    // fragment and a plan code in the path, so a referrer sent to whatever the
-    // landing page links out to is exactly how either escapes. EAS Hosting
-    // sets no referrer policy of its own, so without this the deployed app
-    // serves none — `pnpm check:env` fails on it, which is how this was found.
-    //
-    // Two limits worth knowing before trusting it: it does not apply to
-    // redirect responses, and it does not apply to static assets. Neither
-    // carries a secret. A route that sets the header itself still wins.
-    ['expo-router', { origin: appOrigin, headers: { 'Referrer-Policy': 'no-referrer' } }],
+    [
+      'expo-router',
+      {
+        origin: appOrigin,
+        // `app/+middleware.ts` serves the link-preview card on the paths people
+        // actually paste — `/join`, `/j/<code>`, `/p/<code>` — which are client
+        // pages, and a page and an API route cannot share a path. Without this
+        // the card exists only at `/og/...`, where no chat app ever asks for it.
+        unstable_useServerMiddleware: true,
+        // `headers` applies to every HTML and API-route response the server
+        // output serves. Both entries below are load-bearing and they were
+        // found from opposite directions, so neither is a default to tidy away.
+        //
+        // **The page HTML is not cached at the edge, and that is what makes the
+        // card work.** A cached response is served before the middleware runs,
+        // so one person opening `/j/<code>` put the app shell in the CDN under
+        // that URL and every chat app that fetched it afterwards got the shell
+        // instead of a preview — for an hour, and for ever on `/join`, which is
+        // one URL for every invite in the product.
+        //
+        // The cost is the HTML itself, which is a small shell; the bundles,
+        // images and fonts it points at are static assets with their own
+        // caching and are untouched. Correctness at the product's front door is
+        // worth more than an edge hit on 50 KB.
+        //
+        // `Referrer-Policy: no-referrer` is the one §14 names, and it is
+        // load-bearing rather than hygiene: an invite secret rides in the URL
+        // fragment and a plan code in the path, so a referrer sent to whatever
+        // the landing page links out to is exactly how either escapes. EAS
+        // Hosting sets no referrer policy of its own, so without this the
+        // deployed app serves none — `pnpm check:env` fails on it, which is how
+        // it was found.
+        //
+        // One limit that applies to both: they do not reach redirect responses
+        // or static assets. Neither of those carries a secret. A route that
+        // sets either header itself still wins.
+        headers: { 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' },
+      },
+    ],
     'expo-font',
     'expo-secure-store',
     'expo-splash-screen',

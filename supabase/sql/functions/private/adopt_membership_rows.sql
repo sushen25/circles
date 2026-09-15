@@ -117,6 +117,19 @@ begin
         and kept.plan_id is not distinct from n.plan_id
     );
 
+  -- And the measurements, which follow the person like everything else here.
+  -- No `not exists` guard: an event is a record of a moment rather than a row
+  -- one identity may hold once, so two of them surviving a merge is two things
+  -- that happened, which is the truth. (`analytics.events` has no foreign key
+  -- to `auth.users` — an event outlives what it was about — so it is easy to
+  -- miss when reading for tables that point at an identity.)
+  update analytics.events e set user_id = p_to
+  where e.user_id = p_from
+    and (
+      e.circle_id = p_circle_id
+      or e.plan_id in (select pl.id from public.plans pl where pl.circle_id = p_circle_id)
+    );
+
   perform private.reconcile_contacts(p_circle_id, p_from, p_to);
   perform set_config('circles.moving_membership', 'off', true);
 end;

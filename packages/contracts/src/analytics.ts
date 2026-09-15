@@ -91,7 +91,17 @@ export const catalogue = {
   organiser_chased: event(1, { answer: z.enum(['yes', 'no']) }),
 
   // --- outcome ------------------------------------------------------------
-  outcome_reported: event(1, { outcome: z.enum(['happened', 'did_not_happen', 'unsure']) }),
+  /**
+   * The four answers `Outcome` has (domain `confirmation/types.ts`, and the
+   * `outcome_reports_outcome` check that stores them). An earlier version of
+   * this line said `happened | did_not_happen | unsure`, which no outcome can
+   * ever be: the client would have had to invent a value to get the event
+   * past the catalogue, and `moved_outside` — "neither failure nor success"
+   * — had nowhere to go at all.
+   */
+  outcome_reported: event(2, {
+    outcome: z.enum(['happened', 'cancelled', 'moved_outside', 'not_sure']),
+  }),
   attendance_confirmed: event(1, { attended_count: count }),
   cadence_prompt_sent: event(1, {
     recipient_role: z.enum(['owner', 'member', 'take_turns']),
@@ -133,14 +143,45 @@ export type EventName = keyof typeof catalogue;
 
 export type EventPayload<E extends EventName> = z.infer<(typeof catalogue)[E]['payload']>;
 
-/** The envelope `track-events` accepts. */
+/**
+ * The envelope `track-events` accepts.
+ *
+ * `event_id` is minted by whoever records the event, and it is what makes a
+ * resend safe. The client buffers while offline and **puts a failed batch
+ * back**, which includes the case where the insert committed and the response
+ * was lost on the way home — so without an id per event, one flaky flush
+ * inflates every funnel count it touched. The ingest inserts on conflict do
+ * nothing, so the second arrival of an event is the same event.
+ */
 export const TrackedEvent = z.object({
+  event_id: z.uuid(),
   name: z.string(),
   version: z.int().positive(),
   occurred_at: z.iso.datetime({ offset: true }),
   properties: z.record(z.string(), z.unknown()),
 });
 export type TrackedEvent = z.infer<typeof TrackedEvent>;
+
+/**
+ * The moments a growth nudge can be shown at, and the moments an account can be
+ * claimed at, as one list.
+ *
+ * `nudge_states.moment` (migration 0006) is checked against exactly this union,
+ * and the two live in different languages: if the catalogue gains a moment and
+ * the constraint does not, the write fails at the database with a check
+ * violation nobody expects. `analytics.test.ts` asserts this equals the union of
+ * the catalogue's two enums, and `150_analytics.sql` asserts the constraint
+ * holds the same values — so a new moment fails both halves and says where.
+ */
+export const NUDGE_MOMENTS = [
+  'after_answer',
+  'after_attendance',
+  'after_confirmed',
+  'confirmed',
+  'reattached',
+  'second_response',
+  'settings',
+] as const;
 
 /**
  * Key fragments that would make a payload carry a person's words. Checked by
@@ -168,4 +209,44 @@ export function validateEvent<E extends EventName>(
   const result = entry.payload.safeParse(payload);
   if (!result.success) return null;
   return { name, version: entry.version, properties: result.data as EventPayload<E> };
+}
+
+/** Whether a string names an event the catalogue declares. */
+export function isEventName(name: string): name is EventName {
+  return Object.hasOwn(catalogue, name);
+}
+
+/**
+ * The ingest's version of `validateEvent`: **unknown keys are dropped rather
+ * than refusing the event** (architecture §15).
+ *
+ * The two differ on purpose. `track()` runs in our own client, where an
+ * undeclared key is a bug worth stopping for, so the payload is strict. The
+ * ingest is reached by clients of every age — a browser tab open since before a
+ * deploy, a phone that has not reloaded in a week — and refusing their whole
+ * event because it carries a field a later version added loses the measurement
+ * for the release the measurement is about.
+ *
+ * Dropping is safe because it happens *before* validation, not instead of it:
+ * what survives is only the keys the catalogue declares, and it still has to
+ * satisfy the strict schema. A key carrying somebody's words cannot be dropped
+ * into the table by this path, because it is not dropped into anything.
+ */
+export function acceptEvent(
+  name: string,
+  payload: unknown,
+): { name: EventName; version: number; properties: Record<string, unknown> } | null {
+  if (!isEventName(name)) return null;
+  const entry = catalogue[name];
+
+  const declared = entry.payload.shape as Record<string, unknown>;
+  const given = typeof payload === 'object' && payload !== null ? payload : {};
+  const kept: Record<string, unknown> = {};
+  for (const key of Object.keys(declared)) {
+    if (Object.hasOwn(given, key)) kept[key] = (given as Record<string, unknown>)[key];
+  }
+
+  const result = entry.payload.safeParse(kept);
+  if (!result.success) return null;
+  return { name, version: entry.version, properties: result.data as Record<string, unknown> };
 }

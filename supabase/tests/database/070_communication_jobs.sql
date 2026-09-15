@@ -209,7 +209,8 @@ select lives_ok(
   'while a verb on an aggregate is recorded'
 );
 select throws_ok(
-  $$insert into analytics.events (event_name, schema_version, properties) values ('circle_created', 1, '{"circle": {"title": "x"}}')$$,
+  $$insert into analytics.events (event_id, event_name, schema_version, properties)
+    values (gen_random_uuid(), 'circle_created', 1, '{"circle": {"title": "x"}}')$$,
   '23514',
   null,
   'so does analytics'
