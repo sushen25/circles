@@ -8,6 +8,7 @@ import {
 import { authClient } from './client';
 import { isAnonymous } from './guest';
 import type { SignedIn } from './providers/types';
+import { sessionStorage } from './storage';
 
 /**
  * Saving a place: turning a guest into somebody the product can find again
@@ -49,6 +50,77 @@ export class SavePlaceError extends Error {
   }
 }
 
+/**
+ * A claim that was started and has not been answered.
+ *
+ * **This is the one piece of state that cannot be reconstructed.** The claim is
+ * made with the anonymous session's access token, and by the time the call goes
+ * out that session has already been replaced — the token exists nowhere else.
+ * So a connection that drops mid-call is not a retryable request, it is a
+ * membership stranded for ever: every later attempt sees only the permanent
+ * session, skips the claim, and the guest's circle is simply gone.
+ *
+ * Persisted rather than held in memory because the failure that matters is the
+ * one that comes with a reload. It is written through the same adapter as the
+ * session itself, so it lives where that lives, and it holds a token that was
+ * already stored there and that expires on its own. The key and the moment go
+ * with it: retrying under the same key is what makes the retry a resume rather
+ * than a second claim.
+ */
+const PENDING_KEY = 'circles.pending_claim';
+
+interface PendingClaim {
+  anonymous_session: string;
+  idempotency_key: string;
+  moment: SaveMoment;
+}
+
+async function rememberClaim(claim: PendingClaim): Promise<void> {
+  try {
+    await sessionStorage.setItem(PENDING_KEY, JSON.stringify(claim));
+  } catch {
+    // Storage refusing is not a reason to lose the error the caller is about
+    // to see; the claim is simply not resumable on this device.
+  }
+}
+
+async function forgetClaim(): Promise<void> {
+  try {
+    await sessionStorage.removeItem(PENDING_KEY);
+  } catch {
+    // Nothing to do.
+  }
+}
+
+async function pendingClaim(): Promise<PendingClaim | undefined> {
+  try {
+    const raw = await sessionStorage.getItem(PENDING_KEY);
+    if (raw === null || raw === undefined) return undefined;
+    const parsed = JSON.parse(raw) as PendingClaim;
+    return typeof parsed.anonymous_session === 'string' &&
+      typeof parsed.idempotency_key === 'string'
+      ? parsed
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Whether a failure leaves the question open.
+ *
+ * A refusal is an answer and there is nothing to come back to: the token
+ * belongs to somebody else, or the caller has not signed in, or the key was
+ * reused for a different body. Everything else — no response at all, the auth
+ * server unreachable, a first attempt still running — means the claim may yet
+ * succeed, and the only way to find out is to ask again with the same key.
+ */
+function stillOpen(problem: Problem | undefined): boolean {
+  if (problem === undefined) return true; // No HTTP response: the transport failed.
+  if (problem.reason === undefined) return problem.error === 'unavailable';
+  return problem.reason === 'in_progress' || problem.reason === 'too_many_requests';
+}
+
 function newIdempotencyKey(): IdempotencyKey {
   const uuid = globalThis.crypto?.randomUUID?.();
   if (uuid === undefined) throw new Error('no crypto.randomUUID available');
@@ -70,12 +142,13 @@ async function problemOf(error: unknown): Promise<Problem | undefined> {
 async function claimIdentity(
   anonymousSession: string,
   moment: SaveMoment,
+  existingKey?: string,
 ): Promise<ClaimIdentityResponse> {
-  // One key across both attempts. That is what makes the retry below safe
-  // rather than a second claim: the key is the thing the server dedupes on
-  // (ADR 0016), so reusing it turns "did my first attempt land?" into a
-  // question the server answers instead of one the client guesses.
-  const key = newIdempotencyKey();
+  // One key across both attempts, and across a resumed one. That is what makes
+  // a retry safe rather than a second claim: the key is the thing the server
+  // dedupes on (ADR 0016), so reusing it turns "did my first attempt land?"
+  // into a question the server answers instead of one the client guesses.
+  const key = existingKey ?? newIdempotencyKey();
 
   const attempt = async (): Promise<ClaimIdentityResponse> => {
     const { data, error } = await authClient().functions.invoke('claim-identity', {
@@ -104,10 +177,60 @@ async function claimIdentity(
      * asking the same question and getting the same no.
      */
     if (problem?.error === 'unavailable' && problem.reason === undefined) {
-      return await attempt();
+      try {
+        const answered = await attempt();
+        await forgetClaim();
+        return answered;
+      } catch (again) {
+        const stillProblem = again instanceof SavePlaceError ? again.problem : undefined;
+        if (stillOpen(stillProblem)) {
+          await rememberClaim({
+            anonymous_session: anonymousSession,
+            idempotency_key: key,
+            moment,
+          });
+        } else {
+          await forgetClaim();
+        }
+        throw again;
+      }
+    }
+
+    if (stillOpen(problem)) {
+      await rememberClaim({ anonymous_session: anonymousSession, idempotency_key: key, moment });
+    } else {
+      // An answer, and not one asking again will change.
+      await forgetClaim();
     }
     throw error;
   }
+}
+
+/**
+ * Finishes a claim an earlier attempt could not get an answer to.
+ *
+ * Safe to call at any time and returns nothing when there is nothing to do, so
+ * the app can call it on start and after every sign-in without asking whether
+ * it should. The token it replays may have expired, in which case the server
+ * refuses and the record is dropped — a stranded membership is not recoverable
+ * for ever, but it is recoverable for as long as the evidence is good.
+ */
+export async function resumePendingClaim(): Promise<ClaimIdentityResponse | undefined> {
+  const pending = await pendingClaim();
+  if (pending === undefined) return undefined;
+
+  const { data } = await authClient().auth.getSession();
+  // Only a permanent session can be the destination; asking from an anonymous
+  // one is refused with `destination_is_not_permanent`.
+  if (data.session === null || data.session.user.is_anonymous === true) return undefined;
+
+  const answered = await claimIdentity(
+    pending.anonymous_session,
+    pending.moment,
+    pending.idempotency_key,
+  );
+  await forgetClaim();
+  return answered;
 }
 
 /**
@@ -134,6 +257,10 @@ async function claimIdentity(
  * `source_is_permanent`, so there is nothing to ask for.
  */
 export async function savePlace(options: SavePlaceOptions): Promise<SavedPlace> {
+  // Anything left over from an attempt that never got an answer, before a new
+  // one overwrites the record it is waiting on.
+  await resumePendingClaim().catch(() => undefined);
+
   const { data } = await authClient().auth.getSession();
   const previous = data.session;
   const anonymousToken = isAnonymous(previous) ? previous?.access_token : undefined;
@@ -148,6 +275,7 @@ export async function savePlace(options: SavePlaceOptions): Promise<SavedPlace> 
   }
 
   const claimed = await claimIdentity(anonymousToken, options.moment);
+  await forgetClaim();
   return {
     ...signedIn,
     mergedMemberships: claimed.merged_memberships,

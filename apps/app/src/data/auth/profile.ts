@@ -49,11 +49,16 @@ export async function bootstrapProfile(options: ProfileBootstrap = {}): Promise<
   const userId = sessionData.session?.user.id;
   if (userId === undefined) return;
 
-  const { data: profile } = await client
+  const { data: profile, error: readError } = await client
     .from('profiles')
     .select('display_name, time_zone')
     .eq('user_id', userId)
     .maybeSingle();
+  // A failed read and a missing row arrive the same way — `data: null` — and
+  // treating both as "nothing to do" resolves as though the bootstrap
+  // succeeded. Connectivity dropping just after the code was verified would
+  // then leave the organiser as `Guest` in `UTC`, with nothing to say so.
+  if (readError !== null) throw readError;
   if (profile === null || profile === undefined) return;
 
   const changes: { display_name?: string; time_zone?: string } = {};

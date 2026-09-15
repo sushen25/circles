@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { SavePlaceError, savePlace } from './link';
+import { SavePlaceError, resumePendingClaim, savePlace } from './link';
 
 /**
  * Saving a place, and the one ordering the whole endpoint depends on.
@@ -56,6 +56,10 @@ beforeEach(() => {
   state.session = ANON;
   state.invocations = [];
   state.answers = [];
+  // The pending-claim record goes through the real storage adapter, which on
+  // web is `localStorage`. Leaving one behind would make these tests depend on
+  // the order they run in.
+  globalThis.localStorage.clear();
 });
 
 describe('the token it claims with', () => {
@@ -169,6 +173,68 @@ describe('retrying', () => {
     await expect(
       savePlace({ moment: 'after_answer', signIn: async () => ({ session: SAVED as never }) }),
     ).rejects.toMatchObject({ problem: { reason: 'in_progress' } });
+  });
+});
+
+describe('a claim that never got an answer', () => {
+  /**
+   * The failure that cannot be reconstructed. The claim is made with the
+   * anonymous session's access token, and by then that session is already
+   * replaced — the token exists nowhere else. So a dropped connection is not a
+   * retryable request, it is a membership stranded for ever: every later
+   * attempt sees only the permanent session, skips the claim, and the circle
+   * the guest joined is gone.
+   */
+  it('is kept when the transport fails, and finished later under the same key', async () => {
+    // No HTTP response at all — the connection dropped.
+    state.answers = [{ error: new Error('network') }];
+
+    await expect(
+      savePlace({ moment: 'after_answer', signIn: async () => ({ session: SAVED as never }) }),
+    ).rejects.toBeInstanceOf(SavePlaceError);
+
+    const first = state.invocations[0]?.body;
+    state.invocations = [];
+    // A reload later, now signed in: the session is the permanent one.
+    state.session = SAVED;
+
+    const resumed = await resumePendingClaim();
+
+    expect(state.invocations).toHaveLength(1);
+    expect(state.invocations[0]?.body.anonymous_session).toBe('anon.token');
+    expect(state.invocations[0]?.body.idempotency_key).toBe(first?.idempotency_key);
+    expect(resumed?.merged_memberships).toBe(0);
+  });
+
+  it('is dropped when the answer was a refusal, so it is never replayed', async () => {
+    state.answers = [
+      {
+        error: problemResponse(403, {
+          error: 'forbidden',
+          reason: 'source_is_permanent',
+          message: 'That session cannot be merged.',
+          reference: 'ref-4',
+        }),
+      },
+    ];
+
+    await expect(
+      savePlace({ moment: 'after_answer', signIn: async () => ({ session: SAVED as never }) }),
+    ).rejects.toBeInstanceOf(SavePlaceError);
+
+    state.invocations = [];
+    state.session = SAVED;
+    await resumePendingClaim();
+
+    // Asking again is asking the same question and getting the same no.
+    expect(state.invocations).toEqual([]);
+  });
+
+  it('does nothing when there is nothing pending', async () => {
+    state.session = SAVED;
+
+    await expect(resumePendingClaim()).resolves.toBeUndefined();
+    expect(state.invocations).toEqual([]);
   });
 });
 

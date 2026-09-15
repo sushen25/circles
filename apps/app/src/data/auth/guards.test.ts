@@ -23,7 +23,7 @@ const SAVED = session({ status: 'saved' });
 const APP = session({ status: 'app' });
 
 describe('before the stored session has been read', () => {
-  it.each<RouteKind>(['public', 'guest', 'organiser'])('waits on a %s route', (route) => {
+  it.each<RouteKind>(['public', 'guest', 'saved', 'organiser'])('waits on a %s route', (route) => {
     // The alarming failure this prevents: a signed-in member's first render
     // reads `none`, and they are sent to Continue-as — indistinguishable, from
     // where they are sitting, from having been silently signed out.
@@ -41,21 +41,56 @@ describe('public routes', () => {
   });
 });
 
-describe('organiser routes', () => {
+describe('saved routes — starting a circle, account settings', () => {
   it('send nobody to the gate', () => {
-    expect(guard({ route: 'organiser', session: NOBODY })).toEqual({ kind: 'needs_saved_place' });
+    expect(guard({ route: 'saved', session: NOBODY })).toEqual({ kind: 'needs_saved_place' });
   });
 
   it('send a guest to the gate — organising needs a permanent identity (ADR 0004)', () => {
-    expect(guard({ route: 'organiser', session: GUEST })).toEqual({ kind: 'needs_saved_place' });
+    expect(guard({ route: 'saved', session: GUEST })).toEqual({ kind: 'needs_saved_place' });
   });
 
-  it('let a saved place through', () => {
-    expect(guard({ route: 'organiser', session: SAVED })).toEqual({ kind: 'allow' });
+  it('let a saved place through with no circle to belong to', () => {
+    expect(guard({ route: 'saved', session: SAVED, membership: 'not_member' })).toEqual({
+      kind: 'allow',
+    });
   });
 
   it('let the app tier through, which is a saved place with a device', () => {
-    expect(guard({ route: 'organiser', session: APP })).toEqual({ kind: 'allow' });
+    expect(guard({ route: 'saved', session: APP })).toEqual({ kind: 'allow' });
+  });
+});
+
+describe('organiser routes — organising inside a circle', () => {
+  it('send a guest to the gate before asking about membership', () => {
+    expect(guard({ route: 'organiser', session: GUEST, membership: 'member' })).toEqual({
+      kind: 'needs_saved_place',
+    });
+  });
+
+  it('let a saved-place member through', () => {
+    expect(guard({ route: 'organiser', session: SAVED, membership: 'member' })).toEqual({
+      kind: 'allow',
+    });
+  });
+
+  it('stop a saved place who is not in this circle', () => {
+    /**
+     * A saved place following a link to a circle they have never joined would
+     * otherwise reach the plan composer and be refused only on submit — after
+     * filling it in. `create-plan` refuses them server-side either way; this is
+     * about which screen they see, and §8.2 gates everything about a circle on
+     * being an active member of it.
+     */
+    expect(guard({ route: 'organiser', session: SAVED, membership: 'not_member' })).toEqual({
+      kind: 'continue_as',
+    });
+  });
+
+  it('wait while membership is still unknown, rather than opening the composer', () => {
+    expect(guard({ route: 'organiser', session: SAVED, membership: 'unknown' })).toEqual({
+      kind: 'wait',
+    });
   });
 });
 
@@ -118,7 +153,7 @@ describe('guest routes', () => {
 
 describe('the table is total', () => {
   it('answers every combination without falling through', () => {
-    const routes: RouteKind[] = ['public', 'guest', 'organiser'];
+    const routes: RouteKind[] = ['public', 'guest', 'saved', 'organiser'];
     const sessions = [LOADING, NOBODY, GUEST, SAVED, APP];
     const memberships: Membership[] = ['member', 'not_member', 'unknown'];
 

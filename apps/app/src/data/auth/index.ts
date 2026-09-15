@@ -16,7 +16,7 @@ export { PLATFORM_HEADER, platformName } from './client';
 export { currentSession, ensureGuestSession, isAnonymous } from './guest';
 export { guard } from './guards';
 export type { GuardDecision, GuardInput, Membership, RouteKind } from './guards';
-export { SavePlaceError, savePlace } from './link';
+export { SavePlaceError, resumePendingClaim, savePlace } from './link';
 export type { SaveMoment, SavePlaceOptions, SavedPlace } from './link';
 export { bootstrapProfile, deviceTimeZone } from './profile';
 export type { ProfileBootstrap } from './profile';

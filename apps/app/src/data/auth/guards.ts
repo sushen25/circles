@@ -21,9 +21,16 @@ import type { SessionState } from './session';
  *
  * - `public`    — Welcome, privacy, the link-preview route. Anyone, including nobody.
  * - `guest`     — a circle or plan route. Needs *a* session and a membership.
- * - `organiser` — creating a circle or a plan. Needs a saved place (ADR 0004).
+ * - `saved`     — needs a saved place and nothing else: starting a *new* circle,
+ *                 account and privacy settings. There is no circle to belong to
+ *                 yet (ADR 0004).
+ * - `organiser` — organising inside an existing circle: a new plan, an edit, a
+ *                 cancellation. Needs a saved place **and** membership of that
+ *                 circle. Spec §5.1 gates organising on a saved place; §8.2
+ *                 gates everything about a circle on being an active member of
+ *                 it, and this route is both at once.
  */
-export type RouteKind = 'public' | 'guest' | 'organiser';
+export type RouteKind = 'public' | 'guest' | 'saved' | 'organiser';
 
 /**
  * Whether the caller belongs to the circle this route is about.
@@ -67,13 +74,29 @@ export function guard({ route, session, membership = 'unknown' }: GuardInput): G
 
   if (route === 'public') return { kind: 'allow' };
 
+  // Guests and strangers get the same screen on either organising route,
+  // because they need the same thing. It is worded as a practical need — "so we
+  // can find you again on any device" — not as a wall (§5.1).
+  const hasSavedPlace = session.status !== 'none' && session.status !== 'guest';
+
+  if (route === 'saved') {
+    return hasSavedPlace ? { kind: 'allow' } : { kind: 'needs_saved_place' };
+  }
+
   if (route === 'organiser') {
-    // Guests and strangers get the same screen, because they need the same
-    // thing. It is worded as a practical need — "so we can find you again on
-    // any device" — not as a wall (§5.1).
-    return session.status === 'none' || session.status === 'guest'
-      ? { kind: 'needs_saved_place' }
-      : { kind: 'allow' };
+    if (!hasSavedPlace) return { kind: 'needs_saved_place' };
+    // And a member of *this* circle. A saved place following a link to a circle
+    // they have never joined would otherwise reach the plan composer and be
+    // refused only on submit — after filling it in. `create-plan` refuses them
+    // server-side either way; this is about which screen they see.
+    switch (membership) {
+      case 'member':
+        return { kind: 'allow' };
+      case 'not_member':
+        return { kind: 'continue_as' };
+      case 'unknown':
+        return { kind: 'wait' };
+    }
   }
 
   // A `guest` route from here: a circle or a plan.
