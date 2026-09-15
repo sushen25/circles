@@ -210,19 +210,38 @@ In the repository settings, **Secrets and variables → Actions**:
       `https://dev.sushensatturu.com`, because step 2 is deferred and `dev` has
       no custom domain. Change it when the domain is attached, not before — an
       origin that does not resolve is worse than an ugly one that does.
-- [ ] `EXPO_PUBLIC_TURNSTILE_SITE_KEY` (repository scope). **Missing**, and
-      that is step 7. Anonymous joins on the deployed app are ungated until it
-      is set. Confirmed absent from both the repository and the `dev`
-      environment.
-- [ ] Environments → `production` → **Variables**: the same names with the
-      **prod** project's values, and `EXPO_PUBLIC_APP_ORIGIN` =
-      `https://meet.sushensatturu.com`. These override the repository ones for
-      production deploys only.
-      **The `production` environment does not exist** — `dev` is the only one.
-      Create it here; `deploy-prod.yml` already names it, so until it exists a
-      production deploy has no approval gate to wait on.
+- [x] `EXPO_PUBLIC_TURNSTILE_SITE_KEY` (repository scope). Set 15 September
+      2026 to the **dummy always-passes** site key `1x00000000000000000000BB`,
+      not the real one — deliberately. `preview.yml` and `deploy-dev.yml` both
+      read the repository-scope variable, and a per-PR preview is served from
+      `sushen25s-team-circles--pr-N.expo.app`, a *sibling* of the `dev` host
+      rather than a subdomain, so the real widget's hostname list cannot cover
+      it. The alternative was widening the widget to `expo.app`, which would
+      cover every Expo app in the world. Dummy keys work on any hostname, so
+      dev and previews exercise the whole path — widget, token, verification —
+      and always pass. The real key lives on the `production` environment,
+      which overrides this one.
+- [x] Environments → `production` → **Variables**. Environment created and
+      three of four set, 15 September 2026:
+      `EXPO_PUBLIC_TURNSTILE_SITE_KEY` (the real key),
+      `EXPO_PUBLIC_APP_ORIGIN` = `https://meet.sushensatturu.com`, and
+      `EXPO_PUBLIC_SUPABASE_URL` = `https://bhunoaqswteamabbyckp.supabase.co`.
+- [ ] `EXPO_PUBLIC_SUPABASE_ANON_KEY` on `production` — **still missing**. It is
+      `circles-prod` → Settings → API. Public, like the `dev` one already in the
+      repository variables. A production deploy fails the client-config check
+      without it.
 - [ ] Environments → `production` → add yourself as a **required reviewer**, so a
       production deploy pauses for a human.
+      **Blocked, not forgotten:** environment protection rules on a *private*
+      repository need GitHub Pro, Team or Enterprise, and this repository is
+      private on a free plan — the environment was created with
+      `protection_rules: []` and `dev` has none either. Until the plan changes
+      or the repository goes public, `deploy-prod.yml` has an `environment:`
+      to attach to but no approval gate behind it, and its `confirm` input is
+      the only thing between a mis-click and production. This is the same plan
+      question as branch protection on `main` (see the end of this file), and
+      it is the last of SUS-71's acceptance criteria that cannot be met by
+      configuration alone.
 
 > Variables, not secrets, on purpose: they are compiled into the client bundle
 > and readable by anyone. Calling them secret teaches the word to mean nothing.
@@ -284,7 +303,7 @@ without the site key — and a production deploy is what unlocks attaching the
 custom domain. Turnstile therefore cannot come after the domain; it comes first.
 Due before S1-14.
 
-- [ ] Turnstile → add a widget, **Invisible** mode. Hostnames:
+- [x] Turnstile → add a widget, **Invisible** mode. Done 15 September 2026. Hostnames:
       `meet.sushensatturu.com`, `sushen25s-team-circles--dev.expo.app` and
       `localhost`. **Not `dev.sushensatturu.com`** — that name is never created
       (step 2), so listing it protects nothing.
