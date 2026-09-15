@@ -187,7 +187,7 @@ perfectly happily, and every request fails in the browser.
 |---|---|
 | `RESEND_API_KEY` | Resend → API Keys |
 | `RESEND_WEBHOOK_SECRET` | Resend → Webhooks, on the endpoint |
-| `TURNSTILE_SECRET` | Cloudflare → Turnstile, pairs with the site key |
+| `TURNSTILE_SECRET_KEY` | Cloudflare → Turnstile, pairs with the site key. **The name matters:** `_shared/turnstile.ts` reads exactly this, and skips the check when it is unset rather than failing — so a secret stored under any other name leaves web joins unverified and looks configured |
 | `APPLE_TEAM_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY`, `APPLE_SERVICES_ID` | Apple Developer |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google Cloud → Credentials |
 

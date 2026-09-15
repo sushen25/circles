@@ -111,12 +111,30 @@ is not visible yet:
 Only the third value is predictable; the first two carry per-domain tokens that
 the dashboard generates.
 
-> **`meet` will serve nothing until production is deployed**, because the custom
-> domain points at the production deployment and there has never been one. So
-> `pnpm check:env meet.sushensatturu.com` cannot pass its first row on DNS
-> alone — it needs step 4's `production` environment, a resumed `circles-prod`,
-> and one `deploy-prod` run. Attaching the domain early is still right: the
-> certificate takes time, and steps 7 and 8 need the name to be settled.
+> **The domain cannot be attached until production is deployed.** Not "will not
+> serve" — the dashboard refuses to open the custom-domain form at all, with
+> *"Create a production deployment first. You must promote a deployment to
+> production before you can set up a custom domain."* Verified 15 September
+> 2026. An earlier draft of this step assumed the attach could happen early and
+> only the serving would wait; that was wrong, and it inverts the order.
+>
+> What a production deployment costs is the whole of step 4 plus a `deploy-prod`
+> run, and that run is not only a web deploy: it does `supabase db push` and
+> `supabase functions deploy` against `circles-prod` first. The first one
+> stands production up for real.
+>
+> **The reorder this forces, and why it is cheap:** steps 7 and 8 need the
+> hostname *settled*, not *resolving*. A Turnstile widget matches the hostname
+> string a page is served from, and an OAuth client stores its origin as text;
+> none of them check DNS at configuration time. `meet.sushensatturu.com` has
+> been settled since 15 September. So Turnstile, Google and Apple can all be
+> configured now, against a name that does not yet resolve, and the attach moves
+> to whenever production is first deployed — S1-32's business, not this step's.
+>
+> Which also removes a circularity worth naming: `deploy-prod.yml` sets
+> `REQUIRE_TURNSTILE: 'true'`, so a production deploy *fails* without
+> `EXPO_PUBLIC_TURNSTILE_SITE_KEY`. Domain-before-Turnstile was never
+> achievable. Turnstile comes first.
 
 ### How to add a record in Route 53
 
@@ -160,8 +178,15 @@ which is exactly why this is written down.
 
 ## 3. EAS Hosting — US$19/month
 
-- [x] Upgrade the `@sushen25` account to **Starter**: <https://expo.dev/accounts/sushen25/settings/billing>
-      Taken on the founder's word, and corroborated: the `dev` alias serves.
+- [x] Upgrade the **`sushen25s-team`** account to **Starter**:
+      <https://expo.dev/accounts/sushen25s-team/settings/billing>
+      Confirmed by the founder, 15 September 2026, on the **team** account —
+      the one that owns the project (`eas project:info` reports
+      `@sushen25s-team/circles`) and that `app.config.ts` pins as `easOwner`.
+      This step used to name `@sushen25` and corroborate it with "the `dev`
+      alias serves", which proves nothing: free EAS Hosting serves `*.expo.app`
+      too. The paid plan only shows itself on the features it gates, and the
+      first of those is the custom domain.
 - [x] Create an **access token** (Account → Access Tokens) named `github-actions`.
       Confirmed: the `EXPO_TOKEN` repository secret exists (8 September 2026),
       which is also the switch that turns the deploy workflows on.
@@ -253,16 +278,30 @@ email; testing happens locally against Mailpit — see
 
 ## 7. Cloudflare Turnstile — free
 
-**Deferred** (SUS-71). Anonymous joins are ungated on the deployed app, which
-is harmless while nothing real is deployed. `check-client-env.mjs` already
-refuses a **production** deploy without it, so this cannot be forgotten into
-production. Due before S1-14.
+**This is now the first vendor step, ahead of the domain** (15 September 2026).
+`deploy-prod.yml` sets `REQUIRE_TURNSTILE: 'true'`, so a production deploy fails
+without the site key — and a production deploy is what unlocks attaching the
+custom domain. Turnstile therefore cannot come after the domain; it comes first.
+Due before S1-14.
 
-- [ ] Turnstile → add a widget, **Invisible** mode. Add all three hostnames:
-      `meet.sushensatturu.com`, `dev.sushensatturu.com` and `localhost`.
+- [ ] Turnstile → add a widget, **Invisible** mode. Hostnames:
+      `meet.sushensatturu.com`, `sushen25s-team-circles--dev.expo.app` and
+      `localhost`. **Not `dev.sushensatturu.com`** — that name is never created
+      (step 2), so listing it protects nothing.
+
+      The name does not have to resolve to be listed. Turnstile matches the
+      hostname a page is served from against this list; it does no DNS lookup
+      when you save the widget. That is what lets this step run before the
+      domain exists.
+
+      Per-PR preview aliases (`sushen25s-team-circles--pr-N.expo.app`) are
+      siblings of the `dev` host rather than subdomains, so they are not
+      covered. They should use the dummy keys below rather than widening this
+      list to `expo.app`, which would cover every Expo app in the world.
 
 **Hand back:** the **site key** (public → GitHub variables as
-`EXPO_PUBLIC_TURNSTILE_SITE_KEY`) and the **secret key** (→ step 9).
+`EXPO_PUBLIC_TURNSTILE_SITE_KEY`) and the **secret key** (→ step 9, where it
+must be stored as `TURNSTILE_SECRET_KEY` and under no other name).
 
 **This does not block writing the Turnstile code.** Cloudflare publishes dummy
 keys that behave deterministically, so the widget, the token round-trip and the
@@ -325,7 +364,7 @@ Never into the repository, never into `.env`. For each project:
 supabase secrets set --project-ref <ref> \
   RESEND_API_KEY=... \
   RESEND_WEBHOOK_SECRET=... \
-  TURNSTILE_SECRET=... \
+  TURNSTILE_SECRET_KEY=... \
   APPLE_TEAM_ID=... APPLE_KEY_ID=... APPLE_SERVICES_ID=... \
   GOOGLE_CLIENT_ID=... GOOGLE_CLIENT_SECRET=...
 ```
