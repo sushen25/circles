@@ -128,22 +128,27 @@ describe('sha256Hex', () => {
 });
 
 describe('callerAddress', () => {
-  it('takes the address the proxy added, not the one the caller wrote', () => {
-    // `x-forwarded-for` is a list a client can *start*: whatever it sends
-    // arrives first, with the observed address appended after it. Counting the
-    // first entry counted a value the caller chose, so a per-address limit
-    // could be stepped around by varying a header.
+  it('prefers the headers a client cannot write at all', () => {
+    const cloudflare = new Request('https://example.test', {
+      headers: { 'cf-connecting-ip': '198.51.100.9', 'x-forwarded-for': '203.0.113.7' },
+    });
+    expect(callerAddress(cloudflare)).toBe('198.51.100.9');
+
+    const real = new Request('https://example.test', {
+      headers: { 'x-real-ip': '198.51.100.10', 'x-forwarded-for': '203.0.113.7' },
+    });
+    expect(callerAddress(real)).toBe('198.51.100.10');
+  });
+
+  it('falls back to the front of the forwarded list, which is distinct if spoofable', () => {
+    // The last hop is the one our own proxy added, which sounds safer and is
+    // worse where it is wrong: a gateway address is the same for everybody, so
+    // one bucket would rate-limit the whole product at once. A key one attacker
+    // can sidestep beats a key that locks everyone out.
     const request = new Request('https://example.test', {
       headers: { 'x-forwarded-for': '203.0.113.7, 70.41.3.18' },
     });
-    expect(callerAddress(request)).toBe('70.41.3.18');
-  });
-
-  it('prefers the header a client cannot write at all', () => {
-    const request = new Request('https://example.test', {
-      headers: { 'cf-connecting-ip': '198.51.100.9', 'x-forwarded-for': '203.0.113.7' },
-    });
-    expect(callerAddress(request)).toBe('198.51.100.9');
+    expect(callerAddress(request)).toBe('203.0.113.7');
   });
 
   it('has a constant to count against when there is no header', () => {

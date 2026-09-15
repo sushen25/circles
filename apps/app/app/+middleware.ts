@@ -1,5 +1,5 @@
 import {
-  PREVIEW_KINDS,
+  CARD_HEADERS,
   destinationFor,
   isPreviewAgent,
   lookupCircleName,
@@ -39,19 +39,16 @@ export default async function middleware(request: Request): Promise<Response | u
       target: destinationFor(origin, kind, code),
       imageUrl: `${origin}/og-card.png`,
     }),
-    {
-      status: 200,
-      headers: {
-        'content-type': 'text/html; charset=utf-8',
-        'referrer-policy': 'no-referrer',
-        // A shared cache must not hand a person the card instead of the app.
-        vary: 'User-Agent',
-        'cache-control': 'public, max-age=300',
-        'x-content-type-options': 'nosniff',
-      },
-    },
+    { status: 200, headers: { ...CARD_HEADERS } },
   );
 }
 
-/** Only the three paths a link can be. `PREVIEW_KINDS` is the same list. */
-export const unstable_settings = { matcher: [...PREVIEW_KINDS] };
+/**
+ * The paths this runs on, in the shape `expo-server` actually reads —
+ * `{ methods, patterns }`. An array was accepted silently and matched nothing,
+ * so the middleware ran on every request and only `previewTargetFor` kept it
+ * from doing anything: a comment standing in for the enforcement beside it.
+ */
+export const unstable_settings = {
+  matcher: { methods: ['GET', 'HEAD'], patterns: ['/join', '/j/[code]', '/p/[code]'] },
+};

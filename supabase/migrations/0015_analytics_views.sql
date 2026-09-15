@@ -124,7 +124,7 @@ left join analytics.circle_activation a on a.circle_id = c.id;
 -- ---------------------------------------------------------------------------
 create view analytics.plan_timings as
 select
-  date_trunc('month', p.created_at) as month,
+  date_trunc('month', p.created_at at time zone c.time_zone) as month,
   count(*) as plans,
   percentile_cont(0.5) within group (
     order by extract(epoch from (first_response.at - p.created_at))
@@ -133,6 +133,7 @@ select
     order by extract(epoch from (confirmed.at - p.created_at))
   ) as median_seconds_to_confirmed
 from public.plans p
+join public.circles c on c.id = p.circle_id
 left join lateral (
   select min(r.submitted_at) as at from public.plan_responses r where r.plan_id = p.id
 ) as first_response on true
@@ -143,6 +144,12 @@ group by 1;
 
 -- ---------------------------------------------------------------------------
 -- 3. reattach_rate — returns with no session, and how many of them got back in.
+--
+-- The one view bucketed in UTC, because it is the one with no circle to take a
+-- zone from: `session_missing_on_return` is a browser noticing it has nothing,
+-- before it knows which circle it was going to. A month boundary is hours wide
+-- and this is a ratio read month over month, so UTC is honest here in a way it
+-- would not be for a count of meetups.
 --
 -- Both sides from events, and they have to be: `session_missing_on_return` is a
 -- browser noticing it has nothing, which leaves no row anywhere. The gate is

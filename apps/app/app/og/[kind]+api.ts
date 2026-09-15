@@ -1,4 +1,5 @@
 import {
+  CARD_HEADERS,
   PREVIEW_KINDS,
   destinationFor,
   isPreviewAgent,
@@ -37,17 +38,6 @@ export async function GET(request: Request, params: Record<string, string>): Pro
 
   return new Response(
     previewCard({ circleName: name, target, imageUrl: `${origin}/og-card.png` }),
-    {
-      status: 200,
-      headers: {
-        'content-type': 'text/html; charset=utf-8',
-        // Nothing about where the link was opened from travels onward.
-        'referrer-policy': 'no-referrer',
-        // A shared cache must not hand a person the card instead of the app.
-        vary: 'User-Agent',
-        'cache-control': 'public, max-age=300',
-        'x-content-type-options': 'nosniff',
-      },
-    },
+    { status: 200, headers: { ...CARD_HEADERS } },
   );
 }

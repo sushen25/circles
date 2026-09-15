@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  CARD_HEADERS,
   destinationFor,
   escapeHtml,
   isPreviewAgent,
@@ -135,5 +136,37 @@ describe('originOf', () => {
     } finally {
       if (previous !== undefined) process.env.EXPO_PUBLIC_APP_ORIGIN = previous;
     }
+  });
+});
+
+describe("the card's headers", () => {
+  it('forbids a shared cache from storing it at all', () => {
+    // Round 2's P0. The card is served at the app's own URL, and EAS Hosting
+    // caches a `public` response keyed on the URL alone — `Vary` is not
+    // honoured. One fetch by WhatsApp put the card in front of every person
+    // who tapped the link afterwards, and the card's refresh points at the URL
+    // it was served on, so it reloaded itself for five minutes.
+    expect(CARD_HEADERS['cache-control']).toBe('no-store');
+    expect(CARD_HEADERS['cache-control']).not.toContain('public');
+  });
+
+  it('still says what it varies on, without relying on it', () => {
+    expect(CARD_HEADERS['vary']).toBe('User-Agent');
+  });
+
+  it('leaks no referrer and lets nothing sniff the type', () => {
+    expect(CARD_HEADERS['referrer-policy']).toBe('no-referrer');
+    expect(CARD_HEADERS['x-content-type-options']).toBe('nosniff');
+  });
+});
+
+describe('paths that used to be trouble', () => {
+  it('treats /join and /join/ as the same link', () => {
+    expect(previewTargetFor('/join/')).toEqual({ kind: 'join', code: null });
+  });
+
+  it('answers a broken percent-encoding with no card rather than a 500', () => {
+    // A pasted link with a stray `%`. `decodeURIComponent` throws on it.
+    expect(previewTargetFor('/p/%E0%A4%A')).toBeNull();
   });
 });

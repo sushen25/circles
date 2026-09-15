@@ -48,12 +48,45 @@ export function escapeHtml(value: string): string {
  */
 export function previewTargetFor(pathname: string): { kind: string; code: string | null } | null {
   const [, first, second] = pathname.split('/');
-  if (first === 'join' && second === undefined) return { kind: 'join', code: null };
+  // `/join` and `/join/` are the same link; a chat client that tidies a URL
+  // should not turn the card off.
+  if (first === 'join' && (second === undefined || second === '')) {
+    return { kind: 'join', code: null };
+  }
   if ((first === 'j' || first === 'p') && second !== undefined && second !== '') {
-    return { kind: first, code: decodeURIComponent(second) };
+    try {
+      return { kind: first, code: decodeURIComponent(second) };
+    } catch {
+      // A stray `%` in a pasted link. Not a code, and not a 500 either.
+      return null;
+    }
   }
   return null;
 }
+
+/**
+ * The card's headers, and the most important line in this file.
+ *
+ * **`no-store`, because the card is served at the app's own URL.** The
+ * middleware answers `/j/<code>` for a chat app, and a person taps that same
+ * URL a minute later. EAS Hosting caches a `public` response keyed on the URL
+ * alone — `Vary: User-Agent` is not honoured — so one fetch by WhatsApp put
+ * the card in front of every human who followed, and the card's own refresh
+ * points at the URL it was served on, which is now the cached card. A loop,
+ * for five minutes, on the link the whole product hangs off.
+ *
+ * `Vary` stays because it is true and costs nothing, but nothing may rely on
+ * it. A fetcher asks once per paste and a name lookup is one indexed read;
+ * there was never much to cache.
+ */
+export const CARD_HEADERS: Readonly<Record<string, string>> = {
+  'content-type': 'text/html; charset=utf-8',
+  // Nothing about where the link was opened from travels onward.
+  'referrer-policy': 'no-referrer',
+  'cache-control': 'no-store',
+  vary: 'User-Agent',
+  'x-content-type-options': 'nosniff',
+};
 
 /**
  * The origin to build absolute URLs from. The configured one where there is

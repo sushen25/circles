@@ -60,20 +60,31 @@ export async function enforce(db: Db, limits: readonly Limit[]): Promise<void> {
 /**
  * The caller's address, as the edge saw it. Only ever used as a hash input.
  *
- * `cf-connecting-ip` first, because the proxy in front of us writes it and a
- * client cannot. `x-forwarded-for` is a *list* a client can start: whatever it
- * sends arrives as the first entry, with the observed address appended after
- * it — so reading the first entry reads a value the caller chose, which is a
- * per-address limit anybody can step around by varying a header. The last entry
- * is the one our own proxy added.
+ * `cf-connecting-ip`, then `x-real-ip`: both are written by the proxy in front
+ * of us and neither can be set by a client that reaches it. `x-forwarded-for`
+ * is the fallback and it is a compromise — it is a *list* a client can start,
+ * so its first entry is a value the caller chose and a determined one can vary
+ * it to get a fresh bucket.
+ *
+ * The first entry anyway, rather than the last. The last is the hop our own
+ * proxy added, which sounds safer and is worse where it is wrong: if that hop
+ * is a gateway rather than the client — which is exactly what it is locally,
+ * and may be what a Cloudflare edge is — then every caller in the world shares
+ * one bucket and the limit denies service to everybody at once. A key that one
+ * attacker can sidestep beats a key that locks everyone out.
+ *
+ * Which header actually arrives is a deployment fact and is not yet settled;
+ * SUS-71 carries the check.
  */
 export function callerAddress(request: Request): string {
-  const direct = request.headers.get('cf-connecting-ip')?.trim();
-  if (direct !== undefined && direct !== '') return direct;
+  for (const header of ['cf-connecting-ip', 'x-real-ip']) {
+    const direct = request.headers.get(header)?.trim();
+    if (direct !== undefined && direct !== '') return direct;
+  }
 
   const hops = (request.headers.get('x-forwarded-for') ?? '')
     .split(',')
     .map((hop) => hop.trim())
     .filter((hop) => hop !== '');
-  return hops.at(-1) ?? 'unknown';
+  return hops[0] ?? 'unknown';
 }
