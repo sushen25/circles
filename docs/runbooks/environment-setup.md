@@ -248,33 +248,99 @@ In the repository settings, **Secrets and variables → Actions**:
 
 ## 5. DNS and email authentication
 
-- [ ] **Deferred.** No custom domain is attached; `dev` serves from
-      `sushen25s-team-circles--dev.expo.app`. When the domain is added, attach
-      `dev.sushensatturu.com` in EAS Hosting and add the records it asks for,
-      per the Route 53 notes in step 2.
-- [ ] Resend → add domain **`mail.meet.sushensatturu.com`**. Production only —
-      `dev` does not send, and a second sending domain is a second set of
-      records to keep warm for no benefit yet.
-- [ ] Add Resend's **SPF**, **DKIM** and **bounce MX** records exactly as shown.
-      Note that SPF and the MX go on `send.mail.meet`, a child of the sending
-      domain, while DKIM goes on `resend._domainkey.mail.meet`. The bounce MX is
-      the one people skip; without it Resend cannot tell a hard bounce from
-      silence and the suppression list never fills.
-- [ ] Add DMARC on `_dmarc.mail.meet`:
-      `"v=DMARC1; p=none; rua=mailto:<your address>"`.
+- [x] **No app-host records here.** `dev` serves from
+      `sushen25s-team-circles--dev.expo.app` permanently and `dev.sushensatturu.com`
+      is never created (step 2). `meet`'s three records come with the domain
+      attach, which cannot happen until production is deployed — also step 2.
+      What is left in this step is email, and email alone.
+- [x] Resend → add domain **`mail.meet.sushensatturu.com`**. Added 15 September
+      2026, region `ap-northeast-1` (Tokyo). Production only — `dev` does not
+      send, and a second sending domain is a second set of records to keep warm
+      for no benefit yet.
+
+      That is a third region in the stack, after `circles-dev` in `ap-south-1`
+      and `circles-prod` in `ap-southeast-1`, and like theirs it is fixed at
+      creation. It does not matter much for email, which is asynchronous; it is
+      recorded so nobody later reads it as a mistake.
+- [x] Add Resend's records. Written 15 September 2026 and verified resolving
+      through both `1.1.1.1` and `8.8.8.8`.
+
+      **Resend now delegates by CNAME rather than handing you an SPF TXT and an
+      MX directly**, which is not what the rest of this step used to describe:
+
+      | Name | Type | Value |
+      | --- | --- | --- |
+      | `resend._domainkey.mail.meet` | TXT | `p=MIGf…QAB` (1024-bit, 218 chars) |
+      | `send.mail.meet` | CNAME | `send.forge.rmta.net` |
+      | `rsend.mail.meet` | CNAME | `rsend-apne1.forge.rmta.net` |
+
+      The effect is the same and `check:env` passes unchanged, because
+      resolution follows the CNAME: `send.mail.meet` answers a TXT query with
+      `v=spf1 ip4:… ~all` and an MX query with `10 feedback.forge.rmta.net`,
+      both from the target. DKIM still sits at `resend._domainkey.mail.meet`,
+      because that is the name that has to align with the header `From`.
+
+      Three traps in that table. **`rsend` is not a typo of `send`** — it is a
+      separate record pairing with `rsend-apne1`, and both are required. **A
+      CNAME cannot coexist with any other record at the same name**, so nothing
+      else may ever be added at `send.mail.meet` or `rsend.mail.meet`. And the
+      **bounce MX is the one people skip** — here it arrives through the
+      `send.` CNAME rather than as its own record, so it is easy to believe it
+      is missing; without it Resend cannot tell a hard bounce from silence and
+      the suppression list never fills.
+
+      The DKIM value needed no splitting: at 218 characters it is under the
+      255-character limit for a single TXT string. It also carries no
+      `v=DKIM1; k=rsa;` prefix, just a bare `p=`, which is valid — RFC 6376
+      makes `v=` optional and defaults it to `DKIM1`.
+- [x] Add DMARC on `_dmarc.mail.meet`. Written 15 September 2026 as
+      `"v=DMARC1; p=none"`, and verified resolving through both `1.1.1.1` and
+      `8.8.8.8`, which are the resolvers `check-environment.mjs` uses.
+
       `p=none` first — it reports without rejecting, so a misconfiguration costs
       you a report rather than every email. Raise to `p=quarantine` after a week
       of clean reports.
-- [ ] Wait for Resend to show the domain **verified** (minutes to hours).
+
+      **`rua=` is deliberately absent, and a personal address is not the way to
+      add it.** RFC 7489 §7.1: when the reporting address sits at a different
+      domain from the DMARC record, the reporting party must first find a
+      `v=DMARC1` TXT at
+      `mail.meet.sushensatturu.com._report._dmarc.<rua-domain>`. Checked on 15
+      September: `gmail.com` publishes no such record and has no
+      `_report._dmarc` namespace at all, and Google, Microsoft and Yahoo all
+      enforce the check — so a Gmail `rua` publishes an address in public DNS
+      and collects almost nothing. The same objection applies to an address on
+      the apex, since that is still a different domain and implementations
+      disagree about organisational-domain matches.
+
+      The arrangements that work are a reporting service (Postmark DMARC
+      Digests, Dmarcian — both free, and both publish the `_report._dmarc`
+      authorisation so reports actually arrive) or no `rua` at all. Nothing
+      sends until S1-19, so there is nothing to report on yet; wire a service
+      then, as a one-record edit.
+- [ ] Wait for Resend to show the domain **verified** (minutes to hours). The
+      records are live; this is Resend's own check catching up.
 - [ ] Verify from the outside:
 
 ```bash
 pnpm check:env meet.sushensatturu.com
-pnpm check:env dev.sushensatturu.com --no-email
+pnpm check:env sushen25s-team-circles--dev.expo.app --no-email
 ```
 
-Production must be six for six; `dev` is the app checks only. Both currently
-report every record as missing and name each one, which is the shopping list.
+There are **seven** checks, not six: HTTPS, HSTS and `Referrer-Policy` on the
+host, then SPF, DKIM, bounce MX and DMARC on the sending domain. The last three
+app checks only run if the first one connects, so a host that does not resolve
+reports one failure rather than three.
+
+As of 15 September 2026 `meet` reports **four of five**: all four email checks
+pass, and `HTTPS serves the app` fails with `fetch failed` because `meet` has
+no record at all until the domain is attached — which needs a production
+deploy (step 2). That failure is the honest state of things, not a
+misconfiguration, and it is the last thing standing between this file and a
+green run.
+
+The second command names the `expo.app` host because `dev.sushensatturu.com` is
+never created (step 2).
 
 `Referrer-Policy: no-referrer` matters more than it looks: invite secrets ride
 in the URL fragment, and a leaked referrer is how they escape (§14).

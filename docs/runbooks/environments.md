@@ -140,10 +140,13 @@ appends the zone for you:
 | Record | Name | Purpose |
 |---|---|---|
 | app | `meet`, `dev` | EAS Hosting; take the exact target from its dashboard |
-| SPF (TXT) | `send.mail.meet` | Resend's value. Note the `send.` child — Resend puts SPF and the bounce MX there, not on the sending domain itself |
-| Bounce MX | `send.mail.meet` | Without it Resend cannot tell a hard bounce from silence, and the suppression list never fills |
-| DKIM (TXT) | `resend._domainkey.mail.meet` | Resend's key, on the sending domain itself |
-| DMARC (TXT) | `_dmarc.mail.meet` | `p=none` at first, `p=quarantine` after warm-up |
+| SPF + bounce MX | `send.mail.meet` | **A CNAME to `send.forge.rmta.net`**, not records of its own — Resend delegates, and resolution follows it to a `v=spf1 … ~all` TXT and an MX at `feedback.forge.rmta.net`. Both answer at `send.mail.meet`, which is all `check:env` and every receiving server care about. Without the MX, Resend cannot tell a hard bounce from silence and the suppression list never fills |
+| Return path | `rsend.mail.meet` | CNAME to `rsend-apne1.forge.rmta.net`. **`rsend` is not a typo of `send`**; they are separate records and both are required |
+| DKIM (TXT) | `resend._domainkey.mail.meet` | Resend's key, on the sending domain itself — the name that has to align with the header `From` |
+| DMARC (TXT) | `_dmarc.mail.meet` | `p=none` at first, `p=quarantine` after warm-up. No `rua=`: a reporting address on a domain you do not control needs a `_report._dmarc` authorisation record there (RFC 7489 §7.1), and Gmail publishes none — see `environment-setup.md` step 5 |
+
+Nothing else may ever be added at `send.mail.meet` or `rsend.mail.meet`: a
+CNAME cannot coexist with another record at the same name.
 
 `support@meet.sushensatturu.com` is in `brand.ts` but **nothing receives mail
 there** — the zone has no MX for it. Arrange forwarding before any email
