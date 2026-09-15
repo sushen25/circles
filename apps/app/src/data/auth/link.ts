@@ -144,11 +144,24 @@ async function claimIdentity(
   moment: SaveMoment,
   existingKey?: string,
 ): Promise<ClaimIdentityResponse> {
-  // One key across both attempts, and across a resumed one. That is what makes
-  // a retry safe rather than a second claim: the key is the thing the server
+  // One key across every attempt, including a resumed one. That is what makes a
+  // retry safe rather than a second claim: the key is the thing the server
   // dedupes on (ADR 0016), so reusing it turns "did my first attempt land?"
   // into a question the server answers instead of one the client guesses.
   const key = existingKey ?? newIdempotencyKey();
+
+  /**
+   * Written **before** the first attempt, not in the failure path.
+   *
+   * A `catch` only runs if this code is still running. A page reloaded or a
+   * native process killed while the request is in flight reaches no handler at
+   * all — and by then the anonymous session has already been replaced, so the
+   * token exists nowhere else and the membership is stranded with nothing
+   * recording that it was ever being claimed. Recording first costs one write
+   * on the ordinary path and is the only version that survives the failure it
+   * is for.
+   */
+  await rememberClaim({ anonymous_session: anonymousSession, idempotency_key: key, moment });
 
   const attempt = async (): Promise<ClaimIdentityResponse> => {
     const { data, error } = await authClient().functions.invoke('claim-identity', {
@@ -161,20 +174,28 @@ async function claimIdentity(
     return ClaimIdentityResponse.parse(data);
   };
 
+  const settle = async (error: unknown): Promise<never> => {
+    const problem = error instanceof SavePlaceError ? error.problem : undefined;
+    // An answer, and not one asking again will change: stop keeping the record.
+    if (!stillOpen(problem)) await forgetClaim();
+    throw error;
+  };
+
   try {
-    return await attempt();
+    const answered = await attempt();
+    await forgetClaim();
+    return answered;
   } catch (error) {
     const problem = error instanceof SavePlaceError ? error.problem : undefined;
 
     /**
-     * Retry exactly one shape, and only this one.
+     * Retry exactly one shape immediately, and only this one.
      *
      * `unavailable` with no `reason` means the auth server could not be *asked*
      * whether the token was good — the function released the key rather than
      * holding it, so the same key is safe and correct to send again. Every
-     * other failure is an answer: `source_is_permanent` (403) means the token
-     * verified and belongs to somebody else's account, and retrying it is
-     * asking the same question and getting the same no.
+     * other failure is either an answer or something the stored record will
+     * pick up later.
      */
     if (problem?.error === 'unavailable' && problem.reason === undefined) {
       try {
@@ -182,27 +203,11 @@ async function claimIdentity(
         await forgetClaim();
         return answered;
       } catch (again) {
-        const stillProblem = again instanceof SavePlaceError ? again.problem : undefined;
-        if (stillOpen(stillProblem)) {
-          await rememberClaim({
-            anonymous_session: anonymousSession,
-            idempotency_key: key,
-            moment,
-          });
-        } else {
-          await forgetClaim();
-        }
-        throw again;
+        return await settle(again);
       }
     }
 
-    if (stillOpen(problem)) {
-      await rememberClaim({ anonymous_session: anonymousSession, idempotency_key: key, moment });
-    } else {
-      // An answer, and not one asking again will change.
-      await forgetClaim();
-    }
-    throw error;
+    return await settle(error);
   }
 }
 

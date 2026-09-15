@@ -4,6 +4,7 @@ import { Platform } from 'react-native';
 
 import { setAccessToken } from '../session';
 import { authClient } from './client';
+import { resumePendingClaim } from './link';
 
 /**
  * Who is here, as the rest of the app asks it (architecture §10, §11).
@@ -66,6 +67,25 @@ function statusOf(session: Session | null): SessionStatus {
   // that *a* device has the app, and the prompts that read this are asking
   // about the device in front of the person.
   return Platform.OS !== 'web' && appInstalled ? 'app' : 'saved';
+}
+
+/**
+ * Finishes a claim that an earlier attempt could not get an answer to.
+ *
+ * Recording the claim is only half a recovery — something has to *ask* again,
+ * and the person it belongs to has no reason to walk the save-your-place flow a
+ * second time: as far as they are concerned they are signed in. Left to
+ * `savePlace` alone the record would sit there until the token expired, and the
+ * membership would be lost for the reason the record existed to prevent.
+ *
+ * So the moment a permanent session appears — restored from storage on start,
+ * or arriving from a sign-in — the claim is retried. Failures are swallowed on
+ * purpose: this is a background repair, the record survives to be tried again,
+ * and nothing on screen is waiting for it.
+ */
+function resumeClaimFor(session: Session | null): void {
+  if (session === null || session.user.is_anonymous === true) return;
+  void resumePendingClaim().catch(() => undefined);
 }
 
 function publish(session: Session | null): void {
@@ -161,6 +181,7 @@ export function startSessionTracking(): () => void {
     if (initial !== generation) return;
     setAccessToken(data.session?.access_token);
     publish(data.session);
+    resumeClaimFor(data.session);
   });
 
   const { data: subscription } = client.auth.onAuthStateChange((_event, session) => {
@@ -185,6 +206,7 @@ export function startSessionTracking(): () => void {
     void loadAppInstalled(session).then(() => {
       if (mine !== generation) return;
       publish(session);
+      resumeClaimFor(session);
     });
   });
 

@@ -37,11 +37,15 @@ vi.mock('./client', () => ({
     functions: {
       invoke: async (name: string, options: { body: Record<string, unknown> }) => {
         state.invocations.push({ name, body: options.body });
-        const answer = state.answers.shift() ?? {
+        const next = state.answers.shift();
+        // A call that has not come back yet, so a test can look at storage
+        // while it is still out.
+        if (next !== undefined && 'hang' in next) await (next as { hang: Promise<void> }).hang;
+        const answer = (next as { data?: unknown; error?: unknown } | undefined) ?? {
           data: { user_id: SAVED_ID, merged_memberships: 0, duplicates_removed: 0 },
           error: null,
         };
-        return { data: answer.data ?? null, error: answer.error ?? null };
+        return { data: answer?.data ?? null, error: answer?.error ?? null };
       },
     },
   }),
@@ -204,6 +208,38 @@ describe('a claim that never got an answer', () => {
     expect(state.invocations[0]?.body.anonymous_session).toBe('anon.token');
     expect(state.invocations[0]?.body.idempotency_key).toBe(first?.idempotency_key);
     expect(resumed?.merged_memberships).toBe(0);
+  });
+
+  it('exists while the request is still in flight, not only after it fails', async () => {
+    /**
+     * A `catch` only runs if this code is still running. A page reloaded or a
+     * native process killed mid-request reaches no handler at all — and the
+     * anonymous session is already replaced by then, so the token exists
+     * nowhere else. Recording in the failure path would have covered every
+     * failure except the one that takes the process with it.
+     */
+    let release = (): void => undefined;
+    state.answers = [
+      {
+        hang: new Promise<void>((resolve) => (release = resolve)),
+        data: { user_id: SAVED_ID, merged_memberships: 0, duplicates_removed: 0 },
+      } as never,
+    ];
+
+    const inFlight = savePlace({
+      moment: 'after_answer',
+      signIn: async () => ({ session: SAVED as never }),
+    });
+
+    // Give the call a turn to reach the transport, then look at storage as a
+    // killed process would leave it.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const stored = globalThis.localStorage.getItem('circles.pending_claim');
+    expect(stored).not.toBeNull();
+    expect(JSON.parse(stored ?? '{}')).toMatchObject({ anonymous_session: 'anon.token' });
+
+    release();
+    await inFlight;
   });
 
   it('is dropped when the answer was a refusal, so it is never replayed', async () => {
