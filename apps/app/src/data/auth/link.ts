@@ -1,10 +1,6 @@
-import {
-  ClaimIdentityResponse,
-  IdempotencyKey,
-  Problem,
-  type ClaimIdentityRequest,
-} from '@circles/contracts';
+import { ClaimIdentityResponse, type ClaimIdentityRequest, type Problem } from '@circles/contracts';
 
+import { newIdempotencyKey, problemOf } from '../functions';
 import { authClient } from './client';
 import { isAnonymous } from './guest';
 import type { SignedIn } from './providers/types';
@@ -197,24 +193,6 @@ function stillOpen(problem: Problem | undefined): boolean {
     // bookkeeping collision.
     problem.reason === 'idempotency_mismatch'
   );
-}
-
-function newIdempotencyKey(): IdempotencyKey {
-  const uuid = globalThis.crypto?.randomUUID?.();
-  if (uuid === undefined) throw new Error('no crypto.randomUUID available');
-  return IdempotencyKey.parse(uuid);
-}
-
-/** `functions.invoke` gives back a `Response` on failure; the body is the Problem. */
-async function problemOf(error: unknown): Promise<Problem | undefined> {
-  const response = (error as { context?: unknown })?.context;
-  if (!(response instanceof Response)) return undefined;
-  try {
-    const parsed = Problem.safeParse(await response.json());
-    return parsed.success ? parsed.data : undefined;
-  } catch {
-    return undefined;
-  }
 }
 
 async function claimIdentity(

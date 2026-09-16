@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { Database } from './db.generated.js';
-import { GuestMemberOption } from './dtos.js';
+import { GuestMemberOption, InvitePreview } from './dtos.js';
 
 /**
  * The DTO and the function it describes, tied together.
@@ -52,5 +52,31 @@ describe('GuestMemberOption', () => {
 
     expect(parsed).not.toHaveProperty('has_replied');
     expect(parsed).not.toHaveProperty('email_verified');
+  });
+});
+
+type PreviewRow = Database['public']['Functions']['invite_preview']['Returns'][number];
+
+describe('InvitePreview', () => {
+  it('declares every column the function returns, and nothing more', () => {
+    // Same hazard as above, the other way round: a column the function gained
+    // would be stripped here, and a column this schema invented would never
+    // arrive.
+    const row: PreviewRow = {
+      circle_name: 'Sunday Crew',
+      inviter_name: 'Maya',
+      member_initials: ['M', 'P'],
+    };
+
+    expect(Object.keys(InvitePreview.parse(row)).sort()).toEqual(Object.keys(row).sort());
+  });
+
+  it('accepts a link whose maker has left the circle', () => {
+    // The generated type says `string`; the scalar subquery returns null when the
+    // inviter is no longer an active member, and pgTAP proves it does.
+    expect(
+      InvitePreview.parse({ circle_name: 'Sunday Crew', inviter_name: null, member_initials: [] })
+        .inviter_name,
+    ).toBeNull();
   });
 });

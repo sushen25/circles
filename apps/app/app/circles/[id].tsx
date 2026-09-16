@@ -8,6 +8,7 @@ import { CircleHomeConfirmedScreen } from '../../src/features/circles/CircleHome
 import { CircleHomeDueScreen } from '../../src/features/circles/CircleHomeDueScreen';
 import { EmptyCircleScreen } from '../../src/features/circles/EmptyCircleScreen';
 import type { Fixture } from '../../src/data/fixtures';
+import { MembershipGate } from '../../src/features/identity/join/MembershipGate';
 
 type Common = {
   fixture: Fixture;
@@ -31,15 +32,17 @@ const STATES: Record<string, ComponentType<Common>> = {
 export default function Route() {
   const router = useRouter();
   const fixture = useFixture();
-  const { state } = useLocalSearchParams<{ state?: string }>();
+  const { id, state } = useLocalSearchParams<{ id: string; state?: string }>();
   const Screen = (state && STATES[state]) || CircleHomeScreen;
 
   return (
-    <Screen
-      fixture={fixture}
-      onNext={() => router.push('/circles/sunday-crew/plan/setup')}
-      onSeeHowItsLooking={() => router.push('/circles/sunday-crew/plan/thu-17/candidates')}
-      onBack={() => router.back()}
-    />
+    <MembershipGate target={{ kind: 'circle', id }}>
+      <Screen
+        fixture={fixture}
+        onNext={() => router.push('/circles/sunday-crew/plan/setup')}
+        onSeeHowItsLooking={() => router.push('/circles/sunday-crew/plan/thu-17/candidates')}
+        onBack={() => router.back()}
+      />
+    </MembershipGate>
   );
 }

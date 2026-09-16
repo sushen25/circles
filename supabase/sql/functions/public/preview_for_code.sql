@@ -3,8 +3,9 @@
 --
 -- A link pasted into a group chat is fetched by WhatsApp, Messenger, Slack and
 -- iMessage before a person taps it, with no session and no cookies, and the
--- card they draw is the first thing everybody in that chat sees. So this is the
--- one function in the product that answers an unauthenticated stranger.
+-- card they draw is the first thing everybody in that chat sees. So this answers
+-- an unauthenticated stranger — one of two functions that do, with
+-- `invite_preview`, which needs the invite's secret where this needs only a code.
 --
 -- What it answers is the circle's **name** and nothing else (architecture §9.4:
 -- "circle name only. Never member names, dates chosen, or anything from a quiet
@@ -59,7 +60,7 @@ end;
 $$;
 
 comment on function public.preview_for_code(text, text) is
-  'The circle name behind a plan or invite short code, for a link-preview card, or null. The only function that answers an unauthenticated stranger; it returns a name and has no field anything else could be added to (architecture §9.4).';
+  'The circle name behind a plan or invite short code, for a link-preview card, or null. Answers an unauthenticated stranger, knowing only a short code; it returns a name and has no field anything else could be added to (architecture §9.4).';
 
 revoke all on function public.preview_for_code(text, text) from public;
 grant execute on function public.preview_for_code(text, text) to anon, authenticated, service_role;

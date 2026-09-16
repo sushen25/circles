@@ -61,7 +61,7 @@ const SCREENS: ScreenEntry[] = [
   {
     screen: 'SaveAccess',
     feature: 'identity',
-    href: '/a/[token]',
+    href: '/j/[code]/save-access',
   },
   {
     screen: 'CandidatesMember',

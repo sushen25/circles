@@ -932,7 +932,11 @@ select is(
        -- with a circle's name, and has no field anything else could be added
        -- to. `founder_summary` answers only a user named in
        -- `private.allowlist`, which is empty until somebody is put in it.
-       'preview_for_code', 'founder_summary'
+       'preview_for_code', 'founder_summary',
+       -- S1-24. The Join page before joining: a circle's name, its inviter's
+       -- name and one initial per member, to whoever holds the invite secret —
+       -- by its digest, so the secret is never a statement parameter.
+       'invite_preview'
      )),
   '',
   'only the intended functions in public are callable by authenticated'
@@ -945,12 +949,16 @@ select is(
      and has_function_privilege('anon', p.oid, 'execute')
      and p.proname not in (
        'auth_is_member', 'auth_is_owner', 'auth_is_permanent', 'canonical_display_name',
-       -- The one function in the product that answers somebody with no session
-       -- at all: a chat app fetching a link-preview card (architecture §9.4).
-       -- It returns a circle's name for a plan short code and null for
+       -- The two functions in the product that answer somebody with no session
+       -- at all. `preview_for_code` is a chat app fetching a link-preview card
+       -- (architecture §9.4): a circle's name for a plan short code and null for
        -- everything else, including a code that does not exist — so the
        -- short-code space cannot be walked for circles that do.
-       'preview_for_code'
+       'preview_for_code',
+       -- `invite_preview` is the Join page, shown before any prompt (§5.1). It
+       -- is keyed by a 256-bit secret's digest, which is not a space anybody
+       -- walks, and returns names and initials rather than a roster.
+       'invite_preview'
      )),
   '',
   'and anon can call only the read-only helpers'

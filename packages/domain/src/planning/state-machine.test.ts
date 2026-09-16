@@ -10,7 +10,7 @@ import {
   canTransition,
   transitionsFrom,
 } from './state-machine.js';
-import { type PlanState, isTerminal } from './types.js';
+import { type PlanState, acceptsAnswers, isTerminal } from './types.js';
 
 /**
  * Everything at once, so the table-driven test below exercises the *rows*
@@ -368,5 +368,24 @@ describe('transitionsFrom', () => {
     for (const state of ['completed', 'expired', 'cancelled'] as const) {
       expect(transitionsFrom(state)).toEqual([]);
     }
+  });
+});
+
+describe('acceptsAnswers', () => {
+  it('is collecting and ready, and nothing else', () => {
+    const all: PlanState[] = [
+      'draft',
+      'seeking',
+      'collecting',
+      'ready',
+      'confirmed',
+      'completed',
+      'expired',
+      'cancelled',
+    ];
+    // The same two `public.replace_response` accepts. A client that sent somebody
+    // to the availability screen of a plan in any other state would send them to
+    // a form whose submit the server refuses.
+    expect(all.filter(acceptsAnswers)).toEqual(['collecting', 'ready']);
   });
 });

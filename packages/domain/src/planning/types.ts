@@ -43,6 +43,25 @@ export function isTerminal(state: PlanState): boolean {
   return TERMINAL_STATES.includes(state);
 }
 
+/**
+ * The states in which somebody can still send their times.
+ *
+ * `collecting`, and `ready` too: candidates being ready means there is enough to
+ * decide on, not that the question has closed, and a late answer can still move
+ * the result. Not `seeking` — a quiet ask asks who is keen, not when — and
+ * nothing after a decision.
+ *
+ * `public.replace_response` refuses every other state, and is the authority;
+ * this is the same rule for a client deciding where to send somebody who has
+ * just joined, so that it sends them to a screen the server will accept an
+ * answer from.
+ */
+export const ANSWERABLE_STATES: readonly PlanState[] = ['collecting', 'ready'];
+
+export function acceptsAnswers(state: PlanState): boolean {
+  return ANSWERABLE_STATES.includes(state);
+}
+
 /** Intent, in the spec's words. "Catch up" is the default and covers most plans. */
 export type PlanCategory = 'catch_up' | 'dinner' | 'drinks' | 'coffee' | 'activity';
 
