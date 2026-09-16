@@ -11,6 +11,7 @@ import { fontAssets } from '@circles/tokens/font-assets';
 
 import { configureAnalytics, flush } from '../src/analytics/track';
 import { retryWhenReachable, trackEventsTransport } from '../src/analytics/transport';
+import { startSessionTracking } from '../src/data/auth/session';
 import { accessToken } from '../src/data/session';
 
 void SplashScreen.preventAutoHideAsync();
@@ -51,6 +52,13 @@ export default function RootLayout() {
   // answers on a train and puts their phone away loses the session they were
   // counted for.
   useEffect(() => retryWhenReachable(flush), []);
+
+  // Watches the session and pushes its token at `setAccessToken`, which is what
+  // the comment above the `configureAnalytics` call has been waiting for: until
+  // this ran, every event in the product was attributed to nobody. Also the one
+  // place the session is read back from storage, so `useSession` has an answer
+  // before any guard asks (§10).
+  useEffect(() => startSessionTracking(), []);
 
   if (!fontsLoaded && !fontError) {
     return null;

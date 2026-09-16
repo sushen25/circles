@@ -3,3 +3,4 @@ export * from './quorum.js';
 export * from './cadence.js';
 export * from './nudge.js';
 export * from './display-name.js';
+export * from './eligibility.js';

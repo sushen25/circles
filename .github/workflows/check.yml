@@ -96,6 +96,18 @@ jobs:
       - if: steps.scope.outputs.kind == 'code' && steps.playwright-cache.outputs.cache-hit != 'true'
         run: pnpm exec playwright install --with-deps chromium
 
+      # Edge Functions import `@circles/domain` and `@circles/contracts` from
+      # `dist/`, which is gitignored, so the runtime cannot even start without
+      # it — `failed to read file: packages/contracts/dist/index.js`. `pnpm
+      # check` builds it as a side effect of `typecheck`, but that runs *after*
+      # the stack is up, so the stack has to be given it first. The deploy
+      # workflows learned the same thing (AGENTS.md, "the deploy workflows are
+      # not `pnpm check`"); enabling `edge-runtime` here brings the lesson
+      # along with it.
+      - name: Build the workspace packages
+        if: steps.scope.outputs.kind == 'code'
+        run: pnpm run build
+
       - name: Start Supabase
         if: steps.scope.outputs.kind == 'code'
         # The workspace CLI, not `supabase/setup-cli`. There were two of them:
@@ -105,10 +117,18 @@ jobs:
         # test against a CLI nobody has locally. The action also resolves
         # `latest` through the GitHub API, which rate-limited and failed a run.
         #
-        # `pnpm check` resets the database and runs pgTAP, and `check:types`
-        # generates types from the live schema. Only the database is needed:
-        # every other service is time we would spend on nothing.
-        run: pnpm exec supabase start -x realtime,storage-api,imgproxy,studio,inbucket,edge-runtime,logflare,vector,supavisor
+        # `pnpm check` resets the database and runs pgTAP, `check:types`
+        # generates types from the live schema, and `test:integration` drives
+        # the real sign-in journey.
+        #
+        # **`inbucket` and `edge-runtime` are no longer excluded**, and were
+        # until S1-14. That suite reads a sign-in code out of Mailpit and calls
+        # `create-circle`, `redeem-invite` and `claim-identity` — without those
+        # two services `pnpm check` passes locally, where the whole stack is
+        # up, and fails here. AGENTS.md promises the two are the same command;
+        # excluding a service the gate needs is how that promise quietly stops
+        # being true.
+        run: pnpm exec supabase start -x realtime,storage-api,imgproxy,studio,logflare,vector,supavisor
 
       - name: pnpm check
         if: steps.scope.outputs.kind == 'code'

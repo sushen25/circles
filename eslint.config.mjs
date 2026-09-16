@@ -23,6 +23,13 @@ const elements = [
   // Tests first: `boundaries` takes the first pattern that matches, and a test
   // is allowed the test libraries that the package it tests is not.
   { type: 'package-test', pattern: 'packages/*/src/**/*.test.ts', mode: 'full' },
+  // And the app's own integration tests, for the same reason one layer along:
+  // they drive the real stack, so they reach for things the layer they sit in
+  // must never have — `node:child_process` to ask Postgres a question the
+  // client deliberately cannot ask, because PostgREST exposes only `public`.
+  // Narrow on purpose: `*.integration.test.ts`, not every test, so an ordinary
+  // unit test under `data/` keeps the layer's restrictions.
+  { type: 'app-integration-test', pattern: 'apps/*/src/**/*.integration.test.ts', mode: 'full' },
   { type: 'domain', pattern: 'packages/domain/**/*', mode: 'full' },
   { type: 'contracts', pattern: 'packages/contracts/**/*', mode: 'full' },
   { type: 'tokens', pattern: 'packages/tokens/**/*', mode: 'full' },
@@ -105,6 +112,10 @@ export default tseslint.config(
             { from: ['domain'], allow: ['domain'] },
             // A test may reach into any package's source; that is what it is for.
             { from: ['package-test'], allow: ['domain', 'contracts', 'tokens', 'config'] },
+            {
+              from: ['app-integration-test'],
+              allow: [...appLayers, 'contracts', 'domain', 'tokens', 'config'],
+            },
             { from: ['contracts'], allow: ['contracts', 'domain'] },
             { from: ['tokens'], allow: ['tokens'] },
             { from: ['config'], allow: ['config'] },
@@ -153,6 +164,10 @@ export default tseslint.config(
             {
               from: ['package-test'],
               allow: ['@circles/*', 'date-fns-tz', 'zod', 'vitest', 'fast-check', 'ical.js'],
+            },
+            {
+              from: ['app-integration-test'],
+              allow: [...appExternals, 'node:child_process', 'node:path'],
             },
             { from: ['app-routes', ...appLayers], allow: appExternals },
             {

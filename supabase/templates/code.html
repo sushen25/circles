@@ -1,0 +1,26 @@
+<!--
+  Local development only. Hosted projects keep their templates in the Supabase
+  dashboard, and the real ones are built with React Email in S1-19.
+
+  This exists for one reason: every stock auth template sends
+  {{ .ConfirmationURL }}, a magic link, and the product signs people in with a
+  six-digit code (§10). Testing against a link when the app expects a code
+  proves nothing — and a link opened in a mail app's in-app browser lands in a
+  different storage jar from the tab the person was joining in, which is the
+  failure Continue-as exists to repair, caused on purpose.
+
+  One body for three templates, because to the person they are one thing — a
+  code they were just asked for. They differ only in what prompted it:
+  magic_link (signing in again), confirmation (the first time an address is
+  used) and email_change (a guest saving their place, which attaches an address
+  to a session that already exists). Miss any one of them and that path silently
+  goes back to sending a link.
+
+  Deliberately unbranded — the product name lives in packages/config/brand.ts
+  and nowhere else (architecture §5.4).
+-->
+<h2>Your code</h2>
+
+<p style="font-size: 28px; letter-spacing: 4px; font-weight: 600">{{ .Token }}</p>
+
+<p>It expires in ten minutes. If you did not ask for it, ignore this email.</p>
