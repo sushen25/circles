@@ -11,7 +11,7 @@
 -- session; Sam is a stranger with an account.
 
 begin;
-select plan(39);
+select plan(40);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid
@@ -42,6 +42,18 @@ begin
     jsonb_build_object('sub', id::text, 'role', 'authenticated', 'is_anonymous', anonymous)::text,
     true
   );
+end;
+$$;
+
+-- How `join-plan` calls it: as the service role, naming the person its JWT
+-- resolved to.
+create or replace function pg_temp.act_as_service()
+returns void
+language plpgsql
+as $$
+begin
+  perform set_config('role', 'service_role', true);
+  perform set_config('request.jwt.claims', '{"role": "service_role"}', true);
 end;
 $$;
 
@@ -97,7 +109,7 @@ from fixture, (values
 
 create temporary table plan_ids as
 select short_code, id from public.plans where short_code like 'pn%';
-grant select on plan_ids, fixture to authenticated;
+grant select on plan_ids, fixture to authenticated, service_role;
 
 -- Maya, Priya and Kai were asked. Tom joins afterwards, so he was not.
 insert into public.plan_participants (plan_id, revision, user_id)
@@ -130,28 +142,28 @@ $$;
 -- A stranger with a guest session.
 -- ---------------------------------------------------------------------------
 
-select pg_temp.act_as('17000000-0000-0000-0000-000000000005', true);
+select pg_temp.act_as_service();
 
 select throws_ok(
-  $$select public.join_from_plan('pnaskng2')$$,
+  $$select public.join_from_plan('17000000-0000-0000-0000-000000000005', 'pnaskng2')$$,
   '23514', 'display_name_unusable',
   'a guest has to give a name'
 );
 
 select throws_ok(
-  $$select public.join_from_plan('pnaskng2', 'Priya')$$,
+  $$select public.join_from_plan('17000000-0000-0000-0000-000000000005', 'pnaskng2', 'Priya')$$,
   '23505', 'duplicate_name',
   'a name somebody in the circle already has is refused'
 );
 
 select throws_ok(
-  $$select public.join_from_plan('pnaskng2', E'́́')$$,
+  $$select public.join_from_plan('17000000-0000-0000-0000-000000000005', 'pnaskng2', E'́́')$$,
   '23514', 'display_name_unusable',
   'a name of nothing but combining marks is refused'
 );
 
 select lives_ok(
-  $$select public.join_from_plan('pnaskng2', 'Ren')$$,
+  $$select public.join_from_plan('17000000-0000-0000-0000-000000000005', 'pnaskng2', 'Ren')$$,
   'a guest joins from the plan''s code'
 );
 
@@ -198,8 +210,10 @@ select lives_ok(
   'and they can answer it'
 );
 
+select pg_temp.act_as_service();
+
 select is(
-  (public.join_from_plan('pnaskng2', 'Somebody Else') -> 'newly_asked')::boolean,
+  (public.join_from_plan('17000000-0000-0000-0000-000000000005', 'pnaskng2', 'Somebody Else') -> 'newly_asked')::boolean,
   false,
   'opening the link again adds nothing'
 );
@@ -236,10 +250,10 @@ select is(
 -- A stranger with an account.
 -- ---------------------------------------------------------------------------
 
-select pg_temp.act_as('17000000-0000-0000-0000-000000000006');
+select pg_temp.act_as_service();
 
 select is(
-  (public.join_from_plan('pnaskng2') -> 'newly_asked')::boolean,
+  (public.join_from_plan('17000000-0000-0000-0000-000000000006', 'pnaskng2') -> 'newly_asked')::boolean,
   true,
   'an account joins with no name'
 );
@@ -266,11 +280,15 @@ select throws_ok(
   'Tom joined after the plan was made, so it is not asking him'
 );
 
+select pg_temp.act_as_service();
+
 select is(
-  (public.join_from_plan('pnaskng2') -> 'newly_asked')::boolean,
+  (public.join_from_plan('17000000-0000-0000-0000-000000000003', 'pnaskng2') -> 'newly_asked')::boolean,
   true,
   'opening its link asks him, and needs no name'
 );
+
+select pg_temp.act_as('17000000-0000-0000-0000-000000000003', true);
 
 select lives_ok(
   format($$select public.replace_response(%L, 1, 'flexible')$$,
@@ -296,10 +314,10 @@ select is(
 -- A removed member.
 -- ---------------------------------------------------------------------------
 
-select pg_temp.act_as('17000000-0000-0000-0000-000000000004', true);
+select pg_temp.act_as_service();
 
 select lives_ok(
-  $$select public.join_from_plan('pnaskng2', 'Kai')$$,
+  $$select public.join_from_plan('17000000-0000-0000-0000-000000000004', 'pnaskng2', 'Kai')$$,
   'a removed member rejoins through a live plan link, as through a live invite'
 );
 
@@ -316,60 +334,60 @@ select is(
 -- Codes that do not admit. One answer for all of them.
 -- ---------------------------------------------------------------------------
 
-select pg_temp.act_as('17000000-0000-0000-0000-000000000007', true);
+select pg_temp.act_as_service();
 
 select throws_ok(
-  $$select public.join_from_plan('pnpassed', 'Ada')$$,
+  $$select public.join_from_plan('17000000-0000-0000-0000-000000000007', 'pnpassed', 'Ada')$$,
   'P0002', 'invite_inactive',
   'a plan still collecting whose deadline has passed'
 );
 
 select throws_ok(
-  $$select public.join_from_plan('pnqvet22', 'Ada')$$,
+  $$select public.join_from_plan('17000000-0000-0000-0000-000000000007', 'pnqvet22', 'Ada')$$,
   'P0002', 'invite_inactive',
   'a quiet ask still gathering interest'
 );
 
 select throws_ok(
-  $$select public.join_from_plan('pnsetxx2', 'Ada')$$,
+  $$select public.join_from_plan('17000000-0000-0000-0000-000000000007', 'pnsetxx2', 'Ada')$$,
   'P0002', 'invite_inactive',
   'a confirmed plan'
 );
 
 select throws_ok(
-  $$select public.join_from_plan('pncanxx2', 'Ada')$$,
+  $$select public.join_from_plan('17000000-0000-0000-0000-000000000007', 'pncanxx2', 'Ada')$$,
   'P0002', 'invite_inactive',
   'a cancelled plan'
 );
 
 select throws_ok(
-  $$select public.join_from_plan('pndxne22', 'Ada')$$,
+  $$select public.join_from_plan('17000000-0000-0000-0000-000000000007', 'pndxne22', 'Ada')$$,
   'P0002', 'invite_inactive',
   'a completed plan'
 );
 
 select throws_ok(
-  $$select public.join_from_plan('pnnxbdy2', 'Ada')$$,
+  $$select public.join_from_plan('17000000-0000-0000-0000-000000000007', 'pnnxbdy2', 'Ada')$$,
   'P0002', 'invite_inactive',
   'a code that does not exist'
 );
 
 select throws_ok(
-  $$select public.join_from_plan('not a code!', 'Ada')$$,
+  $$select public.join_from_plan('17000000-0000-0000-0000-000000000007', 'not a code!', 'Ada')$$,
   'P0002', 'invite_inactive',
   'something that is not a code at all'
 );
 
 select throws_ok(
-  $$select public.join_from_plan('pnqvet22')$$,
+  $$select public.join_from_plan('17000000-0000-0000-0000-000000000007', 'pnqvet22')$$,
   'P0002', 'invite_inactive',
   'refused before a missing name is: the refusal does not depend on what else was sent'
 );
 
-select pg_temp.act_as('17000000-0000-0000-0000-000000000002', true);
+select pg_temp.act_as_service();
 
 select throws_ok(
-  $$select public.join_from_plan('pnsetxx2')$$,
+  $$select public.join_from_plan('17000000-0000-0000-0000-000000000002', 'pnsetxx2')$$,
   'P0002', 'invite_inactive',
   'a member gets the same refusal from a plan that is not asking'
 );
@@ -389,10 +407,10 @@ select is(
 
 update public.circles set status = 'archived' where id = (select circle_id from fixture);
 
-select pg_temp.act_as('17000000-0000-0000-0000-000000000008', true);
+select pg_temp.act_as_service();
 
 select throws_ok(
-  $$select public.join_from_plan('pnaskng2', 'Bo')$$,
+  $$select public.join_from_plan('17000000-0000-0000-0000-000000000008', 'pnaskng2', 'Bo')$$,
   'P0002', 'invite_inactive',
   'a plan still asking, in a circle that has been archived'
 );
@@ -417,10 +435,10 @@ select f.circle_id, u.id, 'Filler ' || row_number() over ()
 from auth.users u, fixture f
 where u.raw_user_meta_data ? 'sus79_filler';
 
-select pg_temp.act_as('17000000-0000-0000-0000-000000000009', true);
+select pg_temp.act_as_service();
 
 select throws_ok(
-  $$select public.join_from_plan('pnaskng2', 'Cy')$$,
+  $$select public.join_from_plan('17000000-0000-0000-0000-000000000009', 'pnaskng2', 'Cy')$$,
   '23514', 'circle_full',
   'a full circle says so, with its own reason'
 );
@@ -432,13 +450,22 @@ select throws_ok(
 select pg_temp.act_as_postgres();
 
 select ok(
-  has_function_privilege('authenticated', 'public.join_from_plan(text, text)', 'execute'),
-  'a signed-in caller may join, guest or account'
+  has_function_privilege('service_role', 'public.join_from_plan(uuid, text, text)', 'execute'),
+  'join-plan may call it, as the service role'
+);
+
+-- The finding this exists for. Granted to `authenticated`, any session — an
+-- anonymous one costs nothing — could call the RPC directly, as often as it
+-- liked, without Turnstile or either limit, and each guess that landed was a
+-- seat in a circle.
+select ok(
+  not has_function_privilege('authenticated', 'public.join_from_plan(uuid, text, text)', 'execute'),
+  'but no client can, guest or account, so the Turnstile check and the limits cannot be skipped'
 );
 
 select ok(
-  not has_function_privilege('anon', 'public.join_from_plan(text, text)', 'execute'),
-  'but nobody without a session: the membership has to land on somebody'
+  not has_function_privilege('anon', 'public.join_from_plan(uuid, text, text)', 'execute'),
+  'nor anybody without a session'
 );
 
 select ok(

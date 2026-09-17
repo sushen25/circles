@@ -17,11 +17,16 @@ import { verifyTurnstile } from '../_shared/turnstile.ts';
  * authorises it is different, its limits count different things, and its body
  * must never be one that could carry a secret.
  *
- * Thin, like `redeem-invite`. Turnstile and the limits are here because they
- * are about volume; `public.join_from_plan` decides everything that matters —
- * whether the plan is admitting, whether there is room, whether the name is
- * taken, and whose membership this becomes, which is `auth.uid()` because it
- * is called with the caller's own JWT.
+ * Thin, like `redeem-invite`, with one difference that matters.
+ * `public.join_from_plan` decides whether the plan is admitting, whether there
+ * is room and whether the name is taken — but it is the **service role's**, and
+ * this passes the verified caller's id to it. `redeem-invite` can call its
+ * function with the caller's own JWT because an invite secret is 256 bits; a
+ * plan code is eight characters, and a function any session could reach over
+ * PostgREST would skip the Turnstile check and both limits below, which are the
+ * whole of what makes a guessable code acceptable (ADR 0022). So this is the
+ * only way in, and the id is `actor.userId` — resolved from the JWT, never read
+ * from the body.
  *
  * **Neither the code nor the name is logged.** The code sits in URL paths, but
  * it admits people now (ADR 0022), so it stays out of everything we write
@@ -47,8 +52,9 @@ Deno.serve(
         { scope: 'join_plan_ip', key: callerAddress(request), max: 10, window: '1 hour' },
       ]);
     },
-    handle: async ({ body, actor, caller, service, requestId }): Promise<JoinPlanResponse> => {
-      const { data, error } = await caller.rpc('join_from_plan', {
+    handle: async ({ body, actor, service, requestId }): Promise<JoinPlanResponse> => {
+      const { data, error } = await service.rpc('join_from_plan', {
+        p_user_id: actor.userId,
         p_short_code: body.plan_code,
         ...(body.display_name === undefined ? {} : { p_display_name: body.display_name }),
       });

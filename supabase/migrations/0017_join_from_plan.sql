@@ -155,10 +155,22 @@ revoke all on function private.admit_member(uuid, uuid, text) from anon, authent
 -- cancelled plan by how the door is shut.
 --
 -- The code is weak on purpose (ADR 0022's consequences): eight characters,
--- in URL paths, not revocable, bounded by the deadline. Turnstile and the
--- per-code and per-address limits are in the `join-plan` Edge Function, because
--- they are about volume; skipping them reaches nothing this function would have
--- refused.
+-- in URL paths, not revocable, bounded by the deadline. What makes that
+-- acceptable is that guessing is slow — Turnstile, and limits per code and per
+-- address — and those live in the `join-plan` Edge Function, because only it
+-- can see a Turnstile token or the caller's address.
+--
+-- **So this is the service role's, and the person joining is a parameter.**
+-- `redeem_invite` is granted to `authenticated` and acts on `auth.uid()`, and
+-- it can be: its secret is 256 bits, so a client calling the RPC directly and
+-- skipping the function's limits gains volume and nothing else. Here the same
+-- grant was the hole. Any session, an anonymous one included, could call
+-- `/rest/v1/rpc/join_from_plan` as often as it liked, and every guess that
+-- landed was a seat in somebody's circle. Taking the grant away makes the Edge
+-- Function the only way in, which is `claim_identity`'s shape for the same
+-- reason: the proof the database cannot check is checked before it is called.
+-- The id comes from the caller's verified JWT (`actor.userId`), never from the
+-- request body.
 --
 -- **Already a member.** No name is read. The person is added to the plan's
 -- current revision if they are not on it, which is spec §9's "new members may
@@ -190,6 +202,8 @@ revoke all on function private.admit_member(uuid, uuid, text) from anon, authent
 -- ---------------------------------------------------------------------------
 
 create or replace function public.join_from_plan(
+  -- Who is joining: the verified caller, as `join-plan` resolved them.
+  p_user_id uuid,
   p_short_code text,
   p_display_name text default null
 )
@@ -199,7 +213,7 @@ security definer
 set search_path = ''
 as $$
 declare
-  caller uuid := (select auth.uid());
+  caller uuid := p_user_id;
   found_plan_id uuid;
   plan public.plans;
   target public.circles;
@@ -207,7 +221,7 @@ declare
   added integer;
 begin
   if caller is null then
-    raise exception 'join_from_plan requires a signed-in actor'
+    raise exception 'join_from_plan requires the person joining'
       using errcode = 'insufficient_privilege';
   end if;
 
@@ -286,12 +300,12 @@ begin
 end;
 $$;
 
-comment on function public.join_from_plan(text, text) is
-  'Joins the caller to the circle behind a plan short code while that plan is taking answers, and adds them to its current revision (ADR 0022). Idempotent; never changes the quorum. Raises invite_inactive for every plan that is not admitting, or duplicate_name, display_name_unusable, circle_full.';
+comment on function public.join_from_plan(uuid, text, text) is
+  'Joins a person to the circle behind a plan short code while that plan is taking answers, and adds them to its current revision (ADR 0022). Idempotent; never changes the quorum. Raises invite_inactive for every plan that is not admitting, or duplicate_name, display_name_unusable, circle_full. Service role only: Turnstile and the rate limits that make a short code acceptable are in the join-plan Edge Function, and a client calling this directly would skip them.';
 
-revoke all on function public.join_from_plan(text, text) from public;
-revoke all on function public.join_from_plan(text, text) from anon, authenticated;
-grant execute on function public.join_from_plan(text, text) to authenticated;
+revoke all on function public.join_from_plan(uuid, text, text) from public;
+revoke all on function public.join_from_plan(uuid, text, text) from anon, authenticated;
+grant execute on function public.join_from_plan(uuid, text, text) to service_role;
 
 -- supabase/sql/functions/public/redeem_invite.sql
 -- ---------------------------------------------------------------------------

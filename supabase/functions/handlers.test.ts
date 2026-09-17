@@ -431,7 +431,10 @@ describe('join-plan', () => {
     expect(answered.circle['name']).toBe('Sunday Crew');
     expect(answered.circle).not.toHaveProperty('owner_user_id');
     expect(answered.plan_code).toBe(CODE);
+    // The person joining is the one the JWT resolved to. The function is the
+    // service role's, so nothing in the body could name somebody else.
     expect(called('join_from_plan')[0]?.args).toEqual({
+      p_user_id: CALLER,
       p_short_code: CODE,
       p_display_name: NAME,
     });

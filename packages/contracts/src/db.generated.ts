@@ -1067,7 +1067,11 @@ export type Database = {
         Returns: string
       }
       join_from_plan: {
-        Args: { p_display_name?: string; p_short_code: string }
+        Args: {
+          p_display_name?: string
+          p_short_code: string
+          p_user_id: string
+        }
         Returns: Json
       }
       member_cap: { Args: never; Returns: number }
