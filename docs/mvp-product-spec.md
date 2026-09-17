@@ -458,7 +458,7 @@ confirmed | ready | collecting ─cancel──▶ cancelled
 - Quiet-ask initiator identity and individual interest answers are never exposed, before or after threshold.
 - A reattachment moves a membership only within a circle the guest already belongs to, never onto a saved-place member.
 - Plan-update email consent is scoped to one plan and is never a marketing consent.
-- No client, log or analytics context ever holds a raw email address, token, note or event title.
+- No client, log or analytics context ever holds a raw email address, token, note or event title. A plan's short code is not a token for this rule: it is in every link the product shares, by design, and what it admits to is bounded and visible ([ADR 0022](decisions/0022-a-plan-link-admits-new-members-while-the-plan-is-asking.md)). It still stays out of analytics payloads and our own function logs.
 - All plan times are stored as instants with the display IANA zone; state transitions are server-side and idempotent.
 
 ## 9. Edge cases that must be designed, not deferred

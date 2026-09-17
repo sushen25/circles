@@ -139,8 +139,24 @@ own membership.
   required for a guest, optional for an account, which otherwise joins under its
   profile name. It names the membership in this circle, not the person's
   profile.
-- The code stays out of analytics payloads and function logs, like every other
-  thing that lets somebody in (non-negotiable 8), even though it appears in URLs.
+- **This amends a privacy rule, narrowly and on purpose.** Non-negotiable 8 and
+  the invariant in spec §8.2 say no log ever holds a token. A plan's short code
+  is in a URL path, so the hosting provider's access logs hold it, and under this
+  decision it lets somebody in. Rather than pretend otherwise, the rule now says
+  what it means: **a plan's short code is not a token.** Invite secrets,
+  re-entry, verification and preference tokens, and session tokens are; they
+  stay out of every URL path and every log, with no exception.
+  The reasoning for the carve-out: the code was designed to be public (it is
+  pasted into group chats and read aloud, `contracts` calls it "not a secret");
+  what it admits to is a guest seat that everybody in the circle can see and the
+  owner can remove; it admits for days, not for good; and the only logs that
+  hold it are the hosting account's own request logs, readable by whoever
+  already administers the product. Keeping the rule absolute would mean a
+  fragment secret on every plan link — the per-plan secret above — which was
+  weighed and declined for now.
+- The carve-out is for URLs only. The code still stays out of analytics
+  payloads and out of our own function logs, so it is never somewhere it did not
+  already have to be.
 - Part of §9's "new members may opt into the active plan" is now specified: a
   plan's own link is the opt-in. Somebody who joined through the **invite** while
   a plan was running still arrives unasked; opening that plan's link asks them.
