@@ -22,22 +22,33 @@ export type Member = {
 type Props = {
   members: readonly Member[];
   large?: boolean;
+  /**
+   * What a screen reader hears instead of who has answered.
+   *
+   * The default describes reply state, which is right on a plan and wrong
+   * anywhere the marks mean only "who is in": the Join page and Continue-as
+   * carry names and no reply state at all (ADR 0006), and "M answered" there
+   * announces something the data does not say.
+   */
+  label?: string;
 };
 
-export function Marks({ members, large = false }: Props) {
+export function Marks({ members, large = false, label: given }: Props) {
   const palette = usePalette();
   const dimension = large ? size.markLarge : size.mark;
 
   const answered = members.filter((m) => !m.waiting).map((m) => m.name);
   const waiting = members.filter((m) => m.waiting).map((m) => m.name);
-  const label = [
-    answered.length > 0 ? `${list(answered)} answered` : null,
-    waiting.length > 0
-      ? `${list(waiting)} ${waiting.length === 1 ? 'has' : 'have'} not answered yet`
-      : null,
-  ]
-    .filter(Boolean)
-    .join('. ');
+  const label =
+    given ??
+    [
+      answered.length > 0 ? `${list(answered)} answered` : null,
+      waiting.length > 0
+        ? `${list(waiting)} ${waiting.length === 1 ? 'has' : 'have'} not answered yet`
+        : null,
+    ]
+      .filter(Boolean)
+      .join('. ');
 
   return (
     <View style={styles.marks} accessible role="img" aria-label={label}>

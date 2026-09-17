@@ -61,6 +61,15 @@ export function ReentryFlow({ token }: { token: string | undefined }) {
           setOffline(true);
           return;
         }
+        // This browser is already a saved place, and a saved place does not
+        // reattach — it is signed in. Architecture §10: "if the browser already
+        // holds the right identity, it simply routes to the plan". The token
+        // does not say which circle to a caller that cannot spend it, so the
+        // route is their circles, where it is.
+        if (failure.kind === 'reason' && failure.reason === 'caller_is_permanent') {
+          router.replace('/circles');
+          return;
+        }
         setFailed(
           failure.kind === 'reason' && failure.reason === 'target_is_permanent'
             ? 'account'

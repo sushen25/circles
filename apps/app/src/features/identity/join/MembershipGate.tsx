@@ -38,6 +38,10 @@ function LiveGate({ target, children }: { target: Target; children: ReactNode })
   const queryClient = useQueryClient();
   const session = useSession();
   const [sessionFailed, setSessionFailed] = useState(false);
+  // Bumped by Try again. The effect below depends on it, because nothing else
+  // it depends on changes after a failed attempt: the session is still `none`
+  // and the decision still `needs_session`.
+  const [sessionAttempt, setSessionAttempt] = useState(0);
 
   const code = target.kind === 'plan' ? ShortCode.safeParse(target.code) : undefined;
   const malformed = code !== undefined && !code.success;
@@ -66,9 +70,9 @@ function LiveGate({ target, children }: { target: Target; children: ReactNode })
   // circle without one, and `ensureGuestSession` is idempotent, so the effect
   // re-running on a re-render cannot mint a second identity.
   useEffect(() => {
-    if (decision.kind !== 'needs_session' || malformed) return;
+    if (decision.kind !== 'needs_session' || malformed || sessionFailed) return;
     ensureGuestSession().catch(() => setSessionFailed(true));
-  }, [decision.kind, malformed]);
+  }, [decision.kind, malformed, sessionFailed, sessionAttempt]);
 
   const back = () => (router.canGoBack() ? router.back() : router.replace('/'));
   const whatIsBrand = () => router.push('/get-the-app');
@@ -82,8 +86,12 @@ function LiveGate({ target, children }: { target: Target; children: ReactNode })
       <ContinueAsScreen
         state={isOffline() ? 'offline' : 'error'}
         onRetry={() => {
-          setSessionFailed(false);
-          void access.refetch();
+          if (sessionFailed) {
+            setSessionFailed(false);
+            setSessionAttempt((n) => n + 1);
+          } else {
+            void access.refetch();
+          }
         }}
         onBack={back}
       />

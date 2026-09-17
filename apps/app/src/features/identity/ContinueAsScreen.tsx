@@ -142,7 +142,7 @@ export function ContinueAsScreen({
                     onPress={() => onPick?.(option)}
                   >
                     <Row>
-                      <Marks members={[{ name: option.name }]} />
+                      <Marks members={[{ name: option.name }]} label={option.name} />
                       <Title>
                         {busyKey === option.key ? t('continueAs', 'rejoining') : option.name}
                       </Title>

@@ -73,17 +73,9 @@ export function MainScreen({
 }: MainProps) {
   const view = invite ?? fromFixture(fixture);
 
-  if (state === 'loading' || view === undefined) {
-    return (
-      <Screen>
-        <TopBar onBack={onBack} backLabel={t('common', 'back')} />
-        <Body>
-          <Small accessibilityLiveRegion="polite">{t('main', 'opening_the_invite')}</Small>
-        </Body>
-      </Screen>
-    );
-  }
-
+  // Failures first. The live flow has no invite to show when the preview is the
+  // thing that failed, and a check for the view ahead of this one kept that
+  // person on "Opening the invite" with no way to retry.
   if (state === 'error' || state === 'offline') {
     return (
       <Screen>
@@ -105,7 +97,20 @@ export function MainScreen({
     );
   }
 
+  if (state === 'loading' || view === undefined) {
+    return (
+      <Screen>
+        <TopBar onBack={onBack} backLabel={t('common', 'back')} />
+        <Body>
+          <Small accessibilityLiveRegion="polite">{t('main', 'opening_the_invite')}</Small>
+        </Body>
+      </Screen>
+    );
+  }
+
   const count = view.memberInitials.length;
+  const inSoFar =
+    count === 1 ? t('main', 'one_person_in_so_far') : t('main', 'people_in_so_far', { count });
 
   return (
     <Screen>
@@ -120,12 +125,11 @@ export function MainScreen({
         </BodyText>
         {count === 0 ? null : (
           <Row>
-            <Marks members={view.memberInitials.map((initial) => ({ name: initial }))} />
-            <Small>
-              {count === 1
-                ? t('main', 'one_person_in_so_far')
-                : t('main', 'people_in_so_far', { count })}
-            </Small>
+            <Marks
+              members={view.memberInitials.map((initial) => ({ name: initial }))}
+              label={inSoFar}
+            />
+            <Small>{inSoFar}</Small>
           </Row>
         )}
         <Notice>{t('main', 'no_account_or_app_needed_your_friends')}</Notice>
