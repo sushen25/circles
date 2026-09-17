@@ -1066,6 +1066,10 @@ export type Database = {
         Args: { p_contact_id: string; p_token_hash: string }
         Returns: string
       }
+      join_from_plan: {
+        Args: { p_display_name?: string; p_short_code: string }
+        Returns: Json
+      }
       member_cap: { Args: never; Returns: number }
       plan_candidate_summary: { Args: { p_plan_id: string }; Returns: Json }
       plan_last_possible_start: {

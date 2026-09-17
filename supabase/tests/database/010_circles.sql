@@ -936,7 +936,12 @@ select is(
        -- S1-24. The Join page before joining: a circle's name, its inviter's
        -- name and one initial per member, to whoever holds the invite secret —
        -- by its digest, so the secret is never a statement parameter.
-       'invite_preview'
+       'invite_preview',
+       -- S1-24c. The second way into a circle (ADR 0022): a plan's short code,
+       -- while that plan is taking answers. Acts on `auth.uid()` as
+       -- `redeem_invite` does, and is not callable by anon — a membership has
+       -- to land on somebody.
+       'join_from_plan'
      )),
   '',
   'only the intended functions in public are callable by authenticated'

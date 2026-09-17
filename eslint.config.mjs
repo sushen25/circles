@@ -28,8 +28,14 @@ const elements = [
   // must never have — `node:child_process` to ask Postgres a question the
   // client deliberately cannot ask, because PostgREST exposes only `public`.
   // Narrow on purpose: `*.integration.test.ts`, not every test, so an ordinary
-  // unit test under `data/` keeps the layer's restrictions.
-  { type: 'app-integration-test', pattern: 'apps/*/src/**/*.integration.test.ts', mode: 'full' },
+  // unit test under `data/` keeps the layer's restrictions — and
+  // `*.integration.ts` for what those suites share (`data/testing/`), which
+  // nothing but an integration test may import.
+  {
+    type: 'app-integration-test',
+    pattern: ['apps/*/src/**/*.integration.test.ts', 'apps/*/src/**/*.integration.ts'],
+    mode: 'full',
+  },
   { type: 'domain', pattern: 'packages/domain/**/*', mode: 'full' },
   { type: 'contracts', pattern: 'packages/contracts/**/*', mode: 'full' },
   { type: 'tokens', pattern: 'packages/tokens/**/*', mode: 'full' },

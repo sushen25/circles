@@ -1,8 +1,9 @@
 import { execFileSync } from 'node:child_process';
-import { resolve } from 'node:path';
 
 import { createClient } from '@supabase/supabase-js';
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
+
+import { codeFor, readStackConfig, someone } from '../testing/stack.integration';
 
 /**
  * The acceptance criterion, against the real thing.
@@ -24,81 +25,13 @@ import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
  * container on its own.
  */
 
-/**
- * Read from the running stack, never written down.
- *
- * The local anon key is a published demo value, not a secret — and it is still
- * a JWT, which is why gitleaks refused every commit on this branch once it was
- * pasted here. The scan is right to be blunt: a rule that lets a *shaped*
- * credential through because this one happens to be harmless is a rule that
- * lets the next one through too, and the fix for a failing secret scan is never
- * an allowlist. So the values come from `supabase status`, which also means
- * this keeps working if the local keys ever change.
- */
 let SUPABASE_URL = '';
 let ANON_KEY = '';
 let MAILPIT = '';
 let DB_URL = '';
 
-function readStackConfig(): void {
-  // The binary directly, not through `pnpm exec`: pnpm runs via corepack here
-  // and is not itself on PATH, so spawning it fails with ENOENT. And from
-  // `process.cwd()` rather than `import.meta.url`, which Vite rewrites to a
-  // `/@fs/...` URL that is not a filesystem path.
-  // Assumes the vitest cwd is `apps/app`, which is what `pnpm --filter app exec`
-  // gives it — the only way this suite is run, locally and in CI.
-  const repoRoot = resolve(process.cwd(), '../..');
-  const raw = execFileSync(
-    resolve(repoRoot, 'node_modules/.bin/supabase'),
-    ['status', '-o', 'json'],
-    { encoding: 'utf8', cwd: repoRoot },
-  );
-  const status = JSON.parse(raw.slice(raw.indexOf('{'))) as Record<string, string>;
-  SUPABASE_URL = status.API_URL ?? '';
-  ANON_KEY = status.ANON_KEY ?? '';
-  MAILPIT = status.MAILPIT_URL ?? status.INBUCKET_URL ?? '';
-  DB_URL = status.DB_URL ?? '';
-  if (SUPABASE_URL === '' || ANON_KEY === '' || DB_URL === '') {
-    throw new Error('could not read the local stack config — is it up? `pnpm db:start`');
-  }
-  // The module reads these at first use, and every test imports it lazily.
-  process.env.EXPO_PUBLIC_SUPABASE_URL = SUPABASE_URL;
-  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY = ANON_KEY;
-}
-
-/** A fresh address per run, so "the newest message to this address" is unambiguous. */
-function someone(role: string): string {
-  return `${role}-${Date.now()}-${Math.floor(Math.random() * 10_000)}@example.test`;
-}
-
-/**
- * The six-digit code out of Mailpit, the same way `pnpm mail` reads it.
- *
- * Polled rather than read once: the auth server returns before the message has
- * been delivered, and a single read is a race that fails on a loaded machine
- * and passes on a quiet one.
- */
-async function codeFor(address: string): Promise<string> {
-  for (let attempt = 0; attempt < 40; attempt += 1) {
-    const list = (await (await fetch(`${MAILPIT}/api/v1/messages?limit=50`)).json()) as {
-      messages?: { ID: string; To?: { Address: string }[] }[];
-    };
-    const match = list.messages?.find((m) => m.To?.some((t) => t.Address === address));
-    if (match !== undefined) {
-      const full = (await (await fetch(`${MAILPIT}/api/v1/message/${match.ID}`)).json()) as {
-        Text?: string;
-        HTML?: string;
-      };
-      const code = /\b\d{6}\b/.exec(`${full.Text ?? ''}${full.HTML ?? ''}`)?.[0];
-      if (code !== undefined) return code;
-      throw new Error(
-        `No six-digit code for ${address}. If the mail holds a link instead, the ` +
-          'magic_link override in supabase/config.toml is not being applied.',
-      );
-    }
-    await new Promise((resolve) => setTimeout(resolve, 250));
-  }
-  throw new Error(`No mail for ${address} after 10s. Is the stack up? \`pnpm db:start\``);
+function readStack(): void {
+  ({ url: SUPABASE_URL, anonKey: ANON_KEY, mailpit: MAILPIT, dbUrl: DB_URL } = readStackConfig());
 }
 
 /**
@@ -132,7 +65,7 @@ async function circleWithInvite(): Promise<{ circleId: string; secret: string }>
 
   const verified = await owner.auth.verifyOtp({
     email: address,
-    token: await codeFor(address),
+    token: await codeFor(MAILPIT, address),
     type: 'email',
   });
   expect(verified.error).toBeNull();
@@ -200,7 +133,7 @@ async function accountFor(address: string): Promise<string> {
   expect(sent.error).toBeNull();
   const verified = await other.auth.verifyOtp({
     email: address,
-    token: await codeFor(address),
+    token: await codeFor(MAILPIT, address),
     type: 'email',
   });
   expect(verified.error).toBeNull();
@@ -208,7 +141,7 @@ async function accountFor(address: string): Promise<string> {
 }
 
 beforeAll(async () => {
-  readStackConfig();
+  readStack();
 
   const health = await fetch(`${SUPABASE_URL}/auth/v1/health`, { headers: { apikey: ANON_KEY } });
   if (!health.ok) throw new Error('local stack is not up — run `pnpm db:start`');
@@ -287,7 +220,7 @@ describe('a guest who joins a circle and then saves their place', () => {
         const route = await requestLinkCode(address);
         // A fresh address converts the anonymous user in place.
         expect(route).toBe('new_identity');
-        return await submitLinkCode(address, await codeFor(address), route);
+        return await submitLinkCode(address, await codeFor(MAILPIT, address), route);
       },
     });
 
@@ -360,7 +293,7 @@ describe('a guest who joins a circle and then saves their place', () => {
       signIn: async () => {
         const route = await requestLinkCode(address);
         expect(route).toBe('existing_account');
-        return await submitLinkCode(address, await codeFor(address), route);
+        return await submitLinkCode(address, await codeFor(MAILPIT, address), route);
       },
     });
 

@@ -6,6 +6,27 @@ import { UserId } from '../ids.js';
 import { Mutation } from './shared.js';
 
 /**
+ * The name somebody joins a circle under, by whichever door (`redeem-invite`,
+ * `join-plan`). One schema, so the two cannot accept different names.
+ *
+ * The domain's own rule, not a length of its own. `z.string().min(1).max(80)`
+ * was both too lax and differently lax than `circle_members_name_length`,
+ * which is on the *canonical* form: a name of 50 characters, or of nothing but
+ * spaces, passed the schema and then tripped a check constraint the function
+ * does not map — a 500 where the client should have been told to try another
+ * name.
+ */
+export const JoinDisplayName = z
+  .string()
+  // Normalised *before* it is judged, and therefore before it is stored.
+  // Refining alone validated the collapsed form and then passed the original
+  // through, so `"  Priya\nSmith  "` was accepted and kept its newline, and a
+  // forty-character name padded with spaces stored more than forty characters.
+  // The value the schema yields is the value SQL gets.
+  .transform(normaliseDisplayName)
+  .refine(isValidDisplayName, 'not a usable display name');
+
+/**
  * `redeem-invite` — join the circle behind an invite link.
  *
  * The `secret` is the link's **fragment**, which is why it never appears in a
@@ -20,23 +41,7 @@ export const RedeemInviteRequest = Mutation.extend({
   secret: z.string().min(32).max(256),
   /** Required on web, where Turnstile guards anonymous joins; absent on native. */
   turnstile_token: z.string().max(4096).optional(),
-  /**
-   * The domain's own rule, not a length of its own. `z.string().min(1).max(80)`
-   * was both too lax and differently lax than `circle_members_name_length`,
-   * which is on the *canonical* form: a name of 50 characters, or of nothing but
-   * spaces, passed the schema and then tripped a check constraint the function
-   * does not map — a 500 where the client should have been told to try another
-   * name.
-   */
-  display_name: z
-    .string()
-    // Normalised *before* it is judged, and therefore before it is stored.
-    // Refining alone validated the collapsed form and then passed the original
-    // through, so `"  Priya\nSmith  "` was accepted and kept its newline, and a
-    // forty-character name padded with spaces stored more than forty characters.
-    // The value the schema yields is the value SQL gets.
-    .transform(normaliseDisplayName)
-    .refine(isValidDisplayName, 'not a usable display name'),
+  display_name: JoinDisplayName,
 });
 export type RedeemInviteRequest = z.infer<typeof RedeemInviteRequest>;
 
