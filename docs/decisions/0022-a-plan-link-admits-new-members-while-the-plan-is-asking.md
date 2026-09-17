@@ -40,8 +40,15 @@ link and the share messages do not change, so links already pasted keep working.
 is a state of `collecting` or `ready` **and** a response deadline still ahead —
 the same two conditions `replace_response` checks. A quiet ask still `seeking`, a
 confirmed plan, and a completed, expired or cancelled one admit nobody. The
-refusal is the single `invite_inactive` answer an unknown code gets, so a quiet
-ask's link cannot be told from a code that does not exist.
+refusal is the single `invite_inactive` answer an unknown code gets: **the join
+says no, and never says why.**
+
+That is a promise about the join and nothing wider. Somebody holding a plan's
+code can already learn that its circle exists — `preview_for_code` gives the
+circle's name for any plan code (ADR 0021), and the Continue-as list answers
+for any plan code — and this decision does not change either. What it must not
+add is a way to learn a plan's *state*, or that it is a quiet ask, from how the
+door is refused.
 
 Both `/j/<code>` and `/p/<code>` admit. They are one code and one plan, seen from
 two pages.
@@ -67,7 +74,7 @@ organiser because a stranger tapped a link would be a decision made by nobody.
 | Who arrives | What they see |
 |---|---|
 | A member of the circle, guest or account | The plan. |
-| **Signed in with an account, not a member** | One tap: **Join [circle] as [name]**, then the plan. Never a list of names. If their name is taken in this circle, the name step. |
+| **Signed in with an account, not a member** | One tap: **Join [circle] as [name]**, then the plan. Never a list of names. If their name is taken in this circle, the name step: they pick what this circle calls them, and their profile is untouched. |
 | No session, or a guest session with no membership here; the circle **has** guest members | **Which one is you?** — the guests by display name, then **I'm new here** and **I have an account**. |
 | The same, and the circle has **no** guest members | Straight to the name step, with **I have an account** beside it. There is nobody to be. |
 | **I'm new here** | A display name, then they are a guest member and a participant, on the plan's availability screen. |
@@ -117,14 +124,21 @@ own membership.
   longer holds while a plan is asking; the prize is a guest seat. The join is
   therefore rate-limited per code and per address, Turnstile-checked on web, and
   needs a signed-in (anonymous) caller, none of which the preview has.
-- **Resetting the invite link no longer closes every door.** §9's "invite link
-  leaks: reset" keeps its meaning for the invite. To stop a plan link admitting
-  people before its deadline, the organiser or owner cancels the plan, or removes
-  whoever came in. If that turns out to be needed in practice, the per-plan
-  secret above is the upgrade, and it is compatible with this decision.
+- **Resetting the invite link no longer closes every door**, and until the
+  deadline only one thing closes this one: cancelling the plan. §9's "invite
+  link leaks: reset" keeps its meaning for the invite. **Removing somebody is
+  cleanup, not a lock** — the link still works, so they can join again from a
+  fresh browser, exactly as a removed member can through a live invite (§5.2
+  keeps removal and resetting as separate tools for that reason). If a way to
+  shut a plan link early turns out to be needed in practice, the per-plan secret
+  above is the upgrade, and it is compatible with this decision.
 - **A plan link pasted into a chat admits everybody in that chat**, including
   people the owner never meant to invite. That is the same exposure the invite
-  link has in the same chat, and the same remedies apply.
+  link has in the same chat; the difference is the remedy, above.
+- `join-plan` takes a display name from **anybody**, as `redeem-invite` does:
+  required for a guest, optional for an account, which otherwise joins under its
+  profile name. It names the membership in this circle, not the person's
+  profile.
 - The code stays out of analytics payloads and function logs, like every other
   thing that lets somebody in (non-negotiable 8), even though it appears in URLs.
 - Part of §9's "new members may opt into the active plan" is now specified: a
