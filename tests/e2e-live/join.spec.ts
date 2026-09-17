@@ -72,6 +72,24 @@ test('an invite link reaches the plan with no prompts, and its secret never leav
   }
 });
 
+test('an invite opened in a tab already on /join is read, and taken out of the address bar', async ({
+  page,
+}) => {
+  // Pasting the link into a tab already on /join, or an in-app browser reusing
+  // its tab, changes only the fragment. The browser does not reload for that, so
+  // anything that runs once per page load never sees the new secret — and the
+  // router would keep it in the address bar.
+  const crew = sundayCrew();
+
+  await page.goto('/join');
+  await expect(page.getByText('Open the invite link again.')).toBeVisible();
+
+  await page.goto(`/join#${crew.secret}`);
+
+  await expect(page.getByText('Sunday Crew is finding a time to catch up.')).toBeVisible();
+  expect(page.url()).not.toContain('#');
+});
+
 test('a taken name is asked for again, and the second name joins', async ({ page }) => {
   const crew = sundayCrew();
 

@@ -164,10 +164,15 @@ export function releaseInvite(): void {
  * Only on `/join`, the one route whose fragment is a capability. Anywhere else
  * a fragment is left alone. Nothing on the server (no `window`).
  */
+/** `/join`, with or without a trailing slash: the one route whose fragment is a capability. */
+export function isInvitePath(pathname: string): boolean {
+  return pathname.replace(/\/+$/, '') === '/join';
+}
+
 export function captureInviteFragment(): void {
   if (typeof window === 'undefined' || window.location === undefined) return;
   const { pathname, search, hash } = window.location;
-  if (hash === '' || pathname.replace(/\/+$/, '') !== '/join') return;
+  if (hash === '' || !isInvitePath(pathname)) return;
 
   const secret = inviteSecretFromHash(hash);
   if (secret !== null) holdInvite(secret);
