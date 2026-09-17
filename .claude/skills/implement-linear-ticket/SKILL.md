@@ -1,6 +1,6 @@
 ---
 name: implement-linear-ticket
-description: Work a Linear ticket end to end - fetch SUS-N from Linear, check its blockers, branch from main with Linear's branch name, implement it, run the repo checks, push, open a GitHub PR with gh, move the ticket to In Review, write findings onto the tickets that will act on them, and work the review rounds until one comes back clean. Use when asked to implement, work, pick up, start, or ship a Linear ticket / issue (SUS-6, S1-02, "the monorepo ticket"), to open the PR for one, or to address review findings on one.
+description: Work a Linear ticket end to end - fetch SUS-N from Linear, check its blockers, branch from main with Linear's branch name, implement it, run the repo checks, push, open a GitHub PR with gh, write testing notes on the PR and the ticket (walked by hand first), move the ticket to In Review, write findings onto the tickets that will act on them, and work the review rounds until one comes back clean. Use when asked to implement, work, pick up, start, or ship a Linear ticket / issue (SUS-6, S1-02, "the monorepo ticket"), to open the PR for one, or to address review findings on one.
 ---
 
 Encodes the "Working a ticket" steps in `docs/tickets.md` for the Circles repo.
@@ -64,7 +64,7 @@ Steps, in order:
    `note: local main is N commit(s) ahead of origin/main` line.
 6. **Implement** within the ticket's Scope; respect Out of scope. Commit with
    the repo's trailer (`Co-Authored-By: Claude …`). Anything the ticket asked you
-   to decide goes in a Linear comment (step 9) and the PR body's "Decisions taken".
+   to decide goes in a Linear comment (step 10) and the PR body's "Decisions taken".
 7. **Check.**
 
 ```bash
@@ -83,19 +83,49 @@ Steps, in order:
    Drop `--dry-run` for the real push (`pr` also pushes if the branch has no
    upstream). `pr` prints the URL on success. On exit 2, the user has to
    authenticate `gh` first (see Prerequisites); the branch is still pushed.
-9. **Hand over in Linear.** `save_issue` with `id`, `state: "In Review"`,
+9. **Write the testing notes, and run them before you post them.** Both the PR
+   and the Linear ticket get a **Testing notes** section, because the founder
+   merges from one and reads the other. It says:
+
+   - **What the automated tests cover**: each acceptance criterion, which test
+     proves it (file and test name), and the command that runs just those.
+     Say what they do *not* cover, and why.
+   - **How to try it by hand**: setup (stack, env file, dev server), then
+     numbered steps with exact URLs, exact text to type or tap, and exactly
+     what should appear. Where the seed lacks something a step needs (an
+     invite, a token, a verified contact), give the one SQL statement that
+     makes it; nobody should have to work out a fixture to test a PR.
+   - **What to check in the database** after a step that writes, as a query.
+   - **Failure and edge states worth seeing**, and how to reach each.
+   - **Known gaps**: what the reader will hit that is not this ticket's to fix,
+     and which ticket owns it.
+
+   **Walk the manual steps yourself, against the running stack, before
+   posting** — scripting them in a throwaway Playwright spec is fine. Notes
+   written from memory describe the code you meant to write. On S1-24 the first
+   walk-through found a real bug that four review rounds and eighteen e2e tests
+   had not: an invite opened in a tab already on `/join` changes only the
+   fragment, the page does not reload, and the secret stayed in the address bar.
+   A bug found this way is fixed like a review finding (failing test first) and
+   gets a review round of its own.
+
+   Post them as a PR comment (`gh pr comment <n> --body-file <file>`) and as a
+   Linear comment, and **update both when a review round changes behaviour** the
+   notes describe.
+10. **Hand over in Linear.** `save_issue` with `id`, `state: "In Review"`,
    `links: [{url: <PR URL>, title: "PR #<n>"}]`. `save_comment` with
    `issueId: "SUS-N"` and a short body: PR link, decisions taken, anything left
    out and why. (Linear also auto-links the PR because the branch name is its
    `gitBranchName` and the title starts with the id.)
-10. **Write the findings onto the tickets that will act on them**, not only this
+11. **Write the findings onto the tickets that will act on them**, not only this
     one. A comment here is read by nobody: whoever picks up the next ticket
     opens *theirs*. Anything a later ticket must do differently — a column that
     has to be nullable, a template that sends the wrong thing, a state the
     designs need — goes on that ticket, naming what to do and why. Blocking
     relations say something is pending, not what was learned.
-11. **Report** to the user: PR URL, checks run, decisions, open questions.
-12. **Review**, below. The ticket is not done when the PR opens.
+12. **Report** to the user: PR URL, checks run, decisions, open questions, and
+    where the testing notes are.
+13. **Review**, below. The ticket is not done when the PR opens.
 
 ## Review
 
@@ -213,11 +243,13 @@ client built against the spec will disagree with the code.
 
 **Fixing an exported shape invalidates the notes you left.** When a fix changes
 a signature, an error shape or a documented behaviour, go back to the downstream
-tickets from step 10 and correct them. Three notes on SUS-31, SUS-42 and SUS-49
+tickets from step 11 and correct them. Three notes on SUS-31, SUS-42 and SUS-49
 told later tickets to use a `TransitionError.message` that review then removed.
 
 **Then reply on the PR** with what was found, what changed, what you pushed back
-on, any P2 left open at round three and why, and the reproduction output.
+on, any P2 left open at round three and why, and the reproduction output. If a
+fix changed anything the testing notes describe — a screen's text, a step, an
+expected result — correct the notes on the PR and on Linear in the same pass.
 `gh pr comment <n> --body "$(cat <<'BODY' … )"`.
 
 **Two shapes account for most findings here**, and they are worth looking for
@@ -267,6 +299,11 @@ tests.
   acceptable, and it is interactive.
 - **`pr` refuses ids that are not `ABC-123`** and refuses to run on `main`.
 - **macOS has no `timeout`.** Nothing in the driver needs one, but do not add it.
+- **A local gate that passes is not CI that passes.** CI runs gitleaks over
+  the branch history, which `pnpm check` does not. A made-up UUID in a unit
+  test failed CI on S1-24, and S1-14's JWT literal on every run. Build
+  credential-shaped test values at runtime, and read `gh run list` after
+  every push.
 - **`check` runs `corepack pnpm check`** (`pnpm` is not installed globally here;
   `corepack` ships with Node 24). It takes about six minutes, or about one for a
   change touching only Markdown and `.claude/` — those take the prose lane and
