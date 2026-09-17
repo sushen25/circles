@@ -11,7 +11,7 @@
 -- session; Sam is a stranger with an account.
 
 begin;
-select plan(40);
+select plan(43);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid
@@ -101,6 +101,7 @@ select circle_id, mode, state, organiser, 'Catch up', 'Australia/Melbourne',
 from fixture, (values
   ('named', 'collecting', '17000000-0000-0000-0000-000000000001'::uuid, timestamptz '2099-09-16T10:00:00Z', 'pnaskng2', null::integer),
   ('named', 'collecting', '17000000-0000-0000-0000-000000000001'::uuid, now() - interval '1 minute', 'pnpassed', null),
+  ('named', 'collecting', '17000000-0000-0000-0000-000000000001'::uuid, timestamptz '2099-09-16T10:00:00Z', 'pnready2', null),
   ('quiet', 'seeking', null, timestamptz '2099-09-16T10:00:00Z', 'pnqvet22', 2),
   ('named', 'confirmed', '17000000-0000-0000-0000-000000000001'::uuid, timestamptz '2099-09-16T10:00:00Z', 'pnsetxx2', null),
   ('named', 'cancelled', '17000000-0000-0000-0000-000000000001'::uuid, timestamptz '2099-09-16T10:00:00Z', 'pncanxx2', null),
@@ -244,6 +245,38 @@ select is(
   (select input_version from public.plans where short_code = 'pnaskng2'),
   (select input_version + 2 from before),
   'nor bump the input version, so an organiser''s set is not replaced'
+);
+
+-- A ready plan asking somebody new has no current candidate set until the
+-- recalculation lands — and `join-plan` tolerates that recalculation failing.
+-- Left `ready`, every screen and job would read a set `confirm` refuses as stale.
+--
+-- Made ready here rather than in the fixture: Kai's removal above sends every
+-- ready plan in the circle back to collecting, for the same reason.
+select pg_temp.act_as_postgres();
+select set_config('circles.in_transition', 'on', true);
+update public.plans set state = 'ready' where short_code = 'pnready2';
+select set_config('circles.in_transition', 'off', true);
+
+select is(
+  (select state from public.plans where short_code = 'pnready2'),
+  'ready',
+  'a plan that is ready before anybody new is asked'
+);
+
+select pg_temp.act_as_service();
+
+select lives_ok(
+  $$select public.join_from_plan('17000000-0000-0000-0000-000000000005', 'pnready2')$$,
+  'a member opens a ready plan''s link and is asked by it'
+);
+
+select pg_temp.act_as_postgres();
+
+select is(
+  (select state from public.plans where short_code = 'pnready2'),
+  'collecting',
+  'and the plan goes back to collecting, as it does when an answer moves, until the set is recalculated'
 );
 
 -- ---------------------------------------------------------------------------

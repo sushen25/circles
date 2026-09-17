@@ -157,6 +157,17 @@ begin
     update public.plans p
     set input_version = p.input_version + 1
     where p.id = plan.id;
+
+    -- Architecture §8.3's `ready ─(response change)─▶ collecting`, for the same
+    -- reason `replace_response` and `revise_plan` fire it: a ready plan whose
+    -- input just moved has no current candidate set. `join-plan` recalculates
+    -- straight after and tolerates that failing (ADR 0018), and a plan left
+    -- `ready` meanwhile is one every screen and job reads as confirmable while
+    -- `confirm` refuses its set as stale. The recalculation brings it back.
+    -- `candidates_gone` has no guard and announces nothing.
+    if plan.state = 'ready' then
+      perform planning.transition_plan(plan.id, 'candidates_gone', caller);
+    end if;
   end if;
 
   return jsonb_build_object(
