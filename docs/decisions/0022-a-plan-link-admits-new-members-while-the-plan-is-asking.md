@@ -43,12 +43,24 @@ confirmed plan, and a completed, expired or cancelled one admit nobody. The
 refusal is the single `invite_inactive` answer an unknown code gets: **the join
 says no, and never says why.**
 
-That is a promise about the join and nothing wider. Somebody holding a plan's
-code can already learn that its circle exists — `preview_for_code` gives the
-circle's name for any plan code (ADR 0021), and the Continue-as list answers
-for any plan code — and this decision does not change either. What it must not
-add is a way to learn a plan's *state*, or that it is a quiet ask, from how the
-door is refused.
+That is a promise about the refusal and nothing wider: **a refusal does not
+distinguish a code that does not exist from one that exists and is not
+admitting.** It does not hide that a plan is taking answers — a join that
+succeeds says so — and somebody holding a plan's code can already learn that its
+circle exists, because `preview_for_code` gives the circle's name for any plan
+code (ADR 0021) and the Continue-as list answers for any. This decision changes
+neither. What it must not add is a way to tell a quiet ask, a confirmed plan and
+a cancelled one apart by how the door is refused.
+
+**A quiet ask still gathering interest admits nobody, and loses nothing by
+it.** A quiet ask is never distributed by link: §5.4 prompts the circle's
+*members*, inside the circle, and there is no share message for one — pasting
+its link into a chat would announce who started it, which is the one thing a
+quiet ask exists to hide. The people it needs are already members. A
+first-circle quiet ask cannot deadlock either: the threshold is
+`min(3, active members)` and the initiator counts as keen, so in a circle of one
+it opens at once, and from then on it is a plan taking answers whose link
+admits.
 
 Both `/j/<code>` and `/p/<code>` admit. They are one code and one plan, seen from
 two pages.
