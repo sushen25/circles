@@ -15,9 +15,10 @@ pnpm --filter app start
 `a` for the Android emulator. `pnpm --filter app export` produces the web build
 in `dist/` (`dist/client` and `dist/server`).
 
-Copy `.env.example` to `.env.local` and fill it in. `pnpm db:start` prints the
-local Supabase values; the hosted ones are in
-[`docs/runbooks/environments.md`](../../docs/runbooks/environments.md).
+The app reads `apps/app/.env.local`; without it every screen renders fixtures.
+The command that writes it from the running local stack is in
+[`docs/runbooks/local.md`](../../docs/runbooks/local.md); the hosted values are
+in [`docs/runbooks/environments.md`](../../docs/runbooks/environments.md).
 
 ## Configuration
 
