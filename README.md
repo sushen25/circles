@@ -13,23 +13,24 @@ the authoritative list of rules, commands and boundaries.
 
 ## Setup
 
-Node 22 (see `.nvmrc`), pnpm 9 via Corepack, and Docker for the local database.
+Node 22 (see `.nvmrc`), pnpm 9 via Corepack, Docker, and `psql`.
 
 ```bash
 corepack enable
 pnpm i
-pnpm db:start     # local Supabase — Docker must be running
+pnpm db:start     # local Supabase in Docker: migrations, seed, Mailpit
 pnpm check        # everything CI runs; expect it to pass on a clean clone
+pnpm dev:web      # the web app at http://localhost:8081
 ```
 
-Then:
+**The app only talks to the local database once `apps/app/.env.local` exists.**
+Without it every screen renders fixtures, which is how the design gallery works
+and is easy to mistake for a broken backend. The one command that writes it, the
+seed data, signing in locally, the test suites and what to do when the stack
+misbehaves are in **[`docs/runbooks/local.md`](docs/runbooks/local.md)**.
 
-```bash
-pnpm dev          # Expo dev server; press w, i or a
-```
-
-Web works with no further setup. Native has caveats worth reading before you
-start: [`apps/app/README.md`](apps/app/README.md).
+Native has caveats worth reading before you start:
+[`apps/app/README.md`](apps/app/README.md).
 
 ## What is where
 
@@ -59,19 +60,15 @@ start: [`apps/app/README.md`](apps/app/README.md).
 
 |       | Supabase            | Web                                    | Native                |
 | ----- | ------------------- | -------------------------------------- | --------------------- |
-| local | CLI stack in Docker | `pnpm dev`                             | development build     |
+| local | CLI stack in Docker | `pnpm dev:web`                         | development build     |
 | dev   | `circles-dev`       | `sushen25s-team-circles--dev.expo.app` | `development` channel |
-| prod  | `circles-prod`      | not deployed                           | `production` channel  |
+| prod  | `circles-prod`      | `meet.sushensatturu.com`               | `production` channel  |
 
-**`local` and `dev` both work.** A merge to `main` pushes migrations, deploys the
-Edge Functions and the web build, and publishes an update to the `development`
-channel.
+A merge to `main` pushes migrations, deploys the Edge Functions and the web
+build to `dev`, and publishes an update to the `development` channel. `prod` is
+deployed by hand (`deploy-prod`, which waits for approval) and is not yet
+released to anybody but the founder.
 
-`prod` exists as a Supabase project but is not deployed, and neither host has a
-custom domain yet — `dev` runs on the URL EAS assigns. Links are never shipped on
-`*.expo.app` (architecture §5.2), so the domain has to exist before any invite
-reaches someone who is not the founder.
-
-[`docs/runbooks/environments.md`](docs/runbooks/environments.md) is the reference
-for what is where; [`environment-setup.md`](docs/runbooks/environment-setup.md)
-is the remaining setup, and the vendor work still outstanding is SUS-71.
+[`docs/runbooks/local.md`](docs/runbooks/local.md) is how to run it on your
+machine; [`docs/runbooks/environments.md`](docs/runbooks/environments.md) is the
+reference for what is where in `dev` and `prod`.
