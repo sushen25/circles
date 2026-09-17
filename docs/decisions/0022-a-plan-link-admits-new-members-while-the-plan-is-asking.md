@@ -62,6 +62,12 @@ first-circle quiet ask cannot deadlock either: the threshold is
 it opens at once, and from then on it is a plan taking answers whose link
 admits.
 
+This decision leans on that, so the spec now says it outright. §5.8 read "every
+plan state includes Share to group chat", which taken literally would put a
+share button on a quiet ask; its own list of generated messages has none for
+one, and neither do the designs. §5.8 now excludes a quiet ask still gathering
+interest.
+
 Both `/j/<code>` and `/p/<code>` admit. They are one code and one plan, seen from
 two pages.
 

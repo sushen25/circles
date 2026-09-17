@@ -333,7 +333,7 @@ For a verified subscription to one plan: confirmed; time or place materially cha
 
 #### Existing-chat sharing
 
-Every plan state includes **Share to group chat** with generated text: invite, new plan, waiting ("We're waiting on 4 replies…"), locked in, changed, cancelled. The invite secret rides in the URL fragment, so chat previews never see it. The app records that the share sheet opened, not whether a message was sent.
+Every plan state includes **Share to group chat** with generated text: invite, new plan, waiting ("We're waiting on 4 replies…"), locked in, changed, cancelled. **The one exception is a quiet ask still gathering interest, which has no share action and no generated text**: pasting its link would show the chat who started it, and the people it asks are already members, prompted inside the circle (§5.4, [ADR 0022](decisions/0022-a-plan-link-admits-new-members-while-the-plan-is-asking.md)). Once it opens for times it is shared like any other plan. The invite secret rides in the URL fragment, so chat previews never see it. The app records that the share sheet opened, not whether a message was sent.
 
 #### Rules
 
