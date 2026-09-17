@@ -130,7 +130,9 @@ From architecture §7.6:
 6. Every user-facing string is a key in `src/copy`; no literals in components.
 7. Every analytics event is declared in the catalogue first.
 8. No sensitive data — names, emails, tokens, event titles, notes — in logs or
-   analytics payloads.
+   analytics payloads. A plan's short code is not a token: it is in every
+   shared link by design (ADR 0022). Keep it out of analytics and function logs
+   anyway.
 9. `pnpm check` must pass; CI runs the same command.
 10. Keep files under ~300 lines; split by responsibility.
 11. Prefer a small pure function to a dependency.
@@ -153,7 +155,10 @@ make them impossible, not someone remembering:
   belongs to, never onto a saved-place member.
 - Plan-update email consent is scoped to one plan and is never marketing consent.
 - **No client, log or analytics context ever holds a raw email address, token,
-  note or event title.**
+  note or event title.** A plan's short code is not a token (ADR 0022): it is
+  in a URL path by design, so hosting logs hold it. That is the only
+  exception. The emailed tokens in `/a`, `/e` and `/v` are in paths too, which
+  is a known gap and not a precedent (SUS-81).
 - Times are stored as instants with an IANA zone; transitions are server-side
   and idempotent.
 

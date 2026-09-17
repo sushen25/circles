@@ -98,7 +98,7 @@ Free projects pause after seven days of inactivity; a pg_cron heartbeat job does
 ### 5.2 Domains and DNS
 
 - App and links: `circles.app` is a placeholder; the real domain is chosen with the name (branding research §10). Until then use a neutral holding domain owned by the founder; **never** ship links on `*.expo.app`.
-- Routes reserved on the domain: `/join#<secret>` (circle invite), `/j/<code>` (plan invite short link, resolves client-side to the plan and carries no secret), `/p/<code>` (plan page), `/a/<token>` (re-entry from email, single-use), `/e/<token>` (email preferences), `/v/<token>` (email verification).
+- Routes reserved on the domain: `/join#<secret>` (circle invite), `/j/<code>` (plan invite short link, resolves client-side to the plan; it carries no secret, and the code itself admits new members while the plan is taking answers — [ADR 0022](decisions/0022-a-plan-link-admits-new-members-while-the-plan-is-asking.md)), `/p/<code>` (plan page, same code and same rule), `/a/<token>` (re-entry from email, single-use), `/e/<token>` (email preferences), `/v/<token>` (email verification).
 - Universal links / App Links: `apple-app-site-association` and `assetlinks.json` served from the domain so that once the app is installed, chat links open in-app with the same identity (guest → app flow).
 - Email: a separate sending subdomain (`mail.<domain>`) authenticated with SPF, DKIM and DMARC (`p=quarantine` after warm-up). Transactional only.
 
@@ -255,6 +255,7 @@ The client imports the same `packages/domain` the server uses, so the app can sh
 │   ├── functions/
 │   │   ├── _shared/                # auth, zod, outbox, resend, push, logging, errors
 │   │   ├── redeem-invite/
+│   │   ├── join-plan/              # ADR 0022 (S1-24c)
 │   │   ├── reattach-member/
 │   │   ├── claim-identity/
 │   │   ├── create-plan/
@@ -351,7 +352,7 @@ Every artboard in `docs/design/` maps to one route + one feature component; the 
 - Every RLS policy ships with a test that proves both the allow and the deny.
 - Every user-facing string is a key in `src/copy`; no literals in components.
 - Every analytics event is declared in the catalogue first.
-- No sensitive data (names, emails, tokens, event titles, notes) in logs or analytics payloads.
+- No sensitive data (names, emails, tokens, event titles, notes) in logs or analytics payloads. A plan's short code is not a token for this rule: it is in every link the product shares, by design, and what it admits to is bounded and visible ([ADR 0022](decisions/0022-a-plan-link-admits-new-members-while-the-plan-is-asking.md)). It still stays out of analytics payloads and our own function logs.
 - `pnpm check` (format, lint, typecheck, unit, database tests, web e2e smoke) must pass; CI runs the same command.
 - Keep files under ~300 lines; split by responsibility.
 - Prefer a small pure function to a dependency.
@@ -488,6 +489,7 @@ ready ─(response change)──▶ collecting ─ recalculate ──┘
 | Function | Auth | Does |
 |---|---|---|
 | `redeem-invite` | anonymous or permanent | Verify Turnstile (web), hash the fragment secret, check not revoked, create membership, return circle DTO |
+| `join-plan` | anonymous or permanent | Verify Turnstile (web); takes a plan short code. **The plan admits** only while it is taking answers (`collecting` or `ready`, deadline ahead) in an active circle; an unknown code and a plan that is not admitting both get the one `invite_inactive`, so a refusal does not distinguish them. (A join that succeeds does say the plan is taking answers; that is not hidden.) **A caller who is already an active member** sends no name and only gains the participant row for the current revision, if missing. **A caller who is not** becomes a member under the same cap, name and rejoin rules as `redeem-invite`, with their own reasons (`circle_full`, `duplicate_name`, `display_name_unusable`), and a participant, in one transaction: a guest must send a display name; an account may omit it and joins under its profile name, and sends one after a `duplicate_name`. Never changes the plan's quorum. Rate-limited per code and per address ([ADR 0022](decisions/0022-a-plan-link-admits-new-members-while-the-plan-is-asking.md)) |
 | `reattach-member` | anonymous | Given circle + target anonymous membership without a permanent identity (chosen from the Continue-as list, or authorised by an emailed re-entry token), move the membership to the caller's new anonymous identity; write `member_reattached`; rate-limited per circle |
 | `claim-identity` | permanent (just linked) | Link an anonymous identity's memberships to the permanent one after `linkIdentity`/`signInWithIdToken`; merges profiles; idempotent |
 | `create-plan` | permanent member | Named or quiet; applies defaults from the circle; validates window/deadline; enqueues notifications |
@@ -529,6 +531,7 @@ Clients read through `supabase-js` with RLS: circles I belong to, active members
 - **Owner sign-in**: Sign in with Apple (`expo-apple-authentication` → `supabase.auth.signInWithIdToken`), Google (`@react-native-google-signin/google-signin` on native, Google Identity Services on web → `signInWithIdToken`), or email OTP (6-digit code). No passwords.
 - **Guest**: `supabase.auth.signInAnonymously()` on first join, Turnstile-protected on web. Session persisted in `localStorage` (web) or `expo-secure-store` (native).
 - **Continue as**: when a request hits a circle route with no session or a session that holds no membership, the client **signs in anonymously first**, then calls `public.guest_members_for_reattach(short_code)` — a definer function returning the circle's anonymous members (display names only, no reply state) — and offers `Continue as`. The session comes first because the function is granted to `authenticated` and not to `anon`: the client needs one to reattach in any case, so the flow loses nothing. The grant is not a volume control, though — one anonymous session can ask about any number of short codes — so the function itself counts lookups per caller (thirty an hour) through `public.take_rate_token`, which a client calling the RPC directly meets too. Selecting one calls `reattach-member`. Owners see "Priya rejoined from a new device" on circle home. Limits: 3 reattachments per membership per 7 days; a permanent member can never be reattached to.
+- **Arriving on a plan link without a membership** ([ADR 0022](decisions/0022-a-plan-link-admits-new-members-while-the-plan-is-asking.md)): the guard distinguishes who is here. A **saved place** is offered one tap, "Join [circle] as [name]", which calls `join-plan`; it is never shown the list. **Anybody else** gets Continue-as with two more choices: *I'm new here* (a display name, then `join-plan`, then the plan's availability screen) and *I have an account* (sign in, then the same link again). With no guest members to list, the page goes straight to the name. When the plan is not taking answers, `join-plan` admits nobody and somebody new is pointed at the circle's invite link.
 - **Save your place / organiser gate**: `linkIdentity` (email OTP) or `signInWithIdToken` (Apple/Google) on the anonymous session, then `claim-identity` to reconcile memberships if the permanent identity already existed.
 - **Email re-entry**: every plan-update email deep-links to `/a/<token>`; the token is single-use, 7-day, and bound to a membership. Consuming it does not mint a session (Supabase has no custom-token sign-in for anonymous users). Instead: if the browser already holds the right identity, it simply routes to the plan; if it holds no session, the client creates a fresh anonymous session and calls `reattach-member` with the token as authorisation, which moves the membership to the new identity without the "Continue as" list; if the membership belongs to a permanent identity, the page offers that identity's sign-in (Apple/Google/email code) instead. This reuses one reattachment path for both the manual and the emailed case.
 - **Universal links**: once the app is installed and the person has signed in with the same identity, chat links open in-app; the web fallback is the same route.

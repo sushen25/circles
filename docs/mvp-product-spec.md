@@ -163,12 +163,14 @@ Returning users land on the same Welcome; Apple and Google resolve to the existi
 - A circle invite opens a responsive mobile-web route. The link preview in the chat shows "Pick the times you'd actually be up for. No app needed." Nothing else. A **plan** link (`/j/<code>`, `/p/<code>`) also names the circle; a **circle invite** (`/join#<secret>`) cannot, because its secret lives in the URL fragment and a fragment is never sent to a server — so nothing that draws the card can know which circle it is ([ADR 0021](decisions/0021-the-link-preview-is-not-rate-limited.md)).
 - Before any prompt the page shows: circle name, inviter's name, who is in so far, a one-sentence privacy statement, and the expected effort.
 - **Choose my times** creates an anonymous session tied to that browser and asks for a display name. Duplicate active names in a circle are prevented; the owner can resolve accidents.
+- **A plan link admits new people too, while the plan is taking answers** ([ADR 0022](decisions/0022-a-plan-link-admits-new-members-while-the-plan-is-asking.md)). It is the link the group chat actually sees. Somebody new gives a display name and is a guest member of the circle and one of the people that plan is asking, in one step. A plan that is not taking answers — a quiet ask still gathering interest, a confirmed plan, a finished one — admits nobody, and the refusal is the same one a link that never existed gets. A quiet ask is never shared by link (§5.4), so nobody it needs is kept out.
 - After the first useful response, a skippable **Get updates about this meetup by email** card appears (§5.8). Dismissal is one tap. No marketing checkbox exists.
 - A tertiary **Save access on every device** link follows the email card; it explains that sign-in is an account and is separate from meetup email.
 
 #### Identity continuity (Continue as)
 
-- When someone opens a circle or plan link with no session, or a session holding no membership of that circle, the page lists the circle's guest members by display name only (no reply state) and offers **Continue as [name]** or **I'm new here**.
+- What somebody who is not a member sees on a plan link depends on who they are ([ADR 0022](decisions/0022-a-plan-link-admits-new-members-while-the-plan-is-asking.md)). **Signed in with an account:** one tap, **Join [circle] as [name]**, and then the plan — never a list of names. **Anybody else:** the page lists the circle's guest members by display name only (no reply state) and offers **Continue as [name]**, **I'm new here** and **I have an account**. When the circle has no guest members the list is skipped and the page asks for a name.
+- **I'm new here** asks for a display name and joins them while the plan is taking answers; otherwise it tells them to ask for the circle's invite link. **I have an account** signs them in and returns them to the same link. It exists because saved-place members are never on the list, so without it somebody with an account on a new device would be told their own name is taken.
 - Reattaching moves the membership and its responses to the new session in one tap. The owner sees "Priya rejoined from a new device" on circle home. A member may reattach at most three times in seven days; a saved-place member can never be reattached to.
 - Every plan-update email deep-links with a single-use re-entry token that authorises the same reattachment without the list.
 - The web build is tested inside WhatsApp's and Messenger's in-app browsers, not only mobile Safari and Chrome.
@@ -181,7 +183,7 @@ Returning users land on the same Welcome; Apple and Google resolve to the existi
 #### Acceptance criteria
 
 - A new owner reaches a shareable invite link with two typed inputs (name, circle name) and no permission dialogs.
-- An invitee reaches a submitted answer with zero account, permission or install prompts; the email offer and every later prompt dismiss in one tap.
+- An invitee reaches a submitted answer with zero account, permission or install prompts, **from the circle's invite link or from a plan link**; the email offer and every later prompt dismiss in one tap.
 - A guest who returns with no session can reattach in one tap; the owner can see it happened; the reattach rate is instrumented.
 - Organising from the web is gated on a saved place; responding is not.
 - Google sign-in on web is configured per origin; the holding domain will be replaced before the external cohort, so re-verification is planned for.
@@ -195,6 +197,7 @@ Name; colour (solid, no image); primary IANA time zone defaulted from the creato
 #### Joining and membership
 
 - The owner shares one revocable circle link. Joining is immediate in the private beta; the owner can remove a member and reset the link without disturbing existing members.
+- A plan's link also admits new members, but only while that plan is taking answers, and it cannot be revoked short of confirming or cancelling the plan ([ADR 0022](decisions/0022-a-plan-link-admits-new-members-while-the-plan-is-asking.md)). Resetting the circle link does not affect it.
 - Active members per circle: minimum 3 for quorum defaults, maximum 20 ([ADR 0012](decisions/0012-circle-member-cap-of-twenty.md)).
 - The interface shows who has joined but never exposes one member's availability to another as a personal schedule.
 
@@ -330,7 +333,7 @@ For a verified subscription to one plan: confirmed; time or place materially cha
 
 #### Existing-chat sharing
 
-Every plan state includes **Share to group chat** with generated text: invite, new plan, waiting ("We're waiting on 4 replies…"), locked in, changed, cancelled. The invite secret rides in the URL fragment, so chat previews never see it. The app records that the share sheet opened, not whether a message was sent.
+Every plan state includes **Share to group chat** with generated text: invite, new plan, waiting ("We're waiting on 4 replies…"), locked in, changed, cancelled. **The one exception is a quiet ask still gathering interest, which has no share action and no generated text**: pasting its link would show the chat who started it, and the people it asks are already members, prompted inside the circle (§5.4, [ADR 0022](decisions/0022-a-plan-link-admits-new-members-while-the-plan-is-asking.md)). Once it opens for times it is shared like any other plan. The invite secret rides in the URL fragment, so chat previews never see it. The app records that the share sheet opened, not whether a message was sent.
 
 #### Rules
 
@@ -455,14 +458,14 @@ confirmed | ready | collecting ─cancel──▶ cancelled
 - Quiet-ask initiator identity and individual interest answers are never exposed, before or after threshold.
 - A reattachment moves a membership only within a circle the guest already belongs to, never onto a saved-place member.
 - Plan-update email consent is scoped to one plan and is never a marketing consent.
-- No client, log or analytics context ever holds a raw email address, token, note or event title.
+- No client, log or analytics context ever holds a raw email address, token, note or event title. A plan's short code is not a token for this rule: it is in every link the product shares, by design, and what it admits to is bounded and visible ([ADR 0022](decisions/0022-a-plan-link-admits-new-members-while-the-plan-is-asking.md)). It still stays out of analytics payloads and our own function logs.
 - All plan times are stored as instants with the display IANA zone; state transitions are server-side and idempotent.
 
 ## 9. Edge cases that must be designed, not deferred
 
 - A guest returns with no session (expected, not rare): Continue as; emailed re-entry; owner sees rejoins; duplicate memberships are removable by the owner.
 - A guest joins twice from different devices before reattaching: the second device is asked for a different display name, because duplicate active names in a circle are prevented (§5.1); the owner sees two memberships and removes one.
-- Membership changes during a plan: removed members are excluded on recalculation; new members may opt into the active plan.
+- Membership changes during a plan: removed members are excluded on recalculation; new members may opt into the active plan. Opening the plan's own link is the opt-in: joining through it, or opening it as a member who was never asked, makes them one of the people it is asking. The quorum does not change when they do; the organiser adjusts it ([ADR 0022](decisions/0022-a-plan-link-admits-new-members-while-the-plan-is-asking.md)).
 - A required person leaves: the plan becomes ineligible until the organiser changes required members or cancels.
 - Nobody meets quorum: near-misses and explicit resolution actions.
 - Everyone meets quorum at many times: three distinct dates where possible.
@@ -472,7 +475,7 @@ confirmed | ready | collecting ─cancel──▶ cancelled
 - A member travels across time zones: local display with the circle zone visible; scoring on instants.
 - DST change: zone-aware library and transition tests.
 - Calendar permission partial, denied or revoked (Slice 3): manual parity, no data loss, no nagging.
-- Invite link leaks: reset; existing memberships stay valid.
+- Invite link leaks: reset; existing memberships stay valid. A plan link that reaches the wrong people stops admitting anybody at its response deadline; before then only confirming or cancelling the plan closes it (a confirmed plan that is reopened admits again). Removing whoever joined tidies up, but the link still works and they can join again ([ADR 0022](decisions/0022-a-plan-link-admits-new-members-while-the-plan-is-asking.md)).
 - Email mistyped: only the verification message is sent; nothing activates; the contact expires in 7 days.
 - Verification after the plan completed or was cancelled: no stale mail is sent.
 - One verified address on multiple guest memberships in one plan: one copy per event; memberships are not revealed to each other.
