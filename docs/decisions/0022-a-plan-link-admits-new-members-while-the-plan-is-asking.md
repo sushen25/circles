@@ -143,7 +143,9 @@ own membership.
   therefore rate-limited per code and per address, Turnstile-checked on web, and
   needs a signed-in (anonymous) caller, none of which the preview has.
 - **Resetting the invite link no longer closes every door**, and until the
-  deadline only one thing closes this one: cancelling the plan. §9's "invite
+  deadline only the plan leaving `collecting` or `ready` closes this one: the
+  organiser confirms it, or it is cancelled. (A confirmed plan that is reopened
+  admits again.) §9's "invite
   link leaks: reset" keeps its meaning for the invite. **Removing somebody is
   cleanup, not a lock** — the link still works, so they can join again from a
   fresh browser, exactly as a removed member can through a live invite (§5.2

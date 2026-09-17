@@ -197,7 +197,7 @@ Name; colour (solid, no image); primary IANA time zone defaulted from the creato
 #### Joining and membership
 
 - The owner shares one revocable circle link. Joining is immediate in the private beta; the owner can remove a member and reset the link without disturbing existing members.
-- A plan's link also admits new members, but only while that plan is taking answers, and it cannot be revoked short of cancelling the plan ([ADR 0022](decisions/0022-a-plan-link-admits-new-members-while-the-plan-is-asking.md)). Resetting the circle link does not affect it.
+- A plan's link also admits new members, but only while that plan is taking answers, and it cannot be revoked short of confirming or cancelling the plan ([ADR 0022](decisions/0022-a-plan-link-admits-new-members-while-the-plan-is-asking.md)). Resetting the circle link does not affect it.
 - Active members per circle: minimum 3 for quorum defaults, maximum 20 ([ADR 0012](decisions/0012-circle-member-cap-of-twenty.md)).
 - The interface shows who has joined but never exposes one member's availability to another as a personal schedule.
 
@@ -475,7 +475,7 @@ confirmed | ready | collecting ─cancel──▶ cancelled
 - A member travels across time zones: local display with the circle zone visible; scoring on instants.
 - DST change: zone-aware library and transition tests.
 - Calendar permission partial, denied or revoked (Slice 3): manual parity, no data loss, no nagging.
-- Invite link leaks: reset; existing memberships stay valid. A plan link that reaches the wrong people stops admitting anybody at its response deadline; before then only cancelling the plan closes it. Removing whoever joined tidies up, but the link still works and they can join again ([ADR 0022](decisions/0022-a-plan-link-admits-new-members-while-the-plan-is-asking.md)).
+- Invite link leaks: reset; existing memberships stay valid. A plan link that reaches the wrong people stops admitting anybody at its response deadline; before then only confirming or cancelling the plan closes it (a confirmed plan that is reopened admits again). Removing whoever joined tidies up, but the link still works and they can join again ([ADR 0022](decisions/0022-a-plan-link-admits-new-members-while-the-plan-is-asking.md)).
 - Email mistyped: only the verification message is sent; nothing activates; the contact expires in 7 days.
 - Verification after the plan completed or was cancelled: no stale mail is sent.
 - One verified address on multiple guest memberships in one plan: one copy per event; memberships are not revealed to each other.
