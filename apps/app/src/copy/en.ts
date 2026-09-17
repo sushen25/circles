@@ -515,19 +515,26 @@ export const en = {
     change_the_time_cancel_this_plan: 'Change the time · Cancel this plan',
   },
   continueAs: {
-    sunday_crew: 'Sunday Crew',
     welcome_back_which_one_is_you: 'Welcome back. Which one is you?',
     pick_your_name_to_carry_on_where:
-      'Pick your name to carry on where you left off. Maya can see when someone rejoins.',
-    priya: 'Priya',
-    joined_3_sep: 'Joined 3 Sep',
-    alex: 'Alex',
-    tom: 'Tom',
-    joined_4_sep: 'Joined 4 Sep',
-    jess: 'Jess',
-    sam: 'Sam',
-    joined_5_sep: 'Joined 5 Sep',
+      'Pick your name to carry on where you left off. The circle can see when someone rejoins.',
+    continue_as: 'Continue as {name}',
+    no_names_to_pick: "There's nobody here to continue as. If you're new, start below.",
+    signed_in_no_names:
+      "You're signed in, so there's nobody to continue as. If you're new to this circle, start below.",
     im_new_here: "I'm new here",
+    finding_the_circle: 'Finding the circle',
+    rejoining: 'Rejoining',
+    reattach_limit:
+      "{name} has moved to a new device three times this week, which is the most we allow. Ask the circle's owner to help.",
+    saved_place: '{name} saved their place with an account. Sign in with that email to carry on.',
+    sign_in: 'Sign in',
+    too_many_tries: 'Too many tries from here just now. Wait a few minutes, then try again.',
+    couldnt_rejoin: "Something went wrong, so rejoining didn't go through. Please try again.",
+    couldnt_load: "We couldn't load this circle just now.",
+    youre_offline: "You're offline. Connect, then try again.",
+    try_again: 'Try again',
+    reference: 'Ref {reference}',
   },
   conversionMap: {
     guest_saved_place_app_when_we_may: 'Guest → saved place → app · when we may ask, and what for',
@@ -844,28 +851,63 @@ export const en = {
     this_link_isnt_active_any_more: "This link isn't active any more.",
     the_circles_owner_may_have_reset_it:
       "The circle's owner may have reset it. Ask whoever shared it for the current link. Anyone already in the circle still has their place.",
+    you_need_the_invite: 'You need the invite link to join.',
+    ask_whoever_shared_it:
+      "This page is for people already in the circle. Ask whoever shared it for the circle's invite link.",
+    open_the_link_again: 'Open the invite link again.',
+    open_it_from_the_chat:
+      'The page lost track of the invite. Open the link again from the chat it was shared in.',
+    this_link_has_expired: 'This link has expired.',
+    open_the_plan_from_the_chat:
+      'Open the plan from the group chat instead. Your place in the circle is still there.',
+    signed_in_as_someone_else: "You're signed in with a different account.",
+    this_link_is_for_a_guest_place:
+      'This link is for somebody’s place in a circle, and this browser is signed in to another account. Sign out here to use it.',
+    sign_out_and_continue: 'Sign out and continue',
+    this_link_is_for_an_account: 'This link is for an account.',
+    sign_in_with_that_email:
+      'Whoever it was sent to has saved their place. Sign in with that email to carry on.',
+    sign_in: 'Sign in',
     what_is_brand: 'What is {brand}?',
   },
   main: {
     brand: '{brand}',
     youre_invited: "You're invited",
-    sunday_crew_is_finding_a_time_to: 'Sunday Crew is finding a time to catch up.',
-    maya_shared_this_link_pick_the_times:
-      "Maya shared this link. Pick the times you'd actually be up for. It takes about a minute, and nobody sees your calendar.",
-    '5_people_are_in_so_far': '5 people are in so far',
+    circle_is_finding_a_time: '{circle} is finding a time to catch up.',
+    inviter_shared_this_link:
+      "{inviter} shared this link. Pick the times you'd actually be up for. It takes about a minute, and nobody sees your calendar.",
+    someone_shared_this_link:
+      "Someone in the circle shared this link. Pick the times you'd actually be up for. It takes about a minute, and nobody sees your calendar.",
+    people_in_so_far: '{count} people are in so far',
+    one_person_in_so_far: '1 person is in so far',
     no_account_or_app_needed_your_friends:
       'No account or app needed. Your friends only ever see a combined result, never your calendar.',
     choose_my_times: 'Choose my times',
     what_is_brand: 'What is {brand}?',
+    opening_the_invite: 'Opening the invite',
+    couldnt_open_the_invite: "We couldn't open this invite just now.",
+    youre_offline: "You're offline. Connect, then try again.",
+    try_again: 'Try again',
+    reference: 'Ref {reference}',
   },
   name: {
-    sunday_crew: 'Sunday Crew',
     what_should_the_group_call_you: 'What should the group call you?',
     just_a_first_name_is_fine_no: 'Just a first name is fine. No email, no password.',
+    your_name: 'Your name',
     priya: 'Priya',
-    this_is_what_maya_and_the_others:
-      'This is what Maya and the others will see next to your times.',
+    this_is_what_the_others_will_see:
+      'This is what {inviter} and the others will see next to your times.',
+    this_is_what_the_circle_will_see: 'This is what the circle will see next to your times.',
     continue: 'Continue',
+    joining: 'Joining',
+    name_taken:
+      'Someone in {circle} is already called {name}. Add something to tell you apart, like “{name} B”.',
+    name_unusable: "That name won't work. A first name of up to 40 characters is fine.",
+    circle_full: '{circle} already has 20 people, which is as many as a circle holds.',
+    too_many_tries: 'Too many tries from here just now. Wait a few minutes, then try again.',
+    couldnt_join: "Something went wrong, so the join didn't go through. Please try again.",
+    youre_offline: "You're offline. Connect, then try again.",
+    reference: 'Ref {reference}',
   },
   noQuorum: {
     drinks_next_7_days: 'Drinks · next 7 days',

@@ -45,6 +45,23 @@ function required(name: string, value: string | undefined): string {
   return value;
 }
 
+/**
+ * Whether this build was given a backend at all.
+ *
+ * Two kinds of build exist and both are intended. A deployed app always has
+ * one — `scripts/check-client-env.mjs` refuses to deploy without it — and the
+ * routes S1-24 wired talk to it. The Playwright smoke export and the dev
+ * gallery have none, and those same routes render their fixtures instead, so
+ * every screen stays reviewable with no stack running. This is the switch, and
+ * it is read from the build's own configuration rather than from a flag
+ * somebody could leave on.
+ */
+export function hasBackend(): boolean {
+  const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
+  const key = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+  return url !== undefined && url !== '' && key !== undefined && key !== '';
+}
+
 let client: SupabaseClient<Database> | undefined;
 
 export function authClient(): SupabaseClient<Database> {

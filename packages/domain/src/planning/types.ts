@@ -43,6 +43,31 @@ export function isTerminal(state: PlanState): boolean {
   return TERMINAL_STATES.includes(state);
 }
 
+/**
+ * Whether somebody can still send their times to a plan.
+ *
+ * Two conditions, and `public.replace_response` refuses on either with the one
+ * reason `replies_closed`, because to the person they are one answer. The
+ * state is `collecting` or `ready` — candidates being ready means there is
+ * enough to decide on, not that the question has closed — and the response
+ * deadline has not arrived. A plan stays `collecting` or `ready` after its
+ * deadline on purpose, so the organiser can still decide (spec §5.7): the state
+ * alone says the plan is open, and it is not open to answers.
+ *
+ * `replace_response` is the authority. This is the same rule for a client
+ * deciding where to send somebody who has just joined, so that it does not send
+ * them to a form whose submit is refused.
+ */
+export const ANSWERABLE_STATES: readonly PlanState[] = ['collecting', 'ready'];
+
+export function acceptsAnswers(
+  plan: { readonly state: PlanState; readonly responseDeadline: Instant },
+  now: Instant,
+): boolean {
+  // `now >= deadline` closes it, exactly as the SQL compares.
+  return ANSWERABLE_STATES.includes(plan.state) && now < plan.responseDeadline;
+}
+
 /** Intent, in the spec's words. "Catch up" is the default and covers most plans. */
 export type PlanCategory = 'catch_up' | 'dinner' | 'drinks' | 'coffee' | 'activity';
 

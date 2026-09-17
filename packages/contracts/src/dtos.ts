@@ -49,3 +49,20 @@ export const GuestMemberOption = z.object({
   display_name: z.string(),
 });
 export type GuestMemberOption = z.infer<typeof GuestMemberOption>;
+
+/**
+ * What the Join page shows before anybody has joined (`public.invite_preview`,
+ * S1-24).
+ *
+ * Initials rather than names, because the page is shown to somebody who has not
+ * joined and a link forwarded beyond the group should not hand a stranger the
+ * roster. `inviter_name` is null when whoever made the link has since left the
+ * circle; the generated types say `string` because Postgres cannot say
+ * otherwise about a scalar subquery, and this schema is where that is corrected.
+ */
+export const InvitePreview = z.object({
+  circle_name: z.string(),
+  inviter_name: z.string().nullable(),
+  member_initials: z.array(z.string()),
+});
+export type InvitePreview = z.infer<typeof InvitePreview>;

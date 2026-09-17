@@ -23,6 +23,14 @@ export default defineConfig({
       // Same reason, one layer down: the real package imports
       // `expo-modules-core`, which wants `__DEV__` and a native `globalThis.expo`
       // at import time. See the stub for why the runtime is not worth faking.
+      // `Screen` reads insets from here. The package is CommonJS and `require`s
+      // `react-native` itself, a path the alias above never sees, so Node loads
+      // real React Native and fails on its Flow types. No test had rendered a
+      // whole screen before S1-24. A browser has no notch: zero insets is what
+      // the web build gets from the real one.
+      'react-native-safe-area-context': fileURLToPath(
+        new URL('./src/test/safe-area-context-stub.tsx', import.meta.url),
+      ),
       'expo-secure-store': fileURLToPath(
         new URL('./src/test/expo-secure-store-stub.ts', import.meta.url),
       ),

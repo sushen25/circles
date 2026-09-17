@@ -6,7 +6,7 @@
     "node": ">=22"
   },
   "scripts": {
-    "check": "pnpm run format:check && pnpm run lint && pnpm run check:brand && pnpm run check:tokens && pnpm run typecheck && pnpm run check:imports && pnpm run check:transitions && pnpm run check:events && pnpm run check:functions && pnpm run check:workflows && pnpm run test:unit && pnpm run db:test && pnpm run test:integration && pnpm run check:types && pnpm run test:e2e:smoke",
+    "check": "pnpm run format:check && pnpm run lint && pnpm run check:brand && pnpm run check:tokens && pnpm run typecheck && pnpm run check:imports && pnpm run check:transitions && pnpm run check:events && pnpm run check:functions && pnpm run check:workflows && pnpm run test:unit && pnpm run db:test && pnpm run test:integration && pnpm run check:types && pnpm run test:e2e:smoke && pnpm run test:e2e:live",
     "dev": "pnpm --filter app exec expo start",
     "dev:web": "pnpm --filter app exec expo start --web",
     "dev:ios": "pnpm --filter app run ios",
@@ -19,8 +19,9 @@
     "clean": "tsc -b --clean",
     "test:unit": "vitest run",
     "test:integration": "pnpm --filter app exec vitest run --config vitest.integration.config.ts",
-    "test:e2e": "pnpm run test:e2e:smoke",
-    "test:e2e:smoke": "pnpm --filter app run export && playwright test",
+    "test:e2e": "pnpm run test:e2e:smoke && pnpm run test:e2e:live",
+    "test:e2e:smoke": "env EXPO_NO_DOTENV=1 EXPO_PUBLIC_SUPABASE_URL= EXPO_PUBLIC_SUPABASE_ANON_KEY= pnpm --filter app exec expo export --platform web --clear && playwright test",
+    "test:e2e:live": "playwright test -c playwright.live.config.ts",
     "db:start": "supabase start",
     "db:stop": "supabase stop",
     "db:reset": "supabase db reset",

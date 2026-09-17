@@ -93,7 +93,7 @@ artboard.
 | `Main.dc.html`        | `/join`                 | `MainScreen`        |
 | `Name.dc.html`        | `/join/name`            | `NameScreen`        |
 | `Privacy.dc.html`     | `/settings/privacy`     | `PrivacyScreen`     |
-| `SaveAccess.dc.html`  | `/a/[token]`            | `SaveAccessScreen`  |
+| `SaveAccess.dc.html`  | `/j/[code]/save-access` | `SaveAccessScreen`  |
 | `SignIn.dc.html`      | `/(auth)/sign-in`       | `SignInScreen`      |
 | `Welcome.dc.html`     | `/`                     | `WelcomeScreen`     |
 | `YourName.dc.html`    | `/(auth)/name`          | `YourNameScreen`    |

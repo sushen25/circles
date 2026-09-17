@@ -34,7 +34,7 @@ pnpm db:test           # reset the database and run pgTAP
 pnpm gen:types         # regenerate database types from the local schema
 pnpm gen:functions     # re-render supabase/sql/functions/ into its migration (ADR 0015)
 pnpm gen:tokens        # regenerate design tokens from docs/design/gen.py
-pnpm test:e2e          # Playwright against the exported web build
+pnpm test:e2e          # Playwright: fixtures with no backend (smoke), then the guest journey against the local stack (live)
 pnpm check:env <domain>  # a deployed environment from outside: HTTPS, HSTS, SPF/DKIM/DMARC
 pnpm mail [address]    # what the local mail catcher caught; with an address, the sign-in code
 ```
@@ -76,6 +76,15 @@ symptom is `BOOT_ERROR` from every function and a log line naming a module that
 plainly exists on disk. Editing an existing file is fine; it is creation that
 does it, so it lands the first time you add a module to `domain` or `contracts`
 and touches nothing else. Restarting that one container is not enough.
+
+**`EXPO_PUBLIC_*` values are inlined into the bundle and Metro does not key its
+cache on them.** Export once with a backend and once without, and the second
+build serves the first one's configuration. Both e2e suites export with
+`--clear` for this reason; anything else that exports twice with different
+values needs it too. The smoke suite also blanks the Supabase variables and
+sets `EXPO_NO_DOTENV=1`, because it is the no-backend build by definition and a
+value in your shell or an app `.env` would otherwise switch the membership
+gates on.
 
 Configuration: public values are `EXPO_PUBLIC_*`, listed in `.env.example`;
 everything else is an Edge Function secret. The line between them, and what is

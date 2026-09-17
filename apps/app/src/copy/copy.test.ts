@@ -18,7 +18,16 @@ describe('the copy file', () => {
   });
 
   it('leaves no placeholder unfillable', () => {
-    const known = new Set(['brand', 'domain', 'support']);
+    const known = new Set([
+      'brand',
+      'domain',
+      'support',
+      'circle',
+      'inviter',
+      'count',
+      'name',
+      'reference',
+    ]);
     for (const [screen, strings] of Object.entries(en)) {
       for (const [key, value] of Object.entries(strings)) {
         for (const [, name] of (value as string).matchAll(/\{(\w+)\}/g)) {

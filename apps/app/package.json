@@ -1,7 +1,7 @@
 {
   "name": "app",
   "version": "0.1.0",
-  "main": "expo-router/entry",
+  "main": "index.ts",
   "dependencies": {
     "@circles/config": "workspace:*",
     "@circles/contracts": "workspace:^",

@@ -1031,6 +1031,14 @@ export type Database = {
           member_user_id: string
         }[]
       }
+      invite_preview: {
+        Args: { p_secret_hash: string }
+        Returns: {
+          circle_name: string
+          inviter_name: string
+          member_initials: string[]
+        }[]
+      }
       issue_invite: {
         Args: { p_circle_id: string; p_secret_hash: string }
         Returns: {
