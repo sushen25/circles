@@ -1,4 +1,4 @@
-import { acceptsAnswers, type PlanState } from '@circles/domain';
+import { acceptsAnswers, fromISO, type Instant, type PlanState } from '@circles/domain';
 import type { CircleId, ShortCode } from '@circles/contracts';
 
 import { authClient } from '../auth/client';
@@ -67,8 +67,8 @@ export type Arrival = { kind: 'plan'; code: ShortCode } | { kind: 'circle'; id: 
 
 /**
  * The plan that is asking for their times, if there is one; the circle if not
- * (S1-24). "Asking" is the domain's `acceptsAnswers`, which rules out a plan
- * in a state no answer is accepted in. The newest wins when there are several:
+ * (S1-24). "Asking" is the domain's `acceptsAnswers`: an answerable state and
+ * a deadline still ahead, the two things `replace_response` checks. The newest wins when there are several:
  * it is the one the link they were sent is most likely about.
  *
  * **It does not make them a participant.** `replace_response` accepts answers
@@ -78,16 +78,24 @@ export type Arrival = { kind: 'plan'; code: ShortCode } | { kind: 'circle'; id: 
  * lands on its availability screen and cannot yet answer it. Recorded on S1-25,
  * which owns that screen and the opt-in it needs.
  */
-export async function arrivalFor(circleId: CircleId): Promise<Arrival> {
+export async function arrivalFor(
+  circleId: CircleId,
+  now: Instant = fromISO(new Date().toISOString()),
+): Promise<Arrival> {
   const { data, error } = await authClient()
     .from('plans')
-    .select('short_code, state')
+    .select('short_code, state, response_deadline')
     .eq('circle_id', circleId)
     .order('created_at', { ascending: false });
 
   if (error !== null) throw new Error('arrival lookup failed');
 
-  const open = (data ?? []).find((plan) => acceptsAnswers(plan.state as PlanState));
+  const open = (data ?? []).find((plan) =>
+    acceptsAnswers(
+      { state: plan.state as PlanState, responseDeadline: fromISO(plan.response_deadline) },
+      now,
+    ),
+  );
   return open === undefined
     ? { kind: 'circle', id: circleId }
     : { kind: 'plan', code: open.short_code as ShortCode };

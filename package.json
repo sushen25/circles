@@ -20,7 +20,7 @@
     "test:unit": "vitest run",
     "test:integration": "pnpm --filter app exec vitest run --config vitest.integration.config.ts",
     "test:e2e": "pnpm run test:e2e:smoke && pnpm run test:e2e:live",
-    "test:e2e:smoke": "pnpm --filter app exec expo export --platform web --clear && playwright test",
+    "test:e2e:smoke": "env EXPO_NO_DOTENV=1 EXPO_PUBLIC_SUPABASE_URL= EXPO_PUBLIC_SUPABASE_ANON_KEY= pnpm --filter app exec expo export --platform web --clear && playwright test",
     "test:e2e:live": "playwright test -c playwright.live.config.ts",
     "db:start": "supabase start",
     "db:stop": "supabase stop",

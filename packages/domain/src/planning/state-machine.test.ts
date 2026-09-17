@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { instant } from '../shared/instant.js';
 import { isErr, isOk } from '../shared/result.js';
 import { userId } from '../circles/types.js';
 import { plan } from './fixtures.js';
@@ -372,20 +373,33 @@ describe('transitionsFrom', () => {
 });
 
 describe('acceptsAnswers', () => {
-  it('is collecting and ready, and nothing else', () => {
-    const all: PlanState[] = [
-      'draft',
-      'seeking',
+  const now = instant(Date.UTC(2026, 8, 15, 7, 0));
+  const later = instant(Date.UTC(2026, 8, 18, 8, 0));
+  const all: PlanState[] = [
+    'draft',
+    'seeking',
+    'collecting',
+    'ready',
+    'confirmed',
+    'completed',
+    'expired',
+    'cancelled',
+  ];
+
+  it('is collecting and ready, before the deadline, and nothing else', () => {
+    // The same two states `public.replace_response` accepts. A client that sent
+    // somebody to the availability screen of a plan in any other state would
+    // send them to a form whose submit the server refuses.
+    expect(all.filter((state) => acceptsAnswers({ state, responseDeadline: later }, now))).toEqual([
       'collecting',
       'ready',
-      'confirmed',
-      'completed',
-      'expired',
-      'cancelled',
-    ];
-    // The same two `public.replace_response` accepts. A client that sent somebody
-    // to the availability screen of a plan in any other state would send them to
-    // a form whose submit the server refuses.
-    expect(all.filter(acceptsAnswers)).toEqual(['collecting', 'ready']);
+    ]);
+  });
+
+  it('closes at the deadline, even though the plan is still collecting', () => {
+    // Replies close and the plan stays decidable (§5.7), so the state alone
+    // would still say yes. The SQL compares `now() >= response_deadline`.
+    expect(acceptsAnswers({ state: 'collecting', responseDeadline: now }, now)).toBe(false);
+    expect(acceptsAnswers({ state: 'ready', responseDeadline: now }, later)).toBe(false);
   });
 });

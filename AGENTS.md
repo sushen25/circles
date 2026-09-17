@@ -81,7 +81,10 @@ and touches nothing else. Restarting that one container is not enough.
 cache on them.** Export once with a backend and once without, and the second
 build serves the first one's configuration. Both e2e suites export with
 `--clear` for this reason; anything else that exports twice with different
-values needs it too.
+values needs it too. The smoke suite also blanks the Supabase variables and
+sets `EXPO_NO_DOTENV=1`, because it is the no-backend build by definition and a
+value in your shell or an app `.env` would otherwise switch the membership
+gates on.
 
 Configuration: public values are `EXPO_PUBLIC_*`, listed in `.env.example`;
 everything else is an Edge Function secret. The line between them, and what is
