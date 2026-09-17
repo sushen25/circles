@@ -161,9 +161,12 @@ own membership.
   the invariant in spec §8.2 say no log ever holds a token. A plan's short code
   is in a URL path, so the hosting provider's access logs hold it, and under this
   decision it lets somebody in. Rather than pretend otherwise, the rule now says
-  what it means: **a plan's short code is not a token.** Invite secrets,
-  re-entry, verification and preference tokens, and session tokens are; they
-  stay out of every URL path and every log, with no exception.
+  what it means: **a plan's short code is not a token.**
+  That is the whole of the exception, and it excuses nothing else. The
+  circle's invite secret and session tokens never appear in a URL path. The
+  emailed tokens (`/a`, `/e`, `/v`) do today, which is an older gap between
+  that rule and the routes; this decision neither widens nor settles it, and
+  it has its own ticket (SUS-81).
   The reasoning for the carve-out: the code was designed to be public (it is
   pasted into group chats and read aloud, `contracts` calls it "not a secret");
   what it admits to is a guest seat that everybody in the circle can see and the

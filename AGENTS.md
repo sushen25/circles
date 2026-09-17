@@ -147,8 +147,9 @@ make them impossible, not someone remembering:
 - Plan-update email consent is scoped to one plan and is never marketing consent.
 - **No client, log or analytics context ever holds a raw email address, token,
   note or event title.** A plan's short code is not a token (ADR 0022): it is
-  in a URL path by design, so hosting logs hold it. Every real token — invite
-  secrets, re-entry, verification and preference tokens — stays out of paths.
+  in a URL path by design, so hosting logs hold it. That is the only
+  exception. The emailed tokens in `/a`, `/e` and `/v` are in paths too, which
+  is a known gap and not a precedent (SUS-81).
 - Times are stored as instants with an IANA zone; transitions are server-side
   and idempotent.
 
