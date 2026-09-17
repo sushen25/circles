@@ -860,6 +860,10 @@ export const en = {
     this_link_has_expired: 'This link has expired.',
     open_the_plan_from_the_chat:
       'Open the plan from the group chat instead. Your place in the circle is still there.',
+    signed_in_as_someone_else: "You're signed in with a different account.",
+    this_link_is_for_a_guest_place:
+      'This link is for somebody’s place in a circle, and this browser is signed in to another account. Sign out here to use it.',
+    sign_out_and_continue: 'Sign out and continue',
     this_link_is_for_an_account: 'This link is for an account.',
     sign_in_with_that_email:
       'Whoever it was sent to has saved their place. Sign in with that email to carry on.',

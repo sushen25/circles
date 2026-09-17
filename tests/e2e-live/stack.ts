@@ -77,13 +77,27 @@ export type Scenario = {
  * fires. New ids and codes per call, so tests run in parallel and a local
  * rerun never collides with the last one.
  */
-export function sundayCrew(): Scenario {
+export function sundayCrew({ withPlan = true }: { withPlan?: boolean } = {}): Scenario {
   const ownerId = randomUUID();
   const circleId = randomUUID();
   const planId = randomUUID();
   const planCode = shortCode();
   const circleCode = shortCode();
   const secret = randomBytes(32).toString('base64url');
+
+  const planSql = `
+    insert into public.plans (
+      id, circle_id, mode, state, organiser_user_id, title, time_zone,
+      window_start, window_end, daily_start_local, daily_end_local,
+      duration_minutes, quorum, response_deadline, short_code
+    ) values (
+      '${planId}', '${circleId}', 'named', 'draft', '${ownerId}', 'Catch up', 'Australia/Melbourne',
+      current_date + 7, current_date + 13, 1050, 1350, 120, 2, now() + interval '3 days', '${planCode}'
+    );
+    insert into public.plan_participants (plan_id, revision, user_id)
+    values ('${planId}', 1, '${ownerId}');
+    select planning.transition_plan('${planId}', 'create_named', '${ownerId}');
+  `;
 
   sql(`
     begin;
@@ -102,17 +116,7 @@ export function sundayCrew(): Scenario {
     values ('${circleId}', '${ownerId}', 'Maya', 'owner');
     insert into public.circle_invites (circle_id, secret_hash, created_by)
     values ('${circleId}', extensions.digest('${secret}', 'sha256'), '${ownerId}');
-    insert into public.plans (
-      id, circle_id, mode, state, organiser_user_id, title, time_zone,
-      window_start, window_end, daily_start_local, daily_end_local,
-      duration_minutes, quorum, response_deadline, short_code
-    ) values (
-      '${planId}', '${circleId}', 'named', 'draft', '${ownerId}', 'Catch up', 'Australia/Melbourne',
-      current_date + 7, current_date + 13, 1050, 1350, 120, 2, now() + interval '3 days', '${planCode}'
-    );
-    insert into public.plan_participants (plan_id, revision, user_id)
-    values ('${planId}', 1, '${ownerId}');
-    select planning.transition_plan('${planId}', 'create_named', '${ownerId}');
+    ${withPlan ? planSql : ''}
     commit;
   `);
 

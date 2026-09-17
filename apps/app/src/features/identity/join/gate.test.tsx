@@ -13,18 +13,28 @@ const replace = vi.fn();
 vi.mock('expo-router', () => ({
   useRouter: () => ({ replace, push: vi.fn(), back: vi.fn(), canGoBack: () => false }),
 }));
-vi.mock('../../../analytics/track', () => ({ track: vi.fn() }));
+const track = vi.fn();
+vi.mock('../../../analytics/track', () => ({ track: (...args: unknown[]) => track(...args) }));
 vi.mock('../../../data/auth/client', () => ({ hasBackend: () => true }));
 
 const ensureGuestSession = vi.fn();
 vi.mock('../../../data/auth/guest', () => ({ ensureGuestSession: () => ensureGuestSession() }));
 
 const session = { status: 'none', userId: undefined, isAnonymous: false, isLoading: false };
-vi.mock('../../../data/auth/session', () => ({ useSession: () => session }));
+vi.mock('../../../data/auth/session', () => ({
+  useSession: () => session,
+  sessionState: () => session,
+  signOut: vi.fn(async () => undefined),
+}));
 
 const reattachWithToken = vi.fn();
+const planAccess = vi.fn();
 vi.mock('../../../data/membership', () => ({
-  planAccess: vi.fn(),
+  planAccess: (...args: unknown[]) => planAccess(...args),
+  circleNameForCode: vi.fn(async () => 'Sunday Crew'),
+  guestMembersFor: vi.fn(async () => ({ kind: 'listed', members: [] })),
+  heldInvite: () => undefined,
+  reattachFromList: vi.fn(),
   circleAccess: vi.fn(),
   arrivalFor: vi.fn(),
   reattachWithToken: (...args: unknown[]) => reattachWithToken(...args),
@@ -40,6 +50,10 @@ function wrap(children: ReactNode) {
 }
 
 beforeEach(() => {
+  session.status = 'none';
+  session.userId = undefined;
+  track.mockReset();
+  planAccess.mockReset();
   replace.mockReset();
   ensureGuestSession.mockReset();
   reattachWithToken.mockReset();
@@ -64,11 +78,46 @@ describe('MembershipGate', () => {
   });
 });
 
+describe('session_missing_on_return', () => {
+  it('is not counted for somebody who arrived with a session', async () => {
+    // A guest from another circle, or an account opening a friend's plan: no
+    // session was missing. Counting them inflates the continuity rate (§11.2).
+    Object.assign(session, { status: 'guest', userId: 'someone' });
+    planAccess.mockResolvedValue({ membership: 'not_member' });
+
+    render(
+      wrap(<MembershipGate target={{ kind: 'plan', code: 'pnsundaycr' }}>{null}</MembershipGate>),
+    );
+
+    await screen.findByText("There's nobody here to continue as. If you're new, start below.");
+    expect(track).not.toHaveBeenCalledWith('session_missing_on_return', {});
+  });
+
+  it('is counted when the page had to make a session', async () => {
+    ensureGuestSession.mockImplementation(async () => {
+      Object.assign(session, { status: 'guest', userId: 'fresh' });
+      return {};
+    });
+    planAccess.mockResolvedValue({ membership: 'not_member' });
+
+    const { rerender } = render(
+      wrap(<MembershipGate target={{ kind: 'plan', code: 'pnsundaycr' }}>{null}</MembershipGate>),
+    );
+    // The session store is a mock; a real one would re-render on the change.
+    await waitFor(() => expect(ensureGuestSession).toHaveBeenCalled());
+    rerender(
+      wrap(<MembershipGate target={{ kind: 'plan', code: 'pnsundaycr' }}>{null}</MembershipGate>),
+    );
+
+    await waitFor(() => expect(track).toHaveBeenCalledWith('session_missing_on_return', {}));
+  });
+});
+
 describe('ReentryFlow', () => {
-  it('sends somebody already signed in to their circles, not to "expired"', async () => {
-    // The membership the link was for has saved its place, and this browser is
-    // that account: `reattach_member` refuses the caller as permanent. That is
-    // the right identity already here (architecture §10), not a dead link.
+  it('tells somebody signed in to another account so, rather than "expired"', async () => {
+    // `reattach_member` lets the account the link names straight through; what
+    // is left refused as `caller_is_permanent` is somebody else signed in. That
+    // is not a dead link, and it is not their circles either.
     reattachWithToken.mockRejectedValue(
       new FunctionError(
         {
@@ -83,7 +132,9 @@ describe('ReentryFlow', () => {
 
     render(wrap(<ReentryFlow token={'t'.repeat(40)} />));
 
-    await waitFor(() => expect(replace).toHaveBeenCalledWith('/circles'));
+    expect(await screen.findByText("You're signed in with a different account.")).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Sign out and continue' })).toBeTruthy();
     expect(screen.queryByText('This link has expired.')).toBeNull();
+    expect(replace).not.toHaveBeenCalled();
   });
 });

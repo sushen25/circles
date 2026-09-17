@@ -94,6 +94,27 @@ test('a taken name is asked for again, and the second name joins', async ({ page
   expect(memberNamed(crew.circleId, 'Maya B')?.anonymous).toBe(true);
 });
 
+test('with no plan asking, a new member lands on the circle, and is let in', async ({ page }) => {
+  // The circle route is gated by the circle's id. A member arriving at it by
+  // the real id — which is what joining navigates to — must reach circle home,
+  // not the invite prompt a non-member gets.
+  const crew = sundayCrew({ withPlan: false });
+
+  await page.goto(`/join#${crew.secret}`);
+  await page.getByRole('button', { name: 'Choose my times' }).click();
+  await page.getByLabel('Your name').fill('Jess');
+  await page.getByRole('button', { name: 'Continue' }).click();
+
+  await expect(page).toHaveURL(new RegExp(`/circles/${crew.circleId}$`));
+  // Visible only: the navigator keeps the Join screen mounted, hidden, behind.
+  await expect(
+    page.getByText('Sunday Crew', { exact: true }).filter({ visible: true }).first(),
+  ).toBeVisible();
+  await expect(
+    page.getByText('You need the invite link to join.').filter({ visible: true }),
+  ).toHaveCount(0);
+});
+
 test('a revoked invite says so and asks nothing', async ({ page }) => {
   const crew = sundayCrew();
   sql(`update public.circle_invites set revoked_at = now() where circle_id = '${crew.circleId}'`);

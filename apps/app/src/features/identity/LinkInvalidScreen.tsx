@@ -22,13 +22,16 @@ export type LinkInvalidReason =
   /** An emailed re-entry link that is spent, unknown or expired. */
   | 'expired'
   /** An emailed re-entry link to a membership that has since saved its place. */
-  | 'account';
+  | 'account'
+  /** An emailed re-entry link opened in a browser signed in to a different account. */
+  | 'other_account';
 
 export type LinkInvalidProps = {
   fixture?: Fixture | undefined;
   state?: ScreenState | undefined;
   reason?: LinkInvalidReason | undefined;
   onSignIn?: (() => void) | undefined;
+  onSignOut?: (() => void) | undefined;
   onBack?: (() => void) | undefined;
   onWhatIsBrand?: (() => void) | undefined;
 };
@@ -39,11 +42,13 @@ const COPY = {
   open_again: ['open_the_link_again', 'open_it_from_the_chat'],
   expired: ['this_link_has_expired', 'open_the_plan_from_the_chat'],
   account: ['this_link_is_for_an_account', 'sign_in_with_that_email'],
+  other_account: ['signed_in_as_someone_else', 'this_link_is_for_a_guest_place'],
 } as const;
 
 export function LinkInvalidScreen({
   reason = 'inactive',
   onSignIn,
+  onSignOut,
   onBack,
   onWhatIsBrand,
 }: LinkInvalidProps) {
@@ -61,6 +66,9 @@ export function LinkInvalidScreen({
       <Foot>
         {reason === 'account' ? (
           <Button label={t('linkInvalid', 'sign_in')} onPress={onSignIn} />
+        ) : null}
+        {reason === 'other_account' ? (
+          <Button label={t('linkInvalid', 'sign_out_and_continue')} onPress={onSignOut} />
         ) : null}
         <Button
           label={t('linkInvalid', 'what_is_brand')}

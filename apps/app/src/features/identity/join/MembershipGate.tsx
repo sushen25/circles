@@ -42,6 +42,15 @@ function LiveGate({ target, children }: { target: Target; children: ReactNode })
   // it depends on changes after a failed attempt: the session is still `none`
   // and the decision still `needs_session`.
   const [sessionAttempt, setSessionAttempt] = useState(0);
+  /**
+   * This page load found no session at all and had to make one.
+   *
+   * The closest the client can come to "returned with no session" (§11.2's
+   * continuity funnel). A signed-in account opening a friend's plan, or a guest
+   * who is in other circles, arrives *with* a session and is not a return, and
+   * counting them as one would inflate the very rate the metric exists to read.
+   */
+  const [arrivedWithoutSession, setArrivedWithoutSession] = useState(false);
 
   const code = target.kind === 'plan' ? ShortCode.safeParse(target.code) : undefined;
   const malformed = code !== undefined && !code.success;
@@ -71,7 +80,9 @@ function LiveGate({ target, children }: { target: Target; children: ReactNode })
   // re-running on a re-render cannot mint a second identity.
   useEffect(() => {
     if (decision.kind !== 'needs_session' || malformed || sessionFailed) return;
-    ensureGuestSession().catch(() => setSessionFailed(true));
+    ensureGuestSession()
+      .then(() => setArrivedWithoutSession(true))
+      .catch(() => setSessionFailed(true));
   }, [decision.kind, malformed, sessionFailed, sessionAttempt]);
 
   const back = () => (router.canGoBack() ? router.back() : router.replace('/'));
@@ -120,6 +131,7 @@ function LiveGate({ target, children }: { target: Target; children: ReactNode })
       return (
         <ContinueAsFlow
           code={target.code as ShortCode}
+          arrivedWithoutSession={arrivedWithoutSession}
           onReattached={() => void queryClient.invalidateQueries({ queryKey: accessKey })}
         />
       );

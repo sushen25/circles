@@ -121,9 +121,25 @@ export async function redeemInvite({
  * is the cost, and it is paid rarely.
  */
 let held: string | undefined;
+let openCounted = false;
 
 export function holdInvite(secret: string): void {
   held = secret;
+  openCounted = false;
+}
+
+/**
+ * True once per invite held, then false: for counting `circle_join_opened` once
+ * per link opened rather than once per mount of the Join page.
+ *
+ * A flag here rather than a copy of the secret in the screen to compare
+ * against. The screen's copy outlived `releaseInvite`, which is the one call
+ * that is meant to end the capability's life in this tab.
+ */
+export function takeInviteOpen(): boolean {
+  if (held === undefined || openCounted) return false;
+  openCounted = true;
+  return true;
 }
 
 export function heldInvite(): string | undefined {
@@ -132,6 +148,7 @@ export function heldInvite(): string | undefined {
 
 export function releaseInvite(): void {
   held = undefined;
+  openCounted = false;
 }
 
 /**

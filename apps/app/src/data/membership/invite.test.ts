@@ -7,6 +7,7 @@ import {
   redeemInvite,
   releaseInvite,
   secretDigest,
+  takeInviteOpen,
 } from './invite';
 
 /**
@@ -87,6 +88,22 @@ describe('captureInviteFragment', () => {
 
     expect(heldInvite()).toBeUndefined();
     expect(window.location.hash).toBe(`#${SECRET}`);
+  });
+});
+
+describe('takeInviteOpen', () => {
+  it('says yes once per invite held, and forgets the invite when it is released', () => {
+    captureInviteFragment(); // nothing held yet
+    expect(takeInviteOpen()).toBe(false);
+
+    window.history.replaceState(null, '', `/join#${SECRET}`);
+    captureInviteFragment();
+    expect(takeInviteOpen()).toBe(true);
+    expect(takeInviteOpen()).toBe(false);
+
+    releaseInvite();
+    expect(heldInvite()).toBeUndefined();
+    expect(takeInviteOpen()).toBe(false);
   });
 });
 

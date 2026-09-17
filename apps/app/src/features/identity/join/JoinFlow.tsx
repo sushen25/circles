@@ -4,7 +4,7 @@ import { useEffect, useState, useSyncExternalStore } from 'react';
 
 import { track } from '../../../analytics/track';
 import { ensureGuestSession } from '../../../data/auth/guest';
-import { fetchInvitePreview, heldInvite } from '../../../data/membership';
+import { fetchInvitePreview, heldInvite, takeInviteOpen } from '../../../data/membership';
 import { LinkInvalidScreen } from '../LinkInvalidScreen';
 import { MainScreen } from '../MainScreen';
 import { isOffline } from './failure';
@@ -19,9 +19,6 @@ import { isOffline } from './failure';
  * secret lives in memory only (`holdInvite`), and nothing derived from it goes
  * into a query key, a log or an event.
  */
-
-/** Once per invite opened, not once per mount: Back from the Name step remounts this. */
-let countedOpen: string | undefined;
 
 // The held invite changes only by this flow's own hand, so nothing to subscribe to.
 const noSubscription = () => () => undefined;
@@ -44,10 +41,7 @@ export function JoinFlow() {
   const secret = useSyncExternalStore(noSubscription, clientInvite, serverInvite);
 
   useEffect(() => {
-    if (typeof secret === 'string' && countedOpen !== secret) {
-      countedOpen = secret;
-      track('circle_join_opened', {});
-    }
+    if (typeof secret === 'string' && takeInviteOpen()) track('circle_join_opened', {});
   }, [secret]);
 
   const [starting, setStarting] = useState(false);

@@ -77,6 +77,31 @@ begin
       select 1 from auth.users u where u.id = caller and not coalesce(u.is_anonymous, true)
     )
   then
+    -- With one exception: the emailed link, opened by the account its membership
+    -- now belongs to. §10 — "if the browser already holds the right identity, it
+    -- simply routes to the plan". A guest who saved their place keeps the same
+    -- user id (`linkIdentity` converts in place), so the token still names them.
+    -- Nothing moves and nothing is spent: they are handed the circle they are
+    -- already an active member of, which RLS would show them anyway. Anybody
+    -- else signed in is still refused, and the client can now tell the two apart
+    -- — before, both were `caller_is_permanent`, and the right account was told
+    -- its own link was for somebody else.
+    if p_reentry_token_hash is not null then
+      select c.* into chosen
+      from private.email_action_tokens t
+      join public.circle_members m
+        on m.circle_id = t.membership_circle_id and m.user_id = t.membership_user_id
+      join public.circles c on c.id = t.membership_circle_id
+      where t.token_hash = p_reentry_token_hash
+        and t.purpose = 'reentry'
+        and t.membership_user_id = caller
+        and m.status = 'active';
+
+      if found then
+        return chosen;
+      end if;
+    end if;
+
     raise exception 'caller_is_permanent' using errcode = 'insufficient_privilege';
   end if;
 

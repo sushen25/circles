@@ -26,11 +26,13 @@ import { failureOf, isOffline } from './failure';
  */
 export type ContinueAsFlowProps = {
   code: ShortCode;
+  /** This page load had no session and made one, rather than arriving with somebody's. */
+  arrivedWithoutSession: boolean;
   /** The membership moved; the gate should ask again. */
   onReattached: () => void;
 };
 
-export function ContinueAsFlow({ code, onReattached }: ContinueAsFlowProps) {
+export function ContinueAsFlow({ code, arrivedWithoutSession, onReattached }: ContinueAsFlowProps) {
   const router = useRouter();
   const session = useSession();
   const signedIn = session.status === 'saved' || session.status === 'app';
@@ -41,12 +43,11 @@ export function ContinueAsFlow({ code, onReattached }: ContinueAsFlowProps) {
   const [askForInvite, setAskForInvite] = useState(false);
   const keys = useRef(new Map<string, IdempotencyKey>());
 
-  // Once per arrival. "A guest returns with no session" is expected, and this is
-  // how often (§9, §11.3) — counted here, where it is known to have happened,
-  // rather than in the guard, which runs on every render.
+  // Once per arrival, and only for an arrival that had no session. The gate
+  // knows; see `arrivedWithoutSession` there for why the others are excluded.
   useEffect(() => {
-    track('session_missing_on_return', {});
-  }, []);
+    if (arrivedWithoutSession) track('session_missing_on_return', {});
+  }, [arrivedWithoutSession]);
 
   const circleName = useQuery({
     queryKey: ['circle-name-for-code', code],

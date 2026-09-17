@@ -13,6 +13,7 @@ export {
   inviteSecretFromHash,
   redeemInvite,
   releaseInvite,
+  takeInviteOpen,
 } from './invite';
 export {
   circleNameForCode,

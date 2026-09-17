@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { track } from '../../../analytics/track';
 import { hasBackend } from '../../../data/auth/client';
+import { sessionState, signOut } from '../../../data/auth/session';
 import { newIdempotencyKey } from '../../../data/functions';
 import { arrivalFor, reattachWithToken } from '../../../data/membership';
 import { ContinueAsScreen } from '../ContinueAsScreen';
@@ -39,9 +40,13 @@ export function ReentryFlow({ token }: { token: string | undefined }) {
     if (!hasBackend() || !parsed.success || started.current === attempt) return;
     started.current = attempt;
 
+    // Read before the call: a saved place that the link names is let straight
+    // through, and nothing was reattached for the funnel to count.
+    const alreadySaved = sessionState().status === 'saved' || sessionState().status === 'app';
+
     reattachWithToken(parsed.data.token, key)
       .then(async (moved) => {
-        track('member_reattached', { source: 'email' });
+        if (!alreadySaved) track('member_reattached', { source: 'email' });
         const arrival = await arrivalFor(moved.circle.id).catch(() => ({
           kind: 'circle' as const,
           id: moved.circle.id,
@@ -61,13 +66,12 @@ export function ReentryFlow({ token }: { token: string | undefined }) {
           setOffline(true);
           return;
         }
-        // This browser is already a saved place, and a saved place does not
-        // reattach — it is signed in. Architecture §10: "if the browser already
-        // holds the right identity, it simply routes to the plan". The token
-        // does not say which circle to a caller that cannot spend it, so the
-        // route is their circles, where it is.
+        // Signed in, and not as the account this link names — the right account
+        // is let through by `reattach_member` itself (architecture §10). A saved
+        // place cannot take a guest membership, so the way to use the link is to
+        // sign out here, and that is the person's call, not the page's.
         if (failure.kind === 'reason' && failure.reason === 'caller_is_permanent') {
-          router.replace('/circles');
+          setFailed('other_account');
           return;
         }
         setFailed(
@@ -86,6 +90,12 @@ export function ReentryFlow({ token }: { token: string | undefined }) {
       <LinkInvalidScreen
         reason={failed ?? 'expired'}
         onSignIn={() => router.replace('/sign-in')}
+        onSignOut={() => {
+          void signOut().then(() => {
+            setFailed(undefined);
+            setAttempt((n) => n + 1);
+          });
+        }}
         onBack={back}
         onWhatIsBrand={whatIsBrand}
       />
