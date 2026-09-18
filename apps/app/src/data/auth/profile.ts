@@ -85,3 +85,27 @@ export async function bootstrapProfile(options: ProfileBootstrap = {}): Promise<
   // would not.
   if (error !== null) throw error;
 }
+
+/**
+ * The name an account goes by, or null when it has not chosen one.
+ *
+ * `Guest` is the trigger's placeholder, not a name somebody picked — the email
+ * path leaves it there until the Your name screen asks — and joining a circle
+ * of friends as "Guest" is the thing `bootstrapProfile` exists to prevent. So
+ * the placeholder reads as no name, and a screen that needs one asks.
+ */
+export async function ownDisplayName(): Promise<string | null> {
+  const client = authClient();
+  const { data: sessionData } = await client.auth.getSession();
+  const userId = sessionData.session?.user.id;
+  if (userId === undefined) return null;
+
+  const { data, error } = await client
+    .from('profiles')
+    .select('display_name')
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (error !== null) throw error;
+  const name = data?.display_name;
+  return name === undefined || name === DEFAULT_NAME ? null : name;
+}

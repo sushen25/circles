@@ -18,7 +18,7 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = fileURLToPath(new URL('../..', import.meta.url));
 
-export type StackConfig = { apiUrl: string; anonKey: string; dbUrl: string };
+export type StackConfig = { apiUrl: string; anonKey: string; dbUrl: string; serviceKey: string };
 
 export function stackConfig(): StackConfig {
   const raw = execFileSync(resolve(ROOT, 'node_modules/.bin/supabase'), ['status', '-o', 'json'], {
@@ -30,8 +30,16 @@ export function stackConfig(): StackConfig {
     apiUrl: status.API_URL ?? '',
     anonKey: status.ANON_KEY ?? '',
     dbUrl: status.DB_URL ?? '',
+    // Only for making a test account through the auth server's admin API; the
+    // page under test never sees it.
+    serviceKey: status.SERVICE_ROLE_KEY ?? '',
   };
-  if (config.apiUrl === '' || config.anonKey === '' || config.dbUrl === '') {
+  if (
+    config.apiUrl === '' ||
+    config.anonKey === '' ||
+    config.dbUrl === '' ||
+    config.serviceKey === ''
+  ) {
     throw new Error('the local stack is not up — `pnpm db:start`');
   }
   return config;
@@ -190,4 +198,92 @@ export function responderIds(planId: string): string[] {
 /** Rate counters are per address, and every local run comes from the same one. */
 export function clearRateCounters(): void {
   sql('delete from jobs.rate_counters');
+}
+
+/**
+ * A plan that is not taking answers, in each of the ways one can be (ADR 0022).
+ * Written around the machine as `postgres`, with its marker, because the test
+ * is about what the page does with a plan in that state, not about getting it
+ * there.
+ */
+export function planStopsAsking(
+  scenario: Scenario,
+  how: 'deadline_passed' | 'cancelled' | 'quiet_ask',
+): void {
+  if (how === 'deadline_passed') {
+    sql(`update public.plans set response_deadline = now() - interval '1 minute'
+         where id = '${scenario.planId}'`);
+    return;
+  }
+  if (how === 'cancelled') {
+    sql(`
+      begin;
+      select set_config('circles.in_transition', 'on', true);
+      update public.plans set state = 'cancelled' where id = '${scenario.planId}';
+      commit;
+    `);
+    return;
+  }
+  // A quiet ask still gathering interest: nobody organises it yet, and its link
+  // is never shared (spec §5.8) — but its code exists, and must admit nobody.
+  sql(`
+    begin;
+    select set_config('circles.in_transition', 'on', true);
+    update public.plans
+    set mode = 'quiet', state = 'seeking', organiser_user_id = null, quiet_threshold = 2,
+        quiet_expires_at = now() + interval '2 days'
+    where id = '${scenario.planId}';
+    commit;
+  `);
+}
+
+/** Whether the plan is asking this person, which is what lets them answer it. */
+export function isParticipant(planId: string, userId: string): boolean {
+  const [row] = sql(`select count(*) from public.plan_participants
+    where plan_id = '${planId}' and user_id = '${userId}'`);
+  return row?.[0] === '1';
+}
+
+/**
+ * An account with a saved place, signed in, as the session the app keeps.
+ *
+ * Made through the auth server's admin API and signed in with a password the
+ * test generates and never prints; the sign-in screens are S1-22's. What comes
+ * back is the session exactly as `supabase-js` stores it in `localStorage`, for
+ * the test to put there before the page loads.
+ */
+export async function signedInAccount(name: string): Promise<{ userId: string; stored: string }> {
+  const { apiUrl, anonKey, serviceKey } = stackConfig();
+  const email = `${randomUUID()}@example.test`;
+  const password = randomBytes(24).toString('base64url');
+
+  const created = await fetch(`${apiUrl}/auth/v1/admin/users`, {
+    method: 'POST',
+    headers: {
+      apikey: serviceKey,
+      authorization: `Bearer ${serviceKey}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: { display_name: name, time_zone: 'Australia/Melbourne' },
+    }),
+  });
+  if (!created.ok) throw new Error(`could not create a test account (${created.status})`);
+
+  const signedIn = await fetch(`${apiUrl}/auth/v1/token?grant_type=password`, {
+    method: 'POST',
+    headers: { apikey: anonKey, 'content-type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+  if (!signedIn.ok) throw new Error(`could not sign the test account in (${signedIn.status})`);
+  const session = (await signedIn.json()) as { user: { id: string } };
+  return { userId: session.user.id, stored: JSON.stringify(session) };
+}
+
+/** Where `supabase-js` keeps the session for the local API (`sb-<host's first label>-auth-token`). */
+export function sessionStorageKey(): string {
+  return `sb-${new URL(stackConfig().apiUrl).hostname.split('.')[0]}-auth-token`;
 }

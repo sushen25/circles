@@ -11,6 +11,7 @@ import { circleAccess, planAccess } from '../../../data/membership';
 import { ContinueAsScreen } from '../ContinueAsScreen';
 import { LinkInvalidScreen } from '../LinkInvalidScreen';
 import { ContinueAsFlow } from './ContinueAsFlow';
+import { JoinAsAccountFlow } from './JoinAsAccountFlow';
 import { isOffline } from './failure';
 
 /**
@@ -118,14 +119,24 @@ function LiveGate({ target, children }: { target: Target; children: ReactNode })
     case 'needs_saved_place':
       // Not reachable from a `guest` route; guarded against rather than assumed.
       return <ContinueAsScreen state="loading" onBack={back} />;
+    case 'join_as_account':
     case 'continue_as':
       if (target.kind === 'circle') {
-        // The list is keyed by a short code, which is what a person arriving from
-        // a link has. A circle page is reached by navigating, not by a link in a
-        // chat, and a non-member has no way to learn its code — so the honest
-        // answer here is the invite.
+        // The list and a plan's link are both keyed by a short code, which is
+        // what a person arriving from a chat has. A circle page is reached by
+        // navigating, not by a link in a chat, and a non-member has no way to
+        // learn its code — so the honest answer here is the invite, for an
+        // account and a guest alike (ADR 0022 admits through a *plan's* code).
         return (
           <LinkInvalidScreen reason="ask_for_invite" onBack={back} onWhatIsBrand={whatIsBrand} />
+        );
+      }
+      if (decision.kind === 'join_as_account') {
+        return (
+          <JoinAsAccountFlow
+            code={target.code as ShortCode}
+            onJoined={() => void queryClient.invalidateQueries({ queryKey: accessKey })}
+          />
         );
       }
       return (

@@ -83,7 +83,7 @@ describe('organiser routes — organising inside a circle', () => {
      * being an active member of it.
      */
     expect(guard({ route: 'organiser', session: SAVED, membership: 'not_member' })).toEqual({
-      kind: 'continue_as',
+      kind: 'join_as_account',
     });
   });
 
@@ -126,23 +126,25 @@ describe('guest routes', () => {
     });
   });
 
-  it('offer it to a saved place too, rather than an empty screen', () => {
-    /**
-     * Tempting to allow this through and let RLS return nothing, on the grounds
-     * that a permanent identity "should" already be a member. But somebody with
-     * a saved place can open a friend's invite link to a circle they have never
-     * joined, and the honest answer is the same one a guest gets: not yours
-     * yet, here is the way in. Continue-as carries "I'm new here", which is the
-     * branch they actually want.
-     *
-     * What they must never be offered is a reattachment onto somebody else's
-     * guest membership — and that is refused server-side with
-     * `caller_is_permanent`, not here.
-     */
-    expect(guard({ route: 'guest', session: SAVED, membership: 'not_member' })).toEqual({
-      kind: 'continue_as',
-    });
-  });
+  it.each<[string, SessionState]>([
+    ['a saved place', SAVED],
+    ['the app tier', APP],
+  ])(
+    'offer %s who is not a member one tap to join as themselves, never the list',
+    (_who, state) => {
+      /**
+       * ADR 0022, Decision 3. Tempting to allow this through and let RLS return
+       * nothing, on the grounds that a permanent identity "should" already be a
+       * member — but somebody with an account can open a friend's plan link on a
+       * circle they have never joined. And the list is the wrong answer too:
+       * every name on it is a guest, and `reattach-member` refuses an account
+       * each one with `caller_is_permanent`.
+       */
+      expect(guard({ route: 'guest', session: state, membership: 'not_member' })).toEqual({
+        kind: 'join_as_account',
+      });
+    },
+  );
 
   it('treats an absent membership as unknown rather than as a refusal', () => {
     // The default matters: a caller that forgets the argument must get `wait`,
