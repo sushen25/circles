@@ -5,6 +5,7 @@ situation, written the first time it happens rather than imagined in advance.
 
 | Runbook | For |
 |---|---|
+| [Local development](./local.md) | From a clean clone to the app running against a local database: env file, seed data, signing in, tests, and what breaks |
 | [CI](./ci.md) | What each workflow does, what it costs, what still needs a person |
 | [Environments](./environments.md) | What exists in `local`, `dev` and `prod`; domains, configuration, secrets, cost |
 | [Environment setup](./environment-setup.md) | The one-time founder checklist that creates all of the above |

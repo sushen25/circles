@@ -1,6 +1,10 @@
 import { defineConfig, devices } from '@playwright/test';
 
-const PORT = 8081;
+// Not 8081, which is Metro's: Playwright reuses whatever already answers on its
+// port outside CI, so a `pnpm dev:web` left running — which has a backend —
+// was silently tested in place of this suite's no-backend export, and the
+// fixture journey failed for a reason nothing on screen explained.
+const PORT = 8083;
 const baseURL = `http://localhost:${PORT}`;
 
 /**
