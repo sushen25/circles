@@ -1,19 +1,20 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 
-import { useFixture } from '../../../src/data/fixtures/useFixture';
-import { SaveAccessScreen } from '../../../src/features/identity/SaveAccessScreen';
+import { SaveAccessFlow } from '../../../src/features/identity/SaveAccessFlow';
+import { MembershipGate } from '../../../src/features/identity/join/MembershipGate';
 
 /**
  * Route only — thin composition, no logic (architecture §7.1).
  *
- * Was `/a/[token]`, which the scaffold guessed at and which is the re-entry
- * link every plan-update email carries (architecture §5.2). SaveAccess follows
- * the Sent screen (§5.1: "a tertiary Save access on every device link follows
- * the email card"), so it lives beside it. S1-30 wires it.
+ * Beside the Sent screen it follows (§5.1: "a tertiary Save access on every
+ * device link follows the email card"). `/a` is the emailed re-entry link.
  */
 export default function Route() {
-  const router = useRouter();
-  const fixture = useFixture();
+  const { code } = useLocalSearchParams<{ code: string }>();
 
-  return <SaveAccessScreen fixture={fixture} onBack={() => router.back()} />;
+  return (
+    <MembershipGate target={{ kind: 'plan', code }}>
+      <SaveAccessFlow code={code} />
+    </MembershipGate>
+  );
 }

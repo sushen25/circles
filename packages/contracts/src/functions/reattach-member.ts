@@ -20,7 +20,7 @@ export const ReattachMemberRequest = Mutation.extend({
   circle_id: CircleId.optional(),
   /** From `guest_members_for_reattach`: the identity that holds the membership. */
   target_member_user_id: UserId.optional(),
-  /** From an emailed `/a/:token` link. Single-use, seven days. Never logged. */
+  /** From an emailed `/a#<token>` link. Single-use, seven days. Never logged. */
   reentry_token: OpaqueToken.optional(),
 })
   .refine(

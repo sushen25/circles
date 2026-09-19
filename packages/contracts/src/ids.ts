@@ -61,8 +61,8 @@ export const ShortCode = z
 export type ShortCode = z.infer<typeof ShortCode>;
 
 /**
- * Single-use tokens from emails (`/a/:token`, `/e/:token`, `/v/:token`). Opaque
- * and high-entropy; never logged, never in analytics.
+ * Tokens from emails (`/a#`, `/e#`, `/v#` — in the fragment, ADR 0023). Opaque
+ * and high-entropy; never logged, never in analytics, never in a path.
  */
 export const OpaqueToken = z
   .string()

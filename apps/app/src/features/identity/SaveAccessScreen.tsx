@@ -6,6 +6,7 @@ import {
   Foot,
   Input,
   Label,
+  Notice,
   Screen,
   Small,
   Tertiary,
@@ -13,46 +14,101 @@ import {
 } from '../../components';
 import { Stack } from '../../components/layout';
 import { t } from '../../copy';
-import type { Fixture } from '../../data/fixtures';
-import type { ScreenState } from '../state';
 
 /**
- * SaveAccess — scaffolded from `docs/design/SaveAccess.dc.html`.
+ * SaveAccess — `docs/design/SaveAccess.dc.html` (spec §5.1, §5.11).
  *
- * Structure and copy come from the artboard; data comes from a fixture. Slice 1
- * replaces `fixture` with real data and `onNext` with real navigation. Edit
- * freely: `scripts/scaffold-screens.mjs` will not overwrite this file.
+ * An account, by email code, so the person never has to rejoin from a new
+ * device. The artboard offers email only; Apple and Google arrive with S1-14b.
+ * Kept visibly separate from meetup email: signing in subscribes nobody to
+ * anything.
  */
+export type SaveAccessProblem = 'not_an_address' | 'couldnt_send' | 'too_many_tries' | 'offline';
+
 export type SaveAccessProps = {
-  fixture: Fixture;
-  state?: ScreenState | undefined;
-  /** The screen's one decision. */
-  onNext?: (() => void) | undefined;
-  onBack?: (() => void) | undefined;
+  state?: 'default' | 'already_saved' | undefined;
+  circleName?: string | undefined;
+  email?: string | undefined;
+  problem?: SaveAccessProblem | undefined;
+  busy?: boolean | undefined;
+  onEmailChange?: ((email: string) => void) | undefined;
+  onSendCode?: (() => void) | undefined;
   onNotNow?: (() => void) | undefined;
+  onBack?: (() => void) | undefined;
 };
 
-export function SaveAccessScreen({ onNext, onBack, onNotNow }: SaveAccessProps) {
+function problemCopy(problem: SaveAccessProblem): string {
+  switch (problem) {
+    case 'not_an_address':
+      return t('saveAccess', 'not_an_address');
+    case 'couldnt_send':
+      return t('saveAccess', 'couldnt_send');
+    case 'too_many_tries':
+      return t('saveAccess', 'too_many_tries');
+    case 'offline':
+      return t('saveAccess', 'youre_offline');
+  }
+}
+
+export function SaveAccessScreen({
+  state = 'default',
+  circleName = '',
+  email = '',
+  problem,
+  busy = false,
+  onEmailChange,
+  onSendCode,
+  onNotNow,
+  onBack,
+}: SaveAccessProps) {
+  if (state === 'already_saved') {
+    return (
+      <Screen>
+        <TopBar title={circleName} onBack={onBack} backLabel={t('common', 'back')} />
+        <Body>
+          <Stack>
+            <DisplayL>{t('saveAccess', 'already_saved')}</DisplayL>
+            <BodyText>{t('saveAccess', 'already_saved_body', { circle: circleName })}</BodyText>
+          </Stack>
+        </Body>
+        <Foot>
+          <Tertiary label={t('saveAccess', 'back')} onPress={onBack} />
+        </Foot>
+      </Screen>
+    );
+  }
+
   return (
     <Screen>
-      <TopBar
-        title={t('saveAccess', 'sunday_crew')}
-        onBack={onBack}
-        backLabel={t('common', 'back')}
-      />
+      <TopBar title={circleName} onBack={onBack} backLabel={t('common', 'back')} />
       <Body>
         <Stack>
           <DisplayL>{t('saveAccess', 'keep_your_place_on_every_device')}</DisplayL>
-          <BodyText>{t('saveAccess', 'sign_in_with_your_email_and_youll')}</BodyText>
+          <BodyText>{t('saveAccess', 'sign_in_with_your_email', { circle: circleName })}</BodyText>
         </Stack>
         <Stack>
           <Label>{t('saveAccess', 'your_email')}</Label>
-          <Input placeholder={t('saveAccess', 'priya_example_com')} />
+          <Input
+            aria-label={t('saveAccess', 'your_email')}
+            placeholder={t('saveAccess', 'you_example_com')}
+            value={email}
+            onChangeText={onEmailChange}
+            autoComplete="email"
+            inputMode="email"
+            autoCapitalize="none"
+            autoCorrect={false}
+            onSubmitEditing={onSendCode}
+          />
         </Stack>
         <Small>{t('saveAccess', 'well_send_a_one_time_code_this')}</Small>
+        {problem === undefined ? null : <Notice kind="warn">{problemCopy(problem)}</Notice>}
       </Body>
       <Foot>
-        <Button label={t('saveAccess', 'send_me_a_code')} onPress={onNext} />
+        <Button
+          label={busy ? t('saveAccess', 'sending') : t('saveAccess', 'send_me_a_code')}
+          onPress={onSendCode}
+          disabled={busy}
+        />
         <Tertiary label={t('saveAccess', 'not_now')} onPress={onNotNow} />
       </Foot>
     </Screen>

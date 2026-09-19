@@ -75,7 +75,7 @@ export async function reattachFromList({
 }
 
 /**
- * The emailed `/a/<token>` link: the same reattachment, authorised by the token
+ * The emailed `/a#<token>` link: the same reattachment, authorised by the token
  * instead of by a pick from the list. The token is single-use and never logged;
  * it goes in the body and nowhere else.
  */
