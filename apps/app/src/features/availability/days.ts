@@ -77,6 +77,49 @@ export function dateWords(date: LocalDate, style: 'short' | 'long', locale?: str
     .replace(',', '');
 }
 
+/** Noon UTC on the date: a date has no zone, so it is formatted in UTC. */
+function noonOf(date: LocalDate): Date {
+  const { year, month, day } = toParts(date);
+  return new Date(Date.UTC(year, month - 1, day, 12));
+}
+
+/** "14", as the device's locale writes a day of the month. */
+export function dayNumber(date: LocalDate, locale?: string): string {
+  return new Intl.DateTimeFormat(locale, { timeZone: 'UTC', day: 'numeric' }).format(noonOf(date));
+}
+
+/** "Tue 15": a ticked day named in the panel, and a day in the wrapped grid. */
+export function dayName(date: LocalDate, locale?: string): string {
+  return new Intl.DateTimeFormat(locale, { timeZone: 'UTC', weekday: 'short', day: 'numeric' })
+    .format(noonOf(date))
+    .replace(',', '');
+}
+
+/** Monday 0 to Sunday 6. */
+function weekdayOf(date: LocalDate): number {
+  return (noonOf(date).getUTCDay() + 6) % 7;
+}
+
+/**
+ * Each row's place in a calendar that starts on the Monday of the first row's
+ * week: its column is `slot % 7`, its week `slot / 7`. Counted from the dates,
+ * so a day with no row (the night the clocks go forward on a band inside the
+ * missing hour) leaves a gap rather than moving every later day along.
+ */
+export function gridSlots(rows: readonly DayRow[]): number[] {
+  const first = rows[0];
+  if (first === undefined) return [];
+  const origin = noonOf(first.date).getTime() - weekdayOf(first.date) * 86_400_000;
+  return rows.map((row) => Math.round((noonOf(row.date).getTime() - origin) / 86_400_000));
+}
+
+/** The seven column headings, Monday first: "Mon" … "Sun". */
+export function weekdayHeadings(locale?: string): string[] {
+  const format = new Intl.DateTimeFormat(locale, { timeZone: 'UTC', weekday: 'short' });
+  // 5 January 2026 was a Monday.
+  return Array.from({ length: 7 }, (_, i) => format.format(new Date(Date.UTC(2026, 0, 5 + i, 12))));
+}
+
 /** Minutes from the local midnight of `date` — so a cell ending at midnight is 1440, not 0. */
 function minutesInto(date: LocalDate, instant: Interval['start'], timing: PlanTiming): number {
   const local = toLocal(instant, timing.zone);

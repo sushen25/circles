@@ -1,5 +1,4 @@
 import type { PlanId } from '@circles/contracts';
-import { cellsToWindows, rangeText, type ShortcutKind } from '@circles/domain';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useReducer, useState } from 'react';
 
@@ -13,22 +12,19 @@ import {
   type OwnAnswer,
 } from '../../data/availability';
 import { OfflineScreen } from '../system/OfflineScreen';
-import { AvailabilityScreen, type DayView } from './AvailabilityScreen';
+import { AvailabilityScreen } from './AvailabilityScreen';
 import { dayRows, deviceTimeFormat } from './days';
 import {
   editorFrom,
   editorReducer,
   emptyEditor,
-  paintedDays,
-  planShortcuts,
-  shortcutOn,
-  wholeDayOn,
   type EditorAction,
   type EditorState,
 } from './editor';
 import { NoneWorkScreen, type NoneWorkStatus } from './NoneWorkScreen';
 import { useSendAnswer } from './useSendAnswer';
-import { ROW_WORDS, SHORTCUT_LABEL, introOf, timeOfDay, titleOf, zoneNoteOf } from './words';
+import { editorView } from './view';
+import { ROW_WORDS, introOf, timeOfDay, titleOf, zoneNoteOf } from './words';
 
 /**
  * One question, being answered: the editor, "none of these dates", and the
@@ -36,6 +32,8 @@ import { ROW_WORDS, SHORTCUT_LABEL, introOf, timeOfDay, titleOf, zoneNoteOf } fr
  * revision, so nothing painted against old dates reaches a new grid.
  */
 export type AvailabilityStep = 'times' | 'none';
+
+const VIEW_ONLY: ReadonlySet<EditorAction['type']> = new Set(['tick', 'done', 'open']);
 
 export type AnsweringProps = {
   code: string;
@@ -133,7 +131,9 @@ export function Answering({
   const sending = phase.kind === 'sending' ? phase.status : undefined;
   const edit = (action: EditorAction) => {
     if (sending !== undefined) return;
-    edited();
+    // Ticking a day or opening one changes what is on screen, not the answer:
+    // it is not the first edit, and it writes no draft.
+    if (!VIEW_ONLY.has(action.type)) edited();
     dispatch(action);
   };
 
@@ -178,41 +178,33 @@ export function Answering({
     );
   }
 
-  const days: DayView[] = rows.map((row, index) => {
-    const cells = state.days[index] ?? [];
-    return {
-      key: row.date,
-      short: row.short,
-      spoken: row.spoken,
-      cells,
-      labels: row.cellLabels,
-      marks: row.marks,
-      range:
-        rangeText(cellsToWindows(row.date, cells, timing), timing.zone, format) ??
-        t('availability', 'not_this_day'),
-      wholeDay: wholeDayOn(state, index),
-    };
-  });
+  const view = editorView(state, rows, timing, format);
 
   return (
     <AvailabilityScreen
       title={title}
-      count={t('availability', 'painted_of', { painted: paintedDays(state), total: rows.length })}
+      count={t('availability', 'painted_of', { painted: view.painted, total: rows.length })}
       intro={introOf(plan, format)}
       zoneNote={zoneNoteOf(plan)}
-      shortcuts={planShortcuts(rows, timing).map((kind) => ({
-        kind,
-        label: SHORTCUT_LABEL[kind as Exclude<ShortcutKind, 'any_time'>](),
-        on: shortcutOn(kind, state, rows, timing),
-      }))}
-      days={days}
+      grid={view.grid}
+      weekdays={view.weekdays}
+      panel={view.panel}
+      answers={view.answers}
+      canUndo={view.canUndo}
       flexible={state.flexible}
       changed={changed}
       problem={problem}
       busy={sending !== undefined}
+      onTick={(day) => edit({ type: 'tick', day })}
+      onDone={() => edit({ type: 'done' })}
+      onBlock={(kind) => edit({ type: 'block', kind })}
+      onClearTicked={() => edit({ type: 'clear_ticked' })}
+      onOpen={(day) => edit({ type: 'open', day })}
       onPaint={(day, cells) => edit({ type: 'paint', day, cells })}
-      onShortcut={(kind) => edit({ type: 'shortcut', kind })}
       onWholeDay={(day) => edit({ type: 'whole_day', day })}
+      onRemoveDay={(day) => edit({ type: 'remove_day', day })}
+      onStartOver={() => edit({ type: 'start_over' })}
+      onUndo={() => edit({ type: 'undo' })}
       onFlexible={(on) => edit({ type: 'flexible', on })}
       onSend={() => void send(state.flexible ? 'flexible' : 'windows')}
       onNoneOfTheseDates={() => router.push({ pathname: '/j/[code]/none', params: { code } })}

@@ -12,9 +12,10 @@ import {
 } from './stack';
 
 /**
- * Answering a plan, end to end (spec §5.5, S1-25): painted cells in the page,
- * windows in the database, and the same cells when the page opens again. Every
- * test runs in all three user agents, WhatsApp's in-app browser among them.
+ * Answering a plan, end to end (spec §5.5, S1-25, ADR 0024): days and a block
+ * in the page, windows in the database, and the same answer when the page opens
+ * again. Every test runs in all three user agents, WhatsApp's in-app browser
+ * among them.
  *
  * Each starts as a stranger on the plan's link in a circle with no guests, so
  * the way in is the name step and nothing else (S1-24d): the editor is what
@@ -36,25 +37,84 @@ async function arriveAs(page: Page, crew: Scenario, name: string): Promise<strin
   return member!.userId;
 }
 
-/** The first day's row, by its group. */
-const firstDay = (page: Page) => page.getByRole('group').first().getByRole('checkbox');
+/** The plan's days, in the grid, in date order. */
+const days = (page: Page) =>
+  page.getByRole('group', { name: 'Days in this plan' }).getByRole('button');
+const evening = (page: Page) => page.getByRole('checkbox', { name: /^Evening/ });
+/** The first day's line in "My answer", which opens to its half hours. */
+const firstLine = (page: Page) =>
+  page.getByRole('button', { name: /Adjust by the half hour$/ }).first();
+/** The half hours of the open day. */
+const cells = (page: Page) => page.getByRole('checkbox', { name: / to / });
 
-test('what is painted is what is stored, and it comes back painted', async ({ page }) => {
+/** Ticks `indices` in the grid and turns Evening on for them. */
+async function evenings(page: Page, ...indices: number[]) {
+  for (const index of indices) {
+    await days(page).nth(index).click();
+    await expect(days(page).nth(index)).toHaveAttribute('aria-pressed', 'true');
+  }
+  await evening(page).click();
+  await expect(evening(page)).toHaveAttribute('aria-checked', 'true');
+}
+
+test('three days and Evening is the answer, in five taps, and it comes back as it was given', async ({
+  page,
+}) => {
   const crew = sundayCrew();
   const ren = await arriveAs(page, crew, 'Ren');
   const started = Date.now();
 
-  // 5:30–6:30 pm and 7:30–8 pm on the first day: two runs, so two windows.
-  await firstDay(page).nth(0).click();
-  await firstDay(page).nth(1).click();
-  await firstDay(page).nth(4).click();
-  await expect(page.getByText('1 of 7 days')).toBeVisible();
+  // Three days, Evening, Send (ADR 0024's acceptance: five taps).
+  await days(page).nth(1).click();
+  await days(page).nth(3).click();
+  await days(page).nth(5).click();
+  await evening(page).click();
+  await expect(page.getByText('3 of 7 days')).toBeVisible();
   await page.getByRole('button', { name: 'Send my times' }).click();
 
   await expect(page).toHaveURL(new RegExp(`/j/${crew.planCode}/sent$`));
   // Scripted, so this is the floor rather than a person's time; the ticket's
   // under-a-minute median is measured by hand and is in the testing notes.
-  console.log(`painted and sent in ${Date.now() - started} ms`);
+  console.log(`answered and sent in ${Date.now() - started} ms`);
+
+  const first = firstDayOf(crew.planId);
+  const dayAfter = (n: number) => {
+    const date = new Date(`${first}T12:00:00Z`);
+    date.setUTCDate(date.getUTCDate() + n);
+    return date.toISOString().slice(0, 10);
+  };
+  expect(answerOf(crew.planId, ren)).toEqual({
+    status: 'windows',
+    windows: [1, 3, 5].map((n) => `${dayAfter(n)} 17:30–22:30`),
+  });
+
+  // The round trip: the same days, tags and ranges when the page opens again.
+  await page.goto(`/j/${crew.planCode}`);
+  for (const index of [1, 3, 5]) {
+    await expect(days(page).nth(index)).toHaveAccessibleName(/, 5:30–10:30\spm$/);
+    await expect(days(page).nth(index)).toContainText('Eve');
+  }
+  await expect(days(page).nth(0)).toHaveAccessibleName(/, no times yet$/);
+  await expect(page.getByText('3 of 7 days')).toBeVisible();
+});
+
+test('what is adjusted by the half hour is what is stored, and it comes back that way', async ({
+  page,
+}) => {
+  const crew = sundayCrew();
+  const ren = await arriveAs(page, crew, 'Ren');
+
+  // 5:30–6:30 pm and 7:30–8 pm on the first day: two runs, so two windows.
+  await evenings(page, 0);
+  await firstLine(page).click();
+  // "Clear" and the day's name: the open day's own button, not "Clear these days".
+  await page.getByRole('button', { name: /^Clear (?!these days)/ }).click();
+  await cells(page).nth(0).click();
+  await cells(page).nth(1).click();
+  await cells(page).nth(4).click();
+  await expect(page.getByText('1 of 7 days')).toBeVisible();
+  await page.getByRole('button', { name: 'Send my times' }).click();
+  await expect(page).toHaveURL(new RegExp(`/j/${crew.planCode}/sent$`));
 
   const day = firstDayOf(crew.planId);
   expect(answerOf(crew.planId, ren)).toEqual({
@@ -62,30 +122,40 @@ test('what is painted is what is stored, and it comes back painted', async ({ pa
     windows: [`${day} 17:30–18:30`, `${day} 19:30–20:00`],
   });
 
-  // The round trip: the server's windows, back on the grid as they were painted.
   await page.goto(`/j/${crew.planCode}`);
-  await expect(firstDay(page).nth(0)).toHaveAttribute('aria-checked', 'true');
-  await expect(firstDay(page).nth(1)).toHaveAttribute('aria-checked', 'true');
-  await expect(firstDay(page).nth(2)).toHaveAttribute('aria-checked', 'false');
-  await expect(firstDay(page).nth(4)).toHaveAttribute('aria-checked', 'true');
+  await expect(days(page).nth(0)).toContainText('Some');
+  await firstLine(page).click();
+  await expect(cells(page).nth(0)).toHaveAttribute('aria-checked', 'true');
+  await expect(cells(page).nth(1)).toHaveAttribute('aria-checked', 'true');
+  await expect(cells(page).nth(2)).toHaveAttribute('aria-checked', 'false');
+  await expect(cells(page).nth(4)).toHaveAttribute('aria-checked', 'true');
 });
 
-test('a range can be painted from the keyboard, one cell at a time, as a screen reader does', async ({
+test('an answer can be given from the keyboard alone, by days and a block, and adjusted by the cell', async ({
   page,
 }) => {
   const crew = sundayCrew();
   const ren = await arriveAs(page, crew, 'Ren');
 
-  for (const index of [2, 3, 4]) {
-    await firstDay(page).nth(index).focus();
-    await page.keyboard.press('Space');
-    await expect(firstDay(page).nth(index)).toHaveAttribute('aria-checked', 'true');
-  }
+  await days(page).nth(0).focus();
+  await page.keyboard.press('Space');
+  await expect(days(page).nth(0)).toHaveAttribute('aria-pressed', 'true');
+  await evening(page).focus();
+  await page.keyboard.press('Space');
+  await expect(evening(page)).toHaveAttribute('aria-checked', 'true');
+
+  await firstLine(page).focus();
+  await page.keyboard.press('Enter');
+  await expect(firstLine(page)).toHaveAttribute('aria-expanded', 'true');
+  await cells(page).nth(0).focus();
+  await page.keyboard.press('Space');
+  await expect(cells(page).nth(0)).toHaveAttribute('aria-checked', 'false');
+
   await page.getByRole('button', { name: 'Send my times' }).click();
   await expect(page).toHaveURL(new RegExp(`/sent$`));
 
   const day = firstDayOf(crew.planId);
-  expect(answerOf(crew.planId, ren)?.windows).toEqual([`${day} 18:30–20:00`]);
+  expect(answerOf(crew.planId, ren)?.windows).toEqual([`${day} 18:00–22:30`]);
 });
 
 test('times painted offline wait on the phone and go when the connection comes back', async ({
@@ -96,7 +166,7 @@ test('times painted offline wait on the phone and go when the connection comes b
   const ren = await arriveAs(page, crew, 'Ren');
 
   await context.setOffline(true);
-  await page.getByRole('checkbox', { name: 'After work' }).click();
+  await evenings(page, 0, 1, 2, 3, 4, 5, 6);
   await page.getByRole('button', { name: 'Send my times' }).click();
   await expect(page.getByText('Your times are saved on this phone.')).toBeVisible();
   expect(answerOf(crew.planId, ren), 'nothing has reached the server').toBeUndefined();
@@ -116,7 +186,7 @@ test('a draft survives a reload while the server is out of reach, then sends', a
   // from a cache, and the browser still believes it is online — the train
   // between towers, the hotel wifi before its login page.
   await page.route(api, (route) => route.abort('internetdisconnected'));
-  await firstDay(page).nth(0).click();
+  await evenings(page, 0);
   await page.getByRole('button', { name: 'Send my times' }).click();
   await expect(page.getByText('Your times are saved on this phone.')).toBeVisible();
 
@@ -131,14 +201,14 @@ test('a draft survives a reload while the server is out of reach, then sends', a
 
   await expect(page).toHaveURL(new RegExp(`/sent$`));
   const day = firstDayOf(crew.planId);
-  expect(answerOf(crew.planId, ren)?.windows).toEqual([`${day} 17:30–18:00`]);
+  expect(answerOf(crew.planId, ren)?.windows).toEqual([`${day} 17:30–22:30`]);
 });
 
 test("I'm easy is stored as flexible, with no windows", async ({ page }) => {
   const crew = sundayCrew();
   const ren = await arriveAs(page, crew, 'Ren');
 
-  await firstDay(page).nth(0).click();
+  await evenings(page, 0);
   await page.getByRole('switch', { name: "I'm easy" }).click();
   await page.getByRole('button', { name: 'Send my times' }).click();
 

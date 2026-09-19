@@ -57,6 +57,11 @@ type Props = {
   dimmed?: boolean | undefined;
   /** Under the row: "Any time that day". */
   footer?: ReactNode;
+  /**
+   * The date and range above the cells. Off where the row sits under a line
+   * that already says both, as the availability editor's adjust row does.
+   */
+  header?: boolean | undefined;
 };
 
 /** How many cells fit the width before the row scrolls (ADR 0009). */
@@ -84,6 +89,7 @@ export function Track({
   groupLabel,
   dimmed = false,
   footer,
+  header = true,
 }: Props) {
   const palette = usePalette();
   const format = useMemo(() => formatTime ?? defaultTimeFormatter(), [formatTime]);
@@ -196,12 +202,16 @@ export function Track({
 
   return (
     <View style={[styles.day, dimmed && styles.dimmed]}>
-      <View style={styles.header}>
-        <Title>{day}</Title>
-        <Small style={[numeric, styles.range, { color: anySelected ? palette.ink : palette.ink3 }]}>
-          {range}
-        </Small>
-      </View>
+      {header ? (
+        <View style={styles.header}>
+          <Title>{day}</Title>
+          <Small
+            style={[numeric, styles.range, { color: anySelected ? palette.ink : palette.ink3 }]}
+          >
+            {range}
+          </Small>
+        </View>
+      ) : null}
 
       {scrolls ? (
         <View onLayout={(event) => setViewport(event.nativeEvent.layout.width)}>
