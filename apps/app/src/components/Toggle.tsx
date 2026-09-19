@@ -9,13 +9,14 @@ type Props = {
   value: boolean;
   onValueChange: (value: boolean) => void;
   label: string;
+  disabled?: boolean | undefined;
 };
 
 /**
  * The switch is 28 tall but the tap target is 44, so the control is reachable
  * without making the row look heavy (manifesto §6).
  */
-export function Toggle({ value, onValueChange, label }: Props) {
+export function Toggle({ value, onValueChange, label, disabled = false }: Props) {
   const palette = usePalette();
 
   return (
@@ -23,8 +24,10 @@ export function Toggle({ value, onValueChange, label }: Props) {
       role="switch"
       aria-label={label}
       aria-checked={value}
+      aria-disabled={disabled}
+      disabled={disabled}
       onPress={() => onValueChange(!value)}
-      {...spaceToPress(() => onValueChange(!value))}
+      {...(disabled ? {} : spaceToPress(() => onValueChange(!value)))}
       style={styles.target}
     >
       <View style={[styles.track, { backgroundColor: value ? palette.accent : palette.line }]}>

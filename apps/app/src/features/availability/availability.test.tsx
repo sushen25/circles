@@ -158,6 +158,27 @@ describe('painting and sending', () => {
   });
 });
 
+describe('while an answer is on its way', () => {
+  it('cannot be changed, so what was sent is what the person last saw (round 1)', async () => {
+    let arrive: (value: unknown) => void = () => undefined;
+    submitAnswer.mockReturnValue(new Promise((resolve) => (arrive = resolve)));
+    open();
+    await screen.findByText("Times I'd actually be up for");
+
+    fireEvent.click(mondayAt('6:30', '7 pm'));
+    await send();
+    fireEvent.click(mondayAt('7', '7:30 pm'));
+    fireEvent.click(screen.getByRole('switch', { name: "I'm easy" }));
+
+    expect(mondayAt('7', '7:30 pm')).toHaveAttribute('aria-checked', 'false');
+    expect(screen.getByRole('switch', { name: "I'm easy" })).toHaveAttribute(
+      'aria-checked',
+      'false',
+    );
+    await act(async () => arrive(stored));
+  });
+});
+
 describe('a connection that goes nowhere', () => {
   it('keeps the times on the device and sends the same request when it can', async () => {
     submitAnswer.mockRejectedValueOnce(noAnswer());
@@ -334,8 +355,34 @@ describe("the plan's own link, /p/:code", () => {
     expect(screen.queryByText('how it is looking')).toBeNull();
   });
 
+  it('is the editor for somebody whose changed answer is still waiting on the device (round 1)', async () => {
+    planToAnswer.mockResolvedValue({ plan: PLAN, answer: answerable.answer });
+    await writeDraft('priya', CODE, {
+      plan: PLAN,
+      windows: [WEDNESDAY],
+      flexible: false,
+      pending: { status: 'windows', idempotencyKey: KEY as never },
+    });
+    openLink();
+
+    await waitFor(() => expect(submitAnswer).toHaveBeenCalled());
+    expect(submitAnswer.mock.calls[0]![0]).toMatchObject({ windows: [WEDNESDAY] });
+    expect(screen.queryByText('how it is looking')).toBeNull();
+  });
+
   it('is the plan page for somebody who has answered', async () => {
     planToAnswer.mockResolvedValue({ plan: PLAN, answer: answerable.answer });
+    openLink();
+
+    await screen.findByText('how it is looking');
+  });
+
+  it('is the plan page when the draft on the device is older than the answer given since', async () => {
+    planToAnswer.mockResolvedValue({
+      plan: PLAN,
+      answer: { ...answerable.answer, submittedAt: '2999-01-01T00:00:00Z' },
+    });
+    await writeDraft('priya', CODE, { plan: PLAN, windows: [WEDNESDAY], flexible: false });
     openLink();
 
     await screen.findByText('how it is looking');

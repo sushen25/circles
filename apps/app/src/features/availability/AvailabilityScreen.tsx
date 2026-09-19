@@ -147,6 +147,9 @@ export function AvailabilityScreen({
   }
 
   const canSend = flexible || days.some((day) => day.cells.some(Boolean));
+  // While an answer is on its way nothing that would change it is live: the
+  // request carries the answer as it was when Send was pressed.
+  const locked = busy;
 
   return (
     <Screen>
@@ -170,7 +173,7 @@ export function AvailabilityScreen({
                 key={shortcut.kind}
                 label={shortcut.label}
                 selected={shortcut.on}
-                onPress={flexible ? undefined : () => onShortcut?.(shortcut.kind)}
+                onPress={flexible || locked ? undefined : () => onShortcut?.(shortcut.kind)}
               />
             ))}
           </Chips>
@@ -186,9 +189,9 @@ export function AvailabilityScreen({
             labels={day.labels}
             range={day.range}
             marks={day.marks}
-            dimmed={flexible}
+            dimmed={flexible || locked}
             footer={
-              flexible ? null : (
+              flexible || locked ? null : (
                 <Tertiary
                   label={
                     day.wholeDay
@@ -216,6 +219,7 @@ export function AvailabilityScreen({
             value={flexible}
             onValueChange={(on) => onFlexible?.(on)}
             label={t('availability', 'im_easy')}
+            disabled={locked}
           />
         </Row>
         <Notice>{t('availability', 'your_friends_will_only_see_a_combined')}</Notice>
@@ -233,7 +237,7 @@ export function AvailabilityScreen({
         />
         <Tertiary
           label={t('availability', 'none_of_these_dates_work_for_me')}
-          onPress={onNoneOfTheseDates}
+          onPress={locked ? undefined : onNoneOfTheseDates}
         />
       </Foot>
     </Screen>
