@@ -1,12 +1,13 @@
 import { describe, expect, it, vi } from 'vitest';
 
+import type * as functions from '../functions';
 import { FunctionError } from '../functions';
 
 const invoke = vi.fn();
 vi.mock('../auth/guest', () => ({ ensureGuestSession: vi.fn(async () => ({})) }));
 vi.mock('../auth/turnstile', () => ({ getTurnstileToken: vi.fn(async () => undefined) }));
 vi.mock('../functions', async (original) => ({
-  ...(await original<typeof import('../functions')>()),
+  ...(await original<typeof functions>()),
   invokeFunction: (...args: unknown[]) => invoke(...args),
 }));
 
