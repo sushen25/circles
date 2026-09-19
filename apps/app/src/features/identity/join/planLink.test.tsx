@@ -11,8 +11,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
  */
 
 const replace = vi.fn();
+const push = vi.fn();
+const where = { pathname: '/p/pnsundaycr' };
 vi.mock('expo-router', () => ({
-  useRouter: () => ({ replace, push: vi.fn(), back: vi.fn(), canGoBack: () => false }),
+  useRouter: () => ({ replace, push, back: vi.fn(), canGoBack: () => false }),
+  usePathname: () => where.pathname,
 }));
 const track = vi.fn();
 vi.mock('../../../analytics/track', () => ({ track: (...args: unknown[]) => track(...args) }));
@@ -94,8 +97,10 @@ async function type(name: string) {
 
 beforeEach(() => {
   Object.assign(session, { status: 'guest', userId: 'me', isAnonymous: true });
+  where.pathname = `/p/${CODE}`;
   for (const mock of [
     replace,
+    push,
     track,
     ownDisplayName,
     joinPlan,
@@ -342,5 +347,37 @@ describe('a member', () => {
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(joinPlan).not.toHaveBeenCalled();
     expect(askToPlan).not.toHaveBeenCalled();
+  });
+});
+
+describe('"I have an account" (ADR 0022, SUS-80)', () => {
+  it('is offered beside the list, and signs in with a way back to this plan link', async () => {
+    arrive();
+
+    await screen.findByText('Welcome back. Which one is you?');
+    fireEvent.click(screen.getByRole('button', { name: 'I have an account' }));
+
+    expect(push).toHaveBeenCalledWith({ pathname: '/sign-in', params: { next: `/p/${CODE}` } });
+  });
+
+  it('is offered beside the name step when the circle has no guests', async () => {
+    guestMembersFor.mockResolvedValue({ kind: 'listed', members: [] });
+    where.pathname = `/j/${CODE}`;
+    arrive();
+
+    await screen.findByLabelText('Your name');
+    fireEvent.click(screen.getByRole('button', { name: 'I have an account' }));
+
+    expect(push).toHaveBeenCalledWith({ pathname: '/sign-in', params: { next: `/j/${CODE}` } });
+  });
+
+  it('is not offered to an account, which is already in', async () => {
+    Object.assign(session, { status: 'saved', isAnonymous: false });
+    ownDisplayName.mockResolvedValue(null);
+    arrive();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Join Sunday Crew' }));
+    await screen.findByLabelText('Your name');
+    expect(screen.queryByRole('button', { name: 'I have an account' })).toBeNull();
   });
 });

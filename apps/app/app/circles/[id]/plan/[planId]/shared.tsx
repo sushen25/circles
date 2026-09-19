@@ -1,18 +1,15 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 
-import { useFixture } from '../../../../../src/data/fixtures/useFixture';
-import { PlanSharedScreen } from '../../../../../src/features/planning/PlanSharedScreen';
+import { MembershipGate } from '../../../../../src/features/identity/join/MembershipGate';
+import { PlanSharedFlow } from '../../../../../src/features/planning/PlanSharedFlow';
 
 /** Route only — thin composition, no logic (architecture §7.1). */
 export default function Route() {
-  const router = useRouter();
-  const fixture = useFixture();
+  const { id, planId } = useLocalSearchParams<{ id: string; planId: string }>();
 
   return (
-    <PlanSharedScreen
-      fixture={fixture}
-      onNext={() => router.push('/circles/sunday-crew/plan/thu-17/candidates')}
-      onBack={() => router.back()}
-    />
+    <MembershipGate target={{ kind: 'circle', id }}>
+      <PlanSharedFlow id={id} planId={planId} />
+    </MembershipGate>
   );
 }

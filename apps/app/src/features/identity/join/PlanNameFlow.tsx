@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { track } from '../../../analytics/track';
 import { joinPlan } from '../../../data/membership';
 import { NameScreen, type NameProblem } from '../NameScreen';
+import { useHaveAccount } from './haveAccount';
 import { useNameStep } from './useNameStep';
 
 /**
@@ -37,6 +38,7 @@ export function PlanNameFlow({
   onBack,
 }: PlanNameFlowProps) {
   const joined = useJoinedFromPlan(code, onJoined);
+  const haveAccount = useHaveAccount();
 
   const step = useNameStep<JoinPlanResponse>({
     join: (displayName, idempotencyKey) => joinPlan({ code, displayName, idempotencyKey }),
@@ -64,6 +66,7 @@ export function PlanNameFlow({
       onChangeText={step.onChangeText}
       onNext={() => void step.submit()}
       onBack={onBack}
+      {...(forAccount ? {} : { onHaveAccount: haveAccount })}
     />
   );
 }

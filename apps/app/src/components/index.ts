@@ -5,6 +5,7 @@
 export { Button, ButtonRow, Tertiary } from './Button';
 export { Card } from './Card';
 export { Chip, Chips } from './Chip';
+export { CodeInput } from './CodeInput';
 export { Icon, type IconName } from './Icon';
 export { Input } from './Input';
 export { Marks, type Member } from './Marks';
@@ -17,6 +18,7 @@ export {
   DateText,
   DisplayL,
   DisplayXL,
+  InlineLink,
   Label,
   Small,
   Title,
