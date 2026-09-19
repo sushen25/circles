@@ -52,8 +52,11 @@ function LiveWelcome(common: Common) {
         circleId: hasName ? await newestCircleId() : undefined,
       });
     },
-    enabled: signedIn,
-    staleTime: 0,
+    // Asked on focus, below, and never answered from the cache: the answer
+    // changes while Welcome waits underneath — a name saved, a circle made —
+    // and a stale "/name" sent somebody coming Back from FirstCircle to Your
+    // name again (review round 4).
+    enabled: false,
   });
 
   /**
@@ -62,11 +65,18 @@ function LiveWelcome(common: Common) {
    * would navigate from underneath the sign-in that changed it — replacing the
    * Your name screen the person had just been sent to with a second, empty one.
    */
-  const destination = signedIn ? where.data : undefined;
+  const { refetch } = where;
   useFocusEffect(
     useCallback(() => {
-      if (destination !== undefined) router.replace(destination);
-    }, [destination, router]),
+      if (!signedIn) return;
+      let current = true;
+      void refetch().then((result) => {
+        if (current && result.data !== undefined) router.replace(result.data);
+      });
+      return () => {
+        current = false;
+      };
+    }, [signedIn, refetch, router]),
   );
 
   if (session.isLoading) return <WelcomeScreen state="loading" />;
@@ -75,7 +85,11 @@ function LiveWelcome(common: Common) {
       return (
         <WelcomeScreen
           state={isOffline() ? 'offline' : 'error'}
-          onRetry={() => void where.refetch()}
+          onRetry={() =>
+            void refetch().then((result) => {
+              if (result.data !== undefined) router.replace(result.data);
+            })
+          }
         />
       );
     }

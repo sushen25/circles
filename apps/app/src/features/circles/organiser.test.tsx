@@ -71,6 +71,11 @@ const PLAN = '00000000-0000-4000-8000-00000000b1a1';
 // Made at run time: a fixed secret-shaped literal is what a scanner looks for.
 const SECRET = (globalThis.crypto.randomUUID() + globalThis.crypto.randomUUID()).replace(/-/g, '');
 
+/** Fixed gaps, so "just joined" always lists Priya before Tom. */
+function minutesAgo(minutes: number): string {
+  return new Date(Date.now() - minutes * 60_000).toISOString();
+}
+
 function home(overrides: Record<string, unknown> = {}) {
   return {
     id: CIRCLE,
@@ -85,8 +90,8 @@ function home(overrides: Record<string, unknown> = {}) {
     me: 'maya',
     members: [
       { userId: 'maya', name: 'Maya', joinedAt: '2026-01-01T00:00:00Z', role: 'owner' },
-      { userId: 'priya', name: 'Priya', joinedAt: new Date().toISOString(), role: 'member' },
-      { userId: 'tom', name: 'Tom', joinedAt: new Date().toISOString(), role: 'member' },
+      { userId: 'priya', name: 'Priya', joinedAt: minutesAgo(1), role: 'member' },
+      { userId: 'tom', name: 'Tom', joinedAt: minutesAgo(2), role: 'member' },
     ],
     activePlan: null,
     ...overrides,
@@ -313,10 +318,16 @@ describe('the first plan', () => {
     });
   });
 
-  it('sends a guest member to the organiser gate rather than asking', async () => {
+  it('sends a guest member to save their place and back, not to a fixture (review round 4)', async () => {
     Object.assign(session, { status: 'guest', userId: 'priya', isAnonymous: true });
     wrap(<FirstPlanFlow id={CIRCLE} />);
-    await waitFor(() => expect(replace).toHaveBeenCalledWith('/circles/gate'));
+    await waitFor(() =>
+      expect(replace).toHaveBeenCalledWith({
+        pathname: '/sign-in',
+        params: { next: `/circles/${CIRCLE}/plan/new` },
+      }),
+    );
+    expect(replace).not.toHaveBeenCalledWith('/circles/gate');
     expect(createFirstPlan).not.toHaveBeenCalled();
   });
 });

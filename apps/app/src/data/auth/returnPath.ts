@@ -17,9 +17,21 @@ import { ShortCode } from '@circles/contracts';
  */
 const PLAN_PATH = /^\/(j|p)\/([^/?#\\]+)$/;
 
+/**
+ * And one more shape, for the organiser gate: a circle's first-plan screen,
+ * `/circles/<uuid>/plan/new`, where a guest member is sent to save their place
+ * before they can organise (ADR 0004) and should come back to (review round 4).
+ * The id is checked as a UUID, so nothing else can ride along.
+ */
+const FIRST_PLAN_PATH =
+  /^\/circles\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/plan\/new$/;
+
 export function safeReturnPath(raw: unknown): string | undefined {
   const value = Array.isArray(raw) ? raw[0] : raw;
   if (typeof value !== 'string') return undefined;
+
+  const firstPlan = FIRST_PLAN_PATH.exec(value);
+  if (firstPlan !== null) return `/circles/${firstPlan[1]}/plan/new`;
 
   const match = PLAN_PATH.exec(value);
   if (match === null) return undefined;

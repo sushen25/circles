@@ -8,6 +8,14 @@ describe('safeReturnPath', () => {
     expect(safeReturnPath('/p/k7mn2q3r')).toBe('/p/k7mn2q3r');
   });
 
+  it("keeps a circle's first-plan screen, for a guest sent to save their place (review round 4)", () => {
+    const id = '00000000-0000-4000-8000-00000000c1c1';
+    expect(safeReturnPath(`/circles/${id}/plan/new`)).toBe(`/circles/${id}/plan/new`);
+    expect(safeReturnPath('/circles/not-a-uuid/plan/new')).toBeUndefined();
+    expect(safeReturnPath(`/circles/${id}/plan/new?x=1`)).toBeUndefined();
+    expect(safeReturnPath(`//circles/${id}/plan/new`)).toBeUndefined();
+  });
+
   it('takes the first value when the router hands back an array', () => {
     expect(safeReturnPath(['/p/abcdefgh', '/elsewhere'])).toBe('/p/abcdefgh');
   });

@@ -22,7 +22,7 @@ import { whenWords } from './when';
  *
  * Organising needs a saved place and membership (`RouteKind` `organiser`). The
  * route's gate has already established membership; a guest member is sent to
- * the InitiateGate, which is where a saved place is made (ADR 0004).
+ * save their place and brought back (ADR 0004).
  *
  * The request carries a preset and a title and nothing else, so the server
  * resolves the duration, the deadline and — counted again at that moment — the
@@ -57,9 +57,18 @@ function LiveFirstPlan({ id }: { id: string }) {
   const session = useSession();
   const decision = guard({ route: 'organiser', session, membership: 'member' });
 
+  // A guest member is asked to save their place, on the sign-in that keeps
+  // their memberships (`SignInFlow` saves a guest's place), and comes back
+  // here. Not the InitiateGate route: that is still fixtures (S2-07), and a
+  // real person must not land on a screen whose buttons do nothing (review
+  // round 4).
+  const toSignIn = () =>
+    router.replace({ pathname: '/sign-in', params: { next: `/circles/${id}/plan/new` } });
   useEffect(() => {
-    if (decision.kind === 'needs_saved_place') router.replace('/circles/gate');
-  }, [decision.kind, router]);
+    if (decision.kind === 'needs_saved_place') toSignIn();
+    // `toSignIn` reads only `id` and the router.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [decision.kind, router, id]);
 
   const home = useQuery({
     queryKey: ['circle-home', id, session.userId],
@@ -143,7 +152,7 @@ function LiveFirstPlan({ id }: { id: string }) {
       if (failure.kind === 'offline') {
         setProblem('offline');
       } else if (failure.kind === 'reason' && failure.reason === 'requires_saved_place') {
-        router.replace('/circles/gate');
+        toSignIn();
       } else if (failure.kind === 'reason' && REASONS[failure.reason] !== undefined) {
         setProblem(REASONS[failure.reason]);
       } else {

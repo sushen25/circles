@@ -12,15 +12,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const push = vi.fn();
 const replace = vi.fn();
 /** Whether the screen under test is the one in front. */
-const focus = { focused: true };
+const focus = { focused: true, epoch: 0 };
 vi.mock('expo-router', async () => {
   const { useEffect } = await import('react');
   return {
     useRouter: () => ({ push, replace, back: vi.fn(), canGoBack: () => false }),
     useFocusEffect: (effect: () => void) => {
+      const epoch = focus.epoch;
       useEffect(() => {
-        if (focus.focused) effect();
-      }, [effect]);
+        if (focus.focused) return effect();
+      }, [effect, epoch]);
     },
   };
 });
@@ -88,6 +89,7 @@ async function enter(code: string) {
 
 beforeEach(() => {
   focus.focused = true;
+  focus.epoch = 0;
   Object.assign(session, { status: 'none', userId: undefined, isLoading: false });
   for (const mock of [
     push,
@@ -136,6 +138,28 @@ describe('Welcome', () => {
     await waitFor(() => expect(replace).toHaveBeenCalledWith('/circles/c1'));
   });
 
+  it('asks again each time it comes back into view, rather than reusing an old answer (review round 4)', async () => {
+    // Signed in, sent to Your name, named, on to FirstCircle — then Back to
+    // Welcome. The answer "/name" from before the name was saved must not be
+    // the one it acts on.
+    Object.assign(session, { status: 'saved', userId: 'maya' });
+    auth.ownProfile.mockResolvedValue({ name: null, zone: null });
+    const view = wrap(<WelcomeFlow />);
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/name'));
+
+    replace.mockReset();
+    auth.ownProfile.mockResolvedValue({ name: 'Maya', zone: 'Australia/Melbourne' });
+    newestCircleId.mockResolvedValue('c1');
+    focus.epoch += 1;
+    view.rerender(
+      <QueryClientProvider client={new QueryClient()}>
+        <WelcomeFlow />
+      </QueryClientProvider>,
+    );
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/circles/c1'));
+    expect(replace).not.toHaveBeenCalledWith('/name');
+  });
+
   it('does not navigate from underneath the sign-in it sent somebody to', async () => {
     // Welcome stays mounted under `/sign-in`. When the sign-in there makes the
     // session a saved one, Welcome must not also send them somewhere: it
@@ -145,8 +169,7 @@ describe('Welcome', () => {
     Object.assign(session, { status: 'saved', userId: 'maya' });
     auth.ownProfile.mockResolvedValue({ name: null, zone: null });
     wrap(<WelcomeFlow />);
-    await waitFor(() => expect(auth.ownProfile).toHaveBeenCalled());
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    await new Promise((resolve) => setTimeout(resolve, 50));
     expect(replace).not.toHaveBeenCalled();
   });
 });
@@ -296,6 +319,21 @@ describe('signing in by email', () => {
     await enter('123456');
     await waitFor(() => expect(replace).toHaveBeenCalledWith('/name'));
     expect(JSON.stringify(replace.mock.calls)).not.toContain('elsewhere');
+  });
+
+  it('does not ask a guest who saved their place for a name, or count a new account (review round 4)', async () => {
+    Object.assign(session, { status: 'guest', userId: 'priya' });
+    belongsToAnyCircle.mockResolvedValue(true);
+    newestCircleId.mockResolvedValue('c1');
+    auth.requestLinkCode.mockResolvedValue('new_identity');
+    auth.savePlace.mockResolvedValue({});
+    wrap(<SignInFlow />);
+    await sendCodeTo(ADDRESS);
+    await enter('123456');
+
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/circles/c1'));
+    expect(track).not.toHaveBeenCalledWith('account_completed', expect.anything());
+    expect(track).toHaveBeenCalledWith('account_claimed', { moment: 'settings' });
   });
 
   it("saves a guest's place rather than stranding their circles", async () => {

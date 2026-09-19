@@ -149,9 +149,15 @@ export function SignInFlow({ returnTo }: SignInFlowProps) {
       // circles list each read what they need again.
       let hasName = false;
       let circleId: string | undefined;
+      // A guest who saved their place is not a new account: the circle already
+      // knows them by name (their membership's, not the profile's, which the
+      // trigger left at `Guest`), so they are not asked again and not counted
+      // as `account_completed` — `account_claimed` said what happened (review
+      // round 4).
+      const savedGuest = step.via.kind === 'link';
       try {
         const profile = await ownProfile();
-        hasName = profile?.name !== null && profile?.name !== undefined;
+        hasName = savedGuest || (profile?.name !== null && profile?.name !== undefined);
         if (!hasName) {
           track('account_completed', { provider: 'email' });
           // A new account only: the device's zone into a profile still at the
