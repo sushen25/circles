@@ -428,8 +428,14 @@ inspector_port = 8083
 # The Deno major version to use.
 deno_version = 2
 
-# [edge_runtime.secrets]
-# secret_key = "env(SECRET_VALUE)"
+# Local only, and not a secret: where `_shared/email/resend.ts` sends mail
+# instead of Resend. `inbucket` is Mailpit's name on the stack's own Docker
+# network, the same on every slot and in CI, so every email the local stack
+# produces lands in the catcher (`pnpm mail`). It wins over `RESEND_API_KEY`,
+# so a local stack cannot reach the real provider even with a key in the
+# shell. No hosted project sets it (S1-19).
+[edge_runtime.secrets]
+EMAIL_CAPTURE_URL = "http://inbucket:8025"
 
 [analytics]
 # Off locally. This is the CLI's Logflare log viewer, not the product's
@@ -496,4 +502,11 @@ verify_jwt = false
 # there is not; what stops abuse is the rate limit, and what stops a bad payload
 # is the catalogue and `jobs.carries_content`.
 [functions.track-events]
+verify_jwt = false
+
+# Resend's delivery events (S1-19). The provider signs each one with a Svix
+# signature over the raw body, keyed by `RESEND_WEBHOOK_SECRET`; it has no
+# Supabase JWT to send, so the gateway cannot be the thing that checks it. The
+# function does, and refuses every request while the secret is unset.
+[functions.email-provider-webhook]
 verify_jwt = false
