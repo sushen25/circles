@@ -3,7 +3,7 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type * as Circles from '../../data/circles';
+import type * as CircleData from '../../data/circles';
 import type * as Planning from '../../data/planning';
 
 /**
@@ -39,7 +39,7 @@ vi.mock('../../data/links/origin', () => ({ appOrigin: () => 'https://circles.te
 const createCircle = vi.fn();
 const circleHome = vi.fn();
 vi.mock('../../data/circles', async (original) => ({
-  ...(await original<typeof Circles>()),
+  ...(await original<typeof CircleData>()),
   createCircle: (...a: unknown[]) => createCircle(...a),
   circleHome: (...a: unknown[]) => circleHome(...a),
 }));

@@ -61,7 +61,7 @@ const { SignInFlow } = await import('./SignInFlow');
 const { WelcomeFlow } = await import('./WelcomeFlow');
 const { YourNameFlow } = await import('./YourNameFlow');
 
-const ADDRESS = 'maya@example.test';
+const ADDRESS = 'maya@example.com';
 
 function wrap(children: ReactNode) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
