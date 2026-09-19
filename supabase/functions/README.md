@@ -27,7 +27,28 @@ function's `deno.json` points at.
 | [`request-email-updates/`](./request-email-updates)       | "Email me about this meetup", per plan and verified (§5.8)                                                                                                      |
 | [`verify-email-contact/`](./verify-email-contact)         | The link in the verification email. No session                                                                                                                  |
 | [`manage-email-preferences/`](./manage-email-preferences) | Stopping it, with no sign-in. No session                                                                                                                        |
+| [`email-provider-webhook/`](./email-provider-webhook)     | Resend's delivery events: a hard bounce or a complaint suppresses the address. Signed by the provider, not a session                                            |
 | [`hello/`](./hello)                                       | The import-path smoke test from S0-06. Not a product endpoint                                                                                                   |
+
+## Email
+
+[`_shared/email/`](./_shared/email) is everything that turns a job into a
+letter, and nothing that decides whether to send one (that is S1-20's
+dispatcher, and the domain's rules):
+
+- `render(input)` → `{ subject, html, text, headers }` for every emailed kind,
+  from React Email templates (ADR 0008). The input carries ids, values and
+  **tokens already minted for this letter** — `issueVerificationToken`,
+  `issuePreferencesToken`, `issueReentryToken` in `_shared/tokens.ts`, each for
+  the job's contact (ADR 0020, ADR 00XX). Links are built by the contract's
+  functions, so a token can only ever sit after the `#` (ADR 0023).
+- `sendEmail(message, context)` → the provider's message id, or an
+  `EmailSendError` with a code and nothing the provider said. Mailpit when
+  `EMAIL_CAPTURE_URL` is set (every local stack), Resend when
+  `RESEND_API_KEY` is, `email_unconfigured` otherwise (`dev`).
+- The copy is in `copy.ts`, beside the templates, and the snapshots of every
+  email against the Sunday Crew are in `__snapshots__/` — open a `.html` in a
+  browser, or run `pnpm email:preview` to have them all in Mailpit.
 
 ## The shape of a function
 

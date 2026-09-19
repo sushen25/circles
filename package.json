@@ -27,6 +27,7 @@
     "db:reset": "supabase db reset",
     "db:test": "supabase db reset && node scripts/check-function-coverage.mjs",
     "mail": "node scripts/local-mail.mjs",
+    "email:preview": "env EMAIL_PREVIEW_URL=${MAILPIT_URL:-http://127.0.0.1:54324} vitest run --project functions _shared/email/preview",
     "gen:types": "supabase gen types typescript --local > packages/contracts/src/db.generated.ts",
     "gen:tokens": "node --experimental-strip-types scripts/gen-tokens.ts",
     "gen:transitions": "node scripts/gen-transitions.mjs",

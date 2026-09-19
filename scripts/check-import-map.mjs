@@ -64,17 +64,28 @@ const BARE = /(?:^|\s)(?:import|export)\s+(?!type\s)[^'"]*?from\s*['"]([^./][^'"
 // would have passed this check and failed the deploy — which is the single thing
 // this script exists to prevent.
 const SIDE_EFFECT = /(?:^|\s)import\s*['"]([^./][^'"]*)['"]/g;
+// `/** @jsxImportSource react */` is an import nobody wrote: Deno turns every
+// element in the file into a call to `react/jsx-runtime`.
+const JSX_SOURCE = /@jsxImportSource\s+(\S+)/g;
 
 const problems = new Map();
 const scanned = [
   ...REACHABLE.flatMap((dir) => [...files(dir)]),
   ...[...files(FUNCTIONS, '.ts')].filter(deployed),
+  // The email templates are `.tsx` (ADR 0008), and a component's imports are as
+  // much the bundler's problem as anybody's.
+  ...[...files(FUNCTIONS, '.tsx')].filter(deployed),
 ];
 
 for (const file of scanned) {
   {
     const source = readFileSync(file, 'utf8');
-    for (const [, specifier] of [...source.matchAll(BARE), ...source.matchAll(SIDE_EFFECT)]) {
+    const jsx = [...source.matchAll(JSX_SOURCE)].map(([, from]) => ['', `${from}/jsx-runtime`]);
+    for (const [, specifier] of [
+      ...source.matchAll(BARE),
+      ...source.matchAll(SIDE_EFFECT),
+      ...jsx,
+    ]) {
       if (specifier.startsWith('node:')) continue;
       // A subpath import (`foo/bar`) is satisfied by a `foo/` prefix entry.
       const mapped =

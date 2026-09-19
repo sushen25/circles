@@ -5,6 +5,20 @@
     "@circles/config": "../../packages/config/dist/index.js",
     "date-fns-tz": "npm:date-fns-tz@^3.2.0",
     "zod": "npm:zod@^4.5.4",
-    "@supabase/supabase-js": "npm:@supabase/supabase-js@^2.115.0"
+    "@supabase/supabase-js": "npm:@supabase/supabase-js@^2.115.0",
+    "react": "npm:react@19.2.3",
+    "react/jsx-runtime": "npm:react@19.2.3/jsx-runtime",
+    "@react-email/render": "npm:@react-email/render@2.1.0",
+    "@react-email/body": "npm:@react-email/body@0.3.0",
+    "@react-email/button": "npm:@react-email/button@0.2.1",
+    "@react-email/container": "npm:@react-email/container@0.0.16",
+    "@react-email/head": "npm:@react-email/head@0.0.13",
+    "@react-email/heading": "npm:@react-email/heading@0.0.16",
+    "@react-email/hr": "npm:@react-email/hr@0.0.12",
+    "@react-email/html": "npm:@react-email/html@0.0.12",
+    "@react-email/link": "npm:@react-email/link@0.0.13",
+    "@react-email/preview": "npm:@react-email/preview@0.0.14",
+    "@react-email/section": "npm:@react-email/section@0.0.17",
+    "@react-email/text": "npm:@react-email/text@0.1.6"
   }
 }
