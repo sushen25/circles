@@ -440,3 +440,18 @@ export function plansIn(
     code: code!,
   }));
 }
+
+/** A circle `userId` owns, with them as its one member. Its id. */
+export function circleOwnedBy(userId: string, name: string): string {
+  const circleId = randomUUID();
+  sql(`
+    begin;
+    insert into public.circles (id, owner_user_id, name, color, time_zone, cadence, short_code, creation_key)
+    values ('${circleId}', '${userId}', '${name}', 'sky', 'Australia/Melbourne', 'monthly',
+      '${shortCode()}', 'e2e-${circleId}');
+    insert into public.circle_members (circle_id, user_id, display_name_snapshot, role)
+    values ('${circleId}', '${userId}', 'Maya', 'owner');
+    commit;
+  `);
+  return circleId;
+}

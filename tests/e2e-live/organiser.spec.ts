@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 
 import {
   accountToSignInTo,
+  circleOwnedBy,
   circlesOwnedBy,
   clearRateCounters,
   guestWhoAnswered,
@@ -145,16 +146,18 @@ test('a new organiser reaches a shareable invite link with two typed inputs and 
   expect(invites.filter((line) => line.includes(secret))).toEqual([]);
 });
 
-test('a returning organiser with a name skips Your name and goes to their circles', async ({
+test('a returning organiser with a name skips Your name and lands on their own circle', async ({
   page,
 }) => {
   const maya = await accountToSignInTo('Maya');
+  const circleId = circleOwnedBy(maya.userId, 'Sunday Crew');
 
   await page.goto('/sign-in');
   await signInByCode(page, maya.email);
 
-  await expect(page).toHaveURL(/\/circles(\/new)?$/);
-  await expect(page).not.toHaveURL(/\/name$/);
+  // Her circle, not the circles list, which is fixtures until S1-23.
+  await expect(page).toHaveURL(new RegExp(`/circles/${circleId}$`));
+  await expect(page.getByText('Sunday Crew').first()).toBeVisible();
 });
 
 test('"I have an account" on a plan link signs in and comes back to the one-tap join', async ({

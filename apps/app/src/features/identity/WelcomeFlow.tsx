@@ -4,7 +4,7 @@ import { useCallback } from 'react';
 
 import { ownProfile, useSession } from '../../data/auth';
 import { hasBackend } from '../../data/auth/client';
-import { belongsToAnyCircle } from '../../data/circles';
+import { newestCircleId } from '../../data/circles';
 import { destinationAfterSignIn } from './afterSignIn';
 import { isOffline } from './join/failure';
 import { WelcomeScreen } from './WelcomeScreen';
@@ -49,7 +49,7 @@ function LiveWelcome(common: Common) {
       const hasName = profile?.name !== null && profile?.name !== undefined;
       return destinationAfterSignIn({
         hasName,
-        hasCircles: hasName ? await belongsToAnyCircle() : false,
+        circleId: hasName ? await newestCircleId() : undefined,
       });
     },
     enabled: signedIn,

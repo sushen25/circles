@@ -16,7 +16,7 @@ import {
 } from '../../data/auth';
 import { hasBackend } from '../../data/auth/client';
 import type { LinkRoute } from '../../data/auth/providers/email';
-import { belongsToAnyCircle } from '../../data/circles';
+import { belongsToAnyCircle, newestCircleId } from '../../data/circles';
 import { normaliseAddress } from '../../data/email';
 import { destinationAfterSignIn } from './afterSignIn';
 import { authFailure } from './authFailure';
@@ -148,7 +148,7 @@ export function SignInFlow({ returnTo }: SignInFlowProps) {
       // failure here is not a failed sign-in: the Your name screen and the
       // circles list each read what they need again.
       let hasName = false;
-      let hasCircles = false;
+      let circleId: string | undefined;
       try {
         const profile = await ownProfile();
         hasName = profile?.name !== null && profile?.name !== undefined;
@@ -161,11 +161,11 @@ export function SignInFlow({ returnTo }: SignInFlowProps) {
           // it (review round 1).
           await bootstrapProfile().catch(() => undefined);
         }
-        if (next === undefined && hasName) hasCircles = await belongsToAnyCircle();
+        if (next === undefined && hasName) circleId = await newestCircleId();
       } catch {
         // Unknown: Your name reads the profile again and says what it finds.
       }
-      router.replace(destinationAfterSignIn({ next, hasName, hasCircles }));
+      router.replace(destinationAfterSignIn({ next, hasName, circleId }));
     };
 
     return (

@@ -55,7 +55,11 @@ vi.mock('../../data/auth', async () => {
 });
 vi.mock('../../data/auth/session', () => ({ useSession: () => session }));
 const belongsToAnyCircle = vi.fn();
-vi.mock('../../data/circles', () => ({ belongsToAnyCircle: () => belongsToAnyCircle() }));
+const newestCircleId = vi.fn();
+vi.mock('../../data/circles', () => ({
+  belongsToAnyCircle: () => belongsToAnyCircle(),
+  newestCircleId: () => newestCircleId(),
+}));
 
 const { SignInFlow } = await import('./SignInFlow');
 const { WelcomeFlow } = await import('./WelcomeFlow');
@@ -85,7 +89,14 @@ async function enter(code: string) {
 beforeEach(() => {
   focus.focused = true;
   Object.assign(session, { status: 'none', userId: undefined, isLoading: false });
-  for (const mock of [push, replace, track, belongsToAnyCircle, ...Object.values(auth)]) {
+  for (const mock of [
+    push,
+    replace,
+    track,
+    belongsToAnyCircle,
+    newestCircleId,
+    ...Object.values(auth),
+  ]) {
     mock.mockReset();
   }
   auth.requestSignInCode.mockResolvedValue(undefined);
@@ -93,6 +104,7 @@ beforeEach(() => {
   auth.bootstrapProfile.mockResolvedValue(undefined);
   auth.ownProfile.mockResolvedValue({ name: null, zone: null });
   belongsToAnyCircle.mockResolvedValue(false);
+  newestCircleId.mockResolvedValue(undefined);
 });
 
 afterEach(() => {
@@ -117,9 +129,11 @@ describe('Welcome', () => {
   it('sends a returning account with a name and circles straight to them', async () => {
     Object.assign(session, { status: 'saved', userId: 'maya' });
     auth.ownProfile.mockResolvedValue({ name: 'Maya', zone: 'Australia/Melbourne' });
-    belongsToAnyCircle.mockResolvedValue(true);
+    newestCircleId.mockResolvedValue('c1');
     wrap(<WelcomeFlow />);
-    await waitFor(() => expect(replace).toHaveBeenCalledWith('/circles'));
+    // Their own circle, not the circles list, which is fixtures until S1-23
+    // (review round 3).
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/circles/c1'));
   });
 
   it('does not navigate from underneath the sign-in it sent somebody to', async () => {
@@ -211,12 +225,12 @@ describe('signing in by email', () => {
 
   it('skips Your name for a returning account with a name', async () => {
     auth.ownProfile.mockResolvedValue({ name: 'Maya', zone: 'Australia/Melbourne' });
-    belongsToAnyCircle.mockResolvedValue(true);
+    newestCircleId.mockResolvedValue('c1');
     wrap(<SignInFlow />);
     await sendCodeTo(ADDRESS);
     await enter('123456');
 
-    await waitFor(() => expect(replace).toHaveBeenCalledWith('/circles'));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/circles/c1'));
     expect(track).not.toHaveBeenCalledWith('account_completed', expect.anything());
   });
 

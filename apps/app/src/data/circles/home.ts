@@ -152,16 +152,27 @@ export async function circleHome(id: string): Promise<CircleHome | null> {
  * checks.
  */
 export async function belongsToAnyCircle(): Promise<boolean> {
+  return (await newestCircleId()) !== undefined;
+}
+
+/**
+ * The circle this account joined most recently, or undefined when it is in
+ * none. Where a returning organiser lands until the circles list is live
+ * (S1-23): their own circle, rather than a list of fixtures.
+ */
+export async function newestCircleId(): Promise<string | undefined> {
   const client = authClient();
   const { data: session } = await client.auth.getSession();
   const me = session.session?.user.id;
-  if (me === undefined) return false;
+  if (me === undefined) return undefined;
 
-  const { count, error } = await client
+  const { data, error } = await client
     .from('circle_members')
-    .select('circle_id', { count: 'exact', head: true })
+    .select('circle_id')
     .eq('user_id', me)
-    .eq('status', 'active');
+    .eq('status', 'active')
+    .order('joined_at', { ascending: false })
+    .limit(1);
   if (error !== null) throw new Error('membership lookup failed');
-  return (count ?? 0) > 0;
+  return data[0]?.circle_id;
 }

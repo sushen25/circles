@@ -5,7 +5,7 @@ import { useMemo, useRef, useState } from 'react';
 
 import { deviceTimeZone, ownProfile, saveProfile, useSession } from '../../data/auth';
 import { hasBackend } from '../../data/auth/client';
-import { belongsToAnyCircle } from '../../data/circles';
+import { newestCircleId } from '../../data/circles';
 import { afterNaming } from './afterSignIn';
 import { isOffline } from './join/failure';
 import { TimeZoneScreen } from './TimeZoneScreen';
@@ -111,14 +111,14 @@ function LiveYourName() {
       saving.current = false;
       return;
     }
-    let hasCircles = false;
+    let circleId: string | undefined;
     try {
-      hasCircles = await belongsToAnyCircle();
+      circleId = await newestCircleId();
     } catch {
       // Not knowing sends them to make a first circle, which is where a new
       // organiser is going anyway; their circles are one tap from there.
     }
-    router.replace(afterNaming(hasCircles));
+    router.replace(afterNaming(circleId));
   };
 
   return (

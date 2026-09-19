@@ -56,18 +56,18 @@ describe('the time-zone list', () => {
 
 describe('after signing in', () => {
   it('goes back to the plan link it came from, whatever else is true', () => {
-    expect(destinationAfterSignIn({ next: '/j/abcdefgh', hasName: false, hasCircles: true })).toBe(
+    expect(destinationAfterSignIn({ next: '/j/abcdefgh', hasName: false, circleId: 'c1' })).toBe(
       '/j/abcdefgh',
     );
   });
 
   it('asks a new account its name', () => {
-    expect(destinationAfterSignIn({ hasName: false, hasCircles: false })).toBe('/name');
+    expect(destinationAfterSignIn({ hasName: false, circleId: undefined })).toBe('/name');
   });
 
   it('skips the name for a returning account, to its circles or its first', () => {
-    expect(destinationAfterSignIn({ hasName: true, hasCircles: true })).toBe('/circles');
-    expect(destinationAfterSignIn({ hasName: true, hasCircles: false })).toBe('/circles/new');
-    expect(afterNaming(false)).toBe('/circles/new');
+    expect(destinationAfterSignIn({ hasName: true, circleId: 'c1' })).toBe('/circles/c1');
+    expect(destinationAfterSignIn({ hasName: true, circleId: undefined })).toBe('/circles/new');
+    expect(afterNaming(undefined)).toBe('/circles/new');
   });
 });
