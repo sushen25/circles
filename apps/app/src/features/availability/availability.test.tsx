@@ -80,6 +80,7 @@ async function send() {
 }
 
 beforeEach(() => {
+  session.userId = 'priya';
   for (const mock of [replace, push, track, planToAnswer, submitAnswer, askToPlan]) {
     mock.mockReset();
   }
@@ -337,6 +338,38 @@ describe('round 4', () => {
     await screen.findByText(/The plan changed/);
     expect(screen.getByRole('button', { name: 'Send my times' })).toBeDisabled();
     expect(screen.queryByText('Sending')).toBeNull();
+  });
+});
+
+describe('round 5', () => {
+  it("never shows or sends one person's draft to the next person on the same page", async () => {
+    planToAnswer.mockReturnValue(new Promise(() => undefined));
+    submitAnswer.mockReturnValue(new Promise(() => undefined));
+    await writeDraft('priya', CODE, {
+      plan: PLAN,
+      windows: [WEDNESDAY],
+      flexible: false,
+      pending: { status: 'windows', idempotencyKey: KEY as never },
+    });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const page = () => (
+      <QueryClientProvider client={client}>
+        <AvailabilityFlow code={CODE} step="times" />
+      </QueryClientProvider>
+    );
+    const { rerender } = render(page());
+    await waitFor(() => expect(submitAnswer).toHaveBeenCalledTimes(1));
+
+    // Priya signs out on a shared browser; Tom signs in, and the page stays.
+    session.userId = 'tom';
+    rerender(page());
+
+    expect(screen.queryByText('7–9:30 pm')).toBeNull();
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+    expect(screen.queryByText('7–9:30 pm')).toBeNull();
+    expect(submitAnswer).toHaveBeenCalledTimes(1);
   });
 });
 

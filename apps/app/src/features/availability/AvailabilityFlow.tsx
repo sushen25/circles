@@ -72,12 +72,22 @@ function LiveAvailability({ code, step }: AvailabilityFlowProps) {
   // Read on every mount rather than cached: `/j/:code` stays mounted under
   // `/j/:code/none`, and a cached draft would be the one from before the
   // person painted anything.
-  const [draft, setDraft] = useState<Draft | undefined | 'reading'>('reading');
+  //
+  // Held with whose and which plan's draft it is, and only used when that is
+  // still who and what this page is for. The page can outlive either — the code
+  // changes under a mounted route, or somebody signs out on a shared browser
+  // and somebody else signs in — and until the next read lands, the last one
+  // would otherwise be shown to, and resent as, the wrong person (round 5).
+  const readFor = `${userId ?? ''}:${code}`;
+  const [read, setRead] = useState<{ for: string; draft: Draft | undefined }>();
+  const draft: Draft | undefined | 'reading' =
+    read === undefined || read.for !== readFor ? 'reading' : read.draft;
+  const setDraft = (next: Draft | undefined) => setRead({ for: readFor, draft: next });
   useEffect(() => {
     if (userId === undefined) return;
     let live = true;
     void readDraft(userId, code).then((found) => {
-      if (live) setDraft(found);
+      if (live) setRead({ for: `${userId}:${code}`, draft: found });
     });
     return () => {
       live = false;
@@ -121,7 +131,7 @@ function LiveAvailability({ code, step }: AvailabilityFlowProps) {
   if (fromDevice) {
     return (
       <Answering
-        key={`${draft.plan.id}:${draft.plan.revision}:device`}
+        key={`${userId}:${draft.plan.id}:${draft.plan.revision}:device`}
         code={code}
         step={step}
         plan={draft.plan}
@@ -154,7 +164,7 @@ function LiveAvailability({ code, step }: AvailabilityFlowProps) {
     <Answering
       // A new question is a new editor: nothing painted against the old dates
       // may carry over into the new grid.
-      key={`${plan.id}:${plan.revision}`}
+      key={`${userId}:${plan.id}:${plan.revision}`}
       code={code}
       step={step}
       plan={plan}
