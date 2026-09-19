@@ -129,3 +129,21 @@ test('a plan that is not asking ends at the same place whatever the reason', asy
 
   expect(new Set(ends).size, 'one end state for every plan that is not asking').toBe(1);
 });
+
+test('somebody who joins by invite after the plan was made is asked by it on arrival', async ({
+  page,
+}) => {
+  // The gap SUS-41 recorded: joining the circle adds nobody to a plan already
+  // running, so an invitee landed on the plan and `replace_response` refused
+  // their answer. ADR 0022: opening the plan's link asks them.
+  const crew = sundayCrew();
+
+  await page.goto(`/join#${crew.secret}`);
+  await page.getByRole('button', { name: 'Choose my times' }).click();
+  await typeName(page, 'Priya');
+  await expect(page).toHaveURL(new RegExp(`/j/${crew.planCode}$`));
+
+  const priya = memberNamed(crew.circleId, 'Priya');
+  expect(priya).toBeDefined();
+  await expect.poll(() => isParticipant(crew.planId, priya!.userId)).toBe(true);
+});

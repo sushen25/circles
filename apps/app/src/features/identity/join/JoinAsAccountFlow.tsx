@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
 
 import { ownDisplayName } from '../../../data/auth/profile';
+import { useSession } from '../../../data/auth/session';
 import { newIdempotencyKey } from '../../../data/functions';
 import { circleNameForCode, joinPlan } from '../../../data/membership';
 import { JoinAsAccountScreen, type JoinAsAccountProblem } from '../JoinAsAccountScreen';
@@ -38,7 +39,15 @@ const REASONS: Record<string, JoinAsAccountProblem> = {
 
 export function JoinAsAccountFlow({ code, onJoined }: JoinAsAccountFlowProps) {
   const router = useRouter();
-  const joined = useJoinedFromPlan(code, onJoined);
+  const session = useSession();
+  // Joined, and waiting for the gate to notice: the loading state, not the
+  // button again (see `ContinueAsFlow`'s `joinedHere`).
+  const [joinedHere, setJoinedHere] = useState(false);
+  const settle = () => {
+    setJoinedHere(true);
+    onJoined();
+  };
+  const joined = useJoinedFromPlan(code, settle);
 
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<JoinAsAccountProblem | undefined>();
@@ -55,7 +64,10 @@ export function JoinAsAccountFlow({ code, onJoined }: JoinAsAccountFlowProps) {
     staleTime: Infinity,
   });
   const personName = useQuery({
-    queryKey: ['own-display-name'],
+    // Whose name, in the key. The query cache outlives a sign-out, and a key
+    // without the person would show the next account "Join … as" the last one
+    // while the server joined them under their own.
+    queryKey: ['own-display-name', session.userId],
     queryFn: ownDisplayName,
     staleTime: 60_000,
   });
@@ -83,7 +95,7 @@ export function JoinAsAccountFlow({ code, onJoined }: JoinAsAccountFlowProps) {
       />
     );
   }
-  if (circleName.isPending || personName.isPending) {
+  if (joinedHere || circleName.isPending || personName.isPending) {
     return <JoinAsAccountScreen state="loading" onBack={back} />;
   }
 
@@ -97,7 +109,7 @@ export function JoinAsAccountFlow({ code, onJoined }: JoinAsAccountFlowProps) {
         forAccount
         {...(naming.refused === undefined ? {} : { refusedName: naming.refused })}
         onInactive={() => setInactive(true)}
-        onJoined={onJoined}
+        onJoined={settle}
         onBack={() => setNaming(undefined)}
       />
     );

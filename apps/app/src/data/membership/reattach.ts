@@ -101,6 +101,9 @@ export async function reattachWithToken(
  */
 export async function circleNameForCode(code: ShortCode): Promise<string | null> {
   const { data, error } = await authClient().rpc('preview_for_code', { p_kind: 'p', p_code: code });
-  if (error !== null) return null;
+  // Thrown, not answered as null. Null means "no circle behind this code", and
+  // a screen acts on that — the account's join sends it to the invite state —
+  // so a dropped connection must not look like it. It is an error, with Retry.
+  if (error !== null) throw new Error('circle name lookup failed');
   return data ?? null;
 }

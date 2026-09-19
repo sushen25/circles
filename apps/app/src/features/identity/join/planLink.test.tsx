@@ -72,13 +72,14 @@ function arrive() {
   const tree = (children: ReactNode) => (
     <QueryClientProvider client={client}>{children}</QueryClientProvider>
   );
-  return render(
+  render(
     tree(
       <MembershipGate target={{ kind: 'plan', code: CODE }}>
         <p>the plan</p>
       </MembershipGate>,
     ),
   );
+  return client;
 }
 
 async function type(name: string) {
@@ -163,6 +164,32 @@ describe('a guest, in a circle with no guests', () => {
 
     await type('Ren');
     await waitFor(() => expect(joinPlan).toHaveBeenCalledTimes(1));
+  });
+});
+
+describe('the moment after joining', () => {
+  it('holds the loading state, rather than offering the person themselves to continue as', async () => {
+    // Between the join and the gate re-reading membership, the page still
+    // thinks they are outside — and the guest list, read again, now holds their
+    // own name. The live suite caught "Which one is you?" flashing up with Ren
+    // on it, on Ren's way in.
+    guestMembersFor.mockResolvedValue({ kind: 'listed', members: [] });
+    joinPlan.mockResolvedValue(joined());
+    const client = arrive();
+
+    await type('Ren');
+    await waitFor(() => expect(joinPlan).toHaveBeenCalledTimes(1));
+
+    guestMembersFor.mockResolvedValue({
+      kind: 'listed',
+      members: [{ circle_id: CIRCLE_ID, member_user_id: 'me', display_name: 'Ren' }],
+    });
+    await act(async () => {
+      await client.invalidateQueries({ queryKey: ['guest-members'] });
+    });
+
+    expect(screen.getByText('Finding the circle')).toBeTruthy();
+    expect(screen.queryByText('Welcome back. Which one is you?')).toBeNull();
   });
 });
 
@@ -253,16 +280,46 @@ describe('an account that is not a member', () => {
   });
 });
 
+describe('a member the plan is not asking yet', () => {
+  it('is asked by it on arrival, with no name and no screen in the way', async () => {
+    // Joined the circle after the plan was made. ADR 0022: opening its link asks them.
+    planAccess.mockResolvedValue({ membership: 'member', needsAsking: true });
+    joinPlan.mockResolvedValue(joined());
+    arrive();
+
+    expect(await screen.findByText('the plan')).toBeTruthy();
+    await waitFor(() => expect(joinPlan).toHaveBeenCalledTimes(1));
+    expect(joinPlan.mock.calls[0]?.[0]).toMatchObject({ code: CODE });
+    expect(joinPlan.mock.calls[0]?.[0]).not.toHaveProperty('displayName');
+    // Not a join, so not counted as one.
+    expect(track).not.toHaveBeenCalledWith('circle_joined', expect.anything());
+  });
+});
+
+describe('an account whose circle lookup fails', () => {
+  it('is offered Try again, not told to find an invite', async () => {
+    Object.assign(session, { status: 'saved', userId: 'maya', isAnonymous: false });
+    ownDisplayName.mockResolvedValue('Maya');
+    circleNameForCode.mockRejectedValue(new Error('network'));
+    arrive();
+
+    expect(await screen.findByRole('button', { name: 'Try again' })).toBeTruthy();
+    expect(screen.queryByText('You need the invite link to join.')).toBeNull();
+  });
+});
+
 describe('a member', () => {
   it.each([
     ['a guest', 'guest'],
     ['an account', 'saved'],
   ])('%s goes straight to the plan', async (_who, status) => {
     Object.assign(session, { status });
-    planAccess.mockResolvedValue({ membership: 'member' });
+    planAccess.mockResolvedValue({ membership: 'member', needsAsking: false });
     arrive();
 
     expect(await screen.findByText('the plan')).toBeTruthy();
+    // Already asked: nothing to send, and every page view is not a request.
+    await new Promise((resolve) => setTimeout(resolve, 20));
     expect(joinPlan).not.toHaveBeenCalled();
   });
 });

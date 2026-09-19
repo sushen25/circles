@@ -48,6 +48,13 @@ export function ContinueAsFlow({ code, arrivedWithoutSession, onReattached }: Co
   const [reference, setReference] = useState<string | undefined>();
   const [askForInvite, setAskForInvite] = useState(false);
   const [imNew, setImNew] = useState(false);
+  /**
+   * Joined, and waiting for the gate to notice. Until it re-reads membership
+   * this page still thinks they are outside, and the list — read again — now
+   * holds their own name: "Which one is you?" offering them themselves, for a
+   * moment, on the way in. So it holds the loading state instead.
+   */
+  const [joinedHere, setJoinedHere] = useState(false);
   const keys = useRef(new Map<string, IdempotencyKey>());
 
   // Once per arrival, and only for an arrival that had no session. The gate
@@ -74,6 +81,12 @@ export function ContinueAsFlow({ code, arrivedWithoutSession, onReattached }: Co
 
   const back = () => (router.canGoBack() ? router.back() : router.replace('/'));
 
+  if (joinedHere) {
+    return (
+      <ContinueAsScreen circleName={circleName.data ?? undefined} state="loading" onBack={back} />
+    );
+  }
+
   if (askForInvite) {
     return (
       <LinkInvalidScreen
@@ -99,7 +112,10 @@ export function ContinueAsFlow({ code, arrivedWithoutSession, onReattached }: Co
         code={code}
         circleName={title ?? ''}
         onInactive={() => setAskForInvite(true)}
-        onJoined={onReattached}
+        onJoined={() => {
+          setJoinedHere(true);
+          onReattached();
+        }}
         // Back to the list when there is one to go back to; otherwise off the page.
         onBack={nobodyToBe ? back : () => setImNew(false)}
       />
