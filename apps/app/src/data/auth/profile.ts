@@ -114,9 +114,10 @@ export async function ownDisplayName(): Promise<string | null> {
  * What the Your name screen starts from: the name this account has chosen, or
  * null while it still carries the placeholder, and the zone it has.
  *
- * `zone` is null while the profile still says the trigger's `UTC`, for the same
- * reason the name is: a default nobody chose is not an answer, and the screen
- * should offer the device's zone rather than confirm a placeholder.
+ * `zone` is null while the profile still carries the trigger's defaults, for
+ * the same reason the name is: a default nobody chose is not an answer, and the
+ * screen should offer the device's zone rather than confirm a placeholder
+ * (`profileView`).
  */
 export interface OwnProfile {
   name: string | null;
@@ -136,9 +137,23 @@ export async function ownProfile(): Promise<OwnProfile | null> {
     .maybeSingle();
   if (error !== null) throw new Error('profile lookup failed');
   if (data === null) return null;
+  return profileView(data);
+}
+
+/**
+ * The row as the screens should read it.
+ *
+ * **`UTC` is only a placeholder while the name is one too.** The trigger
+ * writes `Guest` and `UTC` together, and Your name saves both together, so a
+ * profile with a name of its own has a zone somebody chose — and `UTC` is a
+ * zone a person can be in. Reading every `UTC` as unset (round 1 did) handed
+ * such a person the device's zone for their circle instead (review round 2).
+ */
+export function profileView(row: { display_name: string; time_zone: string }): OwnProfile {
+  const named = row.display_name !== DEFAULT_NAME;
   return {
-    name: data.display_name === DEFAULT_NAME ? null : data.display_name,
-    zone: data.time_zone === DEFAULT_ZONE ? null : data.time_zone,
+    name: named ? row.display_name : null,
+    zone: !named && row.time_zone === DEFAULT_ZONE ? null : row.time_zone,
   };
 }
 

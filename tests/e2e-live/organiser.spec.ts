@@ -110,7 +110,9 @@ test('a new organiser reaches a shareable invite link with two typed inputs and 
   // In the database: a profile named and zoned, and the circle it owns.
   const profile = profileFor(email);
   expect(profile?.name).toBe('Maya');
-  expect(profile?.zone).not.toBe('UTC');
+  // The zone the browser reports, whatever it is: CI runs in UTC (review round 2).
+  const deviceZone = await page.evaluate(() => Intl.DateTimeFormat().resolvedOptions().timeZone);
+  expect(profile?.zone).toBe(deviceZone);
   const [circle] = circlesOwnedBy(profile!.userId);
   expect(circle).toMatchObject({ name: 'Sunday Crew', cadence: 'monthly' });
 

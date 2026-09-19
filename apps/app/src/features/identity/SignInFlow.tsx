@@ -180,6 +180,10 @@ export function SignInFlow({ returnTo }: SignInFlowProps) {
         onCodeChange={setCodeText}
         onContinue={() => void confirm()}
         onSendNewCode={() => {
+          // One at a time, as on the first send: two taps must not mail two
+          // codes, the second invalidating the first (review round 2).
+          if (sending.current) return;
+          sending.current = true;
           setCodeProblem(undefined);
           setNewCodeSent(false);
           void send(step.address)
@@ -196,6 +200,9 @@ export function SignInFlow({ returnTo }: SignInFlowProps) {
                     ? 'too_many_tries'
                     : 'couldnt_send',
               );
+            })
+            .finally(() => {
+              sending.current = false;
             });
         }}
         onBack={() => {

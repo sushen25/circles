@@ -240,6 +240,22 @@ describe('signing in by email', () => {
     expect(auth.bootstrapProfile).toHaveBeenCalledTimes(1);
   });
 
+  it('sends one new code however often Send a new code is tapped (review round 2)', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    wrap(<SignInFlow />);
+    await sendCodeTo(ADDRESS);
+    auth.requestSignInCode.mockImplementation(() => new Promise(() => undefined));
+    await act(async () => {
+      vi.advanceTimersByTime(31_000);
+    });
+    const resend = screen.getByRole('button', { name: 'Send a new code' });
+    await act(async () => {
+      fireEvent.click(resend);
+      fireEvent.click(resend);
+    });
+    expect(auth.requestSignInCode).toHaveBeenCalledTimes(2);
+  });
+
   it('sends one code however often Enter is pressed while it is on its way (review round 1)', async () => {
     auth.requestSignInCode.mockImplementation(() => new Promise(() => undefined));
     wrap(<SignInFlow />);
