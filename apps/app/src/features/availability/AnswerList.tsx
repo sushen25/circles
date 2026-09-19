@@ -57,7 +57,7 @@ export function AnswerList({
           date={answer.short}
           range={answer.range}
           label={t('availability', 'adjust_day', { day: answer.spoken, time: answer.range })}
-          open={answer.open && live}
+          open={answer.open}
           disabled={!live}
           onToggle={() => onOpen?.(answer.day)}
         >
@@ -71,6 +71,7 @@ export function AnswerList({
             range={answer.range}
             marks={answer.marks}
             header={false}
+            dimmed={dimmed}
           />
           <Chips>
             <CompactButton
@@ -85,12 +86,14 @@ export function AnswerList({
                   ? t('availability', 'clear_day', { day: answer.spoken })
                   : t('availability', 'any_time_on', { day: answer.spoken })
               }
+              disabled={!live}
               onPress={() => onWholeDay?.(answer.day)}
             />
             <CompactButton
               label={t('availability', 'remove_day')}
               aria-label={t('availability', 'remove_day_on', { day: answer.spoken })}
               icon="x"
+              disabled={!live}
               onPress={() => onRemoveDay?.(answer.day)}
             />
           </Chips>
