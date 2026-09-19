@@ -50,6 +50,7 @@ make dev      # stack up, env written, packages built, web app on http://localho
 | Everything CI runs | `make check` |
 | Tests | `make test-unit`, `make test-db`, `make test-live G="part of a name"`, `make test-smoke` |
 | Which project and ports this checkout uses | `make ports` |
+| Every local environment running, whoever started it | `make envs` |
 
 The log targets look back ten minutes and keep following. `SINCE=` changes how
 far back, and `FOLLOW=` prints and exits: `make logs SINCE=1h FOLLOW=`. When a
@@ -76,6 +77,16 @@ reads that file, which means the same `make dev`, `make logs`, `make psql` and
 
 ```
 circles (slot 0) · api 54321 · db 54322 · mail 54324 · app 8081 · live 8082
+```
+
+`make envs` lists every stack running on the machine, whichever checkout
+started it, with the worktree each one belongs to and any app server that is
+listening:
+
+```
+circles      slot 0 · api 54321 · db 54322 · mail 54324 · /Users/you/Repos/circles
+circles-s2   slot 2 · api 54521 · db 54522 · mail 54524 · /Users/you/Repos/circles-wt/sus-35
+app server on :8282
 ```
 
 So never pass a port by hand, and never edit `config.toml` to change one. Two
