@@ -158,8 +158,9 @@ verified in Resend on 15 September — so `pnpm check:env meet.sushensatturu.com
 runs the email checks and passes them. `dev` has none and never will: it does
 not send, and `--no-email` is the right invocation there.
 
-Nothing sends *product* email yet — the templates and the sending code arrive
-with S1-19, so nothing has used that domain.
+Nothing sends *product* email yet. S1-19 brought the templates, the sender
+(`supabase/functions/_shared/email/`) and `email-provider-webhook`; S1-20's
+dispatcher is what will call them, so nothing has used that domain.
 
 **Supabase Auth is a different sender, and it is already live.** Sign-in codes
 do not go through Resend; the hosted project sends them itself. With email OTP
@@ -184,7 +185,13 @@ Postgres and Auth; everything the stack sends is captured at
 ```bash
 pnpm mail                        # what has been caught
 pnpm mail someone@example.com    # that address's newest sign-in code
+pnpm email:preview               # every product email, rendered and delivered here
 ```
+
+**Product email lands there too.** `config.toml` sets `EMAIL_CAPTURE_URL` to
+Mailpit for every local stack (`[edge_runtime.secrets]`), and the sender prefers
+it to `RESEND_API_KEY` — so a local stack cannot reach Resend even with a real
+key in the shell. No hosted project sets it.
 
 Sign-in is a **six-digit code, not a magic link** (§10). Supabase's stock
 template sends `{{ .ConfirmationURL }}`, so the local stack would otherwise
@@ -256,7 +263,7 @@ which is the part that gets got wrong in both directions:
 | `CRON_SECRET` | **nobody — you invent it.** Its only job is that `jobs.invoke_process_scheduled_jobs()` and `_shared/internal.ts` agree on it. It cannot be read back, and S1-20 needs the same string for `circles.cron_secret` | own value | own value |
 | `TURNSTILE_SECRET_KEY` | Cloudflare → Turnstile, pairs with the site key. **The name matters:** `_shared/turnstile.ts` reads exactly this, and skips the check when it is unset rather than failing — so a secret stored under any other name leaves web joins unverified and looks configured | the **dummy** `1x0000000000000000000000000000000AA`, pairing with the dummy site key at repository scope | the real one |
 | `RESEND_API_KEY` | Resend → API Keys | **never** — `dev` does not send | yes |
-| `RESEND_WEBHOOK_SECRET` | Resend → Webhooks, on the endpoint | never | S1-19 |
+| `RESEND_WEBHOOK_SECRET` | Resend → Webhooks → the `email-provider-webhook` endpoint → signing secret (`whsec_…`). **Without it the webhook refuses every event** (fails closed), so bounces go unrecorded and the suppression list never fills | never | yes |
 | `APPLE_TEAM_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY`, `APPLE_SERVICES_ID` | Apple Developer | S1-14b | S1-14b |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google Cloud → Credentials | S1-14b | S1-14b |
 
