@@ -299,6 +299,30 @@ describe('round 2', () => {
   });
 });
 
+describe('round 3', () => {
+  it('waits for the server before letting an unsent draft win over an answer given since', async () => {
+    let answerNow: (value: unknown) => void = () => undefined;
+    planToAnswer.mockReturnValue(new Promise((resolve) => (answerNow = resolve)));
+    await writeDraft('priya', CODE, { plan: PLAN, windows: [WEDNESDAY], flexible: false });
+    open();
+    // The device's draft is read first; the server is slower.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+
+    // The server's answer, given later on another device: Monday, not Wednesday.
+    await act(async () =>
+      answerNow({
+        plan: PLAN,
+        answer: { status: 'windows', windows: [MONDAY], submittedAt: '2999-01-01T00:00:00Z' },
+      }),
+    );
+
+    await screen.findByText('6:30–10:30 pm');
+    expect(screen.queryByText('7–9:30 pm')).toBeNull();
+  });
+});
+
 describe('when the server says no', () => {
   it('asks the new question when the plan changed under the answer', async () => {
     submitAnswer.mockRejectedValueOnce(refusal('stale_revision'));

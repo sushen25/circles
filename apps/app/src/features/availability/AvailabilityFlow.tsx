@@ -93,13 +93,26 @@ function LiveAvailability({ code, step }: AvailabilityFlowProps) {
     return <AvailabilityScreen state="loading" onBack={back} />;
   }
 
-  // The question as the server has it, when it has answered. Until then — or
-  // when it cannot answer — the question as this device last saw it, with the
-  // person's times: they can finish, and it goes when the connection is back.
-  if (question.data === undefined && draft !== undefined) {
+  // The question as the server has it, when it has answered. When it cannot
+  // answer, the question as this device last saw it, with the person's times:
+  // they can finish, and it goes when the connection is back. While it is still
+  // answering, only a draft holding a send that never got its reply is shown
+  // early — that one resumes whatever the server says (`draftIsNewer`). Any
+  // other draft waits: the server may have a newer answer from another device,
+  // and an editor opened from the draft would keep showing, and could resend,
+  // the older one (round 3).
+  //
+  // Keyed apart from the server's editor, so that when the server does answer
+  // the editor is opened again and decides again, rather than keeping what it
+  // opened with.
+  const fromDevice =
+    draft !== undefined &&
+    question.data === undefined &&
+    (question.isError || draft.pending !== undefined);
+  if (fromDevice) {
     return (
       <Answering
-        key={`${draft.plan.id}:${draft.plan.revision}`}
+        key={`${draft.plan.id}:${draft.plan.revision}:device`}
         code={code}
         step={step}
         plan={draft.plan}
