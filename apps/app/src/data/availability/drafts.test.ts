@@ -9,7 +9,7 @@ import { clearDraft, readDraft, writeDraft } from './drafts';
  */
 
 const { plan } = answerable;
-const MONDAY = { start: '2026-09-14T08:30:00.000Z', end: '2026-09-14T12:30:00.000Z' };
+const MONDAY = { start: '2099-09-14T08:30:00.000Z', end: '2099-09-14T12:30:00.000Z' };
 const KEY = '5f0c7c3e-6b0e-4c8e-9a7a-0c7a1d2b3c4d';
 
 beforeEach(() => {

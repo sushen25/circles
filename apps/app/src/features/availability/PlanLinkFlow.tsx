@@ -1,7 +1,7 @@
 import type { ShortCode } from '@circles/contracts';
-import { ANSWERABLE_STATES } from '@circles/domain';
+import { acceptsAnswers, fromISO, instant } from '@circles/domain';
 import { useQuery } from '@tanstack/react-query';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 
 import { hasBackend } from '../../data/auth/client';
 import { useSession } from '../../data/auth/session';
@@ -43,24 +43,31 @@ function LivePlanLink({ code, children }: { code: string; children: ReactNode })
     gcTime: 0,
   });
 
-  // Not a draft the server has since overtaken — an answer given later on
-  // another device — which would otherwise send the link to the editor forever.
-  const waiting =
-    draft.data === undefined ||
-    (draft.data !== null &&
-      (draft.data.pending !== undefined ||
-        question.data == null ||
-        draftIsNewer(draft.data, question.data.answer)));
+  const [openedAt] = useState(() => instant(Date.now()));
+  if (question.data === undefined || draft.data === undefined) {
+    // Until both reads land — or when one fails — the editor: it has its own
+    // loading, error and offline states, and a draft on this device to show.
+    return <AvailabilityFlow code={code} step="times" />;
+  }
 
-  const unanswered =
-    question.data !== undefined &&
-    question.data !== null &&
-    question.data.answer === null &&
-    ANSWERABLE_STATES.includes(question.data.plan.state);
+  const plan = question.data?.plan;
+  const asking =
+    plan !== undefined &&
+    acceptsAnswers(
+      { state: plan.state, responseDeadline: fromISO(plan.responseDeadline) },
+      openedAt,
+    );
+  const answer = question.data?.answer ?? null;
+  // A send that never got its reply goes to the editor whatever the plan is
+  // doing now: resending it is how it finds out, and how the draft is cleared.
+  // Otherwise the editor is for a plan still asking, from somebody who has not
+  // answered or whose newer answer is waiting here — not for a draft the server
+  // has since overtaken, which would send the link to the editor for good.
+  const toEditor =
+    draft.data?.pending !== undefined ||
+    (asking && (answer === null || (draft.data !== null && draftIsNewer(draft.data, answer))));
 
-  // Until both reads land — or when one fails — the editor: it has its own
-  // loading, error and offline states, and a draft on this device to show.
-  if (question.data === undefined || waiting || unanswered) {
+  if (question.data === null || toEditor) {
     return <AvailabilityFlow code={code} step="times" />;
   }
   return <>{children}</>;

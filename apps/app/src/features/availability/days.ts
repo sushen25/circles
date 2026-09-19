@@ -41,6 +41,8 @@ export type RowWords = {
   cell: (day: string, from: string, to: string) => string;
   /** A half hour that is happening for the second time that night. */
   repeated: (label: string) => string;
+  /** The half hour the clocks go back in, which reads "2:30 to 2 am". */
+  crossing: (label: string) => string;
   /** The mark where the clocks go back. */
   clocksGoBack: string;
 };
@@ -121,7 +123,11 @@ export function dayRows(
       const again = seen.has(from);
       seen.add(from);
       if (again && backAt === undefined) backAt = index;
-      return again ? words.repeated(label) : label;
+      if (again) return words.repeated(label);
+      // Ends earlier on the clock than it starts, and not at midnight: the
+      // clocks went back inside it.
+      if (to % 1440 !== 0 && to % 1440 <= from % 1440) return words.crossing(label);
+      return label;
     });
 
     rows.push({

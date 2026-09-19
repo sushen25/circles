@@ -211,6 +211,9 @@ export function useSendAnswer({
             setPhase({ kind: 'closed' });
             return;
           }
+          // Could not ask (offline, or out of retries): the next resend asks
+          // again rather than meeting the same refusal as a dead end.
+          if (outcome === 'failed') askedOnce.current = false;
           setPhase({ kind: 'offline', status });
           if (outcome === 'asked') setResendNow((n) => n + 1);
           return;

@@ -47,8 +47,8 @@ const { answerable } = await import('../../data/fixtures');
 const PLAN = answerable.plan;
 const CODE = PLAN.code;
 /** Monday 14 September, 6:30–10:30 pm in Melbourne. */
-const MONDAY = { start: '2026-09-14T08:30:00.000Z', end: '2026-09-14T12:30:00.000Z' };
-const WEDNESDAY = { start: '2026-09-16T09:00:00.000Z', end: '2026-09-16T11:30:00.000Z' };
+const MONDAY = { start: '2099-09-14T08:30:00.000Z', end: '2099-09-14T12:30:00.000Z' };
+const WEDNESDAY = { start: '2099-09-16T09:00:00.000Z', end: '2099-09-16T11:30:00.000Z' };
 const KEY = '5f0c7c3e-6b0e-4c8e-9a7a-0c7a1d2b3c4d';
 
 function refusal(reason: string | undefined) {
@@ -104,7 +104,7 @@ describe('painting and sending', () => {
         planId: PLAN.id,
         revision: 1,
         status: 'windows',
-        windows: [{ start: '2026-09-14T08:30:00.000Z', end: '2026-09-14T09:30:00.000Z' }],
+        windows: [{ start: '2099-09-14T08:30:00.000Z', end: '2099-09-14T09:30:00.000Z' }],
       }),
     );
     expect(replace).toHaveBeenCalledWith({ pathname: '/j/[code]/sent', params: { code: CODE } });
@@ -248,6 +248,57 @@ describe('what the device had, against what the server has', () => {
   });
 });
 
+describe('round 2', () => {
+  it('shows replies closed for a plan past its deadline, however it is still marked', async () => {
+    // A plan stays collecting after its deadline so the organiser can still
+    // decide (spec §8); it is not asking anybody any more.
+    planToAnswer.mockResolvedValue({
+      plan: { ...PLAN, state: 'collecting', responseDeadline: '2000-01-01T00:00:00Z' },
+      answer: null,
+    });
+    open();
+
+    await screen.findByText('Replies have closed for this one.');
+  });
+
+  it('resends a send in flight even when the server answer is newer than the draft', async () => {
+    // The send committed and its reply was lost: the stored answer is later
+    // than the draft, and only resending (a replay) clears the draft.
+    planToAnswer.mockResolvedValue({
+      plan: PLAN,
+      answer: { ...answerable.answer, submittedAt: '2999-01-01T00:00:00Z' },
+    });
+    await writeDraft('priya', CODE, {
+      plan: PLAN,
+      windows: [WEDNESDAY],
+      flexible: false,
+      pending: { status: 'windows', idempotencyKey: KEY as never },
+    });
+    open();
+
+    await waitFor(() => expect(submitAnswer).toHaveBeenCalled());
+    expect(submitAnswer.mock.calls[0]![0]).toMatchObject({ idempotencyKey: KEY });
+    await waitFor(() => expect(replace).toHaveBeenCalled());
+  });
+
+  it('asks the plan again on the next resend when asking failed the first time', async () => {
+    submitAnswer.mockRejectedValue(refusal('not_a_participant'));
+    askToPlan.mockResolvedValue('failed');
+    open();
+    await screen.findByText("Times I'd actually be up for");
+
+    fireEvent.click(mondayAt('6:30', '7 pm'));
+    await send();
+    await screen.findByText('Your times are saved on this phone.');
+    await act(async () => {
+      resend?.();
+    });
+
+    await waitFor(() => expect(askToPlan).toHaveBeenCalledTimes(2));
+    expect(screen.queryByText("Something didn't save.")).toBeNull();
+  });
+});
+
 describe('when the server says no', () => {
   it('asks the new question when the plan changed under the answer', async () => {
     submitAnswer.mockRejectedValueOnce(refusal('stale_revision'));
@@ -301,7 +352,7 @@ describe('when the server says no', () => {
     expect(screen.getByText('Ref R1')).toBeInTheDocument();
     expect(screen.getByText(/send Maya this reference/)).toBeInTheDocument();
     expect((await readDraft('priya', CODE))?.windows).toEqual([
-      { start: '2026-09-14T08:30:00.000Z', end: '2026-09-14T09:00:00.000Z' },
+      { start: '2099-09-14T08:30:00.000Z', end: '2099-09-14T09:00:00.000Z' },
     ]);
   });
 });

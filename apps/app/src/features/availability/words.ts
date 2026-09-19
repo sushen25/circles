@@ -28,6 +28,7 @@ export const SHORTCUT_LABEL: Record<Exclude<ShortcutKind, 'any_time'>, () => str
 export const ROW_WORDS: RowWords = {
   cell: (day, from, to) => t('availability', 'cell', { day, from, to }),
   repeated: (label) => t('availability', 'cell_repeated', { label }),
+  crossing: (label) => t('availability', 'cell_crossing', { label }),
   get clocksGoBack() {
     return t('availability', 'clocks_go_back');
   },

@@ -122,6 +122,7 @@ export const en = {
     not_this_day: 'Not this day',
     cell: '{day}, {from} to {to}',
     cell_repeated: '{label}, after the clocks go back',
+    cell_crossing: '{label}, as the clocks go back',
     clocks_go_back: 'Clocks go back',
     im_easy: "I'm easy",
     count_me_in_for_whatever_works_for: 'Count me in for whatever works for most people',

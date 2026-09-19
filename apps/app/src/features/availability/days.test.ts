@@ -6,6 +6,7 @@ import { dayRows, type RowWords } from './days';
 const WORDS: RowWords = {
   cell: (day, from, to) => `${day}, ${from} to ${to}`,
   repeated: (label) => `${label}, after the clocks go back`,
+  crossing: (label) => `${label}, as the clocks go back`,
   clocksGoBack: 'Clocks go back',
 };
 const TWELVE = { hour12: true };
@@ -70,6 +71,9 @@ describe('dayRows', () => {
     expect(repeated.length).toBeGreaterThanOrEqual(2);
     expect(new Set(night!.cellLabels).size).toBe(night!.cellLabels.length);
     expect(night!.marks.map((m) => m.label)).toContain('Clocks go back');
+    // The half hour the clocks go back in reads "2:30 to 2 am", which is true
+    // and, unexplained, looks like a typo (round 2).
+    expect(night!.cellLabels).toContain('Sunday 4 April, 2:30 to 2 am, as the clocks go back');
   });
 
   it('leaves out a day whose band does not happen at all (the clocks go forward through it)', () => {

@@ -15,6 +15,7 @@ import {
 const WORDS: RowWords = {
   cell: (day, from, to) => `${day}, ${from} to ${to}`,
   repeated: (label) => label,
+  crossing: (label) => label,
   clocksGoBack: 'Clocks go back',
 };
 

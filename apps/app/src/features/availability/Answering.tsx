@@ -1,5 +1,12 @@
 import type { PlanId } from '@circles/contracts';
-import { ANSWERABLE_STATES, cellsToWindows, rangeText, type ShortcutKind } from '@circles/domain';
+import {
+  acceptsAnswers,
+  cellsToWindows,
+  fromISO,
+  instant,
+  rangeText,
+  type ShortcutKind,
+} from '@circles/domain';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useReducer, useState } from 'react';
 
@@ -52,11 +59,19 @@ export type AnsweringProps = {
   onStale: () => void;
 };
 
-/** Whether the device's draft is what the person last did: newer than the stored answer. */
+/**
+ * Whether the editor opens from the device's draft rather than the stored
+ * answer: when the draft is what the person last did (newer), and always when
+ * it holds a send that never got its reply. That send may well have committed —
+ * which makes the stored answer the newer of the two — and resending it under
+ * its key is what finds out, replays the reply, and clears the draft.
+ */
 export function draftIsNewer(draft: Draft | undefined, answer: OwnAnswer | null): boolean {
   return (
     draft !== undefined &&
-    (answer === null || Date.parse(draft.savedAt) > Date.parse(answer.submittedAt))
+    (draft.pending !== undefined ||
+      answer === null ||
+      Date.parse(draft.savedAt) > Date.parse(answer.submittedAt))
   );
 }
 
@@ -101,7 +116,15 @@ export function Answering({
     onStale,
   });
 
-  const answerable = ANSWERABLE_STATES.includes(plan.state);
+  // The domain's rule, state and deadline both (non-negotiable 2): a plan stays
+  // collecting after its deadline so the organiser can still decide, and is not
+  // asking anybody. The device's clock is the only one here; the server still
+  // refuses a late answer with `replies_closed` if this one runs slow.
+  const [openedAt] = useState(() => instant(Date.now()));
+  const answerable = acceptsAnswers(
+    { state: plan.state, responseDeadline: fromISO(plan.responseDeadline) },
+    openedAt,
+  );
 
   // A draft of a question the organiser has since changed.
   useEffect(() => {
