@@ -84,7 +84,8 @@ export function nextOne(home: CircleHome, now = new Date()): string {
       ? {}
       : { cadenceSnoozedUntil: fromISO(home.cadenceSnoozedUntil) }),
   };
-  switch (cadenceState(circle, fromISO(now.toISOString()))) {
+  // With a plan already out, the domain says so and there is no prompt to show.
+  switch (cadenceState(circle, fromISO(now.toISOString()), home.activePlan !== null)) {
     case 'no_goal':
       return t('circleHome', 'no_goal_set');
     case 'never_met':

@@ -90,6 +90,7 @@ export function SignInFlow({ returnTo }: SignInFlowProps) {
   const [reference, setReference] = useState<string | undefined>();
   const [newCodeSent, setNewCodeSent] = useState(false);
   const started = useRef(false);
+  const sending = useRef(false);
 
   const back = () => (router.canGoBack() ? router.back() : router.replace(next ?? '/'));
 
@@ -149,16 +150,17 @@ export function SignInFlow({ returnTo }: SignInFlowProps) {
       let hasName = false;
       let hasCircles = false;
       try {
-        // The device's zone into a profile still at the trigger's `UTC`, so an
-        // account that skips Your name is not left in the wrong zone.
-        await bootstrapProfile();
-      } catch {
-        // Your name sets the zone as well; nothing is lost.
-      }
-      try {
         const profile = await ownProfile();
         hasName = profile?.name !== null && profile?.name !== undefined;
-        if (!hasName) track('account_completed', { provider: 'email' });
+        if (!hasName) {
+          track('account_completed', { provider: 'email' });
+          // A new account only: the device's zone into a profile still at the
+          // trigger's `UTC`, for the plan-link path that never shows Your name.
+          // A returning account's zone is theirs — `UTC` included, when that is
+          // what they are in — and signing in on another device must not move
+          // it (review round 1).
+          await bootstrapProfile().catch(() => undefined);
+        }
         if (next === undefined && hasName) hasCircles = await belongsToAnyCircle();
       } catch {
         // Unknown: Your name reads the profile again and says what it finds.
@@ -220,6 +222,11 @@ export function SignInFlow({ returnTo }: SignInFlowProps) {
         }
         // No backend: the fixture journey has nowhere to send a code.
         if (!live) return;
+        // One request at a time. The button is disabled while one is out, but
+        // Enter in the field is not, and a second request invalidates the code
+        // the first one mailed (review round 1).
+        if (sending.current) return;
+        sending.current = true;
         if (!started.current) {
           started.current = true;
           track('account_started', {});
@@ -233,7 +240,10 @@ export function SignInFlow({ returnTo }: SignInFlowProps) {
             setStep(sent);
           })
           .catch((error: unknown) => setProblem(emailProblem(error)))
-          .finally(() => setBusy(false));
+          .finally(() => {
+            sending.current = false;
+            setBusy(false);
+          });
       }}
       onBack={back}
     />

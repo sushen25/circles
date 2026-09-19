@@ -98,7 +98,7 @@ export function SignInScreen({
             autoCapitalize="none"
             autoCorrect={false}
             autoFocus
-            onSubmitEditing={send}
+            onSubmitEditing={busy ? undefined : send}
           />
         </Stack>
         <Small>

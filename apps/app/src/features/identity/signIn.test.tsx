@@ -220,6 +220,39 @@ describe('signing in by email', () => {
     expect(track).not.toHaveBeenCalledWith('account_completed', expect.anything());
   });
 
+  it("leaves a returning account's zone alone, UTC included (review round 1)", async () => {
+    // `ownProfile` reads a stored `UTC` as "not chosen"; the bootstrap would
+    // have replaced it with this device's zone on every sign-in.
+    auth.ownProfile.mockResolvedValue({ name: 'Maya', zone: null });
+    wrap(<SignInFlow />);
+    await sendCodeTo(ADDRESS);
+    await enter('123456');
+
+    await waitFor(() => expect(replace).toHaveBeenCalled());
+    expect(auth.bootstrapProfile).not.toHaveBeenCalled();
+  });
+
+  it("gives a new account the device's zone", async () => {
+    wrap(<SignInFlow />);
+    await sendCodeTo(ADDRESS);
+    await enter('123456');
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/name'));
+    expect(auth.bootstrapProfile).toHaveBeenCalledTimes(1);
+  });
+
+  it('sends one code however often Enter is pressed while it is on its way (review round 1)', async () => {
+    auth.requestSignInCode.mockImplementation(() => new Promise(() => undefined));
+    wrap(<SignInFlow />);
+    const field = await screen.findByLabelText('Your email');
+    fireEvent.change(field, { target: { value: ADDRESS } });
+    await act(async () => {
+      fireEvent.keyDown(field, { key: 'Enter', code: 'Enter', keyCode: 13 });
+      fireEvent.keyDown(field, { key: 'Enter', code: 'Enter', keyCode: 13 });
+      fireEvent.click(screen.getByRole('button', { name: /Send me a code|Sending/ }));
+    });
+    expect(auth.requestSignInCode).toHaveBeenCalledTimes(1);
+  });
+
   it('goes back to the plan link it was sent from', async () => {
     wrap(<SignInFlow returnTo="/p/abcdefgh" />);
     await sendCodeTo(ADDRESS);

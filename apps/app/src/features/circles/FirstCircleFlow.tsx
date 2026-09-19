@@ -89,11 +89,15 @@ function LiveFirstCircle() {
     setProblem(undefined);
     setReference(undefined);
     try {
+      // The zone the person confirmed on Your name — read before anything is
+      // made, never guessed while the read is still out (review round 1). Only
+      // a profile that has never chosen one falls back to this device's.
+      const known = profile.data !== undefined ? profile.data : (await profile.refetch()).data;
+      if (known === undefined) throw new Error('profile unavailable');
       const made = await createCircle({
         name: clean,
         cadence,
-        // The zone the person confirmed on Your name, or this device's.
-        timeZone: profile.data?.zone ?? deviceTimeZone() ?? 'UTC',
+        timeZone: known?.zone ?? deviceTimeZone() ?? 'UTC',
         idempotencyKey: key.current.key,
       });
       keepInviteSecret(made.circle.id, made.invite_secret);

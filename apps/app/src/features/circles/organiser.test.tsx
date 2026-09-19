@@ -24,13 +24,14 @@ const track = vi.fn();
 vi.mock('../../analytics/track', () => ({ track: (...args: unknown[]) => track(...args) }));
 vi.mock('../../data/auth/client', () => ({ hasBackend: () => true }));
 const session = { status: 'saved', userId: 'maya', isAnonymous: false, isLoading: false };
+const ownProfile = vi.fn();
 vi.mock('../../data/auth', async () => {
   const { guard } = await import('../../data/auth/guards');
   return {
     guard,
     useSession: () => session,
     deviceTimeZone: () => 'Australia/Melbourne',
-    ownProfile: async () => ({ name: 'Maya', zone: 'Australia/Melbourne' }),
+    ownProfile: () => ownProfile(),
   };
 });
 vi.mock('../../data/auth/session', () => ({ useSession: () => session }));
@@ -115,6 +116,8 @@ beforeEach(() => {
     mock.mockReset();
   }
   circleHome.mockResolvedValue(home());
+  ownProfile.mockReset();
+  ownProfile.mockResolvedValue({ name: 'Maya', zone: 'Australia/Melbourne' });
 });
 
 describe('FirstCircle', () => {
@@ -144,6 +147,35 @@ describe('FirstCircle', () => {
     });
     // The secret is held for the next screen, never put in the address.
     expect(JSON.stringify(replace.mock.calls)).not.toContain(SECRET);
+  });
+
+  it('uses the zone chosen on Your name even when the profile is still loading (review round 1)', async () => {
+    let answer: (profile: unknown) => void = () => undefined;
+    ownProfile.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          answer = resolve;
+        }),
+    );
+    createCircle.mockResolvedValue({ circle: { id: CIRCLE }, invite_secret: SECRET });
+    wrap(<FirstCircleFlow />);
+
+    fireEvent.change(await screen.findByLabelText('Circle name'), {
+      target: { value: 'Sunday Crew' },
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Create Sunday Crew' }));
+    });
+    expect(createCircle).not.toHaveBeenCalled();
+
+    await act(async () => {
+      answer({ name: 'Maya', zone: 'Europe/London' });
+    });
+    await waitFor(() =>
+      expect(createCircle).toHaveBeenCalledWith(
+        expect.objectContaining({ timeZone: 'Europe/London' }),
+      ),
+    );
   });
 
   it('retries with the same key, so a second tap cannot make a second circle', async () => {
