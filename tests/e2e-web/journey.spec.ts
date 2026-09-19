@@ -115,20 +115,25 @@ test.describe('the controls actually work', () => {
     await expect(page.getByText(/\d.*–.*,.*\d.*–/).first()).toBeVisible();
   });
 
-  test('a chip group is a choice, not a link', async ({ page }) => {
+  test('a shortcut chip paints every day, and a second tap takes it off again', async ({
+    page,
+  }) => {
     await page.goto('/j/abc');
 
-    const all = page.getByRole('checkbox', { name: 'All evening' });
-    await expect(all).toHaveAttribute('aria-checked', 'false');
+    // On an evening plan "after work", "all evening" and "any time" are the
+    // same hours, so one chip is offered for them (S1-25).
+    const chip = page.getByRole('checkbox', { name: 'After work' });
+    await expect(chip).toHaveAttribute('aria-checked', 'false');
+    await expect(page.getByRole('checkbox', { name: 'All evening' })).toHaveCount(0);
 
     await expect(async () => {
-      await all.click();
-      await expect(all).toHaveAttribute('aria-checked', 'true', { timeout: 1000 });
+      await chip.click();
+      await expect(chip).toHaveAttribute('aria-checked', 'true', { timeout: 1000 });
     }).toPass();
-    await expect(page.getByRole('checkbox', { name: 'After work' })).toHaveAttribute(
-      'aria-checked',
-      'false',
-    );
+    await expect(page.getByText('14 of 14 days')).toBeVisible();
+
+    await chip.click();
+    await expect(chip).toHaveAttribute('aria-checked', 'false');
     expect(page.url()).toContain('/j/abc');
   });
 

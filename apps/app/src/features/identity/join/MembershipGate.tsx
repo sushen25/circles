@@ -7,6 +7,7 @@ import { hasBackend } from '../../../data/auth/client';
 import { ensureGuestSession } from '../../../data/auth/guest';
 import { guard, type Membership } from '../../../data/auth/guards';
 import { useSession } from '../../../data/auth/session';
+import { readDraft } from '../../../data/availability';
 import { askToPlan, circleAccess, planAccess } from '../../../data/membership';
 import { ContinueAsScreen } from '../ContinueAsScreen';
 import { LinkInvalidScreen } from '../LinkInvalidScreen';
@@ -140,12 +141,30 @@ function LiveGate({ target, children }: { target: Target; children: ReactNode })
     void queryClient.invalidateQueries({ queryKey: accessKey });
   };
 
+  /**
+   * This person has times for this plan saved on the device (S1-25). A draft
+   * is only ever written by a member, so while membership is still being read
+   * — or cannot be, because the connection is down — the page is shown rather
+   * than a spinner or an error: it is the one screen built to work offline,
+   * and a reload in a tunnel should not throw it away. The server still decides
+   * everything; if membership comes back "no", the guard's answer replaces it.
+   */
+  const savedHere = useQuery({
+    queryKey: ['answer-draft-here', planCode, session.userId],
+    queryFn: async () =>
+      (await readDraft(session.userId as string, planCode as string)) !== undefined,
+    enabled: planCode !== undefined && session.userId !== undefined,
+    staleTime: Infinity,
+  });
+
   const back = () => (router.canGoBack() ? router.back() : router.replace('/'));
   const whatIsBrand = () => router.push('/get-the-app');
 
   if (malformed) {
     return <LinkInvalidScreen reason="ask_for_invite" onBack={back} onWhatIsBrand={whatIsBrand} />;
   }
+
+  if (access.data === undefined && savedHere.data === true) return <>{children}</>;
 
   if (access.isError || sessionFailed) {
     return (

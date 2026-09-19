@@ -126,6 +126,12 @@ describe('validateEvent', () => {
     });
   });
 
+  it('records every one of the five answers, more_notice included (spec §5.5)', () => {
+    for (const status of ['windows', 'flexible', 'none_work', 'more_notice', 'not_this_time']) {
+      expect(validateEvent('availability_submitted', { status }), status).not.toBeNull();
+    }
+  });
+
   it('returns null rather than throwing, so tracking never breaks a screen', () => {
     expect(validateEvent('availability_submitted', { status: 'nonsense' })).toBeNull();
     // The value is irrelevant — it is the *key* that must never be accepted.

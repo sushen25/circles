@@ -11,9 +11,13 @@
  * twenty-seven for a weekend day. Ten is a viewport, not a data shape, so it
  * belongs to the UI and not here. A `boolean[]` whose length is
  * `cellCount(plan)` is the contract.
+ *
+ * Everything here takes `PlanTiming`, not the whole `Plan`: the grid depends on
+ * when a plan runs and nothing else, and the client builds it from a database
+ * row, the same widening `windows.ts` made for the server.
  */
 
-import type { Plan } from '../planning/types.js';
+import type { PlanTiming } from '../planning/types.js';
 import { type Interval, intersect, interval, merge } from '../shared/interval.js';
 import type { LocalDate } from '../shared/local-date.js';
 import { fromLocal, fromLocalEnd, localSlotStarts } from '../shared/zone.js';
@@ -32,7 +36,7 @@ import { fromLocal, fromLocalEnd, localSlotStarts } from '../shared/zone.js';
  * painted and quietly discarded it. Giving each occurrence its own cell is what
  * makes the painter and `normaliseWindows` agree about what exists.
  */
-export function cellsFor(date: LocalDate, plan: Plan): Interval[] {
+export function cellsFor(date: LocalDate, plan: PlanTiming): Interval[] {
   const bandStart = fromLocal(date, plan.daily.startMin, plan.zone);
   const bandEnd = fromLocalEnd(date, plan.daily.endMin, plan.zone);
 
@@ -53,7 +57,7 @@ export function cellsFor(date: LocalDate, plan: Plan): Interval[] {
  * twenty-seven for a weekend day (ADR 0009), and two more or two fewer on the
  * days a clock changes.
  */
-export function cellCount(date: LocalDate, plan: Plan): number {
+export function cellCount(date: LocalDate, plan: PlanTiming): number {
   return cellsFor(date, plan).length;
 }
 
@@ -61,7 +65,7 @@ export function cellCount(date: LocalDate, plan: Plan): number {
 export const VISIBLE_CELLS = 10;
 
 /** One cell, or `undefined` when the day has no cell at that index. */
-export function cellAt(date: LocalDate, index: number, plan: Plan): Interval | undefined {
+export function cellAt(date: LocalDate, index: number, plan: PlanTiming): Interval | undefined {
   return cellsFor(date, plan)[index];
 }
 
@@ -70,7 +74,11 @@ export function cellAt(date: LocalDate, index: number, plan: Plan): Interval | u
  * row offers one two-hour window rather than four half-hour ones — which is
  * what lets the engine find a 90-minute slot across the join.
  */
-export function cellsToWindows(date: LocalDate, cells: readonly boolean[], plan: Plan): Interval[] {
+export function cellsToWindows(
+  date: LocalDate,
+  cells: readonly boolean[],
+  plan: PlanTiming,
+): Interval[] {
   const dayCells = cellsFor(date, plan);
   const painted: Interval[] = [];
 
@@ -92,7 +100,7 @@ export function cellsToWindows(date: LocalDate, cells: readonly boolean[], plan:
 export function windowsToCells(
   date: LocalDate,
   windows: readonly Interval[],
-  plan: Plan,
+  plan: PlanTiming,
 ): boolean[] {
   return cellsFor(date, plan).map((cell) =>
     windows.some((w) => {

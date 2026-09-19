@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { PanResponder, Pressable, StyleSheet, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { PanResponder, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { cell as cellToken, color, faceFor, space } from '@circles/tokens';
 
 import { Small, Title, numeric } from './Text';
+import { spaceToPress } from './keys';
 import { usePalette } from './theme';
 import {
   type TimeFormatter,
@@ -21,6 +22,12 @@ import {
  * their own press handlers, so the grid stays operable one cell at a time for
  * anyone using a screen reader or a keyboard — the grid must be comprehensible
  * without sight of the fill (manifesto §6).
+ *
+ * **A row longer than ten cells scrolls** (ADR 0009): a weekend day is
+ * twenty-seven half hours, and ten stay the width of the screen. There a
+ * sideways drag is the scroll, so it cannot also be the paint — a finger
+ * cannot mean both — and a scrolling row paints by tap. The shortcuts and
+ * "Any time that day" are what make a long day quick.
  */
 type Props = {
   /** The day, spelled out — it goes into every cell's accessible label. */
@@ -34,7 +41,26 @@ type Props = {
   ticks?: readonly string[] | undefined;
   formatTime?: TimeFormatter | undefined;
   noneLabel?: string | undefined;
+  /**
+   * Each cell's accessible name, when the caller knows better than
+   * `startMinutes + index × 30` — which is wrong twice a year: the night the
+   * clocks change, a row has two more or two fewer real half hours.
+   */
+  labels?: readonly string[] | undefined;
+  /** The answer in words, when the caller has worked it out from real windows. */
+  range?: string | undefined;
+  /** Times at cell boundaries (`at` is a boundary index, 0 to `cells.length`). */
+  marks?: readonly { at: number; label: string }[] | undefined;
+  /** The row's name for a screen reader, when `day` is abbreviated ("Mon 14 Sep"). */
+  groupLabel?: string | undefined;
+  /** "I'm easy" is on: the row is kept, shown faded, and not paintable. */
+  dimmed?: boolean | undefined;
+  /** Under the row: "Any time that day". */
+  footer?: ReactNode;
 };
+
+/** How many cells fit the width before the row scrolls (ADR 0009). */
+const VISIBLE = 10;
 
 /** Which cell a horizontal offset falls in, or -1 before the row has a width. */
 function indexAt(x: number, cells: readonly boolean[], width: number): number {
@@ -52,10 +78,21 @@ export function Track({
   ticks,
   formatTime,
   noneLabel = 'Not this day',
+  labels,
+  range: givenRange,
+  marks,
+  groupLabel,
+  dimmed = false,
+  footer,
 }: Props) {
   const palette = usePalette();
   const format = useMemo(() => formatTime ?? defaultTimeFormatter(), [formatTime]);
   const [width, setWidth] = useState(0);
+  const [viewport, setViewport] = useState(0);
+  const scrolls = cells.length > VISIBLE;
+  // Ten to the viewport, whatever the row's length, so a half hour is the same
+  // width on every row of the plan.
+  const cellWidth = viewport > 0 ? (viewport - (VISIBLE - 1) * cellToken.gap) / VISIBLE : 0;
 
   // The responder is created once, so a stroke is never interrupted by a
   // re-render mid-drag. It therefore cannot close over `cells` — that would go
@@ -97,11 +134,68 @@ export function Track({
   );
   /* eslint-enable react-hooks/refs */
 
-  const range = rangeLabel(cells, startMinutes, format, noneLabel);
+  const range = givenRange ?? rangeLabel(cells, startMinutes, format, noneLabel);
   const anySelected = cells.some(Boolean);
+  const labelFor = (index: number) =>
+    labels?.[index] ?? cellLabel(day, index, startMinutes, format);
+
+  const grid = cells.map((on, index) => (
+    <Pressable
+      key={index}
+      role="checkbox"
+      aria-label={
+        busy.includes(index)
+          ? `${labelFor(index)}. Your calendar shows something here`
+          : labelFor(index)
+      }
+      aria-checked={on}
+      aria-disabled={dimmed}
+      disabled={dimmed}
+      onPress={() => onChange(paintSpan(cells, index, index, !on))}
+      {...(dimmed ? {} : spaceToPress(() => onChange(paintSpan(cells, index, index, !on))))}
+      style={[
+        styles.cell,
+        scrolls ? { width: cellWidth, flex: 0 } : null,
+        { backgroundColor: palette.surface, borderColor: palette.line },
+        busy.includes(index) && {
+          backgroundColor: color.lineSoft,
+          borderColor: color.lineSoft,
+        },
+        on && { backgroundColor: palette.accent, borderColor: palette.accent },
+      ]}
+    />
+  ));
+
+  const step = cellWidth + cellToken.gap;
+  const markRow =
+    marks === undefined ? null : scrolls ? (
+      <View style={[styles.marks, { width: cells.length * step - cellToken.gap }]}>
+        {marks.map((mark) => (
+          <Small
+            key={`${mark.at}-${mark.label}`}
+            style={[
+              styles.tick,
+              numeric,
+              styles.mark,
+              mark.at === cells.length ? { right: 0 } : { left: mark.at * step },
+            ]}
+          >
+            {mark.label}
+          </Small>
+        ))}
+      </View>
+    ) : (
+      <View style={styles.ticks}>
+        {marks.map((mark) => (
+          <Small key={`${mark.at}-${mark.label}`} style={[styles.tick, numeric]}>
+            {mark.label}
+          </Small>
+        ))}
+      </View>
+    );
 
   return (
-    <View style={styles.day}>
+    <View style={[styles.day, dimmed && styles.dimmed]}>
       <View style={styles.header}>
         <Title>{day}</Title>
         <Small style={[numeric, styles.range, { color: anySelected ? palette.ink : palette.ink3 }]}>
@@ -109,36 +203,33 @@ export function Track({
         </Small>
       </View>
 
-      <View
-        style={styles.track}
-        onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
-        {...responder.panHandlers}
-      >
-        {cells.map((on, index) => (
-          <Pressable
-            key={index}
-            role="checkbox"
-            aria-label={
-              busy.includes(index)
-                ? `${cellLabel(day, index, startMinutes, format)}. Your calendar shows something here`
-                : cellLabel(day, index, startMinutes, format)
-            }
-            aria-checked={on}
-            onPress={() => onChange(paintSpan(cells, index, index, !on))}
-            style={[
-              styles.cell,
-              { backgroundColor: palette.surface, borderColor: palette.line },
-              busy.includes(index) && {
-                backgroundColor: color.lineSoft,
-                borderColor: color.lineSoft,
-              },
-              on && { backgroundColor: palette.accent, borderColor: palette.accent },
-            ]}
-          />
-        ))}
-      </View>
+      {scrolls ? (
+        <View onLayout={(event) => setViewport(event.nativeEvent.layout.width)}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <View style={styles.scrolled}>
+              <View role="group" aria-label={groupLabel ?? day} style={styles.track}>
+                {grid}
+              </View>
+              {markRow}
+            </View>
+          </ScrollView>
+        </View>
+      ) : (
+        <>
+          <View
+            role="group"
+            aria-label={groupLabel ?? day}
+            style={styles.track}
+            onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
+            {...(dimmed ? {} : responder.panHandlers)}
+          >
+            {grid}
+          </View>
+          {markRow}
+        </>
+      )}
 
-      {ticks ? (
+      {marks === undefined && ticks ? (
         <View style={styles.ticks}>
           {ticks.map((tick) => (
             <Small key={tick} style={[styles.tick, numeric]}>
@@ -147,6 +238,7 @@ export function Track({
           ))}
         </View>
       ) : null}
+      {footer}
     </View>
   );
 }
@@ -181,5 +273,18 @@ const styles = StyleSheet.create({
   },
   tick: {
     fontSize: 11,
+  },
+  dimmed: {
+    opacity: 0.45,
+  },
+  scrolled: {
+    gap: space.tight,
+  },
+  marks: {
+    height: 16,
+  },
+  mark: {
+    position: 'absolute',
+    top: 0,
   },
 });

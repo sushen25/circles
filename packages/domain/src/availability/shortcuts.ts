@@ -7,7 +7,7 @@
  * an evenings-only plan gives nothing rather than something outside it.
  */
 
-import type { Plan } from '../planning/types.js';
+import type { PlanTiming } from '../planning/types.js';
 import { type Interval, intersect, interval } from '../shared/interval.js';
 import type { LocalDate } from '../shared/local-date.js';
 import { fromLocal, fromLocalEnd } from '../shared/zone.js';
@@ -32,7 +32,7 @@ const SHORTCUT_BANDS: Record<ShortcutKind, { startMin: number; endMin: number } 
 export function applyShortcut(
   kind: ShortcutKind,
   date: LocalDate,
-  plan: Plan,
+  plan: PlanTiming,
 ): Interval | undefined {
   const dayBand = interval(
     fromLocal(date, plan.daily.startMin, plan.zone),
@@ -57,7 +57,7 @@ export function applyShortcut(
 }
 
 /** Which shortcuts can do anything on this day, so the UI hides the rest. */
-export function availableShortcuts(date: LocalDate, plan: Plan): ShortcutKind[] {
+export function availableShortcuts(date: LocalDate, plan: PlanTiming): ShortcutKind[] {
   const kinds = Object.keys(SHORTCUT_BANDS) as ShortcutKind[];
   return kinds.filter((kind) => applyShortcut(kind, date, plan) !== undefined);
 }

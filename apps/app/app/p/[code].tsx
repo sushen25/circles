@@ -1,6 +1,7 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
 import { useFixture } from '../../src/data/fixtures/useFixture';
+import { PlanLinkFlow } from '../../src/features/availability/PlanLinkFlow';
 import { MembershipGate } from '../../src/features/identity/join/MembershipGate';
 import { CandidatesMemberScreen } from '../../src/features/scheduling/CandidatesMemberScreen';
 
@@ -12,7 +13,13 @@ export default function Route() {
 
   return (
     <MembershipGate target={{ kind: 'plan', code }}>
-      <CandidatesMemberScreen fixture={fixture} onBack={() => router.back()} />
+      <PlanLinkFlow code={code}>
+        <CandidatesMemberScreen
+          fixture={fixture}
+          onChangeMyTimes={() => router.push({ pathname: '/j/[code]', params: { code } })}
+          onBack={() => router.back()}
+        />
+      </PlanLinkFlow>
     </MembershipGate>
   );
 }

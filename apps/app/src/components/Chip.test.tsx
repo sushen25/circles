@@ -23,6 +23,14 @@ describe('Chip', () => {
     expect(chip).toHaveAttribute('aria-checked', 'false');
   });
 
+  it('toggles from the keyboard with Space, as a checkbox should (WCAG 2.1.1)', () => {
+    render(<Toggleable />);
+    const chip = screen.getByRole('checkbox', { name: 'Friday evening' });
+
+    fireEvent.keyDown(chip, { key: ' ' });
+    expect(chip).toHaveAttribute('aria-checked', 'true');
+  });
+
   it('carries a check glyph when selected, so selection is never colour alone', () => {
     const { container, rerender } = render(
       <Chip label="Friday evening" selected={false} onPress={() => undefined} />,

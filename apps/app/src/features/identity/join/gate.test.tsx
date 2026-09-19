@@ -44,6 +44,8 @@ vi.mock('../../../data/membership', () => ({
 const { MembershipGate } = await import('./MembershipGate');
 const { ReentryFlow } = await import('./ReentryFlow');
 const { FunctionError } = await import('../../../data/functions');
+const { writeDraft } = await import('../../../data/availability');
+const { answerable } = await import('../../../data/fixtures');
 
 function wrap(children: ReactNode) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -76,6 +78,45 @@ describe('MembershipGate', () => {
     // Without a second attempt the session stays `none`, the decision stays
     // `needs_session`, and the page waits on a loading state until a reload.
     await waitFor(() => expect(ensureGuestSession).toHaveBeenCalledTimes(2));
+  });
+});
+
+describe('membership that cannot be read', () => {
+  beforeEach(() => {
+    Object.assign(session, { status: 'guest', userId: 'priya' });
+    globalThis.localStorage.clear();
+    planAccess.mockRejectedValue(new Error('plan access lookup failed'));
+  });
+
+  it('still shows the page to somebody with times for this plan saved on the device (S1-25)', async () => {
+    await writeDraft('priya', 'pnsundaycr', {
+      plan: answerable.plan,
+      windows: [],
+      flexible: true,
+    });
+
+    render(
+      wrap(
+        <MembershipGate target={{ kind: 'plan', code: 'pnsundaycr' }}>
+          <p>the plan</p>
+        </MembershipGate>,
+      ),
+    );
+
+    await screen.findByText('the plan');
+  });
+
+  it('is an error for anybody else, as before', async () => {
+    render(
+      wrap(
+        <MembershipGate target={{ kind: 'plan', code: 'pnsundaycr' }}>
+          <p>the plan</p>
+        </MembershipGate>,
+      ),
+    );
+
+    await screen.findByRole('button', { name: 'Try again' });
+    expect(screen.queryByText('the plan')).toBeNull();
   });
 });
 
