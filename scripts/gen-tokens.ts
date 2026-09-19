@@ -324,6 +324,24 @@ const emailPalette = readFileSync(EMAIL_THEME, 'utf8').match(
   /export const palette = \{([\s\S]*?)\} as const;/,
 )?.[1];
 if (emailPalette === undefined) fail('the palette in supabase/functions/_shared/email/theme.ts');
+// Every property, not only the ones shaped like the rule: a value written as
+// `'#fff'`, in double quotes or as an expression would otherwise be skipped by
+// the pattern and pass unchecked, which is the drift this exists to catch.
+const emailEntries = emailPalette
+  .split('\n')
+  .map((line) => line.trim())
+  .filter(
+    (line) =>
+      line !== '' && !line.startsWith('/**') && !line.startsWith('*') && !line.startsWith('//'),
+  );
+const unreadable = emailEntries.filter((line) => !/^\w+: '#[0-9A-Fa-f]{6}',$/.test(line));
+if (unreadable.length > 0) {
+  console.error(
+    "tokens: the email palette has entries that are not `name: '#RRGGBB',` and cannot be checked:\n" +
+      `${unreadable.map((line) => `  ${line}`).join('\n')}\n\nWrite each as a six-digit hex string named after its token.`,
+  );
+  process.exit(1);
+}
 const emailDrift = [...emailPalette.matchAll(/^\s*(\w+): '(#[0-9A-Fa-f]{6})',/gm)]
   .filter(([, name, value]) => color[name ?? '']?.toUpperCase() !== value?.toUpperCase())
   .map(

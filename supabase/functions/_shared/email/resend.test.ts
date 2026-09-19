@@ -110,6 +110,7 @@ describe('sendEmail', () => {
     [422, 'email_rejected', false],
     [400, 'email_rejected', false],
     [401, 'email_unauthorised', false],
+    [408, 'email_unavailable', true],
     [429, 'email_rate_limited', true],
     [503, 'email_unavailable', true],
   ] as const)('maps a %i to %s (retryable: %s)', async (status, code, retryable) => {

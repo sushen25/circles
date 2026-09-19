@@ -67,7 +67,7 @@ export type EmailErrorCode =
   | 'email_unauthorised'
   /** Too many requests (429). Retry later. */
   | 'email_rate_limited'
-  /** The provider could not be reached or failed (5xx, network). Retry later. */
+  /** The provider could not be reached, timed out or failed (408, 5xx, network). Retry later. */
   | 'email_unavailable';
 
 const RETRYABLE: ReadonlySet<EmailErrorCode> = new Set(['email_rate_limited', 'email_unavailable']);
@@ -101,7 +101,8 @@ function sender(): { name: string; email: string } {
 function codeFor(status: number): EmailErrorCode {
   if (status === 401 || status === 403) return 'email_unauthorised';
   if (status === 429) return 'email_rate_limited';
-  if (status >= 500) return 'email_unavailable';
+  // A timeout says nothing about the message; the same send may well work.
+  if (status === 408 || status >= 500) return 'email_unavailable';
   return 'email_rejected';
 }
 
