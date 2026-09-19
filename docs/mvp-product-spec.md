@@ -270,8 +270,9 @@ Quiet asks exist only inside a private circle; there is no anonymous text or tar
 
 #### Core interaction
 
-- The active date window is a mobile-friendly day list, one row per day, half-hour cells across the daily window — about ten visible at once, the row scrolling horizontally on the longer bands (ADR 0009) — with the selected range always rendered as text beside the date.
-- First-person willingness language: "Times I'd actually be up for". Shortcuts: after work, all evening, morning, afternoon, any time that day.
+- **Days first, then a time once** (ADR 0024). The active date window is a calendar grid, Monday to Sunday, one toggle per day; ticking days sets no time. A time panel then offers blocks for the ticked days — **Morning, Afternoon, Evening, Any time**, each with its hours — as checkboxes that paint or clear that block on every ticked day it exists on. Blocks that would paint the same hours are offered once, and a block that exists on only some ticked days says so. Days stay ticked until **Done**.
+- The answer is always rendered as text: a **My answer** list, one line per day with times, the date and the hours in words. A line opens to adjust that day by the half hour — half-hour cells across the daily window, about ten visible at once, the row scrolling horizontally on the longer bands (ADR 0009) — with "Any time that day" and "Remove day". **Start over** clears every day and offers Undo until the next change.
+- First-person willingness language: "Times I'd actually be up for".
 - Plan-level **I'm easy — count me in for whatever works for most people** toggle (the flexible response).
 - Explicit outcomes: submitted windows; flexible; interested but none of these dates work; **not enough notice — try me with more warning**; not this time. "None of these dates" opens a three-way choice rather than a bare decline.
 - Editing is allowed until confirmation or the deadline; drafts survive going offline and resubmit.

@@ -95,45 +95,66 @@ test.describe('secondary actions', () => {
 });
 
 test.describe('the controls actually work', () => {
-  test('painting a cell changes the range in words', async ({ page }) => {
-    await page.goto('/j/abc');
-
-    const first = page.getByRole('checkbox', { name: /to \d/ }).first();
-    await expect(first).toHaveAttribute('aria-checked', 'false');
-
-    // The page is server-rendered, so the cell is clickable before React has
-    // attached to it. Retry the whole interaction rather than only the
-    // assertion, or the first click is silently lost.
-    await expect(async () => {
-      await first.click();
-      await expect(first).toHaveAttribute('aria-checked', 'true', { timeout: 1000 });
-    }).toPass();
-
-    // The fill is the affordance; the text is the answer (manifesto §5.4).
-    // Asserted without pinning a clock format — times follow the device locale
-    // (manifesto §6), so the shape is what matters: two runs, comma-separated.
-    await expect(page.getByText(/\d.*–.*,.*\d.*–/).first()).toBeVisible();
-  });
-
-  test('a shortcut chip paints every day, and a second tap takes it off again', async ({
+  test('a day and a block give an answer in words, and its line opens to the half hours', async ({
     page,
   }) => {
     await page.goto('/j/abc');
 
-    // On an evening plan "after work", "all evening" and "any time" are the
-    // same hours, so one chip is offered for them (S1-25).
-    const chip = page.getByRole('checkbox', { name: 'After work' });
-    await expect(chip).toHaveAttribute('aria-checked', 'false');
-    await expect(page.getByRole('checkbox', { name: 'All evening' })).toHaveCount(0);
+    // Sunday Crew's fixture: Tuesday 15 has no times yet.
+    const tuesday = page.getByRole('button', { name: /^Tuesday\D*15\D.*no times yet$/ });
+    await expect(tuesday).toHaveAttribute('aria-pressed', 'false');
 
+    // The page is server-rendered, so the day is clickable before React has
+    // attached to it. Retry the whole interaction rather than only the
+    // assertion, or the first click is silently lost.
     await expect(async () => {
-      await chip.click();
-      await expect(chip).toHaveAttribute('aria-checked', 'true', { timeout: 1000 });
+      await tuesday.click();
+      await expect(tuesday).toHaveAttribute('aria-pressed', 'true', { timeout: 1000 });
     }).toPass();
-    await expect(page.getByText('14 of 14 days')).toBeVisible();
+
+    // On an evening plan Evening and Any time are the same hours, so one
+    // block is offered for them (ADR 0024).
+    const chip = page.getByRole('checkbox', { name: /^Evening/ });
+    await expect(page.getByRole('checkbox', { name: /^Any time/ })).toHaveCount(0);
+    await chip.click();
+    await expect(chip).toHaveAttribute('aria-checked', 'true');
+    await expect(page.getByText('4 of 14 days')).toBeVisible();
+
+    // Nothing scrolls sideways until a day is opened: no half hours on screen.
+    await expect(page.getByRole('checkbox', { name: / to / })).toHaveCount(0);
+    const line = page.getByRole('button', { name: /^Tuesday.*Adjust by the half hour$/ });
+    await line.click();
+    await expect(line).toHaveAttribute('aria-expanded', 'true');
+    const cells = page.getByRole('checkbox', { name: /^Tuesday.* to / });
+    await expect(cells).toHaveCount(10);
+
+    // The fill is the affordance; the text is the answer (manifesto §5.4).
+    // Asserted without pinning a clock format — times follow the device locale
+    // (manifesto §6), so the shape is what matters: two runs, comma-separated.
+    await cells.nth(3).click();
+    await expect(page.getByText(/\d.*–.*,.*\d.*–/).first()).toBeVisible();
+  });
+
+  test('a block chip is on for the ticked days, and a second tap takes it off again', async ({
+    page,
+  }) => {
+    await page.goto('/j/abc');
+
+    const tuesday = page.getByRole('button', { name: /^Tuesday\D*15\D.*no times yet$/ });
+    await expect(async () => {
+      await tuesday.click();
+      await expect(tuesday).toHaveAttribute('aria-pressed', 'true', { timeout: 1000 });
+    }).toPass();
+    await page.getByRole('button', { name: /^Friday\D*18\D.*no times yet$/ }).click();
+
+    const chip = page.getByRole('checkbox', { name: /^Evening/ });
+    await chip.click();
+    await expect(chip).toHaveAttribute('aria-checked', 'true');
+    await expect(page.getByText('5 of 14 days')).toBeVisible();
 
     await chip.click();
     await expect(chip).toHaveAttribute('aria-checked', 'false');
+    await expect(page.getByText('3 of 14 days')).toBeVisible();
     expect(page.url()).toContain('/j/abc');
   });
 

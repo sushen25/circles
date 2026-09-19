@@ -6,6 +6,7 @@ import { color, space } from '@circles/tokens';
 import { t } from '../../src/copy';
 
 import {
+  AnswerRow,
   Body,
   BodyText,
   Button,
@@ -13,7 +14,9 @@ import {
   Card,
   Chip,
   Chips,
+  CompactButton,
   DateText,
+  DayGrid,
   DisplayL,
   DisplayXL,
   Icon,
@@ -62,6 +65,8 @@ export default function ComponentsScreen() {
   const [toggle, setToggle] = useState(true);
   const [radio, setRadio] = useState(0);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [ticked, setTicked] = useState<number[]>([5]);
+  const [answerOpen, setAnswerOpen] = useState(true);
   const [cells, setCells] = useState<boolean[]>([
     false,
     false,
@@ -93,6 +98,10 @@ export default function ComponentsScreen() {
           <Button label="Primary · names the outcome" />
           <Button label="Secondary" variant="secondary" />
           <Tertiary label="Tertiary · quiet, never hidden" />
+          <Chips>
+            <CompactButton label="Compact · Done" icon="check" tone="accent" />
+            <CompactButton label="Start over" icon="x" />
+          </Chips>
           <Chips>
             <Chip label="Chip" selected={false} onPress={() => undefined} />
             <Chip
@@ -136,6 +145,46 @@ export default function ComponentsScreen() {
           <Small>
             Grey cells: greyed by a local calendar overlay (native only). Always overridable.
           </Small>
+        </Section>
+
+        <Section label="Days first · tick the days, then a time once (ADR 0024)">
+          <DayGrid
+            label="Days in this plan"
+            weekdays={['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']}
+            days={[14, 15, 16, 17, 18, 19, 20].map((date, slot) => ({
+              key: String(date),
+              number: String(date),
+              name: `${['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][slot]} ${date}`,
+              label: String(date),
+              slot,
+              selected: ticked.includes(slot),
+              hasTimes: slot === 1 || slot === 3,
+              tag: slot === 1 ? 'Eve' : slot === 3 ? 'Some' : undefined,
+            }))}
+            onToggle={(slot) =>
+              setTicked((all) =>
+                all.includes(slot) ? all.filter((d) => d !== slot) : [...all, slot],
+              )
+            }
+          />
+          <Chips>
+            <Chip label="Evening" detail="5:30–10:30 pm" selected onPress={() => undefined} />
+            <Chip
+              label="Morning"
+              detail="9 am–12 pm · 1 of these 2 days"
+              selected={false}
+              onPress={() => undefined}
+            />
+          </Chips>
+          <AnswerRow
+            date="Thu 17 Sep"
+            range="6:30–10:30 pm"
+            label="Thu 17 Sep"
+            open={answerOpen}
+            onToggle={() => setAnswerOpen((v) => !v)}
+          >
+            <Small>The day&rsquo;s half hours open here.</Small>
+          </AnswerRow>
         </Section>
 
         <Section label="Card">

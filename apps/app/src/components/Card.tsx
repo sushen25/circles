@@ -15,6 +15,8 @@ type Props = ViewProps & {
   recommended?: boolean;
   gap?: number;
   padding?: number;
+  /** Shown but not in play: faded, as a track is under "I'm easy". */
+  dimmed?: boolean;
 };
 
 export function Card({
@@ -22,6 +24,7 @@ export function Card({
   recommended = false,
   gap = 12,
   padding = 18,
+  dimmed = false,
   style,
   ...props
 }: Props) {
@@ -33,6 +36,7 @@ export function Card({
         styles.card,
         { backgroundColor: palette.surface, borderColor: palette.line, gap, padding },
         recommended && { borderWidth: 1.5, borderColor: color.accent },
+        dimmed && styles.dimmed,
         style,
       ]}
       {...props}
@@ -47,5 +51,8 @@ const styles = StyleSheet.create({
     borderRadius: radius.card,
     borderWidth: 1,
     flexDirection: 'column',
+  },
+  dimmed: {
+    opacity: 0.45,
   },
 });

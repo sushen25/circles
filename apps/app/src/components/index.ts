@@ -2,9 +2,11 @@
  * The design system. Screens compose these; they never compose styles
  * themselves (ADR 0002).
  */
-export { Button, ButtonRow, Tertiary } from './Button';
+export { AnswerRow } from './AnswerRow';
+export { Button, ButtonRow, CompactButton, Tertiary } from './Button';
 export { Card } from './Card';
 export { Chip, Chips } from './Chip';
+export { DayGrid, type GridDay } from './DayGrid';
 export { Icon, type IconName } from './Icon';
 export { Input } from './Input';
 export { Marks, type Member } from './Marks';

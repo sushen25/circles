@@ -1,11 +1,7 @@
-import type { ShortcutKind } from '@circles/domain';
-
 import {
   Body,
   BodyText,
   Button,
-  Chip,
-  Chips,
   DisplayL,
   Foot,
   Notice,
@@ -15,38 +11,24 @@ import {
   Title,
   Toggle,
   TopBar,
-  Track,
+  type GridDay,
 } from '../../components';
 import { Row, Stack } from '../../components/layout';
 import { t } from '../../copy';
-import type { Mark } from './days';
+import { AnswerList } from './AnswerList';
+import type { BlockKind } from './blocks';
+import { DayPicker } from './DayPicker';
+import type { AnswerView, PanelView } from './view';
 
 /**
- * Availability — `docs/design/Availability.dc.html` (spec §5.5).
+ * Availability — `docs/design/Availability.dc.html` (spec §5.5, ADR 0024).
  *
- * Presentational: every string arrives worked out and every change leaves as a
- * callback, so the gallery can show each state and the container
- * (`AvailabilityFlow`) owns the plan, the draft and the network. The fill is
- * the affordance and the range beside each date is the answer (manifesto
- * §5.4); nothing here is said by colour alone.
+ * Presentational: every string arrives worked out (`view.ts`) and every change
+ * leaves as a callback, so the gallery can show each state and the container
+ * (`Answering`) owns the plan, the draft and the network. Days first, then a
+ * time once for all of them; the answer is listed in words, and a line opens to
+ * adjust that day by the half hour. Nothing here is said by colour alone.
  */
-
-export type DayView = {
-  key: string;
-  /** "Mon 14 Sep" */
-  short: string;
-  /** "Monday 14 September" — the row's group label. */
-  spoken: string;
-  cells: boolean[];
-  labels: string[];
-  marks: Mark[];
-  /** "6:30–10:30 pm", or "Not this day". */
-  range: string;
-  /** Every cell painted: the row's tertiary then clears it. */
-  wholeDay: boolean;
-};
-
-export type ShortcutView = { kind: ShortcutKind; label: string; on: boolean };
 
 export type AvailabilityState = 'default' | 'loading' | 'error' | 'offline' | 'expired';
 
@@ -60,17 +42,29 @@ export type AvailabilityProps = {
   intro?: string | undefined;
   /** "Times are Melbourne time.", when the device is somewhere else. */
   zoneNote?: string | undefined;
-  shortcuts?: readonly ShortcutView[] | undefined;
-  days?: readonly DayView[] | undefined;
+  grid?: readonly GridDay[] | undefined;
+  weekdays?: readonly string[] | undefined;
+  /** The card under the grid; undefined while no day is ticked. */
+  panel?: PanelView | undefined;
+  answers?: readonly AnswerView[] | undefined;
+  /** "Start over" has just cleared the answer. */
+  canUndo?: boolean | undefined;
   flexible?: boolean | undefined;
   /** The plan changed under a draft (the rescheduled state). */
   changed?: boolean | undefined;
   problem?: string | undefined;
   reference?: string | undefined;
   busy?: boolean | undefined;
+  onTick?: ((day: number) => void) | undefined;
+  onDone?: (() => void) | undefined;
+  onBlock?: ((kind: BlockKind) => void) | undefined;
+  onClearTicked?: (() => void) | undefined;
+  onOpen?: ((day: number) => void) | undefined;
   onPaint?: ((day: number, cells: boolean[]) => void) | undefined;
-  onShortcut?: ((kind: ShortcutKind) => void) | undefined;
   onWholeDay?: ((day: number) => void) | undefined;
+  onRemoveDay?: ((day: number) => void) | undefined;
+  onStartOver?: (() => void) | undefined;
+  onUndo?: (() => void) | undefined;
   onFlexible?: ((on: boolean) => void) | undefined;
   onSend?: (() => void) | undefined;
   onNoneOfTheseDates?: (() => void) | undefined;
@@ -84,16 +78,26 @@ export function AvailabilityScreen({
   count,
   intro,
   zoneNote,
-  shortcuts = [],
-  days = [],
+  grid = [],
+  weekdays = [],
+  panel,
+  answers = [],
+  canUndo = false,
   flexible = false,
   changed = false,
   problem,
   reference,
   busy = false,
+  onTick,
+  onDone,
+  onBlock,
+  onClearTicked,
+  onOpen,
   onPaint,
-  onShortcut,
   onWholeDay,
+  onRemoveDay,
+  onStartOver,
+  onUndo,
   onFlexible,
   onSend,
   onNoneOfTheseDates,
@@ -146,10 +150,11 @@ export function AvailabilityScreen({
     );
   }
 
-  const canSend = flexible || days.some((day) => day.cells.some(Boolean));
+  const canSend = flexible || answers.some((answer) => answer.cells.some(Boolean));
   // While an answer is on its way nothing that would change it is live: the
   // request carries the answer as it was when Send was pressed.
   const locked = busy;
+  const dimmed = flexible || locked;
 
   return (
     <Screen>
@@ -166,50 +171,27 @@ export function AvailabilityScreen({
           {zoneNote === undefined ? null : <Small>{zoneNote}</Small>}
         </Stack>
         {changed ? <Notice kind="warn">{t('availability', 'plan_changed')}</Notice> : null}
-        {shortcuts.length === 0 ? null : (
-          <Chips>
-            {shortcuts.map((shortcut) => (
-              <Chip
-                key={shortcut.kind}
-                label={shortcut.label}
-                selected={shortcut.on}
-                onPress={flexible || locked ? undefined : () => onShortcut?.(shortcut.kind)}
-              />
-            ))}
-          </Chips>
-        )}
-        {days.map((day, index) => (
-          <Track
-            key={day.key}
-            day={day.short}
-            groupLabel={day.spoken}
-            cells={day.cells}
-            onChange={(cells) => onPaint?.(index, cells)}
-            startMinutes={0}
-            labels={day.labels}
-            range={day.range}
-            marks={day.marks}
-            dimmed={flexible || locked}
-            footer={
-              flexible || locked ? null : (
-                <Tertiary
-                  label={
-                    day.wholeDay
-                      ? t('availability', 'clear_this_day')
-                      : t('availability', 'any_time_that_day')
-                  }
-                  // Fourteen of these read alike; the name says which day.
-                  aria-label={
-                    day.wholeDay
-                      ? t('availability', 'clear_day', { day: day.spoken })
-                      : t('availability', 'any_time_on', { day: day.spoken })
-                  }
-                  onPress={() => onWholeDay?.(index)}
-                />
-              )
-            }
-          />
-        ))}
+        <DayPicker
+          grid={grid}
+          weekdays={weekdays}
+          panel={panel}
+          dimmed={dimmed}
+          onTick={onTick}
+          onDone={onDone}
+          onBlock={onBlock}
+          onClearTicked={onClearTicked}
+        />
+        <AnswerList
+          answers={answers}
+          canUndo={canUndo}
+          dimmed={dimmed}
+          onOpen={onOpen}
+          onPaint={onPaint}
+          onWholeDay={onWholeDay}
+          onRemoveDay={onRemoveDay}
+          onStartOver={onStartOver}
+          onUndo={onUndo}
+        />
         <Row>
           <Stack>
             <Title>{t('availability', 'im_easy')}</Title>
@@ -229,7 +211,7 @@ export function AvailabilityScreen({
         )}
       </Body>
       <Foot>
-        {canSend ? null : <Small>{t('availability', 'paint_or_easy')}</Small>}
+        {canSend ? null : <Small>{t('availability', 'pick_or_easy')}</Small>}
         <Button
           label={busy ? t('availability', 'sending') : t('availability', 'send_my_times')}
           onPress={onSend}
