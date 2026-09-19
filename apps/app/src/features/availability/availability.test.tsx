@@ -252,9 +252,10 @@ describe('what the device had, against what the server has', () => {
 describe('round 2', () => {
   it('shows replies closed for a plan past its deadline, however it is still marked', async () => {
     // A plan stays collecting after its deadline so the organiser can still
-    // decide (spec §8); it is not asking anybody any more.
+    // decide (spec §8); it is not asking anybody any more. The server judged
+    // the deadline (round 6).
     planToAnswer.mockResolvedValue({
-      plan: { ...PLAN, state: 'collecting', responseDeadline: '2000-01-01T00:00:00Z' },
+      plan: { ...PLAN, state: 'collecting', acceptingAnswers: false },
       answer: null,
     });
     open();
@@ -370,6 +371,19 @@ describe('round 5', () => {
     });
     expect(screen.queryByText('7–9:30 pm')).toBeNull();
     expect(submitAnswer).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('round 6', () => {
+  it("takes the server's word that replies are open, whatever this device's clock says", async () => {
+    // A phone whose clock runs fast would put the deadline behind it.
+    planToAnswer.mockResolvedValue({
+      plan: { ...PLAN, responseDeadline: '2000-01-01T00:00:00Z', acceptingAnswers: true },
+      answer: null,
+    });
+    open();
+
+    await screen.findByText("Times I'd actually be up for");
   });
 });
 
@@ -514,7 +528,10 @@ describe("the plan's own link, /p/:code", () => {
   });
 
   it('is the plan page once the plan has stopped asking', async () => {
-    planToAnswer.mockResolvedValue({ plan: { ...PLAN, state: 'confirmed' }, answer: null });
+    planToAnswer.mockResolvedValue({
+      plan: { ...PLAN, state: 'confirmed', acceptingAnswers: false },
+      answer: null,
+    });
     openLink();
 
     await screen.findByText('how it is looking');

@@ -123,6 +123,7 @@ export const answerable: PlanToAnswer = {
     durationMinutes: 120,
     responseDeadline: '2099-09-15T08:00:00Z',
     organiserName: 'Maya',
+    acceptingAnswers: true,
   },
   answer: {
     status: 'windows',

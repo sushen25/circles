@@ -1,12 +1,5 @@
 import type { PlanId } from '@circles/contracts';
-import {
-  acceptsAnswers,
-  cellsToWindows,
-  fromISO,
-  instant,
-  rangeText,
-  type ShortcutKind,
-} from '@circles/domain';
+import { cellsToWindows, rangeText, type ShortcutKind } from '@circles/domain';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useReducer, useState } from 'react';
 
@@ -116,15 +109,10 @@ export function Answering({
     onStale,
   });
 
-  // The domain's rule, state and deadline both (non-negotiable 2): a plan stays
-  // collecting after its deadline so the organiser can still decide, and is not
-  // asking anybody. The device's clock is the only one here; the server still
-  // refuses a late answer with `replies_closed` if this one runs slow.
-  const [openedAt] = useState(() => instant(Date.now()));
-  const answerable = acceptsAnswers(
-    { state: plan.state, responseDeadline: fromISO(plan.responseDeadline) },
-    openedAt,
-  );
+  // Judged by the server when the plan was read (`acceptingAnswers`): state and
+  // deadline, on the database's clock, not this device's (round 6). A page
+  // left open past the deadline learns it from `replies_closed` on sending.
+  const answerable = plan.acceptingAnswers;
 
   // A draft of a question the organiser has since changed.
   useEffect(() => {

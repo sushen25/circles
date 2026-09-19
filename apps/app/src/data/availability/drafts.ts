@@ -58,6 +58,7 @@ const Draft = z.object({
     durationMinutes: z.union([z.literal(60), z.literal(90), z.literal(120), z.literal(180)]),
     responseDeadline: z.string(),
     organiserName: z.string().nullable(),
+    acceptingAnswers: z.boolean(),
   }),
   windows: z.array(Span),
   flexible: z.boolean(),

@@ -1,7 +1,6 @@
 import type { ShortCode } from '@circles/contracts';
-import { acceptsAnswers, fromISO, instant } from '@circles/domain';
 import { useQuery } from '@tanstack/react-query';
-import { useState, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 import { hasBackend } from '../../data/auth/client';
 import { useSession } from '../../data/auth/session';
@@ -43,20 +42,14 @@ function LivePlanLink({ code, children }: { code: string; children: ReactNode })
     gcTime: 0,
   });
 
-  const [openedAt] = useState(() => instant(Date.now()));
   if (question.data === undefined || draft.data === undefined) {
     // Until both reads land — or when one fails — the editor: it has its own
     // loading, error and offline states, and a draft on this device to show.
     return <AvailabilityFlow code={code} step="times" />;
   }
 
-  const plan = question.data?.plan;
-  const asking =
-    plan !== undefined &&
-    acceptsAnswers(
-      { state: plan.state, responseDeadline: fromISO(plan.responseDeadline) },
-      openedAt,
-    );
+  // Judged by the server when the plan was read, not by this device's clock.
+  const asking = question.data?.plan.acceptingAnswers === true;
   const answer = question.data?.answer ?? null;
   // A send that never got its reply goes to the editor whatever the plan is
   // doing now: resending it is how it finds out, and how the draft is cleared.

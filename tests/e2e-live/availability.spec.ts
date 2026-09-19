@@ -5,6 +5,7 @@ import {
   clearRateCounters,
   firstDayOf,
   memberNamed,
+  planStopsAsking,
   stackConfig,
   sundayCrew,
   type Scenario,
@@ -155,4 +156,19 @@ test('"not enough notice" is its own answer, not a decline', async ({ page }) =>
 
   await expect(page).toHaveURL(new RegExp(`/sent$`));
   expect(answerOf(crew.planId, ren)).toEqual({ status: 'more_notice', windows: [] });
+});
+
+test('a plan past its deadline, still marked collecting, says replies have closed', async ({
+  page,
+}) => {
+  // The deadline is judged on the database's clock (`'now'` through
+  // PostgREST), not the phone's: this is the proof the filter reaches Postgres
+  // as the time and not as a string.
+  const crew = sundayCrew();
+  await arriveAs(page, crew, 'Ren');
+
+  planStopsAsking(crew, 'deadline_passed');
+  await page.reload();
+
+  await expect(page.getByText('Replies have closed for this one.')).toBeVisible();
 });

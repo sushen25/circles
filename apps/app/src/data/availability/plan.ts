@@ -1,4 +1,5 @@
 import {
+  ANSWERABLE_STATES,
   DURATIONS,
   localDate,
   zone,
@@ -40,8 +41,18 @@ export type AnswerablePlan = {
   dailyStartMin: number;
   dailyEndMin: number;
   durationMinutes: DurationMinutes;
-  /** ISO. Shown, never judged here: the server decides when replies close. */
+  /** ISO. Shown, never compared with this device's clock. */
   responseDeadline: string;
+  /**
+   * Whether the plan was taking answers when it was read, **judged by the
+   * database's clock**: an answerable state and a deadline still ahead — the
+   * domain's `acceptsAnswers`, with the server's `now` rather than the phone's.
+   * A plan stays collecting after its deadline so the organiser can decide
+   * (spec §8), so the state alone would let people paint for a plan that is
+   * not asking; the device's clock would close it early on a phone that runs
+   * fast, and refuse an answer the server would take.
+   */
+  acceptingAnswers: boolean;
   /** The organiser's name in this circle, or null (a quiet ask has none yet). */
   organiserName: string | null;
 };
@@ -92,7 +103,7 @@ export async function planToAnswer(code: ShortCode): Promise<PlanToAnswer | null
   const { data: me } = await client.auth.getSession();
   const userId = me.session?.user.id;
 
-  const [circle, organiser, response] = await Promise.all([
+  const [circle, organiser, response, open] = await Promise.all([
     client.from('circles').select('name').eq('id', row.circle_id).maybeSingle(),
     row.organiser_user_id === null
       ? Promise.resolve({ data: null, error: null })
@@ -112,8 +123,16 @@ export async function planToAnswer(code: ShortCode): Promise<PlanToAnswer | null
           .eq('revision', row.revision)
           .eq('user_id', userId)
           .maybeSingle(),
+    // `'now'` is Postgres's own input for the current time, so this compares
+    // the deadline on the database's clock. The row coming back is the answer.
+    client.from('plans').select('id').eq('id', row.id).gt('response_deadline', 'now').maybeSingle(),
   ]);
-  if (circle.error !== null || organiser.error !== null || response.error !== null) {
+  if (
+    circle.error !== null ||
+    organiser.error !== null ||
+    response.error !== null ||
+    open.error !== null
+  ) {
     throw new Error('plan lookup failed');
   }
 
@@ -139,6 +158,7 @@ export async function planToAnswer(code: ShortCode): Promise<PlanToAnswer | null
     durationMinutes: duration,
     responseDeadline: row.response_deadline,
     organiserName: organiser.data?.display_name_snapshot ?? null,
+    acceptingAnswers: ANSWERABLE_STATES.includes(row.state as PlanState) && open.data !== null,
   };
 
   const stored = response.data;
