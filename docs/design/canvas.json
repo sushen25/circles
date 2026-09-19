@@ -32,7 +32,7 @@
       "x": 1440,
       "y": 0,
       "w": 390,
-      "h": 1090,
+      "h": 1250,
       "page": "guest",
       "title": "Availability \u00b7 partial"
     },
@@ -152,6 +152,24 @@
       "h": 844,
       "page": "guest",
       "title": "Invite link inactive"
+    },
+    {
+      "file": "AvailabilityPicking.dc.html",
+      "x": 2400,
+      "y": 2600,
+      "w": 390,
+      "h": 1300,
+      "page": "guest",
+      "title": "Availability \u00b7 days ticked"
+    },
+    {
+      "file": "AvailabilityAdjusting.dc.html",
+      "x": 0,
+      "y": 3900,
+      "w": 390,
+      "h": 1400,
+      "page": "guest",
+      "title": "Availability \u00b7 adjusting a day"
     },
     {
       "file": "Welcome.dc.html",
@@ -698,7 +716,7 @@
       "x": 0,
       "y": 2600,
       "w": 1180,
-      "h": 760,
+      "h": 1060,
       "page": "system",
       "title": "Components and tokens"
     }
@@ -742,7 +760,7 @@
       "y": -90,
       "w": 390,
       "page": "guest",
-      "text": "First-person willingness language, 30-min cells, range always rendered as text. 'I'm easy' is the plan-level flexible response (review 6.5)."
+      "text": "Days first, then a time once (ADR 0024): tick the days, pick a block, and the answer is listed in words. A line opens to adjust that day by the half hour; the two states are on row 4. 'I'm easy' is the plan-level flexible response (review 6.5)."
     },
     {
       "id": "org-flow",

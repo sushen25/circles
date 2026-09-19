@@ -40,7 +40,7 @@ dispatcher, and the domain's rules):
   from React Email templates (ADR 0008). The input carries ids, values and
   **tokens already minted for this letter** — `issueVerificationToken`,
   `issuePreferencesToken`, `issueReentryToken` in `_shared/tokens.ts`, each for
-  the job's contact (ADR 0020, ADR 00XX). Links are built by the contract's
+  the job's contact (ADR 0020, ADR 0025). Links are built by the contract's
   functions, so a token can only ever sit after the `#` (ADR 0023).
 - `sendEmail(message, context)` → the provider's message id, or an
   `EmailSendError` with a code and nothing the provider said. Mailpit when

@@ -27,7 +27,8 @@ Short records of decisions that shape the product or the code. A new ADR is requ
 | [0021](./0021-the-link-preview-is-not-rate-limited.md) | The link preview is not rate-limited; the code space is the control | accepted |
 | [0022](./0022-a-plan-link-admits-new-members-while-the-plan-is-asking.md) | A plan link admits new members while the plan is taking answers | accepted |
 | [0023](./0023-emailed-tokens-travel-in-the-fragment.md) | Emailed tokens travel in the URL fragment, never the path | accepted |
-| [00XX](./00XX-the-preferences-link-is-minted-with-each-email.md) | The preferences link is minted with each email, and both footer links open it | accepted |
+| [0024](./0024-availability-days-first-then-a-time-once.md) | Availability is answered days first, then a time once | accepted |
+| [0025](./0025-the-preferences-link-is-minted-with-each-email.md) | The preferences link is minted with each email, and both footer links open it | accepted |
 
 ## Template
 

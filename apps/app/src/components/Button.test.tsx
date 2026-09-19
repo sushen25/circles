@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { hit, size } from '@circles/tokens';
 
-import { Button, Tertiary } from './Button';
+import { Button, CompactButton, Tertiary } from './Button';
 
 describe('Button', () => {
   it('is a button to a screen reader and calls back when pressed', () => {
@@ -30,5 +30,22 @@ describe('Button', () => {
     const { container } = render(<Tertiary label="Not this week" onPress={() => undefined} />);
     const element = container.firstElementChild as HTMLElement;
     expect(element).toHaveStyle({ 'min-height': `${hit}px` });
+  });
+
+  it('keeps the compact button a 44pt target, with a name that can say more than its label', () => {
+    const onPress = vi.fn();
+    const { container } = render(
+      <CompactButton
+        label="Remove day"
+        aria-label="Remove Tuesday 15 September"
+        icon="x"
+        onPress={onPress}
+      />,
+    );
+
+    const element = container.firstElementChild as HTMLElement;
+    expect(element).toHaveStyle({ 'min-height': `${hit}px` });
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Tuesday 15 September' }));
+    expect(onPress).toHaveBeenCalledOnce();
   });
 });

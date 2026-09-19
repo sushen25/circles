@@ -37,7 +37,7 @@ drop function if exists public.issue_reentry_token(uuid, uuid, bytea);
 --
 -- **One per email, reusable, ninety days** (ADR 0019): tapping it does not
 -- spend it, because an unsubscribe that worked once and then broke would not
--- be one. ADR 00XX records why it is one per email rather than one per contact:
+-- be one. ADR 0025 records why it is one per email rather than one per contact:
 -- the readable token is never stored, so an existing one cannot be put into a
 -- second letter. Retention removes each a week after it expires.
 --
