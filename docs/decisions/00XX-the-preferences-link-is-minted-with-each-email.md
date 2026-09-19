@@ -1,6 +1,6 @@
 # ADR 00XX: The preferences link is minted with each email, and both footer links open it
 
-_Status: proposed · Date: 19 September 2026_
+_Status: accepted · Date: 19 September 2026 · numbered when rebased onto main (SUS-82 takes 0024)_
 
 ## Context
 
