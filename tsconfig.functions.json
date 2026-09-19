@@ -6,10 +6,12 @@
     "lib": ["ES2022", "DOM"],
     "types": [],
     "allowImportingTsExtensions": true,
+    "jsx": "react-jsx",
+    "jsxImportSource": "react",
     "paths": {
       "@circles/domain": ["./packages/domain/src/index.ts"],
       "@circles/contracts": ["./packages/contracts/src/index.ts"]
     }
   },
-  "include": ["supabase/functions/**/*.ts"]
+  "include": ["supabase/functions/**/*.ts", "supabase/functions/**/*.tsx"]
 }

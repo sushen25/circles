@@ -25,3 +25,8 @@ packages/contracts/src/db.generated.ts
 # file nobody is allowed to commit, and `prettier --write` reformats something
 # the CLI rewrites on its next run.
 supabase/.temp/
+
+# rendered email, written by the snapshot tests exactly as it is sent — each
+# `.html` is what the provider receives, and reformatting it would snapshot
+# something nobody sends
+supabase/functions/_shared/email/__snapshots__/
