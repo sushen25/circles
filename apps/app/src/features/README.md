@@ -29,6 +29,17 @@ artboard.
 | `NoneWork.dc.html`            | `/j/[code]/none`            | `NoneWorkScreen`            |
 | `Sent.dc.html`                | `/j/[code]/sent`            | `SentScreen`                |
 
+**Real since S1-25:** `/j/[code]` and `/j/[code]/none` render
+`AvailabilityFlow`, which reads the plan and the member's own answer, keeps a
+draft on the device (`data/availability/drafts.ts`) and sends through
+`submit-availability`. `AvailabilityScreen` and `NoneWorkScreen` are now
+presentational and take worked-out strings rather than a fixture; with no
+backend the flow renders Sunday Crew's plan from `data/fixtures` (`answerable`).
+`/p/[code]` shows the editor to a member who has not answered a plan that is
+still asking (`PlanLinkFlow`), and the member candidates screen otherwise.
+`Offline.dc.html` is a state of `/j/[code]` (`OfflineScreen`, offline and
+error); `/offline` renders it for the gallery.
+
 ### circles
 
 | Artboard                      | Route                           | Component                   |

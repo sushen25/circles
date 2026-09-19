@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { faceFor, radius, size, space } from '@circles/tokens';
 
 import { Icon } from './Icon';
+import { spaceToPress } from './keys';
 import { usePalette } from './theme';
 
 /**
@@ -25,6 +26,7 @@ export function Chip({ label, selected = false, onPress }: Props) {
       aria-label={label}
       aria-checked={selected}
       onPress={onPress}
+      {...spaceToPress(onPress)}
       style={[
         styles.chip,
         { backgroundColor: palette.surface, borderColor: palette.lineStrong },

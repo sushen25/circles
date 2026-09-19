@@ -41,6 +41,16 @@ describe('Track', () => {
     expect(screen.getAllByRole('checkbox')[2]).toHaveAttribute('aria-checked', 'true');
   });
 
+  it('paints from the keyboard with Space, as a checkbox should (WCAG 2.1.1)', () => {
+    render(<Editable />);
+    const cell = () => screen.getAllByRole('checkbox')[3]!;
+
+    fireEvent.keyDown(cell(), { key: ' ' });
+    expect(cell()).toHaveAttribute('aria-checked', 'true');
+    fireEvent.keyDown(cell(), { key: ' ' });
+    expect(cell()).toHaveAttribute('aria-checked', 'false');
+  });
+
   it('un-paints a cell that was already selected', () => {
     render(<Editable />);
     const cell = () => screen.getAllByRole('checkbox')[4]!;

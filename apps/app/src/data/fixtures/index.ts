@@ -1,5 +1,7 @@
 import { fixtures as domain } from '@circles/domain';
 
+import type { PlanToAnswer } from '../availability';
+
 /**
  * The Sunday Crew scenario — the one the whole canvas is drawn around.
  *
@@ -92,3 +94,39 @@ export function fixtureByName(name: string | undefined): Fixture {
 
 /** Re-exported so screens and tests share one source of scenario data. */
 export const domainFixtures = domain;
+
+/**
+ * Sunday Crew's catch-up as the availability editor reads it, for the gallery
+ * and the no-backend export: evenings across a fortnight, and an answer with
+ * Monday, Wednesday and Thursday painted as the artboard has them.
+ */
+export const answerable: PlanToAnswer = {
+  plan: {
+    id: '00000000-0000-4000-8000-000000000b01',
+    code: 'pnsundaycr',
+    circleId: '00000000-0000-4000-8000-000000000a01',
+    circleName: 'Sunday Crew',
+    title: 'Catch up',
+    category: 'catch_up',
+    state: 'collecting',
+    revision: 1,
+    zone: 'Australia/Melbourne',
+    windowStart: '2026-09-14',
+    windowEnd: '2026-09-27',
+    dailyStartMin: 17 * 60 + 30,
+    dailyEndMin: 22 * 60 + 30,
+    durationMinutes: 120,
+    responseDeadline: '2026-09-15T08:00:00Z',
+    organiserName: 'Maya',
+  },
+  answer: {
+    status: 'windows',
+    windows: [
+      // Melbourne is UTC+10 in September, before the clocks go forward.
+      { start: '2026-09-14T08:30:00Z', end: '2026-09-14T12:30:00Z' },
+      { start: '2026-09-16T09:00:00Z', end: '2026-09-16T11:30:00Z' },
+      { start: '2026-09-17T07:30:00Z', end: '2026-09-17T12:30:00Z' },
+    ],
+    submittedAt: '2026-09-13T09:00:00Z',
+  },
+};

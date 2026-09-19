@@ -1,12 +1,15 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 
-import { useFixture } from '../../../src/data/fixtures/useFixture';
-import { NoneWorkScreen } from '../../../src/features/availability/NoneWorkScreen';
+import { AvailabilityFlow } from '../../../src/features/availability/AvailabilityFlow';
+import { MembershipGate } from '../../../src/features/identity/join/MembershipGate';
 
 /** Route only — thin composition, no logic (architecture §7.1). */
 export default function Route() {
-  const router = useRouter();
-  const fixture = useFixture();
+  const { code } = useLocalSearchParams<{ code: string }>();
 
-  return <NoneWorkScreen fixture={fixture} onBack={() => router.back()} />;
+  return (
+    <MembershipGate target={{ kind: 'plan', code }}>
+      <AvailabilityFlow code={code} step="none" />
+    </MembershipGate>
+  );
 }

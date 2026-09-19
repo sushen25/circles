@@ -85,7 +85,13 @@ export const catalogue = {
   // --- availability -------------------------------------------------------
   availability_started: event(1),
   availability_submitted: event(1, {
-    status: z.enum(['windows', 'flexible', 'none_work']),
+    /**
+     * All five of the spec's outcomes (§5.5). It had three, and §5.5 asks for
+     * "the share of flexible and more-notice responses" to be instrumented — so
+     * the one it names was the one it could not record. Widening an enum
+     * changes no existing event's meaning, so the version stays.
+     */
+    status: z.enum(['windows', 'flexible', 'none_work', 'more_notice', 'not_this_time']),
     window_count: count.optional(),
   }),
 

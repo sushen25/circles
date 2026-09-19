@@ -2,6 +2,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { color, hit, radius } from '@circles/tokens';
 
+import { spaceToPress } from './keys';
 import { usePalette } from './theme';
 
 type Props = {
@@ -23,6 +24,7 @@ export function Toggle({ value, onValueChange, label }: Props) {
       aria-label={label}
       aria-checked={value}
       onPress={() => onValueChange(!value)}
+      {...spaceToPress(() => onValueChange(!value))}
       style={styles.target}
     >
       <View style={[styles.track, { backgroundColor: value ? palette.accent : palette.line }]}>

@@ -287,3 +287,32 @@ export async function signedInAccount(name: string): Promise<{ userId: string; s
 export function sessionStorageKey(): string {
   return `sb-${new URL(stackConfig().apiUrl).hostname.split('.')[0]}-auth-token`;
 }
+
+/**
+ * What `userId` answered, as the database holds it: the status, and each window
+ * as Melbourne wall-clock text ("2026-09-26 17:30"), which is what the painter
+ * showed them.
+ */
+export function answerOf(
+  planId: string,
+  userId: string,
+): { status: string; windows: string[] } | undefined {
+  const [row] = sql(`
+    select r.status,
+      coalesce(string_agg(
+        to_char(w.starts_at at time zone 'Australia/Melbourne', 'YYYY-MM-DD HH24:MI') || '–' ||
+        to_char(w.ends_at at time zone 'Australia/Melbourne', 'HH24:MI'),
+        ',' order by w.starts_at), '')
+    from public.plan_responses r
+    left join public.willing_windows w on w.response_id = r.id
+    where r.plan_id = '${planId}' and r.user_id = '${userId}'
+    group by r.status
+  `);
+  if (row === undefined) return undefined;
+  return { status: row[0]!, windows: row[1] === '' ? [] : row[1]!.split(',') };
+}
+
+/** The first day the plan asks about, as a date. */
+export function firstDayOf(planId: string): string {
+  return sql(`select window_start from public.plans where id = '${planId}'`)[0]![0]!;
+}
