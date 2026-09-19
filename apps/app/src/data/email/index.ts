@@ -8,6 +8,7 @@ import {
   type PlanId,
 } from '@circles/contracts';
 
+import { sessionStorage } from '../auth/storage';
 import { invokeFunction } from '../functions';
 
 /**
@@ -91,4 +92,30 @@ export function typedAddress(userId: string, planId: string): string | undefined
 export function normaliseAddress(input: string): string | null {
   const parsed = RequestEmailUpdatesRequest.shape.email.safeParse(input);
   return parsed.success ? parsed.data : null;
+}
+
+/**
+ * Whether this person has been offered email updates for this plan before, on
+ * this device (spec §5.11: a prompt "shows at most once per moment per plan").
+ * On the device through the session's storage adapter, which is enough for
+ * the web slice; the server-side record every device shares — `record-nudge`
+ * and `nudge_states` — is S2-07's.
+ */
+const OFFER_PREFIX = 'circles.email-offer.';
+
+export async function emailOfferShown(userId: string, planId: string): Promise<boolean> {
+  try {
+    return (await sessionStorage.getItem(`${OFFER_PREFIX}${userId}.${planId}`)) !== null;
+  } catch {
+    return false;
+  }
+}
+
+export async function markEmailOfferShown(userId: string, planId: string): Promise<void> {
+  try {
+    await sessionStorage.setItem(`${OFFER_PREFIX}${userId}.${planId}`, '1');
+  } catch {
+    // Not stored: the offer may be made once more on a later visit. Nothing
+    // is lost that the person cannot dismiss in one tap.
+  }
 }

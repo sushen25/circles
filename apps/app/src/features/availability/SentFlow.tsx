@@ -1,7 +1,7 @@
 import type { PlanId, ShortCode } from '@circles/contracts';
 import { fromISO, toLocal, toParts, zone as toZone } from '@circles/domain';
 import { useQuery } from '@tanstack/react-query';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { Redirect, useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { track } from '../../analytics/track';
@@ -10,7 +10,13 @@ import { hasBackend } from '../../data/auth/client';
 import { takeSavedWith } from '../../data/auth/saved';
 import { useSession } from '../../data/auth/session';
 import { planToAnswer, type AnswerablePlan, type OwnAnswer } from '../../data/availability';
-import { normaliseAddress, rememberTypedAddress, requestEmailUpdates } from '../../data/email';
+import {
+  emailOfferShown,
+  markEmailOfferShown,
+  normaliseAddress,
+  rememberTypedAddress,
+  requestEmailUpdates,
+} from '../../data/email';
 import { answerable } from '../../data/fixtures';
 import { newIdempotencyKey } from '../../data/functions';
 import { ownNameIn } from '../../data/membership';
@@ -58,6 +64,15 @@ function LiveSent({ code }: { code: string }) {
     staleTime: Infinity,
   });
 
+  const planId = question.data?.plan.id;
+  const offerShown = useQuery({
+    queryKey: ['email-offer-shown', session.userId, planId],
+    queryFn: () => emailOfferShown(session.userId as string, planId as string),
+    enabled: planId !== undefined && session.userId !== undefined,
+    staleTime: 0,
+    gcTime: 0,
+  });
+
   const back = () => (router.canGoBack() ? router.back() : router.replace('/'));
 
   if (question.isError || question.data === null) {
@@ -69,8 +84,16 @@ function LiveSent({ code }: { code: string }) {
       />
     );
   }
-  if (question.data === undefined || name.isPending) {
+  if (question.data === undefined || name.isPending || offerShown.data === undefined) {
     return <SentScreen state="loading" onBack={back} />;
+  }
+  if (question.data.answer === null) {
+    // No answer to the current question: straight after a send the read may
+    // not have caught up, and otherwise the person is here without having
+    // answered — from history, or after the organiser changed the plan. Never
+    // "your times are in" to somebody whose times are not.
+    if (question.isFetching) return <SentScreen state="loading" onBack={back} />;
+    return <Redirect href={{ pathname: '/j/[code]', params: { code } }} />;
   }
 
   return (
@@ -82,6 +105,7 @@ function LiveSent({ code }: { code: string }) {
       name={name.data ?? null}
       live
       offerSaveAccess={session.status === 'guest'}
+      offeredBefore={offerShown.data}
     />
   );
 }
@@ -94,11 +118,22 @@ type SentInnerProps = {
   name: string | null;
   live: boolean;
   offerSaveAccess?: boolean;
+  /** Offered on an earlier visit: not again for this plan (spec §5.11). */
+  offeredBefore?: boolean;
 };
 
-function Sent({ code, userId, plan, answer, name, live, offerSaveAccess = false }: SentInnerProps) {
+function Sent({
+  code,
+  userId,
+  plan,
+  answer,
+  name,
+  live,
+  offerSaveAccess = false,
+  offeredBefore = false,
+}: SentInnerProps) {
   const router = useRouter();
-  const [offerEmail, setOfferEmail] = useState(true);
+  const [offerEmail, setOfferEmail] = useState(!offeredBefore);
   const [email, setEmail] = useState('');
   const [problem, setProblem] = useState<SentProblem | undefined>();
   const [reference, setReference] = useState<string | undefined>();
@@ -120,7 +155,8 @@ function Sent({ code, userId, plan, answer, name, live, offerSaveAccess = false 
     if (!offerEmail || offered.current) return;
     offered.current = true;
     track('email_updates_offered', { plan_id: plan.id as PlanId });
-  }, [offerEmail, plan.id]);
+    if (userId !== undefined) void markEmailOfferShown(userId, plan.id);
+  }, [offerEmail, plan.id, userId]);
 
   const send = async () => {
     const address = normaliseAddress(email);

@@ -15,6 +15,10 @@ const replace = vi.fn();
 vi.mock('expo-router', () => ({
   useRouter: () => ({ push, replace, back: vi.fn(), canGoBack: () => false }),
   useFocusEffect: (effect: () => void) => effect(),
+  Redirect: ({ href }: { href: unknown }) => {
+    replace(href);
+    return null;
+  },
 }));
 const track = vi.fn();
 vi.mock('../../analytics/track', () => ({ track: (...args: unknown[]) => track(...args) }));
@@ -75,6 +79,7 @@ beforeEach(() => {
   }
   releaseToken('verify');
   releaseToken('preferences');
+  globalThis.localStorage.clear();
   planToAnswer.mockResolvedValue({ plan: PLAN, answer: answerable.answer });
   requestEmailUpdates.mockResolvedValue({ status: 'check_email' });
 });
@@ -147,6 +152,32 @@ describe('round 1', () => {
     wrap(<SentFlow code={PLAN.code} />);
 
     await screen.findByRole('button', { name: 'Try again' });
+  });
+});
+
+describe('round 2', () => {
+  it('never says "your times are in" to somebody with no answer: it sends them to answer', async () => {
+    planToAnswer.mockResolvedValue({ plan: PLAN, answer: null });
+    wrap(<SentFlow code={PLAN.code} />);
+
+    await waitFor(() =>
+      expect(replace).toHaveBeenCalledWith({ pathname: '/j/[code]', params: { code: PLAN.code } }),
+    );
+    expect(screen.queryByText(/Your times are in/)).toBeNull();
+  });
+
+  it('offers email updates at most once per plan: a second visit after "Not now" does not ask again', async () => {
+    const first = wrap(<SentFlow code={PLAN.code} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Not now' }));
+    first.unmount();
+
+    wrap(<SentFlow code={PLAN.code} />);
+    await screen.findByText('Thanks, Priya. Your times are in.');
+
+    await waitFor(() =>
+      expect(screen.queryByText('Get updates about this meetup by email')).toBeNull(),
+    );
+    expect(track.mock.calls.filter(([name]) => name === 'email_updates_offered')).toHaveLength(1);
   });
 });
 
