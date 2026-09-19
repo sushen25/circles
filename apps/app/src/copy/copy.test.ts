@@ -27,6 +27,20 @@ describe('the copy file', () => {
       'count',
       'name',
       'reference',
+      // The availability editor's (S1-25).
+      'title',
+      'dates',
+      'painted',
+      'total',
+      'what',
+      'duration',
+      'deadline',
+      'zone',
+      'day',
+      'from',
+      'to',
+      'label',
+      'time',
     ]);
     for (const [screen, strings] of Object.entries(en)) {
       for (const [key, value] of Object.entries(strings)) {

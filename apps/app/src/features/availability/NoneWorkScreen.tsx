@@ -1,66 +1,106 @@
+import type { ResponseStatus } from '@circles/domain';
+import { Pressable } from 'react-native';
+
 import {
   Body,
   BodyText,
   Card,
   DisplayL,
   Foot,
+  Notice,
   Screen,
+  Small,
   Tertiary,
   Title,
   TopBar,
 } from '../../components';
 import { Row, Stack } from '../../components/layout';
 import { t } from '../../copy';
-import type { Fixture } from '../../data/fixtures';
-import type { ScreenState } from '../state';
 
 /**
- * NoneWork — scaffolded from `docs/design/NoneWork.dc.html`.
+ * NoneWork — `docs/design/NoneWork.dc.html` (spec §5.5).
  *
- * Structure and copy come from the artboard; data comes from a fixture. Slice 1
- * replaces `fixture` with real data and `onNext` with real navigation. Edit
- * freely: `scripts/scaffold-screens.mjs` will not overwrite this file.
+ * Three answers, not a decline: somebody who wants to come but cannot this
+ * fortnight is saying something different from somebody who is out, and "not
+ * enough notice" is the one the organiser can do something about next time.
+ * Tapping a card sends it — each is an answer, and a second confirm would be a
+ * second decision on a screen that exists to make one (manifesto §3.6).
  */
+export type NoneWorkStatus = Extract<ResponseStatus, 'none_work' | 'more_notice' | 'not_this_time'>;
+
 export type NoneWorkProps = {
-  fixture: Fixture;
-  state?: ScreenState | undefined;
-  /** The screen's one decision. */
-  onNext?: (() => void) | undefined;
-  onBack?: (() => void) | undefined;
+  title?: string | undefined;
+  /** Who sees "keen", when there is an organiser to name. */
+  organiserName?: string | null | undefined;
+  /** The answer on its way, when one is. */
+  sending?: NoneWorkStatus | undefined;
+  problem?: string | undefined;
+  reference?: string | undefined;
+  onChoose?: ((status: NoneWorkStatus) => void) | undefined;
   onBackToMyTimes?: (() => void) | undefined;
+  onBack?: (() => void) | undefined;
 };
 
-export function NoneWorkScreen({ onBack, onBackToMyTimes }: NoneWorkProps) {
+export function NoneWorkScreen({
+  title,
+  organiserName = null,
+  sending,
+  problem,
+  reference,
+  onChoose,
+  onBackToMyTimes,
+  onBack,
+}: NoneWorkProps) {
+  const options: { status: NoneWorkStatus; title: string; body: string }[] = [
+    {
+      status: 'none_work',
+      title: t('noneWork', 'im_keen_just_not_these_dates'),
+      body:
+        organiserName === null
+          ? t('noneWork', 'keen_body_no_organiser')
+          : t('noneWork', 'keen_body', { name: organiserName }),
+    },
+    {
+      status: 'more_notice',
+      title: t('noneWork', 'not_enough_notice'),
+      body: t('noneWork', 'same_as_above_and_well_remember_to'),
+    },
+    {
+      status: 'not_this_time',
+      title: t('noneWork', 'not_this_time'),
+      body: t('noneWork', 'no_reason_needed_nobody_is_told_anything'),
+    },
+  ];
+
   return (
     <Screen>
-      <TopBar
-        title={t('noneWork', 'catch_up_next_14_days')}
-        onBack={onBack}
-        backLabel={t('common', 'back')}
-      />
+      <TopBar title={title} onBack={onBack} backLabel={t('common', 'back')} />
       <Body>
         <Stack>
           <DisplayL>{t('noneWork', 'none_of_these_dates_work_for_you')}</DisplayL>
           <BodyText>{t('noneWork', 'thats_useful_to_know_which_is_closer')}</BodyText>
         </Stack>
-        <Card recommended>
-          <Row>
-            <Title>{t('noneWork', 'im_keen_just_not_these_dates')}</Title>
-          </Row>
-          <BodyText>{t('noneWork', 'maya_sees_youd_like_to_come_if')}</BodyText>
-        </Card>
-        <Card>
-          <Row>
-            <Title>{t('noneWork', 'not_enough_notice')}</Title>
-          </Row>
-          <BodyText>{t('noneWork', 'same_as_above_and_well_remember_to')}</BodyText>
-        </Card>
-        <Card>
-          <Row>
-            <Title>{t('noneWork', 'not_this_time')}</Title>
-          </Row>
-          <BodyText>{t('noneWork', 'no_reason_needed_nobody_is_told_anything')}</BodyText>
-        </Card>
+        {options.map((option, index) => (
+          <Pressable
+            key={option.status}
+            role="button"
+            aria-label={option.title}
+            aria-busy={sending === option.status}
+            disabled={sending !== undefined}
+            onPress={() => onChoose?.(option.status)}
+          >
+            <Card recommended={index === 0}>
+              <Row>
+                <Title>{sending === option.status ? t('noneWork', 'sending') : option.title}</Title>
+              </Row>
+              <BodyText>{option.body}</BodyText>
+            </Card>
+          </Pressable>
+        ))}
+        {problem === undefined ? null : <Notice kind="warn">{problem}</Notice>}
+        {reference === undefined ? null : (
+          <Small>{t('availability', 'reference', { reference })}</Small>
+        )}
       </Body>
       <Foot>
         <Tertiary label={t('noneWork', 'back_to_my_times')} onPress={onBackToMyTimes} />

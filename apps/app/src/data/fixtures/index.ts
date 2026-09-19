@@ -1,5 +1,7 @@
 import { fixtures as domain } from '@circles/domain';
 
+import type { PlanToAnswer } from '../availability';
+
 /**
  * The Sunday Crew scenario — the one the whole canvas is drawn around.
  *
@@ -92,3 +94,46 @@ export function fixtureByName(name: string | undefined): Fixture {
 
 /** Re-exported so screens and tests share one source of scenario data. */
 export const domainFixtures = domain;
+
+/**
+ * Sunday Crew's catch-up as the availability editor reads it, for the gallery
+ * and the no-backend export: evenings across a fortnight, and an answer with
+ * Monday, Wednesday and Thursday painted as the artboard has them.
+ *
+ * In 2099, on the artboard's weekdays: a plan whose deadline has passed is
+ * not asking anybody, and a fixture dated this year would turn the gallery's
+ * editor into "Replies have closed" the week it was written (as `030_planning`
+ * did to the database tests).
+ */
+export const answerable: PlanToAnswer = {
+  plan: {
+    id: '00000000-0000-4000-8000-000000000b01',
+    code: 'pnsundaycr',
+    circleId: '00000000-0000-4000-8000-000000000a01',
+    circleName: 'Sunday Crew',
+    title: 'Catch up',
+    category: 'catch_up',
+    state: 'collecting',
+    revision: 1,
+    zone: 'Australia/Melbourne',
+    windowStart: '2099-09-14',
+    windowEnd: '2099-09-27',
+    dailyStartMin: 17 * 60 + 30,
+    dailyEndMin: 22 * 60 + 30,
+    durationMinutes: 120,
+    responseDeadline: '2099-09-15T08:00:00Z',
+    organiserName: 'Maya',
+    acceptingAnswers: true,
+  },
+  answer: {
+    status: 'windows',
+    windows: [
+      // Melbourne is UTC+10 in September, before the clocks go forward in October.
+      { start: '2099-09-14T08:30:00Z', end: '2099-09-14T12:30:00Z' },
+      { start: '2099-09-16T09:00:00Z', end: '2099-09-16T11:30:00Z' },
+      { start: '2099-09-17T07:30:00Z', end: '2099-09-17T12:30:00Z' },
+    ],
+    // In the past, as an answer's submission always is: a draft saved now is newer.
+    submittedAt: '2026-09-01T09:00:00Z',
+  },
+};
