@@ -49,6 +49,7 @@ make dev      # stack up, env written, packages built, web app on http://localho
 | Regenerate SQL functions and database types | `make gen` (resets the database), or `make types` alone |
 | Everything CI runs | `make check` |
 | Tests | `make test-unit`, `make test-db`, `make test-live G="part of a name"`, `make test-smoke` |
+| Which project and ports this checkout uses | `make ports` |
 
 The log targets look back ten minutes and keep following. `SINCE=` changes how
 far back, and `FOLLOW=` prints and exits: `make logs SINCE=1h FOLLOW=`. When a
@@ -63,6 +64,25 @@ pick up edits until it is run again. Stop `dev-live` (or `make dev-down`)
 before `make check` or `make test-live`: the suite reuses a server already on
 8082, whatever build it is serving. `dev-down` stops only `node` processes
 listening on those ports, so anything else of yours on them is left alone.
+
+### The ports follow the checkout
+
+Every port above is the default because this checkout's `supabase/config.toml`
+says `project_id = "circles"`. A ticket worktree made by the
+work-tickets-in-parallel skill renames the project `circles-s<N>` and shifts
+every port by 100 x N, so a second stack can run beside this one. The Makefile
+reads that file, which means the same `make dev`, `make logs`, `make psql` and
+`make mail` do the right thing in either place, and `make ports` says which:
+
+```
+circles (slot 0) · api 54321 · db 54322 · mail 54324 · app 8081 · live 8082
+```
+
+So never pass a port by hand, and never edit `config.toml` to change one. Two
+things do not move: the Playwright suites serve on 8082 and 8083 whichever
+checkout runs them, which is why only one `make check` runs at a time, and a
+slot's stack starts without Studio to save memory (`make studio` there opens
+only the mail catcher).
 
 `make restart` is the one to reach for after adding an Edge Function folder or
 when every function returns `BOOT_ERROR` (see *When it goes wrong*): the functions
