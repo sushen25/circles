@@ -748,6 +748,7 @@ export const en = {
       'Every email has a link to stop these. No account has been created.',
     back_to_circle: 'Back to {circle}',
     save_access_on_every_device: 'Save access on every device',
+    place_saved: 'Your place is saved. Sign in with {address} on any device to get back to it.',
     verified_nothing_to_send: 'Your email address is verified.',
     nothing_to_send_body:
       "There's nothing to send to it right now: the meetup has finished, or you're no longer in that circle.",

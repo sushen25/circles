@@ -7,6 +7,7 @@ import {
   DisplayXL,
   Foot,
   Label,
+  Notice,
   Screen,
   Small,
   Tertiary,
@@ -34,6 +35,8 @@ export type EmailVerifiedProps = {
   plans?: readonly VerifiedPlan[] | undefined;
   alreadyConfirmed?: boolean | undefined;
   reference?: string | undefined;
+  /** Back from saving access: the address they can sign in with. */
+  savedWith?: string | undefined;
   /** Offered only when this browser holds the guest who answered. */
   offerSaveAccess?: boolean | undefined;
   onBackToCircle?: (() => void) | undefined;
@@ -46,6 +49,7 @@ export function EmailVerifiedScreen({
   plans = [],
   alreadyConfirmed = false,
   reference,
+  savedWith,
   offerSaveAccess = false,
   onBackToCircle,
   onSaveAccess,
@@ -151,6 +155,9 @@ export function EmailVerifiedScreen({
             </Stack>
           </Card>
         ))}
+        {savedWith === undefined ? null : (
+          <Notice kind="ok">{t('emailVerified', 'place_saved', { address: savedWith })}</Notice>
+        )}
         <Small>{t('emailVerified', 'every_email_has_a_link_to_stop')}</Small>
       </Body>
       <Foot>

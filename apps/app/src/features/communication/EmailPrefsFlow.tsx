@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { track } from '../../analytics/track';
 import { hasBackend } from '../../data/auth/client';
 import { managePreferences, type PreferencesAction } from '../../data/email';
-import { heldToken } from '../../data/links/tokens';
+import { heldToken, releaseToken } from '../../data/links/tokens';
 import { failureOf } from '../identity/join/failure';
 import { EmailPrefsScreen, type EmailPrefsProps, type EmailPrefsState } from './EmailPrefsScreen';
 
@@ -19,6 +19,8 @@ import { EmailPrefsScreen, type EmailPrefsProps, type EmailPrefsState } from './
  */
 export function EmailPrefsFlow() {
   const [token] = useState(() => heldToken('preferences'));
+  // Taken for this screen alone: the held copy goes (ADR 0023).
+  useEffect(() => releaseToken('preferences'), []);
   const [state, setState] = useState<EmailPrefsState>(
     token === undefined || !hasBackend() ? 'no_token' : 'loading',
   );

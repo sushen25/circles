@@ -1,12 +1,13 @@
 import type { VerifyEmailContactResponse } from '@circles/contracts';
-import { useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { track } from '../../analytics/track';
 import { hasBackend } from '../../data/auth/client';
+import { takeSavedWith } from '../../data/auth/saved';
 import { useSession } from '../../data/auth/session';
 import { verifyEmail } from '../../data/email';
-import { heldToken } from '../../data/links/tokens';
+import { heldToken, releaseToken } from '../../data/links/tokens';
 import { failureOf } from '../identity/join/failure';
 import { EmailVerifiedScreen, type EmailVerifiedState } from './EmailVerifiedScreen';
 
@@ -22,6 +23,8 @@ export function EmailVerifyFlow() {
   const router = useRouter();
   const session = useSession();
   const [token] = useState(() => heldToken('verify'));
+  // Taken for this screen alone: the held copy goes (ADR 0023).
+  useEffect(() => releaseToken('verify'), []);
   const [state, setState] = useState<EmailVerifiedState>(
     token === undefined || !hasBackend() ? 'no_token' : 'loading',
   );
@@ -54,6 +57,17 @@ export function EmailVerifyFlow() {
 
   const first = answer?.active_plans[0];
 
+  // Back from saving access, which was started here: say so, once.
+  const [savedWith, setSavedWith] = useState<string | undefined>();
+  const firstCode = first?.short_code;
+  useFocusEffect(
+    useCallback(() => {
+      if (firstCode === undefined) return;
+      const address = takeSavedWith(firstCode);
+      if (address !== undefined) setSavedWith(address);
+    }, [firstCode]),
+  );
+
   return (
     <EmailVerifiedScreen
       state={state}
@@ -64,6 +78,7 @@ export function EmailVerifyFlow() {
       }))}
       alreadyConfirmed={answer?.already_confirmed ?? false}
       reference={reference}
+      savedWith={savedWith}
       // Only where the guest who answered is: saving a place from a mail app's
       // browser, which holds nobody, would make an account with nothing in it.
       offerSaveAccess={session.status === 'guest' && first !== undefined}

@@ -144,9 +144,9 @@ function Sent({
   const [savedWith, setSavedWith] = useState<string | undefined>();
   useFocusEffect(
     useCallback(() => {
-      const address = takeSavedWith();
+      const address = takeSavedWith(code);
       if (address !== undefined) setSavedWith(address);
-    }, []),
+    }, [code]),
   );
 
   // The offer was made: once per visit, and only while it is on screen.

@@ -39,7 +39,13 @@ export function heldToken(kind: TokenKind): OpaqueToken | undefined {
   return held.get(kind);
 }
 
-/** For tests, and for a screen that has spent its token and wants it gone. */
+/**
+ * A screen that has taken its token lets go of the held copy, so that nothing
+ * later in this tab — a bare `/e` opened by whoever has the browser next — can
+ * use it without the email (ADR 0023: held "for the one screen that needs it").
+ * Two steps rather than a destructive read, because React may run a state
+ * initialiser twice and the second run would find nothing.
+ */
 export function releaseToken(kind: TokenKind): void {
   held.delete(kind);
 }

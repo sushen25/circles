@@ -114,7 +114,7 @@ export function SaveAccessFlow({ code }: { code: string }) {
           signIn: () => submitLinkCode(step.address, codeText, step.route),
         });
         track('account_claimed', { moment: 'after_answer' });
-        noteSavedWith(step.address);
+        noteSavedWith(code, step.address);
         back();
       } catch (error) {
         if (error instanceof SavePlaceError) {

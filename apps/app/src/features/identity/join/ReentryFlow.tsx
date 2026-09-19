@@ -6,7 +6,7 @@ import { track } from '../../../analytics/track';
 import { hasBackend } from '../../../data/auth/client';
 import { sessionState, signOut } from '../../../data/auth/session';
 import { newIdempotencyKey } from '../../../data/functions';
-import { heldToken } from '../../../data/links/tokens';
+import { heldToken, releaseToken } from '../../../data/links/tokens';
 import { arrivalFor, reattachWithToken } from '../../../data/membership';
 import { ContinueAsScreen } from '../ContinueAsScreen';
 import { LinkInvalidScreen, type LinkInvalidReason } from '../LinkInvalidScreen';
@@ -26,8 +26,11 @@ import { failureOf } from './failure';
  * still has a link that works. The exception is a membership that has since
  * saved its place: that link is not broken, it is a link to an account.
  */
-export function ReentryFlow({ token = heldToken('reentry') }: { token?: string | undefined } = {}) {
+export function ReentryFlow({ token: given }: { token?: string | undefined } = {}) {
   const router = useRouter();
+  // Taken once, for this screen alone, and the held copy let go (ADR 0023).
+  const [token] = useState(() => given ?? heldToken('reentry'));
+  useEffect(() => releaseToken('reentry'), []);
   const [failed, setFailed] = useState<LinkInvalidReason | undefined>();
   const [offline, setOffline] = useState(false);
   const [attempt, setAttempt] = useState(0);

@@ -45,7 +45,8 @@ vi.mock('../../data/email', async (original) => ({
 const { SentFlow } = await import('../availability/SentFlow');
 const { EmailVerifyFlow } = await import('./EmailVerifyFlow');
 const { EmailPrefsFlow } = await import('./EmailPrefsFlow');
-const { holdTokenForTests, releaseToken } = await import('../../data/links/tokens');
+const { heldToken, holdTokenForTests, releaseToken } = await import('../../data/links/tokens');
+const { noteSavedWith, takeSavedWith } = await import('../../data/auth/saved');
 const { FunctionError } = await import('../../data/functions');
 const { answerable } = await import('../../data/fixtures');
 
@@ -178,6 +179,43 @@ describe('round 2', () => {
       expect(screen.queryByText('Get updates about this meetup by email')).toBeNull(),
     );
     expect(track.mock.calls.filter(([name]) => name === 'email_updates_offered')).toHaveLength(1);
+  });
+});
+
+describe('round 3', () => {
+  it.each([
+    ['verify', () => <EmailVerifyFlow />],
+    ['preferences', () => <EmailPrefsFlow />],
+  ] as const)(
+    'the %s page takes its token for itself: nothing later in this tab can use it',
+    async (kind, page) => {
+      holdTokenForTests(kind, TOKEN);
+      verifyEmail.mockReturnValue(new Promise(() => undefined));
+      managePreferences.mockReturnValue(new Promise(() => undefined));
+      wrap(page());
+
+      await waitFor(() => expect(heldToken(kind)).toBeUndefined());
+    },
+  );
+
+  it('shows "your place is saved" on the verified page it was saved from, and leaves nothing queued', async () => {
+    holdTokenForTests('verify', TOKEN);
+    verifyEmail.mockResolvedValue({
+      active_plans: [
+        {
+          plan_id: PLAN.id,
+          short_code: PLAN.code,
+          plan_title: 'Catch up',
+          circle_name: 'Sunday Crew',
+        },
+      ],
+      already_confirmed: false,
+    });
+    noteSavedWith(PLAN.code, 'priya@example.com');
+    wrap(<EmailVerifyFlow />);
+
+    await screen.findByText(/Your place is saved/);
+    expect(takeSavedWith(PLAN.code)).toBeUndefined();
   });
 });
 
