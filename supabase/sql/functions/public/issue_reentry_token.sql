@@ -16,6 +16,14 @@
 -- rule, and this is the answer the one caller needs. A sign-in bypass is still
 -- impossible, now twice over.
 --
+-- **For the contact the letter is going to** (S1-19). It used to take the
+-- user and hang the token on their most recently verified contact, which is
+-- not necessarily the address the email is for: somebody with two verified
+-- addresses who later removed the first had the cascade take the re-entry
+-- links out of letters sent to the second. The dispatcher knows exactly which
+-- contact it is writing to — the job names it — so it says so, and the user is
+-- the contact's owner.
+--
 -- Service role only. It mints nothing itself — the Edge Function generates the
 -- token and passes the digest, so the readable form is never a statement
 -- parameter and never reaches a query log (§14).
@@ -23,7 +31,7 @@
 
 create or replace function public.issue_reentry_token(
   p_circle_id uuid,
-  p_user_id uuid,
+  p_contact_id uuid,
   p_token_hash bytea
 )
 returns uuid
@@ -32,13 +40,23 @@ security definer
 set search_path = ''
 as $$
 declare
-  contact_id uuid;
+  contact private.email_contacts;
   token_id uuid;
 begin
+  -- A verified one: a re-entry link travels in an email, and an email goes
+  -- only to an address that proved itself.
+  select * into contact from private.email_contacts c where c.id = p_contact_id;
+
+  if not found or contact.status <> 'verified' then
+    raise exception 'no_verified_contact' using errcode = 'P0001';
+  end if;
+
   -- Somebody who signs in needs no way back, so there is nothing to issue and
   -- nothing has gone wrong. Checked before the membership, because a permanent
   -- identity's membership is beside the point.
-  if exists (select 1 from public.profiles pr where pr.user_id = p_user_id and pr.is_permanent) then
+  if exists (
+    select 1 from public.profiles pr where pr.user_id = contact.user_id and pr.is_permanent
+  ) then
     return null;
   end if;
 
@@ -48,28 +66,17 @@ begin
   -- ordinary mistake.
   if not exists (
     select 1 from public.circle_members m
-    where m.circle_id = p_circle_id and m.user_id = p_user_id and m.status = 'active'
+    where m.circle_id = p_circle_id and m.user_id = contact.user_id and m.status = 'active'
   ) then
     raise exception 'not_a_member' using errcode = 'P0001';
-  end if;
-
-  -- The contact this belongs to: a re-entry link travels in an email, so there
-  -- is one. Its owner and the membership's owner are the same person, which the
-  -- table's own foreign key insists on as well.
-  select c.id into contact_id
-  from private.email_contacts c
-  where c.user_id = p_user_id and c.status = 'verified'
-  order by c.verified_at desc
-  limit 1;
-
-  if contact_id is null then
-    raise exception 'no_verified_contact' using errcode = 'P0001';
   end if;
 
   insert into private.email_action_tokens (
     contact_id, purpose, token_hash, expires_at, membership_circle_id, membership_user_id
   )
-  values (contact_id, 'reentry', p_token_hash, now() + interval '7 days', p_circle_id, p_user_id)
+  values (
+    contact.id, 'reentry', p_token_hash, now() + interval '7 days', p_circle_id, contact.user_id
+  )
   returning id into token_id;
 
   return token_id;
@@ -77,7 +84,7 @@ end;
 $$;
 
 comment on function public.issue_reentry_token(uuid, uuid, bytea) is
-  'Stores the digest of a seven-day single-use re-entry token for a guest membership, and returns null for a saved-place identity, which needs no link. The token itself is minted in the Edge Function and never reaches the database. Service role only.';
+  'Stores the digest of a seven-day single-use re-entry token for the guest membership of one verified contact''s owner, and returns null for a saved-place identity, which needs no link. The token itself is minted in the Edge Function and never reaches the database. Service role only.';
 
 revoke all on function public.issue_reentry_token(uuid, uuid, bytea) from public;
 revoke all on function public.issue_reentry_token(uuid, uuid, bytea) from anon, authenticated;

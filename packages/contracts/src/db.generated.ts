@@ -1058,8 +1058,16 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      issue_preferences_token: {
+        Args: { p_contact_id: string; p_token_hash: string }
+        Returns: string
+      }
       issue_reentry_token: {
-        Args: { p_circle_id: string; p_token_hash: string; p_user_id: string }
+        Args: {
+          p_circle_id: string
+          p_contact_id: string
+          p_token_hash: string
+        }
         Returns: string
       }
       issue_verification_token: {
@@ -1127,6 +1135,16 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      record_email_delivery: {
+        Args: {
+          p_email_hash?: string
+          p_event_type: string
+          p_occurred_at: string
+          p_permanent?: boolean
+          p_provider_message_id: string
+        }
+        Returns: Json
       }
       record_events: { Args: { p_rows: Json }; Returns: number }
       redeem_invite: {
