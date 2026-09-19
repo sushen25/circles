@@ -263,6 +263,17 @@ where the reviewer reads them; one copy, so the two cannot drift apart.
 Same script by hand; `git switch -c` + `gh pr create --web` is the manual
 equivalent. Nothing here is interactive except `gh auth login`.
 
+## Local commands
+
+`make` is the front door for everything local - `make dev`, `make dev-live`,
+`make logs`, `make psql`, `make mail TO=…`, `make reset`, `make ports`.
+Every target reads its ports out of the checkout's own `supabase/config.toml`,
+so the same line works in the primary checkout and in a ticket worktree, and a
+port written by hand is a port that will be wrong in one of them.
+`docs/runbooks/local.md` explains each one. The gate is still `ticket.sh check`,
+because it also checks whitespace and the design canvas; `make check` is the
+`pnpm check` part of it alone.
+
 ## Test
 
 `ticket.sh check` is the gate. It runs `git diff --check`, the design-canvas
