@@ -68,8 +68,18 @@ export type GuardDecision =
    * granted to `authenticated` and not to `anon`.
    */
   | { kind: 'needs_session' }
-  /** A session that holds no membership here: offer Continue-as, or "I'm new here". */
+  /**
+   * A guest session, or one just made, that holds no membership here: "Which
+   * one is you?", or "I'm new here" (ADR 0006, ADR 0022).
+   */
   | { kind: 'continue_as' }
+  /**
+   * A saved place that holds no membership here: one tap to join under their
+   * own name, never a list (ADR 0022). A list is for finding which guest you
+   * were, and an account is nobody's guest — every name on it would be refused
+   * with `caller_is_permanent`.
+   */
+  | { kind: 'join_as_account' }
   /** A guest trying to organise. The InitiateGate (ADR 0004, spec §5.1). */
   | { kind: 'needs_saved_place' };
 
@@ -105,7 +115,8 @@ export function guard({ route, session, membership = 'unknown' }: GuardInput): G
       case 'needs_saved_place':
         return { kind: 'needs_saved_place' };
       case 'needs_membership':
-        return { kind: 'continue_as' };
+        // Only a saved place gets here: a guest was stopped above.
+        return { kind: 'join_as_account' };
     }
   }
 
@@ -117,21 +128,20 @@ export function guard({ route, session, membership = 'unknown' }: GuardInput): G
       return { kind: 'allow' };
     case 'not_member':
       /**
-       * Everyone who is not a member goes to Continue-as, saved place included.
+       * Who is here decides what they are asked (ADR 0022, Decision 3).
        *
-       * It is tempting to allow a `saved` session through and let RLS return an
-       * empty screen, on the grounds that a permanent identity "should" already
-       * be a member. But somebody with a saved place can perfectly well open a
-       * friend's invite link on a circle they have never joined, and the
-       * honest answer there is the same one a guest gets: this is not yours
-       * yet, here is how to join. Continue-as also offers "I'm new here", which
-       * is the branch they want.
+       * A saved place is not let through to an empty screen on the grounds that
+       * a permanent identity "should" already be a member: somebody with an
+       * account can perfectly well open a friend's plan link on a circle they
+       * have never joined. They are asked one thing — join, as themselves — and
+       * never shown the guest list, whose every name `reattach-member` would
+       * refuse them with `caller_is_permanent`.
        *
-       * What a saved place must never be offered is a *reattachment* onto
-       * somebody else's guest membership, and that is refused server-side:
-       * `reattach-member` returns `caller_is_permanent`. The list is a list.
+       * Everybody else is a guest, or somebody whose session this page has
+       * just made, and the question for them is whether they have been here
+       * before.
        */
-      return { kind: 'continue_as' };
+      return isPermanent ? { kind: 'join_as_account' } : { kind: 'continue_as' };
     case 'unknown':
       return { kind: 'wait' };
   }

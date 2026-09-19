@@ -18,7 +18,7 @@ export { guard } from './guards';
 export type { GuardDecision, GuardInput, Membership, RouteKind } from './guards';
 export { SavePlaceError, resumePendingClaim, savePlace } from './link';
 export type { SaveMoment, SavePlaceOptions, SavedPlace } from './link';
-export { bootstrapProfile, deviceTimeZone } from './profile';
+export { bootstrapProfile, deviceTimeZone, ownDisplayName } from './profile';
 export type { ProfileBootstrap } from './profile';
 export {
   requestLinkCode,

@@ -6,29 +6,35 @@ import { useEffect, useRef, useState } from 'react';
 import { track } from '../../../analytics/track';
 import { useSession } from '../../../data/auth/session';
 import { newIdempotencyKey } from '../../../data/functions';
-import {
-  circleNameForCode,
-  guestMembersFor,
-  heldInvite,
-  reattachFromList,
-} from '../../../data/membership';
+import { circleNameForCode, guestMembersFor, reattachFromList } from '../../../data/membership';
 import { ContinueAsScreen, type ContinueProblem } from '../ContinueAsScreen';
 import { LinkInvalidScreen } from '../LinkInvalidScreen';
 import { failureOf, isOffline } from './failure';
+import { PlanNameFlow } from './PlanNameFlow';
 
 /**
- * "Welcome back. Which one is you?" (ADR 0006, spec §5.1, §6.2).
+ * "Welcome back. Which one is you?" (ADR 0006, spec §5.1, §6.2), and "I'm new
+ * here" (ADR 0022).
  *
- * Shown in place of a plan page when the session in hand holds no membership of
- * its circle. A pick reattaches, and the page underneath is then simply
- * allowed — nothing navigates, so "resume the original route" is the route the
- * person never left.
+ * Shown in place of a plan page when a guest session — or one this page has
+ * just made — holds no membership of its circle. An account never sees it: the
+ * gate sends one to `JoinAsAccountFlow`.
+ *
+ * - **A pick reattaches**, and the page underneath is then simply allowed —
+ *   nothing navigates, so "resume the original route" is the route the person
+ *   never left.
+ * - **"I'm new here" asks for a name and joins through the plan's link.**
+ *   Whether the plan is still asking is learned from that answer, because a
+ *   non-member cannot read the plan to check first; a plan that is not ends at
+ *   the ask-for-the-invite state, as does a code that does not exist.
+ * - **A circle with no guests skips the question.** There is nobody to be, so
+ *   "Which one is you?" would be a question with one answer.
  */
 export type ContinueAsFlowProps = {
   code: ShortCode;
   /** This page load had no session and made one, rather than arriving with somebody's. */
   arrivedWithoutSession: boolean;
-  /** The membership moved; the gate should ask again. */
+  /** The membership moved or was made; the gate should ask again. */
   onReattached: () => void;
 };
 
@@ -41,6 +47,14 @@ export function ContinueAsFlow({ code, arrivedWithoutSession, onReattached }: Co
   const [problem, setProblem] = useState<ContinueProblem | undefined>();
   const [reference, setReference] = useState<string | undefined>();
   const [askForInvite, setAskForInvite] = useState(false);
+  const [imNew, setImNew] = useState(false);
+  /**
+   * Joined, and waiting for the gate to notice. Until it re-reads membership
+   * this page still thinks they are outside, and the list — read again — now
+   * holds their own name: "Which one is you?" offering them themselves, for a
+   * moment, on the way in. So it holds the loading state instead.
+   */
+  const [joinedHere, setJoinedHere] = useState(false);
   const keys = useRef(new Map<string, IdempotencyKey>());
 
   // Once per arrival, and only for an arrival that had no session. The gate
@@ -67,17 +81,62 @@ export function ContinueAsFlow({ code, arrivedWithoutSession, onReattached }: Co
 
   const back = () => (router.canGoBack() ? router.back() : router.replace('/'));
 
+  if (joinedHere) {
+    return (
+      <ContinueAsScreen circleName={circleName.data ?? undefined} state="loading" onBack={back} />
+    );
+  }
+
   if (askForInvite) {
     return (
       <LinkInvalidScreen
         reason="ask_for_invite"
-        onBack={() => setAskForInvite(false)}
+        onBack={back}
         onWhatIsBrand={() => router.push('/get-the-app')}
       />
     );
   }
 
   const title = circleName.data ?? undefined;
+  const listed = guests.data?.kind === 'listed' ? guests.data.members : [];
+  const nobodyToBe = guests.data?.kind === 'listed' && listed.length === 0;
+
+  // Waiting on the name as well, when it is going straight to the name step:
+  // that screen's title and its "Someone in {circle}…" need it.
+  // The name is the title of every screen here, and the name step quotes it
+  // ("Someone in Sunday Crew is already called…"). A failed lookup is an error
+  // with a retry, not a screen with a blank where the circle should be.
+  if (circleName.isError) {
+    return (
+      <ContinueAsScreen
+        state={isOffline() ? 'offline' : 'error'}
+        onRetry={() => {
+          void circleName.refetch();
+          void guests.refetch();
+        }}
+        onBack={back}
+      />
+    );
+  }
+
+  if ((imNew || nobodyToBe) && !signedIn) {
+    if (circleName.isPending) {
+      return <ContinueAsScreen circleName={title} state="loading" onBack={back} />;
+    }
+    return (
+      <PlanNameFlow
+        code={code}
+        circleName={title ?? ''}
+        onInactive={() => setAskForInvite(true)}
+        onJoined={() => {
+          setJoinedHere(true);
+          onReattached();
+        }}
+        // Back to the list when there is one to go back to; otherwise off the page.
+        onBack={nobodyToBe ? back : () => setImNew(false)}
+      />
+    );
+  }
 
   if (!signedIn && guests.isError) {
     return (
@@ -93,7 +152,6 @@ export function ContinueAsFlow({ code, arrivedWithoutSession, onReattached }: Co
     return <ContinueAsScreen circleName={title} state="loading" onBack={back} />;
   }
 
-  const listed = guests.data?.kind === 'listed' ? guests.data.members : [];
   const byKey = new Map<string, GuestMemberOption>(listed.map((m) => [m.member_user_id, m]));
 
   const pick = async (member: GuestMemberOption) => {
@@ -157,13 +215,7 @@ export function ContinueAsFlow({ code, arrivedWithoutSession, onReattached }: Co
         const member = byKey.get(option.key);
         if (member !== undefined) void pick(member);
       }}
-      onImNewHere={() => {
-        // Joining needs the circle's invite; a plan link does not carry one. If
-        // this tab is holding one, that is the way in, and the Join page names
-        // the circle so nobody joins the wrong one by accident.
-        if (heldInvite() !== undefined) router.push('/join');
-        else setAskForInvite(true);
-      }}
+      onImNewHere={() => setImNew(true)}
       onSignIn={() => router.push('/sign-in')}
       onBack={back}
     />

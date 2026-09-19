@@ -15,6 +15,8 @@ export {
   releaseInvite,
   takeInviteOpen,
 } from './invite';
+export { askToPlan, joinPlan } from './join-plan';
+export type { AskOutcome, JoinPlanOptions } from './join-plan';
 export {
   circleNameForCode,
   guestMembersFor,

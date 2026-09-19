@@ -50,7 +50,16 @@ export const catalogue = {
   circle_created: event(1),
   circle_invite_shared: event(1, { kind: z.enum(['link', 'sheet', 'copy']) }),
   circle_join_opened: event(1),
-  circle_joined: event(1, { member_count: count.optional() }),
+  circle_joined: event(1, {
+    member_count: count.optional(),
+    /**
+     * Which door (ADR 0022): the circle's invite link, or a plan's. Optional
+     * because the ingest hears from tabs opened before this existed, and
+     * refusing their events would lose the joins it counts; an absent source is
+     * one of those, and they could only have come through an invite.
+     */
+    source: z.enum(['invite', 'plan_link']).optional(),
+  }),
 
   // --- planning -----------------------------------------------------------
   plan_created: event(1, {

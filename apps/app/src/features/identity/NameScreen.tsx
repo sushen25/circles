@@ -38,6 +38,12 @@ export type NameProps = {
   problem?: NameProblem | undefined;
   reference?: string | undefined;
   busy?: boolean | undefined;
+  /**
+   * An account naming itself for this circle, after its own name was taken
+   * (ADR 0022). "No email, no password" would be untrue for them; what they
+   * need to hear is that their profile is not being renamed.
+   */
+  forAccount?: boolean | undefined;
   onChangeText?: ((text: string) => void) | undefined;
   onNext?: (() => void) | undefined;
   onBack?: (() => void) | undefined;
@@ -69,6 +75,7 @@ export function NameScreen({
   problem,
   reference,
   busy = false,
+  forAccount = false,
   onChangeText,
   onNext,
   onBack,
@@ -79,7 +86,11 @@ export function NameScreen({
       <Body>
         <Stack>
           <DisplayL>{t('name', 'what_should_the_group_call_you')}</DisplayL>
-          <BodyText>{t('name', 'just_a_first_name_is_fine_no')}</BodyText>
+          <BodyText>
+            {forAccount
+              ? t('name', 'just_for_this_circle', { circle: circleName })
+              : t('name', 'just_a_first_name_is_fine_no')}
+          </BodyText>
         </Stack>
         <Stack>
           <Label nativeID="guest-name-label">{t('name', 'your_name')}</Label>

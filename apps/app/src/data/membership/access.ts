@@ -1,4 +1,10 @@
-import { acceptsAnswers, fromISO, type Instant, type PlanState } from '@circles/domain';
+import {
+  acceptsAnswers,
+  ANSWERABLE_STATES,
+  fromISO,
+  type Instant,
+  type PlanState,
+} from '@circles/domain';
 import type { CircleId, ShortCode } from '@circles/contracts';
 
 import { authClient } from '../auth/client';
@@ -21,23 +27,59 @@ export type PlanAccess =
       membership: 'member';
       circleId: CircleId;
       state: PlanState;
+      /**
+       * A member the plan is not asking, while it is still asking (ADR 0022).
+       * Somebody who joined the circle — by invite, or any way at all — after
+       * this plan was made was never addressed by it, and `replace_response`
+       * refuses them `not_a_participant`. "Opening that plan's link asks them":
+       * the caller does that with `joinPlan` and no name.
+       */
+      needsAsking: boolean;
     }
   | { membership: 'not_member' };
 
 export async function planAccess(code: ShortCode): Promise<PlanAccess> {
-  const { data, error } = await authClient()
+  const client = authClient();
+  const { data, error } = await client
     .from('plans')
-    .select('circle_id, state')
+    .select('id, circle_id, state, revision')
     .eq('short_code', code)
     .maybeSingle();
 
   if (error !== null) throw new Error('plan access lookup failed');
   if (data === null) return { membership: 'not_member' };
 
+  const state = data.state as PlanState;
+  // The state only, not the deadline. The deadline is the server's to judge:
+  // a phone whose clock runs ahead would decide the plan had closed, never ask,
+  // and leave somebody unable to answer a plan that is still open. After the
+  // deadline `join-plan` says `invite_inactive`, which costs one request.
+  const asking = ANSWERABLE_STATES.includes(state);
+
+  // Only asked about when it could matter: a plan that is not asking has
+  // nothing to add anybody to, and the read is one more round trip.
+  let asked = true;
+  if (asking) {
+    const { data: me } = await client.auth.getSession();
+    const userId = me.session?.user.id;
+    if (userId !== undefined) {
+      const { data: row, error: rowError } = await client
+        .from('plan_participants')
+        .select('user_id')
+        .eq('plan_id', data.id)
+        .eq('revision', data.revision)
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (rowError !== null) throw new Error('plan access lookup failed');
+      asked = row !== null;
+    }
+  }
+
   return {
     membership: 'member',
     circleId: data.circle_id as CircleId,
-    state: data.state as PlanState,
+    state,
+    needsAsking: asking && !asked,
   };
 }
 
@@ -71,12 +113,11 @@ export type Arrival = { kind: 'plan'; code: ShortCode } | { kind: 'circle'; id: 
  * a deadline still ahead, the two things `replace_response` checks. The newest wins when there are several:
  * it is the one the link they were sent is most likely about.
  *
- * **It does not make them a participant.** `replace_response` accepts answers
- * only from `plan_participants` of the current revision, and joining the
- * circle adds nobody to a plan already running — spec §9 makes that an opt-in,
- * and no opt-in exists yet. So somebody who joins after the plan was created
- * lands on its availability screen and cannot yet answer it. Recorded on S1-25,
- * which owns that screen and the opt-in it needs.
+ * **It does not make them a participant; landing there does.** Joining the
+ * circle by invite adds nobody to a plan already running (spec §9). The plan
+ * route's gate sees a member the plan is not asking (`planAccess`'s
+ * `needsAsking`) and asks it to, through `join-plan` with no name — ADR 0022's
+ * "opening that plan's link asks them".
  */
 export async function arrivalFor(
   circleId: CircleId,

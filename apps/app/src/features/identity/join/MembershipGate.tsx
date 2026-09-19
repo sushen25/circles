@@ -1,16 +1,17 @@
 import { ShortCode } from '@circles/contracts';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 import { hasBackend } from '../../../data/auth/client';
 import { ensureGuestSession } from '../../../data/auth/guest';
 import { guard, type Membership } from '../../../data/auth/guards';
 import { useSession } from '../../../data/auth/session';
-import { circleAccess, planAccess } from '../../../data/membership';
+import { askToPlan, circleAccess, planAccess } from '../../../data/membership';
 import { ContinueAsScreen } from '../ContinueAsScreen';
 import { LinkInvalidScreen } from '../LinkInvalidScreen';
 import { ContinueAsFlow } from './ContinueAsFlow';
+import { JoinAsAccountFlow } from './JoinAsAccountFlow';
 import { isOffline } from './failure';
 
 /**
@@ -58,12 +59,15 @@ function LiveGate({ target, children }: { target: Target; children: ReactNode })
   const accessKey = ['membership', target.kind, target.kind === 'plan' ? target.code : target.id];
   const access = useQuery({
     queryKey: [...accessKey, session.userId],
-    queryFn: async (): Promise<Membership> => {
-      const answer =
-        target.kind === 'plan'
-          ? await planAccess(target.code as ShortCode)
-          : await circleAccess(target.id);
-      return answer.membership;
+    queryFn: async (): Promise<{ membership: Membership; needsAsking: boolean }> => {
+      if (target.kind === 'plan') {
+        const answer = await planAccess(target.code as ShortCode);
+        return answer.membership === 'member'
+          ? { membership: 'member', needsAsking: answer.needsAsking }
+          : { membership: 'not_member', needsAsking: false };
+      }
+      const answer = await circleAccess(target.id);
+      return { membership: answer.membership, needsAsking: false };
     },
     enabled: !malformed && !session.isLoading && session.status !== 'none',
     staleTime: 30_000,
@@ -72,8 +76,43 @@ function LiveGate({ target, children }: { target: Target; children: ReactNode })
   const decision = guard({
     route: 'guest',
     session,
-    membership: access.data ?? 'unknown',
+    membership: access.data?.membership ?? 'unknown',
   });
+
+  /**
+   * A member this plan is not asking, while it is (ADR 0022): somebody who
+   * joined the circle after the plan was made. Opening its link asks them,
+   * through `join-plan` with no name, which for a member adds the participant
+   * row and nothing else — no membership, no announcement. The page shows
+   * meanwhile; it is theirs either way, and only the answer depends on this.
+   *
+   * Once per page and person while it succeeds; `askToPlan` retries a
+   * transient failure, and one that outlasts that is tried again on the next
+   * read of membership rather than left for the person to meet as a refusal.
+   */
+  const askedFor = useRef<string | undefined>(undefined);
+  const needsAsking = decision.kind === 'allow' && access.data?.needsAsking === true;
+  const planCode = target.kind === 'plan' ? target.code : undefined;
+  // A dependency so that each fresh read of membership is a chance to try
+  // again after a failure; while one has succeeded or is running, `askedFor`
+  // makes the re-run a no-op.
+  const accessReadAt = access.dataUpdatedAt;
+  useEffect(() => {
+    if (!needsAsking || planCode === undefined) return;
+    const who = `${planCode}:${session.userId ?? ''}`;
+    if (askedFor.current === who) return;
+    askedFor.current = who;
+    void askToPlan(planCode as ShortCode).then((outcome) => {
+      if (outcome === 'failed') {
+        // Retried already. Forget this attempt, so that the next time the gate
+        // reads membership — on focus, or in thirty seconds — it tries again,
+        // rather than never for as long as this page is open.
+        askedFor.current = undefined;
+        return;
+      }
+      void queryClient.invalidateQueries({ queryKey: ['membership', 'plan', planCode] });
+    });
+  }, [needsAsking, planCode, session.userId, queryClient, accessReadAt]);
 
   // §10: the session comes first. Continue-as cannot even ask who is in the
   // circle without one, and `ensureGuestSession` is idempotent, so the effect
@@ -84,6 +123,22 @@ function LiveGate({ target, children }: { target: Target; children: ReactNode })
       .then(() => setArrivedWithoutSession(true))
       .catch(() => setSessionFailed(true));
   }, [decision.kind, malformed, sessionFailed, sessionAttempt]);
+
+  /**
+   * The server has just said this person is in: a join or a reattachment
+   * succeeded. Written into the cache rather than only invalidated, because an
+   * invalidated query keeps answering "not a member" while it refetches — and
+   * the page that navigation mounts next (`/j/:code`, a new gate) reads that
+   * answer, mounts Continue-as again, and shows the person their own name to
+   * continue as. The refetch still happens; it confirms rather than decides.
+   */
+  const becameMember = () => {
+    queryClient.setQueryData([...accessKey, session.userId], {
+      membership: 'member' as const,
+      needsAsking: false,
+    });
+    void queryClient.invalidateQueries({ queryKey: accessKey });
+  };
 
   const back = () => (router.canGoBack() ? router.back() : router.replace('/'));
   const whatIsBrand = () => router.push('/get-the-app');
@@ -118,21 +173,26 @@ function LiveGate({ target, children }: { target: Target; children: ReactNode })
     case 'needs_saved_place':
       // Not reachable from a `guest` route; guarded against rather than assumed.
       return <ContinueAsScreen state="loading" onBack={back} />;
+    case 'join_as_account':
     case 'continue_as':
       if (target.kind === 'circle') {
-        // The list is keyed by a short code, which is what a person arriving from
-        // a link has. A circle page is reached by navigating, not by a link in a
-        // chat, and a non-member has no way to learn its code — so the honest
-        // answer here is the invite.
+        // The list and a plan's link are both keyed by a short code, which is
+        // what a person arriving from a chat has. A circle page is reached by
+        // navigating, not by a link in a chat, and a non-member has no way to
+        // learn its code — so the honest answer here is the invite, for an
+        // account and a guest alike (ADR 0022 admits through a *plan's* code).
         return (
           <LinkInvalidScreen reason="ask_for_invite" onBack={back} onWhatIsBrand={whatIsBrand} />
         );
+      }
+      if (decision.kind === 'join_as_account') {
+        return <JoinAsAccountFlow code={target.code as ShortCode} onJoined={becameMember} />;
       }
       return (
         <ContinueAsFlow
           code={target.code as ShortCode}
           arrivedWithoutSession={arrivedWithoutSession}
-          onReattached={() => void queryClient.invalidateQueries({ queryKey: accessKey })}
+          onReattached={becameMember}
         />
       );
   }

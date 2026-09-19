@@ -38,6 +38,7 @@ vi.mock('../../../data/membership', () => ({
   circleAccess: vi.fn(),
   arrivalFor: vi.fn(),
   reattachWithToken: (...args: unknown[]) => reattachWithToken(...args),
+  joinPlan: vi.fn(),
 }));
 
 const { MembershipGate } = await import('./MembershipGate');
@@ -89,7 +90,8 @@ describe('session_missing_on_return', () => {
       wrap(<MembershipGate target={{ kind: 'plan', code: 'pnsundaycr' }}>{null}</MembershipGate>),
     );
 
-    await screen.findByText("There's nobody here to continue as. If you're new, start below.");
+    // A circle with no guests goes straight to the name step (ADR 0022).
+    await screen.findByText('What should the group call you?');
     expect(track).not.toHaveBeenCalledWith('session_missing_on_return', {});
   });
 

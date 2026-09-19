@@ -846,6 +846,23 @@ export const en = {
     copy_link: 'Copy link',
     skip_for_now_ill_plan_first: "Skip for now, I'll plan first",
   },
+  joinAsAccount: {
+    circle_is_finding_a_time: '{circle} is finding a time to catch up.',
+    join_to_pick_your_times:
+      "You're not in {circle} yet. Join to pick the times you'd be up for. Everyone in the circle will see that you've joined.",
+    join_as: 'Join {circle} as {name}',
+    join: 'Join {circle}',
+    joining: 'Joining',
+    not_now: 'Not now',
+    finding_the_circle: 'Finding the circle',
+    couldnt_load: "We couldn't load this circle just now.",
+    circle_full: '{circle} already has 20 people, which is as many as a circle holds.',
+    too_many_tries: 'Too many tries from here just now. Wait a few minutes, then try again.',
+    couldnt_join: "Something went wrong, so the join didn't go through. Please try again.",
+    youre_offline: "You're offline. Connect, then try again.",
+    try_again: 'Try again',
+    reference: 'Ref {reference}',
+  },
   linkInvalid: {
     brand: '{brand}',
     this_link_isnt_active_any_more: "This link isn't active any more.",
@@ -893,6 +910,8 @@ export const en = {
   name: {
     what_should_the_group_call_you: 'What should the group call you?',
     just_a_first_name_is_fine_no: 'Just a first name is fine. No email, no password.',
+    just_for_this_circle:
+      'This is only what {circle} will call you. Your account keeps its own name.',
     your_name: 'Your name',
     priya: 'Priya',
     this_is_what_the_others_will_see:
