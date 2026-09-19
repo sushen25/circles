@@ -936,6 +936,9 @@ select is(
        -- S1-24. The Join page before joining: a circle's name, its inviter's
        -- name and one initial per member, to whoever holds the invite secret —
        -- by its digest, so the secret is never a statement parameter.
+       -- (`join_from_plan`, the second way in, is deliberately absent: it is the
+       -- service role's, so that nothing reaches it without the Turnstile check
+       -- and the rate limits in `join-plan`. `170_join_from_plan.sql`.)
        'invite_preview'
      )),
   '',

@@ -19,6 +19,7 @@ export * from './process-scheduled-jobs.js';
 export * from './reattach-member.js';
 export * from './recalculate-candidates.js';
 export * from './record-nudge.js';
+export * from './join-plan.js';
 export * from './redeem-invite.js';
 export * from './register-push-device.js';
 export * from './report-outcome.js';

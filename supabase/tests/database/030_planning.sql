@@ -6,6 +6,11 @@
 -- The claim under test is architecture §8.3's: "nothing else writes
 -- `plans.state`". A comment cannot make that true and a convention cannot
 -- either, so most of this file is about trying to write it some other way.
+--
+-- Dates are in 2099. They were in September 2026, and the day the candidate on
+-- the 17th became a time in the past, `confirm` refused it as
+-- `candidate_has_passed` and 58 of these tests failed on a clock rather than on
+-- the code. Anything compared with `now()` is kept far enough ahead not to.
 
 begin;
 select plan(85);
@@ -90,8 +95,8 @@ begin
   )
   values (
     (select circle_id from t), mode, state, organiser, 'Catch up', 'Australia/Melbourne',
-    date '2026-09-14', date '2026-09-20', 17 * 60 + 30, 22 * 60 + 30,
-    120, 4, timestamptz '2026-09-20T10:00:00Z', code,
+    date '2099-09-14', date '2099-09-20', 17 * 60 + 30, 22 * 60 + 30,
+    120, 4, timestamptz '2099-09-20T10:00:00Z', code,
     case when mode = 'quiet' then 3 else null end
   )
   returning id into new_id;
@@ -261,14 +266,14 @@ from public.plans where id = :'plan_a';
 insert into public.candidates
   (candidate_set_id, is_near_miss, rank, starts_at, ends_at, available_user_ids,
    explicit_count, flexible_count, explanation_code, explanation_count)
-select cs.id, false, 1, timestamptz '2026-09-17T08:30:00Z', timestamptz '2026-09-17T10:30:00Z',
+select cs.id, false, 1, timestamptz '2099-09-17T08:30:00Z', timestamptz '2099-09-17T10:30:00Z',
   array['00000000-0000-0000-0000-0000000001a1', '00000000-0000-0000-0000-0000000001a2']::uuid[],
   2, 0, 'best_attendance', 2
 from public.candidate_sets cs where cs.plan_id = :'plan_a';
 
 select is(
   (select state from planning.transition_plan(:'plan_a', 'confirm',
-    '00000000-0000-0000-0000-0000000001a1', '{"candidate_id":"2026-09-17T08:30:00.000Z"}'::jsonb)),
+    '00000000-0000-0000-0000-0000000001a1', '{"candidate_id":"2099-09-17T08:30:00.000Z"}'::jsonb)),
   'confirmed',
   'with an eligible one from the current set, they can'
 );
@@ -426,8 +431,8 @@ select throws_ok(
       duration_minutes, quorum, response_deadline, short_code
     )
     select circle_id, 'quiet', 'seeking', 'No threshold', 'Australia/Melbourne',
-      date '2026-09-14', date '2026-09-20', 1050, 1350, 120, 4,
-      timestamptz '2026-09-20T10:00:00Z', 'pnttttt'
+      date '2099-09-14', date '2099-09-20', 1050, 1350, 120, 4,
+      timestamptz '2099-09-20T10:00:00Z', 'pnttttt'
     from t$$,
   '23514',
   null,
@@ -482,13 +487,13 @@ select is(
 -- ---------------------------------------------------------------------------
 
 select is(
-  public.plan_last_possible_start(date '2026-09-20', 22 * 60 + 30, 120, 'Australia/Melbourne'),
-  timestamptz '2026-09-20T10:30:00Z',
+  public.plan_last_possible_start(date '2099-09-20', 22 * 60 + 30, 120, 'Australia/Melbourne'),
+  timestamptz '2099-09-20T10:30:00Z',
   'a 2-hour meetup in a band ending 22:30 cannot start after 20:30 Melbourne'
 );
 select is(
-  public.plan_last_possible_start(date '2026-09-20', 1440, 120, 'Australia/Melbourne'),
-  timestamptz '2026-09-20T12:00:00Z',
+  public.plan_last_possible_start(date '2099-09-20', 1440, 120, 'Australia/Melbourne'),
+  timestamptz '2099-09-20T12:00:00Z',
   'and a band running to midnight ends at 22:00 the same evening'
 );
 
@@ -499,8 +504,8 @@ select throws_ok(
       duration_minutes, quorum, response_deadline, short_code
     )
     select circle_id, 'named', 'collecting', '00000000-0000-0000-0000-0000000001a1',
-      'Late', 'Australia/Melbourne', date '2026-09-14', date '2026-09-20',
-      1050, 1350, 120, 4, timestamptz '2026-09-20T23:00:00Z', 'pnffff'
+      'Late', 'Australia/Melbourne', date '2099-09-14', date '2099-09-20',
+      1050, 1350, 120, 4, timestamptz '2099-09-20T23:00:00Z', 'pnffff'
     from t$$,
   '23514',
   null,
@@ -510,7 +515,7 @@ select throws_ok(
 -- And moving the window under a good deadline is the same mistake.
 select throws_ok(
   format(
-    $$update public.plans set window_end = date '2026-09-15' where id = '%s'$$,
+    $$update public.plans set window_end = date '2099-09-15' where id = '%s'$$,
     :'plan_a'
   ),
   '23514',
@@ -614,7 +619,7 @@ select is(
   'and the quorum is untouched — refused, not silently ignored'
 );
 select throws_ok(
-  format($$select planning.transition_plan('%s', 'cancel', '%s', '{"window_end":"2026-09-15"}'::jsonb)$$,
+  format($$select planning.transition_plan('%s', 'cancel', '%s', '{"window_end":"2099-09-15"}'::jsonb)$$,
     :'plan_pay', '00000000-0000-0000-0000-0000000001a1'),
   'P0001',
   'unexpected_payload',
@@ -782,8 +787,8 @@ select throws_ok(
     )
     select circle_id, 'named', 'collecting', '00000000-0000-0000-0000-0000000001a1',
       'Fortnight and a day', 'Australia/Melbourne',
-      date '2026-09-01', date '2026-09-15', 1050, 1350, 120, 4,
-      timestamptz '2026-09-15T09:00:00Z', 'pnhhhh'
+      date '2099-09-01', date '2099-09-15', 1050, 1350, 120, 4,
+      timestamptz '2099-09-15T09:00:00Z', 'pnhhhh'
     from t$$,
   '23514',
   null,

@@ -38,11 +38,15 @@ export type Quorum = z.infer<typeof Quorum>;
  * function documents the reasons it can return; later tickets add their own.
  */
 export const ProblemReason = z.enum([
-  /** `redeem-invite`: no live invite has that secret — rotated, or never issued. */
+  /**
+   * `redeem-invite`: no live invite has that secret — rotated, or never issued.
+   * `join-plan`: no plan with that code is taking answers, whether it does not
+   * exist or is not admitting; one answer for both (ADR 0022).
+   */
   'invite_inactive',
-  /** `redeem-invite`: the circle holds the maximum active members (ADR 0012). */
+  /** `redeem-invite`, `join-plan`: the circle holds the maximum active members (ADR 0012). */
   'circle_full',
-  /** `redeem-invite`: somebody active in the circle already uses that name. */
+  /** `redeem-invite`, `join-plan`: somebody active in the circle already uses that name. */
   'duplicate_name',
   /** `reattach-member`: no active guest membership answers to that id or token. */
   'member_not_found',
@@ -60,7 +64,10 @@ export const ProblemReason = z.enum([
   'source_is_permanent',
   /** `claim-identity`: the caller has not signed in, so there is no place to save. */
   'destination_is_not_permanent',
-  /** `redeem-invite`: the name is empty, or too long, once whitespace is collapsed. */
+  /**
+   * `redeem-invite`, `join-plan`: the name is empty, or too long, once whitespace
+   * is collapsed — or, from `join-plan`, a guest joining sent none.
+   */
   'display_name_unusable',
   /** Any mutation: this idempotency key was used for a different body. */
   'idempotency_mismatch',

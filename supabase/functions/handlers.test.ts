@@ -175,6 +175,7 @@ async function serveOf(name: string): Promise<(request: Request) => Promise<Resp
 const handlers = {
   'claim-identity': await serveOf('claim-identity'),
   'redeem-invite': await serveOf('redeem-invite'),
+  'join-plan': await serveOf('join-plan'),
   'reattach-member': await serveOf('reattach-member'),
   'create-circle': await serveOf('create-circle'),
   'create-plan': await serveOf('create-plan'),
@@ -383,6 +384,205 @@ describe('redeem-invite', () => {
     expect(response.status).toBe(200);
     expect(called('take_rate_token')).toHaveLength(0);
     expect(called('redeem_invite')).toHaveLength(0);
+  });
+});
+
+describe('join-plan', () => {
+  const PLAN = '00000000-0000-4000-8000-0000000000p1';
+  const CODE = 'pnsundaycr';
+  const NAME = 'Ren Okafor';
+  const body = { idempotency_key: KEY, plan_code: CODE, display_name: NAME };
+
+  function joins(newlyAsked: boolean): void {
+    // Each request resolves its caller once, and the mock hands each out once.
+    state.users = [
+      { id: CALLER, is_anonymous: true },
+      { id: CALLER, is_anonymous: true },
+      { id: CALLER, is_anonymous: true },
+    ];
+    state.answer = (fn) => {
+      if (fn === 'begin_request') {
+        return {
+          data: [{ state: 'fresh', response_status: null, response_body: null }],
+          error: null,
+        };
+      }
+      if (fn === 'take_rate_token') return { data: true, error: null };
+      if (fn === 'join_from_plan') {
+        return {
+          data: { circle: CIRCLE_ROW, plan_id: PLAN, newly_asked: newlyAsked },
+          error: null,
+        };
+      }
+      return { data: null, error: null };
+    };
+  }
+
+  it('joins, and answers with the circle as a DTO and the plan to go to', async () => {
+    joins(true);
+    const response = await load('join-plan')(post(body));
+
+    expect(response.status).toBe(200);
+    const answered = (await response.json()) as {
+      circle: Record<string, unknown>;
+      plan_code: string;
+      member_user_id: string;
+    };
+    expect(answered.circle['name']).toBe('Sunday Crew');
+    expect(answered.circle).not.toHaveProperty('owner_user_id');
+    expect(answered.plan_code).toBe(CODE);
+    // The person joining is the one the JWT resolved to. The function is the
+    // service role's, so nothing in the body could name somebody else.
+    expect(called('join_from_plan')[0]?.args).toEqual({
+      p_user_id: CALLER,
+      p_short_code: CODE,
+      p_display_name: NAME,
+    });
+  });
+
+  it('sends no name at all when none was given, so an account joins under its own', async () => {
+    joins(true);
+    expect((await load('join-plan')(post({ idempotency_key: KEY, plan_code: CODE }))).status).toBe(
+      200,
+    );
+
+    expect(called('join_from_plan')[0]?.args).not.toHaveProperty('p_display_name');
+  });
+
+  it('recalculates when the plan is asking somebody new, and only then', async () => {
+    // The roster is engine input. A set replaced because somebody already on the
+    // plan opened its link again would make an organiser's confirm stale.
+    joins(true);
+    expect((await load('join-plan')(post(body))).status).toBe(200);
+    expect(called('engine_input')).toHaveLength(1);
+    expect(called('engine_input')[0]?.args['p_plan_id']).toBe(PLAN);
+
+    state.rpcs = [];
+    joins(false);
+    expect((await load('join-plan')(post(body))).status).toBe(200);
+    expect(called('engine_input')).toHaveLength(0);
+  });
+
+  it('still answers 200 when the recalculation fails, because the join is committed', async () => {
+    joins(true);
+    const base = state.answer;
+    state.answer = (fn) =>
+      fn === 'engine_input' ? { data: null, error: { message: 'boom', code: 'XX000' } } : base(fn);
+
+    expect((await load('join-plan')(post(body))).status).toBe(200);
+  });
+
+  it('counts the attempt against the code and the address, under scopes of its own', async () => {
+    joins(true);
+    expect((await load('join-plan')(post(body))).status).toBe(200);
+
+    const scopes = called('take_rate_token').map((call) => call.args['p_scope']);
+    expect(scopes.sort()).toEqual(['join_plan', 'join_plan_ip']);
+    // Hashed on the way in, like every key: a counter row does not hold the code.
+    expect(JSON.stringify(called('take_rate_token'))).not.toContain(CODE);
+  });
+
+  it('refuses once either limit is reached, before the database is asked', async () => {
+    joins(true);
+    const base = state.answer;
+    state.answer = (fn) => (fn === 'take_rate_token' ? { data: false, error: null } : base(fn));
+
+    const response = await load('join-plan')(post(body));
+
+    expect(response.status).toBe(429);
+    expect(await response.json()).toMatchObject({ reason: 'too_many_requests' });
+    expect(called('join_from_plan')).toHaveLength(0);
+  });
+
+  it('refuses a web join with no Turnstile token when Turnstile is armed', async () => {
+    joins(true);
+    process.env.TURNSTILE_SECRET_KEY = 'armed';
+
+    const response = await load('join-plan')(post(body));
+
+    expect(await response.json()).toMatchObject({ reason: 'too_many_requests' });
+    expect(called('join_from_plan')).toHaveLength(0);
+    expect(called('take_rate_token')).toHaveLength(0);
+  });
+
+  it('asks Cloudflare about the token when there is one', async () => {
+    joins(true);
+    process.env.TURNSTILE_SECRET_KEY = 'armed';
+
+    const response = await load('join-plan')(post({ ...body, turnstile_token: 'fresh' }));
+
+    expect(response.status).toBe(200);
+    expect(state.fetched.some((url) => url.includes('challenges.cloudflare.com'))).toBe(true);
+  });
+
+  it('treats a retry with a fresh Turnstile token as the same request', async () => {
+    joins(true);
+    const fingerprint = () => called('begin_request').at(-1)?.args['p_fingerprint'];
+
+    await load('join-plan')(post({ ...body, turnstile_token: 'first' }));
+    const first = fingerprint();
+    await load('join-plan')(post({ ...body, turnstile_token: 'second' }));
+
+    expect(fingerprint()).toBe(first);
+  });
+
+  it('treats a different name under the same key as a different request', async () => {
+    // `begin_request` answers `idempotency_mismatch` when the fingerprint differs,
+    // so what has to be true here is that the name is part of it.
+    joins(true);
+    const fingerprint = () => called('begin_request').at(-1)?.args['p_fingerprint'];
+
+    await load('join-plan')(post(body));
+    const first = fingerprint();
+    await load('join-plan')(post({ ...body, display_name: 'Ren O' }));
+
+    expect(fingerprint()).not.toBe(first);
+  });
+
+  it('says one thing for a plan that is not admitting', async () => {
+    joins(true);
+    const base = state.answer;
+    state.answer = (fn) =>
+      fn === 'join_from_plan'
+        ? { data: null, error: { message: 'invite_inactive', code: 'P0002' } }
+        : base(fn);
+
+    const response = await load('join-plan')(post(body));
+
+    expect(response.status).toBe(404);
+    expect(await response.json()).toMatchObject({ reason: 'invite_inactive' });
+  });
+
+  it('logs neither the code nor the name, joined or refused', async () => {
+    const lines: string[] = [];
+    const sinks = (['log', 'info', 'warn', 'error'] as const).map((level) =>
+      vi.spyOn(console, level).mockImplementation((...args: unknown[]) => {
+        lines.push(args.map(String).join(' '));
+      }),
+    );
+
+    try {
+      joins(true);
+      await load('join-plan')(post(body));
+
+      const base = state.answer;
+      state.answer = (fn) =>
+        fn === 'join_from_plan'
+          ? { data: null, error: { message: 'duplicate_name', code: '23505' } }
+          : base(fn);
+      await load('join-plan')(post(body));
+
+      // And a body the schema refuses, whose error names fields, not values.
+      await load('join-plan')(post({ ...body, plan_code: 'NOT-A-CODE' }));
+
+      expect(lines.length).toBeGreaterThan(0);
+      const logged = lines.join('\n');
+      expect(logged).not.toContain(CODE);
+      expect(logged).not.toContain('NOT-A-CODE');
+      expect(logged).not.toContain(NAME);
+    } finally {
+      for (const sink of sinks) sink.mockRestore();
+    }
   });
 });
 

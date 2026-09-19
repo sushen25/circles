@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { ClaimIdentityRequest } from './claim-identity.js';
+import { JoinPlanRequest } from './join-plan.js';
 import { ReattachMemberRequest } from './reattach-member.js';
 import { RedeemInviteRequest } from './redeem-invite.js';
 
@@ -11,6 +12,30 @@ import { RedeemInviteRequest } from './redeem-invite.js';
  */
 
 const KEY = '00000000-0000-4000-8000-000000000001';
+
+describe('JoinPlanRequest', () => {
+  const body = { idempotency_key: KEY, plan_code: 'pnsundaycr' };
+
+  it('accepts a join with no name, which an account or a member sends', () => {
+    expect(JoinPlanRequest.safeParse(body).success).toBe(true);
+  });
+
+  it('holds a name to the same rule and the same normalising as an invite', () => {
+    // One schema for both doors. A name `redeem-invite` refuses must not get in
+    // through a plan link, and one it stores tidied must not be stored raw here.
+    expect(JoinPlanRequest.safeParse({ ...body, display_name: '   ' }).success).toBe(false);
+    expect(JoinPlanRequest.safeParse({ ...body, display_name: 'a'.repeat(41) }).success).toBe(
+      false,
+    );
+    expect(JoinPlanRequest.parse({ ...body, display_name: '  Ren \n' }).display_name).toBe('Ren');
+  });
+
+  it('refuses something that is not a short code before it reaches the database', () => {
+    for (const plan_code of ['PNSUNDAYCR', 'pn1ll0', 'pn', '../../etc']) {
+      expect(JoinPlanRequest.safeParse({ ...body, plan_code }).success).toBe(false);
+    }
+  });
+});
 
 describe('RedeemInviteRequest', () => {
   const body = {

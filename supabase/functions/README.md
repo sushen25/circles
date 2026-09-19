@@ -8,25 +8,26 @@ function's `deno.json` points at.
 
 ## What is here
 
-| Folder                                                    | What it does                                                                                                                                                |
-| --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`_shared/`](./_shared)                                   | The kit every function is built from (S1-13)                                                                                                                |
-| [`redeem-invite/`](./redeem-invite)                       | Join a circle from its link (spec §5.1)                                                                                                                     |
-| [`reattach-member/`](./reattach-member)                   | "Continue as", and the emailed way back in ([ADR 0006](../../docs/decisions/0006-continue-as-reattachment-without-owner-approval.md))                       |
-| [`claim-identity/`](./claim-identity)                     | Reconcile memberships when somebody saves their place (§10)                                                                                                 |
-| [`create-circle/`](./create-circle)                       | A circle and the link that fills it, in one transaction (§5.1)                                                                                              |
-| [`create-plan/`](./create-plan)                           | A named plan, from a preset and the circle's defaults (§5.3)                                                                                                |
-| [`revise-plan/`](./revise-plan)                           | Edit, adjust or reopen — and say first what it would cost ([ADR 0017](../../docs/decisions/0017-quorum-and-deadline-adjust-a-plan-without-a-revision.md))   |
-| [`cancel-plan/`](./cancel-plan)                           | Call it off, with an optional note (§5.7)                                                                                                                   |
-| [`submit-availability/`](./submit-availability)           | One member's answer, and the engine run in the same request ([ADR 0018](../../docs/decisions/0018-the-recalculation-runs-in-the-request-that-caused-it.md)) |
-| [`recalculate-candidates/`](./recalculate-candidates)     | The engine, for a plan with no request of its own. Internal                                                                                                 |
-| [`confirm-meetup/`](./confirm-meetup)                     | The organiser locks a time in; it freezes there (§5.7)                                                                                                      |
-| [`report-outcome/`](./report-outcome)                     | "Did this catch-up happen?", and "I was there" (§5.10)                                                                                                      |
-| [`generate-ics/`](./generate-ics)                         | The confirmed meetup as a calendar file. A GET                                                                                                              |
-| [`request-email-updates/`](./request-email-updates)       | "Email me about this meetup", per plan and verified (§5.8)                                                                                                  |
-| [`verify-email-contact/`](./verify-email-contact)         | The link in the verification email. No session                                                                                                              |
-| [`manage-email-preferences/`](./manage-email-preferences) | Stopping it, with no sign-in. No session                                                                                                                    |
-| [`hello/`](./hello)                                       | The import-path smoke test from S0-06. Not a product endpoint                                                                                               |
+| Folder                                                    | What it does                                                                                                                                                    |
+| --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`_shared/`](./_shared)                                   | The kit every function is built from (S1-13)                                                                                                                    |
+| [`redeem-invite/`](./redeem-invite)                       | Join a circle from its link (spec §5.1)                                                                                                                         |
+| [`join-plan/`](./join-plan)                               | Join a circle from a plan's link, while it is taking answers ([ADR 0022](../../docs/decisions/0022-a-plan-link-admits-new-members-while-the-plan-is-asking.md)) |
+| [`reattach-member/`](./reattach-member)                   | "Continue as", and the emailed way back in ([ADR 0006](../../docs/decisions/0006-continue-as-reattachment-without-owner-approval.md))                           |
+| [`claim-identity/`](./claim-identity)                     | Reconcile memberships when somebody saves their place (§10)                                                                                                     |
+| [`create-circle/`](./create-circle)                       | A circle and the link that fills it, in one transaction (§5.1)                                                                                                  |
+| [`create-plan/`](./create-plan)                           | A named plan, from a preset and the circle's defaults (§5.3)                                                                                                    |
+| [`revise-plan/`](./revise-plan)                           | Edit, adjust or reopen — and say first what it would cost ([ADR 0017](../../docs/decisions/0017-quorum-and-deadline-adjust-a-plan-without-a-revision.md))       |
+| [`cancel-plan/`](./cancel-plan)                           | Call it off, with an optional note (§5.7)                                                                                                                       |
+| [`submit-availability/`](./submit-availability)           | One member's answer, and the engine run in the same request ([ADR 0018](../../docs/decisions/0018-the-recalculation-runs-in-the-request-that-caused-it.md))     |
+| [`recalculate-candidates/`](./recalculate-candidates)     | The engine, for a plan with no request of its own. Internal                                                                                                     |
+| [`confirm-meetup/`](./confirm-meetup)                     | The organiser locks a time in; it freezes there (§5.7)                                                                                                          |
+| [`report-outcome/`](./report-outcome)                     | "Did this catch-up happen?", and "I was there" (§5.10)                                                                                                          |
+| [`generate-ics/`](./generate-ics)                         | The confirmed meetup as a calendar file. A GET                                                                                                                  |
+| [`request-email-updates/`](./request-email-updates)       | "Email me about this meetup", per plan and verified (§5.8)                                                                                                      |
+| [`verify-email-contact/`](./verify-email-contact)         | The link in the verification email. No session                                                                                                                  |
+| [`manage-email-preferences/`](./manage-email-preferences) | Stopping it, with no sign-in. No session                                                                                                                        |
+| [`hello/`](./hello)                                       | The import-path smoke test from S0-06. Not a product endpoint                                                                                                   |
 
 ## The shape of a function
 
