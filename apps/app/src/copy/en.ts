@@ -307,26 +307,23 @@ export const en = {
     keep_thursday: 'Keep Thursday',
   },
   checkEmail: {
-    wrong_address_use_a_different_one_or:
-      "Wrong address? Use a different one . Or resend the link if it hasn't arrived in a few minutes.",
-    brand: '{brand}',
-    sunday_crew: 'Sunday Crew',
     check_your_email: 'Check your email.',
-    we_sent_a_link_to_priya_example:
-      'We sent a link to priya@example.com. Tap it to turn on updates for this meetup. The link works for 24 hours.',
+    we_sent_a_link_to:
+      'We sent a link to {address}. Tap it to turn on updates for this meetup. The link works for 24 hours.',
+    we_sent_you_a_link:
+      'We sent you a link. Tap it to turn on updates for this meetup. The link works for 24 hours.',
     your_times_are_already_in_nothing_here:
       'Your times are already in. Nothing here holds up the plan.',
     wrong_address: 'Wrong address?',
     use_a_different_one: 'Use a different one',
-    or: '. Or',
-    resend_the_link: 'resend the link',
-    if_it_hasnt_arrived_in_a_few: "if it hasn't arrived in a few minutes.",
-    rather_have_these_on_your_phone: 'Rather have these on your phone?',
-    the_app_gives_you_the_same_updates:
-      "The app gives you the same updates as a notification, one reminder before, and greys out your clashes next time you're asked. Nothing else.",
-    get_the_app: 'Get the app',
-    not_now: 'Not now',
-    back_to_sunday_crew: 'Back to Sunday Crew',
+    resend_the_link: 'Resend the link',
+    resending: 'Sending another',
+    resent: "We've asked for another link. It can take a few minutes to arrive.",
+    too_many_tries: "That's as many links as we send to one address in a day. Try again tomorrow.",
+    youre_offline: "You're offline. Connect, then try again.",
+    couldnt_send: "Something went wrong, so the link didn't go. Please try again.",
+    reference: 'Ref {reference}',
+    back_to_circle: 'Back to {circle}',
   },
   chooseMode: {
     sunday_crew: 'Sunday Crew',
@@ -711,28 +708,60 @@ export const en = {
     keep_the_plan_as_it_is: 'Keep the plan as it is',
   },
   emailPrefs: {
-    brand: '{brand}',
     email_preferences: 'Email preferences',
-    for_priya_example_com_no_sign_in:
-      'For priya@example.com. No sign-in needed. Changes apply straight away.',
-    sunday_crew_catch_up_thu_17_sep: 'Sunday Crew · Catch up, Thu 17 Sep',
+    no_sign_in_needed: 'No sign-in needed. Changes apply straight away.',
+    plan: '{circle} · {title}',
     confirmed_time_changes_and_one_reminder: 'Confirmed time, changes and one reminder',
+    stopped: 'Off. Ask for updates again from the plan to turn them back on.',
     turning_this_off_stops_emails_for_this:
       "Turning this off stops emails for this meetup only. The plan itself isn't affected.",
+    nothing_being_sent: "There's nothing being sent to this address right now.",
     remove_this_email_address_entirely: 'Remove this email address entirely',
+    remove_confirm:
+      'This stops every email about every meetup to this address, straight away, and this page stops working.',
+    remove_it: 'Remove my email address',
+    keep_it: 'Keep it',
+    removed: 'Your email address is gone.',
+    removed_body: "Nothing more will be sent to it, and this page won't open again.",
+    link_expired: 'This link has expired.',
+    link_expired_body: 'Use the link in the most recent email about the meetup.',
+    open_it_again: 'Open the link from your email again.',
+    open_it_again_body:
+      "The link is cleared from the address bar once it's opened, so a reload can't use it again.",
+    loading: 'Finding your email preferences',
+    couldnt_load: "We couldn't load your email preferences just now.",
+    couldnt_change: "Something went wrong, so that didn't change. Please try again.",
+    youre_offline: "You're offline. Connect, then try again.",
+    try_again: 'Try again',
+    reference: 'Ref {reference}',
   },
   emailVerified: {
-    brand: '{brand}',
-    sunday_crew: 'Sunday Crew',
     youll_hear_about_this_meetup_by_email: "You'll hear about this meetup by email.",
+    youll_hear_about_these_meetups_by_email: "You'll hear about these meetups by email.",
     only_this_one_well_send_the_confirmed:
-      "Only this one. We'll send the confirmed time, any important changes and one reminder.",
-    this_meetups_updates: "This meetup's updates",
-    on_priya_example_com: 'On · priya@example.com',
+      "We'll send the confirmed time, any important changes and one reminder. Nothing else.",
+    already_confirmed:
+      "Its time is already set. We'll send any important changes and one reminder.",
+    plan_on: '{circle} · {title}',
+    on: 'On',
     every_email_has_a_link_to_stop:
       'Every email has a link to stop these. No account has been created.',
-    back_to_sunday_crew: 'Back to Sunday Crew',
+    back_to_circle: 'Back to {circle}',
     save_access_on_every_device: 'Save access on every device',
+    verified_nothing_to_send: 'Your email address is verified.',
+    nothing_to_send_body:
+      "There's nothing to send to it right now: the meetup has finished, or you're no longer in that circle.",
+    link_expired: 'This link has expired.',
+    link_expired_body:
+      'A verification link works once, for 24 hours. Open the plan from your group chat and ask for updates again.',
+    open_it_again: 'Open the link from your email again.',
+    open_it_again_body:
+      "The link is cleared from the address bar once it's opened, so a reload can't use it again.",
+    checking: 'Checking the link',
+    couldnt_check: "We couldn't check this link just now.",
+    youre_offline: "You're offline. Connect, then try again.",
+    try_again: 'Try again',
+    reference: 'Ref {reference}',
   },
   emails: {
     emails_web_only_members: 'Emails · web-only members',
@@ -787,12 +816,17 @@ export const en = {
     create_your_first_circle: 'Create your first circle',
   },
   enterCode: {
-    didnt_get_it_check_spam_or_send: "Didn't get it? Check spam, or send another .",
     enter_the_code_we_emailed: 'Enter the code we emailed',
-    sent_to_maya_example_com_it_works: 'Sent to maya@example.com. It works for 10 minutes.',
-    didnt_get_it_check_spam_or: "Didn't get it? Check spam, or",
-    send_another: 'send another',
+    sent_to: 'Sent to {address}. It works for 10 minutes.',
+    code: 'Code',
     continue: 'Continue',
+    checking: 'Checking',
+    wrong_code: "That code didn't work. Check it, or send a new one.",
+    send_a_new_code: 'Send a new code',
+    new_code_sent: 'A new code is on its way.',
+    couldnt_save: "Something went wrong, so your place wasn't saved. Please try again.",
+    youre_offline: "You're offline. Connect, then try again.",
+    reference: 'Ref {reference}',
   },
   firstCircle: {
     step_1_of_2: 'Step 1 of 2',
@@ -1196,16 +1230,23 @@ export const en = {
     not_this_time: 'Not this time',
   },
   saveAccess: {
-    sunday_crew: 'Sunday Crew',
     keep_your_place_on_every_device: 'Keep your place on every device',
-    sign_in_with_your_email_and_youll:
-      "Sign in with your email and you'll never have to rejoin Sunday Crew from a new phone or browser. It's optional.",
+    sign_in_with_your_email:
+      "Sign in with your email and you'll never have to rejoin {circle} from a new phone or browser. It's optional.",
     your_email: 'Your email',
-    priya_example_com: 'priya@example.com',
+    you_example_com: 'you@example.com',
     well_send_a_one_time_code_this:
       "We'll send a one-time code. This is an account, so it's separate from meetup emails. It doesn't subscribe you to anything.",
+    not_an_address: "That doesn't look like an email address.",
     send_me_a_code: 'Send me a code',
+    sending: 'Sending',
     not_now: 'Not now',
+    already_saved: 'Your place is already saved.',
+    already_saved_body: "You're signed in, so you can get back to {circle} from any device.",
+    back: 'Back',
+    couldnt_send: "Something went wrong, so the code didn't go. Please try again.",
+    too_many_tries: 'Too many codes asked for just now. Wait a few minutes, then try again.',
+    youre_offline: "You're offline. Connect, then try again.",
   },
   secondSent: {
     prefer_email_turn_on_updates_for_this: 'Prefer email? Turn on updates for this meetup .',
@@ -1223,22 +1264,32 @@ export const en = {
     turn_on_updates_for_this_meetup: 'Turn on updates for this meetup',
   },
   sent: {
-    optional_save_your_access_on_every_device:
-      'Optional: save your access on every device so you never have to rejoin.',
-    brand: '{brand}',
-    sunday_crew: 'Sunday Crew',
-    thanks_priya_your_times_are_in: 'Thanks, Priya. Your times are in.',
-    maya_will_pick_a_time_once_replies:
-      'Maya will pick a time once replies close on Tuesday. The plan will land in the group chat.',
+    thanks_times_in: 'Thanks, {name}. Your times are in.',
+    thanks_answer_in: 'Thanks, {name}. Your answer is in.',
+    thanks_times_in_anonymous: 'Thanks. Your times are in.',
+    thanks_answer_in_anonymous: 'Thanks. Your answer is in.',
+    organiser_picks:
+      '{name} will pick a time once replies close on {day}. The plan will land in the group chat.',
+    time_gets_picked:
+      'A time gets picked once replies close on {day}. The plan will land in the group chat.',
     get_updates_about_this_meetup_by_email: 'Get updates about this meetup by email',
     well_send_the_confirmed_time_any_important:
       "We'll send the confirmed time, any important changes and one reminder. Verify your email to turn this on. Nothing else.",
+    your_email: 'Your email',
     you_example_com: 'you@example.com',
+    not_an_address: "That doesn't look like an email address.",
     send_verification_email: 'Send verification email',
+    sending: 'Sending',
     not_now: 'Not now',
-    optional: 'Optional:',
-    save_your_access_on_every_device: 'save your access on every device',
-    so_you_never_have_to_rejoin: 'so you never have to rejoin.',
+    too_many_tries: "That's as many links as we send to one address in a day. Try again tomorrow.",
+    youre_offline: "You're offline. Connect, then try again.",
+    couldnt_send: "Something went wrong, so the link didn't go. Please try again.",
+    reference: 'Ref {reference}',
+    save_access_note: 'Optional: save your access on every device, so you never have to rejoin.',
+    save_access: 'Save access on every device',
+    place_saved: 'Your place is saved. Sign in with {address} on any device to get back to it.',
+    finding_it: 'Finding your answer',
+    see_my_answer: 'Change my answer',
   },
   settings: {
     sunday_crew: 'Sunday Crew',

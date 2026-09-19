@@ -9,7 +9,7 @@ import { OpaqueToken, PlanId, ShortCode } from '../ids.js';
  * and expires in 24 hours, and the one before it was invalidated when this one
  * was issued, so a person who asked twice can only use the newest.
  *
- * `/v/:token` is a client route; the screen posts the token here rather than the
+ * `/v#<token>` is a client route; the screen posts the token here rather than the
  * link being the endpoint, so that what a mail scanner prefetches is a page and
  * not a consumption. A token spent by an antivirus proxy is a person told their
  * link has already been used.

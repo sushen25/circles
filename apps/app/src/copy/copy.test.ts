@@ -17,6 +17,16 @@ describe('the copy file', () => {
     }
   });
 
+  it('offers no marketing anywhere: plan email is the only email (S1-30, spec §5.8)', () => {
+    for (const [screen, strings] of Object.entries(en)) {
+      for (const [key, value] of Object.entries(strings)) {
+        expect(value as string, `${screen}.${key}`).not.toMatch(
+          /marketing|newsletter|promotion|special offer|product news/i,
+        );
+      }
+    }
+  });
+
   it('leaves no placeholder unfillable', () => {
     const known = new Set([
       'brand',
@@ -41,6 +51,9 @@ describe('the copy file', () => {
       'to',
       'label',
       'time',
+      // S1-30's.
+      'day',
+      'address',
     ]);
     for (const [screen, strings] of Object.entries(en)) {
       for (const [key, value] of Object.entries(strings)) {

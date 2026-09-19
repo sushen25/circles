@@ -2,7 +2,6 @@ import {
   Body,
   BodyText,
   Button,
-  Card,
   DisplayXL,
   Foot,
   Label,
@@ -10,68 +9,99 @@ import {
   Screen,
   Small,
   Tertiary,
-  Title,
   TopBar,
 } from '../../components';
-import { Row, Stack } from '../../components/layout';
+import { Stack } from '../../components/layout';
 import { t } from '../../copy';
-import type { Fixture } from '../../data/fixtures';
-import type { ScreenState } from '../state';
 
 /**
- * CheckEmail — scaffolded from `docs/design/CheckEmail.dc.html`.
+ * CheckEmail — `docs/design/CheckEmail.dc.html` (spec §5.8).
  *
- * Structure and copy come from the artboard; data comes from a fixture. Slice 1
- * replaces `fixture` with real data and `onNext` with real navigation. Edit
- * freely: `scripts/scaffold-screens.mjs` will not overwrite this file.
+ * It says "check your email" whatever happened, because the server says
+ * nothing else: an answer that told a verified address from an unknown one
+ * would let somebody learn which friends use the product. The app card on the
+ * artboard is Slice 3 (§5.11) and is not here.
  */
+export type CheckEmailProblem = 'too_many_tries' | 'offline' | 'couldnt_send';
+
 export type CheckEmailProps = {
-  fixture: Fixture;
-  state?: ScreenState | undefined;
-  /** The screen's one decision. */
-  onNext?: (() => void) | undefined;
+  circleName?: string | undefined;
+  /** What they typed, from memory; absent after a reload. */
+  address?: string | undefined;
+  resent?: boolean | undefined;
+  resending?: boolean | undefined;
+  problem?: CheckEmailProblem | undefined;
+  reference?: string | undefined;
+  onUseDifferentAddress?: (() => void) | undefined;
+  onResend?: (() => void) | undefined;
+  onBackToCircle?: (() => void) | undefined;
   onBack?: (() => void) | undefined;
-  onBackToSundayCrew?: (() => void) | undefined;
-  onGetTheApp?: (() => void) | undefined;
-  onNotNow?: (() => void) | undefined;
 };
 
+function problemCopy(problem: CheckEmailProblem): string {
+  switch (problem) {
+    case 'too_many_tries':
+      return t('checkEmail', 'too_many_tries');
+    case 'offline':
+      return t('checkEmail', 'youre_offline');
+    case 'couldnt_send':
+      return t('checkEmail', 'couldnt_send');
+  }
+}
+
 export function CheckEmailScreen({
+  circleName,
+  address,
+  resent = false,
+  resending = false,
+  problem,
+  reference,
+  onUseDifferentAddress,
+  onResend,
+  onBackToCircle,
   onBack,
-  onBackToSundayCrew,
-  onGetTheApp,
-  onNotNow,
 }: CheckEmailProps) {
   return (
     <Screen>
       <TopBar onBack={onBack} backLabel={t('common', 'back')} />
       <Body>
         <Stack>
-          <Label>{t('checkEmail', 'sunday_crew')}</Label>
+          {circleName === undefined ? null : <Label>{circleName}</Label>}
           <DisplayXL>{t('checkEmail', 'check_your_email')}</DisplayXL>
-          <BodyText>{t('checkEmail', 'we_sent_a_link_to_priya_example')}</BodyText>
+          <BodyText>
+            {address === undefined
+              ? t('checkEmail', 'we_sent_you_a_link')
+              : t('checkEmail', 'we_sent_a_link_to', { address })}
+          </BodyText>
         </Stack>
         <Notice kind="ok">{t('checkEmail', 'your_times_are_already_in_nothing_here')}</Notice>
-        <Small>{t('checkEmail', 'wrong_address_use_a_different_one_or')}</Small>
-        <Card>
-          <Row>
-            <Title>{t('checkEmail', 'rather_have_these_on_your_phone')}</Title>
-          </Row>
-          <BodyText>{t('checkEmail', 'the_app_gives_you_the_same_updates')}</BodyText>
-          <Button
-            label={t('checkEmail', 'get_the_app')}
-            variant="secondary"
-            onPress={onGetTheApp}
+        {resent && problem === undefined ? <Notice>{t('checkEmail', 'resent')}</Notice> : null}
+        {problem === undefined ? null : <Notice kind="warn">{problemCopy(problem)}</Notice>}
+        {reference === undefined ? null : (
+          <Small>{t('checkEmail', 'reference', { reference })}</Small>
+        )}
+        <Stack>
+          <Small>{t('checkEmail', 'wrong_address')}</Small>
+          <Tertiary
+            label={t('checkEmail', 'use_a_different_one')}
+            onPress={onUseDifferentAddress}
           />
-          <Tertiary label={t('checkEmail', 'not_now')} onPress={onNotNow} />
-        </Card>
+          {address === undefined ? null : (
+            <Tertiary
+              label={resending ? t('checkEmail', 'resending') : t('checkEmail', 'resend_the_link')}
+              onPress={resending ? undefined : onResend}
+            />
+          )}
+        </Stack>
       </Body>
       <Foot>
-        <Button
-          label={t('checkEmail', 'back_to_sunday_crew')}
-          variant="secondary"
-          onPress={onBackToSundayCrew}
-        />
+        {circleName === undefined ? null : (
+          <Button
+            label={t('checkEmail', 'back_to_circle', { circle: circleName })}
+            variant="secondary"
+            onPress={onBackToCircle}
+          />
+        )}
       </Foot>
     </Screen>
   );

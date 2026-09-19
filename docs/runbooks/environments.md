@@ -220,7 +220,7 @@ carrying that address goes out, or a reply from a real person disappears.
 `assetlinks.json` — Slice 3, but do not let anything else claim the path.
 
 Paths reserved on the domain (§5.2), so nothing else may take them:
-`/join`, `/j/<code>`, `/p/<code>`, `/a/<token>`, `/e/<token>`, `/v/<token>`.
+`/join`, `/j/<code>`, `/p/<code>`, `/a`, `/e`, `/v` (the last three carry their token in the fragment, `/a#<token>`, which the host never sees — ADR 0023).
 
 ## Configuration, and the line secrets do not cross
 

@@ -8,7 +8,7 @@ import { CORS, reference, respond } from './respond.ts';
 /**
  * The skeleton for a function a **link** authorises.
  *
- * `/v/:token` and `/e/:token` are opened by somebody who may have no account,
+ * `/v#<token>` and `/e#<token>` (ADR 0023) are opened by somebody who may have no account,
  * no session and no memory of the circle — reading an email on a borrowed
  * phone, three months after the fact. Requiring a JWT would make "stop these
  * emails" need a sign-in, which the Spam Act answer and spec §5.8 both say it

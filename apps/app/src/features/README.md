@@ -40,6 +40,13 @@ still asking (`PlanLinkFlow`), and the member candidates screen otherwise.
 `Offline.dc.html` is a state of `/j/[code]` (`OfflineScreen`, offline and
 error); `/offline` renders it for the gallery.
 
+**Real since S1-30:** `/j/[code]/sent` (`SentFlow`), `/j/[code]/check-email`
+(`CheckEmailFlow`) and `/j/[code]/save-access` (`SaveAccessFlow`, which uses
+`EnterCodeScreen` for the code). The two emailed pages are `/v` and `/e`, with
+their token in the fragment (`/v#<token>`, ADR 0023), as is re-entry at `/a`:
+the entry point takes the token out of the address bar before the router loads
+(`data/links/tokens.ts`). `EmailVerifyFlow` and `EmailPrefsFlow` need no session.
+
 ### circles
 
 | Artboard                      | Route                           | Component                   |
@@ -61,8 +68,8 @@ error); `/offline` renders it for the gallery.
 | Artboard                       | Route                     | Component                    |
 | ------------------------------ | ------------------------- | ---------------------------- |
 | `CheckEmail.dc.html`           | `/j/[code]/check-email`   | `CheckEmailScreen`           |
-| `EmailPrefs.dc.html`           | `/e/[token]`              | `EmailPrefsScreen`           |
-| `EmailVerified.dc.html`        | `/v/[token]`              | `EmailVerifiedScreen`        |
+| `EmailPrefs.dc.html`           | `/e` (`#token`)           | `EmailPrefsScreen`           |
+| `EmailVerified.dc.html`        | `/v` (`#token`)           | `EmailVerifiedScreen`        |
 | `NotificationSettings.dc.html` | `/settings/notifications` | `NotificationSettingsScreen` |
 | `PushAsk.dc.html`              | `/settings/push`          | `PushAskScreen`              |
 

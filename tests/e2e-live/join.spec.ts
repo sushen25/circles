@@ -194,8 +194,14 @@ test('the emailed re-entry link restores access without the list', async ({ page
     }).observe(document, { subtree: true, childList: true, characterData: true });`,
   });
 
-  await page.goto(`/a/${token}`);
+  // The token rides in the fragment (ADR 0023): no request this page makes —
+  // to the web host or anywhere else — may carry it in its URL.
+  const urls: string[] = [];
+  page.on('request', (request) => urls.push(request.url()));
+
+  await page.goto(`/a#${token}`);
   await expect(page).toHaveURL(new RegExp(`/j/${crew.planCode}$`));
+  expect(urls.filter((url) => url.includes(token))).toEqual([]);
   expect(await page.evaluate('window.sawList === true')).toBe(false);
 
   const now = memberNamed(crew.circleId, 'Tom');
@@ -205,6 +211,6 @@ test('the emailed re-entry link restores access without the list', async ({ page
   // Single use: the same link again, from a browser with nothing in it, is
   // expired and says so neutrally.
   await page.evaluate(() => localStorage.clear());
-  await page.goto(`/a/${token}`);
+  await page.goto(`/a#${token}`);
   await expect(page.getByText('This link has expired.')).toBeVisible();
 });

@@ -6,13 +6,16 @@ import { track } from '../../../analytics/track';
 import { hasBackend } from '../../../data/auth/client';
 import { sessionState, signOut } from '../../../data/auth/session';
 import { newIdempotencyKey } from '../../../data/functions';
+import { heldToken } from '../../../data/links/tokens';
 import { arrivalFor, reattachWithToken } from '../../../data/membership';
 import { ContinueAsScreen } from '../ContinueAsScreen';
 import { LinkInvalidScreen, type LinkInvalidReason } from '../LinkInvalidScreen';
 import { failureOf } from './failure';
 
 /**
- * `/a/:token` — the link in every plan-update email (spec §5.1, ADR 0006).
+ * `/a#<token>` — the link in every plan-update email (spec §5.1, ADR 0006). The
+ * token is in the fragment and was taken out of the address bar by the entry
+ * point before the router loaded (ADR 0023); `heldToken` is where it waits.
  *
  * The same reattachment Continue-as makes, authorised by a single-use token
  * instead of by a pick from the list, so the person never sees the list at all.
@@ -23,7 +26,7 @@ import { failureOf } from './failure';
  * still has a link that works. The exception is a membership that has since
  * saved its place: that link is not broken, it is a link to an account.
  */
-export function ReentryFlow({ token }: { token: string | undefined }) {
+export function ReentryFlow({ token = heldToken('reentry') }: { token?: string | undefined } = {}) {
   const router = useRouter();
   const [failed, setFailed] = useState<LinkInvalidReason | undefined>();
   const [offline, setOffline] = useState(false);

@@ -51,12 +51,12 @@ const SCREENS: ScreenEntry[] = [
   {
     screen: 'EmailVerified',
     feature: 'communication',
-    href: '/v/[token]',
+    href: '/v',
   },
   {
     screen: 'EmailPrefs',
     feature: 'communication',
-    href: '/e/[token]',
+    href: '/e',
   },
   {
     screen: 'SaveAccess',

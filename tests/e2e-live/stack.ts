@@ -316,3 +316,66 @@ export function answerOf(
 export function firstDayOf(planId: string): string {
   return sql(`select window_start from public.plans where id = '${planId}'`)[0]![0]!;
 }
+
+/** The email contact `userId` has, as its status (`pending`, `verified`), or undefined. */
+export function emailContactOf(userId: string): string | undefined {
+  return sql(`select status from private.email_contacts where user_id = '${userId}'`)[0]?.[0];
+}
+
+/** Whether `userId`'s updates for `planId` are still active. */
+export function subscriptionOf(userId: string, planId: string): string | undefined {
+  return sql(`select status from private.email_subscriptions
+    where user_id = '${userId}' and plan_id = '${planId}'`)[0]?.[0];
+}
+
+/**
+ * A verification token for `userId`'s contact, minted the way the sender mints
+ * one (ADR 0020): only its digest is stored, and the readable token is returned
+ * here, as it would be put into the email.
+ */
+export function verifyTokenFor(userId: string): string {
+  const token = randomBytes(32).toString('base64url');
+  sql(`select public.issue_verification_token(
+    (select id from private.email_contacts where user_id = '${userId}'),
+    extensions.digest('${token}', 'sha256'))`);
+  return token;
+}
+
+/** A preferences token for `userId`'s contact. The sender that issues these is S1-19's. */
+export function prefsTokenFor(userId: string): string {
+  const token = randomBytes(32).toString('base64url');
+  sql(`insert into private.email_action_tokens (contact_id, purpose, token_hash, expires_at)
+    values ((select id from private.email_contacts where user_id = '${userId}'), 'prefs',
+      extensions.digest('${token}', 'sha256'), now() + interval '30 days')`);
+  return token;
+}
+
+/** Whether `userId` is still a guest. */
+export function isAnonymousUser(userId: string): boolean {
+  return sql(`select is_anonymous from auth.users where id = '${userId}'`)[0]?.[0] === 't';
+}
+
+/**
+ * The newest six-digit code the local auth server mailed to `address`, from the
+ * mail catcher (`scripts/local-mail.mjs` reads the same API).
+ */
+export async function latestCodeFor(address: string): Promise<string> {
+  const base = process.env.MAILPIT_URL ?? 'http://127.0.0.1:54324';
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const list = (await (
+      await fetch(`${base}/api/v1/search?query=${encodeURIComponent(`to:${address}`)}`)
+    ).json()) as {
+      messages?: { ID: string }[];
+    };
+    const newest = list.messages?.[0];
+    if (newest !== undefined) {
+      const message = (await (await fetch(`${base}/api/v1/message/${newest.ID}`)).json()) as {
+        Text?: string;
+      };
+      const code = /\b(\d{6})\b/.exec(message.Text ?? '')?.[1];
+      if (code !== undefined) return code;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  throw new Error('no code arrived at the mail catcher');
+}

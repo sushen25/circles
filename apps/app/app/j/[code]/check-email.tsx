@@ -1,12 +1,15 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 
-import { useFixture } from '../../../src/data/fixtures/useFixture';
-import { CheckEmailScreen } from '../../../src/features/communication/CheckEmailScreen';
+import { CheckEmailFlow } from '../../../src/features/communication/CheckEmailFlow';
+import { MembershipGate } from '../../../src/features/identity/join/MembershipGate';
 
 /** Route only — thin composition, no logic (architecture §7.1). */
 export default function Route() {
-  const router = useRouter();
-  const fixture = useFixture();
+  const { code } = useLocalSearchParams<{ code: string }>();
 
-  return <CheckEmailScreen fixture={fixture} onBack={() => router.back()} />;
+  return (
+    <MembershipGate target={{ kind: 'plan', code }}>
+      <CheckEmailFlow code={code} />
+    </MembershipGate>
+  );
 }
