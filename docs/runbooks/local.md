@@ -17,6 +17,59 @@ are in [`AGENTS.md`](../../AGENTS.md).
 - **Docker**, running. The whole backend is containers.
 - **`psql`**, for the SQL snippets below and for the live e2e suite.
 
+## The short version: `make`
+
+A `Makefile` at the root wraps the commands below, so the common things are one
+word. `make` on its own lists every target. Each one runs a `pnpm` script or a
+command from this page, which stays the explanation of what it does.
+
+```bash
+make setup    # first run: Corepack, dependencies, packages built, stack up, app env written
+make dev      # stack up, env written, packages built, web app on http://localhost:8081
+```
+
+| You want | Run |
+|---|---|
+| **The app, against the local stack, with live reload** | `make dev` (http://localhost:8081) |
+| The same build the live e2e suite serves (exported, no Metro) | `make dev-live` (http://localhost:8082) |
+| **Stop everything**: the app servers on 8081, 8082 and 8083, then the stack (data kept) | `make dev-down` |
+| Start, stop, restart the stack | `make up`, `make down`, `make restart` |
+| Fresh seed data | `make reset` |
+| Throw the stack's data away | `make nuke` |
+| The stack's URLs and keys | `make status` |
+| Rewrite `apps/app/.env.local` from the running stack | `make env` |
+| **Edge Function logs**, following | `make logs` (one JSON line per request) |
+| Only the failed requests | `make logs-errors` |
+| Postgres, auth, API gateway logs | `make logs-db`, `make logs-auth`, `make logs-api` |
+| A psql shell | `make psql` |
+| One statement | `make sql Q="select count(*) from public.circles"` |
+| Clear the rate limits ("Too many tries") | `make limits` |
+| Captured emails; a sign-in code | `make mail`, `make mail TO=someone@example.com` |
+| Studio and Mailpit in the browser | `make studio` |
+| Regenerate SQL functions and database types | `make gen` (resets the database), or `make types` alone |
+| Everything CI runs | `make check` |
+| Tests | `make test-unit`, `make test-db`, `make test-live G="part of a name"`, `make test-smoke` |
+
+The log targets look back ten minutes and keep following. `SINCE=` changes how
+far back, and `FOLLOW=` prints and exits: `make logs SINCE=1h FOLLOW=`. When a
+screen shows **"Ref XXXX"**, that's the request's reference, and
+`make logs FOLLOW= SINCE=1h | grep -i XXXX` finds its line. Function logs never
+carry a token, an address or a name (non-negotiable 8).
+
+`make dev` and `make dev-live` are the same app against the same stack.
+`dev` is Metro with live reload, for writing code. `dev-live` is the exported
+build the live e2e suite serves, for checking a PR's testing notes; it does not
+pick up edits until it is run again. Stop `dev-live` (or `make dev-down`)
+before `make check` or `make test-live`: the suite reuses a server already on
+8082, whatever build it is serving. `dev-down` stops only `node` processes
+listening on those ports, so anything else of yours on them is left alone.
+
+`make restart` is the one to reach for after adding an Edge Function folder or
+when every function returns `BOOT_ERROR` (see *When it goes wrong*): the functions
+container only sees files that existed when the stack started.
+
+The numbered sections below are the long version: what each step does, and why.
+
 ## 1. Install and start the backend
 
 ```bash
@@ -181,8 +234,8 @@ suite behaves as though it got the other suite's build, look for a stray
 - **Every Edge Function returns `BOOT_ERROR`** and the log names a module that
   exists. A new file appeared in `packages/*/dist` after the stack started, and
   the functions container cannot see it. Run `pnpm db:stop && pnpm db:start`;
-  restarting that one container is not enough. The log is
-  `docker logs supabase_edge_runtime_circles`.
+  restarting that one container is not enough (`make restart`). The log is
+  `make logs`, which is `docker logs supabase_edge_runtime_circles`.
 - **A screen shows Sunday Crew but nothing reaches the database.** You are in
   fixture mode. Check `apps/app/.env.local` exists, is in `apps/app/`, and that
   the dev server printed `env: load .env.local`. Restart it after creating it.
@@ -191,7 +244,7 @@ suite behaves as though it got the other suite's build, look for a stray
   `pnpm dev:web --clear`.
 - **"Too many tries" or `too_many_requests`.** The rate limits count per
   address, and locally every request comes from the same one. Clear them with
-  `delete from jobs.rate_counters;`.
+  `make limits`, which runs `delete from jobs.rate_counters;`.
 - **"This link has expired" on a re-entry link you just made.** It is single
   use. Mint another.
 - **`db:start` says a port is in use.** Another Supabase project is running.
