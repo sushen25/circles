@@ -86,6 +86,16 @@ describe('the day grid', () => {
     ).toEqual(['Morn', 'Aft', 'Any', 'Eve']);
   });
 
+  it('names the day after the chip that was tapped where two blocks are the same hours (round 1)', () => {
+    // A custom morning plan: Morning and Any time are both 9 am to noon, and
+    // only Morning is offered, so the day it paints must read "Morn".
+    const { run, view } = setUp({ ...EVENINGS, daily: { startMin: 9 * 60, endMin: 12 * 60 } });
+    const state = run({ type: 'tick', day: 0 }, { type: 'block', kind: 'morning' });
+
+    expect(view(state).panel!.blocks.map((b) => b.kind)).toEqual(['morning']);
+    expect(view(state).grid[0]!.tag).toBe('Morn');
+  });
+
   it('puts each day under its weekday, Monday first, whatever day the plan starts on', () => {
     const { rows } = setUp({
       ...EVENINGS,

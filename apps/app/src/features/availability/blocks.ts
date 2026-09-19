@@ -50,12 +50,13 @@ export function blockMask(kind: BlockKind, row: DayRow, timing: PlanTiming): boo
  * The short word on a day in the grid: the block the day's cells are exactly,
  * or `some` for anything else, or nothing when the day has no times.
  *
- * Evening is asked before Any time, so on an evenings plan — where the two are
- * the same hours — a painted evening reads "Eve" rather than "Any".
+ * Asked in the order the chips are offered, so the tag names the chip that
+ * was tapped: where two blocks are the same cells, the one kept by
+ * `offeredBlocks` is the first, and so is the one that names the day. On an
+ * evenings plan a painted evening reads "Eve" rather than "Any"; on a 9 am to
+ * noon plan a painted morning reads "Morn" (review round 1).
  */
 export type DayTag = BlockKind | 'some';
-
-const TAG_ORDER: readonly BlockKind[] = ['evening', 'any_time', 'morning', 'afternoon'];
 
 export function dayTag(
   cells: readonly boolean[],
@@ -63,7 +64,7 @@ export function dayTag(
   timing: PlanTiming,
 ): DayTag | undefined {
   if (!cells.some(Boolean)) return undefined;
-  for (const kind of TAG_ORDER) {
+  for (const kind of BLOCKS) {
     const mask = blockMask(kind, row, timing);
     if (
       mask !== undefined &&
