@@ -1,4 +1,10 @@
-import { acceptsAnswers, fromISO, type Instant, type PlanState } from '@circles/domain';
+import {
+  acceptsAnswers,
+  ANSWERABLE_STATES,
+  fromISO,
+  type Instant,
+  type PlanState,
+} from '@circles/domain';
 import type { CircleId, ShortCode } from '@circles/contracts';
 
 import { authClient } from '../auth/client';
@@ -32,14 +38,11 @@ export type PlanAccess =
     }
   | { membership: 'not_member' };
 
-export async function planAccess(
-  code: ShortCode,
-  now: Instant = fromISO(new Date().toISOString()),
-): Promise<PlanAccess> {
+export async function planAccess(code: ShortCode): Promise<PlanAccess> {
   const client = authClient();
   const { data, error } = await client
     .from('plans')
-    .select('id, circle_id, state, revision, response_deadline')
+    .select('id, circle_id, state, revision')
     .eq('short_code', code)
     .maybeSingle();
 
@@ -47,7 +50,11 @@ export async function planAccess(
   if (data === null) return { membership: 'not_member' };
 
   const state = data.state as PlanState;
-  const asking = acceptsAnswers({ state, responseDeadline: fromISO(data.response_deadline) }, now);
+  // The state only, not the deadline. The deadline is the server's to judge:
+  // a phone whose clock runs ahead would decide the plan had closed, never ask,
+  // and leave somebody unable to answer a plan that is still open. After the
+  // deadline `join-plan` says `invite_inactive`, which costs one request.
+  const asking = ANSWERABLE_STATES.includes(state);
 
   // Only asked about when it could matter: a plan that is not asking has
   // nothing to add anybody to, and the read is one more round trip.

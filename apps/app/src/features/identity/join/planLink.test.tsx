@@ -153,6 +153,17 @@ describe('a guest, in a circle that has guests', () => {
   });
 });
 
+describe('a guest whose circle lookup fails', () => {
+  it('is offered Try again, not a name step with a blank where the circle should be', async () => {
+    guestMembersFor.mockResolvedValue({ kind: 'listed', members: [] });
+    circleNameForCode.mockRejectedValue(new Error('network'));
+    arrive();
+
+    expect(await screen.findByRole('button', { name: 'Try again' })).toBeTruthy();
+    expect(screen.queryByText('What should the group call you?')).toBeNull();
+  });
+});
+
 describe('a guest, in a circle with no guests', () => {
   it('never sees "Which one is you?": there is nobody to be', async () => {
     guestMembersFor.mockResolvedValue({ kind: 'listed', members: [] });

@@ -103,6 +103,22 @@ export function ContinueAsFlow({ code, arrivedWithoutSession, onReattached }: Co
 
   // Waiting on the name as well, when it is going straight to the name step:
   // that screen's title and its "Someone in {circle}…" need it.
+  // The name is the title of every screen here, and the name step quotes it
+  // ("Someone in Sunday Crew is already called…"). A failed lookup is an error
+  // with a retry, not a screen with a blank where the circle should be.
+  if (circleName.isError) {
+    return (
+      <ContinueAsScreen
+        state={isOffline() ? 'offline' : 'error'}
+        onRetry={() => {
+          void circleName.refetch();
+          void guests.refetch();
+        }}
+        onBack={back}
+      />
+    );
+  }
+
   if ((imNew || nobodyToBe) && !signedIn) {
     if (circleName.isPending) {
       return <ContinueAsScreen circleName={title} state="loading" onBack={back} />;
