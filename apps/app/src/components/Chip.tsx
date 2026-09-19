@@ -17,9 +17,11 @@ type Props = {
   detail?: string | undefined;
   selected?: boolean | undefined;
   onPress?: (() => void) | undefined;
+  /** Shown but not in play, and said so: not a checkbox that silently does nothing. */
+  disabled?: boolean | undefined;
 };
 
-export function Chip({ label, detail, selected = false, onPress }: Props) {
+export function Chip({ label, detail, selected = false, onPress, disabled = false }: Props) {
   const palette = usePalette();
   const ink = selected ? palette.onAccent : palette.ink;
 
@@ -28,8 +30,10 @@ export function Chip({ label, detail, selected = false, onPress }: Props) {
       role="checkbox"
       aria-label={detail === undefined ? label : `${label}, ${detail}`}
       aria-checked={selected}
+      aria-disabled={disabled}
+      disabled={disabled}
       onPress={onPress}
-      {...spaceToPress(onPress)}
+      {...(disabled ? {} : spaceToPress(onPress))}
       style={[
         styles.chip,
         detail !== undefined && styles.twoLine,

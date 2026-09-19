@@ -305,8 +305,19 @@ describe('days first, then a time once (ADR 0024)', () => {
     await screen.findByText('6:30–10:30 pm');
 
     fireEvent.click(screen.getByRole('button', { name: /^Monday.*Adjust by the half hour$/ }));
+    fireEvent.click(dayButton('Wednesday', 16));
     fireEvent.click(screen.getByRole('switch', { name: "I'm easy" }));
     expect(dayButton('Tuesday', 15)).toHaveAttribute('aria-disabled', 'true');
+    // The panel's chips say they are out of play, and are (round 2).
+    expect(screen.getByRole('checkbox', { name: /^Evening/ })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+    fireEvent.click(screen.getByRole('checkbox', { name: /^Evening/ }));
+    expect(screen.getByRole('checkbox', { name: /^Evening/ })).toHaveAttribute(
+      'aria-checked',
+      'false',
+    );
     // The open day stays where it was, faded, rather than folding away.
     expect(mondayAt('6:30', '7 pm')).toHaveAttribute('aria-disabled', 'true');
     fireEvent.click(mondayAt('6:30', '7 pm'));

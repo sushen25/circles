@@ -76,7 +76,8 @@ export function DayPicker({
                   label={block.label}
                   detail={block.detail}
                   selected={block.on}
-                  onPress={live ? () => onBlock?.(block.kind) : undefined}
+                  disabled={!live}
+                  onPress={() => onBlock?.(block.kind)}
                 />
               ))}
             </Chips>

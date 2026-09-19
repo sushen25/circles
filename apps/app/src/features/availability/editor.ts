@@ -155,7 +155,9 @@ export function editorReducer(
       case 'load':
         return action.state;
       case 'flexible':
-        return { ...state, flexible: action.on };
+        // A change of answer, from times to "I'm easy" or back: Start over's
+        // Undo ends here as it does for any other (review round 2).
+        return { ...state, flexible: action.on, undo: undefined };
       case 'paint':
         return answer(
           state,

@@ -228,6 +228,19 @@ describe('start over', () => {
     expect(run(changed, { type: 'undo' }).days).toEqual(changed.days);
   });
 
+  it("ends the chance to undo when the answer becomes I'm easy, even if it is turned off again (round 2)", () => {
+    const { run, start } = setUp(EVENINGS);
+    const cleared = run(start, { type: 'whole_day', day: TUE }, { type: 'start_over' });
+
+    const easyAndBack = run(
+      cleared,
+      { type: 'flexible', on: true },
+      { type: 'flexible', on: false },
+    );
+    expect(easyAndBack.undo).toBeUndefined();
+    expect(run(easyAndBack, { type: 'undo' }).days).toEqual(cleared.days);
+  });
+
   it('does nothing to an empty answer, so there is nothing to undo', () => {
     const { run, start } = setUp(EVENINGS);
 
