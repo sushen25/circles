@@ -10,6 +10,7 @@ import { circleNameForCode, guestMembersFor, reattachFromList } from '../../../d
 import { ContinueAsScreen, type ContinueProblem } from '../ContinueAsScreen';
 import { LinkInvalidScreen } from '../LinkInvalidScreen';
 import { failureOf, isOffline } from './failure';
+import { useHaveAccount } from './haveAccount';
 import { PlanNameFlow } from './PlanNameFlow';
 
 /**
@@ -42,6 +43,7 @@ export function ContinueAsFlow({ code, arrivedWithoutSession, onReattached }: Co
   const router = useRouter();
   const session = useSession();
   const signedIn = session.status === 'saved' || session.status === 'app';
+  const haveAccount = useHaveAccount();
 
   const [busyKey, setBusyKey] = useState<string | undefined>();
   const [problem, setProblem] = useState<ContinueProblem | undefined>();
@@ -216,7 +218,7 @@ export function ContinueAsFlow({ code, arrivedWithoutSession, onReattached }: Co
         if (member !== undefined) void pick(member);
       }}
       onImNewHere={() => setImNew(true)}
-      onSignIn={() => router.push('/sign-in')}
+      onSignIn={haveAccount}
       onBack={back}
     />
   );

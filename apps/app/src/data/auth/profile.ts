@@ -109,3 +109,70 @@ export async function ownDisplayName(): Promise<string | null> {
   const name = data?.display_name;
   return name === undefined || name === DEFAULT_NAME ? null : name;
 }
+
+/**
+ * What the Your name screen starts from: the name this account has chosen, or
+ * null while it still carries the placeholder, and the zone it has.
+ *
+ * `zone` is null while the profile still says the trigger's `UTC`, for the same
+ * reason the name is: a default nobody chose is not an answer, and the screen
+ * should offer the device's zone rather than confirm a placeholder.
+ */
+export interface OwnProfile {
+  name: string | null;
+  zone: string | null;
+}
+
+export async function ownProfile(): Promise<OwnProfile | null> {
+  const client = authClient();
+  const { data: sessionData } = await client.auth.getSession();
+  const userId = sessionData.session?.user.id;
+  if (userId === undefined) return null;
+
+  const { data, error } = await client
+    .from('profiles')
+    .select('display_name, time_zone')
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (error !== null) throw new Error('profile lookup failed');
+  if (data === null) return null;
+  return {
+    name: data.display_name === DEFAULT_NAME ? null : data.display_name,
+    zone: data.time_zone === DEFAULT_ZONE ? null : data.time_zone,
+  };
+}
+
+/**
+ * The Your name screen's answer (spec §5.1 step 3): both fields, whatever they
+ * were, because this is the person choosing rather than a bootstrap guessing.
+ *
+ * The name is judged by the domain's rule before it is sent, and a name that
+ * fails it is refused here rather than at `circle_members_name_length` later.
+ * The zone is checked by `enforce_iana_zone` in the database as well; the
+ * screen only ever offers zones this runtime recognises.
+ *
+ * Throws without the name or the zone in the message: an exception message
+ * ends up in a log (non-negotiable 8).
+ */
+export class ProfileNameError extends Error {
+  constructor() {
+    super('not a usable display name');
+    this.name = 'ProfileNameError';
+  }
+}
+
+export async function saveProfile(input: { name: string; zone: string }): Promise<void> {
+  const name = normaliseDisplayName(input.name);
+  if (!isValidDisplayName(name)) throw new ProfileNameError();
+
+  const client = authClient();
+  const { data: sessionData } = await client.auth.getSession();
+  const userId = sessionData.session?.user.id;
+  if (userId === undefined) throw new Error('no session to save a profile for');
+
+  const { error } = await client
+    .from('profiles')
+    .update({ display_name: name, time_zone: input.zone })
+    .eq('user_id', userId);
+  if (error !== null) throw new Error('profile save failed');
+}

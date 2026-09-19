@@ -18,8 +18,15 @@ export { guard } from './guards';
 export type { GuardDecision, GuardInput, Membership, RouteKind } from './guards';
 export { SavePlaceError, resumePendingClaim, savePlace } from './link';
 export type { SaveMoment, SavePlaceOptions, SavedPlace } from './link';
-export { bootstrapProfile, deviceTimeZone, ownDisplayName } from './profile';
-export type { ProfileBootstrap } from './profile';
+export {
+  ProfileNameError,
+  bootstrapProfile,
+  deviceTimeZone,
+  ownDisplayName,
+  ownProfile,
+  saveProfile,
+} from './profile';
+export type { OwnProfile, ProfileBootstrap } from './profile';
 export {
   requestLinkCode,
   requestSignInCode,
@@ -27,6 +34,7 @@ export {
   submitSignInCode,
 } from './providers/email';
 export type { ProviderId, SignedIn } from './providers/types';
+export { safeReturnPath } from './returnPath';
 export { sessionState, signOut, startSessionTracking, useSession } from './session';
 export type { SessionState, SessionStatus } from './session';
 export { getTurnstileToken } from './turnstile';

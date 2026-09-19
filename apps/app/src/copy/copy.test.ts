@@ -54,6 +54,8 @@ describe('the copy file', () => {
       // S1-30's.
       'day',
       'address',
+      // S1-22's: "Priya and Tom just joined".
+      'other',
     ]);
     for (const [screen, strings] of Object.entries(en)) {
       for (const [key, value] of Object.entries(strings)) {

@@ -9,8 +9,10 @@ import {
   Foot,
   Input,
   Label,
+  Notice,
   Screen,
   Small,
+  TopBar,
 } from '../../components';
 import { Stack } from '../../components/layout';
 import { t } from '../../copy';
@@ -18,37 +20,100 @@ import type { Fixture } from '../../data/fixtures';
 import type { ScreenState } from '../state';
 
 /**
- * SignIn — scaffolded from `docs/design/SignIn.dc.html`.
+ * SignIn — `docs/design/SignIn.dc.html`: the email half of signing in
+ * (spec §5.1 step 2). The code half is `EnterCodeScreen`; `SignInFlow` drives
+ * both.
  *
- * Structure and copy come from the artboard; data comes from a fixture. Slice 1
- * replaces `fixture` with real data and `onNext` with real navigation. Edit
- * freely: `scripts/scaffold-screens.mjs` will not overwrite this file.
+ * `returning` is somebody sent here from a plan link by "I have an account"
+ * (ADR 0022): the headline says what they are doing, and the fine print does
+ * not tell them friends never need an account, which is not the question.
  */
+export type SignInProblem = 'not_an_address' | 'couldnt_send' | 'too_many_tries' | 'offline';
+
 export type SignInProps = {
-  fixture: Fixture;
+  fixture?: Fixture | undefined;
   state?: ScreenState | undefined;
-  /** The screen's one decision. */
+  email?: string | undefined;
+  problem?: SignInProblem | undefined;
+  busy?: boolean | undefined;
+  returning?: boolean | undefined;
+  onEmailChange?: ((email: string) => void) | undefined;
+  onSendCode?: (() => void) | undefined;
+  /** The fixture journey's next step, when there is no backend. */
   onNext?: (() => void) | undefined;
   onBack?: (() => void) | undefined;
 };
 
-export function SignInScreen({ onNext }: SignInProps) {
+function problemCopy(problem: SignInProblem): string {
+  switch (problem) {
+    case 'not_an_address':
+      return t('signIn', 'not_an_address');
+    case 'couldnt_send':
+      return t('signIn', 'couldnt_send');
+    case 'too_many_tries':
+      return t('signIn', 'too_many_tries');
+    case 'offline':
+      return t('signIn', 'youre_offline');
+  }
+}
+
+export function SignInScreen({
+  email = '',
+  problem,
+  busy = false,
+  returning = false,
+  onEmailChange,
+  onSendCode,
+  onNext,
+  onBack,
+}: SignInProps) {
+  const send = onSendCode ?? onNext;
+
   return (
     <Screen>
+      <TopBar onBack={onBack} backLabel={t('common', 'back')} />
       <Body>
         <DisplayL>{brand.name}</DisplayL>
         <Stack>
-          <DisplayXL>{t('signIn', 'make_room_for_each_other')}</DisplayXL>
-          <BodyText>{t('signIn', 'find_a_time_your_friends_are_actually')}</BodyText>
+          <DisplayXL>
+            {returning
+              ? t('signIn', 'sign_in_to_your_account')
+              : t('signIn', 'make_room_for_each_other')}
+          </DisplayXL>
+          <BodyText>
+            {returning
+              ? t('signIn', 'well_bring_you_back')
+              : t('signIn', 'find_a_time_your_friends_are_actually')}
+          </BodyText>
         </Stack>
         <Stack>
           <Label>{t('signIn', 'your_email')}</Label>
-          <Input placeholder={t('signIn', 'maya_example_com')} />
+          <Input
+            aria-label={t('signIn', 'your_email')}
+            placeholder={t('signIn', 'maya_example_com')}
+            value={email}
+            onChangeText={onEmailChange}
+            autoComplete="email"
+            inputMode="email"
+            autoCapitalize="none"
+            autoCorrect={false}
+            autoFocus
+            onSubmitEditing={send}
+          />
         </Stack>
-        <Small>{t('signIn', 'well_email_a_one_time_code_no')}</Small>
+        <Small>
+          {returning
+            ? t('signIn', 'well_email_a_code')
+            : t('signIn', 'well_email_a_one_time_code_no')}
+        </Small>
+        {problem === undefined ? null : <Notice kind="warn">{problemCopy(problem)}</Notice>}
       </Body>
       <Foot>
-        <Button label={t('signIn', 'send_me_a_code')} onPress={onNext} />
+        <Button
+          label={busy ? t('signIn', 'sending') : t('signIn', 'send_me_a_code')}
+          onPress={send}
+          disabled={busy}
+        />
       </Foot>
     </Screen>
   );

@@ -63,6 +63,18 @@ the entry point takes the token out of the address bar before the router loads
 | `InviteCircle.dc.html`        | `/circles/[id]/invite`          | `InviteCircleScreen`        |
 | `Settings.dc.html`            | `/circles/[id]/settings`        | `SettingsScreen`            |
 
+**Real since S1-22:** `/circles/new` (`FirstCircleFlow`, through `create-circle`),
+`/circles/[id]/invite` (`InviteCircleFlow`) and `/circles/[id]` (`CircleHomeFlow`).
+The invite secret comes back from `create-circle` once and is held in memory
+(`data/circles/invite.ts`) for the invite screen; after a reload that screen
+says the link is shown only when it is made (reset is S1-23's). The circle home
+is live in two states — filling up (`CircleHomeJoiningScreen`, polled every
+15 s) and finding a time (`CircleHomeScreen`); a circle in any other state shows
+the filling-up home until the confirmed and due states are built. `?state=`
+still picks a fixture state when there is no backend. Sharing goes through
+`platform/share.ts`: the system sheet where there is one, a copy where there is
+not.
+
 ### communication
 
 | Artboard                       | Route                     | Component                    |
@@ -106,15 +118,23 @@ the entry point takes the token out of the address bar before the router loads
 | `Account.dc.html`     | `/settings/account`     | `AccountScreen`     |
 | `ContinueAs.dc.html`  | `/join/continue`        | `ContinueAsScreen`  |
 | `Diagnostics.dc.html` | `/settings/diagnostics` | `DiagnosticsScreen` |
-| `EnterCode.dc.html`   | `/(auth)/code`          | `EnterCodeScreen`   |
+| `EnterCode.dc.html`   | `/sign-in` (code step)  | `EnterCodeScreen`   |
 | `LinkInvalid.dc.html` | `/join/invalid`         | `LinkInvalidScreen` |
 | `Main.dc.html`        | `/join`                 | `MainScreen`        |
 | `Name.dc.html`        | `/join/name`            | `NameScreen`        |
 | `Privacy.dc.html`     | `/settings/privacy`     | `PrivacyScreen`     |
 | `SaveAccess.dc.html`  | `/j/[code]/save-access` | `SaveAccessScreen`  |
-| `SignIn.dc.html`      | `/(auth)/sign-in`       | `SignInScreen`      |
+| `SignIn.dc.html`      | `/sign-in`              | `SignInScreen`      |
 | `Welcome.dc.html`     | `/`                     | `WelcomeScreen`     |
-| `YourName.dc.html`    | `/(auth)/name`          | `YourNameScreen`    |
+| `YourName.dc.html`    | `/name`                 | `YourNameScreen`    |
+
+**Real since S1-22:** `/` (`WelcomeFlow`), `/sign-in` (`SignInFlow`, which
+drives `SignInScreen` and `EnterCodeScreen` on one route so the address never
+travels in a URL) and `/name` (`YourNameFlow`, with `TimeZoneScreen` for the
+zone). `/sign-in?next=/j/<code>` is where "I have an account" on a plan link
+leads (ADR 0022); only a plan link survives as `next` (`data/auth/returnPath.ts`).
+`/(auth)/code` redirects to `/sign-in` when there is a backend. `/terms` and
+`/privacy` are static (`LegalScreen`) and have no artboard.
 
 ### planning
 
@@ -136,6 +156,13 @@ the entry point takes the token out of the address bar before the router loads
 | `SparkWaiting.dc.html`      | `/circles/[id]/quiet/waiting`           | `SparkWaitingScreen`      |
 | `ThresholdRole.dc.html`     | `/circles/[id]/quiet/threshold`         | `ThresholdRoleScreen`     |
 | `Volunteer.dc.html`         | `/circles/[id]/quiet/volunteer`         | `VolunteerScreen`         |
+
+**Real since S1-22:** `/circles/[id]/plan/new` (`FirstPlanFlow`, through
+`create-plan` with the `next_14_days` preset and nothing else, so the server
+resolves the quorum when the plan is made) and
+`/circles/[id]/plan/[planId]/shared` (`PlanSharedFlow`, `newPlanMessage` with
+the plan's short link). "Change" and "See if people are keen instead" still lead
+to the fixture setup and quiet-ask screens (S1-26, S2-02).
 
 ### scheduling
 

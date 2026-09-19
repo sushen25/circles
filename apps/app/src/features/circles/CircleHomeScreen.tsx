@@ -1,6 +1,5 @@
 import {
   Body,
-  BodyText,
   Button,
   Card,
   DateText,
@@ -10,50 +9,86 @@ import {
   Marks,
   Screen,
   Small,
+  Tertiary,
   Title,
   TopBar,
+  type Member,
 } from '../../components';
-import { Row, Stack } from '../../components/layout';
+import { Between, Row, Stack } from '../../components/layout';
 import { t } from '../../copy';
 import type { Fixture } from '../../data/fixtures';
 import type { ScreenState } from '../state';
+import { CircleHomeJoiningScreen } from './CircleHomeJoiningScreen';
 
 /**
- * CircleHome — scaffolded from `docs/design/CircleHome.dc.html`.
+ * CircleHome, finding a time — `docs/design/CircleHome.dc.html` (spec §5.2):
+ * the active plan with its reply count and deadline, last caught up, next one,
+ * members and the invite link, and one primary action.
  *
- * Structure and copy come from the artboard; data comes from a fixture. Slice 1
- * replaces `fixture` with real data and `onNext` with real navigation. Edit
- * freely: `scripts/scaffold-screens.mjs` will not overwrite this file.
+ * The locked-in and about-time states are their own screens
+ * (`CircleHomeConfirmedScreen`, `CircleHomeDueScreen`), owned by later tickets.
  */
 export type CircleHomeProps = {
-  fixture: Fixture;
+  fixture?: Fixture | undefined;
   state?: ScreenState | undefined;
+  circleName?: string | undefined;
+  subtitle?: string | undefined;
+  planTitle?: string | undefined;
+  /** "Replies close Tue 15 Sep, 6 pm". */
+  closes?: string | undefined;
+  /** "5 of 6 replied". */
+  replied?: string | undefined;
+  members?: readonly Member[] | undefined;
+  memberCount?: string | undefined;
+  lastCaughtUp?: string | undefined;
+  nextOne?: string | undefined;
+  onInviteLink?: (() => void) | undefined;
+  onRetry?: (() => void) | undefined;
   /** The screen's one decision. */
   onNext?: (() => void) | undefined;
   onBack?: (() => void) | undefined;
   onSeeHowItsLooking?: (() => void) | undefined;
 };
 
-export function CircleHomeScreen({ fixture, onNext, onBack, onSeeHowItsLooking }: CircleHomeProps) {
+export function CircleHomeScreen({
+  fixture,
+  state = 'default',
+  circleName = t('circleHome', 'sunday_crew'),
+  subtitle = t('circleHome', '6_members_about_monthly'),
+  planTitle = t('circleHome', 'catch_up_in_the_next_14_days'),
+  closes = t('circleHome', 'replies_close_tue_6_pm'),
+  replied = t('circleHome', '5_of_6_replied'),
+  members = fixture?.circle.members ?? [],
+  memberCount = t('circleHome', '6_members'),
+  lastCaughtUp = t('circleHome', 'sat_8_aug'),
+  nextOne = t('circleHome', 'no_rush'),
+  onInviteLink,
+  onRetry,
+  onNext,
+  onBack,
+  onSeeHowItsLooking,
+}: CircleHomeProps) {
+  if (state === 'loading' || state === 'error' || state === 'offline') {
+    return <CircleHomeJoiningScreen state={state} onRetry={onRetry} onBack={onBack} />;
+  }
+
   return (
     <Screen>
       <TopBar onBack={onBack} backLabel={t('common', 'back')} />
       <Body>
-        <Row>
-          <Stack>
-            <DisplayL>{t('circleHome', 'sunday_crew')}</DisplayL>
-            <Small>{t('circleHome', '6_members_about_monthly')}</Small>
-          </Stack>
-        </Row>
+        <Stack>
+          <DisplayL>{circleName}</DisplayL>
+          <Small>{subtitle}</Small>
+        </Stack>
         <Card recommended>
-          <Row>
+          <Between>
             <Label>{t('circleHome', 'finding_a_time')}</Label>
-            <Small>{t('circleHome', 'replies_close_tue_6_pm')}</Small>
-          </Row>
-          <Title>{t('circleHome', 'catch_up_in_the_next_14_days')}</Title>
+            <Small>{closes}</Small>
+          </Between>
+          <Title>{planTitle}</Title>
           <Row>
-            <Marks members={fixture.circle.members} />
-            <Small>{t('circleHome', '5_of_6_replied')}</Small>
+            <Marks members={members} />
+            <Small>{replied}</Small>
           </Row>
           <Button
             label={t('circleHome', 'see_how_its_looking')}
@@ -65,24 +100,21 @@ export function CircleHomeScreen({ fixture, onNext, onBack, onSeeHowItsLooking }
           <Row>
             <Stack>
               <Label>{t('circleHome', 'last_caught_up')}</Label>
-              <DateText>{t('circleHome', 'sat_8_aug')}</DateText>
+              <DateText>{lastCaughtUp}</DateText>
             </Stack>
             <Stack>
               <Label>{t('circleHome', 'next_one')}</Label>
-              <DateText>{t('circleHome', 'no_rush')}</DateText>
+              <DateText>{nextOne}</DateText>
             </Stack>
           </Row>
-          <Small>{t('circleHome', 'you_aim_for_about_monthly_early_october')}</Small>
         </Card>
-        <Row>
+        <Between>
           <Row>
-            <Marks members={fixture.circle.members} />
-            <Small>{t('circleHome', '6_members')}</Small>
+            <Marks members={members} label={members.map((m) => m.name).join(', ')} />
+            <Small>{memberCount}</Small>
           </Row>
-          <Row>
-            <BodyText>{t('circleHome', 'invite_link')}</BodyText>
-          </Row>
-        </Row>
+          <Tertiary label={t('circleHome', 'invite_link')} onPress={onInviteLink} />
+        </Between>
       </Body>
       <Foot>
         <Button label={t('circleHome', 'plan_a_catch_up')} onPress={onNext} />
