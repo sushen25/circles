@@ -40,7 +40,7 @@ EXCLUDE  ?= realtime,storage-api,imgproxy,studio,logflare,vector,supavisor
 SINCE  ?= 10m
 FOLLOW ?= -f
 
-.PHONY: help ports setup dev dev-live dev-down web up down restart reset nuke status env \
+.PHONY: help ports envs setup dev dev-live dev-down web up down restart reset nuke status env \
 	logs logs-errors logs-db logs-auth logs-api psql sql limits mail studio \
 	gen types build check test test-unit test-db test-live test-smoke lint typecheck format
 
@@ -51,6 +51,21 @@ help: ## List every target
 
 ports: ## Which project and ports this checkout uses
 	@echo "$(PROJECT) (slot $(SLOT)) · api $(API_PORT) · db $(DB_PORT) · mail $(MAIL_PORT) · app $(WEB_PORT) · live $(LIVE_PORT)"
+
+envs: ## Every local environment running on this machine, whichever checkout started it
+	@primary=$$(dirname $$(cd "$$(git rev-parse --git-common-dir)" && pwd)); \
+	names=$$(docker ps --format '{{.Names}}' 2>/dev/null | sed -n 's/^supabase_db_//p' | sort); \
+	if [ -z "$$names" ]; then echo "no stack is running"; else \
+	for n in $$names; do \
+		s=$$(printf '%s' "$$n" | sed -n 's/.*-s\([0-9][0-9]*\)$$/\1/p'); s=$${s:-0}; \
+		where=$$(cat "$$primary/.git/ticket-slots/$$s" 2>/dev/null || echo "$$primary"); \
+		printf '%-12s slot %s · api %s · db %s · mail %s · %s\n' \
+			"$$n" "$$s" $$((54321 + 100 * s)) $$((54322 + 100 * s)) $$((54324 + 100 * s)) "$$where"; \
+	done; fi
+	@for s in 0 1 2 3; do for o in 0 1 2; do port=$$((8081 + 100 * s + o)); \
+		if lsof -nP -iTCP:$$port -sTCP:LISTEN >/dev/null 2>&1; then \
+			echo "app server on :$$port"; fi; \
+	done; done
 
 # --- Getting going ------------------------------------------------------------
 
