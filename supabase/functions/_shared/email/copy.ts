@@ -25,11 +25,13 @@ import { brand } from '@circles/config';
  *   own caption, and the manifesto's list of things we never do includes "a
  *   prompt inside an operational email". So no email mentions the app.
  *
- * The verification, locked-in and reminder emails are the Emails artboard's
- * words. The others take their wording from the Pushes artboard's row for the
- * same kind, which is what the person would otherwise have received. Two kinds
- * have no row on either artboard and are written here for the first time:
- * `replies_closed` and `did_it_happen_participant` (SUS-22's note).
+ * The locked-in and reminder emails are the Emails artboard's words. The
+ * verification email keeps the artboard's button and drops its circle name and
+ * second line, because the spec says it carries nothing but the link. The
+ * others take their wording from the Pushes artboard's row for the same kind,
+ * which is what the person would otherwise have received. Three have no row on
+ * either artboard and are written here for the first time: `replies_closed`,
+ * `did_it_happen_participant` (SUS-22's note) and the place-only `changed`.
  */
 
 export type Button = { readonly label: string };
@@ -51,18 +53,21 @@ const quoted = (note: string, by: string | undefined) =>
   by === undefined ? `“${note}”` : `${by} says: “${note}”`;
 
 export const EN_EMAIL = {
-  verify: ({ circleName }: { circleName: string }): EmailCopy => ({
-    subject: `Turn on updates for ${circleName}'s catch-up`,
+  /**
+   * One sentence and the button, and nothing that names the circle (spec §5.8:
+   * "the verification email contains nothing but the link"). The Emails
+   * artboard's card puts the circle in the subject and adds a second line; the
+   * spec wins, because somebody can type anybody's address and until the link
+   * is tapped the reader is a stranger to the circle.
+   */
+  verify: (): EmailCopy => ({
+    subject: 'Turn on updates for your catch-up',
     preview: 'One tap. Works for 24 hours.',
     paragraphs: [
-      'Tap below to get the confirmed time, changes and one reminder for this meetup by email. ' +
-        "If this wasn't you, ignore it and nothing happens.",
+      "Tap below to get email updates about the meetup you asked about, or ignore this if it wasn't you.",
     ],
     button: { label: 'Turn on updates' },
   }),
-
-  /** The small line under the verification button. */
-  verifyFootnote: "This is the only email you'll get unless you tap. No news, no offers.",
 
   lockedIn: (p: {
     circleName: string;
@@ -107,6 +112,24 @@ export const EN_EMAIL = {
         "Mark the times you'd be up for. Takes a minute.",
     ],
     button: { label: 'Choose new times' },
+  }),
+
+  /** The time stands; the venue moved. Not the artboard's — it has no row for this. */
+  placeChanged: (p: {
+    circleName: string;
+    shortDate: string;
+    weekday: string;
+    time: string;
+    placeName?: string | undefined;
+  }): EmailCopy => ({
+    subject: `New place: ${p.circleName}, ${p.shortDate}`,
+    preview: p.placeName === undefined ? 'Same time.' : `Same time, now at ${p.placeName}.`,
+    paragraphs: [
+      p.placeName === undefined
+        ? `Same time, new place: ${p.weekday}, ${p.time}. The plan has the details.`
+        : `Same time, new place: ${p.weekday}, ${p.time} at ${p.placeName}.`,
+    ],
+    button: { label: 'Open the plan' },
   }),
 
   cancelled: (p: {

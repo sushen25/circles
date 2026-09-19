@@ -2,7 +2,7 @@ import { NOTIFICATION_KINDS, QUIET_SENSITIVE_KINDS } from '@circles/domain';
 import { describe, expect, it } from 'vitest';
 
 import { EN_EMAIL } from './copy.ts';
-import { MEMBER_NAMES, ORIGIN, SUNDAY_CREW, fixtureToken } from './fixtures.ts';
+import { CHANGED_PLACE, MEMBER_NAMES, ORIGIN, SUNDAY_CREW, fixtureToken } from './fixtures.ts';
 import { EmailLinkError } from './links.ts';
 import { render } from './render.tsx';
 import { EMAIL_KINDS, type EmailKind, SUBSCRIBER_KINDS } from './types.ts';
@@ -48,7 +48,7 @@ describe('render', () => {
 
     it('names nobody but the circle in its subject', async () => {
       const { subject } = await render(SUNDAY_CREW[kind]);
-      expect(subject).toContain('Sunday Crew');
+      if (kind !== 'verify_email') expect(subject).toContain('Sunday Crew');
       for (const name of MEMBER_NAMES) expect(subject).not.toMatch(new RegExp(`\\b${name}\\b`));
     });
 
@@ -108,7 +108,45 @@ describe('render', () => {
       expect(email.text).not.toContain(EN_EMAIL.footer.stopPlan);
       expect(email.text).not.toContain(EN_EMAIL.footer.manage);
       expect(email.headers).toEqual({});
-      expect(email.subject).toBe("Turn on updates for Sunday Crew's catch-up");
+    });
+
+    it('says nothing about the circle to an address nobody has proved yet (spec §5.8)', async () => {
+      // Somebody can type anybody's address. Until they click, the recipient is
+      // a stranger, and a circle's name is not theirs to be told.
+      const email = await render(SUNDAY_CREW.verify_email);
+      for (const part of [email.subject, email.text, email.html]) {
+        expect(part).not.toContain('Sunday Crew');
+        for (const name of MEMBER_NAMES) expect(part).not.toMatch(new RegExp(`\\b${name}\\b`));
+      }
+    });
+
+    it('is one sentence and the button', async () => {
+      const email = await render(SUNDAY_CREW.verify_email);
+      const body = email.text.split('\n').filter((line) => line.trim() !== '');
+      // The wordmark, the sentence, the button with its link.
+      expect(body).toHaveLength(3);
+      expect(body[1]?.match(/[.?!](\s|$)/g)).toHaveLength(1);
+    });
+  });
+
+  describe('a changed email', () => {
+    it('says the time is off when the plan went back to asking', async () => {
+      const email = await render(SUNDAY_CREW.changed);
+      expect(email.text).toContain("Thursday's catch-up is off");
+      expect(email.text).toContain('Choose new times');
+    });
+
+    it('says the time stands and the place moved, for a place correction', async () => {
+      const email = await render(CHANGED_PLACE);
+      expect(email.subject).toBe('New place: Sunday Crew, Thu 17 Sep');
+      expect(email.text).toContain('Same time, new place');
+      expect(email.text).toContain('6:30–8:30 pm');
+      expect(email.text).toContain('Northcote Social Club');
+      expect(email.text).not.toMatch(/is off|new times/i);
+      await expect(`Subject: ${email.subject}\n\n${email.text}\n`).toMatchFileSnapshot(
+        './__snapshots__/changed_place.txt',
+      );
+      await expect(email.html).toMatchFileSnapshot('./__snapshots__/changed_place.html');
     });
   });
 

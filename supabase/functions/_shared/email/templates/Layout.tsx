@@ -60,8 +60,6 @@ export type LayoutProps = {
   readonly copy: EmailCopy;
   readonly buttonUrl: string;
   readonly footer: Footer;
-  /** Under the button, before the footer — the verification email's one small line. */
-  readonly footnote?: string | undefined;
 };
 
 function FooterBlock({ footer }: { footer: Footer }): ReactNode {
@@ -98,7 +96,7 @@ function FooterBlock({ footer }: { footer: Footer }): ReactNode {
   );
 }
 
-export function Layout({ copy, buttonUrl, footer, footnote }: LayoutProps): ReactNode {
+export function Layout({ copy, buttonUrl, footer }: LayoutProps): ReactNode {
   return (
     <Html lang="en">
       <Head>
@@ -163,9 +161,6 @@ export function Layout({ copy, buttonUrl, footer, footnote }: LayoutProps): Reac
             >
               {copy.button.label}
             </Button>
-            {footnote === undefined ? null : (
-              <Text style={{ ...small, margin: '16px 0 0' }}>{footnote}</Text>
-            )}
             <FooterBlock footer={footer} />
           </Section>
         </Container>

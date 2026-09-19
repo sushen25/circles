@@ -1,9 +1,7 @@
-Subject: Turn on updates for Sunday Crew's catch-up
+Subject: Turn on updates for your catch-up
 
 Circles
 
-Tap below to get the confirmed time, changes and one reminder for this meetup by email. If this wasn't you, ignore it and nothing happens.
+Tap below to get email updates about the meetup you asked about, or ignore this if it wasn't you.
 
 Turn on updates https://meet.example.com/v#verify_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-
-This is the only email you'll get unless you tap. No news, no offers.

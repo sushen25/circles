@@ -39,8 +39,15 @@ type ToSubscriber = Base & {
 /** An organiser kind, sent by email until they have the app (review C6). */
 type ToOrganiser = Base & { readonly planCode: string };
 
-export type VerifyEmailInput = Base & {
+/**
+ * No circle name, deliberately: until the link is tapped the recipient is
+ * whoever the address was typed as, and "the verification email contains
+ * nothing but the link" (spec §5.8). A name that is not in the input cannot be
+ * rendered by mistake.
+ */
+export type VerifyEmailInput = {
   readonly kind: 'verify_email';
+  readonly origin: string;
   readonly verifyToken: string;
 };
 
@@ -55,12 +62,33 @@ export type LockedInInput = ToSubscriber & {
   readonly organiserName?: string | undefined;
 };
 
-export type ChangedInput = ToSubscriber & {
-  readonly kind: 'changed';
-  /** The confirmed start that is now off. */
-  readonly previousStart: Instant;
-  readonly zone: Zone;
-};
+/**
+ * A material change to a confirmed meetup, which is one of two things (spec
+ * §5.8: "time or place materially changed"):
+ *
+ * - `reopened` — the confirmed time is off and the circle is asking again
+ *   (a reschedule; the revision moves on);
+ * - `place` — the time stands and the venue moved (a correction on the live
+ *   confirmation; `occurrenceFor('changed')` keys it by change id for exactly
+ *   this case).
+ *
+ * Two sentences that must not be confused: telling people a time is off when
+ * only the pub changed sends them to re-answer for nothing.
+ */
+export type ChangedInput = ToSubscriber & { readonly kind: 'changed'; readonly zone: Zone } & (
+    | {
+        readonly change: 'reopened';
+        /** The confirmed start that is now off. */
+        readonly previousStart: Instant;
+      }
+    | {
+        readonly change: 'place';
+        readonly start: Instant;
+        readonly end: Instant;
+        /** The new venue, or undefined when the organiser cleared it. */
+        readonly placeName?: string | undefined;
+      }
+  );
 
 export type CancelledInput = ToSubscriber & {
   readonly kind: 'cancelled';

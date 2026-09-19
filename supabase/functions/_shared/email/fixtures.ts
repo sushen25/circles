@@ -33,7 +33,7 @@ const subscriber = {
 };
 
 export const SUNDAY_CREW: { readonly [K in EmailKind]: Extract<EmailInput, { kind: K }> } = {
-  verify_email: { ...circle, kind: 'verify_email', verifyToken: fixtureToken('verify') },
+  verify_email: { origin: ORIGIN, kind: 'verify_email', verifyToken: fixtureToken('verify') },
   locked_in: {
     ...subscriber,
     kind: 'locked_in',
@@ -44,7 +44,13 @@ export const SUNDAY_CREW: { readonly [K in EmailKind]: Extract<EmailInput, { kin
     note: "Table's booked under my name. Come hungry.",
     organiserName: 'Maya',
   },
-  changed: { ...subscriber, kind: 'changed', previousStart: START, zone: MELBOURNE },
+  changed: {
+    ...subscriber,
+    kind: 'changed',
+    change: 'reopened',
+    previousStart: START,
+    zone: MELBOURNE,
+  },
   cancelled: {
     ...subscriber,
     kind: 'cancelled',
@@ -86,3 +92,14 @@ export const SUNDAY_CREW: { readonly [K in EmailKind]: Extract<EmailInput, { kin
 
 /** Every member of the Sunday Crew but the circle itself. A subject may name none of them. */
 export const MEMBER_NAMES = ['Maya', 'Priya', 'Tom', 'Jess', 'Sam', 'Alex'];
+
+/** The other kind of `changed`: same Thursday, and the venue moved. */
+export const CHANGED_PLACE: Extract<EmailInput, { kind: 'changed' }> = {
+  ...subscriber,
+  kind: 'changed',
+  change: 'place',
+  start: START,
+  end: END,
+  zone: MELBOURNE,
+  placeName: 'Northcote Social Club',
+};
