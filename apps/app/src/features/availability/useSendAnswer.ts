@@ -193,6 +193,9 @@ export function useSendAnswer({
           // times are for dates that may not be in it.
           pending.current = undefined;
           await clearDraft(userId, code);
+          // Out of `sending` here, not only by the caller's remount: until the
+          // new question arrives this screen must not sit locked.
+          setPhase({ kind: 'editing' });
           onStale();
           return;
         case 'replies_closed':

@@ -323,6 +323,23 @@ describe('round 3', () => {
   });
 });
 
+describe('round 4', () => {
+  it('asks the new question when a draft shown from the device meets a changed plan', async () => {
+    planToAnswer.mockRejectedValueOnce(new Error('plan lookup failed'));
+    planToAnswer.mockResolvedValue({ plan: { ...PLAN, revision: 2 }, answer: null });
+    submitAnswer.mockRejectedValueOnce(refusal('stale_revision'));
+    await writeDraft('priya', CODE, { plan: PLAN, windows: [WEDNESDAY], flexible: false });
+    open();
+    await screen.findByText('7–9:30 pm');
+
+    await send();
+
+    await screen.findByText(/The plan changed/);
+    expect(screen.getByRole('button', { name: 'Send my times' })).toBeDisabled();
+    expect(screen.queryByText('Sending')).toBeNull();
+  });
+});
+
 describe('when the server says no', () => {
   it('asks the new question when the plan changed under the answer', async () => {
     submitAnswer.mockRejectedValueOnce(refusal('stale_revision'));

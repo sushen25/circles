@@ -89,6 +89,15 @@ function LiveAvailability({ code, step }: AvailabilityFlowProps) {
 
   const back = () => (router.canGoBack() ? router.back() : router.replace('/'));
 
+  // The question changed under the answer, wherever the editor had it from:
+  // drop the draft, say so, and fetch the question as it is now. Its new
+  // revision is a new key, so the editor opens again on the new dates.
+  const onStale = () => {
+    setChanged(true);
+    setDraft(undefined);
+    void queryClient.invalidateQueries({ queryKey: ['plan-to-answer', code] });
+  };
+
   if (session.isLoading || userId === undefined || draft === 'reading') {
     return <AvailabilityScreen state="loading" onBack={back} />;
   }
@@ -120,7 +129,7 @@ function LiveAvailability({ code, step }: AvailabilityFlowProps) {
         draft={draft}
         changed={false}
         userId={userId}
-        onStale={() => undefined}
+        onStale={onStale}
       />
     );
   }
@@ -154,11 +163,7 @@ function LiveAvailability({ code, step }: AvailabilityFlowProps) {
       discardDraft={stale}
       changed={changed || stale}
       userId={userId}
-      onStale={() => {
-        setChanged(true);
-        setDraft(undefined);
-        void queryClient.invalidateQueries({ queryKey: ['plan-to-answer', code] });
-      }}
+      onStale={onStale}
     />
   );
 }
