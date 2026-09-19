@@ -19,7 +19,9 @@ import { CheckEmailScreen, type CheckEmailProblem } from './CheckEmailScreen';
  * will say about it.
  */
 export function CheckEmailFlow({ code }: { code: string }) {
-  if (!hasBackend()) return <CheckEmail code={code} plan={answerable.plan} live={false} />;
+  if (!hasBackend()) {
+    return <CheckEmail code={code} userId={undefined} plan={answerable.plan} live={false} />;
+  }
   return <LiveCheckEmail code={code} />;
 }
 
@@ -31,20 +33,22 @@ function LiveCheckEmail({ code }: { code: string }) {
     enabled: session.userId !== undefined,
     staleTime: 30_000,
   });
-  return <CheckEmail code={code} plan={question.data?.plan} live />;
+  return <CheckEmail code={code} userId={session.userId} plan={question.data?.plan} live />;
 }
 
 function CheckEmail({
   code,
+  userId,
   plan,
   live,
 }: {
   code: string;
+  userId: string | undefined;
   plan: AnswerablePlan | undefined;
   live: boolean;
 }) {
   const router = useRouter();
-  const address = plan === undefined ? undefined : typedAddress(plan.id);
+  const address = plan === undefined ? undefined : typedAddress(userId ?? '', plan.id);
   const [resending, setResending] = useState(false);
   const [resent, setResent] = useState(false);
   const [problem, setProblem] = useState<CheckEmailProblem | undefined>();

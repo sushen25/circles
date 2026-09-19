@@ -128,6 +128,28 @@ describe('Sent', () => {
   });
 });
 
+describe('round 1', () => {
+  it('keeps the email card after a send, so "Use a different one" comes back to it', async () => {
+    wrap(<SentFlow code={PLAN.code} />);
+    fireEvent.change(await screen.findByLabelText('Your email'), {
+      target: { value: 'priya@example.com' },
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Send verification email' }));
+    });
+
+    expect(push).toHaveBeenCalled();
+    expect(screen.getByLabelText('Your email')).toHaveValue('priya@example.com');
+  });
+
+  it('says it could not load, with a way to try again, rather than loading for ever', async () => {
+    planToAnswer.mockRejectedValue(new Error('plan lookup failed'));
+    wrap(<SentFlow code={PLAN.code} />);
+
+    await screen.findByRole('button', { name: 'Try again' });
+  });
+});
+
 describe('the verification link', () => {
   it('posts the token once and names what was turned on', async () => {
     holdTokenForTests('verify', TOKEN);

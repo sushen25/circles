@@ -3,7 +3,9 @@ import {
   BodyText,
   Button,
   Card,
+  DisplayL,
   DisplayXL,
+  Foot,
   Input,
   Label,
   Notice,
@@ -28,13 +30,13 @@ import { t } from '../../copy';
 export type SentProblem = 'not_an_address' | 'too_many_tries' | 'offline' | 'couldnt_send';
 
 export type SentProps = {
-  state?: 'default' | 'loading' | undefined;
+  state?: 'default' | 'loading' | 'error' | 'offline' | undefined;
   circleName?: string | undefined;
   /** "Thanks, Priya. Your times are in." */
   headline?: string | undefined;
   /** "Maya will pick a time once replies close on Tuesday…" */
   body?: string | undefined;
-  /** False once dismissed or sent: the offer is made once. */
+  /** False once dismissed: Not now is final for this visit. */
   offerEmail?: boolean | undefined;
   email?: string | undefined;
   problem?: SentProblem | undefined;
@@ -49,6 +51,7 @@ export type SentProps = {
   onNotNow?: (() => void) | undefined;
   onSaveAccess?: (() => void) | undefined;
   onChangeAnswer?: (() => void) | undefined;
+  onRetry?: (() => void) | undefined;
   onBack?: (() => void) | undefined;
 };
 
@@ -82,6 +85,7 @@ export function SentScreen({
   onNotNow,
   onSaveAccess,
   onChangeAnswer,
+  onRetry,
   onBack,
 }: SentProps) {
   if (state === 'loading') {
@@ -91,6 +95,22 @@ export function SentScreen({
         <Body>
           <Small accessibilityLiveRegion="polite">{t('sent', 'finding_it')}</Small>
         </Body>
+      </Screen>
+    );
+  }
+
+  if (state === 'error' || state === 'offline') {
+    return (
+      <Screen>
+        <TopBar onBack={onBack} backLabel={t('common', 'back')} />
+        <Body>
+          <DisplayL>
+            {state === 'offline' ? t('sent', 'youre_offline') : t('sent', 'couldnt_load')}
+          </DisplayL>
+        </Body>
+        <Foot>
+          <Button label={t('sent', 'try_again')} onPress={onRetry} />
+        </Foot>
       </Screen>
     );
   }

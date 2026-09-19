@@ -70,7 +70,14 @@ export function fragmentLinkKind(pathname: string): FragmentLinkKind | null {
 
 function hashOf(url: string): string | null {
   const hash = url.split('#')[1];
-  return hash ? decodeURIComponent(hash) : null;
+  if (!hash) return null;
+  try {
+    return decodeURIComponent(hash);
+  } catch {
+    // A malformed escape (`#%`) is a broken link, not a reason to throw during
+    // start-up, before the address bar is cleared or any screen can say so.
+    return null;
+  }
 }
 
 /**

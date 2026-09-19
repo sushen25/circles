@@ -1289,6 +1289,8 @@ export const en = {
     save_access: 'Save access on every device',
     place_saved: 'Your place is saved. Sign in with {address} on any device to get back to it.',
     finding_it: 'Finding your answer',
+    couldnt_load: "We couldn't load this just now.",
+    try_again: 'Try again',
     see_my_answer: 'Change my answer',
   },
   settings: {

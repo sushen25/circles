@@ -67,18 +67,20 @@ export async function managePreferences(
 
 /**
  * The address somebody just typed, for "We sent a link to …" on the next
- * screen. In memory for this tab and plan only: an address is personal data and
- * does not go in a URL, a draft or storage. A reload loses it, and the screen
+ * screen. In memory for this tab only, and keyed by **who** typed it as well as
+ * the plan: a shared tab that changes hands must not show the next person the
+ * last one's address, or let them resend to it. An address is personal data and
+ * does not go in a URL, a draft or storage; a reload loses it, and the screen
  * reads without it.
  */
 const typed = new Map<string, string>();
 
-export function rememberTypedAddress(planId: string, email: string): void {
-  typed.set(planId, email);
+export function rememberTypedAddress(userId: string, planId: string, email: string): void {
+  typed.set(`${userId}:${planId}`, email);
 }
 
-export function typedAddress(planId: string): string | undefined {
-  return typed.get(planId);
+export function typedAddress(userId: string, planId: string): string | undefined {
+  return typed.get(`${userId}:${planId}`);
 }
 
 /**

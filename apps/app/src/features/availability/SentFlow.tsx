@@ -14,7 +14,7 @@ import { normaliseAddress, rememberTypedAddress, requestEmailUpdates } from '../
 import { answerable } from '../../data/fixtures';
 import { newIdempotencyKey } from '../../data/functions';
 import { ownNameIn } from '../../data/membership';
-import { failureOf } from '../identity/join/failure';
+import { failureOf, isOffline } from '../identity/join/failure';
 import { SentScreen, type SentProblem } from './SentScreen';
 
 /**
@@ -30,6 +30,7 @@ export function SentFlow({ code }: { code: string }) {
     return (
       <Sent
         code={code}
+        userId={undefined}
         plan={answerable.plan}
         answer={answerable.answer}
         name="Priya"
@@ -59,15 +60,23 @@ function LiveSent({ code }: { code: string }) {
 
   const back = () => (router.canGoBack() ? router.back() : router.replace('/'));
 
-  if (question.data == null || name.isPending) {
-    // Nothing to thank anybody for yet, or no plan behind the code. The
-    // editor is where both are dealt with; here it is only ever a moment.
+  if (question.isError || question.data === null) {
+    return (
+      <SentScreen
+        state={isOffline() ? 'offline' : 'error'}
+        onRetry={() => void question.refetch()}
+        onBack={back}
+      />
+    );
+  }
+  if (question.data === undefined || name.isPending) {
     return <SentScreen state="loading" onBack={back} />;
   }
 
   return (
     <Sent
       code={code}
+      userId={session.userId}
       plan={question.data.plan}
       answer={question.data.answer}
       name={name.data ?? null}
@@ -79,6 +88,7 @@ function LiveSent({ code }: { code: string }) {
 
 type SentInnerProps = {
   code: string;
+  userId: string | undefined;
   plan: AnswerablePlan;
   answer: OwnAnswer | null;
   name: string | null;
@@ -86,7 +96,7 @@ type SentInnerProps = {
   offerSaveAccess?: boolean;
 };
 
-function Sent({ code, plan, answer, name, live, offerSaveAccess = false }: SentInnerProps) {
+function Sent({ code, userId, plan, answer, name, live, offerSaveAccess = false }: SentInnerProps) {
   const router = useRouter();
   const [offerEmail, setOfferEmail] = useState(true);
   const [email, setEmail] = useState('');
@@ -120,7 +130,7 @@ function Sent({ code, plan, answer, name, live, offerSaveAccess = false }: SentI
       return;
     }
     if (!live) {
-      rememberTypedAddress(plan.id, address);
+      rememberTypedAddress(userId ?? '', plan.id, address);
       router.push({ pathname: '/j/[code]/check-email', params: { code } });
       return;
     }
@@ -134,8 +144,9 @@ function Sent({ code, plan, answer, name, live, offerSaveAccess = false }: SentI
         idempotencyKey: newIdempotencyKey(),
       });
       track('email_submitted', { plan_id: plan.id as PlanId });
-      rememberTypedAddress(plan.id, address);
-      setOfferEmail(false);
+      rememberTypedAddress(userId ?? '', plan.id, address);
+      // The card stays, address and all: "Use a different one" on Check your
+      // email comes back here, and there must be somewhere to type it.
       router.push({ pathname: '/j/[code]/check-email', params: { code } });
     } catch (error) {
       const failure = failureOf(error);

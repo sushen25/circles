@@ -4,6 +4,7 @@ import {
   emailPreferencesUrl,
   emailVerifyUrl,
   fragmentLinkKind,
+  parseJoinLink,
   parseTokenLink,
   reentryUrl,
   type OpaqueToken,
@@ -35,6 +36,11 @@ describe('emailed links (ADR 0023)', () => {
     expect(fragmentLinkKind('/v')).toBe('verify');
     expect(fragmentLinkKind('/e')).toBe('preferences');
     expect(fragmentLinkKind('/p/abcdef')).toBeNull();
+  });
+
+  it('reads a malformed escape as no token, rather than throwing at start-up (round 1)', () => {
+    expect(parseTokenLink('https://example.test/v#%')).toBeNull();
+    expect(parseJoinLink('https://example.test/join#%E0%A4%A')).toBeNull();
   });
 
   it('reads nothing from a link with no usable token', () => {
