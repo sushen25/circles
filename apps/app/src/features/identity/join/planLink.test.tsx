@@ -30,6 +30,7 @@ const ownDisplayName = vi.fn();
 vi.mock('../../../data/auth/profile', () => ({ ownDisplayName: () => ownDisplayName() }));
 
 const joinPlan = vi.fn();
+const askToPlan = vi.fn();
 const guestMembersFor = vi.fn();
 const planAccess = vi.fn();
 const circleNameForCode = vi.fn();
@@ -38,6 +39,7 @@ vi.mock('../../../data/membership', () => ({
   circleNameForCode: (...args: unknown[]) => circleNameForCode(...args),
   guestMembersFor: (...args: unknown[]) => guestMembersFor(...args),
   joinPlan: (...args: unknown[]) => joinPlan(...args),
+  askToPlan: (...args: unknown[]) => askToPlan(...args),
   reattachFromList: vi.fn(),
   circleAccess: vi.fn(),
   arrivalFor: vi.fn(),
@@ -92,7 +94,15 @@ async function type(name: string) {
 
 beforeEach(() => {
   Object.assign(session, { status: 'guest', userId: 'me', isAnonymous: true });
-  for (const mock of [replace, track, ownDisplayName, joinPlan, guestMembersFor, planAccess]) {
+  for (const mock of [
+    replace,
+    track,
+    ownDisplayName,
+    joinPlan,
+    askToPlan,
+    guestMembersFor,
+    planAccess,
+  ]) {
     mock.mockReset();
   }
   planAccess.mockResolvedValue({ membership: 'not_member' });
@@ -295,13 +305,12 @@ describe('a member the plan is not asking yet', () => {
   it('is asked by it on arrival, with no name and no screen in the way', async () => {
     // Joined the circle after the plan was made. ADR 0022: opening its link asks them.
     planAccess.mockResolvedValue({ membership: 'member', needsAsking: true });
-    joinPlan.mockResolvedValue(joined());
+    askToPlan.mockResolvedValue('asked');
     arrive();
 
     expect(await screen.findByText('the plan')).toBeTruthy();
-    await waitFor(() => expect(joinPlan).toHaveBeenCalledTimes(1));
-    expect(joinPlan.mock.calls[0]?.[0]).toMatchObject({ code: CODE });
-    expect(joinPlan.mock.calls[0]?.[0]).not.toHaveProperty('displayName');
+    await waitFor(() => expect(askToPlan).toHaveBeenCalledTimes(1));
+    expect(askToPlan).toHaveBeenCalledWith(CODE);
     // Not a join, so not counted as one.
     expect(track).not.toHaveBeenCalledWith('circle_joined', expect.anything());
   });
@@ -332,5 +341,6 @@ describe('a member', () => {
     // Already asked: nothing to send, and every page view is not a request.
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(joinPlan).not.toHaveBeenCalled();
+    expect(askToPlan).not.toHaveBeenCalled();
   });
 });

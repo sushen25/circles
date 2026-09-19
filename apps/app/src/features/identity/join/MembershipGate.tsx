@@ -7,8 +7,7 @@ import { hasBackend } from '../../../data/auth/client';
 import { ensureGuestSession } from '../../../data/auth/guest';
 import { guard, type Membership } from '../../../data/auth/guards';
 import { useSession } from '../../../data/auth/session';
-import { newIdempotencyKey } from '../../../data/functions';
-import { circleAccess, joinPlan, planAccess } from '../../../data/membership';
+import { askToPlan, circleAccess, planAccess } from '../../../data/membership';
 import { ContinueAsScreen } from '../ContinueAsScreen';
 import { LinkInvalidScreen } from '../LinkInvalidScreen';
 import { ContinueAsFlow } from './ContinueAsFlow';
@@ -87,21 +86,33 @@ function LiveGate({ target, children }: { target: Target; children: ReactNode })
    * row and nothing else — no membership, no announcement. The page shows
    * meanwhile; it is theirs either way, and only the answer depends on this.
    *
-   * Once per page and person: a failure here is not worth a loop, and the
-   * availability screen still says why an answer was refused.
+   * Once per page and person while it succeeds; `askToPlan` retries a
+   * transient failure, and one that outlasts that is tried again on the next
+   * read of membership rather than left for the person to meet as a refusal.
    */
   const askedFor = useRef<string | undefined>(undefined);
   const needsAsking = decision.kind === 'allow' && access.data?.needsAsking === true;
   const planCode = target.kind === 'plan' ? target.code : undefined;
+  // A dependency so that each fresh read of membership is a chance to try
+  // again after a failure; while one has succeeded or is running, `askedFor`
+  // makes the re-run a no-op.
+  const accessReadAt = access.dataUpdatedAt;
   useEffect(() => {
     if (!needsAsking || planCode === undefined) return;
     const who = `${planCode}:${session.userId ?? ''}`;
     if (askedFor.current === who) return;
     askedFor.current = who;
-    joinPlan({ code: planCode as ShortCode, idempotencyKey: newIdempotencyKey() })
-      .then(() => queryClient.invalidateQueries({ queryKey: ['membership', 'plan', planCode] }))
-      .catch(() => undefined);
-  }, [needsAsking, planCode, session.userId, queryClient]);
+    void askToPlan(planCode as ShortCode).then((outcome) => {
+      if (outcome === 'failed') {
+        // Retried already. Forget this attempt, so that the next time the gate
+        // reads membership — on focus, or in thirty seconds — it tries again,
+        // rather than never for as long as this page is open.
+        askedFor.current = undefined;
+        return;
+      }
+      void queryClient.invalidateQueries({ queryKey: ['membership', 'plan', planCode] });
+    });
+  }, [needsAsking, planCode, session.userId, queryClient, accessReadAt]);
 
   // §10: the session comes first. Continue-as cannot even ask who is in the
   // circle without one, and `ensureGuestSession` is idempotent, so the effect
