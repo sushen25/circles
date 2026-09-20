@@ -16,9 +16,14 @@ import { noteSavedWith } from '../../data/auth/saved';
 import { planToAnswer } from '../../data/availability';
 import { normaliseAddress } from '../../data/email';
 import { answerable } from '../../data/fixtures';
-import { EnterCodeScreen, type EnterCodeProblem } from './EnterCodeScreen';
+import {
+  CODE_LIFETIME_MS,
+  EnterCodeScreen,
+  RESEND_AFTER_MS,
+  type EnterCodeProblem,
+} from './EnterCodeScreen';
 import { SaveAccessScreen, type SaveAccessProblem } from './SaveAccessScreen';
-import { isOffline } from './join/failure';
+import { authFailure } from './authFailure';
 
 /**
  * `/j/:code/save-access` — keep your place on every device (spec §5.1, §5.11).
@@ -31,26 +36,13 @@ import { isOffline } from './join/failure';
  */
 type Step =
   | { kind: 'email' }
-  | { kind: 'code'; address: string; route: Awaited<ReturnType<typeof requestLinkCode>> };
-
-/** How the auth server says no, read by its code rather than its words. */
-function authFailure(error: unknown): 'offline' | 'wrong_code' | 'too_many' | 'other' {
-  if (isOffline() || (error as { name?: string })?.name === 'AuthRetryableFetchError') {
-    return 'offline';
-  }
-  const { code, status } = (error ?? {}) as { code?: string; status?: number };
-  if (
-    status === 429 ||
-    code === 'over_email_send_rate_limit' ||
-    code === 'over_request_rate_limit'
-  ) {
-    return 'too_many';
-  }
-  if (code === 'otp_expired' || code === 'invalid_credentials' || status === 403) {
-    return 'wrong_code';
-  }
-  return 'other';
-}
+  | {
+      kind: 'code';
+      address: string;
+      route: Awaited<ReturnType<typeof requestLinkCode>>;
+      /** When the newest code was sent: the resend wait and the ten minutes run from here. */
+      sentAt: number;
+    };
 
 export function SaveAccessFlow({ code }: { code: string }) {
   const router = useRouter();
@@ -84,7 +76,7 @@ export function SaveAccessFlow({ code }: { code: string }) {
   const askForCode = async (address: string): Promise<boolean> => {
     try {
       const route = await requestLinkCode(address);
-      setStep({ kind: 'code', address, route });
+      setStep({ kind: 'code', address, route, sentAt: Date.now() });
       return true;
     } catch (error) {
       const failure = authFailure(error);
@@ -122,12 +114,17 @@ export function SaveAccessFlow({ code }: { code: string }) {
           setReference(error.problem?.reference);
         } else {
           const failure = authFailure(error);
+          const expired = Date.now() - step.sentAt >= CODE_LIFETIME_MS;
           setCodeProblem(
             failure === 'offline'
               ? 'offline'
               : failure === 'wrong_code'
-                ? 'wrong_code'
-                : 'couldnt_save',
+                ? expired
+                  ? 'expired'
+                  : 'wrong_code'
+                : failure === 'too_many'
+                  ? 'too_many_tries'
+                  : 'couldnt_save',
           );
         }
       } finally {
@@ -143,13 +140,26 @@ export function SaveAccessFlow({ code }: { code: string }) {
         reference={reference}
         busy={busy}
         newCodeSent={newCodeSent}
+        resendAt={step.sentAt + RESEND_AFTER_MS}
         onCodeChange={setCodeText}
         onContinue={() => void confirm()}
         onSendNewCode={() => {
           setCodeProblem(undefined);
           void requestLinkCode(step.address)
-            .then(() => setNewCodeSent(true))
-            .catch(() => setCodeProblem('couldnt_save'));
+            .then((route) => {
+              setStep({ ...step, route, sentAt: Date.now() });
+              setNewCodeSent(true);
+            })
+            .catch((error: unknown) => {
+              const failure = authFailure(error);
+              setCodeProblem(
+                failure === 'offline'
+                  ? 'offline'
+                  : failure === 'too_many'
+                    ? 'too_many_tries'
+                    : 'couldnt_send',
+              );
+            });
         }}
         onBack={() => setStep({ kind: 'email' })}
       />

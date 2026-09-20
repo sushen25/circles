@@ -34,6 +34,7 @@ const styles = StyleSheet.create({
   small: role('small'),
   label: role('label'),
   numeric: { fontVariant: ['tabular-nums'] },
+  inlineLink: { textDecorationLine: 'underline' },
 });
 
 export function DisplayXL({ style, ...props }: Props) {
@@ -87,3 +88,23 @@ export function Label({ style, ...props }: Props) {
 
 /** Times and counts, so digits do not shift as they change. */
 export const numeric = styles.numeric;
+
+/**
+ * A link inside a sentence — the terms and privacy on Welcome. Underlined, in
+ * the surrounding text's size and colour, so it reads as part of the sentence
+ * and still says it can be followed; a link role, not a button, because it
+ * goes somewhere.
+ */
+export function InlineLink({
+  children,
+  onPress,
+}: {
+  children: string;
+  onPress?: (() => void) | undefined;
+}) {
+  return (
+    <RNText role="link" onPress={onPress} style={styles.inlineLink}>
+      {children}
+    </RNText>
+  );
+}

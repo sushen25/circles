@@ -9,6 +9,7 @@ import {
   Notice,
   Screen,
   Small,
+  Tertiary,
   TopBar,
 } from '../../components';
 import { Stack } from '../../components/layout';
@@ -47,6 +48,11 @@ export type NameProps = {
   onChangeText?: ((text: string) => void) | undefined;
   onNext?: (() => void) | undefined;
   onBack?: (() => void) | undefined;
+  /**
+   * "I have an account" beside a plan link's name step (ADR 0022). Left out on
+   * a circle invite, and for an account naming itself, which is already in.
+   */
+  onHaveAccount?: (() => void) | undefined;
 };
 
 function problemCopy(problem: NameProblem, circle: string, name: string): string {
@@ -79,6 +85,7 @@ export function NameScreen({
   onChangeText,
   onNext,
   onBack,
+  onHaveAccount,
 }: NameProps) {
   return (
     <Screen>
@@ -130,6 +137,9 @@ export function NameScreen({
           onPress={onNext}
           disabled={busy || (value !== undefined && value.trim() === '')}
         />
+        {onHaveAccount === undefined ? null : (
+          <Tertiary label={t('name', 'i_have_an_account')} onPress={onHaveAccount} />
+        )}
       </Foot>
     </Screen>
   );

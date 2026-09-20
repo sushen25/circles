@@ -132,6 +132,16 @@ describe('validateEvent', () => {
     }
   });
 
+  it("records the first-run plan's fourteen days as its own window (S1-22)", () => {
+    expect(
+      validateEvent('plan_created', {
+        mode: 'named',
+        window: 'next_two_weeks',
+        used_defaults: true,
+      }),
+    ).not.toBeNull();
+  });
+
   it('returns null rather than throwing, so tracking never breaks a screen', () => {
     expect(validateEvent('availability_submitted', { status: 'nonsense' })).toBeNull();
     // The value is irrelevant — it is the *key* that must never be accepted.

@@ -1,12 +1,15 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 
-import { useFixture } from '../../../src/data/fixtures/useFixture';
-import { InviteCircleScreen } from '../../../src/features/circles/InviteCircleScreen';
+import { InviteCircleFlow } from '../../../src/features/circles/InviteCircleFlow';
+import { MembershipGate } from '../../../src/features/identity/join/MembershipGate';
 
 /** Route only — thin composition, no logic (architecture §7.1). */
 export default function Route() {
-  const router = useRouter();
-  const fixture = useFixture();
+  const { id } = useLocalSearchParams<{ id: string }>();
 
-  return <InviteCircleScreen fixture={fixture} onBack={() => router.back()} />;
+  return (
+    <MembershipGate target={{ kind: 'circle', id }}>
+      <InviteCircleFlow id={id} />
+    </MembershipGate>
+  );
 }

@@ -6,6 +6,7 @@ export { AnswerRow } from './AnswerRow';
 export { Button, ButtonRow, CompactButton, Tertiary } from './Button';
 export { Card } from './Card';
 export { Chip, Chips } from './Chip';
+export { CodeInput } from './CodeInput';
 export { DayGrid, type GridDay } from './DayGrid';
 export { Icon, type IconName } from './Icon';
 export { Input } from './Input';
@@ -19,6 +20,7 @@ export {
   DateText,
   DisplayL,
   DisplayXL,
+  InlineLink,
   Label,
   Small,
   Title,

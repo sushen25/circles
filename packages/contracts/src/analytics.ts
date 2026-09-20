@@ -64,7 +64,15 @@ export const catalogue = {
   // --- planning -----------------------------------------------------------
   plan_created: event(1, {
     mode: z.enum(['named', 'quiet']),
-    window: z.enum(['tonight', 'weekend', 'next_week', 'custom']),
+    /**
+     * Which preset the window came from. `next_two_weeks` is S1-22's: the
+     * first-run plan asks about the next fourteen days (spec §5.1 step 7), and
+     * the list had nowhere to put the one window every first plan uses — it
+     * would have been recorded as `next_week`, which is a different question.
+     * Widening an enum changes no existing event's meaning, so the version
+     * stays.
+     */
+    window: z.enum(['tonight', 'weekend', 'next_week', 'next_two_weeks', 'custom']),
     used_defaults: z.boolean(),
   }),
   plan_shared: event(1),

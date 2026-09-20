@@ -380,3 +380,79 @@ export async function latestCodeFor(address: string): Promise<string> {
   }
   throw new Error('no code arrived at the mail catcher');
 }
+
+/**
+ * An account nobody is signed in to, with an address the test can read codes
+ * for (S1-22). Made through the admin API with no password: the only way in is
+ * the six-digit code, as it is for a person.
+ */
+export async function accountToSignInTo(name: string): Promise<{ userId: string; email: string }> {
+  const { apiUrl, serviceKey } = stackConfig();
+  const email = `${randomUUID()}@example.test`;
+  const created = await fetch(`${apiUrl}/auth/v1/admin/users`, {
+    method: 'POST',
+    headers: {
+      apikey: serviceKey,
+      authorization: `Bearer ${serviceKey}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      email,
+      email_confirm: true,
+      user_metadata: { display_name: name, time_zone: 'Australia/Melbourne' },
+    }),
+  });
+  if (!created.ok) throw new Error(`could not create a test account (${created.status})`);
+  const user = (await created.json()) as { id: string };
+  return { userId: user.id, email };
+}
+
+/** The user whose address is `email`, and their profile, once they exist. */
+export function profileFor(
+  email: string,
+): { userId: string; name: string; zone: string } | undefined {
+  const [row] = sql(`
+    select u.id, p.display_name, p.time_zone
+    from auth.users u join public.profiles p on p.user_id = u.id
+    where u.email = '${email}'
+  `);
+  return row === undefined ? undefined : { userId: row[0]!, name: row[1]!, zone: row[2]! };
+}
+
+/** The circles `userId` owns, oldest first. */
+export function circlesOwnedBy(userId: string): { id: string; name: string; cadence: string }[] {
+  return sql(`select id, name, cadence from public.circles
+    where owner_user_id = '${userId}' order by created_at`).map(([id, name, cadence]) => ({
+    id: id!,
+    name: name!,
+    cadence: cadence!,
+  }));
+}
+
+/** The plans in `circleId`: state, quorum and short code. */
+export function plansIn(
+  circleId: string,
+): { id: string; state: string; quorum: number; code: string }[] {
+  return sql(`select id, state, quorum, short_code from public.plans
+    where circle_id = '${circleId}' order by created_at`).map(([id, state, quorum, code]) => ({
+    id: id!,
+    state: state!,
+    quorum: Number(quorum),
+    code: code!,
+  }));
+}
+
+/** A circle `userId` owns, with them as its one member. Its id. */
+export function circleOwnedBy(userId: string, name: string): string {
+  const circleId = randomUUID();
+  sql(`
+    begin;
+    insert into public.circles (id, owner_user_id, name, color, time_zone, cadence, short_code, creation_key)
+    values ('${circleId}', '${userId}', '${name}', 'sky', 'Australia/Melbourne', 'monthly',
+      '${shortCode()}', 'e2e-${circleId}');
+    insert into public.circle_members (circle_id, user_id, display_name_snapshot, role)
+    values ('${circleId}', '${userId}', 'Maya', 'owner');
+    commit;
+  `);
+  return circleId;
+}

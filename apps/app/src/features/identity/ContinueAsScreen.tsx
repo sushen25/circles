@@ -12,6 +12,7 @@ import {
   Notice,
   Screen,
   Small,
+  Tertiary,
   Title,
   TopBar,
 } from '../../components';
@@ -54,6 +55,11 @@ export type ContinueAsProps = {
   busyKey?: string | undefined;
   onPick?: ((option: ContinueOption) => void) | undefined;
   onImNewHere?: (() => void) | undefined;
+  /**
+   * "I have an account" (ADR 0022): sign in, and come back to this link. A
+   * saved-place member is never on the list, so without it somebody with an
+   * account on a new device would be told their own name is taken.
+   */
   onSignIn?: (() => void) | undefined;
   onRetry?: (() => void) | undefined;
   onBack?: (() => void) | undefined;
@@ -163,6 +169,9 @@ export function ContinueAsScreen({
           <Button label={t('continueAs', 'sign_in')} onPress={onSignIn} />
         ) : null}
         <Button label={t('continueAs', 'im_new_here')} variant="secondary" onPress={onImNewHere} />
+        {signedIn || problem?.kind === 'saved_place' ? null : (
+          <Tertiary label={t('continueAs', 'i_have_an_account')} onPress={onSignIn} />
+        )}
       </Foot>
     </Screen>
   );

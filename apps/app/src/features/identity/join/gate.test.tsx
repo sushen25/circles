@@ -12,6 +12,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const replace = vi.fn();
 vi.mock('expo-router', () => ({
   useRouter: () => ({ replace, push: vi.fn(), back: vi.fn(), canGoBack: () => false }),
+  usePathname: () => '/j/pnsundaycr',
 }));
 const track = vi.fn();
 vi.mock('../../../analytics/track', () => ({ track: (...args: unknown[]) => track(...args) }));
