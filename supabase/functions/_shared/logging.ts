@@ -19,6 +19,11 @@ export interface LogFields {
   /** A `ProblemReason`, which is an enum and therefore safe. */
   reason?: string | undefined;
   duration_ms?: number | undefined;
+  /**
+   * The email contact a line is about, by id — never the address (S1-19). An
+   * id identifies a row, and a row is only reachable by the service role.
+   */
+  contact_id?: string | undefined;
 }
 
 export function log(level: 'info' | 'warn' | 'error', fields: LogFields): void {

@@ -13,7 +13,7 @@
 -- outcomes.
 
 begin;
-select plan(60);
+select plan(61);
 
 create or replace function pg_temp.make_user(id uuid, name text, permanent boolean default false)
 returns uuid language sql as $$
@@ -712,8 +712,16 @@ values ('00000000-0000-0000-0000-0000000008a2', 'jules-again@example.com', 'veri
 select pg_temp.act_as_service();
 select lives_ok(
   format($$ select public.issue_reentry_token(%L, %L, pg_temp.hash_of('t-reentry')) $$,
-    (select circle_id from t), '00000000-0000-0000-0000-0000000008a2'),
+    (select circle_id from t),
+    pg_temp.contact_of('jules-again@example.com', '00000000-0000-0000-0000-0000000008a2')),
   'a guest gets a single-use way back into the circle'
+);
+
+select pg_temp.act_as_postgres();
+select is(
+  (select tok.contact_id from private.email_action_tokens tok where tok.purpose = 'reentry'),
+  pg_temp.contact_of('jules-again@example.com', '00000000-0000-0000-0000-0000000008a2'),
+  'hung on the contact the letter is going to, which the sender names (S1-19)'
 );
 
 select pg_temp.act_as_postgres();
@@ -726,10 +734,15 @@ select ok(
 -- And never for somebody who can simply sign in: a re-entry link for a
 -- saved-place identity is a sign-in bypass, refused by the table rather than by
 -- whoever remembers.
+select pg_temp.act_as_postgres();
+insert into private.email_contacts (user_id, email_normalized, status, verified_at)
+values ('00000000-0000-0000-0000-0000000008a1', 'maya-reentry@example.com', 'verified', now());
+
 select pg_temp.act_as_service();
 select ok(
   (select public.issue_reentry_token(
-     (select circle_id from t), '00000000-0000-0000-0000-0000000008a1',
+     (select circle_id from t),
+     pg_temp.contact_of('maya-reentry@example.com', '00000000-0000-0000-0000-0000000008a1'),
      extensions.digest('t-maya-reentry', 'sha256'))) is null,
   'and the owner, who signs in, gets null: the email is the same without a link'
 );
@@ -751,7 +764,8 @@ select is(
 select pg_temp.act_as_service();
 select throws_ok(
   format($$ select public.issue_reentry_token(%L, %L, extensions.digest('t-asker', 'sha256')) $$,
-    (select circle_id from t), '00000000-0000-0000-0000-0000000008a5'),
+    (select circle_id from t),
+    pg_temp.contact_of('asker@example.com', '00000000-0000-0000-0000-0000000008a5')),
   'no_verified_contact',
   'while a guest with no address to send it to is told so'
 );

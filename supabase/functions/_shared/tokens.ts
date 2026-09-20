@@ -74,16 +74,45 @@ export async function issueVerificationToken(
  * outcome rather than an error — treating it as one made a permanent member's
  * event email unrenderable, since the table's guard raises a SQLSTATE the kit
  * turns into a 500.
+ *
+ * **Pass the contact the letter is going to**, which the job names — not the
+ * person. The token hangs on that contact, so removing some other address of
+ * theirs cannot take the link out of this letter (S1-19).
  */
 export async function issueReentryToken(
   service: Db,
   circleId: string,
-  userId: string,
+  contactId: string,
 ): Promise<string | null> {
   const token = mintToken();
   const { data, error } = await service.rpc('issue_reentry_token', {
     p_circle_id: circleId,
-    p_user_id: userId,
+    p_contact_id: contactId,
+    p_token_hash: await tokenHash(token),
+  });
+  if (error !== null) throw error;
+  return data === null ? null : token;
+}
+
+/**
+ * The link under a plan-update email: "Stop emails for this meetup" and
+ * "Manage email preferences" both open `/e#<token>` (ADR 0023).
+ *
+ * Minted per letter, at send time, for the contact the letter is going to —
+ * the verification token's rule (ADR 0020), because the readable half has no
+ * other way to reach the letter. Reusable for ninety days (ADR 0019): tapping
+ * it does not spend it.
+ *
+ * **Null means skip this job**: the contact is no longer verified — a bounce
+ * suppressed it, or its owner removed it — so there is nobody to write to.
+ */
+export async function issuePreferencesToken(
+  service: Db,
+  contactId: string,
+): Promise<string | null> {
+  const token = mintToken();
+  const { data, error } = await service.rpc('issue_preferences_token', {
+    p_contact_id: contactId,
     p_token_hash: await tokenHash(token),
   });
   if (error !== null) throw error;

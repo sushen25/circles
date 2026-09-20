@@ -313,6 +313,49 @@ export const markOverlap = ${markOverlap};
 export const cell = ${JSON.stringify(cell, null, 2)} as const;
 `;
 
+// ------------------------------------------------------- the email palette
+//
+// An Edge Function may not import `@circles/tokens` (architecture §7.2), so the
+// email templates carry a copy of the colours they use, keyed by token name
+// (`supabase/functions/_shared/email/theme.ts`). A copy is a second place a
+// value lives, and a second place is checked here, where the first one is made.
+const EMAIL_THEME = join(ROOT, 'supabase/functions/_shared/email/theme.ts');
+const emailPalette = readFileSync(EMAIL_THEME, 'utf8').match(
+  /export const palette = \{([\s\S]*?)\} as const;/,
+)?.[1];
+if (emailPalette === undefined) fail('the palette in supabase/functions/_shared/email/theme.ts');
+// Every property, not only the ones shaped like the rule: a value written as
+// `'#fff'`, in double quotes or as an expression would otherwise be skipped by
+// the pattern and pass unchecked, which is the drift this exists to catch.
+const emailEntries = emailPalette
+  .split('\n')
+  .map((line) => line.trim())
+  .filter(
+    (line) =>
+      line !== '' && !line.startsWith('/**') && !line.startsWith('*') && !line.startsWith('//'),
+  );
+const unreadable = emailEntries.filter((line) => !/^\w+: '#[0-9A-Fa-f]{6}',$/.test(line));
+if (unreadable.length > 0) {
+  console.error(
+    "tokens: the email palette has entries that are not `name: '#RRGGBB',` and cannot be checked:\n" +
+      `${unreadable.map((line) => `  ${line}`).join('\n')}\n\nWrite each as a six-digit hex string named after its token.`,
+  );
+  process.exit(1);
+}
+const emailDrift = [...emailPalette.matchAll(/^\s*(\w+): '(#[0-9A-Fa-f]{6})',/gm)]
+  .filter(([, name, value]) => color[name ?? '']?.toUpperCase() !== value?.toUpperCase())
+  .map(
+    ([, name, value]) =>
+      `  ${name}: ${value} in the email theme, ${color[name ?? ''] ?? 'no such token'} in the canvas`,
+  );
+if (emailDrift.length > 0) {
+  console.error(
+    'tokens: the email palette no longer matches the tokens it copies.\n' +
+      `${emailDrift.join('\n')}\n\nUpdate supabase/functions/_shared/email/theme.ts to match.`,
+  );
+  process.exit(1);
+}
+
 const prettierConfig = await resolveConfig(TARGET);
 const formatted = await format(body, { ...prettierConfig, parser: 'typescript' });
 

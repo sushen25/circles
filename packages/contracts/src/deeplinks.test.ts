@@ -6,8 +6,10 @@ import {
   fragmentLinkKind,
   parseJoinLink,
   parseTokenLink,
+  planUrl,
   reentryUrl,
   type OpaqueToken,
+  type ShortCode,
 } from './index';
 
 // Made at run time: a fixed token-shaped literal is what a secret scanner looks for.
@@ -46,5 +48,13 @@ describe('emailed links (ADR 0023)', () => {
   it('reads nothing from a link with no usable token', () => {
     expect(parseTokenLink('https://example.test/v')).toBeNull();
     expect(parseTokenLink('https://example.test/v#short')).toBeNull();
+  });
+});
+
+describe('the plan link', () => {
+  it('is /p/<code> on the origin, with no fragment to carry anything else', () => {
+    expect(planUrl('https://example.test/', 'pnemab' as ShortCode)).toBe(
+      'https://example.test/p/pnemab',
+    );
   });
 });
