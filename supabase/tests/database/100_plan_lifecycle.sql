@@ -6,7 +6,7 @@
 -- would all say yes.
 
 begin;
-select plan(88);
+select plan(90);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid
@@ -236,6 +236,30 @@ select is(
   'defaulted',
   'a plan made with no quorum is one nobody chose'
 );
+-- A circle that has chosen a default has chosen for its plans too, however the
+-- function is called (review round 6).
+select pg_temp.act_as_postgres();
+update public.circles set default_quorum = 5 where id = pg_temp.circle_id();
+
+select pg_temp.act_as('10000000-0000-0000-0000-000000000001');
+create temporary table circle_default as
+select * from public.create_plan(pg_temp.circle_id(), 'Catch up', 'catch_up',
+  date '2099-09-17', date '2099-09-20', 1050, 1350, 120, null,
+  timestamptz '2099-09-16T10:00:00Z');
+
+select pg_temp.act_as_postgres();
+select is(
+  (select quorum from circle_default),
+  5,
+  'the circle default is a number somebody chose'
+);
+select is(
+  (select quorum_source from circle_default),
+  'chosen',
+  'and it does not follow the audience'
+);
+update public.circles set default_quorum = null where id = pg_temp.circle_id();
+
 select is(
   (select quorum from defaulted),
   public.soft_quorum((

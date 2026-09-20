@@ -118,11 +118,19 @@ begin
     p_circle_id, 'named', caller, p_title, p_category, circle.time_zone,
     p_window_start, p_window_end, p_daily_start_local, p_daily_end_local,
     p_duration_minutes,
-    coalesce(p_quorum, public.soft_quorum((
+    -- The request's number, then the circle's own default, then the rule. The
+    -- circle's default is read here rather than taken from the caller for the
+    -- same reason the label is (review round 6): this function is granted to
+    -- `authenticated`, so a direct call with no quorum must not turn a circle
+    -- that *has* chosen a default into a plan that follows the audience.
+    coalesce(p_quorum, circle.default_quorum, public.soft_quorum((
       select count(*)::integer from public.circle_members m
       where m.circle_id = p_circle_id and m.status = 'active'
     ))),
-    case when p_quorum is null then 'defaulted' else 'chosen' end,
+    case
+      when p_quorum is null and circle.default_quorum is null then 'defaulted'
+      else 'chosen'
+    end,
     p_response_deadline, code
   )
   returning * into created;
