@@ -58,6 +58,9 @@ const Draft = z.object({
     durationMinutes: z.union([z.literal(60), z.literal(90), z.literal(120), z.literal(180)]),
     responseDeadline: z.string(),
     organiserName: z.string().nullable(),
+    // Optional: a draft written before this field existed is still a draft
+    // somebody's times are in, and refusing it would throw those away.
+    organiserUserId: z.string().nullable().default(null),
     acceptingAnswers: z.boolean(),
   }),
   windows: z.array(Span),

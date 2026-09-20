@@ -105,10 +105,6 @@ function LiveSent({ code }: { code: string }) {
       name={name.data ?? null}
       live
       offerSaveAccess={session.status === 'guest'}
-      // An account already hears about this plan by email, and organiser email
-      // is not a per-plan subscription (§5.8). Offering it one is asking
-      // somebody to sign up for what they already have (ADR 0026).
-      offerEmailUpdates={session.status === 'guest'}
       offeredBefore={offerShown.data}
     />
   );
@@ -122,8 +118,6 @@ type SentInnerProps = {
   name: string | null;
   live: boolean;
   offerSaveAccess?: boolean;
-  /** The email card is a guest's: an account is already told (§5.8). */
-  offerEmailUpdates?: boolean;
   /** Offered on an earlier visit: not again for this plan (spec §5.11). */
   offeredBefore?: boolean;
 };
@@ -136,11 +130,16 @@ function Sent({
   name,
   live,
   offerSaveAccess = false,
-  offerEmailUpdates = true,
   offeredBefore = false,
 }: SentInnerProps) {
   const router = useRouter();
-  const [offerEmail, setOfferEmail] = useState(offerEmailUpdates && !offeredBefore);
+  // The organiser hears about their own plan already — the organiser kinds go
+  // to them by email when they have no app (§5.8) — so the card is an offer of
+  // what they have. **Everybody else is offered it, account or not**: a
+  // per-plan subscription is the only way a web member gets the confirmed
+  // time, and a saved place is an account, not a subscription (review round 1).
+  const organising = plan.organiserUserId !== null && plan.organiserUserId === userId;
+  const [offerEmail, setOfferEmail] = useState(!organising && !offeredBefore);
   const [email, setEmail] = useState('');
   const [problem, setProblem] = useState<SentProblem | undefined>();
   const [reference, setReference] = useState<string | undefined>();
@@ -238,9 +237,9 @@ function Sent({
           : undefined
       }
       onSeeCircle={
-        offerEmailUpdates
-          ? undefined
-          : () => router.dismissTo({ pathname: '/circles/[id]', params: { id: plan.circleId } })
+        organising
+          ? () => router.dismissTo({ pathname: '/circles/[id]', params: { id: plan.circleId } })
+          : undefined
       }
       onBack={() => (router.canGoBack() ? router.back() : router.replace('/'))}
     />

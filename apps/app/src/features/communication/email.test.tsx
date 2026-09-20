@@ -158,6 +158,19 @@ describe('the organiser answering their own plan (ADR 0026)', () => {
     });
   });
 
+  it('still offers a saved member who is not the organiser the email card', async () => {
+    // Round 1: an account is not the same thing as the organiser. Only the
+    // organiser hears about their own plan without subscribing (§5.8); every
+    // other web member needs the verified per-plan subscription, account or
+    // not, or they never get the confirmed time.
+    Object.assign(session, { status: 'saved', userId: 'priya', isAnonymous: false });
+    wrap(<SentFlow code={PLAN.code} />);
+    await screen.findByText(/Your times are in\./);
+
+    expect(screen.getByText('Get updates about this meetup by email')).toBeVisible();
+    expect(screen.queryByRole('button', { name: "See how it's looking" })).toBeNull();
+  });
+
   it('still offers a guest the email card and no way into the circle', async () => {
     wrap(<SentFlow code={PLAN.code} />);
     await screen.findByText(/Your times are in\./);
