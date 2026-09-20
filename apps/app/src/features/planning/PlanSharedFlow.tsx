@@ -48,7 +48,9 @@ function FixturePlanShared() {
   const router = useRouter();
   return (
     <PlanSharedScreen
-      onNext={() => router.push('/circles/sunday-crew/plan/thu-17/candidates')}
+      // The editor, as the live flow's is: on fixtures this screen's action
+      // used to be "Done" and went to the candidates (review round 2).
+      onNext={() => router.push('/j/pnsundaycr')}
       onBack={() => router.back()}
     />
   );

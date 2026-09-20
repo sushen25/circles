@@ -54,11 +54,19 @@ that path and leaves the first run with it.
 `plans.quorum_source` (`'chosen' | 'defaulted'`). `create-plan` writes
 `'defaulted'` only when neither the request nor the circle supplied a number.
 
-**4. While it is defaulted, the quorum follows the circle.** Every join through
-`join-plan` recomputes it from the new active-member count and applies it as an
-**adjustment** ([ADR 0017](./0017-changing-a-quorum-or-a-deadline-adjusts-a-plan-it-does-not-revise-it.md)):
+**4. While it is defaulted, the quorum follows the plan's audience.** Every join
+through `join-plan` recomputes it from the number of people the plan is asking —
+its participants at the current revision, not the circle's roster — and applies
+it as an **adjustment** ([ADR 0017](./0017-changing-a-quorum-or-a-deadline-adjusts-a-plan-it-does-not-revise-it.md)):
 no new revision, answers kept, and the candidate set restaled and recalculated in
-the same request as any other adjustment. The rule is a pure function in
+the same request as any other adjustment.
+
+The audience rather than the roster, because the two come apart in both
+directions. Somebody who joins by the circle's invite and never opens the plan
+was never asked (spec §9 makes joining an active plan an opt-in), and counting
+them would put the quorum above the people who can answer — a plan that can
+never reach it. And a circle's other plans are untouched by a join to this one,
+because their own audiences did not change. The rule is a pure function in
 `packages/domain` and a Postgres function that is authoritative, as AGENTS.md
 requires of a transition guard.
 

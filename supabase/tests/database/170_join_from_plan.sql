@@ -11,7 +11,7 @@
 -- session; Sam is a stranger with an account.
 
 begin;
-select plan(58);
+select plan(59);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid
@@ -622,6 +622,20 @@ select is(
   (select count(*)::integer from public.plan_responses r where r.plan_id = pg_temp.walkies_plan()),
   0,
   'and no answer was discarded on the way'
+);
+
+-- Somebody who joins the circle another way is not one of the people this plan
+-- is asking (spec §9), so the number of people who have to make it does not
+-- move for them. Counting the roster instead would put the quorum above the
+-- people who could answer (review round 2).
+select pg_temp.act_as_postgres();
+insert into public.circle_members (circle_id, user_id, display_name_snapshot)
+select circle_id, '17000000-0000-0000-0000-000000000003'::uuid, 'Tom' from alone;
+
+select is(
+  (select quorum from public.plans p where p.id = pg_temp.walkies_plan()),
+  4,
+  'a circle join that never opened the plan leaves its quorum where it was'
 );
 
 -- The organiser's own number stops the rule dead.

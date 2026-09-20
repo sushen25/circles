@@ -806,6 +806,7 @@ declare
   members integer;
   following integer;
   quorum_moved boolean := false;
+  restaled boolean := false;
 begin
   if caller is null then
     raise exception 'join_from_plan requires the person joining'
@@ -873,29 +874,6 @@ begin
   on conflict do nothing;
   get diagnostics added = row_count;
 
-  if admitted then
-    -- The count *after* the admission, and of the circle rather than the plan:
-    -- a quorum is how many people have to make it, and the people who could
-    -- make it are the circle's active members (spec §5.2). `admit_member`
-    -- returns false for a rejoin that changed nothing, so a retry cannot walk
-    -- the number up.
-    select count(*) into members
-    from public.circle_members m
-    where m.circle_id = target.id and m.status = 'active';
-
-    following := public.soft_quorum(members);
-    if plan.quorum_source = 'defaulted' and following is distinct from plan.quorum then
-      -- The plan's own rule writing, under the lock this function already
-      -- holds. `transition_plan` bumps the input version for a quorum change
-      -- and leaves the revision alone (ADR 0017), so the candidate set is
-      -- restaled and the answers are kept.
-      perform planning.transition_plan(
-        plan.id, 'quorum_follows', caller, jsonb_build_object('quorum', following)
-      );
-      quorum_moved := true;
-    end if;
-  end if;
-
   if added > 0 then
     update public.plans p
     set input_version = p.input_version + 1
@@ -910,16 +888,47 @@ begin
     -- `candidates_gone` has no guard and announces nothing.
     if plan.state = 'ready' then
       perform planning.transition_plan(plan.id, 'candidates_gone', caller);
-      quorum_moved := false;
+      restaled := true;
     end if;
   end if;
 
-  -- A quorum that moved without anybody being added to the plan — a member of
-  -- the circle who was already a participant cannot happen here, but a plan
-  -- that was `ready` and whose quorum just changed must not stay `ready`: a
-  -- candidate set is eligible on its versions and never reads the quorum, so a
-  -- four-person option would stay confirmable under a quorum of five.
-  if quorum_moved and plan.state = 'ready' then
+  -- A quorum nobody chose, on the audience this join just changed.
+  if admitted then
+    -- The count *after* the admission, and of the people this plan is actually
+    -- asking — its participants at this revision — rather than the circle's
+    -- roster.
+    --
+    -- Two things follow, and both are the point (review round 2). A member who
+    -- joined by the circle's invite and never opened this plan was never asked
+    -- (spec §9 makes joining an active plan an opt-in), so they must not raise
+    -- the number of people who have to make it — a quorum above the people who
+    -- can answer is a plan that can never reach it. And a circle's *other*
+    -- defaulted plans are left alone, because their own audiences did not
+    -- change; the rule follows the question, not the address book.
+    select count(*) into members
+    from public.plan_participants pp
+    join public.circle_members m
+      on m.circle_id = target.id and m.user_id = pp.user_id and m.status = 'active'
+    where pp.plan_id = plan.id and pp.revision = plan.revision;
+
+    following := public.soft_quorum(members);
+    if plan.quorum_source = 'defaulted' and following is distinct from plan.quorum then
+      -- The plan's own rule writing, under the lock this function already
+      -- holds. `transition_plan` bumps the input version for a quorum change
+      -- and leaves the revision alone (ADR 0017), so the candidate set is
+      -- restaled and the answers are kept.
+      perform planning.transition_plan(
+        plan.id, 'quorum_follows', caller, jsonb_build_object('quorum', following)
+      );
+      quorum_moved := true;
+    end if;
+  end if;
+
+  -- A `ready` plan whose quorum just moved must not stay `ready`: a candidate
+  -- set is eligible on its versions and never reads the quorum, so a
+  -- four-person option would stay confirmable under a quorum of five. Once is
+  -- enough — the roster change above may have said it already.
+  if quorum_moved and plan.state = 'ready' and not restaled then
     perform planning.transition_plan(plan.id, 'candidates_gone', caller);
   end if;
 
