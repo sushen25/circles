@@ -39,18 +39,19 @@ create or replace function public.create_plan(
   p_daily_start_local integer,
   p_daily_end_local integer,
   p_duration_minutes integer,
+  -- **Null means nobody chose.** The caller passes the organiser's number, or
+  -- the circle's default, or nothing at all; what "nothing" resolves to is
+  -- decided here, under the circle's lock, from the audience this plan is
+  -- about to be addressed to (ADR 0026). Two reasons it is not the caller's
+  -- (review round 5): a count read before the call is a count that can be
+  -- stale by the time the rows are written, and this function is granted to
+  -- `authenticated`, so a client calling it directly could otherwise label its
+  -- own chosen number `defaulted` and have later joins overwrite it.
   p_quorum integer,
   p_response_deadline timestamptz,
   -- Absent means "the organiser alone", which is spec §5.3's default. An empty
   -- array is a different answer — nobody is required — and is kept as one.
-  p_required_member_ids uuid[] default null,
-  -- Whether `p_quorum` is a number somebody meant. `defaulted` is what the
-  -- caller passes when neither the request nor the circle supplied one, and it
-  -- is the only kind that follows the circle as people join (ADR 0026). The
-  -- caller decides because only the caller can see the request; the default
-  -- here is the conservative one, so a caller that has not been taught about
-  -- the flag gets a quorum that stays put.
-  p_quorum_source text default 'chosen'
+  p_required_member_ids uuid[] default null
 )
 returns public.plans
 language plpgsql
@@ -116,7 +117,13 @@ begin
   values (
     p_circle_id, 'named', caller, p_title, p_category, circle.time_zone,
     p_window_start, p_window_end, p_daily_start_local, p_daily_end_local,
-    p_duration_minutes, p_quorum, p_quorum_source, p_response_deadline, code
+    p_duration_minutes,
+    coalesce(p_quorum, public.soft_quorum((
+      select count(*)::integer from public.circle_members m
+      where m.circle_id = p_circle_id and m.status = 'active'
+    ))),
+    case when p_quorum is null then 'defaulted' else 'chosen' end,
+    p_response_deadline, code
   )
   returning * into created;
 
@@ -160,9 +167,9 @@ begin
 end;
 $$;
 
-comment on function public.create_plan(uuid, text, text, date, date, integer, integer, integer, integer, timestamptz, uuid[], text) is
+comment on function public.create_plan(uuid, text, text, date, date, integer, integer, integer, integer, timestamptz, uuid[]) is
   'Creates a named plan as a draft, addresses it to the circle''s active members, and moves it to collecting through the state machine. Defaults are resolved by the domain before it is called.';
 
-revoke all on function public.create_plan(uuid, text, text, date, date, integer, integer, integer, integer, timestamptz, uuid[], text) from public;
-revoke all on function public.create_plan(uuid, text, text, date, date, integer, integer, integer, integer, timestamptz, uuid[], text) from anon, authenticated;
-grant execute on function public.create_plan(uuid, text, text, date, date, integer, integer, integer, integer, timestamptz, uuid[], text) to authenticated;
+revoke all on function public.create_plan(uuid, text, text, date, date, integer, integer, integer, integer, timestamptz, uuid[]) from public;
+revoke all on function public.create_plan(uuid, text, text, date, date, integer, integer, integer, integer, timestamptz, uuid[]) from anon, authenticated;
+grant execute on function public.create_plan(uuid, text, text, date, date, integer, integer, integer, integer, timestamptz, uuid[]) to authenticated;

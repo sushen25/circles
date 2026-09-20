@@ -972,7 +972,6 @@ export type Database = {
           p_daily_start_local: number
           p_duration_minutes: number
           p_quorum: number
-          p_quorum_source?: string
           p_required_member_ids?: string[]
           p_response_deadline: string
           p_title: string

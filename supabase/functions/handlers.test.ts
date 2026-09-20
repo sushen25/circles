@@ -791,17 +791,29 @@ describe('create-plan', () => {
   });
 
   it('resolves the preset and the defaults, and sends what they resolved to', async () => {
-    // The numbers a screen must never compute: the window from `resolvePreset`,
-    // the deadline from `defaultDeadline`, the quorum from `quorumDefault(6)`.
+    // The numbers a screen must never compute: the window from `resolvePreset`
+    // and the deadline from `defaultDeadline`.
     const response = await load('create-plan')(post(body));
     const sent = called('create_plan')[0]?.args ?? {};
 
     expect(response.status).toBe(200);
     expect(sent['p_window_start']).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(sent['p_duration_minutes']).toBe(120);
-    // max(2, ceil(6 × 0.6)) = 4.
-    expect(sent['p_quorum']).toBe(4);
     expect(sent['p_response_deadline']).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+  });
+
+  it('sends no quorum when nobody chose one, so the database resolves it', async () => {
+    // ADR 0026, round 5: null means "nobody chose". Resolving it here would be
+    // a count read before the rows are written, and this RPC is reachable by
+    // any client, so a source passed alongside it could be a lie.
+    await load('create-plan')(post(body));
+    expect(called('create_plan')[0]?.args?.['p_quorum']).toBeNull();
+    expect(called('create_plan')[0]?.args).not.toHaveProperty('p_quorum_source');
+  });
+
+  it("sends the organiser's own number when they gave one", async () => {
+    await load('create-plan')(post({ ...body, quorum: 5 }));
+    expect(called('create_plan')[0]?.args?.['p_quorum']).toBe(5);
   });
 
   it('passes the domain’s own word for a window that cannot be', async () => {
