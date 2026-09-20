@@ -205,7 +205,13 @@ begin
       on m.circle_id = target.id and m.user_id = pp.user_id and m.status = 'active'
     where pp.plan_id = plan.id and pp.revision = plan.revision;
 
-    following := public.soft_quorum(members);
+    -- Never below where it already is. The rule follows a circle that is
+    -- growing; a circle that shrank keeps its number, because a removal must
+    -- not lower a quorum as a side effect (ADR 0026) and the next join would
+    -- otherwise do it on the removal's behalf — possibly making the plan
+    -- `ready` on the way (review round 4). Lowering is the organiser's, and
+    -- doing it makes the number theirs.
+    following := greatest(plan.quorum, public.soft_quorum(members));
     if plan.quorum_source = 'defaulted' and following is distinct from plan.quorum then
       -- The plan's own rule writing, under the lock this function already
       -- holds. `transition_plan` bumps the input version for a quorum change

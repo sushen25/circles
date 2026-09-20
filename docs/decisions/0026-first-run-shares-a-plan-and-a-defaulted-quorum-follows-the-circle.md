@@ -109,6 +109,12 @@ quorum on **joins** only. A removal that lowered the quorum would make a plan
 `ready` on two people and lands at a worse moment. A removal leaves the number
 where it is; the organiser can lower it.
 
+That has a consequence worth stating, because the first implementation missed
+it: a defaulted quorum only ever **rises**. Recomputing from the audience alone
+would let the next join after a removal lower the number on the removal's
+behalf, which is the same side effect arriving one step later, so the recompute
+is clamped to the quorum already stored.
+
 **A `null` quorum meaning "defaulted", instead of a second column.** It collapses
 two facts into one and loses the current number, which `ready`, the candidate set
 and "N of M replied" all read. Every one of them would have to learn the rule and

@@ -11,7 +11,7 @@
 -- session; Sam is a stranger with an account.
 
 begin;
-select plan(61);
+select plan(63);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid
@@ -656,6 +656,37 @@ select is(
   public.soft_quorum(7),
   'a circle join that never opened the plan leaves its quorum where it was'
 );
+
+-- Removals leave the number where it is (ADR 0026), and the next join must not
+-- quietly undo that: recomputing from a shrunken audience would lower a quorum
+-- nobody asked to lower, and could make the plan ready on the way (review
+-- round 4).
+select pg_temp.act_as_postgres();
+update public.circle_members set status = 'removed'
+where circle_id = (select circle_id from alone)
+  and user_id in (
+    '17000000-0000-0000-0000-000000000007',
+    '17000000-0000-0000-0000-000000000008',
+    '17000000-0000-0000-0000-000000000009'
+  );
+
+select pg_temp.act_as_service();
+select lives_ok(
+  $$select public.join_from_plan('17000000-0000-0000-0000-000000000005', 'pnwakes2', 'Ren')$$,
+  'somebody joins after three people were removed'
+);
+
+select is(
+  (select quorum from public.plans p where p.id = pg_temp.walkies_plan()),
+  public.soft_quorum(7),
+  'the quorum stays where the circle left it: a join never lowers it'
+);
+
+select pg_temp.act_as_postgres();
+update public.circle_members set status = 'active'
+where circle_id = (select circle_id from alone);
+
+select pg_temp.act_as_service();
 
 -- The organiser's own number stops the rule dead.
 select pg_temp.act_as_postgres();
