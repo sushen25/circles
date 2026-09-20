@@ -1,6 +1,6 @@
 # ADR 0022: A plan link admits new members while the plan is taking answers
 
-_Status: accepted · Date: 17 September 2026_
+_Status: accepted (one point narrowed by ADR 0026) · Date: 17 September 2026_
 
 ## Context
 
@@ -130,6 +130,14 @@ own membership.
 - **Recompute the quorum when somebody joins.** Rejected above, and it would
   contradict ADR 0017's line between what an organiser decides and what
   happens to them.
+
+  **Narrowed by [ADR 0026](./0026-first-run-shares-a-plan-and-a-defaulted-quorum-follows-the-circle.md)
+  (20 September 2026).** The rejection stands for a quorum somebody *chose*,
+  which is what this ADR was reasoning about. It does not hold for a quorum
+  nobody chose: first run now makes the plan before anybody has joined, so its
+  quorum is a placeholder rather than a decision, and a placeholder that never
+  moves is the failure this ADR's reasoning was protecting against, not an
+  organiser's number being overwritten.
 
 ## Consequences
 
