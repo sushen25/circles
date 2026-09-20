@@ -105,6 +105,10 @@ function LiveSent({ code }: { code: string }) {
       name={name.data ?? null}
       live
       offerSaveAccess={session.status === 'guest'}
+      // An account already hears about this plan by email, and organiser email
+      // is not a per-plan subscription (§5.8). Offering it one is asking
+      // somebody to sign up for what they already have (ADR 0026).
+      offerEmailUpdates={session.status === 'guest'}
       offeredBefore={offerShown.data}
     />
   );
@@ -118,6 +122,8 @@ type SentInnerProps = {
   name: string | null;
   live: boolean;
   offerSaveAccess?: boolean;
+  /** The email card is a guest's: an account is already told (§5.8). */
+  offerEmailUpdates?: boolean;
   /** Offered on an earlier visit: not again for this plan (spec §5.11). */
   offeredBefore?: boolean;
 };
@@ -130,10 +136,11 @@ function Sent({
   name,
   live,
   offerSaveAccess = false,
+  offerEmailUpdates = true,
   offeredBefore = false,
 }: SentInnerProps) {
   const router = useRouter();
-  const [offerEmail, setOfferEmail] = useState(!offeredBefore);
+  const [offerEmail, setOfferEmail] = useState(offerEmailUpdates && !offeredBefore);
   const [email, setEmail] = useState('');
   const [problem, setProblem] = useState<SentProblem | undefined>();
   const [reference, setReference] = useState<string | undefined>();
@@ -229,6 +236,11 @@ function Sent({
         plan.acceptingAnswers
           ? () => router.push({ pathname: '/j/[code]', params: { code } })
           : undefined
+      }
+      onSeeCircle={
+        offerEmailUpdates
+          ? undefined
+          : () => router.dismissTo({ pathname: '/circles/[id]', params: { id: plan.circleId } })
       }
       onBack={() => (router.canGoBack() ? router.back() : router.replace('/'))}
     />

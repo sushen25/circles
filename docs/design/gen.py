@@ -847,11 +847,28 @@ S["EmptyCirclesList"] = shell(
 S["PlanShared"] = shell(
     top("", back=False, right=wordmark()) +
     body(
-        stack(lbl("Sunday Crew"), dxl("Now tell the group."), p("Paste this into the chat where everyone already is. People answer from the link."), gap=10),
-        card(p("When can Sunday Crew actually catch up? Mark the times you'd be up for in the next two weeks. Takes a minute, no app needed: circles.app/j/7f3k"), row(sec("Copy"), sec("Share…"), gap=8), gap=12),
-        sm("Replies close Tue 15 Sep, 6 pm. We'll show you the best options as they come in."),
+        stack(lbl("Step 2 of 2"), dl("Ask Sunday Crew."), p("One link in the chat. Friends tap it, add a name, and say when they're free. No app, no account."), gap=10),
+        stack(
+            sm("What lands in the chat"),
+            f'<div style="background:{T["line"]};border-radius:18px;padding:12px;">' +
+            card(
+                p("When can Sunday Crew actually catch up? Mark the times you'd be up for in the next two weeks. Takes a minute, no app needed."),
+                f'<div style="border:1px solid {T["line"]};border-radius:12px;padding:10px;">' +
+                row(ic("link", 18, T["ink2"]), stack(title("Sunday Crew is finding a time to catch up"), sm("Pick the times you'd actually be up for. No app needed."), gap=2), gap=10) +
+                '</div>',
+                gap=10, pad=14) +
+            '</div>',
+            gap=8),
+        stack(
+            f'<div style="display:flex;align-items:center;gap:10px;border:1px solid {T["line"]};border-radius:14px;padding:6px 6px 6px 14px;">' +
+            f'<p style="flex:1 1 0;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:0;">circles.app/j/7f3k</p>' +
+            f'<div class="mini acc">{ic("link", 16, T["accent_dark"])}Copy</div>' +
+            '</div>',
+            row(ic("shield", 14, T["ink2"]), sm("Replies close Tue 15 Sep, 6 pm. We'll show you the best options as they come in."), gap=8),
+            gap=8),
     ) +
-    foot(pri("Done"))
+    foot(pri("Share to group chat"), ter("Add my times")),
+    css=AV_CSS
 )
 
 S["Waiting"] = shell(
@@ -1303,9 +1320,11 @@ grid(["Main","ContinueAs","Name","Availability","NoneWork","Sent",
       "CheckEmail","EmailVerified","EmailPrefs","SaveAccess","CandidatesMember","ConfirmedGuest",
       "AddToCalendar","RescheduledGuest","CancelledGuest","WasThere","LinkInvalid",
       "AvailabilityPicking","AvailabilityAdjusting"], "guest")
-grid(["Welcome","SignIn","EnterCode","YourName","FirstCircle","InviteCircle",
-      "CircleHomeJoining","FirstPlan","PlanShared","CircleHome"], "first")
-grid(["EmptyCirclesList","CirclesList","CreateCircle",
+# First run is plan-first (ADR 0026): the invite link and "people joining" are
+# still screens, reached from circle home and settings, but they are not steps.
+grid(["Welcome","SignIn","EnterCode","YourName","FirstCircle","FirstPlan",
+      "PlanShared","Availability","Sent","CircleHome"], "first")
+grid(["EmptyCirclesList","CirclesList","CreateCircle","InviteCircle","CircleHomeJoining",
       "ChooseMode","PlanSetup","CustomWindow","Waiting","Candidates",
       "DeadlinePassed","EditPlan","ConfirmReview","ConfirmedOrg","CircleHomeConfirmed","ChangeTime",
       "CancelPlan","CancelledOrg","NoQuorum","Outcome","CircleHomeDue","PlanAnother",

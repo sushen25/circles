@@ -68,12 +68,12 @@ async function signInByCode(page: Page, email: string): Promise<void> {
   await page.getByRole('button', { name: 'Continue' }).click();
 }
 
-test('a new organiser reaches a shareable invite link with two typed inputs and no permission asks', async ({
+test('a new organiser reaches a shareable plan link with two typed inputs and no permission asks', async ({
   page,
 }) => {
   await watchForPermissionAsks(page);
-  const invites: string[] = [];
-  page.on('request', (request) => invites.push(`${request.url()} ${request.postData() ?? ''}`));
+  const requests: string[] = [];
+  page.on('request', (request) => requests.push(`${request.url()} ${request.postData() ?? ''}`));
 
   await page.goto('/');
   await page.getByRole('button', { name: 'Continue with email' }).click();
@@ -97,53 +97,55 @@ test('a new organiser reaches a shareable invite link with two typed inputs and 
   typed += 1;
   await page.getByRole('button', { name: 'Create Sunday Crew' }).click();
 
-  await expect(page.getByText('Now invite Sunday Crew.')).toBeVisible();
-  expect(await typedFieldsOnScreen(page), 'nothing to type on the invite').toBe(0);
-  const link = await page
-    .getByText(/\/join#/)
-    .first()
-    .innerText();
-  expect(link).toMatch(/^http:\/\/localhost:\d+\/join#[A-Za-z0-9_-]{43,}$/);
-  expect(typed).toBe(2);
+  // Straight to the plan, with no invite step in between (ADR 0026).
+  await expect(page.getByText('Your first catch-up')).toBeVisible();
+  expect(await typedFieldsOnScreen(page), 'nothing to type on the first plan').toBe(0);
+  // A circle of one asks for three, not two: the placeholder that follows the
+  // circle as people tap the link.
+  await expect(page.getByText('At least 3 need to make it')).toBeVisible();
+  await page.getByRole('button', { name: 'Ask the group' }).click();
 
+  await expect(page.getByText('Ask Sunday Crew.')).toBeVisible();
+  expect(typed).toBe(2);
   expect(await page.evaluate('window.permissionAsks'), 'no permission was asked for').toEqual([]);
 
-  // In the database: a profile named and zoned, and the circle it owns.
+  // In the database: a profile named and zoned, the circle it owns, and a plan
+  // whose quorum is a placeholder.
   const profile = profileFor(email);
   expect(profile?.name).toBe('Maya');
-  // The zone the browser reports, whatever it is: CI runs in UTC (review round 2).
   const deviceZone = await page.evaluate(() => Intl.DateTimeFormat().resolvedOptions().timeZone);
   expect(profile?.zone).toBe(deviceZone);
   const [circle] = circlesOwnedBy(profile!.userId);
   expect(circle).toMatchObject({ name: 'Sunday Crew', cadence: 'monthly' });
-
-  // The secret is in the link and nowhere a request carried it.
-  const secret = link.split('#')[1]!;
-  expect(invites.filter((line) => line.includes(secret))).toEqual([]);
-
-  // Copy works without a share sheet (the in-app browsers).
-  await page.getByRole('button', { name: 'Copy link' }).click();
-  await expect(page.getByText('Copied. Paste it into your group chat.')).toBeVisible();
-
-  // The circle filling up, then the first plan with its defaults.
-  await page.getByRole('button', { name: 'Go to Sunday Crew' }).click();
-  await expect(page.getByText('1 in so far · about monthly')).toBeVisible();
-  await expect(
-    page.getByText("You don't have to wait for everyone", { exact: false }),
-  ).toBeVisible();
-  await page.getByRole('button', { name: 'Plan the first catch-up' }).click();
-  await expect(page.getByText('At least 2 need to make it')).toBeVisible();
-  await page.getByRole('button', { name: 'Ask the group' }).click();
-
-  await expect(page.getByText('Now tell the group.')).toBeVisible();
   const [plan] = plansIn(circle!.id);
   expect(plan?.state).toBe('collecting');
-  await expect(page.getByText(new RegExp(`/j/${plan!.code}`))).toBeVisible();
 
-  await page.getByRole('button', { name: 'Done' }).click();
-  await expect(page.getByText('Finding a time')).toBeVisible();
-  await expect(page.getByText('0 of 1 replied')).toBeVisible();
-  expect(invites.filter((line) => line.includes(secret))).toEqual([]);
+  // The link in the chat is the plan's, and it has no secret in it.
+  const link = await page
+    .getByText(new RegExp(`/j/${plan!.code}`))
+    .first()
+    .innerText();
+  expect(link).toMatch(new RegExp(`^http://localhost:\\d+/j/${plan!.code}$`));
+
+  // Copy works without a share sheet (the in-app browsers).
+  await page.getByRole('button', { name: 'Copy' }).click();
+  await expect(page.getByText('Copied')).toBeVisible();
+
+  // And the first session ends with the organiser's own times in.
+  await page.getByRole('button', { name: 'Add my times' }).click();
+  await expect(page).toHaveURL(new RegExp(`/j/${plan!.code}$`));
+  await page.getByRole('group', { name: 'Days in this plan' }).getByRole('button').first().click();
+  await page.getByRole('checkbox', { name: /^Evening/ }).click();
+  await page.getByRole('button', { name: 'Send my times' }).click();
+  await expect(page.getByText('Thanks, Maya. Your times are in.')).toBeVisible();
+  // An account is already told about this plan, so the guest offer is not made.
+  await expect(page.getByText('Get updates about this meetup by email')).toHaveCount(0);
+
+  await page.getByRole('button', { name: "See how it's looking" }).click();
+  // Exact: the share screen stays mounted underneath on the web stack, and its
+  // preview card reads "Sunday Crew is finding a time to catch up".
+  await expect(page.getByText('Finding a time', { exact: true })).toBeVisible();
+  await expect(page.getByText('1 of 1 replied')).toBeVisible();
 });
 
 test('a returning organiser with a name skips Your name and lands on their own circle', async ({

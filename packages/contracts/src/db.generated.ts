@@ -628,6 +628,7 @@ export type Database = {
           quiet_expires_at: string | null
           quiet_threshold: number | null
           quorum: number
+          quorum_source: string
           response_deadline: string
           revision: number
           scoring_version: number
@@ -654,6 +655,7 @@ export type Database = {
           quiet_expires_at?: string | null
           quiet_threshold?: number | null
           quorum: number
+          quorum_source?: string
           response_deadline: string
           revision?: number
           scoring_version?: number
@@ -680,6 +682,7 @@ export type Database = {
           quiet_expires_at?: string | null
           quiet_threshold?: number | null
           quorum?: number
+          quorum_source?: string
           response_deadline?: string
           revision?: number
           scoring_version?: number
@@ -847,6 +850,7 @@ export type Database = {
           quiet_expires_at: string | null
           quiet_threshold: number | null
           quorum: number
+          quorum_source: string
           response_deadline: string
           revision: number
           scoring_version: number
@@ -968,6 +972,7 @@ export type Database = {
           p_daily_start_local: number
           p_duration_minutes: number
           p_quorum: number
+          p_quorum_source?: string
           p_required_member_ids?: string[]
           p_response_deadline: string
           p_title: string
@@ -989,6 +994,7 @@ export type Database = {
           quiet_expires_at: string | null
           quiet_threshold: number | null
           quorum: number
+          quorum_source: string
           response_deadline: string
           revision: number
           scoring_version: number
@@ -1248,6 +1254,7 @@ export type Database = {
         }
         Returns: Json
       }
+      soft_quorum: { Args: { active_member_count: number }; Returns: number }
       store_candidate_set: {
         Args: {
           p_input_version: number

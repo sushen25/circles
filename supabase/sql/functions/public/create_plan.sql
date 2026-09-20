@@ -43,7 +43,14 @@ create or replace function public.create_plan(
   p_response_deadline timestamptz,
   -- Absent means "the organiser alone", which is spec §5.3's default. An empty
   -- array is a different answer — nobody is required — and is kept as one.
-  p_required_member_ids uuid[] default null
+  p_required_member_ids uuid[] default null,
+  -- Whether `p_quorum` is a number somebody meant. `defaulted` is what the
+  -- caller passes when neither the request nor the circle supplied one, and it
+  -- is the only kind that follows the circle as people join (ADR 0026). The
+  -- caller decides because only the caller can see the request; the default
+  -- here is the conservative one, so a caller that has not been taught about
+  -- the flag gets a quorum that stays put.
+  p_quorum_source text default 'chosen'
 )
 returns public.plans
 language plpgsql
@@ -104,12 +111,12 @@ begin
   insert into public.plans (
     circle_id, mode, organiser_user_id, title, category, time_zone,
     window_start, window_end, daily_start_local, daily_end_local,
-    duration_minutes, quorum, response_deadline, short_code
+    duration_minutes, quorum, quorum_source, response_deadline, short_code
   )
   values (
     p_circle_id, 'named', caller, p_title, p_category, circle.time_zone,
     p_window_start, p_window_end, p_daily_start_local, p_daily_end_local,
-    p_duration_minutes, p_quorum, p_response_deadline, code
+    p_duration_minutes, p_quorum, p_quorum_source, p_response_deadline, code
   )
   returning * into created;
 
@@ -153,9 +160,9 @@ begin
 end;
 $$;
 
-comment on function public.create_plan(uuid, text, text, date, date, integer, integer, integer, integer, timestamptz, uuid[]) is
+comment on function public.create_plan(uuid, text, text, date, date, integer, integer, integer, integer, timestamptz, uuid[], text) is
   'Creates a named plan as a draft, addresses it to the circle''s active members, and moves it to collecting through the state machine. Defaults are resolved by the domain before it is called.';
 
-revoke all on function public.create_plan(uuid, text, text, date, date, integer, integer, integer, integer, timestamptz, uuid[]) from public;
-revoke all on function public.create_plan(uuid, text, text, date, date, integer, integer, integer, integer, timestamptz, uuid[]) from anon, authenticated;
-grant execute on function public.create_plan(uuid, text, text, date, date, integer, integer, integer, integer, timestamptz, uuid[]) to authenticated;
+revoke all on function public.create_plan(uuid, text, text, date, date, integer, integer, integer, integer, timestamptz, uuid[], text) from public;
+revoke all on function public.create_plan(uuid, text, text, date, date, integer, integer, integer, integer, timestamptz, uuid[], text) from anon, authenticated;
+grant execute on function public.create_plan(uuid, text, text, date, date, integer, integer, integer, integer, timestamptz, uuid[], text) to authenticated;

@@ -51,6 +51,12 @@ export type SentProps = {
   onNotNow?: (() => void) | undefined;
   onSaveAccess?: (() => void) | undefined;
   onChangeAnswer?: (() => void) | undefined;
+  /**
+   * The organiser's way on, which is their circle: they asked this question
+   * and have just answered it, so the screen ends at the plan finding a time
+   * rather than at an offer meant for a guest (ADR 0026).
+   */
+  onSeeCircle?: (() => void) | undefined;
   onRetry?: (() => void) | undefined;
   onBack?: (() => void) | undefined;
 };
@@ -85,6 +91,7 @@ export function SentScreen({
   onNotNow,
   onSaveAccess,
   onChangeAnswer,
+  onSeeCircle,
   onRetry,
   onBack,
 }: SentProps) {
@@ -166,6 +173,11 @@ export function SentScreen({
           <Tertiary label={t('sent', 'see_my_answer')} onPress={onChangeAnswer} />
         )}
       </Body>
+      {onSeeCircle === undefined ? null : (
+        <Foot>
+          <Button label={t('sent', 'see_how_its_looking')} onPress={onSeeCircle} />
+        </Foot>
+      )}
     </Screen>
   );
 }

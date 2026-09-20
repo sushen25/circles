@@ -14,8 +14,11 @@ import { isOffline } from '../identity/join/failure';
 import { InviteCircleScreen } from './InviteCircleScreen';
 
 /**
- * `/circles/:id/invite` — the link and the message, ready for the group chat
- * (spec §5.1 step 5).
+ * `/circles/:id/invite` — the link and the message, ready for the group chat.
+ *
+ * No longer a step in the first run (ADR 0026): it is reached from circle home,
+ * from settings (S1-23) and from "Just invite people for now" on the first
+ * plan, for a circle that needs somebody in it with nothing yet to answer.
  *
  * The link is `/join#<secret>`, from the secret `create-circle` returned and
  * FirstCircle held in memory; it is never read from anywhere else, because it
@@ -42,6 +45,9 @@ function LiveInvite({ id }: { id: string }) {
   const router = useRouter();
   const session = useSession();
   const [outcome, setOutcome] = useState<'copied' | 'couldnt_copy' | undefined>();
+  // Whether the chat has it: the way on stops being a quiet tertiary once the
+  // link has actually left (the share screen's rule, ADR 0026).
+  const [shared, setShared] = useState(false);
 
   const home = useQuery({
     queryKey: ['circle-home', id, session.userId],
@@ -84,6 +90,7 @@ function LiveInvite({ id }: { id: string }) {
       link={link}
       message={message}
       outcome={outcome}
+      shared={shared}
       onNext={() => {
         setOutcome(undefined);
         void shareMessage(message).then((result) => {
@@ -96,6 +103,7 @@ function LiveInvite({ id }: { id: string }) {
           if (result === 'sheet') toHome();
           else if (result === 'copied') {
             track('circle_invite_shared', { circle_id, kind: 'copy' });
+            setShared(true);
             setOutcome('copied');
           } else if (result === 'failed') setOutcome('couldnt_copy');
         });
@@ -103,7 +111,10 @@ function LiveInvite({ id }: { id: string }) {
       onCopyLink={() => {
         setOutcome(undefined);
         void copyText(link).then((copied) => {
-          if (copied) track('circle_invite_shared', { circle_id, kind: 'copy' });
+          if (copied) {
+            track('circle_invite_shared', { circle_id, kind: 'copy' });
+            setShared(true);
+          }
           setOutcome(copied ? 'copied' : 'couldnt_copy');
         });
       }}

@@ -20,9 +20,10 @@ import {
 /**
  * `/circles/new` — the first circle (spec §5.1 step 4), through `create-circle`.
  *
- * On success the invite secret is held in memory for the next screen and the
- * person is sent on to invite the circle, with `replace`, so Back does not
- * return to a form that has already made a circle.
+ * On success the invite secret is held in memory — the invite screen is still
+ * reachable from the next one — and the person is sent on to make the first
+ * plan, with `replace`, so Back does not return to a form that has already made
+ * a circle (ADR 0026).
  *
  * **One key per request.** A retry of the same name and cadence reuses the
  * key, so a tap after a timeout returns the circle the first one made; a
@@ -42,7 +43,7 @@ function FixtureFirstCircle() {
       cadence={cadence}
       onNameChange={setName}
       onCadenceChange={setCadence}
-      onNext={() => router.push('/circles/sunday-crew/invite')}
+      onNext={() => router.push('/circles/sunday-crew/plan/new')}
       onBack={() => router.back()}
     />
   );
@@ -102,7 +103,10 @@ function LiveFirstCircle() {
       });
       keepInviteSecret(made.circle.id, made.invite_secret);
       track('circle_created', { circle_id: made.circle.id });
-      router.replace({ pathname: '/circles/[id]/invite', params: { id: made.circle.id } });
+      // On to the plan, not the invite (ADR 0026): what the group chat gets is
+      // one link with a question in it. The invite secret is still held for
+      // "Just invite people for now" on the next screen.
+      router.replace({ pathname: '/circles/[id]/plan/new', params: { id: made.circle.id } });
     } catch (error) {
       const failure = failureOf(error);
       if (failure.kind === 'offline') {

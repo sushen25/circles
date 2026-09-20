@@ -3,8 +3,8 @@ import {
   defaultDeadline,
   isDeadlineAllowed,
   lastPossibleStart,
-  quorumDefault,
   resolvePreset,
+  softQuorum,
 } from '@circles/domain';
 
 import { jsonHandler } from '../_shared/http.ts';
@@ -18,8 +18,8 @@ import { enforce } from '../_shared/rate.ts';
  * The client sends what the person chose — a preset, a title — and this turns it
  * into a plan using `packages/domain` and nothing else. Every number in the
  * result comes from a rule that exists once: `resolvePreset` for the window,
- * `defaultDeadline` for when replies close, `quorumDefault` for how many people
- * make it worth having. A screen that computed any of them would be the second
+ * `defaultDeadline` for when replies close, `softQuorum` for how many people
+ * make it worth having when nobody has said. A screen that computed any of them would be the second
  * copy (non-negotiable 2).
  *
  * What the database decides is who may create one and whether anybody is told:
@@ -118,6 +118,19 @@ Deno.serve(
         );
       }
 
+      // Whose number this is (ADR 0026). Nobody having said is the first-run
+      // case — a plan made on a circle of one, seconds after it was made — and
+      // the placeholder it gets follows the circle as people tap the link.
+      // `softQuorum` rather than `quorumDefault`, because the default on one or
+      // two members is 2, and the first friend to answer would take the plan to
+      // `ready` in front of a chat that had not read the message yet.
+      const quorum =
+        body.quorum !== undefined
+          ? { value: body.quorum, source: 'chosen' as const }
+          : circle.default_quorum !== null
+            ? { value: circle.default_quorum, source: 'chosen' as const }
+            : { value: softQuorum(count ?? 0), source: 'defaulted' as const };
+
       const { data, error } = await caller.rpc('create_plan', {
         p_circle_id: body.circle_id,
         p_title: body.title,
@@ -127,9 +140,10 @@ Deno.serve(
         p_daily_start_local: resolved.daily.startMin,
         p_daily_end_local: resolved.daily.endMin,
         p_duration_minutes: durationMinutes,
-        p_quorum: body.quorum ?? circle.default_quorum ?? quorumDefault(count ?? 0),
+        p_quorum: quorum.value,
         p_response_deadline: deadline,
         p_required_member_ids: body.required_member_ids ?? null,
+        p_quorum_source: quorum.source,
       });
       if (error !== null) throw error;
 

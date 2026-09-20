@@ -13,7 +13,7 @@
 -- the code. Anything compared with `now()` is kept far enough ahead not to.
 
 begin;
-select plan(85);
+select plan(89);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid
@@ -152,14 +152,46 @@ select ok(
   'the service role cannot write plans.state at all, marker or no marker'
 );
 
+-- The same for the quorum and for where it came from (ADR 0026). The rule that
+-- moves a defaulted quorum runs inside `join_from_plan`, which is a definer
+-- function; the Edge Function that calls it has no way to write either column
+-- itself, so `quorum_follows` and `adjust` stay the only writers.
+select ok(
+  not has_column_privilege('service_role', 'public.plans', 'quorum', 'update'),
+  'the service role cannot write plans.quorum directly'
+);
+
+select ok(
+  not has_column_privilege('service_role', 'public.plans', 'quorum_source', 'update'),
+  'nor whether the quorum was chosen'
+);
+
+select ok(
+  not has_column_privilege('authenticated', 'public.plans', 'quorum_source', 'update'),
+  'and no client can, either'
+);
+
+select throws_ok(
+  $$insert into public.plans (
+      circle_id, mode, state, organiser_user_id, title, time_zone,
+      window_start, window_end, daily_start_local, daily_end_local,
+      duration_minutes, quorum, quorum_source, response_deadline, short_code
+    )
+    select circle_id, 'named', 'collecting', null, 'Catch up', 'Australia/Melbourne',
+      date '2099-09-14', date '2099-09-20', 1050, 1350, 120, 4, 'whatever',
+      timestamptz '2099-09-20T10:00:00Z', 'pnsourc1'
+    from t$$,
+  '23514', null, 'a quorum source outside chosen and defaulted is refused'
+);
+
 -- ---------------------------------------------------------------------------
 -- The transition table is the domain's, not a retyping of it.
 -- ---------------------------------------------------------------------------
 
 select is(
   (select count(*)::integer from planning.transitions),
-  21,
-  'twenty-one transitions, seeded from the generated block'
+  23,
+  'twenty-three transitions, seeded from the generated block'
 );
 
 -- Two of them are `adjust`, and the point of it is the column it does *not*

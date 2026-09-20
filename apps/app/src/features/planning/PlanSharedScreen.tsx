@@ -1,40 +1,40 @@
-import {
-  Body,
-  BodyText,
-  Button,
-  ButtonRow,
-  Card,
-  DisplayL,
-  DisplayXL,
-  Foot,
-  Label,
-  Notice,
-  Screen,
-  Small,
-  TopBar,
-} from '../../components';
-import { Stack } from '../../components/layout';
+import { Body, Button, DisplayL, Foot, Screen, Small, TopBar } from '../../components';
 import { t } from '../../copy';
 import type { Fixture } from '../../data/fixtures';
+import { ShareScreen } from '../sharing/ShareScreen';
 import type { ScreenState } from '../state';
 
 /**
- * PlanShared — `docs/design/PlanShared.dc.html` (spec §5.1 step 8): the plan's
- * message, ready to paste; Copy, Share, Done.
+ * PlanShared — `docs/design/PlanShared.dc.html` (spec §5.1, ADR 0026): the
+ * plan's link, ready for the group chat, and then the organiser's own times.
  *
- * The message is the domain's (`newPlanMessage`), never composed here. The plan
- * link carries no secret (ADR 0022), so it can be shown and copied freely.
+ * It is the first thing a new organiser shares, so it is the share screen
+ * (`features/sharing`), with the plan's message in the bubble and the plan's
+ * link in the card under it. The message is the domain's (`newPlanMessage`),
+ * never composed here, and the link carries no secret (ADR 0022).
  */
 export type PlanSharedProps = {
   fixture?: Fixture | undefined;
   state?: ScreenState | undefined;
   circleName?: string | undefined;
   message?: string | undefined;
+  /** The plan's own link, shown and copied (ADR 0022). */
+  link?: string | undefined;
+  /**
+   * The two lines a chat app draws under the message, which are the OG
+   * preview's own (`ogTitle`, `ogDescription`, S1-21) rather than a second
+   * description of the same card: an organiser who is shown one thing and
+   * sends another has been misled by their own screen.
+   */
+  linkTitle?: string | undefined;
+  linkSubtitle?: string | undefined;
   /** "Replies close Tue 15 Sep, 6 pm. We'll show you …". */
   closes?: string | undefined;
+  /** True once the message has left, by the sheet or by a copy. */
+  shared?: boolean | undefined;
   outcome?: 'copied' | 'couldnt_copy' | undefined;
   onRetry?: (() => void) | undefined;
-  /** The screen's one decision: Done. */
+  /** The screen's one decision: the organiser's own times, for the plan just made. */
   onNext?: (() => void) | undefined;
   onBack?: (() => void) | undefined;
   onCopy?: (() => void) | undefined;
@@ -45,7 +45,11 @@ export function PlanSharedScreen({
   state = 'default',
   circleName = t('planShared', 'sunday_crew'),
   message = t('planShared', 'when_can_sunday_crew_actually_catch_up'),
+  link = t('planShared', 'plan_link_example'),
+  linkTitle = t('planShared', 'sunday_crew_is_finding_a_time'),
+  linkSubtitle = t('planShared', 'pick_the_times_youd_be_up_for'),
   closes = t('planShared', 'replies_close_tue_15_sep_6_pm'),
+  shared = false,
   outcome,
   onRetry,
   onNext,
@@ -82,30 +86,22 @@ export function PlanSharedScreen({
   }
 
   return (
-    <Screen>
-      <TopBar onBack={onBack} backLabel={t('common', 'back')} />
-      <Body>
-        <Stack>
-          <Label>{circleName}</Label>
-          <DisplayXL>{t('planShared', 'now_tell_the_group')}</DisplayXL>
-          <BodyText>{t('planShared', 'paste_this_into_the_chat_where_everyone')}</BodyText>
-        </Stack>
-        <Card>
-          <BodyText selectable>{message}</BodyText>
-          <ButtonRow>
-            <Button label={t('planShared', 'copy')} variant="secondary" onPress={onCopy} />
-            <Button label={t('planShared', 'share')} variant="secondary" onPress={onShare} />
-          </ButtonRow>
-        </Card>
-        {outcome === 'copied' ? <Notice kind="ok">{t('planShared', 'copied')}</Notice> : null}
-        {outcome === 'couldnt_copy' ? (
-          <Notice kind="warn">{t('planShared', 'couldnt_copy')}</Notice>
-        ) : null}
-        <Small>{closes}</Small>
-      </Body>
-      <Foot>
-        <Button label={t('planShared', 'done')} onPress={onNext} />
-      </Foot>
-    </Screen>
+    <ShareScreen
+      step={t('planShared', 'step_2_of_2')}
+      title={t('planShared', 'ask_circle', { circle: circleName })}
+      intro={t('planShared', 'one_link_in_the_chat')}
+      message={message}
+      linkTitle={linkTitle}
+      linkSubtitle={linkSubtitle}
+      link={link}
+      privacy={closes}
+      outcome={outcome}
+      shared={shared}
+      onCopy={onCopy}
+      onShare={onShare}
+      onwardLabel={t('planShared', 'add_my_times')}
+      onOnward={onNext}
+      onBack={onBack}
+    />
   );
 }

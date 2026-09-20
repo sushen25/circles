@@ -179,6 +179,17 @@ begin
     daily_end_local = coalesce((p_payload ->> 'daily_end_local')::integer, p.daily_end_local),
     duration_minutes = coalesce((p_payload ->> 'duration_minutes')::integer, p.duration_minutes),
     quorum = coalesce((p_payload ->> 'quorum')::integer, p.quorum),
+    -- Who the number belongs to (ADR 0026). An organiser writing one — through
+    -- `adjust`, or carried on an `edit` or a `reopen` — makes it theirs, and it
+    -- stops following the circle from then on, including back down and
+    -- including when the circle grows. `quorum_follows` is the rule itself
+    -- writing, so it leaves the source alone; that is the whole difference
+    -- between the two actions.
+    quorum_source = case
+      when p_action = 'quorum_follows' then p.quorum_source
+      when p_payload ? 'quorum' then 'chosen'
+      else p.quorum_source
+    end,
     response_deadline = coalesce((p_payload ->> 'response_deadline')::timestamptz, p.response_deadline),
     cancel_note = case
       when rule.to_state = 'cancelled' then p_payload ->> 'cancel_note'
@@ -289,10 +300,19 @@ begin
   -- walks the table so a new row cannot arrive without one. The two silences
   -- are named here and there: `candidates_gone`, and a quiet ask withdrawn
   -- before threshold, which spec §9 closes "privately, nobody told". See
-  -- `event_for`.
+  -- `event_for`. The third is `quorum_follows`: a quorum nobody chose keeping
+  -- up with a join the circle has already been told about (ADR 0026).
+  --
+  -- The list is here *and* in `event_for` because either one alone is a lie:
+  -- `event_for` returning null is how a silence is expressed, and this check is
+  -- what stops a new transition being silent by accident. A silence has to be
+  -- written in both places, which is the point.
   event_name := planning.event_for(rule.from_state, p_action);
   if event_name is null
-    and not (p_action = 'candidates_gone' or (p_action = 'cancel' and rule.from_state = 'seeking'))
+    and not (
+      p_action in ('candidates_gone', 'quorum_follows')
+      or (p_action = 'cancel' and rule.from_state = 'seeking')
+    )
   then
     raise exception 'no outbox event for transition % / %', rule.from_state, p_action
       using errcode = 'P0001';

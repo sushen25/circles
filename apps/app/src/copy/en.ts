@@ -924,6 +924,8 @@ export const en = {
       "Friends mark the times they'd actually be up for. You'll see the best options and pick one. Nobody's calendar is shared.",
     ask_the_group: 'Ask the group',
     see_if_people_are_keen_instead: 'See if people are keen instead',
+    step_2_of_2: 'Step 2 of 2',
+    just_invite_people_for_now: 'Just invite people for now',
     plan_title: 'Catch up',
     evenings: 'Evenings, {time}',
     days: 'Days and evenings, {time}',
@@ -969,7 +971,6 @@ export const en = {
       'Closes Friday midday. If it goes quiet, nobody is told.',
   },
   inviteCircle: {
-    step_2_of_2: 'Step 2 of 2',
     now_invite_sunday_crew: 'Now invite Sunday Crew.',
     paste_one_link_into_the_chat_where:
       "Paste one link into the chat where everyone already is. Friends tap it, add a name, and they're in. No app, no account.",
@@ -982,6 +983,8 @@ export const en = {
     share_to_group_chat: 'Share to group chat',
     copy_link: 'Copy link',
     skip_for_now_ill_plan_first: "Skip for now, I'll plan first",
+    join_circle_generic: 'Join a circle',
+    pick_the_times_youd_be_up_for: "Pick the times you'd actually be up for. No app needed.",
     now_invite: 'Now invite {circle}.',
     copied: 'Copied. Paste it into your group chat.',
     couldnt_copy: "We couldn't copy it here. Press and hold the link to copy it yourself.",
@@ -1261,12 +1264,26 @@ export const en = {
     well_give_you_a_short_message_to:
       "We'll give you a short message to paste into the group chat.",
   },
+  share: {
+    what_lands_in_the_chat: 'What lands in the chat',
+    copy: 'Copy',
+    copied: 'Copied',
+    couldnt_copy: "We couldn't copy it here. Press and hold the link to copy it yourself.",
+    share_to_group_chat: 'Share to group chat',
+    no_app_no_account: '{domain} · no app, no account',
+  },
   planShared: {
     brand: '{brand}',
     sunday_crew: 'Sunday Crew',
     now_tell_the_group: 'Now tell the group.',
     paste_this_into_the_chat_where_everyone:
       'Paste this into the chat where everyone already is. People answer from the link.',
+    step_2_of_2: 'Step 2 of 2',
+    ask_circle: 'Ask {circle}.',
+    one_link_in_the_chat:
+      "One link in the chat. Friends tap it, add a name, and say when they're free. No app, no account.",
+    add_my_times: 'Add my times',
+    go_to_circle: 'Go to {circle}',
     when_can_sunday_crew_actually_catch_up:
       "When can Sunday Crew actually catch up? Mark the times you'd be up for in the next two weeks. Takes a minute, no app needed: {domain}/j/7f3k",
     copy: 'Copy',
@@ -1276,6 +1293,9 @@ export const en = {
     done: 'Done',
     replies_close: "Replies close {deadline}. We'll show you the best options as they come in.",
     in_the_next_two_weeks: 'in the next two weeks',
+    plan_link_example: '{domain}/j/7f3k',
+    sunday_crew_is_finding_a_time: 'Sunday Crew is finding a time to catch up',
+    pick_the_times_youd_be_up_for: "Pick the times you'd actually be up for. No app needed.",
     copied: 'Copied. Paste it into your group chat.',
     couldnt_copy: "We couldn't copy it here. Press and hold the message to copy it yourself.",
     loading: 'Getting your plan',
@@ -1442,6 +1462,7 @@ export const en = {
     couldnt_load: "We couldn't load this just now.",
     try_again: 'Try again',
     see_my_answer: 'Change my answer',
+    see_how_its_looking: "See how it's looking",
   },
   settings: {
     sunday_crew: 'Sunday Crew',

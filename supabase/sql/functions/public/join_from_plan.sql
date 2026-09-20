@@ -52,8 +52,15 @@
 -- which names the membership in this circle and nothing else: after a
 -- `duplicate_name` they pass one, and their profile is not touched.
 --
--- **The quorum does not move** (ADR 0022, ADR 0017). It was set when the plan
--- was made and changes only when the organiser changes it.
+-- **The quorum moves with the circle, while nobody has chosen it** (ADR 0026).
+-- A plan made on the first run is made on a circle of one, seconds old, so its
+-- quorum is a placeholder: `public.soft_quorum` of the active members, rewritten
+-- on every join that admits somebody new, through `quorum_follows` — no new
+-- revision, so every answer already given stands, and no event, because the
+-- join itself was announced. A quorum the organiser set (`quorum_source` is
+-- `chosen`) never moves here, and neither does one on a plan whose members are
+-- leaving: a removal that lowered the quorum would make a plan `ready` as a
+-- side effect of somebody leaving.
 --
 -- **The input version does**, when somebody is added to the plan. The roster is
 -- engine input — `engine_input` reads `plan_participants`, and the set it
@@ -86,6 +93,10 @@ declare
   target public.circles;
   chosen_name text := p_display_name;
   added integer;
+  admitted boolean := false;
+  members integer;
+  following integer;
+  quorum_moved boolean := false;
 begin
   if caller is null then
     raise exception 'join_from_plan requires the person joining'
@@ -145,13 +156,36 @@ begin
       raise exception 'display_name_unusable' using errcode = 'check_violation';
     end if;
 
-    perform private.admit_member(target.id, caller, chosen_name);
+    admitted := private.admit_member(target.id, caller, chosen_name);
   end if;
 
   insert into public.plan_participants (plan_id, revision, user_id)
   values (plan.id, plan.revision, caller)
   on conflict do nothing;
   get diagnostics added = row_count;
+
+  if admitted then
+    -- The count *after* the admission, and of the circle rather than the plan:
+    -- a quorum is how many people have to make it, and the people who could
+    -- make it are the circle's active members (spec §5.2). `admit_member`
+    -- returns false for a rejoin that changed nothing, so a retry cannot walk
+    -- the number up.
+    select count(*) into members
+    from public.circle_members m
+    where m.circle_id = target.id and m.status = 'active';
+
+    following := public.soft_quorum(members);
+    if plan.quorum_source = 'defaulted' and following is distinct from plan.quorum then
+      -- The plan's own rule writing, under the lock this function already
+      -- holds. `transition_plan` bumps the input version for a quorum change
+      -- and leaves the revision alone (ADR 0017), so the candidate set is
+      -- restaled and the answers are kept.
+      perform planning.transition_plan(
+        plan.id, 'quorum_follows', caller, jsonb_build_object('quorum', following)
+      );
+      quorum_moved := true;
+    end if;
+  end if;
 
   if added > 0 then
     update public.plans p
@@ -167,7 +201,17 @@ begin
     -- `candidates_gone` has no guard and announces nothing.
     if plan.state = 'ready' then
       perform planning.transition_plan(plan.id, 'candidates_gone', caller);
+      quorum_moved := false;
     end if;
+  end if;
+
+  -- A quorum that moved without anybody being added to the plan — a member of
+  -- the circle who was already a participant cannot happen here, but a plan
+  -- that was `ready` and whose quorum just changed must not stay `ready`: a
+  -- candidate set is eligible on its versions and never reads the quorum, so a
+  -- four-person option would stay confirmable under a quorum of five.
+  if quorum_moved and plan.state = 'ready' then
+    perform planning.transition_plan(plan.id, 'candidates_gone', caller);
   end if;
 
   return jsonb_build_object(
@@ -179,7 +223,7 @@ end;
 $$;
 
 comment on function public.join_from_plan(uuid, text, text) is
-  'Joins a person to the circle behind a plan short code while that plan is taking answers, and adds them to its current revision (ADR 0022). Idempotent; never changes the quorum. Raises invite_inactive for every plan that is not admitting, or duplicate_name, display_name_unusable, circle_full. Service role only: Turnstile and the rate limits that make a short code acceptable are in the join-plan Edge Function, and a client calling this directly would skip them.';
+  'Joins a person to the circle behind a plan short code while that plan is taking answers, and adds them to its current revision (ADR 0022). Idempotent; moves a quorum nobody chose to soft_quorum of the new member count (ADR 0026). Raises invite_inactive for every plan that is not admitting, or duplicate_name, display_name_unusable, circle_full. Service role only: Turnstile and the rate limits that make a short code acceptable are in the join-plan Edge Function, and a client calling this directly would skip them.';
 
 revoke all on function public.join_from_plan(uuid, text, text) from public;
 revoke all on function public.join_from_plan(uuid, text, text) from anon, authenticated;

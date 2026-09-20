@@ -17,8 +17,10 @@ import { FirstPlanScreen, type FirstPlanProblem } from './FirstPlanScreen';
 import { whenWords } from './when';
 
 /**
- * `/circles/:id/plan/new` — the first plan, defaults accepted (spec §5.1 step
- * 7): one tap, **Ask the group**, through `create-plan`.
+ * `/circles/:id/plan/new` — the first plan, defaults accepted (spec §5.1): one
+ * tap, **Ask the group**, through `create-plan`. Since ADR 0026 this is step 2
+ * of 2, straight after the circle is made and before anybody has been invited:
+ * the plan's own link is what goes in the group chat.
  *
  * Organising needs a saved place and membership (`RouteKind` `organiser`). The
  * route's gate has already established membership; a guest member is sent to
@@ -37,6 +39,7 @@ function FixtureFirstPlan() {
   return (
     <FirstPlanScreen
       onNext={() => router.push('/circles/sunday-crew/plan/thu-17/shared')}
+      onJustInvite={() => router.push('/circles/sunday-crew/invite')}
       onBack={() => router.back()}
     />
   );
@@ -193,6 +196,9 @@ function LiveFirstPlan({ id }: { id: string }) {
       busy={busy}
       onChange={() => router.push({ pathname: '/circles/[id]/plan/setup', params: { id } })}
       onSeeIfPeopleAre={() => router.push({ pathname: '/circles/[id]/quiet/new', params: { id } })}
+      // Nobody is made to plan (ADR 0026). The invite screen still has the
+      // secret this circle was made with, held in memory since `FirstCircle`.
+      onJustInvite={() => router.push({ pathname: '/circles/[id]/invite', params: { id } })}
       onNext={() => void ask()}
       onBack={back}
     />

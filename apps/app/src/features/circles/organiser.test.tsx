@@ -126,7 +126,7 @@ beforeEach(() => {
 });
 
 describe('FirstCircle', () => {
-  it('makes the circle from the name and cadence, and goes on to invite it', async () => {
+  it('makes the circle from the name and cadence, and goes on to the first plan', async () => {
     createCircle.mockResolvedValue({ circle: { id: CIRCLE }, invite_secret: SECRET });
     wrap(<FirstCircleFlow />);
 
@@ -146,11 +146,13 @@ describe('FirstCircle', () => {
       }),
     );
     expect(track).toHaveBeenCalledWith('circle_created', { circle_id: CIRCLE });
+    // The plan, not the invite (ADR 0026): what the chat gets is one link with
+    // a question in it.
     expect(replace).toHaveBeenCalledWith({
-      pathname: '/circles/[id]/invite',
+      pathname: '/circles/[id]/plan/new',
       params: { id: CIRCLE },
     });
-    // The secret is held for the next screen, never put in the address.
+    // The secret is held for the invite screen, never put in the address.
     expect(JSON.stringify(replace.mock.calls)).not.toContain(SECRET);
   });
 
@@ -233,10 +235,11 @@ describe('InviteCircle', () => {
     wrap(<InviteCircleFlow id={CIRCLE} />);
 
     await act(async () => {
-      fireEvent.click(await screen.findByRole('button', { name: 'Copy link' }));
+      fireEvent.click(await screen.findByRole('button', { name: 'Copy' }));
     });
     expect(copyText).toHaveBeenCalledWith(`https://circles.test/join#${SECRET}`);
-    expect(screen.getByText('Copied. Paste it into your group chat.')).toBeVisible();
+    // The Copy button says so itself, where the tap was (ADR 0026's share screen).
+    expect(screen.getByRole('button', { name: 'Copied' })).toBeVisible();
     expect(track).toHaveBeenCalledWith('circle_invite_shared', { circle_id: CIRCLE, kind: 'copy' });
   });
 
@@ -295,7 +298,7 @@ describe('the first plan', () => {
     createFirstPlan.mockResolvedValue({ plan_id: PLAN, short_code: 'abcdefgh' });
     wrap(<FirstPlanFlow id={CIRCLE} />);
 
-    expect(await screen.findByText('At least 2 of 3 need to make it')).toBeVisible();
+    expect(await screen.findByText('At least 3 of 3 need to make it')).toBeVisible();
     expect(screen.getByText('Adjusts as more people join')).toBeVisible();
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Ask the group' }));
@@ -333,28 +336,54 @@ describe('the first plan', () => {
 });
 
 describe('the plan message', () => {
-  it("is the domain's message with the plan's short link, and Done goes home", async () => {
-    planToShare.mockResolvedValue({
-      id: PLAN,
-      code: 'abcdefgh',
-      circleId: CIRCLE,
-      circleName: 'Sunday Crew',
-      zone: 'Australia/Melbourne',
-      responseDeadline: '2026-09-15T08:00:00Z',
-      windowStart: '2026-09-12',
-      windowEnd: '2026-09-25',
-    });
+  const PLAN_TO_SHARE = {
+    id: PLAN,
+    code: 'abcdefgh',
+    circleId: CIRCLE,
+    circleName: 'Sunday Crew',
+    zone: 'Australia/Melbourne',
+    responseDeadline: '2026-09-15T08:00:00Z',
+    windowStart: '2026-09-12',
+    windowEnd: '2026-09-25',
+  };
+
+  it("is the domain's message with the plan's short link, and the way on is the editor", async () => {
+    planToShare.mockResolvedValue(PLAN_TO_SHARE);
     copyText.mockResolvedValue(true);
     wrap(<PlanSharedFlow id={CIRCLE} planId={PLAN} />);
 
     const message = await screen.findByText(/When can Sunday Crew actually catch up\?/);
     expect(message).toHaveTextContent('in the next two weeks');
-    expect(message).toHaveTextContent('https://circles.test/j/abcdefgh');
+    // The link is its own line under the message, not buried inside it, and
+    // the card shows what a chat will draw (S1-21's preview wording).
+    expect(message).not.toHaveTextContent('https://circles.test/j/abcdefgh');
+    expect(screen.getByText('https://circles.test/j/abcdefgh')).toBeVisible();
+    expect(screen.getByText('Sunday Crew is finding a time to catch up')).toBeVisible();
+
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Copy' }));
     });
     expect(track).toHaveBeenCalledWith('plan_shared', { circle_id: CIRCLE, plan_id: PLAN });
-    fireEvent.click(screen.getByRole('button', { name: 'Done' }));
-    expect(dismissTo).toHaveBeenCalledWith({ pathname: '/circles/[id]', params: { id: CIRCLE } });
+
+    // The organiser answers their own plan (ADR 0026), rather than ending on
+    // the circle's home with nothing of theirs in it.
+    fireEvent.click(screen.getByRole('button', { name: 'Add my times' }));
+    expect(push).toHaveBeenCalledWith({ pathname: '/j/[code]', params: { code: 'abcdefgh' } });
+    expect(dismissTo).not.toHaveBeenCalled();
+  });
+
+  it('offers the way on quietly until the message has left, then as a button', async () => {
+    planToShare.mockResolvedValue(PLAN_TO_SHARE);
+    copyText.mockResolvedValue(true);
+    wrap(<PlanSharedFlow id={CIRCLE} planId={PLAN} />);
+
+    await screen.findByRole('button', { name: 'Add my times' });
+    // Copy confirms in place rather than in a notice somewhere else.
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Copy' }));
+    });
+    expect(screen.getByRole('button', { name: 'Copied' })).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Add my times' }));
+    expect(push).toHaveBeenCalledWith({ pathname: '/j/[code]', params: { code: 'abcdefgh' } });
   });
 });

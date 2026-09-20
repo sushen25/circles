@@ -16,6 +16,10 @@ as $$
     -- answers" structural rather than a comparison somebody has to remember
     -- (spec §5.3). A window cannot ride along on an adjustment.
     when action = 'adjust' then array['quorum', 'response_deadline']
+    -- The quorum alone. `quorum_follows` is the circle moving a quorum nobody
+    -- chose (ADR 0026); a deadline riding along on it would be a change no
+    -- organiser asked for and nobody announced.
+    when action = 'quorum_follows' then array['quorum']
     when action in ('edit', 'reopen') then array[
       'window_start', 'window_end', 'daily_start_local', 'daily_end_local',
       'duration_minutes', 'quorum', 'response_deadline'

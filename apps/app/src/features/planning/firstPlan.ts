@@ -3,7 +3,7 @@ import {
   defaultDeadline,
   formatRange,
   lastPossibleStart,
-  quorumDefault,
+  softQuorum,
   resolvePreset,
   toISO,
   zone as toZone,
@@ -46,8 +46,11 @@ export function firstPlanPreview(input: PreviewInput, now: Instant): FirstPlanPr
     ? (input.defaultDurationMinutes as DurationMinutes)
     : 120;
 
-  // `quorumFor`'s rule: the circle's own default, or `max(2, ceil(n × 0.6))`.
-  const quorum = input.defaultQuorum ?? quorumDefault(input.members);
+  // What `create-plan` will resolve: the circle's own default, or — when
+  // nobody has chosen — the placeholder that follows the circle as people join
+  // (`softQuorum`, ADR 0026). The card says "adjusts as more people join"
+  // underneath, and since this ticket that is true.
+  const quorum = input.defaultQuorum ?? softQuorum(input.members);
 
   const resolved = resolvePreset('next_14_days', now, zone, { durationMinutes });
   if (typeof resolved === 'string') {

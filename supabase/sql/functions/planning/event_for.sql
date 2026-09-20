@@ -25,6 +25,12 @@ as $$
     -- exist, so it announces nothing — `scheduling.no_eligible_candidates` is
     -- the recalculation's to emit, from what it actually found (S1-16).
     when 'candidates_gone' then null
+    -- Nor is a quorum that followed the circle (ADR 0026). `adjust` is an
+    -- organiser changing the plan, which the circle is told about; this is the
+    -- plan's own default keeping up with a join that was announced already
+    -- (`identity.member_joined`). Announcing it too would tell six people "the
+    -- plan changed" every time a seventh tapped the link.
+    when 'quorum_follows' then null
     when 'confirm' then 'confirmation.meetup_confirmed'
     when 'reopen' then 'confirmation.meetup_rescheduled'
     when 'report_outcome' then 'confirmation.outcome_reported'

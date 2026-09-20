@@ -6,7 +6,7 @@
 -- count only (§6.3, §14).
 
 begin;
-select plan(39);
+select plan(41);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid language sql as $$
@@ -159,8 +159,23 @@ select is(
   (select coalesce(string_agg(from_state || '/' || action, ', '), '')
    from planning.transitions
    where planning.event_for(from_state, action) is null),
-  'seeking/cancel, ready/candidates_gone',
-  'every transition in planning.transitions has an outbox event name, except the two named silences'
+  'seeking/cancel, collecting/quorum_follows, ready/candidates_gone, ready/quorum_follows',
+  'every transition in planning.transitions has an outbox event name, except the named silences'
+);
+
+-- The newest silence, and why it is one. A quorum that followed the circle is
+-- the plan keeping up with a join that `identity.member_joined` has already
+-- announced (ADR 0026); an event here would tell six people "the plan changed"
+-- every time a seventh tapped the link.
+select is(
+  planning.event_for('collecting', 'quorum_follows'),
+  null,
+  'a quorum following the circle announces nothing; the join it followed did'
+);
+select is(
+  planning.event_for('collecting', 'adjust'),
+  'planning.plan_revised',
+  'but an organiser changing the quorum is still a change the circle is told about'
 );
 select is(
   planning.event_for('seeking', 'cancel'),

@@ -7,6 +7,7 @@ import {
   memberLimits,
   quorumDefault,
   quorumFor,
+  softQuorum,
 } from './quorum.js';
 import { member } from './fixtures.js';
 import { circle } from './fixtures.js';
@@ -68,5 +69,33 @@ describe('membership limits', () => {
     expect(canAddMember(1)).toBe(true);
     expect(hasEnoughMembersForQuorumDefault(2)).toBe(false);
     expect(hasEnoughMembersForQuorumDefault(3)).toBe(true);
+  });
+});
+
+describe('a defaulted quorum, while it follows the circle (ADR 0026)', () => {
+  it('never lets a brand-new circle reach quorum on two people', () => {
+    // The whole point of the floor: first run plans on a circle of one.
+    expect(quorumDefault(1)).toBe(2);
+    expect(quorumDefault(2)).toBe(2);
+    expect(softQuorum(1)).toBe(3);
+    expect(softQuorum(2)).toBe(3);
+  });
+
+  it('is the floor until the majority passes it, then the majority', () => {
+    expect(softQuorum(3)).toBe(3);
+    expect(softQuorum(4)).toBe(3);
+    expect(softQuorum(5)).toBe(3);
+    expect(softQuorum(6)).toBe(4);
+    expect(softQuorum(8)).toBe(5);
+    expect(softQuorum(12)).toBe(8);
+  });
+
+  it('is the floor the circle already names, not a second number', () => {
+    expect(softQuorum(0)).toBe(memberLimits.min);
+  });
+
+  it('refuses a count that is not one', () => {
+    expect(() => softQuorum(-1)).toThrow(RangeError);
+    expect(() => softQuorum(1.5)).toThrow(RangeError);
   });
 });

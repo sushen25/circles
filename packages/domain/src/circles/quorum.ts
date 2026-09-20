@@ -59,3 +59,34 @@ export function canAddMember(activeCount: number): boolean {
 export function hasEnoughMembersForQuorumDefault(activeCount: number): boolean {
   return activeCount >= memberLimits.min;
 }
+
+/**
+ * Whether a plan's quorum is the organiser's number or a placeholder.
+ *
+ * `chosen` is a number somebody meant: the request carried one, or the circle
+ * has a default. `defaulted` is what a plan gets when nobody has said, and it is
+ * the only one that moves on its own ([ADR 0026](../../../../docs/decisions/0026-first-run-shares-a-plan-and-a-defaulted-quorum-follows-the-circle.md)).
+ */
+export type QuorumSource = 'chosen' | 'defaulted';
+
+/**
+ * The quorum a plan carries while nobody has chosen one: `quorumDefault`, never
+ * below the floor that makes a default meaningful at all.
+ *
+ * First run makes a plan on a circle of **one** — the organiser, seconds after
+ * making the circle — and shares the plan's link rather than an invite (ADR
+ * 0026). `quorumDefault(1)` is 2 and `quorumDefault(2)` is 2, so without the
+ * floor the first friend to answer would take the plan to `ready` and the
+ * organiser would be shown a best time for two people while the rest of the
+ * chat was still reading the message.
+ *
+ * `memberLimits.min` is the same 3 that makes the 60% default meaningful, used
+ * here as a floor rather than a target: 1→3, 3→3, 5→3, 6→4, 8→5, 12→8.
+ *
+ * `public.soft_quorum()` is the other copy, in SQL, and is the authoritative
+ * one — this is a transition guard, so it exists in both places by design
+ * (AGENTS.md, architecture §6.4). A pgTAP test walks the same counts.
+ */
+export function softQuorum(activeMemberCount: number): number {
+  return Math.max(memberLimits.min, quorumDefault(activeMemberCount));
+}

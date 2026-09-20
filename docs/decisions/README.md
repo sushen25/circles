@@ -29,6 +29,7 @@ Short records of decisions that shape the product or the code. A new ADR is requ
 | [0023](./0023-emailed-tokens-travel-in-the-fragment.md) | Emailed tokens travel in the URL fragment, never the path | accepted |
 | [0024](./0024-availability-days-first-then-a-time-once.md) | Availability is answered days first, then a time once | accepted |
 | [0025](./0025-the-preferences-link-is-minted-with-each-email.md) | The preferences link is minted with each email, and both footer links open it | accepted |
+| [0026](./0026-first-run-shares-a-plan-and-a-defaulted-quorum-follows-the-circle.md) | First run shares a plan, not an invite, and a defaulted quorum follows the circle | accepted |
 
 ## Template
 
