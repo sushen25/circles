@@ -802,7 +802,6 @@ declare
   target public.circles;
   chosen_name text := p_display_name;
   added integer;
-  admitted boolean := false;
   members integer;
   following integer;
   quorum_moved boolean := false;
@@ -866,7 +865,7 @@ begin
       raise exception 'display_name_unusable' using errcode = 'check_violation';
     end if;
 
-    admitted := private.admit_member(target.id, caller, chosen_name);
+    perform private.admit_member(target.id, caller, chosen_name);
   end if;
 
   insert into public.plan_participants (plan_id, revision, user_id)
@@ -893,7 +892,11 @@ begin
   end if;
 
   -- A quorum nobody chose, on the audience this join just changed.
-  if admitted then
+  --
+  -- Keyed on the *participant* row, not on the membership: a member of the
+  -- circle who opens the plan for the first time is somebody the plan is now
+  -- asking, and no membership is written for them (review round 3).
+  if added > 0 then
     -- The count *after* the admission, and of the people this plan is actually
     -- asking — its participants at this revision — rather than the circle's
     -- roster.

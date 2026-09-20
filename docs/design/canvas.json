@@ -754,7 +754,7 @@
       "y": -210,
       "w": 900,
       "page": "first",
-      "text": "First time, organiser, in reading order. Row 1: Welcome (Apple, Google or email) \u2192 email \u2192 code \u2192 name (prefilled from SSO, time zone from the phone) \u2192 first circle (name + loose cadence only) \u2192 invite link with the message ready to paste.\nRow 2: circle home as people join (no waiting required) \u2192 first plan with defaults accepted in one tap \u2192 paste-to-chat \u2192 circle home with the plan live.\nTwo inputs before the first real result (a name and a circle name). No permissions, no photo, no contacts, no calendar. SSO buttons carry the platform's own marks in the build; the circles here are placeholders."
+      "text": "First time, organiser, in reading order. Row 1: Welcome (Apple, Google or email) \u2192 email \u2192 code \u2192 name (prefilled from SSO, time zone from the phone) \u2192 first circle (name + loose cadence only) \u2192 first plan with defaults accepted in one tap.\nRow 2: the plan's link ready for the chat \u2192 the organiser's own times \u2192 sent \u2192 circle home with the plan live.\nThe first thing shared is a plan, not an invite (ADR 0026): one link, carrying the question, and whoever taps it joins on the way in. The invite link and the filling-up home are still screens, on the organiser page, reached from circle home or from 'Just invite people for now'.\nTwo inputs before the first real result (a name and a circle name). No permissions, no photo, no contacts, no calendar. SSO buttons carry the platform's own marks in the build; the circles here are placeholders."
     },
     {
       "id": "first-note-sso",

@@ -426,9 +426,9 @@ Every screen exists as an artboard in `docs/design/`; the canvas pages are the I
 
 | Page | Screens |
 |---|---|
-| 0 First time, organiser | Welcome (Apple / Google / email), email, code, name, first circle, invite circle, circle home joining, first plan, plan shared, circle home |
+| 0 First time, organiser | Welcome (Apple / Google / email), email, code, name, first circle, first plan, plan shared, availability, sent, circle home |
 | 1 Guest path (web) | Join, continue as, name, availability, none of these dates, sent (email offer), check email (app prompt), email verified, email preferences, save access, candidates (member view), confirmed (guest), add to calendar, rescheduled, cancelled, attendance, invite link inactive |
-| 2 Organiser path | First-run and populated circle lists, create circle, choose how to start, plan setup, custom window, waiting, candidates, replies closed, edit plan, confirm review, confirmed (organiser), circle home locked in, change time, cancel, cancelled, no quorum, did it happen, circle home about time, plan another, circle settings, notification settings, account, privacy, founder diagnostics |
+| 2 Organiser path | First-run and populated circle lists, create circle, invite circle, circle home joining, choose how to start, plan setup, custom window, waiting, candidates, replies closed, edit plan, confirm review, confirmed (organiser), circle home locked in, change time, cancel, cancelled, no quorum, did it happen, circle home about time, plan another, circle settings, notification settings, account, privacy, founder diagnostics |
 | 3 Quiet ask | Setup, initiator waiting, interest prompt, threshold reached (initiator), started quietly (keen member), started quietly (other member), expired |
 | 4 Native (Slice 3) | Contextual push ask, calendar explanation, calendar picker, availability with overlay, calendar denied |
 | 5 Guest → app | The map, locked-in nudge, app sheet, rejoined nudge, second-response nudge, after-attendance prompt, organiser gate, app first open |
