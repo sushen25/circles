@@ -209,9 +209,11 @@ All times and counts use `font-variant-numeric: tabular-nums`. Body copy uses `t
 - **Primary button.** 54&ndash;56px tall, accent fill, 14px radius, one per screen. Its label names the outcome, not the mechanism.
 - **Secondary.** Same height, white fill, `line` border, `ink-2` label.
 - **Tertiary.** Underlined text, `ink-3`, 44px tap area. Everything destructive or reversible lives here &mdash; quiet, never hidden.
+- **Compact button.** Bordered, sized to its label, optional icon, 44px tall. For secondary actions inside a card or list (Done, Clear these days, Remove day, Start over, Undo), where underlined text at a card's edge reads as a stray link. `accent-soft` fill for the one a panel is waiting on (ADR 0024).
 - **Chip / option.** 42&ndash;46px tall. Selected = accent fill plus a check glyph. Selection is never colour alone.
 - **Card.** `surface` on `line`, 16&ndash;22px radius. The recommended option gets a 1.5px accent border, not a different fill.
-- **Availability track.** A day is one row: a labelled header line and a ten-cell half-hour grid at 42px tall with 3px gaps. The selected range is always rendered *as text* beside the date &mdash; the fill is the affordance, the text is the answer.
+- **Availability.** Days first, then a time once (ADR 0024). A **day grid**: seven columns under a weekday header, one toggle per day, 60px tall &mdash; a ticked day is `accent` plus a check, a day with times is `accent-soft` plus a short tag (Morn, Aft, Eve, Any, Some); seven columns become a wrapping list of named days when a column would be narrower than 44pt. **Block chips** carry their hours as a second line. The answer is always rendered *as text*, in a list of days and hours in words &mdash; the fill is the affordance, the text is the answer.
+- **Availability track.** The half-hour row inside an opened day of that list: a ten-cell grid at 42px tall with 3px gaps, scrolling on the longer bands (ADR 0009).
 - **Member marks.** Rounded squares with an initial, 25&ndash;30px, overlapped by 5px. A dashed outline means "hasn't answered" &mdash; never a greyed-out or crossed-through person.
 - **Notice.** Warm surface, hairline border, icon plus one sentence. Used for advisory context, never for decoration.
 - **Icons.** Inline SVG, stroke 1.6&ndash;1.8, round caps, on a 16/20/24 grid. One family, drawn not imported. Never emoji as an icon.

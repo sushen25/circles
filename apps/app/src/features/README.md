@@ -19,15 +19,17 @@ artboard.
 
 ### availability
 
-| Artboard                      | Route                       | Component                   |
-| ----------------------------- | --------------------------- | --------------------------- |
-| `Availability.dc.html`        | `/j/[code]`                 | `AvailabilityScreen`        |
-| `AvailabilityOverlay.dc.html` | `/j/[code]/overlay`         | `AvailabilityOverlayScreen` |
-| `CalendarDenied.dc.html`      | `/j/[code]/calendar/denied` | `CalendarDeniedScreen`      |
-| `CalendarExplain.dc.html`     | `/j/[code]/calendar`        | `CalendarExplainScreen`     |
-| `CalendarPick.dc.html`        | `/j/[code]/calendar/pick`   | `CalendarPickScreen`        |
-| `NoneWork.dc.html`            | `/j/[code]/none`            | `NoneWorkScreen`            |
-| `Sent.dc.html`                | `/j/[code]/sent`            | `SentScreen`                |
+| Artboard                        | Route                       | Component                   |
+| ------------------------------- | --------------------------- | --------------------------- |
+| `Availability.dc.html`          | `/j/[code]`                 | `AvailabilityScreen`        |
+| `AvailabilityPicking.dc.html`   | `/j/[code]` (days ticked)   | `AvailabilityScreen`        |
+| `AvailabilityAdjusting.dc.html` | `/j/[code]` (a day open)    | `AvailabilityScreen`        |
+| `AvailabilityOverlay.dc.html`   | `/j/[code]/overlay`         | `AvailabilityOverlayScreen` |
+| `CalendarDenied.dc.html`        | `/j/[code]/calendar/denied` | `CalendarDeniedScreen`      |
+| `CalendarExplain.dc.html`       | `/j/[code]/calendar`        | `CalendarExplainScreen`     |
+| `CalendarPick.dc.html`          | `/j/[code]/calendar/pick`   | `CalendarPickScreen`        |
+| `NoneWork.dc.html`              | `/j/[code]/none`            | `NoneWorkScreen`            |
+| `Sent.dc.html`                  | `/j/[code]/sent`            | `SentScreen`                |
 
 **Real since S1-25:** `/j/[code]` and `/j/[code]/none` render
 `AvailabilityFlow`, which reads the plan and the member's own answer, keeps a
@@ -39,6 +41,15 @@ backend the flow renders Sunday Crew's plan from `data/fixtures` (`answerable`).
 still asking (`PlanLinkFlow`), and the member candidates screen otherwise.
 `Offline.dc.html` is a state of `/j/[code]` (`OfflineScreen`, offline and
 error); `/offline` renders it for the gallery.
+
+**Redesigned in S1-25b (ADR 0024):** days first, then a time once. The
+screen is `AvailabilityScreen` composing `DayPicker` (the day grid and the time
+panel) and `AnswerList` (the answer in words, a line opening to the day's
+half-hour `Track`). Everything it shows is worked out in `view.ts` from the
+reducer in `editor.ts`; the blocks are the domain's shortcuts (`blocks.ts`).
+Which days are ticked and which is open are view state and never stored.
+`AvailabilityPicking` and `AvailabilityAdjusting` are states of the same
+route, not routes of their own.
 
 **Real since S1-30:** `/j/[code]/sent` (`SentFlow`), `/j/[code]/check-email`
 (`CheckEmailFlow`) and `/j/[code]/save-access` (`SaveAccessFlow`, which uses

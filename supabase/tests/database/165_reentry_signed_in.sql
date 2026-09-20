@@ -78,10 +78,12 @@ values
   ('16500000-0000-0000-0000-000000000003', 'tom@example.com', 'verified', now());
 
 select public.issue_reentry_token(
-  (select circle_id from fixture), '16500000-0000-0000-0000-000000000002',
+  (select circle_id from fixture),
+  (select id from private.email_contacts where email_normalized = 'priya@example.com'),
   extensions.digest('priya-reentry-link', 'sha256'));
 select public.issue_reentry_token(
-  (select circle_id from fixture), '16500000-0000-0000-0000-000000000003',
+  (select circle_id from fixture),
+  (select id from private.email_contacts where email_normalized = 'tom@example.com'),
   extensions.digest('tom-reentry-link', 'sha256'));
 
 -- Priya saves her place, in place: same id, now permanent.

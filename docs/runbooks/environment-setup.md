@@ -379,9 +379,9 @@ in the URL fragment, and a leaked referrer is how they escape (§14).
 ## 6. Resend
 
 **Product email is deferred**, not all email. The Resend sending domain is
-verified and its API key is on `circles-prod`, but nothing uses either until
-S1-19 brings the templates and the sending code; the webhook below waits on the
-same ticket. Testing happens locally against Mailpit — see
+verified and its API key is on `circles-prod`. S1-19 brought the templates, the
+sending code and the webhook endpoint; nothing sends until S1-20's dispatcher
+calls them. Testing happens locally against Mailpit — see
 [`environments.md`](./environments.md).
 
 **Supabase Auth already sends, and it is not Resend.** Sign-in codes come from
@@ -394,14 +394,27 @@ small shared Free-plan quota. See `environments.md`; the lever is
 - [x] API Keys → create one, **sending permission only**, named `circles-prod`.
       Set on `circles-prod` as `RESEND_API_KEY`. Not on `circles-dev`, and that
       is correct: `dev` does not send, and email is tested against Mailpit.
-- [ ] Webhooks → add an endpoint. The URL is the `email-provider-webhook`
-      function, which **does not exist until S1-19** — either come back for this
-      one, or create it now against the expected URL and expect failures until
-      then. Either is fine; leaving it undone silently is not, because bounces
-      then go unrecorded.
-- [ ] Copy the **webhook signing secret**.
+- [ ] **Resume `circles-prod` first** if it is paused — a secret set on a
+      paused project fails in a way that reads like a credentials problem.
+- [ ] Webhooks → add an endpoint at
+      `https://bhunoaqswteamabbyckp.supabase.co/functions/v1/email-provider-webhook`,
+      for `email.sent`, `email.delivered`, `email.delivery_delayed`,
+      `email.bounced`, `email.complained` and `email.failed`. Opens and clicks
+      are not recorded and need not be sent; the function acknowledges and
+      drops them if they are. Until the function is deployed the endpoint
+      fails, and Resend retries, so creating it first is harmless.
+- [ ] Copy the **webhook signing secret** straight into the project, never into
+      a file or a chat:
+      `supabase secrets set RESEND_WEBHOOK_SECRET=… --project-ref bhunoaqswteamabbyckp`.
+      Without it the function refuses every event — it fails closed — and
+      bounces go unrecorded.
+- [ ] Check it: Resend → Webhooks → the endpoint → send a test `email.delivered`
+      event. The function answers 200 and stores it in
+      `private.email_delivery_events` with no `job_id`, because a test event
+      names no message this product sent. A 401 means the secret is missing or
+      is not the one on the endpoint.
 
-**Hand back:** the API key and the webhook secret.
+**Hand back:** nothing — both secrets live only in the project.
 
 ## 7. Cloudflare Turnstile — free
 

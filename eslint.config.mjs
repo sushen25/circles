@@ -190,6 +190,11 @@ export default tseslint.config(
                 'vitest',
                 'resend',
                 'date-fns-tz',
+                // React Email (ADR 0008): the email templates are components,
+                // rendered to HTML inside the function that sends them.
+                'react',
+                'react/*',
+                '@react-email/*',
                 'npm:*',
                 'jsr:*',
               ],

@@ -6,6 +6,9 @@ import { defineConfig } from 'vitest/config';
 // an `Authorization` header. The Deno runtime is reached only through `env.ts`
 // and `Deno.serve`, both of which stay out of the way here.
 export default defineConfig({
+  // The email templates are `.tsx` (ADR 0008). Deno reads each file's
+  // `@jsxImportSource` pragma; esbuild is told the same thing here.
+  esbuild: { jsx: 'automatic', jsxImportSource: 'react' },
   test: {
     name: 'functions',
     include: ['**/*.test.ts'],

@@ -92,18 +92,23 @@ export function useSendAnswer({
   );
   const [savedAt, setSavedAt] = useState<string | undefined>(draft?.savedAt);
 
+  // Written when the answer changes, and only then: ticking a day or opening
+  // one to adjust is how the screen looks, not what the person said, and it
+  // is never stored (ADR 0024). The reducer keeps `days` the same array
+  // through those, so they do not reach this effect.
+  const { days, flexible } = state;
   const touched = useRef(false);
   useEffect(() => {
     if (!touched.current || userId === undefined) return;
     void writeDraft(userId, code, {
       plan,
-      windows: windowsOf(state, rows, timing),
-      flexible: state.flexible,
+      windows: windowsOf({ days }, rows, timing),
+      flexible,
       ...(pending.current === undefined
         ? {}
         : { pending: { status: pending.current.status, idempotencyKey: pending.current.key } }),
     });
-  }, [state, userId, code, plan, rows, timing]);
+  }, [days, flexible, userId, code, plan, rows, timing]);
 
   /** The person changed their answer; call before dispatching it. */
   const edited = () => {

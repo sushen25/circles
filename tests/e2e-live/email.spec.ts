@@ -25,12 +25,13 @@ test.beforeEach(() => {
   clearRateCounters();
 });
 
-/** Joins as `name`, answers the first evening, and waits on Sent. */
+/** Joins as `name`, answers the first evening (a day and Evening), and waits on Sent. */
 async function answerAs(page: Page, crew: Scenario, name: string): Promise<string> {
   await page.goto(`/j/${crew.planCode}`);
   await page.getByLabel('Your name').fill(name);
   await page.getByRole('button', { name: 'Continue' }).click();
-  await page.getByRole('group').first().getByRole('checkbox').first().click();
+  await page.getByRole('group', { name: 'Days in this plan' }).getByRole('button').first().click();
+  await page.getByRole('checkbox', { name: /^Evening/ }).click();
   await page.getByRole('button', { name: 'Send my times' }).click();
   await expect(page.getByText(`Thanks, ${name}. Your times are in.`)).toBeVisible();
   return memberNamed(crew.circleId, name)!.userId;
@@ -98,13 +99,14 @@ test('email preferences work with no session: stop one meetup, then remove the a
   await expect(page.getByText('Check your email.')).toBeVisible();
   // A verified address, as it would be by the time a preferences link is in an email.
   const verifyToken = verifyTokenFor(ren);
-  const token = prefsTokenFor(ren);
 
   const elsewhere = await browser.newContext();
   const mail = await elsewhere.newPage();
   await mail.goto(`/v#${verifyToken}`);
   await expect(mail.getByText("You'll hear about this meetup by email.")).toBeVisible();
 
+  // Minted as the sender mints one, which is only for a verified contact.
+  const token = prefsTokenFor(ren);
   await mail.goto(`/e#${token}`);
   const toggle = mail.getByRole('switch', { name: 'Sunday Crew · Catch up' });
   await expect(toggle).toHaveAttribute('aria-checked', 'true');

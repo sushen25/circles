@@ -181,7 +181,8 @@ export function reentryTokenFor(scenario: Scenario, userId: string): string {
     begin;
     insert into private.email_contacts (user_id, email_normalized, status, verified_at)
     values ('${userId}', '${userId}@example.test', 'verified', now());
-    select public.issue_reentry_token('${scenario.circleId}', '${userId}',
+    select public.issue_reentry_token('${scenario.circleId}',
+      (select id from private.email_contacts where user_id = '${userId}'),
       extensions.digest('${token}', 'sha256'));
     commit;
   `);
@@ -341,12 +342,12 @@ export function verifyTokenFor(userId: string): string {
   return token;
 }
 
-/** A preferences token for `userId`'s contact. The sender that issues these is S1-19's. */
+/** A preferences token for `userId`'s contact, minted the way the email sender mints one. */
 export function prefsTokenFor(userId: string): string {
   const token = randomBytes(32).toString('base64url');
-  sql(`insert into private.email_action_tokens (contact_id, purpose, token_hash, expires_at)
-    values ((select id from private.email_contacts where user_id = '${userId}'), 'prefs',
-      extensions.digest('${token}', 'sha256'), now() + interval '30 days')`);
+  sql(`select public.issue_preferences_token(
+    (select id from private.email_contacts where user_id = '${userId}'),
+    extensions.digest('${token}', 'sha256'))`);
   return token;
 }
 

@@ -112,3 +112,11 @@ export function emailVerifyUrl(origin: string, token: OpaqueToken): string {
 export function emailPreferencesUrl(origin: string, token: OpaqueToken): string {
   return `${origin.replace(/\/+$/, '')}/e#${token}`;
 }
+
+/**
+ * `https://…/p/<code>`: the plan page. A short code is not a token (ADR 0022),
+ * so it rides in the path like every plan link pasted into a chat.
+ */
+export function planUrl(origin: string, code: ShortCode): string {
+  return `${origin.replace(/\/+$/, '')}/p/${code}`;
+}

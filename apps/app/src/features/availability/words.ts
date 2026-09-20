@@ -5,12 +5,12 @@ import {
   toLocal,
   zone as toZone,
   type LocalDate,
-  type ShortcutKind,
   type TimeFormat,
 } from '@circles/domain';
 
 import { t } from '../../copy';
 import type { AnswerablePlan } from '../../data/availability';
+import type { BlockKind, DayTag } from './blocks';
 import { dateWords, type RowWords } from './days';
 
 /**
@@ -18,11 +18,20 @@ import { dateWords, type RowWords } from './days';
  * apart from the flow so that what the screen *says* can be read in one place.
  */
 
-export const SHORTCUT_LABEL: Record<Exclude<ShortcutKind, 'any_time'>, () => string> = {
-  after_work: () => t('availability', 'after_work'),
-  all_evening: () => t('availability', 'all_evening'),
+export const BLOCK_LABEL: Record<BlockKind, () => string> = {
   morning: () => t('availability', 'morning'),
   afternoon: () => t('availability', 'afternoon'),
+  evening: () => t('availability', 'evening'),
+  any_time: () => t('availability', 'any_time'),
+};
+
+/** The short word on a day in the grid. */
+export const TAG_WORD: Record<DayTag, () => string> = {
+  morning: () => t('availability', 'tag_morning'),
+  afternoon: () => t('availability', 'tag_afternoon'),
+  evening: () => t('availability', 'tag_evening'),
+  any_time: () => t('availability', 'tag_any_time'),
+  some: () => t('availability', 'tag_some'),
 };
 
 export const ROW_WORDS: RowWords = {

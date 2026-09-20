@@ -93,6 +93,12 @@ $$;
 
 -- A named plan, created the way create-plan (S1-15) creates one: a draft row,
 -- the participants, then the `create_named` transition by its organiser.
+--
+-- The band is 9 am to 10:30 pm, wide on purpose: the editor offers only the
+-- blocks the plan asks about (ADR 0024), so an evenings-only seed has one chip
+-- and Morning, Afternoon and Any time can never be tapped by hand. A plan a
+-- real organiser would make is narrower; the live tests each build their own
+-- plan (`tests/e2e-live/stack.ts`), so they still cover the narrow case.
 create or replace function pg_temp.named_plan(
   id uuid, circle uuid, organiser uuid, code text, day_from date, day_to date,
   quorum integer, deadline timestamptz
@@ -106,7 +112,7 @@ begin
     duration_minutes, quorum, response_deadline, short_code
   ) values (
     id, circle, 'named', 'draft', organiser, 'Catch up', 'Australia/Melbourne',
-    day_from, day_to, 17 * 60 + 30, 22 * 60 + 30, 120, quorum, deadline, code
+    day_from, day_to, 9 * 60, 22 * 60 + 30, 120, quorum, deadline, code
   );
   insert into public.plan_participants (plan_id, revision, user_id)
   select id, 1, m.user_id from public.circle_members m where m.circle_id = circle and m.status = 'active';
@@ -181,8 +187,8 @@ select public.replace_response('00000000-0000-4000-8000-000000000b01', 1, 'windo
 
 -- The candidate set the engine would produce from those answers (S1-16
 -- computes it in production; the seed writes the same rows by hand, and
--- the same way — 49 starts considered, seven half-hours a day that fit two
--- hours inside 5:30–10:30 pm, over seven days; the quorum is 4, so Thursday with five is the one eligible
+-- the same way — 168 starts considered, twenty-four half-hours a day that fit
+-- two hours inside 9 am–10:30 pm, over seven days; the quorum is 4, so Thursday with five is the one eligible
 -- option and Friday with three and Saturday with two are near misses, short
 -- by one and by two — ADR 0011).
 select pg_temp.act_as_postgres();
@@ -191,7 +197,7 @@ insert into public.candidate_sets (
   starts_considered, eligible_count, responded_count, active_member_count
 )
 select '00000000-0000-4000-8000-000000000c01', p.id, p.revision, p.input_version, p.scoring_version, 'seed',
-  49, 1, 5, 6
+  168, 1, 5, 6
 from public.plans p where p.id = '00000000-0000-4000-8000-000000000b01';
 
 insert into public.candidates (
