@@ -118,10 +118,24 @@ function reviewLabel(data: PlanCandidates, selectedId: string | undefined): stri
   return t('candidates', 'review', { day: weekdayOf(row.startsAt, data.zone) });
 }
 
-/** "Still to answer: Alex and Tom." */
+/**
+ * "Still to answer: you and Tom."
+ *
+ * The reader is named "you" and put first: the organiser is usually one of the
+ * people being asked (ADR 0026 has them answer their own plan right after
+ * sharing it), and a screen that reads their own name back at them is a screen
+ * that looks like it is talking about somebody else.
+ */
 function stillToAnswer(data: PlanCandidates): string {
   const names = new Map(data.roster.map((m) => [m.userId, m.name]));
-  const waiting = notAnswered(data).map((id) => names.get(id) ?? t('candidates', 'someone'));
+  const missing = notAnswered(data);
+  const mine = data.me !== undefined && missing.includes(data.me);
+  const waiting = [
+    ...(mine ? [t('waiting', 'you')] : []),
+    ...missing
+      .filter((id) => id !== data.me)
+      .map((id) => names.get(id) ?? t('candidates', 'someone')),
+  ];
   const list = nameList(waiting);
   switch (list.kind) {
     case 'none':

@@ -152,6 +152,14 @@ describe('the organiser, with nothing yet', () => {
     // Never anybody else's windows: there is no such thing to show.
     expect(screen.queryByText(/6:30/)).toBeNull();
   });
+
+  it('calls the reader "you" rather than reading their own name back at them', async () => {
+    planCandidates.mockResolvedValue({ ...fixture.waiting, responded: [], repliedCount: 0 });
+    show(<CandidatesFlow id={CIRCLE} planId={PLAN} which="waiting" />);
+
+    expect(await screen.findByText('Waiting on the first reply.')).toBeTruthy();
+    expect(screen.getByText('Still to answer: you, Priya and 4 others.')).toBeTruthy();
+  });
 });
 
 describe('the organiser, with no overlap', () => {

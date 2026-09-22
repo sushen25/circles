@@ -145,11 +145,12 @@ export function memberNamed(
 }
 
 /**
- * A guest already in the circle — Tom — who has answered, and whose session is
- * about to be lost. Written as `postgres`, then answered through
- * `replace_response` as Tom, so the answer is the product's own.
+ * A guest already in the circle and asked by the plan, who has not answered.
+ *
+ * The non-responder every candidates screen has to read well with: they are in
+ * the marks, dashed, and never inside "can make it" (spec §5.6).
  */
-export function guestWhoAnswered(scenario: Scenario, name: string): string {
+export function guestInvited(scenario: Scenario, name: string): string {
   const userId = randomUUID();
   sql(`
     begin;
@@ -165,6 +166,25 @@ export function guestWhoAnswered(scenario: Scenario, name: string): string {
     values ('${scenario.circleId}', '${userId}', '${name}');
     insert into public.plan_participants (plan_id, revision, user_id)
     values ('${scenario.planId}', 1, '${userId}') on conflict do nothing;
+    commit;
+  `);
+  return userId;
+}
+
+/**
+ * A guest already in the circle — Tom — who has answered, and whose session is
+ * about to be lost. Written as `postgres`, then answered through
+ * `replace_response` as Tom, so the answer is the product's own.
+ *
+ * **`replace_response` does not run the engine** — `submit-availability` does,
+ * in the request that caused it (ADR 0018). So a plan answered only this way
+ * has no candidate set, and a test that wants one has somebody answer through
+ * the editor.
+ */
+export function guestWhoAnswered(scenario: Scenario, name: string): string {
+  const userId = guestInvited(scenario, name);
+  sql(`
+    begin;
     select set_config('role', 'authenticated', true);
     select set_config('request.jwt.claims',
       '{"sub": "${userId}", "role": "authenticated", "is_anonymous": true}', true);
@@ -482,4 +502,31 @@ export function circleOwnedBy(userId: string, name: string): string {
     commit;
   `);
   return circleId;
+}
+
+/**
+ * A named plan in `circleId`, organised by `organiserId` and asking them — the
+ * plan half of `sundayCrew`, for a circle whose owner has a real session.
+ *
+ * Quorum two, so two answers are enough for an option to exist.
+ */
+export function planFor(circleId: string, organiserId: string): { id: string; code: string } {
+  const planId = randomUUID();
+  const code = shortCode();
+  sql(`
+    begin;
+    insert into public.plans (
+      id, circle_id, mode, state, organiser_user_id, title, time_zone,
+      window_start, window_end, daily_start_local, daily_end_local,
+      duration_minutes, quorum, response_deadline, short_code
+    ) values (
+      '${planId}', '${circleId}', 'named', 'draft', '${organiserId}', 'Catch up', 'Australia/Melbourne',
+      current_date + 7, current_date + 13, 1050, 1350, 120, 2, now() + interval '3 days', '${code}'
+    );
+    insert into public.plan_participants (plan_id, revision, user_id)
+    values ('${planId}', 1, '${organiserId}');
+    select planning.transition_plan('${planId}', 'create_named', '${organiserId}');
+    commit;
+  `);
+  return { id: planId, code };
 }

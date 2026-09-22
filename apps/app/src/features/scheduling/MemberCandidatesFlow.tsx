@@ -45,14 +45,20 @@ function LiveMember({ code }: { code: string }) {
   const query = useCandidates({ code });
   const data = query.data ?? undefined;
 
-  const organiserOf = data?.isOrganiser === true ? data : undefined;
+  // Once, and guarded by a ref rather than by the effect's dependencies:
+  // `useRouter` hands back a new object on some renders, and a `replace` in an
+  // effect that re-runs on that is a navigation loop.
+  const sent = useRef(false);
+  const circleId = data?.isOrganiser === true ? data.circleId : undefined;
+  const planId = data?.isOrganiser === true ? data.planId : undefined;
   useEffect(() => {
-    if (organiserOf === undefined) return;
+    if (circleId === undefined || planId === undefined || sent.current) return;
+    sent.current = true;
     router.replace({
       pathname: '/circles/[id]/plan/[planId]/candidates',
-      params: { id: organiserOf.circleId, planId: organiserOf.planId },
+      params: { id: circleId, planId },
     });
-  }, [organiserOf, router]);
+  }, [circleId, planId, router]);
 
   const seen = useRef<string | undefined>(undefined);
   useEffect(() => {

@@ -96,7 +96,17 @@ export type PlanCandidates = {
   isOrganiser: boolean;
   /** Everybody the circle has ever had, oldest first; `active` says who is in. */
   roster: RosterMember[];
-  /** Who was asked, this revision, in roster order. Not the same as the circle. */
+  /**
+   * Who is being asked, this revision, in the engine's own order.
+   *
+   * Exactly `engine_input`'s `active_member_ids`: participants of the current
+   * revision who are still active members, by `plan_participants.joined_at`.
+   * Deliberately not the circle's roster — somebody who joined after the plan
+   * was made was never asked, and somebody who has left is not being asked
+   * either. Reading the roster here is the bug `engine_input` names in as many
+   * words: "4 of 7" with a dashed mark against a person `replace_response`
+   * would refuse an answer from.
+   */
   participants: string[];
   /**
    * Who has answered, when that is readable. `null` means the view said
@@ -204,9 +214,11 @@ export async function planCandidates(
       .order('joined_at', { ascending: true }),
     client
       .from('plan_participants')
-      .select('user_id')
+      .select('user_id, joined_at')
       .eq('plan_id', plan.id)
-      .eq('revision', plan.revision),
+      .eq('revision', plan.revision)
+      .order('joined_at', { ascending: true })
+      .order('user_id', { ascending: true }),
     client
       .from('candidate_sets')
       .select('id, input_version, eligible_count, responded_count, active_member_count')
@@ -239,6 +251,9 @@ export async function planCandidates(
     throw new Error(FAILED);
   }
 
+  const active = new Set(roster.data.filter((m) => m.status === 'active').map((m) => m.user_id));
+  const audience = participants.data.map((p) => p.user_id).filter((id) => active.has(id));
+
   const set = sets.data[0];
   const candidates: CandidateRow[] = [];
   const nearMisses: CandidateRow[] = [];
@@ -252,15 +267,16 @@ export async function planCandidates(
       .order('rank', { ascending: true });
     if (rowsError !== null) throw new Error(FAILED);
 
-    const order = new Map(roster.data.map((m, index) => [m.user_id, index]));
+    const order = new Map(audience.map((id, index) => [id, index]));
     for (const row of rows) {
       const mapped: CandidateRow = {
         id: row.starts_at,
         startsAt: row.starts_at,
         endsAt: row.ends_at,
         rank: row.rank,
-        // Re-sorted into roster order so the marks under a card sit in the same
-        // order as the marks in the header, whatever order the engine stored.
+        // Re-sorted into the audience's order, so the marks under a card sit in
+        // the same order as the marks in the header. The engine stores them in
+        // that order already; this makes it true whatever it stored.
         availableUserIds: [...row.available_user_ids].sort(
           (a, b) => (order.get(a) ?? 0) - (order.get(b) ?? 0),
         ),
@@ -276,7 +292,6 @@ export async function planCandidates(
   const state = plan.state as PlanState;
   const isOrganiser = me !== undefined && plan.organiser_user_id === me;
   const summariesVisible = isOrganiser || summaries.data.length > 0;
-  const asked = new Set(participants.data.map((p) => p.user_id));
   const rosterMembers: RosterMember[] = roster.data.map((m) => ({
     userId: m.user_id,
     name: m.display_name_snapshot,
@@ -301,7 +316,7 @@ export async function planCandidates(
     me,
     isOrganiser,
     roster: rosterMembers,
-    participants: rosterMembers.filter((m) => asked.has(m.userId)).map((m) => m.userId),
+    participants: audience,
     // An empty array from the view is not the same as no answers: to a member
     // before options exist it returns nothing at all (§5.6), and reading that
     // as "nobody has replied" would contradict the count beside it. The
@@ -310,7 +325,7 @@ export async function planCandidates(
       ? summaries.data.flatMap((r) => (r.user_id === null ? [] : [r.user_id]))
       : null,
     repliedCount: set?.responded_count ?? 0,
-    askedCount: asked.size,
+    askedCount: audience.length,
     set:
       set === undefined
         ? null
