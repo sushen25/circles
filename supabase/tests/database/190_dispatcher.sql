@@ -12,7 +12,7 @@
 -- made — which is also how the dispatcher itself has to think.
 
 begin;
-select plan(52);
+select plan(57);
 
 create or replace function pg_temp.make_user(
   id uuid, name text, permanent boolean default false, confirmed boolean default false
@@ -401,6 +401,25 @@ select pg_temp.act_as_postgres();
 update private.email_subscriptions s
 set status = 'active', withdrawn_at = null
 where s.plan_id = pg_temp.live_plan();
+
+-- Somebody removed from the circle also drops out of `email_recipients_for`,
+-- and they withdrew nothing. The two have to be tellable apart, or the reason
+-- on the row is a wrong story (review round 2).
+update public.circle_members m set status = 'removed'
+where m.user_id = '00000000-0000-0000-0000-0000000019a3';
+
+select pg_temp.act_as_service();
+select is(
+  (select count(*)::integer from jsonb_array_elements(public.dispatch_claim_due(200)) j
+   where j ->> 'plan_id' = pg_temp.live_plan()::text
+     and not (j ->> 'subscribed')::boolean and not (j ->> 'member_active')::boolean),
+  1,
+  'a removed member''s queued letter says so, rather than saying they unsubscribed'
+);
+
+select pg_temp.act_as_postgres();
+update public.circle_members m set status = 'active'
+where m.user_id = '00000000-0000-0000-0000-0000000019a3';
 select pg_temp.act_as_service();
 
 -- ---------------------------------------------------------------------------
@@ -538,6 +557,36 @@ select is(
   'and an extended deadline that passes again is announced again: the marker is the deadline, not the plan'
 );
 
+-- The half of "once per deadline" that round 1 did not measure. Every deadline
+-- this product makes is fractional — `defaultDeadline` is `now + 1h` — and a
+-- marker rendered without its microseconds never matches the row it was
+-- written from, so the sweep announced the same deadline on every tick for as
+-- long as the plan stayed open (review round 2).
+select ok(
+  (select date_trunc('second', p.response_deadline) <> p.response_deadline
+   from public.plans p where p.id = pg_temp.live_plan()),
+  'the deadline under test has a fraction, which is the ordinary case'
+);
+
+select pg_temp.act_as_service();
+select public.dispatch_timed_work(100);
+select public.dispatch_timed_work(100);
+select pg_temp.act_as_postgres();
+select is(
+  (select count(*)::integer from jobs.outbox o
+   where o.event_name = 'planning.deadline_passed' and o.aggregate_id = pg_temp.live_plan()),
+  2,
+  'and running again against the same deadline announces nothing further, to the microsecond'
+);
+select ok(
+  exists (
+    select 1 from jobs.outbox o join public.plans p on p.id = o.aggregate_id
+    where o.event_name = 'planning.deadline_passed' and p.id = pg_temp.live_plan()
+      and (o.payload ->> 'deadline')::timestamptz = p.response_deadline
+  ),
+  'because the marker it wrote is the instant it read, to the microsecond, not a rounding of it'
+);
+
 -- ---------------------------------------------------------------------------
 -- Retention does not delete the address the organiser is written to
 -- ---------------------------------------------------------------------------
@@ -619,6 +668,11 @@ select ok(
   (public.dispatch_health(false)) ?& array['failed_jobs_24h', 'stuck_outbox', 'suppressed_24h',
     'stuck_ready_plans', 'dispatcher_last_finished_at', 'retention_last_finished_at'],
   'reading it without claiming gives the four counts and the two lease times'
+);
+
+select ok(
+  not jobs.carries_content(public.dispatch_health(false)),
+  'and nothing in it is a name, an address or a sentence — it is the summary that gets emailed'
 );
 
 select cmp_ok(

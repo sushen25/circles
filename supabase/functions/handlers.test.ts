@@ -2740,12 +2740,16 @@ describe('process-scheduled-jobs', () => {
     attempts: 0,
   });
 
+  type EnqueuedJob = {
+    kind: string;
+    scheduled_for: string;
+    idempotency_key: string;
+    plan_revision: number;
+  };
+
   /** The jobs the run asked `dispatch_enqueue` to write, flattened. */
-  const enqueued = (): { kind: string; scheduled_for: string; idempotency_key: string }[] =>
-    called('dispatch_enqueue').flatMap(
-      (call) =>
-        call.args['p_jobs'] as { kind: string; scheduled_for: string; idempotency_key: string }[],
-    );
+  const enqueued = (): EnqueuedJob[] =>
+    called('dispatch_enqueue').flatMap((call) => call.args['p_jobs'] as EnqueuedJob[]);
 
   let events: unknown[] = [];
   let planContext: unknown = null;
@@ -2892,6 +2896,23 @@ describe('process-scheduled-jobs', () => {
     expect(called('dispatch_cancel_pending')[0]?.args).toMatchObject({ p_revision: 4 });
   });
 
+  it('writes a job at the revision the event names, not the one the plan has reached', async () => {
+    // The same drift as the cancellation: a `candidates_generated` for revision
+    // 3 arriving in the same tick as an edit to 5 would otherwise spend
+    // revision 5's only `options_ready` key on a set that cannot exist yet, and
+    // when revision 5's options really appear the key is gone (review round 2).
+    planContext = context({ plan: { ...(context().plan as object), revision: 5 } });
+    events = [outboxEvent('scheduling.candidates_generated', 3)];
+    state.answer = ((answer) => (fn: string) =>
+      fn === 'dispatch_organiser_contact' ? { data: CONTACT, error: null } : answer(fn))(
+      state.answer,
+    );
+
+    await load('process-scheduled-jobs')(post({}, 'a-shared-secret'));
+
+    expect(enqueued()[0]).toMatchObject({ kind: 'options_ready', plan_revision: 3 });
+  });
+
   it('does not write a reminder that quiet hours would deliver after the meetup', async () => {
     // Breakfast at 7:30 wants its reminder at 5:30, which is inside the quiet
     // window, which is 08:00 — half an hour after everybody sat down. Quiet
@@ -2942,6 +2963,7 @@ describe('process-scheduled-jobs', () => {
               email: 'someone@example.com',
               contact_status: 'verified',
               subscribed: false,
+              member_active: true,
               plan_state: 'confirmed',
               plan_short_code: 'pnsundaycr',
               circle_id: CIRCLE_ID,

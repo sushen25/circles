@@ -73,8 +73,23 @@ begin
       -- day", and an extended deadline passes a second time. Keyed on the plan
       -- alone, the second one is announced to nobody — and the organiser's only
       -- channel in Slice 1 is this letter. An instant is an allowed payload
-      -- value: `jobs.carries_content` takes `[A-Za-z0-9_./:+-]` up to 40.
-      'deadline', to_char(target.response_deadline at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SSOF:00')));
+      -- value: `jobs.carries_content` takes `[A-Za-z0-9_./:+-]` up to 40, and
+      -- this is 32.
+      --
+      -- **To the microsecond, and rendered rather than cast.** The first
+      -- version of this used `OF:00` and lost the fraction, so the comparison
+      -- below — which is at full precision — never matched a marker it had
+      -- written itself, and every plan with a fractional deadline was
+      -- announced again every minute for as long as it stayed open. Almost
+      -- every deadline is fractional: `defaultDeadline` is `now + 1h`. Found
+      -- in review round 2, and it is why the round-2 test runs the sweep twice
+      -- against one deadline rather than once against two.
+      --
+      -- Rendered in UTC with an explicit offset rather than left to jsonb's
+      -- own cast, which would use the session's `TimeZone` and make the stored
+      -- string depend on who called.
+      'deadline', to_char(target.response_deadline at time zone 'UTC',
+        'YYYY-MM-DD"T"HH24:MI:SS.US"+00:00"')));
     closed := closed + 1;
   end loop;
 

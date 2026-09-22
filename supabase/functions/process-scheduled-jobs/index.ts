@@ -34,13 +34,29 @@ import { timedWork } from './timed.ts';
  * shorter run, nothing — because two dispatchers drawing from one queue is
  * exactly the shape that sends two of everything.
  *
- * **The budget is 50 seconds**, which is inside `pg_net`'s 55-second timeout
- * and inside the lease. Every phase is handed a `deadline()` and stops between
- * items rather than in the middle of one; work left over is not lost, because
- * the queues are in the database and the next tick is a minute away.
+ * **The budget is 50 seconds**, and the lease is ninety. Every phase is handed
+ * a `deadline()` and stops between items rather than in the middle of one;
+ * work left over is not lost, because the queues are in the database and the
+ * next tick is a minute away. The lease is longer than the budget rather than
+ * equal to it so that a run which overran — a provider that accepts the
+ * connection and says nothing until the send times out — still holds it while
+ * it finishes. A lease that lapses under a running dispatcher is the one way
+ * two of them can draw the same job (review round 2).
  */
 
 const BUDGET_MS = 50_000;
+
+/**
+ * How much of the budget the last send may still need.
+ *
+ * `deadline()` is checked *between* items, so a send that starts at 49.9 s and
+ * then waits out `_shared/email/resend.ts`'s twenty-second timeout ends the run
+ * at seventy. The lease is taken for ninety seconds precisely so that such a
+ * run still holds it — but a phase that knows how long one of its items can
+ * take should stop before it, not rely on the margin. So the send phase stops
+ * *starting* work with a send's worth of budget left (review round 2).
+ */
+const SEND_RESERVE_MS = 25_000;
 
 /** No body. The work is found in the database, never named by the caller. */
 const ProcessScheduledJobsRequest = z.object({}).loose();
@@ -109,7 +125,12 @@ Deno.serve(
             p_limit: 50,
           });
           if (dueError !== null) throw dueError;
-          const sent = await send(service, (due ?? []) as unknown as DueJob[], requestId, deadline);
+          const sent = await send(
+            service,
+            (due ?? []) as unknown as DueJob[],
+            requestId,
+            () => Date.now() - started > BUDGET_MS - SEND_RESERVE_MS,
+          );
           counts['sent'] = sent.sent;
           counts['skipped'] = sent.skipped;
           counts['failed'] = sent.failed;

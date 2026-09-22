@@ -16,6 +16,7 @@ import {
   type Intent,
   type OutboxEvent,
   intentsFor,
+  revisionOf,
   supersededRevision,
 } from './events.ts';
 
@@ -67,6 +68,20 @@ export async function jobRowsFor(
   intent: Intent,
   organiserContacts: Map<string, string | null>,
   requestId = 'unknown',
+  /**
+   * The revision this message belongs to, which is the **event's** and not the
+   * plan's as it is now.
+   *
+   * Round 1 moved the *cancelled* revision to the event for this reason and
+   * left the written one behind, which round 2 found: a context is read once
+   * per run, after every event in the batch, so a `candidates_generated` for
+   * revision 1 arriving in the same tick as an `edit` to revision 2 wrote
+   * revision 2's job — and spent revision 2's only `options_ready` key on a
+   * set that cannot exist yet. Three retries later it is `failed`, and when
+   * revision 2's options really do appear the key is gone and the organiser is
+   * never told.
+   */
+  revision = context.revision,
 ): Promise<readonly JobRow[]> {
   const eligibility = {
     ...context.eligibility,
@@ -92,13 +107,13 @@ export async function jobRowsFor(
         user_id: recipient.userId,
         contact_id: null,
         plan_id: context.planId,
-        plan_revision: context.revision,
+        plan_revision: revision,
         scheduled_for: scheduled,
         idempotency_key: await idempotencyKey({
           channel: 'push',
           recipientId: recipient.userId,
           planId: context.planId as never,
-          revision: context.revision,
+          revision,
           kind: intent.kind,
           occurrence: intent.occurrence,
         }),
@@ -141,13 +156,13 @@ export async function jobRowsFor(
         user_id: null,
         contact_id: contactId,
         plan_id: context.planId,
-        plan_revision: context.revision,
+        plan_revision: revision,
         scheduled_for: scheduled,
         idempotency_key: await idempotencyKey({
           channel: 'email',
           recipientId: contactId,
           planId: context.planId as never,
-          revision: context.revision,
+          revision,
           kind: intent.kind,
           occurrence: intent.occurrence,
         }),
@@ -205,7 +220,14 @@ export async function drain(
           for (const intent of intentsFor(event, context, now)) {
             rows = [
               ...rows,
-              ...(await jobRowsFor(service, context, intent, organiserContacts, requestId)),
+              ...(await jobRowsFor(
+                service,
+                context,
+                intent,
+                organiserContacts,
+                requestId,
+                revisionOf(event) ?? context.revision,
+              )),
             ];
           }
         }

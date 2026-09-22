@@ -304,12 +304,18 @@ revoke all on function jobs.run_retention() from service_role;
 --
 -- The name and the TTL are written here rather than passed in. A caller that
 -- could choose the lease name could run two dispatchers side by side by
--- choosing two, which is the one thing the lease exists to prevent; and a TTL
--- longer than the minute between ticks would let a crashed run block every
--- later one until it lapsed. 55 seconds is the invocation budget in
--- `jobs.invoke_process_scheduled_jobs()` (`timeout_milliseconds := 55000`), so
--- a run that is killed by that timeout has already lost the lease when the
--- next tick asks for it.
+-- choosing two, which is the one thing the lease exists to prevent.
+--
+-- **Ninety seconds, which is longer than the run's own budget of fifty.** The
+-- first version matched the 55-second `pg_net` timeout, on the reasoning that
+-- a run killed by that timeout should not keep the lease. That is the wrong
+-- way round: `pg_net` timing out closes the HTTP call and the function keeps
+-- running, so a lease that lapses at 55 seconds lapses *under* a dispatcher
+-- that is still sending — and the next tick then draws the same jobs, because
+-- `for update skip locked` holds only for the statement that took them
+-- (review round 2). The cost of the longer lease is that a genuinely crashed
+-- run blocks one further tick, which is a minute of nothing rather than a
+-- second copy of somebody's email.
 -- ---------------------------------------------------------------------------
 
 create or replace function public.dispatch_begin(p_holder text)
@@ -319,7 +325,7 @@ volatile
 security definer
 set search_path = ''
 as $$
-  select jobs.acquire_lease('process_scheduled_jobs', interval '55 seconds', p_holder);
+  select jobs.acquire_lease('process_scheduled_jobs', interval '90 seconds', p_holder);
 $$;
 
 comment on function public.dispatch_begin(text) is
@@ -454,6 +460,14 @@ as $$
     'contact_status', c.status,
     'subscribed', exists (
       select 1 from private.email_recipients_for(j.plan_id) r where r.contact_id = j.contact_id
+    ),
+    -- `email_recipients_for` answers one question with three conditions in it,
+    -- and the sender has to tell them apart: somebody who was removed from the
+    -- circle withdrew nothing, and recording `subscription_withdrawn` against
+    -- them tells whoever reads `last_error` the wrong story (review round 2).
+    'member_active', exists (
+      select 1 from public.circle_members m
+      where m.circle_id = p.circle_id and m.user_id = c.user_id and m.status = 'active'
     ),
     'plan_state', p.state,
     'plan_short_code', p.short_code,
@@ -1100,8 +1114,23 @@ begin
       -- day", and an extended deadline passes a second time. Keyed on the plan
       -- alone, the second one is announced to nobody — and the organiser's only
       -- channel in Slice 1 is this letter. An instant is an allowed payload
-      -- value: `jobs.carries_content` takes `[A-Za-z0-9_./:+-]` up to 40.
-      'deadline', to_char(target.response_deadline at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SSOF:00')));
+      -- value: `jobs.carries_content` takes `[A-Za-z0-9_./:+-]` up to 40, and
+      -- this is 32.
+      --
+      -- **To the microsecond, and rendered rather than cast.** The first
+      -- version of this used `OF:00` and lost the fraction, so the comparison
+      -- below — which is at full precision — never matched a marker it had
+      -- written itself, and every plan with a fractional deadline was
+      -- announced again every minute for as long as it stayed open. Almost
+      -- every deadline is fractional: `defaultDeadline` is `now + 1h`. Found
+      -- in review round 2, and it is why the round-2 test runs the sweep twice
+      -- against one deadline rather than once against two.
+      --
+      -- Rendered in UTC with an explicit offset rather than left to jsonb's
+      -- own cast, which would use the session's `TimeZone` and make the stored
+      -- string depend on who called.
+      'deadline', to_char(target.response_deadline at time zone 'UTC',
+        'YYYY-MM-DD"T"HH24:MI:SS.US"+00:00"')));
     closed := closed + 1;
   end loop;
 

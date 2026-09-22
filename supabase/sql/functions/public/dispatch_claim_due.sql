@@ -72,6 +72,14 @@ as $$
     'subscribed', exists (
       select 1 from private.email_recipients_for(j.plan_id) r where r.contact_id = j.contact_id
     ),
+    -- `email_recipients_for` answers one question with three conditions in it,
+    -- and the sender has to tell them apart: somebody who was removed from the
+    -- circle withdrew nothing, and recording `subscription_withdrawn` against
+    -- them tells whoever reads `last_error` the wrong story (review round 2).
+    'member_active', exists (
+      select 1 from public.circle_members m
+      where m.circle_id = p.circle_id and m.user_id = c.user_id and m.status = 'active'
+    ),
     'plan_state', p.state,
     'plan_short_code', p.short_code,
     'plan_current_revision', p.revision,

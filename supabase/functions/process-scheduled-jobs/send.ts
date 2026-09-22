@@ -54,6 +54,8 @@ export type DueJob = {
   readonly contact_status: string;
   /** Whether `private.email_recipients_for` still names this contact, now. */
   readonly subscribed: boolean;
+  /** Whether its owner is still an active member — one of that answer's three parts. */
+  readonly member_active: boolean;
   readonly plan_state: string | null;
   readonly plan_short_code: string | null;
   readonly circle_id: string | null;
@@ -161,7 +163,10 @@ export async function send(
       continue;
     }
     if (needsSubscription(job.kind) && !job.subscribed) {
-      await finish('skipped', 'subscription_withdrawn');
+      // `email_recipients_for` is one answer with three conditions in it.
+      // Somebody who has left the circle withdrew nothing, and saying they did
+      // is a wrong story on S4-06's screen.
+      await finish('skipped', job.member_active ? 'subscription_withdrawn' : 'not_a_member');
       continue;
     }
     if (planIsPast(job)) {

@@ -182,9 +182,16 @@ export function intentsFor(
  * ever. Every transition event carries the revision it left the plan at
  * (S1-11), which is the number that cannot drift.
  */
-export function supersededRevision(event: OutboxEvent): number | null {
+export function revisionOf(event: OutboxEvent): number | null {
   const revision = event.payload['revision'];
-  if (typeof revision !== 'number') return null;
+  return typeof revision === 'number' && Number.isSafeInteger(revision) && revision >= 1
+    ? revision
+    : null;
+}
+
+export function supersededRevision(event: OutboxEvent): number | null {
+  const revision = revisionOf(event);
+  if (revision === null) return null;
   // A cancellation leaves the revision where it is; a reschedule has already
   // bumped it, so what it supersedes is the one before.
   if (event.event_name === 'confirmation.meetup_cancelled') return revision;
