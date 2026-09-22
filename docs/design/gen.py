@@ -867,7 +867,7 @@ S["PlanShared"] = shell(
             row(ic("shield", 14, T["ink2"]), sm("Replies close Tue 15 Sep, 6 pm. We'll show you the best options as they come in."), gap=8),
             gap=8),
     ) +
-    foot(pri("Share to group chat"), ter("Add my times")),
+    foot(pri("Share to group chat"), sec("Add my times")),
     css=AV_CSS
 )
 

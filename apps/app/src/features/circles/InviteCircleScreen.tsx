@@ -109,7 +109,6 @@ export function InviteCircleScreen({
       link={link}
       privacy={t('inviteCircle', 'only_people_with_this_link_can_join')}
       outcome={outcome}
-      shared={shared}
       onCopy={onCopyLink}
       onShare={onNext}
       onwardLabel={

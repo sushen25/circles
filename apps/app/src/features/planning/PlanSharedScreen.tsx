@@ -30,8 +30,6 @@ export type PlanSharedProps = {
   linkSubtitle?: string | undefined;
   /** "Replies close Tue 15 Sep, 6 pm. We'll show you …". */
   closes?: string | undefined;
-  /** True once the message has left, by the sheet or by a copy. */
-  shared?: boolean | undefined;
   outcome?: 'copied' | 'couldnt_copy' | undefined;
   onRetry?: (() => void) | undefined;
   /** The screen's one decision: the organiser's own times, for the plan just made. */
@@ -49,7 +47,6 @@ export function PlanSharedScreen({
   linkTitle = t('planShared', 'sunday_crew_is_finding_a_time'),
   linkSubtitle = t('planShared', 'pick_the_times_youd_be_up_for'),
   closes = t('planShared', 'replies_close_tue_15_sep_6_pm'),
-  shared = false,
   outcome,
   onRetry,
   onNext,
@@ -96,7 +93,6 @@ export function PlanSharedScreen({
       link={link}
       privacy={closes}
       outcome={outcome}
-      shared={shared}
       onCopy={onCopy}
       onShare={onShare}
       onwardLabel={t('planShared', 'add_my_times')}

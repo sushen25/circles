@@ -66,9 +66,6 @@ function LivePlanShared({ id, planId }: { id: string; planId: string }) {
   const router = useRouter();
   const session = useSession();
   const [outcome, setOutcome] = useState<'copied' | 'couldnt_copy' | undefined>();
-  // Whether the chat has it. Until then the way on is a quiet tertiary; after
-  // it, the screen's job is done and it becomes a button.
-  const [shared, setShared] = useState(false);
 
   const plan = useQuery({
     queryKey: ['plan-to-share', planId, session.userId],
@@ -114,15 +111,11 @@ function LivePlanShared({ id, planId }: { id: string; planId: string }) {
       closes={t('planShared', 'replies_close', {
         deadline: whenWords(data.responseDeadline, data.zone),
       })}
-      shared={shared}
       outcome={outcome}
       onCopy={() => {
         setOutcome(undefined);
         void copyText(message).then((copied) => {
-          if (copied) {
-            track('plan_shared', ids);
-            setShared(true);
-          }
+          if (copied) track('plan_shared', ids);
           setOutcome(copied ? 'copied' : 'couldnt_copy');
         });
       }}
@@ -132,10 +125,7 @@ function LivePlanShared({ id, planId }: { id: string; planId: string }) {
           if (result === 'sheet' || result === 'dismissed') {
             track('share_opened', { ...ids, kind: 'plan' });
           }
-          if (result === 'sheet' || result === 'copied') {
-            track('plan_shared', ids);
-            setShared(true);
-          }
+          if (result === 'sheet' || result === 'copied') track('plan_shared', ids);
           if (result === 'copied') setOutcome('copied');
           if (result === 'failed') setOutcome('couldnt_copy');
         });

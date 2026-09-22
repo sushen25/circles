@@ -14,12 +14,11 @@ import {
   Label,
   Screen,
   Small,
-  Tertiary,
   Title,
   TopBar,
   usePalette,
 } from '../../components';
-import { Row, Stack } from '../../components/layout';
+import { Stack } from '../../components/layout';
 import { t } from '../../copy';
 
 /**
@@ -59,13 +58,12 @@ export type ShareScreenProps = {
   onCopy?: (() => void) | undefined;
   onBack?: (() => void) | undefined;
   /**
-   * Where to go next. Before a share it is a tertiary, because the screen has
-   * one job; after one it becomes a secondary button, because the job is done.
+   * Where to go next: a secondary button, not a tertiary. It was a text link
+   * under the primary and was too quiet to find — and on the plan's share
+   * screen it is the step that ends the first run, so it has to be seen.
    */
   onwardLabel: string;
   onOnward?: (() => void) | undefined;
-  /** True once the message has left by any route: sheet, or copy. */
-  shared?: boolean | undefined;
 };
 
 export function ShareScreen({
@@ -83,7 +81,6 @@ export function ShareScreen({
   onBack,
   onwardLabel,
   onOnward,
-  shared = false,
 }: ShareScreenProps) {
   const palette = usePalette();
 
@@ -103,13 +100,18 @@ export function ShareScreen({
             <Card style={styles.bubble} gap={10} padding={14}>
               <BodyText selectable>{message}</BodyText>
               <View style={[styles.preview, { borderColor: palette.line }]}>
-                <Row gap={10}>
+                <View style={styles.iconRow}>
                   <Icon name="link" size={18} color={palette.ink2} />
-                  <Stack gap={2}>
-                    <Title>{linkTitle}</Title>
-                    <Small>{linkSubtitle}</Small>
-                  </Stack>
-                </Row>
+                  {/* The text takes what is left and wraps inside it. A row's
+                      child is its own width by default, so both lines ran past
+                      the card's edge on a phone. */}
+                  <View style={styles.fill}>
+                    <Stack gap={2}>
+                      <Title>{linkTitle}</Title>
+                      <Small>{linkSubtitle}</Small>
+                    </Stack>
+                  </View>
+                </View>
               </View>
             </Card>
           </View>
@@ -117,9 +119,11 @@ export function ShareScreen({
 
         <Stack gap={space.related}>
           <View style={[styles.linkRow, { borderColor: palette.line }]}>
-            <BodyText numberOfLines={1} selectable>
-              {link}
-            </BodyText>
+            <View style={styles.fill}>
+              <BodyText numberOfLines={1} selectable>
+                {link}
+              </BodyText>
+            </View>
             <CompactButton
               label={outcome === 'copied' ? t('share', 'copied') : t('share', 'copy')}
               icon={outcome === 'copied' ? 'check' : 'link'}
@@ -128,20 +132,18 @@ export function ShareScreen({
               accessibilityLiveRegion="polite"
             />
           </View>
-          <Row gap={8}>
+          <View style={[styles.iconRow, styles.tightRow]}>
             <Icon name="shield" size={14} color={palette.ink2} />
-            <Small>{privacy}</Small>
-          </Row>
+            <View style={styles.fill}>
+              <Small>{privacy}</Small>
+            </View>
+          </View>
           {outcome === 'couldnt_copy' ? <Small>{t('share', 'couldnt_copy')}</Small> : null}
         </Stack>
       </Body>
       <Foot>
         <Button label={t('share', 'share_to_group_chat')} onPress={onShare} />
-        {shared ? (
-          <Button label={onwardLabel} variant="secondary" onPress={onOnward} />
-        ) : (
-          <Tertiary label={onwardLabel} onPress={onOnward} />
-        )}
+        <Button label={onwardLabel} variant="secondary" onPress={onOnward} />
       </Foot>
     </Screen>
   );
@@ -150,6 +152,18 @@ export function ShareScreen({
 const styles = StyleSheet.create({
   bubble: {
     borderBottomRightRadius: radius.chip,
+  },
+  // An icon beside wrapping text sits on its first line, not halfway down the
+  // paragraph it is labelling.
+  iconRow: {
+    alignItems: 'flex-start',
+    flexDirection: 'row',
+    gap: 10,
+  },
+  fill: {
+    flex: 1,
+    // Web needs this to let a flex child shrink below its content's width.
+    minWidth: 0,
   },
   linkRow: {
     alignItems: 'center',
@@ -160,6 +174,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 14,
     paddingVertical: 6,
+  },
+  tightRow: {
+    gap: 8,
   },
   preview: {
     borderRadius: radius.chip,
