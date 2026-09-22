@@ -191,14 +191,14 @@ describe('the organiser, with no overlap', () => {
     expect(await screen.findByText("There wasn't enough overlap this time.")).toBeTruthy();
     expect(screen.getByText(/Nothing in the window works for at least 4 of you/)).toBeTruthy();
     expect(screen.getByText('Closest')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Lower to 3 people' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /^Lower to 3 people\./ })).toBeTruthy();
   });
 
   it("lowers the quorum, and says the number becomes the plan's own", async () => {
     lowerQuorum.mockResolvedValue(undefined);
     show(<CandidatesFlow id={CIRCLE} planId={PLAN} which="no-quorum" />);
 
-    const lower = await screen.findByRole('button', { name: 'Lower to 3 people' });
+    const lower = await screen.findByRole('button', { name: /^Lower to 3 people\./ });
     expect(screen.getByText(/keeps 3 as its number/)).toBeTruthy();
     fireEvent.click(lower);
     await waitFor(() => expect(lowerQuorum).toHaveBeenCalledWith(PLAN, 3));
@@ -215,7 +215,7 @@ describe('the organiser, with no overlap', () => {
     widenWindow.mockResolvedValue(undefined);
     show(<CandidatesFlow id={CIRCLE} planId={PLAN} which="no-quorum" />);
 
-    const wider = await screen.findByRole('button', { name: 'Try a wider window' });
+    const wider = await screen.findByRole('button', { name: /^Try a wider window\./ });
     expect(screen.getByText('Ask about 14 days instead of 7')).toBeTruthy();
     fireEvent.click(wider);
 
@@ -263,7 +263,7 @@ describe('the organiser, with no overlap', () => {
     );
     show(<CandidatesFlow id={CIRCLE} planId={PLAN} which="no-quorum" />);
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Try a wider window' }));
+    fireEvent.click(await screen.findByRole('button', { name: /^Try a wider window\./ }));
     fireEvent.click(await screen.findByRole('button', { name: 'Ask again' }));
 
     // The notice lives behind the sheet, so the refusal closes it. (In jsdom
@@ -274,9 +274,19 @@ describe('the organiser, with no overlap', () => {
 
     // And the next attempt takes a fresh preview rather than resending the
     // version the server just refused.
-    fireEvent.click(screen.getByRole('button', { name: 'Try a wider window' }));
+    fireEvent.click(screen.getByRole('button', { name: /^Try a wider window\./ }));
     await waitFor(() => expect(previewWiderWindow).toHaveBeenCalledTimes(2));
     expect(widenWindow).toHaveBeenCalledTimes(1);
+  });
+
+  it('says what each unlock does out loud, not only what it is called', async () => {
+    planCandidates.mockResolvedValue(fixture.noQuorum);
+    show(<CandidatesFlow id={CIRCLE} planId={PLAN} which="no-quorum" />);
+
+    // An explicit label replaces the name built from the row, so "the plan
+    // then keeps 3 as its number" has to be in it.
+    const lower = await screen.findByRole('button', { name: /^Lower to 3 people\./ });
+    expect(lower.getAttribute('aria-label')).toContain('keeps 3 as its number');
   });
 
   it('decides nothing from a set the plan has moved past', async () => {
@@ -286,7 +296,7 @@ describe('the organiser, with no overlap', () => {
     expect(await screen.findByText(/Someone just answered/)).toBeTruthy();
     // Lowering the quorum is permanent and its number comes from a near-miss
     // the newest answer may have moved.
-    const lower = screen.getByRole('button', { name: 'Lower to 3 people' });
+    const lower = screen.getByRole('button', { name: /^Lower to 3 people\./ });
     expect(lower.getAttribute('aria-disabled')).toBe('true');
     fireEvent.click(lower);
     expect(lowerQuorum).not.toHaveBeenCalled();
@@ -296,7 +306,7 @@ describe('the organiser, with no overlap', () => {
     closeAttempt.mockResolvedValue(undefined);
     show(<CandidatesFlow id={CIRCLE} planId={PLAN} which="no-quorum" />);
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Close this attempt' }));
+    fireEvent.click(await screen.findByRole('button', { name: /^Close this attempt\./ }));
     expect(await screen.findByText('Close this attempt?')).toBeTruthy();
     expect(screen.getByText(/No reason is given and nobody is named/)).toBeTruthy();
     expect(closeAttempt).not.toHaveBeenCalled();

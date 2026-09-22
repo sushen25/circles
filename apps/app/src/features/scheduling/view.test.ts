@@ -121,6 +121,15 @@ describe('the header', () => {
   it('says replies are closed rather than a deadline that has gone', () => {
     expect(headerOf(planWith({ repliesOpen: false })).closes).toBe('Replies closed');
   });
+
+  it('stops asking for replies once replies have closed', () => {
+    // A plan stays ready past its deadline so the organiser can decide (§8),
+    // but nobody may answer it — so "wait until Tuesday" is advice about a
+    // Tuesday that has gone, and the nudge asks for a reply nobody can send.
+    const closed = planWith({ repliesOpen: false });
+    expect(leadOf(closed)).toBe('Replies have closed. Pick the one that works.');
+    expect(nudgeOf(closed)).toBeUndefined();
+  });
 });
 
 describe('the headline and the lead', () => {

@@ -266,8 +266,16 @@ export function headlineOf(data: PlanCandidates): string {
   });
 }
 
-/** What the organiser can do about the people still to answer, in one line. */
+/**
+ * What the organiser can do about the people still to answer, in one line.
+ *
+ * Nothing, once replies have closed: a plan stays `ready` past its deadline so
+ * the organiser can decide (spec §8), but `replace_response` refuses an answer
+ * then — so "wait until Tuesday" would be advice about a Tuesday that has gone,
+ * about people who could not answer if they wanted to.
+ */
 export function leadOf(data: PlanCandidates): string {
+  if (!data.repliesOpen) return t('candidates', 'lead_closed');
   const waiting = namesOf(data, notAnswered(data));
   const list = nameList(waiting);
   const deadline = deadlineOf(data.responseDeadline, data.zone);
@@ -290,8 +298,12 @@ export function leadOf(data: PlanCandidates): string {
   }
 }
 
-/** "Nudge Alex", "Nudge 5 people" — absent when everybody has answered. */
+/**
+ * "Nudge Alex", "Nudge 5 people" — absent when everybody has answered, and
+ * absent once replies have closed, because the message it sends asks for one.
+ */
 export function nudgeOf(data: PlanCandidates): string | undefined {
+  if (!data.repliesOpen) return undefined;
   const waiting = namesOf(data, notAnswered(data));
   const list = nameList(waiting);
   switch (list.kind) {

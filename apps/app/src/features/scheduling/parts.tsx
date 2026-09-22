@@ -37,12 +37,15 @@ import type { CardView, HeaderView } from './view';
  */
 export const MARKS_MAX = 8;
 
+/** What the count tile at the end of a capped row says. */
+const more = (rest: number) => t('candidates', 'marks_more', { count: rest });
+
 export function CandidateHeader({ header }: { header: HeaderView }) {
   return (
     <Stack gap={8}>
       <Row>
         {header.members.length === 0 ? null : (
-          <Marks members={header.members} max={MARKS_MAX} label={header.marksLabel} />
+          <Marks members={header.members} max={MARKS_MAX} more={more} label={header.marksLabel} />
         )}
         <Small>{header.replied}</Small>
       </Row>
@@ -72,7 +75,7 @@ export function CandidateCard({ card, highlighted, onPress, selected }: Candidat
         <BodyText>{card.time}</BodyText>
       </Stack>
       <Stack gap={8}>
-        <Marks members={card.members} max={MARKS_MAX} label={card.membersLabel} />
+        <Marks members={card.members} max={MARKS_MAX} more={more} label={card.membersLabel} />
         {card.exception === undefined ? null : <Small>{card.exception}</Small>}
       </Stack>
     </Card>

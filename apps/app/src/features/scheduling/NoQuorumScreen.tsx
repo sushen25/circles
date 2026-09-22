@@ -130,7 +130,10 @@ export function NoQuorumScreen({
               {index === 0 ? null : <Divider />}
               <Pressable
                 role="button"
-                aria-label={unlock.title}
+                // Both halves: an explicit label replaces the name a reader
+                // would build from the row, and the body is where "the plan
+                // then keeps 3 as its number" is said.
+                aria-label={`${unlock.title}. ${unlock.body}`}
                 aria-busy={busy === unlock.kind}
                 aria-disabled={stale || busy !== undefined}
                 disabled={stale || busy !== undefined}

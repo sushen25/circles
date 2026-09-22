@@ -315,6 +315,8 @@ export const en = {
     headline_ready: '{day} looks good for {count} of you.',
     headline_waiting: 'Waiting on a few more.',
     lead_everyone: 'Everyone has replied. Pick the one that works.',
+    lead_closed: 'Replies have closed. Pick the one that works.',
+    marks_more: '+{count}',
     lead_one: "{name} hasn't answered yet. You can lock a time in now, or wait until {deadline}.",
     lead_two:
       "{name} and {other} haven't answered yet. You can lock a time in now, or wait until {deadline}.",

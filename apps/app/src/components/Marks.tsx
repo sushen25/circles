@@ -33,6 +33,15 @@ type Props = {
    */
   max?: number | undefined;
   /**
+   * What the count tile says, given how many marks it stands for.
+   *
+   * A function rather than a string because the number is the component's to
+   * work out and the words are never its to choose — the same reason the
+   * domain's share templates are passed in. Without one it draws digits, which
+   * carry no voice and need no key.
+   */
+  more?: ((rest: number) => string) | undefined;
+  /**
    * What a screen reader hears instead of who has answered.
    *
    * The default describes reply state, which is right on a plan and wrong
@@ -43,7 +52,7 @@ type Props = {
   label?: string | undefined;
 };
 
-export function Marks({ members, large = false, max, label: given }: Props) {
+export function Marks({ members, large = false, max, more, label: given }: Props) {
   const palette = usePalette();
   const dimension = large ? size.markLarge : size.mark;
 
@@ -118,9 +127,9 @@ export function Marks({ members, large = false, max, label: given }: Props) {
             large && styles.markLarge,
           ]}
         >
-          <Text
-            style={[styles.initial, { fontSize: large ? 14 : 11, color: palette.ink2 }]}
-          >{`+${rest}`}</Text>
+          <Text style={[styles.initial, { fontSize: large ? 14 : 11, color: palette.ink2 }]}>
+            {more === undefined ? `+${rest}` : more(rest)}
+          </Text>
         </View>
       ) : null}
     </View>
