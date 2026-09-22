@@ -177,6 +177,7 @@ export async function jobRowsFor(
   context: PlanContext,
   intent: Intent,
   organiserContacts: Map<string, string | null>,
+  requestId = 'unknown',
 ): Promise<readonly JobRow[]> {
   const eligibility = {
     ...context.eligibility,
@@ -219,6 +220,19 @@ export async function jobRowsFor(
         organiserContacts.set(recipient.userId, (data as string | null) ?? null);
       }
       const contact = organiserContacts.get(recipient.userId) ?? null;
+      // An organiser with no address we may write to is silence, which is an
+      // ordinary answer — and an invisible one, so it is said out loud. It is
+      // also the state S4-06's diagnostics screen will want to show, and the
+      // only way anybody would notice that a whole circle's organiser mail is
+      // going nowhere.
+      if (contact === null) {
+        log('warn', {
+          fn: 'process-scheduled-jobs',
+          request_id: requestId,
+          event: 'organiser_unreachable',
+          reason: intent.kind,
+        });
+      }
       contacts = contact === null ? [] : [contact];
     } else {
       contacts = context.contactsOf(recipient.userId);
@@ -326,7 +340,10 @@ export async function drain(
           }
 
           for (const intent of intentsFor(event, context, now)) {
-            rows = [...rows, ...(await jobRowsFor(service, context, intent, organiserContacts))];
+            rows = [
+              ...rows,
+              ...(await jobRowsFor(service, context, intent, organiserContacts, requestId)),
+            ];
           }
         }
       }

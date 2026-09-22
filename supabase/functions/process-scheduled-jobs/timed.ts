@@ -94,6 +94,7 @@ export async function timedWork(
       context,
       { kind: 'deadline_approaching', occurrence: ONCE, desiredAt: now },
       organiserContacts,
+      requestId,
     );
     if (rows.length === 0) continue;
     const { data: written, error: failure } = await service.rpc('dispatch_enqueue', {
