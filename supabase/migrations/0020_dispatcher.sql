@@ -18,7 +18,7 @@
 -- Nothing new is stored. The one function that writes a row a person owns is
 -- `public.dispatch_organiser_contact`, which turns the organiser's confirmed
 -- auth address into an ordinary `private.email_contacts` row so that organiser
--- email can be addressed, suppressed and bounced like any other (ADR 00XX).
+-- email can be addressed, suppressed and bounced like any other (ADR 0027).
 --
 -- A new migration rather than a regenerated `0019`, because `0019` has
 -- shipped; `MIGRATION` in `scripts/gen-sql-functions.mjs` now points here.
@@ -125,7 +125,7 @@ begin
   -- be deleted along with the letters still hanging off it — the fkey is
   -- `on delete cascade`, so the row going takes the queued mail silently.
   --
-  --   * **An identity's own confirmed auth address** (ADR 00XX, S1-20). It is
+  --   * **An identity's own confirmed auth address** (ADR 0027, S1-20). It is
   --     not a plan's: it is how the organiser is written to at all, for as
   --     long as the identity exists, and it holds no subscription by design.
   --     Deleted with the user by the cascade, which is the right lifetime.
@@ -409,8 +409,17 @@ grant execute on function public.dispatch_cancel_pending(uuid, integer) to servi
 --   * `superseded` — "one copy per event" is the sender's job, not the
 --     writer's. One address can be held by two contacts since 0009: two
 --     siblings subscribed to the same decided plan, or a guest who joined
---     twice, produce two jobs for one mailbox. The flag marks every copy after
---     the first.
+--     twice, produce two jobs for one mailbox. The flag marks a job whose
+--     letter has **already gone** to that address.
+--
+--     Only `sent`, and that is the whole correction. It used to mark a job
+--     whose sibling was merely `scheduled` and sorted earlier — which suppressed
+--     the eligible copy when the earlier one turned out not to be: the first
+--     was skipped for having left the circle, the second was skipped as a
+--     duplicate of it, and the mailbox got nothing at all (review round 3).
+--     A copy cannot be a duplicate of one that was never sent, so the
+--     within-a-batch half of the rule belongs after eligibility, in the sender,
+--     where it is keyed on the address a letter actually went to.
 --
 -- The dedupe is by `(kind, plan, revision, address)` and is applied only to
 -- the kinds whose occurrence is *determined* by the plan revision —
@@ -483,10 +492,7 @@ as $$
         and o.plan_id is not distinct from j.plan_id
         and o.plan_revision is not distinct from j.plan_revision
         and oc.email_hash = c.email_hash
-        and (
-          o.status = 'sent'
-          or (o.status = 'scheduled' and (o.scheduled_for, o.created_at, o.id) < (j.scheduled_for, j.created_at, j.id))
-        )
+        and o.status = 'sent'
     )
   ) order by j.scheduled_for, j.created_at, j.id), '[]'::jsonb)
   from due j
@@ -890,6 +896,44 @@ revoke all on function public.dispatch_health(boolean) from public;
 revoke all on function public.dispatch_health(boolean) from anon, authenticated;
 grant execute on function public.dispatch_health(boolean) to service_role;
 
+-- supabase/sql/functions/public/dispatch_health_due.sql
+-- ---------------------------------------------------------------------------
+-- Whether today's health summary is still owed.
+--
+-- Split from `public.dispatch_health` so that the claim can be made **after**
+-- the letter is out rather than before it. Claiming first meant a provider
+-- having a bad morning took the whole day's report with it: the first run
+-- after 08:00 UTC wrote the audit row, the send failed with a retryable code,
+-- and the remaining fourteen hundred runs that day found the day already
+-- claimed and reported nothing — at exactly the moment somebody would want to
+-- know (review round 3).
+--
+-- Read-only, and cheap: two conditions on one row. The dispatcher asks it
+-- every minute and does nothing further on a no.
+-- ---------------------------------------------------------------------------
+
+create or replace function public.dispatch_health_due()
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select now() >= date_trunc('day', now() at time zone 'UTC') at time zone 'UTC' + interval '8 hours'
+    and not exists (
+      select 1 from private.audit_log a
+      where a.action = 'health.reported'
+        and a.occurred_at >= date_trunc('day', now() at time zone 'UTC') at time zone 'UTC'
+    );
+$$;
+
+comment on function public.dispatch_health_due() is
+  'True when today''s health summary is due (from 08:00 UTC) and has not been claimed. Service role only (S1-20).';
+
+revoke all on function public.dispatch_health_due() from public;
+revoke all on function public.dispatch_health_due() from anon, authenticated;
+grant execute on function public.dispatch_health_due() to service_role;
+
 -- supabase/sql/functions/public/dispatch_job_result.sql
 -- ---------------------------------------------------------------------------
 -- What became of one notification job.
@@ -960,7 +1004,7 @@ grant execute on function public.dispatch_job_result(uuid, text, text, text, tim
 --
 -- So the auth address becomes an ordinary contact, and the suppression
 -- machinery covers organiser mail exactly as it covers plan-update mail
--- (ADR 00XX).
+-- (ADR 0027).
 --
 -- **Verified, because auth already verified it.** `email_contacts.status`
 -- records whether we have proof this identity controls this address. A
@@ -1032,7 +1076,7 @@ end;
 $$;
 
 comment on function public.dispatch_organiser_contact(uuid) is
-  'The email contact for an organiser''s confirmed auth address, created verified if absent. Null for a guest, an unconfirmed address or a suppressed one. Creates no subscription. Service role only (ADR 00XX, S1-20).';
+  'The email contact for an organiser''s confirmed auth address, created verified if absent. Null for a guest, an unconfirmed address or a suppressed one. Creates no subscription. Service role only (ADR 0027, S1-20).';
 
 revoke all on function public.dispatch_organiser_contact(uuid) from public;
 revoke all on function public.dispatch_organiser_contact(uuid) from anon, authenticated;

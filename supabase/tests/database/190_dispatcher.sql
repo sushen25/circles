@@ -12,7 +12,7 @@
 -- made — which is also how the dispatcher itself has to think.
 
 begin;
-select plan(57);
+select plan(62);
 
 create or replace function pg_temp.make_user(
   id uuid, name text, permanent boolean default false, confirmed boolean default false
@@ -365,9 +365,64 @@ select is(
 select is(
   (select count(*)::integer from jsonb_array_elements(public.dispatch_claim_due(200)) j
    where j ->> 'plan_id' = pg_temp.live_plan()::text and (j ->> 'superseded')::boolean),
-  1,
-  'one address, one copy: the second of the two is marked as already covered'
+  0,
+  'neither of the two is superseded yet, because neither letter has gone'
 );
+
+-- The correction round 3 found. The flag used to mean "an earlier job for this
+-- address is still scheduled", so when the earlier one turned out to be
+-- ineligible — its owner had left the circle — the first was skipped for that
+-- and the second was skipped as a duplicate of a letter that was never sent.
+-- The mailbox got nothing at all.
+select pg_temp.act_as_postgres();
+update public.circle_members m set status = 'removed'
+where m.user_id = (
+  select c.user_id from private.email_contacts c
+  join jobs.notification_jobs j on j.contact_id = c.id
+  where c.email_normalized = 'priya@example.com' and j.kind = 'locked_in'
+  order by j.scheduled_for, j.created_at, j.id limit 1);
+
+select pg_temp.act_as_service();
+select is(
+  (select count(*)::integer from jsonb_array_elements(public.dispatch_claim_due(200)) j
+   where j ->> 'plan_id' = pg_temp.live_plan()::text and (j ->> 'superseded')::boolean),
+  0,
+  'and an ineligible sibling supersedes nobody: the eligible copy is still claimable'
+);
+select is(
+  (select count(*)::integer from jsonb_array_elements(public.dispatch_claim_due(200)) j
+   where j ->> 'plan_id' = pg_temp.live_plan()::text
+     and (j ->> 'subscribed')::boolean and (j ->> 'member_active')::boolean),
+  1,
+  'exactly one of the two is still owed the letter'
+);
+
+select pg_temp.act_as_postgres();
+update public.circle_members m set status = 'active'
+where m.circle_id = (select circle_id from t);
+
+-- A copy that really has gone does supersede the other.
+update jobs.notification_jobs j
+set status = 'sent', sent_at = now(), provider_message_id = 'already-gone'
+where j.id = (
+  select j2.id from jobs.notification_jobs j2
+  join private.email_contacts c on c.id = j2.contact_id
+  where c.email_normalized = 'priya@example.com' and j2.kind = 'locked_in'
+  order by j2.scheduled_for, j2.created_at, j2.id limit 1);
+
+select pg_temp.act_as_service();
+select is(
+  (select count(*)::integer from jsonb_array_elements(public.dispatch_claim_due(200)) j
+   where j ->> 'plan_id' = pg_temp.live_plan()::text and (j ->> 'superseded')::boolean),
+  1,
+  'one address, one copy: the second is superseded once the first has actually been sent'
+);
+
+select pg_temp.act_as_postgres();
+update jobs.notification_jobs j
+set status = 'scheduled', sent_at = null, provider_message_id = null
+where j.provider_message_id = 'already-gone';
+select pg_temp.act_as_service();
 
 select is(
   (select distinct j ->> 'email' from jsonb_array_elements(public.dispatch_claim_due(200)) j
@@ -648,9 +703,18 @@ delete from private.audit_log where action = 'health.reported';
 select pg_temp.act_as_service();
 
 select is(
-  (public.dispatch_health(true) is null),
-  (now() < date_trunc('day', now() at time zone 'UTC') at time zone 'UTC' + interval '8 hours'),
-  'the day''s report is made from 08:00 UTC and not before'
+  public.dispatch_health_due(),
+  (now() >= date_trunc('day', now() at time zone 'UTC') at time zone 'UTC' + interval '8 hours'),
+  'the day''s report is owed from 08:00 UTC and not before'
+);
+
+-- Reading the numbers claims nothing, which is what lets the sender claim the
+-- day only once the letter is out. Claiming first meant a provider having a
+-- bad morning took the whole day's report with it (review round 3).
+select ok(
+  public.dispatch_health(false) is not null and public.dispatch_health_due() = (
+    now() >= date_trunc('day', now() at time zone 'UTC') at time zone 'UTC' + interval '8 hours'),
+  'and reading the numbers does not close the day'
 );
 
 select pg_temp.act_as_postgres();
@@ -658,10 +722,14 @@ insert into private.audit_log (action, resource_type, metadata)
 values ('health.reported', 'account', '{}'::jsonb);
 
 select pg_temp.act_as_service();
+select ok(
+  not public.dispatch_health_due(),
+  'and once claimed it is not owed again, however many times the minute job runs'
+);
 select is(
   public.dispatch_health(true),
   null,
-  'and once made it is not made twice, however many times the minute job runs'
+  'nor claimed twice'
 );
 
 select ok(

@@ -229,6 +229,7 @@ beforeEach(() => {
   process.env.SUPABASE_SERVICE_ROLE_KEY = 'service';
   delete process.env.TURNSTILE_SECRET_KEY;
   delete process.env.CRON_SECRET;
+  delete process.env.EMAIL_CAPTURE_URL;
   state.rpcs = [];
   state.fetched = [];
   state.tokens = [];
@@ -2942,40 +2943,63 @@ describe('process-scheduled-jobs', () => {
     expect(kinds).toContain('locked_in');
   });
 
+  const dueJob = (overrides: Record<string, unknown> = {}) => ({
+    id: '00000000-0000-4000-8000-00000000j001',
+    kind: 'reminder',
+    contact_id: CONTACT,
+    user_id: MEMBER,
+    plan_id: PLAN_ID,
+    plan_revision: 1,
+    plan_current_revision: 1,
+    idempotency_key: 'a'.repeat(64),
+    attempt_count: 0,
+    email: 'someone@example.com',
+    contact_status: 'verified',
+    subscribed: true,
+    member_active: true,
+    plan_state: 'confirmed',
+    plan_short_code: 'pnsundaycr',
+    circle_id: CIRCLE_ID,
+    circle_name: 'Sunday Crew',
+    superseded: false,
+    ...overrides,
+  });
+
+  /**
+   * Drive the send phase with these due jobs and nothing else to do.
+   *
+   * The token functions answer a token, so a job that is eligible reaches
+   * `render` and the sender rather than stopping at `contact_unverified` — the
+   * difference between a test about skipping and a test about sending.
+   */
+  const withDue = (...jobs: unknown[]): void => {
+    const answer = state.answer;
+    state.answer = (fn) => {
+      if (fn === 'dispatch_claim_due') return { data: jobs, error: null };
+      if (fn.startsWith('issue_')) return { data: 'a-readable-token', error: null };
+      return answer(fn);
+    };
+  };
+
+  /**
+   * The local mail catcher, so a send has somewhere to go.
+   *
+   * `EMAIL_CAPTURE_URL` is deleted in the outer `beforeEach`, so no test that
+   * does not ask for this can send anything anywhere.
+   */
+  const capturing = (): void => {
+    process.env.EMAIL_CAPTURE_URL = 'http://capture.test';
+    (globalThis as { fetch?: unknown }).fetch = (url: string) => {
+      state.fetched.push(String(url));
+      return Promise.resolve(new Response(JSON.stringify({ ID: 'captured' })));
+    };
+  };
+
   it('does not send a letter to somebody who has since said stop', async () => {
     // "Stop emails for this meetup" withdraws the subscription and touches no
     // job, and a reminder written when the meetup was confirmed waits days. A
     // stop link that did not stop a queued letter would not be one (spec §5.8).
-    const answer = state.answer;
-    state.answer = (fn) => {
-      if (fn === 'dispatch_claim_due') {
-        return {
-          data: [
-            {
-              id: '00000000-0000-4000-8000-00000000j001',
-              kind: 'reminder',
-              contact_id: CONTACT,
-              user_id: MEMBER,
-              plan_id: PLAN_ID,
-              plan_revision: 1,
-              idempotency_key: 'a'.repeat(64),
-              attempt_count: 0,
-              email: 'someone@example.com',
-              contact_status: 'verified',
-              subscribed: false,
-              member_active: true,
-              plan_state: 'confirmed',
-              plan_short_code: 'pnsundaycr',
-              circle_id: CIRCLE_ID,
-              circle_name: 'Sunday Crew',
-              superseded: false,
-            },
-          ],
-          error: null,
-        };
-      }
-      return answer(fn);
-    };
+    withDue(dueJob({ subscribed: false }));
 
     await load('process-scheduled-jobs')(post({}, 'a-shared-secret'));
 
@@ -2985,6 +3009,56 @@ describe('process-scheduled-jobs', () => {
     });
     // Nothing was rendered and no token was minted for a letter nobody wants.
     expect(called('issue_preferences_token')).toHaveLength(0);
+  });
+
+  it('says a removed member was removed, rather than that they unsubscribed', async () => {
+    // `email_recipients_for` is one answer with three conditions in it, and
+    // somebody who left the circle withdrew nothing. Whoever reads `last_error`
+    // on the diagnostics screen would otherwise be told the wrong story.
+    withDue(dueJob({ subscribed: false, member_active: false }));
+
+    await load('process-scheduled-jobs')(post({}, 'a-shared-secret'));
+
+    expect(called('dispatch_job_result')[0]?.args).toMatchObject({
+      p_outcome: 'skipped',
+      p_error: 'not_a_member',
+    });
+  });
+
+  it('does not send one address two copies of the same letter in one run', async () => {
+    // Two contacts, one mailbox — a guest who joined twice, or two siblings on
+    // one address (spec §9). The first is sent; the second is a duplicate of a
+    // letter that has actually gone, which is the only thing that makes it one.
+    capturing();
+    withDue(
+      dueJob({ id: '00000000-0000-4000-8000-00000000j001' }),
+      dueJob({ id: '00000000-0000-4000-8000-00000000j002', contact_id: 'c2' }),
+    );
+
+    await load('process-scheduled-jobs')(post({}, 'a-shared-secret'));
+
+    const outcomes = called('dispatch_job_result').map((call) => [
+      call.args['p_outcome'],
+      call.args['p_error'],
+    ]);
+    expect(outcomes).toContainEqual(['sent', null]);
+    expect(outcomes).toContainEqual(['skipped', 'duplicate_address']);
+    // And exactly one letter left the building.
+    expect(state.fetched.filter((url) => url.includes('capture.test'))).toHaveLength(1);
+  });
+
+  it('does not send a letter about options the plan has stopped asking about', async () => {
+    // The job was stamped at revision 3 and the plan is at 5. Rendering it
+    // would put revision 5's options under revision 3's key, and revision 5's
+    // own event would then write a second job with the same words.
+    withDue(dueJob({ kind: 'options_ready', plan_revision: 3, plan_current_revision: 5 }));
+
+    await load('process-scheduled-jobs')(post({}, 'a-shared-secret'));
+
+    expect(called('dispatch_job_result')[0]?.args).toMatchObject({
+      p_outcome: 'skipped',
+      p_error: 'revision_moved_on',
+    });
   });
 
   it('marks an event nothing listens to as handled, without reading a plan for it', async () => {

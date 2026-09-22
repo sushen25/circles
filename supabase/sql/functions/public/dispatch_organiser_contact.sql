@@ -11,7 +11,7 @@
 --
 -- So the auth address becomes an ordinary contact, and the suppression
 -- machinery covers organiser mail exactly as it covers plan-update mail
--- (ADR 00XX).
+-- (ADR 0027).
 --
 -- **Verified, because auth already verified it.** `email_contacts.status`
 -- records whether we have proof this identity controls this address. A
@@ -83,7 +83,7 @@ end;
 $$;
 
 comment on function public.dispatch_organiser_contact(uuid) is
-  'The email contact for an organiser''s confirmed auth address, created verified if absent. Null for a guest, an unconfirmed address or a suppressed one. Creates no subscription. Service role only (ADR 00XX, S1-20).';
+  'The email contact for an organiser''s confirmed auth address, created verified if absent. Null for a guest, an unconfirmed address or a suppressed one. Creates no subscription. Service role only (ADR 0027, S1-20).';
 
 revoke all on function public.dispatch_organiser_contact(uuid) from public;
 revoke all on function public.dispatch_organiser_contact(uuid) from anon, authenticated;

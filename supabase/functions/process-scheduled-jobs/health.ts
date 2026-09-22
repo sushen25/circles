@@ -6,11 +6,13 @@ import { log } from '../_shared/logging.ts';
 /**
  * The daily health summary (ticket step 5).
  *
- * Four counts and two timestamps, once a day from 08:00 UTC. The claim is
- * made in the database — `public.dispatch_health` writes a `health.reported`
- * row and answers null when today's is already made — because a dispatcher
- * that runs every minute and remembers nothing between runs cannot decide
- * "once a day" for itself.
+ * Four counts and two timestamps, once a day from 08:00 UTC. Whether the day
+ * is still owed is a fact in the database — `public.dispatch_health_due` —
+ * because a dispatcher that runs every minute and remembers nothing between
+ * runs cannot decide "once a day" for itself. The claim that closes the day is
+ * a `health.reported` row in `private.audit_log`, and it is written **after**
+ * the letter is out: written first, a provider having a bad morning took the
+ * whole day's report with it (review round 3).
  *
  * **It is always logged and only sometimes sent.** `HEALTH_REPORT_TO` is an
  * optional secret; with no address the report is a structured log line, which
@@ -51,11 +53,14 @@ function countsOf(summary: Summary): Record<string, number> {
 }
 
 export async function reportHealth(service: Db, requestId: string): Promise<boolean> {
-  const { data, error } = await service.rpc('dispatch_health', { p_claim: true });
-  if (error !== null) throw error;
-  if (data === null) return false;
+  const { data: due, error: dueError } = await service.rpc('dispatch_health_due');
+  if (dueError !== null) throw dueError;
+  if (due !== true) return false;
 
+  const { data, error } = await service.rpc('dispatch_health', { p_claim: false });
+  if (error !== null) throw error;
   const summary = data as unknown as Summary;
+
   log('info', {
     fn: 'process-scheduled-jobs',
     request_id: requestId,
@@ -64,33 +69,43 @@ export async function reportHealth(service: Db, requestId: string): Promise<bool
   });
 
   const to = optional('HEALTH_REPORT_TO');
-  if (to === undefined) return true;
-
-  const text = `${lines(summary)}\n`;
-  try {
-    await sendEmail(
-      {
-        to,
-        subject: 'Daily health summary',
-        html: `<pre>${text}</pre>`,
-        text,
-        tags: { kind: 'health' },
-      },
-      // There is no contact: this letter is to whoever runs the service, and
-      // the address is a secret rather than a row. The sender logs whatever it
-      // is given in place of the address, so it is given the name of the
-      // report rather than an id that does not exist.
-      { contactId: 'health-summary', requestId },
-    );
-  } catch (thrown) {
-    // A health report that cannot be sent must not fail the run that produced
-    // it: the numbers it carries are about a system that is otherwise working.
-    log('warn', {
-      fn: 'process-scheduled-jobs',
-      request_id: requestId,
-      event: 'health_unsent',
-      reason: thrown instanceof EmailSendError ? thrown.code : 'unknown',
-    });
+  if (to !== undefined) {
+    const text = `${lines(summary)}\n`;
+    try {
+      await sendEmail(
+        {
+          to,
+          subject: 'Daily health summary',
+          html: `<pre>${text}</pre>`,
+          text,
+          tags: { kind: 'health' },
+        },
+        // There is no contact: this letter is to whoever runs the service, and
+        // the address is a secret rather than a row. The sender logs whatever
+        // it is given in place of the address, so it is given the name of the
+        // report rather than an id that does not exist.
+        { contactId: 'health-summary', requestId },
+      );
+    } catch (thrown) {
+      const retryable = thrown instanceof EmailSendError && thrown.retryable;
+      log('warn', {
+        fn: 'process-scheduled-jobs',
+        request_id: requestId,
+        event: 'health_unsent',
+        reason: thrown instanceof EmailSendError ? thrown.code : 'unknown',
+      });
+      // A provider having a bad morning must not take the day's report with
+      // it. The day is left unclaimed, so the next tick tries again — but only
+      // for a failure that is worth retrying: a rejected or unconfigured send
+      // would otherwise be attempted every minute for fourteen hours.
+      if (retryable) return false;
+    }
   }
+
+  // Claimed last, and never before the letter is out (review round 3). The
+  // claim re-reads the counts, so the audit row holds the numbers as of the
+  // moment the day was closed.
+  const { error: claimError } = await service.rpc('dispatch_health', { p_claim: true });
+  if (claimError !== null) throw claimError;
   return true;
 }

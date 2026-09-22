@@ -1,9 +1,6 @@
-# ADR 00XX: The organiser's auth address is an email contact, verified by auth
+# ADR 0027: The organiser's auth address is an email contact, verified by auth
 
-_Status: proposed · 22 September 2026_
-
-> Drafted as `00XX` because two branches are open at once. The number is taken,
-> and `docs/decisions/README.md` updated, in the rebase before merge.
+_Status: accepted · 22 September 2026_
 
 ## Context
 

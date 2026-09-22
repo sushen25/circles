@@ -57,6 +57,8 @@ export type DueJob = {
   /** Whether its owner is still an active member — one of that answer's three parts. */
   readonly member_active: boolean;
   readonly plan_state: string | null;
+  /** The revision the plan is on **now**, which the job's may be behind. */
+  readonly plan_current_revision: number | null;
   readonly plan_short_code: string | null;
   readonly circle_id: string | null;
   readonly circle_name: string | null;
@@ -75,6 +77,33 @@ function planIsPast(job: DueJob): boolean {
   // `isTerminal` is the domain's, over `TERMINAL_STATES`. Spelling the three
   // states out here is the shape that goes stale the day a fourth is added.
   return job.plan_state !== null && isTerminal(job.plan_state as PlanState);
+}
+
+/**
+ * The kinds whose whole content belongs to one revision of the question.
+ *
+ * `options_ready` is a candidate set and `deadline_approaching` is a deadline;
+ * both are answers to the question the plan was asking at the revision the job
+ * was stamped with. When the plan has moved past it — an edit, a reopen — the
+ * message is about a question nobody is being asked any more, and sending it
+ * from the *current* context would render the new revision's options under the
+ * old revision's key, so the new revision's own event later writes a second
+ * job with the same words (review round 3).
+ *
+ * Not `locked_in`, `reminder` or the two morning-after letters: a revision
+ * change supersedes their confirmation, and `dispatch_cancel_pending` takes
+ * them back. Not `cancelled`, whose revision never moves. Not `changed`, which
+ * is *about* the revision having moved.
+ */
+const REVISION_SCOPED: readonly string[] = ['options_ready', 'deadline_approaching'];
+
+function revisionMovedOn(job: DueJob): boolean {
+  if (!REVISION_SCOPED.includes(job.kind)) return false;
+  return (
+    job.plan_revision !== null &&
+    job.plan_current_revision !== null &&
+    job.plan_current_revision > job.plan_revision
+  );
 }
 
 /**
@@ -106,6 +135,20 @@ async function record(
   if (failure !== null) throw failure;
 }
 
+/**
+ * What makes two jobs the same letter to the same mailbox.
+ *
+ * The same tuple `dispatch_claim_due` partitions on, with the address in place
+ * of the contact. `changed` and `verify_email` are excluded there and are
+ * excluded here for the same reason: both can legitimately occur twice within
+ * one revision, keyed by change id and verification id, and collapsing them is
+ * how nobody gets told the venue moved.
+ */
+function copyKey(job: DueJob): string {
+  if (job.kind === 'changed' || job.kind === 'verify_email') return `${job.id}`;
+  return [job.kind, job.plan_id ?? '', job.plan_revision ?? '', job.email].join('\u0000');
+}
+
 /** The next attempt for a job that has already failed this often, or null at the end. */
 function backoff(attempts: number): string | null {
   const wait = BACKOFF_MINUTES[attempts];
@@ -120,6 +163,15 @@ export async function send(
 ): Promise<SendResult> {
   const result: SendResult = { sent: 0, skipped: 0, failed: 0, retried: 0 };
   const contexts = new Map<string, PlanContext | null>();
+  /**
+   * Addresses this run has already written to about this exact message.
+   *
+   * In memory for the length of one run and nowhere else: it holds addresses,
+   * which is why it never reaches a row or a log line. The database half of
+   * the same rule is `dispatch_claim_due`'s `superseded`, which covers the
+   * copies sent by earlier runs.
+   */
+  const alreadyGone = new Set<string>();
 
   for (const job of jobs) {
     if (deadline()) break;
@@ -173,7 +225,20 @@ export async function send(
       await finish('skipped', 'plan_finished');
       continue;
     }
+    if (revisionMovedOn(job)) {
+      await finish('skipped', 'revision_moved_on');
+      continue;
+    }
+    // Already gone to this address, in an earlier run.
     if (job.superseded) {
+      await finish('skipped', 'duplicate_address');
+      continue;
+    }
+    // Or in this one. Checked here rather than in the claim, and after every
+    // eligibility test above, because a copy cannot be a duplicate of one that
+    // was never sent: the claim used to suppress the eligible sibling on
+    // behalf of an ineligible one and the mailbox got nothing (review round 3).
+    if (alreadyGone.has(copyKey(job))) {
       await finish('skipped', 'duplicate_address');
       continue;
     }
@@ -207,6 +272,7 @@ export async function send(
         { contactId: job.contact_id, requestId, idempotencyKey: job.idempotency_key },
       );
       await record(service, job.id, 'sent', undefined, providerMessageId);
+      alreadyGone.add(copyKey(job));
       result.sent += 1;
     } catch (thrown) {
       const retryable = thrown instanceof EmailSendError && thrown.retryable;

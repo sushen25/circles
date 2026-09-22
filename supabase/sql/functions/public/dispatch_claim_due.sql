@@ -20,8 +20,17 @@
 --   * `superseded` — "one copy per event" is the sender's job, not the
 --     writer's. One address can be held by two contacts since 0009: two
 --     siblings subscribed to the same decided plan, or a guest who joined
---     twice, produce two jobs for one mailbox. The flag marks every copy after
---     the first.
+--     twice, produce two jobs for one mailbox. The flag marks a job whose
+--     letter has **already gone** to that address.
+--
+--     Only `sent`, and that is the whole correction. It used to mark a job
+--     whose sibling was merely `scheduled` and sorted earlier — which suppressed
+--     the eligible copy when the earlier one turned out not to be: the first
+--     was skipped for having left the circle, the second was skipped as a
+--     duplicate of it, and the mailbox got nothing at all (review round 3).
+--     A copy cannot be a duplicate of one that was never sent, so the
+--     within-a-batch half of the rule belongs after eligibility, in the sender,
+--     where it is keyed on the address a letter actually went to.
 --
 -- The dedupe is by `(kind, plan, revision, address)` and is applied only to
 -- the kinds whose occurrence is *determined* by the plan revision —
@@ -94,10 +103,7 @@ as $$
         and o.plan_id is not distinct from j.plan_id
         and o.plan_revision is not distinct from j.plan_revision
         and oc.email_hash = c.email_hash
-        and (
-          o.status = 'sent'
-          or (o.status = 'scheduled' and (o.scheduled_for, o.created_at, o.id) < (j.scheduled_for, j.created_at, j.id))
-        )
+        and o.status = 'sent'
     )
   ) order by j.scheduled_for, j.created_at, j.id), '[]'::jsonb)
   from due j

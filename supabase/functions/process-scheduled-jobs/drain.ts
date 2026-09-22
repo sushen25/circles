@@ -56,7 +56,7 @@ export type JobRow = {
  *
  * The contact they are addressed to is the person's own auth address, made a
  * contact by `public.dispatch_organiser_contact` so that a bounce suppresses it
- * like any other (ADR 00XX).
+ * like any other (ADR 0027).
  */
 function addressedPersonally(kind: NotificationKind): boolean {
   return !notificationSpec(kind).emailNeedsSubscription;

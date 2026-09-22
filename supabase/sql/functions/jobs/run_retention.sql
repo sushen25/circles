@@ -96,7 +96,7 @@ begin
   -- be deleted along with the letters still hanging off it — the fkey is
   -- `on delete cascade`, so the row going takes the queued mail silently.
   --
-  --   * **An identity's own confirmed auth address** (ADR 00XX, S1-20). It is
+  --   * **An identity's own confirmed auth address** (ADR 0027, S1-20). It is
   --     not a plan's: it is how the organiser is written to at all, for as
   --     long as the identity exists, and it holds no subscription by design.
   --     Deleted with the user by the cascade, which is the right lifetime.
