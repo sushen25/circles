@@ -124,16 +124,6 @@ const SCREENS: ScreenEntry[] = [
     href: '/circles/new',
   },
   {
-    screen: 'InviteCircle',
-    feature: 'circles',
-    href: '/circles/sunday-crew/invite',
-  },
-  {
-    screen: 'CircleHomeJoining',
-    feature: 'circles',
-    href: '/circles/sunday-crew?state=joining',
-  },
-  {
     screen: 'FirstPlan',
     feature: 'planning',
     href: '/circles/sunday-crew/plan/new',
@@ -142,6 +132,16 @@ const SCREENS: ScreenEntry[] = [
     screen: 'PlanShared',
     feature: 'planning',
     href: '/circles/sunday-crew/plan/thu-17/shared',
+  },
+  {
+    screen: 'InviteCircle',
+    feature: 'circles',
+    href: '/circles/sunday-crew/invite',
+  },
+  {
+    screen: 'CircleHomeJoining',
+    feature: 'circles',
+    href: '/circles/sunday-crew?state=joining',
   },
   {
     screen: 'CircleHome',

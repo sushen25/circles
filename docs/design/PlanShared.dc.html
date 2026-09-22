@@ -76,13 +76,33 @@
     .toggle.on { background: #C2542F; }
     .toggle i { position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 999px; background: #fff; }
     .toggle.on i { left: 21px; }
+
+    .mini { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 14px; border-radius: 12px; border: 1px solid #EAE0D3; background: #FFFFFF; font-family: Figtree; font-size: 14px; font-weight: 500; color: #6C6156; white-space: nowrap; align-self: flex-start; }
+    .mini.acc { background: #F6E5DC; border-color: #F6E5DC; color: #A0431F; font-weight: 600; }
+    .wkhead { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 5px; text-align: center; }
+    .daygrid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 5px; }
+    .dayb { position: relative; height: 60px; border-radius: 12px; border: 1px solid #EAE0D3; background: #FFFFFF; color: #221E19; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; }
+    .dayb .n { font-family: Newsreader, Georgia, serif; font-size: 21px; line-height: 1; font-variant-numeric: tabular-nums; }
+    .dayb .tag { font-family: Figtree; font-size: 11px; font-weight: 600; line-height: 1.2; min-height: 13px; }
+    .dayb.has { background: #F6E5DC; border-color: #F6E5DC; color: #A0431F; }
+    .dayb.sel { background: #C2542F; border-color: #C2542F; color: #FFFFFF; }
+    .dayb .tk { position: absolute; top: 3px; right: 3px; display: flex; }
+    .bchip { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 6px 14px; border-radius: 12px; background: #FFFFFF; border: 1px solid #EAE0D3; font-family: Figtree; color: #221E19; }
+    .bchip .c1 { font-weight: 600; font-size: 14px; line-height: 1.25; display: block; }
+    .bchip .c2 { font-size: 12px; line-height: 1.25; display: block; color: #6C6156; font-variant-numeric: tabular-nums; }
+    .bchip.on { background: #C2542F; border-color: #C2542F; color: #FFFFFF; }
+    .bchip.on .c2 { color: #FFFFFF; }
+    .ans { display: flex; flex-direction: column; gap: 12px; padding: 12px 0; border-top: 1px solid #EAE0D3; }
+    .chevbox { display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 10px; border: 1px solid #EAE0D3; background: #FFFFFF; flex-shrink: 0; }
+    .chevbox.open { background: #F6E5DC; border-color: #F6E5DC; }
 </style>
 </helmet>
 <div class="screen" style="width:390px;min-height:844px;">
-<div class="top"><div style="width:44px;"></div><div class="t"></div><div style="display:flex;align-items:center;justify-content:flex-end;min-width:44px;height:44px;"><div class="wordmark">Circles</div></div></div><div class="body" style="gap:22px;padding:8px 22px 24px;"><div class="stack" style="gap:10px;"><div class="lbl">Sunday Crew</div><h1 class="dxl">Now tell the group.</h1><p class="p">Paste this into the chat where everyone already is. People answer from the link.</p></div>
-<div class="card" style="gap:12px;padding:18px;"><p class="p">When can Sunday Crew actually catch up? Mark the times you'd be up for in the next two weeks. Takes a minute, no app needed: circles.app/j/7f3k</p>
-<div class="row" style="gap:8px;"><div class="btn sec">Copy</div><div class="btn sec">Share…</div></div></div>
-<p class="sm">Replies close Tue 15 Sep, 6 pm. We'll show you the best options as they come in.</p></div><div class="foot"><div class="btn pri">Done</div></div>
+<div class="top"><div style="width:44px;"></div><div class="t"></div><div style="display:flex;align-items:center;justify-content:flex-end;min-width:44px;height:44px;"><div class="wordmark">Circles</div></div></div><div class="body" style="gap:22px;padding:8px 22px 24px;"><div class="stack" style="gap:10px;"><div class="lbl">Step 2 of 2</div><h1 class="dl">Ask Sunday Crew.</h1><p class="p">One link in the chat. Friends tap it, add a name, and say when they're free. No app, no account.</p></div>
+<div class="stack" style="gap:8px;"><p class="sm">What lands in the chat</p><div style="background:#EAE0D3;border-radius:18px;padding:12px;"><div class="card" style="gap:10px;padding:14px;"><p class="p">When can Sunday Crew actually catch up? Mark the times you'd be up for in the next two weeks. Takes a minute, no app needed.</p>
+<div style="border:1px solid #EAE0D3;border-radius:12px;padding:10px;"><div class="row" style="gap:10px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6C6156" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1.2 1.2"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1.2-1.2"/></svg><div class="stack" style="gap:2px;"><div class="title">Sunday Crew is finding a time to catch up</div><p class="sm">Pick the times you'd actually be up for. No app needed.</p></div></div></div></div></div></div>
+<div class="stack" style="gap:8px;"><div style="display:flex;align-items:center;gap:10px;border:1px solid #EAE0D3;border-radius:14px;padding:6px 6px 6px 14px;"><p style="flex:1 1 0;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:0;">circles.app/j/7f3k</p><div class="mini acc"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#A0431F" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1.2 1.2"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1.2-1.2"/></svg>Copy</div></div><div class="row" style="gap:8px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6C6156" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 5 6.5v5c0 4.2 3 7.6 7 9 4-1.4 7-4.8 7-9v-5z"/><path d="M9.5 12l1.8 1.8L15 10"/></svg><p class="sm">Replies close Tue 15 Sep, 6 pm. We'll show you the best options as they come in.</p></div></div></div><div class="foot"><div class="btn pri">Share to group chat</div>
+<div class="btn sec">Add my times</div></div>
 </div>
 </x-dc>
 </body>

@@ -52,8 +52,15 @@
 -- which names the membership in this circle and nothing else: after a
 -- `duplicate_name` they pass one, and their profile is not touched.
 --
--- **The quorum does not move** (ADR 0022, ADR 0017). It was set when the plan
--- was made and changes only when the organiser changes it.
+-- **The quorum moves with the circle, while nobody has chosen it** (ADR 0026).
+-- A plan made on the first run is made on a circle of one, seconds old, so its
+-- quorum is a placeholder: `public.soft_quorum` of the active members, rewritten
+-- on every join that admits somebody new, through `quorum_follows` — no new
+-- revision, so every answer already given stands, and no event, because the
+-- join itself was announced. A quorum the organiser set (`quorum_source` is
+-- `chosen`) never moves here, and neither does one on a plan whose members are
+-- leaving: a removal that lowered the quorum would make a plan `ready` as a
+-- side effect of somebody leaving.
 --
 -- **The input version does**, when somebody is added to the plan. The roster is
 -- engine input — `engine_input` reads `plan_participants`, and the set it
@@ -86,6 +93,10 @@ declare
   target public.circles;
   chosen_name text := p_display_name;
   added integer;
+  members integer;
+  following integer;
+  quorum_moved boolean := false;
+  restaled boolean := false;
 begin
   if caller is null then
     raise exception 'join_from_plan requires the person joining'
@@ -167,7 +178,58 @@ begin
     -- `candidates_gone` has no guard and announces nothing.
     if plan.state = 'ready' then
       perform planning.transition_plan(plan.id, 'candidates_gone', caller);
+      restaled := true;
     end if;
+  end if;
+
+  -- A quorum nobody chose, on the audience this join just changed.
+  --
+  -- Keyed on the *participant* row, not on the membership: a member of the
+  -- circle who opens the plan for the first time is somebody the plan is now
+  -- asking, and no membership is written for them (review round 3).
+  if added > 0 then
+    -- The count *after* the admission, and of the people this plan is actually
+    -- asking — its participants at this revision — rather than the circle's
+    -- roster.
+    --
+    -- Two things follow, and both are the point (review round 2). A member who
+    -- joined by the circle's invite and never opened this plan was never asked
+    -- (spec §9 makes joining an active plan an opt-in), so they must not raise
+    -- the number of people who have to make it — a quorum above the people who
+    -- can answer is a plan that can never reach it. And a circle's *other*
+    -- defaulted plans are left alone, because their own audiences did not
+    -- change; the rule follows the question, not the address book.
+    select count(*) into members
+    from public.plan_participants pp
+    join public.circle_members m
+      on m.circle_id = target.id and m.user_id = pp.user_id and m.status = 'active'
+    where pp.plan_id = plan.id and pp.revision = plan.revision;
+
+    -- Never below where it already is. The rule follows a circle that is
+    -- growing; a circle that shrank keeps its number, because a removal must
+    -- not lower a quorum as a side effect (ADR 0026) and the next join would
+    -- otherwise do it on the removal's behalf — possibly making the plan
+    -- `ready` on the way (review round 4). Lowering is the organiser's, and
+    -- doing it makes the number theirs.
+    following := greatest(plan.quorum, public.soft_quorum(members));
+    if plan.quorum_source = 'defaulted' and following is distinct from plan.quorum then
+      -- The plan's own rule writing, under the lock this function already
+      -- holds. `transition_plan` bumps the input version for a quorum change
+      -- and leaves the revision alone (ADR 0017), so the candidate set is
+      -- restaled and the answers are kept.
+      perform planning.transition_plan(
+        plan.id, 'quorum_follows', caller, jsonb_build_object('quorum', following)
+      );
+      quorum_moved := true;
+    end if;
+  end if;
+
+  -- A `ready` plan whose quorum just moved must not stay `ready`: a candidate
+  -- set is eligible on its versions and never reads the quorum, so a
+  -- four-person option would stay confirmable under a quorum of five. Once is
+  -- enough — the roster change above may have said it already.
+  if quorum_moved and plan.state = 'ready' and not restaled then
+    perform planning.transition_plan(plan.id, 'candidates_gone', caller);
   end if;
 
   return jsonb_build_object(
@@ -179,7 +241,7 @@ end;
 $$;
 
 comment on function public.join_from_plan(uuid, text, text) is
-  'Joins a person to the circle behind a plan short code while that plan is taking answers, and adds them to its current revision (ADR 0022). Idempotent; never changes the quorum. Raises invite_inactive for every plan that is not admitting, or duplicate_name, display_name_unusable, circle_full. Service role only: Turnstile and the rate limits that make a short code acceptable are in the join-plan Edge Function, and a client calling this directly would skip them.';
+  'Joins a person to the circle behind a plan short code while that plan is taking answers, and adds them to its current revision (ADR 0022). Idempotent; moves a quorum nobody chose to soft_quorum of the new member count (ADR 0026). Raises invite_inactive for every plan that is not admitting, or duplicate_name, display_name_unusable, circle_full. Service role only: Turnstile and the rate limits that make a short code acceptable are in the join-plan Edge Function, and a client calling this directly would skip them.';
 
 revoke all on function public.join_from_plan(uuid, text, text) from public;
 revoke all on function public.join_from_plan(uuid, text, text) from anon, authenticated;

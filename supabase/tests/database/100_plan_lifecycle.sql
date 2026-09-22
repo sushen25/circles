@@ -6,7 +6,7 @@
 -- would all say yes.
 
 begin;
-select plan(85);
+select plan(90);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid
@@ -213,6 +213,61 @@ create or replace function pg_temp.plan_id() returns uuid
 language sql security definer as $$ select id from made $$;
 
 select is((select state from made), 'collecting', 'a new plan is collecting, not draft');
+
+select is(
+  (select quorum_source from made),
+  'chosen',
+  'a quorum the caller passed is the caller''s, and stays put (ADR 0026)'
+);
+
+-- A plan made with no quorum at all: what first run sends. The number and the
+-- label are both worked out here, under the circle's lock, so a count read by a
+-- caller cannot be stale and a client calling this directly cannot label its
+-- own chosen number `defaulted` (review round 5).
+select pg_temp.act_as('10000000-0000-0000-0000-000000000001');
+create temporary table defaulted as
+select * from public.create_plan(pg_temp.circle_id(), 'Catch up', 'catch_up',
+  date '2099-09-17', date '2099-09-20', 1050, 1350, 120, null,
+  timestamptz '2099-09-16T10:00:00Z');
+
+select pg_temp.act_as_postgres();
+select is(
+  (select quorum_source from defaulted),
+  'defaulted',
+  'a plan made with no quorum is one nobody chose'
+);
+-- A circle that has chosen a default has chosen for its plans too, however the
+-- function is called (review round 6).
+select pg_temp.act_as_postgres();
+update public.circles set default_quorum = 5 where id = pg_temp.circle_id();
+
+select pg_temp.act_as('10000000-0000-0000-0000-000000000001');
+create temporary table circle_default as
+select * from public.create_plan(pg_temp.circle_id(), 'Catch up', 'catch_up',
+  date '2099-09-17', date '2099-09-20', 1050, 1350, 120, null,
+  timestamptz '2099-09-16T10:00:00Z');
+
+select pg_temp.act_as_postgres();
+select is(
+  (select quorum from circle_default),
+  5,
+  'the circle default is a number somebody chose'
+);
+select is(
+  (select quorum_source from circle_default),
+  'chosen',
+  'and it does not follow the audience'
+);
+update public.circles set default_quorum = null where id = pg_temp.circle_id();
+
+select is(
+  (select quorum from defaulted),
+  public.soft_quorum((
+    select count(*)::integer from public.circle_members m
+    where m.circle_id = pg_temp.circle_id() and m.status = 'active'
+  )),
+  'and its number is the database''s own rule over the members there are'
+);
 select is((select revision from made), 1, 'at revision one');
 select is((select organiser_user_id from made), '10000000-0000-0000-0000-000000000001'::uuid,
   'organised by whoever made it');

@@ -12,6 +12,7 @@ import {
   lockedInMessage,
   newPlanMessage,
   waitingMessage,
+  withoutLink,
 } from './share-messages.js';
 
 const LINK = 'example.com/p/8k2v';
@@ -173,5 +174,27 @@ describe('waitingMessage', () => {
     for (const name of ['Alex', 'Priya', 'Tom', 'Jess', 'Sam', 'Nic']) {
       expect(text).not.toContain(name);
     }
+  });
+});
+
+describe('a message with its link taken off, for a screen that draws the link', () => {
+  it('leaves the sentence and takes the separator with it', () => {
+    const url = 'https://circles.test/j/abcdefgh';
+    const message = newPlanMessage({
+      circleName: 'Sunday Crew',
+      windowPhrase: 'in the next two weeks',
+      url,
+      templates: EN_SHARE_TEMPLATES,
+    });
+    expect(message).toContain(url);
+    const shown = withoutLink(message, url);
+    expect(shown).not.toContain(url);
+    expect(shown).toBe(
+      "When can Sunday Crew actually catch up? Mark the times you'd be up for in the next two weeks. Takes a minute",
+    );
+  });
+
+  it('leaves a message that never had the link alone', () => {
+    expect(withoutLink('No link here.', 'https://circles.test/j/abcdefgh')).toBe('No link here.');
   });
 });

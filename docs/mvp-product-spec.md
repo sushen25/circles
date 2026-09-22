@@ -151,10 +151,11 @@ Get a new organiser from opening the app to a shared circle invitation with two 
 2. **Email path only**: address → six-digit code (10-minute validity).
 3. **Your name**: prefilled from the SSO provider; time zone taken from the device; both editable. No photo, phone number or contacts.
 4. **First circle** (step 1 of 2): circle name and a loose cadence (weekly, fortnightly, monthly, every two months, no goal). Nothing else.
-5. **Invite the circle** (step 2 of 2): the invite link and the paste-ready message; **Share to group chat**, **Copy link**, or **Skip for now, I'll plan first**.
-6. **Circle home as people join**: members appear; a card says the organiser need not wait for everyone.
-7. **First plan with defaults accepted**: one card summarising the defaults (catch up, next 14 days, evenings and weekend days, about 2 hours, quorum from the current member count, replies close in 3 days); **Ask the group** or **See if people are keen instead**.
-8. **Paste to chat**: the plan message, Copy, Share, Done.
+5. **First plan with defaults accepted** (step 2 of 2): one card summarising the defaults (catch up, next 14 days, evenings and weekend days, about 2 hours, a quorum that follows the circle as people join, replies close in 3 days); **Ask the group**, **See if people are keen instead**, or the quiet **Just invite people for now**.
+6. **Paste to chat**: what lands in the chat, the plan's link and the paste-ready message; **Share to group chat**, **Copy**, then **Add my times**.
+7. **The organiser's own times**: the availability editor for the plan just made, then the sent screen, then circle home, finding a time.
+
+**The first thing shared is a plan, not an invite** ([ADR 0026](decisions/0026-first-run-shares-a-plan-and-a-defaulted-quorum-follows-the-circle.md)). A plan link carries the question the group chat was failing to answer, and it admits the people who tap it ([ADR 0022](decisions/0022-a-plan-link-admits-new-members-while-the-plan-is-asking.md)), so one link does the work of two. The invite link and the circle-home-as-people-join screen are still the product's, reached from circle home and settings (§5.2) and from **Just invite people for now**; they are not steps in the first run.
 
 Returning users land on the same Welcome; Apple and Google resolve to the existing account.
 
@@ -182,7 +183,7 @@ Returning users land on the same Welcome; Apple and Google resolve to the existi
 
 #### Acceptance criteria
 
-- A new owner reaches a shareable invite link with two typed inputs (name, circle name) and no permission dialogs.
+- A new owner reaches a shareable **plan** link with two typed inputs (name, circle name) and no permission dialogs, and lands in the availability editor for that plan.
 - An invitee reaches a submitted answer with zero account, permission or install prompts, **from the circle's invite link or from a plan link**; the email offer and every later prompt dismiss in one tap.
 - A guest who returns with no session can reattach in one tap; the owner can see it happened; the reattach rate is instrumented.
 - Organising from the web is gated on a saved place; responding is not.
@@ -221,7 +222,7 @@ No feed, chat, status posts, likes or generic calendar.
 - Date window: tonight; this weekend; next 7 days; next 14 days; custom (calendar picker, capped at 14 consecutive days).
 - Time-of-day window with preset defaults: tonight from now rounded up to the next 30 minutes until 11:30 pm; weekdays 5:30–10:30 pm; weekend days 9:00 am–10:30 pm; custom.
 - Duration: 60, 90, 120 or 180 minutes.
-- Quorum (defaults from the circle; required members count toward it).
+- Quorum (defaults from the circle; required members count toward it). A plan records whether its quorum was **chosen** — supplied by the organiser or by the circle's own default — or **defaulted**. While it is defaulted it follows the plan's own audience: every join through the plan's link recomputes it as `max(3, quorum default for the number of people the plan is asking)` and adjusts the plan, keeping every answer. Somebody who joins the circle another way and never opens the plan is not one of them — joining an active plan is an opt-in (§9), and a quorum above the people who were asked is one the plan can never reach ([ADR 0026](decisions/0026-first-run-shares-a-plan-and-a-defaulted-quorum-follows-the-circle.md), adjusted per [ADR 0017](decisions/0017-changing-a-quorum-or-a-deadline-adjusts-a-plan-it-does-not-revise-it.md)). A plan made on a circle of one — the first-run case — therefore asks for three people rather than two, and grows with the chat. The organiser setting a quorum makes it chosen, and a chosen quorum never moves by itself.
 - Required members, optional; the organiser is required by default.
 - Response deadline defaults: tonight — the earlier of 60 minutes after creation and 30 minutes before the last possible start; this weekend / next 7 days — 24 hours; next 14 days — 72 hours. Editable, never after the last possible start. When a default would fall at or before creation — tonight's margin, on a plan whose last possible start is under 30 minutes away — the default becomes the last possible start rather than the plan being refused ([ADR 0010](decisions/0010-tonight-deadline-gives-up-its-margin.md)).
 
@@ -383,9 +384,10 @@ Pricing is explored in the post-meetup interviews and tested later with a real c
 Welcome → Continue with Apple
 → name prefilled, time zone from phone
 → first circle: "Sunday Crew", about monthly
-→ invite link + message → shared to the group chat
-→ circle home as Priya and Tom join
-→ first plan, defaults accepted → "Ask the group" → paste to chat
+→ first plan, defaults accepted → "Ask the group"
+→ the plan's message + link → shared to the group chat
+→ "Add my times" → own availability sent → circle home, finding a time
+→ Priya and Tom tap the link, add a name and answer; the quorum follows the circle
 → options arrive as replies come in → confirm Thursday → share "Locked in"
 → next morning: did it happen? → happened → last caught up updates
 ```
@@ -424,9 +426,9 @@ Every screen exists as an artboard in `docs/design/`; the canvas pages are the I
 
 | Page | Screens |
 |---|---|
-| 0 First time, organiser | Welcome (Apple / Google / email), email, code, name, first circle, invite circle, circle home joining, first plan, plan shared, circle home |
+| 0 First time, organiser | Welcome (Apple / Google / email), email, code, name, first circle, first plan, plan shared, availability, sent, circle home |
 | 1 Guest path (web) | Join, continue as, name, availability, none of these dates, sent (email offer), check email (app prompt), email verified, email preferences, save access, candidates (member view), confirmed (guest), add to calendar, rescheduled, cancelled, attendance, invite link inactive |
-| 2 Organiser path | First-run and populated circle lists, create circle, choose how to start, plan setup, custom window, waiting, candidates, replies closed, edit plan, confirm review, confirmed (organiser), circle home locked in, change time, cancel, cancelled, no quorum, did it happen, circle home about time, plan another, circle settings, notification settings, account, privacy, founder diagnostics |
+| 2 Organiser path | First-run and populated circle lists, create circle, invite circle, circle home joining, choose how to start, plan setup, custom window, waiting, candidates, replies closed, edit plan, confirm review, confirmed (organiser), circle home locked in, change time, cancel, cancelled, no quorum, did it happen, circle home about time, plan another, circle settings, notification settings, account, privacy, founder diagnostics |
 | 3 Quiet ask | Setup, initiator waiting, interest prompt, threshold reached (initiator), started quietly (keen member), started quietly (other member), expired |
 | 4 Native (Slice 3) | Contextual push ask, calendar explanation, calendar picker, availability with overlay, calendar denied |
 | 5 Guest → app | The map, locked-in nudge, app sheet, rejoined nudge, second-response nudge, after-attendance prompt, organiser gate, app first open |
@@ -466,7 +468,7 @@ confirmed | ready | collecting ─cancel──▶ cancelled
 
 - A guest returns with no session (expected, not rare): Continue as; emailed re-entry; owner sees rejoins; duplicate memberships are removable by the owner.
 - A guest joins twice from different devices before reattaching: the second device is asked for a different display name, because duplicate active names in a circle are prevented (§5.1); the owner sees two memberships and removes one.
-- Membership changes during a plan: removed members are excluded on recalculation; new members may opt into the active plan. Opening the plan's own link is the opt-in: joining through it, or opening it as a member who was never asked, makes them one of the people it is asking. The quorum does not change when they do; the organiser adjusts it ([ADR 0022](decisions/0022-a-plan-link-admits-new-members-while-the-plan-is-asking.md)).
+- Membership changes during a plan: removed members are excluded on recalculation; new members may opt into the active plan. Opening the plan's own link is the opt-in: joining through it, or opening it as a member who was never asked, makes them one of the people it is asking. A quorum the organiser or the circle chose does not change when they do; a quorum nobody chose follows the plan's audience up, and never down ([ADR 0026](decisions/0026-first-run-shares-a-plan-and-a-defaulted-quorum-follows-the-circle.md), which narrows [ADR 0022](decisions/0022-a-plan-link-admits-new-members-while-the-plan-is-asking.md) on this one point).
 - A required person leaves: the plan becomes ineligible until the organiser changes required members or cancels.
 - Nobody meets quorum: near-misses and explicit resolution actions.
 - Everyone meets quorum at many times: three distinct dates where possible.

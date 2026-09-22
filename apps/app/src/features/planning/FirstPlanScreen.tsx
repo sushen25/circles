@@ -5,6 +5,7 @@ import {
   Card,
   DisplayL,
   Foot,
+  Label,
   Notice,
   Screen,
   Small,
@@ -47,6 +48,11 @@ export type FirstPlanProps = {
   onNext?: (() => void) | undefined;
   onBack?: (() => void) | undefined;
   onSeeIfPeopleAre?: (() => void) | undefined;
+  /**
+   * The quiet way out: the invite link, for an organiser who wants people in
+   * before there is anything to answer (ADR 0026). Nobody is made to plan.
+   */
+  onJustInvite?: (() => void) | undefined;
 };
 
 function problemCopy(problem: FirstPlanProblem): string {
@@ -101,6 +107,7 @@ export function FirstPlanScreen({
   onNext,
   onBack,
   onSeeIfPeopleAre,
+  onJustInvite,
 }: FirstPlanProps) {
   if (state === 'loading') {
     return (
@@ -133,6 +140,7 @@ export function FirstPlanScreen({
       <TopBar title={circleName} onBack={onBack} backLabel={t('common', 'back')} />
       <Body>
         <Stack>
+          <Label>{t('firstPlan', 'step_2_of_2')}</Label>
           <DisplayL>{t('firstPlan', 'your_first_catch_up')}</DisplayL>
           <BodyText>{t('firstPlan', 'weve_picked_sensible_defaults_tap_anything_to')}</BodyText>
         </Stack>
@@ -165,6 +173,7 @@ export function FirstPlanScreen({
           label={t('firstPlan', 'see_if_people_are_keen_instead')}
           onPress={onSeeIfPeopleAre}
         />
+        <Tertiary label={t('firstPlan', 'just_invite_people_for_now')} onPress={onJustInvite} />
       </Foot>
     </Screen>
   );

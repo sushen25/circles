@@ -847,11 +847,28 @@ S["EmptyCirclesList"] = shell(
 S["PlanShared"] = shell(
     top("", back=False, right=wordmark()) +
     body(
-        stack(lbl("Sunday Crew"), dxl("Now tell the group."), p("Paste this into the chat where everyone already is. People answer from the link."), gap=10),
-        card(p("When can Sunday Crew actually catch up? Mark the times you'd be up for in the next two weeks. Takes a minute, no app needed: circles.app/j/7f3k"), row(sec("Copy"), sec("Share…"), gap=8), gap=12),
-        sm("Replies close Tue 15 Sep, 6 pm. We'll show you the best options as they come in."),
+        stack(lbl("Step 2 of 2"), dl("Ask Sunday Crew."), p("One link in the chat. Friends tap it, add a name, and say when they're free. No app, no account."), gap=10),
+        stack(
+            sm("What lands in the chat"),
+            f'<div style="background:{T["line"]};border-radius:18px;padding:12px;">' +
+            card(
+                p("When can Sunday Crew actually catch up? Mark the times you'd be up for in the next two weeks. Takes a minute, no app needed."),
+                f'<div style="border:1px solid {T["line"]};border-radius:12px;padding:10px;">' +
+                row(ic("link", 18, T["ink2"]), stack(title("Sunday Crew is finding a time to catch up"), sm("Pick the times you'd actually be up for. No app needed."), gap=2), gap=10) +
+                '</div>',
+                gap=10, pad=14) +
+            '</div>',
+            gap=8),
+        stack(
+            f'<div style="display:flex;align-items:center;gap:10px;border:1px solid {T["line"]};border-radius:14px;padding:6px 6px 6px 14px;">' +
+            f'<p style="flex:1 1 0;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:0;">circles.app/j/7f3k</p>' +
+            f'<div class="mini acc">{ic("link", 16, T["accent_dark"])}Copy</div>' +
+            '</div>',
+            row(ic("shield", 14, T["ink2"]), sm("Replies close Tue 15 Sep, 6 pm. We'll show you the best options as they come in."), gap=8),
+            gap=8),
     ) +
-    foot(pri("Done"))
+    foot(pri("Share to group chat"), sec("Add my times")),
+    css=AV_CSS
 )
 
 S["Waiting"] = shell(
@@ -1303,9 +1320,11 @@ grid(["Main","ContinueAs","Name","Availability","NoneWork","Sent",
       "CheckEmail","EmailVerified","EmailPrefs","SaveAccess","CandidatesMember","ConfirmedGuest",
       "AddToCalendar","RescheduledGuest","CancelledGuest","WasThere","LinkInvalid",
       "AvailabilityPicking","AvailabilityAdjusting"], "guest")
-grid(["Welcome","SignIn","EnterCode","YourName","FirstCircle","InviteCircle",
-      "CircleHomeJoining","FirstPlan","PlanShared","CircleHome"], "first")
-grid(["EmptyCirclesList","CirclesList","CreateCircle",
+# First run is plan-first (ADR 0026): the invite link and "people joining" are
+# still screens, reached from circle home and settings, but they are not steps.
+grid(["Welcome","SignIn","EnterCode","YourName","FirstCircle","FirstPlan",
+      "PlanShared","Availability","Sent","CircleHome"], "first")
+grid(["EmptyCirclesList","CirclesList","CreateCircle","InviteCircle","CircleHomeJoining",
       "ChooseMode","PlanSetup","CustomWindow","Waiting","Candidates",
       "DeadlinePassed","EditPlan","ConfirmReview","ConfirmedOrg","CircleHomeConfirmed","ChangeTime",
       "CancelPlan","CancelledOrg","NoQuorum","Outcome","CircleHomeDue","PlanAnother",
@@ -1322,7 +1341,7 @@ boards.append(ab("Components.dc.html", 0, 2*RY, "system", w=1180, h=1060, title=
 
 annotations = [
     {"id":"convert-note","x":1520,"y":0,"w":420,"page":"convert","text":"Guest → app. The map (left) says when a prompt may appear and for which conversion. The screens below are the prompts themselves, in the order a guest would meet them: the locked-in nudge (reminder), the app sheet (the only place the app is pitched in full), rejoined-twice, second response, after attendance (starts the cross-circle loop), the organiser gate (sign-in, not install), and what the app shows on first open once the same email links the identity.\nDesign rule from the manifesto: none of these appear before the person's answer is in, and each is one tap to dismiss."},
-    {"id":"first-flow","x":0,"y":-210,"w":900,"page":"first","text":"First time, organiser, in reading order. Row 1: Welcome (Apple, Google or email) → email → code → name (prefilled from SSO, time zone from the phone) → first circle (name + loose cadence only) → invite link with the message ready to paste.\nRow 2: circle home as people join (no waiting required) → first plan with defaults accepted in one tap → paste-to-chat → circle home with the plan live.\nTwo inputs before the first real result (a name and a circle name). No permissions, no photo, no contacts, no calendar. SSO buttons carry the platform's own marks in the build; the circles here are placeholders."},
+    {"id":"first-flow","x":0,"y":-210,"w":900,"page":"first","text":"First time, organiser, in reading order. Row 1: Welcome (Apple, Google or email) → email → code → name (prefilled from SSO, time zone from the phone) → first circle (name + loose cadence only) → first plan with defaults accepted in one tap.\nRow 2: the plan's link ready for the chat → the organiser's own times → sent → circle home with the plan live.\nThe first thing shared is a plan, not an invite (ADR 0026): one link, carrying the question, and whoever taps it joins on the way in. The invite link and the filling-up home are still screens, on the organiser page, reached from circle home or from 'Just invite people for now'.\nTwo inputs before the first real result (a name and a circle name). No permissions, no photo, no contacts, no calendar. SSO buttons carry the platform's own marks in the build; the circles here are placeholders."},
     {"id":"first-note-sso","x":0,"y":-60,"w":390,"page":"first","text":"Returning users land on the same Welcome; Apple/Google resolves to the existing account. Email path is the fallback for everyone else and the only path that needs a code."},
     {"id":"guest-flow","x":0,"y":-190,"w":900,"page":"guest","text":"Guest path, entirely on mobile web, in reading order. Row 1: link tapped from the group chat → Join → (returning with no session: Continue as) → Name → paint times → 'none of these' branch → Sent with the optional email offer.\nRow 2: email verification and no-sign-in preferences → optional account claim → what a member (not the organiser) sees of the options → Confirmed.\nRow 3: add-to-calendar sheet, rescheduled and cancelled states, morning-after attendance, and an inactive invite link.\nZero account prompts before the answer."},
     {"id":"guest-note-avail","x":3*GX,"y":-90,"w":390,"page":"guest","text":"Days first, then a time once (ADR 0024): tick the days, pick a block, and the answer is listed in words. A line opens to adjust that day by the half hour; the two states are on row 4. 'I'm easy' is the plan-level flexible response (review 6.5)."},

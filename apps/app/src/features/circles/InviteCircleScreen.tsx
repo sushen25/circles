@@ -1,28 +1,18 @@
-import {
-  Body,
-  BodyText,
-  Button,
-  Card,
-  DisplayL,
-  Foot,
-  Label,
-  Notice,
-  Screen,
-  Small,
-  Tertiary,
-  TopBar,
-} from '../../components';
+import { Body, BodyText, Button, DisplayL, Foot, Screen, Small, TopBar } from '../../components';
 import { Stack } from '../../components/layout';
 import { t } from '../../copy';
 import type { Fixture } from '../../data/fixtures';
+import { ShareScreen } from '../sharing/ShareScreen';
 import type { ScreenState } from '../state';
 
 /**
- * InviteCircle — `docs/design/InviteCircle.dc.html` (spec §5.1 step 5).
+ * InviteCircle — `docs/design/InviteCircle.dc.html`.
  *
- * The link and the message ready to paste; Share, Copy, or Skip. The link is
- * shown as text, not in a field: there is nothing to type here, and the flow's
- * two typed inputs are already spent.
+ * The circle's own link, for adding somebody when there is no plan to answer.
+ * It is the same share screen as `PlanShared` with different content, and since
+ * ADR 0026 it is no longer a step in the first run: it is reached from circle
+ * home, from settings (S1-23), and from "Just invite people for now" on the
+ * first plan — so it carries no step label.
  *
  * `expired` is the link no longer being in hand — the secret is returned once
  * and only held in memory, so a reload loses it — and the way back to one is
@@ -36,6 +26,8 @@ export type InviteCircleProps = {
   message?: string | undefined;
   /** What the last tap did, said once: copied, or no share sheet so copied instead. */
   outcome?: 'copied' | 'couldnt_copy' | undefined;
+  /** True once the link has left, by the sheet or by a copy. */
+  shared?: boolean | undefined;
   onRetry?: (() => void) | undefined;
   /** The screen's one decision: Share to group chat. */
   onNext?: (() => void) | undefined;
@@ -51,6 +43,7 @@ export function InviteCircleScreen({
   link = t('inviteCircle', 'domain_join_7f3k'),
   message = t('inviteCircle', 'made_a_sunday_crew_circle_so_we'),
   outcome,
+  shared = false,
   onRetry,
   onNext,
   onBack,
@@ -107,37 +100,24 @@ export function InviteCircleScreen({
   }
 
   return (
-    <Screen>
-      <TopBar onBack={onBack} backLabel={t('common', 'back')} />
-      <Body>
-        <Stack>
-          <Label>{t('inviteCircle', 'step_2_of_2')}</Label>
-          <DisplayL>{t('inviteCircle', 'now_invite', { circle: circleName })}</DisplayL>
-          <BodyText>{t('inviteCircle', 'paste_one_link_into_the_chat_where')}</BodyText>
-        </Stack>
-        <Card>
-          <Label>{t('inviteCircle', 'your_invite_link')}</Label>
-          <BodyText selectable>{link}</BodyText>
-          <BodyText selectable>{message}</BodyText>
-        </Card>
-        <Notice>{t('inviteCircle', 'only_people_with_this_link_can_join')}</Notice>
-        {outcome === 'copied' ? <Notice kind="ok">{t('inviteCircle', 'copied')}</Notice> : null}
-        {outcome === 'couldnt_copy' ? (
-          <Notice kind="warn">{t('inviteCircle', 'couldnt_copy')}</Notice>
-        ) : null}
-      </Body>
-      <Foot>
-        <Button label={t('inviteCircle', 'share_to_group_chat')} onPress={onNext} />
-        <Button label={t('inviteCircle', 'copy_link')} variant="secondary" onPress={onCopyLink} />
-        <Tertiary
-          label={
-            outcome === 'copied'
-              ? t('inviteCircle', 'go_to_circle', { circle: circleName })
-              : t('inviteCircle', 'skip_for_now_ill_plan_first')
-          }
-          onPress={onSkipForNowIll}
-        />
-      </Foot>
-    </Screen>
+    <ShareScreen
+      title={t('inviteCircle', 'now_invite', { circle: circleName })}
+      intro={t('inviteCircle', 'paste_one_link_into_the_chat_where')}
+      message={message}
+      linkTitle={t('inviteCircle', 'join_circle_generic')}
+      linkSubtitle={t('inviteCircle', 'pick_the_times_youd_be_up_for')}
+      link={link}
+      privacy={t('inviteCircle', 'only_people_with_this_link_can_join')}
+      outcome={outcome}
+      onCopy={onCopyLink}
+      onShare={onNext}
+      onwardLabel={
+        shared
+          ? t('inviteCircle', 'go_to_circle', { circle: circleName })
+          : t('inviteCircle', 'skip_for_now_ill_plan_first')
+      }
+      onOnward={onSkipForNowIll}
+      onBack={onBack}
+    />
   );
 }

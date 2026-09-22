@@ -39,6 +39,14 @@ create or replace function public.create_plan(
   p_daily_start_local integer,
   p_daily_end_local integer,
   p_duration_minutes integer,
+  -- **Null means nobody chose.** The caller passes the organiser's number, or
+  -- the circle's default, or nothing at all; what "nothing" resolves to is
+  -- decided here, under the circle's lock, from the audience this plan is
+  -- about to be addressed to (ADR 0026). Two reasons it is not the caller's
+  -- (review round 5): a count read before the call is a count that can be
+  -- stale by the time the rows are written, and this function is granted to
+  -- `authenticated`, so a client calling it directly could otherwise label its
+  -- own chosen number `defaulted` and have later joins overwrite it.
   p_quorum integer,
   p_response_deadline timestamptz,
   -- Absent means "the organiser alone", which is spec §5.3's default. An empty
@@ -104,12 +112,26 @@ begin
   insert into public.plans (
     circle_id, mode, organiser_user_id, title, category, time_zone,
     window_start, window_end, daily_start_local, daily_end_local,
-    duration_minutes, quorum, response_deadline, short_code
+    duration_minutes, quorum, quorum_source, response_deadline, short_code
   )
   values (
     p_circle_id, 'named', caller, p_title, p_category, circle.time_zone,
     p_window_start, p_window_end, p_daily_start_local, p_daily_end_local,
-    p_duration_minutes, p_quorum, p_response_deadline, code
+    p_duration_minutes,
+    -- The request's number, then the circle's own default, then the rule. The
+    -- circle's default is read here rather than taken from the caller for the
+    -- same reason the label is (review round 6): this function is granted to
+    -- `authenticated`, so a direct call with no quorum must not turn a circle
+    -- that *has* chosen a default into a plan that follows the audience.
+    coalesce(p_quorum, circle.default_quorum, public.soft_quorum((
+      select count(*)::integer from public.circle_members m
+      where m.circle_id = p_circle_id and m.status = 'active'
+    ))),
+    case
+      when p_quorum is null and circle.default_quorum is null then 'defaulted'
+      else 'chosen'
+    end,
+    p_response_deadline, code
   )
   returning * into created;
 

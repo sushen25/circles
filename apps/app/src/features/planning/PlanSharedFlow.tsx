@@ -1,10 +1,14 @@
 import type { CircleId, PlanId } from '@circles/contracts';
 import {
+  EN_PREVIEW_TEMPLATES,
   EN_SHARE_TEMPLATES,
   MAX_WINDOW_DAYS,
   localDate,
   newPlanMessage,
+  ogDescription,
+  ogTitle,
   windowDays,
+  withoutLink,
 } from '@circles/domain';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
@@ -26,9 +30,15 @@ import { whenWords } from './when';
  *
  * The message is `newPlanMessage` with the plan's short link, which carries no
  * secret (ADR 0022). Share opens the system sheet where there is one and copies
- * where there is not; Done goes to the circle's home, which now shows the plan
- * finding a time. `plan_shared` is recorded when the message leaves — by the
- * sheet or by a copy — with the plan's id and never its code.
+ * where there is not. **Then the organiser answers their own plan** (ADR 0026):
+ * the way on is the availability editor for the plan just made, so the first
+ * session ends with the question asked and one answer in it.
+ *
+ * The card under the message is the link preview's own two lines (S1-21), so
+ * what the screen shows and what the chat draws cannot drift.
+ *
+ * `plan_shared` is recorded when the message leaves — by the sheet or by a
+ * copy — with the plan's id and never its code.
  */
 export function PlanSharedFlow({ id, planId }: { id: string; planId: string }) {
   return hasBackend() ? <LivePlanShared id={id} planId={planId} /> : <FixturePlanShared />;
@@ -38,7 +48,9 @@ function FixturePlanShared() {
   const router = useRouter();
   return (
     <PlanSharedScreen
-      onNext={() => router.push('/circles/sunday-crew/plan/thu-17/candidates')}
+      // The editor, as the live flow's is: on fixtures this screen's action
+      // used to be "Done" and went to the candidates (review round 2).
+      onNext={() => router.push('/j/pnsundaycr')}
       onBack={() => router.back()}
     />
   );
@@ -78,10 +90,11 @@ function LivePlanShared({ id, planId }: { id: string; planId: string }) {
   }
 
   const data = plan.data;
+  const link = planLink(appOrigin(), data.code);
   const message = newPlanMessage({
     circleName: data.circleName,
     windowPhrase: windowPhrase(data),
-    url: planLink(appOrigin(), data.code),
+    url: link,
     templates: EN_SHARE_TEMPLATES,
   });
   const ids = { circle_id: data.circleId as CircleId, plan_id: data.id as PlanId };
@@ -89,7 +102,12 @@ function LivePlanShared({ id, planId }: { id: string; planId: string }) {
   return (
     <PlanSharedScreen
       circleName={data.circleName}
-      message={message}
+      // Shown without its link, because the card under it is the link: a chat
+      // draws exactly that card from the URL in the message it is sent.
+      message={withoutLink(message, link)}
+      link={link}
+      linkTitle={ogTitle(data.circleName, EN_PREVIEW_TEMPLATES)}
+      linkSubtitle={ogDescription(EN_PREVIEW_TEMPLATES)}
       closes={t('planShared', 'replies_close', {
         deadline: whenWords(data.responseDeadline, data.zone),
       })}
@@ -112,7 +130,10 @@ function LivePlanShared({ id, planId }: { id: string; planId: string }) {
           if (result === 'failed') setOutcome('couldnt_copy');
         });
       }}
-      onNext={home}
+      // The organiser's own times, for the plan they just made. `push`, not
+      // `replace`: Back from the editor is this screen, which still has the
+      // link in it.
+      onNext={() => router.push({ pathname: '/j/[code]', params: { code: data.code } })}
       onBack={back}
     />
   );

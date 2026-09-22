@@ -6,9 +6,17 @@ import { firstPlanPreview } from './firstPlan';
 const MELBOURNE = { zone: 'Australia/Melbourne', defaultDurationMinutes: 120, defaultQuorum: null };
 
 describe('the first plan card', () => {
+  it('previews the placeholder quorum a first plan gets, on a circle of one', () => {
+    const now = fromISO('2026-09-12T09:00:00Z');
+    // What `create-plan` will store (ADR 0026): the floor, not `quorumDefault`'s
+    // 2, so the first friend to answer cannot take the plan to ready.
+    expect(firstPlanPreview({ ...MELBOURNE, members: 1 }, now).quorum).toBe(3);
+    expect(firstPlanPreview({ ...MELBOURNE, members: 2 }, now).quorum).toBe(3);
+  });
+
   it('previews the quorum over the members there are now', () => {
     const now = fromISO('2026-09-12T08:00:00Z');
-    expect(firstPlanPreview({ ...MELBOURNE, members: 3 }, now).quorum).toBe(2);
+    expect(firstPlanPreview({ ...MELBOURNE, members: 3 }, now).quorum).toBe(3);
     expect(firstPlanPreview({ ...MELBOURNE, members: 6 }, now).quorum).toBe(4);
   });
 

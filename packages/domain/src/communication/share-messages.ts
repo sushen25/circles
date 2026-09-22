@@ -152,6 +152,24 @@ export function newPlanMessage(
 }
 
 /**
+ * The same message with its link taken off, for a screen that draws the link
+ * itself.
+ *
+ * A chat shows the sentence and then draws a card from the URL inside it, so a
+ * share screen that repeated the raw URL under the message would be showing the
+ * organiser something no chat will. The message that is *sent* is unchanged —
+ * the link has to be in it, or there is nothing for the chat to unfurl — and
+ * this is only how it is displayed.
+ *
+ * Here rather than in the screen because the separator is part of the wording:
+ * `newPlan` ends "Takes a minute: <url>", and a screen slicing that apart would
+ * be a second place that knows the sentence's shape.
+ */
+export function withoutLink(message: string, url: string): string {
+  return message.replace(url, '').replace(/[\s:]+$/u, '');
+}
+
+/**
  * "We're waiting on 4 replies before picking a time: …"
  *
  * A count, never names: the waiting screen shows who has answered to the

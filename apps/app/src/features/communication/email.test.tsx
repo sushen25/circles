@@ -11,9 +11,10 @@ import type * as EmailData from '../../data/email';
  */
 
 const push = vi.fn();
+const dismissTo = vi.fn();
 const replace = vi.fn();
 vi.mock('expo-router', () => ({
-  useRouter: () => ({ push, replace, back: vi.fn(), canGoBack: () => false }),
+  useRouter: () => ({ push, replace, dismissTo, back: vi.fn(), canGoBack: () => false }),
   useFocusEffect: (effect: () => void) => effect(),
   Redirect: ({ href }: { href: unknown }) => {
     replace(href);
@@ -67,8 +68,12 @@ function refusal(reason: string) {
 }
 
 beforeEach(() => {
+  // Shared and mutated by the organiser's cases below: put it back, or the
+  // guest's tests run as an account.
+  Object.assign(session, { status: 'guest', userId: 'priya', isAnonymous: true });
   for (const mock of [
     push,
+    dismissTo,
     replace,
     track,
     planToAnswer,
@@ -131,6 +136,47 @@ describe('Sent', () => {
       params: { code: PLAN.code },
     });
     expect(track).toHaveBeenCalledWith('email_submitted', { plan_id: PLAN.id });
+  });
+});
+
+describe('the organiser answering their own plan (ADR 0026)', () => {
+  it('makes no email offer to an account, and ends on the circle rather than a guest prompt', async () => {
+    Object.assign(session, { status: 'saved', userId: 'maya', isAnonymous: false });
+    wrap(<SentFlow code={PLAN.code} />);
+    await screen.findByText(/Your times are in\./);
+
+    // An account already hears about this plan (§5.8); asking it to subscribe
+    // is asking for what it has.
+    expect(screen.queryByText('Get updates about this meetup by email')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Save access on every device' })).toBeNull();
+    expect(track.mock.calls.map(([name]) => name)).not.toContain('email_updates_offered');
+
+    fireEvent.click(screen.getByRole('button', { name: "See how it's looking" }));
+    expect(dismissTo).toHaveBeenCalledWith({
+      pathname: '/circles/[id]',
+      params: { id: PLAN.circleId },
+    });
+  });
+
+  it('still offers a saved member who is not the organiser the email card', async () => {
+    // Round 1: an account is not the same thing as the organiser. Only the
+    // organiser hears about their own plan without subscribing (§5.8); every
+    // other web member needs the verified per-plan subscription, account or
+    // not, or they never get the confirmed time.
+    Object.assign(session, { status: 'saved', userId: 'priya', isAnonymous: false });
+    wrap(<SentFlow code={PLAN.code} />);
+    await screen.findByText(/Your times are in\./);
+
+    expect(screen.getByText('Get updates about this meetup by email')).toBeVisible();
+    expect(screen.queryByRole('button', { name: "See how it's looking" })).toBeNull();
+  });
+
+  it('still offers a guest the email card and no way into the circle', async () => {
+    wrap(<SentFlow code={PLAN.code} />);
+    await screen.findByText(/Your times are in\./);
+
+    expect(screen.getByText('Get updates about this meetup by email')).toBeVisible();
+    expect(screen.queryByRole('button', { name: "See how it's looking" })).toBeNull();
   });
 });
 

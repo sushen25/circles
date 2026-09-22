@@ -76,6 +76,10 @@ the entry point takes the token out of the address bar before the router loads
 
 **Real since S1-22:** `/circles/new` (`FirstCircleFlow`, through `create-circle`),
 `/circles/[id]/invite` (`InviteCircleFlow`) and `/circles/[id]` (`CircleHomeFlow`).
+**Since S1-22b (ADR 0026)** the first run goes `/circles/new` →
+`/circles/[id]/plan/new` → the plan's share screen → the availability editor:
+the invite screen and the filling-up home are reached from circle home, from
+settings and from "Just invite people for now", and are no longer steps.
 The invite secret comes back from `create-circle` once and is held in memory
 (`data/circles/invite.ts`) for the invite screen; after a reload that screen
 says the link is shown only when it is made (reset is S1-23's). The circle home

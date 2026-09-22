@@ -217,27 +217,9 @@
       "title": "First circle"
     },
     {
-      "file": "InviteCircle.dc.html",
+      "file": "FirstPlan.dc.html",
       "x": 2400,
       "y": 0,
-      "w": 390,
-      "h": 844,
-      "page": "first",
-      "title": "Invite the circle"
-    },
-    {
-      "file": "CircleHomeJoining.dc.html",
-      "x": 0,
-      "y": 1300,
-      "w": 390,
-      "h": 844,
-      "page": "first",
-      "title": "Circle home \u00b7 people joining"
-    },
-    {
-      "file": "FirstPlan.dc.html",
-      "x": 480,
-      "y": 1300,
       "w": 390,
       "h": 844,
       "page": "first",
@@ -245,12 +227,30 @@
     },
     {
       "file": "PlanShared.dc.html",
-      "x": 960,
+      "x": 0,
       "y": 1300,
       "w": 390,
       "h": 844,
       "page": "first",
       "title": "Plan shared \u00b7 paste to chat"
+    },
+    {
+      "file": "Availability.dc.html",
+      "x": 480,
+      "y": 1300,
+      "w": 390,
+      "h": 1250,
+      "page": "first",
+      "title": "Availability \u00b7 partial"
+    },
+    {
+      "file": "Sent.dc.html",
+      "x": 960,
+      "y": 1300,
+      "w": 390,
+      "h": 844,
+      "page": "first",
+      "title": "Sent \u00b7 email offer"
     },
     {
       "file": "CircleHome.dc.html",
@@ -289,8 +289,26 @@
       "title": "Create circle"
     },
     {
-      "file": "ChooseMode.dc.html",
+      "file": "InviteCircle.dc.html",
       "x": 1440,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "page": "organiser",
+      "title": "Invite the circle"
+    },
+    {
+      "file": "CircleHomeJoining.dc.html",
+      "x": 1920,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "page": "organiser",
+      "title": "Circle home \u00b7 people joining"
+    },
+    {
+      "file": "ChooseMode.dc.html",
+      "x": 2400,
       "y": 0,
       "w": 390,
       "h": 844,
@@ -299,8 +317,8 @@
     },
     {
       "file": "PlanSetup.dc.html",
-      "x": 1920,
-      "y": 0,
+      "x": 0,
+      "y": 1300,
       "w": 390,
       "h": 844,
       "page": "organiser",
@@ -308,8 +326,8 @@
     },
     {
       "file": "CustomWindow.dc.html",
-      "x": 2400,
-      "y": 0,
+      "x": 480,
+      "y": 1300,
       "w": 390,
       "h": 844,
       "page": "organiser",
@@ -317,7 +335,7 @@
     },
     {
       "file": "Waiting.dc.html",
-      "x": 0,
+      "x": 960,
       "y": 1300,
       "w": 390,
       "h": 844,
@@ -326,7 +344,7 @@
     },
     {
       "file": "Candidates.dc.html",
-      "x": 480,
+      "x": 1440,
       "y": 1300,
       "w": 390,
       "h": 1040,
@@ -335,7 +353,7 @@
     },
     {
       "file": "DeadlinePassed.dc.html",
-      "x": 960,
+      "x": 1920,
       "y": 1300,
       "w": 390,
       "h": 844,
@@ -344,7 +362,7 @@
     },
     {
       "file": "EditPlan.dc.html",
-      "x": 1440,
+      "x": 2400,
       "y": 1300,
       "w": 390,
       "h": 844,
@@ -353,8 +371,8 @@
     },
     {
       "file": "ConfirmReview.dc.html",
-      "x": 1920,
-      "y": 1300,
+      "x": 0,
+      "y": 2600,
       "w": 390,
       "h": 844,
       "page": "organiser",
@@ -362,8 +380,8 @@
     },
     {
       "file": "ConfirmedOrg.dc.html",
-      "x": 2400,
-      "y": 1300,
+      "x": 480,
+      "y": 2600,
       "w": 390,
       "h": 844,
       "page": "organiser",
@@ -371,7 +389,7 @@
     },
     {
       "file": "CircleHomeConfirmed.dc.html",
-      "x": 0,
+      "x": 960,
       "y": 2600,
       "w": 390,
       "h": 844,
@@ -380,7 +398,7 @@
     },
     {
       "file": "ChangeTime.dc.html",
-      "x": 480,
+      "x": 1440,
       "y": 2600,
       "w": 390,
       "h": 844,
@@ -389,7 +407,7 @@
     },
     {
       "file": "CancelPlan.dc.html",
-      "x": 960,
+      "x": 1920,
       "y": 2600,
       "w": 390,
       "h": 844,
@@ -398,7 +416,7 @@
     },
     {
       "file": "CancelledOrg.dc.html",
-      "x": 1440,
+      "x": 2400,
       "y": 2600,
       "w": 390,
       "h": 844,
@@ -407,8 +425,8 @@
     },
     {
       "file": "NoQuorum.dc.html",
-      "x": 1920,
-      "y": 2600,
+      "x": 0,
+      "y": 3900,
       "w": 390,
       "h": 1000,
       "page": "organiser",
@@ -416,8 +434,8 @@
     },
     {
       "file": "Outcome.dc.html",
-      "x": 2400,
-      "y": 2600,
+      "x": 480,
+      "y": 3900,
       "w": 390,
       "h": 844,
       "page": "organiser",
@@ -425,7 +443,7 @@
     },
     {
       "file": "CircleHomeDue.dc.html",
-      "x": 0,
+      "x": 960,
       "y": 3900,
       "w": 390,
       "h": 844,
@@ -434,7 +452,7 @@
     },
     {
       "file": "PlanAnother.dc.html",
-      "x": 480,
+      "x": 1440,
       "y": 3900,
       "w": 390,
       "h": 844,
@@ -443,7 +461,7 @@
     },
     {
       "file": "Settings.dc.html",
-      "x": 960,
+      "x": 1920,
       "y": 3900,
       "w": 390,
       "h": 980,
@@ -452,7 +470,7 @@
     },
     {
       "file": "NotificationSettings.dc.html",
-      "x": 1440,
+      "x": 2400,
       "y": 3900,
       "w": 390,
       "h": 844,
@@ -461,8 +479,8 @@
     },
     {
       "file": "Account.dc.html",
-      "x": 1920,
-      "y": 3900,
+      "x": 0,
+      "y": 5200,
       "w": 390,
       "h": 844,
       "page": "organiser",
@@ -470,8 +488,8 @@
     },
     {
       "file": "Privacy.dc.html",
-      "x": 2400,
-      "y": 3900,
+      "x": 480,
+      "y": 5200,
       "w": 390,
       "h": 844,
       "page": "organiser",
@@ -479,7 +497,7 @@
     },
     {
       "file": "Diagnostics.dc.html",
-      "x": 0,
+      "x": 960,
       "y": 5200,
       "w": 390,
       "h": 844,
@@ -736,7 +754,7 @@
       "y": -210,
       "w": 900,
       "page": "first",
-      "text": "First time, organiser, in reading order. Row 1: Welcome (Apple, Google or email) \u2192 email \u2192 code \u2192 name (prefilled from SSO, time zone from the phone) \u2192 first circle (name + loose cadence only) \u2192 invite link with the message ready to paste.\nRow 2: circle home as people join (no waiting required) \u2192 first plan with defaults accepted in one tap \u2192 paste-to-chat \u2192 circle home with the plan live.\nTwo inputs before the first real result (a name and a circle name). No permissions, no photo, no contacts, no calendar. SSO buttons carry the platform's own marks in the build; the circles here are placeholders."
+      "text": "First time, organiser, in reading order. Row 1: Welcome (Apple, Google or email) \u2192 email \u2192 code \u2192 name (prefilled from SSO, time zone from the phone) \u2192 first circle (name + loose cadence only) \u2192 first plan with defaults accepted in one tap.\nRow 2: the plan's link ready for the chat \u2192 the organiser's own times \u2192 sent \u2192 circle home with the plan live.\nThe first thing shared is a plan, not an invite (ADR 0026): one link, carrying the question, and whoever taps it joins on the way in. The invite link and the filling-up home are still screens, on the organiser page, reached from circle home or from 'Just invite people for now'.\nTwo inputs before the first real result (a name and a circle name). No permissions, no photo, no contacts, no calendar. SSO buttons carry the platform's own marks in the build; the circles here are placeholders."
     },
     {
       "id": "first-note-sso",

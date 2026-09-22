@@ -3,6 +3,9 @@ import { expect, test, type Page } from '@playwright/test';
 import {
   clearRateCounters,
   guestWhoAnswered,
+  letTheQuorumFollow,
+  quorumOf,
+  revisionOf,
   isParticipant,
   memberNamed,
   planStopsAsking,
@@ -146,4 +149,38 @@ test('somebody who joins by invite after the plan was made is asked by it on arr
   const priya = memberNamed(crew.circleId, 'Priya');
   expect(priya).toBeDefined();
   await expect.poll(() => isParticipant(crew.planId, priya!.userId)).toBe(true);
+});
+
+test('a quorum nobody chose follows the circle as people tap the link', async ({ page }) => {
+  const crew = sundayCrew();
+  // Five in, including the organiser: `soft_quorum(5)` is the floor, 3.
+  for (const name of ['Tom', 'Jess', 'Sam', 'Kai']) guestWhoAnswered(crew, name);
+  letTheQuorumFollow(crew.planId);
+  expect(quorumOf(crew.planId)).toEqual({ quorum: 3, source: 'defaulted' });
+
+  await page.goto(`/p/${crew.planCode}`);
+  await page.getByRole('button', { name: "I'm new here" }).click();
+  await typeName(page, 'Ren');
+  await expect(page).toHaveURL(new RegExp(`/j/${crew.planCode}$`));
+
+  // Six in: the majority passes the floor, so the number moves with it — and
+  // nobody was asked again for it (ADR 0017).
+  expect(quorumOf(crew.planId)).toEqual({ quorum: 4, source: 'defaulted' });
+  expect(revisionOf(crew.planId)).toBe(1);
+});
+
+test('a quorum the organiser chose never moves by itself', async ({ page }) => {
+  const crew = sundayCrew();
+  for (const name of ['Tom', 'Jess', 'Sam', 'Kai']) guestWhoAnswered(crew, name);
+  // The fixture's plan is made with a number in hand, which is what an
+  // organiser setting one looks like.
+  expect(quorumOf(crew.planId).source).toBe('chosen');
+  const before = quorumOf(crew.planId).quorum;
+
+  await page.goto(`/p/${crew.planCode}`);
+  await page.getByRole('button', { name: "I'm new here" }).click();
+  await typeName(page, 'Ren');
+  await expect(page).toHaveURL(new RegExp(`/j/${crew.planCode}$`));
+
+  expect(quorumOf(crew.planId)).toEqual({ quorum: before, source: 'chosen' });
 });

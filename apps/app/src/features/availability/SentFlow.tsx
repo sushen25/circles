@@ -133,7 +133,13 @@ function Sent({
   offeredBefore = false,
 }: SentInnerProps) {
   const router = useRouter();
-  const [offerEmail, setOfferEmail] = useState(!offeredBefore);
+  // The organiser hears about their own plan already — the organiser kinds go
+  // to them by email when they have no app (§5.8) — so the card is an offer of
+  // what they have. **Everybody else is offered it, account or not**: a
+  // per-plan subscription is the only way a web member gets the confirmed
+  // time, and a saved place is an account, not a subscription (review round 1).
+  const organising = plan.organiserUserId !== null && plan.organiserUserId === userId;
+  const [offerEmail, setOfferEmail] = useState(!organising && !offeredBefore);
   const [email, setEmail] = useState('');
   const [problem, setProblem] = useState<SentProblem | undefined>();
   const [reference, setReference] = useState<string | undefined>();
@@ -228,6 +234,11 @@ function Sent({
       onChangeAnswer={
         plan.acceptingAnswers
           ? () => router.push({ pathname: '/j/[code]', params: { code } })
+          : undefined
+      }
+      onSeeCircle={
+        organising
+          ? () => router.dismissTo({ pathname: '/circles/[id]', params: { id: plan.circleId } })
           : undefined
       }
       onBack={() => (router.canGoBack() ? router.back() : router.replace('/'))}

@@ -19,6 +19,7 @@ export type PlanAction =
   | 'candidates_gone'
   | 'edit'
   | 'adjust'
+  | 'quorum_follows'
   | 'confirm'
   | 'reopen'
   | 'cancel'
@@ -188,6 +189,13 @@ export const TRANSITIONS: readonly Transition[] = [
   // is then *structural*: `planning.allowed_keys('adjust')` is quorum and
   // deadline alone, so a window cannot ride along on one.
   { from: 'collecting', action: 'adjust', to: 'collecting', guards: ['organiser'] },
+  // The same write, by nobody. A plan whose quorum was never chosen follows the
+  // circle as people join (ADR 0026), and the person who moves it is whoever
+  // just tapped the link — not the organiser, so `adjust`'s guard would refuse
+  // it, and lending them the organiser's name in the audit trail to get past
+  // that guard would be a lie about who acted. A separate action instead:
+  // quorum alone, no guard, no announcement.
+  { from: 'collecting', action: 'quorum_follows', to: 'collecting', guards: [] },
   { from: 'collecting', action: 'expire', to: 'expired', guards: [] },
   { from: 'collecting', action: 'cancel', to: 'cancelled', guards: ['organiser_or_owner'] },
 
@@ -203,6 +211,9 @@ export const TRANSITIONS: readonly Transition[] = [
   // because it is not a different adjustment: it is an adjustment and then a
   // recalculation, which is exactly what a withdrawn response does.
   { from: 'ready', action: 'adjust', to: 'ready', guards: ['organiser'] },
+  // As from `collecting`, and it stales the set for the same reason a quorum
+  // `adjust` does: `join_from_plan` follows it with `candidates_gone`.
+  { from: 'ready', action: 'quorum_follows', to: 'ready', guards: [] },
   { from: 'ready', action: 'confirm', to: 'confirmed', guards: ['organiser', 'candidate'] },
   { from: 'ready', action: 'expire', to: 'expired', guards: [] },
   { from: 'ready', action: 'cancel', to: 'cancelled', guards: ['organiser_or_owner'] },

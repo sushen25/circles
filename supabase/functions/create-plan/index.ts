@@ -3,7 +3,6 @@ import {
   defaultDeadline,
   isDeadlineAllowed,
   lastPossibleStart,
-  quorumDefault,
   resolvePreset,
 } from '@circles/domain';
 
@@ -18,8 +17,9 @@ import { enforce } from '../_shared/rate.ts';
  * The client sends what the person chose — a preset, a title — and this turns it
  * into a plan using `packages/domain` and nothing else. Every number in the
  * result comes from a rule that exists once: `resolvePreset` for the window,
- * `defaultDeadline` for when replies close, `quorumDefault` for how many people
- * make it worth having. A screen that computed any of them would be the second
+ * `defaultDeadline` for when replies close. How many people make it worth
+ * having is the one number this does not resolve: a quorum nobody chose is
+ * `create_plan`'s to work out, under the circle's lock (ADR 0026). A screen that computed any of them would be the second
  * copy (non-negotiable 2).
  *
  * What the database decides is who may create one and whether anybody is told:
@@ -67,13 +67,6 @@ Deno.serve(
         throw new Refusal('circle_archived', 'That circle is archived.');
       }
 
-      const { count, error: countError } = await caller
-        .from('circle_members')
-        .select('user_id', { count: 'exact', head: true })
-        .eq('circle_id', body.circle_id)
-        .eq('status', 'active');
-      if (countError !== null) throw countError;
-
       const zone = toZone(circle.time_zone);
       const at = now();
       const durationMinutes = body.duration_minutes ?? circle.default_duration_minutes;
@@ -118,6 +111,13 @@ Deno.serve(
         );
       }
 
+      // Whose number this is (ADR 0026). **Null means nobody chose**, and what
+      // that resolves to is `create_plan`'s, under the circle's lock: a count
+      // read out here is already old by the time the rows are written, and the
+      // RPC is reachable by any client, so a source passed in would be a source
+      // a client could lie about (review round 5).
+      const quorum = body.quorum ?? circle.default_quorum ?? null;
+
       const { data, error } = await caller.rpc('create_plan', {
         p_circle_id: body.circle_id,
         p_title: body.title,
@@ -127,7 +127,7 @@ Deno.serve(
         p_daily_start_local: resolved.daily.startMin,
         p_daily_end_local: resolved.daily.endMin,
         p_duration_minutes: durationMinutes,
-        p_quorum: body.quorum ?? circle.default_quorum ?? quorumDefault(count ?? 0),
+        p_quorum: quorum,
         p_response_deadline: deadline,
         p_required_member_ids: body.required_member_ids ?? null,
       });

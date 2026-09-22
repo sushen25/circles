@@ -430,6 +430,33 @@ export function circlesOwnedBy(userId: string): { id: string; name: string; cade
 }
 
 /** The plans in `circleId`: state, quorum and short code. */
+/**
+ * Makes a plan's quorum the kind that follows the circle (ADR 0026), as a plan
+ * made on the first run is: nobody chose it, so every join recomputes it.
+ *
+ * The fixture plans are made with a number in hand, which is `chosen`.
+ */
+export function letTheQuorumFollow(planId: string): void {
+  sql(`update public.plans set quorum_source = 'defaulted',
+    quorum = public.soft_quorum((
+      select count(*) from public.circle_members m
+      join public.plans p on p.circle_id = m.circle_id
+      where p.id = '${planId}' and m.status = 'active'
+    )::integer)
+    where id = '${planId}'`);
+}
+
+/** A plan's revision, to show that a quorum that moved asked nobody again. */
+export function revisionOf(planId: string): number {
+  return Number(sql(`select revision from public.plans where id = '${planId}'`)[0]![0]);
+}
+
+/** A plan's quorum and where it came from. */
+export function quorumOf(planId: string): { quorum: number; source: string } {
+  const [row] = sql(`select quorum, quorum_source from public.plans where id = '${planId}'`);
+  return { quorum: Number(row![0]), source: row![1]! };
+}
+
 export function plansIn(
   circleId: string,
 ): { id: string; state: string; quorum: number; code: string }[] {

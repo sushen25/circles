@@ -55,6 +55,13 @@ export type AnswerablePlan = {
   acceptingAnswers: boolean;
   /** The organiser's name in this circle, or null (a quiet ask has none yet). */
   organiserName: string | null;
+  /**
+   * Who is organising it, or null. The screens after an answer need to know
+   * whether the person reading them is the one who asked: the organiser hears
+   * about their own plan already, and everybody else — account or not — has to
+   * subscribe for that (§5.8).
+   */
+  organiserUserId: string | null;
 };
 
 export type Span = { start: string; end: string };
@@ -158,6 +165,7 @@ export async function planToAnswer(code: ShortCode): Promise<PlanToAnswer | null
     durationMinutes: duration,
     responseDeadline: row.response_deadline,
     organiserName: organiser.data?.display_name_snapshot ?? null,
+    organiserUserId: row.organiser_user_id,
     acceptingAnswers: ANSWERABLE_STATES.includes(row.state as PlanState) && open.data !== null,
   };
 
