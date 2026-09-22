@@ -3,6 +3,7 @@ import {
   type NotificationKind,
   type UserId,
   idempotencyKey,
+  notificationSpec,
   recipientsFor,
   scheduleFor,
 } from '@circles/domain';
@@ -42,20 +43,23 @@ export type JobRow = {
 };
 
 /**
- * The organiser kinds, which go to an address rather than to a subscription.
+ * Whether this kind is addressed to somebody's own address rather than to a
+ * subscription they asked for.
  *
- * They are the ones the domain marks `emailNeedsSubscription: false` — review
- * C6's "email until they install the app" — and the contact they are addressed
- * to is the organiser's own auth address, made a contact by
- * `public.dispatch_organiser_contact` so that a bounce suppresses it like any
- * other (ADR 00XX).
+ * Read off the domain's table rather than listed here. `emailNeedsSubscription`
+ * is false for exactly the four organiser kinds — review C6's "email until they
+ * install the app" — and for `verify_email`, which never reaches this branch
+ * because its audience is an address and `recipientsFor` returns nobody for it.
+ * A list would be a second copy of a rule that already exists, and the day a
+ * kind moves between the two it is the copy that would be wrong.
+ *
+ * The contact they are addressed to is the person's own auth address, made a
+ * contact by `public.dispatch_organiser_contact` so that a bounce suppresses it
+ * like any other (ADR 00XX).
  */
-const ORGANISER_KINDS: readonly NotificationKind[] = [
-  'options_ready',
-  'replies_closed',
-  'did_it_happen',
-  'about_time',
-];
+function addressedPersonally(kind: NotificationKind): boolean {
+  return !notificationSpec(kind).emailNeedsSubscription;
+}
 
 export async function jobRowsFor(
   service: Db,
@@ -103,7 +107,7 @@ export async function jobRowsFor(
     }
 
     let contacts: readonly string[];
-    if (ORGANISER_KINDS.includes(intent.kind)) {
+    if (addressedPersonally(intent.kind)) {
       if (!organiserContacts.has(recipient.userId)) {
         const { data, error } = await service.rpc('dispatch_organiser_contact', {
           p_user_id: recipient.userId,
@@ -245,6 +249,13 @@ export async function drain(
  * and reaches nothing that is stored.
  */
 export function classify(thrown: unknown): string {
+  return CODE.test(guess(thrown)) ? guess(thrown) : 'unknown';
+}
+
+/** The shape both `last_error` columns are constrained to. */
+const CODE = /^[A-Za-z0-9_.:/-]{1,120}$/;
+
+function guess(thrown: unknown): string {
   const problem = thrown as { code?: unknown; status?: unknown; name?: unknown };
   // A deadlock between a resend drawing a token and a click spending one is
   // accepted in writing (S1-18): the loser's token is not consumed, so the

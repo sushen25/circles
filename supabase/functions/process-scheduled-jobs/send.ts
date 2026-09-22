@@ -1,4 +1,9 @@
-import { type NotificationKind, notificationSpec } from '@circles/domain';
+import {
+  type NotificationKind,
+  type PlanState,
+  isTerminal,
+  notificationSpec,
+} from '@circles/domain';
 
 import type { Db } from '../_shared/db.ts';
 import { EmailSendError, sendEmail } from '../_shared/email/resend.ts';
@@ -65,9 +70,9 @@ export type SendResult = { sent: number; skipped: number; failed: number; retrie
  */
 function planIsPast(job: DueJob): boolean {
   if (job.kind === 'cancelled') return false;
-  return (
-    job.plan_state === 'cancelled' || job.plan_state === 'expired' || job.plan_state === 'completed'
-  );
+  // `isTerminal` is the domain's, over `TERMINAL_STATES`. Spelling the three
+  // states out here is the shape that goes stale the day a fourth is added.
+  return job.plan_state !== null && isTerminal(job.plan_state as PlanState);
 }
 
 /**
