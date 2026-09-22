@@ -94,25 +94,21 @@ function intentsFor(event: OutboxEvent, context: PlanContext, now: Instant): rea
     case 'planning.deadline_passed':
       return [{ kind: 'replies_closed', occurrence: ONCE, desiredAt: now }];
 
+    // Both cancellations, and **with no actor**, which is a decision rather
+    // than an omission. A cancel is guarded `organiser_or_owner`, so the
+    // person who did it is the organiser *or* the circle's owner, and the
+    // event deliberately does not say which: `transition_plan` never names an
+    // actor, because on a quiet ask the actor of a cancel is the initiator and
+    // that is the one thing the row must never carry (§14).
+    //
+    // Guessing "the organiser" is right in the common case and silences them
+    // about their own plan in the other one — an owner calling off somebody
+    // else's meetup. Between telling the person who pressed the button
+    // something they already know and telling the organiser nothing, the first
+    // is the smaller harm.
     case 'planning.plan_cancelled':
-      return [
-        {
-          kind: 'cancelled',
-          occurrence: ONCE,
-          desiredAt: now,
-          actorId: context.organiserUserId,
-        },
-      ];
-
     case 'confirmation.meetup_cancelled':
-      return [
-        {
-          kind: 'cancelled',
-          occurrence: ONCE,
-          desiredAt: now,
-          actorId: context.organiserUserId,
-        },
-      ];
+      return [{ kind: 'cancelled', occurrence: ONCE, desiredAt: now }];
 
     case 'confirmation.meetup_confirmed': {
       if (confirmation === null) return [];
