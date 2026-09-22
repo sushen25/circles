@@ -2878,6 +2878,30 @@ describe('process-scheduled-jobs', () => {
     });
   });
 
+  it('marks an event nothing listens to as handled, without reading a plan for it', async () => {
+    // Six people answering a plan write six of these a minute. Reading the
+    // whole roster to learn that each one says nothing to anybody would spend
+    // most of a fifty-second run finding that out.
+    events = [
+      {
+        id: EVENT_ID,
+        seq: 1,
+        event_name: 'availability.response_submitted',
+        aggregate_type: 'response',
+        aggregate_id: EVENT_ID,
+        payload: { plan_id: PLAN_ID, revision: 1, user_id: MEMBER, status: 'windows' },
+        attempts: 0,
+      },
+    ];
+
+    await load('process-scheduled-jobs')(post({}, 'a-shared-secret'));
+
+    expect(called('dispatch_context')).toHaveLength(0);
+    expect(called('dispatch_enqueue')).toHaveLength(0);
+    expect(called('dispatch_event_result')[0]?.args).toMatchObject({ p_id: EVENT_ID });
+    expect(called('dispatch_event_result')[0]?.args['p_error']).toBeUndefined();
+  });
+
   it('records a failure as a code, never as the exception that caused it', async () => {
     // `outbox_last_error_is_a_code` refuses anything else, and the reason it
     // does is that an exception's message is where an address turns up.

@@ -265,6 +265,25 @@ function supersededRevision(event: OutboxEvent, context: PlanContext): number | 
   return null;
 }
 
+/**
+ * The events that say something to somebody.
+ *
+ * The same list `intentsFor` switches on, held separately so that the drain can
+ * tell "this event has nothing to say" from "this event's plan is gone" without
+ * reading a context to find out. Adding a case to `intentsFor` without adding
+ * its name here makes it silent, which is the one failure worth naming: both
+ * places, or neither.
+ */
+const ANNOUNCED: ReadonlySet<string> = new Set([
+  'planning.plan_created',
+  'planning.plan_cancelled',
+  'planning.deadline_passed',
+  'scheduling.candidates_generated',
+  'confirmation.meetup_confirmed',
+  'confirmation.meetup_rescheduled',
+  'confirmation.meetup_cancelled',
+]);
+
 export type DrainResult = { events: number; jobs: number; failures: number };
 
 export async function drain(
@@ -282,13 +301,18 @@ export async function drain(
     if (deadline()) break;
 
     try {
-      // Only plan-shaped events produce messages in Slice 1. The rest —
-      // memberships, responses, deliveries, growth — are read by analytics and
-      // by the health summary, and are marked processed here.
-      const planId =
-        event.aggregate_type === 'plan'
+      // Only the seven events below produce messages in Slice 1. The rest —
+      // memberships, answers, deliveries, growth — are read by analytics and
+      // by the health summary, and are marked processed here without a context
+      // being read for them: a circle of six answering a plan writes six
+      // `response_submitted` events a minute, and reading a plan's whole
+      // roster to decide each one says nothing would spend most of the run's
+      // budget learning that.
+      const planId = ANNOUNCED.has(event.event_name)
+        ? event.aggregate_type === 'plan'
           ? event.aggregate_id
-          : ((event.payload['plan_id'] as string | undefined) ?? null);
+          : ((event.payload['plan_id'] as string | undefined) ?? null)
+        : null;
 
       let rows: readonly JobRow[] = [];
       if (planId !== null) {
