@@ -12,7 +12,7 @@
 -- made — which is also how the dispatcher itself has to think.
 
 begin;
-select plan(44);
+select plan(52);
 
 create or replace function pg_temp.make_user(
   id uuid, name text, permanent boolean default false, confirmed boolean default false
@@ -376,6 +376,33 @@ select is(
   'the address is read here, once, by the only thing that needs it'
 );
 
+select is(
+  (select count(*)::integer from jsonb_array_elements(public.dispatch_claim_due(200)) j
+   where j ->> 'plan_id' = pg_temp.live_plan()::text and (j ->> 'subscribed')::boolean),
+  2,
+  'and the consent is read here too, because it can be withdrawn after the job is written'
+);
+
+-- "Stop emails for this meetup", on a job that was written days ago.
+select pg_temp.act_as_postgres();
+update private.email_subscriptions s
+set status = 'withdrawn', withdrawn_at = now()
+where s.plan_id = pg_temp.live_plan();
+
+select pg_temp.act_as_service();
+select is(
+  (select count(*)::integer from jsonb_array_elements(public.dispatch_claim_due(200)) j
+   where j ->> 'plan_id' = pg_temp.live_plan()::text and (j ->> 'subscribed')::boolean),
+  0,
+  'a withdrawn subscription stops a letter that was already queued — otherwise the link stops nothing'
+);
+
+select pg_temp.act_as_postgres();
+update private.email_subscriptions s
+set status = 'active', withdrawn_at = null
+where s.plan_id = pg_temp.live_plan();
+select pg_temp.act_as_service();
+
 -- ---------------------------------------------------------------------------
 -- Recording what happened to a send
 -- ---------------------------------------------------------------------------
@@ -433,6 +460,11 @@ select is(
   1,
   'cancelling takes back the reminder that was waiting two days out'
 );
+select is(
+  public.dispatch_cancel_pending(pg_temp.live_plan(), 1),
+  0,
+  'and takes back nothing the second time: a sent letter cannot be unsent'
+);
 select pg_temp.act_as_postgres();
 select is(
   (select status || '/' || last_error from jobs.notification_jobs where id = (select job_reminder from tj)),
@@ -479,9 +511,91 @@ select is(
   'and a plan whose fortnight is still ahead is left alone'
 );
 
+-- "Give it one more day" (spec §5.7). The deadline moves out, passes again,
+-- and the organiser has to hear about the second one too.
+select pg_temp.act_as_postgres();
+update public.plans set state = 'collecting', response_deadline = now() - interval '2 hours'
+where id = pg_temp.live_plan();
+
+select pg_temp.act_as_service();
+select public.dispatch_timed_work(100);
+select pg_temp.act_as_postgres();
+select is(
+  (select count(*)::integer from jobs.outbox o
+   where o.event_name = 'planning.deadline_passed' and o.aggregate_id = pg_temp.live_plan()),
+  1,
+  'a deadline that has passed is announced'
+);
+
+update public.plans set response_deadline = now() - interval '1 hour' where id = pg_temp.live_plan();
+select pg_temp.act_as_service();
+select public.dispatch_timed_work(100);
+select pg_temp.act_as_postgres();
+select is(
+  (select count(*)::integer from jobs.outbox o
+   where o.event_name = 'planning.deadline_passed' and o.aggregate_id = pg_temp.live_plan()),
+  2,
+  'and an extended deadline that passes again is announced again: the marker is the deadline, not the plan'
+);
+
+-- ---------------------------------------------------------------------------
+-- Retention does not delete the address the organiser is written to
+-- ---------------------------------------------------------------------------
+select pg_temp.act_as_postgres();
+
+-- Maya's contact as it is a month after she first organised something: her own
+-- auth address, verified, with no subscription — because an organiser kind is
+-- not a subscription. The old rule took it, and the cascade took the "did it
+-- happen?" letter due at nine the next morning with it.
+update private.email_contacts c
+set status = 'verified', verified_at = now() - interval '31 days',
+    suppressed_at = null, suppression_reason = null
+where c.user_id = '00000000-0000-0000-0000-0000000019a1';
+
+-- And a contact that is nobody's auth address, with nothing subscribed, that
+-- has a letter still waiting. It is a month old and would otherwise go.
+insert into private.email_contacts (user_id, email_normalized, status, verified_at)
+values ('00000000-0000-0000-0000-0000000019a4', 'tom-elsewhere@example.com', 'verified',
+  now() - interval '31 days');
+
+insert into jobs.notification_jobs (
+  channel, kind, contact_id, plan_id, plan_revision, scheduled_for, idempotency_key
+)
+select 'email', 'did_it_happen_participant', c.id, pg_temp.live_plan(), 1,
+  now() + interval '3 days',
+  encode(extensions.digest('waiting-on-tom', 'sha256'), 'hex')
+from private.email_contacts c where c.email_normalized = 'tom-elsewhere@example.com';
+
+select jobs.run_retention();
+
+select is(
+  (select count(*)::integer from private.email_contacts c
+   where c.user_id = '00000000-0000-0000-0000-0000000019a1'
+     and c.email_normalized = '00000000-0000-0000-0000-0000000019a1@example.com'),
+  1,
+  'the organiser''s own auth address is not a plan''s contact, and retention leaves it alone'
+);
+select is(
+  (select count(*)::integer from private.email_contacts c
+   where c.email_normalized = 'tom-elsewhere@example.com'),
+  1,
+  'and no contact with a letter still waiting is deleted from under it'
+);
+select is(
+  (select count(*)::integer from jobs.notification_jobs j
+   where j.idempotency_key = encode(extensions.digest('waiting-on-tom', 'sha256'), 'hex')),
+  1,
+  'so the letter is still there — the cascade is what made this silent'
+);
+
 -- ---------------------------------------------------------------------------
 -- The daily health summary
 -- ---------------------------------------------------------------------------
+select pg_temp.act_as_postgres();
+-- Independent of whatever else has run against this stack today: the claim is
+-- a row, so the assertion below is about a database with no claim in it.
+delete from private.audit_log where action = 'health.reported';
+
 select pg_temp.act_as_service();
 
 select is(

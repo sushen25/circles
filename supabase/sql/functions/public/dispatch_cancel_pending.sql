@@ -14,6 +14,11 @@
 -- caller passes the revision the superseded confirmation was on and not the
 -- one the plan is on now.
 --
+-- `locked_in` is in the list for a case that is easy to miss: a transient
+-- provider failure leaves it `scheduled` with a backoff of up to half an hour,
+-- and a reopen inside that half hour would otherwise send "locked in" for an
+-- evening that is off, followed by a second "locked in" for the new one.
+--
 -- `skipped`, not `failed`: nothing went wrong. The code says what happened.
 -- ---------------------------------------------------------------------------
 
@@ -30,7 +35,7 @@ as $$
     where j.plan_id = p_plan_id
       and j.plan_revision = p_revision
       and j.status = 'scheduled'
-      and j.kind in ('reminder', 'did_it_happen', 'did_it_happen_participant')
+      and j.kind in ('locked_in', 'reminder', 'did_it_happen', 'did_it_happen_participant')
     returning 1
   )
   select count(*)::integer from cancelled;

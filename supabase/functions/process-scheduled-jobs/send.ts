@@ -1,29 +1,26 @@
-import { brand } from '@circles/config';
-import { fromISO } from '@circles/domain';
+import { type NotificationKind, notificationSpec } from '@circles/domain';
 
 import type { Db } from '../_shared/db.ts';
-import { optional } from '../_shared/env.ts';
 import { EmailSendError, sendEmail } from '../_shared/email/resend.ts';
 import { render } from '../_shared/email/render.tsx';
-import type { EmailInput } from '../_shared/email/types.ts';
 import { log } from '../_shared/logging.ts';
-import {
-  issuePreferencesToken,
-  issueReentryToken,
-  issueVerificationToken,
-} from '../_shared/tokens.ts';
+import { inputFor } from './compose.ts';
 import { type PlanContext, loadContext } from './context.ts';
 import { classify } from './drain.ts';
 
 /**
  * Sending what is due.
  *
- * Four checks happen here and not one of them could have happened when the job
+ * Five checks happen here and not one of them could have happened when the job
  * was written, which is the reason this phase exists at all rather than the
  * drain simply calling Resend:
  *
  *   * the **contact** may have been suppressed since (spec §9's "permanent
  *     failure → skipped" is evaluated at send time, S1-18);
+ *   * the **consent** may have been withdrawn since. A reminder is written the
+ *     moment a meetup is confirmed and waits days; "Stop emails for this
+ *     meetup" withdraws the subscription and touches no job, so a stop link
+ *     that did not stop a queued letter would not be one (spec §5.8);
  *   * the **plan** may be over — a verification queued while a plan was live
  *     is still `scheduled` after it is cancelled, and sending it is a letter
  *     about a meetup that is not happening;
@@ -33,7 +30,7 @@ import { classify } from './drain.ts';
  *   * the **token** may have nothing left to mint — verified by another link,
  *     removed by its owner (ADR 0020).
  *
- * All four are `skipped`, not `failed`: nothing went wrong.
+ * All five are `skipped`, not `failed`: nothing went wrong.
  */
 
 /** 1, 5, 30 minutes, then give up (ticket S1-20 step 4). */
@@ -50,6 +47,8 @@ export type DueJob = {
   readonly attempt_count: number;
   readonly email: string;
   readonly contact_status: string;
+  /** Whether `private.email_recipients_for` still names this contact, now. */
+  readonly subscribed: boolean;
   readonly plan_state: string | null;
   readonly plan_short_code: string | null;
   readonly circle_id: string | null;
@@ -58,10 +57,6 @@ export type DueJob = {
 };
 
 export type SendResult = { sent: number; skipped: number; failed: number; retried: number };
-
-function origin(): string {
-  return optional('EXPO_PUBLIC_APP_ORIGIN') ?? `https://${brand.domain}`;
-}
 
 /**
  * States in which a letter about this plan is a letter about something that is
@@ -75,145 +70,15 @@ function planIsPast(job: DueJob): boolean {
   );
 }
 
-function goingCount(context: PlanContext): number {
-  const confirmationId = context.confirmation?.id;
-  if (confirmationId === undefined) return 0;
-  return context.eligibility.attendance === undefined
-    ? 0
-    : context.eligibility.attendance.filter(
-        (a) => a.confirmationId === confirmationId && a.status === 'going',
-      ).length;
-}
-
 /**
- * The renderer's input for one job.
+ * Whether this kind may only go to somebody with a live per-plan subscription.
  *
- * Returns a **reason** rather than an input when there is nothing to send:
- * a plan-update kind whose preferences token cannot be minted has no contact
- * left to write to, and the confirmation a kind describes may simply be gone.
+ * The domain's table, not a list here: `emailNeedsSubscription` is what makes
+ * "being in a circle is not consent" a rule rather than a habit, and the
+ * organiser kinds are false for review C6's reason.
  */
-async function inputFor(
-  service: Db,
-  job: DueJob,
-  context: PlanContext | null,
-): Promise<EmailInput | { skip: string }> {
-  if (job.kind === 'verify_email') {
-    const verifyToken = await issueVerificationToken(service, job.contact_id);
-    if (verifyToken === null) return { skip: 'nothing_to_verify' };
-    return { kind: 'verify_email', origin: origin(), verifyToken };
-  }
-
-  if (context === null || job.plan_short_code === null || job.circle_name === null) {
-    return { skip: 'plan_gone' };
-  }
-
-  const toOrganiser = {
-    origin: origin(),
-    circleName: job.circle_name,
-    planCode: job.plan_short_code,
-  };
-
-  switch (job.kind) {
-    case 'options_ready': {
-      const best = context.bestCandidate;
-      if (best === null) return { skip: 'no_candidates' };
-      return {
-        kind: 'options_ready',
-        ...toOrganiser,
-        bestStart: fromISO(best.startsAt),
-        zone: context.planZone,
-        availableCount: best.availableCount,
-      };
-    }
-    case 'replies_closed':
-      return { kind: 'replies_closed', ...toOrganiser };
-    case 'did_it_happen': {
-      const confirmation = context.confirmation ?? context.supersededConfirmation;
-      if (confirmation === null) return { skip: 'no_confirmation' };
-      return {
-        kind: 'did_it_happen',
-        ...toOrganiser,
-        start: fromISO(confirmation.starts_at),
-        zone: context.planZone,
-      };
-    }
-    default:
-      break;
-  }
-
-  // The plan-update kinds. Both links are minted for this letter and for this
-  // contact (ADR 0020, ADR 0025); a null preferences token means the contact is
-  // not verified any more, and a null re-entry token means a saved place, which
-  // simply renders without the line.
-  const prefsToken = await issuePreferencesToken(service, job.contact_id);
-  if (prefsToken === null) return { skip: 'contact_unverified' };
-  const reentryToken =
-    job.circle_id === null ? null : await issueReentryToken(service, job.circle_id, job.contact_id);
-  const toSubscriber = { ...toOrganiser, prefsToken, reentryToken };
-
-  switch (job.kind) {
-    case 'locked_in': {
-      const confirmation = context.confirmation;
-      if (confirmation === null) return { skip: 'no_confirmation' };
-      return {
-        kind: 'locked_in',
-        ...toSubscriber,
-        start: fromISO(confirmation.starts_at),
-        end: fromISO(confirmation.ends_at),
-        zone: context.planZone,
-        ...(confirmation.place_name === null ? {} : { placeName: confirmation.place_name }),
-        ...(confirmation.note === null ? {} : { note: confirmation.note }),
-        ...(context.organiserName === undefined ? {} : { organiserName: context.organiserName }),
-      };
-    }
-    case 'changed': {
-      const previous = context.supersededConfirmation;
-      if (previous === null) return { skip: 'no_confirmation' };
-      return {
-        kind: 'changed',
-        ...toSubscriber,
-        zone: context.planZone,
-        change: 'reopened',
-        previousStart: fromISO(previous.starts_at),
-      };
-    }
-    case 'cancelled': {
-      const confirmation = context.confirmation ?? context.supersededConfirmation;
-      const note = context.cancelNote;
-      return {
-        kind: 'cancelled',
-        ...toSubscriber,
-        zone: context.planZone,
-        ...(confirmation === null ? {} : { start: fromISO(confirmation.starts_at) }),
-        ...(note === undefined ? {} : { note }),
-        ...(context.organiserName === undefined ? {} : { organiserName: context.organiserName }),
-      };
-    }
-    case 'reminder': {
-      const confirmation = context.confirmation;
-      if (confirmation === null) return { skip: 'no_confirmation' };
-      return {
-        kind: 'reminder',
-        ...toSubscriber,
-        start: fromISO(confirmation.starts_at),
-        zone: context.planZone,
-        ...(confirmation.place_name === null ? {} : { placeName: confirmation.place_name }),
-        goingCount: goingCount(context),
-      };
-    }
-    case 'did_it_happen_participant': {
-      const confirmation = context.confirmation ?? context.supersededConfirmation;
-      if (confirmation === null) return { skip: 'no_confirmation' };
-      return {
-        kind: 'did_it_happen_participant',
-        ...toSubscriber,
-        start: fromISO(confirmation.starts_at),
-        zone: context.planZone,
-      };
-    }
-    default:
-      return { skip: 'unsupported_kind' };
-  }
+function needsSubscription(kind: string): boolean {
+  return notificationSpec(kind as NotificationKind).emailNeedsSubscription;
 }
 
 async function record(
@@ -234,6 +99,12 @@ async function record(
   if (failure !== null) throw failure;
 }
 
+/** The next attempt for a job that has already failed this often, or null at the end. */
+function backoff(attempts: number): string | null {
+  const wait = BACKOFF_MINUTES[attempts];
+  return wait === undefined ? null : new Date(Date.now() + wait * 60_000).toISOString();
+}
+
 export async function send(
   service: Db,
   jobs: readonly DueJob[],
@@ -246,39 +117,54 @@ export async function send(
   for (const job of jobs) {
     if (deadline()) break;
 
-    const skip = async (reason: string): Promise<void> => {
-      await record(service, job.id, 'skipped', reason);
-      result.skipped += 1;
-      log('info', {
+    const finish = async (
+      outcome: 'skipped' | 'retried' | 'failed',
+      reason: string,
+      nextAttemptAt?: string,
+    ): Promise<void> => {
+      await record(
+        service,
+        job.id,
+        outcome === 'retried' ? 'retry' : outcome,
+        reason,
+        undefined,
+        nextAttemptAt,
+      );
+      result[outcome] += 1;
+      log(outcome === 'failed' ? 'error' : 'info', {
         fn: 'process-scheduled-jobs',
         request_id: requestId,
-        event: 'job_skipped',
+        event: `job_${outcome}`,
         reason,
         contact_id: job.contact_id,
       });
     };
 
     // A bounce that lands after the job was written leaves it `scheduled`.
-    // Checked for every kind, including `verify_email`: a suppressed address
-    // is never written to again, and re-verifying it is exactly the automatic
+    // Checked for every kind, including `verify_email`: a suppressed address is
+    // never written to again, and re-verifying it is exactly the automatic
     // reactivation spec §9 forbids.
     if (job.contact_status === 'suppressed') {
-      await skip('contact_suppressed');
+      await finish('skipped', 'contact_suppressed');
       continue;
     }
-    // Every other kind needs a verified contact. `verify_email` is the one
-    // that does not — it is the letter that makes a contact verified, and its
+    // Every other kind needs a verified contact. `verify_email` is the one that
+    // does not — it is the letter that makes a contact verified, and its
     // contact is `pending` by definition.
     if (job.kind !== 'verify_email' && job.contact_status !== 'verified') {
-      await skip('contact_pending');
+      await finish('skipped', 'contact_pending');
+      continue;
+    }
+    if (needsSubscription(job.kind) && !job.subscribed) {
+      await finish('skipped', 'subscription_withdrawn');
       continue;
     }
     if (planIsPast(job)) {
-      await skip('plan_finished');
+      await finish('skipped', 'plan_finished');
       continue;
     }
     if (job.superseded) {
-      await skip('duplicate_address');
+      await finish('skipped', 'duplicate_address');
       continue;
     }
 
@@ -290,7 +176,18 @@ export async function send(
 
       const input = await inputFor(service, job, context);
       if ('skip' in input) {
-        await skip(input.skip);
+        // A `retry:` reason is a state that will resolve itself — the options
+        // set is stale and this same run rebuilds it. Skipping would spend the
+        // job's idempotency key, and there is one per revision, so the
+        // organiser would never be told at all.
+        if (input.skip.startsWith('retry:')) {
+          const reason = input.skip.slice('retry:'.length);
+          const next = backoff(job.attempt_count);
+          if (next === null) await finish('failed', reason);
+          else await finish('retried', reason, next);
+        } else {
+          await finish('skipped', input.skip);
+        }
         continue;
       }
 
@@ -304,29 +201,9 @@ export async function send(
     } catch (thrown) {
       const retryable = thrown instanceof EmailSendError && thrown.retryable;
       const code = thrown instanceof EmailSendError ? thrown.code : classify(thrown);
-      const wait = BACKOFF_MINUTES[job.attempt_count];
-
-      if (retryable && wait !== undefined) {
-        await record(
-          service,
-          job.id,
-          'retry',
-          code,
-          undefined,
-          new Date(Date.now() + wait * 60_000).toISOString(),
-        );
-        result.retried += 1;
-      } else {
-        await record(service, job.id, 'failed', code);
-        result.failed += 1;
-      }
-      log(retryable ? 'warn' : 'error', {
-        fn: 'process-scheduled-jobs',
-        request_id: requestId,
-        event: retryable ? 'job_retried' : 'job_failed',
-        reason: code,
-        contact_id: job.contact_id,
-      });
+      const next = retryable ? backoff(job.attempt_count) : null;
+      if (next === null) await finish('failed', code);
+      else await finish('retried', code, next);
     }
   }
 

@@ -87,6 +87,18 @@ export class EmailSendError extends Error {
 
 type Fetch = typeof fetch;
 
+/**
+ * How long one send may take before it is a failure.
+ *
+ * `fetch` has no timeout of its own, and the one caller that matters is a
+ * dispatcher run holding a 55-second lease inside a 55-second `pg_net`
+ * timeout: a provider that accepts the connection and never answers would
+ * carry the run past both, and the next tick would take the lapsed lease and
+ * draw the same jobs. Twenty seconds is far longer than any send this has ever
+ * made and far shorter than the budget it must not spend.
+ */
+const SEND_TIMEOUT_MS = 20_000;
+
 /** Resend's own rule for tag names and values, which also keeps content out of them. */
 const TAG = /^[A-Za-z0-9_-]{1,256}$/;
 
@@ -126,6 +138,7 @@ async function viaResend(
 ): Promise<string> {
   const response = await http('https://api.resend.com/emails', {
     method: 'POST',
+    signal: AbortSignal.timeout(SEND_TIMEOUT_MS),
     headers: {
       authorization: `Bearer ${key}`,
       'content-type': 'application/json',
@@ -156,6 +169,7 @@ async function viaCapture(base: string, message: EmailMessage, http: Fetch): Pro
   const from = sender();
   const response = await http(`${base.replace(/\/+$/, '')}/api/v1/send`, {
     method: 'POST',
+    signal: AbortSignal.timeout(SEND_TIMEOUT_MS),
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
       From: { Email: from.email, Name: from.name },
@@ -209,7 +223,9 @@ export async function sendEmail(
     return { providerMessageId, transport };
   } catch (thrown) {
     // A network failure from `fetch` is a TypeError whose message can name the
-    // host, and nothing else — but it is still not ours to pass on.
+    // host, and a timeout is a `TimeoutError` — neither is ours to pass on, and
+    // both are `email_unavailable`, which is retryable, which is right: the
+    // same send may well work in a minute.
     const failure =
       thrown instanceof EmailSendError ? thrown : new EmailSendError('email_unavailable');
     record('send_failed', failure.code, failure.status);

@@ -2,21 +2,21 @@ import {
   type Instant,
   type NotificationKind,
   type UserId,
-  ONCE,
-  addDays,
-  addMinutes,
-  fromISO,
-  fromLocal,
   idempotencyKey,
-  occurrenceFor,
   recipientsFor,
   scheduleFor,
-  toLocal,
 } from '@circles/domain';
 
 import type { Db } from '../_shared/db.ts';
 import { log } from '../_shared/logging.ts';
 import { type PlanContext, loadContext } from './context.ts';
+import {
+  ANNOUNCED,
+  type Intent,
+  type OutboxEvent,
+  intentsFor,
+  supersededRevision,
+} from './events.ts';
 
 /**
  * The outbox drain: a domain event becomes the notification jobs it implies.
@@ -25,124 +25,9 @@ import { type PlanContext, loadContext } from './context.ts';
  * `recipientsFor` decides who and on what, and `occurrenceFor` decides which
  * instance of a kind this is — which, through the idempotency key, decides
  * whether a second run of the same event writes anything at all. Everything in
- * this file is plumbing between those two and the database.
- *
- * The map below is the ticket's, and its shape is worth stating: **an event
- * does not become a message; it becomes a set of intentions, each with its own
- * time.** Confirming a meetup produces four — the announcement now, the
- * reminder two hours before it, and the two "did it happen?" letters the next
- * morning — and all four are written at once, as rows with a future
- * `scheduled_for`, so that the reminder exists in the database from the moment
- * the plan is decided rather than depending on a sweep noticing it later.
+ * this file is plumbing between those two and the database; what each event
+ * says is `events.ts`.
  */
-
-/** One message this event implies, before anyone has been chosen for it. */
-export type Intent = {
-  readonly kind: NotificationKind;
-  readonly occurrence: string;
-  readonly desiredAt: Instant;
-  /**
-   * Whoever caused it, where a person did and the kind is about their action.
-   *
-   * Deliberately absent for the clock-caused kinds. `did_it_happen` goes to
-   * the organiser, and the organiser is the one who confirmed the meetup: an
-   * actor carried across from the confirmation would filter the only recipient
-   * the kind has out of its own audience.
-   */
-  readonly actorId?: string | undefined;
-};
-
-export type OutboxEvent = {
-  readonly id: string;
-  readonly seq: number;
-  readonly event_name: string;
-  readonly aggregate_type: string;
-  readonly aggregate_id: string;
-  readonly payload: Record<string, unknown>;
-  readonly attempts: number;
-};
-
-/** The morning after, at nine, where the person reading it is (spec §5.8). */
-function nextMorning(after: Instant, at: PlanContext): Instant {
-  const local = toLocal(after, at.planZone);
-  return fromLocal(addDays(local.date, 1), 9 * 60, at.planZone);
-}
-
-/**
- * The kinds one event implies.
- *
- * `null` means the event is not this pipeline's: `communication.contact_verified`
- * is S1-18's and writes its own jobs, and the rest of the catalogue is read by
- * analytics or by nobody. Returning an empty list marks the event processed,
- * which is the right answer for every one of them — an event nothing consumes
- * is not an event that failed.
- */
-function intentsFor(event: OutboxEvent, context: PlanContext, now: Instant): readonly Intent[] {
-  const confirmation = context.confirmation;
-
-  switch (event.event_name) {
-    case 'planning.plan_created':
-      return [{ kind: 'new_plan', occurrence: ONCE, desiredAt: now }];
-
-    case 'scheduling.candidates_generated':
-      // Once per **revision**, not once per event. Every answer to a `ready`
-      // plan takes it ready → collecting → ready, so six members painting and
-      // re-painting produce a dozen of these; `ONCE` plus the revision in the
-      // key is what makes the organiser's inbox hold one (S1-16).
-      return [{ kind: 'options_ready', occurrence: ONCE, desiredAt: now }];
-
-    case 'planning.deadline_passed':
-      return [{ kind: 'replies_closed', occurrence: ONCE, desiredAt: now }];
-
-    // Both cancellations, and **with no actor**, which is a decision rather
-    // than an omission. A cancel is guarded `organiser_or_owner`, so the
-    // person who did it is the organiser *or* the circle's owner, and the
-    // event deliberately does not say which: `transition_plan` never names an
-    // actor, because on a quiet ask the actor of a cancel is the initiator and
-    // that is the one thing the row must never carry (§14).
-    //
-    // Guessing "the organiser" is right in the common case and silences them
-    // about their own plan in the other one — an owner calling off somebody
-    // else's meetup. Between telling the person who pressed the button
-    // something they already know and telling the organiser nothing, the first
-    // is the smaller harm.
-    case 'planning.plan_cancelled':
-    case 'confirmation.meetup_cancelled':
-      return [{ kind: 'cancelled', occurrence: ONCE, desiredAt: now }];
-
-    case 'confirmation.meetup_confirmed': {
-      if (confirmation === null) return [];
-      const occurrence = occurrenceFor('locked_in', {
-        confirmationId: confirmation.id as never,
-      });
-      const start = fromISO(confirmation.starts_at);
-      const morning = nextMorning(fromISO(confirmation.ends_at), context);
-      return [
-        { kind: 'locked_in', occurrence, desiredAt: now, actorId: confirmation.confirmed_by },
-        { kind: 'reminder', occurrence, desiredAt: addMinutes(start, -120) },
-        { kind: 'did_it_happen', occurrence, desiredAt: morning },
-        { kind: 'did_it_happen_participant', occurrence, desiredAt: morning },
-      ];
-    }
-
-    case 'confirmation.meetup_rescheduled':
-      return [
-        {
-          kind: 'changed',
-          // The event's own id. One event, one message — and *not* `ONCE`,
-          // because a place correction does not bump the revision and two
-          // changes sharing an occurrence means nobody is told about the
-          // second one (`occurrence.ts`).
-          occurrence: occurrenceFor('changed', { changeId: event.id }),
-          desiredAt: now,
-          actorId: context.organiserUserId,
-        },
-      ];
-
-    default:
-      return [];
-  }
-}
 
 /** A job row, as `public.dispatch_enqueue` takes it. */
 export type JobRow = {
@@ -186,7 +71,14 @@ export async function jobRowsFor(
   const rows: JobRow[] = [];
 
   for (const recipient of recipientsFor(intent.kind, eligibility)) {
-    const at = scheduleFor(intent.kind, intent.desiredAt, context.zoneOf(recipient.userId));
+    const zone = context.zoneOf(recipient.userId);
+    const wanted =
+      typeof intent.desiredAt === 'function' ? intent.desiredAt(zone) : intent.desiredAt;
+    const at = scheduleFor(intent.kind, wanted, zone);
+    // Quiet hours only ever move a message later, so a message with a shelf
+    // life can be moved off the end of it. A reminder that would arrive after
+    // everyone sat down is not sent.
+    if (intent.notAfter !== undefined && at >= intent.notAfter) continue;
     const scheduled = new Date(at).toISOString();
 
     if (recipient.channel === 'push') {
@@ -262,38 +154,6 @@ export async function jobRowsFor(
   return rows;
 }
 
-/**
- * The revision whose scheduled letters an event calls off.
- *
- * A cancellation leaves the revision where it is; a reschedule has already
- * bumped it by the time this runs, so the reminder and the outcome letters it
- * supersedes are the previous revision's.
- */
-function supersededRevision(event: OutboxEvent, context: PlanContext): number | null {
-  if (event.event_name === 'confirmation.meetup_cancelled') return context.revision;
-  if (event.event_name === 'confirmation.meetup_rescheduled') return context.revision - 1;
-  return null;
-}
-
-/**
- * The events that say something to somebody.
- *
- * The same list `intentsFor` switches on, held separately so that the drain can
- * tell "this event has nothing to say" from "this event's plan is gone" without
- * reading a context to find out. Adding a case to `intentsFor` without adding
- * its name here makes it silent, which is the one failure worth naming: both
- * places, or neither.
- */
-const ANNOUNCED: ReadonlySet<string> = new Set([
-  'planning.plan_created',
-  'planning.plan_cancelled',
-  'planning.deadline_passed',
-  'scheduling.candidates_generated',
-  'confirmation.meetup_confirmed',
-  'confirmation.meetup_rescheduled',
-  'confirmation.meetup_cancelled',
-]);
-
 export type DrainResult = { events: number; jobs: number; failures: number };
 
 export async function drain(
@@ -311,13 +171,12 @@ export async function drain(
     if (deadline()) break;
 
     try {
-      // Only the seven events below produce messages in Slice 1. The rest —
-      // memberships, answers, deliveries, growth — are read by analytics and
-      // by the health summary, and are marked processed here without a context
-      // being read for them: a circle of six answering a plan writes six
-      // `response_submitted` events a minute, and reading a plan's whole
-      // roster to decide each one says nothing would spend most of the run's
-      // budget learning that.
+      // Only the seven events in `ANNOUNCED` produce messages in Slice 1. The
+      // rest — memberships, answers, deliveries, growth — are marked processed
+      // here without a context being read for them: a circle of six answering
+      // a plan writes six `response_submitted` events a minute, and reading a
+      // plan's whole roster to decide each one says nothing would spend most
+      // of the run's budget learning that.
       const planId = ANNOUNCED.has(event.event_name)
         ? event.aggregate_type === 'plan'
           ? event.aggregate_id
@@ -330,7 +189,7 @@ export async function drain(
         const context = contexts.get(planId) ?? null;
 
         if (context !== null) {
-          const superseded = supersededRevision(event, context);
+          const superseded = supersededRevision(event);
           if (superseded !== null) {
             const { error } = await service.rpc('dispatch_cancel_pending', {
               p_plan_id: planId,
@@ -393,9 +252,13 @@ export function classify(thrown: unknown): string {
   if (typeof problem.code === 'string' && /^[A-Za-z0-9_.:/-]{1,110}$/.test(problem.code)) {
     return `db:${problem.code}`;
   }
-  if (typeof problem.status === 'number') return `http:${problem.status}`;
+  if (typeof problem.status === 'number' && Number.isSafeInteger(problem.status)) {
+    return `http:${problem.status}`;
+  }
   if (typeof problem.name === 'string' && /^[A-Za-z0-9_-]{1,100}$/.test(problem.name)) {
     return `err:${problem.name}`;
   }
   return 'unknown';
 }
+
+export type { Intent, OutboxEvent } from './events.ts';

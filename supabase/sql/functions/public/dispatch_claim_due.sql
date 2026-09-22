@@ -8,6 +8,12 @@
 --   * `contact_status` — a suppression that lands after the job was written
 --     leaves the job `scheduled`. "Permanent failure → skipped" (spec §9) is
 --     evaluated when you send, not when the job was made.
+--   * `subscribed` — and so is the consent. A `reminder` is written the moment
+--     a meetup is confirmed and sits there for days; "Stop emails for this
+--     meetup" withdraws the subscription and touches no job, so without this
+--     the stop link would stop nothing that was already queued. It is
+--     `private.email_recipients_for`, which is the one place the join is
+--     written (S1-18), asked again at the moment of sending.
 --   * `plan_state` — a verification queued while a plan was live is still
 --     `scheduled` after the plan is cancelled, and sending it is a letter
 --     about a meetup that is over.
@@ -24,7 +30,11 @@
 -- are excluded on purpose: both can legitimately occur twice in one revision
 -- (a second material change, a second verification request), they are keyed by
 -- change id and verification id for exactly that reason, and deduping them by
--- address is how nobody gets told the venue moved.
+-- address is how nobody gets told the venue moved. `about_time` (Slice 2,
+-- SUS-52) is excluded for a third reason: it belongs to a circle and has no
+-- plan at all, so every one of them matches every other on
+-- `plan_id is not distinct from null` and an address would receive exactly
+-- one cadence nudge, ever.
 --
 -- Push is not claimed here. Slice 1 writes no push job — a kind whose only
 -- channel is push finds no device and produces no recipient — and Slice 3
@@ -59,12 +69,15 @@ as $$
     'attempt_count', j.attempt_count,
     'email', c.email_normalized,
     'contact_status', c.status,
+    'subscribed', exists (
+      select 1 from private.email_recipients_for(j.plan_id) r where r.contact_id = j.contact_id
+    ),
     'plan_state', p.state,
     'plan_short_code', p.short_code,
     'plan_current_revision', p.revision,
     'circle_id', p.circle_id,
     'circle_name', cir.name,
-    'superseded', j.kind not in ('changed', 'verify_email') and exists (
+    'superseded', j.kind not in ('changed', 'verify_email', 'about_time') and exists (
       select 1
       from jobs.notification_jobs o
       join private.email_contacts oc on oc.id = o.contact_id

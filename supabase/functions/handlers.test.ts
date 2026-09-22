@@ -2729,13 +2729,14 @@ describe('process-scheduled-jobs', () => {
     ...overrides,
   });
 
-  const outboxEvent = (name: string) => ({
+  const outboxEvent = (name: string, revision = 1) => ({
     id: EVENT_ID,
     seq: 1,
     event_name: name,
     aggregate_type: 'plan',
     aggregate_id: PLAN_ID,
-    payload: { plan_id: PLAN_ID },
+    // Every transition event carries the revision it left the plan at (S1-11).
+    payload: { plan_id: PLAN_ID, revision },
     attempts: 0,
   });
 
@@ -2865,17 +2866,103 @@ describe('process-scheduled-jobs', () => {
     }
   });
 
-  it('takes back the letters a superseded evening had waiting', async () => {
-    events = [outboxEvent('confirmation.meetup_rescheduled')];
+  it('takes back the letters a superseded evening had waiting, from the event and not from the plan', async () => {
+    // The reopen left the plan at revision 3, so what it supersedes is 2 —
+    // and the context is read once per run, *after* every event in the batch,
+    // so by now the plan has been edited on to 5. Reading `context.revision - 1`
+    // names a revision that was never confirmed, and the evening that was
+    // actually called off keeps its reminder and both morning-after letters
+    // for ever (review round 1).
+    planContext = context({ plan: { ...(context().plan as object), revision: 5 } });
+    events = [outboxEvent('confirmation.meetup_rescheduled', 3)];
 
     await load('process-scheduled-jobs')(post({}, 'a-shared-secret'));
 
-    // A reopen has already bumped the revision by the time this runs, so the
-    // jobs it supersedes are the previous revision's.
     expect(called('dispatch_cancel_pending')[0]?.args).toMatchObject({
       p_plan_id: PLAN_ID,
-      p_revision: 0,
+      p_revision: 2,
     });
+  });
+
+  it('cancels the revision a cancellation left the plan on, which it does not move', async () => {
+    events = [outboxEvent('confirmation.meetup_cancelled', 4)];
+
+    await load('process-scheduled-jobs')(post({}, 'a-shared-secret'));
+
+    expect(called('dispatch_cancel_pending')[0]?.args).toMatchObject({ p_revision: 4 });
+  });
+
+  it('does not write a reminder that quiet hours would deliver after the meetup', async () => {
+    // Breakfast at 7:30 wants its reminder at 5:30, which is inside the quiet
+    // window, which is 08:00 — half an hour after everybody sat down. Quiet
+    // hours only ever move a message later, so the honest answer is not to
+    // write it (review round 1). 7:30 Melbourne on 18 September 2026 (AEST) is
+    // 21:30 UTC on the seventeenth.
+    planContext = context({
+      confirmation: {
+        id: CONFIRMATION,
+        revision: 1,
+        starts_at: '2026-09-17T21:30:00.000Z',
+        ends_at: '2026-09-17T23:30:00.000Z',
+        place_name: null,
+        note: null,
+        status: 'active',
+        confirmed_by: ORGANISER,
+        available_user_ids: [ORGANISER, MEMBER],
+      },
+    });
+    events = [outboxEvent('confirmation.meetup_confirmed')];
+
+    await load('process-scheduled-jobs')(post({}, 'a-shared-secret'));
+
+    const kinds = enqueued().map((job) => job.kind);
+    expect(kinds).not.toContain('reminder');
+    // The rest of the confirmation is unaffected.
+    expect(kinds).toContain('locked_in');
+  });
+
+  it('does not send a letter to somebody who has since said stop', async () => {
+    // "Stop emails for this meetup" withdraws the subscription and touches no
+    // job, and a reminder written when the meetup was confirmed waits days. A
+    // stop link that did not stop a queued letter would not be one (spec §5.8).
+    const answer = state.answer;
+    state.answer = (fn) => {
+      if (fn === 'dispatch_claim_due') {
+        return {
+          data: [
+            {
+              id: '00000000-0000-4000-8000-00000000j001',
+              kind: 'reminder',
+              contact_id: CONTACT,
+              user_id: MEMBER,
+              plan_id: PLAN_ID,
+              plan_revision: 1,
+              idempotency_key: 'a'.repeat(64),
+              attempt_count: 0,
+              email: 'someone@example.test',
+              contact_status: 'verified',
+              subscribed: false,
+              plan_state: 'confirmed',
+              plan_short_code: 'pnsundaycr',
+              circle_id: CIRCLE_ID,
+              circle_name: 'Sunday Crew',
+              superseded: false,
+            },
+          ],
+          error: null,
+        };
+      }
+      return answer(fn);
+    };
+
+    await load('process-scheduled-jobs')(post({}, 'a-shared-secret'));
+
+    expect(called('dispatch_job_result')[0]?.args).toMatchObject({
+      p_outcome: 'skipped',
+      p_error: 'subscription_withdrawn',
+    });
+    // Nothing was rendered and no token was minted for a letter nobody wants.
+    expect(called('issue_preferences_token')).toHaveLength(0);
   });
 
   it('marks an event nothing listens to as handled, without reading a plan for it', async () => {

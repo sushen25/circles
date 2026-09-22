@@ -90,12 +90,23 @@ begin
   get diagnostics n_pending_contacts = row_count;
 
   -- Verified plan-only contacts: 30 days after every plan they were subscribed
-  -- to has finished. Every contact in the MVP is plan-only (spec §3: no
-  -- marketing consent), so "plan-only" means "verified and not suppressed".
-  -- A contact with a live subscription stays; one whose plans have all been
-  -- completed, cancelled or expired for 30 days goes, address and all. A
-  -- withdrawn subscription keeps nothing: the person said stop, and the
-  -- address has no reason left to be here.
+  -- to has finished. "Plan-only" used to mean "verified and not suppressed",
+  -- because every contact in the MVP was one somebody gave for a plan (spec
+  -- §3: no marketing consent). Two of them are not, and each would otherwise
+  -- be deleted along with the letters still hanging off it — the fkey is
+  -- `on delete cascade`, so the row going takes the queued mail silently.
+  --
+  --   * **An identity's own confirmed auth address** (ADR 00XX, S1-20). It is
+  --     not a plan's: it is how the organiser is written to at all, for as
+  --     long as the identity exists, and it holds no subscription by design.
+  --     Deleted with the user by the cascade, which is the right lifetime.
+  --     Thirty days after an organiser's first plan, this rule was taking it —
+  --     and with it the "did it happen?" letter due at nine the next morning.
+  --   * **Any contact with a job still waiting.** Independent of whose address
+  --     it is: a scheduled row is a message somebody is owed, and deleting the
+  --     contact under it is the one failure nobody would ever see. The
+  --     `notification_jobs` rule above still takes jobs older than thirty
+  --     days, so this cannot keep a contact for ever.
   delete from private.email_contacts c
   where c.status = 'verified'
     and not exists (
@@ -106,6 +117,16 @@ begin
         and s.status = 'active'
         and (p.state not in ('completed', 'cancelled', 'expired')
              or p.updated_at > now() - interval '30 days')
+    )
+    and not exists (
+      select 1 from auth.users u
+      where u.id = c.user_id
+        and u.email_confirmed_at is not null
+        and c.email_hash = extensions.digest(lower(btrim(u.email)), 'sha256')
+    )
+    and not exists (
+      select 1 from jobs.notification_jobs j
+      where j.contact_id = c.id and j.status = 'scheduled'
     )
     and c.verified_at < now() - interval '30 days';
   get diagnostics n_plan_contacts = row_count;

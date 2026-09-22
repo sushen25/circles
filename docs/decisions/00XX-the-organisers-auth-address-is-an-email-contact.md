@@ -88,6 +88,16 @@ ready" — which is the message that makes the product work at all.
 - A permanent identity that organises anything gains one `email_contacts` row,
   created the first time an organiser kind is enqueued for them. It carries no
   subscription, so `private.email_recipients_for` never returns it.
+- **Retention had to learn about it.** `jobs.run_retention` deleted a verified
+  contact with no active subscription thirty days after it was verified, on the
+  premise that every contact in the MVP is a plan's. This one is not: it is an
+  identity's, and it holds no subscription by design. Left alone, the rule
+  deleted an organiser's contact a month after their first plan — and
+  `notification_jobs_contact_fkey` is `on delete cascade`, so the "did it
+  happen?" letter due at nine the next morning went with it, silently. The rule
+  now keeps a contact that is its owner's confirmed auth address, and
+  separately keeps any contact with a job still waiting, which is right
+  whoever's address it is.
 - A bounce or a complaint on that address suppresses it, withdraws any
   subscriptions at the same address and skips its queued jobs — the existing
   machinery, unchanged. The organiser then receives nothing by email, which is
