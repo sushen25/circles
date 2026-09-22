@@ -82,6 +82,18 @@ describe('a candidate card', () => {
     expect(cardsOf(data)[0]?.count).toBe('Nobody was free');
   });
 
+  it('carries the whole argument in its accessible name, not just the date', () => {
+    // A Pressable's `aria-label` replaces the name built from what is inside
+    // it, so a label of only "Thu 17 Sep, 6:30–8:30 pm" would have hidden the
+    // rank, the count and who is missing from a screen reader (§3.4).
+    const [first, second] = cardsOf(fixture.ready);
+    expect(first?.label).toContain('Best attendance');
+    expect(first?.label).toContain('5 of 6');
+    expect(first?.label).toContain('6:30–8:30 pm');
+    expect(first?.label).toContain('Maya, Priya and 3 others can make it');
+    expect(second?.label).toContain("Doesn't work for Priya · Alex hasn't answered");
+  });
+
   it('says nothing about names it cannot read', () => {
     const data = planWith({ responded: null });
     expect(exceptionOf(data, data.candidates[1] as CandidateRow)).toBeUndefined();

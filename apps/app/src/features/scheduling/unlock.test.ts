@@ -93,6 +93,13 @@ describe('what would unlock it', () => {
     expect(unlocksOf(data).map((u) => u.kind)).toEqual(['lower', 'close']);
   });
 
+  it('offers no wider window once replies have closed, which revise-plan would refuse', () => {
+    // `revise_plan` refuses any re-ask whose deadline has gone
+    // (`deadline_out_of_range`); saying when replies close again is S2-05's.
+    const data = planWith({ repliesOpen: false });
+    expect(unlocksOf(data).map((u) => u.kind)).toEqual(['lower', 'close']);
+  });
+
   it('says the quorum rule when that is the one blocking it', () => {
     expect(blockedBy(fixture.noQuorum)).toBe(
       "Nothing in the window works for at least 4 of you. Here's the closest it got.",

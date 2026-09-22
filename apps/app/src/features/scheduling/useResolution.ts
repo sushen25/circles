@@ -129,7 +129,17 @@ export function useResolution({
       setWider(undefined);
       void again();
     },
-    onError: (error) => setProblem(problemOf(error)),
+    // The sheet closes and the preview goes with it. A `Sheet` is a modal, so
+    // a notice left behind it is neither seen nor announced — and the version
+    // the save was refused for is exactly the version a second tap would send
+    // again. Closing puts the refusal in front of the organiser and makes the
+    // next tap take a fresh preview.
+    onError: (error) => {
+      setAsking(undefined);
+      setWider(undefined);
+      setProblem(problemOf(error));
+      void again();
+    },
   });
 
   return {

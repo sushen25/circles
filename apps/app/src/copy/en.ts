@@ -302,7 +302,6 @@ export const en = {
     waiting_three: "{name}, {other} and {third} haven't answered",
     waiting_many: '{name}, {other} and {count} others are still to answer',
     exception_both: '{first} · {second}',
-    card_label: '{day}, {time}',
     can_one: '{name} can make it',
     can_two: '{name} and {other} can make it',
     can_three: '{name}, {other} and {third} can make it',

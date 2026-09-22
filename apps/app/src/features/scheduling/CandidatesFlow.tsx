@@ -372,6 +372,9 @@ export function MemberView({
             : t('candidatesMember', 'lead_organiser', { name: organiser.name })
         }
         cards={cardsOf(data)}
+        // The same warning the organiser gets: what is on screen was worked
+        // out before the newest answer, and a member has no other way to know.
+        stale={data.stale}
         onChangeMyTimes={onChangeMyTimes}
         onRetry={onRetry}
         onBack={onBack}

@@ -23,10 +23,17 @@ import { weekdayOf } from './words';
  *
  * "Try a wider window" is the artboard's own row — "Ask about the next two
  * weeks instead" — rather than a way into the plan editor, and it means one
- * thing here: run the window out to the fourteen days the domain allows. It is
- * offered only when there is room, because a plan already asking about a
- * fortnight has no wider window to try; widening the *hours* is the editor's
- * (S1-26), which is a form and not one tap.
+ * thing here: run the window out to the fourteen days the domain allows. Two
+ * things withhold it:
+ *
+ * - **A plan already asking about a fortnight** has no wider window to try.
+ *   Widening the *hours* is the editor's (S1-26): a form, not one tap.
+ * - **Replies that have closed.** A wider window starts a new revision, and
+ *   `revise_plan` refuses any re-ask whose deadline has already gone — "an
+ *   organiser who reopens or re-asks has to say when replies close, which is
+ *   the one thing they are in a position to know". Saying it is S2-05's
+ *   "give it one more day", not this screen's; offering the action here would
+ *   only ever produce `deadline_out_of_range`.
  */
 
 /** Inclusive local dates, as the plan stores them. `revise-plan` parses them. */
@@ -110,7 +117,7 @@ export function unlocksOf(data: PlanCandidates): Unlock[] {
     }
   }
 
-  const wider = widerWindow(data);
+  const wider = data.repliesOpen ? widerWindow(data) : undefined;
   if (wider !== undefined) {
     unlocks.push({
       kind: 'wider',

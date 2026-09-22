@@ -1,4 +1,4 @@
-import { Body, BodyText, Button, DisplayL, Foot, Screen, TopBar } from '../../components';
+import { Body, BodyText, Button, DisplayL, Foot, Notice, Screen, TopBar } from '../../components';
 import { Stack } from '../../components/layout';
 import { t } from '../../copy';
 import { CandidateCard, CandidateHeader, Placeholder } from './parts';
@@ -31,6 +31,8 @@ export type CandidatesMemberProps = {
   headline?: string | undefined;
   lead?: string | undefined;
   cards?: readonly CardView[] | undefined;
+  /** What is on screen was worked out before the newest answer. */
+  stale?: boolean | undefined;
   onChangeMyTimes?: (() => void) | undefined;
   onRetry?: (() => void) | undefined;
   onBack?: (() => void) | undefined;
@@ -42,6 +44,7 @@ export function CandidatesMemberScreen({
   headline,
   lead,
   cards = [],
+  stale = false,
   onChangeMyTimes,
   onRetry,
   onBack,
@@ -92,6 +95,7 @@ export function CandidatesMemberScreen({
           {headline === undefined ? null : <DisplayL>{headline}</DisplayL>}
           {lead === undefined ? null : <BodyText>{lead}</BodyText>}
         </Stack>
+        {stale ? <Notice icon="clock">{t('candidates', 'updating')}</Notice> : null}
         {cards.map((card) => (
           <CandidateCard key={card.id} card={card} highlighted={card.recommended} />
         ))}

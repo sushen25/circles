@@ -40,6 +40,15 @@ export type CardView = {
   membersLabel: string;
   /** "Doesn't work for Priya · Alex hasn't answered". */
   exception: string | undefined;
+  /**
+   * The whole card in one sentence, for when it is a button.
+   *
+   * A `Pressable` with an `aria-label` **replaces** the name a screen reader
+   * would have built from what is inside it, so a label of only the date and
+   * time would have hidden the rank, the count, who can make it and who cannot
+   * — which is the entire argument the card exists to make (manifesto §3.4).
+   */
+  label: string;
   recommended: boolean;
 };
 
@@ -179,7 +188,7 @@ export function cardOf(
   options: { recommended: boolean },
 ): CardView {
   const available = row.availableUserIds.length;
-  return {
+  const card: CardView = {
     id: row.id,
     rank:
       row.explanationCode === null ? undefined : RANK[row.explanationCode](row.explanationCount),
@@ -193,7 +202,16 @@ export function cardOf(
     membersLabel:
       phrase(nameList(namesOf(data, row.availableUserIds)), 'can') ?? t('candidates', 'can_nobody'),
     exception: exceptionOf(data, row),
+    label: '',
     recommended: options.recommended,
+  };
+  // Sentences the card already says, in the order it says them. Only the
+  // separators are written here, and a separator carries no voice.
+  return {
+    ...card,
+    label: [card.rank, `${card.date}, ${card.time}`, card.count, card.membersLabel, card.exception]
+      .filter((part): part is string => part !== undefined)
+      .join('. '),
   };
 }
 

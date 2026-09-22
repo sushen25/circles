@@ -224,6 +224,39 @@ describe('the organiser, with no overlap', () => {
     );
   });
 
+  it('closes the sheet on a refusal, so the reason is readable and the retry is fresh', async () => {
+    previewWiderWindow.mockResolvedValue({
+      asked_again: ['priya'],
+      fresh_ask: [],
+      invalidating: ['window'],
+      bumps_revision: true,
+      version: 'v-1',
+    });
+    const { FunctionError } = await import('../../data/functions');
+    widenWindow.mockRejectedValue(
+      new FunctionError(
+        { error: 'conflict', reason: 'preview_is_stale', message: 'moved', reference: 'ref' },
+        'moved',
+      ),
+    );
+    show(<CandidatesFlow id={CIRCLE} planId={PLAN} which="no-quorum" />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Try a wider window' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Ask again' }));
+
+    // The notice lives behind the sheet, so the refusal closes it. (In jsdom
+    // the sheet stays in the DOM: `Modal` unmounts on an animation-end event
+    // that never fires there, so what is asserted is the state behind it.)
+    expect(await screen.findByText(/Somebody answered while that was open/)).toBeTruthy();
+    expect(widenWindow).toHaveBeenCalledTimes(1);
+
+    // And the next attempt takes a fresh preview rather than resending the
+    // version the server just refused.
+    fireEvent.click(screen.getByRole('button', { name: 'Try a wider window' }));
+    await waitFor(() => expect(previewWiderWindow).toHaveBeenCalledTimes(2));
+    expect(widenWindow).toHaveBeenCalledTimes(1);
+  });
+
   it('asks before closing the attempt, and blames nobody when it does', async () => {
     closeAttempt.mockResolvedValue(undefined);
     show(<CandidatesFlow id={CIRCLE} planId={PLAN} which="no-quorum" />);
@@ -274,6 +307,13 @@ describe('a member', () => {
     expect(await screen.findByText('Replies closed')).toBeTruthy();
     // `replace_response` would refuse the answer, so the editor is not offered.
     expect(screen.queryByRole('button', { name: 'Change my times' })).toBeNull();
+  });
+
+  it('is warned when the options were worked out before the newest answer', async () => {
+    planCandidates.mockResolvedValue({ ...fixture.readyAsMember, stale: true });
+    show(organiser());
+
+    expect(await screen.findByText(/Someone just answered/)).toBeTruthy();
   });
 
   it('is shown no marks at all while reply state is not theirs to read', async () => {

@@ -82,7 +82,7 @@ export function CandidateCard({ card, highlighted, onPress, selected }: Candidat
   return (
     <Pressable
       role="button"
-      aria-label={t('candidates', 'card_label', { day: card.date, time: card.time })}
+      aria-label={card.label}
       aria-pressed={selected ?? false}
       onPress={onPress}
     >
