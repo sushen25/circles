@@ -130,6 +130,22 @@ describe('the organiser, with options', () => {
     expect(message).not.toContain('Alex');
   });
 
+  it('counts the replies it is still waiting on, not the ones the set knew about', async () => {
+    // A set one answer behind: `responded_count` says 4, the summaries say 5.
+    planCandidates.mockResolvedValue({
+      ...fixture.ready,
+      stale: true,
+      repliedCount: 4,
+      responded: ['maya', 'priya', 'tom', 'jess', 'sam'],
+    });
+    show(organiser());
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Nudge Alex' }));
+    await waitFor(() => expect(shareMessage).toHaveBeenCalled());
+    // One person is named, so the message has to say one reply.
+    expect(shareMessage.mock.calls[0]?.[0] as string).toContain('1 reply');
+  });
+
   it('reads again while it is open', async () => {
     vi.useFakeTimers();
     try {
@@ -233,9 +249,15 @@ describe('the organiser, with no overlap', () => {
       version: 'v-1',
     });
     const { FunctionError } = await import('../../data/functions');
+    const { Problem } = await import('@circles/contracts');
     widenWindow.mockRejectedValue(
       new FunctionError(
-        { error: 'conflict', reason: 'preview_is_stale', message: 'moved', reference: 'ref' },
+        Problem.parse({
+          error: 'conflict',
+          reason: 'preview_is_stale',
+          message: 'moved',
+          reference: 'ref',
+        }),
         'moved',
       ),
     );
@@ -255,6 +277,19 @@ describe('the organiser, with no overlap', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Try a wider window' }));
     await waitFor(() => expect(previewWiderWindow).toHaveBeenCalledTimes(2));
     expect(widenWindow).toHaveBeenCalledTimes(1);
+  });
+
+  it('decides nothing from a set the plan has moved past', async () => {
+    planCandidates.mockResolvedValue({ ...fixture.noQuorum, stale: true });
+    show(<CandidatesFlow id={CIRCLE} planId={PLAN} which="no-quorum" />);
+
+    expect(await screen.findByText(/Someone just answered/)).toBeTruthy();
+    // Lowering the quorum is permanent and its number comes from a near-miss
+    // the newest answer may have moved.
+    const lower = screen.getByRole('button', { name: 'Lower to 3 people' });
+    expect(lower.getAttribute('aria-disabled')).toBe('true');
+    fireEvent.click(lower);
+    expect(lowerQuorum).not.toHaveBeenCalled();
   });
 
   it('asks before closing the attempt, and blames nobody when it does', async () => {

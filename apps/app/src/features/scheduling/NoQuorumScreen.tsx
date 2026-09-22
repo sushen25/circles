@@ -43,6 +43,14 @@ export type NoQuorumProps = {
   blocked?: string | undefined;
   nearMisses?: readonly CardView[] | undefined;
   unlocks?: readonly Unlock[] | undefined;
+  /**
+   * The set on screen is behind the plan, so nothing here is decided from it.
+   *
+   * Lowering the quorum is permanent and the number comes from a near-miss;
+   * "change who has to be there" names a blocker the newest answer may have
+   * cleared. Both wait for the recalculation the notice is about.
+   */
+  stale?: boolean | undefined;
   /** An action on its way. */
   busy?: 'lower' | 'close' | 'wider' | undefined;
   /** Which sheet is open, when one is. */
@@ -65,6 +73,7 @@ export function NoQuorumScreen({
   blocked,
   nearMisses = [],
   unlocks = [],
+  stale = false,
   busy,
   asking,
   widerWarning,
@@ -110,6 +119,7 @@ export function NoQuorumScreen({
           <DisplayL>{headline ?? t('noQuorum', 'headline')}</DisplayL>
           {blocked === undefined ? null : <BodyText>{blocked}</BodyText>}
         </Stack>
+        {stale ? <Notice icon="clock">{t('candidates', 'updating')}</Notice> : null}
         {nearMisses.map((card) => (
           <CandidateCard key={card.id} card={card} highlighted={false} />
         ))}
@@ -122,7 +132,8 @@ export function NoQuorumScreen({
                 role="button"
                 aria-label={unlock.title}
                 aria-busy={busy === unlock.kind}
-                disabled={busy !== undefined}
+                aria-disabled={stale || busy !== undefined}
+                disabled={stale || busy !== undefined}
                 onPress={() => onUnlock?.(unlock)}
               >
                 <Stack>

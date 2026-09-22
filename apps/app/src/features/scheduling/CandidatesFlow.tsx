@@ -269,6 +269,7 @@ function LiveCandidates({ id, planId }: { id: string; planId: string }) {
         blocked={blockedBy(data)}
         nearMisses={nearMissesOf(data)}
         unlocks={unlocksOf(data)}
+        stale={data.stale}
         busy={resolution.busy}
         asking={resolution.asking}
         widerWarning={widerWarning(data, resolution.askedAgain)}
@@ -294,7 +295,13 @@ function LiveCandidates({ id, planId }: { id: string; planId: string }) {
       ? chosen
       : data.candidates[0]?.id;
 
-  const remaining = Math.max(0, data.askedCount - data.repliedCount);
+  // From the summaries, which the organiser always sees and which are current,
+  // rather than from the set's `responded_count` — that belongs to the set, and
+  // a set that is behind the plan would have the button naming one person while
+  // the message said the group was waiting on two.
+  const waiting = notAnswered(data);
+  const remaining =
+    data.responded === null ? Math.max(0, data.askedCount - data.repliedCount) : waiting.length;
   return (
     <CandidatesScreen
       header={header}
