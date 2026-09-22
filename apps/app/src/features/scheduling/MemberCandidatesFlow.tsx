@@ -96,7 +96,11 @@ function LiveMember({ code }: { code: string }) {
     <MemberView
       data={data}
       header={headerOf(data)}
-      onChangeMyTimes={() => router.push({ pathname: '/j/[code]', params: { code } })}
+      onChangeMyTimes={
+        data.repliesOpen
+          ? () => router.push({ pathname: '/j/[code]', params: { code } })
+          : undefined
+      }
       onRetry={() => void query.refetch()}
       onBack={back}
     />

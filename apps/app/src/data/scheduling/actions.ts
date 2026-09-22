@@ -8,10 +8,10 @@ import {
 import { invokeFunction, newIdempotencyKey } from '../functions';
 
 /**
- * The two things the no-quorum screen can do about it (spec §5.6).
+ * The three things the no-quorum screen can do about it (spec §5.6).
  *
- * Both are mutations, so both carry an idempotency key (ADR 0016): a second tap
- * on a slow connection is the same request, not a second one.
+ * Each is a mutation, so each carries an idempotency key (ADR 0016): a second
+ * tap on a slow connection is the same request, not a second one.
  */
 
 /**
@@ -44,5 +44,49 @@ export async function closeAttempt(planId: string): Promise<void> {
     'cancel-plan',
     CancelPlanRequest.parse({ idempotency_key: newIdempotencyKey(), plan_id: planId }),
     CancelPlanResponse,
+  );
+}
+
+/**
+ * What asking about more days would cost, without asking about them.
+ *
+ * A wider window is an **invalidating** change: it moves the question, so the
+ * revision bumps and every answer to the old one is cleared (`revise-plan`).
+ * Spec §5.3 is explicit that the organiser sees who that costs **before**
+ * saving, which is what `preview` is for — and the `version` it comes back with
+ * is sent to the save, so an answer arriving in between is refused rather than
+ * quietly costing somebody more than they were shown.
+ */
+export async function previewWiderWindow(
+  planId: string,
+  window: { start: string; end: string },
+): Promise<RevisePlanResponse> {
+  return invokeFunction(
+    'revise-plan',
+    RevisePlanRequest.parse({
+      idempotency_key: newIdempotencyKey(),
+      plan_id: planId,
+      window,
+      preview: true,
+    }),
+    RevisePlanResponse,
+  );
+}
+
+/** Ask about more days, for exactly the preview the organiser was shown. */
+export async function widenWindow(
+  planId: string,
+  window: { start: string; end: string },
+  expectedVersion: string,
+): Promise<void> {
+  await invokeFunction(
+    'revise-plan',
+    RevisePlanRequest.parse({
+      idempotency_key: newIdempotencyKey(),
+      plan_id: planId,
+      window,
+      expected_version: expectedVersion,
+    }),
+    RevisePlanResponse,
   );
 }

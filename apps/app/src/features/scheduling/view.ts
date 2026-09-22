@@ -77,6 +77,26 @@ function namesOf(data: PlanCandidates, userIds: readonly string[]): string[] {
   return userIds.map((id) => names.get(id) ?? t('candidates', 'someone'));
 }
 
+/**
+ * "you, Priya and 4 others" — a plain list of people, capped by the same
+ * names-then-a-count rule as everything else on these screens.
+ */
+export function listOf(names: readonly string[]): string | undefined {
+  return phrase(nameList(names), 'plain');
+}
+
+/** The names of some user ids, with the reader written as "you" and put first. */
+export function namesWithYou(data: PlanCandidates, userIds: readonly string[]): string[] {
+  const mine = data.me !== undefined && userIds.includes(data.me);
+  return [
+    ...(mine ? [t('candidates', 'you')] : []),
+    ...namesOf(
+      data,
+      userIds.filter((id) => id !== data.me),
+    ),
+  ];
+}
+
 /** Who was asked and has not answered, in roster order. */
 export function notAnswered(data: PlanCandidates): string[] {
   if (data.responded === null) return [];
@@ -115,8 +135,15 @@ export function exceptionOf(data: PlanCandidates, row: CandidateRow): string | u
   return t('candidates', 'exception_both', { first, second });
 }
 
-function phrase(list: NameList, kind: 'not' | 'waiting' | 'can'): string | undefined {
-  const key = kind === 'not' ? NOT_KEYS : kind === 'can' ? CAN_KEYS : WAITING_KEYS;
+function phrase(list: NameList, kind: 'not' | 'waiting' | 'can' | 'plain'): string | undefined {
+  const key =
+    kind === 'not'
+      ? NOT_KEYS
+      : kind === 'can'
+        ? CAN_KEYS
+        : kind === 'plain'
+          ? LIST_KEYS
+          : WAITING_KEYS;
   switch (list.kind) {
     case 'none':
       return undefined;
@@ -131,6 +158,12 @@ function phrase(list: NameList, kind: 'not' | 'waiting' | 'can'): string | undef
   }
 }
 
+const LIST_KEYS = {
+  one: 'list_one',
+  two: 'list_two',
+  three: 'list_three',
+  many: 'list_many',
+} as const;
 const NOT_KEYS = { one: 'not_one', two: 'not_two', three: 'not_three', many: 'not_many' } as const;
 const CAN_KEYS = { one: 'can_one', two: 'can_two', three: 'can_three', many: 'can_many' } as const;
 const WAITING_KEYS = {
@@ -177,12 +210,18 @@ export function nearMissesOf(data: PlanCandidates): CardView[] {
 export function headerOf(data: PlanCandidates): HeaderView {
   const replied = data.responded === null ? null : new Set(data.responded);
   const names = new Map(data.roster.map((m) => [m.userId, m.name]));
-  const members: Member[] = data.participants.map((id) => ({
-    name: names.get(id) ?? t('candidates', 'someone'),
-    // Unknown is not "answered": before options exist a member may not read
-    // who has, so nobody is drawn as having replied on a guess.
-    ...(replied === null ? {} : { waiting: !replied.has(id) }),
-  }));
+  // **No marks at all when reply state is not readable.** A mark with no
+  // `waiting` flag is a mark `Marks` draws as answered, so a member looking at
+  // a plan before options exist would have seen six filled squares beside
+  // "1 of 6 replied" — a per-person fact the view deliberately withholds from
+  // them (§5.6). The count beside them is the whole of what they may know.
+  const members: Member[] =
+    replied === null
+      ? []
+      : data.participants.map((id) => ({
+          name: names.get(id) ?? t('candidates', 'someone'),
+          waiting: !replied.has(id),
+        }));
 
   return {
     title: data.title,

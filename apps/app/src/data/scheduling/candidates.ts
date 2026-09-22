@@ -88,6 +88,9 @@ export type PlanCandidates = {
   quorum: number;
   /** `quorum_source = 'chosen'`: the organiser owns the number from here on. */
   quorumChosen: boolean;
+  /** Inclusive local dates — the days being asked about. */
+  windowStart: string;
+  windowEnd: string;
   responseDeadline: string;
   /** Judged by the database's clock, never this device's. */
   repliesOpen: boolean;
@@ -188,7 +191,7 @@ export async function planCandidates(
   const client = authClient();
 
   const columns =
-    'id, short_code, circle_id, title, state, revision, input_version, time_zone, quorum, quorum_source, response_deadline, organiser_user_id';
+    'id, short_code, circle_id, title, state, revision, input_version, time_zone, quorum, quorum_source, window_start, window_end, response_deadline, organiser_user_id';
   const query = client.from('plans').select(columns);
   const { data: plan, error } = await (
     'planId' in key ? query.eq('id', key.planId) : query.eq('short_code', key.code)
@@ -310,6 +313,8 @@ export async function planCandidates(
     inputVersion: plan.input_version,
     quorum: plan.quorum,
     quorumChosen: plan.quorum_source === 'chosen',
+    windowStart: plan.window_start,
+    windowEnd: plan.window_end,
     responseDeadline: plan.response_deadline,
     repliesOpen: ANSWERABLE_STATES.includes(state) && open.data !== null,
     organiserUserId: plan.organiser_user_id,

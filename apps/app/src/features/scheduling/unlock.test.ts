@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { PlanCandidates } from '../../data/scheduling';
 import * as fixture from './fixtures';
-import { blockedBy, lowerTarget, unlocksOf } from './unlock';
+import { blockedBy, lowerTarget, unlocksOf, widerWindow } from './unlock';
 
 function planWith(overrides: Partial<PlanCandidates>): PlanCandidates {
   return { ...fixture.noQuorum, ...overrides };
@@ -77,6 +77,20 @@ describe('what would unlock it', () => {
       nearMisses: [missWith(['maya'], { kind: 'required_missing', userId: 'alex' as never })],
     });
     expect(blockedBy(data)).toContain('Alex');
+  });
+
+  it('runs the window out to the fortnight the domain allows, keeping its first day', () => {
+    // The fixture asks about seven days from 14 September.
+    expect(widerWindow(fixture.noQuorum)).toEqual({ start: '2026-09-14', end: '2026-09-27' });
+    const wider = unlocksOf(fixture.noQuorum).find((u) => u.kind === 'wider');
+    expect(wider?.title).toBe('Try a wider window');
+    expect(wider?.body).toBe('Ask about 14 days instead of 7');
+  });
+
+  it('offers no wider window to a plan already asking about a fortnight', () => {
+    const data = planWith({ windowStart: '2026-09-14', windowEnd: '2026-09-27' });
+    expect(widerWindow(data)).toBeUndefined();
+    expect(unlocksOf(data).map((u) => u.kind)).toEqual(['lower', 'close']);
   });
 
   it('says the quorum rule when that is the one blocking it', () => {

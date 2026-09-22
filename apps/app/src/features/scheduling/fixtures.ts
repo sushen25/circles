@@ -42,6 +42,8 @@ const BASE: PlanCandidates = {
   inputVersion: 5,
   quorum: 4,
   quorumChosen: false,
+  windowStart: '2026-09-14',
+  windowEnd: '2026-09-20',
   responseDeadline: DEADLINE,
   repliesOpen: true,
   organiserUserId: 'maya',

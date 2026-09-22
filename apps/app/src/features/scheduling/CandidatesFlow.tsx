@@ -17,16 +17,19 @@ import * as fixture from './fixtures';
 import { NoQuorumScreen } from './NoQuorumScreen';
 import { useCandidates } from './useCandidates';
 import { useResolution } from './useResolution';
-import { blockedBy, unlocksOf } from './unlock';
+import { blockedBy, unlocksOf, widerWindow } from './unlock';
+import { dateOf } from './words';
 import { nameList } from './names';
 import { WaitingScreen } from './WaitingScreen';
 import {
   cardsOf,
   headerOf,
+  listOf,
   headlineOf,
   leadOf,
   nearMissesOf,
   notAnswered,
+  namesWithYou,
   nudgeOf,
   weekdayOf,
 } from './view';
@@ -127,15 +130,7 @@ function reviewLabel(data: PlanCandidates, selectedId: string | undefined): stri
  * that looks like it is talking about somebody else.
  */
 function stillToAnswer(data: PlanCandidates): string {
-  const names = new Map(data.roster.map((m) => [m.userId, m.name]));
-  const missing = notAnswered(data);
-  const mine = data.me !== undefined && missing.includes(data.me);
-  const waiting = [
-    ...(mine ? [t('waiting', 'you')] : []),
-    ...missing
-      .filter((id) => id !== data.me)
-      .map((id) => names.get(id) ?? t('candidates', 'someone')),
-  ];
+  const waiting = namesWithYou(data, notAnswered(data));
   const list = nameList(waiting);
   switch (list.kind) {
     case 'none':
@@ -149,6 +144,26 @@ function stillToAnswer(data: PlanCandidates): string {
     case 'many':
       return t('waiting', 'still_many', { name: list.a, other: list.b, count: list.rest });
   }
+}
+
+/**
+ * "The plan would run to Sun 4 Oct. It becomes a new question, so everyone who
+ * has answered is asked again: you, Priya and 4 others."
+ *
+ * The names are the ones `revise-plan`'s preview returned, not a list this
+ * screen worked out: §5.3's promise is about what the server will actually do.
+ */
+function widerWarning(data: PlanCandidates, askedAgain: string[] | undefined): string | undefined {
+  if (askedAgain === undefined) return undefined;
+  const day = dateOf(`${widerEnd(data)}T12:00:00.000Z`, 'UTC');
+  const names = listOf(namesWithYou(data, askedAgain));
+  return names === undefined
+    ? t('noQuorum', 'wider_confirm_body_nobody', { day })
+    : t('noQuorum', 'wider_confirm_body', { day, name: names });
+}
+
+function widerEnd(data: PlanCandidates): string {
+  return widerWindow(data)?.end ?? data.windowEnd;
 }
 
 function LiveCandidates({ id, planId }: { id: string; planId: string }) {
@@ -201,7 +216,17 @@ function LiveCandidates({ id, planId }: { id: string; planId: string }) {
   // options exist a member sees nothing of what has come in, which is the
   // view's own rule and not this screen's.
   if (!data.isOrganiser) {
-    return <MemberView data={data} header={header} onChangeMyTimes={toEditor} onBack={back} />;
+    return (
+      <MemberView
+        data={data}
+        header={header}
+        // Only while the plan is still taking answers: `replace_response`
+        // refuses one past the deadline, and the plan sits in an answerable
+        // state after it so the organiser can decide (spec §8).
+        onChangeMyTimes={data.repliesOpen ? toEditor : undefined}
+        onBack={back}
+      />
+    );
   }
 
   if (data.view === 'collecting') {
@@ -245,15 +270,20 @@ function LiveCandidates({ id, planId }: { id: string; planId: string }) {
         nearMisses={nearMissesOf(data)}
         unlocks={unlocksOf(data)}
         busy={resolution.busy}
-        confirming={resolution.confirming}
+        asking={resolution.asking}
+        widerWarning={widerWarning(data, resolution.askedAgain)}
         problem={resolution.problem}
         onUnlock={(unlock) => {
           if (unlock.kind === 'lower') resolution.lower(unlock.quorum);
           else if (unlock.kind === 'close') resolution.askToClose();
+          else if (unlock.kind === 'wider') resolution.askToWiden(unlock.window);
+          // A required member who cannot make it is changed in the editor:
+          // `revise-plan`'s `required_member_ids`, which is S1-26's form.
           else toEdit();
         }}
         onConfirmClose={() => resolution.close()}
-        onKeepOpen={() => resolution.keepOpen()}
+        onConfirmWiden={() => resolution.widen()}
+        onKeepAsItIs={() => resolution.keepAsItIs()}
         onBack={back}
       />
     );

@@ -41,7 +41,9 @@ export function CandidateHeader({ header }: { header: HeaderView }) {
   return (
     <Stack gap={8}>
       <Row>
-        <Marks members={header.members} max={MARKS_MAX} label={header.marksLabel} />
+        {header.members.length === 0 ? null : (
+          <Marks members={header.members} max={MARKS_MAX} label={header.marksLabel} />
+        )}
         <Small>{header.replied}</Small>
       </Row>
       <Small>{header.closes}</Small>

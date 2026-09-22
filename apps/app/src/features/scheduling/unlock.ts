@@ -1,3 +1,5 @@
+import { MAX_WINDOW_DAYS, addDays, localDate, windowDays } from '@circles/domain';
+
 import { t } from '../../copy';
 import type { PlanCandidates } from '../../data/scheduling';
 import { weekdayOf } from './words';
@@ -18,7 +20,17 @@ import { weekdayOf } from './words';
  * - **A quorum that is not lower.** The action exists to unlock a time; an
  *   equal or higher number unlocks nothing and `revise-plan` would refuse it as
  *   `nothing_to_change`.
+ *
+ * "Try a wider window" is the artboard's own row — "Ask about the next two
+ * weeks instead" — rather than a way into the plan editor, and it means one
+ * thing here: run the window out to the fourteen days the domain allows. It is
+ * offered only when there is room, because a plan already asking about a
+ * fortnight has no wider window to try; widening the *hours* is the editor's
+ * (S1-26), which is a form and not one tap.
  */
+
+/** Inclusive local dates, as the plan stores them. `revise-plan` parses them. */
+export type PlanWindow = { start: string; end: string };
 
 /** The smallest meetup the domain allows. `Quorum` in contracts holds the same. */
 export const MIN_QUORUM = 2;
@@ -26,7 +38,7 @@ export const MIN_QUORUM = 2;
 export type Unlock =
   | { kind: 'lower'; quorum: number; title: string; body: string }
   | { kind: 'required'; title: string; body: string }
-  | { kind: 'wider'; title: string; body: string }
+  | { kind: 'wider'; window: PlanWindow; title: string; body: string }
   | { kind: 'close'; title: string; body: string };
 
 /** The member a `required_missing` near-miss names, when that is the rule. */
@@ -58,6 +70,17 @@ export function blockedBy(data: PlanCandidates): string {
   return t('noQuorum', 'body_quorum', { count: data.quorum });
 }
 
+/**
+ * The window run out to the fourteen days the domain allows, keeping the day it
+ * starts on. `undefined` when it is already that wide.
+ */
+export function widerWindow(data: PlanCandidates): PlanWindow | undefined {
+  const start = localDate(data.windowStart);
+  const current = windowDays({ start, end: localDate(data.windowEnd) });
+  if (current >= MAX_WINDOW_DAYS) return undefined;
+  return { start: String(start), end: String(addDays(start, MAX_WINDOW_DAYS - 1)) };
+}
+
 export function unlocksOf(data: PlanCandidates): Unlock[] {
   const unlocks: Unlock[] = [];
 
@@ -87,11 +110,18 @@ export function unlocksOf(data: PlanCandidates): Unlock[] {
     }
   }
 
-  unlocks.push({
-    kind: 'wider',
-    title: t('noQuorum', 'wider_title'),
-    body: t('noQuorum', 'wider_body'),
-  });
+  const wider = widerWindow(data);
+  if (wider !== undefined) {
+    unlocks.push({
+      kind: 'wider',
+      window: wider,
+      title: t('noQuorum', 'wider_title'),
+      body: t('noQuorum', 'wider_body', {
+        count: MAX_WINDOW_DAYS,
+        total: windowDays({ start: localDate(data.windowStart), end: localDate(data.windowEnd) }),
+      }),
+    });
+  }
   unlocks.push({
     kind: 'close',
     title: t('noQuorum', 'close_title'),

@@ -12,6 +12,11 @@ import type { CardView, HeaderView } from './view';
  * no primary here — the one thing a member can still do is change their own
  * times, and it is the only button on the screen.
  *
+ * **It is absent once replies have closed.** A plan stays `collecting` or
+ * `ready` past its deadline so the organiser can decide (spec §8), but
+ * `replace_response` refuses an answer then (`replies_closed`), so offering the
+ * editor would send somebody to a screen they cannot send from.
+ *
  * With no options yet, this is where the spec's "members see nothing until
  * options exist" lands, and §3.5 decides how it reads: waiting for people,
  * never a group that has failed. No near-misses and no resolution actions —
@@ -91,13 +96,15 @@ export function CandidatesMemberScreen({
           <CandidateCard key={card.id} card={card} highlighted={card.recommended} />
         ))}
       </Body>
-      <Foot>
-        <Button
-          label={t('candidatesMember', 'change_my_times')}
-          variant="secondary"
-          onPress={onChangeMyTimes}
-        />
-      </Foot>
+      {onChangeMyTimes === undefined ? null : (
+        <Foot>
+          <Button
+            label={t('candidatesMember', 'change_my_times')}
+            variant="secondary"
+            onPress={onChangeMyTimes}
+          />
+        </Foot>
+      )}
     </Screen>
   );
 }

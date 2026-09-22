@@ -44,13 +44,16 @@ export type NoQuorumProps = {
   nearMisses?: readonly CardView[] | undefined;
   unlocks?: readonly Unlock[] | undefined;
   /** An action on its way. */
-  busy?: 'lower' | 'close' | undefined;
-  /** The close-this-attempt sheet is open. */
-  confirming?: boolean | undefined;
+  busy?: 'lower' | 'close' | 'wider' | undefined;
+  /** Which sheet is open, when one is. */
+  asking?: 'close' | 'wider' | undefined;
+  /** "The plan would run to Sunday. …" — the cost of a wider window. */
+  widerWarning?: string | undefined;
   problem?: string | undefined;
   onUnlock?: ((unlock: Unlock) => void) | undefined;
   onConfirmClose?: (() => void) | undefined;
-  onKeepOpen?: (() => void) | undefined;
+  onConfirmWiden?: (() => void) | undefined;
+  onKeepAsItIs?: (() => void) | undefined;
   onRetry?: (() => void) | undefined;
   onBack?: (() => void) | undefined;
 };
@@ -63,11 +66,13 @@ export function NoQuorumScreen({
   nearMisses = [],
   unlocks = [],
   busy,
-  confirming = false,
+  asking,
+  widerWarning,
   problem,
   onUnlock,
   onConfirmClose,
-  onKeepOpen,
+  onConfirmWiden,
+  onKeepAsItIs,
   onRetry,
   onBack,
 }: NoQuorumProps) {
@@ -131,8 +136,8 @@ export function NoQuorumScreen({
         {problem === undefined ? null : <Notice kind="warn">{problem}</Notice>}
       </Body>
       <Sheet
-        visible={confirming}
-        onDismiss={() => onKeepOpen?.()}
+        visible={asking === 'close'}
+        onDismiss={() => onKeepAsItIs?.()}
         label={t('noQuorum', 'sheet_label')}
         dismissLabel={t('noQuorum', 'dismiss_label')}
       >
@@ -146,12 +151,32 @@ export function NoQuorumScreen({
           disabled={busy === 'close'}
           onPress={onConfirmClose}
         />
-        <Tertiary label={t('noQuorum', 'keep_open')} onPress={onKeepOpen} />
+        <Tertiary label={t('noQuorum', 'keep_open')} onPress={onKeepAsItIs} />
+      </Sheet>
+      <Sheet
+        visible={asking === 'wider'}
+        onDismiss={() => onKeepAsItIs?.()}
+        label={t('noQuorum', 'wider_sheet_label')}
+        dismissLabel={t('noQuorum', 'wider_keep')}
+      >
+        <Stack>
+          <Title>{t('noQuorum', 'wider_confirm_title')}</Title>
+          {widerWarning === undefined ? null : <BodyText>{widerWarning}</BodyText>}
+        </Stack>
+        <Button
+          label={busy === 'wider' ? t('noQuorum', 'widening') : t('noQuorum', 'wider_confirm')}
+          variant="secondary"
+          disabled={busy === 'wider'}
+          onPress={onConfirmWiden}
+        />
+        <Tertiary label={t('noQuorum', 'wider_keep')} onPress={onKeepAsItIs} />
       </Sheet>
     </Screen>
   );
 }
 
 function busyWord(kind: Unlock['kind']): string {
-  return kind === 'close' ? t('noQuorum', 'closing') : t('noQuorum', 'lowering');
+  if (kind === 'close') return t('noQuorum', 'closing');
+  if (kind === 'wider') return t('noQuorum', 'checking');
+  return t('noQuorum', 'lowering');
 }

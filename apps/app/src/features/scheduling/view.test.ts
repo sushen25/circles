@@ -96,10 +96,14 @@ describe('the header', () => {
     expect(header.closes).toMatch(/^Closes /);
   });
 
-  it('claims nothing about reply state it may not read', () => {
+  it('draws no marks at all when reply state is not readable', () => {
+    // A mark with no `waiting` flag is a mark `Marks` fills in, so leaving
+    // them in would have told a member who is not allowed to know that
+    // everybody had answered — beside "1 of 6 replied".
     const header = headerOf(planWith({ responded: null }));
-    expect(header.members.every((m) => m.waiting === undefined)).toBe(true);
+    expect(header.members).toEqual([]);
     expect(header.marksLabel).toBe('6 people were asked');
+    expect(header.replied).toBe('5 of 6 replied');
   });
 
   it('says replies are closed rather than a deadline that has gone', () => {

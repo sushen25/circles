@@ -29,11 +29,15 @@ vi.mock('../../data/links/origin', () => ({ appOrigin: () => 'https://circles.te
 const planCandidates = vi.fn();
 const lowerQuorum = vi.fn();
 const closeAttempt = vi.fn();
+const previewWiderWindow = vi.fn();
+const widenWindow = vi.fn();
 vi.mock('../../data/scheduling', async (original) => ({
   ...(await original<typeof Scheduling>()),
   planCandidates: (...a: unknown[]) => planCandidates(...a),
   lowerQuorum: (...a: unknown[]) => lowerQuorum(...a),
   closeAttempt: (...a: unknown[]) => closeAttempt(...a),
+  previewWiderWindow: (...a: unknown[]) => previewWiderWindow(...a),
+  widenWindow: (...a: unknown[]) => widenWindow(...a),
 }));
 const shareMessage = vi.fn();
 vi.mock('../../platform/share', () => ({
@@ -184,6 +188,42 @@ describe('the organiser, with no overlap', () => {
     await waitFor(() => expect(lowerQuorum).toHaveBeenCalledWith(PLAN, 3));
   });
 
+  it('shows who a wider window costs before asking for it, and saves that preview', async () => {
+    previewWiderWindow.mockResolvedValue({
+      asked_again: ['maya', 'priya', 'tom'],
+      fresh_ask: [],
+      invalidating: ['window'],
+      bumps_revision: true,
+      version: 'v-1',
+    });
+    widenWindow.mockResolvedValue(undefined);
+    show(<CandidatesFlow id={CIRCLE} planId={PLAN} which="no-quorum" />);
+
+    const wider = await screen.findByRole('button', { name: 'Try a wider window' });
+    expect(screen.getByText('Ask about 14 days instead of 7')).toBeTruthy();
+    fireEvent.click(wider);
+
+    // §5.3: exactly who is asked again, before saving — and the reader is "you".
+    expect(await screen.findByText(/asked again: you, Priya and Tom\./)).toBeTruthy();
+    await waitFor(() =>
+      expect(previewWiderWindow).toHaveBeenCalledWith(PLAN, {
+        start: '2026-09-14',
+        end: '2026-09-27',
+      }),
+    );
+    expect(widenWindow).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Ask again' }));
+    // The version the preview came back with, so a plan that moved is refused.
+    await waitFor(() =>
+      expect(widenWindow).toHaveBeenCalledWith(
+        PLAN,
+        { start: '2026-09-14', end: '2026-09-27' },
+        'v-1',
+      ),
+    );
+  });
+
   it('asks before closing the attempt, and blames nobody when it does', async () => {
     closeAttempt.mockResolvedValue(undefined);
     show(<CandidatesFlow id={CIRCLE} planId={PLAN} which="no-quorum" />);
@@ -222,6 +262,34 @@ describe('a member', () => {
     expect(await screen.findByText('Waiting on a few more.')).toBeTruthy();
     expect(screen.queryByText(/have answered/)).toBeNull();
     expect(screen.queryByText(/Still to answer/)).toBeNull();
+  });
+
+  it('is offered no way to change times once replies have closed', async () => {
+    planCandidates.mockResolvedValue({
+      ...fixture.readyAsMember,
+      repliesOpen: false,
+    });
+    show(organiser());
+
+    expect(await screen.findByText('Replies closed')).toBeTruthy();
+    // `replace_response` would refuse the answer, so the editor is not offered.
+    expect(screen.queryByRole('button', { name: 'Change my times' })).toBeNull();
+  });
+
+  it('is shown no marks at all while reply state is not theirs to read', async () => {
+    planCandidates.mockResolvedValue({
+      ...fixture.waiting,
+      me: 'priya',
+      isOrganiser: false,
+      responded: null,
+      repliedCount: 1,
+    });
+    show(organiser());
+
+    expect(await screen.findByText('Waiting on a few more.')).toBeTruthy();
+    expect(screen.getByText('1 of 6 replied')).toBeTruthy();
+    // Six filled squares beside "1 of 6 replied" would say everybody answered.
+    expect(screen.queryAllByRole('img')).toEqual([]);
   });
 
   it("is told the closest it got is nobody's fault", async () => {
