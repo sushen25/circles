@@ -479,9 +479,17 @@ verify_jwt = false
 # it internal). The bearer is `CRON_SECRET`, which is a shared secret and not a
 # Supabase JWT, so the gateway cannot be the thing that checks it — the function
 # does, in constant time, and refuses every call when the secret is unset. This
-# is the same bearer `jobs.invoke_process_scheduled_jobs()` sends, and
-# `process-scheduled-jobs` will want the same line for the same reason (S1-20).
+# is the same bearer `jobs.invoke_process_scheduled_jobs()` sends.
 [functions.recalculate-candidates]
+verify_jwt = false
+
+# The one background worker (ADR 0003, S1-20). `pg_cron` calls it every minute
+# through `pg_net` with the same `CRON_SECRET` bearer, for the same reason as
+# above: a shared secret is not a Supabase JWT, so the gateway would refuse
+# every legitimate call and check nothing. `_shared/internal.ts` compares it in
+# constant time and refuses everything while the secret is unset, which is the
+# safe direction for an endpoint nobody signs in to reach.
+[functions.process-scheduled-jobs]
 verify_jwt = false
 
 # The two links in an email. Opened by somebody who may have no account and no
