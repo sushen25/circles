@@ -14,8 +14,13 @@ const baseURL = `http://localhost:${PORT}`;
  * S1 grows this into the full journey in mobile Safari/Chrome *and* the
  * WhatsApp/Messenger in-app-browser user agents (architecture §16).
  */
+// Which build this suite needs, for `tests/expect-build-mode.ts` below.
+process.env['EXPECTED_BUILD_MODE'] = 'smoke';
+process.env['BUILD_MODE_URL'] = `${baseURL}/build-mode.json`;
+
 export default defineConfig({
   testDir: 'tests/e2e-web',
+  globalSetup: './tests/expect-build-mode.ts',
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,

@@ -21,8 +21,13 @@ const baseURL = `http://localhost:${PORT}`;
  * needs WebKit, which CI does not install today, and is on S1-31 with the rest
  * of the user-agent matrix.
  */
+// Which build this suite needs, for `tests/expect-build-mode.ts` below.
+process.env['EXPECTED_BUILD_MODE'] = 'live';
+process.env['BUILD_MODE_URL'] = `${baseURL}/build-mode.json`;
+
 export default defineConfig({
   testDir: 'tests/e2e-live',
+  globalSetup: './tests/expect-build-mode.ts',
   // One stack, one set of per-address rate counters: parallel workers would be
   // measuring each other.
   fullyParallel: false,

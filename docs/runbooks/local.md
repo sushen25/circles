@@ -66,6 +66,31 @@ before `make check` or `make test-live`: the suite reuses a server already on
 8082, whatever build it is serving. `dev-down` stops only `node` processes
 listening on those ports, so anything else of yours on them is left alone.
 
+### One build directory, and what stops you serving the wrong one
+
+`make dev-live`, the live e2e suite and the smoke suite all export into
+`apps/app/dist`, and the smoke suite exports with the Supabase variables
+deliberately blank — a fixture journey that could reach a backend is not a
+fixture journey. `expo serve` needs a real project root, so the three cannot
+have separate directories without a second copy of the app; whichever exported
+last owns it.
+
+That used to be silent, and it cost two afternoons: a plan link that let anybody
+straight into the availability editor without asking for a name (the fixture
+build, so no membership gate), and a check whose ninety live tests all failed
+against a dev server Playwright had reused.
+
+Each export now stamps `dist/client/build-mode.json`, and two things read it:
+
+- **`make dev-live` stops** when something else exports over its build, saying
+  so. A server that has exited is one you can see has exited; a server quietly
+  handing you the fixture app is not. Start it again once the check is done.
+- **Each suite refuses** a server serving the other's build, before its first
+  test, naming what is actually there.
+
+So: don't run `make check` and `make dev-live` at once — and if you do, nothing
+lies to you about which app you are looking at.
+
 ### The ports follow the checkout
 
 Every port above is the default because this checkout's `supabase/config.toml`

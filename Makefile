@@ -79,7 +79,7 @@ setup: ## First run: Corepack, dependencies, packages built, stack up, app env w
 dev: up env build ## Stack up, env written, then the web app on http://localhost:$(WEB_PORT) (Metro, live reload)
 	$(PNPM) --filter app exec expo start --web --port $(WEB_PORT)
 
-dev-live: up ## A production-style export against the stack, on http://localhost:$(LIVE_PORT) (what the live e2e suite serves)
+dev-live: up build ## A production-style export against the stack, on http://localhost:$(LIVE_PORT) (what the live e2e suite serves)
 	node scripts/e2e-live-serve.mjs $(LIVE_PORT)
 
 dev-down: ## Stop every local environment: this checkout's app servers, then its stack (data kept)
@@ -98,6 +98,12 @@ env: ## Write apps/app/.env.local from the running stack (otherwise the app runs
 		> $(ENV_FILE)
 	@echo 'EXPO_PUBLIC_APP_ORIGIN=http://localhost:$(WEB_PORT)' >> $(ENV_FILE)
 	@echo "wrote $(ENV_FILE) (restart the dev server if it was running)"
+
+# `build` first, like `dev`: the app imports @circles/domain and @circles/contracts
+# from their `dist`, which is gitignored and does not follow a branch switch. An
+# export against a stale one is a bundle that calls a function the package it
+# bundled does not export — a blank screen and a TypeError in the console, from
+# code that is correct on both branches.
 
 # --- The stack ----------------------------------------------------------------
 
