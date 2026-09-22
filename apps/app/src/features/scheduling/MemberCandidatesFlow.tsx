@@ -5,7 +5,7 @@ import { useEffect, useRef } from 'react';
 import { track } from '../../analytics/track';
 import { hasBackend } from '../../data/auth/client';
 import { isOffline } from '../identity/join/failure';
-import { MemberView } from './CandidatesFlow';
+import { MemberView } from './MemberView';
 import { CandidatesMemberScreen } from './CandidatesMemberScreen';
 import * as fixture from './fixtures';
 import { useCandidates } from './useCandidates';

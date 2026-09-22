@@ -28,6 +28,7 @@ vi.mock('../../data/links/origin', () => ({ appOrigin: () => 'https://circles.te
 
 const planCandidates = vi.fn();
 const lowerQuorum = vi.fn();
+const previewQuorum = vi.fn();
 const closeAttempt = vi.fn();
 const previewWiderWindow = vi.fn();
 const widenWindow = vi.fn();
@@ -35,6 +36,7 @@ vi.mock('../../data/scheduling', async (original) => ({
   ...(await original<typeof Scheduling>()),
   planCandidates: (...a: unknown[]) => planCandidates(...a),
   lowerQuorum: (...a: unknown[]) => lowerQuorum(...a),
+  previewQuorum: (...a: unknown[]) => previewQuorum(...a),
   closeAttempt: (...a: unknown[]) => closeAttempt(...a),
   previewWiderWindow: (...a: unknown[]) => previewWiderWindow(...a),
   widenWindow: (...a: unknown[]) => widenWindow(...a),
@@ -196,12 +198,35 @@ describe('the organiser, with no overlap', () => {
 
   it("lowers the quorum, and says the number becomes the plan's own", async () => {
     lowerQuorum.mockResolvedValue(undefined);
+    previewQuorum.mockResolvedValue({
+      asked_again: [],
+      fresh_ask: [],
+      invalidating: [],
+      bumps_revision: false,
+      version: 'v-7',
+    });
     show(<CandidatesFlow id={CIRCLE} planId={PLAN} which="no-quorum" />);
 
     const lower = await screen.findByRole('button', { name: /^Lower to 3 people\./ });
     expect(screen.getByText(/keeps 3 as its number/)).toBeTruthy();
     fireEvent.click(lower);
-    await waitFor(() => expect(lowerQuorum).toHaveBeenCalledWith(PLAN, 3));
+    // Conditional on the version, because the decision is permanent.
+    await waitFor(() => expect(lowerQuorum).toHaveBeenCalledWith(PLAN, 3, 'v-7'));
+  });
+
+  it('refuses to lower the quorum to a number the plan has already left behind', async () => {
+    lowerQuorum.mockResolvedValue(undefined);
+    show(<CandidatesFlow id={CIRCLE} planId={PLAN} which="no-quorum" />);
+    const lower = await screen.findByRole('button', { name: /^Lower to 3 people\./ });
+
+    // The answer that landed between the render and the tap: the closest time
+    // is eligible on its own now, and lowering would be permanent and pointless.
+    planCandidates.mockResolvedValue(fixture.ready);
+    fireEvent.click(lower);
+
+    expect(await screen.findByText(/Somebody answered while that was open/)).toBeTruthy();
+    expect(previewQuorum).not.toHaveBeenCalled();
+    expect(lowerQuorum).not.toHaveBeenCalled();
   });
 
   it('shows who a wider window costs before asking for it, and saves that preview', async () => {

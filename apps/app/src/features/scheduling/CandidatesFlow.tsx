@@ -8,31 +8,18 @@ import { t } from '../../copy';
 import { hasBackend } from '../../data/auth/client';
 import { appOrigin } from '../../data/links/origin';
 import { planLink } from '../../data/planning';
-import type { PlanCandidates } from '../../data/scheduling';
 import { shareMessage } from '../../platform/share';
 import { isOffline } from '../identity/join/failure';
-import { CandidatesMemberScreen } from './CandidatesMemberScreen';
 import { CandidatesScreen } from './CandidatesScreen';
-import * as fixture from './fixtures';
+import { FixtureCandidates, type CandidatesRoute } from './FixtureCandidates';
+import { MemberView } from './MemberView';
 import { NoQuorumScreen } from './NoQuorumScreen';
+import { reviewLabel, stillToAnswer, widerWarning } from './lines';
+import { blockedBy, unlocksOf } from './unlock';
 import { useCandidates } from './useCandidates';
 import { useResolution } from './useResolution';
-import { blockedBy, unlocksOf, widerWindow } from './unlock';
-import { dateOf } from './words';
-import { nameList } from './names';
+import { cardsOf, headerOf, headlineOf, leadOf, nearMissesOf, notAnswered, nudgeOf } from './view';
 import { WaitingScreen } from './WaitingScreen';
-import {
-  cardsOf,
-  headerOf,
-  listOf,
-  headlineOf,
-  leadOf,
-  nearMissesOf,
-  notAnswered,
-  namesWithYou,
-  nudgeOf,
-  weekdayOf,
-} from './view';
 
 /**
  * `/circles/:id/plan/:planId/{candidates,waiting,no-quorum}` — the organiser's
@@ -48,8 +35,6 @@ import {
  * A member who follows this link sees the member screen: everyone in the
  * circle may see the options, and only the organiser may confirm (§5.6).
  */
-export type CandidatesRoute = 'candidates' | 'waiting' | 'no-quorum';
-
 export function CandidatesFlow({
   id,
   planId,
@@ -64,106 +49,6 @@ export function CandidatesFlow({
   ) : (
     <FixtureCandidates which={which} />
   );
-}
-
-function FixtureCandidates({ which }: { which: CandidatesRoute }) {
-  const router = useRouter();
-  const back = () => router.back();
-  const data =
-    which === 'waiting'
-      ? fixture.waiting
-      : which === 'no-quorum'
-        ? fixture.noQuorum
-        : fixture.ready;
-
-  if (which === 'waiting') {
-    return (
-      <WaitingScreen
-        header={headerOf(data)}
-        headline={t('waiting', 'headline')}
-        body={t('waiting', 'body', { count: data.quorum })}
-        answered={t('waiting', 'answered', { count: data.repliedCount, total: data.askedCount })}
-        still={stillToAnswer(data)}
-        onBack={back}
-      />
-    );
-  }
-  if (which === 'no-quorum') {
-    return (
-      <NoQuorumScreen
-        header={headerOf(data)}
-        blocked={blockedBy(data)}
-        nearMisses={nearMissesOf(data)}
-        unlocks={unlocksOf(data)}
-        onBack={back}
-      />
-    );
-  }
-  return (
-    <CandidatesScreen
-      header={headerOf(data)}
-      headline={headlineOf(data)}
-      lead={leadOf(data)}
-      cards={cardsOf(data)}
-      selectedId={data.candidates[0]?.id}
-      reviewLabel={reviewLabel(data, data.candidates[0]?.id)}
-      nudgeLabel={nudgeOf(data)}
-      onNext={() => router.push('/circles/sunday-crew/plan/thu-17/review')}
-      onBack={back}
-    />
-  );
-}
-
-/** "Review Thursday" for whichever option is selected. */
-function reviewLabel(data: PlanCandidates, selectedId: string | undefined): string | undefined {
-  const row = data.candidates.find((c) => c.id === selectedId);
-  if (row === undefined) return undefined;
-  return t('candidates', 'review', { day: weekdayOf(row.startsAt, data.zone) });
-}
-
-/**
- * "Still to answer: you and Tom."
- *
- * The reader is named "you" and put first: the organiser is usually one of the
- * people being asked (ADR 0026 has them answer their own plan right after
- * sharing it), and a screen that reads their own name back at them is a screen
- * that looks like it is talking about somebody else.
- */
-function stillToAnswer(data: PlanCandidates): string {
-  const waiting = namesWithYou(data, notAnswered(data));
-  const list = nameList(waiting);
-  switch (list.kind) {
-    case 'none':
-      return t('waiting', 'still_none');
-    case 'one':
-      return t('waiting', 'still_one', { name: list.a });
-    case 'two':
-      return t('waiting', 'still_two', { name: list.a, other: list.b });
-    case 'three':
-      return t('waiting', 'still_three', { name: list.a, other: list.b, third: list.c });
-    case 'many':
-      return t('waiting', 'still_many', { name: list.a, other: list.b, count: list.rest });
-  }
-}
-
-/**
- * "The plan would run to Sun 4 Oct. It becomes a new question, so everyone who
- * has answered is asked again: you, Priya and 4 others."
- *
- * The names are the ones `revise-plan`'s preview returned, not a list this
- * screen worked out: §5.3's promise is about what the server will actually do.
- */
-function widerWarning(data: PlanCandidates, askedAgain: string[] | undefined): string | undefined {
-  if (askedAgain === undefined) return undefined;
-  const day = dateOf(`${widerEnd(data)}T12:00:00.000Z`, 'UTC');
-  const names = listOf(namesWithYou(data, askedAgain));
-  return names === undefined
-    ? t('noQuorum', 'wider_confirm_body_nobody', { day })
-    : t('noQuorum', 'wider_confirm_body', { day, name: names });
-}
-
-function widerEnd(data: PlanCandidates): string {
-  return widerWindow(data)?.end ?? data.windowEnd;
 }
 
 function LiveCandidates({ id, planId }: { id: string; planId: string }) {
@@ -312,6 +197,11 @@ function LiveCandidates({ id, planId }: { id: string; planId: string }) {
       reviewLabel={reviewLabel(data, selectedId)}
       nudgeLabel={nudgeOf(data)}
       stale={data.stale}
+      // A refusal from the no-quorum screen can land here: lowering the quorum
+      // is refused precisely when an answer has just made the plan ready, and
+      // the organiser should be told why the tap did nothing rather than only
+      // shown a screen that changed under them.
+      problem={resolution.problem}
       onSelect={(next) => {
         setChosen(next);
         const rank = data.candidates.find((c) => c.id === next)?.rank;
@@ -352,56 +242,4 @@ function LiveCandidates({ id, planId }: { id: string; planId: string }) {
   );
 }
 
-/** What a member sees, on either door. */
-export function MemberView({
-  data,
-  header,
-  onChangeMyTimes,
-  onRetry,
-  onBack,
-}: {
-  data: PlanCandidates;
-  header: ReturnType<typeof headerOf>;
-  onChangeMyTimes?: (() => void) | undefined;
-  onRetry?: (() => void) | undefined;
-  onBack?: (() => void) | undefined;
-}) {
-  const organiser = data.roster.find((m) => m.userId === data.organiserUserId);
-
-  if (data.view === 'ready') {
-    return (
-      <CandidatesMemberScreen
-        header={header}
-        headline={headlineOf(data)}
-        lead={
-          organiser === undefined
-            ? t('candidatesMember', 'lead_no_organiser')
-            : t('candidatesMember', 'lead_organiser', { name: organiser.name })
-        }
-        cards={cardsOf(data)}
-        // The same warning the organiser gets: what is on screen was worked
-        // out before the newest answer, and a member has no other way to know.
-        stale={data.stale}
-        onChangeMyTimes={onChangeMyTimes}
-        onRetry={onRetry}
-        onBack={onBack}
-      />
-    );
-  }
-
-  const overlap = data.view === 'no_quorum';
-  return (
-    <CandidatesMemberScreen
-      header={header}
-      headline={t('candidatesMember', overlap ? 'no_overlap_headline' : 'waiting_headline')}
-      lead={
-        overlap
-          ? t('candidatesMember', 'no_overlap_body')
-          : t('candidatesMember', 'waiting_body', { count: data.quorum })
-      }
-      onChangeMyTimes={onChangeMyTimes}
-      onRetry={onRetry}
-      onBack={onBack}
-    />
-  );
-}
+export type { CandidatesRoute };

@@ -15,6 +15,26 @@ import { invokeFunction, newIdempotencyKey } from '../functions';
  */
 
 /**
+ * The version the plan is at, asked for without changing anything.
+ *
+ * `preview` answers the re-ask question for an edit that has one; a quorum has
+ * none — it costs nobody a second reply — so what this is for is the `version`
+ * it comes back with. That token is what makes the next call conditional.
+ */
+export async function previewQuorum(planId: string, quorum: number): Promise<RevisePlanResponse> {
+  return invokeFunction(
+    'revise-plan',
+    RevisePlanRequest.parse({
+      idempotency_key: newIdempotencyKey(),
+      plan_id: planId,
+      quorum,
+      preview: true,
+    }),
+    RevisePlanResponse,
+  );
+}
+
+/**
  * Lower the quorum, which is how "Lower to N people" unlocks the closest time.
  *
  * `revise-plan` runs the engine after a save, so the set the screen refetches
@@ -22,14 +42,26 @@ import { invokeFunction, newIdempotencyKey } from '../functions';
  * writes `quorum_source = 'chosen'`, so from here on the number is the
  * organiser's and stops following the circle (ADR 0026); the copy on the action
  * says so, because it is not "lower it for now".
+ *
+ * **Conditional on `expectedVersion`**, because this one is permanent. The
+ * number on the button is the attendance of a near-miss, and an answer landing
+ * between the render and the tap can make that near-miss eligible on its own —
+ * at which point lowering the quorum is a decision about an option that no
+ * longer exists, taken for ever. Send the version the preview came back with
+ * and a plan that has moved is refused instead.
  */
-export async function lowerQuorum(planId: string, quorum: number): Promise<void> {
+export async function lowerQuorum(
+  planId: string,
+  quorum: number,
+  expectedVersion: string,
+): Promise<void> {
   await invokeFunction(
     'revise-plan',
     RevisePlanRequest.parse({
       idempotency_key: newIdempotencyKey(),
       plan_id: planId,
       quorum,
+      expected_version: expectedVersion,
     }),
     RevisePlanResponse,
   );

@@ -197,9 +197,12 @@ route only picks which fixture to show with no backend. The read is
 `data/scheduling` (`candidate_sets` + `candidates` + `plan_participants` +
 `response_summaries`, all under RLS, no function), refetched on focus and every
 twenty seconds — three while a recalculation is known to be in flight. The four
-screens are presentational and take worked-out strings from `view.ts`; the
-sentences about names are `names.ts` (up to three, then a count — ADR 0012) and
-the no-quorum actions are `unlock.ts`, which never offers a quorum below two.
+screens are presentational and take worked-out strings: `cards.ts` for an
+option, `view.ts` for the header and the lines around it, `lines.ts` for the
+ones a flow assembles, and `sentences.ts` for the one rule all of them use to
+name people (`names.ts`: up to three, then a count — ADR 0012). The no-quorum
+actions are `unlock.ts`, which never offers a quorum below two and never a
+wider window a re-ask could not be answered in.
 A member at `/p/[code]` sees the options and "Change my times"; the organiser is
 sent to their own route. `DeadlinePassed` is still a fixture (Slice 2), and
 "Review <weekday>" leads to the fixture `ConfirmReview` with the chosen

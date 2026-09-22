@@ -6,8 +6,16 @@ import { useState } from 'react';
 import { track } from '../../analytics/track';
 import { t } from '../../copy';
 import { FunctionError } from '../../data/functions';
-import { closeAttempt, lowerQuorum, previewWiderWindow, widenWindow } from '../../data/scheduling';
+import {
+  closeAttempt,
+  lowerQuorum,
+  planCandidates,
+  previewQuorum,
+  previewWiderWindow,
+  widenWindow,
+} from '../../data/scheduling';
 import { isOffline } from '../identity/join/failure';
+import { lowerTarget } from './unlock';
 
 /**
  * The three resolutions the no-quorum screen can carry out (spec §5.6).
@@ -45,8 +53,12 @@ export type Resolution = {
   widen: () => void;
 };
 
+/** The options moved between the render and the tap. Not a server refusal. */
+class OptionsMoved extends Error {}
+
 function problemOf(error: unknown): string {
   if (isOffline()) return t('noQuorum', 'youre_offline');
+  if (error instanceof OptionsMoved) return t('noQuorum', 'problem_stale');
   if (!(error instanceof FunctionError)) return t('noQuorum', 'problem_generic');
   switch (error.reason) {
     case 'not_the_organiser':
@@ -85,7 +97,24 @@ export function useResolution({
   const again = () => client.invalidateQueries({ queryKey: ['plan-candidates', planId] });
 
   const lowering = useMutation({
-    mutationFn: (quorum: number) => lowerQuorum(planId, quorum),
+    /**
+     * Read the plan again first, and only lower it to the number that is still
+     * the right one.
+     *
+     * The button's number is the attendance of a near-miss, and the screen is
+     * as old as the last poll: an answer landing in between can make that
+     * near-miss eligible on its own, or move which near-miss is closest. The
+     * `expected_version` from the preview closes the window between this check
+     * and the save; this check closes the one before it, which no token can.
+     */
+    mutationFn: async (quorum: number) => {
+      const now = await planCandidates({ planId });
+      if (now === null || now.view !== 'no_quorum' || lowerTarget(now) !== quorum) {
+        throw new OptionsMoved();
+      }
+      const preview = await previewQuorum(planId, quorum);
+      await lowerQuorum(planId, quorum, preview.version);
+    },
     onSuccess: () => {
       // A quorum change moves what is eligible, not what anybody was asked, so
       // it costs nobody a second reply (`revise-plan`'s `invalidatingChanges`).
@@ -93,7 +122,12 @@ export function useResolution({
       setProblem(undefined);
       void again();
     },
-    onError: (error) => setProblem(problemOf(error)),
+    // Whatever moved, the screen has to show it: the read that refused this
+    // is newer than the one on screen.
+    onError: (error) => {
+      setProblem(problemOf(error));
+      void again();
+    },
   });
 
   const closing = useMutation({

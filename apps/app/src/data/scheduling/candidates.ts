@@ -1,10 +1,4 @@
-import {
-  ANSWERABLE_STATES,
-  type ExplanationCode,
-  type NearMissReason,
-  type PlanState,
-  type UserId,
-} from '@circles/domain';
+import { ANSWERABLE_STATES, type PlanState } from '@circles/domain';
 
 import { authClient } from '../auth/client';
 
@@ -26,30 +20,10 @@ import { authClient } from '../auth/client';
 
 const FAILED = 'candidates lookup failed';
 
-/** Which screen the plan is on (S1-16's four states). */
-export type SchedulingView = 'ready' | 'no_quorum' | 'collecting' | 'closed';
+import { codeOf, reasonOf, viewOf, type CandidateRow, type SchedulingView } from './rows';
 
-export type CandidateRow = {
-  /**
-   * The candidate's id **is its start instant** as ISO, not the row id:
-   * `confirm-meetup` takes it that way and it survives a recalculation, which
-   * a row id would not (S1-16).
-   */
-  id: string;
-  startsAt: string;
-  endsAt: string;
-  rank: number;
-  /**
-   * In the plan's audience order, and never a non-responder — the dashed marks
-   * are people who have not answered and are never inside "can make it" (§5.6).
-   */
-  availableUserIds: string[];
-  /** `null` when the database holds a code this build does not know. */
-  explanationCode: ExplanationCode | null;
-  explanationCount: number;
-  /** One rule, not a list. Only ever set on a near-miss. */
-  nearMissReason: NearMissReason | null;
-};
+export type { CandidateRow, SchedulingView };
+export { reasonOf, viewOf };
 
 export type RosterMember = {
   userId: string;
@@ -117,7 +91,15 @@ export type PlanCandidates = {
    * has answered is the organiser's to chase, not the circle's to watch").
    */
   responded: string[] | null;
-  /** The engine's own count, which is readable even when the summaries are not. */
+  /**
+   * How many of the audience have answered.
+   *
+   * From the summaries when they are readable, and from the set's own
+   * `responded_count` only when they are not. The set's count belongs to the
+   * set: between an answer committing and a recalculation storing the next
+   * one, it is one behind, and the header would have said "4 of 6 replied"
+   * beside names and a nudge that knew about five.
+   */
   repliedCount: number;
   askedCount: number;
   set: CandidateSetRead | null;
@@ -132,59 +114,6 @@ export type PlanCandidates = {
   view: SchedulingView;
 };
 
-/**
- * Codes this build knows. Written as an exhaustive record rather than a list,
- * so that a code added to the engine fails to compile here instead of arriving
- * on a screen with no sentence for it.
- */
-const KNOWN_CODES: Record<ExplanationCode, true> = {
-  best_attendance: true,
-  same_attendance_weekend: true,
-  same_attendance_sooner: true,
-  same_attendance_later: true,
-  one_fewer_weekend: true,
-  one_fewer_sooner: true,
-  one_fewer_later: true,
-  also_n_sooner: true,
-  also_n_later: true,
-  closest: true,
-};
-
-function codeOf(value: string): ExplanationCode | null {
-  return Object.hasOwn(KNOWN_CODES, value) ? (value as ExplanationCode) : null;
-}
-
-/** The stored reason, or `null` for anything this build cannot read. */
-export function reasonOf(value: unknown): NearMissReason | null {
-  if (typeof value !== 'object' || value === null) return null;
-  const kind = (value as { kind?: unknown }).kind;
-  if (kind === 'quorum_short') {
-    const by = (value as { by?: unknown }).by;
-    return typeof by === 'number' ? { kind: 'quorum_short', by } : null;
-  }
-  if (kind === 'required_missing') {
-    const userId = (value as { userId?: unknown }).userId;
-    // The engine's own branded id; the database stores it as a plain uuid.
-    return typeof userId === 'string'
-      ? { kind: 'required_missing', userId: userId as unknown as UserId }
-      : null;
-  }
-  return null;
-}
-
-/** Which of the four states the plan is in, from the rows a screen will show. */
-export function viewOf(
-  state: PlanState,
-  candidates: readonly CandidateRow[],
-  nearMisses: readonly CandidateRow[],
-): SchedulingView {
-  if (!ANSWERABLE_STATES.includes(state)) return 'closed';
-  if (candidates.length > 0) return 'ready';
-  if (nearMisses.length > 0) return 'no_quorum';
-  return 'collecting';
-}
-
-/** The plan behind an id, or behind its short code. `null` when it is neither. */
 export async function planCandidates(
   key: { planId: string } | { code: string },
 ): Promise<PlanCandidates | null> {
@@ -277,12 +206,17 @@ export async function planCandidates(
         startsAt: row.starts_at,
         endsAt: row.ends_at,
         rank: row.rank,
-        // Re-sorted into the audience's order, so the marks under a card sit in
-        // the same order as the marks in the header. The engine stores them in
-        // that order already; this makes it true whatever it stored.
-        availableUserIds: [...row.available_user_ids].sort(
-          (a, b) => (order.get(a) ?? 0) - (order.get(b) ?? 0),
-        ),
+        // Filtered to the audience and sorted into its order.
+        //
+        // **Filtered**, because a stored set outlives the roster: a member
+        // removed after it was written is still in its `available_user_ids`
+        // until the recalculation runs, and a card counting them said "5 of 4
+        // can make it" — and named somebody the circle no longer holds.
+        // Sorted, so the marks under a card sit in the same order as the marks
+        // in the header, whatever order the engine stored.
+        availableUserIds: row.available_user_ids
+          .filter((id) => order.has(id))
+          .sort((a, b) => (order.get(a) ?? 0) - (order.get(b) ?? 0)),
         explanationCode: codeOf(row.explanation_code),
         explanationCount: row.explanation_count,
         nearMissReason: row.is_near_miss ? reasonOf(row.near_miss_reason) : null,
@@ -329,7 +263,7 @@ export async function planCandidates(
     responded: summariesVisible
       ? summaries.data.flatMap((r) => (r.user_id === null ? [] : [r.user_id]))
       : null,
-    repliedCount: set?.responded_count ?? 0,
+    repliedCount: summariesVisible ? summaries.data.length : (set?.responded_count ?? 0),
     askedCount: audience.length,
     set:
       set === undefined
