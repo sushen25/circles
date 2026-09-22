@@ -18,8 +18,12 @@ import { planCandidates, type PlanCandidates } from '../../data/scheduling';
  * - **A stale set.** The stored set was computed from an older input than the
  *   plan has now, so a recalculation is already on its way; three seconds is
  *   how long the screen waits to see it rather than twenty.
- * - **Nothing at all yet.** A plan whose first answer has not landed has no
- *   set, and the waiting screen is the one somebody sits on watching.
+ * - **An answer with no set behind it.** The first reply has landed and the
+ *   first calculation has not finished, so there is nothing to be stale: the
+ *   waiting screen would otherwise sit on "nobody has answered yet" for up to
+ *   twenty seconds after the options existed. A plan with no answers at all is
+ *   not this case — there is nothing on its way — and polls at the ordinary
+ *   interval.
  */
 export const CANDIDATES_POLL_MS = 20_000;
 
@@ -29,7 +33,8 @@ export const STALE_POLL_MS = 3_000;
 function intervalFor(data: PlanCandidates | null | undefined): number | false {
   if (data === undefined || data === null) return false;
   if (data.view === 'closed') return false;
-  return data.stale ? STALE_POLL_MS : CANDIDATES_POLL_MS;
+  const answeredButUncounted = data.set === null && (data.responded?.length ?? 0) > 0;
+  return data.stale || answeredButUncounted ? STALE_POLL_MS : CANDIDATES_POLL_MS;
 }
 
 export function useCandidates(

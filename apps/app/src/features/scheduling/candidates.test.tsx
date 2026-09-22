@@ -48,7 +48,7 @@ vi.mock('../../platform/share', () => ({
 }));
 
 const { CandidatesFlow } = await import('./CandidatesFlow');
-const { CANDIDATES_POLL_MS } = await import('./useCandidates');
+const { CANDIDATES_POLL_MS, STALE_POLL_MS } = await import('./useCandidates');
 const fixture = await import('./fixtures');
 
 const CIRCLE = 'sunday-crew';
@@ -146,6 +146,28 @@ describe('the organiser, with options', () => {
     await waitFor(() => expect(shareMessage).toHaveBeenCalled());
     // One person is named, so the message has to say one reply.
     expect(shareMessage.mock.calls[0]?.[0] as string).toContain('1 reply');
+  });
+
+  it('reads again quickly while an answer has landed and no set has caught up', async () => {
+    // The first reply is in and the first calculation has not finished: the
+    // waiting screen would otherwise sit on it for twenty seconds.
+    planCandidates.mockResolvedValue({
+      ...fixture.waiting,
+      set: null,
+      responded: ['maya'],
+      repliedCount: 1,
+    });
+    vi.useFakeTimers();
+    try {
+      show(<CandidatesFlow id={CIRCLE} planId={PLAN} which="waiting" />);
+      await vi.waitFor(() => expect(planCandidates).toHaveBeenCalledTimes(1));
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(STALE_POLL_MS + 100);
+      });
+      expect(planCandidates.mock.calls.length).toBeGreaterThan(1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('reads again while it is open', async () => {
@@ -415,6 +437,18 @@ describe('a member', () => {
     expect(screen.getByText('1 of 6 replied')).toBeTruthy();
     // Six filled squares beside "1 of 6 replied" would say everybody answered.
     expect(screen.queryAllByRole('img')).toEqual([]);
+  });
+
+  it('is never told there was no overlap from a set the plan has moved past', async () => {
+    planCandidates.mockResolvedValue({
+      ...fixture.noQuorum,
+      me: 'priya',
+      isOrganiser: false,
+      stale: true,
+    });
+    show(organiser());
+
+    expect(await screen.findByText(/Someone just answered/)).toBeTruthy();
   });
 
   it("is told the closest it got is nobody's fault", async () => {

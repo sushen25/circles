@@ -57,6 +57,11 @@ export function MemberView({
           ? t('candidatesMember', 'no_overlap_body')
           : t('candidatesMember', 'waiting_body', { count: data.quorum })
       }
+      // The same warning the ready view gets. An old no-quorum set outlives
+      // the answer that may already have broken the deadlock, and "there
+      // wasn't enough overlap" is the one sentence on these screens that must
+      // never be said before it is true.
+      stale={data.stale}
       onChangeMyTimes={onChangeMyTimes}
       onRetry={onRetry}
       onBack={onBack}
