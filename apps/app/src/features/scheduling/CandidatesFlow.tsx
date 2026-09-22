@@ -1,5 +1,5 @@
 import type { CircleId, PlanId } from '@circles/contracts';
-import { EN_SHARE_TEMPLATES, newPlanMessage, waitingMessage } from '@circles/domain';
+import { EN_SHARE_TEMPLATES, waitingMessage } from '@circles/domain';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 
@@ -97,6 +97,19 @@ function LiveCandidates({ id, planId }: { id: string; planId: string }) {
     return <CandidatesScreen state="expired" header={header} onBack={back} />;
   }
 
+  // How many replies are still out, from the summaries the organiser always
+  // sees rather than from the set's own count — that belongs to the set, and a
+  // set one answer behind would have a message saying so.
+  const waiting = notAnswered(data);
+  const remaining =
+    data.responded === null ? Math.max(0, data.askedCount - data.repliedCount) : waiting.length;
+  const ids = { circle_id: id as CircleId, plan_id: data.planId as PlanId };
+  const shared = (kind: 'plan' | 'reminder') => (result: string) => {
+    if (result === 'sheet' || result === 'dismissed' || result === 'copied') {
+      track('share_opened', { ...ids, kind });
+    }
+  };
+
   // Everybody sees the options; only the organiser decides (§5.6). Before
   // options exist a member sees nothing of what has come in, which is the
   // view's own rule and not this screen's.
@@ -126,20 +139,12 @@ function LiveCandidates({ id, planId }: { id: string; planId: string }) {
         answered={t('waiting', 'answered', { count: data.repliedCount, total: data.askedCount })}
         still={stillToAnswer(data)}
         onShareAgain={() => {
-          const message = newPlanMessage({
-            circleName: data.circleName,
-            url: link,
-            templates: EN_SHARE_TEMPLATES,
-          });
-          void shareMessage(message).then((result) => {
-            if (result === 'sheet' || result === 'dismissed' || result === 'copied') {
-              track('share_opened', {
-                circle_id: id as CircleId,
-                plan_id: data.planId as PlanId,
-                kind: 'plan',
-              });
-            }
-          });
+          // The waiting message, not the original ask: the link has already
+          // been in the chat, and `waitingMessage` is the domain's sentence
+          // for exactly this screen — "a count, never names", because a
+          // message pasted into a group chat is read by everyone.
+          const message = waitingMessage({ remaining, url: link, templates: EN_SHARE_TEMPLATES });
+          void shareMessage(message).then(shared('reminder'));
         }}
         onEditPlan={toEdit}
         onBack={back}
@@ -180,13 +185,6 @@ function LiveCandidates({ id, planId }: { id: string; planId: string }) {
       ? chosen
       : data.candidates[0]?.id;
 
-  // From the summaries, which the organiser always sees and which are current,
-  // rather than from the set's `responded_count` — that belongs to the set, and
-  // a set that is behind the plan would have the button naming one person while
-  // the message said the group was waiting on two.
-  const waiting = notAnswered(data);
-  const remaining =
-    data.responded === null ? Math.max(0, data.askedCount - data.repliedCount) : waiting.length;
   return (
     <CandidatesScreen
       header={header}
@@ -227,15 +225,7 @@ function LiveCandidates({ id, planId }: { id: string; planId: string }) {
           url: planLink(appOrigin(), data.code),
           templates: EN_SHARE_TEMPLATES,
         });
-        void shareMessage(message).then((result) => {
-          if (result === 'sheet' || result === 'dismissed' || result === 'copied') {
-            track('share_opened', {
-              circle_id: id as CircleId,
-              plan_id: data.planId as PlanId,
-              kind: 'reminder',
-            });
-          }
-        });
+        void shareMessage(message).then(shared('reminder'));
       }}
       onBack={back}
     />

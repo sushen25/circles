@@ -175,6 +175,21 @@ describe('the organiser, with nothing yet', () => {
     expect(screen.queryByText(/6:30/)).toBeNull();
   });
 
+  it('shares the waiting message, not the original ask, and counts rather than names', async () => {
+    planCandidates.mockResolvedValue(fixture.waiting);
+    show(<CandidatesFlow id={CIRCLE} planId={PLAN} which="waiting" />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Share the link again' }));
+    await waitFor(() => expect(shareMessage).toHaveBeenCalled());
+    const message = shareMessage.mock.calls[0]?.[0] as string;
+    expect(message).toContain('waiting on 4 replies');
+    expect(message).not.toContain('Tom');
+    expect(track).toHaveBeenCalledWith(
+      'share_opened',
+      expect.objectContaining({ kind: 'reminder' }),
+    );
+  });
+
   it('calls the reader "you" rather than reading their own name back at them', async () => {
     planCandidates.mockResolvedValue({ ...fixture.waiting, responded: [], repliedCount: 0 });
     show(<CandidatesFlow id={CIRCLE} planId={PLAN} which="waiting" />);
