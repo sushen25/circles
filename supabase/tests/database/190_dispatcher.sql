@@ -1,0 +1,518 @@
+-- The dispatcher's half of the database (S1-20).
+--
+-- `process-scheduled-jobs` is a loop in Deno over the twelve functions below,
+-- and every promise it makes that a test can hold it to is made here: that two
+-- runs cannot overlap, that an event is drained once, that a job is written
+-- once however often it is computed, that one address gets one copy, that a
+-- cancelled evening takes its reminders with it, and that a plan whose window
+-- has gone expires without anybody doing anything.
+--
+-- The stack's seed has already filled the outbox and made four circles, so
+-- nothing here asserts a total. Each assertion is about the rows this file
+-- made — which is also how the dispatcher itself has to think.
+
+begin;
+select plan(44);
+
+create or replace function pg_temp.make_user(
+  id uuid, name text, permanent boolean default false, confirmed boolean default false
+)
+returns uuid language sql as $$
+  insert into auth.users (
+    id, instance_id, aud, role, email, email_confirmed_at, is_anonymous,
+    raw_app_meta_data, raw_user_meta_data, created_at, updated_at
+  ) values (
+    id, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+    id::text || '@example.com', case when confirmed then now() end, not permanent,
+    jsonb_build_object('is_anonymous', not permanent),
+    jsonb_build_object('display_name', name, 'time_zone', 'Australia/Melbourne'), now(), now()
+  ) returning id;
+$$;
+
+create or replace function pg_temp.act_as(id uuid) returns void language plpgsql as $$
+begin
+  perform set_config('role', 'authenticated', true);
+  perform set_config('request.jwt.claims',
+    jsonb_build_object('sub', id::text, 'role', 'authenticated', 'is_anonymous', false)::text, true);
+end;
+$$;
+
+create or replace function pg_temp.act_as_service() returns void language plpgsql as $$
+begin
+  perform set_config('role', 'service_role', true);
+  perform set_config('request.jwt.claims', '', true);
+end;
+$$;
+
+create or replace function pg_temp.act_as_postgres() returns void language plpgsql as $$
+begin
+  perform set_config('role', 'postgres', true);
+  perform set_config('request.jwt.claims', '', true);
+end;
+$$;
+
+create or replace function pg_temp.contact_of(addr text, who uuid) returns uuid
+language sql security definer as $$
+  select c.id from private.email_contacts c
+  where c.email_normalized = addr and c.user_id = who
+$$;
+
+create or replace function pg_temp.status_of(contact uuid) returns text
+language sql security definer as $$
+  select c.status from private.email_contacts c where c.id = contact
+$$;
+
+create or replace function pg_temp.job_status(key text) returns text
+language sql security definer as $$
+  select j.status from jobs.notification_jobs j where j.idempotency_key = key
+$$;
+
+-- Maya organises and has confirmed her address by signing in. Priya reads
+-- email at one address and holds two identities at it — a laptop and a phone
+-- that lost its session, which is the commonest real thing that happens
+-- (spec §9). Tom is in the circle and has asked for nothing.
+select pg_temp.make_user('00000000-0000-0000-0000-0000000019a1', 'Maya', true, true);
+select pg_temp.make_user('00000000-0000-0000-0000-0000000019a2', 'Priya');
+select pg_temp.make_user('00000000-0000-0000-0000-0000000019a3', 'Priya 2');
+select pg_temp.make_user('00000000-0000-0000-0000-0000000019a4', 'Tom', true, false);
+
+select pg_temp.act_as('00000000-0000-0000-0000-0000000019a1');
+select public.create_circle('Sunday Crew', 'sky', 'Australia/Melbourne', 'key-dispatch');
+
+select pg_temp.act_as_postgres();
+create temporary table t as
+select id as circle_id from public.circles where creation_key = 'key-dispatch';
+grant select on t to anon, authenticated, service_role;
+
+insert into public.circle_members (circle_id, user_id, display_name_snapshot)
+select circle_id, u.id, u.name from t,
+  (values ('00000000-0000-0000-0000-0000000019a2'::uuid, 'Priya'),
+          ('00000000-0000-0000-0000-0000000019a3'::uuid, 'Priya 2'),
+          ('00000000-0000-0000-0000-0000000019a4'::uuid, 'Tom')) as u (id, name);
+
+-- A live plan, and one whose fortnight is over.
+insert into public.plans (
+  circle_id, mode, state, organiser_user_id, title, time_zone,
+  window_start, window_end, daily_start_local, daily_end_local,
+  duration_minutes, quorum, response_deadline, short_code
+)
+select circle_id, 'named', 'collecting', '00000000-0000-0000-0000-0000000019a1',
+  'Catch up', 'Australia/Melbourne', date '2099-09-17', date '2099-09-20',
+  1050, 1350, 120, 2, timestamptz '2099-09-20T10:00:00Z', 'dsphva'
+from t;
+
+insert into public.plans (
+  circle_id, mode, state, organiser_user_id, title, time_zone,
+  window_start, window_end, daily_start_local, daily_end_local,
+  duration_minutes, quorum, response_deadline, short_code
+)
+select circle_id, 'named', 'ready', '00000000-0000-0000-0000-0000000019a1',
+  'Last fortnight', 'Australia/Melbourne', date '2020-09-17', date '2020-09-20',
+  1050, 1350, 120, 2, timestamptz '2020-09-20T10:00:00Z', 'dsphvb'
+from t;
+
+create temporary table tp as
+select (select id from public.plans where short_code = 'dsphva') as live_plan,
+       (select id from public.plans where short_code = 'dsphvb') as old_plan;
+grant select on tp to anon, authenticated, service_role;
+create or replace function pg_temp.live_plan() returns uuid
+language sql security definer as $$ select live_plan from tp $$;
+create or replace function pg_temp.old_plan() returns uuid
+language sql security definer as $$ select old_plan from tp $$;
+
+insert into public.plan_participants (plan_id, revision, user_id)
+select pg_temp.live_plan(), 1, u.id from (values
+  ('00000000-0000-0000-0000-0000000019a1'::uuid),
+  ('00000000-0000-0000-0000-0000000019a2'::uuid),
+  ('00000000-0000-0000-0000-0000000019a3'::uuid),
+  ('00000000-0000-0000-0000-0000000019a4'::uuid)) as u (id);
+
+-- One address, two identities, both subscribed to the same plan. This is the
+-- fixture the "one copy per event" rule exists for.
+insert into private.email_contacts (user_id, email_normalized, status, verified_at)
+values ('00000000-0000-0000-0000-0000000019a2', 'priya@example.com', 'verified', now()),
+       ('00000000-0000-0000-0000-0000000019a3', 'priya@example.com', 'verified', now());
+
+insert into private.email_subscriptions (contact_id, user_id, scope, plan_id, status, consent_text_version)
+select c.id, c.user_id, 'plan_updates', pg_temp.live_plan(), 'active', '2026-09-14'
+from private.email_contacts c where c.email_normalized = 'priya@example.com';
+
+-- ---------------------------------------------------------------------------
+-- Who may call any of it
+-- ---------------------------------------------------------------------------
+select ok(
+  not has_function_privilege('authenticated', 'public.dispatch_begin(text)', 'execute')
+  and not has_function_privilege('authenticated', 'public.dispatch_claim_events(integer)', 'execute')
+  and not has_function_privilege('authenticated', 'public.dispatch_claim_due(integer)', 'execute')
+  and not has_function_privilege('authenticated', 'public.dispatch_context(uuid)', 'execute')
+  and not has_function_privilege('authenticated', 'public.dispatch_enqueue(jsonb)', 'execute')
+  and not has_function_privilege('authenticated', 'public.dispatch_organiser_contact(uuid)', 'execute'),
+  'a signed-in member reaches none of the dispatcher: these read every address in the system'
+);
+select ok(
+  not has_function_privilege('anon', 'public.dispatch_health(boolean)', 'execute')
+  and not has_function_privilege('anon', 'public.dispatch_timed_work(integer)', 'execute')
+  and not has_function_privilege('anon', 'public.dispatch_job_result(uuid, text, text, text, timestamptz)', 'execute')
+  and not has_function_privilege('anon', 'public.dispatch_cancel_pending(uuid, integer)', 'execute')
+  and not has_function_privilege('anon', 'public.dispatch_event_result(uuid, text)', 'execute')
+  and not has_function_privilege('anon', 'public.dispatch_end(text)', 'execute'),
+  'and nor does an anonymous caller, including the two that only expire and count'
+);
+
+-- ---------------------------------------------------------------------------
+-- The lease: two invocations a minute apart cannot overlap
+-- ---------------------------------------------------------------------------
+select pg_temp.act_as_service();
+
+select ok(public.dispatch_begin('run-one'), 'the first run takes the lease');
+select ok(not public.dispatch_begin('run-two'), 'the second is refused while the first holds it');
+select ok(not public.dispatch_end('run-two'),
+  'and cannot release a lease it never held — a late finisher must not free the current holder''s');
+select ok(public.dispatch_end('run-one'), 'the holder releases it');
+select ok(public.dispatch_begin('run-two'), 'and the next run takes it');
+select ok(public.dispatch_end('run-two'), 'released again, so nothing here leaves the lease held');
+
+-- ---------------------------------------------------------------------------
+-- Draining the outbox
+-- ---------------------------------------------------------------------------
+create temporary table te as
+select jobs.emit('circles.member_joined', 'circle', (select circle_id from t),
+  jsonb_build_object('circle_id', (select circle_id from t),
+    'user_id', '00000000-0000-0000-0000-0000000019a4'::uuid, 'role', 'member')) as event_id;
+grant select on te to anon, authenticated, service_role;
+create or replace function pg_temp.event_id() returns uuid
+language sql security definer as $$ select event_id from te $$;
+
+select ok(
+  (select public.dispatch_claim_events(500)) @> jsonb_build_array(jsonb_build_object('id', pg_temp.event_id())),
+  'an unprocessed event is claimed'
+);
+
+select lives_ok(
+  format($$ select public.dispatch_event_result(%L) $$, pg_temp.event_id()),
+  'and can be marked handled'
+);
+
+select ok(
+  not ((select public.dispatch_claim_events(500)) @> jsonb_build_array(jsonb_build_object('id', pg_temp.event_id()))),
+  'after which it is never claimed again'
+);
+
+select pg_temp.act_as_postgres();
+create temporary table tf as
+select jobs.emit('circles.member_removed', 'circle', (select circle_id from t),
+  jsonb_build_object('circle_id', (select circle_id from t),
+    'user_id', '00000000-0000-0000-0000-0000000019a4'::uuid)) as event_id;
+grant select on tf to anon, authenticated, service_role;
+create or replace function pg_temp.failing_event() returns uuid
+language sql security definer as $$ select event_id from tf $$;
+
+select pg_temp.act_as_service();
+select public.dispatch_event_result(pg_temp.failing_event(), 'db:23505');
+
+select pg_temp.act_as_postgres();
+select is(
+  (select attempts::text || '/' || coalesce(processed_at::text, 'unprocessed')
+   from jobs.outbox where id = pg_temp.failing_event()),
+  '1/unprocessed',
+  'a failure counts an attempt and leaves the event for the next tick'
+);
+
+select pg_temp.act_as_service();
+select public.dispatch_event_result(pg_temp.failing_event(), 'db:23505');
+select public.dispatch_event_result(pg_temp.failing_event(), 'db:23505');
+select public.dispatch_event_result(pg_temp.failing_event(), 'db:23505');
+select public.dispatch_event_result(pg_temp.failing_event(), 'db:23505');
+
+select pg_temp.act_as_postgres();
+select ok(
+  (select processed_at is not null and last_error = 'db:23505'
+   from jobs.outbox where id = pg_temp.failing_event()),
+  'and at five it is given up on, with the code still on the row saying why'
+);
+
+select throws_ok(
+  format($$ update jobs.outbox set last_error = 'Invalid to field: priya@example.com' where id = %L $$,
+    pg_temp.failing_event()),
+  '23514'::text,
+  null::text,
+  'an exception''s text cannot be written there: last_error is a code, and that is where addresses turn up'
+);
+
+-- ---------------------------------------------------------------------------
+-- The context the rules are asked about
+-- ---------------------------------------------------------------------------
+select pg_temp.act_as_service();
+
+select is(
+  jsonb_array_length(public.dispatch_context(pg_temp.live_plan()) -> 'members'),
+  4,
+  'the context carries the whole roster, because muting and removal are its rules'
+);
+select is(
+  jsonb_array_length(public.dispatch_context(pg_temp.live_plan()) -> 'participant_ids'),
+  4,
+  'and who the plan was addressed to, which is not the same list'
+);
+select is(
+  jsonb_array_length(public.dispatch_context(pg_temp.live_plan()) -> 'email_recipients'),
+  2,
+  'both of Priya''s identities may be emailed about this plan: two contacts, one address'
+);
+select is(
+  public.dispatch_context('00000000-0000-0000-0000-00000000dead'),
+  null,
+  'a plan that is not there has no context, rather than an empty one'
+);
+
+-- ---------------------------------------------------------------------------
+-- The organiser's address becomes something that can be written to
+-- ---------------------------------------------------------------------------
+select is(
+  public.dispatch_organiser_contact('00000000-0000-0000-0000-0000000019a2'),
+  null,
+  'a guest has no confirmed address of ours, so there is nothing to write to'
+);
+select is(
+  public.dispatch_organiser_contact('00000000-0000-0000-0000-0000000019a4'),
+  null,
+  'nor has a saved place that has never confirmed one'
+);
+select isnt(
+  public.dispatch_organiser_contact('00000000-0000-0000-0000-0000000019a1'),
+  null,
+  'the organiser''s confirmed auth address becomes a contact'
+);
+select is(
+  pg_temp.status_of(public.dispatch_organiser_contact('00000000-0000-0000-0000-0000000019a1')),
+  'verified',
+  'verified, because auth already proved she controls it — the same proof a link gives'
+);
+select is(
+  public.dispatch_organiser_contact('00000000-0000-0000-0000-0000000019a1'),
+  pg_temp.contact_of('00000000-0000-0000-0000-0000000019a1@example.com',
+    '00000000-0000-0000-0000-0000000019a1'),
+  'and asking twice gives the same row, never a second contact for one address'
+);
+
+select pg_temp.act_as_postgres();
+update private.email_contacts
+set status = 'suppressed', suppressed_at = now(), suppression_reason = 'bounced', verified_at = null
+where user_id = '00000000-0000-0000-0000-0000000019a1';
+
+select pg_temp.act_as_service();
+select is(
+  public.dispatch_organiser_contact('00000000-0000-0000-0000-0000000019a1'),
+  null,
+  'a bounce stops organiser email exactly as it stops plan-update email'
+);
+
+-- ---------------------------------------------------------------------------
+-- Writing jobs, once
+-- ---------------------------------------------------------------------------
+select pg_temp.act_as_postgres();
+create temporary table tk as
+select encode(extensions.digest('locked-in-priya-one', 'sha256'), 'hex') as key_one,
+       encode(extensions.digest('locked-in-priya-two', 'sha256'), 'hex') as key_two,
+       encode(extensions.digest('reminder-priya-one', 'sha256'), 'hex') as key_reminder,
+       (select c.id from private.email_contacts c
+        where c.email_normalized = 'priya@example.com'
+          and c.user_id = '00000000-0000-0000-0000-0000000019a2') as contact_one,
+       (select c.id from private.email_contacts c
+        where c.email_normalized = 'priya@example.com'
+          and c.user_id = '00000000-0000-0000-0000-0000000019a3') as contact_two;
+grant select on tk to anon, authenticated, service_role;
+
+select pg_temp.act_as_service();
+select is(
+  public.dispatch_enqueue((
+    select jsonb_build_array(
+      jsonb_build_object('channel', 'email', 'kind', 'locked_in', 'contact_id', contact_one,
+        'plan_id', pg_temp.live_plan(), 'plan_revision', 1,
+        'scheduled_for', now() - interval '1 minute', 'idempotency_key', key_one),
+      jsonb_build_object('channel', 'email', 'kind', 'locked_in', 'contact_id', contact_two,
+        'plan_id', pg_temp.live_plan(), 'plan_revision', 1,
+        'scheduled_for', now() - interval '1 minute', 'idempotency_key', key_two),
+      jsonb_build_object('channel', 'email', 'kind', 'reminder', 'contact_id', contact_one,
+        'plan_id', pg_temp.live_plan(), 'plan_revision', 1,
+        'scheduled_for', now() + interval '2 days', 'idempotency_key', key_reminder))
+    from tk)),
+  3,
+  'three jobs are written'
+);
+
+select is(
+  public.dispatch_enqueue((
+    select jsonb_build_array(
+      jsonb_build_object('channel', 'email', 'kind', 'locked_in', 'contact_id', contact_one,
+        'plan_id', pg_temp.live_plan(), 'plan_revision', 1,
+        'scheduled_for', now(), 'idempotency_key', key_one))
+    from tk)),
+  0,
+  'and computing the same message again writes nothing: the key is the whole of the promise'
+);
+
+-- ---------------------------------------------------------------------------
+-- What is due, and the second copy to one address
+-- ---------------------------------------------------------------------------
+select is(
+  (select count(*)::integer from jsonb_array_elements(public.dispatch_claim_due(200)) j
+   where j ->> 'plan_id' = pg_temp.live_plan()::text),
+  2,
+  'the two locked-in jobs are due; the reminder two days out is not'
+);
+
+select is(
+  (select count(*)::integer from jsonb_array_elements(public.dispatch_claim_due(200)) j
+   where j ->> 'plan_id' = pg_temp.live_plan()::text and (j ->> 'superseded')::boolean),
+  1,
+  'one address, one copy: the second of the two is marked as already covered'
+);
+
+select is(
+  (select distinct j ->> 'email' from jsonb_array_elements(public.dispatch_claim_due(200)) j
+   where j ->> 'plan_id' = pg_temp.live_plan()::text),
+  'priya@example.com',
+  'the address is read here, once, by the only thing that needs it'
+);
+
+-- ---------------------------------------------------------------------------
+-- Recording what happened to a send
+-- ---------------------------------------------------------------------------
+select pg_temp.act_as_postgres();
+create temporary table tj as
+select (select id from jobs.notification_jobs where idempotency_key = (select key_one from tk)) as job_one,
+       (select id from jobs.notification_jobs where idempotency_key = (select key_two from tk)) as job_two,
+       (select id from jobs.notification_jobs where idempotency_key = (select key_reminder from tk)) as job_reminder;
+grant select on tj to anon, authenticated, service_role;
+
+select pg_temp.act_as_service();
+select public.dispatch_job_result((select job_one from tj), 'sent', null, 'resend-message-id');
+select pg_temp.act_as_postgres();
+select ok(
+  (select status = 'sent' and sent_at is not null and provider_message_id = 'resend-message-id'
+     and last_error is null and attempt_count = 1
+   from jobs.notification_jobs where id = (select job_one from tj)),
+  'a send is recorded with the provider id the delivery webhook will look it up by'
+);
+
+select pg_temp.act_as_service();
+select public.dispatch_job_result((select job_two from tj), 'retry', 'email_unavailable', null,
+  now() + interval '5 minutes');
+select pg_temp.act_as_postgres();
+select ok(
+  (select status = 'scheduled' and scheduled_for > now() + interval '4 minutes'
+     and last_error = 'email_unavailable' and sent_at is null
+   from jobs.notification_jobs where id = (select job_two from tj)),
+  'a transient failure stays scheduled, further out, with the reason as a code'
+);
+
+select pg_temp.act_as_service();
+select public.dispatch_job_result((select job_two from tj), 'failed', 'email_rejected');
+select pg_temp.act_as_postgres();
+select is(
+  (select status from jobs.notification_jobs where id = (select job_two from tj)),
+  'failed',
+  'and one the provider will keep refusing is given up on'
+);
+
+select throws_ok(
+  format($$ update jobs.notification_jobs set last_error = 'bounced: priya@example.com' where id = %L $$,
+    (select job_two from tj)),
+  '23514'::text,
+  null::text,
+  'a job''s last_error is a code too, for the same reason'
+);
+
+-- ---------------------------------------------------------------------------
+-- The evening is off, so the letters about it stop
+-- ---------------------------------------------------------------------------
+select pg_temp.act_as_service();
+select is(
+  public.dispatch_cancel_pending(pg_temp.live_plan(), 1),
+  1,
+  'cancelling takes back the reminder that was waiting two days out'
+);
+select pg_temp.act_as_postgres();
+select is(
+  (select status || '/' || last_error from jobs.notification_jobs where id = (select job_reminder from tj)),
+  'skipped/superseded',
+  'as skipped rather than failed: nothing went wrong'
+);
+select is(
+  (select status from jobs.notification_jobs where id = (select job_one from tj)),
+  'sent',
+  'and the announcement that already went is left exactly as it was'
+);
+
+-- ---------------------------------------------------------------------------
+-- The work a clock creates
+-- ---------------------------------------------------------------------------
+select pg_temp.act_as_service();
+select public.dispatch_timed_work(100);
+
+select pg_temp.act_as_postgres();
+select is(
+  (select count(*)::integer from jobs.outbox o
+   where o.event_name = 'planning.deadline_passed' and o.aggregate_id = pg_temp.old_plan()),
+  1,
+  'a deadline that has passed is announced once, into the outbox the drain reads'
+);
+select is(
+  (select state from public.plans where id = pg_temp.old_plan()),
+  'expired',
+  'and a plan whose last possible start has gone expires, with nobody as the actor'
+);
+
+select pg_temp.act_as_service();
+select public.dispatch_timed_work(100);
+select pg_temp.act_as_postgres();
+select is(
+  (select count(*)::integer from jobs.outbox o
+   where o.event_name = 'planning.deadline_passed' and o.aggregate_id = pg_temp.old_plan()),
+  1,
+  'running again announces nothing further: the outbox row is the marker'
+);
+select is(
+  (select state from public.plans where id = pg_temp.live_plan()),
+  'collecting',
+  'and a plan whose fortnight is still ahead is left alone'
+);
+
+-- ---------------------------------------------------------------------------
+-- The daily health summary
+-- ---------------------------------------------------------------------------
+select pg_temp.act_as_service();
+
+select is(
+  (public.dispatch_health(true) is null),
+  (now() < date_trunc('day', now() at time zone 'UTC') at time zone 'UTC' + interval '8 hours'),
+  'the day''s report is made from 08:00 UTC and not before'
+);
+
+select pg_temp.act_as_postgres();
+insert into private.audit_log (action, resource_type, metadata)
+values ('health.reported', 'account', '{}'::jsonb);
+
+select pg_temp.act_as_service();
+select is(
+  public.dispatch_health(true),
+  null,
+  'and once made it is not made twice, however many times the minute job runs'
+);
+
+select ok(
+  (public.dispatch_health(false)) ?& array['failed_jobs_24h', 'stuck_outbox', 'suppressed_24h',
+    'stuck_ready_plans', 'dispatcher_last_finished_at', 'retention_last_finished_at'],
+  'reading it without claiming gives the four counts and the two lease times'
+);
+
+select cmp_ok(
+  ((public.dispatch_health(false)) ->> 'failed_jobs_24h')::integer,
+  '>=',
+  1,
+  'and the count is real: the job given up on above is in it'
+);
+
+select * from finish();
+rollback;
