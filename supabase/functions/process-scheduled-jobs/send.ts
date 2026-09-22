@@ -107,7 +107,11 @@ async function inputFor(
     return { skip: 'plan_gone' };
   }
 
-  const toOrganiser = { origin: origin(), circleName: job.circle_name, planCode: job.plan_short_code };
+  const toOrganiser = {
+    origin: origin(),
+    circleName: job.circle_name,
+    planCode: job.plan_short_code,
+  };
 
   switch (job.kind) {
     case 'options_ready': {

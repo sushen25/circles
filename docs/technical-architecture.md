@@ -573,6 +573,7 @@ domain event (outbox) → dispatcher → eligibility(recipient, kind, state) →
 ```
 
 - Kinds and recipients are exactly the rows on the "Push copy" artboard; the organiser receives organiser kinds by **email** when no push device exists (review C6), so Slice 1 needs no native app.
+- The organiser's own **confirmed auth address becomes an `private.email_contacts` row**, created verified and with no subscription, so that organiser kinds have something to be addressed to and something to suppress on a bounce ([ADR 00XX](decisions/00XX-the-organisers-auth-address-is-an-email-contact.md)). `notification_jobs` addresses a contact on the email channel and never a person.
 - `idempotency_key = hash(channel, recipient, plan, revision, kind, occurrence)`; the unique index makes duplicates impossible even under retry.
 - Quiet hours 21:00–08:00 recipient-local: jobs are scheduled for the next 08:00 unless kind is `confirmed` or `cancelled`.
 - Deadline reminder: at most one per member per plan, only to non-responders, 24 h before.

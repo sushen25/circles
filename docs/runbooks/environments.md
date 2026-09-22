@@ -263,6 +263,7 @@ which is the part that gets got wrong in both directions:
 | `CRON_SECRET` | **nobody — you invent it.** Its only job is that `jobs.invoke_process_scheduled_jobs()` and `_shared/internal.ts` agree on it. It cannot be read back, and S1-20 needs the same string for `circles.cron_secret` | own value | own value |
 | `TURNSTILE_SECRET_KEY` | Cloudflare → Turnstile, pairs with the site key. **The name matters:** `_shared/turnstile.ts` reads exactly this, and skips the check when it is unset rather than failing — so a secret stored under any other name leaves web joins unverified and looks configured | the **dummy** `1x0000000000000000000000000000000AA`, pairing with the dummy site key at repository scope | the real one |
 | `RESEND_API_KEY` | Resend → API Keys | **never** — `dev` does not send | yes |
+| `HEALTH_REPORT_TO` | **you choose** — where the dispatcher's daily health summary goes. Optional: with no address the summary is a structured log line and an `audit_log` row, which is where `dev` should leave it. Counts only, never an identifier | never | yes |
 | `RESEND_WEBHOOK_SECRET` | Resend → Webhooks → the `email-provider-webhook` endpoint → signing secret (`whsec_…`). **Without it the webhook refuses every event** (fails closed), so bounces go unrecorded and the suppression list never fills | never | yes |
 | `APPLE_TEAM_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY`, `APPLE_SERVICES_ID` | Apple Developer | S1-14b | S1-14b |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google Cloud → Credentials | S1-14b | S1-14b |
@@ -284,9 +285,12 @@ alter database postgres set circles.cron_secret = '<the same value as CRON_SECRE
 ```
 
 `CRON_SECRET` is also set with `supabase secrets set`, because the internal
-functions compare the bearer they receive against it — `process-scheduled-jobs`,
-and `recalculate-candidates`, which the dispatcher calls for a plan whose inputs
-changed with no request of its own to run in. Until it is set they refuse every
+functions compare the bearer they receive against it — `process-scheduled-jobs`
+and `recalculate-candidates`. **A local stack sets it in `config.toml` instead,
+to the word `local`** (`[edge_runtime.secrets]`, beside `EMAIL_CAPTURE_URL`):
+without it the one background worker refuses every call on the one environment
+where it can be watched. The two database settings below are still left unset
+locally, so nothing invokes it until somebody does so by hand. Until it is set they refuse every
 call, which is the safe direction: an internal endpoint anybody can reach
 because a secret is missing is worse than one nobody can reach. Until both
 settings exist the minute job is a no-op — `jobs.invoke_process_scheduled_jobs()`

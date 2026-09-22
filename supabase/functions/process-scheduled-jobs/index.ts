@@ -109,12 +109,7 @@ Deno.serve(
             p_limit: 50,
           });
           if (dueError !== null) throw dueError;
-          const sent = await send(
-            service,
-            (due ?? []) as unknown as DueJob[],
-            requestId,
-            deadline,
-          );
+          const sent = await send(service, (due ?? []) as unknown as DueJob[], requestId, deadline);
           counts['sent'] = sent.sent;
           counts['skipped'] = sent.skipped;
           counts['failed'] = sent.failed;

@@ -35,11 +35,17 @@ begin;
 create or replace function pg_temp.seed_user(id uuid, name text, anonymous boolean default false)
 returns uuid language sql as $$
   insert into auth.users (
-    id, instance_id, aud, role, email, is_anonymous, raw_app_meta_data, raw_user_meta_data,
-    created_at, updated_at
+    id, instance_id, aud, role, email, email_confirmed_at, is_anonymous,
+    raw_app_meta_data, raw_user_meta_data, created_at, updated_at
   ) values (
     id, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
     case when anonymous then null else lower(name) || '@example.com' end,
+    -- A saved place got here by typing a code back from their inbox, which is
+    -- what GoTrue records as `email_confirmed_at`. Left null, the seed's
+    -- permanent identities had an address nothing was allowed to write to, and
+    -- the organiser emails — options ready, replies closed, did it happen —
+    -- were silently absent from every local scenario (S1-20).
+    case when anonymous then null else now() end,
     anonymous, jsonb_build_object('is_anonymous', anonymous),
     jsonb_build_object('display_name', name, 'time_zone', 'Australia/Melbourne'), now(), now()
   ) returning id;

@@ -183,6 +183,7 @@ const handlers = {
   'cancel-plan': await serveOf('cancel-plan'),
   'submit-availability': await serveOf('submit-availability'),
   'recalculate-candidates': await serveOf('recalculate-candidates'),
+  'process-scheduled-jobs': await serveOf('process-scheduled-jobs'),
   'confirm-meetup': await serveOf('confirm-meetup'),
   'report-outcome': await serveOf('report-outcome'),
   'generate-ics': await serveOf('generate-ics'),
@@ -2624,5 +2625,291 @@ describe('manage-email-preferences', () => {
 
     expect(response.status).toBe(400);
     expect(called('email_preferences')).toHaveLength(0);
+  });
+});
+
+describe('process-scheduled-jobs', () => {
+  /**
+   * The dispatcher, driven through its own handler.
+   *
+   * The database half is proved by `supabase/tests/database/190_dispatcher.sql`
+   * against a real Postgres — the lease, the idempotency key, the one copy per
+   * address, the expiry. What is left, and what only this can reach, is the
+   * part that is neither SQL nor the domain: which kinds an event turns into,
+   * what time each is wanted for, and that a failure is recorded as a code
+   * rather than as its message.
+   */
+  const CIRCLE_ID = '00000000-0000-4000-8000-0000000000c1';
+  const ORGANISER = '00000000-0000-4000-8000-000000000001';
+  const MEMBER = '00000000-0000-4000-8000-000000000002';
+  const CONTACT = '00000000-0000-4000-8000-00000000c002';
+  const CONFIRMATION = '00000000-0000-4000-8000-00000000f001';
+  const EVENT_ID = '00000000-0000-4000-8000-00000000e001';
+
+  /** Everything `public.dispatch_context` answers, for one decided plan. */
+  const context = (overrides: Record<string, unknown> = {}) => ({
+    circle: {
+      id: CIRCLE_ID,
+      owner_user_id: ORGANISER,
+      name: 'Sunday Crew',
+      color: 'sky',
+      time_zone: 'Australia/Melbourne',
+      cadence: 'fortnightly',
+      nudge_policy: null,
+      default_duration_minutes: 120,
+      default_quorum: null,
+      default_area: null,
+      status: 'active',
+      last_met_at: null,
+      cadence_snoozed_until: null,
+    },
+    plan: {
+      id: PLAN_ID,
+      circle_id: CIRCLE_ID,
+      mode: 'named',
+      state: 'confirmed',
+      organiser_user_id: ORGANISER,
+      title: 'Catch up',
+      category: 'catch_up',
+      time_zone: 'Australia/Melbourne',
+      window_start: '2026-09-17',
+      window_end: '2026-09-20',
+      daily_start_local: 1050,
+      daily_end_local: 1350,
+      duration_minutes: 120,
+      quorum: 2,
+      response_deadline: '2026-09-20T10:00:00.000Z',
+      quiet_threshold: null,
+      quiet_expires_at: null,
+      revision: 1,
+      input_version: 1,
+      scoring_version: 1,
+      short_code: 'pnsundaycr',
+      cancel_note: null,
+    },
+    organiser_name: 'Maya',
+    members: [ORGANISER, MEMBER].map((userId, index) => ({
+      circle_id: CIRCLE_ID,
+      user_id: userId,
+      display_name: index === 0 ? 'Maya' : 'Priya',
+      role: index === 0 ? 'owner' : 'member',
+      status: 'active',
+      joined_at: '2026-09-01T00:00:00.000Z',
+      muted_quiet_asks: false,
+      muted_all: false,
+      time_zone: 'Australia/Melbourne',
+      is_permanent: true,
+    })),
+    participant_ids: [ORGANISER, MEMBER],
+    responses: [],
+    confirmation: {
+      id: CONFIRMATION,
+      revision: 1,
+      // 18:30 Melbourne on 17 September 2026 (AEST, +10).
+      starts_at: '2026-09-17T08:30:00.000Z',
+      ends_at: '2026-09-17T10:30:00.000Z',
+      place_name: 'Hope St Radio',
+      note: null,
+      status: 'active',
+      confirmed_by: ORGANISER,
+      available_user_ids: [ORGANISER, MEMBER],
+    },
+    superseded_confirmation: null,
+    // Derived by `confirm`: everyone frozen in as available is `going`, which
+    // is what `reminder`'s audience reads.
+    attendance: [ORGANISER, MEMBER].map((userId) => ({
+      confirmation_id: CONFIRMATION,
+      user_id: userId,
+      status: 'going',
+    })),
+    email_recipients: [{ contact_id: CONTACT, user_id: MEMBER }],
+    push_user_ids: [],
+    best_candidate: null,
+    already_reminded: [],
+    ...overrides,
+  });
+
+  const outboxEvent = (name: string) => ({
+    id: EVENT_ID,
+    seq: 1,
+    event_name: name,
+    aggregate_type: 'plan',
+    aggregate_id: PLAN_ID,
+    payload: { plan_id: PLAN_ID },
+    attempts: 0,
+  });
+
+  /** The jobs the run asked `dispatch_enqueue` to write, flattened. */
+  const enqueued = (): { kind: string; scheduled_for: string; idempotency_key: string }[] =>
+    called('dispatch_enqueue').flatMap(
+      (call) =>
+        call.args['p_jobs'] as { kind: string; scheduled_for: string; idempotency_key: string }[],
+    );
+
+  let events: unknown[] = [];
+  let planContext: unknown = null;
+
+  beforeEach(() => {
+    process.env.CRON_SECRET = 'a-shared-secret';
+    events = [];
+    planContext = context();
+    state.answer = (fn) => {
+      if (fn === 'dispatch_begin') return { data: true, error: null };
+      if (fn === 'dispatch_claim_events') return { data: events, error: null };
+      if (fn === 'dispatch_context') return { data: planContext, error: null };
+      if (fn === 'dispatch_enqueue') return { data: 0, error: null };
+      if (fn === 'dispatch_organiser_contact') return { data: null, error: null };
+      if (fn === 'dispatch_timed_work') {
+        return {
+          data: { deadline_passed: 0, expired: 0, expire_refused: 0, stale: [], approaching: [] },
+          error: null,
+        };
+      }
+      if (fn === 'dispatch_claim_due') return { data: [], error: null };
+      if (fn === 'dispatch_health') return { data: null, error: null };
+      return { data: null, error: null };
+    };
+  });
+
+  it('is not something a member can call', async () => {
+    const response = await load('process-scheduled-jobs')(post({}));
+
+    expect(response.status).toBe(401);
+    expect(called('dispatch_begin')).toHaveLength(0);
+  });
+
+  it('does nothing at all while another run holds the lease', async () => {
+    // Not a shorter run: two dispatchers drawing from one queue is the shape
+    // that sends two of everything.
+    state.answer = (fn) =>
+      fn === 'dispatch_begin' ? { data: false, error: null } : { data: null, error: null };
+    events = [outboxEvent('confirmation.meetup_confirmed')];
+
+    const response = await load('process-scheduled-jobs')(post({}, 'a-shared-secret'));
+
+    expect(await response.json()).toMatchObject({ ran: false });
+    expect(called('dispatch_claim_events')).toHaveLength(0);
+    expect(called('dispatch_end')).toHaveLength(0);
+  });
+
+  it('turns one confirmation into the announcement, the reminder and the two morning-after letters', async () => {
+    events = [outboxEvent('confirmation.meetup_confirmed')];
+
+    await load('process-scheduled-jobs')(post({}, 'a-shared-secret'));
+
+    const jobs = enqueued();
+    expect(jobs.map((job) => job.kind).sort()).toEqual([
+      'did_it_happen_participant',
+      'locked_in',
+      'reminder',
+    ]);
+    // Two hours before the start (spec §5.8), and nine the next morning in the
+    // plan's zone: 18 September 2026 is still AEST (+10) in Melbourne, so nine
+    // that morning is 23:00 UTC on the seventeenth.
+    expect(jobs.find((job) => job.kind === 'reminder')?.scheduled_for).toBe(
+      '2026-09-17T06:30:00.000Z',
+    );
+    expect(jobs.find((job) => job.kind === 'did_it_happen_participant')?.scheduled_for).toBe(
+      '2026-09-17T23:00:00.000Z',
+    );
+  });
+
+  it('does not tell the organiser about a meetup the organiser just confirmed', async () => {
+    events = [outboxEvent('confirmation.meetup_confirmed')];
+
+    await load('process-scheduled-jobs')(post({}, 'a-shared-secret'));
+
+    // `locked_in` goes to members, and the one member with a verified
+    // subscription is Priya. Maya confirmed it, and would not be told even if
+    // she were subscribed.
+    expect(enqueued().filter((job) => job.kind === 'locked_in')).toHaveLength(1);
+  });
+
+  it('holds a change until the morning, and never holds a cancellation', async () => {
+    // Quiet hours are 21:00–08:00 in the recipient's zone, "except confirmed
+    // and cancelled" (spec §5.8). 23:00 Melbourne on 17 September 2026 is
+    // 13:00 UTC.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-09-17T13:00:00.000Z'));
+    try {
+      planContext = context({
+        superseded_confirmation: {
+          id: CONFIRMATION,
+          revision: 1,
+          starts_at: '2026-09-17T08:30:00.000Z',
+          ends_at: '2026-09-17T10:30:00.000Z',
+          place_name: null,
+          note: null,
+          status: 'superseded',
+          confirmed_by: ORGANISER,
+          available_user_ids: [],
+        },
+      });
+      events = [outboxEvent('confirmation.meetup_rescheduled')];
+      await load('process-scheduled-jobs')(post({}, 'a-shared-secret'));
+      expect(enqueued()[0]).toMatchObject({
+        kind: 'changed',
+        // 08:00 the next morning, Melbourne.
+        scheduled_for: '2026-09-17T22:00:00.000Z',
+      });
+
+      state.rpcs = [];
+      events = [outboxEvent('confirmation.meetup_cancelled')];
+      await load('process-scheduled-jobs')(post({}, 'a-shared-secret'));
+      expect(enqueued()[0]).toMatchObject({
+        kind: 'cancelled',
+        scheduled_for: '2026-09-17T13:00:00.000Z',
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('takes back the letters a superseded evening had waiting', async () => {
+    events = [outboxEvent('confirmation.meetup_rescheduled')];
+
+    await load('process-scheduled-jobs')(post({}, 'a-shared-secret'));
+
+    // A reopen has already bumped the revision by the time this runs, so the
+    // jobs it supersedes are the previous revision's.
+    expect(called('dispatch_cancel_pending')[0]?.args).toMatchObject({
+      p_plan_id: PLAN_ID,
+      p_revision: 0,
+    });
+  });
+
+  it('records a failure as a code, never as the exception that caused it', async () => {
+    // `outbox_last_error_is_a_code` refuses anything else, and the reason it
+    // does is that an exception's message is where an address turns up.
+    events = [outboxEvent('confirmation.meetup_confirmed')];
+    const answer = state.answer;
+    state.answer = (fn) => {
+      if (fn === 'dispatch_enqueue') {
+        return {
+          data: null,
+          error: { code: '23505', message: 'duplicate key: priya@example.com' },
+        };
+      }
+      return answer(fn);
+    };
+
+    await load('process-scheduled-jobs')(post({}, 'a-shared-secret'));
+
+    const recorded = called('dispatch_event_result')[0]?.args['p_error'];
+    expect(recorded).toBe('db:23505');
+    expect(String(recorded)).toMatch(/^[A-Za-z0-9_.:/-]{1,120}$/);
+  });
+
+  it('gives the lease back even when the run falls over', async () => {
+    const answer = state.answer;
+    state.answer = (fn) => {
+      if (fn === 'dispatch_claim_events') throw new Error('the database went away');
+      return answer(fn);
+    };
+
+    const response = await load('process-scheduled-jobs')(post({}, 'a-shared-secret'));
+
+    expect(response.status).toBe(500);
+    expect(called('dispatch_end')[0]?.args['p_holder']).toEqual(expect.any(String));
   });
 });
