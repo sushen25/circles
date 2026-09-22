@@ -1,5 +1,5 @@
 import { CONSENT } from '@circles/config';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
  * The three functions themselves, loaded and driven.
@@ -230,6 +230,7 @@ beforeEach(() => {
   delete process.env.TURNSTILE_SECRET_KEY;
   delete process.env.CRON_SECRET;
   delete process.env.EMAIL_CAPTURE_URL;
+  delete process.env.HEALTH_REPORT_TO;
   state.rpcs = [];
   state.fetched = [];
   state.tokens = [];
@@ -2772,7 +2773,20 @@ describe('process-scheduled-jobs', () => {
         };
       }
       if (fn === 'dispatch_claim_due') return { data: [], error: null };
-      if (fn === 'dispatch_health') return { data: null, error: null };
+      if (fn === 'dispatch_health_due') return { data: false, error: null };
+      if (fn === 'dispatch_health') {
+        return {
+          data: {
+            failed_jobs_24h: 0,
+            stuck_outbox: 0,
+            suppressed_24h: 0,
+            stuck_ready_plans: 0,
+            dispatcher_last_finished_at: null,
+            retention_last_finished_at: null,
+          },
+          error: null,
+        };
+      }
       return { data: null, error: null };
     };
   });
@@ -2995,6 +3009,16 @@ describe('process-scheduled-jobs', () => {
     };
   };
 
+  // And put the file's own stub back, because `capturing` replaces a global.
+  // Harmless while this is the last describe in the file, and a trap for
+  // whoever writes the next one (review round 4).
+  afterEach(() => {
+    (globalThis as { fetch?: unknown }).fetch = (url: string) => {
+      state.fetched.push(String(url));
+      return Promise.resolve(new Response(JSON.stringify({ success: true })));
+    };
+  });
+
   it('does not send a letter to somebody who has since said stop', async () => {
     // "Stop emails for this meetup" withdraws the subscription and touches no
     // job, and a reminder written when the meetup was confirmed waits days. A
@@ -3083,6 +3107,36 @@ describe('process-scheduled-jobs', () => {
     expect(called('dispatch_enqueue')).toHaveLength(0);
     expect(called('dispatch_event_result')[0]?.args).toMatchObject({ p_id: EVENT_ID });
     expect(called('dispatch_event_result')[0]?.args['p_error']).toBeUndefined();
+  });
+
+  it('leaves the day unclaimed when the health report could not be sent', async () => {
+    // Claimed before the letter, a provider having a bad morning cost the
+    // whole day's report: every later run that day found the day closed and
+    // said nothing, at exactly the moment somebody would want it (round 3).
+    process.env.HEALTH_REPORT_TO = 'ops@example.com';
+    capturing();
+    (globalThis as { fetch?: unknown }).fetch = () =>
+      Promise.resolve(new Response('too many', { status: 429 }));
+    const answer = state.answer;
+    state.answer = (fn) =>
+      fn === 'dispatch_health_due' ? { data: true, error: null } : answer(fn);
+
+    await load('process-scheduled-jobs')(post({}, 'a-shared-secret'));
+
+    // The counts were read, and the day was not closed.
+    expect(called('dispatch_health').map((call) => call.args['p_claim'])).toEqual([false]);
+  });
+
+  it('claims the day once the report is out', async () => {
+    process.env.HEALTH_REPORT_TO = 'ops@example.com';
+    capturing();
+    const answer = state.answer;
+    state.answer = (fn) =>
+      fn === 'dispatch_health_due' ? { data: true, error: null } : answer(fn);
+
+    await load('process-scheduled-jobs')(post({}, 'a-shared-secret'));
+
+    expect(called('dispatch_health').map((call) => call.args['p_claim'])).toEqual([false, true]);
   });
 
   it('records a failure as a code, never as the exception that caused it', async () => {

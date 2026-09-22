@@ -91,11 +91,11 @@ type Fetch = typeof fetch;
  * How long one send may take before it is a failure.
  *
  * `fetch` has no timeout of its own, and the one caller that matters is a
- * dispatcher run holding a 55-second lease inside a 55-second `pg_net`
- * timeout: a provider that accepts the connection and never answers would
- * carry the run past both, and the next tick would take the lapsed lease and
- * draw the same jobs. Twenty seconds is far longer than any send this has ever
- * made and far shorter than the budget it must not spend.
+ * dispatcher run working to a fifty-second budget: a provider that accepts the
+ * connection and never answers would carry the run past it, and past the
+ * ninety-second lease that covers the overrun. Twenty seconds is far longer
+ * than any send this has ever made, and short enough that the send phase can
+ * keep that much budget in reserve for the last one it starts.
  */
 const SEND_TIMEOUT_MS = 20_000;
 

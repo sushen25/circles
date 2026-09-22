@@ -38,18 +38,13 @@ as $$
 declare
   summary jsonb;
 begin
-  if p_claim then
-    -- The report is due from 08:00 UTC and is made once. A run that is late
-    -- because nothing invoked the dispatcher at eight still makes it.
-    if now() < date_trunc('day', now() at time zone 'UTC') at time zone 'UTC' + interval '8 hours'
-      or exists (
-        select 1 from private.audit_log a
-        where a.action = 'health.reported'
-          and a.occurred_at >= date_trunc('day', now() at time zone 'UTC') at time zone 'UTC'
-      )
-    then
-      return null;
-    end if;
+  -- Whether the day is owed is `public.dispatch_health_due`'s to answer, and
+  -- only its. The condition was written out again here, identically, which is
+  -- one edit away from the two disagreeing — and the way they would disagree
+  -- is that `due` says yes, the letter goes, the claim answers null, and the
+  -- letter goes again every minute (review round 4).
+  if p_claim and not public.dispatch_health_due() then
+    return null;
   end if;
 
   select jsonb_build_object(

@@ -34,7 +34,7 @@ as $$
 $$;
 
 comment on function public.dispatch_begin(text) is
-  'Takes the process_scheduled_jobs lease for 55 seconds. False while another run holds it, which means "do nothing this tick". Service role only (architecture §9.3).';
+  'Takes the process_scheduled_jobs lease for 90 seconds, which is longer than the run''s own 50-second budget so that an overrun still holds it. False while another run holds it, which means "do nothing this tick". Service role only (architecture §9.3).';
 
 revoke all on function public.dispatch_begin(text) from public;
 revoke all on function public.dispatch_begin(text) from anon, authenticated;

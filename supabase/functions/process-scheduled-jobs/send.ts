@@ -82,9 +82,16 @@ function planIsPast(job: DueJob): boolean {
 /**
  * The kinds whose whole content belongs to one revision of the question.
  *
- * `options_ready` is a candidate set and `deadline_approaching` is a deadline;
- * both are answers to the question the plan was asking at the revision the job
- * was stamped with. When the plan has moved past it — an edit, a reopen — the
+ * `options_ready` is a candidate set, and `replies_closed` and
+ * `deadline_approaching` are deadlines; each is an answer to the question the
+ * plan was asking at the revision the job was stamped with. A `replies_closed`
+ * held overnight by quiet hours while the organiser edits the plan would
+ * otherwise arrive saying replies are closed on a plan that is asking again,
+ * and send them to a screen that no longer applies (review round 4).
+ *
+ * `deadline_approaching` cannot be reached today — it is push-only and
+ * `dispatch_claim_due` claims email — and is listed because the rule is about
+ * the kind rather than about which channel happens to carry it (SUS-59). When the plan has moved past it — an edit, a reopen — the
  * message is about a question nobody is being asked any more, and sending it
  * from the *current* context would render the new revision's options under the
  * old revision's key, so the new revision's own event later writes a second
@@ -95,7 +102,11 @@ function planIsPast(job: DueJob): boolean {
  * them back. Not `cancelled`, whose revision never moves. Not `changed`, which
  * is *about* the revision having moved.
  */
-const REVISION_SCOPED: readonly string[] = ['options_ready', 'deadline_approaching'];
+const REVISION_SCOPED: readonly string[] = [
+  'options_ready',
+  'replies_closed',
+  'deadline_approaching',
+];
 
 function revisionMovedOn(job: DueJob): boolean {
   if (!REVISION_SCOPED.includes(job.kind)) return false;
@@ -145,9 +156,26 @@ async function record(
  * how nobody gets told the venue moved.
  */
 function copyKey(job: DueJob): string {
-  if (job.kind === 'changed' || job.kind === 'verify_email') return `${job.id}`;
+  if (NEVER_COLLAPSED.includes(job.kind)) return job.id;
   return [job.kind, job.plan_id ?? '', job.plan_revision ?? '', job.email].join('\u0000');
 }
+
+/**
+ * The kinds that are never two copies of one letter, whatever they share.
+ *
+ * `changed` and `verify_email` can legitimately occur twice within one
+ * revision — a second material change, a second verification request — and are
+ * keyed by change id and verification id for exactly that reason. `about_time`
+ * belongs to a circle and carries no plan at all, so *every* one of them to an
+ * address would match every other and a person would receive one cadence nudge,
+ * ever.
+ *
+ * The same three `dispatch_claim_due` excludes. The two halves of one rule were
+ * written twice and had already drifted by one kind when round 4 looked
+ * (`about_time` was in the SQL and not here), which is the shape this comment
+ * exists to stop: if the list changes, it changes in both places.
+ */
+const NEVER_COLLAPSED: readonly string[] = ['changed', 'verify_email', 'about_time'];
 
 /** The next attempt for a job that has already failed this often, or null at the end. */
 function backoff(attempts: number): string | null {

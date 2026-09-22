@@ -30,7 +30,7 @@ import { timedWork } from './timed.ts';
  *    run that has already happened.
  *
  * **The lease is the concurrency control.** `public.dispatch_begin` takes it
- * for 55 seconds and a run that cannot take it does nothing at all — not a
+ * for ninety seconds and a run that cannot take it does nothing at all — not a
  * shorter run, nothing — because two dispatchers drawing from one queue is
  * exactly the shape that sends two of everything.
  *

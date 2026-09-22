@@ -59,14 +59,11 @@ export async function reportHealth(service: Db, requestId: string): Promise<bool
 
   const { data, error } = await service.rpc('dispatch_health', { p_claim: false });
   if (error !== null) throw error;
+  // `p_claim => false` always answers a row, so null means the function has
+  // changed under us. A run that falls over on its own health report is worse
+  // than one that skips it.
+  if (data === null) return false;
   const summary = data as unknown as Summary;
-
-  log('info', {
-    fn: 'process-scheduled-jobs',
-    request_id: requestId,
-    event: 'health_reported',
-    counts: countsOf(summary),
-  });
 
   const to = optional('HEALTH_REPORT_TO');
   if (to !== undefined) {
@@ -107,5 +104,16 @@ export async function reportHealth(service: Db, requestId: string): Promise<bool
   // moment the day was closed.
   const { error: claimError } = await service.rpc('dispatch_health', { p_claim: true });
   if (claimError !== null) throw claimError;
+
+  // And the line is written here rather than above it, so that "reported"
+  // means the report went. Logged before the send, a provider having a bad
+  // morning produced sixty lines an hour each claiming a report that never
+  // left (review round 4).
+  log('info', {
+    fn: 'process-scheduled-jobs',
+    request_id: requestId,
+    event: 'health_reported',
+    counts: countsOf(summary),
+  });
   return true;
 }

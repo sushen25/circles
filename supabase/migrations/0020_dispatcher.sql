@@ -329,7 +329,7 @@ as $$
 $$;
 
 comment on function public.dispatch_begin(text) is
-  'Takes the process_scheduled_jobs lease for 55 seconds. False while another run holds it, which means "do nothing this tick". Service role only (architecture §9.3).';
+  'Takes the process_scheduled_jobs lease for 90 seconds, which is longer than the run''s own 50-second budget so that an overrun still holds it. False while another run holds it, which means "do nothing this tick". Service role only (architecture §9.3).';
 
 revoke all on function public.dispatch_begin(text) from public;
 revoke all on function public.dispatch_begin(text) from anon, authenticated;
@@ -432,7 +432,9 @@ grant execute on function public.dispatch_cancel_pending(uuid, integer) to servi
 -- SUS-52) is excluded for a third reason: it belongs to a circle and has no
 -- plan at all, so every one of them matches every other on
 -- `plan_id is not distinct from null` and an address would receive exactly
--- one cadence nudge, ever.
+-- one cadence nudge, ever. The sender holds the same three in
+-- `NEVER_COLLAPSED`, because the rule has a half on each side of the wire;
+-- they had drifted by one kind when review round 4 looked.
 --
 -- Push is not claimed here. Slice 1 writes no push job — a kind whose only
 -- channel is push finds no device and produces no recipient — and Slice 3
@@ -841,18 +843,13 @@ as $$
 declare
   summary jsonb;
 begin
-  if p_claim then
-    -- The report is due from 08:00 UTC and is made once. A run that is late
-    -- because nothing invoked the dispatcher at eight still makes it.
-    if now() < date_trunc('day', now() at time zone 'UTC') at time zone 'UTC' + interval '8 hours'
-      or exists (
-        select 1 from private.audit_log a
-        where a.action = 'health.reported'
-          and a.occurred_at >= date_trunc('day', now() at time zone 'UTC') at time zone 'UTC'
-      )
-    then
-      return null;
-    end if;
+  -- Whether the day is owed is `public.dispatch_health_due`'s to answer, and
+  -- only its. The condition was written out again here, identically, which is
+  -- one edit away from the two disagreeing — and the way they would disagree
+  -- is that `due` says yes, the letter goes, the claim answers null, and the
+  -- letter goes again every minute (review round 4).
+  if p_claim and not public.dispatch_health_due() then
+    return null;
   end if;
 
   select jsonb_build_object(
