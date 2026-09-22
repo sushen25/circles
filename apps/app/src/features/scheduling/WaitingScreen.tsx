@@ -1,5 +1,3 @@
-import { useState } from 'react';
-
 import {
   Body,
   BodyText,
@@ -8,92 +6,109 @@ import {
   DisplayL,
   Foot,
   Label,
-  Marks,
   Screen,
   Small,
   Tertiary,
   Title,
   TopBar,
-  Track,
 } from '../../components';
-import { Row, Stack } from '../../components/layout';
+import { Stack } from '../../components/layout';
 import { t } from '../../copy';
-import type { Fixture } from '../../data/fixtures';
-import type { ScreenState } from '../state';
+import { CandidateHeader, Placeholder } from './parts';
+import type { HeaderView } from './view';
 
 /**
- * Waiting — scaffolded from `docs/design/Waiting.dc.html`.
+ * Waiting — `docs/design/Waiting.dc.html` (spec §5.6): "before any candidate
+ * exists the organiser sees a waiting state with what has come in".
  *
- * Structure and copy come from the artboard; data comes from a fixture. Slice 1
- * replaces `fixture` with real data and `onNext` with real navigation. Edit
- * freely: `scripts/scaffold-screens.mjs` will not overwrite this file.
+ * **What has come in is counts and names, never times.** A member's windows are
+ * readable by that member alone, and `response_summaries` carries who answered
+ * and with what status and deliberately no window (migration 0004) — so the
+ * artboard's per-day totals are not a thing any client can compute. What is
+ * true and useful is here instead: how many have answered, who is still to,
+ * and what has to happen for options to appear.
+ *
+ * A plan sitting below its quorum early on is not an error (ADR 0026: a circle
+ * of one starts at three), so this reads as waiting for people rather than as
+ * something going wrong.
  */
+export type WaitingState = 'default' | 'loading' | 'error' | 'offline' | 'denied';
+
 export type WaitingProps = {
-  fixture: Fixture;
-  state?: ScreenState | undefined;
-  /** The screen's one decision. */
-  onNext?: (() => void) | undefined;
+  state?: WaitingState | undefined;
+  header?: HeaderView | undefined;
+  headline?: string | undefined;
+  body?: string | undefined;
+  /** "4 of 6 have answered." */
+  answered?: string | undefined;
+  /** "Still to answer: Alex and Tom." */
+  still?: string | undefined;
+  onShareAgain?: (() => void) | undefined;
+  onEditPlan?: (() => void) | undefined;
+  onRetry?: (() => void) | undefined;
   onBack?: (() => void) | undefined;
-  onEditThePlan?: (() => void) | undefined;
-  onShareTheLinkAgain?: (() => void) | undefined;
 };
 
 export function WaitingScreen({
-  fixture,
+  state = 'default',
+  header,
+  headline,
+  body,
+  answered,
+  still,
+  onShareAgain,
+  onEditPlan,
+  onRetry,
   onBack,
-  onEditThePlan,
-  onShareTheLinkAgain,
 }: WaitingProps) {
-  const [cells0, setCells0] = useState(fixture.plan.cells); // Track
+  if (state === 'loading') {
+    return <Placeholder message={t('waiting', 'loading')} onBack={onBack} />;
+  }
+  if (state === 'error' || state === 'offline') {
+    return (
+      <Placeholder
+        message={state === 'offline' ? t('waiting', 'youre_offline') : t('waiting', 'couldnt_load')}
+        actionLabel={t('waiting', 'try_again')}
+        onAction={onRetry}
+        onBack={onBack}
+      />
+    );
+  }
+  if (state === 'denied') {
+    return (
+      <Placeholder
+        message={t('waiting', 'denied_title')}
+        detail={t('waiting', 'denied_body')}
+        onBack={onBack}
+      />
+    );
+  }
 
   return (
     <Screen>
-      <TopBar
-        title={t('waiting', 'catch_up_next_14_days')}
-        onBack={onBack}
-        backLabel={t('common', 'back')}
-      />
+      <TopBar title={header?.title} onBack={onBack} backLabel={t('common', 'back')} />
       <Body>
-        <Row>
-          <Row>
-            <Marks members={fixture.circle.members} />
-            <Small>{t('waiting', '2_of_6_replied')}</Small>
-          </Row>
-          <Small>{t('waiting', 'closes_tue_6_pm')}</Small>
-        </Row>
+        {header === undefined ? null : <CandidateHeader header={header} />}
         <Stack>
-          <DisplayL>{t('waiting', 'waiting_on_a_few_more')}</DisplayL>
-          <BodyText>{t('waiting', 'options_appear_once_at_least_4_people')}</BodyText>
+          <DisplayL>{headline ?? t('waiting', 'headline')}</DisplayL>
+          {body === undefined ? null : <BodyText>{body}</BodyText>}
         </Stack>
         <Card>
           <Label>{t('waiting', 'so_far')}</Label>
           <Stack>
-            <Row>
-              <Title>{t('waiting', 'thu_17_sep')}</Title>
-              <BodyText>{t('waiting', '6_30_10_30_pm_works_for')}</BodyText>
-            </Row>
-            <Track
-              day={fixture.plan.dayLabel}
-              cells={cells0}
-              onChange={setCells0}
-              startMinutes={fixture.plan.startMinutes}
-              busy={fixture.plan.busy}
-              ticks={fixture.plan.ticks}
-            />
-            <BodyText>{t('waiting', '5_30_pm')}</BodyText>
-            <BodyText>{t('waiting', '8_pm')}</BodyText>
-            <BodyText>{t('waiting', '10_30_pm')}</BodyText>
+            {answered === undefined ? null : <Title>{answered}</Title>}
+            {still === undefined ? null : <BodyText>{still}</BodyText>}
           </Stack>
         </Card>
-        <Small>{t('waiting', 'only_you_see_this_while_its_incomplete')}</Small>
+        <Small>{t('waiting', 'only_you')}</Small>
       </Body>
       <Foot>
         <Button
           label={t('waiting', 'share_the_link_again')}
           variant="secondary"
-          onPress={onShareTheLinkAgain}
+          onPress={onShareAgain}
         />
-        <Tertiary label={t('waiting', 'edit_the_plan')} onPress={onEditThePlan} />
+        <Tertiary label={t('waiting', 'edit_the_plan')} onPress={onEditPlan} />
       </Foot>
     </Screen>
   );

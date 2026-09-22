@@ -1,104 +1,95 @@
-import {
-  Body,
-  BodyText,
-  Button,
-  Card,
-  DateText,
-  DisplayL,
-  Foot,
-  Label,
-  Marks,
-  Screen,
-  Small,
-  TopBar,
-} from '../../components';
-import { Row, Stack } from '../../components/layout';
+import { Body, BodyText, Button, DisplayL, Foot, Screen, TopBar } from '../../components';
+import { Stack } from '../../components/layout';
 import { t } from '../../copy';
-import type { Fixture } from '../../data/fixtures';
-import type { ScreenState } from '../state';
+import { CandidateCard, CandidateHeader, Placeholder } from './parts';
+import type { CardView, HeaderView } from './view';
 
 /**
- * CandidatesMember — scaffolded from `docs/design/CandidatesMember.dc.html`.
+ * CandidatesMember — `docs/design/CandidatesMember.dc.html` (spec §5.6).
  *
- * Structure and copy come from the artboard; data comes from a fixture. Slice 1
- * replaces `fixture` with real data and `onNext` with real navigation. Edit
- * freely: `scripts/scaffold-screens.mjs` will not overwrite this file.
+ * The same options, with nothing to decide: "all active members see the
+ * candidates before confirmation; only the organiser can confirm". So there is
+ * no primary here — the one thing a member can still do is change their own
+ * times, and it is the only button on the screen.
+ *
+ * With no options yet, this is where the spec's "members see nothing until
+ * options exist" lands, and §3.5 decides how it reads: waiting for people,
+ * never a group that has failed. No near-misses and no resolution actions —
+ * those are the organiser's screen.
  */
+export type CandidatesMemberState =
+  'default' | 'waiting' | 'no_overlap' | 'loading' | 'error' | 'offline' | 'denied' | 'expired';
+
 export type CandidatesMemberProps = {
-  fixture: Fixture;
-  state?: ScreenState | undefined;
-  /** The screen's one decision. */
-  onNext?: (() => void) | undefined;
-  onBack?: (() => void) | undefined;
+  state?: CandidatesMemberState | undefined;
+  header?: HeaderView | undefined;
+  headline?: string | undefined;
+  lead?: string | undefined;
+  cards?: readonly CardView[] | undefined;
   onChangeMyTimes?: (() => void) | undefined;
+  onRetry?: (() => void) | undefined;
+  onBack?: (() => void) | undefined;
 };
 
 export function CandidatesMemberScreen({
-  fixture,
-  onBack,
+  state = 'default',
+  header,
+  headline,
+  lead,
+  cards = [],
   onChangeMyTimes,
+  onRetry,
+  onBack,
 }: CandidatesMemberProps) {
+  if (state === 'loading') {
+    return <Placeholder message={t('candidatesMember', 'loading')} onBack={onBack} />;
+  }
+  if (state === 'error' || state === 'offline') {
+    return (
+      <Placeholder
+        message={
+          state === 'offline'
+            ? t('candidatesMember', 'youre_offline')
+            : t('candidatesMember', 'couldnt_load')
+        }
+        actionLabel={t('candidatesMember', 'try_again')}
+        onAction={onRetry}
+        onBack={onBack}
+      />
+    );
+  }
+  if (state === 'denied') {
+    return (
+      <Placeholder
+        message={t('candidatesMember', 'denied_title')}
+        detail={t('candidatesMember', 'denied_body')}
+        onBack={onBack}
+      />
+    );
+  }
+  if (state === 'expired') {
+    return (
+      <Placeholder
+        topTitle={header?.title}
+        message={t('candidatesMember', 'closed_title')}
+        detail={t('candidatesMember', 'closed_body')}
+        onBack={onBack}
+      />
+    );
+  }
+
   return (
     <Screen>
-      <TopBar
-        title={t('candidatesMember', 'catch_up_next_14_days')}
-        onBack={onBack}
-        backLabel={t('common', 'back')}
-      />
+      <TopBar title={header?.title} onBack={onBack} backLabel={t('common', 'back')} />
       <Body>
-        <Row>
-          <Row>
-            <Marks members={fixture.circle.members} />
-            <Small>{t('candidatesMember', '5_of_6_replied')}</Small>
-          </Row>
-          <Small>{t('candidatesMember', 'closes_tue_6_pm')}</Small>
-        </Row>
+        {header === undefined ? null : <CandidateHeader header={header} />}
         <Stack>
-          <DisplayL>{t('candidatesMember', 'thursday_looks_good_for_five_of_you')}</DisplayL>
-          <BodyText>{t('candidatesMember', 'maya_will_pick_one_of_these_once')}</BodyText>
+          {headline === undefined ? null : <DisplayL>{headline}</DisplayL>}
+          {lead === undefined ? null : <BodyText>{lead}</BodyText>}
         </Stack>
-        <Card recommended>
-          <Row>
-            <Label>{t('candidatesMember', 'best_attendance')}</Label>
-            <Small>{t('candidatesMember', '5_of_6')}</Small>
-          </Row>
-          <Stack>
-            <DateText>{t('candidatesMember', 'thu_17_sep')}</DateText>
-            <BodyText>{t('candidatesMember', '6_30_8_30_pm')}</BodyText>
-          </Stack>
-          <Row>
-            <Marks members={fixture.circle.members} />
-            <Small>{t('candidatesMember', 'alex_hasnt_answered')}</Small>
-          </Row>
-        </Card>
-        <Card>
-          <Row>
-            <Label>{t('candidatesMember', 'one_fewer_weekend')}</Label>
-            <Small>{t('candidatesMember', '4_of_6')}</Small>
-          </Row>
-          <Stack>
-            <DateText>{t('candidatesMember', 'sat_19_sep')}</DateText>
-            <BodyText>{t('candidatesMember', '6_30_8_30_pm')}</BodyText>
-          </Stack>
-          <Row>
-            <Marks members={fixture.circle.members} />
-            <Small>{t('candidatesMember', 'doesnt_work_for_priya')}</Small>
-          </Row>
-        </Card>
-        <Card>
-          <Row>
-            <Label>{t('candidatesMember', 'also_four_a_day_later')}</Label>
-            <Small>{t('candidatesMember', '4_of_6')}</Small>
-          </Row>
-          <Stack>
-            <DateText>{t('candidatesMember', 'sun_20_sep')}</DateText>
-            <BodyText>{t('candidatesMember', '4_6_pm')}</BodyText>
-          </Stack>
-          <Row>
-            <Marks members={fixture.circle.members} />
-            <Small>{t('candidatesMember', 'doesnt_work_for_tom')}</Small>
-          </Row>
-        </Card>
+        {cards.map((card) => (
+          <CandidateCard key={card.id} card={card} highlighted={card.recommended} />
+        ))}
       </Body>
       <Foot>
         <Button

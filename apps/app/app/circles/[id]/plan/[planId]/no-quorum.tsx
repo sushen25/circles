@@ -1,12 +1,10 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 
-import { useFixture } from '../../../../../src/data/fixtures/useFixture';
-import { NoQuorumScreen } from '../../../../../src/features/scheduling/NoQuorumScreen';
+import { CandidatesFlow } from '../../../../../src/features/scheduling/CandidatesFlow';
 
 /** Route only — thin composition, no logic (architecture §7.1). */
 export default function Route() {
-  const router = useRouter();
-  const fixture = useFixture();
+  const { id, planId } = useLocalSearchParams<{ id: string; planId: string }>();
 
-  return <NoQuorumScreen fixture={fixture} onBack={() => router.back()} />;
+  return <CandidatesFlow id={id} planId={planId} which="no-quorum" />;
 }
