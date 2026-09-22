@@ -61,8 +61,17 @@ export async function reportHealth(service: Db, requestId: string): Promise<bool
   if (error !== null) throw error;
   // `p_claim => false` always answers a row, so null means the function has
   // changed under us. A run that falls over on its own health report is worse
-  // than one that skips it.
-  if (data === null) return false;
+  // than one that skips it — but a guard that fires silently would leave the
+  // day neither claimed nor reported and nothing to read but a zero, which is
+  // also what a day that is not due looks like.
+  if (data === null) {
+    log('warn', {
+      fn: 'process-scheduled-jobs',
+      request_id: requestId,
+      event: 'health_unreadable',
+    });
+    return false;
+  }
   const summary = data as unknown as Summary;
 
   const to = optional('HEALTH_REPORT_TO');

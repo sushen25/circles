@@ -142,7 +142,7 @@ Deno.serve(
         }
       } finally {
         // Always, and before the response: a run that kept the lease after it
-        // stopped would silence the next fifty-five seconds of ticks for
+        // stopped would silence the next ninety seconds of ticks for
         // nothing. `release_lease` is the holder's alone, so this cannot take
         // away a lease that has already lapsed into somebody else's hands.
         const { error: releaseError } = await service.rpc('dispatch_end', {

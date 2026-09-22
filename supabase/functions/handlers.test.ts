@@ -3109,6 +3109,21 @@ describe('process-scheduled-jobs', () => {
     expect(called('dispatch_event_result')[0]?.args['p_error']).toBeUndefined();
   });
 
+  it('does not tell the organiser replies are closed on a plan that is asking again', async () => {
+    // "Give it one more day" (spec §5.7) is an edit, which bumps the revision
+    // and sets a deadline in the future. A `replies_closed` held overnight by
+    // quiet hours across that edit would arrive saying replies are closed and
+    // send the organiser to a screen that no longer applies (review round 4).
+    withDue(dueJob({ kind: 'replies_closed', plan_revision: 2, plan_current_revision: 3 }));
+
+    await load('process-scheduled-jobs')(post({}, 'a-shared-secret'));
+
+    expect(called('dispatch_job_result')[0]?.args).toMatchObject({
+      p_outcome: 'skipped',
+      p_error: 'revision_moved_on',
+    });
+  });
+
   it('leaves the day unclaimed when the health report could not be sent', async () => {
     // Claimed before the letter, a provider having a bad morning cost the
     // whole day's report: every later run that day found the day closed and
