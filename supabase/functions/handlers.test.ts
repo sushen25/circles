@@ -2939,7 +2939,7 @@ describe('process-scheduled-jobs', () => {
               plan_revision: 1,
               idempotency_key: 'a'.repeat(64),
               attempt_count: 0,
-              email: 'someone@example.test',
+              email: 'someone@example.com',
               contact_status: 'verified',
               subscribed: false,
               plan_state: 'confirmed',
