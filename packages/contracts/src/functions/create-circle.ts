@@ -46,13 +46,15 @@ export type CreateCircleRequest = z.infer<typeof CreateCircleRequest>;
 export const CreateCircleResponse = z.object({
   circle: CircleDto,
   /**
-   * The invite secret, **returned once and never again**.
+   * The invite secret.
    *
    * Not a URL. The link is `${origin}${DEEP_LINK_ROUTES.join}#${secret}` and the
    * client is the only party that knows its own origin — a server-built URL
    * would hard-code one and be wrong in every preview deploy. The secret goes in
-   * the *fragment*, which no server ever sees (§14); only its SHA-256 is stored,
-   * so nothing can hand it back later.
+   * the *fragment*, which no server ever sees (§14); only its SHA-256 is stored.
+   * It is derived from the invite's id with a key only the Edge Functions hold,
+   * so `get-invite-link` can give the owner the same link again later
+   * (ADR 00XX) — where that key is set, and never from the database alone.
    */
   invite_secret: z.string().min(43),
 });
