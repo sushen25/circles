@@ -36,13 +36,21 @@ MAIL_URL := http://127.0.0.1:$(MAIL_PORT)
 # (the same list CI runs without). Slot 0 starts everything.
 EXCLUDE  ?= realtime,storage-api,imgproxy,studio,logflare,vector,supavisor
 
+# The two hosted projects (docs/runbooks/environments.md), so a secret can be set
+# by naming the environment instead of copying a ref: `make secret ENV=prod ...`.
+# Refs are public — the subdomain of an API URL; no key or value belongs here.
+REF_dev  := pcfekupwqrdfryeaqggx
+REF_prod := bhunoaqswteamabbyckp
+REF       = $(or $(REF_$(ENV)),$(error ENV must be dev or prod: make $@ ENV=dev))
+
 # `make logs SINCE=30m` looks further back; `make logs FOLLOW=` prints and exits.
 SINCE  ?= 10m
 FOLLOW ?= -f
 
 .PHONY: help ports envs setup dev dev-live dev-down web up down restart reset nuke status env \
 	logs logs-errors logs-db logs-auth logs-api psql sql limits mail studio \
-	gen types build check test test-unit test-db test-live test-smoke lint typecheck format
+	gen types build check test test-unit test-db test-live test-smoke lint typecheck format \
+	secrets secret
 
 help: ## List every target
 	@awk 'BEGIN {FS = ":.*## "} /^[a-z-]+:.*## / {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -205,3 +213,18 @@ typecheck: ## Every tsconfig, the app's included
 
 format: ## Prettier, writing
 	$(PNPM) format
+
+# ---- Hosted projects: Edge Function secrets ---------------------------------
+# Neither target prints a value. `secrets list` returns names and SHA-256
+# digests only, and `secret` echoes nothing, so a value invented with V omitted
+# is never seen by anybody — right for INVITE_LINK_KEY, which nothing else has
+# to agree with, and wrong for CRON_SECRET, which the database has to be told
+# too: pass that one as V=… from a password manager.
+
+secrets: ## Names and digests of ENV's secrets, never values: make secrets ENV=dev
+	@$(SUPABASE) secrets list --project-ref $(REF)
+
+secret: ## Set one secret on ENV: make secret ENV=prod K=NAME V=value (no V: a fresh random value)
+	@[ -n "$(K)" ] || { echo 'K=NAME is required: make secret ENV=$(ENV) K=INVITE_LINK_KEY'; exit 2; }
+	@$(SUPABASE) secrets set --project-ref $(REF) "$(K)=$(or $(V),$$(openssl rand -base64 32))" \
+	  && echo "$(K) set on $(ENV) ($(REF))"
