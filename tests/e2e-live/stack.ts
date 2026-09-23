@@ -20,7 +20,20 @@ const ROOT = fileURLToPath(new URL('../..', import.meta.url));
 
 export type StackConfig = { apiUrl: string; anonKey: string; dbUrl: string; serviceKey: string };
 
+/**
+ * Read once per process. `sql()` runs on every query, and `supabase status` is
+ * a Docker round trip: read each time, the live suite spent most of its minutes
+ * asking the same question (SUS-86). Playwright starts a worker per project and
+ * after a failure, so the lookup still happens a handful of times per run,
+ * which is fine — the stack does not change under a run.
+ */
+let cachedStack: StackConfig | undefined;
+
 export function stackConfig(): StackConfig {
+  return (cachedStack ??= readStackConfig());
+}
+
+function readStackConfig(): StackConfig {
   const raw = execFileSync(resolve(ROOT, 'node_modules/.bin/supabase'), ['status', '-o', 'json'], {
     encoding: 'utf8',
     cwd: ROOT,
