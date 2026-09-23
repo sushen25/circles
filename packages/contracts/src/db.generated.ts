@@ -196,6 +196,7 @@ export type Database = {
           display_name_snapshot: string
           joined_at: string
           muted_all: boolean
+          muted_nudges: boolean
           muted_quiet_asks: boolean
           role: string
           status: string
@@ -208,6 +209,7 @@ export type Database = {
           display_name_snapshot: string
           joined_at?: string
           muted_all?: boolean
+          muted_nudges?: boolean
           muted_quiet_asks?: boolean
           role?: string
           status?: string
@@ -220,6 +222,7 @@ export type Database = {
           display_name_snapshot?: string
           joined_at?: string
           muted_all?: boolean
+          muted_nudges?: boolean
           muted_quiet_asks?: boolean
           role?: string
           status?: string
@@ -934,6 +937,7 @@ export type Database = {
           cadence?: string
           color: string
           idempotency_key: string
+          invite_id?: string
           invite_secret_hash?: string
           name: string
           time_zone: string
@@ -1076,7 +1080,11 @@ export type Database = {
         }[]
       }
       issue_invite: {
-        Args: { p_circle_id: string; p_secret_hash: string }
+        Args: {
+          p_circle_id: string
+          p_invite_id?: string
+          p_secret_hash: string
+        }
         Returns: {
           circle_id: string
           created_at: string
@@ -1117,6 +1125,13 @@ export type Database = {
           p_user_id: string
         }
         Returns: Json
+      }
+      live_invite: {
+        Args: { p_circle_id: string }
+        Returns: {
+          invite_id: string
+          secret_hash: string
+        }[]
       }
       member_cap: { Args: never; Returns: number }
       plan_candidate_summary: { Args: { p_plan_id: string }; Returns: Json }
@@ -1214,6 +1229,10 @@ export type Database = {
       release_request: {
         Args: { p_function: string; p_key: string; p_user: string }
         Returns: undefined
+      }
+      remove_member: {
+        Args: { p_circle_id: string; p_user_id: string }
+        Returns: string[]
       }
       replace_response: {
         Args: {

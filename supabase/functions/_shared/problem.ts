@@ -62,6 +62,7 @@ const REASONS: Record<ProblemReason, { status: number; error: Problem['error'] }
   // unless the thing itself is missing or gone.
   requires_saved_place: { status: 403, error: 'forbidden' },
   not_the_owner: { status: 403, error: 'forbidden' },
+  cannot_remove_owner: { status: 409, error: 'conflict' },
   not_the_organiser: { status: 403, error: 'forbidden' },
   not_the_initiator: { status: 403, error: 'forbidden' },
   not_the_organiser_or_owner: { status: 403, error: 'forbidden' },
