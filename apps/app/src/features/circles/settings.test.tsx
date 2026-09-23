@@ -187,6 +187,26 @@ describe('the invite link in settings', () => {
   });
 });
 
+describe('when the link cannot be asked for', () => {
+  it('says so and offers to try again, rather than calling the link lost', async () => {
+    fetchInviteSecret.mockRejectedValueOnce(new Error('get-invite-link failed'));
+    wrap(<SettingsFlow id={CIRCLE} />);
+
+    expect(await screen.findByText("We couldn't get the link just now.")).toBeVisible();
+    expect(screen.queryByText(/can't be shown again/)).toBeNull();
+
+    const shown = secret();
+    fetchInviteSecret.mockImplementation((id: string) => {
+      keepInviteSecret(id, shown);
+      return Promise.resolve(shown);
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    });
+    expect(await screen.findByText(new RegExp(`/join#…${shown.slice(-4)}$`))).toBeVisible();
+  });
+});
+
 describe('the owner’s other settings', () => {
   it('changes the rhythm from the picker', async () => {
     fetchInviteSecret.mockResolvedValue(undefined);

@@ -46,7 +46,9 @@ export type InviteView =
   | { kind: 'loading' }
   | { kind: 'shown'; display: string }
   /** The live link cannot be shown again (ADR 00XX): reset it. */
-  | { kind: 'unshowable' };
+  | { kind: 'unshowable' }
+  /** Asking for it failed: that says nothing about the link, so try again, not reset. */
+  | { kind: 'error' };
 
 export type SettingsProps = {
   fixture?: Fixture | undefined;
@@ -68,6 +70,7 @@ export type SettingsProps = {
   children?: ReactNode;
   onCopyLink?: (() => void) | undefined;
   onResetLink?: (() => void) | undefined;
+  onRetryLink?: (() => void) | undefined;
   onChangeCadence?: (() => void) | undefined;
   onChangePolicy?: (() => void) | undefined;
   onColorChange?: ((token: string) => void) | undefined;
@@ -138,6 +141,7 @@ export function SettingsScreen({
   children,
   onCopyLink,
   onResetLink,
+  onRetryLink,
   onChangeCadence,
   onChangePolicy,
   onColorChange,
@@ -186,6 +190,11 @@ export function SettingsScreen({
             {invite.kind === 'loading' ? <Small>{t('settings', 'link_loading')}</Small> : null}
             {invite.kind === 'shown' ? <Title>{invite.display}</Title> : null}
             {invite.kind === 'unshowable' ? <Small>{t('settings', 'link_not_shown')}</Small> : null}
+            {invite.kind === 'error' ? (
+              <SettingRow title={t('settings', 'link_couldnt_load')}>
+                <CompactButton label={t('settings', 'try_again')} onPress={onRetryLink} />
+              </SettingRow>
+            ) : null}
             <ButtonRow>
               {invite.kind === 'shown' ? (
                 <Button

@@ -1636,6 +1636,7 @@ export const en = {
     archive_this_circle: 'Archive this circle',
     link_ending: '{domain}/join#…{tail}',
     link_loading: 'Getting the link',
+    link_couldnt_load: "We couldn't get the link just now.",
     link_not_shown: "This link can't be shown again. Reset it to get a new one, and share that.",
     copied: 'Copied',
     couldnt_copy: "Couldn't copy. Try again.",

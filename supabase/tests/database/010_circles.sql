@@ -944,7 +944,10 @@ select is(
        -- anybody else by name: `live_invite` is the live link's id and digest
        -- (never its secret, which the database does not have), and
        -- `remove_member` the one way somebody is taken out.
-       'live_invite', 'remove_member'
+       'live_invite', 'remove_member',
+       -- And the Account screen's address, as a hint made on this side of the
+       -- boundary so no client holds the address itself; the caller's own.
+       'own_email_hint'
      )),
   '',
   'only the intended functions in public are callable by authenticated'

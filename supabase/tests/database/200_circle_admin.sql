@@ -6,7 +6,7 @@
 -- in a different circle.
 
 begin;
-select plan(41);
+select plan(44);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid
@@ -398,6 +398,25 @@ select is(
    where id = (select circle_id from fixture)),
   'fortnightly/take_turns/moss/active',
   'and a member archiving it changes nothing'
+);
+
+-- ---------------------------------------------------------------------------
+-- own_email_hint: the caller's own address, never whole.
+-- ---------------------------------------------------------------------------
+
+select pg_temp.act_as('20000000-0000-0000-0000-000000000001');
+select is(
+  public.own_email_hint(),
+  '2…@example.com',
+  'the owner is told the first character and the domain of their own address, and nothing more'
+);
+select pg_temp.act_as_postgres();
+update auth.users set email = null where id = '20000000-0000-0000-0000-000000000002';
+select pg_temp.act_as('20000000-0000-0000-0000-000000000002', true);
+select is(public.own_email_hint(), null, 'a guest with no address is told nothing');
+select ok(
+  not has_function_privilege('anon', 'public.own_email_hint()', 'execute'),
+  'and nobody without a session can ask'
 );
 
 select * from finish();

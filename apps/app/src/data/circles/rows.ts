@@ -30,14 +30,20 @@ export type PlanRow = {
   response_deadline: string;
 };
 
-/** Named plans still asking, and confirmed ones, newest first, for these circles. */
+/**
+ * Plans still asking, and confirmed ones, newest first, for these circles.
+ *
+ * Every mode: a quiet ask that reached its threshold is asking for times like
+ * any other plan, and stays `quiet` (spec §5.4). The states are what keep a
+ * quiet ask still gathering interest (`seeking`) out — it is nobody's "finding
+ * a time" until it opens, and who started it is never shown.
+ */
 export async function plansFor(client: Client, circleIds: readonly string[]): Promise<PlanRow[]> {
   if (circleIds.length === 0) return [];
   const { data, error } = await client
     .from('plans')
     .select('id, circle_id, short_code, title, state, revision, response_deadline')
     .in('circle_id', [...circleIds])
-    .eq('mode', 'named')
     .in('state', [...ANSWERABLE_STATES, 'confirmed'])
     .order('created_at', { ascending: false });
   if (error !== null) throw new Error(FAILED);

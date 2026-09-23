@@ -134,9 +134,11 @@ function LiveSettings({ id }: { id: string }) {
   const invite: InviteView =
     held !== undefined
       ? { kind: 'shown', display: linkDisplay(held.slice(held.indexOf('#') + 1)) }
-      : link.isPending || link.isFetching
+      : link.isFetching || link.isPending
         ? { kind: 'loading' }
-        : { kind: 'unshowable' };
+        : link.isError
+          ? { kind: 'error' }
+          : { kind: 'unshowable' };
 
   const confirm = async () => {
     if (asking === undefined || busy) return;
@@ -220,6 +222,7 @@ function LiveSettings({ id }: { id: string }) {
         });
       }}
       onResetLink={() => setAsking({ kind: 'reset' })}
+      onRetryLink={() => void link.refetch()}
       onChangeCadence={() => setAsking({ kind: 'cadence' })}
       onChangePolicy={() => setAsking({ kind: 'policy' })}
       onColorChange={(color) => void save({ color })}

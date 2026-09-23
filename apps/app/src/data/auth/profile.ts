@@ -194,22 +194,12 @@ export async function saveProfile(input: { name: string; zone: string }): Promis
 
 /**
  * The address this account signs in with, **as the Account screen shows it**:
- * `m…@example.com`. Enough for its owner to recognise, and never the address
- * itself — "no client context ever holds a raw email address" (AGENTS.md), so
- * the raw value is read from the session the auth server already keeps and
- * goes no further than this function: not into a query cache, not into props,
- * not into a log. Null for a guest, who has none.
+ * `m…@example.com`. Made by `public.own_email_hint` on the server side of the
+ * boundary, so the address itself never reaches this code — "no client
+ * context ever holds a raw email address" (AGENTS.md). Null for a guest.
  */
 export async function ownEmailHint(): Promise<string | null> {
-  const { data } = await authClient().auth.getSession();
-  const email = data.session?.user.email;
-  if (email === undefined || email === '') return null;
-  return emailHint(email);
-}
-
-/** `maya@example.com` → `m…@example.com`. Pure, so the shape can be tested. */
-export function emailHint(email: string): string {
-  const at = email.lastIndexOf('@');
-  if (at <= 0) return '…';
-  return `${[...email.slice(0, at)][0] ?? ''}…${email.slice(at)}`;
+  const { data, error } = await authClient().rpc('own_email_hint');
+  if (error !== null) throw new Error('email hint lookup failed');
+  return data ?? null;
 }
