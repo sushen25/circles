@@ -1012,6 +1012,37 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      dispatch_begin: { Args: { p_holder: string }; Returns: boolean }
+      dispatch_cancel_pending: {
+        Args: { p_plan_id: string; p_revision: number }
+        Returns: number
+      }
+      dispatch_claim_due: { Args: { p_limit?: number }; Returns: Json }
+      dispatch_claim_events: { Args: { p_limit?: number }; Returns: Json }
+      dispatch_context: { Args: { p_plan_id: string }; Returns: Json }
+      dispatch_end: { Args: { p_holder: string }; Returns: boolean }
+      dispatch_enqueue: { Args: { p_jobs: Json }; Returns: number }
+      dispatch_event_result: {
+        Args: { p_error?: string; p_id: string }
+        Returns: undefined
+      }
+      dispatch_health: { Args: { p_claim?: boolean }; Returns: Json }
+      dispatch_health_due: { Args: never; Returns: boolean }
+      dispatch_job_result: {
+        Args: {
+          p_error?: string
+          p_id: string
+          p_next_attempt_at?: string
+          p_outcome: string
+          p_provider_message_id?: string
+        }
+        Returns: undefined
+      }
+      dispatch_organiser_contact: {
+        Args: { p_user_id: string }
+        Returns: string
+      }
+      dispatch_timed_work: { Args: { p_limit?: number }; Returns: Json }
       email_preferences: {
         Args: { p_action: string; p_plan_id?: string; p_token_hash: string }
         Returns: Json

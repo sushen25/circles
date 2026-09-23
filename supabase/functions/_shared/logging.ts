@@ -24,6 +24,16 @@ export interface LogFields {
    * id identifies a row, and a row is only reachable by the service role.
    */
   contact_id?: string | undefined;
+  /**
+   * Counts, for the lines that report a batch rather than a request — the
+   * dispatcher's per-phase summary and its daily health report (S1-20).
+   *
+   * **Numbers only**, and that is the whole of why it is safe: the type
+   * forbids a string, so there is no way to widen this into the free-form
+   * `details` bag that every structured logger eventually grows an address in.
+   * A count is not about anybody.
+   */
+  counts?: Readonly<Record<string, number>> | undefined;
 }
 
 export function log(level: 'info' | 'warn' | 'error', fields: LogFields): void {

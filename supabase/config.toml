@@ -437,6 +437,21 @@ deno_version = 2
 [edge_runtime.secrets]
 EMAIL_CAPTURE_URL = "http://inbucket:8025"
 
+# Local only, and not a secret either: the bearer the internal endpoints
+# compare against (`_shared/internal.ts`). `dev` and `prod` each invent their
+# own with `supabase secrets set`, and the value cannot be read back out — this
+# one exists so that `process-scheduled-jobs` and `recalculate-candidates` can
+# be *run* on a local stack at all. Without it they refuse every call, which is
+# the right default for a deployed project and would mean the one background
+# worker could never be exercised anywhere it can be watched.
+#
+# The word is the whole value on purpose: short, in the dictionary, and
+# obviously nobody's. A local stack is reachable only from the machine it runs
+# on, and the database settings that make pg_cron actually call the function
+# (`circles.functions_url`, `circles.cron_secret`) are deliberately left unset
+# here, so nothing invokes it until somebody asks it to.
+CRON_SECRET = "local"
+
 [analytics]
 # Off locally. This is the CLI's Logflare log viewer, not the product's
 # analytics — those are a first-party `analytics` schema and SQL views
@@ -479,9 +494,17 @@ verify_jwt = false
 # it internal). The bearer is `CRON_SECRET`, which is a shared secret and not a
 # Supabase JWT, so the gateway cannot be the thing that checks it — the function
 # does, in constant time, and refuses every call when the secret is unset. This
-# is the same bearer `jobs.invoke_process_scheduled_jobs()` sends, and
-# `process-scheduled-jobs` will want the same line for the same reason (S1-20).
+# is the same bearer `jobs.invoke_process_scheduled_jobs()` sends.
 [functions.recalculate-candidates]
+verify_jwt = false
+
+# The one background worker (ADR 0003, S1-20). `pg_cron` calls it every minute
+# through `pg_net` with the same `CRON_SECRET` bearer, for the same reason as
+# above: a shared secret is not a Supabase JWT, so the gateway would refuse
+# every legitimate call and check nothing. `_shared/internal.ts` compares it in
+# constant time and refuses everything while the secret is unset, which is the
+# safe direction for an endpoint nobody signs in to reach.
+[functions.process-scheduled-jobs]
 verify_jwt = false
 
 # The two links in an email. Opened by somebody who may have no account and no
