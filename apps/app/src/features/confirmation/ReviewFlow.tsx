@@ -69,19 +69,26 @@ function LiveReview({ id, planId, candidate }: { id: string; planId: string; can
   const [chased, setChased] = useState<ChasedAnswer>();
   const [seenSet, setSeenSet] = useState<string>();
 
-  // Once the plan is locked in, **back to the options, not on to the
-  // confirmed screen.** They are under this one, and a locked-in plan makes
-  // them replace themselves with it — so the stack ends circle → confirmed.
-  // Going straight on left them in it, and the hardware and browser Back
-  // landed on them and were sent forward again. `dismissTo` replaces the
-  // review with them when they are not there (a deep link), and the same
-  // redirect follows. The plan's own circle once it is read; the route's only
-  // before that.
-  const toOptions = (circleId: string = data?.circleId ?? id) =>
+  // Once the plan is locked in: **off the options and on to the confirmed
+  // screen, in one go.** Replacing only the review left the options under the
+  // confirmed screen, where hardware and browser Back landed on them and
+  // they sent you forward again. Popping to them and waiting for their own
+  // redirect showed them, with a live Review button, for as long as their
+  // next read took. Both actions in the same tick go through the routing
+  // queue together, so the stack ends circle → confirmed and the options never
+  // render on top. With no options under the review (a deep link), `dismissTo`
+  // replaces it, and the `replace` then puts the confirmed screen there
+  // instead. The plan's own circle once it is read; the route's only before.
+  const toConfirmed = (circleId: string = data?.circleId ?? id) => {
     router.dismissTo({
       pathname: '/circles/[id]/plan/[planId]/candidates',
       params: { id: circleId, planId },
     });
+    router.replace({
+      pathname: '/circles/[id]/plan/[planId]/confirmed',
+      params: { id: circleId, planId },
+    });
+  };
   // Once, guarded by a ref: `useRouter` can hand back a new object per render,
   // and a lock-in's own refetch would otherwise send the person a second time.
   const sent = useRef(false);
@@ -89,7 +96,7 @@ function LiveReview({ id, planId, candidate }: { id: string; planId: string; can
     planId,
     onLocked: (circleId) => {
       sent.current = true;
-      toOptions(circleId);
+      toConfirmed(circleId);
     },
   });
 
@@ -111,7 +118,7 @@ function LiveReview({ id, planId, candidate }: { id: string; planId: string; can
   useEffect(() => {
     if (!decided || sent.current) return;
     sent.current = true;
-    toOptions();
+    toConfirmed();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- once, by the ref
   }, [decided]);
 

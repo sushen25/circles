@@ -115,20 +115,27 @@ describe('the organiser reviewing Thursday', () => {
       placeUrl: undefined,
       note: 'Come hungry.',
     });
-    // Back to the options, which forward a locked-in plan to its confirmed
-    // screen — so nothing is left under it for Back to land on.
+    // Off the options and on to the confirmed screen in the same tick, so
+    // nothing is left under it for Back to land on and the options never show.
     await waitFor(() =>
       expect(dismissTo).toHaveBeenCalledWith({
         pathname: '/circles/[id]/plan/[planId]/candidates',
         params: { id: 'sunday-crew', planId: 'thu-17' },
       }),
     );
+    expect(replace).toHaveBeenCalledWith({
+      pathname: '/circles/[id]/plan/[planId]/confirmed',
+      params: { id: 'sunday-crew', planId: 'thu-17' },
+    });
+    expect(dismissTo.mock.invocationCallOrder[0]).toBeLessThan(
+      replace.mock.invocationCallOrder[0]!,
+    );
     // The refetch the lock-in causes reads the plan as locked in; it must not
     // send the organiser a second time.
     await waitFor(() => expect(planCandidates.mock.calls.length).toBeGreaterThanOrEqual(3));
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(dismissTo).toHaveBeenCalledTimes(1);
-    expect(replace).not.toHaveBeenCalled();
+    expect(replace).toHaveBeenCalledTimes(1);
     expect(track).toHaveBeenCalledWith('meetup_confirmed', {
       circle_id: 'sunday-crew',
       plan_id: 'thu-17',
@@ -213,13 +220,20 @@ describe('a set that moves', () => {
     await screen.findByText('Lock it in?');
     fireEvent.click(screen.getByRole('checkbox', { name: 'No' }));
     fireEvent.click(lockIn());
-    // Back to the options, which forward a locked-in plan to its confirmed
-    // screen — so nothing is left under it for Back to land on.
+    // Off the options and on to the confirmed screen in the same tick, so
+    // nothing is left under it for Back to land on and the options never show.
     await waitFor(() =>
       expect(dismissTo).toHaveBeenCalledWith({
         pathname: '/circles/[id]/plan/[planId]/candidates',
         params: { id: 'sunday-crew', planId: 'thu-17' },
       }),
+    );
+    expect(replace).toHaveBeenCalledWith({
+      pathname: '/circles/[id]/plan/[planId]/confirmed',
+      params: { id: 'sunday-crew', planId: 'thu-17' },
+    });
+    expect(dismissTo.mock.invocationCallOrder[0]).toBeLessThan(
+      replace.mock.invocationCallOrder[0]!,
     );
   });
 });
@@ -231,13 +245,20 @@ describe('a route whose circle segment is wrong', () => {
     await screen.findByText('Lock it in?');
     fireEvent.click(screen.getByRole('checkbox', { name: 'No' }));
     fireEvent.click(lockIn());
-    // Back to the options, which forward a locked-in plan to its confirmed
-    // screen — so nothing is left under it for Back to land on.
+    // Off the options and on to the confirmed screen in the same tick, so
+    // nothing is left under it for Back to land on and the options never show.
     await waitFor(() =>
       expect(dismissTo).toHaveBeenCalledWith({
         pathname: '/circles/[id]/plan/[planId]/candidates',
         params: { id: 'sunday-crew', planId: 'thu-17' },
       }),
+    );
+    expect(replace).toHaveBeenCalledWith({
+      pathname: '/circles/[id]/plan/[planId]/confirmed',
+      params: { id: 'sunday-crew', planId: 'thu-17' },
+    });
+    expect(dismissTo.mock.invocationCallOrder[0]).toBeLessThan(
+      replace.mock.invocationCallOrder[0]!,
     );
     expect(track).toHaveBeenCalledWith('organiser_chased', {
       circle_id: 'sunday-crew',
