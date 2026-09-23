@@ -81,8 +81,12 @@ function LiveReview({ id, planId, candidate }: { id: string; planId: string; can
   // routing queue together and the screen underneath never renders on top.
   // With nothing under the review (a deep link), the replace alone does it.
   // The plan's own circle once it is read; the route's only before that.
+  const onTop = useRef(true);
   const toConfirmed = (circleId: string = data?.circleId ?? id) => {
-    if (router.canDismiss()) router.dismiss();
+    // Only while the review is still the screen on top. A lock-in can land
+    // after somebody pressed Back during it; popping by position then took
+    // the options, and the replace took circle home out of the stack.
+    if (onTop.current && router.canDismiss()) router.dismiss();
     router.replace({
       pathname: '/circles/[id]/plan/[planId]/confirmed',
       params: { id: circleId, planId },
@@ -113,6 +117,13 @@ function LiveReview({ id, planId, candidate }: { id: string; planId: string; can
   const locked = data !== undefined && isLockedIn(data.state);
   const fresh = query.isFetchedAfterMount && !query.isError;
   const focused = useIsFocused();
+  // Read by `toConfirmed`, which can run after this screen has gone.
+  useEffect(() => {
+    onTop.current = focused;
+    return () => {
+      onTop.current = false;
+    };
+  }, [focused]);
   const decided = lock.already || (locked && fresh && focused);
   useEffect(() => {
     if (!decided || sent.current) return;

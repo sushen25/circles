@@ -271,6 +271,30 @@ describe('a review with nothing under it', () => {
   });
 });
 
+describe('a lock-in that lands after Back', () => {
+  // Back during "Locking it in" takes the review off the stack before the
+  // answer lands. Popping then would take the options, and the replace circle
+  // home; with the review gone, the replace alone is right.
+  it('pops nothing that is not the review', async () => {
+    let answer: (value: unknown) => void = () => undefined;
+    confirmMeetup.mockReturnValue(new Promise((resolve) => (answer = resolve)));
+    const { unmount } = show(review());
+    await screen.findByText('Lock it in?');
+    fireEvent.click(screen.getByRole('checkbox', { name: 'No' }));
+    fireEvent.click(lockIn());
+    await waitFor(() => expect(confirmMeetup).toHaveBeenCalled());
+    unmount();
+    answer({
+      confirmation_id: 'c1',
+      starts_at: THU,
+      ends_at: fixture.ready.candidates[0]!.endsAt,
+      going: ['maya'],
+    });
+    await waitFor(() => expect(replace).toHaveBeenCalledTimes(1));
+    expect(dismiss).not.toHaveBeenCalled();
+  });
+});
+
 describe('a screen that is not on top', () => {
   it('leaves a locked-in plan alone until it is', async () => {
     focused.current = false;
