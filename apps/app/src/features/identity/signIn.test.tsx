@@ -312,6 +312,17 @@ describe('signing in by email', () => {
     await waitFor(() => expect(replace).toHaveBeenCalledWith('/p/abcdefgh'));
   });
 
+  it('lands an organiser from an email footer on notification settings, and says so (ADR 00XX)', async () => {
+    wrap(<SignInFlow returnTo="/settings/notifications" />);
+    expect(
+      screen.getByText("We'll bring you straight to your notification settings."),
+    ).toBeVisible();
+    expect(screen.queryByText(/back to the plan/)).toBeNull();
+    await sendCodeTo(ADDRESS);
+    await enter('123456');
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/settings/notifications'));
+  });
+
   it('ignores a return path that would leave the site', async () => {
     wrap(<SignInFlow returnTo="https://elsewhere.example/j/abcdefgh" />);
     await sendCodeTo(ADDRESS);

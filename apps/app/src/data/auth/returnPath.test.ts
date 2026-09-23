@@ -16,6 +16,13 @@ describe('safeReturnPath', () => {
     expect(safeReturnPath(`//circles/${id}/plan/new`)).toBeUndefined();
   });
 
+  it('keeps notification settings, where the organiser emails point (ADR 00XX)', () => {
+    expect(safeReturnPath('/settings/notifications')).toBe('/settings/notifications');
+    expect(safeReturnPath('/settings/notifications?x=1')).toBeUndefined();
+    expect(safeReturnPath('/settings/notifications/')).toBeUndefined();
+    expect(safeReturnPath('//settings/notifications')).toBeUndefined();
+  });
+
   it('takes the first value when the router hands back an array', () => {
     expect(safeReturnPath(['/p/abcdefgh', '/elsewhere'])).toBe('/p/abcdefgh');
   });

@@ -10,11 +10,22 @@ import type * as CircleData from '../../data/circles';
  * own membership row, and quiet hours that say they are fixed.
  */
 
+const { replace } = vi.hoisted(() => ({ replace: vi.fn() }));
 vi.mock('expo-router', () => ({
-  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), back: vi.fn(), canGoBack: () => false }),
+  useRouter: () => ({ push: vi.fn(), replace, back: vi.fn(), canGoBack: () => false }),
 }));
 vi.mock('../../data/auth/client', () => ({ hasBackend: () => true }));
-const session = { status: 'saved', userId: 'maya', isAnonymous: false, isLoading: false };
+const session: {
+  status: string;
+  userId: string | undefined;
+  isAnonymous: boolean;
+  isLoading: boolean;
+} = {
+  status: 'saved',
+  userId: 'maya',
+  isAnonymous: false,
+  isLoading: false,
+};
 vi.mock('../../data/auth', () => ({ useSession: () => session }));
 vi.mock('../../data/auth/session', () => ({ useSession: () => session }));
 
@@ -38,6 +49,9 @@ function wrap(children: ReactNode) {
 }
 
 beforeEach(() => {
+  session.status = 'saved';
+  session.userId = 'maya';
+  replace.mockReset();
   mySwitchesEverywhere.mockReset();
   saveMySwitches.mockReset();
   myOrganiserEmailMuted.mockReset();
@@ -140,6 +154,23 @@ describe('notification settings', () => {
       });
       expect(await screen.findByText("That didn't save. Try again.")).toBeVisible();
       await waitFor(() => expect(toggle).toHaveAttribute('aria-checked', 'true'));
+    });
+
+    it('sends a signed-out reader through sign-in and back here, where the email pointed', async () => {
+      // The organiser emails link to this screen with no token (ADR 00XX). On
+      // a browser that is not signed in, the reader has an account: sign-in,
+      // then the switch — not Welcome, and not their circles list.
+      session.status = 'none';
+      session.userId = undefined;
+      wrap(<NotificationSettingsFlow />);
+
+      await waitFor(() =>
+        expect(replace).toHaveBeenCalledWith({
+          pathname: '/sign-in',
+          params: { next: '/settings/notifications' },
+        }),
+      );
+      expect(myOrganiserEmailMuted).not.toHaveBeenCalled();
     });
 
     it('does not show the page until it knows, and says so when it cannot', async () => {

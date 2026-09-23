@@ -108,8 +108,10 @@ nothing for days.
 **`options_ready` and `did_it_happen` keep their "why" sentence and gain a
 "where": a link to `/settings/notifications`**, the route the switch is on. It
 carries no token and needs none: the reader is an organiser, so they have an
-account and sign in with it. A reader who is signed out is sent through sign-in
-like any other signed-in route.
+account and sign in with it. A reader who is signed out is sent to sign-in and
+then back to the switch: `/settings/notifications` joins the short list of
+paths sign-in may return to (`safeReturnPath`), as an exact string, so it
+opens no redirect.
 
 `about_time` gains the same pointer. The switch that stops it — "Nudges to plan
 the next one" — is on the same screen, so the link is as true for it as for the

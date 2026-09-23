@@ -1723,6 +1723,7 @@ export const en = {
     sending: 'Sending',
     sign_in_to_your_account: 'Sign in to your account.',
     well_bring_you_back: "We'll bring you straight back to the plan.",
+    well_bring_you_back_to_settings: "We'll bring you straight to your notification settings.",
     well_email_a_code: "We'll email a one-time code. No password.",
     not_an_address: "That doesn't look like an email address.",
     couldnt_send: "We couldn't send a code just now. Please try again.",

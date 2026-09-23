@@ -27,6 +27,8 @@ import type { ScreenState } from '../state';
  * `returning` is somebody sent here from a plan link by "I have an account"
  * (ADR 0022): the headline says what they are doing, and the fine print does
  * not tell them friends never need an account, which is not the question.
+ * `'settings'` is an organiser who followed an email's footer to notification
+ * settings (ADR 00XX); they are told they will land there, not on a plan.
  */
 export type SignInProblem = 'not_an_address' | 'couldnt_send' | 'too_many_tries' | 'offline';
 
@@ -36,7 +38,7 @@ export type SignInProps = {
   email?: string | undefined;
   problem?: SignInProblem | undefined;
   busy?: boolean | undefined;
-  returning?: boolean | undefined;
+  returning?: boolean | 'settings' | undefined;
   onEmailChange?: ((email: string) => void) | undefined;
   onSendCode?: (() => void) | undefined;
   /** The fixture journey's next step, when there is no backend. */
@@ -81,9 +83,11 @@ export function SignInScreen({
               : t('signIn', 'make_room_for_each_other')}
           </DisplayXL>
           <BodyText>
-            {returning
-              ? t('signIn', 'well_bring_you_back')
-              : t('signIn', 'find_a_time_your_friends_are_actually')}
+            {returning === 'settings'
+              ? t('signIn', 'well_bring_you_back_to_settings')
+              : returning
+                ? t('signIn', 'well_bring_you_back')
+                : t('signIn', 'find_a_time_your_friends_are_actually')}
           </BodyText>
         </Stack>
         <Stack>

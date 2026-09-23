@@ -1,3 +1,4 @@
+import { NOTIFICATION_SETTINGS_PATH } from '@circles/contracts';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -96,7 +97,7 @@ function LiveNotifications() {
   const router = useRouter();
   const session = useSession();
   const queryClient = useQueryClient();
-  const gate = useSavedPlace();
+  const gate = useSavedPlace({ returnTo: NOTIFICATION_SETTINGS_PATH });
   const key = circleKeys.switches(session.userId);
   const switches = useQuery({
     queryKey: key,

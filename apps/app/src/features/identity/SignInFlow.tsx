@@ -1,3 +1,4 @@
+import { NOTIFICATION_SETTINGS_PATH } from '@circles/contracts';
 import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
 
@@ -225,7 +226,7 @@ export function SignInFlow({ returnTo }: SignInFlowProps) {
       email={email}
       problem={problem}
       busy={busy}
-      returning={next !== undefined}
+      returning={next === NOTIFICATION_SETTINGS_PATH ? 'settings' : next !== undefined}
       onEmailChange={setEmail}
       onSendCode={() => {
         const address = normaliseAddress(email);
