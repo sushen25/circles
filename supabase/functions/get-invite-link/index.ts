@@ -7,7 +7,7 @@ import { log } from '../_shared/logging.ts';
 import { derivedInviteSecret } from '../_shared/secret.ts';
 
 /**
- * The owner's invite link, again (S1-23, ADR 00XX).
+ * The owner's invite link, again (S1-23, ADR 0028).
  *
  * The database has only the live invite's digest; the secret is *derived* from
  * the invite's id under `INVITE_LINK_KEY`. So this asks the database which

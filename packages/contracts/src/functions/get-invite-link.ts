@@ -4,7 +4,7 @@ import { CircleId } from '../ids.js';
 
 /**
  * `get-invite-link` — the circle's invite secret again, for its owner (S1-23,
- * ADR 00XX).
+ * ADR 0028).
  *
  * A read, so it carries no idempotency key and leaves no idempotency record:
  * the secret it answers with is not kept anywhere by asking for it.

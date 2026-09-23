@@ -57,7 +57,7 @@ select pg_temp.make_user('20000000-0000-0000-0000-000000000004', 'Sam');
 select pg_temp.make_user('20000000-0000-0000-0000-000000000005', 'Ren', true);
 
 -- Made the way `create-circle` makes it: a digest, and the id the secret was
--- derived from (ADR 00XX).
+-- derived from (ADR 0028).
 select pg_temp.act_as('20000000-0000-0000-0000-000000000001');
 create temporary table fixture as
 select id as circle_id

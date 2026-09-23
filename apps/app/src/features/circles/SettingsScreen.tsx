@@ -45,7 +45,7 @@ export type SettingsMember = {
 export type InviteView =
   | { kind: 'loading' }
   | { kind: 'shown'; display: string }
-  /** The live link cannot be shown again (ADR 00XX): reset it. */
+  /** The live link cannot be shown again (ADR 0028): reset it. */
   | { kind: 'unshowable' }
   /** Asking for it failed: that says nothing about the link, so try again, not reset. */
   | { kind: 'error' };

@@ -21,7 +21,7 @@ import { keepInviteSecret } from './invite';
 
 /**
  * The live link's secret, or undefined when it cannot be shown again — a link
- * made before links could be, or on a deployment without the key (ADR 00XX).
+ * made before links could be, or on a deployment without the key (ADR 0028).
  * The screen then offers a reset.
  */
 export async function fetchInviteSecret(circleId: string): Promise<string | undefined> {

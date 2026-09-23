@@ -258,7 +258,7 @@ describe('InviteCircle', () => {
     expect(track).toHaveBeenCalledWith('circle_invite_shared', { circle_id: CIRCLE, kind: 'copy' });
   });
 
-  it('after a reload, asks for the owner’s link again and shows it (ADR 00XX)', async () => {
+  it('after a reload, asks for the owner’s link again and shows it (ADR 0028)', async () => {
     fetchInviteSecret.mockImplementation((id: string) => {
       keepInviteSecret(id, SECRET);
       return Promise.resolve(SECRET);

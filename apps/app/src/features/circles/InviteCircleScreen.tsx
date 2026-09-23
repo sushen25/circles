@@ -15,7 +15,7 @@ import type { ScreenState } from '../state';
  * first plan — so it carries no step label.
  *
  * `expired` is a link that cannot be shown again — one made before links could
- * be (ADR 00XX), or on a deployment without the key — and the way back to one
+ * be (ADR 0028), or on a deployment without the key — and the way back to one
  * is resetting it from the circle's settings.
  */
 export type InviteCircleProps = {

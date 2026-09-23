@@ -40,7 +40,7 @@ import { ConfirmSheet, PickerSheet } from './sheets';
  * only an active member gets here; what they may *change* is the domain's
  * `mayManageCircle`, and the server is the authority for all of it.
  *
- * - **The link**: shown again through `get-invite-link` (ADR 00XX), copied,
+ * - **The link**: shown again through `get-invite-link` (ADR 0028), copied,
  *   or reset through `rotate-invite`. The secret is held in memory only
  *   (`data/circles/invite.ts`); the query caches whether there is one, never
  *   the secret itself.

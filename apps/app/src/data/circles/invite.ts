@@ -4,7 +4,7 @@ import { DEEP_LINK_ROUTES } from '@circles/contracts';
  * The circle's invite link, while this tab holds it.
  *
  * The secret arrives from `create-circle`, from `rotate-invite` ("Reset link")
- * or from `get-invite-link` (the owner asking for it again, ADR 00XX), and only
+ * or from `get-invite-link` (the owner asking for it again, ADR 0028), and only
  * its SHA-256 is stored server-side (§14). It is kept here, in memory, for the
  * screens that share it — InviteCircle, "Share again" and "Invite link" on the
  * circle home, "Copy link" in settings — and nowhere that outlives the tab: not

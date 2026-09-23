@@ -1,5 +1,5 @@
 -- ---------------------------------------------------------------------------
--- The circle's live invite, as its owner may know it (S1-23, ADR 00XX).
+-- The circle's live invite, as its owner may know it (S1-23, ADR 0028).
 --
 -- `get-invite-link` shows the owner their link again. The secret is not stored
 -- — only its SHA-256 is (§14) — so the Edge Function *derives* it from the
@@ -50,7 +50,7 @@ end;
 $$;
 
 comment on function public.live_invite(uuid) is
-  'The id and digest of a circle''s live invite, for its owner, so get-invite-link can re-derive the secret (ADR 00XX). Never the secret: the database does not have it.';
+  'The id and digest of a circle''s live invite, for its owner, so get-invite-link can re-derive the secret (ADR 0028). Never the secret: the database does not have it.';
 
 revoke all on function public.live_invite(uuid) from public;
 revoke all on function public.live_invite(uuid) from anon, authenticated;

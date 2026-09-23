@@ -13,7 +13,7 @@ export function inviteSecret(): string {
 }
 
 /**
- * An invite secret the owner can be shown again (ADR 00XX).
+ * An invite secret the owner can be shown again (ADR 0028).
  *
  * HMAC-SHA-256 of the invite's id under `INVITE_LINK_KEY`: 256 bits nobody can
  * produce without the key, and reproducible by anybody who has it and the id.

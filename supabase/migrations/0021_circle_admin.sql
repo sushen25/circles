@@ -6,7 +6,7 @@
 --   * `public.remove_member` — the owner removes somebody. What follows is
 --     `on_member_removed`'s, as it has been since 0011; this is the *whether*.
 --   * `public.live_invite` — which invite is live, for its owner, so that
---     `get-invite-link` can show the link again (ADR 00XX).
+--     `get-invite-link` can show the link again (ADR 0028).
 --   * `public.issue_invite` and `public.create_circle` take the invite's id,
 --     because the secret is now derived from it by the Edge Functions with a
 --     key the database never holds. Only the digest is stored, as before (§14).
@@ -83,7 +83,7 @@ create or replace function public.create_circle(
   -- that way — and passed by `create-circle` always, because the flow it serves
   -- promises both.
   invite_secret_hash bytea default null,
-  -- The invite's id, when the secret was derived from it (ADR 00XX): what lets
+  -- The invite's id, when the secret was derived from it (ADR 0028): what lets
   -- the owner be shown this link again. Absent, the link is issued with an id
   -- of its own and can only ever be reset.
   invite_id uuid default null,
@@ -347,7 +347,7 @@ grant execute on function public.dispatch_claim_due(integer) to service_role;
 -- two live invites would be two capabilities, and rotating would stop
 -- invalidating anything.
 --
--- **The invite's id may come from the caller** (ADR 00XX). The Edge Functions
+-- **The invite's id may come from the caller** (ADR 0028). The Edge Functions
 -- derive the secret from the id with a key only they hold, so that the owner
 -- can be shown the link again (`get-invite-link`) while the database still
 -- stores nothing but a digest. That needs the id before the row exists. An id
@@ -421,7 +421,7 @@ grant execute on function public.issue_invite(uuid, bytea, uuid) to authenticate
 
 -- supabase/sql/functions/public/live_invite.sql
 -- ---------------------------------------------------------------------------
--- The circle's live invite, as its owner may know it (S1-23, ADR 00XX).
+-- The circle's live invite, as its owner may know it (S1-23, ADR 0028).
 --
 -- `get-invite-link` shows the owner their link again. The secret is not stored
 -- — only its SHA-256 is (§14) — so the Edge Function *derives* it from the
@@ -472,7 +472,7 @@ end;
 $$;
 
 comment on function public.live_invite(uuid) is
-  'The id and digest of a circle''s live invite, for its owner, so get-invite-link can re-derive the secret (ADR 00XX). Never the secret: the database does not have it.';
+  'The id and digest of a circle''s live invite, for its owner, so get-invite-link can re-derive the secret (ADR 0028). Never the secret: the database does not have it.';
 
 revoke all on function public.live_invite(uuid) from public;
 revoke all on function public.live_invite(uuid) from anon, authenticated;

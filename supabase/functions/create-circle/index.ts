@@ -27,7 +27,7 @@ import { newInvite } from '../_shared/secret.ts';
  * The secret is generated here and only its SHA-256 is stored — the readable
  * form is never a statement parameter, never in a query log, and not
  * recoverable from `circle_invites` at all. It is *derived* from the invite's
- * id under `INVITE_LINK_KEY` when that is set (ADR 00XX), which is what lets
+ * id under `INVITE_LINK_KEY` when that is set (ADR 0028), which is what lets
  * `get-invite-link` show the owner this link again after a reload; the key is
  * an Edge Function secret, so the database alone still cannot.
  *

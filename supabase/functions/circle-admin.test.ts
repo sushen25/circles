@@ -8,7 +8,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
  * back, and `_shared/db.ts` is a recording fake.
  *
  * What matters most here is where the invite secret goes. It is derived from
- * the invite's id under `INVITE_LINK_KEY` (ADR 00XX); only its digest may reach
+ * the invite's id under `INVITE_LINK_KEY` (ADR 0028); only its digest may reach
  * the database, and `get-invite-link` may hand it back only when the digest the
  * database holds is the digest of what it derived.
  */

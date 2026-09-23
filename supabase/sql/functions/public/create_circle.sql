@@ -29,7 +29,7 @@ create or replace function public.create_circle(
   -- that way — and passed by `create-circle` always, because the flow it serves
   -- promises both.
   invite_secret_hash bytea default null,
-  -- The invite's id, when the secret was derived from it (ADR 00XX): what lets
+  -- The invite's id, when the secret was derived from it (ADR 0028): what lets
   -- the owner be shown this link again. Absent, the link is issued with an id
   -- of its own and can only ever be reset.
   invite_id uuid default null,

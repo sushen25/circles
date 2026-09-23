@@ -16,7 +16,7 @@
 -- two live invites would be two capabilities, and rotating would stop
 -- invalidating anything.
 --
--- **The invite's id may come from the caller** (ADR 00XX). The Edge Functions
+-- **The invite's id may come from the caller** (ADR 0028). The Edge Functions
 -- derive the secret from the id with a key only they hold, so that the owner
 -- can be shown the link again (`get-invite-link`) while the database still
 -- stores nothing but a digest. That needs the id before the row exists. An id

@@ -22,7 +22,7 @@ import { InviteCircleScreen } from './InviteCircleScreen';
  *
  * The link is `/join#<secret>`, from the secret this tab holds in memory — from
  * `create-circle`, a reset, or, after a reload, the owner asking
- * `get-invite-link` for it again (ADR 00XX). Only the owner can; anybody else
+ * `get-invite-link` for it again (ADR 0028). Only the owner can; anybody else
  * is shown the expired state, which says so. **It never reaches analytics or a log**: the
  * events here carry the circle's id and how it was shared, and nothing the
  * link or the message contains.
@@ -57,7 +57,7 @@ function LiveInvite({ id }: { id: string }) {
   });
   const owner = home.data !== undefined && home.data !== null && home.data.isOwner;
   // After a reload the link is not in memory: the owner asks for it again
-  // (ADR 00XX). The query answers only whether it came back — the secret goes
+  // (ADR 0028). The query answers only whether it came back — the secret goes
   // to `invite.ts` and never into the cache.
   const shown = useQuery({
     queryKey: ['invite-link-shown', id, session.userId],

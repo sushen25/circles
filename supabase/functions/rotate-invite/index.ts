@@ -13,7 +13,7 @@ import { newInvite } from '../_shared/secret.ts';
  * (`not_the_owner`), revoking every earlier link in the same statement, the
  * audit row, and `circles.invite_rotated` — so this is the part the database
  * cannot do: making the secret. It is derived from a fresh invite id under
- * `INVITE_LINK_KEY` (ADR 00XX) so the owner can be shown it again later, and
+ * `INVITE_LINK_KEY` (ADR 0028) so the owner can be shown it again later, and
  * only its digest reaches the database (§14).
  *
  * Idempotent on the key: the record keeps the response, secret included, for

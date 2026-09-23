@@ -1,6 +1,6 @@
-# ADR 00XX: An invite secret is derived, so its owner can see it again
+# ADR 0028: An invite secret is derived, so its owner can see it again
 
-_Status: proposed · 23 September 2026_
+_Status: accepted · 23 September 2026_
 
 ## Context
 
