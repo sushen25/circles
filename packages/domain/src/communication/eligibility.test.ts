@@ -134,6 +134,23 @@ describe('the rules that cut across every kind', () => {
     expect(ids('locked_in', eligibilityContext({ members }))).not.toContain(TOM);
   });
 
+  it('tells nobody anything about an archived circle (spec §5.2)', () => {
+    const context = eligibilityContext({
+      circle: circle({ ownerUserId: SAM, status: 'archived' }),
+      quietInitiatorId: PRIYA,
+      keenMemberIds: [NIC],
+    });
+    for (const kind of [
+      'new_plan',
+      'quiet_ask',
+      'locked_in',
+      'reminder',
+      'options_ready',
+    ] as const) {
+      expect(ids(kind, context)).toEqual([]);
+    }
+  });
+
   it('honours mutedAll for every kind', () => {
     const members = sundayCrewMembers({ [NIC]: { mutedAll: true } });
     const context = eligibilityContext({ members, quietInitiatorId: PRIYA, keenMemberIds: [NIC] });

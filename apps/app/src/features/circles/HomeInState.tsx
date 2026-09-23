@@ -60,6 +60,22 @@ export function HomeInState({ home, onBack }: { home: CircleHome; onBack: () => 
 
   const state = homeState(home);
 
+  // Archived: history and the way back, and nothing that asks anybody
+  // anything (spec §5.2). Checked before the states, which describe an active
+  // circle.
+  if (home.status === 'archived') {
+    return (
+      <CircleHomeDueScreen
+        {...shared}
+        archived
+        due={false}
+        subtitle={homeSubtitle(home)}
+        lastCaughtUp={lastCaughtUp(home)}
+        nextOne={t('circleHome', 'nothing_yet')}
+      />
+    );
+  }
+
   if (state === 'finding_a_time' && home.activePlan !== null) {
     const plan = home.activePlan;
     return (

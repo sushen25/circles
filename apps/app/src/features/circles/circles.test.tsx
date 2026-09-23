@@ -248,6 +248,33 @@ describe('circle home, in the state the data puts it in', () => {
     expect(push).toHaveBeenCalledWith({ pathname: '/circles/[id]/invite', params: { id: CIRCLE } });
   });
 
+  it('is archived before any other state: no plan, no link, only the way back', async () => {
+    circleHome.mockResolvedValue(
+      home({
+        status: 'archived',
+        activePlan: {
+          id: PLAN,
+          code: 'pnsundaycr',
+          title: 'Catch up',
+          responseDeadline: '2026-09-29T08:00:00Z',
+          replied: 1,
+          asked: 6,
+        },
+      }),
+    );
+    wrap(<CircleHomeFlow id={CIRCLE} />);
+
+    expect(await screen.findByText('Archived. Nobody gets prompts about it.')).toBeVisible();
+    expect(screen.queryByText('Finding a time')).toBeNull();
+    expect(screen.queryByRole('button', { name: /Plan/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Invite link' })).toBeNull();
+    fireEvent.click(screen.getAllByRole('button', { name: 'Circle settings' }).at(-1)!);
+    expect(push).toHaveBeenCalledWith({
+      pathname: '/circles/[id]/settings',
+      params: { id: CIRCLE },
+    });
+  });
+
   it('offers a member who is not the owner no invite link, and settings still', async () => {
     circleHome.mockResolvedValue(home({ isOwner: false, me: 'priya' }));
     wrap(<CircleHomeFlow id={CIRCLE} />);

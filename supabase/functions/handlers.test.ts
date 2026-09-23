@@ -2975,6 +2975,7 @@ describe('process-scheduled-jobs', () => {
     plan_short_code: 'pnsundaycr',
     circle_id: CIRCLE_ID,
     circle_name: 'Sunday Crew',
+    circle_archived: false,
     superseded: false,
     ...overrides,
   });
@@ -3032,6 +3033,20 @@ describe('process-scheduled-jobs', () => {
       p_error: 'subscription_withdrawn',
     });
     // Nothing was rendered and no token was minted for a letter nobody wants.
+    expect(called('issue_preferences_token')).toHaveLength(0);
+  });
+
+  it('sends nothing about an archived circle, even what was queued before it was archived', async () => {
+    // "Archiving stops all prompts" (spec §5.2). A reminder is written when the
+    // meetup is confirmed and waits days; archiving touches no job.
+    withDue(dueJob({ circle_archived: true }));
+
+    await load('process-scheduled-jobs')(post({}, 'a-shared-secret'));
+
+    expect(called('dispatch_job_result')[0]?.args).toMatchObject({
+      p_outcome: 'skipped',
+      p_error: 'circle_archived',
+    });
     expect(called('issue_preferences_token')).toHaveLength(0);
   });
 

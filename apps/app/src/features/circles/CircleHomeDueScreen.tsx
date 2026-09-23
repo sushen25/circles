@@ -8,6 +8,7 @@ import {
   DateText,
   Foot,
   Label,
+  Notice,
   Screen,
   TopBar,
   type Member,
@@ -36,6 +37,12 @@ export type CircleHomeDueProps = {
   state?: ScreenState | undefined;
   /** False for a circle that is simply between catch-ups: no nudge card. */
   due?: boolean | undefined;
+  /**
+   * An archived circle: said at the top, and the one action is its settings,
+   * where it can be brought back. Nothing is planned in an archived circle
+   * (`create_plan` refuses `circle_archived`).
+   */
+  archived?: boolean | undefined;
   circleName?: string | undefined;
   color?: string | undefined;
   subtitle?: string | undefined;
@@ -56,6 +63,7 @@ export type CircleHomeDueProps = {
 export function CircleHomeDueScreen({
   fixture,
   due = true,
+  archived = false,
   circleName = t('circleHomeDue', 'sunday_crew'),
   color = 'clay',
   subtitle = t('circleHomeDue', '6_members_about_monthly'),
@@ -81,7 +89,8 @@ export function CircleHomeDueScreen({
       />
       <Body>
         <CircleHeader name={circleName} color={color} subtitle={subtitle} />
-        {due ? (
+        {archived ? <Notice>{t('circleHome', 'archived')}</Notice> : null}
+        {due && !archived ? (
           <Card>
             <Label>{t('circleHomeDue', 'about_time_for_the_next_one')}</Label>
             <BodyText>{body}</BodyText>
@@ -113,13 +122,21 @@ export function CircleHomeDueScreen({
             </Stack>
           </Row>
         </Card>
-        <MembersLine members={members} memberCount={memberCount} onInviteLink={onInviteLink} />
+        <MembersLine
+          members={members}
+          memberCount={memberCount}
+          onInviteLink={archived ? undefined : onInviteLink}
+        />
       </Body>
       <Foot>
-        <Button
-          label={due ? t('circleHomeDue', 'plan_another') : t('circleHome', 'plan_a_catch_up')}
-          onPress={onNext}
-        />
+        {archived ? (
+          <Button label={t('circleHome', 'settings')} variant="secondary" onPress={onSettings} />
+        ) : (
+          <Button
+            label={due ? t('circleHomeDue', 'plan_another') : t('circleHome', 'plan_a_catch_up')}
+            onPress={onNext}
+          />
+        )}
       </Foot>
     </Screen>
   );

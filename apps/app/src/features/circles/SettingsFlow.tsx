@@ -145,9 +145,13 @@ function LiveSettings({ id }: { id: string }) {
     try {
       if (asking.kind === 'reset') {
         await resetInviteLink(id, keyFor('reset'));
+        // The reset has happened: the next one is a new request. Nothing after
+        // this line may fail the mutation, or a retry under a fresh key would
+        // rotate again and kill the link this one made (review round 1). The
+        // secret is already held; the refetch only refreshes the cache.
         keys.current.delete('reset');
-        await link.refetch();
         setLinkNote(t('settings', 'new_link_ready'));
+        void link.refetch();
       } else if (asking.kind === 'remove') {
         await removeMember(id, asking.userId, keyFor(`remove:${asking.userId}`));
         await refresh();

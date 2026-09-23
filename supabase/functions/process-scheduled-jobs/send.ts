@@ -16,7 +16,7 @@ import { classify } from './drain.ts';
 /**
  * Sending what is due.
  *
- * Five checks happen here and not one of them could have happened when the job
+ * Six checks happen here and not one of them could have happened when the job
  * was written, which is the reason this phase exists at all rather than the
  * drain simply calling Resend:
  *
@@ -33,9 +33,11 @@ import { classify } from './drain.ts';
  *     contact (spec §9: "one verified address on multiple guest memberships in
  *     one plan: one copy per event");
  *   * the **token** may have nothing left to mint — verified by another link,
- *     removed by its owner (ADR 0020).
+ *     removed by its owner (ADR 0020);
+ *   * the **circle** may have been archived, which stops all prompts (spec
+ *     §5.2, S1-23).
  *
- * All five are `skipped`, not `failed`: nothing went wrong.
+ * All six are `skipped`, not `failed`: nothing went wrong.
  */
 
 /** 1, 5, 30 minutes, then give up (ticket S1-20 step 4). */
@@ -62,6 +64,8 @@ export type DueJob = {
   readonly plan_short_code: string | null;
   readonly circle_id: string | null;
   readonly circle_name: string | null;
+  /** Whether the plan's circle is archived **now**: archiving stops all prompts (spec §5.2). */
+  readonly circle_archived: boolean;
   readonly superseded: boolean;
 };
 
@@ -247,6 +251,14 @@ export async function send(
       // Somebody who has left the circle withdrew nothing, and saying they did
       // is a wrong story on S4-06's screen.
       await finish('skipped', job.member_active ? 'subscription_withdrawn' : 'not_a_member');
+      continue;
+    }
+    // "Archiving stops all prompts" (spec §5.2), including the ones already
+    // queued. `verify_email` is the exception, as it is for suppression's
+    // opposite: it answers something the person just asked for, and is not a
+    // prompt about the circle.
+    if (job.circle_archived && job.kind !== 'verify_email') {
+      await finish('skipped', 'circle_archived');
       continue;
     }
     if (planIsPast(job)) {

@@ -153,6 +153,38 @@ describe('the invite link in settings', () => {
     expect(await screen.findByText('New link ready. The old one no longer works.')).toBeVisible();
     expect(screen.getByText(new RegExp(`/join#…${fresh.slice(-4)}$`))).toBeVisible();
   });
+
+  it('keeps a reset that worked as worked, even when the refresh after it fails', async () => {
+    // Round 1: the key used to be dropped before a fallible refetch, so a
+    // "failed" reset retried under a fresh key and killed the link it made.
+    fetchInviteSecret.mockResolvedValueOnce(undefined);
+    fetchInviteSecret.mockRejectedValue(new Error('get-invite-link failed'));
+    resetInviteLink.mockImplementation((id: string) => {
+      const fresh = secret();
+      keepInviteSecret(id, fresh);
+      return Promise.resolve(fresh);
+    });
+    wrap(<SettingsFlow id={CIRCLE} />);
+
+    const reset = async () => {
+      fireEvent.click(await screen.findByRole('button', { name: 'Reset link' }));
+      await act(async () => {
+        fireEvent.click(
+          within(screen.getByLabelText('Reset the invite link?')).getByRole('button', {
+            name: 'Reset link',
+          }),
+        );
+      });
+    };
+    await reset();
+    expect(await screen.findByText('New link ready. The old one no longer works.')).toBeVisible();
+    expect(screen.queryByText("The link didn't reset. Try again.")).toBeNull();
+
+    // A second, deliberate reset is a new request with a key of its own.
+    await reset();
+    const [first, second] = resetInviteLink.mock.calls.map((call) => call[1] as string);
+    expect(first).not.toBe(second);
+  });
 });
 
 describe('the owner’s other settings', () => {
