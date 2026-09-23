@@ -1,7 +1,7 @@
 import type { CircleId, PlanId } from '@circles/contracts';
 import { Linking } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 
 import { track } from '../../analytics/track';
 import { t } from '../../copy';
@@ -145,6 +145,7 @@ function Confirmed({
     queryKey,
   );
   const [shareNotice, setShareNotice] = useState<string>();
+  const origin = useOrigin();
 
   // `/p/:code/calendar`: the sheet is open on arrival, and counts as opened.
   const opened = useRef(false);
@@ -178,7 +179,7 @@ function Confirmed({
   );
 
   if (data.isOrganiser) {
-    const message = messageOf(data, confirmation, appOrigin());
+    const message = origin === undefined ? undefined : messageOf(data, confirmation, origin);
     return (
       <>
         <ConfirmedOrgScreen
@@ -186,6 +187,7 @@ function Confirmed({
           message={message}
           shareNotice={shareNotice}
           onShare={() => {
+            if (message === undefined) return;
             setShareNotice(undefined);
             void shareMessage(message).then((result) => {
               // The sheet opened, not that a message was sent (§5.8).
@@ -267,4 +269,16 @@ function Confirmed({
       {sheet}
     </>
   );
+}
+
+const never = () => () => undefined;
+
+/**
+ * Where links point — the page's own origin, which a static export does not
+ * have while it is rendered on the server. `appOrigin` throws there (no page,
+ * no `EXPO_PUBLIC_APP_ORIGIN`), so the server renders no message and the
+ * client fills it in after hydration, rather than the two disagreeing.
+ */
+function useOrigin(): string | undefined {
+  return useSyncExternalStore(never, appOrigin, () => undefined);
 }
