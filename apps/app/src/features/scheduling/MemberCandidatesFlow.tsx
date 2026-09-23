@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react';
 
 import { track } from '../../analytics/track';
 import { hasBackend } from '../../data/auth/client';
+import { isLockedIn } from '../../data/scheduling';
 import { isOffline } from '../identity/join/failure';
 import { MemberView } from './MemberView';
 import { CandidatesMemberScreen } from './CandidatesMemberScreen';
@@ -60,6 +61,15 @@ function LiveMember({ code }: { code: string }) {
     });
   }, [circleId, planId, router]);
 
+  // Locked in: the confirmed screen, with their own answer on it (S1-28).
+  const locked = data !== undefined && !data.isOrganiser && isLockedIn(data.state);
+  const confirmed = useRef(false);
+  useEffect(() => {
+    if (!locked || confirmed.current) return;
+    confirmed.current = true;
+    router.replace({ pathname: '/p/[code]/confirmed', params: { code } });
+  }, [locked, code, router]);
+
   const seen = useRef<string | undefined>(undefined);
   useEffect(() => {
     if (data === undefined || data.view !== 'ready' || data.isOrganiser) return;
@@ -85,8 +95,9 @@ function LiveMember({ code }: { code: string }) {
     );
   }
   if (data === undefined) return <CandidatesMemberScreen state="denied" onBack={back} />;
-  // On its way to the organiser's screen; nothing of theirs belongs here.
-  if (data.isOrganiser) return <CandidatesMemberScreen state="loading" onBack={back} />;
+  // On its way to the organiser's screen, or to the confirmed one; nothing of
+  // theirs belongs here.
+  if (data.isOrganiser || locked) return <CandidatesMemberScreen state="loading" onBack={back} />;
 
   if (data.view === 'closed') {
     return <CandidatesMemberScreen state="expired" header={headerOf(data)} onBack={back} />;

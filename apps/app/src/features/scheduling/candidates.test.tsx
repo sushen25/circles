@@ -48,6 +48,7 @@ vi.mock('../../platform/share', () => ({
 }));
 
 const { CandidatesFlow } = await import('./CandidatesFlow');
+const { MemberCandidatesFlow } = await import('./MemberCandidatesFlow');
 const { CANDIDATES_POLL_MS, STALE_POLL_MS } = await import('./useCandidates');
 const fixture = await import('./fixtures');
 
@@ -474,9 +475,40 @@ describe('the states that are not the happy one', () => {
     expect(await screen.findByText('This one is not yours to see.')).toBeTruthy();
   });
 
-  it('has nothing to pick once the plan is decided', async () => {
-    planCandidates.mockResolvedValue({ ...fixture.ready, state: 'confirmed', view: 'closed' });
+  it('has nothing to pick once the plan is off', async () => {
+    planCandidates.mockResolvedValue({ ...fixture.ready, state: 'cancelled', view: 'closed' });
     show(organiser());
     expect(await screen.findByText('This plan is decided.')).toBeTruthy();
+    expect(replace).not.toHaveBeenCalled();
+  });
+
+  // S1-28: a locked-in plan's page is its confirmed screen, on either door.
+  it('sends a locked-in plan to its confirmed screen', async () => {
+    planCandidates.mockResolvedValue({ ...fixture.ready, state: 'confirmed', view: 'closed' });
+    show(organiser());
+    await waitFor(() =>
+      expect(replace).toHaveBeenCalledWith({
+        pathname: '/circles/[id]/plan/[planId]/confirmed',
+        params: { id: CIRCLE, planId: PLAN },
+      }),
+    );
+    expect(replace).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText('This plan is decided.')).toBeNull();
+  });
+
+  it('sends a member on the plan link to the confirmed screen too', async () => {
+    planCandidates.mockResolvedValue({
+      ...fixture.readyAsMember,
+      state: 'confirmed',
+      view: 'closed',
+    });
+    show(<MemberCandidatesFlow code="pnsundaycr" />);
+    await waitFor(() =>
+      expect(replace).toHaveBeenCalledWith({
+        pathname: '/p/[code]/confirmed',
+        params: { code: 'pnsundaycr' },
+      }),
+    );
+    expect(screen.queryByText('This plan is decided.')).toBeNull();
   });
 });

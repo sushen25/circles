@@ -4,82 +4,117 @@ import {
   Button,
   Card,
   DateText,
+  DisplayXL,
   Foot,
+  InlineLink,
   Label,
   Marks,
+  Notice,
   Screen,
   Small,
   Tertiary,
   Title,
   TopBar,
 } from '../../components';
-import { Divider, Row, Stack } from '../../components/layout';
+import { Divider, Stack } from '../../components/layout';
 import { t } from '../../copy';
-import type { Fixture } from '../../data/fixtures';
-import type { ScreenState } from '../state';
+import { MARKS_MAX } from '../scheduling/parts';
+import type { ConfirmedView } from './confirmed';
+import { ConfirmedPlaceholder, type ConfirmedState } from './parts';
 
 /**
- * ConfirmedGuest — scaffolded from `docs/design/ConfirmedGuest.dc.html`.
+ * ConfirmedGuest — `docs/design/ConfirmedGuest.dc.html` (spec §5.7).
  *
- * Structure and copy come from the artboard; data comes from a fixture. Slice 1
- * replaces `fixture` with real data and `onNext` with real navigation. Edit
- * freely: `scripts/scaffold-screens.mjs` will not overwrite this file.
+ * What a member needs from a plan that is real: when, where and how to get
+ * there, who else is coming, and their own answer — which they may change
+ * either way until it happens ("Tap below if that changes"). Inverted, like the
+ * organiser's: this is the outcome, and it is allowed to feel like one
+ * (manifesto §3.7).
+ *
+ * Presentational. The flow owns the write, the maps link and the sheet.
  */
+export type AttendanceAction = { label: string; onPress: () => void };
+
 export type ConfirmedGuestProps = {
-  fixture: Fixture;
-  state?: ScreenState | undefined;
-  /** The screen's one decision. */
-  onNext?: (() => void) | undefined;
+  state?: ConfirmedState | undefined;
+  view?: ConfirmedView | undefined;
+  /** Absent when there is no place to find. */
+  onOpenMaps?: (() => void) | undefined;
+  /** "You're going" — absent for somebody who was never asked. */
+  mine?: { title: string; detail: string } | undefined;
+  actions?: readonly AttendanceAction[] | undefined;
+  busy?: boolean | undefined;
+  notice?: string | undefined;
+  onAddToCalendar?: (() => void) | undefined;
+  onRetry?: (() => void) | undefined;
   onBack?: (() => void) | undefined;
-  onICantMakeIt?: (() => void) | undefined;
 };
 
 export function ConfirmedGuestScreen({
-  fixture,
-  onNext,
+  state = 'default',
+  view,
+  onOpenMaps,
+  mine,
+  actions = [],
+  busy = false,
+  notice,
+  onAddToCalendar,
+  onRetry,
   onBack,
-  onICantMakeIt,
 }: ConfirmedGuestProps) {
+  if (state !== 'default' || view === undefined) {
+    return <ConfirmedPlaceholder state={state} onRetry={onRetry} onBack={onBack} />;
+  }
+
   return (
     <Screen invert>
-      <TopBar
-        title={t('confirmedGuest', 'sunday_crew')}
-        onBack={onBack}
-        backLabel={t('common', 'back')}
-      />
+      <TopBar title={view.circleName} onBack={onBack} backLabel={t('common', 'back')} />
       <Body>
         <Label>{t('confirmedGuest', 'locked_in')}</Label>
         <Stack>
-          <DateText>{t('confirmedGuest', 'thursday_17_september')}</DateText>
-          <BodyText>{t('confirmedGuest', '6_30_8_30_pm')}</BodyText>
+          <DisplayXL>{view.weekday}</DisplayXL>
+          <DateText>{view.dayMonth}</DateText>
+          <BodyText>{view.time}</BodyText>
         </Stack>
-        <Stack>
-          <Row>
-            <Title>{t('confirmedGuest', 'hope_st_radio')}</Title>
-          </Row>
-          <BodyText>{t('confirmedGuest', 'brunswick_east_open_in_maps')}</BodyText>
-        </Stack>
+        {view.placeName === undefined && onOpenMaps === undefined ? null : (
+          <Stack>
+            {view.placeName === undefined ? null : <Title>{view.placeName}</Title>}
+            {onOpenMaps === undefined ? null : (
+              <BodyText>
+                <InlineLink onPress={onOpenMaps}>{t('confirmedGuest', 'open_in_maps')}</InlineLink>
+              </BodyText>
+            )}
+          </Stack>
+        )}
         <Card>
-          <Row>
-            <Stack>
-              <Title>{t('confirmedGuest', '5_going_1_to_confirm')}</Title>
-              <Small>{t('confirmedGuest', 'maya_priya_tom_jess_sam_alex_to')}</Small>
-            </Stack>
-            <Marks members={fixture.circle.members} />
-          </Row>
-          <Divider />
-          <Row>
-            <Stack>
-              <Title>{t('confirmedGuest', 'youre_going')}</Title>
-              <Small>{t('confirmedGuest', 'tap_below_if_that_changes')}</Small>
-            </Stack>
-          </Row>
+          <Stack gap={8}>
+            <Title>{view.counts}</Title>
+            <Small>{view.names}</Small>
+            <Marks members={view.members} max={MARKS_MAX} label={view.names} />
+          </Stack>
+          {mine === undefined ? null : (
+            <>
+              <Divider />
+              <Stack>
+                <Title accessibilityLiveRegion="polite">{mine.title}</Title>
+                <Small>{mine.detail}</Small>
+              </Stack>
+            </>
+          )}
         </Card>
-        <BodyText>{t('confirmedGuest', 'maya_says_tables_booked_under_my_name')}</BodyText>
+        {notice === undefined ? null : <Notice kind="warn">{notice}</Notice>}
+        {view.note === undefined ? null : <BodyText>{view.note}</BodyText>}
       </Body>
       <Foot>
-        <Button label={t('confirmedGuest', 'add_to_calendar')} onPress={onNext} />
-        <Tertiary label={t('confirmedGuest', 'i_cant_make_it_after_all')} onPress={onICantMakeIt} />
+        <Button label={t('confirmedGuest', 'add_to_calendar')} onPress={onAddToCalendar} />
+        {actions.map((action) => (
+          <Tertiary
+            key={action.label}
+            label={busy ? t('confirmedGuest', 'saving') : action.label}
+            disabled={busy}
+            onPress={action.onPress}
+          />
+        ))}
       </Foot>
     </Screen>
   );

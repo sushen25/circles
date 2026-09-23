@@ -1,12 +1,15 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 
-import { useFixture } from '../../../src/data/fixtures/useFixture';
-import { AddToCalendarScreen } from '../../../src/features/confirmation/AddToCalendarScreen';
+import { ConfirmedFlow } from '../../../src/features/confirmation/ConfirmedFlow';
+import { MembershipGate } from '../../../src/features/identity/join/MembershipGate';
 
 /** Route only — thin composition, no logic (architecture §7.1). */
 export default function Route() {
-  const router = useRouter();
-  const fixture = useFixture();
+  const { code } = useLocalSearchParams<{ code: string }>();
 
-  return <AddToCalendarScreen fixture={fixture} onBack={() => router.back()} />;
+  return (
+    <MembershipGate target={{ kind: 'plan', code }}>
+      <ConfirmedFlow target={{ code }} calendar fixtureAs="member" />
+    </MembershipGate>
+  );
 }
