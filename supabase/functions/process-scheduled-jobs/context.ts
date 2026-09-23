@@ -40,6 +40,8 @@ type MemberRow = {
   muted_all: boolean;
   time_zone: string;
   is_permanent: boolean;
+  /** The person's "Emails about plans you organise" switch, off (ADR 00XX). */
+  muted_organiser_email: boolean;
 };
 
 type ConfirmationRow = {
@@ -207,6 +209,9 @@ export async function loadContext(service: Db, planId: string): Promise<PlanCont
     ]);
   }
   const zones = new Map(row.members.map((m) => [m.user_id, zone(m.time_zone)] as const));
+  const organiserEmailOff = new Set(
+    row.members.filter((m) => m.muted_organiser_email).map((m) => m.user_id),
+  );
 
   const attendance: readonly Attendance[] = row.attendance.map((a) => ({
     confirmationId: a.confirmation_id as Attendance['confirmationId'],
@@ -223,6 +228,7 @@ export async function loadContext(service: Db, planId: string): Promise<PlanCont
     responses: row.responses.map(responseOf),
     hasPushDevice: (userId) => pushes.has(userId),
     hasPlanEmailSubscription: (userId) => subscribed.has(userId),
+    mutedOrganiserEmail: (userId) => organiserEmailOff.has(userId),
     attendance,
     ...(row.confirmation === null
       ? {}

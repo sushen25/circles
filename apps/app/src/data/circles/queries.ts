@@ -17,6 +17,7 @@ export const circleKeys = {
   home: (id: string, userId: string | undefined) => ['circle-home', id, userId] as const,
   list: (userId: string | undefined) => ['circles', userId] as const,
   switches: (userId: string | undefined) => ['circle-switches', userId] as const,
+  organiserEmail: (userId: string | undefined) => ['organiser-email', userId] as const,
 };
 
 export function useCircles(options: { enabled?: boolean } = {}) {

@@ -9,3 +9,5 @@ See the options https://meet.example.com/p/pnemab
 ----------------------------------------
 
 You're getting this because you're organising a catch-up for Sunday Crew.
+
+Turn these off in notification settings https://meet.example.com/settings/notifications.

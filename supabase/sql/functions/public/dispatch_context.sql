@@ -40,7 +40,11 @@ as $$
         'role', m.role, 'status', m.status, 'joined_at', m.joined_at,
         'muted_quiet_asks', m.muted_quiet_asks, 'muted_all', m.muted_all,
         'time_zone', coalesce(pr.time_zone, c.time_zone),
-        'is_permanent', coalesce(pr.is_permanent, false)
+        'is_permanent', coalesce(pr.is_permanent, false),
+        -- "Emails about plans you organise" (ADR 00XX): a person's, not a
+        -- membership's, carried on the member row because that is where the
+        -- dispatcher looks a person up. `mutedOrganiserEmail` reads it.
+        'muted_organiser_email', coalesce(pr.muted_organiser_email, false)
       ) order by m.joined_at, m.user_id)
       from public.circle_members m
       left join public.profiles pr on pr.user_id = m.user_id
@@ -121,7 +125,7 @@ as $$
 $$;
 
 comment on function public.dispatch_context(uuid) is
-  'One plan''s circle, roster, participants, answers, confirmations, attendance, email recipients and top candidate, read together, for the dispatcher''s eligibility rules. Ids and display names; never an address, a token or an availability window. Service role only (S1-20).';
+  'One plan''s circle, roster (with each member''s organiser-email switch), participants, answers, confirmations, attendance, email recipients and top candidate, read together, for the dispatcher''s eligibility rules. Ids and display names; never an address, a token or an availability window. Service role only (S1-20).';
 
 revoke all on function public.dispatch_context(uuid) from public;
 revoke all on function public.dispatch_context(uuid) from anon, authenticated;

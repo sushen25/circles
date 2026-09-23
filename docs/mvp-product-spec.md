@@ -327,7 +327,7 @@ New named plan; quiet ask seeking interest (to everyone except the initiator); t
 
 #### Organiser email (no app)
 
-The signed-in organiser receives options ready, replies closed with no decision, did it happen, and about-time nudges by email until they install the app.
+The signed-in organiser receives options ready, replies closed with no decision, did it happen, and about-time nudges by email until they install the app. These letters carry no stop link: the organiser turns them off in the app, where they are signed in, and each footer says where. **Emails about plans you organise** on notification settings is one switch for the person, not per circle, and stops options ready and did it happen; replies closed with no decision still comes, because a plan other people answered is waiting on the organiser alone; the about-time nudge is stopped by that circle's **Nudges to plan the next one** ([ADR 00XX](decisions/00XX-an-organiser-turns-organiser-email-off-in-the-app.md)).
 
 #### Plan-update email (web-only participants)
 

@@ -2701,6 +2701,7 @@ describe('process-scheduled-jobs', () => {
       muted_all: false,
       time_zone: 'Australia/Melbourne',
       is_permanent: true,
+      muted_organiser_email: false,
     })),
     participant_ids: [ORGANISER, MEMBER],
     responses: [],
@@ -2976,6 +2977,7 @@ describe('process-scheduled-jobs', () => {
     circle_id: CIRCLE_ID,
     circle_name: 'Sunday Crew',
     circle_archived: false,
+    organiser_email_muted: false,
     superseded: false,
     ...overrides,
   });
@@ -3189,6 +3191,84 @@ describe('process-scheduled-jobs', () => {
     const recorded = called('dispatch_event_result')[0]?.args['p_error'];
     expect(recorded).toBe('db:23505');
     expect(String(recorded)).toMatch(/^[A-Za-z0-9_.:/-]{1,120}$/);
+  });
+
+  describe('"Emails about plans you organise" (ADR 00XX)', () => {
+    /** Maya's switch, off, on her member row as `dispatch_context` carries it. */
+    const mayaOff = () =>
+      context({
+        members: (context().members as Record<string, unknown>[]).map((m) =>
+          m['user_id'] === ORGANISER ? { ...m, muted_organiser_email: true } : m,
+        ),
+      });
+    const withContact = () => {
+      state.answer = ((answer) => (fn: string) =>
+        fn === 'dispatch_organiser_contact' ? { data: CONTACT, error: null } : answer(fn))(
+        state.answer,
+      );
+    };
+
+    it('writes no options-ready letter for an organiser who turned them off', async () => {
+      withContact();
+      events = [outboxEvent('scheduling.candidates_generated')];
+
+      await load('process-scheduled-jobs')(post({}, 'a-shared-secret'));
+      // With the switch on, the same event writes the letter.
+      expect(enqueued().map((job) => job.kind)).toEqual(['options_ready']);
+
+      state.rpcs = [];
+      planContext = mayaOff();
+      await load('process-scheduled-jobs')(post({}, 'a-shared-secret'));
+      expect(enqueued()).toEqual([]);
+      // Left out before her address was even looked up: nothing was going to
+      // be written to it.
+      expect(called('dispatch_organiser_contact')).toHaveLength(0);
+    });
+
+    it("writes no did-it-happen letter for her, and leaves the members' letters alone", async () => {
+      withContact();
+      planContext = mayaOff();
+      events = [outboxEvent('confirmation.meetup_confirmed')];
+
+      await load('process-scheduled-jobs')(post({}, 'a-shared-secret'));
+
+      expect(
+        enqueued()
+          .map((job) => job.kind)
+          .sort(),
+      ).toEqual(['did_it_happen_participant', 'locked_in', 'reminder']);
+    });
+
+    it('skips a did-it-happen letter queued before she turned them off', async () => {
+      // Written at confirmation, sent the next morning. A switch read only
+      // when the job was written would stop nothing for a day.
+      withDue(dueJob({ kind: 'did_it_happen', user_id: ORGANISER, organiser_email_muted: true }));
+
+      await load('process-scheduled-jobs')(post({}, 'a-shared-secret'));
+
+      expect(called('dispatch_job_result')[0]?.args).toMatchObject({
+        p_outcome: 'skipped',
+        p_error: 'organiser_email_off',
+      });
+    });
+
+    it('still sends replies closed, which the plan is waiting on her for', async () => {
+      capturing();
+      withDue(dueJob({ kind: 'replies_closed', user_id: ORGANISER, organiser_email_muted: true }));
+
+      await load('process-scheduled-jobs')(post({}, 'a-shared-secret'));
+
+      expect(called('dispatch_job_result')[0]?.args).toMatchObject({ p_outcome: 'sent' });
+    });
+
+    it("never stops a plan-update letter, whatever the subscriber's own switch says", async () => {
+      capturing();
+      withDue(dueJob({ kind: 'reminder', organiser_email_muted: true }));
+
+      await load('process-scheduled-jobs')(post({}, 'a-shared-secret'));
+
+      expect(called('dispatch_job_result')[0]?.args).toMatchObject({ p_outcome: 'sent' });
+    });
   });
 
   it('gives the lease back even when the run falls over', async () => {

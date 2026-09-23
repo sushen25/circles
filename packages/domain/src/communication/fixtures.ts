@@ -44,6 +44,9 @@ export const NOBODY_HAS_PUSH = () => false;
 export const NOBODY_SUBSCRIBED = () => false;
 export const EVERYONE_SUBSCRIBED = () => true;
 
+/** Nobody has turned organiser email off, which is the default state. */
+export const NOBODY_MUTED_ORGANISER_EMAIL = () => false;
+
 /**
  * A context for the artboard's plan: six members, five answered, Alex has not.
  * `circle-1`'s owner is Sam, and Sam is the organiser.
@@ -60,6 +63,7 @@ export function eligibilityContext(
       responses: sundayCrewStoredResponses(plan),
       participantIds: SUNDAY_CREW,
       hasPushDevice: EVERYONE_HAS_PUSH,
+      mutedOrganiserEmail: NOBODY_MUTED_ORGANISER_EMAIL,
     },
     overrides,
   );

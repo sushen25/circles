@@ -25,8 +25,10 @@ import type { ScreenState } from '../state';
  * plan the next one; then quiet hours, which are fixed at 9 pm–8 am in the
  * reader's own zone for the MVP ("Change" says so rather than pretending).
  *
- * Every switch is the reader's own membership row. The organiser-email switch
- * belongs here too and is SUS-83's, with its storage and its rule.
+ * Every circle's switches are the reader's own membership row. Above them,
+ * "Emails about plans you organise" is the reader's own profile (ADR 00XX):
+ * one switch, because the letters go to their address whichever circle the
+ * plan is in. Its detail line says which one still comes, so it does not lie.
  */
 export type CircleNotificationRow = {
   circleId: string;
@@ -44,6 +46,9 @@ export type NotificationSettingsProps = {
   circles?: readonly CircleNotificationRow[] | undefined;
   problem?: string | undefined;
   quietHoursOpen?: boolean | undefined;
+  /** Absent while it is not known; the card is left out rather than guessed. */
+  organiserEmailOn?: boolean | undefined;
+  onOrganiserEmail?: ((on: boolean) => void) | undefined;
   onToggle?: ((circleId: string, which: NotificationSwitch, on: boolean) => void) | undefined;
   onQuietHours?: (() => void) | undefined;
   onCloseQuietHours?: (() => void) | undefined;
@@ -57,6 +62,8 @@ export function NotificationSettingsScreen({
   circles = [],
   problem,
   quietHoursOpen = false,
+  organiserEmailOn,
+  onOrganiserEmail,
   onToggle,
   onQuietHours,
   onCloseQuietHours,
@@ -103,6 +110,23 @@ export function NotificationSettingsScreen({
       <Body>
         <DisplayL>{t('notificationSettings', 'notifications')}</DisplayL>
         {problem === undefined ? null : <Notice kind="warn">{problem}</Notice>}
+        {organiserEmailOn === undefined ? null : (
+          <Card>
+            <SettingRow
+              title={t('notificationSettings', 'emails_about_plans_you_organise')}
+              detail={t(
+                'notificationSettings',
+                'options_ready_and_did_it_happen_replies_closed_still_comes',
+              )}
+            >
+              <Toggle
+                value={organiserEmailOn}
+                onValueChange={(on) => onOrganiserEmail?.(on)}
+                label={t('notificationSettings', 'emails_about_plans_you_organise')}
+              />
+            </SettingRow>
+          </Card>
+        )}
         {circles.length === 0 ? (
           <BodyText>{t('notificationSettings', 'no_circles')}</BodyText>
         ) : null}

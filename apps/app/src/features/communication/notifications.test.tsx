@@ -20,10 +20,14 @@ vi.mock('../../data/auth/session', () => ({ useSession: () => session }));
 
 const mySwitchesEverywhere = vi.fn();
 const saveMySwitches = vi.fn();
+const myOrganiserEmailMuted = vi.fn();
+const saveOrganiserEmailMuted = vi.fn();
 vi.mock('../../data/circles', async (original) => ({
   ...(await original<typeof CircleData>()),
   mySwitchesEverywhere: () => mySwitchesEverywhere(),
   saveMySwitches: (...a: unknown[]) => saveMySwitches(...a),
+  myOrganiserEmailMuted: () => myOrganiserEmailMuted(),
+  saveOrganiserEmailMuted: (...a: unknown[]) => saveOrganiserEmailMuted(...a),
 }));
 
 const { NotificationSettingsFlow } = await import('./NotificationSettingsFlow');
@@ -36,6 +40,9 @@ function wrap(children: ReactNode) {
 beforeEach(() => {
   mySwitchesEverywhere.mockReset();
   saveMySwitches.mockReset();
+  myOrganiserEmailMuted.mockReset();
+  saveOrganiserEmailMuted.mockReset();
+  myOrganiserEmailMuted.mockResolvedValue(false);
   mySwitchesEverywhere.mockResolvedValue([
     {
       circleId: 'c1',
@@ -89,5 +96,58 @@ describe('notification settings', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: 'Change' }));
     expect(screen.getByText(/9 pm and 8 am in your own time zone/)).toBeVisible();
+  });
+
+  describe('emails about plans you organise (ADR 00XX)', () => {
+    const name = 'Emails about plans you organise';
+
+    it('is one switch for the person, above the circles, and says which email still comes', async () => {
+      wrap(<NotificationSettingsFlow />);
+
+      expect(await screen.findByRole('switch', { name })).toHaveAttribute('aria-checked', 'true');
+      expect(screen.getAllByRole('switch', { name })).toHaveLength(1);
+      // The detail line is what keeps the switch from lying about replies closed.
+      expect(screen.getByText(/we'll still email you once/)).toBeVisible();
+    });
+
+    it('shows it off when the profile has it off', async () => {
+      myOrganiserEmailMuted.mockResolvedValue(true);
+      wrap(<NotificationSettingsFlow />);
+
+      expect(await screen.findByRole('switch', { name })).toHaveAttribute('aria-checked', 'false');
+    });
+
+    it('saves turning it off to the reader’s own profile', async () => {
+      saveOrganiserEmailMuted.mockResolvedValue(undefined);
+      wrap(<NotificationSettingsFlow />);
+
+      const toggle = await screen.findByRole('switch', { name });
+      await act(async () => {
+        fireEvent.click(toggle);
+      });
+      expect(saveOrganiserEmailMuted).toHaveBeenCalledWith(true);
+      expect(saveMySwitches).not.toHaveBeenCalled();
+      expect(toggle).toHaveAttribute('aria-checked', 'false');
+    });
+
+    it('puts it back when the save fails, and says so', async () => {
+      saveOrganiserEmailMuted.mockRejectedValue(new Error('circle setting not saved'));
+      wrap(<NotificationSettingsFlow />);
+
+      const toggle = await screen.findByRole('switch', { name });
+      await act(async () => {
+        fireEvent.click(toggle);
+      });
+      expect(await screen.findByText("That didn't save. Try again.")).toBeVisible();
+      await waitFor(() => expect(toggle).toHaveAttribute('aria-checked', 'true'));
+    });
+
+    it('does not show the page until it knows, and says so when it cannot', async () => {
+      myOrganiserEmailMuted.mockRejectedValue(new Error('organiser email setting lookup failed'));
+      wrap(<NotificationSettingsFlow />);
+
+      expect(await screen.findByText("We couldn't load your settings.")).toBeVisible();
+      expect(screen.queryByRole('switch', { name })).toBeNull();
+    });
   });
 });

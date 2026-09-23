@@ -51,8 +51,16 @@ export type SubscriberFooter = {
   readonly reentryUrl?: string | undefined;
 };
 
-/** A sentence saying why this arrived. Not a subscription, so nothing to stop here. */
-export type ReasonFooter = { readonly kind: 'reason'; readonly sentence: string };
+/**
+ * A sentence saying why this arrived, and — where a switch in the app stops it
+ * — a line saying where that switch is (ADR 00XX). Not a subscription, so no
+ * stop link and no token: the reader has an account and signs in.
+ */
+export type ReasonFooter = {
+  readonly kind: 'reason';
+  readonly sentence: string;
+  readonly settingsUrl?: string | undefined;
+};
 
 export type Footer = SubscriberFooter | ReasonFooter | { readonly kind: 'none' };
 
@@ -69,6 +77,15 @@ function FooterBlock({ footer }: { footer: Footer }): ReactNode {
       <>
         <Hr style={{ borderColor: palette.line, margin: '20px 0 16px' }} />
         <Text style={small}>{footer.sentence}</Text>
+        {footer.settingsUrl === undefined ? null : (
+          <Text style={small}>
+            {EN_EMAIL.footer.settingsLead}{' '}
+            <Link href={footer.settingsUrl} style={smallLink}>
+              {EN_EMAIL.footer.settingsLabel}
+            </Link>
+            .
+          </Text>
+        )}
       </>
     );
   }

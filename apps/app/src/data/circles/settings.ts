@@ -103,3 +103,36 @@ export async function mySwitchesEverywhere(): Promise<CircleSwitches[]> {
       mutedNudges: row.muted_nudges,
     }));
 }
+
+/**
+ * "Emails about plans you organise" (ADR 00XX): the reader's own switch, on
+ * their profile rather than a membership, because the letters go to their
+ * address whichever circle the plan is in. True means **off** — the column is
+ * `muted_organiser_email`, like the membership mutes beside it.
+ */
+export async function myOrganiserEmailMuted(): Promise<boolean> {
+  const client = authClient();
+  const me = await whoAmI(client);
+  if (me === undefined) return false;
+
+  const { data, error } = await client
+    .from('profiles')
+    .select('muted_organiser_email')
+    .eq('user_id', me)
+    .maybeSingle();
+  if (error !== null) throw new Error('organiser email setting lookup failed');
+  return data?.muted_organiser_email ?? false;
+}
+
+export async function saveOrganiserEmailMuted(muted: boolean): Promise<void> {
+  const client = authClient();
+  const me = await whoAmI(client);
+  if (me === undefined) throw new NotSavedError();
+
+  const { data, error } = await client
+    .from('profiles')
+    .update({ muted_organiser_email: muted })
+    .eq('user_id', me)
+    .select('user_id');
+  if (error !== null || data.length === 0) throw new NotSavedError();
+}

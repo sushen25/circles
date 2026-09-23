@@ -34,6 +34,7 @@ import {
   type NotificationKind,
   QUIET_SENSITIVE_KINDS,
   notificationSpec,
+  organiserEmailStopped,
 } from './kinds.js';
 
 export type Recipient = {
@@ -68,6 +69,15 @@ export type EligibilityContext = {
    * marketing consent (§8.2).
    */
   readonly hasPlanEmailSubscription?: ((userId: UserId) => boolean) | undefined;
+  /**
+   * Whether this person has turned "Emails about plans you organise" off
+   * (`profiles.muted_organiser_email`, ADR 00XX).
+   *
+   * Required, unlike the subscription above, because its absence would mean
+   * *send*: a caller that forgot it would ignore the person's choice without a
+   * sound. Read only by the email-channel test, so a push is unaffected.
+   */
+  readonly mutedOrganiserEmail: (userId: UserId) => boolean;
   /**
    * Whoever caused the event, if a person did.
    *
@@ -245,7 +255,8 @@ export function channelFor(
  * Whether email is allowed for this person and this kind.
  *
  * The member kinds need a verified per-plan subscription; the organiser kinds
- * do not, which is the whole of review C6. Nothing here reads a members list to
+ * do not, which is the whole of review C6 — unless the person has turned
+ * organiser email off, for the kinds that switch covers (ADR 00XX). Nothing here reads a members list to
  * decide it — that was the bug: `channels: ['push', 'email']` made membership
  * look like consent.
  */
@@ -254,7 +265,9 @@ function mayEmail(
   userId: UserId,
   context: EligibilityContext,
 ): boolean {
-  if (!spec.emailNeedsSubscription) return true;
+  if (!spec.emailNeedsSubscription) {
+    return !organiserEmailStopped(spec.kind, context.mutedOrganiserEmail(userId));
+  }
   return context.hasPlanEmailSubscription?.(userId) === true;
 }
 

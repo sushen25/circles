@@ -209,6 +209,16 @@ export const EN_EMAIL = {
     reentryLabel: 'Get back in',
     organiser: (circleName: string) =>
       `You're getting this because you're organising a catch-up for ${circleName}.`,
+    /**
+     * Replies closed is outside the organiser-email switch (ADR 00XX), so its
+     * footer says so rather than pointing at a switch that would not stop it.
+     */
+    repliesClosed: (circleName: string) =>
+      `You're getting this because you're organising a catch-up for ${circleName}. ` +
+      'It comes even with emails about plans you organise turned off, because the plan is waiting on you.',
+    /** "Turn these off in notification settings." — where, not a stop link (ADR 00XX). */
+    settingsLead: 'Turn these off in',
+    settingsLabel: 'notification settings',
     nudge: (circleName: string) => `You're getting this because you're in ${circleName}.`,
     sender: brand.name,
   },

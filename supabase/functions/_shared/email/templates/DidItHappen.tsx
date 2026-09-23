@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 
 import { EN_EMAIL, type EmailCopy } from '../copy.ts';
 import { weekdayName } from '../format.ts';
-import { planLink, subscriberFooter } from '../links.ts';
+import { planLink, settingsLink, subscriberFooter } from '../links.ts';
 import type { DidItHappenInput, DidItHappenParticipantInput } from '../types.ts';
 import { Layout } from './Layout.tsx';
 
@@ -32,7 +32,11 @@ export function DidItHappen({ input }: { input: DidItHappenInput }): ReactNode {
     <Layout
       copy={didItHappenCopy(input)}
       buttonUrl={planLink(input.origin, input.planCode)}
-      footer={{ kind: 'reason', sentence: EN_EMAIL.footer.organiser(input.circleName) }}
+      footer={{
+        kind: 'reason',
+        sentence: EN_EMAIL.footer.organiser(input.circleName),
+        settingsUrl: settingsLink(input.origin),
+      }}
     />
   );
 }
