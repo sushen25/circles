@@ -19,6 +19,7 @@ import {
 import { Stack } from '../../components/layout';
 import { t } from '../../copy';
 import { MARKS_MAX } from '../scheduling/parts';
+import type { AttendanceAction } from './ConfirmedGuestScreen';
 import { ConfirmedPlaceholder, type ConfirmedState } from './parts';
 import type { ConfirmedView } from './confirmed';
 
@@ -40,6 +41,12 @@ export type ConfirmedOrgProps = {
   message?: string | undefined;
   /** "Copied. Paste it into the group chat." and the like. */
   shareNotice?: string | undefined;
+  /** The organiser's own answer — they are a member too (spec §5.7). */
+  mine?: { title: string; detail: string } | undefined;
+  actions?: readonly AttendanceAction[] | undefined;
+  busy?: boolean | undefined;
+  /** Why their own answer did not save. */
+  notice?: string | undefined;
   onShare?: (() => void) | undefined;
   onAddToCalendar?: (() => void) | undefined;
   onChangeTime?: (() => void) | undefined;
@@ -53,6 +60,10 @@ export function ConfirmedOrgScreen({
   view,
   message,
   shareNotice,
+  mine,
+  actions = [],
+  busy = false,
+  notice,
   onShare,
   onAddToCalendar,
   onChangeTime,
@@ -84,6 +95,20 @@ export function ConfirmedOrgScreen({
           <Marks members={view.members} max={MARKS_MAX} label={view.names} />
           <Small>{view.unsaid}</Small>
         </Stack>
+        {mine === undefined ? null : (
+          <Stack gap={8}>
+            <Title accessibilityLiveRegion="polite">{mine.title}</Title>
+            {actions.map((action) => (
+              <Tertiary
+                key={action.label}
+                label={busy ? t('confirmedGuest', 'saving') : action.label}
+                disabled={busy}
+                onPress={action.onPress}
+              />
+            ))}
+          </Stack>
+        )}
+        {notice === undefined ? null : <Notice kind="warn">{notice}</Notice>}
       </Body>
       <Foot>
         <Button label={t('confirmedOrg', 'share_to_group_chat')} onPress={onShare} />
@@ -92,10 +117,16 @@ export function ConfirmedOrgScreen({
           variant="secondary"
           onPress={onAddToCalendar}
         />
-        <ButtonRow>
-          <Tertiary label={t('confirmedOrg', 'change_the_time')} onPress={onChangeTime} />
-          <Tertiary label={t('confirmedOrg', 'cancel_this_plan')} onPress={onCancelPlan} />
-        </ButtonRow>
+        {onChangeTime === undefined && onCancelPlan === undefined ? null : (
+          <ButtonRow>
+            {onChangeTime === undefined ? null : (
+              <Tertiary label={t('confirmedOrg', 'change_the_time')} onPress={onChangeTime} />
+            )}
+            {onCancelPlan === undefined ? null : (
+              <Tertiary label={t('confirmedOrg', 'cancel_this_plan')} onPress={onCancelPlan} />
+            )}
+          </ButtonRow>
+        )}
       </Foot>
     </Screen>
   );

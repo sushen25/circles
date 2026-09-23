@@ -13,19 +13,13 @@ import { shareMessage } from '../../platform/share';
 import { isOffline } from '../identity/join/failure';
 import { dateOf } from '../scheduling/words';
 import { AddToCalendarSheet } from './AddToCalendarScreen';
-import { ConfirmedGuestScreen, type AttendanceAction } from './ConfirmedGuestScreen';
+import { ConfirmedGuestScreen } from './ConfirmedGuestScreen';
 import { ConfirmedOrgScreen } from './ConfirmedOrgScreen';
-import {
-  calendarFilename,
-  confirmedOf,
-  messageOf,
-  myAttendanceOf,
-  type LockedIn,
-} from './confirmed';
+import { calendarFilename, confirmedOf, messageOf, type LockedIn } from './confirmed';
 import * as fixture from './fixtures';
-import { useAttendance } from './useAttendance';
 import { useCalendar } from './useCalendar';
 import { useConfirmation } from './useConfirmation';
+import { useOwnAnswer } from './useOwnAnswer';
 
 /**
  * The confirmed meetup, on either door (spec §5.7):
@@ -100,6 +94,7 @@ function LiveConfirmed({ target, calendar }: { target: ConfirmedKey; calendar: b
     );
   }
   if (data === undefined) return <ConfirmedOrgScreen state="denied" onBack={back} />;
+  if (data.view === 'happened') return <ConfirmedOrgScreen state="happened" onBack={back} />;
   if (data.view !== 'confirmed' || data.confirmation === null) {
     return <ConfirmedOrgScreen state="expired" onBack={back} />;
   }
@@ -133,17 +128,7 @@ function Confirmed({
     confirmationId: confirmation.id,
     filename: calendarFilename(data, confirmation),
   });
-  const attendance = useAttendance(
-    data.me === undefined
-      ? undefined
-      : {
-          circleId: data.circleId,
-          planId: data.planId,
-          confirmationId: confirmation.id,
-          me: data.me,
-        },
-    queryKey,
-  );
+  const own = useOwnAnswer(data, confirmation, queryKey);
   const [shareNotice, setShareNotice] = useState<string>();
   const origin = useOrigin();
 
@@ -198,19 +183,16 @@ function Confirmed({
               if (result === 'failed') setShareNotice(t('confirmedOrg', 'share_failed'));
             });
           }}
+          mine={own.mine}
+          actions={own.actions}
+          busy={own.busy}
+          notice={own.problem}
           onAddToCalendar={calendar.show}
-          onChangeTime={() =>
-            router.push({
-              pathname: '/circles/[id]/plan/[planId]/change-time',
-              params: { id: data.circleId, planId: data.planId },
-            })
-          }
-          onCancelPlan={() =>
-            router.push({
-              pathname: '/circles/[id]/plan/[planId]/cancel',
-              params: { id: data.circleId, planId: data.planId },
-            })
-          }
+          // "Change the time · Cancel this plan" stay off the screen until
+          // their screens do something: ChangeTime and CancelPlan are still
+          // fixtures whose buttons go nowhere, and a cancel that silently does
+          // nothing is worse than no cancel. SUS-42 (S1-26) builds them and
+          // passes these two.
           onBack={toCircle}
         />
         {sheet}
@@ -218,23 +200,6 @@ function Confirmed({
     );
   }
 
-  const mine = myAttendanceOf(data, confirmation, new Date());
-  const actions: AttendanceAction[] = [];
-  if (mine?.canGo === true) {
-    actions.push({
-      label: t('confirmedGuest', 'i_can_make_it'),
-      onPress: () => attendance.change('going'),
-    });
-  }
-  if (mine?.canCant === true) {
-    actions.push({
-      label:
-        mine.status === 'going'
-          ? t('confirmedGuest', 'i_cant_make_it_after_all')
-          : t('confirmedGuest', 'i_cant_make_it'),
-      onPress: () => attendance.change('cant'),
-    });
-  }
   const maps = mapsLink({ name: confirmation.placeName, url: confirmation.placeUrl });
 
   return (
@@ -242,27 +207,10 @@ function Confirmed({
       <ConfirmedGuestScreen
         view={view}
         onOpenMaps={maps === undefined ? undefined : () => void Linking.openURL(maps)}
-        mine={
-          mine === undefined
-            ? undefined
-            : mine.status === 'going'
-              ? {
-                  title: t('confirmedGuest', 'youre_going'),
-                  detail: t('confirmedGuest', 'tap_below_if_that_changes'),
-                }
-              : mine.status === 'cant'
-                ? {
-                    title: t('confirmedGuest', 'you_cant'),
-                    detail: t('confirmedGuest', 'tap_below_if_that_changes'),
-                  }
-                : {
-                    title: t('confirmedGuest', 'you_unsaid'),
-                    detail: t('confirmedGuest', 'say_below'),
-                  }
-        }
-        actions={actions}
-        busy={attendance.busy}
-        notice={attendance.problem}
+        mine={own.mine}
+        actions={own.actions}
+        busy={own.busy}
+        notice={own.problem}
         onAddToCalendar={calendar.show}
         onBack={toCircle}
       />

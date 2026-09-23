@@ -151,8 +151,12 @@ the paste-ready message is built on the client with the domain's
 `lockedInMessage`, attendance is a direct write to the member's own row, and the
 `.ics` is fetched from `generate-ics` when the sheet opens and handed over with
 `<a download>` (`platform/download.ts`). "Open in Maps" is
-`platform/maps.ts`. `ChangeTime`, `Outcome`, `WasThere` and the cancelled and
-rescheduled screens are still fixtures.
+`platform/maps.ts`. The organiser corrects their own answer on their screen
+too. Once the meetup is over the confirmed door says so and counts nobody,
+because "I was there" is readable by its subject alone. `ChangeTime`,
+`Outcome`, `WasThere` and the cancelled and rescheduled screens are still
+fixtures, so "Change the time · Cancel this plan" is not shown until SUS-42
+wires them.
 
 ### growth
 

@@ -68,7 +68,6 @@ describe('the organiser', () => {
     expect(screen.getByText(/^Locked in: Sunday Crew, .* at Hope St Radio\. /)).toBeTruthy();
     expect(screen.getByText('5 going · 1 to confirm')).toBeTruthy();
     expect(screen.getByText("Alex hasn't said yet")).toBeTruthy();
-    expect(screen.queryByText("You're going")).toBeNull();
   });
 
   it('shares exactly the message on screen, and records that the sheet opened', async () => {
@@ -80,6 +79,22 @@ describe('the organiser', () => {
       expect(track).toHaveBeenCalledWith('share_opened', { ...IDS, kind: 'confirmed' }),
     );
     expect(message).toContain('https://circles.test/p/pnsundaycr');
+  });
+
+  it('lets the organiser change their own answer too — they are a member', async () => {
+    show(<ConfirmedFlow target={{ planId: 'thu-17' }} />);
+    expect(await screen.findByText("You're going")).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: "I can't make it after all" }));
+    await waitFor(() =>
+      expect(setAttendance).toHaveBeenCalledWith('confirmation-1', 'maya', 'cant'),
+    );
+  });
+
+  it('offers no way to change or cancel until those screens can do it (SUS-42)', async () => {
+    show(<ConfirmedFlow target={{ planId: 'thu-17' }} />);
+    await screen.findByText('Ready to paste into the group chat');
+    expect(screen.queryByRole('button', { name: 'Change the time' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Cancel this plan' })).toBeNull();
   });
 
   it('is the screen the organiser gets on the plan link too', async () => {
@@ -150,9 +165,11 @@ describe('the calendar sheet', () => {
     ).toBeTruthy();
     expect(screen.queryByText(/Google/)).toBeNull();
 
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Apple or device calendar. Downloads an .ics file' }),
-    );
+    const row = screen.getByRole('button', {
+      name: 'Apple or device calendar. Downloads an .ics file',
+    });
+    await waitFor(() => expect(row.getAttribute('aria-disabled')).not.toBe('true'));
+    fireEvent.click(row);
     await waitFor(() =>
       expect(saveFile).toHaveBeenCalledWith(
         'BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n',
@@ -164,6 +181,27 @@ describe('the calendar sheet', () => {
     expect(calendarFile).toHaveBeenCalledTimes(1);
     expect(calendarFile).toHaveBeenCalledWith('confirmation-1');
     await waitFor(() => expect(track).toHaveBeenCalledWith('ics_downloaded', IDS));
+  });
+
+  // Mobile Safari only hands a download over from inside the tap, so the row
+  // waits for the file and the tap saves it without awaiting anything.
+  it('keeps the row shut until the file is here, then saves inside the tap', async () => {
+    let arrive: (ics: string) => void = () => undefined;
+    calendarFile.mockReturnValue(new Promise<string>((resolve) => (arrive = resolve)));
+    show(<ConfirmedFlow target={{ code: 'pnsundaycr' }} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Add to calendar' }));
+
+    const row = () =>
+      screen.getByRole('button', { name: 'Apple or device calendar. Downloads an .ics file' });
+    expect(row().getAttribute('aria-disabled')).toBe('true');
+    fireEvent.click(row());
+    expect(saveFile).not.toHaveBeenCalled();
+
+    arrive('BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n');
+    await waitFor(() => expect(row().getAttribute('aria-disabled')).not.toBe('true'));
+    fireEvent.click(row());
+    // Synchronously: no waitFor.
+    expect(saveFile).toHaveBeenCalledTimes(1);
   });
 
   it('opens on arrival at the calendar link', async () => {
@@ -189,6 +227,17 @@ describe('a plan that is not locked in', () => {
         params: { id: 'sunday-crew', planId: 'thu-17' },
       }),
     );
+  });
+
+  it("stops counting once the meetup is over, when the answers stop being the circle's to read", async () => {
+    planConfirmation.mockResolvedValue({
+      ...fixture.lockedIn,
+      state: 'completed',
+      view: 'happened',
+    });
+    show(<ConfirmedFlow target={{ planId: 'thu-17' }} />);
+    expect(await screen.findByText('This one has happened.')).toBeTruthy();
+    expect(screen.queryByText(/going/)).toBeNull();
   });
 
   it('says a cancelled plan is off', async () => {
