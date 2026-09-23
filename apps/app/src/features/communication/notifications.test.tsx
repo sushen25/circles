@@ -41,6 +41,9 @@ vi.mock('../../data/circles', async (original) => ({
   saveOrganiserEmailMuted: (...a: unknown[]) => saveOrganiserEmailMuted(...a),
 }));
 
+const track = vi.fn();
+vi.mock('../../analytics/track', () => ({ track: (...args: unknown[]) => track(...args) }));
+
 const { NotificationSettingsFlow } = await import('./NotificationSettingsFlow');
 
 function wrap(children: ReactNode) {
@@ -52,6 +55,7 @@ beforeEach(() => {
   session.status = 'saved';
   session.userId = 'maya';
   replace.mockReset();
+  track.mockReset();
   mySwitchesEverywhere.mockReset();
   saveMySwitches.mockReset();
   myOrganiserEmailMuted.mockReset();
@@ -144,6 +148,42 @@ describe('notification settings', () => {
       expect(toggle).toHaveAttribute('aria-checked', 'false');
     });
 
+    it('records the change once it has saved, and not before (review round 1)', async () => {
+      saveOrganiserEmailMuted.mockResolvedValue(undefined);
+      wrap(<NotificationSettingsFlow />);
+
+      await act(async () => {
+        fireEvent.click(await screen.findByRole('switch', { name }));
+      });
+      await waitFor(() =>
+        expect(track).toHaveBeenCalledWith('organiser_email_changed', { enabled: false }),
+      );
+    });
+
+    it('holds the switch while a save is in flight, so two taps cannot race (review round 1)', async () => {
+      // Two updates in flight can land in either order: the switch would show
+      // the last tap while the row keeps whichever write arrived last.
+      let finish: () => void = () => undefined;
+      saveOrganiserEmailMuted.mockReturnValue(new Promise<void>((done) => (finish = done)));
+      wrap(<NotificationSettingsFlow />);
+
+      const toggle = await screen.findByRole('switch', { name });
+      await act(async () => {
+        fireEvent.click(toggle);
+      });
+      await act(async () => {
+        fireEvent.click(toggle);
+      });
+      expect(saveOrganiserEmailMuted).toHaveBeenCalledTimes(1);
+      expect(toggle).toHaveAttribute('aria-disabled', 'true');
+      expect(toggle).toHaveAttribute('aria-checked', 'false');
+
+      await act(async () => {
+        finish();
+      });
+      await waitFor(() => expect(toggle).not.toHaveAttribute('aria-disabled', 'true'));
+    });
+
     it('puts it back when the save fails, and says so', async () => {
       saveOrganiserEmailMuted.mockRejectedValue(new Error('circle setting not saved'));
       wrap(<NotificationSettingsFlow />);
@@ -154,6 +194,7 @@ describe('notification settings', () => {
       });
       expect(await screen.findByText("That didn't save. Try again.")).toBeVisible();
       await waitFor(() => expect(toggle).toHaveAttribute('aria-checked', 'true'));
+      expect(track).not.toHaveBeenCalled();
     });
 
     it('sends a signed-out reader through sign-in and back here, where the email pointed', async () => {

@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 
+import { track } from '../../analytics/track';
 import { t } from '../../copy';
 import { useSession } from '../../data/auth';
 import { hasBackend } from '../../data/auth/client';
@@ -114,6 +115,7 @@ function LiveNotifications() {
   });
   const [problem, setProblem] = useState<string | undefined>();
   const [quietHours, setQuietHours] = useState(false);
+  const [savingOrganiserEmail, setSavingOrganiserEmail] = useState(false);
 
   const back = () => (router.canGoBack() ? router.back() : router.replace('/settings/account'));
 
@@ -156,21 +158,30 @@ function LiveNotifications() {
   };
 
   // The same shape as a circle's switch: move at once, save behind it, and
-  // put it back if the save fails rather than leave a switch that lies.
+  // put it back if the save fails rather than leave a switch that lies. Held
+  // while a save is in flight: two updates can land in either order, and the
+  // switch would show the last tap while the row kept the last write (review
+  // round 1).
   const organiserEmail = (on: boolean) => {
+    if (savingOrganiserEmail) return;
     setProblem(undefined);
+    setSavingOrganiserEmail(true);
     const before = queryClient.getQueryData<boolean>(organiserKey);
     queryClient.setQueryData<boolean>(organiserKey, !on);
-    void saveOrganiserEmailMuted(!on).catch(() => {
-      queryClient.setQueryData(organiserKey, before);
-      failed();
-    });
+    void saveOrganiserEmailMuted(!on)
+      .then(() => track('organiser_email_changed', { enabled: on }))
+      .catch(() => {
+        queryClient.setQueryData(organiserKey, before);
+        failed();
+      })
+      .finally(() => setSavingOrganiserEmail(false));
   };
 
   return (
     <NotificationSettingsScreen
       circles={switches.data.map(rowOf)}
       organiserEmailOn={!organiserMuted.data}
+      organiserEmailSaving={savingOrganiserEmail}
       onOrganiserEmail={organiserEmail}
       problem={problem}
       quietHoursOpen={quietHours}

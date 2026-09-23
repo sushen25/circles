@@ -48,6 +48,8 @@ export type NotificationSettingsProps = {
   quietHoursOpen?: boolean | undefined;
   /** Absent while it is not known; the card is left out rather than guessed. */
   organiserEmailOn?: boolean | undefined;
+  /** A save is in flight; the switch holds until it lands. */
+  organiserEmailSaving?: boolean | undefined;
   onOrganiserEmail?: ((on: boolean) => void) | undefined;
   onToggle?: ((circleId: string, which: NotificationSwitch, on: boolean) => void) | undefined;
   onQuietHours?: (() => void) | undefined;
@@ -63,6 +65,7 @@ export function NotificationSettingsScreen({
   problem,
   quietHoursOpen = false,
   organiserEmailOn,
+  organiserEmailSaving = false,
   onOrganiserEmail,
   onToggle,
   onQuietHours,
@@ -121,6 +124,7 @@ export function NotificationSettingsScreen({
             >
               <Toggle
                 value={organiserEmailOn}
+                disabled={organiserEmailSaving}
                 onValueChange={(on) => onOrganiserEmail?.(on)}
                 label={t('notificationSettings', 'emails_about_plans_you_organise')}
               />
