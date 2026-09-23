@@ -1091,7 +1091,7 @@ export const en = {
     copied: 'Copied. Paste it into your group chat.',
     couldnt_copy: "We couldn't copy it here. Press and hold the link to copy it yourself.",
     go_to_circle: 'Go to {circle}',
-    link_not_here: "{circle}'s invite link isn't on this screen any more.",
+    link_not_here: '{circle} needs a new invite link.',
     link_shown_once:
       "This link can't be shown again. You can make a new one in the circle's settings, and the old one stops working.",
     open_settings: 'Open circle settings',

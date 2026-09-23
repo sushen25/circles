@@ -38,7 +38,8 @@ export async function circlesList(): Promise<CircleSummary[]> {
     .select(
       'id, name, color, status, cadence, time_zone, last_met_at, cadence_snoozed_until, default_duration_minutes, owner_user_id, created_at',
     )
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false })
+    .order('name', { ascending: true });
   if (error !== null) throw new Error(FAILED);
   if (circles.length === 0) return [];
 

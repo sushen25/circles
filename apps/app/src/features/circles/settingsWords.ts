@@ -63,7 +63,12 @@ export function policyOptions(): PickerOption<NudgePolicy>[] {
 
 /** "You · owner", "Owner", "You", "Joined 3 Sep" — and whether Remove is offered. */
 export function memberRows(home: CircleHome): SettingsMember[] {
-  return home.members.map((member) => {
+  // The owner first, as the artboard lists them; everyone else as they joined.
+  const ordered = [
+    ...home.members.filter((m) => m.role === 'owner'),
+    ...home.members.filter((m) => m.role !== 'owner'),
+  ];
+  return ordered.map((member) => {
     const you = member.userId === home.me;
     const owner = member.role === 'owner';
     const detail =
