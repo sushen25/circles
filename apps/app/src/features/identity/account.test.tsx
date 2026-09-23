@@ -23,7 +23,7 @@ vi.mock('../../data/auth', async () => {
     guard,
     useSession: () => session,
     ownProfile: () => Promise.resolve({ name: 'Maya', zone: 'Australia/Melbourne' }),
-    ownEmail: () => Promise.resolve('maya@example.com'),
+    ownEmailHint: () => Promise.resolve('m…@example.com'),
     saveProfile: (...a: unknown[]) => saveProfile(...a),
     signOut: () => signOut(),
   };
@@ -42,10 +42,11 @@ beforeEach(() => {
 });
 
 describe('account', () => {
-  it('shows the name, the address and where the rest lives, and no delete yet', async () => {
+  it('shows the name, a hint of the address and where the rest lives, and no delete yet', async () => {
     wrap(<AccountFlow />);
 
-    expect(await screen.findByText('maya@example.com')).toBeVisible();
+    expect(await screen.findByText('m…@example.com')).toBeVisible();
+    expect(screen.queryByText('maya@example.com')).toBeNull();
     expect(screen.getByText('Maya')).toBeVisible();
     expect(screen.queryByRole('button', { name: /Delete my account/ })).toBeNull();
 
@@ -65,6 +66,17 @@ describe('account', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     });
     expect(saveProfile).toHaveBeenCalledWith({ name: 'Maya K', zone: 'Australia/Melbourne' });
+  });
+
+  it('stays put and says so when signing out did not happen', async () => {
+    signOut.mockRejectedValue(new Error('sign out failed'));
+    wrap(<AccountFlow />);
+
+    await act(async () => {
+      fireEvent.click(await screen.findByRole('button', { name: 'Sign out' }));
+    });
+    expect(await screen.findByText("You're still signed in. Try again.")).toBeVisible();
+    expect(replace).not.toHaveBeenCalled();
   });
 
   it('signs out and goes back to Welcome', async () => {

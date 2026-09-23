@@ -54,6 +54,7 @@ export const en = {
     couldnt_save: "That didn't save. Try again.",
     no_email: 'Not signed in with email',
     signing_out: 'Signing out…',
+    couldnt_sign_out: "You're still signed in. Try again.",
   },
   addToCalendar: {
     add_thursday_to_your_calendar: 'Add Thursday to your calendar',

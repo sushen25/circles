@@ -237,9 +237,22 @@ export function sessionState(): SessionState {
   return state;
 }
 
-/** Signs out and clears the stored session. */
+/**
+ * Signs out and clears the stored session — **on this device, always**.
+ *
+ * `auth.signOut()` revokes the session on the server first, and when that
+ * cannot be reached (offline, a flaky network) it reports an error and leaves
+ * the stored session exactly where it was. A person who tapped Sign out on a
+ * shared phone would then be told they had signed out while a reload put them
+ * back in (review, S1-23). So a failed global sign-out falls back to the local
+ * one, which needs no network; only if that fails too does this throw.
+ */
 export async function signOut(): Promise<void> {
-  await authClient().auth.signOut();
+  const client = authClient();
+  const { error } = await client.auth.signOut();
+  if (error === null) return;
+  const local = await client.auth.signOut({ scope: 'local' });
+  if (local.error !== null) throw new Error('sign out failed');
 }
 
 /** Resets module state so a test starts from nothing. */

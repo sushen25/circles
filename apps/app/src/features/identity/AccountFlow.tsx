@@ -4,7 +4,7 @@ import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 
 import { t } from '../../copy';
-import { ownEmail, ownProfile, saveProfile, signOut, useSession } from '../../data/auth';
+import { ownEmailHint, ownProfile, saveProfile, signOut, useSession } from '../../data/auth';
 import { hasBackend } from '../../data/auth/client';
 import { AccountScreen } from './AccountScreen';
 import { isOffline } from './join/failure';
@@ -15,8 +15,9 @@ import { filterZones, groupZones, supportedZones, zoneLabel } from './zones';
 /**
  * `/settings/account` (spec §5.2). Name and time zone are the profile the Your
  * name screen wrote, changed the same way (`saveProfile`, which judges the name
- * by the domain's rule). The address is the session's own and is only shown.
- * Signing out goes back to Welcome.
+ * by the domain's rule). The address is shown as a hint (`m…@example.com`),
+ * never held whole. Signing out goes back to Welcome only once it has
+ * happened on this device.
  */
 export function AccountFlow() {
   return hasBackend() ? <LiveAccount /> : <FixtureAccount />;
@@ -45,8 +46,9 @@ function LiveAccount() {
     staleTime: 0,
   });
   const email = useQuery({
-    queryKey: ['own-email', session.userId],
-    queryFn: ownEmail,
+    // The hint, never the address: see `ownEmailHint`.
+    queryKey: ['own-email-hint', session.userId],
+    queryFn: ownEmailHint,
     enabled: gate === 'allow',
   });
 
@@ -146,10 +148,18 @@ function LiveAccount() {
       onNotifications={() => router.push('/settings/notifications')}
       onSignOut={() => {
         setBusy(true);
-        void signOut().finally(() => {
-          queryClient.clear();
-          router.replace('/');
-        });
+        setProblem(undefined);
+        signOut()
+          .then(() => {
+            queryClient.clear();
+            router.replace('/');
+          })
+          .catch(() => {
+            // Still signed in, and saying so: going to Welcome now would be
+            // telling somebody on a shared phone that they had left.
+            setBusy(false);
+            setProblem(t('account', 'couldnt_sign_out'));
+          });
       }}
       onBack={back}
     />

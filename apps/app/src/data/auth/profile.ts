@@ -193,14 +193,23 @@ export async function saveProfile(input: { name: string; zone: string }): Promis
 }
 
 /**
- * The address this account signs in with, for the Account screen to show its
- * owner (spec §5.2). Read from the session the client already holds — the auth
- * server put it there when the code was typed back — never from a table, and
- * never passed on: not to a log, not to analytics, not to another screen.
- * Null for a guest, who has none.
+ * The address this account signs in with, **as the Account screen shows it**:
+ * `m…@example.com`. Enough for its owner to recognise, and never the address
+ * itself — "no client context ever holds a raw email address" (AGENTS.md), so
+ * the raw value is read from the session the auth server already keeps and
+ * goes no further than this function: not into a query cache, not into props,
+ * not into a log. Null for a guest, who has none.
  */
-export async function ownEmail(): Promise<string | null> {
+export async function ownEmailHint(): Promise<string | null> {
   const { data } = await authClient().auth.getSession();
   const email = data.session?.user.email;
-  return email === undefined || email === '' ? null : email;
+  if (email === undefined || email === '') return null;
+  return emailHint(email);
+}
+
+/** `maya@example.com` → `m…@example.com`. Pure, so the shape can be tested. */
+export function emailHint(email: string): string {
+  const at = email.lastIndexOf('@');
+  if (at <= 0) return '…';
+  return `${[...email.slice(0, at)][0] ?? ''}…${email.slice(at)}`;
 }
