@@ -18,8 +18,9 @@ const thursday: ConfirmationRead = {
   confirmedAt: '2026-09-14T09:00:00.000Z',
 };
 
-const before = new Date('2026-09-16T00:00:00Z');
-const after = new Date('2026-09-17T11:00:00Z');
+/** Whether the meetup has still to end, by the database's clock. */
+const before = true;
+const after = false;
 
 describe('confirmationViewOf', () => {
   it('is confirmed while the meetup is ahead', () => {

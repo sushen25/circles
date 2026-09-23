@@ -168,6 +168,17 @@ describe('the confirmed meetup', () => {
     expect(status.get(alex.id)).toBe('unknown');
   });
 
+  it("has happened once it has ended by the database's clock, whatever the phone says", async () => {
+    const { owner, planId, confirmed } = await lockedIn();
+    sql(
+      stack,
+      `update public.meetup_confirmations set starts_at = now() - interval '3 hours', ends_at = now() - interval '1 hour' where id = '${confirmed.confirmation_id}'`,
+    );
+    const { planConfirmation } = await import('./read');
+    const seen = (await as(owner, () => planConfirmation({ planId })))!;
+    expect(seen.view).toBe('happened');
+  });
+
   it("is the same meetup to a member, on the plan's code", async () => {
     const { code, ren, confirmed } = await lockedIn();
     const { planConfirmation } = await import('./read');

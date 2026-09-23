@@ -86,14 +86,18 @@ export type PlanConfirmation = {
 
 const LIVE: readonly ConfirmationStatus[] = ['active', 'completed'];
 
+/**
+ * `ahead` is whether the meetup has still to end, **by the database's clock**:
+ * a phone set a day fast would otherwise hide the place and the calendar file
+ * from somebody the evening before.
+ */
 export function confirmationViewOf(
   state: PlanState,
   confirmation: ConfirmationRead | null,
-  now: Date,
+  ahead: boolean,
 ): ConfirmationView {
   if (isLockedIn(state) && confirmation !== null) {
-    const over = state === 'completed' || now.getTime() >= Date.parse(confirmation.endsAt);
-    return over ? 'happened' : 'confirmed';
+    return state === 'completed' || !ahead ? 'happened' : 'confirmed';
   }
   if (ANSWERABLE_STATES.includes(state)) return 'open';
   return 'over';
@@ -161,7 +165,19 @@ export async function planConfirmation(
         };
 
   let attendance: AttendanceRead[] = [];
+  let ahead = false;
   if (confirmation !== null) {
+    // `'now'` is Postgres's own input for the current time, so "has it ended?"
+    // is answered on the database's clock rather than this phone's.
+    const { data: upcoming, error: upcomingError } = await client
+      .from('meetup_confirmations')
+      .select('id')
+      .eq('id', confirmation.id)
+      .gt('ends_at', 'now')
+      .maybeSingle();
+    if (upcomingError !== null) throw new Error(FAILED);
+    ahead = upcoming !== null;
+
     const { data: rows, error: rowsError } = await client
       .from('attendance')
       .select('user_id, status')
@@ -196,6 +212,6 @@ export async function planConfirmation(
     })),
     confirmation,
     attendance,
-    view: confirmationViewOf(state, confirmation, new Date()),
+    view: confirmationViewOf(state, confirmation, ahead),
   };
 }
