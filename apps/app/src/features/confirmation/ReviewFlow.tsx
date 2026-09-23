@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { useIsFocused, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 
 import { t } from '../../copy';
@@ -99,7 +99,8 @@ function LiveReview({ id, planId, candidate }: { id: string; planId: string; can
   // refetch is not a read.
   const locked = data !== undefined && isLockedIn(data.state);
   const fresh = query.isFetchedAfterMount && !query.isError;
-  const decided = lock.already || (locked && fresh);
+  const focused = useIsFocused();
+  const decided = lock.already || (locked && fresh && focused);
   useEffect(() => {
     if (!decided || sent.current) return;
     sent.current = true;

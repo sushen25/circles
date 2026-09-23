@@ -15,9 +15,11 @@ import { FunctionError } from '../../data/functions';
 
 const push = vi.fn();
 const replace = vi.fn();
+const focused = { current: true };
 vi.mock('expo-router', () => ({
   useRouter: () => ({ push, replace, back: vi.fn(), canGoBack: () => true }),
   useFocusEffect: () => undefined,
+  useIsFocused: () => focused.current,
 }));
 const track = vi.fn();
 vi.mock('../../analytics/track', () => ({ track: (...args: unknown[]) => track(...args) }));
@@ -62,6 +64,7 @@ function refusal(reason: string): FunctionError {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  focused.current = true;
   planCandidates.mockResolvedValue(fixture.ready);
   confirmMeetup.mockResolvedValue({
     confirmation_id: 'c1',

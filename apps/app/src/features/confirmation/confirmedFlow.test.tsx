@@ -14,9 +14,11 @@ const push = vi.fn();
 const replace = vi.fn();
 const back = vi.fn();
 const dismissTo = vi.fn();
+const focused = { current: true };
 vi.mock('expo-router', () => ({
   useRouter: () => ({ push, replace, back, dismissTo, canGoBack: () => true }),
   useFocusEffect: () => undefined,
+  useIsFocused: () => focused.current,
 }));
 const track = vi.fn();
 vi.mock('../../analytics/track', () => ({ track: (...args: unknown[]) => track(...args) }));
@@ -55,6 +57,7 @@ const IDS = { circle_id: 'sunday-crew', plan_id: 'thu-17' };
 
 beforeEach(() => {
   vi.clearAllMocks();
+  focused.current = true;
   shareMessage.mockResolvedValue('sheet');
   setAttendance.mockResolvedValue(undefined);
   calendarFile.mockResolvedValue('BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n');

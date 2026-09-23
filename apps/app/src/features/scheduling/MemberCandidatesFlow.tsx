@@ -1,5 +1,5 @@
 import type { CircleId, PlanId } from '@circles/contracts';
-import { useRouter } from 'expo-router';
+import { useIsFocused, useRouter } from 'expo-router';
 import { useEffect, useRef } from 'react';
 
 import { track } from '../../analytics/track';
@@ -64,13 +64,14 @@ function LiveMember({ code }: { code: string }) {
   // Locked in: the confirmed screen, with their own answer on it (S1-28).
   const locked = data !== undefined && !data.isOrganiser && isLockedIn(data.state);
   const fresh = query.isFetchedAfterMount && !query.isError;
+  const focused = useIsFocused();
   const confirmed = useRef(false);
   useEffect(() => {
-    // On a read made since mount only, as `ConfirmedFlow` explains.
-    if (!locked || !fresh || confirmed.current) return;
+    // On a read made since mount, and while on top, as `CandidatesFlow` explains.
+    if (!locked || !fresh || !focused || confirmed.current) return;
     confirmed.current = true;
     router.replace({ pathname: '/p/[code]/confirmed', params: { code } });
-  }, [locked, fresh, code, router]);
+  }, [locked, fresh, focused, code, router]);
 
   const seen = useRef<string | undefined>(undefined);
   useEffect(() => {

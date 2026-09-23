@@ -1,6 +1,6 @@
 import type { CircleId, PlanId } from '@circles/contracts';
 import { EN_SHARE_TEMPLATES, waitingMessage } from '@circles/domain';
-import { useRouter } from 'expo-router';
+import { useIsFocused, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 
 import { track } from '../../analytics/track';
@@ -77,12 +77,17 @@ function LiveCandidates({ id, planId }: { id: string; planId: string }) {
   // Only on a read made since mount, for the reason `ConfirmedFlow` gives.
   const locked = data !== undefined && isLockedIn(data.state);
   const fresh = query.isFetchedAfterMount && !query.isError;
+  // Only while this is the screen on top. After a lock-in the options stay
+  // mounted under the confirmed screen and see the same refetch; spending the
+  // redirect from there navigates the top screen again and leaves nothing to
+  // move on from when somebody swipes back onto the options.
+  const focused = useIsFocused();
   const sent = useRef(false);
   useEffect(() => {
-    if (!locked || !fresh || sent.current) return;
+    if (!locked || !fresh || !focused || sent.current) return;
     sent.current = true;
     router.replace({ pathname: '/circles/[id]/plan/[planId]/confirmed', params: { id, planId } });
-  }, [locked, fresh, id, planId, router]);
+  }, [locked, fresh, focused, id, planId, router]);
 
   const back = () =>
     router.canGoBack()

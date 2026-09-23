@@ -15,9 +15,11 @@ import type * as Scheduling from '../../data/scheduling';
 const push = vi.fn();
 const replace = vi.fn();
 const dismissTo = vi.fn();
+const focused = { current: true };
 vi.mock('expo-router', () => ({
   useRouter: () => ({ push, replace, dismissTo, back: vi.fn(), canGoBack: () => true }),
   useFocusEffect: () => undefined,
+  useIsFocused: () => focused.current,
 }));
 const track = vi.fn();
 vi.mock('../../analytics/track', () => ({ track: (...args: unknown[]) => track(...args) }));
@@ -64,6 +66,7 @@ const organiser = () => <CandidatesFlow id={CIRCLE} planId={PLAN} which="candida
 
 beforeEach(() => {
   vi.clearAllMocks();
+  focused.current = true;
   shareMessage.mockResolvedValue('sheet');
 });
 
@@ -522,6 +525,25 @@ describe('the states that are not the happy one', () => {
     render(<QueryClientProvider client={client}>{organiser()}</QueryClientProvider>);
     expect(await screen.findByText("We couldn't load the options.")).toBeTruthy();
     expect(replace).not.toHaveBeenCalled();
+  });
+
+  // After a lock-in the options stay mounted under the confirmed screen and
+  // see the same refetch. The redirect is spent only when they are on top, so
+  // swiping back onto them still moves on.
+  it('keeps its redirect for when it is the screen on top', async () => {
+    focused.current = false;
+    planCandidates.mockResolvedValue({ ...fixture.ready, state: 'confirmed', view: 'closed' });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const tree = () => <QueryClientProvider client={client}>{organiser()}</QueryClientProvider>;
+    const { rerender } = render(tree());
+    await waitFor(() => expect(planCandidates).toHaveBeenCalled());
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(replace).not.toHaveBeenCalled();
+
+    // The same mounted screen, brought back on top.
+    focused.current = true;
+    rerender(tree());
+    await waitFor(() => expect(replace).toHaveBeenCalledTimes(1));
   });
 
   it('sends a member on the plan link to the confirmed screen too', async () => {

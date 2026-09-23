@@ -1,6 +1,6 @@
 import type { CircleId, PlanId } from '@circles/contracts';
 import { Linking } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useIsFocused, useRouter } from 'expo-router';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 
 import { track } from '../../analytics/track';
@@ -70,10 +70,12 @@ function LiveConfirmed({ target, calendar }: { target: ConfirmedKey; calendar: b
   // refetch landed.
   // A failed refetch is "fetched" to TanStack, and not a read.
   const fresh = query.isFetchedAfterMount && !query.isError;
+  // And only while on top, for the reason `CandidatesFlow` gives.
+  const focused = useIsFocused();
   const sent = useRef(false);
   const open = data?.view === 'open' ? data : undefined;
   useEffect(() => {
-    if (open === undefined || !fresh || sent.current) return;
+    if (open === undefined || !fresh || !focused || sent.current) return;
     sent.current = true;
     if (open.isOrganiser) {
       router.replace({
@@ -83,7 +85,7 @@ function LiveConfirmed({ target, calendar }: { target: ConfirmedKey; calendar: b
     } else {
       router.replace({ pathname: '/p/[code]', params: { code: open.code } });
     }
-  }, [open, fresh, router]);
+  }, [open, fresh, focused, router]);
 
   // To the circle, never "back": the screen under this one is usually the
   // options, and the options send a locked-in plan straight back here.
