@@ -1,8 +1,8 @@
+import { ConfirmMeetupRequest } from '@circles/contracts';
 import {
   NOTE_MAX_LENGTH,
   PLACE_NAME_MAX_LENGTH,
   fromISO,
-  isLink,
   toLocal,
   zone as toZone,
 } from '@circles/domain';
@@ -119,15 +119,17 @@ export type ReviewFields = {
 /**
  * What the form would send, and whether `confirm-meetup` would take it.
  *
- * The limits and the link rule are the domain's (`NOTE_MAX_LENGTH`,
- * `PLACE_NAME_MAX_LENGTH`, `isLink`) — the same ones the contract parses with —
- * so the screen refuses exactly what the server would, and says why first.
+ * Judged by **the request schema's own fields**, not a second copy of their
+ * rules: the link check, the 2,048 a link may run to, the 280 of a note. A
+ * rule restated here is a rule that drifts, and a value the screen allows and
+ * the contract refuses fails as a generic error with no field named.
  */
 export function fieldsOf(form: ReviewForm): ReviewFields {
   const placeName = form.placeName.trim();
   const placeUrl = form.placeUrl.trim();
   const note = form.note.trim();
-  const urlBad = placeUrl !== '' && !isLink(placeUrl);
+  const fields = ConfirmMeetupRequest.shape;
+  const urlBad = placeUrl !== '' && !fields.place_url.safeParse(placeUrl).success;
   return {
     placeName: placeName === '' ? undefined : placeName,
     placeUrl: placeUrl === '' ? undefined : placeUrl,
@@ -137,8 +139,14 @@ export function fieldsOf(form: ReviewForm): ReviewFields {
       count: form.note.length,
       total: NOTE_MAX_LENGTH,
     }),
-    valid: !urlBad && note.length <= NOTE_MAX_LENGTH && placeName.length <= PLACE_NAME_MAX_LENGTH,
+    valid:
+      !urlBad &&
+      (note === '' || fields.note.safeParse(note).success) &&
+      (placeName === '' || fields.place_name.safeParse(placeName).success),
   };
 }
+
+/** The longest map link the request takes (`ConfirmMeetupRequest.place_url`). */
+export const PLACE_URL_MAX_LENGTH = 2048;
 
 export { NOTE_MAX_LENGTH, PLACE_NAME_MAX_LENGTH };

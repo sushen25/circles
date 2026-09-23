@@ -87,6 +87,16 @@ describe('fieldsOf', () => {
     expect(fields.placeUrlError).toMatch(/https:\/\//);
   });
 
+  it('refuses a link longer than the request takes, rather than failing on send', () => {
+    const fields = fieldsOf({
+      placeName: '',
+      placeUrl: `https://maps.example/${'a'.repeat(2048)}`,
+      note: '',
+    });
+    expect(fields.valid).toBe(false);
+    expect(fields.placeUrlError).toBeDefined();
+  });
+
   it('sends nothing for an empty field, and counts the note against 280', () => {
     const fields = fieldsOf({ placeName: ' ', placeUrl: '', note: 'Come hungry.' });
     expect(fields).toMatchObject({ placeName: undefined, placeUrl: undefined, valid: true });

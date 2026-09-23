@@ -19,7 +19,7 @@ import { Row, Stack } from '../../components/layout';
 import { t } from '../../copy';
 import type { ChasedAnswer } from '../../data/confirmation';
 import { MARKS_MAX, Placeholder } from '../scheduling/parts';
-import { NOTE_MAX_LENGTH, PLACE_NAME_MAX_LENGTH } from './review';
+import { NOTE_MAX_LENGTH, PLACE_NAME_MAX_LENGTH, PLACE_URL_MAX_LENGTH } from './review';
 
 /**
  * ConfirmReview — `docs/design/ConfirmReview.dc.html` (spec §5.7, §5.10).
@@ -165,6 +165,7 @@ export function ConfirmReviewScreen({
             aria-label={t('confirmReview', 'place_url_label')}
             placeholder={t('confirmReview', 'place_url')}
             value={placeUrl}
+            maxLength={PLACE_URL_MAX_LENGTH}
             inputMode="url"
             autoCapitalize="none"
             autoCorrect={false}
