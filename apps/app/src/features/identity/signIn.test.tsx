@@ -133,9 +133,8 @@ describe('Welcome', () => {
     auth.ownProfile.mockResolvedValue({ name: 'Maya', zone: 'Australia/Melbourne' });
     newestCircleId.mockResolvedValue('c1');
     wrap(<WelcomeFlow />);
-    // Their own circle, not the circles list, which is fixtures until S1-23
-    // (review round 3).
-    await waitFor(() => expect(replace).toHaveBeenCalledWith('/circles/c1'));
+    // Their circles list, which is live since S1-23.
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/circles'));
   });
 
   it('asks again each time it comes back into view, rather than reusing an old answer (review round 4)', async () => {
@@ -156,7 +155,7 @@ describe('Welcome', () => {
         <WelcomeFlow />
       </QueryClientProvider>,
     );
-    await waitFor(() => expect(replace).toHaveBeenCalledWith('/circles/c1'));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/circles'));
     expect(replace).not.toHaveBeenCalledWith('/name');
   });
 
@@ -253,7 +252,7 @@ describe('signing in by email', () => {
     await sendCodeTo(ADDRESS);
     await enter('123456');
 
-    await waitFor(() => expect(replace).toHaveBeenCalledWith('/circles/c1'));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/circles'));
     expect(track).not.toHaveBeenCalledWith('account_completed', expect.anything());
   });
 
@@ -331,7 +330,7 @@ describe('signing in by email', () => {
     await sendCodeTo(ADDRESS);
     await enter('123456');
 
-    await waitFor(() => expect(replace).toHaveBeenCalledWith('/circles/c1'));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/circles'));
     expect(track).not.toHaveBeenCalledWith('account_completed', expect.anything());
     expect(track).toHaveBeenCalledWith('account_claimed', { moment: 'settings' });
   });

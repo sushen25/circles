@@ -5,14 +5,12 @@ import type { Fixture } from '../../data/fixtures';
 import type { ScreenState } from '../state';
 
 /**
- * Privacy — scaffolded from `docs/design/Privacy.dc.html`.
- *
- * Structure and copy come from the artboard; data comes from a fixture. Slice 1
- * replaces `fixture` with real data and `onNext` with real navigation. Edit
- * freely: `scripts/scaffold-screens.mjs` will not overwrite this file.
+ * Privacy — `docs/design/Privacy.dc.html`, reached from Account: what we keep
+ * and who sees it, in the artboard's words. Static; it reads nothing. The
+ * full policy is `/privacy` (S4-05).
  */
 export type PrivacyProps = {
-  fixture: Fixture;
+  fixture?: Fixture | undefined;
   state?: ScreenState | undefined;
   /** The screen's one decision. */
   onNext?: (() => void) | undefined;

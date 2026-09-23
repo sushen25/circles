@@ -66,7 +66,7 @@ describe('after signing in', () => {
   });
 
   it('skips the name for a returning account, to its circles or its first', () => {
-    expect(destinationAfterSignIn({ hasName: true, circleId: 'c1' })).toBe('/circles/c1');
+    expect(destinationAfterSignIn({ hasName: true, circleId: 'c1' })).toBe('/circles');
     expect(destinationAfterSignIn({ hasName: true, circleId: undefined })).toBe('/circles/new');
     expect(afterNaming(undefined)).toBe('/circles/new');
   });

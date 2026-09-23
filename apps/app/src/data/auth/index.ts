@@ -23,6 +23,7 @@ export {
   bootstrapProfile,
   deviceTimeZone,
   ownDisplayName,
+  ownEmail,
   ownProfile,
   saveProfile,
 } from './profile';

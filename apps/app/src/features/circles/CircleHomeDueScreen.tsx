@@ -2,32 +2,51 @@ import {
   Body,
   BodyText,
   Button,
+  ButtonRow,
   Card,
+  CircleHeader,
   DateText,
-  DisplayL,
   Foot,
   Label,
-  Marks,
   Screen,
-  Small,
   TopBar,
+  type Member,
 } from '../../components';
 import { Row, Stack } from '../../components/layout';
 import { t } from '../../copy';
 import type { Fixture } from '../../data/fixtures';
 import type { ScreenState } from '../state';
+import { MembersLine, SettingsButton } from './parts';
 
 /**
- * CircleHomeDue — scaffolded from `docs/design/CircleHomeDue.dc.html`.
+ * CircleHome, between catch-ups — `docs/design/CircleHomeDue.dc.html` (spec
+ * §5.2, §5.9). Two of circle home's states share this layout:
  *
- * Structure and copy come from the artboard; data comes from a fixture. Slice 1
- * replaces `fixture` with real data and `onNext` with real navigation. Edit
- * freely: `scripts/scaffold-screens.mjs` will not overwrite this file.
+ * - **about time** (`due`): the nudge card, "It's been about a month since …".
+ *   The card is drawn from the circle's own cadence; the cron that decides who
+ *   is asked to plan, and Snooze / Turn off, are S2-04's, so those two buttons
+ *   appear only when a handler is given.
+ * - **no rush / no goal**: the same home with no card — last caught up, next
+ *   one, members, and "Plan a catch-up".
+ *
+ * Never "overdue", a streak or a count of days (spec §5.9).
  */
 export type CircleHomeDueProps = {
-  fixture: Fixture;
+  fixture?: Fixture | undefined;
   state?: ScreenState | undefined;
-  /** The screen's one decision. */
+  /** False for a circle that is simply between catch-ups: no nudge card. */
+  due?: boolean | undefined;
+  circleName?: string | undefined;
+  color?: string | undefined;
+  subtitle?: string | undefined;
+  body?: string | undefined;
+  lastCaughtUp?: string | undefined;
+  nextOne?: string | undefined;
+  members?: readonly Member[] | undefined;
+  memberCount?: string | undefined;
+  onInviteLink?: (() => void) | undefined;
+  onSettings?: (() => void) | undefined;
+  /** The screen's one decision: plan the next one. */
   onNext?: (() => void) | undefined;
   onBack?: (() => void) | undefined;
   onSnoozeAMonth?: (() => void) | undefined;
@@ -36,61 +55,71 @@ export type CircleHomeDueProps = {
 
 export function CircleHomeDueScreen({
   fixture,
+  due = true,
+  circleName = t('circleHomeDue', 'sunday_crew'),
+  color = 'clay',
+  subtitle = t('circleHomeDue', '6_members_about_monthly'),
+  body = t('circleHomeDue', 'its_been_about_a_month_since_sunday'),
+  lastCaughtUp = t('circleHomeDue', 'thu_17_sep'),
+  nextOne = t('circleHomeDue', 'nothing_yet'),
+  members = fixture?.circle.members ?? [],
+  memberCount = t('circleHomeDue', '6_members'),
+  onInviteLink,
+  onSettings,
   onNext,
   onBack,
   onSnoozeAMonth,
   onTurnOffNudges,
 }: CircleHomeDueProps) {
+  const later = onSnoozeAMonth !== undefined || onTurnOffNudges !== undefined;
   return (
     <Screen>
-      <TopBar onBack={onBack} backLabel={t('common', 'back')} />
+      <TopBar
+        onBack={onBack}
+        backLabel={t('common', 'back')}
+        right={<SettingsButton onPress={onSettings} />}
+      />
       <Body>
-        <Row>
-          <Stack>
-            <DisplayL>{t('circleHomeDue', 'sunday_crew')}</DisplayL>
-            <Small>{t('circleHomeDue', '6_members_about_monthly')}</Small>
-          </Stack>
-        </Row>
-        <Card>
-          <Label>{t('circleHomeDue', 'about_time_for_the_next_one')}</Label>
-          <BodyText>{t('circleHomeDue', 'its_been_about_a_month_since_sunday')}</BodyText>
-          <Row>
-            <Button
-              label={t('circleHomeDue', 'snooze_a_month')}
-              variant="secondary"
-              onPress={onSnoozeAMonth}
-            />
-            <Button
-              label={t('circleHomeDue', 'turn_off_nudges')}
-              variant="secondary"
-              onPress={onTurnOffNudges}
-            />
-          </Row>
-        </Card>
+        <CircleHeader name={circleName} color={color} subtitle={subtitle} />
+        {due ? (
+          <Card>
+            <Label>{t('circleHomeDue', 'about_time_for_the_next_one')}</Label>
+            <BodyText>{body}</BodyText>
+            {later ? (
+              <ButtonRow>
+                <Button
+                  label={t('circleHomeDue', 'snooze_a_month')}
+                  variant="secondary"
+                  onPress={onSnoozeAMonth}
+                />
+                <Button
+                  label={t('circleHomeDue', 'turn_off_nudges')}
+                  variant="secondary"
+                  onPress={onTurnOffNudges}
+                />
+              </ButtonRow>
+            ) : null}
+          </Card>
+        ) : null}
         <Card>
           <Row>
             <Stack>
               <Label>{t('circleHomeDue', 'last_caught_up')}</Label>
-              <DateText>{t('circleHomeDue', 'thu_17_sep')}</DateText>
+              <DateText>{lastCaughtUp}</DateText>
             </Stack>
             <Stack>
               <Label>{t('circleHomeDue', 'next_one')}</Label>
-              <DateText>{t('circleHomeDue', 'nothing_yet')}</DateText>
+              <DateText>{nextOne}</DateText>
             </Stack>
           </Row>
         </Card>
-        <Row>
-          <Row>
-            <Marks members={fixture.circle.members} />
-            <Small>{t('circleHomeDue', '6_members')}</Small>
-          </Row>
-          <Row>
-            <BodyText>{t('circleHomeDue', 'invite_link')}</BodyText>
-          </Row>
-        </Row>
+        <MembersLine members={members} memberCount={memberCount} onInviteLink={onInviteLink} />
       </Body>
       <Foot>
-        <Button label={t('circleHomeDue', 'plan_another')} onPress={onNext} />
+        <Button
+          label={due ? t('circleHomeDue', 'plan_another') : t('circleHome', 'plan_a_catch_up')}
+          onPress={onNext}
+        />
       </Foot>
     </Screen>
   );

@@ -6,15 +6,19 @@ export { AnswerRow } from './AnswerRow';
 export { Button, ButtonRow, CompactButton, Tertiary } from './Button';
 export { Card } from './Card';
 export { Chip, Chips } from './Chip';
+export { CircleBadge, CircleHeader, circleHex } from './CircleBadge';
 export { CodeInput } from './CodeInput';
 export { DayGrid, type GridDay } from './DayGrid';
 export { Icon, type IconName } from './Icon';
 export { Input } from './Input';
+export { ListRow } from './ListRow';
 export { Marks, type Member } from './Marks';
 export { Notice } from './Notice';
 export { Radio } from './Radio';
 export { Body, Foot, Screen, TopBar } from './Screen';
+export { SettingRow } from './SettingRow';
 export { Sheet } from './Sheet';
+export { Swatches } from './Swatches';
 export {
   Body as BodyText,
   DateText,

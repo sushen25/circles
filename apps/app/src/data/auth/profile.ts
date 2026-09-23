@@ -191,3 +191,16 @@ export async function saveProfile(input: { name: string; zone: string }): Promis
     .eq('user_id', userId);
   if (error !== null) throw new Error('profile save failed');
 }
+
+/**
+ * The address this account signs in with, for the Account screen to show its
+ * owner (spec §5.2). Read from the session the client already holds — the auth
+ * server put it there when the code was typed back — never from a table, and
+ * never passed on: not to a log, not to analytics, not to another screen.
+ * Null for a guest, who has none.
+ */
+export async function ownEmail(): Promise<string | null> {
+  const { data } = await authClient().auth.getSession();
+  const email = data.session?.user.email;
+  return email === undefined || email === '' ? null : email;
+}

@@ -15,26 +15,31 @@ import { Stack } from '../../components/layout';
 import { t } from '../../copy';
 import type { Fixture } from '../../data/fixtures';
 import type { ScreenState } from '../state';
+import { AccountButton } from './parts';
 
 /**
- * EmptyCirclesList — scaffolded from `docs/design/EmptyCirclesList.dc.html`.
- *
- * Structure and copy come from the artboard; data comes from a fixture. Slice 1
- * replaces `fixture` with real data and `onNext` with real navigation. Edit
- * freely: `scripts/scaffold-screens.mjs` will not overwrite this file.
+ * EmptyCirclesList — `docs/design/EmptyCirclesList.dc.html`: the circles list
+ * before there are any, with the three steps of how it goes (spec §5.2). The
+ * flow shows it whenever the list comes back empty — somebody signed in who
+ * has not made a circle, or whose only circle removed them.
  */
 export type EmptyCirclesListProps = {
-  fixture: Fixture;
+  fixture?: Fixture | undefined;
   state?: ScreenState | undefined;
-  /** The screen's one decision. */
+  /** The screen's one decision: create the first circle. */
   onNext?: (() => void) | undefined;
   onBack?: (() => void) | undefined;
+  onAccount?: (() => void) | undefined;
 };
 
-export function EmptyCirclesListScreen({ onNext, onBack }: EmptyCirclesListProps) {
+export function EmptyCirclesListScreen({ onNext, onBack, onAccount }: EmptyCirclesListProps) {
   return (
     <Screen>
-      <TopBar onBack={onBack} backLabel={t('common', 'back')} />
+      <TopBar
+        onBack={onBack}
+        backLabel={t('common', 'back')}
+        right={<AccountButton onPress={onAccount} />}
+      />
       <Body>
         <Stack>
           <DisplayL>{t('emptyCirclesList', 'your_circles')}</DisplayL>

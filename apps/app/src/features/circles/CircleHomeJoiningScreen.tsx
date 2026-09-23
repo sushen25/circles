@@ -3,6 +3,7 @@ import {
   BodyText,
   Button,
   Card,
+  CircleHeader,
   DateText,
   DisplayL,
   Foot,
@@ -18,6 +19,8 @@ import { Row, Stack } from '../../components/layout';
 import { t } from '../../copy';
 import type { Fixture } from '../../data/fixtures';
 import type { ScreenState } from '../state';
+import { MARKS_MAX, marksMore } from './lines';
+import { SettingsButton } from './parts';
 
 /**
  * CircleHomeJoining — `docs/design/CircleHomeJoining.dc.html` (spec §5.1
@@ -32,6 +35,7 @@ export type CircleHomeJoiningProps = {
   fixture?: Fixture | undefined;
   state?: ScreenState | undefined;
   circleName?: string | undefined;
+  color?: string | undefined;
   subtitle?: string | undefined;
   members?: readonly Member[] | undefined;
   /** "Priya and Tom just joined", or undefined when nobody has lately. */
@@ -40,7 +44,9 @@ export type CircleHomeJoiningProps = {
   nextOne?: string | undefined;
   /** False once the circle has met: then it is not the *first* catch-up. */
   firstPlan?: boolean | undefined;
+  /** The owner's alone; without it there is no "Share again". */
   onShareAgain?: (() => void) | undefined;
+  onSettings?: (() => void) | undefined;
   onRetry?: (() => void) | undefined;
   /** The screen's one decision: plan the first catch-up. */
   onNext?: (() => void) | undefined;
@@ -51,6 +57,7 @@ export function CircleHomeJoiningScreen({
   fixture,
   state = 'default',
   circleName = t('circleHomeJoining', 'sunday_crew'),
+  color = 'clay',
   subtitle = t('circleHomeJoining', '3_in_so_far_about_monthly'),
   members = fixture?.circle.members.slice(0, 3).map((m) => ({ name: m.name })) ?? [],
   joined = fixture === undefined ? undefined : t('circleHomeJoining', 'priya_and_tom_just_joined'),
@@ -58,6 +65,7 @@ export function CircleHomeJoiningScreen({
   nextOne = t('circleHomeJoining', 'up_to_you'),
   firstPlan = true,
   onShareAgain,
+  onSettings,
   onRetry,
   onNext,
   onBack,
@@ -93,18 +101,26 @@ export function CircleHomeJoiningScreen({
 
   return (
     <Screen>
-      <TopBar onBack={onBack} backLabel={t('common', 'back')} />
+      <TopBar
+        onBack={onBack}
+        backLabel={t('common', 'back')}
+        right={<SettingsButton onPress={onSettings} />}
+      />
       <Body>
-        <Stack>
-          <DisplayL>{circleName}</DisplayL>
-          <Small>{subtitle}</Small>
-        </Stack>
+        <CircleHeader name={circleName} color={color} subtitle={subtitle} />
         <Card>
-          <Marks members={members} label={members.map((m) => m.name).join(', ')} />
+          <Marks
+            members={members}
+            max={MARKS_MAX}
+            more={marksMore}
+            label={members.map((m) => m.name).join(', ')}
+          />
           <Small accessibilityLiveRegion="polite">
             {joined ?? t('circleHomeJoining', 'nobody_yet')}
           </Small>
-          <Tertiary label={t('circleHomeJoining', 'share_again')} onPress={onShareAgain} />
+          {onShareAgain === undefined ? null : (
+            <Tertiary label={t('circleHomeJoining', 'share_again')} onPress={onShareAgain} />
+          )}
         </Card>
         <Card recommended>
           <Label>{t('circleHomeJoining', 'ready_when_you_are')}</Label>

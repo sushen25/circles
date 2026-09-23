@@ -62,6 +62,17 @@ describe('the copy file', () => {
       'third',
       'first',
       'second',
+      // S1-23's: the circles list's line, circle home's locked-in card, the
+      // about-time sentence, the masked link and the owner's name.
+      'line',
+      'next',
+      'date',
+      'going',
+      'place',
+      'period',
+      'tail',
+      'owner',
+      'detail',
     ]);
     for (const [screen, strings] of Object.entries(en)) {
       for (const [key, value] of Object.entries(strings)) {

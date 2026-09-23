@@ -8,7 +8,7 @@ create extension if not exists pgtap with schema extensions;
 -- ---------------------------------------------------------------------------
 -- Scenarios (architecture §7.1, spec §16).
 --
--- Four circles, written **through the same writers the product uses** —
+-- Five circles, written **through the same writers the product uses** —
 -- `transition_plan`, `replace_response`, attendance and `report_outcome` —
 -- so that every trigger fires, every invariant holds and the outbox fills the
 -- way it does in production. A seed that inserts rows directly is a seed that
@@ -23,6 +23,8 @@ create extension if not exists pgtap with schema extensions;
 --   C. Uni Mates — a quiet ask in `seeking`, two keen of a threshold of three.
 --   D. The Big Table — a circle at `member_cap()` (ADR 0012), where the
 --      screens break if they are going to.
+--   E. Book Club — a meetup locked in for the week after next (S1-23), so
+--      circle home's "locked in" state has something to show.
 --
 -- Ids are deterministic (`00000000-0000-4000-8000-0000000001NN` for people,
 -- `…0a0N` for circles, `…0b0N` for plans) so a URL survives a reset. Dates are
@@ -410,6 +412,68 @@ begin
   end loop;
 end;
 $$;
+
+-- ---------------------------------------------------------------------------
+-- E. Book Club — locked in for the Thursday after next (S1-23).
+--
+-- The one scenario with a confirmed meetup still ahead, which is circle home's
+-- "locked in" state and the circles list's "Locked in · Thu 24 Sep". Maya owns
+-- it, so all three of circle home's states are one sign-in away: Sunday Crew
+-- finding a time, Book Club locked in, The Big Table between catch-ups.
+-- Priya has said she is going; Jess has not said yet.
+-- ---------------------------------------------------------------------------
+
+select pg_temp.seed_circle('00000000-0000-4000-8000-000000000a05', '00000000-0000-4000-8000-000000000101',
+  'Book Club', 'plum', 'bkcrew', 'seed-book-club', 'monthly');
+select pg_temp.join_circle('00000000-0000-4000-8000-000000000a05', '00000000-0000-4000-8000-000000000102');
+select pg_temp.join_circle('00000000-0000-4000-8000-000000000a05', '00000000-0000-4000-8000-000000000104');
+
+select pg_temp.named_plan(
+  '00000000-0000-4000-8000-000000000b05', '00000000-0000-4000-8000-000000000a05',
+  '00000000-0000-4000-8000-000000000101', 'pnbkcrew',
+  (select next_monday + 7 from dates), (select next_monday + 13 from dates),
+  2, ((select next_monday + 8 from dates)::timestamp + interval '8 hours') at time zone 'Australia/Melbourne'
+);
+select pg_temp.act_as('00000000-0000-4000-8000-000000000101');
+select public.replace_response('00000000-0000-4000-8000-000000000b05', 1, 'windows', jsonb_build_array(
+  pg_temp.win((select next_monday + 10 from dates), 18 * 60 + 30, 20 * 60 + 30)));
+select pg_temp.act_as('00000000-0000-4000-8000-000000000102');
+select public.replace_response('00000000-0000-4000-8000-000000000b05', 1, 'windows', jsonb_build_array(
+  pg_temp.win((select next_monday + 10 from dates), 18 * 60 + 30, 20 * 60 + 30)));
+select pg_temp.act_as_postgres();
+
+insert into public.candidate_sets (
+  id, plan_id, revision, input_version, scoring_version, input_hash,
+  starts_considered, eligible_count, responded_count, active_member_count
+)
+select '00000000-0000-4000-8000-000000000c05', p.id, p.revision, p.input_version, p.scoring_version, 'seed',
+  168, 1, 2, 3
+from public.plans p where p.id = '00000000-0000-4000-8000-000000000b05';
+insert into public.candidates (
+  candidate_set_id, is_near_miss, rank, starts_at, ends_at, available_user_ids,
+  explicit_count, flexible_count, explanation_code, explanation_count
+)
+select '00000000-0000-4000-8000-000000000c05'::uuid, false, 1,
+  ((next_monday + 10)::timestamp + interval '18 hours 30 minutes') at time zone 'Australia/Melbourne',
+  ((next_monday + 10)::timestamp + interval '20 hours 30 minutes') at time zone 'Australia/Melbourne',
+  array['00000000-0000-4000-8000-000000000101', '00000000-0000-4000-8000-000000000102']::uuid[],
+  2, 0, 'best_attendance', 2
+from dates;
+select planning.transition_plan('00000000-0000-4000-8000-000000000b05', 'candidates_ready',
+  '00000000-0000-4000-8000-000000000101');
+select planning.transition_plan('00000000-0000-4000-8000-000000000b05', 'confirm',
+  '00000000-0000-4000-8000-000000000101',
+  jsonb_build_object(
+    'candidate_id', (select starts_at from public.candidates where candidate_set_id = '00000000-0000-4000-8000-000000000c05'),
+    'place_name', 'Hope St Radio',
+    'chased_answer', 'none'
+  ));
+select pg_temp.act_as('00000000-0000-4000-8000-000000000102');
+update public.attendance set status = 'going'
+where user_id = '00000000-0000-4000-8000-000000000102'
+  and confirmation_id = (select id from public.meetup_confirmations
+                         where plan_id = '00000000-0000-4000-8000-000000000b05' and status = 'active');
+select pg_temp.act_as_postgres();
 
 -- ---------------------------------------------------------------------------
 -- The outbox now holds every event the scenarios produced. They are marked

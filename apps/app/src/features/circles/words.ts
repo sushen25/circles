@@ -68,24 +68,39 @@ export function lastCaughtUp(home: CircleHome): string {
   return home.lastMetAt === null ? t('circleHome', 'not_yet') : dayWords(home.lastMetAt, home.zone);
 }
 
+/** The fields the cadence rules read, from a home or a list row. */
+export type CadenceFacts = {
+  id: string;
+  name: string;
+  zone: string;
+  cadence: Cadence;
+  defaultDurationMinutes: number;
+  lastMetAt: string | null;
+  cadenceSnoozedUntil: string | null;
+};
+
+/** The row as the domain's `Circle`, for the rules that take one. */
+export function domainCircle(facts: CadenceFacts): Circle {
+  return {
+    id: facts.id as Circle['id'],
+    ownerUserId: '' as Circle['ownerUserId'],
+    name: facts.name,
+    color: '',
+    zone: toZone(facts.zone),
+    cadence: facts.cadence,
+    defaultDurationMinutes: facts.defaultDurationMinutes,
+    status: 'active',
+    ...(facts.lastMetAt === null ? {} : { lastMetAt: fromISO(facts.lastMetAt) }),
+    ...(facts.cadenceSnoozedUntil === null
+      ? {}
+      : { cadenceSnoozedUntil: fromISO(facts.cadenceSnoozedUntil) }),
+  };
+}
+
 /** The "Next one" cell: the domain's cadence state in the spec's words. */
 export function nextOne(home: CircleHome, now = new Date()): string {
-  const circle: Circle = {
-    id: home.id as Circle['id'],
-    ownerUserId: '' as Circle['ownerUserId'],
-    name: home.name,
-    color: '',
-    zone: toZone(home.zone),
-    cadence: home.cadence,
-    defaultDurationMinutes: home.defaultDurationMinutes,
-    status: 'active',
-    ...(home.lastMetAt === null ? {} : { lastMetAt: fromISO(home.lastMetAt) }),
-    ...(home.cadenceSnoozedUntil === null
-      ? {}
-      : { cadenceSnoozedUntil: fromISO(home.cadenceSnoozedUntil) }),
-  };
   // With a plan already out, the domain says so and there is no prompt to show.
-  switch (cadenceState(circle, fromISO(now.toISOString()), home.activePlan !== null)) {
+  switch (cadenceState(domainCircle(home), fromISO(now.toISOString()), home.activePlan !== null)) {
     case 'no_goal':
       return t('circleHome', 'no_goal_set');
     case 'never_met':

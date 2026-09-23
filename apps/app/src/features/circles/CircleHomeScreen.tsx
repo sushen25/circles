@@ -2,23 +2,24 @@ import {
   Body,
   Button,
   Card,
+  CircleHeader,
   DateText,
-  DisplayL,
   Foot,
   Label,
   Marks,
   Screen,
   Small,
-  Tertiary,
   Title,
   TopBar,
   type Member,
 } from '../../components';
-import { Between, Row, Stack } from '../../components/layout';
+import { Row, Stack } from '../../components/layout';
 import { t } from '../../copy';
 import type { Fixture } from '../../data/fixtures';
 import type { ScreenState } from '../state';
 import { CircleHomeJoiningScreen } from './CircleHomeJoiningScreen';
+import { MARKS_MAX, marksMore } from './lines';
+import { MembersLine, SettingsButton } from './parts';
 
 /**
  * CircleHome, finding a time — `docs/design/CircleHome.dc.html` (spec §5.2):
@@ -26,12 +27,14 @@ import { CircleHomeJoiningScreen } from './CircleHomeJoiningScreen';
  * members and the invite link, and one primary action.
  *
  * The locked-in and about-time states are their own screens
- * (`CircleHomeConfirmedScreen`, `CircleHomeDueScreen`), owned by later tickets.
+ * (`CircleHomeConfirmedScreen`, `CircleHomeDueScreen`); the flow picks which
+ * from the domain's `circleHomeState`.
  */
 export type CircleHomeProps = {
   fixture?: Fixture | undefined;
   state?: ScreenState | undefined;
   circleName?: string | undefined;
+  color?: string | undefined;
   subtitle?: string | undefined;
   planTitle?: string | undefined;
   /** "Replies close Tue 15 Sep, 6 pm". */
@@ -42,7 +45,9 @@ export type CircleHomeProps = {
   memberCount?: string | undefined;
   lastCaughtUp?: string | undefined;
   nextOne?: string | undefined;
+  /** Offered to the owner only: the link is theirs to hand out. */
   onInviteLink?: (() => void) | undefined;
+  onSettings?: (() => void) | undefined;
   onRetry?: (() => void) | undefined;
   /** The screen's one decision. */
   onNext?: (() => void) | undefined;
@@ -54,6 +59,7 @@ export function CircleHomeScreen({
   fixture,
   state = 'default',
   circleName = t('circleHome', 'sunday_crew'),
+  color = 'clay',
   subtitle = t('circleHome', '6_members_about_monthly'),
   planTitle = t('circleHome', 'catch_up_in_the_next_14_days'),
   closes = t('circleHome', 'replies_close_tue_6_pm'),
@@ -63,6 +69,7 @@ export function CircleHomeScreen({
   lastCaughtUp = t('circleHome', 'sat_8_aug'),
   nextOne = t('circleHome', 'no_rush'),
   onInviteLink,
+  onSettings,
   onRetry,
   onNext,
   onBack,
@@ -74,22 +81,25 @@ export function CircleHomeScreen({
 
   return (
     <Screen>
-      <TopBar onBack={onBack} backLabel={t('common', 'back')} />
+      <TopBar
+        onBack={onBack}
+        backLabel={t('common', 'back')}
+        right={<SettingsButton onPress={onSettings} />}
+      />
       <Body>
-        <Stack>
-          <DisplayL>{circleName}</DisplayL>
-          <Small>{subtitle}</Small>
-        </Stack>
+        <CircleHeader name={circleName} color={color} subtitle={subtitle} />
         <Card recommended>
-          <Between>
+          {/* Stacked, not a row: "Replies close …" beside the label does not
+              fit on a narrow phone (S1-27). */}
+          <Stack>
             <Label>{t('circleHome', 'finding_a_time')}</Label>
             <Small>{closes}</Small>
-          </Between>
+          </Stack>
           <Title>{planTitle}</Title>
-          <Row>
-            <Marks members={members} />
+          <Stack>
+            <Marks members={members} max={MARKS_MAX} more={marksMore} />
             <Small>{replied}</Small>
-          </Row>
+          </Stack>
           <Button
             label={t('circleHome', 'see_how_its_looking')}
             variant="secondary"
@@ -108,13 +118,7 @@ export function CircleHomeScreen({
             </Stack>
           </Row>
         </Card>
-        <Between>
-          <Row>
-            <Marks members={members} label={members.map((m) => m.name).join(', ')} />
-            <Small>{memberCount}</Small>
-          </Row>
-          <Tertiary label={t('circleHome', 'invite_link')} onPress={onInviteLink} />
-        </Between>
+        <MembersLine members={members} memberCount={memberCount} onInviteLink={onInviteLink} />
       </Body>
       <Foot>
         <Button label={t('circleHome', 'plan_a_catch_up')} onPress={onNext} />
