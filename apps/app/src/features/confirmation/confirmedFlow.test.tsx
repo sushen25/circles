@@ -12,8 +12,10 @@ import type * as Confirmation from '../../data/confirmation';
 
 const push = vi.fn();
 const replace = vi.fn();
+const back = vi.fn();
+const dismissTo = vi.fn();
 vi.mock('expo-router', () => ({
-  useRouter: () => ({ push, replace, back: vi.fn(), canGoBack: () => true }),
+  useRouter: () => ({ push, replace, back, dismissTo, canGoBack: () => true }),
   useFocusEffect: () => undefined,
 }));
 const track = vi.fn();
@@ -95,6 +97,19 @@ describe('the organiser', () => {
     await screen.findByText('Ready to paste into the group chat');
     expect(screen.queryByRole('button', { name: 'Change the time' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Cancel this plan' })).toBeNull();
+  });
+
+  // After a lock-in the options sit underneath, and they send a locked-in
+  // plan straight back here: "back" would never leave.
+  it('goes back to the circle, not to the options that would send it here again', async () => {
+    show(<ConfirmedFlow target={{ planId: 'thu-17' }} />);
+    await screen.findByText('Ready to paste into the group chat');
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    expect(back).not.toHaveBeenCalled();
+    expect(dismissTo).toHaveBeenCalledWith({
+      pathname: '/circles/[id]',
+      params: { id: 'sunday-crew' },
+    });
   });
 
   it('is the screen the organiser gets on the plan link too', async () => {

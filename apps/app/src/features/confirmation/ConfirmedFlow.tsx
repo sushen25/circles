@@ -79,7 +79,15 @@ function LiveConfirmed({ target, calendar }: { target: ConfirmedKey; calendar: b
     }
   }, [open, router]);
 
-  const back = () => (router.canGoBack() ? router.back() : router.replace('/'));
+  // To the circle, never "back": the screen under this one is usually the
+  // options, and the options send a locked-in plan straight back here.
+  const circleId = data?.circleId;
+  const back = () =>
+    circleId === undefined
+      ? router.canGoBack()
+        ? router.back()
+        : router.replace('/')
+      : router.dismissTo({ pathname: '/circles/[id]', params: { id: circleId } });
 
   if (query.isPending || open !== undefined) {
     return <ConfirmedOrgScreen state="loading" onBack={back} />;
@@ -141,10 +149,10 @@ function Confirmed({
     show();
   }, [openCalendar, show]);
 
+  // Not `router.back()`: after a lock-in the options are underneath, and
+  // they send a locked-in plan straight back here — a Back that never leaves.
   const toCircle = () =>
-    router.canGoBack()
-      ? router.back()
-      : router.replace({ pathname: '/circles/[id]', params: { id: data.circleId } });
+    router.dismissTo({ pathname: '/circles/[id]', params: { id: data.circleId } });
 
   const day = dateOf(confirmation.startsAt, data.zone);
   const sheet = (

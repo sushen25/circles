@@ -84,7 +84,19 @@ export type PlanConfirmation = {
   view: ConfirmationView;
 };
 
-const LIVE: readonly ConfirmationStatus[] = ['active', 'completed'];
+/**
+ * The confirmations this screen describes. A `cancelled` one belongs here only
+ * when the plan is `completed`: that is an outcome reported as "it didn't
+ * happen" (`apply_outcome`), a meetup in the past. On a `cancelled` plan it is
+ * a decision to stop before the day, which the screen reports as off.
+ */
+function describes(state: PlanState, status: ConfirmationStatus): boolean {
+  return (
+    status === 'active' ||
+    status === 'completed' ||
+    (state === 'completed' && status === 'cancelled')
+  );
+}
 
 /**
  * `ahead` is whether the meetup has still to end, **by the database's clock**:
@@ -148,7 +160,7 @@ export async function planConfirmation(
 
   const row = confirmations.data[0];
   const confirmation: ConfirmationRead | null =
-    row === undefined || !LIVE.includes(row.status as ConfirmationStatus)
+    row === undefined || !describes(plan.state as PlanState, row.status as ConfirmationStatus)
       ? null
       : {
           id: row.id,
