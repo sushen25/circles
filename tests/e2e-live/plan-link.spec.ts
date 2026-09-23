@@ -73,7 +73,11 @@ test('a circle with no guests never asks "Which one is you?"', async ({ page }) 
   await expect(page.getByText('What should the group call you?')).toBeVisible();
   await typeName(page, 'Ren');
 
+  // The name step and the editor share this URL, so the URL alone does not say
+  // the join has landed; the editor's heading does. Reading the database before
+  // it appears raced the join (SUS-86, once `sql()` stopped taking a second).
   await expect(page).toHaveURL(new RegExp(`/j/${crew.planCode}$`));
+  await expect(page.getByText("Times I'd actually be up for")).toBeVisible();
   expect(memberNamed(crew.circleId, 'Ren')).toBeDefined();
   expect(await page.evaluate('window.sawList === true')).toBe(false);
 });
