@@ -32,7 +32,10 @@ create or replace function public.create_circle(
   -- The invite's id, when the secret was derived from it (ADR 00XX): what lets
   -- the owner be shown this link again. Absent, the link is issued with an id
   -- of its own and can only ever be reset.
-  invite_id uuid default null
+  invite_id uuid default null,
+  -- "Where, roughly" on CreateCircle (S1-23): a loose area, optional. Blank is
+  -- no answer, not an empty place.
+  default_area text default null
 )
 returns public.circles
 language plpgsql
@@ -94,9 +97,10 @@ begin
   end loop;
 
   insert into public.circles
-    (owner_user_id, name, color, time_zone, cadence, short_code, creation_key)
+    (owner_user_id, name, color, time_zone, cadence, short_code, creation_key, default_area)
   values (caller, create_circle.name, create_circle.color, create_circle.time_zone,
-          create_circle.cadence, code, create_circle.idempotency_key)
+          create_circle.cadence, code, create_circle.idempotency_key,
+          nullif(btrim(create_circle.default_area), ''))
   returning * into created;
 
   insert into public.circle_members (circle_id, user_id, display_name_snapshot, role)
@@ -134,9 +138,9 @@ exception
 end;
 $$;
 
-comment on function public.create_circle(text, text, text, text, text, bytea, uuid) is
+comment on function public.create_circle(text, text, text, text, text, bytea, uuid, text) is
   'Creates a circle, its owner membership and — given a digest — its invite link, in one transaction. Requires a permanent identity (ADR 0004).';
 
-revoke all on function public.create_circle(text, text, text, text, text, bytea, uuid) from public;
-revoke all on function public.create_circle(text, text, text, text, text, bytea, uuid) from anon, authenticated;
-grant execute on function public.create_circle(text, text, text, text, text, bytea, uuid) to authenticated;
+revoke all on function public.create_circle(text, text, text, text, text, bytea, uuid, text) from public;
+revoke all on function public.create_circle(text, text, text, text, text, bytea, uuid, text) from anon, authenticated;
+grant execute on function public.create_circle(text, text, text, text, text, bytea, uuid, text) to authenticated;

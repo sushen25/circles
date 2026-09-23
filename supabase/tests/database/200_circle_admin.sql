@@ -6,7 +6,7 @@
 -- in a different circle.
 
 begin;
-select plan(38);
+select plan(41);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid
@@ -361,6 +361,26 @@ select throws_ok(
     where circle_id = (select circle_id from fixture) and user_id = '20000000-0000-0000-0000-000000000002'$$,
   '42501', null,
   'the new grant is one column, not the row'
+);
+
+-- "Where, roughly": blank is no answer, and a paragraph is not an area.
+select pg_temp.act_as('20000000-0000-0000-0000-000000000004');
+select is(
+  (select default_area from public.create_circle(
+    'Walkers', 'moss', 'Australia/Melbourne', 'sus39-area-blank', 'none', null, null, '   ')),
+  null,
+  'a blank area is stored as no area'
+);
+select is(
+  (select default_area from public.create_circle(
+    'Runners', 'moss', 'Australia/Melbourne', 'sus39-area', 'none', null, null, ' Inner north ')),
+  'Inner north',
+  'and an area is kept, trimmed'
+);
+select throws_ok(
+  $$update public.circles set default_area = repeat('x', 61) where name = 'Runners'$$,
+  '23514', null,
+  'an area longer than sixty characters is refused'
 );
 
 -- The owner's own switches, and archiving, are the owner's update through RLS.

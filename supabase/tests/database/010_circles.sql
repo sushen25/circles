@@ -866,7 +866,7 @@ select is(
 
 select pg_temp.act_as_postgres();
 select ok(
-  not has_function_privilege('anon', 'public.create_circle(text,text,text,text,text,bytea,uuid)', 'execute'),
+  not has_function_privilege('anon', 'public.create_circle(text,text,text,text,text,bytea,uuid,text)', 'execute'),
   'anon cannot even call create_circle'
 );
 select ok(

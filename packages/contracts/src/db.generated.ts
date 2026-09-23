@@ -936,6 +936,7 @@ export type Database = {
         Args: {
           cadence?: string
           color: string
+          default_area?: string
           idempotency_key: string
           invite_id?: string
           invite_secret_hash?: string

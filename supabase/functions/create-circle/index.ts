@@ -68,6 +68,7 @@ Deno.serve(
         cadence: body.cadence,
         invite_secret_hash: await sha256Hex(secret),
         ...(inviteId === undefined ? {} : { invite_id: inviteId }),
+        ...(body.default_area === undefined ? {} : { default_area: body.default_area }),
       });
       if (error !== null) throw error;
 

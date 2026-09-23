@@ -40,6 +40,12 @@ export const CreateCircleRequest = Mutation.extend({
   /** From the device, not guessed by the server. */
   time_zone: Zone,
   cadence: z.enum(['weekly', 'fortnightly', 'monthly', 'two_monthly', 'none']).default('none'),
+  /**
+   * "Where, roughly" — "Inner north". Optional, loose, and shown only to the
+   * circle. Trimmed here and bounded as the column is (`circles_default_area_length`);
+   * blank is the same as not answering.
+   */
+  default_area: z.string().trim().max(60).optional(),
 });
 export type CreateCircleRequest = z.infer<typeof CreateCircleRequest>;
 
