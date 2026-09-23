@@ -69,21 +69,20 @@ function LiveReview({ id, planId, candidate }: { id: string; planId: string; can
   const [chased, setChased] = useState<ChasedAnswer>();
   const [seenSet, setSeenSet] = useState<string>();
 
-  // Once the plan is locked in: **off the options and on to the confirmed
-  // screen, in one go.** Replacing only the review left the options under the
-  // confirmed screen, where hardware and browser Back landed on them and
-  // they sent you forward again. Popping to them and waiting for their own
-  // redirect showed them, with a live Review button, for as long as their
-  // next read took. Both actions in the same tick go through the routing
-  // queue together, so the stack ends circle → confirmed and the options never
-  // render on top. With no options under the review (a deep link), `dismissTo`
-  // replaces it, and the `replace` then puts the confirmed screen there
-  // instead. The plan's own circle once it is read; the route's only before.
+  // Once the plan is locked in: **off whatever screen is under the review
+  // and on to the confirmed screen, in one go.** Replacing only the review left
+  // the options (or the waiting or no-quorum door, which render the same
+  // flow) under the confirmed screen, where hardware and browser Back landed
+  // on them and they sent you forward again. Popping to them and waiting for
+  // their own redirect showed them, with a live Review button, for as long as
+  // their next read took. So: pop the review — by position, not by a route
+  // name that may not be the one underneath — and replace what is then on top
+  // with the confirmed screen, in the same tick, so both go through the
+  // routing queue together and the screen underneath never renders on top.
+  // With nothing under the review (a deep link), the replace alone does it.
+  // The plan's own circle once it is read; the route's only before that.
   const toConfirmed = (circleId: string = data?.circleId ?? id) => {
-    router.dismissTo({
-      pathname: '/circles/[id]/plan/[planId]/candidates',
-      params: { id: circleId, planId },
-    });
+    if (router.canDismiss()) router.dismiss();
     router.replace({
       pathname: '/circles/[id]/plan/[planId]/confirmed',
       params: { id: circleId, planId },

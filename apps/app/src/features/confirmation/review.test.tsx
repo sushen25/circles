@@ -15,10 +15,18 @@ import { FunctionError } from '../../data/functions';
 
 const push = vi.fn();
 const replace = vi.fn();
-const dismissTo = vi.fn();
+const dismiss = vi.fn();
+const canDismiss = vi.fn(() => true);
 const focused = { current: true };
 vi.mock('expo-router', () => ({
-  useRouter: () => ({ push, replace, dismissTo, back: vi.fn(), canGoBack: () => true }),
+  useRouter: () => ({
+    push,
+    replace,
+    dismiss,
+    canDismiss,
+    back: vi.fn(),
+    canGoBack: () => true,
+  }),
   useFocusEffect: () => undefined,
   useIsFocused: () => focused.current,
 }));
@@ -66,6 +74,7 @@ function refusal(reason: string): FunctionError {
 beforeEach(() => {
   vi.clearAllMocks();
   focused.current = true;
+  canDismiss.mockReturnValue(true);
   planCandidates.mockResolvedValue(fixture.ready);
   confirmMeetup.mockResolvedValue({
     confirmation_id: 'c1',
@@ -115,26 +124,20 @@ describe('the organiser reviewing Thursday', () => {
       placeUrl: undefined,
       note: 'Come hungry.',
     });
-    // Off the options and on to the confirmed screen in the same tick, so
-    // nothing is left under it for Back to land on and the options never show.
-    await waitFor(() =>
-      expect(dismissTo).toHaveBeenCalledWith({
-        pathname: '/circles/[id]/plan/[planId]/candidates',
-        params: { id: 'sunday-crew', planId: 'thu-17' },
-      }),
-    );
+    // Off the screen under the review — whichever door it was — and on to the
+    // confirmed screen in the same tick, so nothing is left for Back to land
+    // on and the screen underneath never shows.
+    await waitFor(() => expect(dismiss).toHaveBeenCalledWith());
     expect(replace).toHaveBeenCalledWith({
       pathname: '/circles/[id]/plan/[planId]/confirmed',
       params: { id: 'sunday-crew', planId: 'thu-17' },
     });
-    expect(dismissTo.mock.invocationCallOrder[0]).toBeLessThan(
-      replace.mock.invocationCallOrder[0]!,
-    );
+    expect(dismiss.mock.invocationCallOrder[0]).toBeLessThan(replace.mock.invocationCallOrder[0]!);
     // The refetch the lock-in causes reads the plan as locked in; it must not
     // send the organiser a second time.
     await waitFor(() => expect(planCandidates.mock.calls.length).toBeGreaterThanOrEqual(3));
     await new Promise((resolve) => setTimeout(resolve, 50));
-    expect(dismissTo).toHaveBeenCalledTimes(1);
+    expect(dismiss).toHaveBeenCalledTimes(1);
     expect(replace).toHaveBeenCalledTimes(1);
     expect(track).toHaveBeenCalledWith('meetup_confirmed', {
       circle_id: 'sunday-crew',
@@ -220,21 +223,15 @@ describe('a set that moves', () => {
     await screen.findByText('Lock it in?');
     fireEvent.click(screen.getByRole('checkbox', { name: 'No' }));
     fireEvent.click(lockIn());
-    // Off the options and on to the confirmed screen in the same tick, so
-    // nothing is left under it for Back to land on and the options never show.
-    await waitFor(() =>
-      expect(dismissTo).toHaveBeenCalledWith({
-        pathname: '/circles/[id]/plan/[planId]/candidates',
-        params: { id: 'sunday-crew', planId: 'thu-17' },
-      }),
-    );
+    // Off the screen under the review — whichever door it was — and on to the
+    // confirmed screen in the same tick, so nothing is left for Back to land
+    // on and the screen underneath never shows.
+    await waitFor(() => expect(dismiss).toHaveBeenCalledWith());
     expect(replace).toHaveBeenCalledWith({
       pathname: '/circles/[id]/plan/[planId]/confirmed',
       params: { id: 'sunday-crew', planId: 'thu-17' },
     });
-    expect(dismissTo.mock.invocationCallOrder[0]).toBeLessThan(
-      replace.mock.invocationCallOrder[0]!,
-    );
+    expect(dismiss.mock.invocationCallOrder[0]).toBeLessThan(replace.mock.invocationCallOrder[0]!);
   });
 });
 
@@ -245,26 +242,32 @@ describe('a route whose circle segment is wrong', () => {
     await screen.findByText('Lock it in?');
     fireEvent.click(screen.getByRole('checkbox', { name: 'No' }));
     fireEvent.click(lockIn());
-    // Off the options and on to the confirmed screen in the same tick, so
-    // nothing is left under it for Back to land on and the options never show.
-    await waitFor(() =>
-      expect(dismissTo).toHaveBeenCalledWith({
-        pathname: '/circles/[id]/plan/[planId]/candidates',
-        params: { id: 'sunday-crew', planId: 'thu-17' },
-      }),
-    );
+    // Off the screen under the review — whichever door it was — and on to the
+    // confirmed screen in the same tick, so nothing is left for Back to land
+    // on and the screen underneath never shows.
+    await waitFor(() => expect(dismiss).toHaveBeenCalledWith());
     expect(replace).toHaveBeenCalledWith({
       pathname: '/circles/[id]/plan/[planId]/confirmed',
       params: { id: 'sunday-crew', planId: 'thu-17' },
     });
-    expect(dismissTo.mock.invocationCallOrder[0]).toBeLessThan(
-      replace.mock.invocationCallOrder[0]!,
-    );
+    expect(dismiss.mock.invocationCallOrder[0]).toBeLessThan(replace.mock.invocationCallOrder[0]!);
     expect(track).toHaveBeenCalledWith('organiser_chased', {
       circle_id: 'sunday-crew',
       plan_id: 'thu-17',
       answer: 'none',
     });
+  });
+});
+
+describe('a review with nothing under it', () => {
+  it('replaces itself with the confirmed screen (a deep link)', async () => {
+    canDismiss.mockReturnValue(false);
+    show(review());
+    await screen.findByText('Lock it in?');
+    fireEvent.click(screen.getByRole('checkbox', { name: 'No' }));
+    fireEvent.click(lockIn());
+    await waitFor(() => expect(replace).toHaveBeenCalledTimes(1));
+    expect(dismiss).not.toHaveBeenCalled();
   });
 });
 
@@ -275,7 +278,7 @@ describe('a screen that is not on top', () => {
     show(review());
     await waitFor(() => expect(planCandidates).toHaveBeenCalled());
     await new Promise((resolve) => setTimeout(resolve, 50));
-    expect(dismissTo).not.toHaveBeenCalled();
+    expect(replace).not.toHaveBeenCalled();
   });
 });
 
@@ -291,7 +294,7 @@ describe('a cached plan', () => {
     render(<QueryClientProvider client={client}>{review()}</QueryClientProvider>);
     expect(await screen.findByText('Getting the option')).toBeTruthy();
     expect(screen.queryByText('This plan is not picking a time any more.')).toBeNull();
-    expect(dismissTo).not.toHaveBeenCalled();
+    expect(replace).not.toHaveBeenCalled();
   });
 });
 

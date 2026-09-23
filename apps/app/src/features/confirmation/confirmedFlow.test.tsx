@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -217,6 +217,9 @@ describe('the calendar sheet', () => {
 
     arrive('BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n');
     await waitFor(() => expect(row().getAttribute('aria-disabled')).not.toBe('true'));
+    // react-native-web hands a Pressable its new `disabled` in an effect, so
+    // let the commit's effects run before tapping, as any real tap would.
+    await act(async () => undefined);
     fireEvent.click(row());
     // Synchronously: no waitFor.
     expect(saveFile).toHaveBeenCalledTimes(1);
