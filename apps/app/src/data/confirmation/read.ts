@@ -27,19 +27,19 @@ const FAILED = 'confirmation lookup failed';
 /**
  * Which of the confirmed screens' situations the plan is in.
  *
- * - `confirmed` — locked in, and the confirmation is live (or its outcome is
- *   in: a completed meetup still happened at that time).
+ * - `confirmed` — locked in, and the meetup is still ahead.
  * - `open` — asking or deciding. Never confirmed, or reopened by "Change the
  *   time", which supersedes the confirmation and asks again (§5.7); either
  *   way the options are the screen to be on.
- * - `happened` — locked in, and the meetup is over (or its outcome is in).
+ * - `past` — locked in, and its time is over, or its outcome is in. Not
+ *   "happened": whether it did is the organiser's to report (§5.10).
  *   "Who is going" stops being a question the circle can read: a member's
  *   "I was there" is visible to them alone (`attendance_select_member`), so
  *   counts taken from here would shrink as people answered and differ from
  *   one reader to the next. The morning after is S1-29's.
  * - `over` — cancelled or expired. Nothing is happening at the old time.
  */
-export type ConfirmationView = 'confirmed' | 'happened' | 'open' | 'over';
+export type ConfirmationView = 'confirmed' | 'past' | 'open' | 'over';
 
 export type ConfirmationRead = {
   id: string;
@@ -97,7 +97,7 @@ export function confirmationViewOf(
   ahead: boolean,
 ): ConfirmationView {
   if (isLockedIn(state) && confirmation !== null) {
-    return state === 'completed' || !ahead ? 'happened' : 'confirmed';
+    return state === 'completed' || !ahead ? 'past' : 'confirmed';
   }
   if (ANSWERABLE_STATES.includes(state)) return 'open';
   return 'over';

@@ -5,11 +5,11 @@ import { Placeholder } from '../scheduling/parts';
  * The states both confirmed screens share (manifesto §7). Loading, error and
  * offline are the plain screen every flow uses; `denied` is somebody outside
  * the circle, `expired` a plan that is off — cancelled or expired, so nothing
- * is happening at the old time — and `happened` a meetup that is over, whose
+ * is happening at the old time — and `past` a meetup whose time is over, whose
  * morning after is S1-29's.
  */
 export type ConfirmedState =
-  'default' | 'loading' | 'error' | 'offline' | 'denied' | 'expired' | 'happened';
+  'default' | 'loading' | 'error' | 'offline' | 'denied' | 'expired' | 'past';
 
 export function ConfirmedPlaceholder({
   state,
@@ -57,12 +57,12 @@ export function ConfirmedPlaceholder({
       />
     );
   }
-  if (state === 'happened') {
+  if (state === 'past') {
     return (
       <Placeholder
         topTitle={title}
-        message={t('confirmedOrg', 'happened_title')}
-        detail={t('confirmedOrg', 'happened_body')}
+        message={t('confirmedOrg', 'past_title')}
+        detail={t('confirmedOrg', 'past_body')}
         onBack={onBack}
       />
     );

@@ -722,8 +722,12 @@ export const en = {
     try_again: 'Try again',
     denied_title: 'This one is not yours to see.',
     denied_body: 'Plans are only visible to the circle they belong to.',
-    happened_title: 'This one has happened.',
-    happened_body: 'There is nothing left to decide here.',
+    /**
+     * Not "it happened": whether it did is the organiser's to report (§5.10),
+     * and a meetup that moved outside or fell through ends up here too.
+     */
+    past_title: 'This meetup’s time has passed.',
+    past_body: 'There is nothing left to decide here.',
     over_title: 'This plan is off.',
     over_body: 'Nothing is happening at this time any more.',
   },

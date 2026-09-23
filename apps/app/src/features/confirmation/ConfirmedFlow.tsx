@@ -94,7 +94,7 @@ function LiveConfirmed({ target, calendar }: { target: ConfirmedKey; calendar: b
     );
   }
   if (data === undefined) return <ConfirmedOrgScreen state="denied" onBack={back} />;
-  if (data.view === 'happened') return <ConfirmedOrgScreen state="happened" onBack={back} />;
+  if (data.view === 'past') return <ConfirmedOrgScreen state="past" onBack={back} />;
   if (data.view !== 'confirmed' || data.confirmation === null) {
     return <ConfirmedOrgScreen state="expired" onBack={back} />;
   }

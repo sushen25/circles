@@ -73,6 +73,20 @@ describe('myAttendanceOf', () => {
     });
   });
 
+  // The answer is corrected on the database's say-so, not this device's: a
+  // phone whose clock is days ahead still offers both ways.
+  it("offers the correction whatever this device's clock says", () => {
+    const farAhead = new Date('2030-01-01T00:00:00Z');
+    expect(myAttendanceOf(lockedInAsMember, confirmation, farAhead)).toMatchObject({
+      canCant: true,
+    });
+    const alex = { ...lockedInAsMember, me: 'alex' };
+    expect(myAttendanceOf(alex, confirmation, farAhead)).toMatchObject({
+      canGo: true,
+      canCant: true,
+    });
+  });
+
   it('has nothing for somebody who was never asked', () => {
     expect(myAttendanceOf({ ...lockedInAsMember, me: 'ren' }, confirmation, before)).toBe(
       undefined,

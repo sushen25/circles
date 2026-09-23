@@ -27,9 +27,9 @@ describe('confirmationViewOf', () => {
     expect(confirmationViewOf('confirmed', thursday, before)).toBe('confirmed');
   });
 
-  it('has happened once it is over, or once its outcome is in', () => {
-    expect(confirmationViewOf('confirmed', thursday, after)).toBe('happened');
-    expect(confirmationViewOf('completed', thursday, before)).toBe('happened');
+  it('is past once it is over, or once its outcome is in — whatever the outcome', () => {
+    expect(confirmationViewOf('confirmed', thursday, after)).toBe('past');
+    expect(confirmationViewOf('completed', thursday, before)).toBe('past');
   });
 
   it('sends a plan that is asking again back to the options', () => {

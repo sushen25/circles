@@ -168,7 +168,7 @@ describe('the confirmed meetup', () => {
     expect(status.get(alex.id)).toBe('unknown');
   });
 
-  it("has happened once it has ended by the database's clock, whatever the phone says", async () => {
+  it("is past once it has ended by the database's clock, whatever the phone says", async () => {
     const { owner, planId, confirmed } = await lockedIn();
     sql(
       stack,
@@ -176,7 +176,7 @@ describe('the confirmed meetup', () => {
     );
     const { planConfirmation } = await import('./read');
     const seen = (await as(owner, () => planConfirmation({ planId })))!;
-    expect(seen.view).toBe('happened');
+    expect(seen.view).toBe('past');
   });
 
   it("is the same meetup to a member, on the plan's code", async () => {

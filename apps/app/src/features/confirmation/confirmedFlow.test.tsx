@@ -233,10 +233,10 @@ describe('a plan that is not locked in', () => {
     planConfirmation.mockResolvedValue({
       ...fixture.lockedIn,
       state: 'completed',
-      view: 'happened',
+      view: 'past',
     });
     show(<ConfirmedFlow target={{ planId: 'thu-17' }} />);
-    expect(await screen.findByText('This one has happened.')).toBeTruthy();
+    expect(await screen.findByText('This meetup’s time has passed.')).toBeTruthy();
     expect(screen.queryByText(/going/)).toBeNull();
   });
 
