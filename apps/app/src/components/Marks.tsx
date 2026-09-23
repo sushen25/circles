@@ -23,6 +23,25 @@ type Props = {
   members: readonly Member[];
   large?: boolean;
   /**
+   * Most marks to draw before the rest become a "+N" tile.
+   *
+   * A circle holds twenty (ADR 0012), and twenty overlapped squares is a smear
+   * rather than a group. The screens that can see a whole circle pass a cap;
+   * with none, nothing is capped, which is what every screen drawn for a circle
+   * of six already expects. The accessible label always names everybody, so
+   * the tile hides a mark and never a person.
+   */
+  max?: number | undefined;
+  /**
+   * What the count tile says, given how many marks it stands for.
+   *
+   * A function rather than a string because the number is the component's to
+   * work out and the words are never its to choose — the same reason the
+   * domain's share templates are passed in. Without one it draws digits, which
+   * carry no voice and need no key.
+   */
+  more?: ((rest: number) => string) | undefined;
+  /**
    * What a screen reader hears instead of who has answered.
    *
    * The default describes reply state, which is right on a plan and wrong
@@ -30,12 +49,18 @@ type Props = {
    * carry names and no reply state at all (ADR 0006), and "M answered" there
    * announces something the data does not say.
    */
-  label?: string;
+  label?: string | undefined;
 };
 
-export function Marks({ members, large = false, label: given }: Props) {
+export function Marks({ members, large = false, max, more, label: given }: Props) {
   const palette = usePalette();
   const dimension = large ? size.markLarge : size.mark;
+
+  // One place is kept for the count, so the cap is the width of the row and
+  // not one tile more.
+  const capped = max !== undefined && max > 0 && members.length > max;
+  const shown = capped ? members.slice(0, Math.max(1, (max ?? 1) - 1)) : members;
+  const rest = members.length - shown.length;
 
   const answered = members.filter((m) => !m.waiting).map((m) => m.name);
   const waiting = members.filter((m) => m.waiting).map((m) => m.name);
@@ -52,7 +77,7 @@ export function Marks({ members, large = false, label: given }: Props) {
 
   return (
     <View style={styles.marks} accessible role="img" aria-label={label}>
-      {members.map((member, index) => (
+      {shown.map((member, index) => (
         <View
           key={`${member.name}-${index}`}
           style={[
@@ -87,6 +112,26 @@ export function Marks({ members, large = false, label: given }: Props) {
           </Text>
         </View>
       ))}
+      {capped ? (
+        <View
+          style={[
+            styles.mark,
+            {
+              width: dimension,
+              height: dimension,
+              borderRadius: large ? 10 : radius.mark,
+              marginLeft: large ? 0 : -markOverlap,
+              backgroundColor: palette.surface,
+              borderColor: palette.ground,
+            },
+            large && styles.markLarge,
+          ]}
+        >
+          <Text style={[styles.initial, { fontSize: large ? 14 : 11, color: palette.ink2 }]}>
+            {more === undefined ? `+${rest}` : more(rest)}
+          </Text>
+        </View>
+      ) : null}
     </View>
   );
 }

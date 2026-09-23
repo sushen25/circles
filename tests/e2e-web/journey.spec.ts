@@ -15,7 +15,11 @@ const JOURNEY = [
   { path: '/circles/sunday-crew', expect: /Sunday Crew/i },
   { path: '/circles/sunday-crew/plan/setup', expect: /catch up|window|when/i },
   { path: '/circles/sunday-crew/plan/thu-17/shared', expect: /paste|share|chat/i },
-  { path: '/circles/sunday-crew/plan/thu-17/candidates', expect: /Thu 17 Sep|option|works/i },
+  // The date is written in the device's own order now that it comes from data
+  // (S1-27), so the assertion is on the sentence rather than on "Thu 17 Sep".
+  { path: '/circles/sunday-crew/plan/thu-17/candidates', expect: /looks good|Best attendance/i },
+  { path: '/circles/sunday-crew/plan/thu-17/waiting', expect: /Waiting on|have answered/i },
+  { path: '/circles/sunday-crew/plan/thu-17/no-quorum', expect: /enough overlap|unlock/i },
   { path: '/circles/sunday-crew/plan/thu-17/review', expect: /Lock it in|confirm/i },
   { path: '/circles/sunday-crew/plan/thu-17/confirmed', expect: /Locked in|Thu 17 Sep/i },
   { path: '/circles/sunday-crew/plan/thu-17/outcome', expect: /happen|How did it go/i },

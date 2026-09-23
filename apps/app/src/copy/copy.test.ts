@@ -56,6 +56,12 @@ describe('the copy file', () => {
       'address',
       // S1-22's: "Priya and Tom just joined".
       'other',
+      // S1-27's: the third name a sentence will hold before it counts instead
+      // ("Not Alex, Tom or Sam"), and the two halves of a card's exception
+      // line ("Doesn't work for Priya · Alex hasn't answered").
+      'third',
+      'first',
+      'second',
     ]);
     for (const [screen, strings] of Object.entries(en)) {
       for (const [key, value] of Object.entries(strings)) {

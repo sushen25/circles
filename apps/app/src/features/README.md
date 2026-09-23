@@ -189,6 +189,25 @@ to the fixture setup and quiet-ask screens (S1-26, S2-02).
 | `NoQuorum.dc.html`         | `/circles/[id]/plan/[planId]/no-quorum`  | `NoQuorumScreen`         |
 | `Waiting.dc.html`          | `/circles/[id]/plan/[planId]/waiting`    | `WaitingScreen`          |
 
+**Real since S1-27:** `/circles/[id]/plan/[planId]/{candidates,waiting,no-quorum}`
+all render `CandidatesFlow`, and `/p/[code]` renders `MemberCandidatesFlow`
+behind `PlanLinkFlow`. One flow behind three organiser routes, because which of
+them is true is a fact about the data and changes while the screen is open: the
+route only picks which fixture to show with no backend. The read is
+`data/scheduling` (`candidate_sets` + `candidates` + `plan_participants` +
+`response_summaries`, all under RLS, no function), refetched on focus and every
+twenty seconds — three while a recalculation is known to be in flight. The four
+screens are presentational and take worked-out strings: `cards.ts` for an
+option, `view.ts` for the header and the lines around it, `lines.ts` for the
+ones a flow assembles, and `sentences.ts` for the one rule all of them use to
+name people (`names.ts`: up to three, then a count — ADR 0012). The no-quorum
+actions are `unlock.ts`, which never offers a quorum below two and never a
+wider window a re-ask could not be answered in.
+A member at `/p/[code]` sees the options and "Change my times"; the organiser is
+sent to their own route. `DeadlinePassed` is still a fixture (Slice 2), and
+"Review <weekday>" leads to the fixture `ConfirmReview` with the chosen
+candidate's start instant as `candidate` (S1-28).
+
 ### system
 
 | Artboard          | Route      | Component       |
