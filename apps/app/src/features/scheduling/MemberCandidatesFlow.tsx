@@ -63,12 +63,14 @@ function LiveMember({ code }: { code: string }) {
 
   // Locked in: the confirmed screen, with their own answer on it (S1-28).
   const locked = data !== undefined && !data.isOrganiser && isLockedIn(data.state);
+  const fresh = query.isFetchedAfterMount;
   const confirmed = useRef(false);
   useEffect(() => {
-    if (!locked || confirmed.current) return;
+    // On a read made since mount only, as `ConfirmedFlow` explains.
+    if (!locked || !fresh || confirmed.current) return;
     confirmed.current = true;
     router.replace({ pathname: '/p/[code]/confirmed', params: { code } });
-  }, [locked, code, router]);
+  }, [locked, fresh, code, router]);
 
   const seen = useRef<string | undefined>(undefined);
   useEffect(() => {

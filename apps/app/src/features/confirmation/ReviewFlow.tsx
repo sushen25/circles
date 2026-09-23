@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { t } from '../../copy';
 import { hasBackend } from '../../data/auth/client';
 import type { ChasedAnswer } from '../../data/confirmation';
-import type { PlanCandidates } from '../../data/scheduling';
+import { isLockedIn, type PlanCandidates } from '../../data/scheduling';
 import { isOffline } from '../identity/join/failure';
 import * as fixture from '../scheduling/fixtures';
 import { useCandidates } from '../scheduling/useCandidates';
@@ -85,9 +85,10 @@ function LiveReview({ id, planId, candidate }: { id: string; planId: string; can
 
   // Already decided — by this organiser in another tab, or a moment ago.
   // Once, guarded by a ref: `useRouter` can hand back a new object per render.
+  // From the refusal, or from a read made since mount — a cached plan could be
+  // one the confirmed screen has just sent back here as reopened.
   const decided =
-    lock.already ||
-    (data !== undefined && (data.state === 'confirmed' || data.state === 'completed'));
+    lock.already || (data !== undefined && query.isFetchedAfterMount && isLockedIn(data.state));
   const sent = useRef(false);
   useEffect(() => {
     if (!decided || sent.current) return;
@@ -138,11 +139,19 @@ function LiveReview({ id, planId, candidate }: { id: string; planId: string; can
 
   const row = candidateIn(data, candidate);
   if (row === undefined) {
+    // Say why, because the three are different news: an answer moved the
+    // options, there are none to pick from, or the plan has stopped asking.
+    const why =
+      data.view === 'ready'
+        ? (['gone_title', 'gone_body'] as const)
+        : data.view === 'closed'
+          ? (['stopped_title', 'stopped_body'] as const)
+          : (['none_title', 'none_body'] as const);
     return (
       <ConfirmReviewScreen
         state="expired"
-        message={t('confirmReview', 'gone_title')}
-        detail={t('confirmReview', 'gone_body')}
+        message={t('confirmReview', why[0])}
+        detail={t('confirmReview', why[1])}
         onBack={back}
       />
     );

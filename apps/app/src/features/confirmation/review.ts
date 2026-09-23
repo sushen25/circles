@@ -146,7 +146,8 @@ export function fieldsOf(form: ReviewForm): ReviewFields {
   };
 }
 
-/** The longest map link the request takes (`ConfirmMeetupRequest.place_url`). */
-export const PLACE_URL_MAX_LENGTH = 2048;
+/** The longest map link the request takes — read from the schema, not restated. */
+export const PLACE_URL_MAX_LENGTH: number | undefined =
+  ConfirmMeetupRequest.shape.place_url.unwrap().maxLength ?? undefined;
 
 export { NOTE_MAX_LENGTH, PLACE_NAME_MAX_LENGTH };

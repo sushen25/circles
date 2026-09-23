@@ -74,13 +74,15 @@ function LiveCandidates({ id, planId }: { id: string; planId: string }) {
 
   // Locked in: the confirmed screen is this plan's page now (S1-28). Once,
   // guarded by a ref, for the reason `MemberCandidatesFlow` gives.
+  // Only on a read made since mount, for the reason `ConfirmedFlow` gives.
   const locked = data !== undefined && isLockedIn(data.state);
+  const fresh = query.isFetchedAfterMount;
   const sent = useRef(false);
   useEffect(() => {
-    if (!locked || sent.current) return;
+    if (!locked || !fresh || sent.current) return;
     sent.current = true;
     router.replace({ pathname: '/circles/[id]/plan/[planId]/confirmed', params: { id, planId } });
-  }, [locked, id, planId, router]);
+  }, [locked, fresh, id, planId, router]);
 
   const back = () =>
     router.canGoBack()

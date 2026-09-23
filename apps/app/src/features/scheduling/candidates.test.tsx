@@ -496,6 +496,21 @@ describe('the states that are not the happy one', () => {
     expect(screen.queryByText('This plan is decided.')).toBeNull();
   });
 
+  // The confirmed door sends a reopened plan here; a cached "confirmed" from
+  // before must not send it straight back before the fresh read lands.
+  it('redirects on a fresh read only, never on what the cache said', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    client.setQueryData(['plan-candidates', PLAN, 'maya'], {
+      ...fixture.ready,
+      state: 'confirmed',
+      view: 'closed',
+    });
+    planCandidates.mockResolvedValue(fixture.ready);
+    render(<QueryClientProvider client={client}>{organiser()}</QueryClientProvider>);
+    expect(await screen.findByText('Thursday looks good for five of you.')).toBeTruthy();
+    expect(replace).not.toHaveBeenCalled();
+  });
+
   it('sends a member on the plan link to the confirmed screen too', async () => {
     planCandidates.mockResolvedValue({
       ...fixture.readyAsMember,

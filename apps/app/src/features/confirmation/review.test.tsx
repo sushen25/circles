@@ -178,6 +178,19 @@ describe('a set that moves', () => {
     expect(screen.queryByRole('button', { name: 'Lock it in' })).toBeNull();
   });
 
+  it('says there is nothing to pick yet, rather than blaming an answer', async () => {
+    planCandidates.mockResolvedValue(fixture.waiting);
+    show(review());
+    expect(await screen.findByText('There is nothing to lock in yet.')).toBeTruthy();
+  });
+
+  it('says a plan that was called off is not picking a time', async () => {
+    planCandidates.mockResolvedValue({ ...fixture.ready, state: 'cancelled', view: 'closed' });
+    show(review());
+    expect(await screen.findByText('This plan is not picking a time any more.')).toBeTruthy();
+    expect(replace).not.toHaveBeenCalled();
+  });
+
   it('goes to the confirmation when the plan was already locked in', async () => {
     confirmMeetup.mockRejectedValue(refusal('wrong_state'));
     show(review());

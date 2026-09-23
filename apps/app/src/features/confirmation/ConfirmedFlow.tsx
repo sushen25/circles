@@ -64,10 +64,15 @@ function LiveConfirmed({ target, calendar }: { target: ConfirmedKey; calendar: b
   // Not locked in (never, or reopened by "Change the time"): the options are
   // the screen to be on. Once, guarded by a ref — `useRouter` can hand back a
   // new object per render, and a `replace` that re-runs on it is a loop.
+  // Only on a read made since this screen mounted. A cached one can be the
+  // state the other door just redirected away from, and two doors each
+  // trusting their cache would hand the person back and forth until a
+  // refetch landed.
+  const fresh = query.isFetchedAfterMount;
   const sent = useRef(false);
   const open = data?.view === 'open' ? data : undefined;
   useEffect(() => {
-    if (open === undefined || sent.current) return;
+    if (open === undefined || !fresh || sent.current) return;
     sent.current = true;
     if (open.isOrganiser) {
       router.replace({
@@ -77,7 +82,7 @@ function LiveConfirmed({ target, calendar }: { target: ConfirmedKey; calendar: b
     } else {
       router.replace({ pathname: '/p/[code]', params: { code: open.code } });
     }
-  }, [open, router]);
+  }, [open, fresh, router]);
 
   // To the circle, never "back": the screen under this one is usually the
   // options, and the options send a locked-in plan straight back here.
