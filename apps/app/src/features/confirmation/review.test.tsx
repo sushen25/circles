@@ -102,7 +102,6 @@ describe('the organiser reviewing Thursday', () => {
       planId: 'thu-17',
       candidateId: THU,
       expectedSetId: 'set-1',
-      invitedCount: 6,
       chasedAnswer: 'more',
       placeName: 'Hope St Radio',
       placeUrl: undefined,
@@ -191,6 +190,27 @@ describe('a set that moves', () => {
         params: { id: 'sunday-crew', planId: 'thu-17' },
       }),
     );
+  });
+});
+
+describe('a route whose circle segment is wrong', () => {
+  // The plan says which circle it belongs to; the URL only says a path.
+  it("records and navigates by the plan's own circle", async () => {
+    show(<ReviewFlow id="some-other-circle" planId="thu-17" candidate={THU} />);
+    await screen.findByText('Lock it in?');
+    fireEvent.click(screen.getByRole('checkbox', { name: 'No' }));
+    fireEvent.click(lockIn());
+    await waitFor(() =>
+      expect(replace).toHaveBeenCalledWith({
+        pathname: '/circles/[id]/plan/[planId]/confirmed',
+        params: { id: 'sunday-crew', planId: 'thu-17' },
+      }),
+    );
+    expect(track).toHaveBeenCalledWith('organiser_chased', {
+      circle_id: 'sunday-crew',
+      plan_id: 'thu-17',
+      answer: 'none',
+    });
   });
 });
 

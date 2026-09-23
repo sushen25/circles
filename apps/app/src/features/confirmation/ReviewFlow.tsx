@@ -69,9 +69,13 @@ function LiveReview({ id, planId, candidate }: { id: string; planId: string; can
   const [chased, setChased] = useState<ChasedAnswer>();
   const [seenSet, setSeenSet] = useState<string>();
 
-  const toConfirmed = () =>
-    router.replace({ pathname: '/circles/[id]/plan/[planId]/confirmed', params: { id, planId } });
-  const lock = useLockIn({ circleId: id, planId, onLocked: toConfirmed });
+  // The plan's own circle once it is read; the route's only before that.
+  const toConfirmed = (circleId: string = data?.circleId ?? id) =>
+    router.replace({
+      pathname: '/circles/[id]/plan/[planId]/confirmed',
+      params: { id: circleId, planId },
+    });
+  const lock = useLockIn({ planId, onLocked: toConfirmed });
 
   // The first set this screen showed. A later one is a change the organiser
   // is told about, not one that happens under them.
@@ -161,6 +165,7 @@ function LiveReview({ id, planId, candidate }: { id: string; planId: string; can
         // What is on screen now is what the organiser is confirming.
         setSeenSet(setId);
         lock.lockIn({
+          circleId: data.circleId,
           candidateId: row.id,
           expectedSetId: setId,
           invitedCount: data.askedCount,

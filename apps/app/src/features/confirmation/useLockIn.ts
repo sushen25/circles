@@ -29,6 +29,12 @@ import { candidateIn } from './review';
 class OptionsMoved extends Error {}
 
 export type LockInInput = {
+  /**
+   * The plan's circle **as the read has it**, never the route's: the URL's
+   * segment is only a path, and a stale one would put the events and the
+   * next screen against somebody else's circle.
+   */
+  circleId: string;
   candidateId: string;
   expectedSetId: string;
   invitedCount: number;
@@ -71,13 +77,11 @@ function problemOf(error: unknown): { problem: string; already?: boolean } {
 }
 
 export function useLockIn({
-  circleId,
   planId,
   onLocked,
 }: {
-  circleId: string;
   planId: string;
-  onLocked: () => void;
+  onLocked: (circleId: string) => void;
 }): LockIn {
   const client = useQueryClient();
   const [problem, setProblem] = useState<string>();
@@ -95,10 +99,18 @@ export function useLockIn({
       ) {
         throw new OptionsMoved();
       }
-      return confirmMeetup({ planId, ...input });
+      return confirmMeetup({
+        planId,
+        candidateId: input.candidateId,
+        expectedSetId: input.expectedSetId,
+        chasedAnswer: input.chasedAnswer,
+        placeName: input.placeName,
+        placeUrl: input.placeUrl,
+        note: input.note,
+      });
     },
     onSuccess: (confirmed, input) => {
-      const ids = { circle_id: circleId as CircleId, plan_id: planId as PlanId };
+      const ids = { circle_id: input.circleId as CircleId, plan_id: planId as PlanId };
       track('meetup_confirmed', {
         ...ids,
         attending_count: confirmed.going.length,
@@ -109,7 +121,7 @@ export function useLockIn({
       // Circle home, the options and the plan page all describe this plan, and
       // every one of them is now wrong.
       void client.invalidateQueries();
-      onLocked();
+      onLocked(input.circleId);
     },
     onError: (error) => {
       const read = problemOf(error);
