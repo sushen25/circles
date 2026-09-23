@@ -9,6 +9,17 @@
  */
 export const PACKAGE_NAME = '@circles/tokens';
 
-export { cell, color, hit, markOverlap, radius, shadow, size, space, type } from './generated.js';
+export {
+  cell,
+  circleColor,
+  color,
+  hit,
+  markOverlap,
+  radius,
+  shadow,
+  size,
+  space,
+  type,
+} from './generated.js';
 export { faceFor, fontFace, fontFallback, fontFamily, fontStack } from './fonts.js';
 export type { FontFamily } from './fonts.js';

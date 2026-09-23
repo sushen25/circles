@@ -9,6 +9,13 @@ T = dict(ground="#FBF7F1", surface="#FFFFFF", line="#EAE0D3", line_soft="#F1E9DE
          invert_line_strong="#5A4B3E", invert_mark_line="#8A7A6A",
          invert_ink="#F7F1EA", invert_ink2="#CFC3B6", invert_ink3="#A89B8D")
 
+# A circle's own colour (spec §5.2): solid, no image, chosen when it is made.
+# Stored by name ('clay'), never as a hex, so these can be retuned without a
+# migration. The first is the accent, which is why a new circle looks like the
+# product until somebody picks something else. `pnpm gen:tokens` emits these as
+# `circleColor`.
+CIRCLE = dict(clay="#C2542F", moss="#4F6B45", plum="#8A6A9E", sky="#3F6E8C", ochre="#B07A2B")
+
 W, H = 390, 844
 
 BASE_CSS = f"""
@@ -404,8 +411,8 @@ S["CirclesList"] = shell(
     body(
         dl("Your circles"),
         card(li('<div class="icon-sq">S</div>', "Sunday Crew", "Finding a time · 5 of 6 replied", right=ic("chev",18,T["ink3"])), gap=0, pad=8),
-        card(li(f'<div class="icon-sq" style="background:{T["support"]};">U</div>', "Uni mates", "Last caught up 2 Aug · No rush", right=ic("chev",18,T["ink3"])), gap=0, pad=8),
-        card(li(f'<div class="icon-sq" style="background:#8A6A9E;">B</div>', "Book club", "Locked in · Thu 24 Sep", right=ic("chev",18,T["ink3"])), gap=0, pad=8),
+        card(li(f'<div class="icon-sq" style="background:{CIRCLE["moss"]};">U</div>', "Uni mates", "Last caught up 2 Aug · No rush", right=ic("chev",18,T["ink3"])), gap=0, pad=8),
+        card(li(f'<div class="icon-sq" style="background:{CIRCLE["plum"]};">B</div>', "Book club", "Locked in · Thu 24 Sep", right=ic("chev",18,T["ink3"])), gap=0, pad=8),
         gap=12) +
     foot(sec("New circle"))
 )
@@ -434,7 +441,7 @@ S["CreateCircle"] = shell(
     body(
         dl("Who's this for?"),
         stack(lbl("Circle name"), inp("Sunday Crew"), gap=8),
-        stack(lbl("Colour"), row(*[f'<div style="width:44px;height:44px;border-radius:12px;background:{c};{"outline:2px solid "+T["ink"]+";outline-offset:3px;" if i==0 else ""}"></div>' for i, c in enumerate([T["accent"], T["support"], "#8A6A9E", "#3F6E8C", "#B07A2B"])], gap=10), gap=8),
+        stack(lbl("Colour"), row(*[f'<div style="width:44px;height:44px;border-radius:12px;background:{c};{"outline:2px solid "+T["ink"]+";outline-offset:3px;" if i==0 else ""}"></div>' for i, c in enumerate(CIRCLE.values())], gap=10), gap=8),
         stack(lbl("How often would you like to catch up?"), chips("Weekly", "Fortnightly", "*Monthly", "Every two months", "No goal"), sm("A loose aim, not a rule. We'll gently nudge someone when it's about time."), gap=8),
         stack(lbl("Where, roughly"), inp("Inner north, optional", ph=True), gap=8),
     ) +
