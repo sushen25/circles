@@ -56,3 +56,24 @@ export function mayOrganiseInCircle(actor: OrganiserActor): OrganiserEligibility
   if (!actor.isPermanent) return 'needs_saved_place';
   return actor.isMember ? 'allowed' : 'needs_membership';
 }
+
+/**
+ * Who may take somebody out of a circle (spec §5.2): its owner, and never the
+ * owner themselves — a circle is owned by one of its members. The screen asks
+ * this to decide whether to offer "Remove"; `remove_member` asks the same
+ * question of the rows and is the authority.
+ */
+export function mayRemoveMember(input: {
+  readonly viewerIsOwner: boolean;
+  readonly targetIsOwner: boolean;
+}): boolean {
+  return input.viewerIsOwner && !input.targetIsOwner;
+}
+
+/**
+ * The owner's decisions about a circle — its link, its rhythm, its colour,
+ * archiving it (spec §5.2). Members change only their own switches.
+ */
+export function mayManageCircle(input: { readonly viewerIsOwner: boolean }): boolean {
+  return input.viewerIsOwner;
+}

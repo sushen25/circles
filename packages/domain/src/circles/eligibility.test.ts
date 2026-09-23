@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { mayOrganiseInCircle, mayStartCircle } from './eligibility.js';
+import {
+  mayManageCircle,
+  mayOrganiseInCircle,
+  mayRemoveMember,
+  mayStartCircle,
+} from './eligibility.js';
 
 /**
  * Two rules that look like one, and the difference is a screen.
@@ -35,5 +40,23 @@ describe('organising inside a circle', () => {
     // Sign-in is a step they can take. "You are not in this circle" is a dead
     // end when they have no identity to be in it with.
     expect(mayOrganiseInCircle({ isPermanent: false, isMember: false })).toBe('needs_saved_place');
+  });
+});
+
+describe('mayRemoveMember', () => {
+  it('lets the owner remove anybody but themselves', () => {
+    expect(mayRemoveMember({ viewerIsOwner: true, targetIsOwner: false })).toBe(true);
+    expect(mayRemoveMember({ viewerIsOwner: true, targetIsOwner: true })).toBe(false);
+  });
+
+  it('lets nobody else remove anybody', () => {
+    expect(mayRemoveMember({ viewerIsOwner: false, targetIsOwner: false })).toBe(false);
+  });
+});
+
+describe('mayManageCircle', () => {
+  it('is the owner’s', () => {
+    expect(mayManageCircle({ viewerIsOwner: true })).toBe(true);
+    expect(mayManageCircle({ viewerIsOwner: false })).toBe(false);
   });
 });
