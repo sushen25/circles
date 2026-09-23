@@ -255,6 +255,25 @@ describe('a plan that is not locked in', () => {
     expect(screen.queryByText(/going/)).toBeNull();
   });
 
+  it('trusts no cached state when the refetch fails: it says so instead', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    client.setQueryData(['plan-confirmation', 'thu-17', 'maya'], {
+      ...fixture.lockedIn,
+      state: 'collecting',
+      confirmation: null,
+      attendance: [],
+      view: 'open',
+    });
+    planConfirmation.mockRejectedValue(new Error('confirmation lookup failed'));
+    render(
+      <QueryClientProvider client={client}>
+        <ConfirmedFlow target={{ planId: 'thu-17' }} />
+      </QueryClientProvider>,
+    );
+    expect(await screen.findByText("We couldn't load this plan.")).toBeTruthy();
+    expect(replace).not.toHaveBeenCalled();
+  });
+
   it('says a cancelled plan is off', async () => {
     planConfirmation.mockResolvedValue({
       ...fixture.lockedIn,

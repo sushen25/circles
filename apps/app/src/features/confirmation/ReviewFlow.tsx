@@ -75,7 +75,16 @@ function LiveReview({ id, planId, candidate }: { id: string; planId: string; can
       pathname: '/circles/[id]/plan/[planId]/confirmed',
       params: { id: circleId, planId },
     });
-  const lock = useLockIn({ planId, onLocked: toConfirmed });
+  // Once, guarded by a ref: `useRouter` can hand back a new object per render,
+  // and a lock-in's own refetch would otherwise send the person a second time.
+  const sent = useRef(false);
+  const lock = useLockIn({
+    planId,
+    onLocked: (circleId) => {
+      sent.current = true;
+      toConfirmed(circleId);
+    },
+  });
 
   // The first set this screen showed. A later one is a change the organiser
   // is told about, not one that happens under them.
@@ -83,13 +92,14 @@ function LiveReview({ id, planId, candidate }: { id: string; planId: string; can
   const setId = data?.set?.id;
   if (setId !== undefined && seenSet === undefined) setSeenSet(setId);
 
-  // Already decided — by this organiser in another tab, or a moment ago.
-  // Once, guarded by a ref: `useRouter` can hand back a new object per render.
-  // From the refusal, or from a read made since mount — a cached plan could be
-  // one the confirmed screen has just sent back here as reopened.
-  const decided =
-    lock.already || (data !== undefined && query.isFetchedAfterMount && isLockedIn(data.state));
-  const sent = useRef(false);
+  // Already decided — by this organiser in another tab, or a moment ago. The
+  // screen waits on a locked-in plan whatever the read's age, and leaves only
+  // on the refusal or on a read that landed since mount: a cached plan could be
+  // one the confirmed screen has just sent back here as reopened, and a failed
+  // refetch is not a read.
+  const locked = data !== undefined && isLockedIn(data.state);
+  const fresh = query.isFetchedAfterMount && !query.isError;
+  const decided = lock.already || (locked && fresh);
   useEffect(() => {
     if (!decided || sent.current) return;
     sent.current = true;
@@ -105,7 +115,9 @@ function LiveReview({ id, planId, candidate }: { id: string; planId: string; can
           params: { id, planId },
         });
 
-  if (query.isPending || decided) return <ConfirmReviewScreen state="loading" onBack={back} />;
+  if (query.isPending || lock.already || (locked && !query.isError)) {
+    return <ConfirmReviewScreen state="loading" onBack={back} />;
+  }
   if (query.isError) {
     return (
       <ConfirmReviewScreen

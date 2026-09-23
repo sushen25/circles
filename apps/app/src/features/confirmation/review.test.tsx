@@ -95,6 +95,10 @@ describe('the organiser reviewing Thursday', () => {
       target: { value: 'Come hungry.' },
     });
     fireEvent.click(screen.getByRole('checkbox', { name: 'More than one' }));
+    // The tap's own re-read sees the option; every read after it sees the plan
+    // locked in, as the lock-in's refetch will.
+    planCandidates.mockResolvedValueOnce(fixture.ready);
+    planCandidates.mockResolvedValue({ ...fixture.ready, state: 'confirmed', view: 'closed' });
     fireEvent.click(lockIn());
 
     await waitFor(() => expect(confirmMeetup).toHaveBeenCalledTimes(1));
@@ -113,6 +117,11 @@ describe('the organiser reviewing Thursday', () => {
         params: { id: 'sunday-crew', planId: 'thu-17' },
       }),
     );
+    // The refetch the lock-in causes reads the plan as locked in; it must not
+    // send the organiser a second time.
+    await waitFor(() => expect(planCandidates.mock.calls.length).toBeGreaterThanOrEqual(3));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(replace).toHaveBeenCalledTimes(1);
     expect(track).toHaveBeenCalledWith('meetup_confirmed', {
       circle_id: 'sunday-crew',
       plan_id: 'thu-17',
@@ -224,6 +233,22 @@ describe('a route whose circle segment is wrong', () => {
       plan_id: 'thu-17',
       answer: 'none',
     });
+  });
+});
+
+describe('a cached plan', () => {
+  it('waits on a locked-in cache rather than calling the plan off', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    client.setQueryData(['plan-candidates', 'thu-17', 'maya'], {
+      ...fixture.ready,
+      state: 'confirmed',
+      view: 'closed',
+    });
+    planCandidates.mockReturnValue(new Promise(() => undefined));
+    render(<QueryClientProvider client={client}>{review()}</QueryClientProvider>);
+    expect(await screen.findByText('Getting the option')).toBeTruthy();
+    expect(screen.queryByText('This plan is not picking a time any more.')).toBeNull();
+    expect(replace).not.toHaveBeenCalled();
   });
 });
 

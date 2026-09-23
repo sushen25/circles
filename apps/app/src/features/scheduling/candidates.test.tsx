@@ -511,6 +511,19 @@ describe('the states that are not the happy one', () => {
     expect(replace).not.toHaveBeenCalled();
   });
 
+  it('trusts no cached state when the refetch fails: it says so instead', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    client.setQueryData(['plan-candidates', PLAN, 'maya'], {
+      ...fixture.ready,
+      state: 'confirmed',
+      view: 'closed',
+    });
+    planCandidates.mockRejectedValue(new Error('candidates lookup failed'));
+    render(<QueryClientProvider client={client}>{organiser()}</QueryClientProvider>);
+    expect(await screen.findByText("We couldn't load the options.")).toBeTruthy();
+    expect(replace).not.toHaveBeenCalled();
+  });
+
   it('sends a member on the plan link to the confirmed screen too', async () => {
     planCandidates.mockResolvedValue({
       ...fixture.readyAsMember,

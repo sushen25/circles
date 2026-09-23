@@ -63,7 +63,7 @@ function LiveMember({ code }: { code: string }) {
 
   // Locked in: the confirmed screen, with their own answer on it (S1-28).
   const locked = data !== undefined && !data.isOrganiser && isLockedIn(data.state);
-  const fresh = query.isFetchedAfterMount;
+  const fresh = query.isFetchedAfterMount && !query.isError;
   const confirmed = useRef(false);
   useEffect(() => {
     // On a read made since mount only, as `ConfirmedFlow` explains.

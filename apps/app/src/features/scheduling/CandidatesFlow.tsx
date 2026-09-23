@@ -76,7 +76,7 @@ function LiveCandidates({ id, planId }: { id: string; planId: string }) {
   // guarded by a ref, for the reason `MemberCandidatesFlow` gives.
   // Only on a read made since mount, for the reason `ConfirmedFlow` gives.
   const locked = data !== undefined && isLockedIn(data.state);
-  const fresh = query.isFetchedAfterMount;
+  const fresh = query.isFetchedAfterMount && !query.isError;
   const sent = useRef(false);
   useEffect(() => {
     if (!locked || !fresh || sent.current) return;
@@ -89,7 +89,9 @@ function LiveCandidates({ id, planId }: { id: string; planId: string }) {
       ? router.back()
       : router.replace({ pathname: '/circles/[id]', params: { id } });
 
-  if (query.isPending || locked) return <CandidatesScreen state="loading" onBack={back} />;
+  if (query.isPending || (locked && !query.isError)) {
+    return <CandidatesScreen state="loading" onBack={back} />;
+  }
   if (query.isError) {
     return (
       <CandidatesScreen

@@ -68,7 +68,8 @@ function LiveConfirmed({ target, calendar }: { target: ConfirmedKey; calendar: b
   // state the other door just redirected away from, and two doors each
   // trusting their cache would hand the person back and forth until a
   // refetch landed.
-  const fresh = query.isFetchedAfterMount;
+  // A failed refetch is "fetched" to TanStack, and not a read.
+  const fresh = query.isFetchedAfterMount && !query.isError;
   const sent = useRef(false);
   const open = data?.view === 'open' ? data : undefined;
   useEffect(() => {
@@ -94,7 +95,7 @@ function LiveConfirmed({ target, calendar }: { target: ConfirmedKey; calendar: b
         : router.replace('/')
       : router.dismissTo({ pathname: '/circles/[id]', params: { id: circleId } });
 
-  if (query.isPending || open !== undefined) {
+  if (query.isPending || (open !== undefined && !query.isError)) {
     return <ConfirmedOrgScreen state="loading" onBack={back} />;
   }
   if (query.isError) {
