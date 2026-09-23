@@ -546,6 +546,19 @@ describe('the states that are not the happy one', () => {
     await waitFor(() => expect(replace).toHaveBeenCalledTimes(1));
   });
 
+  it('sends a member nowhere while the plan page is not on top', async () => {
+    focused.current = false;
+    planCandidates.mockResolvedValue({
+      ...fixture.readyAsMember,
+      state: 'confirmed',
+      view: 'closed',
+    });
+    show(<MemberCandidatesFlow code="pnsundaycr" />);
+    await waitFor(() => expect(planCandidates).toHaveBeenCalled());
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(replace).not.toHaveBeenCalled();
+  });
+
   it('sends a member on the plan link to the confirmed screen too', async () => {
     planCandidates.mockResolvedValue({
       ...fixture.readyAsMember,

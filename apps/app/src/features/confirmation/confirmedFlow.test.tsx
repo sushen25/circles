@@ -277,6 +277,21 @@ describe('a plan that is not locked in', () => {
     expect(replace).not.toHaveBeenCalled();
   });
 
+  it('sends nobody anywhere while it is not the screen on top', async () => {
+    focused.current = false;
+    planConfirmation.mockResolvedValue({
+      ...fixture.lockedIn,
+      state: 'collecting',
+      confirmation: null,
+      attendance: [],
+      view: 'open',
+    });
+    show(<ConfirmedFlow target={{ planId: 'thu-17' }} />);
+    await waitFor(() => expect(planConfirmation).toHaveBeenCalled());
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(replace).not.toHaveBeenCalled();
+  });
+
   it('says a cancelled plan is off', async () => {
     planConfirmation.mockResolvedValue({
       ...fixture.lockedIn,

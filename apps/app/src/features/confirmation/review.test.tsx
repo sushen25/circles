@@ -15,9 +15,10 @@ import { FunctionError } from '../../data/functions';
 
 const push = vi.fn();
 const replace = vi.fn();
+const dismissTo = vi.fn();
 const focused = { current: true };
 vi.mock('expo-router', () => ({
-  useRouter: () => ({ push, replace, back: vi.fn(), canGoBack: () => true }),
+  useRouter: () => ({ push, replace, dismissTo, back: vi.fn(), canGoBack: () => true }),
   useFocusEffect: () => undefined,
   useIsFocused: () => focused.current,
 }));
@@ -114,9 +115,11 @@ describe('the organiser reviewing Thursday', () => {
       placeUrl: undefined,
       note: 'Come hungry.',
     });
+    // Back to the options, which forward a locked-in plan to its confirmed
+    // screen — so nothing is left under it for Back to land on.
     await waitFor(() =>
-      expect(replace).toHaveBeenCalledWith({
-        pathname: '/circles/[id]/plan/[planId]/confirmed',
+      expect(dismissTo).toHaveBeenCalledWith({
+        pathname: '/circles/[id]/plan/[planId]/candidates',
         params: { id: 'sunday-crew', planId: 'thu-17' },
       }),
     );
@@ -124,7 +127,8 @@ describe('the organiser reviewing Thursday', () => {
     // send the organiser a second time.
     await waitFor(() => expect(planCandidates.mock.calls.length).toBeGreaterThanOrEqual(3));
     await new Promise((resolve) => setTimeout(resolve, 50));
-    expect(replace).toHaveBeenCalledTimes(1);
+    expect(dismissTo).toHaveBeenCalledTimes(1);
+    expect(replace).not.toHaveBeenCalled();
     expect(track).toHaveBeenCalledWith('meetup_confirmed', {
       circle_id: 'sunday-crew',
       plan_id: 'thu-17',
@@ -209,9 +213,11 @@ describe('a set that moves', () => {
     await screen.findByText('Lock it in?');
     fireEvent.click(screen.getByRole('checkbox', { name: 'No' }));
     fireEvent.click(lockIn());
+    // Back to the options, which forward a locked-in plan to its confirmed
+    // screen — so nothing is left under it for Back to land on.
     await waitFor(() =>
-      expect(replace).toHaveBeenCalledWith({
-        pathname: '/circles/[id]/plan/[planId]/confirmed',
+      expect(dismissTo).toHaveBeenCalledWith({
+        pathname: '/circles/[id]/plan/[planId]/candidates',
         params: { id: 'sunday-crew', planId: 'thu-17' },
       }),
     );
@@ -225,9 +231,11 @@ describe('a route whose circle segment is wrong', () => {
     await screen.findByText('Lock it in?');
     fireEvent.click(screen.getByRole('checkbox', { name: 'No' }));
     fireEvent.click(lockIn());
+    // Back to the options, which forward a locked-in plan to its confirmed
+    // screen — so nothing is left under it for Back to land on.
     await waitFor(() =>
-      expect(replace).toHaveBeenCalledWith({
-        pathname: '/circles/[id]/plan/[planId]/confirmed',
+      expect(dismissTo).toHaveBeenCalledWith({
+        pathname: '/circles/[id]/plan/[planId]/candidates',
         params: { id: 'sunday-crew', planId: 'thu-17' },
       }),
     );
@@ -236,6 +244,17 @@ describe('a route whose circle segment is wrong', () => {
       plan_id: 'thu-17',
       answer: 'none',
     });
+  });
+});
+
+describe('a screen that is not on top', () => {
+  it('leaves a locked-in plan alone until it is', async () => {
+    focused.current = false;
+    planCandidates.mockResolvedValue({ ...fixture.ready, state: 'confirmed', view: 'closed' });
+    show(review());
+    await waitFor(() => expect(planCandidates).toHaveBeenCalled());
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(dismissTo).not.toHaveBeenCalled();
   });
 });
 
@@ -251,7 +270,7 @@ describe('a cached plan', () => {
     render(<QueryClientProvider client={client}>{review()}</QueryClientProvider>);
     expect(await screen.findByText('Getting the option')).toBeTruthy();
     expect(screen.queryByText('This plan is not picking a time any more.')).toBeNull();
-    expect(replace).not.toHaveBeenCalled();
+    expect(dismissTo).not.toHaveBeenCalled();
   });
 });
 
