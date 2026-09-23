@@ -273,9 +273,9 @@ describe('a review with nothing under it', () => {
 
 describe('a lock-in that lands after Back', () => {
   // Back during "Locking it in" takes the review off the stack before the
-  // answer lands. Popping then would take the options, and the replace circle
-  // home; with the review gone, the replace alone is right.
-  it('pops nothing that is not the review', async () => {
+  // answer lands. Whatever is on top then is not the review's to move: the
+  // options forward themselves on the refetch, and circle home shows it.
+  it('moves nothing that is not the review', async () => {
     let answer: (value: unknown) => void = () => undefined;
     confirmMeetup.mockReturnValue(new Promise((resolve) => (answer = resolve)));
     const { unmount } = show(review());
@@ -290,8 +290,10 @@ describe('a lock-in that lands after Back', () => {
       ends_at: fixture.ready.candidates[0]!.endsAt,
       going: ['maya'],
     });
-    await waitFor(() => expect(replace).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(track).toHaveBeenCalledWith('meetup_confirmed', expect.anything()));
+    await new Promise((resolve) => setTimeout(resolve, 50));
     expect(dismiss).not.toHaveBeenCalled();
+    expect(replace).not.toHaveBeenCalled();
   });
 });
 

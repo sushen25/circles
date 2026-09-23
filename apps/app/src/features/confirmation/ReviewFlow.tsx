@@ -84,9 +84,13 @@ function LiveReview({ id, planId, candidate }: { id: string; planId: string; can
   const onTop = useRef(true);
   const toConfirmed = (circleId: string = data?.circleId ?? id) => {
     // Only while the review is still the screen on top. A lock-in can land
-    // after somebody pressed Back during it; popping by position then took
-    // the options, and the replace took circle home out of the stack.
-    if (onTop.current && router.canDismiss()) router.dismiss();
+    // after somebody pressed Back during it, and then whatever they went to
+    // is not this screen's to move: popping took the options, replacing took
+    // circle home out of the stack. Nothing is lost by staying put — the
+    // lock-in refetches every query, the options forward a locked-in plan to
+    // this same screen, and circle home shows it locked in.
+    if (!onTop.current) return;
+    if (router.canDismiss()) router.dismiss();
     router.replace({
       pathname: '/circles/[id]/plan/[planId]/confirmed',
       params: { id: circleId, planId },
