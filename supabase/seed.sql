@@ -36,9 +36,15 @@ begin;
 
 create or replace function pg_temp.seed_user(id uuid, name text, anonymous boolean default false)
 returns uuid language sql as $$
+  -- The token columns are empty strings rather than null: GoTrue scans them
+  -- into Go strings, and a null there fails every sign-in to the seeded
+  -- account with "Database error finding user" — which made "sign in as Maya"
+  -- impossible in every scenario below until S1-23 needed it.
   insert into auth.users (
     id, instance_id, aud, role, email, email_confirmed_at, is_anonymous,
-    raw_app_meta_data, raw_user_meta_data, created_at, updated_at
+    raw_app_meta_data, raw_user_meta_data, created_at, updated_at,
+    confirmation_token, recovery_token, email_change_token_new, email_change,
+    email_change_token_current, phone_change, phone_change_token, reauthentication_token
   ) values (
     id, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
     case when anonymous then null else lower(name) || '@example.com' end,
@@ -49,7 +55,8 @@ returns uuid language sql as $$
     -- were silently absent from every local scenario (S1-20).
     case when anonymous then null else now() end,
     anonymous, jsonb_build_object('is_anonymous', anonymous),
-    jsonb_build_object('display_name', name, 'time_zone', 'Australia/Melbourne'), now(), now()
+    jsonb_build_object('display_name', name, 'time_zone', 'Australia/Melbourne'), now(), now(),
+    '', '', '', '', '', '', '', ''
   ) returning id;
 $$;
 
