@@ -7,9 +7,11 @@
  * cannot come, a quiet ask that reaches its own initiator — and they are
  * impossible to test against Resend and Expo.
  *
- * Four rules cut across every kind, and they are applied last so that no
+ * Five rules cut across every kind, and they are applied last so that no
  * audience rule can forget them:
  *
+ * - an archived circle prompts nobody ("Archiving stops all prompts", spec
+ *   §5.2);
  * - a member of another circle is not a member of this one;
  * - a removed member is not a member;
  * - `mutedAll` means all, and `mutedQuietAsks` means the quiet ones;
@@ -268,6 +270,10 @@ export function recipientsFor(
   // on `userId` alone lets another circle's row overwrite this one's, and the
   // mute flags then come from the wrong membership.
   const byId = new Map(reachableMembers(context).map((m) => [m.userId, m] as const));
+
+  // Before any audience is worked out: an archived circle has nobody to tell.
+  // `nudgeRecipient` already answers undefined for one; the plan kinds did not.
+  if (context.circle.status === 'archived') return [];
 
   return audienceFor(kind, context)
     .filter((userId) => userId !== context.actorId)

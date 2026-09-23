@@ -82,8 +82,14 @@ export const ProblemReason = z.enum([
   'requires_saved_place',
   /** `create-plan`: quiet asks land in S2-02. Not a refusal of this person, of this feature. */
   'not_yet',
-  /** `create-circle`: handing out the way in is the owner's alone (spec §5.2). */
+  /**
+   * `create-circle`, `get-invite-link`, `rotate-invite`, `remove-member`:
+   * handing out the way in, and taking somebody out, are the owner's alone
+   * (spec §5.2).
+   */
   'not_the_owner',
+  /** `remove-member`: the owner cannot remove themselves; a circle is owned by a member. */
+  'cannot_remove_owner',
   /** `revise-plan`: only the organiser edits. */
   'not_the_organiser',
   /**

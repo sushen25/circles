@@ -6,6 +6,10 @@ import { nextOne } from './words';
 const DUE: CircleHome = {
   id: 'c',
   name: 'Sunday Crew',
+  color: 'clay',
+  status: 'active',
+  nudgePolicy: null,
+  defaultArea: null,
   cadence: 'monthly',
   zone: 'Australia/Melbourne',
   lastMetAt: '2026-08-01T08:00:00Z',
@@ -16,6 +20,8 @@ const DUE: CircleHome = {
   me: 'maya',
   members: [],
   activePlan: null,
+  lockedIn: null,
+  mine: null,
 };
 
 describe('"Next one" on the circle home', () => {

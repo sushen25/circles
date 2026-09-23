@@ -1,17 +1,21 @@
-import { ANSWERABLE_STATES, type Cadence, type PlanState } from '@circles/domain';
+import type { Cadence, NudgePolicy } from '@circles/domain';
 
 import { authClient } from '../auth/client';
+import {
+  FAILED,
+  findingPlanOf,
+  goingCounts,
+  plansFor,
+  repliesFor,
+  upcomingMeetups,
+  whoAmI,
+} from './rows';
 
 /**
- * A circle's home, read through RLS as the member (spec §5.2).
- *
- * `circles`, `circle_members`, `plans`, `plan_participants` and
- * `candidate_sets` are each readable by an active member of the circle and by
- * nobody else, so this calls no function. What it cannot read is anybody
- * else's answer — `plan_responses` is its owner's alone — so "5 of 6 replied"
- * comes from the engine's own count on the newest candidate set for the
- * current revision (`responded_count`), which is recomputed on every answer.
- * No set yet means nobody has answered.
+ * A circle's home, read through RLS as the member (spec §5.2): the circle, who
+ * is in it, the plan finding a time, the meetup locked in, and the reader's own
+ * switches. Everything circle settings shows comes from the same read, so the
+ * two screens cannot disagree about a circle.
  *
  * Throws without the id in the message.
  */
@@ -33,10 +37,34 @@ export type HomePlan = {
   asked: number;
 };
 
+/** The next confirmed meetup still ahead: "Locked in · Thu 17 Sep". */
+export type HomeMeetup = {
+  planId: string;
+  code: string;
+  startsAt: string;
+  endsAt: string;
+  placeName: string | null;
+  going: number;
+  toConfirm: number;
+};
+
+/** The reader's own switches for this circle (notification settings). */
+export type MySwitches = {
+  mutedAll: boolean;
+  mutedQuietAsks: boolean;
+  mutedNudges: boolean;
+};
+
 export type CircleHome = {
   id: string;
   name: string;
+  /** A circle palette token (`clay`), never a hex. */
+  color: string;
+  status: 'active' | 'archived';
   cadence: Cadence;
+  /** Null until somebody chooses: the domain works the default out (`effectiveNudgePolicy`). */
+  nudgePolicy: NudgePolicy | null;
+  defaultArea: string | null;
   zone: string;
   lastMetAt: string | null;
   cadenceSnoozedUntil: string | null;
@@ -47,15 +75,10 @@ export type CircleHome = {
   me: string | undefined;
   /** Active members, oldest first. */
   members: HomeMember[];
-  /**
-   * The named plan that is finding a time, if there is one: the newest in an
-   * answerable state. A plan past its deadline is still finding a time until
-   * the organiser decides (spec §8); the deadline is the server's to judge.
-   */
   activePlan: HomePlan | null;
+  lockedIn: HomeMeetup | null;
+  mine: MySwitches | null;
 };
-
-const FAILED = 'circle home lookup failed';
 
 export async function circleHome(id: string): Promise<CircleHome | null> {
   const client = authClient();
@@ -63,7 +86,7 @@ export async function circleHome(id: string): Promise<CircleHome | null> {
   const { data: circle, error } = await client
     .from('circles')
     .select(
-      'id, name, cadence, time_zone, last_met_at, cadence_snoozed_until, default_duration_minutes, default_quorum, owner_user_id',
+      'id, name, color, status, cadence, nudge_policy, default_area, time_zone, last_met_at, cadence_snoozed_until, default_duration_minutes, default_quorum, owner_user_id',
     )
     .eq('id', id)
     .maybeSingle();
@@ -74,59 +97,55 @@ export async function circleHome(id: string): Promise<CircleHome | null> {
   }
   if (circle === null) return null;
 
-  const { data: session } = await client.auth.getSession();
-  const me = session.session?.user.id;
+  const me = await whoAmI(client);
 
   const [members, plans] = await Promise.all([
     client
       .from('circle_members')
-      .select('user_id, display_name_snapshot, joined_at, role')
+      .select(
+        'user_id, display_name_snapshot, joined_at, role, muted_all, muted_quiet_asks, muted_nudges',
+      )
       .eq('circle_id', id)
       .eq('status', 'active')
       .order('joined_at', { ascending: true }),
-    client
-      .from('plans')
-      .select('id, short_code, title, state, revision, response_deadline')
-      .eq('circle_id', id)
-      .eq('mode', 'named')
-      .in('state', [...ANSWERABLE_STATES])
-      .order('created_at', { ascending: false })
-      .limit(1),
+    plansFor(client, [id]),
   ]);
-  if (members.error !== null || plans.error !== null) throw new Error(FAILED);
+  if (members.error !== null) throw new Error(FAILED);
 
-  const plan = plans.data[0];
-  let activePlan: HomePlan | null = null;
-  if (plan !== undefined && ANSWERABLE_STATES.includes(plan.state as PlanState)) {
-    const [asked, latest] = await Promise.all([
-      client
-        .from('plan_participants')
-        .select('user_id', { count: 'exact', head: true })
-        .eq('plan_id', plan.id)
-        .eq('revision', plan.revision),
-      client
-        .from('candidate_sets')
-        .select('responded_count')
-        .eq('plan_id', plan.id)
-        .eq('revision', plan.revision)
-        .order('generated_at', { ascending: false })
-        .limit(1),
-    ]);
-    if (asked.error !== null || latest.error !== null) throw new Error(FAILED);
-    activePlan = {
-      id: plan.id,
-      code: plan.short_code,
-      title: plan.title,
-      responseDeadline: plan.response_deadline,
-      replied: latest.data[0]?.responded_count ?? 0,
-      asked: asked.count ?? 0,
+  const finding = findingPlanOf(plans, id);
+  const confirmed = plans.filter((p) => p.state === 'confirmed');
+  const [replies, meetups] = await Promise.all([
+    finding === undefined ? undefined : repliesFor(client, finding),
+    upcomingMeetups(
+      client,
+      confirmed.map((p) => p.id),
+    ),
+  ]);
+
+  const next = meetups[0];
+  let lockedIn: HomeMeetup | null = null;
+  if (next !== undefined) {
+    const counts = await goingCounts(client, next.confirmationId);
+    lockedIn = {
+      planId: next.planId,
+      code: confirmed.find((p) => p.id === next.planId)?.short_code ?? '',
+      startsAt: next.startsAt,
+      endsAt: next.endsAt,
+      placeName: next.placeName,
+      ...counts,
     };
   }
+
+  const own = members.data.find((m) => m.user_id === me);
 
   return {
     id: circle.id,
     name: circle.name,
+    color: circle.color,
+    status: circle.status === 'archived' ? 'archived' : 'active',
     cadence: circle.cadence as Cadence,
+    nudgePolicy: (circle.nudge_policy as NudgePolicy | null) ?? null,
+    defaultArea: circle.default_area,
     zone: circle.time_zone,
     lastMetAt: circle.last_met_at,
     cadenceSnoozedUntil: circle.cadence_snoozed_until,
@@ -140,7 +159,25 @@ export async function circleHome(id: string): Promise<CircleHome | null> {
       joinedAt: m.joined_at,
       role: m.role === 'owner' ? 'owner' : 'member',
     })),
-    activePlan,
+    activePlan:
+      finding === undefined || replies === undefined
+        ? null
+        : {
+            id: finding.id,
+            code: finding.short_code,
+            title: finding.title,
+            responseDeadline: finding.response_deadline,
+            ...replies,
+          },
+    lockedIn,
+    mine:
+      own === undefined
+        ? null
+        : {
+            mutedAll: own.muted_all,
+            mutedQuietAsks: own.muted_quiet_asks,
+            mutedNudges: own.muted_nudges,
+          },
   };
 }
 
@@ -155,15 +192,10 @@ export async function belongsToAnyCircle(): Promise<boolean> {
   return (await newestCircleId()) !== undefined;
 }
 
-/**
- * The circle this account joined most recently, or undefined when it is in
- * none. Where a returning organiser lands until the circles list is live
- * (S1-23): their own circle, rather than a list of fixtures.
- */
+/** The circle this account joined most recently, or undefined when it is in none. */
 export async function newestCircleId(): Promise<string | undefined> {
   const client = authClient();
-  const { data: session } = await client.auth.getSession();
-  const me = session.session?.user.id;
+  const me = await whoAmI(client);
   if (me === undefined) return undefined;
 
   const { data, error } = await client

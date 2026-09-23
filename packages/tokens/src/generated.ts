@@ -36,6 +36,19 @@ export const color = {
 } as const;
 
 /**
+ * A circle's own colour, by the name `circles.color` stores (spec §5.2). The
+ * first is the default. A name not in here renders as the first, rather than
+ * as nothing.
+ */
+export const circleColor = {
+  clay: '#C2542F',
+  moss: '#4F6B45',
+  plum: '#8A6A9E',
+  sky: '#3F6E8C',
+  ochre: '#B07A2B',
+} as const;
+
+/**
  * The type ramp. `lineHeight` and `letterSpacing` are absolute, in points, for
  * React Native; `lineHeightRatio` and `letterSpacingEm` are the canvas's own
  * units, kept so the two can be compared.

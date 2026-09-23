@@ -1,11 +1,12 @@
 import { CreateCircleRequest, type CreateCircleResponse } from '@circles/contracts';
 
 import { circleDto } from '../_shared/circle.ts';
+import { optional } from '../_shared/env.ts';
 import { sha256Hex } from '../_shared/hash.ts';
 import { jsonHandler } from '../_shared/http.ts';
 import { Refusal } from '../_shared/problem.ts';
 import { callerAddress, enforce } from '../_shared/rate.ts';
-import { inviteSecret } from '../_shared/secret.ts';
+import { newInvite } from '../_shared/secret.ts';
 
 /**
  * A circle and the link that fills it, in one call (spec §5.1, steps 4 and 5).
@@ -25,7 +26,10 @@ import { inviteSecret } from '../_shared/secret.ts';
  *
  * The secret is generated here and only its SHA-256 is stored — the readable
  * form is never a statement parameter, never in a query log, and not
- * recoverable from `circle_invites` at all.
+ * recoverable from `circle_invites` at all. It is *derived* from the invite's
+ * id under `INVITE_LINK_KEY` when that is set (ADR 0028), which is what lets
+ * `get-invite-link` show the owner this link again after a reload; the key is
+ * an Edge Function secret, so the database alone still cannot.
  *
  * With one deliberate exception, which is worth stating rather than implying:
  * the idempotency record keeps the *response*, and the response is where the
@@ -55,7 +59,7 @@ Deno.serve(
       ]);
     },
     handle: async ({ body, caller }): Promise<CreateCircleResponse> => {
-      const secret = inviteSecret();
+      const { inviteId, secret } = await newInvite(optional('INVITE_LINK_KEY'));
       const { data: circle, error } = await caller.rpc('create_circle', {
         name: body.name,
         color: body.color,
@@ -63,6 +67,8 @@ Deno.serve(
         idempotency_key: body.idempotency_key,
         cadence: body.cadence,
         invite_secret_hash: await sha256Hex(secret),
+        ...(inviteId === undefined ? {} : { invite_id: inviteId }),
+        ...(body.default_area === undefined ? {} : { default_area: body.default_area }),
       });
       if (error !== null) throw error;
 

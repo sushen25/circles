@@ -1,16 +1,16 @@
 import { DEEP_LINK_ROUTES } from '@circles/contracts';
 
 /**
- * The circle's invite link, from the one moment the client ever holds it.
+ * The circle's invite link, while this tab holds it.
  *
- * `create-circle` returns the secret **once**; only its SHA-256 is stored, so
- * nothing can hand it back later (§14). It is kept here, in memory, between
- * FirstCircle and the two screens that share it — InviteCircle and "Share
- * again" on the circle home — and nowhere that outlives the tab: not a URL,
- * not storage, not a query key, not analytics. A reload loses it, and the
- * screens say so and point at the circle's settings, where the owner resets the
- * link (S1-23). Keeping it in storage would be keeping a capability somewhere
- * else to leak from.
+ * The secret arrives from `create-circle`, from `rotate-invite` ("Reset link")
+ * or from `get-invite-link` (the owner asking for it again, ADR 0028), and only
+ * its SHA-256 is stored server-side (§14). It is kept here, in memory, for the
+ * screens that share it — InviteCircle, "Share again" and "Invite link" on the
+ * circle home, "Copy link" in settings — and nowhere that outlives the tab: not
+ * a URL, not storage, not a query key, not analytics. A reload loses it, and the
+ * owner's screens ask `get-invite-link` again. Keeping it in storage would be
+ * keeping a capability somewhere else to leak from.
  *
  * Keyed by circle, so a second circle made in the same tab does not hand the
  * first one's link to the wrong group.
@@ -21,7 +21,7 @@ export function keepInviteSecret(circleId: string, secret: string): void {
   held.set(circleId, secret);
 }
 
-/** The link for `circleId`, if this tab made it; undefined after a reload. */
+/** The link for `circleId`, if this tab holds its secret; undefined after a reload. */
 export function heldInviteLink(circleId: string, origin: string): string | undefined {
   const secret = held.get(circleId);
   return secret === undefined ? undefined : inviteLink(origin, secret);

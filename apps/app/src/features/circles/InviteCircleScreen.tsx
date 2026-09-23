@@ -14,9 +14,9 @@ import type { ScreenState } from '../state';
  * home, from settings (S1-23), and from "Just invite people for now" on the
  * first plan — so it carries no step label.
  *
- * `expired` is the link no longer being in hand — the secret is returned once
- * and only held in memory, so a reload loses it — and the way back to one is
- * resetting it from the circle's settings (S1-23).
+ * `expired` is a link that cannot be shown again — one made before links could
+ * be (ADR 0028), or on a deployment without the key — and the way back to one
+ * is resetting it from the circle's settings.
  */
 export type InviteCircleProps = {
   fixture?: Fixture | undefined;
@@ -34,6 +34,8 @@ export type InviteCircleProps = {
   onBack?: (() => void) | undefined;
   onCopyLink?: (() => void) | undefined;
   onSkipForNowIll?: (() => void) | undefined;
+  /** From the expired state: where the owner resets the link. */
+  onSettings?: (() => void) | undefined;
 };
 
 export function InviteCircleScreen({
@@ -49,6 +51,7 @@ export function InviteCircleScreen({
   onBack,
   onCopyLink,
   onSkipForNowIll,
+  onSettings,
 }: InviteCircleProps) {
   if (state === 'loading') {
     return (
@@ -90,8 +93,12 @@ export function InviteCircleScreen({
           </Stack>
         </Body>
         <Foot>
+          {onSettings === undefined ? null : (
+            <Button label={t('inviteCircle', 'open_settings')} onPress={onSettings} />
+          )}
           <Button
             label={t('inviteCircle', 'go_to_circle', { circle: circleName })}
+            variant={onSettings === undefined ? 'primary' : 'secondary'}
             onPress={onSkipForNowIll}
           />
         </Foot>

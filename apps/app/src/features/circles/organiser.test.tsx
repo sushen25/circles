@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type * as CircleData from '../../data/circles';
+import type * as CircleHomeData from '../../data/circles/home';
 import type * as Planning from '../../data/planning';
 
 /**
@@ -39,10 +40,17 @@ vi.mock('../../data/links/origin', () => ({ appOrigin: () => 'https://circles.te
 
 const createCircle = vi.fn();
 const circleHome = vi.fn();
+const fetchInviteSecret = vi.fn();
+// The read itself, where it lives: `useCircle` calls it from inside the module,
+// so mocking only the package's re-export would miss every screen that uses it.
+vi.mock('../../data/circles/home', async (original) => ({
+  ...(await original<typeof CircleHomeData>()),
+  circleHome: (...a: unknown[]) => circleHome(...a),
+}));
 vi.mock('../../data/circles', async (original) => ({
   ...(await original<typeof CircleData>()),
   createCircle: (...a: unknown[]) => createCircle(...a),
-  circleHome: (...a: unknown[]) => circleHome(...a),
+  fetchInviteSecret: (...a: unknown[]) => fetchInviteSecret(...a),
 }));
 const createFirstPlan = vi.fn();
 const planToShare = vi.fn();
@@ -80,6 +88,10 @@ function home(overrides: Record<string, unknown> = {}) {
   return {
     id: CIRCLE,
     name: 'Sunday Crew',
+    color: 'clay',
+    status: 'active',
+    nudgePolicy: null,
+    defaultArea: null,
     cadence: 'monthly',
     zone: 'Australia/Melbourne',
     lastMetAt: null,
@@ -94,6 +106,8 @@ function home(overrides: Record<string, unknown> = {}) {
       { userId: 'tom', name: 'Tom', joinedAt: minutesAgo(2), role: 'member' },
     ],
     activePlan: null,
+    lockedIn: null,
+    mine: { mutedAll: false, mutedQuietAsks: false, mutedNudges: false },
     ...overrides,
   };
 }
@@ -113,6 +127,7 @@ beforeEach(() => {
     track,
     createCircle,
     circleHome,
+    fetchInviteSecret,
     createFirstPlan,
     planToShare,
     shareMessage,
@@ -243,10 +258,37 @@ describe('InviteCircle', () => {
     expect(track).toHaveBeenCalledWith('circle_invite_shared', { circle_id: CIRCLE, kind: 'copy' });
   });
 
-  it('after a reload, says the link is only shown once rather than inventing one', async () => {
+  it('after a reload, asks for the owner’s link again and shows it (ADR 0028)', async () => {
+    fetchInviteSecret.mockImplementation((id: string) => {
+      keepInviteSecret(id, SECRET);
+      return Promise.resolve(SECRET);
+    });
     wrap(<InviteCircleFlow id={CIRCLE} />);
-    expect(await screen.findByText(/only shown when it's made/)).toBeVisible();
+
+    expect(await screen.findByText(`https://circles.test/join#${SECRET}`)).toBeVisible();
+    expect(fetchInviteSecret).toHaveBeenCalledWith(CIRCLE);
+  });
+
+  it('says a link that cannot be shown again is gone, and offers the reset', async () => {
+    fetchInviteSecret.mockResolvedValue(undefined);
+    wrap(<InviteCircleFlow id={CIRCLE} />);
+
+    expect(await screen.findByText(/can't be shown again/)).toBeVisible();
     expect(screen.queryByRole('button', { name: 'Share to group chat' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Open circle settings' }));
+    expect(replace).toHaveBeenCalledWith({
+      pathname: '/circles/[id]/settings',
+      params: { id: CIRCLE },
+    });
+  });
+
+  it('never asks for a member who is not the owner', async () => {
+    circleHome.mockResolvedValue(home({ isOwner: false }));
+    wrap(<InviteCircleFlow id={CIRCLE} />);
+
+    expect(await screen.findByText(/can't be shown again/)).toBeVisible();
+    expect(fetchInviteSecret).not.toHaveBeenCalled();
+    expect(screen.queryByRole('button', { name: 'Open circle settings' })).toBeNull();
   });
 });
 

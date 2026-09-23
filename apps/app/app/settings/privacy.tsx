@@ -1,12 +1,14 @@
 import { useRouter } from 'expo-router';
 
-import { useFixture } from '../../src/data/fixtures/useFixture';
 import { PrivacyScreen } from '../../src/features/identity/PrivacyScreen';
 
-/** Route only — thin composition, no logic (architecture §7.1). */
+/** Route only — thin composition, no logic (architecture §7.1). Static copy. */
 export default function Route() {
   const router = useRouter();
-  const fixture = useFixture();
 
-  return <PrivacyScreen fixture={fixture} onBack={() => router.back()} />;
+  return (
+    <PrivacyScreen
+      onBack={() => (router.canGoBack() ? router.back() : router.replace('/settings/account'))}
+    />
+  );
 }

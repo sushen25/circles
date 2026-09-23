@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { type Instant, fromISO } from '../shared/instant.js';
 import { toISO } from '../shared/instant.js';
 import { zone } from '../shared/zone.js';
-import { cadenceState, nextDueAt, nudgeLeadDays } from './cadence.js';
+import { cadenceState, circleHomeState, nextDueAt, nudgeLeadDays } from './cadence.js';
 import { MELBOURNE } from '../shared/fixtures.js';
 import { LAST_MET, circle } from './fixtures.js';
 
@@ -93,5 +93,31 @@ describe('cadenceState', () => {
     expect(cadenceState(snoozed, due)).toBe('no_rush');
     // The rhythm is not pushed back: once the snooze lapses it is due again.
     expect(cadenceState(snoozed, fromISO('2026-10-02T00:00:00Z'))).toBe('due_soon');
+  });
+});
+
+describe('circleHomeState', () => {
+  const now = fromISO('2026-08-20T00:00:00Z');
+  const base = { circle: circle(), now, findingATime: false, lockedIn: false, activeMembers: 6 };
+
+  it('is finding a time while a plan is asking, even with a meetup locked in', () => {
+    expect(circleHomeState({ ...base, findingATime: true, lockedIn: true })).toBe('finding_a_time');
+  });
+
+  it('is locked in with a meetup ahead and nothing asking', () => {
+    expect(circleHomeState({ ...base, lockedIn: true })).toBe('locked_in');
+  });
+
+  it('is just you when nobody has joined, whatever the cadence says', () => {
+    expect(circleHomeState({ ...base, activeMembers: 1 })).toBe('just_you');
+  });
+
+  it('follows the cadence otherwise, in the spec’s words', () => {
+    expect(circleHomeState(base)).toBe('no_rush');
+    expect(circleHomeState({ ...base, now: fromISO('2026-09-03T00:00:00Z') })).toBe('about_time');
+    expect(circleHomeState({ ...base, circle: circle({ cadence: 'none' }) })).toBe('no_goal');
+    expect(circleHomeState({ ...base, circle: circle({ lastMetAt: undefined }) })).toBe(
+      'never_met',
+    );
   });
 });

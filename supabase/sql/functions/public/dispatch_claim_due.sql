@@ -17,6 +17,10 @@
 --   * `plan_state` — a verification queued while a plan was live is still
 --     `scheduled` after the plan is cancelled, and sending it is a letter
 --     about a meetup that is over.
+--   * `circle_archived` — "Archiving stops all prompts" (spec §5.2), and a
+--     reminder written before the owner archived is still `scheduled` after.
+--     Asked at the moment of sending, so bringing the circle back lets what
+--     was queued go rather than losing it (S1-23).
 --   * `superseded` — "one copy per event" is the sender's job, not the
 --     writer's. One address can be held by two contacts since 0009: two
 --     siblings subscribed to the same decided plan, or a guest who joined
@@ -96,6 +100,7 @@ as $$
     'plan_current_revision', p.revision,
     'circle_id', p.circle_id,
     'circle_name', cir.name,
+    'circle_archived', coalesce(cir.status = 'archived', false),
     'superseded', j.kind not in ('changed', 'verify_email', 'about_time') and exists (
       select 1
       from jobs.notification_jobs o

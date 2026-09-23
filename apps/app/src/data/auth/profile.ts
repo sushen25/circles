@@ -191,3 +191,15 @@ export async function saveProfile(input: { name: string; zone: string }): Promis
     .eq('user_id', userId);
   if (error !== null) throw new Error('profile save failed');
 }
+
+/**
+ * The address this account signs in with, **as the Account screen shows it**:
+ * `m…@example.com`. Made by `public.own_email_hint` on the server side of the
+ * boundary, so the address itself never reaches this code — "no client
+ * context ever holds a raw email address" (AGENTS.md). Null for a guest.
+ */
+export async function ownEmailHint(): Promise<string | null> {
+  const { data, error } = await authClient().rpc('own_email_hint');
+  if (error !== null) throw new Error('email hint lookup failed');
+  return data ?? null;
+}

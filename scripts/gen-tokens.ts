@@ -80,6 +80,24 @@ for (const [, key, value] of dict.matchAll(/(\w+)\s*=\s*"(#[0-9A-Fa-f]{3,8})"/g)
   if (key && value) color[snakeToCamel(key)] = value.toUpperCase();
 }
 
+// ------------------------------------------------------- circle colours
+//
+// A circle's own colour is a *choice*, not a UI role, so it is a separate
+// palette: `CIRCLE = dict(...)` beside `T`. Stored by name in `circles.color`,
+// never as a hex (the column's comment says why).
+
+const circleDict =
+  source.match(/CIRCLE = dict\(([\s\S]*?)\)\s*\n/)?.[1] ?? fail('the `CIRCLE = dict(...)` block');
+const circleColor: Record<string, string> = {};
+for (const [, key, value] of circleDict.matchAll(/(\w+)\s*=\s*"(#[0-9A-Fa-f]{6})"/g)) {
+  if (key && value) circleColor[key] = value.toUpperCase();
+}
+if (Object.keys(circleColor).length === 0) fail('at least one colour in `CIRCLE = dict(...)`');
+for (const key of Object.keys(circleColor)) {
+  // The database's own shape for a colour token (`CreateCircleRequest.color`).
+  if (!/^[a-z][a-z0-9]{1,23}$/.test(key)) fail(`a circle colour named like a token (got "${key}")`);
+}
+
 // ---------------------------------------------------------------- type
 
 const FAMILIES = { Newsreader: 'Newsreader', Figtree: 'Figtree' } as const;
@@ -280,6 +298,13 @@ const body = `/**
 export const color = ${JSON.stringify(ordered, null, 2)} as const;
 
 /**
+ * A circle's own colour, by the name \`circles.color\` stores (spec §5.2). The
+ * first is the default. A name not in here renders as the first, rather than
+ * as nothing.
+ */
+export const circleColor = ${JSON.stringify(circleColor, null, 2)} as const;
+
+/**
  * The type ramp. \`lineHeight\` and \`letterSpacing\` are absolute, in points, for
  * React Native; \`lineHeightRatio\` and \`letterSpacingEm\` are the canvas's own
  * units, kept so the two can be compared.
@@ -360,7 +385,8 @@ const prettierConfig = await resolveConfig(TARGET);
 const formatted = await format(body, { ...prettierConfig, parser: 'typescript' });
 
 const summary =
-  `${EXPECTED_COLORS.length} colours, ${Object.keys(type).length} type roles, ` +
+  `${EXPECTED_COLORS.length} colours, ${Object.keys(circleColor).length} circle colours, ` +
+  `${Object.keys(type).length} type roles, ` +
   `${Object.keys(radius).length} radii, ${Object.keys(size).length} sizes`;
 
 if (process.argv.includes('--check')) {

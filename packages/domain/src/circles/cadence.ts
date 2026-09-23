@@ -116,3 +116,47 @@ export function cadenceState(circle: Circle, now: Instant, hasActivePlan = false
 
   return isBefore(now, showFrom) ? 'no_rush' : 'due_soon';
 }
+
+/**
+ * Which of circle home's states a circle is in (spec §5.2), and the line the
+ * circles list writes under its name.
+ *
+ * - `finding_a_time` — a named plan is collecting answers. It wins over a
+ *   meetup already locked in, because it is the one waiting on somebody.
+ * - `locked_in` — a confirmed meetup still ahead.
+ * - `just_you` — nobody has joined yet: the only useful thing is the link.
+ * - otherwise the cadence, in `cadenceState`'s terms: `about_time` for
+ *   `due_soon`, and `never_met`, `no_goal` and `no_rush` as they are.
+ *
+ * Never "overdue", never a count (spec §5.9): `about_time` stays `about_time`
+ * however long it has been.
+ */
+export type CircleHomeState =
+  'finding_a_time' | 'locked_in' | 'just_you' | 'about_time' | 'never_met' | 'no_goal' | 'no_rush';
+
+export type CircleHomeInput = {
+  readonly circle: Circle;
+  readonly now: Instant;
+  /** A named plan collecting answers. */
+  readonly findingATime: boolean;
+  /** An active confirmation whose meetup has not ended. */
+  readonly lockedIn: boolean;
+  readonly activeMembers: number;
+};
+
+export function circleHomeState(input: CircleHomeInput): CircleHomeState {
+  if (input.findingATime) return 'finding_a_time';
+  if (input.lockedIn) return 'locked_in';
+  if (input.activeMembers <= 1) return 'just_you';
+  switch (cadenceState(input.circle, input.now)) {
+    case 'due_soon':
+      return 'about_time';
+    case 'never_met':
+      return 'never_met';
+    case 'no_goal':
+      return 'no_goal';
+    case 'no_rush':
+    case 'active_plan':
+      return 'no_rush';
+  }
+}

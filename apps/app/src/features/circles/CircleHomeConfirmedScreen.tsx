@@ -2,31 +2,51 @@ import {
   Body,
   BodyText,
   Button,
+  ButtonRow,
   Card,
+  CircleHeader,
   DateText,
-  DisplayL,
   Foot,
   Label,
-  Marks,
   Screen,
   Small,
   TopBar,
+  type Member,
 } from '../../components';
 import { Row, Stack } from '../../components/layout';
 import { t } from '../../copy';
 import type { Fixture } from '../../data/fixtures';
 import type { ScreenState } from '../state';
+import { MembersLine, SettingsButton } from './parts';
 
 /**
- * CircleHomeConfirmed — scaffolded from `docs/design/CircleHomeConfirmed.dc.html`.
+ * CircleHome, locked in — `docs/design/CircleHomeConfirmed.dc.html` (spec
+ * §5.2): the next confirmed meetup with who is going, last caught up, and the
+ * meetup as the "next one".
  *
- * Structure and copy come from the artboard; data comes from a fixture. Slice 1
- * replaces `fixture` with real data and `onNext` with real navigation. Edit
- * freely: `scripts/scaffold-screens.mjs` will not overwrite this file.
+ * "Details" opens the confirmed screen for that plan (S1-28's); "Share" puts the
+ * locked-in message in the group chat. "Plan another" is the primary action,
+ * secondary in weight because nothing is waiting on it.
  */
 export type CircleHomeConfirmedProps = {
-  fixture: Fixture;
+  fixture?: Fixture | undefined;
   state?: ScreenState | undefined;
+  circleName?: string | undefined;
+  color?: string | undefined;
+  subtitle?: string | undefined;
+  /** "Thu 17 Sep". */
+  date?: string | undefined;
+  /** "6:30–8:30 pm · Hope St Radio". */
+  detail?: string | undefined;
+  /** "5 going · 1 to confirm". */
+  going?: string | undefined;
+  lastCaughtUp?: string | undefined;
+  members?: readonly Member[] | undefined;
+  memberCount?: string | undefined;
+  /** What the last Share did, said once. */
+  shareOutcome?: string | undefined;
+  onInviteLink?: (() => void) | undefined;
+  onSettings?: (() => void) | undefined;
   /** The screen's one decision. */
   onNext?: (() => void) | undefined;
   onBack?: (() => void) | undefined;
@@ -37,6 +57,18 @@ export type CircleHomeConfirmedProps = {
 
 export function CircleHomeConfirmedScreen({
   fixture,
+  circleName = t('circleHomeConfirmed', 'sunday_crew'),
+  color = 'clay',
+  subtitle = t('circleHomeConfirmed', '6_members_about_monthly'),
+  date = t('circleHomeConfirmed', 'thu_17_sep'),
+  detail = t('circleHomeConfirmed', '6_30_8_30_pm_hope_st'),
+  going = t('circleHomeConfirmed', '5_going_1_to_confirm'),
+  lastCaughtUp = t('circleHomeConfirmed', 'sat_8_aug'),
+  members = fixture?.circle.members ?? [],
+  memberCount = t('circleHomeConfirmed', '6_members'),
+  shareOutcome,
+  onInviteLink,
+  onSettings,
   onBack,
   onDetails,
   onPlanAnother,
@@ -44,24 +76,23 @@ export function CircleHomeConfirmedScreen({
 }: CircleHomeConfirmedProps) {
   return (
     <Screen>
-      <TopBar onBack={onBack} backLabel={t('common', 'back')} />
+      <TopBar
+        onBack={onBack}
+        backLabel={t('common', 'back')}
+        right={<SettingsButton onPress={onSettings} />}
+      />
       <Body>
-        <Row>
-          <Stack>
-            <DisplayL>{t('circleHomeConfirmed', 'sunday_crew')}</DisplayL>
-            <Small>{t('circleHomeConfirmed', '6_members_about_monthly')}</Small>
-          </Stack>
-        </Row>
+        <CircleHeader name={circleName} color={color} subtitle={subtitle} />
         <Card recommended>
-          <Row>
-            <Label>{t('circleHomeConfirmed', 'locked_in')}</Label>
-            <Small>{t('circleHomeConfirmed', '5_going_1_to_confirm')}</Small>
-          </Row>
           <Stack>
-            <DateText>{t('circleHomeConfirmed', 'thu_17_sep')}</DateText>
-            <BodyText>{t('circleHomeConfirmed', '6_30_8_30_pm_hope_st')}</BodyText>
+            <Label>{t('circleHomeConfirmed', 'locked_in')}</Label>
+            <Small>{going}</Small>
           </Stack>
-          <Row>
+          <Stack>
+            <DateText>{date}</DateText>
+            <BodyText>{detail}</BodyText>
+          </Stack>
+          <ButtonRow>
             <Button
               label={t('circleHomeConfirmed', 'details')}
               variant="secondary"
@@ -72,29 +103,24 @@ export function CircleHomeConfirmedScreen({
               variant="secondary"
               onPress={onShare}
             />
-          </Row>
+          </ButtonRow>
+          {shareOutcome === undefined ? null : (
+            <Small accessibilityLiveRegion="polite">{shareOutcome}</Small>
+          )}
         </Card>
         <Card>
           <Row>
             <Stack>
               <Label>{t('circleHomeConfirmed', 'last_caught_up')}</Label>
-              <DateText>{t('circleHomeConfirmed', 'sat_8_aug')}</DateText>
+              <DateText>{lastCaughtUp}</DateText>
             </Stack>
             <Stack>
               <Label>{t('circleHomeConfirmed', 'next_one')}</Label>
-              <DateText>{t('circleHomeConfirmed', 'thu_17_sep')}</DateText>
+              <DateText>{date}</DateText>
             </Stack>
           </Row>
         </Card>
-        <Row>
-          <Row>
-            <Marks members={fixture.circle.members} />
-            <Small>{t('circleHomeConfirmed', '6_members')}</Small>
-          </Row>
-          <Row>
-            <BodyText>{t('circleHomeConfirmed', 'invite_link')}</BodyText>
-          </Row>
-        </Row>
+        <MembersLine members={members} memberCount={memberCount} onInviteLink={onInviteLink} />
       </Body>
       <Foot>
         <Button

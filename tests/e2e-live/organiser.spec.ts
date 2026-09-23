@@ -148,7 +148,7 @@ test('a new organiser reaches a shareable plan link with two typed inputs and no
   await expect(page.getByText('1 of 1 replied')).toBeVisible();
 });
 
-test('a returning organiser with a name skips Your name and lands on their own circle', async ({
+test('a returning organiser with a name skips Your name and lands on their circles', async ({
   page,
 }) => {
   const maya = await accountToSignInTo('Maya');
@@ -157,9 +157,13 @@ test('a returning organiser with a name skips Your name and lands on their own c
   await page.goto('/sign-in');
   await signInByCode(page, maya.email);
 
-  // Her circle, not the circles list, which is fixtures until S1-23.
+  // Her circles, live since S1-23, and her circle among them by its real id.
+  await expect(page).toHaveURL(/\/circles$/);
+  await expect(page.getByText('Your circles')).toBeVisible();
+  await page.getByRole('button', { name: /^Sunday Crew\./ }).click();
   await expect(page).toHaveURL(new RegExp(`/circles/${circleId}$`));
-  await expect(page.getByText('Sunday Crew').first()).toBeVisible();
+  // The heading, not the text: the list stays mounted underneath on the web stack.
+  await expect(page.getByRole('heading', { name: 'Sunday Crew' })).toBeVisible();
 });
 
 test('"I have an account" on a plan link signs in and comes back to the one-tap join', async ({

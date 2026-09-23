@@ -12,7 +12,7 @@
 -- made — which is also how the dispatcher itself has to think.
 
 begin;
-select plan(62);
+select plan(64);
 
 create or replace function pg_temp.make_user(
   id uuid, name text, permanent boolean default false, confirmed boolean default false
@@ -400,6 +400,28 @@ select is(
 select pg_temp.act_as_postgres();
 update public.circle_members m set status = 'active'
 where m.circle_id = (select circle_id from t);
+
+-- Archiving stops all prompts (spec §5.2), including the ones already queued:
+-- the claim says so at the moment of sending (S1-23), and bringing the circle
+-- back lets them go again.
+update public.circles set status = 'archived' where id = (select circle_id from t);
+select pg_temp.act_as_service();
+select is(
+  (select count(*)::integer from jsonb_array_elements(public.dispatch_claim_due(200)) j
+   where j ->> 'plan_id' = pg_temp.live_plan()::text and (j ->> 'circle_archived')::boolean),
+  2,
+  'a job queued before its circle was archived is claimed as archived'
+);
+select pg_temp.act_as_postgres();
+update public.circles set status = 'active' where id = (select circle_id from t);
+select pg_temp.act_as_service();
+select is(
+  (select count(*)::integer from jsonb_array_elements(public.dispatch_claim_due(200)) j
+   where j ->> 'plan_id' = pg_temp.live_plan()::text and (j ->> 'circle_archived')::boolean),
+  0,
+  'and brought back, it is not'
+);
+select pg_temp.act_as_postgres();
 
 -- A copy that really has gone does supersede the other.
 update jobs.notification_jobs j

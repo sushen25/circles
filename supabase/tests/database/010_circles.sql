@@ -866,7 +866,7 @@ select is(
 
 select pg_temp.act_as_postgres();
 select ok(
-  not has_function_privilege('anon', 'public.create_circle(text,text,text,text,text,bytea)', 'execute'),
+  not has_function_privilege('anon', 'public.create_circle(text,text,text,text,text,bytea,uuid,text)', 'execute'),
   'anon cannot even call create_circle'
 );
 select ok(
@@ -939,7 +939,15 @@ select is(
        -- (`join_from_plan`, the second way in, is deliberately absent: it is the
        -- service role's, so that nothing reaches it without the Turnstile check
        -- and the rate limits in `join-plan`. `170_join_from_plan.sql`.)
-       'invite_preview'
+       'invite_preview',
+       -- S1-23. Running a circle, both the owner's alone and both refusing
+       -- anybody else by name: `live_invite` is the live link's id and digest
+       -- (never its secret, which the database does not have), and
+       -- `remove_member` the one way somebody is taken out.
+       'live_invite', 'remove_member',
+       -- And the Account screen's address, as a hint made on this side of the
+       -- boundary so no client holds the address itself; the caller's own.
+       'own_email_hint'
      )),
   '',
   'only the intended functions in public are callable by authenticated'

@@ -15,11 +15,19 @@
 -- Revoking first, in the same statement, is what makes "reset" mean something:
 -- two live invites would be two capabilities, and rotating would stop
 -- invalidating anything.
+--
+-- **The invite's id may come from the caller** (ADR 0028). The Edge Functions
+-- derive the secret from the id with a key only they hold, so that the owner
+-- can be shown the link again (`get-invite-link`) while the database still
+-- stores nothing but a digest. That needs the id before the row exists. An id
+-- the caller chooses buys them nothing: the secret is the key's to derive, and
+-- a digest of anything else is simply a link `get-invite-link` cannot show.
 -- ---------------------------------------------------------------------------
 
 create or replace function public.issue_invite(
   p_circle_id uuid,
-  p_secret_hash bytea
+  p_secret_hash bytea,
+  p_invite_id uuid default null
 )
 returns public.circle_invites
 language plpgsql
@@ -49,8 +57,8 @@ begin
   where i.circle_id = p_circle_id and i.revoked_at is null;
   get diagnostics revoked = row_count;
 
-  insert into public.circle_invites (circle_id, secret_hash, created_by)
-  values (p_circle_id, p_secret_hash, caller)
+  insert into public.circle_invites (id, circle_id, secret_hash, created_by)
+  values (coalesce(p_invite_id, gen_random_uuid()), p_circle_id, p_secret_hash, caller)
   returning * into issued;
 
   -- Rotation is a fact the owner may need to explain later ("the old link
@@ -73,9 +81,9 @@ begin
 end;
 $$;
 
-comment on function public.issue_invite(uuid, bytea) is
+comment on function public.issue_invite(uuid, bytea, uuid) is
   'Issues the circle''s invite from a digest of a secret the server never sees, revoking any earlier one. The owner''s alone; resetting the link is the same call (spec §5.2).';
 
-revoke all on function public.issue_invite(uuid, bytea) from public;
-revoke all on function public.issue_invite(uuid, bytea) from anon, authenticated;
-grant execute on function public.issue_invite(uuid, bytea) to authenticated;
+revoke all on function public.issue_invite(uuid, bytea, uuid) from public;
+revoke all on function public.issue_invite(uuid, bytea, uuid) from anon, authenticated;
+grant execute on function public.issue_invite(uuid, bytea, uuid) to authenticated;

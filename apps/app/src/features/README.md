@@ -90,6 +90,22 @@ still picks a fixture state when there is no backend. Sharing goes through
 `platform/share.ts`: the system sheet where there is one, a copy where there is
 not.
 
+**Real since S1-23:** `/circles` (`CirclesListFlow`: the first-run
+`EmptyCirclesListScreen` when there are none, otherwise a row per circle with
+its line from `lines.ts`), `/circles/create` (`CreateCircleFlow`, name, colour,
+cadence and area through `create-circle`) and `/circles/[id]/settings`
+(`SettingsFlow`: the link through `get-invite-link` / `rotate-invite`,
+cadence and nudge pickers, colour, the reader's quiet-asks switch, members
+with Remove through `remove-member`, Archive). Circle home picks its state with
+the domain's `circleHomeState` (`HomeInState`): finding a time
+(`CircleHomeScreen`), locked in (`CircleHomeConfirmedScreen`, "Details" to
+`/circles/[id]/plan/[planId]/confirmed`), just you (`EmptyCircleScreen`), about
+time and between catch-ups (`CircleHomeDueScreen`, `due` or not), and never
+met (`CircleHomeJoiningScreen`). The invite link is the owner's: members are
+not offered it. The reads are `data/circles` (`useCircles`, `useCircle`), all
+through RLS; the secret is held in memory only (ADR 0028). A circle's colour is
+a `circleColor` token from `@circles/tokens` (`CircleBadge`, `Swatches`).
+
 ### communication
 
 | Artboard                       | Route                     | Component                    |
@@ -99,6 +115,11 @@ not.
 | `EmailVerified.dc.html`        | `/v` (`#token`)           | `EmailVerifiedScreen`        |
 | `NotificationSettings.dc.html` | `/settings/notifications` | `NotificationSettingsScreen` |
 | `PushAsk.dc.html`              | `/settings/push`          | `PushAskScreen`              |
+
+**Real since S1-23:** `/settings/notifications` (`NotificationSettingsFlow`):
+per circle, `muted_all`, `muted_quiet_asks` and `muted_nudges` on the reader's
+own membership; quiet hours are fixed at 9 pm–8 am and "Change" says so. The
+organiser-email switch is SUS-83's.
 
 ### confirmation
 
@@ -150,6 +171,12 @@ zone). `/sign-in?next=/j/<code>` is where "I have an account" on a plan link
 leads (ADR 0022); only a plan link survives as `next` (`data/auth/returnPath.ts`).
 `/(auth)/code` redirects to `/sign-in` when there is a backend. `/terms` and
 `/privacy` are static (`LegalScreen`) and have no artboard.
+
+**Real since S1-23:** `/settings/account` (`AccountFlow`: name and time zone
+through `saveProfile`, the session's own address shown, Privacy and
+Notifications, Sign out). "Delete my account and data" is on the artboard and
+is not drawn until S4-05 builds `delete-account`. `/settings/privacy` is the
+artboard's static copy.
 
 ### planning
 

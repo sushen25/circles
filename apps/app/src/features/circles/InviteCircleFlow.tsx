@@ -7,7 +7,7 @@ import { useState } from 'react';
 import { track } from '../../analytics/track';
 import { useSession } from '../../data/auth';
 import { hasBackend } from '../../data/auth/client';
-import { circleHome, heldInviteLink } from '../../data/circles';
+import { circleHome, fetchInviteSecret, heldInviteLink } from '../../data/circles';
 import { appOrigin } from '../../data/links/origin';
 import { copyText, shareMessage } from '../../platform/share';
 import { isOffline } from '../identity/join/failure';
@@ -20,9 +20,10 @@ import { InviteCircleScreen } from './InviteCircleScreen';
  * from settings (S1-23) and from "Just invite people for now" on the first
  * plan, for a circle that needs somebody in it with nothing yet to answer.
  *
- * The link is `/join#<secret>`, from the secret `create-circle` returned and
- * FirstCircle held in memory; it is never read from anywhere else, because it
- * exists nowhere else (§14). **It never reaches analytics or a log**: the
+ * The link is `/join#<secret>`, from the secret this tab holds in memory — from
+ * `create-circle`, a reset, or, after a reload, the owner asking
+ * `get-invite-link` for it again (ADR 0028). Only the owner can; anybody else
+ * is shown the expired state, which says so. **It never reaches analytics or a log**: the
  * events here carry the circle's id and how it was shared, and nothing the
  * link or the message contains.
  *
@@ -54,6 +55,16 @@ function LiveInvite({ id }: { id: string }) {
     queryFn: () => circleHome(id),
     staleTime: 30_000,
   });
+  const owner = home.data !== undefined && home.data !== null && home.data.isOwner;
+  // After a reload the link is not in memory: the owner asks for it again
+  // (ADR 0028). The query answers only whether it came back — the secret goes
+  // to `invite.ts` and never into the cache.
+  const shown = useQuery({
+    queryKey: ['invite-link-shown', id, session.userId],
+    queryFn: async () => (await fetchInviteSecret(id)) !== undefined,
+    enabled: owner && heldInviteLink(id, appOrigin()) === undefined,
+    staleTime: Infinity,
+  });
 
   const toHome = () => router.replace({ pathname: '/circles/[id]', params: { id } });
   const back = () => (router.canGoBack() ? router.back() : toHome());
@@ -71,12 +82,29 @@ function LiveInvite({ id }: { id: string }) {
 
   const circleName = home.data.name;
   const link = heldInviteLink(id, appOrigin());
+  if (link === undefined && owner && shown.fetchStatus === 'fetching') {
+    return <InviteCircleScreen state="loading" onBack={back} />;
+  }
+  if (link === undefined && shown.isError) {
+    return (
+      <InviteCircleScreen
+        state={isOffline() ? 'offline' : 'error'}
+        onRetry={() => void shown.refetch()}
+        onBack={back}
+      />
+    );
+  }
   if (link === undefined) {
     return (
       <InviteCircleScreen
         state="expired"
         circleName={circleName}
         onSkipForNowIll={toHome}
+        onSettings={
+          owner
+            ? () => router.replace({ pathname: '/circles/[id]/settings', params: { id } })
+            : undefined
+        }
         onBack={back}
       />
     );
