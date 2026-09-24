@@ -99,8 +99,10 @@ describe('quietView never exposes an initiator', () => {
     fc.assert(
       fc.property(arbViewer, arbFacts, fc.integer({ min: 0, max: 20 }), (who, facts, count) => {
         const plan = quietPlan();
-        const a = quietView(plan, who, { ...facts, keenCount: null });
-        const b = quietView(plan, who, { ...facts, keenCount: count });
+        // Before its stop time, so it is still asking.
+        const asking = { ...facts, now: TOM_ASKS };
+        const a = quietView(plan, who, { ...asking, keenCount: null });
+        const b = quietView(plan, who, { ...asking, keenCount: count });
         expect(a).toEqual(b);
         expect(a?.phase).toBe('seeking');
         expect(a).not.toHaveProperty('keenCount');
@@ -142,7 +144,6 @@ describe('quietView', () => {
       closesAt: FRIDAY_MIDDAY,
       threshold: 3,
       answeredByMe: true,
-      myAnswer: 'keen',
       mayWithdraw: false,
     });
     expect(
@@ -150,6 +151,22 @@ describe('quietView', () => {
     ).toMatchObject({
       mayWithdraw: true,
     });
+  });
+
+  it('never says which answer was given, even to the person who gave it', () => {
+    const keen = quietView(quietPlan(), viewer({ myAnswer: 'keen' }), FACTS);
+    const not = quietView(quietPlan(), viewer({ myAnswer: 'not_this_time' }), FACTS);
+    expect(keen).toEqual(not);
+    expect(JSON.stringify(keen)).not.toMatch(/keen|not_this_time/);
+  });
+
+  it('is closed from its stop time, before the sweep has written expired', () => {
+    expect(quietView(quietPlan(), viewer(), { ...FACTS, now: FRIDAY_MIDDAY })).toEqual({
+      phase: 'closed',
+      showClosedNotice: false,
+    });
+    const justBefore = { ...FACTS, now: addMinutes(FRIDAY_MIDDAY, -1) };
+    expect(quietView(quietPlan(), viewer(), justBefore)?.phase).toBe('seeking');
   });
 
   it('once opened: the count, the organiser by name once there is one, and whether I may take the role', () => {
