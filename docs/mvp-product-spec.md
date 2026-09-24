@@ -302,7 +302,7 @@ Deterministic and versioned; no LLM. Enumerate 30-minute starts in the circle's 
 #### Presentation
 
 - **All active members** see the candidates before confirmation; only the organiser can confirm.
-- Each option shows local date and time (with zone if any member differs), "5 of 6 can make it", the names who can attend, a non-judgemental exception ("Doesn't work for Priya", "Alex hasn't answered"), and an explanation of its rank ("Best attendance", "One fewer, weekend", "Also four, a day later"). Dashed marks denote people who have not answered and never appear inside the "can make it" set.
+- Each option shows the date and time on the circle's clock, naming the zone when the reader's own device is in a different one and never because another member's is ([ADR 0032](decisions/0032-the-circles-zone-is-shown-when-the-readers-device-differs.md)), "5 of 6 can make it", the names who can attend, a non-judgemental exception ("Doesn't work for Priya", "Alex hasn't answered"), and an explanation of its rank ("Best attendance", "One fewer, weekend", "Also four, a day later"). Dashed marks denote people who have not answered and never appear inside the "can make it" set.
 - Before any candidate exists the organiser sees a waiting state with what has come in; members see nothing until options exist.
 - No quorum: the closest near-misses, the blocking rule, and three actions: lower quorum, widen the window, close this attempt. Quorum is never lowered silently.
 
@@ -313,6 +313,7 @@ Identical inputs return identical candidates; DST, half-hour zones and cross-zon
 ### 5.7 Decision and confirmation
 
 - The organiser may confirm any eligible candidate before or after the deadline. The review screen shows who has not answered, takes place name, address or map URL and a note (280 characters), and freezes time and response set on confirmation.
+- The review and confirmed screens write the time on the circle's clock, as the options do, and name the zone when the reader's own device is in a different one ([ADR 0032](decisions/0032-the-circles-zone-is-shown-when-the-readers-device-differs.md)). No screen knows another member's zone, so none says what time it is for them.
 - **Replies closed with no decision**: one reminder at the deadline; a screen offering **Lock in [top option]**, **Hand this to someone else**, or **Give it one more day** (extension never runs past the last possible start).
 - Every member sees Going / Can't make it / To confirm from their response and may correct it.
 - The confirmed screen generates a paste-ready message and link; web participants get an `.ics` download; app users get native add-to-calendar. (A Google Calendar template link for Android web is held to Slice 3.)

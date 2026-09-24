@@ -23,7 +23,7 @@ import type { PlanConfirmation } from '../../data/confirmation';
 import { deviceTimeFormat } from '../availability/days';
 import { nameList } from '../scheduling/names';
 import { listOf } from '../scheduling/sentences';
-import { dateOf, timeOf, weekdayOf } from '../scheduling/words';
+import { dateOf, timeOf, weekdayOf, zoneNoteOf } from '../scheduling/words';
 
 /**
  * The confirmed screens' words (spec §5.7, manifesto §3.7).
@@ -45,6 +45,8 @@ export type ConfirmedView = {
   time: string;
   /** "6:30–8:30 pm · Hope St Radio", or the time alone. */
   timePlace: string;
+  /** "Times are Melbourne time." when this device is elsewhere (spec §5.7); else absent. */
+  zoneNote: string | undefined;
   placeName: string | undefined;
   /** "5 going · 1 to confirm". */
   counts: string;
@@ -103,6 +105,7 @@ export function confirmedOf(data: PlanConfirmation, confirmation: LockedIn): Con
       confirmation.placeName === undefined
         ? time
         : t('confirmedOrg', 'time_place', { time, what: confirmation.placeName }),
+    zoneNote: zoneNoteOf(data.zone),
     placeName: confirmation.placeName,
     counts: [
       t('confirmedOrg', 'going', { count: going.length }),

@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type * as Confirmation from '../../data/confirmation';
 
@@ -54,6 +54,12 @@ function show(node: ReactNode) {
 }
 
 const IDS = { circle_id: 'sunday-crew', plan_id: 'thu-17' };
+
+const home = process.env.TZ;
+afterEach(() => {
+  if (home === undefined) delete process.env.TZ;
+  else process.env.TZ = home;
+});
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -123,6 +129,12 @@ describe('the organiser', () => {
     });
   });
 
+  it("names the circle's zone under the time only when this device is elsewhere", async () => {
+    process.env.TZ = 'Europe/London';
+    show(<ConfirmedFlow target={{ planId: 'thu-17' }} />);
+    expect(await screen.findByText('Times are Melbourne time.')).toBeTruthy();
+  });
+
   it('is the screen the organiser gets on the plan link too', async () => {
     show(<ConfirmedFlow target={{ code: 'pnsundaycr' }} />);
     expect(await screen.findByRole('button', { name: 'Share to group chat' })).toBeTruthy();
@@ -141,6 +153,12 @@ describe('a member', () => {
     expect(screen.getByText('Open in Maps')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Share to group chat' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Change the time' })).toBeNull();
+  });
+
+  it('reads the same zone note as the organiser when they are away from home', async () => {
+    process.env.TZ = 'Europe/London';
+    show(<ConfirmedFlow target={{ code: 'pnsundaycr' }} />);
+    expect(await screen.findByText('Times are Melbourne time.')).toBeTruthy();
   });
 
   it("says they can't make it with a write to their own row, and records only which way", async () => {

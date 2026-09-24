@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import { calendarFilename, confirmedOf, messageOf, myAttendanceOf } from './confirmed';
 import { lockedIn, lockedInAsMember } from './fixtures';
@@ -35,6 +35,21 @@ describe('confirmedOf', () => {
     expect(view.counts).toBe("4 going · 1 can't make it · 1 to confirm");
     expect(view.members.map((m) => m.name)).not.toContain('Tom');
     expect(view.members.find((m) => m.name === 'Alex')?.waiting).toBe(true);
+  });
+});
+
+describe('confirmedOf, away from home', () => {
+  const home = process.env.TZ;
+  afterEach(() => {
+    if (home === undefined) delete process.env.TZ;
+    else process.env.TZ = home;
+  });
+
+  it("names the circle's zone when this device is elsewhere, and only then (ADR 0032)", () => {
+    process.env.TZ = 'Australia/Melbourne';
+    expect(confirmedOf(lockedIn, confirmation).zoneNote).toBeUndefined();
+    process.env.TZ = 'Europe/London';
+    expect(confirmedOf(lockedIn, confirmation).zoneNote).toBe('Times are Melbourne time.');
   });
 });
 
