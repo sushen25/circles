@@ -115,7 +115,9 @@ export function quietView(
       // a prompt still on screen would be a button that cannot work.
       const closesAt = plan.quietExpiresAt;
       if (closesAt === undefined || plan.quietThreshold === undefined) return closed(false);
-      if (!isAsking(plan, facts.now)) return closed(false);
+      // A seeking ask past its stop time cannot have opened, so its initiator is
+      // told it closed now rather than when the sweep catches up.
+      if (!isAsking(plan, facts.now)) return closed(viewer.isInitiator);
       return {
         phase: 'seeking',
         closesAt,

@@ -194,16 +194,26 @@ export type InterestContext = {
 };
 
 /**
- * Safe to hand back to the person who answered, in full. It carries no count:
- * `false` means "not open yet" whether one more answer is needed or ten, and
- * whether the ask is below its threshold or held beside an open plan.
+ * The part of a recorded answer that may go back to the person who gave it.
+ * It carries no count: `thresholdReached: false` means "not open yet" whether
+ * one more answer is needed or ten, and whether the ask is below its threshold
+ * or held beside an open plan.
  */
-export type InterestRecorded = {
-  readonly ask: QuietAsk;
+export type InterestReceipt = {
   /** The answer differs from the one on record. A repeat is not an error. */
   readonly changed: boolean;
   /** The ask should open now: call `onThreshold` in the same transaction. */
   readonly thresholdReached: boolean;
+};
+
+export type InterestRecorded = {
+  /**
+   * The ask with this answer applied — its initiator and every answer in it.
+   * **Server-side only**, like every `QuietAsk`: it is for the write, never for
+   * the response. Return `receipt`.
+   */
+  readonly ask: QuietAsk;
+  readonly receipt: InterestReceipt;
 };
 
 /**
@@ -240,5 +250,5 @@ export function recordInterest(
   // Evaluated on every answer, a repeat included: an ask held beside an open
   // plan opens on the first answer after that plan finishes (ADR 00XX).
   const thresholdReached = thresholdMet(next) && context.circleHasOpenPlan === false;
-  return ok({ ask: next, changed, thresholdReached });
+  return ok({ ask: next, receipt: { changed, thresholdReached } });
 }

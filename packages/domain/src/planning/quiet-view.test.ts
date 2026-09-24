@@ -165,6 +165,11 @@ describe('quietView', () => {
       phase: 'closed',
       showClosedNotice: false,
     });
+    const initiator = viewer({ isInitiator: true, myAnswer: 'keen' });
+    expect(quietView(quietPlan(), initiator, { ...FACTS, now: FRIDAY_MIDDAY })).toEqual({
+      phase: 'closed',
+      showClosedNotice: true,
+    });
     const justBefore = { ...FACTS, now: addMinutes(FRIDAY_MIDDAY, -1) };
     expect(quietView(quietPlan(), viewer(), justBefore)?.phase).toBe('seeking');
   });

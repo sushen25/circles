@@ -143,24 +143,24 @@ describe('recordInterest', () => {
 
   it('reaches the threshold on the third keen answer, the initiator included', () => {
     const one = unwrap(recordInterest(quietAsk(), PRIYA, 'keen', FREE));
-    expect(one.thresholdReached).toBe(false);
+    expect(one.receipt.thresholdReached).toBe(false);
     const two = unwrap(recordInterest(one.ask, JESS, 'keen', FREE));
-    expect(two.thresholdReached).toBe(true);
+    expect(two.receipt.thresholdReached).toBe(true);
     expect(keenCount(two.ask)).toBe(3);
   });
 
   it('is idempotent per member: the same answer twice changes nothing', () => {
     const once = unwrap(recordInterest(quietAsk(), PRIYA, 'keen', FREE));
     const twice = unwrap(recordInterest(once.ask, PRIYA, 'keen', FREE));
-    expect(once.changed).toBe(true);
-    expect(twice.changed).toBe(false);
+    expect(once.receipt.changed).toBe(true);
+    expect(twice.receipt.changed).toBe(false);
     expect(keenCount(twice.ask)).toBe(2);
   });
 
   it('lets a member change their answer before the threshold', () => {
     const keen = unwrap(recordInterest(quietAsk(), PRIYA, 'keen', FREE));
     const not = unwrap(recordInterest(keen.ask, PRIYA, 'not_this_time', FREE));
-    expect(not.changed).toBe(true);
+    expect(not.receipt.changed).toBe(true);
     expect(keenCount(not.ask)).toBe(1);
   });
 
@@ -175,7 +175,7 @@ describe('recordInterest', () => {
   it("refuses to take the initiator's keen answer back; they withdraw instead", () => {
     const result = recordInterest(quietAsk(), TOM, 'not_this_time', FREE);
     expect(result).toEqual({ ok: false, error: { code: 'initiator_is_keen' } });
-    expect(unwrap(recordInterest(quietAsk(), TOM, 'keen', FREE)).changed).toBe(false);
+    expect(unwrap(recordInterest(quietAsk(), TOM, 'keen', FREE)).receipt.changed).toBe(false);
   });
 
   it('closes at the stop time, and once the ask has opened', () => {
@@ -193,11 +193,16 @@ describe('recordInterest', () => {
     const one = unwrap(recordInterest(quietAsk(), PRIYA, 'keen', held));
     const two = unwrap(recordInterest(one.ask, JESS, 'keen', held));
     expect(thresholdMet(two.ask)).toBe(true);
-    expect(two.thresholdReached).toBe(false);
+    expect(two.receipt.thresholdReached).toBe(false);
     // The answerer's result is the same shape and value as a below-threshold
     // one: nothing in it says the count is met.
-    expect(Object.keys(two).sort()).toEqual(['ask', 'changed', 'thresholdReached']);
-    expect(unwrap(recordInterest(quietAsk(), PRIYA, 'keen', held)).thresholdReached).toBe(false);
+    expect(Object.keys(two).sort()).toEqual(['ask', 'receipt']);
+    expect(Object.keys(two.receipt).sort()).toEqual(['changed', 'thresholdReached']);
+    // The receipt is what goes back to the answerer: no id, no answer, no count.
+    for (const id of [TOM, PRIYA, JESS]) expect(JSON.stringify(two.receipt)).not.toContain(id);
+    expect(unwrap(recordInterest(quietAsk(), PRIYA, 'keen', held)).receipt.thresholdReached).toBe(
+      false,
+    );
   });
 
   it('opens a held ask on the next answer after the open plan finishes, a repeat included', () => {
@@ -205,14 +210,14 @@ describe('recordInterest', () => {
     const one = unwrap(recordInterest(quietAsk(), PRIYA, 'keen', held));
     const two = unwrap(recordInterest(one.ask, JESS, 'keen', held));
     const again = unwrap(recordInterest(two.ask, JESS, 'keen', FREE));
-    expect(again.changed).toBe(false);
-    expect(again.thresholdReached).toBe(true);
+    expect(again.receipt.changed).toBe(false);
+    expect(again.receipt.thresholdReached).toBe(true);
   });
 
   it('treats an unknown open-plan fact as held', () => {
     const one = unwrap(recordInterest(quietAsk(), PRIYA, 'keen', { now: TOM_ASKS }));
-    expect(unwrap(recordInterest(one.ask, JESS, 'keen', { now: TOM_ASKS })).thresholdReached).toBe(
-      false,
-    );
+    expect(
+      unwrap(recordInterest(one.ask, JESS, 'keen', { now: TOM_ASKS })).receipt.thresholdReached,
+    ).toBe(false);
   });
 });
