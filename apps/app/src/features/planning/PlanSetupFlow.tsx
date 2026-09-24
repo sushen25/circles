@@ -169,15 +169,22 @@ function LiveSetup({ id, startOn }: { id: string; startOn: 'form' | 'window' }) 
 }
 
 /** Whether the form means something different now from when it was drawn. */
-function movedOn(shown: FormResolved, now: FormResolved): boolean {
+function movedOn(shown: FormResolved, now: FormResolved, defaultDeadline: boolean): boolean {
   if (!shown.ok || !now.ok) return shown.ok !== now.ok;
   return (
     shown.window.start !== now.window.start ||
     shown.window.end !== now.window.end ||
     shown.band.startMin !== now.band.startMin ||
-    shown.band.endMin !== now.band.endMin
+    shown.band.endMin !== now.band.endMin ||
+    // The server counts a default deadline from the moment it makes the plan.
+    // The screen keeps up to the minute; anything further has not been shown.
+    (defaultDeadline &&
+      Math.abs(Date.parse(shown.deadline) - Date.parse(now.deadline)) > TICK_MS + 30_000)
   );
 }
+
+/** How often the setup's clock moves on. */
+const TICK_MS = 60_000;
 
 function SetupForm({
   context,
@@ -205,6 +212,16 @@ function SetupForm({
   onBack: () => void;
 }) {
   const [clock, setClock] = useState(now);
+  // A default deadline is counted from when the plan is made, so the one on
+  // screen keeps time with the clock rather than with when the form opened.
+  const live = freshNow !== undefined;
+  const tick = useRef(freshNow);
+  tick.current = freshNow;
+  useEffect(() => {
+    if (!live) return;
+    const timer = setInterval(() => setClock(tick.current?.() ?? Date.now()), TICK_MS);
+    return () => clearInterval(timer);
+  }, [live]);
   const instant = fromISO(new Date(clock).toISOString());
   const duration = (DURATIONS as readonly number[]).includes(circleDuration)
     ? (circleDuration as DurationMinutes)
@@ -234,12 +251,8 @@ function SetupForm({
     if (inFlight.current || !form.resolved.ok) return;
     if (freshNow !== undefined) {
       const fresh = freshNow();
-      if (
-        movedOn(
-          form.resolved,
-          resolveDraft(form.draft, fromISO(new Date(fresh).toISOString()), context.zone),
-        )
-      ) {
+      const then = resolveDraft(form.draft, fromISO(new Date(fresh).toISOString()), context.zone);
+      if (movedOn(form.resolved, then, form.draft.deadline === undefined)) {
         // Show what would be made now, and let the organiser ask again.
         setClock(fresh);
         setRefused({ message: t('planSetup', 'problem_moved_on'), conclusive: true });

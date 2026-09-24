@@ -134,6 +134,37 @@ describe('editing the dates', () => {
     expect(replace).not.toHaveBeenCalled();
   });
 
+  it('keeps Save shut while the refused preview is being asked again', async () => {
+    saveRevision.mockRejectedValueOnce(
+      new FunctionError(
+        {
+          error: 'conflict',
+          reason: 'preview_is_stale',
+          message: 'moved',
+          request_id: 'r',
+        } as never,
+        'stale',
+      ),
+    );
+    show(<EditPlanFlow id="sunday-crew" planId="thu-17" />);
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'Next 7 days' }));
+    await screen.findByRole('button', { name: 'Save and ask again' });
+    // The next preview does not come back until the test says so.
+    let answer: (value: unknown) => void = () => undefined;
+    previewRevision.mockReturnValueOnce(new Promise((resolve) => (answer = resolve)));
+    fireEvent.click(screen.getByRole('button', { name: 'Save and ask again' }));
+
+    expect(await screen.findByText("Checking who'd be asked again")).toBeTruthy();
+    const save = screen.getByRole('button', { name: 'Save changes' });
+    expect(save.getAttribute('aria-disabled')).toBe('true');
+    fireEvent.click(save);
+    expect(saveRevision).toHaveBeenCalledTimes(1);
+    answer({ ...ASKS_AGAIN, version: '1.6' });
+    fireEvent.click(await screen.findByRole('button', { name: 'Save and ask again' }));
+    await waitFor(() => expect(saveRevision).toHaveBeenCalledTimes(2));
+    expect(saveRevision.mock.calls[1]?.[2]).toBe('1.6');
+  });
+
   it('retries a save whose answer was lost with the same key', async () => {
     saveRevision.mockRejectedValueOnce(new FunctionError(undefined, 'no answer'));
     show(<EditPlanFlow id="sunday-crew" planId="thu-17" />);

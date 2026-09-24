@@ -190,6 +190,15 @@ describe('plan setup', () => {
     await waitFor(() => expect(createPlan).toHaveBeenCalledTimes(1));
   });
 
+  it('shows the deadline the server will count from now, when hours have passed on the same day', async () => {
+    show(<PlanSetupFlow id="sunday-crew" />);
+    expect(await screen.findByText('Replies close in 3 days')).toBeTruthy();
+    vi.spyOn(Date, 'now').mockReturnValue(fixture.FIXTURE_NOW + 2 * 3_600_000);
+    fireEvent.click(screen.getByRole('button', { name: 'Ask the group' }));
+    expect(await screen.findByText(/^Time has moved on since you opened this/)).toBeTruthy();
+    expect(createPlan).not.toHaveBeenCalled();
+  });
+
   it('hides tonight when it is too late for the meetup, rather than meaning tomorrow', async () => {
     vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-09-15T12:50:00.000Z'));
     show(<PlanSetupFlow id="sunday-crew" />);
@@ -344,6 +353,21 @@ describe('asking again', () => {
     expect(
       screen.getByText('Thursday is off. Send the link again so everyone can pick new times.'),
     ).toBeTruthy();
+  });
+
+  it('tells the chat the plan changed after an edit, rather than announcing a new one', async () => {
+    planToShare.mockResolvedValue(SHARE);
+    planDetails.mockResolvedValue(fixture.asking);
+    show(<PlanSharedFlow id="sunday-crew" planId="thu-17" again />);
+    expect(await screen.findByText('Change of plan. New times, please')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Share to group chat' }));
+    await waitFor(() =>
+      expect(track).toHaveBeenCalledWith('share_opened', {
+        circle_id: 'sunday-crew',
+        plan_id: 'thu-17',
+        kind: 'changed',
+      }),
+    );
   });
 
   it('offers the cancel from the edit, for a plan still asking', async () => {

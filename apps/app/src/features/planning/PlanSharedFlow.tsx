@@ -125,16 +125,17 @@ function LivePlanShared({ id, planId, again }: { id: string; planId: string; aga
   const data = plan.data;
   const link = planLink(appOrigin(), data.code);
   const offDay = again && details.data != null ? justReopened(details.data) : undefined;
-  const message =
-    offDay === undefined
-      ? newPlanMessage({
-          circleName: data.circleName,
-          windowPhrase: windowPhrase(data),
-          url: link,
-          templates: EN_SHARE_TEMPLATES,
-        })
-      : EN_SHARE_TEMPLATES.changed({ weekday: offDay, url: link });
-  const kind = offDay === undefined ? 'plan' : 'changed';
+  // Asking again is an update, not a new plan (spec §5.8's "changed"): the
+  // question and its answers were replaced, and the chat should hear so.
+  const message = again
+    ? EN_SHARE_TEMPLATES.changed({ weekday: offDay, url: link })
+    : newPlanMessage({
+        circleName: data.circleName,
+        windowPhrase: windowPhrase(data),
+        url: link,
+        templates: EN_SHARE_TEMPLATES,
+      });
+  const kind = again ? 'changed' : 'plan';
   const ids = { circle_id: data.circleId as CircleId, plan_id: data.id as PlanId };
 
   return (

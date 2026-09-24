@@ -251,7 +251,8 @@ and `cancelPlan` through the Edge Functions).
   is on screen before Save, and Save carries the preview's `expected_version`;
   `preview_is_stale` asks the preview again. New dates move the deadline to the
   preset's default ("moved to match the new dates"). After a change that asks
-  again, `shared?again=1` hands over the message to paste.
+  again, `shared?again=1` hands over the "Change of plan. New times, please"
+  update to paste (spec §5.8's "changed"), not a second new-plan message.
 - `/circles/[id]/plan/[planId]/change-time` (`ChangeTimeFlow`) — a reopen
   (`revise-plan` with `reopen: true`) with a new window and a deadline still
   ahead, previewed the same way; then `shared?again=1` with "Change of plan:

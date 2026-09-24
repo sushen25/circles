@@ -75,6 +75,12 @@ describe('changedMessage', () => {
       `Change of plan: Thursday is off. New times, please: ${LINK}`,
     );
   });
+
+  it('asks for new times after an edit, when there was no day to call off', () => {
+    expect(EN_SHARE_TEMPLATES.changed({ url: LINK })).toBe(
+      `Change of plan. New times, please: ${LINK}`,
+    );
+  });
 });
 
 describe('cancelledMessage', () => {

@@ -71,7 +71,13 @@ export function useRevision({
   const key = useRef<{ for: string; key: IdempotencyKey } | undefined>(undefined);
   const inFlight = useRef(false);
 
-  const current = settled === wanted && preview.data !== undefined ? preview.data : undefined;
+  // Not while it is being asked again: after `preview_is_stale` the old answer
+  // is still in the cache, and a Save from it would send the version that was
+  // just refused.
+  const current =
+    settled === wanted && preview.data !== undefined && !preview.isFetching
+      ? preview.data
+      : undefined;
   const previewRefusal = preview.isError ? refusalOf(preview.error) : undefined;
 
   const save = async () => {
