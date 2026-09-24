@@ -256,6 +256,7 @@ describe('circle home, in the state the data puts it in', () => {
         activePlan: {
           id: PLAN,
           code: 'pnsundaycr',
+          organiserUserId: 'maya',
           title: 'Catch up',
           responseDeadline: '2026-09-29T08:00:00Z',
           replied: 1,

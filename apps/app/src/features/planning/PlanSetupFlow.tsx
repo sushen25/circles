@@ -15,7 +15,7 @@ import { isOffline } from '../identity/join/failure';
 import { CustomWindowScreen } from './CustomWindowScreen';
 import { FIXTURE_NOW, sundayCrew } from './fixtures';
 import { defaultDraft, resolveDraft, WINDOW_EVENT, type PlanDraft } from './form';
-import { PlanInProgressScreen } from './PlanInProgressScreen';
+import { PlanInProgress } from './PlanInProgressFlow';
 import { PlanSetupScreen } from './PlanSetupScreen';
 import { refusalOf, type Refused } from './problems';
 import { DeadlineSheet, RequiredSheet } from './sheets';
@@ -117,30 +117,7 @@ function LiveSetup({ id, startOn }: { id: string; startOn: 'form' | 'window' }) 
 
   const data = home.data;
   if (data.activePlan !== null) {
-    const plan = data.activePlan;
-    return (
-      <PlanInProgressScreen
-        circleName={data.name}
-        planTitle={plan.title}
-        closes={t('circleHome', 'replies_close', {
-          deadline: whenWords(plan.responseDeadline, data.zone),
-        })}
-        replied={t('circleHome', 'replied', { count: plan.replied, total: plan.asked })}
-        onEdit={() =>
-          router.push({
-            pathname: '/circles/[id]/plan/[planId]/edit',
-            params: { id, planId: plan.id },
-          })
-        }
-        onCancel={() =>
-          router.push({
-            pathname: '/circles/[id]/plan/[planId]/cancel',
-            params: { id, planId: plan.id },
-          })
-        }
-        onBack={back}
-      />
-    );
+    return <PlanInProgress id={id} home={data} plan={data.activePlan} onBack={back} />;
   }
 
   const context: FormContext = {

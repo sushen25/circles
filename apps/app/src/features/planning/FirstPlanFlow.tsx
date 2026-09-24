@@ -14,6 +14,7 @@ import { createFirstPlan } from '../../data/planning';
 import { failureOf, isOffline } from '../identity/join/failure';
 import { bandWords, firstPlanPreview } from './firstPlan';
 import { FirstPlanScreen, type FirstPlanProblem } from './FirstPlanScreen';
+import { PlanInProgress } from './PlanInProgressFlow';
 import { whenWords } from './when';
 
 /**
@@ -112,6 +113,11 @@ function LiveFirstPlan({ id }: { id: string }) {
   }
 
   const data = home.data;
+  // One open plan per circle (ADR 00XX): the first-run card is a way of
+  // making a plan, and a circle already finding a time gets that plan instead.
+  if (data.activePlan !== null) {
+    return <PlanInProgress id={id} home={data} plan={data.activePlan} onBack={back} />;
+  }
   const preview = firstPlanPreview(
     {
       zone: data.zone,
@@ -158,6 +164,9 @@ function LiveFirstPlan({ id }: { id: string }) {
         setProblem('offline');
       } else if (failure.kind === 'reason' && failure.reason === 'requires_saved_place') {
         toSignIn();
+      } else if (failure.kind === 'reason' && failure.reason === 'plan_in_progress') {
+        // Somebody's plan got there first: the circle read again is the screen.
+        void home.refetch();
       } else if (failure.kind === 'reason' && REASONS[failure.reason] !== undefined) {
         setProblem(REASONS[failure.reason]);
       } else {

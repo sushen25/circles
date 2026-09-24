@@ -138,11 +138,15 @@ begin
         -- One open plan per circle (spec §5.3, ADR 00XX): a second plan raised
         -- while one was `collecting` or `ready` left the first running — its
         -- link taking answers, its deadline closing, its emails sending — and
-        -- circle home showing only the newest. The circle row is locked first,
-        -- so two creations arriving together are decided one after the other
-        -- whoever the caller is; `create_plan` already holds this lock, and a
-        -- re-lock in the same transaction is free. The plan being created is
-        -- still `draft`, so it is not counted against itself.
+        -- circle home showing only the newest. On every row that enters
+        -- `collecting` or `ready` from outside them: creation, a quiet ask
+        -- crossing its threshold, a locked-in plan reopened (review round 1 —
+        -- "Change the time" beside a newer plan made two). The circle row is
+        -- locked first, so two arriving together are decided one after the
+        -- other whoever the caller is; `create_plan` already holds this lock,
+        -- and a re-lock in the same transaction is free. The plan moving is
+        -- excluded by id, so a draft, a seeking ask or a confirmed plan is not
+        -- counted against itself.
         perform 1 from public.circles c where c.id = plan.circle_id for update;
         if exists (
           select 1 from public.plans p

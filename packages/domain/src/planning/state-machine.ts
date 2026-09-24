@@ -99,12 +99,14 @@ export type TransitionContext = {
    */
   readonly keenCount?: number | undefined;
   /**
-   * Required by `create_named` and `create_quiet`: whether the circle already
-   * has a plan that is `collecting` or `ready`. A circle has one open plan at a
-   * time (spec §5.3, ADR 00XX): while one is finding a time, "Plan a catch-up"
-   * shows that plan and offers Edit and Cancel rather than a second form.
-   * Resolved by the caller under the circle's lock, as the count for
-   * `threshold_reached` is. Absent means "unknown", and unknown fails closed.
+   * Required by every move into `collecting` or `ready` from outside them —
+   * `create_named`, `create_quiet`, `threshold_reached`, `reopen`: whether the
+   * circle already has *another* plan that is `collecting` or `ready`. A circle
+   * has one open plan at a time (spec §5.3, ADR 00XX): while one is finding a
+   * time, "Plan a catch-up" shows that plan and offers Edit and Cancel rather
+   * than a second form. Resolved by the caller under the circle's lock, as the
+   * count for `threshold_reached` is. Absent means "unknown", and unknown
+   * fails closed.
    */
   readonly circleHasOpenPlan?: boolean | undefined;
 };
@@ -141,7 +143,10 @@ export const TRANSITIONS: readonly Transition[] = [
   // at a time (ADR 00XX): a second plan raised while one was still finding a
   // time left the first running — its link taking answers, its emails
   // sending — with no screen that showed it. A quiet ask is the same question
-  // asked quietly, so it waits for the same reason.
+  // asked quietly, so it waits for the same reason. `no_open_plan` is on every
+  // row that enters `collecting` or `ready` from outside them — creation,
+  // a quiet ask crossing its threshold, a locked-in plan reopened — and on
+  // none of the rows between them, which are the one open plan changing shape.
   {
     from: 'draft',
     action: 'create_named',
@@ -160,7 +165,12 @@ export const TRANSITIONS: readonly Transition[] = [
   // this table's — it was guardless, and a guardless row is a row any caller
   // can fire, which published a below-threshold interest count the moment
   // somebody did.
-  { from: 'seeking', action: 'threshold_reached', to: 'collecting', guards: ['threshold'] },
+  {
+    from: 'seeking',
+    action: 'threshold_reached',
+    to: 'collecting',
+    guards: ['threshold', 'no_open_plan'],
+  },
   { from: 'seeking', action: 'expire', to: 'expired', guards: [] },
   // The role is offered **at** the threshold, not before it: the ThresholdRole
   // screen opens with "Enough people are keen." Offering it during `seeking`
@@ -249,7 +259,7 @@ export const TRANSITIONS: readonly Transition[] = [
     from: 'confirmed',
     action: 'reopen',
     to: 'collecting',
-    guards: ['organiser'],
+    guards: ['organiser', 'no_open_plan'],
     bumpsRevision: true,
   },
   { from: 'confirmed', action: 'cancel', to: 'cancelled', guards: ['organiser_or_owner'] },

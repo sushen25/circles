@@ -13,7 +13,7 @@
 -- the code. Anything compared with `now()` is kept far enough ahead not to.
 
 begin;
-select plan(89);
+select plan(92);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid
@@ -75,11 +75,29 @@ select circle_id, '00000000-0000-0000-0000-0000000001a2', 'Priya' from t;
 
 /* A plan in `collecting`, owned by Maya. Inserted directly, because creating one
    is `create-plan`'s job (S1-15) and this ticket is the tables underneath it. */
+-- A circle of Maya's own, for a transition that has to *enter* `collecting`
+-- while Sunday Crew is full of open plans: one open plan per circle (ADR 00XX)
+-- would refuse it there, and that refusal has its own tests below.
+create or replace function pg_temp.make_circle(key text)
+returns uuid
+language plpgsql
+as $$
+declare
+  new_id uuid;
+begin
+  perform pg_temp.act_as('00000000-0000-0000-0000-0000000001a1');
+  select id into new_id from public.create_circle('Also Maya''s', 'sky', 'Australia/Melbourne', key);
+  perform pg_temp.act_as_postgres();
+  return new_id;
+end;
+$$;
+
 create or replace function pg_temp.make_plan(
   code text,
   state text default 'collecting',
   mode text default 'named',
-  organiser uuid default '00000000-0000-0000-0000-0000000001a1'
+  organiser uuid default '00000000-0000-0000-0000-0000000001a1',
+  circle uuid default null
 )
 returns uuid
 language plpgsql
@@ -94,7 +112,7 @@ begin
     quiet_threshold
   )
   values (
-    (select circle_id from t), mode, state, organiser, 'Catch up', 'Australia/Melbourne',
+    coalesce(circle, (select circle_id from t)), mode, state, organiser, 'Catch up', 'Australia/Melbourne',
     date '2099-09-14', date '2099-09-20', 17 * 60 + 30, 22 * 60 + 30,
     120, 4, timestamptz '2099-09-20T10:00:00Z', code,
     case when mode = 'quiet' then 3 else null end
@@ -501,7 +519,10 @@ select is(
   'and what the payload does not mention is left alone'
 );
 
-select pg_temp.make_plan('pneeee', 'confirmed') as plan_reopen \gset
+-- In a circle of its own: Sunday Crew has `plan_a` open, and a reopen enters
+-- `collecting`, which one open plan per circle (ADR 00XX) refuses beside it.
+select pg_temp.make_plan('pneeee', 'confirmed', 'named',
+  '00000000-0000-0000-0000-0000000001a1', pg_temp.make_circle('key-reopen')) as plan_reopen \gset
 select is(
   (select revision from planning.transition_plan(:'plan_reopen', 'reopen',
     '00000000-0000-0000-0000-0000000001a1')),
@@ -512,6 +533,23 @@ select is(
   (select state from public.plans where id = :'plan_reopen'),
   'collecting',
   'back to collecting'
+);
+
+-- And in Sunday Crew, where `plan_a` is still collecting, the same reopen is
+-- refused by name: "Change the time" on a locked-in plan beside a newer one
+-- made two open plans (SUS-89, review round 1), and the guard is on the row.
+select pg_temp.make_plan('pnhhhh', 'confirmed') as plan_second \gset
+select throws_ok(
+  format($$select planning.transition_plan('%s', 'reopen', '%s')$$,
+    :'plan_second', '00000000-0000-0000-0000-0000000001a1'),
+  'P0001',
+  'plan_in_progress',
+  'a locked-in plan cannot be reopened while another plan in the circle is finding a time'
+);
+select is(
+  (select state from public.plans where id = :'plan_second'),
+  'confirmed',
+  'and it stays locked in'
 );
 
 -- ---------------------------------------------------------------------------
@@ -584,7 +622,14 @@ select is(
 );
 
 select pg_temp.act_as_postgres();
-select pg_temp.make_plan('pngggg', 'seeking', 'quiet', null) as plan_seeking \gset
+-- In a circle of its own, for the same reason as the reopen above: crossing
+-- the threshold enters `collecting`. The refusal beside an open plan is tested
+-- in Sunday Crew, just after.
+select pg_temp.make_circle('key-threshold') as circle_threshold \gset
+-- Priya reads the count below, and a count is the circle's to read.
+insert into public.circle_members (circle_id, user_id, display_name_snapshot)
+values (:'circle_threshold', '00000000-0000-0000-0000-0000000001a2', 'Priya');
+select pg_temp.make_plan('pngggg', 'seeking', 'quiet', null, :'circle_threshold') as plan_seeking \gset
 insert into private.plan_interest (plan_id, user_id, response)
 values
   (:'plan_seeking', '00000000-0000-0000-0000-0000000001a1', 'keen'),
@@ -627,6 +672,24 @@ select is(
   (select keen_count from public.plan_interest_counts where plan_id = :'plan_seeking'),
   3,
   'and a count once it has genuinely passed'
+);
+
+-- Enough people keen, but Sunday Crew already has `plan_a` finding a time: the
+-- ask stays `seeking` rather than becoming a second open plan (ADR 00XX). What
+-- the caller does with the refusal — wait, retry, expire — is S2-02's.
+select pg_temp.act_as_postgres();
+select pg_temp.make_plan('pnjjjj', 'seeking', 'quiet', null) as plan_blocked \gset
+insert into private.plan_interest (plan_id, user_id, response)
+values
+  (:'plan_blocked', '00000000-0000-0000-0000-0000000001a1', 'keen'),
+  (:'plan_blocked', '00000000-0000-0000-0000-0000000001a2', 'keen'),
+  (:'plan_blocked', '00000000-0000-0000-0000-0000000001a3', 'keen');
+select throws_ok(
+  format($$select planning.transition_plan('%s', 'threshold_reached', '%s')$$,
+    :'plan_blocked', '00000000-0000-0000-0000-0000000001a1'),
+  'P0001',
+  'plan_in_progress',
+  'a quiet ask at its threshold does not open beside a plan already finding a time'
 );
 
 -- ---------------------------------------------------------------------------
@@ -846,7 +909,14 @@ select ok(
 --
 -- Last in the file: removing a member touches every open plan in the circle.
 -- ---------------------------------------------------------------------------
-select pg_temp.make_plan('rjnpen', 'confirmed') as plan_left \gset
+-- In a circle of its own with the same two members, because the reopen at the
+-- end enters `collecting` and Sunday Crew has plans open (ADR 00XX). Removing
+-- Priya from *this* circle is what the test is about; she stays in Sunday Crew.
+select pg_temp.make_circle('key-left') as circle_left \gset
+insert into public.circle_members (circle_id, user_id, display_name_snapshot)
+values (:'circle_left', '00000000-0000-0000-0000-0000000001a2', 'Priya');
+select pg_temp.make_plan('rjnpen', 'confirmed', 'named',
+  '00000000-0000-0000-0000-0000000001a1', :'circle_left') as plan_left \gset
 
 insert into public.plan_participants (plan_id, revision, user_id)
 values (:'plan_left', 1, '00000000-0000-0000-0000-0000000001a1'),
@@ -855,7 +925,7 @@ insert into public.plan_required_members (plan_id, revision, user_id)
 values (:'plan_left', 1, '00000000-0000-0000-0000-0000000001a2');
 
 update public.circle_members set status = 'removed'
-where circle_id = (select circle_id from t)
+where circle_id = :'circle_left'
   and user_id = '00000000-0000-0000-0000-0000000001a2';
 
 select is(

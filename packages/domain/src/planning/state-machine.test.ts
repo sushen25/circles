@@ -130,9 +130,15 @@ describe("the quiet ask's two guards", () => {
     expect(isOk(short)).toBe(false);
     if (!isOk(short)) expect(short.error.code).toBe('threshold_not_reached');
 
-    expect(isOk(canTransition(seeking, 'threshold_reached', { actor: MEMBER, keenCount: 3 }))).toBe(
-      true,
-    );
+    expect(
+      isOk(
+        canTransition(seeking, 'threshold_reached', {
+          actor: MEMBER,
+          keenCount: 3,
+          circleHasOpenPlan: false,
+        }),
+      ),
+    ).toBe(true);
   });
 
   it('fails closed when the count is unknown', () => {
@@ -242,13 +248,45 @@ describe('one open plan per circle (ADR 00XX)', () => {
     if (isErr(result)) expect(result.error.code).toBe('plan_in_progress');
   });
 
-  it('is a rule about creation only: an open plan does not stop the other transitions', () => {
-    // A ready plan going back to collecting, or a confirmed one reopening, is
-    // the one open plan changing — not a second one.
+  it('guards every way into an open state from outside it, and none of the moves between', () => {
+    // Structural, so a new row cannot forget: from `draft`, `seeking` or
+    // `confirmed` into `collecting` or `ready` carries the guard; a ready plan
+    // going back to collecting, or an edit, is the one open plan changing.
+    // Plus `create_quiet`, whose `seeking` is not an open state: a quiet ask
+    // is still a question put to the circle, and it waits like a named one
+    // (spec §5.3). Its later `threshold_reached` is what enters `collecting`.
+    const open = new Set<PlanState>(['collecting', 'ready']);
+    for (const t of TRANSITIONS) {
+      const entering = (open.has(t.to) && !open.has(t.from)) || t.action === 'create_quiet';
+      expect(t.guards.includes('no_open_plan'), `${t.from} + ${t.action}`).toBe(entering);
+    }
+  });
+
+  it('refuses reopening a locked-in plan while another is finding a time', () => {
+    const result = canTransition(plan({ state: 'confirmed' }), 'reopen', {
+      actor: ORGANISER,
+      circleHasOpenPlan: true,
+    });
+    expect(isErr(result)).toBe(true);
+    if (isErr(result)) expect(result.error.code).toBe('plan_in_progress');
+  });
+
+  it('refuses a quiet ask crossing its threshold while another plan is open', () => {
+    const seeking = plan({ state: 'seeking', mode: 'quiet', quietThreshold: 2 });
+    const result = canTransition(seeking, 'threshold_reached', {
+      actor: MEMBER,
+      keenCount: 2,
+      circleHasOpenPlan: true,
+    });
+    expect(isErr(result)).toBe(true);
+    if (isErr(result)) expect(result.error.code).toBe('plan_in_progress');
+  });
+
+  it('does not stop the moves between open states', () => {
     for (const [state, action] of [
       ['ready', 'candidates_gone'],
-      ['confirmed', 'reopen'],
       ['collecting', 'edit'],
+      ['collecting', 'candidates_ready'],
     ] as const) {
       const result = canTransition(plan({ state }), action, { actor: ORGANISER });
       expect(isOk(result), `${state} + ${action}`).toBe(true);
@@ -393,6 +431,7 @@ describe('what a transition changes', () => {
 
   it('bumps the revision on a reopen — a changed time is a fresh ask', () => {
     const result = canTransition(plan({ state: 'confirmed', revision: 1 }), 'reopen', {
+      circleHasOpenPlan: false,
       actor: ORGANISER,
     });
     expect(isOk(result) && result.value.state).toBe('collecting');

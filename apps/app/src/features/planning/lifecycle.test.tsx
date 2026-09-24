@@ -62,6 +62,7 @@ vi.mock('../../data/availability', async (original) => ({
 }));
 
 const { PlanSetupFlow } = await import('./PlanSetupFlow');
+const { FirstPlanFlow } = await import('./FirstPlanFlow');
 const { CancelPlanFlow } = await import('./CancelPlanFlow');
 const { CancelledFlow } = await import('./CancelledFlow');
 const { PlanChangeGate } = await import('./MemberChangeFlow');
@@ -81,6 +82,7 @@ const HOME = {
   defaultDurationMinutes: 120,
   defaultQuorum: null,
   me: 'maya',
+  isOwner: true,
   members: fixture.sundayCrew.people.map((p) => ({ userId: p.id, name: p.name })),
   activePlan: null,
 };
@@ -90,6 +92,7 @@ const RUNNING = {
   id: 'thu-17',
   code: 'pnsundaycr',
   title: 'Catch up',
+  organiserUserId: 'maya',
   responseDeadline: '2026-09-15T08:00:00.000Z',
   replied: 5,
   asked: 6,
@@ -127,6 +130,41 @@ describe('plan setup', () => {
       params: { id: 'sunday-crew', planId: 'thu-17' },
     });
     expect(createPlan).not.toHaveBeenCalled();
+  });
+
+  it('offers a member neither button, and says whose plan it is', async () => {
+    circleHome.mockResolvedValue({ ...HOME, me: 'sam', isOwner: false, activePlan: RUNNING });
+    show(<PlanSetupFlow id="sunday-crew" />);
+
+    expect(await screen.findByText(/Maya is organising this one/)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Edit the plan' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Cancel the plan' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: "See how it's looking" }));
+    expect(push).toHaveBeenCalledWith({
+      pathname: '/circles/[id]/plan/[planId]/candidates',
+      params: { id: 'sunday-crew', planId: 'thu-17' },
+    });
+  });
+
+  it('offers the owner Cancel but not Edit of a plan somebody else organises (spec §4.5)', async () => {
+    circleHome.mockResolvedValue({
+      ...HOME,
+      activePlan: { ...RUNNING, organiserUserId: 'sam' },
+    });
+    show(<PlanSetupFlow id="sunday-crew" />);
+
+    expect(await screen.findByText(/Sam is organising this one/)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Edit the plan' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Cancel the plan' })).toBeTruthy();
+  });
+
+  it('shows the running plan on the first-run card too', async () => {
+    circleHome.mockResolvedValue({ ...HOME, activePlan: RUNNING });
+    show(<FirstPlanFlow id="sunday-crew" />);
+
+    expect(await screen.findByText('Sunday Crew is already finding a time')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Ask the group' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Edit the plan' })).toBeTruthy();
   });
 
   it('when a second tap loses the race, says so and reads the circle again', async () => {

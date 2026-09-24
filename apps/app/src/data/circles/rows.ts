@@ -28,6 +28,8 @@ export type PlanRow = {
   state: string;
   revision: number;
   response_deadline: string;
+  /** Null on a quiet ask nobody has taken on yet (spec §5.4). */
+  organiser_user_id: string | null;
 };
 
 /**
@@ -42,7 +44,9 @@ export async function plansFor(client: Client, circleIds: readonly string[]): Pr
   if (circleIds.length === 0) return [];
   const { data, error } = await client
     .from('plans')
-    .select('id, circle_id, short_code, title, state, revision, response_deadline')
+    .select(
+      'id, circle_id, short_code, title, state, revision, response_deadline, organiser_user_id',
+    )
     .in('circle_id', [...circleIds])
     .in('state', [...ANSWERABLE_STATES, 'confirmed'])
     .order('created_at', { ascending: false });

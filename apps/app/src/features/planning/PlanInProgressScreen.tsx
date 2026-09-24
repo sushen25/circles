@@ -31,8 +31,19 @@ export type PlanInProgressProps = {
   closes: string;
   /** "5 of 6 replied". */
   replied: string;
+  /**
+   * Who the reader is to this plan. Edit is the organiser's; Cancel is the
+   * organiser's or the owner's (spec §4.5). A button that leads only to a
+   * refusal is not offered, and the body says whose plan it is instead.
+   */
+  canEdit: boolean;
+  canCancel: boolean;
+  /** The organiser's name, for a reader who is not them. */
+  organiserName?: string | undefined;
   onEdit?: (() => void) | undefined;
   onCancel?: (() => void) | undefined;
+  /** The candidates screen: how it is looking, for anybody in the circle. */
+  onSeeHowItsLooking?: (() => void) | undefined;
   onBack?: (() => void) | undefined;
 };
 
@@ -47,7 +58,13 @@ export function PlanInProgressScreen(props: PlanInProgressProps) {
       <Body>
         <Stack>
           <DisplayL>{t('planSetup', 'in_progress_title', { circle: props.circleName })}</DisplayL>
-          <BodyText>{t('planSetup', 'in_progress_body')}</BodyText>
+          <BodyText>
+            {props.canEdit
+              ? t('planSetup', 'in_progress_body')
+              : t('planSetup', 'in_progress_theirs', {
+                  name: props.organiserName ?? t('planSetup', 'someone'),
+                })}
+          </BodyText>
         </Stack>
         <Card recommended>
           <Small>{props.closes}</Small>
@@ -56,11 +73,20 @@ export function PlanInProgressScreen(props: PlanInProgressProps) {
         </Card>
       </Body>
       <Foot>
-        <Button label={t('planSetup', 'in_progress_edit')} onPress={props.onEdit} />
+        {props.canEdit ? (
+          <Button label={t('planSetup', 'in_progress_edit')} onPress={props.onEdit} />
+        ) : null}
+        {props.canCancel ? (
+          <Button
+            label={t('planSetup', 'in_progress_cancel')}
+            variant="secondary"
+            onPress={props.onCancel}
+          />
+        ) : null}
         <Button
-          label={t('planSetup', 'in_progress_cancel')}
-          variant="secondary"
-          onPress={props.onCancel}
+          label={t('circleHome', 'see_how_its_looking')}
+          variant={props.canEdit ? 'secondary' : 'primary'}
+          onPress={props.onSeeHowItsLooking}
         />
       </Foot>
     </Screen>

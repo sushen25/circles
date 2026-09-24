@@ -11,20 +11,31 @@
 -- at most one plan that is `collecting` or `ready`. Enforced where the plan
 -- comes into being, as a guard on the state machine's two creation rows:
 --
---   * `no_open_plan` joins `member` and `permanent` on `draft → create_named`
---     and `draft → create_quiet`. `planning.transition_plan` locks the circle
---     row and refuses with `plan_in_progress` while another plan of the circle
---     is `collecting` or `ready`. `public.create_plan` reaches it the way it
+--   * `no_open_plan` is on every transition that enters `collecting` or `ready`
+--     from outside them: `draft → create_named`, `draft → create_quiet`,
+--     `seeking → threshold_reached` and `confirmed → reopen`. It is on none of
+--     the rows between the two open states, which are the one open plan
+--     changing shape. `planning.transition_plan` locks the circle row and
+--     refuses with `plan_in_progress` while another plan of the circle is
+--     `collecting` or `ready`. `public.create_plan` reaches it the way it
 --     reaches every guard, and the draft it inserted rolls back with the
---     refusal, as a guest's does.
+--     refusal, as a guest's does; "Change the time" on a locked-in plan, and a
+--     quiet ask crossing its threshold, meet the same refusal.
 --   * The domain carries the same guard (`circleHasOpenPlan`, failing closed
 --     when unknown), so the client and the server name the same refusal.
 --
--- A guard, not a partial unique index: `ready → collecting` and
--- `confirmed → reopen` are the one open plan changing shape, the seed and the
--- tests write plans around the machine on purpose, and what happens when a
--- quiet ask reaches its threshold beside an open plan is Slice 2's to decide
--- (S2-01), which an index would decide for it in the strictest direction.
+-- A guard, not a partial unique index: `ready → collecting` is the one open
+-- plan changing shape, the seed and the tests write plans around the machine
+-- on purpose, and the guard says the rule where a plan enters the open states,
+-- which is the only place a second one can. What a quiet ask does *after* the
+-- refusal — wait, retry, expire — is Slice 2's to decide (S2-01, S2-02).
+--
+-- Rows written before this rule are not rewritten. A circle already holding
+-- two open plans is refused below, by name and count, and the migration stops:
+-- the older plan is cancelled from the app, which tells the people who
+-- answered it, and the migration is applied again. Nothing here chooses which
+-- plan a circle keeps, and nothing here cancels a plan without a person
+-- deciding to.
 --
 -- The state machine is reseeded whole, as 0011 and 0019 were: it is a mirror
 -- of `packages/domain/src/planning/state-machine.ts`, and a mirror with one
@@ -32,16 +43,33 @@
 -- `scripts/gen-transitions.mjs` and `scripts/gen-sql-functions.mjs` now
 -- points here; 0022 and 0019 have shipped.
 --
--- What changed in the table: `no_open_plan` on `create_named` and
--- `create_quiet`. Nothing else moves.
+-- What changed in the table: `no_open_plan` on `create_named`, `create_quiet`,
+-- `threshold_reached` and `reopen`. Nothing else moves.
 -- ---------------------------------------------------------------------------
+do $$
+declare
+  offenders integer;
+begin
+  select count(*) into offenders from (
+    select p.circle_id from public.plans p
+    where p.state in ('collecting', 'ready')
+    group by p.circle_id having count(*) > 1
+  ) s;
+  if offenders > 0 then
+    raise exception
+      '0024: % circle(s) hold more than one plan collecting or ready. Cancel the older plan from the app, so the people who answered it are told, then apply this migration again.',
+      offenders
+      using errcode = 'check_violation';
+  end if;
+end $$;
+
 delete from planning.transitions;
 
 -- BEGIN GENERATED: transitions (scripts/gen-transitions.mjs)
 insert into planning.transitions (from_state, action, to_state, guards, bumps_revision) values
   ('draft', 'create_named', 'collecting', array['member','permanent','no_open_plan'], false),
   ('draft', 'create_quiet', 'seeking', array['member','permanent','no_open_plan'], false),
-  ('seeking', 'threshold_reached', 'collecting', array['threshold'], false),
+  ('seeking', 'threshold_reached', 'collecting', array['threshold','no_open_plan'], false),
   ('seeking', 'expire', 'expired', array[]::text[], false),
   ('collecting', 'accept_organiser', 'collecting', array['member','permanent','no_organiser_yet','keen_initiator_or_owner'], false),
   ('ready', 'accept_organiser', 'ready', array['member','permanent','no_organiser_yet','keen_initiator_or_owner'], false),
@@ -59,7 +87,7 @@ insert into planning.transitions (from_state, action, to_state, guards, bumps_re
   ('ready', 'confirm', 'confirmed', array['organiser','candidate'], false),
   ('ready', 'expire', 'expired', array[]::text[], false),
   ('ready', 'cancel', 'cancelled', array['organiser_or_owner'], false),
-  ('confirmed', 'reopen', 'collecting', array['organiser'], true),
+  ('confirmed', 'reopen', 'collecting', array['organiser','no_open_plan'], true),
   ('confirmed', 'cancel', 'cancelled', array['organiser_or_owner'], false),
   ('confirmed', 'report_outcome', 'completed', array['organiser'], false);
 -- END GENERATED: transitions
@@ -207,11 +235,15 @@ begin
         -- One open plan per circle (spec §5.3, ADR 00XX): a second plan raised
         -- while one was `collecting` or `ready` left the first running — its
         -- link taking answers, its deadline closing, its emails sending — and
-        -- circle home showing only the newest. The circle row is locked first,
-        -- so two creations arriving together are decided one after the other
-        -- whoever the caller is; `create_plan` already holds this lock, and a
-        -- re-lock in the same transaction is free. The plan being created is
-        -- still `draft`, so it is not counted against itself.
+        -- circle home showing only the newest. On every row that enters
+        -- `collecting` or `ready` from outside them: creation, a quiet ask
+        -- crossing its threshold, a locked-in plan reopened (review round 1 —
+        -- "Change the time" beside a newer plan made two). The circle row is
+        -- locked first, so two arriving together are decided one after the
+        -- other whoever the caller is; `create_plan` already holds this lock,
+        -- and a re-lock in the same transaction is free. The plan moving is
+        -- excluded by id, so a draft, a seeking ask or a confirmed plan is not
+        -- counted against itself.
         perform 1 from public.circles c where c.id = plan.circle_id for update;
         if exists (
           select 1 from public.plans p

@@ -113,6 +113,7 @@ describe('circle home the morning after', () => {
         activePlan: {
           id: 'next',
           code: 'pnnextxx',
+          organiserUserId: 'maya',
           title: 'Catch up',
           responseDeadline: '2026-09-25T08:00:00Z',
           replied: 1,

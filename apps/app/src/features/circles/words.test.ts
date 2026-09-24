@@ -38,6 +38,7 @@ describe('"Next one" on the circle home', () => {
       activePlan: {
         id: 'p',
         code: 'abcdefgh',
+        organiserUserId: 'maya',
         title: 'Catch up',
         responseDeadline: '2026-09-12T08:00:00Z',
         replied: 0,
