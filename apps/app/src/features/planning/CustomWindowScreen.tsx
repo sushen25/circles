@@ -1,78 +1,77 @@
-import { useState } from 'react';
-
 import {
   Body,
   Button,
-  Chip,
-  Chips,
+  CompactButton,
+  DayGrid,
   DisplayL,
   Foot,
   Label,
+  Notice,
   Screen,
   Small,
   Title,
   TopBar,
 } from '../../components';
-import { Row, Stack } from '../../components/layout';
+import { Between, Row, Stack } from '../../components/layout';
 import { t } from '../../copy';
-import type { Fixture } from '../../data/fixtures';
-import type { ScreenState } from '../state';
+import { BandPicker, type BandPickerProps } from './parts';
+import type { CustomWindowView } from './useCustomWindow';
 
 /**
- * CustomWindow — scaffolded from `docs/design/CustomWindow.dc.html`.
- *
- * Structure and copy come from the artboard; data comes from a fixture. Slice 1
- * replaces `fixture` with real data and `onNext` with real navigation. Edit
- * freely: `scripts/scaffold-screens.mjs` will not overwrite this file.
+ * CustomWindow — `docs/design/CustomWindow.dc.html` (spec §5.3): a month grid
+ * to tap a range on, at most fourteen days, days already gone shown and not
+ * pickable; then the hours of each day. **Use these dates** goes back to the
+ * form it came from with the range and the hours on it.
  */
 export type CustomWindowProps = {
-  fixture: Fixture;
-  state?: ScreenState | undefined;
-  /** The screen's one decision. */
+  view: CustomWindowView;
+  band: BandPickerProps;
+  /** Why the dates and hours together do not work, from the domain's own code. */
+  problem?: string | undefined;
   onNext?: (() => void) | undefined;
   onBack?: (() => void) | undefined;
 };
 
-export function CustomWindowScreen({ onNext, onBack }: CustomWindowProps) {
-  const [choice0, setChoice0] = useState(0); // Chip group
-
+export function CustomWindowScreen({ view, band, problem, onNext, onBack }: CustomWindowProps) {
   return (
     <Screen>
       <TopBar title={t('customWindow', 'when')} onBack={onBack} backLabel={t('common', 'back')} />
       <Body>
         <DisplayL>{t('customWindow', 'pick_the_dates_to_ask_about')}</DisplayL>
+        <Between>
+          <Label>{view.monthTitle}</Label>
+          <Row>
+            <CompactButton
+              label={t('customWindow', 'earlier_month')}
+              disabled={!view.canEarlierMonth}
+              onPress={view.onEarlierMonth}
+            />
+            <CompactButton
+              label={t('customWindow', 'later_month')}
+              disabled={!view.canLaterMonth}
+              onPress={view.onLaterMonth}
+            />
+          </Row>
+        </Between>
+        <DayGrid
+          days={view.days}
+          weekdays={view.weekdays}
+          label={t('customWindow', 'grid_label')}
+          onToggle={view.onDay}
+        />
         <Stack>
-          <Label>{t('customWindow', 'september')}</Label>
+          <Title accessibilityLiveRegion="polite">{view.summary}</Title>
+          {view.detail === '' ? null : <Small>{view.detail}</Small>}
         </Stack>
-        <Row>
-          <Stack>
-            <Title>{t('customWindow', 'mon_14_sun_27_sep')}</Title>
-            <Small>{t('customWindow', '14_days_the_most_you_can_ask')}</Small>
-          </Stack>
-        </Row>
-        <Stack>
-          <Label>{t('customWindow', 'times_of_day')}</Label>
-          <Chips>
-            <Chip
-              label={t('customWindow', 'evenings_5_30_10_30')}
-              selected={choice0 === 0}
-              onPress={() => setChoice0(0)}
-            />
-            <Chip
-              label={t('customWindow', 'weekend_days_9_10_30')}
-              selected={choice0 === 1}
-              onPress={() => setChoice0(1)}
-            />
-            <Chip
-              label={t('customWindow', 'custom')}
-              selected={choice0 === 2}
-              onPress={() => setChoice0(2)}
-            />
-          </Chips>
-        </Stack>
+        <BandPicker {...band} />
+        {problem === undefined ? null : <Notice kind="warn">{problem}</Notice>}
       </Body>
       <Foot>
-        <Button label={t('customWindow', 'use_these_dates')} onPress={onNext} />
+        <Button
+          label={t('customWindow', 'use_these_dates')}
+          disabled={view.range === undefined || problem !== undefined}
+          onPress={onNext}
+        />
       </Foot>
     </Screen>
   );

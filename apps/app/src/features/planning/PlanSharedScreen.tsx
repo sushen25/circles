@@ -31,6 +31,12 @@ export type PlanSharedProps = {
   /** "Replies close Tue 15 Sep, 6 pm. We'll show you …". */
   closes?: string | undefined;
   outcome?: 'copied' | 'couldnt_copy' | undefined;
+  /**
+   * Asking again after an edit or "Change the time" (S1-26): not the first
+   * run's step, and a title and intro that say why the link is going round
+   * a second time.
+   */
+  again?: { title: string; intro: string } | undefined;
   onRetry?: (() => void) | undefined;
   /** The screen's one decision: the organiser's own times, for the plan just made. */
   onNext?: (() => void) | undefined;
@@ -48,6 +54,7 @@ export function PlanSharedScreen({
   linkSubtitle = t('planShared', 'pick_the_times_youd_be_up_for'),
   closes = t('planShared', 'replies_close_tue_15_sep_6_pm'),
   outcome,
+  again,
   onRetry,
   onNext,
   onBack,
@@ -84,9 +91,9 @@ export function PlanSharedScreen({
 
   return (
     <ShareScreen
-      step={t('planShared', 'step_2_of_2')}
-      title={t('planShared', 'ask_circle', { circle: circleName })}
-      intro={t('planShared', 'one_link_in_the_chat')}
+      step={again === undefined ? t('planShared', 'step_2_of_2') : undefined}
+      title={again?.title ?? t('planShared', 'ask_circle', { circle: circleName })}
+      intro={again?.intro ?? t('planShared', 'one_link_in_the_chat')}
       message={message}
       linkTitle={linkTitle}
       linkSubtitle={linkSubtitle}

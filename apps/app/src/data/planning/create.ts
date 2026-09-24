@@ -1,4 +1,5 @@
 import {
+  CreatePlanRequest,
   CreatePlanResponse,
   DEEP_LINK_ROUTES,
   type CircleId,
@@ -38,6 +39,49 @@ export async function createFirstPlan(
     },
     CreatePlanResponse,
   );
+}
+
+/**
+ * `create-plan` from the full setup (spec §5.3, S1-26).
+ *
+ * **Only what the person changed is sent.** A field left at its default is
+ * left out, so the server resolves it from the same rule the screen previewed
+ * — and, for the quorum, keeps it *defaulted*: a quorum nobody chose follows
+ * the plan's audience as people join (ADR 0026), and sending the number the
+ * screen showed would have made it the organiser's for ever.
+ */
+export interface CreatePlanOptions {
+  circleId: CircleId;
+  title: string;
+  category: CreatePlanRequest['category'];
+  preset: CreatePlanRequest['preset'];
+  custom?: { start: string; end: string } | undefined;
+  daily?: { startMin: number; endMin: number } | undefined;
+  durationMinutes?: number | undefined;
+  quorum?: number | undefined;
+  requiredMemberIds?: string[] | undefined;
+  responseDeadline?: string | undefined;
+  idempotencyKey: IdempotencyKey;
+}
+
+export async function createPlan(options: CreatePlanOptions): Promise<CreatePlanResponse> {
+  const body: Record<string, unknown> = {
+    idempotency_key: options.idempotencyKey,
+    circle_id: options.circleId,
+    mode: 'named',
+    title: options.title,
+    category: options.category,
+    preset: options.preset,
+  };
+  if (options.custom !== undefined) body['custom'] = options.custom;
+  if (options.daily !== undefined) body['daily'] = options.daily;
+  if (options.durationMinutes !== undefined) body['duration_minutes'] = options.durationMinutes;
+  if (options.quorum !== undefined) body['quorum'] = options.quorum;
+  if (options.requiredMemberIds !== undefined) {
+    body['required_member_ids'] = options.requiredMemberIds;
+  }
+  if (options.responseDeadline !== undefined) body['response_deadline'] = options.responseDeadline;
+  return await invokeFunction('create-plan', CreatePlanRequest.parse(body), CreatePlanResponse);
 }
 
 /** `${origin}/j/<code>` — the plan's short link. Carries no secret (ADR 0022). */

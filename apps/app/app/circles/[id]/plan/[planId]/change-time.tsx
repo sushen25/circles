@@ -1,12 +1,15 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 
-import { useFixture } from '../../../../../src/data/fixtures/useFixture';
-import { ChangeTimeScreen } from '../../../../../src/features/confirmation/ChangeTimeScreen';
+import { MembershipGate } from '../../../../../src/features/identity/join/MembershipGate';
+import { ChangeTimeFlow } from '../../../../../src/features/planning/ChangeTimeFlow';
 
 /** Route only — thin composition, no logic (architecture §7.1). */
 export default function Route() {
-  const router = useRouter();
-  const fixture = useFixture();
+  const { id, planId } = useLocalSearchParams<{ id: string; planId: string }>();
 
-  return <ChangeTimeScreen fixture={fixture} onBack={() => router.back()} />;
+  return (
+    <MembershipGate target={{ kind: 'circle', id }}>
+      <ChangeTimeFlow id={id} planId={planId} />
+    </MembershipGate>
+  );
 }

@@ -123,17 +123,14 @@ organiser-email switch is SUS-83's.
 
 ### confirmation
 
-| Artboard                   | Route                                     | Component                |
-| -------------------------- | ----------------------------------------- | ------------------------ |
-| `AddToCalendar.dc.html`    | `/p/[code]/calendar`                      | `AddToCalendarSheet`     |
-| `CancelledGuest.dc.html`   | `/p/[code]/cancelled`                     | `CancelledGuestScreen`   |
-| `ChangeTime.dc.html`       | `/circles/[id]/plan/[planId]/change-time` | `ChangeTimeScreen`       |
-| `ConfirmedGuest.dc.html`   | `/p/[code]/confirmed`                     | `ConfirmedGuestScreen`   |
-| `ConfirmedOrg.dc.html`     | `/circles/[id]/plan/[planId]/confirmed`   | `ConfirmedOrgScreen`     |
-| `ConfirmReview.dc.html`    | `/circles/[id]/plan/[planId]/review`      | `ConfirmReviewScreen`    |
-| `Outcome.dc.html`          | `/circles/[id]/plan/[planId]/outcome`     | `OutcomeScreen`          |
-| `RescheduledGuest.dc.html` | `/p/[code]/rescheduled`                   | `RescheduledGuestScreen` |
-| `WasThere.dc.html`         | `/p/[code]/attendance`                    | `WasThereScreen`         |
+| Artboard                 | Route                                   | Component              |
+| ------------------------ | --------------------------------------- | ---------------------- |
+| `AddToCalendar.dc.html`  | `/p/[code]/calendar`                    | `AddToCalendarSheet`   |
+| `ConfirmedGuest.dc.html` | `/p/[code]/confirmed`                   | `ConfirmedGuestScreen` |
+| `ConfirmedOrg.dc.html`   | `/circles/[id]/plan/[planId]/confirmed` | `ConfirmedOrgScreen`   |
+| `ConfirmReview.dc.html`  | `/circles/[id]/plan/[planId]/review`    | `ConfirmReviewScreen`  |
+| `Outcome.dc.html`        | `/circles/[id]/plan/[planId]/outcome`   | `OutcomeScreen`        |
+| `WasThere.dc.html`       | `/p/[code]/attendance`                  | `WasThereScreen`       |
 
 **Real since S1-28:** `/circles/[id]/plan/[planId]/review?candidate=<ISO start>`
 renders `ReviewFlow`, and both `/circles/[id]/plan/[planId]/confirmed` and
@@ -153,10 +150,9 @@ the paste-ready message is built on the client with the domain's
 `<a download>` (`platform/download.ts`). "Open in Maps" is
 `platform/maps.ts`. The organiser corrects their own answer on their screen
 too. Once the meetup is over the confirmed door says so and counts nobody,
-because "I was there" is readable by its subject alone. `ChangeTime`,
-`Outcome`, `WasThere` and the cancelled and rescheduled screens are still
-fixtures, so "Change the time · Cancel this plan" is not shown until SUS-42
-wires them.
+because "I was there" is readable by its subject alone. "Change the time ·
+Cancel this plan" lead to S1-26's screens in `planning`. `Outcome` and
+`WasThere` are still fixtures.
 
 ### growth
 
@@ -203,31 +199,71 @@ artboard's static copy.
 
 ### planning
 
-| Artboard                    | Route                                   | Component                 |
-| --------------------------- | --------------------------------------- | ------------------------- |
-| `CancelledOrg.dc.html`      | `/circles/[id]/plan/[planId]/cancelled` | `CancelledOrgScreen`      |
-| `CancelPlan.dc.html`        | `/circles/[id]/plan/[planId]/cancel`    | `CancelPlanScreen`        |
-| `ChooseMode.dc.html`        | `/circles/[id]/plan/mode`               | `ChooseModeScreen`        |
-| `CustomWindow.dc.html`      | `/circles/[id]/plan/window`             | `CustomWindowScreen`      |
-| `EditPlan.dc.html`          | `/circles/[id]/plan/[planId]/edit`      | `EditPlanScreen`          |
-| `FirstPlan.dc.html`         | `/circles/[id]/plan/new`                | `FirstPlanScreen`         |
-| `InterestPrompt.dc.html`    | `/circles/[id]/quiet/interest`          | `InterestPromptScreen`    |
-| `PlanAnother.dc.html`       | `/circles/[id]/plan/another`            | `PlanAnotherScreen`       |
-| `PlanSetup.dc.html`         | `/circles/[id]/plan/setup`              | `PlanSetupScreen`         |
-| `PlanShared.dc.html`        | `/circles/[id]/plan/[planId]/shared`    | `PlanSharedScreen`        |
-| `SparkExpired.dc.html`      | `/circles/[id]/quiet/expired`           | `SparkExpiredScreen`      |
-| `SparkOpenedMember.dc.html` | `/circles/[id]/quiet/opened`            | `SparkOpenedMemberScreen` |
-| `SparkSetup.dc.html`        | `/circles/[id]/quiet/new`               | `SparkSetupScreen`        |
-| `SparkWaiting.dc.html`      | `/circles/[id]/quiet/waiting`           | `SparkWaitingScreen`      |
-| `ThresholdRole.dc.html`     | `/circles/[id]/quiet/threshold`         | `ThresholdRoleScreen`     |
-| `Volunteer.dc.html`         | `/circles/[id]/quiet/volunteer`         | `VolunteerScreen`         |
+| Artboard                    | Route                                     | Component                 |
+| --------------------------- | ----------------------------------------- | ------------------------- |
+| `CancelledGuest.dc.html`    | `/p/[code]/cancelled`                     | `CancelledGuestScreen`    |
+| `CancelledOrg.dc.html`      | `/circles/[id]/plan/[planId]/cancelled`   | `CancelledOrgScreen`      |
+| `CancelPlan.dc.html`        | `/circles/[id]/plan/[planId]/cancel`      | `CancelPlanScreen`        |
+| `ChangeTime.dc.html`        | `/circles/[id]/plan/[planId]/change-time` | `ChangeTimeScreen`        |
+| `ChooseMode.dc.html`        | `/circles/[id]/plan/mode`                 | `ChooseModeScreen`        |
+| `CustomWindow.dc.html`      | `/circles/[id]/plan/window`               | `CustomWindowScreen`      |
+| `EditPlan.dc.html`          | `/circles/[id]/plan/[planId]/edit`        | `EditPlanScreen`          |
+| `FirstPlan.dc.html`         | `/circles/[id]/plan/new`                  | `FirstPlanScreen`         |
+| `InterestPrompt.dc.html`    | `/circles/[id]/quiet/interest`            | `InterestPromptScreen`    |
+| `PlanAnother.dc.html`       | `/circles/[id]/plan/another`              | `PlanAnotherScreen`       |
+| `PlanSetup.dc.html`         | `/circles/[id]/plan/setup`                | `PlanSetupScreen`         |
+| `PlanShared.dc.html`        | `/circles/[id]/plan/[planId]/shared`      | `PlanSharedScreen`        |
+| `RescheduledGuest.dc.html`  | `/p/[code]/rescheduled`                   | `RescheduledGuestScreen`  |
+| `SparkExpired.dc.html`      | `/circles/[id]/quiet/expired`             | `SparkExpiredScreen`      |
+| `SparkOpenedMember.dc.html` | `/circles/[id]/quiet/opened`              | `SparkOpenedMemberScreen` |
+| `SparkSetup.dc.html`        | `/circles/[id]/quiet/new`                 | `SparkSetupScreen`        |
+| `SparkWaiting.dc.html`      | `/circles/[id]/quiet/waiting`             | `SparkWaitingScreen`      |
+| `ThresholdRole.dc.html`     | `/circles/[id]/quiet/threshold`           | `ThresholdRoleScreen`     |
+| `Volunteer.dc.html`         | `/circles/[id]/quiet/volunteer`           | `VolunteerScreen`         |
 
 **Real since S1-22:** `/circles/[id]/plan/new` (`FirstPlanFlow`, through
 `create-plan` with the `next_14_days` preset and nothing else, so the server
 resolves the quorum when the plan is made) and
 `/circles/[id]/plan/[planId]/shared` (`PlanSharedFlow`, `newPlanMessage` with
 the plan's short link). "Change" and "See if people are keen instead" still lead
-to the fixture setup and quiet-ask screens (S1-26, S2-02).
+to the setup (S1-26) and the fixture quiet-ask screens (S2-02).
+
+**Real since S1-26:** the rest of the plan's life, all through `data/planning`
+(`planDetails` under RLS; `createPlan`, `previewRevision` / `saveRevision`
+and `cancelPlan` through the Edge Functions).
+
+- `/circles/[id]/plan/setup` (`PlanSetupFlow`) — every control on one form
+  (`usePlanForm`, `PlanControls`): intent, the five presets (tonight hidden when
+  the meetup no longer fits), times of day (`BandPicker`: evenings, daytime, or
+  any half-hour band), duration, the quorum stepper, who has to be there, and
+  when replies close (`DeadlineSheet`, anything up to the last possible start).
+  What the card says is `resolveDraft` — the domain's `resolvePreset` and
+  `defaultDeadline` — and **only what was changed is sent**, so an untouched
+  quorum stays defaulted and follows the plan's audience (ADR 0026).
+  `/circles/[id]/plan/window` is the same flow opened on its calendar
+  (`CustomWindowScreen`, a `DayGrid` month, at most 14 days).
+- `/circles/[id]/plan/mode` (`ChooseModeFlow`) — Plan openly; the quiet card is
+  behind `flags.quietAsk` (`@circles/config`) until S2-03.
+- `/circles/[id]/plan/[planId]/edit` (`EditPlanFlow`) — the setup's controls,
+  prefilled, the request being **the difference** (`resolveEdit`). A preview
+  runs once the form is still (`useRevision`), so the re-ask warning — the
+  preview's own `asked_again` and `fresh_ask`, "you" first, names then a count —
+  is on screen before Save, and Save carries the preview's `expected_version`;
+  `preview_is_stale` asks the preview again. New dates move the deadline to the
+  preset's default ("moved to match the new dates"). After a change that asks
+  again, `shared?again=1` hands over the message to paste.
+- `/circles/[id]/plan/[planId]/change-time` (`ChangeTimeFlow`) — `revise-plan
+{ reopen: true }` with a new window and a deadline still ahead, previewed the
+  same way; then `shared?again=1` with "Change of plan: Thursday is off".
+- `/circles/[id]/plan/[planId]/cancel` and `…/cancelled` (`CancelPlanFlow`,
+  `CancelledFlow`) — the organiser's or the owner's; an optional note that goes
+  to `cancel-plan` and nowhere else, then the paste-ready update
+  (`EN_SHARE_TEMPLATES.cancelled`).
+- `/p/[code]` goes through `PlanChangeGate` first: a cancelled plan sends a
+  member to `/p/[code]/cancelled` (`MemberCancelledFlow`, with the organiser's
+  note), and a reopened one sends somebody who has not answered the new
+  question to `/p/[code]/rescheduled` (`RescheduledFlow`, the old time struck
+  through) before the editor.
 
 ### scheduling
 

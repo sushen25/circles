@@ -144,7 +144,15 @@ export const catalogue = {
   }),
 
   // --- sharing and calendar ----------------------------------------------
-  share_opened: event(1, { kind: z.enum(['invite', 'plan', 'confirmed', 'reminder']) }),
+  /**
+   * Which message the sheet opened with (spec §5.8's list). `changed` and
+   * `cancelled` are S1-26's: the paste-ready update after "Change the time" and
+   * after a cancel. Widening an enum changes no existing event's meaning, so
+   * the version stays.
+   */
+  share_opened: event(1, {
+    kind: z.enum(['invite', 'plan', 'confirmed', 'reminder', 'changed', 'cancelled']),
+  }),
   calendar_add_opened: event(1, { surface: z.enum(['web', 'native']) }),
   ics_downloaded: event(1),
 

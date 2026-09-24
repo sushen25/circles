@@ -1,12 +1,15 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 
-import { useFixture } from '../../../../src/data/fixtures/useFixture';
-import { CustomWindowScreen } from '../../../../src/features/planning/CustomWindowScreen';
+import { MembershipGate } from '../../../../src/features/identity/join/MembershipGate';
+import { PlanSetupFlow } from '../../../../src/features/planning/PlanSetupFlow';
 
-/** Route only — thin composition, no logic (architecture §7.1). */
+/** Route only — the plan setup, opened on its calendar (architecture §7.1). */
 export default function Route() {
-  const router = useRouter();
-  const fixture = useFixture();
+  const { id } = useLocalSearchParams<{ id: string }>();
 
-  return <CustomWindowScreen fixture={fixture} onBack={() => router.back()} />;
+  return (
+    <MembershipGate target={{ kind: 'circle', id }}>
+      <PlanSetupFlow id={id} startOn="window" />
+    </MembershipGate>
+  );
 }

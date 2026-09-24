@@ -80,12 +80,12 @@ const SCREENS: ScreenEntry[] = [
   },
   {
     screen: 'RescheduledGuest',
-    feature: 'confirmation',
+    feature: 'planning',
     href: '/p/[code]/rescheduled',
   },
   {
     screen: 'CancelledGuest',
-    feature: 'confirmation',
+    feature: 'planning',
     href: '/p/[code]/cancelled',
   },
   {
@@ -215,7 +215,7 @@ const SCREENS: ScreenEntry[] = [
   },
   {
     screen: 'ChangeTime',
-    feature: 'confirmation',
+    feature: 'planning',
     href: '/circles/sunday-crew/plan/thu-17/change-time',
   },
   {

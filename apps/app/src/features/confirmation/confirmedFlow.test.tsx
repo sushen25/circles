@@ -95,11 +95,19 @@ describe('the organiser', () => {
     );
   });
 
-  it('offers no way to change or cancel until those screens can do it (SUS-42)', async () => {
-    show(<ConfirmedFlow target={{ planId: 'thu-17' }} />);
-    await screen.findByText('Ready to paste into the group chat');
-    expect(screen.queryByRole('button', { name: 'Change the time' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Cancel this plan' })).toBeNull();
+  it("changes the time or cancels on S1-26's screens, by the plan's own circle", async () => {
+    // From the plan link too, which has no circle in its route (SUS-42).
+    show(<ConfirmedFlow target={{ code: 'pnsundaycr' }} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Change the time' }));
+    expect(push).toHaveBeenCalledWith({
+      pathname: '/circles/[id]/plan/[planId]/change-time',
+      params: { id: 'sunday-crew', planId: 'thu-17' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel this plan' }));
+    expect(push).toHaveBeenCalledWith({
+      pathname: '/circles/[id]/plan/[planId]/cancel',
+      params: { id: 'sunday-crew', planId: 'thu-17' },
+    });
   });
 
   // After a lock-in the options sit underneath, and they send a locked-in

@@ -90,6 +90,13 @@ describe('cancelledMessage', () => {
     expect(text).toBe(`Update: Thursday's Sunday Crew catch-up is off. ${LINK}`);
     expect(text).not.toContain('  ');
   });
+
+  it('names no day for a plan that was never locked in', () => {
+    // Cancelled while it was still asking: there is no Thursday to call off.
+    expect(
+      EN_SHARE_TEMPLATES.cancelled({ circleName: 'Sunday Crew', note: 'Next month.', url: LINK }),
+    ).toBe(`Update: Sunday Crew's catch-up is off. Next month. ${LINK}`);
+  });
 });
 
 describe("the wording is the caller's", () => {

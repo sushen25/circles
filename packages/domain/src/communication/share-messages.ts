@@ -82,7 +82,13 @@ export type ChangedParts = {
 
 export type CancelledParts = {
   readonly circleName: string;
-  readonly weekday: string;
+  /**
+   * The day that is off, when there was one. A plan cancelled while it was
+   * still asking was never on a day, so there is nothing to name: "Sunday
+   * Crew's catch-up is off", as the cancellation email says it, rather than a
+   * weekday somebody would have to invent.
+   */
+  readonly weekday?: string | undefined;
   readonly note?: string | undefined;
   readonly url: string;
 };
@@ -126,7 +132,8 @@ export const EN_SHARE_TEMPLATES: ShareTemplates = {
   changed: ({ weekday, url }) => `Change of plan: ${weekday} is off. New times, please: ${url}`,
 
   cancelled: ({ circleName, weekday, note, url }) =>
-    `Update: ${weekday}'s ${circleName} catch-up is off. ${note === undefined ? '' : `${note} `}${url}`,
+    `Update: ${weekday === undefined ? `${circleName}'s` : `${weekday}'s ${circleName}`} ` +
+    `catch-up is off. ${note === undefined ? '' : `${note} `}${url}`,
 };
 
 /** What every message needs: where to send people, and in whose words. */

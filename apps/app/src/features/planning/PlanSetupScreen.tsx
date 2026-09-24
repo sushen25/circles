@@ -1,158 +1,98 @@
-import { useState } from 'react';
+import type { PlanCategory } from '@circles/domain';
+import type { ReactNode } from 'react';
 
 import {
   Body,
   Button,
-  Card,
   Chip,
   Chips,
   DisplayL,
   Foot,
   Label,
+  Notice,
   Screen,
   Small,
-  Title,
   TopBar,
 } from '../../components';
-import { Divider, Row, Stack } from '../../components/layout';
+import { Stack } from '../../components/layout';
 import { t } from '../../copy';
-import type { Fixture } from '../../data/fixtures';
 import type { ScreenState } from '../state';
+import { CATEGORIES } from './form';
+import { PlanControls, type PlanControlsProps } from './PlanControls';
+import { PlanStateScreen } from './states';
+import { categoryLabel } from './words';
 
 /**
- * PlanSetup — scaffolded from `docs/design/PlanSetup.dc.html`.
- *
- * Structure and copy come from the artboard; data comes from a fixture. Slice 1
- * replaces `fixture` with real data and `onNext` with real navigation. Edit
- * freely: `scripts/scaffold-screens.mjs` will not overwrite this file.
+ * PlanSetup — `docs/design/PlanSetup.dc.html` (spec §5.3): what, when, which
+ * hours, how long, how many, who has to be there and when replies close; then
+ * **Ask the group**. Every line is worked out by the flow from the domain's
+ * rules (`usePlanForm`); this draws them.
  */
 export type PlanSetupProps = {
-  fixture: Fixture;
   state?: ScreenState | undefined;
-  /** The screen's one decision. */
+  /** Absent outside the default state, which is the only one with a form. */
+  category?: PlanCategory | undefined;
+  onCategory?: ((category: PlanCategory) => void) | undefined;
+  controls?: PlanControlsProps | undefined;
+  /** Why the form cannot be sent as it stands, pointing at the control. */
+  problem?: string | undefined;
+  /** What the server said, after a tap. */
+  refused?: string | undefined;
+  reference?: string | undefined;
+  busy?: boolean | undefined;
+  /** The sheets, drawn over the form. */
+  sheets?: ReactNode;
+  onRetry?: (() => void) | undefined;
+  /** The screen's one decision: Ask the group. */
   onNext?: (() => void) | undefined;
   onBack?: (() => void) | undefined;
 };
 
-export function PlanSetupScreen({ onNext, onBack }: PlanSetupProps) {
-  const [choice0, setChoice0] = useState(0); // Chip group
-  const [choice1, setChoice1] = useState(3); // Chip group
-  const [choice2, setChoice2] = useState(2); // Chip group
+export function PlanSetupScreen(props: PlanSetupProps) {
+  const { state = 'default', category = 'catch_up', controls, problem, refused, reference } = props;
+  const busy = props.busy ?? false;
+  if (state !== 'default' || controls === undefined) {
+    return <PlanStateScreen state={state} onRetry={props.onRetry} onBack={props.onBack} />;
+  }
 
   return (
     <Screen>
       <TopBar
         title={t('planSetup', 'plan_openly')}
-        onBack={onBack}
+        onBack={props.onBack}
         backLabel={t('common', 'back')}
       />
       <Body>
-        <DisplayL>{t('planSetup', 'catch_up')}</DisplayL>
-        <Stack>
+        <DisplayL>{categoryLabel(category)}</DisplayL>
+        <Stack gap={10}>
           <Label>{t('planSetup', 'what_are_we_doing')}</Label>
           <Chips>
-            <Chip
-              label={t('planSetup', 'catch_up')}
-              selected={choice0 === 0}
-              onPress={() => setChoice0(0)}
-            />
-            <Chip
-              label={t('planSetup', 'dinner')}
-              selected={choice0 === 1}
-              onPress={() => setChoice0(1)}
-            />
-            <Chip
-              label={t('planSetup', 'drinks')}
-              selected={choice0 === 2}
-              onPress={() => setChoice0(2)}
-            />
-            <Chip
-              label={t('planSetup', 'coffee')}
-              selected={choice0 === 3}
-              onPress={() => setChoice0(3)}
-            />
-            <Chip
-              label={t('planSetup', 'activity')}
-              selected={choice0 === 4}
-              onPress={() => setChoice0(4)}
-            />
+            {CATEGORIES.map((c) => (
+              <Chip
+                key={c}
+                label={categoryLabel(c)}
+                selected={category === c}
+                onPress={() => props.onCategory?.(c)}
+              />
+            ))}
           </Chips>
         </Stack>
-        <Stack>
-          <Label>{t('planSetup', 'when')}</Label>
-          <Chips>
-            <Chip
-              label={t('planSetup', 'tonight')}
-              selected={choice1 === 0}
-              onPress={() => setChoice1(0)}
-            />
-            <Chip
-              label={t('planSetup', 'this_weekend')}
-              selected={choice1 === 1}
-              onPress={() => setChoice1(1)}
-            />
-            <Chip
-              label={t('planSetup', 'next_7_days')}
-              selected={choice1 === 2}
-              onPress={() => setChoice1(2)}
-            />
-            <Chip
-              label={t('planSetup', 'next_14_days')}
-              selected={choice1 === 3}
-              onPress={() => setChoice1(3)}
-            />
-            <Chip
-              label={t('planSetup', 'custom')}
-              selected={choice1 === 4}
-              onPress={() => setChoice1(4)}
-            />
-          </Chips>
-        </Stack>
-        <Stack>
-          <Label>{t('planSetup', 'how_long')}</Label>
-          <Chips>
-            <Chip
-              label={t('planSetup', '1_hr')}
-              selected={choice2 === 0}
-              onPress={() => setChoice2(0)}
-            />
-            <Chip
-              label={t('planSetup', '1_5_hrs')}
-              selected={choice2 === 1}
-              onPress={() => setChoice2(1)}
-            />
-            <Chip
-              label={t('planSetup', '2_hrs')}
-              selected={choice2 === 2}
-              onPress={() => setChoice2(2)}
-            />
-            <Chip
-              label={t('planSetup', '3_hrs')}
-              selected={choice2 === 3}
-              onPress={() => setChoice2(3)}
-            />
-          </Chips>
-        </Stack>
-        <Card>
-          <Row>
-            <Stack>
-              <Title>{t('planSetup', 'at_least_4_of_6_need_to')}</Title>
-              <Small>{t('planSetup', 'so_one_busy_week_doesnt_sink_the')}</Small>
-            </Stack>
-          </Row>
-          <Divider />
-          <Row>
-            <Stack>
-              <Title>{t('planSetup', 'replies_close_in_3_days')}</Title>
-              <Small>{t('planSetup', 'tue_15_sep_6_pm_you_can')}</Small>
-            </Stack>
-          </Row>
-        </Card>
+        <PlanControls {...controls} />
+        {problem === undefined ? null : <Notice kind="warn">{problem}</Notice>}
+        {refused === undefined ? null : <Notice kind="warn">{refused}</Notice>}
+        {reference === undefined ? null : (
+          <Small>{t('planSetup', 'reference', { reference })}</Small>
+        )}
       </Body>
       <Foot>
-        <Button label={t('planSetup', 'ask_the_group')} onPress={onNext} />
+        <Button
+          label={busy ? t('planSetup', 'asking') : t('planSetup', 'ask_the_group')}
+          disabled={busy || problem !== undefined}
+          onPress={props.onNext}
+        />
         <Small>{t('planSetup', 'well_give_you_a_short_message_to')}</Small>
       </Foot>
+      {props.sheets}
     </Screen>
   );
 }
