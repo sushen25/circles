@@ -169,7 +169,10 @@ export function useReportAttendance(
       // "I was there" is the corroboration the north star counts (§11.1). The
       // count is the server's, from `confirmation_evidence`, and goes to the
       // funnel only — never onto a screen, where it would be a scoreboard.
-      if (data !== undefined && answer === 'was_there') {
+      // Once per answer: the same answer again is a no-op on the server, and
+      // is not a second corroboration (review round 6).
+      const before = data?.attendance.find((a) => a.userId === data.me)?.status;
+      if (data !== undefined && answer === 'was_there' && before !== 'was_there') {
         track('attendance_confirmed', { ...idsOf(data), attended_count: evidence.was_there });
       }
       setNotice(undefined);

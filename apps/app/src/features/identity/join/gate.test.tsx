@@ -206,7 +206,23 @@ describe('ReentryFlow', () => {
         }),
       );
       expect(morningAfterOf).toHaveBeenCalledWith(CIRCLE);
-      expect(arrivalFor).not.toHaveBeenCalled();
+      expect(replace).toHaveBeenCalledTimes(1);
+    });
+
+    // Review round 6: a plan asking for times has a deadline; the morning
+    // after's question does not. A "time's off, choose new times" letter's
+    // way back in must reach the plan, not an older meetup's question.
+    it('sends them to a plan asking for their times before the morning after', async () => {
+      morningAfterOf.mockResolvedValue({ ask: 'attendance', code: 'oldmeetup' });
+      arrivalFor.mockResolvedValue({ kind: 'plan', code: 'pnasking' });
+      render(wrap(<ReentryFlow token={'t'.repeat(40)} />));
+      await waitFor(() =>
+        expect(replace).toHaveBeenCalledWith({
+          pathname: '/j/[code]',
+          params: { code: 'pnasking' },
+        }),
+      );
+      expect(replace).toHaveBeenCalledTimes(1);
     });
 
     it('goes where it always has when nothing is owed, or it cannot tell', async () => {

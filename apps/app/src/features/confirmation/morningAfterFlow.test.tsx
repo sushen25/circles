@@ -297,6 +297,21 @@ describe('a member', () => {
     expect(screen.queryByRole('button', { name: 'Not now' })).toBeNull();
   });
 
+  // Review round 6: the same answer again is a no-op on the server, and must
+  // not be counted as a second corroboration.
+  it('records "I was there" once, not again for the same answer', async () => {
+    planConfirmation.mockResolvedValue({
+      ...fixture.morningAfterAsMember,
+      attendance: fixture.morningAfterAsMember.attendance.map((a) =>
+        a.userId === 'priya' ? { ...a, status: 'was_there' as const } : a,
+      ),
+    });
+    show(<MorningAfterFlow target={{ code: 'pnsundaycr' }} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'I was there' }));
+    expect(await screen.findByText('Thanks, noted.')).toBeTruthy();
+    expect(track).not.toHaveBeenCalledWith('attendance_confirmed', expect.anything());
+  });
+
   it('is told plainly when the plan never asked them', async () => {
     planConfirmation.mockResolvedValue({ ...fixture.morningAfterAsMember, me: 'nic' });
     show(<MorningAfterFlow target={{ code: 'pnsundaycr' }} />);

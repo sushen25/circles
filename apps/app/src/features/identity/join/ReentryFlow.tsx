@@ -55,19 +55,23 @@ export function ReentryFlow({ token: given }: { token?: string | undefined } = {
     reattachWithToken(parsed.data.token, key)
       .then(async (moved) => {
         if (!alreadySaved) track('member_reattached', { source: 'email' });
-        // The morning after, first (S1-29): every letter that carries this
-        // link is about a meetup, and the one it is most likely to be — the
-        // "were you there?" letter — asks a question this person can answer
-        // now. `replace`, as below.
-        const morning = await morningAfterOf(moved.circle.id).catch(() => null);
-        if (morning?.ask === 'attendance') {
-          router.replace({ pathname: '/p/[code]/attendance', params: { code: morning.code } });
-          return;
-        }
         const arrival = await arrivalFor(moved.circle.id).catch(() => ({
           kind: 'circle' as const,
           id: moved.circle.id,
         }));
+        // With no plan asking for their times, the morning after (S1-29): the
+        // letter this link came in is most likely the "were you there?" one,
+        // and that question is theirs to answer now. A plan asking comes
+        // first, because it has a deadline and the morning after does not — a
+        // "choose new times" letter's way back in must reach it (review
+        // round 6).
+        if (arrival.kind !== 'plan') {
+          const morning = await morningAfterOf(moved.circle.id).catch(() => null);
+          if (morning?.ask === 'attendance') {
+            router.replace({ pathname: '/p/[code]/attendance', params: { code: morning.code } });
+            return;
+          }
+        }
         // `replace`: the token is spent, and Back should not return to it.
         if (arrival.kind === 'plan') {
           router.replace({ pathname: '/j/[code]', params: { code: arrival.code } });
