@@ -276,6 +276,10 @@ describe('a failed refetch while editing', () => {
     await screen.findByRole('button', { name: 'Save and ask again' });
     planDetails.mockRejectedValue(new Error('offline'));
     await client.invalidateQueries({ queryKey: ['plan-details'] });
+    await waitFor(() =>
+      expect(client.getQueryState(['plan-details', 'thu-17', 'maya'])?.status).toBe('error'),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 50));
 
     expect(screen.queryByText("We couldn't load this plan.")).toBeNull();
     expect(screen.getByRole('checkbox', { name: 'Next 7 days' }).getAttribute('aria-checked')).toBe(
