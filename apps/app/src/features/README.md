@@ -250,9 +250,10 @@ and `cancelPlan` through the Edge Functions).
 
 - `/circles/[id]/plan/setup` (`PlanSetupFlow`) — every control on one form,
   unless the circle already has a plan finding a time: then it is that plan
-  with **Edit the plan** and **Cancel the plan** (`PlanInProgressScreen`), one
-  open plan per circle (ADR 00XX), and `create-plan` refuses a second with
-  `plan_in_progress` if two taps race. The form
+  (`PlanInProgress`, shared with `/plan/new`) with **Edit the plan** for its
+  organiser, **Cancel the plan** for the organiser or the owner, and **See how
+  it's looking** for everyone — one open plan per circle (ADR 00XX) — and
+  `create-plan` refuses a second with `plan_in_progress` if two taps race. The form
   (`usePlanForm`, `PlanControls`): intent, the five presets (tonight hidden when
   the meetup no longer fits), times of day (`BandPicker`: evenings, daytime, or
   any half-hour band), duration, the quorum stepper, who has to be there, and
