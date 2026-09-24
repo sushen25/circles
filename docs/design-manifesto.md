@@ -165,7 +165,7 @@ Warm, low-saturation ground; one confident accent; a single support hue. The pal
 | `line-soft` | `#F1E9DE` | Dividers inside a card. |
 | `ink` | `#221E19` | Primary text. Warm near-black, never pure `#000`. |
 | `ink-2` | `#6C6156` | Secondary text and body copy. |
-| `ink-3` | `#A0958A` | Labels, metadata, placeholders. |
+| `ink-3` | `#796D61` | Labels, metadata, placeholders. Darkened from `#A0958A` to reach 4.5:1 on `ground` and `surface` (ADR 00XX): it is text people read. |
 | `accent` | `#C2542F` | Primary action, selected state, painted availability. |
 | `accent-dark` | `#A0431F` | Accent text on light grounds; pressed state. |
 | `accent-soft` | `#F6E5DC` | Accent-tinted surfaces and badges. |

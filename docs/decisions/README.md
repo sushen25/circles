@@ -37,6 +37,7 @@ Short records of decisions that shape the product or the code. A new ADR is requ
 | [0031](./0031-a-meetup-may-last-up-to-five-hours.md) | A meetup may last up to five hours | accepted |
 | [0032](./0032-the-circles-zone-is-shown-when-the-readers-device-differs.md) | The circle's zone is shown when the reader's device differs, not when a member's does | accepted |
 | [0033](./0033-one-open-plan-per-circle.md) | A circle has one open plan at a time | accepted |
+| [00XX](./00XX-ink-3-is-dark-enough-to-read.md) | `ink-3` is dark enough to read | proposed |
 
 ## Template
 
