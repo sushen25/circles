@@ -282,7 +282,7 @@ describe('the organiser, with no overlap', () => {
     show(<CandidatesFlow id={CIRCLE} planId={PLAN} which="no-quorum" />);
 
     const wider = await screen.findByRole('button', { name: /^Try a wider window\./ });
-    expect(screen.getByText('Ask about 14 days instead of 7')).toBeTruthy();
+    expect(screen.getByText('Ask about 30 days instead of 7')).toBeTruthy();
     fireEvent.click(wider);
 
     // §5.3: exactly who is asked again, before saving — and the reader is "you".
@@ -290,7 +290,7 @@ describe('the organiser, with no overlap', () => {
     await waitFor(() =>
       expect(previewWiderWindow).toHaveBeenCalledWith(PLAN, {
         start: '2026-09-14',
-        end: '2026-09-27',
+        end: '2026-10-13',
       }),
     );
     expect(widenWindow).not.toHaveBeenCalled();
@@ -300,7 +300,7 @@ describe('the organiser, with no overlap', () => {
     await waitFor(() =>
       expect(widenWindow).toHaveBeenCalledWith(
         PLAN,
-        { start: '2026-09-14', end: '2026-09-27' },
+        { start: '2026-09-14', end: '2026-10-13' },
         'v-1',
       ),
     );

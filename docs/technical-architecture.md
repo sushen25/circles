@@ -388,7 +388,7 @@ All ids are `uuid` (v7 where ordering helps). All tables have `created_at`, `upd
 
 | Table | Columns of note | Constraints |
 |---|---|---|
-| `plans` | `id`, `circle_id`, `mode` (`named|quiet`), `state`, `organiser_user_id` (nullable), `title`, `category`, `time_zone`, `window_start`, `window_end`, `daily_start_local`, `daily_end_local`, `duration_minutes`, `quorum`, `response_deadline`, `quiet_threshold`, `quiet_expires_at`, `revision`, `scoring_version`, `short_code` | `window_end - window_start ≤ 14 days`; deadline ≤ last possible start; `short_code` unique |
+| `plans` | `id`, `circle_id`, `mode` (`named|quiet`), `state`, `organiser_user_id` (nullable), `title`, `category`, `time_zone`, `window_start`, `window_end`, `daily_start_local`, `daily_end_local`, `duration_minutes`, `quorum`, `response_deadline`, `quiet_threshold`, `quiet_expires_at`, `revision`, `scoring_version`, `short_code` | `window_end - window_start ≤ 30 days`; deadline ≤ last possible start; `short_code` unique |
 | `plan_required_members` | `plan_id`, `revision`, `user_id` | |
 | `private.plan_initiators` | `plan_id`, `initiator_user_id` | never selectable by clients |
 | `private.plan_interest` | `plan_id`, `user_id`, `response` (`keen|not_this_time`), `responded_at` | unique `(plan_id, user_id)`; exposed to clients only as a count after threshold |

@@ -818,13 +818,13 @@ select throws_ok(
       duration_minutes, quorum, response_deadline, short_code
     )
     select circle_id, 'named', 'collecting', '00000000-0000-0000-0000-0000000001a1',
-      'Fortnight and a day', 'Australia/Melbourne',
-      date '2099-09-01', date '2099-09-15', 1050, 1350, 120, 4,
+      'A month and a day', 'Australia/Melbourne',
+      date '2099-09-01', date '2099-10-01', 1050, 1350, 120, 4,
       timestamptz '2099-09-15T09:00:00Z', 'pnhhhh'
     from t$$,
   '23514',
   null,
-  'fifteen consecutive days is refused; fourteen is the cap (spec §5.3)'
+  'thirty-one consecutive days is refused; thirty is the cap (spec §5.3, ADR 0030)'
 );
 
 select ok(

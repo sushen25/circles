@@ -33,6 +33,8 @@ Short records of decisions that shape the product or the code. A new ADR is requ
 | [0027](./0027-the-organisers-auth-address-is-an-email-contact.md) | The organiser's auth address is an email contact, verified by auth | accepted |
 | [0028](./0028-an-invite-secret-is-derived-so-its-owner-can-see-it-again.md) | An invite secret is derived, so its owner can see it again | accepted |
 | [0029](./0029-an-organiser-turns-organiser-email-off-in-the-app.md) | An organiser turns organiser email off in the app, not by a link | accepted |
+| [0030](./0030-a-plan-may-ask-about-up-to-thirty-days.md) | A plan may ask about up to thirty days | accepted |
+| [0031](./0031-a-meetup-may-last-up-to-five-hours.md) | A meetup may last up to five hours | accepted |
 
 ## Template
 

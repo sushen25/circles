@@ -55,12 +55,14 @@ export const DurationMinutes = z.union([
   z.literal(90),
   z.literal(120),
   z.literal(180),
+  z.literal(240),
+  z.literal(300),
 ]);
 export type DurationMinutes = z.infer<typeof DurationMinutes>;
 
 /**
  * The calendar days a plan may land on, inclusive — `{ start: '2026-09-17', end:
- * '2026-09-20' }` is four days, not three. At most fourteen (spec §5.3), which
+ * '2026-09-20' }` is four days, not three. At most thirty (spec §5.3, ADR 0030), which
  * the domain enforces when it resolves the window; the shape is checked here.
  */
 export const DateWindow = z

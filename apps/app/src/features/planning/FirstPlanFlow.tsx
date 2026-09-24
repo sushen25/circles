@@ -50,6 +50,8 @@ const DURATION: Record<number, () => string> = {
   90: () => t('firstPlan', 'about_90_minutes'),
   120: () => t('firstPlan', 'about_2_hours'),
   180: () => t('firstPlan', 'about_3_hours'),
+  240: () => t('firstPlan', 'about_4_hours'),
+  300: () => t('firstPlan', 'about_5_hours'),
 };
 
 const REASONS: Record<string, FirstPlanProblem> = { too_many_requests: 'too_many_tries' };

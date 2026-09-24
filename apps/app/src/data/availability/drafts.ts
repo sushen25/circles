@@ -55,7 +55,14 @@ const Draft = z.object({
     windowEnd: z.string(),
     dailyStartMin: z.int(),
     dailyEndMin: z.int(),
-    durationMinutes: z.union([z.literal(60), z.literal(90), z.literal(120), z.literal(180)]),
+    durationMinutes: z.union([
+      z.literal(60),
+      z.literal(90),
+      z.literal(120),
+      z.literal(180),
+      z.literal(240),
+      z.literal(300),
+    ]),
     responseDeadline: z.string(),
     organiserName: z.string().nullable(),
     // Optional: a draft written before this field existed is still a draft

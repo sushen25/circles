@@ -66,6 +66,8 @@ const DURATION: Record<AnswerablePlan['durationMinutes'], () => string> = {
   90: () => t('availability', 'duration_90'),
   120: () => t('availability', 'duration_120'),
   180: () => t('availability', 'duration_180'),
+  240: () => t('availability', 'duration_240'),
+  300: () => t('availability', 'duration_300'),
 };
 
 /** "Catch-ups run about 2 hours. Replies close Tue 15 Sep, 6 pm." — in the plan's zone. */

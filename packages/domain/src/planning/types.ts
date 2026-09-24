@@ -89,13 +89,23 @@ export type DailyWindow = {
   readonly endMin: number;
 };
 
-/** 60, 90, 120 or 180 minutes (spec §5.3). 120 is the circle's default default. */
-export type DurationMinutes = 60 | 90 | 120 | 180;
+/**
+ * 60, 90, 120, 180, 240 or 300 minutes (spec §5.3; the last two by ADR 0031).
+ * 120 is the circle's default default.
+ */
+export type DurationMinutes = 60 | 90 | 120 | 180 | 240 | 300;
 
-export const DURATIONS: readonly DurationMinutes[] = [60, 90, 120, 180];
+export const DURATIONS: readonly DurationMinutes[] = [60, 90, 120, 180, 240, 300];
 
-/** A window may span at most 14 consecutive days (spec §5.3). */
-export const MAX_WINDOW_DAYS = 14;
+/** A window may span at most 30 consecutive days (spec §5.3, ADR 0030). */
+export const MAX_WINDOW_DAYS = 30;
+
+/**
+ * How long the `next_14_days` preset is. Not the cap, and never was meant to
+ * be: the first run asks about the fortnight and its wording says so,
+ * whatever a custom window may run to (ADR 0030).
+ */
+export const FORTNIGHT_DAYS = 14;
 
 /**
  * The four fields the timing and re-ask rules actually read.

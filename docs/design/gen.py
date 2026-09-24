@@ -896,7 +896,7 @@ S["CustomWindow"] = shell(
         stack(lbl("September"), '<div style="display:grid;grid-template-columns:repeat(7, minmax(0, 1fr));gap:4px;">' +
               "".join(f'<div class="sm" style="text-align:center;">{d}</div>' for d in ["M","T","W","T","F","S","S"]) +
               "".join(f'<div class="num" style="height:44px;display:flex;align-items:center;justify-content:center;border-radius:10px;{("background:"+T["accent"]+";color:#fff;") if (n and 14<=n<=27) else (("color:"+T["ink3"]+";") if (n and n<7) else "")}">{n if n else ""}</div>' for n in [0]+list(range(1,31))) + '</div>', gap=8),
-        between(stack(title("Mon 14 – Sun 27 Sep"), sm("14 days · the most you can ask about at once"), gap=2), ""),
+        between(stack(title("Mon 14 – Sun 27 Sep"), sm("14 days · up to 30 at once"), gap=2), ""),
         stack(lbl("Times of day"), chips("*Evenings 5:30–10:30", "Weekend days 9–10:30", "Custom"), gap=8),
     ) +
     foot(pri("Use these dates"))

@@ -23,7 +23,7 @@ import { weekdayOf } from './words';
  *
  * "Try a wider window" is the artboard's own row — "Ask about the next two
  * weeks instead" — rather than a way into the plan editor, and it means one
- * thing here: run the window out to the fourteen days the domain allows. Two
+ * thing here: run the window out to the thirty days the domain allows. Two
  * things withhold it:
  *
  * - **A plan already asking about a fortnight** has no wider window to try.
@@ -78,7 +78,7 @@ export function blockedBy(data: PlanCandidates): string {
 }
 
 /**
- * The window run out to the fourteen days the domain allows, keeping the day it
+ * The window run out to the thirty days the domain allows, keeping the day it
  * starts on. `undefined` when it is already that wide.
  */
 export function widerWindow(data: PlanCandidates): PlanWindow | undefined {

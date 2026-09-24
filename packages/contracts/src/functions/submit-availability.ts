@@ -63,7 +63,7 @@ export const SubmitAvailabilityRequest = Mutation.extend({
    * Absolute spans, half-hour aligned in the plan's zone once normalised.
    *
    * The cap is the largest answer a valid plan can produce, derived rather than
-   * guessed: 14 days is the window maximum (`plans_window_length`), a daily band
+   * guessed: 30 days is the window maximum (`plans_window_length`), a daily band
    * may run the whole day (`validateBand` allows 00:00–24:00), and alternating
    * half-hour cells across 24 hours is 24 disjoint windows — so 336. An earlier
    * 200 was a round number that would have refused a real answer somebody had

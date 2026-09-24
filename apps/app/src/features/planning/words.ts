@@ -60,6 +60,10 @@ export function durationLabel(duration: DurationMinutes): string {
       return t('planSetup', '2_hrs');
     case 180:
       return t('planSetup', '3_hrs');
+    case 240:
+      return t('planSetup', '4_hrs');
+    case 300:
+      return t('planSetup', '5_hrs');
   }
 }
 

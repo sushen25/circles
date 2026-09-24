@@ -13,7 +13,7 @@ import type { DateRange } from './form';
 
 /**
  * The CustomWindow month grid (spec §5.3: "custom (calendar picker, capped at
- * 14 consecutive days)").
+ * 30 consecutive days)").
  *
  * Two taps make a range: the first picks the start, the second the end. A
  * second tap before the start, or past the cap, starts again from the day
@@ -34,7 +34,7 @@ export type MonthDay = {
   /**
    * `past`: gone. `off`: before the first day this window may use — Change
    * the time's, which starts after the day it takes off the table.
-   * `too_far`: past the fourteenth, while an end is being chosen.
+   * `too_far`: past the thirtieth, while an end is being chosen.
    */
   why: 'past' | 'off' | 'too_far' | undefined;
 };
@@ -62,7 +62,7 @@ export function tapDay(pick: Pick, date: string): Pick {
   return { start, end: date };
 }
 
-/** The last day an end can be while one is being chosen: fourteen days in all. */
+/** The last day an end can be while one is being chosen: thirty days in all. */
 export function lastEnd(pick: Pick): string | undefined {
   if (pick.start === undefined || pick.end !== undefined) return undefined;
   return addDays(localDate(pick.start), MAX_WINDOW_DAYS - 1);
