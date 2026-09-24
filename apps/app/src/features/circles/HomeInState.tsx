@@ -16,6 +16,7 @@ import { CircleHomeJoiningScreen } from './CircleHomeJoiningScreen';
 import { CircleHomeScreen } from './CircleHomeScreen';
 import { EmptyCircleScreen } from './EmptyCircleScreen';
 import { aboutTimeBody, homeState, lockedInWords } from './lines';
+import { useMorningAfterCard } from './MorningAfterCard';
 import {
   cadenceWords,
   homeSubtitle,
@@ -37,6 +38,11 @@ export function HomeInState({ home, onBack }: { home: CircleHome; onBack: () => 
   const router = useRouter();
   const [shareOutcome, setShareOutcome] = useState<string | undefined>();
   const id = home.id;
+  // The morning after's card, when the reader owes an answer (S1-29). Every
+  // state of an active circle can hold it: the next plan may already be
+  // finding a time, or locked in, before the last one is reported — and
+  // everybody else may have left since.
+  const prompt = useMorningAfterCard(home);
 
   const members = home.members.map((m) => ({ name: m.name }));
   const memberCount =
@@ -81,6 +87,7 @@ export function HomeInState({ home, onBack }: { home: CircleHome; onBack: () => 
     return (
       <CircleHomeScreen
         {...shared}
+        prompt={prompt}
         subtitle={homeSubtitle(home)}
         planTitle={plan.title}
         closes={t('circleHome', 'replies_close', {
@@ -126,6 +133,7 @@ export function HomeInState({ home, onBack }: { home: CircleHome; onBack: () => 
     return (
       <CircleHomeConfirmedScreen
         {...shared}
+        prompt={prompt}
         subtitle={homeSubtitle(home)}
         date={words.date}
         detail={words.detail}
@@ -147,6 +155,7 @@ export function HomeInState({ home, onBack }: { home: CircleHome; onBack: () => 
   if (state === 'just_you') {
     return (
       <EmptyCircleScreen
+        prompt={prompt}
         circleName={home.name}
         color={home.color}
         subtitle={t('emptyCircle', 'just_you', { what: cadenceWords(home.cadence) })}
@@ -162,6 +171,7 @@ export function HomeInState({ home, onBack }: { home: CircleHome; onBack: () => 
     return (
       <CircleHomeDueScreen
         {...shared}
+        prompt={prompt}
         due={state === 'about_time'}
         subtitle={homeSubtitle(home)}
         body={aboutTimeBody(home)}
@@ -175,6 +185,7 @@ export function HomeInState({ home, onBack }: { home: CircleHome; onBack: () => 
   // Never met, with people in it: the home as it fills up (S1-22).
   return (
     <CircleHomeJoiningScreen
+      prompt={prompt}
       circleName={home.name}
       color={home.color}
       subtitle={joiningSubtitle(home)}

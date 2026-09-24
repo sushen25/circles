@@ -1467,8 +1467,10 @@ export const en = {
   },
   outcome: {
     brand: '{brand}',
-    sunday_crew_thu_17_sep: 'Sunday Crew · Thu 17 Sep',
-    did_thursdays_catch_up_happen: "Did Thursday's catch-up happen?",
+    /** "Sunday Crew · Thu 17 Sep". */
+    label: '{circle} · {date}',
+    /** "Did Thursday's catch-up happen?" — `day` is the weekday. */
+    title: "Did {day}'s catch-up happen?",
     it_just_sets_when_the_circle_last:
       'It just sets when the circle last got together. Nobody is scored, and nobody is told who came.',
     it_happened: 'It happened',
@@ -1476,8 +1478,39 @@ export const en = {
     we_moved_it_outside_brand: 'We moved it outside {brand}',
     not_sure: 'Not sure',
     a_line_for_the_circles_record_optional: "A line for the circle's record, optional",
-    great_night_hope_st_again_next_time: 'Great night, Hope St again next time',
+    note_placeholder: 'Great night, same again next time',
+    /** The micro-survey's second question (§5.10): its own tap, whatever the answer above. */
+    changed_question: 'Did the plan change outside the app?',
+    changed_yes: 'Yes',
+    changed_no: 'No',
+    changed_hint: 'It tells us how often plans get sorted in the group chat instead.',
+    /** The organiser is a member too: after reporting, their own answer. */
+    own_attendance: 'Say whether you made it',
     save: 'Save',
+    saving: 'Saving',
+    loading: 'Getting the plan',
+    couldnt_load: "We couldn't load this plan.",
+    youre_offline: "You're offline. Connect, then try again.",
+    try_again: 'Try again',
+    denied_title: 'This one is not yours to see.',
+    denied_body: 'Plans are only visible to the circle they belong to.',
+    /** Asked before the evening has finished: `report-outcome` would refuse it. */
+    early_title: "{day}'s catch-up hasn't finished yet.",
+    early_body: "Come back once it's over.",
+    /** Called off, or its time was changed: there is no evening to report on. */
+    off_title: 'This time is no longer the plan.',
+    off_body: "It was changed or called off, so there's nothing to report here.",
+    answered_title: 'This one has been answered.',
+    answered_body: "It's in the circle's record. Nothing more to do here.",
+    back_to_circle: 'Back to {circle}',
+    save_offline: "You're offline. Connect, then save again.",
+    save_problem: "That didn't save. Please try again.",
+    save_changed: 'This meetup changed since you opened it. Go back and have a look.',
+    save_early: "It hasn't finished yet. Come back once it's over.",
+    save_in_progress: "That's still going through. Give it a moment, then save again.",
+    /** Circle home's card, and the past confirmed screen's way in. */
+    prompt_answer: 'Answer',
+    past_action: 'Did it happen?',
   },
   planAnother: {
     plan_another: 'Plan another',
@@ -2093,13 +2126,45 @@ export const en = {
   },
   wasThere: {
     brand: '{brand}',
-    sunday_crew_thu_17_sep: 'Sunday Crew · Thu 17 Sep',
-    did_you_make_it_to_thursdays_catch: "Did you make it to Thursday's catch-up?",
+    /** "Sunday Crew · Thu 17 Sep". */
+    label: '{circle} · {date}',
+    /** "Did you make it to Thursday's catch-up?" — `day` is the weekday. */
+    title: "Did you make it to {day}'s catch-up?",
     helps_the_group_keep_a_light_record:
       'Helps the group keep a light record of when you last got together. Nobody keeps score.',
     i_was_there: 'I was there',
     i_couldnt_make_it: "I couldn't make it",
     not_now: 'Not now',
+    saving: 'Saving',
+    /** A second visit, after an answer: it can be changed either way. */
+    said_there: 'You said you were there.',
+    said_missed: "You said you couldn't make it.",
+    change_below: "Tap below if that's not right.",
+    /** Neutral whichever it was: nobody is thanked more for coming. */
+    done_title: 'Thanks, noted.',
+    done_body:
+      'It helps {circle} keep a light record. Nobody keeps score, and nobody is told who came.',
+    back_to_circle: 'Back to {circle}',
+    loading: 'Getting the plan',
+    couldnt_load: "We couldn't load this plan.",
+    youre_offline: "You're offline. Connect, then try again.",
+    try_again: 'Try again',
+    denied_title: 'This one is not yours to see.',
+    denied_body: 'Plans are only visible to the circle they belong to.',
+    early_title: "{day}'s catch-up hasn't happened yet.",
+    early_body: "Come back once it's over.",
+    off_title: "This one didn't go ahead at that time.",
+    off_body: "So there's nothing to answer here.",
+    /** Joined the circle after the time was locked in: never asked. */
+    not_asked_title: 'This catch-up was arranged before you joined.',
+    not_asked_body: "So there's nothing to answer. The next one will ask you.",
+    save_offline: "You're offline. Connect, then try again.",
+    save_problem: "That didn't save. Please try again.",
+    save_refused: "That answer can't be saved for this meetup any more.",
+    save_in_progress: "That's still going through. Give it a moment, then try again.",
+    /** Circle home's card, and the past confirmed screen's way in. */
+    prompt_answer: 'Answer',
+    past_action: 'Were you there?',
   },
   welcome: {
     brand: '{brand}',

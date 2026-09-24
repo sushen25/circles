@@ -3,12 +3,10 @@ import {
   type NotificationKind,
   type Zone,
   ONCE,
-  addDays,
   addMinutes,
   fromISO,
-  fromLocal,
+  morningAfter,
   occurrenceFor,
-  toLocal,
 } from '@circles/domain';
 
 import type { PlanContext } from './context.ts';
@@ -85,9 +83,9 @@ export const ANNOUNCED: ReadonlySet<string> = new Set([
   'confirmation.meetup_cancelled',
 ]);
 
-/** Nine the next morning, where the reader is (spec §5.8). */
-function morningAfter(end: Instant): (zone: Zone) => Instant {
-  return (zone) => fromLocal(addDays(toLocal(end, zone).date, 1), 9 * 60, zone);
+/** Nine the next morning, where the reader is: the domain's rule, per recipient. */
+function morningAfterFor(end: Instant): (zone: Zone) => Instant {
+  return (zone) => morningAfter(end, zone);
 }
 
 /**
@@ -142,7 +140,7 @@ export function intentsFor(
         confirmationId: confirmation.id as never,
       });
       const start = fromISO(confirmation.starts_at);
-      const morning = morningAfter(fromISO(confirmation.ends_at));
+      const morning = morningAfterFor(fromISO(confirmation.ends_at));
       return [
         { kind: 'locked_in', occurrence, desiredAt: now, actorId: confirmation.confirmed_by },
         { kind: 'reminder', occurrence, desiredAt: addMinutes(start, -120), notAfter: start },

@@ -1,12 +1,10 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 
-import { useFixture } from '../../../../../src/data/fixtures/useFixture';
-import { OutcomeScreen } from '../../../../../src/features/confirmation/OutcomeScreen';
+import { MorningAfterFlow } from '../../../../../src/features/confirmation/MorningAfterFlow';
 
 /** Route only — thin composition, no logic (architecture §7.1). */
 export default function Route() {
-  const router = useRouter();
-  const fixture = useFixture();
+  const { planId } = useLocalSearchParams<{ id: string; planId: string }>();
 
-  return <OutcomeScreen fixture={fixture} onBack={() => router.back()} />;
+  return <MorningAfterFlow target={{ planId }} />;
 }

@@ -4,7 +4,7 @@ Circles
 
 Sunday Crew planned to meet on Thursday. Were you there? One tap.
 
-Answer https://meet.example.com/p/pnemab
+Answer https://meet.example.com/p/pnemab/attendance
 
 ----------------------------------------
 

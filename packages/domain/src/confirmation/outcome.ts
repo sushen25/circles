@@ -11,6 +11,8 @@ import { canTransition } from '../planning/state-machine.js';
 import type { Actor } from '../planning/state-machine.js';
 import type { Plan } from '../planning/types.js';
 import { type Instant, latest } from '../shared/instant.js';
+import { addDays } from '../shared/local-date.js';
+import { type Zone, fromLocal, toLocal } from '../shared/zone.js';
 import { type Result, err, ok } from '../shared/result.js';
 import type { ConfirmError, ConfirmErrorCode } from './confirm.js';
 import {
@@ -44,6 +46,20 @@ export type OutcomeReported = {
   /** The plan in its `completed` state, from the state machine. */
   readonly plan: Plan;
 };
+
+/**
+ * Nine the next morning, where the reader is — when "did it happen?" is asked
+ * (spec §5.10, §5.8). The same instant for the email the dispatcher sends and
+ * for the question circle home puts to the reader, so neither asks before the
+ * other would.
+ *
+ * Asking is not the same as allowing: an answer is taken from the moment the
+ * meetup ends (`reportOutcome`, `updateAttendance`). This is only when the
+ * product brings the question up of its own accord.
+ */
+export function morningAfter(end: Instant, where: Zone): Instant {
+  return fromLocal(addDays(toLocal(end, where).date, 1), 9 * 60, where);
+}
 
 /**
  * `cancelled` is the one outcome that says the meetup did not take place at

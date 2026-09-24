@@ -130,6 +130,7 @@ organiser-email switch is SUS-83's.
 | `ConfirmedOrg.dc.html`   | `/circles/[id]/plan/[planId]/confirmed` | `ConfirmedOrgScreen`   |
 | `ConfirmReview.dc.html`  | `/circles/[id]/plan/[planId]/review`    | `ConfirmReviewScreen`  |
 | `Outcome.dc.html`        | `/circles/[id]/plan/[planId]/outcome`   | `OutcomeScreen`        |
+| `Outcome.dc.html`        | `/p/[code]/outcome`                     | `OutcomeScreen`        |
 | `WasThere.dc.html`       | `/p/[code]/attendance`                  | `WasThereScreen`       |
 
 **Real since S1-28:** `/circles/[id]/plan/[planId]/review?candidate=<ISO start>`
@@ -151,8 +152,23 @@ the paste-ready message is built on the client with the domain's
 `platform/maps.ts`. The organiser corrects their own answer on their screen
 too. Once the meetup is over the confirmed door says so and counts nobody,
 because "I was there" is readable by its subject alone. "Change the time ·
-Cancel this plan" lead to S1-26's screens in `planning`. `Outcome` and
-`WasThere` are still fixtures.
+Cancel this plan" lead to S1-26's screens in `planning`.
+
+**Real since S1-29:** the morning after. `/p/[code]/outcome` (the organiser's
+"did it happen?" email), `/p/[code]/attendance` (a member's email, and circle
+home's card) and `/circles/[id]/plan/[planId]/outcome` (the organiser's card)
+all render `MorningAfterFlow`, and again **who you are picks the screen**:
+the organiser gets `OutcomeScreen`, everybody else `WasThereScreen`. Both
+answers go through `report-outcome` (`data/confirmation/outcome.ts`) — a
+member's too, because only the function can count answers nobody else may
+read; `setAttendance` stays the before-the-meetup correction. Where each
+question stands is read off the confirmed read (`morningAfter.ts`), on the
+database's clock. Circle home's card comes from `morningAfterOf`, from nine
+the next morning (the domain's `morningAfter`, when the email goes): the
+organiser's until answered, a member's until answered or "Not now" (kept on
+the device). Once over, the confirmed door offers "Did it happen?" / "Were you
+there?" to whoever still owes it (`PastMeetup`), and the emailed way back in
+(`/a`) lands a member straight on their question.
 
 ### growth
 

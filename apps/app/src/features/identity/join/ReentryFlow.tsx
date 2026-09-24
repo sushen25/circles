@@ -6,6 +6,7 @@ import { track } from '../../../analytics/track';
 import { hasBackend } from '../../../data/auth/client';
 import { sessionState, signOut } from '../../../data/auth/session';
 import { newIdempotencyKey } from '../../../data/functions';
+import { morningAfterOf } from '../../../data/confirmation';
 import { heldToken, releaseToken } from '../../../data/links/tokens';
 import { arrivalFor, reattachWithToken } from '../../../data/membership';
 import { ContinueAsScreen } from '../ContinueAsScreen';
@@ -19,7 +20,8 @@ import { failureOf } from './failure';
  *
  * The same reattachment Continue-as makes, authorised by a single-use token
  * instead of by a pick from the list, so the person never sees the list at all.
- * Then on to the plan that is asking for their times, or the circle.
+ * Then on to the meetup they have not said whether they made it to, the plan
+ * that is asking for their times, or the circle.
  *
  * Every failure but one reads the same — "this link has expired, open the plan
  * from the chat" — because the token is unknown, spent or old, and the chat
@@ -57,6 +59,19 @@ export function ReentryFlow({ token: given }: { token?: string | undefined } = {
           kind: 'circle' as const,
           id: moved.circle.id,
         }));
+        // With no plan asking for their times, the morning after (S1-29): the
+        // letter this link came in is most likely the "were you there?" one,
+        // and that question is theirs to answer now. A plan asking comes
+        // first, because it has a deadline and the morning after does not — a
+        // "choose new times" letter's way back in must reach it (review
+        // round 6).
+        if (arrival.kind !== 'plan') {
+          const morning = await morningAfterOf(moved.circle.id).catch(() => null);
+          if (morning?.ask === 'attendance') {
+            router.replace({ pathname: '/p/[code]/attendance', params: { code: morning.code } });
+            return;
+          }
+        }
         // `replace`: the token is spent, and Back should not return to it.
         if (arrival.kind === 'plan') {
           router.replace({ pathname: '/j/[code]', params: { code: arrival.code } });

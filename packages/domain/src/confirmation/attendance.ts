@@ -91,8 +91,20 @@ const ALLOWED: Record<AttendanceStatus, readonly AttendanceChoice[]> = {
   missed: ['was_there'],
 };
 
-/** Claims about the past. Nobody may make one before the past exists. */
-const RETROSPECTIVE: readonly AttendanceChoice[] = ['was_there', 'missed'];
+/**
+ * Claims about the past — the morning after's two answers. Nobody may make one
+ * before the past exists.
+ */
+export const RETROSPECTIVE_STATUSES = [
+  'was_there',
+  'missed',
+] as const satisfies readonly AttendanceChoice[];
+export type RetrospectiveStatus = (typeof RETROSPECTIVE_STATUSES)[number];
+
+/** Whether a status answers the morning after's question rather than the promise before it. */
+export function isRetrospective(status: AttendanceStatus): status is RetrospectiveStatus {
+  return (RETROSPECTIVE_STATUSES as readonly AttendanceStatus[]).includes(status);
+}
 
 /**
  * When the meetup ends, and when the member is answering.
@@ -118,7 +130,7 @@ function problem(
   choice: AttendanceChoice,
   moment: AttendanceMoment,
 ): AttendanceError['code'] | undefined {
-  if (RETROSPECTIVE.includes(choice) && moment.now < moment.meetupEnd) {
+  if (isRetrospective(choice) && moment.now < moment.meetupEnd) {
     return 'attendance_too_early';
   }
   if (current !== choice && !ALLOWED[current].includes(choice)) return 'attendance_not_reversible';

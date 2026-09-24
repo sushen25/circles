@@ -21,6 +21,7 @@ const DUE: CircleHome = {
   members: [],
   activePlan: null,
   lockedIn: null,
+  morningAfter: null,
   mine: null,
 };
 

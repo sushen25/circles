@@ -4,6 +4,8 @@ import {
   emailPreferencesUrl,
   emailVerifyUrl,
   notificationSettingsUrl,
+  planAttendanceUrl,
+  planOutcomeUrl,
   planUrl,
   reentryUrl,
 } from '@circles/contracts';
@@ -62,6 +64,18 @@ export function verifyLink(at: string, verifyToken: string): string {
 
 export function planLink(at: string, planCode: string): string {
   return planUrl(origin(at), code(planCode));
+}
+
+/**
+ * The morning after's two buttons (S1-29): straight to the question the letter
+ * asks. The plan page itself would only say the meetup's time has passed.
+ */
+export function outcomeLink(at: string, planCode: string): string {
+  return planOutcomeUrl(origin(at), code(planCode));
+}
+
+export function attendanceLink(at: string, planCode: string): string {
+  return planAttendanceUrl(origin(at), code(planCode));
 }
 
 /**

@@ -1,6 +1,7 @@
 import type { Cadence, NudgePolicy } from '@circles/domain';
 
 import { authClient } from '../auth/client';
+import { morningAfterOf, type MorningAfter } from '../confirmation';
 import {
   FAILED,
   findingPlanOf,
@@ -77,6 +78,12 @@ export type CircleHome = {
   members: HomeMember[];
   activePlan: HomePlan | null;
   lockedIn: HomeMeetup | null;
+  /**
+   * The morning-after question the reader owes, if any (S1-29): the
+   * organiser's "did it happen?" until they answer, a member's "were you
+   * there?" until they answer or say "Not now".
+   */
+  morningAfter: MorningAfter | null;
   mine: MySwitches | null;
 };
 
@@ -99,7 +106,7 @@ export async function circleHome(id: string): Promise<CircleHome | null> {
 
   const me = await whoAmI(client);
 
-  const [members, plans] = await Promise.all([
+  const [members, plans, morningAfter] = await Promise.all([
     client
       .from('circle_members')
       .select(
@@ -109,6 +116,9 @@ export async function circleHome(id: string): Promise<CircleHome | null> {
       .eq('status', 'active')
       .order('joined_at', { ascending: true }),
     plansFor(client, [id]),
+    // A prompt, not the home: if it cannot be read the home still shows, and
+    // the next read asks again.
+    morningAfterOf(id).catch(() => null),
   ]);
   if (members.error !== null) throw new Error(FAILED);
 
@@ -170,6 +180,7 @@ export async function circleHome(id: string): Promise<CircleHome | null> {
             ...replies,
           },
     lockedIn,
+    morningAfter,
     mine:
       own === undefined
         ? null

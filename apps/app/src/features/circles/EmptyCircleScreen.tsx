@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react';
+
 import {
   Body,
   BodyText,
@@ -35,6 +37,11 @@ export type EmptyCircleProps = {
   onNext?: (() => void) | undefined;
   onBack?: (() => void) | undefined;
   onPlanACatchUp?: (() => void) | undefined;
+  /**
+   * The morning after's card (S1-29): everybody else can have left since the
+   * meetup, and the organiser still owes the answer.
+   */
+  prompt?: ReactNode;
 };
 
 export function EmptyCircleScreen({
@@ -45,6 +52,7 @@ export function EmptyCircleScreen({
   onNext,
   onBack,
   onPlanACatchUp,
+  prompt,
 }: EmptyCircleProps) {
   return (
     <Screen>
@@ -55,6 +63,7 @@ export function EmptyCircleScreen({
       />
       <Body>
         <CircleHeader name={circleName} color={color} subtitle={subtitle} />
+        {prompt}
         <Card>
           <Label>{t('emptyCircle', 'invite_link')}</Label>
           <BodyText>{t('emptyCircle', 'paste_this_into_the_group_chat_friends')}</BodyText>

@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react';
+
 import {
   Body,
   BodyText,
@@ -58,6 +60,8 @@ export type CircleHomeDueProps = {
   onBack?: (() => void) | undefined;
   onSnoozeAMonth?: (() => void) | undefined;
   onTurnOffNudges?: (() => void) | undefined;
+  /** The morning after's card, under the circle's name, when the reader owes it (S1-29). */
+  prompt?: ReactNode;
 };
 
 export function CircleHomeDueScreen({
@@ -78,6 +82,7 @@ export function CircleHomeDueScreen({
   onBack,
   onSnoozeAMonth,
   onTurnOffNudges,
+  prompt,
 }: CircleHomeDueProps) {
   const later = onSnoozeAMonth !== undefined || onTurnOffNudges !== undefined;
   return (
@@ -89,6 +94,7 @@ export function CircleHomeDueScreen({
       />
       <Body>
         <CircleHeader name={circleName} color={color} subtitle={subtitle} />
+        {prompt}
         {archived ? <Notice>{t('circleHome', 'archived')}</Notice> : null}
         {due && !archived ? (
           <Card>

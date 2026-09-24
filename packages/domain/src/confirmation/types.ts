@@ -119,7 +119,8 @@ export type Attendance = {
  * is the honest one the product needs most: it is neither failure nor success,
  * and it is the evidence for H2.
  */
-export type Outcome = 'happened' | 'cancelled' | 'moved_outside' | 'not_sure';
+export const OUTCOMES = ['happened', 'cancelled', 'moved_outside', 'not_sure'] as const;
+export type Outcome = (typeof OUTCOMES)[number];
 
 /**
  * Whether anyone but the reporter says it happened (spec §5.10). Not a score

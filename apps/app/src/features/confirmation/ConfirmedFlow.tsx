@@ -15,6 +15,7 @@ import { dateOf } from '../scheduling/words';
 import { AddToCalendarSheet } from './AddToCalendarScreen';
 import { ConfirmedGuestScreen } from './ConfirmedGuestScreen';
 import { ConfirmedOrgScreen } from './ConfirmedOrgScreen';
+import { PastMeetup } from './PastMeetup';
 import { calendarFilename, confirmedOf, messageOf, type LockedIn } from './confirmed';
 import * as fixture from './fixtures';
 import { useCalendar } from './useCalendar';
@@ -110,7 +111,8 @@ function LiveConfirmed({ target, calendar }: { target: ConfirmedKey; calendar: b
     );
   }
   if (data === undefined) return <ConfirmedOrgScreen state="denied" onBack={back} />;
-  if (data.view === 'past') return <ConfirmedOrgScreen state="past" onBack={back} />;
+  // Over: the morning after's way in, when the reader still owes it (S1-29).
+  if (data.view === 'past') return <PastMeetup data={data} onBack={back} />;
   if (data.view !== 'confirmed' || data.confirmation === null) {
     return <ConfirmedOrgScreen state="expired" onBack={back} />;
   }

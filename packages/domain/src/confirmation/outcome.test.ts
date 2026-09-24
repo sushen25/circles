@@ -6,12 +6,17 @@ import type { Actor } from '../planning/state-machine.js';
 import { planId } from '../planning/types.js';
 import { ALEX, PRIYA, SAM, SUNDAY_CREW } from '../scheduling/fixtures.js';
 import { fromISO, toISO } from '../shared/instant.js';
+import { zone } from '../shared/zone.js';
 import { A_STRANGER, confirmation, sundayCrewPlan } from './fixtures.js';
-import { corroboration, lastMetAtAfter, reportOutcome, statusAfter } from './outcome.js';
-import type { Attendance, Outcome, OutcomeReport } from './types.js';
-import { NOTE_MAX_LENGTH, confirmationId } from './types.js';
-
-const OUTCOMES: readonly Outcome[] = ['happened', 'cancelled', 'moved_outside', 'not_sure'];
+import {
+  corroboration,
+  lastMetAtAfter,
+  morningAfter,
+  reportOutcome,
+  statusAfter,
+} from './outcome.js';
+import type { Attendance, OutcomeReport } from './types.js';
+import { NOTE_MAX_LENGTH, OUTCOMES, confirmationId } from './types.js';
 
 const ORGANISER: Actor = {
   userId: SUNDAY_CREW[0] as string,
@@ -187,5 +192,23 @@ describe('corroboration', () => {
     for (const outcome of OUTCOMES.filter((o) => o !== 'happened')) {
       expect(corroboration({ ...base, outcome }, [wasThere(PRIYA)])).toBe('reported');
     }
+  });
+});
+
+describe('morningAfter', () => {
+  const MELBOURNE = zone('Australia/Melbourne');
+
+  it('is nine the next morning, where the reader is', () => {
+    // Thursday 17 September, 8:30 pm in Melbourne (UTC+10).
+    const end = fromISO('2026-09-17T10:30:00Z');
+    expect(toISO(morningAfter(end, MELBOURNE))).toBe('2026-09-17T23:00:00.000Z');
+    // The same evening, read in London, where it ended at 11:30 am.
+    expect(toISO(morningAfter(end, zone('Europe/London')))).toBe('2026-09-18T08:00:00.000Z');
+  });
+
+  it('is the morning after the night it ended, for a meetup that ran past midnight', () => {
+    // Ends 12:30 am Friday in Melbourne: the next morning is Saturday's.
+    const end = fromISO('2026-09-17T14:30:00Z');
+    expect(toISO(morningAfter(end, MELBOURNE))).toBe('2026-09-18T23:00:00.000Z');
   });
 });

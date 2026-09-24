@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react';
+
 import {
   Body,
   BodyText,
@@ -53,6 +55,8 @@ export type CircleHomeConfirmedProps = {
   onDetails?: (() => void) | undefined;
   onPlanAnother?: (() => void) | undefined;
   onShare?: (() => void) | undefined;
+  /** The morning after's card, under the circle's name, when the reader owes it (S1-29). */
+  prompt?: ReactNode;
 };
 
 export function CircleHomeConfirmedScreen({
@@ -73,6 +77,7 @@ export function CircleHomeConfirmedScreen({
   onDetails,
   onPlanAnother,
   onShare,
+  prompt,
 }: CircleHomeConfirmedProps) {
   return (
     <Screen>
@@ -83,6 +88,7 @@ export function CircleHomeConfirmedScreen({
       />
       <Body>
         <CircleHeader name={circleName} color={color} subtitle={subtitle} />
+        {prompt}
         <Card recommended>
           <Stack>
             <Label>{t('circleHomeConfirmed', 'locked_in')}</Label>

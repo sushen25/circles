@@ -7,6 +7,8 @@ import {
   notificationSettingsUrl,
   parseJoinLink,
   parseTokenLink,
+  planAttendanceUrl,
+  planOutcomeUrl,
   planUrl,
   reentryUrl,
   type OpaqueToken,
@@ -57,6 +59,16 @@ describe('the plan link', () => {
     expect(planUrl('https://example.test/', 'pnemab' as ShortCode)).toBe(
       'https://example.test/p/pnemab',
     );
+  });
+
+  it('has a page for each half of the morning after, carrying the code and nothing else', () => {
+    expect(planOutcomeUrl('https://example.test/', 'pnemab' as ShortCode)).toBe(
+      'https://example.test/p/pnemab/outcome',
+    );
+    expect(planAttendanceUrl('https://example.test', 'pnemab' as ShortCode)).toBe(
+      'https://example.test/p/pnemab/attendance',
+    );
+    expect(fragmentLinkKind('/p/pnemab/attendance')).toBeNull();
   });
 });
 
