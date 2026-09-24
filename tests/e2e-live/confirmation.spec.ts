@@ -1,9 +1,8 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './fixtures';
 
 import {
   attendanceStatusOf,
   circleOwnedBy,
-  clearRateCounters,
   confirmationOf,
   guestInvited,
   guestWhoAnswered,
@@ -23,10 +22,6 @@ import {
  * The unit tests render the screens against made-up rows and the integration
  * test calls the data layer with no screen. This is the one that walks both.
  */
-
-test.beforeEach(() => {
-  clearRateCounters();
-});
 
 /** Ticks a day, turns Evening on and sends. The editor is S1-25's; this uses it. */
 async function answersIn(page: Page, code: string): Promise<void> {

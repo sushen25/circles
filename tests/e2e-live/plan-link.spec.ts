@@ -1,7 +1,6 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './fixtures';
 
 import {
-  clearRateCounters,
   guestWhoAnswered,
   letTheQuorumFollow,
   quorumOf,
@@ -23,10 +22,6 @@ import {
  * skips the question. Each test ends in the database, because the screens after
  * a join are still fixtures until S1-25.
  */
-
-test.beforeEach(() => {
-  clearRateCounters();
-});
 
 /**
  * Records whether "Which one is you?" was ever on screen, not just whether it

@@ -1,8 +1,7 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './fixtures';
 
 import {
   answerOf,
-  clearRateCounters,
   firstDayOf,
   memberNamed,
   planStopsAsking,
@@ -21,10 +20,6 @@ import {
  * the way in is the name step and nothing else (S1-24d): the editor is what
  * the test is about.
  */
-
-test.beforeEach(() => {
-  clearRateCounters();
-});
 
 /** Joins as `name` and waits for the editor. Returns the new member's user id. */
 async function arriveAs(page: Page, crew: Scenario, name: string): Promise<string> {

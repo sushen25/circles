@@ -1,62 +1,35 @@
-import { expect, test, type Page } from '@playwright/test';
-
+import { expect, test } from './fixtures';
+import { addressFor, joinsAndAnswers, subscribesFromSent } from './journeys';
+import { letterTo, lettersTo, linkIn, runDispatcher } from './mail';
 import {
-  clearRateCounters,
   emailContactOf,
   isAnonymousUser,
   latestCodeFor,
+  lockInFirstOption,
   memberNamed,
   prefsTokenFor,
   subscriptionOf,
   sundayCrew,
-  verifyTokenFor,
-  type Scenario,
 } from './stack';
 
 /**
  * After an answer: the email offer, the verification link, the preferences
- * page and saving a place (spec §5.1, §5.8, S1-30). The two emailed pages are
- * opened in a **fresh browser** — no session, nothing stored — because that is
- * where an email link lands, and their tokens ride in the fragment, which no
- * request may carry (ADR 0023).
+ * page and saving a place (spec §5.1, §5.8, S1-30). The letters are the ones
+ * the stack actually sends — the dispatcher run once, the message read out of
+ * the mail catcher (`mail.ts`) — and the links in them are opened in a **fresh
+ * browser**, because that is where an email link lands. Their tokens ride in
+ * the fragment, which the suite's guard holds every request to (ADR 0023).
+ *
+ * "Not now" on the offer is `guest.spec.ts`, at the end of the journey.
  */
 
-test.beforeEach(() => {
-  clearRateCounters();
-});
-
-/** Joins as `name`, answers the first evening (a day and Evening), and waits on Sent. */
-async function answerAs(page: Page, crew: Scenario, name: string): Promise<string> {
-  await page.goto(`/j/${crew.planCode}`);
-  await page.getByLabel('Your name').fill(name);
-  await page.getByRole('button', { name: 'Continue' }).click();
-  await page.getByRole('group', { name: 'Days in this plan' }).getByRole('button').first().click();
-  await page.getByRole('checkbox', { name: /^Evening/ }).click();
-  await page.getByRole('button', { name: 'Send my times' }).click();
-  await expect(page.getByText(`Thanks, ${name}. Your times are in.`)).toBeVisible();
-  return memberNamed(crew.circleId, name)!.userId;
-}
-
-/** A unique address per run, so the per-address limits never carry over. */
-const addressFor = (name: string) =>
-  `${name.toLowerCase()}.${Date.now()}.${Math.floor(Math.random() * 1e6)}@example.test`;
-
-test('"Not now" is one tap and leaves no pending contact behind', async ({ page }) => {
-  const crew = sundayCrew();
-  const ren = await answerAs(page, crew, 'Ren');
-
-  await page.getByRole('button', { name: 'Not now' }).click();
-
-  await expect(page.getByText('Get updates about this meetup by email')).toHaveCount(0);
-  expect(emailContactOf(ren)).toBeUndefined();
-});
-
-test('an address asked for is verified from the link, in a browser with no session', async ({
+test('the verification email’s link verifies the address, in a browser with no session', async ({
   page,
   browser,
+  baseURL,
 }) => {
   const crew = sundayCrew();
-  const ren = await answerAs(page, crew, 'Ren');
+  const ren = await joinsAndAnswers(page, crew, 'Ren');
   const address = addressFor('ren');
 
   await page.getByLabel('Your email').fill(address);
@@ -65,48 +38,46 @@ test('an address asked for is verified from the link, in a browser with no sessi
   await expect(page.getByText(`We sent a link to ${address}.`, { exact: false })).toBeVisible();
   expect(emailContactOf(ren)).toBe('pending');
 
-  // The link, opened wherever the mail was read.
-  const token = verifyTokenFor(ren);
+  const letter = await letterTo(address, /^Turn on updates/);
+  const link = linkIn(letter, '/v', baseURL!);
+
   const elsewhere = await browser.newContext();
   const mail = await elsewhere.newPage();
-  const urls: string[] = [];
-  mail.on('request', (request) => urls.push(request.url()));
-
-  await mail.goto(`/v#${token}`);
+  await mail.goto(link);
   await expect(mail.getByText("You'll hear about this meetup by email.")).toBeVisible();
   await expect(mail.getByText('Sunday Crew · Catch up')).toBeVisible();
   expect(emailContactOf(ren)).toBe('verified');
-  expect(
-    urls.filter((url) => url.includes(token)),
-    'no request carries the token',
-  ).toEqual([]);
+  expect(subscriptionOf(ren, crew.planId)).toBe('active');
   expect(await mail.evaluate('location.hash')).toBe('');
 
   // Single use: the same link again says so, neutrally.
-  await mail.goto(`/v#${token}`);
+  await mail.goto(link);
   await expect(mail.getByText('This link has expired.')).toBeVisible();
   await elsewhere.close();
 });
 
-test('email preferences work with no session: stop one meetup, then remove the address', async ({
+test('stopping one meetup from the preferences page means its lock-in sends that address nothing', async ({
   page,
   browser,
 }) => {
   const crew = sundayCrew();
-  const ren = await answerAs(page, crew, 'Ren');
-  await page.getByLabel('Your email').fill(addressFor('ren'));
-  await page.getByRole('button', { name: 'Send verification email' }).click();
-  await expect(page.getByText('Check your email.')).toBeVisible();
-  // A verified address, as it would be by the time a preferences link is in an email.
-  const verifyToken = verifyTokenFor(ren);
+  const renAddress = addressFor('ren');
+  const jessAddress = addressFor('jess');
 
+  // Two people ask for updates. Jess keeps hers, and is the proof that the
+  // lock-in did send.
+  const ren = await joinsAndAnswers(page, crew, 'Ren');
+  await subscribesFromSent(page, renAddress);
+  const jessPhone = await browser.newContext();
+  const jessPage = await jessPhone.newPage();
+  await joinsAndAnswers(jessPage, crew, 'Jess');
+  await subscribesFromSent(jessPage, jessAddress);
+  await jessPhone.close();
+
+  // Ren's preferences, from an email, with no session.
+  const token = prefsTokenFor(ren);
   const elsewhere = await browser.newContext();
   const mail = await elsewhere.newPage();
-  await mail.goto(`/v#${verifyToken}`);
-  await expect(mail.getByText("You'll hear about this meetup by email.")).toBeVisible();
-
-  // Minted as the sender mints one, which is only for a verified contact.
-  const token = prefsTokenFor(ren);
   await mail.goto(`/e#${token}`);
   const toggle = mail.getByRole('switch', { name: 'Sunday Crew · Catch up' });
   await expect(toggle).toHaveAttribute('aria-checked', 'true');
@@ -114,6 +85,14 @@ test('email preferences work with no session: stop one meetup, then remove the a
   await expect(toggle).toHaveAttribute('aria-checked', 'false');
   expect(subscriptionOf(ren, crew.planId)).toBe('withdrawn');
 
+  // Maya locks it in. Jess hears; Ren does not.
+  lockInFirstOption(crew.planId, crew.ownerId);
+  await letterTo(jessAddress, /^Locked in: Sunday Crew/);
+  await runDispatcher();
+  const toRen = (await lettersTo(renAddress)).map((letter) => letter.subject);
+  expect(toRen.filter((subject) => /^Locked in/.test(subject))).toEqual([]);
+
+  // And the address can go altogether, from the same page.
   await mail.getByRole('button', { name: 'Remove this email address entirely' }).click();
   await mail.getByRole('button', { name: 'Remove my email address' }).click();
   await expect(mail.getByText('Your email address is gone.')).toBeVisible();
@@ -123,7 +102,7 @@ test('email preferences work with no session: stop one meetup, then remove the a
 
 test('saving access turns the guest into an account, by email code', async ({ page }) => {
   const crew = sundayCrew();
-  const ren = await answerAs(page, crew, 'Ren');
+  const ren = await joinsAndAnswers(page, crew, 'Ren');
   const address = addressFor('ren');
 
   await page.getByRole('button', { name: 'Save access on every device' }).click();

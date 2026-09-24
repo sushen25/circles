@@ -1,23 +1,12 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './fixtures';
 
-import {
-  accountToSignInTo,
-  circleOwnedBy,
-  clearRateCounters,
-  latestCodeFor,
-  memberNamed,
-  sql,
-} from './stack';
+import { accountToSignInTo, circleOwnedBy, latestCodeFor, memberNamed, sql } from './stack';
 
 /**
  * Running a circle (S1-23), against the real stack: the circles list, circle
  * settings' Reset link, and removing somebody — the screens, the functions
  * behind them, and the rows they leave.
  */
-
-test.beforeEach(() => {
-  clearRateCounters();
-});
 
 async function signInByCode(page: Page, email: string): Promise<void> {
   await page.goto('/sign-in');

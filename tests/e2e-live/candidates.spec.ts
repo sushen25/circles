@@ -1,8 +1,7 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './fixtures';
 
 import {
   circleOwnedBy,
-  clearRateCounters,
   guestInvited,
   guestWhoAnswered,
   memberNamed,
@@ -22,10 +21,6 @@ import {
  * This walks the product — two people answer, one does not, and the organiser
  * gets an option with a name against the absence.
  */
-
-test.beforeEach(() => {
-  clearRateCounters();
-});
 
 /** Ticks a day, turns Evening on and sends. The editor is S1-25's; this uses it. */
 async function answersIn(page: Page, code: string, day = 1): Promise<void> {
