@@ -30,6 +30,11 @@ vi.mock('../../../data/auth/session', () => ({
 
 const reattachWithToken = vi.fn();
 const planAccess = vi.fn();
+const arrivalFor = vi.fn();
+const morningAfterOf = vi.fn();
+vi.mock('../../../data/confirmation', () => ({
+  morningAfterOf: (...args: unknown[]) => morningAfterOf(...args),
+}));
 vi.mock('../../../data/membership', () => ({
   planAccess: (...args: unknown[]) => planAccess(...args),
   circleNameForCode: vi.fn(async () => 'Sunday Crew'),
@@ -37,7 +42,7 @@ vi.mock('../../../data/membership', () => ({
   heldInvite: () => undefined,
   reattachFromList: vi.fn(),
   circleAccess: vi.fn(),
-  arrivalFor: vi.fn(),
+  arrivalFor: (...args: unknown[]) => arrivalFor(...args),
   reattachWithToken: (...args: unknown[]) => reattachWithToken(...args),
   joinPlan: vi.fn(),
 }));
@@ -61,6 +66,8 @@ beforeEach(() => {
   replace.mockReset();
   ensureGuestSession.mockReset();
   reattachWithToken.mockReset();
+  arrivalFor.mockReset();
+  morningAfterOf.mockReset();
 });
 
 describe('MembershipGate', () => {
@@ -180,5 +187,37 @@ describe('ReentryFlow', () => {
     expect(screen.getByRole('button', { name: 'Sign out and continue' })).toBeTruthy();
     expect(screen.queryByText('This link has expired.')).toBeNull();
     expect(replace).not.toHaveBeenCalled();
+  });
+
+  describe('the morning after (S1-29)', () => {
+    const CIRCLE = '00000000-0000-4000-8000-00000000c1c1';
+    beforeEach(() => {
+      reattachWithToken.mockResolvedValue({ circle: { id: CIRCLE } });
+      arrivalFor.mockResolvedValue({ kind: 'circle', id: CIRCLE });
+    });
+
+    it('lands a member on the meetup they have not said they made it to', async () => {
+      morningAfterOf.mockResolvedValue({ ask: 'attendance', code: 'pnsundaycr' });
+      render(wrap(<ReentryFlow token={'t'.repeat(40)} />));
+      await waitFor(() =>
+        expect(replace).toHaveBeenCalledWith({
+          pathname: '/p/[code]/attendance',
+          params: { code: 'pnsundaycr' },
+        }),
+      );
+      expect(morningAfterOf).toHaveBeenCalledWith(CIRCLE);
+      expect(arrivalFor).not.toHaveBeenCalled();
+    });
+
+    it('goes where it always has when nothing is owed, or it cannot tell', async () => {
+      morningAfterOf.mockRejectedValue(new Error('morning-after lookup failed'));
+      render(wrap(<ReentryFlow token={'t'.repeat(40)} />));
+      await waitFor(() =>
+        expect(replace).toHaveBeenCalledWith({
+          pathname: '/circles/[id]',
+          params: { id: CIRCLE },
+        }),
+      );
+    });
   });
 });

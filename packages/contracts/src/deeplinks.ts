@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { OpaqueToken, ShortCode } from './ids.js';
 
 /**
- * The six links the product puts into the world (architecture §5.2).
+ * The links the product puts into the world (architecture §5.2).
  *
  * **Every capability rides in the fragment** — the circle invite's secret and
  * every emailed token — because browsers do not send a fragment to any server:
@@ -13,7 +13,7 @@ import { OpaqueToken, ShortCode } from './ids.js';
  * and nothing should write one by hand: the shape of these schemas is a privacy
  * boundary, not a formatting preference (§9.4).
  *
- * The two plan links carry a short code, which is not a token (ADR 0022).
+ * The plan links carry a short code, which is not a token (ADR 0022).
  */
 
 /** `/join#<secret>` — circle invite. The secret never appears in a request line. */
@@ -48,6 +48,9 @@ export const DEEP_LINK_ROUTES = {
   join: '/join',
   planInvite: '/j/:code',
   plan: '/p/:code',
+  /** The morning after (S1-29): the organiser's "did it happen?", a member's "were you there?". */
+  planOutcome: '/p/:code/outcome',
+  planAttendance: '/p/:code/attendance',
   reentry: '/a',
   emailPreferences: '/e',
   emailVerify: '/v',
@@ -119,6 +122,20 @@ export function emailPreferencesUrl(origin: string, token: OpaqueToken): string 
  */
 export function planUrl(origin: string, code: ShortCode): string {
   return `${origin.replace(/\/+$/, '')}/p/${code}`;
+}
+
+/**
+ * `https://…/p/<code>/outcome` and `…/attendance`: the two "did it happen?"
+ * emails' buttons (S1-29). The plan page itself says "this meetup's time has
+ * passed" the morning after, which is not an answer to a letter that asks one.
+ * Like `planUrl`, a short code and nothing else.
+ */
+export function planOutcomeUrl(origin: string, code: ShortCode): string {
+  return `${origin.replace(/\/+$/, '')}${DEEP_LINK_ROUTES.planOutcome.replace(':code', code)}`;
+}
+
+export function planAttendanceUrl(origin: string, code: ShortCode): string {
+  return `${origin.replace(/\/+$/, '')}${DEEP_LINK_ROUTES.planAttendance.replace(':code', code)}`;
 }
 
 /**

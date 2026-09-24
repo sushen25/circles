@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react';
+
 import {
   Body,
   Button,
@@ -53,6 +55,8 @@ export type CircleHomeProps = {
   onNext?: (() => void) | undefined;
   onBack?: (() => void) | undefined;
   onSeeHowItsLooking?: (() => void) | undefined;
+  /** The morning after's card, under the circle's name, when the reader owes it (S1-29). */
+  prompt?: ReactNode;
 };
 
 export function CircleHomeScreen({
@@ -74,6 +78,7 @@ export function CircleHomeScreen({
   onNext,
   onBack,
   onSeeHowItsLooking,
+  prompt,
 }: CircleHomeProps) {
   if (state === 'loading' || state === 'error' || state === 'offline') {
     return <CircleHomeJoiningScreen state={state} onRetry={onRetry} onBack={onBack} />;
@@ -88,6 +93,7 @@ export function CircleHomeScreen({
       />
       <Body>
         <CircleHeader name={circleName} color={color} subtitle={subtitle} />
+        {prompt}
         <Card recommended>
           {/* Stacked, not a row: "Replies close …" beside the label does not
               fit on a narrow phone (S1-27). */}

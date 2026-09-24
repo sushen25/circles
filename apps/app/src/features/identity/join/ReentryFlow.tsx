@@ -6,6 +6,7 @@ import { track } from '../../../analytics/track';
 import { hasBackend } from '../../../data/auth/client';
 import { sessionState, signOut } from '../../../data/auth/session';
 import { newIdempotencyKey } from '../../../data/functions';
+import { morningAfterOf } from '../../../data/confirmation';
 import { heldToken, releaseToken } from '../../../data/links/tokens';
 import { arrivalFor, reattachWithToken } from '../../../data/membership';
 import { ContinueAsScreen } from '../ContinueAsScreen';
@@ -19,7 +20,8 @@ import { failureOf } from './failure';
  *
  * The same reattachment Continue-as makes, authorised by a single-use token
  * instead of by a pick from the list, so the person never sees the list at all.
- * Then on to the plan that is asking for their times, or the circle.
+ * Then on to the meetup they have not said whether they made it to, the plan
+ * that is asking for their times, or the circle.
  *
  * Every failure but one reads the same — "this link has expired, open the plan
  * from the chat" — because the token is unknown, spent or old, and the chat
@@ -53,6 +55,15 @@ export function ReentryFlow({ token: given }: { token?: string | undefined } = {
     reattachWithToken(parsed.data.token, key)
       .then(async (moved) => {
         if (!alreadySaved) track('member_reattached', { source: 'email' });
+        // The morning after, first (S1-29): every letter that carries this
+        // link is about a meetup, and the one it is most likely to be — the
+        // "were you there?" letter — asks a question this person can answer
+        // now. `replace`, as below.
+        const morning = await morningAfterOf(moved.circle.id).catch(() => null);
+        if (morning?.ask === 'attendance') {
+          router.replace({ pathname: '/p/[code]/attendance', params: { code: morning.code } });
+          return;
+        }
         const arrival = await arrivalFor(moved.circle.id).catch(() => ({
           kind: 'circle' as const,
           id: moved.circle.id,

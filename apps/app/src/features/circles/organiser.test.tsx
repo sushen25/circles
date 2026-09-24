@@ -107,6 +107,7 @@ function home(overrides: Record<string, unknown> = {}) {
     ],
     activePlan: null,
     lockedIn: null,
+    morningAfter: null,
     mine: { mutedAll: false, mutedQuietAsks: false, mutedNudges: false },
     ...overrides,
   };

@@ -6,14 +6,14 @@ import { MembershipGate } from '../../../src/features/identity/join/MembershipGa
 /**
  * Route only — thin composition, no logic (architecture §7.1).
  *
- * The "were you there?" email's button, and circle home's card for a member.
+ * The organiser's "did it happen?" email's button.
  */
 export default function Route() {
   const { code } = useLocalSearchParams<{ code: string }>();
 
   return (
     <MembershipGate target={{ kind: 'plan', code }}>
-      <MorningAfterFlow target={{ code }} fixtureAs="member" />
+      <MorningAfterFlow target={{ code }} />
     </MembershipGate>
   );
 }

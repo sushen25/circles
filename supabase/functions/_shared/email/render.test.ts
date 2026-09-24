@@ -157,6 +157,21 @@ describe('render', () => {
     });
   });
 
+  describe('the morning after', () => {
+    it('opens the question each letter asks, not the plan page', async () => {
+      // S1-29. The plan page says the meetup's time has passed, which is no
+      // answer to "did it happen?". The organiser's button goes to the outcome,
+      // a subscriber's to their own attendance; both carry the code only.
+      const organiser = await render(SUNDAY_CREW.did_it_happen);
+      expect(hrefs(organiser.html)).toContain(`${ORIGIN}/p/pnemab/outcome`);
+      const member = await render(SUNDAY_CREW.did_it_happen_participant);
+      expect(hrefs(member.html)).toContain(`${ORIGIN}/p/pnemab/attendance`);
+      for (const email of [organiser, member]) {
+        expect(hrefs(email.html)).not.toContain(`${ORIGIN}/p/pnemab`);
+      }
+    });
+  });
+
   describe('a changed email', () => {
     it('says the time is off when the plan went back to asking', async () => {
       const email = await render(SUNDAY_CREW.changed);

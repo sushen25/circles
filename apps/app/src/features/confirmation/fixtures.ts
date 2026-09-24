@@ -61,3 +61,16 @@ export const lockedInAsMember: PlanConfirmation = {
   me: 'priya',
   isOrganiser: false,
 };
+
+/**
+ * The morning after: Thursday has been and gone, and Maya has not said whether
+ * it happened. Everybody's forward-looking answer is still what it was.
+ */
+export const morningAfter: PlanConfirmation = { ...lockedIn, view: 'past' };
+
+/** The same morning, read by Priya, who has not said whether she made it. */
+export const morningAfterAsMember: PlanConfirmation = {
+  ...morningAfter,
+  me: 'priya',
+  isOrganiser: false,
+};

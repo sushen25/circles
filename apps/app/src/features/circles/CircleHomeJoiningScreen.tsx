@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react';
+
 import {
   Body,
   BodyText,
@@ -51,6 +53,8 @@ export type CircleHomeJoiningProps = {
   /** The screen's one decision: plan the first catch-up. */
   onNext?: (() => void) | undefined;
   onBack?: (() => void) | undefined;
+  /** The morning after's card, under the circle's name, when the reader owes it (S1-29). */
+  prompt?: ReactNode;
 };
 
 export function CircleHomeJoiningScreen({
@@ -69,6 +73,7 @@ export function CircleHomeJoiningScreen({
   onRetry,
   onNext,
   onBack,
+  prompt,
 }: CircleHomeJoiningProps) {
   if (state === 'loading') {
     return (
@@ -108,6 +113,7 @@ export function CircleHomeJoiningScreen({
       />
       <Body>
         <CircleHeader name={circleName} color={color} subtitle={subtitle} />
+        {prompt}
         <Card>
           <Marks
             members={members}
