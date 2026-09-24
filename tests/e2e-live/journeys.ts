@@ -22,6 +22,9 @@ export async function sendEvenings(page: Page, code: string, ...indices: number[
   await page.getByRole('checkbox', { name: /^Evening/ }).click();
   await page.getByRole('button', { name: 'Send my times' }).click();
   await expect(page).toHaveURL(new RegExp(`/j/${code}/sent$`));
+  // Sent itself, not only its URL: a hard navigation straight after the client
+  // one, with Sent's requests still in flight, crashed WebKit in CI.
+  await expect(page.getByText(/Your times are in\./)).toBeVisible();
 }
 
 /**

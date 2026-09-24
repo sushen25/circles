@@ -118,24 +118,51 @@ test('at 200% text, the editor cuts off none of its decisions', async ({ page },
   for (const decision of decisions) {
     await decision.scrollIntoViewIfNeeded();
     await expect(decision).toBeVisible();
-    // Inside the screen sideways, and no text inside it cut short by its box
-    // (a clamped line is `overflow: hidden` with more to show).
+    // Cut off, three ways: past the side of the screen; a word of its label
+    // outside the control's own box (a label taller than a fixed-height
+    // button, which RN-web leaves visible and spilling); or the control itself
+    // cut by an ancestor that hides or scrolls its overflow.
     // Typed loosely: the test project is compiled without the DOM library.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const clipped = await decision.evaluate((el: any) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const page = globalThis as any;
+      const doc = page.document;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const inside = (inner: any, outer: any) =>
+        inner.left >= outer.left - 1 &&
+        inner.right <= outer.right + 1 &&
+        inner.top >= outer.top - 1 &&
+        inner.bottom <= outer.bottom + 1;
       const box = el.getBoundingClientRect();
-      const outside = box.left < 0 || box.right > page.document.documentElement.clientWidth + 1;
-      const overflowing = [el, ...el.querySelectorAll('*')].some(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (node: any) =>
-          (node.scrollWidth > node.clientWidth + 1 || node.scrollHeight > node.clientHeight + 1) &&
-          page.getComputedStyle(node).overflow !== 'visible',
-      );
-      return { outside, overflowing };
+      const offScreen = box.left < -1 || box.right > doc.documentElement.clientWidth + 1;
+
+      let spilling = false;
+      const walker = doc.createTreeWalker(el, 4 /* NodeFilter.SHOW_TEXT */);
+      for (let text = walker.nextNode(); text !== null; text = walker.nextNode()) {
+        if (text.textContent.trim() === '') continue;
+        const range = doc.createRange();
+        range.selectNodeContents(text);
+        for (const rect of range.getClientRects()) {
+          // A line's trailing space can sit a few pixels past the edge it wraps
+          // at; a word cannot be that narrow.
+          if (rect.width > 4 && !inside(rect, box)) spilling = true;
+        }
+      }
+
+      let cutByAncestor = false;
+      for (let up = el.parentElement; up !== null; up = up.parentElement) {
+        const style = page.getComputedStyle(up);
+        if ([style.overflowX, style.overflowY].every((o: string) => o === 'visible')) continue;
+        if (!inside(box, up.getBoundingClientRect())) cutByAncestor = true;
+      }
+      return { offScreen, spilling, cutByAncestor };
     });
-    expect(clipped, String(decision)).toEqual({ outside: false, overflowing: false });
+    expect(clipped, String(decision)).toEqual({
+      offScreen: false,
+      spilling: false,
+      cutByAncestor: false,
+    });
   }
   await testInfo.attach('availability-at-200%', {
     body: await page.screenshot({ fullPage: true }),

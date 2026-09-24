@@ -78,21 +78,20 @@ test('from the chat to Sent in a name and five taps, and the email offer decline
 });
 
 // The guard's own proof: a request that carries the secret is caught, from a
-// page the test did not make itself. The test then takes the catch back out,
-// because otherwise the guard would — rightly — fail it.
-test('a request carrying the invite secret is caught by the suite', async ({ page, leaks }) => {
+// page the test did not make itself — in a URL, a header and a body. The test
+// then forgives what it sent, because otherwise the guard would, rightly, fail
+// it.
+test('a request carrying the invite secret is caught by the suite', async ({ page, guard }) => {
   const crew = sundayCrew({ withPlan: false });
   await page.goto('/privacy');
-  await page.evaluate(`fetch('/privacy?leak=${crew.secret}').catch(() => undefined)`);
-  await expect.poll(() => leaks.length).toBe(1);
-  expect(leaks[0]).toMatchObject({ where: 'url' });
-  leaks.length = 0;
 
-  // A body is a leak too, anywhere but `redeem-invite`.
-  await page.evaluate(
-    `fetch('/privacy', { method: 'POST', body: '${crew.secret}' }).catch(() => undefined)`,
-  );
-  await expect.poll(() => leaks.length).toBe(1);
-  expect(leaks[0]).toMatchObject({ where: 'body' });
-  leaks.length = 0;
+  for (const [where, send] of [
+    ['url', `fetch('/privacy?leak=${crew.secret}')`],
+    ['header', `fetch('/privacy', { headers: { 'x-leak': '${crew.secret}' } })`],
+    ['body', `fetch('/privacy', { method: 'POST', body: '${crew.secret}' })`],
+  ] as const) {
+    await page.evaluate(`${send}.catch(() => undefined)`);
+    await expect.poll(() => guard.found.map((leak) => leak.where), where).toEqual([where]);
+    guard.forgive();
+  }
 });

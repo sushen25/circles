@@ -636,7 +636,7 @@ export const en = {
     ink_2: 'ink-2',
     '6c6156': '#6C6156',
     ink_3: 'ink-3',
-    a0958a: '#A0958A',
+    '796d61': '#796D61',
     invert: 'invert',
     '2e241c': '#2E241C',
   },
