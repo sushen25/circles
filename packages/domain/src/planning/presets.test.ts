@@ -190,18 +190,18 @@ describe('dailyForRange', () => {
 });
 
 describe('resolvePreset', () => {
-  it('caps a custom window at fourteen days', () => {
-    const tooLong = { start: localDate('2026-09-18'), end: localDate('2026-10-02') };
-    expect(windowDays(tooLong)).toBe(15);
+  it('caps a custom window at thirty days', () => {
+    const tooLong = { start: localDate('2026-09-18'), end: localDate('2026-10-18') };
+    expect(windowDays(tooLong)).toBe(31);
     expect(resolvePreset('custom', THURSDAY_6PM, MELBOURNE, opts(TWO_HOURS, tooLong))).toBe(
       'window_too_long',
     );
   });
 
-  it('accepts exactly fourteen days', () => {
-    // In the future: a fortnight that ended last week is refused for a better
+  it('accepts exactly thirty days', () => {
+    // In the future: a month that ended last week is refused for a better
     // reason than its length, and this test is about the length.
-    const exact = { start: localDate('2026-09-18'), end: localDate('2026-10-01') };
+    const exact = { start: localDate('2026-09-18'), end: localDate('2026-10-17') };
     expect(resolvePreset('custom', THURSDAY_6PM, MELBOURNE, opts(TWO_HOURS, exact))).toMatchObject({
       window: exact,
     });

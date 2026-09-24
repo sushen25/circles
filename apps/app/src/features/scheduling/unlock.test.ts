@@ -79,16 +79,16 @@ describe('what would unlock it', () => {
     expect(blockedBy(data)).toContain('Alex');
   });
 
-  it('runs the window out to the fortnight the domain allows, keeping its first day', () => {
+  it('runs the window out to the thirty days the domain allows, keeping its first day', () => {
     // The fixture asks about seven days from 14 September.
-    expect(widerWindow(fixture.noQuorum)).toEqual({ start: '2026-09-14', end: '2026-09-27' });
+    expect(widerWindow(fixture.noQuorum)).toEqual({ start: '2026-09-14', end: '2026-10-13' });
     const wider = unlocksOf(fixture.noQuorum).find((u) => u.kind === 'wider');
     expect(wider?.title).toBe('Try a wider window');
-    expect(wider?.body).toBe('Ask about 14 days instead of 7');
+    expect(wider?.body).toBe('Ask about 30 days instead of 7');
   });
 
-  it('offers no wider window to a plan already asking about a fortnight', () => {
-    const data = planWith({ windowStart: '2026-09-14', windowEnd: '2026-09-27' });
+  it('offers no wider window to a plan already asking about thirty days', () => {
+    const data = planWith({ windowStart: '2026-09-14', windowEnd: '2026-10-13' });
     expect(widerWindow(data)).toBeUndefined();
     expect(unlocksOf(data).map((u) => u.kind)).toEqual(['lower', 'close']);
   });

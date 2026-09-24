@@ -40,7 +40,7 @@ export type GridDay = {
   hasTimes: boolean;
   /**
    * Shown, faded and not pressable: a day in the past on the plan setup's
-   * calendar, or one past the fourteen-day cap. Its label has to say why.
+   * calendar, or one past the thirty-day cap. Its label has to say why.
    */
   disabled?: boolean | undefined;
 };

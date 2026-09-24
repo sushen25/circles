@@ -19,7 +19,7 @@ import type { CustomWindowView } from './useCustomWindow';
 
 /**
  * CustomWindow — `docs/design/CustomWindow.dc.html` (spec §5.3): a month grid
- * to tap a range on, at most fourteen days, days already gone shown and not
+ * to tap a range on, at most thirty days, days already gone shown and not
  * pickable; then the hours of each day. **Use these dates** goes back to the
  * form it came from with the range and the hours on it.
  */

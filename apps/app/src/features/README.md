@@ -241,7 +241,7 @@ and `cancelPlan` through the Edge Functions).
   `defaultDeadline` — and **only what was changed is sent**, so an untouched
   quorum stays defaulted and follows the plan's audience (ADR 0026).
   `/circles/[id]/plan/window` is the same flow opened on its calendar
-  (`CustomWindowScreen`, a `DayGrid` month, at most 14 days).
+  (`CustomWindowScreen`, a `DayGrid` month, at most 30 days).
 - `/circles/[id]/plan/mode` (`ChooseModeFlow`) — Plan openly; the quiet card is
   behind `flags.quietAsk` (`@circles/config`) until S2-03.
 - `/circles/[id]/plan/[planId]/edit` (`EditPlanFlow`) — the setup's controls,

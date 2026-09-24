@@ -22,7 +22,7 @@ import { datesWords } from './words';
  * and the words for both. The rules are `calendar.ts`'s; this holds the taps.
  *
  * Months page forward from this one without end: the spec caps how *long* a
- * window is (fourteen days), not how far ahead it may be, so the grid does not
+ * window is (thirty days), not how far ahead it may be, so the grid does not
  * invent a horizon. Back stops at this month, whose past days are shown and
  * cannot be picked.
  */

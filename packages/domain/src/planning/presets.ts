@@ -13,6 +13,7 @@ import { type Instant, isBefore } from '../shared/instant.js';
 import { type LocalDate, addDays, isWeekend, weekday } from '../shared/local-date.js';
 import { type Zone, fromLocal, toLocal } from '../shared/zone.js';
 import {
+  FORTNIGHT_DAYS,
   MAX_WINDOW_DAYS,
   type DailyWindow,
   type DateWindow,
@@ -255,7 +256,7 @@ export function resolvePreset(
     case 'next_7_days':
       return checked(nextDays(now, z, 7));
     case 'next_14_days':
-      return checked(nextDays(now, z, MAX_WINDOW_DAYS));
+      return checked(nextDays(now, z, FORTNIGHT_DAYS));
     case 'custom': {
       if (custom === undefined) return 'window_backwards';
       if (custom.end < custom.start) return 'window_backwards';

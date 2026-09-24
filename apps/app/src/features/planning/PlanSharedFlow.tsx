@@ -2,7 +2,7 @@ import type { CircleId, PlanId } from '@circles/contracts';
 import {
   EN_PREVIEW_TEMPLATES,
   EN_SHARE_TEMPLATES,
-  MAX_WINDOW_DAYS,
+  FORTNIGHT_DAYS,
   localDate,
   newPlanMessage,
   ogDescription,
@@ -73,7 +73,7 @@ function FixturePlanShared() {
 /** "in the next two weeks" for the first-run fortnight; nothing for any other window. */
 function windowPhrase(plan: PlanToShare): string | undefined {
   const days = windowDays({ start: localDate(plan.windowStart), end: localDate(plan.windowEnd) });
-  return days === MAX_WINDOW_DAYS ? t('planShared', 'in_the_next_two_weeks') : undefined;
+  return days === FORTNIGHT_DAYS ? t('planShared', 'in_the_next_two_weeks') : undefined;
 }
 
 function LivePlanShared({ id, planId, again }: { id: string; planId: string; again: boolean }) {

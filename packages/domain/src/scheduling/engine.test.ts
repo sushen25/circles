@@ -545,6 +545,38 @@ describe('performance', () => {
 
     expect(elapsed).toBeLessThan(50);
   });
+
+  it('handles eight members across thirty days inside the same 50 ms (ADR 0030)', () => {
+    // §12's budget is quoted per fortnight; a custom window may now run to a
+    // month, and the engine's work grows with the days, so the same bar is
+    // held at the new cap rather than a new one written.
+    const members = [...SUNDAY_CREW, userId('kim'), userId('raj')];
+    const days = [
+      ...Array.from({ length: 17 }, (_, i) => `2026-09-${String(14 + i).padStart(2, '0')}`),
+      ...Array.from({ length: 13 }, (_, i) => `2026-10-${String(1 + i).padStart(2, '0')}`),
+    ];
+    const responses = members.map(
+      (m) =>
+        [
+          m,
+          { status: 'windows' as const, windows: days.map((d) => on(d, 9 * 60, 22 * 60)) },
+        ] as const,
+    );
+    const input = sundayCrewInput({
+      responses,
+      activeMemberIds: members,
+      plan: {
+        ...NEXT_FORTNIGHT,
+        window: { start: localDate('2026-09-14'), end: localDate('2026-10-13') },
+      },
+    });
+
+    const started = performance.now();
+    generateCandidates(input);
+    const elapsed = performance.now() - started;
+
+    expect(elapsed).toBeLessThan(50);
+  });
 });
 
 describe('the set itself', () => {

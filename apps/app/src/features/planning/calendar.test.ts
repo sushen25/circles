@@ -11,12 +11,12 @@ describe('picking a range', () => {
     expect(tapDay(start, '2026-09-27')).toEqual({ start: '2026-09-21', end: '2026-09-27' });
   });
 
-  it('starts again from a day before the start, or past the fourteenth', () => {
+  it('starts again from a day before the start, or past the thirtieth', () => {
     const start = { start: '2026-09-21', end: undefined };
     expect(tapDay(start, '2026-09-20')).toEqual({ start: '2026-09-20', end: undefined });
-    expect(lastEnd(start)).toBe('2026-10-04');
-    expect(tapDay(start, '2026-10-04')).toEqual({ start: '2026-09-21', end: '2026-10-04' });
-    expect(tapDay(start, '2026-10-05')).toEqual({ start: '2026-10-05', end: undefined });
+    expect(lastEnd(start)).toBe('2026-10-20');
+    expect(tapDay(start, '2026-10-20')).toEqual({ start: '2026-09-21', end: '2026-10-20' });
+    expect(tapDay(start, '2026-10-21')).toEqual({ start: '2026-10-21', end: undefined });
   });
 
   it('starts again after a finished range', () => {
@@ -46,9 +46,10 @@ describe('the month', () => {
   });
 
   it('marks, and still offers, the days past the cap while an end is chosen', () => {
+    // Thirty days from 26 September end on 25 October.
     const days = monthDays('2026-10-01', '2026-09-15', { start: '2026-09-26', end: undefined });
-    expect(days[8]).toMatchObject({ date: '2026-10-09', why: undefined });
-    expect(days[9]).toMatchObject({ date: '2026-10-10', why: 'too_far', disabled: false });
+    expect(days[24]).toMatchObject({ date: '2026-10-25', why: undefined });
+    expect(days[25]).toMatchObject({ date: '2026-10-26', why: 'too_far', disabled: false });
   });
 
   it('holds back the days up to the one Change the time takes off the table', () => {

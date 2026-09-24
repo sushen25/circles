@@ -193,7 +193,7 @@ Returning users land on the same Welcome; Apple and Google resolve to the existi
 
 #### Circle fields
 
-Name; colour (solid, no image); primary IANA time zone defaulted from the creator's device; cadence (weekly, fortnightly, monthly, every two months, no goal); **nudge policy** (whoever organised last, take turns, the owner — default "take turns" for circles of four or more); default duration (60, 90, 120, 180 minutes; default 120); default quorum `max(2, ceil(active members × 0.6))`, editable per plan; optional default area; active or archived; `last_met_at`; cadence snooze.
+Name; colour (solid, no image); primary IANA time zone defaulted from the creator's device; cadence (weekly, fortnightly, monthly, every two months, no goal); **nudge policy** (whoever organised last, take turns, the owner — default "take turns" for circles of four or more); default duration (60, 90, 120, 180, 240 or 300 minutes; default 120); default quorum `max(2, ceil(active members × 0.6))`, editable per plan; optional default area; active or archived; `last_met_at`; cadence snooze.
 
 #### Joining and membership
 
@@ -219,9 +219,9 @@ No feed, chat, status posts, likes or generic calendar.
 #### Required plan inputs
 
 - Intent: **Catch up** default; presets dinner, drinks, coffee, activity.
-- Date window: tonight; this weekend; next 7 days; next 14 days; custom (calendar picker, capped at 14 consecutive days).
+- Date window: tonight; this weekend; next 7 days; next 14 days; custom (calendar picker, capped at 30 consecutive days — ADR 0030).
 - Time-of-day window with preset defaults: tonight from now rounded up to the next 30 minutes until 11:30 pm; weekdays 5:30–10:30 pm; weekend days 9:00 am–10:30 pm; custom.
-- Duration: 60, 90, 120 or 180 minutes.
+- Duration: 60, 90, 120, 180, 240 or 300 minutes (the last two by ADR 0031).
 - Quorum (defaults from the circle; required members count toward it). A plan records whether its quorum was **chosen** — supplied by the organiser or by the circle's own default — or **defaulted**. While it is defaulted it follows the plan's own audience: every join through the plan's link recomputes it as `max(3, quorum default for the number of people the plan is asking)` and adjusts the plan, keeping every answer. Somebody who joins the circle another way and never opens the plan is not one of them — joining an active plan is an opt-in (§9), and a quorum above the people who were asked is one the plan can never reach ([ADR 0026](decisions/0026-first-run-shares-a-plan-and-a-defaulted-quorum-follows-the-circle.md), adjusted per [ADR 0017](decisions/0017-changing-a-quorum-or-a-deadline-adjusts-a-plan-it-does-not-revise-it.md)). A plan made on a circle of one — the first-run case — therefore asks for three people rather than two, and grows with the chat. The organiser setting a quorum makes it chosen, and a chosen quorum never moves by itself.
 - Required members, optional; the organiser is required by default.
 - Response deadline defaults: tonight — the earlier of 60 minutes after creation and 30 minutes before the last possible start; this weekend / next 7 days — 24 hours; next 14 days — 72 hours. Editable, never after the last possible start. When a default would fall at or before creation — tonight's margin, on a plan whose last possible start is under 30 minutes away — the default becomes the last possible start rather than the plan being refused ([ADR 0010](decisions/0010-tonight-deadline-gives-up-its-margin.md)).
