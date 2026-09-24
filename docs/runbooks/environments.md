@@ -256,7 +256,11 @@ not change. An `expo export` with no Supabase URL builds and deploys
 perfectly happily, and every request fails in the browser.
 
 **Secret — set with `supabase secrets set`. Not the same set on both projects**,
-which is the part that gets got wrong in both directions:
+which is the part that gets got wrong in both directions. `make secret ENV=dev
+K=NAME V=value` and `make secrets ENV=prod` (names and digests, never values)
+supply the project ref for you, so the environment is named rather than
+copied; with no `V=` the value is invented with `openssl rand` and shown to
+nobody, which suits a secret nothing else has to agree with:
 
 | Name | From | `dev` | `prod` |
 |---|---|---|---|
