@@ -6,6 +6,7 @@ import { t } from '../../copy';
 import { hasBackend } from '../../data/auth/client';
 import type { PlanDetails } from '../../data/planning';
 import { isOffline } from '../identity/join/failure';
+import { allows } from './allowed';
 import { CustomWindowScreen } from './CustomWindowScreen';
 import { changesSomething, editDraftFrom, namesWithYou, resolveEdit } from './edit';
 import { EditPlanScreen } from './EditPlanScreen';
@@ -66,7 +67,7 @@ export function EditPlanFlow({ id, planId }: { id: string; planId: string }) {
         statement={{
           title: t('editPlan', 'not_yours_title'),
           body: t('editPlan', 'not_yours_body'),
-          ...(plan.isOwner && !isTerminal(plan.state)
+          ...(plan.isOwner && allows(plan.state, 'cancel')
             ? { action: t('confirmedOrg', 'cancel_this_plan'), onAction: toCancel }
             : {}),
         }}
@@ -91,7 +92,7 @@ export function EditPlanFlow({ id, planId }: { id: string; planId: string }) {
       />
     );
   }
-  if (plan.state !== 'collecting' && plan.state !== 'ready') {
+  if (!allows(plan.state, 'edit')) {
     return (
       <EditPlanScreen
         statement={{
@@ -134,7 +135,7 @@ function LiveEditForm(props: {
 }
 
 function EditForm({
-  plan,
+  plan: opened,
   now,
   live = false,
   onDone,
@@ -148,6 +149,12 @@ function EditForm({
   onCancelPlan?: (() => void) | undefined;
   onBack: () => void;
 }) {
+  // The plan as the form opened on it. The query refetches on focus, and a
+  // quorum nobody chose moves by itself as people join (ADR 0026): diffed
+  // against a newer read, every untouched field that moved would become a
+  // "change" back to the old value. What the organiser edits is measured from
+  // what they were shown.
+  const [plan] = useState(opened);
   const instant = fromISO(new Date(now).toISOString());
   const names = new Map(plan.roster.map((m) => [m.userId, m.name]));
   const active = new Set(plan.roster.filter((m) => m.active).map((m) => m.userId));

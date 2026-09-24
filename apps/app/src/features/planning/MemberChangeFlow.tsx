@@ -27,17 +27,26 @@ import { datesWords } from './words';
  * is on top, for the reason `CandidatesFlow` gives: a cached state is the state
  * the other door has just sent somebody away from.
  */
-function useAnswered(code: string, enabled: boolean): boolean | undefined {
+function useAnswered(
+  code: string,
+  enabled: boolean,
+): { answered: boolean | undefined; failed: boolean } {
   const session = useSession();
-  // The same read and key as `PlanLinkFlow`'s, so the link fetches it once.
+  // The same read and key as `PlanLinkFlow`'s, so the link fetches it once —
+  // and judged only on a read made since this screen opened, like the plan's:
+  // an answer cached from before the reopen is an answer to the old question.
   const question = useQuery({
     queryKey: ['plan-to-answer', code, session.userId],
     queryFn: () => planToAnswer(code as ShortCode),
     enabled: enabled && session.userId !== undefined,
-    staleTime: 30_000,
+    // This observer reads afresh even when the link's own has a cached copy.
+    staleTime: 0,
   });
-  if (question.data === undefined) return undefined;
-  return question.data?.answer != null;
+  if (question.isError) return { answered: undefined, failed: true };
+  if (question.data === undefined || !question.isFetchedAfterMount) {
+    return { answered: undefined, failed: false };
+  }
+  return { answered: question.data?.answer != null, failed: false };
 }
 
 function organiserOf(plan: PlanDetails): string | undefined {
@@ -53,8 +62,8 @@ function LiveGate({ code, children }: { code: string; children: ReactNode }) {
   const router = useRouter();
   const details = usePlanDetails({ code });
   const plan = details.data ?? undefined;
-  const answered = useAnswered(code, plan !== undefined && offTheTable(plan) !== undefined);
-  const door = plan === undefined ? undefined : doorFor(plan, answered);
+  const answer = useAnswered(code, plan !== undefined && offTheTable(plan) !== undefined);
+  const door = plan === undefined ? undefined : doorFor(plan, answer.answered);
 
   const fresh = details.isFetchedAfterMount && !details.isError;
   const focused = useIsFocused();
@@ -66,7 +75,8 @@ function LiveGate({ code, children }: { code: string; children: ReactNode }) {
   }, [door, fresh, focused, router]);
 
   // A failed read is the link's own screen's to report; it has the states.
-  if (details.isError) return <>{children}</>;
+  // Either read: waiting on one that has failed would be a spinner for ever.
+  if (details.isError || answer.failed) return <>{children}</>;
   if (details.isPending || door !== undefined) return <PlanStateScreen state="loading" />;
   return <>{children}</>;
 }

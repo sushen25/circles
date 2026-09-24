@@ -1,5 +1,4 @@
 import type { CircleId, IdempotencyKey, PlanId } from '@circles/contracts';
-import { isTerminal } from '@circles/domain';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
@@ -11,6 +10,7 @@ import { newIdempotencyKey } from '../../data/functions';
 import { cancelPlan } from '../../data/planning';
 import { isOffline } from '../identity/join/failure';
 import { weekdayOf } from '../scheduling/words';
+import { allows } from './allowed';
 import { CancelPlanScreen } from './CancelPlanScreen';
 import * as fixture from './fixtures';
 import { refusalOf, type Refused } from './problems';
@@ -84,7 +84,7 @@ export function CancelPlanFlow({ id, planId }: { id: string; planId: string }) {
       />
     );
   }
-  if (isTerminal(plan.state) || plan.state === 'seeking' || plan.state === 'draft') {
+  if (!allows(plan.state, 'cancel')) {
     return (
       <CancelPlanScreen
         statement={{ title: t('planSetup', 'problem_finished'), body: '' }}

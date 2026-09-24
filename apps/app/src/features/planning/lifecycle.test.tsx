@@ -299,6 +299,17 @@ describe("the plan's link, once the plan has changed", () => {
     );
   });
 
+  it('shows the plan page rather than waiting for ever when the answer cannot be read', async () => {
+    planDetails.mockResolvedValue(fixture.reopened);
+    planToAnswer.mockRejectedValue(new Error('offline'));
+    show(
+      <PlanChangeGate code="pnsundaycr">
+        <p>the plan page</p>
+      </PlanChangeGate>,
+    );
+    expect(await screen.findByText('the plan page')).toBeTruthy();
+  });
+
   it('leaves somebody who has answered on the plan page', async () => {
     planDetails.mockResolvedValue(fixture.reopened);
     planToAnswer.mockResolvedValue({ plan: {}, answer: { status: 'flexible', windows: [] } });

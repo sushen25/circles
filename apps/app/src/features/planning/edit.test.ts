@@ -168,3 +168,18 @@ describe("the plan link's doors", () => {
     expect(doorFor(fixture.asking, false)).toBeUndefined();
   });
 });
+
+describe('what a plan allows, asked of the domain', () => {
+  it('edits while asking, reopens once locked in, and cancels what the organiser or owner may', async () => {
+    const { allows } = await import('./allowed');
+    expect(allows('collecting', 'edit')).toBe(true);
+    expect(allows('ready', 'edit')).toBe(true);
+    expect(allows('confirmed', 'edit')).toBe(false);
+    expect(allows('confirmed', 'reopen')).toBe(true);
+    expect(allows('collecting', 'reopen')).toBe(false);
+    expect(allows('confirmed', 'cancel')).toBe(true);
+    // A quiet ask is withdrawn by its initiator, not from these screens.
+    expect(allows('seeking', 'cancel')).toBe(false);
+    expect(allows('cancelled', 'cancel')).toBe(false);
+  });
+});

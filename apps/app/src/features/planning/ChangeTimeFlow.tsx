@@ -8,6 +8,7 @@ import type { PlanDetails } from '../../data/planning';
 import { dateWords } from '../availability/days';
 import { isOffline } from '../identity/join/failure';
 import { weekdayOf } from '../scheduling/words';
+import { allows } from './allowed';
 import { ChangeTimeScreen } from './ChangeTimeScreen';
 import { CustomWindowScreen } from './CustomWindowScreen';
 import { editDraftFrom, resolveEdit } from './edit';
@@ -83,7 +84,7 @@ export function ChangeTimeFlow({ id, planId }: { id: string; planId: string }) {
       />
     );
   }
-  if (plan.state !== 'confirmed' || plan.lastConfirmation?.status !== 'active') {
+  if (!allows(plan.state, 'reopen') || plan.lastConfirmation?.status !== 'active') {
     return (
       <ChangeTimeScreen
         statement={{
@@ -114,7 +115,7 @@ function LiveChangeForm(props: { plan: PlanDetails; onDone: () => void; onBack: 
 }
 
 function ChangeForm({
-  plan,
+  plan: opened,
   now,
   live = false,
   onDone,
@@ -126,6 +127,9 @@ function ChangeForm({
   onDone: () => void;
   onBack: () => void;
 }) {
+  // The plan as the screen opened on it, for the reason EditPlan gives: a
+  // refetch on focus must not turn an untouched quorum into a change.
+  const [plan] = useState(opened);
   const instant = fromISO(new Date(now).toISOString());
   const startsAt = plan.lastConfirmation!.startsAt;
   // The new window starts after the day it takes off the table, so what the

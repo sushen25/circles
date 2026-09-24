@@ -243,6 +243,27 @@ describe('changing a locked-in time', () => {
   });
 });
 
+describe('a plan that moves while the form is open', () => {
+  it('sends nothing the organiser did not touch, even after a refetch brings a newer plan', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <EditPlanFlow id="sunday-crew" planId="thu-17" />
+      </QueryClientProvider>,
+    );
+    await screen.findByRole('button', { name: 'Save changes' });
+    // Somebody joins through the link and the defaulted quorum follows (ADR 0026).
+    planDetails.mockResolvedValue({ ...fixture.asking, quorum: 5 });
+    await client.invalidateQueries({ queryKey: ['plan-details'] });
+    await new Promise((resolve) => setTimeout(resolve, 600));
+
+    expect(previewRevision).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Save changes' }).getAttribute('aria-disabled')).toBe(
+      'true',
+    );
+  });
+});
+
 describe('who has to be there', () => {
   it('offers somebody still required who has left, so they can be taken off', async () => {
     planDetails.mockResolvedValue({
