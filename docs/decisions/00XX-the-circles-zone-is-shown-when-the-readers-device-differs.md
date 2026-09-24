@@ -36,9 +36,10 @@ The founder chose the second on 24 September 2026.
 
 ## Decision
 
-**Every plan time on a screen is written on the circle's clock. The zone is
-named when the reader's own device is in a different one, and for no other
-reason.**
+**On the screens whose subject is a plan's time — the availability editor,
+the options, the confirm review and the two confirmed screens — the time is
+written on the circle's clock, and the zone is named when the reader's own
+device is in a different one, and for no other reason.**
 
 - The test is the **device**, not the reader's profile: the case §9 names is a
   member who has travelled, and the device is where they are now. The device's
@@ -55,6 +56,13 @@ reason.**
   same thing everywhere a time appears.
 - Ordering and scoring are on instants, as before. Nothing about the engine
   changes; this record is about what a screen says.
+- The rule is about those screens, not about every time the product writes.
+  Circle home's cards, the plan-shared screen and the reply deadline write
+  times on the circle's clock too (S1-27 decided the deadline that way, so
+  two screens never disagree about when replies close) and carry no note: they
+  are summaries, and each opens one of the screens above, which does. Whether
+  a card should carry the sentence as well is a circle-home design question
+  and is not decided here.
 
 Spec §5.6 and §5.7 now say this. The words in `features/scheduling/words.ts`
 describe the rule rather than a gap, and the confirmed screens, which had the
