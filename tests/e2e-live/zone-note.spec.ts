@@ -13,7 +13,7 @@ import {
 } from './stack';
 
 /**
- * Whose clock a time is written on (spec §5.6 and §5.7, ADR 00XX): the
+ * Whose clock a time is written on (spec §5.6 and §5.7, ADR 0032): the
  * circle's, with "Times are Melbourne time." exactly when the reader's own
  * device is somewhere else. The device is the browser context's `timezoneId`,
  * so one file walks the same screens from London and from Melbourne.

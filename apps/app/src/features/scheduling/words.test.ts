@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { zoneNoteOf } from './words';
 
 /**
- * Whose clock a time is written on (spec §5.6, ADR 00XX): the circle's, with
+ * Whose clock a time is written on (spec §5.6, ADR 0032): the circle's, with
  * the zone named exactly when the reader's own device is somewhere else. Node
  * re-reads `TZ` on change, so the device is moved by setting it.
  */

@@ -58,7 +58,7 @@ export function deadlineOf(iso: string, zone: string): string {
  * "Times are Melbourne time." when **this device** is somewhere else — the same
  * sentence the availability editor shows, for the same reason (§9).
  *
- * The reader's own device is the whole test (ADR 00XX). Spec §5.6 once asked
+ * The reader's own device is the whole test (ADR 0032). Spec §5.6 once asked
  * for the zone "if any member differs", and no client can tell: a member's
  * zone lives in `profiles`, readable by its owner alone, and `member_profiles`
  * exposes a name and an id on purpose. The rule is now the reader's — whose

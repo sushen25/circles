@@ -45,7 +45,7 @@ describe('confirmedOf, away from home', () => {
     else process.env.TZ = home;
   });
 
-  it("names the circle's zone when this device is elsewhere, and only then (ADR 00XX)", () => {
+  it("names the circle's zone when this device is elsewhere, and only then (ADR 0032)", () => {
     process.env.TZ = 'Australia/Melbourne';
     expect(confirmedOf(lockedIn, confirmation).zoneNote).toBeUndefined();
     process.env.TZ = 'Europe/London';

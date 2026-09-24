@@ -391,7 +391,7 @@ select is(
   'and sees a co-member’s current name through member_profiles'
 );
 
--- The column limit is the view's whole design (ADR 00XX): a zone is close to
+-- The column limit is the view's whole design (ADR 0032): a zone is close to
 -- a location, and no member's is readable by another. A third column here is
 -- a decision, not a tidy-up.
 select columns_are(
