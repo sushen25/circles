@@ -215,11 +215,9 @@ function SetupForm({
   // A default deadline is counted from when the plan is made, so the one on
   // screen keeps time with the clock rather than with when the form opened.
   const live = freshNow !== undefined;
-  const tick = useRef(freshNow);
-  tick.current = freshNow;
   useEffect(() => {
     if (!live) return;
-    const timer = setInterval(() => setClock(tick.current?.() ?? Date.now()), TICK_MS);
+    const timer = setInterval(() => setClock(Date.now()), TICK_MS);
     return () => clearInterval(timer);
   }, [live]);
   const instant = fromISO(new Date(clock).toISOString());
