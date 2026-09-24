@@ -228,6 +228,7 @@ No feed, chat, status posts, likes or generic calendar.
 
 #### Plan creation result
 
+- One at a time: a circle has at most one plan finding a time (`collecting` or `ready`). While one is, **Plan a catch-up** shows that plan — with **Edit** for its organiser and **Cancel** for the organiser or the owner — instead of the setup form; `create-plan` refuses a second (`plan_in_progress`), and so do **Change the time** on a locked-in plan and a quiet ask reaching its threshold ([ADR 0033](decisions/0033-one-open-plan-per-circle.md)).
 - Visible to all current circle members; creator is organiser.
 - A paste-ready message and short link for the group chat (the plan short link carries no secret; the circle invite secret stays in the URL fragment).
 - App members receive one push; the organiser receives organiser-kind notifications by email if no app is installed; verified email subscribers receive nothing until confirmation.

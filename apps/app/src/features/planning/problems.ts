@@ -24,6 +24,11 @@ export type Refused = {
   stale?: boolean | undefined;
   /** `requires_saved_place`: the organiser gate (ADR 0004). */
   needsSavedPlace?: boolean | undefined;
+  /**
+   * `plan_in_progress`: the circle already has a plan finding a time (ADR
+   * 0033). The setup flow reads the circle again and shows that plan instead.
+   */
+  inProgress?: boolean | undefined;
 };
 
 const DOMAIN: readonly string[] = [
@@ -38,7 +43,10 @@ const DOMAIN: readonly string[] = [
   'deadline_out_of_range',
 ];
 
-export function refusalOf(error: unknown): Refused {
+export function refusalOf(
+  error: unknown,
+  context: { circleName?: string | undefined } = {},
+): Refused {
   const failure = failureOf(error);
   if (failure.kind === 'offline') {
     return { message: t('planSetup', 'problem_offline'), conclusive: false };
@@ -50,10 +58,14 @@ export function refusalOf(error: unknown): Refused {
       conclusive: false,
     };
   }
-  return { ...refusalFor(failure.reason, failure.reference), conclusive: true };
+  return { ...refusalFor(failure.reason, failure.reference, context), conclusive: true };
 }
 
-function refusalFor(reason: string, reference: string | undefined): Omit<Refused, 'conclusive'> {
+function refusalFor(
+  reason: string,
+  reference: string | undefined,
+  context: { circleName?: string | undefined },
+): Omit<Refused, 'conclusive'> {
   if (DOMAIN.includes(reason)) return { message: problemWords(reason as ResolveProblem) };
   switch (reason) {
     case 'preview_is_stale':
@@ -76,6 +88,13 @@ function refusalFor(reason: string, reference: string | undefined): Omit<Refused
       return { message: t('planSetup', 'problem_nothing') };
     case 'circle_archived':
       return { message: t('planSetup', 'problem_archived') };
+    case 'plan_in_progress':
+      return {
+        message: t('planSetup', 'problem_in_progress', {
+          circle: context.circleName ?? t('planSetup', 'this_circle'),
+        }),
+        inProgress: true,
+      };
     case 'plan_not_found':
     case 'circle_not_found':
       return { message: t('planSetup', 'not_found') };

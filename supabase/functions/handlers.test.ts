@@ -849,6 +849,22 @@ describe('create-plan', () => {
     const response = await load('create-plan')(post(body));
     expect(await response.json()).toMatchObject({ reason: 'circle_archived' });
   });
+
+  it('passes on the database refusing a second plan beside one still asking', async () => {
+    // One open plan per circle (ADR 0033). The guard is the state machine's,
+    // under the circle's lock, so this function does not ask first; what it
+    // owes the client is the reason by name, and a 409 rather than a 500.
+    const previous = state.answer;
+    state.answer = (fn) =>
+      fn === 'create_plan'
+        ? { data: null, error: { message: 'plan_in_progress', code: 'P0001' } }
+        : previous(fn);
+
+    const response = await load('create-plan')(post(body));
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({ reason: 'plan_in_progress' });
+  });
 });
 
 describe('revise-plan', () => {

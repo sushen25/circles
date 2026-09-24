@@ -32,6 +32,12 @@ export type HomePlan = {
   id: string;
   code: string;
   title: string;
+  /**
+   * Who may edit it; with the owner, who may cancel it (spec §4.5). Null on a
+   * quiet ask nobody has taken on. Read so that a screen offering those two
+   * things offers them to the people who can do them.
+   */
+  organiserUserId: string | null;
   /** ISO, shown in the circle's zone. */
   responseDeadline: string;
   replied: number;
@@ -176,6 +182,7 @@ export async function circleHome(id: string): Promise<CircleHome | null> {
             id: finding.id,
             code: finding.short_code,
             title: finding.title,
+            organiserUserId: finding.organiser_user_id,
             responseDeadline: finding.response_deadline,
             ...replies,
           },

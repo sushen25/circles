@@ -1666,6 +1666,17 @@ export const en = {
     problem_stale:
       'Someone just answered, so who is asked again has changed. Check it, then save again.',
     problem_archived: "This circle is archived, so it can't start a new plan.",
+    problem_in_progress: '{circle} is already finding a time. Edit or cancel that plan first.',
+    in_progress_title: '{circle} is already finding a time',
+    in_progress_body:
+      'One plan at a time, so nobody is asked about two. Change this one, or cancel it and start again.',
+    in_progress_theirs:
+      "One plan at a time, so nobody is asked about two. {name} is organising this one, so it's theirs to change.",
+    in_progress_quiet:
+      'One plan at a time, so nobody is asked about two. This one started quietly, and nobody has taken it on yet.',
+    in_progress_edit: 'Edit the plan',
+    in_progress_cancel: 'Cancel the plan',
+    this_circle: 'This circle',
     reference: 'Ref {reference}',
     loading: 'Getting the plan',
     couldnt_load: "We couldn't load this plan.",

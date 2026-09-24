@@ -28,6 +28,8 @@ export type PlanRow = {
   state: string;
   revision: number;
   response_deadline: string;
+  /** Null on a quiet ask nobody has taken on yet (spec §5.4). */
+  organiser_user_id: string | null;
 };
 
 /**
@@ -42,7 +44,9 @@ export async function plansFor(client: Client, circleIds: readonly string[]): Pr
   if (circleIds.length === 0) return [];
   const { data, error } = await client
     .from('plans')
-    .select('id, circle_id, short_code, title, state, revision, response_deadline')
+    .select(
+      'id, circle_id, short_code, title, state, revision, response_deadline, organiser_user_id',
+    )
     .in('circle_id', [...circleIds])
     .in('state', [...ANSWERABLE_STATES, 'confirmed'])
     .order('created_at', { ascending: false });
@@ -51,9 +55,15 @@ export async function plansFor(client: Client, circleIds: readonly string[]): Pr
 }
 
 /**
- * The plan finding a time in a circle: the newest in an answerable state. A
+ * The plan finding a time in a circle: the one in an answerable state. A
  * plan past its deadline is still finding a time until the organiser decides
  * (spec §8); the deadline is the server's to judge.
+ *
+ * One, because a circle has at most one plan `collecting` or `ready` (spec
+ * §5.3, ADR 0033): `create_plan` refuses a second while it runs, and plan
+ * setup shows this plan with Edit and Cancel instead of a form. "Newest first"
+ * is the read's order and no longer a choice between two — before the rule, a
+ * second plan dropped the first out of view here while it kept running.
  */
 export function findingPlanOf(plans: readonly PlanRow[], circleId: string): PlanRow | undefined {
   return plans.find(

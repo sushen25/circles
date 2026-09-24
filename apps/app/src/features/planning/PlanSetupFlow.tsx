@@ -15,6 +15,7 @@ import { isOffline } from '../identity/join/failure';
 import { CustomWindowScreen } from './CustomWindowScreen';
 import { FIXTURE_NOW, sundayCrew } from './fixtures';
 import { defaultDraft, resolveDraft, WINDOW_EVENT, type PlanDraft } from './form';
+import { PlanInProgress } from './PlanInProgressFlow';
 import { PlanSetupScreen } from './PlanSetupScreen';
 import { refusalOf, type Refused } from './problems';
 import { DeadlineSheet, RequiredSheet } from './sheets';
@@ -25,6 +26,12 @@ import { categoryLabel } from './words';
 /**
  * `/circles/:id/plan/setup` — a plan with everything open to change (spec
  * §5.3). FirstPlan's "Change" and circle home's "Plan a catch-up" come here.
+ *
+ * One open plan per circle (ADR 0033): when the circle read here already has
+ * a plan finding a time, the screen is that plan with Edit and Cancel rather
+ * than a form, so the second "Ask the group" is never offered — and if two
+ * taps race, `create-plan` refuses the loser with `plan_in_progress` and the
+ * circle is read again, which draws the same screen.
  *
  * Organising needs a saved place and membership (`RouteKind` `organiser`); the
  * route's gate has established membership, and a guest member is sent to save
@@ -66,22 +73,30 @@ function LiveSetup({ id, startOn }: { id: string; startOn: 'form' | 'window' }) 
   const router = useRouter();
   const queryClient = useQueryClient();
   const session = useSession();
+  // Two questions, in this order. Any member may *see* the circle's plan, and
+  // a guest member who taps "Plan a catch-up" while one is running is owed
+  // that plan, not an account gate (review round 3): the circle is read as a
+  // member, and a saved place is required only once it says there is no plan
+  // and a form is what comes next (ADR 0004).
+  const member = guard({ route: 'guest', session, membership: 'member' });
   const decision = guard({ route: 'organiser', session, membership: 'member' });
-
-  const toSignIn = () =>
-    router.replace({ pathname: '/sign-in', params: { next: `/circles/${id}/plan/setup` } });
-  useEffect(() => {
-    if (decision.kind === 'needs_saved_place') toSignIn();
-    // `toSignIn` reads only `id` and the router.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [decision.kind, router, id]);
 
   const home = useQuery({
     queryKey: ['circle-home', id, session.userId],
     queryFn: () => circleHome(id),
-    enabled: decision.kind === 'allow',
+    enabled: member.kind === 'allow',
     staleTime: 0,
   });
+  const noPlanRunning =
+    home.data !== undefined && home.data !== null && home.data.activePlan === null;
+
+  const toSignIn = () =>
+    router.replace({ pathname: '/sign-in', params: { next: `/circles/${id}/plan/setup` } });
+  useEffect(() => {
+    if (decision.kind === 'needs_saved_place' && noPlanRunning) toSignIn();
+    // `toSignIn` reads only `id` and the router.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [decision.kind, noPlanRunning, router, id]);
   // The moment the screen was opened: the preview is of a plan made about now,
   // and reading the clock during a render would make it a different plan each
   // time React draws it.
@@ -95,7 +110,7 @@ function LiveSetup({ id, startOn }: { id: string; startOn: 'form' | 'window' }) 
       ? router.back()
       : router.replace({ pathname: '/circles/[id]', params: { id } });
 
-  if (decision.kind !== 'allow' || home.isPending) {
+  if (member.kind !== 'allow' || home.isPending) {
     return <PlanSetupScreen state="loading" onBack={back} />;
   }
   if (home.isError || home.data === null) {
@@ -109,6 +124,13 @@ function LiveSetup({ id, startOn }: { id: string; startOn: 'form' | 'window' }) 
   }
 
   const data = home.data;
+  if (data.activePlan !== null) {
+    return <PlanInProgress id={id} home={data} plan={data.activePlan} onBack={back} />;
+  }
+  // No plan running, so a form is next, and a form needs a saved place: the
+  // effect above is sending them to sign in.
+  if (decision.kind !== 'allow') return <PlanSetupScreen state="loading" onBack={back} />;
+
   const context: FormContext = {
     zone: data.zone,
     people: data.members.map((m) => ({ id: m.userId, name: m.name })),
@@ -121,6 +143,7 @@ function LiveSetup({ id, startOn }: { id: string; startOn: 'form' | 'window' }) 
   return (
     <SetupForm
       context={context}
+      circleName={data.name}
       circleDuration={data.defaultDurationMinutes}
       now={openedAt}
       startOn={startOn}
@@ -158,6 +181,9 @@ function LiveSetup({ id, startOn }: { id: string; startOn: 'form' | 'window' }) 
       }}
       onRefused={(refused) => {
         if (refused.needsSavedPlace) toSignIn();
+        // Somebody's plan got there first — another tab, or another member.
+        // The circle read again is the screen that shows it.
+        if (refused.inProgress) void home.refetch();
         // A settled refusal is an answer, and the next tap a new request. A
         // dropped response may have made the plan: keep the key, so a retry
         // gets that plan back rather than making a second.
@@ -188,6 +214,7 @@ const TICK_MS = 60_000;
 
 function SetupForm({
   context,
+  circleName,
   circleDuration,
   now,
   freshNow,
@@ -197,6 +224,8 @@ function SetupForm({
   onBack,
 }: {
   context: FormContext;
+  /** For the refusal that names the circle. Absent on fixtures. */
+  circleName?: string | undefined;
   circleDuration: number;
   now: number;
   /**
@@ -263,7 +292,7 @@ function SetupForm({
     try {
       await onAsk(form.draft, form.touched);
     } catch (error) {
-      const answer = refusalOf(error);
+      const answer = refusalOf(error, { circleName });
       setRefused(answer);
       onRefused?.(answer);
       setBusy(false);

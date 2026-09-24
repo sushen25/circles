@@ -18,6 +18,10 @@ import { defaultDraft, resolveDraft, PRESETS } from './form';
  * may differ by the seconds between the two calls and by nothing else — and a
  * preset one refuses, the other refuses for the same reason.
  *
+ * One circle, one plan at a time (ADR 0033): each preset's plan is called off
+ * before the next is made, through `cancel-plan`, which is also the real
+ * path by which a cancelled plan frees the circle.
+ *
  * Needs `pnpm db:start`.
  */
 
@@ -84,6 +88,7 @@ describe('every preset, in the UI and on the server', () => {
       }
       expect(made.error).toBeNull();
       const server = made.data as {
+        plan_id: string;
         response_deadline: string;
         window: { start: string; end: string };
       };
@@ -91,6 +96,11 @@ describe('every preset, in the UI and on the server', () => {
       const drift = Date.parse(server.response_deadline) - Date.parse(ui.deadline);
       expect(drift).toBeGreaterThanOrEqual(0);
       expect(drift).toBeLessThan(30_000);
+
+      const cancelled = await owner.functions.invoke('cancel-plan', {
+        body: { idempotency_key: globalThis.crypto.randomUUID(), plan_id: server.plan_id },
+      });
+      expect(cancelled.error).toBeNull();
     });
   }
 });
