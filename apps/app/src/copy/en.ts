@@ -1507,6 +1507,7 @@ export const en = {
     save_problem: "That didn't save. Please try again.",
     save_changed: 'This meetup changed since you opened it. Go back and have a look.',
     save_early: "It hasn't finished yet. Come back once it's over.",
+    save_in_progress: "That's still going through. Give it a moment, then save again.",
     /** Circle home's card, and the past confirmed screen's way in. */
     prompt_answer: 'Answer',
     past_action: 'Did it happen?',
@@ -2160,6 +2161,7 @@ export const en = {
     save_offline: "You're offline. Connect, then try again.",
     save_problem: "That didn't save. Please try again.",
     save_refused: "That answer can't be saved for this meetup any more.",
+    save_in_progress: "That's still going through. Give it a moment, then try again.",
     /** Circle home's card, and the past confirmed screen's way in. */
     prompt_answer: 'Answer',
     past_action: 'Were you there?',

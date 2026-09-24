@@ -1,4 +1,4 @@
-import { NOTE_MAX_LENGTH, type Outcome } from '@circles/domain';
+import { NOTE_MAX_LENGTH, OUTCOMES, type Outcome } from '@circles/domain';
 import { Fragment } from 'react';
 
 import {
@@ -47,8 +47,6 @@ import { MorningPlaceholder, type MorningState } from './morningParts';
  * Presentational. The flow owns the read, the write and where Save goes.
  */
 export type OutcomeState = MorningState | 'answered';
-
-export const OUTCOMES: readonly Outcome[] = ['happened', 'cancelled', 'moved_outside', 'not_sure'];
 
 function outcomeLabel(outcome: Outcome): string {
   switch (outcome) {

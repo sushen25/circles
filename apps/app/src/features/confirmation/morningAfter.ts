@@ -1,3 +1,5 @@
+import { isRetrospective } from '@circles/domain';
+
 import type { PlanConfirmation, RetrospectiveAnswer } from '../../data/confirmation';
 import { dateOf, weekdayOf } from '../scheduling/words';
 
@@ -55,7 +57,7 @@ export function attendanceStageOf(data: PlanConfirmation): AttendanceStage {
   if (data.view === 'confirmed') return { kind: 'early' };
   return {
     kind: 'ask',
-    said: mine.status === 'was_there' || mine.status === 'missed' ? mine.status : undefined,
+    said: isRetrospective(mine.status) ? mine.status : undefined,
   };
 }
 

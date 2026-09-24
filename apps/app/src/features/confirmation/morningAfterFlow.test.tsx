@@ -137,6 +137,30 @@ describe('the organiser', () => {
     expect(second).toBe(first);
   });
 
+  // Review round 3: a key the server still holds as in flight answers
+  // `in_progress` for ever if its first attempt died unclassified. The same
+  // answer must be able to go again under a new key — `report_outcome` is
+  // idempotent on the answer itself.
+  it('lets a save still "in progress" go again under a new key, and says it is going through', async () => {
+    reportOutcome.mockRejectedValueOnce(
+      new FunctionError(
+        { error: 'conflict', reason: 'in_progress', message: 'x', reference: 'R1' } as never,
+        'x',
+      ),
+    );
+    show(<MorningAfterFlow target={{ code: 'pnsundaycr' }} />);
+    fireEvent.click(await screen.findByRole('radio', { name: 'It happened' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'No' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(
+      await screen.findByText("That's still going through. Give it a moment, then save again."),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(dismissTo).toHaveBeenCalledWith(TO_CIRCLE));
+    const [first, second] = reportOutcome.mock.calls.map(([input]) => input.key);
+    expect(second).not.toBe(first);
+  });
+
   it('says so when the meetup changed underneath, and reads it again', async () => {
     reportOutcome.mockRejectedValue(
       new FunctionError(
@@ -223,6 +247,24 @@ describe('a member', () => {
     // The count is the server's, for the funnel — and never on the screen.
     expect(track).toHaveBeenCalledWith('attendance_confirmed', { ...IDS, attended_count: 2 });
     expect(screen.queryByText(/2/)).toBeNull();
+  });
+
+  it('lets an answer still "in progress" go again under a new key', async () => {
+    reportAttendance.mockRejectedValueOnce(
+      new FunctionError(
+        { error: 'conflict', reason: 'in_progress', message: 'x', reference: 'R1' } as never,
+        'x',
+      ),
+    );
+    show(<MorningAfterFlow target={{ code: 'pnsundaycr' }} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'I was there' }));
+    expect(
+      await screen.findByText("That's still going through. Give it a moment, then try again."),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'I was there' }));
+    expect(await screen.findByText('Thanks, noted.')).toBeTruthy();
+    const [first, second] = reportAttendance.mock.calls.map(([input]) => input.key);
+    expect(second).not.toBe(first);
   });
 
   it('can say they missed it, which records no attendance', async () => {

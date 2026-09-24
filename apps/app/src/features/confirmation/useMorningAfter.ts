@@ -28,6 +28,14 @@ import { failureOf } from '../identity/join/failure';
  * "Last caught up" moves only on `happened`, and it moves on the server, so the
  * home has to ask rather than be told.
  *
+ * **`in_progress` lets the next tap go under a new key** (review round 3). The
+ * server holds a claimed key as in flight until its request finishes, and one
+ * that died without a classifiable error never does — so the same key would be
+ * refused for ever. A fresh key is safe here because both writes are idempotent
+ * on the answer itself: `report_outcome` returns the report already made for
+ * the same outcome, and the same attendance twice is a no-op. Meanwhile the
+ * plan is read again, in case the first attempt did land.
+ *
  * Refusals that mean "this meetup is not what you were looking at" — rescheduled,
  * cancelled, already reported — read the plan again as well as saying so, so
  * the screen underneath the notice becomes the right one.
@@ -107,6 +115,12 @@ export function useReportOutcome(
     onError: (error) => {
       const failure = failureOf(error);
       if (failure.kind === 'offline') return setNotice(t('outcome', 'save_offline'));
+      if (failure.kind === 'reason' && failure.reason === 'in_progress') {
+        key.current = undefined;
+        setNotice(t('outcome', 'save_in_progress'));
+        void client.invalidateQueries({ queryKey: ['plan-confirmation', queryKey] });
+        return;
+      }
       if (failure.kind === 'reason' && failure.reason === 'outcome_too_early') {
         return setNotice(t('outcome', 'save_early'));
       }
@@ -169,6 +183,12 @@ export function useReportAttendance(
     onError: (error) => {
       const failure = failureOf(error);
       if (failure.kind === 'offline') return setNotice(t('wasThere', 'save_offline'));
+      if (failure.kind === 'reason' && failure.reason === 'in_progress') {
+        key.current = undefined;
+        setNotice(t('wasThere', 'save_in_progress'));
+        void client.invalidateQueries({ queryKey: ['plan-confirmation', queryKey] });
+        return;
+      }
       if (failure.kind === 'reason' && failure.reason === 'attendance_too_early') {
         return setNotice(t('wasThere', 'early_body'));
       }

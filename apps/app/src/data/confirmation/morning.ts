@@ -1,4 +1,5 @@
 import type { ShortCode } from '@circles/contracts';
+import { isRetrospective, type AttendanceStatus } from '@circles/domain';
 
 import { authClient } from '../auth/client';
 import { sessionStorage } from '../auth/storage';
@@ -114,8 +115,8 @@ export async function morningAfterOf(circleId: string): Promise<MorningAfter | n
       continue;
     }
 
-    const status = myStatus.get(confirmation.id);
-    if (status === undefined || status === 'was_there' || status === 'missed') continue;
+    const status = myStatus.get(confirmation.id) as AttendanceStatus | undefined;
+    if (status === undefined || isRetrospective(status)) continue;
     if (await attendanceDismissed(me, confirmation.id)) continue;
     return { ...found, ask: 'attendance' };
   }

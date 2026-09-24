@@ -3,7 +3,7 @@ import {
   ReportOutcomeResponse,
   type IdempotencyKey,
 } from '@circles/contracts';
-import type { Outcome } from '@circles/domain';
+import type { Outcome, RetrospectiveStatus } from '@circles/domain';
 
 import { invokeFunction } from '../functions';
 
@@ -27,7 +27,7 @@ import { invokeFunction } from '../functions';
 
 export type OutcomeEvidence = ReportOutcomeResponse;
 
-export type RetrospectiveAnswer = 'was_there' | 'missed';
+export type RetrospectiveAnswer = RetrospectiveStatus;
 
 export async function reportOutcome(input: {
   confirmationId: string;
