@@ -62,7 +62,7 @@ const CHANGED_UNDERNEATH = new Set([
 export type OutcomeReport = {
   busy: boolean;
   notice: string | undefined;
-  save: (outcome: Outcome, note: string) => void;
+  save: (outcome: Outcome, movedOutside: boolean, note: string) => void;
 };
 
 export function useReportOutcome(
@@ -75,14 +75,23 @@ export function useReportOutcome(
   const key = useRef<{ answer: string; key: IdempotencyKey }>(undefined);
 
   const reporting = useMutation({
-    mutationFn: async ({ outcome, note }: { outcome: Outcome; note: string }) => {
+    mutationFn: async ({
+      outcome,
+      movedOutside,
+      note,
+    }: {
+      outcome: Outcome;
+      movedOutside: boolean;
+      note: string;
+    }) => {
       const confirmationId = data?.confirmation?.id;
       if (confirmationId === undefined) throw new Error('no confirmation');
       return reportOutcome({
         confirmationId,
         outcome,
+        movedOutside,
         note,
-        key: keyFor(key, `${outcome}\n${note.trim()}`),
+        key: keyFor(key, `${outcome}\n${String(movedOutside)}\n${note.trim()}`),
       });
     },
     onSuccess: async (_evidence, { outcome }) => {
@@ -113,9 +122,9 @@ export function useReportOutcome(
   return {
     busy: reporting.isPending,
     notice,
-    save: (outcome, note) => {
+    save: (outcome, movedOutside, note) => {
       setNotice(undefined);
-      reporting.mutate({ outcome, note });
+      reporting.mutate({ outcome, movedOutside, note });
     },
   };
 }

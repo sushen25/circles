@@ -4,6 +4,7 @@ import { hasBackend } from '../../data/auth/client';
 import { isOffline } from '../identity/join/failure';
 import type { ConfirmedKey } from './ConfirmedFlow';
 import * as fixture from './fixtures';
+import { outcomeStageOf } from './morningAfter';
 import { OrganiserOutcome } from './OutcomeFlow';
 import { OutcomeScreen } from './OutcomeScreen';
 import { useConfirmation } from './useConfirmation';
@@ -21,13 +22,22 @@ import { MemberAttendance } from './WasThereFlow';
  * the organiser gets Outcome and everybody else WasThere, whichever link they
  * followed. A forwarded email, or a member tapping the organiser's link in a
  * shared inbox, lands on the question that is theirs to answer — never on one
- * the server would refuse them.
+ * the server would refuse them. The one exception is the organiser's own
+ * attendance: once they have reported, the attendance door is theirs as a
+ * member.
  */
 export function MorningAfterFlow({
   target,
+  door = 'outcome',
   fixtureAs = 'organiser',
 }: {
   target: ConfirmedKey;
+  /**
+   * Which link was followed. It decides one thing: an organiser who has
+   * already reported and opens the attendance door is answering as the
+   * member they also are (review round 2).
+   */
+  door?: 'outcome' | 'attendance' | undefined;
   /** With no backend: whose screen the fixture shows. */
   fixtureAs?: 'organiser' | 'member' | undefined;
 }) {
@@ -39,10 +49,16 @@ export function MorningAfterFlow({
       <MemberAttendance data={data} queryKey="" />
     );
   }
-  return <LiveMorningAfter target={target} />;
+  return <LiveMorningAfter target={target} door={door} />;
 }
 
-function LiveMorningAfter({ target }: { target: ConfirmedKey }) {
+function LiveMorningAfter({
+  target,
+  door,
+}: {
+  target: ConfirmedKey;
+  door: 'outcome' | 'attendance';
+}) {
   const router = useRouter();
   const query = useConfirmation(target);
   const data = query.data ?? undefined;
@@ -64,7 +80,10 @@ function LiveMorningAfter({ target }: { target: ConfirmedKey }) {
   if (data === undefined) return <OutcomeScreen state="denied" onBack={back} />;
   // Organiser or not is the read's answer: `organiser_user_id` against the
   // session, the same test `report_outcome` makes.
-  return data.isOrganiser ? (
+  // The outcome first while it is owed: it is the answer that moves "Last
+  // caught up", and theirs alone to give.
+  const asOrganiser = data.isOrganiser && (door === 'outcome' || outcomeStageOf(data) === 'ask');
+  return asOrganiser ? (
     <OrganiserOutcome data={data} queryKey={queryKey} />
   ) : (
     <MemberAttendance data={data} queryKey={queryKey} />

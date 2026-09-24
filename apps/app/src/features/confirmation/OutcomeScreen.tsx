@@ -6,6 +6,8 @@ import {
   BodyText,
   Button,
   Card,
+  Chip,
+  Chips,
   DisplayXL,
   Foot,
   Input,
@@ -15,6 +17,7 @@ import {
   Screen,
   SettingRow,
   Small,
+  Tertiary,
   TopBar,
 } from '../../components';
 import { Divider, Stack } from '../../components/layout';
@@ -29,8 +32,13 @@ import { MorningPlaceholder, type MorningState } from './morningParts';
  * **Nothing is chosen for them.** The artboard draws "It happened" ticked; the
  * screen starts with nothing ticked and Save waiting, because the first answer
  * is the north-star metric (§11.1), and a default is an answer the organiser
- * did not give. "Did the plan change outside the app?" is not asked again: it
- * is the third answer, and the flow sends it as such.
+ * did not give.
+ *
+ * **"Did the plan change outside the app?" is its own tap** — the micro-survey's
+ * second question (§5.10), the evidence for H2 — and Save waits for it too. A
+ * catch-up that happened at a time the chat settled on changed outside the app
+ * as much as one moved there wholesale, so it is not read off the answer above;
+ * choosing "We moved it outside" only fills in the obvious yes.
  *
  * `answered` is somebody coming back after reporting — to the same link, or
  * from circle home — and it says so rather than offering a form the server
@@ -62,6 +70,11 @@ export type OutcomeProps = {
   onChoose?: ((outcome: Outcome) => void) | undefined;
   note?: string | undefined;
   onNote?: ((note: string) => void) | undefined;
+  /** "Did the plan change outside the app?" — undefined until answered. */
+  changed?: boolean | undefined;
+  onChanged?: ((changed: boolean) => void) | undefined;
+  /** After an answer: the organiser's own "were you there?", when it is theirs to give. */
+  onOwnAttendance?: (() => void) | undefined;
   busy?: boolean | undefined;
   /** Why the last Save did not land. */
   notice?: string | undefined;
@@ -79,6 +92,9 @@ export function OutcomeScreen({
   onChoose,
   note = '',
   onNote,
+  changed,
+  onChanged,
+  onOwnAttendance,
   busy = false,
   notice,
   onSave,
@@ -96,14 +112,17 @@ export function OutcomeScreen({
             <Small>{t('outcome', 'answered_body')}</Small>
           </Stack>
         </Body>
-        {onToCircle === undefined ? null : (
-          <Foot>
+        <Foot>
+          {onToCircle === undefined ? null : (
             <Button
               label={t('outcome', 'back_to_circle', { circle: words.circle })}
               onPress={onToCircle}
             />
-          </Foot>
-        )}
+          )}
+          {onOwnAttendance === undefined ? null : (
+            <Tertiary label={t('outcome', 'own_attendance')} onPress={onOwnAttendance} />
+          )}
+        </Foot>
       </Screen>
     );
   }
@@ -145,6 +164,22 @@ export function OutcomeScreen({
             ))}
           </Stack>
         </Card>
+        <Stack gap={10}>
+          <BodyText>{t('outcome', 'changed_question')}</BodyText>
+          <Chips>
+            <Chip
+              label={t('outcome', 'changed_yes')}
+              selected={changed === true}
+              onPress={onChanged === undefined ? undefined : () => onChanged(true)}
+            />
+            <Chip
+              label={t('outcome', 'changed_no')}
+              selected={changed === false}
+              onPress={onChanged === undefined ? undefined : () => onChanged(false)}
+            />
+          </Chips>
+          <Small>{t('outcome', 'changed_hint')}</Small>
+        </Stack>
         <Stack>
           <Label>{t('outcome', 'a_line_for_the_circles_record_optional')}</Label>
           <Input
@@ -161,7 +196,7 @@ export function OutcomeScreen({
       <Foot>
         <Button
           label={busy ? t('outcome', 'saving') : t('outcome', 'save')}
-          disabled={busy || choice === undefined}
+          disabled={busy || choice === undefined || changed === undefined}
           onPress={onSave}
         />
       </Foot>

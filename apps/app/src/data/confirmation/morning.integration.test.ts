@@ -102,6 +102,7 @@ describe("the organiser's answer", () => {
       reportOutcome({
         confirmationId: confirmed.confirmation_id,
         outcome: 'happened',
+        movedOutside: false,
         note: '  Great night  ',
         key: globalThis.crypto.randomUUID() as never,
       }),
@@ -135,19 +136,23 @@ describe("the organiser's answer", () => {
       reportOutcome({
         confirmationId: confirmed.confirmation_id,
         outcome: 'not_sure',
+        movedOutside: false,
         key: globalThis.crypto.randomUUID() as never,
       }),
     );
     expect(lastMetAt(circleId)).toBe('never');
   });
 
-  it('"we moved it outside" answers the survey\'s second question yes', async () => {
+  // Review round 2: the survey is its own tap. A catch-up that happened at a
+  // time the chat settled on changed outside the app, and says so.
+  it("stores the survey's own answer, not one read off the outcome", async () => {
     const { owner, confirmed } = await theMorningAfter();
     const { reportOutcome } = await import('./outcome');
     await as(owner, () =>
       reportOutcome({
         confirmationId: confirmed.confirmation_id,
-        outcome: 'moved_outside',
+        outcome: 'happened',
+        movedOutside: true,
         key: globalThis.crypto.randomUUID() as never,
       }),
     );
@@ -167,6 +172,7 @@ describe("the organiser's answer", () => {
       reportOutcome({
         confirmationId: confirmed.confirmation_id,
         outcome: 'cancelled',
+        movedOutside: false,
         key: globalThis.crypto.randomUUID() as never,
       }),
     );
@@ -181,6 +187,7 @@ describe("the organiser's answer", () => {
         reportOutcome({
           confirmationId: confirmed.confirmation_id,
           outcome: 'happened',
+          movedOutside: false,
           key: globalThis.crypto.randomUUID() as never,
         }),
       ),
@@ -219,6 +226,7 @@ describe("a member's answer", () => {
       reportOutcome({
         confirmationId: confirmed.confirmation_id,
         outcome: 'happened',
+        movedOutside: false,
         key: globalThis.crypto.randomUUID() as never,
       }),
     );

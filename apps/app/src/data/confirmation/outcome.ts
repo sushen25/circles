@@ -32,6 +32,8 @@ export type RetrospectiveAnswer = 'was_there' | 'missed';
 export async function reportOutcome(input: {
   confirmationId: string;
   outcome: Outcome;
+  /** "Did the plan change outside the app?" — the survey's own answer (§5.10). */
+  movedOutside: boolean;
   /** One line for the circle's record. Blank is no note. */
   note?: string | undefined;
   key: IdempotencyKey;
@@ -43,9 +45,10 @@ export async function reportOutcome(input: {
       idempotency_key: input.key,
       confirmation_id: input.confirmationId,
       outcome: input.outcome,
-      // "Did the plan change outside the app?" (§5.10) is the fourth answer's
-      // own question, so the answer to it is the answer the organiser chose.
-      moved_outside: input.outcome === 'moved_outside',
+      // Its own question, not read off the outcome: a catch-up that happened
+      // at a time the chat settled on changed outside the app too (review
+      // round 2). It is the H2 evidence, and the contract requires it.
+      moved_outside: input.movedOutside,
       note: note === undefined || note === '' ? undefined : note,
     }),
     ReportOutcomeResponse,

@@ -106,6 +106,9 @@ test('"it happened", from the emailed link, is on circle home at once', async ({
   // Nothing is chosen for them: the answer is the metric.
   await expect(save).toHaveAttribute('aria-disabled', 'true');
   await page.getByRole('radio', { name: 'It happened' }).click();
+  // The survey's second tap is its own (§5.10), and Save waits for it.
+  await expect(save).toHaveAttribute('aria-disabled', 'true');
+  await page.getByRole('checkbox', { name: 'No' }).click();
   await page.getByLabel("A line for the circle's record, optional").fill('Great night');
   await save.click();
 
@@ -134,12 +137,18 @@ test('"not sure", from the card on circle home, leaves "last caught up" alone', 
   await expect(page).toHaveURL(new RegExp(`/circles/${circleId}/plan/${plan.id}/outcome$`));
 
   await page.getByRole('radio', { name: 'Not sure' }).click();
+  await page.getByRole('checkbox', { name: 'Yes' }).click();
   await page.getByRole('button', { name: 'Save' }).click();
 
   await expect(page).toHaveURL(new RegExp(`/circles/${circleId}$`));
   await expect(page.getByText('Not yet')).toBeVisible();
   await expect(page.getByText(/^Did .+'s catch-up happen\?$/)).toHaveCount(0);
   expect(lastMetAt(circleId)).toBe('never');
+  expect(
+    sql(
+      `select outcome, moved_outside from public.outcome_reports o join public.meetup_confirmations c on c.id = o.confirmation_id where c.plan_id = '${plan.id}'`,
+    ),
+  ).toEqual([['not_sure', 't']]);
 });
 
 test('a member with no session, from the emailed way back in, lands on the question and answers it', async ({

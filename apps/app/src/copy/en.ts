@@ -1479,6 +1479,13 @@ export const en = {
     not_sure: 'Not sure',
     a_line_for_the_circles_record_optional: "A line for the circle's record, optional",
     note_placeholder: 'Great night, same again next time',
+    /** The micro-survey's second question (§5.10): its own tap, whatever the answer above. */
+    changed_question: 'Did the plan change outside the app?',
+    changed_yes: 'Yes',
+    changed_no: 'No',
+    changed_hint: 'It tells us how often plans get sorted in the group chat instead.',
+    /** The organiser is a member too: after reporting, their own answer. */
+    own_attendance: 'Say whether you made it',
     save: 'Save',
     saving: 'Saving',
     loading: 'Getting the plan',

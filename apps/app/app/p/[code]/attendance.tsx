@@ -13,7 +13,7 @@ export default function Route() {
 
   return (
     <MembershipGate target={{ kind: 'plan', code }}>
-      <MorningAfterFlow target={{ code }} fixtureAs="member" />
+      <MorningAfterFlow target={{ code }} door="attendance" fixtureAs="member" />
     </MembershipGate>
   );
 }
