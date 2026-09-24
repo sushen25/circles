@@ -4,7 +4,8 @@ import { ALEX, JESS, PRIYA, TOM } from '../scheduling/fixtures.js';
 import { addMinutes } from '../shared/instant.js';
 import { lastPossibleStart } from './deadline.js';
 import { FRIDAY_MIDDAY, TOM_ASKS, quietAsk, quietPlan } from './fixtures.js';
-import { nextQuietStep, onThreshold } from './quiet-threshold.js';
+import { NOBODY, nextQuietStep, onThreshold } from './quiet-threshold.js';
+import { canTransition } from './state-machine.js';
 
 const DAY = 24 * 60;
 
@@ -80,6 +81,25 @@ describe('onThreshold', () => {
         onThreshold(met, { preset: 'this_weekend', now: wednesday, circleHasOpenPlan }),
       ).toEqual({ ok: false, error: { code: 'plan_in_progress' } });
     }
+  });
+
+  it('is held by the table too: threshold_reached beside an open plan is refused there', () => {
+    // The authority, called directly, the way `transition_plan` mirrors it.
+    for (const circleHasOpenPlan of [true, undefined]) {
+      const direct = canTransition(met.plan, 'threshold_reached', {
+        actor: NOBODY,
+        keenCount: 3,
+        circleHasOpenPlan,
+      });
+      expect(direct.ok).toBe(false);
+      if (!direct.ok) expect(direct.error.code).toBe('plan_in_progress');
+    }
+    const free = canTransition(met.plan, 'threshold_reached', {
+      actor: NOBODY,
+      keenCount: 3,
+      circleHasOpenPlan: false,
+    });
+    expect(free.ok).toBe(true);
   });
 
   it('refuses from its stop time: from then on it can only expire', () => {

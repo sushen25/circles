@@ -81,20 +81,20 @@ export function onThreshold(ask: QuietAsk, context: ThresholdContext): Result<Qu
   const { plan } = ask;
   if (plan.mode !== 'quiet') return refuse('not_quiet');
   if (plan.state === 'seeking' && !isAsking(plan, context.now)) return refuse('interest_closed');
-  // The table carries `no_open_plan` on this row too (SUS-89); checking it here
-  // as well keeps "held" a quiet-ask rule the module states itself.
+  // The table carries `no_open_plan` on this row too (ADR 0033) and is the
+  // authority; checking it here first names the refusal before the count is
+  // even looked at, so "held" and "below" cost the same to find out.
   if (plan.state === 'seeking' && context.circleHasOpenPlan !== false) {
     return refuse('plan_in_progress');
   }
 
   // The open-plan fact travels on to the table's own `no_open_plan` guard, so
   // the two cannot disagree about which circle is free.
-  const transition = {
+  const moved = canTransition(plan, 'threshold_reached', {
     actor: NOBODY,
     keenCount: keenCount(ask),
     circleHasOpenPlan: context.circleHasOpenPlan,
-  };
-  const moved = canTransition(plan, 'threshold_reached', transition);
+  });
   if (!moved.ok) return moved;
 
   const deadline = defaultDeadline(context.preset, context.now, lastPossibleStart(plan));
