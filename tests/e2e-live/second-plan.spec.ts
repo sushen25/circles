@@ -72,13 +72,15 @@ test('a circle already finding a time shows that plan instead of a second form, 
   await page.getByRole('button', { name: 'Plan a catch-up' }).click();
   await expect(page).toHaveURL(new RegExp(`/circles/${circleId}/plan/setup$`));
   await expect(page.getByText('Sunday Crew is already finding a time')).toBeVisible();
-  await expect(page.getByText('0 of 1 replied')).toBeVisible();
+  // Circle home stays mounted underneath on the web stack and says the same
+  // count on its own card, so the setup screen's is the last one.
+  await expect(page.getByText('0 of 1 replied').last()).toBeVisible();
   await expect(page.getByRole('button', { name: 'Ask the group' })).toHaveCount(0);
 
   // Edit and Cancel are S1-26's screens, for this plan.
   await page.getByRole('button', { name: 'Edit the plan' }).click();
   await expect(page).toHaveURL(new RegExp(`/circles/${circleId}/plan/${plan.id}/edit$`));
-  await expect(page.getByRole('button', { name: 'Save and ask again' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Keep the plan as it is' })).toBeVisible();
   await page.goto(`/circles/${circleId}/plan/setup`);
   await page.getByRole('button', { name: 'Cancel the plan' }).click();
   await expect(page).toHaveURL(new RegExp(`/circles/${circleId}/plan/${plan.id}/cancel$`));
