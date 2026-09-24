@@ -7,7 +7,7 @@
 -- apart on its own.
 
 begin;
-select plan(90);
+select plan(91);
 
 -- ---------------------------------------------------------------------------
 -- Fixtures. `handle_new_user()` makes the profile, which is part of what is
@@ -389,6 +389,14 @@ select is(
    where user_id = '00000000-0000-0000-0000-00000000a001'),
   1,
   'and sees a co-member’s current name through member_profiles'
+);
+
+-- The column limit is the view's whole design (ADR 00XX): a zone is close to
+-- a location, and no member's is readable by another. A third column here is
+-- a decision, not a tidy-up.
+select columns_are(
+  'public', 'member_profiles', array['user_id', 'display_name'],
+  'member_profiles exposes a name and an id and nothing else'
 );
 
 select pg_temp.act_as('00000000-0000-0000-0000-00000000a009', true);
