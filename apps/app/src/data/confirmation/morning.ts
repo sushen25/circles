@@ -46,14 +46,6 @@ export type MorningAfter = {
 
 const FAILED = 'morning-after lookup failed';
 
-/**
- * How many of the most recently ended meetups the read looks through. A bound
- * on the read, not a product rule anybody should meet: each is asked until
- * answered or put off, so an unanswered one ten meetups back is a circle that
- * has long since moved on.
- */
-const LOOKBACK = 10;
-
 export async function morningAfterOf(circleId: string): Promise<MorningAfter | null> {
   const client = authClient();
   const { data: session } = await client.auth.getSession();
@@ -79,8 +71,9 @@ export async function morningAfterOf(circleId: string): Promise<MorningAfter | n
     .in('plan_id', [...planOf.keys()])
     .in('status', ['active', 'completed'])
     .lte('ends_at', 'now')
-    .order('ends_at', { ascending: false })
-    .limit(LOOKBACK);
+    // Every one, not the newest few: a question is asked until it is answered
+    // or put off, and a circle meets a dozen times a year (review round 4).
+    .order('ends_at', { ascending: false });
   if (endedError !== null) throw new Error(FAILED);
   // A plan's current revision only: an older one was superseded by a reopen.
   const current = ended.filter((c) => planOf.get(c.plan_id)?.revision === c.revision);
