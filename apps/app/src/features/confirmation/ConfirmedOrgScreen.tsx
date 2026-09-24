@@ -84,6 +84,7 @@ export function ConfirmedOrgScreen({
           <DisplayXL>{view.weekday}</DisplayXL>
           <DateText>{view.dayMonth}</DateText>
           <BodyText>{view.timePlace}</BodyText>
+          {view.zoneNote === undefined ? null : <Small>{view.zoneNote}</Small>}
         </Stack>
         <Card>
           <Label>{t('confirmedOrg', 'ready_to_paste_into_the_group_chat')}</Label>

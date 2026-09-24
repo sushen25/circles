@@ -58,15 +58,11 @@ export function deadlineOf(iso: string, zone: string): string {
  * "Times are Melbourne time." when **this device** is somewhere else — the same
  * sentence the availability editor shows, for the same reason (§9).
  *
- * **A known gap, and it is not this file's to close.** Spec §5.6 asks for the
- * zone "if any member differs", which is about the organiser knowing that
- * Thursday at six is four o'clock for Sam. No client can work that out: a
- * member's zone lives in `profiles`, readable by its owner alone, and
- * `member_profiles` exposes a name and an id and nothing else. So what ships
- * answers the reader's own question — whose clock is this? — and leaves the
- * organiser's unanswered. Closing it needs member zones in a readable view,
- * which is a migration, or an ADR narrowing the rule to the reader. Neither
- * belongs in a screen (non-negotiable 1).
+ * The reader's own device is the whole test (ADR 00XX). Spec §5.6 once asked
+ * for the zone "if any member differs", and no client can tell: a member's
+ * zone lives in `profiles`, readable by its owner alone, and `member_profiles`
+ * exposes a name and an id on purpose. The rule is now the reader's — whose
+ * clock is this? — and a friend's zone stays theirs.
  */
 export function zoneNoteOf(zone: string): string | undefined {
   let here: string | undefined;
