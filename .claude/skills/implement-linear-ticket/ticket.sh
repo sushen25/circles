@@ -7,6 +7,9 @@
 #   ticket.sh push   [--dry-run]                push current branch, set upstream
 #   ticket.sh pr     <SUS-N> "<title>" [--draft] open the GitHub PR, print its URL
 #   ticket.sh status                            branch / dirty files / gh auth
+#
+# TICKET_BASE (default main) is the branch everything is measured against and
+# the PR is opened onto; set it to the previous ticket's branch for a stacked PR.
 set -euo pipefail
 
 root=$(git rev-parse --show-toplevel)
@@ -50,7 +53,7 @@ cmd_check() {
     echo "== pnpm check"
     corepack pnpm check || rc=1
   else
-    echo "== no package.json check script yet (S0-01 adds it); skipping pnpm check"
+    echo "== no check script in package.json; skipping pnpm check"
   fi
   if git diff --name-only "$(baseref)...HEAD" | grep -q '^docs/design/'; then
     # The canvas is generated. Regenerate it and fail if the committed
@@ -102,7 +105,7 @@ $(git log --reverse --format='- %s' "$(baseref)..HEAD" | grep -v 'Co-Authored-By
 
 ## Checks
 
-- \`ticket.sh check\` run locally (see PR checks for CI once S0-09 lands)
+- \`ticket.sh check\` run locally; CI runs the same \`check\` workflow plus gitleaks over the branch history
 
 ## Decisions taken
 

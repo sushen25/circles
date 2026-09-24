@@ -42,16 +42,24 @@ brew install gh
 
 Steps, in order:
 
-1. **Fetch the ticket.** Call `get_issue` with `id: "SUS-N"`, `includeRelations: true`.
+1. **Fetch the ticket, and its comments.** Call `get_issue` with `id: "SUS-N"`,
+   `includeRelations: true`, then `list_comments` with `issueId: "SUS-N"`.
    Use `title`, `description` (sections: Context, Read first, Scope,
    Implementation, Acceptance criteria, Tests, Out of scope), `gitBranchName`,
    `status`, `url`, `relations.blockedBy`. If the user gave an S-number, map it
    through `docs/tickets.md` first.
+
+   **The description is the plan; the comments are what earlier tickets
+   learned.** Step 11 below writes them, so a ticket that has been waiting for
+   a while has several — SUS-42 had fourteen, including two that corrected an
+   earlier one. Where a comment contradicts the description, follow the comment
+   and say so in the PR body's "Decisions taken". On SUS-34 the comments were
+   skipped and four of round one's five P1s were things SUS-27 and SUS-29 had
+   already written there.
 2. **Check blockers.** For every id in `relations.blockedBy`, `get_issue` it;
    all must be `Done` (or `Canceled`). Otherwise stop and report which block.
-3. **Read first.** `AGENTS.md` if it exists (S0-10 creates it; absent today),
-   then everything in the ticket's "Read first" list, then `docs/tickets.md`
-   "Working a ticket".
+3. **Read first.** `AGENTS.md`, then everything in the ticket's "Read first"
+   list, then `docs/tickets.md` "Working a ticket".
 4. **Claim it.** `save_issue` with `id: "SUS-N"`, `state: "In Progress"`
    (add `assignee: "me"` if unassigned).
 5. **Branch.**
@@ -133,130 +141,18 @@ An adversarial review runs against the branch and the agent works the findings.
 The ticket moves to Done only after the rounds are finished **and** the founder
 merges.
 
-### Who does the reviewing
+**The loop lives in `review-ticket`, under "The loop, for whoever runs the
+review"** — who reviews first and what to fall back to, how to tell a clean
+round from a broken one, when the loop ends, and how a finding is worked. It is
+one copy on purpose: the reviewer and the author read the same file, so the two
+cannot drift apart. Invoke `review-ticket` and read that section before the
+first round; do not work from memory of it.
 
-**Codex first.** From the ticket's branch:
-
-```
-/codex:review --base <the PR's base>
-```
-
-The base is the PR's base, which for a stacked PR is the **previous ticket's
-branch**, not `main` — a review against the wrong base reads the whole stack and
-wastes the round. **Always run it in the foreground and wait**; never background
-it, and never ask which to do.
-
-**Then tell a clean round from a broken one, because they look alike and mean
-opposite things.**
-
-- *Codex reviewed the branch and found nothing* — a clean round. It ends the
-  loop.
-- *Codex did not review the branch* — "Reviewer failed to output a response",
-  "Turn failed", or a usage-limit line naming a time it will be back. **This is
-  not a clean round.** Nothing has been reviewed, and stopping here would hand
-  over work nobody looked at. It has happened twice.
-
-**On a broken round, fall back to the agent** rather than waiting for limits to
-reset — unless the founder says to wait. Spawn it with the `Agent` tool and
-`model: 'fable'`, in the foreground, and tell it:
-
-- the PR number, the branch, and the base;
-- what the change is trying to do, and which of its claims to attack hardest;
-- to invoke **`review-ticket`** for the standards, the traps and the report
-  format — do not retype the brief;
-- where the previous rounds' findings are, when you are asking it to confirm
-  them.
-
-The two reviewers are not interchangeable, which is the other reason to keep the
-fallback: Codex reads the diff, while the agent can reach the running database
-and reproduce a claim. Findings from either are worked the same way, and a round
-by either counts as a round.
-
-`/code-review` is the built-in third option if both are unavailable.
-
-### Working the findings
-
-What follows holds whoever produced them.
-
-**Every P0 and P1 is fixed, always.** There is no round budget for those and no
-judgement call about them: if the reviewer marks a finding P0 or P1, either the
-code changes or the finding is shown to be wrong, with the reproduction that
-shows it. S1-05's P1 was a token interpolated into an exception message, which
-means a token in a log — the kind of thing that is cheap now and unfixable
-later.
-
-**The stopping condition is a clean round, not a round count.** Ask for
-another round after each fix, because findings surface in layers: S1-02 took two
-rounds and S1-03 five, and two of S1-03's findings were only reachable once an
-earlier fix had changed the shape of the code. S1-08's third round found two
-P1s — and the review stopped there, because "three rounds" had been read as the
-end. It is not. The rule, stated so it cannot be misread:
-
-- **Review again after every round that found a P0 or P1**, however many rounds
-  that takes. The review ends only when a round comes back with **no P0 and no
-  P1**. A fix is not verified by making it; it is verified by the next round
-  not finding it — and the next round is also the only thing that finds what
-  the fix broke.
-- **P2s stop being *fixed* after the third round**, because the returns fall
-  off and a fourth round on a P2 that is really a preference costs more
-  attention than it buys. They do not stop being *reviewed*: a P2 in round four
-  is written up in the PR comment — what was found, why it was not done now,
-  whether it belongs on a later ticket — rather than fixed. Ending on
-  unaddressed P2s is a decision to state out loud, not a thing to do quietly.
-
-So a ticket whose round three fixes a P1 gets a round four. If round four is
-P2-only, write those up and stop; if it finds a P1, fix it and run round five.
-
-**Push every round before the founder merges.** A fix that is committed locally
-and not pushed is a fix that is not in the PR: S1-05 was merged at its first
-commit while four rounds of review fixes — the P1 included — sat on the branch
-behind it, and they needed a second PR to land. `git push` after each round, and
-check `gh pr view <n> --json headRefOid` against `git rev-parse HEAD` before
-saying a PR is ready.
-
-**Verify before you fix.** Reproduce the finding against the built package —
-`pnpm run build` then a `node -e` import of `packages/domain/dist/…` — and keep
-the output. Then fix, and run the same reproduction again. On S1-03 a finding was twice
-real while the reported cause was not the whole cause, and once the obvious fix
-would have broken a different invariant.
-
-**Say so when a citation is weak, and separately whether the finding stands.**
-One review cited an AGENTS.md line about storing instants as requiring
-zone-local rounding. The line does not say that; the finding was right anyway
-for a better reason found in the code. Both halves are worth saying.
-
-**Write the test that would have caught it.** More than once the existing test
-passed on the broken code because it asserted the wrong property — cell
-*duration* when the bug was in the cell's *label*, or an epoch alignment when
-the painter produced local alignment. If a test would have passed before the
-fix, it is not the test.
-
-**`vitest run` does not typecheck tests.** `pnpm --filter … exec vitest run`
-passing means less than it looks; a changed return type broke four call sites
-that only `pnpm check` found. Report the gate, not the filtered run.
-
-**A finding about a product rule is an ADR, not a code change.** Non-negotiable
-1: product rules live in the spec and change only through an ADR. If the review
-says "the spec says X and the code does Y", either conform or write the ADR and
-update the spec — a decision recorded in a Linear ticket is not the spec, and a
-client built against the spec will disagree with the code.
-
-**Fixing an exported shape invalidates the notes you left.** When a fix changes
-a signature, an error shape or a documented behaviour, go back to the downstream
-tickets from step 11 and correct them. Three notes on SUS-31, SUS-42 and SUS-49
-told later tickets to use a `TransitionError.message` that review then removed.
-
-**Then reply on the PR** with what was found, what changed, what you pushed back
-on, any P2 left open at round three and why, and the reproduction output. If a
-fix changed anything the testing notes describe — a screen's text, a step, an
-expected result — correct the notes on the PR and on Linear in the same pass.
-`gh pr comment <n> --body "$(cat <<'BODY' … )"`.
-
-**Two shapes account for most findings here**, and they are worth looking for
-before the reviewer does — a guard that checks the form it anticipated rather
-than the property it claims, and a constant or comment standing in for
-enforcement. They are described with their examples in `review-ticket`, which is
-where the reviewer reads them; one copy, so the two cannot drift apart.
+Two of its rules reach back into this skill's steps, so they are named here:
+a fix that changes an exported shape or a documented behaviour means going
+back to the notes step 11 left on later tickets, and a fix that changes
+anything the testing notes describe means correcting them on the PR and on
+Linear (step 9) in the same pass.
 
 ## Run (human path)
 
@@ -291,17 +187,20 @@ tests.
 
 ## Gotchas
 
-- **Local `main` is ahead of `origin/main`** (2 unpushed commits when this was
-  written). `start` branches from local `main` in that case and says so; the PR
-  diff on GitHub will then include those commits until `main` is pushed.
+- **If local `main` is ahead of `origin/main`**, `start` branches from local
+  `main` and prints a `note:` line saying so; the PR diff on GitHub will then
+  include those commits until `main` is pushed.
 - **Untracked files travel across branches.** `start` only refuses on tracked
-  changes; untracked files (`.gitignore`, `docs/tickets.md` at the time of
-  writing) come with you and can end up in the ticket's commit if you `git add -A`.
-  Add files by name.
-- **Stacked PRs work.** Branch from the previous ticket's branch and
-  `gh pr create --base <that branch>` so the diff is only the new ticket;
-  merging the base retargets the child at `main` on its own. Rebase the child
-  after every push to the base, and say in the body that it is stacked.
+  changes; untracked files (a scratch SQL file, an unpublished skill) come with
+  you and can end up in the ticket's commit if you `git add -A`. Add files by
+  name.
+- **Stacked PRs: set `TICKET_BASE`.** Both scripts read it (default `main`), so
+  `TICKET_BASE=<previous ticket's branch> ticket.sh start <name>` branches from
+  the base, `… ticket.sh check` diffs only this ticket, and `… ticket.sh pr`
+  opens the PR against it with the same body as any other. Merging the base
+  retargets the child at `main` on its own. Rebase the child after every push
+  to the base, and say in the body that it is stacked. The review's `--base`
+  is the same branch.
 - **Linear branch names are long** and prefixed with the Linear username
   (`sushensatturu25/sus-69-…`). Use `gitBranchName` verbatim; do not invent one,
   Linear's PR auto-link depends on it.
