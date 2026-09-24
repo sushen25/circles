@@ -51,6 +51,17 @@ describe('the month', () => {
     expect(days[9]).toMatchObject({ date: '2026-10-10', why: 'too_far', disabled: false });
   });
 
+  it('holds back the days up to the one Change the time takes off the table', () => {
+    const days = monthDays(
+      '2026-09-01',
+      '2026-09-15',
+      { start: undefined, end: undefined },
+      '2026-09-18',
+    );
+    expect(days[16]).toMatchObject({ date: '2026-09-17', disabled: true, why: 'off' });
+    expect(days[17]).toMatchObject({ date: '2026-09-18', disabled: false, why: undefined });
+  });
+
   it('pages across a year end', () => {
     expect(shiftMonth('2026-12-01', 1)).toBe('2027-01-01');
     expect(shiftMonth('2027-01-01', -1)).toBe('2026-12-01');

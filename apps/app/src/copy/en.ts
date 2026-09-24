@@ -423,6 +423,7 @@ export const en = {
     warn_day:
       "Everyone will see {day} is off and get a fresh ask. Nobody's earlier times are reused without asking.",
     keep_day: 'Keep {day}',
+    days_from: '{count} days from {date}',
     asking: 'Asking again',
     not_locked_in_title: "This plan isn't locked in.",
     not_locked_in_body:
@@ -899,6 +900,7 @@ export const en = {
     one_day: 'One day',
     day_past: '{date}, already gone',
     day_too_far: '{date}, more than 14 days from the first, so it starts again',
+    day_off: "{date}, the day that's off the table",
     day_picked: '{date}, picked',
   },
   deadlinePassed: {

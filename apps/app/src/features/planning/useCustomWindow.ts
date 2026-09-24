@@ -4,7 +4,16 @@ import { useState } from 'react';
 import type { GridDay } from '../../components';
 import { t } from '../../copy';
 import { dateWords, dayName, dayNumber, weekdayHeadings } from '../availability/days';
-import { lastEnd, monthDays, monthOf, rangeOf, shiftMonth, tapDay, type Pick } from './calendar';
+import {
+  lastEnd,
+  monthDays,
+  monthOf,
+  rangeOf,
+  shiftMonth,
+  tapDay,
+  type MonthDay,
+  type Pick,
+} from './calendar';
 import type { DateRange } from './form';
 import { datesWords } from './words';
 
@@ -37,13 +46,16 @@ export function useCustomWindow(
   now: Instant,
   zone: string,
   initial: DateRange | undefined,
+  /** The first day that may be picked, when that is later than today. */
+  notBefore?: string | undefined,
 ): CustomWindowView & { reset: (range: DateRange | undefined) => void } {
   const today = toLocal(now, toZone(zone)).date;
+  const floor = notBefore !== undefined && notBefore > today ? notBefore : today;
   const [pick, setPick] = useState<Pick>({ start: initial?.start, end: initial?.end });
-  const [month, setMonth] = useState(monthOf(initial?.start ?? today));
+  const [month, setMonth] = useState(monthOf(initial?.start ?? floor));
   const first = monthOf(today);
 
-  const days = monthDays(month, today, pick);
+  const days = monthDays(month, today, pick, floor);
   const range = rangeOf(pick);
   const title = new Intl.DateTimeFormat(undefined, {
     timeZone: 'UTC',
@@ -51,9 +63,10 @@ export function useCustomWindow(
     year: 'numeric',
   }).format(new Date(`${month}T12:00:00Z`));
 
-  const spoken = (date: string, why: 'past' | 'too_far' | undefined, selected: boolean) => {
+  const spoken = (date: string, why: MonthDay['why'], selected: boolean) => {
     const words = dateWords(localDate(date), 'long');
     if (why === 'past') return t('customWindow', 'day_past', { date: words });
+    if (why === 'off') return t('customWindow', 'day_off', { date: words });
     if (why === 'too_far') return t('customWindow', 'day_too_far', { date: words });
     return selected ? t('customWindow', 'day_picked', { date: words }) : words;
   };
@@ -94,7 +107,7 @@ export function useCustomWindow(
     range,
     reset: (next) => {
       setPick({ start: next?.start, end: next?.end });
-      setMonth(monthOf(next?.start ?? today));
+      setMonth(monthOf(next?.start ?? floor));
     },
   };
 }

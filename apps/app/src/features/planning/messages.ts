@@ -10,16 +10,29 @@ import { weekdayOf } from '../scheduling/words';
  */
 
 /**
- * The day a reopen took off the table: the confirmation the plan's previous
- * revision was locked in with, now superseded. Nothing for a plan that was
- * never locked in, or has been locked in again since.
+ * The day a reopen took off the table, for as long as it stays off: the
+ * newest confirmation the plan has had is superseded and nothing has been
+ * locked in since. Later edits do not bring it back — somebody who returns
+ * after the organiser has changed the dates twice still has not heard that
+ * Thursday is off (spec §5.7).
  */
-export function reopenedDay(plan: PlanDetails): string | undefined {
+export function offTheTable(plan: PlanDetails): string | undefined {
   const last = plan.lastConfirmation;
   if (last === null || last.status !== 'superseded') return undefined;
-  if (last.revision !== plan.revision - 1) return undefined;
   if (plan.state !== 'collecting' && plan.state !== 'ready') return undefined;
   return weekdayOf(last.startsAt, plan.zone);
+}
+
+/**
+ * The same day, only when the revision the plan is on is the reopen itself:
+ * what the organiser's "Change of plan" message says straight after Change
+ * the time. A later edit is its own ask and gets its own message.
+ */
+export function justReopened(plan: PlanDetails): string | undefined {
+  const day = offTheTable(plan);
+  return day !== undefined && plan.lastConfirmation?.revision === plan.revision - 1
+    ? day
+    : undefined;
 }
 
 /**
@@ -47,4 +60,15 @@ export function cancelledUpdate(plan: PlanDetails, origin: string): string {
     note: plan.cancelNote,
     url: planPage(origin, plan.code),
   });
+}
+
+/**
+ * Who called it off, when that can be known. Nothing records the actor, and
+ * the owner may cancel a plan somebody else organises (spec §4.5) — so the
+ * organiser is named only when they are also the owner, the one case where
+ * nobody else could have.
+ */
+export function cancelledBy(plan: PlanDetails): string | undefined {
+  if (plan.organiserUserId === null || plan.organiserUserId !== plan.ownerUserId) return undefined;
+  return plan.roster.find((m) => m.userId === plan.organiserUserId)?.name;
 }

@@ -1,4 +1,4 @@
-import { fromISO, isDeadlineAllowed, type Instant } from '@circles/domain';
+import { fromISO, isDeadlineAllowed, type Instant, type WindowPreset } from '@circles/domain';
 
 import type { PlanDetails, Revision } from '../../data/planning';
 import { deadlineFor, latestStartOf, windowOf, type Band, type DateRange } from './form';
@@ -60,7 +60,11 @@ export function resolveEdit(
   plan: PlanDetails,
   draft: PlanDraft,
   now: Instant,
-  options: { reopen?: boolean } = {},
+  options: {
+    reopen?: boolean;
+    /** Whose default a moved deadline takes, when the window was worked out for the preset. */
+    deadlinePreset?: WindowPreset;
+  } = {},
 ): EditResolved {
   const kept = { start: plan.windowStart, end: plan.windowEnd };
   // The plan's own dates go through the same resolution as a custom window:
@@ -81,7 +85,12 @@ export function resolveEdit(
   const current = fromISO(plan.responseDeadline);
   const currentStands = !windowChanged && isDeadlineAllowed(current, fromISO(latestStart), now);
   if (draft.deadline !== undefined || (asksAgain && !currentStands)) {
-    const next = deadlineFor(draft.preset, draft.deadline, latestStart, now);
+    const next = deadlineFor(
+      options.deadlinePreset ?? draft.preset,
+      draft.deadline,
+      latestStart,
+      now,
+    );
     if (typeof next === 'string') return { ok: false, problem: next };
     deadline = next.deadline;
     deadlineMoved = next.isDefault;

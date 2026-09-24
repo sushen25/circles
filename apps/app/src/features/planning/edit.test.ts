@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { doorFor } from './doors';
 import { changesSomething, editDraftFrom, namesWithYou, resolveEdit } from './edit';
 import * as fixture from './fixtures';
-import { cancelledDay, cancelledUpdate, reopenedDay } from './messages';
+import { cancelledBy, cancelledDay, cancelledUpdate, justReopened, offTheTable } from './messages';
 import { reaskWarning } from './words';
 
 /**
@@ -102,8 +102,27 @@ describe('the re-ask warning', () => {
 
 describe('which day is off', () => {
   it('names the day a reopen took off the table', () => {
-    expect(reopenedDay(fixture.reopened)).toBe('Thursday');
-    expect(reopenedDay(fixture.asking)).toBeUndefined();
+    expect(offTheTable(fixture.reopened)).toBe('Thursday');
+    expect(justReopened(fixture.reopened)).toBe('Thursday');
+    expect(offTheTable(fixture.asking)).toBeUndefined();
+  });
+
+  it('keeps it off the table through later edits, which are asks of their own', () => {
+    // Reopened into revision 2, then the dates edited again into 3: a member
+    // who comes back now has still not heard that Thursday is off.
+    const editedSince = { ...fixture.reopened, revision: 3 };
+    expect(offTheTable(editedSince)).toBe('Thursday');
+    expect(justReopened(editedSince)).toBeUndefined();
+    expect(doorFor(editedSince, false)).toEqual({
+      pathname: '/p/[code]/rescheduled',
+      params: { code: 'pnsundaycr' },
+    });
+  });
+
+  it('names who cancelled only when nobody else could have', () => {
+    expect(cancelledBy(fixture.cancelledAsMember)).toBe('Maya');
+    // The owner may cancel somebody else's plan, and nothing records who did.
+    expect(cancelledBy({ ...fixture.cancelledAsMember, ownerUserId: 'priya' })).toBeUndefined();
   });
 
   it('names the locked-in day of a cancelled plan, and none for one that was still asking', () => {

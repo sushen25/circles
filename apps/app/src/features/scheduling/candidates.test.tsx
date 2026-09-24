@@ -383,6 +383,35 @@ describe('the organiser, with no overlap', () => {
   });
 });
 
+describe('S1-26: editing and cancelling from the options', () => {
+  it('offers the organiser the edit while the plan is still asking', async () => {
+    planCandidates.mockResolvedValue(fixture.ready);
+    show(organiser());
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit the plan' }));
+    expect(push).toHaveBeenCalledWith({
+      pathname: '/circles/[id]/plan/[planId]/edit',
+      params: { id: CIRCLE, planId: PLAN },
+    });
+  });
+
+  it("offers the circle's owner a cancel on somebody else's plan, and a member nothing", async () => {
+    planCandidates.mockResolvedValue({ ...fixture.readyAsMember, isOwner: true });
+    show(<MemberCandidatesFlow code="pnsundaycr" />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Cancel this plan' }));
+    expect(push).toHaveBeenCalledWith({
+      pathname: '/circles/[id]/plan/[planId]/cancel',
+      params: { id: 'sunday-crew', planId: 'thu-17' },
+    });
+  });
+
+  it('offers a member who does not own the circle no cancel', async () => {
+    planCandidates.mockResolvedValue(fixture.readyAsMember);
+    show(<MemberCandidatesFlow code="pnsundaycr" />);
+    expect(await screen.findByText('Thursday looks good for five of you.')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Cancel this plan' })).toBeNull();
+  });
+});
+
 describe('a member', () => {
   it('sees the options with nothing to confirm', async () => {
     planCandidates.mockResolvedValue(fixture.readyAsMember);

@@ -42,6 +42,8 @@ export type EditPlanProps = {
   /** The screen's one decision: save. */
   onNext?: (() => void) | undefined;
   onKeepThePlanAs?: (() => void) | undefined;
+  /** Calling it off instead: CancelPlan, the organiser's while it is asking too. */
+  onCancelPlan?: (() => void) | undefined;
   onBack?: (() => void) | undefined;
 };
 
@@ -91,6 +93,9 @@ export function EditPlanScreen(props: EditPlanProps) {
       <Foot>
         <Button label={label} disabled={busy || props.canSave !== true} onPress={props.onNext} />
         <Tertiary label={t('editPlan', 'keep_the_plan_as_it_is')} onPress={props.onKeepThePlanAs} />
+        {props.onCancelPlan === undefined ? null : (
+          <Tertiary label={t('confirmedOrg', 'cancel_this_plan')} onPress={props.onCancelPlan} />
+        )}
       </Foot>
       {props.sheets}
     </Screen>

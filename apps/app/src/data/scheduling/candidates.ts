@@ -78,6 +78,11 @@ export type PlanCandidates = {
   organiserUserId: string | null;
   me: string | undefined;
   isOrganiser: boolean;
+  /**
+   * The circle's owner, who may cancel any of its plans (spec §4.5) — so the
+   * plan page offers them "Cancel this plan" even when they are not organising.
+   */
+  isOwner: boolean;
   /** Everybody the circle has ever had, oldest first; `active` says who is in. */
   roster: RosterMember[];
   /**
@@ -143,7 +148,7 @@ export async function planCandidates(
   const me = session.session?.user.id;
 
   const [circle, roster, participants, sets, summaries, open] = await Promise.all([
-    client.from('circles').select('name').eq('id', plan.circle_id).maybeSingle(),
+    client.from('circles').select('name, owner_user_id').eq('id', plan.circle_id).maybeSingle(),
     // No status filter: a required member who has left the circle is still
     // named by a near-miss, and a name for their id has to come from somewhere.
     client
@@ -261,6 +266,7 @@ export async function planCandidates(
     organiserUserId: plan.organiser_user_id,
     me,
     isOrganiser,
+    isOwner: me !== undefined && circle.data?.owner_user_id === me,
     roster: rosterMembers,
     participants: audience,
     // An empty array from the view is not the same as no answers: to a member

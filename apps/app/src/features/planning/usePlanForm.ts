@@ -51,6 +51,8 @@ export type FormContext = {
   quorumFollows: boolean;
   /** The edit's own dates, offered as the first "When" chip, and the hours they had. */
   kept?: { window: DateRange; band: Band } | undefined;
+  /** The first day the calendar offers, when later than today (Change the time). */
+  notBefore?: string | undefined;
 };
 
 export type FormResolved =
@@ -95,7 +97,7 @@ export function usePlanForm({
   const [step, setStep] = useState<'form' | 'window'>(startOn);
   const [requiredOpen, setRequiredOpen] = useState(false);
   const [touched, setTouched] = useState(false);
-  const calendar = useCustomWindow(now, context.zone, draft.custom);
+  const calendar = useCustomWindow(now, context.zone, draft.custom, context.notBefore);
 
   const change = (next: Partial<PlanDraft>) => {
     setTouched(true);

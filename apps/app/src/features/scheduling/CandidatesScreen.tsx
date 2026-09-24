@@ -46,6 +46,8 @@ export type CandidatesProps = {
   onSelect?: ((id: string) => void) | undefined;
   onNext?: (() => void) | undefined;
   onNudge?: (() => void) | undefined;
+  /** The organiser changes the plan while it is still asking (S1-26). */
+  onEditPlan?: (() => void) | undefined;
   onRetry?: (() => void) | undefined;
   onBack?: (() => void) | undefined;
 };
@@ -64,6 +66,7 @@ export function CandidatesScreen({
   onSelect,
   onNext,
   onNudge,
+  onEditPlan,
   onRetry,
   onBack,
 }: CandidatesProps) {
@@ -128,6 +131,9 @@ export function CandidatesScreen({
           <Button label={reviewLabel} onPress={onNext} disabled={stale} />
         )}
         {nudgeLabel === undefined ? null : <Tertiary label={nudgeLabel} onPress={onNudge} />}
+        {onEditPlan === undefined ? null : (
+          <Tertiary label={t('waiting', 'edit_the_plan')} onPress={onEditPlan} />
+        )}
       </Foot>
     </Screen>
   );

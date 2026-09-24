@@ -54,12 +54,21 @@ export function EditPlanFlow({ id, planId }: { id: string; planId: string }) {
   }
   const plan = query.data;
   if (plan === null) return <EditPlanScreen state="denied" onBack={back} />;
+  const toCancel = () =>
+    router.push({
+      pathname: '/circles/[id]/plan/[planId]/cancel',
+      params: { id: plan.circleId, planId },
+    });
   if (!plan.isOrganiser) {
+    // The owner cannot edit somebody else's plan, and can call it off (§4.5).
     return (
       <EditPlanScreen
         statement={{
           title: t('editPlan', 'not_yours_title'),
           body: t('editPlan', 'not_yours_body'),
+          ...(plan.isOwner && !isTerminal(plan.state)
+            ? { action: t('confirmedOrg', 'cancel_this_plan'), onAction: toCancel }
+            : {}),
         }}
         onBack={back}
       />
@@ -99,6 +108,7 @@ export function EditPlanFlow({ id, planId }: { id: string; planId: string }) {
   return (
     <LiveEditForm
       plan={plan}
+      onCancelPlan={toCancel}
       onDone={(asksAgain) =>
         asksAgain
           ? router.replace({
@@ -115,6 +125,7 @@ export function EditPlanFlow({ id, planId }: { id: string; planId: string }) {
 function LiveEditForm(props: {
   plan: PlanDetails;
   onDone: (asksAgain: boolean) => void;
+  onCancelPlan: () => void;
   onBack: () => void;
 }) {
   // The moment the screen was opened, for the same reason as the setup's.
@@ -127,12 +138,14 @@ function EditForm({
   now,
   live = false,
   onDone,
+  onCancelPlan,
   onBack,
 }: {
   plan: PlanDetails;
   now: number;
   live?: boolean;
   onDone: (asksAgain: boolean) => void;
+  onCancelPlan?: (() => void) | undefined;
   onBack: () => void;
 }) {
   const instant = fromISO(new Date(now).toISOString());
@@ -213,6 +226,7 @@ function EditForm({
       canSave={revision !== undefined && preview !== undefined}
       onNext={saving.save}
       onKeepThePlanAs={onBack}
+      onCancelPlan={onCancelPlan}
       onBack={onBack}
       sheets={
         <>

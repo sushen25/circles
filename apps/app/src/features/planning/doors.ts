@@ -1,5 +1,5 @@
 import type { PlanDetails } from '../../data/planning';
-import { reopenedDay } from './messages';
+import { offTheTable } from './messages';
 
 /**
  * Where the plan's own link should put somebody once the plan has changed
@@ -28,7 +28,7 @@ export function doorFor(
         }
       : { pathname: '/p/[code]/cancelled', params: { code: plan.code } };
   }
-  if (plan.isOrganiser || reopenedDay(plan) === undefined || plan.deadlinePassed) return undefined;
+  if (plan.isOrganiser || offTheTable(plan) === undefined || plan.deadlinePassed) return undefined;
   if (answered === undefined) return 'wait';
   return answered ? undefined : { pathname: '/p/[code]/rescheduled', params: { code: plan.code } };
 }

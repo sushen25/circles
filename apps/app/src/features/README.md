@@ -252,9 +252,16 @@ and `cancelPlan` through the Edge Functions).
   `preview_is_stale` asks the preview again. New dates move the deadline to the
   preset's default ("moved to match the new dates"). After a change that asks
   again, `shared?again=1` hands over the message to paste.
-- `/circles/[id]/plan/[planId]/change-time` (`ChangeTimeFlow`) — `revise-plan
-{ reopen: true }` with a new window and a deadline still ahead, previewed the
-  same way; then `shared?again=1` with "Change of plan: Thursday is off".
+- `/circles/[id]/plan/[planId]/change-time` (`ChangeTimeFlow`) — a reopen
+  (`revise-plan` with `reopen: true`) with a new window and a deadline still
+  ahead, previewed the same way; then `shared?again=1` with "Change of plan:
+  Thursday is off". The new window starts the day after the time it takes off
+  the table ("14 days from Fri 18 Sep"; the calendar holds those days back), so
+  what members are told stays true of every time they can be offered.
+- Cancelling is reachable wherever the plan is: the confirmed screen, EditPlan
+  while it is asking, and — for the circle's owner, who may cancel somebody
+  else's plan (§4.5) — the member's plan page (`MemberView`). The options
+  screen in `ready` now has "Edit the plan" too.
 - `/circles/[id]/plan/[planId]/cancel` and `…/cancelled` (`CancelPlanFlow`,
   `CancelledFlow`) — the organiser's or the owner's; an optional note that goes
   to `cancel-plan` and nowhere else, then the paste-ready update

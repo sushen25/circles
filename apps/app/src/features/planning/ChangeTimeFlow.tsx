@@ -1,15 +1,17 @@
-import { fromISO } from '@circles/domain';
+import { addDays, fromISO, localDate, toLocal, zone as toZone } from '@circles/domain';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 
 import { t } from '../../copy';
 import { hasBackend } from '../../data/auth/client';
 import type { PlanDetails } from '../../data/planning';
+import { dateWords } from '../availability/days';
 import { isOffline } from '../identity/join/failure';
 import { weekdayOf } from '../scheduling/words';
 import { ChangeTimeScreen } from './ChangeTimeScreen';
 import { CustomWindowScreen } from './CustomWindowScreen';
 import { editDraftFrom, resolveEdit } from './edit';
+import type { PlanDraft } from './form';
 import * as fixture from './fixtures';
 import { DeadlineSheet } from './sheets';
 import { usePlanDetails } from './usePlanDetails';
@@ -24,6 +26,26 @@ import { whenWords } from './when';
  * organiser is handed the "Change of plan" message to paste.
  */
 const OFFERED = ['next_7_days', 'next_14_days', 'custom'];
+const ROLLING: Record<string, number | undefined> = { next_7_days: 7, next_14_days: 14 };
+
+/** The day after the one being taken off the table, in the circle's zone. */
+function afterDay(startsAt: string, zone: string): string {
+  return addDays(toLocal(fromISO(startsAt), toZone(zone)).date, 1);
+}
+
+/**
+ * "Next 7 days" from the day after the old time rather than from today, when
+ * that is later: the same length, none of it on the day that is off.
+ */
+export function fromDay(draft: PlanDraft, after: string, today: string): PlanDraft {
+  const days = ROLLING[draft.preset];
+  if (days === undefined || after <= today) return draft;
+  return {
+    ...draft,
+    preset: 'custom',
+    custom: { start: after, end: addDays(localDate(after), days - 1) },
+  };
+}
 
 export function ChangeTimeFlow({ id, planId }: { id: string; planId: string }) {
   const router = useRouter();
@@ -105,6 +127,12 @@ function ChangeForm({
   onBack: () => void;
 }) {
   const instant = fromISO(new Date(now).toISOString());
+  const startsAt = plan.lastConfirmation!.startsAt;
+  // The new window starts after the day it takes off the table, so what the
+  // members are told — "Thursday is off the table" — stays true of every time
+  // they can be offered (spec §5.7).
+  const after = afterDay(startsAt, plan.zone);
+  const today = toLocal(instant, toZone(plan.zone)).date;
   const context: FormContext = {
     zone: plan.zone,
     people: [],
@@ -112,6 +140,7 @@ function ChangeForm({
     members: plan.participants.length,
     quorumShown: plan.quorum,
     quorumFollows: false,
+    notBefore: after,
   };
   // A new window, with its own hours: the artboard's fortnight by default.
   const [initial] = useState(() => ({
@@ -120,14 +149,19 @@ function ChangeForm({
     custom: undefined,
     band: undefined,
   }));
+  const resolveReopen = (draft: PlanDraft) =>
+    resolveEdit(plan, fromDay(draft, after, today), instant, {
+      reopen: true,
+      deadlinePreset: draft.preset,
+    });
   const form = usePlanForm({
     initial,
     context,
     now: instant,
-    resolve: (draft) => resolveEdit(plan, draft, instant, { reopen: true }),
+    resolve: resolveReopen,
     closesDetail: (resolved) => whenWords(resolved.deadline, plan.zone),
   });
-  const resolved = resolveEdit(plan, form.draft, instant, { reopen: true });
+  const resolved = resolveReopen(form.draft);
   const saving = useRevision({
     planId: plan.planId,
     circleId: plan.circleId,
@@ -136,6 +170,20 @@ function ChangeForm({
     event: 'plan_rescheduled',
     onSaved: onDone,
   });
+  const when = form.controls.when
+    .filter((chip) => OFFERED.includes(chip.key))
+    .map((chip) => {
+      const days = ROLLING[chip.key];
+      return days === undefined || after <= today
+        ? chip
+        : {
+            ...chip,
+            label: t('changeTime', 'days_from', {
+              count: days,
+              date: dateWords(localDate(after), 'short'),
+            }),
+          };
+    });
 
   if (form.step === 'window') return <CustomWindowScreen {...form.window} />;
 
@@ -143,7 +191,7 @@ function ChangeForm({
   return (
     <ChangeTimeScreen
       day={day}
-      when={form.controls.when.filter((chip) => OFFERED.includes(chip.key))}
+      when={when}
       closes={form.controls.closes}
       problem={form.problem}
       refused={saving.refused?.message}

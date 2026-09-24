@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { configure, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -12,6 +12,10 @@ import * as fixture from './fixtures';
  * is the preview's own list, Save sends the preview's version, and a stale
  * preview is asked again rather than saved over.
  */
+
+// The preview waits for the form to settle (`SETTLE_MS`) before it asks, so a
+// full parallel run can take longer than the default second to show it.
+configure({ asyncUtilTimeout: 5_000 });
 
 const push = vi.fn();
 const replace = vi.fn();
@@ -173,9 +177,12 @@ describe('changing a locked-in time', () => {
     ).toBeTruthy();
     const ask = await screen.findByRole('button', { name: 'Ask again' });
     await waitFor(() => expect(ask.getAttribute('aria-disabled')).not.toBe('true'));
+    // From the day after Thursday, so Thursday is not on offer again; the
+    // fortnight's own 72-hour deadline.
+    expect(screen.getByRole('checkbox', { name: /^14 days from / })).toBeTruthy();
     expect(previewRevision.mock.calls.at(-1)?.[1]).toMatchObject({
       reopen: true,
-      window: { start: '2026-09-15', end: '2026-09-28' },
+      window: { start: '2026-09-18', end: '2026-10-01' },
       responseDeadline: '2026-09-18T00:00:00.000Z',
     });
     fireEvent.click(ask);

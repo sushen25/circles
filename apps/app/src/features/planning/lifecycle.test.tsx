@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { configure, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -13,6 +13,10 @@ import * as fixture from './fixtures';
  * or reopened (S1-26). The server is mocked; what is asserted is what the
  * screens send and where they go.
  */
+
+// The preview waits for the form to settle (`SETTLE_MS`) before it asks, so a
+// full parallel run can take longer than the default second to show it.
+configure({ asyncUtilTimeout: 5_000 });
 
 const push = vi.fn();
 const replace = vi.fn();
@@ -42,8 +46,10 @@ vi.mock('../../data/circles', async (original) => ({
 const planDetails = vi.fn();
 const createPlan = vi.fn();
 const cancelPlan = vi.fn();
+const planToShare = vi.fn();
 vi.mock('../../data/planning', async (original) => ({
   ...(await original<typeof Planning>()),
+  planToShare: (...a: unknown[]) => planToShare(...a),
   planDetails: (...a: unknown[]) => planDetails(...a),
   createPlan: (...a: unknown[]) => createPlan(...a),
   cancelPlan: (...a: unknown[]) => cancelPlan(...a),
@@ -58,9 +64,12 @@ const { PlanSetupFlow } = await import('./PlanSetupFlow');
 const { CancelPlanFlow } = await import('./CancelPlanFlow');
 const { CancelledFlow } = await import('./CancelledFlow');
 const { PlanChangeGate } = await import('./MemberChangeFlow');
+const { PlanSharedFlow } = await import('./PlanSharedFlow');
 
-function show(node: ReactNode) {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+function show(
+  node: ReactNode,
+  client = new QueryClient({ defaultOptions: { queries: { retry: false } } }),
+) {
   return render(<QueryClientProvider client={client}>{node}</QueryClientProvider>);
 }
 
@@ -237,5 +246,60 @@ describe("the plan's link, once the plan has changed", () => {
     );
     expect(await screen.findByText('the plan page')).toBeTruthy();
     expect(replace).not.toHaveBeenCalled();
+  });
+});
+
+describe('asking again', () => {
+  const SHARE = {
+    id: 'thu-17',
+    code: 'pnsundaycr',
+    circleId: 'sunday-crew',
+    circleName: 'Sunday Crew',
+    zone: 'Australia/Melbourne',
+    responseDeadline: '2026-09-18T00:00:00.000Z',
+    windowStart: '2026-09-18',
+    windowEnd: '2026-10-01',
+  };
+
+  it('waits for the plan as the change left it, never the cached one from before', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    // What the screen showed before the edit: the old deadline.
+    client.setQueryData(['plan-to-share', 'thu-17', 'maya'], {
+      ...SHARE,
+      responseDeadline: '2026-09-15T08:00:00.000Z',
+    });
+    let answer: (value: unknown) => void = () => undefined;
+    planToShare.mockReturnValue(new Promise((resolve) => (answer = resolve)));
+    planDetails.mockResolvedValue({
+      ...fixture.reopened,
+      me: 'maya',
+      isOrganiser: true,
+    });
+    show(<PlanSharedFlow id="sunday-crew" planId="thu-17" again />, client);
+
+    expect(await screen.findByText('Getting your plan')).toBeTruthy();
+    // The other read is in; only the stale one is on hand for the share read.
+    await waitFor(() => expect(planDetails).toHaveBeenCalled());
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(screen.getByText('Getting your plan')).toBeTruthy();
+    expect(screen.queryByText(/Change of plan/)).toBeNull();
+    answer(SHARE);
+    expect(
+      await screen.findByText('Change of plan: Thursday is off. New times, please'),
+    ).toBeTruthy();
+    expect(
+      screen.getByText('Thursday is off. Send the link again so everyone can pick new times.'),
+    ).toBeTruthy();
+  });
+
+  it('offers the cancel from the edit, for a plan still asking', async () => {
+    planDetails.mockResolvedValue(fixture.asking);
+    const { EditPlanFlow } = await import('./EditPlanFlow');
+    show(<EditPlanFlow id="sunday-crew" planId="thu-17" />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Cancel this plan' }));
+    expect(push).toHaveBeenCalledWith({
+      pathname: '/circles/[id]/plan/[planId]/cancel',
+      params: { id: 'sunday-crew', planId: 'thu-17' },
+    });
   });
 });

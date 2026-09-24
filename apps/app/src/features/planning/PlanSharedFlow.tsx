@@ -22,7 +22,7 @@ import { appOrigin } from '../../data/links/origin';
 import { planDetails, planLink, planToShare, type PlanToShare } from '../../data/planning';
 import { copyText, shareMessage } from '../../platform/share';
 import { isOffline } from '../identity/join/failure';
-import { reopenedDay } from './messages';
+import { justReopened } from './messages';
 import { PlanSharedScreen } from './PlanSharedScreen';
 import { whenWords } from './when';
 
@@ -99,22 +99,32 @@ function LivePlanShared({ id, planId, again }: { id: string; planId: string; aga
   const home = () => router.dismissTo({ pathname: '/circles/[id]', params: { id } });
   const back = () => (router.canGoBack() ? router.back() : home());
 
-  if (plan.isPending || (again && details.isPending)) {
-    return <PlanSharedScreen state="loading" onBack={back} />;
-  }
-  if (plan.isError || plan.data === null) {
+  // Asking again is about the plan as the change left it, so both reads have
+  // to have come back since this screen opened: a cached one is the plan
+  // before the edit, with the old dates and deadline in it.
+  const failed = plan.isError || (again && details.isError);
+  const waiting = again
+    ? !plan.isFetchedAfterMount || !details.isFetchedAfterMount
+    : plan.isPending;
+  if (failed || plan.data === null || (again && details.data === null)) {
     return (
       <PlanSharedScreen
         state={isOffline() ? 'offline' : 'error'}
-        onRetry={() => void plan.refetch()}
+        onRetry={() => {
+          void plan.refetch();
+          if (again) void details.refetch();
+        }}
         onBack={back}
       />
     );
   }
+  if (waiting || plan.data === undefined) {
+    return <PlanSharedScreen state="loading" onBack={back} />;
+  }
 
   const data = plan.data;
   const link = planLink(appOrigin(), data.code);
-  const offDay = again && details.data != null ? reopenedDay(details.data) : undefined;
+  const offDay = again && details.data != null ? justReopened(details.data) : undefined;
   const message =
     offDay === undefined
       ? newPlanMessage({

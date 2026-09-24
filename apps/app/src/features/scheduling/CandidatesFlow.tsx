@@ -142,6 +142,16 @@ function LiveCandidates({ id, planId }: { id: string; planId: string }) {
         // refuses one past the deadline, and the plan sits in an answerable
         // state after it so the organiser can decide (spec §8).
         onChangeMyTimes={data.repliesOpen ? toEditor : undefined}
+        // The owner may cancel a plan somebody else organises (spec §4.5).
+        onCancelPlan={
+          data.isOwner
+            ? () =>
+                router.push({
+                  pathname: '/circles/[id]/plan/[planId]/cancel',
+                  params: { id, planId },
+                })
+            : undefined
+        }
         onBack={back}
       />
     );
@@ -247,6 +257,8 @@ function LiveCandidates({ id, planId }: { id: string; planId: string }) {
         });
         void shareMessage(message).then(shared('reminder'));
       }}
+      // Still asking until it is locked in, so still editable (spec §5.3).
+      onEditPlan={toEdit}
       onBack={back}
     />
   );

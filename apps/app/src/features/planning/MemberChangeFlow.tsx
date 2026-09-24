@@ -12,7 +12,7 @@ import { dateOf, timeOf } from '../scheduling/words';
 import { CancelledGuestScreen } from './CancelledGuestScreen';
 import { doorFor } from './doors';
 import * as fixture from './fixtures';
-import { cancelledDay, reopenedDay } from './messages';
+import { cancelledBy, cancelledDay, offTheTable } from './messages';
 import { RescheduledGuestScreen } from './RescheduledGuestScreen';
 import { PlanStateScreen } from './states';
 import { usePlanDetails } from './usePlanDetails';
@@ -40,7 +40,7 @@ function useAnswered(code: string, enabled: boolean): boolean | undefined {
   return question.data?.answer != null;
 }
 
-function nameOf(plan: PlanDetails): string | undefined {
+function organiserOf(plan: PlanDetails): string | undefined {
   return plan.roster.find((m) => m.userId === plan.organiserUserId)?.name;
 }
 
@@ -53,7 +53,7 @@ function LiveGate({ code, children }: { code: string; children: ReactNode }) {
   const router = useRouter();
   const details = usePlanDetails({ code });
   const plan = details.data ?? undefined;
-  const answered = useAnswered(code, plan !== undefined && reopenedDay(plan) !== undefined);
+  const answered = useAnswered(code, plan !== undefined && offTheTable(plan) !== undefined);
   const door = plan === undefined ? undefined : doorFor(plan, answered);
 
   const fresh = details.isFetchedAfterMount && !details.isError;
@@ -106,7 +106,7 @@ export function MemberCancelledFlow({ code }: { code: string }) {
     <CancelledGuestScreen
       circleName={plan.circleName}
       day={cancelledDay(plan)}
-      organiserName={nameOf(plan)}
+      organiserName={cancelledBy(plan)}
       note={plan.cancelNote}
       onBackToCircle={() =>
         router.replace({ pathname: '/circles/[id]', params: { id: plan.circleId } })
@@ -121,7 +121,7 @@ export function RescheduledFlow({ code }: { code: string }) {
   const router = useRouter();
   const details = usePlanDetails({ code });
   const plan = hasBackend() ? (details.data ?? undefined) : fixture.reopened;
-  const day = plan === undefined ? undefined : reopenedDay(plan);
+  const day = plan === undefined ? undefined : offTheTable(plan);
   const elsewhere = plan !== undefined && (day === undefined || plan.isOrganiser);
   useOnce(hasBackend() && elsewhere && details.isFetchedAfterMount, () =>
     router.replace({ pathname: '/p/[code]', params: { code } }),
@@ -142,7 +142,8 @@ export function RescheduledFlow({ code }: { code: string }) {
     <RescheduledGuestScreen
       circleName={plan.circleName}
       day={day}
-      organiserName={nameOf(plan)}
+      // Only the organiser reopens a plan, so the name is theirs.
+      organiserName={organiserOf(plan)}
       previously={`${dateOf(last.startsAt, plan.zone)}, ${timeOf(last.startsAt, last.endsAt, plan.zone)}`}
       nowAsking={datesWords({ start: plan.windowStart, end: plan.windowEnd })}
       onNext={() => router.push({ pathname: '/j/[code]', params: { code: plan.code } })}

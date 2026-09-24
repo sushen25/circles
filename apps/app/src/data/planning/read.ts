@@ -62,6 +62,7 @@ export type PlanDetails = {
   isOrganiser: boolean;
   /** Cancelling is the organiser's or the circle owner's (spec §4.5). */
   isOwner: boolean;
+  ownerUserId: string | null;
   /** Everybody the circle has had, oldest first; `active` says who is in. */
   roster: RosterMember[];
   /** Who this revision asks: active participants, in the order they joined it. */
@@ -169,6 +170,7 @@ export async function planDetails(
     me,
     isOrganiser: me !== undefined && plan.organiser_user_id === me,
     isOwner: me !== undefined && circle.data?.owner_user_id === me,
+    ownerUserId: circle.data?.owner_user_id ?? null,
     roster: roster.data.map((m) => ({
       userId: m.user_id,
       name: m.display_name_snapshot,

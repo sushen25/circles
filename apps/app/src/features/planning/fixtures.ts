@@ -58,6 +58,7 @@ export const asking: PlanDetails = {
   me: 'maya',
   isOrganiser: true,
   isOwner: true,
+  ownerUserId: 'maya',
   roster: ROSTER,
   participants: ROSTER.map((m) => m.userId),
   required: ['maya'],

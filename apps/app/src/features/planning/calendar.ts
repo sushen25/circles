@@ -31,7 +31,12 @@ export type MonthDay = {
   slot: number;
   selected: boolean;
   disabled: boolean;
-  why: 'past' | 'too_far' | undefined;
+  /**
+   * `past`: gone. `off`: before the first day this window may use — Change
+   * the time's, which starts after the day it takes off the table.
+   * `too_far`: past the fourteenth, while an end is being chosen.
+   */
+  why: 'past' | 'off' | 'too_far' | undefined;
 };
 
 /** The first of the month a date is in. */
@@ -69,7 +74,12 @@ export function rangeOf(pick: Pick): DateRange | undefined {
   return { start: pick.start, end: pick.end ?? pick.start };
 }
 
-export function monthDays(first: string, today: string, pick: Pick): MonthDay[] {
+export function monthDays(
+  first: string,
+  today: string,
+  pick: Pick,
+  notBefore?: string | undefined,
+): MonthDay[] {
   const start = localDate(first);
   const { month } = toParts(start);
   const offset = weekday(start) - 1; // ISO: Monday 1 … Sunday 7
@@ -79,13 +89,14 @@ export function monthDays(first: string, today: string, pick: Pick): MonthDay[] 
   const days: MonthDay[] = [];
   for (let date: LocalDate = start, i = 0; toParts(date).month === month; i += 1) {
     const past = date < today;
+    const off = !past && notBefore !== undefined && date < notBefore;
     const tooFar = cap !== undefined && date > cap;
     days.push({
       date,
       slot: offset + i,
       selected: range !== undefined && date >= range.start && date <= range.end,
-      disabled: past,
-      why: past ? 'past' : tooFar ? 'too_far' : undefined,
+      disabled: past || off,
+      why: past ? 'past' : off ? 'off' : tooFar ? 'too_far' : undefined,
     });
     date = addDays(date, 1);
   }
