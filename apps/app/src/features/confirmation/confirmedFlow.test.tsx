@@ -155,7 +155,7 @@ describe('a member', () => {
     expect(screen.queryByRole('button', { name: 'Change the time' })).toBeNull();
   });
 
-  it("reads the same zone note as the organiser when they are away from home", async () => {
+  it('reads the same zone note as the organiser when they are away from home', async () => {
     process.env.TZ = 'Europe/London';
     show(<ConfirmedFlow target={{ code: 'pnsundaycr' }} />);
     expect(await screen.findByText('Times are Melbourne time.')).toBeTruthy();
