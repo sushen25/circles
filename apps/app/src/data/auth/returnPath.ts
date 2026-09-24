@@ -28,7 +28,7 @@ const FIRST_PLAN_PATH =
 
 /**
  * And notification settings, exactly: the organiser emails' footer links there
- * (ADR 00XX), and somebody reading one on a signed-out browser should land on
+ * (ADR 0029), and somebody reading one on a signed-out browser should land on
  * the switch after signing in, not on their circles. A fixed string, compared
  * whole, so nothing can ride along.
  */

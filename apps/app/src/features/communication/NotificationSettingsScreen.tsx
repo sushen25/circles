@@ -26,7 +26,7 @@ import type { ScreenState } from '../state';
  * reader's own zone for the MVP ("Change" says so rather than pretending).
  *
  * Every circle's switches are the reader's own membership row. Above them,
- * "Emails about plans you organise" is the reader's own profile (ADR 00XX):
+ * "Emails about plans you organise" is the reader's own profile (ADR 0029):
  * one switch, because the letters go to their address whichever circle the
  * plan is in. Its detail line says which one still comes, so it does not lie.
  */

@@ -40,7 +40,7 @@ type MemberRow = {
   muted_all: boolean;
   time_zone: string;
   is_permanent: boolean;
-  /** The person's "Emails about plans you organise" switch, off (ADR 00XX). */
+  /** The person's "Emails about plans you organise" switch, off (ADR 0029). */
   muted_organiser_email: boolean;
 };
 

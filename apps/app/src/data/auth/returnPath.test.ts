@@ -16,7 +16,7 @@ describe('safeReturnPath', () => {
     expect(safeReturnPath(`//circles/${id}/plan/new`)).toBeUndefined();
   });
 
-  it('keeps notification settings, where the organiser emails point (ADR 00XX)', () => {
+  it('keeps notification settings, where the organiser emails point (ADR 0029)', () => {
     expect(safeReturnPath('/settings/notifications')).toBe('/settings/notifications');
     expect(safeReturnPath('/settings/notifications?x=1')).toBeUndefined();
     expect(safeReturnPath('/settings/notifications/')).toBeUndefined();

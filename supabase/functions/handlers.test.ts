@@ -3193,7 +3193,7 @@ describe('process-scheduled-jobs', () => {
     expect(String(recorded)).toMatch(/^[A-Za-z0-9_.:/-]{1,120}$/);
   });
 
-  describe('"Emails about plans you organise" (ADR 00XX)', () => {
+  describe('"Emails about plans you organise" (ADR 0029)', () => {
     /** Maya's switch, off, on her member row as `dispatch_context` carries it. */
     const mayaOff = () =>
       context({

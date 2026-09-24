@@ -41,7 +41,7 @@ as $$
         'muted_quiet_asks', m.muted_quiet_asks, 'muted_all', m.muted_all,
         'time_zone', coalesce(pr.time_zone, c.time_zone),
         'is_permanent', coalesce(pr.is_permanent, false),
-        -- "Emails about plans you organise" (ADR 00XX): a person's, not a
+        -- "Emails about plans you organise" (ADR 0029): a person's, not a
         -- membership's, carried on the member row because that is where the
         -- dispatcher looks a person up. `mutedOrganiserEmail` reads it.
         'muted_organiser_email', coalesce(pr.muted_organiser_email, false)

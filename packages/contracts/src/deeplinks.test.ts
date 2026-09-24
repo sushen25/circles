@@ -62,7 +62,7 @@ describe('the plan link', () => {
 
 describe('the notification settings link', () => {
   it('is a plain path with nothing after it: no token, no fragment, no reader', () => {
-    // ADR 00XX: an organiser turns organiser email off where they are signed
+    // ADR 0029: an organiser turns organiser email off where they are signed
     // in, so the letter's link says where and carries nothing.
     expect(notificationSettingsUrl('https://example.test/')).toBe(
       'https://example.test/settings/notifications',

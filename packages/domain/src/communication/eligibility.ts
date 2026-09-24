@@ -71,7 +71,7 @@ export type EligibilityContext = {
   readonly hasPlanEmailSubscription?: ((userId: UserId) => boolean) | undefined;
   /**
    * Whether this person has turned "Emails about plans you organise" off
-   * (`profiles.muted_organiser_email`, ADR 00XX).
+   * (`profiles.muted_organiser_email`, ADR 0029).
    *
    * Required, unlike the subscription above, because its absence would mean
    * *send*: a caller that forgot it would ignore the person's choice without a
@@ -256,7 +256,7 @@ export function channelFor(
  *
  * The member kinds need a verified per-plan subscription; the organiser kinds
  * do not, which is the whole of review C6 — unless the person has turned
- * organiser email off, for the kinds that switch covers (ADR 00XX). Nothing here reads a members list to
+ * organiser email off, for the kinds that switch covers (ADR 0029). Nothing here reads a members list to
  * decide it — that was the bug: `channels: ['push', 'email']` made membership
  * look like consent.
  */

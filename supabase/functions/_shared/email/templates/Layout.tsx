@@ -53,7 +53,7 @@ export type SubscriberFooter = {
 
 /**
  * A sentence saying why this arrived, and — where a switch in the app stops it
- * — a line saying where that switch is (ADR 00XX). Not a subscription, so no
+ * — a line saying where that switch is (ADR 0029). Not a subscription, so no
  * stop link and no token: the reader has an account and signs in.
  */
 export type ReasonFooter = {

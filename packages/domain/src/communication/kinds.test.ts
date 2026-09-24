@@ -111,7 +111,7 @@ describe('the kind table', () => {
   });
 
   it('lets the organiser-email switch stop exactly options ready and did it happen', () => {
-    // ADR 00XX. `replies_closed` still sends: the plan is waiting on the
+    // ADR 0029. `replies_closed` still sends: the plan is waiting on the
     // organiser alone. `about_time` has its own switch, per circle.
     const stopped = NOTIFICATION_KINDS.filter((s) => s.organiserEmailSwitch).map((s) => s.kind);
     expect(stopped).toEqual(['options_ready', 'did_it_happen']);

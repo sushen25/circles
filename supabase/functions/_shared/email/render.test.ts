@@ -18,7 +18,7 @@ const ORGANISER_KINDS = EMAIL_KINDS.filter(
   (kind) => kind !== 'verify_email' && !(SUBSCRIBER_KINDS as readonly string[]).includes(kind),
 );
 
-/** The organiser kinds whose footer says where their switch is (ADR 00XX). */
+/** The organiser kinds whose footer says where their switch is (ADR 0029). */
 const POINTS_AT_SETTINGS: readonly string[] = ['options_ready', 'did_it_happen', 'about_time'];
 
 /** Every `href` in the HTML, decoded. */
@@ -104,7 +104,7 @@ describe('render', () => {
     });
 
     it('says where to turn it off only when a switch in the app would, and carries no token', async () => {
-      // ADR 00XX. Options ready and did it happen: "Emails about plans you
+      // ADR 0029. Options ready and did it happen: "Emails about plans you
       // organise". About time: "Nudges to plan the next one". Both are on
       // /settings/notifications. Replies closed is stopped by neither, so it
       // says it comes anyway rather than pointing at a switch that would lie.

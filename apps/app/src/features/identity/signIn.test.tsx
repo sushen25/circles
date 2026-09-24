@@ -312,7 +312,7 @@ describe('signing in by email', () => {
     await waitFor(() => expect(replace).toHaveBeenCalledWith('/p/abcdefgh'));
   });
 
-  it('lands an organiser from an email footer on notification settings, and says so (ADR 00XX)', async () => {
+  it('lands an organiser from an email footer on notification settings, and says so (ADR 0029)', async () => {
     wrap(<SignInFlow returnTo="/settings/notifications" />);
     expect(
       screen.getByText("We'll bring you straight to your notification settings."),

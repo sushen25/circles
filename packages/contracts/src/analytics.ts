@@ -140,7 +140,7 @@ export const catalogue = {
   email_submitted: event(1),
   email_verified: event(1),
   email_subscription_changed: event(1, { enabled: z.boolean() }),
-  // "Emails about plans you organise" (ADR 00XX): a person's own switch, not a
+  // "Emails about plans you organise" (ADR 0029): a person's own switch, not a
   // plan subscription, so it is not `email_subscription_changed`.
   organiser_email_changed: event(1, { enabled: z.boolean() }),
   email_delivery_result: event(1, {

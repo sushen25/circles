@@ -1,4 +1,4 @@
--- "Emails about plans you organise" (SUS-83, ADR 00XX).
+-- "Emails about plans you organise" (SUS-83, ADR 0029).
 --
 -- The switch is a column on the person's own profile. What it stops is the
 -- domain's rule, proved in `organiser-email.test.ts`; what is proved here is

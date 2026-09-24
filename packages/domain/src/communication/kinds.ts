@@ -75,7 +75,7 @@ export type NotificationSpec = {
   readonly emailNeedsSubscription: boolean;
   /**
    * Whether "Emails about plans you organise" on notification settings stops
-   * this kind's **email** (ADR 00XX). Push is untouched, and so is every kind
+   * this kind's **email** (ADR 0029). Push is untouched, and so is every kind
    * a subscription governs — that consent has its own stop link.
    *
    * True for `options_ready` and `did_it_happen`, the working mail of a plan
@@ -267,7 +267,7 @@ export function notificationSpec(kind: NotificationKind): NotificationSpec {
 
 /**
  * Whether this person's "Emails about plans you organise" switch stops this
- * kind's email (ADR 00XX).
+ * kind's email (ADR 0029).
  *
  * One function for both halves of the dispatcher: `recipientsFor` asks it when
  * a job is written, and the sender asks it again when the job is due, because

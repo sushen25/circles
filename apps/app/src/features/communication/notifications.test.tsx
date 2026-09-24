@@ -116,7 +116,7 @@ describe('notification settings', () => {
     expect(screen.getByText(/9 pm and 8 am in your own time zone/)).toBeVisible();
   });
 
-  describe('emails about plans you organise (ADR 00XX)', () => {
+  describe('emails about plans you organise (ADR 0029)', () => {
     const name = 'Emails about plans you organise';
 
     it('is one switch for the person, above the circles, and says which email still comes', async () => {
@@ -198,7 +198,7 @@ describe('notification settings', () => {
     });
 
     it('sends a signed-out reader through sign-in and back here, where the email pointed', async () => {
-      // The organiser emails link to this screen with no token (ADR 00XX). On
+      // The organiser emails link to this screen with no token (ADR 0029). On
       // a browser that is not signed in, the reader has an account: sign-in,
       // then the switch — not Welcome, and not their circles list.
       session.status = 'none';

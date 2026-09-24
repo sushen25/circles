@@ -1,6 +1,6 @@
-# ADR 00XX: An organiser turns organiser email off in the app, not by a link
+# ADR 0029: An organiser turns organiser email off in the app, not by a link
 
-_Status: proposed · 23 September 2026 · answers the question ADR 0025 left open_
+_Status: accepted · 24 September 2026 · answers the question ADR 0025 left open_
 
 ## Context
 

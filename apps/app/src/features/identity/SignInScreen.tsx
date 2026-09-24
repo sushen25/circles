@@ -28,7 +28,7 @@ import type { ScreenState } from '../state';
  * (ADR 0022): the headline says what they are doing, and the fine print does
  * not tell them friends never need an account, which is not the question.
  * `'settings'` is an organiser who followed an email's footer to notification
- * settings (ADR 00XX); they are told they will land there, not on a plan.
+ * settings (ADR 0029); they are told they will land there, not on a plan.
  */
 export type SignInProblem = 'not_an_address' | 'couldnt_send' | 'too_many_tries' | 'offline';
 

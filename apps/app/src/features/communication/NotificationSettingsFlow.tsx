@@ -29,7 +29,7 @@ import {
  * circle they are in, each stored on their own membership — `muted_all`,
  * `muted_quiet_asks`, `muted_nudges` — and quiet hours, which are fixed.
  * Above them, "Emails about plans you organise", which is the reader's own
- * profile (`muted_organiser_email`, ADR 00XX).
+ * profile (`muted_organiser_email`, ADR 0029).
  *
  * A switch moves at once and is saved behind it; a save that fails puts it
  * back and says so, rather than leaving a switch that lies.

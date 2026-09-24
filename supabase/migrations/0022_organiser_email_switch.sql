@@ -1,5 +1,5 @@
 -- ---------------------------------------------------------------------------
--- 0022 — "Emails about plans you organise" (SUS-83, ADR 00XX).
+-- 0022 — "Emails about plans you organise" (SUS-83, ADR 0029).
 --
 -- An organiser with no app is emailed options ready, replies closed, did it
 -- happen and the about-time nudge (spec §5.8, review C6), and until now had no
@@ -28,7 +28,7 @@ alter table public.profiles
   add column muted_organiser_email boolean not null default false;
 
 comment on column public.profiles.muted_organiser_email is
-  'This person has turned "Emails about plans you organise" off on notification settings (ADR 00XX). Stops the email version of options_ready and did_it_happen; never push, never plan-update email, never replies_closed. Read by the dispatcher at enqueue and again at send.';
+  'This person has turned "Emails about plans you organise" off on notification settings (ADR 0029). Stops the email version of options_ready and did_it_happen; never push, never plan-update email, never replies_closed. Read by the dispatcher at enqueue and again at send.';
 
 -- The person's own switch, like `display_name` and `time_zone`:
 -- `profiles_update_own` limits the row to their own; this limits the column.
@@ -61,7 +61,7 @@ grant update (muted_organiser_email) on public.profiles to authenticated;
 --     Asked at the moment of sending, so bringing the circle back lets what
 --     was queued go rather than losing it (S1-23).
 --   * `organiser_email_muted` — the contact's owner has turned "Emails about
---     plans you organise" off (ADR 00XX). `did_it_happen` is written when a
+--     plans you organise" off (ADR 0029). `did_it_happen` is written when a
 --     meetup is confirmed and sent the next morning, so a switch read only
 --     when the job was written would not stop the letter it was turned off
 --     for. Which kinds it stops is the domain's (`organiserEmailStopped`);
@@ -218,7 +218,7 @@ as $$
         'muted_quiet_asks', m.muted_quiet_asks, 'muted_all', m.muted_all,
         'time_zone', coalesce(pr.time_zone, c.time_zone),
         'is_permanent', coalesce(pr.is_permanent, false),
-        -- "Emails about plans you organise" (ADR 00XX): a person's, not a
+        -- "Emails about plans you organise" (ADR 0029): a person's, not a
         -- membership's, carried on the member row because that is where the
         -- dispatcher looks a person up. `mutedOrganiserEmail` reads it.
         'muted_organiser_email', coalesce(pr.muted_organiser_email, false)

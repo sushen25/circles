@@ -14,7 +14,7 @@ import { useSession } from '../../data/auth/session';
  * start of the path, not a wall.
  *
  * `returnTo` is for a screen somebody arrives at from outside — notification
- * settings, which the organiser emails link to (ADR 00XX). They have an
+ * settings, which the organiser emails link to (ADR 0029). They have an
  * account, so they go straight to sign-in and come back here after it. It must
  * be a path `safeReturnPath` keeps, or sign-in drops it.
  */

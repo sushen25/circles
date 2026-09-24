@@ -38,7 +38,7 @@ import { classify } from './drain.ts';
  *   * the **circle** may have been archived, which stops all prompts (spec
  *     §5.2, S1-23);
  *   * the **organiser** may have turned organiser email off since. Did it
- *     happen is written at confirmation and sent the next morning (ADR 00XX).
+ *     happen is written at confirmation and sent the next morning (ADR 0029).
  *
  * All seven are `skipped`, not `failed`: nothing went wrong.
  */

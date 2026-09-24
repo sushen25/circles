@@ -7,7 +7,7 @@ import { NOBODY_HAS_PUSH, eligibilityContext, sundayCrewMembers } from './fixtur
 import type { NotificationKind } from './kinds.js';
 
 /**
- * "Emails about plans you organise" (ADR 00XX): what the switch stops, what it
+ * "Emails about plans you organise" (ADR 0029): what the switch stops, what it
  * does not, and that it is a gate on email rather than on the person.
  *
  * Sam organises the artboard's plan. Nobody has the app unless a row says so,

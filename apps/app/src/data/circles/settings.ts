@@ -105,7 +105,7 @@ export async function mySwitchesEverywhere(): Promise<CircleSwitches[]> {
 }
 
 /**
- * "Emails about plans you organise" (ADR 00XX): the reader's own switch, on
+ * "Emails about plans you organise" (ADR 0029): the reader's own switch, on
  * their profile rather than a membership, because the letters go to their
  * address whichever circle the plan is in. True means **off** — the column is
  * `muted_organiser_email`, like the membership mutes beside it.

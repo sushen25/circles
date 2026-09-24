@@ -15,7 +15,7 @@ export function repliesClosedCopy(input: RepliesClosedInput): EmailCopy {
  * deadline"). Opens the DeadlinePassed screen through the plan link. No
  * artboard row exists for it; the wording is the screen's three choices.
  *
- * Outside the organiser-email switch (ADR 00XX): the plan other people
+ * Outside the organiser-email switch (ADR 0029): the plan other people
  * answered is waiting on the organiser alone. So no settings link, and a
  * footer that says it comes anyway.
  */

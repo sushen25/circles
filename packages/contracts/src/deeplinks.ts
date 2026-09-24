@@ -123,7 +123,7 @@ export function planUrl(origin: string, code: ShortCode): string {
 
 /**
  * `https://…/settings/notifications`: where an organiser turns organiser email
- * off (ADR 00XX). A plain path, not a capability: it carries nothing about the
+ * off (ADR 0029). A plain path, not a capability: it carries nothing about the
  * reader, and the route needs them signed in.
  */
 export const NOTIFICATION_SETTINGS_PATH = '/settings/notifications';

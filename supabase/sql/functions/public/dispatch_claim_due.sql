@@ -22,7 +22,7 @@
 --     Asked at the moment of sending, so bringing the circle back lets what
 --     was queued go rather than losing it (S1-23).
 --   * `organiser_email_muted` — the contact's owner has turned "Emails about
---     plans you organise" off (ADR 00XX). `did_it_happen` is written when a
+--     plans you organise" off (ADR 0029). `did_it_happen` is written when a
 --     meetup is confirmed and sent the next morning, so a switch read only
 --     when the job was written would not stop the letter it was turned off
 --     for. Which kinds it stops is the domain's (`organiserEmailStopped`);

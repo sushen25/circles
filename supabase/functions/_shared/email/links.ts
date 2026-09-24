@@ -66,7 +66,7 @@ export function planLink(at: string, planCode: string): string {
 
 /**
  * `/settings/notifications` — where the organiser kinds' switches are (ADR
- * 00XX). No token: the reader has an account and signs in to reach it.
+ * 0029). No token: the reader has an account and signs in to reach it.
  */
 export function settingsLink(at: string): string {
   return notificationSettingsUrl(origin(at));
