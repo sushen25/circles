@@ -27,6 +27,20 @@ describe('the copy file', () => {
     }
   });
 
+  // S1-28's acceptance criterion, over the words themselves: `copy-voice`
+  // lints the file, and this holds whatever the lint's configuration says.
+  it('spends at most one exclamation mark, and only on the confirmed screens', () => {
+    const found: string[] = [];
+    for (const [screen, strings] of Object.entries(en)) {
+      for (const [key, value] of Object.entries(strings)) {
+        const marks = ((value as string).match(/!/g) ?? []).length;
+        for (let i = 0; i < marks; i += 1) found.push(`${screen}.${key}`);
+      }
+    }
+    expect(found.length, found.join(', ')).toBeLessThanOrEqual(1);
+    for (const where of found) expect(where).toMatch(/^confirmed/);
+  });
+
   it('leaves no placeholder unfillable', () => {
     const known = new Set([
       'brand',

@@ -111,7 +111,14 @@ export const catalogue = {
     action: z.enum(['confirm_anyway', 'extend', 'cancel', 'nothing']),
   }),
   meetup_confirmed: event(1, { attending_count: count, invited_count: count }),
-  organiser_chased: event(1, { answer: z.enum(['yes', 'no']) }),
+  /**
+   * "Did you have to chase anyone outside the app?" (spec §5.10) — the three
+   * answers the review screen offers and `meetup_confirmations.chased_answer`
+   * stores. Version 1 said `yes | no`, which cannot tell one chased person from
+   * several: the client would have had to throw the answer's one distinction
+   * away to get it past the catalogue. A changed meaning, so a new version.
+   */
+  organiser_chased: event(2, { answer: z.enum(['none', 'one', 'more']) }),
 
   // --- outcome ------------------------------------------------------------
   /**
@@ -126,6 +133,12 @@ export const catalogue = {
     outcome: z.enum(['happened', 'cancelled', 'moved_outside', 'not_sure']),
   }),
   attendance_confirmed: event(1, { attended_count: count }),
+  /**
+   * A member correcting "Going / Can't make it" on the confirmed screen, before
+   * the meetup (spec §5.7). Not `attendance_confirmed`, which is the morning
+   * after's "I was there" — a different question with a different metric.
+   */
+  attendance_updated: event(1, { status: z.enum(['going', 'cant']) }),
   cadence_prompt_sent: event(1, {
     recipient_role: z.enum(['owner', 'member', 'take_turns']),
   }),

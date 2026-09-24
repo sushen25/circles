@@ -9,7 +9,7 @@ export {
   previewWiderWindow,
   widenWindow,
 } from './actions';
-export { planCandidates, reasonOf, viewOf } from './candidates';
+export { isLockedIn, planCandidates, reasonOf, viewOf } from './candidates';
 export type {
   CandidateRow,
   CandidateSetRead,

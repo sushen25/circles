@@ -15,9 +15,11 @@ import type * as Scheduling from '../../data/scheduling';
 const push = vi.fn();
 const replace = vi.fn();
 const dismissTo = vi.fn();
+const focused = { current: true };
 vi.mock('expo-router', () => ({
   useRouter: () => ({ push, replace, dismissTo, back: vi.fn(), canGoBack: () => true }),
   useFocusEffect: () => undefined,
+  useIsFocused: () => focused.current,
 }));
 const track = vi.fn();
 vi.mock('../../analytics/track', () => ({ track: (...args: unknown[]) => track(...args) }));
@@ -48,6 +50,7 @@ vi.mock('../../platform/share', () => ({
 }));
 
 const { CandidatesFlow } = await import('./CandidatesFlow');
+const { MemberCandidatesFlow } = await import('./MemberCandidatesFlow');
 const { CANDIDATES_POLL_MS, STALE_POLL_MS } = await import('./useCandidates');
 const fixture = await import('./fixtures');
 
@@ -63,6 +66,7 @@ const organiser = () => <CandidatesFlow id={CIRCLE} planId={PLAN} which="candida
 
 beforeEach(() => {
   vi.clearAllMocks();
+  focused.current = true;
   shareMessage.mockResolvedValue('sheet');
 });
 
@@ -474,9 +478,100 @@ describe('the states that are not the happy one', () => {
     expect(await screen.findByText('This one is not yours to see.')).toBeTruthy();
   });
 
-  it('has nothing to pick once the plan is decided', async () => {
-    planCandidates.mockResolvedValue({ ...fixture.ready, state: 'confirmed', view: 'closed' });
+  it('has nothing to pick once the plan is off', async () => {
+    planCandidates.mockResolvedValue({ ...fixture.ready, state: 'cancelled', view: 'closed' });
     show(organiser());
     expect(await screen.findByText('This plan is decided.')).toBeTruthy();
+    expect(replace).not.toHaveBeenCalled();
+  });
+
+  // S1-28: a locked-in plan's page is its confirmed screen, on either door.
+  it('sends a locked-in plan to its confirmed screen', async () => {
+    planCandidates.mockResolvedValue({ ...fixture.ready, state: 'confirmed', view: 'closed' });
+    show(organiser());
+    await waitFor(() =>
+      expect(replace).toHaveBeenCalledWith({
+        pathname: '/circles/[id]/plan/[planId]/confirmed',
+        params: { id: CIRCLE, planId: PLAN },
+      }),
+    );
+    expect(replace).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText('This plan is decided.')).toBeNull();
+  });
+
+  // The confirmed door sends a reopened plan here; a cached "confirmed" from
+  // before must not send it straight back before the fresh read lands.
+  it('redirects on a fresh read only, never on what the cache said', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    client.setQueryData(['plan-candidates', PLAN, 'maya'], {
+      ...fixture.ready,
+      state: 'confirmed',
+      view: 'closed',
+    });
+    planCandidates.mockResolvedValue(fixture.ready);
+    render(<QueryClientProvider client={client}>{organiser()}</QueryClientProvider>);
+    expect(await screen.findByText('Thursday looks good for five of you.')).toBeTruthy();
+    expect(replace).not.toHaveBeenCalled();
+  });
+
+  it('trusts no cached state when the refetch fails: it says so instead', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    client.setQueryData(['plan-candidates', PLAN, 'maya'], {
+      ...fixture.ready,
+      state: 'confirmed',
+      view: 'closed',
+    });
+    planCandidates.mockRejectedValue(new Error('candidates lookup failed'));
+    render(<QueryClientProvider client={client}>{organiser()}</QueryClientProvider>);
+    expect(await screen.findByText("We couldn't load the options.")).toBeTruthy();
+    expect(replace).not.toHaveBeenCalled();
+  });
+
+  // After a lock-in the options stay mounted under the confirmed screen and
+  // see the same refetch. The redirect is spent only when they are on top, so
+  // swiping back onto them still moves on.
+  it('keeps its redirect for when it is the screen on top', async () => {
+    focused.current = false;
+    planCandidates.mockResolvedValue({ ...fixture.ready, state: 'confirmed', view: 'closed' });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const tree = () => <QueryClientProvider client={client}>{organiser()}</QueryClientProvider>;
+    const { rerender } = render(tree());
+    await waitFor(() => expect(planCandidates).toHaveBeenCalled());
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(replace).not.toHaveBeenCalled();
+
+    // The same mounted screen, brought back on top.
+    focused.current = true;
+    rerender(tree());
+    await waitFor(() => expect(replace).toHaveBeenCalledTimes(1));
+  });
+
+  it('sends a member nowhere while the plan page is not on top', async () => {
+    focused.current = false;
+    planCandidates.mockResolvedValue({
+      ...fixture.readyAsMember,
+      state: 'confirmed',
+      view: 'closed',
+    });
+    show(<MemberCandidatesFlow code="pnsundaycr" />);
+    await waitFor(() => expect(planCandidates).toHaveBeenCalled());
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(replace).not.toHaveBeenCalled();
+  });
+
+  it('sends a member on the plan link to the confirmed screen too', async () => {
+    planCandidates.mockResolvedValue({
+      ...fixture.readyAsMember,
+      state: 'confirmed',
+      view: 'closed',
+    });
+    show(<MemberCandidatesFlow code="pnsundaycr" />);
+    await waitFor(() =>
+      expect(replace).toHaveBeenCalledWith({
+        pathname: '/p/[code]/confirmed',
+        params: { code: 'pnsundaycr' },
+      }),
+    );
+    expect(screen.queryByText('This plan is decided.')).toBeNull();
   });
 });

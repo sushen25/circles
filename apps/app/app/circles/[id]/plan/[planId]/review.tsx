@@ -1,18 +1,14 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 
-import { useFixture } from '../../../../../src/data/fixtures/useFixture';
-import { ConfirmReviewScreen } from '../../../../../src/features/confirmation/ConfirmReviewScreen';
+import { ReviewFlow } from '../../../../../src/features/confirmation/ReviewFlow';
 
 /** Route only — thin composition, no logic (architecture §7.1). */
 export default function Route() {
-  const router = useRouter();
-  const fixture = useFixture();
+  const { id, planId, candidate } = useLocalSearchParams<{
+    id: string;
+    planId: string;
+    candidate?: string;
+  }>();
 
-  return (
-    <ConfirmReviewScreen
-      fixture={fixture}
-      onNext={() => router.push('/circles/sunday-crew/plan/thu-17/confirmed')}
-      onBack={() => router.back()}
-    />
-  );
+  return <ReviewFlow id={id} planId={planId} candidate={candidate} />;
 }

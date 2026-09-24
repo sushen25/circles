@@ -543,3 +543,53 @@ export function planFor(circleId: string, organiserId: string): { id: string; co
   `);
   return { id: planId, code };
 }
+
+/**
+ * The organiser locks in the plan's first option, as they would from the
+ * review screen: `confirm_meetup` as them, from the set that is current now
+ * (S1-28). Needs a set — somebody has to have answered through the editor.
+ */
+export function lockInFirstOption(planId: string, organiserId: string): void {
+  sql(`
+    begin;
+    select set_config('role', 'authenticated', true);
+    select set_config('request.jwt.claims',
+      '{"sub": "${organiserId}", "role": "authenticated"}', true);
+    with current_set as (
+      select s.id from public.candidate_sets s
+      join public.plans p on p.id = s.plan_id and p.revision = s.revision
+      where s.plan_id = '${planId}'
+      order by s.generated_at desc limit 1
+    ), first_option as (
+      select c.starts_at from public.candidates c, current_set
+      where c.candidate_set_id = current_set.id and not c.is_near_miss
+      order by c.rank limit 1
+    )
+    select public.confirm_meetup(
+      '${planId}',
+      to_char(first_option.starts_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
+      current_set.id,
+      'none',
+      'Hope St Radio'
+    ) from current_set, first_option;
+    commit;
+  `);
+}
+
+/** What `userId` says about the plan's live confirmation — `going`, `cant`, `unknown`. */
+export function attendanceStatusOf(planId: string, userId: string): string | undefined {
+  return sql(`
+    select a.status from public.attendance a
+    join public.meetup_confirmations c on c.id = a.confirmation_id
+    where c.plan_id = '${planId}' and c.status = 'active' and a.user_id = '${userId}'
+  `)[0]?.[0];
+}
+
+/** The live confirmation's place and survey answer, as stored. */
+export function confirmationOf(planId: string): { placeName: string; chased: string } | undefined {
+  const row = sql(`
+    select coalesce(place_name, ''), coalesce(chased_answer, '')
+    from public.meetup_confirmations where plan_id = '${planId}' and status = 'active'
+  `)[0];
+  return row === undefined ? undefined : { placeName: row[0] ?? '', chased: row[1] ?? '' };
+}

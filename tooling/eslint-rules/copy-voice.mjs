@@ -8,7 +8,7 @@
  *
  * One exclamation mark is permitted on the confirmation, and only there —
  * "only if it earns itself" is a judgement a linter cannot make, but "not
- * anywhere else" is one it can.
+ * anywhere else" and "not a second one" are ones it can (S1-28).
  */
 const BANNED = [
   { phrase: 'on track', why: 'the product does not keep score (manifesto §4)' },
@@ -28,6 +28,8 @@ export default {
     messages: {
       exclamation:
         'No exclamation marks outside the confirmation (manifesto §4). This is `{{ screen }}`.',
+      second:
+        'One exclamation mark on the confirmation, not two (manifesto §4). `{{ screen }}` already has one.',
       banned: 'Avoid “{{ phrase }}” — {{ why }}.',
     },
     schema: [],
@@ -44,12 +46,16 @@ export default {
       return null;
     }
 
+    /** How many a confirmed screen has used so far: one is the allowance. */
+    const spent = new Map();
+
     return {
       Literal(node) {
         if (typeof node.value !== 'string') return;
         const text = node.value;
 
-        if (text.includes('!')) {
+        const marks = (text.match(/!/g) ?? []).length;
+        if (marks > 0) {
           const screen = screenOf(node);
           if (!screen || !CELEBRATION.test(String(screen))) {
             context.report({
@@ -57,6 +63,10 @@ export default {
               messageId: 'exclamation',
               data: { screen: String(screen ?? 'this screen') },
             });
+          } else {
+            const used = (spent.get(screen) ?? 0) + marks;
+            spent.set(screen, used);
+            if (used > 1) context.report({ node, messageId: 'second', data: { screen } });
           }
         }
 

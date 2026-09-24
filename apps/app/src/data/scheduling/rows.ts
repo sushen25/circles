@@ -90,3 +90,11 @@ export function viewOf(
   if (nearMisses.length > 0) return 'no_quorum';
   return 'collecting';
 }
+
+/**
+ * A plan whose time is locked in — confirmed, or confirmed and then reported
+ * on. Its page is the confirmed screen, not the options (S1-28).
+ */
+export function isLockedIn(state: PlanState): boolean {
+  return state === 'confirmed' || state === 'completed';
+}

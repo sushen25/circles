@@ -193,3 +193,20 @@ describe('the nudge moments', () => {
     expect([...fromCatalogue].sort()).toEqual([...NUDGE_MOMENTS]);
   });
 });
+
+describe('the confirmation events (S1-28)', () => {
+  it('records the chasing survey as the three answers the review screen offers', () => {
+    for (const answer of ['none', 'one', 'more']) {
+      expect(validateEvent('organiser_chased', { answer })?.version).toBe(2);
+    }
+    // Version 1's `yes | no` could not tell one chased person from several.
+    expect(validateEvent('organiser_chased', { answer: 'yes' })).toBeNull();
+  });
+
+  it('records which way an attendance correction went, and only the two before-the-meetup ones', () => {
+    expect(validateEvent('attendance_updated', { status: 'going' })).not.toBeNull();
+    expect(validateEvent('attendance_updated', { status: 'cant' })).not.toBeNull();
+    // "I was there" is `attendance_confirmed`, the morning after's question.
+    expect(validateEvent('attendance_updated', { status: 'was_there' })).toBeNull();
+  });
+});

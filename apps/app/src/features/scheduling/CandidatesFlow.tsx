@@ -1,11 +1,12 @@
 import type { CircleId, PlanId } from '@circles/contracts';
 import { EN_SHARE_TEMPLATES, waitingMessage } from '@circles/domain';
-import { useRouter } from 'expo-router';
+import { useIsFocused, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 
 import { track } from '../../analytics/track';
 import { t } from '../../copy';
 import { hasBackend } from '../../data/auth/client';
+import { isLockedIn } from '../../data/scheduling';
 import { appOrigin } from '../../data/links/origin';
 import { planLink } from '../../data/planning';
 import { shareMessage } from '../../platform/share';
@@ -71,12 +72,31 @@ function LiveCandidates({ id, planId }: { id: string; planId: string }) {
     });
   }, [data, id]);
 
+  // Locked in: the confirmed screen is this plan's page now (S1-28). Once,
+  // guarded by a ref, for the reason `MemberCandidatesFlow` gives.
+  // Only on a read made since mount, for the reason `ConfirmedFlow` gives.
+  const locked = data !== undefined && isLockedIn(data.state);
+  const fresh = query.isFetchedAfterMount && !query.isError;
+  // Only while this is the screen on top. After a lock-in the options stay
+  // mounted under the confirmed screen and see the same refetch; spending the
+  // redirect from there navigates the top screen again and leaves nothing to
+  // move on from when somebody swipes back onto the options.
+  const focused = useIsFocused();
+  const sent = useRef(false);
+  useEffect(() => {
+    if (!locked || !fresh || !focused || sent.current) return;
+    sent.current = true;
+    router.replace({ pathname: '/circles/[id]/plan/[planId]/confirmed', params: { id, planId } });
+  }, [locked, fresh, focused, id, planId, router]);
+
   const back = () =>
     router.canGoBack()
       ? router.back()
       : router.replace({ pathname: '/circles/[id]', params: { id } });
 
-  if (query.isPending) return <CandidatesScreen state="loading" onBack={back} />;
+  if (query.isPending || (locked && !query.isError)) {
+    return <CandidatesScreen state="loading" onBack={back} />;
+  }
   if (query.isError) {
     return (
       <CandidatesScreen
@@ -212,7 +232,7 @@ function LiveCandidates({ id, planId }: { id: string; planId: string }) {
         }
       }}
       // The candidate travels as its start instant, which is what
-      // `confirm-meetup` takes (S1-16). The review screen is S1-28's.
+      // `confirm-meetup` takes (S1-16).
       onNext={() =>
         router.push({
           pathname: '/circles/[id]/plan/[planId]/review',

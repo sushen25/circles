@@ -125,7 +125,7 @@ organiser-email switch is SUS-83's.
 
 | Artboard                   | Route                                     | Component                |
 | -------------------------- | ----------------------------------------- | ------------------------ |
-| `AddToCalendar.dc.html`    | `/p/[code]/calendar`                      | `AddToCalendarScreen`    |
+| `AddToCalendar.dc.html`    | `/p/[code]/calendar`                      | `AddToCalendarSheet`     |
 | `CancelledGuest.dc.html`   | `/p/[code]/cancelled`                     | `CancelledGuestScreen`   |
 | `ChangeTime.dc.html`       | `/circles/[id]/plan/[planId]/change-time` | `ChangeTimeScreen`       |
 | `ConfirmedGuest.dc.html`   | `/p/[code]/confirmed`                     | `ConfirmedGuestScreen`   |
@@ -134,6 +134,29 @@ organiser-email switch is SUS-83's.
 | `Outcome.dc.html`          | `/circles/[id]/plan/[planId]/outcome`     | `OutcomeScreen`          |
 | `RescheduledGuest.dc.html` | `/p/[code]/rescheduled`                   | `RescheduledGuestScreen` |
 | `WasThere.dc.html`         | `/p/[code]/attendance`                    | `WasThereScreen`         |
+
+**Real since S1-28:** `/circles/[id]/plan/[planId]/review?candidate=<ISO start>`
+renders `ReviewFlow`, and both `/circles/[id]/plan/[planId]/confirmed` and
+`/p/[code]/confirmed` render `ConfirmedFlow` — **who you are picks the screen,
+not the door**: the organiser gets `ConfirmedOrgScreen` wherever they arrive,
+everybody else `ConfirmedGuestScreen`, so circle home's `locked_in` state links
+to the first for everybody. `/p/[code]/calendar` is the same flow with the
+add-to-calendar sheet open; the sheet (`AddToCalendarSheet`) opens over either
+screen, and its Google Calendar row is held to Slice 3. The review reads
+`data/scheduling` like the options do and locks in through `confirm-meetup`
+with the set id it showed, read again at the tap (`useLockIn`); a set that
+moves underneath is said on screen, never swapped in silently. The confirmed
+read is `data/confirmation` (`meetup_confirmations` + `attendance` under RLS),
+the paste-ready message is built on the client with the domain's
+`lockedInMessage`, attendance is a direct write to the member's own row, and the
+`.ics` is fetched from `generate-ics` when the sheet opens and handed over with
+`<a download>` (`platform/download.ts`). "Open in Maps" is
+`platform/maps.ts`. The organiser corrects their own answer on their screen
+too. Once the meetup is over the confirmed door says so and counts nobody,
+because "I was there" is readable by its subject alone. `ChangeTime`,
+`Outcome`, `WasThere` and the cancelled and rescheduled screens are still
+fixtures, so "Change the time · Cancel this plan" is not shown until SUS-42
+wires them.
 
 ### growth
 
@@ -232,8 +255,9 @@ actions are `unlock.ts`, which never offers a quorum below two and never a
 wider window a re-ask could not be answered in.
 A member at `/p/[code]` sees the options and "Change my times"; the organiser is
 sent to their own route. `DeadlinePassed` is still a fixture (Slice 2), and
-"Review <weekday>" leads to the fixture `ConfirmReview` with the chosen
-candidate's start instant as `candidate` (S1-28).
+"Review <weekday>" leads to `ConfirmReview` with the chosen candidate's start
+instant as `candidate` (S1-28). A plan that is locked in sends both doors to
+its confirmed screen rather than saying "This plan is decided".
 
 ### system
 

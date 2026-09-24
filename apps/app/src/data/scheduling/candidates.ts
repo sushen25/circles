@@ -20,10 +20,17 @@ import { authClient } from '../auth/client';
 
 const FAILED = 'candidates lookup failed';
 
-import { codeOf, reasonOf, viewOf, type CandidateRow, type SchedulingView } from './rows';
+import {
+  codeOf,
+  isLockedIn,
+  reasonOf,
+  viewOf,
+  type CandidateRow,
+  type SchedulingView,
+} from './rows';
 
 export type { CandidateRow, SchedulingView };
-export { reasonOf, viewOf };
+export { isLockedIn, reasonOf, viewOf };
 
 export type RosterMember = {
   userId: string;
