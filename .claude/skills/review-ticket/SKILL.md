@@ -169,31 +169,142 @@ from TypeScript for that reason (`scripts/gen-*.mjs`, each with a `--check` in
 the gate). A diff that adds a second copy of a rule is a finding even when both
 copies are currently correct.
 
-## For whoever spawned this review
+## The loop, for whoever runs the review
 
-You are usually here because Codex could not review the branch — it is tried
-first, and a usage limit or a failed turn falls through to this agent rather
-than to waiting. `implement-linear-ticket` has that order and, more importantly,
-how to tell "Codex found nothing" from "Codex did not run": the second is not a
-clean round, and ending the loop on it hands over work nobody read.
+This section is read by the author's session, not by the reviewer. It is the
+one copy of the review loop: `implement-linear-ticket` and
+`work-tickets-in-parallel` point here rather than repeating it, so the rules
+cannot drift apart. Read it before the first round.
 
-The loop, from `implement-linear-ticket`:
+### Who does the reviewing
 
-- **Every P0 and P1 is fixed, always** — or shown to be wrong, with the
-  reproduction that shows it.
-- **Review again after every round that found a P0 or P1**, until a round comes
-  back with neither. The stopping condition is a clean round, not a round count.
-- **P2s stop being fixed after round three** and are written up on the PR
-  instead — unless they are a line of `AGENTS.md`, which is not optional.
-- **Push after every round**, and check `gh pr view <n> --json headRefOid`
-  against `git rev-parse HEAD` before calling a PR ready.
-- **Write the test that would have caught it**, and check it fails against the
-  previous behaviour. A test that passes either way is not a test.
-- **Findings in code this change only moved** go on the ticket that owns that
-  code, named and evidenced, not fixed here.
+**Codex first.** From the ticket's branch, using the Codex CLI (there is no
+slash command for it):
 
-Spawn the reviewer with the `Agent` tool, `model: 'fable'`, and a prompt that
-says which PR and base, what the change is trying to do, which claims to attack
-hardest, and **to invoke this skill for the standards and the report format** —
-the brief does not need repeating. Run it in the foreground: the next action
-depends on the result.
+```bash
+codex review --base <the PR's base>
+```
+
+The base is the PR's base, which for a stacked PR is the **previous ticket's
+branch**, not `main` — a review against the wrong base reads the whole stack and
+wastes the round. **Always run it in the foreground and wait**; never background
+it, and never ask which to do.
+
+**Then tell a clean round from a broken one, because they look alike and mean
+opposite things.**
+
+- *Codex reviewed the branch and found nothing* — a clean round. It ends the
+  loop.
+- *Codex did not review the branch* — "Reviewer failed to output a response",
+  "Turn failed", or a usage-limit line naming a time it will be back. **This is
+  not a clean round.** Nothing has been reviewed, and stopping here would hand
+  over work nobody looked at. It has happened twice.
+
+**On a broken round, fall back to the agent** rather than waiting for limits to
+reset — unless the founder says to wait. This is the expected path for the
+later rounds, not an exception: SUS-42 and SUS-45 both ran seven rounds and
+Codex hit its usage limit at round five on each. Spawn the agent with the
+`Agent` tool and `model: 'fable'`, in the foreground, and tell it:
+
+- the PR number, the branch, and the base;
+- what the change is trying to do, and which of its claims to attack hardest;
+- to invoke **`review-ticket`** for the standards, the traps and the report
+  format — do not retype the brief;
+- where the previous rounds' findings are, when you are asking it to confirm
+  them.
+
+Run it in the foreground: the next action depends on the result.
+
+The two reviewers are not interchangeable, which is the other reason to keep the
+fallback: Codex reads the diff, while the agent can reach the running database
+and reproduce a claim. Findings from either are worked the same way, and a round
+by either counts as a round.
+
+`/code-review` is the built-in third option if both are unavailable.
+
+### Working the findings
+
+What follows holds whoever produced them.
+
+**Every P0 and P1 is fixed, always.** There is no round budget for those and no
+judgement call about them: if the reviewer marks a finding P0 or P1, either the
+code changes or the finding is shown to be wrong, with the reproduction that
+shows it. S1-05's P1 was a token interpolated into an exception message, which
+means a token in a log — the kind of thing that is cheap now and unfixable
+later.
+
+**The stopping condition is a clean round, not a round count.** Ask for
+another round after each fix, because findings surface in layers: S1-02 took two
+rounds and S1-03 five, and two of S1-03's findings were only reachable once an
+earlier fix had changed the shape of the code. S1-08's third round found two
+P1s — and the review stopped there, because "three rounds" had been read as the
+end. It is not. The rule, stated so it cannot be misread:
+
+- **Review again after every round that found a P0 or P1**, however many rounds
+  that takes. The review ends only when a round comes back with **no P0 and no
+  P1**. A fix is not verified by making it; it is verified by the next round
+  not finding it — and the next round is also the only thing that finds what
+  the fix broke.
+- **P2s stop being *fixed* after the third round**, because the returns fall
+  off and a fourth round on a P2 that is really a preference costs more
+  attention than it buys — **unless the P2 is a line of `AGENTS.md`**, which is
+  not optional at any round. They do not stop being *reviewed*: a P2 in round
+  four is written up in the PR comment — what was found, why it was not done
+  now, whether it belongs on a later ticket — rather than fixed. Ending on
+  unaddressed P2s is a decision to state out loud, not a thing to do quietly.
+
+So a ticket whose round three fixes a P1 gets a round four. If round four is
+P2-only, write those up and stop; if it finds a P1, fix it and run round five.
+
+**Push every round before the founder merges.** A fix that is committed locally
+and not pushed is a fix that is not in the PR: S1-05 was merged at its first
+commit while four rounds of review fixes — the P1 included — sat on the branch
+behind it, and they needed a second PR to land. `git push` after each round, and
+check `gh pr view <n> --json headRefOid` against `git rev-parse HEAD` before
+saying a PR is ready.
+
+**Verify before you fix.** Reproduce the finding against the built package —
+`pnpm run build` then a `node -e` import of `packages/domain/dist/…` — and keep
+the output. Then fix, and run the same reproduction again. On S1-03 a finding
+was twice real while the reported cause was not the whole cause, and once the
+obvious fix would have broken a different invariant.
+
+**Say so when a citation is weak, and separately whether the finding stands.**
+One review cited an AGENTS.md line about storing instants as requiring
+zone-local rounding. The line does not say that; the finding was right anyway
+for a better reason found in the code. Both halves are worth saying.
+
+**Write the test that would have caught it**, and check it fails against the
+previous behaviour. More than once the existing test passed on the broken code
+because it asserted the wrong property — cell *duration* when the bug was in
+the cell's *label*, or an epoch alignment when the painter produced local
+alignment. If a test would have passed before the fix, it is not the test.
+
+**`vitest run` does not typecheck tests.** `pnpm --filter … exec vitest run`
+passing means less than it looks; a changed return type broke four call sites
+that only `pnpm check` found. Report the gate, not the filtered run.
+
+**A finding about a product rule is an ADR, not a code change.** Non-negotiable
+1: product rules live in the spec and change only through an ADR. If the review
+says "the spec says X and the code does Y", either conform or write the ADR and
+update the spec — a decision recorded in a Linear ticket is not the spec, and a
+client built against the spec will disagree with the code.
+
+**Findings in code this change only moved** go on the ticket that owns that
+code, named and evidenced, not fixed here.
+
+**Fixing an exported shape invalidates the notes you left.** When a fix changes
+a signature, an error shape or a documented behaviour, go back to the downstream
+tickets that `implement-linear-ticket` step 11 wrote to and correct them. Three
+notes on SUS-31, SUS-42 and SUS-49 told later tickets to use a
+`TransitionError.message` that review then removed.
+
+**Then reply on the PR** with what was found, what changed, what you pushed back
+on, any P2 left open at round three and why, and the reproduction output. If a
+fix changed anything the testing notes describe — a screen's text, a step, an
+expected result — correct the notes on the PR and on Linear in the same pass
+(`implement-linear-ticket` step 9).
+`gh pr comment <n> --body "$(cat <<'BODY' … )"`.
+
+The two shapes above account for most findings here and are worth looking for
+before the reviewer does.
