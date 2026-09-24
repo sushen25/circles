@@ -61,7 +61,19 @@ function LiveFirstPlan({ id }: { id: string }) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const session = useSession();
+  // As `PlanSetupFlow`: read the circle as a member first, and require a saved
+  // place only once it says there is no plan running (ADR 0004, ADR 00XX).
+  const member = guard({ route: 'guest', session, membership: 'member' });
   const decision = guard({ route: 'organiser', session, membership: 'member' });
+
+  const home = useQuery({
+    queryKey: ['circle-home', id, session.userId],
+    queryFn: () => circleHome(id),
+    enabled: member.kind === 'allow',
+    staleTime: 0,
+  });
+  const noPlanRunning =
+    home.data !== undefined && home.data !== null && home.data.activePlan === null;
 
   // A guest member is asked to save their place, on the sign-in that keeps
   // their memberships (`SignInFlow` saves a guest's place), and comes back
@@ -71,17 +83,10 @@ function LiveFirstPlan({ id }: { id: string }) {
   const toSignIn = () =>
     router.replace({ pathname: '/sign-in', params: { next: `/circles/${id}/plan/new` } });
   useEffect(() => {
-    if (decision.kind === 'needs_saved_place') toSignIn();
+    if (decision.kind === 'needs_saved_place' && noPlanRunning) toSignIn();
     // `toSignIn` reads only `id` and the router.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [decision.kind, router, id]);
-
-  const home = useQuery({
-    queryKey: ['circle-home', id, session.userId],
-    queryFn: () => circleHome(id),
-    enabled: decision.kind === 'allow',
-    staleTime: 0,
-  });
+  }, [decision.kind, noPlanRunning, router, id]);
 
   // The moment the card was opened: the preview is of a plan made about now,
   // and reading the clock during a render would make it a different plan each
@@ -99,7 +104,7 @@ function LiveFirstPlan({ id }: { id: string }) {
       ? router.back()
       : router.replace({ pathname: '/circles/[id]', params: { id } });
 
-  if (decision.kind !== 'allow' || home.isPending) {
+  if (member.kind !== 'allow' || home.isPending) {
     return <FirstPlanScreen state="loading" onBack={back} />;
   }
   if (home.isError || home.data === null) {
@@ -118,6 +123,8 @@ function LiveFirstPlan({ id }: { id: string }) {
   if (data.activePlan !== null) {
     return <PlanInProgress id={id} home={data} plan={data.activePlan} onBack={back} />;
   }
+  // No plan running, so the card is next, and the card needs a saved place.
+  if (decision.kind !== 'allow') return <FirstPlanScreen state="loading" onBack={back} />;
   const preview = firstPlanPreview(
     {
       zone: data.zone,

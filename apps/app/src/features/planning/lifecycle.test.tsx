@@ -29,9 +29,13 @@ vi.mock('expo-router', () => ({
 const track = vi.fn();
 vi.mock('../../analytics/track', () => ({ track: (...args: unknown[]) => track(...args) }));
 vi.mock('../../data/auth/client', () => ({ hasBackend: () => true }));
-vi.mock('../../data/auth/session', () => ({
-  useSession: () => ({ status: 'saved', userId: 'maya', isAnonymous: false, isLoading: false }),
+const session = vi.hoisted(() => ({
+  current: { status: 'saved', userId: 'maya', isAnonymous: false, isLoading: false },
 }));
+vi.mock('../../data/auth/session', () => ({ useSession: () => session.current }));
+const MAYA = { status: 'saved', userId: 'maya', isAnonymous: false, isLoading: false };
+/** Alex: in the circle from the chat link, and never signed in. */
+const GUEST = { status: 'guest', userId: 'alex', isAnonymous: true, isLoading: false };
 vi.mock('../../data/links/origin', () => ({ appOrigin: () => 'https://circles.test' }));
 const shareMessage = vi.fn();
 vi.mock('../../platform/share', () => ({
@@ -100,6 +104,7 @@ const RUNNING = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  session.current = MAYA;
   vi.spyOn(Date, 'now').mockReturnValue(fixture.FIXTURE_NOW);
   circleHome.mockResolvedValue(HOME);
   createPlan.mockResolvedValue({ plan_id: 'new-plan', short_code: 'pnnewplan' });
@@ -171,6 +176,30 @@ describe('plan setup', () => {
     expect(await screen.findByText(/Sam is organising this one/)).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Edit the plan' })).toBeNull();
     expect(screen.getByRole('button', { name: 'Cancel the plan' })).toBeTruthy();
+  });
+
+  it('shows a guest member the running plan rather than an account gate (spec §4 tiers)', async () => {
+    session.current = GUEST;
+    circleHome.mockResolvedValue({ ...HOME, me: 'alex', isOwner: false, activePlan: RUNNING });
+    show(<PlanSetupFlow id="sunday-crew" />);
+
+    expect(await screen.findByText('Sunday Crew is already finding a time')).toBeTruthy();
+    expect(screen.getByText(/Maya is organising this one/)).toBeTruthy();
+    expect(replace).not.toHaveBeenCalled();
+  });
+
+  it('still sends a guest member to save their place when there is no plan to show', async () => {
+    session.current = GUEST;
+    circleHome.mockResolvedValue({ ...HOME, me: 'alex', isOwner: false });
+    show(<PlanSetupFlow id="sunday-crew" />);
+
+    await waitFor(() =>
+      expect(replace).toHaveBeenCalledWith({
+        pathname: '/sign-in',
+        params: { next: '/circles/sunday-crew/plan/setup' },
+      }),
+    );
+    expect(screen.queryByRole('button', { name: 'Ask the group' })).toBeNull();
   });
 
   it('shows the running plan on the first-run card too', async () => {

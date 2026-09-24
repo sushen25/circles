@@ -73,22 +73,30 @@ function LiveSetup({ id, startOn }: { id: string; startOn: 'form' | 'window' }) 
   const router = useRouter();
   const queryClient = useQueryClient();
   const session = useSession();
+  // Two questions, in this order. Any member may *see* the circle's plan, and
+  // a guest member who taps "Plan a catch-up" while one is running is owed
+  // that plan, not an account gate (review round 3): the circle is read as a
+  // member, and a saved place is required only once it says there is no plan
+  // and a form is what comes next (ADR 0004).
+  const member = guard({ route: 'guest', session, membership: 'member' });
   const decision = guard({ route: 'organiser', session, membership: 'member' });
-
-  const toSignIn = () =>
-    router.replace({ pathname: '/sign-in', params: { next: `/circles/${id}/plan/setup` } });
-  useEffect(() => {
-    if (decision.kind === 'needs_saved_place') toSignIn();
-    // `toSignIn` reads only `id` and the router.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [decision.kind, router, id]);
 
   const home = useQuery({
     queryKey: ['circle-home', id, session.userId],
     queryFn: () => circleHome(id),
-    enabled: decision.kind === 'allow',
+    enabled: member.kind === 'allow',
     staleTime: 0,
   });
+  const noPlanRunning =
+    home.data !== undefined && home.data !== null && home.data.activePlan === null;
+
+  const toSignIn = () =>
+    router.replace({ pathname: '/sign-in', params: { next: `/circles/${id}/plan/setup` } });
+  useEffect(() => {
+    if (decision.kind === 'needs_saved_place' && noPlanRunning) toSignIn();
+    // `toSignIn` reads only `id` and the router.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [decision.kind, noPlanRunning, router, id]);
   // The moment the screen was opened: the preview is of a plan made about now,
   // and reading the clock during a render would make it a different plan each
   // time React draws it.
@@ -102,7 +110,7 @@ function LiveSetup({ id, startOn }: { id: string; startOn: 'form' | 'window' }) 
       ? router.back()
       : router.replace({ pathname: '/circles/[id]', params: { id } });
 
-  if (decision.kind !== 'allow' || home.isPending) {
+  if (member.kind !== 'allow' || home.isPending) {
     return <PlanSetupScreen state="loading" onBack={back} />;
   }
   if (home.isError || home.data === null) {
@@ -119,6 +127,9 @@ function LiveSetup({ id, startOn }: { id: string; startOn: 'form' | 'window' }) 
   if (data.activePlan !== null) {
     return <PlanInProgress id={id} home={data} plan={data.activePlan} onBack={back} />;
   }
+  // No plan running, so a form is next, and a form needs a saved place: the
+  // effect above is sending them to sign in.
+  if (decision.kind !== 'allow') return <PlanSetupScreen state="loading" onBack={back} />;
 
   const context: FormContext = {
     zone: data.zone,

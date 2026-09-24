@@ -48,9 +48,13 @@ and teach every screen about them.
   how many have answered, and offers what the reader may do: **Edit the plan**
   to its organiser, **Cancel the plan** to the organiser or the circle's owner
   (spec §4.5), and **See how it's looking** to everyone; a member who is
-  neither is told who is organising it. Both actions are S1-26's screens. The
-  second "Ask the group" never happens silently; if two taps race, the loser
-  is told the same thing and the screen re-reads the circle.
+  neither is told who is organising it, and a quiet plan nobody has taken on
+  is said to have started quietly. A guest member sees it too: the circle is
+  read as a member, and a saved place is asked for only when there is no plan
+  and a form is next (ADR 0004 is about making a plan, not seeing one). Both
+  actions are S1-26's screens. The second "Ask the group" never happens
+  silently; if two taps race, the loser is told the same thing and the screen
+  re-reads the circle.
 - **A quiet ask follows the same rule.** `create_quiet` carries the guard, so
   a quiet ask cannot be started beside a plan already asking; `threshold_reached`
   carries it, so an ask at its threshold does not open beside one either — it
