@@ -6,7 +6,7 @@
 -- would all say yes.
 
 begin;
-select plan(90);
+select plan(93);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid
@@ -202,23 +202,17 @@ select is(
   'and nothing is left behind: the insert rolls back with the transition that refused it'
 );
 
-select pg_temp.act_as('10000000-0000-0000-0000-000000000001');
-create temporary table made as
-select * from public.create_plan(pg_temp.circle_id(), 'Catch up', 'catch_up',
-  date '2099-09-17', date '2099-09-20', 1050, 1350, 120, 2,
-  timestamptz '2099-09-16T10:00:00Z');
-
-select pg_temp.act_as_postgres();
-create or replace function pg_temp.plan_id() returns uuid
-language sql security definer as $$ select id from made $$;
-
-select is((select state from made), 'collecting', 'a new plan is collecting, not draft');
-
-select is(
-  (select quorum_source from made),
-  'chosen',
-  'a quorum the caller passed is the caller''s, and stays put (ADR 0026)'
-);
+-- One open plan per circle (spec §5.3, ADR 00XX). Each plan made below to
+-- prove one thing about creation has to be put away before the next is made,
+-- and it is put away the way an organiser would: through the machine, as its
+-- organiser. `made`, the plan the rest of this file acts on, is made last and
+-- stays.
+create or replace function pg_temp.set_aside() returns void
+language sql as $$
+  select planning.transition_plan(p.id, 'cancel', p.organiser_user_id)
+  from public.plans p
+  where p.circle_id = pg_temp.circle_id() and p.state in ('collecting', 'ready');
+$$;
 
 -- A plan made with no quorum at all: what first run sends. The number and the
 -- label are both worked out here, under the circle's lock, so a count read by a
@@ -236,9 +230,12 @@ select is(
   'defaulted',
   'a plan made with no quorum is one nobody chose'
 );
+
+select pg_temp.act_as_postgres();
+select pg_temp.set_aside();
+
 -- A circle that has chosen a default has chosen for its plans too, however the
 -- function is called (review round 6).
-select pg_temp.act_as_postgres();
 update public.circles set default_quorum = 5 where id = pg_temp.circle_id();
 
 select pg_temp.act_as('10000000-0000-0000-0000-000000000001');
@@ -268,31 +265,9 @@ select is(
   )),
   'and its number is the database''s own rule over the members there are'
 );
-select is((select revision from made), 1, 'at revision one');
-select is((select organiser_user_id from made), '10000000-0000-0000-0000-000000000001'::uuid,
-  'organised by whoever made it');
-select is((select time_zone from made), 'Australia/Melbourne', 'in the circle''s zone, not the caller''s');
-select matches((select short_code from made), '^[a-hjkmnp-z2-9]{6,12}$',
-  'with a short code a person can read out — no o, l, i, 0 or 1');
 
-select is(
-  (select count(*)::integer from public.plan_participants pp where pp.plan_id = pg_temp.plan_id()),
-  4,
-  'addressed to every active member, which is a fact recorded rather than derived'
-);
-
-select is(
-  (select array_agg(user_id) from public.plan_required_members rm where rm.plan_id = pg_temp.plan_id()),
-  array['10000000-0000-0000-0000-000000000001'::uuid],
-  'and the organiser is required by default (spec §5.3)'
-);
-
-select is(
-  (select count(*)::integer from jobs.outbox o
-   where o.aggregate_id = pg_temp.plan_id() and o.event_name = 'planning.plan_created'),
-  1,
-  'announced once, by the transition rather than by the function'
-);
+select pg_temp.act_as_postgres();
+select pg_temp.set_aside();
 
 -- An explicit list replaces the default rather than adding to it.
 select pg_temp.act_as('10000000-0000-0000-0000-000000000001');
@@ -311,6 +286,9 @@ select bag_eq(
   'an explicit list is the list — an organiser who names three has said something about themselves too'
 );
 
+select pg_temp.act_as_postgres();
+select pg_temp.set_aside();
+
 -- An empty array is a different answer from no answer.
 select pg_temp.act_as('10000000-0000-0000-0000-000000000001');
 create temporary table nobody_plan as
@@ -325,6 +303,9 @@ select is(
   0,
   'an empty list means nobody is required, which is not the same as saying nothing'
 );
+
+select pg_temp.act_as_postgres();
+select pg_temp.set_aside();
 
 -- A name that is not in the circle cannot be required into it — and round seven
 -- changed what "cannot" does. Dropping the name and creating the plan anyway
@@ -353,6 +334,9 @@ select lives_ok(
   'a list naming somebody twice is a list naming them'
 );
 
+select pg_temp.act_as_postgres();
+select pg_temp.set_aside();
+
 -- An archived circle stops all prompts (spec §5.2), and a new plan is the loudest.
 update public.circles set status = 'archived' where id = pg_temp.circle_id();
 select pg_temp.act_as('10000000-0000-0000-0000-000000000001');
@@ -365,6 +349,97 @@ select throws_ok(
 );
 select pg_temp.act_as_postgres();
 update public.circles set status = 'active' where id = pg_temp.circle_id();
+
+-- The plan the rest of this file acts on, made once the circle is free.
+select pg_temp.act_as('10000000-0000-0000-0000-000000000001');
+create temporary table made as
+select * from public.create_plan(pg_temp.circle_id(), 'Catch up', 'catch_up',
+  date '2099-09-17', date '2099-09-20', 1050, 1350, 120, 2,
+  timestamptz '2099-09-16T10:00:00Z');
+
+select pg_temp.act_as_postgres();
+create or replace function pg_temp.plan_id() returns uuid
+language sql security definer as $$ select id from made $$;
+
+select is((select state from made), 'collecting', 'a new plan is collecting, not draft');
+
+select is(
+  (select quorum_source from made),
+  'chosen',
+  'a quorum the caller passed is the caller''s, and stays put (ADR 0026)'
+);
+
+select is((select revision from made), 1, 'at revision one');
+select is((select organiser_user_id from made), '10000000-0000-0000-0000-000000000001'::uuid,
+  'organised by whoever made it');
+select is((select time_zone from made), 'Australia/Melbourne', 'in the circle''s zone, not the caller''s');
+select matches((select short_code from made), '^[a-hjkmnp-z2-9]{6,12}$',
+  'with a short code a person can read out — no o, l, i, 0 or 1');
+
+select is(
+  (select count(*)::integer from public.plan_participants pp where pp.plan_id = pg_temp.plan_id()),
+  4,
+  'addressed to every active member, which is a fact recorded rather than derived'
+);
+
+select is(
+  (select array_agg(user_id) from public.plan_required_members rm where rm.plan_id = pg_temp.plan_id()),
+  array['10000000-0000-0000-0000-000000000001'::uuid],
+  'and the organiser is required by default (spec §5.3)'
+);
+
+select is(
+  (select count(*)::integer from jobs.outbox o
+   where o.aggregate_id = pg_temp.plan_id() and o.event_name = 'planning.plan_created'),
+  1,
+  'announced once, by the transition rather than by the function'
+);
+
+-- ---------------------------------------------------------------------------
+-- One open plan per circle (spec §5.3, ADR 00XX). Found reviewing S1-26: with
+-- a plan already finding a time, "Ask the group" made a second, circle home
+-- showed the newest, and the first kept running — its link taking answers,
+-- its emails sending — with no screen that showed it. The guard is the state
+-- machine's (`no_open_plan` on both creation rows), reached through
+-- `create_plan` like every other guard, under the circle's lock.
+-- ---------------------------------------------------------------------------
+select pg_temp.act_as('10000000-0000-0000-0000-000000000001');
+select throws_ok(
+  $$ select public.create_plan(pg_temp.circle_id(), 'Another', 'dinner',
+       date '2099-10-01', date '2099-10-05', 1050, 1350, 120, 2,
+       timestamptz '2099-09-30T10:00:00Z') $$,
+  'plan_in_progress',
+  'a second plan beside one still collecting or ready is refused by name'
+);
+
+select pg_temp.act_as_postgres();
+select is(
+  (select count(*)::integer from public.plans p
+   where p.circle_id = pg_temp.circle_id() and p.state in ('collecting', 'ready')),
+  1,
+  'and nothing is left behind: the draft rolls back with the transition that refused it'
+);
+
+-- A quiet ask is the same question asked quietly, and waits for the same
+-- reason. Inserted around `create_plan`, as the seed inserts one (S2-02 will
+-- have a function of its own); the guard is on the transition, not the caller.
+insert into public.plans (
+  id, circle_id, mode, state, organiser_user_id, title, time_zone,
+  window_start, window_end, daily_start_local, daily_end_local,
+  duration_minutes, quorum, response_deadline, short_code, quiet_threshold
+) values (
+  '10000000-0000-0000-0000-0000000000aa', pg_temp.circle_id(), 'quiet', 'draft', null,
+  'Drinks', 'Australia/Melbourne', date '2099-10-01', date '2099-10-05', 1050, 1350,
+  120, 3, timestamptz '2099-09-30T10:00:00Z', 'qtdrft2x', 3
+);
+select throws_ok(
+  $$ select planning.transition_plan('10000000-0000-0000-0000-0000000000aa', 'create_quiet',
+       '10000000-0000-0000-0000-000000000001') $$,
+  'plan_in_progress',
+  'a quiet ask cannot be started beside a plan already finding a time either'
+);
+delete from public.plans where id = '10000000-0000-0000-0000-0000000000aa';
+
 
 -- ---------------------------------------------------------------------------
 -- reask_audience — the question a client cannot ask itself
@@ -524,6 +599,9 @@ select throws_ok(
 
 -- ---------------------------------------------------------------------------
 -- Round 1: a revision is a new question asked of the same people.
+--
+-- (`made` was called off above, which is what lets `create_plan` make this one:
+-- one open plan per circle, ADR 00XX. A cancelled plan frees the circle.)
 --
 -- Nothing carried the audience across, so an edited plan arrived at revision 2
 -- addressed to nobody — `replace_response` refuses a member who is not a
@@ -859,6 +937,10 @@ select is(
 select pg_temp.make_user('10000000-0000-0000-0000-00000000002a', 'Departed');
 insert into public.circle_members (circle_id, user_id, display_name_snapshot)
 values (pg_temp.circle_id(), '10000000-0000-0000-0000-00000000002a', 'Departed');
+
+-- `edited` is still asking, and a circle asks one question at a time (ADR 00XX).
+select pg_temp.act_as_postgres();
+select pg_temp.set_aside();
 
 select pg_temp.act_as('10000000-0000-0000-0000-00000000002a');
 create temporary table their_plan as

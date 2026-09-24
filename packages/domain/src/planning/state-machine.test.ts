@@ -168,6 +168,7 @@ describe('every row is reachable and every non-row is refused', () => {
         candidateId: 'cand-1',
         eligibleCandidateIds: ['cand-1'],
         keenCount: 99,
+        circleHasOpenPlan: false,
       });
 
       expect(isOk(result), `${from} + ${action} was refused`).toBe(true);
@@ -199,6 +200,65 @@ describe('every row is reachable and every non-row is refused', () => {
     if (isErr(result)) {
       expect(result.error.code).toBe(isTerminal(state) ? 'plan_is_finished' : 'wrong_state');
     }
+  });
+});
+
+describe('one open plan per circle (ADR 00XX)', () => {
+  const draft = plan({ state: 'draft' });
+  const quietDraft = plan({ state: 'draft', mode: 'quiet', organiserUserId: undefined });
+
+  it('refuses a named plan while the circle has one collecting or ready', () => {
+    const result = canTransition(draft, 'create_named', {
+      actor: ORGANISER,
+      circleHasOpenPlan: true,
+    });
+    expect(isErr(result)).toBe(true);
+    if (isErr(result)) expect(result.error.code).toBe('plan_in_progress');
+  });
+
+  it('refuses a quiet ask for the same reason — it is the same question, asked quietly', () => {
+    const result = canTransition(quietDraft, 'create_quiet', {
+      actor: ORGANISER,
+      circleHasOpenPlan: true,
+    });
+    expect(isErr(result)).toBe(true);
+    if (isErr(result)) expect(result.error.code).toBe('plan_in_progress');
+  });
+
+  it('lets either through once the circle is free', () => {
+    expect(
+      isOk(canTransition(draft, 'create_named', { actor: ORGANISER, circleHasOpenPlan: false })),
+    ).toBe(true);
+    expect(
+      isOk(
+        canTransition(quietDraft, 'create_quiet', { actor: ORGANISER, circleHasOpenPlan: false }),
+      ),
+    ).toBe(true);
+  });
+
+  it('fails closed when the caller did not say', () => {
+    const result = canTransition(draft, 'create_named', { actor: ORGANISER });
+    expect(isErr(result)).toBe(true);
+    if (isErr(result)) expect(result.error.code).toBe('plan_in_progress');
+  });
+
+  it('is a rule about creation only: an open plan does not stop the other transitions', () => {
+    // A ready plan going back to collecting, or a confirmed one reopening, is
+    // the one open plan changing — not a second one.
+    for (const [state, action] of [
+      ['ready', 'candidates_gone'],
+      ['confirmed', 'reopen'],
+      ['collecting', 'edit'],
+    ] as const) {
+      const result = canTransition(plan({ state }), action, { actor: ORGANISER });
+      expect(isOk(result), `${state} + ${action}`).toBe(true);
+    }
+  });
+
+  it('is checked after who is asking, so a guest hears about their place first', () => {
+    const result = canTransition(draft, 'create_named', { actor: GUEST, circleHasOpenPlan: true });
+    expect(isErr(result)).toBe(true);
+    if (isErr(result)) expect(result.error.code).toBe('needs_permanent_identity');
   });
 });
 

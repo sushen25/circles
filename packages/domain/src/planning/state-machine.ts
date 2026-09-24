@@ -55,6 +55,7 @@ export type TransitionErrorCode =
   | 'already_has_organiser'
   | 'needs_candidate'
   | 'threshold_not_reached'
+  | 'plan_in_progress'
   | 'plan_is_finished';
 
 /**
@@ -97,6 +98,15 @@ export type TransitionContext = {
    * Absent means "unknown", and unknown fails closed.
    */
   readonly keenCount?: number | undefined;
+  /**
+   * Required by `create_named` and `create_quiet`: whether the circle already
+   * has a plan that is `collecting` or `ready`. A circle has one open plan at a
+   * time (spec §5.3, ADR 00XX): while one is finding a time, "Plan a catch-up"
+   * shows that plan and offers Edit and Cancel rather than a second form.
+   * Resolved by the caller under the circle's lock, as the count for
+   * `threshold_reached` is. Absent means "unknown", and unknown fails closed.
+   */
+  readonly circleHasOpenPlan?: boolean | undefined;
 };
 
 type Guard =
@@ -108,7 +118,8 @@ type Guard =
   | 'candidate'
   | 'initiator'
   | 'keen_initiator_or_owner'
-  | 'threshold';
+  | 'threshold'
+  | 'no_open_plan';
 
 export type Transition = {
   readonly from: PlanState;
@@ -126,9 +137,23 @@ export type Transition = {
  */
 export const TRANSITIONS: readonly Transition[] = [
   // Creation. A permanent identity is required to start something that other
-  // people will be asked to answer (ADR 0004).
-  { from: 'draft', action: 'create_named', to: 'collecting', guards: ['member', 'permanent'] },
-  { from: 'draft', action: 'create_quiet', to: 'seeking', guards: ['member', 'permanent'] },
+  // people will be asked to answer (ADR 0004), and a circle asks one question
+  // at a time (ADR 00XX): a second plan raised while one was still finding a
+  // time left the first running — its link taking answers, its emails
+  // sending — with no screen that showed it. A quiet ask is the same question
+  // asked quietly, so it waits for the same reason.
+  {
+    from: 'draft',
+    action: 'create_named',
+    to: 'collecting',
+    guards: ['member', 'permanent', 'no_open_plan'],
+  },
+  {
+    from: 'draft',
+    action: 'create_quiet',
+    to: 'seeking',
+    guards: ['member', 'permanent', 'no_open_plan'],
+  },
 
   // Quiet ask. The threshold transition is atomic and happens once (§6.2);
   // enforcing "once" is the row lock's job. Enforcing *the threshold itself* is
@@ -241,6 +266,7 @@ const GUARD_ERRORS: Record<Guard, TransitionErrorCode> = {
   initiator: 'not_the_initiator',
   keen_initiator_or_owner: 'not_keen_initiator_or_owner',
   threshold: 'threshold_not_reached',
+  no_open_plan: 'plan_in_progress',
 };
 
 function fails(guard: Guard, context: TransitionContext): boolean {
@@ -268,6 +294,10 @@ function fails(guard: Guard, context: TransitionContext): boolean {
     case 'no_organiser_yet':
     case 'threshold':
       return false; // both depend on the plan, checked in canTransition
+    case 'no_open_plan':
+      // Fails closed when the caller did not say: a plan made beside one
+      // already asking is the outcome this guard exists to stop.
+      return context.circleHasOpenPlan !== false;
     case 'initiator':
       return actor.isInitiator !== true;
     case 'keen_initiator_or_owner':

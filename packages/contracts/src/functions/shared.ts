@@ -107,6 +107,12 @@ export const ProblemReason = z.enum([
   'circle_not_found',
   /** An archived circle stops all prompts (spec §5.2), and a new plan is the loudest. */
   'circle_archived',
+  /**
+   * `create-plan`: the circle already has a plan `collecting` or `ready` — one
+   * open plan per circle (spec §5.3, ADR 00XX). The screen for it shows that
+   * plan with Edit and Cancel; this reason is for the tap that raced it.
+   */
+  'plan_in_progress',
 
   // What the domain says about a window it cannot resolve. Each is a screen:
   // "too late for tonight" offers tomorrow, "window has passed" re-opens the

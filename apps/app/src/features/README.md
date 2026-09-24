@@ -248,7 +248,11 @@ to the setup (S1-26) and the fixture quiet-ask screens (S2-02).
 (`planDetails` under RLS; `createPlan`, `previewRevision` / `saveRevision`
 and `cancelPlan` through the Edge Functions).
 
-- `/circles/[id]/plan/setup` (`PlanSetupFlow`) — every control on one form
+- `/circles/[id]/plan/setup` (`PlanSetupFlow`) — every control on one form,
+  unless the circle already has a plan finding a time: then it is that plan
+  with **Edit the plan** and **Cancel the plan** (`PlanInProgressScreen`), one
+  open plan per circle (ADR 00XX), and `create-plan` refuses a second with
+  `plan_in_progress` if two taps race. The form
   (`usePlanForm`, `PlanControls`): intent, the five presets (tonight hidden when
   the meetup no longer fits), times of day (`BandPicker`: evenings, daytime, or
   any half-hour band), duration, the quorum stepper, who has to be there, and

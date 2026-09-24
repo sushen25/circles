@@ -15,6 +15,7 @@ import { isOffline } from '../identity/join/failure';
 import { CustomWindowScreen } from './CustomWindowScreen';
 import { FIXTURE_NOW, sundayCrew } from './fixtures';
 import { defaultDraft, resolveDraft, WINDOW_EVENT, type PlanDraft } from './form';
+import { PlanInProgressScreen } from './PlanInProgressScreen';
 import { PlanSetupScreen } from './PlanSetupScreen';
 import { refusalOf, type Refused } from './problems';
 import { DeadlineSheet, RequiredSheet } from './sheets';
@@ -25,6 +26,12 @@ import { categoryLabel } from './words';
 /**
  * `/circles/:id/plan/setup` — a plan with everything open to change (spec
  * §5.3). FirstPlan's "Change" and circle home's "Plan a catch-up" come here.
+ *
+ * One open plan per circle (ADR 00XX): when the circle read here already has
+ * a plan finding a time, the screen is that plan with Edit and Cancel rather
+ * than a form, so the second "Ask the group" is never offered — and if two
+ * taps race, `create-plan` refuses the loser with `plan_in_progress` and the
+ * circle is read again, which draws the same screen.
  *
  * Organising needs a saved place and membership (`RouteKind` `organiser`); the
  * route's gate has established membership, and a guest member is sent to save
@@ -109,6 +116,33 @@ function LiveSetup({ id, startOn }: { id: string; startOn: 'form' | 'window' }) 
   }
 
   const data = home.data;
+  if (data.activePlan !== null) {
+    const plan = data.activePlan;
+    return (
+      <PlanInProgressScreen
+        circleName={data.name}
+        planTitle={plan.title}
+        closes={t('circleHome', 'replies_close', {
+          deadline: whenWords(plan.responseDeadline, data.zone),
+        })}
+        replied={t('circleHome', 'replied', { count: plan.replied, total: plan.asked })}
+        onEdit={() =>
+          router.push({
+            pathname: '/circles/[id]/plan/[planId]/edit',
+            params: { id, planId: plan.id },
+          })
+        }
+        onCancel={() =>
+          router.push({
+            pathname: '/circles/[id]/plan/[planId]/cancel',
+            params: { id, planId: plan.id },
+          })
+        }
+        onBack={back}
+      />
+    );
+  }
+
   const context: FormContext = {
     zone: data.zone,
     people: data.members.map((m) => ({ id: m.userId, name: m.name })),
@@ -121,6 +155,7 @@ function LiveSetup({ id, startOn }: { id: string; startOn: 'form' | 'window' }) 
   return (
     <SetupForm
       context={context}
+      circleName={data.name}
       circleDuration={data.defaultDurationMinutes}
       now={openedAt}
       startOn={startOn}
@@ -158,6 +193,9 @@ function LiveSetup({ id, startOn }: { id: string; startOn: 'form' | 'window' }) 
       }}
       onRefused={(refused) => {
         if (refused.needsSavedPlace) toSignIn();
+        // Somebody's plan got there first — another tab, or another member.
+        // The circle read again is the screen that shows it.
+        if (refused.inProgress) void home.refetch();
         // A settled refusal is an answer, and the next tap a new request. A
         // dropped response may have made the plan: keep the key, so a retry
         // gets that plan back rather than making a second.
@@ -188,6 +226,7 @@ const TICK_MS = 60_000;
 
 function SetupForm({
   context,
+  circleName,
   circleDuration,
   now,
   freshNow,
@@ -197,6 +236,8 @@ function SetupForm({
   onBack,
 }: {
   context: FormContext;
+  /** For the refusal that names the circle. Absent on fixtures. */
+  circleName?: string | undefined;
   circleDuration: number;
   now: number;
   /**
@@ -263,7 +304,7 @@ function SetupForm({
     try {
       await onAsk(form.draft, form.touched);
     } catch (error) {
-      const answer = refusalOf(error);
+      const answer = refusalOf(error, { circleName });
       setRefused(answer);
       onRefused?.(answer);
       setBusy(false);

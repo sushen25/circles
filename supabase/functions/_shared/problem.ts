@@ -72,6 +72,7 @@ const REASONS: Record<ProblemReason, { status: number; error: Problem['error'] }
   plan_not_found: { status: 404, error: 'not_found' },
   circle_not_found: { status: 404, error: 'not_found' },
   circle_archived: { status: 409, error: 'conflict' },
+  plan_in_progress: { status: 409, error: 'conflict' },
   too_late_for_tonight: { status: 400, error: 'invalid_request' },
   window_too_long: { status: 400, error: 'invalid_request' },
   window_backwards: { status: 400, error: 'invalid_request' },

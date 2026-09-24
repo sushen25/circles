@@ -82,6 +82,17 @@ const HOME = {
   defaultQuorum: null,
   me: 'maya',
   members: fixture.sundayCrew.people.map((p) => ({ userId: p.id, name: p.name })),
+  activePlan: null,
+};
+
+/** The plan already finding a time, as circle home reads it. */
+const RUNNING = {
+  id: 'thu-17',
+  code: 'pnsundaycr',
+  title: 'Catch up',
+  responseDeadline: '2026-09-15T08:00:00.000Z',
+  replied: 5,
+  asked: 6,
 };
 
 beforeEach(() => {
@@ -95,6 +106,51 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks());
 
 describe('plan setup', () => {
+  it('shows the plan already finding a time, with Edit and Cancel, and no form (ADR 00XX)', async () => {
+    circleHome.mockResolvedValue({ ...HOME, activePlan: RUNNING });
+    show(<PlanSetupFlow id="sunday-crew" />);
+
+    expect(await screen.findByText('Sunday Crew is already finding a time')).toBeTruthy();
+    expect(screen.getByText('Catch up')).toBeTruthy();
+    expect(screen.getByText('5 of 6 replied')).toBeTruthy();
+    expect(screen.getByText(/^Replies close /)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Ask the group' })).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit the plan' }));
+    expect(push).toHaveBeenCalledWith({
+      pathname: '/circles/[id]/plan/[planId]/edit',
+      params: { id: 'sunday-crew', planId: 'thu-17' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel the plan' }));
+    expect(push).toHaveBeenCalledWith({
+      pathname: '/circles/[id]/plan/[planId]/cancel',
+      params: { id: 'sunday-crew', planId: 'thu-17' },
+    });
+    expect(createPlan).not.toHaveBeenCalled();
+  });
+
+  it('when a second tap loses the race, says so and reads the circle again', async () => {
+    circleHome.mockResolvedValueOnce(HOME).mockResolvedValue({ ...HOME, activePlan: RUNNING });
+    createPlan.mockRejectedValueOnce(
+      new FunctionError(
+        {
+          error: 'conflict',
+          reason: 'plan_in_progress',
+          message: 'already',
+          request_id: 'r',
+        } as never,
+        'already',
+      ),
+    );
+    show(<PlanSetupFlow id="sunday-crew" />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Ask the group' }));
+
+    // The circle is read again, and what it now says is drawn.
+    expect(await screen.findByText('Sunday Crew is already finding a time')).toBeTruthy();
+    expect(circleHome).toHaveBeenCalledTimes(2);
+    expect(screen.queryByRole('button', { name: 'Ask the group' })).toBeNull();
+  });
+
   it('sends only what the organiser left alone as nothing, so the server resolves it', async () => {
     show(<PlanSetupFlow id="sunday-crew" />);
     expect(await screen.findByText('Replies close in 3 days')).toBeTruthy();

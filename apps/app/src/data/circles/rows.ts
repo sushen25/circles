@@ -51,9 +51,15 @@ export async function plansFor(client: Client, circleIds: readonly string[]): Pr
 }
 
 /**
- * The plan finding a time in a circle: the newest in an answerable state. A
+ * The plan finding a time in a circle: the one in an answerable state. A
  * plan past its deadline is still finding a time until the organiser decides
  * (spec §8); the deadline is the server's to judge.
+ *
+ * One, because a circle has at most one plan `collecting` or `ready` (spec
+ * §5.3, ADR 00XX): `create_plan` refuses a second while it runs, and plan
+ * setup shows this plan with Edit and Cancel instead of a form. "Newest first"
+ * is the read's order and no longer a choice between two — before the rule, a
+ * second plan dropped the first out of view here while it kept running.
  */
 export function findingPlanOf(plans: readonly PlanRow[], circleId: string): PlanRow | undefined {
   return plans.find(
