@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type * as Availability from '../../data/availability';
-import type * as Circles from '../../data/circles';
+import type * as CircleData from '../../data/circles';
 import type * as Planning from '../../data/planning';
 import * as fixture from './fixtures';
 
@@ -36,7 +36,7 @@ vi.mock('../../platform/share', () => ({
 
 const circleHome = vi.fn();
 vi.mock('../../data/circles', async (original) => ({
-  ...(await original<typeof Circles>()),
+  ...(await original<typeof CircleData>()),
   circleHome: (...a: unknown[]) => circleHome(...a),
 }));
 const planDetails = vi.fn();
