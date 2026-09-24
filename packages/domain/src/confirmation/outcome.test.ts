@@ -15,7 +15,7 @@ import {
   reportOutcome,
   statusAfter,
 } from './outcome.js';
-import type { Attendance, Outcome, OutcomeReport } from './types.js';
+import type { Attendance, OutcomeReport } from './types.js';
 import { NOTE_MAX_LENGTH, OUTCOMES, confirmationId } from './types.js';
 
 const ORGANISER: Actor = {
