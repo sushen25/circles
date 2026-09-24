@@ -37,12 +37,17 @@
 -- plan a circle keeps, and nothing here cancels a plan without a person
 -- deciding to.
 --
--- The check and the reseed are one transaction, and plan writers are held out
--- of it: the table lock below conflicts with the row-exclusive lock every
--- insert and update on `plans` takes — `create_plan`'s insert, every
--- `transition_plan` — and holds until commit, while reads go on. Without it, a
--- plan made between the count and the new rows would have read the old
--- transition and landed after the check had passed (review round 2).
+-- The check, the reseed and the functions are one transaction — said out
+-- loud, because the CLI applies a migration statement by statement and not
+-- inside one (a bare `lock table` fails with "can only be used in transaction
+-- blocks", which is how this was learned) — and plan writers are held out of
+-- it: the table lock conflicts with the row-exclusive lock every insert and
+-- update on `plans` takes — `create_plan`'s insert, every `transition_plan` —
+-- and holds until the commit at the end of the file, while reads go on.
+-- Without both, a plan made between the count and the new rows would have
+-- read the old transition and landed after the check had passed (review
+-- round 2), and a failure halfway would have left the table reseeded and the
+-- functions old.
 --
 -- The state machine is reseeded whole, as 0011 and 0019 were: it is a mirror
 -- of `packages/domain/src/planning/state-machine.ts`, and a mirror with one
@@ -53,6 +58,8 @@
 -- What changed in the table: `no_open_plan` on `create_named`, `create_quiet`,
 -- `threshold_reached` and `reopen`. Nothing else moves.
 -- ---------------------------------------------------------------------------
+begin;
+
 lock table public.plans in share row exclusive mode;
 
 do $$
@@ -676,3 +683,5 @@ revoke all on function public.create_plan(uuid, text, text, date, date, integer,
 grant execute on function public.create_plan(uuid, text, text, date, date, integer, integer, integer, integer, timestamptz, uuid[]) to authenticated;
 
 -- END GENERATED: function definitions
+
+commit;
