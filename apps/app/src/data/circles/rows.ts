@@ -60,7 +60,7 @@ export async function plansFor(client: Client, circleIds: readonly string[]): Pr
  * (spec §8); the deadline is the server's to judge.
  *
  * One, because a circle has at most one plan `collecting` or `ready` (spec
- * §5.3, ADR 00XX): `create_plan` refuses a second while it runs, and plan
+ * §5.3, ADR 0033): `create_plan` refuses a second while it runs, and plan
  * setup shows this plan with Edit and Cancel instead of a form. "Newest first"
  * is the read's order and no longer a choice between two — before the rule, a
  * second plan dropped the first out of view here while it kept running.

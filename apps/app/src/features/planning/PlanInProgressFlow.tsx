@@ -6,7 +6,7 @@ import { PlanInProgressScreen } from './PlanInProgressScreen';
 import { whenWords } from './when';
 
 /**
- * The circle already has a plan finding a time (spec §5.3, ADR 00XX). Both
+ * The circle already has a plan finding a time (spec §5.3, ADR 0033). Both
  * ways into making a plan — FirstPlan's one-tap card and the full setup —
  * read circle home first, and both draw this instead of a form when it says
  * so: the plan, and what the reader may do about it.

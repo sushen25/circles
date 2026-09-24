@@ -15,7 +15,7 @@ import { t } from '../../copy';
 
 /**
  * PlanSetup, when the circle already has a plan finding a time (spec §5.3,
- * ADR 00XX). One open plan per circle: rather than a form whose "Ask the
+ * ADR 0033). One open plan per circle: rather than a form whose "Ask the
  * group" the server would refuse, the screen names the plan that is running —
  * its title, when its replies close, how many have answered — and offers the
  * two things an organiser can do about it, both S1-26's screens.

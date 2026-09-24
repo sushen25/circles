@@ -114,7 +114,7 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks());
 
 describe('plan setup', () => {
-  it('shows the plan already finding a time, with Edit and Cancel, and no form (ADR 00XX)', async () => {
+  it('shows the plan already finding a time, with Edit and Cancel, and no form (ADR 0033)', async () => {
     circleHome.mockResolvedValue({ ...HOME, activePlan: RUNNING });
     show(<PlanSetupFlow id="sunday-crew" />);
 

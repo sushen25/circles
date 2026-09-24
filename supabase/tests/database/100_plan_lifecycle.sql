@@ -202,7 +202,7 @@ select is(
   'and nothing is left behind: the insert rolls back with the transition that refused it'
 );
 
--- One open plan per circle (spec §5.3, ADR 00XX). Each plan made below to
+-- One open plan per circle (spec §5.3, ADR 0033). Each plan made below to
 -- prove one thing about creation has to be put away before the next is made,
 -- and it is put away the way an organiser would: through the machine, as its
 -- organiser. `made`, the plan the rest of this file acts on, is made last and
@@ -396,7 +396,7 @@ select is(
 );
 
 -- ---------------------------------------------------------------------------
--- One open plan per circle (spec §5.3, ADR 00XX). Found reviewing S1-26: with
+-- One open plan per circle (spec §5.3, ADR 0033). Found reviewing S1-26: with
 -- a plan already finding a time, "Ask the group" made a second, circle home
 -- showed the newest, and the first kept running — its link taking answers,
 -- its emails sending — with no screen that showed it. The guard is the state
@@ -601,7 +601,7 @@ select throws_ok(
 -- Round 1: a revision is a new question asked of the same people.
 --
 -- (`made` was called off above, which is what lets `create_plan` make this one:
--- one open plan per circle, ADR 00XX. A cancelled plan frees the circle.)
+-- one open plan per circle, ADR 0033. A cancelled plan frees the circle.)
 --
 -- Nothing carried the audience across, so an edited plan arrived at revision 2
 -- addressed to nobody — `replace_response` refuses a member who is not a
@@ -938,7 +938,7 @@ select pg_temp.make_user('10000000-0000-0000-0000-00000000002a', 'Departed');
 insert into public.circle_members (circle_id, user_id, display_name_snapshot)
 values (pg_temp.circle_id(), '10000000-0000-0000-0000-00000000002a', 'Departed');
 
--- `edited` is still asking, and a circle asks one question at a time (ADR 00XX).
+-- `edited` is still asking, and a circle asks one question at a time (ADR 0033).
 select pg_temp.act_as_postgres();
 select pg_temp.set_aside();
 

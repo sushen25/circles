@@ -26,7 +26,7 @@ export type Refused = {
   needsSavedPlace?: boolean | undefined;
   /**
    * `plan_in_progress`: the circle already has a plan finding a time (ADR
-   * 00XX). The setup flow reads the circle again and shows that plan instead.
+   * 0033). The setup flow reads the circle again and shows that plan instead.
    */
   inProgress?: boolean | undefined;
 };

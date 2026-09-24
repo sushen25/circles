@@ -135,7 +135,7 @@ begin
           raise exception 'threshold_not_reached' using errcode = 'P0001';
         end if;
       when 'no_open_plan' then
-        -- One open plan per circle (spec §5.3, ADR 00XX): a second plan raised
+        -- One open plan per circle (spec §5.3, ADR 0033): a second plan raised
         -- while one was `collecting` or `ready` left the first running — its
         -- link taking answers, its deadline closing, its emails sending — and
         -- circle home showing only the newest. On every row that enters

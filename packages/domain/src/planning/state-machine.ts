@@ -102,7 +102,7 @@ export type TransitionContext = {
    * Required by every move into `collecting` or `ready` from outside them —
    * `create_named`, `create_quiet`, `threshold_reached`, `reopen`: whether the
    * circle already has *another* plan that is `collecting` or `ready`. A circle
-   * has one open plan at a time (spec §5.3, ADR 00XX): while one is finding a
+   * has one open plan at a time (spec §5.3, ADR 0033): while one is finding a
    * time, "Plan a catch-up" shows that plan and offers Edit and Cancel rather
    * than a second form. Resolved by the caller under the circle's lock, as the
    * count for `threshold_reached` is. Absent means "unknown", and unknown
@@ -140,7 +140,7 @@ export type Transition = {
 export const TRANSITIONS: readonly Transition[] = [
   // Creation. A permanent identity is required to start something that other
   // people will be asked to answer (ADR 0004), and a circle asks one question
-  // at a time (ADR 00XX): a second plan raised while one was still finding a
+  // at a time (ADR 0033): a second plan raised while one was still finding a
   // time left the first running — its link taking answers, its emails
   // sending — with no screen that showed it. A quiet ask is the same question
   // asked quietly, so it waits for the same reason. `no_open_plan` is on every

@@ -109,7 +109,7 @@ export const ProblemReason = z.enum([
   'circle_archived',
   /**
    * `create-plan`: the circle already has a plan `collecting` or `ready` — one
-   * open plan per circle (spec §5.3, ADR 00XX). The screen for it shows that
+   * open plan per circle (spec §5.3, ADR 0033). The screen for it shows that
    * plan with Edit and Cancel; this reason is for the tap that raced it.
    */
   'plan_in_progress',

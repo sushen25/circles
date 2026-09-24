@@ -170,7 +170,7 @@ begin
 
   -- And out of `draft` by the only route there is. The guards — an active
   -- member with a saved place, and no plan already `collecting` or `ready` in
-  -- this circle (`plan_in_progress`, ADR 00XX) — run here, so an anonymous
+  -- this circle (`plan_in_progress`, ADR 0033) — run here, so an anonymous
   -- caller's plan, or a second plan beside one still finding a time, is rolled
   -- back rather than left behind. The one-open-plan rule is the machine's and
   -- not repeated above: this function holds the circle's lock from the top, so

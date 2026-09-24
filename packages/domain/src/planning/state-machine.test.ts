@@ -209,7 +209,7 @@ describe('every row is reachable and every non-row is refused', () => {
   });
 });
 
-describe('one open plan per circle (ADR 00XX)', () => {
+describe('one open plan per circle (ADR 0033)', () => {
   const draft = plan({ state: 'draft' });
   const quietDraft = plan({ state: 'draft', mode: 'quiet', organiserUserId: undefined });
 

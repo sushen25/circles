@@ -851,7 +851,7 @@ describe('create-plan', () => {
   });
 
   it('passes on the database refusing a second plan beside one still asking', async () => {
-    // One open plan per circle (ADR 00XX). The guard is the state machine's,
+    // One open plan per circle (ADR 0033). The guard is the state machine's,
     // under the circle's lock, so this function does not ask first; what it
     // owes the client is the reason by name, and a 409 rather than a 500.
     const previous = state.answer;

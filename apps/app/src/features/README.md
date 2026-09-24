@@ -252,7 +252,7 @@ and `cancelPlan` through the Edge Functions).
   unless the circle already has a plan finding a time: then it is that plan
   (`PlanInProgress`, shared with `/plan/new`) with **Edit the plan** for its
   organiser, **Cancel the plan** for the organiser or the owner, and **See how
-  it's looking** for everyone — one open plan per circle (ADR 00XX) — and
+  it's looking** for everyone — one open plan per circle (ADR 0033) — and
   `create-plan` refuses a second with `plan_in_progress` if two taps race. The form
   (`usePlanForm`, `PlanControls`): intent, the five presets (tonight hidden when
   the meetup no longer fits), times of day (`BandPicker`: evenings, daytime, or

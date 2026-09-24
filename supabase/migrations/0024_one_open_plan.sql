@@ -1,5 +1,5 @@
 -- ---------------------------------------------------------------------------
--- 0024 — One open plan per circle (SUS-89, ADR 00XX).
+-- 0024 — One open plan per circle (SUS-89, ADR 0033).
 --
 -- Found by the founder reviewing S1-26, 24 September 2026: with a plan already
 -- finding a time, "Plan a catch-up" opened the setup form again and "Ask the
@@ -248,7 +248,7 @@ begin
           raise exception 'threshold_not_reached' using errcode = 'P0001';
         end if;
       when 'no_open_plan' then
-        -- One open plan per circle (spec §5.3, ADR 00XX): a second plan raised
+        -- One open plan per circle (spec §5.3, ADR 0033): a second plan raised
         -- while one was `collecting` or `ready` left the first running — its
         -- link taking answers, its deadline closing, its emails sending — and
         -- circle home showing only the newest. On every row that enters
@@ -665,7 +665,7 @@ begin
 
   -- And out of `draft` by the only route there is. The guards — an active
   -- member with a saved place, and no plan already `collecting` or `ready` in
-  -- this circle (`plan_in_progress`, ADR 00XX) — run here, so an anonymous
+  -- this circle (`plan_in_progress`, ADR 0033) — run here, so an anonymous
   -- caller's plan, or a second plan beside one still finding a time, is rolled
   -- back rather than left behind. The one-open-plan rule is the machine's and
   -- not repeated above: this function holds the circle's lock from the top, so

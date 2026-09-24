@@ -13,7 +13,7 @@ import {
 } from './stack';
 
 /**
- * One open plan per circle (SUS-89, spec §5.3, ADR 00XX): with a plan already
+ * One open plan per circle (SUS-89, spec §5.3, ADR 0033): with a plan already
  * finding a time, "Plan a catch-up" shows that plan with Edit and Cancel
  * instead of the setup form — from circle home, from the setup URL and from
  * the calendar URL — and the request the form would have sent is refused by

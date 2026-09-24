@@ -62,7 +62,7 @@ function LiveFirstPlan({ id }: { id: string }) {
   const queryClient = useQueryClient();
   const session = useSession();
   // As `PlanSetupFlow`: read the circle as a member first, and require a saved
-  // place only once it says there is no plan running (ADR 0004, ADR 00XX).
+  // place only once it says there is no plan running (ADR 0004, ADR 0033).
   const member = guard({ route: 'guest', session, membership: 'member' });
   const decision = guard({ route: 'organiser', session, membership: 'member' });
 
@@ -118,7 +118,7 @@ function LiveFirstPlan({ id }: { id: string }) {
   }
 
   const data = home.data;
-  // One open plan per circle (ADR 00XX): the first-run card is a way of
+  // One open plan per circle (ADR 0033): the first-run card is a way of
   // making a plan, and a circle already finding a time gets that plan instead.
   if (data.activePlan !== null) {
     return <PlanInProgress id={id} home={data} plan={data.activePlan} onBack={back} />;

@@ -76,7 +76,7 @@ select circle_id, '00000000-0000-0000-0000-0000000001a2', 'Priya' from t;
 /* A plan in `collecting`, owned by Maya. Inserted directly, because creating one
    is `create-plan`'s job (S1-15) and this ticket is the tables underneath it. */
 -- A circle of Maya's own, for a transition that has to *enter* `collecting`
--- while Sunday Crew is full of open plans: one open plan per circle (ADR 00XX)
+-- while Sunday Crew is full of open plans: one open plan per circle (ADR 0033)
 -- would refuse it there, and that refusal has its own tests below.
 create or replace function pg_temp.make_circle(key text)
 returns uuid
@@ -520,7 +520,7 @@ select is(
 );
 
 -- In a circle of its own: Sunday Crew has `plan_a` open, and a reopen enters
--- `collecting`, which one open plan per circle (ADR 00XX) refuses beside it.
+-- `collecting`, which one open plan per circle (ADR 0033) refuses beside it.
 select pg_temp.make_plan('pneeee', 'confirmed', 'named',
   '00000000-0000-0000-0000-0000000001a1', pg_temp.make_circle('key-reopen')) as plan_reopen \gset
 select is(
@@ -675,7 +675,7 @@ select is(
 );
 
 -- Enough people keen, but Sunday Crew already has `plan_a` finding a time: the
--- ask stays `seeking` rather than becoming a second open plan (ADR 00XX). What
+-- ask stays `seeking` rather than becoming a second open plan (ADR 0033). What
 -- the caller does with the refusal — wait, retry, expire — is S2-02's.
 select pg_temp.act_as_postgres();
 select pg_temp.make_plan('pnjjjj', 'seeking', 'quiet', null) as plan_blocked \gset
@@ -910,7 +910,7 @@ select ok(
 -- Last in the file: removing a member touches every open plan in the circle.
 -- ---------------------------------------------------------------------------
 -- In a circle of its own with the same two members, because the reopen at the
--- end enters `collecting` and Sunday Crew has plans open (ADR 00XX). Removing
+-- end enters `collecting` and Sunday Crew has plans open (ADR 0033). Removing
 -- Priya from *this* circle is what the test is about; she stays in Sunday Crew.
 select pg_temp.make_circle('key-left') as circle_left \gset
 insert into public.circle_members (circle_id, user_id, display_name_snapshot)

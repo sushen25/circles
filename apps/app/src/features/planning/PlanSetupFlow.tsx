@@ -27,7 +27,7 @@ import { categoryLabel } from './words';
  * `/circles/:id/plan/setup` — a plan with everything open to change (spec
  * §5.3). FirstPlan's "Change" and circle home's "Plan a catch-up" come here.
  *
- * One open plan per circle (ADR 00XX): when the circle read here already has
+ * One open plan per circle (ADR 0033): when the circle read here already has
  * a plan finding a time, the screen is that plan with Edit and Cancel rather
  * than a form, so the second "Ask the group" is never offered — and if two
  * taps race, `create-plan` refuses the loser with `plan_in_progress` and the

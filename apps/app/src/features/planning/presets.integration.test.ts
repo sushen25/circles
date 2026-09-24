@@ -18,7 +18,7 @@ import { defaultDraft, resolveDraft, PRESETS } from './form';
  * may differ by the seconds between the two calls and by nothing else — and a
  * preset one refuses, the other refuses for the same reason.
  *
- * One circle, one plan at a time (ADR 00XX): each preset's plan is called off
+ * One circle, one plan at a time (ADR 0033): each preset's plan is called off
  * before the next is made, through `cancel-plan`, which is also the real
  * path by which a cancelled plan frees the circle.
  *
