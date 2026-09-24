@@ -35,7 +35,7 @@
     "gen:functions": "node scripts/gen-sql-functions.mjs",
     "check:brand": "node scripts/check-brand.mjs",
     "check:tokens": "node --experimental-strip-types scripts/gen-tokens.ts --check",
-    "check:types": "supabase gen types typescript --local | diff -u packages/contracts/src/db.generated.ts - || (echo \"check:types: packages/contracts/src/db.generated.ts is stale \u2014 run pnpm gen:types\" >&2; exit 1)",
+    "check:types": "supabase gen types typescript --local | diff -u packages/contracts/src/db.generated.ts - || (echo \"check:types: packages/contracts/src/db.generated.ts is stale — run pnpm gen:types\" >&2; exit 1)",
     "check:imports": "node scripts/check-import-map.mjs",
     "check:transitions": "node scripts/gen-transitions.mjs --check",
     "check:events": "node scripts/gen-events.mjs --check",
@@ -45,6 +45,7 @@
     "check:client-env": "node scripts/check-client-env.mjs"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
     "@circles/config": "workspace:*",
     "@eslint/js": "^9.17.0",
     "@playwright/test": "^1.49.1",

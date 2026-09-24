@@ -244,6 +244,28 @@ export default tseslint.config(
     },
   },
   {
+    // The live suite's guard — no request may carry an invite secret, and no
+    // page is touched before it hydrates — lives in its own `test`
+    // (tests/e2e-live/fixtures.ts). A spec that imported Playwright's instead
+    // would run without it and pass (S1-31's acceptance criterion).
+    files: ['tests/e2e-live/**/*.ts'],
+    ignores: ['tests/e2e-live/fixtures.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@playwright/test',
+              importNames: ['test', 'expect'],
+              message: "Import test and expect from './fixtures', which carries the suite's guard.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     // Copy is the only place user-facing strings live, so it is the only place
     // the voice can be checked (design manifesto §4).
     files: ['apps/*/src/copy/**/*.ts'],

@@ -263,10 +263,10 @@ pnpm mail maya.local@example.com
 | `pnpm db:test` | yes | **Resets the database**, then pgTAP. |
 | `pnpm test:integration` | yes | The app's auth module against real Supabase Auth and Mailpit. |
 | `pnpm test:e2e:smoke` | no | Exports the web app **with no backend** and walks the fixture journey. |
-| `pnpm test:e2e:live` | yes | Exports the web app pointed at the local stack and walks the guest journeys in three user agents. |
+| `pnpm test:e2e:live` | yes | Exports the web app pointed at the local stack and walks the journeys in four browsers: mobile Safari and Messenger's iOS browser (WebKit), Chrome and WhatsApp's Android browser (Chromium). Needs `pnpm exec playwright install chromium webkit` once. |
 
 Run one file or one test with `pnpm exec vitest run <path>`, or
-`pnpm test:e2e:live -g "<part of a test name>"`. But `vitest run` does not
+`make test-live G="<part of a test name>" P=iphone-safari` (both optional). But `vitest run` does not
 typecheck, so the answer before a PR is `pnpm check`.
 
 The two e2e suites export different builds into the same `apps/app/dist` and
