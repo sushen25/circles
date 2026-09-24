@@ -1,6 +1,6 @@
 # ADR 0012: A circle holds up to twenty active members
 
-_Status: accepted · Date: 10 September 2026_
+_Status: accepted · Date: 10 September 2026 · its line on the quiet-ask threshold is corrected by [ADR 00XX](./00XX-the-quiet-ask-at-twenty-members.md)_
 
 ## Context
 
