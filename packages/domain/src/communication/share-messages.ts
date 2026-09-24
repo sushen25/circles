@@ -76,13 +76,24 @@ export type LockedInParts = {
 };
 
 export type ChangedParts = {
-  readonly weekday: string;
+  /**
+   * The day that is off, after "Change the time". Absent for an edit to a plan
+   * that was never locked in: the question changed, and there is no day to
+   * name.
+   */
+  readonly weekday?: string | undefined;
   readonly url: string;
 };
 
 export type CancelledParts = {
   readonly circleName: string;
-  readonly weekday: string;
+  /**
+   * The day that is off, when there was one. A plan cancelled while it was
+   * still asking was never on a day, so there is nothing to name: "Sunday
+   * Crew's catch-up is off", as the cancellation email says it, rather than a
+   * weekday somebody would have to invent.
+   */
+  readonly weekday?: string | undefined;
   readonly note?: string | undefined;
   readonly url: string;
 };
@@ -123,10 +134,14 @@ export const EN_SHARE_TEMPLATES: ShareTemplates = {
     `Locked in: ${circleName}, ${date}, ${time}${place === undefined ? '' : ` at ${place}`}. ` +
     `Details and add-to-calendar: ${url}`,
 
-  changed: ({ weekday, url }) => `Change of plan: ${weekday} is off. New times, please: ${url}`,
+  changed: ({ weekday, url }) =>
+    weekday === undefined
+      ? `Change of plan. New times, please: ${url}`
+      : `Change of plan: ${weekday} is off. New times, please: ${url}`,
 
   cancelled: ({ circleName, weekday, note, url }) =>
-    `Update: ${weekday}'s ${circleName} catch-up is off. ${note === undefined ? '' : `${note} `}${url}`,
+    `Update: ${weekday === undefined ? `${circleName}'s` : `${weekday}'s ${circleName}`} ` +
+    `catch-up is off. ${note === undefined ? '' : `${note} `}${url}`,
 };
 
 /** What every message needs: where to send people, and in whose words. */

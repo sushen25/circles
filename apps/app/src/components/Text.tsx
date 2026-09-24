@@ -35,6 +35,7 @@ const styles = StyleSheet.create({
   label: role('label'),
   numeric: { fontVariant: ['tabular-nums'] },
   inlineLink: { textDecorationLine: 'underline' },
+  struck: { textDecorationLine: 'line-through' },
 });
 
 export function DisplayXL({ style, ...props }: Props) {
@@ -88,6 +89,13 @@ export function Label({ style, ...props }: Props) {
 
 /** Times and counts, so digits do not shift as they change. */
 export const numeric = styles.numeric;
+
+/**
+ * A time that no longer stands — the Thursday a reopen took off the table.
+ * Never the only signal: the line above it says "Previously", because a
+ * strike-through is not read aloud.
+ */
+export const struck = styles.struck;
 
 /**
  * A link inside a sentence — the terms and privacy on Welcome. Underlined, in

@@ -204,11 +204,20 @@ function Confirmed({
           busy={own.busy}
           notice={own.problem}
           onAddToCalendar={calendar.show}
-          // "Change the time · Cancel this plan" stay off the screen until
-          // their screens do something: ChangeTime and CancelPlan are still
-          // fixtures whose buttons go nowhere, and a cancel that silently does
-          // nothing is worse than no cancel. SUS-42 (S1-26) builds them and
-          // passes these two.
+          // S1-26's screens, by the plan's own circle rather than a route
+          // segment: this flow is reached from `/p/:code` too.
+          onChangeTime={() =>
+            router.push({
+              pathname: '/circles/[id]/plan/[planId]/change-time',
+              params: { id: data.circleId, planId: data.planId },
+            })
+          }
+          onCancelPlan={() =>
+            router.push({
+              pathname: '/circles/[id]/plan/[planId]/cancel',
+              params: { id: data.circleId, planId: data.planId },
+            })
+          }
           onBack={toCircle}
         />
         {sheet}

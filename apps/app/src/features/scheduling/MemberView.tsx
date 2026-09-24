@@ -15,12 +15,14 @@ export function MemberView({
   data,
   header,
   onChangeMyTimes,
+  onCancelPlan,
   onRetry,
   onBack,
 }: {
   data: PlanCandidates;
   header: HeaderView;
   onChangeMyTimes?: (() => void) | undefined;
+  onCancelPlan?: (() => void) | undefined;
   onRetry?: (() => void) | undefined;
   onBack?: (() => void) | undefined;
 }) {
@@ -41,6 +43,7 @@ export function MemberView({
         // out before the newest answer, and a member has no other way to know.
         stale={data.stale}
         onChangeMyTimes={onChangeMyTimes}
+        onCancelPlan={onCancelPlan}
         onRetry={onRetry}
         onBack={onBack}
       />
@@ -63,6 +66,7 @@ export function MemberView({
       // never be said before it is true.
       stale={data.stale}
       onChangeMyTimes={onChangeMyTimes}
+      onCancelPlan={onCancelPlan}
       onRetry={onRetry}
       onBack={onBack}
     />

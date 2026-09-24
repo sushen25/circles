@@ -115,6 +115,17 @@ function LiveMember({ code }: { code: string }) {
           ? () => router.push({ pathname: '/j/[code]', params: { code } })
           : undefined
       }
+      // The owner may cancel any plan in the circle (spec §4.5); the organiser
+      // does it from their own screens, where this page sends them.
+      onCancelPlan={
+        data.isOwner
+          ? () =>
+              router.push({
+                pathname: '/circles/[id]/plan/[planId]/cancel',
+                params: { id: data.circleId, planId: data.planId },
+              })
+          : undefined
+      }
       onRetry={() => void query.refetch()}
       onBack={back}
     />

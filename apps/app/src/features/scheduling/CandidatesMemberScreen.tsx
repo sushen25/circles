@@ -1,4 +1,14 @@
-import { Body, BodyText, Button, DisplayL, Foot, Notice, Screen, TopBar } from '../../components';
+import {
+  Body,
+  BodyText,
+  Button,
+  DisplayL,
+  Foot,
+  Notice,
+  Screen,
+  Tertiary,
+  TopBar,
+} from '../../components';
 import { Stack } from '../../components/layout';
 import { t } from '../../copy';
 import { CandidateCard, CandidateHeader, Placeholder } from './parts';
@@ -34,6 +44,8 @@ export type CandidatesMemberProps = {
   /** What is on screen was worked out before the newest answer. */
   stale?: boolean | undefined;
   onChangeMyTimes?: (() => void) | undefined;
+  /** The circle's owner, who may cancel a plan they are not organising (spec §4.5, S1-26). */
+  onCancelPlan?: (() => void) | undefined;
   onRetry?: (() => void) | undefined;
   onBack?: (() => void) | undefined;
 };
@@ -46,6 +58,7 @@ export function CandidatesMemberScreen({
   cards = [],
   stale = false,
   onChangeMyTimes,
+  onCancelPlan,
   onRetry,
   onBack,
 }: CandidatesMemberProps) {
@@ -100,13 +113,18 @@ export function CandidatesMemberScreen({
           <CandidateCard key={card.id} card={card} highlighted={card.recommended} />
         ))}
       </Body>
-      {onChangeMyTimes === undefined ? null : (
+      {onChangeMyTimes === undefined && onCancelPlan === undefined ? null : (
         <Foot>
-          <Button
-            label={t('candidatesMember', 'change_my_times')}
-            variant="secondary"
-            onPress={onChangeMyTimes}
-          />
+          {onChangeMyTimes === undefined ? null : (
+            <Button
+              label={t('candidatesMember', 'change_my_times')}
+              variant="secondary"
+              onPress={onChangeMyTimes}
+            />
+          )}
+          {onCancelPlan === undefined ? null : (
+            <Tertiary label={t('confirmedOrg', 'cancel_this_plan')} onPress={onCancelPlan} />
+          )}
         </Foot>
       )}
     </Screen>

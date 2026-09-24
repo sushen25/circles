@@ -75,6 +75,12 @@ describe('changedMessage', () => {
       `Change of plan: Thursday is off. New times, please: ${LINK}`,
     );
   });
+
+  it('asks for new times after an edit, when there was no day to call off', () => {
+    expect(EN_SHARE_TEMPLATES.changed({ url: LINK })).toBe(
+      `Change of plan. New times, please: ${LINK}`,
+    );
+  });
 });
 
 describe('cancelledMessage', () => {
@@ -89,6 +95,13 @@ describe('cancelledMessage', () => {
     const text = cancelledMessage(input());
     expect(text).toBe(`Update: Thursday's Sunday Crew catch-up is off. ${LINK}`);
     expect(text).not.toContain('  ');
+  });
+
+  it('names no day for a plan that was never locked in', () => {
+    // Cancelled while it was still asking: there is no Thursday to call off.
+    expect(
+      EN_SHARE_TEMPLATES.cancelled({ circleName: 'Sunday Crew', note: 'Next month.', url: LINK }),
+    ).toBe(`Update: Sunday Crew's catch-up is off. Next month. ${LINK}`);
   });
 });
 
@@ -105,8 +118,8 @@ describe("the wording is the caller's", () => {
   it('takes a different set of templates without touching the assembly', () => {
     const templates = {
       ...EN_SHARE_TEMPLATES,
-      changed: ({ weekday, url }: { weekday: string; url: string }) =>
-        `${weekday} tombé à l'eau. Nouvelles disponibilités : ${url}`,
+      changed: ({ weekday, url }: { weekday?: string | undefined; url: string }) =>
+        `${weekday ?? 'Le plan'} tombé à l'eau. Nouvelles disponibilités : ${url}`,
     };
     expect(changedMessage({ ...input(), templates })).toBe(
       `Thursday tombé à l'eau. Nouvelles disponibilités : ${LINK}`,

@@ -29,6 +29,7 @@ export {
   Small,
   Title,
   numeric,
+  struck,
 } from './Text';
 export { Toggle } from './Toggle';
 export { Track } from './Track';

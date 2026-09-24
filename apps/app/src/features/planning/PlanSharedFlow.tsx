@@ -19,9 +19,10 @@ import { t } from '../../copy';
 import { useSession } from '../../data/auth';
 import { hasBackend } from '../../data/auth/client';
 import { appOrigin } from '../../data/links/origin';
-import { planLink, planToShare, type PlanToShare } from '../../data/planning';
+import { planDetails, planLink, planToShare, type PlanToShare } from '../../data/planning';
 import { copyText, shareMessage } from '../../platform/share';
 import { isOffline } from '../identity/join/failure';
+import { justReopened } from './messages';
 import { PlanSharedScreen } from './PlanSharedScreen';
 import { whenWords } from './when';
 
@@ -40,8 +41,21 @@ import { whenWords } from './when';
  * `plan_shared` is recorded when the message leaves — by the sheet or by a
  * copy — with the plan's id and never its code.
  */
-export function PlanSharedFlow({ id, planId }: { id: string; planId: string }) {
-  return hasBackend() ? <LivePlanShared id={id} planId={planId} /> : <FixturePlanShared />;
+export function PlanSharedFlow({
+  id,
+  planId,
+  again = false,
+}: {
+  id: string;
+  planId: string;
+  /** After an edit that asks everyone again, or "Change the time" (S1-26). */
+  again?: boolean | undefined;
+}) {
+  return hasBackend() ? (
+    <LivePlanShared id={id} planId={planId} again={again} />
+  ) : (
+    <FixturePlanShared />
+  );
 }
 
 function FixturePlanShared() {
@@ -62,7 +76,7 @@ function windowPhrase(plan: PlanToShare): string | undefined {
   return days === MAX_WINDOW_DAYS ? t('planShared', 'in_the_next_two_weeks') : undefined;
 }
 
-function LivePlanShared({ id, planId }: { id: string; planId: string }) {
+function LivePlanShared({ id, planId, again }: { id: string; planId: string; again: boolean }) {
   const router = useRouter();
   const session = useSession();
   const [outcome, setOutcome] = useState<'copied' | 'couldnt_copy' | undefined>();
@@ -70,7 +84,14 @@ function LivePlanShared({ id, planId }: { id: string; planId: string }) {
   const plan = useQuery({
     queryKey: ['plan-to-share', planId, session.userId],
     queryFn: () => planToShare(planId),
-    staleTime: 60_000,
+    staleTime: again ? 0 : 60_000,
+  });
+  // Asking again says why: the day a reopen took off the table, if it was one.
+  const details = useQuery({
+    queryKey: ['plan-details', planId, session.userId],
+    queryFn: () => planDetails({ planId }),
+    enabled: again,
+    staleTime: 0,
   });
 
   // Back to the circle's home the person planned from, rather than a second
@@ -78,25 +99,43 @@ function LivePlanShared({ id, planId }: { id: string; planId: string }) {
   const home = () => router.dismissTo({ pathname: '/circles/[id]', params: { id } });
   const back = () => (router.canGoBack() ? router.back() : home());
 
-  if (plan.isPending) return <PlanSharedScreen state="loading" onBack={back} />;
-  if (plan.isError || plan.data === null) {
+  // Asking again is about the plan as the change left it, so both reads have
+  // to have come back since this screen opened: a cached one is the plan
+  // before the edit, with the old dates and deadline in it.
+  const failed = plan.isError || (again && details.isError);
+  const waiting = again
+    ? !plan.isFetchedAfterMount || !details.isFetchedAfterMount
+    : plan.isPending;
+  if (failed || plan.data === null || (again && details.data === null)) {
     return (
       <PlanSharedScreen
         state={isOffline() ? 'offline' : 'error'}
-        onRetry={() => void plan.refetch()}
+        onRetry={() => {
+          void plan.refetch();
+          if (again) void details.refetch();
+        }}
         onBack={back}
       />
     );
   }
+  if (waiting || plan.data === undefined) {
+    return <PlanSharedScreen state="loading" onBack={back} />;
+  }
 
   const data = plan.data;
   const link = planLink(appOrigin(), data.code);
-  const message = newPlanMessage({
-    circleName: data.circleName,
-    windowPhrase: windowPhrase(data),
-    url: link,
-    templates: EN_SHARE_TEMPLATES,
-  });
+  const offDay = again && details.data != null ? justReopened(details.data) : undefined;
+  // Asking again is an update, not a new plan (spec §5.8's "changed"): the
+  // question and its answers were replaced, and the chat should hear so.
+  const message = again
+    ? EN_SHARE_TEMPLATES.changed({ weekday: offDay, url: link })
+    : newPlanMessage({
+        circleName: data.circleName,
+        windowPhrase: windowPhrase(data),
+        url: link,
+        templates: EN_SHARE_TEMPLATES,
+      });
+  const kind = again ? 'changed' : 'plan';
   const ids = { circle_id: data.circleId as CircleId, plan_id: data.id as PlanId };
 
   return (
@@ -112,6 +151,17 @@ function LivePlanShared({ id, planId }: { id: string; planId: string }) {
         deadline: whenWords(data.responseDeadline, data.zone),
       })}
       outcome={outcome}
+      again={
+        again
+          ? {
+              title: t('planShared', 'ask_again_title', { circle: data.circleName }),
+              intro:
+                offDay === undefined
+                  ? t('planShared', 'ask_again_edited')
+                  : t('planShared', 'ask_again_changed', { day: offDay }),
+            }
+          : undefined
+      }
       onCopy={() => {
         setOutcome(undefined);
         void copyText(message).then((copied) => {
@@ -123,7 +173,7 @@ function LivePlanShared({ id, planId }: { id: string; planId: string }) {
         setOutcome(undefined);
         void shareMessage(message).then((result) => {
           if (result === 'sheet' || result === 'dismissed') {
-            track('share_opened', { ...ids, kind: 'plan' });
+            track('share_opened', { ...ids, kind });
           }
           if (result === 'sheet' || result === 'copied') track('plan_shared', ids);
           if (result === 'copied') setOutcome('copied');

@@ -38,6 +38,11 @@ export type GridDay = {
   slot: number;
   selected: boolean;
   hasTimes: boolean;
+  /**
+   * Shown, faded and not pressable: a day in the past on the plan setup's
+   * calendar, or one past the fourteen-day cap. Its label has to say why.
+   */
+  disabled?: boolean | undefined;
 };
 
 type Props = {
@@ -138,8 +143,8 @@ function DayButton({
     <Pressable
       role="button"
       aria-label={day.label}
-      aria-disabled={dimmed}
-      disabled={dimmed || onPress === undefined}
+      aria-disabled={dimmed || day.disabled === true}
+      disabled={dimmed || day.disabled === true || onPress === undefined}
       onPress={onPress}
       {...state}
       style={[
@@ -148,6 +153,7 @@ function DayButton({
         { backgroundColor: palette.surface, borderColor: palette.lineStrong },
         day.hasTimes && { backgroundColor: color.accentSoft, borderColor: color.accentSoft },
         day.selected && { backgroundColor: palette.accent, borderColor: palette.accent },
+        day.disabled === true && styles.dimmed,
       ]}
     >
       {day.selected ? (

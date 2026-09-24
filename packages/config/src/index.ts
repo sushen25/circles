@@ -10,3 +10,5 @@ export { brand } from './brand.js';
 export type { Brand } from './brand.js';
 export { CONSENT } from './consent.js';
 export type { Consent } from './consent.js';
+export { flags } from './flags.js';
+export type { Flags } from './flags.js';

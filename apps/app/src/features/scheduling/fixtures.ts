@@ -49,6 +49,7 @@ const BASE: PlanCandidates = {
   organiserUserId: 'maya',
   me: 'maya',
   isOrganiser: true,
+  isOwner: true,
   roster: ROSTER,
   participants: EVERYONE,
   responded: ['maya', 'priya', 'tom', 'jess', 'sam'],
@@ -152,4 +153,5 @@ export const readyAsMember: PlanCandidates = {
   ...ready,
   me: 'priya',
   isOrganiser: false,
+  isOwner: false,
 };
