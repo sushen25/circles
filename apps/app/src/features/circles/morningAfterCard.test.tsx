@@ -123,6 +123,13 @@ describe('circle home the morning after', () => {
     expect(screen.getByText("Did Thursday's catch-up happen?")).toBeTruthy();
   });
 
+  // Review round 1: everybody else left after the meetup, so the home is
+  // "just you" — and the organiser still owes the answer.
+  it('holds the card when everybody else has left since', () => {
+    show(home({ members: home().members.slice(0, 1), morningAfter: { ...OWED, ask: 'outcome' } }));
+    expect(screen.getByText("Did Thursday's catch-up happen?")).toBeTruthy();
+  });
+
   it('shows nothing when nothing is owed, or the circle is archived', () => {
     const { unmount } = show(home());
     expect(screen.queryByRole('button', { name: 'Answer' })).toBeNull();

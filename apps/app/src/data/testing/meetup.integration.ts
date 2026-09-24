@@ -135,3 +135,39 @@ export async function lockedIn(stack: Stack) {
   );
   return { ...plan, ren, alex, confirmed };
 }
+
+/**
+ * The circle's next catch-up, planned and locked in by the same organiser with
+ * Ren answering — for the morning after's "the last one is still unanswered
+ * when the next one is locked in" (S1-29).
+ */
+export async function nextOneLockedIn(
+  meetup: Awaited<ReturnType<typeof lockedIn>>,
+): Promise<{ planId: string; confirmationId: string }> {
+  const plan = await meetup.owner.functions.invoke('create-plan', {
+    body: {
+      idempotency_key: globalThis.crypto.randomUUID(),
+      circle_id: meetup.circleId,
+      title: 'Catch up again',
+      preset: 'next_14_days',
+      quorum: 2,
+    },
+  });
+  expect(plan.error).toBeNull();
+  const planId = (plan.data as { plan_id: string }).plan_id;
+  await answers(meetup.ren.client, planId);
+  await answers(meetup.owner, planId);
+
+  const { planCandidates } = await import('../scheduling');
+  const { confirmMeetup } = await import('../confirmation/write');
+  const options = (await as(meetup.owner, () => planCandidates({ planId })))!;
+  const confirmed = await as(meetup.owner, () =>
+    confirmMeetup({
+      planId,
+      candidateId: options.candidates[0]!.id,
+      expectedSetId: options.set!.id,
+      chasedAnswer: 'none',
+    }),
+  );
+  return { planId, confirmationId: confirmed.confirmation_id };
+}

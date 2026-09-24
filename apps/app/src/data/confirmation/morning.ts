@@ -8,10 +8,12 @@ import { sessionStorage } from '../auth/storage';
  * (spec §5.10), and which: the organiser's "did it happen?" or a member's
  * "were you there?".
  *
- * **Only the circle's newest meetup.** The newest plan that was locked in, at
- * its current revision; if its evening is still ahead there is nothing to ask,
- * and an older one is not dug up — a circle that has met again since has moved
- * on, and nobody should be asked about a Thursday two plans ago.
+ * **The newest meetup that still owes this person a question.** Every
+ * confirmation in the circle whose evening has ended, newest first, and the
+ * first one the reader has something to say about. Not merely the newest plan:
+ * a circle can lock in its next catch-up before anybody has said whether the
+ * last one happened, and that must not hide the question — the organiser's
+ * answer is what moves "Last caught up" (review round 1).
  *
  * **"Has it finished?" is the database's clock**, as the confirmed screen's is:
  * `report-outcome` refuses both answers before the meetup has *ended*
@@ -26,9 +28,9 @@ import { sessionStorage } from '../auth/storage';
  *   one attendance can be written to — `active`, or `completed` by an outcome
  *   other than "it was cancelled". Never the organiser, whose report already
  *   says whether it happened; their own "I was there" would corroborate nothing.
- *   And not after "Not now" on this device.
+ *   And not after "Not now" on this device: each meetup is asked once.
  *
- * Reads only rows RLS shows a member: the plan, its confirmation, and the
+ * Reads only rows RLS shows a member: the plans, their confirmations, and the
  * reader's own attendance. Nobody else's answer is read, or could be.
  */
 
@@ -43,6 +45,14 @@ export type MorningAfter = {
 
 const FAILED = 'morning-after lookup failed';
 
+/**
+ * How many of the most recently ended meetups the read looks through. A bound
+ * on the read, not a product rule anybody should meet: each is asked until
+ * answered or put off, so an unanswered one ten meetups back is a circle that
+ * has long since moved on.
+ */
+const LOOKBACK = 10;
+
 export async function morningAfterOf(circleId: string): Promise<MorningAfter | null> {
   const client = authClient();
   const { data: session } = await client.auth.getSession();
@@ -53,54 +63,63 @@ export async function morningAfterOf(circleId: string): Promise<MorningAfter | n
     .from('plans')
     .select('id, short_code, state, revision, organiser_user_id')
     .eq('circle_id', circleId)
-    .in('state', ['confirmed', 'completed'])
-    .order('created_at', { ascending: false })
-    .limit(1);
+    .in('state', ['confirmed', 'completed']);
   if (error !== null) {
     if (error.code === '22P02') return null;
     throw new Error(FAILED);
   }
-  const plan = plans[0];
-  if (plan === undefined) return null;
+  if (plans.length === 0) return null;
+  const planOf = new Map(plans.map((plan) => [plan.id, plan]));
 
   // `'now'` is Postgres's own input for the current time (see `read.ts`).
-  const { data: rows, error: confirmationError } = await client
+  const { data: ended, error: endedError } = await client
     .from('meetup_confirmations')
-    .select('id, status, starts_at, ends_at')
-    .eq('plan_id', plan.id)
-    .eq('revision', plan.revision)
+    .select('id, plan_id, revision, status, starts_at, ends_at')
+    .in('plan_id', [...planOf.keys()])
     .in('status', ['active', 'completed'])
     .lte('ends_at', 'now')
-    .order('confirmed_at', { ascending: false })
-    .limit(1);
-  if (confirmationError !== null) throw new Error(FAILED);
-  const confirmation = rows[0];
-  if (confirmation === undefined) return null;
-
-  const found = {
-    planId: plan.id,
-    code: plan.short_code as ShortCode,
-    confirmationId: confirmation.id,
-    startsAt: confirmation.starts_at,
-    endsAt: confirmation.ends_at,
-  };
-
-  if (plan.organiser_user_id === me) {
-    const unanswered = plan.state === 'confirmed' && confirmation.status === 'active';
-    return unanswered ? { ...found, ask: 'outcome' } : null;
-  }
+    .order('ends_at', { ascending: false })
+    .limit(LOOKBACK);
+  if (endedError !== null) throw new Error(FAILED);
+  // A plan's current revision only: an older one was superseded by a reopen.
+  const current = ended.filter((c) => planOf.get(c.plan_id)?.revision === c.revision);
+  if (current.length === 0) return null;
 
   const { data: mine, error: mineError } = await client
     .from('attendance')
-    .select('status')
-    .eq('confirmation_id', confirmation.id)
+    .select('confirmation_id, status')
     .eq('user_id', me)
-    .maybeSingle();
+    .in(
+      'confirmation_id',
+      current.map((c) => c.id),
+    );
   if (mineError !== null) throw new Error(FAILED);
-  if (mine === null || mine.status === 'was_there' || mine.status === 'missed') return null;
-  // "Not now" on this device: asked once, then left alone (see below).
-  if (await attendanceDismissed(me, confirmation.id)) return null;
-  return { ...found, ask: 'attendance' };
+  const myStatus = new Map(mine.map((row) => [row.confirmation_id, row.status]));
+
+  for (const confirmation of current) {
+    const plan = planOf.get(confirmation.plan_id);
+    if (plan === undefined) continue;
+    const found = {
+      planId: plan.id,
+      code: plan.short_code as ShortCode,
+      confirmationId: confirmation.id,
+      startsAt: confirmation.starts_at,
+      endsAt: confirmation.ends_at,
+    };
+
+    if (plan.organiser_user_id === me) {
+      if (plan.state === 'confirmed' && confirmation.status === 'active') {
+        return { ...found, ask: 'outcome' };
+      }
+      continue;
+    }
+
+    const status = myStatus.get(confirmation.id);
+    if (status === undefined || status === 'was_there' || status === 'missed') continue;
+    if (await attendanceDismissed(me, confirmation.id)) continue;
+    return { ...found, ask: 'attendance' };
+  }
+  return null;
 }
 
 /**

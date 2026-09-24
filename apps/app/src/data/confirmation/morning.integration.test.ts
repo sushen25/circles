@@ -1,6 +1,6 @@
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
-import { as, lockedIn as lockedInOn } from '../testing/meetup.integration';
+import { as, lockedIn as lockedInOn, nextOneLockedIn } from '../testing/meetup.integration';
 import { readStackConfig, sql, type Stack } from '../testing/stack.integration';
 
 /**
@@ -65,6 +65,28 @@ describe('who is asked', () => {
     expect(await as(alex.client, () => morningAfterOf(circleId))).toMatchObject({
       ask: 'attendance',
     });
+  });
+});
+
+describe('an unanswered meetup, once the next one is locked in', () => {
+  // Review round 1: reading only the circle's newest plan hid last night's
+  // question the moment the next catch-up was locked in — and with it the one
+  // answer that moves "Last caught up".
+  it('is still asked about, of the organiser and of a member', async () => {
+    const meetup = await theMorningAfter();
+    const next = await nextOneLockedIn(meetup);
+    const { morningAfterOf } = await import('./morning');
+
+    expect(await as(meetup.owner, () => morningAfterOf(meetup.circleId))).toMatchObject({
+      ask: 'outcome',
+      planId: meetup.planId,
+      confirmationId: meetup.confirmed.confirmation_id,
+    });
+    expect(await as(meetup.ren.client, () => morningAfterOf(meetup.circleId))).toMatchObject({
+      ask: 'attendance',
+      planId: meetup.planId,
+    });
+    expect(next.planId).not.toBe(meetup.planId);
   });
 });
 

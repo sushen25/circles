@@ -40,7 +40,8 @@ export function HomeInState({ home, onBack }: { home: CircleHome; onBack: () => 
   const id = home.id;
   // The morning after's card, when the reader owes an answer (S1-29). Every
   // state of an active circle can hold it: the next plan may already be
-  // finding a time, or locked in, before the last one is reported.
+  // finding a time, or locked in, before the last one is reported — and
+  // everybody else may have left since.
   const prompt = useMorningAfterCard(home);
 
   const members = home.members.map((m) => ({ name: m.name }));
@@ -154,6 +155,7 @@ export function HomeInState({ home, onBack }: { home: CircleHome; onBack: () => 
   if (state === 'just_you') {
     return (
       <EmptyCircleScreen
+        prompt={prompt}
         circleName={home.name}
         color={home.color}
         subtitle={t('emptyCircle', 'just_you', { what: cadenceWords(home.cadence) })}
