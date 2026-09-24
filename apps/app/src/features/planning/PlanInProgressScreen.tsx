@@ -38,8 +38,12 @@ export type PlanInProgressProps = {
    */
   canEdit: boolean;
   canCancel: boolean;
-  /** The organiser's name, for a reader who is not them. */
-  organiserName?: string | undefined;
+  /**
+   * The organiser's name, for a reader who is not them. `null` when the plan
+   * has no organiser — a quiet ask that opened and nobody has taken on (spec
+   * §5.4) — which is a state, not a missing name, and is said as one.
+   */
+  organiserName?: string | null | undefined;
   onEdit?: (() => void) | undefined;
   onCancel?: (() => void) | undefined;
   /** The candidates screen: how it is looking, for anybody in the circle. */
@@ -61,9 +65,11 @@ export function PlanInProgressScreen(props: PlanInProgressProps) {
           <BodyText>
             {props.canEdit
               ? t('planSetup', 'in_progress_body')
-              : t('planSetup', 'in_progress_theirs', {
-                  name: props.organiserName ?? t('planSetup', 'someone'),
-                })}
+              : props.organiserName === null
+                ? t('planSetup', 'in_progress_quiet')
+                : t('planSetup', 'in_progress_theirs', {
+                    name: props.organiserName ?? t('planSetup', 'someone'),
+                  })}
           </BodyText>
         </Stack>
         <Card recommended>

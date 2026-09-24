@@ -37,6 +37,13 @@
 -- plan a circle keeps, and nothing here cancels a plan without a person
 -- deciding to.
 --
+-- The check and the reseed are one transaction, and plan writers are held out
+-- of it: the table lock below conflicts with the row-exclusive lock every
+-- insert and update on `plans` takes — `create_plan`'s insert, every
+-- `transition_plan` — and holds until commit, while reads go on. Without it, a
+-- plan made between the count and the new rows would have read the old
+-- transition and landed after the check had passed (review round 2).
+--
 -- The state machine is reseeded whole, as 0011 and 0019 were: it is a mirror
 -- of `packages/domain/src/planning/state-machine.ts`, and a mirror with one
 -- row amended by hand is no longer one. `MIGRATION` in both
@@ -46,6 +53,8 @@
 -- What changed in the table: `no_open_plan` on `create_named`, `create_quiet`,
 -- `threshold_reached` and `reopen`. Nothing else moves.
 -- ---------------------------------------------------------------------------
+lock table public.plans in share row exclusive mode;
+
 do $$
 declare
   offenders integer;

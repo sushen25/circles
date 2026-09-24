@@ -28,7 +28,12 @@ export function PlanInProgress({
 }) {
   const router = useRouter();
   const canEdit = home.me !== undefined && plan.organiserUserId === home.me;
-  const organiser = home.members.find((m) => m.userId === plan.organiserUserId);
+  // Null is "nobody yet" — a quiet ask that opened (spec §5.4) — and is not
+  // the same as an organiser who has since left the circle.
+  const organiserName =
+    plan.organiserUserId === null
+      ? null
+      : home.members.find((m) => m.userId === plan.organiserUserId)?.name;
   const params = { id, planId: plan.id };
 
   return (
@@ -41,7 +46,7 @@ export function PlanInProgress({
       replied={t('circleHome', 'replied', { count: plan.replied, total: plan.asked })}
       canEdit={canEdit}
       canCancel={canEdit || home.isOwner}
-      organiserName={organiser?.name}
+      organiserName={organiserName}
       onEdit={() => router.push({ pathname: '/circles/[id]/plan/[planId]/edit', params })}
       onCancel={() => router.push({ pathname: '/circles/[id]/plan/[planId]/cancel', params })}
       onSeeHowItsLooking={() =>

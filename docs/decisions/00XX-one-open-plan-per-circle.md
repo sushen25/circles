@@ -96,7 +96,10 @@ Spec §5.3 says the rule in one sentence.
   plans**, by count, and says what to do: cancel the older plan from the app,
   so the people who answered it are told, then apply again. It rewrites no
   row and chooses nothing; a plan is cancelled only by a person deciding to.
-  Check dev and prod with the query in the migration before deploying.
+  It holds plan writers out for the length of its transaction (a table lock
+  that conflicts with every insert and update on `plans`, not with reads), so
+  no plan can land between the count and the new rows. Check dev and prod
+  with the query in the migration before deploying.
 - pgTAP: a second `create_plan` beside an open plan throws `plan_in_progress`
   and leaves nothing behind; a `create_quiet`, a `reopen` and a
   `threshold_reached` beside one do too; a cancelled plan frees the circle.

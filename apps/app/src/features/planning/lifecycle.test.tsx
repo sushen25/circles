@@ -146,6 +146,21 @@ describe('plan setup', () => {
     });
   });
 
+  it('says a quiet plan nobody has taken on started quietly, and names nobody (spec §5.4)', async () => {
+    circleHome.mockResolvedValue({
+      ...HOME,
+      me: 'sam',
+      isOwner: false,
+      activePlan: { ...RUNNING, organiserUserId: null },
+    });
+    show(<PlanSetupFlow id="sunday-crew" />);
+
+    expect(await screen.findByText(/started quietly, and nobody has taken it on yet/)).toBeTruthy();
+    expect(screen.queryByText(/is organising this one/)).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Edit the plan' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Cancel the plan' })).toBeNull();
+  });
+
   it('offers the owner Cancel but not Edit of a plan somebody else organises (spec §4.5)', async () => {
     circleHome.mockResolvedValue({
       ...HOME,
