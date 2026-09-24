@@ -103,7 +103,9 @@ export function useRevision({
     } catch (error) {
       const answer = refusalOf(error);
       setRefused(answer);
-      key.current = undefined;
+      // Only a settled refusal frees the key. A dropped response may have
+      // saved, and the retry must be the same request to be told so.
+      if (answer.conclusive) key.current = undefined;
       // Somebody answered since the preview: ask it again, so the warning
       // on the screen is the cost of the next tap.
       if (answer.stale) void preview.refetch();

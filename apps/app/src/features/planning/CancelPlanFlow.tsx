@@ -29,7 +29,8 @@ export function CancelPlanFlow({ id, planId }: { id: string; planId: string }) {
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [refused, setRefused] = useState<Refused>();
-  const key = useRef<IdempotencyKey | undefined>(undefined);
+  // One key per request: the same note again is the same request.
+  const key = useRef<{ for: string; key: IdempotencyKey } | undefined>(undefined);
   const inFlight = useRef(false);
 
   const back = () =>
@@ -99,9 +100,9 @@ export function CancelPlanFlow({ id, planId }: { id: string; planId: string }) {
     setBusy(true);
     setRefused(undefined);
     // One tap, one cancellation: a retry after a timeout is the same request.
-    key.current ??= newIdempotencyKey();
+    if (key.current?.for !== note) key.current = { for: note, key: newIdempotencyKey() };
     try {
-      await cancelPlan(planId, note, key.current);
+      await cancelPlan(planId, note, key.current.key);
       track('plan_cancelled', {
         circle_id: plan.circleId as CircleId,
         plan_id: planId as PlanId,
@@ -114,8 +115,11 @@ export function CancelPlanFlow({ id, planId }: { id: string; planId: string }) {
       ]);
       toCancelled();
     } catch (error) {
-      setRefused(refusalOf(error));
-      key.current = undefined;
+      const answer = refusalOf(error);
+      setRefused(answer);
+      // A dropped response may have cancelled it; only a settled refusal
+      // makes the next tap a new request (ADR 0016).
+      if (answer.conclusive) key.current = undefined;
       setBusy(false);
     } finally {
       inFlight.current = false;

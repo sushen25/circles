@@ -134,6 +134,18 @@ describe('editing the dates', () => {
     expect(replace).not.toHaveBeenCalled();
   });
 
+  it('retries a save whose answer was lost with the same key', async () => {
+    saveRevision.mockRejectedValueOnce(new FunctionError(undefined, 'no answer'));
+    show(<EditPlanFlow id="sunday-crew" planId="thu-17" />);
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'Next 7 days' }));
+    const save = await screen.findByRole('button', { name: 'Save and ask again' });
+    fireEvent.click(save);
+    expect(await screen.findByText(/^Something went wrong/)).toBeTruthy();
+    fireEvent.click(save);
+    await waitFor(() => expect(saveRevision).toHaveBeenCalledTimes(2));
+    expect(saveRevision.mock.calls[1]?.[3]).toBe(saveRevision.mock.calls[0]?.[3]);
+  });
+
   it('says a quorum change costs nobody a reply, and goes back when saved', async () => {
     previewRevision.mockResolvedValue({
       ...ASKS_AGAIN,

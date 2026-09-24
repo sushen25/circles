@@ -18,7 +18,7 @@ import { defaultDraft, resolveDraft, WINDOW_EVENT, type PlanDraft } from './form
 import { PlanSetupScreen } from './PlanSetupScreen';
 import { refusalOf, type Refused } from './problems';
 import { DeadlineSheet, RequiredSheet } from './sheets';
-import { usePlanForm, type FormContext } from './usePlanForm';
+import { usePlanForm, type FormContext, type FormResolved } from './usePlanForm';
 import { whenWords } from './when';
 import { categoryLabel } from './words';
 
@@ -86,7 +86,9 @@ function LiveSetup({ id, startOn }: { id: string; startOn: 'form' | 'window' }) 
   // and reading the clock during a render would make it a different plan each
   // time React draws it.
   const [openedAt] = useState(() => Date.now());
-  const key = useRef<IdempotencyKey | undefined>(undefined);
+  // One key per request: the same form sent again is the same request, and a
+  // changed form is a new one (ADR 0016).
+  const key = useRef<{ for: string; key: IdempotencyKey } | undefined>(undefined);
 
   const back = () =>
     router.canGoBack()
@@ -122,10 +124,9 @@ function LiveSetup({ id, startOn }: { id: string; startOn: 'form' | 'window' }) 
       circleDuration={data.defaultDurationMinutes}
       now={openedAt}
       startOn={startOn}
+      freshNow={() => Date.now()}
       onAsk={async (draft, touched) => {
-        // One tap, one plan: a retry after a timeout returns the plan the first made.
-        key.current ??= newIdempotencyKey();
-        const plan = await createPlan({
+        const options = {
           circleId: id as CircleId,
           title: categoryLabel(draft.category),
           category: draft.category,
@@ -137,8 +138,11 @@ function LiveSetup({ id, startOn }: { id: string; startOn: 'form' | 'window' }) 
           quorum: draft.quorum,
           requiredMemberIds: draft.required,
           responseDeadline: draft.deadline,
-          idempotencyKey: key.current,
-        });
+        };
+        // One tap, one plan: a retry after a timeout returns the plan the first made.
+        const request = JSON.stringify(options);
+        if (key.current?.for !== request) key.current = { for: request, key: newIdempotencyKey() };
+        const plan = await createPlan({ ...options, idempotencyKey: key.current.key });
         track('plan_created', {
           circle_id: id as CircleId,
           plan_id: plan.plan_id,
@@ -154,11 +158,24 @@ function LiveSetup({ id, startOn }: { id: string; startOn: 'form' | 'window' }) 
       }}
       onRefused={(refused) => {
         if (refused.needsSavedPlace) toSignIn();
-        // A refusal is an answer: the next tap is a new request.
-        key.current = undefined;
+        // A settled refusal is an answer, and the next tap a new request. A
+        // dropped response may have made the plan: keep the key, so a retry
+        // gets that plan back rather than making a second.
+        if (refused.conclusive) key.current = undefined;
       }}
       onBack={back}
     />
+  );
+}
+
+/** Whether the form means something different now from when it was drawn. */
+function movedOn(shown: FormResolved, now: FormResolved): boolean {
+  if (!shown.ok || !now.ok) return shown.ok !== now.ok;
+  return (
+    shown.window.start !== now.window.start ||
+    shown.window.end !== now.window.end ||
+    shown.band.startMin !== now.band.startMin ||
+    shown.band.endMin !== now.band.endMin
   );
 }
 
@@ -166,6 +183,7 @@ function SetupForm({
   context,
   circleDuration,
   now,
+  freshNow,
   startOn,
   onAsk,
   onRefused,
@@ -174,12 +192,20 @@ function SetupForm({
   context: FormContext;
   circleDuration: number;
   now: number;
+  /**
+   * The clock at the tap. The server resolves the preset when the plan is
+   * made, so a form left open past midnight — or past tonight's last start —
+   * would otherwise send a window it no longer shows. Absent on fixtures,
+   * whose clock is fixed.
+   */
+  freshNow?: (() => number) | undefined;
   startOn: 'form' | 'window';
   onAsk: (draft: PlanDraft, touched: boolean) => Promise<void>;
   onRefused?: ((refused: Refused) => void) | undefined;
   onBack: () => void;
 }) {
-  const instant = fromISO(new Date(now).toISOString());
+  const [clock, setClock] = useState(now);
+  const instant = fromISO(new Date(clock).toISOString());
   const duration = (DURATIONS as readonly number[]).includes(circleDuration)
     ? (circleDuration as DurationMinutes)
     : 120;
@@ -206,6 +232,20 @@ function SetupForm({
 
   const ask = async () => {
     if (inFlight.current || !form.resolved.ok) return;
+    if (freshNow !== undefined) {
+      const fresh = freshNow();
+      if (
+        movedOn(
+          form.resolved,
+          resolveDraft(form.draft, fromISO(new Date(fresh).toISOString()), context.zone),
+        )
+      ) {
+        // Show what would be made now, and let the organiser ask again.
+        setClock(fresh);
+        setRefused({ message: t('planSetup', 'problem_moved_on'), conclusive: true });
+        return;
+      }
+    }
     inFlight.current = true;
     setBusy(true);
     setRefused(undefined);

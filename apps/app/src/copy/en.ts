@@ -1618,6 +1618,8 @@ export const en = {
     problem_not_a_participant:
       "Someone on the list wasn't asked this time, so they can't be required.",
     problem_nothing: "Nothing's changed yet.",
+    problem_moved_on:
+      'Time has moved on since you opened this, so the dates above have been updated. Check them, then ask again.',
     problem_stale:
       'Someone just answered, so who is asked again has changed. Check it, then save again.',
     problem_archived: "This circle is archived, so it can't start a new plan.",

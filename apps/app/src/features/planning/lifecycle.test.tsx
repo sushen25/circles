@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type * as Availability from '../../data/availability';
 import type * as CircleData from '../../data/circles';
+import { FunctionError } from '../../data/functions';
 import type * as Planning from '../../data/planning';
 import * as fixture from './fixtures';
 
@@ -146,6 +147,49 @@ describe('plan setup', () => {
     );
   });
 
+  it('retries a dropped request with the same key, and a settled refusal with a new one', async () => {
+    const dropped = new FunctionError(undefined, 'no answer');
+    const refused = new FunctionError(
+      {
+        error: 'conflict',
+        reason: 'too_many_requests',
+        message: 'slow down',
+        request_id: 'r',
+      } as never,
+      'slow down',
+    );
+    createPlan.mockRejectedValueOnce(dropped).mockRejectedValueOnce(refused);
+    show(<PlanSetupFlow id="sunday-crew" />);
+    const ask = await screen.findByRole('button', { name: 'Ask the group' });
+    const keyOf = (call: number) =>
+      (createPlan.mock.calls[call]?.[0] as Planning.CreatePlanOptions).idempotencyKey;
+
+    fireEvent.click(ask);
+    expect(await screen.findByText(/^Something went wrong, so nothing was changed/)).toBeTruthy();
+    fireEvent.click(ask);
+    await waitFor(() => expect(createPlan).toHaveBeenCalledTimes(2));
+    // It may have made the plan: the same request, so the server can say so.
+    expect(keyOf(1)).toBe(keyOf(0));
+
+    expect(await screen.findByText(/^That's a lot of tries/)).toBeTruthy();
+    fireEvent.click(ask);
+    await waitFor(() => expect(createPlan).toHaveBeenCalledTimes(3));
+    expect(keyOf(2)).not.toBe(keyOf(1));
+  });
+
+  it('shows what would be made now when the clock has moved on, before making it', async () => {
+    show(<PlanSetupFlow id="sunday-crew" />);
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'Next 7 days' }));
+    // A day later, the form still open.
+    vi.spyOn(Date, 'now').mockReturnValue(fixture.FIXTURE_NOW + 24 * 3_600_000);
+    fireEvent.click(screen.getByRole('button', { name: 'Ask the group' }));
+
+    expect(await screen.findByText(/^Time has moved on since you opened this/)).toBeTruthy();
+    expect(createPlan).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Ask the group' }));
+    await waitFor(() => expect(createPlan).toHaveBeenCalledTimes(1));
+  });
+
   it('hides tonight when it is too late for the meetup, rather than meaning tomorrow', async () => {
     vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-09-15T12:50:00.000Z'));
     show(<PlanSetupFlow id="sunday-crew" />);
@@ -176,6 +220,16 @@ describe('cancelling', () => {
       pathname: '/circles/[id]/plan/[planId]/cancelled',
       params: { id: 'sunday-crew', planId: 'thu-17' },
     });
+  });
+
+  it('retries a dropped cancel with the same key, and a new note with a new one', async () => {
+    cancelPlan.mockRejectedValueOnce(new FunctionError(undefined, 'no answer'));
+    show(<CancelPlanFlow id="sunday-crew" planId="thu-17" />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Cancel the catch-up' }));
+    expect(await screen.findByText(/^Something went wrong/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel the catch-up' }));
+    await waitFor(() => expect(cancelPlan).toHaveBeenCalledTimes(2));
+    expect(cancelPlan.mock.calls[1]?.[2]).toBe(cancelPlan.mock.calls[0]?.[2]);
   });
 
   it("is the organiser's or the owner's, and nobody else's", async () => {

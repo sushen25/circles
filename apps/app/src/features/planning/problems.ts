@@ -13,6 +13,13 @@ import { problemWords } from './words';
 export type Refused = {
   message: string;
   reference?: string | undefined;
+  /**
+   * The server answered with a reason: this request is settled, and the next
+   * tap is a new one. Anything else — offline, a dropped response, a 500 —
+   * may have landed, so the next tap has to be **the same request, with the
+   * same key**, and get the first one's answer (ADR 0016).
+   */
+  conclusive: boolean;
   /** `preview_is_stale`: fetch the preview again before anything else. */
   stale?: boolean | undefined;
   /** `requires_saved_place`: the organiser gate (ADR 0004). */
@@ -33,11 +40,20 @@ const DOMAIN: readonly string[] = [
 
 export function refusalOf(error: unknown): Refused {
   const failure = failureOf(error);
-  if (failure.kind === 'offline') return { message: t('planSetup', 'problem_offline') };
-  if (failure.kind === 'unknown') {
-    return { message: t('planSetup', 'problem_generic'), reference: failure.reference };
+  if (failure.kind === 'offline') {
+    return { message: t('planSetup', 'problem_offline'), conclusive: false };
   }
-  const { reason } = failure;
+  if (failure.kind === 'unknown') {
+    return {
+      message: t('planSetup', 'problem_generic'),
+      reference: failure.reference,
+      conclusive: false,
+    };
+  }
+  return { ...refusalFor(failure.reason, failure.reference), conclusive: true };
+}
+
+function refusalFor(reason: string, reference: string | undefined): Omit<Refused, 'conclusive'> {
   if (DOMAIN.includes(reason)) return { message: problemWords(reason as ResolveProblem) };
   switch (reason) {
     case 'preview_is_stale':
@@ -64,6 +80,6 @@ export function refusalOf(error: unknown): Refused {
     case 'circle_not_found':
       return { message: t('planSetup', 'not_found') };
     default:
-      return { message: t('planSetup', 'problem_generic'), reference: failure.reference };
+      return { message: t('planSetup', 'problem_generic'), reference };
   }
 }
