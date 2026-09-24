@@ -163,7 +163,8 @@ answers go through `report-outcome` (`data/confirmation/outcome.ts`) — a
 member's too, because only the function can count answers nobody else may
 read; `setAttendance` stays the before-the-meetup correction. Where each
 question stands is read off the confirmed read (`morningAfter.ts`), on the
-database's clock. Circle home's card comes from `morningAfterOf`: the
+database's clock. Circle home's card comes from `morningAfterOf`, from nine
+the next morning (the domain's `morningAfter`, when the email goes): the
 organiser's until answered, a member's until answered or "Not now" (kept on
 the device). Once over, the confirmed door offers "Did it happen?" / "Were you
 there?" to whoever still owes it (`PastMeetup`), and the emailed way back in

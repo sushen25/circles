@@ -32,12 +32,13 @@ test.beforeEach(() => {
 });
 
 /**
- * A meetup locked in for next week with the plan's first option, then moved to
- * yesterday evening — the only way to reach the morning after without waiting
- * for it. The set and its one candidate are written the way `seed.sql` writes
+ * A meetup locked in for next week with the plan's first option, then moved two
+ * days back — the only way to reach the morning after without waiting for it.
+ * Two days rather than one, so that nine the next morning (when the question
+ * is brought up) has come whatever hour the suite runs at. The set and its one candidate are written the way `seed.sql` writes
  * Book Club's; the lock-in is `confirm_meetup` as the organiser.
  */
-function happenedLastNight(planId: string, organiserId: string, going: string[]): string {
+function happenedTheOtherNight(planId: string, organiserId: string, going: string[]): string {
   const setId = randomUUID();
   const ids = going.map((id) => `'${id}'`).join(', ');
   sql(`
@@ -64,7 +65,7 @@ function happenedLastNight(planId: string, organiserId: string, going: string[])
   lockInFirstOption(planId, organiserId);
   sql(`
     update public.meetup_confirmations
-    set starts_at = now() - interval '14 hours', ends_at = now() - interval '12 hours'
+    set starts_at = now() - interval '50 hours', ends_at = now() - interval '48 hours'
     where plan_id = '${planId}' and status = 'active'
   `);
   return sql(
@@ -91,7 +92,7 @@ async function mayaTheMorningAfter() {
   const plan = planFor(circleId, maya.userId);
   const crew = { circleId, planId: plan.id, planCode: plan.code, ownerId: maya.userId, secret: '' };
   const priya = guestInvited(crew, 'Priya');
-  const confirmationId = happenedLastNight(plan.id, maya.userId, [maya.userId, priya]);
+  const confirmationId = happenedTheOtherNight(plan.id, maya.userId, [maya.userId, priya]);
   return { maya, circleId, plan, priya, confirmationId };
 }
 
@@ -156,7 +157,7 @@ test('a member with no session, from the emailed way back in, lands on the quest
 }) => {
   const crew = sundayCrew();
   const tom = guestInvited(crew, 'Tom');
-  happenedLastNight(crew.planId, crew.ownerId, [crew.ownerId, tom]);
+  happenedTheOtherNight(crew.planId, crew.ownerId, [crew.ownerId, tom]);
   const token = reentryTokenFor(crew, tom);
 
   await page.goto(`/a#${token}`);

@@ -1,7 +1,15 @@
 import type { ShortCode } from '@circles/contracts';
-import { isRetrospective, type AttendanceStatus } from '@circles/domain';
+import {
+  fromISO,
+  isRetrospective,
+  morningAfter,
+  zone,
+  type AttendanceStatus,
+  type Instant,
+} from '@circles/domain';
 
 import { authClient } from '../auth/client';
+import { deviceTimeZone } from '../auth/profile';
 import { sessionStorage } from '../auth/storage';
 
 /**
@@ -16,11 +24,14 @@ import { sessionStorage } from '../auth/storage';
  * last one happened, and that must not hide the question — the organiser's
  * answer is what moves "Last caught up" (review round 1).
  *
- * **"Has it finished?" is the database's clock**, as the confirmed screen's is:
- * `report-outcome` refuses both answers before the meetup has *ended*
- * (`outcome_too_early`, `attendance_too_early`), so the question appears at the
- * end, not the start — a phone a few hours fast would otherwise offer a button
- * the server turns down.
+ * **Asked the morning after** (§5.10): from nine the next morning where the
+ * reader is (the domain's `morningAfter`), the same moment the "did it
+ * happen?" email goes (review round 5). Two clocks, each for what it can
+ * answer: "has it ended?" is the **database's** — `report-outcome` refuses
+ * both answers before `ends_at`, so a phone running fast can never be offered a
+ * question the server would turn down — and "is it morning yet?" is this
+ * device's, because it is only about when to bring the question up. The
+ * screens themselves take an answer from the end, as the server does.
  *
  * - The organiser is asked until they answer: the plan is still `confirmed` and
  *   its confirmation `active`. Answering completes both.
@@ -46,7 +57,11 @@ export type MorningAfter = {
 
 const FAILED = 'morning-after lookup failed';
 
-export async function morningAfterOf(circleId: string): Promise<MorningAfter | null> {
+export async function morningAfterOf(
+  circleId: string,
+  now: Instant = fromISO(new Date().toISOString()),
+  where: string | undefined = deviceTimeZone(),
+): Promise<MorningAfter | null> {
   const client = authClient();
   const { data: session } = await client.auth.getSession();
   const me = session.session?.user.id;
@@ -54,7 +69,7 @@ export async function morningAfterOf(circleId: string): Promise<MorningAfter | n
 
   const { data: plans, error } = await client
     .from('plans')
-    .select('id, short_code, state, revision, organiser_user_id')
+    .select('id, short_code, state, revision, organiser_user_id, time_zone')
     .eq('circle_id', circleId)
     .in('state', ['confirmed', 'completed']);
   if (error !== null) {
@@ -76,7 +91,13 @@ export async function morningAfterOf(circleId: string): Promise<MorningAfter | n
     .order('ends_at', { ascending: false });
   if (endedError !== null) throw new Error(FAILED);
   // A plan's current revision only: an older one was superseded by a reopen.
-  const current = ended.filter((c) => planOf.get(c.plan_id)?.revision === c.revision);
+  // And only once it is the morning after, where the reader is — in the
+  // plan's zone when this device cannot say.
+  const current = ended.filter((c) => {
+    const plan = planOf.get(c.plan_id);
+    if (plan === undefined || plan.revision !== c.revision) return false;
+    return morningAfter(fromISO(c.ends_at), zoneOr(where, plan.time_zone)) <= now;
+  });
   if (current.length === 0) return null;
 
   const { data: mine, error: mineError } = await client
@@ -114,6 +135,15 @@ export async function morningAfterOf(circleId: string): Promise<MorningAfter | n
     return { ...found, ask: 'attendance' };
   }
   return null;
+}
+
+/** The reader's zone, or a fallback when the runtime cannot name one. */
+function zoneOr(value: string | undefined, fallback: string) {
+  try {
+    return zone(value ?? fallback);
+  } catch {
+    return zone(fallback);
+  }
 }
 
 /**

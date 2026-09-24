@@ -24,12 +24,16 @@ beforeEach(() => {
   sql(stack, 'delete from jobs.rate_counters');
 });
 
-/** Locked in, and then the evening happens: the time moves into the past. */
-async function theMorningAfter() {
+/**
+ * Locked in, and then the evening happens: the time moves into the past. Two
+ * days back, so that "the morning after" (nine the next morning, where the
+ * reader is) has come whatever the hour the suite runs at.
+ */
+async function theMorningAfter(hoursAgo = 48) {
   const meetup = await lockedInOn(stack);
   sql(
     stack,
-    `update public.meetup_confirmations set starts_at = now() - interval '14 hours', ends_at = now() - interval '12 hours' where id = '${meetup.confirmed.confirmation_id}'`,
+    `update public.meetup_confirmations set starts_at = now() - interval '${hoursAgo + 2} hours', ends_at = now() - interval '${hoursAgo} hours' where id = '${meetup.confirmed.confirmation_id}'`,
   );
   return meetup;
 }
@@ -47,6 +51,25 @@ describe('who is asked', () => {
     const { morningAfterOf } = await import('./morning');
     expect(await as(owner, () => morningAfterOf(circleId))).toBeNull();
     expect(await as(ren.client, () => morningAfterOf(circleId))).toBeNull();
+  });
+
+  // Review round 5: "the morning after" (§5.10), the moment the email goes —
+  // not the moment the evening ends. The answer is taken from the end.
+  it('nobody on the night itself, though an answer is already taken', async () => {
+    const { owner, ren, circleId, confirmed } = await theMorningAfter(0.5);
+    const { morningAfterOf } = await import('./morning');
+    const { reportAttendance } = await import('./outcome');
+    expect(await as(owner, () => morningAfterOf(circleId))).toBeNull();
+    expect(await as(ren.client, () => morningAfterOf(circleId))).toBeNull();
+    await expect(
+      as(ren.client, () =>
+        reportAttendance({
+          confirmationId: confirmed.confirmation_id,
+          attendance: 'was_there',
+          key: globalThis.crypto.randomUUID() as never,
+        }),
+      ),
+    ).resolves.toEqual({ was_there: 1, missed: 0 });
   });
 
   it('the organiser whether it happened, and each member asked whether they were there', async () => {
