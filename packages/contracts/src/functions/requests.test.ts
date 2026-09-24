@@ -163,10 +163,11 @@ describe('ClaimIdentityRequest', () => {
 
 describe('SubmitAvailabilityRequest', () => {
   // The largest answer a valid plan can produce: alternating half hours across
-  // a whole day, on every day the window may span (ADR 0030). The cap has to
-  // move with the window, or a real answer somebody painted is refused before
-  // normalisation can merge it.
-  const largest = Array.from({ length: MAX_WINDOW_DAYS * 24 }, (_, i) => {
+  // a whole day, on every day the window may span (ADR 0030), plus one for the
+  // day the clocks go back, which has 50 cells. The cap has to move with the
+  // window, or a real answer somebody painted is refused before normalisation
+  // can merge it.
+  const largest = Array.from({ length: MAX_WINDOW_DAYS * 24 + 1 }, (_, i) => {
     const start = new Date(Date.UTC(2099, 0, 1) + i * 60 * 60 * 1000);
     const end = new Date(start.getTime() + 30 * 60 * 1000);
     return { start: start.toISOString(), end: end.toISOString() };
@@ -178,13 +179,13 @@ describe('SubmitAvailabilityRequest', () => {
     status: 'windows' as const,
   };
 
-  it('accepts the largest answer a thirty-day plan can produce', () => {
-    expect(largest).toHaveLength(720);
+  it('accepts the largest answer a thirty-day plan can produce, autumn included', () => {
+    expect(largest).toHaveLength(721);
     expect(SubmitAvailabilityRequest.safeParse({ ...body, windows: largest }).success).toBe(true);
   });
 
-  it('refuses one window more than that', () => {
-    const tooMany = [...largest, largest[0]];
+  it('still refuses a payload past what any plan could paint', () => {
+    const tooMany = Array.from({ length: MAX_WINDOW_DAYS * 25 + 1 }, () => largest[0]);
     expect(SubmitAvailabilityRequest.safeParse({ ...body, windows: tooMany }).success).toBe(false);
   });
 });

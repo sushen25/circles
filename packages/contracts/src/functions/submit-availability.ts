@@ -66,14 +66,15 @@ export const SubmitAvailabilityRequest = Mutation.extend({
    * The cap is the largest answer a valid plan can produce, derived rather than
    * guessed: `MAX_WINDOW_DAYS` is the window maximum (`plans_window_length`,
    * thirty since ADR 0030), a daily band may run the whole day (`validateBand`
-   * allows 00:00–24:00), and alternating half-hour cells across 24 hours is 24
-   * disjoint windows — so 720, and it moves with the cap. An earlier
+   * allows 00:00–24:00), and alternating half-hour cells across a day is 24
+   * disjoint windows — 25 on the day the clocks go back, which has 50 cells, so
+   * every day is counted as that one. The cap moves with the window. An earlier
    * 200 was a round number that would have refused a real answer somebody had
    * spent a minute painting, before normalisation had a chance to merge it.
    */
   windows: z
     .array(Interval)
-    .max(MAX_WINDOW_DAYS * 24)
+    .max(MAX_WINDOW_DAYS * 25)
     .default([]),
   /**
    * Whether the device calendar helped fill this in (Slice 3). A flag and
