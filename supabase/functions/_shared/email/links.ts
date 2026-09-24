@@ -3,6 +3,7 @@ import {
   ShortCode,
   emailPreferencesUrl,
   emailVerifyUrl,
+  notificationSettingsUrl,
   planUrl,
   reentryUrl,
 } from '@circles/contracts';
@@ -61,6 +62,14 @@ export function verifyLink(at: string, verifyToken: string): string {
 
 export function planLink(at: string, planCode: string): string {
   return planUrl(origin(at), code(planCode));
+}
+
+/**
+ * `/settings/notifications` — where the organiser kinds' switches are (ADR
+ * 0029). No token: the reader has an account and signs in to reach it.
+ */
+export function settingsLink(at: string): string {
+  return notificationSettingsUrl(origin(at));
 }
 
 /** `/circles/<id>` — the about-time nudge is about a circle, not a plan. */

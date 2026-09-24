@@ -57,6 +57,7 @@ describe('the analytics catalogue', () => {
       'email_submitted',
       'email_verified',
       'email_subscription_changed',
+      'organiser_email_changed',
       'email_delivery_result',
       'outcome_reported',
       'attendance_confirmed',

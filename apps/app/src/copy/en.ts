@@ -1354,6 +1354,9 @@ export const en = {
     all_in: 'Everything from {circle}',
     quiet_asks_in: 'Quiet asks in {circle}',
     nudges_in: 'Nudges to plan the next one in {circle}',
+    emails_about_plans_you_organise: 'Emails about plans you organise',
+    options_ready_and_did_it_happen_replies_closed_still_comes:
+      "Options ready and did it happen. If replies close with nothing locked in, we'll still email you once.",
     quiet_hours_title: 'Quiet hours are fixed for now',
     quiet_hours_body:
       'Nothing arrives between 9 pm and 8 am in your own time zone. Choosing your own hours comes later.',
@@ -1784,6 +1787,7 @@ export const en = {
     sending: 'Sending',
     sign_in_to_your_account: 'Sign in to your account.',
     well_bring_you_back: "We'll bring you straight back to the plan.",
+    well_bring_you_back_to_settings: "We'll bring you straight to your notification settings.",
     well_email_a_code: "We'll email a one-time code. No password.",
     not_an_address: "That doesn't look like an email address.",
     couldnt_send: "We couldn't send a code just now. Please try again.",

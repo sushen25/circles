@@ -1,6 +1,6 @@
 # ADR 0025: The preferences link is minted with each email, and both footer links open it
 
-_Status: accepted · Date: 19 September 2026 · numbered when rebased onto main (SUS-82 takes 0024)_
+_Status: accepted · Date: 19 September 2026 · numbered when rebased onto main (SUS-82 takes 0024) · its open question on organiser email is answered by [ADR 0029](./0029-an-organiser-turns-organiser-email-off-in-the-app.md)_
 
 ## Context
 
@@ -81,6 +81,7 @@ not stop them would be worse than none. They say why they arrived instead.
 - **How an organiser stops organiser email is still open.** Today it is
   "install the app", which the spec already says ends them. An email-level stop
   for these would be a new preference, not a link to `/e`, and is the
-  founder's call.
+  founder's call. _Answered by ADR 0029: a switch in the app, on notification
+  settings, which the footer points at. The letters still carry no stop link._
 - If the bulk-sender rules ever apply, one-click needs a mechanism that keeps
   the token out of the request line. This header cannot be it.

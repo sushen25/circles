@@ -713,6 +713,7 @@ export type Database = {
           created_at: string
           display_name: string
           is_permanent: boolean
+          muted_organiser_email: boolean
           time_zone: string
           updated_at: string
           user_id: string
@@ -722,6 +723,7 @@ export type Database = {
           created_at?: string
           display_name: string
           is_permanent?: boolean
+          muted_organiser_email?: boolean
           time_zone?: string
           updated_at?: string
           user_id: string
@@ -731,6 +733,7 @@ export type Database = {
           created_at?: string
           display_name?: string
           is_permanent?: boolean
+          muted_organiser_email?: boolean
           time_zone?: string
           updated_at?: string
           user_id?: string

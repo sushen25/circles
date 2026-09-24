@@ -5,6 +5,7 @@ import {
   type NotificationKind,
   QUIET_SENSITIVE_KINDS,
   notificationSpec,
+  organiserEmailStopped,
 } from './kinds.js';
 
 /** The Pushes artboard's rows, in its order, plus the one email-only kind. */
@@ -106,6 +107,37 @@ describe('the kind table', () => {
   it('prefers push when both are possible, so email is the fallback and not the default', () => {
     for (const spec of NOTIFICATION_KINDS) {
       if (spec.channels.length > 1) expect(spec.channels[0]).toBe('push');
+    }
+  });
+
+  it('lets the organiser-email switch stop exactly options ready and did it happen', () => {
+    // ADR 0029. `replies_closed` still sends: the plan is waiting on the
+    // organiser alone. `about_time` has its own switch, per circle.
+    const stopped = NOTIFICATION_KINDS.filter((s) => s.organiserEmailSwitch).map((s) => s.kind);
+    expect(stopped).toEqual(['options_ready', 'did_it_happen']);
+    // A switch over a kind a subscription governs would be a second stop link
+    // for consent that already has one, and one over a push-only kind would be
+    // a switch that stops nothing.
+    for (const kind of stopped) {
+      expect(notificationSpec(kind).emailNeedsSubscription).toBe(false);
+      expect(notificationSpec(kind).channels).toContain('email');
+    }
+  });
+
+  it('stops a kind only when the switch is off and the kind is one it covers', () => {
+    const table: readonly [NotificationKind, boolean, boolean][] = [
+      ['options_ready', true, true],
+      ['did_it_happen', true, true],
+      ['options_ready', false, false],
+      ['did_it_happen', false, false],
+      ['replies_closed', true, false],
+      ['about_time', true, false],
+      ['locked_in', true, false],
+      ['did_it_happen_participant', true, false],
+      ['verify_email', true, false],
+    ];
+    for (const [kind, switchedOff, stopped] of table) {
+      expect(organiserEmailStopped(kind, switchedOff), `${kind}, off=${switchedOff}`).toBe(stopped);
     }
   });
 

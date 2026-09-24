@@ -21,6 +21,12 @@
 --     reminder written before the owner archived is still `scheduled` after.
 --     Asked at the moment of sending, so bringing the circle back lets what
 --     was queued go rather than losing it (S1-23).
+--   * `organiser_email_muted` — the contact's owner has turned "Emails about
+--     plans you organise" off (ADR 0029). `did_it_happen` is written when a
+--     meetup is confirmed and sent the next morning, so a switch read only
+--     when the job was written would not stop the letter it was turned off
+--     for. Which kinds it stops is the domain's (`organiserEmailStopped`);
+--     this says only whether it is off.
 --   * `superseded` — "one copy per event" is the sender's job, not the
 --     writer's. One address can be held by two contacts since 0009: two
 --     siblings subscribed to the same decided plan, or a guest who joined
@@ -101,6 +107,9 @@ as $$
     'circle_id', p.circle_id,
     'circle_name', cir.name,
     'circle_archived', coalesce(cir.status = 'archived', false),
+    'organiser_email_muted', coalesce((
+      select pr.muted_organiser_email from public.profiles pr where pr.user_id = c.user_id
+    ), false),
     'superseded', j.kind not in ('changed', 'verify_email', 'about_time') and exists (
       select 1
       from jobs.notification_jobs o
@@ -120,7 +129,7 @@ as $$
 $$;
 
 comment on function public.dispatch_claim_due(integer) is
-  'The due email jobs, each with its address, the contact''s status now, the plan''s state now, and whether an earlier job already covers this address for this event. Service role only (S1-20).';
+  'The due email jobs, each with its address, the contact''s status now, the plan''s state now, whether its owner has turned organiser email off, and whether an earlier job already covers this address for this event. Service role only (S1-20).';
 
 revoke all on function public.dispatch_claim_due(integer) from public;
 revoke all on function public.dispatch_claim_due(integer) from anon, authenticated;

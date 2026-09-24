@@ -9,3 +9,5 @@ Plan a catch-up https://meet.example.com/circles/00000000-0000-4000-8000-0000000
 ----------------------------------------
 
 You're getting this because you're in Sunday Crew.
+
+Turn these off in notification settings https://meet.example.com/settings/notifications.

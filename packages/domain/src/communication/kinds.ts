@@ -74,6 +74,18 @@ export type NotificationSpec = {
    */
   readonly emailNeedsSubscription: boolean;
   /**
+   * Whether "Emails about plans you organise" on notification settings stops
+   * this kind's **email** (ADR 0029). Push is untouched, and so is every kind
+   * a subscription governs — that consent has its own stop link.
+   *
+   * True for `options_ready` and `did_it_happen`, the working mail of a plan
+   * the organiser started. False for `replies_closed`, which still sends: it
+   * is the one message saying a plan other people answered is waiting on the
+   * organiser alone. False for `about_time`, whose switch is the per-circle
+   * "Nudges to plan the next one".
+   */
+  readonly organiserEmailSwitch: boolean;
+  /**
    * Whether this kind waits until 08:00 rather than arriving at 11 pm.
    *
    * False for `locked_in` and `cancelled` (spec §5.8: "quiet hours 9 pm–8 am
@@ -97,6 +109,7 @@ export const NOTIFICATION_KINDS: readonly NotificationSpec[] = [
   {
     kind: 'new_plan',
     emailNeedsSubscription: true,
+    organiserEmailSwitch: false,
     audience: 'members',
     channels: ['push'],
     copyKey: 'push.new_plan',
@@ -105,6 +118,7 @@ export const NOTIFICATION_KINDS: readonly NotificationSpec[] = [
   {
     kind: 'quiet_ask',
     emailNeedsSubscription: true,
+    organiserEmailSwitch: false,
     audience: 'members_except_initiator',
     channels: ['push'],
     copyKey: 'push.quiet_ask',
@@ -113,6 +127,7 @@ export const NOTIFICATION_KINDS: readonly NotificationSpec[] = [
   {
     kind: 'threshold_initiator',
     emailNeedsSubscription: true,
+    organiserEmailSwitch: false,
     audience: 'quiet_initiator',
     channels: ['push'],
     copyKey: 'push.threshold_initiator',
@@ -121,6 +136,7 @@ export const NOTIFICATION_KINDS: readonly NotificationSpec[] = [
   {
     kind: 'threshold_keen',
     emailNeedsSubscription: true,
+    organiserEmailSwitch: false,
     audience: 'keen_members',
     channels: ['push'],
     copyKey: 'push.threshold_keen',
@@ -129,6 +145,7 @@ export const NOTIFICATION_KINDS: readonly NotificationSpec[] = [
   {
     kind: 'deadline_approaching',
     emailNeedsSubscription: true,
+    organiserEmailSwitch: false,
     audience: 'non_responders',
     channels: ['push'],
     copyKey: 'push.deadline_approaching',
@@ -138,6 +155,7 @@ export const NOTIFICATION_KINDS: readonly NotificationSpec[] = [
     // An organiser kind: email until they install the app (review C6, §13).
     kind: 'options_ready',
     emailNeedsSubscription: false,
+    organiserEmailSwitch: true,
     audience: 'organiser',
     channels: ['push', 'email'],
     copyKey: 'push.options_ready',
@@ -150,6 +168,7 @@ export const NOTIFICATION_KINDS: readonly NotificationSpec[] = [
     // screen — lock in the top option, hand it over, or give it one more day.
     kind: 'replies_closed',
     emailNeedsSubscription: false,
+    organiserEmailSwitch: false,
     audience: 'organiser',
     channels: ['push', 'email'],
     copyKey: 'push.replies_closed',
@@ -158,6 +177,7 @@ export const NOTIFICATION_KINDS: readonly NotificationSpec[] = [
   {
     kind: 'locked_in',
     emailNeedsSubscription: true,
+    organiserEmailSwitch: false,
     audience: 'members',
     channels: ['push', 'email'],
     copyKey: 'push.locked_in',
@@ -166,6 +186,7 @@ export const NOTIFICATION_KINDS: readonly NotificationSpec[] = [
   {
     kind: 'changed',
     emailNeedsSubscription: true,
+    organiserEmailSwitch: false,
     audience: 'members',
     channels: ['push', 'email'],
     copyKey: 'push.changed',
@@ -174,6 +195,7 @@ export const NOTIFICATION_KINDS: readonly NotificationSpec[] = [
   {
     kind: 'cancelled',
     emailNeedsSubscription: true,
+    organiserEmailSwitch: false,
     audience: 'members',
     channels: ['push', 'email'],
     copyKey: 'push.cancelled',
@@ -182,6 +204,7 @@ export const NOTIFICATION_KINDS: readonly NotificationSpec[] = [
   {
     kind: 'reminder',
     emailNeedsSubscription: true,
+    organiserEmailSwitch: false,
     audience: 'going_members',
     channels: ['push', 'email'],
     copyKey: 'push.reminder',
@@ -190,6 +213,7 @@ export const NOTIFICATION_KINDS: readonly NotificationSpec[] = [
   {
     kind: 'did_it_happen',
     emailNeedsSubscription: false,
+    organiserEmailSwitch: true,
     audience: 'organiser',
     channels: ['push', 'email'],
     copyKey: 'push.did_it_happen',
@@ -198,6 +222,7 @@ export const NOTIFICATION_KINDS: readonly NotificationSpec[] = [
   {
     kind: 'about_time',
     emailNeedsSubscription: false,
+    organiserEmailSwitch: false,
     audience: 'nudge_recipient',
     channels: ['push', 'email'],
     copyKey: 'push.about_time',
@@ -212,6 +237,7 @@ export const NOTIFICATION_KINDS: readonly NotificationSpec[] = [
     // is a rule you cannot read off the table.
     kind: 'did_it_happen_participant',
     emailNeedsSubscription: true,
+    organiserEmailSwitch: false,
     audience: 'subscribed_members',
     channels: ['email'],
     copyKey: 'email.did_it_happen',
@@ -220,6 +246,7 @@ export const NOTIFICATION_KINDS: readonly NotificationSpec[] = [
   {
     kind: 'verify_email',
     emailNeedsSubscription: false,
+    organiserEmailSwitch: false,
     audience: 'the_address',
     channels: ['email'],
     copyKey: 'email.verify',
@@ -236,6 +263,20 @@ export function notificationSpec(kind: NotificationKind): NotificationSpec {
   // than silently sending nothing.
   if (spec === undefined) throw new RangeError(`No notification spec for kind: ${kind}`);
   return spec;
+}
+
+/**
+ * Whether this person's "Emails about plans you organise" switch stops this
+ * kind's email (ADR 0029).
+ *
+ * One function for both halves of the dispatcher: `recipientsFor` asks it when
+ * a job is written, and the sender asks it again when the job is due, because
+ * `did_it_happen` is written at confirmation and sent the next morning — a
+ * switch that did not reach what was already queued would stop nothing for a
+ * day.
+ */
+export function organiserEmailStopped(kind: NotificationKind, switchedOff: boolean): boolean {
+  return switchedOff && notificationSpec(kind).organiserEmailSwitch;
 }
 
 /**

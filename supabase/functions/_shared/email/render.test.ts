@@ -18,6 +18,9 @@ const ORGANISER_KINDS = EMAIL_KINDS.filter(
   (kind) => kind !== 'verify_email' && !(SUBSCRIBER_KINDS as readonly string[]).includes(kind),
 );
 
+/** The organiser kinds whose footer says where their switch is (ADR 0029). */
+const POINTS_AT_SETTINGS: readonly string[] = ['options_ready', 'did_it_happen', 'about_time'];
+
 /** Every `href` in the HTML, decoded. */
 function hrefs(html: string): string[] {
   return [...html.matchAll(/href="([^"]*)"/g)].map(([, href]) =>
@@ -99,6 +102,31 @@ describe('render', () => {
       expect(email.text).not.toContain(EN_EMAIL.footer.stopPlan);
       expect(email.headers).toEqual({});
     });
+
+    it('says where to turn it off only when a switch in the app would, and carries no token', async () => {
+      // ADR 0029. Options ready and did it happen: "Emails about plans you
+      // organise". About time: "Nudges to plan the next one". Both are on
+      // /settings/notifications. Replies closed is stopped by neither, so it
+      // says it comes anyway rather than pointing at a switch that would lie.
+      const email = await render(SUNDAY_CREW[kind]);
+      const settings = `${ORIGIN}/settings/notifications`;
+      const links = hrefs(email.html).filter((href) => href.includes('/settings/'));
+      if (POINTS_AT_SETTINGS.includes(kind)) {
+        expect(links).toEqual([settings]);
+        expect(email.text).toContain(EN_EMAIL.footer.settingsLabel);
+      } else {
+        expect(links).toEqual([]);
+        expect(email.text).toContain(EN_EMAIL.footer.repliesClosed('Sunday Crew'));
+      }
+    });
+  });
+
+  it('points at settings from every kind the organiser-email switch stops', () => {
+    // The switch and the pointer are two halves of one promise; a kind added to
+    // the switch without its footer is a letter that stops without saying how.
+    for (const spec of NOTIFICATION_KINDS.filter((s) => s.organiserEmailSwitch)) {
+      expect(POINTS_AT_SETTINGS).toContain(spec.kind);
+    }
   });
 
   describe('the verification email', () => {

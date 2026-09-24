@@ -120,3 +120,14 @@ export function emailPreferencesUrl(origin: string, token: OpaqueToken): string 
 export function planUrl(origin: string, code: ShortCode): string {
   return `${origin.replace(/\/+$/, '')}/p/${code}`;
 }
+
+/**
+ * `https://…/settings/notifications`: where an organiser turns organiser email
+ * off (ADR 0029). A plain path, not a capability: it carries nothing about the
+ * reader, and the route needs them signed in.
+ */
+export const NOTIFICATION_SETTINGS_PATH = '/settings/notifications';
+
+export function notificationSettingsUrl(origin: string): string {
+  return `${origin.replace(/\/+$/, '')}${NOTIFICATION_SETTINGS_PATH}`;
+}

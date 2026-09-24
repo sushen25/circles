@@ -11,5 +11,12 @@ export { heldInviteLink, inviteLink, keepInviteSecret } from './invite';
 export { circlesList } from './list';
 export type { CircleSummary } from './list';
 export { circleKeys, useCircle, useCircles } from './queries';
-export { NotSavedError, mySwitchesEverywhere, saveMySwitches, updateCircle } from './settings';
+export {
+  NotSavedError,
+  myOrganiserEmailMuted,
+  mySwitchesEverywhere,
+  saveMySwitches,
+  saveOrganiserEmailMuted,
+  updateCircle,
+} from './settings';
 export type { CirclePatch, CircleSwitches, SwitchPatch } from './settings';

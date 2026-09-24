@@ -1,14 +1,18 @@
+import { NOTIFICATION_SETTINGS_PATH } from '@circles/contracts';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 
+import { track } from '../../analytics/track';
 import { t } from '../../copy';
 import { useSession } from '../../data/auth';
 import { hasBackend } from '../../data/auth/client';
 import {
   circleKeys,
+  myOrganiserEmailMuted,
   mySwitchesEverywhere,
   saveMySwitches,
+  saveOrganiserEmailMuted,
   type CircleSwitches,
   type SwitchPatch,
 } from '../../data/circles';
@@ -24,6 +28,8 @@ import {
  * `/settings/notifications` (spec §5.8): the reader's three switches in every
  * circle they are in, each stored on their own membership — `muted_all`,
  * `muted_quiet_asks`, `muted_nudges` — and quiet hours, which are fixed.
+ * Above them, "Emails about plans you organise", which is the reader's own
+ * profile (`muted_organiser_email`, ADR 0029).
  *
  * A switch moves at once and is saved behind it; a save that fails puts it
  * back and says so, rather than leaving a switch that lies.
@@ -71,9 +77,12 @@ function FixtureNotifications() {
     },
   ]);
   const [quietHours, setQuietHours] = useState(false);
+  const [organiserEmail, setOrganiserEmail] = useState(true);
   return (
     <NotificationSettingsScreen
       circles={rows}
+      organiserEmailOn={organiserEmail}
+      onOrganiserEmail={setOrganiserEmail}
       quietHoursOpen={quietHours}
       onToggle={(circleId, which, on) =>
         setRows((all) => all.map((row) => (row.circleId === circleId ? flip(row, which, on) : row)))
@@ -89,7 +98,7 @@ function LiveNotifications() {
   const router = useRouter();
   const session = useSession();
   const queryClient = useQueryClient();
-  const gate = useSavedPlace();
+  const gate = useSavedPlace({ returnTo: NOTIFICATION_SETTINGS_PATH });
   const key = circleKeys.switches(session.userId);
   const switches = useQuery({
     queryKey: key,
@@ -97,23 +106,41 @@ function LiveNotifications() {
     enabled: gate === 'allow',
     staleTime: 0,
   });
+  const organiserKey = circleKeys.organiserEmail(session.userId);
+  const organiserMuted = useQuery({
+    queryKey: organiserKey,
+    queryFn: myOrganiserEmailMuted,
+    enabled: gate === 'allow',
+    staleTime: 0,
+  });
   const [problem, setProblem] = useState<string | undefined>();
   const [quietHours, setQuietHours] = useState(false);
+  const [savingOrganiserEmail, setSavingOrganiserEmail] = useState(false);
 
   const back = () => (router.canGoBack() ? router.back() : router.replace('/settings/account'));
 
-  if (gate === 'wait' || switches.isPending) {
+  if (gate === 'wait' || switches.isPending || organiserMuted.isPending) {
     return <NotificationSettingsScreen state="loading" onBack={back} />;
   }
-  if (switches.isError) {
+  if (switches.isError || organiserMuted.isError) {
     return (
       <NotificationSettingsScreen
         state={isOffline() ? 'offline' : 'error'}
-        onRetry={() => void switches.refetch()}
+        onRetry={() => {
+          if (switches.isError) void switches.refetch();
+          if (organiserMuted.isError) void organiserMuted.refetch();
+        }}
         onBack={back}
       />
     );
   }
+
+  const failed = () =>
+    setProblem(
+      isOffline()
+        ? t('notificationSettings', 'youre_offline')
+        : t('notificationSettings', 'couldnt_save'),
+    );
 
   const toggle = (circleId: string, which: NotificationSwitch, on: boolean) => {
     setProblem(undefined);
@@ -126,17 +153,36 @@ function LiveNotifications() {
       .then(() => queryClient.invalidateQueries({ queryKey: ['circle-home', circleId] }))
       .catch(() => {
         queryClient.setQueryData(key, before);
-        setProblem(
-          isOffline()
-            ? t('notificationSettings', 'youre_offline')
-            : t('notificationSettings', 'couldnt_save'),
-        );
+        failed();
       });
+  };
+
+  // The same shape as a circle's switch: move at once, save behind it, and
+  // put it back if the save fails rather than leave a switch that lies. Held
+  // while a save is in flight: two updates can land in either order, and the
+  // switch would show the last tap while the row kept the last write (review
+  // round 1).
+  const organiserEmail = (on: boolean) => {
+    if (savingOrganiserEmail) return;
+    setProblem(undefined);
+    setSavingOrganiserEmail(true);
+    const before = queryClient.getQueryData<boolean>(organiserKey);
+    queryClient.setQueryData<boolean>(organiserKey, !on);
+    void saveOrganiserEmailMuted(!on)
+      .then(() => track('organiser_email_changed', { enabled: on }))
+      .catch(() => {
+        queryClient.setQueryData(organiserKey, before);
+        failed();
+      })
+      .finally(() => setSavingOrganiserEmail(false));
   };
 
   return (
     <NotificationSettingsScreen
       circles={switches.data.map(rowOf)}
+      organiserEmailOn={!organiserMuted.data}
+      organiserEmailSaving={savingOrganiserEmail}
+      onOrganiserEmail={organiserEmail}
       problem={problem}
       quietHoursOpen={quietHours}
       onToggle={toggle}

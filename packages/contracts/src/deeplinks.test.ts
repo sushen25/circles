@@ -4,6 +4,7 @@ import {
   emailPreferencesUrl,
   emailVerifyUrl,
   fragmentLinkKind,
+  notificationSettingsUrl,
   parseJoinLink,
   parseTokenLink,
   planUrl,
@@ -56,5 +57,16 @@ describe('the plan link', () => {
     expect(planUrl('https://example.test/', 'pnemab' as ShortCode)).toBe(
       'https://example.test/p/pnemab',
     );
+  });
+});
+
+describe('the notification settings link', () => {
+  it('is a plain path with nothing after it: no token, no fragment, no reader', () => {
+    // ADR 0029: an organiser turns organiser email off where they are signed
+    // in, so the letter's link says where and carries nothing.
+    expect(notificationSettingsUrl('https://example.test/')).toBe(
+      'https://example.test/settings/notifications',
+    );
+    expect(fragmentLinkKind('/settings/notifications')).toBeNull();
   });
 });

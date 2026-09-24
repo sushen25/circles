@@ -991,6 +991,7 @@ S["NotificationSettings"] = shell(
     top("Notifications") +
     body(
         dl("Notifications"),
+        card(between(stack(title("Emails about plans you organise"), sm("Options ready and did it happen. If replies close with nothing locked in, we'll still email you once."), gap=2), '<div class="toggle on"><i></i></div>'), gap=0),
         card(between(stack(title("Sunday Crew"), sm("New plans, options ready, locked in, reminders"), gap=2), '<div class="toggle on"><i></i></div>'), divider(),
              between(stack(title("Quiet asks in Sunday Crew"), sm("Someone wondering if people are keen"), gap=2), '<div class="toggle on"><i></i></div>'), divider(),
              between(stack(title("Nudges to plan the next one"), sm("Only when it's your turn"), gap=2), '<div class="toggle on"><i></i></div>'), gap=0),

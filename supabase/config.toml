@@ -453,7 +453,7 @@ EMAIL_CAPTURE_URL = "http://inbucket:8025"
 CRON_SECRET = "local"
 
 # Local only, and the same kind of value: the key `get-invite-link` and
-# `rotate-invite` derive invite secrets with (ADR 00XX), so that a local owner
+# `rotate-invite` derive invite secrets with (ADR 0029), so that a local owner
 # can be shown their link again after a reload. `dev` and `prod` each set their
 # own with `supabase secrets set INVITE_LINK_KEY=$(openssl rand -base64 32)`;
 # without it a deployed project still makes links, but they can only be reset,

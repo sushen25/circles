@@ -3,6 +3,7 @@ import {
   type PlanState,
   isTerminal,
   notificationSpec,
+  organiserEmailStopped,
 } from '@circles/domain';
 
 import type { Db } from '../_shared/db.ts';
@@ -16,7 +17,7 @@ import { classify } from './drain.ts';
 /**
  * Sending what is due.
  *
- * Six checks happen here and not one of them could have happened when the job
+ * Seven checks happen here and not one of them could have happened when the job
  * was written, which is the reason this phase exists at all rather than the
  * drain simply calling Resend:
  *
@@ -35,9 +36,11 @@ import { classify } from './drain.ts';
  *   * the **token** may have nothing left to mint — verified by another link,
  *     removed by its owner (ADR 0020);
  *   * the **circle** may have been archived, which stops all prompts (spec
- *     §5.2, S1-23).
+ *     §5.2, S1-23);
+ *   * the **organiser** may have turned organiser email off since. Did it
+ *     happen is written at confirmation and sent the next morning (ADR 0029).
  *
- * All six are `skipped`, not `failed`: nothing went wrong.
+ * All seven are `skipped`, not `failed`: nothing went wrong.
  */
 
 /** 1, 5, 30 minutes, then give up (ticket S1-20 step 4). */
@@ -66,6 +69,8 @@ export type DueJob = {
   readonly circle_name: string | null;
   /** Whether the plan's circle is archived **now**: archiving stops all prompts (spec §5.2). */
   readonly circle_archived: boolean;
+  /** Whether the contact's owner has turned "Emails about plans you organise" off, **now**. */
+  readonly organiser_email_muted: boolean;
   readonly superseded: boolean;
 };
 
@@ -259,6 +264,12 @@ export async function send(
     // prompt about the circle.
     if (job.circle_archived && job.kind !== 'verify_email') {
       await finish('skipped', 'circle_archived');
+      continue;
+    }
+    // "Emails about plans you organise", read again now rather than trusted
+    // from when the job was written. Which kinds it stops is the domain's.
+    if (organiserEmailStopped(job.kind as NotificationKind, job.organiser_email_muted)) {
+      await finish('skipped', 'organiser_email_off');
       continue;
     }
     if (planIsPast(job)) {
