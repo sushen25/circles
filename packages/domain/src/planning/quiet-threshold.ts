@@ -87,10 +87,14 @@ export function onThreshold(ask: QuietAsk, context: ThresholdContext): Result<Qu
     return refuse('plan_in_progress');
   }
 
-  const moved = canTransition(plan, 'threshold_reached', {
+  // The open-plan fact travels on to the table's own `no_open_plan` guard, so
+  // the two cannot disagree about which circle is free.
+  const transition = {
     actor: NOBODY,
     keenCount: keenCount(ask),
-  });
+    circleHasOpenPlan: context.circleHasOpenPlan,
+  };
+  const moved = canTransition(plan, 'threshold_reached', transition);
   if (!moved.ok) return moved;
 
   const deadline = defaultDeadline(context.preset, context.now, lastPossibleStart(plan));
