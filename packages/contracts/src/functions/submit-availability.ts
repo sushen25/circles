@@ -1,3 +1,4 @@
+import { MAX_WINDOW_DAYS } from '@circles/domain';
 import { z } from 'zod';
 
 import { CandidateSetId, PlanId, ResponseId } from '../ids.js';
@@ -63,15 +64,16 @@ export const SubmitAvailabilityRequest = Mutation.extend({
    * Absolute spans, half-hour aligned in the plan's zone once normalised.
    *
    * The cap is the largest answer a valid plan can produce, derived rather than
-   * guessed: 30 days is the window maximum (`plans_window_length`), a daily band
-   * may run the whole day (`validateBand` allows 00:00–24:00), and alternating
-   * half-hour cells across 24 hours is 24 disjoint windows — so 336. An earlier
+   * guessed: `MAX_WINDOW_DAYS` is the window maximum (`plans_window_length`,
+   * thirty since ADR 0030), a daily band may run the whole day (`validateBand`
+   * allows 00:00–24:00), and alternating half-hour cells across 24 hours is 24
+   * disjoint windows — so 720, and it moves with the cap. An earlier
    * 200 was a round number that would have refused a real answer somebody had
    * spent a minute painting, before normalisation had a chance to merge it.
    */
   windows: z
     .array(Interval)
-    .max(14 * 24)
+    .max(MAX_WINDOW_DAYS * 24)
     .default([]),
   /**
    * Whether the device calendar helped fill this in (Slice 3). A flag and

@@ -44,7 +44,7 @@ export const Interval = z
 export type Interval = z.infer<typeof Interval>;
 
 /**
- * Minutes, and only the four a meetup may last (spec §5.3).
+ * Minutes, and only the six a meetup may last (spec §5.3; ADR 0031 added two).
  *
  * `DURATIONS` in `packages/domain` is the same list; a plan whose duration is
  * not one of them has no card to render and no default to fall back to, so the

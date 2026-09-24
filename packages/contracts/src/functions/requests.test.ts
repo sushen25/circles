@@ -1,9 +1,11 @@
+import { MAX_WINDOW_DAYS } from '@circles/domain';
 import { describe, expect, it } from 'vitest';
 
 import { ClaimIdentityRequest } from './claim-identity.js';
 import { JoinPlanRequest } from './join-plan.js';
 import { ReattachMemberRequest } from './reattach-member.js';
 import { RedeemInviteRequest } from './redeem-invite.js';
+import { SubmitAvailabilityRequest } from './submit-availability.js';
 
 /**
  * The boundary's job is to refuse, and these are the refusals that matter: each
@@ -156,5 +158,33 @@ describe('ClaimIdentityRequest', () => {
         moment: 'whenever',
       }).success,
     ).toBe(false);
+  });
+});
+
+describe('SubmitAvailabilityRequest', () => {
+  // The largest answer a valid plan can produce: alternating half hours across
+  // a whole day, on every day the window may span (ADR 0030). The cap has to
+  // move with the window, or a real answer somebody painted is refused before
+  // normalisation can merge it.
+  const largest = Array.from({ length: MAX_WINDOW_DAYS * 24 }, (_, i) => {
+    const start = new Date(Date.UTC(2099, 0, 1) + i * 60 * 60 * 1000);
+    const end = new Date(start.getTime() + 30 * 60 * 1000);
+    return { start: start.toISOString(), end: end.toISOString() };
+  });
+  const body = {
+    idempotency_key: KEY,
+    plan_id: '00000000-0000-4000-8000-000000000b01',
+    revision: 1,
+    status: 'windows' as const,
+  };
+
+  it('accepts the largest answer a thirty-day plan can produce', () => {
+    expect(largest).toHaveLength(720);
+    expect(SubmitAvailabilityRequest.safeParse({ ...body, windows: largest }).success).toBe(true);
+  });
+
+  it('refuses one window more than that', () => {
+    const tooMany = [...largest, largest[0]];
+    expect(SubmitAvailabilityRequest.safeParse({ ...body, windows: tooMany }).success).toBe(false);
   });
 });
