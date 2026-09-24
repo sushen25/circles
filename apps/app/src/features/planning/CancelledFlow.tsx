@@ -41,7 +41,10 @@ export function CancelledFlow({ id, planId }: { id: string; planId: string }) {
 
   if (!hasBackend()) return <Cancelled plan={fixture.cancelled} onBack={() => router.back()} />;
   if (query.isPending || member) return <CancelledOrgScreen state="loading" onBack={toCircle} />;
-  if (query.isError) {
+  // Only when there is nothing to show. A background refetch that fails
+  // keeps the plan it had, and swapping a half-edited form for an error
+  // screen would throw the organiser's changes away.
+  if (query.isError && query.data === undefined) {
     return (
       <CancelledOrgScreen
         state={isOffline() ? 'offline' : 'error'}

@@ -65,7 +65,10 @@ export function ChangeTimeFlow({ id, planId }: { id: string; planId: string }) {
     );
   }
   if (query.isPending) return <ChangeTimeScreen state="loading" onBack={back} />;
-  if (query.isError) {
+  // Only when there is nothing to show. A background refetch that fails
+  // keeps the plan it had, and swapping a half-edited form for an error
+  // screen would throw the organiser's changes away.
+  if (query.isError && query.data === undefined) {
     return (
       <ChangeTimeScreen
         state={isOffline() ? 'offline' : 'error'}

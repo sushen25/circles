@@ -264,6 +264,26 @@ describe('a plan that moves while the form is open', () => {
   });
 });
 
+describe('a failed refetch while editing', () => {
+  it('keeps the half-edited form rather than swapping it for an error', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={client}>
+        <EditPlanFlow id="sunday-crew" planId="thu-17" />
+      </QueryClientProvider>,
+    );
+    fireEvent.click(await screen.findByRole('checkbox', { name: 'Next 7 days' }));
+    await screen.findByRole('button', { name: 'Save and ask again' });
+    planDetails.mockRejectedValue(new Error('offline'));
+    await client.invalidateQueries({ queryKey: ['plan-details'] });
+
+    expect(screen.queryByText("We couldn't load this plan.")).toBeNull();
+    expect(screen.getByRole('checkbox', { name: 'Next 7 days' }).getAttribute('aria-checked')).toBe(
+      'true',
+    );
+  });
+});
+
 describe('who has to be there', () => {
   it('offers somebody still required who has left, so they can be taken off', async () => {
     planDetails.mockResolvedValue({

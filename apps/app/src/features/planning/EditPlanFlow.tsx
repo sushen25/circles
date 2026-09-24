@@ -44,7 +44,10 @@ export function EditPlanFlow({ id, planId }: { id: string; planId: string }) {
     return <EditForm plan={fixture.asking} now={fixture.FIXTURE_NOW} onDone={back} onBack={back} />;
   }
   if (query.isPending) return <EditPlanScreen state="loading" onBack={back} />;
-  if (query.isError) {
+  // Only when there is nothing to show. A background refetch that fails
+  // keeps the plan it had, and swapping a half-edited form for an error
+  // screen would throw the organiser's changes away.
+  if (query.isError && query.data === undefined) {
     return (
       <EditPlanScreen
         state={isOffline() ? 'offline' : 'error'}
