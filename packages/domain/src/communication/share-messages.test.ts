@@ -118,8 +118,8 @@ describe("the wording is the caller's", () => {
   it('takes a different set of templates without touching the assembly', () => {
     const templates = {
       ...EN_SHARE_TEMPLATES,
-      changed: ({ weekday, url }: { weekday: string; url: string }) =>
-        `${weekday} tombé à l'eau. Nouvelles disponibilités : ${url}`,
+      changed: ({ weekday, url }: { weekday?: string | undefined; url: string }) =>
+        `${weekday ?? 'Le plan'} tombé à l'eau. Nouvelles disponibilités : ${url}`,
     };
     expect(changedMessage({ ...input(), templates })).toBe(
       `Thursday tombé à l'eau. Nouvelles disponibilités : ${LINK}`,
