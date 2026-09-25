@@ -409,6 +409,7 @@ export type Database = {
       nudge_states: {
         Row: {
           answer: string | null
+          answered_at: string | null
           created_at: string
           id: string
           moment: string
@@ -420,6 +421,7 @@ export type Database = {
         }
         Insert: {
           answer?: string | null
+          answered_at?: string | null
           created_at?: string
           id?: string
           moment: string
@@ -431,6 +433,7 @@ export type Database = {
         }
         Update: {
           answer?: string | null
+          answered_at?: string | null
           created_at?: string
           id?: string
           moment?: string
@@ -866,6 +869,13 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      after_attendance_facts: {
+        Args: { p_plan_id: string }
+        Returns: {
+          attended: boolean
+          first_in_circle: boolean
+        }[]
       }
       auth_is_member: { Args: { circle_id: string }; Returns: boolean }
       auth_is_owner: { Args: { circle_id: string }; Returns: boolean }

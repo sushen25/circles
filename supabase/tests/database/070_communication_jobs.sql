@@ -541,51 +541,51 @@ select throws_ok(
 
 select pg_temp.act_as('00000000-0000-0000-0000-0000000004a2');
 select lives_ok(
-  format($$insert into public.nudge_states (user_id, moment, plan_id) values ('00000000-0000-0000-0000-0000000004a2', 'confirmed', '%s')$$, :'plan_a'),
+  format($$insert into public.nudge_states (user_id, moment, plan_id) values ('00000000-0000-0000-0000-0000000004a2', 'locked_in_app', '%s')$$, :'plan_a'),
   'Priya records a prompt shown to her'
 );
 select throws_ok(
-  format($$insert into public.nudge_states (user_id, moment, plan_id) values ('00000000-0000-0000-0000-0000000004a2', 'confirmed', '%s')$$, :'plan_a'),
+  format($$insert into public.nudge_states (user_id, moment, plan_id) values ('00000000-0000-0000-0000-0000000004a2', 'locked_in_app', '%s')$$, :'plan_a'),
   '23505',
   null,
   'at most once per moment per plan'
 );
 select throws_ok(
-  $$insert into public.nudge_states (user_id, moment) values ('00000000-0000-0000-0000-0000000004a1', 'reattached')$$,
+  $$insert into public.nudge_states (user_id, moment) values ('00000000-0000-0000-0000-0000000004a1', 'organiser_gate')$$,
   '42501',
   null,
   'and not one shown to Maya'
 );
 select throws_ok(
-  $$insert into public.nudge_states (user_id, moment) values ('00000000-0000-0000-0000-0000000004a2', 'confirmed')$$,
+  $$insert into public.nudge_states (user_id, moment) values ('00000000-0000-0000-0000-0000000004a2', 'locked_in_app')$$,
   '23514',
   null,
   'a plan-bound moment without a plan is refused'
 );
 select throws_ok(
-  format($$insert into public.nudge_states (user_id, moment, plan_id) values ('00000000-0000-0000-0000-0000000004a2', 'settings', '%s')$$, :'plan_a'),
+  format($$insert into public.nudge_states (user_id, moment, plan_id) values ('00000000-0000-0000-0000-0000000004a2', 'organiser_gate', '%s')$$, :'plan_a'),
   '23514',
   null,
   'and a moment that is not about a plan cannot be given one'
 );
 select lives_ok(
-  $$insert into public.nudge_states (user_id, moment) values ('00000000-0000-0000-0000-0000000004a2', 'reattached')$$,
+  $$insert into public.nudge_states (user_id, moment) values ('00000000-0000-0000-0000-0000000004a2', 'organiser_gate')$$,
   'a moment that is not about a plan is recorded without one'
 );
 
 -- Select and update: own rows, both ways.
 select is((select count(*)::integer from public.nudge_states), 2, 'Priya reads her own two rows');
 select lives_ok(
-  format($$update public.nudge_states set answer = 'dismissed' where user_id = '00000000-0000-0000-0000-0000000004a2' and moment = 'confirmed' and plan_id = '%s'$$, :'plan_a'),
+  format($$update public.nudge_states set answer = 'dismissed' where user_id = '00000000-0000-0000-0000-0000000004a2' and moment = 'locked_in_app' and plan_id = '%s'$$, :'plan_a'),
   'and records what she did with a prompt'
 );
 select is(
-  (select answer from public.nudge_states where moment = 'confirmed'),
+  (select answer from public.nudge_states where moment = 'locked_in_app'),
   'dismissed',
   'which sticks'
 );
 select throws_ok(
-  $$update public.nudge_states set answer = 'tapped', user_id = '00000000-0000-0000-0000-0000000004a1' where moment = 'confirmed'$$,
+  $$update public.nudge_states set answer = 'tapped', user_id = '00000000-0000-0000-0000-0000000004a1' where moment = 'locked_in_app'$$,
   '42501',
   null,
   'but cannot hand a row to Maya — user_id is not hers to write'
@@ -593,10 +593,10 @@ select throws_ok(
 
 select pg_temp.act_as('00000000-0000-0000-0000-0000000004a1');
 select is((select count(*)::integer from public.nudge_states), 0, 'Maya reads none of them');
-update public.nudge_states set answer = 'tapped' where moment = 'confirmed';
+update public.nudge_states set answer = 'tapped' where moment = 'locked_in_app';
 select pg_temp.act_as('00000000-0000-0000-0000-0000000004a2');
 select is(
-  (select answer from public.nudge_states where moment = 'confirmed'),
+  (select answer from public.nudge_states where moment = 'locked_in_app'),
   'dismissed',
   'and her update touched nothing: the row was never hers to match'
 );
@@ -606,14 +606,14 @@ select pg_temp.act_as_postgres();
 update public.circle_members set status = 'removed'
 where circle_id = (select circle_id from t) and user_id = '00000000-0000-0000-0000-0000000004a2';
 select pg_temp.act_as('00000000-0000-0000-0000-0000000004a2');
-update public.nudge_states set answer = 'tapped' where moment = 'confirmed';
+update public.nudge_states set answer = 'tapped' where moment = 'locked_in_app';
 select is(
-  (select answer from public.nudge_states where moment = 'confirmed'),
+  (select answer from public.nudge_states where moment = 'locked_in_app'),
   'dismissed',
   'a removed member cannot change a plan-bound nudge: the update matches nothing'
 );
 select lives_ok(
-  $$update public.nudge_states set answer = 'tapped' where moment = 'reattached'$$,
+  $$update public.nudge_states set answer = 'tapped' where moment = 'organiser_gate'$$,
   'while a moment that was never about a plan is still theirs'
 );
 

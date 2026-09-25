@@ -9,6 +9,7 @@ import { guard, type Membership } from '../../../data/auth/guards';
 import { useSession } from '../../../data/auth/session';
 import { readDraft } from '../../../data/availability';
 import { askToPlan, circleAccess, planAccess } from '../../../data/membership';
+import { ReattachedNudgeFlow } from '../../growth/ReattachedNudgeFlow';
 import { ContinueAsScreen } from '../ContinueAsScreen';
 import { LinkInvalidScreen } from '../LinkInvalidScreen';
 import { ContinueAsFlow } from './ContinueAsFlow';
@@ -53,6 +54,12 @@ function LiveGate({ target, children }: { target: Target; children: ReactNode })
    * counting them as one would inflate the very rate the metric exists to read.
    */
   const [arrivedWithoutSession, setArrivedWithoutSession] = useState(false);
+  /**
+   * A pick from the list just let this person back in. The page is then
+   * preceded, once, by "Keep your place for good?" (S2-07) — which decides for
+   * itself whether it is owed and otherwise draws the page straight away.
+   */
+  const [rejoinedFromList, setRejoinedFromList] = useState(false);
 
   const code = target.kind === 'plan' ? ShortCode.safeParse(target.code) : undefined;
   const malformed = code !== undefined && !code.success;
@@ -185,6 +192,13 @@ function LiveGate({ target, children }: { target: Target; children: ReactNode })
 
   switch (decision.kind) {
     case 'allow':
+      if (rejoinedFromList && target.kind === 'plan') {
+        return (
+          <ReattachedNudgeFlow code={target.code} onDone={() => setRejoinedFromList(false)}>
+            {children}
+          </ReattachedNudgeFlow>
+        );
+      }
       return <>{children}</>;
     case 'wait':
     case 'needs_session':
@@ -211,7 +225,10 @@ function LiveGate({ target, children }: { target: Target; children: ReactNode })
         <ContinueAsFlow
           code={target.code as ShortCode}
           arrivedWithoutSession={arrivedWithoutSession}
-          onReattached={becameMember}
+          onReattached={(via) => {
+            if (via === 'list') setRejoinedFromList(true);
+            becameMember();
+          }}
         />
       );
   }

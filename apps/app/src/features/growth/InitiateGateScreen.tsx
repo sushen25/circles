@@ -15,17 +15,28 @@ import type { Fixture } from '../../data/fixtures';
 import type { ScreenState } from '../state';
 
 /**
- * InitiateGate — scaffolded from `docs/design/InitiateGate.dc.html`.
+ * InitiateGate — `docs/design/InitiateGate.dc.html` (spec §5.1, ADR 0004).
  *
- * Structure and copy come from the artboard; data comes from a fixture. Slice 1
- * replaces `fixture` with real data and `onNext` with real navigation. Edit
- * freely: `scripts/scaffold-screens.mjs` will not overwrite this file.
+ * A guest about to organise is asked to save their place first, worded as the
+ * practical need it is ("so we can find you again on any device"), with "Not
+ * now" always there. `InitiateGateFlow` drives it.
+ *
+ * **A provider's button appears only when it has somewhere to go**, as on
+ * Welcome: Apple and Google are S1-14b (SUS-77), and a button that does
+ * nothing on the way to organising is worse than one that is not there.
+ *
+ * `intent` is what the person was about to do: plan a catch-up (a named plan,
+ * a quiet ask, taking the organiser role) or start a circle.
  */
+export type InitiateGateIntent = 'plan' | 'circle';
+
 export type InitiateGateProps = {
-  fixture: Fixture;
+  fixture?: Fixture | undefined;
   state?: ScreenState | undefined;
-  /** The screen's one decision. */
-  onNext?: (() => void) | undefined;
+  intent?: InitiateGateIntent | undefined;
+  circleName?: string | undefined;
+  /** The name this person has in the circle, for "links your existing place as …". */
+  name?: string | undefined;
   onBack?: (() => void) | undefined;
   onContinueWithApple?: (() => void) | undefined;
   onContinueWithEmail?: (() => void) | undefined;
@@ -34,6 +45,9 @@ export type InitiateGateProps = {
 };
 
 export function InitiateGateScreen({
+  intent = 'plan',
+  circleName,
+  name,
   onBack,
   onContinueWithApple,
   onContinueWithEmail,
@@ -42,34 +56,40 @@ export function InitiateGateScreen({
 }: InitiateGateProps) {
   return (
     <Screen>
-      <TopBar
-        title={t('initiateGate', 'sunday_crew')}
-        onBack={onBack}
-        backLabel={t('common', 'back')}
-      />
+      <TopBar title={circleName} onBack={onBack} backLabel={t('common', 'back')} />
       <Body>
         <Stack>
           <DisplayL>{t('initiateGate', 'save_your_place_first')}</DisplayL>
-          <BodyText>{t('initiateGate', 'planning_a_catch_up_makes_you_the')}</BodyText>
+          <BodyText>
+            {intent === 'circle'
+              ? t('initiateGate', 'starting_a_circle_makes_you_its_owner')
+              : t('initiateGate', 'planning_a_catch_up_makes_you_the')}
+          </BodyText>
         </Stack>
         <Stack>
-          <Button
-            label={t('initiateGate', 'continue_with_apple')}
-            variant="secondary"
-            onPress={onContinueWithApple}
-          />
-          <Button
-            label={t('initiateGate', 'continue_with_google')}
-            variant="secondary"
-            onPress={onContinueWithGoogle}
-          />
+          {onContinueWithApple === undefined ? null : (
+            <Button
+              label={t('initiateGate', 'continue_with_apple')}
+              variant="secondary"
+              onPress={onContinueWithApple}
+            />
+          )}
+          {onContinueWithGoogle === undefined ? null : (
+            <Button
+              label={t('initiateGate', 'continue_with_google')}
+              variant="secondary"
+              onPress={onContinueWithGoogle}
+            />
+          )}
           <Button
             label={t('initiateGate', 'continue_with_email')}
             variant="secondary"
             onPress={onContinueWithEmail}
           />
         </Stack>
-        <Small>{t('initiateGate', 'this_links_your_existing_place_as_priya')}</Small>
+        {name === undefined ? null : (
+          <Small>{t('initiateGate', 'this_links_your_existing_place_as', { name })}</Small>
+        )}
       </Body>
       <Foot>
         <Tertiary label={t('initiateGate', 'not_now')} onPress={onNotNow} />

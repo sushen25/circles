@@ -15,6 +15,7 @@ import { isOffline } from '../identity/join/failure';
 import { clockNow, movedOn, usePlanClock } from './clock';
 import { PRESETS, presetAvailable, resolveDraft, WINDOW_EVENT, type PlanDraft } from './form';
 import { PlanAnotherScreen } from './PlanAnotherScreen';
+import { InitiateGateFlow } from '../growth/InitiateGateFlow';
 import { PlanInProgress } from './PlanInProgressFlow';
 import { PlanSetupFlow } from './PlanSetupFlow';
 import { refusalOf, type Refused } from './problems';
@@ -79,16 +80,15 @@ function LiveAnother({ id }: { id: string }) {
     queryFn: () => lastHappenedPlan(id),
     enabled: member.kind === 'allow',
   });
-  const noPlanRunning =
-    home.data !== undefined && home.data !== null && home.data.activePlan === null;
-
-  const toSignIn = () =>
-    router.replace({ pathname: '/sign-in', params: { next: `/circles/${id}/plan/another` } });
-  useEffect(() => {
-    if (decision.kind === 'needs_saved_place' && noPlanRunning) toSignIn();
-    // `toSignIn` reads only `id` and the router.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [decision.kind, noPlanRunning, router, id]);
+  // The gate, once a guest has met it, stays until it says it is finished —
+  // not only until the session is saved. The session flips as soon as the
+  // sign-in is through, before `claim-identity` has moved the membership, and
+  // the form drawn in that gap reads a circle this identity is not in yet
+  // (review round 2). Also the server's word that a saved place is needed,
+  // when the session had not said so (S2-07). Adjusted while rendering, so no
+  // frame of the form is drawn in between.
+  const [mustSave, setMustSave] = useState(false);
+  if (decision.kind === 'needs_saved_place' && !mustSave) setMustSave(true);
 
   const back = () =>
     router.canGoBack()
@@ -115,6 +115,19 @@ function LiveAnother({ id }: { id: string }) {
   if (data.activePlan !== null) {
     return <PlanInProgress id={id} home={data} plan={data.activePlan} onBack={back} />;
   }
+  // A guest member saves their place here, in place of the form, and the form
+  // follows once they have: the guard answers `allow` (ADR 0004, S2-07).
+  if (mustSave) {
+    return (
+      <InitiateGateFlow
+        intent="plan"
+        circleId={id}
+        circleName={data.name}
+        onSaved={() => setMustSave(false)}
+        onNotNow={back}
+      />
+    );
+  }
   if (decision.kind !== 'allow') return <PlanAnotherScreen state="loading" onBack={back} />;
   if (last.data === null) return <PlanSetupFlow id={id} />;
 
@@ -124,7 +137,7 @@ function LiveAnother({ id }: { id: string }) {
       home={data}
       last={last.data}
       onInProgress={() => void home.refetch()}
-      onNeedsSavedPlace={toSignIn}
+      onNeedsSavedPlace={() => setMustSave(true)}
       onBack={back}
     />
   );

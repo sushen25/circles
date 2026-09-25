@@ -239,9 +239,9 @@ select is(
    from regexp_matches(
      (select pg_get_constraintdef(oid) from pg_constraint where conname = 'nudge_states_moment'),
      '''([a-z_]+)''::text', 'g') as m),
-  array['after_answer', 'after_attendance', 'after_confirmed', 'confirmed',
-        'reattached', 'second_response', 'settings'],
-  'the nudge moments the database accepts are exactly NUDGE_MOMENTS in packages/contracts (analytics.test.ts holds the other half)'
+  array['after_attendance_start_circle', 'email_given_app', 'locked_in_app', 'organiser_gate',
+        'reattached_save_place', 'reattached_twice_app', 'second_response_app', 'sent_save_access'],
+  'the nudge moments the database accepts are exactly NUDGE_MOMENTS in packages/domain (analytics.test.ts holds the other half)'
 );
 
 -- ---------------------------------------------------------------------------
@@ -371,14 +371,14 @@ select is(
 );
 
 insert into public.nudge_states (user_id, moment, plan_id, answer)
-select '00000000-0000-0000-0000-00000000aa02', 'confirmed', p.id, 'tapped'
+select '00000000-0000-0000-0000-00000000aa02', 'locked_in_app', p.id, 'tapped'
 from public.plans p where p.short_code = 'pnanba';
 insert into public.nudge_states (user_id, moment, plan_id, answer)
-select '00000000-0000-0000-0000-00000000aa03', 'confirmed', p.id, null
+select '00000000-0000-0000-0000-00000000aa03', 'locked_in_app', p.id, null
 from public.plans p where p.short_code = 'pnanba';
 
 select is(
-  (select array[shown, tapped, unanswered] from analytics.nudge_conversion where moment = 'confirmed'),
+  (select array[shown, tapped, unanswered] from analytics.nudge_conversion where moment = 'locked_in_app'),
   array[2::bigint, 1::bigint, 1::bigint],
   'a nudge counts as shown when the row exists and as answered only when somebody answered'
 );

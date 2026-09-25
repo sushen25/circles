@@ -2,7 +2,7 @@ import type { CircleId, IdempotencyKey } from '@circles/contracts';
 import { fromISO } from '@circles/domain';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 
 import { track } from '../../analytics/track';
 import { t } from '../../copy';
@@ -15,6 +15,7 @@ import { failureOf, isOffline } from '../identity/join/failure';
 import { bandWords, FIRST_PLAN_PRESETS, firstPlanPreview, type FirstPlanPreset } from './firstPlan';
 import { FirstPlanScreen, type FirstPlanProblem } from './FirstPlanScreen';
 import { tonightNote, WINDOW_EVENT } from './form';
+import { InitiateGateFlow } from '../growth/InitiateGateFlow';
 import { PlanInProgress } from './PlanInProgressFlow';
 import { closesAtWords, closesIn, presetLabel, tonightNoteWords } from './words';
 
@@ -25,8 +26,8 @@ import { closesAtWords, closesIn, presetLabel, tonightNoteWords } from './words'
  * the plan's own link is what goes in the group chat.
  *
  * Organising needs a saved place and membership (`RouteKind` `organiser`). The
- * route's gate has already established membership; a guest member is sent to
- * save their place and brought back (ADR 0004).
+ * route's gate has already established membership; a guest member saves their
+ * place on the organiser gate, drawn in place of the card (ADR 0004, S2-07).
  *
  * The request carries a preset and a title and nothing else, so the server
  * resolves the duration, the deadline and — counted again at that moment — the
@@ -89,21 +90,15 @@ function LiveFirstPlan({ id }: { id: string }) {
     enabled: member.kind === 'allow',
     staleTime: 0,
   });
-  const noPlanRunning =
-    home.data !== undefined && home.data !== null && home.data.activePlan === null;
-
-  // A guest member is asked to save their place, on the sign-in that keeps
-  // their memberships (`SignInFlow` saves a guest's place), and comes back
-  // here. Not the InitiateGate route: that is still fixtures (S2-07), and a
-  // real person must not land on a screen whose buttons do nothing (review
-  // round 4).
-  const toSignIn = () =>
-    router.replace({ pathname: '/sign-in', params: { next: `/circles/${id}/plan/new` } });
-  useEffect(() => {
-    if (decision.kind === 'needs_saved_place' && noPlanRunning) toSignIn();
-    // `toSignIn` reads only `id` and the router.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [decision.kind, noPlanRunning, router, id]);
+  // The gate, once a guest has met it, stays until it says it is finished —
+  // not only until the session is saved. The session flips as soon as the
+  // sign-in is through, before `claim-identity` has moved the membership, and
+  // the form drawn in that gap reads a circle this identity is not in yet
+  // (review round 2). Also the server's word that a saved place is needed,
+  // when the session had not said so (S2-07). Adjusted while rendering, so no
+  // frame of the form is drawn in between.
+  const [mustSave, setMustSave] = useState(false);
+  if (decision.kind === 'needs_saved_place' && !mustSave) setMustSave(true);
 
   // The moment the card was opened: the preview is of a plan made about now,
   // and reading the clock during a render would make it a different plan each
@@ -141,7 +136,19 @@ function LiveFirstPlan({ id }: { id: string }) {
   if (data.activePlan !== null) {
     return <PlanInProgress id={id} home={data} plan={data.activePlan} onBack={back} />;
   }
-  // No plan running, so the card is next, and the card needs a saved place.
+  // A guest member saves their place here, in place of the form, and the form
+  // follows once they have: the guard answers `allow` (ADR 0004, S2-07).
+  if (mustSave) {
+    return (
+      <InitiateGateFlow
+        intent="plan"
+        circleId={id}
+        circleName={data.name}
+        onSaved={() => setMustSave(false)}
+        onNotNow={back}
+      />
+    );
+  }
   if (decision.kind !== 'allow') return <FirstPlanScreen state="loading" onBack={back} />;
   const input = {
     zone: data.zone,
@@ -185,7 +192,7 @@ function LiveFirstPlan({ id }: { id: string }) {
       if (failure.kind === 'offline') {
         setProblem('offline');
       } else if (failure.kind === 'reason' && failure.reason === 'requires_saved_place') {
-        toSignIn();
+        setMustSave(true);
       } else if (failure.kind === 'reason' && failure.reason === 'plan_in_progress') {
         // Somebody's plan got there first: the circle read again is the screen.
         void home.refetch();

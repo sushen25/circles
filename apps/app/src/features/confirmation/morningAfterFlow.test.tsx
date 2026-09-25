@@ -39,7 +39,18 @@ vi.mock('../../data/confirmation', async (original) => ({
   setAttendanceDismissed: (...a: unknown[]) => setAttendanceDismissed(...a),
 }));
 
+// `record-nudge`: no by default, so every answer below ends on "Thanks, noted.";
+// the after-attendance cases say yes.
+const askToShow = vi.fn();
+const recordAnswer = vi.fn();
+vi.mock('../../data/growth', () => ({
+  askToShow: (...a: unknown[]) => askToShow(...a),
+  recordAnswer: (...a: unknown[]) => recordAnswer(...a),
+  ownNudgeHistory: async () => [],
+}));
+
 const { MorningAfterFlow } = await import('./MorningAfterFlow');
+const { forgetSessionNudges } = await import('../growth/useNudge');
 const { ConfirmedFlow } = await import('./ConfirmedFlow');
 const fixture = await import('./fixtures');
 
@@ -55,6 +66,9 @@ const EVIDENCE = { corroboration: 'reported', was_there: 2, missed: 1 };
 
 beforeEach(() => {
   vi.clearAllMocks();
+  forgetSessionNudges();
+  askToShow.mockResolvedValue({ suppressed: true, reason: 'not_the_moment' });
+  recordAnswer.mockResolvedValue(undefined);
   reportOutcome.mockResolvedValue(EVIDENCE);
   reportAttendance.mockResolvedValue(EVIDENCE);
   setAttendanceDismissed.mockResolvedValue(undefined);
@@ -265,6 +279,53 @@ describe('a member', () => {
     expect(await screen.findByText('Thanks, noted.')).toBeTruthy();
     const [first, second] = reportAttendance.mock.calls.map(([input]) => input.key);
     expect(second).not.toBe(first);
+  });
+
+  it('after "I was there" on the circle\'s first, asks to start a circle instead of "Thanks, noted."', async () => {
+    askToShow.mockResolvedValue({ suppressed: false });
+    show(<MorningAfterFlow target={{ code: 'pnsundaycr' }} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'I was there' }));
+
+    expect(await screen.findByText('Glad it happened.')).toBeTruthy();
+    expect(screen.queryByText('Thanks, noted.')).toBeNull();
+    expect(askToShow).toHaveBeenCalledWith(
+      { moment: 'after_attendance_start_circle', planId: 'thu-17' },
+      expect.any(String),
+    );
+    // One event for the answer, the one there already was: the prompt adds none.
+    expect(track.mock.calls.map(([name]) => name)).toEqual(['attendance_confirmed']);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Start a circle' }));
+    expect(recordAnswer).toHaveBeenCalledWith(
+      { moment: 'after_attendance_start_circle', planId: 'thu-17' },
+      'tapped',
+      expect.any(String),
+    );
+    // Maya has a saved place, so there is no gate: straight to the form.
+    expect(push).toHaveBeenCalledWith('/circles/create');
+  });
+
+  it('"Maybe later" dismisses it and goes to the circle', async () => {
+    askToShow.mockResolvedValue({ suppressed: false });
+    show(<MorningAfterFlow target={{ code: 'pnsundaycr' }} />);
+    fireEvent.click(await screen.findByRole('button', { name: 'I was there' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Maybe later' }));
+
+    expect(recordAnswer).toHaveBeenCalledWith(
+      { moment: 'after_attendance_start_circle', planId: 'thu-17' },
+      'dismissed',
+      expect.any(String),
+    );
+    expect(dismissTo).toHaveBeenCalledWith(TO_CIRCLE);
+  });
+
+  it('never asks after "I couldn\'t make it": only "I was there" is the moment', async () => {
+    askToShow.mockResolvedValue({ suppressed: false });
+    show(<MorningAfterFlow target={{ code: 'pnsundaycr' }} />);
+    fireEvent.click(await screen.findByRole('button', { name: "I couldn't make it" }));
+
+    expect(await screen.findByText('Thanks, noted.')).toBeTruthy();
+    expect(askToShow).not.toHaveBeenCalled();
   });
 
   it('can say they missed it, which records no attendance', async () => {

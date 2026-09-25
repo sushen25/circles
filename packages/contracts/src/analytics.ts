@@ -33,13 +33,33 @@ function event<S extends Shape>(version: number, shape: S = {} as S) {
 /** A count that is never a person's identity — "5 of 6 can make it". */
 const count = z.int().nonnegative().max(10_000);
 
+/**
+ * Where in the journey somebody saved their place (`account_claimed`, and
+ * `claim-identity`'s `moment`). `public.claim_identity` refuses anything else,
+ * and `095_identity_merge.sql` holds its list to this one.
+ *
+ * - `after_answer` — Save access, under the email card on Sent.
+ * - `reattached` — "Keep your place for good?" after a Continue-as (S2-07).
+ * - `organiser_gate` — a guest about to organise (S2-07, ADR 0004).
+ * - `after_attendance` — "Start a circle", the morning after (S2-07).
+ * - `after_confirmed` — the locked-in screen.
+ * - `settings` — sign-in from anywhere else.
+ */
+export const CLAIM_MOMENTS = [
+  'after_answer',
+  'after_attendance',
+  'after_confirmed',
+  'organiser_gate',
+  'reattached',
+  'settings',
+] as const;
+export type ClaimMoment = (typeof CLAIM_MOMENTS)[number];
+
 export const catalogue = {
   // --- identity -----------------------------------------------------------
   account_started: event(1),
   account_completed: event(1, { provider: z.enum(['apple', 'google', 'email']) }),
-  account_claimed: event(1, {
-    moment: z.enum(['after_answer', 'after_confirmed', 'after_attendance', 'settings']),
-  }),
+  account_claimed: event(1, { moment: z.enum(CLAIM_MOMENTS) }),
   session_missing_on_return: event(1),
   member_reattached: event(1, { source: z.enum(['list', 'email']) }),
   duplicate_member_removed: event(1),
@@ -224,25 +244,12 @@ export const TrackedEvent = z.object({
 export type TrackedEvent = z.infer<typeof TrackedEvent>;
 
 /**
- * The moments a growth nudge can be shown at, and the moments an account can be
- * claimed at, as one list.
- *
- * `nudge_states.moment` (migration 0006) is checked against exactly this union,
- * and the two live in different languages: if the catalogue gains a moment and
- * the constraint does not, the write fails at the database with a check
- * violation nobody expects. `analytics.test.ts` asserts this equals the union of
- * the catalogue's two enums, and `150_analytics.sql` asserts the constraint
- * holds the same values — so a new moment fails both halves and says where.
+ * The moments a prompt can be shown at: `nudge_states.moment`. The list is the
+ * domain's (`packages/domain/src/growth`), because the rules over it are;
+ * re-exported here beside the catalogue that measures it. `150_analytics.sql`
+ * holds the database's constraint to it.
  */
-export const NUDGE_MOMENTS = [
-  'after_answer',
-  'after_attendance',
-  'after_confirmed',
-  'confirmed',
-  'reattached',
-  'second_response',
-  'settings',
-] as const;
+export { NUDGE_MOMENTS } from '@circles/domain';
 
 /**
  * Key fragments that would make a payload carry a person's words. Checked by

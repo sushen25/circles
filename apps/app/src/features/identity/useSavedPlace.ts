@@ -1,8 +1,10 @@
+import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useEffect } from 'react';
 
 import { guard } from '../../data/auth/guards';
 import { useSession } from '../../data/auth/session';
+import { belongsToAnyCircle } from '../../data/circles';
 
 /**
  * A route that needs a saved place and nothing else — Your name, a first
@@ -18,17 +20,34 @@ import { useSession } from '../../data/auth/session';
  * account, so they go straight to sign-in and come back here after it. It must
  * be a path `safeReturnPath` keeps, or sign-in drops it.
  */
-export function useSavedPlace(options: { returnTo?: string } = {}): 'wait' | 'allow' {
+export function useSavedPlace(
+  options: { returnTo?: string; gateGuests?: boolean } = {},
+): 'wait' | 'allow' | 'gate' {
   const router = useRouter();
   const session = useSession();
   const decision = guard({ route: 'saved', session });
-  const { returnTo } = options;
+  const { returnTo, gateGuests = false } = options;
+
+  // `gateGuests`: a guest who belongs to a circle already is not a stranger to
+  // be sent to Welcome, but somebody about to organise with a place to keep —
+  // the organiser gate, which links it (S2-07). A guest with no circle has
+  // nothing to link, and Welcome is where an organiser starts.
+  const guestWithCircles = useQuery({
+    queryKey: ['belongs-to-any-circle', session.userId],
+    queryFn: belongsToAnyCircle,
+    enabled: gateGuests && session.status === 'guest',
+    staleTime: 30_000,
+  });
+  const gated = gateGuests && session.status === 'guest';
 
   useEffect(() => {
     if (decision.kind !== 'needs_saved_place') return;
+    if (gated && guestWithCircles.data !== false && !guestWithCircles.isError) return;
     if (returnTo === undefined) router.replace('/');
     else router.replace({ pathname: '/sign-in', params: { next: returnTo } });
-  }, [decision.kind, returnTo, router]);
+  }, [decision.kind, gated, guestWithCircles.data, guestWithCircles.isError, returnTo, router]);
 
-  return decision.kind === 'allow' ? 'allow' : 'wait';
+  if (decision.kind === 'allow') return 'allow';
+  if (gated && guestWithCircles.data === true) return 'gate';
+  return 'wait';
 }

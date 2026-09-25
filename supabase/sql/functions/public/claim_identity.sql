@@ -57,7 +57,8 @@ begin
   -- this writes is validated against that catalogue downstream. Refusing here
   -- turns a payload the pipeline would drop into an error the caller can see.
   if p_moment is null or p_moment not in
-    ('after_answer', 'after_confirmed', 'after_attendance', 'settings') then
+    ('after_answer', 'after_attendance', 'after_confirmed', 'organiser_gate', 'reattached',
+     'settings') then
     raise exception 'claim_identity got an unknown moment'
       using errcode = 'invalid_parameter_value';
   end if;

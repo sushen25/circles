@@ -1,7 +1,9 @@
+import { NUDGE_MOMENTS as DOMAIN_MOMENTS } from '@circles/domain';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
 import {
+  CLAIM_MOMENTS,
   FORBIDDEN_PAYLOAD_KEYS,
   NUDGE_MOMENTS,
   acceptEvent,
@@ -181,17 +183,19 @@ describe('acceptEvent, which is what the ingest uses', () => {
 });
 
 describe('the nudge moments', () => {
-  it('are the union of the two enums that use them', () => {
-    // `nudge_states.moment` (0006) is checked against exactly this list, and
-    // `150_analytics.sql` asserts the constraint matches. A moment added to the
-    // catalogue and not to the constraint is a write that fails in production
-    // with a check violation; this is the half of that guard that lives here.
-    const fromCatalogue = new Set([
-      ...(catalogue.app_nudge_shown.payload.shape.moment.options as string[]),
-      ...(catalogue.account_claimed.payload.shape.moment.options as string[]),
-    ]);
+  it("are the domain's, whose rules are over them", () => {
+    // `nudge_states.moment` (0028) is checked against exactly this list, and
+    // `150_analytics.sql` asserts the constraint matches. A moment added here
+    // and not to the constraint is a write that fails in production with a
+    // check violation; this is the half of that guard that lives here.
+    expect([...NUDGE_MOMENTS]).toEqual([...DOMAIN_MOMENTS].sort());
+  });
 
-    expect([...fromCatalogue].sort()).toEqual([...NUDGE_MOMENTS]);
+  it('are measured apart from the moments a place is saved at', () => {
+    // A prompt is not a claim: "save your place" after a reattach is shown at
+    // `reattached_save_place` and claimed at `reattached`, so the conversion
+    // map can divide one by the other without the two being the same list.
+    expect(catalogue.account_claimed.payload.shape.moment.options).toEqual([...CLAIM_MOMENTS]);
   });
 });
 

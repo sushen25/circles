@@ -153,7 +153,8 @@ export type AttendanceReport = {
 export function useReportAttendance(
   data: PlanConfirmation | undefined,
   queryKey: string,
-  onAnswered: () => void,
+  /** With the answer: only "I was there" is the after-attendance moment (S2-07). */
+  onAnswered: (answer: RetrospectiveAnswer) => void,
 ): AttendanceReport {
   const client = useQueryClient();
   const [notice, setNotice] = useState<string>();
@@ -181,7 +182,7 @@ export function useReportAttendance(
           client.invalidateQueries({ queryKey: k }),
         ),
       );
-      onAnswered();
+      onAnswered(answer);
     },
     onError: (error) => {
       const failure = failureOf(error);

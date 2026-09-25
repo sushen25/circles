@@ -35,8 +35,12 @@ export type ContinueAsFlowProps = {
   code: ShortCode;
   /** This page load had no session and made one, rather than arriving with somebody's. */
   arrivedWithoutSession: boolean;
-  /** The membership moved or was made; the gate should ask again. */
-  onReattached: () => void;
+  /**
+   * The membership moved or was made; the gate should ask again. `'list'` when
+   * it was a pick from "Which one is you?" — the one reattach the "save your
+   * place" prompt follows (S2-07).
+   */
+  onReattached: (via?: 'list') => void;
 };
 
 export function ContinueAsFlow({ code, arrivedWithoutSession, onReattached }: ContinueAsFlowProps) {
@@ -174,7 +178,7 @@ export function ContinueAsFlow({ code, arrivedWithoutSession, onReattached }: Co
         idempotencyKey: key,
       });
       track('member_reattached', { source: 'list' });
-      onReattached();
+      onReattached('list');
     } catch (error) {
       const failure = failureOf(error);
       const reason = failure.kind === 'reason' ? failure.reason : undefined;

@@ -77,14 +77,18 @@ export const en = {
   },
   afterAttendance: {
     brand: '{brand}',
-    sunday_crew_thu_17_sep: 'Sunday Crew · Thu 17 Sep',
+    /** "Sunday Crew · Thu 17 Sep". */
+    label: '{circle} · {date}',
     glad_it_happened: 'Glad it happened.',
-    thats_the_first_one_sunday_crew_has:
-      "That's the first one Sunday Crew has done through {brand}. The next one starts from where this left off.",
+    thats_the_first_one_circle_has:
+      "That's the first one {circle} has done through {brand}. The next one starts from where this left off.",
     got_another_group_that_keeps_saying_we:
       'Got another group that keeps saying “we should catch up”?',
     start_a_circle_for_them_same_link:
       "Start a circle for them. Same link into their chat, no app for them either. You'd need to sign in so the circle has an owner.",
+    /** The same card for somebody who has a saved place already: no sign-in to mention. */
+    start_a_circle_for_them_signed_in:
+      'Start a circle for them. Same link into their chat, no app for them either.',
     start_a_circle: 'Start a circle',
     maybe_later: 'Maybe later',
   },
@@ -1233,15 +1237,18 @@ export const en = {
     reference: 'Ref {reference}',
   },
   initiateGate: {
-    sunday_crew: 'Sunday Crew',
     save_your_place_first: 'Save your place first',
     planning_a_catch_up_makes_you_the:
       'Planning a catch-up makes you the organiser, so we need to be able to find you again on any device. One sign-in, no app needed.',
+    /** A guest starting a circle, from the morning-after prompt (S2-07). */
+    starting_a_circle_makes_you_its_owner:
+      'Starting a circle makes you its owner, so we need to be able to find you again on any device. One sign-in, no app needed.',
     continue_with_apple: 'Continue with Apple',
     continue_with_google: 'Continue with Google',
     continue_with_email: 'Continue with email',
-    this_links_your_existing_place_as_priya:
-      "This links your existing place as Priya. Nothing you've sent changes.",
+    /** "This links your existing place as Priya." — the name the circle knows them by. */
+    this_links_your_existing_place_as:
+      "This links your existing place as {name}. Nothing you've sent changes.",
     not_now: 'Not now',
   },
   interestPrompt: {
@@ -1846,16 +1853,18 @@ export const en = {
     cadence_due: 'cadence due',
   },
   reattachedNudge: {
-    sunday_crew: 'Sunday Crew',
-    welcome_back_priya: 'Welcome back, Priya.',
+    /** "Welcome back, Priya." — the name they continued as. */
+    welcome_back_name: 'Welcome back, {name}.',
+    welcome_back: 'Welcome back.',
     youve_rejoined_from_a_new_browser_and:
-      "You've rejoined from a new browser and your times are still here. Maya can see you rejoined.",
+      "You've rejoined from a new browser and your times are still here.",
     keep_your_place_for_good: 'Keep your place for good?',
-    sign_in_once_with_your_email_apple:
-      "Sign in once with your email, Apple or Google and you'll never have to pick your name from a list again. Still no app needed.",
+    /** Email only until Apple and Google arrive (SUS-77), so it names only email. */
+    sign_in_once_with_your_email:
+      "Sign in once with your email and you'll never have to pick your name from a list again. Still no app needed.",
     save_my_place: 'Save my place',
     not_now: 'Not now',
-    carry_on_to_sunday_crew: 'Carry on to Sunday Crew',
+    carry_on_to_circle: 'Carry on to {circle}',
   },
   rescheduledGuest: {
     sunday_crew: 'Sunday Crew',
