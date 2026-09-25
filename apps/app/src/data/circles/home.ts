@@ -91,6 +91,12 @@ export type CircleHome = {
    */
   morningAfter: MorningAfter | null;
   mine: MySwitches | null;
+  /**
+   * Whether the cadence nudge for this due date asked the reader (S2-04):
+   * circle home's "it's your turn". The dispatcher's choice, read back through
+   * `my_turn_to_plan` — yes or no, never who else was asked.
+   */
+  myTurn: boolean;
 };
 
 export async function circleHome(id: string): Promise<CircleHome | null> {
@@ -112,7 +118,7 @@ export async function circleHome(id: string): Promise<CircleHome | null> {
 
   const me = await whoAmI(client);
 
-  const [members, plans, morningAfter] = await Promise.all([
+  const [members, plans, morningAfter, myTurn] = await Promise.all([
     client
       .from('circle_members')
       .select(
@@ -125,6 +131,9 @@ export async function circleHome(id: string): Promise<CircleHome | null> {
     // A prompt, not the home: if it cannot be read the home still shows, and
     // the next read asks again.
     morningAfterOf(id).catch(() => null),
+    // A line on the card, not the home: unread, the card says the quieter
+    // sentence everybody else sees.
+    myTurnToPlan(client, id),
   ]);
   if (members.error !== null) throw new Error(FAILED);
 
@@ -188,6 +197,7 @@ export async function circleHome(id: string): Promise<CircleHome | null> {
           },
     lockedIn,
     morningAfter,
+    myTurn,
     mine:
       own === undefined
         ? null
@@ -197,6 +207,11 @@ export async function circleHome(id: string): Promise<CircleHome | null> {
             mutedNudges: own.muted_nudges,
           },
   };
+}
+
+async function myTurnToPlan(client: ReturnType<typeof authClient>, id: string): Promise<boolean> {
+  const { data, error } = await client.rpc('my_turn_to_plan', { p_circle_id: id });
+  return error === null && data === true;
 }
 
 /**

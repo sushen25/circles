@@ -42,21 +42,37 @@ import { categoryLabel } from './words';
 export function PlanSetupFlow({
   id,
   startOn = 'form',
+  initial,
+  onBack,
 }: {
   id: string;
   startOn?: 'form' | 'window';
+  /**
+   * The form as it opens. Absent, the circle's defaults; Plan another's
+   * **Change** passes what it had filled in from last time (S2-04).
+   */
+  initial?: PlanDraft | undefined;
+  /** Where Back goes, when it is not simply back. */
+  onBack?: (() => void) | undefined;
 }) {
   return hasBackend() ? (
-    <LiveSetup id={id} startOn={startOn} />
+    <LiveSetup id={id} startOn={startOn} initial={initial} onBack={onBack} />
   ) : (
-    <FixtureSetup startOn={startOn} />
+    <FixtureSetup startOn={startOn} initial={initial} />
   );
 }
 
-function FixtureSetup({ startOn }: { startOn: 'form' | 'window' }) {
+function FixtureSetup({
+  startOn,
+  initial,
+}: {
+  startOn: 'form' | 'window';
+  initial: PlanDraft | undefined;
+}) {
   const router = useRouter();
   return (
     <SetupForm
+      initial={initial}
       context={sundayCrew}
       circleDuration={120}
       now={FIXTURE_NOW}
@@ -69,7 +85,17 @@ function FixtureSetup({ startOn }: { startOn: 'form' | 'window' }) {
   );
 }
 
-function LiveSetup({ id, startOn }: { id: string; startOn: 'form' | 'window' }) {
+function LiveSetup({
+  id,
+  startOn,
+  initial,
+  onBack,
+}: {
+  id: string;
+  startOn: 'form' | 'window';
+  initial: PlanDraft | undefined;
+  onBack: (() => void) | undefined;
+}) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const session = useSession();
@@ -105,10 +131,12 @@ function LiveSetup({ id, startOn }: { id: string; startOn: 'form' | 'window' }) 
   // changed form is a new one (ADR 0016).
   const key = useRef<{ for: string; key: IdempotencyKey } | undefined>(undefined);
 
-  const back = () =>
-    router.canGoBack()
-      ? router.back()
-      : router.replace({ pathname: '/circles/[id]', params: { id } });
+  const back =
+    onBack ??
+    (() =>
+      router.canGoBack()
+        ? router.back()
+        : router.replace({ pathname: '/circles/[id]', params: { id } }));
 
   if (member.kind !== 'allow' || home.isPending) {
     return <PlanSetupScreen state="loading" onBack={back} />;
@@ -142,6 +170,7 @@ function LiveSetup({ id, startOn }: { id: string; startOn: 'form' | 'window' }) 
 
   return (
     <SetupForm
+      initial={initial}
       context={context}
       circleName={data.name}
       circleDuration={data.defaultDurationMinutes}
@@ -213,6 +242,7 @@ function movedOn(shown: FormResolved, now: FormResolved, defaultDeadline: boolea
 const TICK_MS = 60_000;
 
 function SetupForm({
+  initial: opening,
   context,
   circleName,
   circleDuration,
@@ -223,6 +253,7 @@ function SetupForm({
   onRefused,
   onBack,
 }: {
+  initial?: PlanDraft | undefined;
   context: FormContext;
   /** For the refusal that names the circle. Absent on fixtures. */
   circleName?: string | undefined;
@@ -253,7 +284,7 @@ function SetupForm({
   const duration = (DURATIONS as readonly number[]).includes(circleDuration)
     ? (circleDuration as DurationMinutes)
     : 120;
-  const [initial] = useState(() => defaultDraft({ duration }));
+  const [initial] = useState(() => opening ?? defaultDraft({ duration }));
   const form = usePlanForm({
     initial,
     context,

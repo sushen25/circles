@@ -25,10 +25,10 @@ import { MembersLine, SettingsButton } from './parts';
  * CircleHome, between catch-ups — `docs/design/CircleHomeDue.dc.html` (spec
  * §5.2, §5.9). Two of circle home's states share this layout:
  *
- * - **about time** (`due`): the nudge card, "It's been about a month since …".
- *   The card is drawn from the circle's own cadence; the cron that decides who
- *   is asked to plan, and Snooze / Turn off, are S2-04's, so those two buttons
- *   appear only when a handler is given.
+ * - **about time** (`due`): the nudge card, "It's been about a month since …",
+ *   which tells the one person the cadence nudge asked that it is their turn.
+ *   **Snooze a month** (the owner's) and **Turn off nudges** (the reader's own)
+ *   are each drawn only when a handler is given (S2-04).
  * - **no rush / no goal**: the same home with no card — last caught up, next
  *   one, members, and "Plan a catch-up".
  *
@@ -60,6 +60,8 @@ export type CircleHomeDueProps = {
   onBack?: (() => void) | undefined;
   onSnoozeAMonth?: (() => void) | undefined;
   onTurnOffNudges?: (() => void) | undefined;
+  /** What Snooze or Turn off just did, or that it did not save. */
+  notice?: string | undefined;
   /** The morning after's card, under the circle's name, when the reader owes it (S1-29). */
   prompt?: ReactNode;
 };
@@ -82,6 +84,7 @@ export function CircleHomeDueScreen({
   onBack,
   onSnoozeAMonth,
   onTurnOffNudges,
+  notice,
   prompt,
 }: CircleHomeDueProps) {
   const later = onSnoozeAMonth !== undefined || onTurnOffNudges !== undefined;
@@ -96,22 +99,27 @@ export function CircleHomeDueScreen({
         <CircleHeader name={circleName} color={color} subtitle={subtitle} />
         {prompt}
         {archived ? <Notice>{t('circleHome', 'archived')}</Notice> : null}
+        {notice !== undefined && !archived ? <Notice>{notice}</Notice> : null}
         {due && !archived ? (
           <Card>
             <Label>{t('circleHomeDue', 'about_time_for_the_next_one')}</Label>
             <BodyText>{body}</BodyText>
             {later ? (
               <ButtonRow>
-                <Button
-                  label={t('circleHomeDue', 'snooze_a_month')}
-                  variant="secondary"
-                  onPress={onSnoozeAMonth}
-                />
-                <Button
-                  label={t('circleHomeDue', 'turn_off_nudges')}
-                  variant="secondary"
-                  onPress={onTurnOffNudges}
-                />
+                {onSnoozeAMonth === undefined ? null : (
+                  <Button
+                    label={t('circleHomeDue', 'snooze_a_month')}
+                    variant="secondary"
+                    onPress={onSnoozeAMonth}
+                  />
+                )}
+                {onTurnOffNudges === undefined ? null : (
+                  <Button
+                    label={t('circleHomeDue', 'turn_off_nudges')}
+                    variant="secondary"
+                    onPress={onTurnOffNudges}
+                  />
+                )}
               </ButtonRow>
             ) : null}
           </Card>

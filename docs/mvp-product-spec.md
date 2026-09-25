@@ -347,8 +347,8 @@ No repeated daily reminders; at most one deadline reminder per member per plan; 
 ### 5.9 Cadence and repeat use
 
 - A reported-happened meetup sets `last_met_at`; the next due date follows the cadence.
-- Seven days before a monthly or two-monthly due date, or two days before a weekly or fortnightly one, the circle home shows **About time for the next one** and one person is nudged according to the nudge policy: whoever organised last, **take turns** (round-robin among members who attended the last happened meetup and are not muted; default for circles of four or more), or the owner.
-- One push or email at the due date if no plan exists. Snooze one interval or turn nudges off. No guilt or streak framing.
+- Seven days before a monthly or two-monthly due date, or two days before a weekly or fortnightly one, the circle home shows **About time for the next one** and one person is nudged according to the nudge policy: whoever organised last, **take turns** (round-robin among members who attended the last happened meetup and are not muted, passing from whoever organised last to the next in join order; default for circles of four or more), or the owner. The nudged member's card says it is their turn; everyone else's does not name anybody.
+- One push or email per due date, sent when the circle home starts showing **About time** and only if no plan is open (asking or locked in); a plan made, a snooze or a meetup before it is sent stops it ([ADR 00XX](decisions/00XX-the-cadence-nudge-is-decided-once-per-due-date.md)). Someone who has turned **Nudges to plan the next one** off is never asked: under take turns the turn passes on, and under the other two policies nobody is asked. The owner can **Snooze a month** (the due date does not move); any member can **Turn off nudges** for themselves. No guilt or streak framing.
 - **Plan another** pre-fills category, duration, quorum, area and a future window from the last happened plan.
 
 ### 5.10 Outcome confirmation and lightweight memory

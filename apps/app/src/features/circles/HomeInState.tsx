@@ -17,6 +17,7 @@ import { CircleHomeScreen } from './CircleHomeScreen';
 import { EmptyCircleScreen } from './EmptyCircleScreen';
 import { aboutTimeBody, homeState, lockedInWords } from './lines';
 import { useMorningAfterCard } from './MorningAfterCard';
+import { useNudgeActions } from './useNudgeActions';
 import {
   cadenceWords,
   homeSubtitle,
@@ -43,6 +44,7 @@ export function HomeInState({ home, onBack }: { home: CircleHome; onBack: () => 
   // finding a time, or locked in, before the last one is reported — and
   // everybody else may have left since.
   const prompt = useMorningAfterCard(home);
+  const nudge = useNudgeActions(home);
 
   const members = home.members.map((m) => ({ name: m.name }));
   const memberCount =
@@ -54,6 +56,9 @@ export function HomeInState({ home, onBack }: { home: CircleHome; onBack: () => 
     : undefined;
   const settings = () => router.push({ pathname: '/circles/[id]/settings', params: { id } });
   const planNew = () => router.push({ pathname: '/circles/[id]/plan/new', params: { id } });
+  // "Plan another" is the circle's second plan and after: prefilled from the
+  // last meetup that happened, or the full setup when there is none (S2-04).
+  const planAnother = () => router.push({ pathname: '/circles/[id]/plan/another', params: { id } });
   const shared = {
     circleName: home.name,
     color: home.color,
@@ -147,7 +152,7 @@ export function HomeInState({ home, onBack }: { home: CircleHome; onBack: () => 
           })
         }
         onShare={share}
-        onPlanAnother={planNew}
+        onPlanAnother={planAnother}
       />
     );
   }
@@ -177,7 +182,10 @@ export function HomeInState({ home, onBack }: { home: CircleHome; onBack: () => 
         body={aboutTimeBody(home)}
         lastCaughtUp={lastCaughtUp(home)}
         nextOne={t('circleHome', 'nothing_yet')}
-        onNext={planNew}
+        onSnoozeAMonth={nudge.onSnoozeAMonth}
+        onTurnOffNudges={nudge.onTurnOffNudges}
+        notice={nudge.notice}
+        onNext={planAnother}
       />
     );
   }

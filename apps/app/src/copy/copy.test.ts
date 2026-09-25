@@ -87,6 +87,11 @@ describe('the copy file', () => {
       'tail',
       'owner',
       'detail',
+      // S2-04's: "Filled in from September's catch-up", and Plan another's one
+      // line for how long and how many.
+      'month',
+      'duration',
+      'quorum',
     ]);
     for (const [screen, strings] of Object.entries(en)) {
       for (const [key, value] of Object.entries(strings)) {

@@ -1,4 +1,6 @@
 /** Making a plan, handing it to the group, and changing or calling it off (spec §5.3, §5.7). */
+export { lastHappenedPlan } from './another';
+export type { LastHappenedPlan } from './another';
 export { createFirstPlan, createPlan, planLink } from './create';
 export type { CreateFirstPlanOptions, CreatePlanOptions } from './create';
 export { planDetails } from './read';

@@ -509,6 +509,12 @@ export const en = {
     time_at_place: '{time} · {place}',
     nothing_yet: 'Nothing yet',
     archived: 'Archived. Nobody gets prompts about it.',
+    about_time_body_your_turn:
+      "It's been {period} since {circle} last got together. It's your turn to plan, if the group's keen. No rush.",
+    snoozed: 'Snoozed. Nobody will be nudged about {circle} for a month.',
+    nudges_off:
+      "You won't be asked to plan the next one in {circle}. Notification settings can turn it back on.",
+    couldnt_save_nudge: "That didn't save. Try again.",
   },
   circleHomeConfirmed: {
     sunday_crew: 'Sunday Crew',
@@ -1557,6 +1563,8 @@ export const en = {
     too_many_tries: "That's a lot of plans at once. Wait a little, then try again.",
     couldnt_ask: "Something went wrong, so the group wasn't asked. Please try again.",
     reference: 'Ref {reference}',
+    filled_in_from: "Filled in from {month}'s catch-up. Change anything you like.",
+    summary: '{duration} · {quorum}',
   },
   planSetup: {
     plan_openly: 'Plan openly',
