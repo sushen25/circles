@@ -77,14 +77,19 @@ test.describe('the served HTML', () => {
 
 test('a name typed the moment the field appears is the name that is sent', async ({ page }) => {
   // Maya has a saved place, so there is nobody to continue as: `/j/<code>` goes
-  // straight to the name step, the field a guest meets first.
+  // straight to the name step, the field a guest meets first. Before SUS-90
+  // this page served a refusal rather than the field, so what failed here was
+  // the #418 (the guard's); the email test below is the one whose field used
+  // to be in the HTML.
   const crew = sundayCrew();
   await slowScripts(page, 1_500);
 
   await page.goto(`/j/${crew.planCode}`, { waitUntil: 'commit' });
   // No wait for hydration (there is none in `fixtures.ts` any more): the
   // moment Playwright can type into a field, it does, as a fast thumb would.
-  await page.getByLabel('Your name').pressSequentially('Ren');
+  const name = page.getByLabel('Your name');
+  await name.pressSequentially('Ren');
+  await expect(name, 'what was typed is still in the field').toHaveValue('Ren');
   await page.getByRole('button', { name: 'Continue' }).click();
 
   await expect(page.getByText("Times I'd actually be up for")).toBeVisible();
@@ -100,10 +105,17 @@ test('an email typed the moment the field appears is the address the code goes t
   await slowScripts(page, 1_500);
 
   await page.goto('/sign-in', { waitUntil: 'commit' });
-  await page.getByLabel('Your email').pressSequentially(email);
+  const field = page.getByLabel('Your email');
+  await field.pressSequentially(email);
+  await expect(field, 'what was typed is still in the field').toHaveValue(email);
   await page.getByRole('button', { name: 'Send me a code' }).click();
 
-  await expect(page.getByText("That doesn't look like an email address")).toHaveCount(0);
+  // The code step names the address typed. Before SUS-90 the form said the
+  // field was empty here instead, and no code went anywhere.
+  await expect(
+    page.getByText(`Sent to ${email}.`, { exact: false }),
+    'the code step, for the address typed',
+  ).toBeVisible();
   expect(await latestCodeFor(email)).toMatch(/^\d{6}$/);
 });
 

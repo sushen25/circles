@@ -13,8 +13,10 @@ import { useHydrated } from './hydration';
  * that said `true` while hydrating would be exactly the #418 it exists to stop.
  */
 
-function Probe() {
-  return <p>{useHydrated() ? 'client' : 'shell'}</p>;
+function Probe({ renders }: { renders?: string[] }) {
+  const said = useHydrated() ? 'client' : 'shell';
+  renders?.push(said);
+  return <p>{said}</p>;
 }
 
 describe('useHydrated', () => {
@@ -26,13 +28,14 @@ describe('useHydrated', () => {
     const container = document.createElement('div');
     container.innerHTML = renderToString(<Probe />);
     const onRecoverableError = vi.fn();
-    const seenWhileHydrating = container.textContent;
+    const renders: string[] = [];
 
     await act(async () => {
-      hydrateRoot(container, <Probe />, { onRecoverableError });
+      hydrateRoot(container, <Probe renders={renders} />, { onRecoverableError });
     });
 
-    expect(seenWhileHydrating).toBe('shell');
+    // The hydrating render says shell, and React's own re-render says client.
+    expect(renders).toEqual(['shell', 'client']);
     expect(onRecoverableError, 'no hydration mismatch').not.toHaveBeenCalled();
     expect(container.textContent).toBe('client');
   });

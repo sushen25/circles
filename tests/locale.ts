@@ -15,7 +15,9 @@
  *   dates in it, and "Thu 17 Sep" is how `en-US` writes it on this build.
  * - **The server**, so that the other project's server is `en-US` whatever a
  *   developer's shell says. It no longer keeps anything from failing; it keeps
- *   the proof a proof.
+ *   the proof a proof. `scripts/e2e-live-serve.mjs` sets the same two
+ *   variables itself, so a server started by hand with `make dev-live` and
+ *   reused by the suite is pinned too.
  */
 export const LOCALE = 'en-US';
 

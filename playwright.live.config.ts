@@ -36,8 +36,9 @@ const baseURL = `http://localhost:${PORT}`;
  *   `en-US` (`tests/locale.ts`). The served HTML is a shell with nothing
  *   locale-dependent in it (ADR 00XX), so a browser in another locale than the
  *   export's hydrates cleanly; `fixtures.ts` fails any test whose page reports
- *   a hydration error, and this project is where a date rendered on the server
- *   would be caught (SUS-90).
+ *   a hydration error, and this project is where a date rendered into the
+ *   server's *text* would be caught (SUS-90). React's production build reports
+ *   text mismatches only: one in an attribute, an `aria-label` say, would pass.
  */
 // Which build this suite needs, for `tests/expect-build-mode.ts` below.
 process.env['EXPECTED_BUILD_MODE'] = 'live';
@@ -51,7 +52,8 @@ export default defineConfig({
   // the per-address rate counters (every local request comes from one
   // address), which each test clears as it starts, and the dispatcher's lease,
   // which `runDispatcher` waits for. At one worker the four projects took 5.3
-  // minutes locally, against 3.1 at two; S1-31's budget for CI is ten.
+  // minutes locally, against 3.1 at two; S1-31's budget for CI is ten. The
+  // fifth (SUS-90) runs every journey too, which adds about a quarter.
   fullyParallel: false,
   workers: 2,
   forbidOnly: Boolean(process.env.CI),
