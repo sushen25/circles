@@ -275,7 +275,7 @@ describe('a quiet ask', () => {
       stack,
       `update public.plans set quiet_expires_at = now() - interval '1 minute' where id = '${expiring}'`,
     );
-    // Once to expire it, once to turn the event into a letter and send it.
+    // Once to expire it, once to turn the event into a letter (and, by day, send it).
     await runDispatcher();
     await runDispatcher();
 
@@ -290,6 +290,18 @@ describe('a quiet ask', () => {
          join private.email_contacts c on c.id = j.contact_id where j.plan_id = '${expiring}'`,
       ),
     ).toBe(`quiet_expired:${tom.userId}`);
+
+    // The letter respects quiet hours (spec §5.8), so between 9 pm and 8 am in
+    // Tom's zone it is written for the next 8 am and the run above did not send
+    // it. This is about who is told, not when — `quiet-hours.test.ts` proves the
+    // hold — so the held letter is made due, and a third run sends it at any
+    // hour of the day (SUS-91).
+    sql(
+      stack,
+      `update jobs.notification_jobs set scheduled_for = now()
+       where plan_id = '${expiring}' and status = 'scheduled'`,
+    );
+    await runDispatcher();
 
     for (let attempt = 0; attempt < 20; attempt += 1) {
       if ((await subjectsTo(emailOf(tom))).length > 0) break;
