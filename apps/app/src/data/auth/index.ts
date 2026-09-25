@@ -36,6 +36,7 @@ export {
 } from './providers/email';
 export type { ProviderId, SignedIn } from './providers/types';
 export { safeReturnPath } from './returnPath';
-export { sessionState, signOut, startSessionTracking, useSession } from './session';
+export { markAppInstalled } from './install';
+export { appTierSettled, sessionState, signOut, startSessionTracking, useSession } from './session';
 export type { SessionState, SessionStatus } from './session';
 export { getTurnstileToken } from './turnstile';

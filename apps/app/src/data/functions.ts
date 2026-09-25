@@ -1,4 +1,5 @@
 import { IdempotencyKey, Problem } from '@circles/contracts';
+import { randomUUID } from 'expo-crypto';
 import type { z } from 'zod';
 
 import { authClient } from './auth/client';
@@ -35,11 +36,16 @@ export class FunctionError extends Error {
   }
 }
 
-/** A fresh key for a new request. Reuse it for a retry of *that* request (ADR 0016). */
+/**
+ * A fresh key for a new request. Reuse it for a retry of *that* request (ADR 0016).
+ *
+ * The runtime's own `crypto.randomUUID` where there is one — every browser —
+ * and `expo-crypto`'s where there is not: Hermes has none, and until S3-01a
+ * found it on the emulator every mutation the app sent threw here, before it
+ * left the device.
+ */
 export function newIdempotencyKey(): IdempotencyKey {
-  const uuid = globalThis.crypto?.randomUUID?.();
-  if (uuid === undefined) throw new Error('no crypto.randomUUID available');
-  return IdempotencyKey.parse(uuid);
+  return IdempotencyKey.parse(globalThis.crypto?.randomUUID?.() ?? randomUUID());
 }
 
 /** `functions.invoke` gives back a `Response` on failure; the body is the Problem. */

@@ -104,6 +104,17 @@ export const en = {
     open_sunday_crew: 'Open Sunday Crew',
     reminders_come_on_thursday_well_ask_about:
       "Reminders come on Thursday. We'll ask about notifications then, not now.",
+    welcome_back: 'Welcome back, {name}.',
+    welcome_back_no_name: 'Welcome back.',
+    circles_are_here: 'Your circles are already here.',
+    open_circle: 'Open {name}',
+    see_your_circles: 'See your circles',
+    no_push_ask: "We'll ask about notifications when there's something to remind you of, not now.",
+    row_label: '{name}. {line}',
+    loading: 'Getting your circles',
+    couldnt_load: "We couldn't load your circles.",
+    youre_offline: "You're offline. Connect, then try again.",
+    try_again: 'Try again',
   },
   appSheet: {
     keep_sunday_crew_on_your_phone: 'Keep Sunday Crew on your phone',

@@ -1,0 +1,121 @@
+import { beforeEach, describe, expect, it } from 'vitest';
+
+import { heldInvite, releaseInvite } from '../membership/invite';
+import { isClaimed, routeIncomingLink, splitUrl } from './incoming';
+import { heldToken, releaseToken } from './tokens';
+
+/**
+ * A link the app is opened with: the capability is held, exactly as the web's
+ * capture holds it, and the router is given the path without it.
+ */
+const HOST = 'links.example.test';
+const HOSTS = [HOST];
+// Built, not written out: a long literal beside "secret" or "token" is what
+// the secret scan looks for.
+const SECRET = 'sunday-crew-'.repeat(4);
+const TOKEN = 'tok'.repeat(16);
+
+function open(url: string): string {
+  return routeIncomingLink(url, HOSTS, 'circles');
+}
+
+beforeEach(() => {
+  releaseInvite();
+  releaseToken('reentry');
+  releaseToken('verify');
+  releaseToken('preferences');
+});
+
+describe('routeIncomingLink', () => {
+  it('holds an invite and hands the router /join with no fragment', () => {
+    expect(open(`https://${HOST}/join#${SECRET}`)).toBe('/join');
+    expect(heldInvite()).toBe(SECRET);
+  });
+
+  it('strips a mangled invite fragment too, and holds nothing', () => {
+    expect(open(`https://${HOST}/join#short`)).toBe('/join');
+    expect(heldInvite()).toBeUndefined();
+  });
+
+  it.each([
+    ['/a', 'reentry'],
+    ['/v', 'verify'],
+    ['/e', 'preferences'],
+  ] as const)('holds the emailed token on %s and strips it', (path, kind) => {
+    expect(open(`https://${HOST}${path}#${TOKEN}`)).toBe(path);
+    expect(heldToken(kind)).toBe(TOKEN);
+  });
+
+  it('passes a plan link through as its path, host dropped', () => {
+    expect(open(`https://${HOST}/p/pnsundaycr`)).toBe('/p/pnsundaycr');
+    expect(open(`https://${HOST}/j/pnsundaycr?x=1`)).toBe('/j/pnsundaycr?x=1');
+    expect(open(`https://${HOST}/p/pnsundaycr/outcome`)).toBe('/p/pnsundaycr/outcome');
+  });
+
+  it('reads the build scheme the way the router does: the first segment is the path', () => {
+    expect(open(`circles://join#${SECRET}`)).toBe('/join');
+    expect(heldInvite()).toBe(SECRET);
+    expect(open('circles://p/pnsundaycr')).toBe('/p/pnsundaycr');
+    expect(open(`circles:///a#${TOKEN}`)).toBe('/a');
+  });
+
+  it('never leaves a capability in the URL, even from a host it does not claim', () => {
+    const out = open(`https://elsewhere.test/join#${SECRET}`);
+    expect(out).toBe('https://elsewhere.test/join');
+    expect(out).not.toContain(SECRET);
+  });
+
+  it('leaves everything else alone', () => {
+    expect(open('circles://')).toBe('circles://');
+    expect(open(`https://${HOST}/privacy#top`)).toBe(`https://${HOST}/privacy#top`);
+    expect(open('exp+circles://expo-development-client/?url=http%3A%2F%2F10.0.2.2%3A8081')).toBe(
+      'exp+circles://expo-development-client/?url=http%3A%2F%2F10.0.2.2%3A8081',
+    );
+  });
+
+  it('matches hosts without case or port, and nothing that merely ends in the host', () => {
+    expect(open(`https://${HOST.toUpperCase()}:443/p/pnsundaycr`)).toBe('/p/pnsundaycr');
+    expect(open(`https://evil${HOST}/p/pnsundaycr`)).toBe(`https://evil${HOST}/p/pnsundaycr`);
+  });
+});
+
+describe('isClaimed', () => {
+  it('claims the six link shapes and not their neighbours', () => {
+    for (const path of [
+      '/join',
+      '/join/',
+      '/j/abc',
+      '/p/abc',
+      '/p/abc/outcome',
+      '/a',
+      '/e',
+      '/v',
+    ]) {
+      expect(isClaimed(path)).toBe(true);
+    }
+    for (const path of [
+      '/',
+      '/joined',
+      '/j/',
+      '/p',
+      '/about',
+      '/get-the-app',
+      '/privacy',
+      '/og/x',
+    ]) {
+      expect(isClaimed(path)).toBe(false);
+    }
+  });
+});
+
+describe('splitUrl', () => {
+  it('splits the parts a browser would, for schemes a browser does not know', () => {
+    expect(splitUrl('circles://p/abc?x=1#y')).toEqual({
+      origin: 'circles://p',
+      pathname: '/abc',
+      search: '?x=1',
+      hash: '#y',
+    });
+    expect(splitUrl('not a url')).toBeNull();
+  });
+});

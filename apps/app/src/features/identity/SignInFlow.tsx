@@ -5,6 +5,7 @@ import { useRef, useState } from 'react';
 import { track } from '../../analytics/track';
 import {
   SavePlaceError,
+  appTierSettled,
   bootstrapProfile,
   ownProfile,
   requestLinkCode,
@@ -172,7 +173,12 @@ export function SignInFlow({ returnTo }: SignInFlowProps) {
       } catch {
         // Unknown: Your name reads the profile again and says what it finds.
       }
-      router.replace(destinationAfterSignIn({ next, hasName, circleId }));
+      // In the app, the sign-in is also the install being linked to this place
+      // (`mark-app-installed`, S3-01a). Waited for so that the landing is shown
+      // on the one sign-in that was the first; on the web it is an instant no.
+      const { firstOpen } = await appTierSettled();
+      if (firstOpen) track('app_first_open_linked', {});
+      router.replace(destinationAfterSignIn({ next, hasName, circleId, firstOpen }));
     };
 
     return (

@@ -1353,6 +1353,13 @@ export type Database = {
           secret_hash: string
         }[]
       }
+      mark_app_installed: {
+        Args: never
+        Returns: {
+          first_open: boolean
+          installed_at: string
+        }[]
+      }
       member_cap: { Args: never; Returns: number }
       my_turn_to_plan: { Args: { p_circle_id: string }; Returns: boolean }
       own_email_hint: { Args: never; Returns: string }

@@ -21,16 +21,27 @@ export type TokenKind = 'reentry' | 'verify' | 'preferences';
 
 const held = new Map<TokenKind, OpaqueToken>();
 
+/**
+ * Holds the token a URL's fragment carries, if it is one of these links. True
+ * when the fragment must now be taken off the URL — cleared whether or not it
+ * parsed: a malformed token is still a token-shaped thing somebody was sent,
+ * and it has no business in an address bar or in the router's state.
+ *
+ * The one rule for both doors: the web's address bar (`captureTokenFragment`)
+ * and the app's incoming link (`routeIncomingLink`, S3-01a).
+ */
+export function takeTokenFragment(pathname: string, hash: string): boolean {
+  const kind = fragmentLinkKind(pathname);
+  if (hash === '' || hash === '#' || kind === null || kind === 'invite') return false;
+  const parsed = parseTokenLink(hash);
+  if (parsed !== null) held.set(kind, parsed.token);
+  return true;
+}
+
 export function captureTokenFragment(): void {
   if (typeof window === 'undefined' || window.location === undefined) return;
   const { pathname, search, hash } = window.location;
-  const kind = fragmentLinkKind(pathname);
-  if (hash === '' || kind === null || kind === 'invite') return;
-
-  const parsed = parseTokenLink(window.location.href);
-  if (parsed !== null) held.set(kind, parsed.token);
-  // Cleared whether or not it parsed: a malformed token is still a token-shaped
-  // thing somebody was sent, and it has no business in the address bar.
+  if (!takeTokenFragment(pathname, hash)) return;
   window.history.replaceState(window.history.state, '', pathname + search);
 }
 
