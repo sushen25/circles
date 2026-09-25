@@ -1,6 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
 
-import { LOCALE, SERVER_LOCALE_ENV } from './tests/locale';
+import { LOCALE, OTHER_LOCALE, SERVER_LOCALE_ENV } from './tests/locale';
 
 // 8082 in the primary checkout. A parallel slot passes its own
 // (`make test-live` does) so a hand run never lands on another slot's server.
@@ -16,7 +16,7 @@ const baseURL = `http://localhost:${PORT}`;
  * people actually meet — the first run, a guest's answer, the way back in, the
  * emailed links, the organiser's loop — through the Edge Functions and RLS.
  *
- * Four projects, two engines, and the user agent is the point of each:
+ * Five projects, two engines. In the first four the user agent is the point:
  *
  * - **iphone-safari** — WebKit, as mobile Safari. It is also what WhatsApp opens
  *   a link in on iOS (SFSafariViewController), which sends Safari's own user
@@ -30,9 +30,14 @@ const baseURL = `http://localhost:${PORT}`;
  *   WKWebView, with the `FBAN`/`FBAV` tokens it adds. Until S1-31 this ran on
  *   Chromium because CI had no WebKit.
  *
- * The locale is pinned on both sides (`tests/locale.ts`), because the server
- * render and the browser each format dates in their own and React reports a
- * hydration mismatch when they differ (SUS-87's finding, S1-31's decision).
+ * The fifth is the first one again in the scenario's own locale:
+ *
+ * - **iphone-safari-en-au** — mobile Safari in `en-AU`, against a server in
+ *   `en-US` (`tests/locale.ts`). The served HTML is a shell with nothing
+ *   locale-dependent in it (ADR 00XX), so a browser in another locale than the
+ *   export's hydrates cleanly; `fixtures.ts` fails any test whose page reports
+ *   a hydration error, and this project is where a date rendered on the server
+ *   would be caught (SUS-90).
  */
 // Which build this suite needs, for `tests/expect-build-mode.ts` below.
 process.env['EXPECTED_BUILD_MODE'] = 'live';
@@ -76,6 +81,7 @@ export default defineConfig({
           'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 [FBAN/MessengerForiOS;FBAV/458.0.0.43.109;FBBV/612345678;FBDV/iPhone15,2;FBMD/iPhone;FBSN/iOS;FBSV/17.5;FBSS/3;FBCR/;FBID/phone;FBLC/en_GB;FBOP/5]',
       },
     },
+    { name: 'iphone-safari-en-au', use: { ...devices['iPhone 14'], locale: OTHER_LOCALE } },
   ],
   webServer: {
     command: `node scripts/e2e-live-serve.mjs ${PORT}`,

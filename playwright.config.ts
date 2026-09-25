@@ -16,9 +16,10 @@ const baseURL = `http://localhost:${PORT}`;
  * backend, on the fixtures. The journeys against the real stack, in the four
  * browsers a group chat hands a link to, are `playwright.live.config.ts`.
  *
- * The locale is pinned on both sides of hydration (`tests/locale.ts`): the
- * fixture screens render dates on the server, and a shell in another locale
- * made seven of them fail on React's hydration check (SUS-87).
+ * The locale is pinned (`tests/locale.ts`) so the fixture journey reads the
+ * same dates everywhere. It no longer guards hydration: the served HTML is a
+ * shell with nothing locale-dependent in it (ADR 00XX), so the `pageerror`
+ * check in `journey.spec.ts` holds in any locale.
  */
 // Which build this suite needs, for `tests/expect-build-mode.ts` below.
 process.env['EXPECTED_BUILD_MODE'] = 'smoke';

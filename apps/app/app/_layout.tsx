@@ -15,6 +15,8 @@ import { configureAnalytics, flush } from '../src/analytics/track';
 import { retryWhenReachable, trackEventsTransport } from '../src/analytics/transport';
 import { startSessionTracking } from '../src/data/auth/session';
 import { accessToken } from '../src/data/session';
+import { ShellScreen } from '../src/features/system/ShellScreen';
+import { useHydrated } from '../src/platform/hydration';
 
 void SplashScreen.preventAutoHideAsync();
 
@@ -43,6 +45,19 @@ export default function RootLayout() {
   // `@circles/tokens` fonts.ts). If they fail to load we render anyway on the
   // metric-compatible fallbacks rather than holding the screen back.
   const [fontsLoaded, fontError] = useFonts(fontAssets);
+
+  /**
+   * The served HTML is a shell, on every route (ADR 00XX).
+   *
+   * Every page is rendered once, at export, for every visitor at once — with
+   * no route parameter, no session, and the build machine's locale and zone.
+   * Anything a screen rendered there was a guess: "You need the invite link"
+   * on every plan link, dates in the wrong locale, a form that threw away
+   * what was typed into it before React arrived. So until React owns the page
+   * the root renders the shell, the first client render matches it exactly,
+   * and the route itself renders only on the device, from the device's facts.
+   */
+  const hydrated = useHydrated();
 
   useEffect(() => {
     if (fontsLoaded || fontError) {
@@ -80,7 +95,7 @@ export default function RootLayout() {
       {title}
       <SafeAreaProvider>
         <StatusBar style="dark" />
-        <Stack screenOptions={{ headerShown: false }} />
+        {hydrated ? <Stack screenOptions={{ headerShown: false }} /> : <ShellScreen />}
       </SafeAreaProvider>
     </QueryClientProvider>
   );
