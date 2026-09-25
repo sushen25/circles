@@ -1,4 +1,4 @@
-# ADR 00XX: Keen members may take the organiser role as soon as a quiet ask opens
+# ADR 0041: Keen members may take the organiser role as soon as a quiet ask opens
 
 _Status: proposed · 26 September 2026_
 
