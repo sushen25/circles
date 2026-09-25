@@ -68,6 +68,7 @@ const handlers = {
   'create-plan': await serveOf('create-plan'),
   'answer-interest': await serveOf('answer-interest'),
   'accept-organiser': await serveOf('accept-organiser'),
+  'quiet-view': await serveOf('quiet-view'),
 };
 
 const CALLER = '00000000-0000-4000-8000-00000000000c';
@@ -149,6 +150,8 @@ describe('create-plan, quietly', () => {
     expect(response.status).toBe(200);
     expect(called('create_plan')).toHaveLength(0);
     expect(called('create_quiet_ask')[0]?.args).toMatchObject({
+      // As the service role, for the verified caller (review round 1).
+      p_actor: CALLER,
       p_circle_id: CIRCLE_ID,
       p_window_start: '2026-09-19',
       p_window_end: '2026-09-20',
@@ -325,5 +328,97 @@ describe('accept-organiser', () => {
 
     expect(response.status).toBe(status);
     expect(await response.json()).toMatchObject({ reason: name });
+  });
+});
+
+describe('quiet-view', () => {
+  const body = { plan_id: PLAN_ID };
+  const seeking = {
+    id: PLAN_ID,
+    circle_id: CIRCLE_ID,
+    mode: 'quiet',
+    state: 'seeking',
+    organiser_user_id: null,
+    title: 'Catch up',
+    category: 'catch_up',
+    time_zone: 'Australia/Melbourne',
+    window_start: '2026-09-19',
+    window_end: '2026-09-20',
+    daily_start_local: 1050,
+    daily_end_local: 1350,
+    duration_minutes: 120,
+    quorum: 3,
+    response_deadline: '2026-09-18T02:00:00.000Z',
+    quiet_threshold: 3,
+    quiet_expires_at: '2026-09-18T02:00:00.000Z',
+    revision: 1,
+    input_version: 1,
+    scoring_version: 1,
+    short_code: 'jmhzcew2',
+  };
+  const facts = (isInitiator: boolean, myAnswer: string | null) => (fn: string) =>
+    fn === 'quiet_viewer_facts'
+      ? { data: { is_initiator: isInitiator, my_answer: myAnswer, ever_opened: null }, error: null }
+      : (bookkeeping(fn) ?? { data: null, error: null });
+
+  beforeEach(() => {
+    state.rows = { plans: seeking, circles: { owner_user_id: 'someone-else' } };
+  });
+
+  it('asks for the private facts about the caller alone, with the service role', async () => {
+    state.answer = facts(true, 'keen');
+    await handlers['quiet-view'](post(body));
+    expect(called('quiet_viewer_facts')[0]?.args).toEqual({
+      p_plan_id: PLAN_ID,
+      p_user_id: CALLER,
+    });
+  });
+
+  it('gives the initiator the capabilities, never the facts', async () => {
+    state.answer = facts(true, 'keen');
+    const payload = await (await handlers['quiet-view'](post(body))).json();
+
+    expect(payload).toEqual({
+      view: {
+        phase: 'seeking',
+        closes_at: '2026-09-18T02:00:00.000Z',
+        threshold: 3,
+        answered_by_me: true,
+        may_withdraw: true,
+      },
+    });
+    expect(JSON.stringify(payload)).not.toMatch(/initiator|keen|not_this_time/);
+  });
+
+  it('shows two members who answered differently the same view', async () => {
+    state.answer = facts(false, 'keen');
+    const keen = await (await handlers['quiet-view'](post(body))).json();
+    state.users = [{ id: CALLER, is_anonymous: false }];
+    state.answer = facts(false, 'not_this_time');
+    const not = await (await handlers['quiet-view'](post(body))).json();
+    expect(keen).toEqual(not);
+    expect(keen).toMatchObject({ view: { answered_by_me: true, may_withdraw: false } });
+  });
+
+  it('shows nothing to somebody who is not a member, and nothing about a named plan', async () => {
+    state.answer = (fn) => bookkeeping(fn) ?? { data: null, error: null };
+    expect(await (await handlers['quiet-view'](post(body))).json()).toEqual({ view: null });
+
+    state.users = [{ id: CALLER, is_anonymous: false }];
+    state.rows = { plans: { ...seeking, mode: 'named' } };
+    expect(await (await handlers['quiet-view'](post(body))).json()).toEqual({ view: null });
+    expect(called('quiet_viewer_facts')).toHaveLength(1);
+  });
+
+  it('offers the role to a keen member once the ask has opened, with the count it opened with', async () => {
+    state.rows = {
+      plans: { ...seeking, state: 'collecting' },
+      circles: { owner_user_id: 'someone-else' },
+      plan_interest_counts: { keen_count: 3 },
+    };
+    state.answer = facts(false, 'keen');
+    expect(await (await handlers['quiet-view'](post(body))).json()).toEqual({
+      view: { phase: 'opened', keen_count: 3, organiser: null, may_take_role: true },
+    });
   });
 });

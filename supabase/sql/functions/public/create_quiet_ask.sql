@@ -38,6 +38,14 @@
 -- moment), and nothing reads it before then: the deadline sweeps look only at
 -- `collecting` and `ready`.
 --
+-- **Service role only**, with the actor passed in by `create-plan` from the
+-- verified JWT (review round 1). The window, the preset and the stop time are
+-- the domain's resolution of what the person picked, and a function a client
+-- could call directly would take any window labelled `tonight` and any stop
+-- instant the table's broad constraints allow. `create_plan` is the client's
+-- own for a named plan because every number it takes is one an organiser may
+-- choose; nothing here is.
+--
 -- `already_asking` is a refusal about the caller's own ask and is theirs to
 -- hear. The function logs nothing and the endpoint logs the reason without the
 -- caller, which is what keeps "refused for already asking" from becoming the
@@ -45,6 +53,7 @@
 -- ---------------------------------------------------------------------------
 
 create or replace function public.create_quiet_ask(
+  p_actor uuid,
   p_circle_id uuid,
   p_title text,
   p_category text,
@@ -63,7 +72,7 @@ set search_path = ''
 as $$
 declare
   alphabet constant text := 'abcdefghjkmnpqrstuvwxyz23456789';
-  caller uuid := (select auth.uid());
+  caller uuid := p_actor;
   circle public.circles;
   member public.circle_members;
   active_members integer;
@@ -191,9 +200,9 @@ begin
 end;
 $$;
 
-comment on function public.create_quiet_ask(uuid, text, text, date, date, integer, integer, integer, text, timestamptz) is
-  'Creates a quiet ask as the calling member: a draft addressed to the whole circle, the initiator and their keen answer recorded privately, moved to seeking through the state machine. Threshold and limits are decided under the circle''s lock (S2-02, ADR 0035).';
+comment on function public.create_quiet_ask(uuid, uuid, text, text, date, date, integer, integer, integer, text, timestamptz) is
+  'Creates a quiet ask as the given member (service role only, actor from the verified JWT): a draft addressed to the whole circle, the initiator and their keen answer recorded privately, moved to seeking through the state machine. Threshold and limits are decided under the circle''s lock (S2-02, ADR 0035).';
 
-revoke all on function public.create_quiet_ask(uuid, text, text, date, date, integer, integer, integer, text, timestamptz) from public;
-revoke all on function public.create_quiet_ask(uuid, text, text, date, date, integer, integer, integer, text, timestamptz) from anon, authenticated;
-grant execute on function public.create_quiet_ask(uuid, text, text, date, date, integer, integer, integer, text, timestamptz) to authenticated;
+revoke all on function public.create_quiet_ask(uuid, uuid, text, text, date, date, integer, integer, integer, text, timestamptz) from public;
+revoke all on function public.create_quiet_ask(uuid, uuid, text, text, date, date, integer, integer, integer, text, timestamptz) from anon, authenticated;
+grant execute on function public.create_quiet_ask(uuid, uuid, text, text, date, date, integer, integer, integer, text, timestamptz) to service_role;

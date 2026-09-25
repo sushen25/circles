@@ -17,6 +17,7 @@ export * from './generate-ics.js';
 export * from './get-invite-link.js';
 export * from './manage-email-preferences.js';
 export * from './process-scheduled-jobs.js';
+export * from './quiet-view.js';
 export * from './reattach-member.js';
 export * from './recalculate-candidates.js';
 export * from './record-nudge.js';

@@ -953,6 +953,11 @@ select is(
        -- (never its secret, which the database does not have), and
        -- `remove_member` the one way somebody is taken out.
        'live_invite', 'remove_member',
+       -- S2-02. Taking the organiser role on an opened quiet ask: the caller's
+       -- own, refusing anybody the rule does not admit. Creating one and
+       -- answering one are the service role's (`create_quiet_ask`,
+       -- `record_interest`), because what they take is the domain's to resolve.
+       'accept_organiser',
        -- And the Account screen's address, as a hint made on this side of the
        -- boundary so no client holds the address itself; the caller's own.
        'own_email_hint',

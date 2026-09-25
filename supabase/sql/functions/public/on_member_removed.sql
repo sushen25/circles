@@ -59,6 +59,17 @@ begin
   where p.circle_id = new.circle_id
     and p.state in ('seeking', 'collecting', 'ready');
 
+  -- Their answer to a quiet ask still asking goes with them (architecture
+  -- §9.1: removal deletes answers to plans still asking). Left, a departed
+  -- member's `keen` went on counting toward the threshold, and could open an
+  -- ask the circle as it now is had not reached (SUS-50 review round 1). An
+  -- ask that has opened keeps its rows: interest closed when it opened, and
+  -- the count shown from then on is the one it opened with.
+  delete from private.plan_interest i
+  using public.plans p
+  where i.plan_id = p.id and i.user_id = new.user_id
+    and p.circle_id = new.circle_id and p.state = 'seeking';
+
   delete from public.plan_participants pp
   using public.plans p
   where pp.plan_id = p.id and pp.revision = p.revision and pp.user_id = new.user_id

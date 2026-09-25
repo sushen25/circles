@@ -181,6 +181,26 @@ describe('a quiet ask', () => {
     expect(payload).not.toMatch(/source|role|initiator|volunteer/);
   });
 
+  it('shows each member only what is theirs to see, built on the server', async () => {
+    const maya = await person('Maya');
+    const priya = await person('Priya');
+    const tom = await person('Tom');
+    const circleId = circleOf(maya, [priya, tom]);
+    const planId = await askQuietly(maya, circleId);
+    await call('answer-interest', priya, { plan_id: planId, interested: false });
+
+    const mine = await call('quiet-view', maya, { plan_id: planId });
+    const hers = await call('quiet-view', priya, { plan_id: planId });
+    const his = await call('quiet-view', tom, { plan_id: planId });
+    expect(mine.body['view']).toMatchObject({ phase: 'seeking', threshold: 3, may_withdraw: true });
+    expect(hers.body['view']).toMatchObject({ answered_by_me: true, may_withdraw: false });
+    expect(his.body['view']).toMatchObject({ answered_by_me: false, may_withdraw: false });
+    // The facts behind them stay on the server.
+    for (const view of [mine, hers, his]) {
+      expect(JSON.stringify(view.body)).not.toMatch(/initiator|keen|not_this_time|count/);
+    }
+  });
+
   it('refuses a guest who volunteers, with the reason that offers a saved place', async () => {
     const maya = await person('Maya');
     const priya = await person('Priya');

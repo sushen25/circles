@@ -50,7 +50,7 @@ Deno.serve(
         { scope: 'create_plan_circle', key: body.circle_id, max: 30, window: '1 hour' },
       ]);
     },
-    handle: async ({ body, caller }): Promise<CreatePlanResponse> => {
+    handle: async ({ body, actor, caller, service }): Promise<CreatePlanResponse> => {
       // Read through the caller's own client, so RLS answers the question "may
       // this person see this circle?" rather than the function assuming it.
       const { data: circle, error: circleError } = await caller
@@ -69,7 +69,14 @@ Deno.serve(
       const durationMinutes = body.duration_minutes ?? circle.default_duration_minutes;
 
       if (body.mode === 'quiet') {
-        return await createQuietAsk({ body, caller, zone, at, durationMinutes });
+        return await createQuietAsk({
+          body,
+          actorId: actor.userId,
+          service,
+          zone,
+          at,
+          durationMinutes,
+        });
       }
 
       const resolved = resolvePreset(body.preset, at, zone, {

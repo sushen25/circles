@@ -12,7 +12,7 @@
 -- circle of theirs and owns one of his own with nobody else in it.
 
 begin;
-select plan(68);
+select plan(72);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid
@@ -82,20 +82,29 @@ begin
 end;
 $$;
 
--- A quiet ask as the current role. The window is the next seven days of a
--- week in 2099: evenings, two hours, so the last possible start is Sunday
--- 20 September at 8:30 pm in Melbourne — 10:30 UTC.
+-- A quiet ask by whoever the test is acting as, the way `create-plan` makes
+-- one: as the service role, with the verified caller as the actor. The window
+-- is the next seven days of a week in 2099: evenings, two hours, so the last
+-- possible start is Sunday 20 September at 8:30 pm in Melbourne — 10:30 UTC.
 create or replace function pg_temp.ask(
   circle uuid,
   stop timestamptz default timestamptz '2099-09-15T00:00:00Z'
 )
 returns uuid
-language sql
+language plpgsql
 as $$
-  select id from public.create_quiet_ask(
-    circle, 'Catch up', 'catch_up', date '2099-09-14', date '2099-09-20',
-    1050, 1350, 120, 'next_7_days', stop
+declare
+  claims text := current_setting('request.jwt.claims', true);
+  made uuid;
+begin
+  perform set_config('role', 'postgres', true);
+  select id into made from public.create_quiet_ask(
+    (claims::jsonb ->> 'sub')::uuid, circle, 'Catch up', 'catch_up',
+    date '2099-09-14', date '2099-09-20', 1050, 1350, 120, 'next_7_days', stop
   );
+  perform set_config('role', 'authenticated', true);
+  return made;
+end;
 $$;
 
 create or replace function pg_temp.answer(plan uuid, who uuid, keen boolean)
@@ -173,6 +182,15 @@ select ok(
     where payload::text like '%24000000-0000-0000-0000-0000000000a1%'
   ),
   'and names nobody'
+);
+
+select pg_temp.act_as('24000000-0000-0000-0000-0000000000a2');
+select throws_ok(
+  format($$select public.create_quiet_ask('24000000-0000-0000-0000-0000000000a2', '%s', 'Catch up',
+    'catch_up', date '2099-09-14', date '2099-09-20', 1050, 1350, 120, 'tonight', now() + interval '1 day')$$,
+    :'crew'),
+  '42501', null,
+  'a client cannot make one directly: the window and the stop time are the domain''s to resolve'
 );
 
 select pg_temp.act_as('24000000-0000-0000-0000-0000000000a1');
@@ -507,39 +525,56 @@ select is(
 );
 
 -- ---------------------------------------------------------------------------
--- What a viewer may know about themselves (`my_quiet_ask`, for `quietView`).
+-- What `quietView` needs about one viewer (`quiet_viewer_facts`).
 -- ---------------------------------------------------------------------------
 
-select pg_temp.act_as('24000000-0000-0000-0000-0000000000a1');
 select is(
-  public.my_quiet_ask(:'qpair'),
+  public.quiet_viewer_facts(:'qpair', '24000000-0000-0000-0000-0000000000a1'),
   jsonb_build_object('is_initiator', true, 'my_answer', 'keen', 'ever_opened', false),
-  'the initiator of an ask that closed quietly learns it was theirs and never opened'
+  'the initiator of an ask that closed quietly: theirs, keen, never opened'
+);
+select is(
+  public.quiet_viewer_facts(:'qpair', '24000000-0000-0000-0000-0000000000a2'),
+  jsonb_build_object('is_initiator', false, 'my_answer', null, 'ever_opened', false),
+  'anybody else: only about themselves'
+);
+select is(
+  public.quiet_viewer_facts(:'q2', '24000000-0000-0000-0000-0000000000a2'),
+  jsonb_build_object('is_initiator', true, 'my_answer', 'keen', 'ever_opened', null),
+  'an ask still running has no history to tell'
+);
+select is(
+  public.quiet_viewer_facts(:'q2', '24000000-0000-0000-0000-0000000000a7'),
+  null,
+  'somebody outside the circle: nothing'
+);
+select is(
+  public.quiet_viewer_facts(:'named', '24000000-0000-0000-0000-0000000000a1'),
+  null,
+  'and nothing for a named plan'
 );
 select pg_temp.act_as('24000000-0000-0000-0000-0000000000a2');
-select is(
-  public.my_quiet_ask(:'qpair'),
-  jsonb_build_object('is_initiator', false, 'my_answer', null, 'ever_opened', false),
-  'anybody else learns only about themselves'
-);
-select is(
-  public.my_quiet_ask(:'q2'),
-  jsonb_build_object('is_initiator', true, 'my_answer', 'keen', 'ever_opened', null),
-  'and an ask still running has no history to tell'
-);
-select pg_temp.act_as('24000000-0000-0000-0000-0000000000a7');
-select is(
-  public.my_quiet_ask(:'q2'),
-  null,
-  'somebody outside the circle learns nothing'
-);
-select pg_temp.act_as('24000000-0000-0000-0000-0000000000a1');
-select is(
-  public.my_quiet_ask(:'named'),
-  null,
-  'nor is there anything to say about a named plan'
+select throws_ok(
+  format($$select public.quiet_viewer_facts('%s', '24000000-0000-0000-0000-0000000000a2')$$, :'q2'),
+  '42501', null,
+  'which no client may call, not even about themselves: the raw facts stay on the server'
 );
 select pg_temp.act_as_postgres();
+
+-- A member removed while an ask is asking takes their answer with them: the
+-- thirteen need four, and M3's keen must not be one of them once M3 has gone.
+select pg_temp.answer(:'q13', '24000000-0000-0000-0000-000000000102', true);
+select pg_temp.answer(:'q13', '24000000-0000-0000-0000-000000000103', true);
+update public.circle_members set status = 'removed'
+where circle_id = :'thirteen' and user_id = '24000000-0000-0000-0000-000000000103';
+select is(
+  (select count(*)::integer from private.plan_interest
+   where plan_id = :'q13' and user_id = '24000000-0000-0000-0000-000000000103'),
+  0,
+  'a member removed while the ask is asking takes their answer with them'
+);
+select is(pg_temp.answer(:'q13', '24000000-0000-0000-0000-000000000104', true), false,
+  'so the next keen answer is the third, not the fourth, and the ask stays asking');
 
 -- ---------------------------------------------------------------------------
 -- Who a quiet message is for, read only for the kind that needs it.

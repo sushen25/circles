@@ -19,7 +19,8 @@ import { Refusal } from '../_shared/problem.ts';
  * chose: the window (`resolvePreset`) and the stop time (`resolveStopTime`,
  * from the option's *name* — an instant from the client is never taken, so the
  * stop time is always one the window offers and always before the last
- * possible start). Everything else is `public.create_quiet_ask`'s, under the
+ * possible start). Everything else is `public.create_quiet_ask`'s — the service
+ * role's, with the verified caller as its actor — under the
  * circle's lock: the threshold for the members it has at that moment, whether
  * this member may ask at all (`canCreateQuietAsk`, mirrored in the same order),
  * and the two private rows — who asked, and their own keen answer.
@@ -31,7 +32,9 @@ import { Refusal } from '../_shared/problem.ts';
 
 type QuietRequest = {
   readonly body: CreatePlanRequest;
-  readonly caller: Db;
+  /** The verified caller: `create_quiet_ask` is the service role's (review round 1). */
+  readonly actorId: string;
+  readonly service: Db;
   readonly zone: Zone;
   readonly at: Instant;
   readonly durationMinutes: DurationMinutes;
@@ -39,7 +42,8 @@ type QuietRequest = {
 
 export async function createQuietAsk({
   body,
-  caller,
+  actorId,
+  service,
   zone,
   at,
   durationMinutes,
@@ -65,7 +69,11 @@ export async function createQuietAsk({
     throw new Refusal('stop_time_unavailable', 'That stop time is not available now.');
   }
 
-  const { data, error } = await caller.rpc('create_quiet_ask', {
+  // As the service role, with the actor from the verified JWT: the window, the
+  // preset and the stop time are this function's resolution of the person's
+  // choice, and an RPC a client could call directly would take any it liked.
+  const { data, error } = await service.rpc('create_quiet_ask', {
+    p_actor: actorId,
     p_circle_id: body.circle_id,
     p_title: body.title,
     p_category: body.category,

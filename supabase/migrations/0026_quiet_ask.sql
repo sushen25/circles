@@ -38,9 +38,10 @@
 --
 -- **Functions** (the generated block below; each file under
 -- `supabase/sql/functions/` says what it is): `create_quiet_ask`,
--- `record_interest`, `accept_organiser`, `my_quiet_ask`, `planning.open_quiet_ask`,
+-- `record_interest`, `accept_organiser`, `quiet_viewer_facts`, `planning.open_quiet_ask`,
 -- `dispatch_open_quiet_ask`, `dispatch_quiet_audience`, and changes to
--- `allowed_keys` (`threshold_reached` takes the deadline),
+-- `allowed_keys` (`threshold_reached` takes the deadline), `on_member_removed`
+-- (a removed member's answer to an ask still asking goes with them),
 -- `enforce_plan_deadline` (the stop time) and `dispatch_timed_work` (the
 -- expiry sweep and the held asks).
 --
@@ -420,6 +421,14 @@ grant execute on function public.accept_organiser(uuid) to authenticated;
 -- moment), and nothing reads it before then: the deadline sweeps look only at
 -- `collecting` and `ready`.
 --
+-- **Service role only**, with the actor passed in by `create-plan` from the
+-- verified JWT (review round 1). The window, the preset and the stop time are
+-- the domain's resolution of what the person picked, and a function a client
+-- could call directly would take any window labelled `tonight` and any stop
+-- instant the table's broad constraints allow. `create_plan` is the client's
+-- own for a named plan because every number it takes is one an organiser may
+-- choose; nothing here is.
+--
 -- `already_asking` is a refusal about the caller's own ask and is theirs to
 -- hear. The function logs nothing and the endpoint logs the reason without the
 -- caller, which is what keeps "refused for already asking" from becoming the
@@ -427,6 +436,7 @@ grant execute on function public.accept_organiser(uuid) to authenticated;
 -- ---------------------------------------------------------------------------
 
 create or replace function public.create_quiet_ask(
+  p_actor uuid,
   p_circle_id uuid,
   p_title text,
   p_category text,
@@ -445,7 +455,7 @@ set search_path = ''
 as $$
 declare
   alphabet constant text := 'abcdefghjkmnpqrstuvwxyz23456789';
-  caller uuid := (select auth.uid());
+  caller uuid := p_actor;
   circle public.circles;
   member public.circle_members;
   active_members integer;
@@ -573,12 +583,12 @@ begin
 end;
 $$;
 
-comment on function public.create_quiet_ask(uuid, text, text, date, date, integer, integer, integer, text, timestamptz) is
-  'Creates a quiet ask as the calling member: a draft addressed to the whole circle, the initiator and their keen answer recorded privately, moved to seeking through the state machine. Threshold and limits are decided under the circle''s lock (S2-02, ADR 0035).';
+comment on function public.create_quiet_ask(uuid, uuid, text, text, date, date, integer, integer, integer, text, timestamptz) is
+  'Creates a quiet ask as the given member (service role only, actor from the verified JWT): a draft addressed to the whole circle, the initiator and their keen answer recorded privately, moved to seeking through the state machine. Threshold and limits are decided under the circle''s lock (S2-02, ADR 0035).';
 
-revoke all on function public.create_quiet_ask(uuid, text, text, date, date, integer, integer, integer, text, timestamptz) from public;
-revoke all on function public.create_quiet_ask(uuid, text, text, date, date, integer, integer, integer, text, timestamptz) from anon, authenticated;
-grant execute on function public.create_quiet_ask(uuid, text, text, date, date, integer, integer, integer, text, timestamptz) to authenticated;
+revoke all on function public.create_quiet_ask(uuid, uuid, text, text, date, date, integer, integer, integer, text, timestamptz) from public;
+revoke all on function public.create_quiet_ask(uuid, uuid, text, text, date, date, integer, integer, integer, text, timestamptz) from anon, authenticated;
+grant execute on function public.create_quiet_ask(uuid, uuid, text, text, date, date, integer, integer, integer, text, timestamptz) to service_role;
 
 -- supabase/sql/functions/public/dispatch_open_quiet_ask.sql
 -- ---------------------------------------------------------------------------
@@ -927,35 +937,140 @@ comment on function public.enforce_plan_deadline() is
 revoke all on function public.enforce_plan_deadline() from public;
 revoke all on function public.enforce_plan_deadline() from anon, authenticated;
 
--- supabase/sql/functions/public/my_quiet_ask.sql
+-- supabase/sql/functions/public/on_member_removed.sql
 -- ---------------------------------------------------------------------------
--- What one viewer may know about a quiet ask that only the private tables
--- hold — about themselves, and only themselves (spec §5.4, `quietView`).
+-- Removal: every consequence, in one trigger.
 --
--- `quietView` in `packages/domain/src/planning/quiet-view.ts` is built per
--- viewer, for that viewer, from `QuietViewer` and `QuietFacts`. Everything it
--- needs is on the plan row, in `plan_interest_counts` or in `circle_members`,
--- except three facts that live in `private`, which no client may read:
+-- Spec §4.5 — a removed member "loses circle and plan access immediately;
+-- historic aggregate attendance may remain; their availability is deleted."
+-- Four things follow, and they are here together rather than in four triggers
+-- because they cannot be correct separately:
 --
---   * `is_initiator` — whether *the caller* started it. Two things on their
---     own screen turn on it: withdrawing, and the closing notice.
---   * `my_answer` — *the caller's* own answer, or null. `quietView` turns it
---     into "answered" while the ask is seeking (never *what*, on screen) and
---     into `mayTakeRole` once it has opened.
---   * `ever_opened` — for an `expired` quiet plan, whether it had crossed its
---     threshold first (SUS-49 note 11): an ask that opened and later ran past
---     its last start did not "close quietly". Read from the outbox: `true` if
---     the crossing was announced, `false` if the expiry was announced from
---     `seeking`, null when neither is there any more (retention keeps thirty
---     days) — and `quietView` shows no notice for unknown.
+--   * their responses and windows go — the cascade takes the windows, and the
+--     bump triggers stale every candidate set that counted them;
+--   * they leave the participant list of every plan revision still open, so
+--     the dispatcher stops treating them as a non-responder;
+--   * a `ready` plan they had answered goes back to `collecting`, because its
+--     set may have needed them for quorum, and `confirm` must not lock in a
+--     time that depended on somebody who has left;
+--   * on a confirmation still ahead, `going` or `unknown` becomes `cant` — a
+--     `going` from them would keep them in "5 going" and on the reminder list.
+--     History is untouched: answers about evenings that have happened, and
+--     rows on closed confirmations, stay exactly as they were.
 --
--- Never about anybody else, and never for a plan the caller cannot see: a
--- non-member gets nothing, which is the same nothing a named plan gets. Build
--- a view per viewer and never ship one computed for somebody else — that is
--- the one way `mayWithdraw` becomes an initiator flag.
+-- The circle row and then the plan rows are locked first, so a removal racing a
+-- first answer cannot let the answer land behind it — and nor can a removal
+-- racing a *new plan*. Locking the plans alone was not enough for that one:
+-- `create_plan` reads the circle's active members and inserts its participant
+-- rows in a transaction this trigger cannot see, so a removal committing in the
+-- middle of it locked nothing the creation held, deleted nothing that existed
+-- yet, and left the departed member on the roster of a plan created after they
+-- had gone. `create_plan` takes the circle row for update for its own reasons;
+-- taking the same one here is what makes the two wait for each other.
+--
+-- Circle before plans, which is the order `create_plan` locks in too. Two
+-- transactions taking the same locks in the same order cannot deadlock over
+-- them.
 -- ---------------------------------------------------------------------------
 
-create or replace function public.my_quiet_ask(p_plan_id uuid)
+create or replace function public.on_member_removed()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  affected uuid;
+begin
+  if new.status <> 'removed' or old.status = 'removed' then
+    return new;
+  end if;
+
+  perform 1 from public.circles c where c.id = new.circle_id for update;
+  perform 1 from public.plans p where p.circle_id = new.circle_id for update;
+
+  delete from public.plan_responses r
+  using public.plans p
+  where r.plan_id = p.id
+    and p.circle_id = new.circle_id and r.user_id = new.user_id;
+
+  update public.plans p
+  set input_version = p.input_version + 1
+  where p.circle_id = new.circle_id
+    and p.state in ('seeking', 'collecting', 'ready');
+
+  -- Their answer to a quiet ask still asking goes with them (architecture
+  -- §9.1: removal deletes answers to plans still asking). Left, a departed
+  -- member's `keen` went on counting toward the threshold, and could open an
+  -- ask the circle as it now is had not reached (SUS-50 review round 1). An
+  -- ask that has opened keeps its rows: interest closed when it opened, and
+  -- the count shown from then on is the one it opened with.
+  delete from private.plan_interest i
+  using public.plans p
+  where i.plan_id = p.id and i.user_id = new.user_id
+    and p.circle_id = new.circle_id and p.state = 'seeking';
+
+  delete from public.plan_participants pp
+  using public.plans p
+  where pp.plan_id = p.id and pp.revision = p.revision and pp.user_id = new.user_id
+    and p.circle_id = new.circle_id
+    and p.state in ('seeking', 'collecting', 'ready');
+
+  for affected in
+    select p.id from public.plans p
+    where p.circle_id = new.circle_id and p.state = 'ready'
+  loop
+    perform planning.transition_plan(affected, 'candidates_gone', new.user_id);
+  end loop;
+
+  -- Not coming to anything still ahead. History is left exactly as it was:
+  -- `was_there` and `missed`, rows on closed confirmations, and rows on a
+  -- meetup that has ended but not yet been reported on — `active` alone does
+  -- not mean "ahead", and a `going` from last Thursday is part of the historic
+  -- aggregate §4.5 lets remain.
+  update public.attendance a
+  set status = 'cant', updated_at = now()
+  from public.meetup_confirmations c
+  join public.plans p on p.id = c.plan_id
+  where a.confirmation_id = c.id
+    and a.user_id = new.user_id
+    and p.circle_id = new.circle_id
+    and c.status = 'active'
+    and c.ends_at > now()
+    and a.status in ('going', 'unknown');
+
+  return new;
+end;
+$$;
+
+revoke all on function public.on_member_removed() from public;
+revoke all on function public.on_member_removed() from anon, authenticated;
+
+-- supabase/sql/functions/public/quiet_viewer_facts.sql
+-- ---------------------------------------------------------------------------
+-- The three facts about one viewer of a quiet ask that only `private` holds,
+-- for `quiet-view` to build that viewer's `quietView` with (spec §5.4).
+--
+-- `quietView` in `packages/domain/src/planning/quiet-view.ts` turns them into
+-- what the viewer may see — "answered", never *what*; "may withdraw", never
+-- "is the initiator" — and **the raw facts never leave the server** (review
+-- round 1): this is the service role's, called by the Edge Function with the
+-- verified caller's id, and the function returns the view and nothing else.
+--
+--   * `is_initiator` — whether this viewer started it;
+--   * `my_answer` — this viewer's own answer, or null;
+--   * `ever_opened` — for an `expired` quiet plan, whether it had crossed its
+--     threshold first (SUS-49 note 11): an ask that opened and later ran past
+--     its last start did not "close quietly". From the outbox: `true` if the
+--     crossing was announced, `false` if the expiry was announced from
+--     `seeking`, null when neither is there any more (retention keeps thirty
+--     days), and `quietView` shows no notice for unknown.
+--
+-- Null for a named plan, or a viewer who is not an active member of its
+-- circle.
+-- ---------------------------------------------------------------------------
+
+create or replace function public.quiet_viewer_facts(p_plan_id uuid, p_user_id uuid)
 returns jsonb
 language sql
 stable
@@ -965,11 +1080,11 @@ as $$
   select jsonb_build_object(
     'is_initiator', exists (
       select 1 from private.plan_initiators pi
-      where pi.plan_id = p.id and pi.initiator_user_id = (select auth.uid())
+      where pi.plan_id = p.id and pi.initiator_user_id = p_user_id
     ),
     'my_answer', (
       select i.response from private.plan_interest i
-      where i.plan_id = p.id and i.user_id = (select auth.uid())
+      where i.plan_id = p.id and i.user_id = p_user_id
     ),
     'ever_opened', case
       when p.state <> 'expired' then null
@@ -988,15 +1103,18 @@ as $$
   from public.plans p
   where p.id = p_plan_id
     and p.mode = 'quiet'
-    and public.auth_is_member(p.circle_id);
+    and exists (
+      select 1 from public.circle_members m
+      where m.circle_id = p.circle_id and m.user_id = p_user_id and m.status = 'active'
+    );
 $$;
 
-comment on function public.my_quiet_ask(uuid) is
-  'For the calling member only: whether they started this quiet ask, their own answer, and for an expired one whether it had opened. Null for a named plan or a plan the caller cannot see (S2-02).';
+comment on function public.quiet_viewer_facts(uuid, uuid) is
+  'For one viewer of a quiet ask: whether they started it, their own answer, and for an expired one whether it had opened — the inputs quietView needs from private. Never returned to a client. Service role only (S2-02).';
 
-revoke all on function public.my_quiet_ask(uuid) from public;
-revoke all on function public.my_quiet_ask(uuid) from anon, authenticated;
-grant execute on function public.my_quiet_ask(uuid) to authenticated;
+revoke all on function public.quiet_viewer_facts(uuid, uuid) from public;
+revoke all on function public.quiet_viewer_facts(uuid, uuid) from anon, authenticated;
+grant execute on function public.quiet_viewer_facts(uuid, uuid) to service_role;
 
 -- supabase/sql/functions/public/record_interest.sql
 -- ---------------------------------------------------------------------------
