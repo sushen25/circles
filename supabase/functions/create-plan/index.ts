@@ -10,6 +10,7 @@ import { jsonHandler } from '../_shared/http.ts';
 import { fromInstant, now, toInstant, toLocalDate, toZone } from '../_shared/moment.ts';
 import { Refusal } from '../_shared/problem.ts';
 import { enforce } from '../_shared/rate.ts';
+import { createQuietAsk } from './quiet.ts';
 
 /**
  * "One card summarising the defaults … **Ask the group**" (spec §5.1, step 7).
@@ -26,6 +27,9 @@ import { enforce } from '../_shared/rate.ts';
  * `public.create_plan` inserts a draft and hands it to the state machine, whose
  * `draft → create_named` guards are an active member with a saved place
  * (ADR 0004) and whose transition is what emits `planning.plan_created`.
+ *
+ * `mode: 'quiet'` is "See if people are keen" (spec §5.4), and takes the same
+ * door with a different room behind it: `quiet.ts`.
  */
 Deno.serve(
   jsonHandler({
@@ -39,13 +43,6 @@ Deno.serve(
         // `ProblemReason`, so the client got a 500 and no way to know it should
         // offer InitiateGate.
         throw new Refusal('requires_saved_place', 'Save your place first, then start a plan.');
-      }
-
-      if (body.mode === 'quiet') {
-        // Not a refusal of this person: the quiet ask is S2-02. Saying so with
-        // its own reason keeps the client from showing a failure for a feature
-        // that simply has not landed.
-        throw new Refusal('not_yet', 'Quiet asks are not ready yet.');
       }
 
       await enforce(service, [
@@ -70,6 +67,10 @@ Deno.serve(
       const zone = toZone(circle.time_zone);
       const at = now();
       const durationMinutes = body.duration_minutes ?? circle.default_duration_minutes;
+
+      if (body.mode === 'quiet') {
+        return await createQuietAsk({ body, caller, zone, at, durationMinutes });
+      }
 
       const resolved = resolvePreset(body.preset, at, zone, {
         durationMinutes,

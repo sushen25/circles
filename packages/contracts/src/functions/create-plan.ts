@@ -1,3 +1,4 @@
+import { STOP_TIME_OPTIONS, type StopTimeOption } from '@circles/domain';
 import { z } from 'zod';
 
 import { CircleId, PlanId, ShortCode, UserId } from '../ids.js';
@@ -18,8 +19,21 @@ import { Mutation, Quorum } from './shared.js';
  */
 export const CreatePlanRequest = Mutation.extend({
   circle_id: CircleId,
-  /** Quiet asks land in S2-02; until then this refuses them with `not_yet`. */
+  /**
+   * `quiet` is "See if people are keen" (spec §5.4): no organiser, a threshold
+   * the server works out, and a stop time from `stop_time`. It takes a quiet
+   * window (not `custom`) and none of the fields below that belong to an
+   * organiser — quorum, required members, a deadline — because a quiet ask has
+   * none until it opens.
+   */
   mode: z.enum(['named', 'quiet']).default('named'),
+  /**
+   * `quiet` only, and required there: when to stop asking, as the option the
+   * person picked (`stopTimeOptions` in `packages/domain`). Never an instant —
+   * the server resolves it with `resolveStopTime`, so the stop time is always
+   * one the window offers and always before the last possible start.
+   */
+  stop_time: z.enum(STOP_TIME_OPTIONS as readonly [StopTimeOption, ...StopTimeOption[]]).optional(),
   /**
    * Trimmed here, because `plans_title_length` counts the trimmed length: a
    * title of three spaces satisfied `min(1)`, reached the RPC and came back as
@@ -42,6 +56,18 @@ export const CreatePlanRequest = Mutation.extend({
   required_member_ids: z.array(UserId).optional(),
   /** Absent means the preset's default deadline. */
   response_deadline: Instant.optional(),
+}).superRefine((request, context) => {
+  const refuse = (path: string, message: string) =>
+    context.addIssue({ code: 'custom', path: [path], message });
+  if (request.mode === 'named') {
+    if (request.stop_time !== undefined) refuse('stop_time', 'A named plan has no stop time.');
+    return;
+  }
+  if (request.stop_time === undefined) refuse('stop_time', 'A quiet ask needs a stop time.');
+  if (request.preset === 'custom') refuse('preset', 'A quiet ask picks one of four windows.');
+  for (const field of ['custom', 'quorum', 'required_member_ids', 'response_deadline'] as const) {
+    if (request[field] !== undefined) refuse(field, 'A quiet ask has no organiser to choose this.');
+  }
 });
 export type CreatePlanRequest = z.infer<typeof CreatePlanRequest>;
 
@@ -53,6 +79,12 @@ export const CreatePlanResponse = z.object({
   daily: DailyWindow,
   duration_minutes: DurationMinutes,
   quorum: Quorum,
+  /** For a quiet ask, its stop time: replaced by a real deadline when it opens. */
   response_deadline: Instant,
+  /**
+   * A quiet ask's two facts its initiator may see while it asks (spec §5.4.3):
+   * when it closes and what opens it. Never a count. Absent for a named plan.
+   */
+  quiet: z.object({ closes_at: Instant, threshold: z.int().min(2) }).optional(),
 });
 export type CreatePlanResponse = z.infer<typeof CreatePlanResponse>;

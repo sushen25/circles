@@ -62,8 +62,17 @@ const eventNamed = (name: string): OutboxEvent => ({
 
 describe('which events say something', () => {
   it('has a name in ANNOUNCED for every event that produces a message', () => {
+    // Two plans, because two events speak only about a quiet ask: its creation
+    // while it is still asking, and its expiry from `seeking` (S2-02).
+    const asking = { ...context, planState: 'seeking' } as PlanContext;
+    const quietly = (name: string): OutboxEvent => ({
+      ...eventNamed(name),
+      payload: { ...eventNamed(name).payload, mode: 'quiet', from_state: 'seeking' },
+    });
     const speaks = DOMAIN_EVENT_NAMES.filter(
-      (name) => intentsFor(eventNamed(name), context, instant(0)).length > 0,
+      (name) =>
+        intentsFor(eventNamed(name), context, instant(0)).length > 0 ||
+        intentsFor(quietly(name), asking, instant(0)).length > 0,
     );
 
     expect([...speaks].sort()).toEqual([...ANNOUNCED].sort());

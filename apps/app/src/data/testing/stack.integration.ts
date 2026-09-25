@@ -14,6 +14,12 @@ export interface Stack {
   anonKey: string;
   mailpit: string;
   dbUrl: string;
+  /**
+   * Only for making a test account through the auth server's admin API — a
+   * saved place without a sign-in code in Mailpit (`accountFor`). No client
+   * under test ever holds it.
+   */
+  serviceKey: string;
 }
 
 /**
@@ -46,6 +52,7 @@ export function readStackConfig(): Stack {
     anonKey: status.ANON_KEY ?? '',
     mailpit: status.MAILPIT_URL ?? status.INBUCKET_URL ?? '',
     dbUrl: status.DB_URL ?? '',
+    serviceKey: status.SERVICE_ROLE_KEY ?? '',
   };
   if (stack.url === '' || stack.anonKey === '' || stack.dbUrl === '') {
     throw new Error('could not read the local stack config — is it up? `pnpm db:start`');
@@ -97,4 +104,43 @@ export async function codeFor(mailpit: string, address: string): Promise<string>
  */
 export function sql(stack: Stack, statement: string): string {
   return execFileSync('psql', [stack.dbUrl, '-tAc', statement], { encoding: 'utf8' }).trim();
+}
+
+/**
+ * A saved place, signed in: made through the auth server's admin API with a
+ * password the test generates and never prints, then signed in with it. The
+ * same route as the live suite's `signedInAccount`, and for its reason — a
+ * sign-in code per account is a Mailpit round trip each, and the auth server
+ * sends two emails an hour.
+ */
+export async function accountFor(
+  stack: Stack,
+  name: string,
+): Promise<{ userId: string; accessToken: string }> {
+  const email = someone(name.toLowerCase());
+  // One uuid: bcrypt reads 72 bytes, and the auth server refuses a longer password with a 500.
+  const password = globalThis.crypto.randomUUID();
+  const created = await fetch(`${stack.url}/auth/v1/admin/users`, {
+    method: 'POST',
+    headers: {
+      apikey: stack.serviceKey,
+      authorization: `Bearer ${stack.serviceKey}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: { display_name: name, time_zone: 'Australia/Melbourne' },
+    }),
+  });
+  if (!created.ok) throw new Error(`could not create a test account (${created.status})`);
+  const signedIn = await fetch(`${stack.url}/auth/v1/token?grant_type=password`, {
+    method: 'POST',
+    headers: { apikey: stack.anonKey, 'content-type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+  if (!signedIn.ok) throw new Error(`could not sign the test account in (${signedIn.status})`);
+  const session = (await signedIn.json()) as { access_token: string; user: { id: string } };
+  return { userId: session.user.id, accessToken: session.access_token };
 }

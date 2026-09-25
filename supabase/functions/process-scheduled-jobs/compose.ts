@@ -142,6 +142,21 @@ export async function inputFor(
         zone: context.planZone,
       };
     }
+    // The quiet ask's initiator, at their own address (ADR 00XX). The job was
+    // addressed from `dispatch_quiet_audience`; nothing here reads who asked.
+    // An ask somebody has already taken on, or that has closed, no longer
+    // needs its initiator to pick the time.
+    case 'threshold_initiator':
+      if (context.organiserUserId !== undefined) return { skip: 'organiser_taken' };
+      return { kind: 'threshold_initiator', ...toOrganiser };
+    case 'quiet_expired':
+      if (job.circle_id === null) return { skip: 'plan_gone' };
+      return {
+        kind: 'quiet_expired',
+        origin: toOrganiser.origin,
+        circleName: toOrganiser.circleName,
+        circleId: job.circle_id,
+      };
     default:
       break;
   }

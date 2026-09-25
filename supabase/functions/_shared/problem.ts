@@ -115,6 +115,20 @@ const REASONS: Record<ProblemReason, { status: number; error: Problem['error'] }
   preview_is_stale: { status: 409, error: 'conflict' },
   nothing_to_change: { status: 400, error: 'invalid_request' },
   note_not_allowed: { status: 400, error: 'invalid_request' },
+
+  // S2-02. About the caller and only the caller: whether they may ask, answer
+  // or take the role. None of them says anything about anybody else's answer.
+  already_asking: { status: 409, error: 'conflict' },
+  circle_ask_limit: { status: 409, error: 'conflict' },
+  nobody_to_ask: { status: 409, error: 'conflict' },
+  quiet_asks_muted: { status: 409, error: 'conflict' },
+  stop_time_unavailable: { status: 400, error: 'invalid_request' },
+  interest_closed: { status: 409, error: 'conflict' },
+  initiator_is_keen: { status: 409, error: 'conflict' },
+  not_quiet: { status: 400, error: 'invalid_request' },
+  not_keen: { status: 403, error: 'forbidden' },
+  deadline_not_passed: { status: 409, error: 'conflict' },
+  already_taken: { status: 409, error: 'conflict' },
 };
 
 /**

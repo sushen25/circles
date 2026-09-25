@@ -5,7 +5,7 @@ import { EN_EMAIL } from './copy.ts';
 import { CHANGED_PLACE, MEMBER_NAMES, ORIGIN, SUNDAY_CREW, fixtureToken } from './fixtures.ts';
 import { EmailLinkError } from './links.ts';
 import { render } from './render.tsx';
-import { EMAIL_KINDS, type EmailKind, SUBSCRIBER_KINDS } from './types.ts';
+import { EMAIL_KINDS, type EmailKind, QUIET_KINDS, SUBSCRIBER_KINDS } from './types.ts';
 
 /**
  * Every email the product can send, rendered against the Sunday Crew
@@ -15,7 +15,10 @@ import { EMAIL_KINDS, type EmailKind, SUBSCRIBER_KINDS } from './types.ts';
  */
 
 const ORGANISER_KINDS = EMAIL_KINDS.filter(
-  (kind) => kind !== 'verify_email' && !(SUBSCRIBER_KINDS as readonly string[]).includes(kind),
+  (kind) =>
+    kind !== 'verify_email' &&
+    !(SUBSCRIBER_KINDS as readonly string[]).includes(kind) &&
+    !(QUIET_KINDS as readonly string[]).includes(kind),
 );
 
 /** The organiser kinds whose footer says where their switch is (ADR 0029). */
@@ -34,9 +37,16 @@ describe('render', () => {
       (spec) => spec.kind,
     );
     expect([...EMAIL_KINDS].sort()).toEqual([...emailed].sort());
-    // And none of them could say anything about a quiet ask (spec §8.2).
-    for (const kind of QUIET_SENSITIVE_KINDS) {
-      expect(EMAIL_KINDS as readonly string[]).not.toContain(kind);
+    // And the only ones that could say anything about a quiet ask are the two
+    // addressed to its initiator alone (spec §8.2, ADR 00XX).
+    const quietEmailed = QUIET_SENSITIVE_KINDS.filter((kind) =>
+      (EMAIL_KINDS as readonly string[]).includes(kind),
+    );
+    expect([...quietEmailed].sort()).toEqual([...QUIET_KINDS].sort());
+    for (const kind of QUIET_KINDS) {
+      expect(NOTIFICATION_KINDS.find((spec) => spec.kind === kind)?.audience).toBe(
+        'quiet_initiator',
+      );
     }
   });
 
@@ -127,6 +137,24 @@ describe('render', () => {
     for (const spec of NOTIFICATION_KINDS.filter((s) => s.organiserEmailSwitch)) {
       expect(POINTS_AT_SETTINGS).toContain(spec.kind);
     }
+  });
+
+  describe.each(QUIET_KINDS)('the quiet ask email %s', (kind) => {
+    it('says why it came and that nobody else got it, with no stop link and no token', async () => {
+      const email = await render(SUNDAY_CREW[kind]);
+      expect(email.text).toContain(EN_EMAIL.footer.quiet('Sunday Crew'));
+      expect(hrefs(email.html).some((href) => /\/[aev]#|\/settings\//.test(href))).toBe(false);
+      expect(email.headers).toEqual({});
+    });
+
+    it('carries no count and no name, in its subject or its body', async () => {
+      const email = await render(SUNDAY_CREW[kind]);
+      // Links aside: a circle's id has digits and says nothing.
+      for (const part of [email.subject, email.text.replace(/https?:\/\/\S+/g, '')]) {
+        expect(part).not.toMatch(/\d/);
+        for (const name of MEMBER_NAMES) expect(part).not.toMatch(new RegExp(`\\b${name}\\b`));
+      }
+    });
   });
 
   describe('the verification email', () => {

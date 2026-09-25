@@ -15,6 +15,12 @@ import {
 } from './templates/DidItHappen.tsx';
 import { LockedIn, lockedInCopy } from './templates/LockedIn.tsx';
 import { OptionsReady, optionsReadyCopy } from './templates/OptionsReady.tsx';
+import {
+  QuietExpired,
+  ThresholdInitiator,
+  quietExpiredCopy,
+  thresholdInitiatorCopy,
+} from './templates/Quiet.tsx';
 import { Reminder, reminderCopy } from './templates/Reminder.tsx';
 import { RepliesClosed, repliesClosedCopy } from './templates/RepliesClosed.tsx';
 import { VerifyEmail, verifyEmailCopy } from './templates/VerifyEmail.tsx';
@@ -55,6 +61,8 @@ const TEMPLATES: { [K in EmailKind]: Template<Extract<EmailInput, { kind: K }>> 
   replies_closed: { copy: repliesClosedCopy, Component: RepliesClosed },
   did_it_happen: { copy: didItHappenCopy, Component: DidItHappen },
   about_time: { copy: aboutTimeCopy, Component: AboutTime },
+  threshold_initiator: { copy: thresholdInitiatorCopy, Component: ThresholdInitiator },
+  quiet_expired: { copy: quietExpiredCopy, Component: QuietExpired },
 };
 
 /**

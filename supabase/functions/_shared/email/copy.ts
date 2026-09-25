@@ -18,9 +18,10 @@ import { brand } from '@circles/config';
  *
  * - **A subject names nobody but the circle** (spec §5.8). The organiser's name
  *   appears in a body only to attribute their own note, as the artboard does.
- * - **No subject or body says anything about a quiet ask** — who started it,
- *   who is keen. None of the kinds that could (`QUIET_SENSITIVE_KINDS`) is ever
- *   emailed.
+ * - **No subject or body says anything about a quiet ask to anybody but its
+ *   initiator** — who started it, who is keen. The two quiet kinds that are
+ *   emailed (`QUIET_KINDS`, ADR 00XX) go to the initiator's own address and
+ *   nowhere else, and even they name nobody and carry no count.
  * - **Nothing here sells anything.** "Operational only" is the Emails artboard's
  *   own caption, and the manifesto's list of things we never do includes "a
  *   prompt inside an operational email". So no email mentions the app.
@@ -166,6 +167,29 @@ export const EN_EMAIL = {
     button: { label: 'See the options' },
   }),
 
+  /** The ThresholdRole artboard's words, to the initiator (ADR 00XX). No count, no names. */
+  thresholdInitiator: ({ circleName }: { circleName: string }): EmailCopy => ({
+    subject: `${circleName}: enough people are keen`,
+    preview: 'Do you want to pick the time?',
+    paragraphs: [
+      'Enough people are keen. Someone needs to pick the time. ' +
+        'That can be you, or you can ask for a volunteer.',
+      "If you organise, your name shows as the organiser. We still won't say who asked first.",
+    ],
+    button: { label: 'Open the plan' },
+  }),
+
+  /** The SparkExpired artboard's words, to the initiator (spec §5.4.7, ADR 00XX). */
+  quietExpired: ({ circleName }: { circleName: string }): EmailCopy => ({
+    subject: `${circleName}: this one closed quietly`,
+    preview: 'Not enough people were free this time.',
+    paragraphs: [
+      'Not enough people were free this time. This one closed quietly. ' +
+        'Nobody else knows you asked, and nobody is told who said what.',
+    ],
+    button: { label: `Back to ${circleName}` },
+  }),
+
   repliesClosed: ({ circleName }: { circleName: string }): EmailCopy => ({
     subject: `${circleName}: replies are closed`,
     preview: 'No time is locked in yet.',
@@ -225,6 +249,9 @@ export const EN_EMAIL = {
     settingsLead: 'Turn these off in',
     settingsLabel: 'notification settings',
     nudge: (circleName: string) => `You're getting this because you're in ${circleName}.`,
+    /** The quiet ask's two letters (ADR 00XX): why, and that nobody else got one. */
+    quiet: (circleName: string) =>
+      `You're getting this because you asked ${circleName} quietly. Nobody else gets this email.`,
     sender: brand.name,
   },
 } as const;

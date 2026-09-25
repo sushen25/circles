@@ -189,7 +189,12 @@ function audienceFor(kind: NotificationKind, context: EligibilityContext): reado
     }
 
     case 'keen_members':
-      return ids.filter((id) => context.keenMemberIds?.includes(id) === true);
+      // The initiator is keen too, and has a message of their own
+      // (`threshold_initiator`, "do you want to pick the time?"); sending them
+      // "choose your times" as well would be two letters for one moment.
+      return ids.filter(
+        (id) => id !== context.quietInitiatorId && context.keenMemberIds?.includes(id) === true,
+      );
 
     case 'non_responders': {
       const responded = respondedUserIds(context, plan);

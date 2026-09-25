@@ -786,10 +786,12 @@ describe('create-plan', () => {
     expect(called('create_plan')).toHaveLength(0);
   });
 
-  it('refuses a quiet ask as not-yet rather than as a failure', async () => {
+  it('does not send a quiet ask to create_plan', async () => {
+    // S2-02: a quiet ask is `create_quiet_ask`'s (quiet-handlers.test.ts). One
+    // without a stop time is refused before anything is called.
     const response = await load('create-plan')(post({ ...body, mode: 'quiet' }));
 
-    expect(await response.json()).toMatchObject({ reason: 'not_yet' });
+    expect(response.status).toBe(400);
     expect(called('create_plan')).toHaveLength(0);
   });
 

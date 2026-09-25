@@ -90,6 +90,8 @@ export type SendResult = { sent: number; skipped: number; failed: number; retrie
  */
 function planIsPast(job: DueJob): boolean {
   if (job.kind === 'cancelled') return false;
+  // "Not enough people were free this time" is *about* the ask having expired.
+  if (job.kind === 'quiet_expired') return false;
   // `isTerminal` is the domain's, over `TERMINAL_STATES`. Spelling the three
   // states out here is the shape that goes stale the day a fourth is added.
   return job.plan_state !== null && isTerminal(job.plan_state as PlanState);

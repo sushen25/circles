@@ -88,6 +88,12 @@ export const SUNDAY_CREW: { readonly [K in EmailKind]: Extract<EmailInput, { kin
     circleId: '00000000-0000-4000-8000-000000000001',
     weeksSince: 5,
   },
+  threshold_initiator: { ...plan, kind: 'threshold_initiator' },
+  quiet_expired: {
+    ...circle,
+    kind: 'quiet_expired',
+    circleId: '00000000-0000-4000-8000-000000000001',
+  },
 };
 
 /** Every member of the Sunday Crew but the circle itself. A subject may name none of them. */

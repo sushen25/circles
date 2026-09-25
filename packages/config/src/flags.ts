@@ -11,9 +11,9 @@
  */
 export type Flags = {
   /**
-   * "See if people are keen" — the quiet ask (spec §5.4). `create-plan` refuses
-   * `mode: 'quiet'` with `not_yet` until S2-02, and its screens are S2-03's, so
-   * ChooseMode hides the card until then. S2-03 turns this on and removes it.
+   * "See if people are keen" — the quiet ask (spec §5.4). `create-plan` takes
+   * `mode: 'quiet'` since S2-02, but its screens are S2-03's, so ChooseMode
+   * hides the card until then. S2-03 turns this on and removes it.
    */
   readonly quietAsk: boolean;
 };

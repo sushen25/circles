@@ -120,6 +120,8 @@ Deno.serve(
           counts['reminders_queued'] = timed.remindersQueued;
           counts['cadence_prompted'] = timed.cadencePrompted;
           counts['nudges_queued'] = timed.nudgesQueued;
+          counts['quiet_expired'] = timed.quietExpired;
+          counts['quiet_opened'] = timed.quietOpened;
         }
 
         if (!deadline()) {

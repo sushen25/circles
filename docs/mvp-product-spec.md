@@ -334,6 +334,10 @@ New named plan; quiet ask seeking interest (to everyone except the initiator); t
 
 The signed-in organiser receives options ready, replies closed with no decision, did it happen, and about-time nudges by email until they install the app. These letters carry no stop link: the organiser turns them off in the app, where they are signed in, and the footer of each one a switch can stop says where. **Emails about plans you organise** on notification settings is one switch for the person, not per circle, and stops options ready and did it happen; replies closed with no decision still comes, because a plan other people answered is waiting on the organiser alone, and its footer says so instead of pointing at a switch; the about-time nudge is stopped by that circle's **Nudges to plan the next one** ([ADR 0029](decisions/0029-an-organiser-turns-organiser-email-off-in-the-app.md)).
 
+#### Quiet-ask initiator email (no app)
+
+The initiator of a quiet ask receives two letters about their own ask, at their own confirmed address, until they install the app: **threshold reached** ("Enough people are keen. Do you want to pick the time?") and **closed without opening** ("Not enough people were free this time"). Each goes to the initiator alone, once; neither names anybody or carries a count; neither is sent for a withdrawn ask. Nobody else is ever emailed about a quiet ask before it opens ([ADR 00XX](decisions/00XX-the-quiet-asks-initiator-is-written-to-at-their-own-address.md)).
+
 #### Plan-update email (web-only participants)
 
 For a verified subscription to one plan: confirmed; time or place materially changed; cancelled; one reminder two hours before; did it happen. Never anything else. Verification link expires in 24 hours; resend invalidates the previous token; the verification email contains nothing but the link. Every event email carries **Stop emails for this meetup** and **Manage email preferences** links that work without sign-in and a single-use re-entry link. Subjects never include names beyond the circle's and never reveal quiet-ask state. Addresses are never visible to owners, organisers or other members.

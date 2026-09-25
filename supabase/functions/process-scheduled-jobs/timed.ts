@@ -6,6 +6,7 @@ import { log } from '../_shared/logging.ts';
 import { cadenceWork } from './cadence.ts';
 import { loadContext } from './context.ts';
 import { classify, jobRowsFor } from './drain.ts';
+import { type HeldAsk, openHeldAsks } from './quiet-held.ts';
 
 /**
  * The work a clock creates (architecture §9.3: "discovered from data …, never
@@ -38,6 +39,9 @@ export type TimedResult = {
   /** Cadence due dates decided this run (to one person, or to nobody). */
   cadencePrompted: number;
   nudgesQueued: number;
+  /** Quiet asks closed at their stop time, and held ones opened (S2-02). */
+  quietExpired: number;
+  quietOpened: number;
 };
 
 type TimedWorkRow = {
@@ -48,6 +52,10 @@ type TimedWorkRow = {
   approaching: string[];
   /** The circles that may be due a cadence nudge; whether one is owed is the domain's. */
   cadence: string[];
+  // Absent from a database that predates 0026 — a deploy lands the function
+  // and the migration in either order.
+  quiet_expired?: number;
+  held?: HeldAsk[];
 };
 
 export async function timedWork(
@@ -69,7 +77,13 @@ export async function timedWork(
     remindersQueued: 0,
     cadencePrompted: 0,
     nudgesQueued: 0,
+    quietExpired: row.quiet_expired ?? 0,
+    quietOpened: 0,
   };
+
+  // Held quiet asks whose circle is free again (ADR 0035), first: an ask that
+  // opens here is a plan the reminders below may already need to know about.
+  result.quietOpened = await openHeldAsks(service, row.held ?? [], now, requestId, deadline);
 
   for (const planId of row.stale) {
     if (deadline()) return result;
