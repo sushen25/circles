@@ -91,6 +91,10 @@ export function trackEventsTransport(options: TransportOptions = {}) {
  * millisecond it is a join: to the plan made a few milliseconds earlier, and
  * to whatever else this device recorded, under its user, at the same moment.
  * An hour is fine enough for every count the catalogue asks of these events.
+ *
+ * **This is the client's half only.** The ingest still stamps `received_at`
+ * to the millisecond, which is the same join, until `track-events` truncates
+ * it for `UNATTRIBUTED_EVENTS` too (written on SUS-50).
  */
 function toTheHour(event: TrackedEvent): TrackedEvent {
   const at = new Date(event.occurred_at);

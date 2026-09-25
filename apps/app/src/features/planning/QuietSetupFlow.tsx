@@ -27,16 +27,17 @@ import { categoryLabel, presetLabel, problemWords, tonightNoteWords } from './wo
 /**
  * `/circles/:id/quiet/new` — SparkSetup, "See if people are keen" (spec §5.4.1).
  *
- * The same questions, in the same order, as every way into making a plan:
- * membership first, then the circle — **a plan already finding a time is that
- * plan** (`PlanInProgress`, ADR 0033), since `create-plan` would refuse the ask
- * with `plan_in_progress` — and a saved place only once a form is next, drawn
- * in place of the form as PlanSetupFlow does (ADR 0004, S2-07).
+ * Membership first, then the circle, then **the domain's answer**
+ * (`quietStanding` over `canCreateQuietAsk`, in the domain's order): archived,
+ * muted, a circle of one, then a plan already finding a time — which is shown
+ * as that plan (`PlanInProgress`, ADR 0033). The domain's order wins over
+ * ChooseMode's, which shows a running plan first because it is about both
+ * cards: a muted member of a circle with a running plan is told they muted
+ * quiet asks here, and the plan there. A saved place comes only once a form
+ * is next, drawn in place of the form as PlanSetupFlow does (ADR 0004, S2-07).
  *
- * Two statements before the form rather than refusals after it: a circle of
- * one has nobody to ask (`nobody_to_ask`), and a member who has muted quiet
- * asks here would be refused with `quiet_asks_muted`. Both are about the
- * reader, from the reader's own circle read.
+ * The statements come before the form rather than as refusals after it, and
+ * each is about the reader, from the reader's own circle read.
  *
  * Filled in from the last meetup that happened, as Plan another is (S2-04):
  * the domain's `planAnotherDefaults` decides what carries.
