@@ -7,7 +7,7 @@ import {
 } from '@circles/domain';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { track } from '../../analytics/track';
 import { deviceTimeZone, ownProfile, useSession } from '../../data/auth';
@@ -71,6 +71,10 @@ function LiveCreate() {
   // Welcome: the circle they start keeps the place and the name they have
   // (S2-07). The gate is drawn in place of the form, and the form follows.
   const gate = useSavedPlace({ gateGuests: true });
+  const [gating, setGating] = useState(false);
+  useEffect(() => {
+    if (gate === 'gate') setGating(true);
+  }, [gate]);
   const profile = useQuery({
     queryKey: ['own-profile', session.userId],
     queryFn: ownProfile,
@@ -141,8 +145,20 @@ function LiveCreate() {
     }
   };
 
-  if (gate === 'gate') {
-    return <InitiateGateFlow intent="circle" onNotNow={back} />;
+  // Held until the gate says it is finished, not only until the session is
+  // saved: the gate names the profile after the membership once the save is
+  // through, and the circle made next takes its owner's name from there.
+  if (gate === 'gate' || gating) {
+    return (
+      <InitiateGateFlow
+        intent="circle"
+        onSaved={() => setGating(false)}
+        onNotNow={() => {
+          setGating(false);
+          back();
+        }}
+      />
+    );
   }
   if (gate === 'wait') return <CreateCircleScreen state="loading" onBack={back} />;
 

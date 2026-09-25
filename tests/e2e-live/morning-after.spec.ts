@@ -5,6 +5,7 @@ import { expect, test, type Page } from './fixtures';
 import {
   circleOwnedBy,
   guestInvited,
+  latestCodeFor,
   lockInFirstOption,
   memberNamed,
   planFor,
@@ -159,7 +160,11 @@ test('a member with no session, from the emailed way back in, lands on the quest
   await expect(page).toHaveURL(new RegExp(`/p/${crew.planCode}/attendance$`));
   await expect(page.getByText(/^Did you make it to .+'s catch-up\?$/)).toBeVisible();
   await page.getByRole('button', { name: 'I was there' }).click();
-  await expect(page.getByText('Thanks, noted.')).toBeVisible();
+  // The circle's first meetup, so "I was there" is the moment for "Start a
+  // circle" (S2-07) — and a token reattach is not a list one, so "Keep your
+  // place for good?" never came first.
+  await expect(page.getByText('Glad it happened.')).toBeVisible();
+  await expect(page.getByText('Keep your place for good?')).toHaveCount(0);
 
   // Reattached: Tom's place, under the identity this browser now holds.
   const now = memberNamed(crew.circleId, 'Tom');
@@ -171,4 +176,46 @@ test('a member with no session, from the emailed way back in, lands on the quest
       where c.plan_id = '${crew.planId}' and a.user_id = '${now?.userId}'
     `),
   ).toEqual([['was_there']]);
+});
+
+test('"I was there" on the circle\'s first meetup: a guest starts a circle of their own, through the gate, as themselves', async ({
+  page,
+}) => {
+  const crew = sundayCrew();
+  const tom = guestInvited(crew, 'Tom');
+  happenedTheOtherNight(crew.planId, crew.ownerId, [crew.ownerId, tom]);
+  await page.goto(`/a#${reentryTokenFor(crew, tom)}`);
+  await page.getByRole('button', { name: 'I was there' }).click();
+
+  await expect(page.getByText('Glad it happened.')).toBeVisible();
+  await expect(page.getByText(/^Start a circle for them\..*You'd need to sign in/)).toBeVisible();
+  await page.getByRole('button', { name: 'Start a circle' }).click();
+
+  // A guest meets the gate in place, worded for a circle.
+  await expect(page.getByText('Save your place first')).toBeVisible();
+  await expect(page.getByText(/^Starting a circle makes you its owner/)).toBeVisible();
+  const address = `tom.${Date.now()}.${randomUUID().slice(0, 6)}@example.test`;
+  await page.getByRole('button', { name: 'Continue with email' }).click();
+  await page.getByLabel('Your email').fill(address);
+  await page.getByRole('button', { name: 'Send me a code' }).click();
+  await page.getByLabel('Code', { exact: true }).fill(await latestCodeFor(address));
+  await page.getByRole('button', { name: 'Continue' }).click();
+
+  await expect(page).toHaveURL(/\/circles\/create$/);
+  await page.getByLabel('Circle name').fill('Book Club');
+  await page.getByRole('button', { name: 'Create circle' }).click();
+  await expect(page).toHaveURL(/\/circles\/[0-9a-f-]{36}$/);
+
+  // Tom's place in Sunday Crew is kept, and the new circle is his, under his name.
+  const kept = memberNamed(crew.circleId, 'Tom');
+  expect(kept?.anonymous).toBe(false);
+  const [owner] = sql(`
+    select m.display_name_snapshot from public.circles c
+    join public.circle_members m on m.circle_id = c.id and m.user_id = c.owner_user_id
+    where c.owner_user_id = '${kept?.userId}' and c.name = 'Book Club'
+  `);
+  expect(owner?.[0]).toBe('Tom');
+  const [claimed] = sql(`select metadata ->> 'moment' from private.audit_log
+    where action = 'growth.account_claimed' and resource_id = '${kept?.userId}'`);
+  expect(claimed?.[0], 'credited to the prompt, not the gate').toBe('after_attendance');
 });
