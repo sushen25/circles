@@ -55,12 +55,15 @@ export interface NudgeOptions {
 }
 
 /**
- * The prompt that spent this session's one, and the key each question went
- * out under. The key is kept so that a screen mounted again asks the same
+ * The prompt that spent this session's one, per person, and the key each
+ * question went out under. Per person because "session" is the person's: a
+ * sign-out and somebody else's sign-in on the same tab is a new session for
+ * them, and one person's prompt must not spend another's (review round 1). A
+ * guest who saves their place keeps their user id, so their session goes on. The key is kept so that a screen mounted again asks the same
  * question and is given the same answer (ADR 0016) rather than being told its
  * own prompt has been shown already.
  */
-let spentBy: string | undefined;
+const spentBy = new Map<string, string>();
 const keys = new Map<string, IdempotencyKey>();
 /**
  * Prompts answered in this session. An answer is final: the screen that asked
@@ -71,7 +74,7 @@ const answeredHere = new Set<string>();
 
 /** For tests: a new session. */
 export function forgetSessionNudges(): void {
-  spentBy = undefined;
+  spentBy.clear();
   keys.clear();
   answeredHere.clear();
 }
@@ -113,7 +116,7 @@ export function useNudge(moment: NudgeMoment, options: NudgeOptions = {}): Nudge
       ? ({ kind: 'skip' } as const)
       : nudgeEligibility(moment, [], tier, openedAt, {
           planId,
-          shownThisSession: spentBy !== undefined && spentBy !== id,
+          shownThisSession: (spentBy.get(session.userId ?? '') ?? id) !== id,
         });
   const ask = enabled && !session.isLoading && local.kind === 'show';
 
@@ -121,7 +124,9 @@ export function useNudge(moment: NudgeMoment, options: NudgeOptions = {}): Nudge
     queryKey: ['nudge', id],
     queryFn: async () => {
       const answer = await askToShow(target, keyFor(id));
-      if (!answer.suppressed && spendsSessionBudget(moment)) spentBy = id;
+      if (!answer.suppressed && spendsSessionBudget(moment)) {
+        spentBy.set(session.userId ?? '', id);
+      }
       return answer;
     },
     enabled: ask,

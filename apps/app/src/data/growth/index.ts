@@ -6,7 +6,7 @@ import {
   type PlanId,
   type RecordNudgeRequest,
 } from '@circles/contracts';
-import type { NudgeMoment, NudgeRecord } from '@circles/domain';
+import { fromISO, type Instant, type NudgeMoment, type NudgeRecord } from '@circles/domain';
 
 import { authClient } from '../auth/client';
 import { invokeFunction } from '../functions';
@@ -76,4 +76,19 @@ export async function ownNudgeHistory(): Promise<NudgeRecord[]> {
     .eq('user_id', userId);
   if (error !== null) throw new Error('nudge history lookup failed');
   return (data ?? []).flatMap((row) => nudgeRecordOf(row) ?? []);
+}
+
+/**
+ * When this identity got its saved place: the earliest of its sign-in methods,
+ * which an anonymous identity has none of. Saving a place by email adds the
+ * email identity at that moment, so for a guest who saved theirs this is when
+ * they did (S2-07's `guest_started_circle`). Undefined when unknown.
+ */
+export async function savedPlaceSince(): Promise<Instant | undefined> {
+  const { data } = await authClient().auth.getUser();
+  const times = (data.user?.identities ?? [])
+    .map((identity) => identity.created_at)
+    .filter((at): at is string => typeof at === 'string' && at !== '')
+    .map((at) => fromISO(at));
+  return times.length === 0 ? undefined : (Math.min(...times) as Instant);
 }

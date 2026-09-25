@@ -218,4 +218,13 @@ test('"I was there" on the circle\'s first meetup: a guest starts a circle of th
   const [claimed] = sql(`select metadata ->> 'moment' from private.audit_log
     where action = 'growth.account_claimed' and resource_id = '${kept?.userId}'`);
   expect(claimed?.[0], 'credited to the prompt, not the gate').toBe('after_attendance');
+  // And the circle is counted as a guest's, from the tap and the saved place.
+  await expect
+    .poll(
+      () =>
+        sql(`select count(*) from analytics.events
+          where event_name = 'guest_started_circle' and user_id = '${kept?.userId}'`)[0]?.[0],
+      { timeout: 20_000 },
+    )
+    .toBe('1');
 });

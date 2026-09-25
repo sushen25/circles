@@ -14,7 +14,7 @@ import { deviceTimeZone, ownProfile, useSession } from '../../data/auth';
 import { hasBackend } from '../../data/auth/client';
 import { DEFAULT_CIRCLE_COLOR, createCircle, keepInviteSecret } from '../../data/circles';
 import { newIdempotencyKey } from '../../data/functions';
-import { ownNudgeHistory } from '../../data/growth';
+import { ownNudgeHistory, savedPlaceSince } from '../../data/growth';
 import { InitiateGateFlow } from '../growth/InitiateGateFlow';
 import { failureOf } from '../identity/join/failure';
 import { useSavedPlace } from '../identity/useSavedPlace';
@@ -117,12 +117,13 @@ function LiveCreate() {
       });
       keepInviteSecret(made.circle.id, made.invite_secret);
       track('circle_created', { circle_id: made.circle.id });
-      // "Start a circle", the morning after, within 30 days (§11.2's growth
-      // row): the prompt's tap is in `nudge_states`, so the credit is read
-      // from there rather than carried through a navigation.
-      void ownNudgeHistory()
-        .then((history) => {
-          if (startedCircleFromPrompt(history, instant(Date.now()))) {
+      // "Start a circle", the morning after, tapped as a guest within 30 days
+      // (§11.2's growth row): the tap is in `nudge_states` and the saved place
+      // is the identity's own, so the credit is read from there rather than
+      // carried through a navigation.
+      void Promise.all([ownNudgeHistory(), savedPlaceSince()])
+        .then(([history, savedSince]) => {
+          if (startedCircleFromPrompt(history, instant(Date.now()), savedSince)) {
             track('guest_started_circle', { circle_id: made.circle.id });
           }
         })

@@ -281,15 +281,26 @@ export function spendsSessionBudget(moment: NudgeMoment): boolean {
 }
 
 /**
- * Whether a circle made now is the result of "Start a circle" (§11.2's
- * "guests who start a new circle within 30 days"): the after-attendance prompt
- * was tapped, and not more than 30 days ago.
+ * Whether a circle made now is the result of "Start a circle" **by a guest**
+ * (§11.2's "guests who start a new circle within 30 days"): the
+ * after-attendance prompt was tapped not more than 30 days ago, and at the time
+ * of the tap the person had no saved place yet.
+ *
+ * `savedSince` is when this identity got its saved place — its first
+ * permanent sign-in method. A saved member is asked to start a circle too, and
+ * without this their circles would be counted as guests' (review round 1).
+ * Unknown is not credited: a guess inflates the number the metric exists to
+ * read.
  */
-export function startedCircleFromPrompt(history: readonly NudgeRecord[], now: Instant): boolean {
-  return history.some(
-    (r) =>
-      r.moment === 'after_attendance_start_circle' &&
-      r.answer === 'tapped' &&
-      now < daysAfter(r.answeredAt ?? r.shownAt, STARTED_CIRCLE_DAYS),
-  );
+export function startedCircleFromPrompt(
+  history: readonly NudgeRecord[],
+  now: Instant,
+  savedSince: Instant | undefined,
+): boolean {
+  if (savedSince === undefined) return false;
+  return history.some((r) => {
+    if (r.moment !== 'after_attendance_start_circle' || r.answer !== 'tapped') return false;
+    const tappedAt = r.answeredAt ?? r.shownAt;
+    return tappedAt < savedSince && now < daysAfter(tappedAt, STARTED_CIRCLE_DAYS);
+  });
 }

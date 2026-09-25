@@ -248,14 +248,18 @@ describe('the 30-day back-off', () => {
 });
 
 describe('startedCircleFromPrompt', () => {
-  const tapped = row('after_attendance_start_circle', {
-    answer: 'tapped',
-    answeredAt: later(NOW, -29),
+  const tappedAt = later(NOW, -29);
+  const tapped = row('after_attendance_start_circle', { answer: 'tapped', answeredAt: tappedAt });
+  const savedAfter = later(tappedAt, 0.01);
+
+  it("credits a circle made within 30 days of a guest's tap", () => {
+    expect(startedCircleFromPrompt([tapped], NOW, savedAfter)).toBe(true);
+    expect(startedCircleFromPrompt([tapped], later(NOW, 2), savedAfter)).toBe(false);
   });
 
-  it('credits a circle made within 30 days of the tap', () => {
-    expect(startedCircleFromPrompt([tapped], NOW)).toBe(true);
-    expect(startedCircleFromPrompt([tapped], later(NOW, 2))).toBe(false);
+  it('credits nothing to somebody who had a saved place when they tapped', () => {
+    expect(startedCircleFromPrompt([tapped], NOW, later(tappedAt, -1))).toBe(false);
+    expect(startedCircleFromPrompt([tapped], NOW, undefined)).toBe(false);
   });
 
   it('credits nothing to a prompt turned down or left unanswered', () => {
@@ -263,8 +267,11 @@ describe('startedCircleFromPrompt', () => {
       startedCircleFromPrompt(
         [row('after_attendance_start_circle', { answer: 'dismissed', answeredAt: NOW })],
         NOW,
+        savedAfter,
       ),
     ).toBe(false);
-    expect(startedCircleFromPrompt([row('after_attendance_start_circle')], NOW)).toBe(false);
+    expect(startedCircleFromPrompt([row('after_attendance_start_circle')], NOW, savedAfter)).toBe(
+      false,
+    );
   });
 });

@@ -256,6 +256,16 @@ describe('one prompt per session', () => {
     expect(askToShow).not.toHaveBeenCalled();
   });
 
+  it('is one per person: somebody else signing in on the same tab has a session of their own', async () => {
+    const first = wrap(<Prompt moment="after_attendance_start_circle" plan="thu-17" />);
+    await screen.findByText('after_attendance_start_circle: show');
+    first.unmount();
+
+    Object.assign(session, { userId: 'tom' });
+    wrap(<Prompt moment="reattached_save_place" plan="oct-15" />);
+    expect(await screen.findByText('reattached_save_place: show')).toBeVisible();
+  });
+
   it('is the same prompt, not a second, when its own screen is mounted again', async () => {
     const first = wrap(<Prompt moment="after_attendance_start_circle" plan="thu-17" />);
     await screen.findByText('after_attendance_start_circle: show');
