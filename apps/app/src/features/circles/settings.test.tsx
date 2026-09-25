@@ -83,6 +83,7 @@ function home(overrides: Partial<CircleData.CircleHome> = {}): CircleData.Circle
     activePlan: null,
     lockedIn: null,
     morningAfter: null,
+    myTurn: false,
     mine: { mutedAll: false, mutedQuietAsks: false, mutedNudges: false },
     ...overrides,
   };

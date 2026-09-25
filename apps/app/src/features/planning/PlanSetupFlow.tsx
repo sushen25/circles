@@ -12,6 +12,7 @@ import { circleHome } from '../../data/circles';
 import { newIdempotencyKey } from '../../data/functions';
 import { createPlan } from '../../data/planning';
 import { isOffline } from '../identity/join/failure';
+import { movedOn, usePlanClock } from './clock';
 import { CustomWindowScreen } from './CustomWindowScreen';
 import { FIXTURE_NOW, sundayCrew } from './fixtures';
 import { defaultDraft, resolveDraft, WINDOW_EVENT, type PlanDraft } from './form';
@@ -19,7 +20,7 @@ import { PlanInProgress } from './PlanInProgressFlow';
 import { PlanSetupScreen } from './PlanSetupScreen';
 import { refusalOf, type Refused } from './problems';
 import { DeadlineSheet, RequiredSheet } from './sheets';
-import { usePlanForm, type FormContext, type FormResolved } from './usePlanForm';
+import { usePlanForm, type FormContext } from './usePlanForm';
 import { whenWords } from './when';
 import { categoryLabel } from './words';
 
@@ -42,21 +43,37 @@ import { categoryLabel } from './words';
 export function PlanSetupFlow({
   id,
   startOn = 'form',
+  initial,
+  onBack,
 }: {
   id: string;
   startOn?: 'form' | 'window';
+  /**
+   * The form as it opens. Absent, the circle's defaults; Plan another's
+   * **Change** passes what it had filled in from last time (S2-04).
+   */
+  initial?: PlanDraft | undefined;
+  /** Where Back goes, when it is not simply back. */
+  onBack?: (() => void) | undefined;
 }) {
   return hasBackend() ? (
-    <LiveSetup id={id} startOn={startOn} />
+    <LiveSetup id={id} startOn={startOn} initial={initial} onBack={onBack} />
   ) : (
-    <FixtureSetup startOn={startOn} />
+    <FixtureSetup startOn={startOn} initial={initial} />
   );
 }
 
-function FixtureSetup({ startOn }: { startOn: 'form' | 'window' }) {
+function FixtureSetup({
+  startOn,
+  initial,
+}: {
+  startOn: 'form' | 'window';
+  initial: PlanDraft | undefined;
+}) {
   const router = useRouter();
   return (
     <SetupForm
+      initial={initial}
       context={sundayCrew}
       circleDuration={120}
       now={FIXTURE_NOW}
@@ -69,7 +86,17 @@ function FixtureSetup({ startOn }: { startOn: 'form' | 'window' }) {
   );
 }
 
-function LiveSetup({ id, startOn }: { id: string; startOn: 'form' | 'window' }) {
+function LiveSetup({
+  id,
+  startOn,
+  initial,
+  onBack,
+}: {
+  id: string;
+  startOn: 'form' | 'window';
+  initial: PlanDraft | undefined;
+  onBack: (() => void) | undefined;
+}) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const session = useSession();
@@ -105,10 +132,12 @@ function LiveSetup({ id, startOn }: { id: string; startOn: 'form' | 'window' }) 
   // changed form is a new one (ADR 0016).
   const key = useRef<{ for: string; key: IdempotencyKey } | undefined>(undefined);
 
-  const back = () =>
-    router.canGoBack()
-      ? router.back()
-      : router.replace({ pathname: '/circles/[id]', params: { id } });
+  const back =
+    onBack ??
+    (() =>
+      router.canGoBack()
+        ? router.back()
+        : router.replace({ pathname: '/circles/[id]', params: { id } }));
 
   if (member.kind !== 'allow' || home.isPending) {
     return <PlanSetupScreen state="loading" onBack={back} />;
@@ -142,6 +171,7 @@ function LiveSetup({ id, startOn }: { id: string; startOn: 'form' | 'window' }) 
 
   return (
     <SetupForm
+      initial={initial}
       context={context}
       circleName={data.name}
       circleDuration={data.defaultDurationMinutes}
@@ -194,25 +224,8 @@ function LiveSetup({ id, startOn }: { id: string; startOn: 'form' | 'window' }) 
   );
 }
 
-/** Whether the form means something different now from when it was drawn. */
-function movedOn(shown: FormResolved, now: FormResolved, defaultDeadline: boolean): boolean {
-  if (!shown.ok || !now.ok) return shown.ok !== now.ok;
-  return (
-    shown.window.start !== now.window.start ||
-    shown.window.end !== now.window.end ||
-    shown.band.startMin !== now.band.startMin ||
-    shown.band.endMin !== now.band.endMin ||
-    // The server counts a default deadline from the moment it makes the plan.
-    // The screen keeps up to the minute; anything further has not been shown.
-    (defaultDeadline &&
-      Math.abs(Date.parse(shown.deadline) - Date.parse(now.deadline)) > TICK_MS + 30_000)
-  );
-}
-
-/** How often the setup's clock moves on. */
-const TICK_MS = 60_000;
-
 function SetupForm({
+  initial: opening,
   context,
   circleName,
   circleDuration,
@@ -223,6 +236,7 @@ function SetupForm({
   onRefused,
   onBack,
 }: {
+  initial?: PlanDraft | undefined;
   context: FormContext;
   /** For the refusal that names the circle. Absent on fixtures. */
   circleName?: string | undefined;
@@ -240,20 +254,14 @@ function SetupForm({
   onRefused?: ((refused: Refused) => void) | undefined;
   onBack: () => void;
 }) {
-  const [clock, setClock] = useState(now);
   // A default deadline is counted from when the plan is made, so the one on
   // screen keeps time with the clock rather than with when the form opened.
-  const live = freshNow !== undefined;
-  useEffect(() => {
-    if (!live) return;
-    const timer = setInterval(() => setClock(Date.now()), TICK_MS);
-    return () => clearInterval(timer);
-  }, [live]);
+  const [clock, setClock] = usePlanClock(now, freshNow !== undefined);
   const instant = fromISO(new Date(clock).toISOString());
   const duration = (DURATIONS as readonly number[]).includes(circleDuration)
     ? (circleDuration as DurationMinutes)
     : 120;
-  const [initial] = useState(() => defaultDraft({ duration }));
+  const [initial] = useState(() => opening ?? defaultDraft({ duration }));
   const form = usePlanForm({
     initial,
     context,

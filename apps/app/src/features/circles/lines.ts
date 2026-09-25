@@ -70,7 +70,11 @@ export function listLine(summary: CircleSummary, now = new Date()): string {
   }
 }
 
-/** "It's been about a month since Sunday Crew last got together. …" */
+/**
+ * "It's been about a month since Sunday Crew last got together. …" — and, to
+ * the one person the cadence nudge asked, "It's your turn to plan" (spec
+ * §5.9). Everybody else reads the quieter sentence, which names nobody.
+ */
 export function aboutTimeBody(home: CircleHome): string {
   const period = {
     weekly: t('circleHome', 'period_weekly'),
@@ -80,7 +84,10 @@ export function aboutTimeBody(home: CircleHome): string {
     // `about_time` is never reached with no goal; the words are there anyway.
     none: t('circleHome', 'period_monthly'),
   }[home.cadence];
-  return t('circleHome', 'about_time_body', { period, circle: home.name });
+  return t('circleHome', home.myTurn ? 'about_time_body_your_turn' : 'about_time_body', {
+    period,
+    circle: home.name,
+  });
 }
 
 /** The locked-in card: "Thu 17 Sep", then "6:30–8:30 pm · Hope St Radio", then who is going. */

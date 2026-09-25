@@ -44,7 +44,13 @@ export type Recipient = {
 
 export type EligibilityContext = {
   readonly circle: Circle;
-  readonly plan: Plan;
+  /**
+   * The plan the message is about. Absent for `about_time`, the one kind that
+   * belongs to a circle rather than to a plan (S2-04): every plan-scoped
+   * audience answers nobody without one, so a caller cannot reach a plan kind
+   * by leaving it out.
+   */
+  readonly plan?: Plan | undefined;
   readonly members: readonly Member[];
   /**
    * Who this plan was addressed to: the circle's active members when it was
@@ -114,7 +120,8 @@ export type EligibilityContext = {
    */
   readonly alreadySent?: readonly UserId[] | undefined;
   /** For `about_time`: what `nudgeRecipient` needs, minus what is above. */
-  readonly nudge?: Pick<NudgeInput, 'lastHappenedAttendees' | 'lastOrganiserId'> | undefined;
+  readonly nudge?:
+    Pick<NudgeInput, 'lastHappenedAttendees' | 'lastOrganiserId' | 'unreachable'> | undefined;
 };
 
 /** Members still eligible to be told anything at all about this circle. */
@@ -130,10 +137,10 @@ function participants(context: EligibilityContext): readonly UserId[] {
     .filter((id) => invited.has(id));
 }
 
-function respondedUserIds(context: EligibilityContext): ReadonlySet<UserId> {
+function respondedUserIds(context: EligibilityContext, plan: Plan): ReadonlySet<UserId> {
   return new Set(
     context.responses
-      .filter((r) => r.planId === context.plan.id && r.revision === context.plan.revision)
+      .filter((r) => r.planId === plan.id && r.revision === plan.revision)
       .map((r) => r.userId),
   );
 }
@@ -147,16 +154,22 @@ function audienceFor(kind: NotificationKind, context: EligibilityContext): reado
   if (audience === 'nudge_recipient') {
     const chosen = nudgeRecipient({
       circle: context.circle,
-      members: reachableMembers(context),
+      // This circle's rows, removed ones included: the rotation walks on from
+      // the last organiser's place in join order, and somebody who organised
+      // last and has since left still has one. `nudgeRecipient` asks only
+      // active members, and the filters below drop anyone else anyway.
+      members: context.members.filter((m) => m.circleId === context.circle.id),
       lastHappenedAttendees: context.nudge?.lastHappenedAttendees ?? [],
       lastOrganiserId: context.nudge?.lastOrganiserId,
+      unreachable: context.nudge?.unreachable,
     });
     return chosen === undefined ? [] : [chosen];
   }
 
   // Everything else is plan-scoped: one circle, and only the people the plan
-  // was addressed to.
-  if (context.plan.circleId !== context.circle.id) return [];
+  // was addressed to. No plan, nobody.
+  const plan = context.plan;
+  if (plan === undefined || plan.circleId !== context.circle.id) return [];
   const ids = participants(context);
 
   switch (audience) {
@@ -179,13 +192,13 @@ function audienceFor(kind: NotificationKind, context: EligibilityContext): reado
       return ids.filter((id) => context.keenMemberIds?.includes(id) === true);
 
     case 'non_responders': {
-      const responded = respondedUserIds(context);
+      const responded = respondedUserIds(context, plan);
       const sent = new Set(context.alreadySent ?? []);
       return ids.filter((id) => !responded.has(id) && !sent.has(id));
     }
 
     case 'organiser': {
-      const organiser = context.plan.organiserUserId;
+      const organiser = plan.organiserUserId;
       return organiser === undefined || !ids.includes(organiser) ? [] : [organiser];
     }
 

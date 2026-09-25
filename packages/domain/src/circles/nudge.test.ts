@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { fromISO } from '../shared/instant.js';
-import { effectiveNudgePolicy, nudgeRecipient } from './nudge.js';
+import { effectiveNudgePolicy, nudgeChoice, nudgeHeld, nudgeRecipient } from './nudge.js';
 import { OWNER, circle, member } from './fixtures.js';
 import { type UserId, userId } from './types.js';
 
@@ -145,6 +145,150 @@ describe('nudgeRecipient', () => {
     });
   });
 
+  describe('"Nudges to plan the next one" turned off', () => {
+    const off = (who: UserId) =>
+      crew().map((m) => (m.userId === who ? { ...m, mutedNudges: true } : m));
+
+    it('asks nobody under the owner policy when the owner said no', () => {
+      const got = nudgeRecipient({
+        circle: circle({ nudgePolicy: 'owner' }),
+        members: off(OWNER),
+        lastHappenedAttendees: everyone,
+        lastOrganiserId: ann,
+      });
+      expect(got).toBeUndefined();
+    });
+
+    it('asks nobody when the last organiser said no, rather than handing it to the owner', () => {
+      const got = nudgeRecipient({
+        circle: circle({ nudgePolicy: 'last_organiser' }),
+        members: off(bo),
+        lastHappenedAttendees: everyone,
+        lastOrganiserId: bo,
+      });
+      expect(got).toBeUndefined();
+    });
+
+    it('passes the turn on under take turns', () => {
+      const got = nudgeRecipient({
+        circle: circle({ nudgePolicy: 'take_turns' }),
+        members: off(ann),
+        lastHappenedAttendees: everyone,
+        lastOrganiserId: OWNER,
+      });
+      expect(got).toBe(bo);
+    });
+
+    it('lets the owner fall back only while the owner has not said no too', () => {
+      const members = crew().map((m) => ({ ...m, mutedNudges: m.userId !== OWNER }));
+      const taking = circle({ nudgePolicy: 'take_turns' });
+      const input = { circle: taking, lastHappenedAttendees: [ann, bo, cy], lastOrganiserId: ann };
+      expect(nudgeChoice({ ...input, members })).toEqual({
+        userId: OWNER,
+        role: 'owner_fallback',
+      });
+      const everyoneOff = crew().map((m) => ({ ...m, mutedNudges: true }));
+      expect(nudgeRecipient({ ...input, members: everyoneOff })).toBeUndefined();
+    });
+  });
+
+  describe('somebody nothing can reach', () => {
+    // Review round 2: out of reach is not a no. The turn passes on and a last
+    // organiser out of reach falls back to the owner, as one who left would.
+    it('passes the turn on under take turns', () => {
+      const got = nudgeChoice({
+        circle: circle({ nudgePolicy: 'take_turns' }),
+        members: crew(),
+        lastHappenedAttendees: everyone,
+        lastOrganiserId: ann,
+        unreachable: [bo],
+      });
+      expect(got).toEqual({ userId: cy, role: 'take_turns' });
+    });
+
+    it('falls back to the owner when the last organiser is out of reach', () => {
+      const got = nudgeChoice({
+        circle: circle({ nudgePolicy: 'last_organiser' }),
+        members: crew(),
+        lastHappenedAttendees: everyone,
+        lastOrganiserId: ann,
+        unreachable: [ann],
+      });
+      expect(got).toEqual({ userId: OWNER, role: 'owner_fallback' });
+    });
+
+    it('asks nobody when the owner is out of reach under the owner policy', () => {
+      const got = nudgeChoice({
+        circle: circle({ nudgePolicy: 'owner' }),
+        members: crew(),
+        lastHappenedAttendees: everyone,
+        lastOrganiserId: ann,
+        unreachable: [OWNER],
+      });
+      expect(got).toBeUndefined();
+    });
+  });
+
+  describe('take turns over several cycles', () => {
+    it('rotates through everybody, not the same two in alternation', () => {
+      // Each cycle, whoever was asked organises the next meetup, everyone comes.
+      const taking = circle({ nudgePolicy: 'take_turns' });
+      const asked: (UserId | undefined)[] = [];
+      let lastOrganiserId: UserId | undefined = OWNER;
+      for (let cycle = 0; cycle < 4; cycle += 1) {
+        const next = nudgeRecipient({
+          circle: taking,
+          members: crew(),
+          lastHappenedAttendees: everyone,
+          lastOrganiserId,
+        });
+        asked.push(next);
+        lastOrganiserId = next;
+      }
+      expect(asked).toEqual([ann, bo, cy, OWNER]);
+    });
+
+    it('carries on from a last organiser who has since left', () => {
+      const members = crew().map((m) =>
+        m.userId === bo ? { ...m, status: 'removed' as const } : m,
+      );
+      const got = nudgeRecipient({
+        circle: circle({ nudgePolicy: 'take_turns' }),
+        members,
+        lastHappenedAttendees: everyone,
+        lastOrganiserId: bo,
+      });
+      expect(got).toBe(cy);
+    });
+
+    it('says why: the policy, or the owner as a fallback', () => {
+      const taking = circle({ nudgePolicy: 'take_turns' });
+      expect(
+        nudgeChoice({
+          circle: taking,
+          members: crew(),
+          lastHappenedAttendees: [],
+          lastOrganiserId: ann,
+        }),
+      ).toEqual({ userId: OWNER, role: 'owner_fallback' });
+      expect(
+        nudgeChoice({
+          circle: taking,
+          members: crew(),
+          lastHappenedAttendees: everyone,
+          lastOrganiserId: ann,
+        }),
+      ).toEqual({ userId: bo, role: 'take_turns' });
+      expect(
+        nudgeChoice({
+          circle: circle({ nudgePolicy: 'owner' }),
+          members: crew(),
+          lastHappenedAttendees: everyone,
+        }),
+      ).toEqual({ userId: OWNER, role: 'owner' });
+    });
+  });
+
   it('says nothing for an archived circle', () => {
     const got = nudgeRecipient({
       circle: circle({ status: 'archived' }),
@@ -174,5 +318,58 @@ describe('nudgeRecipient', () => {
       lastOrganiserId: undefined,
     });
     expect(got).toBeUndefined();
+  });
+});
+
+describe('nudgeHeld', () => {
+  // Monthly, last met 8 August: about time from 1 September 18:30 Melbourne.
+  const now = fromISO('2026-09-03T00:00:00Z');
+  const ann0 = () => crew().find((m) => m.userId === ann);
+
+  it('lets a nudge that is still owed go', () => {
+    expect(
+      nudgeHeld({ circle: circle(), member: ann0(), now, hasOpenPlan: false }),
+    ).toBeUndefined();
+  });
+
+  it('holds it for somebody who has left, or who turned nudges off since', () => {
+    const member = ann0();
+    if (member === undefined) throw new Error('fixture');
+    expect(
+      nudgeHeld({
+        circle: circle(),
+        member: { ...member, status: 'removed' },
+        now,
+        hasOpenPlan: false,
+      }),
+    ).toBe('not_a_member');
+    expect(nudgeHeld({ circle: circle(), member: undefined, now, hasOpenPlan: false })).toBe(
+      'not_a_member',
+    );
+    expect(
+      nudgeHeld({
+        circle: circle(),
+        member: { ...member, mutedNudges: true },
+        now,
+        hasOpenPlan: false,
+      }),
+    ).toBe('nudges_off');
+    expect(
+      nudgeHeld({
+        circle: circle(),
+        member: { ...member, mutedAll: true },
+        now,
+        hasOpenPlan: false,
+      }),
+    ).toBe('nudges_off');
+  });
+
+  it('holds it once a plan is running, the owner snoozed, or the circle met again', () => {
+    const member = ann0();
+    expect(nudgeHeld({ circle: circle(), member, now, hasOpenPlan: true })).toBe('no_longer_due');
+    const snoozed = circle({ cadenceSnoozedUntil: fromISO('2026-10-01T00:00:00Z') });
+    expect(nudgeHeld({ circle: snoozed, member, now, hasOpenPlan: false })).toBe('no_longer_due');
+    const metAgain = circle({ lastMetAt: fromISO('2026-09-02T08:30:00Z') });
+    expect(nudgeHeld({ circle: metAgain, member, now, hasOpenPlan: false })).toBe('no_longer_due');
   });
 });

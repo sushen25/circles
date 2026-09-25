@@ -2034,6 +2034,9 @@ insert into identity_tables (name, moves) values
   ('plans', false),                         -- organising needs a saved place (ADR 0004)
   ('meetup_confirmations', false),          -- confirmed_by: who decided, historically
   ('outcome_reports', false),               -- reported_by: who said so, historically
+  -- Who a cadence nudge asked (S2-04): only a saved place can be asked
+  -- (`isNudgeable`), so a guest identity is never in it to move.
+  ('private.cadence_prompts', false),
   -- A request one identity already made and was already answered. The answer
   -- went to that session; a new identity has made no requests yet.
   ('jobs.idempotent_requests', false),

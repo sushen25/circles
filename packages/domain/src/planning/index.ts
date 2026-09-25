@@ -8,3 +8,4 @@ export * from './quiet-stop-time.js';
 export * from './quiet-threshold.js';
 export * from './quiet-lifecycle.js';
 export * from './quiet-view.js';
+export * from './another.js';

@@ -2,7 +2,7 @@
 -- The work a clock creates, discovered from data rather than from a timer
 -- (architecture §9.3).
 --
--- Four things, every run, all of them queries:
+-- Five things, every run, all of them queries:
 --
 -- 1. **A deadline that has passed.** Nothing emits `planning.deadline_passed`
 --    — it is not a transition, and S1-11 left it for the sweep to raise. It is
@@ -31,6 +31,23 @@
 -- 4. **A deadline 24 hours out.** The plans, not the people: who is owed a
 --    reminder is `recipientsFor('deadline_approaching')`'s answer and belongs
 --    in the domain.
+--
+-- 5. **A circle that may be due a nudge** (S2-04). The circles, not the
+--    decision: whether one is owed, for which due date and to whom is
+--    `nudgeDueDate` and `nudgeChoice`'s, in the domain. This is a coarse
+--    superset of the circles that could be owed one, so the domain is asked
+--    about few circles rather than all of them: active, with a goal and a
+--    history, nothing open, not snoozed, not already decided for this cycle
+--    (the prompt counted from its current `last_met_at`) — and met long
+--    enough ago that the lead window can have opened. That last bound is the
+--    domain's own arithmetic: the cadence added forward from the meetup on the
+--    circle's wall clock, where a month is a calendar month clamped at its
+--    end, less the lead days, less one more day for a DST hour. So no circle
+--    the domain would call due is ever left out or named late; one it would
+--    not is merely asked about and told no. Subtracting a month back from
+--    now instead named a circle that met at the start of February two days
+--    after its card appeared (review round 2). Oldest first, so a circle that
+--    has waited longest is asked first.
 --
 -- Each transition is attempted on its own and a refusal is counted rather than
 -- thrown: a plan that was confirmed between the select and the update is a
@@ -139,13 +156,44 @@ begin
         order by p.response_deadline
         limit batch
       ) x
+    ), '[]'::jsonb),
+    'cadence', coalesce((
+      select jsonb_agg(x.id) from (
+        select c.id
+        from public.circles c
+        where c.status = 'active'
+          and c.cadence <> 'none'
+          and c.last_met_at is not null
+          and ((c.last_met_at at time zone c.time_zone) + case c.cadence
+            when 'weekly' then interval '7 days'
+            when 'fortnightly' then interval '14 days'
+            when 'monthly' then interval '1 month'
+            else interval '2 months'
+          end - case c.cadence
+            when 'weekly' then interval '3 days'
+            when 'fortnightly' then interval '3 days'
+            else interval '8 days'
+          end) at time zone c.time_zone <= now()
+          and (c.cadence_snoozed_until is null or c.cadence_snoozed_until <= now())
+          and not exists (
+            select 1 from public.plans p
+            where p.circle_id = c.id
+              and p.state in ('seeking', 'collecting', 'ready', 'confirmed')
+          )
+          and not exists (
+            select 1 from private.cadence_prompts cp
+            where cp.circle_id = c.id and cp.last_met_at = c.last_met_at
+          )
+        order by c.last_met_at
+        limit batch
+      ) x
     ), '[]'::jsonb)
   );
 end;
 $$;
 
 comment on function public.dispatch_timed_work(integer) is
-  'One pass of the time-based work: emits planning.deadline_passed once per plan, expires plans whose last possible start has gone, and names the plans with a stale candidate set or a deadline within 24 hours. Service role only (S1-20).';
+  'One pass of the time-based work: emits planning.deadline_passed once per plan, expires plans whose last possible start has gone, and names the plans with a stale candidate set or a deadline within 24 hours, and the circles that may be due a cadence nudge. Service role only (S1-20, S2-04).';
 
 revoke all on function public.dispatch_timed_work(integer) from public;
 revoke all on function public.dispatch_timed_work(integer) from anon, authenticated;

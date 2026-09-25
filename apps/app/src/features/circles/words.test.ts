@@ -22,6 +22,7 @@ const DUE: CircleHome = {
   activePlan: null,
   lockedIn: null,
   morningAfter: null,
+  myTurn: false,
   mine: null,
 };
 

@@ -37,8 +37,11 @@ export type JobRow = {
   kind: string;
   user_id: string | null;
   contact_id: string | null;
-  plan_id: string;
-  plan_revision: number;
+  /** Null only for `about_time`, which belongs to a circle (S2-04). */
+  plan_id: string | null;
+  plan_revision: number | null;
+  /** Set only for `about_time`: the circle it belongs to, since it has no plan. */
+  circle_id?: string | null;
   scheduled_for: string;
   idempotency_key: string;
 };

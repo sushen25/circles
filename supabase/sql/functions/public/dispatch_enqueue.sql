@@ -9,6 +9,11 @@
 --
 -- The count returned is of rows actually inserted, so a drain can say in its
 -- log how much of what it computed was new — a number, not a recipient.
+--
+-- `circle_id` is the circle a job belongs to when there is no plan to find it
+-- through: `about_time` alone (S2-04), which the table's own check holds to
+-- carrying a circle and no plan. A plan's jobs leave it null and are found
+-- through the plan, as they always were.
 -- ---------------------------------------------------------------------------
 
 create or replace function public.dispatch_enqueue(p_jobs jsonb)
@@ -26,14 +31,16 @@ as $$
       contact_id uuid,
       plan_id uuid,
       plan_revision integer,
+      circle_id uuid,
       scheduled_for timestamptz,
       idempotency_key text
     )
   ), written as (
     insert into jobs.notification_jobs (
-      channel, kind, user_id, contact_id, plan_id, plan_revision, scheduled_for, idempotency_key
+      channel, kind, user_id, contact_id, plan_id, plan_revision, circle_id, scheduled_for,
+      idempotency_key
     )
-    select w.channel, w.kind, w.user_id, w.contact_id, w.plan_id, w.plan_revision,
+    select w.channel, w.kind, w.user_id, w.contact_id, w.plan_id, w.plan_revision, w.circle_id,
       w.scheduled_for, w.idempotency_key
     from wanted w
     on conflict (idempotency_key) do nothing

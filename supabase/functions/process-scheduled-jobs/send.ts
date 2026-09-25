@@ -1,6 +1,7 @@
 import {
   type NotificationKind,
   type PlanState,
+  instant,
   isTerminal,
   notificationSpec,
   organiserEmailStopped,
@@ -10,6 +11,7 @@ import type { Db } from '../_shared/db.ts';
 import { EmailSendError, sendEmail } from '../_shared/email/resend.ts';
 import { render } from '../_shared/email/render.tsx';
 import { log } from '../_shared/logging.ts';
+import { type CircleContext, nudgeAtSend } from './cadence.ts';
 import { inputFor } from './compose.ts';
 import { type PlanContext, loadContext } from './context.ts';
 import { classify } from './drain.ts';
@@ -40,7 +42,12 @@ import { classify } from './drain.ts';
  *   * the **organiser** may have turned organiser email off since. Did it
  *     happen is written at confirmation and sent the next morning (ADR 0029).
  *
- * All seven are `skipped`, not `failed`: nothing went wrong.
+ * And an eighth, for the cadence nudge alone: it may not be owed any more. It
+ * can wait overnight for quiet hours, and by morning somebody may have made a
+ * plan, the owner snoozed, the person turned nudges off or left, or the circle
+ * met. `nudgeHeld` is the domain's answer, from the circle as it is now (S2-04).
+ *
+ * All eight are `skipped`, not `failed`: nothing went wrong.
  */
 
 /** 1, 5, 30 minutes, then give up (ticket S1-20 step 4). */
@@ -200,6 +207,7 @@ export async function send(
 ): Promise<SendResult> {
   const result: SendResult = { sent: 0, skipped: 0, failed: 0, retried: 0 };
   const contexts = new Map<string, PlanContext | null>();
+  const circles = new Map<string, CircleContext | null>();
   /**
    * Addresses this run has already written to about this exact message.
    *
@@ -300,7 +308,15 @@ export async function send(
       }
       const context = job.plan_id === null ? null : (contexts.get(job.plan_id) ?? null);
 
-      const input = await inputFor(service, job, context);
+      // The cadence nudge: its circle, read now, and whether it is still owed.
+      const nudge = await nudgeAtSend(service, job, circles, instant(Date.now()));
+      if (nudge.held !== undefined) {
+        await finish('skipped', nudge.held);
+        continue;
+      }
+      const circle = nudge.circle;
+
+      const input = await inputFor(service, job, context, circle, instant(Date.now()));
       if ('skip' in input) {
         // A `retry:` reason is a state that will resolve itself — the options
         // set is stale and this same run rebuilds it. Skipping would spend the

@@ -106,6 +106,13 @@ not offered it. The reads are `data/circles` (`useCircles`, `useCircle`), all
 through RLS; the secret is held in memory only (ADR 0028). A circle's colour is
 a `circleColor` token from `@circles/tokens` (`CircleBadge`, `Swatches`).
 
+**Real since S2-04:** the about-time card. It tells the one person the cadence
+nudge asked that it is their turn (`CircleHome.myTurn`, from
+`my_turn_to_plan`), and everybody else the quieter sentence; **Snooze a
+month** is the owner's (`updateCircle`'s `cadenceSnoozedUntil`) and **Turn off
+nudges** the reader's own `muted_nudges` (`useNudgeActions`). Its primary, and
+the locked-in home's "Plan another", open `/circles/[id]/plan/another`.
+
 ### communication
 
 | Artboard                       | Route                     | Component                    |
@@ -288,6 +295,14 @@ and `cancelPlan` through the Edge Functions).
   `CancelledFlow`) — the organiser's or the owner's; an optional note that goes
   to `cancel-plan` and nowhere else, then the paste-ready update
   (`EN_SHARE_TEMPLATES.cancelled`).
+- `/circles/[id]/plan/another` (`PlanAnotherFlow`, S2-04) — the next plan,
+  filled in from the last meetup that happened (`lastHappenedPlan`, the
+  domain's `planAnotherDefaults`): what and when as chips, how long and how
+  many as one "Same as last time" line whose **Change** opens the setup
+  filled in the same way, and **Ask the group** in one tap. A plan already
+  finding a time is `PlanInProgress`, as on the setup; a circle that has never
+  met gets the setup itself. "See if people are keen instead" still leads to
+  the fixture quiet ask (S2-02).
 - `/p/[code]` goes through `PlanChangeGate` first: a cancelled plan sends a
   member to `/p/[code]/cancelled` (`MemberCancelledFlow`, with the organiser's
   note), and a reopened one sends somebody who has not answered the new

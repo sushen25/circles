@@ -955,7 +955,10 @@ select is(
        'live_invite', 'remove_member',
        -- And the Account screen's address, as a hint made on this side of the
        -- boundary so no client holds the address itself; the caller's own.
-       'own_email_hint'
+       'own_email_hint',
+       -- S2-04. "It's your turn" on circle home: yes or no about the caller,
+       -- never who else the cadence nudge asked.
+       'my_turn_to_plan'
      )),
   '',
   'only the intended functions in public are callable by authenticated'

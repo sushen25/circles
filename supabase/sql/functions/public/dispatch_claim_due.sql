@@ -20,7 +20,10 @@
 --   * `circle_archived` — "Archiving stops all prompts" (spec §5.2), and a
 --     reminder written before the owner archived is still `scheduled` after.
 --     Asked at the moment of sending, so bringing the circle back lets what
---     was queued go rather than losing it (S1-23).
+--     was queued go rather than losing it (S1-23). The circle is the plan's,
+--     or — for `about_time`, which has no plan — the job's own `circle_id`
+--     (S2-04). Found through the plan alone, a cadence nudge's circle was
+--     always null and archiving never stopped one.
 --   * `organiser_email_muted` — the contact's owner has turned "Emails about
 --     plans you organise" off (ADR 0029). `did_it_happen` is written when a
 --     meetup is confirmed and sent the next morning, so a switch read only
@@ -99,12 +102,12 @@ as $$
     -- them tells whoever reads `last_error` the wrong story (review round 2).
     'member_active', exists (
       select 1 from public.circle_members m
-      where m.circle_id = p.circle_id and m.user_id = c.user_id and m.status = 'active'
+      where m.circle_id = cir.id and m.user_id = c.user_id and m.status = 'active'
     ),
     'plan_state', p.state,
     'plan_short_code', p.short_code,
     'plan_current_revision', p.revision,
-    'circle_id', p.circle_id,
+    'circle_id', cir.id,
     'circle_name', cir.name,
     'circle_archived', coalesce(cir.status = 'archived', false),
     'organiser_email_muted', coalesce((
@@ -125,7 +128,7 @@ as $$
   from due j
   join private.email_contacts c on c.id = j.contact_id
   left join public.plans p on p.id = j.plan_id
-  left join public.circles cir on cir.id = p.circle_id;
+  left join public.circles cir on cir.id = coalesce(p.circle_id, j.circle_id);
 $$;
 
 comment on function public.dispatch_claim_due(integer) is

@@ -193,8 +193,13 @@ export const EN_EMAIL = {
     button: { label: 'Plan a catch-up' },
   }),
 
-  /** "about a month" — how long since a circle last met, in the push's words. */
+  /**
+   * "about a month" — how long since a circle last met, in the push's words.
+   * A weekly circle is asked five days on, which is no whole weeks at all:
+   * "a couple of weeks" would be wrong by more than a week (review round 1).
+   */
   since: (weeks: number): string => {
+    if (weeks < 1) return 'about a week';
     if (weeks < 3) return 'a couple of weeks';
     if (weeks < 6) return 'about a month';
     return `about ${Math.round(weeks / 4.35)} months`;

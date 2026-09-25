@@ -12,7 +12,7 @@
 -- made — which is also how the dispatcher itself has to think.
 
 begin;
-select plan(64);
+select plan(66);
 
 create or replace function pg_temp.make_user(
   id uuid, name text, permanent boolean default false, confirmed boolean default false
@@ -401,6 +401,19 @@ select pg_temp.act_as_postgres();
 update public.circle_members m set status = 'active'
 where m.circle_id = (select circle_id from t);
 
+-- A cadence nudge has no plan, so the claim cannot find its circle through
+-- one: it is found through the job's own `circle_id` (S2-04). Before 0025 its
+-- `circle_archived` was always false. Scheduled long ago so that it is among
+-- the first the claim takes.
+insert into jobs.notification_jobs (
+  channel, kind, contact_id, circle_id, scheduled_for, idempotency_key
+)
+select 'email', 'about_time',
+  pg_temp.contact_of('00000000-0000-0000-0000-0000000019a1@example.com',
+    '00000000-0000-0000-0000-0000000019a1'),
+  circle_id, timestamptz '2000-01-01T00:00:00Z', repeat('c', 64)
+from t;
+
 -- Archiving stops all prompts (spec §5.2), including the ones already queued:
 -- the claim says so at the moment of sending (S1-23), and bringing the circle
 -- back lets them go again.
@@ -422,6 +435,27 @@ select is(
   'and brought back, it is not'
 );
 select pg_temp.act_as_postgres();
+update public.circles set status = 'archived' where id = (select circle_id from t);
+select pg_temp.act_as_service();
+select is(
+  (select count(*)::integer from jsonb_array_elements(public.dispatch_claim_due(200)) j
+   where j ->> 'kind' = 'about_time' and j ->> 'circle_id' = (select circle_id::text from t)
+     and (j ->> 'circle_archived')::boolean),
+  1,
+  'a cadence nudge, which has no plan, is claimed as archived through its own circle'
+);
+select pg_temp.act_as_postgres();
+update public.circles set status = 'active' where id = (select circle_id from t);
+select pg_temp.act_as_service();
+select is(
+  (select count(*)::integer from jsonb_array_elements(public.dispatch_claim_due(200)) j
+   where j ->> 'kind' = 'about_time' and j ->> 'circle_id' = (select circle_id::text from t)
+     and not (j ->> 'circle_archived')::boolean),
+  1,
+  'and brought back, it is not'
+);
+select pg_temp.act_as_postgres();
+delete from jobs.notification_jobs where idempotency_key = repeat('c', 64);
 
 -- A copy that really has gone does supersede the other.
 update jobs.notification_jobs j

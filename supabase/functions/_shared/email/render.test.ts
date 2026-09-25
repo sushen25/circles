@@ -209,6 +209,20 @@ describe('render', () => {
     });
   });
 
+  describe('the about-time email', () => {
+    // A weekly circle is asked five days after it met, which is no whole weeks
+    // (review round 1): the letter said "a couple of weeks" for five days.
+    it.each([
+      [0, 'about a week'],
+      [1, 'a couple of weeks'],
+      [4, 'about a month'],
+      [9, 'about 2 months'],
+    ])('after %i whole weeks, says %s', async (weeksSince, words) => {
+      const email = await render({ ...SUNDAY_CREW.about_time, weeksSince });
+      expect(email.text).toContain(`It's been ${words} since`);
+    });
+  });
+
   describe('a link that cannot be built', () => {
     it('refuses a token that is not token-shaped, without quoting it', async () => {
       const secret = 'not a token';

@@ -49,6 +49,7 @@ export function member(overrides: Overrides<Member> = {}): Member {
       joinedAt: fromISO('2026-01-01T00:00:00Z'),
       mutedQuietAsks: false,
       mutedAll: false,
+      mutedNudges: false,
       isPermanent: true,
     },
     overrides,

@@ -7,7 +7,8 @@ import { whoAmI } from './rows';
  * Circle settings and notification settings: the writes that are ordinary
  * updates through RLS rather than functions (spec §5.2).
  *
- * - **The owner's choices** — cadence, who gets nudged, colour, archiving —
+ * - **The owner's choices** — cadence, who gets nudged, colour, archiving,
+ *   snoozing the about-time nudge —
  *   are `circles_update_owner`, limited by a column grant to exactly those
  *   columns. A member's update matches no row.
  * - **A member's own switches** — "all notifications", quiet asks, nudges —
@@ -30,14 +31,29 @@ export type CirclePatch = {
   nudgePolicy?: NudgePolicy;
   color?: string;
   status?: 'active' | 'archived';
+  /**
+   * ISO. "Snooze a month" on the about-time card (S2-04): until then the circle
+   * is never "about time". The due date does not move — the domain works it
+   * out from `last_met_at` — so this is the only thing snoozing writes.
+   */
+  cadenceSnoozedUntil?: string;
 };
 
 export async function updateCircle(id: string, patch: CirclePatch): Promise<void> {
-  const row: { cadence?: string; nudge_policy?: string; color?: string; status?: string } = {};
+  const row: {
+    cadence?: string;
+    nudge_policy?: string;
+    color?: string;
+    status?: string;
+    cadence_snoozed_until?: string;
+  } = {};
   if (patch.cadence !== undefined) row.cadence = patch.cadence;
   if (patch.nudgePolicy !== undefined) row.nudge_policy = patch.nudgePolicy;
   if (patch.color !== undefined) row.color = patch.color;
   if (patch.status !== undefined) row.status = patch.status;
+  if (patch.cadenceSnoozedUntil !== undefined) {
+    row.cadence_snoozed_until = patch.cadenceSnoozedUntil;
+  }
 
   const { data, error } = await authClient().from('circles').update(row).eq('id', id).select('id');
   if (error !== null || data.length === 0) throw new NotSavedError();

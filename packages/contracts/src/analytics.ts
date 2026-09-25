@@ -139,8 +139,16 @@ export const catalogue = {
    * after's "I was there" — a different question with a different metric.
    */
   attendance_updated: event(1, { status: z.enum(['going', 'cant']) }),
+  /**
+   * One cadence nudge decided and queued, recorded by the dispatcher (S2-04).
+   * `recipient_role` is why that person: the circle's policy, or the owner as
+   * the fallback when the policy found nobody (`NudgeRole` in the domain). The
+   * enum was `owner | member | take_turns` until something first emitted it,
+   * which named a role and two policies in one list; nothing had been recorded
+   * under it, so the version stays.
+   */
   cadence_prompt_sent: event(1, {
-    recipient_role: z.enum(['owner', 'member', 'take_turns']),
+    recipient_role: z.enum(['owner', 'last_organiser', 'take_turns', 'owner_fallback']),
   }),
 
   // --- sharing and calendar ----------------------------------------------

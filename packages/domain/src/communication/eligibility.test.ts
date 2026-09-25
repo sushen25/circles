@@ -226,6 +226,32 @@ describe('the nudge recipient', () => {
     expect(ids('about_time', context)).toHaveLength(1);
   });
 
+  it('needs no plan, and a plan kind with no plan reaches nobody', () => {
+    // `about_time` belongs to a circle (S2-04). Leaving the plan out must not
+    // become a way of reaching a plan kind's audience without one.
+    const context = { ...eligibilityContext(), plan: undefined, participantIds: [] };
+    expect(ids('about_time', context)).toEqual([SAM]);
+    for (const kind of [
+      'new_plan',
+      'locked_in',
+      'deadline_approaching',
+      'options_ready',
+    ] as const) {
+      expect(ids(kind, context)).toEqual([]);
+    }
+  });
+
+  it('skips somebody who turned "Nudges to plan the next one" off, and tells nobody else', () => {
+    const members = sundayCrewMembers({ [SAM]: { mutedNudges: true } });
+    const context = eligibilityContext({
+      members,
+      circle: circle({ ownerUserId: SAM, nudgePolicy: 'owner' }),
+    });
+    expect(ids('about_time', context)).toEqual([]);
+    // Nothing else is touched by the switch.
+    expect(ids('options_ready', context)).toEqual([SAM]);
+  });
+
   it('is one person, never the circle', () => {
     // "About time · to one person only" — a nudge sent to six people is six
     // people each assuming somebody else will do it.

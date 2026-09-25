@@ -19,7 +19,9 @@ create extension if not exists pgtap with schema extensions;
 --      Sam have answered, Alex has not, candidates are generated. The partial
 --      state is the most common real one and every screen has to read in it.
 --   B. Thursday Regulars — a confirmed meetup that happened, with an outcome
---      reported; `last_met_at` is set.
+--      reported; `last_met_at` is set. Monthly, and five weeks on, so it is
+--      "About time for the next one": the first dispatcher run after a reset
+--      asks Nic, its owner, to plan another (S2-04).
 --   C. Uni Mates — a quiet ask in `seeking`, two keen of a threshold of three.
 --   D. The Big Table — a circle at `member_cap()` (ADR 0012), where the
 --      screens break if they are going to.

@@ -1025,6 +1025,7 @@ export type Database = {
         Args: { p_plan_id: string; p_revision: number }
         Returns: number
       }
+      dispatch_circle_context: { Args: { p_circle_id: string }; Returns: Json }
       dispatch_claim_due: { Args: { p_limit?: number }; Returns: Json }
       dispatch_claim_events: { Args: { p_limit?: number }; Returns: Json }
       dispatch_context: { Args: { p_plan_id: string }; Returns: Json }
@@ -1049,6 +1050,17 @@ export type Database = {
       dispatch_organiser_contact: {
         Args: { p_user_id: string }
         Returns: string
+      }
+      dispatch_prompt_cadence: {
+        Args: {
+          p_circle_id: string
+          p_due_date: string
+          p_jobs: Json
+          p_last_met_at: string
+          p_recipient_role: string
+          p_user_id: string
+        }
+        Returns: number
       }
       dispatch_timed_work: { Args: { p_limit?: number }; Returns: Json }
       email_preferences: {
@@ -1138,6 +1150,7 @@ export type Database = {
         }[]
       }
       member_cap: { Args: never; Returns: number }
+      my_turn_to_plan: { Args: { p_circle_id: string }; Returns: boolean }
       own_email_hint: { Args: never; Returns: string }
       plan_candidate_summary: { Args: { p_plan_id: string }; Returns: Json }
       plan_last_possible_start: {

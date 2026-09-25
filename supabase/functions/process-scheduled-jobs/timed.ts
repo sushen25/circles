@@ -3,6 +3,7 @@ import { type Instant, ONCE } from '@circles/domain';
 import type { Db } from '../_shared/db.ts';
 import { recalculate } from '../_shared/engine.ts';
 import { log } from '../_shared/logging.ts';
+import { cadenceWork } from './cadence.ts';
 import { loadContext } from './context.ts';
 import { classify, jobRowsFor } from './drain.ts';
 
@@ -12,8 +13,9 @@ import { classify, jobRowsFor } from './drain.ts';
  *
  * `public.dispatch_timed_work` does the two halves that are writes — emitting
  * `planning.deadline_passed` once per plan, and expiring a plan whose last
- * possible start has gone — and names the two that need the domain: the plans
- * whose candidate set is stale, and the plans whose deadline is a day away.
+ * possible start has gone — and names the three that need the domain: the plans
+ * whose candidate set is stale, the plans whose deadline is a day away, and
+ * the circles that may be due a cadence nudge (`cadence.ts`, S2-04).
  *
  * **The recalculation runs in this process rather than over HTTP.** S1-16 left
  * `recalculate-candidates` as the endpoint for "a case no member's request
@@ -33,6 +35,9 @@ export type TimedResult = {
   recalculated: number;
   recalculateFailed: number;
   remindersQueued: number;
+  /** Cadence due dates decided this run (to one person, or to nobody). */
+  cadencePrompted: number;
+  nudgesQueued: number;
 };
 
 type TimedWorkRow = {
@@ -41,6 +46,8 @@ type TimedWorkRow = {
   expire_refused: number;
   stale: string[];
   approaching: string[];
+  /** The circles that may be due a cadence nudge; whether one is owed is the domain's. */
+  cadence: string[];
 };
 
 export async function timedWork(
@@ -60,6 +67,8 @@ export async function timedWork(
     recalculated: 0,
     recalculateFailed: 0,
     remindersQueued: 0,
+    cadencePrompted: 0,
+    nudgesQueued: 0,
   };
 
   for (const planId of row.stale) {
@@ -103,6 +112,13 @@ export async function timedWork(
     if (failure !== null) throw failure;
     result.remindersQueued += (written as number | null) ?? 0;
   }
+
+  // Last, and after the plans: a nudge is the least urgent thing a clock
+  // creates, and a circle not reached this minute is reached the next.
+  if (deadline()) return result;
+  const cadence = await cadenceWork(service, row.cadence ?? [], requestId, now, deadline);
+  result.cadencePrompted = cadence.prompted;
+  result.nudgesQueued = cadence.nudgesQueued;
 
   return result;
 }
