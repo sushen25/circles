@@ -46,7 +46,7 @@ type TimedWorkRow = {
   expire_refused: number;
   stale: string[];
   approaching: string[];
-  /** Circles that may be due a cadence nudge; whether one is owed is the domain's. */
+  /** The circles that may be due a cadence nudge; whether one is owed is the domain's. */
   cadence: string[];
 };
 
