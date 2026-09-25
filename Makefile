@@ -199,7 +199,7 @@ test-unit: ## Vitest across packages, app and functions
 test-db: up ## Reset the database, then pgTAP
 	$(PNPM) db:test
 
-test-live: up ## The live e2e suite in four browsers; make test-live G="part of a name" P=iphone-safari
+test-live: up ## The live e2e suite in five browser projects; make test-live G="part of a name" P=iphone-safari
 	E2E_LIVE_PORT=$(LIVE_PORT) $(PNPM) test:e2e:live $(if $(G),-g "$(G)",) $(if $(P),--project $(P),)
 
 test-live-headed: up ## The live suite with the browser visible, one test at a time; same G= and P=. UI=1 opens Playwright's UI mode instead

@@ -30,11 +30,14 @@ export type { Browser, Page } from '@playwright/test';
  *    the URL and header half (ADR 0023): their bodies go to the function that
  *    spends them. Not guarded: the test's own `request` fixture, which is the
  *    test speaking, not the page.
- * 2. **A page is hydrated before the test touches it.** The web build is
- *    server-rendered (ADR 0001), so a field exists before React owns it, and
- *    WebKit is slow enough to show it: a name typed into the server's HTML is
- *    thrown away when React takes over, and the form then says the field is
- *    empty. `goto` and `reload` wait until React has attached to the page.
+ * 2. **No page fails to hydrate** (SUS-90). The served HTML is the same
+ *    neutral shell on every route (ADR 0040), so the first client render
+ *    matches it wherever the browser is and whatever its locale. A React
+ *    hydration error (#418 and its kin) on any page, in any context the test
+ *    opens, fails the test. Nothing waits for hydration after `goto`: a test
+ *    that types or taps the moment a control is visible is the person on a
+ *    slow phone, and the shell is what makes that safe — no control exists
+ *    until React has rendered it.
  *
  * Rate counters are cleared before each test too: every local request comes
  * from one address, and `redeem_ip` allows ten an hour.
@@ -88,46 +91,40 @@ async function learnSecretFrom(response: Response): Promise<void> {
   }
 }
 
-/** Waits until React has taken over the server-rendered page. */
-async function hydrated(page: Page): Promise<void> {
-  const waited = page.waitForFunction(
-    `(() => {
-      const root = document.getElementById('root');
-      if (!root || !Object.keys(root).some((k) => k.startsWith('__reactContainer$'))) return false;
-      const controls = root.querySelectorAll('input, textarea, button, [role="button"], [role="checkbox"], [role="switch"]');
-      return Array.from(controls).every((el) => Object.keys(el).some((k) => k.startsWith('__reactProps$')));
-    })()`,
-    undefined,
-    { timeout: 15_000 },
-  );
-  await waited.catch((error: unknown) => {
-    throw new Error(
-      `${page.url()} was not hydrated within 15 s: no React root, or a control React never ` +
-        `took over (fixtures.ts waits for this after every goto and reload). ${String(error)}`,
-    );
+/**
+ * React's hydration failures, minified and not. #418 is "the server rendered
+ * HTML that did not match the client"; #422, #423 and #424 are React giving up
+ * on a boundary or the whole root and rendering it again on the client (#424
+ * when the root was updated before it could hydrate); #419, #421 and #425 are
+ * the rest of the family. A development build spells them out, and every one
+ * of those messages says "hydrat…".
+ */
+const HYDRATION = /Minified React error #(418|419|421|422|423|424|425)\b|hydrat/i;
+
+/** Whether a page error is React failing to hydrate. Exported for its own test. */
+export function isHydrationError(message: string): boolean {
+  return HYDRATION.test(message);
+}
+
+type HydrationError = { url: string; message: string };
+
+/** Keeps every hydration error `page` throws. */
+function watchHydration(page: Page, errors: HydrationError[]): void {
+  page.on('pageerror', (error) => {
+    const message = `${error.name}: ${error.message}`;
+    if (isHydrationError(message)) errors.push({ url: page.url(), message });
   });
 }
 
-/** Makes `goto` and `reload` on `page` wait for hydration. */
-function waitsForHydration(page: Page): void {
-  const goto = page.goto.bind(page);
-  const reload = page.reload.bind(page);
-  page.goto = async (...args) => {
-    const response = await goto(...args);
-    await hydrated(page);
-    return response;
-  };
-  page.reload = async (...args) => {
-    const response = await reload(...args);
-    await hydrated(page);
-    return response;
-  };
-}
-
 /** What one test has seen: its requests, and the leaks found so far. */
-type Watch = { seen: Seen[]; found: Leak[]; pending: Promise<void>[] };
+type Watch = {
+  seen: Seen[];
+  found: Leak[];
+  pending: Promise<void>[];
+  hydration: HydrationError[];
+};
 
-/** Guards a context: every request kept and read for secrets, every page hydrated before use. */
+/** Guards a context: every request kept and read for secrets, every page watched for hydration errors. */
 function watch(context: BrowserContext, watching: Watch): void {
   context.on('request', (request) => {
     const kept = seen(request);
@@ -137,8 +134,8 @@ function watch(context: BrowserContext, watching: Watch): void {
   context.on('response', (response) => {
     watching.pending.push(learnSecretFrom(response));
   });
-  for (const page of context.pages()) waitsForHydration(page);
-  context.on('page', waitsForHydration);
+  for (const page of context.pages()) watchHydration(page, watching.hydration);
+  context.on('page', (page) => watchHydration(page, watching.hydration));
 }
 
 export type Guard = {
@@ -154,7 +151,7 @@ export const test = base.extend<{ guard: Guard }>({
   guard: [
     async ({ context, browser }, use) => {
       clearRateCounters();
-      const watching: Watch = { seen: [], found: [], pending: [] };
+      const watching: Watch = { seen: [], found: [], pending: [], hydration: [] };
       watch(context, watching);
 
       // Browsers the test opens itself — the email read on another device.
@@ -185,6 +182,7 @@ export const test = base.extend<{ guard: Guard }>({
       await Promise.all(watching.pending);
       const leaks = watching.seen.flatMap(leaksIn);
       expect(leaks, 'no request carried an invite secret or an emailed token').toEqual([]);
+      expect(watching.hydration, 'no page failed to hydrate (React #418)').toEqual([]);
     },
     { auto: true },
   ],

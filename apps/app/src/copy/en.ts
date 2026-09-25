@@ -2044,6 +2044,9 @@ export const en = {
     circle_name_only_never_member_names_dates:
       'Circle name only. Never member names, dates chosen, or anything from a quiet ask.',
   },
+  shell: {
+    loading: 'Getting things ready',
+  },
   signIn: {
     brand: '{brand}',
     make_room_for_each_other: 'Make room for each other.',

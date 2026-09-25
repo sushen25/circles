@@ -40,6 +40,12 @@ if (!status.API_URL || !status.ANON_KEY) {
 
 const env = {
   ...process.env,
+  // The export's locale, pinned here rather than only in the Playwright config,
+  // so a server started by hand (`make dev-live`) and then reused by the suite
+  // is the same en-US export CI has. The `iphone-safari-en-au` project's proof
+  // is that its browser differs from this (tests/locale.ts, SUS-90).
+  LANG: 'en_US.UTF-8',
+  LC_ALL: 'en_US.UTF-8',
   EXPO_PUBLIC_SUPABASE_URL: status.API_URL,
   EXPO_PUBLIC_SUPABASE_ANON_KEY: status.ANON_KEY,
   EXPO_PUBLIC_APP_ORIGIN: `http://localhost:${port}`,

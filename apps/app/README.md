@@ -2,7 +2,11 @@
 
 The Expo universal app: web (guests and organisers), iOS and Android from one
 codebase. Web output is `server` so exactly one API route can serve link
-previews (ADR 0001); nothing else uses server rendering.
+previews (ADR 0001). Every page is also pre-rendered once at export, and that
+HTML is a neutral shell on every route: the root layout renders
+`ShellScreen` until React has hydrated, and the route only after (ADR 0040).
+A screen may use the device's locale, zone, clock and storage freely; none of
+it reaches the served HTML.
 
 ## Run
 

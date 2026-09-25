@@ -31,6 +31,9 @@ async function answersIn(page: Page, code: string): Promise<void> {
   await page.getByRole('checkbox', { name: /^Evening/ }).click();
   await page.getByRole('button', { name: 'Send my times' }).click();
   await expect(page).toHaveURL(new RegExp(`/j/${code}/sent$`));
+  // Sent itself, as `sendEvenings` waits for: a hard navigation straight after
+  // the client one, with Sent's requests in flight, crashes WebKit in CI.
+  await expect(page.getByText(/Your times are in\./)).toBeVisible();
 }
 
 test.describe('an organiser whose phone is in London', () => {
