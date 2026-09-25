@@ -113,6 +113,11 @@ let generation = 0;
 const listeners = new Set<() => void>();
 
 export function holdInvite(secret: string): void {
+  arrive(secret);
+}
+
+/** A new link arrived: its invite, or none when it was mangled. Tells an open Join page. */
+function arrive(secret: string | undefined): void {
   held = secret;
   openCounted = false;
   generation += 1;
@@ -187,7 +192,10 @@ export function isInvitePath(pathname: string): boolean {
 export function takeInviteFragment(pathname: string, hash: string): boolean {
   if (hash === '' || hash === '#' || !isInvitePath(pathname)) return false;
   const secret = inviteSecretFromHash(hash);
-  if (secret !== null) holdInvite(secret);
+  // A mangled link lets go of whatever was held before it: in the app nothing
+  // reloads between two links, and the Join page must say "open it again"
+  // rather than preview the previous invite under this one (review round 1).
+  arrive(secret ?? undefined);
   return true;
 }
 

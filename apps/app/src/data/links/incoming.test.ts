@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { heldInvite, releaseInvite } from '../membership/invite';
 import { isClaimed, routeIncomingLink, splitUrl } from './incoming';
@@ -117,5 +117,38 @@ describe('splitUrl', () => {
       hash: '#y',
     });
     expect(splitUrl('not a url')).toBeNull();
+  });
+});
+
+describe("a development client's wrapped link", () => {
+  it('takes the capability out of the link it wraps, and leaves the rest', () => {
+    const wrapped = encodeURIComponent(`http://10.0.2.2:8081/join#${SECRET}`);
+    const out = open(`exp+circles://expo-development-client/?url=${wrapped}&x=1`);
+
+    expect(out).not.toContain(SECRET);
+    expect(decodeURIComponent(out)).toBe(
+      'exp+circles://expo-development-client/?url=http://10.0.2.2:8081/join&x=1',
+    );
+    expect(heldInvite()).toBe(SECRET);
+  });
+});
+
+describe('a second link in the same app session', () => {
+  it('lets go of the first invite when the second is mangled, and tells an open Join page', async () => {
+    const { subscribeInvite } = await import('../membership/invite');
+    const heard = vi.fn();
+    const stop = subscribeInvite(heard);
+    open(`https://${HOST}/join#${SECRET}`);
+    open(`https://${HOST}/join#trunc`);
+    stop();
+
+    expect(heldInvite()).toBeUndefined();
+    expect(heard).toHaveBeenCalledTimes(2);
+  });
+
+  it('lets go of a held token when the next link for it is mangled', () => {
+    open(`https://${HOST}/a#${TOKEN}`);
+    open(`https://${HOST}/a#bad`);
+    expect(heldToken('reentry')).toBeUndefined();
   });
 });
