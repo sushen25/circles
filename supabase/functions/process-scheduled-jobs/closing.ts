@@ -134,9 +134,11 @@ export async function supersedeClosing(
 /**
  * Why a due job should not go, at the moment of sending, or `undefined`.
  *
- * - `organiser_changed`: an organiser letter to somebody who no longer
- *   organises the plan. `hand_off_organiser` skips these in its own
- *   transaction; this catches one the drain wrote in the same tick.
+ * - `organiser_changed`: an options-ready or did-it-happen letter to somebody
+ *   who no longer organises the plan. `hand_off_organiser` skips these in its
+ *   own transaction; this catches one the drain wrote in the same tick. A
+ *   replies-closed letter to the wrong person is `compose.ts`'s
+ *   `not_the_organiser`, because it knows the owner fallback.
  * - `already_decided`: replies closed on a plan that has since been locked in.
  *   Terminal states are `plan_finished` already; `confirmed` is not terminal,
  *   and "replies have closed and no time is locked in" is false once one is.
@@ -150,8 +152,14 @@ export function closingHeld(
   now: Instant,
 ): string | undefined {
   if (context === null) return undefined;
+  // Not `replies_closed`, whose recipient `compose.ts` checks itself: it has a
+  // second rightful reader, the circle's owner of a quiet ask nobody organises
+  // (spec §5.4.5, SUS-50), and refuses anybody else as `not_the_organiser`. And
+  // not while the plan has no organiser at all, which is that same case.
   if (
+    job.kind !== 'replies_closed' &&
     notificationSpec(job.kind as NotificationKind).audience === 'organiser' &&
+    context.organiserUserId !== undefined &&
     context.organiserUserId !== job.user_id
   ) {
     return 'organiser_changed';

@@ -139,9 +139,17 @@ describe('a letter that has stopped being true', () => {
 
   it('is not sent to somebody who has handed the plan on', () => {
     const handed = contextOf({ organiser: PRIYA });
-    for (const kind of ['replies_closed', 'options_ready', 'did_it_happen']) {
+    for (const kind of ['options_ready', 'did_it_happen']) {
       expect(closingHeld(due(kind, MAYA), handed, NOW), kind).toBe('organiser_changed');
     }
+    // Replies closed is compose.ts's to refuse, as `not_the_organiser`: it
+    // alone knows the owner fallback of a quiet ask nobody organises.
+    expect(closingHeld(due('replies_closed', MAYA), handed, NOW)).toBeUndefined();
+  });
+
+  it("leaves the owner's fallback letter alone while nobody organises (SUS-50)", () => {
+    const unorganised = { ...contextOf({}), organiserUserId: undefined } as PlanContext;
+    expect(closingHeld(due('replies_closed', PRIYA), unorganised, NOW)).toBeUndefined();
   });
 
   it('leaves every member kind alone', () => {

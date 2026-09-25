@@ -3305,8 +3305,11 @@ describe('process-scheduled-jobs', () => {
 
     it('does not send replies closed to somebody who is no longer who it is for (SUS-50 round 4)', async () => {
       // Written to one person, sent after the role changed hands: the
-      // recipient is not the organiser now, so the letter is not theirs.
+      // recipient is not the organiser now, so the letter is not theirs. On a
+      // plan still undecided, so that it is this check that answers and not
+      // S2-05's `already_decided`.
       capturing();
+      planContext = undecided();
       withDue(dueJob({ kind: 'replies_closed', user_id: MEMBER }));
 
       await load('process-scheduled-jobs')(post({}, 'a-shared-secret'));
@@ -3411,9 +3414,10 @@ describe('process-scheduled-jobs', () => {
 
       await load('process-scheduled-jobs')(post({}, 'a-shared-secret'));
 
+      // Refused by compose.ts, which knows the owner fallback (SUS-50).
       expect(called('dispatch_job_result')[0]?.args).toMatchObject({
         p_outcome: 'skipped',
-        p_error: 'organiser_changed',
+        p_error: 'not_the_organiser',
       });
     });
   });
