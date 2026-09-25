@@ -14,7 +14,7 @@ export const color = {
   lineSoft: '#F1E9DE',
   ink: '#221E19',
   ink2: '#6C6156',
-  ink3: '#A0958A',
+  ink3: '#796D61',
   accent: '#C2542F',
   accentDark: '#A0431F',
   accentSoft: '#F6E5DC',

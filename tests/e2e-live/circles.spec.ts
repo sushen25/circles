@@ -1,23 +1,12 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './fixtures';
 
-import {
-  accountToSignInTo,
-  circleOwnedBy,
-  clearRateCounters,
-  latestCodeFor,
-  memberNamed,
-  sql,
-} from './stack';
+import { accountToSignInTo, circleOwnedBy, latestCodeFor, memberNamed, sql } from './stack';
 
 /**
  * Running a circle (S1-23), against the real stack: the circles list, circle
  * settings' Reset link, and removing somebody — the screens, the functions
  * behind them, and the rows they leave.
  */
-
-test.beforeEach(() => {
-  clearRateCounters();
-});
 
 async function signInByCode(page: Page, email: string): Promise<void> {
   await page.goto('/sign-in');
@@ -50,6 +39,7 @@ function guestIn(circleId: string, name: string): string {
 
 test('the owner resets a link nobody can show, and removes a member, from settings', async ({
   page,
+  guard,
 }) => {
   const maya = await accountToSignInTo('Maya');
   // Made directly, with no invite: the case a reset exists for.
@@ -67,11 +57,19 @@ test('the owner resets a link nobody can show, and removes a member, from settin
 
   await expect(page.getByText(/can't be shown again/)).toBeVisible();
   await page.getByRole('button', { name: 'Reset link' }).click();
+  const rotated = page.waitForResponse(/\/functions\/v1\/rotate-invite$/);
   await page
     .getByLabel('Reset the invite link?')
     .getByRole('button', { name: 'Reset link' })
     .click();
   await expect(page.getByText('New link ready. The old one no longer works.')).toBeVisible();
+
+  // The new secret came from the server, not a fixture, and the suite's guard
+  // knows it all the same: sent anywhere, it is caught.
+  const { invite_secret: secret } = (await (await rotated).json()) as { invite_secret: string };
+  await page.evaluate(`fetch('/privacy?leak=${secret}').catch(() => undefined)`);
+  await expect.poll(() => guard.found.map((leak) => leak.where)).toEqual(['url']);
+  guard.forgive();
   await expect(page.getByText(/\/join#…\S{4}$/)).toBeVisible();
   expect(
     sql(`select count(*) from public.circle_invites

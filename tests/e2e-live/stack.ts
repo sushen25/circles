@@ -18,7 +18,14 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = fileURLToPath(new URL('../..', import.meta.url));
 
-export type StackConfig = { apiUrl: string; anonKey: string; dbUrl: string; serviceKey: string };
+export type StackConfig = {
+  apiUrl: string;
+  anonKey: string;
+  dbUrl: string;
+  serviceKey: string;
+  /** The mail catcher's HTTP API, this checkout's own — a parallel slot's differs. */
+  mailUrl: string;
+};
 
 /**
  * Read once per process. `sql()` runs on every query, and `supabase status` is
@@ -46,12 +53,14 @@ function readStackConfig(): StackConfig {
     // Only for making a test account through the auth server's admin API; the
     // page under test never sees it.
     serviceKey: status.SERVICE_ROLE_KEY ?? '',
+    mailUrl: process.env.MAILPIT_URL ?? status.MAILPIT_URL ?? status.INBUCKET_URL ?? '',
   };
   if (
     config.apiUrl === '' ||
     config.anonKey === '' ||
     config.dbUrl === '' ||
-    config.serviceKey === ''
+    config.serviceKey === '' ||
+    config.mailUrl === ''
   ) {
     throw new Error('the local stack is not up — `pnpm db:start`');
   }
@@ -80,6 +89,25 @@ function shortCode(): string {
   return Array.from(randomBytes(10), (byte) => ALPHABET[byte % ALPHABET.length]).join('');
 }
 
+/**
+ * Every secret this process has minted, for the guard in `fixtures.ts`: an
+ * invite secret may reach `redeem-invite` in a body and nowhere else; an
+ * emailed token (ADR 0023) may never be in a URL.
+ */
+export type Minted = { value: string; kind: 'invite' | 'token' };
+const minted: Minted[] = [];
+
+export function mintedSecrets(): readonly Minted[] {
+  return minted;
+}
+
+/** Registers a secret the page is about to be handed, so the guard can look for it. */
+export function mint(value: string, kind: Minted['kind']): string {
+  // Once each: the owner's link is handed out again by `get-invite-link`.
+  if (!minted.some((known) => known.value === value)) minted.push({ value, kind });
+  return value;
+}
+
 export type Scenario = {
   circleId: string;
   planCode: string;
@@ -104,7 +132,7 @@ export function sundayCrew({ withPlan = true }: { withPlan?: boolean } = {}): Sc
   const planId = randomUUID();
   const planCode = shortCode();
   const circleCode = shortCode();
-  const secret = randomBytes(32).toString('base64url');
+  const secret = mint(randomBytes(32).toString('base64url'), 'invite');
 
   const planSql = `
     insert into public.plans (
@@ -209,7 +237,7 @@ export function guestWhoAnswered(scenario: Scenario, name: string): string {
 
 /** A verified contact for `userId` and a live re-entry token, as the email sender issues one. */
 export function reentryTokenFor(scenario: Scenario, userId: string): string {
-  const token = randomBytes(32).toString('base64url');
+  const token = mint(randomBytes(32).toString('base64url'), 'token');
   sql(`
     begin;
     insert into private.email_contacts (user_id, email_normalized, status, verified_at)
@@ -362,22 +390,9 @@ export function subscriptionOf(userId: string, planId: string): string | undefin
     where user_id = '${userId}' and plan_id = '${planId}'`)[0]?.[0];
 }
 
-/**
- * A verification token for `userId`'s contact, minted the way the sender mints
- * one (ADR 0020): only its digest is stored, and the readable token is returned
- * here, as it would be put into the email.
- */
-export function verifyTokenFor(userId: string): string {
-  const token = randomBytes(32).toString('base64url');
-  sql(`select public.issue_verification_token(
-    (select id from private.email_contacts where user_id = '${userId}'),
-    extensions.digest('${token}', 'sha256'))`);
-  return token;
-}
-
 /** A preferences token for `userId`'s contact, minted the way the email sender mints one. */
 export function prefsTokenFor(userId: string): string {
-  const token = randomBytes(32).toString('base64url');
+  const token = mint(randomBytes(32).toString('base64url'), 'token');
   sql(`select public.issue_preferences_token(
     (select id from private.email_contacts where user_id = '${userId}'),
     extensions.digest('${token}', 'sha256'))`);
@@ -394,7 +409,7 @@ export function isAnonymousUser(userId: string): boolean {
  * mail catcher (`scripts/local-mail.mjs` reads the same API).
  */
 export async function latestCodeFor(address: string): Promise<string> {
-  const base = process.env.MAILPIT_URL ?? 'http://127.0.0.1:54324';
+  const base = stackConfig().mailUrl;
   for (let attempt = 0; attempt < 20; attempt += 1) {
     const list = (await (
       await fetch(`${base}/api/v1/search?query=${encodeURIComponent(`to:${address}`)}`)

@@ -34,7 +34,7 @@ pnpm db:test           # reset the database and run pgTAP
 pnpm gen:types         # regenerate database types from the local schema
 pnpm gen:functions     # re-render supabase/sql/functions/ into its migration (ADR 0015)
 pnpm gen:tokens        # regenerate design tokens from docs/design/gen.py
-pnpm test:e2e          # Playwright: fixtures with no backend (smoke), then the guest journey against the local stack (live)
+pnpm test:e2e          # Playwright: fixtures with no backend (smoke), then the journeys against the local stack in four browsers (live)
 pnpm check:env <domain>  # a deployed environment from outside: HTTPS, HSTS, SPF/DKIM/DMARC
 pnpm mail [address]    # what the local mail catcher caught; with an address, the sign-in code
 ```

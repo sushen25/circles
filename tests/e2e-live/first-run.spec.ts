@@ -1,28 +1,28 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './fixtures';
 
+import { signedInAs } from './journeys';
 import {
   accountToSignInTo,
   circleOwnedBy,
   circlesOwnedBy,
-  clearRateCounters,
   guestWhoAnswered,
   isParticipant,
   latestCodeFor,
   memberNamed,
   plansIn,
+  planFor,
   profileFor,
+  signedInAccount,
   sundayCrew,
 } from './stack';
 
 /**
- * The first-time organiser (S1-22, spec §5.1, §6.1), and "I have an account"
- * on a plan link (ADR 0022), against the real stack: the email code comes from
- * the mail catcher, and every step ends in the database.
+ * The first run (S1-22, S1-22b; spec §5.1, §6.1): Welcome → email → code →
+ * name → first circle → first plan → the plan's share screen → the organiser's
+ * own times → circle home. Then the ways a returning organiser comes in, and
+ * "I have an account" on a plan link (ADR 0022). Against the real stack: the
+ * email code comes from the mail catcher, and every step ends in the database.
  */
-
-test.beforeEach(() => {
-  clearRateCounters();
-});
 
 /**
  * Counts every way a page can ask for a permission — geolocation, camera and
@@ -64,7 +64,14 @@ async function signInByCode(page: Page, email: string): Promise<void> {
   await page.getByLabel('Your email').fill(email);
   await page.getByRole('button', { name: 'Send me a code' }).click();
   await expect(page.getByText(`Sent to ${email}.`, { exact: false })).toBeVisible();
-  await page.getByLabel('Code', { exact: true }).fill(await latestCodeFor(email));
+  const code = page.getByLabel('Code', { exact: true });
+  // One field under the six boxes, marked so that iOS offers the code from
+  // Mail above the keyboard and Android from its SMS/email autofill — the
+  // reason the field is built that way (S1-22). Nothing here can tap the
+  // suggestion; this pins what makes it appear.
+  await expect(code).toHaveAttribute('autocomplete', 'one-time-code');
+  await expect(code).toHaveAttribute('inputmode', 'numeric');
+  await code.fill(await latestCodeFor(email));
   await page.getByRole('button', { name: 'Continue' }).click();
 }
 
@@ -197,4 +204,31 @@ test('a return path that leaves the site is ignored', async ({ page }) => {
   await page.goto('/sign-in?next=https%3A%2F%2Felsewhere.example%2Fj%2Fabcdefgh');
   await signInByCode(page, ren.email);
   await expect(page).toHaveURL(/^http:\/\/localhost:\d+\/circles/);
+});
+
+test('where the browser has a share sheet, "Share to group chat" hands it the plan link', async ({
+  page,
+}) => {
+  // Mobile Safari and Chrome have `navigator.share`; the in-app browsers and
+  // Playwright's own builds mostly do not, so the copy path is what the first
+  // run above takes. This is the other half: the sheet, given the message.
+  await page.addInitScript({
+    content: `
+      window.shared = [];
+      navigator.share = (data) => { window.shared.push(data); return Promise.resolve(); };
+      navigator.canShare = () => true;
+    `,
+  });
+  const maya = await signedInAccount('Maya');
+  const circleId = circleOwnedBy(maya.userId, 'Sunday Crew');
+  const plan = planFor(circleId, maya.userId);
+  await signedInAs(page, maya.stored);
+
+  await page.goto(`/circles/${circleId}/plan/${plan.id}/shared`);
+  await page.getByRole('button', { name: 'Share to group chat' }).click();
+
+  await expect
+    .poll(() => page.evaluate('window.shared.map((d) => d.text).join("\\n")'))
+    .toMatch(new RegExp(`/j/${plan.code}\\b`));
+  await expect(page.getByText('Copied', { exact: true })).toHaveCount(0);
 });

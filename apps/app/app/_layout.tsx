@@ -1,5 +1,6 @@
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
+import Head from 'expo-router/head';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
@@ -7,6 +8,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
+import { brand } from '@circles/config';
 import { fontAssets } from '@circles/tokens/font-assets';
 
 import { configureAnalytics, flush } from '../src/analytics/track';
@@ -60,12 +62,22 @@ export default function RootLayout() {
   // before any guard asks (§10).
   useEffect(() => startSessionTracking(), []);
 
+  // Every page has a title, before the fonts too: a browser tab, a screen
+  // reader's first words and WCAG 2.4.2 all need one, and axe calls a page
+  // without it serious (S1-31's a11y spec).
+  const title = (
+    <Head>
+      <title>{brand.name}</title>
+    </Head>
+  );
+
   if (!fontsLoaded && !fontError) {
-    return null;
+    return title;
   }
 
   return (
     <QueryClientProvider client={queryClient}>
+      {title}
       <SafeAreaProvider>
         <StatusBar style="dark" />
         <Stack screenOptions={{ headerShown: false }} />

@@ -1,8 +1,7 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './fixtures';
 
 import {
   circleOwnedBy,
-  clearRateCounters,
   guestInvited,
   guestWhoAnswered,
   lockInFirstOption,
@@ -24,10 +23,6 @@ import {
  */
 
 const NOTE = 'Times are Melbourne time.';
-
-test.beforeEach(() => {
-  clearRateCounters();
-});
 
 /** Ticks a day, turns Evening on and sends. The editor is S1-25's; this uses it. */
 async function answersIn(page: Page, code: string): Promise<void> {

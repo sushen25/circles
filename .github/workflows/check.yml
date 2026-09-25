@@ -85,16 +85,27 @@ jobs:
         if: steps.scope.outputs.kind == 'prose'
         run: pnpm run format:check
 
+      # Two engines since S1-31: Chromium for Chrome on Android and the Android
+      # in-app browsers, WebKit for mobile Safari and the iOS ones. The browser
+      # set is in the key, so a cache made before WebKit was added is not taken
+      # for one that has it.
       - name: Cache Playwright browsers
         id: playwright-cache
         if: steps.scope.outputs.kind == 'code'
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          key: playwright-chromium-webkit-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
 
       - if: steps.scope.outputs.kind == 'code' && steps.playwright-cache.outputs.cache-hit != 'true'
-        run: pnpm exec playwright install --with-deps chromium
+        run: pnpm exec playwright install --with-deps chromium webkit
+
+      # The cache holds the browsers, not the system libraries they load, and
+      # the runner image has Chromium's but not WebKit's (GStreamer, libwoff,
+      # libavif …). On a cache hit the step above is skipped, so this one is not.
+      - name: WebKit's system libraries
+        if: steps.scope.outputs.kind == 'code' && steps.playwright-cache.outputs.cache-hit == 'true'
+        run: pnpm exec playwright install-deps webkit
 
       # Edge Functions import `@circles/domain` and `@circles/contracts` from
       # `dist/`, which is gitignored, so the runtime cannot even start without

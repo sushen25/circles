@@ -1,10 +1,9 @@
 import { randomUUID } from 'node:crypto';
 
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './fixtures';
 
 import {
   circleOwnedBy,
-  clearRateCounters,
   guestInvited,
   lockInFirstOption,
   memberNamed,
@@ -26,10 +25,6 @@ import {
  * - a member arriving from the email with no session lands on the attendance
  *   screen after automatic reattachment.
  */
-
-test.beforeEach(() => {
-  clearRateCounters();
-});
 
 /**
  * A meetup locked in for next week with the plan's first option, then moved two
