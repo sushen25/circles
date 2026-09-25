@@ -318,7 +318,7 @@ packages/domain/src/
 ├── scheduling/     generateCandidates(inputs): CandidateSet  (the engine, §12)
 ├── confirmation/   Confirmation, Attendance, Outcome, lastMetAt rule
 ├── communication/  notificationKinds, eligibility(recipient, kind, state), idempotencyKey, quietHours
-└── growth/         nudgeEligibility(moment, history)
+└── growth/         nudgeEligibility(moment, history, tier, now, context)
 ```
 
 Every module exports plain functions over plain data (`readonly` types), plus the Zod-free domain types that `contracts` wraps. Functions return `Result` rather than throwing for expected failures.
@@ -442,7 +442,7 @@ All ids are `uuid` (v7 where ordering helps). All tables have `created_at`, `upd
 
 | Table | Columns of note | Constraints |
 |---|---|---|
-| `nudge_states` | `user_id`, `moment` (the catalogue's two `moment` enums), `plan_id` (required for a plan-bound moment, forbidden for `reattached`/`settings` — a `case` constraint), `shown_at`, `answer` (`dismissed|tapped`), `snoozed_until` | unique `(user_id, moment, plan_id)` with nulls not distinct; own rows only; a plan-bound row only for a plan in one's circles |
+| `nudge_states` | `user_id`, `moment` (`NUDGE_MOMENTS` in `packages/domain/src/growth`, since 0028), `plan_id` (required for every moment but `organiser_gate`, forbidden for that one — a `case` constraint; the reattach moments name the plan they came back through, so `move_membership` carries them to the next identity), `shown_at`, `answer` (`dismissed|tapped`), `answered_at` (stamped by a trigger when the answer changes; the 30-day back-off counts from it), `snoozed_until` | unique `(user_id, moment, plan_id)` with nulls not distinct; own rows only; a plan-bound row only for a plan in one's circles. The caps are `nudgeEligibility`'s, run by `record-nudge` as the caller before a prompt is shown |
 
 **Analytics & audit**
 
@@ -516,7 +516,7 @@ ready ─(response change)──▶ collecting ─ recalculate ──┘
 | `email-provider-webhook` | Resend signature | Dedupe by provider message id, record delivery, suppress on hard bounce/complaint |
 | `register-push-device` | permanent | Upsert Expo push token |
 | `generate-ics` | member | Standards-compliant `.ics` for a confirmation; no tokens in the file |
-| `record-nudge` | member | Apply nudge caps, record shown/answered |
+| `record-nudge` | member | May this prompt be shown (`nudgeEligibility` over the caller's rows; a yes is recorded as shown in the same request, a no writes nothing), or what was done with it |
 | `track-events` | any | Validate against the catalogue, strip anything not in the schema, insert |
 | `process-scheduled-jobs` | cron (service role) | Drain outbox → create notification jobs; send due jobs; expire quiet asks and plans; deadline reminders; cadence prompts; outcome prompts; retries with capped backoff. Not retention — that is `jobs.run_retention()` in the database ([ADR 0014](decisions/0014-retention-runs-in-the-database.md)) |
 | `delete-account` | permanent | Revoke sessions, anonymise, enqueue purge |
