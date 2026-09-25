@@ -29,6 +29,9 @@ as $$
     -- is set then: `defaultDeadline` for its window as of *now*, not as of when
     -- it was asked (`onThreshold`, spec §5.4.5). The only key it takes.
     when action = 'threshold_reached' then array['response_deadline']
+    -- Who takes the plan over, and nothing else: a hand-off changes who
+    -- decides, not what is being decided (S2-05).
+    when action = 'hand_off' then array['organiser_user_id']
     when action = 'confirm' then array['candidate_id', 'place_name', 'place_url', 'note', 'chased_answer']
     else array[]::text[]
   end;

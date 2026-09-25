@@ -8,6 +8,7 @@
  */
 
 import { type Result, err, ok } from '../shared/result.js';
+import { type HandOffRefusal, type HandOffTarget, handOffRefusal } from './hand-off.js';
 import { type Plan, type PlanState, isTerminal } from './types.js';
 
 export type PlanAction =
@@ -24,7 +25,8 @@ export type PlanAction =
   | 'reopen'
   | 'cancel'
   | 'report_outcome'
-  | 'accept_organiser';
+  | 'accept_organiser'
+  | 'hand_off';
 
 /** What the caller is, relative to this plan. Resolved by the caller, not here. */
 export type Actor = {
@@ -56,7 +58,8 @@ export type TransitionErrorCode =
   | 'needs_candidate'
   | 'threshold_not_reached'
   | 'plan_in_progress'
-  | 'plan_is_finished';
+  | 'plan_is_finished'
+  | HandOffRefusal;
 
 /**
  * A code and the context it happened in — **no message**.
@@ -109,6 +112,11 @@ export type TransitionContext = {
    * fails closed.
    */
   readonly circleHasOpenPlan?: boolean | undefined;
+  /**
+   * Required by `hand_off`: who the plan is being handed to, as the caller
+   * found them. Absent means "unknown", and unknown fails closed.
+   */
+  readonly handOffTo?: HandOffTarget | undefined;
 };
 
 type Guard =
@@ -121,7 +129,8 @@ type Guard =
   | 'initiator'
   | 'keen_initiator_or_owner'
   | 'threshold'
-  | 'no_open_plan';
+  | 'no_open_plan'
+  | 'hand_off_target';
 
 export type Transition = {
   readonly from: PlanState;
@@ -250,6 +259,19 @@ export const TRANSITIONS: readonly Transition[] = [
   // `adjust` does: `join_from_plan` follows it with `candidates_gone`.
   { from: 'ready', action: 'quorum_follows', to: 'ready', guards: [] },
   { from: 'ready', action: 'confirm', to: 'confirmed', guards: ['organiser', 'candidate'] },
+
+  // "Hand this to someone else" (spec §5.7, §9). The organiser gives the plan
+  // to another member, from the two states in which there is still something
+  // to decide; the state does not move, only who decides. `hand_off_target` is
+  // the receiving half: an active member the plan is asking, with a saved
+  // place (spec §8.2), and not the organiser already.
+  {
+    from: 'collecting',
+    action: 'hand_off',
+    to: 'collecting',
+    guards: ['organiser', 'hand_off_target'],
+  },
+  { from: 'ready', action: 'hand_off', to: 'ready', guards: ['organiser', 'hand_off_target'] },
   { from: 'ready', action: 'expire', to: 'expired', guards: [] },
   { from: 'ready', action: 'cancel', to: 'cancelled', guards: ['organiser_or_owner'] },
 
@@ -277,6 +299,7 @@ const GUARD_ERRORS: Record<Guard, TransitionErrorCode> = {
   keen_initiator_or_owner: 'not_keen_initiator_or_owner',
   threshold: 'threshold_not_reached',
   no_open_plan: 'plan_in_progress',
+  hand_off_target: 'requires_saved_place',
 };
 
 function fails(guard: Guard, context: TransitionContext): boolean {
@@ -303,7 +326,8 @@ function fails(guard: Guard, context: TransitionContext): boolean {
       return !actor.isPermanent;
     case 'no_organiser_yet':
     case 'threshold':
-      return false; // both depend on the plan, checked in canTransition
+    case 'hand_off_target':
+      return false; // these depend on the plan, checked in canTransition
     case 'no_open_plan':
       // Fails closed when the caller did not say: a plan made beside one
       // already asking is the outcome this guard exists to stop.
@@ -368,6 +392,16 @@ export function canTransition(
       }
       continue;
     }
+    if (guard === 'hand_off_target') {
+      // Separate refusals rather than one, because a screen words each
+      // differently: yourself, somebody who has left, somebody the plan never
+      // asked, and a guest.
+      const target = context.handOffTo;
+      if (target === undefined) return fail('not_a_member');
+      const refusal = handOffRefusal(target, plan.organiserUserId);
+      if (refusal !== undefined) return fail(refusal);
+      continue;
+    }
     if (fails(guard, context)) return fail(GUARD_ERRORS[guard]);
   }
 
@@ -381,11 +415,16 @@ function apply(plan: Plan, transition: Transition, context: TransitionContext): 
     revision: transition.bumpsRevision === true ? plan.revision + 1 : plan.revision,
   };
 
-  // Accepting the role is the one transition that appoints an organiser. Every
-  // other transition leaves the organiser alone — an edit or a reopen does not
-  // hand the plan to somebody else.
+  // Accepting the role appoints an organiser and handing it over replaces one;
+  // every other transition leaves the organiser alone — an edit or a reopen
+  // does not give the plan to somebody else.
   if (transition.action === 'accept_organiser') {
     return { ...next, organiserUserId: context.actor.userId as Plan['organiserUserId'] };
+  }
+  // And handing it over is the one that replaces them — with the person the
+  // guard has just approved, never the actor.
+  if (transition.action === 'hand_off' && context.handOffTo !== undefined) {
+    return { ...next, organiserUserId: context.handOffTo.userId };
   }
   return next;
 }

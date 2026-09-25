@@ -963,7 +963,11 @@ select is(
        'own_email_hint',
        -- S2-04. "It's your turn" on circle home: yes or no about the caller,
        -- never who else the cadence nudge asked.
-       'my_turn_to_plan'
+       'my_turn_to_plan',
+       -- S2-05. Replies closed: the plan to somebody else and one more day,
+       -- each deciding for itself who may, and who the organiser could choose,
+       -- answered to the organiser alone.
+       'hand_off_organiser', 'extend_deadline', 'hand_off_candidates'
      )),
   '',
   'only the intended functions in public are callable by authenticated'

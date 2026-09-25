@@ -107,8 +107,14 @@ export const catalogue = {
   candidate_set_generated: event(1, { candidate_count: count, quorum_met: z.boolean() }),
   candidate_viewed: event(1, { role: z.enum(['organiser', 'member']) }),
   candidate_selected: event(1, { rank: count }),
+  /**
+   * Which of the replies-closed screen's ways out was taken (spec §5.7, S2-05):
+   * lock in the top option, give it one more day, or hand it to somebody else.
+   * `hand_off` is new with the screen; widening an enum changes no existing
+   * event's meaning, so the version stays.
+   */
   deadline_passed_action: event(1, {
-    action: z.enum(['confirm_anyway', 'extend', 'cancel', 'nothing']),
+    action: z.enum(['confirm_anyway', 'extend', 'hand_off', 'cancel', 'nothing']),
   }),
   meetup_confirmed: event(1, { attending_count: count, invited_count: count }),
   /**

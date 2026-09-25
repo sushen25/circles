@@ -14,6 +14,16 @@
 --    which holds because a plan cannot outlive its own window by the thirty
 --    days retention keeps events for (rule 2 below closes it long before).
 --
+--    **And once more, a day later, if the plan is still `ready`** (S2-05,
+--    ADR 0039): the same event with `follow_up: '+24h'`, and its own marker.
+--    Due a day after the first letter was *announced* rather than a day after
+--    the deadline, so a dispatcher that was down does not send both at once;
+--    and never more than a day late, so a plan that has sat undecided for a
+--    week is not reminded on the day this was deployed. `ready`, not
+--    `collecting`: the follow-up is about an option waiting to be locked in.
+--    And not after a hand-off since the first letter, whose own letter said
+--    replies have closed an hour or a day before.
+--
 -- 2. **A plan whose last possible start has gone.** Spec §9: "the plan stays
 --    decidable until the last candidate start, then expires." The last start
 --    is `public.plan_last_possible_start` — the same function the deadline
@@ -73,6 +83,7 @@ declare
   batch integer := greatest(1, least(coalesce(p_limit, 50), 200));
   target record;
   closed integer := 0;
+  followed integer := 0;
   expired integer := 0;
   refused integer := 0;
   quiet_expired integer := 0;
@@ -116,6 +127,53 @@ begin
       'deadline', to_char(target.response_deadline at time zone 'UTC',
         'YYYY-MM-DD"T"HH24:MI:SS.US"+00:00"')));
     closed := closed + 1;
+  end loop;
+
+  -- S2-05: the reminder a day after the first, while nothing is decided.
+  for target in
+    select p.id, p.circle_id, p.revision, p.response_deadline
+    from public.plans p
+    where p.state = 'ready'
+      and exists (
+        select 1 from jobs.outbox o
+        where o.event_name = 'planning.deadline_passed'
+          and o.aggregate_id = p.id
+          and (o.payload ->> 'deadline')::timestamptz = p.response_deadline
+          and not (o.payload ? 'follow_up')
+          and o.occurred_at <= now() - interval '24 hours'
+          and o.occurred_at > now() - interval '48 hours'
+      )
+      and not exists (
+        select 1 from jobs.outbox o
+        where o.event_name = 'planning.deadline_passed'
+          and o.aggregate_id = p.id
+          and (o.payload ->> 'deadline')::timestamptz = p.response_deadline
+          and o.payload ? 'follow_up'
+      )
+      -- Handed on since the first letter: the new organiser was told replies
+      -- have closed when it became theirs, and a second letter an hour later
+      -- is a duplicate, not a reminder (review round 2).
+      and not exists (
+        select 1 from jobs.outbox h
+        where h.event_name = 'planning.organiser_changed'
+          and h.aggregate_id = p.id
+          and h.occurred_at > (
+            select min(o.occurred_at) from jobs.outbox o
+            where o.event_name = 'planning.deadline_passed'
+              and o.aggregate_id = p.id
+              and (o.payload ->> 'deadline')::timestamptz = p.response_deadline
+              and not (o.payload ? 'follow_up')
+          )
+      )
+    order by p.response_deadline
+    limit batch
+  loop
+    perform jobs.emit('planning.deadline_passed', 'plan', target.id, jsonb_build_object(
+      'plan_id', target.id, 'circle_id', target.circle_id, 'revision', target.revision,
+      'deadline', to_char(target.response_deadline at time zone 'UTC',
+        'YYYY-MM-DD"T"HH24:MI:SS.US"+00:00"'),
+      'follow_up', '+24h'));
+    followed := followed + 1;
   end loop;
 
   for target in
@@ -192,6 +250,7 @@ begin
       ) x
     ), '[]'::jsonb),
     'deadline_passed', closed,
+    'followed_up', followed,
     'expired', expired,
     'expire_refused', refused,
     'stale', coalesce((
@@ -256,7 +315,7 @@ end;
 $$;
 
 comment on function public.dispatch_timed_work(integer) is
-  'One pass of the time-based work: emits planning.deadline_passed once per plan, expires plans whose last possible start has gone and quiet asks whose stop time has, and names the plans with a stale candidate set or a deadline within 24 hours, the circles that may be due a cadence nudge, and the held quiet asks whose circle is free. Service role only (S1-20, S2-02, S2-04).';
+  'One pass of the time-based work: emits planning.deadline_passed once per deadline and once more a day later while the plan is ready, expires plans whose last possible start has gone and quiet asks whose stop time has, and names the plans with a stale candidate set or a deadline within 24 hours, the circles that may be due a cadence nudge, and the held quiet asks whose circle is free. Service role only (S1-20, S2-02, S2-04, S2-05).';
 
 revoke all on function public.dispatch_timed_work(integer) from public;
 revoke all on function public.dispatch_timed_work(integer) from anon, authenticated;

@@ -1,9 +1,14 @@
 import {
   ANSWERABLE_STATES,
+  type DurationMinutes,
   type ExplanationCode,
   type NearMissReason,
   type PlanState,
   type UserId,
+  lastPossibleStart,
+  localDate,
+  toISO,
+  zone,
 } from '@circles/domain';
 
 /**
@@ -97,4 +102,27 @@ export function viewOf(
  */
 export function isLockedIn(state: PlanState): boolean {
   return state === 'confirmed' || state === 'completed';
+}
+
+/**
+ * The latest the meetup could still begin, from the plan row: the domain's
+ * `lastPossibleStart`, which the database's `plan_last_possible_start` mirrors.
+ * It bounds every deadline, and so "give it one more day" (spec §5.7).
+ */
+export function latestStartOf(plan: {
+  window_start: string;
+  window_end: string;
+  daily_start_local: number;
+  daily_end_local: number;
+  duration_minutes: number;
+  time_zone: string;
+}): string {
+  return toISO(
+    lastPossibleStart({
+      window: { start: localDate(plan.window_start), end: localDate(plan.window_end) },
+      daily: { startMin: plan.daily_start_local, endMin: plan.daily_end_local },
+      durationMinutes: plan.duration_minutes as DurationMinutes,
+      zone: zone(plan.time_zone),
+    }),
+  );
 }

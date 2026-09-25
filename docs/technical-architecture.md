@@ -170,7 +170,8 @@ circles.circle_created          circles.member_joined         circles.member_rem
 circles.invite_rotated          circles.member_reattached
 planning.plan_created           planning.plan_revised         planning.plan_expired
 planning.plan_cancelled         planning.quiet_ask_created    planning.interest_recorded
-planning.threshold_reached      planning.organiser_accepted   planning.deadline_passed
+planning.threshold_reached      planning.organiser_accepted   planning.organiser_changed
+planning.deadline_passed
 availability.response_submitted availability.response_cleared
 scheduling.candidates_generated scheduling.no_eligible_candidates
 confirmation.meetup_confirmed   confirmation.meetup_rescheduled confirmation.meetup_cancelled
@@ -179,7 +180,7 @@ communication.contact_verified  communication.subscription_changed communication
 growth.nudge_shown              growth.nudge_answered         growth.account_claimed
 ```
 
-`planning.interest_recorded` carries no member id in its payload (only the plan id); the row it relates to is protected. `planning.threshold_reached` carries the plan id and the keen count only.
+`planning.interest_recorded` carries no member id in its payload (only the plan id); the row it relates to is protected. `planning.threshold_reached` carries the plan id and the keen count only. `planning.organiser_changed` is the `hand_off` transition's (S2-05) and carries the new organiser; `planning.deadline_passed` carries the deadline it announces, and `follow_up: '+24h'` on the reminder a day later (ADR 0039).
 
 ### 6.4 Where each kind of rule lives
 
@@ -266,6 +267,8 @@ The client imports the same `packages/domain` the server uses, so the app can sh
 │   │   ├── confirm-meetup/
 │   │   ├── revise-plan/
 │   │   ├── cancel-plan/
+│   │   ├── hand-off-organiser/
+│   │   ├── extend-deadline/
 │   │   ├── report-outcome/
 │   │   ├── request-email-updates/
 │   │   ├── verify-email-contact/
@@ -504,6 +507,8 @@ ready ─(response change)──▶ collecting ─ recalculate ──┘
 | `confirm-meetup` | organiser | Candidate freshness check, one active confirmation, freezes times, enqueues confirmations and reminders |
 | `revise-plan` | organiser | Edits window/duration/band → new revision, invalidating responses and enqueuing a re-ask; **adjusts** quorum, deadline or required members without one ([ADR 0017](decisions/0017-quorum-and-deadline-adjust-a-plan-without-a-revision.md)); `preview` answers what an edit would cost without making it (spec §5.3); reopens a confirmed plan |
 | `cancel-plan` | organiser or owner; a seeking quiet ask's initiator | Final state with optional note; enqueues cancellation notices. Withdrawing a quiet ask before threshold is this endpoint too: no note, no event, nobody told (spec §9) |
+| `hand-off-organiser` | organiser | `hand_off_organiser`: the `hand_off` transition to an active member the plan is asking, with a saved place (`not_a_participant`, `requires_saved_place` otherwise), `planning.organiser_changed`, and the old organiser's queued organiser letters skipped in the same transaction (S2-05) |
+| `extend-deadline` | organiser | `extend_deadline`: an `adjust` to a day from the later of now and the deadline, never past the last possible start less thirty minutes, once per revision (`already_extended`, `no_time_to_extend`) (S2-05) |
 | `report-outcome` | organiser (or member for attendance) | Records outcome/attendance; sets `last_met_at` on `happened` |
 | `request-email-updates` | member | Normalise, dedupe per identity, create the contact and record the consent as given ([ADR 0019](decisions/0019-consent-is-recorded-when-it-is-given.md)), enqueue the verification email — whose token is minted by the sender ([ADR 0020](decisions/0020-the-verification-token-is-minted-by-the-sender.md)). Answers identically for a new, verified, shared or suppressed address |
 | `verify-email-contact` | token | Consume the single-use token, verify **every contact holding that address**, drop subscriptions to finished plans and to circles the person has left, send the current state once if a meetup is already locked in |

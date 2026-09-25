@@ -1,7 +1,8 @@
-import { MAX_WINDOW_DAYS, addDays, localDate, windowDays } from '@circles/domain';
+import { type Instant, MAX_WINDOW_DAYS, addDays, localDate, windowDays } from '@circles/domain';
 
 import { t } from '../../copy';
 import type { PlanCandidates } from '../../data/scheduling';
+import { extensionOf } from './deadline';
 import { weekdayOf } from './words';
 
 /**
@@ -34,6 +35,12 @@ import { weekdayOf } from './words';
  *   the one thing they are in a position to know". Saying it is S2-05's
  *   "give it one more day", not this screen's; offering the action here would
  *   only ever produce `deadline_out_of_range`.
+ *
+ * So once replies have closed, **"Give it one more day"** is offered in the
+ * wider window's place (S2-05): it reopens replies for a day, which is what
+ * unblocks widening a stalled plan. Only when it can be given — `oneMoreDay`
+ * decides, as it does on the replies-closed screen — because a row here that
+ * does nothing would be the one dead end on a screen made of ways out.
  */
 
 /** Inclusive local dates, as the plan stores them. `revise-plan` parses them. */
@@ -46,6 +53,7 @@ export type Unlock =
   | { kind: 'lower'; quorum: number; title: string; body: string }
   | { kind: 'required'; title: string; body: string }
   | { kind: 'wider'; window: PlanWindow; title: string; body: string }
+  | { kind: 'extend'; title: string; body: string }
   | { kind: 'close'; title: string; body: string };
 
 /** The member a `required_missing` near-miss names, when that is the rule. */
@@ -88,7 +96,11 @@ export function widerWindow(data: PlanCandidates): PlanWindow | undefined {
   return { start: String(start), end: String(addDays(start, MAX_WINDOW_DAYS - 1)) };
 }
 
-export function unlocksOf(data: PlanCandidates): Unlock[] {
+/**
+ * `now` is this device's clock, for "one more day"'s label alone; a caller
+ * that does not say what time it is is offered nothing that depends on it.
+ */
+export function unlocksOf(data: PlanCandidates, now?: Instant): Unlock[] {
   const unlocks: Unlock[] = [];
 
   const name = requiredMissing(data);
@@ -128,6 +140,12 @@ export function unlocksOf(data: PlanCandidates): Unlock[] {
         total: windowDays({ start: localDate(data.windowStart), end: localDate(data.windowEnd) }),
       }),
     });
+  }
+  if (!data.repliesOpen && now !== undefined) {
+    const extension = extensionOf(data, now);
+    if (extension.available) {
+      unlocks.push({ kind: 'extend', title: extension.title, body: extension.body });
+    }
   }
   unlocks.push({
     kind: 'close',

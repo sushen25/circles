@@ -113,6 +113,7 @@ Deno.serve(
         if (!deadline()) {
           const timed = await timedWork(service, requestId, now, deadline);
           counts['deadlines_closed'] = timed.deadlinesClosed;
+          counts['deadlines_followed_up'] = timed.deadlinesFollowedUp;
           counts['expired'] = timed.expired;
           counts['expire_refused'] = timed.expireRefused;
           counts['recalculated'] = timed.recalculated;

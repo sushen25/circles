@@ -6,6 +6,7 @@ import {
   Foot,
   Notice,
   Screen,
+  Small,
   Tertiary,
   TopBar,
 } from '../../components';
@@ -22,10 +23,11 @@ import type { CardView, HeaderView } from './view';
  * no primary here — the one thing a member can still do is change their own
  * times, and it is the only button on the screen.
  *
- * **It is absent once replies have closed.** A plan stays `collecting` or
- * `ready` past its deadline so the organiser can decide (spec §8), but
- * `replace_response` refuses an answer then (`replies_closed`), so offering the
- * editor would send somebody to a screen they cannot send from.
+ * **It is disabled once replies have closed**, with a neutral line saying so
+ * (S2-05). A plan stays `collecting` or `ready` past its deadline so the
+ * organiser can decide (spec §8), but `replace_response` refuses an answer then
+ * (`replies_closed`), so the editor would be a screen they cannot send from —
+ * and a button that silently vanished left people looking for it.
  *
  * With no options yet, this is where the spec's "members see nothing until
  * options exist" lands, and §3.5 decides how it reads: waiting for people,
@@ -43,6 +45,8 @@ export type CandidatesMemberProps = {
   cards?: readonly CardView[] | undefined;
   /** What is on screen was worked out before the newest answer. */
   stale?: boolean | undefined;
+  /** Replies have closed: "Change my times" is shown disabled, with why. */
+  repliesClosed?: boolean | undefined;
   onChangeMyTimes?: (() => void) | undefined;
   /** The circle's owner, who may cancel a plan they are not organising (spec §4.5, S1-26). */
   onCancelPlan?: (() => void) | undefined;
@@ -57,6 +61,7 @@ export function CandidatesMemberScreen({
   lead,
   cards = [],
   stale = false,
+  repliesClosed = false,
   onChangeMyTimes,
   onCancelPlan,
   onRetry,
@@ -113,9 +118,18 @@ export function CandidatesMemberScreen({
           <CandidateCard key={card.id} card={card} highlighted={card.recommended} />
         ))}
       </Body>
-      {onChangeMyTimes === undefined && onCancelPlan === undefined ? null : (
+      {onChangeMyTimes === undefined && onCancelPlan === undefined && !repliesClosed ? null : (
         <Foot>
-          {onChangeMyTimes === undefined ? null : (
+          {repliesClosed ? (
+            <>
+              <Small>{t('candidatesMember', 'closed_note')}</Small>
+              <Button
+                label={t('candidatesMember', 'change_my_times')}
+                variant="secondary"
+                disabled
+              />
+            </>
+          ) : onChangeMyTimes === undefined ? null : (
             <Button
               label={t('candidatesMember', 'change_my_times')}
               variant="secondary"

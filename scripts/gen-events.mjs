@@ -13,7 +13,9 @@
 // kinds of thing, and each is written in exactly one place.
 //
 // The event names are a **table constraint** on `jobs.outbox`, so they live in
-// the migration that creates the table — `MIGRATION` below.
+// the migration that last replaced it — `MIGRATION` below. That was the one
+// that created the table until S2-05 added `planning.organiser_changed`; 0006's
+// block is history now, like its fragments.
 //
 // The fragments are the body of **`jobs.carries_content`**, and a function's
 // definition lives in `supabase/sql/functions/` (ADR 0015). That is the copy a
@@ -32,7 +34,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const MIGRATION = join(root, 'supabase/migrations/0006_communication_jobs_analytics.sql');
+const MIGRATION = join(root, 'supabase/migrations/0027_replies_closed.sql');
 const CARRIES_CONTENT = join(root, 'supabase/sql/functions/jobs/carries_content.sql');
 
 const missing = () => {

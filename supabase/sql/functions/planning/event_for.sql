@@ -14,6 +14,9 @@ as $$
     when 'threshold_reached' then 'planning.threshold_reached'
     when 'expire' then 'planning.plan_expired'
     when 'accept_organiser' then 'planning.organiser_accepted'
+    -- Not `organiser_accepted`: nobody accepted anything. The organiser gave
+    -- the plan to somebody, and the drain tells the new one it is theirs.
+    when 'hand_off' then 'planning.organiser_changed'
     when 'edit' then 'planning.plan_revised'
     -- The same event. What the circle is told is "the plan changed"; that this
     -- change cost nobody a second reply is the *absence* of a re-ask, which the

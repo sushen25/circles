@@ -175,6 +175,12 @@ describe('every row is reachable and every non-row is refused', () => {
         eligibleCandidateIds: ['cand-1'],
         keenCount: 99,
         circleHasOpenPlan: false,
+        handOffTo: {
+          userId: userId('user-2'),
+          isMember: true,
+          isParticipant: true,
+          isPermanent: true,
+        },
       });
 
       expect(isOk(result), `${from} + ${action} was refused`).toBe(true);
@@ -500,5 +506,62 @@ describe('acceptsAnswers', () => {
     // would still say yes. The SQL compares `now() >= response_deadline`.
     expect(acceptsAnswers({ state: 'collecting', responseDeadline: now }, now)).toBe(false);
     expect(acceptsAnswers({ state: 'ready', responseDeadline: now }, later)).toBe(false);
+  });
+});
+
+describe('hand_off (S2-05)', () => {
+  const PRIYA = userId('user-2');
+  const saved = { userId: PRIYA, isMember: true, isParticipant: true, isPermanent: true };
+
+  it('gives the plan to the member it names, and moves nothing else', () => {
+    for (const state of ['collecting', 'ready'] as const) {
+      const before = plan({ state });
+      const result = canTransition(before, 'hand_off', { actor: ORGANISER, handOffTo: saved });
+      expect(isOk(result) && result.value.organiserUserId).toBe(PRIYA);
+      expect(isOk(result) && result.value.state).toBe(state);
+      expect(isOk(result) && result.value.revision).toBe(before.revision);
+    }
+  });
+
+  it('is the organiser’s to give, not a member’s', () => {
+    const result = canTransition(plan({ state: 'ready' }), 'hand_off', {
+      actor: MEMBER,
+      handOffTo: saved,
+    });
+    expect(isErr(result) && result.error.code).toBe('not_the_organiser');
+  });
+
+  it('refuses a guest with requires_saved_place', () => {
+    const result = canTransition(plan({ state: 'ready' }), 'hand_off', {
+      actor: ORGANISER,
+      handOffTo: { ...saved, isPermanent: false },
+    });
+    expect(isErr(result) && result.error.code).toBe('requires_saved_place');
+  });
+
+  it('refuses somebody who has left, the organiser themselves, and nobody at all', () => {
+    const ready = plan({ state: 'ready' });
+    const gone = canTransition(ready, 'hand_off', {
+      actor: ORGANISER,
+      handOffTo: { ...saved, isMember: false },
+    });
+    expect(isErr(gone) && gone.error.code).toBe('not_a_member');
+    const self = canTransition(ready, 'hand_off', {
+      actor: ORGANISER,
+      handOffTo: { ...saved, userId: userId('user-owner') },
+    });
+    expect(isErr(self) && self.error.code).toBe('already_the_organiser');
+    const nobody = canTransition(ready, 'hand_off', { actor: ORGANISER });
+    expect(isErr(nobody) && nobody.error.code).toBe('not_a_member');
+  });
+
+  it('is not offered once the plan is locked in or over', () => {
+    for (const state of ['confirmed', 'completed', 'cancelled', 'expired', 'seeking'] as const) {
+      const result = canTransition(plan({ state }), 'hand_off', {
+        actor: ORGANISER,
+        handOffTo: saved,
+      });
+      expect(isErr(result), state).toBe(true);
+    }
   });
 });

@@ -129,6 +129,11 @@ const REASONS: Record<ProblemReason, { status: number; error: Problem['error'] }
   not_keen: { status: 403, error: 'forbidden' },
   deadline_not_passed: { status: 409, error: 'conflict' },
   already_taken: { status: 409, error: 'conflict' },
+
+  // S2-05. Replies closed: handing the plan over, and one more day.
+  already_the_organiser: { status: 409, error: 'conflict' },
+  already_extended: { status: 409, error: 'conflict' },
+  no_time_to_extend: { status: 409, error: 'conflict' },
 };
 
 /**

@@ -15,7 +15,7 @@ import type { CircleId } from '../circles/types.js';
 import type { ConfirmationId } from '../confirmation/types.js';
 import { isTonightWindow } from '../planning/presets.js';
 import type { DateWindow } from '../planning/types.js';
-import { type Instant, addMinutes, isBefore } from '../shared/instant.js';
+import { type Instant, addMinutes, isBefore, toISO } from '../shared/instant.js';
 import type { LocalDate } from '../shared/local-date.js';
 import type { Zone } from '../shared/zone.js';
 import type { NotificationKind } from './kinds.js';
@@ -43,7 +43,31 @@ export type OccurrenceInput = {
    * previous token (spec §5.8) and is a new email, not a duplicate of the old.
    */
   readonly verificationId?: string | undefined;
+  /**
+   * For `replies_closed`: the deadline that closed. "Give it one more day" is
+   * an `adjust`, which leaves the revision where it is, so the key alone cannot
+   * tell the first closure from the second (spec §5.7, ADR 0039).
+   */
+  readonly deadline?: Instant | undefined;
+  /**
+   * For `replies_closed`: the reminder a day after that deadline, when nothing
+   * has been decided since (`FOLLOW_UP`). Absent is the letter at the deadline.
+   */
+  readonly followUp?: boolean | undefined;
+  /**
+   * For `replies_closed` and `options_ready` sent to somebody a plan has just
+   * been handed to: the hand-off event. Their `once` may already be spent —
+   * a plan handed back to its first organiser — and a hand-off is a new
+   * reason to write (S2-05 review round 1).
+   */
+  readonly handOffId?: string | undefined;
 };
+
+/**
+ * The suffix of the one `replies_closed` that is not the deadline's own: the
+ * nudge a day later, if the plan is still waiting on its organiser (S2-05).
+ */
+export const FOLLOW_UP = '+24h';
 
 /** Length-prefixed, so a circle id containing a separator cannot shift a boundary. */
 function part(value: string): string {
@@ -67,10 +91,29 @@ export function occurrenceFor(kind: NotificationKind, input: OccurrenceInput = {
     case 'threshold_initiator':
     case 'threshold_keen':
     case 'quiet_expired':
-    case 'options_ready':
-    case 'replies_closed':
     case 'cancelled':
       return ONCE;
+
+    // Once per revision, and once more for each hand-off: "the options are
+    // ready" is news to whoever the plan was just handed to.
+    case 'options_ready':
+      return input.handOffId === undefined ? ONCE : `handed:${part(input.handOffId)}`;
+
+    // Once per **deadline**, not per revision, and once more a day after it.
+    // "Give it one more day" moves the deadline without bumping the revision,
+    // so `ONCE` gave the second closure the first one's key and the unique
+    // index swallowed it: an organiser whose extended deadline closed heard
+    // nothing, and email is their only channel on the web (SUS-36 round 5).
+    // The instant is length-prefixed like `about_time`'s parts, and rendered
+    // by `toISO` so the drain and a test agree on it to the millisecond.
+    case 'replies_closed': {
+      if (input.deadline === undefined) {
+        throw new RangeError(`occurrence: ${kind} needs the deadline`);
+      }
+      const closed = part(toISO(input.deadline));
+      if (input.handOffId !== undefined) return `${closed}handed:${part(input.handOffId)}`;
+      return input.followUp === true ? closed + FOLLOW_UP : closed;
+    }
 
     // *Not* once per revision. A reschedule bumps the revision, but a place
     // correction on a live confirmation does not — and §5.8 promises

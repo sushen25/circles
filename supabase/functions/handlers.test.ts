@@ -2750,6 +2750,10 @@ describe('process-scheduled-jobs', () => {
     ...overrides,
   });
 
+  /** The same plan with options on offer, replies closed and nothing locked in. */
+  const undecided = () =>
+    context({ plan: { ...context().plan, state: 'ready' }, confirmation: null, attendance: [] });
+
   const outboxEvent = (name: string, revision = 1) => ({
     id: EVENT_ID,
     seq: 1,
@@ -3291,6 +3295,7 @@ describe('process-scheduled-jobs', () => {
 
     it('still sends replies closed, which the plan is waiting on her for', async () => {
       capturing();
+      planContext = undecided();
       withDue(dueJob({ kind: 'replies_closed', user_id: ORGANISER, organiser_email_muted: true }));
 
       await load('process-scheduled-jobs')(post({}, 'a-shared-secret'));
@@ -3300,8 +3305,11 @@ describe('process-scheduled-jobs', () => {
 
     it('does not send replies closed to somebody who is no longer who it is for (SUS-50 round 4)', async () => {
       // Written to one person, sent after the role changed hands: the
-      // recipient is not the organiser now, so the letter is not theirs.
+      // recipient is not the organiser now, so the letter is not theirs. On a
+      // plan still undecided, so that it is this check that answers and not
+      // S2-05's `already_decided`.
       capturing();
+      planContext = undecided();
       withDue(dueJob({ kind: 'replies_closed', user_id: MEMBER }));
 
       await load('process-scheduled-jobs')(post({}, 'a-shared-secret'));
@@ -3319,6 +3327,98 @@ describe('process-scheduled-jobs', () => {
       await load('process-scheduled-jobs')(post({}, 'a-shared-secret'));
 
       expect(called('dispatch_job_result')[0]?.args).toMatchObject({ p_outcome: 'sent' });
+    });
+  });
+
+  describe('replies closed with no decision (S2-05)', () => {
+    const DEADLINE = '2026-09-20T10:00:00.000000+00:00';
+    const closedAt = (payload: Record<string, unknown>) => ({
+      ...outboxEvent('planning.deadline_passed'),
+      payload: { plan_id: PLAN_ID, revision: 1, deadline: DEADLINE, ...payload },
+    });
+    const withContact = () => {
+      state.answer = ((answer) => (fn: string) =>
+        fn === 'dispatch_organiser_contact' ? { data: CONTACT, error: null } : answer(fn))(
+        state.answer,
+      );
+    };
+
+    it('writes the letter at the deadline and the one a day later under two keys', async () => {
+      // Two keys is the whole of "both reminders sent once each": with one,
+      // the unique index swallows the second as a retry of the first.
+      withContact();
+      planContext = undecided();
+      events = [closedAt({})];
+      await load('process-scheduled-jobs')(post({}, 'a-shared-secret'));
+      events = [closedAt({ follow_up: '+24h' })];
+      await load('process-scheduled-jobs')(post({}, 'a-shared-secret'));
+
+      const written = enqueued();
+      expect(written.map((job) => job.kind)).toEqual(['replies_closed', 'replies_closed']);
+      expect(new Set(written.map((job) => job.idempotency_key)).size).toBe(2);
+    });
+
+    it('takes back an older letter still held, keeping the one it is writing (review round 1)', async () => {
+      // A letter for the first deadline, held until morning, would otherwise
+      // go out beside the one for the extended deadline: two identical letters.
+      withContact();
+      planContext = undecided();
+      events = [closedAt({})];
+      await load('process-scheduled-jobs')(post({}, 'a-shared-secret'));
+
+      const order = state.rpcs.map((call) => call.fn);
+      const superseding = called('dispatch_supersede_closing')[0]?.args;
+      expect(superseding).toEqual({
+        p_plan_id: PLAN_ID,
+        p_keep: enqueued().map((job) => job.idempotency_key),
+      });
+      expect(order.indexOf('dispatch_supersede_closing')).toBeLessThan(
+        order.indexOf('dispatch_enqueue'),
+      );
+    });
+
+    it('and the same letter twice under one key, so a re-drained event writes nothing new', async () => {
+      withContact();
+      planContext = undecided();
+      events = [closedAt({})];
+      await load('process-scheduled-jobs')(post({}, 'a-shared-secret'));
+      await load('process-scheduled-jobs')(post({}, 'a-shared-secret'));
+
+      expect(new Set(enqueued().map((job) => job.idempotency_key)).size).toBe(1);
+    });
+
+    it('tells the organiser a plan was handed to that replies have closed', async () => {
+      withContact();
+      planContext = undecided();
+      events = [outboxEvent('planning.organiser_changed')];
+      await load('process-scheduled-jobs')(post({}, 'a-shared-secret'));
+
+      expect(enqueued().map((job) => job.kind)).toEqual(['replies_closed']);
+      expect(called('dispatch_organiser_contact')[0]?.args).toEqual({ p_user_id: ORGANISER });
+    });
+
+    it('sends none once the plan is locked in', async () => {
+      withDue(dueJob({ kind: 'replies_closed', user_id: ORGANISER }));
+
+      await load('process-scheduled-jobs')(post({}, 'a-shared-secret'));
+
+      expect(called('dispatch_job_result')[0]?.args).toMatchObject({
+        p_outcome: 'skipped',
+        p_error: 'already_decided',
+      });
+    });
+
+    it('sends none to an organiser who has handed the plan on', async () => {
+      planContext = undecided();
+      withDue(dueJob({ kind: 'replies_closed', user_id: MEMBER }));
+
+      await load('process-scheduled-jobs')(post({}, 'a-shared-secret'));
+
+      // Refused by compose.ts, which knows the owner fallback (SUS-50).
+      expect(called('dispatch_job_result')[0]?.args).toMatchObject({
+        p_outcome: 'skipped',
+        p_error: 'not_the_organiser',
+      });
     });
   });
 
