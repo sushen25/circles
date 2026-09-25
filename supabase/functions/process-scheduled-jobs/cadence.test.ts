@@ -8,8 +8,8 @@ import { type DueJob, send } from './send.ts';
 /**
  * The cadence nudge through the dispatcher (S2-04), against a fake database.
  *
- * The SQL half — one decision per due date under the circle lock, the jobs'
- * shape, the sweep and the claim — is `190_dispatcher.sql` against a real
+ * The SQL half — one decision per cycle under the circle lock, the jobs'
+ * shape, the sweep and the claim — is `230_cadence.sql` and `190_dispatcher.sql` against a real
  * Postgres. This is the half that is neither SQL nor domain: that the pass asks
  * the domain the right questions, writes what it answers, and that the sender
  * asks again and renders a letter with no plan.

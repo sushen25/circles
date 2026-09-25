@@ -123,7 +123,7 @@ export function cadenceState(circle: Circle, now: Instant, hasActivePlan = false
  * Owed exactly while circle home says **About time for the next one**
  * (`cadenceState` is `due_soon`): the circle is active, has a goal and a
  * history, is not snoozed, and nothing is running (spec §5.9). The dispatcher
- * sends one nudge per due date, the moment this first answers one, and it
+ * sends one nudge per cycle, the moment this first answers one, and it
  * asks again at send time so that a plan made, a snooze or a meetup that
  * happened in between stops a letter already queued.
  *

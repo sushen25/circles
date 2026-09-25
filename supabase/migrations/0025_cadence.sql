@@ -15,7 +15,7 @@
 --     "archiving stops all prompts" (spec §5.2) reaches a queued nudge, which
 --     it could not before (S1-23 review round 4).
 --   * `private.cadence_prompts` — one row per circle per cycle (the meetup
---     it counts from) and so per due date: the decision that it has been
+--     it counts from), which has one due date: the decision that it has been
 --     prompted, and to whom. This is the ticket's
 --     `circles.cadence_prompted_for`, made a table for two reasons. The
 --     idempotency key is per recipient, so it cannot stop a second person

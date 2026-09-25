@@ -1,4 +1,4 @@
-# ADR 0036: The cadence nudge is decided once per due date, when circle home says it is about time
+# ADR 0036: The cadence nudge is decided once per cycle, when circle home says it is about time
 
 _Status: proposed · 25 September 2026_
 
@@ -25,12 +25,14 @@ thing. Two facts about the pipeline shaped the answers:
 
 ## Decision
 
-1. **One decision per circle per due date**, recorded in
-   `private.cadence_prompts` (circle, due date, who was asked and why) by
-   `public.dispatch_prompt_cadence`, which writes the decision and its jobs in
-   one transaction under the circle's row lock. A due date already decided is
-   never decided again, whoever it went to. The row is keyed on the meetup the
-   cycle counts from (`last_met_at`), not on the date: a nudge that works has
+1. **One decision per circle per cycle** — the stretch from one meetup that
+   happened to the next, which has one due date — recorded in
+   `private.cadence_prompts` (circle, the meetup it counts from, due date, who
+   was asked and why) by `public.dispatch_prompt_cadence`, which writes the
+   decision and its jobs in one transaction under the circle's row lock. A
+   cycle already decided is never decided again, whoever it went to. The row
+   is keyed on the meetup the cycle counts from (`last_met_at`), not on the
+   date: a nudge that works has
    the circle meeting *before* the date it was asked for, and only the meetup
    tells that cycle from the next. So an owner who changes the cadence after
    the nudge went moves the date and not the decision — nobody is asked twice
@@ -95,6 +97,18 @@ thing. Two facts about the pipeline shaped the answers:
 - A circle whose confirmed plan is never reported is never nudged. The
   morning-after question exists to prevent that, and the founder's
   diagnostics (S4-06) are where it would show.
+- **One nudge per cycle is one, whatever happens to it.** A nudge that got
+  nowhere is not sent again until the circle next meets: not when a snooze
+  the owner chose after it lapses (the card comes back; no second message
+  does), not when a plan made from it is cancelled or its meetup does not
+  happen, and not when the one letter was held at send time. Circle home
+  still says **About time** throughout, so the group is not left without the
+  prompt, only without a second message. Asking again after a cycle that went
+  nowhere is a product change and would come with its own ADR.
+- Push is tried before email for `about_time`, and the dispatcher does not
+  deliver push yet (SUS-59). Nobody has a push device today, so every nudge is
+  email; push registration must not land before push delivery, or the person
+  with a device is recorded as asked with nothing sent.
 - `private.cadence_prompts` is kept with the circle and is not part of
   retention: one row per cycle is a small record and is what keeps the
   second nudge from ever being sent.

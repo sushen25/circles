@@ -4,7 +4,7 @@
 -- (`nudgeDueDate`, `nudgeChoice`) and is tested there. What is proved here is
 -- what only the database can promise: that the sweep finds a circle that may
 -- be due and leaves out the ones that cannot be; that the context carries the
--- last happened meetup's organiser and who was there; that a due date is
+-- last happened meetup's organiser and who was there; that a cycle is
 -- decided **once**, whoever it goes to; that a plan opened meanwhile wins; that
 -- a nudge's job belongs to its circle and to no plan; and that "it's your
 -- turn" is told to the one person asked and to nobody else.
@@ -252,7 +252,7 @@ select is(
       'channel', 'email', 'kind', 'about_time', 'contact_id', (select contact from nudge),
       'circle_id', pg_temp.circle(), 'scheduled_for', now(), 'idempotency_key', repeat('d', 64)))),
   1,
-  'the first decision for a due date writes its one job'
+  'the first decision for a cycle writes its one job'
 );
 select is(
   public.dispatch_prompt_cadence(pg_temp.circle(), pg_temp.met(), (select due from nudge) + 30,
@@ -269,7 +269,7 @@ select is(
   (select count(*)::integer from jobs.notification_jobs
    where circle_id = pg_temp.circle() and kind = 'about_time'),
   1,
-  'one job per due date: one person is nudged, never two'
+  'one job per cycle: one person is nudged, never two'
 );
 select is(
   (select plan_id from jobs.notification_jobs where idempotency_key = repeat('d', 64)),
@@ -284,7 +284,7 @@ select ok(
 select is(
   (public.dispatch_circle_context(pg_temp.circle()) ->> 'prompted_for')::date,
   (select due from nudge),
-  'the context says which due date is decided'
+  'the context says which due date is decided this cycle'
 );
 
 select throws_ok(
