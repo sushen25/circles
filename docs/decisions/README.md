@@ -44,7 +44,7 @@ Short records of decisions that shape the product or the code. A new ADR is requ
 | [0038](./0038-the-quiet-asks-initiator-is-written-to-at-their-own-address.md) | The quiet ask's initiator is written to at their own address | accepted |
 | [0039](./0039-replies-closed-is-told-per-deadline-and-once-a-day-later.md) | Replies closed is told once per deadline and once a day later; one more day is a day from now, once per revision | proposed |
 | [0040](./0040-the-served-html-is-a-shell.md) | The served HTML is a neutral shell; every screen renders on the device | proposed |
-| [0041](./0041-keen-members-may-take-the-role-as-soon-as-it-opens.md) | Keen members may take the organiser role as soon as a quiet ask opens | proposed |
+| [0041](./0041-keen-members-may-take-the-role-as-soon-as-it-opens.md) | Keen members may take the organiser role as soon as a quiet ask opens, and the quiet ask's analytics name nobody | proposed |
 
 ## Template
 

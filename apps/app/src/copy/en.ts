@@ -2115,10 +2115,10 @@ export const en = {
     sunday_crew: 'Sunday Crew',
     try_again_another_time: 'Try again another time',
     back_to_sunday_crew: 'Back to Sunday Crew',
-    // Live (S2-03): the softer headline SUS-49 suggested. The same for an ask
-    // that was held to its stop time, since anything else reveals a count.
-    headline: 'This one closed quietly.',
-    body: 'Nobody else knows you asked, and nobody is told who said what.',
+    // Live (S2-03): spec §5.4.7's words. The same for an ask that was held to
+    // its stop time, since anything else reveals a count.
+    headline: 'Not enough people were free this time.',
+    body: 'This one closed quietly. Nobody else knows you asked, and nobody is told who said what.',
     hint: 'A different window sometimes helps.',
   },
   sparkOpenedMember: {
@@ -2138,7 +2138,7 @@ export const en = {
       "{name} volunteered to pick the time. Mark the times you'd actually be up for, even if you said “not this time” earlier.",
     nobody_yet:
       "Someone needs to pick the time. Mark the times you'd actually be up for, even if you said “not this time” earlier.",
-    keen_line: '{count} of {total} were keen · Replies close {deadline}',
+    keen_line: '{count} were keen · Replies close {deadline}',
     replies_close: 'Replies close {deadline}',
   },
   sparkSetup: {
@@ -2193,7 +2193,7 @@ export const en = {
     withdraw_the_ask: 'Withdraw the ask',
     // Live (S2-03). No count, for anybody, the person who asked included.
     checking: "We're checking who's keen for a catch-up {when}.",
-    threshold_of: '{threshold} of {total} are keen',
+    threshold_of: '{threshold} people are keen',
     sheet_title: 'Withdraw the ask?',
     sheet_body: 'It closes now, and nobody is told it was asked.',
     sheet_dismiss: 'Keep asking',
@@ -2244,7 +2244,7 @@ export const en = {
     // Live (S2-03). Interest closed when it opened, so the count never moves.
     keen_headline: '{count} people are keen to catch up {when}.',
     keen_headline_uncounted: 'Enough people are keen to catch up {when}.',
-    keen_line: "{count} of {total} said they're keen. We don't show who.",
+    keen_line: "{count} said they're keen. We don't show who.",
     taking: 'One moment…',
   },
   waiting: {

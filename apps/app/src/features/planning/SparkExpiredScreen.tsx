@@ -20,8 +20,8 @@ import type { ScreenState } from '../state';
  * person who asked**, only for an ask that reached its stop time without
  * opening (`showClosedNotice`). Everybody else sees a closed ask as nothing.
  *
- * The headline is SUS-49's softer one. It is also what an ask held to its stop
- * time beside a running plan says, on purpose: "enough people were keen, but"
+ * The headline is spec §5.4.7's. It is also what an ask held to its stop time
+ * beside a running plan says, on purpose: "enough people were keen, but"
  * would tell the initiator a count they were never meant to learn.
  */
 export type SparkExpiredProps = {

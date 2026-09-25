@@ -75,7 +75,9 @@ export function QuietScreens({
   const circle = circleName ?? t('quiet', 'this_circle');
   const backTo = t('quiet', 'back_to', { circle });
   const when = quietWhen(plan.preset);
-  const total = members.length;
+  // No "of N" anywhere: the threshold and the keen count are fixed when the ask
+  // is made and when it opens, and today's membership is not what they were
+  // out of ("3 of 2" after somebody leaves).
   const toTimes = () => router.push({ pathname: '/j/[code]', params: { code: plan.code } });
   // "I'll organise" / "I'll pick the time": a saved place first (ADR 0004),
   // and the same tap once it is saved. Then the ask-for-times message.
@@ -97,7 +99,7 @@ export function QuietScreens({
           circleName={circle}
           headline={t('sparkWaiting', 'checking', { when })}
           closes={whenWords(screen.closesAt, plan.zone)}
-          opensWhen={t('sparkWaiting', 'threshold_of', { threshold: screen.threshold, total })}
+          opensWhen={t('sparkWaiting', 'threshold_of', { threshold: screen.threshold })}
           backLabel={backTo}
           onBack={onBack}
           onBackToSundayCrew={toCircle}
@@ -179,7 +181,7 @@ export function QuietScreens({
           keenLine={
             screen.keenCount === null
               ? ''
-              : t('volunteer', 'keen_line', { count: screen.keenCount, total })
+              : t('volunteer', 'keen_line', { count: screen.keenCount })
           }
           busy={actions.busy}
           problem={actions.problem}
@@ -204,7 +206,7 @@ export function QuietScreens({
           keenLine={
             screen.keenCount === null
               ? t('sparkOpenedMember', 'replies_close', { deadline })
-              : t('sparkOpenedMember', 'keen_line', { count: screen.keenCount, total, deadline })
+              : t('sparkOpenedMember', 'keen_line', { count: screen.keenCount, deadline })
           }
           onNext={toTimes}
           onNotThisOne={toCircle}

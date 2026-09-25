@@ -206,7 +206,7 @@ describe('the person who asked (SparkWaiting)', () => {
       await screen.findByText("We're checking who's keen for a catch-up this weekend."),
     ).toBeTruthy();
     // The threshold is the view's, not three.
-    expect(screen.getByText('4 of 6 are keen')).toBeTruthy();
+    expect(screen.getByText('4 people are keen')).toBeTruthy();
     expect(screen.queryByText(/so far/)).toBeNull();
   });
 
@@ -228,7 +228,7 @@ describe('the person who asked (SparkWaiting)', () => {
 
   it('is offered the initiator’s choice when their ask opens in front of them', async () => {
     const waiting = show(<QuietPlanFlow planId={PLAN} circleId={CIRCLE} />);
-    await screen.findByText('4 of 6 are keen');
+    await screen.findByText('4 people are keen');
     waiting.unmount();
 
     // The next read on this device — the poll, or coming back to it — sees it open.
@@ -287,7 +287,7 @@ describe('once it opens', () => {
     show(<QuietPlanFlow planId={PLAN} circleId={CIRCLE} />);
 
     expect(await screen.findByText('3 people are keen to catch up this weekend.')).toBeTruthy();
-    expect(screen.getByText("3 of 6 said they're keen. We don't show who.")).toBeTruthy();
+    expect(screen.getByText("3 said they're keen. We don't show who.")).toBeTruthy();
     expect(screen.queryByText(/so far/)).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: "I'll pick the time" }));
 
@@ -345,7 +345,7 @@ describe('once it closes', () => {
     quietView.mockResolvedValue({ phase: 'closed', show_closed_notice: true });
     show(<QuietPlanFlow planId={PLAN} circleId={CIRCLE} />);
 
-    expect(await screen.findByText('This one closed quietly.')).toBeTruthy();
+    expect(await screen.findByText('Not enough people were free this time.')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Try again another time' }));
     expect(replace).toHaveBeenCalledWith({
       pathname: '/circles/[id]/quiet/new',
@@ -358,7 +358,7 @@ describe('once it closes', () => {
     show(<QuietPlanFlow planId={PLAN} circleId={CIRCLE} />);
 
     expect(await screen.findByText("This isn't open any more.")).toBeTruthy();
-    expect(screen.queryByText('This one closed quietly.')).toBeNull();
+    expect(screen.queryByText('Not enough people were free this time.')).toBeNull();
     expect(everythingSaid()).not.toMatch(/initiator|asked by|Maya asked/i);
   });
 });

@@ -78,7 +78,7 @@ async function mayaAsks(maya: Person, circleId: string): Promise<string> {
     maya.page.getByText("We're checking who's keen for a catch-up in the next 7 days."),
   ).toBeVisible();
   // The threshold, from the view. No count, not even for her.
-  await expect(maya.page.getByText('3 of 3 are keen')).toBeVisible();
+  await expect(maya.page.getByText('3 people are keen', { exact: true })).toBeVisible();
   return maya.page.url().split('/').at(-1)!;
 }
 
@@ -142,7 +142,7 @@ test('three members: Maya asks quietly, it opens, and Tom picks the time', async
   await expect(
     tom.page.getByText('3 people are keen to catch up in the next 7 days.'),
   ).toBeVisible();
-  await expect(tom.page.getByText("3 of 3 said they're keen. We don't show who.")).toBeVisible();
+  await expect(tom.page.getByText("3 said they're keen. We don't show who.")).toBeVisible();
   await expect(tom.page.getByText(/so far/)).toHaveCount(0);
   await tom.page.getByRole('button', { name: "I'll pick the time" }).click();
   await expect(tom.page).toHaveURL(new RegExp(`/circles/${circleId}/plan/${planId}/shared$`));
@@ -192,12 +192,12 @@ test('an ask that runs out is "closed quietly" to Maya and nothing to anybody el
   `);
 
   await maya.page.reload();
-  await expect(maya.page.getByText('This one closed quietly.')).toBeVisible();
+  await expect(maya.page.getByText('Not enough people were free this time.')).toBeVisible();
   await expect(maya.page.getByRole('button', { name: 'Try again another time' })).toBeVisible();
 
   await tom.page.goto(`/circles/${circleId}/quiet/${planId}`);
   await expect(tom.page.getByText("This isn't open any more.")).toBeVisible();
-  await expect(tom.page.getByText('This one closed quietly.')).toHaveCount(0);
+  await expect(tom.page.getByText('Not enough people were free this time.')).toHaveCount(0);
   await tom.page.goto(`/circles/${circleId}`);
   await expect(tom.page.getByText('Asked quietly')).toHaveCount(0);
 

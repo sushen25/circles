@@ -1,4 +1,4 @@
-# ADR 0041: Keen members may take the organiser role as soon as a quiet ask opens
+# ADR 0041: Keen members may take the organiser role as soon as a quiet ask opens, and the quiet ask's analytics name nobody
 
 _Status: proposed · 26 September 2026_
 
@@ -38,6 +38,22 @@ the session, never stored or sent, and forgotten once they choose. The
 initiator arriving any other way (the "enough people are keen" letter, a
 reload) sees Volunteer, whose one tap works for them too.
 
+**The quiet ask's analytics name nobody** (spec §11). An `analytics.events`
+row sits beside `user_id`, so spec §11.3's `organiser_accepted(role:
+initiator|volunteer|owner_fallback)` beside the organiser's now-public id *is*
+the initiator, and `quiet_interest_answered` with an answer is an individual
+answer (§8.2, SUS-49). So:
+
+- `quiet_ask_created` and `quiet_interest_answered` are recorded against
+  nobody (`UNATTRIBUTED_EVENTS`): no user, no browser id.
+  `quiet_interest_answered` (version 2) carries no answer.
+- `organiser_accepted` (version 2) carries no role. The client could not send
+  one anyway: `accept-organiser` never says how the caller came to organise.
+- §11.2's "organiser accepted by initiator vs volunteer" is kept as a metric,
+  but only as a **server-side aggregate** — a count per role with no user, plan
+  or circle on the row, so no row can be joined to the organiser it describes.
+  Nothing records it yet; it is SUS-50's to add with `quiet_threshold_reached`.
+
 ## Alternatives considered
 
 - **Hold keen members back until the initiator chooses.** Needs a recorded
@@ -48,6 +64,9 @@ reload) sees Volunteer, whose one tap works for them too.
   delay, and a rule nobody can explain on a screen.
 - **Tell the client who the initiator is so it can always show ThresholdRole.**
   The one thing `quiet-view` exists not to do.
+- **Keep `organiser_accepted(role)` and trust access to `analytics.events`.**
+  The spec's promise is that no analytics event can identify the initiator
+  (§5.4 acceptance), not that few people can read the table.
 
 ## Consequences
 
@@ -57,4 +76,7 @@ reload) sees Volunteer, whose one tap works for them too.
   The initiator then sees SparkOpenedMember ("Tom volunteered to pick the
   time"), like any other member, which is the outcome §5.4 wants: someone other
   than the initiator organises.
-- `accept-organiser` stays as S2-02 built it. No server change.
+- `accept-organiser` stays as S2-02 built it. No server change follows from
+  the first decision; the second leaves the role aggregate and
+  `quiet_threshold_reached` to the server (SUS-50).
+- Spec §11.2 and §11.3 are amended in this PR.
