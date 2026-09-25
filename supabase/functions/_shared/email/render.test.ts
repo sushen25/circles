@@ -38,7 +38,7 @@ describe('render', () => {
     );
     expect([...EMAIL_KINDS].sort()).toEqual([...emailed].sort());
     // And the only ones that could say anything about a quiet ask are the two
-    // addressed to its initiator alone (spec §8.2, ADR 00XX).
+    // addressed to its initiator alone (spec §8.2, ADR 0038).
     const quietEmailed = QUIET_SENSITIVE_KINDS.filter((kind) =>
       (EMAIL_KINDS as readonly string[]).includes(kind),
     );

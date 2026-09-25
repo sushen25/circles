@@ -22,7 +22,7 @@
 --     has opened and somebody has accepted (§8.2). True of every row the
 --     functions write already; now true of every row.
 --   * `notification_jobs_kind` — `quiet_expired`, the initiator's "not enough
---     people were free this time" (ADR 00XX).
+--     people were free this time" (ADR 0038).
 --
 -- Each constraint is a `case`, never an `or` of conjunctions: a null CHECK
 -- result passes in Postgres, and that is how a quiet plan with no threshold was

@@ -148,7 +148,7 @@ export type AboutTimeInput = Base & {
 };
 
 /**
- * The quiet ask's initiator, at their own address (ADR 00XX): enough people are
+ * The quiet ask's initiator, at their own address (ADR 0038): enough people are
  * keen, and the role is theirs to take or hand on. A plan link and nothing
  * else — no count, no names.
  */
@@ -197,7 +197,7 @@ export const EMAIL_KINDS = [
 ] as const satisfies readonly NotificationKind[];
 
 /**
- * The two letters about a quiet ask, both to its initiator alone (ADR 00XX).
+ * The two letters about a quiet ask, both to its initiator alone (ADR 0038).
  * Neither names anybody, carries a count, or goes to anyone else.
  */
 export const QUIET_KINDS = [

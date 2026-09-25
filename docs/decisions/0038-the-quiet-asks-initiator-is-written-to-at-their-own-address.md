@@ -1,4 +1,4 @@
-# ADR 00XX: The quiet ask's initiator is written to at their own address
+# ADR 0038: The quiet ask's initiator is written to at their own address
 
 _Status: accepted · 25 September 2026_
 

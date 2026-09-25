@@ -160,7 +160,7 @@ export async function inputFor(
         zone: context.planZone,
       };
     }
-    // The quiet ask's initiator, at their own address (ADR 00XX). The job was
+    // The quiet ask's initiator, at their own address (ADR 0038). The job was
     // addressed from `dispatch_quiet_audience`; nothing here reads who asked.
     // An ask somebody has already taken on, or that has closed, no longer
     // needs its initiator to pick the time.

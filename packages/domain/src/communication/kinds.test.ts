@@ -31,7 +31,7 @@ describe('the kind table', () => {
     // `replies_closed` is §5.7's "one reminder at the deadline" and one of
     // §5.8's four organiser email kinds; the Pushes artboard has no row for it.
     // `quiet_expired` is §5.4.7's closing notice, the SparkExpired artboard
-    // (ADR 00XX).
+    // (ADR 0038).
     expect(NOTIFICATION_KINDS.map((s) => s.kind)).toEqual([
       ...ARTBOARD.slice(0, 6),
       'replies_closed',
@@ -93,7 +93,7 @@ describe('the kind table', () => {
     for (const spec of NOTIFICATION_KINDS) {
       if (spec.audience === 'organiser' || spec.audience === 'nudge_recipient') continue;
       if (spec.kind === 'verify_email') continue;
-      // The initiator's two letters go to their own address (ADR 00XX): about
+      // The initiator's two letters go to their own address (ADR 0038): about
       // their own ask, to them alone, like the organiser's.
       if (spec.audience === 'quiet_initiator') continue;
       expect(spec.emailNeedsSubscription).toBe(true);
@@ -101,7 +101,7 @@ describe('the kind table', () => {
   });
 
   it('writes to the initiator at their own address, and to nobody else about a quiet ask', () => {
-    // ADR 00XX. The two kinds whose audience is the initiator alone may be
+    // ADR 0038. The two kinds whose audience is the initiator alone may be
     // emailed without a subscription; the two that reach other members stay
     // push-only, so no letter to anybody else ever concerns a quiet ask.
     for (const spec of NOTIFICATION_KINDS.filter((s) => s.audience === 'quiet_initiator')) {

@@ -8,7 +8,7 @@
  *
  * The rows are the "Push copy" artboard's rows, in its order, plus the three the
  * spec names elsewhere: `replies_closed` (§5.7, §5.8), `verify_email`, and
- * `quiet_expired` (§5.4.7, the SparkExpired artboard, ADR 00XX). No
+ * `quiet_expired` (§5.4.7, the SparkExpired artboard, ADR 0038). No
  * sentence lives here — `copyKey` names one, and the copy package renders it
  * (non-negotiable 6).
  */
@@ -128,7 +128,7 @@ export const NOTIFICATION_KINDS: readonly NotificationSpec[] = [
   },
   {
     // Push first, and the initiator's own confirmed address until they have
-    // the app (ADR 00XX): the role is offered to them, as the organiser kinds
+    // the app (ADR 0038): the role is offered to them, as the organiser kinds
     // are offered to an organiser (review C6). Their own address and nobody
     // else's, so no subscription: this is not a plan-update letter.
     kind: 'threshold_initiator',
@@ -262,7 +262,7 @@ export const NOTIFICATION_KINDS: readonly NotificationSpec[] = [
     // "Not enough people were free this time" (spec §5.4.7, SparkExpired): an
     // ask that reached its stop time without opening, told to the one person
     // who knows it existed as theirs. Email only — there is no push row — and
-    // to their own address (ADR 00XX). A withdrawn ask has no letter at all:
+    // to their own address (ADR 0038). A withdrawn ask has no letter at all:
     // its initiator closed it themselves (spec §9).
     kind: 'quiet_expired',
     emailNeedsSubscription: false,

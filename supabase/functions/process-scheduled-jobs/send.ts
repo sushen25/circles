@@ -285,7 +285,7 @@ export async function send(
       await finish('skipped', 'organiser_email_off');
       continue;
     }
-    // The initiator's two letters (ADR 00XX), read again now: a letter held by
+    // The initiator's two letters (ADR 0038), read again now: a letter held by
     // quiet hours overnight must not reach somebody who has since muted quiet
     // asks, or left the circle (SUS-50 review round 2).
     if (QUIET_SENSITIVE_KINDS.includes(job.kind as NotificationKind)) {

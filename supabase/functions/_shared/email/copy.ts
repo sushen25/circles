@@ -20,7 +20,7 @@ import { brand } from '@circles/config';
  *   appears in a body only to attribute their own note, as the artboard does.
  * - **No subject or body says anything about a quiet ask to anybody but its
  *   initiator** — who started it, who is keen. The two quiet kinds that are
- *   emailed (`QUIET_KINDS`, ADR 00XX) go to the initiator's own address and
+ *   emailed (`QUIET_KINDS`, ADR 0038) go to the initiator's own address and
  *   nowhere else, and even they name nobody and carry no count.
  * - **Nothing here sells anything.** "Operational only" is the Emails artboard's
  *   own caption, and the manifesto's list of things we never do includes "a
@@ -167,7 +167,7 @@ export const EN_EMAIL = {
     button: { label: 'See the options' },
   }),
 
-  /** The ThresholdRole artboard's words, to the initiator (ADR 00XX). No count, no names. */
+  /** The ThresholdRole artboard's words, to the initiator (ADR 0038). No count, no names. */
   thresholdInitiator: ({ circleName }: { circleName: string }): EmailCopy => ({
     subject: `${circleName}: enough people are keen`,
     preview: 'Do you want to pick the time?',
@@ -179,7 +179,7 @@ export const EN_EMAIL = {
     button: { label: 'Open the plan' },
   }),
 
-  /** The SparkExpired artboard's words, to the initiator (spec §5.4.7, ADR 00XX). */
+  /** The SparkExpired artboard's words, to the initiator (spec §5.4.7, ADR 0038). */
   quietExpired: ({ circleName }: { circleName: string }): EmailCopy => ({
     subject: `${circleName}: this one closed quietly`,
     preview: 'Not enough people were free this time.',
@@ -267,7 +267,7 @@ export const EN_EMAIL = {
     /** The owner's fallback on a quiet plan nobody took on (spec §5.4.5). */
     owner: (circleName: string) =>
       `You're getting this because you look after ${circleName} and nobody else has taken this on.`,
-    /** The quiet ask's two letters (ADR 00XX): why, and that nobody else got one. */
+    /** The quiet ask's two letters (ADR 0038): why, and that nobody else got one. */
     quiet: (circleName: string) =>
       `You're getting this because you asked ${circleName} quietly. Nobody else gets this email.`,
     sender: brand.name,

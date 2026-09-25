@@ -8,7 +8,7 @@ import { Layout } from './Layout.tsx';
 
 /**
  * The quiet ask's two letters, both to its initiator alone, at their own
- * address (ADR 00XX). Neither names anybody or carries a count; neither has a
+ * address (ADR 0038). Neither names anybody or carries a count; neither has a
  * stop link, because neither is a subscription — each is sent once, about the
  * reader's own ask, and the footer says so.
  */

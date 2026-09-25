@@ -41,6 +41,7 @@ Short records of decisions that shape the product or the code. A new ADR is requ
 | [0035](./0035-the-quiet-ask-at-twenty-members.md) | The quiet ask at twenty members: its threshold, its stop time, and what it does beside an open plan | accepted |
 | [0036](./0036-the-cadence-nudge-is-decided-once-per-cycle.md) | The cadence nudge is decided once per cycle, when circle home says it is about time | proposed |
 | [0037](./0037-usual-times-are-read-not-written.md) | A member's usual times are worked out when they are read, not written when they answer | proposed |
+| [0038](./0038-the-quiet-asks-initiator-is-written-to-at-their-own-address.md) | The quiet ask's initiator is written to at their own address | accepted |
 
 ## Template
 
