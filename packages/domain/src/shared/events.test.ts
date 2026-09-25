@@ -14,7 +14,7 @@ describe('domain events', () => {
     // the context it belongs to, which is the useful thing to be told.
     expect(byContext).toEqual({
       circles: 5,
-      planning: 9,
+      planning: 10,
       availability: 2,
       scheduling: 2,
       confirmation: 5,
