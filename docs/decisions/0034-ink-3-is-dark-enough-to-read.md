@@ -1,4 +1,4 @@
-# ADR 00XX: `ink-3` is dark enough to read
+# ADR 0034: `ink-3` is dark enough to read
 
 _Status: proposed · 24 September 2026_
 
