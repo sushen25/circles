@@ -58,6 +58,7 @@ Linear project **Circles MVP** (team Sushen). Ticket bodies cross-reference each
 | S2-07 | SUS-55 | Guest → saved place prompts, organiser gate, `record-nudge` |
 | S2-08 | SUS-56 | Slice 2 e2e and release |
 | S3-01 | SUS-57 | Native delivery, universal links, `app_installed_at` |
+| S3-01a | SUS-92 | Native delivery, the local half: deep links, native digest, MMKV drafts, `mark-app-installed`, app landing |
 | S3-02 | SUS-58 | Calendar overlay and native add-to-calendar |
 | S3-03 | SUS-59 | Push |
 | S3-04 | SUS-60 | Guest → app prompts |

@@ -1,0 +1,15 @@
+# Sign in, step two: the code from Mailpit (S3-01a). On this device's first
+# sign-in, `mark-app-installed` says it was the app's first open, and a member
+# with circles lands on the app landing.
+appId: app.circles.development
+---
+- inputText: ${CODE}
+- hideKeyboard
+# The keyboard's slide-out moves the button; tap it where it ends up.
+- waitForAnimationToEnd
+- tapOn: 'Continue'
+- extendedWaitUntil:
+    visible: 'Links you tap from the group chat will open here from now on.'
+    timeout: 30000
+- assertVisible: 'Welcome back, ${NAME}.'
+- assertNotVisible: ".*[Nn]otifications\\?"

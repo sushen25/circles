@@ -1,0 +1,21 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": [
+          "TEAMID.app.circles.production",
+          "TEAMID.app.circles.preview",
+          "TEAMID.app.circles.development"
+        ],
+        "components": [
+          { "/": "/join", "comment": "Circle invite; the secret is in the fragment" },
+          { "/": "/j/*", "comment": "Plan invite short link" },
+          { "/": "/p/*", "comment": "Plan page and its sub-pages" },
+          { "/": "/a", "comment": "Re-entry from an email; the token is in the fragment" },
+          { "/": "/e", "comment": "Email preferences; the token is in the fragment" },
+          { "/": "/v", "comment": "Email verification; the token is in the fragment" }
+        ]
+      }
+    ]
+  }
+}

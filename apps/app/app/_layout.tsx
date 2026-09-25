@@ -4,6 +4,7 @@ import Head from 'expo-router/head';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
+import { LogBox } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -19,6 +20,15 @@ import { ShellScreen } from '../src/features/system/ShellScreen';
 import { useHydrated } from '../src/platform/hydration';
 
 void SplashScreen.preventAutoHideAsync();
+
+// A development build's warning banner sits over the foot of every screen and
+// takes the tap meant for its button — the native smoke found it on the code
+// step (S3-01a). This one says Hermes has no Web Crypto, so `supabase-js`
+// would send a plain PKCE challenge; nothing here uses one (sign-in is a
+// six-digit code, `verifyOtp`, and never a redirect), so it is noise. Any
+// other warning still shows. Development builds only: LogBox is not in a
+// release bundle.
+LogBox.ignoreLogs(['WebCrypto API is not supported']);
 
 // Once, at the root, before any screen can record anything. `track()` buffers
 // until a transport exists; without this line every event in the product

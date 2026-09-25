@@ -39,6 +39,7 @@ const auth = {
   bootstrapProfile: vi.fn(),
   ownProfile: vi.fn(),
   saveProfile: vi.fn(),
+  appTierSettled: vi.fn(async () => ({ firstOpen: false })),
 };
 vi.mock('../../data/auth', async () => {
   const { safeReturnPath } = await import('../../data/auth/returnPath');
@@ -254,6 +255,28 @@ describe('signing in by email', () => {
 
     await waitFor(() => expect(replace).toHaveBeenCalledWith('/circles'));
     expect(track).not.toHaveBeenCalledWith('account_completed', expect.anything());
+  });
+
+  it("lands the app's first open on the app landing, counted once (S3-01a)", async () => {
+    auth.ownProfile.mockResolvedValue({ name: 'Maya', zone: 'Australia/Melbourne' });
+    newestCircleId.mockResolvedValue('c1');
+    auth.appTierSettled.mockResolvedValueOnce({ firstOpen: true });
+    wrap(<SignInFlow />);
+    await sendCodeTo(ADDRESS);
+    await enter('123456');
+
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/get-the-app/welcome'));
+    expect(track).toHaveBeenCalledWith('app_first_open_linked', {});
+  });
+
+  it('still goes straight back to the plan link on a first open: the link is what they came for', async () => {
+    auth.appTierSettled.mockResolvedValueOnce({ firstOpen: true });
+    wrap(<SignInFlow returnTo="/p/abcdefgh" />);
+    await sendCodeTo(ADDRESS);
+    await enter('123456');
+
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/p/abcdefgh'));
+    expect(track).toHaveBeenCalledWith('app_first_open_linked', {});
   });
 
   it("leaves a returning account's zone alone, UTC included (review round 1)", async () => {

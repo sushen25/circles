@@ -4,7 +4,13 @@ import { useEffect, useState, useSyncExternalStore } from 'react';
 
 import { track } from '../../../analytics/track';
 import { ensureGuestSession } from '../../../data/auth/guest';
-import { fetchInvitePreview, heldInvite, takeInviteOpen } from '../../../data/membership';
+import {
+  fetchInvitePreview,
+  heldInvite,
+  inviteGeneration,
+  subscribeInvite,
+  takeInviteOpen,
+} from '../../../data/membership';
 import { LinkInvalidScreen } from '../LinkInvalidScreen';
 import { MainScreen } from '../MainScreen';
 import { isOffline } from './failure';
@@ -20,8 +26,8 @@ import { isOffline } from './failure';
  * into a query key, a log or an event.
  */
 
-// The held invite changes only by this flow's own hand, so nothing to subscribe to.
-const noSubscription = () => () => undefined;
+// On the web the held invite changes only by a page load. In the app a second
+// invite can arrive while this page is open (S3-01a), so the page listens.
 const clientInvite = (): string | null => heldInvite() ?? null;
 const serverInvite = (): undefined => undefined;
 
@@ -38,7 +44,7 @@ export function JoinFlow() {
    * the server snapshot is `undefined`, and React swaps in the client's answer
    * once hydration is done.
    */
-  const secret = useSyncExternalStore(noSubscription, clientInvite, serverInvite);
+  const secret = useSyncExternalStore(subscribeInvite, clientInvite, serverInvite);
 
   useEffect(() => {
     if (typeof secret === 'string' && takeInviteOpen()) track('circle_join_opened', {});
@@ -50,7 +56,8 @@ export function JoinFlow() {
   const preview = useQuery({
     // No secret in the key. The cache, devtools and any error report read keys,
     // and there is only ever one invite in hand per tab.
-    queryKey: ['invite-preview'],
+    // The generation tells a second invite from the first without naming it.
+    queryKey: ['invite-preview', inviteGeneration()],
     queryFn: () => fetchInvitePreview(secret as string),
     enabled: typeof secret === 'string',
     staleTime: 0,
