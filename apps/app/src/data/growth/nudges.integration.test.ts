@@ -1,12 +1,7 @@
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { newIdempotencyKey } from '../functions';
-import {
-  as,
-  lockedIn,
-  nextOneLockedIn,
-  organiserWithPlan,
-} from '../testing/meetup.integration';
+import { as, lockedIn, nextOneLockedIn, organiserWithPlan } from '../testing/meetup.integration';
 import { readStackConfig, sql, type Stack } from '../testing/stack.integration';
 
 /**

@@ -1,13 +1,6 @@
 import { expect, test, type Page } from './fixtures';
 import { addressFor, joinsAndAnswers, sendEvenings } from './journeys';
-import {
-  guestWhoAnswered,
-  latestCodeFor,
-  memberNamed,
-  plansIn,
-  sql,
-  sundayCrew,
-} from './stack';
+import { guestWhoAnswered, latestCodeFor, memberNamed, plansIn, sql, sundayCrew } from './stack';
 
 /**
  * Guest → saved place (S2-07, spec §5.11): the prompts appear only after the
