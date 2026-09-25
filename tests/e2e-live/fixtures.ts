@@ -31,7 +31,7 @@ export type { Browser, Page } from '@playwright/test';
  *    spends them. Not guarded: the test's own `request` fixture, which is the
  *    test speaking, not the page.
  * 2. **No page fails to hydrate** (SUS-90). The served HTML is the same
- *    neutral shell on every route (ADR 00XX), so the first client render
+ *    neutral shell on every route (ADR 0040), so the first client render
  *    matches it wherever the browser is and whatever its locale. A React
  *    hydration error (#418 and its kin) on any page, in any context the test
  *    opens, fails the test. Nothing waits for hydration after `goto`: a test

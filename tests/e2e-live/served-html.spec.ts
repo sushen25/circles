@@ -3,7 +3,7 @@ import { accountToSignInTo, latestCodeFor, memberNamed, sundayCrew } from './sta
 
 /**
  * What the served HTML says before any script runs, and what happens to a
- * person who is quicker than the script (SUS-90, ADR 00XX).
+ * person who is quicker than the script (SUS-90, ADR 0040).
  *
  * Every page is rendered once, at export, for every visitor at once, so the
  * HTML is a neutral shell on every route: no refusal it cannot know is true, no

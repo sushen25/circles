@@ -34,7 +34,7 @@ const baseURL = `http://localhost:${PORT}`;
  *
  * - **iphone-safari-en-au** — mobile Safari in `en-AU`, against a server in
  *   `en-US` (`tests/locale.ts`). The served HTML is a shell with nothing
- *   locale-dependent in it (ADR 00XX), so a browser in another locale than the
+ *   locale-dependent in it (ADR 0040), so a browser in another locale than the
  *   export's hydrates cleanly; `fixtures.ts` fails any test whose page reports
  *   a hydration error, and this project is where a date rendered into the
  *   server's *text* would be caught (SUS-90). React's production build reports

@@ -4,7 +4,7 @@
  * Until SUS-90 this pinned both sides of hydration to one locale, because the
  * served HTML formatted dates in the export machine's locale and a browser in
  * any other one met a hydration mismatch (#418) on every screen with a date
- * (SUS-87). That HTML is now a neutral shell on every route (ADR 00XX): nothing
+ * (SUS-87). That HTML is now a neutral shell on every route (ADR 0040): nothing
  * locale-dependent is rendered anywhere but on the device, so the two sides
  * cannot disagree, and the live suite proves it with a project whose browser
  * is in `OTHER_LOCALE` against a server in `LOCALE`.

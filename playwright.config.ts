@@ -18,7 +18,7 @@ const baseURL = `http://localhost:${PORT}`;
  *
  * The locale is pinned (`tests/locale.ts`) so the fixture journey reads the
  * same dates everywhere. It no longer guards hydration: the served HTML is a
- * shell with nothing locale-dependent in it (ADR 00XX), so the `pageerror`
+ * shell with nothing locale-dependent in it (ADR 0040), so the `pageerror`
  * check in `journey.spec.ts` holds in any locale.
  */
 // Which build this suite needs, for `tests/expect-build-mode.ts` below.

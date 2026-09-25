@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from 'react';
 
 /**
- * Whether React owns this page yet (ADR 00XX).
+ * Whether React owns this page yet (ADR 0040).
  *
  * The web build's HTML is rendered once, at export, with no visitor in it: no
  * route parameter, no fragment, no session, no locale, no zone, no clock but

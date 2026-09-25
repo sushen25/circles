@@ -1,4 +1,4 @@
-# ADR 00XX: The served HTML is a neutral shell; every screen renders on the device
+# ADR 0040: The served HTML is a neutral shell; every screen renders on the device
 
 _Status: proposed · 25 September 2026_
 

@@ -3,7 +3,7 @@ import { t } from '../../copy';
 
 /**
  * What the served HTML shows, on every route, until React owns the page
- * (ADR 00XX).
+ * (ADR 0040).
  *
  * Deliberately knows nothing. The HTML is rendered once, at export, for every
  * visitor at once: it cannot tell a member from a stranger, a plan from a typo,

@@ -47,7 +47,7 @@ export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts(fontAssets);
 
   /**
-   * The served HTML is a shell, on every route (ADR 00XX).
+   * The served HTML is a shell, on every route (ADR 0040).
    *
    * Every page is rendered once, at export, for every visitor at once — with
    * no route parameter, no session, and the build machine's locale and zone.

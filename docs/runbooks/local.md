@@ -263,7 +263,7 @@ pnpm mail maya.local@example.com
 | `pnpm db:test` | yes | **Resets the database**, then pgTAP. |
 | `pnpm test:integration` | yes | The app's auth module against real Supabase Auth and Mailpit. |
 | `pnpm test:e2e:smoke` | no | Exports the web app **with no backend** and walks the fixture journey. |
-| `pnpm test:e2e:live` | yes | Exports the web app pointed at the local stack and walks the journeys in five browser projects: mobile Safari and Messenger's iOS browser (WebKit), Chrome and WhatsApp's Android browser (Chromium), and mobile Safari again in `en-AU` against the `en-US` export, on the specs a chat link lands on and the ones that write dates (ADR 00XX). Needs `pnpm exec playwright install chromium webkit` once. |
+| `pnpm test:e2e:live` | yes | Exports the web app pointed at the local stack and walks the journeys in five browser projects: mobile Safari and Messenger's iOS browser (WebKit), Chrome and WhatsApp's Android browser (Chromium), and mobile Safari again in `en-AU` against the `en-US` export, on the specs a chat link lands on and the ones that write dates (ADR 0040). Needs `pnpm exec playwright install chromium webkit` once. |
 
 Run one file or one test with `pnpm exec vitest run <path>`, or
 `make test-live G="<part of a test name>" P=iphone-safari` (both optional). But `vitest run` does not

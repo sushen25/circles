@@ -64,7 +64,7 @@ There is no queue vendor, cache, search engine, analytics SaaS, CMS, map provide
 |---|---|---|---|
 | Language | TypeScript, strict, everywhere (client, domain, Edge Functions, scripts) | TS 5.x | One language for humans and agents; domain package shared verbatim between client and server |
 | Client framework | Expo SDK 57, React Native 0.86, React 19.2, Expo Router | Track latest stable SDK; upgrade once per quarter | Universal iOS/Android/web from one codebase; file-based routes mirror the screen inventory |
-| Web output | `web.output: "server"` | — | Needed for per-link Open Graph tags (review 6.7). Every page is still pre-rendered at export, so its HTML is a neutral shell and every screen renders on the device **ADR 00XX** |
+| Web output | `web.output: "server"` | — | Needed for per-link Open Graph tags (review 6.7). Every page is still pre-rendered at export, so its HTML is a neutral shell and every screen renders on the device **ADR 0040** |
 | Web hosting | EAS Hosting, **Starter plan** (US$19/month) | — | Custom domain is paid-only on EAS; Starter is the cheapest plan that gives one **ADR-001** |
 | Native delivery | EAS Build (development builds), EAS Update, TestFlight, Play internal testing | — | Calendar and push modules need development builds; Expo Go is not a target |
 | Styling | React Native `StyleSheet` + a tokens package generated from the design manifesto; no Tailwind/NativeWind | — | Keeps the token vocabulary identical to `docs/design/gen.py`; fewer moving parts on web **ADR-002** |
