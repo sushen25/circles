@@ -1,5 +1,5 @@
 import type { ShortCode } from '@circles/contracts';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
 
 import { track } from '../../analytics/track';
@@ -40,6 +40,7 @@ export function ReattachedNudgeFlow({
   children: ReactNode;
 }) {
   const session = useSession();
+  const queryClient = useQueryClient();
   const [step, setStep] = useState<'nudge' | 'email'>('nudge');
 
   const question = useQuery({
@@ -58,6 +59,29 @@ export function ReattachedNudgeFlow({
   });
   const nudge = useNudge('reattached_save_place', { planId: plan?.id, enabled: answered });
 
+  // Saving is under way: held on screen whatever the session now says. Saved,
+  // the prompt's own rule would skip it, and the claim that finishes the save
+  // must still have somewhere to report a failure.
+  if (step === 'email') {
+    return (
+      <SavePlaceByEmail
+        moment="reattached"
+        circleName={plan?.circleName}
+        onSaved={async () => {
+          track('account_claimed', { moment: 'reattached' });
+          // Everything read as the guest, the gate's membership answer
+          // included, is read again as the saved place before the page is
+          // drawn: an address that already had an account is a different
+          // identity, which the claim has only now made a member.
+          await queryClient.invalidateQueries();
+          onDone();
+        }}
+        onNotNow={onDone}
+        onBack={() => setStep('nudge')}
+      />
+    );
+  }
+
   const loading = <ContinueAsScreen circleName={plan?.circleName} state="loading" />;
   if (question.isPending) return loading;
   // A read that failed or found nothing is not a reason to hold the page.
@@ -70,21 +94,6 @@ export function ReattachedNudgeFlow({
     nudge.dismiss();
     onDone();
   };
-
-  if (step === 'email') {
-    return (
-      <SavePlaceByEmail
-        moment="reattached"
-        circleName={plan.circleName}
-        onSaved={() => {
-          track('account_claimed', { moment: 'reattached' });
-          onDone();
-        }}
-        onNotNow={onDone}
-        onBack={() => setStep('nudge')}
-      />
-    );
-  }
 
   return (
     <ReattachedNudgeScreen

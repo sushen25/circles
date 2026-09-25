@@ -80,9 +80,15 @@ function LiveAnother({ id }: { id: string }) {
     queryFn: () => lastHappenedPlan(id),
     enabled: member.kind === 'allow',
   });
-  // The server's word that a saved place is needed, when the session had not
-  // said so: the gate, as for a guest (S2-07).
+  // The gate, once a guest has met it, stays until it says it is finished —
+  // not only until the session is saved. The session flips as soon as the
+  // sign-in is through, before `claim-identity` has moved the membership, and
+  // the form drawn in that gap reads a circle this identity is not in yet
+  // (review round 2). Also the server's word that a saved place is needed,
+  // when the session had not said so (S2-07). Adjusted while rendering, so no
+  // frame of the form is drawn in between.
   const [mustSave, setMustSave] = useState(false);
+  if (decision.kind === 'needs_saved_place' && !mustSave) setMustSave(true);
 
   const back = () =>
     router.canGoBack()
@@ -111,7 +117,7 @@ function LiveAnother({ id }: { id: string }) {
   }
   // A guest member saves their place here, in place of the form, and the form
   // follows once they have: the guard answers `allow` (ADR 0004, S2-07).
-  if (decision.kind === 'needs_saved_place' || mustSave) {
+  if (mustSave) {
     return (
       <InitiateGateFlow
         intent="plan"

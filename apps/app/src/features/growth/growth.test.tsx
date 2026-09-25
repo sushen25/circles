@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import type { ReactNode } from 'react';
+import { useSyncExternalStore, type ReactNode } from 'react';
 import { Text } from 'react-native';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -24,14 +24,33 @@ const session = { status: 'guest', userId: 'priya', isAnonymous: true, isLoading
 const savePlace = vi.fn();
 const requestLinkCode = vi.fn();
 const bootstrapProfile = vi.fn();
-vi.mock('../../data/auth/session', () => ({ useSession: () => session }));
+// A store the screens subscribe to, as the real one is: a sign-in that flips
+// the session re-renders whoever reads it.
+const sessionListeners = new Set<() => void>();
+let sessionVersion = 0;
+function flipSession(patch: Partial<typeof session>) {
+  Object.assign(session, patch);
+  sessionVersion += 1;
+  for (const listener of sessionListeners) listener();
+}
+function useSessionMock() {
+  useSyncExternalStore(
+    (listener) => {
+      sessionListeners.add(listener);
+      return () => sessionListeners.delete(listener);
+    },
+    () => sessionVersion,
+  );
+  return session;
+}
+vi.mock('../../data/auth/session', () => ({ useSession: useSessionMock }));
 vi.mock('../../data/auth', async () => {
   const { guard } = await import('../../data/auth/guards');
   const { SavePlaceError } = await import('../../data/auth/link');
   return {
     guard,
     SavePlaceError,
-    useSession: () => session,
+    useSession: useSessionMock,
     savePlace: (...a: unknown[]) => savePlace(...a),
     requestLinkCode: (...a: unknown[]) => requestLinkCode(...a),
     submitLinkCode: vi.fn(),
@@ -207,6 +226,38 @@ describe('Keep your place for good?', () => {
       'dismissed',
       expect.any(String),
     );
+  });
+
+  it('keeps the save on screen once it has begun, so a claim that fails can say so (review round 2)', async () => {
+    const { SavePlaceError } = await import('../../data/auth/link');
+    savePlace.mockImplementation(() => {
+      // The sign-in is through, so the session is saved; the claim then fails.
+      flipSession({ status: 'saved', isAnonymous: false });
+      return Promise.reject(new SavePlaceError(undefined, 'claim failed'));
+    });
+    wrap(
+      <ReattachedNudgeFlow code="pnsundaycr" onDone={vi.fn()}>
+        {page}
+      </ReattachedNudgeFlow>,
+    );
+    fireEvent.click(await screen.findByRole('button', { name: 'Save my place' }));
+    fireEvent.change(await screen.findByLabelText('Your email'), {
+      target: { value: 'kit@example.com' },
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Send me a code' }));
+    });
+    fireEvent.change(await screen.findByLabelText('Code'), { target: { value: '123456' } });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    });
+
+    expect(
+      await screen.findByText(
+        "Something went wrong, so your place wasn't saved. Please try again.",
+      ),
+    ).toBeVisible();
+    expect(screen.queryByText('the plan page')).toBeNull();
   });
 
   it('never stands in front of an answer: somebody who has not answered sees the page', async () => {

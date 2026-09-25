@@ -114,9 +114,15 @@ function LiveSetup({
     enabled: member.kind === 'allow',
     staleTime: 0,
   });
-  // The server's word that a saved place is needed, when the session had not
-  // said so: the gate, as for a guest (S2-07).
+  // The gate, once a guest has met it, stays until it says it is finished —
+  // not only until the session is saved. The session flips as soon as the
+  // sign-in is through, before `claim-identity` has moved the membership, and
+  // the form drawn in that gap reads a circle this identity is not in yet
+  // (review round 2). Also the server's word that a saved place is needed,
+  // when the session had not said so (S2-07). Adjusted while rendering, so no
+  // frame of the form is drawn in between.
   const [mustSave, setMustSave] = useState(false);
+  if (decision.kind === 'needs_saved_place' && !mustSave) setMustSave(true);
   // The moment the screen was opened: the preview is of a plan made about now,
   // and reading the clock during a render would make it a different plan each
   // time React draws it.
@@ -151,7 +157,7 @@ function LiveSetup({
   }
   // A guest member saves their place here, in place of the form, and the form
   // follows once they have: the guard answers `allow` (ADR 0004, S2-07).
-  if (decision.kind === 'needs_saved_place' || mustSave) {
+  if (mustSave) {
     return (
       <InitiateGateFlow
         intent="plan"

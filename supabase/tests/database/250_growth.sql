@@ -6,7 +6,7 @@
 -- happened on Maya's word, and 17 September, which Priya says she was at.
 
 begin;
-select plan(23);
+select plan(24);
 
 create or replace function pg_temp.make_user(id uuid, name text, permanent boolean default true)
 returns uuid language sql as $$
@@ -176,7 +176,9 @@ select is(
   'but one Priya herself says she was at does'
 );
 
--- A history older than the reports: the circle's "last caught up" before it.
+-- "Last caught up" alone is not a meetup: only a `happened` report moves it,
+-- and the report is what is counted, so the answer is the same whether or not
+-- the organiser has reported Thursday yet (review round 2).
 select pg_temp.act_as_postgres();
 delete from public.attendance
 where confirmation_id = (select id from public.meetup_confirmations where plan_id = :'march');
@@ -185,17 +187,27 @@ where id = (select circle_id from t);
 select pg_temp.act_as('25000000-0000-0000-0000-0000000000a2', true);
 select is(
   (select first_in_circle from public.after_attendance_facts(:'thursday')),
-  false,
-  'a circle that last met in August has met before Thursday'
+  true,
+  'before Maya reports Thursday, it is the first'
 );
 select pg_temp.act_as_postgres();
-update public.circles set last_met_at = timestamptz '2026-09-17T08:30:00Z'
-where id = (select circle_id from t);
+insert into public.outcome_reports (confirmation_id, reported_by, outcome)
+select c.id, '25000000-0000-0000-0000-0000000000a1', 'happened'
+from public.meetup_confirmations c where c.plan_id = :'thursday';
 select pg_temp.act_as('25000000-0000-0000-0000-0000000000a2', true);
 select is(
-  (select first_in_circle from public.after_attendance_facts(:'thursday')),
-  true,
-  'while "last caught up" at Thursday itself is Thursday''s own'
+  (select array[attended, first_in_circle] from public.after_attendance_facts(:'thursday')),
+  array[true, true],
+  'and after, still: reporting this meetup does not change whether it was the first'
+);
+select pg_temp.act_as_postgres();
+update public.outcome_reports set outcome = 'cancelled'
+where confirmation_id = (select id from public.meetup_confirmations where plan_id = :'thursday');
+select pg_temp.act_as('25000000-0000-0000-0000-0000000000a2', true);
+select is(
+  (select attended from public.after_attendance_facts(:'thursday')),
+  false,
+  'an evening the organiser says was called off is not the moment, whatever Priya said'
 );
 
 -- ---------------------------------------------------------------------------
@@ -250,13 +262,13 @@ select throws_ok(
 
 -- When the answer was given: stamped, and kept through anything but a new answer.
 select is(
-  (select answered_at from public.nudge_states where moment = 'reattached_save_place'),
+  (select answered_at from public.nudge_states where moment = 'reattached_save_place' and plan_id = :'thursday'),
   null,
   'a prompt shown and not answered has no answer time'
 );
-update public.nudge_states set answer = 'dismissed' where moment = 'reattached_save_place';
+update public.nudge_states set answer = 'dismissed' where moment = 'reattached_save_place' and plan_id = :'thursday';
 select isnt(
-  (select answered_at from public.nudge_states where moment = 'reattached_save_place'),
+  (select answered_at from public.nudge_states where moment = 'reattached_save_place' and plan_id = :'thursday'),
   null,
   '"not now" stamps when it was said, which is what the 30-day back-off counts from'
 );
@@ -264,12 +276,12 @@ select pg_temp.act_as_postgres();
 -- Backdated past the trigger, which would otherwise keep the time it stamped.
 alter table public.nudge_states disable trigger nudge_states_stamp_answer;
 update public.nudge_states set answered_at = timestamptz '2026-09-01T00:00:00Z'
-where moment = 'reattached_save_place';
+where moment = 'reattached_save_place' and plan_id = :'thursday';
 alter table public.nudge_states enable trigger nudge_states_stamp_answer;
 update public.nudge_states set user_id = '25000000-0000-0000-0000-0000000000a3'
-where moment = 'reattached_save_place';
+where moment = 'reattached_save_place' and plan_id = :'thursday';
 select is(
-  (select answered_at from public.nudge_states where moment = 'reattached_save_place'),
+  (select answered_at from public.nudge_states where moment = 'reattached_save_place' and plan_id = :'thursday'),
   timestamptz '2026-09-01T00:00:00Z',
   'and a reattach moving the row to a new identity does not restart the clock'
 );

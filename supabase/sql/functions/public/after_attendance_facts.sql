@@ -9,12 +9,14 @@
 -- a member cannot count the circle's attendance, because
 -- `attendance_select_member` shows a retrospective answer to its subject alone.
 --
--- **Known to have happened** is any of three things about another meetup of the
--- circle: the organiser reported it `happened`; the caller said `was_there` to
--- it; or the circle's `last_met_at` is before this one, which is how a history
--- older than the outcome report — a circle set up with "last caught up" — is
--- counted too. `last_met_at` never moves backwards and only `happened` moves
--- it, so a value at or after this meetup's start is this meetup's own.
+-- **Known to have happened** is either of two things about another meetup of
+-- the circle: the organiser reported it `happened`, or the caller said
+-- `was_there` to it. Not `circles.last_met_at`: `apply_outcome` is the only
+-- thing that moves it, on a `happened` report — which is counted already — and
+-- it keeps only the latest, so reading it made the answer depend on whether the
+-- organiser had reported *this* meetup yet (review round 2). And this meetup
+-- itself must not have been reported `cancelled`: "I was there" on an evening
+-- the organiser says did not go ahead is not the moment either.
 --
 -- **Security invoker, as the caller.** Every row it reads is one RLS already
 -- shows a member — the plan, its confirmations, the outcome reports, the
@@ -39,6 +41,12 @@ as $$
       where c.plan_id = p.id
         and a.user_id = (select auth.uid())
         and a.status = 'was_there'
+    )
+    and not exists (
+      select 1
+      from public.outcome_reports o
+      join public.meetup_confirmations c on c.id = o.confirmation_id
+      where c.plan_id = p.id and o.outcome = 'cancelled'
     ) as attended,
     not exists (
       select 1
@@ -58,16 +66,8 @@ as $$
               and a.status = 'was_there'
           )
         )
-    )
-    and (
-      ci.last_met_at is null
-      or ci.last_met_at >= coalesce(
-        (select min(c.starts_at) from public.meetup_confirmations c where c.plan_id = p.id),
-        ci.last_met_at
-      )
     ) as first_in_circle
   from public.plans p
-  join public.circles ci on ci.id = p.circle_id
   where p.id = p_plan_id;
 $$;
 
