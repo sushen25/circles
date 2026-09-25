@@ -129,3 +129,72 @@ export function summariseDayparts(
     }),
   }));
 }
+
+/**
+ * "Use my usual times" (ADR 0005, S2-06): the dayparts somebody usually
+ * offers in a circle, from everything the database still knows about them
+ * there, or `undefined` when there is not yet enough to call anything usual.
+ *
+ * **Worked out on read, from two sources that never overlap** (ADR 00XX).
+ * `member_dayparts` holds the counts of windows retention has already deleted
+ * — a running total it adds to before each deletion — and the member's own
+ * retained answers hold the rest. Adding the two is the whole summary, as
+ * fresh as the last answer, with nothing written when somebody answers.
+ *
+ * Two rules, both deliberately modest:
+ *
+ * - **At least `MIN_PRIOR_ANSWERS` earlier answers with times**, so that one
+ *   plan's answer is not mistaken for a habit. A stored summary counts as one:
+ *   it says there were answers but not how many, and one is the most it
+ *   proves.
+ * - **Usual means at least half as often as the most-offered daypart.** A
+ *   person who offered weekday evenings four times and a Saturday morning
+ *   once is usually free on weekday evenings; one who offered both twice is
+ *   usually free for either.
+ *
+ * Only ever the person's own answers, for their own next answer: nothing here
+ * says anything about anybody who has not answered (ADR 0005).
+ */
+export const MIN_PRIOR_ANSWERS = 2;
+
+export type PriorAnswer = {
+  readonly status: Response['status'];
+  readonly windows: readonly Interval[];
+  /** The zone of the plan it answered: dayparts are that plan's local hours. */
+  readonly zone: Zone;
+};
+
+export function usualDayparts(input: {
+  /** `member_dayparts.summary.counts`, or undefined when there is no row. */
+  readonly stored?: Partial<Record<DayPart, number>> | undefined;
+  /** One per earlier plan in the circle — its latest answer — not this one. */
+  readonly answers: readonly PriorAnswer[];
+}): readonly DayPart[] | undefined {
+  const counts = emptyCounts();
+  let answered = 0;
+
+  if (input.stored !== undefined) {
+    let any = false;
+    for (const part of ORDER) {
+      const n = input.stored[part];
+      if (typeof n === 'number' && Number.isFinite(n) && n > 0) {
+        counts[part] += n;
+        any = true;
+      }
+    }
+    if (any) answered += 1;
+  }
+
+  for (const answer of input.answers) {
+    if (answer.status !== 'windows' || answer.windows.length === 0) continue;
+    answered += 1;
+    for (const window of answer.windows) {
+      for (const part of dayPartsCovered(window, answer.zone)) counts[part] += 1;
+    }
+  }
+
+  if (answered < MIN_PRIOR_ANSWERS) return undefined;
+  const most = Math.max(...ORDER.map((part) => counts[part]));
+  if (most === 0) return undefined;
+  return ORDER.filter((part) => counts[part] > 0 && counts[part] * 2 >= most);
+}

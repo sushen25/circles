@@ -12,7 +12,8 @@ import { listOf } from '../scheduling/sentences';
 import { nameList } from '../scheduling/names';
 import type { DeadlineChoice } from './deadlines';
 import { bandWords, deviceTimeFormat } from './firstPlan';
-import type { Band, ResolveProblem } from './form';
+import type { Band, PlanDraft, ResolveProblem } from './form';
+import { whenWords } from './when';
 
 /**
  * What the plan screens say, from the copy file and the plan. Kept apart from
@@ -91,15 +92,52 @@ export function quorumLine(quorum: number, members: number): string {
     : t('planSetup', 'quorum_at_least', { count: quorum });
 }
 
-/** "Replies close in 3 days" — how long, from the moment the screen was opened. */
+/**
+ * "Replies close in 3 days" — how long, from the moment the screen was opened.
+ *
+ * In minutes for anything under an hour and a half: tonight's default is "the
+ * earlier of 60 minutes and half an hour before the last start" (§5.3), and
+ * "about an hour" would blur exactly the number the organiser is choosing
+ * between — "in 60 minutes" against "in 35 minutes" (S2-06).
+ */
 export function closesIn(deadline: string, now: number): string {
   const minutes = Math.max(0, Math.round((Date.parse(deadline) - now) / 60_000));
-  if (minutes < 55) return t('planSetup', 'closes_in_minutes', { count: minutes });
-  if (minutes < 90) return t('planSetup', 'closes_in_an_hour');
+  if (minutes < 90) return t('planSetup', 'closes_in_minutes', { count: minutes });
   const hours = Math.round(minutes / 60);
   if (hours < 48) return t('planSetup', 'closes_in_hours', { count: hours });
   return t('planSetup', 'closes_in_days', { count: Math.round(hours / 24) });
 }
+
+/**
+ * The line under "Replies close in …" on a new plan.
+ *
+ * A default deadline says the organiser can pick sooner. **A default that is
+ * the last possible start says why it is so close** (ADR 0010): a tonight plan
+ * made with half an hour to spare closes replies at the very time the meetup
+ * would begin, and "Closes 9 pm" beside a 9 pm start reads like a mistake
+ * unless the screen says it is the latest replies can stay open.
+ */
+export function closesDetail(
+  resolved: { deadline: string; latestStart: string },
+  draft: Pick<PlanDraft, 'deadline'>,
+  zone: string,
+): string {
+  if (draft.deadline !== undefined) return whenWords(resolved.deadline, zone);
+  if (isLatest(resolved)) return closesAtWords(resolved, zone);
+  return t('planSetup', 'closes_at_sooner', { deadline: whenWords(resolved.deadline, zone) });
+}
+
+/** "Tue 15 Sep, 6 pm", or why it is the very last moment (FirstPlan's line). */
+export function closesAtWords(
+  resolved: { deadline: string; latestStart: string },
+  zone: string,
+): string {
+  const deadline = whenWords(resolved.deadline, zone);
+  return isLatest(resolved) ? t('planSetup', 'closes_at_latest', { deadline }) : deadline;
+}
+
+const isLatest = (resolved: { deadline: string; latestStart: string }) =>
+  Date.parse(resolved.deadline) === Date.parse(resolved.latestStart);
 
 export function deadlineChoiceLabel(choice: DeadlineChoice): string {
   switch (choice) {
@@ -114,6 +152,13 @@ export function deadlineChoiceLabel(choice: DeadlineChoice): string {
     case 'latest':
       return t('planSetup', 'deadline_latest');
   }
+}
+
+/** Why the Tonight chip is off, when it is (`tonightNote`). */
+export function tonightNoteWords(note: 'shorter' | 'too_late'): string {
+  return note === 'shorter'
+    ? t('planSetup', 'tonight_needs_shorter')
+    : t('planSetup', 'tonight_too_late');
 }
 
 /** Why the form cannot be sent, pointing at the control that is wrong. */

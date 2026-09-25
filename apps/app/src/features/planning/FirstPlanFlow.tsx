@@ -12,10 +12,11 @@ import { circleHome } from '../../data/circles';
 import { newIdempotencyKey } from '../../data/functions';
 import { createFirstPlan } from '../../data/planning';
 import { failureOf, isOffline } from '../identity/join/failure';
-import { bandWords, firstPlanPreview } from './firstPlan';
+import { bandWords, FIRST_PLAN_PRESETS, firstPlanPreview, type FirstPlanPreset } from './firstPlan';
 import { FirstPlanScreen, type FirstPlanProblem } from './FirstPlanScreen';
+import { tonightNote, WINDOW_EVENT } from './form';
 import { PlanInProgress } from './PlanInProgressFlow';
-import { whenWords } from './when';
+import { closesAtWords, closesIn, presetLabel, tonightNoteWords } from './words';
 
 /**
  * `/circles/:id/plan/new` — the first plan, defaults accepted (spec §5.1): one
@@ -39,6 +40,12 @@ function FixtureFirstPlan() {
   const router = useRouter();
   return (
     <FirstPlanScreen
+      presets={FIRST_PLAN_PRESETS.map((each) => ({
+        key: each,
+        label: presetLabel(each),
+        selected: each === 'next_14_days',
+        onPress: () => undefined,
+      }))}
       onNext={() => router.push('/circles/sunday-crew/plan/thu-17/shared')}
       onJustInvite={() => router.push('/circles/sunday-crew/invite')}
       onBack={() => router.back()}
@@ -55,7 +62,17 @@ const DURATION: Record<number, () => string> = {
   300: () => t('firstPlan', 'about_5_hours'),
 };
 
-const REASONS: Record<string, FirstPlanProblem> = { too_many_requests: 'too_many_tries' };
+const REASONS: Record<string, FirstPlanProblem> = {
+  too_many_requests: 'too_many_tries',
+  // Tonight chosen, and the evening ran out while the card was open.
+  too_late_for_tonight: 'too_late',
+};
+
+const WINDOW_TITLE: Record<FirstPlanPreset, () => string> = {
+  next_14_days: () => t('firstPlan', 'catch_up_next_14_days'),
+  this_weekend: () => t('firstPlan', 'catch_up_this_weekend'),
+  tonight: () => t('firstPlan', 'catch_up_tonight'),
+};
 
 function LiveFirstPlan({ id }: { id: string }) {
   const router = useRouter();
@@ -92,6 +109,7 @@ function LiveFirstPlan({ id }: { id: string }) {
   // and reading the clock during a render would make it a different plan each
   // time React draws it.
   const [openedAt] = useState(() => Date.now());
+  const [preset, setPreset] = useState<FirstPlanPreset>('next_14_days');
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<FirstPlanProblem | undefined>();
   const [reference, setReference] = useState<string | undefined>();
@@ -125,20 +143,16 @@ function LiveFirstPlan({ id }: { id: string }) {
   }
   // No plan running, so the card is next, and the card needs a saved place.
   if (decision.kind !== 'allow') return <FirstPlanScreen state="loading" onBack={back} />;
-  const preview = firstPlanPreview(
-    {
-      zone: data.zone,
-      defaultDurationMinutes: data.defaultDurationMinutes,
-      defaultQuorum: data.defaultQuorum,
-      members: data.members.length,
-    },
-    fromISO(new Date(openedAt).toISOString()),
-  );
+  const input = {
+    zone: data.zone,
+    defaultDurationMinutes: data.defaultDurationMinutes,
+    defaultQuorum: data.defaultQuorum,
+    members: data.members.length,
+  };
+  const opened = fromISO(new Date(openedAt).toISOString());
+  const preview = firstPlanPreview(input, opened, preset);
   const band = bandWords(preview.band);
-  const hoursLeft =
-    preview.deadline === undefined
-      ? undefined
-      : Math.round((Date.parse(preview.deadline) - openedAt) / 3_600_000);
+  const offTonight = tonightNote(undefined, preview.durationMinutes, opened, data.zone);
 
   const ask = async () => {
     if (inFlight.current) return;
@@ -151,14 +165,15 @@ function LiveFirstPlan({ id }: { id: string }) {
       const plan = await createFirstPlan({
         circleId: id as CircleId,
         title: t('firstPlan', 'plan_title'),
+        preset,
         idempotencyKey: key.current,
       });
       track('plan_created', {
         circle_id: id as CircleId,
         plan_id: plan.plan_id,
         mode: 'named',
-        window: 'next_two_weeks',
-        used_defaults: true,
+        window: WINDOW_EVENT[preset],
+        used_defaults: preset === 'next_14_days',
       });
       void queryClient.invalidateQueries({ queryKey: ['circle-home', id] });
       router.replace({
@@ -189,11 +204,27 @@ function LiveFirstPlan({ id }: { id: string }) {
   return (
     <FirstPlanScreen
       circleName={data.name}
-      window={t('firstPlan', 'catch_up_next_14_days')}
+      presets={FIRST_PLAN_PRESETS.map((each) => ({
+        key: each,
+        label: presetLabel(each),
+        selected: each === preset,
+        disabled: !firstPlanPreview(input, opened, each).available,
+        onPress: () => {
+          if (busy) return;
+          // A different plan is a different request (ADR 0016).
+          key.current = undefined;
+          setProblem(undefined);
+          setPreset(each);
+        },
+      }))}
+      presetNote={offTonight === undefined ? undefined : tonightNoteWords(offTonight)}
+      window={WINDOW_TITLE[preset]()}
       band={
-        preview.band.startMin >= 17 * 60
-          ? t('firstPlan', 'evenings', { time: band })
-          : t('firstPlan', 'days', { time: band })
+        preset === 'tonight'
+          ? t('firstPlan', 'tonight_hours', { time: band })
+          : preview.band.startMin >= 17 * 60
+            ? t('firstPlan', 'evenings', { time: band })
+            : t('firstPlan', 'days', { time: band })
       }
       duration={(DURATION[preview.durationMinutes] ?? DURATION[120]!)()}
       quorum={
@@ -202,13 +233,18 @@ function LiveFirstPlan({ id }: { id: string }) {
           : t('firstPlan', 'at_least', { count: preview.quorum })
       }
       closesIn={
-        hoursLeft === undefined
+        preview.deadline === undefined
           ? t('firstPlan', 'replies_close_in_3_days')
-          : hoursLeft >= 48
-            ? t('firstPlan', 'replies_close_in_days', { count: Math.round(hoursLeft / 24) })
-            : t('firstPlan', 'replies_close_in_hours', { count: hoursLeft })
+          : closesIn(preview.deadline, openedAt)
       }
-      closesAt={preview.deadline === undefined ? '' : whenWords(preview.deadline, data.zone)}
+      closesAt={
+        preview.deadline === undefined || preview.latestStart === undefined
+          ? ''
+          : closesAtWords(
+              { deadline: preview.deadline, latestStart: preview.latestStart },
+              data.zone,
+            )
+      }
       problem={problem}
       reference={reference}
       busy={busy}

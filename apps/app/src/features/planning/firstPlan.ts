@@ -23,7 +23,18 @@ import {
  * joins while the organiser is reading this card is counted (spec: "adjusts as
  * more people join").
  */
+/**
+ * The presets the first-run card offers (S2-06): the fortnight it has always
+ * defaulted to, and the two spontaneous ones. Next 7 days and Custom are the
+ * full setup's — the card is one tap with defaults, not a second form.
+ */
+export const FIRST_PLAN_PRESETS = ['next_14_days', 'this_weekend', 'tonight'] as const;
+export type FirstPlanPreset = (typeof FIRST_PLAN_PRESETS)[number];
+
 export type FirstPlanPreview = {
+  preset: FirstPlanPreset;
+  /** False when this preset cannot be made right now — tonight, late in the evening. */
+  available: boolean;
   durationMinutes: DurationMinutes;
   /** 17:30–22:30 for a fortnight, which is mostly weekdays (`dailyForRange`). */
   band: { startMin: number; endMin: number };
@@ -31,6 +42,8 @@ export type FirstPlanPreview = {
   members: number;
   /** ISO; undefined when the window leaves no room to reply (never, for a fortnight). */
   deadline: string | undefined;
+  /** ISO: the latest the meetup could begin, for the deadline's own words. */
+  latestStart: string | undefined;
 };
 
 export type PreviewInput = {
@@ -40,7 +53,11 @@ export type PreviewInput = {
   members: number;
 };
 
-export function firstPlanPreview(input: PreviewInput, now: Instant): FirstPlanPreview {
+export function firstPlanPreview(
+  input: PreviewInput,
+  now: Instant,
+  preset: FirstPlanPreset = 'next_14_days',
+): FirstPlanPreview {
   const zone = toZone(input.zone);
   const durationMinutes = (DURATIONS as readonly number[]).includes(input.defaultDurationMinutes)
     ? (input.defaultDurationMinutes as DurationMinutes)
@@ -52,25 +69,31 @@ export function firstPlanPreview(input: PreviewInput, now: Instant): FirstPlanPr
   // underneath, and since this ticket that is true.
   const quorum = input.defaultQuorum ?? softQuorum(input.members);
 
-  const resolved = resolvePreset('next_14_days', now, zone, { durationMinutes });
+  const resolved = resolvePreset(preset, now, zone, { durationMinutes });
   if (typeof resolved === 'string') {
     return {
+      preset,
+      available: false,
       durationMinutes,
       band: { startMin: 0, endMin: 0 },
       quorum,
       members: input.members,
       deadline: undefined,
+      latestStart: undefined,
     };
   }
   const latest = lastPossibleStart({ ...resolved, durationMinutes, zone });
-  const deadline = defaultDeadline('next_14_days', now, latest);
+  const deadline = defaultDeadline(preset, now, latest);
 
   return {
+    preset,
+    available: deadline !== undefined,
     durationMinutes,
     band: resolved.daily,
     quorum,
     members: input.members,
     deadline: deadline === undefined ? undefined : toISO(deadline),
+    latestStart: toISO(latest),
   };
 }
 

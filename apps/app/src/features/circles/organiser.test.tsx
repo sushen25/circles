@@ -365,6 +365,30 @@ describe('the first plan', () => {
     });
   });
 
+  it('offers this weekend and tonight too, and asks with the one picked (S2-06)', async () => {
+    // A Tuesday morning in Melbourne, so the weekend has a full day of replies ahead of it.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-09-15T00:00:00.000Z'));
+    createFirstPlan.mockResolvedValue({ plan_id: PLAN, short_code: 'abcdefgh' });
+    wrap(<FirstPlanFlow id={CIRCLE} />);
+
+    fireEvent.click(await screen.findByLabelText('This weekend'));
+    expect(screen.getByText('Catch up · this weekend')).toBeVisible();
+    expect(screen.getByText('Replies close in 24 hours')).toBeVisible();
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Ask the group' }));
+    });
+
+    expect(createFirstPlan).toHaveBeenCalledWith(
+      expect.objectContaining({ preset: 'this_weekend' }),
+    );
+    expect(track).toHaveBeenCalledWith(
+      'plan_created',
+      expect.objectContaining({ window: 'weekend', used_defaults: false }),
+    );
+    vi.useRealTimers();
+  });
+
   it('sends a guest member to save their place and back, not to a fixture (review round 4)', async () => {
     Object.assign(session, { status: 'guest', userId: 'priya', isAnonymous: true });
     wrap(<FirstPlanFlow id={CIRCLE} />);

@@ -13,13 +13,28 @@ import {
   type BandKind,
 } from './bands';
 import type { CustomWindowProps } from './CustomWindowScreen';
-import { presetAvailable, PRESETS, quorumRange, type PlanDraft, type ResolveProblem } from './form';
+import {
+  presetAvailable,
+  PRESETS,
+  quorumRange,
+  tonightNote,
+  type PlanDraft,
+  type ResolveProblem,
+} from './form';
 import type { Band, DateRange } from './form';
 import type { PlanControlsProps, WhenChip } from './PlanControls';
 import type { DeadlineSheetProps, RequiredSheetProps } from './sheets';
 import { useCustomWindow } from './useCustomWindow';
 import { useDeadlineSheet } from './useDeadlineSheet';
-import { closesIn, datesWords, presetLabel, problemWords, quorumLine, timeWords } from './words';
+import {
+  closesIn,
+  datesWords,
+  presetLabel,
+  problemWords,
+  quorumLine,
+  timeWords,
+  tonightNoteWords,
+} from './words';
 
 /**
  * The plan form's state, shared by PlanSetup and EditPlan — the same controls,
@@ -174,6 +189,9 @@ export function usePlanForm({
     }),
   ];
 
+  // The Tonight chip is never off without saying why (S2-06).
+  const offTonight = tonightNote(draft.band, draft.duration, now, context.zone);
+
   const required = draft.required ?? (context.me === undefined ? [] : [context.me]);
   const requiredNames = [
     ...(context.me !== undefined && required.includes(context.me) ? [t('planSetup', 'you')] : []),
@@ -199,6 +217,7 @@ export function usePlanForm({
     setCategory: (category) => change({ category }),
     controls: {
       when,
+      whenNote: offTonight === undefined ? undefined : tonightNoteWords(offTonight),
       band: bandPicker,
       duration: draft.duration,
       onDuration: (duration: DurationMinutes) => change({ duration }),

@@ -1,6 +1,10 @@
 import {
   applyShortcut,
+  applyTonightShortcut,
+  isWeekend,
   windowsToCells,
+  type DayPart,
+  type Instant,
   type Interval,
   type PlanTiming,
   type ShortcutKind,
@@ -21,29 +25,88 @@ import type { DayRow } from './days';
  * What a block *is* on a given day is its cells there. A block that covers no
  * whole cell on a day does not exist on that day.
  */
-export type BlockKind = 'morning' | 'afternoon' | 'evening' | 'any_time';
+export type DayBlockKind = 'morning' | 'afternoon' | 'evening' | 'any_time';
+/** Tonight's two (S2-06): the day is already whichever part of it it is. */
+export type TonightBlockKind = 'from_now' | 'later_tonight';
+export type BlockKind = DayBlockKind | TonightBlockKind;
 
 /** The order the chips are offered in: through the day, then the whole of it. */
 export const BLOCKS: readonly BlockKind[] = ['morning', 'afternoon', 'evening', 'any_time'];
+export const TONIGHT_BLOCKS: readonly BlockKind[] = ['from_now', 'later_tonight'];
 
-const SHORTCUT: Record<BlockKind, ShortcutKind> = {
+/**
+ * The plan's timing, and — on a plan about tonight, opened on the day — the
+ * moment the editor opened, which is what "From now" is counted from. Set by
+ * the container from `isTonightWindow`; absent, the editor is the ordinary one.
+ */
+export type BlockTiming = PlanTiming & { readonly tonight?: Instant | undefined };
+
+/** The chips this plan offers, in order. */
+export function blocksFor(timing: BlockTiming): readonly BlockKind[] {
+  return timing.tonight === undefined ? BLOCKS : TONIGHT_BLOCKS;
+}
+
+const SHORTCUT: Record<DayBlockKind, ShortcutKind> = {
   morning: 'morning',
   afternoon: 'afternoon',
   evening: 'all_evening',
   any_time: 'any_time',
 };
 
+const isTonightKind = (kind: BlockKind): kind is TonightBlockKind =>
+  kind === 'from_now' || kind === 'later_tonight';
+
 /** The block's span on this day, or `undefined` where it does not exist. */
-export function blockSpan(kind: BlockKind, row: DayRow, timing: PlanTiming): Interval | undefined {
-  const span = applyShortcut(SHORTCUT[kind], row.date, timing);
+export function blockSpan(kind: BlockKind, row: DayRow, timing: BlockTiming): Interval | undefined {
+  const span = isTonightKind(kind)
+    ? timing.tonight === undefined
+      ? undefined
+      : applyTonightShortcut(kind, row.date, timing, timing.tonight)
+    : applyShortcut(SHORTCUT[kind], row.date, timing);
   if (span === undefined) return undefined;
   return windowsToCells(row.date, [span], timing).some(Boolean) ? span : undefined;
 }
 
 /** Which of the day's cells the block covers, or `undefined` where it does not exist. */
-export function blockMask(kind: BlockKind, row: DayRow, timing: PlanTiming): boolean[] | undefined {
+export function blockMask(
+  kind: BlockKind,
+  row: DayRow,
+  timing: BlockTiming,
+): boolean[] | undefined {
   const span = blockSpan(kind, row, timing);
   return span === undefined ? undefined : windowsToCells(row.date, [span], timing);
+}
+
+/**
+ * "Use my usual times" (ADR 0005, S2-06): the cells somebody's usual dayparts
+ * cover on this plan, day by day — weekday parts on weekdays, weekend parts on
+ * weekends, each part as the block of the same name, clipped to the plan's
+ * hours as every block is. Nothing outside the plan is painted, and a part the
+ * plan does not ask about paints nothing.
+ */
+const PART_BLOCK: Record<'morning' | 'afternoon' | 'evening', DayBlockKind> = {
+  morning: 'morning',
+  afternoon: 'afternoon',
+  evening: 'evening',
+};
+
+export function usualCells(
+  rows: readonly DayRow[],
+  timing: BlockTiming,
+  parts: readonly DayPart[],
+): boolean[][] {
+  return rows.map((row) => {
+    const prefix = isWeekend(row.date) ? 'weekend_' : 'weekday_';
+    const cells = row.cells.map(() => false);
+    for (const [part, kind] of Object.entries(PART_BLOCK)) {
+      if (!parts.includes(`${prefix}${part}` as DayPart)) continue;
+      const mask = blockMask(kind, row, timing);
+      mask?.forEach((on, i) => {
+        if (on) cells[i] = true;
+      });
+    }
+    return cells;
+  });
 }
 
 /**
@@ -61,10 +124,10 @@ export type DayTag = BlockKind | 'some';
 export function dayTag(
   cells: readonly boolean[],
   row: DayRow,
-  timing: PlanTiming,
+  timing: BlockTiming,
 ): DayTag | undefined {
   if (!cells.some(Boolean)) return undefined;
-  for (const kind of BLOCKS) {
+  for (const kind of blocksFor(timing)) {
     const mask = blockMask(kind, row, timing);
     if (
       mask !== undefined &&
@@ -96,11 +159,11 @@ export type BlockOffer = {
 export function offeredBlocks(
   ticked: readonly number[],
   rows: readonly DayRow[],
-  timing: PlanTiming,
+  timing: BlockTiming,
 ): BlockOffer[] {
   const seen = new Set<string>();
   const offers: BlockOffer[] = [];
-  for (const kind of BLOCKS) {
+  for (const kind of blocksFor(timing)) {
     const masks = ticked.map((day) => {
       const row = rows[day];
       return row === undefined ? undefined : blockMask(kind, row, timing);

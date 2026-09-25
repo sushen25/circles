@@ -4,7 +4,9 @@ import { circleId } from '../circles/types.js';
 import { confirmationId } from '../confirmation/types.js';
 import { localDate } from '../shared/local-date.js';
 import { NOTIFICATION_KINDS, type NotificationKind } from './kinds.js';
-import { ONCE, occurrenceFor } from './occurrence.js';
+import { fromISO, toISO } from '../shared/instant.js';
+import { zone } from '../shared/zone.js';
+import { ONCE, deadlineReminderAt, deadlineReminderDue, occurrenceFor } from './occurrence.js';
 
 const A_CONFIRMATION = confirmationId('confirmation-1');
 const A_DUE_DATE = localDate('2026-10-08');
@@ -112,5 +114,42 @@ describe('occurrenceFor', () => {
     for (const spec of NOTIFICATION_KINDS) {
       expect(occurrenceFor(spec.kind as NotificationKind, input).length).toBeGreaterThan(0);
     }
+  });
+});
+
+describe('when the deadline reminder is due', () => {
+  const MELBOURNE = zone('Australia/Melbourne');
+  const thursday = localDate('2026-09-17');
+
+  it('is 24 hours before, for a plan of more than one day', () => {
+    const plan = {
+      window: { start: thursday, end: localDate('2026-09-30') },
+      zone: MELBOURNE,
+      responseDeadline: fromISO('2026-09-20T08:00:00.000Z'),
+    };
+    expect(toISO(deadlineReminderAt(plan))).toBe('2026-09-19T08:00:00.000Z');
+  });
+
+  it('is 20 minutes before, for tonight', () => {
+    // Made at 5 pm Thursday, replies close at 6 pm: a day ahead is before the plan existed.
+    const plan = {
+      window: { start: thursday, end: thursday },
+      zone: MELBOURNE,
+      responseDeadline: fromISO('2026-09-17T08:00:00.000Z'),
+    };
+    expect(toISO(deadlineReminderAt(plan))).toBe('2026-09-17T07:40:00.000Z');
+    expect(deadlineReminderDue(plan, fromISO('2026-09-17T07:30:00.000Z'))).toBe(false);
+    expect(deadlineReminderDue(plan, fromISO('2026-09-17T07:40:00.000Z'))).toBe(true);
+    expect(deadlineReminderDue(plan, fromISO('2026-09-17T08:00:00.000Z'))).toBe(false);
+  });
+
+  it('keeps a day ahead for a one-day plan whose replies close the day before', () => {
+    const saturday = localDate('2026-09-19');
+    const plan = {
+      window: { start: saturday, end: saturday },
+      zone: MELBOURNE,
+      responseDeadline: fromISO('2026-09-18T08:00:00.000Z'),
+    };
+    expect(toISO(deadlineReminderAt(plan))).toBe('2026-09-17T08:00:00.000Z');
   });
 });

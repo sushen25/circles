@@ -4,12 +4,13 @@ import {
   merge,
   toISO,
   windowsToCells,
+  type DayPart,
   type Interval,
   type PlanTiming,
 } from '@circles/domain';
 
 import type { Span } from '../../data/availability';
-import { blockMask, offeredBlocks, type BlockKind } from './blocks';
+import { blockMask, offeredBlocks, usualCells, type BlockKind, type BlockTiming } from './blocks';
 import type { DayRow } from './days';
 
 /**
@@ -59,6 +60,12 @@ export type EditorAction =
   | { type: 'start_over' }
   | { type: 'undo' }
   | { type: 'flexible'; on: boolean }
+  /**
+   * "Use my usual times": paints the person's usual dayparts onto the plan
+   * (ADR 0005). Added to what is there, never sent — it is a start the person
+   * then changes, and Send is still theirs to press.
+   */
+  | { type: 'usual'; parts: readonly DayPart[] }
   | { type: 'load'; state: EditorState };
 
 function withDays(days: boolean[][], flexible = false): EditorState {
@@ -114,7 +121,7 @@ export function blockOn(
   kind: BlockKind,
   state: EditorState,
   rows: readonly DayRow[],
-  timing: PlanTiming,
+  timing: BlockTiming,
 ): boolean {
   let applies = false;
   for (const day of state.ticked) {
@@ -148,12 +155,19 @@ function mapDays(
 
 export function editorReducer(
   rows: readonly DayRow[],
-  timing: PlanTiming,
+  timing: BlockTiming,
 ): (state: EditorState, action: EditorAction) => EditorState {
   return (state, action) => {
     switch (action.type) {
       case 'load':
         return action.state;
+      case 'usual': {
+        const usual = usualCells(rows, timing, action.parts);
+        return answer(
+          state,
+          state.days.map((cells, day) => cells.map((on, i) => on || usual[day]?.[i] === true)),
+        );
+      }
       case 'flexible':
         // A change of answer, from times to "I'm easy" or back: Start over's
         // Undo ends here as it does for any other (review round 2).

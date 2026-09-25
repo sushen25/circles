@@ -23,6 +23,8 @@ export type WhenChip = {
 
 export type PlanControlsProps = {
   when: WhenChip[];
+  /** Why a chip is off: "Too late for tonight. Try this weekend." */
+  whenNote?: string | undefined;
   band: BandPickerProps;
   duration: DurationMinutes;
   onDuration: (duration: DurationMinutes) => void;
@@ -40,6 +42,7 @@ export type PlanControlsProps = {
 
 export function PlanControls({
   when,
+  whenNote,
   band,
   duration,
   onDuration,
@@ -62,6 +65,7 @@ export function PlanControls({
             />
           ))}
         </Chips>
+        {whenNote === undefined ? null : <Small>{whenNote}</Small>}
       </Stack>
       <BandPicker {...band} />
       <Stack gap={10}>

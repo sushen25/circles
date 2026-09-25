@@ -1,4 +1,6 @@
 import type { PlanId } from '@circles/contracts';
+import { fromISO, isTonightWindow } from '@circles/domain';
+import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useReducer, useState } from 'react';
 
@@ -7,12 +9,14 @@ import { t } from '../../copy';
 import {
   clearDraft,
   timingOf,
+  usualTimes,
   type AnswerablePlan,
   type Draft,
   type OwnAnswer,
 } from '../../data/availability';
 import { OfflineScreen } from '../system/OfflineScreen';
 import { AvailabilityScreen } from './AvailabilityScreen';
+import type { BlockTiming } from './blocks';
 import { dayRows, deviceTimeFormat } from './days';
 import {
   editorFrom,
@@ -79,7 +83,16 @@ export function Answering({
 }: AnsweringProps) {
   const router = useRouter();
 
-  const timing = useMemo(() => timingOf(plan), [plan]);
+  // A plan about tonight, opened on the day, offers "From now" and "Later
+  // tonight" instead of the parts of a day that is already under way (S2-06),
+  // counted from the moment the editor opened.
+  const [openedAt] = useState(() => fromISO(new Date().toISOString()));
+  const timing = useMemo((): BlockTiming => {
+    const base = timingOf(plan);
+    return isTonightWindow(base.window, base.zone, openedAt)
+      ? { ...base, tonight: openedAt }
+      : base;
+  }, [plan, openedAt]);
   const format = useMemo(() => deviceTimeFormat(), []);
   const rows = useMemo(() => dayRows(timing, format, ROW_WORDS), [timing, format]);
   const reducer = useMemo(() => editorReducer(rows, timing), [rows, timing]);
@@ -88,12 +101,30 @@ export function Answering({
   // two, the stored answer otherwise, and nothing when there is neither.
   const [opened] = useState(() => (draftIsNewer(draft, answer) ? draft : undefined));
   const [state, dispatch] = useReducer(reducer, undefined, (): EditorState => {
-    if (opened !== undefined) return editorFrom(rows, timing, opened.windows, opened.flexible);
-    if (answer !== null) {
-      const windows = answer.status === 'windows' ? answer.windows : [];
-      return editorFrom(rows, timing, windows, answer.status === 'flexible');
-    }
-    return emptyEditor(rows);
+    const start = (): EditorState => {
+      if (opened !== undefined) return editorFrom(rows, timing, opened.windows, opened.flexible);
+      if (answer !== null) {
+        const windows = answer.status === 'windows' ? answer.windows : [];
+        return editorFrom(rows, timing, windows, answer.status === 'flexible');
+      }
+      return emptyEditor(rows);
+    };
+    // Tonight is one day: it opens ticked, so the two times are there at
+    // once rather than behind a tap on the only day there is. View state.
+    const initial = start();
+    return timing.tonight !== undefined && rows.length === 1
+      ? { ...initial, ticked: [0] }
+      : initial;
+  });
+
+  // "Use my usual times" (ADR 0005): the reader's own usual, read once. A
+  // failed read offers nothing rather than an error — it is a shortcut.
+  const usual = useQuery({
+    queryKey: ['usual-times', plan.circleId, plan.id, userId],
+    queryFn: async () =>
+      (await usualTimes({ circleId: plan.circleId, planId: plan.id, userId: userId! })) ?? null,
+    enabled: userId !== undefined && plan.acceptingAnswers,
+    staleTime: Infinity,
   });
 
   const { phase, send, savedAt, edited } = useSendAnswer({
@@ -178,7 +209,8 @@ export function Answering({
     );
   }
 
-  const view = editorView(state, rows, timing, format);
+  const view = editorView(state, rows, timing, format, undefined, usual.data ?? undefined);
+  const usualParts = usual.data ?? undefined;
 
   return (
     <AvailabilityScreen
@@ -206,6 +238,13 @@ export function Answering({
       onStartOver={() => edit({ type: 'start_over' })}
       onUndo={() => edit({ type: 'undo' })}
       onFlexible={(on) => edit({ type: 'flexible', on })}
+      // Counts as the person's edit, so it writes a draft like any other:
+      // they asked for it, and what it paints is theirs to change.
+      onUseUsual={
+        view.canUseUsual && usualParts !== undefined
+          ? () => edit({ type: 'usual', parts: usualParts })
+          : undefined
+      }
       onSend={() => void send(state.flexible ? 'flexible' : 'windows')}
       onNoneOfTheseDates={() => router.push({ pathname: '/j/[code]/none', params: { code } })}
       onBack={back}

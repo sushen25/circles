@@ -1,8 +1,15 @@
-import { cellsToWindows, rangeText, type PlanTiming, type TimeFormat } from '@circles/domain';
+import { cellsToWindows, rangeText, type DayPart, type TimeFormat } from '@circles/domain';
 
 import type { GridDay } from '../../components';
 import { t } from '../../copy';
-import { blockSpan, dayTag, offeredBlocks, type BlockKind } from './blocks';
+import {
+  blockSpan,
+  dayTag,
+  offeredBlocks,
+  usualCells,
+  type BlockKind,
+  type BlockTiming,
+} from './blocks';
 import { dayName, dayNumber, gridSlots, weekdayHeadings, type DayRow, type Mark } from './days';
 import { blockOn, hasTimes, paintedDays, wholeDayOn, type EditorState } from './editor';
 import { BLOCK_LABEL, TAG_WORD } from './words';
@@ -58,14 +65,21 @@ export type EditorView = {
   /** Days with any time on them. */
   painted: number;
   canUndo: boolean;
+  /**
+   * "Use my usual times" is on offer (ADR 0005): there is a usual to use, the
+   * answer is still empty and not "I'm easy", and the usual paints something
+   * on this plan. Offered to start an answer, never to overwrite one.
+   */
+  canUseUsual: boolean;
 };
 
 export function editorView(
   state: EditorState,
   rows: readonly DayRow[],
-  timing: PlanTiming,
+  timing: BlockTiming,
   format: TimeFormat,
   locale?: string,
+  usual?: readonly DayPart[],
 ): EditorView {
   const range = (day: number) =>
     rangeText(cellsToWindows(rows[day]!.date, state.days[day] ?? [], timing), timing.zone, format);
@@ -151,5 +165,10 @@ export function editorView(
     answers,
     painted: paintedDays(state),
     canUndo: state.undo !== undefined,
+    canUseUsual:
+      usual !== undefined &&
+      !state.flexible &&
+      paintedDays(state) === 0 &&
+      usualCells(rows, timing, usual).some((cells) => cells.some(Boolean)),
   };
 }

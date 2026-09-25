@@ -433,7 +433,7 @@ All ids are `uuid` (v7 where ordering helps). All tables have `created_at`, `upd
 
 | Table | Columns of note | Constraints |
 |---|---|---|
-| `member_dayparts` | `circle_id`, `user_id`, `summary` (`{parts, counts}` — `DayPartSummary` without `userId`), `computed_at` | a running total: each retention run adds the counts of the windows it is about to delete to what is stored, then re-derives `parts` (ADR 0005); readable by that member only, and only while a member; deleted 30 days after removal or archiving; no client writes |
+| `member_dayparts` | `circle_id`, `user_id`, `summary` (`{parts, counts}` — `DayPartSummary` without `userId`), `computed_at` | a running total: each retention run adds the counts of the windows it is about to delete to what is stored, then re-derives `parts` (ADR 0005); readable by that member only, and only while a member; deleted 30 days after removal or archiving; no client writes. The pre-fill adds it to the member's own retained answers when it is read (`usualDayparts`, ADR 00XX): the table holds what has been deleted, the answers hold the rest, and nothing writes it when somebody answers |
 
 **Growth (`public`)**
 

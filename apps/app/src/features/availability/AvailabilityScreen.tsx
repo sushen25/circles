@@ -66,6 +66,8 @@ export type AvailabilityProps = {
   onStartOver?: (() => void) | undefined;
   onUndo?: (() => void) | undefined;
   onFlexible?: ((on: boolean) => void) | undefined;
+  /** "Use my usual times", when there is a usual and nothing painted yet (ADR 0005). */
+  onUseUsual?: (() => void) | undefined;
   onSend?: (() => void) | undefined;
   onNoneOfTheseDates?: (() => void) | undefined;
   onRetry?: (() => void) | undefined;
@@ -99,6 +101,7 @@ export function AvailabilityScreen({
   onStartOver,
   onUndo,
   onFlexible,
+  onUseUsual,
   onSend,
   onNoneOfTheseDates,
   onRetry,
@@ -171,6 +174,13 @@ export function AvailabilityScreen({
           {zoneNote === undefined ? null : <Small>{zoneNote}</Small>}
         </Stack>
         {changed ? <Notice kind="warn">{t('availability', 'plan_changed')}</Notice> : null}
+        {onUseUsual === undefined || dimmed ? null : (
+          <Tertiary
+            label={t('availability', 'use_my_usual_times')}
+            accessibilityHint={t('availability', 'use_my_usual_times_hint')}
+            onPress={onUseUsual}
+          />
+        )}
         <DayPicker
           grid={grid}
           weekdays={weekdays}

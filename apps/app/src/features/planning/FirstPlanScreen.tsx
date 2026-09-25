@@ -3,6 +3,8 @@ import {
   BodyText,
   Button,
   Card,
+  Chip,
+  Chips,
   DisplayL,
   Foot,
   Label,
@@ -17,6 +19,7 @@ import { Between, Divider, Stack } from '../../components/layout';
 import { t } from '../../copy';
 import type { Fixture } from '../../data/fixtures';
 import type { ScreenState } from '../state';
+import type { WhenChip } from './PlanControls';
 
 /**
  * FirstPlan — `docs/design/FirstPlan.dc.html` (spec §5.1 step 7): one card of
@@ -26,12 +29,19 @@ import type { ScreenState } from '../state';
  * The quorum line says it adjusts as people join, because it does — the server
  * counts the members again when the plan is made.
  */
-export type FirstPlanProblem = 'too_many_tries' | 'couldnt_ask' | 'offline';
+export type FirstPlanProblem = 'too_many_tries' | 'couldnt_ask' | 'offline' | 'too_late';
 
 export type FirstPlanProps = {
   fixture?: Fixture | undefined;
   state?: ScreenState | undefined;
   circleName?: string | undefined;
+  /**
+   * Next 14 days, This weekend, Tonight (S2-06): the spontaneous presets are
+   * one tap here too. Absent, the card shows the fortnight alone.
+   */
+  presets?: WhenChip[] | undefined;
+  /** Why a preset is off: "Too late for tonight. Try this weekend." */
+  presetNote?: string | undefined;
   window?: string | undefined;
   band?: string | undefined;
   duration?: string | undefined;
@@ -63,6 +73,8 @@ function problemCopy(problem: FirstPlanProblem): string {
       return t('firstPlan', 'couldnt_ask');
     case 'offline':
       return t('firstPlan', 'youre_offline');
+    case 'too_late':
+      return t('firstPlan', 'too_late_for_tonight');
   }
 }
 
@@ -93,6 +105,8 @@ function Line({
 export function FirstPlanScreen({
   state = 'default',
   circleName = t('firstPlan', 'sunday_crew'),
+  presets,
+  presetNote,
   window = t('firstPlan', 'catch_up_next_14_days'),
   band = t('firstPlan', 'evenings_and_weekend_days'),
   duration = t('firstPlan', 'about_2_hours'),
@@ -144,6 +158,23 @@ export function FirstPlanScreen({
           <DisplayL>{t('firstPlan', 'your_first_catch_up')}</DisplayL>
           <BodyText>{t('firstPlan', 'weve_picked_sensible_defaults_tap_anything_to')}</BodyText>
         </Stack>
+        {presets === undefined ? null : (
+          <Stack gap={10}>
+            <Label>{t('firstPlan', 'when')}</Label>
+            <Chips>
+              {presets.map((chip) => (
+                <Chip
+                  key={chip.key}
+                  label={chip.label}
+                  selected={chip.selected}
+                  disabled={chip.disabled}
+                  onPress={chip.onPress}
+                />
+              ))}
+            </Chips>
+            {presetNote === undefined ? null : <Small>{presetNote}</Small>}
+          </Stack>
+        )}
         <Card>
           <Line title={window} detail={band} onChange={onChange} />
           <Divider />

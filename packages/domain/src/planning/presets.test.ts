@@ -9,6 +9,7 @@ import type { DurationMinutes } from './types.js';
 import {
   dailyForRange,
   hasFutureStart,
+  isTonightWindow,
   isViableBand,
   validateBand,
   nextDays,
@@ -352,5 +353,23 @@ describe('windowDays', () => {
   it('counts across a daylight-saving change correctly', () => {
     // Melbourne moves to daylight time on Sunday 4 October 2026.
     expect(windowDays({ start: localDate('2026-10-03'), end: localDate('2026-10-05') })).toBe(3);
+  });
+});
+
+describe('isTonightWindow', () => {
+  const day = localDate('2026-09-17');
+  const tonightShape = { start: day, end: day };
+
+  it('is one day, and the day the moment falls on in the plan zone', () => {
+    expect(isTonightWindow(tonightShape, MELBOURNE, THURSDAY_6PM)).toBe(true);
+    // 8 am Friday in Melbourne is still Thursday in UTC; the zone decides.
+    expect(isTonightWindow(tonightShape, MELBOURNE, fromISO('2026-09-17T22:00:00Z'))).toBe(false);
+  });
+
+  it('is not a weekend, nor a single day that is not today', () => {
+    const weekend = { start: localDate('2026-09-19'), end: localDate('2026-09-20') };
+    expect(isTonightWindow(weekend, MELBOURNE, fromISO('2026-09-19T00:00:00Z'))).toBe(false);
+    const saturday = { start: localDate('2026-09-19'), end: localDate('2026-09-19') };
+    expect(isTonightWindow(saturday, MELBOURNE, THURSDAY_6PM)).toBe(false);
   });
 });
