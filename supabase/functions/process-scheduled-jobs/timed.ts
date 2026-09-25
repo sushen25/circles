@@ -100,7 +100,8 @@ export async function timedWork(
     if (context === null) continue;
     // The SQL names every plan within a day of its deadline; a tonight plan's
     // reminder waits until twenty minutes before (S2-06, `deadlineReminderDue`).
-    if (!deadlineReminderDue(context.eligibility.plan, now)) continue;
+    const plan = context.eligibility.plan;
+    if (plan === undefined || !deadlineReminderDue(plan, now)) continue;
     const rows = await jobRowsFor(
       service,
       context,
