@@ -356,6 +356,11 @@ its confirmed screen rather than saying "This plan is decided".
 | ----------------- | ---------- | --------------- |
 | `Offline.dc.html` | `/offline` | `OfflineScreen` |
 
+`ShellScreen` has no artboard and no route: it is what the served HTML shows on
+every route until React has hydrated, rendered by the root layout (ADR 00XX).
+It is built like every route's loading state and says nothing that could be
+wrong for a visitor the export never saw.
+
 ## Not screens
 
 Five artboards are reference sheets rather than screens, and have no route:
