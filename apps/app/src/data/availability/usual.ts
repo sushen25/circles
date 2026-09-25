@@ -13,7 +13,7 @@ import { authClient } from '../auth/client';
  * What this person usually offers in this circle, for "Use my usual times"
  * (ADR 0005, S2-06), or `undefined` when there is no usual yet.
  *
- * **Read, not written** (ADR 00XX). Two sources, both through RLS as the
+ * **Read, not written** (ADR 0037). Two sources, both through RLS as the
  * member and both readable by nobody else: `member_dayparts`, the counts of
  * the windows retention has already deleted, and this person's own answers to
  * the circle's other plans, which are the windows it has not. The domain adds

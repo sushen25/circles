@@ -1,4 +1,4 @@
-# ADR 00XX: A member's usual times are worked out when they are read, not written when they answer
+# ADR 0037: A member's usual times are worked out when they are read, not written when they answer
 
 _Status: proposed · 25 September 2026_
 

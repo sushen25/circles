@@ -135,7 +135,7 @@ export function summariseDayparts(
  * offers in a circle, from everything the database still knows about them
  * there, or `undefined` when there is not yet enough to call anything usual.
  *
- * **Worked out on read, from two sources that never overlap** (ADR 00XX).
+ * **Worked out on read, from two sources that never overlap** (ADR 0037).
  * `member_dayparts` holds the counts of windows retention has already deleted
  * — a running total it adds to before each deletion — and the member's own
  * retained answers hold the rest. Adding the two is the whole summary, as

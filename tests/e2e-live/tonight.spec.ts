@@ -7,7 +7,7 @@ import { answerOf, circleOwnedBy, planFor, plansIn, signedInAccount, sql } from 
  * Tonight, end to end (S2-06, spec §5.3 and §5.5): the organiser picks
  * **Tonight** on the setup, the plan made is today alone with replies closing
  * within the hour, and the editor opens on its one day with **From now** and
- * **Later tonight**. Then **Use my usual times** (ADR 0005, ADR 00XX): after
+ * **Later tonight**. Then **Use my usual times** (ADR 0005, ADR 0037): after
  * two answers in a circle, a third plan offers them, and they paint without
  * sending.
  *
