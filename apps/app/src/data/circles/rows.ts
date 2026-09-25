@@ -30,6 +30,8 @@ export type PlanRow = {
   response_deadline: string;
   /** Null on a quiet ask nobody has taken on yet (spec §5.4). */
   organiser_user_id: string | null;
+  /** `quiet` for a plan that started as a quiet ask: it says "started quietly" (§5.4). */
+  mode: string;
 };
 
 /**
@@ -45,7 +47,7 @@ export async function plansFor(client: Client, circleIds: readonly string[]): Pr
   const { data, error } = await client
     .from('plans')
     .select(
-      'id, circle_id, short_code, title, state, revision, response_deadline, organiser_user_id',
+      'id, circle_id, short_code, title, state, revision, response_deadline, organiser_user_id, mode',
     )
     .in('circle_id', [...circleIds])
     .in('state', [...ANSWERABLE_STATES, 'confirmed'])

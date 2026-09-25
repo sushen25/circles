@@ -270,8 +270,8 @@ and `cancelPlan` through the Edge Functions).
   quorum stays defaulted and follows the plan's audience (ADR 0026).
   `/circles/[id]/plan/window` is the same flow opened on its calendar
   (`CustomWindowScreen`, a `DayGrid` month, at most 30 days).
-- `/circles/[id]/plan/mode` (`ChooseModeFlow`) — Plan openly; the quiet card is
-  behind `flags.quietAsk` (`@circles/config`) until S2-03.
+- `/circles/[id]/plan/mode` (`ChooseModeFlow`) — Plan openly, or See if people
+  are keen (S2-03). Circle home's **Plan a catch-up** comes here.
 - `/circles/[id]/plan/[planId]/edit` (`EditPlanFlow`) — the setup's controls,
   prefilled, the request being **the difference** (`resolveEdit`). A preview
   runs once the form is still (`useRevision`), so the re-ask warning — the
@@ -301,13 +301,46 @@ and `cancelPlan` through the Edge Functions).
   many as one "Same as last time" line whose **Change** opens the setup
   filled in the same way, and **Ask the group** in one tap. A plan already
   finding a time is `PlanInProgress`, as on the setup; a circle that has never
-  met gets the setup itself. "See if people are keen instead" still leads to
-  the fixture quiet ask (S2-02).
+  met gets the setup itself. "See if people are keen instead" leads to
+  SparkSetup, and is not offered in a circle of one.
 - `/p/[code]` goes through `PlanChangeGate` first: a cancelled plan sends a
   member to `/p/[code]/cancelled` (`MemberCancelledFlow`, with the organiser's
   note), and a reopened one sends somebody who has not answered the new
   question to `/p/[code]/rescheduled` (`RescheduledFlow`, the old time struck
   through) before the editor.
+
+**Real since S2-03:** the quiet ask (spec §5.4), all through `data/planning/quiet.ts`.
+**Every quiet screen reads `quiet-view` and nothing else about the ask** — the
+server's `quietView`, built for whoever asks, which carries capabilities
+(`may_withdraw`, `may_take_role`, `show_closed_notice`) and never an initiator
+or an answer. `quietScreenOf` turns a view into a screen.
+
+- `/circles/[id]/quiet/new` (`QuietSetupFlow`) — SparkSetup: four windows,
+  what for, and the stop times `stopTimeOptions` offers for that window (none
+  means **Ask quietly** is off, with the reason). Filled in from the last
+  meetup (`planAnotherDefaults`). A plan finding a time is `PlanInProgress`; a
+  circle of one and a reader who has muted quiet asks get a statement, not a
+  form; a guest gets `InitiateGateFlow` in place of it.
+- `/circles/[id]/quiet/[planId]` (`QuietPlanFlow` → `QuietScreens`) —
+  SparkWaiting (the initiator: when it closes, the threshold, no count;
+  Withdraw is `cancel-plan` with no note), InterestPrompt ("Thanks" once
+  answered, never which answer; a new idempotency key per tap), ThresholdRole
+  or Volunteer once it opens (the same capability: ThresholdRole only when
+  this device watched its own ask open, `askedHere`, in memory), SparkOpenedMember,
+  SparkExpired for the initiator of an ask that ran out of time, and one
+  neutral page for everybody else. "I'll organise" and "I'll pick the time"
+  go through `useOrganiserGate` and `accept-organiser` (no role), then PlanShared.
+  The view is read every 30 s while it asks or has nobody organising.
+- `/p/[code]` goes through `QuietLinkGate` before anything else: a quiet plan
+  nobody organises is the quiet flow, not the plan page.
+- Circle home: an ask still asking is one `QuietAskCard` ("Asked quietly ·
+  Closes …"), identical for every member, the initiator included; an opened
+  one nobody has taken on says "Started quietly".
+- The static `/circles/[id]/quiet/{waiting,interest,threshold,volunteer,opened,expired}`
+  routes are the gallery's artboards.
+- Analytics: `quiet_ask_created` and `quiet_interest_answered` are
+  `UNATTRIBUTED_EVENTS`, sent on their own with no session and no browser id;
+  `quiet_interest_answered` and `organiser_accepted` carry no answer or role.
 
 ### scheduling
 

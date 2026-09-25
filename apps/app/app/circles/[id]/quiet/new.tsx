@@ -1,12 +1,15 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 
-import { useFixture } from '../../../../src/data/fixtures/useFixture';
-import { SparkSetupScreen } from '../../../../src/features/planning/SparkSetupScreen';
+import { MembershipGate } from '../../../../src/features/identity/join/MembershipGate';
+import { QuietSetupFlow } from '../../../../src/features/planning/QuietSetupFlow';
 
 /** Route only — thin composition, no logic (architecture §7.1). */
 export default function Route() {
-  const router = useRouter();
-  const fixture = useFixture();
+  const { id } = useLocalSearchParams<{ id: string }>();
 
-  return <SparkSetupScreen fixture={fixture} onBack={() => router.back()} />;
+  return (
+    <MembershipGate target={{ kind: 'circle', id }}>
+      <QuietSetupFlow id={id} />
+    </MembershipGate>
+  );
 }

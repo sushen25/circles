@@ -472,9 +472,10 @@ export const en = {
     you_set_the_window_everyone_marks_the:
       "You set the window, everyone marks the times they'd be up for, you pick the best one. Your name is on it.",
     see_if_people_are_keen: 'See if people are keen',
-    ask_quietly_first_if_three_people_are:
-      'Ask quietly first. If three people are keen, it opens up to find a time. If not, it closes and nobody knows you asked.',
     either_way_friends_answer_from_a_link: 'Either way, friends answer from a link. No app needed.',
+    // Live (S2-03): the threshold is this circle's (ADR 0035).
+    ask_quietly_first:
+      'Ask quietly first. If {threshold} people are keen, it opens up to find a time. If not, it closes and nobody knows you asked.',
   },
   circleHome: {
     sunday_crew: 'Sunday Crew',
@@ -1262,6 +1263,13 @@ export const en = {
     not_this_time: 'Not this time',
     closes_friday_midday_if_it_goes_quiet:
       'Closes Friday midday. If it goes quiet, nobody is told.',
+    // Live (S2-03): spec §5.4's aggregate prompt.
+    someone_in: 'Someone in {circle} would be up for a catch-up {when}. Would you?',
+    closes_if_quiet: 'Closes {when}. If it goes quiet, nobody is told.',
+    thanks: "Thanks. We'll let you know if it opens up.",
+    thanks_body: 'Your answer stays private, and you can change it until then.',
+    change_my_answer: 'Change my answer',
+    sending: 'Sending…',
   },
   inviteCircle: {
     now_invite_sunday_crew: 'Now invite Sunday Crew.',
@@ -1852,6 +1860,32 @@ export const en = {
       "It's been about a month since Sunday Crew got together. Your turn to plan, if you're keen. No rush.",
     cadence_due: 'cadence due',
   },
+  /** The quiet ask's shared words (S2-03, spec §5.4). Never a name, never a count before it opens. */
+  quiet: {
+    when_tonight: 'tonight',
+    when_this_weekend: 'this weekend',
+    when_next_7_days: 'in the next 7 days',
+    when_next_14_days: 'in the next 14 days',
+    when_soon: 'soon',
+    asked_quietly: 'Asked quietly',
+    closes: 'Closes {when}',
+    take_a_look: 'Take a look',
+    started_quietly: 'Started quietly',
+    closed_title: "This isn't open any more.",
+    back_to: 'Back to {circle}',
+    this_circle: 'this circle',
+    refused_muted: "You've muted quiet asks in {circle}.",
+    refused_already_asking: 'You already have a quiet ask open in {circle}. It has to close first.',
+    refused_circle_limit:
+      '{circle} has had {count} quiet asks this week. Try again in a few days, or plan openly.',
+    refused_nobody: "There's nobody else in {circle} to ask yet.",
+    refused_stop_time: 'That stop time is not on offer any more. Pick another.',
+    refused_interest_closed: 'This one has closed to answers.',
+    refused_taken: 'Someone else has just taken it on.',
+    refused_not_keen: "Only someone who said they're keen can pick the time.",
+    refused_deadline_not_passed: 'The circle owner can take it on once replies close.',
+    refused_wrong_state: "It isn't ready for somebody to pick the time yet.",
+  },
   reattachedNudge: {
     /** "Welcome back, Priya." — the name they continued as. */
     welcome_back_name: 'Welcome back, {name}.',
@@ -2076,13 +2110,13 @@ export const en = {
   sparkExpired: {
     brand: '{brand}',
     sunday_crew: 'Sunday Crew',
-    not_enough_people_were_free_this_time: 'Not enough people were free this time.',
-    this_one_closed_quietly_nobody_else_knows:
-      'This one closed quietly. Nobody else knows you asked, and nobody is told who said what.',
-    weekends_have_been_tight_for_a_few:
-      'Weekends have been tight for a few people lately. A wider window sometimes helps.',
     try_again_another_time: 'Try again another time',
     back_to_sunday_crew: 'Back to Sunday Crew',
+    // Live (S2-03): the softer headline SUS-49 suggested. The same for an ask
+    // that was held to its stop time, since anything else reveals a count.
+    headline: 'This one closed quietly.',
+    body: 'Nobody else knows you asked, and nobody is told who said what.',
+    hint: 'A different window sometimes helps.',
   },
   sparkOpenedMember: {
     brand: '{brand}',
@@ -2090,16 +2124,23 @@ export const en = {
     enough_people_are_keen_for_this_weekend: 'Enough people are keen for this weekend.',
     tom_volunteered_to_pick_the_time_mark:
       "Tom volunteered to pick the time. Mark the times you'd actually be up for, even if you said “not this time” earlier.",
-    '3_of_6_keen_so_far_replies': '3 of 6 keen so far · Replies close Fri 11 Sep, 6 pm',
+    '3_of_6_keen_so_far_replies': '3 of 6 were keen · Replies close Fri 11 Sep, 6 pm',
     this_plan_started_quietly_we_dont_say: "This plan started quietly. We don't say who asked.",
     choose_my_times: 'Choose my times',
     not_this_one: 'Not this one',
+    // Live (S2-03).
+    label: '{circle} · started quietly',
+    headline: 'Enough people are keen to catch up {when}.',
+    picking:
+      "{name} volunteered to pick the time. Mark the times you'd actually be up for, even if you said “not this time” earlier.",
+    nobody_yet:
+      "Someone needs to pick the time. Mark the times you'd actually be up for, even if you said “not this time” earlier.",
+    keen_line: '{count} of {total} were keen · Replies close {deadline}',
+    replies_close: 'Replies close {deadline}',
   },
   sparkSetup: {
     see_if_people_are_keen: 'See if people are keen',
     ask_quietly: 'Ask quietly',
-    nobody_sees_who_asked_if_three_people:
-      'Nobody sees who asked. If three people are keen, it opens up to find a time. If not, it closes and nobody knows.',
     for_when: 'For when?',
     tonight: 'Tonight',
     this_weekend: 'This weekend',
@@ -2117,6 +2158,20 @@ export const en = {
     when_the_weekend_starts: 'When the weekend starts',
     in_a_group_this_size_people_can:
       'In a group this size people can sometimes guess. We never confirm it, in the app or in any message.',
+    // Live (S2-03). The threshold is the domain's for this circle, not three.
+    nobody_sees_who_asked:
+      'Nobody sees who asked. If {threshold} people are keen, it opens up to find a time. If not, it closes and nobody knows.',
+    in_two_days: 'In two days',
+    when_it_starts: 'When it starts',
+    stops_asking_at: 'Stops asking {when}.',
+    no_stop_time: 'Too late to ask quietly about {when}. Pick a later window.',
+    asking: 'Asking…',
+    moved_on: 'That stop time has passed. Pick another.',
+    muted_title: "You've muted quiet asks in {circle}.",
+    muted_body: 'Turn them back on in circle settings to start one.',
+    muted_action: 'Circle settings',
+    nobody_title: "There's nobody else in {circle} to ask yet.",
+    nobody_body: 'A quiet ask needs somebody to say they are keen. Invite people first.',
   },
   sparkWaiting: {
     sunday_crew: 'Sunday Crew',
@@ -2133,6 +2188,14 @@ export const en = {
       'Changed your mind? You can withdraw it and nobody will know it was asked.',
     back_to_sunday_crew: 'Back to Sunday Crew',
     withdraw_the_ask: 'Withdraw the ask',
+    // Live (S2-03). No count, for anybody, the person who asked included.
+    checking: "We're checking who's keen for a catch-up {when}.",
+    threshold_of: '{threshold} of {total} are keen',
+    sheet_title: 'Withdraw the ask?',
+    sheet_body: 'It closes now, and nobody is told it was asked.',
+    sheet_dismiss: 'Keep asking',
+    withdraw: 'Withdraw',
+    withdrawing: 'Withdrawing…',
   },
   thresholdRole: {
     brand: '{brand}',
@@ -2148,6 +2211,12 @@ export const en = {
       "Everyone who's keen sees a one-tap “I'll pick the time”. Your name stays out of it.",
     if_nobody_volunteers_before_replies_close_the:
       'If nobody volunteers before replies close, the circle owner gets a quiet nudge.',
+    // Live (S2-03). The count is the one fixed when it opened (ADR 0035).
+    keen_body:
+      '{count} of you want to catch up {when}. Someone needs to pick the time. That can be you, or you can ask for a volunteer.',
+    keen_body_uncounted:
+      'Enough of you want to catch up {when}. Someone needs to pick the time. That can be you, or you can ask for a volunteer.',
+    taking: 'One moment…',
   },
   /** Your name's time-zone picker (S1-22). Not an artboard of its own. */
   timeZone: {
@@ -2163,12 +2232,17 @@ export const en = {
     three_people_are_keen_for_this_weekend: 'Three people are keen for this weekend.',
     someone_needs_to_pick_the_time_it:
       "Someone needs to pick the time. It takes about a minute once everyone's sent their times.",
-    '3_of_6_are_keen_so_far': "3 of 6 are keen so far · others can still join. We don't show who.",
+    '3_of_6_are_keen_so_far': "3 of 6 said they're keen. We don't show who.",
     this_plan_started_quietly_we_dont_say:
       "This plan started quietly. We don't say who asked, and we never will.",
     ill_pick_the_time: "I'll pick the time",
     send_my_times: 'Send my times',
     not_this_one: 'Not this one',
+    // Live (S2-03). Interest closed when it opened, so the count never moves.
+    keen_headline: '{count} people are keen to catch up {when}.',
+    keen_headline_uncounted: 'Enough people are keen to catch up {when}.',
+    keen_line: "{count} of {total} said they're keen. We don't show who.",
+    taking: 'One moment…',
   },
   waiting: {
     headline: 'Waiting on a few more.',

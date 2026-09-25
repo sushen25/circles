@@ -42,6 +42,23 @@ export type HomePlan = {
   responseDeadline: string;
   replied: number;
   asked: number;
+  /**
+   * Started as a quiet ask (spec §5.4). Its card says "started quietly", and
+   * while nobody has taken the role it leads to the quiet screens rather than
+   * the organiser's. Absent is a named plan.
+   */
+  quiet?: boolean | undefined;
+};
+
+/**
+ * A quiet ask still gathering interest: "Asked quietly · closes Fri midday".
+ * The same for every member who reads it, its initiator included — no count,
+ * no name, nothing that would show over a shoulder whose it is (spec §5.4).
+ */
+export type HomeQuietAsk = {
+  planId: string;
+  /** ISO: its stop time. */
+  closesAt: string;
 };
 
 /** The next confirmed meetup still ahead: "Locked in · Thu 17 Sep". */
@@ -83,6 +100,12 @@ export type CircleHome = {
   /** Active members, oldest first. */
   members: HomeMember[];
   activePlan: HomePlan | null;
+  /**
+   * Quiet asks still asking, newest first. Empty for a member who has muted
+   * them here: they were never prompted, and a card would tell them one
+   * exists (`canCreateQuietAsk`'s order). Absent is none.
+   */
+  quietAsks?: readonly HomeQuietAsk[] | undefined;
   lockedIn: HomeMeetup | null;
   /**
    * The morning-after question the reader owes, if any (S1-29): the
@@ -118,7 +141,7 @@ export async function circleHome(id: string): Promise<CircleHome | null> {
 
   const me = await whoAmI(client);
 
-  const [members, plans, morningAfter, myTurn] = await Promise.all([
+  const [members, plans, morningAfter, myTurn, asking] = await Promise.all([
     client
       .from('circle_members')
       .select(
@@ -134,6 +157,7 @@ export async function circleHome(id: string): Promise<CircleHome | null> {
     // A line on the card, not the home: unread, the card says the quieter
     // sentence everybody else sees.
     myTurnToPlan(client, id),
+    quietAsksIn(client, id),
   ]);
   if (members.error !== null) throw new Error(FAILED);
 
@@ -194,7 +218,9 @@ export async function circleHome(id: string): Promise<CircleHome | null> {
             organiserUserId: finding.organiser_user_id,
             responseDeadline: finding.response_deadline,
             ...replies,
+            quiet: finding.mode === 'quiet',
           },
+    quietAsks: own?.muted_quiet_asks === true ? [] : asking,
     lockedIn,
     morningAfter,
     myTurn,
@@ -207,6 +233,30 @@ export async function circleHome(id: string): Promise<CircleHome | null> {
             mutedNudges: own.muted_nudges,
           },
   };
+}
+
+/**
+ * The circle's quiet asks still asking: `seeking`, before their stop time.
+ * The plan row is public to members and has no initiator column to read; a
+ * held ask looks exactly like any other (spec §5.4).
+ */
+async function quietAsksIn(
+  client: ReturnType<typeof authClient>,
+  id: string,
+): Promise<HomeQuietAsk[]> {
+  const { data, error } = await client
+    .from('plans')
+    .select('id, quiet_expires_at')
+    .eq('circle_id', id)
+    .eq('mode', 'quiet')
+    .eq('state', 'seeking')
+    .gt('quiet_expires_at', new Date().toISOString())
+    .order('created_at', { ascending: false });
+  // A card, not the home: unread, the home still shows.
+  if (error !== null) return [];
+  return data.flatMap((row) =>
+    row.quiet_expires_at === null ? [] : [{ planId: row.id, closesAt: row.quiet_expires_at }],
+  );
 }
 
 async function myTurnToPlan(client: ReturnType<typeof authClient>, id: string): Promise<boolean> {

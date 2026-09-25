@@ -8,15 +8,16 @@ import { t } from '../../copy';
  * ChooseMode — `docs/design/ChooseMode.dc.html` (spec §5.3, §5.4): plan openly,
  * or see if people are keen first.
  *
- * **The quiet card is behind `flags.quietAsk`.** The quiet ask is Slice 2's:
- * `create-plan` refuses it with `not_yet` until S2-02, so offering the card
- * now would put somebody in front of a request that cannot succeed. Hidden,
- * not disabled — a greyed option with nothing to say about why is a question
- * the screen cannot answer.
+ * **The quiet card is hidden in a circle of one** (`quietAsk`): there is
+ * nobody to ask, and `create-plan` would refuse it with `nobody_to_ask`.
+ * Hidden, not disabled — a greyed option with nothing to say about why is a
+ * question the screen cannot answer.
  */
 export type ChooseModeProps = {
   circleName?: string | undefined;
   quietAsk: boolean;
+  /** How many keen open it, for this circle (ADR 0035). */
+  threshold?: number | undefined;
   onPlanOpenly?: (() => void) | undefined;
   onSeeIfKeen?: (() => void) | undefined;
   onBack?: (() => void) | undefined;
@@ -48,6 +49,7 @@ function Choice({
 export function ChooseModeScreen({
   circleName = t('chooseMode', 'sunday_crew'),
   quietAsk,
+  threshold = 3,
   onPlanOpenly,
   onSeeIfKeen,
   onBack,
@@ -66,7 +68,7 @@ export function ChooseModeScreen({
         {quietAsk ? (
           <Choice
             title={t('chooseMode', 'see_if_people_are_keen')}
-            body={t('chooseMode', 'ask_quietly_first_if_three_people_are')}
+            body={t('chooseMode', 'ask_quietly_first', { threshold })}
             onPress={onSeeIfKeen}
           />
         ) : null}
