@@ -2,6 +2,7 @@ import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 
 import { t } from '../../copy';
+import { useSession } from '../../data/auth';
 import type { QuietPlan } from '../../data/planning';
 import { useOrganiserGate } from '../growth/InitiateGateFlow';
 import { InterestPromptScreen } from './InterestPromptScreen';
@@ -38,6 +39,7 @@ export function QuietScreens({
   toCircle: () => void;
 }) {
   const router = useRouter();
+  const me = useSession().userId;
   const organiser = useOrganiserGate({ circleId: plan.circleId, circleName });
   const actions = useQuietActions({
     planId: plan.id,
@@ -52,8 +54,8 @@ export function QuietScreens({
   // The initiator's own screen says so; this device remembers it, in memory,
   // so the ask opening in front of them offers them the initiator's choice.
   useEffect(() => {
-    if (screen.kind === 'waiting') rememberAsked(plan.id);
-  }, [screen.kind, plan.id]);
+    if (screen.kind === 'waiting') rememberAsked(plan.id, me);
+  }, [screen.kind, plan.id, me]);
 
   // Somebody organises it and it is this reader: the organiser's own screens,
   // once. A named plan behind this URL is simply a plan.

@@ -208,7 +208,7 @@ function QuietForm({
     if (key.current?.for !== request) key.current = { for: request, key: newIdempotencyKey() };
     try {
       const plan = await createQuietAsk({ ...options, idempotencyKey: key.current.key });
-      rememberAsked(plan.plan_id);
+      rememberAsked(plan.plan_id, home.me);
       // Recorded against nobody (`UNATTRIBUTED_EVENTS`): beside this person's
       // id, "started a quiet ask" is the initiator. Not `plan_created`, which
       // is attributed, for the same reason.

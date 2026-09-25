@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
+import { useEffect } from 'react';
 
 import { useSession } from '../../data/auth';
 import { hasBackend } from '../../data/auth/client';
@@ -56,36 +57,51 @@ function LiveQuietPlan({ planId, circleId }: { planId: string; circleId: string 
       return false;
     },
   });
-  const circle = circleId ?? plan.data?.circleId;
+  // The organiser is read from the plan row, so when the view says one has
+  // appeared — somebody's tap, or this person's on another device — the row is
+  // read again with it, and an organiser reading this is sent to their screens.
+  const organiser = view.data?.phase === 'opened' ? view.data.organiser : null;
+  const refetchPlan = plan.refetch;
+  useEffect(() => {
+    if (organiser !== null) void refetchPlan();
+  }, [organiser, refetchPlan]);
+
+  // The circle is the plan's: a URL naming another circle is not this plan's
+  // page, and drawing one circle's ask in another's name would be a lie.
+  const circle = plan.data?.circleId;
+  const mismatched = circleId !== undefined && circle !== undefined && circle !== circleId;
   const home = useQuery({
     queryKey: ['circle-home', circle, session.userId],
     queryFn: () => circleHome(circle as string),
-    enabled: signedIn && circle !== undefined,
+    enabled: signedIn && circle !== undefined && !mismatched,
     staleTime: 60_000,
   });
 
   const toCircle = () =>
-    circle === undefined
+    circle === undefined || mismatched
       ? router.replace('/')
       : router.replace({ pathname: '/circles/[id]', params: { id: circle } });
   const back = () => (router.canGoBack() ? router.back() : toCircle());
 
+  if (plan.data === null || mismatched) return <PlanStateScreen state="denied" onBack={back} />;
   if (!signedIn || plan.isPending || view.isPending || (circle !== undefined && home.isPending)) {
     return <PlanStateScreen state="loading" onBack={back} />;
   }
-  if (plan.isError || view.isError) {
+  // The circle's read too: without it the screen would say "3 of 0".
+  if (plan.isError || view.isError || home.isError) {
     return (
       <PlanStateScreen
         state={isOffline() ? 'offline' : 'error'}
         onRetry={() => {
           void plan.refetch();
           void view.refetch();
+          void home.refetch();
         }}
         onBack={back}
       />
     );
   }
-  if (plan.data === null || circle === undefined) {
+  if (circle === undefined || home.data === null) {
     return <PlanStateScreen state="denied" onBack={back} />;
   }
 

@@ -42,7 +42,7 @@ export function quietScreenOf(
     case 'opened':
       if (me !== undefined && plan.organiserUserId === me) return { kind: 'organising' };
       if (view.organiser === null && view.may_take_role) {
-        return askedHere(plan.id)
+        return askedHere(plan.id, me)
           ? { kind: 'threshold', keenCount: view.keen_count }
           : { kind: 'volunteer', keenCount: view.keen_count };
       }
@@ -62,18 +62,23 @@ export function quietScreenOf(
  * ("I'll organise" or "Ask for a volunteer") rather than the volunteer's one
  * tap, and it is forgotten as soon as they choose.
  */
-const asked = new Set<string>();
+const asked = new Map<string, string>();
 
-export function rememberAsked(planId: string): void {
-  asked.add(planId);
+/**
+ * Keyed by who was reading as well as by the plan: a browser signed out and
+ * into somebody else's account keeps its JavaScript, and the next reader must
+ * not inherit the last one's "you asked this".
+ */
+export function rememberAsked(planId: string, reader: string | undefined): void {
+  if (reader !== undefined) asked.set(planId, reader);
 }
 
 export function forgetAsked(planId: string): void {
   asked.delete(planId);
 }
 
-export function askedHere(planId: string): boolean {
-  return asked.has(planId);
+export function askedHere(planId: string, reader: string | undefined): boolean {
+  return reader !== undefined && asked.get(planId) === reader;
 }
 
 /** Test seam. */

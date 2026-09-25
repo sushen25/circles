@@ -236,7 +236,10 @@ export async function circleHome(id: string): Promise<CircleHome | null> {
 }
 
 /**
- * The circle's quiet asks still asking: `seeking`, before their stop time.
+ * The circle's quiet asks still asking: `seeking`, as the server has it. Not
+ * filtered by this device's clock, which may be wrong either way; an ask past
+ * its stop time shows as closed on its own screen (`quiet-view` decides) until
+ * the sweep writes `expired`.
  * The plan row is public to members and has no initiator column to read; a
  * held ask looks exactly like any other (spec §5.4).
  */
@@ -250,7 +253,6 @@ async function quietAsksIn(
     .eq('circle_id', id)
     .eq('mode', 'quiet')
     .eq('state', 'seeking')
-    .gt('quiet_expires_at', new Date().toISOString())
     .order('created_at', { ascending: false });
   // A card, not the home: unread, the home still shows.
   if (error !== null) return [];

@@ -169,8 +169,10 @@ describe('what a view draws', () => {
     // A keen member and the initiator both may take the role: one screen for
     // both, unless this device watched its own ask open.
     expect(quietScreenOf(OPENED, row, 'maya').kind).toBe('volunteer');
-    rememberAsked(PLAN);
+    rememberAsked(PLAN, 'maya');
     expect(quietScreenOf(OPENED, row, 'maya').kind).toBe('threshold');
+    // Signed out and into another account in the same tab: not theirs.
+    expect(quietScreenOf(OPENED, row, 'tom').kind).toBe('volunteer');
     expect(quietScreenOf({ ...OPENED, may_take_role: false }, row, 'tom').kind).toBe('opened');
     expect(
       quietScreenOf(
@@ -497,5 +499,50 @@ describe('ChooseMode beside a running plan', () => {
     expect(await screen.findByText('Sunday Crew is already finding a time')).toBeTruthy();
     expect(screen.queryByRole('button', { name: /^See if people are keen\./ })).toBeNull();
     expect(screen.queryByRole('button', { name: /^Plan openly\./ })).toBeNull();
+  });
+});
+
+describe('reads that disagree or fail', () => {
+  it('is not this plan’s page under another circle’s URL', async () => {
+    show(<QuietPlanFlow planId={PLAN} circleId="another-circle" />);
+
+    await waitFor(() => expect(quietPlan).toHaveBeenCalled());
+    await waitFor(() => expect(screen.queryByText(/Someone in/)).toBeNull());
+    expect(circleHome).not.toHaveBeenCalledWith('another-circle');
+    expect(screen.queryByRole('button', { name: "I'm keen" })).toBeNull();
+  });
+
+  it('says it could not load, with a retry, when the circle cannot be read', async () => {
+    circleHome.mockRejectedValue(new Error('circle lookup failed'));
+    show(<QuietPlanFlow planId={PLAN} circleId={CIRCLE} />);
+
+    expect(await screen.findByRole('button', { name: 'Try again' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: "I'm keen" })).toBeNull();
+  });
+
+  it('reads the plan again when the view says somebody organises it, and sends its organiser on', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      quietView.mockResolvedValue(OPENED);
+      show(<QuietPlanFlow planId={PLAN} circleId={CIRCLE} />);
+      await screen.findByRole('button', { name: "I'll pick the time" });
+      const reads = quietPlan.mock.calls.length;
+
+      // Tom took it on another device; the next poll sees it.
+      quietView.mockResolvedValue({ ...OPENED, organiser: 'Tom', may_take_role: false });
+      quietPlan.mockResolvedValue({ ...ROW, state: 'collecting', organiserUserId: 'tom' });
+      await vi.advanceTimersByTimeAsync(31_000);
+
+      await waitFor(() => expect(quietPlan.mock.calls.length).toBeGreaterThan(reads));
+      await waitFor(() =>
+        expect(replace).toHaveBeenCalledWith({
+          pathname: '/circles/[id]/plan/[planId]/candidates',
+          params: { id: CIRCLE, planId: PLAN },
+        }),
+      );
+      expect(acceptOrganiser).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
