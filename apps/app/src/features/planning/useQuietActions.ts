@@ -72,8 +72,9 @@ export function useQuietActions({
     answer: (interested: boolean) =>
       run(async () => {
         await answerInterest(planId, interested, newIdempotencyKey());
-        // Against nobody, and with no answer in it (`UNATTRIBUTED_EVENTS`).
-        track('quiet_interest_answered', ids);
+        // Against nobody, about no plan, and with no answer in it
+        // (`UNATTRIBUTED_EVENTS`): nothing on the row to join an answer to.
+        track('quiet_interest_answered', {});
         await onChanged();
       }),
 

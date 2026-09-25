@@ -272,11 +272,8 @@ describe('everybody else, while it asks (InterestPrompt)', () => {
     fireEvent.click(await screen.findByRole('button', { name: "I'm keen" }));
     await waitFor(() => expect(track).toHaveBeenCalled());
 
-    // Only the ids: no `answer`, and (in the transport) nobody on the row.
-    expect(track).toHaveBeenCalledWith('quiet_interest_answered', {
-      circle_id: CIRCLE,
-      plan_id: PLAN,
-    });
+    // Nothing: no answer, no plan, and (in the transport) nobody on the row.
+    expect(track).toHaveBeenCalledWith('quiet_interest_answered', {});
     expect(screen.queryByText(/you said/i)).toBeNull();
   });
 });
@@ -384,10 +381,7 @@ describe('SparkSetup', () => {
     for (const field of ['quorum', 'requiredMemberIds', 'responseDeadline', 'custom']) {
       expect(sent).not.toHaveProperty(field);
     }
-    expect(track).toHaveBeenCalledWith('quiet_ask_created', {
-      circle_id: CIRCLE,
-      plan_id: 'new-ask',
-    });
+    expect(track).toHaveBeenCalledWith('quiet_ask_created', {});
     expect(track).not.toHaveBeenCalledWith('plan_created', expect.anything());
     expect(replace).toHaveBeenCalledWith({
       pathname: '/circles/[id]/quiet/[planId]',
@@ -518,6 +512,29 @@ describe('reads that disagree or fail', () => {
 
     expect(await screen.findByRole('button', { name: 'Try again' })).toBeTruthy();
     expect(screen.queryByRole('button', { name: "I'm keen" })).toBeNull();
+  });
+
+  it('reads the plan again when the ask opens, for the deadline it opened with', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      show(<QuietPlanFlow planId={PLAN} circleId={CIRCLE} />);
+      await screen.findByRole('button', { name: "I'm keen" });
+      const reads = quietPlan.mock.calls.length;
+
+      // Somebody else's answer opens it; this member was not keen.
+      quietView.mockResolvedValue({ ...OPENED, may_take_role: false });
+      quietPlan.mockResolvedValue({
+        ...ROW,
+        state: 'collecting',
+        responseDeadline: '2026-09-20T08:00:00.000Z',
+      });
+      await vi.advanceTimersByTimeAsync(31_000);
+
+      await waitFor(() => expect(quietPlan.mock.calls.length).toBeGreaterThan(reads));
+      expect(await screen.findByText(/^3 were keen · Replies close .*\b20\b/)).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('reads the plan again when the view says somebody organises it, and sends its organiser on', async () => {

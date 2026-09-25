@@ -30,6 +30,16 @@ function event<S extends Shape>(version: number, shape: S = {} as S) {
   return { version, payload: z.strictObject({ ...identifiers, ...shape }) };
 }
 
+/**
+ * An event about **nothing in particular**: no circle, no plan, no property.
+ * For the quiet ask's `UNATTRIBUTED_EVENTS`, whose row must not be joinable to
+ * a plan — and through the plan to `private.plan_initiators` or
+ * `private.plan_interest` — any more than to a person (SUS-51 review round 3).
+ */
+function bare(version: number) {
+  return { version, payload: z.strictObject({}) };
+}
+
 /** A count that is never a person's identity — "5 of 6 can make it". */
 const count = z.int().nonnegative().max(10_000);
 
@@ -107,8 +117,8 @@ export const catalogue = {
   // An event row sits beside `user_id` (architecture §15), and each of these
   // would otherwise say something a quiet ask exists to keep (spec §8.2,
   // SUS-49 note 12). `quiet_ask_created` beside a user *is* the initiator, so
-  // it is in `UNATTRIBUTED_EVENTS` below. So is `quiet_interest_answered`, and
-  // it carries no answer: version 1's `answer` beside a user was an individual
+  // it is in `UNATTRIBUTED_EVENTS` below, and `bare`: no plan or circle either
+  // (version 2). So is `quiet_interest_answered`, and it carries no answer: version 1's `answer` beside a user was an individual
   // answer, and even with nobody on the row an answer timed to the second can
   // be matched to the tap that sent it. `organiser_accepted` names nobody new —
   // the organiser is public from that moment — but version 1's
@@ -116,8 +126,8 @@ export const catalogue = {
   // role (and the client could not know it: `accept-organiser` never says).
   // `quiet_threshold_reached` is not the client's to send: no answer tells it
   // the ask opened (SUS-51 left it to the server, SUS-50).
-  quiet_ask_created: event(1),
-  quiet_interest_answered: event(2),
+  quiet_ask_created: bare(2),
+  quiet_interest_answered: bare(2),
   quiet_threshold_reached: event(1, { threshold: count }),
   organiser_accepted: event(2),
 

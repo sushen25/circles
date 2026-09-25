@@ -339,8 +339,9 @@ or an answer. `quietScreenOf` turns a view into a screen.
 - The static `/circles/[id]/quiet/{waiting,interest,threshold,volunteer,opened,expired}`
   routes are the gallery's artboards.
 - Analytics: `quiet_ask_created` and `quiet_interest_answered` are
-  `UNATTRIBUTED_EVENTS`, sent on their own with no session and no browser id;
-  `quiet_interest_answered` and `organiser_accepted` carry no answer or role.
+  `UNATTRIBUTED_EVENTS`, sent on their own with no session and no browser id,
+  and carry nothing — no plan, no circle, no answer; `organiser_accepted` has
+  no role.
 
 ### scheduling
 

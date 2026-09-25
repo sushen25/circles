@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 import { useSession } from '../../data/auth';
 import { hasBackend } from '../../data/auth/client';
@@ -60,11 +60,16 @@ function LiveQuietPlan({ planId, circleId }: { planId: string; circleId: string 
   // The organiser is read from the plan row, so when the view says one has
   // appeared — somebody's tap, or this person's on another device — the row is
   // read again with it, and an organiser reading this is sent to their screens.
+  // The same when it opens: opening gives the plan its real deadline.
+  const phase = view.data?.phase;
   const organiser = view.data?.phase === 'opened' ? view.data.organiser : null;
   const refetchPlan = plan.refetch;
+  const seen = useRef<string | undefined>(undefined);
   useEffect(() => {
-    if (organiser !== null) void refetchPlan();
-  }, [organiser, refetchPlan]);
+    const now = `${phase ?? ''}:${organiser ?? ''}`;
+    if (seen.current !== undefined && seen.current !== now) void refetchPlan();
+    seen.current = now;
+  }, [phase, organiser, refetchPlan]);
 
   // The circle is the plan's: a URL naming another circle is not this plan's
   // page, and drawing one circle's ask in another's name would be a lie.

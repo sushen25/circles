@@ -17,13 +17,15 @@ import { circleOwnedBy, signedInAccount, sql } from './stack';
  * name an initiator or an answer.
  */
 
-type Person = { userId: string; name: string; page: Page; seen: string[] };
+type Person = { userId: string; name: string; page: Page; seen: string[]; quietEvents: string[] };
 
 /** The responses that are *about the ask*: where an initiator or an answer could leak. */
 const ABOUT_THE_ASK =
   /\/(functions\/v1\/(quiet-view|create-plan|answer-interest|accept-organiser|cancel-plan)|rest\/v1\/plans)\b/;
 
-async function person(name: string): Promise<Omit<Person, 'page' | 'seen'> & { stored: string }> {
+async function person(
+  name: string,
+): Promise<Omit<Person, 'page' | 'seen' | 'quietEvents'> & { stored: string }> {
   const { userId, stored } = await signedInAccount(name);
   return { userId, name, stored };
 }
@@ -36,6 +38,17 @@ async function open(
   const page = await context.newPage();
   await signedInAs(page, who.stored);
   const seen: string[] = [];
+  // The ids of the quiet events this page sent, to find their rows.
+  const quietEvents: string[] = [];
+  page.on('request', (request) => {
+    if (!new URL(request.url()).pathname.endsWith('/functions/v1/track-events')) return;
+    const body = JSON.parse(request.postData() ?? '{}') as {
+      events?: { event_id: string; name: string }[];
+    };
+    for (const event of body.events ?? []) {
+      if (event.name.startsWith('quiet_')) quietEvents.push(event.event_id);
+    }
+  });
   page.on('response', (response) => {
     if (!ABOUT_THE_ASK.test(new URL(response.url()).pathname)) return;
     void response
@@ -43,7 +56,7 @@ async function open(
       .then((body) => seen.push(body))
       .catch(() => undefined);
   });
-  return { userId: who.userId, name: who.name, page, seen };
+  return { userId: who.userId, name: who.name, page, seen, quietEvents };
 }
 
 /** A circle of three saved places: Maya owns it, Tom and Jess are in it. */
@@ -157,19 +170,19 @@ test('three members: Maya asks quietly, it opens, and Tom picks the time', async
 
   expectNothingConnects(maya, maya, tom, jess);
 
-  // Starting the ask and answering it are recorded against nobody.
+  // Starting the ask and answering it are recorded against nobody, and about
+  // nothing: no user, no browser, no plan, no circle, no properties.
+  const ids = [...maya.quietEvents, ...tom.quietEvents, ...jess.quietEvents];
+  expect(ids).toHaveLength(3);
+  const list = ids.map((id) => `'${id}'`).join(', ');
   await expect
-    .poll(
-      () =>
-        sql(`select count(*) from analytics.events where plan_id = '${planId}'
-           and event_name in ('quiet_ask_created', 'quiet_interest_answered')`)[0]?.[0],
-    )
+    .poll(() => sql(`select count(*) from analytics.events where event_id in (${list})`)[0]?.[0])
     .toBe('3');
   expect(
-    sql(`select count(*) from analytics.events where plan_id = '${planId}'
-         and event_name in ('quiet_ask_created', 'quiet_interest_answered')
-         and (user_id is not null or anonymous_id is not null)`)[0]?.[0],
-  ).toBe('0');
+    sql(`select distinct coalesce(user_id::text, '-'), coalesce(anonymous_id, '-'),
+           coalesce(plan_id::text, '-'), coalesce(circle_id::text, '-'), properties::text
+         from analytics.events where event_id in (${list})`),
+  ).toEqual([['-', '-', '-', '-', '{}']]);
   // Taking the role is public, and says nothing about how.
   expect(
     sql(`select user_id, properties::text from analytics.events

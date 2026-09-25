@@ -209,10 +209,10 @@ function QuietForm({
     try {
       const plan = await createQuietAsk({ ...options, idempotencyKey: key.current.key });
       rememberAsked(plan.plan_id, home.me);
-      // Recorded against nobody (`UNATTRIBUTED_EVENTS`): beside this person's
-      // id, "started a quiet ask" is the initiator. Not `plan_created`, which
-      // is attributed, for the same reason.
-      track('quiet_ask_created', { circle_id: id as CircleId, plan_id: plan.plan_id });
+      // Recorded against nobody (`UNATTRIBUTED_EVENTS`) and about nothing: no
+      // plan and no circle either, so the row cannot be joined to anything
+      // that knows who asked. Not `plan_created`, which is attributed.
+      track('quiet_ask_created', {});
       void queryClient.invalidateQueries({ queryKey: ['circle-home', id] });
       router.replace({
         pathname: '/circles/[id]/quiet/[planId]',

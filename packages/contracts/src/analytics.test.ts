@@ -14,6 +14,7 @@ import {
 } from './analytics';
 
 const entries = Object.entries(catalogue);
+const PLAN_ID = '00000000-0000-4000-8000-0000000000a1';
 
 describe('the analytics catalogue', () => {
   it('declares every event with a version and a payload schema', () => {
@@ -222,10 +223,10 @@ describe('the quiet ask events (SUS-51, spec §8.2)', () => {
   it('say nothing about who asked, what anybody answered or how the organiser came to it', () => {
     // Each would sit beside `user_id`: `answer` was an individual answer, and
     // `role: 'initiator'` was the initiator with their id on the row.
-    expect(Object.keys(catalogue.quiet_interest_answered.payload.shape).sort()).toEqual([
-      'circle_id',
-      'plan_id',
-    ]);
+    // Nothing at all: not even a plan, which could be joined to who asked.
+    expect(Object.keys(catalogue.quiet_interest_answered.payload.shape)).toEqual([]);
+    expect(Object.keys(catalogue.quiet_ask_created.payload.shape)).toEqual([]);
+    expect(validateEvent('quiet_ask_created', { plan_id: PLAN_ID })).toBeNull();
     expect(Object.keys(catalogue.organiser_accepted.payload.shape).sort()).toEqual([
       'circle_id',
       'plan_id',
@@ -234,6 +235,7 @@ describe('the quiet ask events (SUS-51, spec §8.2)', () => {
     expect(validateEvent('organiser_accepted', { role: 'initiator' })).toBeNull();
     // A changed meaning, so a new version: a query can tell the old rows apart.
     expect(catalogue.quiet_interest_answered.version).toBe(2);
+    expect(catalogue.quiet_ask_created.version).toBe(2);
     expect(catalogue.organiser_accepted.version).toBe(2);
     // And the ingest drops the old keys rather than storing them.
     expect(acceptEvent('organiser_accepted', { role: 'initiator' })?.properties).toEqual({});
