@@ -59,10 +59,11 @@ describe('the quiet kinds', () => {
 
 describe('the owner’s fallback', () => {
   const opened = (organiser: typeof TOM | undefined) => {
-    const base = eligibilityContext();
+    // Main's context made the plan optional (S2-04's circle-only nudge).
+    const base = eligibilityContext().plan!;
     return eligibilityContext({
       plan: {
-        ...base.plan,
+        ...base,
         mode: 'quiet',
         state: 'collecting',
         organiserUserId: organiser,

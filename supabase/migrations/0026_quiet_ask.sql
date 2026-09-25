@@ -613,7 +613,10 @@ grant execute on function public.create_quiet_ask(uuid, uuid, text, text, date, 
 --   * `circle_archived` — "Archiving stops all prompts" (spec §5.2), and a
 --     reminder written before the owner archived is still `scheduled` after.
 --     Asked at the moment of sending, so bringing the circle back lets what
---     was queued go rather than losing it (S1-23).
+--     was queued go rather than losing it (S1-23). The circle is the plan's,
+--     or — for `about_time`, which has no plan — the job's own `circle_id`
+--     (S2-04). Found through the plan alone, a cadence nudge's circle was
+--     always null and archiving never stopped one.
 --   * `organiser_email_muted` — the contact's owner has turned "Emails about
 --     plans you organise" off (ADR 0029). `did_it_happen` is written when a
 --     meetup is confirmed and sent the next morning, so a switch read only
@@ -692,12 +695,12 @@ as $$
     -- them tells whoever reads `last_error` the wrong story (review round 2).
     'member_active', exists (
       select 1 from public.circle_members m
-      where m.circle_id = p.circle_id and m.user_id = c.user_id and m.status = 'active'
+      where m.circle_id = cir.id and m.user_id = c.user_id and m.status = 'active'
     ),
     'plan_state', p.state,
     'plan_short_code', p.short_code,
     'plan_current_revision', p.revision,
-    'circle_id', p.circle_id,
+    'circle_id', cir.id,
     'circle_name', cir.name,
     'circle_archived', coalesce(cir.status = 'archived', false),
     -- The quiet ask's two letters to its initiator are stopped by muting quiet
@@ -725,7 +728,7 @@ as $$
   from due j
   join private.email_contacts c on c.id = j.contact_id
   left join public.plans p on p.id = j.plan_id
-  left join public.circles cir on cir.id = p.circle_id;
+  left join public.circles cir on cir.id = coalesce(p.circle_id, j.circle_id);
 $$;
 
 comment on function public.dispatch_claim_due(integer) is
@@ -830,7 +833,7 @@ grant execute on function public.dispatch_quiet_audience(uuid, text) to service_
 -- The work a clock creates, discovered from data rather than from a timer
 -- (architecture §9.3).
 --
--- Four things, every run, all of them queries:
+-- Five things, every run, all of them queries:
 --
 -- 1. **A deadline that has passed.** Nothing emits `planning.deadline_passed`
 --    — it is not a transition, and S1-11 left it for the sweep to raise. It is
@@ -860,7 +863,23 @@ grant execute on function public.dispatch_quiet_audience(uuid, text) to service_
 --    reminder is `recipientsFor('deadline_approaching')`'s answer and belongs
 --    in the domain.
 --
--- 5. **A quiet ask at its stop time** (SUS-50, below the first four). Plans
+-- 5. **A circle that may be due a nudge** (S2-04). The circles, not the
+--    decision: whether one is owed, for which due date and to whom is
+--    `nudgeDueDate` and `nudgeChoice`'s, in the domain. This is a coarse
+--    superset of the circles that could be owed one, so the domain is asked
+--    about few circles rather than all of them: active, with a goal and a
+--    history, nothing open, not snoozed, not already decided for this cycle
+--    (the prompt counted from its current `last_met_at`) — and met long
+--    enough ago that the lead window can have opened. That last bound is the
+--    domain's own arithmetic: the cadence added forward from the meetup on the
+--    circle's wall clock, where a month is a calendar month clamped at its
+--    end, less the lead days, less one more day for a DST hour. So no circle
+--    the domain would call due is ever left out or named late; one it would
+--    not is merely asked about and told no. Subtracting a month back from
+--    now instead named a circle that met at the start of February two days
+--    after its card appeared (review round 2). Oldest first, so a circle that
+--    has waited longest is asked first.
+-- 6. **A quiet ask at its stop time** (SUS-50). Plans
 --    `seeking` whose `quiet_expires_at` has passed expire, privately — the
 --    one message is the initiator's, and it comes from the drain reading the
 --    `planning.plan_expired` this writes. And the asks **held** at their
@@ -1023,13 +1042,44 @@ begin
         order by p.response_deadline
         limit batch
       ) x
+    ), '[]'::jsonb),
+    'cadence', coalesce((
+      select jsonb_agg(x.id) from (
+        select c.id
+        from public.circles c
+        where c.status = 'active'
+          and c.cadence <> 'none'
+          and c.last_met_at is not null
+          and ((c.last_met_at at time zone c.time_zone) + case c.cadence
+            when 'weekly' then interval '7 days'
+            when 'fortnightly' then interval '14 days'
+            when 'monthly' then interval '1 month'
+            else interval '2 months'
+          end - case c.cadence
+            when 'weekly' then interval '3 days'
+            when 'fortnightly' then interval '3 days'
+            else interval '8 days'
+          end) at time zone c.time_zone <= now()
+          and (c.cadence_snoozed_until is null or c.cadence_snoozed_until <= now())
+          and not exists (
+            select 1 from public.plans p
+            where p.circle_id = c.id
+              and p.state in ('seeking', 'collecting', 'ready', 'confirmed')
+          )
+          and not exists (
+            select 1 from private.cadence_prompts cp
+            where cp.circle_id = c.id and cp.last_met_at = c.last_met_at
+          )
+        order by c.last_met_at
+        limit batch
+      ) x
     ), '[]'::jsonb)
   );
 end;
 $$;
 
 comment on function public.dispatch_timed_work(integer) is
-  'One pass of the time-based work: emits planning.deadline_passed once per plan, expires plans whose last possible start has gone and quiet asks whose stop time has, and names the plans with a stale candidate set or a deadline within 24 hours and the held quiet asks whose circle is free. Service role only (S1-20, S2-02).';
+  'One pass of the time-based work: emits planning.deadline_passed once per plan, expires plans whose last possible start has gone and quiet asks whose stop time has, and names the plans with a stale candidate set or a deadline within 24 hours, the circles that may be due a cadence nudge, and the held quiet asks whose circle is free. Service role only (S1-20, S2-02, S2-04).';
 
 revoke all on function public.dispatch_timed_work(integer) from public;
 revoke all on function public.dispatch_timed_work(integer) from anon, authenticated;
