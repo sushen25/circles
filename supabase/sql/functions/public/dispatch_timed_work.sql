@@ -21,6 +21,8 @@
 --    and never more than a day late, so a plan that has sat undecided for a
 --    week is not reminded on the day this was deployed. `ready`, not
 --    `collecting`: the follow-up is about an option waiting to be locked in.
+--    And not after a hand-off since the first letter, whose own letter said
+--    replies have closed an hour or a day before.
 --
 -- 2. **A plan whose last possible start has gone.** Spec §9: "the plan stays
 --    decidable until the last candidate start, then expires." The last start
@@ -147,6 +149,21 @@ begin
           and o.aggregate_id = p.id
           and (o.payload ->> 'deadline')::timestamptz = p.response_deadline
           and o.payload ? 'follow_up'
+      )
+      -- Handed on since the first letter: the new organiser was told replies
+      -- have closed when it became theirs, and a second letter an hour later
+      -- is a duplicate, not a reminder (review round 2).
+      and not exists (
+        select 1 from jobs.outbox h
+        where h.event_name = 'planning.organiser_changed'
+          and h.aggregate_id = p.id
+          and h.occurred_at > (
+            select min(o.occurred_at) from jobs.outbox o
+            where o.event_name = 'planning.deadline_passed'
+              and o.aggregate_id = p.id
+              and (o.payload ->> 'deadline')::timestamptz = p.response_deadline
+              and not (o.payload ? 'follow_up')
+          )
       )
     order by p.response_deadline
     limit batch

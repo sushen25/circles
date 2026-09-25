@@ -46,7 +46,9 @@ turned four loose phrases into decisions:
    was *announced* — not a day after the deadline, so a dispatcher that was
    down does not send both at once — and never more than a day late, so a plan
    that has sat undecided for a week is not reminded on the day this ships.
-   `ready` only: the reminder is about an option waiting to be locked in. Its
+   `ready` only: the reminder is about an option waiting to be locked in. Not
+   after a hand-off since the first letter: the new organiser's own letter
+   said replies have closed, and a second one soon after is a duplicate. Its
    occurrence is the deadline plus `+24h`. That is two letters per deadline at
    most, which is what spec §5.8's "no repeated daily reminders" allows.
 3. **A letter that has stopped being true is not sent.** At the moment of
@@ -82,7 +84,9 @@ turned four loose phrases into decisions:
    nothing while the plan is still collecting — `options_ready` will reach
    them in its turn, its key naming the recipient. The hand-off letter's
    occurrence includes the hand-off event, so a plan handed back to somebody
-   whose own letter was skipped when they let it go is told again.
+   whose own letter was skipped when they let it go is told again, and
+   `options_ready`, like `replies_closed`, is out of the one-copy-per-address
+   rule — it too goes to one organiser's one contact.
 6. **An extension does not reopen the deadline-approaching reminder.** Spec
    §5.8 allows "at most one deadline reminder per member per plan", and that
    kind is push-only until Slice 3. The ticket asked for it to be re-armed;

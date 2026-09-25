@@ -697,10 +697,13 @@ grant execute on function planning.transition_plan(uuid, text, uuid, jsonb) to s
 -- an `adjust`, so the second closure shares the first one's revision and
 -- address, and deduping it here dropped exactly the letter its occurrence was
 -- changed to let through — as it would the reminder a day later. It goes to
--- one organiser's one contact, so there is no sibling to collapse. The sender
--- holds the same four in `NEVER_COLLAPSED`, because the rule has a half on
--- each side of the wire; they had drifted by one kind when review round 4
--- looked.
+-- one organiser's one contact, so there is no sibling to collapse.
+-- `options_ready` is excluded for the same reason and a second one (S2-05
+-- review round 2): a plan handed back to somebody who was sent its options
+-- once is written a new letter under a key of its own, and deduping by
+-- revision and address sent it to nobody. The sender holds the same five in
+-- `NEVER_COLLAPSED`, because the rule has a half on each side of the wire;
+-- they had drifted by one kind when review round 4 looked.
 --
 -- Push is not claimed here. Slice 1 writes no push job — a kind whose only
 -- channel is push finds no device and produces no recipient — and Slice 3
@@ -755,7 +758,7 @@ as $$
     'organiser_email_muted', coalesce((
       select pr.muted_organiser_email from public.profiles pr where pr.user_id = c.user_id
     ), false),
-    'superseded', j.kind not in ('changed', 'verify_email', 'about_time', 'replies_closed') and exists (
+    'superseded', j.kind not in ('changed', 'verify_email', 'about_time', 'replies_closed', 'options_ready') and exists (
       select 1
       from jobs.notification_jobs o
       join private.email_contacts oc on oc.id = o.contact_id
@@ -850,6 +853,8 @@ grant execute on function public.dispatch_supersede_closing(uuid, text[]) to ser
 --    and never more than a day late, so a plan that has sat undecided for a
 --    week is not reminded on the day this was deployed. `ready`, not
 --    `collecting`: the follow-up is about an option waiting to be locked in.
+--    And not after a hand-off since the first letter, whose own letter said
+--    replies have closed an hour or a day before.
 --
 -- 2. **A plan whose last possible start has gone.** Spec §9: "the plan stays
 --    decidable until the last candidate start, then expires." The last start
@@ -968,6 +973,21 @@ begin
           and o.aggregate_id = p.id
           and (o.payload ->> 'deadline')::timestamptz = p.response_deadline
           and o.payload ? 'follow_up'
+      )
+      -- Handed on since the first letter: the new organiser was told replies
+      -- have closed when it became theirs, and a second letter an hour later
+      -- is a duplicate, not a reminder (review round 2).
+      and not exists (
+        select 1 from jobs.outbox h
+        where h.event_name = 'planning.organiser_changed'
+          and h.aggregate_id = p.id
+          and h.occurred_at > (
+            select min(o.occurred_at) from jobs.outbox o
+            where o.event_name = 'planning.deadline_passed'
+              and o.aggregate_id = p.id
+              and (o.payload ->> 'deadline')::timestamptz = p.response_deadline
+              and not (o.payload ? 'follow_up')
+          )
       )
     order by p.response_deadline
     limit batch

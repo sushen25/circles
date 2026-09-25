@@ -8,7 +8,7 @@
 -- SUS-36 found the job layer silently throwing away.
 
 begin;
-select plan(52);
+select plan(54);
 
 create or replace function pg_temp.make_user(id uuid, name text, permanent boolean)
 returns uuid language sql as $$
@@ -404,6 +404,11 @@ select is(planning.allowed_keys('hand_off'), array['organiser_user_id'],
 -- ---------------------------------------------------------------------------
 -- The letters: once per deadline, once more a day later while still ready
 -- ---------------------------------------------------------------------------
+-- The hand-off above happened before any of this, in real time; a test is one
+-- transaction and one `now()`, so its event is put back where it belongs.
+select pg_temp.act_as_postgres();
+update jobs.outbox set occurred_at = now() - interval '30 hours'
+where event_name = 'planning.organiser_changed' and aggregate_id = pg_temp.plan_id();
 select pg_temp.act_as_service();
 select public.dispatch_timed_work(200);
 select pg_temp.act_as_postgres();
@@ -447,6 +452,28 @@ select ok(
    where o.event_name = 'planning.deadline_passed' and o.aggregate_id = pg_temp.plan_id()
      and o.payload ? 'follow_up'),
   'and it names the deadline it follows up, to the microsecond, as the first does'
+);
+
+-- Handed on since the first letter: its own letter was the reminder.
+select pg_temp.act_as_postgres();
+update public.plans set response_deadline = now() - interval '27 hours' where id = pg_temp.plan_id();
+select pg_temp.act_as_service();
+select public.dispatch_timed_work(200);
+select pg_temp.act_as_postgres();
+update jobs.outbox set occurred_at = now() - interval '25 hours'
+where event_name = 'planning.deadline_passed' and aggregate_id = pg_temp.plan_id()
+  and (payload ->> 'deadline')::timestamptz = (select response_deadline from public.plans where id = pg_temp.plan_id());
+select jobs.emit('planning.organiser_changed', 'plan', pg_temp.plan_id(),
+  jsonb_build_object('plan_id', pg_temp.plan_id(), 'revision', 1));
+select pg_temp.act_as_service();
+select public.dispatch_timed_work(200);
+select pg_temp.act_as_postgres();
+select is(
+  (select count(*)::integer from jobs.outbox o join public.plans p on p.id = o.aggregate_id
+   where o.event_name = 'planning.deadline_passed' and p.id = pg_temp.plan_id()
+     and (o.payload ->> 'deadline')::timestamptz = p.response_deadline and o.payload ? 'follow_up'),
+  0,
+  'a plan handed on since the first letter is not followed up: the hand-off letter said it'
 );
 
 -- Decided in the meantime: no follow-up. A fresh deadline on the same plan,
@@ -514,22 +541,35 @@ select is(
   'the letter for a second deadline, to the same address on the same revision, is not superseded by the first'
 );
 
--- The rule it was carved out of still holds for the kinds it is about.
+-- Nor is an options_ready written for a hand-back to somebody who was sent the
+-- options before (review round 2), while the rule it was carved out of still
+-- holds for the kinds it is about.
 select pg_temp.act_as_postgres();
 insert into jobs.notification_jobs (
   channel, kind, contact_id, plan_id, plan_revision, scheduled_for, idempotency_key, status, sent_at
 )
-select 'email', 'options_ready', c.id, pg_temp.plan_id(), 1, now() - interval '1 minute', k.key, k.status,
+select 'email', k.kind, c.id, pg_temp.plan_id(), 1, now() - interval '1 minute', k.key, k.status,
   case when k.status = 'sent' then now() end
-from (values ('0000000000000000000000000000000000000000000000000000000000000021', 'sent'), ('0000000000000000000000000000000000000000000000000000000000000022', 'scheduled')) as k (key, status)
+from (values ('options_ready', '0000000000000000000000000000000000000000000000000000000000000021', 'sent'),
+             ('options_ready', '0000000000000000000000000000000000000000000000000000000000000022', 'scheduled'),
+             ('cancelled', '0000000000000000000000000000000000000000000000000000000000000023', 'sent'),
+             ('cancelled', '0000000000000000000000000000000000000000000000000000000000000024', 'scheduled'))
+  as k (kind, key, status)
 cross join private.email_contacts c where c.email_normalized = 'priya-rc@example.com';
 select pg_temp.act_as_service();
 select is(
   (select (j ->> 'superseded')::boolean
    from jsonb_array_elements(public.dispatch_claim_due(200)) j
    where j ->> 'idempotency_key' = '0000000000000000000000000000000000000000000000000000000000000022'),
+  false,
+  'a hand-back options_ready to an address that had the options once is still sent'
+);
+select is(
+  (select (j ->> 'superseded')::boolean
+   from jsonb_array_elements(public.dispatch_claim_due(200)) j
+   where j ->> 'idempotency_key' = '0000000000000000000000000000000000000000000000000000000000000024'),
   true,
-  'while a second options_ready on one revision is still one letter'
+  'while a second cancelled on one revision to one address is still one letter'
 );
 
 -- ---------------------------------------------------------------------------

@@ -208,6 +208,9 @@ const NEVER_COLLAPSED: readonly string[] = [
   // Once per deadline and once more a day later, on one revision (S2-05):
   // collapsed by revision, the second closure is a copy of the first.
   'replies_closed',
+  // And once more for each hand-off (S2-05 review round 2). Both go to one
+  // organiser's one contact, so there is no sibling copy to collapse.
+  'options_ready',
 ];
 
 /** The next attempt for a job that has already failed this often, or null at the end. */
