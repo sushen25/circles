@@ -967,7 +967,10 @@ select is(
        -- S2-05. Replies closed: the plan to somebody else and one more day,
        -- each deciding for itself who may, and who the organiser could choose,
        -- answered to the organiser alone.
-       'hand_off_organiser', 'extend_deadline', 'hand_off_candidates'
+       'hand_off_organiser', 'extend_deadline', 'hand_off_candidates',
+       -- S2-07. Whether "I was there" is the circle's first: security invoker,
+       -- so it reads nothing RLS does not already show the caller.
+       'after_attendance_facts'
      )),
   '',
   'only the intended functions in public are callable by authenticated'
