@@ -49,7 +49,7 @@ FOLLOW ?= -f
 
 .PHONY: help ports envs setup dev dev-live dev-down web up down restart reset nuke status env \
 	logs logs-errors logs-db logs-auth logs-api psql sql limits mail studio \
-	gen types build check test test-unit test-db test-live test-smoke lint typecheck format \
+	gen types build check test test-unit test-db test-live test-live-headed test-smoke lint typecheck format \
 	secrets secret
 
 help: ## List every target
@@ -201,6 +201,9 @@ test-db: up ## Reset the database, then pgTAP
 
 test-live: up ## The live e2e suite in four browsers; make test-live G="part of a name" P=iphone-safari
 	E2E_LIVE_PORT=$(LIVE_PORT) $(PNPM) test:e2e:live $(if $(G),-g "$(G)",) $(if $(P),--project $(P),)
+
+test-live-headed: up ## The live suite with the browser visible, one test at a time; same G= and P=. UI=1 opens Playwright's UI mode instead
+	E2E_LIVE_PORT=$(LIVE_PORT) $(PNPM) test:e2e:live $(if $(UI),--ui,--headed --workers 1) $(if $(G),-g "$(G)",) $(if $(P),--project $(P),)
 
 test-smoke: ## The fixture-mode e2e suite (no stack)
 	E2E_SMOKE_PORT=$(SMOKE_PORT) $(PNPM) test:e2e:smoke
