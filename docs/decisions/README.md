@@ -39,6 +39,7 @@ Short records of decisions that shape the product or the code. A new ADR is requ
 | [0033](./0033-one-open-plan-per-circle.md) | A circle has one open plan at a time | accepted |
 | [0034](./0034-ink-3-is-dark-enough-to-read.md) | `ink-3` is dark enough to read | proposed |
 | [0035](./0035-the-quiet-ask-at-twenty-members.md) | The quiet ask at twenty members: its threshold, its stop time, and what it does beside an open plan | accepted |
+| [0036](./0036-the-cadence-nudge-is-decided-once-per-due-date.md) | The cadence nudge is decided once per due date, when circle home says it is about time | proposed |
 
 ## Template
 

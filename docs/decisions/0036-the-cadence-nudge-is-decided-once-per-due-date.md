@@ -1,4 +1,4 @@
-# ADR 00XX: The cadence nudge is decided once per due date, when circle home says it is about time
+# ADR 0036: The cadence nudge is decided once per due date, when circle home says it is about time
 
 _Status: proposed · 25 September 2026_
 

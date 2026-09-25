@@ -22,7 +22,7 @@
 -- **Nobody is a decision too.** `p_user_id` is null when the rule found
 -- nobody to ask — everyone said no, or the one person the policy names did —
 -- and the row is written anyway, so the sweep does not ask the same question
--- every minute until somebody changes a switch (ADR 00XX).
+-- every minute until somebody changes a switch (ADR 0036).
 --
 -- **A plan made meanwhile wins.** The circle row is locked first — the lock
 -- `planning.transition_plan` takes before it lets a plan open (ADR 0033) — and

@@ -150,7 +150,7 @@ export function nudgeDueDate(
  *
  * A month whatever the cadence, because that is what the button says. It
  * moves `cadenceSnoozedUntil` and nothing else — the due date stays where
- * `lastMetAt` put it (ADR 00XX).
+ * `lastMetAt` put it (ADR 0036).
  */
 export function snoozeAMonth(now: Instant, z: Zone): Instant {
   const local = toLocal(now, z);
