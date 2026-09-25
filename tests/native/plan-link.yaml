@@ -7,4 +7,4 @@ appId: app.circles.development
     visible: '[0-9]+ of [0-9]+ replied'
     timeout: 60000
 # Step 3 of an earlier run adds a member, so the counts are not pinned.
-- assertVisible: ".*You can lock a time in now.*"
+- assertVisible: '.*You can lock a time in now.*'
