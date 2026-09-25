@@ -1,8 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
-import { expect, test, type Page } from '@playwright/test';
-
-import { circleOwnedBy, clearRateCounters, sessionStorageKey, signedInAccount, sql } from './stack';
+import { expect, test, type Page } from './fixtures';
+import { circleOwnedBy, sessionStorageKey, signedInAccount, sql } from './stack';
 
 /**
  * The second meetup (spec §6.4, S2-04): a circle that has met is, a month on,
@@ -15,10 +14,6 @@ import { circleOwnedBy, clearRateCounters, sessionStorageKey, signedInAccount, s
  * tests. The prompt it would have written is written here directly, so that
  * this spec does not run the whole worker over every other spec's data.
  */
-
-test.beforeEach(() => {
-  clearRateCounters();
-});
 
 async function signIn(page: Page, stored: string): Promise<void> {
   await page.addInitScript({
