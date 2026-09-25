@@ -5,7 +5,7 @@ import { MELBOURNE } from '../shared/fixtures.js';
 import { interval } from '../shared/interval.js';
 import { localDate } from '../shared/local-date.js';
 import { fromLocal } from '../shared/zone.js';
-import { dayPartOf, dayPartsCovered, summariseDayparts } from './dayparts.js';
+import { dayPartOf, dayPartsCovered, summariseDayparts, usualDayparts } from './dayparts.js';
 import { response } from './fixtures.js';
 
 /** 17 Sep 2026 is a Thursday; 19 Sep is a Saturday. */
@@ -199,5 +199,48 @@ describe('summariseDayparts', () => {
       MELBOURNE,
     );
     expect(summaries[0]?.parts).toEqual(['weekday_morning', 'weekday_evening']);
+  });
+});
+
+describe('usualDayparts', () => {
+  const evenings = {
+    status: 'windows' as const,
+    windows: [on(WEEKDAY, 18 * 60, 21 * 60)],
+    zone: MELBOURNE,
+  };
+  const saturdayMorning = {
+    status: 'windows' as const,
+    windows: [on(WEEKEND, 9 * 60, 11 * 60)],
+    zone: MELBOURNE,
+  };
+
+  it('says nothing from a single answer: one plan is not a habit', () => {
+    expect(usualDayparts({ answers: [evenings] })).toBeUndefined();
+  });
+
+  it('does not count answers without times', () => {
+    const easy = { status: 'flexible' as const, windows: [], zone: MELBOURNE };
+    expect(usualDayparts({ answers: [evenings, easy, easy] })).toBeUndefined();
+  });
+
+  it('keeps what was offered at least half as often as the most-offered', () => {
+    expect(usualDayparts({ answers: [evenings, evenings, evenings, saturdayMorning] })).toEqual([
+      'weekday_evening',
+    ]);
+    expect(usualDayparts({ answers: [evenings, saturdayMorning] })).toEqual([
+      'weekday_evening',
+      'weekend_morning',
+    ]);
+  });
+
+  it('adds what retention has already summarised, which counts as one earlier answer', () => {
+    expect(usualDayparts({ stored: { weekend_afternoon: 4 }, answers: [] })).toBeUndefined();
+    expect(usualDayparts({ stored: { weekend_afternoon: 4 }, answers: [evenings] })).toEqual([
+      'weekend_afternoon',
+    ]);
+  });
+
+  it('ignores a stored summary with nothing in it', () => {
+    expect(usualDayparts({ stored: { weekday_evening: 0 }, answers: [evenings] })).toBeUndefined();
   });
 });

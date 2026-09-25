@@ -822,6 +822,7 @@ S["FirstPlan"] = shell(
     top("Sunday Crew") +
     body(
         stack(dl("Your first catch-up"), p("We've picked sensible defaults. Tap anything to change it, or just ask the group."), gap=8),
+        stack(lbl("When?"), chips("*Next 14 days", "This weekend", "Tonight"), gap=8),
         card(between(stack(title("Catch up · next 14 days"), sm("Evenings and weekend days"), gap=2), f'<div class="sm">Change</div>'), divider(),
              between(stack(title("About 2 hours"), sm(""), gap=2), f'<div class="sm">Change</div>'), divider(),
              between(stack(title("At least 2 of 3 need to make it"), sm("Adjusts as more people join"), gap=2), f'<div class="sm">Change</div>'), divider(),

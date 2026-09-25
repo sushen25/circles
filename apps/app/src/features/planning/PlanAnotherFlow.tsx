@@ -18,9 +18,9 @@ import { PlanAnotherScreen } from './PlanAnotherScreen';
 import { PlanInProgress } from './PlanInProgressFlow';
 import { PlanSetupFlow } from './PlanSetupFlow';
 import { refusalOf, type Refused } from './problems';
-import { whenWords } from './when';
 import {
   categoryLabel,
+  closesAtWords,
   closesIn,
   durationLabel,
   presetLabel,
@@ -285,7 +285,8 @@ function AnotherForm({
         quorum: quorumLine(quorum, members),
       })}
       closes={resolved.ok ? closesIn(resolved.deadline, clock) : ''}
-      closesAt={resolved.ok ? whenWords(resolved.deadline, home.zone) : ''}
+      // Says why when the deadline is the last possible start (ADR 0010, S2-06).
+      closesAt={resolved.ok ? closesAtWords(resolved, home.zone) : ''}
       problem={resolved.ok ? refused?.message : problemWords(resolved.problem)}
       reference={refused?.reference}
       busy={busy}

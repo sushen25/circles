@@ -127,6 +127,23 @@ export function tonight(
 }
 
 /**
+ * Whether a window is tonight's shape: one day, and that day is the one `at`
+ * falls on in the plan's zone.
+ *
+ * The plan does not remember which preset made it — a window is dates and a
+ * band, and "tonight" is only a way of arriving at one (spec §5.3). So the
+ * places that treat a tonight plan differently ask about its shape instead:
+ * the availability editor asks with the moment it opened ("From now" only
+ * means something on the day itself), and the dispatcher asks with the
+ * response deadline, because a one-day plan whose replies close on that same
+ * day has no room for a reminder a day ahead. A custom window of today alone
+ * is the same plan as tonight's, and is treated as one.
+ */
+export function isTonightWindow(window: DateWindow, z: Zone, at: Instant): boolean {
+  return window.start === window.end && window.start === toLocal(at, z).date;
+}
+
+/**
  * The coming Saturday and Sunday. On a Saturday or Sunday it means *this* one,
  * from today — someone asking on Saturday morning means today, not next week.
  */

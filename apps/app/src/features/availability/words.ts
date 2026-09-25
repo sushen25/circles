@@ -23,6 +23,8 @@ export const BLOCK_LABEL: Record<BlockKind, () => string> = {
   afternoon: () => t('availability', 'afternoon'),
   evening: () => t('availability', 'evening'),
   any_time: () => t('availability', 'any_time'),
+  from_now: () => t('availability', 'from_now'),
+  later_tonight: () => t('availability', 'later_tonight'),
 };
 
 /** The short word on a day in the grid. */
@@ -31,6 +33,8 @@ export const TAG_WORD: Record<DayTag, () => string> = {
   afternoon: () => t('availability', 'tag_afternoon'),
   evening: () => t('availability', 'tag_evening'),
   any_time: () => t('availability', 'tag_any_time'),
+  from_now: () => t('availability', 'tag_from_now'),
+  later_tonight: () => t('availability', 'tag_later_tonight'),
   some: () => t('availability', 'tag_some'),
 };
 

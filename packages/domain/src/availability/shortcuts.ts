@@ -8,9 +8,10 @@
  */
 
 import type { PlanTiming } from '../planning/types.js';
+import type { Instant } from '../shared/instant.js';
 import { type Interval, intersect, interval } from '../shared/interval.js';
 import type { LocalDate } from '../shared/local-date.js';
-import { fromLocal, fromLocalEnd } from '../shared/zone.js';
+import { fromLocal, fromLocalEnd, toLocal } from '../shared/zone.js';
 
 export type ShortcutKind = 'after_work' | 'all_evening' | 'morning' | 'afternoon' | 'any_time';
 
@@ -60,4 +61,43 @@ export function applyShortcut(
 export function availableShortcuts(date: LocalDate, plan: PlanTiming): ShortcutKind[] {
   const kinds = Object.keys(SHORTCUT_BANDS) as ShortcutKind[];
   return kinds.filter((kind) => applyShortcut(kind, date, plan) !== undefined);
+}
+
+/**
+ * Tonight's two shortcuts (S2-06): **From now** and **Later tonight**.
+ *
+ * On a plan about this evening, Morning / Afternoon / Evening are the wrong
+ * question — it is already whichever of them it is. What somebody answering
+ * at 7:40 pm wants to say is "any time from now" or "not until later".
+ *
+ * - `from_now`: from the next half hour (or the band's start, if that is
+ *   later) to the end of the band.
+ * - `later_tonight`: from 9 pm, or an hour after "from now" begins if that is
+ *   later, to the end of the band — so the two are never the same hours.
+ *
+ * `undefined` where the shortcut has no half hour left, as `applyShortcut`.
+ */
+export type TonightShortcutKind = 'from_now' | 'later_tonight';
+
+export const LATER_TONIGHT_FROM_MIN = 21 * 60;
+const HALF_HOUR_MIN = 30;
+
+export function applyTonightShortcut(
+  kind: TonightShortcutKind,
+  date: LocalDate,
+  plan: PlanTiming,
+  now: Instant,
+): Interval | undefined {
+  const local = toLocal(now, plan.zone);
+  // Before the day, the whole band is still ahead; after it, none is.
+  const nowMin =
+    local.date < date ? 0 : local.date > date ? Number.POSITIVE_INFINITY : local.minutesOfDay;
+  const fromNow = Math.max(plan.daily.startMin, Math.ceil(nowMin / HALF_HOUR_MIN) * HALF_HOUR_MIN);
+  const startMin =
+    kind === 'from_now' ? fromNow : Math.max(LATER_TONIGHT_FROM_MIN, fromNow + 2 * HALF_HOUR_MIN);
+  if (!Number.isFinite(startMin) || startMin >= plan.daily.endMin) return undefined;
+  return interval(
+    fromLocal(date, startMin, plan.zone),
+    fromLocalEnd(date, plan.daily.endMin, plan.zone),
+  );
 }

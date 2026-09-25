@@ -1,4 +1,4 @@
-import { type Instant, ONCE } from '@circles/domain';
+import { deadlineReminderDue, type Instant, ONCE } from '@circles/domain';
 
 import type { Db } from '../_shared/db.ts';
 import { recalculate } from '../_shared/engine.ts';
@@ -98,6 +98,10 @@ export async function timedWork(
     if (deadline()) return result;
     const context = await loadContext(service, planId);
     if (context === null) continue;
+    // The SQL names every plan within a day of its deadline; a tonight plan's
+    // reminder waits until twenty minutes before (S2-06, `deadlineReminderDue`).
+    const plan = context.eligibility.plan;
+    if (plan === undefined || !deadlineReminderDue(plan, now)) continue;
     const rows = await jobRowsFor(
       service,
       context,

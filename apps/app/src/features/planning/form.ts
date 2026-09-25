@@ -194,6 +194,34 @@ export function presetAvailable(
 }
 
 /**
+ * Why Tonight is not on offer, or `undefined` when it is (S2-06).
+ *
+ * Since ADR 0010 tonight is refused for one reason only — no start left in the
+ * band for a meetup this long — so the chip is never off without the screen
+ * saying what would bring it back: a shorter catch-up, when an hour would
+ * still fit, or another day, when nothing would. It points at This weekend
+ * only while that is on offer: late on a Sunday the weekend has gone too
+ * (review round 2).
+ */
+export type TonightNote = {
+  fix: 'shorter' | 'another_day';
+  weekend: boolean;
+};
+
+export function tonightNote(
+  band: Band | undefined,
+  duration: DurationMinutes,
+  now: Instant,
+  zone: string,
+): TonightNote | undefined {
+  if (presetAvailable('tonight', band, duration, now, zone)) return undefined;
+  return {
+    fix: presetAvailable('tonight', band, 60, now, zone) ? 'shorter' : 'another_day',
+    weekend: presetAvailable('this_weekend', undefined, duration, now, zone),
+  };
+}
+
+/**
  * The stepper's range: at least two, because a meetup of one is not a meetup
  * (`Quorum`), and at most the people there are — but never below two, so a
  * circle of one can still say "two of us".

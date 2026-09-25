@@ -21,6 +21,8 @@ import { invokeFunction } from '../functions';
 export interface CreateFirstPlanOptions {
   circleId: CircleId;
   title: string;
+  /** The card's three: the fortnight, or the two spontaneous presets (S2-06). */
+  preset?: 'next_14_days' | 'this_weekend' | 'tonight' | undefined;
   idempotencyKey: IdempotencyKey;
 }
 
@@ -35,7 +37,7 @@ export async function createFirstPlan(
       mode: 'named',
       title: options.title,
       category: 'catch_up',
-      preset: 'next_14_days',
+      preset: options.preset ?? 'next_14_days',
     },
     CreatePlanResponse,
   );

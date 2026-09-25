@@ -275,6 +275,8 @@ Quiet asks exist only inside a private circle; there is no anonymous text or tar
 
 - **Days first, then a time once** (ADR 0024). The active date window is a calendar grid, Monday to Sunday, one toggle per day; ticking days sets no time. A time panel then offers blocks for the ticked days — **Morning, Afternoon, Evening, Any time**, each with its hours — as checkboxes that paint or clear that block on every ticked day it exists on. Blocks that would paint the same hours are offered once, and a block that exists on only some ticked days says so. Days stay ticked until **Done**.
 - The answer is always rendered as text: a **My answer** list, one line per day with times, the date and the hours in words. A line opens to adjust that day by the half hour — half-hour cells across the daily window, about ten visible at once, the row scrolling horizontally on the longer bands (ADR 0009) — with "Any time that day" and "Remove day". **Start over** clears every day and offers Undo until the next change.
+- **Tonight** (a plan whose one day is today) opens with that day ticked and offers **From now** and **Later tonight** (from 9 pm, or an hour after now if later) instead of Morning, Afternoon and Evening.
+- **Use my usual times**: a member with at least two earlier answers with times in the circle is offered, on an empty answer, a tertiary that paints their usual dayparts onto this plan's days and hours. It never sends, never replaces an answer, and says nothing about anybody who has not answered ([ADR 0005](decisions/0005-willing-windows-retained-12-months.md), [ADR 0037](decisions/0037-usual-times-are-read-not-written.md)).
 - First-person willingness language: "Times I'd actually be up for".
 - Plan-level **I'm easy — count me in for whatever works for most people** toggle (the flexible response).
 - Explicit outcomes: submitted windows; flexible; interested but none of these dates work; **not enough notice — try me with more warning**; not this time. "None of these dates" opens a three-way choice rather than a bare decline.
@@ -326,7 +328,7 @@ Identical inputs return identical candidates; DST, half-hour zones and cross-zon
 
 #### Push (app members)
 
-New named plan; quiet ask seeking interest (to everyone except the initiator); threshold reached (initiator: "do you want to pick the time?"; keen members: "choose your times"); deadline approaching (non-responders only, 24 hours before); options ready (organiser); locked in / changed / off; one reminder two hours before (going members); did it happen (organiser, next morning); about time (one person only, per the nudge policy). Full copy is on the "Push copy" artboard. Push is asked for contextually in the app, only when a first reminder is due, never at onboarding.
+New named plan; quiet ask seeking interest (to everyone except the initiator); threshold reached (initiator: "do you want to pick the time?"; keen members: "choose your times"); deadline approaching (non-responders only, 24 hours before; 20 minutes before on a tonight plan, whose replies close within the hour); options ready (organiser); locked in / changed / off; one reminder two hours before (going members); did it happen (organiser, next morning); about time (one person only, per the nudge policy). Full copy is on the "Push copy" artboard. Push is asked for contextually in the app, only when a first reminder is due, never at onboarding.
 
 #### Organiser email (no app)
 

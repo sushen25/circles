@@ -21,8 +21,7 @@ import { PlanSetupScreen } from './PlanSetupScreen';
 import { refusalOf, type Refused } from './problems';
 import { DeadlineSheet, RequiredSheet } from './sheets';
 import { usePlanForm, type FormContext } from './usePlanForm';
-import { whenWords } from './when';
-import { categoryLabel } from './words';
+import { categoryLabel, closesDetail } from './words';
 
 /**
  * `/circles/:id/plan/setup` — a plan with everything open to change (spec
@@ -269,12 +268,7 @@ function SetupForm({
     startOn,
     resolve: (draft) => resolveDraft(draft, instant, context.zone),
     // "You can pick sooner" while it is the default; once picked, it was.
-    closesDetail: (resolved, draft) =>
-      draft.deadline === undefined
-        ? t('planSetup', 'closes_at_sooner', {
-            deadline: whenWords(resolved.deadline, context.zone),
-          })
-        : whenWords(resolved.deadline, context.zone),
+    closesDetail: (resolved, draft) => closesDetail(resolved, draft, context.zone),
   });
   const [busy, setBusy] = useState(false);
   const [refused, setRefused] = useState<Refused>();

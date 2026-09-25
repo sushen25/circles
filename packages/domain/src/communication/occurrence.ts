@@ -13,7 +13,11 @@
 
 import type { CircleId } from '../circles/types.js';
 import type { ConfirmationId } from '../confirmation/types.js';
+import { isTonightWindow } from '../planning/presets.js';
+import type { DateWindow } from '../planning/types.js';
+import { type Instant, addMinutes, isBefore } from '../shared/instant.js';
 import type { LocalDate } from '../shared/local-date.js';
+import type { Zone } from '../shared/zone.js';
 import type { NotificationKind } from './kinds.js';
 
 /**
@@ -104,4 +108,37 @@ export function occurrenceFor(kind: NotificationKind, input: OccurrenceInput = {
     case 'verify_email':
       return required(input.verificationId, kind, 'a verification id');
   }
+}
+
+/**
+ * How long before the deadline `deadline_approaching` goes (spec §5.8: "24
+ * hours before").
+ *
+ * **Tonight is the exception** (S2-06): a tonight plan's replies close within
+ * the hour it was made (§5.3), so "a day before" is before the plan existed and
+ * the reminder would go out the minute the dispatcher first saw it — to people
+ * who have only just been asked. Twenty minutes before is still early enough
+ * to answer. A plan is tonight's when its window is one day and the deadline
+ * falls on that day (`isTonightWindow`); the plan does not store its preset.
+ */
+export const DEADLINE_REMINDER_LEAD_MINUTES = 24 * 60;
+export const TONIGHT_REMINDER_LEAD_MINUTES = 20;
+
+export type RemindablePlan = {
+  readonly window: DateWindow;
+  readonly zone: Zone;
+  readonly responseDeadline: Instant;
+};
+
+/** When the deadline reminder for this plan is due. */
+export function deadlineReminderAt(plan: RemindablePlan): Instant {
+  const lead = isTonightWindow(plan.window, plan.zone, plan.responseDeadline)
+    ? TONIGHT_REMINDER_LEAD_MINUTES
+    : DEADLINE_REMINDER_LEAD_MINUTES;
+  return addMinutes(plan.responseDeadline, -lead);
+}
+
+/** Whether `now` is inside the reminder's window: past its lead, before the deadline. */
+export function deadlineReminderDue(plan: RemindablePlan, now: Instant): boolean {
+  return !isBefore(now, deadlineReminderAt(plan)) && isBefore(now, plan.responseDeadline);
 }

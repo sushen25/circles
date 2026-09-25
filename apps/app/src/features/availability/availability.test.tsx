@@ -28,6 +28,8 @@ vi.mock('../../data/availability', async (original) => ({
   ...(await original<typeof AvailabilityData>()),
   planToAnswer: (...args: unknown[]) => planToAnswer(...args),
   submitAnswer: (...args: unknown[]) => submitAnswer(...args),
+  // No usual times here: `usualTimes.test.tsx` is the pre-fill's.
+  usualTimes: async () => undefined,
   onChanceToResend: (retry: () => void) => {
     resend = retry;
     return () => {
