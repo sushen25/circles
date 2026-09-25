@@ -12,7 +12,7 @@
 -- circle of theirs and owns one of his own with nobody else in it.
 
 begin;
-select plan(72);
+select plan(74);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid
@@ -497,6 +497,25 @@ select is(
 );
 select is(public.dispatch_open_quiet_ask(:'q2', timestamptz '2099-09-16T09:00:00Z'), false,
   'once: a second attempt finds nothing to open');
+
+-- Tom, keen, takes the role and is then removed from the circle: the role is
+-- free again, and somebody else keen may take it.
+select pg_temp.act_as('24000000-0000-0000-0000-0000000000a3');
+select public.accept_organiser(:'q2');
+select pg_temp.act_as_postgres();
+update public.circle_members set status = 'removed'
+where circle_id = :'crew' and user_id = '24000000-0000-0000-0000-0000000000a3';
+select ok(
+  (select organiser_user_id is null from public.plans where id = :'q2'),
+  'an organiser removed from an opened quiet plan leaves the role free'
+);
+select pg_temp.act_as('24000000-0000-0000-0000-0000000000a1');
+select is(
+  (select organiser_user_id from public.accept_organiser(:'q2')),
+  '24000000-0000-0000-0000-0000000000a1'::uuid,
+  'and somebody keen takes it, rather than being told it is taken'
+);
+select pg_temp.act_as_postgres();
 
 -- The pair's ask reaches its stop time with only Maya keen.
 update public.plans set quiet_expires_at = now() - interval '1 minute' where id = :'qpair';

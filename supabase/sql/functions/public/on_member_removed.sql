@@ -70,6 +70,18 @@ begin
   where i.plan_id = p.id and i.user_id = new.user_id
     and p.circle_id = new.circle_id and p.state = 'seeking';
 
+  -- An organiser removed from a quiet plan that has opened and not been
+  -- locked in leaves the role free, so somebody keen can take it again
+  -- (`accept_organiser`). Left, the plan named a person who could no longer
+  -- see it and refused every active member `already_taken` — stranded (SUS-50
+  -- review round 2). Only the quiet plan: its role is one somebody *accepts*,
+  -- and accepting is the way back. A named plan's organiser is the person who
+  -- made it; handing that on is SUS-53's.
+  update public.plans p
+  set organiser_user_id = null
+  where p.circle_id = new.circle_id and p.organiser_user_id = new.user_id
+    and p.mode = 'quiet' and p.state in ('collecting', 'ready');
+
   delete from public.plan_participants pp
   using public.plans p
   where pp.plan_id = p.id and pp.revision = p.revision and pp.user_id = new.user_id

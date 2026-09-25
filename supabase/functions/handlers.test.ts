@@ -3056,6 +3056,25 @@ describe('process-scheduled-jobs', () => {
     expect(called('issue_preferences_token')).toHaveLength(0);
   });
 
+  it.each([
+    ['quiet_expired', { quiet_asks_muted: true }, 'quiet_asks_muted'],
+    ['threshold_initiator', { quiet_asks_muted: true }, 'quiet_asks_muted'],
+    ['quiet_expired', { member_active: false }, 'not_a_member'],
+  ])(
+    'does not send the initiator %s after they muted quiet asks or left (SUS-50)',
+    async (kind, change, reason) => {
+      // Held overnight by quiet hours, the letter is read again when it is due.
+      withDue(dueJob({ kind, subscribed: false, plan_state: 'expired', ...change }));
+
+      await load('process-scheduled-jobs')(post({}, 'a-shared-secret'));
+
+      expect(called('dispatch_job_result')[0]?.args).toMatchObject({
+        p_outcome: 'skipped',
+        p_error: reason,
+      });
+    },
+  );
+
   it('sends nothing about an archived circle, even what was queued before it was archived', async () => {
     // "Archiving stops all prompts" (spec §5.2). A reminder is written when the
     // meetup is confirmed and waits days; archiving touches no job.

@@ -110,6 +110,13 @@ as $$
     'circle_id', cir.id,
     'circle_name', cir.name,
     'circle_archived', coalesce(cir.status = 'archived', false),
+    -- The quiet ask's two letters to its initiator are stopped by muting quiet
+    -- asks in that circle (`QUIET_SENSITIVE_KINDS`), read now rather than when
+    -- the job was written, as the organiser switch is (SUS-50 review round 2).
+    'quiet_asks_muted', coalesce((
+      select m.muted_quiet_asks or m.muted_all from public.circle_members m
+      where m.circle_id = p.circle_id and m.user_id = c.user_id and m.status = 'active'
+    ), false),
     'organiser_email_muted', coalesce((
       select pr.muted_organiser_email from public.profiles pr where pr.user_id = c.user_id
     ), false),
