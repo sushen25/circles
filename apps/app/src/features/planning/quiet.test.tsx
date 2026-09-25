@@ -477,3 +477,25 @@ describe('ChooseMode', () => {
     expect(screen.queryByRole('button', { name: /^See if people are keen\./ })).toBeNull();
   });
 });
+
+describe('ChooseMode beside a running plan', () => {
+  it('is that plan, with neither way to start another (ADR 0033)', async () => {
+    circleHome.mockResolvedValue({
+      ...HOME,
+      activePlan: {
+        id: 'running',
+        code: 'pnrunning',
+        title: 'Catch up',
+        organiserUserId: 'maya',
+        responseDeadline: '2026-09-20T08:00:00.000Z',
+        replied: 1,
+        asked: 6,
+      },
+    });
+    show(<ChooseModeFlow id={CIRCLE} />);
+
+    expect(await screen.findByText('Sunday Crew is already finding a time')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /^See if people are keen\./ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Plan openly\./ })).toBeNull();
+  });
+});

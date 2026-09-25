@@ -7,6 +7,7 @@ import { hasBackend } from '../../data/auth/client';
 import { circleHome } from '../../data/circles';
 import { useOrganiserGate } from '../growth/InitiateGateFlow';
 import { ChooseModeScreen } from './ChooseModeScreen';
+import { PlanInProgress } from './PlanInProgressFlow';
 
 /**
  * `/circles/:id/plan/mode` — open or quiet (spec §5.3, §5.4). Circle home's
@@ -17,6 +18,7 @@ import { ChooseModeScreen } from './ChooseModeScreen';
  * made goes on once their place is saved (`useOrganiserGate`, S2-07). A circle
  * of one is not offered it at all — there is nobody to ask (`nobody_to_ask`).
  * The threshold on the card is this circle's (ADR 0035), not always three.
+ * With a plan already finding a time, this is that plan (`PlanInProgress`).
  */
 export function ChooseModeFlow({ id }: { id: string }) {
   const router = useRouter();
@@ -30,7 +32,18 @@ export function ChooseModeFlow({ id }: { id: string }) {
   const circleName = home.data?.name ?? undefined;
   const organiser = useOrganiserGate({ circleId: id, circleName });
 
+  const back = () =>
+    router.canGoBack()
+      ? router.back()
+      : router.replace({ pathname: '/circles/[id]', params: { id } });
+
   if (organiser.gate !== null) return organiser.gate;
+  // A plan finding a time is that plan, on every way into making one (ADR
+  // 0033): neither card could be followed, so neither is offered.
+  const running = home.data?.activePlan ?? null;
+  if (home.data !== undefined && home.data !== null && running !== null) {
+    return <PlanInProgress id={id} home={home.data} plan={running} onBack={back} />;
+  }
 
   const members = hasBackend() ? (home.data?.members.length ?? 0) : 6;
 
@@ -45,11 +58,7 @@ export function ChooseModeFlow({ id }: { id: string }) {
           router.push({ pathname: '/circles/[id]/quiet/new', params: { id } }),
         )
       }
-      onBack={() =>
-        router.canGoBack()
-          ? router.back()
-          : router.replace({ pathname: '/circles/[id]', params: { id } })
-      }
+      onBack={back}
     />
   );
 }
