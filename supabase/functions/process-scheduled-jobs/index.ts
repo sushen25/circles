@@ -118,6 +118,8 @@ Deno.serve(
           counts['recalculated'] = timed.recalculated;
           counts['recalculate_failed'] = timed.recalculateFailed;
           counts['reminders_queued'] = timed.remindersQueued;
+          counts['cadence_prompted'] = timed.cadencePrompted;
+          counts['nudges_queued'] = timed.nudgesQueued;
         }
 
         if (!deadline()) {

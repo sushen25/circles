@@ -39,6 +39,10 @@ as $$
         'circle_id', m.circle_id, 'user_id', m.user_id, 'display_name', m.display_name_snapshot,
         'role', m.role, 'status', m.status, 'joined_at', m.joined_at,
         'muted_quiet_asks', m.muted_quiet_asks, 'muted_all', m.muted_all,
+        -- "Nudges to plan the next one" (S2-04). Only the cadence nudge reads
+        -- it, and that has its own context; carried here too so that one row
+        -- shape serves both, and the domain's `Member` is whole in each.
+        'muted_nudges', m.muted_nudges,
         'time_zone', coalesce(pr.time_zone, c.time_zone),
         'is_permanent', coalesce(pr.is_permanent, false),
         -- "Emails about plans you organise" (ADR 0029): a person's, not a

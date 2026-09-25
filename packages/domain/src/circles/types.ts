@@ -83,6 +83,13 @@ export type Member = {
   readonly mutedQuietAsks: boolean;
   readonly mutedAll: boolean;
   /**
+   * "Nudges to plan the next one" is off for this circle
+   * (`circle_members.muted_nudges`). Only the cadence nudge reads it: someone
+   * who does not want to be asked to organise still wants to know when a plan
+   * is locked in.
+   */
+  readonly mutedNudges: boolean;
+  /**
    * A permanent identity (email, Apple, Google) rather than an anonymous one.
    * Only permanent members can be nudged or hold the organiser role
    * (architecture §6.1) — an anonymous session has nowhere to receive a nudge.

@@ -29,7 +29,7 @@ import type { Db } from '../_shared/db.ts';
  * address they asked to be written at is this layer's job.
  */
 
-type MemberRow = {
+export type MemberRow = {
   circle_id: string;
   user_id: string;
   display_name: string;
@@ -38,6 +38,8 @@ type MemberRow = {
   joined_at: string;
   muted_quiet_asks: boolean;
   muted_all: boolean;
+  /** "Nudges to plan the next one", off (S2-04). */
+  muted_nudges: boolean;
   time_zone: string;
   is_permanent: boolean;
   /** The person's "Emails about plans you organise" switch, off (ADR 0029). */
@@ -95,11 +97,11 @@ export type PlanContext = {
   readonly eligibility: EligibilityContext;
 };
 
-function asInstant(value: string): ReturnType<typeof instant> {
+export function asInstant(value: string): ReturnType<typeof instant> {
   return instant(Date.parse(value));
 }
 
-function circleOf(row: Record<string, unknown>): Circle {
+export function circleOf(row: Record<string, unknown>): Circle {
   const optionalNudge = (row['nudge_policy'] ?? null) as NonNullable<Circle['nudgePolicy']> | null;
   const optionalQuorum = row['default_quorum'] as number | null;
   const optionalArea = row['default_area'] as string | null;
@@ -156,7 +158,7 @@ function planOf(row: Record<string, unknown>): Plan {
   };
 }
 
-function memberOf(row: MemberRow): Member {
+export function memberOf(row: MemberRow): Member {
   return {
     circleId: row.circle_id as Member['circleId'],
     userId: row.user_id as UserId,
@@ -166,6 +168,7 @@ function memberOf(row: MemberRow): Member {
     joinedAt: asInstant(row.joined_at),
     mutedQuietAsks: row.muted_quiet_asks,
     mutedAll: row.muted_all,
+    mutedNudges: row.muted_nudges,
     isPermanent: row.is_permanent,
   };
 }

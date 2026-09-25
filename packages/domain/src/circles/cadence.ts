@@ -6,7 +6,7 @@
  */
 
 import { type Instant, isBefore } from '../shared/instant.js';
-import { addDays, fromParts, toParts } from '../shared/local-date.js';
+import { type LocalDate, addDays, daysBetween, fromParts, toParts } from '../shared/local-date.js';
 import { type Zone, fromLocal, toLocal } from '../shared/zone.js';
 import type { Cadence, Circle } from './types.js';
 
@@ -115,6 +115,56 @@ export function cadenceState(circle: Circle, now: Instant, hasActivePlan = false
   );
 
   return isBefore(now, showFrom) ? 'no_rush' : 'due_soon';
+}
+
+/**
+ * The due date a cadence nudge is owed for, now — or `undefined` when none is.
+ *
+ * Owed exactly while circle home says **About time for the next one**
+ * (`cadenceState` is `due_soon`): the circle is active, has a goal and a
+ * history, is not snoozed, and nothing is running (spec §5.9). The dispatcher
+ * sends one nudge per due date, the moment this first answers one, and it
+ * asks again at send time so that a plan made, a snooze or a meetup that
+ * happened in between stops a letter already queued.
+ *
+ * The answer is the circle-local calendar date the circle falls due on. It is
+ * what makes September's nudge different from October's (`occurrenceFor`),
+ * and it does not move when somebody snoozes: snoozing suppresses the prompt,
+ * never the rhythm.
+ */
+export function nudgeDueDate(
+  circle: Circle,
+  now: Instant,
+  hasOpenPlan: boolean,
+): LocalDate | undefined {
+  if (circle.status === 'archived' || circle.lastMetAt === undefined) return undefined;
+  if (cadenceState(circle, now, hasOpenPlan) !== 'due_soon') return undefined;
+  const due = nextDueAt(circle.lastMetAt, circle.cadence, circle.zone);
+  return due === undefined ? undefined : toLocal(due, circle.zone).date;
+}
+
+/**
+ * Until when **Snooze a month** quiets the prompt: one calendar month from
+ * now, at the same local time, in the circle's zone. 31 January snoozes to
+ * 28 February, as `nextDueAt` would have it.
+ *
+ * A month whatever the cadence, because that is what the button says. It
+ * moves `cadenceSnoozedUntil` and nothing else — the due date stays where
+ * `lastMetAt` put it (ADR 00XX).
+ */
+export function snoozeAMonth(now: Instant, z: Zone): Instant {
+  const local = toLocal(now, z);
+  return fromLocal(addMonths(toParts(local.date), 1), local.minutesOfDay, z);
+}
+
+/**
+ * Whole weeks between the last meetup and now, in the circle's zone — the
+ * about-time email's "about a month". Never negative, and never shown as a
+ * count (spec §5.9): the email turns it into loose words.
+ */
+export function weeksSince(lastMetAt: Instant, now: Instant, z: Zone): number {
+  const days = daysBetween(toLocal(lastMetAt, z).date, toLocal(now, z).date);
+  return Math.max(0, Math.floor(days / 7));
 }
 
 /**
