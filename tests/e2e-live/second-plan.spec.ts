@@ -1,10 +1,9 @@
 import { randomUUID } from 'node:crypto';
 
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './fixtures';
 
 import {
   circleOwnedBy,
-  clearRateCounters,
   planFor,
   plansIn,
   sessionStorageKey,
@@ -21,10 +20,6 @@ import {
  *
  * The screens are S1-26's; what is new is which one the organiser lands on.
  */
-
-test.beforeEach(() => {
-  clearRateCounters();
-});
 
 async function asMaya(page: Page): Promise<{ userId: string; accessToken: string }> {
   const maya = await signedInAccount('Maya');
