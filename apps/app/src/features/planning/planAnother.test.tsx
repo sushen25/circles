@@ -149,6 +149,20 @@ describe('Plan another', () => {
     );
   });
 
+  it('shows what would be made now when the clock has moved on, before making it', async () => {
+    // Review round 1: the screen kept the moment it opened, and the server
+    // resolves the preset when it makes the plan — a day later, a different week.
+    show(<PlanAnotherFlow id="sunday-crew" />);
+    const ask = await screen.findByRole('button', { name: 'Ask the group' });
+    vi.spyOn(Date, 'now').mockReturnValue(fixture.FIXTURE_NOW + 24 * 3_600_000);
+    fireEvent.click(ask);
+
+    expect(await screen.findByText(/^Time has moved on since you opened this/)).toBeTruthy();
+    expect(createPlan).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Ask the group' }));
+    await waitFor(() => expect(createPlan).toHaveBeenCalledTimes(1));
+  });
+
   it('opens the full setup, filled in the same way, on Change', async () => {
     show(<PlanAnotherFlow id="sunday-crew" />);
 

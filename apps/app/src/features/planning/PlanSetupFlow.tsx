@@ -12,6 +12,7 @@ import { circleHome } from '../../data/circles';
 import { newIdempotencyKey } from '../../data/functions';
 import { createPlan } from '../../data/planning';
 import { isOffline } from '../identity/join/failure';
+import { movedOn, usePlanClock } from './clock';
 import { CustomWindowScreen } from './CustomWindowScreen';
 import { FIXTURE_NOW, sundayCrew } from './fixtures';
 import { defaultDraft, resolveDraft, WINDOW_EVENT, type PlanDraft } from './form';
@@ -19,7 +20,7 @@ import { PlanInProgress } from './PlanInProgressFlow';
 import { PlanSetupScreen } from './PlanSetupScreen';
 import { refusalOf, type Refused } from './problems';
 import { DeadlineSheet, RequiredSheet } from './sheets';
-import { usePlanForm, type FormContext, type FormResolved } from './usePlanForm';
+import { usePlanForm, type FormContext } from './usePlanForm';
 import { whenWords } from './when';
 import { categoryLabel } from './words';
 
@@ -223,24 +224,6 @@ function LiveSetup({
   );
 }
 
-/** Whether the form means something different now from when it was drawn. */
-function movedOn(shown: FormResolved, now: FormResolved, defaultDeadline: boolean): boolean {
-  if (!shown.ok || !now.ok) return shown.ok !== now.ok;
-  return (
-    shown.window.start !== now.window.start ||
-    shown.window.end !== now.window.end ||
-    shown.band.startMin !== now.band.startMin ||
-    shown.band.endMin !== now.band.endMin ||
-    // The server counts a default deadline from the moment it makes the plan.
-    // The screen keeps up to the minute; anything further has not been shown.
-    (defaultDeadline &&
-      Math.abs(Date.parse(shown.deadline) - Date.parse(now.deadline)) > TICK_MS + 30_000)
-  );
-}
-
-/** How often the setup's clock moves on. */
-const TICK_MS = 60_000;
-
 function SetupForm({
   initial: opening,
   context,
@@ -271,15 +254,9 @@ function SetupForm({
   onRefused?: ((refused: Refused) => void) | undefined;
   onBack: () => void;
 }) {
-  const [clock, setClock] = useState(now);
   // A default deadline is counted from when the plan is made, so the one on
   // screen keeps time with the clock rather than with when the form opened.
-  const live = freshNow !== undefined;
-  useEffect(() => {
-    if (!live) return;
-    const timer = setInterval(() => setClock(Date.now()), TICK_MS);
-    return () => clearInterval(timer);
-  }, [live]);
+  const [clock, setClock] = usePlanClock(now, freshNow !== undefined);
   const instant = fromISO(new Date(clock).toISOString());
   const duration = (DURATIONS as readonly number[]).includes(circleDuration)
     ? (circleDuration as DurationMinutes)

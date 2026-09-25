@@ -12,6 +12,7 @@ import { circleHome, type CircleHome } from '../../data/circles';
 import { newIdempotencyKey } from '../../data/functions';
 import { createPlan, lastHappenedPlan, type LastHappenedPlan } from '../../data/planning';
 import { isOffline } from '../identity/join/failure';
+import { clockNow, movedOn, usePlanClock } from './clock';
 import { PRESETS, presetAvailable, resolveDraft, WINDOW_EVENT, type PlanDraft } from './form';
 import { PlanAnotherScreen } from './PlanAnotherScreen';
 import { PlanInProgress } from './PlanInProgressFlow';
@@ -172,9 +173,10 @@ function AnotherForm({
   const [editing, setEditing] = useState<'form' | 'window' | undefined>();
   const [busy, setBusy] = useState(false);
   const [refused, setRefused] = useState<Refused | undefined>();
-  // The moment the screen was opened: the deadline shown is of a plan made
-  // about now, and reading the clock during a render would move it.
-  const [openedAt] = useState(() => Date.now());
+  // The deadline shown is of a plan made about now: the clock moves on every
+  // minute rather than being read during a render, and is asked again at the
+  // tap, because the server resolves the preset when it makes the plan.
+  const [clock, setClock] = usePlanClock(clockNow, true);
   const key = useRef<{ for: string; key: IdempotencyKey } | undefined>(undefined);
   const inFlight = useRef(false);
 
@@ -195,7 +197,7 @@ function AnotherForm({
     );
   }
 
-  const now = fromISO(new Date(openedAt).toISOString());
+  const now = fromISO(new Date(clock).toISOString());
   const resolved = resolveDraft(draft, now, home.zone);
   const change = (next: Partial<PlanDraft>) => {
     setTouched(true);
@@ -207,6 +209,16 @@ function AnotherForm({
 
   const ask = async () => {
     if (inFlight.current || !resolved.ok) return;
+    // Left open past midnight, or past the window's last start, the form would
+    // send a window it no longer shows (review round 1): show what would be
+    // made now, and let the organiser ask again.
+    const fresh = clockNow();
+    const then = resolveDraft(draft, fromISO(new Date(fresh).toISOString()), home.zone);
+    if (movedOn(resolved, then, draft.deadline === undefined)) {
+      setClock(fresh);
+      setRefused({ message: t('planSetup', 'problem_moved_on'), conclusive: true });
+      return;
+    }
     inFlight.current = true;
     setBusy(true);
     setRefused(undefined);
@@ -272,7 +284,7 @@ function AnotherForm({
         duration: durationLabel(draft.duration),
         quorum: quorumLine(quorum, members),
       })}
-      closes={resolved.ok ? closesIn(resolved.deadline, openedAt) : ''}
+      closes={resolved.ok ? closesIn(resolved.deadline, clock) : ''}
       closesAt={resolved.ok ? whenWords(resolved.deadline, home.zone) : ''}
       problem={resolved.ok ? refused?.message : problemWords(resolved.problem)}
       reference={refused?.reference}
