@@ -1,5 +1,10 @@
 import type { IdempotencyKey } from '@circles/contracts';
-import { isValidDisplayName, normaliseDisplayName } from '@circles/domain';
+import {
+  instant,
+  isValidDisplayName,
+  normaliseDisplayName,
+  startedCircleFromPrompt,
+} from '@circles/domain';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
@@ -9,6 +14,8 @@ import { deviceTimeZone, ownProfile, useSession } from '../../data/auth';
 import { hasBackend } from '../../data/auth/client';
 import { DEFAULT_CIRCLE_COLOR, createCircle, keepInviteSecret } from '../../data/circles';
 import { newIdempotencyKey } from '../../data/functions';
+import { ownNudgeHistory } from '../../data/growth';
+import { InitiateGateFlow } from '../growth/InitiateGateFlow';
 import { failureOf } from '../identity/join/failure';
 import { useSavedPlace } from '../identity/useSavedPlace';
 import { CreateCircleScreen, type CreateCircleProblem } from './CreateCircleScreen';
@@ -60,7 +67,10 @@ function LiveCreate() {
   const router = useRouter();
   const session = useSession();
   const queryClient = useQueryClient();
-  const gate = useSavedPlace();
+  // A guest in a circle already meets the organiser gate here rather than
+  // Welcome: the circle they start keeps the place and the name they have
+  // (S2-07). The gate is drawn in place of the form, and the form follows.
+  const gate = useSavedPlace({ gateGuests: true });
   const profile = useQuery({
     queryKey: ['own-profile', session.userId],
     queryFn: ownProfile,
@@ -103,6 +113,16 @@ function LiveCreate() {
       });
       keepInviteSecret(made.circle.id, made.invite_secret);
       track('circle_created', { circle_id: made.circle.id });
+      // "Start a circle", the morning after, within 30 days (§11.2's growth
+      // row): the prompt's tap is in `nudge_states`, so the credit is read
+      // from there rather than carried through a navigation.
+      void ownNudgeHistory()
+        .then((history) => {
+          if (startedCircleFromPrompt(history, instant(Date.now()))) {
+            track('guest_started_circle', { circle_id: made.circle.id });
+          }
+        })
+        .catch(() => undefined);
       void queryClient.invalidateQueries({ queryKey: ['circles'] });
       router.replace({ pathname: '/circles/[id]', params: { id: made.circle.id } });
     } catch (error) {
@@ -121,6 +141,9 @@ function LiveCreate() {
     }
   };
 
+  if (gate === 'gate') {
+    return <InitiateGateFlow intent="circle" onNotNow={back} />;
+  }
   if (gate === 'wait') return <CreateCircleScreen state="loading" onBack={back} />;
 
   return (

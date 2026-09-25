@@ -494,7 +494,7 @@ select is((select count(*)::integer from pg_temp.events_since(:'m10')), 0,
 select pg_temp.mark() as m12 \gset
 select pg_temp.act_as('00000000-0000-0000-0000-0000000005a3');
 insert into public.nudge_states (user_id, moment, plan_id)
-values ('00000000-0000-0000-0000-0000000005a3', 'confirmed', :'confirmed');
+values ('00000000-0000-0000-0000-0000000005a3', 'locked_in_app', :'confirmed');
 select pg_temp.act_as_postgres();
 select is(
   (select array_agg(event_name) from pg_temp.events_since(:'m12')),
@@ -504,7 +504,7 @@ select is(
 select pg_temp.mark() as m13 \gset
 select pg_temp.act_as('00000000-0000-0000-0000-0000000005a3');
 update public.nudge_states set answer = 'dismissed'
-where user_id = '00000000-0000-0000-0000-0000000005a3' and moment = 'confirmed';
+where user_id = '00000000-0000-0000-0000-0000000005a3' and moment = 'locked_in_app';
 select pg_temp.act_as_postgres();
 select is(
   (select payload ->> 'answer' from pg_temp.events_since(:'m13') where event_name = 'growth.nudge_answered'),

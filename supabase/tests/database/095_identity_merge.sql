@@ -102,7 +102,7 @@ insert into public.plan_required_members (plan_id, revision, user_id)
 values (pg_temp.plan_id(), 1, '95000000-0000-0000-0000-0000000000a1')
 on conflict do nothing;
 insert into public.nudge_states (user_id, moment, plan_id)
-values ('95000000-0000-0000-0000-0000000000a1', 'after_answer', pg_temp.plan_id());
+values ('95000000-0000-0000-0000-0000000000a1', 'sent_save_access', pg_temp.plan_id());
 
 insert into public.candidate_sets (
   plan_id, revision, input_version, scoring_version, input_hash,
@@ -838,7 +838,7 @@ on conflict do nothing;
 insert into private.plan_interest (plan_id, user_id, response)
 values (pg_temp.plan_id(), '95000000-0000-0000-0000-00000000c101', 'keen');
 insert into public.nudge_states (user_id, moment, plan_id)
-values ('95000000-0000-0000-0000-00000000c101', 'after_answer', pg_temp.plan_id());
+values ('95000000-0000-0000-0000-00000000c101', 'sent_save_access', pg_temp.plan_id());
 insert into public.attendance (confirmation_id, user_id, status)
 values (pg_temp.confirmation_id(), '95000000-0000-0000-0000-00000000c101', 'going');
 -- And the measurement of the answer they gave. `analytics.events` has no
@@ -948,7 +948,7 @@ select is(
   (select count(*)::integer from public.nudge_states n
    where n.plan_id = pg_temp.plan_id()
      and n.user_id = '95000000-0000-0000-0000-00000000c102'
-     and n.moment = 'after_answer'),
+     and n.moment = 'sent_save_access'),
   1,
   'and so did the prompt they have already been shown, so they are not shown it again'
 );
@@ -1576,7 +1576,7 @@ values (pg_temp.circle_id(), '95000000-0000-0000-0000-0000000c3102', 'Lee back t
 insert into public.plan_required_members (plan_id, revision, user_id)
 values (pg_temp.plan_id(), 1, '95000000-0000-0000-0000-0000000c3102');
 insert into public.nudge_states (user_id, moment, plan_id)
-values ('95000000-0000-0000-0000-0000000c3102', 'after_confirmed', pg_temp.plan_id());
+values ('95000000-0000-0000-0000-0000000c3102', 'locked_in_app', pg_temp.plan_id());
 -- Round 14: and the other four tables `on_member_removed` leaves behind, each of
 -- which collides on the primary key. The clearer's statements for them were
 -- untested: all four could have been deleted and the suite would have passed.
@@ -1605,7 +1605,7 @@ values (pg_temp.circle_id(), '95000000-0000-0000-0000-0000000c3101', 'Lee');
 insert into public.plan_required_members (plan_id, revision, user_id)
 values (pg_temp.plan_id(), 1, '95000000-0000-0000-0000-0000000c3101');
 insert into public.nudge_states (user_id, moment, plan_id)
-values ('95000000-0000-0000-0000-0000000c3101', 'after_confirmed', pg_temp.plan_id());
+values ('95000000-0000-0000-0000-0000000c3101', 'locked_in_app', pg_temp.plan_id());
 insert into public.plan_participants (plan_id, revision, user_id)
 values (pg_temp.plan_id(), 1, '95000000-0000-0000-0000-0000000c3101')
 on conflict do nothing;
@@ -1641,7 +1641,7 @@ select is(
   (select count(*)::integer from public.nudge_states n
    where n.plan_id = pg_temp.plan_id()
      and n.user_id = '95000000-0000-0000-0000-0000000c3102'
-     and n.moment = 'after_confirmed'),
+     and n.moment = 'locked_in_app'),
   1,
   'and one record of the prompt they have been shown'
 );

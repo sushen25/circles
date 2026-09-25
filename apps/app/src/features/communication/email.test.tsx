@@ -43,7 +43,17 @@ vi.mock('../../data/email', async (original) => ({
   managePreferences: (...args: unknown[]) => managePreferences(...args),
 }));
 
+// `record-nudge`, as a server that says yes once per moment and plan and replays
+// a key's first answer (ADR 0016). The rule itself is the domain's.
+const askToShow = vi.fn();
+const recordAnswer = vi.fn();
+vi.mock('../../data/growth', () => ({
+  askToShow: (...args: unknown[]) => askToShow(...args),
+  recordAnswer: (...args: unknown[]) => recordAnswer(...args),
+}));
+
 const { SentFlow } = await import('../availability/SentFlow');
+const { forgetSessionNudges } = await import('../growth/useNudge');
 const { EmailVerifyFlow } = await import('./EmailVerifyFlow');
 const { EmailPrefsFlow } = await import('./EmailPrefsFlow');
 const { heldToken, holdTokenForTests, releaseToken } = await import('../../data/links/tokens');
@@ -88,10 +98,25 @@ beforeEach(() => {
   globalThis.localStorage.clear();
   planToAnswer.mockResolvedValue({ plan: PLAN, answer: answerable.answer });
   requestEmailUpdates.mockResolvedValue({ status: 'check_email' });
+  forgetSessionNudges();
+  const answered = new Map<string, { suppressed: boolean }>();
+  const shown = new Set<string>();
+  askToShow
+    .mockReset()
+    .mockImplementation((target: { moment: string; planId?: string }, key: string) => {
+      const replay = answered.get(key);
+      if (replay !== undefined) return Promise.resolve(replay);
+      const id = `${target.moment}:${target.planId ?? ''}`;
+      const answer = { suppressed: shown.has(id) };
+      shown.add(id);
+      answered.set(key, answer);
+      return Promise.resolve(answer);
+    });
+  recordAnswer.mockReset().mockResolvedValue(undefined);
 });
 
 describe('Sent', () => {
-  it('"Not now" sends nothing and records nothing but the offer', async () => {
+  it('"Not now" asks for nothing: no email, no contact, only the offer and that it was declined', async () => {
     wrap(<SentFlow code={PLAN.code} />);
     await screen.findByText('Thanks, Priya. Your times are in.');
 
@@ -100,6 +125,30 @@ describe('Sent', () => {
     expect(screen.queryByText('Get updates about this meetup by email')).toBeNull();
     expect(requestEmailUpdates).not.toHaveBeenCalled();
     expect(track.mock.calls.map(([name]) => name)).toEqual(['email_updates_offered']);
+    expect(recordAnswer).toHaveBeenCalledWith(
+      { moment: 'sent_save_access', planId: PLAN.id },
+      'dismissed',
+      expect.any(String),
+    );
+  });
+
+  it('does not offer the card again when record-nudge says this plan has had it, on any device', async () => {
+    askToShow.mockResolvedValue({ suppressed: true, reason: 'already_shown' });
+    wrap(<SentFlow code={PLAN.code} />);
+    await screen.findByText('Thanks, Priya. Your times are in.');
+
+    expect(screen.queryByText('Get updates about this meetup by email')).toBeNull();
+    expect(track.mock.calls.map(([name]) => name)).not.toContain('email_updates_offered');
+  });
+
+  it('still offers the card when record-nudge cannot be asked: it is how a guest hears the time', async () => {
+    askToShow.mockRejectedValue(new Error('offline'));
+    wrap(<SentFlow code={PLAN.code} />);
+
+    // After the one retry `useNudge` allows.
+    expect(
+      await screen.findByText('Get updates about this meetup by email', {}, { timeout: 4000 }),
+    ).toBeVisible();
   });
 
   it('refuses what is not an address before asking the server', async () => {

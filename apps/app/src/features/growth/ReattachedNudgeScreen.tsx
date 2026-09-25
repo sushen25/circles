@@ -16,45 +16,51 @@ import type { Fixture } from '../../data/fixtures';
 import type { ScreenState } from '../state';
 
 /**
- * ReattachedNudge — scaffolded from `docs/design/ReattachedNudge.dc.html`.
+ * ReattachedNudge — `docs/design/ReattachedNudge.dc.html` (spec §5.11): "Keep
+ * your place for good?", once, straight after a Continue-as from the list.
+ * `ReattachedNudgeFlow` decides whether it is shown.
  *
- * Structure and copy come from the artboard; data comes from a fixture. Slice 1
- * replaces `fixture` with real data and `onNext` with real navigation. Edit
- * freely: `scripts/scaffold-screens.mjs` will not overwrite this file.
+ * Two ways past it and neither is disguised: "Not now" in the card and "Carry
+ * on to {circle}" at the foot both dismiss it and show the page underneath.
  */
 export type ReattachedNudgeProps = {
-  fixture: Fixture;
+  fixture?: Fixture | undefined;
   state?: ScreenState | undefined;
-  /** The screen's one decision. */
+  circleName?: string | undefined;
+  /** The name they continued as. */
+  name?: string | undefined;
+  /** Save my place. */
   onNext?: (() => void) | undefined;
   onBack?: (() => void) | undefined;
-  onCarryOnToSunday?: (() => void) | undefined;
+  onCarryOn?: (() => void) | undefined;
   onNotNow?: (() => void) | undefined;
 };
 
 export function ReattachedNudgeScreen({
+  circleName = '',
+  name,
   onNext,
   onBack,
-  onCarryOnToSunday,
+  onCarryOn,
   onNotNow,
 }: ReattachedNudgeProps) {
   return (
     <Screen>
-      <TopBar
-        title={t('reattachedNudge', 'sunday_crew')}
-        onBack={onBack}
-        backLabel={t('common', 'back')}
-      />
+      <TopBar title={circleName} onBack={onBack} backLabel={t('common', 'back')} />
       <Body>
         <Stack>
-          <DisplayL>{t('reattachedNudge', 'welcome_back_priya')}</DisplayL>
+          <DisplayL accessibilityLiveRegion="polite">
+            {name === undefined
+              ? t('reattachedNudge', 'welcome_back')
+              : t('reattachedNudge', 'welcome_back_name', { name })}
+          </DisplayL>
           <BodyText>{t('reattachedNudge', 'youve_rejoined_from_a_new_browser_and')}</BodyText>
         </Stack>
         <Card>
           <Row>
             <Title>{t('reattachedNudge', 'keep_your_place_for_good')}</Title>
           </Row>
-          <BodyText>{t('reattachedNudge', 'sign_in_once_with_your_email_apple')}</BodyText>
+          <BodyText>{t('reattachedNudge', 'sign_in_once_with_your_email')}</BodyText>
           <Row>
             <Button label={t('reattachedNudge', 'save_my_place')} onPress={onNext} />
           </Row>
@@ -63,9 +69,9 @@ export function ReattachedNudgeScreen({
       </Body>
       <Foot>
         <Button
-          label={t('reattachedNudge', 'carry_on_to_sunday_crew')}
+          label={t('reattachedNudge', 'carry_on_to_circle', { circle: circleName })}
           variant="secondary"
-          onPress={onCarryOnToSunday}
+          onPress={onCarryOn}
         />
       </Foot>
     </Screen>

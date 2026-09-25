@@ -10,16 +10,11 @@ import { hasBackend } from '../../data/auth/client';
 import { takeSavedWith } from '../../data/auth/saved';
 import { useSession } from '../../data/auth/session';
 import { planToAnswer, type AnswerablePlan, type OwnAnswer } from '../../data/availability';
-import {
-  emailOfferShown,
-  markEmailOfferShown,
-  normaliseAddress,
-  rememberTypedAddress,
-  requestEmailUpdates,
-} from '../../data/email';
+import { normaliseAddress, rememberTypedAddress, requestEmailUpdates } from '../../data/email';
 import { answerable } from '../../data/fixtures';
 import { newIdempotencyKey } from '../../data/functions';
 import { ownNameIn } from '../../data/membership';
+import { useNudge, type Nudge } from '../growth/useNudge';
 import { failureOf, isOffline } from '../identity/join/failure';
 import { SentScreen, type SentProblem } from './SentScreen';
 
@@ -27,9 +22,11 @@ import { SentScreen, type SentProblem } from './SentScreen';
  * `/j/:code/sent` — after an answer (spec §5.1, §5.8, S1-30).
  *
  * The email offer: one address, `request-email-updates`, then Check your email.
- * **Not now records nothing** — no contact, no event, no request — and the
- * card goes. A new idempotency key per tap: the same key would replay the first
- * answer and queue nothing.
+ * **Not now asks for nothing** — no contact, no consent, no email — and the
+ * card goes; `record-nudge` hears that it was turned down, which is how the
+ * card is offered at most once per plan on every device (spec §5.11, S2-07).
+ * A new idempotency key per tap: the same key would replay the first answer
+ * and queue nothing.
  */
 export function SentFlow({ code }: { code: string }) {
   if (!hasBackend()) {
@@ -64,13 +61,26 @@ function LiveSent({ code }: { code: string }) {
     staleTime: Infinity,
   });
 
-  const planId = question.data?.plan.id;
-  const offerShown = useQuery({
-    queryKey: ['email-offer-shown', session.userId, planId],
-    queryFn: () => emailOfferShown(session.userId as string, planId as string),
-    enabled: planId !== undefined && session.userId !== undefined,
-    staleTime: 0,
-    gcTime: 0,
+  const plan = question.data?.plan;
+  // The organiser hears about their own plan already — the organiser kinds go
+  // to them by email when they have no app (§5.8) — so the card is an offer of
+  // what they have. **Everybody else is offered it, account or not**: a
+  // per-plan subscription is the only way a web member gets the confirmed
+  // time, and a saved place is an account, not a subscription (review round 1).
+  const organising =
+    plan !== undefined && plan.organiserUserId !== null && plan.organiserUserId === session.userId;
+  // Once per plan, on every device (spec §5.11): the record is `record-nudge`'s.
+  // Asked only once there is an answer, and shown if the server cannot be
+  // asked — the card is how a web member hears the confirmed time, which is
+  // the core loop, not a conversion.
+  const offer = useNudge('sent_save_access', {
+    planId: plan?.id,
+    enabled:
+      plan !== undefined &&
+      !organising &&
+      question.data?.answer !== null &&
+      question.data?.answer !== undefined,
+    failOpen: true,
   });
 
   const back = () => (router.canGoBack() ? router.back() : router.replace('/'));
@@ -84,7 +94,7 @@ function LiveSent({ code }: { code: string }) {
       />
     );
   }
-  if (question.data === undefined || name.isPending || offerShown.data === undefined) {
+  if (question.data === undefined || name.isPending || offer.showing === 'pending') {
     return <SentScreen state="loading" onBack={back} />;
   }
   if (question.data.answer === null) {
@@ -105,7 +115,7 @@ function LiveSent({ code }: { code: string }) {
       name={name.data ?? null}
       live
       offerSaveAccess={session.status === 'guest'}
-      offeredBefore={offerShown.data}
+      offer={offer}
     />
   );
 }
@@ -118,8 +128,8 @@ type SentInnerProps = {
   name: string | null;
   live: boolean;
   offerSaveAccess?: boolean;
-  /** Offered on an earlier visit: not again for this plan (spec §5.11). */
-  offeredBefore?: boolean;
+  /** The email card's prompt: whether to show it, and where its answer goes. */
+  offer?: Nudge | undefined;
 };
 
 function Sent({
@@ -130,16 +140,14 @@ function Sent({
   name,
   live,
   offerSaveAccess = false,
-  offeredBefore = false,
+  offer,
 }: SentInnerProps) {
   const router = useRouter();
-  // The organiser hears about their own plan already — the organiser kinds go
-  // to them by email when they have no app (§5.8) — so the card is an offer of
-  // what they have. **Everybody else is offered it, account or not**: a
-  // per-plan subscription is the only way a web member gets the confirmed
-  // time, and a saved place is an account, not a subscription (review round 1).
   const organising = plan.organiserUserId !== null && plan.organiserUserId === userId;
-  const [offerEmail, setOfferEmail] = useState(!organising && !offeredBefore);
+  // Without a backend (the gallery), always offered to anybody but the organiser.
+  const [offerEmail, setOfferEmail] = useState(
+    !organising && (offer === undefined || offer.showing === 'show'),
+  );
   const [email, setEmail] = useState('');
   const [problem, setProblem] = useState<SentProblem | undefined>();
   const [reference, setReference] = useState<string | undefined>();
@@ -161,8 +169,7 @@ function Sent({
     if (!offerEmail || offered.current) return;
     offered.current = true;
     track('email_updates_offered', { plan_id: plan.id as PlanId });
-    if (userId !== undefined) void markEmailOfferShown(userId, plan.id);
-  }, [offerEmail, plan.id, userId]);
+  }, [offerEmail, plan.id]);
 
   const send = async () => {
     const address = normaliseAddress(email);
@@ -186,6 +193,7 @@ function Sent({
         idempotencyKey: newIdempotencyKey(),
       });
       track('email_submitted', { plan_id: plan.id as PlanId });
+      offer?.tap();
       rememberTypedAddress(userId ?? '', plan.id, address);
       // The card stays, address and all: "Use a different one" on Check your
       // email comes back here, and there must be somewhere to type it.
@@ -229,7 +237,10 @@ function Sent({
       savedWith={savedWith}
       onEmailChange={setEmail}
       onSendVerification={() => void send()}
-      onNotNow={() => setOfferEmail(false)}
+      onNotNow={() => {
+        offer?.dismiss();
+        setOfferEmail(false);
+      }}
       onSaveAccess={() => router.push({ pathname: '/j/[code]/save-access', params: { code } })}
       onChangeAnswer={
         plan.acceptingAnswers

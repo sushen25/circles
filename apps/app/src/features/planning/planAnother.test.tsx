@@ -45,6 +45,16 @@ vi.mock('../../data/planning', async (original) => ({
   lastHappenedPlan: (...a: unknown[]) => lastHappenedPlan(...a),
 }));
 
+// The gate is its own suite's (`growth.test.tsx`); here, only that it is drawn
+// in place of the form, for the circle, rather than a navigation elsewhere.
+vi.mock('../growth/InitiateGateFlow', async () => {
+  const { Text } = await import('react-native');
+  return {
+    InitiateGateFlow: (props: { intent: string; circleId?: string }) => (
+      <Text>{`organiser gate: ${props.intent} in ${props.circleId ?? '?'}`}</Text>
+    ),
+  };
+});
 const { PlanAnotherFlow } = await import('./PlanAnotherFlow');
 
 function show(node: ReactNode) {
@@ -202,17 +212,13 @@ describe('Plan another', () => {
     expect(await screen.findByText('Plan openly')).toBeTruthy();
   });
 
-  it('sends a guest member to save their place, and brings them back here', async () => {
+  it('shows a guest member the organiser gate here, in place of the form (S2-07)', async () => {
     session.current = { status: 'guest', userId: 'alex', isAnonymous: true, isLoading: false };
     circleHome.mockResolvedValue({ ...HOME, me: 'alex', isOwner: false });
     show(<PlanAnotherFlow id="sunday-crew" />);
 
-    await waitFor(() =>
-      expect(replace).toHaveBeenCalledWith({
-        pathname: '/sign-in',
-        params: { next: '/circles/sunday-crew/plan/another' },
-      }),
-    );
+    expect(await screen.findByText('organiser gate: plan in sunday-crew')).toBeTruthy();
+    expect(replace).not.toHaveBeenCalled();
     expect(screen.queryByRole('button', { name: 'Ask the group' })).toBeNull();
   });
 });

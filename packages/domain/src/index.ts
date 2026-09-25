@@ -12,7 +12,7 @@
  *
  * `shared/` holds the value objects every context is built from. `circles/` is
  * the authorisation root (S1-01) and `planning/` carries the plan state
- * machine (S1-02). Growth, the last context, follows through Slice 1.
+ * machine (S1-02). `growth/` decides when a conversion prompt may be shown (S2-07).
  */
 export const PACKAGE_NAME = '@circles/domain';
 
@@ -29,4 +29,5 @@ export * from './availability/index.js';
 export * from './scheduling/index.js';
 export * from './confirmation/index.js';
 export * from './communication/index.js';
+export * from './growth/index.js';
 export * as fixtures from './fixtures.js';

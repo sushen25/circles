@@ -1,4 +1,160 @@
 -- ---------------------------------------------------------------------------
+-- 0028 — Guest → saved place: the prompts' record (SUS-55, S2-07).
+--
+-- S1-11 made `public.nudge_states` for a set of moments guessed before any
+-- prompt was designed: the app nudges' four and `account_claimed`'s four, as
+-- one union. The prompts built now need moments of their own, and the union
+-- was the wrong shape for them — "save your place" after a reattach and the
+-- app sheet after a second one were both `reattached`, so the once-per-moment
+-- key could hold only one of them. The moments are now the domain's
+-- (`NUDGE_MOMENTS` in `packages/domain/src/growth`), whose rules are over
+-- them, and `150_analytics.sql` holds this constraint to that list.
+--
+-- **Every moment but the organiser gate names a plan** (`isPlanBoundMoment`).
+-- The two reattach moments did not before; they do now because that is what
+-- makes their history travel. `move_membership` moves a membership's
+-- plan-bound rows to whichever identity reattaches, so the third browser
+-- knows the second one was shown "save your place" — which is how the second
+-- reattach becomes the app sheet's moment rather than the same prompt again.
+--
+-- **Rows written before this.** No client wrote `nudge_states` until now —
+-- the record-nudge endpoint and its prompts are this ticket's — so the only
+-- rows are the tests'. Anything outside the new vocabulary is deleted rather
+-- than translated, because the old moments do not map onto the new ones.
+--
+-- **`claim_identity`** accepts the two new places a guest saves their place
+-- from: `organiser_gate` and `reattached` (`CLAIM_MOMENTS` in
+-- `packages/contracts/src/analytics.ts`).
+--
+-- **`answered_at`** is new, stamped by a trigger when the answer changes: the
+-- back-off counts from it (`stamp_nudge_answer` says why not `updated_at`).
+--
+-- **`after_attendance_facts`** is new: whether "I was there" on a plan is the
+-- circle's first known meetup, for `record-nudge` to hand the domain.
+--
+-- The caps themselves are not here. They are `nudgeEligibility`'s, run by
+-- `record-nudge` over the caller's rows; the table's own rule is still only
+-- the unique key, once per moment per plan, and RLS's own rows in own circles.
+-- ---------------------------------------------------------------------------
+begin;
+
+alter table public.nudge_states
+  drop constraint nudge_states_moment,
+  drop constraint nudge_states_plan_shape;
+
+delete from public.nudge_states
+where moment not in (
+  'after_attendance_start_circle', 'email_given_app', 'locked_in_app', 'organiser_gate',
+  'reattached_save_place', 'reattached_twice_app', 'second_response_app', 'sent_save_access'
+);
+
+alter table public.nudge_states
+  add constraint nudge_states_moment check (moment in (
+    'after_attendance_start_circle', 'email_given_app', 'locked_in_app', 'organiser_gate',
+    'reattached_save_place', 'reattached_twice_app', 'second_response_app', 'sent_save_access'
+  )),
+  -- A `case`, so a null does not pass (SUS-24).
+  add constraint nudge_states_plan_shape check (
+    case moment
+      when 'organiser_gate' then plan_id is null
+      else plan_id is not null
+    end
+  );
+
+-- When the answer was given, stamped by `stamp_nudge_answer` below: the 30-day
+-- back-off runs from it, and `updated_at` moves whenever a reattach rewrites
+-- `user_id`. Not a column a client writes, so not in the grants.
+alter table public.nudge_states add column answered_at timestamptz;
+update public.nudge_states set answered_at = updated_at where answer is not null;
+
+comment on column public.nudge_states.moment is
+  'NUDGE_MOMENTS in packages/domain/src/growth. Every moment but organiser_gate names a plan.';
+
+-- BEGIN GENERATED: function definitions (scripts/gen-sql-functions.mjs)
+
+-- supabase/sql/functions/public/after_attendance_facts.sql
+-- ---------------------------------------------------------------------------
+-- Whether "I was there" on this plan is the moment for "Start a circle for
+-- another group" (spec §5.11, S2-07): the caller said they were there, and no
+-- other meetup of this circle is known to have happened.
+--
+-- `record-nudge` asks this before it lets `after_attendance_start_circle` be
+-- shown, and hands the answer to `nudgeEligibility` as `attendedFirstInCircle`.
+-- The client cannot answer it: `report-outcome` says nothing about "first", and
+-- a member cannot count the circle's attendance, because
+-- `attendance_select_member` shows a retrospective answer to its subject alone.
+--
+-- **Known to have happened** is any of three things about another meetup of the
+-- circle: the organiser reported it `happened`; the caller said `was_there` to
+-- it; or the circle's `last_met_at` is before this one, which is how a history
+-- older than the outcome report — a circle set up with "last caught up" — is
+-- counted too. `last_met_at` never moves backwards and only `happened` moves
+-- it, so a value at or after this meetup's start is this meetup's own.
+--
+-- **Security invoker, as the caller.** Every row it reads is one RLS already
+-- shows a member — the plan, its confirmations, the outcome reports, the
+-- caller's own attendance — so it needs no privilege of its own and cannot be
+-- used to learn anything the caller could not read one table at a time. A plan
+-- that is not in the caller's circles is no row at all, and `record-nudge`
+-- reads that as not the moment.
+-- ---------------------------------------------------------------------------
+
+create or replace function public.after_attendance_facts(p_plan_id uuid)
+returns table (attended boolean, first_in_circle boolean)
+language sql
+stable
+security invoker
+set search_path = ''
+as $$
+  select
+    exists (
+      select 1
+      from public.attendance a
+      join public.meetup_confirmations c on c.id = a.confirmation_id
+      where c.plan_id = p.id
+        and a.user_id = (select auth.uid())
+        and a.status = 'was_there'
+    ) as attended,
+    not exists (
+      select 1
+      from public.meetup_confirmations other
+      join public.plans op on op.id = other.plan_id
+      where op.circle_id = p.circle_id
+        and other.plan_id <> p.id
+        and (
+          exists (
+            select 1 from public.outcome_reports o
+            where o.confirmation_id = other.id and o.outcome = 'happened'
+          )
+          or exists (
+            select 1 from public.attendance a
+            where a.confirmation_id = other.id
+              and a.user_id = (select auth.uid())
+              and a.status = 'was_there'
+          )
+        )
+    )
+    and (
+      ci.last_met_at is null
+      or ci.last_met_at >= coalesce(
+        (select min(c.starts_at) from public.meetup_confirmations c where c.plan_id = p.id),
+        ci.last_met_at
+      )
+    ) as first_in_circle
+  from public.plans p
+  join public.circles ci on ci.id = p.circle_id
+  where p.id = p_plan_id;
+$$;
+
+comment on function public.after_attendance_facts(uuid) is
+  'Whether the caller said "I was there" to this plan, and whether no other meetup of its circle is known to have happened — when "Start a circle" may follow (S2-07). Security invoker: reads only what RLS shows the caller.';
+
+revoke all on function public.after_attendance_facts(uuid) from public;
+revoke all on function public.after_attendance_facts(uuid) from anon;
+grant execute on function public.after_attendance_facts(uuid) to authenticated;
+
+-- supabase/sql/functions/public/claim_identity.sql
+-- ---------------------------------------------------------------------------
 -- claim_identity
 --
 -- Somebody saves their place (§10): `linkIdentity` with an email code, or
@@ -205,3 +361,44 @@ comment on function public.claim_identity(uuid, uuid, text) is
 revoke all on function public.claim_identity(uuid, uuid, text) from public;
 revoke all on function public.claim_identity(uuid, uuid, text) from anon, authenticated;
 grant execute on function public.claim_identity(uuid, uuid, text) to service_role;
+
+-- supabase/sql/functions/public/stamp_nudge_answer.sql
+-- ---------------------------------------------------------------------------
+-- When a prompt was answered (S2-07).
+--
+-- The 30-day back-off runs from the second "not now" (`appBackOffUntil` in
+-- `packages/domain/src/growth`), so the time an answer was given is a fact the
+-- rules read. `updated_at` is not it: `move_membership` rewrites `user_id` on a
+-- reattach, which would restart a back-off every time somebody came back on a
+-- new browser. So the answer stamps its own column, here rather than in the
+-- client, because the client writes this table directly (§8.4) and a stamp it
+-- could leave out is not one the rule can lean on.
+-- ---------------------------------------------------------------------------
+
+create or replace function public.stamp_nudge_answer()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if tg_op = 'INSERT' then
+    new.answered_at := case when new.answer is null then null else now() end;
+  elsif new.answer is distinct from old.answer then
+    new.answered_at := case when new.answer is null then null else now() end;
+  else
+    new.answered_at := old.answered_at;
+  end if;
+  return new;
+end;
+$$;
+
+revoke all on function public.stamp_nudge_answer() from public;
+revoke all on function public.stamp_nudge_answer() from anon, authenticated;
+
+-- END GENERATED: function definitions
+
+create trigger nudge_states_stamp_answer
+  before insert or update on public.nudge_states
+  for each row execute function public.stamp_nudge_answer();
+
+commit;

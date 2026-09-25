@@ -2,7 +2,7 @@ import type { CircleId, IdempotencyKey } from '@circles/contracts';
 import { DURATIONS, fromISO, softQuorum, type DurationMinutes } from '@circles/domain';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 
 import { track } from '../../analytics/track';
 import { t } from '../../copy';
@@ -16,6 +16,7 @@ import { movedOn, usePlanClock } from './clock';
 import { CustomWindowScreen } from './CustomWindowScreen';
 import { FIXTURE_NOW, sundayCrew } from './fixtures';
 import { defaultDraft, resolveDraft, WINDOW_EVENT, type PlanDraft } from './form';
+import { InitiateGateFlow } from '../growth/InitiateGateFlow';
 import { PlanInProgress } from './PlanInProgressFlow';
 import { PlanSetupScreen } from './PlanSetupScreen';
 import { refusalOf, type Refused } from './problems';
@@ -113,16 +114,9 @@ function LiveSetup({
     enabled: member.kind === 'allow',
     staleTime: 0,
   });
-  const noPlanRunning =
-    home.data !== undefined && home.data !== null && home.data.activePlan === null;
-
-  const toSignIn = () =>
-    router.replace({ pathname: '/sign-in', params: { next: `/circles/${id}/plan/setup` } });
-  useEffect(() => {
-    if (decision.kind === 'needs_saved_place' && noPlanRunning) toSignIn();
-    // `toSignIn` reads only `id` and the router.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [decision.kind, noPlanRunning, router, id]);
+  // The server's word that a saved place is needed, when the session had not
+  // said so: the gate, as for a guest (S2-07).
+  const [mustSave, setMustSave] = useState(false);
   // The moment the screen was opened: the preview is of a plan made about now,
   // and reading the clock during a render would make it a different plan each
   // time React draws it.
@@ -155,8 +149,19 @@ function LiveSetup({
   if (data.activePlan !== null) {
     return <PlanInProgress id={id} home={data} plan={data.activePlan} onBack={back} />;
   }
-  // No plan running, so a form is next, and a form needs a saved place: the
-  // effect above is sending them to sign in.
+  // A guest member saves their place here, in place of the form, and the form
+  // follows once they have: the guard answers `allow` (ADR 0004, S2-07).
+  if (decision.kind === 'needs_saved_place' || mustSave) {
+    return (
+      <InitiateGateFlow
+        intent="plan"
+        circleId={id}
+        circleName={data.name}
+        onSaved={() => setMustSave(false)}
+        onNotNow={back}
+      />
+    );
+  }
   if (decision.kind !== 'allow') return <PlanSetupScreen state="loading" onBack={back} />;
 
   const context: FormContext = {
@@ -209,7 +214,7 @@ function LiveSetup({
         });
       }}
       onRefused={(refused) => {
-        if (refused.needsSavedPlace) toSignIn();
+        if (refused.needsSavedPlace) setMustSave(true);
         // Somebody's plan got there first — another tab, or another member.
         // The circle read again is the screen that shows it.
         if (refused.inProgress) void home.refetch();

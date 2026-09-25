@@ -5,6 +5,7 @@ import { ClaimIdentityRequest } from './claim-identity.js';
 import { ExtendDeadlineRequest } from './extend-deadline.js';
 import { HandOffOrganiserRequest } from './hand-off-organiser.js';
 import { JoinPlanRequest } from './join-plan.js';
+import { RecordNudgeRequest } from './record-nudge.js';
 import { ReattachMemberRequest } from './reattach-member.js';
 import { RedeemInviteRequest } from './redeem-invite.js';
 import { SubmitAvailabilityRequest } from './submit-availability.js';
@@ -217,5 +218,49 @@ describe('HandOffOrganiserRequest', () => {
         to_user_id: '00000000-0000-4000-8000-0000000000a2',
       }).success,
     ).toBe(true);
+  });
+});
+
+describe('RecordNudgeRequest', () => {
+  const PLAN = '00000000-0000-4000-8000-0000000000a1';
+
+  it('carries a plan for every moment but the gate, and none for the gate', () => {
+    // `nudge_states_plan_shape` would refuse either mistake with a check
+    // violation — a 500 — so the boundary refuses it first.
+    expect(
+      RecordNudgeRequest.safeParse({
+        idempotency_key: KEY,
+        moment: 'sent_save_access',
+        plan_id: PLAN,
+      }).success,
+    ).toBe(true);
+    expect(
+      RecordNudgeRequest.safeParse({ idempotency_key: KEY, moment: 'sent_save_access' }).success,
+    ).toBe(false);
+    expect(
+      RecordNudgeRequest.safeParse({ idempotency_key: KEY, moment: 'organiser_gate' }).success,
+    ).toBe(true);
+    expect(
+      RecordNudgeRequest.safeParse({
+        idempotency_key: KEY,
+        moment: 'organiser_gate',
+        plan_id: PLAN,
+      }).success,
+    ).toBe(false);
+  });
+
+  it('refuses a moment the domain does not know, and an answer that is not one', () => {
+    expect(
+      RecordNudgeRequest.safeParse({ idempotency_key: KEY, moment: 'confirmed', plan_id: PLAN })
+        .success,
+    ).toBe(false);
+    expect(
+      RecordNudgeRequest.safeParse({
+        idempotency_key: KEY,
+        moment: 'locked_in_app',
+        plan_id: PLAN,
+        answer: 'shown',
+      }).success,
+    ).toBe(false);
   });
 });

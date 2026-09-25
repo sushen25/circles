@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { CLAIM_MOMENTS } from '../analytics.js';
 import { UserId } from '../ids.js';
 import { Mutation } from './shared.js';
 
@@ -18,7 +19,7 @@ import { Mutation } from './shared.js';
 export const ClaimIdentityRequest = Mutation.extend({
   anonymous_session: z.string().min(1).max(4096),
   /** Where in the journey this happened — the funnel is measured by it. */
-  moment: z.enum(['after_answer', 'after_confirmed', 'after_attendance', 'settings']),
+  moment: z.enum(CLAIM_MOMENTS),
 });
 export type ClaimIdentityRequest = z.infer<typeof ClaimIdentityRequest>;
 
