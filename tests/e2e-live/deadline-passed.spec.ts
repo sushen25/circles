@@ -1,5 +1,3 @@
-import { randomUUID } from 'node:crypto';
-
 import { expect, test, type Page } from './fixtures';
 
 import { letterTo, lettersTo, linkIn, runDispatcher } from './mail';
@@ -37,9 +35,13 @@ function addressOf(userId: string): string {
 }
 
 /**
- * Maya's plan with one option — next week, Maya and Tom — written the way
- * `seed.sql` writes a set, and then its deadline gone. Tom is a guest; Priya
- * has a saved place, and the plan is asking her.
+ * Maya's plan with one option — next week's second evening, Maya and Tom —
+ * and then its deadline gone. Both answers are the product's own
+ * (`replace_response`), and the engine is the dispatcher's, run until the plan
+ * is ready: a set written by hand is stale the moment anything bumps the
+ * plan's input, and the sweep then recalculates it from the real answers
+ * underneath the test. Tom is a guest; Priya has a saved place, and the plan
+ * is asking her but she has not answered.
  */
 async function closedWithAnOption() {
   const maya = await signedInAccount('Maya');
@@ -52,35 +54,39 @@ async function closedWithAnOption() {
     ownerId: maya.userId,
     secret: '',
   };
-  const tom = guestWhoAnswered(crew, 'Tom');
   const priya = await accountToSignInTo('Priya');
-  const setId = randomUUID();
   sql(`
     begin;
     insert into public.circle_members (circle_id, user_id, display_name_snapshot)
     values ('${circleId}', '${priya.userId}', 'Priya');
     insert into public.plan_participants (plan_id, revision, user_id)
     values ('${plan.id}', 1, '${priya.userId}');
-    insert into public.candidate_sets (
-      id, plan_id, revision, input_version, scoring_version, input_hash,
-      starts_considered, eligible_count, responded_count, active_member_count
-    )
-    select '${setId}', p.id, p.revision, p.input_version, p.scoring_version, 'e2e', 1, 1, 2, 3
-    from public.plans p where p.id = '${plan.id}';
-    insert into public.candidates (
-      candidate_set_id, is_near_miss, rank, starts_at, ends_at, available_user_ids,
-      explicit_count, flexible_count, explanation_code, explanation_count
-    ) values (
-      '${setId}', false, 1,
-      ((current_date + 8)::timestamp + interval '18 hours 30 minutes') at time zone 'Australia/Melbourne',
-      ((current_date + 8)::timestamp + interval '20 hours 30 minutes') at time zone 'Australia/Melbourne',
-      array['${maya.userId}', '${tom}']::uuid[], 1, 1, 'best_attendance', 2
-    );
-    select planning.transition_plan('${plan.id}', 'candidates_ready', '${maya.userId}');
-    update public.plans set response_deadline = now() - interval '1 minute' where id = '${plan.id}';
     commit;
   `);
+  const tom = guestWhoAnswered(crew, 'Tom');
+  sql(`
+    begin;
+    select set_config('role', 'authenticated', true);
+    select set_config('request.jwt.claims',
+      '{"sub": "${maya.userId}", "role": "authenticated", "is_anonymous": false}', true);
+    select public.replace_response('${plan.id}', 1, 'windows', jsonb_build_array(jsonb_build_object(
+      'start', ((current_date + 8)::timestamp + interval '18 hours 30 minutes') at time zone 'Australia/Melbourne',
+      'end', ((current_date + 8)::timestamp + interval '20 hours 30 minutes') at time zone 'Australia/Melbourne'
+    )));
+    commit;
+  `);
+  for (let attempt = 0; attempt < 20 && stateOf(plan.id) !== 'ready'; attempt += 1) {
+    await runDispatcher();
+  }
+  expect(stateOf(plan.id)).toBe('ready');
+  sql(
+    `update public.plans set response_deadline = now() - interval '1 minute' where id = '${plan.id}'`,
+  );
   return { maya, circleId, plan, tom, priya };
+}
+
+function stateOf(planId: string): string {
+  return sql(`select state from public.plans where id = '${planId}'`)[0]![0]!;
 }
 
 async function closedLetters(address: string): Promise<number> {
