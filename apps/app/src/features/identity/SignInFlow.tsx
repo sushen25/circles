@@ -112,16 +112,18 @@ export function SignInFlow({ returnTo }: SignInFlowProps) {
       setBusy(true);
       setCodeProblem(undefined);
       setReference(undefined);
+      let signedInAs: string | undefined;
       try {
         if (step.via.kind === 'link') {
           const { route } = step.via;
-          await savePlace({
+          const saved = await savePlace({
             moment: 'settings',
             signIn: () => submitLinkCode(step.address, codeText, route),
           });
+          signedInAs = saved.session.user.id;
           track('account_claimed', { moment: 'settings' });
         } else {
-          await submitSignInCode(step.address, codeText);
+          signedInAs = (await submitSignInCode(step.address, codeText)).session.user.id;
         }
       } catch (error) {
         if (error instanceof SavePlaceError) {
@@ -174,10 +176,10 @@ export function SignInFlow({ returnTo }: SignInFlowProps) {
         // Unknown: Your name reads the profile again and says what it finds.
       }
       // In the app, the sign-in is also the install being linked to this place
-      // (`mark-app-installed`, S3-01a). Waited for so that the landing is shown
-      // on the one sign-in that was the first; on the web it is an instant no.
-      const { firstOpen } = await appTierSettled();
-      if (firstOpen) track('app_first_open_linked', {});
+      // (`mark-app-installed`, S3-01a). Waited for, briefly, so that the landing
+      // is shown on the one sign-in that was the first; on the web it is an
+      // instant no. The event is counted in the root layout, for every path.
+      const { firstOpen } = await appTierSettled(signedInAs);
       router.replace(destinationAfterSignIn({ next, hasName, circleId, firstOpen }));
     };
 

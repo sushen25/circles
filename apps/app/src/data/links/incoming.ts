@@ -47,7 +47,35 @@ export function routeIncomingLink(
 
   const taken = takeInviteFragment(pathname, hash) || takeTokenFragment(pathname, hash);
   if (ours && isClaimed(pathname)) return `${pathname}${search}${taken ? '' : hash}`;
-  return taken ? url.slice(0, url.length - hash.length) : url;
+  const withoutFragment = taken ? url.slice(0, url.length - hash.length) : url;
+  return taken ? withoutFragment : wrappedLinkStripped(withoutFragment, search, linkHosts, scheme);
+}
+
+/**
+ * A development client's own link wraps the real one in `?url=`:
+ * `exp+circles://expo-development-client/?url=http%3A%2F%2F…%2Fjoin%23<secret>`.
+ * expo-router decodes it and keeps the fragment, so the wrapped link gets the
+ * same treatment, and goes back in encoded (review round 1). Development
+ * builds only: a release build has no dev client to hand it one.
+ */
+function wrappedLinkStripped(
+  url: string,
+  search: string,
+  linkHosts: readonly string[],
+  scheme: string,
+): string {
+  const match = /[?&]url=([^&#]*)/.exec(search);
+  if (match === null || match[1] === undefined) return url;
+  let inner: string;
+  try {
+    inner = decodeURIComponent(match[1]);
+  } catch {
+    return url;
+  }
+  if (!inner.includes('#')) return url;
+  const stripped = routeIncomingLink(inner, linkHosts, scheme);
+  if (stripped === inner) return url;
+  return url.replace(`url=${match[1]}`, `url=${encodeURIComponent(stripped)}`);
 }
 
 function routePathOf({ origin, pathname }: UrlParts): string {

@@ -4,7 +4,7 @@ import { Platform } from 'react-native';
 
 import { setAccessToken } from '../session';
 import { authClient } from './client';
-import { markAppInstalled } from './install';
+import { isAppInstalled, loadAppInstalled, resetAppTierForTests } from './appTier';
 import { resumePendingClaim } from './link';
 
 /**
@@ -54,7 +54,6 @@ const SIGNED_OUT: SessionState = {
 };
 
 let state: SessionState = SIGNED_OUT;
-let appInstalled = false;
 const listeners = new Set<() => void>();
 
 function emit(): void {
@@ -67,7 +66,7 @@ function statusOf(session: Session | null): SessionStatus {
   // A browser is never `app`, whatever the profile says: the column records
   // that *a* device has the app, and the prompts that read this are asking
   // about the device in front of the person.
-  return Platform.OS !== 'web' && appInstalled ? 'app' : 'saved';
+  return Platform.OS !== 'web' && isAppInstalled() ? 'app' : 'saved';
 }
 
 /**
@@ -110,63 +109,6 @@ function publish(session: Session | null): void {
 
   state = next;
   emit();
-}
-
-/**
- * Whether this device has the app, which only a permanent identity can have
- * recorded. Native only, once per sign-in — it changes at most once ever, and a
- * query per navigation would be a spinner on every screen.
- *
- * **And the place it is recorded (S3-01a).** A saved place signed in on a
- * native build *is* the app installed, so a profile that does not say so yet is
- * told, here, by `mark-app-installed` — on the sign-in that makes it true, and
- * on the first launch of a session restored from a build that did not ask.
- * The server does it once and says which call was first; `appTierSettled`
- * hands that to whoever routes after sign-in, once. A call that fails leaves
- * the tier at `saved` and is asked again on the next sign-in or launch.
- */
-let firstOpen = false;
-let loading: Promise<void> = Promise.resolve();
-
-function loadAppInstalled(session: Session | null): Promise<void> {
-  loading = readAppInstalled(session);
-  return loading;
-}
-
-async function readAppInstalled(session: Session | null): Promise<void> {
-  if (Platform.OS === 'web' || session === null || session.user.is_anonymous === true) {
-    appInstalled = false;
-    return;
-  }
-
-  const { data } = await authClient()
-    .from('profiles')
-    .select('app_installed_at')
-    .eq('user_id', session.user.id)
-    .maybeSingle();
-
-  appInstalled = data?.app_installed_at !== null && data?.app_installed_at !== undefined;
-  if (appInstalled) return;
-
-  try {
-    const marked = await markAppInstalled();
-    appInstalled = true;
-    if (marked.first_open) firstOpen = true;
-  } catch {
-    // Offline, or the function is unreachable: still `saved`, asked again later.
-  }
-}
-
-/**
- * Once the tier for the session in hand is known: whether this sign-in was the
- * app's first open, linked to the person's place. True once, then false, so
- * `app_first_open_linked` is counted once and the landing shown once.
- */
-export async function appTierSettled(): Promise<{ firstOpen: boolean }> {
-  await loading;
-  const was = firstOpen;
-  firstOpen = false;
-  return { firstOpen: was };
 }
 
 let started = false;
@@ -297,9 +239,7 @@ export async function signOut(): Promise<void> {
 export function resetSessionForTests(): void {
   state = SIGNED_OUT;
   generation = 0;
-  appInstalled = false;
-  firstOpen = false;
-  loading = Promise.resolve();
+  resetAppTierForTests();
   started = false;
   listeners.clear();
 }

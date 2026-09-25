@@ -34,7 +34,8 @@ export function takeTokenFragment(pathname: string, hash: string): boolean {
   const kind = fragmentLinkKind(pathname);
   if (hash === '' || hash === '#' || kind === null || kind === 'invite') return false;
   const parsed = parseTokenLink(hash);
-  if (parsed !== null) held.set(kind, parsed.token);
+  if (parsed === null) held.delete(kind);
+  else held.set(kind, parsed.token);
   return true;
 }
 
