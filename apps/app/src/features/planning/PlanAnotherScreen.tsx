@@ -60,6 +60,8 @@ export type PlanAnotherProps = {
   onNext?: (() => void) | undefined;
   onBack?: (() => void) | undefined;
   onSeeIfPeopleAre?: (() => void) | undefined;
+  /** Off in a circle of one: there is nobody to ask quietly (`nobody_to_ask`). */
+  offerQuiet?: boolean | undefined;
 };
 
 const ARTBOARD_WHEN = ['tonight', 'this_weekend', 'next_7_days', 'next_14_days', 'custom'] as const;
@@ -147,11 +149,13 @@ export function PlanAnotherScreen(props: PlanAnotherProps) {
           disabled={busy}
           onPress={props.onNext}
         />
-        <Button
-          label={t('planAnother', 'see_if_people_are_keen_instead')}
-          variant="secondary"
-          onPress={props.onSeeIfPeopleAre}
-        />
+        {props.offerQuiet === false ? null : (
+          <Button
+            label={t('planAnother', 'see_if_people_are_keen_instead')}
+            variant="secondary"
+            onPress={props.onSeeIfPeopleAre}
+          />
+        )}
       </Foot>
     </Screen>
   );

@@ -290,3 +290,61 @@ describe('circle home, in the state the data puts it in', () => {
     expect(screen.queryByRole('button', { name: 'Invite link' })).toBeNull();
   });
 });
+
+describe('circle home and the quiet ask (S2-03)', () => {
+  const RUNNING = {
+    id: PLAN,
+    code: 'pnsundaycr',
+    organiserUserId: 'maya',
+    title: 'Catch up',
+    responseDeadline: '2026-09-29T08:00:00Z',
+    replied: 1,
+    asked: 6,
+  };
+  const ASK = { planId: '00000000-0000-4000-8000-00000000a5c1', closesAt: '2026-09-18T02:00:00Z' };
+
+  it('shows an ask still asking as one card, the same for whoever reads it', async () => {
+    // Maya is the owner and Tom is not; neither card may say whose it is.
+    const seen: string[] = [];
+    for (const reader of ['maya', 'tom']) {
+      circleHome.mockResolvedValue(
+        home({ me: reader, isOwner: reader === 'maya', quietAsks: [ASK] }),
+      );
+      const { unmount } = wrap(<CircleHomeFlow id={CIRCLE} />);
+      expect(await screen.findByText('Asked quietly')).toBeVisible();
+      seen.push(screen.getByText('Asked quietly').parentElement?.parentElement?.textContent ?? '');
+      fireEvent.click(screen.getByRole('button', { name: 'Take a look' }));
+      expect(push).toHaveBeenLastCalledWith({
+        pathname: '/circles/[id]/quiet/[planId]',
+        params: { id: CIRCLE, planId: ASK.planId },
+      });
+      unmount();
+    }
+    expect(seen[0]).toBe(seen[1]);
+  });
+
+  it('says "started quietly" while nobody has taken it on, and leads to the quiet screens', async () => {
+    circleHome.mockResolvedValue(
+      home({ activePlan: { ...RUNNING, organiserUserId: null, quiet: true } }),
+    );
+    wrap(<CircleHomeFlow id={CIRCLE} />);
+
+    expect(await screen.findByText('Started quietly')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: "See how it's looking" }));
+    expect(push).toHaveBeenCalledWith({
+      pathname: '/circles/[id]/quiet/[planId]',
+      params: { id: CIRCLE, planId: PLAN },
+    });
+  });
+
+  it('starts a catch-up by choosing how, now that there are two ways', async () => {
+    circleHome.mockResolvedValue(home({ activePlan: RUNNING }));
+    wrap(<CircleHomeFlow id={CIRCLE} />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Plan a catch-up' }));
+    expect(push).toHaveBeenCalledWith({
+      pathname: '/circles/[id]/plan/mode',
+      params: { id: CIRCLE },
+    });
+  });
+});

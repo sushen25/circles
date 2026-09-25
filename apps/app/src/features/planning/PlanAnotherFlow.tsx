@@ -306,6 +306,7 @@ function AnotherForm({
       onChange={() => setEditing('form')}
       onNext={() => void ask()}
       onSeeIfPeopleAre={() => router.push({ pathname: '/circles/[id]/quiet/new', params: { id } })}
+      offerQuiet={members >= 2}
       onBack={onBack}
     />
   );

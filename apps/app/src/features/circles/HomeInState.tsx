@@ -9,6 +9,7 @@ import type { CircleHome } from '../../data/circles';
 import { appOrigin } from '../../data/links/origin';
 import { planLink } from '../../data/planning';
 import { shareMessage } from '../../platform/share';
+import { QuietAskCard } from '../planning/QuietAskCard';
 import { whenWords } from '../planning/when';
 import { CircleHomeConfirmedScreen } from './CircleHomeConfirmedScreen';
 import { CircleHomeDueScreen } from './CircleHomeDueScreen';
@@ -43,7 +44,31 @@ export function HomeInState({ home, onBack }: { home: CircleHome; onBack: () => 
   // state of an active circle can hold it: the next plan may already be
   // finding a time, or locked in, before the last one is reported — and
   // everybody else may have left since.
-  const prompt = useMorningAfterCard(home);
+  const morningAfter = useMorningAfterCard(home);
+  // A quiet ask still asking, as the same card for every member (S2-03): under
+  // the morning after's question, in whichever state the home is in.
+  const quietAsks = home.status === 'archived' ? [] : (home.quietAsks ?? []);
+  const prompt =
+    quietAsks.length === 0 ? (
+      morningAfter
+    ) : (
+      <>
+        {morningAfter}
+        {quietAsks.map((ask) => (
+          <QuietAskCard
+            key={ask.planId}
+            ask={ask}
+            zone={home.zone}
+            onOpen={() =>
+              router.push({
+                pathname: '/circles/[id]/quiet/[planId]',
+                params: { id, planId: ask.planId },
+              })
+            }
+          />
+        ))}
+      </>
+    );
   const nudge = useNudgeActions(home);
 
   const members = home.members.map((m) => ({ name: m.name }));
@@ -89,11 +114,15 @@ export function HomeInState({ home, onBack }: { home: CircleHome; onBack: () => 
 
   if (state === 'finding_a_time' && home.activePlan !== null) {
     const plan = home.activePlan;
+    // Started quietly and nobody has taken it on: "started quietly", and the
+    // quiet screens, which offer the role to whoever may take it (§5.4).
+    const unclaimed = plan.quiet === true && plan.organiserUserId === null;
     return (
       <CircleHomeScreen
         {...shared}
         prompt={prompt}
         subtitle={homeSubtitle(home)}
+        label={unclaimed ? t('quiet', 'started_quietly') : undefined}
         planTitle={plan.title}
         closes={t('circleHome', 'replies_close', {
           deadline: whenWords(plan.responseDeadline, home.zone),
@@ -103,11 +132,15 @@ export function HomeInState({ home, onBack }: { home: CircleHome; onBack: () => 
         nextOne={nextOne(home)}
         onSeeHowItsLooking={() =>
           router.push({
-            pathname: '/circles/[id]/plan/[planId]/candidates',
+            pathname: unclaimed
+              ? '/circles/[id]/quiet/[planId]'
+              : '/circles/[id]/plan/[planId]/candidates',
             params: { id, planId: plan.id },
           })
         }
-        onNext={() => router.push({ pathname: '/circles/[id]/plan/setup', params: { id } })}
+        // Two ways to start now that the quiet ask is on (S2-03); with a plan
+        // running, either one shows that plan (ADR 0033).
+        onNext={() => router.push({ pathname: '/circles/[id]/plan/mode', params: { id } })}
       />
     );
   }

@@ -16,16 +16,19 @@ import type { Fixture } from '../../data/fixtures';
 import type { ScreenState } from '../state';
 
 /**
- * SparkExpired — scaffolded from `docs/design/SparkExpired.dc.html`.
+ * SparkExpired — `docs/design/SparkExpired.dc.html` (spec §5.4.7): **only the
+ * person who asked**, only for an ask that reached its stop time without
+ * opening (`showClosedNotice`). Everybody else sees a closed ask as nothing.
  *
- * Structure and copy come from the artboard; data comes from a fixture. Slice 1
- * replaces `fixture` with real data and `onNext` with real navigation. Edit
- * freely: `scripts/scaffold-screens.mjs` will not overwrite this file.
+ * The headline is SUS-49's softer one. It is also what an ask held to its stop
+ * time beside a running plan says, on purpose: "enough people were keen, but"
+ * would tell the initiator a count they were never meant to learn.
  */
 export type SparkExpiredProps = {
-  fixture: Fixture;
+  fixture?: Fixture | undefined;
   state?: ScreenState | undefined;
-  /** The screen's one decision. */
+  circleName?: string | undefined;
+  backLabel?: string | undefined;
   onNext?: (() => void) | undefined;
   onBack?: (() => void) | undefined;
   onBackToSundayCrew?: (() => void) | undefined;
@@ -33,6 +36,8 @@ export type SparkExpiredProps = {
 };
 
 export function SparkExpiredScreen({
+  circleName = t('sparkExpired', 'sunday_crew'),
+  backLabel = t('sparkExpired', 'back_to_sunday_crew'),
   onBack,
   onBackToSundayCrew,
   onTryAgainAnotherTime,
@@ -42,11 +47,11 @@ export function SparkExpiredScreen({
       <TopBar onBack={onBack} backLabel={t('common', 'back')} />
       <Body>
         <Stack>
-          <Label>{t('sparkExpired', 'sunday_crew')}</Label>
-          <DisplayXL>{t('sparkExpired', 'not_enough_people_were_free_this_time')}</DisplayXL>
-          <BodyText>{t('sparkExpired', 'this_one_closed_quietly_nobody_else_knows')}</BodyText>
+          <Label>{circleName}</Label>
+          <DisplayXL>{t('sparkExpired', 'headline')}</DisplayXL>
+          <BodyText>{t('sparkExpired', 'body')}</BodyText>
         </Stack>
-        <Small>{t('sparkExpired', 'weekends_have_been_tight_for_a_few')}</Small>
+        <Small>{t('sparkExpired', 'hint')}</Small>
       </Body>
       <Foot>
         <Button
@@ -54,7 +59,7 @@ export function SparkExpiredScreen({
           variant="secondary"
           onPress={onTryAgainAnotherTime}
         />
-        <Tertiary label={t('sparkExpired', 'back_to_sunday_crew')} onPress={onBackToSundayCrew} />
+        <Tertiary label={backLabel} onPress={onBackToSundayCrew} />
       </Foot>
     </Screen>
   );

@@ -92,6 +92,10 @@ describe('the copy file', () => {
       'month',
       'duration',
       'quorum',
+      // S2-03's: the quiet ask's threshold, and the window it asks about
+      // ("this weekend"), or when it stops asking.
+      'threshold',
+      'when',
     ]);
     for (const [screen, strings] of Object.entries(en)) {
       for (const [key, value] of Object.entries(strings)) {
