@@ -109,8 +109,10 @@ What this settles for each of the three:
   held invite is now belt and braces and stays.
 - The live e2e suite proves it rather than hiding it: `fixtures.ts` fails any
   test whose page reports a React hydration error, it no longer waits for
-  hydration after `goto`, and a fifth project, `iphone-safari-en-au`, runs every
-  journey in `en-AU` against an `en-US` export. `served-html.spec.ts` asks the
+  hydration after `goto`, and a fifth project, `iphone-safari-en-au`, runs the
+  journeys a chat link lands on and the screens that write dates in `en-AU`
+  against an `en-US` export (a subset, for the CI budget: the shell is the same
+  on every route, so the proof does not need every journey). `served-html.spec.ts` asks the
   server for the gated routes and every route with a field and requires the
   shell, and types into the name and email fields the moment they can be typed
   into, with the scripts held back.

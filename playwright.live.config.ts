@@ -39,7 +39,26 @@ const baseURL = `http://localhost:${PORT}`;
  *   a hydration error, and this project is where a date rendered into the
  *   server's *text* would be caught (SUS-90). React's production build reports
  *   text mismatches only: one in an attribute, an `aria-label` say, would pass.
+ *
+ *   It runs `EN_AU_SPECS`, not everything. The served HTML is the same shell on
+ *   every route, so what this project proves is about the server and the
+ *   browser disagreeing, not about any one journey; the subset is every way a
+ *   link from a chat lands (plan link, invite, name step) and the screens that
+ *   write dates (the editor, the options, the confirmation, the zone note).
+ *   All of it took the live step from about 7.7 to 9.9 minutes in CI, against
+ *   a budget of ten; this is about two fifths of the fifth project's time.
  */
+const EN_AU_SPECS = [
+  'served-html',
+  'guest',
+  'join',
+  'plan-link',
+  'availability',
+  'candidates',
+  'confirmation',
+  'zone-note',
+].map((name) => `**/${name}.spec.ts`);
+
 // Which build this suite needs, for `tests/expect-build-mode.ts` below.
 process.env['EXPECTED_BUILD_MODE'] = 'live';
 process.env['BUILD_MODE_URL'] = `${baseURL}/build-mode.json`;
@@ -53,7 +72,7 @@ export default defineConfig({
   // address), which each test clears as it starts, and the dispatcher's lease,
   // which `runDispatcher` waits for. At one worker the four projects took 5.3
   // minutes locally, against 3.1 at two; S1-31's budget for CI is ten. The
-  // fifth (SUS-90) runs every journey too, which adds about a quarter.
+  // fifth (SUS-90) runs a subset, `EN_AU_SPECS`, to stay inside it.
   fullyParallel: false,
   workers: 2,
   forbidOnly: Boolean(process.env.CI),
@@ -83,7 +102,11 @@ export default defineConfig({
           'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 [FBAN/MessengerForiOS;FBAV/458.0.0.43.109;FBBV/612345678;FBDV/iPhone15,2;FBMD/iPhone;FBSN/iOS;FBSV/17.5;FBSS/3;FBCR/;FBID/phone;FBLC/en_GB;FBOP/5]',
       },
     },
-    { name: 'iphone-safari-en-au', use: { ...devices['iPhone 14'], locale: OTHER_LOCALE } },
+    {
+      name: 'iphone-safari-en-au',
+      testMatch: EN_AU_SPECS,
+      use: { ...devices['iPhone 14'], locale: OTHER_LOCALE },
+    },
   ],
   webServer: {
     command: `node scripts/e2e-live-serve.mjs ${PORT}`,
