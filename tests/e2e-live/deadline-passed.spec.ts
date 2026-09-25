@@ -89,6 +89,29 @@ function stateOf(planId: string): string {
   return sql(`select state from public.plans where id = '${planId}'`)[0]![0]!;
 }
 
+/**
+ * Runs the dispatcher until the plan has `count` replies-closed jobs, then
+ * sends any quiet hours are holding (SUS-91).
+ *
+ * `replies_closed` respects quiet hours (9 pm–8 am where the organiser is), so
+ * a run of the suite in the Melbourne evening writes the job for the next
+ * morning and no letter arrives: the spec failed, and a count of letters said
+ * nothing either way. The jobs are the product's answer — written or not —
+ * and they are what is asserted; the release only lets the letter be read.
+ */
+async function closingJobsFor(planId: string, count: number): Promise<number> {
+  const jobs = () =>
+    Number(
+      sql(`select count(*) from jobs.notification_jobs
+           where plan_id = '${planId}' and kind = 'replies_closed'`)[0]![0],
+    );
+  for (let attempt = 0; attempt < 20 && jobs() < count; attempt += 1) await runDispatcher();
+  sql(`update jobs.notification_jobs set scheduled_for = now()
+       where plan_id = '${planId}' and status = 'scheduled'`);
+  await runDispatcher();
+  return jobs();
+}
+
 async function closedLetters(address: string): Promise<number> {
   return (await lettersTo(address)).filter((letter) => CLOSED.test(letter.subject)).length;
 }
@@ -101,8 +124,9 @@ test('the organiser is told, gives it one more day, and is told again when that 
   const address = addressOf(maya.userId);
   await signedInAs(page, maya.stored);
 
-  // Two ticks: the sweep announces the deadline, the next drain writes and
-  // sends the letter. `letterTo` runs the dispatcher until it arrives.
+  // Two ticks: the sweep announces the deadline, the next drain writes the
+  // letter; quiet hours may hold it, so it is released before it is read.
+  expect(await closingJobsFor(plan.id, 1)).toBe(1);
   const letter = await letterTo(address, CLOSED);
   await page.goto(linkIn(letter, new RegExp(`^/p/${plan.code}$`), baseURL!));
 
@@ -127,11 +151,16 @@ test('the organiser is told, gives it one more day, and is told again when that 
   sql(
     `update public.plans set response_deadline = now() - interval '1 minute' where id = '${plan.id}'`,
   );
+  expect(await closingJobsFor(plan.id, 2)).toBe(2);
   for (let attempt = 0; attempt < 20 && (await closedLetters(address)) < 2; attempt += 1) {
-    await runDispatcher();
     await page.waitForTimeout(500);
   }
   expect(await closedLetters(address)).toBe(2);
+  // And the two are two letters, both gone — not one sent and one swallowed.
+  expect(
+    sql(`select status from jobs.notification_jobs
+         where plan_id = '${plan.id}' and kind = 'replies_closed' order by created_at`),
+  ).toEqual([['sent'], ['sent']]);
 
   // And the day, once given, is not offered again.
   await page.reload();
@@ -167,5 +196,19 @@ test('the organiser hands it to a member with a saved place, never to a guest', 
   );
 
   // Priya is told it is hers, with the letter that opens the three ways out.
+  // It is written by the next drain, and held until morning in the evening,
+  // so it is released before it is read (SUS-91). One live letter: when the
+  // deadline's own sweep lands after the hand-off, its letter to Priya is
+  // written too and then superseded by the hand-off's.
+  const toPriya = () =>
+    sql(`select count(*) from jobs.notification_jobs j
+         join private.email_contacts c on c.id = j.contact_id
+         where j.plan_id = '${plan.id}' and j.kind = 'replies_closed'
+           and j.status <> 'skipped' and c.user_id = '${priya.userId}'`)[0]![0];
+  for (let attempt = 0; attempt < 20 && toPriya() === '0'; attempt += 1) await runDispatcher();
+  await runDispatcher();
+  expect(toPriya()).toBe('1');
+  sql(`update jobs.notification_jobs set scheduled_for = now()
+       where plan_id = '${plan.id}' and status = 'scheduled'`);
   await letterTo(priya.email, CLOSED);
 });
