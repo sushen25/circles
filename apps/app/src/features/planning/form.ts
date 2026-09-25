@@ -198,17 +198,27 @@ export function presetAvailable(
  *
  * Since ADR 0010 tonight is refused for one reason only — no start left in the
  * band for a meetup this long — so the chip is never off without the screen
- * saying which of two things would bring it back: a shorter catch-up, when an
- * hour would still fit, or another day, when nothing would.
+ * saying what would bring it back: a shorter catch-up, when an hour would
+ * still fit, or another day, when nothing would. It points at This weekend
+ * only while that is on offer: late on a Sunday the weekend has gone too
+ * (review round 2).
  */
+export type TonightNote = {
+  fix: 'shorter' | 'another_day';
+  weekend: boolean;
+};
+
 export function tonightNote(
   band: Band | undefined,
   duration: DurationMinutes,
   now: Instant,
   zone: string,
-): 'shorter' | 'too_late' | undefined {
+): TonightNote | undefined {
   if (presetAvailable('tonight', band, duration, now, zone)) return undefined;
-  return presetAvailable('tonight', band, 60, now, zone) ? 'shorter' : 'too_late';
+  return {
+    fix: presetAvailable('tonight', band, 60, now, zone) ? 'shorter' : 'another_day',
+    weekend: presetAvailable('this_weekend', undefined, duration, now, zone),
+  };
 }
 
 /**

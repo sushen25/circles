@@ -64,8 +64,9 @@ describe('tonight, by the hour it is made', () => {
       ok: false,
       problem: 'too_late_for_tonight',
     });
-    expect(tonightNote(undefined, 120, TUESDAY_9_45PM, ZONE)).toBe('shorter');
-    expect(tonightNoteWords('shorter')).toBe(
+    const note = tonightNote(undefined, 120, TUESDAY_9_45PM, ZONE);
+    expect(note).toEqual({ fix: 'shorter', weekend: true });
+    expect(tonightNoteWords(note!)).toBe(
       'Too late tonight for a catch-up that long. Try a shorter one, or this weekend.',
     );
 
@@ -75,8 +76,18 @@ describe('tonight, by the hour it is made', () => {
   });
 
   it('11:10 pm: nothing fits, and the chip says to try the weekend', () => {
-    expect(tonightNote(undefined, 60, TUESDAY_11_10PM, ZONE)).toBe('too_late');
-    expect(tonightNoteWords('too_late')).toBe('Too late for tonight. Try this weekend.');
+    const note = tonightNote(undefined, 60, TUESDAY_11_10PM, ZONE);
+    expect(note).toEqual({ fix: 'another_day', weekend: true });
+    expect(tonightNoteWords(note!)).toBe('Too late for tonight. Try this weekend.');
+  });
+
+  it('late on a Sunday, does not point at a weekend that has gone too (review round 2)', () => {
+    // 11:10 pm Sunday 20 September: nothing is left of tonight or of the weekend.
+    const sundayLate = at('2026-09-20T13:10:00.000Z');
+    expect(presetAvailable('this_weekend', undefined, 60, sundayLate, ZONE)).toBe(false);
+    const note = tonightNote(undefined, 60, sundayLate, ZONE);
+    expect(note).toEqual({ fix: 'another_day', weekend: false });
+    expect(tonightNoteWords(note!)).toBe('Too late for tonight. Pick another day.');
   });
 
   it('is on offer, with nothing to say, while it fits', () => {

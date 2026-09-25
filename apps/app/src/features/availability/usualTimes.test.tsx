@@ -37,9 +37,8 @@ const { answerable } = await import('../../data/fixtures');
 
 const PLAN = answerable.plan;
 
-function open() {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  render(
+function open(client = new QueryClient({ defaultOptions: { queries: { retry: false } } })) {
+  return render(
     <QueryClientProvider client={client}>
       <AvailabilityFlow code={PLAN.code} step="times" />
     </QueryClientProvider>,
@@ -90,6 +89,21 @@ describe('use my usual times', () => {
     await screen.findByText("Times I'd actually be up for");
     await act(async () => undefined);
     expect(usualButton()).toBeNull();
+  });
+
+  it('is read again when the editor opens again, so a new habit shows (review round 2)', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    usualTimes.mockResolvedValue(undefined);
+    const first = open(client);
+    await screen.findByText("Times I'd actually be up for");
+    await act(async () => undefined);
+    expect(usualButton()).toBeNull();
+    first.unmount();
+
+    // Another plan answered meanwhile: now there is a usual.
+    usualTimes.mockResolvedValue(['weekday_evening']);
+    open(client);
+    await waitFor(() => expect(usualButton()).not.toBeNull());
   });
 
   it('is not offered over an answer already given', async () => {

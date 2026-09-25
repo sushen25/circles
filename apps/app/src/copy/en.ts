@@ -1634,6 +1634,9 @@ export const en = {
     tonight_needs_shorter:
       'Too late tonight for a catch-up that long. Try a shorter one, or this weekend.',
     tonight_too_late: 'Too late for tonight. Try this weekend.',
+    tonight_needs_shorter_another_day:
+      'Too late tonight for a catch-up that long. Try a shorter one, or another day.',
+    tonight_too_late_another_day: 'Too late for tonight. Pick another day.',
     closes_title: 'When replies close',
     change: 'Change',
     change_hint: 'Change: {what}',

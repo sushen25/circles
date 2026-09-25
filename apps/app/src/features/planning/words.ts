@@ -12,7 +12,7 @@ import { listOf } from '../scheduling/sentences';
 import { nameList } from '../scheduling/names';
 import type { DeadlineChoice } from './deadlines';
 import { bandWords, deviceTimeFormat } from './firstPlan';
-import type { Band, PlanDraft, ResolveProblem } from './form';
+import type { Band, PlanDraft, ResolveProblem, TonightNote } from './form';
 import { whenWords } from './when';
 
 /**
@@ -155,10 +155,15 @@ export function deadlineChoiceLabel(choice: DeadlineChoice): string {
 }
 
 /** Why the Tonight chip is off, when it is (`tonightNote`). */
-export function tonightNoteWords(note: 'shorter' | 'too_late'): string {
-  return note === 'shorter'
-    ? t('planSetup', 'tonight_needs_shorter')
-    : t('planSetup', 'tonight_too_late');
+export function tonightNoteWords(note: TonightNote): string {
+  if (note.fix === 'shorter') {
+    return note.weekend
+      ? t('planSetup', 'tonight_needs_shorter')
+      : t('planSetup', 'tonight_needs_shorter_another_day');
+  }
+  return note.weekend
+    ? t('planSetup', 'tonight_too_late')
+    : t('planSetup', 'tonight_too_late_another_day');
 }
 
 /** Why the form cannot be sent, pointing at the control that is wrong. */

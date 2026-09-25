@@ -117,14 +117,16 @@ export function Answering({
       : initial;
   });
 
-  // "Use my usual times" (ADR 0005): the reader's own usual, read once. A
+  // "Use my usual times" (ADR 0005): the reader's own usual. A
   // failed read offers nothing rather than an error — it is a shortcut.
   const usual = useQuery({
     queryKey: ['usual-times', plan.circleId, plan.id, userId],
     queryFn: async () =>
       (await usualTimes({ circleId: plan.circleId, planId: plan.id, userId: userId! })) ?? null,
     enabled: userId !== undefined && plan.acceptingAnswers,
-    staleTime: Infinity,
+    // Read again each time the editor opens: an answer given to another plan
+    // since may be the one that makes a usual (review round 2).
+    staleTime: 0,
   });
 
   const { phase, send, savedAt, edited } = useSendAnswer({
