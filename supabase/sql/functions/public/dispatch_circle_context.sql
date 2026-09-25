@@ -23,9 +23,12 @@
 --     or, when nobody has, everyone who was **going** — the organiser said it
 --     happened, and an uncorroborated meetup is still the best record of who
 --     came (spec §5.10).
---   * `prompted_for` — the latest due date already decided, from
---     `private.cadence_prompts`. The domain's due date is compared with it:
---     one nudge per due date.
+--   * `prompted_for` — the due date already decided for this cycle (the
+--     circle's current `last_met_at`), from `private.cadence_prompts`, or
+--     null. Set, and this cycle's nudge has been decided: one per cycle. An
+--     older row is an earlier cycle's, however late its due date — a circle
+--     nudged a week early that met before the date it was asked for has
+--     started a new cycle (review round 2).
 --
 -- No address, no token, no note. Display names are here because the member
 -- rows carry them for the dispatcher's other callers; nothing in the nudge
@@ -80,7 +83,8 @@ as $$
          ))
     ), '[]'::jsonb),
     'prompted_for', (
-      select max(cp.due_date) from private.cadence_prompts cp where cp.circle_id = c.id
+      select cp.due_date from private.cadence_prompts cp
+      where cp.circle_id = c.id and cp.last_met_at = c.last_met_at
     ),
     'push_user_ids', coalesce((
       select jsonb_agg(distinct d.user_id) from private.push_devices d
@@ -93,7 +97,7 @@ as $$
 $$;
 
 comment on function public.dispatch_circle_context(uuid) is
-  'One circle''s state for the cadence nudge: the circle, every membership row (with its nudge switch), whether a plan is open, the last happened meetup''s organiser and attendees, and the latest due date already prompted. Ids and display names; never an address or a token. Service role only (S2-04).';
+  'One circle''s state for the cadence nudge: the circle, every membership row (with its nudge switch), whether a plan is open, the last happened meetup''s organiser and attendees, and the due date already prompted this cycle. Ids and display names; never an address or a token. Service role only (S2-04).';
 
 revoke all on function public.dispatch_circle_context(uuid) from public;
 revoke all on function public.dispatch_circle_context(uuid) from anon, authenticated;

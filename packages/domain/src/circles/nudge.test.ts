@@ -192,6 +192,43 @@ describe('nudgeRecipient', () => {
     });
   });
 
+  describe('somebody nothing can reach', () => {
+    // Review round 2: out of reach is not a no. The turn passes on and a last
+    // organiser out of reach falls back to the owner, as one who left would.
+    it('passes the turn on under take turns', () => {
+      const got = nudgeChoice({
+        circle: circle({ nudgePolicy: 'take_turns' }),
+        members: crew(),
+        lastHappenedAttendees: everyone,
+        lastOrganiserId: ann,
+        unreachable: [bo],
+      });
+      expect(got).toEqual({ userId: cy, role: 'take_turns' });
+    });
+
+    it('falls back to the owner when the last organiser is out of reach', () => {
+      const got = nudgeChoice({
+        circle: circle({ nudgePolicy: 'last_organiser' }),
+        members: crew(),
+        lastHappenedAttendees: everyone,
+        lastOrganiserId: ann,
+        unreachable: [ann],
+      });
+      expect(got).toEqual({ userId: OWNER, role: 'owner_fallback' });
+    });
+
+    it('asks nobody when the owner is out of reach under the owner policy', () => {
+      const got = nudgeChoice({
+        circle: circle({ nudgePolicy: 'owner' }),
+        members: crew(),
+        lastHappenedAttendees: everyone,
+        lastOrganiserId: ann,
+        unreachable: [OWNER],
+      });
+      expect(got).toBeUndefined();
+    });
+  });
+
   describe('take turns over several cycles', () => {
     it('rotates through everybody, not the same two in alternation', () => {
       // Each cycle, whoever was asked organises the next meetup, everyone comes.

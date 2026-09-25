@@ -1056,6 +1056,7 @@ export type Database = {
           p_circle_id: string
           p_due_date: string
           p_jobs: Json
+          p_last_met_at: string
           p_recipient_role: string
           p_user_id: string
         }

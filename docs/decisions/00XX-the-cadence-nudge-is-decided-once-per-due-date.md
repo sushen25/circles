@@ -29,7 +29,13 @@ thing. Two facts about the pipeline shaped the answers:
    `private.cadence_prompts` (circle, due date, who was asked and why) by
    `public.dispatch_prompt_cadence`, which writes the decision and its jobs in
    one transaction under the circle's row lock. A due date already decided is
-   never decided again, whoever it went to.
+   never decided again, whoever it went to. The row is keyed on the meetup the
+   cycle counts from (`last_met_at`), not on the date: a nudge that works has
+   the circle meeting *before* the date it was asked for, and only the meetup
+   tells that cycle from the next. So an owner who changes the cadence after
+   the nudge went moves the date and not the decision — nobody is asked twice
+   about one meetup — and circle home's "it's your turn" reads only the
+   current cycle's row.
 2. **It is made when circle home first says "About time for the next one"** —
    the domain's `nudgeDueDate`, which is `cadenceState`'s `due_soon`: the lead
    days before the due date (a week for the monthly cadences, two days for
@@ -49,7 +55,10 @@ thing. Two facts about the pipeline shaped the answers:
    sweep does not ask again every minute. Under take turns a person who said
    no is skipped and the turn passes on. The owner remains the fallback for
    every other dead end — a last organiser who has left, a meetup nobody was
-   recorded at — while the owner has not said no too.
+   recorded at, a person no letter can reach (no confirmed address, or one
+   that bounced) — while the owner has not said no too. Out of reach is not a
+   no: under take turns it passes the turn on, and the one asked is always
+   somebody something was sent to.
 5. **Take turns is round-robin from the last organiser's place** in join
    order among the eligible attendees of the last meetup that happened,
    wrapping round. It had been "the first attendee who is not the last
@@ -87,5 +96,5 @@ thing. Two facts about the pipeline shaped the answers:
   morning-after question exists to prevent that, and the founder's
   diagnostics (S4-06) are where it would show.
 - `private.cadence_prompts` is kept with the circle and is not part of
-  retention: one row per due date is a small record and is what keeps the
+  retention: one row per cycle is a small record and is what keeps the
   second nudge from ever being sent.

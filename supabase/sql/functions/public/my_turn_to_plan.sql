@@ -10,10 +10,12 @@
 -- was their turn. The recipient is read from `private.cadence_prompts`, which
 -- no client can select: the answer is about the caller, and only yes or no.
 --
--- "This circle's nudge" is the one decided for a due date after the last
--- meetup — an older prompt belongs to a cycle the circle has since met in —
--- and it stops being the caller's when they turn nudges off: somebody who
--- said no is not then told it is their turn.
+-- "This circle's nudge" is the one decided for the cycle the circle is in —
+-- the prompt counted from its current `last_met_at`. An older prompt belongs
+-- to a cycle the circle has since met in, even when its due date is later
+-- than that meetup, which it is whenever the nudge worked (review round 2).
+-- And it stops being the caller's when they turn nudges off: somebody who said
+-- no is not then told it is their turn.
 --
 -- The caller's own, from `auth.uid()`, and false for anybody who is not an
 -- active member: the question has no answer for them, and false says nothing.
@@ -31,11 +33,10 @@ as $$
     from public.circles c
     join public.circle_members m
       on m.circle_id = c.id and m.user_id = (select auth.uid()) and m.status = 'active'
-    join private.cadence_prompts cp on cp.circle_id = c.id and cp.user_id = m.user_id
+    join private.cadence_prompts cp
+      on cp.circle_id = c.id and cp.last_met_at = c.last_met_at and cp.user_id = m.user_id
     where c.id = p_circle_id
       and c.status = 'active'
-      and c.last_met_at is not null
-      and cp.due_date > (c.last_met_at at time zone c.time_zone)::date
       and not m.muted_nudges
       and not m.muted_all
     limit 1

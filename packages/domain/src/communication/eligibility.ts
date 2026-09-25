@@ -120,7 +120,8 @@ export type EligibilityContext = {
    */
   readonly alreadySent?: readonly UserId[] | undefined;
   /** For `about_time`: what `nudgeRecipient` needs, minus what is above. */
-  readonly nudge?: Pick<NudgeInput, 'lastHappenedAttendees' | 'lastOrganiserId'> | undefined;
+  readonly nudge?:
+    Pick<NudgeInput, 'lastHappenedAttendees' | 'lastOrganiserId' | 'unreachable'> | undefined;
 };
 
 /** Members still eligible to be told anything at all about this circle. */
@@ -160,6 +161,7 @@ function audienceFor(kind: NotificationKind, context: EligibilityContext): reado
       members: context.members.filter((m) => m.circleId === context.circle.id),
       lastHappenedAttendees: context.nudge?.lastHappenedAttendees ?? [],
       lastOrganiserId: context.nudge?.lastOrganiserId,
+      unreachable: context.nudge?.unreachable,
     });
     return chosen === undefined ? [] : [chosen];
   }

@@ -69,6 +69,14 @@ export type NudgeInput = {
    * ordinary state, not a missing argument.
    */
   readonly lastOrganiserId?: UserId | undefined;
+  /**
+   * People the nudge found no way to reach — no confirmed address, or one
+   * that bounced, and no device. They are passed over as somebody who has
+   * left would be: the turn passes on, and a last organiser out of reach
+   * falls back to the owner. Not a no, so it never silences the policy
+   * (review round 2: the turn went to somebody nothing was sent to).
+   */
+  readonly unreachable?: readonly UserId[] | undefined;
 };
 
 /**
@@ -96,8 +104,9 @@ export type NudgeChoice = { readonly userId: UserId; readonly role: NudgeRole };
  * passes on, because passing it on is what taking turns is.
  *
  * Otherwise it falls back to the owner at every dead end — a last organiser
- * who has left, a meetup nobody was recorded at — because the owner is the
- * one person who certainly exists and certainly cares.
+ * who has left or cannot be reached, a meetup nobody was recorded at —
+ * because the owner is the one person who certainly exists and certainly
+ * cares.
  */
 export function nudgeChoice(input: NudgeInput): NudgeChoice | undefined {
   const { circle, members, lastHappenedAttendees, lastOrganiserId } = input;
@@ -105,7 +114,8 @@ export function nudgeChoice(input: NudgeInput): NudgeChoice | undefined {
 
   const active = members.filter(isActive);
   const policy = effectiveNudgePolicy(circle, active.length);
-  const nudgeable = members.filter(isNudgeable);
+  const unreachable = new Set(input.unreachable ?? []);
+  const nudgeable = members.filter((m) => isNudgeable(m) && !unreachable.has(m.userId));
   const eligible = (id: UserId | undefined): UserId | undefined =>
     id !== undefined && nudgeable.some((m) => m.userId === id) ? id : undefined;
   const find = (id: UserId | undefined): Member | undefined =>

@@ -5,6 +5,7 @@ import {
   type Instant,
   type LocalDate,
   type Member,
+  type NudgeChoice,
   type UserId,
   idempotencyKey,
   nudgeChoice,
@@ -31,8 +32,8 @@ import type { JobRow } from './drain.ts';
  * inside them. Every decision is the domain's — whether a nudge is owed and
  * for which due date (`nudgeDueDate`), who is asked and why (`nudgeChoice`),
  * on what and when (`recipientsFor`, `scheduleFor`) — and the database's half
- * is `public.dispatch_prompt_cadence`, which records the decision once per due
- * date and writes its jobs in the same transaction.
+ * is `public.dispatch_prompt_cadence`, which records the decision once per
+ * cycle and writes its jobs in the same transaction.
  */
 
 type CircleContextRow = {
@@ -52,8 +53,14 @@ export type CircleContext = {
   readonly hasOpenPlan: boolean;
   readonly lastOrganiserId: UserId | undefined;
   readonly lastHappenedAttendees: readonly UserId[];
-  /** The latest due date already decided, if any. */
+  /** The due date already decided for this cycle, if any. */
   readonly promptedFor: string | undefined;
+  /**
+   * The circle's `last_met_at` exactly as the database holds it: the cycle a
+   * decision belongs to, handed back to `dispatch_prompt_cadence` verbatim so
+   * that no rounding through an `Instant` can make it another cycle.
+   */
+  readonly cycleFrom: string | undefined;
   readonly eligibility: EligibilityContext;
   readonly zoneOf: (userId: string) => ReturnType<typeof zone>;
 };
@@ -86,6 +93,7 @@ export async function loadCircleContext(
     lastOrganiserId,
     lastHappenedAttendees,
     promptedFor: row.prompted_for ?? undefined,
+    cycleFrom: (row.circle['last_met_at'] as string | null) ?? undefined,
     // No plan: `about_time` is answered before one is consulted, and every
     // plan-scoped audience answers nobody without one.
     eligibility: {
@@ -129,18 +137,23 @@ export async function nudgeAtSend(
   };
 }
 
-/** The job rows one nudge becomes: at most one person, on whichever channel reaches them. */
+/**
+ * The job rows one nudge becomes: at most one person, on whichever channel
+ * reaches them — and who, of those the rule chose, nothing could reach.
+ */
 async function nudgeRows(
   service: Db,
   context: CircleContext,
+  eligibility: EligibilityContext,
   dueDate: LocalDate,
   now: Instant,
   requestId: string,
-): Promise<JobRow[]> {
+): Promise<{ rows: JobRow[]; unreachable: UserId[] }> {
   const occurrence = occurrenceFor('about_time', { circleId: context.circle.id, dueDate });
   const rows: JobRow[] = [];
+  const unreachable: UserId[] = [];
 
-  for (const recipient of recipientsFor('about_time', context.eligibility)) {
+  for (const recipient of recipientsFor('about_time', eligibility)) {
     const scheduled = new Date(
       scheduleFor('about_time', now, context.zoneOf(recipient.userId)),
     ).toISOString();
@@ -177,6 +190,7 @@ async function nudgeRows(
     if (error !== null) throw error;
     const contactId = (data as string | null) ?? null;
     if (contactId === null) {
+      unreachable.push(recipient.userId);
       log('warn', {
         fn: 'process-scheduled-jobs',
         request_id: requestId,
@@ -199,7 +213,40 @@ async function nudgeRows(
     });
   }
 
-  return rows;
+  return { rows, unreachable };
+}
+
+/**
+ * Who is asked, and the rows that ask them. The rule's choice is tried
+ * against the channels: somebody it cannot reach is passed over and the rule
+ * asked again (`NudgeInput.unreachable`), so the turn goes to somebody a
+ * letter can actually reach, or to nobody — never to a person who is then
+ * told it is their turn with nothing sent (review round 2). Each pass adds
+ * the one it chose, so it ends within the roster.
+ */
+async function reachableChoice(
+  service: Db,
+  context: CircleContext,
+  dueDate: LocalDate,
+  now: Instant,
+  requestId: string,
+): Promise<{ choice: NudgeChoice | undefined; rows: JobRow[] }> {
+  const unreachable: UserId[] = [];
+  for (;;) {
+    const nudge = {
+      lastHappenedAttendees: context.lastHappenedAttendees,
+      lastOrganiserId: context.lastOrganiserId,
+      unreachable,
+    };
+    const choice = nudgeChoice({ circle: context.circle, members: context.members, ...nudge });
+    if (choice === undefined) return { choice, rows: [] };
+    const eligibility = { ...context.eligibility, nudge };
+    const written = await nudgeRows(service, context, eligibility, dueDate, now, requestId);
+    if (written.rows.length > 0 || written.unreachable.length === 0) {
+      return { choice, rows: written.rows };
+    }
+    unreachable.push(...written.unreachable);
+  }
 }
 
 /** The analytics row's id, from the decision, so a replay lands on the row already written. */
@@ -217,8 +264,8 @@ export type CadenceResult = { prompted: number; nudgesQueued: number };
  * One pass over the circles `dispatch_timed_work` named as possibly due.
  *
  * For each, the domain says whether a nudge is owed now and for which due
- * date; a due date already decided is left alone; otherwise the rule picks the
- * one person — or nobody, which is recorded too — and the decision and its
+ * date; a cycle already decided is left alone; otherwise the rule picks the
+ * one person it can reach — or nobody, which is recorded too — and the decision and its
  * jobs are written together. `cadence_prompt_sent` is recorded only for a
  * decision that is new and asked somebody: it measures nudges, not sweeps.
  */
@@ -238,27 +285,24 @@ export async function cadenceWork(
 
     const dueDate = nudgeDueDate(context.circle, now, context.hasOpenPlan);
     if (dueDate === undefined) continue;
-    if (context.promptedFor !== undefined && context.promptedFor >= dueDate) continue;
+    // Decided already for this cycle — whatever the due date is now: an owner
+    // who changed the cadence since moved the date, not the decision.
+    if (context.promptedFor !== undefined || context.cycleFrom === undefined) continue;
 
-    const choice = nudgeChoice({
-      circle: context.circle,
-      members: context.members,
-      lastHappenedAttendees: context.lastHappenedAttendees,
-      lastOrganiserId: context.lastOrganiserId,
-    });
-    const rows =
-      choice === undefined ? [] : await nudgeRows(service, context, dueDate, now, requestId);
+    const { choice, rows } = await reachableChoice(service, context, dueDate, now, requestId);
 
     const { data, error } = await service.rpc('dispatch_prompt_cadence', {
       p_circle_id: circleId,
+      p_last_met_at: context.cycleFrom,
       p_due_date: dueDate,
       p_user_id: choice?.userId ?? null,
       p_recipient_role: choice?.role ?? null,
       p_jobs: rows,
     });
     if (error !== null) throw error;
-    // Null: another run decided this due date first, or a plan opened between
-    // the read and the write. Either way, nothing of ours was written.
+    // Null: another run decided this cycle first, a plan opened between the
+    // read and the write, or the circle met in between. Either way, nothing of
+    // ours was written.
     if (data === null) continue;
 
     result.prompted += 1;

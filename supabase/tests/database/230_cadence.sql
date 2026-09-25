@@ -13,7 +13,7 @@
 -- monthly circle is inside its week's lead whenever this runs.
 
 begin;
-select plan(27);
+select plan(31);
 
 create or replace function pg_temp.make_user(id uuid, name text)
 returns uuid language sql as $$
@@ -68,6 +68,11 @@ from public.circles where creation_key = 'key-cadence';
 grant select on t to anon, authenticated, service_role;
 create or replace function pg_temp.circle() returns uuid
 language sql security definer as $$ select circle_id from t $$;
+-- The cycle a decision belongs to: the circle's `last_met_at` as it stands.
+create or replace function pg_temp.met() returns timestamptz
+language sql security definer as $$
+  select c.last_met_at from public.circles c join t on t.circle_id = c.id
+$$;
 
 insert into public.circle_members (circle_id, user_id, display_name_snapshot)
 select circle_id, u.id, u.name from t,
@@ -210,7 +215,7 @@ select ok(
   'nor while a plan is finding a time'
 );
 select is(
-  public.dispatch_prompt_cadence(pg_temp.circle(), current_date + 5,
+  public.dispatch_prompt_cadence(pg_temp.circle(), pg_temp.met(), current_date + 5,
     '00000000-0000-0000-0000-0000000023a2', 'take_turns', '[]'::jsonb),
   null,
   'and a decision made while a plan is open writes nothing: a plan made meanwhile wins'
@@ -235,7 +240,13 @@ select public.dispatch_organiser_contact('00000000-0000-0000-0000-0000000023a2')
 grant select on nudge to anon, authenticated, service_role;
 
 select is(
-  public.dispatch_prompt_cadence(pg_temp.circle(), (select due from nudge),
+  public.dispatch_prompt_cadence(pg_temp.circle(), pg_temp.met() - interval '1 day',
+    (select due from nudge), '00000000-0000-0000-0000-0000000023a2', 'take_turns', '[]'::jsonb),
+  null,
+  'a decision worked out from a meetup that is no longer the last one writes nothing'
+);
+select is(
+  public.dispatch_prompt_cadence(pg_temp.circle(), pg_temp.met(), (select due from nudge),
     '00000000-0000-0000-0000-0000000023a2', 'take_turns',
     jsonb_build_array(jsonb_build_object(
       'channel', 'email', 'kind', 'about_time', 'contact_id', (select contact from nudge),
@@ -244,14 +255,14 @@ select is(
   'the first decision for a due date writes its one job'
 );
 select is(
-  public.dispatch_prompt_cadence(pg_temp.circle(), (select due from nudge),
+  public.dispatch_prompt_cadence(pg_temp.circle(), pg_temp.met(), (select due from nudge) + 30,
     '00000000-0000-0000-0000-0000000023a3', 'take_turns',
     jsonb_build_array(jsonb_build_object(
       'channel', 'email', 'kind', 'about_time',
       'contact_id', public.dispatch_organiser_contact('00000000-0000-0000-0000-0000000023a3'),
       'circle_id', pg_temp.circle(), 'scheduled_for', now(), 'idempotency_key', repeat('e', 64)))),
   null,
-  'and a second for the same due date writes nothing, even to somebody else'
+  'and a second for the same cycle writes nothing, even to somebody else, even for another due date'
 );
 select pg_temp.act_as_postgres();
 select is(
@@ -277,7 +288,7 @@ select is(
 );
 
 select throws_ok(
-  format($$select public.dispatch_prompt_cadence('%s', current_date + 40, null, null,
+  format($$select public.dispatch_prompt_cadence('%s', pg_temp.met(), current_date + 40, null, null,
     '[{"channel":"email","kind":"about_time","contact_id":"%s","circle_id":"%s","scheduled_for":"2099-01-01T00:00:00Z","idempotency_key":"%s"}]'::jsonb)$$,
     pg_temp.circle(), (select contact from nudge), gen_random_uuid(), repeat('f', 64)),
   '23514',
@@ -323,12 +334,40 @@ select ok(
   'and once Priya turns nudges off, she is not told it is her turn'
 );
 
+-- ---------------------------------------------------------------------------
+-- A nudge that works: the circle meets before the date it was asked for, and
+-- that is a new cycle (review round 2). A prompt dated after the last meetup
+-- used to count as this cycle's, so the next nudge never went and last
+-- cycle's person was still told it was their turn.
+-- ---------------------------------------------------------------------------
+
+select pg_temp.act_as_postgres();
+update public.circle_members set muted_nudges = false
+where circle_id = pg_temp.circle() and user_id = '00000000-0000-0000-0000-0000000023a2';
+update public.circles set last_met_at = last_met_at + interval '1 day'
+where id = pg_temp.circle();
+select pg_temp.act_as_service();
+select ok(
+  public.dispatch_timed_work(200) -> 'cadence' ? pg_temp.circle()::text,
+  'a circle that met before the date it was asked for is swept again for its next cycle'
+);
+select is(
+  public.dispatch_circle_context(pg_temp.circle()) ->> 'prompted_for',
+  null,
+  'and nothing is decided for that cycle yet'
+);
+select pg_temp.act_as('00000000-0000-0000-0000-0000000023a2');
+select ok(
+  not public.my_turn_to_plan(pg_temp.circle()),
+  'and whoever was asked last cycle is not told it is their turn in this one'
+);
+
 select pg_temp.act_as_postgres();
 select ok(
   not has_function_privilege('anon', 'public.my_turn_to_plan(uuid)', 'execute')
   and not has_function_privilege('authenticated', 'public.dispatch_circle_context(uuid)', 'execute')
   and not has_function_privilege(
-    'authenticated', 'public.dispatch_prompt_cadence(uuid, date, uuid, text, jsonb)', 'execute'),
+    'authenticated', 'public.dispatch_prompt_cadence(uuid, timestamptz, date, uuid, text, jsonb)', 'execute'),
   'the dispatcher''s two are the service role''s alone, and a guest without a session asks nothing'
 );
 

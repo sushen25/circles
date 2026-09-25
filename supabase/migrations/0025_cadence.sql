@@ -14,8 +14,9 @@
 --     `public.dispatch_claim_due` reads the circle through either, so
 --     "archiving stops all prompts" (spec §5.2) reaches a queued nudge, which
 --     it could not before (S1-23 review round 4).
---   * `private.cadence_prompts` — one row per circle per due date: the
---     decision that it has been prompted, and to whom. This is the ticket's
+--   * `private.cadence_prompts` — one row per circle per cycle (the meetup
+--     it counts from) and so per due date: the decision that it has been
+--     prompted, and to whom. This is the ticket's
 --     `circles.cadence_prompted_for`, made a table for two reasons. The
 --     idempotency key is per recipient, so it cannot stop a second person
 --     being asked for the same due date; and jobs are deleted after thirty
@@ -64,6 +65,12 @@ create index notification_jobs_circle_idx on jobs.notification_jobs (circle_id)
 
 create table private.cadence_prompts (
   circle_id uuid not null references public.circles (id) on delete cascade,
+  -- The meetup this cycle counts from: the circle's `last_met_at` when the
+  -- decision was made. It is what tells one cycle from the next. A due date
+  -- cannot: a nudge that works has the circle meeting *before* the date it
+  -- was asked for, and a prompt dated after the last meetup is then last
+  -- cycle's, not this one's (review round 2). One decision per cycle.
+  last_met_at timestamptz not null,
   -- The circle-local date the circle fell due on — `nudgeDueDate` in the
   -- domain, and the second half of `about_time`'s occurrence.
   due_date date not null,
@@ -75,7 +82,7 @@ create table private.cadence_prompts (
   -- `NudgeRole`: why that person. Null with nobody.
   recipient_role text,
   prompted_at timestamptz not null default now(),
-  primary key (circle_id, due_date),
+  primary key (circle_id, last_met_at),
   constraint cadence_prompts_role check (
     recipient_role is null
     or recipient_role in ('owner', 'last_organiser', 'take_turns', 'owner_fallback')
@@ -83,7 +90,7 @@ create table private.cadence_prompts (
 );
 
 comment on table private.cadence_prompts is
-  'One row per circle per due date: that the cadence nudge for it has been decided, and whom it asked (null for nobody). Written only by public.dispatch_prompt_cadence; never visible to a client (S2-04).';
+  'One row per circle per cycle (the last_met_at it counts from): that the cadence nudge for its due date has been decided, and whom it asked (null for nobody). Written only by public.dispatch_prompt_cadence; never visible to a client (S2-04).';
 
 alter table private.cadence_prompts enable row level security;
 
@@ -118,9 +125,12 @@ create index circles_cadence_due_idx on public.circles (last_met_at)
 --     or, when nobody has, everyone who was **going** — the organiser said it
 --     happened, and an uncorroborated meetup is still the best record of who
 --     came (spec §5.10).
---   * `prompted_for` — the latest due date already decided, from
---     `private.cadence_prompts`. The domain's due date is compared with it:
---     one nudge per due date.
+--   * `prompted_for` — the due date already decided for this cycle (the
+--     circle's current `last_met_at`), from `private.cadence_prompts`, or
+--     null. Set, and this cycle's nudge has been decided: one per cycle. An
+--     older row is an earlier cycle's, however late its due date — a circle
+--     nudged a week early that met before the date it was asked for has
+--     started a new cycle (review round 2).
 --
 -- No address, no token, no note. Display names are here because the member
 -- rows carry them for the dispatcher's other callers; nothing in the nudge
@@ -175,7 +185,8 @@ as $$
          ))
     ), '[]'::jsonb),
     'prompted_for', (
-      select max(cp.due_date) from private.cadence_prompts cp where cp.circle_id = c.id
+      select cp.due_date from private.cadence_prompts cp
+      where cp.circle_id = c.id and cp.last_met_at = c.last_met_at
     ),
     'push_user_ids', coalesce((
       select jsonb_agg(distinct d.user_id) from private.push_devices d
@@ -188,7 +199,7 @@ as $$
 $$;
 
 comment on function public.dispatch_circle_context(uuid) is
-  'One circle''s state for the cadence nudge: the circle, every membership row (with its nudge switch), whether a plan is open, the last happened meetup''s organiser and attendees, and the latest due date already prompted. Ids and display names; never an address or a token. Service role only (S2-04).';
+  'One circle''s state for the cadence nudge: the circle, every membership row (with its nudge switch), whether a plan is open, the last happened meetup''s organiser and attendees, and the due date already prompted this cycle. Ids and display names; never an address or a token. Service role only (S2-04).';
 
 revoke all on function public.dispatch_circle_context(uuid) from public;
 revoke all on function public.dispatch_circle_context(uuid) from anon, authenticated;
@@ -537,14 +548,22 @@ grant execute on function public.dispatch_enqueue(jsonb) to service_role;
 -- A cadence nudge, decided: the record that this circle's due date has been
 -- prompted, and the jobs that carry it, in one transaction (S2-04).
 --
--- **One per due date, whoever it goes to.** The idempotency key cannot say
+-- **One per cycle, whoever it goes to.** The idempotency key cannot say
 -- that on its own: it is per recipient, so a second pass that chose somebody
 -- else — the first person turned nudges off in between — would write a second
 -- job with a second key, and two people would each be told it is their turn.
 -- And the key does not last: `jobs.run_retention` deletes jobs after thirty
 -- days, and a two-monthly circle stays due for longer than that. So the
 -- decision is its own row, `private.cadence_prompts`, keyed on the circle and
--- the due date, and a job is written only by the pass that wrote that row.
+-- the meetup the cycle counts from (`p_last_met_at`), and a job is written
+-- only by the pass that wrote that row. A cycle has one due date; an owner who
+-- changes the cadence after the nudge went moves the date, not the decision,
+-- so nobody is asked twice about one meetup (review round 2).
+--
+-- **The cycle the caller read is the cycle it writes.** `p_last_met_at` is
+-- the `last_met_at` the due date was worked out from, and it is compared under
+-- the lock: a meetup reported in between has started a new cycle, whose due
+-- date this call does not know, and nothing is written.
 --
 -- **Nobody is a decision too.** `p_user_id` is null when the rule found
 -- nobody to ask — everyone said no, or the one person the policy names did —
@@ -557,13 +576,14 @@ grant execute on function public.dispatch_enqueue(jsonb) to service_role;
 -- sweep's read and this call is seen here and nothing is written; one that
 -- opens after waits for this commit, and the sender asks again at send time.
 --
--- Answers how many jobs were written, or null when this due date had already
--- been decided (or a plan is now open), so the caller records its analytics
+-- Answers how many jobs were written, or null when this cycle had already
+-- been decided (or a plan is now open, or the circle has met since), so the caller records its analytics
 -- event only for a decision that is new.
 -- ---------------------------------------------------------------------------
 
 create or replace function public.dispatch_prompt_cadence(
   p_circle_id uuid,
+  p_last_met_at timestamptz,
   p_due_date date,
   p_user_id uuid,
   p_recipient_role text,
@@ -577,9 +597,22 @@ set search_path = ''
 as $$
 declare
   decided integer;
+  met timestamptz;
 begin
-  perform 1 from public.circles c where c.id = p_circle_id for update;
-  if not found then
+  -- Every job carries this circle and no plan: the check on the table says
+  -- so, and a job for another circle is refused rather than quietly written —
+  -- asked first, so that a caller's mistake is an error whatever else holds.
+  if exists (
+    select 1 from jsonb_array_elements(coalesce(p_jobs, '[]'::jsonb)) j
+    where (j ->> 'circle_id')::uuid is distinct from p_circle_id
+       or j ->> 'kind' is distinct from 'about_time'
+  ) then
+    raise exception 'dispatch_prompt_cadence: jobs must be this circle''s about_time'
+      using errcode = 'check_violation';
+  end if;
+
+  select c.last_met_at into met from public.circles c where c.id = p_circle_id for update;
+  if not found or met is distinct from p_last_met_at then
     return null;
   end if;
 
@@ -590,36 +623,25 @@ begin
     return null;
   end if;
 
-  insert into private.cadence_prompts (circle_id, due_date, user_id, recipient_role)
-  values (p_circle_id, p_due_date, p_user_id, p_recipient_role)
-  on conflict (circle_id, due_date) do nothing;
+  insert into private.cadence_prompts (circle_id, last_met_at, due_date, user_id, recipient_role)
+  values (p_circle_id, p_last_met_at, p_due_date, p_user_id, p_recipient_role)
+  on conflict (circle_id, last_met_at) do nothing;
   get diagnostics decided = row_count;
   if decided = 0 then
     return null;
-  end if;
-
-  -- Every job carries this circle and no plan: the check on the table says
-  -- so, and a job for another circle is refused rather than quietly written.
-  if exists (
-    select 1 from jsonb_array_elements(coalesce(p_jobs, '[]'::jsonb)) j
-    where (j ->> 'circle_id')::uuid is distinct from p_circle_id
-       or j ->> 'kind' is distinct from 'about_time'
-  ) then
-    raise exception 'dispatch_prompt_cadence: jobs must be this circle''s about_time'
-      using errcode = 'check_violation';
   end if;
 
   return public.dispatch_enqueue(p_jobs);
 end;
 $$;
 
-comment on function public.dispatch_prompt_cadence(uuid, date, uuid, text, jsonb) is
-  'Records that a circle''s due date has been prompted (to one person, or to nobody) and writes the about_time jobs that carry it, once per due date, under the circle lock; null when already decided or a plan is open. Service role only (S2-04).';
+comment on function public.dispatch_prompt_cadence(uuid, timestamptz, date, uuid, text, jsonb) is
+  'Records that a circle''s due date has been prompted (to one person, or to nobody) and writes the about_time jobs that carry it, once per cycle (the last_met_at it counts from), under the circle lock; null when already decided, a plan is open or the circle has met since. Service role only (S2-04).';
 
-revoke all on function public.dispatch_prompt_cadence(uuid, date, uuid, text, jsonb) from public;
-revoke all on function public.dispatch_prompt_cadence(uuid, date, uuid, text, jsonb)
+revoke all on function public.dispatch_prompt_cadence(uuid, timestamptz, date, uuid, text, jsonb) from public;
+revoke all on function public.dispatch_prompt_cadence(uuid, timestamptz, date, uuid, text, jsonb)
   from anon, authenticated;
-grant execute on function public.dispatch_prompt_cadence(uuid, date, uuid, text, jsonb)
+grant execute on function public.dispatch_prompt_cadence(uuid, timestamptz, date, uuid, text, jsonb)
   to service_role;
 
 -- supabase/sql/functions/public/dispatch_timed_work.sql
@@ -662,12 +684,17 @@ grant execute on function public.dispatch_prompt_cadence(uuid, date, uuid, text,
 --    `nudgeDueDate` and `nudgeChoice`'s, in the domain. This is a coarse
 --    superset of the circles that could be owed one, so the domain is asked
 --    about few circles rather than all of them: active, with a goal and a
---    history, nothing open, not snoozed, not already decided for a due date
---    after the last meetup — and met long enough ago that the lead window can
---    have opened. That last bound is the cadence less its lead days less one
---    more day, so no circle the domain would call due is ever left out by a
---    zone or a clock change; one it would not is merely asked about and told
---    no. Oldest first, so a circle that has waited longest is asked first.
+--    history, nothing open, not snoozed, not already decided for this cycle
+--    (the prompt counted from its current `last_met_at`) — and met long
+--    enough ago that the lead window can have opened. That last bound is the
+--    domain's own arithmetic: the cadence added forward from the meetup on the
+--    circle's wall clock, where a month is a calendar month clamped at its
+--    end, less the lead days, less one more day for a DST hour. So no circle
+--    the domain would call due is ever left out or named late; one it would
+--    not is merely asked about and told no. Subtracting a month back from
+--    now instead named a circle that met at the start of February two days
+--    after its card appeared (review round 2). Oldest first, so a circle that
+--    has waited longest is asked first.
 --
 -- Each transition is attempted on its own and a refusal is counted rather than
 -- thrown: a plan that was confirmed between the select and the update is a
@@ -784,12 +811,16 @@ begin
         where c.status = 'active'
           and c.cadence <> 'none'
           and c.last_met_at is not null
-          and c.last_met_at <= now() - case c.cadence
-            when 'weekly' then interval '4 days'
-            when 'fortnightly' then interval '11 days'
-            when 'monthly' then interval '1 month' - interval '8 days'
-            else interval '2 months' - interval '8 days'
-          end
+          and ((c.last_met_at at time zone c.time_zone) + case c.cadence
+            when 'weekly' then interval '7 days'
+            when 'fortnightly' then interval '14 days'
+            when 'monthly' then interval '1 month'
+            else interval '2 months'
+          end - case c.cadence
+            when 'weekly' then interval '3 days'
+            when 'fortnightly' then interval '3 days'
+            else interval '8 days'
+          end) at time zone c.time_zone <= now()
           and (c.cadence_snoozed_until is null or c.cadence_snoozed_until <= now())
           and not exists (
             select 1 from public.plans p
@@ -798,8 +829,7 @@ begin
           )
           and not exists (
             select 1 from private.cadence_prompts cp
-            where cp.circle_id = c.id
-              and cp.due_date > (c.last_met_at at time zone c.time_zone)::date
+            where cp.circle_id = c.id and cp.last_met_at = c.last_met_at
           )
         order by c.last_met_at
         limit batch
@@ -829,10 +859,12 @@ grant execute on function public.dispatch_timed_work(integer) to service_role;
 -- was their turn. The recipient is read from `private.cadence_prompts`, which
 -- no client can select: the answer is about the caller, and only yes or no.
 --
--- "This circle's nudge" is the one decided for a due date after the last
--- meetup — an older prompt belongs to a cycle the circle has since met in —
--- and it stops being the caller's when they turn nudges off: somebody who
--- said no is not then told it is their turn.
+-- "This circle's nudge" is the one decided for the cycle the circle is in —
+-- the prompt counted from its current `last_met_at`. An older prompt belongs
+-- to a cycle the circle has since met in, even when its due date is later
+-- than that meetup, which it is whenever the nudge worked (review round 2).
+-- And it stops being the caller's when they turn nudges off: somebody who said
+-- no is not then told it is their turn.
 --
 -- The caller's own, from `auth.uid()`, and false for anybody who is not an
 -- active member: the question has no answer for them, and false says nothing.
@@ -850,11 +882,10 @@ as $$
     from public.circles c
     join public.circle_members m
       on m.circle_id = c.id and m.user_id = (select auth.uid()) and m.status = 'active'
-    join private.cadence_prompts cp on cp.circle_id = c.id and cp.user_id = m.user_id
+    join private.cadence_prompts cp
+      on cp.circle_id = c.id and cp.last_met_at = c.last_met_at and cp.user_id = m.user_id
     where c.id = p_circle_id
       and c.status = 'active'
-      and c.last_met_at is not null
-      and cp.due_date > (c.last_met_at at time zone c.time_zone)::date
       and not m.muted_nudges
       and not m.muted_all
     limit 1

@@ -37,12 +37,17 @@
 --    `nudgeDueDate` and `nudgeChoice`'s, in the domain. This is a coarse
 --    superset of the circles that could be owed one, so the domain is asked
 --    about few circles rather than all of them: active, with a goal and a
---    history, nothing open, not snoozed, not already decided for a due date
---    after the last meetup — and met long enough ago that the lead window can
---    have opened. That last bound is the cadence less its lead days less one
---    more day, so no circle the domain would call due is ever left out by a
---    zone or a clock change; one it would not is merely asked about and told
---    no. Oldest first, so a circle that has waited longest is asked first.
+--    history, nothing open, not snoozed, not already decided for this cycle
+--    (the prompt counted from its current `last_met_at`) — and met long
+--    enough ago that the lead window can have opened. That last bound is the
+--    domain's own arithmetic: the cadence added forward from the meetup on the
+--    circle's wall clock, where a month is a calendar month clamped at its
+--    end, less the lead days, less one more day for a DST hour. So no circle
+--    the domain would call due is ever left out or named late; one it would
+--    not is merely asked about and told no. Subtracting a month back from
+--    now instead named a circle that met at the start of February two days
+--    after its card appeared (review round 2). Oldest first, so a circle that
+--    has waited longest is asked first.
 --
 -- Each transition is attempted on its own and a refusal is counted rather than
 -- thrown: a plan that was confirmed between the select and the update is a
@@ -159,12 +164,16 @@ begin
         where c.status = 'active'
           and c.cadence <> 'none'
           and c.last_met_at is not null
-          and c.last_met_at <= now() - case c.cadence
-            when 'weekly' then interval '4 days'
-            when 'fortnightly' then interval '11 days'
-            when 'monthly' then interval '1 month' - interval '8 days'
-            else interval '2 months' - interval '8 days'
-          end
+          and ((c.last_met_at at time zone c.time_zone) + case c.cadence
+            when 'weekly' then interval '7 days'
+            when 'fortnightly' then interval '14 days'
+            when 'monthly' then interval '1 month'
+            else interval '2 months'
+          end - case c.cadence
+            when 'weekly' then interval '3 days'
+            when 'fortnightly' then interval '3 days'
+            else interval '8 days'
+          end) at time zone c.time_zone <= now()
           and (c.cadence_snoozed_until is null or c.cadence_snoozed_until <= now())
           and not exists (
             select 1 from public.plans p
@@ -173,8 +182,7 @@ begin
           )
           and not exists (
             select 1 from private.cadence_prompts cp
-            where cp.circle_id = c.id
-              and cp.due_date > (c.last_met_at at time zone c.time_zone)::date
+            where cp.circle_id = c.id and cp.last_met_at = c.last_met_at
           )
         order by c.last_met_at
         limit batch

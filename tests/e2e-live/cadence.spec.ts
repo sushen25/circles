@@ -68,9 +68,10 @@ test('a circle a month on from its last meetup asks one person, and Plan another
   sql(`insert into public.circle_members (circle_id, user_id, display_name_snapshot)
     values ('${circleId}', '${priya.userId}', 'Priya')`);
   metTwentySixDaysAgo(circleId, maya.userId, priya.userId);
-  // The dispatcher's decision for this due date: Maya was asked.
-  sql(`insert into private.cadence_prompts (circle_id, due_date, user_id, recipient_role)
-    values ('${circleId}', current_date + 5, '${maya.userId}', 'owner')`);
+  // The dispatcher's decision for this cycle: Maya was asked.
+  sql(`insert into private.cadence_prompts (circle_id, last_met_at, due_date, user_id, recipient_role)
+    select id, last_met_at, current_date + 5, '${maya.userId}', 'owner'
+    from public.circles where id = '${circleId}'`);
 
   await signIn(page, maya.stored);
   await page.goto(`/circles/${circleId}`);
@@ -107,8 +108,9 @@ test('a member who is not the one asked reads the quieter card, and can turn the
   sql(`insert into public.circle_members (circle_id, user_id, display_name_snapshot)
     values ('${circleId}', '${priya.userId}', 'Priya')`);
   metTwentySixDaysAgo(circleId, maya.userId, priya.userId);
-  sql(`insert into private.cadence_prompts (circle_id, due_date, user_id, recipient_role)
-    values ('${circleId}', current_date + 5, '${maya.userId}', 'owner')`);
+  sql(`insert into private.cadence_prompts (circle_id, last_met_at, due_date, user_id, recipient_role)
+    select id, last_met_at, current_date + 5, '${maya.userId}', 'owner'
+    from public.circles where id = '${circleId}'`);
 
   await signIn(page, priya.stored);
   await page.goto(`/circles/${circleId}`);

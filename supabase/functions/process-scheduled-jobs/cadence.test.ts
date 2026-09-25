@@ -107,6 +107,8 @@ describe('the cadence pass', () => {
     // Maya organised last, so the turn is Priya's.
     expect(prompt).toMatchObject({
       p_circle_id: CIRCLE,
+      // The cycle, handed back as the database gave it.
+      p_last_met_at: LAST_MET,
       p_due_date: '2026-09-08',
       p_user_id: PRIYA,
       p_recipient_role: 'take_turns',
@@ -143,7 +145,7 @@ describe('the cadence pass', () => {
   it.each([
     ['a plan is running', { has_open_plan: true }],
     ['the owner snoozed', { cadence_snoozed_until: '2026-09-30T00:00:00.000Z' }],
-    ['the due date is already decided', { prompted_for: '2026-09-08' }],
+    ['this cycle is already decided', { prompted_for: '2026-09-08' }],
   ])('writes nothing while %s', async (_why, overrides) => {
     const context = circleContext();
     const shaped =
@@ -190,6 +192,45 @@ describe('the cadence pass', () => {
       p_jobs: [],
     });
     expect(calls.some((c) => c.fn === 'dispatch_organiser_contact')).toBe(false);
+    expect(calls.some((c) => c.fn === 'record_events')).toBe(false);
+  });
+
+  it('passes the turn on from somebody nothing can reach, and asks them no more', async () => {
+    // Review round 2: Priya's turn, but her address bounced. She is not told
+    // it is her turn with nothing sent; Tom, next in join order, is asked.
+    const { db, calls } = fakeDb((fn, args) => {
+      if (fn === 'dispatch_circle_context') return circleContext();
+      if (fn === 'dispatch_organiser_contact') return args['p_user_id'] === PRIYA ? null : CONTACT;
+      if (fn === 'dispatch_prompt_cadence') return 1;
+      return null;
+    });
+
+    const result = await cadenceWork(db, [CIRCLE], 'req', ABOUT_TIME, never);
+
+    expect(result).toEqual({ prompted: 1, nudgesQueued: 1 });
+    expect(calls.find((c) => c.fn === 'dispatch_prompt_cadence')?.args).toMatchObject({
+      p_user_id: TOM,
+      p_recipient_role: 'take_turns',
+    });
+    expect(
+      calls.filter((c) => c.fn === 'dispatch_organiser_contact').map((c) => c.args['p_user_id']),
+    ).toEqual([PRIYA, TOM]);
+  });
+
+  it('decides for nobody when nobody can be reached', async () => {
+    const { db, calls } = fakeDb((fn) => {
+      if (fn === 'dispatch_circle_context') return circleContext();
+      if (fn === 'dispatch_prompt_cadence') return 0;
+      return null;
+    });
+
+    const result = await cadenceWork(db, [CIRCLE], 'req', ABOUT_TIME, never);
+
+    expect(result).toEqual({ prompted: 1, nudgesQueued: 0 });
+    expect(calls.find((c) => c.fn === 'dispatch_prompt_cadence')?.args).toMatchObject({
+      p_user_id: null,
+      p_jobs: [],
+    });
     expect(calls.some((c) => c.fn === 'record_events')).toBe(false);
   });
 
