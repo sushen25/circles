@@ -7,7 +7,7 @@
  * - **seeking**: when it closes and what opens it. No count for anybody, the
  *   initiator included (§5.4.3), and not even the viewer's own answer — only
  *   that they gave one.
- * - **opened**: the keen count, fixed at the moment it opened (ADR 00XX), and
+ * - **opened**: the keen count, fixed at the moment it opened (ADR 0035), and
  *   the organiser's name once there is one. Never who was keen.
  * - **closed**: nothing, for everybody but the initiator of an ask that ran
  *   out of time, who is told it closed (SparkExpired). A withdrawn ask and an

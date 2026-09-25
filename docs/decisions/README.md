@@ -15,7 +15,7 @@ Short records of decisions that shape the product or the code. A new ADR is requ
 | [0009](./0009-half-hour-availability-cells-with-a-scrolling-row.md) | Availability cells are half an hour each, and the day row scrolls | accepted |
 | [0010](./0010-tonight-deadline-gives-up-its-margin.md) | Tonight's deadline gives up its margin rather than the plan | accepted |
 | [0011](./0011-near-misses-need-someone.md) | A near-miss needs someone, unless nobody is anywhere | accepted |
-| [0012](./0012-circle-member-cap-of-twenty.md) | A circle holds up to twenty active members | accepted (threshold line corrected by 00XX) |
+| [0012](./0012-circle-member-cap-of-twenty.md) | A circle holds up to twenty active members | accepted (threshold line corrected by 0035) |
 | [0013](./0013-availability-written-only-through-replace-response.md) | A member's availability is written only through `replace_response` | accepted |
 | [0014](./0014-retention-runs-in-the-database.md) | Retention runs in the database from pg_cron, not in the dispatcher | accepted |
 | [0015](./0015-sql-functions-live-in-one-file-each.md) | A database function's definition lives in one file, generated into migrations | accepted |
@@ -25,7 +25,7 @@ Short records of decisions that shape the product or the code. A new ADR is requ
 | [0019](./0019-consent-is-recorded-when-it-is-given.md) | Consent is recorded when it is given, and a preferences link does not expire on use | accepted |
 | [0020](./0020-the-verification-token-is-minted-by-the-sender.md) | The verification token is minted by whoever sends the email | accepted |
 | [0021](./0021-the-link-preview-is-not-rate-limited.md) | The link preview is not rate-limited; the code space is the control | accepted |
-| [0022](./0022-a-plan-link-admits-new-members-while-the-plan-is-asking.md) | A plan link admits new members while the plan is taking answers | accepted (one point narrowed by 0026; circle-of-one remark superseded by 00XX) |
+| [0022](./0022-a-plan-link-admits-new-members-while-the-plan-is-asking.md) | A plan link admits new members while the plan is taking answers | accepted (one point narrowed by 0026; circle-of-one remark superseded by 0035) |
 | [0023](./0023-emailed-tokens-travel-in-the-fragment.md) | Emailed tokens travel in the URL fragment, never the path | accepted |
 | [0024](./0024-availability-days-first-then-a-time-once.md) | Availability is answered days first, then a time once | accepted |
 | [0025](./0025-the-preferences-link-is-minted-with-each-email.md) | The preferences link is minted with each email, and both footer links open it | accepted (organiser-email question answered by 0029) |
@@ -38,7 +38,7 @@ Short records of decisions that shape the product or the code. A new ADR is requ
 | [0032](./0032-the-circles-zone-is-shown-when-the-readers-device-differs.md) | The circle's zone is shown when the reader's device differs, not when a member's does | accepted |
 | [0033](./0033-one-open-plan-per-circle.md) | A circle has one open plan at a time | accepted |
 | [0034](./0034-ink-3-is-dark-enough-to-read.md) | `ink-3` is dark enough to read | proposed |
-| [00XX](./00XX-the-quiet-ask-at-twenty-members.md) | The quiet ask at twenty members: its threshold, its stop time, and what it does beside an open plan | accepted |
+| [0035](./0035-the-quiet-ask-at-twenty-members.md) | The quiet ask at twenty members: its threshold, its stop time, and what it does beside an open plan | accepted |
 
 ## Template
 

@@ -5,7 +5,7 @@
  * is the rule the lock protects — when an ask may open, what it opens into —
  * and the one case SUS-89 left to this module: an ask at its threshold while
  * the circle already has a plan finding a time (ADR 0033) is *held*, not
- * opened and not closed (ADR 00XX).
+ * opened and not closed (ADR 0035).
  */
 
 import type { UserId } from '../circles/types.js';
@@ -32,7 +32,7 @@ export type QuietStep = 'cross' | 'expire' | 'wait' | 'none';
 /**
  * What the dispatcher should do with a quiet ask on its sweep.
  *
- * An ask at its threshold beside an open plan is *held* (ADR 00XX): it stays
+ * An ask at its threshold beside an open plan is *held* (ADR 0035): it stays
  * `seeking`, shows nothing, and opens on the first sweep or answer after the
  * circle's open plan finishes. If its stop time comes first it closes like any
  * other — before its stop time it may cross, from it only expire.

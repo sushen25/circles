@@ -81,7 +81,7 @@ export function acceptOrganiser(
  * only that it closed (`quietView`).
  *
  * "Without opening" rather than "below threshold": an ask held at its threshold
- * beside an open plan (ADR 00XX) that is still held at its stop time closes
+ * beside an open plan (ADR 0035) that is still held at its stop time closes
  * here too, and is indistinguishable from one that was not.
  *
  * Only from `seeking`. A quiet plan that has opened expires by the rule every

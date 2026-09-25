@@ -1,5 +1,5 @@
 /**
- * The quiet ask (spec §5.4, ADR 00XX): who may start one, how interest is
+ * The quiet ask (spec §5.4, ADR 0035): who may start one, how interest is
  * counted, and when it opens into a plan.
  *
  * **Confidentiality is the point of the feature, so it is structural here.**
@@ -71,7 +71,7 @@ export type QuietError = TransitionError | { readonly code: QuietRefusal };
 const refuse = <T>(code: QuietRefusal): Result<QuietError, T> => err({ code });
 
 /**
- * The limits on starting one (spec §5.4, checked against twenty by ADR 00XX).
+ * The limits on starting one (spec §5.4, checked against twenty by ADR 0035).
  *
  * Neither scales with the circle. The circle limit bounds what each *member
  * receives* — every ask prompts everybody — and a member of a circle of twenty
@@ -86,7 +86,7 @@ export const QUIET_LIMITS = {
 } as const;
 
 /**
- * How many keen answers, the initiator's included, open the ask (ADR 00XX).
+ * How many keen answers, the initiator's included, open the ask (ADR 0035).
  *
  * `min(n, max(3, ceil(n / 4)))`: three, for every circle of up to twelve —
  * exactly what spec §5.4 had, for the circles it was drawn for — and a quarter
@@ -221,7 +221,7 @@ export type InterestRecorded = {
  *
  * Idempotent per member: the same answer twice changes nothing, and a
  * different one replaces it while the ask is still asking. Once it has opened,
- * interest is closed — the count shown after threshold (ADR 00XX) is fixed at
+ * interest is closed — the count shown after threshold (ADR 0035) is fixed at
  * the moment it opened, so two reads of it can never be differenced to find out
  * who answered in between. Members who were not keen add their *times* to the
  * opened plan instead (§5.4.6), which is a different question.
@@ -248,7 +248,7 @@ export function recordInterest(
   const next: QuietAsk = { ...ask, answers };
 
   // Evaluated on every answer, a repeat included: an ask held beside an open
-  // plan opens on the first answer after that plan finishes (ADR 00XX).
+  // plan opens on the first answer after that plan finishes (ADR 0035).
   const thresholdReached = thresholdMet(next) && context.circleHasOpenPlan === false;
   return ok({ ask: next, receipt: { changed, thresholdReached } });
 }

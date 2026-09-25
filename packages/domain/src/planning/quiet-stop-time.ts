@@ -1,5 +1,5 @@
 /**
- * When a quiet ask stops asking (spec §5.4, ADR 00XX).
+ * When a quiet ask stops asking (spec §5.4, ADR 0035).
  *
  * The setup screen offers a few named stop times rather than a clock, because
  * "Friday midday" is a decision and "Fri 11 Sep 12:00" is a form field. Each
