@@ -1,5 +1,5 @@
 import type { CircleId, PlanId } from '@circles/contracts';
-import { EN_SHARE_TEMPLATES, waitingMessage } from '@circles/domain';
+import { EN_SHARE_TEMPLATES, instant, waitingMessage } from '@circles/domain';
 import { useIsFocused, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 
@@ -11,13 +11,17 @@ import { appOrigin } from '../../data/links/origin';
 import { planLink } from '../../data/planning';
 import { shareMessage } from '../../platform/share';
 import { isOffline } from '../identity/join/failure';
+import { clockNow, usePlanClock } from '../planning/clock';
 import { CandidatesScreen } from './CandidatesScreen';
+import { isDeadlinePassed } from './deadline';
+import { DeadlinePassedFlow } from './DeadlinePassedFlow';
 import { FixtureCandidates, type CandidatesRoute } from './FixtureCandidates';
 import { MemberView } from './MemberView';
 import { NoQuorumScreen } from './NoQuorumScreen';
 import { reviewLabel, stillToAnswer, widerWarning } from './lines';
 import { blockedBy, unlocksOf } from './unlock';
 import { useCandidates } from './useCandidates';
+import { useDeadlinePassed } from './useDeadlinePassed';
 import { useResolution } from './useResolution';
 import { cardsOf, headerOf, headlineOf, leadOf, nearMissesOf, notAnswered, nudgeOf } from './view';
 import { WaitingScreen } from './WaitingScreen';
@@ -57,6 +61,10 @@ function LiveCandidates({ id, planId }: { id: string; planId: string }) {
   const query = useCandidates({ planId });
   const data = query.data ?? undefined;
   const resolution = useResolution({ planId, circleId: id });
+  // One more day, which the no-quorum screen offers once replies have closed
+  // (S2-05). The replies-closed screen has its own; this is the same hook.
+  const closed = useDeadlinePassed({ planId, circleId: id });
+  const [clock] = usePlanClock(clockNow, true);
   const [chosen, setChosen] = useState<string>();
 
   // Once per plan, when there is something to have seen (spec §11's catalogue).
@@ -188,14 +196,15 @@ function LiveCandidates({ id, planId }: { id: string; planId: string }) {
         header={header}
         blocked={blockedBy(data)}
         nearMisses={nearMissesOf(data)}
-        unlocks={unlocksOf(data)}
+        unlocks={unlocksOf(data, instant(clock))}
         stale={data.stale}
-        busy={resolution.busy}
+        busy={resolution.busy ?? (closed.busy === 'extend' ? 'extend' : undefined)}
         asking={resolution.asking}
         widerWarning={widerWarning(data, resolution.askedAgain)}
-        problem={resolution.problem}
+        problem={resolution.problem ?? closed.problem}
         onUnlock={(unlock) => {
           if (unlock.kind === 'lower') resolution.lower(unlock.quorum);
+          else if (unlock.kind === 'extend') closed.extend();
           else if (unlock.kind === 'close') resolution.askToClose();
           else if (unlock.kind === 'wider') resolution.askToWiden(unlock.window);
           // A required member who cannot make it is changed in the editor:
@@ -208,6 +217,12 @@ function LiveCandidates({ id, planId }: { id: string; planId: string }) {
         onBack={back}
       />
     );
+  }
+
+  // Replies closed with options on offer and nothing locked in: the three ways
+  // out (spec §5.7, S2-05).
+  if (isDeadlinePassed(data)) {
+    return <DeadlinePassedFlow circleId={id} data={data} header={header} onBack={back} />;
   }
 
   const selectedId =

@@ -1,7 +1,10 @@
+import { fromISO } from '@circles/domain';
 import { useRouter } from 'expo-router';
 
 import { t } from '../../copy';
 import { CandidatesScreen } from './CandidatesScreen';
+import { deadlineHeadline, deadlineLead, extensionOf, lockInLabel } from './deadline';
+import { DeadlinePassedScreen } from './DeadlinePassedScreen';
 import * as fixture from './fixtures';
 import { NoQuorumScreen } from './NoQuorumScreen';
 import { reviewLabel, stillToAnswer } from './lines';
@@ -10,14 +13,14 @@ import { cardsOf, headerOf, headlineOf, leadOf, nearMissesOf, nudgeOf } from './
 import { WaitingScreen } from './WaitingScreen';
 
 /**
- * Sunday Crew's three screens, for a build with no backend: the gallery, the
+ * Sunday Crew's four screens, for a build with no backend: the gallery, the
  * smoke export and anyone reviewing a screen without a stack.
  *
  * The route picks which one — the only thing the route ever decides — and each
  * renders through the real `view.ts`, so a sentence that is wrong here is wrong
  * in the product too.
  */
-export type CandidatesRoute = 'candidates' | 'waiting' | 'no-quorum';
+export type CandidatesRoute = 'candidates' | 'waiting' | 'no-quorum' | 'deadline';
 
 export function FixtureCandidates({ which }: { which: CandidatesRoute }) {
   const router = useRouter();
@@ -29,6 +32,24 @@ export function FixtureCandidates({ which }: { which: CandidatesRoute }) {
         ? fixture.noQuorum
         : fixture.ready;
 
+  if (which === 'deadline') {
+    const closed = fixture.deadlinePassed;
+    const top = closed.candidates[0]?.id;
+    return (
+      <DeadlinePassedScreen
+        header={headerOf(closed)}
+        headline={deadlineHeadline(closed)}
+        lead={deadlineLead(closed)}
+        cards={cardsOf(closed)}
+        selectedId={top}
+        lockInLabel={lockInLabel(closed, top)}
+        // A moment after replies closed, so the button says what it would give.
+        extension={extensionOf(closed, fromISO(closed.responseDeadline))}
+        onLockIn={() => router.push('/circles/sunday-crew/plan/thu-17/review')}
+        onBack={back}
+      />
+    );
+  }
   if (which === 'waiting') {
     return (
       <WaitingScreen

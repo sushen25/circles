@@ -334,9 +334,20 @@ name people (`names.ts`: up to three, then a count — ADR 0012). The no-quorum
 actions are `unlock.ts`, which never offers a quorum below two and never a
 wider window a re-ask could not be answered in.
 A member at `/p/[code]` sees the options and "Change my times"; the organiser is
-sent to their own route. `DeadlinePassed` is still a fixture (Slice 2), and
-"Review <weekday>" leads to `ConfirmReview` with the chosen candidate's start
-instant as `candidate` (S1-28). A plan that is locked in sends both doors to
+sent to their own route, and "Review <weekday>" leads to `ConfirmReview` with
+the chosen candidate's start instant as `candidate` (S1-28).
+
+**Real since S2-05:** `/circles/[id]/plan/[planId]/deadline` renders
+`CandidatesFlow` too, and any of the four routes shows `DeadlinePassedFlow` to
+the organiser once replies have closed (on the database's clock) with options
+on offer and nothing locked in: **Lock in <day>** → `ConfirmReview`, **Hand
+this to someone else** (a sheet of the circle from `hand_off_candidates`,
+guests greyed "Needs a saved place", then `hand-off-organiser`) and **Give it
+one more day** (`extend-deadline`, labelled with the deadline it would give,
+disabled with the reason once spent or out of time — `deadline.ts`, over the
+domain's `oneMoreDay` and `handOffRefusal`). The no-quorum screen offers the
+same day once replies have closed, in the wider window's place. A member sees
+"Replies closed" and "Change my times" disabled beside a line saying why. A plan that is locked in sends both doors to
 its confirmed screen rather than saying "This plan is decided".
 
 ### system

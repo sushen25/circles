@@ -23,6 +23,7 @@ const FAILED = 'candidates lookup failed';
 import {
   codeOf,
   isLockedIn,
+  latestStartOf,
   reasonOf,
   viewOf,
   type CandidateRow,
@@ -75,6 +76,13 @@ export type PlanCandidates = {
   responseDeadline: string;
   /** Judged by the database's clock, never this device's. */
   repliesOpen: boolean;
+  /**
+   * The latest the meetup could still begin — the bound on any deadline, and
+   * so on "give it one more day" (spec §5.7).
+   */
+  latestStart: string;
+  /** This revision's one extra day has been given (S2-05). */
+  extendedThisRevision: boolean;
   organiserUserId: string | null;
   me: string | undefined;
   isOrganiser: boolean;
@@ -132,7 +140,7 @@ export async function planCandidates(
   const client = authClient();
 
   const columns =
-    'id, short_code, circle_id, title, state, revision, input_version, time_zone, quorum, quorum_source, window_start, window_end, response_deadline, organiser_user_id';
+    'id, short_code, circle_id, title, state, revision, input_version, time_zone, quorum, quorum_source, window_start, window_end, daily_start_local, daily_end_local, duration_minutes, response_deadline, organiser_user_id, deadline_extended_on_revision';
   const query = client.from('plans').select(columns);
   const { data: plan, error } = await (
     'planId' in key ? query.eq('id', key.planId) : query.eq('short_code', key.code)
@@ -263,6 +271,8 @@ export async function planCandidates(
     windowEnd: plan.window_end,
     responseDeadline: plan.response_deadline,
     repliesOpen: ANSWERABLE_STATES.includes(state) && open.data !== null,
+    latestStart: latestStartOf(plan),
+    extendedThisRevision: plan.deadline_extended_on_revision === plan.revision,
     organiserUserId: plan.organiser_user_id,
     me,
     isOrganiser,

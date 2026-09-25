@@ -46,6 +46,9 @@ const BASE: PlanCandidates = {
   windowEnd: '2026-09-20',
   responseDeadline: DEADLINE,
   repliesOpen: true,
+  /** Sunday 20 September, 8:30 pm Melbourne: the band ends 10:30, two hours long. */
+  latestStart: '2026-09-20T10:30:00.000Z',
+  extendedThisRevision: false,
   organiserUserId: 'maya',
   me: 'maya',
   isOrganiser: true,
@@ -155,3 +158,9 @@ export const readyAsMember: PlanCandidates = {
   isOrganiser: false,
   isOwner: false,
 };
+
+/**
+ * Tuesday's deadline has gone, Thursday still works for five, and nothing is
+ * locked in: the replies-closed screen (spec §5.7, S2-05).
+ */
+export const deadlinePassed: PlanCandidates = { ...ready, repliesOpen: false };

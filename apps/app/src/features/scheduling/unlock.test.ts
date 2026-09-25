@@ -1,3 +1,4 @@
+import { fromISO } from '@circles/domain';
 import { describe, expect, it } from 'vitest';
 
 import type { PlanCandidates } from '../../data/scheduling';
@@ -93,11 +94,29 @@ describe('what would unlock it', () => {
     expect(unlocksOf(data).map((u) => u.kind)).toEqual(['lower', 'close']);
   });
 
-  it('offers no wider window once replies have closed, which revise-plan would refuse', () => {
+  it('offers one more day in place of a wider window once replies have closed', () => {
     // `revise_plan` refuses any re-ask whose deadline has gone
-    // (`deadline_out_of_range`); saying when replies close again is S2-05's.
+    // (`deadline_out_of_range`); saying when replies close again is S2-05's
+    // "give it one more day", which is what unblocks widening a stalled plan.
     const data = planWith({ repliesOpen: false });
-    expect(unlocksOf(data).map((u) => u.kind)).toEqual(['lower', 'close']);
+    const justClosed = fromISO(data.responseDeadline);
+    expect(unlocksOf(data, justClosed).map((u) => u.kind)).toEqual(['lower', 'extend', 'close']);
+    const extend = unlocksOf(data, justClosed).find((u) => u.kind === 'extend');
+    expect(extend?.title).toBe('Give it one more day');
+    expect(extend?.body).toMatch(/^Reopens replies until /);
+  });
+
+  it('offers neither once the extra day is spent or there is no time left for one', () => {
+    const spent = planWith({ repliesOpen: false, extendedThisRevision: true });
+    expect(unlocksOf(spent, fromISO(spent.responseDeadline)).map((u) => u.kind)).toEqual([
+      'lower',
+      'close',
+    ]);
+    const late = planWith({ repliesOpen: false });
+    expect(unlocksOf(late, fromISO(late.latestStart)).map((u) => u.kind)).toEqual([
+      'lower',
+      'close',
+    ]);
   });
 
   it('says the quorum rule when that is the one blocking it', () => {

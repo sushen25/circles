@@ -437,7 +437,7 @@ describe('a member', () => {
     expect(screen.queryByText(/Still to answer/)).toBeNull();
   });
 
-  it('is offered no way to change times once replies have closed', async () => {
+  it('is offered no way to change times once replies have closed, and told so', async () => {
     planCandidates.mockResolvedValue({
       ...fixture.readyAsMember,
       repliesOpen: false,
@@ -445,8 +445,14 @@ describe('a member', () => {
     show(organiser());
 
     expect(await screen.findByText('Replies closed')).toBeTruthy();
-    // `replace_response` would refuse the answer, so the editor is not offered.
-    expect(screen.queryByRole('button', { name: 'Change my times' })).toBeNull();
+    // `replace_response` would refuse the answer, so the editor is not
+    // offered: the button stays, disabled, beside a neutral line (S2-05).
+    const button = screen.getByRole('button', { name: 'Change my times' });
+    expect(button.getAttribute('aria-disabled')).toBe('true');
+    fireEvent.click(button);
+    expect(push).not.toHaveBeenCalled();
+    expect(screen.getByText('Replies have closed, so times can no longer change.')).toBeTruthy();
+    expect(screen.getByText('Replies have closed. Maya picks one of these.')).toBeTruthy();
   });
 
   it('is warned when the options were worked out before the newest answer', async () => {

@@ -33,15 +33,23 @@ export function MemberView({
       <CandidatesMemberScreen
         header={header}
         headline={headlineOf(data)}
+        // "You can change your times until then" is a promise about a deadline
+        // that has gone, once it has (S2-05).
         lead={
           organiser === undefined
-            ? t('candidatesMember', 'lead_no_organiser')
-            : t('candidatesMember', 'lead_organiser', { name: organiser.name })
+            ? t(
+                'candidatesMember',
+                data.repliesOpen ? 'lead_no_organiser' : 'lead_closed_no_organiser',
+              )
+            : t('candidatesMember', data.repliesOpen ? 'lead_organiser' : 'lead_closed_organiser', {
+                name: organiser.name,
+              })
         }
         cards={cardsOf(data)}
         // The same warning the organiser gets: what is on screen was worked
         // out before the newest answer, and a member has no other way to know.
         stale={data.stale}
+        repliesClosed={!data.repliesOpen}
         onChangeMyTimes={onChangeMyTimes}
         onCancelPlan={onCancelPlan}
         onRetry={onRetry}
@@ -57,7 +65,7 @@ export function MemberView({
       headline={t('candidatesMember', overlap ? 'no_overlap_headline' : 'waiting_headline')}
       lead={
         overlap
-          ? t('candidatesMember', 'no_overlap_body')
+          ? t('candidatesMember', data.repliesOpen ? 'no_overlap_body' : 'no_overlap_closed_body')
           : t('candidatesMember', 'waiting_body', { count: data.quorum })
       }
       // The same warning the ready view gets. An old no-quorum set outlives
@@ -65,6 +73,7 @@ export function MemberView({
       // wasn't enough overlap" is the one sentence on these screens that must
       // never be said before it is true.
       stale={data.stale}
+      repliesClosed={!data.repliesOpen}
       onChangeMyTimes={onChangeMyTimes}
       onCancelPlan={onCancelPlan}
       onRetry={onRetry}

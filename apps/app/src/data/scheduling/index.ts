@@ -10,6 +10,8 @@ export {
   widenWindow,
 } from './actions';
 export { isLockedIn, planCandidates, reasonOf, viewOf } from './candidates';
+export { extendDeadline, handOffCandidates, handOffOrganiser } from './deadline';
+export type { HandOffCandidate } from './deadline';
 export type {
   CandidateRow,
   CandidateSetRead,

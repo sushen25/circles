@@ -52,7 +52,7 @@ export type NoQuorumProps = {
    */
   stale?: boolean | undefined;
   /** An action on its way. */
-  busy?: 'lower' | 'close' | 'wider' | undefined;
+  busy?: 'lower' | 'close' | 'wider' | 'extend' | undefined;
   /** Which sheet is open, when one is. */
   asking?: 'close' | 'wider' | undefined;
   /** "The plan would run to Sunday. …" — the cost of a wider window. */
@@ -192,5 +192,6 @@ export function NoQuorumScreen({
 function busyWord(kind: Unlock['kind']): string {
   if (kind === 'close') return t('noQuorum', 'closing');
   if (kind === 'wider') return t('noQuorum', 'checking');
+  if (kind === 'extend') return t('deadlinePassed', 'extending');
   return t('noQuorum', 'lowering');
 }

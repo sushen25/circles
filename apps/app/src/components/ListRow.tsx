@@ -22,24 +22,35 @@ type Props = {
   label: string;
   leading?: ReactNode;
   onPress?: (() => void) | undefined;
+  /**
+   * Shown but not offered: dimmed, no chevron, announced as unavailable. The
+   * detail line is where the row says why — a greyed row that does not is a
+   * puzzle.
+   */
+  disabled?: boolean | undefined;
 };
 
-export function ListRow({ title, detail, label, leading, onPress }: Props) {
+export function ListRow({ title, detail, label, leading, onPress, disabled = false }: Props) {
   const palette = usePalette();
   return (
     <Pressable
       role="button"
       aria-label={label}
-      disabled={onPress === undefined}
+      aria-disabled={disabled}
+      disabled={disabled || onPress === undefined}
       onPress={onPress}
-      style={({ pressed }) => [styles.row, pressed && { opacity: 0.7 }]}
+      style={({ pressed }) => [
+        styles.row,
+        disabled && styles.disabled,
+        pressed && !disabled && { opacity: 0.7 },
+      ]}
     >
       {leading}
       <View style={styles.words}>
         <Title>{title}</Title>
         {detail === undefined ? null : <Small>{detail}</Small>}
       </View>
-      <Icon name="chevron" size={18} color={palette.ink3} />
+      {disabled ? null : <Icon name="chevron" size={18} color={palette.ink3} />}
     </Pressable>
   );
 }
@@ -54,5 +65,8 @@ const styles = StyleSheet.create({
   words: {
     flex: 1,
     gap: 2,
+  },
+  disabled: {
+    opacity: 0.5,
   },
 });
