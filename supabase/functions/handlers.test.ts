@@ -786,10 +786,12 @@ describe('create-plan', () => {
     expect(called('create_plan')).toHaveLength(0);
   });
 
-  it('refuses a quiet ask as not-yet rather than as a failure', async () => {
+  it('does not send a quiet ask to create_plan', async () => {
+    // S2-02: a quiet ask is `create_quiet_ask`'s (quiet-handlers.test.ts). One
+    // without a stop time is refused before anything is called.
     const response = await load('create-plan')(post({ ...body, mode: 'quiet' }));
 
-    expect(await response.json()).toMatchObject({ reason: 'not_yet' });
+    expect(response.status).toBe(400);
     expect(called('create_plan')).toHaveLength(0);
   });
 
@@ -3054,6 +3056,25 @@ describe('process-scheduled-jobs', () => {
     expect(called('issue_preferences_token')).toHaveLength(0);
   });
 
+  it.each([
+    ['quiet_expired', { quiet_asks_muted: true }, 'quiet_asks_muted'],
+    ['threshold_initiator', { quiet_asks_muted: true }, 'quiet_asks_muted'],
+    ['quiet_expired', { member_active: false }, 'not_a_member'],
+  ])(
+    'does not send the initiator %s after they muted quiet asks or left (SUS-50)',
+    async (kind, change, reason) => {
+      // Held overnight by quiet hours, the letter is read again when it is due.
+      withDue(dueJob({ kind, subscribed: false, plan_state: 'expired', ...change }));
+
+      await load('process-scheduled-jobs')(post({}, 'a-shared-secret'));
+
+      expect(called('dispatch_job_result')[0]?.args).toMatchObject({
+        p_outcome: 'skipped',
+        p_error: reason,
+      });
+    },
+  );
+
   it('sends nothing about an archived circle, even what was queued before it was archived', async () => {
     // "Archiving stops all prompts" (spec §5.2). A reminder is written when the
     // meetup is confirmed and waits days; archiving touches no job.
@@ -3275,6 +3296,20 @@ describe('process-scheduled-jobs', () => {
       await load('process-scheduled-jobs')(post({}, 'a-shared-secret'));
 
       expect(called('dispatch_job_result')[0]?.args).toMatchObject({ p_outcome: 'sent' });
+    });
+
+    it('does not send replies closed to somebody who is no longer who it is for (SUS-50 round 4)', async () => {
+      // Written to one person, sent after the role changed hands: the
+      // recipient is not the organiser now, so the letter is not theirs.
+      capturing();
+      withDue(dueJob({ kind: 'replies_closed', user_id: MEMBER }));
+
+      await load('process-scheduled-jobs')(post({}, 'a-shared-secret'));
+
+      expect(called('dispatch_job_result')[0]?.args).toMatchObject({
+        p_outcome: 'skipped',
+        p_error: 'not_the_organiser',
+      });
     });
 
     it("never stops a plan-update letter, whatever the subscriber's own switch says", async () => {

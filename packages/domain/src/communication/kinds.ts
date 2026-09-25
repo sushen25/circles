@@ -6,8 +6,9 @@
  * about activity, streaks or news, ever" is a product promise, and the way to
  * keep it is to make an unlisted kind unrepresentable rather than discouraged.
  *
- * The rows are the "Push copy" artboard's rows, in its order, plus the two the
- * spec names elsewhere: `replies_closed` (§5.7, §5.8) and `verify_email`. No
+ * The rows are the "Push copy" artboard's rows, in its order, plus the three the
+ * spec names elsewhere: `replies_closed` (§5.7, §5.8), `verify_email`, and
+ * `quiet_expired` (§5.4.7, the SparkExpired artboard, ADR 0038). No
  * sentence lives here — `copyKey` names one, and the copy package renders it
  * (non-negotiable 6).
  */
@@ -30,7 +31,8 @@ export type NotificationKind =
   | 'did_it_happen'
   | 'about_time'
   | 'did_it_happen_participant'
-  | 'verify_email';
+  | 'verify_email'
+  | 'quiet_expired';
 
 /**
  * Who a kind goes to, named rather than described.
@@ -125,11 +127,15 @@ export const NOTIFICATION_KINDS: readonly NotificationSpec[] = [
     respectsQuietHours: true,
   },
   {
+    // Push first, and the initiator's own confirmed address until they have
+    // the app (ADR 0038): the role is offered to them, as the organiser kinds
+    // are offered to an organiser (review C6). Their own address and nobody
+    // else's, so no subscription: this is not a plan-update letter.
     kind: 'threshold_initiator',
-    emailNeedsSubscription: true,
+    emailNeedsSubscription: false,
     organiserEmailSwitch: false,
     audience: 'quiet_initiator',
-    channels: ['push'],
+    channels: ['push', 'email'],
     copyKey: 'push.threshold_initiator',
     respectsQuietHours: true,
   },
@@ -252,6 +258,20 @@ export const NOTIFICATION_KINDS: readonly NotificationSpec[] = [
     copyKey: 'email.verify',
     respectsQuietHours: false,
   },
+  {
+    // "Not enough people were free this time" (spec §5.4.7, SparkExpired): an
+    // ask that reached its stop time without opening, told to the one person
+    // who knows it existed as theirs. Email only — there is no push row — and
+    // to their own address (ADR 0038). A withdrawn ask has no letter at all:
+    // its initiator closed it themselves (spec §9).
+    kind: 'quiet_expired',
+    emailNeedsSubscription: false,
+    organiserEmailSwitch: false,
+    audience: 'quiet_initiator',
+    channels: ['email'],
+    copyKey: 'email.quiet_expired',
+    respectsQuietHours: true,
+  },
 ];
 
 const BY_KIND = new Map(NOTIFICATION_KINDS.map((spec) => [spec.kind, spec] as const));
@@ -291,4 +311,5 @@ export const QUIET_SENSITIVE_KINDS: readonly NotificationKind[] = [
   'quiet_ask',
   'threshold_initiator',
   'threshold_keen',
+  'quiet_expired',
 ];

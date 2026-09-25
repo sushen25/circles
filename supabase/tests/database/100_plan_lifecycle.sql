@@ -426,11 +426,13 @@ select is(
 insert into public.plans (
   id, circle_id, mode, state, organiser_user_id, title, time_zone,
   window_start, window_end, daily_start_local, daily_end_local,
-  duration_minutes, quorum, response_deadline, short_code, quiet_threshold
+  duration_minutes, quorum, response_deadline, short_code, quiet_threshold,
+  quiet_expires_at, quiet_preset
 ) values (
   '10000000-0000-0000-0000-0000000000aa', pg_temp.circle_id(), 'quiet', 'draft', null,
   'Drinks', 'Australia/Melbourne', date '2099-10-01', date '2099-10-05', 1050, 1350,
-  120, 3, timestamptz '2099-09-30T10:00:00Z', 'qtdrft2x', 3
+  120, 3, timestamptz '2099-09-30T10:00:00Z', 'qtdrft2x', 3,
+  timestamptz '2099-09-30T10:00:00Z', 'next_7_days'
 );
 select throws_ok(
   $$ select planning.transition_plan('10000000-0000-0000-0000-0000000000aa', 'create_quiet',

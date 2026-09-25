@@ -25,17 +25,20 @@ const ARTBOARD: readonly NotificationKind[] = [
 ];
 
 describe('the kind table', () => {
-  it('is the artboard plus the two the spec names elsewhere, and nothing else', () => {
+  it('is the artboard plus the three the spec names elsewhere, and nothing else', () => {
     // A kind not written down somewhere is a message nobody designed. "Nothing
     // about activity, streaks or news, ever" is kept by the list being closed.
     // `replies_closed` is §5.7's "one reminder at the deadline" and one of
     // §5.8's four organiser email kinds; the Pushes artboard has no row for it.
+    // `quiet_expired` is §5.4.7's closing notice, the SparkExpired artboard
+    // (ADR 0038).
     expect(NOTIFICATION_KINDS.map((s) => s.kind)).toEqual([
       ...ARTBOARD.slice(0, 6),
       'replies_closed',
       ...ARTBOARD.slice(6),
       'did_it_happen_participant',
       'verify_email',
+      'quiet_expired',
     ]);
   });
 
@@ -90,8 +93,25 @@ describe('the kind table', () => {
     for (const spec of NOTIFICATION_KINDS) {
       if (spec.audience === 'organiser' || spec.audience === 'nudge_recipient') continue;
       if (spec.kind === 'verify_email') continue;
+      // The initiator's two letters go to their own address (ADR 0038): about
+      // their own ask, to them alone, like the organiser's.
+      if (spec.audience === 'quiet_initiator') continue;
       expect(spec.emailNeedsSubscription).toBe(true);
     }
+  });
+
+  it('writes to the initiator at their own address, and to nobody else about a quiet ask', () => {
+    // ADR 0038. The two kinds whose audience is the initiator alone may be
+    // emailed without a subscription; the two that reach other members stay
+    // push-only, so no letter to anybody else ever concerns a quiet ask.
+    for (const spec of NOTIFICATION_KINDS.filter((s) => s.audience === 'quiet_initiator')) {
+      expect(spec.channels).toContain('email');
+      expect(spec.emailNeedsSubscription).toBe(false);
+      expect(spec.organiserEmailSwitch).toBe(false);
+    }
+    expect(notificationSpec('quiet_ask').channels).toEqual(['push']);
+    expect(notificationSpec('threshold_keen').channels).toEqual(['push']);
+    expect(notificationSpec('quiet_expired').channels).toEqual(['email']);
   });
 
   it('never pushes the participant half of "did it happen"', () => {
@@ -142,7 +162,12 @@ describe('the kind table', () => {
   });
 
   it('marks the quiet-sensitive kinds, and only those', () => {
-    expect(QUIET_SENSITIVE_KINDS).toEqual(['quiet_ask', 'threshold_initiator', 'threshold_keen']);
+    expect(QUIET_SENSITIVE_KINDS).toEqual([
+      'quiet_ask',
+      'threshold_initiator',
+      'threshold_keen',
+      'quiet_expired',
+    ]);
   });
 
   it('fails loudly for a kind with no row rather than sending nothing', () => {

@@ -11,6 +11,7 @@ import {
 import type { Db } from '../_shared/db.ts';
 import { log } from '../_shared/logging.ts';
 import { type PlanContext, loadContext } from './context.ts';
+import { needsQuietAudience, withQuietAudience } from './quiet.ts';
 import {
   ANNOUNCED,
   type Intent,
@@ -193,7 +194,7 @@ export async function drain(
     if (deadline()) break;
 
     try {
-      // Only the seven events in `ANNOUNCED` produce messages in Slice 1. The
+      // Only the events in `ANNOUNCED` produce messages. The
       // rest — memberships, answers, deliveries, growth — are marked processed
       // here without a context being read for them: a circle of six answering
       // a plan writes six `response_submitted` events a minute, and reading a
@@ -221,11 +222,16 @@ export async function drain(
           }
 
           for (const intent of intentsFor(event, context, now)) {
+            // The quiet kinds' audience facts, read for that kind alone and
+            // dropped with this iteration (S2-02, `quiet.ts`).
+            const addressed = needsQuietAudience(intent.kind)
+              ? await withQuietAudience(service, context, intent.kind)
+              : context;
             rows = [
               ...rows,
               ...(await jobRowsFor(
                 service,
-                context,
+                addressed,
                 intent,
                 organiserContacts,
                 requestId,

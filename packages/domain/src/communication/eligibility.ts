@@ -145,6 +145,22 @@ function respondedUserIds(context: EligibilityContext, plan: Plan): ReadonlySet<
   );
 }
 
+/**
+ * Who hears "replies closed" about a quiet plan that nobody has taken on: the
+ * circle's owner — spec §5.4.5's "if nobody accepts before replies close, the
+ * circle owner receives a neutral nudge and may then take the role"
+ * (`acceptOrganiser`'s `owner_fallback`). Only that kind, and only while the
+ * role is empty; a named plan always has its organiser.
+ */
+function ownerFallback(
+  kind: NotificationKind,
+  plan: Plan,
+  context: EligibilityContext,
+): UserId | undefined {
+  if (kind !== 'replies_closed' || plan.mode !== 'quiet') return undefined;
+  return context.circle.ownerUserId;
+}
+
 /** The audience, before the cross-cutting rules are applied. */
 function audienceFor(kind: NotificationKind, context: EligibilityContext): readonly UserId[] {
   const { audience } = notificationSpec(kind);
@@ -189,7 +205,12 @@ function audienceFor(kind: NotificationKind, context: EligibilityContext): reado
     }
 
     case 'keen_members':
-      return ids.filter((id) => context.keenMemberIds?.includes(id) === true);
+      // The initiator is keen too, and has a message of their own
+      // (`threshold_initiator`, "do you want to pick the time?"); sending them
+      // "choose your times" as well would be two letters for one moment.
+      return ids.filter(
+        (id) => id !== context.quietInitiatorId && context.keenMemberIds?.includes(id) === true,
+      );
 
     case 'non_responders': {
       const responded = respondedUserIds(context, plan);
@@ -198,7 +219,7 @@ function audienceFor(kind: NotificationKind, context: EligibilityContext): reado
     }
 
     case 'organiser': {
-      const organiser = plan.organiserUserId;
+      const organiser = plan.organiserUserId ?? ownerFallback(kind, plan, context);
       return organiser === undefined || !ids.includes(organiser) ? [] : [organiser];
     }
 

@@ -1,6 +1,7 @@
 import {
   type NotificationKind,
   type PlanState,
+  QUIET_SENSITIVE_KINDS,
   instant,
   isTerminal,
   notificationSpec,
@@ -78,6 +79,8 @@ export type DueJob = {
   readonly circle_archived: boolean;
   /** Whether the contact's owner has turned "Emails about plans you organise" off, **now**. */
   readonly organiser_email_muted: boolean;
+  /** Whether the contact's owner has muted quiet asks (or everything) in the plan's circle, **now**. */
+  readonly quiet_asks_muted?: boolean;
   readonly superseded: boolean;
 };
 
@@ -90,6 +93,8 @@ export type SendResult = { sent: number; skipped: number; failed: number; retrie
  */
 function planIsPast(job: DueJob): boolean {
   if (job.kind === 'cancelled') return false;
+  // "Not enough people were free this time" is *about* the ask having expired.
+  if (job.kind === 'quiet_expired') return false;
   // `isTerminal` is the domain's, over `TERMINAL_STATES`. Spelling the three
   // states out here is the shape that goes stale the day a fourth is added.
   return job.plan_state !== null && isTerminal(job.plan_state as PlanState);
@@ -279,6 +284,19 @@ export async function send(
     if (organiserEmailStopped(job.kind as NotificationKind, job.organiser_email_muted)) {
       await finish('skipped', 'organiser_email_off');
       continue;
+    }
+    // The initiator's two letters (ADR 0038), read again now: a letter held by
+    // quiet hours overnight must not reach somebody who has since muted quiet
+    // asks, or left the circle (SUS-50 review round 2).
+    if (QUIET_SENSITIVE_KINDS.includes(job.kind as NotificationKind)) {
+      if (!job.member_active) {
+        await finish('skipped', 'not_a_member');
+        continue;
+      }
+      if (job.quiet_asks_muted === true) {
+        await finish('skipped', 'quiet_asks_muted');
+        continue;
+      }
     }
     if (planIsPast(job)) {
       await finish('skipped', 'plan_finished');

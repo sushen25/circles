@@ -123,7 +123,15 @@ export type OptionsReadyInput = ToOrganiser & {
   readonly availableCount: number;
 };
 
-export type RepliesClosedInput = ToOrganiser & { readonly kind: 'replies_closed' };
+export type RepliesClosedInput = ToOrganiser & {
+  readonly kind: 'replies_closed';
+  /**
+   * To the circle's owner rather than an organiser: a quiet plan nobody took
+   * on, and the owner's fallback (spec §5.4.5). A different letter — they are
+   * not organising anything yet.
+   */
+  readonly toOwner?: boolean | undefined;
+};
 
 export type DidItHappenInput = ToOrganiser & {
   readonly kind: 'did_it_happen';
@@ -139,6 +147,22 @@ export type AboutTimeInput = Base & {
   readonly weeksSince: number;
 };
 
+/**
+ * The quiet ask's initiator, at their own address (ADR 0038): enough people are
+ * keen, and the role is theirs to take or hand on. A plan link and nothing
+ * else — no count, no names.
+ */
+export type ThresholdInitiatorInput = ToOrganiser & { readonly kind: 'threshold_initiator' };
+
+/**
+ * The quiet ask's initiator, told their ask closed without opening (spec
+ * §5.4.7, SparkExpired). To circle home, since the plan it asked about is over.
+ */
+export type QuietExpiredInput = Base & {
+  readonly kind: 'quiet_expired';
+  readonly circleId: string;
+};
+
 export type EmailInput =
   | VerifyEmailInput
   | LockedInInput
@@ -149,7 +173,9 @@ export type EmailInput =
   | OptionsReadyInput
   | RepliesClosedInput
   | DidItHappenInput
-  | AboutTimeInput;
+  | AboutTimeInput
+  | ThresholdInitiatorInput
+  | QuietExpiredInput;
 
 /** The kinds that can be emailed. The other five are push-only (`kinds.ts`). */
 export type EmailKind = EmailInput['kind'];
@@ -166,7 +192,18 @@ export const EMAIL_KINDS = [
   'replies_closed',
   'did_it_happen',
   'about_time',
+  'threshold_initiator',
+  'quiet_expired',
 ] as const satisfies readonly NotificationKind[];
+
+/**
+ * The two letters about a quiet ask, both to its initiator alone (ADR 0038).
+ * Neither names anybody, carries a count, or goes to anyone else.
+ */
+export const QUIET_KINDS = [
+  'threshold_initiator',
+  'quiet_expired',
+] as const satisfies readonly EmailKind[];
 
 /** The plan-update kinds, which carry the two footer links and a re-entry link. */
 export const SUBSCRIBER_KINDS = [

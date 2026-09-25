@@ -629,6 +629,7 @@ export type Database = {
           mode: string
           organiser_user_id: string | null
           quiet_expires_at: string | null
+          quiet_preset: string | null
           quiet_threshold: number | null
           quorum: number
           quorum_source: string
@@ -656,6 +657,7 @@ export type Database = {
           mode: string
           organiser_user_id?: string | null
           quiet_expires_at?: string | null
+          quiet_preset?: string | null
           quiet_threshold?: number | null
           quorum: number
           quorum_source?: string
@@ -683,6 +685,7 @@ export type Database = {
           mode?: string
           organiser_user_id?: string | null
           quiet_expires_at?: string | null
+          quiet_preset?: string | null
           quiet_threshold?: number | null
           quorum?: number
           quorum_source?: string
@@ -823,6 +826,43 @@ export type Database = {
       }
     }
     Functions: {
+      accept_organiser: {
+        Args: { p_plan_id: string }
+        Returns: {
+          cancel_note: string | null
+          category: string
+          circle_id: string
+          created_at: string
+          daily_end_local: number
+          daily_start_local: number
+          duration_minutes: number
+          id: string
+          input_version: number
+          mode: string
+          organiser_user_id: string | null
+          quiet_expires_at: string | null
+          quiet_preset: string | null
+          quiet_threshold: number | null
+          quorum: number
+          quorum_source: string
+          response_deadline: string
+          revision: number
+          scoring_version: number
+          short_code: string
+          state: string
+          time_zone: string
+          title: string
+          updated_at: string
+          window_end: string
+          window_start: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "plans"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       auth_is_member: { Args: { circle_id: string }; Returns: boolean }
       auth_is_owner: { Args: { circle_id: string }; Returns: boolean }
       auth_is_permanent: { Args: never; Returns: boolean }
@@ -854,6 +894,7 @@ export type Database = {
           mode: string
           organiser_user_id: string | null
           quiet_expires_at: string | null
+          quiet_preset: string | null
           quiet_threshold: number | null
           quorum: number
           quorum_source: string
@@ -999,6 +1040,56 @@ export type Database = {
           mode: string
           organiser_user_id: string | null
           quiet_expires_at: string | null
+          quiet_preset: string | null
+          quiet_threshold: number | null
+          quorum: number
+          quorum_source: string
+          response_deadline: string
+          revision: number
+          scoring_version: number
+          short_code: string
+          state: string
+          time_zone: string
+          title: string
+          updated_at: string
+          window_end: string
+          window_start: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "plans"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      create_quiet_ask: {
+        Args: {
+          p_actor: string
+          p_category: string
+          p_circle_id: string
+          p_daily_end_local: number
+          p_daily_start_local: number
+          p_duration_minutes: number
+          p_preset: string
+          p_quiet_expires_at: string
+          p_title: string
+          p_window_end: string
+          p_window_start: string
+        }
+        Returns: {
+          cancel_note: string | null
+          category: string
+          circle_id: string
+          created_at: string
+          daily_end_local: number
+          daily_start_local: number
+          duration_minutes: number
+          id: string
+          input_version: number
+          mode: string
+          organiser_user_id: string | null
+          quiet_expires_at: string | null
+          quiet_preset: string | null
           quiet_threshold: number | null
           quorum: number
           quorum_source: string
@@ -1047,6 +1138,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      dispatch_open_quiet_ask: {
+        Args: { p_deadline: string; p_plan_id: string }
+        Returns: boolean
+      }
       dispatch_organiser_contact: {
         Args: { p_user_id: string }
         Returns: string
@@ -1061,6 +1156,10 @@ export type Database = {
           p_user_id: string
         }
         Returns: number
+      }
+      dispatch_quiet_audience: {
+        Args: { p_kind: string; p_plan_id: string }
+        Returns: Json
       }
       dispatch_timed_work: { Args: { p_limit?: number }; Returns: Json }
       email_preferences: {
@@ -1166,6 +1265,10 @@ export type Database = {
         Args: { p_code: string; p_kind: string }
         Returns: string
       }
+      quiet_viewer_facts: {
+        Args: { p_plan_id: string; p_user_id: string }
+        Returns: Json
+      }
       reask_audience: {
         Args: { p_plan_id: string }
         Returns: {
@@ -1216,6 +1319,15 @@ export type Database = {
         Returns: Json
       }
       record_events: { Args: { p_rows: Json }; Returns: number }
+      record_interest: {
+        Args: {
+          p_actor: string
+          p_deadline_if_opened: string
+          p_interested: boolean
+          p_plan_id: string
+        }
+        Returns: Json
+      }
       redeem_invite: {
         Args: { p_display_name: string; p_secret_hash: string }
         Returns: {

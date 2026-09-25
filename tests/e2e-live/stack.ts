@@ -293,7 +293,7 @@ export function planStopsAsking(
     select set_config('circles.in_transition', 'on', true);
     update public.plans
     set mode = 'quiet', state = 'seeking', organiser_user_id = null, quiet_threshold = 2,
-        quiet_expires_at = now() + interval '2 days'
+        quiet_expires_at = now() + interval '2 days', quiet_preset = 'next_7_days'
     where id = '${scenario.planId}';
     commit;
   `);

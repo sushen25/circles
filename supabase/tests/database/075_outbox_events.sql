@@ -193,11 +193,13 @@ select is(planning.event_for('ready', 'confirm'), 'confirmation.meetup_confirmed
 insert into public.plans (
   circle_id, mode, state, organiser_user_id, title, time_zone,
   window_start, window_end, daily_start_local, daily_end_local,
-  duration_minutes, quorum, response_deadline, short_code, quiet_threshold
+  duration_minutes, quorum, response_deadline, short_code, quiet_threshold,
+  quiet_expires_at, quiet_preset
 )
 select circle_id, 'quiet', 'draft', null,
   'Catch up', 'Australia/Melbourne', date '2099-09-17', date '2099-09-20',
-  1050, 1350, 120, 2, timestamptz '2099-09-18T10:00:00Z', 'pnevqq', 2
+  1050, 1350, 120, 2, timestamptz '2099-09-18T10:00:00Z', 'pnevqq', 2,
+  timestamptz '2099-09-18T10:00:00Z', 'this_weekend'
 from t;
 select id as quiet from public.plans where short_code = 'pnevqq' \gset
 insert into private.plan_initiators (plan_id, initiator_user_id) values (:'quiet', '00000000-0000-0000-0000-0000000005a2');

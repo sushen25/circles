@@ -7,7 +7,9 @@ import type { RepliesClosedInput } from '../types.ts';
 import { Layout } from './Layout.tsx';
 
 export function repliesClosedCopy(input: RepliesClosedInput): EmailCopy {
-  return EN_EMAIL.repliesClosed({ circleName: input.circleName });
+  return input.toOwner === true
+    ? EN_EMAIL.repliesClosedOwner({ circleName: input.circleName })
+    : EN_EMAIL.repliesClosed({ circleName: input.circleName });
 }
 
 /**
@@ -24,7 +26,13 @@ export function RepliesClosed({ input }: { input: RepliesClosedInput }): ReactNo
     <Layout
       copy={repliesClosedCopy(input)}
       buttonUrl={planLink(input.origin, input.planCode)}
-      footer={{ kind: 'reason', sentence: EN_EMAIL.footer.repliesClosed(input.circleName) }}
+      footer={{
+        kind: 'reason',
+        sentence:
+          input.toOwner === true
+            ? EN_EMAIL.footer.owner(input.circleName)
+            : EN_EMAIL.footer.repliesClosed(input.circleName),
+      }}
     />
   );
 }

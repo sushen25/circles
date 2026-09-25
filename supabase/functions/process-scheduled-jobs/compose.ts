@@ -130,8 +130,26 @@ export async function inputFor(
         availableCount: best.availableCount,
       };
     }
-    case 'replies_closed':
-      return { kind: 'replies_closed', ...toOrganiser };
+    case 'replies_closed': {
+      // Which letter is decided by who it is *for*, not by the plan now: the
+      // recipient was fixed when the job was written, and the organiser can
+      // change while quiet hours hold it (review round 4). The organiser gets
+      // theirs; the owner gets the fallback (spec §5.4.5) only while nobody
+      // organises; anybody else — an organiser since removed, an owner since
+      // superseded — gets nothing.
+      if (context.organiserUserId !== undefined) {
+        return job.user_id === context.organiserUserId
+          ? { kind: 'replies_closed', ...toOrganiser }
+          : { skip: 'not_the_organiser' };
+      }
+      if (
+        context.eligibility.plan?.mode === 'quiet' &&
+        job.user_id === context.eligibility.circle.ownerUserId
+      ) {
+        return { kind: 'replies_closed', ...toOrganiser, toOwner: true };
+      }
+      return { skip: 'not_the_organiser' };
+    }
     case 'did_it_happen': {
       const confirmation = context.confirmation ?? context.supersededConfirmation;
       if (confirmation === null) return { skip: 'no_confirmation' };
@@ -142,6 +160,21 @@ export async function inputFor(
         zone: context.planZone,
       };
     }
+    // The quiet ask's initiator, at their own address (ADR 0038). The job was
+    // addressed from `dispatch_quiet_audience`; nothing here reads who asked.
+    // An ask somebody has already taken on, or that has closed, no longer
+    // needs its initiator to pick the time.
+    case 'threshold_initiator':
+      if (context.organiserUserId !== undefined) return { skip: 'organiser_taken' };
+      return { kind: 'threshold_initiator', ...toOrganiser };
+    case 'quiet_expired':
+      if (job.circle_id === null) return { skip: 'plan_gone' };
+      return {
+        kind: 'quiet_expired',
+        origin: toOrganiser.origin,
+        circleName: toOrganiser.circleName,
+        circleId: job.circle_id,
+      };
     default:
       break;
   }

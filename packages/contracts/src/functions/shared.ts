@@ -80,7 +80,10 @@ export const ProblemReason = z.enum([
 
   /** `create-circle`, `create-plan`: creating needs a saved place (ADR 0004). The InitiateGate. */
   'requires_saved_place',
-  /** `create-plan`: quiet asks land in S2-02. Not a refusal of this person, of this feature. */
+  /**
+   * A feature that has not landed: not a refusal of this person. Unused since
+   * S2-02 made quiet asks real; kept for the next one.
+   */
   'not_yet',
   /**
    * `create-circle`, `get-invite-link`, `rotate-invite`, `remove-member`:
@@ -245,6 +248,37 @@ export const ProblemReason = z.enum([
    * not a participant and cannot answer — requiring them would strand the plan.
    */
   'not_a_participant',
+
+  // S2-02, the quiet ask. Each is shown without a message of the server's
+  // (the client renders its own copy), and none may be recorded against the
+  // caller in a log or an analytics event: "refused for already asking" is the
+  // initiator's identity with extra steps (SUS-49).
+
+  /** `create-plan` (quiet): this member already has an ask open in this circle. */
+  'already_asking',
+  /** `create-plan` (quiet): three asks in this circle in seven days (spec §5.4). */
+  'circle_ask_limit',
+  /** `create-plan` (quiet): a circle of one has nobody to ask (ADR 0035). */
+  'nobody_to_ask',
+  /** `create-plan` (quiet): this member has muted quiet asks in this circle. */
+  'quiet_asks_muted',
+  /**
+   * `create-plan` (quiet): the stop time picked is not one this window offers
+   * now — it has passed, or it is not before the last possible start.
+   */
+  'stop_time_unavailable',
+  /** `answer-interest`: the ask has opened, closed, or reached its stop time. */
+  'interest_closed',
+  /** `answer-interest`: the initiator counts as keen and stays so; they withdraw instead. */
+  'initiator_is_keen',
+  /** `answer-interest`, `accept-organiser`: a named plan has no quiet ask. */
+  'not_quiet',
+  /** `accept-organiser`: only a keen member (the initiator included) or, later, the owner. */
+  'not_keen',
+  /** `accept-organiser`: the owner who was not keen may take the role once replies close. */
+  'deadline_not_passed',
+  /** `accept-organiser`: somebody accepted first. */
+  'already_taken',
 ]);
 export type ProblemReason = z.infer<typeof ProblemReason>;
 

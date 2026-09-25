@@ -60,11 +60,13 @@ function required(value: string | undefined, kind: NotificationKind, what: strin
 export function occurrenceFor(kind: NotificationKind, input: OccurrenceInput = {}): string {
   switch (kind) {
     // One per plan revision. A second `new_plan` for the same revision is a
-    // retry, and the index should swallow it.
+    // retry, and the index should swallow it. (A quiet ask expires once, and its
+    // plan never asks again.)
     case 'new_plan':
     case 'quiet_ask':
     case 'threshold_initiator':
     case 'threshold_keen':
+    case 'quiet_expired':
     case 'options_ready':
     case 'replies_closed':
     case 'cancelled':

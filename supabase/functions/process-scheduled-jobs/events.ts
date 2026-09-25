@@ -81,6 +81,11 @@ export const ANNOUNCED: ReadonlySet<string> = new Set([
   'confirmation.meetup_confirmed',
   'confirmation.meetup_rescheduled',
   'confirmation.meetup_cancelled',
+  // The quiet ask (S2-02). `plan_expired` speaks only for an ask that never
+  // opened; for every other plan `intentsFor` returns nothing.
+  'planning.quiet_ask_created',
+  'planning.threshold_reached',
+  'planning.plan_expired',
 ]);
 
 /** Nine the next morning, where the reader is: the domain's rule, per recipient. */
@@ -162,6 +167,34 @@ export function intentsFor(
           actorId: context.organiserUserId,
         },
       ];
+
+    // The quiet ask (S2-02). Who each is for — everybody but the initiator,
+    // the initiator, the keen members — is `recipientsFor`'s, from facts the
+    // drain reads for these kinds alone (`quiet.ts`). Nothing here names
+    // anybody, and no actor is carried: on a quiet ask the actor of the
+    // creation is the initiator.
+    // Not about an ask that has stopped asking by the time the drain reads it:
+    // withdrawn in the first minute is "closed privately, nobody told" (§9).
+    case 'planning.quiet_ask_created':
+      return context.planState === 'seeking'
+        ? [{ kind: 'quiet_ask', occurrence: ONCE, desiredAt: now }]
+        : [];
+
+    case 'planning.threshold_reached':
+      return [
+        { kind: 'threshold_initiator', occurrence: ONCE, desiredAt: now },
+        { kind: 'threshold_keen', occurrence: ONCE, desiredAt: now },
+      ];
+
+    // "Not enough people were free this time" — only for an ask that expired
+    // *from seeking*, which is the event's own `from_state`. A quiet plan that
+    // opened and later ran past its last start expired too, and closing
+    // "quietly" is not what happened to it (SUS-49 note 11). A withdrawn ask
+    // emits nothing at all (`event_for`).
+    case 'planning.plan_expired':
+      return event.payload['mode'] === 'quiet' && event.payload['from_state'] === 'seeking'
+        ? [{ kind: 'quiet_expired', occurrence: ONCE, desiredAt: now }]
+        : [];
 
     default:
       return [];
