@@ -1,4 +1,4 @@
-import { expect, test, type Page } from './fixtures';
+import { expect, isHydrationError, test, type Page } from './fixtures';
 import { accountToSignInTo, latestCodeFor, memberNamed, sundayCrew } from './stack';
 
 /**
@@ -105,4 +105,31 @@ test('an email typed the moment the field appears is the address the code goes t
 
   await expect(page.getByText("That doesn't look like an email address")).toHaveCount(0);
   expect(await latestCodeFor(email)).toMatch(/^\d{6}$/);
+});
+
+test('the guard knows every way React reports a failed hydration', () => {
+  test.skip(test.info().project.name !== 'android-chrome', 'no browser involved');
+  // As a production build throws them, and as a development build words them.
+  for (const code of [418, 419, 421, 422, 423, 424, 425]) {
+    expect(
+      isHydrationError(
+        `Error: Minified React error #${code}; visit https://react.dev/errors/${code}`,
+      ),
+      `#${code}`,
+    ).toBe(true);
+  }
+  expect(
+    isHydrationError(
+      'Error: This root received an early update, before anything was able hydrate. Switched the entire root to client rendering.',
+    ),
+  ).toBe(true);
+  expect(
+    isHydrationError(
+      "Error: Hydration failed because the server rendered text didn't match the client.",
+    ),
+  ).toBe(true);
+  // Not every page error is one: a React error about something else is not.
+  expect(
+    isHydrationError('Error: Minified React error #185; visit https://react.dev/errors/185'),
+  ).toBe(false);
 });

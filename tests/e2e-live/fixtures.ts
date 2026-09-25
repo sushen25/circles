@@ -93,12 +93,18 @@ async function learnSecretFrom(response: Response): Promise<void> {
 
 /**
  * React's hydration failures, minified and not. #418 is "the server rendered
- * HTML that did not match the client"; #422 and #423 are React giving up on a
- * boundary or the whole root and rendering it again on the client; #419, #421
- * and #425 are the rest of the family.
+ * HTML that did not match the client"; #422, #423 and #424 are React giving up
+ * on a boundary or the whole root and rendering it again on the client (#424
+ * when the root was updated before it could hydrate); #419, #421 and #425 are
+ * the rest of the family. A development build spells them out, and every one
+ * of those messages says "hydrat…".
  */
-const HYDRATION =
-  /Minified React error #(418|419|421|422|423|425)\b|Hydration failed|hydrat(ing|ion) (error|mismatch)/i;
+const HYDRATION = /Minified React error #(418|419|421|422|423|424|425)\b|hydrat/i;
+
+/** Whether a page error is React failing to hydrate. Exported for its own test. */
+export function isHydrationError(message: string): boolean {
+  return HYDRATION.test(message);
+}
 
 type HydrationError = { url: string; message: string };
 
@@ -106,7 +112,7 @@ type HydrationError = { url: string; message: string };
 function watchHydration(page: Page, errors: HydrationError[]): void {
   page.on('pageerror', (error) => {
     const message = `${error.name}: ${error.message}`;
-    if (HYDRATION.test(message)) errors.push({ url: page.url(), message });
+    if (isHydrationError(message)) errors.push({ url: page.url(), message });
   });
 }
 
