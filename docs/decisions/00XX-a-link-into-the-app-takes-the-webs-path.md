@@ -63,6 +63,9 @@ iOS development build does not compile under Xcode 26.2 (SUS-92's step 0).
   app is never reloaded the way a tab is.
 - The iOS half of the fragment claim is unverified until an iOS development
   build runs (EAS `development-simulator`, or a fixed Xcode toolchain).
+- The app tier is recorded by `mark-app-installed` through
+  `public.mark_app_installed()`, the column's only writer, which adds
+  `growth.app_first_open_linked` to §6.3's events (migration 0029).
 - Until S3-01b fills `TEAMID` and `SHA256_FINGERPRINT`, neither platform
   verifies the claim: links open the browser unless sent to the app by name
   (`adb shell am start -p app.circles.development`).
