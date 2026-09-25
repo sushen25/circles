@@ -142,12 +142,14 @@ test('"Keep your place for good?" follows a Continue-as from the list, once, and
   const again = await browser.newContext();
   const second = await again.newPage();
   await second.goto(`/p/${crew.planCode}`);
+  // Armed before the tap: the answer can arrive before a wait set up after it.
+  const answered = second.waitForResponse((response) =>
+    new URL(response.url()).pathname.endsWith('/functions/v1/record-nudge'),
+  );
   await second.getByRole('button', { name: 'Continue as Tom' }).click();
   await expect(second.getByText('Welcome back. Which one is you?')).toHaveCount(0);
   // Once `record-nudge` has answered, not merely before it has.
-  await second.waitForResponse((response) =>
-    new URL(response.url()).pathname.endsWith('/functions/v1/record-nudge'),
-  );
+  await answered;
   await expectNoPrompt(second);
   await again.close();
 });
