@@ -56,9 +56,15 @@
 -- SUS-52) is excluded for a third reason: it belongs to a circle and has no
 -- plan at all, so every one of them matches every other on
 -- `plan_id is not distinct from null` and an address would receive exactly
--- one cadence nudge, ever. The sender holds the same three in
--- `NEVER_COLLAPSED`, because the rule has a half on each side of the wire;
--- they had drifted by one kind when review round 4 looked.
+-- one cadence nudge, ever. `replies_closed` (S2-05) is excluded because its
+-- occurrence is the deadline and not the revision: "give it one more day" is
+-- an `adjust`, so the second closure shares the first one's revision and
+-- address, and deduping it here dropped exactly the letter its occurrence was
+-- changed to let through — as it would the reminder a day later. It goes to
+-- one organiser's one contact, so there is no sibling to collapse. The sender
+-- holds the same four in `NEVER_COLLAPSED`, because the rule has a half on
+-- each side of the wire; they had drifted by one kind when review round 4
+-- looked.
 --
 -- Push is not claimed here. Slice 1 writes no push job — a kind whose only
 -- channel is push finds no device and produces no recipient — and Slice 3
@@ -120,7 +126,7 @@ as $$
     'organiser_email_muted', coalesce((
       select pr.muted_organiser_email from public.profiles pr where pr.user_id = c.user_id
     ), false),
-    'superseded', j.kind not in ('changed', 'verify_email', 'about_time') and exists (
+    'superseded', j.kind not in ('changed', 'verify_email', 'about_time', 'replies_closed') and exists (
       select 1
       from jobs.notification_jobs o
       join private.email_contacts oc on oc.id = o.contact_id

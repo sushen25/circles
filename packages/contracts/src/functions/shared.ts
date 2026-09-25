@@ -148,6 +148,20 @@ export const ProblemReason = z.enum([
    * candidate set — over a form resubmitted unedited.
    */
   'nothing_to_change',
+
+  // S2-05. Replies closed with no decision: handing it over, one more day.
+
+  /** `hand-off-organiser`: the plan is the caller's already. */
+  'already_the_organiser',
+  /** `extend-deadline`: this revision's one extra day has been given (spec §5.7). */
+  'already_extended',
+  /**
+   * `extend-deadline`: the deadline is already at the latest an extension may
+   * reach — thirty minutes before the last possible start — so there is no
+   * day to give (ADR 0010 lets a deadline sit at the last start itself).
+   */
+  'no_time_to_extend',
+
   // S1-18. Asking for email, and stopping it.
 
   /**

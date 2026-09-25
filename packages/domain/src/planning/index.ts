@@ -9,3 +9,5 @@ export * from './quiet-threshold.js';
 export * from './quiet-lifecycle.js';
 export * from './quiet-view.js';
 export * from './another.js';
+export * from './extension.js';
+export * from './hand-off.js';

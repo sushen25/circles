@@ -623,6 +623,7 @@ export type Database = {
           created_at: string
           daily_end_local: number
           daily_start_local: number
+          deadline_extended_on_revision: number | null
           duration_minutes: number
           id: string
           input_version: number
@@ -651,6 +652,7 @@ export type Database = {
           created_at?: string
           daily_end_local: number
           daily_start_local: number
+          deadline_extended_on_revision?: number | null
           duration_minutes: number
           id?: string
           input_version?: number
@@ -679,6 +681,7 @@ export type Database = {
           created_at?: string
           daily_end_local?: number
           daily_start_local?: number
+          deadline_extended_on_revision?: number | null
           duration_minutes?: number
           id?: string
           input_version?: number
@@ -888,6 +891,7 @@ export type Database = {
           created_at: string
           daily_end_local: number
           daily_start_local: number
+          deadline_extended_on_revision: number | null
           duration_minutes: number
           id: string
           input_version: number
@@ -1034,6 +1038,7 @@ export type Database = {
           created_at: string
           daily_end_local: number
           daily_start_local: number
+          deadline_extended_on_revision: number | null
           duration_minutes: number
           id: string
           input_version: number
@@ -1167,6 +1172,43 @@ export type Database = {
         Returns: Json
       }
       engine_input: { Args: { p_plan_id: string }; Returns: Json }
+      extend_deadline: {
+        Args: { p_plan_id: string }
+        Returns: {
+          cancel_note: string | null
+          category: string
+          circle_id: string
+          created_at: string
+          daily_end_local: number
+          daily_start_local: number
+          deadline_extended_on_revision: number | null
+          duration_minutes: number
+          id: string
+          input_version: number
+          mode: string
+          organiser_user_id: string | null
+          quiet_expires_at: string | null
+          quiet_threshold: number | null
+          quorum: number
+          quorum_source: string
+          response_deadline: string
+          revision: number
+          scoring_version: number
+          short_code: string
+          state: string
+          time_zone: string
+          title: string
+          updated_at: string
+          window_end: string
+          window_start: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "plans"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       finish_request: {
         Args: {
           p_body: Json
@@ -1185,6 +1227,51 @@ export type Database = {
           display_name: string
           member_user_id: string
         }[]
+      }
+      hand_off_candidates: {
+        Args: { p_plan_id: string }
+        Returns: {
+          display_name: string
+          has_saved_place: boolean
+          member_user_id: string
+        }[]
+      }
+      hand_off_organiser: {
+        Args: { p_plan_id: string; p_to_user_id: string }
+        Returns: {
+          cancel_note: string | null
+          category: string
+          circle_id: string
+          created_at: string
+          daily_end_local: number
+          daily_start_local: number
+          deadline_extended_on_revision: number | null
+          duration_minutes: number
+          id: string
+          input_version: number
+          mode: string
+          organiser_user_id: string | null
+          quiet_expires_at: string | null
+          quiet_threshold: number | null
+          quorum: number
+          quorum_source: string
+          response_deadline: string
+          revision: number
+          scoring_version: number
+          short_code: string
+          state: string
+          time_zone: string
+          title: string
+          updated_at: string
+          window_end: string
+          window_start: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "plans"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       invite_preview: {
         Args: { p_secret_hash: string }

@@ -6,7 +6,13 @@ import { localDate } from '../shared/local-date.js';
 import { NOTIFICATION_KINDS, type NotificationKind } from './kinds.js';
 import { fromISO, toISO } from '../shared/instant.js';
 import { zone } from '../shared/zone.js';
-import { ONCE, deadlineReminderAt, deadlineReminderDue, occurrenceFor } from './occurrence.js';
+import {
+  FOLLOW_UP,
+  ONCE,
+  deadlineReminderAt,
+  deadlineReminderDue,
+  occurrenceFor,
+} from './occurrence.js';
 
 const A_CONFIRMATION = confirmationId('confirmation-1');
 const A_DUE_DATE = localDate('2026-10-08');
@@ -20,11 +26,26 @@ describe('occurrenceFor', () => {
       'threshold_keen',
       'deadline_approaching',
       'options_ready',
-      'replies_closed',
       'cancelled',
     ] as const) {
       expect(occurrenceFor(kind)).toBe(ONCE);
     }
+  });
+
+  it('gives each deadline its own replies-closed letter, and one follow-up each', () => {
+    // "Give it one more day" is an `adjust`: the revision stays put, so an
+    // occurrence of `ONCE` made the extended deadline's closure a duplicate of
+    // the first and nobody was told (SUS-36 review round 5).
+    const first = fromISO('2026-09-15T08:00:00.000Z');
+    const extended = fromISO('2026-09-16T08:00:00.000Z');
+    const closed = occurrenceFor('replies_closed', { deadline: first });
+    const again = occurrenceFor('replies_closed', { deadline: extended });
+    const followUp = occurrenceFor('replies_closed', { deadline: first, followUp: true });
+    expect(new Set([closed, again, followUp, ONCE]).size).toBe(4);
+    expect(followUp.endsWith(FOLLOW_UP)).toBe(true);
+    // Stable: the same deadline is the same letter, so a retry is swallowed.
+    expect(occurrenceFor('replies_closed', { deadline: first })).toBe(closed);
+    expect(() => occurrenceFor('replies_closed')).toThrow(RangeError);
   });
 
   it('gives each material change its own occurrence, not one per revision', () => {
@@ -110,6 +131,7 @@ describe('occurrenceFor', () => {
       verificationId: 'v1',
       changeId: 'event-1',
       circleId: circleId('circle-1'),
+      deadline: fromISO('2026-09-15T08:00:00.000Z'),
     };
     for (const spec of NOTIFICATION_KINDS) {
       expect(occurrenceFor(spec.kind as NotificationKind, input).length).toBeGreaterThan(0);

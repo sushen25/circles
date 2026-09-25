@@ -156,6 +156,30 @@ begin
         ) then
           raise exception 'plan_in_progress' using errcode = 'P0001';
         end if;
+      when 'hand_off_target' then
+        -- "Hand this to someone else" (spec §5.7, §9), the receiving half; the
+        -- giving half is the `organiser` guard before it. The same three
+        -- refusals as `handOffRefusal` in the domain, in the same order: the
+        -- plan is theirs already, they are not in the circle, or they have no
+        -- saved place — "organiser roles belong to saved-place identities
+        -- only" (spec §8.2), which is the invariant this guard exists to hold.
+        if (p_payload ->> 'organiser_user_id')::uuid is not distinct from plan.organiser_user_id then
+          raise exception 'already_the_organiser' using errcode = 'P0001';
+        end if;
+        if not exists (
+          select 1 from public.circle_members m
+          where m.circle_id = plan.circle_id
+            and m.user_id = (p_payload ->> 'organiser_user_id')::uuid
+            and m.status = 'active'
+        ) then
+          raise exception 'not_a_member' using errcode = 'P0001';
+        end if;
+        if not coalesce((
+          select p.is_permanent from public.profiles p
+          where p.user_id = (p_payload ->> 'organiser_user_id')::uuid
+        ), false) then
+          raise exception 'requires_saved_place' using errcode = 'P0001';
+        end if;
       when 'candidate' then
         -- Eligibility, not presence. This is the line 0003 could not write.
         if not planning.candidate_is_eligible(plan, p_payload ->> 'candidate_id') then
@@ -193,6 +217,8 @@ begin
     end,
     organiser_user_id = case
       when p_action = 'accept_organiser' then p_actor
+      -- The person the guard above has just approved, never the actor.
+      when p_action = 'hand_off' then (p_payload ->> 'organiser_user_id')::uuid
       else p.organiser_user_id
     end,
     window_start = coalesce((p_payload ->> 'window_start')::date, p.window_start),

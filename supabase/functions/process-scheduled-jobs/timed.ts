@@ -31,6 +31,8 @@ import { type HeldAsk, openHeldAsks } from './quiet-held.ts';
 
 export type TimedResult = {
   deadlinesClosed: number;
+  /** Plans still `ready` a day after replies closed, reminded once more (S2-05). */
+  deadlinesFollowedUp: number;
   expired: number;
   expireRefused: number;
   recalculated: number;
@@ -46,6 +48,7 @@ export type TimedResult = {
 
 type TimedWorkRow = {
   deadline_passed: number;
+  followed_up?: number;
   expired: number;
   expire_refused: number;
   stale: string[];
@@ -70,6 +73,7 @@ export async function timedWork(
 
   const result: TimedResult = {
     deadlinesClosed: row.deadline_passed,
+    deadlinesFollowedUp: row.followed_up ?? 0,
     expired: row.expired,
     expireRefused: row.expire_refused,
     recalculated: 0,

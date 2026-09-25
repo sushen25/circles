@@ -2,6 +2,8 @@ import { MAX_WINDOW_DAYS } from '@circles/domain';
 import { describe, expect, it } from 'vitest';
 
 import { ClaimIdentityRequest } from './claim-identity.js';
+import { ExtendDeadlineRequest } from './extend-deadline.js';
+import { HandOffOrganiserRequest } from './hand-off-organiser.js';
 import { JoinPlanRequest } from './join-plan.js';
 import { ReattachMemberRequest } from './reattach-member.js';
 import { RedeemInviteRequest } from './redeem-invite.js';
@@ -187,5 +189,33 @@ describe('SubmitAvailabilityRequest', () => {
   it('still refuses a payload past what any plan could paint', () => {
     const tooMany = Array.from({ length: MAX_WINDOW_DAYS * 25 + 1 }, () => largest[0]);
     expect(SubmitAvailabilityRequest.safeParse({ ...body, windows: tooMany }).success).toBe(false);
+  });
+});
+
+describe('ExtendDeadlineRequest', () => {
+  const body = { idempotency_key: KEY, plan_id: '00000000-0000-4000-8000-0000000000b1' };
+
+  it('asks for one day, and says so when the caller did not', () => {
+    expect(ExtendDeadlineRequest.parse(body).hours).toBe(24);
+    expect(ExtendDeadlineRequest.safeParse({ ...body, hours: 24 }).success).toBe(true);
+  });
+
+  it('refuses any other length: "one more day" is not a slider (spec §5.7)', () => {
+    for (const hours of [0, 12, 48, -24]) {
+      expect(ExtendDeadlineRequest.safeParse({ ...body, hours }).success).toBe(false);
+    }
+  });
+});
+
+describe('HandOffOrganiserRequest', () => {
+  it('needs somebody to hand it to', () => {
+    const body = { idempotency_key: KEY, plan_id: '00000000-0000-4000-8000-0000000000b1' };
+    expect(HandOffOrganiserRequest.safeParse(body).success).toBe(false);
+    expect(
+      HandOffOrganiserRequest.safeParse({
+        ...body,
+        to_user_id: '00000000-0000-4000-8000-0000000000a2',
+      }).success,
+    ).toBe(true);
   });
 });

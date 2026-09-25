@@ -13,6 +13,7 @@ import { EmailSendError, sendEmail } from '../_shared/email/resend.ts';
 import { render } from '../_shared/email/render.tsx';
 import { log } from '../_shared/logging.ts';
 import { type CircleContext, nudgeAtSend } from './cadence.ts';
+import { closingHeld } from './closing.ts';
 import { inputFor } from './compose.ts';
 import { type PlanContext, loadContext } from './context.ts';
 import { classify } from './drain.ts';
@@ -48,7 +49,11 @@ import { classify } from './drain.ts';
  * plan, the owner snoozed, the person turned nudges off or left, or the circle
  * met. `nudgeHeld` is the domain's answer, from the circle as it is now (S2-04).
  *
- * All eight are `skipped`, not `failed`: nothing went wrong.
+ * And a ninth, for the organiser's letters: the plan may have been handed to
+ * somebody else, and a `replies_closed` may have stopped being true — locked
+ * in, or given one more day (`closingHeld`, S2-05).
+ *
+ * All nine are `skipped`, not `failed`: nothing went wrong.
  */
 
 /** 1, 5, 30 minutes, then give up (ticket S1-20 step 4). */
@@ -196,7 +201,14 @@ function copyKey(job: DueJob): string {
  * (`about_time` was in the SQL and not here), which is the shape this comment
  * exists to stop: if the list changes, it changes in both places.
  */
-const NEVER_COLLAPSED: readonly string[] = ['changed', 'verify_email', 'about_time'];
+const NEVER_COLLAPSED: readonly string[] = [
+  'changed',
+  'verify_email',
+  'about_time',
+  // Once per deadline and once more a day later, on one revision (S2-05):
+  // collapsed by revision, the second closure is a copy of the first.
+  'replies_closed',
+];
 
 /** The next attempt for a job that has already failed this often, or null at the end. */
 function backoff(attempts: number): string | null {
@@ -325,6 +337,13 @@ export async function send(
         contexts.set(job.plan_id, await loadContext(service, job.plan_id));
       }
       const context = job.plan_id === null ? null : (contexts.get(job.plan_id) ?? null);
+
+      // Handed over, locked in, or given another day since it was written.
+      const held = closingHeld(job, context, instant(Date.now()));
+      if (held !== undefined) {
+        await finish('skipped', held);
+        continue;
+      }
 
       // The cadence nudge: its circle, read now, and whether it is still owed.
       const nudge = await nudgeAtSend(service, job, circles, instant(Date.now()));

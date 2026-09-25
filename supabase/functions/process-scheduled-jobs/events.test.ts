@@ -26,7 +26,10 @@ const context = {
   circleId: '00000000-0000-4000-8000-0000000000c1',
   circleName: 'Sunday Crew',
   planCode: 'pnsundaycr',
-  planState: 'confirmed',
+  // Undecided, with replies closed at the epoch: the state in which every
+  // event this pipeline speaks for has something to say — a hand-off included,
+  // which says nothing about a plan that is already locked in.
+  planState: 'ready',
   planZone: zone('Australia/Melbourne'),
   revision: 2,
   organiserUserId: '00000000-0000-4000-8000-000000000001',
@@ -47,7 +50,7 @@ const context = {
   bestCandidate: null,
   zoneOf: () => zone('Australia/Melbourne'),
   contactsOf: () => [],
-  eligibility: {} as PlanContext['eligibility'],
+  eligibility: { plan: { responseDeadline: instant(0) } } as unknown as PlanContext['eligibility'],
 } as unknown as PlanContext;
 
 const eventNamed = (name: string): OutboxEvent => ({

@@ -31,6 +31,7 @@ export const DOMAIN_EVENT_NAMES = [
   'planning.interest_recorded',
   'planning.threshold_reached',
   'planning.organiser_accepted',
+  'planning.organiser_changed',
   'planning.deadline_passed',
 
   'availability.response_submitted',

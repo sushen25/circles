@@ -266,6 +266,8 @@ The client imports the same `packages/domain` the server uses, so the app can sh
 │   │   ├── confirm-meetup/
 │   │   ├── revise-plan/
 │   │   ├── cancel-plan/
+│   │   ├── hand-off-organiser/
+│   │   ├── extend-deadline/
 │   │   ├── report-outcome/
 │   │   ├── request-email-updates/
 │   │   ├── verify-email-contact/
@@ -504,6 +506,8 @@ ready ─(response change)──▶ collecting ─ recalculate ──┘
 | `confirm-meetup` | organiser | Candidate freshness check, one active confirmation, freezes times, enqueues confirmations and reminders |
 | `revise-plan` | organiser | Edits window/duration/band → new revision, invalidating responses and enqueuing a re-ask; **adjusts** quorum, deadline or required members without one ([ADR 0017](decisions/0017-quorum-and-deadline-adjust-a-plan-without-a-revision.md)); `preview` answers what an edit would cost without making it (spec §5.3); reopens a confirmed plan |
 | `cancel-plan` | organiser or owner; a seeking quiet ask's initiator | Final state with optional note; enqueues cancellation notices. Withdrawing a quiet ask before threshold is this endpoint too: no note, no event, nobody told (spec §9) |
+| `hand-off-organiser` | organiser | `hand_off_organiser`: the `hand_off` transition to an active member with a saved place (`requires_saved_place` otherwise), `planning.organiser_changed`, and the old organiser's queued organiser letters skipped in the same transaction (S2-05) |
+| `extend-deadline` | organiser | `extend_deadline`: an `adjust` to a day from the later of now and the deadline, never past the last possible start less thirty minutes, once per revision (`already_extended`, `no_time_to_extend`) (S2-05) |
 | `report-outcome` | organiser (or member for attendance) | Records outcome/attendance; sets `last_met_at` on `happened` |
 | `request-email-updates` | member | Normalise, dedupe per identity, create the contact and record the consent as given ([ADR 0019](decisions/0019-consent-is-recorded-when-it-is-given.md)), enqueue the verification email — whose token is minted by the sender ([ADR 0020](decisions/0020-the-verification-token-is-minted-by-the-sender.md)). Answers identically for a new, verified, shared or suppressed address |
 | `verify-email-contact` | token | Consume the single-use token, verify **every contact holding that address**, drop subscriptions to finished plans and to circles the person has left, send the current state once if a meetup is already locked in |

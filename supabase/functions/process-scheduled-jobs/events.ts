@@ -9,6 +9,7 @@ import {
   occurrenceFor,
 } from '@circles/domain';
 
+import { handedOverIntents, repliesClosedIntent } from './closing.ts';
 import type { PlanContext } from './context.ts';
 
 /**
@@ -77,6 +78,7 @@ export const ANNOUNCED: ReadonlySet<string> = new Set([
   'planning.plan_created',
   'planning.plan_cancelled',
   'planning.deadline_passed',
+  'planning.organiser_changed',
   'scheduling.candidates_generated',
   'confirmation.meetup_confirmed',
   'confirmation.meetup_rescheduled',
@@ -120,8 +122,13 @@ export function intentsFor(
       // key is what makes the organiser's inbox hold one (S1-16).
       return [{ kind: 'options_ready', occurrence: ONCE, desiredAt: now }];
 
+    // Once per deadline, and once more a day later (S2-05, `closing.ts`).
     case 'planning.deadline_passed':
-      return [{ kind: 'replies_closed', occurrence: ONCE, desiredAt: now }];
+      return [repliesClosedIntent(event, context, now)];
+
+    // A hand-off: the new organiser is told what is waiting for them.
+    case 'planning.organiser_changed':
+      return handedOverIntents(context, now);
 
     // Both cancellations, and **with no actor**, which is a decision rather
     // than an omission. A cancel is guarded `organiser_or_owner`, so the
