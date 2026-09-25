@@ -141,4 +141,13 @@ describe('tonight', () => {
       [{ start: '2026-09-15T11:00:00.000Z', end: '2026-09-15T13:30:00.000Z' }],
     );
   });
+
+  it('paints a usual evening only from now on, not the part of it already gone', () => {
+    const { rows, run, start } = setUp(TONIGHT);
+    const filled = run(start, { type: 'usual', parts: ['weekday_evening'] });
+    // Opened at 7:40 pm: from 8 pm, not from 5:30.
+    expect(windowsOf(filled, rows, TONIGHT)).toEqual([
+      { start: '2026-09-15T10:00:00.000Z', end: '2026-09-15T13:30:00.000Z' },
+    ]);
+  });
 });

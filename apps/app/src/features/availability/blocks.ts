@@ -97,12 +97,15 @@ export function usualCells(
 ): boolean[][] {
   return rows.map((row) => {
     const prefix = isWeekend(row.date) ? 'weekend_' : 'weekday_';
+    // Tonight, the part of the evening already gone is not on offer (review
+    // round 1): the usual is clipped to From now, as the chips are.
+    const ahead = timing.tonight === undefined ? undefined : blockMask('from_now', row, timing);
     const cells = row.cells.map(() => false);
     for (const [part, kind] of Object.entries(PART_BLOCK)) {
       if (!parts.includes(`${prefix}${part}` as DayPart)) continue;
       const mask = blockMask(kind, row, timing);
       mask?.forEach((on, i) => {
-        if (on) cells[i] = true;
+        if (on && (timing.tonight === undefined || ahead?.[i] === true)) cells[i] = true;
       });
     }
     return cells;

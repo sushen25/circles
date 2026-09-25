@@ -25,10 +25,11 @@ import { authClient } from '../auth/client';
  * else. Nobody who has not answered is scored by this — it is a start for the
  * reader's own next answer.
  *
- * The earlier plans are the last fifty: a fortnightly circle makes about
- * twenty-six in the twelve months windows are kept for.
+ * Every earlier plan in the circle is asked about, not the most recent few: a
+ * cap on the circle's plans would drop the member's answers behind a run of
+ * plans they did not answer (review round 1). A circle makes a few dozen plans
+ * a year, and only this member's answers to them come back.
  */
-const EARLIER_PLANS = 50;
 
 type ResponseRow = {
   plan_id: string;
@@ -50,9 +51,7 @@ export async function usualTimes(input: {
       .from('plans')
       .select('id, time_zone')
       .eq('circle_id', input.circleId)
-      .neq('id', input.planId)
-      .order('created_at', { ascending: false })
-      .limit(EARLIER_PLANS),
+      .neq('id', input.planId),
     client
       .from('member_dayparts')
       .select('summary')
