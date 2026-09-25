@@ -336,7 +336,7 @@ The signed-in organiser receives options ready, replies closed with no decision,
 
 #### Quiet-ask initiator email (no app)
 
-The initiator of a quiet ask receives two letters about their own ask, at their own confirmed address, until they install the app: **threshold reached** ("Enough people are keen. Do you want to pick the time?") and **closed without opening** ("Not enough people were free this time"). Each goes to the initiator alone, once; neither names anybody or carries a count; neither is sent for a withdrawn ask. Nobody else is ever emailed about a quiet ask before it opens ([ADR 00XX](decisions/00XX-the-quiet-asks-initiator-is-written-to-at-their-own-address.md)).
+The initiator of a quiet ask receives two letters about their own ask, at their own confirmed address, until they install the app: **threshold reached** ("Enough people are keen. Do you want to pick the time?") and **closed without opening** ("Not enough people were free this time"). Each goes to the initiator alone, once; neither names anybody or carries a count; neither is sent for a withdrawn ask. Nobody else is ever emailed about a quiet ask before it opens. Once it has opened, if replies close with nobody in the organiser role, the circle owner's neutral nudge (§5.4) is a replies-closed letter of its own, to their own address ([ADR 00XX](decisions/00XX-the-quiet-asks-initiator-is-written-to-at-their-own-address.md)).
 
 #### Plan-update email (web-only participants)
 

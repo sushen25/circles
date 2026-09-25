@@ -157,6 +157,20 @@ describe('render', () => {
     });
   });
 
+  describe('the owner’s fallback', () => {
+    it('is its own letter: nothing to organise yet, nobody named, no switch', async () => {
+      const email = await render({ ...SUNDAY_CREW.replies_closed, toOwner: true });
+      expect(email.subject).toBe('Sunday Crew: nobody has picked a time yet');
+      expect(email.text).toContain(EN_EMAIL.footer.owner('Sunday Crew'));
+      expect(email.text).not.toMatch(/organising|keen|asked/);
+      for (const name of MEMBER_NAMES) expect(email.text).not.toMatch(new RegExp(`\\b${name}\\b`));
+      await expect(`Subject: ${email.subject}\n\n${email.text}\n`).toMatchFileSnapshot(
+        './__snapshots__/replies_closed_owner.txt',
+      );
+      await expect(email.html).toMatchFileSnapshot('./__snapshots__/replies_closed_owner.html');
+    });
+  });
+
   describe('the verification email', () => {
     it('is the button and nothing else: no footer links, no re-entry, no offers', async () => {
       const email = await render(SUNDAY_CREW.verify_email);

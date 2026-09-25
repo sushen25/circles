@@ -39,7 +39,36 @@ async function call(
     },
     body: JSON.stringify({ idempotency_key: key(), ...body }),
   });
-  return { status: response.status, body: (await response.json()) as Record<string, unknown> };
+  const text = await response.text();
+  let parsed: Record<string, unknown> = {};
+  try {
+    parsed = JSON.parse(text) as Record<string, unknown>;
+  } catch {
+    // The runtime's own answer when it could not start a worker is not ours.
+  }
+  return { status: response.status, body: parsed };
+}
+
+/**
+ * An answer as a client sends it: retried with the same idempotency key when
+ * the stack could not serve it. Fifty requests at once against a local Edge
+ * runtime that is also serving a loaded gate meet "InvalidWorkerCreation:
+ * worker did not respond in time" — the runtime's, before any of our code
+ * ran. A retry is the same request under the same key, so it cannot count
+ * twice, and what is proved is the database's "exactly once", not the local
+ * runtime's capacity.
+ */
+async function answer(
+  who: Person,
+  planId: string,
+): Promise<{ status: number; body: Record<string, unknown> }> {
+  const body = { idempotency_key: key(), plan_id: planId, interested: true };
+  let result = await call('answer-interest', who, body);
+  for (let attempt = 0; attempt < 5 && result.status >= 500; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 200 * (attempt + 1)));
+    result = await call('answer-interest', who, body);
+  }
+  return result;
 }
 
 async function person(name: string): Promise<Person> {
@@ -123,9 +152,7 @@ describe('a quiet ask', () => {
     expect(sql(stack, `select quiet_threshold from public.plans where id = '${planId}'`)).toBe('3');
 
     const answers = await Promise.all(
-      Array.from({ length: 50 }, (_, i) =>
-        call('answer-interest', keen[i % keen.length]!, { plan_id: planId, interested: true }),
-      ),
+      Array.from({ length: 50 }, (_, i) => answer(keen[i % keen.length]!, planId)),
     );
 
     const opened = answers.filter((a) => a.status === 200 && a.body['threshold_reached'] === true);
@@ -133,7 +160,10 @@ describe('a quiet ask', () => {
     // Everything else was an answer before it opened, or a refusal after.
     for (const answer of answers) {
       if (answer.status === 200) expect(Object.keys(answer.body)).toEqual(['threshold_reached']);
-      else expect(answer.body['reason']).toBe('interest_closed');
+      else
+        expect(answer, 'a refusal after it opened').toMatchObject({
+          body: { reason: 'interest_closed' },
+        });
     }
     expect(
       sql(

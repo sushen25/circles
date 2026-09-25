@@ -123,7 +123,15 @@ export type OptionsReadyInput = ToOrganiser & {
   readonly availableCount: number;
 };
 
-export type RepliesClosedInput = ToOrganiser & { readonly kind: 'replies_closed' };
+export type RepliesClosedInput = ToOrganiser & {
+  readonly kind: 'replies_closed';
+  /**
+   * To the circle's owner rather than an organiser: a quiet plan nobody took
+   * on, and the owner's fallback (spec §5.4.5). A different letter — they are
+   * not organising anything yet.
+   */
+  readonly toOwner?: boolean | undefined;
+};
 
 export type DidItHappenInput = ToOrganiser & {
   readonly kind: 'did_it_happen';

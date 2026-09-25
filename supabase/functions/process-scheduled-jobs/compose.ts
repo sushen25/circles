@@ -131,7 +131,13 @@ export async function inputFor(
       };
     }
     case 'replies_closed':
-      return { kind: 'replies_closed', ...toOrganiser };
+      // Nobody organising means the owner's fallback on a quiet plan
+      // (`recipientsFor`, spec §5.4.5): their own letter, not the organiser's.
+      return {
+        kind: 'replies_closed',
+        ...toOrganiser,
+        ...(context.organiserUserId === undefined ? { toOwner: true } : {}),
+      };
     case 'did_it_happen': {
       const confirmation = context.confirmation ?? context.supersededConfirmation;
       if (confirmation === null) return { skip: 'no_confirmation' };

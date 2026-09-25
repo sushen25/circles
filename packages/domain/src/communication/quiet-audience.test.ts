@@ -56,3 +56,30 @@ describe('the quiet kinds', () => {
     expect(ids('threshold_initiator', eligibilityContext())).toEqual([]);
   });
 });
+
+describe('the owner’s fallback', () => {
+  const opened = (organiser: typeof TOM | undefined) => {
+    const base = eligibilityContext();
+    return eligibilityContext({
+      plan: {
+        ...base.plan,
+        mode: 'quiet',
+        state: 'collecting',
+        organiserUserId: organiser,
+      },
+    });
+  };
+
+  it('tells the owner replies have closed on a quiet plan nobody took on (spec §5.4.5)', () => {
+    expect(ids('replies_closed', opened(undefined))).toEqual([SAM]);
+  });
+
+  it('tells the organiser instead, once somebody has taken it', () => {
+    expect(ids('replies_closed', opened(PRIYA))).toEqual([PRIYA]);
+  });
+
+  it('is only that letter: the other organiser kinds still wait for an organiser', () => {
+    expect(ids('options_ready', opened(undefined))).toEqual([]);
+    expect(ids('did_it_happen', opened(undefined))).toEqual([]);
+  });
+});

@@ -200,6 +200,21 @@ export const EN_EMAIL = {
     button: { label: 'Decide' },
   }),
 
+  /**
+   * The owner's "neutral nudge" (spec §5.4.5): a plan that started quietly has
+   * closed replies with nobody in the role. Names nobody, and says nothing
+   * about who asked or who was keen.
+   */
+  repliesClosedOwner: ({ circleName }: { circleName: string }): EmailCopy => ({
+    subject: `${circleName}: nobody has picked a time yet`,
+    preview: 'Replies have closed.',
+    paragraphs: [
+      'Replies have closed on a plan that started quietly, and nobody has taken it on yet. ' +
+        'You can pick the time, or leave it be.',
+    ],
+    button: { label: 'Open the plan' },
+  }),
+
   didItHappen: (p: { circleName: string; weekday: string }): EmailCopy => ({
     subject: `Did ${p.circleName}'s catch-up happen?`,
     preview: 'One tap.',
@@ -249,6 +264,9 @@ export const EN_EMAIL = {
     settingsLead: 'Turn these off in',
     settingsLabel: 'notification settings',
     nudge: (circleName: string) => `You're getting this because you're in ${circleName}.`,
+    /** The owner's fallback on a quiet plan nobody took on (spec §5.4.5). */
+    owner: (circleName: string) =>
+      `You're getting this because you look after ${circleName} and nobody else has taken this on.`,
     /** The quiet ask's two letters (ADR 00XX): why, and that nobody else got one. */
     quiet: (circleName: string) =>
       `You're getting this because you asked ${circleName} quietly. Nobody else gets this email.`,
