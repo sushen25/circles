@@ -20,10 +20,13 @@ export const AnswerInterestRequest = Mutation.extend({ plan_id: PlanId, interest
 export type AnswerInterestRequest = z.infer<typeof AnswerInterestRequest>;
 
 /**
- * Whether this answer opened the ask, and nothing else. **Never a count**:
- * `false` means "not open yet" whether one more answer is needed or ten, or the
- * ask is held beside a plan already finding a time (ADR 0035), so two answers
- * side by side cannot be differenced to find who answered between them.
+ * That the answer was recorded, and **nothing else** — not a count, and not
+ * whether this answer was the one that opened the ask (review round 4).
+ *
+ * The response is kept against the caller in the idempotency record so that a
+ * retry gets the same answer back, and "your answer opened it" beside a user
+ * id says that person was keen. What the ask looks like now is `quiet-view`'s
+ * to say, built for whoever asks, from facts that stay on the server.
  */
-export const AnswerInterestResponse = z.object({ threshold_reached: z.boolean() });
+export const AnswerInterestResponse = z.object({ recorded: z.literal(true) });
 export type AnswerInterestResponse = z.infer<typeof AnswerInterestResponse>;

@@ -257,9 +257,18 @@ describe('answer-interest', () => {
     });
   });
 
-  it('answers whether it opened, and nothing else', async () => {
+  it('answers that it was recorded, and nothing else — not even that it opened the ask', async () => {
     const payload = await (await handlers['answer-interest'](post(body))).json();
-    expect(payload).toEqual({ threshold_reached: true });
+    expect(payload).toEqual({ recorded: true });
+  });
+
+  it('keeps the answer out of the fingerprint stored against the caller', async () => {
+    // Review round 4: a sha256 of a body with two possible values is the answer.
+    await handlers['answer-interest'](post(body));
+    state.users = [{ id: CALLER, is_anonymous: false }];
+    await handlers['answer-interest'](post({ ...body, interested: false }));
+    const [keen, not] = called('begin_request').map((c) => c.args['p_fingerprint']);
+    expect(keen).toBe(not);
   });
 
   it('refuses a named plan without recording anything', async () => {

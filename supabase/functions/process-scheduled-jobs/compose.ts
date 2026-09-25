@@ -130,14 +130,26 @@ export async function inputFor(
         availableCount: best.availableCount,
       };
     }
-    case 'replies_closed':
-      // Nobody organising means the owner's fallback on a quiet plan
-      // (`recipientsFor`, spec §5.4.5): their own letter, not the organiser's.
-      return {
-        kind: 'replies_closed',
-        ...toOrganiser,
-        ...(context.organiserUserId === undefined ? { toOwner: true } : {}),
-      };
+    case 'replies_closed': {
+      // Which letter is decided by who it is *for*, not by the plan now: the
+      // recipient was fixed when the job was written, and the organiser can
+      // change while quiet hours hold it (review round 4). The organiser gets
+      // theirs; the owner gets the fallback (spec §5.4.5) only while nobody
+      // organises; anybody else — an organiser since removed, an owner since
+      // superseded — gets nothing.
+      if (context.organiserUserId !== undefined) {
+        return job.user_id === context.organiserUserId
+          ? { kind: 'replies_closed', ...toOrganiser }
+          : { skip: 'not_the_organiser' };
+      }
+      if (
+        context.eligibility.plan?.mode === 'quiet' &&
+        job.user_id === context.eligibility.circle.ownerUserId
+      ) {
+        return { kind: 'replies_closed', ...toOrganiser, toOwner: true };
+      }
+      return { skip: 'not_the_organiser' };
+    }
     case 'did_it_happen': {
       const confirmation = context.confirmation ?? context.supersededConfirmation;
       if (confirmation === null) return { skip: 'no_confirmation' };

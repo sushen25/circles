@@ -232,6 +232,13 @@ declare
   plan public.plans;
   keen integer;
 begin
+  -- The circle first, then the plan: the order `on_member_removed` takes them
+  -- in, so an answer and a removal in one circle queue rather than deadlock
+  -- (review round 4). The crossing's `no_open_plan` guard locks the circle
+  -- again, which is free by then.
+  perform 1 from public.circles c
+  where c.id = (select p.circle_id from public.plans p where p.id = p_plan_id)
+  for update;
   select * into plan from public.plans p where p.id = p_plan_id for update;
   if not found or plan.mode <> 'quiet' or plan.state <> 'seeking' then
     return false;
@@ -979,8 +986,16 @@ begin
     limit batch
   loop
     begin
-      perform planning.transition_plan(target.id, 'expire', null);
-      quiet_expired := quiet_expired + 1;
+      -- Re-read under the lock: an answer that crossed the threshold a moment
+      -- before the stop time may have opened it since the select, and
+      -- `collecting → expire` has no guards (review round 4).
+      perform 1 from public.plans p
+      where p.id = target.id and p.state = 'seeking' and p.quiet_expires_at <= now()
+      for update;
+      if found then
+        perform planning.transition_plan(target.id, 'expire', null);
+        quiet_expired := quiet_expired + 1;
+      end if;
     exception when others then
       refused := refused + 1;
     end;
@@ -1386,6 +1401,13 @@ begin
       using errcode = 'invalid_parameter_value';
   end if;
 
+  -- The circle first, then the plan: the order `on_member_removed` takes them
+  -- in, so an answer and a removal in one circle queue rather than deadlock
+  -- (review round 4). The crossing's `no_open_plan` guard locks the circle
+  -- again, which is free by then.
+  perform 1 from public.circles c
+  where c.id = (select p.circle_id from public.plans p where p.id = p_plan_id)
+  for update;
   select * into plan from public.plans p where p.id = p_plan_id for update;
   if not found or not exists (
     select 1 from public.circle_members m

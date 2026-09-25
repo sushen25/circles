@@ -148,8 +148,16 @@ begin
     limit batch
   loop
     begin
-      perform planning.transition_plan(target.id, 'expire', null);
-      quiet_expired := quiet_expired + 1;
+      -- Re-read under the lock: an answer that crossed the threshold a moment
+      -- before the stop time may have opened it since the select, and
+      -- `collecting → expire` has no guards (review round 4).
+      perform 1 from public.plans p
+      where p.id = target.id and p.state = 'seeking' and p.quiet_expires_at <= now()
+      for update;
+      if found then
+        perform planning.transition_plan(target.id, 'expire', null);
+        quiet_expired := quiet_expired + 1;
+      end if;
     exception when others then
       refused := refused + 1;
     end;

@@ -19,15 +19,20 @@ import { enforce } from '../_shared/rate.ts';
  * to be the one, because the deadline depends on the window and the clock and
  * on nobody's answer.
  *
- * **The response has no count in it** and neither does anything logged:
- * `threshold_reached` is false for "one more needed", "ten more needed" and
- * "held beside an open plan" alike (`InterestReceipt`). The wrapper logs the
- * function, the status and a refusal's reason, never the caller.
+ * **The response says only that the answer was recorded** — no count, and not
+ * whether it was this answer that opened the ask (`InterestReceipt` stays on
+ * the server). The wrapper logs the function, the status and a refusal's
+ * reason, never the caller.
  */
 Deno.serve(
   jsonHandler({
     name: 'answer-interest',
     schema: AnswerInterestRequest,
+    // The answer is not part of the fingerprint kept against the caller in the
+    // idempotency record: a sha256 of a body with two possible values is the
+    // answer, in a table that outlives the `plan_interest` row (review round
+    // 4). A retry is a retry of *answering*; a changed mind is a new key.
+    fingerprintExcludes: ['interested'],
     guard: async ({ actor, service }) => {
       // Generous: a person changes their mind a handful of times at most.
       // This is for a script, not for them.
@@ -65,7 +70,7 @@ Deno.serve(
       });
       const deadline = defaultDeadline(plan.quiet_preset, at, latestStart);
 
-      const { data, error } = await service.rpc('record_interest', {
+      const { error } = await service.rpc('record_interest', {
         p_plan_id: body.plan_id,
         p_actor: actor.userId,
         p_interested: body.interested,
@@ -75,10 +80,9 @@ Deno.serve(
       });
       if (error !== null) throw error;
 
-      return {
-        threshold_reached:
-          (data as { threshold_reached?: unknown } | null)?.threshold_reached === true,
-      };
+      // Whether this answer opened it stays here (review round 4): see the
+      // contract.
+      return { recorded: true };
     },
   }),
 );

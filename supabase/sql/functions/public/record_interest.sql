@@ -60,6 +60,13 @@ begin
       using errcode = 'invalid_parameter_value';
   end if;
 
+  -- The circle first, then the plan: the order `on_member_removed` takes them
+  -- in, so an answer and a removal in one circle queue rather than deadlock
+  -- (review round 4). The crossing's `no_open_plan` guard locks the circle
+  -- again, which is free by then.
+  perform 1 from public.circles c
+  where c.id = (select p.circle_id from public.plans p where p.id = p_plan_id)
+  for update;
   select * into plan from public.plans p where p.id = p_plan_id for update;
   if not found or not exists (
     select 1 from public.circle_members m

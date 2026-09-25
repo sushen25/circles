@@ -3298,6 +3298,20 @@ describe('process-scheduled-jobs', () => {
       expect(called('dispatch_job_result')[0]?.args).toMatchObject({ p_outcome: 'sent' });
     });
 
+    it('does not send replies closed to somebody who is no longer who it is for (SUS-50 round 4)', async () => {
+      // Written to one person, sent after the role changed hands: the
+      // recipient is not the organiser now, so the letter is not theirs.
+      capturing();
+      withDue(dueJob({ kind: 'replies_closed', user_id: MEMBER }));
+
+      await load('process-scheduled-jobs')(post({}, 'a-shared-secret'));
+
+      expect(called('dispatch_job_result')[0]?.args).toMatchObject({
+        p_outcome: 'skipped',
+        p_error: 'not_the_organiser',
+      });
+    });
+
     it("never stops a plan-update letter, whatever the subscriber's own switch says", async () => {
       capturing();
       withDue(dueJob({ kind: 'reminder', organiser_email_muted: true }));

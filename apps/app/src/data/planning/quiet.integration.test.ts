@@ -155,11 +155,13 @@ describe('a quiet ask', () => {
       Array.from({ length: 50 }, (_, i) => answer(keen[i % keen.length]!, planId)),
     );
 
-    const opened = answers.filter((a) => a.status === 200 && a.body['threshold_reached'] === true);
-    expect(opened).toHaveLength(1);
-    // Everything else was an answer before it opened, or a refusal after.
+    // At least the two answers that took it to three are recorded (a repeat
+    // before the crossing is recorded too), and every other finds it open.
+    // Nobody is told which answer opened it.
+    const recorded = answers.filter((a) => a.status === 200);
+    expect(recorded.length).toBeGreaterThanOrEqual(2);
     for (const answer of answers) {
-      if (answer.status === 200) expect(Object.keys(answer.body)).toEqual(['threshold_reached']);
+      if (answer.status === 200) expect(answer.body).toEqual({ recorded: true });
       else
         expect(answer, 'a refusal after it opened').toMatchObject({
           body: { reason: 'interest_closed' },
