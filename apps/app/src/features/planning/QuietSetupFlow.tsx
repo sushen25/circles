@@ -17,7 +17,7 @@ import { clockNow, usePlanClock } from './clock';
 import { presetAvailable, tonightNote } from './form';
 import { PlanInProgress } from './PlanInProgressFlow';
 import { rememberAsked, quietWhen } from './quiet';
-import { draftFrom, resolveQuiet, stopLabel, type QuietDraft } from './quietSetup';
+import { draftFrom, quietStanding, resolveQuiet, stopLabel, type QuietDraft } from './quietSetup';
 import { quietRefusalOf, type QuietRefused } from './quietProblems';
 import { SparkSetupScreen } from './SparkSetupScreen';
 import { PlanStateScreen } from './states';
@@ -75,6 +75,7 @@ function LiveQuietSetup({ id }: { id: string }) {
   // As PlanSetupFlow: once met, the gate stays until it says it is finished.
   const [mustSave, setMustSave] = useState(false);
   if (decision.kind === 'needs_saved_place' && !mustSave) setMustSave(true);
+  const [openedAt] = useState(() => Date.now());
 
   const back = () =>
     router.canGoBack()
@@ -98,10 +99,17 @@ function LiveQuietSetup({ id }: { id: string }) {
   }
 
   const data = home.data;
-  if (data.activePlan !== null) {
+  // The domain's order (`canCreateQuietAsk`), from the reader's own read.
+  const standing = quietStanding(data, openedAt);
+  if (standing === 'plan_in_progress' && data.activePlan !== null) {
     return <PlanInProgress id={id} home={data} plan={data.activePlan} onBack={back} />;
   }
-  if (data.members.length < 2) {
+  if (standing === 'circle_archived') {
+    return (
+      <PlanStateScreen state="denied" title={t('planSetup', 'problem_archived')} onBack={back} />
+    );
+  }
+  if (standing === 'nobody_to_ask') {
     return (
       <PlanStateScreen
         state="empty"
@@ -111,7 +119,7 @@ function LiveQuietSetup({ id }: { id: string }) {
       />
     );
   }
-  if (data.mine?.mutedQuietAsks === true) {
+  if (standing === 'quiet_asks_muted') {
     return (
       <PlanStateScreen
         state="denied"

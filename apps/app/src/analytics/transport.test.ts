@@ -172,6 +172,15 @@ describe('the quiet ask events (SUS-51)', () => {
       'quiet_interest_answered',
     ]);
     expect(nobodys?.body).not.toHaveProperty('anonymous_id');
+    // To the hour: to the millisecond, the time is a join to the plan and to
+    // this device's other rows.
+    const times = (nobodys?.body.events as unknown as { occurred_at: string }[]).map(
+      (e) => e.occurred_at,
+    );
+    expect(times).toEqual(['2026-09-17T08:00:00.000Z', '2026-09-17T08:00:00.000Z']);
+    expect((mine?.body.events as unknown as { occurred_at: string }[])[0]?.occurred_at).toBe(
+      '2026-09-17T08:30:00.000Z',
+    );
   });
 
   it('keeps the whole batch when either half fails', async () => {

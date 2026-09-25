@@ -1,4 +1,5 @@
 import {
+  canCreateQuietAsk,
   DURATIONS,
   instant,
   localDate,
@@ -7,11 +8,13 @@ import {
   zone as toZone,
   type DurationMinutes,
   type PlanCategory,
+  type QuietRefusal,
   type QuietPreset,
   type StopTimeOption,
 } from '@circles/domain';
 
 import { t } from '../../copy';
+import type { CircleHome } from '../../data/circles';
 import type { LastHappenedPlan } from '../../data/planning';
 import { windowOf, type Band } from './form';
 
@@ -83,4 +86,33 @@ export function stopLabel(option: StopTimeOption, preset: QuietPreset): string {
         ? t('sparkSetup', 'when_the_weekend_starts')
         : t('sparkSetup', 'when_it_starts');
   }
+}
+
+/**
+ * Whether this reader may start a quiet ask here, as far as their own circle
+ * read can say — the domain's `canCreateQuietAsk`, in the domain's order, not
+ * a second copy of it (non-negotiable 2).
+ *
+ * Two of its questions are answered elsewhere. A saved place is the organiser
+ * gate's, drawn in place of the form (ADR 0004). The per-member and per-circle
+ * limits turn on other members' asks, which a member may not read — and must
+ * not, since whose ask is whose is the point — so `recentAsks` is empty here
+ * and `create-plan` says `already_asking` or `circle_ask_limit` if it comes to
+ * that.
+ */
+export function quietStanding(
+  home: Pick<CircleHome, 'status' | 'members' | 'mine' | 'activePlan'>,
+  now: number,
+): 'allowed' | QuietRefusal {
+  return canCreateQuietAsk({
+    member: {
+      isPermanent: true,
+      isMember: true,
+      mutedQuietAsks: home.mine?.mutedQuietAsks === true,
+    },
+    circle: { status: home.status, activeMembers: home.members.length },
+    circleHasOpenPlan: home.activePlan !== null,
+    recentAsks: [],
+    now: instant(now),
+  });
 }

@@ -89,6 +89,7 @@ const PLAN = 'quiet-plan';
 const HOME = {
   id: CIRCLE,
   name: 'Sunday Crew',
+  status: 'active',
   zone: 'Australia/Melbourne',
   defaultDurationMinutes: 120,
   defaultQuorum: null,
@@ -561,5 +562,23 @@ describe('reads that disagree or fail', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe('ChooseMode while the circle is read', () => {
+  it('says it could not load, rather than drawing a circle of one', async () => {
+    circleHome.mockRejectedValue(new Error('circle lookup failed'));
+    show(<ChooseModeFlow id={CIRCLE} />);
+
+    expect(await screen.findByRole('button', { name: 'Try again' })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /^Plan openly\./ })).toBeNull();
+  });
+
+  it('offers no quiet card in an archived circle (the domain’s order)', async () => {
+    circleHome.mockResolvedValue({ ...HOME, status: 'archived' });
+    show(<ChooseModeFlow id={CIRCLE} />);
+
+    expect(await screen.findByRole('button', { name: /^Plan openly\./ })).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /^See if people are keen\./ })).toBeNull();
   });
 });

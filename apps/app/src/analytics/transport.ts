@@ -80,13 +80,23 @@ export function trackEventsTransport(options: TransportOptions = {}) {
         events.filter((event) => !isUnattributed(event.name)),
         'caller',
       ),
-      post(
-        events.filter((event) => isUnattributed(event.name)),
-        'nobody',
-      ),
+      post(events.filter((event) => isUnattributed(event.name)).map(toTheHour), 'nobody'),
     ]);
     for (const result of results) if (result.status === 'rejected') throw result.reason;
   };
+}
+
+/**
+ * An unattributed event's time, to the hour (SUS-51 review round 4). To the
+ * millisecond it is a join: to the plan made a few milliseconds earlier, and
+ * to whatever else this device recorded, under its user, at the same moment.
+ * An hour is fine enough for every count the catalogue asks of these events.
+ */
+function toTheHour(event: TrackedEvent): TrackedEvent {
+  const at = new Date(event.occurred_at);
+  if (Number.isNaN(at.getTime())) return event;
+  at.setUTCMinutes(0, 0, 0);
+  return { ...event, occurred_at: at.toISOString() };
 }
 
 /**
