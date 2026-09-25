@@ -109,13 +109,16 @@ begin
     circle_id, mode, state, organiser_user_id, title, time_zone,
     window_start, window_end, daily_start_local, daily_end_local,
     duration_minutes, quorum, response_deadline, short_code,
-    quiet_threshold
+    quiet_threshold, quiet_expires_at, quiet_preset
   )
   values (
     coalesce(circle, (select circle_id from t)), mode, state, organiser, 'Catch up', 'Australia/Melbourne',
     date '2099-09-14', date '2099-09-20', 17 * 60 + 30, 22 * 60 + 30,
     120, 4, timestamptz '2099-09-20T10:00:00Z', code,
-    case when mode = 'quiet' then 3 else null end
+    case when mode = 'quiet' then 3 else null end,
+    -- A quiet ask has a stop time and a preset from the moment it asks (0026).
+    case when mode = 'quiet' then timestamptz '2099-09-19T10:00:00Z' else null end,
+    case when mode = 'quiet' then 'next_7_days' else null end
   )
   returning id into new_id;
   return new_id;
@@ -478,11 +481,13 @@ select throws_ok(
   $$insert into public.plans (
       circle_id, mode, state, title, time_zone,
       window_start, window_end, daily_start_local, daily_end_local,
-      duration_minutes, quorum, response_deadline, short_code
+      duration_minutes, quorum, response_deadline, short_code,
+      quiet_expires_at, quiet_preset
     )
     select circle_id, 'quiet', 'seeking', 'No threshold', 'Australia/Melbourne',
       date '2099-09-14', date '2099-09-20', 1050, 1350, 120, 4,
-      timestamptz '2099-09-20T10:00:00Z', 'pnttttt'
+      timestamptz '2099-09-20T10:00:00Z', 'pnttttt',
+      timestamptz '2099-09-19T10:00:00Z', 'next_7_days'
     from t$$,
   '23514',
   null,

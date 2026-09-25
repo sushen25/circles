@@ -377,11 +377,16 @@ select pg_temp.join_circle('00000000-0000-4000-8000-000000000a03', '00000000-000
 insert into public.plans (
   id, circle_id, mode, state, organiser_user_id, title, time_zone,
   window_start, window_end, daily_start_local, daily_end_local,
-  duration_minutes, quorum, response_deadline, short_code, quiet_threshold
+  duration_minutes, quorum, response_deadline, short_code, quiet_threshold,
+  quiet_expires_at, quiet_preset
 )
 select '00000000-0000-4000-8000-000000000b03', '00000000-0000-4000-8000-000000000a03', 'quiet', 'draft', null,
   'Drinks', 'Australia/Melbourne', next_monday + 7, next_monday + 13, 17 * 60 + 30, 22 * 60 + 30,
-  120, 3, ((next_monday + 8)::timestamp + interval '8 hours') at time zone 'Australia/Melbourne', 'pnunmates', 3
+  120, 3, ((next_monday + 8)::timestamp + interval '8 hours') at time zone 'Australia/Melbourne', 'pnunmates', 3,
+  -- It stops asking when its window starts, the way `resolveStopTime` would
+  -- have it for "when the window starts" (0026).
+  ((next_monday + 7)::timestamp + interval '17 hours 30 minutes') at time zone 'Australia/Melbourne',
+  'next_7_days'
 from dates;
 insert into public.plan_participants (plan_id, revision, user_id)
 select '00000000-0000-4000-8000-000000000b03', 1, m.user_id

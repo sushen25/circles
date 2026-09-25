@@ -93,11 +93,14 @@ select circle_id, '17000000-0000-0000-0000-000000000004'::uuid, 'Kai' from fixtu
 insert into public.plans (
   circle_id, mode, state, organiser_user_id, title, time_zone,
   window_start, window_end, daily_start_local, daily_end_local,
-  duration_minutes, quorum, response_deadline, short_code, quiet_threshold
+  duration_minutes, quorum, response_deadline, short_code, quiet_threshold,
+  quiet_expires_at, quiet_preset
 )
 select circle_id, mode, state, organiser, 'Catch up', 'Australia/Melbourne',
   date '2099-09-17', date '2099-09-20', 1050, 1350, 120, 3,
-  deadline, code, threshold
+  deadline, code, threshold,
+  case when mode = 'quiet' then deadline end,
+  case when mode = 'quiet' then 'this_weekend' end
 from fixture, (values
   ('named', 'collecting', '17000000-0000-0000-0000-000000000001'::uuid, timestamptz '2099-09-16T10:00:00Z', 'pnaskng2', null::integer),
   ('named', 'collecting', '17000000-0000-0000-0000-000000000001'::uuid, now() - interval '1 minute', 'pnpassed', null),

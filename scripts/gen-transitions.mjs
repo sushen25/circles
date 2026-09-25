@@ -20,7 +20,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const MIGRATION = join(root, 'supabase/migrations/0024_one_open_plan.sql');
+const MIGRATION = join(root, 'supabase/migrations/0026_quiet_ask.sql');
 const BEGIN = '-- BEGIN GENERATED: transitions (scripts/gen-transitions.mjs)';
 const END = '-- END GENERATED: transitions';
 

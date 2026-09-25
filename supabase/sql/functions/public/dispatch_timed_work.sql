@@ -48,6 +48,13 @@
 --    now instead named a circle that met at the start of February two days
 --    after its card appeared (review round 2). Oldest first, so a circle that
 --    has waited longest is asked first.
+-- 6. **A quiet ask at its stop time** (SUS-50). Plans
+--    `seeking` whose `quiet_expires_at` has passed expire, privately — the
+--    one message is the initiator's, and it comes from the drain reading the
+--    `planning.plan_expired` this writes. And the asks **held** at their
+--    threshold beside an open plan (ADR 0035) whose circle is free again are
+--    named, with what the domain needs to give each its deadline; the
+--    dispatcher opens them through `dispatch_open_quiet_ask`.
 --
 -- Each transition is attempted on its own and a refusal is counted rather than
 -- thrown: a plan that was confirmed between the select and the update is a
@@ -68,6 +75,7 @@ declare
   closed integer := 0;
   expired integer := 0;
   refused integer := 0;
+  quiet_expired integer := 0;
 begin
   for target in
     select p.id, p.circle_id, p.revision, p.response_deadline
@@ -127,7 +135,54 @@ begin
     end;
   end loop;
 
+  -- Quiet asks (SUS-50) ------------------------------------------------------
+  -- From its stop time an ask only expires (`nextQuietStep`), held or not.
+  -- `('seeking', 'expire')` has no guards, so the actor is null; `event_for`
+  -- names it `planning.plan_expired`, whose `from_state` tells the drain it
+  -- never opened.
+  for target in
+    select p.id
+    from public.plans p
+    where p.mode = 'quiet' and p.state = 'seeking' and p.quiet_expires_at <= now()
+    order by p.quiet_expires_at
+    limit batch
+  loop
+    begin
+      perform planning.transition_plan(target.id, 'expire', null);
+      quiet_expired := quiet_expired + 1;
+    exception when others then
+      refused := refused + 1;
+    end;
+  end loop;
+  -- End quiet asks (SUS-50) --------------------------------------------------
+
   return jsonb_build_object(
+    'quiet_expired', quiet_expired,
+    -- Held asks whose circle has no plan `collecting` or `ready` now: at their
+    -- threshold, before their stop time. The timing is what `defaultDeadline`
+    -- needs; the count and the answers stay here (SUS-50).
+    'held', coalesce((
+      select jsonb_agg(jsonb_build_object(
+        'id', x.id, 'preset', x.quiet_preset, 'window_start', x.window_start,
+        'window_end', x.window_end, 'daily_start_local', x.daily_start_local,
+        'daily_end_local', x.daily_end_local, 'duration_minutes', x.duration_minutes,
+        'time_zone', x.time_zone
+      )) from (
+        select p.*
+        from public.plans p
+        where p.mode = 'quiet' and p.state = 'seeking' and p.quiet_expires_at > now()
+          and (
+            select count(*) from private.plan_interest i
+            where i.plan_id = p.id and i.response = 'keen'
+          ) >= p.quiet_threshold
+          and not exists (
+            select 1 from public.plans o
+            where o.circle_id = p.circle_id and o.id <> p.id and o.state in ('collecting', 'ready')
+          )
+        order by p.quiet_expires_at
+        limit batch
+      ) x
+    ), '[]'::jsonb),
     'deadline_passed', closed,
     'expired', expired,
     'expire_refused', refused,
@@ -193,7 +248,7 @@ end;
 $$;
 
 comment on function public.dispatch_timed_work(integer) is
-  'One pass of the time-based work: emits planning.deadline_passed once per plan, expires plans whose last possible start has gone, and names the plans with a stale candidate set or a deadline within 24 hours, and the circles that may be due a cadence nudge. Service role only (S1-20, S2-04).';
+  'One pass of the time-based work: emits planning.deadline_passed once per plan, expires plans whose last possible start has gone and quiet asks whose stop time has, and names the plans with a stale candidate set or a deadline within 24 hours, the circles that may be due a cadence nudge, and the held quiet asks whose circle is free. Service role only (S1-20, S2-02, S2-04).';
 
 revoke all on function public.dispatch_timed_work(integer) from public;
 revoke all on function public.dispatch_timed_work(integer) from anon, authenticated;

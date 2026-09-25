@@ -25,6 +25,10 @@ as $$
       'duration_minutes', 'quorum', 'response_deadline'
     ]
     when action = 'cancel' then array['cancel_note']
+    -- A quiet ask opening is asked for times from that moment, so its deadline
+    -- is set then: `defaultDeadline` for its window as of *now*, not as of when
+    -- it was asked (`onThreshold`, spec §5.4.5). The only key it takes.
+    when action = 'threshold_reached' then array['response_deadline']
     when action = 'confirm' then array['candidate_id', 'place_name', 'place_url', 'note', 'chased_answer']
     else array[]::text[]
   end;
