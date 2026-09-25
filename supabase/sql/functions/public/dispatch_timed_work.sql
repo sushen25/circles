@@ -15,7 +15,7 @@
 --    days retention keeps events for (rule 2 below closes it long before).
 --
 --    **And once more, a day later, if the plan is still `ready`** (S2-05,
---    ADR 00XX): the same event with `follow_up: '+24h'`, and its own marker.
+--    ADR 0039): the same event with `follow_up: '+24h'`, and its own marker.
 --    Due a day after the first letter was *announced* rather than a day after
 --    the deadline, so a dispatcher that was down does not send both at once;
 --    and never more than a day late, so a plan that has sat undecided for a

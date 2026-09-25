@@ -180,7 +180,7 @@ communication.contact_verified  communication.subscription_changed communication
 growth.nudge_shown              growth.nudge_answered         growth.account_claimed
 ```
 
-`planning.interest_recorded` carries no member id in its payload (only the plan id); the row it relates to is protected. `planning.threshold_reached` carries the plan id and the keen count only. `planning.organiser_changed` is the `hand_off` transition's (S2-05) and carries the new organiser; `planning.deadline_passed` carries the deadline it announces, and `follow_up: '+24h'` on the reminder a day later (ADR 00XX).
+`planning.interest_recorded` carries no member id in its payload (only the plan id); the row it relates to is protected. `planning.threshold_reached` carries the plan id and the keen count only. `planning.organiser_changed` is the `hand_off` transition's (S2-05) and carries the new organiser; `planning.deadline_passed` carries the deadline it announces, and `follow_up: '+24h'` on the reminder a day later (ADR 0039).
 
 ### 6.4 Where each kind of rule lives
 

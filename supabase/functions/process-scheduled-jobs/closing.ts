@@ -23,7 +23,7 @@ import type { DueJob } from './send.ts';
  * carry a line each rather than a paragraph.
  *
  * **Which instance.** `replies_closed` is once per *deadline* now, and once
- * more a day later (`occurrenceFor`, ADR 00XX). The deadline comes from the
+ * more a day later (`occurrenceFor`, ADR 0039). The deadline comes from the
  * event, which the sweep stamped with the instant it saw, not from the plan as
  * it is when the drain gets there: an extension between the two would
  * otherwise spend the new deadline's key on the old deadline's letter.

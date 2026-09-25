@@ -1,7 +1,7 @@
 -- ---------------------------------------------------------------------------
 -- A newer "replies are closed" takes the place of one still waiting (S2-05).
 --
--- `replies_closed` is once per deadline (ADR 00XX), and a letter written for
+-- `replies_closed` is once per deadline (ADR 0039), and a letter written for
 -- one deadline can wait for quiet hours while the organiser moves the
 -- deadline and it passes again. At 08:00 both would be true of a plan whose
 -- replies are closed and nothing is locked in, so both would go — two

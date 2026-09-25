@@ -1,5 +1,5 @@
 -- ---------------------------------------------------------------------------
--- 0027 — Replies closed with no decision (S2-05, ADR 00XX).
+-- 0027 — Replies closed with no decision (S2-05, ADR 0039).
 --
 -- "Nobody wants to decide" is one of the research's named failure modes, and
 -- spec §5.7 answers it with one screen and three ways out: lock in the top
@@ -140,6 +140,10 @@ as $$
       'duration_minutes', 'quorum', 'response_deadline'
     ]
     when action = 'cancel' then array['cancel_note']
+    -- A quiet ask opening is asked for times from that moment, so its deadline
+    -- is set then: `defaultDeadline` for its window as of *now*, not as of when
+    -- it was asked (`onThreshold`, spec §5.4.5). The only key it takes.
+    when action = 'threshold_reached' then array['response_deadline']
     -- Who takes the plan over, and nothing else: a hand-off changes who
     -- decides, not what is being decided (S2-05).
     when action = 'hand_off' then array['organiser_user_id']
@@ -755,6 +759,13 @@ as $$
     'circle_id', cir.id,
     'circle_name', cir.name,
     'circle_archived', coalesce(cir.status = 'archived', false),
+    -- The quiet ask's two letters to its initiator are stopped by muting quiet
+    -- asks in that circle (`QUIET_SENSITIVE_KINDS`), read now rather than when
+    -- the job was written, as the organiser switch is (SUS-50 review round 2).
+    'quiet_asks_muted', coalesce((
+      select m.muted_quiet_asks or m.muted_all from public.circle_members m
+      where m.circle_id = p.circle_id and m.user_id = c.user_id and m.status = 'active'
+    ), false),
     'organiser_email_muted', coalesce((
       select pr.muted_organiser_email from public.profiles pr where pr.user_id = c.user_id
     ), false),
@@ -787,7 +798,7 @@ grant execute on function public.dispatch_claim_due(integer) to service_role;
 -- ---------------------------------------------------------------------------
 -- A newer "replies are closed" takes the place of one still waiting (S2-05).
 --
--- `replies_closed` is once per deadline (ADR 00XX), and a letter written for
+-- `replies_closed` is once per deadline (ADR 0039), and a letter written for
 -- one deadline can wait for quiet hours while the organiser moves the
 -- deadline and it passes again. At 08:00 both would be true of a plan whose
 -- replies are closed and nothing is locked in, so both would go — two
@@ -847,7 +858,7 @@ grant execute on function public.dispatch_supersede_closing(uuid, text[]) to ser
 --    days retention keeps events for (rule 2 below closes it long before).
 --
 --    **And once more, a day later, if the plan is still `ready`** (S2-05,
---    ADR 00XX): the same event with `follow_up: '+24h'`, and its own marker.
+--    ADR 0039): the same event with `follow_up: '+24h'`, and its own marker.
 --    Due a day after the first letter was *announced* rather than a day after
 --    the deadline, so a dispatcher that was down does not send both at once;
 --    and never more than a day late, so a plan that has sat undecided for a
@@ -890,6 +901,13 @@ grant execute on function public.dispatch_supersede_closing(uuid, text[]) to ser
 --    now instead named a circle that met at the start of February two days
 --    after its card appeared (review round 2). Oldest first, so a circle that
 --    has waited longest is asked first.
+-- 6. **A quiet ask at its stop time** (SUS-50). Plans
+--    `seeking` whose `quiet_expires_at` has passed expire, privately — the
+--    one message is the initiator's, and it comes from the drain reading the
+--    `planning.plan_expired` this writes. And the asks **held** at their
+--    threshold beside an open plan (ADR 0035) whose circle is free again are
+--    named, with what the domain needs to give each its deadline; the
+--    dispatcher opens them through `dispatch_open_quiet_ask`.
 --
 -- Each transition is attempted on its own and a refusal is counted rather than
 -- thrown: a plan that was confirmed between the select and the update is a
@@ -911,6 +929,7 @@ declare
   followed integer := 0;
   expired integer := 0;
   refused integer := 0;
+  quiet_expired integer := 0;
 begin
   for target in
     select p.id, p.circle_id, p.revision, p.response_deadline
@@ -1017,7 +1036,62 @@ begin
     end;
   end loop;
 
+  -- Quiet asks (SUS-50) ------------------------------------------------------
+  -- From its stop time an ask only expires (`nextQuietStep`), held or not.
+  -- `('seeking', 'expire')` has no guards, so the actor is null; `event_for`
+  -- names it `planning.plan_expired`, whose `from_state` tells the drain it
+  -- never opened.
+  for target in
+    select p.id
+    from public.plans p
+    where p.mode = 'quiet' and p.state = 'seeking' and p.quiet_expires_at <= now()
+    order by p.quiet_expires_at
+    limit batch
+  loop
+    begin
+      -- Re-read under the lock: an answer that crossed the threshold a moment
+      -- before the stop time may have opened it since the select, and
+      -- `collecting → expire` has no guards (review round 4).
+      perform 1 from public.plans p
+      where p.id = target.id and p.state = 'seeking' and p.quiet_expires_at <= now()
+      for update;
+      if found then
+        perform planning.transition_plan(target.id, 'expire', null);
+        quiet_expired := quiet_expired + 1;
+      end if;
+    exception when others then
+      refused := refused + 1;
+    end;
+  end loop;
+  -- End quiet asks (SUS-50) --------------------------------------------------
+
   return jsonb_build_object(
+    'quiet_expired', quiet_expired,
+    -- Held asks whose circle has no plan `collecting` or `ready` now: at their
+    -- threshold, before their stop time. The timing is what `defaultDeadline`
+    -- needs; the count and the answers stay here (SUS-50).
+    'held', coalesce((
+      select jsonb_agg(jsonb_build_object(
+        'id', x.id, 'preset', x.quiet_preset, 'window_start', x.window_start,
+        'window_end', x.window_end, 'daily_start_local', x.daily_start_local,
+        'daily_end_local', x.daily_end_local, 'duration_minutes', x.duration_minutes,
+        'time_zone', x.time_zone
+      )) from (
+        select p.*
+        from public.plans p
+        where p.mode = 'quiet' and p.state = 'seeking' and p.quiet_expires_at > now()
+          and (
+            select count(*) from private.plan_interest i
+            where i.plan_id = p.id and i.response = 'keen'
+          ) >= p.quiet_threshold
+          and not exists (
+            select 1 from public.plans o
+            where o.circle_id = p.circle_id and o.id <> p.id and o.state in ('collecting', 'ready')
+          )
+        order by p.quiet_expires_at
+        limit batch
+      ) x
+    ), '[]'::jsonb),
     'deadline_passed', closed,
     'followed_up', followed,
     'expired', expired,
@@ -1084,7 +1158,7 @@ end;
 $$;
 
 comment on function public.dispatch_timed_work(integer) is
-  'One pass of the time-based work: emits planning.deadline_passed once per deadline and once more a day later while the plan is ready, expires plans whose last possible start has gone, and names the plans with a stale candidate set or a deadline within 24 hours, and the circles that may be due a cadence nudge. Service role only (S1-20, S2-04).';
+  'One pass of the time-based work: emits planning.deadline_passed once per deadline and once more a day later while the plan is ready, expires plans whose last possible start has gone and quiet asks whose stop time has, and names the plans with a stale candidate set or a deadline within 24 hours, the circles that may be due a cadence nudge, and the held quiet asks whose circle is free. Service role only (S1-20, S2-02, S2-04, S2-05).';
 
 revoke all on function public.dispatch_timed_work(integer) from public;
 revoke all on function public.dispatch_timed_work(integer) from anon, authenticated;
@@ -1116,7 +1190,7 @@ grant execute on function public.dispatch_timed_work(integer) to service_role;
 -- What it sets off, it sets off by being an `adjust`: the old deadline's
 -- `replies_closed` letter, if quiet hours still hold it, is dropped at send
 -- time as `replies_reopened`, and the new deadline is announced when it passes
--- — once, because `replies_closed`'s occurrence is the deadline (ADR 00XX).
+-- — once, because `replies_closed`'s occurrence is the deadline (ADR 0039).
 -- ---------------------------------------------------------------------------
 
 create or replace function public.extend_deadline(p_plan_id uuid)

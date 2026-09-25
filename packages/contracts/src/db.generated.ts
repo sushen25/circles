@@ -838,6 +838,7 @@ export type Database = {
           created_at: string
           daily_end_local: number
           daily_start_local: number
+          deadline_extended_on_revision: number | null
           duration_minutes: number
           id: string
           input_version: number
@@ -1088,6 +1089,7 @@ export type Database = {
           created_at: string
           daily_end_local: number
           daily_start_local: number
+          deadline_extended_on_revision: number | null
           duration_minutes: number
           id: string
           input_version: number
@@ -1166,6 +1168,10 @@ export type Database = {
         Args: { p_kind: string; p_plan_id: string }
         Returns: Json
       }
+      dispatch_supersede_closing: {
+        Args: { p_keep: string[]; p_plan_id: string }
+        Returns: number
+      }
       dispatch_timed_work: { Args: { p_limit?: number }; Returns: Json }
       email_preferences: {
         Args: { p_action: string; p_plan_id?: string; p_token_hash: string }
@@ -1188,6 +1194,7 @@ export type Database = {
           mode: string
           organiser_user_id: string | null
           quiet_expires_at: string | null
+          quiet_preset: string | null
           quiet_threshold: number | null
           quorum: number
           quorum_source: string
@@ -1252,6 +1259,7 @@ export type Database = {
           mode: string
           organiser_user_id: string | null
           quiet_expires_at: string | null
+          quiet_preset: string | null
           quiet_threshold: number | null
           quorum: number
           quorum_source: string

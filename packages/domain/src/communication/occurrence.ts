@@ -46,7 +46,7 @@ export type OccurrenceInput = {
   /**
    * For `replies_closed`: the deadline that closed. "Give it one more day" is
    * an `adjust`, which leaves the revision where it is, so the key alone cannot
-   * tell the first closure from the second (spec §5.7, ADR 00XX).
+   * tell the first closure from the second (spec §5.7, ADR 0039).
    */
   readonly deadline?: Instant | undefined;
   /**

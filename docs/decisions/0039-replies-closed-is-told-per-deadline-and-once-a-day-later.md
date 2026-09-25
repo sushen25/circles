@@ -1,4 +1,4 @@
-# ADR 00XX: Replies closed is told once per deadline and once a day later; one more day is a day from now, once per revision
+# ADR 0039: Replies closed is told once per deadline and once a day later; one more day is a day from now, once per revision
 
 _Status: proposed · 25 September 2026_
 

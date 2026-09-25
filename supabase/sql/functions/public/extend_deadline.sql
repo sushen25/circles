@@ -23,7 +23,7 @@
 -- What it sets off, it sets off by being an `adjust`: the old deadline's
 -- `replies_closed` letter, if quiet hours still hold it, is dropped at send
 -- time as `replies_reopened`, and the new deadline is announced when it passes
--- — once, because `replies_closed`'s occurrence is the deadline (ADR 00XX).
+-- — once, because `replies_closed`'s occurrence is the deadline (ADR 0039).
 -- ---------------------------------------------------------------------------
 
 create or replace function public.extend_deadline(p_plan_id uuid)
