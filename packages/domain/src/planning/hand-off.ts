@@ -14,6 +14,13 @@ export type HandOffTarget = {
   readonly userId: UserId;
   /** An active member of the plan's circle, now. */
   readonly isMember: boolean;
+  /**
+   * One of the people this revision of the plan is asking. The organiser's
+   * letters go to the people a plan was addressed to (`recipientsFor`'s
+   * `organiser` audience), so somebody outside it would organise a plan that
+   * could never write to them.
+   */
+  readonly isParticipant: boolean;
   /** Has a saved place: Apple, Google or an email code (ADR 0004). */
   readonly isPermanent: boolean;
 };
@@ -23,6 +30,8 @@ export type HandOffRefusal =
   | 'already_the_organiser'
   /** Not in the circle, or not any more. */
   | 'not_a_member'
+  /** In the circle, but not one of the people this plan asks (spec §9's opt-in). */
+  | 'not_a_participant'
   /** "Organiser roles belong to saved-place identities only" (spec §8.2). */
   | 'requires_saved_place';
 
@@ -33,6 +42,7 @@ export function handOffRefusal(
 ): HandOffRefusal | undefined {
   if (target.userId === organiserUserId) return 'already_the_organiser';
   if (!target.isMember) return 'not_a_member';
+  if (!target.isParticipant) return 'not_a_participant';
   if (!target.isPermanent) return 'requires_saved_place';
   return undefined;
 }

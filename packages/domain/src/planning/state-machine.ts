@@ -263,8 +263,8 @@ export const TRANSITIONS: readonly Transition[] = [
   // "Hand this to someone else" (spec §5.7, §9). The organiser gives the plan
   // to another member, from the two states in which there is still something
   // to decide; the state does not move, only who decides. `hand_off_target` is
-  // the receiving half: an active member with a saved place (spec §8.2), and
-  // not the organiser already.
+  // the receiving half: an active member the plan is asking, with a saved
+  // place (spec §8.2), and not the organiser already.
   {
     from: 'collecting',
     action: 'hand_off',
@@ -393,8 +393,9 @@ export function canTransition(
       continue;
     }
     if (guard === 'hand_off_target') {
-      // Three different refusals rather than one, because a screen words each
-      // differently: yourself, somebody who has left, and a guest.
+      // Separate refusals rather than one, because a screen words each
+      // differently: yourself, somebody who has left, somebody the plan never
+      // asked, and a guest.
       const target = context.handOffTo;
       if (target === undefined) return fail('not_a_member');
       const refusal = handOffRefusal(target, plan.organiserUserId);

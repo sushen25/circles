@@ -104,7 +104,15 @@ export function handOffRowsOf(
   return candidates
     .map((member) => {
       const refusal = handOffRefusal(
-        { userId: userId(member.userId), isMember: true, isPermanent: member.hasSavedPlace },
+        // `hand_off_candidates` lists active members the plan is asking, so
+        // those two are true of everybody it returns; the saved place is what
+        // varies.
+        {
+          userId: userId(member.userId),
+          isMember: true,
+          isParticipant: true,
+          isPermanent: member.hasSavedPlace,
+        },
         organiser,
       );
       return {

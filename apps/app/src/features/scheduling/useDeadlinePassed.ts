@@ -56,6 +56,7 @@ function problemOf(error: unknown): string {
     case 'requires_saved_place':
       return t('deadlinePassed', 'problem_saved_place');
     case 'not_a_member':
+    case 'not_a_participant':
       return t('deadlinePassed', 'problem_left');
     case 'plan_is_finished':
     case 'wrong_state':

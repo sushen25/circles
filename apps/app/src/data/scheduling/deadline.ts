@@ -23,8 +23,8 @@ export type HandOffCandidate = {
 };
 
 /**
- * Who could take it over: every active member but the organiser, and whether
- * each has a saved place. A definer function because `profiles` is readable by
+ * Who could take it over: every active member the plan is asking but the
+ * organiser, and whether each has a saved place. A definer function because `profiles` is readable by
  * its owner alone, and it answers the plan's organiser and nobody else.
  *
  * The thrown message names nothing: names are what this returns.

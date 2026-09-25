@@ -8,7 +8,7 @@
 -- SUS-36 found the job layer silently throwing away.
 
 begin;
-select plan(46);
+select plan(47);
 
 create or replace function pg_temp.make_user(id uuid, name text, permanent boolean)
 returns uuid language sql as $$
@@ -46,12 +46,13 @@ end;
 $$;
 
 -- Maya organises. Priya and Tom have saved places; Sam is a guest; Jess has
--- left the circle.
+-- left the circle; Ren joined after the plan was made, so it is not asking him.
 select pg_temp.make_user('00000000-0000-0000-0000-0000000024a1', 'Maya', true);
 select pg_temp.make_user('00000000-0000-0000-0000-0000000024a2', 'Priya', true);
 select pg_temp.make_user('00000000-0000-0000-0000-0000000024a3', 'Tom', true);
 select pg_temp.make_user('00000000-0000-0000-0000-0000000024a4', 'Sam', false);
 select pg_temp.make_user('00000000-0000-0000-0000-0000000024a5', 'Jess', true);
+select pg_temp.make_user('00000000-0000-0000-0000-0000000024a6', 'Ren', true);
 
 select pg_temp.act_as('00000000-0000-0000-0000-0000000024a1');
 select public.create_circle('Sunday Crew', 'sky', 'Australia/Melbourne', 'key-replies-closed');
@@ -66,7 +67,8 @@ select circle_id, u.id, u.name, u.status from t,
   (values ('00000000-0000-0000-0000-0000000024a2'::uuid, 'Priya', 'active'),
           ('00000000-0000-0000-0000-0000000024a3'::uuid, 'Tom', 'active'),
           ('00000000-0000-0000-0000-0000000024a4'::uuid, 'Sam', 'active'),
-          ('00000000-0000-0000-0000-0000000024a5'::uuid, 'Jess', 'removed')) as u (id, name, status);
+          ('00000000-0000-0000-0000-0000000024a5'::uuid, 'Jess', 'removed'),
+          ('00000000-0000-0000-0000-0000000024a6'::uuid, 'Ren', 'active')) as u (id, name, status);
 
 -- The plan whose replies have closed: ready, deadline two hours ago, a window
 -- a week out. And one for the edge the domain calls "nothing left to extend
@@ -118,7 +120,7 @@ select results_eq(
   format($$ select display_name, has_saved_place from public.hand_off_candidates(%L)
             order by display_name $$, pg_temp.plan_id()),
   $$ values ('Priya'::text, true), ('Sam'::text, false), ('Tom'::text, true) $$,
-  'the organiser sees every active member but themselves, and which of them has a saved place'
+  'the organiser sees everyone the plan asks but themselves, and which of them has a saved place — not Ren, whom it never asked'
 );
 
 select pg_temp.act_as('00000000-0000-0000-0000-0000000024a2');
@@ -269,6 +271,12 @@ select throws_ok(
     '00000000-0000-0000-0000-0000000024a5'),
   'P0001', 'not_a_member',
   'nor somebody who has left the circle'
+);
+select throws_ok(
+  format($$ select public.hand_off_organiser(%L, %L) $$, pg_temp.plan_id(),
+    '00000000-0000-0000-0000-0000000024a6'),
+  'P0001', 'not_a_participant',
+  'nor a member the plan never asked, whom its letters could not reach'
 );
 select throws_ok(
   format($$ select public.hand_off_organiser(%L, %L) $$, pg_temp.plan_id(),

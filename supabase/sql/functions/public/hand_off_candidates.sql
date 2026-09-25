@@ -1,8 +1,10 @@
 -- ---------------------------------------------------------------------------
 -- Who the organiser could hand a plan to (spec §5.7), for the sheet that asks.
 --
--- Every active member of the plan's circle but the organiser, with whether they
--- have a saved place. The sheet shows the ones without one greyed out with
+-- Every active member the plan's current revision is asking, but the
+-- organiser, with whether they have a saved place — the people
+-- `hand_off_target` could accept but for that. Somebody in the circle the plan
+-- never asked is not listed: its letters could not reach them. The sheet shows the ones without one greyed out with
 -- "needs a saved place" rather than letting a tap be refused, and the client
 -- cannot tell on its own: `profiles` is readable by its owner alone.
 --
@@ -45,15 +47,17 @@ begin
   select m.user_id, m.display_name_snapshot, coalesce(pr.is_permanent, false)
   from public.circle_members m
   left join public.profiles pr on pr.user_id = m.user_id
+  join public.plan_participants pp
+    on pp.plan_id = plan.id and pp.revision = plan.revision and pp.user_id = m.user_id
   where m.circle_id = plan.circle_id
     and m.status = 'active'
     and m.user_id <> caller
-  order by m.joined_at, m.user_id;
+  order by pp.joined_at, m.user_id;
 end;
 $$;
 
 comment on function public.hand_off_candidates(uuid) is
-  'The active members a plan''s organiser could hand it to, each with whether they have a saved place. The calling organiser only (S2-05).';
+  'The active members a plan''s current revision asks, but its organiser, each with whether they have a saved place: whom the organiser could hand it to. The calling organiser only (S2-05).';
 
 revoke all on function public.hand_off_candidates(uuid) from public;
 revoke all on function public.hand_off_candidates(uuid) from anon, authenticated;

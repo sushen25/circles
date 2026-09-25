@@ -374,11 +374,12 @@ begin
         end if;
       when 'hand_off_target' then
         -- "Hand this to someone else" (spec §5.7, §9), the receiving half; the
-        -- giving half is the `organiser` guard before it. The same three
-        -- refusals as `handOffRefusal` in the domain, in the same order: the
-        -- plan is theirs already, they are not in the circle, or they have no
-        -- saved place — "organiser roles belong to saved-place identities
-        -- only" (spec §8.2), which is the invariant this guard exists to hold.
+        -- giving half is the `organiser` guard before it. The same refusals as
+        -- `handOffRefusal` in the domain, in the same order: the plan is theirs
+        -- already, they are not in the circle, the plan is not asking them, or
+        -- they have no saved place — "organiser roles belong to saved-place
+        -- identities only" (spec §8.2), which is the invariant this guard
+        -- exists to hold.
         if (p_payload ->> 'organiser_user_id')::uuid is not distinct from plan.organiser_user_id then
           raise exception 'already_the_organiser' using errcode = 'P0001';
         end if;
@@ -389,6 +390,16 @@ begin
             and m.status = 'active'
         ) then
           raise exception 'not_a_member' using errcode = 'P0001';
+        end if;
+        -- One of the people this revision asks: the organiser's letters go to
+        -- the plan's own audience, so somebody outside it would organise a plan
+        -- that could never write to them.
+        if not exists (
+          select 1 from public.plan_participants pp
+          where pp.plan_id = plan.id and pp.revision = plan.revision
+            and pp.user_id = (p_payload ->> 'organiser_user_id')::uuid
+        ) then
+          raise exception 'not_a_participant' using errcode = 'P0001';
         end if;
         if not coalesce((
           select p.is_permanent from public.profiles p
@@ -1114,8 +1125,10 @@ grant execute on function public.extend_deadline(uuid) to authenticated;
 -- ---------------------------------------------------------------------------
 -- Who the organiser could hand a plan to (spec §5.7), for the sheet that asks.
 --
--- Every active member of the plan's circle but the organiser, with whether they
--- have a saved place. The sheet shows the ones without one greyed out with
+-- Every active member the plan's current revision is asking, but the
+-- organiser, with whether they have a saved place — the people
+-- `hand_off_target` could accept but for that. Somebody in the circle the plan
+-- never asked is not listed: its letters could not reach them. The sheet shows the ones without one greyed out with
 -- "needs a saved place" rather than letting a tap be refused, and the client
 -- cannot tell on its own: `profiles` is readable by its owner alone.
 --
@@ -1158,15 +1171,17 @@ begin
   select m.user_id, m.display_name_snapshot, coalesce(pr.is_permanent, false)
   from public.circle_members m
   left join public.profiles pr on pr.user_id = m.user_id
+  join public.plan_participants pp
+    on pp.plan_id = plan.id and pp.revision = plan.revision and pp.user_id = m.user_id
   where m.circle_id = plan.circle_id
     and m.status = 'active'
     and m.user_id <> caller
-  order by m.joined_at, m.user_id;
+  order by pp.joined_at, m.user_id;
 end;
 $$;
 
 comment on function public.hand_off_candidates(uuid) is
-  'The active members a plan''s organiser could hand it to, each with whether they have a saved place. The calling organiser only (S2-05).';
+  'The active members a plan''s current revision asks, but its organiser, each with whether they have a saved place: whom the organiser could hand it to. The calling organiser only (S2-05).';
 
 revoke all on function public.hand_off_candidates(uuid) from public;
 revoke all on function public.hand_off_candidates(uuid) from anon, authenticated;
@@ -1183,9 +1198,9 @@ grant execute on function public.hand_off_candidates(uuid) to authenticated;
 --   * **The transition.** `planning.transition_plan(…, 'hand_off', …)` holds
 --     every rule: only the organiser may (`organiser`), only from a plan with
 --     something left to decide (`collecting`, `ready`), and only to an active
---     member with a saved place who is not the organiser already
---     (`hand_off_target` — spec §8.2's "organiser roles belong to saved-place
---     identities only"). It emits `planning.organiser_changed`, which the drain
+--     member the plan is asking, with a saved place, who is not the organiser
+--     already (`hand_off_target` — spec §8.2's "organiser roles belong to
+--     saved-place identities only"). It emits `planning.organiser_changed`, which the drain
 --     turns into the new organiser's letter.
 --   * **The letters already written to the old one.** `dispatch_context` reads
 --     `plans.organiser_user_id`, so the organiser kinds go to the new organiser

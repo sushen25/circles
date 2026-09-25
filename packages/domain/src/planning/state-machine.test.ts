@@ -175,7 +175,12 @@ describe('every row is reachable and every non-row is refused', () => {
         eligibleCandidateIds: ['cand-1'],
         keenCount: 99,
         circleHasOpenPlan: false,
-        handOffTo: { userId: userId('user-2'), isMember: true, isPermanent: true },
+        handOffTo: {
+          userId: userId('user-2'),
+          isMember: true,
+          isParticipant: true,
+          isPermanent: true,
+        },
       });
 
       expect(isOk(result), `${from} + ${action} was refused`).toBe(true);
@@ -506,7 +511,7 @@ describe('acceptsAnswers', () => {
 
 describe('hand_off (S2-05)', () => {
   const PRIYA = userId('user-2');
-  const saved = { userId: PRIYA, isMember: true, isPermanent: true };
+  const saved = { userId: PRIYA, isMember: true, isParticipant: true, isPermanent: true };
 
   it('gives the plan to the member it names, and moves nothing else', () => {
     for (const state of ['collecting', 'ready'] as const) {

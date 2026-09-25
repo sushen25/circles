@@ -158,11 +158,12 @@ begin
         end if;
       when 'hand_off_target' then
         -- "Hand this to someone else" (spec §5.7, §9), the receiving half; the
-        -- giving half is the `organiser` guard before it. The same three
-        -- refusals as `handOffRefusal` in the domain, in the same order: the
-        -- plan is theirs already, they are not in the circle, or they have no
-        -- saved place — "organiser roles belong to saved-place identities
-        -- only" (spec §8.2), which is the invariant this guard exists to hold.
+        -- giving half is the `organiser` guard before it. The same refusals as
+        -- `handOffRefusal` in the domain, in the same order: the plan is theirs
+        -- already, they are not in the circle, the plan is not asking them, or
+        -- they have no saved place — "organiser roles belong to saved-place
+        -- identities only" (spec §8.2), which is the invariant this guard
+        -- exists to hold.
         if (p_payload ->> 'organiser_user_id')::uuid is not distinct from plan.organiser_user_id then
           raise exception 'already_the_organiser' using errcode = 'P0001';
         end if;
@@ -173,6 +174,16 @@ begin
             and m.status = 'active'
         ) then
           raise exception 'not_a_member' using errcode = 'P0001';
+        end if;
+        -- One of the people this revision asks: the organiser's letters go to
+        -- the plan's own audience, so somebody outside it would organise a plan
+        -- that could never write to them.
+        if not exists (
+          select 1 from public.plan_participants pp
+          where pp.plan_id = plan.id and pp.revision = plan.revision
+            and pp.user_id = (p_payload ->> 'organiser_user_id')::uuid
+        ) then
+          raise exception 'not_a_participant' using errcode = 'P0001';
         end if;
         if not coalesce((
           select p.is_permanent from public.profiles p

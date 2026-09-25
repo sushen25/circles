@@ -8,9 +8,9 @@
 --   * **The transition.** `planning.transition_plan(…, 'hand_off', …)` holds
 --     every rule: only the organiser may (`organiser`), only from a plan with
 --     something left to decide (`collecting`, `ready`), and only to an active
---     member with a saved place who is not the organiser already
---     (`hand_off_target` — spec §8.2's "organiser roles belong to saved-place
---     identities only"). It emits `planning.organiser_changed`, which the drain
+--     member the plan is asking, with a saved place, who is not the organiser
+--     already (`hand_off_target` — spec §8.2's "organiser roles belong to
+--     saved-place identities only"). It emits `planning.organiser_changed`, which the drain
 --     turns into the new organiser's letter.
 --   * **The letters already written to the old one.** `dispatch_context` reads
 --     `plans.organiser_user_id`, so the organiser kinds go to the new organiser

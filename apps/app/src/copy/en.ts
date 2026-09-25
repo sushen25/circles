@@ -956,7 +956,7 @@ export const en = {
     problem_offline: "You're offline. Connect, then try again.",
     problem_not_organiser: 'This plan is not yours to change any more.',
     problem_saved_place: 'They need a saved place before they can organise.',
-    problem_left: 'They are not in the circle any more.',
+    problem_left: 'They are not one of the people this plan is asking any more.',
     problem_finished: 'This plan has moved on. Showing it as it is now.',
     problem_extended: 'It has had its extra day already.',
     problem_no_time: 'Too close to the last possible start to reopen replies.',
