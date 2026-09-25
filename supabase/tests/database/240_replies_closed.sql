@@ -8,7 +8,7 @@
 -- SUS-36 found the job layer silently throwing away.
 
 begin;
-select plan(47);
+select plan(52);
 
 create or replace function pg_temp.make_user(id uuid, name text, permanent boolean)
 returns uuid language sql as $$
@@ -530,6 +530,50 @@ select is(
    where j ->> 'idempotency_key' = '0000000000000000000000000000000000000000000000000000000000000022'),
   true,
   'while a second options_ready on one revision is still one letter'
+);
+
+-- ---------------------------------------------------------------------------
+-- A newer replies_closed takes the place of one still held (review round 1)
+-- ---------------------------------------------------------------------------
+select pg_temp.act_as_postgres();
+insert into jobs.notification_jobs (
+  channel, kind, contact_id, plan_id, plan_revision, scheduled_for, idempotency_key, status
+)
+select 'email', 'replies_closed', c.id, pg_temp.plan_id(), 1, now() + interval '8 hours', k.key, 'scheduled'
+from (values ('0000000000000000000000000000000000000000000000000000000000000031'),
+             ('0000000000000000000000000000000000000000000000000000000000000032')) as k (key)
+cross join private.email_contacts c where c.email_normalized = 'priya-rc@example.com';
+
+select ok(
+  not has_function_privilege('authenticated', 'public.dispatch_supersede_closing(uuid, text[])', 'execute')
+  and not has_function_privilege('anon', 'public.dispatch_supersede_closing(uuid, text[])', 'execute'),
+  'nobody but the service role takes letters back'
+);
+select pg_temp.act_as_service();
+select is(
+  public.dispatch_supersede_closing(pg_temp.plan_id(),
+    array['0000000000000000000000000000000000000000000000000000000000000032']),
+  3,
+  'every held replies_closed but the one being written is taken back: Priya''s two from earlier and the new older one'
+);
+select pg_temp.act_as_postgres();
+select is(
+  (select status || '/' || coalesce(last_error, '-') from jobs.notification_jobs
+   where idempotency_key = '0000000000000000000000000000000000000000000000000000000000000031'),
+  'skipped/superseded',
+  'as superseded'
+);
+select is(
+  (select status from jobs.notification_jobs
+   where idempotency_key = '0000000000000000000000000000000000000000000000000000000000000032'),
+  'scheduled',
+  'and the one it keeps stays queued, so a re-drained event cannot take back its own letter'
+);
+select is(
+  (select status from jobs.notification_jobs
+   where idempotency_key = '0000000000000000000000000000000000000000000000000000000000000021'),
+  'sent',
+  'a letter already sent, and any other kind, is left alone'
 );
 
 select * from finish();

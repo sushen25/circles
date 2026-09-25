@@ -10,6 +10,7 @@ import {
 
 import type { Db } from '../_shared/db.ts';
 import { log } from '../_shared/logging.ts';
+import { supersedeClosing } from './closing.ts';
 import { type PlanContext, loadContext } from './context.ts';
 import { needsQuietAudience, withQuietAudience } from './quiet.ts';
 import {
@@ -241,6 +242,10 @@ export async function drain(
           }
         }
       }
+
+      // A newer "replies are closed" replaces one still held for quiet hours
+      // (S2-05, `closing.ts`).
+      await supersedeClosing(service, planId, rows);
 
       if (rows.length > 0) {
         const { data, error } = await service.rpc('dispatch_enqueue', { p_jobs: rows });

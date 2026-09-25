@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+
+import { EXTENSION_HOURS, EXTENSION_MARGIN_MINUTES } from '@circles/domain';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
@@ -196,5 +199,20 @@ describe('extend-deadline', () => {
 
     expect(response.status).toBe(400);
     expect(called('extend_deadline')).toHaveLength(0);
+  });
+});
+
+describe('one more day, written twice', () => {
+  it('has the same day and the same margin in the domain and in extend_deadline', () => {
+    // `oneMoreDay` labels the button and `public.extend_deadline` decides; a
+    // constant changed in one and not the other offers a deadline the server
+    // will not give (review round 1).
+    const sql = readFileSync(
+      new URL('../sql/functions/public/extend_deadline.sql', import.meta.url),
+      'utf8',
+    );
+    expect(sql).toContain(`interval '${EXTENSION_HOURS} hours'`);
+    expect(sql).toContain(`interval '${EXTENSION_MARGIN_MINUTES} minutes'`);
+    expect(sql.match(/interval '\d+ (hours|minutes)'/g)).toHaveLength(2);
   });
 });

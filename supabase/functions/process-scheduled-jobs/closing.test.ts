@@ -86,22 +86,37 @@ describe('the letters replies closing writes', () => {
   });
 });
 
+const handed = (id = '00000000-0000-4000-8000-0000000000e2'): OutboxEvent => ({
+  ...closed({}),
+  id,
+  event_name: 'planning.organiser_changed',
+});
+
 describe('what a hand-off tells the new organiser', () => {
   it('replies closed: the letter that opens the three ways out', () => {
-    const [intent, ...rest] = handedOverIntents(contextOf({ organiser: PRIYA }), NOW);
+    const [intent, ...rest] = handedOverIntents(handed(), contextOf({ organiser: PRIYA }), NOW);
     expect(rest).toEqual([]);
     expect(intent?.kind).toBe('replies_closed');
   });
 
+  it('keyed on the hand-off, so a plan handed back is told again (review round 1)', () => {
+    // Maya's own letter for this deadline was skipped when she let the plan
+    // go; its key is taken for ever. Handed back, she is written a new one.
+    const ordinary = repliesClosedIntent(closed({}), contextOf({}), NOW).occurrence;
+    const first = handedOverIntents(handed('e-1'), contextOf({}), NOW)[0]?.occurrence;
+    const back = handedOverIntents(handed('e-2'), contextOf({}), NOW)[0]?.occurrence;
+    expect(new Set([ordinary, first, back]).size).toBe(3);
+  });
+
   it('options on offer and replies still open: options ready', () => {
     const open = contextOf({ organiser: PRIYA, deadline: addMinutes(NOW, 60) });
-    expect(handedOverIntents(open, NOW).map((i) => i.kind)).toEqual(['options_ready']);
+    expect(handedOverIntents(handed(), open, NOW).map((i) => i.kind)).toEqual(['options_ready']);
   });
 
   it('still collecting before the deadline, or already locked in: nothing yet', () => {
     const collecting = contextOf({ state: 'collecting', deadline: addMinutes(NOW, 60) });
-    expect(handedOverIntents(collecting, NOW)).toEqual([]);
-    expect(handedOverIntents(contextOf({ state: 'confirmed' }), NOW)).toEqual([]);
+    expect(handedOverIntents(handed(), collecting, NOW)).toEqual([]);
+    expect(handedOverIntents(handed(), contextOf({ state: 'confirmed' }), NOW)).toEqual([]);
   });
 });
 

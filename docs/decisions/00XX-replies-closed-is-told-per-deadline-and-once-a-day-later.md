@@ -53,7 +53,10 @@ turned four loose phrases into decisions:
    sending, a `replies_closed` for a plan that has since been locked in is
    skipped as `already_decided`, and one for a plan given another day while it
    waited as `replies_reopened`; any organiser letter to somebody who no longer
-   organises the plan is skipped as `organiser_changed`.
+   organises the plan is skipped as `organiser_changed`. And a newer
+   `replies_closed` takes the place of an older one still held: the drain skips
+   the plan's queued ones as `superseded` before it writes the new one, because
+   a job does not carry its deadline and at 08:00 both would look true.
 4. **One more day is a day from the later of now and the deadline, never
    later than thirty minutes before the last possible start, once per
    revision.** `oneMoreDay` in the domain and `public.extend_deadline` in the
@@ -77,7 +80,9 @@ turned four loose phrases into decisions:
    that says what is waiting for them: `replies_closed` when replies have
    closed, `options_ready` when there are options and replies are open, and
    nothing while the plan is still collecting — `options_ready` will reach
-   them in its turn, its key naming the recipient.
+   them in its turn, its key naming the recipient. The hand-off letter's
+   occurrence includes the hand-off event, so a plan handed back to somebody
+   whose own letter was skipped when they let it go is told again.
 6. **An extension does not reopen the deadline-approaching reminder.** Spec
    §5.8 allows "at most one deadline reminder per member per plan", and that
    kind is push-only until Slice 3. The ticket asked for it to be re-armed;

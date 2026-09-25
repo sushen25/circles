@@ -3355,6 +3355,25 @@ describe('process-scheduled-jobs', () => {
       expect(new Set(written.map((job) => job.idempotency_key)).size).toBe(2);
     });
 
+    it('takes back an older letter still held, keeping the one it is writing (review round 1)', async () => {
+      // A letter for the first deadline, held until morning, would otherwise
+      // go out beside the one for the extended deadline: two identical letters.
+      withContact();
+      planContext = undecided();
+      events = [closedAt({})];
+      await load('process-scheduled-jobs')(post({}, 'a-shared-secret'));
+
+      const order = state.rpcs.map((call) => call.fn);
+      const superseding = called('dispatch_supersede_closing')[0]?.args;
+      expect(superseding).toEqual({
+        p_plan_id: PLAN_ID,
+        p_keep: enqueued().map((job) => job.idempotency_key),
+      });
+      expect(order.indexOf('dispatch_supersede_closing')).toBeLessThan(
+        order.indexOf('dispatch_enqueue'),
+      );
+    });
+
     it('and the same letter twice under one key, so a re-drained event writes nothing new', async () => {
       withContact();
       planContext = undecided();

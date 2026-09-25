@@ -48,6 +48,18 @@ describe('occurrenceFor', () => {
     expect(() => occurrenceFor('replies_closed')).toThrow(RangeError);
   });
 
+  it('gives a hand-off its own letter, so a plan handed back is told again', () => {
+    // The first organiser's `once` may be spent — skipped when they let the
+    // plan go — and the unique index keeps a skipped key for ever.
+    const first = fromISO('2026-09-15T08:00:00.000Z');
+    const closed = occurrenceFor('replies_closed', { deadline: first });
+    const handed = occurrenceFor('replies_closed', { deadline: first, handOffId: 'event-1' });
+    const handedBack = occurrenceFor('replies_closed', { deadline: first, handOffId: 'event-2' });
+    expect(new Set([closed, handed, handedBack]).size).toBe(3);
+    expect(occurrenceFor('options_ready', { handOffId: 'event-1' })).not.toBe(ONCE);
+    expect(occurrenceFor('options_ready')).toBe(ONCE);
+  });
+
   it('gives each material change its own occurrence, not one per revision', () => {
     // A reschedule bumps the revision; a place correction on a live
     // confirmation does not. Sharing an occurrence means the unique index drops

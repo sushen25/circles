@@ -2,14 +2,15 @@ import {
   FOLLOW_UP,
   type Instant,
   type NotificationKind,
-  ONCE,
   fromISO,
   isAfter,
   notificationSpec,
   occurrenceFor,
 } from '@circles/domain';
 
+import type { Db } from '../_shared/db.ts';
 import type { PlanContext } from './context.ts';
+import type { JobRow } from './drain.ts';
 import type { Intent, OutboxEvent } from './events.ts';
 import type { DueJob } from './send.ts';
 
@@ -72,26 +73,62 @@ function undecided(context: PlanContext): boolean {
  * Replies closed → `replies_closed`, which opens the screen with the three
  * ways out; options on offer and replies still open → `options_ready`; still
  * collecting → nothing yet, because `options_ready` will reach them when there
- * are options (its key names the recipient, so they have not spent it).
+ * are options (its key names the recipient, so a first-time organiser has not
+ * spent it).
  * Addressed through `recipientsFor`'s `organiser` audience, which reads the
  * plan as it is now: the person the plan was handed to.
  */
-export function handedOverIntents(context: PlanContext, now: Instant): readonly Intent[] {
+export function handedOverIntents(
+  event: OutboxEvent,
+  context: PlanContext,
+  now: Instant,
+): readonly Intent[] {
   const deadline = deadlineNow(context);
   if (!undecided(context) || deadline === undefined) return [];
+  // Keyed on the hand-off itself, so a plan handed back to somebody who has
+  // had this letter before — even one skipped when they let it go — is told
+  // again: their earlier key is taken whatever its status (review round 1).
+  const handOffId = event.id;
   if (!isAfter(deadline, now)) {
     return [
       {
         kind: 'replies_closed',
-        occurrence: occurrenceFor('replies_closed', { deadline }),
+        occurrence: occurrenceFor('replies_closed', { deadline, handOffId }),
         desiredAt: now,
       },
     ];
   }
   if (context.planState === 'ready') {
-    return [{ kind: 'options_ready', occurrence: ONCE, desiredAt: now }];
+    return [
+      {
+        kind: 'options_ready',
+        occurrence: occurrenceFor('options_ready', { handOffId }),
+        desiredAt: now,
+      },
+    ];
   }
   return [];
+}
+
+/**
+ * Before a drain writes a `replies_closed`, the older ones still held for this
+ * plan are skipped as `superseded` — all but the rows it is about to write, so
+ * a re-drained event cannot skip its own letter (`dispatch_supersede_closing`).
+ * A job carries no deadline, so this is the one moment the two can be told
+ * apart (review round 1).
+ */
+export async function supersedeClosing(
+  service: Db,
+  planId: string | null,
+  rows: readonly JobRow[],
+): Promise<void> {
+  const closing = rows.filter((row) => row.kind === 'replies_closed');
+  if (planId === null || closing.length === 0) return;
+  const { error } = await service.rpc('dispatch_supersede_closing', {
+    p_plan_id: planId,
+    p_keep: closing.map((row) => row.idempotency_key),
+  });
+  if (error !== null) throw error;
 }
 
 /**

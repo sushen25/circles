@@ -54,6 +54,13 @@ export type OccurrenceInput = {
    * has been decided since (`FOLLOW_UP`). Absent is the letter at the deadline.
    */
   readonly followUp?: boolean | undefined;
+  /**
+   * For `replies_closed` and `options_ready` sent to somebody a plan has just
+   * been handed to: the hand-off event. Their `once` may already be spent —
+   * a plan handed back to its first organiser — and a hand-off is a new
+   * reason to write (S2-05 review round 1).
+   */
+  readonly handOffId?: string | undefined;
 };
 
 /**
@@ -84,9 +91,13 @@ export function occurrenceFor(kind: NotificationKind, input: OccurrenceInput = {
     case 'threshold_initiator':
     case 'threshold_keen':
     case 'quiet_expired':
-    case 'options_ready':
     case 'cancelled':
       return ONCE;
+
+    // Once per revision, and once more for each hand-off: "the options are
+    // ready" is news to whoever the plan was just handed to.
+    case 'options_ready':
+      return input.handOffId === undefined ? ONCE : `handed:${part(input.handOffId)}`;
 
     // Once per **deadline**, not per revision, and once more a day after it.
     // "Give it one more day" moves the deadline without bumping the revision,
@@ -100,6 +111,7 @@ export function occurrenceFor(kind: NotificationKind, input: OccurrenceInput = {
         throw new RangeError(`occurrence: ${kind} needs the deadline`);
       }
       const closed = part(toISO(input.deadline));
+      if (input.handOffId !== undefined) return `${closed}handed:${part(input.handOffId)}`;
       return input.followUp === true ? closed + FOLLOW_UP : closed;
     }
 

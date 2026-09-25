@@ -128,7 +128,7 @@ export function intentsFor(
 
     // A hand-off: the new organiser is told what is waiting for them.
     case 'planning.organiser_changed':
-      return handedOverIntents(context, now);
+      return handedOverIntents(event, context, now);
 
     // Both cancellations, and **with no actor**, which is a decision rather
     // than an omission. A cancel is guarded `organiser_or_owner`, so the
