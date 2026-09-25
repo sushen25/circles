@@ -12,7 +12,7 @@
 -- circle of theirs and owns one of his own with nobody else in it.
 
 begin;
-select plan(63);
+select plan(68);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid
@@ -505,6 +505,41 @@ select is(
   'seeking',
   'and the event says it never opened, which is how the initiator''s notice is addressed'
 );
+
+-- ---------------------------------------------------------------------------
+-- What a viewer may know about themselves (`my_quiet_ask`, for `quietView`).
+-- ---------------------------------------------------------------------------
+
+select pg_temp.act_as('24000000-0000-0000-0000-0000000000a1');
+select is(
+  public.my_quiet_ask(:'qpair'),
+  jsonb_build_object('is_initiator', true, 'my_answer', 'keen', 'ever_opened', false),
+  'the initiator of an ask that closed quietly learns it was theirs and never opened'
+);
+select pg_temp.act_as('24000000-0000-0000-0000-0000000000a2');
+select is(
+  public.my_quiet_ask(:'qpair'),
+  jsonb_build_object('is_initiator', false, 'my_answer', null, 'ever_opened', false),
+  'anybody else learns only about themselves'
+);
+select is(
+  public.my_quiet_ask(:'q2'),
+  jsonb_build_object('is_initiator', true, 'my_answer', 'keen', 'ever_opened', null),
+  'and an ask still running has no history to tell'
+);
+select pg_temp.act_as('24000000-0000-0000-0000-0000000000a7');
+select is(
+  public.my_quiet_ask(:'q2'),
+  null,
+  'somebody outside the circle learns nothing'
+);
+select pg_temp.act_as('24000000-0000-0000-0000-0000000000a1');
+select is(
+  public.my_quiet_ask(:'named'),
+  null,
+  'nor is there anything to say about a named plan'
+);
+select pg_temp.act_as_postgres();
 
 -- ---------------------------------------------------------------------------
 -- Who a quiet message is for, read only for the kind that needs it.
