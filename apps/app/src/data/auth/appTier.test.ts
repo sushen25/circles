@@ -78,6 +78,31 @@ describe('app tier', () => {
     expect(await tier.appTierSettled('maya')).toEqual({ firstOpen: false });
   });
 
+  it("waits for the first read's mark even when a second read for the same person overtakes it", async () => {
+    let answer: (value: unknown) => void = () => undefined;
+    mark.mockReturnValueOnce(new Promise((resolve) => (answer = resolve)));
+    void tier.loadAppInstalled(session('maya'));
+    await Promise.resolve();
+    // The stamp is on the server; its answer is still on the way.
+    stamped.set('maya', '2026-09-26T00:00:00Z');
+    void tier.loadAppInstalled(session('maya'));
+    const settled = tier.appTierSettled('maya');
+    answer({ installed_at: '2026-09-26T00:00:00Z', first_open: true });
+    expect(await settled).toEqual({ firstOpen: true });
+  });
+
+  it('does not call a device the app tier for somebody who left while it was asked', async () => {
+    let answer: (value: unknown) => void = () => undefined;
+    mark.mockReturnValueOnce(new Promise((resolve) => (answer = resolve)));
+    void tier.loadAppInstalled(session('maya'));
+    await Promise.resolve();
+    await tier.loadAppInstalled(null);
+    answer({ installed_at: '2026-09-26T00:00:00Z', first_open: true });
+    await Promise.resolve();
+    expect(tier.isAppInstalled()).toBe(false);
+    expect(await tier.appTierSettled('maya')).toEqual({ firstOpen: false });
+  });
+
   it('stops waiting after a few seconds rather than holding sign-in', async () => {
     vi.useFakeTimers();
     mark.mockReturnValue(new Promise(() => undefined));

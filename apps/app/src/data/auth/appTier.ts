@@ -26,6 +26,8 @@ let installed = false;
 let firstOpenFor: string | undefined;
 let readFor: string | undefined;
 let loading: Promise<void> = Promise.resolve();
+/** The mark in flight, and whose: a later read for the same person must not settle before it. */
+let marking: { userId: string; done: Promise<void> } | undefined;
 const firstOpenListeners = new Set<() => void>();
 
 /** How long sign-in waits for the answer before routing without it. */
@@ -59,16 +61,22 @@ async function readAppInstalled(session: Session | null): Promise<void> {
   installed = data?.app_installed_at !== null && data?.app_installed_at !== undefined;
   if (installed) return;
 
-  try {
-    const marked = await markAppInstalled();
-    installed = true;
-    if (marked.first_open && readFor === session.user.id) {
-      firstOpenFor = session.user.id;
-      for (const listener of firstOpenListeners) listener();
+  const userId = session.user.id;
+  const done = (async () => {
+    try {
+      const marked = await markAppInstalled();
+      if (readFor !== userId) return;
+      installed = true;
+      if (marked.first_open) {
+        firstOpenFor = userId;
+        for (const listener of firstOpenListeners) listener();
+      }
+    } catch {
+      // Offline, or the function is unreachable: still `saved`, asked again later.
     }
-  } catch {
-    // Offline, or the function is unreachable: still `saved`, asked again later.
-  }
+  })();
+  marking = { userId, done };
+  await done;
 }
 
 /** Called once per first open, whichever path stamped it. For the analytics event. */
@@ -93,7 +101,11 @@ export async function appTierSettled(userId: string | undefined): Promise<{ firs
   const timeout = new Promise<void>((resolve) => {
     timer = setTimeout(resolve, SETTLE_MS);
   });
-  await Promise.race([loading, timeout]);
+  // The latest read, and the mark for this person if one is still in flight:
+  // a second read that finds the stamp the first one's mark just wrote would
+  // otherwise settle before that mark says it was the first (review round 2).
+  const mark = marking !== undefined && marking.userId === userId ? marking.done : undefined;
+  await Promise.race([Promise.all([loading, mark]), timeout]);
   clearTimeout(timer);
   const was = userId !== undefined && firstOpenFor === userId;
   if (was) firstOpenFor = undefined;
@@ -106,5 +118,6 @@ export function resetAppTierForTests(): void {
   firstOpenFor = undefined;
   readFor = undefined;
   loading = Promise.resolve();
+  marking = undefined;
   firstOpenListeners.clear();
 }
