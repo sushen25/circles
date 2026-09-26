@@ -54,12 +54,14 @@ export function routeIncomingLink(
 /**
  * A development client's own link wraps the real one in `?url=`:
  * `exp+circles://expo-development-client/?url=http%3A%2F%2F…%2Fjoin%23<secret>`.
- * expo-router decodes it — repeatedly, through a wrapper inside a wrapper — and
- * keeps the fragment, so this decodes the same way, and when a fragment is in
- * there, routes the innermost link as if it had arrived on its own. The dev
- * launcher has already used `url` to load the bundle by the time the router
- * asks. Development builds only: a release build has no dev client (review
- * rounds 1 and 2).
+ * expo-router decodes it — leniently, repeatedly — and keeps a fragment, and
+ * three review rounds showed that mirroring its decoding is a race this module
+ * cannot win. So the rule is total: a wrapped link with a fragment in it, at
+ * any depth of encoding, never reaches the router at all; the app opens on
+ * `/`. What the wrapped link carried is still held when its innermost form
+ * reads cleanly, so the screen it was for can be opened by hand. Development
+ * builds only — a release build has no dev client — and the dev launcher has
+ * already used `url` to load the bundle by the time the router asks.
  */
 function wrappedLinkStripped(
   url: string,
@@ -67,9 +69,11 @@ function wrappedLinkStripped(
   linkHosts: readonly string[],
   scheme: string,
 ): string {
-  // The parameter itself, not a name that merely ends in `url` (`xurl=`).
-  const match = /(?:^\?|&)url=([^&#]*)/.exec(search);
+  const match = /(?:^\?|&)url=([^&]*)/.exec(search);
   if (match === null || match[1] === undefined) return url;
+  // `#`, `%23`, `%2523`, … : a fragment at any depth of encoding.
+  if (!/#|%(?:25)*23/i.test(match[1])) return url;
+
   let inner = match[1];
   for (let depth = 0; depth < 8; depth += 1) {
     let next: string;
@@ -81,10 +85,10 @@ function wrappedLinkStripped(
     if (next === inner) break;
     inner = next;
   }
-  if (!inner.includes('#')) return url;
-  const at = inner.lastIndexOf('url=');
-  const innermost = at === -1 ? inner : inner.slice(at + 'url='.length);
-  return routeIncomingLink(innermost, linkHosts, scheme);
+  const at = inner.lastIndexOf('://');
+  const start = at === -1 ? -1 : inner.slice(0, at).search(/[a-z][a-z0-9+.-]*$/i);
+  if (start !== -1) routeIncomingLink(inner.slice(start), linkHosts, scheme);
+  return '/';
 }
 
 function routePathOf({ origin, pathname }: UrlParts): string {
