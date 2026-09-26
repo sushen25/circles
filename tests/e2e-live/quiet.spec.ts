@@ -1,138 +1,42 @@
-import { randomUUID } from 'node:crypto';
-
-import { expect, test, type Browser, type Page } from './fixtures';
-import { signedInAs } from './journeys';
-import { circleOwnedBy, signedInAccount, sql } from './stack';
+import { expect, test } from './fixtures';
+import { joinsAndAnswers, signedInAs } from './journeys';
+import { letterTo, linkIn, runDispatcher } from './mail';
+import {
+  addressOf,
+  answersKeen,
+  askedInSql,
+  asksFromTheForm,
+  expectNothingConnects,
+  keenInSql,
+  mayaAsks,
+  open,
+  person,
+  threeOfUs,
+  watched,
+} from './quiet-people';
+import { circleOwnedBy, sql, sundayCrew } from './stack';
 
 /**
  * The quiet ask end to end (S2-03, spec §5.4): three members, Maya asks
  * quietly, Tom and Jess are keen, it opens, and **Tom** — not the person who
- * asked — picks the time. And an ask that runs out shows its neutral screen to
- * Maya alone.
+ * asked — picks the time. An ask that runs out shows its neutral screen to
+ * Maya alone. And the rest of the ways an ask goes (S2-08): the initiator's
+ * letter, the owner's fallback, a withdrawal, the refusals, and a keen guest.
+ * The seed's own quiet ask, scenario C, is `seed.spec.ts`'s.
  *
  * The acceptance criterion this file exists for is the negative one: **no
  * response any of their browsers receive about the ask, and no analytics row,
  * connects Maya to it.** Every response from the quiet functions and every
  * read of `plans` is kept and searched for her id and for any key that would
- * name an initiator or an answer.
+ * name an initiator or an answer (`quiet-people.ts`).
  */
 
-type Person = { userId: string; name: string; page: Page; seen: string[]; quietEvents: string[] };
-
-/** The responses that are *about the ask*: where an initiator or an answer could leak. */
-const ABOUT_THE_ASK =
-  /\/(functions\/v1\/(quiet-view|create-plan|answer-interest|accept-organiser|cancel-plan)|rest\/v1\/plans)\b/;
-
-async function person(
-  name: string,
-): Promise<Omit<Person, 'page' | 'seen' | 'quietEvents'> & { stored: string }> {
-  const { userId, stored } = await signedInAccount(name);
-  return { userId, name, stored };
-}
-
-async function open(
-  browser: Browser,
-  who: { userId: string; name: string; stored: string },
-): Promise<Person> {
-  const context = await browser.newContext();
-  const page = await context.newPage();
-  await signedInAs(page, who.stored);
-  const seen: string[] = [];
-  // The ids of the quiet events this page sent, to find their rows.
-  const quietEvents: string[] = [];
-  page.on('request', (request) => {
-    if (!new URL(request.url()).pathname.endsWith('/functions/v1/track-events')) return;
-    const body = JSON.parse(request.postData() ?? '{}') as {
-      events?: { event_id: string; name: string }[];
-    };
-    for (const event of body.events ?? []) {
-      if (event.name.startsWith('quiet_')) quietEvents.push(event.event_id);
-    }
-  });
-  page.on('response', (response) => {
-    if (!ABOUT_THE_ASK.test(new URL(response.url()).pathname)) return;
-    void response
-      .text()
-      .then((body) => seen.push(body))
-      .catch(() => undefined);
-  });
-  return { userId: who.userId, name: who.name, page, seen, quietEvents };
-}
-
-/** A circle of three saved places: Maya owns it, Tom and Jess are in it. */
-async function threeOfUs(browser: Browser) {
-  const [maya, tom, jess] = await Promise.all(['Maya', 'Tom', 'Jess'].map((name) => person(name)));
-  const circleId = circleOwnedBy(maya!.userId, `Quiet ${randomUUID().slice(0, 6)}`);
-  sql(`
-    insert into public.circle_members (circle_id, user_id, display_name_snapshot)
-    values ('${circleId}', '${tom!.userId}', 'Tom'), ('${circleId}', '${jess!.userId}', 'Jess');
-  `);
-  return {
-    circleId,
-    maya: await open(browser, maya!),
-    tom: await open(browser, tom!),
-    jess: await open(browser, jess!),
-  };
-}
-
-/** Maya asks quietly about the next seven days, from ChooseMode. Returns the plan id. */
-async function mayaAsks(maya: Person, circleId: string): Promise<string> {
-  await maya.page.goto(`/circles/${circleId}/plan/mode`);
-  await maya.page.getByRole('button', { name: /^See if people are keen\./ }).click();
-  await expect(maya.page.getByText(/^Nobody sees who asked\. If 3 people are keen/)).toBeVisible();
-  await maya.page.getByRole('checkbox', { name: 'Next 7 days' }).click();
-  await expect(maya.page.getByRole('checkbox', { name: 'In two days' })).toHaveAttribute(
-    'aria-checked',
-    'true',
-  );
-  await maya.page.getByRole('button', { name: 'Ask quietly' }).click();
-  await expect(maya.page).toHaveURL(new RegExp(`/circles/${circleId}/quiet/[0-9a-f-]{36}$`));
-  await expect(
-    maya.page.getByText("We're checking who's keen for a catch-up in the next 7 days."),
-  ).toBeVisible();
-  // The threshold, from the view. No count, not even for her.
-  await expect(maya.page.getByText('3 people are keen', { exact: true })).toBeVisible();
-  return maya.page.url().split('/').at(-1)!;
-}
-
-/** From circle home's card, which is the same for everybody. */
-async function answersKeen(
-  member: Person,
-  circleId: string,
-  { opensIt = false }: { opensIt?: boolean } = {},
-): Promise<void> {
-  await member.page.goto(`/circles/${circleId}`);
-  await expect(member.page.getByText('Asked quietly')).toBeVisible();
-  await member.page.getByRole('button', { name: 'Take a look' }).click();
-  await expect(
-    member.page.getByText(
-      /^Someone in Quiet \w+ would be up for a catch-up in the next 7 days\. Would you\?$/,
-    ),
-  ).toBeVisible();
-  await member.page.getByRole('button', { name: "I'm keen" }).click();
-  // The view read again after the answer: the answer that opened it is met by
-  // the opened ask, and any other by the same thanks whatever was said.
-  await expect(
-    opensIt
-      ? member.page.getByText('3 people are keen to catch up in the next 7 days.')
-      : member.page.getByText("Thanks. We'll let you know if it opens up."),
-  ).toBeVisible();
-}
-
-function expectNothingConnects(maya: Person, ...everyone: Person[]): void {
-  for (const who of everyone) {
-    const said = who.seen.join('\n');
-    expect(said.length, `${who.name} read the ask`).toBeGreaterThan(0);
-    expect(said, `nothing ${who.name} received names Maya as the one who asked`).not.toContain(
-      maya.userId,
-    );
-    expect(said, `no key about who asked or who answered what`).not.toMatch(
-      /initiator|"interested"|"my_answer"|"keen_by"|"answer"\s*:/,
-    );
-  }
-}
-
-test('three members: Maya asks quietly, it opens, and Tom picks the time', async ({ browser }) => {
+test('three members: Maya asks quietly, it opens in front of her, and Tom picks the time', async ({
+  browser,
+}) => {
+  // Half a minute of the view's poll is skipped with the page's clock, but a
+  // slow WebKit still walks three browsers through five screens.
+  test.setTimeout(120_000);
   const { circleId, maya, tom, jess } = await threeOfUs(browser);
   const planId = await mayaAsks(maya, circleId);
 
@@ -147,8 +51,26 @@ test('three members: Maya asks quietly, it opens, and Tom picks the time', async
     .then(() => tom.page.getByText('Asked quietly').locator('xpath=../..').innerText());
   expect(tomsCard).toBe(mayasCard);
 
+  // Maya waits on her own ask. This device has watched her ask, so when it
+  // opens she is offered the initiator's choice — through the view's
+  // half-minute poll, never a reload, which would forget that she watched.
+  await maya.page.clock.install();
+  await maya.page.goto(`/circles/${circleId}/quiet/${planId}`);
+  await expect(maya.page.getByRole('button', { name: 'Withdraw the ask' })).toBeVisible();
+
   await answersKeen(jess, circleId, { opensIt: true });
   expect(sql(`select state from public.plans where id = '${planId}'`)[0]?.[0]).toBe('collecting');
+
+  await maya.page.clock.fastForward('00:31');
+  await expect(maya.page.getByRole('button', { name: "I'll organise" })).toBeVisible({
+    timeout: 40_000,
+  });
+  await expect(
+    maya.page.getByText(/^3 of you want to catch up in the next 7 days\. Someone needs/),
+  ).toBeVisible();
+  // She would rather somebody else did: the role is left to the keen.
+  await maya.page.getByRole('button', { name: 'Ask for a volunteer' }).click();
+  await expect(maya.page).toHaveURL(new RegExp(`/circles/${circleId}$`));
 
   // Tom, who did not ask, takes it on from the quiet screen.
   await tom.page.goto(`/circles/${circleId}/quiet/${planId}`);
@@ -157,6 +79,7 @@ test('three members: Maya asks quietly, it opens, and Tom picks the time', async
   ).toBeVisible();
   await expect(tom.page.getByText("3 said they're keen. We don't show who.")).toBeVisible();
   await expect(tom.page.getByText(/so far/)).toHaveCount(0);
+  await expect(tom.page.getByRole('button', { name: "I'll organise" })).toHaveCount(0);
   await tom.page.getByRole('button', { name: "I'll pick the time" }).click();
   await expect(tom.page).toHaveURL(new RegExp(`/circles/${circleId}/plan/${planId}/shared$`));
   expect(sql(`select organiser_user_id from public.plans where id = '${planId}'`)[0]?.[0]).toBe(
@@ -215,4 +138,161 @@ test('an ask that runs out is "closed quietly" to Maya and nothing to anybody el
   await expect(tom.page.getByText('Asked quietly')).toHaveCount(0);
 
   expectNothingConnects(maya, maya, tom);
+});
+
+test('the initiator’s own letter opens Volunteer, not ThresholdRole: a letter cannot say who reads it', async ({
+  page,
+  baseURL,
+}) => {
+  const [maya, tom, jess] = await Promise.all(['Maya', 'Tom', 'Jess'].map((name) => person(name)));
+  const circleId = circleOwnedBy(maya!.userId, 'Sunday Crew');
+  sql(`insert into public.circle_members (circle_id, user_id, display_name_snapshot)
+       values ('${circleId}', '${tom!.userId}', 'Tom'), ('${circleId}', '${jess!.userId}', 'Jess')`);
+  const ask = askedInSql(circleId, maya!.userId);
+  keenInSql(ask.id, tom!.userId);
+  keenInSql(ask.id, jess!.userId);
+  expect(sql(`select state from public.plans where id = '${ask.id}'`)[0]?.[0]).toBe('collecting');
+
+  // The drain writes the initiator's letter; quiet hours may hold it until
+  // morning where she is, so it is released before it is read (SUS-91).
+  const written = () =>
+    sql(`select count(*) from jobs.notification_jobs
+         where plan_id = '${ask.id}' and kind = 'threshold_initiator'`)[0]![0];
+  for (let attempt = 0; attempt < 20 && written() === '0'; attempt += 1) await runDispatcher();
+  expect(written()).toBe('1');
+  sql(`update jobs.notification_jobs set scheduled_for = now()
+       where plan_id = '${ask.id}' and status = 'scheduled'`);
+  const letter = await letterTo(addressOf(maya!.userId), /^Sunday Crew: enough people are keen$/);
+  expect(letter.text).not.toMatch(/Tom|Jess|\b[23] (of|people)\b/);
+
+  await signedInAs(page, maya!.stored);
+  const reading = watched(page, maya!);
+  await page.goto(linkIn(letter, new RegExp(`^/p/${ask.code}$`), baseURL!));
+  await expect(page.getByText('3 people are keen to catch up in the next 7 days.')).toBeVisible();
+  await expect(page.getByRole('button', { name: "I'll organise" })).toHaveCount(0);
+  expectNothingConnects(maya!, reading);
+
+  // "I'll pick the time" works for her too: it is the same capability.
+  await page.getByRole('button', { name: "I'll pick the time" }).click();
+  await expect(page).toHaveURL(new RegExp(`/circles/${circleId}/plan/${ask.id}/shared$`));
+  expect(sql(`select organiser_user_id from public.plans where id = '${ask.id}'`)[0]?.[0]).toBe(
+    maya!.userId,
+  );
+});
+
+test('replies close with nobody organising: the owner, who never answered, may take it on then and not before', async ({
+  browser,
+}) => {
+  const [maya, tom, jess, priya] = await Promise.all(
+    ['Maya', 'Tom', 'Jess', 'Priya'].map((name) => person(name)),
+  );
+  const circleId = circleOwnedBy(maya!.userId, 'Sunday Crew');
+  sql(`insert into public.circle_members (circle_id, user_id, display_name_snapshot)
+       values ('${circleId}', '${tom!.userId}', 'Tom'), ('${circleId}', '${jess!.userId}', 'Jess'),
+              ('${circleId}', '${priya!.userId}', 'Priya')`);
+  // Tom asks; Jess and Priya are keen, which is three of four. Maya owns the
+  // circle and says nothing.
+  const ask = askedInSql(circleId, tom!.userId);
+  keenInSql(ask.id, jess!.userId);
+  keenInSql(ask.id, priya!.userId);
+  const owner = await open(browser, maya!);
+
+  await owner.page.goto(`/p/${ask.code}`);
+  await expect(owner.page.getByText(/^Someone needs to pick the time\./)).toBeVisible();
+  await expect(owner.page.getByRole('button', { name: "I'll pick the time" })).toHaveCount(0);
+
+  // Replies close with the role still empty: the owner's fallback.
+  sql(`update public.plans set response_deadline = now() - interval '1 minute'
+       where id = '${ask.id}'`);
+  await owner.page.reload();
+  await owner.page.getByRole('button', { name: "I'll pick the time" }).click();
+  await expect(owner.page).toHaveURL(new RegExp(`/circles/${circleId}/plan/${ask.id}/shared$`));
+  expect(sql(`select organiser_user_id from public.plans where id = '${ask.id}'`)[0]?.[0]).toBe(
+    maya!.userId,
+  );
+  expectNothingConnects(tom!, owner);
+});
+
+test('Maya’s refusals are about her, in words; and she withdraws, and nobody is told', async ({
+  browser,
+}) => {
+  test.setTimeout(120_000);
+  const { circleId, maya, tom } = await threeOfUs(browser);
+  const planId = await mayaAsks(maya, circleId);
+  const circle = sql(`select name from public.circles where id = '${circleId}'`)[0]![0]!;
+
+  // A second ask while her first is open.
+  await maya.page.goto(`/circles/${circleId}/quiet/new`);
+  await asksFromTheForm(maya.page);
+  await expect(
+    maya.page.getByText(`You already have a quiet ask open in ${circle}. It has to close first.`),
+  ).toBeVisible();
+  await expect(maya.page).toHaveURL(new RegExp(`/circles/${circleId}/quiet/new$`));
+
+  // Withdrawn from SparkWaiting: it closes, and to Tom it is the page every
+  // closed ask is.
+  await maya.page.goto(`/circles/${circleId}/quiet/${planId}`);
+  await maya.page.getByRole('button', { name: 'Withdraw the ask' }).click();
+  await expect(
+    maya.page.getByText('It closes now, and nobody is told it was asked.'),
+  ).toBeVisible();
+  await maya.page.getByRole('button', { name: 'Withdraw', exact: true }).click();
+  await expect(maya.page).toHaveURL(new RegExp(`/circles/${circleId}$`));
+  expect(sql(`select state from public.plans where id = '${planId}'`)[0]?.[0]).toBe('cancelled');
+  await tom.page.goto(`/circles/${circleId}/quiet/${planId}`);
+  await expect(tom.page.getByText("This isn't open any more.")).toBeVisible();
+  await tom.page.goto(`/circles/${circleId}`);
+  await expect(tom.page.getByText('Asked quietly')).toHaveCount(0);
+
+  // Muted while the form was open: the refusal, then, read again, the statement.
+  await maya.page.goto(`/circles/${circleId}/quiet/new`);
+  await expect(maya.page.getByRole('button', { name: 'Ask quietly' })).toBeVisible();
+  const muted = (on: boolean) =>
+    sql(`update public.circle_members set muted_quiet_asks = ${on}
+         where circle_id = '${circleId}' and user_id = '${maya.userId}'`);
+  muted(true);
+  await asksFromTheForm(maya.page);
+  await expect(maya.page.getByText(`You've muted quiet asks in ${circle}.`)).toBeVisible();
+  await maya.page.reload();
+  await expect(maya.page.getByText(`You've muted quiet asks in ${circle}.`)).toBeVisible();
+  await expect(
+    maya.page.getByText('Turn them back on in circle settings to start one.'),
+  ).toBeVisible();
+  muted(false);
+
+  // Three asks in the circle this week, the withdrawn one among them.
+  for (const asker of [tom.userId, maya.userId]) {
+    const extra = askedInSql(circleId, asker);
+    sql(`begin;
+         select set_config('circles.in_transition', 'on', true);
+         update public.plans set state = 'cancelled' where id = '${extra.id}';
+         commit;`);
+  }
+  await maya.page.goto(`/circles/${circleId}/quiet/new`);
+  await asksFromTheForm(maya.page);
+  await expect(
+    maya.page.getByText(
+      `${circle} has had 3 quiet asks this week. Try again in a few days, or plan openly.`,
+    ),
+  ).toBeVisible();
+
+  expectNothingConnects(maya, tom);
+});
+
+test('a keen guest is not offered the role: the ask opens to them as a member’s', async ({
+  page,
+}) => {
+  const crew = sundayCrew();
+  await joinsAndAnswers(page, crew, 'Priya');
+  sql(`select planning.transition_plan('${crew.planId}', 'cancel', '${crew.ownerId}', '{}')`);
+  // Maya asks; of two members, two keen opens it.
+  const ask = askedInSql(crew.circleId, crew.ownerId);
+  const priya = watched(page, { userId: '', name: 'Priya' });
+
+  await answersKeen(priya, crew.circleId, { opensIt: true });
+  await expect(page.getByRole('button', { name: 'Choose my times' })).toBeVisible();
+  await expect(page.getByRole('button', { name: "I'll pick the time" })).toHaveCount(0);
+  await expect(page.getByText('Save your place first')).toHaveCount(0);
+  expect(sql(`select state from public.plans where id = '${ask.id}'`)[0]?.[0]).toBe('collecting');
+  expectNothingConnects({ userId: crew.ownerId }, priya);
 });
