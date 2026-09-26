@@ -30,6 +30,16 @@ function event<S extends Shape>(version: number, shape: S = {} as S) {
   return { version, payload: z.strictObject({ ...identifiers, ...shape }) };
 }
 
+/**
+ * An event about **nothing in particular**: no circle, no plan, no property.
+ * For the quiet ask's `UNATTRIBUTED_EVENTS`, whose row must not be joinable to
+ * a plan — and through the plan to `private.plan_initiators` or
+ * `private.plan_interest` — any more than to a person (SUS-51 review round 3).
+ */
+function bare(version: number) {
+  return { version, payload: z.strictObject({}) };
+}
+
 /** A count that is never a person's identity — "5 of 6 can make it". */
 const count = z.int().nonnegative().max(10_000);
 
@@ -103,12 +113,23 @@ export const catalogue = {
   plan_another_started: event(1),
 
   // --- quiet ask ----------------------------------------------------------
-  quiet_ask_created: event(1),
-  quiet_interest_answered: event(1, { answer: z.enum(['yes', 'no']) }),
+  //
+  // An event row sits beside `user_id` (architecture §15), and each of these
+  // would otherwise say something a quiet ask exists to keep (spec §8.2,
+  // SUS-49 note 12). `quiet_ask_created` beside a user *is* the initiator, so
+  // it is in `UNATTRIBUTED_EVENTS` below, and `bare`: no plan or circle either
+  // (version 2). So is `quiet_interest_answered`, and it carries no answer: version 1's `answer` beside a user was an individual
+  // answer, and even with nobody on the row an answer timed to the second can
+  // be matched to the tap that sent it. `organiser_accepted` names nobody new —
+  // the organiser is public from that moment — but version 1's
+  // `role: 'initiator'` beside their id was the initiator, so version 2 has no
+  // role (and the client could not know it: `accept-organiser` never says).
+  // `quiet_threshold_reached` is not the client's to send: no answer tells it
+  // the ask opened (SUS-51 left it to the server, SUS-50).
+  quiet_ask_created: bare(2),
+  quiet_interest_answered: bare(2),
   quiet_threshold_reached: event(1, { threshold: count }),
-  organiser_accepted: event(1, {
-    role: z.enum(['initiator', 'volunteer', 'owner_fallback']),
-  }),
+  organiser_accepted: event(2),
 
   // --- availability -------------------------------------------------------
   availability_started: event(1),
@@ -221,6 +242,26 @@ export const catalogue = {
 } as const;
 
 export type EventName = keyof typeof catalogue;
+
+/**
+ * Events recorded against **nobody**: no `user_id`, no `anonymous_id`.
+ *
+ * The client sends these in a request of their own, with the publishable key
+ * and neither a session nor a browser id (`apps/app/src/analytics/transport.ts`),
+ * so the ingest has nobody to attribute them to. In the caller's ordinary
+ * batch they would have been stored with the caller's id; with the browser id,
+ * joined to everything that browser did before it signed in. Either way the
+ * person who started a quiet ask, or answered one, could be read out of the
+ * table.
+ */
+export const UNATTRIBUTED_EVENTS = [
+  'quiet_ask_created',
+  'quiet_interest_answered',
+] as const satisfies readonly EventName[];
+
+export function isUnattributed(name: string): boolean {
+  return (UNATTRIBUTED_EVENTS as readonly string[]).includes(name);
+}
 
 export type EventPayload<E extends EventName> = z.infer<(typeof catalogue)[E]['payload']>;
 

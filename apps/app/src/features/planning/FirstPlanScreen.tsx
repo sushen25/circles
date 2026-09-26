@@ -58,6 +58,8 @@ export type FirstPlanProps = {
   onNext?: (() => void) | undefined;
   onBack?: (() => void) | undefined;
   onSeeIfPeopleAre?: (() => void) | undefined;
+  /** Off in a circle of one: there is nobody to ask quietly (`nobody_to_ask`). */
+  offerQuiet?: boolean | undefined;
   /**
    * The quiet way out: the invite link, for an organiser who wants people in
    * before there is anything to answer (ADR 0026). Nobody is made to plan.
@@ -121,6 +123,7 @@ export function FirstPlanScreen({
   onNext,
   onBack,
   onSeeIfPeopleAre,
+  offerQuiet = true,
   onJustInvite,
 }: FirstPlanProps) {
   if (state === 'loading') {
@@ -200,10 +203,12 @@ export function FirstPlanScreen({
           onPress={onNext}
           disabled={busy}
         />
-        <Tertiary
-          label={t('firstPlan', 'see_if_people_are_keen_instead')}
-          onPress={onSeeIfPeopleAre}
-        />
+        {offerQuiet ? (
+          <Tertiary
+            label={t('firstPlan', 'see_if_people_are_keen_instead')}
+            onPress={onSeeIfPeopleAre}
+          />
+        ) : null}
         <Tertiary label={t('firstPlan', 'just_invite_people_for_now')} onPress={onJustInvite} />
       </Foot>
     </Screen>

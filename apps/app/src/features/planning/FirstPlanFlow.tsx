@@ -257,6 +257,7 @@ function LiveFirstPlan({ id }: { id: string }) {
       busy={busy}
       onChange={() => router.push({ pathname: '/circles/[id]/plan/setup', params: { id } })}
       onSeeIfPeopleAre={() => router.push({ pathname: '/circles/[id]/quiet/new', params: { id } })}
+      offerQuiet={data.members.length >= 2}
       // Nobody is made to plan (ADR 0026). The invite screen still has the
       // secret this circle was made with, held in memory since `FirstCircle`.
       onJustInvite={() => router.push({ pathname: '/circles/[id]/invite', params: { id } })}

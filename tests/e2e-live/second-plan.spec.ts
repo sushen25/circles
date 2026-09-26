@@ -62,10 +62,12 @@ test('a circle already finding a time shows that plan instead of a second form, 
   const circleId = circleOwnedBy(maya.userId, 'Sunday Crew');
   const plan = planFor(circleId, maya.userId);
 
-  // Circle home's own button lands on the running plan, not a form.
+  // Circle home's own button lands on the running plan, not a form — on
+  // ChooseMode's URL since S2-03, which shows the running plan in place of
+  // both ways to start one.
   await page.goto(`/circles/${circleId}`);
   await page.getByRole('button', { name: 'Plan a catch-up' }).click();
-  await expect(page).toHaveURL(new RegExp(`/circles/${circleId}/plan/setup$`));
+  await expect(page).toHaveURL(new RegExp(`/circles/${circleId}/plan/mode$`));
   await expect(page.getByText('Sunday Crew is already finding a time')).toBeVisible();
   // Circle home stays mounted underneath on the web stack and says the same
   // count on its own card, so the setup screen's is the last one.

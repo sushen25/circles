@@ -129,3 +129,72 @@ describe('attribution', () => {
     expect(authorisations[1]?.['Authorization']).toBe('Bearer a-session-token');
   });
 });
+
+describe('the quiet ask events (SUS-51)', () => {
+  beforeEach(() => {
+    process.env.EXPO_PUBLIC_SUPABASE_URL = 'https://db.test';
+    process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY = 'publishable-key';
+  });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('go on their own, with no session and no browser id, so nobody is on the row', async () => {
+    // "This person started a quiet ask" beside a user id is the initiator, and
+    // "this person answered" beside a browser id is joined to everything that
+    // browser did before it signed in (spec §8.2).
+    const fetched = vi.fn(async () => new Response(null, { status: 200 }));
+    vi.stubGlobal('fetch', fetched);
+    const asked = {
+      ...EVENT,
+      event_id: '00000000-0000-4000-8000-00000000000b',
+      name: 'quiet_ask_created',
+    };
+    const answered = {
+      ...EVENT,
+      event_id: '00000000-0000-4000-8000-00000000000c',
+      name: 'quiet_interest_answered',
+      version: 2,
+    };
+
+    await trackEventsTransport({ accessToken: () => 'a-session-token' })([EVENT, asked, answered]);
+
+    const sent = (fetched.mock.calls as unknown as [string, RequestInit][]).map(([, init]) => ({
+      auth: (init.headers as Record<string, string>)['Authorization'],
+      body: JSON.parse(String(init.body)) as { events: { name: string }[]; anonymous_id?: string },
+    }));
+    expect(sent).toHaveLength(2);
+    const mine = sent.find((s) => s.auth === 'Bearer a-session-token');
+    const nobodys = sent.find((s) => s.auth === 'Bearer publishable-key');
+    expect(mine?.body.events.map((e) => e.name)).toEqual(['circle_join_opened']);
+    expect(nobodys?.body.events.map((e) => e.name)).toEqual([
+      'quiet_ask_created',
+      'quiet_interest_answered',
+    ]);
+    expect(nobodys?.body).not.toHaveProperty('anonymous_id');
+    // To the hour: to the millisecond, the time is a join to the plan and to
+    // this device's other rows.
+    const times = (nobodys?.body.events as unknown as { occurred_at: string }[]).map(
+      (e) => e.occurred_at,
+    );
+    expect(times).toEqual(['2026-09-17T08:00:00.000Z', '2026-09-17T08:00:00.000Z']);
+    expect((mine?.body.events as unknown as { occurred_at: string }[])[0]?.occurred_at).toBe(
+      '2026-09-17T08:30:00.000Z',
+    );
+  });
+
+  it('keeps the whole batch when either half fails', async () => {
+    let call = 0;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(null, { status: (call += 1) === 1 ? 200 : 503 })),
+    );
+    const asked = {
+      ...EVENT,
+      event_id: '00000000-0000-4000-8000-00000000000b',
+      name: 'quiet_ask_created',
+    };
+
+    await expect(trackEventsTransport()([EVENT, asked])).rejects.toThrow('503');
+  });
+});

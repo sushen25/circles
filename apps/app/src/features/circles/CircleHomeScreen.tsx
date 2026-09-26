@@ -38,6 +38,8 @@ export type CircleHomeProps = {
   circleName?: string | undefined;
   color?: string | undefined;
   subtitle?: string | undefined;
+  /** The card's label: "Finding a time", or "Started quietly" (spec §5.4). */
+  label?: string | undefined;
   planTitle?: string | undefined;
   /** "Replies close Tue 15 Sep, 6 pm". */
   closes?: string | undefined;
@@ -65,6 +67,7 @@ export function CircleHomeScreen({
   circleName = t('circleHome', 'sunday_crew'),
   color = 'clay',
   subtitle = t('circleHome', '6_members_about_monthly'),
+  label = t('circleHome', 'finding_a_time'),
   planTitle = t('circleHome', 'catch_up_in_the_next_14_days'),
   closes = t('circleHome', 'replies_close_tue_6_pm'),
   replied = t('circleHome', '5_of_6_replied'),
@@ -98,7 +101,7 @@ export function CircleHomeScreen({
           {/* Stacked, not a row: "Replies close …" beside the label does not
               fit on a narrow phone (S1-27). */}
           <Stack>
-            <Label>{t('circleHome', 'finding_a_time')}</Label>
+            <Label>{label}</Label>
             <Small>{closes}</Small>
           </Stack>
           <Title>{planTitle}</Title>

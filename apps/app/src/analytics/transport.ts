@@ -1,4 +1,4 @@
-import type { TrackedEvent } from '@circles/contracts';
+import { isUnattributed, type TrackedEvent } from '@circles/contracts';
 
 /**
  * The wire between `track()` and the `track-events` function.
@@ -49,22 +49,58 @@ export function trackEventsTransport(options: TransportOptions = {}) {
       throw new Error('analytics: no Supabase URL or key configured');
     }
 
-    const token = options.accessToken?.() ?? key;
-    const response = await fetch(`${url}/functions/v1/track-events`, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        apikey: key,
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ events, anonymous_id: anonymousId() }),
-    });
+    const post = async (batch: TrackedEvent[], as: 'caller' | 'nobody'): Promise<void> => {
+      if (batch.length === 0) return;
+      const token = as === 'caller' ? (options.accessToken?.() ?? key) : key;
+      const response = await fetch(`${url}/functions/v1/track-events`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          apikey: key,
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(
+          as === 'caller' ? { events: batch, anonymous_id: anonymousId() } : { events: batch },
+        ),
+      });
+      // A 4xx is our bug and retrying will not fix it, but the batch is kept
+      // either way: a dropped measurement is invisible, and a buffer that stops
+      // growing at two hundred is bounded anyway.
+      if (!response.ok) throw new Error(`analytics: ${response.status}`);
+    };
 
-    // A 4xx is our bug and retrying will not fix it, but the batch is kept
-    // either way: a dropped measurement is invisible, and a buffer that stops
-    // growing at two hundred is bounded anyway.
-    if (!response.ok) throw new Error(`analytics: ${response.status}`);
+    // **The quiet ask's events go on their own, as nobody** (SUS-51): the
+    // publishable key, no session, no browser id — so the ingest has no one to
+    // put on the row. In the ordinary batch they would be stored beside the
+    // caller's id, and "this person started a quiet ask" is the initiator.
+    // Both halves are sent before either failure is reported; a resend after
+    // one half landed is the same events under the same ids.
+    const results = await Promise.allSettled([
+      post(
+        events.filter((event) => !isUnattributed(event.name)),
+        'caller',
+      ),
+      post(events.filter((event) => isUnattributed(event.name)).map(toTheHour), 'nobody'),
+    ]);
+    for (const result of results) if (result.status === 'rejected') throw result.reason;
   };
+}
+
+/**
+ * An unattributed event's time, to the hour (SUS-51 review round 4). To the
+ * millisecond it is a join: to the plan made a few milliseconds earlier, and
+ * to whatever else this device recorded, under its user, at the same moment.
+ * An hour is fine enough for every count the catalogue asks of these events.
+ *
+ * **This is the client's half only.** The ingest still stamps `received_at`
+ * to the millisecond, which is the same join, until `track-events` truncates
+ * it for `UNATTRIBUTED_EVENTS` too (written on SUS-50).
+ */
+function toTheHour(event: TrackedEvent): TrackedEvent {
+  const at = new Date(event.occurred_at);
+  if (Number.isNaN(at.getTime())) return event;
+  at.setUTCMinutes(0, 0, 0);
+  return { ...event, occurred_at: at.toISOString() };
 }
 
 /**
