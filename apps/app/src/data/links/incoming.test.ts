@@ -140,6 +140,10 @@ describe("a development client's wrapped link", () => {
       devClient(encodeURIComponent(`http://10.0.2.2:8081/join?url=abc#${SECRET}`)),
     ],
     ['a malformed escape after it', `${devClient(encodeURIComponent(inner))}%`],
+    [
+      'an encoded parameter name',
+      `exp+circles://expo-development-client/?%75rl=${encodeURIComponent(inner)}`,
+    ],
     ['escapes with no scheme in front', `${devClient(`%25%25%25${encodeURIComponent(inner)}`)}`],
     [
       'an encoded fragment in a query value',

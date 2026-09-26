@@ -69,12 +69,12 @@ function wrappedLinkStripped(
   linkHosts: readonly string[],
   scheme: string,
 ): string {
-  const match = /(?:^\?|&)url=([^&]*)/.exec(search);
-  if (match === null || match[1] === undefined) return url;
-  // `#`, `%23`, `%2523`, … : a fragment at any depth of encoding.
-  if (!/#|%(?:25)*23/i.test(match[1])) return url;
+  // `%23`, `%2523`, … anywhere in the query: a fragment at any depth of
+  // encoding, whatever the parameter is called — the router decodes names
+  // too, so `?%75rl=` is `?url=` to it (review round 4).
+  if (!/%(?:25)*23/i.test(search)) return url;
 
-  let inner = match[1];
+  let inner = search;
   for (let depth = 0; depth < 8; depth += 1) {
     let next: string;
     try {
