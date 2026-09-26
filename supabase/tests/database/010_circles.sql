@@ -970,7 +970,10 @@ select is(
        'hand_off_organiser', 'extend_deadline', 'hand_off_candidates',
        -- S2-07. Whether "I was there" is the circle's first: security invoker,
        -- so it reads nothing RLS does not already show the caller.
-       'after_attendance_facts'
+       'after_attendance_facts',
+       -- S3-01a. The app tier: stamps the caller's own profile once and
+       -- announces it; `mark-app-installed` is the one caller.
+       'mark_app_installed'
      )),
   '',
   'only the intended functions in public are callable by authenticated'
