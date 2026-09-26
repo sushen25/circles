@@ -1,4 +1,4 @@
-# ADR 00XX: A link into the app takes the web's path, through one capture rule
+# ADR 0042: A link into the app takes the web's path, through one capture rule
 
 _Status: proposed · 26 September 2026_
 
