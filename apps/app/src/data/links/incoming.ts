@@ -48,7 +48,7 @@ export function routeIncomingLink(
   const taken = takeInviteFragment(pathname, hash) || takeTokenFragment(pathname, hash);
   if (ours && isClaimed(pathname)) return `${pathname}${search}${taken ? '' : hash}`;
   if (taken) return url.slice(0, url.length - hash.length);
-  return devClientLink(url, parts) ?? url;
+  return devClientLink(url, parts, scheme) ?? url;
 }
 
 /**
@@ -65,11 +65,23 @@ const DEV_CLIENT_HOST = 'expo-development-client';
 const DEV_CLIENT_QUERY =
   /^\?(?:[A-Za-z0-9_]+=[A-Za-z0-9_.-]*&)*url=https?(?::|%3A)(?:\/|%2F){2}[A-Za-z0-9.-]+(?:(?::|%3A)[0-9]+)?(?:\/|%2F)?(?:&[A-Za-z0-9_]+=[A-Za-z0-9_.-]*)*$/i;
 
-function devClientLink(url: string, parts: UrlParts): string | null {
-  if (hostOf(parts.origin) !== DEV_CLIENT_HOST) return null;
-  return parts.hash === '' && parts.pathname === '/' && DEV_CLIENT_QUERY.test(parts.search)
-    ? url
-    : '/';
+/**
+ * Any scheme but the web's and this build's own is a development client's
+ * (`exp+circles:`): release builds register no other. For those the router
+ * rebuilds the path with every query value decoded, so a `%23` anywhere
+ * becomes a fragment (review round 6). Only the launch link passes.
+ */
+function devClientLink(url: string, parts: UrlParts, scheme: string): string | null {
+  const protocol = parts.origin.slice(0, parts.origin.indexOf(':')).toLowerCase();
+  if (protocol === 'http' || protocol === 'https' || protocol === scheme.toLowerCase()) {
+    return null;
+  }
+  const launch =
+    parts.origin.toLowerCase() === `${protocol}://${DEV_CLIENT_HOST}` &&
+    parts.hash === '' &&
+    parts.pathname === '/' &&
+    DEV_CLIENT_QUERY.test(parts.search);
+  return launch ? url : '/';
 }
 
 function routePathOf({ origin, pathname }: UrlParts): string {
