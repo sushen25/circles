@@ -30,6 +30,9 @@ test('seed scenario C: Tom, who has not answered Uni Mates, is asked without bei
   const [seeded] = sql(`select p.state, (select count(*) from private.plan_interest i
                           where i.plan_id = p.id and i.user_id = '${TOM}')
                         from public.plans p where p.id = '${UNI_MATES_ASK}'`);
+  // CI seeds a fresh stack just before this suite, so there a scenario that is
+  // not as written is the seed changing under the test: a failure, not a skip.
+  if (process.env.CI) expect(seeded, 'scenario C as the seed writes it').toEqual(['seeking', '0']);
   test.skip(
     seeded?.[0] !== 'seeking' || seeded[1] !== '0',
     'scenario C has moved on since the last reset — `make reset`',

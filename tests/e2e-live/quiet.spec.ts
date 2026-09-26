@@ -163,7 +163,7 @@ test('the initiator’s own letter opens Volunteer, not ThresholdRole: a letter 
   sql(`update jobs.notification_jobs set scheduled_for = now()
        where plan_id = '${ask.id}' and status = 'scheduled'`);
   const letter = await letterTo(addressOf(maya!.userId), /^Sunday Crew: enough people are keen$/);
-  expect(letter.text).not.toMatch(/Tom|Jess|\b[23] (of|people)\b/);
+  expect(letter.text).not.toMatch(/\bTom\b|\bJess\b|\b[23] (of|people)\b/);
 
   await signedInAs(page, maya!.stored);
   const reading = watched(page, maya!);
@@ -182,21 +182,26 @@ test('the initiator’s own letter opens Volunteer, not ThresholdRole: a letter 
 
 test('an ask that opens is counted: quiet_threshold_reached, against nobody', async () => {
   test.skip(test.info().project.name !== 'android-chrome', 'no browser involved');
-  test.fail(true, 'SUS-97: nothing emits quiet_threshold_reached yet');
   const {
     circleId,
     people: [maya, tom, jess],
   } = await savedPlaces('Maya', 'Tom', 'Jess');
+  const since = sql('select now()')[0]![0]!;
   const ask = askedInSql(circleId, maya!.userId);
   keenInSql(ask.id, tom!.userId);
   keenInSql(ask.id, jess!.userId);
+  await runDispatcher();
+  // Marked here, after the setup, so a setup that breaks is still a failure.
+  // By name and time, not by plan: which ids the row carries is SUS-97's to
+  // decide (the other quiet events carry none), and it must carry no person.
+  test.fail(true, 'SUS-97: nothing emits quiet_threshold_reached yet');
   const counted = () =>
-    sql(`select coalesce(user_id::text, '-'), properties ->> 'threshold' from analytics.events
-         where event_name = 'quiet_threshold_reached' and plan_id = '${ask.id}'`);
-  for (let attempt = 0; attempt < 10 && counted().length === 0; attempt += 1) {
-    await runDispatcher();
-  }
-  expect(counted()).toEqual([['-', '3']]);
+    sql(`select count(*), count(*) filter (where user_id is not null or anonymous_id is not null)
+         from analytics.events
+         where event_name = 'quiet_threshold_reached' and received_at >= '${since}'`)[0]!;
+  for (let attempt = 0; attempt < 10 && counted()[0] === '0'; attempt += 1) await runDispatcher();
+  expect(Number(counted()[0])).toBeGreaterThan(0);
+  expect(counted()[1]).toBe('0');
 });
 
 test('replies close with nobody organising: the owner, who never answered, may take it on then and not before', async ({

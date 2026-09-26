@@ -66,8 +66,9 @@ empty, and every transition is refused: no plan can be created, answered,
 confirmed or cancelled. It is one statement after another, so the window is
 milliseconds when it works. If the push fails inside `0027`, run the check under
 *After the deploy* first, before anything else. If the table is empty, re-run
-the `insert into planning.transitions …` statement from `0027` by hand; the
-generated block is between the `delete` and the next comment.
+the `insert into planning.transitions …` statement from `0027` by hand. It is
+the block between `-- BEGIN GENERATED: transitions` and `-- END GENERATED:
+transitions`, straight after the `delete`.
 
 ### Edge Functions (new since Slice 1)
 
@@ -149,7 +150,10 @@ order by start_time desc limit 5;
 As the service role: `select public.dispatch_health(false);`, the one-line
 health check SUS-36 left.
 
-From outside, with a phone:
+From outside, with a phone, **in the daytime**. The quiet-ask and
+replies-closed letters respect quiet hours (9 pm to 8 am where the recipient
+is), so one triggered at night arrives at 8 am. That is not a broken
+dispatcher.
 
 1. **Quiet ask.** In a circle of three saved places (you and two test accounts),
    use **Plan a catch-up** → **See if people are keen** → Next 7 days → **Ask
