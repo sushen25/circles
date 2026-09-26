@@ -41,9 +41,10 @@ function addressOf(userId: string): string {
  * is ready: a set written by hand is stale the moment anything bumps the
  * plan's input, and the sweep then recalculates it from the real answers
  * underneath the test. Tom is a guest; Priya has a saved place, and the plan
- * is asking her but she has not answered.
+ * is asking her but she has not answered. `closed: false` leaves the deadline
+ * for the test to pass itself.
  */
-async function closedWithAnOption() {
+async function closedWithAnOption({ closed = true }: { closed?: boolean } = {}) {
   const maya = await signedInAccount('Maya');
   const circleId = circleOwnedBy(maya.userId, 'Sunday Crew');
   const plan = planFor(circleId, maya.userId);
@@ -79,9 +80,11 @@ async function closedWithAnOption() {
     await runDispatcher();
   }
   expect(stateOf(plan.id)).toBe('ready');
-  sql(
-    `update public.plans set response_deadline = now() - interval '1 minute' where id = '${plan.id}'`,
-  );
+  if (closed) {
+    sql(
+      `update public.plans set response_deadline = now() - interval '1 minute' where id = '${plan.id}'`,
+    );
+  }
   return { maya, circleId, plan, tom, priya };
 }
 
@@ -106,9 +109,7 @@ async function closingJobsFor(planId: string, count: number): Promise<number> {
            where plan_id = '${planId}' and kind = 'replies_closed'`)[0]![0],
     );
   for (let attempt = 0; attempt < 20 && jobs() < count; attempt += 1) await runDispatcher();
-  sql(`update jobs.notification_jobs set scheduled_for = now()
-       where plan_id = '${planId}' and status = 'scheduled'`);
-  await runDispatcher();
+  await releaseHeld(planId);
   return jobs();
 }
 
@@ -171,11 +172,54 @@ test('the organiser is told, gives it one more day, and is told again when that 
   await expect(again).toHaveAttribute('aria-disabled', 'true');
 });
 
+/**
+ * Priya's `replies_closed` jobs for the plan, by status, sorted. Live ones are
+ * everything but `skipped`; the skipped ones carry why.
+ */
+function closingJobsToPriya(planId: string, priyaId: string): string[][] {
+  return sql(`select j.status, coalesce(j.last_error, '') from jobs.notification_jobs j
+              join private.email_contacts c on c.id = j.contact_id
+              where j.plan_id = '${planId}' and j.kind = 'replies_closed'
+                and c.user_id = '${priyaId}'
+              order by j.status, j.last_error`);
+}
+
+/** Sends whatever quiet hours are holding for the plan (SUS-91). */
+async function releaseHeld(planId: string): Promise<void> {
+  sql(`update jobs.notification_jobs set scheduled_for = now()
+       where plan_id = '${planId}' and status = 'scheduled'`);
+  await runDispatcher();
+}
+
+/**
+ * A zone where it is about two in the morning now, well inside quiet hours
+ * (9 pm–8 am), whenever the suite runs. `Etc/GMT` signs are inverted:
+ * `Etc/GMT-10` is ten hours ahead of UTC.
+ */
+function zoneAtTwoInTheMorning(): string {
+  let ahead = (2 - new Date().getUTCHours() + 24) % 24;
+  if (ahead > 12) ahead -= 24;
+  if (ahead === 0) return 'Etc/UTC';
+  return `Etc/GMT${ahead > 0 ? '-' : '+'}${Math.abs(ahead)}`;
+}
+
 test('the organiser hands it to a member with a saved place, never to a guest', async ({
   page,
 }) => {
   const { maya, circleId, plan, priya } = await closedWithAnOption();
   await signedInAs(page, maya.stored);
+
+  // The deadline's sweep announces it first, as it does within the minute on
+  // a deployed project, and Maya opens the screen from that letter. Left to
+  // chance, the sweep sometimes landed after the hand-off — whenever no other
+  // test's dispatcher happened to run first — and by day that sends Priya a
+  // second letter after the first has gone (SUS-95; the product half is
+  // SUS-96). That order is pinned in the test below instead.
+  const announced = () =>
+    sql(`select count(*) from jobs.notification_jobs
+         where plan_id = '${plan.id}' and kind = 'replies_closed'`)[0]![0];
+  for (let attempt = 0; attempt < 20 && announced() === '0'; attempt += 1) await runDispatcher();
+  expect(announced()).toBe('1');
 
   await page.goto(`/circles/${circleId}/plan/${plan.id}/deadline`);
   await page.getByRole('button', { name: /^Hand this to someone else/ }).click();
@@ -197,18 +241,59 @@ test('the organiser hands it to a member with a saved place, never to a guest', 
 
   // Priya is told it is hers, with the letter that opens the three ways out.
   // It is written by the next drain, and held until morning in the evening,
-  // so it is released before it is read (SUS-91). One live letter: when the
-  // deadline's own sweep lands after the hand-off, its letter to Priya is
-  // written too and then superseded by the hand-off's.
-  const toPriya = () =>
-    sql(`select count(*) from jobs.notification_jobs j
-         join private.email_contacts c on c.id = j.contact_id
-         where j.plan_id = '${plan.id}' and j.kind = 'replies_closed'
-           and j.status <> 'skipped' and c.user_id = '${priya.userId}'`)[0]![0];
-  for (let attempt = 0; attempt < 20 && toPriya() === '0'; attempt += 1) await runDispatcher();
-  await runDispatcher();
-  expect(toPriya()).toBe('1');
-  sql(`update jobs.notification_jobs set scheduled_for = now()
-       where plan_id = '${plan.id}' and status = 'scheduled'`);
+  // so it is released before it is counted or read (SUS-91): one letter, gone.
+  for (
+    let attempt = 0;
+    attempt < 20 && closingJobsToPriya(plan.id, priya.userId).length === 0;
+    attempt += 1
+  ) {
+    await runDispatcher();
+  }
+  await releaseHeld(plan.id);
+  expect(closingJobsToPriya(plan.id, priya.userId)).toEqual([['sent', '']]);
   await letterTo(priya.email, CLOSED);
+  expect(await closedLetters(priya.email)).toBe(1);
+});
+
+test('a sweep that lands after the hand-off, overnight, replaces the letter rather than adding one', async () => {
+  // Overnight for everybody, whenever this runs, so both letters are held.
+  const { maya, plan, priya } = await closedWithAnOption({ closed: false });
+  sql(`update public.profiles set time_zone = '${zoneAtTwoInTheMorning()}'
+       where user_id in ('${maya.userId}', '${priya.userId}')`);
+
+  // The deadline passes and Maya hands it over in one transaction, so no
+  // dispatcher — this test's or another's — can sweep in between: the
+  // deadline is announced after the hand-off, every time.
+  sql(`
+    begin;
+    update public.plans set response_deadline = now() - interval '1 minute' where id = '${plan.id}';
+    select set_config('role', 'authenticated', true);
+    select set_config('request.jwt.claims',
+      '{"sub": "${maya.userId}", "role": "authenticated", "is_anonymous": false}', true);
+    select organiser_user_id from public.hand_off_organiser('${plan.id}', '${priya.userId}');
+    commit;
+  `);
+
+  // One tick writes the hand-off's letter and sweeps; the next writes the
+  // sweep's, which takes the place of the held one (`supersedeClosing`).
+  for (
+    let attempt = 0;
+    attempt < 20 && closingJobsToPriya(plan.id, priya.userId).length < 2;
+    attempt += 1
+  ) {
+    await runDispatcher();
+  }
+  expect(closingJobsToPriya(plan.id, priya.userId)).toEqual([
+    ['scheduled', ''],
+    ['skipped', 'superseded'],
+  ]);
+
+  // Morning: one letter reaches her.
+  await releaseHeld(plan.id);
+  expect(closingJobsToPriya(plan.id, priya.userId)).toEqual([
+    ['sent', ''],
+    ['skipped', 'superseded'],
+  ]);
+  await letterTo(priya.email, CLOSED);
+  expect(await closedLetters(priya.email)).toBe(1);
 });
