@@ -120,12 +120,23 @@ describe('splitUrl', () => {
   });
 });
 
-describe("a development client's wrapped link", () => {
+describe("a development client's link", () => {
   const inner = `http://10.0.2.2:8081/join#${SECRET}`;
   const devClient = (url: string) => `exp+circles://expo-development-client/?url=${url}`;
 
   it.each([
-    ['the plain case', `${devClient(encodeURIComponent(inner))}&x=1`],
+    ['the launch link', devClient(encodeURIComponent('http://10.0.2.2:8081'))],
+    ['the launch link, unencoded, with a slash', devClient('http://localhost:8081/')],
+    [
+      'the launch link with flags',
+      `${devClient(encodeURIComponent('http://10.0.2.2:8081'))}&disableOnboarding=1`,
+    ],
+  ])('passes %s through', (_case, url) => {
+    expect(open(url)).toBe(url);
+  });
+
+  it.each([
+    ['a wrapped link with a fragment', `${devClient(encodeURIComponent(inner))}&x=1`],
     [
       'a look-alike parameter first',
       `exp+circles://expo-development-client/?xurl=${encodeURIComponent(inner)}&url=${encodeURIComponent(inner)}`,
@@ -140,11 +151,12 @@ describe("a development client's wrapped link", () => {
       devClient(encodeURIComponent(`http://10.0.2.2:8081/join?url=abc#${SECRET}`)),
     ],
     ['a malformed escape after it', `${devClient(encodeURIComponent(inner))}%`],
+    ['escapes with no scheme in front', `${devClient(`%25%25%25${encodeURIComponent(inner)}`)}`],
     [
       'an encoded parameter name',
       `exp+circles://expo-development-client/?%75rl=${encodeURIComponent(inner)}`,
     ],
-    ['escapes with no scheme in front', `${devClient(`%25%25%25${encodeURIComponent(inner)}`)}`],
+    ['a lenient escape', devClient(`http%3A%2F%2Fh%2Fjoin%%323${SECRET}`)],
     [
       'an encoded fragment in a query value',
       devClient(
@@ -153,19 +165,12 @@ describe("a development client's wrapped link", () => {
         ),
       ),
     ],
-  ])('never hands the router a fragment: %s (review rounds 1 to 3)', (_case, url) => {
-    expect(open(url)).toBe('/');
-  });
-
-  it('still holds the invite when the wrapped link reads cleanly', () => {
-    open(devClient(encodeURIComponent(inner)));
-    expect(heldInvite()).toBe(SECRET);
-  });
-
-  it('leaves a wrapped link with no fragment alone', () => {
-    const url = devClient(encodeURIComponent('http://10.0.2.2:8081'));
-    expect(open(url)).toBe(url);
-  });
+  ])(
+    'opens anything else on / and never hands the router a fragment: %s (review rounds 1 to 5)',
+    (_case, url) => {
+      expect(open(url)).toBe('/');
+    },
+  );
 });
 
 describe('a second link in the same app session', () => {

@@ -47,48 +47,29 @@ export function routeIncomingLink(
 
   const taken = takeInviteFragment(pathname, hash) || takeTokenFragment(pathname, hash);
   if (ours && isClaimed(pathname)) return `${pathname}${search}${taken ? '' : hash}`;
-  const withoutFragment = taken ? url.slice(0, url.length - hash.length) : url;
-  return taken ? withoutFragment : wrappedLinkStripped(withoutFragment, search, linkHosts, scheme);
+  if (taken) return url.slice(0, url.length - hash.length);
+  return devClientLink(url, parts) ?? url;
 }
 
 /**
- * A development client's own link wraps the real one in `?url=`:
- * `exp+circles://expo-development-client/?url=http%3A%2F%2F…%2Fjoin%23<secret>`.
- * expo-router decodes it — leniently, repeatedly — and keeps a fragment, and
- * three review rounds showed that mirroring its decoding is a race this module
- * cannot win. So the rule is total: a wrapped link with a fragment in it, at
- * any depth of encoding, never reaches the router at all; the app opens on
- * `/`. What the wrapped link carried is still held when its innermost form
- * reads cleanly, so the screen it was for can be opened by hand. Development
- * builds only — a release build has no dev client — and the dev launcher has
- * already used `url` to load the bundle by the time the router asks.
+ * A development client's own link: `exp+circles://expo-development-client/?url=<Metro's origin>`.
+ * expo-router decodes a `url` parameter — leniently, repeatedly, names and
+ * all — and keeps any fragment it finds, and five review rounds showed that no
+ * list of encodings to refuse keeps up with it. So this is an allowlist of the
+ * one shape the dev launcher sends, a bare origin, percent-encoded or not,
+ * with plain flags beside it. Anything else opens the app on `/`: losing a
+ * crafted wrapped link in a development build costs nothing, and a release
+ * build has no dev client to hand it one.
  */
-function wrappedLinkStripped(
-  url: string,
-  search: string,
-  linkHosts: readonly string[],
-  scheme: string,
-): string {
-  // `%23`, `%2523`, … anywhere in the query: a fragment at any depth of
-  // encoding, whatever the parameter is called — the router decodes names
-  // too, so `?%75rl=` is `?url=` to it (review round 4).
-  if (!/%(?:25)*23/i.test(search)) return url;
+const DEV_CLIENT_HOST = 'expo-development-client';
+const DEV_CLIENT_QUERY =
+  /^\?(?:[A-Za-z0-9_]+=[A-Za-z0-9_.-]*&)*url=https?(?::|%3A)(?:\/|%2F){2}[A-Za-z0-9.-]+(?:(?::|%3A)[0-9]+)?(?:\/|%2F)?(?:&[A-Za-z0-9_]+=[A-Za-z0-9_.-]*)*$/i;
 
-  let inner = search;
-  for (let depth = 0; depth < 8; depth += 1) {
-    let next: string;
-    try {
-      next = decodeURIComponent(inner);
-    } catch {
-      break;
-    }
-    if (next === inner) break;
-    inner = next;
-  }
-  const at = inner.lastIndexOf('://');
-  const start = at === -1 ? -1 : inner.slice(0, at).search(/[a-z][a-z0-9+.-]*$/i);
-  if (start !== -1) routeIncomingLink(inner.slice(start), linkHosts, scheme);
-  return '/';
+function devClientLink(url: string, parts: UrlParts): string | null {
+  if (hostOf(parts.origin) !== DEV_CLIENT_HOST) return null;
+  return parts.hash === '' && parts.pathname === '/' && DEV_CLIENT_QUERY.test(parts.search)
+    ? url
+    : '/';
 }
 
 function routePathOf({ origin, pathname }: UrlParts): string {
