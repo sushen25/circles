@@ -1,11 +1,12 @@
 import { expect, test, type Page } from './fixtures';
 import { addressFor, joinsAndAnswers, sendEvenings } from './journeys';
+import { asksFromTheForm } from './quiet-people';
 import { guestWhoAnswered, latestCodeFor, memberNamed, plansIn, sql, sundayCrew } from './stack';
 
 /**
  * Guest → saved place (S2-07, spec §5.11): the prompts appear only after the
  * thing they would have helped with, and the organiser gate keeps the place a
- * guest already has.
+ * guest already has — on plan setup, and on the quiet ask's door (S2-08).
  *
  * Each test's page is a fresh browser context: nothing in storage.
  */
@@ -152,4 +153,45 @@ test('"Keep your place for good?" follows a Continue-as from the list, once, and
   await answered;
   await expectNoPrompt(second);
   await again.close();
+});
+
+test('a guest who taps "See if people are keen" meets the gate, keeps their place, and the quiet ask is theirs', async ({
+  page,
+}) => {
+  const crew = sundayCrew();
+  const priya = await joinsAndAnswers(page, crew, 'Priya');
+  sql(`select planning.transition_plan('${crew.planId}', 'cancel', '${crew.ownerId}', '{}')`);
+
+  // ChooseMode's quiet door is a tap, so the gate is drawn in place of the
+  // cards and the tap goes on once the place is saved.
+  await page.goto(`/circles/${crew.circleId}/plan/mode`);
+  await page.getByRole('button', { name: /^See if people are keen\./ }).click();
+  await expect(page.getByText('Save your place first')).toBeVisible();
+  await expect(
+    page.getByText("This links your existing place as Priya. Nothing you've sent changes."),
+  ).toBeVisible();
+
+  const address = addressFor('priya');
+  await page.getByRole('button', { name: 'Continue with email' }).click();
+  await page.getByLabel('Your email').fill(address);
+  await page.getByRole('button', { name: 'Send me a code' }).click();
+  await page.getByLabel('Code', { exact: true }).fill(await latestCodeFor(address));
+  await page.getByRole('button', { name: 'Continue' }).click();
+
+  // The tap she made is the tap that happens: SparkSetup, then her ask.
+  await expect(page).toHaveURL(new RegExp(`/circles/${crew.circleId}/quiet/new$`));
+  await asksFromTheForm(page);
+  await expect(page).toHaveURL(new RegExp(`/circles/${crew.circleId}/quiet/[0-9a-f-]{36}$`));
+  await expect(page.getByRole('button', { name: 'Withdraw the ask' })).toBeVisible();
+
+  // The same membership, a saved place now, credited to the gate — and the
+  // ask hers, which only `private` knows.
+  expect(memberNamed(crew.circleId, 'Priya')).toEqual({ userId: priya, anonymous: false });
+  const [claimed] = sql(`select metadata ->> 'moment' from private.audit_log
+    where action = 'growth.account_claimed' and resource_id = '${priya}'`);
+  expect(claimed?.[0]).toBe('organiser_gate');
+  const askId = page.url().split('/').at(-1)!;
+  expect(
+    sql(`select initiator_user_id from private.plan_initiators where plan_id = '${askId}'`),
+  ).toEqual([[priya]]);
 });
