@@ -54,9 +54,12 @@ export function routeIncomingLink(
 /**
  * A development client's own link wraps the real one in `?url=`:
  * `exp+circles://expo-development-client/?url=http%3A%2F%2F…%2Fjoin%23<secret>`.
- * expo-router decodes it and keeps the fragment, so the wrapped link gets the
- * same treatment, and goes back in encoded (review round 1). Development
- * builds only: a release build has no dev client to hand it one.
+ * expo-router decodes it — repeatedly, through a wrapper inside a wrapper — and
+ * keeps the fragment, so this decodes the same way, and when a fragment is in
+ * there, routes the innermost link as if it had arrived on its own. The dev
+ * launcher has already used `url` to load the bundle by the time the router
+ * asks. Development builds only: a release build has no dev client (review
+ * rounds 1 and 2).
  */
 function wrappedLinkStripped(
   url: string,
@@ -64,18 +67,24 @@ function wrappedLinkStripped(
   linkHosts: readonly string[],
   scheme: string,
 ): string {
-  const match = /[?&]url=([^&#]*)/.exec(search);
+  // The parameter itself, not a name that merely ends in `url` (`xurl=`).
+  const match = /(?:^\?|&)url=([^&#]*)/.exec(search);
   if (match === null || match[1] === undefined) return url;
-  let inner: string;
-  try {
-    inner = decodeURIComponent(match[1]);
-  } catch {
-    return url;
+  let inner = match[1];
+  for (let depth = 0; depth < 8; depth += 1) {
+    let next: string;
+    try {
+      next = decodeURIComponent(inner);
+    } catch {
+      break;
+    }
+    if (next === inner) break;
+    inner = next;
   }
   if (!inner.includes('#')) return url;
-  const stripped = routeIncomingLink(inner, linkHosts, scheme);
-  if (stripped === inner) return url;
-  return url.replace(`url=${match[1]}`, `url=${encodeURIComponent(stripped)}`);
+  const at = inner.lastIndexOf('url=');
+  const innermost = at === -1 ? inner : inner.slice(at + 'url='.length);
+  return routeIncomingLink(innermost, linkHosts, scheme);
 }
 
 function routePathOf({ origin, pathname }: UrlParts): string {

@@ -121,15 +121,36 @@ describe('splitUrl', () => {
 });
 
 describe("a development client's wrapped link", () => {
-  it('takes the capability out of the link it wraps, and leaves the rest', () => {
-    const wrapped = encodeURIComponent(`http://10.0.2.2:8081/join#${SECRET}`);
-    const out = open(`exp+circles://expo-development-client/?url=${wrapped}&x=1`);
+  const inner = `http://10.0.2.2:8081/join#${SECRET}`;
+  const devClient = (url: string) => `exp+circles://expo-development-client/?url=${url}`;
 
-    expect(out).not.toContain(SECRET);
-    expect(decodeURIComponent(out)).toBe(
-      'exp+circles://expo-development-client/?url=http://10.0.2.2:8081/join&x=1',
-    );
+  it('takes the capability out of the link it wraps', () => {
+    const out = open(`${devClient(encodeURIComponent(inner))}&x=1`);
+    expect(decodeURIComponent(out)).not.toContain(SECRET);
     expect(heldInvite()).toBe(SECRET);
+  });
+
+  it.each([
+    [
+      'a look-alike parameter first',
+      `exp+circles://expo-development-client/?xurl=${encodeURIComponent(inner)}&url=${encodeURIComponent(inner)}`,
+    ],
+    [
+      'a wrapper inside a wrapper',
+      devClient(encodeURIComponent(devClient(encodeURIComponent(inner)))),
+    ],
+    ['a double-encoded link', devClient(encodeURIComponent(encodeURIComponent(inner)))],
+  ])('does it for %s too (review round 2)', (_case, url) => {
+    const out = open(url);
+    let decoded = out;
+    for (let i = 0; i < 4; i += 1) decoded = decodeURIComponent(decoded);
+    expect(decoded).not.toContain(SECRET);
+    expect(heldInvite()).toBe(SECRET);
+  });
+
+  it('leaves a wrapped link with nothing in its fragment alone', () => {
+    const url = devClient(encodeURIComponent('http://10.0.2.2:8081'));
+    expect(open(url)).toBe(url);
   });
 });
 
