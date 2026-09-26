@@ -48,6 +48,15 @@ export function routeIncomingLink(
   const taken = takeInviteFragment(pathname, hash) || takeTokenFragment(pathname, hash);
   if (ours && isClaimed(pathname)) return `${pathname}${search}${taken ? '' : hash}`;
   if (taken) return url.slice(0, url.length - hash.length);
+  // This build's own scheme always goes to the router as a path, claimed or
+  // not: handed the raw URL, the router rebuilds it with every query value
+  // decoded, and a `%23` becomes a fragment (review round 7). The dev
+  // launcher's own link on it opens the app at its start.
+  if (ours && !/^https?:\/\//i.test(origin)) {
+    if (pathname === `/${DEV_CLIENT_HOST}` || pathname.startsWith(`/${DEV_CLIENT_HOST}/`))
+      return '/';
+    return `${pathname}${search}${hash}`;
+  }
   return devClientLink(url, parts, scheme) ?? url;
 }
 
@@ -87,8 +96,10 @@ function devClientLink(url: string, parts: UrlParts, scheme: string): string | n
 function routePathOf({ origin, pathname }: UrlParts): string {
   if (/^https?:\/\//i.test(origin)) return pathname;
   const authority = origin.replace(/^[a-z][a-z0-9+.-]*:(\/\/)?/i, '');
-  if (authority === '') return pathname;
-  return pathname === '/' ? `/${authority}` : `/${authority}${pathname}`;
+  // `circles:join` has no authority and no leading slash; the router reads it as `/join`.
+  const path = pathname.startsWith('/') ? pathname : `/${pathname}`;
+  if (authority === '') return path;
+  return path === '/' ? `/${authority}` : `/${authority}${path}`;
 }
 
 /** The brand's host always; the build's own origin too, so a preview host opens its own build. */

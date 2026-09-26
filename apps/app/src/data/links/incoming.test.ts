@@ -65,8 +65,15 @@ describe('routeIncomingLink', () => {
     expect(out).not.toContain(SECRET);
   });
 
+  it("hands the router this build's scheme as a path, claimed or not (review round 7)", () => {
+    expect(open(`circles:join#${SECRET}`)).toBe('/join');
+    expect(heldInvite()).toBe(SECRET);
+    expect(open('circles://JOIN?x=%23S')).toBe('/JOIN?x=%23S');
+    expect(open('circles://')).toBe('/');
+    expect(open('circles://expo-development-client/?url=http%3A%2F%2F10.0.2.2%3A8081')).toBe('/');
+  });
+
   it('leaves everything else alone', () => {
-    expect(open('circles://')).toBe('circles://');
     expect(open(`https://${HOST}/privacy#top`)).toBe(`https://${HOST}/privacy#top`);
     expect(open('exp+circles://expo-development-client/?url=http%3A%2F%2F10.0.2.2%3A8081')).toBe(
       'exp+circles://expo-development-client/?url=http%3A%2F%2F10.0.2.2%3A8081',
