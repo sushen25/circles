@@ -11,10 +11,10 @@ It does not repeat [`environments.md`](./environments.md) or
 [`environment-setup.md`](./environment-setup.md). Where a step is theirs, it
 points there.
 
-## Before anything: the two prerequisites
+## Before anything: the prerequisites
 
 Slice 2 goes out on top of Slice 1, not in place of it. Don't start this list
-until both of these are Done:
+until these are Done:
 
 - **SUS-48 (S1-32), the Slice 1 release.** It puts `0016`–`0024` on prod, deploys
   `process-scheduled-jobs`, sets the two cron database settings and turns the
@@ -28,6 +28,15 @@ until both of these are Done:
   webhook and `RESEND_WEBHOOK_SECRET`, the support address, DMARC reporting and
   the hosted auth templates. Slice 2 sends a lot more organiser-kind mail than
   Slice 1 did, and with no webhook a bounce is never recorded.
+
+- **SUS-97, `quiet_threshold_reached` recorded.** The catalogue declares it,
+  spec §15 lists it, and nothing emits it. The definition of done says an
+  event is emitted and schema-tested, and H5 is the hypothesis this slice
+  exists to test. Shipping without it means the cohort's first quiet asks
+  leave no record of which ones opened, apart from what `public.plans` still
+  shows. The queries under *Evidence* fall back to that, but it undercounts
+  (below). Waive this only knowingly, and write down that you did in
+  `cohort-1.md`.
 
 Also due before any real inbox gets mail: **SUS-81**, the emailed tokens in URL
 paths, which hosting logs keep. Slice 2 adds no new token, but it adds letters
@@ -169,9 +178,8 @@ From outside, with a phone:
   window is at most one cron tick, and they must reach the deadline screen and
   hand off inside it, so it is rare. Overnight, the second replaces the first.
   Known, open, and not a blocker unless the cohort hits it.
-- **SUS-97: `quiet_threshold_reached` is never recorded.** The catalogue
-  declares it and nothing emits it. The H5 queries below read "the ask opened"
-  from `public.plans` until it is fixed.
+- **SUS-97, if it was waived above.** Until the event exists, the H5 queries
+  read "the ask opened" from `public.plans`, and that is a lower bound.
 - **A nudge that got nowhere is not sent again until the circle next meets**
   (ADR 0036, Consequences). A snooze after the nudge, a plan that was cancelled
   or did not happen, or a letter held at send time all leave circle home saying
@@ -247,9 +255,12 @@ initiator takes the role in at least one.
 
 ```sql
 -- Asks made, opened, and organised by somebody else. Counts only.
+-- "Opened" from the plan alone is a lower bound: an ask that opened and was
+-- later cancelled, or ran past its last start, looks like one that never did.
+-- Once SUS-97 lands, count `quiet_threshold_reached` rows instead.
 select count(*) as asks,
-       count(*) filter (where p.state not in ('draft', 'seeking', 'expired')
-                          or p.organiser_user_id is not null) as opened,
+       count(*) filter (where p.state in ('collecting', 'ready', 'confirmed', 'completed')
+                          or p.organiser_user_id is not null) as opened_at_least,
        count(*) filter (where p.organiser_user_id is not null
                           and p.organiser_user_id <> pi.initiator_user_id) as someone_else_organised
 from public.plans p join private.plan_initiators pi on pi.plan_id = p.id
@@ -260,7 +271,7 @@ select count(*) as asks_by_a_non_organiser
 from public.plans q join private.plan_initiators pi on pi.plan_id = q.id
 where q.mode = 'quiet' and not exists (
   select 1 from public.plans n
-  where n.circle_id = q.circle_id and n.mode = 'named'
+  where n.circle_id = q.circle_id
     and n.organiser_user_id = pi.initiator_user_id and n.created_at < q.created_at);
 ```
 
@@ -283,8 +294,9 @@ select count(*) from (
   join public.outcome_reports o on o.confirmation_id = c.id and o.outcome = 'happened'
   group by p.circle_id having count(distinct p.id) >= 2) twice;
 
--- Nudges acted on: a plan made in the circle within 14 days of the nudge,
--- by the person asked, and whether that person had organised there before.
+-- Nudges acted on: within 14 days of the nudge, the person asked organised a
+-- plan in the circle or started a quiet ask there (whoever then organised it),
+-- and whether they had organised there before. Counts only.
 select count(*) as acted_on,
        count(*) filter (where not exists (
          select 1 from public.plans earlier
@@ -293,7 +305,9 @@ select count(*) as acted_on,
 from private.cadence_prompts cp
 where cp.user_id is not null and exists (
   select 1 from public.plans p
-  where p.circle_id = cp.circle_id and p.organiser_user_id = cp.user_id
+  left join private.plan_initiators pi on pi.plan_id = p.id
+  where p.circle_id = cp.circle_id
+    and (p.organiser_user_id = cp.user_id or pi.initiator_user_id = cp.user_id)
     and p.created_at between cp.prompted_at and cp.prompted_at + interval '14 days');
 ```
 
