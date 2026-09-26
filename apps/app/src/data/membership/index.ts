@@ -10,9 +10,12 @@ export {
   fetchInvitePreview,
   heldInvite,
   holdInvite,
+  inviteGeneration,
   inviteSecretFromHash,
   redeemInvite,
   releaseInvite,
+  subscribeInvite,
+  takeInviteFragment,
   takeInviteOpen,
 } from './invite';
 export { askToPlan, joinPlan } from './join-plan';

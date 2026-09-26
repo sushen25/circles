@@ -1,6 +1,6 @@
 import type { ExpoConfig } from 'expo/config';
 
-import { brand } from '@circles/config';
+import { APP_LINK_PATHS, brand } from '@circles/config';
 
 /**
  * Every user-visible string and host comes from `@circles/config` (§5.4); every
@@ -49,6 +49,29 @@ const easProjectId = '81371189-91d3-4ee8-859c-bf60a35ca7e0';
 // owner here means a mismatch is a clear error instead of a silent one.
 const easOwner = 'sushen25s-team';
 
+// Universal links and App Links (architecture §5.2): the installed app claims
+// the product's link paths on the live host, and nothing else there. The list
+// is `APP_LINK_PATHS`, which the two well-known files the host serves are
+// tested against; the host is always the brand's, because that is the domain
+// the links in the world point at, whichever backend this build talks to.
+// Until S3-01b fills the well-known files with the real team id and signing
+// fingerprint, neither platform verifies the claim, and a link opens the
+// browser unless it is sent to the app by name (`adb shell am start -p …`).
+const linkHost = brand.domain;
+
+const androidIntentFilters = [
+  {
+    action: 'VIEW',
+    autoVerify: true,
+    category: ['BROWSABLE', 'DEFAULT'],
+    data: APP_LINK_PATHS.map((entry) =>
+      entry.match === 'exact'
+        ? { scheme: 'https', host: linkHost, path: entry.path }
+        : { scheme: 'https', host: linkHost, pathPrefix: entry.path },
+    ),
+  },
+];
+
 const config: ExpoConfig = {
   owner: easOwner,
   name: brand.name,
@@ -61,6 +84,7 @@ const config: ExpoConfig = {
   ios: {
     bundleIdentifier,
     supportsTablet: true,
+    associatedDomains: [`applinks:${linkHost}`],
   },
   android: {
     package: bundleIdentifier,
@@ -71,6 +95,7 @@ const config: ExpoConfig = {
       monochromeImage: './assets/android-icon-monochrome.png',
     },
     predictiveBackGestureEnabled: false,
+    intentFilters: androidIntentFilters,
   },
   // EAS Update: one channel per build profile (see eas.json). `appVersion`
   // ties the runtime to the version above, so a native change forces a build

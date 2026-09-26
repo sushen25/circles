@@ -1,0 +1,10 @@
+# A plan link, opened by the operating system (`adb shell am start` /
+# `xcrun simctl openurl`, from run.sh), lands in the app on the plan, signed in:
+# the organiser's view of Sunday Crew's plan is Maya's alone.
+appId: app.circles.development
+---
+- extendedWaitUntil:
+    visible: '[0-9]+ of [0-9]+ replied'
+    timeout: 60000
+# Step 3 of an earlier run adds a member, so the counts are not pinned.
+- assertVisible: '.*You can lock a time in now.*'

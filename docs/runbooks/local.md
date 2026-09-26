@@ -263,6 +263,7 @@ pnpm mail maya.local@example.com
 | `pnpm db:test` | yes | **Resets the database**, then pgTAP. |
 | `pnpm test:integration` | yes | The app's auth module against real Supabase Auth and Mailpit. |
 | `pnpm test:e2e:smoke` | no | Exports the web app **with no backend** and walks the fixture journey. |
+| `pnpm test:native` (`make test-native`) | yes, plus an emulator | The Maestro smoke on the Android development build (§8). Not in `pnpm check`: it needs a device. |
 | `pnpm test:e2e:live` | yes | Exports the web app pointed at the local stack and walks the journeys in five browser projects: mobile Safari and Messenger's iOS browser (WebKit), Chrome and WhatsApp's Android browser (Chromium), and mobile Safari again in `en-AU` against the `en-US` export, on the specs a chat link lands on and the ones that write dates (ADR 0040). Needs `pnpm exec playwright install chromium webkit` once. |
 
 Run one file or one test with `pnpm exec vitest run <path>`, or
@@ -275,6 +276,53 @@ uses Metro's 8081, so a `pnpm dev:web` left running doesn't interfere.
 Outside CI, Playwright reuses a server already answering on its port, so if a
 suite behaves as though it got the other suite's build, look for a stray
 `expo serve` on 8082 or 8083.
+
+## 8. The app on the Android emulator (S3-01a)
+
+A development build of the app, on the emulator, against this checkout's
+stack. **Android only for now**: the local iOS build does not compile under
+Xcode 26.2 (`apps/app/README.md`, "Running on iOS"). Walked on 26 September
+2026 on an API 37 emulator.
+
+One-time: the Android SDK and an emulator (`apps/app/README.md`, "One-time
+Android SDK setup"), the SDK variables in your shell, and Maestro:
+
+```bash
+brew install mobile-dev-inc/tap/maestro
+```
+
+Then, with the emulator booted (`emulator -avd circles_api37 &`):
+
+```bash
+make native-android   # stack up, env written, packages built; builds and installs app.circles.development (~10 min the first time)
+make native-metro     # Metro for it, on this checkout's app port (8081; `make ports` names yours)
+make test-native      # the Maestro smoke: sign in, a plan link opened by the OS, /join#<secret>
+```
+
+**The debug build asks `10.0.2.2:8081` for its bundle and the app asks
+`127.0.0.1:54321` for the API.** Neither is right on the emulator by default.
+`make test-native` sets both up before every step — `adb reverse` for Metro's
+port and the API's, and the build's `debug_http_host` pointed at `localhost:<app
+port>` — which is also what to do by hand:
+
+```bash
+adb reverse tcp:8081 tcp:8081 && adb reverse tcp:54321 tcp:54321
+adb shell "run-as app.circles.development sh -c 'mkdir -p shared_prefs && echo \"<map><string name=\\\"debug_http_host\\\">localhost:8081</string></map>\" > shared_prefs/app.circles.development_preferences.xml'"
+```
+
+(`adb shell pm clear app.circles.development` throws that away with the rest
+of the app's data, which is why the smoke writes it again.)
+
+**Opening a link as the operating system would:**
+
+```bash
+adb shell am start -W -a android.intent.action.VIEW -d 'https://<brand domain>/p/pnsundaycr' -p app.circles.development
+```
+
+`-p` names the app. Until S3-01b puts the real signing fingerprint in
+`assetlinks.json`, Android has not verified the claim, and without `-p` the
+link opens in the browser. The fragment survives: `/join#<secret>` opened this
+way reaches the app whole, and the invite preview it produces is the proof.
 
 ## Starting again
 

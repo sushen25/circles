@@ -18,6 +18,7 @@ export * from './generate-ics.js';
 export * from './get-invite-link.js';
 export * from './hand-off-organiser.js';
 export * from './manage-email-preferences.js';
+export * from './mark-app-installed.js';
 export * from './process-scheduled-jobs.js';
 export * from './quiet-view.js';
 export * from './reattach-member.js';

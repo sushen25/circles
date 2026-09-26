@@ -45,6 +45,7 @@ Short records of decisions that shape the product or the code. A new ADR is requ
 | [0039](./0039-replies-closed-is-told-per-deadline-and-once-a-day-later.md) | Replies closed is told once per deadline and once a day later; one more day is a day from now, once per revision | proposed |
 | [0040](./0040-the-served-html-is-a-shell.md) | The served HTML is a neutral shell; every screen renders on the device | proposed |
 | [0041](./0041-keen-members-may-take-the-role-as-soon-as-it-opens.md) | Keen members may take the organiser role as soon as a quiet ask opens, and the quiet ask's analytics name nobody | proposed |
+| [0042](./0042-a-link-into-the-app-takes-the-webs-path.md) | A link into the app takes the web's path, through one capture rule | proposed |
 
 ## Template
 

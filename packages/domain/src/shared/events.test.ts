@@ -19,7 +19,7 @@ describe('domain events', () => {
       scheduling: 2,
       confirmation: 5,
       communication: 3,
-      growth: 3,
+      growth: 4,
     });
     expect(new Set(DOMAIN_EVENT_NAMES).size).toBe(DOMAIN_EVENT_NAMES.length);
   });

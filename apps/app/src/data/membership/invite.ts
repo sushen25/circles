@@ -9,6 +9,9 @@ import { authClient } from '../auth/client';
 import { ensureGuestSession } from '../auth/guest';
 import { getTurnstileToken } from '../auth/turnstile';
 import { invokeFunction } from '../functions';
+import { secretDigest } from './digest';
+
+export { secretDigest } from './digest';
 
 /**
  * A circle invite: `/join#<secret>` (architecture §5.2, spec §5.1).
@@ -37,23 +40,6 @@ export function inviteSecretFromHash(hash: string): string | null {
   }
   const parsed = JoinLink.safeParse({ secret: decoded });
   return parsed.success ? parsed.data.secret : null;
-}
-
-/**
- * SHA-256 of the secret, in the form PostgREST takes a `bytea` in.
- *
- * Hashed in the browser so the secret is never a statement parameter, which is
- * the same care `redeem-invite` takes server-side (§14). Web Crypto only exists
- * in a secure context; `localhost` counts, so development and the e2e suite are
- * unaffected. Native has no `crypto.subtle` — invite links open in the app from
- * Slice 3 (S3-01), which will need a digest from `expo-crypto`.
- */
-export async function secretDigest(secret: string): Promise<string> {
-  const subtle = globalThis.crypto?.subtle;
-  if (subtle === undefined) throw new Error('no Web Crypto available to hash the invite');
-  const digest = await subtle.digest('SHA-256', new TextEncoder().encode(secret));
-  const hex = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0'));
-  return `\\x${hex.join('')}`;
 }
 
 /**
@@ -122,10 +108,36 @@ export async function redeemInvite({
  */
 let held: string | undefined;
 let openCounted = false;
+/** Bumped by every `holdInvite`, so a screen already open can tell a new invite from the old. */
+let generation = 0;
+const listeners = new Set<() => void>();
 
 export function holdInvite(secret: string): void {
+  arrive(secret);
+}
+
+/** A new link arrived: its invite, or none when it was mangled. Tells an open Join page. */
+function arrive(secret: string | undefined): void {
   held = secret;
   openCounted = false;
+  generation += 1;
+  for (const listener of listeners) listener();
+}
+
+/**
+ * Called when a new invite is held. On the web that never happens to a page
+ * already open — a new fragment reloads it (`capture.ts`) — but the app is
+ * never reloaded: a second invite tapped while it sits on `/join` arrives as a
+ * `Linking` event, and the Join page has to hear about it.
+ */
+export function subscribeInvite(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
+/** Which invite this is, as a number: for a query key, which must never hold the secret. */
+export function inviteGeneration(): number {
+  return generation;
 }
 
 /**
@@ -169,12 +181,27 @@ export function isInvitePath(pathname: string): boolean {
   return pathname.replace(/\/+$/, '') === '/join';
 }
 
+/**
+ * Holds the invite a URL's fragment carries, if it is an invite link. True when
+ * the fragment must now be taken off the URL — whether or not it parsed, since
+ * a mangled secret is still a secret-shaped thing somebody was sent.
+ *
+ * The one rule for both doors: the web's address bar (`captureInviteFragment`)
+ * and the app's incoming link (`routeIncomingLink`, S3-01a).
+ */
+export function takeInviteFragment(pathname: string, hash: string): boolean {
+  if (hash === '' || hash === '#' || !isInvitePath(pathname)) return false;
+  const secret = inviteSecretFromHash(hash);
+  // A mangled link lets go of whatever was held before it: in the app nothing
+  // reloads between two links, and the Join page must say "open it again"
+  // rather than preview the previous invite under this one (review round 1).
+  arrive(secret ?? undefined);
+  return true;
+}
+
 export function captureInviteFragment(): void {
   if (typeof window === 'undefined' || window.location === undefined) return;
   const { pathname, search, hash } = window.location;
-  if (hash === '' || !isInvitePath(pathname)) return;
-
-  const secret = inviteSecretFromHash(hash);
-  if (secret !== null) holdInvite(secret);
+  if (!takeInviteFragment(pathname, hash)) return;
   window.history.replaceState(window.history.state, '', pathname + search);
 }

@@ -16,11 +16,19 @@ export type AfterSignIn = {
   hasName: boolean;
   /** The circle they joined most recently, if they are in any: only whether there is one matters. */
   circleId: string | undefined;
+  /** This sign-in was the installed app's first (`mark-app-installed`). */
+  firstOpen?: boolean | undefined;
 };
 
-export function destinationAfterSignIn({ next, hasName, circleId }: AfterSignIn): string {
+export function destinationAfterSignIn({
+  next,
+  hasName,
+  circleId,
+  firstOpen = false,
+}: AfterSignIn): string {
   if (next !== undefined) return next;
   if (!hasName) return '/name';
+  if (firstOpen && circleId !== undefined) return '/get-the-app/welcome';
   return afterNaming(circleId);
 }
 

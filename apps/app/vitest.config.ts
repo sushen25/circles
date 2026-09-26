@@ -34,6 +34,7 @@ export default defineConfig({
       'expo-secure-store': fileURLToPath(
         new URL('./src/test/expo-secure-store-stub.ts', import.meta.url),
       ),
+      'expo-crypto': fileURLToPath(new URL('./src/test/expo-crypto-stub.ts', import.meta.url)),
       '@circles/tokens': fileURLToPath(
         new URL('../../packages/tokens/src/index.ts', import.meta.url),
       ),
