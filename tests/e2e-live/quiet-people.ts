@@ -81,6 +81,19 @@ export async function threeOfUs(browser: Browser) {
   };
 }
 
+/**
+ * A circle of saved places with no browsers yet: the first owns it, the rest
+ * are members, named in that order. For tests whose ask is made in SQL.
+ */
+export async function savedPlaces(...names: string[]) {
+  const people = await Promise.all(names.map((name) => person(name)));
+  const circleId = circleOwnedBy(people[0]!.userId, 'Sunday Crew');
+  const rest = people.slice(1).map((p) => `('${circleId}', '${p.userId}', '${p.name}')`);
+  sql(`insert into public.circle_members (circle_id, user_id, display_name_snapshot)
+       values ${rest.join(', ')}`);
+  return { circleId, people };
+}
+
 /** Maya asks quietly about the next seven days, from ChooseMode. Returns the plan id. */
 export async function mayaAsks(maya: Person, circleId: string): Promise<string> {
   await maya.page.goto(`/circles/${circleId}/plan/mode`);

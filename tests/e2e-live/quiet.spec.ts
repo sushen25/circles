@@ -10,11 +10,11 @@ import {
   keenInSql,
   mayaAsks,
   open,
-  person,
+  savedPlaces,
   threeOfUs,
   watched,
 } from './quiet-people';
-import { circleOwnedBy, sql, sundayCrew } from './stack';
+import { sql, sundayCrew } from './stack';
 
 /**
  * The quiet ask end to end (S2-03, spec §5.4): three members, Maya asks
@@ -144,10 +144,10 @@ test('the initiator’s own letter opens Volunteer, not ThresholdRole: a letter 
   page,
   baseURL,
 }) => {
-  const [maya, tom, jess] = await Promise.all(['Maya', 'Tom', 'Jess'].map((name) => person(name)));
-  const circleId = circleOwnedBy(maya!.userId, 'Sunday Crew');
-  sql(`insert into public.circle_members (circle_id, user_id, display_name_snapshot)
-       values ('${circleId}', '${tom!.userId}', 'Tom'), ('${circleId}', '${jess!.userId}', 'Jess')`);
+  const {
+    circleId,
+    people: [maya, tom, jess],
+  } = await savedPlaces('Maya', 'Tom', 'Jess');
   const ask = askedInSql(circleId, maya!.userId);
   keenInSql(ask.id, tom!.userId);
   keenInSql(ask.id, jess!.userId);
@@ -180,16 +180,32 @@ test('the initiator’s own letter opens Volunteer, not ThresholdRole: a letter 
   );
 });
 
+test('an ask that opens is counted: quiet_threshold_reached, against nobody', async () => {
+  test.skip(test.info().project.name !== 'android-chrome', 'no browser involved');
+  test.fail(true, 'SUS-97: nothing emits quiet_threshold_reached yet');
+  const {
+    circleId,
+    people: [maya, tom, jess],
+  } = await savedPlaces('Maya', 'Tom', 'Jess');
+  const ask = askedInSql(circleId, maya!.userId);
+  keenInSql(ask.id, tom!.userId);
+  keenInSql(ask.id, jess!.userId);
+  const counted = () =>
+    sql(`select coalesce(user_id::text, '-'), properties ->> 'threshold' from analytics.events
+         where event_name = 'quiet_threshold_reached' and plan_id = '${ask.id}'`);
+  for (let attempt = 0; attempt < 10 && counted().length === 0; attempt += 1) {
+    await runDispatcher();
+  }
+  expect(counted()).toEqual([['-', '3']]);
+});
+
 test('replies close with nobody organising: the owner, who never answered, may take it on then and not before', async ({
   browser,
 }) => {
-  const [maya, tom, jess, priya] = await Promise.all(
-    ['Maya', 'Tom', 'Jess', 'Priya'].map((name) => person(name)),
-  );
-  const circleId = circleOwnedBy(maya!.userId, 'Sunday Crew');
-  sql(`insert into public.circle_members (circle_id, user_id, display_name_snapshot)
-       values ('${circleId}', '${tom!.userId}', 'Tom'), ('${circleId}', '${jess!.userId}', 'Jess'),
-              ('${circleId}', '${priya!.userId}', 'Priya')`);
+  const {
+    circleId,
+    people: [maya, tom, jess, priya],
+  } = await savedPlaces('Maya', 'Tom', 'Jess', 'Priya');
   // Tom asks; Jess and Priya are keen, which is three of four. Maya owns the
   // circle and says nothing.
   const ask = askedInSql(circleId, tom!.userId);
