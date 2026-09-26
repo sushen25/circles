@@ -158,6 +158,15 @@ describe("a development client's link", () => {
     ],
     ['a lenient escape', devClient(`http%3A%2F%2Fh%2Fjoin%%323${SECRET}`)],
     [
+      'the dev scheme with no //',
+      `exp+circles:expo-development-client?url=${encodeURIComponent(inner)}`,
+    ],
+    ['any other dev-scheme link', `exp+circles://join?x=${encodeURIComponent(`#${SECRET}`)}`],
+    [
+      'userinfo in front of the dev host',
+      `exp+circles://x@expo-development-client/?url=${encodeURIComponent('http://h:1')}`,
+    ],
+    [
       'an encoded fragment in a query value',
       devClient(
         encodeURIComponent(
