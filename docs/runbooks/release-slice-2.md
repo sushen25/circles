@@ -233,20 +233,42 @@ The queries return counts only. **Don't select `user_id`, and don't join
 `private.plan_initiators` to anything that returns a row per person.** An
 initiator is never exposed (spec §8.2), and that includes to a spreadsheet.
 
+**Scope every query to the cohort.** Prod also holds your own test circles
+from *After the deploy*, Slice 1's dogfood group, and anything made since. So
+name the cohort's circles and its window once, in the same SQL editor session,
+and every query below reads them:
+
+```sql
+create temporary table cohort as
+select id as circle_id, timestamptz '2026-10-01' as since, timestamptz '2026-11-26' as until
+from public.circles where id in ('<group 2 circle id>', '<group 3 circle id>');
+```
+
 **H4: quorum moves groups to a decision.** Success looks like this: groups
 confirm even when not everyone can make it, and the replies-closed path is
 rare.
 
 ```sql
 -- Confirmed with fewer than everybody: how often "best enough" was enough.
-select count(*) filter (where (properties ->> 'attending_count')::int
-                              < (properties ->> 'invited_count')::int) as short_of_all,
+select count(*) filter (where (e.properties ->> 'attending_count')::int
+                              < (e.properties ->> 'invited_count')::int) as short_of_all,
        count(*) as confirmed
-from analytics.events where event_name = 'meetup_confirmed';
+from analytics.events e join cohort k on k.circle_id = e.circle_id
+where e.event_name = 'meetup_confirmed' and e.occurred_at between k.since and k.until;
 
--- What organisers did when replies closed with no decision.
+-- Plans whose replies closed undecided, and which way out was taken. Only the
+-- taps are events: nothing records an organiser doing nothing (the catalogue's
+-- `nothing` has no sender), so plans that are still undecided past their
+-- deadline, or expired, are counted from the plans themselves.
 select properties ->> 'action' as action, count(*)
-from analytics.events where event_name = 'deadline_passed_action' group by 1;
+from analytics.events e join cohort k on k.circle_id = e.circle_id
+where e.event_name = 'deadline_passed_action' and e.occurred_at between k.since and k.until
+group by 1
+union all
+select 'undecided_past_deadline_or_expired', count(*)
+from public.plans p join cohort k on k.circle_id = p.circle_id
+where p.created_at between k.since and k.until and p.response_deadline < now()
+  and (p.state in ('collecting', 'ready') or (p.state = 'expired' and p.mode = 'named'));
 ```
 
 **H5: quiet initiation changes who asks.** Success looks like this: members
@@ -264,12 +286,14 @@ select count(*) as asks,
        count(*) filter (where p.organiser_user_id is not null
                           and p.organiser_user_id <> pi.initiator_user_id) as someone_else_organised
 from public.plans p join private.plan_initiators pi on pi.plan_id = p.id
-where p.mode = 'quiet';
+join cohort k on k.circle_id = p.circle_id
+where p.mode = 'quiet' and p.created_at between k.since and k.until;
 
 -- Asks by people who had never organised a plan in that circle before.
 select count(*) as asks_by_a_non_organiser
 from public.plans q join private.plan_initiators pi on pi.plan_id = q.id
-where q.mode = 'quiet' and not exists (
+join cohort k on k.circle_id = q.circle_id
+where q.mode = 'quiet' and q.created_at between k.since and k.until and not exists (
   select 1 from public.plans n
   where n.circle_id = q.circle_id
     and n.organiser_user_id = pi.initiator_user_id and n.created_at < q.created_at);
@@ -284,14 +308,18 @@ meaningful share of circles plan a second meetup within their cadence, and
 
 ```sql
 -- Nudges sent, by why that person.
-select properties ->> 'recipient_role' as role, count(*)
-from analytics.events where event_name = 'cadence_prompt_sent' group by 1;
+select e.properties ->> 'recipient_role' as role, count(*)
+from analytics.events e join cohort k on k.circle_id = e.circle_id
+where e.event_name = 'cadence_prompt_sent' and e.occurred_at between k.since and k.until
+group by 1;
 
--- Circles that met at least twice.
+-- Circles that met at least twice in the window.
 select count(*) from (
   select p.circle_id from public.plans p
+  join cohort k on k.circle_id = p.circle_id
   join public.meetup_confirmations c on c.plan_id = p.id
   join public.outcome_reports o on o.confirmation_id = c.id and o.outcome = 'happened'
+  where c.starts_at between k.since and k.until
   group by p.circle_id having count(distinct p.id) >= 2) twice;
 
 -- Nudges acted on: within 14 days of the nudge, the person asked organised a
@@ -302,8 +330,8 @@ select count(*) as acted_on,
          select 1 from public.plans earlier
          where earlier.circle_id = cp.circle_id and earlier.organiser_user_id = cp.user_id
            and earlier.created_at < cp.prompted_at)) as by_a_first_time_organiser
-from private.cadence_prompts cp
-where cp.user_id is not null and exists (
+from private.cadence_prompts cp join cohort k on k.circle_id = cp.circle_id
+where cp.user_id is not null and cp.prompted_at between k.since and k.until and exists (
   select 1 from public.plans p
   left join private.plan_initiators pi on pi.plan_id = p.id
   where p.circle_id = cp.circle_id
