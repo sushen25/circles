@@ -50,6 +50,7 @@ FOLLOW ?= -f
 .PHONY: help ports envs setup dev dev-live dev-down web up down restart reset nuke status env \
 	logs logs-errors logs-db logs-auth logs-api psql sql limits mail studio \
 	gen types build check test test-unit test-db test-live test-live-headed test-smoke lint typecheck format \
+	native-android native-metro test-native \
 	secrets secret
 
 help: ## List every target
@@ -207,6 +208,19 @@ test-live-headed: up ## The live suite with the browser visible, one test at a t
 
 test-smoke: ## The fixture-mode e2e suite (no stack)
 	E2E_SMOKE_PORT=$(SMOKE_PORT) $(PNPM) test:e2e:smoke
+
+# --- Native (S3-01a) -----------------------------------------------------------
+# A development build on the emulator, against this checkout's stack. Needs the
+# Android SDK variables in your shell (apps/app/README.md) and a booted emulator.
+
+native-android: up env build ## Build and install the Android development build on the running emulator
+	cd apps/app && EXPO_PUBLIC_APP_ENV=development npx expo run:android --no-bundler
+
+native-metro: env build ## Metro for the native build, on this checkout's app port (the emulator reaches it through adb reverse)
+	cd apps/app && npx expo start --port $(WEB_PORT) --dev-client
+
+test-native: up ## The Maestro smoke on the emulator: sign in, a plan link opened by the OS, /join#secret (PLATFORM=ios for the simulator)
+	$(PNPM) test:native
 
 lint: ## ESLint
 	$(PNPM) lint

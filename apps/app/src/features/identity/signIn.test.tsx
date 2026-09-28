@@ -39,6 +39,7 @@ const auth = {
   bootstrapProfile: vi.fn(),
   ownProfile: vi.fn(),
   saveProfile: vi.fn(),
+  appTierSettled: vi.fn(async () => ({ firstOpen: false })),
 };
 vi.mock('../../data/auth', async () => {
   const { safeReturnPath } = await import('../../data/auth/returnPath');
@@ -102,7 +103,7 @@ beforeEach(() => {
     mock.mockReset();
   }
   auth.requestSignInCode.mockResolvedValue(undefined);
-  auth.submitSignInCode.mockResolvedValue({ session: {} });
+  auth.submitSignInCode.mockResolvedValue({ session: { user: { id: 'maya' } } });
   auth.bootstrapProfile.mockResolvedValue(undefined);
   auth.ownProfile.mockResolvedValue({ name: null, zone: null });
   belongsToAnyCircle.mockResolvedValue(false);
@@ -256,6 +257,28 @@ describe('signing in by email', () => {
     expect(track).not.toHaveBeenCalledWith('account_completed', expect.anything());
   });
 
+  it("lands the app's first open on the app landing (S3-01a)", async () => {
+    auth.ownProfile.mockResolvedValue({ name: 'Maya', zone: 'Australia/Melbourne' });
+    newestCircleId.mockResolvedValue('c1');
+    auth.appTierSettled.mockResolvedValueOnce({ firstOpen: true });
+    wrap(<SignInFlow />);
+    await sendCodeTo(ADDRESS);
+    await enter('123456');
+
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/get-the-app/welcome'));
+    // Asked about the person who just signed in, not whoever the process last saw.
+    expect(auth.appTierSettled).toHaveBeenCalledWith('maya');
+  });
+
+  it('still goes straight back to the plan link on a first open: the link is what they came for', async () => {
+    auth.appTierSettled.mockResolvedValueOnce({ firstOpen: true });
+    wrap(<SignInFlow returnTo="/p/abcdefgh" />);
+    await sendCodeTo(ADDRESS);
+    await enter('123456');
+
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/p/abcdefgh'));
+  });
+
   it("leaves a returning account's zone alone, UTC included (review round 1)", async () => {
     // `ownProfile` reads a stored `UTC` as "not chosen"; the bootstrap would
     // have replaced it with this device's zone on every sign-in.
@@ -336,7 +359,7 @@ describe('signing in by email', () => {
     belongsToAnyCircle.mockResolvedValue(true);
     newestCircleId.mockResolvedValue('c1');
     auth.requestLinkCode.mockResolvedValue('new_identity');
-    auth.savePlace.mockResolvedValue({});
+    auth.savePlace.mockResolvedValue({ session: { user: { id: 'priya' } } });
     wrap(<SignInFlow />);
     await sendCodeTo(ADDRESS);
     await enter('123456');
@@ -350,7 +373,7 @@ describe('signing in by email', () => {
     Object.assign(session, { status: 'guest', userId: 'priya' });
     belongsToAnyCircle.mockResolvedValue(true);
     auth.requestLinkCode.mockResolvedValue('existing_account');
-    auth.savePlace.mockResolvedValue({});
+    auth.savePlace.mockResolvedValue({ session: { user: { id: 'priya' } } });
     wrap(<SignInFlow returnTo="/j/abcdefgh" />);
     await sendCodeTo(ADDRESS);
     await enter('123456');

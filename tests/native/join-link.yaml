@@ -1,0 +1,23 @@
+# `/join#<secret>`, opened by the operating system on a device with no session:
+# the invite is read from the fragment, hashed on the device (expo-crypto) and
+# previewed — the circle's name on screen is the proof the digest matched the
+# database's — then joined under a new name.
+appId: app.circles.development
+---
+- extendedWaitUntil:
+    visible: '.*Sunday Crew.*'
+    timeout: 60000
+- tapOn: 'Choose my times'
+- extendedWaitUntil:
+    visible: 'What should the group call you?'
+    timeout: 30000
+- tapOn: 'Your name'
+- inputText: ${NAME}
+- hideKeyboard
+# The keyboard's slide-out moves the button; tap it where it ends up.
+- waitForAnimationToEnd
+- tapOn: 'Continue'
+- extendedWaitUntil:
+    notVisible: 'What should the group call you?'
+    timeout: 30000
+- assertNotVisible: '.*[Oo]pen the link again.*'

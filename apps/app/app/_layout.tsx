@@ -4,6 +4,7 @@ import Head from 'expo-router/head';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
+import { LogBox } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -11,14 +12,24 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { brand } from '@circles/config';
 import { fontAssets } from '@circles/tokens/font-assets';
 
-import { configureAnalytics, flush } from '../src/analytics/track';
+import { configureAnalytics, flush, track } from '../src/analytics/track';
 import { retryWhenReachable, trackEventsTransport } from '../src/analytics/transport';
+import { onAppFirstOpen } from '../src/data/auth/appTier';
 import { startSessionTracking } from '../src/data/auth/session';
 import { accessToken } from '../src/data/session';
 import { ShellScreen } from '../src/features/system/ShellScreen';
 import { useHydrated } from '../src/platform/hydration';
 
 void SplashScreen.preventAutoHideAsync();
+
+// A development build's warning banner sits over the foot of every screen and
+// takes the tap meant for its button — the native smoke found it on the code
+// step (S3-01a). This one says Hermes has no Web Crypto, so `supabase-js`
+// would send a plain PKCE challenge; nothing here uses one (sign-in is a
+// six-digit code, `verifyOtp`, and never a redirect), so it is noise. Any
+// other warning still shows. Development builds only: LogBox is not in a
+// release bundle.
+LogBox.ignoreLogs(['WebCrypto API is not supported']);
 
 // Once, at the root, before any screen can record anything. `track()` buffers
 // until a transport exists; without this line every event in the product
@@ -76,6 +87,12 @@ export default function RootLayout() {
   // place the session is read back from storage, so `useSession` has an answer
   // before any guard asks (§10).
   useEffect(() => startSessionTracking(), []);
+
+  // The installed app's first open, linked to somebody's place (S3-01a): once
+  // per person, whichever way they got signed in — the code screen, saving a
+  // guest's place, or a session restored from an older build. Counted here
+  // because the data layer that learns it may not import analytics.
+  useEffect(() => onAppFirstOpen(() => track('app_first_open_linked', {})), []);
 
   // Every page has a title, before the fonts too: a browser tab, a screen
   // reader's first words and WCAG 2.4.2 all need one, and axe calls a page

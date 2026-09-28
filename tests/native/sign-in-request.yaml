@@ -1,0 +1,17 @@
+# Sign in as a seeded member, step one: ask for a code (S3-01a).
+# `run.sh` reads the code out of Mailpit and hands it to sign-in-code.yaml.
+appId: app.circles.development
+---
+- launchApp
+- extendedWaitUntil:
+    visible: 'Continue with email'
+    timeout: 120000
+- tapOn: 'Continue with email'
+- inputText: ${EMAIL}
+- hideKeyboard
+# The keyboard's slide-out moves the button; tap it where it ends up.
+- waitForAnimationToEnd
+- tapOn: 'Send me a code'
+- extendedWaitUntil:
+    visible: 'Enter the code.*'
+    timeout: 30000

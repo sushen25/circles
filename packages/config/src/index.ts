@@ -14,3 +14,5 @@ export { brand } from './brand.js';
 export type { Brand } from './brand.js';
 export { CONSENT } from './consent.js';
 export type { Consent } from './consent.js';
+export { APP_LINK_PATHS } from './links.js';
+export type { AppLinkPath } from './links.js';

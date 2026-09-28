@@ -9,6 +9,7 @@ import { t } from '../../copy';
 import {
   clearDraft,
   onChanceToResend,
+  saveDraftSoon,
   submitAnswer,
   writeDraft,
   type AnswerablePlan,
@@ -100,7 +101,9 @@ export function useSendAnswer({
   const touched = useRef(false);
   useEffect(() => {
     if (!touched.current || userId === undefined) return;
-    void writeDraft(userId, code, {
+    // Held and written once the painting pauses: a drag is a write per cell.
+    // `send` below writes straight through, which replaces whatever is held.
+    saveDraftSoon(userId, code, {
       plan,
       windows: windowsOf({ days }, rows, timing),
       flexible,
