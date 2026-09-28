@@ -9,6 +9,7 @@ situation, written the first time it happens rather than imagined in advance.
 | [CI](./ci.md) | What each workflow does, what it costs, what still needs a person |
 | [Environments](./environments.md) | What exists in `local`, `dev` and `prod`; domains, configuration, secrets, cost |
 | [Environment setup](./environment-setup.md) | The one-time founder checklist that creates all of the above |
+| [Release: Slice 2](./release-slice-2.md) | Putting the quiet ask, cadence and replies closed on prod: prerequisites, what deploys, the checks before and after, the ADRs to decide, and the H4–H6 evidence to collect |
 | Stuck plans | A plan that will not transition — past its deadline with no candidates, or a confirmation that did not send |
 | Suppressed contacts | An address that has hard-bounced or complained and is no longer receiving anything |
 | Identity merges | A guest who has ended up as two members of one circle, or a claim that half-linked |

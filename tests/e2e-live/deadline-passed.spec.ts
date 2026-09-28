@@ -1,16 +1,18 @@
-import { expect, test, type Page } from './fixtures';
+import { expect, test } from './fixtures';
 
 import { letterTo, lettersTo, linkIn, runDispatcher } from './mail';
 import {
-  accountToSignInTo,
-  circleOwnedBy,
-  guestWhoAnswered,
-  planFor,
-  sessionStorageKey,
-  signedInAccount,
-  sql,
-  type Scenario,
-} from './stack';
+  CLOSED,
+  addressOf,
+  closedLetters,
+  closedWithAnOption,
+  closingJobsFor,
+  closingJobsToPriya,
+  releaseHeld,
+  signedInAs,
+  zoneAtTwoInTheMorning,
+} from './replies-closed';
+import { sql } from './stack';
 
 /**
  * Replies closed with no decision, end to end (spec §5.7, S2-05).
@@ -19,103 +21,12 @@ import {
  * organiser is told by email, opens the letter, and takes one of the ways out:
  * one more day — after which the extended deadline closes and is announced
  * again, which is the letter SUS-36 found the job layer swallowing — or a
- * hand-off to a member with a saved place, who is told in turn.
- */
-
-const CLOSED = /^Sunday Crew: replies are closed$/;
-
-async function signedInAs(page: Page, stored: string): Promise<void> {
-  await page.addInitScript({
-    content: `localStorage.setItem(${JSON.stringify(sessionStorageKey())}, ${JSON.stringify(stored)});`,
-  });
-}
-
-function addressOf(userId: string): string {
-  return sql(`select email from auth.users where id = '${userId}'`)[0]![0]!;
-}
-
-/**
- * Maya's plan with one option — next week's second evening, Maya and Tom —
- * and then its deadline gone. Both answers are the product's own
- * (`replace_response`), and the engine is the dispatcher's, run until the plan
- * is ready: a set written by hand is stale the moment anything bumps the
- * plan's input, and the sweep then recalculates it from the real answers
- * underneath the test. Tom is a guest; Priya has a saved place, and the plan
- * is asking her but she has not answered. `closed: false` leaves the deadline
- * for the test to pass itself.
- */
-async function closedWithAnOption({ closed = true }: { closed?: boolean } = {}) {
-  const maya = await signedInAccount('Maya');
-  const circleId = circleOwnedBy(maya.userId, 'Sunday Crew');
-  const plan = planFor(circleId, maya.userId);
-  const crew: Scenario = {
-    circleId,
-    planId: plan.id,
-    planCode: plan.code,
-    ownerId: maya.userId,
-    secret: '',
-  };
-  const priya = await accountToSignInTo('Priya');
-  sql(`
-    begin;
-    insert into public.circle_members (circle_id, user_id, display_name_snapshot)
-    values ('${circleId}', '${priya.userId}', 'Priya');
-    insert into public.plan_participants (plan_id, revision, user_id)
-    values ('${plan.id}', 1, '${priya.userId}');
-    commit;
-  `);
-  const tom = guestWhoAnswered(crew, 'Tom');
-  sql(`
-    begin;
-    select set_config('role', 'authenticated', true);
-    select set_config('request.jwt.claims',
-      '{"sub": "${maya.userId}", "role": "authenticated", "is_anonymous": false}', true);
-    select public.replace_response('${plan.id}', 1, 'windows', jsonb_build_array(jsonb_build_object(
-      'start', ((current_date + 8)::timestamp + interval '18 hours 30 minutes') at time zone 'Australia/Melbourne',
-      'end', ((current_date + 8)::timestamp + interval '20 hours 30 minutes') at time zone 'Australia/Melbourne'
-    )));
-    commit;
-  `);
-  for (let attempt = 0; attempt < 20 && stateOf(plan.id) !== 'ready'; attempt += 1) {
-    await runDispatcher();
-  }
-  expect(stateOf(plan.id)).toBe('ready');
-  if (closed) {
-    sql(
-      `update public.plans set response_deadline = now() - interval '1 minute' where id = '${plan.id}'`,
-    );
-  }
-  return { maya, circleId, plan, tom, priya };
-}
-
-function stateOf(planId: string): string {
-  return sql(`select state from public.plans where id = '${planId}'`)[0]![0]!;
-}
-
-/**
- * Runs the dispatcher until the plan has `count` replies-closed jobs, then
- * sends any quiet hours are holding (SUS-91).
+ * hand-off to a member with a saved place, who is told in turn — or the top
+ * option, locked in. And a day later, still undecided, they are told once
+ * more (ADR 0039).
  *
- * `replies_closed` respects quiet hours (9 pm–8 am where the organiser is), so
- * a run of the suite in the Melbourne evening writes the job for the next
- * morning and no letter arrives: the spec failed, and a count of letters said
- * nothing either way. The jobs are the product's answer — written or not —
- * and they are what is asserted; the release only lets the letter be read.
+ * The plan and the counting are in `replies-closed.ts`.
  */
-async function closingJobsFor(planId: string, count: number): Promise<number> {
-  const jobs = () =>
-    Number(
-      sql(`select count(*) from jobs.notification_jobs
-           where plan_id = '${planId}' and kind = 'replies_closed'`)[0]![0],
-    );
-  for (let attempt = 0; attempt < 20 && jobs() < count; attempt += 1) await runDispatcher();
-  await releaseHeld(planId);
-  return jobs();
-}
-
-async function closedLetters(address: string): Promise<number> {
-  return (await lettersTo(address)).filter((letter) => CLOSED.test(letter.subject)).length;
-}
 
 test('the organiser is told, gives it one more day, and is told again when that closes', async ({
   page,
@@ -171,37 +82,6 @@ test('the organiser is told, gives it one more day, and is told again when that 
   await expect(again).toBeVisible();
   await expect(again).toHaveAttribute('aria-disabled', 'true');
 });
-
-/**
- * Priya's `replies_closed` jobs for the plan, by status, sorted. Live ones are
- * everything but `skipped`; the skipped ones carry why.
- */
-function closingJobsToPriya(planId: string, priyaId: string): string[][] {
-  return sql(`select j.status, coalesce(j.last_error, '') from jobs.notification_jobs j
-              join private.email_contacts c on c.id = j.contact_id
-              where j.plan_id = '${planId}' and j.kind = 'replies_closed'
-                and c.user_id = '${priyaId}'
-              order by j.status, j.last_error`);
-}
-
-/** Sends whatever quiet hours are holding for the plan (SUS-91). */
-async function releaseHeld(planId: string): Promise<void> {
-  sql(`update jobs.notification_jobs set scheduled_for = now()
-       where plan_id = '${planId}' and status = 'scheduled'`);
-  await runDispatcher();
-}
-
-/**
- * A zone where it is about two in the morning now, well inside quiet hours
- * (9 pm–8 am), whenever the suite runs. `Etc/GMT` signs are inverted:
- * `Etc/GMT-10` is ten hours ahead of UTC.
- */
-function zoneAtTwoInTheMorning(): string {
-  let ahead = (2 - new Date().getUTCHours() + 24) % 24;
-  if (ahead > 12) ahead -= 24;
-  if (ahead === 0) return 'Etc/UTC';
-  return `Etc/GMT${ahead > 0 ? '-' : '+'}${Math.abs(ahead)}`;
-}
 
 test('the organiser hands it to a member with a saved place, never to a guest', async ({
   page,
@@ -296,4 +176,66 @@ test('a sweep that lands after the hand-off, overnight, replaces the letter rath
   ]);
   await letterTo(priya.email, CLOSED);
   expect(await closedLetters(priya.email)).toBe(1);
+});
+
+test('the organiser locks in the top option from the replies-closed screen, through to Locked in', async ({
+  page,
+}) => {
+  const { maya, circleId, plan } = await closedWithAnOption();
+  await signedInAs(page, maya.stored);
+
+  await page.goto(`/circles/${circleId}/plan/${plan.id}/deadline`);
+  await expect(page.getByText(/^Replies have closed\. .+ still works for two\.$/)).toBeVisible();
+  await page.getByRole('button', { name: /^Lock in / }).click();
+
+  // ConfirmReview, as from the options: the place and the one question.
+  await expect(page).toHaveURL(/\/review\?candidate=/);
+  await expect(page.getByText('Lock it in?')).toBeVisible();
+  await page.getByLabel('Where it is').fill('Hope St Radio');
+  await page.getByRole('checkbox', { name: 'One person' }).click();
+  await page.getByRole('button', { name: 'Lock it in' }).click();
+
+  await expect(page).toHaveURL(new RegExp(`/circles/${circleId}/plan/${plan.id}/confirmed$`));
+  await expect(page.getByText(/^Locked in: Sunday Crew, .* at Hope St Radio\./)).toBeVisible();
+  expect(sql(`select state from public.plans where id = '${plan.id}'`)[0]![0]).toBe('confirmed');
+});
+
+test('still undecided a day on, the organiser is told once more, and only once', async ({
+  page,
+  baseURL,
+}) => {
+  test.skip(
+    test.info().project.name !== 'android-chrome',
+    'the dispatcher and the inbox, not the browser: the same in every project',
+  );
+  const { maya, plan } = await closedWithAnOption();
+  const address = addressOf(maya.userId);
+  expect(await closingJobsFor(plan.id, 1)).toBe(1);
+  await letterTo(address, CLOSED);
+
+  // A day later, as `240_replies_closed.sql` has it: the first announcement
+  // is put back 25 hours, and the next sweep follows it up.
+  sql(`update jobs.outbox set occurred_at = now() - interval '25 hours'
+       where event_name = 'planning.deadline_passed' and aggregate_id = '${plan.id}'`);
+  expect(await closingJobsFor(plan.id, 2)).toBe(2);
+  for (let attempt = 0; attempt < 20 && (await closedLetters(address)) < 2; attempt += 1) {
+    await page.waitForTimeout(500);
+  }
+  expect(await closedLetters(address)).toBe(2);
+  expect(
+    sql(`select count(*) from jobs.outbox where event_name = 'planning.deadline_passed'
+         and aggregate_id = '${plan.id}' and payload ->> 'follow_up' = '+24h'`),
+  ).toEqual([['1']]);
+
+  // Once: the sweeps after it add nothing.
+  await runDispatcher();
+  await runDispatcher();
+  expect(await closingJobsFor(plan.id, 2)).toBe(2);
+  expect(await closedLetters(address)).toBe(2);
+
+  // And the follow-up opens the same three ways out.
+  const [newest] = await lettersTo(address);
+  await signedInAs(page, maya.stored);
+  await page.goto(linkIn(newest!, new RegExp(`^/p/${plan.code}$`), baseURL!));
+  await expect(page.getByText(/^Replies have closed\. .+ still works for two\.$/)).toBeVisible();
 });

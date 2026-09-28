@@ -345,6 +345,37 @@ export async function signedInAccount(name: string): Promise<{ userId: string; s
   return { userId: session.user.id, stored: JSON.stringify(session) };
 }
 
+/**
+ * A session for somebody who already exists — a person in `supabase/seed.sql`
+ * — as the session the app keeps, without touching their password.
+ *
+ * The auth server's admin API mints a one-time sign-in for the address, and
+ * the test spends it at once, as the link in a sign-in email would be spent.
+ * Nothing is mailed. The seed's people have no password, and giving them one
+ * would change the scenario for whoever signs in to it by hand next.
+ */
+export async function sessionFor(email: string): Promise<string> {
+  const { apiUrl, anonKey, serviceKey } = stackConfig();
+  const minted = await fetch(`${apiUrl}/auth/v1/admin/generate_link`, {
+    method: 'POST',
+    headers: {
+      apikey: serviceKey,
+      authorization: `Bearer ${serviceKey}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({ type: 'magiclink', email }),
+  });
+  if (!minted.ok) throw new Error(`could not mint a sign-in (${minted.status})`);
+  const { hashed_token: tokenHash } = (await minted.json()) as { hashed_token: string };
+  const verified = await fetch(`${apiUrl}/auth/v1/verify`, {
+    method: 'POST',
+    headers: { apikey: anonKey, 'content-type': 'application/json' },
+    body: JSON.stringify({ type: 'magiclink', token_hash: tokenHash }),
+  });
+  if (!verified.ok) throw new Error(`could not spend the sign-in (${verified.status})`);
+  return JSON.stringify(await verified.json());
+}
+
 /** Where `supabase-js` keeps the session for the local API (`sb-<host's first label>-auth-token`). */
 export function sessionStorageKey(): string {
   return `sb-${new URL(stackConfig().apiUrl).hostname.split('.')[0]}-auth-token`;
