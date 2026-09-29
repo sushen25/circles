@@ -11,6 +11,15 @@ describe('brand', () => {
     expect(brand.scheme).toMatch(/^[a-z][a-z0-9-]*$/);
   });
 
+  it('carries a descriptor to sit beside the name', () => {
+    expect(brand.descriptor.length).toBeGreaterThan(0);
+    expect(brand.descriptor).not.toContain(brand.name);
+  });
+
+  it('sends under the product name', () => {
+    expect(brand.sender.startsWith(`${brand.name} <`)).toBe(true);
+  });
+
   it('never ships links on an Expo subdomain', () => {
     expect(brand.domain).not.toMatch(/expo\.app$/);
   });

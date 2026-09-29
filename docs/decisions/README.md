@@ -45,6 +45,7 @@ Short records of decisions that shape the product or the code. A new ADR is requ
 | [0039](./0039-replies-closed-is-told-per-deadline-and-once-a-day-later.md) | Replies closed is told once per deadline and once a day later; one more day is a day from now, once per revision | proposed |
 | [0040](./0040-the-served-html-is-a-shell.md) | The served HTML is a neutral shell; every screen renders on the device | proposed |
 | [0041](./0041-keen-members-may-take-the-role-as-soon-as-it-opens.md) | Keen members may take the organiser role as soon as a quiet ask opens, and the quiet ask's analytics name nobody | proposed |
+| [0043](./0043-the-product-is-wenna-and-confirmations-sign-off-with-the-day.md) | The product is Wenna, the link preview says what the brand doc says, and a confirmation signs off with the day | proposed |
 
 ## Template
 

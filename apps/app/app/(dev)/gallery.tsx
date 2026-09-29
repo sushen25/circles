@@ -33,6 +33,9 @@ export default function Gallery() {
         <Small>
           {SCREENS.length} screens. Pick a scenario, then open any screen — the fixture follows.
         </Small>
+        <Link href="/brand" style={styles.link}>
+          Brand: mark, lockup and icons
+        </Link>
         <Chips>
           {(Object.keys(FIXTURES) as FixtureName[]).map((name) => (
             <Chip

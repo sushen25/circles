@@ -2,7 +2,7 @@
 import type { ReactNode } from 'react';
 
 import { EN_EMAIL, type EmailCopy } from '../copy.ts';
-import { longDate, shortDate, timeRange } from '../format.ts';
+import { longDate, shortDate, timeRange, weekdayName } from '../format.ts';
 import { planLink, subscriberFooter } from '../links.ts';
 import type { LockedInInput } from '../types.ts';
 import { Layout } from './Layout.tsx';
@@ -10,6 +10,7 @@ import { Layout } from './Layout.tsx';
 export function lockedInCopy(input: LockedInInput): EmailCopy {
   return EN_EMAIL.lockedIn({
     circleName: input.circleName,
+    weekday: weekdayName(input.start, input.zone),
     shortDate: shortDate(input.start, input.zone),
     longDate: longDate(input.start, input.zone),
     time: timeRange(input.start, input.end, input.zone),
@@ -22,6 +23,9 @@ export function lockedInCopy(input: LockedInInput): EmailCopy {
 /**
  * "Locked in: Sunday Crew, Thu 17 Sep" — the Emails artboard's middle card.
  *
+ * On the confirmed ground, like the confirmed screen (manifesto §5.1), and
+ * signed off "Thursday it is. See you then." (ADR 0043).
+ *
  * The button says "Add to calendar" and opens the plan, where the calendar sheet
  * is: the `.ics` download needs a session (`generate-ics`), which a link in an
  * email cannot carry.
@@ -29,6 +33,7 @@ export function lockedInCopy(input: LockedInInput): EmailCopy {
 export function LockedIn({ input }: { input: LockedInInput }): ReactNode {
   return (
     <Layout
+      variant="confirmed"
       copy={lockedInCopy(input)}
       buttonUrl={planLink(input.origin, input.planCode)}
       footer={subscriberFooter(input)}

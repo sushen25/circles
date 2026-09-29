@@ -30,6 +30,7 @@
     "email:preview": "env EMAIL_PREVIEW_URL=${MAILPIT_URL:-http://127.0.0.1:54324} vitest run --project functions _shared/email/preview",
     "gen:types": "supabase gen types typescript --local > packages/contracts/src/db.generated.ts",
     "gen:tokens": "node --experimental-strip-types scripts/gen-tokens.ts",
+    "gen:brand": "node --experimental-strip-types scripts/gen-brand-assets.ts",
     "gen:transitions": "node scripts/gen-transitions.mjs",
     "gen:events": "node scripts/gen-events.mjs",
     "gen:functions": "node scripts/gen-sql-functions.mjs",

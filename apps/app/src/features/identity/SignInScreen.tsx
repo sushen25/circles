@@ -1,10 +1,8 @@
-import { brand } from '@circles/config';
-
 import {
+  BrandLockup,
   Body,
   BodyText,
   Button,
-  DisplayL,
   DisplayXL,
   Foot,
   Input,
@@ -75,7 +73,7 @@ export function SignInScreen({
     <Screen>
       <TopBar onBack={onBack} backLabel={t('common', 'back')} />
       <Body>
-        <DisplayL>{brand.name}</DisplayL>
+        <BrandLockup descriptor />
         <Stack>
           <DisplayXL>
             {returning

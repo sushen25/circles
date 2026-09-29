@@ -72,6 +72,8 @@ export const EN_EMAIL = {
 
   lockedIn: (p: {
     circleName: string;
+    /** "Thursday" — for the sign-off every confirmation ends on (ADR 0043). */
+    weekday: string;
     shortDate: string;
     longDate: string;
     time: string;
@@ -85,6 +87,8 @@ export const EN_EMAIL = {
     paragraphs: [
       p.placeName === undefined ? p.time : `${p.time} · ${p.placeName}`,
       ...(p.note === undefined ? [] : [quoted(p.note, p.organiserName)]),
+      `${p.weekday} it is.`,
+      'See you then.',
     ],
     button: { label: 'Add to calendar' },
   }),
@@ -271,5 +275,7 @@ export const EN_EMAIL = {
     quiet: (circleName: string) =>
       `You're getting this because you asked ${circleName} quietly. Nobody else gets this email.`,
     sender: brand.name,
+    /** Under every email, outside the card: who it is from, once the logo has said it. */
+    sentBy: `Sent by ${brand.name}`,
   },
 } as const;

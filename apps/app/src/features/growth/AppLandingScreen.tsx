@@ -1,11 +1,9 @@
-import { brand } from '@circles/config';
-
 import {
+  BrandLockup,
   Body,
   BodyText,
   Button,
   Card,
-  DisplayL,
   DisplayXL,
   Foot,
   Notice,
@@ -37,7 +35,7 @@ export function AppLandingScreen({ onNext }: AppLandingProps) {
   return (
     <Screen>
       <Body>
-        <DisplayL>{brand.name}</DisplayL>
+        <BrandLockup descriptor />
         <Stack>
           <DisplayXL>{t('appLanding', 'welcome_back_priya')}</DisplayXL>
           <BodyText>{t('appLanding', 'signed_in_as_priya_example_com_your')}</BodyText>

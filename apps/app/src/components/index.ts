@@ -3,6 +3,7 @@
  * themselves (ADR 0002).
  */
 export { AnswerRow } from './AnswerRow';
+export { BrandLockup, BrandMark } from './Brand';
 export { Button, ButtonRow, CompactButton, Tertiary } from './Button';
 export { Card } from './Card';
 export { Chip, Chips } from './Chip';

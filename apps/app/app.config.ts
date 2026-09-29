@@ -35,6 +35,8 @@ const appOrigin =
   (appEnv === 'development' ? 'http://localhost:8081' : `https://${brand.domain}`);
 
 // `circles` stays the identifier prefix whatever the product is called (§5.4).
+// So does the slug and the scheme: installed builds and the links they claim
+// depend on them, and the rename (SUS-98) changed only what a person sees.
 const bundleIdentifier = `app.circles.${appEnv}`;
 
 // Created by `eas init`. Not a secret, and EAS needs it to resolve the project,
@@ -61,11 +63,18 @@ const config: ExpoConfig = {
   ios: {
     bundleIdentifier,
     supportsTablet: true,
+    // iOS 18 home-screen appearances. Every raster here is rendered from the
+    // masters in `assets/brand/` by `pnpm gen:brand`; never edit one by hand.
+    icon: {
+      light: './assets/icon.png',
+      dark: './assets/icon-dark.png',
+      tinted: './assets/icon-tinted.png',
+    },
   },
   android: {
     package: bundleIdentifier,
     adaptiveIcon: {
-      backgroundColor: '#E6F4FE',
+      backgroundColor: '#FBF7F1',
       foregroundImage: './assets/android-icon-foreground.png',
       backgroundImage: './assets/android-icon-background.png',
       monochromeImage: './assets/android-icon-monochrome.png',
@@ -83,7 +92,10 @@ const config: ExpoConfig = {
     bundler: 'metro',
     // Server output exists for exactly one route: link previews (ADR 0001).
     output: 'server',
-    favicon: './assets/favicon.png',
+    // No `favicon` here: Expo would write a one-size `favicon.ico` over the
+    // 16/32/48 one in `public/`, and a 16 px tab needs the small-size master's
+    // own pixels for the dotted seat to survive. `app/_layout.tsx` links the
+    // set, the SVG and the manifest instead.
   },
   plugins: [
     // `origin` polyfills relative fetches in production builds, so native can
@@ -130,7 +142,17 @@ const config: ExpoConfig = {
     ],
     'expo-font',
     'expo-secure-store',
-    'expo-splash-screen',
+    [
+      'expo-splash-screen',
+      {
+        // The mark centred on the warm ground (`color.ground`), light only:
+        // the app runs light (`userInterfaceStyle` above).
+        image: './assets/splash-icon.png',
+        imageWidth: 160,
+        resizeMode: 'contain',
+        backgroundColor: '#FBF7F1',
+      },
+    ],
   ],
   extra: {
     appEnv,

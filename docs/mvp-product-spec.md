@@ -4,7 +4,7 @@ _Status: approved for build_
 
 _Date: 6 September 2026 (v1: 26 August 2026)_
 
-_Codename: **Circles** — a placeholder; the public name is under validation (see [branding research](./research/branding-research.md)). In-product, the persistent group is called a **circle**; that word is not a brand claim._
+_The product is **Wenna** — "Plans with friends" ([ADR 0043](decisions/0043-the-product-is-wenna-and-confirmations-sign-off-with-the-day.md)); **Circles** is its codename and package scope. In-product, the persistent group is called a **circle**; that word is not a brand claim._
 
 _Primary test audience: the founder's 2–3 existing friend groups, followed by 8–10 groups with no close relationship to the founder, recruited by the founder in parallel with the build._
 
@@ -161,7 +161,7 @@ Returning users land on the same Welcome; Apple and Google resolve to the existi
 
 #### Invitee entry (canvas page 1)
 
-- A circle invite opens a responsive mobile-web route. The link preview in the chat shows "Pick the times you'd actually be up for. No app needed." Nothing else. A **plan** link (`/j/<code>`, `/p/<code>`) also names the circle; a **circle invite** (`/join#<secret>`) cannot, because its secret lives in the URL fragment and a fragment is never sent to a server — so nothing that draws the card can know which circle it is ([ADR 0021](decisions/0021-the-link-preview-is-not-rate-limited.md)).
+- A circle invite opens a responsive mobile-web route. The link preview in the chat shows "Pick the times you'd be up for. About a minute, and nobody sees your calendar." ([ADR 0043](decisions/0043-the-product-is-wenna-and-confirmations-sign-off-with-the-day.md)), with the product named only as the site. Nothing else. A **plan** link (`/j/<code>`, `/p/<code>`) also names the circle; a **circle invite** (`/join#<secret>`) cannot, because its secret lives in the URL fragment and a fragment is never sent to a server — so nothing that draws the card can know which circle it is ([ADR 0021](decisions/0021-the-link-preview-is-not-rate-limited.md)).
 - Before any prompt the page shows: circle name, inviter's name, who is in so far, a one-sentence privacy statement, and the expected effort.
 - **Choose my times** creates an anonymous session tied to that browser and asks for a display name. Duplicate active names in a circle are prevented; the owner can resolve accidents.
 - **A plan link admits new people too, while the plan is taking answers** ([ADR 0022](decisions/0022-a-plan-link-admits-new-members-while-the-plan-is-asking.md)). It is the link the group chat actually sees. Somebody new gives a display name and is a guest member of the circle and one of the people that plan is asking, in one step. A plan that is not taking answers — a quiet ask still gathering interest, a confirmed plan, a finished one — admits nobody, and the refusal is the same one a link that never existed gets. A quiet ask is never shared by link (§5.4), so nobody it needs is kept out.

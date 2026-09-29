@@ -9,6 +9,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { brand } from '@circles/config';
+import { color } from '@circles/tokens';
 import { fontAssets } from '@circles/tokens/font-assets';
 
 import { configureAnalytics, flush } from '../src/analytics/track';
@@ -83,6 +84,11 @@ export default function RootLayout() {
   const title = (
     <Head>
       <title>{brand.name}</title>
+      <link rel="icon" href="/favicon.ico" sizes="48x48" />
+      <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+      <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+      <link rel="manifest" href="/manifest.webmanifest" />
+      <meta name="theme-color" content={color.ground} />
     </Head>
   );
 

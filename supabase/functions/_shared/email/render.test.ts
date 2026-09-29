@@ -193,9 +193,11 @@ describe('render', () => {
     it('is one sentence and the button', async () => {
       const email = await render(SUNDAY_CREW.verify_email);
       const body = email.text.split('\n').filter((line) => line.trim() !== '');
-      // The wordmark, the sentence, the button with its link.
+      // The sentence, the button with its link, and who sent it. The lockup is
+      // an image, which the plain-text part leaves out.
       expect(body).toHaveLength(3);
-      expect(body[1]?.match(/[.?!](\s|$)/g)).toHaveLength(1);
+      expect(body[0]?.match(/[.?!](\s|$)/g)).toHaveLength(1);
+      expect(body[2]).toBe(EN_EMAIL.footer.sentBy);
     });
   });
 

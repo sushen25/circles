@@ -36,6 +36,7 @@ export function EmptyCirclesListScreen({ onNext, onBack, onAccount }: EmptyCircl
   return (
     <Screen>
       <TopBar
+        mark
         onBack={onBack}
         backLabel={t('common', 'back')}
         right={<AccountButton onPress={onAccount} />}

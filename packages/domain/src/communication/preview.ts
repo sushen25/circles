@@ -18,10 +18,14 @@ export type PreviewTemplates = {
   readonly description: () => string;
 };
 
-/** The artboard's wording. Replaceable, like the share messages. */
+/**
+ * The brand doc's "Applied" wording (SUS-98), which replaced the artboard's
+ * "No app needed." line. Replaceable, like the share messages.
+ */
 export const EN_PREVIEW_TEMPLATES: PreviewTemplates = {
   title: (circleName) => `${circleName} is finding a time to catch up`,
-  description: () => "Pick the times you'd actually be up for. No app needed.",
+  description: () =>
+    "Pick the times you'd be up for. About a minute, and nobody sees your calendar.",
 };
 
 /** "Sunday Crew is finding a time to catch up". */
@@ -30,7 +34,7 @@ export function ogTitle(circleName: string, templates: PreviewTemplates): string
 }
 
 /**
- * "Pick the times you'd actually be up for. No app needed."
+ * "Pick the times you'd be up for. About a minute, and nobody sees your calendar."
  *
  * Takes no state, which is the point: the same description for every plan of
  * every circle means there is nothing in it that could be about anyone.

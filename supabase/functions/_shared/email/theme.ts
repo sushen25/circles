@@ -28,6 +28,10 @@ export const palette = {
   ink2: '#6C6156',
   /** `color.accent` — the primary button. */
   accent: '#C2542F',
+  /** `color.invert` — the confirmed ground behind a locked-in email (manifesto §5.1). */
+  invert: '#2E241C',
+  /** `color.invertInk2` — the sign-off line on the confirmed ground. */
+  invertInk2: '#CFC3B6',
 } as const;
 
 /** Dates and the wordmark (manifesto §5.2: "the warmth that stops this reading as a utility"). */

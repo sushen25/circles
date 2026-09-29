@@ -6,7 +6,7 @@ _Date: 6 September 2026_
 
 _Inputs: [MVP product spec](./initial-mvp-product-spec.md) §12–16, [spec review](./mvp-spec-review.md) and the founder's decisions in its §8, [guest → app flow](./guest-to-app-flow.md), [design manifesto](./design-manifesto.md), and the "Circles MVP UI" canvas (source in `docs/design/`)._
 
-_Codename: **Circles** (placeholder). Nothing in code, domains or store metadata should assume the final name; see §5.4._
+_Codename: **Circles**. The product is **Wenna** ([ADR 0043](decisions/0043-the-product-is-wenna-and-confirmations-sign-off-with-the-day.md)); code reads the name from `brand` and never writes it out, see §5.4._
 
 ## 1. What this document decides
 
