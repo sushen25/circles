@@ -10,7 +10,7 @@ import { expect, test } from '@playwright/test';
  * not on a test id. If the copy changes, this test should change with it.
  */
 const JOURNEY = [
-  { path: '/', expect: /Sunday Crew|catch|circle/i },
+  { path: '/', expect: /Make room for each other/i },
   { path: '/circles', expect: /Your circles|New circle/i },
   { path: '/circles/sunday-crew', expect: /Sunday Crew/i },
   { path: '/circles/sunday-crew/plan/setup', expect: /catch up|window|when/i },
