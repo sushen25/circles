@@ -178,9 +178,23 @@ cmd_gate() {
   # keeps Metro's cache in $TMPDIR/metro-cache with keys that are the same in
   # every checkout, and a cached module carries the EXPO_PUBLIC_* values of
   # whichever export wrote it.
+  #
+  # In the background and waited for, so that a gate that is killed takes its
+  # check with it: in the foreground the lock went and the check ran on,
+  # holding no place.
   E2E_LIVE_PORT=$((8082 + s * 100)) E2E_SMOKE_PORT=$((8083 + s * 100)) \
     MAILPIT_URL=${MAILPIT_URL:-http://127.0.0.1:$((54324 + s * 100))} \
-    TMPDIR=$(slot_tmp "$s") "$ticket_sh" check
+    TMPDIR=$(slot_tmp "$s") "$ticket_sh" check &
+  local check=$! rc=0
+  trap 'kill_tree "$check"; exit 130' INT
+  trap 'kill_tree "$check"; exit 143' TERM
+  wait "$check" || rc=$?
+  return "$rc"
+}
+
+kill_tree() { # <pid>: it and everything under it, children first
+  local c; for c in $(pgrep -P "$1" 2>/dev/null); do kill_tree "$c"; done
+  kill "$1" 2>/dev/null || true
 }
 
 cmd_sync() {
