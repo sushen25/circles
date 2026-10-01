@@ -182,10 +182,8 @@ export function Track({
   ));
 
   const geometry = { count: cells.length, cellWidth: scrolls ? cellWidth : undefined };
-  const markRow =
-    marks === undefined ? null : <TrackMarks marks={marks} {...geometry} />;
-  const countRow =
-    counts === undefined ? null : <TrackCounts counts={counts} {...geometry} />;
+  const markRow = marks === undefined ? null : <TrackMarks marks={marks} {...geometry} />;
+  const countRow = counts === undefined ? null : <TrackCounts counts={counts} {...geometry} />;
 
   return (
     <View style={[styles.day, dimmed && styles.dimmed]}>

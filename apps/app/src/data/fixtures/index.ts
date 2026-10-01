@@ -147,7 +147,10 @@ export const answerable: PlanToAnswer = {
  * (UTC+10 in September).
  */
 function evening(day: number, from: string, to: string) {
-  return interval(fromISO(`2099-09-${day}T${from}:00+10:00`), fromISO(`2099-09-${day}T${to}:00+10:00`));
+  return interval(
+    fromISO(`2099-09-${day}T${from}:00+10:00`),
+    fromISO(`2099-09-${day}T${to}:00+10:00`),
+  );
 }
 
 export const othersPartial: OthersSaid = {

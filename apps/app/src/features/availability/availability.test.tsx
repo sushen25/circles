@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type * as AvailabilityData from '../../data/availability';
 
@@ -23,11 +23,13 @@ vi.mock('../../data/auth/session', () => ({ useSession: () => session }));
 
 const planToAnswer = vi.fn();
 const submitAnswer = vi.fn();
+const othersSaid = vi.fn();
 let resend: (() => void) | undefined;
 vi.mock('../../data/availability', async (original) => ({
   ...(await original<typeof AvailabilityData>()),
   planToAnswer: (...args: unknown[]) => planToAnswer(...args),
   submitAnswer: (...args: unknown[]) => submitAnswer(...args),
+  othersSaid: (...args: unknown[]) => othersSaid(...args),
   // No usual times here: `usualTimes.test.tsx` is the pre-fill's.
   usualTimes: async () => undefined,
   onChanceToResend: (retry: () => void) => {
@@ -44,7 +46,7 @@ const { AvailabilityFlow } = await import('./AvailabilityFlow');
 const { PlanLinkFlow } = await import('./PlanLinkFlow');
 const { FunctionError } = await import('../../data/functions');
 const { readDraft, writeDraft } = await import('../../data/availability');
-const { answerable } = await import('../../data/fixtures');
+const { answerable, othersFirst, othersPartial } = await import('../../data/fixtures');
 
 const PLAN = answerable.plan;
 const CODE = PLAN.code;
@@ -745,5 +747,73 @@ describe('an answer an edit cleared, with nothing on the device (SUS-130)', () =
 
     await screen.findByText("Times I'd actually be up for");
     expect(screen.queryByText(/The plan changed/)).toBeNull();
+  });
+});
+
+describe('what the others have said (SUS-129)', () => {
+  afterEach(() => othersSaid.mockReset());
+
+  it('shows the counts it reads, in words, and sends exactly the answer it would without them', async () => {
+    othersSaid.mockResolvedValue(othersPartial);
+    open();
+    expect(
+      await screen.findByText(
+        '5 of 6 have answered. The number on each day is how many of them could make it.',
+      ),
+    ).toBeInTheDocument();
+    expect(othersSaid).toHaveBeenCalledWith(PLAN.id);
+    expect(
+      screen.getByRole('button', { name: /^Thursday\D*17.*, 5 others could make it$/ }),
+    ).toBeInTheDocument();
+
+    answerMonday();
+    expect(screen.getByText('No overlap with anyone yet')).toBeInTheDocument();
+    await send();
+    expect(submitAnswer).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'windows', windows: [MONDAY_EVENING] }),
+    );
+    expect(track).toHaveBeenCalledWith('availability_started', {
+      plan_id: PLAN.id,
+      others_shown: true,
+    });
+  });
+
+  it('keeps the counts out of the draft on the device', async () => {
+    othersSaid.mockResolvedValue(othersPartial);
+    open();
+    await screen.findByText(/^5 of 6 have answered\./);
+    answerMonday();
+    await waitFor(async () => expect(await readDraft('priya', CODE)).toBeDefined());
+    const draft = JSON.stringify(await readDraft('priya', CODE));
+    expect(draft).not.toMatch(/answered|others|withTimes|flexible"?:\s*\d/);
+  });
+
+  it('says the reader is first, and shows no counts, below the threshold', async () => {
+    othersSaid.mockResolvedValue(othersFirst);
+    open();
+    expect(await screen.findByText(/^You're the first to answer\./)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /could make it$/ })).toBeNull();
+    await waitFor(() =>
+      expect(track).toHaveBeenCalledWith('availability_started', {
+        plan_id: PLAN.id,
+        others_shown: false,
+      }),
+    );
+  });
+
+  it('leaves the editor as it was when the read fails, and the answer still goes', async () => {
+    othersSaid.mockRejectedValue(new Error('offline'));
+    open();
+    await screen.findByText("Times I'd actually be up for");
+    await waitFor(() => expect(othersSaid).toHaveBeenCalled());
+    expect(screen.queryByText(/have answered\./)).toBeNull();
+    expect(screen.queryByText(/first to answer/)).toBeNull();
+
+    answerMonday();
+    expect(screen.queryByText(/overlap/i)).toBeNull();
+    await send();
+    expect(submitAnswer).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'windows', windows: [MONDAY_EVENING] }),
+    );
   });
 });

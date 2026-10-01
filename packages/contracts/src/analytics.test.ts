@@ -256,13 +256,13 @@ describe('the quiet ask events (SUS-51, spec §8.2)', () => {
 
 describe('availability_started and the counts of what others said (SUS-129)', () => {
   it('says whether counts were shown, as a yes or no', () => {
-    expect(
-      validateEvent('availability_started', { plan_id: PLAN_ID, others_shown: true }),
-    ).toEqual({
-      name: 'availability_started',
-      version: 1,
-      properties: { plan_id: PLAN_ID, others_shown: true },
-    });
+    expect(validateEvent('availability_started', { plan_id: PLAN_ID, others_shown: true })).toEqual(
+      {
+        name: 'availability_started',
+        version: 1,
+        properties: { plan_id: PLAN_ID, others_shown: true },
+      },
+    );
     // Events from before it carry none, and still validate.
     expect(validateEvent('availability_started', { plan_id: PLAN_ID })).not.toBeNull();
   });

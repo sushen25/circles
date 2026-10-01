@@ -62,10 +62,7 @@ export type CellCount = { text: string; top: boolean };
  * A figure over each cell. Hidden from a screen reader: every cell's own label
  * already says how many are free in it, so this would be said twice.
  */
-export function TrackCounts({
-  counts,
-  cellWidth,
-}: Geometry & { counts: readonly CellCount[] }) {
+export function TrackCounts({ counts, cellWidth }: Geometry & { counts: readonly CellCount[] }) {
   const palette = usePalette();
   return (
     <View style={styles.counts} aria-hidden>
