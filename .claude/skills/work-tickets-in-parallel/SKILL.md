@@ -256,8 +256,8 @@ grep -n 'project_id\|^port' ../circles-wt/sus-0/supabase/config.toml   # circles
   slot 3's was killed by Docker's out-of-memory killer (exit 137) six minutes
   into its live suite while no other gate was running. It looks like 503s from
   every function. `make restart` in your own slot before gating gives it back
-  (3.7 GB to 25 MB). Restarting or capping it at the start of a gate is a
-  follow-up ticket, not done here.
+  (3.7 GB to 25 MB). Restarting or capping it at the start of a gate is
+  SUS-135, not done here.
 - **Metro's cache is not per checkout; a slot's `TMPDIR` makes it so.** Expo
   keeps it in `$TMPDIR/metro-cache`, and its keys do not depend on where the
   checkout is: the transform base hash came out the same
@@ -315,7 +315,9 @@ grep -n 'project_id\|^port' ../circles-wt/sus-0/supabase/config.toml   # circles
 - **`gate: all 1 places taken, waiting for:`** for longer than a gate takes:
   each line under it is a lock and its holder (`<pid> <worktree>`). Check each
   pid is a live `parallel.sh`; if the machine slept mid-gate, kill it and the
-  next `gate` clears its lock. Never remove a lock whose pid is alive.
+  next `gate` clears its lock. Killing a gate stops its check too, and a lock
+  with no holder for over a minute is cleared. Never remove a lock whose pid is
+  alive.
 - **`supabase start` says a port is allocated**: another slot's stack, or a
   stack from a worktree removed by hand. `docker ps --filter name=circles-s`
   shows which; `supabase stop --project-id circles-s<N> --no-backup` stops it.
