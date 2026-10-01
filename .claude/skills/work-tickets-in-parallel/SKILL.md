@@ -109,6 +109,12 @@ Steps, in order:
    Expected: `worktree:`, `branch:`, `slot: 1 · api 54421 · db 54422 · mail 54424 · app 8181`.
    Use Linear's `gitBranchName` verbatim; the worktree directory is the `sus-N`
    inside it. A stacked ticket takes `--base <the previous ticket's branch>`.
+
+   Once every slot exists, if the `dashboard-builder` agent is available, have
+   it set up the progress dashboard: one task per ticket, with its slot in the
+   note, and a last task for landing the PRs in merge order. This session sets
+   it up; ticket agents cannot start a subagent of their own, and one setting
+   it up per ticket would overwrite the others.
 6. **Claim in Linear, with the slot.** `save_issue` to `In Progress`, and a
    `save_comment` naming the worktree path and slot. Linear is the lock: a
    ticket that is In Progress with a slot comment is somebody's.
@@ -121,9 +127,18 @@ Steps, in order:
    - "invoke `implement-linear-ticket` and follow it, with the substitutions in
      the next section";
    - the shared-file rules below, and which other tickets are running beside it
-     and what they own.
-8. **While they run**, this session is the only one that talks to the founder.
-   Relay questions, and watch for a merged PR: when one lands, tell every other
+     and what they own;
+   - if there is a dashboard: "never set it up or rebuild it. After each step,
+     update only your ticket's task (status, and the PR number in its note)
+     in the `dashboard-data` block, with Edit and never Write, so a clash with
+     another agent fails loudly instead of erasing it. Times come from
+     `date -u +%Y-%m-%dT%H:%M:%SZ`. A decision you need from the founder goes
+     in `questions` as `SUS-N: …` with the default you are taking."
+8. **While they run**, this session is the only one that talks to the founder
+   in chat; ticket agents reach the founder only through the dashboard's
+   questions. Relay the founder's answers to the agent that asked, keep the
+   dashboard's merges and anything stuck across tickets current, and watch for
+   a merged PR: when one lands, tell every other
    agent to run step 10 (`SendMessage` to the agent; do not run it in their
    worktree yourself).
 9. **Report PRs in merge order**: smallest blast radius first, anything others
