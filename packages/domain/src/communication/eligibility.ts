@@ -65,6 +65,15 @@ export type EligibilityContext = {
   readonly participantIds: readonly UserId[];
   /** Answers to the plan's **current** revision. Older ones do not count. */
   readonly responses: readonly Response[];
+  /**
+   * Who answered this plan at an **earlier** revision, for `asked_again`.
+   *
+   * Ids only — the earlier answers themselves are never read again (privacy
+   * invariant: availability is scoped to one revision). The same people the
+   * app tells "the plan changed, so the times you sent were cleared"
+   * (SUS-130), so the email and the screen agree. Absent means nobody.
+   */
+  readonly answeredEarlierIds?: readonly UserId[] | undefined;
   /** Whether this member has a registered device that can receive a push. */
   readonly hasPushDevice: (userId: UserId) => boolean;
   /**
@@ -240,6 +249,14 @@ function audienceFor(kind: NotificationKind, context: EligibilityContext): reado
           .map((a) => a.userId),
       );
       return ids.filter((id) => going.has(id));
+    }
+
+    case 'answered_earlier': {
+      // Somebody who has already answered the question as it is now has
+      // nothing to be asked again about.
+      const earlier = new Set(context.answeredEarlierIds ?? []);
+      const responded = respondedUserIds(context, plan);
+      return ids.filter((id) => earlier.has(id) && !responded.has(id));
     }
 
     case 'the_address':

@@ -1,5 +1,5 @@
 import { brand } from '@circles/config';
-import { type Instant, fromISO, weeksSince } from '@circles/domain';
+import { type Instant, acceptsAnswers, fromISO, weeksSince } from '@circles/domain';
 
 import type { Db } from '../_shared/db.ts';
 import { optional } from '../_shared/env.ts';
@@ -192,6 +192,22 @@ export async function inputFor(
   const toSubscriber = { ...toOrganiser, prefsToken, reentryToken };
 
   switch (job.kind) {
+    // "The plan changed, add your times again" (ADR 00YY), about the question
+    // as it is now. Held overnight by quiet hours, the plan may have stopped
+    // taking answers by morning — locked in, called off, or past its deadline —
+    // and a letter asking for times nobody can send is not sent.
+    case 'asked_again': {
+      const plan = context.eligibility.plan;
+      if (plan === undefined || !acceptsAnswers(plan, now)) return { skip: 'not_asking' };
+      return {
+        kind: 'asked_again',
+        ...toSubscriber,
+        windowStart: plan.window.start,
+        windowEnd: plan.window.end,
+        dailyStartMin: plan.daily.startMin,
+        dailyEndMin: plan.daily.endMin,
+      };
+    }
     case 'locked_in': {
       const confirmation = context.confirmation;
       if (confirmation === null) return { skip: 'no_confirmation' };

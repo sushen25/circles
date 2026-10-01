@@ -1813,7 +1813,7 @@ export const en = {
     ask_again_title: 'Ask {circle} again.',
     ask_again_changed: '{day} is off. Send the link again so everyone can pick new times.',
     ask_again_edited:
-      "The plan changed, so everyone's being asked again. Send the link so they see it.",
+      "The plan changed, so anyone who'd answered has to answer again. People with email updates on get an email. Post the link so everyone else sees it.",
   },
   privacy: {
     privacy: 'Privacy',

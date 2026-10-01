@@ -6,9 +6,10 @@
  * about activity, streaks or news, ever" is a product promise, and the way to
  * keep it is to make an unlisted kind unrepresentable rather than discouraged.
  *
- * The rows are the "Push copy" artboard's rows, in its order, plus the three the
- * spec names elsewhere: `replies_closed` (§5.7, §5.8), `verify_email`, and
- * `quiet_expired` (§5.4.7, the SparkExpired artboard, ADR 0038). No
+ * The rows are the "Push copy" artboard's rows, in its order, plus the four the
+ * spec names elsewhere: `replies_closed` (§5.7, §5.8), `verify_email`,
+ * `quiet_expired` (§5.4.7, the SparkExpired artboard, ADR 0038) and
+ * `asked_again` (§5.3, §5.8, ADR 00YY). No
  * sentence lives here — `copyKey` names one, and the copy package renders it
  * (non-negotiable 6).
  */
@@ -32,7 +33,8 @@ export type NotificationKind =
   | 'about_time'
   | 'did_it_happen_participant'
   | 'verify_email'
-  | 'quiet_expired';
+  | 'quiet_expired'
+  | 'asked_again';
 
 /**
  * Who a kind goes to, named rather than described.
@@ -51,7 +53,8 @@ export type Audience =
   | 'going_members'
   | 'subscribed_members'
   | 'nudge_recipient'
-  | 'the_address';
+  | 'the_address'
+  | 'answered_earlier';
 
 export type NotificationSpec = {
   readonly kind: NotificationKind;
@@ -270,6 +273,20 @@ export const NOTIFICATION_KINDS: readonly NotificationSpec[] = [
     audience: 'quiet_initiator',
     channels: ['email'],
     copyKey: 'email.quiet_expired',
+    respectsQuietHours: true,
+  },
+  {
+    // "The plan changed, add your times again" (spec §5.3, ADR 00YY): an edit
+    // that moved the revision cleared these people's answers, and nothing else
+    // would bring them back. A member kind like `changed` — push first, email
+    // only on a verified subscription to this plan — and held overnight like
+    // it: being asked again is not news at midnight.
+    kind: 'asked_again',
+    emailNeedsSubscription: true,
+    organiserEmailSwitch: false,
+    audience: 'answered_earlier',
+    channels: ['push', 'email'],
+    copyKey: 'push.asked_again',
     respectsQuietHours: true,
   },
 ];

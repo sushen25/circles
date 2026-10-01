@@ -1,5 +1,6 @@
 import {
   type Instant,
+  type LocalDate,
   type Zone,
   formatMinutesOfDay,
   formatRange,
@@ -116,4 +117,33 @@ const WORDS = [
 /** "five" — a circle holds at most twenty (ADR 0012), so words cover it. */
 export function countInWords(value: number): string {
   return WORDS[value] ?? String(value);
+}
+
+/** "Thu 17 Sep" for a calendar date, with no instant or zone to it. */
+function dayOf(date: LocalDate): { weekday: string; day: number; month: string } {
+  const { month, day } = toParts(date);
+  return {
+    weekday: (WEEKDAYS[isoWeekday(date) - 1] ?? '').slice(0, 3),
+    day,
+    month: (MONTHS[month - 1] ?? '').slice(0, 3),
+  };
+}
+
+/**
+ * "Thu 17 – Sun 20 Sep", "Wed 30 Sep – Sat 3 Oct", or "Thu 17 Sep" for one day:
+ * a plan's window as a person writes it, the month once when it is shared.
+ */
+export function dateSpan(start: LocalDate, end: LocalDate): string {
+  const from = dayOf(start);
+  const to = dayOf(end);
+  const last = `${to.weekday} ${to.day} ${to.month}`;
+  if (start === end) return last;
+  return from.month === to.month
+    ? `${from.weekday} ${from.day} – ${last}`
+    : `${from.weekday} ${from.day} ${from.month} – ${last}`;
+}
+
+/** "5:30–10:30 pm": a plan's daily band, in minutes of the local day. */
+export function hoursSpan(startMin: number, endMin: number): string {
+  return formatRange(startMin, endMin);
 }

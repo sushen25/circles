@@ -1,4 +1,33 @@
 -- ---------------------------------------------------------------------------
+-- 0031 — An edit that clears answers asks those people again (SUS-131).
+--
+-- `planning.plan_revised` from an `edit` moves the plan to a new revision and
+-- clears every answer (spec §5.3). Until now nothing read the event, so the
+-- people whose times were cleared were told nothing unless they happened to
+-- open the plan. The dispatcher now writes `asked_again` for it, once per
+-- revision, to the members who had answered an earlier revision and have not
+-- answered this one — by push, or by email to a verified subscriber to the
+-- plan (ADR 00YY). An `adjust` (quorum, deadline, required members; ADR 0017)
+-- keeps the revision and sends nothing.
+--
+--   * `notification_jobs_kind` — `asked_again`.
+--   * `public.dispatch_context` — `answered_earlier`, the ids of the people who
+--     answered an earlier revision. Ids only; no earlier answer is read.
+-- ---------------------------------------------------------------------------
+
+alter table jobs.notification_jobs
+  drop constraint notification_jobs_kind,
+  add constraint notification_jobs_kind check (kind in (
+    'new_plan', 'quiet_ask', 'threshold_initiator', 'threshold_keen', 'deadline_approaching',
+    'options_ready', 'replies_closed', 'locked_in', 'changed', 'cancelled', 'reminder',
+    'did_it_happen', 'about_time', 'did_it_happen_participant', 'verify_email',
+    'quiet_expired', 'asked_again'
+  ));
+
+-- BEGIN GENERATED: function definitions (scripts/gen-sql-functions.mjs)
+
+-- supabase/sql/functions/public/dispatch_context.sql
+-- ---------------------------------------------------------------------------
 -- Everything the dispatcher needs to decide who hears about a plan, read once.
 --
 -- The rules themselves are `packages/domain/communication`'s and stay there
@@ -143,3 +172,5 @@ comment on function public.dispatch_context(uuid) is
 revoke all on function public.dispatch_context(uuid) from public;
 revoke all on function public.dispatch_context(uuid) from anon, authenticated;
 grant execute on function public.dispatch_context(uuid) to service_role;
+
+-- END GENERATED: function definitions

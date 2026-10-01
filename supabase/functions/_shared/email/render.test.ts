@@ -237,6 +237,30 @@ describe('render', () => {
     });
   });
 
+  describe('the asked-again email (ADR 00YY)', () => {
+    it('says what the plan asks now, that the earlier times are gone, and opens the grid', async () => {
+      const email = await render(SUNDAY_CREW.asked_again);
+      expect(email.subject).toBe('Sunday Crew: the plan changed');
+      expect(email.text).toContain('now asking about Fri 18 – Mon 21 Sep, 5:30–10:30 pm');
+      expect(email.text).toContain('The times you sent were cleared.');
+      expect(hrefs(email.html)).toContain(`${ORIGIN}/j/pnemab`);
+    });
+
+    it('writes a window across a month, and a single day', async () => {
+      const across = await render({
+        ...SUNDAY_CREW.asked_again,
+        windowStart: '2026-09-30' as typeof SUNDAY_CREW.asked_again.windowStart,
+        windowEnd: '2026-10-03' as typeof SUNDAY_CREW.asked_again.windowEnd,
+      });
+      expect(across.text).toContain('Wed 30 Sep – Sat 3 Oct');
+      const one = await render({
+        ...SUNDAY_CREW.asked_again,
+        windowEnd: SUNDAY_CREW.asked_again.windowStart,
+      });
+      expect(one.text).toContain('asking about Fri 18 Sep, 5:30');
+    });
+  });
+
   describe('subjects, as the Emails artboard writes them', () => {
     it.each([
       ['locked_in', 'Locked in: Sunday Crew, Thu 17 Sep'],

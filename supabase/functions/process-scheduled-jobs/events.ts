@@ -1,6 +1,8 @@
 import {
+  ANSWERABLE_STATES,
   type Instant,
   type NotificationKind,
+  type PlanState,
   type Zone,
   ONCE,
   addMinutes,
@@ -79,6 +81,9 @@ export const ANNOUNCED: ReadonlySet<string> = new Set([
   'planning.plan_cancelled',
   'planning.deadline_passed',
   'planning.organiser_changed',
+  // Only an `edit`, which cleared the answers. An `adjust` is the same event
+  // and asks nobody again (ADR 0017), so `intentsFor` returns nothing for it.
+  'planning.plan_revised',
   'scheduling.candidates_generated',
   'confirmation.meetup_confirmed',
   'confirmation.meetup_rescheduled',
@@ -121,6 +126,36 @@ export function intentsFor(
       // re-painting produce a dozen of these; `ONCE` plus the revision in the
       // key is what makes the organiser's inbox hold one (S1-16).
       return [{ kind: 'options_ready', occurrence: ONCE, desiredAt: now }];
+
+    // "The plan changed, add your times again" (ADR 00YY), to the people whose
+    // answers the edit cleared. Once per **revision** — `ONCE`, and the
+    // revision is in the key — so a run of edits is one letter per question
+    // asked and never one per outbox row.
+    //
+    // Not for an `adjust` (quorum, deadline, required members), which keeps
+    // the revision and every answer (ADR 0017). And not for an edit the plan
+    // has already moved past: a context is read after every event in the
+    // batch, and an edit followed by another edit, or by a reopen, has its own
+    // event to say what is being asked now. Nor for a plan no longer taking
+    // answers by the time this runs.
+    //
+    // The organiser made the edit and is not told about it. Read from the
+    // event, because only the organiser can edit and the plan may have been
+    // handed on since.
+    case 'planning.plan_revised': {
+      if (event.payload['action'] !== 'edit') return [];
+      if (revisionOf(event) !== context.revision) return [];
+      if (!ANSWERABLE_STATES.includes(context.planState as PlanState)) return [];
+      const editor = event.payload['organiser_user_id'];
+      return [
+        {
+          kind: 'asked_again',
+          occurrence: ONCE,
+          desiredAt: now,
+          actorId: typeof editor === 'string' ? editor : context.organiserUserId,
+        },
+      ];
+    }
 
     // Once per deadline, and once more a day later (S2-05, `closing.ts`).
     case 'planning.deadline_passed':

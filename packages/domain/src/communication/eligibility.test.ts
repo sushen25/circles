@@ -280,6 +280,49 @@ describe('answers from another revision', () => {
   });
 });
 
+describe('asked again (ADR 00YY)', () => {
+  // An edit moved the plan to revision 2. Everybody but Alex had answered
+  // revision 1, and those answers no longer count.
+  const edited = sundayCrewPlan({ revision: 2 });
+  const answeredEarlier = [SAM, PRIYA, TOM, JESS, NIC];
+
+  it('goes to the people whose answers the edit cleared, and not to the organiser who made it', () => {
+    const context = eligibilityContext({
+      plan: edited,
+      answeredEarlierIds: answeredEarlier,
+      actorId: SAM,
+    });
+    expect(ids('asked_again', context)).toEqual([PRIYA, TOM, JESS, NIC]);
+  });
+
+  it('leaves out somebody who has already answered the plan as it is now', () => {
+    const tomAgain = sundayCrewStoredResponses(edited).filter((r) => r.userId === TOM);
+    const context = eligibilityContext({
+      plan: edited,
+      responses: tomAgain,
+      answeredEarlierIds: answeredEarlier,
+    });
+    expect(ids('asked_again', context)).not.toContain(TOM);
+    expect(ids('asked_again', context)).toContain(PRIYA);
+  });
+
+  it('asks nobody who never answered: there were no times of theirs to clear', () => {
+    const context = eligibilityContext({ plan: edited, answeredEarlierIds: answeredEarlier });
+    expect(ids('asked_again', context)).not.toContain(ALEX);
+    expect(ids('asked_again', eligibilityContext({ plan: edited }))).toEqual([]);
+  });
+
+  it('emails only a verified subscriber to this plan', () => {
+    const context = eligibilityContext({
+      plan: edited,
+      answeredEarlierIds: answeredEarlier,
+      hasPushDevice: NOBODY_HAS_PUSH,
+      hasPlanEmailSubscription: (id) => id === PRIYA,
+    });
+    expect(recipientsFor('asked_again', context)).toEqual([{ userId: PRIYA, channel: 'email' }]);
+  });
+});
+
 describe('a circle with nobody left to tell', () => {
   it('answers with silence rather than falling back to somebody', () => {
     const members = sundayCrewMembers(

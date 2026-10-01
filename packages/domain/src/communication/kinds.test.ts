@@ -25,13 +25,13 @@ const ARTBOARD: readonly NotificationKind[] = [
 ];
 
 describe('the kind table', () => {
-  it('is the artboard plus the three the spec names elsewhere, and nothing else', () => {
+  it('is the artboard plus the four the spec names elsewhere, and nothing else', () => {
     // A kind not written down somewhere is a message nobody designed. "Nothing
     // about activity, streaks or news, ever" is kept by the list being closed.
     // `replies_closed` is §5.7's "one reminder at the deadline" and one of
     // §5.8's four organiser email kinds; the Pushes artboard has no row for it.
     // `quiet_expired` is §5.4.7's closing notice, the SparkExpired artboard
-    // (ADR 0038).
+    // (ADR 0038). `asked_again` is §5.3's re-ask after an edit (ADR 00YY).
     expect(NOTIFICATION_KINDS.map((s) => s.kind)).toEqual([
       ...ARTBOARD.slice(0, 6),
       'replies_closed',
@@ -39,6 +39,7 @@ describe('the kind table', () => {
       'did_it_happen_participant',
       'verify_email',
       'quiet_expired',
+      'asked_again',
     ]);
   });
 

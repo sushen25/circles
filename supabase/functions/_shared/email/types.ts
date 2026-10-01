@@ -1,4 +1,4 @@
-import type { Instant, NotificationKind, Zone } from '@circles/domain';
+import type { Instant, LocalDate, NotificationKind, Zone } from '@circles/domain';
 
 /**
  * What the sender (S1-20's dispatcher) hands `render` for each kind of email.
@@ -90,6 +90,20 @@ export type ChangedInput = ToSubscriber & { readonly kind: 'changed'; readonly z
       }
   );
 
+/**
+ * An edit moved the plan to a new revision and cleared this person's answer
+ * (spec §5.3, ADR 00YY). What the plan asks now, from the plan as it is: its
+ * window and its daily band, which are calendar dates and minutes of the day
+ * rather than instants, because that is what the question is.
+ */
+export type AskedAgainInput = ToSubscriber & {
+  readonly kind: 'asked_again';
+  readonly windowStart: LocalDate;
+  readonly windowEnd: LocalDate;
+  readonly dailyStartMin: number;
+  readonly dailyEndMin: number;
+};
+
 export type CancelledInput = ToSubscriber & {
   readonly kind: 'cancelled';
   /** The confirmed start, when there was one. A plan can be called off before. */
@@ -167,6 +181,7 @@ export type EmailInput =
   | VerifyEmailInput
   | LockedInInput
   | ChangedInput
+  | AskedAgainInput
   | CancelledInput
   | ReminderInput
   | DidItHappenParticipantInput
@@ -194,6 +209,7 @@ export const EMAIL_KINDS = [
   'about_time',
   'threshold_initiator',
   'quiet_expired',
+  'asked_again',
 ] as const satisfies readonly NotificationKind[];
 
 /**
@@ -212,6 +228,7 @@ export const SUBSCRIBER_KINDS = [
   'cancelled',
   'reminder',
   'did_it_happen_participant',
+  'asked_again',
 ] as const satisfies readonly EmailKind[];
 
 /** What `render` returns, ready for `sendEmail`. */

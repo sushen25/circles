@@ -329,7 +329,7 @@ Identical inputs return identical candidates; DST, half-hour zones and cross-zon
 
 #### Push (app members)
 
-New named plan; quiet ask seeking interest (to everyone except the initiator); threshold reached (initiator: "do you want to pick the time?"; keen members: "choose your times"); deadline approaching (non-responders only, 24 hours before; 20 minutes before on a tonight plan, whose replies close within the hour); options ready (organiser); locked in / changed / off; one reminder two hours before (going members); did it happen (organiser, next morning); about time (one person only, per the nudge policy). Full copy is on the "Push copy" artboard. Push is asked for contextually in the app, only when a first reminder is due, never at onboarding.
+New named plan; quiet ask seeking interest (to everyone except the initiator); threshold reached (initiator: "do you want to pick the time?"; keen members: "choose your times"); deadline approaching (non-responders only, 24 hours before; 20 minutes before on a tonight plan, whose replies close within the hour); options ready (organiser); asked again (members whose answers an edit cleared, once per revision; [ADR 00YY](decisions/00YY-an-edit-that-clears-answers-asks-those-people-again.md)); locked in / changed / off; one reminder two hours before (going members); did it happen (organiser, next morning); about time (one person only, per the nudge policy). Full copy is on the "Push copy" artboard. Push is asked for contextually in the app, only when a first reminder is due, never at onboarding.
 
 #### Organiser email (no app)
 
@@ -341,7 +341,7 @@ The initiator of a quiet ask receives two letters about their own ask, at their 
 
 #### Plan-update email (web-only participants)
 
-For a verified subscription to one plan: confirmed; time or place materially changed; cancelled; one reminder two hours before; did it happen. Never anything else. Verification link expires in 24 hours; resend invalidates the previous token; the verification email contains nothing but the link. Every event email carries **Stop emails for this meetup** and **Manage email preferences** links that work without sign-in and a single-use re-entry link. Subjects never include names beyond the circle's and never reveal quiet-ask state. Addresses are never visible to owners, organisers or other members.
+For a verified subscription to one plan: confirmed; time or place materially changed; asked again, when an edit cleared their answer (once per revision, never for a quorum, deadline or required-members change; [ADR 00YY](decisions/00YY-an-edit-that-clears-answers-asks-those-people-again.md)); cancelled; one reminder two hours before; did it happen. Never anything else. Verification link expires in 24 hours; resend invalidates the previous token; the verification email contains nothing but the link. Every event email carries **Stop emails for this meetup** and **Manage email preferences** links that work without sign-in and a single-use re-entry link. Subjects never include names beyond the circle's and never reveal quiet-ask state. Addresses are never visible to owners, organisers or other members.
 
 #### Existing-chat sharing
 

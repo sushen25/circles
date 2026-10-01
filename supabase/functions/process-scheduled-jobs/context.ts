@@ -65,6 +65,8 @@ type ContextRow = {
   members: MemberRow[];
   participant_ids: string[];
   responses: { plan_id: string; revision: number; user_id: string; status: string }[];
+  /** Who answered an earlier revision, for `asked_again` (ADR 00YY). Ids only. */
+  answered_earlier?: string[];
   confirmation: ConfirmationRow | null;
   superseded_confirmation: ConfirmationRow | null;
   attendance: { confirmation_id: string; user_id: string; status: string }[];
@@ -229,6 +231,7 @@ export async function loadContext(service: Db, planId: string): Promise<PlanCont
     members,
     participantIds: row.participant_ids as UserId[],
     responses: row.responses.map(responseOf),
+    answeredEarlierIds: (row.answered_earlier ?? []) as UserId[],
     hasPushDevice: (userId) => pushes.has(userId),
     hasPlanEmailSubscription: (userId) => subscribed.has(userId),
     mutedOrganiserEmail: (userId) => organiserEmailOff.has(userId),
