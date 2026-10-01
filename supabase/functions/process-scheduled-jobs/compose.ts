@@ -175,6 +175,21 @@ export async function inputFor(
         circleName: toOrganiser.circleName,
         circleId: job.circle_id,
       };
+    // "The plan changed, add your times again" (ADR 00YY), about the question
+    // as it is now, and checked before a token is minted for it. Held
+    // overnight by quiet hours, the plan may have stopped taking answers by
+    // morning — locked in, called off, or past its deadline — and the person
+    // may have found it and answered already. Either way the letter would ask
+    // for something that cannot or need not be done.
+    case 'asked_again': {
+      const plan = context.eligibility.plan;
+      if (plan === undefined || !acceptsAnswers(plan, now)) return { skip: 'not_asking' };
+      const answered = context.eligibility.responses.some(
+        (r) => r.userId === job.user_id && r.revision === plan.revision,
+      );
+      if (answered) return { skip: 'already_answered' };
+      break;
+    }
     default:
       break;
   }
@@ -192,13 +207,9 @@ export async function inputFor(
   const toSubscriber = { ...toOrganiser, prefsToken, reentryToken };
 
   switch (job.kind) {
-    // "The plan changed, add your times again" (ADR 00YY), about the question
-    // as it is now. Held overnight by quiet hours, the plan may have stopped
-    // taking answers by morning — locked in, called off, or past its deadline —
-    // and a letter asking for times nobody can send is not sent.
     case 'asked_again': {
       const plan = context.eligibility.plan;
-      if (plan === undefined || !acceptsAnswers(plan, now)) return { skip: 'not_asking' };
+      if (plan === undefined) return { skip: 'not_asking' };
       return {
         kind: 'asked_again',
         ...toSubscriber,

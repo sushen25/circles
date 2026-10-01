@@ -3270,6 +3270,30 @@ describe('process-scheduled-jobs', () => {
       });
     });
 
+    it('does not ask somebody who has answered again while the letter waited for morning', async () => {
+      // Quiet hours held it, and Priya found the plan herself before 08:00.
+      planContext = {
+        ...edited(),
+        responses: [{ plan_id: PLAN_ID, revision: 2, user_id: MEMBER, status: 'windows' }],
+      };
+      withDue(
+        dueJob({
+          kind: 'asked_again',
+          plan_revision: 2,
+          plan_current_revision: 2,
+          plan_state: 'collecting',
+        }),
+      );
+
+      await load('process-scheduled-jobs')(post({}, 'a-shared-secret'));
+
+      expect(called('dispatch_job_result')[0]?.args).toMatchObject({
+        p_outcome: 'skipped',
+        p_error: 'already_answered',
+      });
+      expect(called('issue_preferences_token')).toHaveLength(0);
+    });
+
     it('does not ask for times the plan stopped taking while the letter waited for morning', async () => {
       // Quiet hours held it overnight, and the deadline passed before 08:00.
       planContext = edited({ response_deadline: '2026-09-20T10:00:00.000Z' });

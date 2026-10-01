@@ -43,8 +43,9 @@ new push.
 5. **Nothing about a question that has been replaced or closed.** The drain
    writes nothing for an edit the plan has already moved past, because the newer
    revision's own event says what is true. The sender skips a job whose
-   revision is behind the plan's, and one whose plan has stopped taking answers
-   while quiet hours held it.
+   revision is behind the plan's, one whose plan has stopped taking answers
+   while quiet hours held it, and one whose recipient has answered the new
+   question in the meantime.
 6. **The letter says what the plan asks now**: its dates and daily hours, read
    from the plan as it is. It also says the earlier times were cleared, and its
    button opens `/j/<code>`, where the grid explains its empty state. It says
