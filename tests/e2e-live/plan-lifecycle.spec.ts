@@ -121,7 +121,9 @@ test('a member whose times an edit cleared is told so, on the grid and on circle
   // Priya answered the first question, on no device this one has seen.
   await priya.goto(`/circles/${circleId}`);
   await expect(priya.getByText(cleared)).toBeVisible();
-  await priya.goto(`/j/${plan.code}`);
+  // The card's button is the way to add them (review round 2).
+  await priya.getByRole('button', { name: 'Add my times' }).click();
+  await expect(priya).toHaveURL(new RegExp(`/j/${plan.code}$`));
   await expect(priya.getByText(changed)).toBeVisible();
 
   // Jess never answered: a revised plan is just a plan to her.
@@ -131,6 +133,7 @@ test('a member whose times an edit cleared is told so, on the grid and on circle
   await jess.goto(`/circles/${circleId}`);
   await expect(jess.getByText('Finding a time')).toBeVisible();
   await expect(jess.getByText(cleared)).toHaveCount(0);
+  await expect(jess.getByRole('button', { name: "See how it's looking" })).toBeVisible();
 
   // Once Priya answers the question as it is now, neither says it again.
   await priya.getByRole('switch', { name: "I'm easy" }).click();
@@ -142,4 +145,5 @@ test('a member whose times an edit cleared is told so, on the grid and on circle
   await priya.goto(`/circles/${circleId}`);
   await expect(priya.getByText('Finding a time')).toBeVisible();
   await expect(priya.getByText(cleared)).toHaveCount(0);
+  await expect(priya.getByRole('button', { name: "See how it's looking" })).toBeVisible();
 });

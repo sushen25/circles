@@ -372,6 +372,23 @@ describe('circle home, for somebody whose times an edit cleared (SUS-130)', () =
     expect(screen.getByText('Finding a time')).toBeVisible();
   });
 
+  // Review round 2: the line asks for their times, so the card's button is the
+  // way to give them. The organiser's candidates screen has no editor link, so
+  // without this an organiser told to add theirs again had nowhere to do it.
+  it.each([
+    ['a member', 'priya'],
+    ['the organiser, whose own edit cleared their times', 'maya'],
+  ])('takes %s from the card to the grid', async (_who, me) => {
+    circleHome.mockResolvedValue(
+      home({ me, isOwner: me === 'maya', activePlan: { ...RUNNING, askedAgain: true } }),
+    );
+    wrap(<CircleHomeFlow id={CIRCLE} />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Add my times' }));
+    expect(push).toHaveBeenCalledWith({ pathname: '/j/[code]', params: { code: 'pnsundaycr' } });
+    expect(screen.queryByRole('button', { name: "See how it's looking" })).toBeNull();
+  });
+
   it('says nothing of the kind to somebody it did not happen to', async () => {
     circleHome.mockResolvedValue(
       home({ me: 'alex', isOwner: false, activePlan: { ...RUNNING, askedAgain: false } }),
@@ -380,5 +397,7 @@ describe('circle home, for somebody whose times an edit cleared (SUS-130)', () =
 
     expect(await screen.findByText('Finding a time')).toBeVisible();
     expect(screen.queryByText(CLEARED)).toBeNull();
+    expect(screen.getByRole('button', { name: "See how it's looking" })).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Add my times' })).toBeNull();
   });
 });

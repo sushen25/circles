@@ -63,6 +63,11 @@ export type CircleHomeProps = {
   onNext?: (() => void) | undefined;
   onBack?: (() => void) | undefined;
   onSeeHowItsLooking?: (() => void) | undefined;
+  /**
+   * The card's button while `askedAgain` is said: the line asks for their
+   * times, so the button is the way to give them (SUS-130).
+   */
+  onAddMyTimes?: (() => void) | undefined;
   /** The morning after's card, under the circle's name, when the reader owes it (S1-29). */
   prompt?: ReactNode;
 };
@@ -88,6 +93,7 @@ export function CircleHomeScreen({
   onNext,
   onBack,
   onSeeHowItsLooking,
+  onAddMyTimes,
   prompt,
 }: CircleHomeProps) {
   if (state === 'loading' || state === 'error' || state === 'offline') {
@@ -117,11 +123,19 @@ export function CircleHomeScreen({
             <Small>{replied}</Small>
           </Stack>
           {askedAgain === undefined ? null : <Notice kind="warn">{askedAgain}</Notice>}
-          <Button
-            label={t('circleHome', 'see_how_its_looking')}
-            variant="secondary"
-            onPress={onSeeHowItsLooking}
-          />
+          {askedAgain === undefined ? (
+            <Button
+              label={t('circleHome', 'see_how_its_looking')}
+              variant="secondary"
+              onPress={onSeeHowItsLooking}
+            />
+          ) : (
+            <Button
+              label={t('circleHome', 'add_my_times')}
+              variant="secondary"
+              onPress={onAddMyTimes}
+            />
+          )}
         </Card>
         <Card>
           <Row>

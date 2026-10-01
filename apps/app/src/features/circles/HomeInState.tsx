@@ -139,6 +139,9 @@ export function HomeInState({ home, onBack }: { home: CircleHome; onBack: () => 
             params: { id, planId: plan.id },
           })
         }
+        // The organiser's candidates screen has no way to the grid, so the
+        // card is it (review round 2).
+        onAddMyTimes={() => router.push({ pathname: '/j/[code]', params: { code: plan.code } })}
         // Two ways to start now that the quiet ask is on (S2-03); with a plan
         // running, either one shows that plan (ADR 0033).
         onNext={() => router.push({ pathname: '/circles/[id]/plan/mode', params: { id } })}

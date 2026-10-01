@@ -507,6 +507,7 @@ export const en = {
     replied: '{count} of {total} replied',
     asked_again:
       'The plan changed, so the times you sent were cleared. Add yours again so they count.',
+    add_my_times: 'Add my times',
     not_yet: 'Not yet',
     up_to_you: 'Up to you',
     due_soon: 'Due soon',
