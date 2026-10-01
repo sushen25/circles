@@ -8,7 +8,7 @@
 #                                   worktree + slot for a ticket; prints where
 #   parallel.sh up                  (in a worktree) start this slot's stack, write the app env
 #   parallel.sh down                (in a worktree) stop this slot's stack, keep its data
-#   parallel.sh gate                (in a worktree) ticket.sh check on this slot's ports, at most PARALLEL_GATES (2) at once
+#   parallel.sh gate                (in a worktree) ticket.sh check on this slot's ports, at most PARALLEL_GATES (default 1) at once
 #   parallel.sh sync [<ref>]        (in a worktree) rebase on origin/main (or <ref>) without losing the slot
 #   parallel.sh unslot / repatch    (in a worktree) take the slot's patch off config.toml to commit a real change, put it back
 #   parallel.sh overlap <path>...   which open PRs touch these paths
@@ -37,7 +37,7 @@ exclude=${PARALLEL_EXCLUDE:-realtime,storage-api,imgproxy,studio,logflare,vector
 
 # shellcheck source=gate-lock.sh
 . "$(dirname "${BASH_SOURCE[0]}")/gate-lock.sh"
-gate_dir=$common gate_limit=${PARALLEL_GATES:-2} gate_self="$$ $top"
+gate_dir=$common gate_limit=${PARALLEL_GATES:-1} gate_self="$$ $top"
 
 # A slot's own temporary directory, shared by its gate and its make targets
 # (the Makefile works out the same path). Nested calls keep the one they got.
@@ -164,9 +164,9 @@ cmd_down() { here_slot >/dev/null; cd "$top"; node_modules/.bin/supabase stop; }
 
 cmd_gate() {
   local s; s=$(here_slot); cd "$top"
-  # At most PARALLEL_GATES at once (gate-lock.sh). Each slot serves its suites
-  # on its own ports, so the limit is only about the machine: Vitest,
-  # `expo export` and Playwright all run on the host.
+  # At most PARALLEL_GATES at once (gate-lock.sh), default 1. Each slot serves
+  # its suites on its own ports, so the limit is only about the machine: two
+  # gates side by side took as long as two in turn, and flaked (SKILL.md).
   [[ "$gate_limit" =~ ^[1-9][0-9]*$ ]] || die "PARALLEL_GATES must be a whole number above 0"
   trap gate_release EXIT
   gate_acquire

@@ -61,7 +61,7 @@ Everything `implement-linear-ticket` needs, plus:
 |---|---|
 | `parallel.sh add <gitBranchName> [--base <ref>] [--no-install]` | takes the first free slot; `git worktree add ../circles-wt/sus-N` on the ticket's branch (created from `main` by the same rule as `ticket.sh start`, or from `--base` for a stacked ticket); patches that worktree's `config.toml` and marks it skip-worktree; copies `.env`; `pnpm i` and `pnpm build` |
 | `parallel.sh up` / `down` | in a worktree: start or stop this slot's stack. `up` is `make up` plus `make env`, so the app env is written for this slot, and it prints the `make` commands for the dev server and the mail catcher |
-| `parallel.sh gate` | in a worktree: `ticket.sh check` with the Playwright suites on this slot's ports, Mailpit on this slot's, and a `TMPDIR` of the slot's own (Metro's cache); at most `PARALLEL_GATES` (default 2) run at once, counted with lock directories in the shared `.git` (`gate-lock.sh`); a lock left by a dead process is cleared |
+| `parallel.sh gate` | in a worktree: `ticket.sh check` with the Playwright suites on this slot's ports, Mailpit on this slot's, and a `TMPDIR` of the slot's own (Metro's cache); at most `PARALLEL_GATES` (default 1) run at once, counted with lock directories in the shared `.git` (`gate-lock.sh`); a lock left by a dead process is cleared |
 | `parallel.sh sync [<ref>]` | in a worktree: take the patch off, rebase on `origin/main` (or `<ref>`), put the patch back |
 | `parallel.sh unslot` / `repatch` | in a worktree: take the patch off `config.toml` so a real change to it can be committed, then put it back |
 | `parallel.sh overlap <path>...` | which open PRs touch these paths or prefixes |
@@ -167,7 +167,7 @@ Everything in that skill holds except:
 |---|---|
 | 5. Branch (`ticket.sh start`) | skip; `parallel.sh add` made the branch and the worktree |
 | before 6. Implement | `parallel.sh up` once, from the worktree |
-| 7. Check (`ticket.sh check`) | `parallel.sh gate` - the same check, on this slot's ports, behind the gate limit. Read the exit code. With a third ticket gating, a wait of several minutes for a place is normal, not a hang |
+| 7. Check (`ticket.sh check`) | `parallel.sh gate` - the same check, on this slot's ports, behind the gate limit. Read the exit code. A wait of ten minutes or more for another ticket's gate is normal, not a hang |
 | 9. Testing notes | walk them here, **write them as `make` targets** (`make reset`, `make dev`, `make mail TO=…`), which read the right ports wherever the founder runs them. Where a URL has to be spelled out, use the primary checkout's ports — app 8081, API 54321, Mailpit 54324, what `make ports` prints *there* — and say so in one line at the top ("`make ports` names yours if they differ"): the founder tests from the primary checkout after merge, and a note that says 8181 sends them to a server that is not running |
 | 9. `pnpm mail` | `make mail TO=someone@example.com` |
 | every other local command (`dev`, `dev-live`, `logs`, `psql`, `sql`, `reset`, `status`) | the **same `make` target as in the primary checkout**. The Makefile reads this worktree's own `supabase/config.toml`, so every port and container name follows the slot; `make ports` prints them. Never pass a port by hand, and never edit `config.toml` to change one |
@@ -229,14 +229,35 @@ grep -n 'project_id\|^port' ../circles-wt/sus-0/supabase/config.toml   # circles
   and SUS-45 were worked to merge-ready in them two days later, seven review
   rounds each. A third slot has not been tried; `make envs` shows what is
   running before you add one.
-- **Two gates at once, not three, and the limit is the CPU.** Every slot gates
-  on its own ports (8082 + 100 x slot for the live suite, 8083 + 100 x slot for
-  smoke), so Playwright's `reuseExistingServer` can only ever find this slot's
-  own server, and `tests/expect-build-mode.ts` still catches a stray `make
-  dev-live` in the same slot. What two gates share is the host: Vitest, `expo
-  export` and Playwright's browsers all run on it. Measured on 1 October 2026
-  on this machine (11 cores): <<TIMINGS>>
-  `PARALLEL_GATES` changes the limit; `parallel.sh list` shows who holds a place.
+- **One gate at a time by default, because two at once is no faster.** Every
+  slot gates on its own ports (8082 + 100 x slot for the live suite, 8083 +
+  100 x slot for smoke), so Playwright's `reuseExistingServer` can only ever
+  find this slot's own server, and `tests/expect-build-mode.ts` still catches a
+  stray `make dev-live` in the same slot. Ports are no longer the reason for
+  the limit; the host is. Vitest, `expo export`, Playwright's browsers and
+  every stack's Edge runtime share this machine's 11 cores and Docker's memory.
+  Measured on 1 October 2026 from slot 3 (SUS-134), against real gates in
+  slots 1 and 2 rather than a twin slot, because creating a fourth slot for the
+  measurement was refused:
+
+  | slot 3's gate | wall time | live suite | result |
+  |---|---|---|---|
+  | alone | 9.7 min | 6.1 min | passed |
+  | beside another slot's gate (most of the way) | 16.4 min | 11.5 min | passed |
+  | beside another slot's gate (all the way) | 19.0 min | 13.0 min | one live test timed out waiting on a job; it passes alone in 17 s |
+
+  So two gates in turn take about 19.4 minutes and two at once about 16 to 19,
+  with the load-sensitive tests (the live suite's 20-second waits, the
+  "fifty answers arriving together" integration test) running close to their
+  limits. `PARALLEL_GATES=2 parallel.sh gate` is there for a machine with more
+  to spare; `parallel.sh list` shows who holds a place.
+- **An Edge runtime that has grown fails gates, whoever else is gating.** Each slot's `supabase_edge_runtime_circles-s<N>` grows by about 2 GB
+  over a gate and keeps it: on 1 October two idle slots held 3.3 and 2.3 GB, and
+  slot 3's was killed by Docker's out-of-memory killer (exit 137) six minutes
+  into its live suite while no other gate was running. It looks like 503s from
+  every function. `make restart` in your own slot before gating gives it back
+  (3.7 GB to 25 MB). Restarting or capping it at the start of a gate is a
+  follow-up ticket, not done here.
 - **Metro's cache is not per checkout; a slot's `TMPDIR` makes it so.** Expo
   keeps it in `$TMPDIR/metro-cache`, and its keys do not depend on where the
   checkout is: the transform base hash came out the same
@@ -255,8 +276,8 @@ grep -n 'project_id\|^port' ../circles-wt/sus-0/supabase/config.toml   # circles
 - **The primary checkout is slot 0 and is the founder's.** Do not spawn an
   agent into it while parallel work is running. Its `pnpm check` serves on
   8082/8083, which no slot uses any more, so it cannot collide with a slot's
-  suites, but it takes no place in the gate limit: run it when at most one slot
-  is gating (`parallel.sh list`), or it is a third gate on the CPU. A worktree
+  suites, but it takes no place in the gate limit: run it when no slot is
+  gating (`parallel.sh list`), or it is a second gate on the CPU. A worktree
   still on the old script also serves on 8082/8083 and must not gate beside it.
 - **`add` refuses a branch that is checked out elsewhere**, which includes the
   primary. Switch the primary to `main` first if it is sitting on the ticket's
@@ -291,7 +312,7 @@ grep -n 'project_id\|^port' ../circles-wt/sus-0/supabase/config.toml   # circles
 - **`all 3 slots are taken`**: `parallel.sh list`, then `rm` the merged ones.
 - **`this is the primary checkout (slot 0)`**: `up`, `gate`, `sync` run from
   inside a ticket worktree.
-- **`gate: all 2 places taken, waiting for:`** for longer than a gate takes:
+- **`gate: all 1 places taken, waiting for:`** for longer than a gate takes:
   each line under it is a lock and its holder (`<pid> <worktree>`). Check each
   pid is a live `parallel.sh`; if the machine slept mid-gate, kill it and the
   next `gate` clears its lock. Never remove a lock whose pid is alive.

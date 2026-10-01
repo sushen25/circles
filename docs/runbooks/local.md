@@ -118,8 +118,9 @@ So never pass a port by hand, and never edit `config.toml` to change one. The
 Playwright suites move with the slot too: 8082 and 8083 here, 8182 and 8183 in
 slot 1, and so on, which `make check`, `make test-live`, `make test-smoke` and
 the parallel skill's `gate` all pass on. So two slots can check at once without
-either one's Playwright reusing the other's server; the skill caps it at two
-because the rest of a check is CPU on this machine. A slot's `make` targets
+either one's Playwright reusing the other's server. The parallel skill still
+runs one gate at a time by default, because two at once measured no faster on
+this machine: the rest of a check is CPU and Docker memory. A slot's `make` targets
 also run with a `TMPDIR` of its own, `$TMPDIR/circles-s<N>`, because Expo keeps
 Metro's cache there and the cache is otherwise shared by every checkout. A
 slot's stack starts without Studio to save memory (`make studio` there opens
