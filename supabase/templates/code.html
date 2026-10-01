@@ -1,26 +1,213 @@
 <!--
-  Local development only. Hosted projects keep their templates in the Supabase
-  dashboard, and the real ones are built with React Email in S1-19.
-
-  This exists for one reason: every stock auth template sends
-  {{ .ConfirmationURL }}, a magic link, and the product signs people in with a
-  six-digit code (§10). Testing against a link when the app expects a code
-  proves nothing — and a link opened in a mail app's in-app browser lands in a
-  different storage jar from the tab the person was joining in, which is the
-  failure Continue-as exists to repair, caused on purpose.
-
-  One body for three templates, because to the person they are one thing — a
-  code they were just asked for. They differ only in what prompted it:
+  The sign-in code email, for every Supabase Auth template that sends one:
   magic_link (signing in again), confirmation (the first time an address is
-  used) and email_change (a guest saving their place, which attaches an address
-  to a session that already exists). Miss any one of them and that path silently
-  goes back to sending a link.
+  used) and email_change (a guest saving their place). config.toml points all
+  three here for the local stack. The hosted projects carry the same file,
+  pasted into the dashboard (Authentication → Emails → Templates), because
+  Supabase has no API for them that this repo uses: change this file, then
+  paste it into both projects, or local and hosted drift apart.
 
-  Deliberately unbranded — the product name lives in packages/config/brand.ts
-  and nowhere else (architecture §5.4).
+  Every stock template sends {{ .ConfirmationURL }}, a magic link, and the
+  product signs people in with a six-digit code (§10). A link opened in a mail
+  app's in-app browser lands in a different storage jar from the tab the person
+  was joining in, which is the failure Continue-as exists to repair, caused on
+  purpose. Miss one template and that path silently goes back to a link. The
+  code is six digits because the code screen has six boxes: `otp_length` here,
+  and "Email OTP Length" on each hosted project, must stay 6.
+
+  The look is the product emails' (supabase/functions/_shared/email/
+  templates/Layout.tsx, theme.ts): the lockup on the warm ground, one white
+  card, Newsreader for the heading, the accent on the code. Tables and inline
+  styles only, and no web fonts, for the same reasons Layout.tsx gives.
+
+  The product name and the support address are written here, the one place
+  outside packages/config/src/brand.ts that has them (architecture §5.4):
+  this file is pasted into a dashboard, where nothing can import brand.ts.
+  `pnpm check:brand` does not read .html. When the name or domain changes,
+  change this file too.
 -->
-<h2>Your code</h2>
-
-<p style="font-size: 28px; letter-spacing: 4px; font-weight: 600">{{ .Token }}</p>
-
-<p>It expires in ten minutes. If you did not ask for it, ignore this email.</p>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <meta name="supported-color-schemes" content="light" />
+    <title>Your Wenna code</title>
+  </head>
+  <body style="margin: 0; padding: 0; background-color: #fbf7f1">
+    <div style="display: none; max-height: 0; overflow: hidden; opacity: 0">
+      Your code is {{ .Token }}. It expires in ten minutes.
+    </div>
+    <table
+      role="presentation"
+      width="100%"
+      cellpadding="0"
+      cellspacing="0"
+      border="0"
+      style="background-color: #fbf7f1"
+    >
+      <tr>
+        <td align="center" style="padding: 24px 16px">
+          <table
+            role="presentation"
+            width="100%"
+            cellpadding="0"
+            cellspacing="0"
+            border="0"
+            style="max-width: 480px"
+          >
+            <tr>
+              <td style="padding: 0 0 16px">
+                <img
+                  src="https://wenna.app/brand/wenna-lockup-2x.png"
+                  width="140"
+                  height="40"
+                  alt="Wenna"
+                  style="
+                    display: block;
+                    border: 0;
+                    font-family: Newsreader, Georgia, 'Times New Roman', serif;
+                    font-size: 22px;
+                    line-height: 28px;
+                    color: #221e19;
+                  "
+                />
+              </td>
+            </tr>
+            <tr>
+              <td
+                style="
+                  background-color: #ffffff;
+                  border: 1px solid #eae0d3;
+                  border-radius: 16px;
+                  padding: 24px;
+                "
+              >
+                <h1
+                  style="
+                    margin: 0 0 12px;
+                    font-family: Newsreader, Georgia, 'Times New Roman', serif;
+                    font-weight: 400;
+                    font-size: 26px;
+                    line-height: 30px;
+                    color: #221e19;
+                  "
+                >
+                  Your code
+                </h1>
+                <p
+                  style="
+                    margin: 0 0 16px;
+                    font-family:
+                      Figtree,
+                      -apple-system,
+                      BlinkMacSystemFont,
+                      'Segoe UI',
+                      Helvetica,
+                      Arial,
+                      sans-serif;
+                    font-size: 16px;
+                    line-height: 24px;
+                    color: #221e19;
+                  "
+                >
+                  Type this in where you asked for it.
+                </p>
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td
+                      style="
+                        background-color: #fbf7f1;
+                        border: 1px solid #eae0d3;
+                        border-radius: 12px;
+                        padding: 12px 20px;
+                        font-family:
+                          Figtree,
+                          -apple-system,
+                          BlinkMacSystemFont,
+                          'Segoe UI',
+                          Helvetica,
+                          Arial,
+                          sans-serif;
+                        font-size: 32px;
+                        line-height: 40px;
+                        font-weight: 600;
+                        letter-spacing: 6px;
+                        color: #c2542f;
+                      "
+                    >
+                      {{ .Token }}
+                    </td>
+                  </tr>
+                </table>
+                <p
+                  style="
+                    margin: 16px 0 0;
+                    font-family:
+                      Figtree,
+                      -apple-system,
+                      BlinkMacSystemFont,
+                      'Segoe UI',
+                      Helvetica,
+                      Arial,
+                      sans-serif;
+                    font-size: 16px;
+                    line-height: 24px;
+                    color: #221e19;
+                  "
+                >
+                  It expires in ten minutes.
+                </p>
+                <hr style="border: 0; border-top: 1px solid #eae0d3; margin: 20px 0 16px" />
+                <p
+                  style="
+                    margin: 0;
+                    font-family:
+                      Figtree,
+                      -apple-system,
+                      BlinkMacSystemFont,
+                      'Segoe UI',
+                      Helvetica,
+                      Arial,
+                      sans-serif;
+                    font-size: 13px;
+                    line-height: 19px;
+                    color: #6c6156;
+                  "
+                >
+                  If you did not ask for this, ignore this email. Nobody can sign in without the
+                  code.
+                </p>
+              </td>
+            </tr>
+            <tr>
+              <td
+                align="center"
+                style="
+                  padding: 16px 0 0;
+                  font-family:
+                    Figtree,
+                    -apple-system,
+                    BlinkMacSystemFont,
+                    'Segoe UI',
+                    Helvetica,
+                    Arial,
+                    sans-serif;
+                  font-size: 13px;
+                  line-height: 19px;
+                  color: #6c6156;
+                "
+              >
+                Sent by Wenna ·
+                <a href="mailto:hello@wenna.app" style="color: #6c6156; text-decoration: underline"
+                  >hello@wenna.app</a
+                >
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
