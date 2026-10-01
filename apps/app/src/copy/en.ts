@@ -218,7 +218,7 @@ export const en = {
     overlap_one: 'Overlaps with 1 other',
     overlap_other: 'Overlaps with {count} others',
     overlap_none: 'No overlap with anyone yet',
-    adjust_day_others: '{day}, {time}. {overlap}. Adjust by the half hour',
+    adjust_day_others: '{day}, {time}. {detail}. Adjust by the half hour',
     peak: 'Others free, by the half hour. The most is {count}, {time}.',
     peak_nobody: 'Nobody else has picked this day yet.',
     cell_others_one: '{label}. 1 other free',

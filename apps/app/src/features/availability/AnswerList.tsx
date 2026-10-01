@@ -63,7 +63,7 @@ export function AnswerList({
               : t('availability', 'adjust_day_others', {
                   day: answer.spoken,
                   time: answer.range,
-                  overlap: answer.others,
+                  detail: answer.others,
                 })
           }
           open={answer.open}
