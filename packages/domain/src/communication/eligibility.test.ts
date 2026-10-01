@@ -312,6 +312,17 @@ describe('asked again (ADR 00YY)', () => {
     expect(ids('asked_again', eligibilityContext({ plan: edited }))).toEqual([]);
   });
 
+  it('asks again after a second edit somebody who answered the first question and not the second', () => {
+    // The ticket's acceptance: two edits in a row are one letter per revision
+    // to a member who has not answered since. Their answer to revision 1 is
+    // still the newest thing they said, and the app still tells them it was
+    // cleared (SUS-130); the organiser's preview listed them too, among the
+    // people who had not answered (spec §5.3).
+    const twice = sundayCrewPlan({ revision: 3 });
+    const context = eligibilityContext({ plan: twice, responses: [], answeredEarlierIds: [PRIYA] });
+    expect(ids('asked_again', context)).toEqual([PRIYA]);
+  });
+
   it('emails only a verified subscriber to this plan', () => {
     const context = eligibilityContext({
       plan: edited,

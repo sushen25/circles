@@ -59,6 +59,14 @@ new push.
 
 ## Alternatives considered
 
+- **Only the people who answered the revision just replaced.** Somebody who
+  answered revision 1, was asked again and did not answer revision 2, would
+  hear nothing when revision 3 replaced it. The ticket asks for one letter per
+  revision to such a member, SUS-130's screen still tells them their times were
+  cleared, and the organiser's preview already names them as asked again
+  (spec §5.3: "including anyone who had not yet answered"). One letter per
+  edit, and an edit is a new question.
+
 - **Every participant, answered or not.** This was the ticket's first sketch.
   It would write to people who had nothing cleared, about a question that
   `new_plan` and the deadline reminder already ask them, and the email would
