@@ -81,8 +81,8 @@ new push.
   were cleared". Both of them land on the grid, which says that.
 - **Name how many people will get an email on the organiser's re-share
   screen.** The organiser cannot read subscriptions (they are private), so this
-  would need a new function. The screen says instead that people with email
-  updates on get an email and everyone else needs the link.
+  would need a new function. The screen says instead that anyone with updates
+  on is told and everyone else needs the link.
 
 ## Consequences
 
@@ -92,7 +92,8 @@ new push.
 - `jobs.notification_jobs` accepts `asked_again` (migration 0031), and
   `dispatch_context` returns `answered_earlier`, which is ids only.
 - The organiser's "Ask {circle} again" screen after an edit says that anyone
-  who had answered has to answer again, and that the chat reaches the people
-  the email does not.
+  who had answered has to answer again, that anyone with updates on is told
+  (by push or email, whichever reaches them), and that the chat reaches
+  everybody else.
 - Push for this kind is written like every other member kind's and goes out
   when push delivery does (S3-03). Its copy key is `push.asked_again`.
