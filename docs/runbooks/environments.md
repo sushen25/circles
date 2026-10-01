@@ -80,11 +80,12 @@ The lever, if that is not wanted before S1-32, is `disable_signup` on
 it is reversible. It has deliberately **not** been set, so that it stays a
 decision somebody made rather than a default nobody noticed.
 
-Two settings are deliberately unset on `circles-prod`: `circles.functions_url`
-and `circles.cron_secret`. Their only reader posts to `process-scheduled-jobs`,
-which does not exist until S1-20, so setting them early would turn a clean
-no-op into a POST to a 404 every minute. `cron.job_run_details` shows the
-`process-jobs` job succeeding and returning null, which is the no-op working.
+The minute job does nothing until two Vault secrets exist on the project,
+`circles_functions_url` and `circles_cron_secret` ("Vault secrets the cron job
+reads", below). Create them only once `process-scheduled-jobs` is deployed;
+before that they would turn a clean no-op into a POST to a 404 every minute.
+`cron.job_run_details` shows the `process-jobs` job succeeding and returning
+null while they are missing, which is the no-op working.
 
 > **The two projects are in different regions.** A region cannot be changed
 > after creation; moving means a new project and a new ref. That makes `dev` a
@@ -262,7 +263,7 @@ nobody, which suits a secret nothing else has to agree with:
 
 | Name | From | `dev` | `prod` |
 |---|---|---|---|
-| `CRON_SECRET` | **nobody — you invent it.** Its only job is that `jobs.invoke_process_scheduled_jobs()` and `_shared/internal.ts` agree on it. It cannot be read back, and S1-20 needs the same string for `circles.cron_secret` | own value | own value |
+| `CRON_SECRET` | **nobody — you invent it.** Its only job is that `jobs.invoke_process_scheduled_jobs()` and `_shared/internal.ts` agree on it. It cannot be read back, and the Vault secret `circles_cron_secret` needs the same string | own value | own value |
 | `INVITE_LINK_KEY` | **nobody — you invent it**: `openssl rand -base64 32`. Invite secrets are derived with it so the owner can see their link again ([ADR 0028](../decisions/0028-an-invite-secret-is-derived-so-its-owner-can-see-it-again.md)). **Optional, and quiet when missing**: links are still made, but only a reset gets the owner a link back. Changing it later makes every existing link unshowable (they keep working). Local stacks set it in `config.toml` | own value | own value |
 | `TURNSTILE_SECRET_KEY` | Cloudflare → Turnstile, pairs with the site key. **The name matters:** `_shared/turnstile.ts` reads exactly this, and skips the check when it is unset rather than failing — so a secret stored under any other name leaves web joins unverified and looks configured | the **dummy** `1x0000000000000000000000000000000AA`, pairing with the dummy site key at repository scope | the real one |
 | `EMAIL_CAPTURE_URL` | **never on a hosted project.** Local only, from `config.toml`. Set on one, it wins over `RESEND_API_KEY` and every product email goes to a catcher that is not there | never | never |
@@ -280,32 +281,45 @@ The service-role key is never set by hand: Supabase injects it into functions.
 It must not appear in the client or the repository (§14). gitleaks runs on every
 PR; a green run is evidence, not a formality.
 
-**Database settings the cron job reads — set once per project, after the first
-deploy, never in a migration** (`0007_cron_retention.sql` explains why):
+**Vault secrets the cron job reads — created once per project, after
+`process-scheduled-jobs` is deployed, never in a migration.** Run in the
+project's SQL editor (Dashboard → SQL Editor), which connects as `postgres`:
 
 ```sql
-alter database postgres set circles.functions_url = 'https://<ref>.supabase.co/functions/v1';
-alter database postgres set circles.cron_secret = '<the same value as CRON_SECRET>';
+select vault.create_secret('https://<ref>.supabase.co/functions/v1', 'circles_functions_url');
+select vault.create_secret('<the same value as CRON_SECRET>', 'circles_cron_secret');
 ```
+
+To change one later, `select vault.update_secret(id, '<new value>') from
+vault.secrets where name = 'circles_cron_secret';`. Rotate `CRON_SECRET` and
+`circles_cron_secret` together: until both match, every call is refused with a
+401.
+
+**Not database settings.** Until SUS-127 these were `circles.functions_url` and
+`circles.cron_secret`, set with `alter database postgres set …`. A hosted
+project refuses that (`42501: permission denied to set parameter`), because its
+`postgres` role is not a superuser, so the job was a no-op on every hosted
+project until then.
 
 `CRON_SECRET` is also an Edge Function secret (`make secret`), because the internal
 functions compare the bearer they receive against it — `process-scheduled-jobs`
 and `recalculate-candidates`. **A local stack sets it in `config.toml` instead,
 to the word `local`** (`[edge_runtime.secrets]`, beside `EMAIL_CAPTURE_URL`):
 without it the one background worker refuses every call on the one environment
-where it can be watched. The two database settings below are still left unset
-locally, so nothing invokes it until somebody does so by hand. Until it is set they refuse every
+where it can be watched. The two Vault secrets above are still left out
+locally, so nothing invokes it until somebody does so by hand. Until `CRON_SECRET` is set the functions refuse every
 call, which is the safe direction: an internal endpoint anybody can reach
 because a secret is missing is worse than one nobody can reach. Until both
-settings exist the minute job is a no-op — `jobs.invoke_process_scheduled_jobs()`
+Vault secrets exist the minute job is a no-op — `jobs.invoke_process_scheduled_jobs()`
 returns null and makes no call — so a fresh project or a local stack does not
 log a failed HTTP call every minute. To check a project: run the function by
 hand and read `cron.job_run_details` for the `process-jobs` job.
 
-A database setting is readable by any role that can open a connection, so this
-one guards only the cron → function hop and is not the service-role key. The
-job command in `cron.job` calls the definer function rather than spelling the
-header out, and the function is executable by nobody but the owner.
+Vault keeps the values encrypted at rest, and only `postgres` and roles it
+grants can read `vault.decrypted_secrets`. Even so, the bearer guards only the
+cron → function hop and is not the service-role key. The job command in
+`cron.job` calls the definer function rather than spelling the header out, and
+the function is executable by nobody but the owner.
 
 ## The EAS account
 

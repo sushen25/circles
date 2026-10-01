@@ -6,7 +6,7 @@
 -- test that runs today.
 
 begin;
-select plan(45);
+select plan(51);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid language sql as $$
@@ -122,7 +122,34 @@ select is(
   'select jobs.invoke_process_scheduled_jobs()',
   'the minute job calls the function and spells out no header'
 );
-select is(jobs.invoke_process_scheduled_jobs(), null, 'with no settings the invoker makes no call and returns null');
+select is(jobs.invoke_process_scheduled_jobs(), null, 'with nothing in Vault the invoker makes no call and returns null');
+
+-- SUS-127: the URL and bearer are Vault secrets, because a hosted project
+-- refuses the database settings they used to be. Created here as `postgres`,
+-- which is who creates them in the hosted SQL editor, and rolled back with the
+-- rest of the test.
+select vault.create_secret('http://functions.test/functions/v1/', 'circles_functions_url');
+select is(jobs.invoke_process_scheduled_jobs(), null, 'with the URL alone the invoker still makes no call');
+select is((select count(*)::integer from net.http_request_queue where url like 'http://functions.test/%'), 0, 'and nothing is queued');
+select vault.create_secret('a-cron-bearer', 'circles_cron_secret');
+select isnt(jobs.invoke_process_scheduled_jobs(), null, 'with both secrets the invoker returns a request id');
+select is(
+  (select array_agg(url) from net.http_request_queue where url like 'http://functions.test/%'),
+  array['http://functions.test/functions/v1/process-scheduled-jobs'],
+  'one request, to process-scheduled-jobs under the URL, whatever its trailing slash'
+);
+select is(
+  (select headers ->> 'Authorization' from net.http_request_queue where url like 'http://functions.test/%'),
+  'Bearer a-cron-bearer',
+  'carrying the bearer from Vault'
+);
+select is(
+  (select command from cron.job where jobname = 'process-jobs'),
+  'select jobs.invoke_process_scheduled_jobs()',
+  'and the job''s own text still names neither'
+);
+delete from net.http_request_queue where url like 'http://functions.test/%';
+delete from vault.secrets where name in ('circles_functions_url', 'circles_cron_secret');
 select is(
   (select array_agg(name order by name) from jobs.cron_leases),
   array['process_scheduled_jobs', 'retention_daily'],
