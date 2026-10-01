@@ -1,7 +1,12 @@
 import { brand } from '@circles/config';
 import { EN_PREVIEW_TEMPLATES, ogDescription, ogTitle } from '@circles/domain';
 
-import { exportedConfig, resolveOrigin, resolveSupabase, type ExportedConfig } from './preview-origin';
+import {
+  exportedConfig,
+  resolveOrigin,
+  resolveSupabase,
+  type ExportedConfig,
+} from './preview-origin';
 
 /**
  * What a chat shows when somebody pastes the link (architecture §9.4, §5.2).
