@@ -189,14 +189,16 @@ reads the counts once each time it opens and does not update them live
   first-to-answer line. Spec §8.2 gains an invariant: availability is shown
   to other members only as counts and anonymous per-day windows, from the
   current revision, never with an identity, and only once one other answer
-  with times is in. Spec §11.3 notes `availability_started(others_shown)`.
+  with times is in. Spec §11.3 lists `availability_others_read(others_shown)`.
 - One new function and one migration (`0030_others_availability.sql`). No
   table, column or policy changes. `plan_responses` and `willing_windows` stay
   owner-only, and pgTAP proves it again.
-- `availability_started` gains an optional boolean, `others_shown`, so the time
-  to answer and the "I'm easy" share can be compared with and without counts.
-  It carries no count, date or time. The version stays at 1 because adding a
-  field changes no existing meaning.
+- A new event, `availability_others_read(others_shown)`, is sent once each
+  opening's read has settled, so the time to answer and the "I'm easy" share
+  can be compared with and without counts. It carries a yes or no and never a
+  count, date or time. It is a separate event rather than a field on
+  `availability_started`, because the start is sent as the editor opens and is
+  never held back for an optional read.
 - The read is optional, like the usual times (ADR 0037). If it fails, is
   offline or has not arrived yet, the editor stays exactly as it was and the
   answer can still be sent. Nothing from it is stored on the device or put in

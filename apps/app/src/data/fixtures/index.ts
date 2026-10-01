@@ -140,11 +140,13 @@ export const answerable: PlanToAnswer = {
 };
 
 /**
- * What the five who have answered said, as the editor reads it (SUS-129): the
- * counts peak on Thursday 17th, 6:30–8:30 pm, where all five meet — the time
- * the scenario confirms — and nobody has picked Monday 14th. One entry per
- * person per day, as `others_availability` returns them, in Melbourne evenings
- * (UTC+10 in September).
+ * What the others have said, as the editor reads it (SUS-129), to the reader
+ * of `answerable` — who has answered (Monday, Wednesday and Thursday), so is
+ * one of the five, and reads about the other four: Alex has not answered
+ * (review round 2). The counts peak on Thursday 17th, 6:30–8:30 pm, where all
+ * four meet — the time the scenario confirms — and nobody else has picked
+ * Monday 14th. One entry per person per day, as `others_availability` returns
+ * them, in Melbourne evenings (UTC+10 in September).
  */
 function evening(day: number, from: string, to: string) {
   return interval(
@@ -155,15 +157,14 @@ function evening(day: number, from: string, to: string) {
 
 export const othersPartial: OthersSaid = {
   asked: 6,
-  answered: 5,
-  withTimes: 5,
+  answered: 4,
+  withTimes: 4,
   flexible: 0,
-  readerAnswered: false,
+  readerAnswered: true,
   days: [
     [evening(15, '17:30', '22:30')],
     [evening(15, '18:30', '21:30')],
     [evening(16, '17:30', '20:30')],
-    [evening(17, '17:30', '20:30')],
     [evening(17, '17:30', '21:00')],
     [evening(17, '18:00', '22:30')],
     [evening(17, '18:30', '20:30')],

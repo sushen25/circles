@@ -150,13 +150,7 @@ describe('painting and sending', () => {
     open();
     await screen.findByText("Times I'd actually be up for");
 
-    // Once the others have been read: here they cannot be, so no counts showed.
-    await waitFor(() =>
-      expect(track).toHaveBeenCalledWith('availability_started', {
-        plan_id: PLAN.id,
-        others_shown: false,
-      }),
-    );
+    expect(track).toHaveBeenCalledWith('availability_started', { plan_id: PLAN.id });
   });
 
   it('will not send an empty answer, and says what would make it one', async () => {
@@ -758,12 +752,12 @@ describe('what the others have said (SUS-129)', () => {
     open();
     expect(
       await screen.findByText(
-        '5 of 6 have answered. The number on each day is how many of them could make it.',
+        '4 of the other 5 have answered. The number on each day is how many of them could make it.',
       ),
     ).toBeInTheDocument();
     expect(othersSaid).toHaveBeenCalledWith(PLAN.id);
     expect(
-      screen.getByRole('button', { name: /^Thursday\D*17.*, 5 others could make it$/ }),
+      screen.getByRole('button', { name: /^Thursday\D*17.*, 4 others could make it$/ }),
     ).toBeInTheDocument();
 
     answerMonday();
@@ -772,7 +766,7 @@ describe('what the others have said (SUS-129)', () => {
     expect(submitAnswer).toHaveBeenCalledWith(
       expect.objectContaining({ status: 'windows', windows: [MONDAY_EVENING] }),
     );
-    expect(track).toHaveBeenCalledWith('availability_started', {
+    expect(track).toHaveBeenCalledWith('availability_others_read', {
       plan_id: PLAN.id,
       others_shown: true,
     });
@@ -781,7 +775,7 @@ describe('what the others have said (SUS-129)', () => {
   it('keeps the counts out of the draft on the device', async () => {
     othersSaid.mockResolvedValue(othersPartial);
     open();
-    await screen.findByText(/^5 of 6 have answered\./);
+    await screen.findByText(/^4 of the other 5 have answered\./);
     answerMonday();
     await waitFor(async () => expect(await readDraft('priya', CODE)).toBeDefined());
     const draft = JSON.stringify(await readDraft('priya', CODE));
@@ -794,11 +788,19 @@ describe('what the others have said (SUS-129)', () => {
     expect(await screen.findByText(/^You're the first to answer\./)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /could make it$/ })).toBeNull();
     await waitFor(() =>
-      expect(track).toHaveBeenCalledWith('availability_started', {
+      expect(track).toHaveBeenCalledWith('availability_others_read', {
         plan_id: PLAN.id,
         others_shown: false,
       }),
     );
+  });
+
+  it('sends the start as the editor opens, however long the read of the others takes (review round 2)', async () => {
+    othersSaid.mockReturnValue(new Promise(() => undefined));
+    open();
+    await screen.findByText("Times I'd actually be up for");
+    expect(track).toHaveBeenCalledWith('availability_started', { plan_id: PLAN.id });
+    expect(track).not.toHaveBeenCalledWith('availability_others_read', expect.anything());
   });
 
   it("shows nothing from an earlier opening when this opening's read fails (review round 1)", async () => {
@@ -812,7 +814,7 @@ describe('what the others have said (SUS-129)', () => {
     );
     othersSaid.mockResolvedValue(othersPartial);
     const first = render(editor());
-    await screen.findByText(/^5 of 6 have answered\./);
+    await screen.findByText(/^4 of the other 5 have answered\./);
     first.unmount();
 
     othersSaid.mockReset();
@@ -821,7 +823,7 @@ describe('what the others have said (SUS-129)', () => {
     render(editor());
     await screen.findByText("Times I'd actually be up for");
     await waitFor(() =>
-      expect(track).toHaveBeenCalledWith('availability_started', {
+      expect(track).toHaveBeenCalledWith('availability_others_read', {
         plan_id: PLAN.id,
         others_shown: false,
       }),

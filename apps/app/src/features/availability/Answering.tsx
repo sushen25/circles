@@ -179,21 +179,24 @@ export function Answering({
   }, [discardDraft, userId, code]);
 
   // Opening the editor is the start of answering (§11.2's "median response
-  // after link open" reads the last open before the answer). Sent once the
-  // others are known, so it can say whether counts were shown: the answer time
-  // and the "I'm easy" share can then be compared with and without (SUS-129).
-  // Once per opening of the times step, however often the read is repeated.
+  // after link open" reads the last open before the answer).
+  useEffect(() => {
+    if (step === 'times' && answerable) {
+      track('availability_started', { plan_id: plan.id as PlanId });
+    }
+  }, [step, answerable, plan.id]);
+
+  // Whether this opening showed counts of what others said (SUS-129), once
+  // its read has settled, so the answer time and the "I'm easy" share can be
+  // compared with and without them. Its own event, not a field on the start:
+  // the start is never held back for an optional read (review round 2).
   const settled = userId === undefined || others.isFetchedAfterMount;
   const shown = said !== undefined && othersShown(said);
-  const started = useRef(false);
+  const reported = useRef(false);
   useEffect(() => {
-    if (step !== 'times') {
-      started.current = false;
-      return;
-    }
-    if (!answerable || !settled || started.current) return;
-    started.current = true;
-    track('availability_started', { plan_id: plan.id as PlanId, others_shown: shown });
+    if (step !== 'times' || !answerable || !settled || reported.current) return;
+    reported.current = true;
+    track('availability_others_read', { plan_id: plan.id as PlanId, others_shown: shown });
   }, [step, answerable, settled, shown, plan.id]);
 
   // While an answer is on its way it cannot change: the request has the

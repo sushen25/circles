@@ -59,7 +59,7 @@ route, not routes of their own.
 `AvailabilityOthers*` artboards are the same screen with
 `data/availability/others.ts` read on open (`others_availability`) and the
 counts worked out in `others.ts` from the domain's `freeFor`. With no backend,
-the gallery's `partial` and `complete` fixtures show five of six answered and
+the gallery's `partial` and `complete` fixtures show the reader and four others answered and
 `empty` shows the first-to-answer line (`FixtureAnswering`).
 
 **Real since S1-30:** `/j/[code]/sent` (`SentFlow`), `/j/[code]/check-email`

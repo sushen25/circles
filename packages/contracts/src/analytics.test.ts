@@ -48,6 +48,7 @@ describe('the analytics catalogue', () => {
       'quiet_threshold_reached',
       'organiser_accepted',
       'availability_started',
+      'availability_others_read',
       'availability_submitted',
       'candidate_set_generated',
       'candidate_viewed',
@@ -254,26 +255,36 @@ describe('the quiet ask events (SUS-51, spec §8.2)', () => {
   });
 });
 
-describe('availability_started and the counts of what others said (SUS-129)', () => {
+describe('availability_others_read (SUS-129)', () => {
   it('says whether counts were shown, as a yes or no', () => {
-    expect(validateEvent('availability_started', { plan_id: PLAN_ID, others_shown: true })).toEqual(
-      {
-        name: 'availability_started',
-        version: 1,
-        properties: { plan_id: PLAN_ID, others_shown: true },
-      },
-    );
-    // Events from before it carry none, and still validate.
-    expect(validateEvent('availability_started', { plan_id: PLAN_ID })).not.toBeNull();
+    expect(
+      validateEvent('availability_others_read', { plan_id: PLAN_ID, others_shown: true }),
+    ).toEqual({
+      name: 'availability_others_read',
+      version: 1,
+      properties: { plan_id: PLAN_ID, others_shown: true },
+    });
+    expect(validateEvent('availability_others_read', { plan_id: PLAN_ID })).toBeNull();
   });
 
   it('never carries a count, a day or a time', () => {
-    expect(validateEvent('availability_started', { others_shown: 5 })).toBeNull();
-    expect(validateEvent('availability_started', { others_count: 5 })).toBeNull();
-    expect(validateEvent('availability_started', { day: '2026-09-17' })).toBeNull();
-    expect(Object.keys(catalogue.availability_started.payload.shape).sort()).toEqual([
+    expect(validateEvent('availability_others_read', { others_shown: 5 })).toBeNull();
+    expect(
+      validateEvent('availability_others_read', { others_shown: true, others_count: 5 }),
+    ).toBeNull();
+    expect(
+      validateEvent('availability_others_read', { others_shown: true, day: '2026-09-17' }),
+    ).toBeNull();
+    expect(Object.keys(catalogue.availability_others_read.payload.shape).sort()).toEqual([
       'circle_id',
       'others_shown',
+      'plan_id',
+    ]);
+  });
+
+  it('leaves availability_started as it was, sent as the editor opens', () => {
+    expect(Object.keys(catalogue.availability_started.payload.shape).sort()).toEqual([
+      'circle_id',
       'plan_id',
     ]);
   });
