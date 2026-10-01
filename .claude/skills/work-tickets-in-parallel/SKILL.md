@@ -315,8 +315,9 @@ grep -n 'project_id\|^port' ../circles-wt/sus-0/supabase/config.toml   # circles
 - **`gate: all 1 places taken, waiting for:`** for longer than a gate takes:
   each line under it is a lock and its holder (`<pid> <worktree>`). Check each
   pid is a live `parallel.sh`; if the machine slept mid-gate, kill it and the
-  next `gate` clears its lock. Killing a gate stops its check too, and a lock
-  with no holder for over a minute is cleared. Never remove a lock whose pid is
+  next `gate` clears its lock. Killing a gate (Ctrl-C, `kill`, a closed
+  terminal) stops its check too; `kill -9` cannot, and leaves the check
+  running without a place. A lock with no holder for over a minute is cleared. Never remove a lock whose pid is
   alive.
 - **`supabase start` says a port is allocated**: another slot's stack, or a
   stack from a worktree removed by hand. `docker ps --filter name=circles-s`

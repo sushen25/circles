@@ -12,8 +12,10 @@
 #
 #   - a ticket-gate.lock held by anyone but a numbered holder counts as a place
 #     taken; and
-#   - a gate on this script also takes ticket-gate.lock whenever it is free, so
-#     an old-script gate can only start when one of ours finishes and frees it.
+#   - a gate on this script, once it has a numbered place, also takes
+#     ticket-gate.lock whenever it is free, and never runs without it unless
+#     somebody else held it all the while it counted; so an old-script gate can
+#     only start when one of ours finishes and frees it.
 #
 # Taking a place is optimistic: mkdir one, then count everyone; over the limit
 # means two gates raced, and both let go and try again after a random pause.
@@ -88,17 +90,29 @@ gate_release() {
 
 # One attempt; 0 when a place is ours (and the old lock too, if it was free).
 gate_try() {
-  local i
+  local i n h
   gate_clear_dead
-  if mkdir "$(gate_legacy)" 2>/dev/null; then
-    echo "$gate_self" > "$(gate_legacy)/holder"; gate_mine_legacy=1
-  fi
   for i in $(seq 1 "$gate_limit"); do
     if mkdir "$gate_dir/ticket-gate.$i" 2>/dev/null; then
       gate_mine=$gate_dir/ticket-gate.$i; echo "$gate_self" > "$gate_mine/holder"; break
     fi
   done
-  if [ -n "$gate_mine" ] && [ "$(gate_taken)" -le "$gate_limit" ]; then return 0; fi
+  [ -n "$gate_mine" ] || return 1
+  # Now the old lock: ours if it is free, so no old-script gate can start
+  # beside us. If someone holds it, count only while the same holder holds it
+  # before and after, so that it was counted; a lock that was free while we
+  # counted could go to an old-script gate the moment after, uncounted.
+  while :; do
+    if [ "$gate_mine_legacy" = 0 ] && mkdir "$(gate_legacy)" 2>/dev/null; then
+      echo "$gate_self" > "$(gate_legacy)/holder"; gate_mine_legacy=1
+    fi
+    h=$(gate_holder "$(gate_legacy)")
+    n=$(gate_taken)
+    [ "$gate_mine_legacy" = 1 ] && break
+    [ -n "$h" ] && [ "$(gate_holder "$(gate_legacy)")" = "$h" ] && break
+    sleep 0.1
+  done
+  [ "$n" -le "$gate_limit" ] && return 0
   gate_release
   return 1
 }

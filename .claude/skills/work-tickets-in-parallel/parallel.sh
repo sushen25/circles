@@ -179,17 +179,29 @@ cmd_gate() {
   # every checkout, and a cached module carries the EXPO_PUBLIC_* values of
   # whichever export wrote it.
   #
-  # In the background and waited for, so that a gate that is killed takes its
-  # check with it: in the foreground the lock went and the check ran on,
-  # holding no place.
+  # In the background, in a process group of its own, and waited for, so that
+  # a gate that is killed takes its check with it: in the foreground the lock
+  # went and the check ran on, holding no place. The group catches workers a
+  # pool starts while it is being stopped; kill_tree then catches what left
+  # the group (Playwright's web server takes one of its own). SIGKILL cannot
+  # be trapped: a gate killed that way leaves its check running.
   E2E_LIVE_PORT=$((8082 + s * 100)) E2E_SMOKE_PORT=$((8083 + s * 100)) \
     MAILPIT_URL=${MAILPIT_URL:-http://127.0.0.1:$((54324 + s * 100))} \
-    TMPDIR=$(slot_tmp "$s") "$ticket_sh" check &
-  local check=$! rc=0
-  trap 'kill_tree "$check"; exit 130' INT
-  trap 'kill_tree "$check"; exit 143' TERM
-  wait "$check" || rc=$?
+    TMPDIR=$(slot_tmp "$s") perl -e 'setpgrp(0, 0); exec @ARGV or die "$ARGV[0]: $!\n"' "$ticket_sh" check &
+  gate_check=$!
+  local rc=0
+  trap 'stop_check; exit 129' HUP
+  trap 'stop_check; exit 130' INT
+  trap 'stop_check; exit 143' TERM
+  wait "$gate_check" || rc=$?
   return "$rc"
+}
+
+gate_check=""
+stop_check() {
+  [ -n "$gate_check" ] || return 0
+  kill -TERM -- "-$gate_check" 2>/dev/null || true
+  kill_tree "$gate_check"
 }
 
 kill_tree() { # <pid>: it and everything under it, children first

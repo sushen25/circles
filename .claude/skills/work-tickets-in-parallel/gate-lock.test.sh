@@ -88,6 +88,17 @@ mkdir -p "$gate_dir/ticket-gate.lock"; echo "$(live) /wt/someone-else" > "$gate_
 gate_release
 expect "release leaves a lock that is no longer ours" "$(gate_holders | cut -d' ' -f1)" ticket-gate.lock
 
+# The old lock is held at the first try by another new gate that lets go
+# before this one takes a place: the second try takes it.
+gate_limit=1
+reset
+gate_self="$$ /wt/me"
+hold ticket-gate.lock "$(live) /wt/another-new-gate"
+seq() { rm -rf "$gate_dir/ticket-gate.lock"; command seq "$@"; } # it lets go here
+gate_try >/dev/null; unset -f seq
+expect "a place won while the old lock was briefly held takes the old lock too" "$(gate_holder "$gate_dir/ticket-gate.lock" | cut -d' ' -f2)" /wt/me
+gate_release
+
 gate_limit=1
 reset
 hold ticket-gate.lock "$(live) /wt/old-script"
