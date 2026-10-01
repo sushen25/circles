@@ -801,6 +801,35 @@ describe('what the others have said (SUS-129)', () => {
     );
   });
 
+  it("shows nothing from an earlier opening when this opening's read fails (review round 1)", async () => {
+    // One client for both openings, as in the app: the cache outlives the
+    // editor, and an earlier read must not stand in for a failed one.
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const editor = () => (
+      <QueryClientProvider client={client}>
+        <AvailabilityFlow code={CODE} step="times" />
+      </QueryClientProvider>
+    );
+    othersSaid.mockResolvedValue(othersPartial);
+    const first = render(editor());
+    await screen.findByText(/^5 of 6 have answered\./);
+    first.unmount();
+
+    othersSaid.mockReset();
+    othersSaid.mockRejectedValue(new Error('offline'));
+    track.mockReset();
+    render(editor());
+    await screen.findByText("Times I'd actually be up for");
+    await waitFor(() =>
+      expect(track).toHaveBeenCalledWith('availability_started', {
+        plan_id: PLAN.id,
+        others_shown: false,
+      }),
+    );
+    expect(screen.queryByText(/have answered\./)).toBeNull();
+    expect(screen.queryByRole('button', { name: /could make it$/ })).toBeNull();
+  });
+
   it('leaves the editor as it was when the read fails, and the answer still goes', async () => {
     othersSaid.mockRejectedValue(new Error('offline'));
     open();

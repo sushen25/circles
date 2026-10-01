@@ -141,9 +141,21 @@ export function Answering({
     queryKey: ['others-said', plan.id, plan.revision, userId],
     queryFn: async () => (await othersSaid(plan.id)) ?? null,
     enabled: userId !== undefined && plan.acceptingAnswers,
+    // Once per opening, and only this opening's (review round 1): what an
+    // earlier opening read is never shown while this one's read is on its way
+    // or after it fails (`isFetchedAfterMount` below), is dropped once the
+    // editor closes, and is not read again while the editor stays open.
     staleTime: 0,
+    gcTime: 0,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
-  const said = userId === undefined ? fixtureOthers : (others.data ?? undefined);
+  const said =
+    userId === undefined
+      ? fixtureOthers
+      : others.isFetchedAfterMount && !others.isError
+        ? (others.data ?? undefined)
+        : undefined;
 
   const { phase, send, savedAt, edited } = useSendAnswer({
     code,
@@ -171,7 +183,7 @@ export function Answering({
   // others are known, so it can say whether counts were shown: the answer time
   // and the "I'm easy" share can then be compared with and without (SUS-129).
   // Once per opening of the times step, however often the read is repeated.
-  const settled = userId === undefined || others.isFetched;
+  const settled = userId === undefined || others.isFetchedAfterMount;
   const shown = said !== undefined && othersShown(said);
   const started = useRef(false);
   useEffect(() => {
