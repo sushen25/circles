@@ -1,6 +1,13 @@
 import { brand } from '@circles/config';
 import { EN_PREVIEW_TEMPLATES, ogDescription, ogTitle } from '@circles/domain';
 
+import {
+  exportedConfig,
+  resolveOrigin,
+  resolveSupabase,
+  type ExportedConfig,
+} from './preview-origin';
+
 /**
  * What a chat shows when somebody pastes the link (architecture §9.4, §5.2).
  *
@@ -112,13 +119,21 @@ export const CARD_HEADERS: Readonly<Record<string, string>> = {
 };
 
 /**
- * The origin to build absolute URLs from. The configured one where there is
+ * What this bundle was exported with. `process.env.APP_MANIFEST` must stay
+ * written exactly like this: babel-preset-expo replaces that expression with
+ * the app config at export time, which is the only configuration the server
+ * bundle on EAS Hosting is sure to have (`preview-origin.ts`).
+ */
+const EXPORTED: ExportedConfig = exportedConfig(process.env.APP_MANIFEST);
+
+/**
+ * The origin to build absolute URLs from. A production build's own, whatever
+ * host the request arrived on; elsewhere the configured one where there is
  * one, and the request's own otherwise — a redirect to a relative URL throws,
  * and a misconfigured deployment should still serve the app rather than a 500.
  */
-export function originOf(url: URL): string {
-  const configured = process.env.EXPO_PUBLIC_APP_ORIGIN;
-  return configured !== undefined && configured !== '' ? configured : url.origin;
+export function originOf(url: URL, exported: ExportedConfig = EXPORTED): string {
+  return resolveOrigin(url.origin, process.env.EXPO_PUBLIC_APP_ORIGIN, exported);
 }
 
 /** Where a person should end up: the client route this card is about. */
@@ -178,12 +193,22 @@ export function previewCard({ circleName, target, imageUrl }: Card): string {
  * to `anon`. Every failure is a generic card and never an error page — a group
  * chat should not learn that our database is having a bad morning.
  */
-export async function lookupCircleName(kind: string, code: string | null): Promise<string | null> {
+export async function lookupCircleName(
+  kind: string,
+  code: string | null,
+  exported: ExportedConfig = EXPORTED,
+): Promise<string | null> {
   if (kind === 'join' || code === null) return null;
 
-  const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
-  const key = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
-  if (url === undefined || key === undefined || url === '' || key === '') return null;
+  const backend = resolveSupabase(
+    {
+      url: process.env.EXPO_PUBLIC_SUPABASE_URL,
+      key: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
+    },
+    exported,
+  );
+  if (backend === null) return null;
+  const { url, key } = backend;
 
   try {
     const response = await fetch(`${url}/rest/v1/rpc/preview_for_code`, {

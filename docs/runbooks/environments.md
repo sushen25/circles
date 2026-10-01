@@ -254,6 +254,20 @@ no backend, and a guard there would turn every PR red for a variable the PR did
 not change. An `expo export` with no Supabase URL builds and deploys
 perfectly happily, and every request fails in the browser.
 
+**The server routes do not see these variables on EAS Hosting** (SUS-128).
+Metro inlines `EXPO_PUBLIC_*` into the client bundle only; the link-preview
+middleware and `/og/[kind]` read `process.env` at run time, and the run-time
+environment is what `eas deploy` uploads — the app's `.env*` files, plus EAS
+environment variables when `--environment` is passed. The workflows set the
+values in the shell, which is neither, and `eas env:list` is empty for every
+environment. So the server reads the app config instead, which
+babel-preset-expo inlines into server bundles too in place of
+`process.env.APP_MANIFEST`: a production card takes its origin and its
+Supabase pair from `app.config.ts`'s `extra` as the export evaluated it, falls
+back to `https://${brand.domain}`, and never names a `*.expo.app` host.
+`dev` and previews keep the request's own origin, which is the host they are
+served on. See `apps/app/src/data/preview-origin.ts`.
+
 **Secret — set with `make secret` (never `supabase secrets set` from inside the repository; see `EMAIL_CAPTURE_URL` below). Not the same set on both projects**,
 which is the part that gets got wrong in both directions. `make secret ENV=dev
 K=NAME V=value` and `make secrets ENV=prod` (names and digests, never values)

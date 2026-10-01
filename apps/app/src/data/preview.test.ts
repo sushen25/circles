@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { brand } from '@circles/config';
 
@@ -7,10 +7,12 @@ import {
   destinationFor,
   escapeHtml,
   isPreviewAgent,
+  lookupCircleName,
   originOf,
   previewCard,
   previewTargetFor,
 } from './preview';
+import { exportedConfig } from './preview-origin';
 
 const ORIGIN = 'https://example.com';
 
@@ -148,16 +150,136 @@ describe('which paths get a card', () => {
   });
 });
 
+/**
+ * The app config as babel-preset-expo inlines it into the server bundle in
+ * place of `process.env.APP_MANIFEST` — `app.config.ts`'s output, `extra` and
+ * all, as the export evaluated it.
+ */
+function manifestFor(appEnv: string, appOrigin: string): string {
+  return JSON.stringify({
+    name: brand.name,
+    extra: {
+      appEnv,
+      appOrigin,
+      supabaseUrl: 'https://backend.test',
+      supabaseAnonKey: ['anon', 'key', 'for', 'tests'].join('-'),
+    },
+  });
+}
+
+/** Production's custom domain. */
+const HOME = `https://${brand.domain}`;
+
+/** The host EAS Hosting hands the server, whatever the person pasted. */
+const DEPLOYMENT = new URL('https://sushen25s-team-circles--f0pgx8lb1j.expo.app/j/abc234');
+
+/** Runs `body` with `EXPO_PUBLIC_*` as the server sees them, then restores them. */
+function withRuntimeEnv(values: Record<string, string | undefined>, body: () => void): void {
+  const previous = Object.fromEntries(Object.keys(values).map((k) => [k, process.env[k]]));
+  const apply = (next: Record<string, string | undefined>) => {
+    for (const [key, value] of Object.entries(next)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  };
+  apply(values);
+  try {
+    body();
+  } finally {
+    apply(previous);
+  }
+}
+
 describe('originOf', () => {
   it("falls back to the request's own origin when nothing is configured", () => {
     // `Response.redirect` throws on a relative URL, so an unset variable would
     // turn every human's request into a 500 instead of the app.
-    const previous = process.env.EXPO_PUBLIC_APP_ORIGIN;
-    delete process.env.EXPO_PUBLIC_APP_ORIGIN;
-    try {
+    withRuntimeEnv({ EXPO_PUBLIC_APP_ORIGIN: undefined }, () => {
       expect(originOf(new URL('https://circles.test/j/pnanaa'))).toBe('https://circles.test');
+    });
+  });
+
+  it('names the production origin on a request that arrived on the deployment host', () => {
+    // SUS-128, as production served it: the server had no run-time variable,
+    // so the card's image and refresh named `…--f0pgx8lb1j.expo.app`.
+    const production = exportedConfig(manifestFor('production', HOME));
+    withRuntimeEnv({ EXPO_PUBLIC_APP_ORIGIN: undefined }, () => {
+      expect(originOf(DEPLOYMENT, production)).toBe(HOME);
+    });
+  });
+
+  it('builds a production card on the production origin, image and refresh both', () => {
+    const production = exportedConfig(manifestFor('production', HOME));
+    withRuntimeEnv({ EXPO_PUBLIC_APP_ORIGIN: undefined }, () => {
+      const origin = originOf(DEPLOYMENT, production);
+      const html = previewCard({
+        circleName: null,
+        target: destinationFor(origin, 'j', 'abc234'),
+        imageUrl: `${origin}/og-card.png`,
+      });
+      expect(html).toContain(`<meta property="og:image" content="${HOME}/og-card.png">`);
+      expect(html).toContain(`content="0; url=${HOME}/j/abc234"`);
+      expect(html).not.toContain('expo.app');
+    });
+  });
+
+  it('keeps a dev build on the host it was served from', () => {
+    const dev = exportedConfig(
+      manifestFor('development', 'https://sushen25s-team-circles--dev.expo.app'),
+    );
+    withRuntimeEnv({ EXPO_PUBLIC_APP_ORIGIN: undefined }, () => {
+      expect(originOf(DEPLOYMENT, dev)).toBe(DEPLOYMENT.origin);
+    });
+  });
+
+  it("keeps a per-PR preview's card on the preview, not on dev", () => {
+    // Previews export with dev's origin; their cards must still point at the
+    // preview a reviewer is looking at.
+    const preview = exportedConfig(
+      manifestFor('preview', 'https://sushen25s-team-circles--dev.expo.app'),
+    );
+    const pr = new URL('https://sushen25s-team-circles--pr-128.expo.app/j/abc234');
+    withRuntimeEnv({ EXPO_PUBLIC_APP_ORIGIN: undefined }, () => {
+      expect(originOf(pr, preview)).toBe(pr.origin);
+    });
+  });
+
+  it('still honours a run-time origin outside production, as the local server sets one', () => {
+    const dev = exportedConfig(manifestFor('development', 'http://localhost:8081'));
+    withRuntimeEnv({ EXPO_PUBLIC_APP_ORIGIN: 'http://localhost:8082' }, () => {
+      expect(originOf(new URL('http://127.0.0.1:8082/j/abc234'), dev)).toBe(
+        'http://localhost:8082',
+      );
+    });
+  });
+});
+
+describe('the name lookup', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('asks the exported backend when the server has no run-time variables', async () => {
+    // Same root cause: on EAS Hosting the lookup had no Supabase URL, so every
+    // production card said "A circle" instead of the circle's name.
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify('Sunday Crew')));
+    vi.stubGlobal('fetch', fetchMock);
+    const production = exportedConfig(manifestFor('production', HOME));
+    const previous = {
+      url: process.env.EXPO_PUBLIC_SUPABASE_URL,
+      key: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
+    };
+    delete process.env.EXPO_PUBLIC_SUPABASE_URL;
+    delete process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+    try {
+      await expect(lookupCircleName('j', 'pnanaa', production)).resolves.toBe('Sunday Crew');
+      expect(fetchMock).toHaveBeenCalledWith(
+        'https://backend.test/rest/v1/rpc/preview_for_code',
+        expect.objectContaining({ method: 'POST' }),
+      );
     } finally {
-      if (previous !== undefined) process.env.EXPO_PUBLIC_APP_ORIGIN = previous;
+      if (previous.url !== undefined) process.env.EXPO_PUBLIC_SUPABASE_URL = previous.url;
+      if (previous.key !== undefined) process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY = previous.key;
     }
   });
 });
