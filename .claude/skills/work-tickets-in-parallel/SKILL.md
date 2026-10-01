@@ -303,6 +303,11 @@ grep -n 'project_id\|^port' ../circles-wt/sus-0/supabase/config.toml   # circles
 - **Worktrees live beside the repo** (`../circles-wt/`), not inside it, so
   ESLint, Prettier, Vitest and Metro never see a second copy of the source.
   `PARALLEL_ROOT` moves them.
+- **`codex review` can wander into a neighbouring worktree.** On 1 October one
+  round listed `../sus-133`'s `node_modules` for forty minutes and never
+  reported. Run it from inside your own worktree, say in the round's comment
+  if it read outside it, and stop a hung one by the pid you started, never by
+  a `pkill` pattern another agent's review could match.
 - **Do not `git worktree remove` by hand.** The slot file stays behind and the
   stack keeps running. `parallel.sh rm`; if it was already done by hand,
   `parallel.sh rm sus-N --force` clears the stale slot.
