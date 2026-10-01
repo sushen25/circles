@@ -8,7 +8,7 @@
 #                                   worktree + slot for a ticket; prints where
 #   parallel.sh up                  (in a worktree) start this slot's stack, write the app env
 #   parallel.sh down                (in a worktree) stop this slot's stack, keep its data
-#   parallel.sh gate                (in a worktree) ticket.sh check, one gate at a time across worktrees
+#   parallel.sh gate                (in a worktree) ticket.sh check on this slot's ports, at most PARALLEL_GATES (2) at once
 #   parallel.sh sync [<ref>]        (in a worktree) rebase on origin/main (or <ref>) without losing the slot
 #   parallel.sh unslot / repatch    (in a worktree) take the slot's patch off config.toml to commit a real change, put it back
 #   parallel.sh overlap <path>...   which open PRs touch these paths
@@ -28,13 +28,24 @@ common=$(cd "$top" && cd "$(git rev-parse --git-common-dir)" && pwd)
 primary=$(dirname "$common")
 wtroot=${PARALLEL_ROOT:-$(dirname "$primary")/$(basename "$primary")-wt}
 slots=$common/ticket-slots
-lock=$common/ticket-gate.lock
 max=${PARALLEL_SLOTS:-3}
 base=${TICKET_BASE:-main}
 ticket_sh=.claude/skills/implement-linear-ticket/ticket.sh
 # What CI leaves out of the stack (check.yml); the gate passes without them and
 # each one is memory a second and third stack cannot spare.
 exclude=${PARALLEL_EXCLUDE:-realtime,storage-api,imgproxy,studio,logflare,vector,supavisor}
+
+# shellcheck source=gate-lock.sh
+. "$(dirname "${BASH_SOURCE[0]}")/gate-lock.sh"
+gate_dir=$common gate_limit=${PARALLEL_GATES:-2} gate_self="$$ $top"
+
+# A slot's own temporary directory, shared by its gate and its make targets
+# (the Makefile works out the same path). Nested calls keep the one they got.
+slot_tmp() {
+  local t=${TMPDIR:-/tmp}; t=${t%/}
+  case $t in */circles-s"$1") ;; *) t=$t/circles-s$1 ;; esac
+  mkdir -p "$t" && echo "$t"
+}
 
 pnpm_() { if command -v pnpm >/dev/null 2>&1; then pnpm "$@"; else corepack pnpm "$@"; fi; }
 
@@ -152,24 +163,24 @@ cmd_up() {
 cmd_down() { here_slot >/dev/null; cd "$top"; node_modules/.bin/supabase stop; }
 
 cmd_gate() {
-  here_slot >/dev/null; cd "$top"
-  # One gate at a time. The stacks are separate, but the Playwright suites
-  # serve on fixed ports (8082, 8083) and a six-minute gate wants the machine.
-  local waited=0
-  until mkdir "$lock" 2>/dev/null; do
-    local holder; holder=$(cat "$lock/holder" 2>/dev/null || echo unknown)
-    local pid=${holder%% *}
-    if [[ "$pid" =~ ^[0-9]+$ ]] && ! kill -0 "$pid" 2>/dev/null; then
-      echo "gate: clearing a lock left by a dead process ($holder)"; rm -rf "$lock"; continue
-    fi
-    [ $((waited % 60)) = 0 ] && echo "gate: waiting for $holder"
-    sleep 5; waited=$((waited + 5))
-  done
-  echo "$$ $top" > "$lock/holder"
-  trap 'rm -rf "$lock"' EXIT
-  # The live suite reads codes from Mailpit, which defaults to slot 0's port.
-  local s; s=$(slot_of "$top")
-  MAILPIT_URL=${MAILPIT_URL:-http://127.0.0.1:$((54324 + s * 100))} "$ticket_sh" check
+  local s; s=$(here_slot); cd "$top"
+  # At most PARALLEL_GATES at once (gate-lock.sh). Each slot serves its suites
+  # on its own ports, so the limit is only about the machine: Vitest,
+  # `expo export` and Playwright all run on the host.
+  [[ "$gate_limit" =~ ^[1-9][0-9]*$ ]] || die "PARALLEL_GATES must be a whole number above 0"
+  trap gate_release EXIT
+  gate_acquire
+  echo "gate: holding $(basename "$gate_mine")$([ "$gate_mine_legacy" = 1 ] && echo ' and ticket-gate.lock') · $(ports "$s") · e2e $((8082 + s * 100))/$((8083 + s * 100))"
+  # The same arithmetic as the Makefile. The live suite serves on 8082 + 100 x
+  # slot and the smoke suite on 8083 + 100 x slot, so no two slots share a
+  # port and Playwright's reuseExistingServer cannot pick up another slot's
+  # build. Mailpit defaults to slot 0's. TMPDIR is this slot's own because Expo
+  # keeps Metro's cache in $TMPDIR/metro-cache with keys that are the same in
+  # every checkout, and a cached module carries the EXPO_PUBLIC_* values of
+  # whichever export wrote it.
+  E2E_LIVE_PORT=$((8082 + s * 100)) E2E_SMOKE_PORT=$((8083 + s * 100)) \
+    MAILPIT_URL=${MAILPIT_URL:-http://127.0.0.1:$((54324 + s * 100))} \
+    TMPDIR=$(slot_tmp "$s") "$ticket_sh" check
 }
 
 cmd_sync() {
@@ -221,7 +232,8 @@ cmd_list() {
     local ab; ab=$(git -C "$d" rev-list --left-right --count "origin/$base...HEAD" 2>/dev/null | awk '{print "behind "$1", ahead "$2}')
     printf '%-5s %-10s %-28s %s\n' "$(basename "$f")" "$(basename "$d")" "$ab" "$(git -C "$d" rev-parse --abbrev-ref HEAD)"
   done
-  [ -d "$lock" ] && echo "gate held by: $(cat "$lock/holder" 2>/dev/null)" || true
+  local held; held=$(gate_holders)
+  if [ -n "$held" ]; then echo "gates held (limit $gate_limit):"; echo "$held" | sed 's/^/  /'; else echo "no gate is running"; fi
 }
 
 cmd_rm() {

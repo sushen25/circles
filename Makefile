@@ -30,6 +30,17 @@ LIVE_PORT   := $(shell echo $$((8082 + 100 * $(SLOT))))
 SMOKE_PORT  := $(shell echo $$((8083 + 100 * $(SLOT))))
 APP_PORTS   := $(WEB_PORT) $(LIVE_PORT) $(SMOKE_PORT)
 
+# A slot's own temporary directory. Expo keeps Metro's cache in
+# $TMPDIR/metro-cache, its keys are the same in every checkout, and a cached
+# module carries the EXPO_PUBLIC_* values of whichever export wrote it: two
+# slots exporting at once could each serve the other's backend. parallel.sh
+# gate works out the same path; slot 0 keeps the system's.
+ifneq ($(SLOT),0)
+SYSTEM_TMP := $(patsubst %/,%,$(or $(TMPDIR),/tmp))
+export TMPDIR := $(if $(filter %/circles-s$(SLOT),$(SYSTEM_TMP)),$(SYSTEM_TMP),$(SYSTEM_TMP)/circles-s$(SLOT))
+$(shell mkdir -p "$(TMPDIR)")
+endif
+
 DB_URL   := postgresql://postgres:postgres@127.0.0.1:$(DB_PORT)/postgres
 MAIL_URL := http://127.0.0.1:$(MAIL_PORT)
 # What a second or third stack leaves out, so it fits in Docker beside this one
@@ -58,7 +69,7 @@ help: ## List every target
 	@$(MAKE) --no-print-directory ports
 
 ports: ## Which project and ports this checkout uses
-	@echo "$(PROJECT) (slot $(SLOT)) · api $(API_PORT) · db $(DB_PORT) · mail $(MAIL_PORT) · app $(WEB_PORT) · live $(LIVE_PORT)"
+	@echo "$(PROJECT) (slot $(SLOT)) · api $(API_PORT) · db $(DB_PORT) · mail $(MAIL_PORT) · app $(WEB_PORT) · live $(LIVE_PORT) · smoke $(SMOKE_PORT)"
 
 envs: ## Every local environment running on this machine, whichever checkout started it
 	@primary=$$(dirname $$(cd "$$(git rev-parse --git-common-dir)" && pwd)); \
@@ -188,8 +199,8 @@ build: ## Build the shared packages (Edge Functions and the app read their dist)
 
 # --- Checks -------------------------------------------------------------------
 
-check: up ## Everything CI runs, in CI's order (about ten minutes)
-	MAILPIT_URL=$(MAIL_URL) $(PNPM) check
+check: up ## Everything CI runs, in CI's order (about ten minutes), on this checkout's ports
+	MAILPIT_URL=$(MAIL_URL) E2E_LIVE_PORT=$(LIVE_PORT) E2E_SMOKE_PORT=$(SMOKE_PORT) $(PNPM) check
 
 test: test-unit ## Unit tests (no stack needed)
 
