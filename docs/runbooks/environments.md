@@ -384,20 +384,29 @@ that adds a definer function or a table.
 
 Run-rate today: **US$19/month**. Set a spend cap when Supabase moves to Pro.
 
-## When the domain changes
+## If the host ever has to change
 
-It will — the holding domain is temporary. In order:
+Avoid it: once a link has reached anybody but the founder, the host is
+permanent ([ADR 0044](../decisions/0044-production-is-wenna-app-and-the-host-is-permanent-once-a-link-leaves.md)).
+If it has to happen anyway, in order:
 
-1. `brand.ts`: `domain`, `sender`, `supportEmail`.
-2. DNS on the new domain: all four records above.
-3. Resend: add and verify the new sending domain; the old one keeps working
-   until deleted, so verify before deleting.
-4. EAS Hosting: attach the new domain.
-5. Turnstile: the widget is bound to a hostname — add the new one. The
-   `expo.app` host stays on the widget too; `dev` is always reached that way.
-6. **Google OAuth: the web client must be re-created.** Authorised origins can
+1. **A redirect host for the old domain, outside EAS** (EAS serves one custom
+   domain per project). It preserves path, query and fragment, and it keeps
+   serving `/brand/*.png`, or redirects them, for every email already sent.
+   Keep it running for as long as old links matter.
+2. `brand.ts`: `domain`, `sender`, `supportEmail`.
+3. DNS on the new domain: the records above.
+4. Resend: add and verify the new sending domain. The old one keeps working
+   until it is deleted, so verify the new one before deleting.
+5. EAS Hosting: attach the new domain.
+6. Turnstile: the widget is bound to a hostname, so add the new one. The
+   `expo.app` host stays on the widget too, because `dev` is always reached
+   that way.
+7. Supabase Auth on `prod`: site URL and redirect URLs.
+8. **Google OAuth: the web client must be re-created.** Authorised origins can
    be edited, but a client that has been live on the old origin carries consent
-   grants tied to it; re-create rather than edit.
-7. Apple: update the Services ID's return URLs.
-8. `EXPO_PUBLIC_APP_ORIGIN` in the GitHub variables, both scopes.
-9. `pnpm check:env <new domain>`.
+   grants tied to it, so re-create rather than edit.
+9. Apple: update the Services ID's return URLs and the associated domain.
+10. `EXPO_PUBLIC_APP_ORIGIN` on the **`production` environment only**. The
+    repository-scope copy is `dev`'s and stays on the `expo.app` host.
+11. `pnpm check:env <new domain>`.

@@ -97,7 +97,7 @@ Free projects pause after seven days of inactivity; a pg_cron heartbeat job does
 
 ### 5.2 Domains and DNS
 
-- App and links: `circles.app` is a placeholder; the real domain is chosen with the name (branding research §10). Until then use a neutral holding domain owned by the founder; **never** ship links on `*.expo.app`.
+- App and links: **`wenna.app`**, the apex, and permanent once a link has left the founder ([ADR 0044](decisions/0044-production-is-wenna-app-and-the-host-is-permanent-once-a-link-leaves.md)). **Never** ship links on `*.expo.app`.
 - Routes reserved on the domain: `/join#<secret>` (circle invite), `/j/<code>` (plan invite short link, resolves client-side to the plan; it carries no secret, and the code itself admits new members while the plan is taking answers — [ADR 0022](decisions/0022-a-plan-link-admits-new-members-while-the-plan-is-asking.md)), `/p/<code>` (plan page, same code and same rule), `/a#<token>` (re-entry from email, single-use), `/e#<token>` (email preferences), `/v#<token>` (email verification). Every token is in the fragment, which no server receives, and the client takes it out of the address bar before the router loads ([ADR 0023](decisions/0023-emailed-tokens-travel-in-the-fragment.md)).
 - Universal links / App Links: `apple-app-site-association` and `assetlinks.json` served from the domain so that once the app is installed, chat links open in-app with the same identity (guest → app flow).
 - Email: a separate sending subdomain (`mail.<domain>`) authenticated with SPF, DKIM and DMARC (`p=quarantine` after warm-up). Transactional only.

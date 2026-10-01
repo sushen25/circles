@@ -46,6 +46,7 @@ Short records of decisions that shape the product or the code. A new ADR is requ
 | [0040](./0040-the-served-html-is-a-shell.md) | The served HTML is a neutral shell; every screen renders on the device | proposed |
 | [0041](./0041-keen-members-may-take-the-role-as-soon-as-it-opens.md) | Keen members may take the organiser role as soon as a quiet ask opens, and the quiet ask's analytics name nobody | proposed |
 | [0043](./0043-the-product-is-wenna-and-confirmations-sign-off-with-the-day.md) | The product is Wenna, the link preview says what the brand doc says, and a confirmation signs off with the day | proposed |
+| [0044](./0044-production-is-wenna-app-and-the-host-is-permanent-once-a-link-leaves.md) | Production is `wenna.app`, and the host is permanent once a link leaves the founder | proposed |
 
 ## Template
 
