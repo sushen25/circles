@@ -14,6 +14,6 @@ Deploy the web build of the Expo app to EAS Hosting on the Starter plan under a 
 - **No dynamic previews** — loses the first brand moment in the chat and the review's evidence that previews matter for tap-through.
 
 ## Consequences
-- US$19/month from Slice 1. The holding domain will be replaced before the external cohort; Google sign-in on web must be re-verified for the new origin.
+- US$19/month from Slice 1. The holding domain will be replaced before the external cohort; Google sign-in on web must be re-verified for the new origin. _Since replaced: production is `wenna.app` ([ADR 0044](./0044-production-is-wenna-app-and-the-host-is-permanent-once-a-link-leaves.md))._
 - Native builds must set `origin` in `app.config.ts` so relative fetches to the OG route resolve; the app itself never calls that route.
 - The OG route must never read anything but a circle's name via a rate-limited definer function keyed by short code.

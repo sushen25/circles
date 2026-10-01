@@ -47,9 +47,9 @@ which closes the question ADR 0007 left open: the shared domain package really
 does load and run inside Deno, not only in the client and the test suites.
 
 **`prod` is deployed** as of 15 September 2026: migrations `0001`–`0015`, all
-Edge Functions, and the web build on `meet.sushensatturu.com` with a Google
-Trust Services certificate. `pnpm check:env meet.sushensatturu.com` passes
-seven of seven.
+Edge Functions, and the web build on the custom domain of the day (since
+moved to `wenna.app`, SUS-99; `pnpm check:env wenna.app` should pass seven of
+seven once its records are in).
 
 That is a deployed environment, **not a released product.** The client is still
 fixture-driven — `/join` renders a fixture and never reads the invite secret
@@ -59,7 +59,7 @@ one. So production serves a screen gallery in front of a complete backend.
 
 **That is a statement about the client, not about the system — and the
 difference matters.** The backend is live and publicly reachable. The bundle
-served from `meet.sushensatturu.com` necessarily carries
+served from the production host necessarily carries
 `EXPO_PUBLIC_SUPABASE_URL` and the publishable key, email OTP is enabled, and
 `disable_signup` is `false`. So anybody can sign up with any address, become a
 permanent identity, and call `create-circle` directly: its guard refuses only
@@ -100,63 +100,60 @@ moves to Pro the week the first non-founder circle is recruited (§5.1).
 
 ## Domains
 
-Both environments are **subdomains of the founder's personal apex**,
-`sushensatturu.com`, which is already a Route 53 hosted zone. They are holding
-hosts (§5.2, ADR 0001) and will be replaced when the product is named — nothing
-may assume them.
+Production's host is the apex **`wenna.app`**, in its own Route 53 hosted zone
+(SUS-99). It is the product's name, not a holding host: once the first invite
+link reaches somebody who is not the founder, it is permanent, and any later
+change of host needs the old one kept answering with a redirect for as long as
+those links matter (the header of
+[`brand.ts`](../../packages/config/src/brand.ts) says the same).
 
-| | Host today | Host eventually |
-|---|---|---|
-| `dev` | `sushen25s-team-circles--dev.expo.app` | unchanged — see below |
-| `prod` | `meet.sushensatturu.com` | unchanged |
+| | Host |
+|---|---|
+| `dev` | `sushen25s-team-circles--dev.expo.app`, permanently |
+| `prod` | `wenna.app` |
 
 **EAS Hosting allows one custom domain per project**, assigned to the
-production deployment, so the two environments cannot both have one. `meet`
-takes it (founder decision, 15 September 2026) and `dev` keeps the `expo.app`
-host permanently rather than temporarily. That costs nothing: §5.2 binds links
-that reach a real person, and `dev` never sends an invite.
-
-**`dev` runs without a custom domain for now** (founder decision, 8 September
-2026). EAS Hosting gives every alias a stable URL of the form
+production deployment, so the two environments cannot both have one.
+Production takes it and `dev` keeps the `expo.app` host for good. That costs
+nothing: §5.2 binds links that reach a real person, and `dev` never sends an
+invite. EAS Hosting gives every alias a stable URL of the form
 `sushen25s-team-circles--<alias>.expo.app`, which is enough for integration
 testing and per-PR previews.
 
-It is not a deferral any more, it is the arrangement (founder decision, 15
-September 2026). `dev` keeps the `expo.app` host permanently, because EAS
-Hosting allows one custom domain per project and `meet.sushensatturu.com` takes
-it.
+The apex is attached with an **A record**, not a CNAME: Route 53 cannot put a
+CNAME, or an ALIAS to a non-AWS target, at an apex, and EAS Hosting supports
+apex domains this way. `.app` is on the HSTS preload list, so nothing under it
+is ever reachable over plain HTTP.
 
-The Turnstile widget and the OAuth clients are still configured against the
-final hostname rather than the `expo.app` one, so each is created once — but
-they are configured **before** the domain is attached, not after. Both store a
-hostname as text and check no DNS when saved, so a settled name is all they
-need. The attachment itself waits on a production deployment, and
-`deploy-prod.yml` will not deploy without the Turnstile site key, so the
-reverse order is a deadlock. See
+The Turnstile widget and the OAuth clients are configured against the final
+hostname rather than the `expo.app` one, so each is created once — and
+**before** the domain is attached, not after. Both store a hostname as text and
+check no DNS when saved, so a settled name is all they need. The attachment
+itself waits on a production deployment, and `deploy-prod.yml` will not deploy
+without the Turnstile site key, so the reverse order is a deadlock. See
 [`environment-setup.md`](./environment-setup.md) steps 2 and 7.
 
 This is not a licence to ignore §5.2. That rule — **never ship links on
-`*.expo.app`** — is about links a real person receives, and it still binds
-absolutely. The boundary is sharp: the first time an invite link is sent to
-anybody who is not the founder, the custom domain has to exist first, because a
-link already sitting in a group chat cannot be recalled. `dev` never sends
-invites, so it never crosses that line.
-
-`meet` rather than the codename, on purpose: a URL is the hardest thing to take
-back, because links already sitting in a group chat keep working and keep saying
-whatever they said. `meet` describes the job, so it survives the rename.
+`*.expo.app`** — is about links a real person receives, and it binds
+absolutely. The first time an invite link is sent to anybody who is not the
+founder, the custom domain has to exist first, because a link already sitting
+in a group chat cannot be recalled. `dev` never sends invites, so it never
+crosses that line.
 
 Everything user-visible reads from
 [`packages/config/src/brand.ts`](../../packages/config/src/brand.ts) — app host,
 sender, support address. `dev` is deliberately **not** in `brand.ts`: nothing
 user-visible points at it, and it arrives through `EXPO_PUBLIC_APP_ORIGIN`.
 
-Links are **never** shipped on `*.expo.app`.
+**Emails load their images from the app origin** (SUS-98): every email's header
+is `<origin>/brand/wenna-lockup-2x.png`, and the link-preview card and favicons
+come from `apps/app/public/` too. So the app host must keep serving
+`/brand/*.png` for as long as sent emails sit in inboxes. One more reason the
+host, once real mail has gone out, does not change.
 
-**`prod` has an authenticated sending domain**, `mail.meet.sushensatturu.com`,
-verified in Resend on 15 September — so `pnpm check:env meet.sushensatturu.com`
-runs the email checks and passes them. `dev` has none and never will: it does
-not send, and `--no-email` is the right invocation there.
+**`prod` sends from `mail.wenna.app`**, a separate authenticated subdomain, and
+`pnpm check:env wenna.app` runs the email checks against it. `dev` has none and
+never will: it does not send, and `--no-email` is the right invocation there.
 
 Nothing sends *product* email yet. S1-19 brought the templates, the sender
 (`supabase/functions/_shared/email/`) and `email-provider-webhook`; S1-20's
@@ -191,7 +188,11 @@ pnpm email:preview               # every product email, rendered and delivered h
 **Product email lands there too.** `config.toml` sets `EMAIL_CAPTURE_URL` to
 Mailpit for every local stack (`[edge_runtime.secrets]`), and the sender prefers
 it to `RESEND_API_KEY` — so a local stack cannot reach Resend even with a real
-key in the shell. No hosted project sets it.
+key in the shell. **No hosted project may set it.** `circles-prod` got it on
+23 September 2026 by running `supabase secrets set` from inside the repository,
+which also sends `config.toml`'s `[edge_runtime.secrets]`; `make secret` runs
+the CLI from an empty directory so that cannot happen again
+([`environment-setup.md`](./environment-setup.md) step 9).
 
 Sign-in is a **six-digit code, not a magic link** (§10). Supabase's stock
 template sends `{{ .ConfirmationURL }}`, so the local stack would otherwise
@@ -204,24 +205,21 @@ They send links, and they will keep sending links until the email ticket lands �
 which is fine while nothing hosted signs anyone in, and a trap the moment
 something does.
 
-DNS records live **inside the existing `sushensatturu.com` hosted zone** — never
-a new zone per subdomain. Names are as typed in the Route 53 console, which
-appends the zone for you:
+DNS records live **inside the `wenna.app` hosted zone** — never a new zone per
+subdomain. Names are as typed in the Route 53 console, which appends the zone
+for you (blank is the apex):
 
 | Record | Name | Purpose |
 |---|---|---|
-| app | `meet`, `dev` | EAS Hosting; take the exact target from its dashboard |
-| SPF + bounce MX | `send.mail.meet` | **A CNAME to `send.forge.rmta.net`**, not records of its own — Resend delegates, and resolution follows it to a `v=spf1 … ~all` TXT and an MX at `feedback.forge.rmta.net`. Both answer at `send.mail.meet`, which is all `check:env` and every receiving server care about. Without the MX, Resend cannot tell a hard bounce from silence and the suppression list never fills |
-| Return path | `rsend.mail.meet` | CNAME to `rsend-apne1.forge.rmta.net`. **`rsend` is not a typo of `send`**; they are separate records and both are required |
-| DKIM (TXT) | `resend._domainkey.mail.meet` | Resend's key, on the sending domain itself — the name that has to align with the header `From` |
-| DMARC (TXT) | `_dmarc.mail.meet` | `p=none` at first, `p=quarantine` after warm-up. No `rua=`: a reporting address on a domain you do not control needs a `_report._dmarc` authorisation record there (RFC 7489 §7.1), and Gmail publishes none — see `environment-setup.md` step 5 |
+| app | *(apex)* `A`, plus `_cf-custom-hostname` TXT and `_acme-challenge` CNAME | EAS Hosting; take the exact values from its dashboard |
+| SPF + bounce MX | `send.mail` | **A CNAME to `send.forge.rmta.net`**, not records of its own — Resend delegates, and resolution follows it to a `v=spf1 … ~all` TXT and an MX at `feedback.forge.rmta.net`. Without the MX, Resend cannot tell a hard bounce from silence and the suppression list never fills |
+| Return path | `rsend.mail` | CNAME to `rsend-<region>.forge.rmta.net`. **`rsend` is not a typo of `send`**; they are separate records and both are required |
+| DKIM (TXT) | `resend._domainkey.mail` | Resend's key, on the sending domain itself — the name that has to align with the header `From` |
+| DMARC (TXT) | `_dmarc.mail` | `p=none` at first, `p=quarantine` after warm-up. `rua=` only to a reporting service that publishes the `_report._dmarc` authorisation (RFC 7489 §7.1); Gmail publishes none — see `environment-setup.md` step 5 |
+| Receiving | *(apex)* `MX` | the forwarding service's, so `hello@wenna.app` (`brand.supportEmail`, the `Reply-To` of every product email) reaches the founder's inbox |
 
-Nothing else may ever be added at `send.mail.meet` or `rsend.mail.meet`: a
-CNAME cannot coexist with another record at the same name.
-
-`support@meet.sushensatturu.com` is in `brand.ts` but **nothing receives mail
-there** — the zone has no MX for it. Arrange forwarding before any email
-carrying that address goes out, or a reply from a real person disappears.
+Nothing else may ever be added at `send.mail` or `rsend.mail`: a CNAME cannot
+coexist with another record at the same name.
 
 `.well-known/` on each app host is reserved for `apple-app-site-association` and
 `assetlinks.json` — Slice 3, but do not let anything else claim the path.
@@ -255,7 +253,7 @@ no backend, and a guard there would turn every PR red for a variable the PR did
 not change. An `expo export` with no Supabase URL builds and deploys
 perfectly happily, and every request fails in the browser.
 
-**Secret — set with `supabase secrets set`. Not the same set on both projects**,
+**Secret — set with `make secret` (never `supabase secrets set` from inside the repository; see `EMAIL_CAPTURE_URL` below). Not the same set on both projects**,
 which is the part that gets got wrong in both directions. `make secret ENV=dev
 K=NAME V=value` and `make secrets ENV=prod` (names and digests, never values)
 supply the project ref for you, so the environment is named rather than
@@ -267,6 +265,7 @@ nobody, which suits a secret nothing else has to agree with:
 | `CRON_SECRET` | **nobody — you invent it.** Its only job is that `jobs.invoke_process_scheduled_jobs()` and `_shared/internal.ts` agree on it. It cannot be read back, and S1-20 needs the same string for `circles.cron_secret` | own value | own value |
 | `INVITE_LINK_KEY` | **nobody — you invent it**: `openssl rand -base64 32`. Invite secrets are derived with it so the owner can see their link again ([ADR 0028](../decisions/0028-an-invite-secret-is-derived-so-its-owner-can-see-it-again.md)). **Optional, and quiet when missing**: links are still made, but only a reset gets the owner a link back. Changing it later makes every existing link unshowable (they keep working). Local stacks set it in `config.toml` | own value | own value |
 | `TURNSTILE_SECRET_KEY` | Cloudflare → Turnstile, pairs with the site key. **The name matters:** `_shared/turnstile.ts` reads exactly this, and skips the check when it is unset rather than failing — so a secret stored under any other name leaves web joins unverified and looks configured | the **dummy** `1x0000000000000000000000000000000AA`, pairing with the dummy site key at repository scope | the real one |
+| `EMAIL_CAPTURE_URL` | **never on a hosted project.** Local only, from `config.toml`. Set on one, it wins over `RESEND_API_KEY` and every product email goes to a catcher that is not there | never | never |
 | `RESEND_API_KEY` | Resend → API Keys | **never** — `dev` does not send | yes |
 | `HEALTH_REPORT_TO` | **you choose** — where the dispatcher's daily health summary goes. Optional: with no address the summary is a structured log line and an `audit_log` row, which is where `dev` should leave it. Counts only, never an identifier | never | yes |
 | `RESEND_WEBHOOK_SECRET` | Resend → Webhooks → the `email-provider-webhook` endpoint → signing secret (`whsec_…`). **Without it the webhook refuses every event** (fails closed), so bounces go unrecorded and the suppression list never fills | never | yes |
@@ -289,7 +288,7 @@ alter database postgres set circles.functions_url = 'https://<ref>.supabase.co/f
 alter database postgres set circles.cron_secret = '<the same value as CRON_SECRET>';
 ```
 
-`CRON_SECRET` is also set with `supabase secrets set`, because the internal
+`CRON_SECRET` is also an Edge Function secret (`make secret`), because the internal
 functions compare the bearer they receive against it — `process-scheduled-jobs`
 and `recalculate-candidates`. **A local stack sets it in `config.toml` instead,
 to the word `local`** (`[edge_runtime.secrets]`, beside `EMAIL_CAPTURE_URL`):
@@ -385,20 +384,29 @@ that adds a definer function or a table.
 
 Run-rate today: **US$19/month**. Set a spend cap when Supabase moves to Pro.
 
-## When the domain changes
+## If the host ever has to change
 
-It will — the holding domain is temporary. In order:
+Avoid it: once a link has reached anybody but the founder, the host is
+permanent ([ADR 0044](../decisions/0044-production-is-wenna-app-and-the-host-is-permanent-once-a-link-leaves.md)).
+If it has to happen anyway, in order:
 
-1. `brand.ts`: `domain`, `sender`, `supportEmail`.
-2. DNS on the new domain: all four records above.
-3. Resend: add and verify the new sending domain; the old one keeps working
-   until deleted, so verify before deleting.
-4. EAS Hosting: attach the new domain.
-5. Turnstile: the widget is bound to a hostname — add the new one. The
-   `expo.app` host stays on the widget too; `dev` is always reached that way.
-6. **Google OAuth: the web client must be re-created.** Authorised origins can
+1. **A redirect host for the old domain, outside EAS** (EAS serves one custom
+   domain per project). It preserves path, query and fragment, and it keeps
+   serving `/brand/*.png`, or redirects them, for every email already sent.
+   Keep it running for as long as old links matter.
+2. `brand.ts`: `domain`, `sender`, `supportEmail`.
+3. DNS on the new domain: the records above.
+4. Resend: add and verify the new sending domain. The old one keeps working
+   until it is deleted, so verify the new one before deleting.
+5. EAS Hosting: attach the new domain.
+6. Turnstile: the widget is bound to a hostname, so add the new one. The
+   `expo.app` host stays on the widget too, because `dev` is always reached
+   that way.
+7. Supabase Auth on `prod`: site URL and redirect URLs.
+8. **Google OAuth: the web client must be re-created.** Authorised origins can
    be edited, but a client that has been live on the old origin carries consent
-   grants tied to it; re-create rather than edit.
-7. Apple: update the Services ID's return URLs.
-8. `EXPO_PUBLIC_APP_ORIGIN` in the GitHub variables, both scopes.
-9. `pnpm check:env <new domain>`.
+   grants tied to it, so re-create rather than edit.
+9. Apple: update the Services ID's return URLs and the associated domain.
+10. `EXPO_PUBLIC_APP_ORIGIN` on the **`production` environment only**. The
+    repository-scope copy is `dev`'s and stays on the `expo.app` host.
+11. `pnpm check:env <new domain>`.

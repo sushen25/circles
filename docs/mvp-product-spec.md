@@ -187,7 +187,7 @@ Returning users land on the same Welcome; Apple and Google resolve to the existi
 - An invitee reaches a submitted answer with zero account, permission or install prompts, **from the circle's invite link or from a plan link**; the email offer and every later prompt dismiss in one tap.
 - A guest who returns with no session can reattach in one tap; the owner can see it happened; the reattach rate is instrumented.
 - Organising from the web is gated on a saved place; responding is not.
-- Google sign-in on web is configured per origin; the holding domain will be replaced before the external cohort, so re-verification is planned for.
+- Google sign-in on web is configured per origin, against `wenna.app` (ADR 0044). Apple and Google sign-in are deferred past the founder cohort (SUS-77).
 
 ### 5.2 Persistent private circles
 
@@ -619,7 +619,7 @@ Start with Slice 1 and put it in one real group chat as quickly as possible. The
 
 ## 21. Open items
 
-- Final product name and domain (branding validation); the holding domain will be replaced before the external cohort.
+- ~~Final product name and domain~~: closed. The product is Wenna (ADR 0043) on `wenna.app` (ADR 0044).
 - Interview findings that may change default windows, deadlines and quorum.
 - Whether "Tom volunteered to pick the time" on the started-quietly screen should stay named or become anonymous until confirmation (currently named; the organiser role is public by design).
 
