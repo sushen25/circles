@@ -498,6 +498,36 @@ export type Database = {
           },
         ]
       }
+      plan_days: {
+        Row: {
+          day: string
+          plan_id: string
+        }
+        Insert: {
+          day: string
+          plan_id: string
+        }
+        Update: {
+          day?: string
+          plan_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_days_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plan_interest_counts"
+            referencedColumns: ["plan_id"]
+          },
+          {
+            foreignKeyName: "plan_days_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       plan_participants: {
         Row: {
           joined_at: string
@@ -1034,6 +1064,7 @@ export type Database = {
           p_circle_id: string
           p_daily_end_local: number
           p_daily_start_local: number
+          p_days?: string[]
           p_duration_minutes: number
           p_quorum: number
           p_required_member_ids?: string[]
@@ -1357,6 +1388,7 @@ export type Database = {
       my_turn_to_plan: { Args: { p_circle_id: string }; Returns: boolean }
       others_availability: { Args: { p_plan_id: string }; Returns: Json }
       own_email_hint: { Args: never; Returns: string }
+      picked_days: { Args: { p_plan_id: string }; Returns: string[] }
       plan_candidate_summary: { Args: { p_plan_id: string }; Returns: Json }
       plan_last_possible_start: {
         Args: {
@@ -1531,6 +1563,7 @@ export type Database = {
       }
       revise_plan: {
         Args: {
+          p_days?: string[]
           p_expected_version?: string
           p_payload?: Json
           p_plan_id: string

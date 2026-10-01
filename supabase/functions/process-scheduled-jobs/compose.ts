@@ -215,6 +215,8 @@ export async function inputFor(
         ...toSubscriber,
         windowStart: plan.window.start,
         windowEnd: plan.window.end,
+        // The days, when it has gaps, so the letter names only those (ADR 00ZZ).
+        ...(plan.window.days === undefined ? {} : { days: plan.window.days }),
         dailyStartMin: plan.daily.startMin,
         dailyEndMin: plan.daily.endMin,
       };

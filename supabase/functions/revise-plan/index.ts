@@ -1,22 +1,27 @@
 import { DurationMinutes, RevisePlanRequest, RevisePlanResponse } from '@circles/contracts';
 import {
   MAX_WINDOW_DAYS,
+  askedDays,
   invalidatedResponses,
   invalidatingChanges,
   isDeadlineAllowed,
   isTerminal,
   isViableBand,
   lastPossibleStart,
+  sameDays,
   transitionsFrom,
   validateBand,
-  windowDays,
+  windowError,
+  windowFromDays,
+  type DateWindow,
+  type LocalDate,
   type PlanState,
   type UserId,
 } from '@circles/domain';
 
 import { recalculateAfterWriting } from '../_shared/engine.ts';
 import { jsonHandler } from '../_shared/http.ts';
-import { now, toInstant, toLocalDate, toZone } from '../_shared/moment.ts';
+import { now, toInstant, toLocalDate, toZone, windowOfRow } from '../_shared/moment.ts';
 import { Refusal } from '../_shared/problem.ts';
 import type { Db } from '../_shared/db.ts';
 
@@ -73,11 +78,9 @@ Deno.serve(
         );
       }
 
+      const beforeWindow = windowOfRow(before);
       const after = {
-        window: {
-          start: toLocalDate(body.window?.start ?? before.window_start),
-          end: toLocalDate(body.window?.end ?? before.window_end),
-        },
+        window: afterWindow(beforeWindow, body.window),
         daily: {
           startMin: body.daily?.startMin ?? before.daily_start_local,
           endMin: body.daily?.endMin ?? before.daily_end_local,
@@ -90,10 +93,7 @@ Deno.serve(
       };
 
       const beforeTiming = {
-        window: {
-          start: toLocalDate(before.window_start),
-          end: toLocalDate(before.window_end),
-        },
+        window: beforeWindow,
         daily: { startMin: before.daily_start_local, endMin: before.daily_end_local },
         durationMinutes: DurationMinutes.parse(before.duration_minutes),
         zone: after.zone,
@@ -108,7 +108,15 @@ Deno.serve(
       // What an edit would actually change, decided once and used three times:
       // whether the deadline has to be live, what goes in the payload, and who
       // gets asked again.
-      const changes = invalidatingChanges(beforeTiming, after);
+      //
+      // The days are the one change whose cost depends on the answers (ADR
+      // 00ZZ): taking away days nobody picked keeps every answer, so which
+      // days somebody picked is asked first — of `picked_days`, the function
+      // `revise_plan` decides from under the plan's lock. Only when the days
+      // move, so an edit that leaves them alone costs no round trip.
+      const daysMoved = !sameDays(beforeWindow, after.window);
+      const picked = daysMoved && !body.reopen ? await pickedDays(caller, body.plan_id) : undefined;
+      const changes = invalidatingChanges(beforeTiming, after, picked);
       const invalidating = changes.length > 0 || body.reopen;
 
       const changedQuorum = body.quorum === before.quorum ? undefined : body.quorum;
@@ -128,11 +136,15 @@ Deno.serve(
       if (!isViableBand(after.daily, after.durationMinutes)) {
         throw new Refusal('band_shorter_than_meetup', 'That is longer than the evening allows.');
       }
-      if (after.window.end < after.window.start) {
+      const badWindow = windowError(after.window);
+      if (badWindow === 'window_backwards') {
         throw new Refusal('window_backwards', 'That window ends before it starts.');
       }
-      if (windowDays(after.window) > MAX_WINDOW_DAYS) {
+      if (badWindow === 'window_too_long') {
         throw new Refusal('window_too_long', `A window covers at most ${MAX_WINDOW_DAYS} days.`);
+      }
+      if (badWindow === 'days_invalid') {
+        throw new Refusal('days_invalid', 'Those days do not make a window.');
       }
 
       // "Never after the last possible start" (spec §5.3), and never already
@@ -192,7 +204,24 @@ Deno.serve(
       // Parsed on the way out, like every DTO here: the domain brands a `UserId`
       // one way and the contract another, and the parse is what makes the two
       // agree rather than a cast asserting that they do.
-      const answerFor = (rows: AudienceRow[], version: string): RevisePlanResponse => {
+      const answerFor = (
+        rows: AudienceRow[],
+        version: string,
+        /** What the database decided, on a save; undefined on a preview. */
+        decided?: string,
+      ): RevisePlanResponse => {
+        // A narrowing or an adjustment asks nobody again, whatever the
+        // comparison from out here thought: `revise_plan` read who had picked
+        // what under the lock, and its answer is the one that happened.
+        if (decided === 'narrow' || decided === 'adjust') {
+          return RevisePlanResponse.parse({
+            asked_again: [],
+            fresh_ask: [],
+            invalidating: [],
+            bumps_revision: false,
+            version,
+          });
+        }
         const cost = invalidatedResponses(
           beforeTiming,
           after,
@@ -204,7 +233,8 @@ Deno.serve(
           // a new revision was coming and named nobody it would cost — which is
           // the whole warning, missing for the one edit that always costs the
           // most.
-          body.reopen,
+          body.reopen || decided === 'edit',
+          picked,
         );
         return RevisePlanResponse.parse({
           asked_again: [...cost.askedAgain],
@@ -221,10 +251,15 @@ Deno.serve(
       // that re-sends the current window unchanged is not editing anything, and
       // putting it in the payload would make `revise_plan` call it an `edit` and
       // bump a revision, clearing every answer over a no-op.
+      //
+      // The days are sent whenever they move, cheap or not, and the window's
+      // ends with them when those move: `revise_plan` works out from the two
+      // which it is, and an end moving inward over a day nobody picked is as
+      // free as a gap in the middle.
       const payload: Record<string, unknown> = {};
-      if (changes.includes('window') && body.window !== undefined) {
-        payload['window_start'] = body.window.start;
-        payload['window_end'] = body.window.end;
+      if (daysMoved) {
+        if (after.window.start !== beforeWindow.start) payload['window_start'] = after.window.start;
+        if (after.window.end !== beforeWindow.end) payload['window_end'] = after.window.end;
       }
       if (changes.includes('daily') && body.daily !== undefined) {
         payload['daily_start_local'] = body.daily.startMin;
@@ -242,7 +277,12 @@ Deno.serve(
       // whoever reads the history. Refused with its own reason rather than
       // answered with a shrug, because a client that sent this has a bug in its
       // form and should hear so.
-      if (Object.keys(payload).length === 0 && changedRequired === undefined && !body.reopen) {
+      if (
+        Object.keys(payload).length === 0 &&
+        !daysMoved &&
+        changedRequired === undefined &&
+        !body.reopen
+      ) {
         throw new Refusal('nothing_to_change', 'Nothing in that is different from the plan.');
       }
 
@@ -273,6 +313,9 @@ Deno.serve(
         // Checked under the plan's lock, where "has anything moved?" can still
         // be answered truthfully. Null when the client did not preview.
         p_expected_version: body.expected_version ?? null,
+        // Every day the plan will ask about, in order; `revise_plan` stores
+        // them as rows only when there are gaps.
+        ...(daysMoved ? { p_days: askedDays(after.window) } : {}),
       });
       if (error !== null) throw error;
 
@@ -293,9 +336,10 @@ Deno.serve(
         plan: { revision: number };
         audience: AudienceRow[];
         version: string;
+        action: string;
       };
       return {
-        ...answerFor(result.audience ?? [], result.version),
+        ...answerFor(result.audience ?? [], result.version, result.action),
         revision: result.plan.revision,
       };
     },
@@ -350,12 +394,41 @@ async function changedRequiredMembers(
   return wanted;
 }
 
+/**
+ * The window an edit would leave (ADR 00ZZ). A window sent with its days is
+ * those days; one sent without is every day from its start to its end — what
+ * "Try a wider window" sends, dropping the gaps on purpose; none sent is the
+ * plan's own. In the canonical form, so a list with no gap is the range.
+ */
+function afterWindow(
+  before: DateWindow,
+  sent: { start: string; end: string; days?: string[] | undefined } | undefined,
+): DateWindow {
+  if (sent === undefined) return before;
+  const start = toLocalDate(sent.start);
+  const end = toLocalDate(sent.end);
+  if (sent.days === undefined) return { start, end };
+  const window = { start, end, days: sent.days.map(toLocalDate) };
+  // Malformed is reported by `windowError` as it stands, not tidied into a
+  // window the organiser did not pick.
+  if (windowError(window) !== undefined) return window;
+  return windowFromDays(window.days) ?? window;
+}
+
+/** The days somebody's answer to the current revision has times on. */
+async function pickedDays(caller: Db, planId: string): Promise<LocalDate[]> {
+  const { data, error } = await caller.rpc('picked_days', { p_plan_id: planId });
+  if (error !== null) throw error;
+  return ((data ?? []) as string[]).map(toLocalDate);
+}
+
 async function readPlan(
   caller: Db,
   planId: string,
 ): Promise<{
   window_start: string;
   window_end: string;
+  plan_days: { day: string }[];
   daily_start_local: number;
   daily_end_local: number;
   duration_minutes: number;
@@ -369,7 +442,7 @@ async function readPlan(
   const { data, error } = await caller
     .from('plans')
     .select(
-      'window_start, window_end, daily_start_local, daily_end_local, duration_minutes, time_zone, quorum, response_deadline, revision, input_version, state',
+      'window_start, window_end, plan_days(day), daily_start_local, daily_end_local, duration_minutes, time_zone, quorum, response_deadline, revision, input_version, state',
     )
     .eq('id', planId)
     .maybeSingle();

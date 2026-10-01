@@ -49,6 +49,8 @@ type EngineInputRow = {
     time_zone: string;
     window_start: string;
     window_end: string;
+    /** The days asked about when the window has gaps; null is every day (ADR 00ZZ). */
+    days?: string[] | null;
     daily_start_local: number;
     daily_end_local: number;
     duration_minutes: number;
@@ -166,7 +168,14 @@ function engineInputOf(row: EngineInputRow): EngineInput {
   const { plan } = row;
   return {
     plan: {
-      window: { start: toLocalDate(plan.window_start), end: toLocalDate(plan.window_end) },
+      window: {
+        start: toLocalDate(plan.window_start),
+        end: toLocalDate(plan.window_end),
+        // Null is every day of the window (ADR 00ZZ); a list is the days asked.
+        ...(plan.days === null || plan.days === undefined
+          ? {}
+          : { days: plan.days.map(toLocalDate) }),
+      },
       daily: { startMin: plan.daily_start_local, endMin: plan.daily_end_local },
       zone: toZone(plan.time_zone),
       durationMinutes: plan.duration_minutes,

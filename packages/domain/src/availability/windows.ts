@@ -13,7 +13,7 @@
 
 import { type Instant } from '../shared/instant.js';
 import { type Interval, contains, intersect, interval, merge } from '../shared/interval.js';
-import { addDays } from '../shared/local-date.js';
+import { askedDays } from '../planning/days.js';
 import { ceilToLocalSlot, floorToLocalSlot, fromLocal, fromLocalEnd } from '../shared/zone.js';
 import { type Result, err, ok } from '../shared/result.js';
 import type { PlanTiming } from '../planning/types.js';
@@ -42,8 +42,9 @@ export type WindowError =
  */
 export function planDays(plan: PlanTiming): Interval[] {
   const days: Interval[] = [];
-  let date = plan.window.start;
-  while (date <= plan.window.end) {
+  // The days asked about, not every date between the ends (ADR 00ZZ): a window
+  // painted on a day the plan skips is outside it, as the database says too.
+  for (const date of askedDays(plan.window)) {
     const start = fromLocal(date, plan.daily.startMin, plan.zone);
     const end = fromLocalEnd(date, plan.daily.endMin, plan.zone);
 
@@ -54,7 +55,6 @@ export function planDays(plan: PlanTiming): Interval[] {
     // it every normalisation and predicate for the *whole* window — one
     // impossible day breaking six workable ones.
     if (end > start) days.push(interval(start, end));
-    date = addDays(date, 1);
   }
   return days;
 }

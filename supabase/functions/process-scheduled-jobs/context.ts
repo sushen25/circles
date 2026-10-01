@@ -61,6 +61,8 @@ type ConfirmationRow = {
 type ContextRow = {
   circle: Record<string, unknown>;
   plan: Record<string, unknown>;
+  /** The days the plan asks about when it has gaps; null is every day (ADR 00ZZ). */
+  days?: string[] | null;
   organiser_name: string | null;
   members: MemberRow[];
   participant_ids: string[];
@@ -126,7 +128,7 @@ export function circleOf(row: Record<string, unknown>): Circle {
   };
 }
 
-function planOf(row: Record<string, unknown>): Plan {
+function planOf(row: Record<string, unknown>, days: readonly string[] | null | undefined): Plan {
   const organiser = row['organiser_user_id'] as string | null;
   const threshold = row['quiet_threshold'] as number | null;
   const expires = row['quiet_expires_at'] as string | null;
@@ -142,6 +144,7 @@ function planOf(row: Record<string, unknown>): Plan {
     window: {
       start: localDate(row['window_start'] as string),
       end: localDate(row['window_end'] as string),
+      ...(days === null || days === undefined ? {} : { days: days.map(localDate) }),
     },
     daily: {
       startMin: row['daily_start_local'] as number,
@@ -203,7 +206,7 @@ export async function loadContext(service: Db, planId: string): Promise<PlanCont
 
   const row = data as unknown as ContextRow;
   const circle = circleOf(row.circle);
-  const plan = planOf(row.plan);
+  const plan = planOf(row.plan, row.days);
   const members = row.members.map(memberOf);
   const pushes = new Set(row.push_user_ids);
   const subscribed = new Map<string, string[]>();

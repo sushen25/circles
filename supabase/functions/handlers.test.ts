@@ -965,6 +965,18 @@ describe('revise-plan', () => {
           data: {
             plan: { revision: 2 },
             version: '1.4',
+            // What `revise_plan` would derive: a new question when the window,
+            // the band or the duration moved, or on a reopen; else an adjustment.
+            action: (() => {
+              const last = state.rpcs.filter((r) => r.fn === 'revise_plan').at(-1)?.args;
+              const payload = (last?.['p_payload'] ?? {}) as Record<string, unknown>;
+              if (last?.['p_reopen'] === true) return 'reopen';
+              return Object.keys(payload).some(
+                (k) => !['quorum', 'response_deadline'].includes(k),
+              ) || last?.['p_days'] !== undefined
+                ? 'edit'
+                : 'adjust';
+            })(),
             audience: [
               { member_user_id: '00000000-0000-4000-8000-0000000000a1', has_responded: true },
               { member_user_id: '00000000-0000-4000-8000-0000000000a2', has_responded: true },
@@ -983,7 +995,7 @@ describe('revise-plan', () => {
       post({
         idempotency_key: KEY,
         plan_id: PLAN_ID,
-        window: { start: '2099-09-17', end: '2099-09-18' },
+        window: { start: '2099-09-17', end: '2099-09-22' },
         preview: true,
       }),
     );
@@ -992,6 +1004,77 @@ describe('revise-plan', () => {
     expect(answer.asked_again).toEqual(['00000000-0000-4000-8000-0000000000a1']);
     expect(answer.bumps_revision).toBe(true);
     expect(called('revise_plan')).toHaveLength(0);
+  });
+
+  // ADR 00ZZ: what changing the days costs depends on who picked what, which
+  // `picked_days` says and `revise_plan` decides again under its lock.
+  describe('the days', () => {
+    const picking = (days: string[]): void => {
+      const before = state.answer;
+      state.answer = (fn) => (fn === 'picked_days' ? { data: days, error: null } : before(fn));
+    };
+    const withoutThe18th = {
+      start: '2099-09-17',
+      end: '2099-09-20',
+      days: ['2099-09-17', '2099-09-19', '2099-09-20'],
+    };
+
+    it('previews taking away a day nobody picked as costing nobody a reply', async () => {
+      picking(['2099-09-19']);
+      const response = await load('revise-plan')(
+        post({ idempotency_key: KEY, plan_id: PLAN_ID, window: withoutThe18th, preview: true }),
+      );
+      const answer = (await response.json()) as { asked_again: string[]; bumps_revision: boolean };
+
+      expect(answer.bumps_revision).toBe(false);
+      expect(answer.asked_again).toEqual([]);
+    });
+
+    it('previews taking away a day somebody picked as a new question', async () => {
+      picking(['2099-09-18']);
+      const response = await load('revise-plan')(
+        post({ idempotency_key: KEY, plan_id: PLAN_ID, window: withoutThe18th, preview: true }),
+      );
+      const answer = (await response.json()) as { asked_again: string[]; bumps_revision: boolean };
+
+      expect(answer.bumps_revision).toBe(true);
+      expect(answer.asked_again).toEqual(['00000000-0000-4000-8000-0000000000a1']);
+    });
+
+    it('sends every day it will ask about, and reports what the database decided', async () => {
+      picking([]);
+      const before = state.answer;
+      state.answer = (fn) =>
+        fn === 'revise_plan'
+          ? {
+              data: { plan: { revision: 1 }, version: '1.8', action: 'narrow', audience: [] },
+              error: null,
+            }
+          : before(fn);
+      const response = await load('revise-plan')(
+        post({ idempotency_key: KEY, plan_id: PLAN_ID, window: withoutThe18th }),
+      );
+      const answer = (await response.json()) as { bumps_revision: boolean; revision: number };
+
+      expect(called('revise_plan')[0]?.args['p_days']).toEqual(withoutThe18th.days);
+      // The ends did not move, so the payload says nothing about them.
+      expect(called('revise_plan')[0]?.args['p_payload']).toEqual({});
+      expect(answer.bumps_revision).toBe(false);
+      expect(answer.revision).toBe(1);
+    });
+
+    it('refuses days that do not make a window', async () => {
+      const response = await load('revise-plan')(
+        post({
+          idempotency_key: KEY,
+          plan_id: PLAN_ID,
+          window: { start: '2099-09-17', end: '2099-09-20', days: ['2099-09-20', '2099-09-17'] },
+        }),
+      );
+
+      expect(response.status).toBe(400);
+      expect(await response.json()).toMatchObject({ reason: 'days_invalid' });
+    });
   });
 
   it('costs nobody a reply when only the quorum moves', async () => {
@@ -1151,7 +1234,7 @@ describe('revise-plan', () => {
       post({
         idempotency_key: KEY,
         plan_id: PLAN_ID,
-        window: { start: '2099-09-17', end: '2099-09-18' },
+        window: { start: '2099-09-17', end: '2099-09-22' },
       }),
     );
     const answer = (await response.json()) as { asked_again: string[]; fresh_ask: string[] };
@@ -1299,7 +1382,7 @@ describe('revise-plan', () => {
       post({
         idempotency_key: KEY,
         plan_id: PLAN_ID,
-        window: { start: '2099-09-17', end: '2099-09-19' },
+        window: { start: '2099-09-17', end: '2099-09-22' },
       }),
     );
 

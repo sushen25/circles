@@ -60,12 +60,25 @@ begin
       using errcode = 'check_violation';
   end if;
 
+  -- And on a day the plan asks about (ADR 00ZZ). No rows is every day of the
+  -- window, which the test above has already settled; rows are the days, and
+  -- a window on a day between them that is not one of them is availability
+  -- for a question nobody was asked.
+  if exists (select 1 from public.plan_days d where d.plan_id = plan.id)
+    and not exists (
+      select 1 from public.plan_days d where d.plan_id = plan.id and d.day = local_start::date
+    )
+  then
+    raise exception 'window %–% is on a day the plan does not ask about', new.starts_at, new.ends_at
+      using errcode = 'check_violation';
+  end if;
+
   return new;
 end;
 $$;
 
 comment on function public.enforce_window_shape() is
-  'Half-hour aligned in the plan''s zone, inside the plan''s window and band, and attached to a `windows` response. Mirrors normaliseWindows() in packages/domain/src/availability/windows.ts.';
+  'Half-hour aligned in the plan''s zone, inside the plan''s window and band, on a day it asks about, and attached to a `windows` response. Mirrors normaliseWindows() in packages/domain/src/availability/windows.ts.';
 
 revoke all on function public.enforce_window_shape() from public;
 revoke all on function public.enforce_window_shape() from anon, authenticated;

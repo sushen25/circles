@@ -2,6 +2,7 @@ import {
   type Instant,
   type LocalDate,
   type Zone,
+  addDays,
   formatMinutesOfDay,
   formatRange,
   toLocal,
@@ -141,6 +142,34 @@ export function dateSpan(start: LocalDate, end: LocalDate): string {
   return from.month === to.month
     ? `${from.weekday} ${from.day} – ${last}`
     : `${from.weekday} ${from.day} ${from.month} – ${last}`;
+}
+
+/**
+ * A plan's days as a person writes them (ADR 00ZZ). Every day from the first
+ * to the last is `dateSpan`'s "Thu 17 – Sun 20 Sep"; with gaps, each run of
+ * days is said that way and the runs are listed — "Thu 17 – Sat 19 Sep, Tue 22
+ * Sep and Thu 24 Sep" — so the letter never claims a day the plan skips. More
+ * than three runs is a count rather than a list nobody reads to the end.
+ */
+export function daysSpan(
+  start: LocalDate,
+  end: LocalDate,
+  days?: readonly LocalDate[] | undefined,
+): string {
+  if (days === undefined || days.length === 0) return dateSpan(start, end);
+  const runs: { from: LocalDate; to: LocalDate }[] = [];
+  for (const date of days) {
+    const last = runs[runs.length - 1];
+    if (last !== undefined && addDays(last.to, 1) === date) last.to = date;
+    else runs.push({ from: date, to: date });
+  }
+  if (runs.length > 3) {
+    return `${days.length} days between ${dateSpan(start, start)} and ${dateSpan(end, end)}`;
+  }
+  const said = runs.map((run) => dateSpan(run.from, run.to));
+  return said.length === 1
+    ? (said[0] ?? '')
+    : `${said.slice(0, -1).join(', ')} and ${said[said.length - 1] ?? ''}`;
 }
 
 /** "5:30–10:30 pm": a plan's daily band, in minutes of the local day. */

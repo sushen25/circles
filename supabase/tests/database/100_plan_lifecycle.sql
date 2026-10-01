@@ -511,9 +511,12 @@ select is(
   'nor does moving the deadline'
 );
 
+-- A day added, so a new question. (Taking away days nobody picked is not one
+-- since ADR 00ZZ — `280_plan_days.sql` has that branch — so these edits all
+-- move the window outward.)
 select is(
   pg_temp.revision_of(public.revise_plan(
-     pg_temp.plan_id(), false, '{"window_end": "2099-09-19"}'::jsonb)),
+     pg_temp.plan_id(), false, '{"window_end": "2099-09-21"}'::jsonb)),
   2,
   'changing the window does: it is a different question'
 );
@@ -542,7 +545,7 @@ select is(
 select pg_temp.act_as('10000000-0000-0000-0000-000000000001');
 select is(
   pg_temp.revision_of(public.revise_plan(pg_temp.plan_id(), false,
-     '{"quorum": 4, "window_end": "2099-09-18"}'::jsonb)),
+     '{"quorum": 4, "window_end": "2099-09-22"}'::jsonb)),
   3,
   'a quorum change alongside a window change is an edit, and starts a revision'
 );
@@ -630,7 +633,7 @@ select is(
 select pg_temp.act_as('10000000-0000-0000-0000-000000000001');
 select is(
   pg_temp.revision_of(public.revise_plan(
-     pg_temp.edited_id(), false, '{"window_end": "2099-09-19"}'::jsonb)),
+     pg_temp.edited_id(), false, '{"window_end": "2099-09-21"}'::jsonb)),
   2,
   'an edit starts a revision'
 );
@@ -660,7 +663,7 @@ values (pg_temp.circle_id(), '10000000-0000-0000-0000-00000000001a', 'Nic');
 select pg_temp.act_as('10000000-0000-0000-0000-000000000001');
 select is(
   pg_temp.revision_of(public.revise_plan(
-     pg_temp.edited_id(), false, '{"window_end": "2099-09-18"}'::jsonb)),
+     pg_temp.edited_id(), false, '{"window_end": "2099-09-22"}'::jsonb)),
   3,
   'another edit, another revision'
 );
@@ -914,7 +917,7 @@ from public.plans p where p.id = pg_temp.edited_id();
 
 select pg_temp.act_as('10000000-0000-0000-0000-000000000001');
 create temporary table revised as
-select public.revise_plan(pg_temp.edited_id(), false, '{"window_end": "2099-09-20"}'::jsonb) as result;
+select public.revise_plan(pg_temp.edited_id(), false, '{"window_end": "2099-09-23"}'::jsonb) as result;
 
 select pg_temp.act_as_postgres();
 select is(
@@ -996,7 +999,7 @@ select throws_ok(
 select pg_temp.act_as_postgres();
 
 select ok(
-  not has_function_privilege('anon', 'public.revise_plan(uuid, boolean, jsonb, uuid[], text)', 'execute'),
+  not has_function_privilege('anon', 'public.revise_plan(uuid, boolean, jsonb, uuid[], text, date[])', 'execute'),
   'nor revise a plan'
 );
 

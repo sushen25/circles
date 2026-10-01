@@ -373,3 +373,44 @@ describe('isTonightWindow', () => {
     expect(isTonightWindow(saturday, MELBOURNE, THURSDAY_6PM)).toBe(false);
   });
 });
+
+describe('a custom window with gaps (ADR 00ZZ)', () => {
+  const THURSDAY_NOON = fromISO('2026-09-17T02:00:00Z');
+
+  it('keeps its days, and gets weekend hours when every day asked about is a weekend', () => {
+    const twoWeekends: DateWindow = {
+      start: localDate('2026-09-19'),
+      end: localDate('2026-09-27'),
+      days: ['2026-09-19', '2026-09-20', '2026-09-26', '2026-09-27'].map(localDate),
+    };
+    const result = resolvePreset('custom', THURSDAY_NOON, MELBOURNE, opts(TWO_HOURS, twoWeekends));
+    expect(result).toEqual({
+      window: twoWeekends,
+      daily: { startMin: 9 * 60, endMin: 22 * 60 + 30 },
+    });
+  });
+
+  it('writes a set with no gap in it as the plain range', () => {
+    const listed: DateWindow = {
+      start: localDate('2026-09-19'),
+      end: localDate('2026-09-20'),
+      days: ['2026-09-19', '2026-09-20'].map(localDate),
+    };
+    const result = resolvePreset('custom', THURSDAY_NOON, MELBOURNE, opts(TWO_HOURS, listed));
+    expect(typeof result === 'string' ? result : result.window).toEqual({
+      start: localDate('2026-09-19'),
+      end: localDate('2026-09-20'),
+    });
+  });
+
+  it('refuses days that are out of order or outside the window', () => {
+    const unsorted: DateWindow = {
+      start: localDate('2026-09-19'),
+      end: localDate('2026-09-22'),
+      days: ['2026-09-22', '2026-09-19'].map(localDate),
+    };
+    expect(resolvePreset('custom', THURSDAY_NOON, MELBOURNE, opts(TWO_HOURS, unsorted))).toBe(
+      'days_invalid',
+    );
+  });
+});

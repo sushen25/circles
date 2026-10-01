@@ -349,6 +349,8 @@ describe('guards', () => {
         .map((t) => t.from)
         .sort();
     expect(from('adjust')).toEqual(from('edit'));
+    // And `narrow` (ADR 00ZZ), which `revise_plan` derives the same way.
+    expect(from('narrow')).toEqual(from('edit'));
   });
 
   it('refuses a member who is neither', () => {

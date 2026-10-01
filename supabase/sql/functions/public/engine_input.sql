@@ -40,6 +40,12 @@ as $$
       'time_zone', p.time_zone,
       'window_start', p.window_start,
       'window_end', p.window_end,
+      -- The days asked about when the window has gaps, else null: every day
+      -- (ADR 00ZZ). The engine offers no time on a day that is not listed.
+      'days', (
+        select jsonb_agg(d.day order by d.day)
+        from public.plan_days d where d.plan_id = p.id
+      ),
       'daily_start_local', p.daily_start_local,
       'daily_end_local', p.daily_end_local,
       'duration_minutes', p.duration_minutes,

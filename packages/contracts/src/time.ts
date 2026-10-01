@@ -66,7 +66,17 @@ export type DurationMinutes = z.infer<typeof DurationMinutes>;
  * the domain enforces when it resolves the window; the shape is checked here.
  */
 export const DateWindow = z
-  .object({ start: LocalDate, end: LocalDate })
+  .object({
+    start: LocalDate,
+    end: LocalDate,
+    /**
+     * The days asked about, when the window has gaps (ADR 00ZZ): sorted,
+     * distinct, the first `start` and the last `end`. Absent means every day
+     * from `start` to `end`. The domain judges the set (`windowError`); the
+     * bound here only keeps a request finite.
+     */
+    days: z.array(LocalDate).min(1).max(31).optional(),
+  })
   .refine((w) => w.start <= w.end, 'window ends before it starts');
 export type DateWindow = z.infer<typeof DateWindow>;
 

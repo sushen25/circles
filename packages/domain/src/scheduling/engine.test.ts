@@ -632,3 +632,31 @@ describe('the set itself', () => {
     }
   });
 });
+
+describe('a plan with gaps (ADR 00ZZ)', () => {
+  const early = fromISO('2026-01-01T00:00:00Z');
+  const band = { startMin: 60, endMin: 5 * 60 }; // 01:00–05:00
+
+  it('offers no start on a day it does not ask about, across a clock change', () => {
+    // Sat 3, Sun 4 (the clocks go forward) and Tue 6 October; Mon 5 is skipped.
+    const plan = {
+      ...NEXT_FORTNIGHT,
+      window: {
+        start: localDate('2026-10-03'),
+        end: localDate('2026-10-06'),
+        days: ['2026-10-03', '2026-10-04', '2026-10-06'].map(localDate),
+      },
+      daily: band,
+      durationMinutes: 60 as const,
+    };
+    const dates = new Set(
+      enumerateCandidateStarts(plan, early).map((s) => toLocal(s, MELBOURNE).date),
+    );
+    expect([...dates]).toEqual(['2026-10-03', '2026-10-04', '2026-10-06']);
+    // The day the clocks change still has its five real starts.
+    const sunday = enumerateCandidateStarts(plan, early).filter(
+      (s) => toLocal(s, MELBOURNE).date === '2026-10-04',
+    );
+    expect(sunday).toHaveLength(5);
+  });
+});

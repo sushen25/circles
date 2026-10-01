@@ -975,7 +975,11 @@ select is(
        -- counts, and each other person's windows day by day with nobody's
        -- name or id and nothing linking their days (ADR 0045). Null for
        -- anybody who is not an active member. `260_others_availability.sql`.
-       'others_availability'
+       'others_availability',
+       -- SUS-133. Which days somebody picked, to the organiser alone: dates
+       -- only, never whose, and what decides whether taking a day away asks
+       -- people again (ADR 00ZZ). `280_plan_days.sql`.
+       'picked_days'
      )),
   '',
   'only the intended functions in public are callable by authenticated'

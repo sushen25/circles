@@ -20,6 +20,7 @@ export type PlanAction =
   | 'candidates_gone'
   | 'edit'
   | 'adjust'
+  | 'narrow'
   | 'quorum_follows'
   | 'confirm'
   | 'reopen'
@@ -233,6 +234,12 @@ export const TRANSITIONS: readonly Transition[] = [
   // is then *structural*: `planning.allowed_keys('adjust')` is quorum and
   // deadline alone, so a window cannot ride along on one.
   { from: 'collecting', action: 'adjust', to: 'collecting', guards: ['organiser'] },
+  // Taking away days nobody picked (ADR 00ZZ). It changes the question's
+  // dates, so it cannot be an `adjust` — `allowed_keys('adjust')` stays the
+  // two keys that never touch them — and it costs nobody a reply, so it cannot
+  // be an `edit`. `public.revise_plan` derives it under the plan's lock, from
+  // who has picked what, and no client can ask for it by name.
+  { from: 'collecting', action: 'narrow', to: 'collecting', guards: ['organiser'] },
   // The same write, by nobody. A plan whose quorum was never chosen follows the
   // circle as people join (ADR 0026), and the person who moves it is whoever
   // just tapped the link — not the organiser, so `adjust`'s guard would refuse
@@ -255,6 +262,10 @@ export const TRANSITIONS: readonly Transition[] = [
   // because it is not a different adjustment: it is an adjustment and then a
   // recalculation, which is exactly what a withdrawn response does.
   { from: 'ready', action: 'adjust', to: 'ready', guards: ['organiser'] },
+  // As from `collecting`. No candidate can be on a day nobody picked, so the
+  // set is not wrong; `revise_plan` recomputes it anyway, as it does after a
+  // quorum change, because its inputs moved.
+  { from: 'ready', action: 'narrow', to: 'ready', guards: ['organiser'] },
   // As from `collecting`, and it stales the set for the same reason a quorum
   // `adjust` does: `join_from_plan` follows it with `candidates_gone`.
   { from: 'ready', action: 'quorum_follows', to: 'ready', guards: [] },

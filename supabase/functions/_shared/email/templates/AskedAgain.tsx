@@ -2,7 +2,7 @@
 import type { ReactNode } from 'react';
 
 import { EN_EMAIL, type EmailCopy } from '../copy.ts';
-import { dateSpan, hoursSpan } from '../format.ts';
+import { daysSpan, hoursSpan } from '../format.ts';
 import { planInviteLink, subscriberFooter } from '../links.ts';
 import type { AskedAgainInput } from '../types.ts';
 import { Layout } from './Layout.tsx';
@@ -10,7 +10,7 @@ import { Layout } from './Layout.tsx';
 export function askedAgainCopy(input: AskedAgainInput): EmailCopy {
   return EN_EMAIL.askedAgain({
     circleName: input.circleName,
-    dates: dateSpan(input.windowStart, input.windowEnd),
+    dates: daysSpan(input.windowStart, input.windowEnd, input.days),
     hours: hoursSpan(input.dailyStartMin, input.dailyEndMin),
   });
 }

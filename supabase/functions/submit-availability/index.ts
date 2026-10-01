@@ -7,7 +7,7 @@ import { normaliseWindows, isErr } from '@circles/domain';
 
 import { recalculateAfterWriting } from '../_shared/engine.ts';
 import { jsonHandler } from '../_shared/http.ts';
-import { fromInstant, toInstant, toLocalDate, toZone } from '../_shared/moment.ts';
+import { fromInstant, toInstant, toZone, windowOfRow } from '../_shared/moment.ts';
 import { Refusal } from '../_shared/problem.ts';
 import { enforce } from '../_shared/rate.ts';
 import type { Db } from '../_shared/db.ts';
@@ -81,7 +81,9 @@ Deno.serve(
           end: toInstant(window.end),
         })),
         {
-          window: { start: toLocalDate(plan.window_start), end: toLocalDate(plan.window_end) },
+          // With its days, so a window on a day the plan skips is refused here
+          // as `enforce_window_shape` would refuse it (ADR 00ZZ).
+          window: windowOfRow(plan),
           daily: { startMin: plan.daily_start_local, endMin: plan.daily_end_local },
           // Parsed rather than asserted: `plans_duration` allows only the four
           // (spec §5.3), so a row carrying anything else is a database that has
@@ -154,6 +156,7 @@ async function readPlan(
 ): Promise<{
   window_start: string;
   window_end: string;
+  plan_days: { day: string }[];
   daily_start_local: number;
   daily_end_local: number;
   duration_minutes: number;
@@ -163,7 +166,7 @@ async function readPlan(
   const { data, error } = await caller
     .from('plans')
     .select(
-      'window_start, window_end, daily_start_local, daily_end_local, duration_minutes, time_zone, revision',
+      'window_start, window_end, plan_days(day), daily_start_local, daily_end_local, duration_minutes, time_zone, revision',
     )
     .eq('id', planId)
     .maybeSingle();

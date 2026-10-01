@@ -9,7 +9,9 @@
  */
 
 import type { UserId } from '../circles/types.js';
-import type { DailyWindow, DateWindow, PlanTiming } from './types.js';
+import type { LocalDate } from '../shared/local-date.js';
+import { askedDays, daysChange } from './days.js';
+import type { DailyWindow, PlanTiming } from './types.js';
 
 /**
  * Changes that alter *what was asked*. Quorum and deadline change what happens
@@ -17,23 +19,43 @@ import type { DailyWindow, DateWindow, PlanTiming } from './types.js';
  */
 export type InvalidatingChange = 'window' | 'daily' | 'duration';
 
-function sameWindow(a: DateWindow, b: DateWindow): boolean {
-  return a.start === b.start && a.end === b.end;
-}
-
 function sameDaily(a: DailyWindow, b: DailyWindow): boolean {
   return a.startMin === b.startMin && a.endMin === b.endMin;
 }
 
+/**
+ * What about the question changed.
+ *
+ * The days are the one change that can be free (ADR 00ZZ): taking away days
+ * that nobody picked leaves every answer meaning what it meant, so it is not a
+ * new question. `picked` is the days somebody's answer has times on, which
+ * only the server can see; without it, any change to the days counts, which
+ * is the cautious answer.
+ */
 export function invalidatingChanges(
   before: PlanTiming,
   after: PlanTiming,
+  picked?: readonly LocalDate[],
 ): readonly InvalidatingChange[] {
   const changes: InvalidatingChange[] = [];
-  if (!sameWindow(before.window, after.window)) changes.push('window');
+  const days = daysChange(before.window, after.window, picked ?? askedDays(before.window));
+  if (days === 'reask') changes.push('window');
   if (!sameDaily(before.daily, after.daily)) changes.push('daily');
   if (before.durationMinutes !== after.durationMinutes) changes.push('duration');
   return changes;
+}
+
+/**
+ * Whether an edit takes days away without asking anybody again: the window's
+ * days changed, and the change is a `narrow` (ADR 00ZZ). `revise_plan` makes it
+ * without a new revision.
+ */
+export function narrowsDays(
+  before: PlanTiming,
+  after: PlanTiming,
+  picked: readonly LocalDate[],
+): boolean {
+  return daysChange(before.window, after.window, picked) === 'narrow';
 }
 
 export type ReAskPlan = {
@@ -72,8 +94,10 @@ export function invalidatedResponses(
    * again anyway.
    */
   alsoInvalidating = false,
+  /** The days somebody picked, when the caller knows (`invalidatingChanges`). */
+  picked?: readonly LocalDate[],
 ): ReAskPlan {
-  const changes = invalidatingChanges(before, after);
+  const changes = invalidatingChanges(before, after, picked);
   const hasResponded = (id: UserId): boolean => responded.includes(id);
 
   if (changes.length === 0 && !alsoInvalidating) {

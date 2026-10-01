@@ -100,6 +100,11 @@ export type AskedAgainInput = ToSubscriber & {
   readonly kind: 'asked_again';
   readonly windowStart: LocalDate;
   readonly windowEnd: LocalDate;
+  /**
+   * The days asked about, when the window has gaps (ADR 00ZZ): the letter
+   * names those and no others. Absent is every day from start to end.
+   */
+  readonly days?: readonly LocalDate[] | undefined;
   readonly dailyStartMin: number;
   readonly dailyEndMin: number;
 };

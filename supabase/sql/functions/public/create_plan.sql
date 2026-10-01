@@ -51,7 +51,12 @@ create or replace function public.create_plan(
   p_response_deadline timestamptz,
   -- Absent means "the organiser alone", which is spec §5.3's default. An empty
   -- array is a different answer — nobody is required — and is kept as one.
-  p_required_member_ids uuid[] default null
+  p_required_member_ids uuid[] default null,
+  -- The days a custom plan asks about, when it has gaps (ADR 00ZZ): sorted,
+  -- distinct, and starting and ending on the window's ends. Null — every
+  -- preset, and a custom range with no gap — means every day of the window,
+  -- and so does a list that leaves no day out: it is stored as no rows.
+  p_days date[] default null
 )
 returns public.plans
 language plpgsql
@@ -93,6 +98,18 @@ begin
   -- written, and the plan arrives with its replies already closed.
   if p_response_deadline <= now() then
     raise exception 'deadline_out_of_range' using errcode = 'P0001';
+  end if;
+
+  -- Refused rather than tidied, as the domain refuses it (`windowError`): a
+  -- list out of order or not ending on the window's ends is a caller that
+  -- has misunderstood which days it means.
+  if p_days is not null and (
+    cardinality(p_days) = 0
+    or p_days is distinct from (select array_agg(distinct d order by d) from unnest(p_days) d)
+    or p_days[1] <> p_window_start
+    or p_days[cardinality(p_days)] <> p_window_end
+  ) then
+    raise exception 'days_invalid' using errcode = 'P0001';
   end if;
 
   -- The same alphabet as a circle's, and the same reason: a plan's code is read
@@ -139,6 +156,12 @@ begin
   -- fact, not a derivation — somebody who joins on Tuesday is not a
   -- non-responder to a question asked on Monday (0003's own comment, and
   -- spec §9 makes joining an active plan an opt-in).
+  -- Rows only for a window with gaps; `enforce_plan_days` holds that at commit.
+  if p_days is not null and cardinality(p_days) < (p_window_end - p_window_start) + 1 then
+    insert into public.plan_days (plan_id, day)
+    select created.id, d from unnest(p_days) d;
+  end if;
+
   insert into public.plan_participants (plan_id, revision, user_id)
   select created.id, created.revision, m.user_id
   from public.circle_members m
@@ -180,9 +203,9 @@ begin
 end;
 $$;
 
-comment on function public.create_plan(uuid, text, text, date, date, integer, integer, integer, integer, timestamptz, uuid[]) is
+comment on function public.create_plan(uuid, text, text, date, date, integer, integer, integer, integer, timestamptz, uuid[], date[]) is
   'Creates a named plan as a draft, addresses it to the circle''s active members, and moves it to collecting through the state machine. Defaults are resolved by the domain before it is called.';
 
-revoke all on function public.create_plan(uuid, text, text, date, date, integer, integer, integer, integer, timestamptz, uuid[]) from public;
-revoke all on function public.create_plan(uuid, text, text, date, date, integer, integer, integer, integer, timestamptz, uuid[]) from anon, authenticated;
-grant execute on function public.create_plan(uuid, text, text, date, date, integer, integer, integer, integer, timestamptz, uuid[]) to authenticated;
+revoke all on function public.create_plan(uuid, text, text, date, date, integer, integer, integer, integer, timestamptz, uuid[], date[]) from public;
+revoke all on function public.create_plan(uuid, text, text, date, date, integer, integer, integer, integer, timestamptz, uuid[], date[]) from anon, authenticated;
+grant execute on function public.create_plan(uuid, text, text, date, date, integer, integer, integer, integer, timestamptz, uuid[], date[]) to authenticated;
