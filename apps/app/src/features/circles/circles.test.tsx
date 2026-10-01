@@ -94,8 +94,10 @@ function home(overrides: Partial<CircleData.CircleHome> = {}): CircleData.Circle
   };
 }
 
-function wrap(children: ReactNode) {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+function wrap(
+  children: ReactNode,
+  client = new QueryClient({ defaultOptions: { queries: { retry: false } } }),
+) {
   return render(<QueryClientProvider client={client}>{children}</QueryClientProvider>);
 }
 
@@ -377,7 +379,7 @@ describe('circle home, for somebody whose times an edit cleared (SUS-130)', () =
   // without this an organiser told to add theirs again had nowhere to do it.
   it.each([
     ['a member', 'priya'],
-    ['the organiser, whose own edit cleared their times', 'maya'],
+    ['the organiser, whose own edit cleared theirs,', 'maya'],
   ])('takes %s from the card to the grid', async (_who, me) => {
     circleHome.mockResolvedValue(
       home({ me, isOwner: me === 'maya', activePlan: { ...RUNNING, askedAgain: true } }),
@@ -387,6 +389,23 @@ describe('circle home, for somebody whose times an edit cleared (SUS-130)', () =
     fireEvent.click(await screen.findByRole('button', { name: 'Add my times' }));
     expect(push).toHaveBeenCalledWith({ pathname: '/j/[code]', params: { code: 'pnsundaycr' } });
     expect(screen.queryByRole('button', { name: "See how it's looking" })).toBeNull();
+  });
+
+  // Review round 3: the grid's read is kept for 30 seconds, and one from before
+  // the edit would open on the answer the edit cleared. Circle home has just
+  // been told by the server that it is out of date, so it is.
+  it('does not let the grid open on an answer read before the edit', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const before = ['plan-to-answer', 'pnsundaycr', 'priya'];
+    client.setQueryData(before, { answer: { status: 'flexible' } });
+    circleHome.mockResolvedValue(
+      home({ me: 'priya', isOwner: false, activePlan: { ...RUNNING, askedAgain: true } }),
+    );
+    wrap(<CircleHomeFlow id={CIRCLE} />, client);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Add my times' }));
+    expect(client.getQueryState(before)?.isInvalidated).toBe(true);
+    expect(push).toHaveBeenCalledWith({ pathname: '/j/[code]', params: { code: 'pnsundaycr' } });
   });
 
   it('says nothing of the kind to somebody it did not happen to', async () => {
