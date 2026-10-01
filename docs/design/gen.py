@@ -113,6 +113,23 @@ AV_CSS = f"""
     .chevbox.open {{ background: {T['accent_soft']}; border-color: {T['accent_soft']}; }}
 """
 
+# What others have said (SUS-129, ADR 00XX): the figure on a day, the third
+# line on a block and an answer line, and the figures over an open day's half
+# hours. Only the artboards that draw counts inline it.
+OTHERS_CSS = f"""
+    .oth {{ display: flex; align-items: flex-start; gap: 8px; font-size: 13px; line-height: 1.45; color: {T['ink2']}; margin: 0; }}
+    .oth svg {{ flex-shrink: 0; margin-top: 2px; }}
+    .oc-on .dayb {{ height: 66px; padding: 15px 0 3px; box-sizing: border-box; }}
+    .dayb .oc {{ position: absolute; top: 4px; left: 5px; display: flex; align-items: center; gap: 2px; font-family: Figtree; font-size: 11px; font-weight: 600; line-height: 1; color: {T['ink2']}; font-variant-numeric: tabular-nums; }}
+    .dayb.has .oc {{ color: {T['accent_dark']}; }}
+    .dayb.sel .oc {{ color: #FFFFFF; }}
+    .bchip .c3 {{ display: flex; align-items: center; gap: 4px; font-size: 12px; line-height: 1.25; color: {T['ink2']}; }}
+    .bchip.on .c3 {{ color: #FFFFFF; }}
+    .cnts {{ display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 3px; margin-bottom: -6px; }}
+    .cnts span {{ font-family: Figtree; font-size: 11px; line-height: 1.2; text-align: center; color: {T['ink2']}; font-variant-numeric: tabular-nums; }}
+    .cnts span.top {{ color: {T['ink']}; font-weight: 600; }}
+"""
+
 # ---------- icons (inline SVG, stroke 1.7, 20px grid) ----------
 def ic(name, size=20, color=None):
     c = color or "currentColor"
@@ -288,7 +305,7 @@ def mini(t, icon=None, acc=False):
     i = ic(icon, 14, T["accent_dark"] if acc else T["ink2"]) if icon else ""
     return f'<div class="mini{" acc" if acc else ""}">{i}{t}</div>'
 
-def day_grid(tags=None, selected=()):
+def day_grid(tags=None, selected=(), counts=None):
     tags = tags or {}
     head = '<div class="wkhead">' + "".join(f'<span class="lbl">{d}</span>' for d in AV_DOW) + '</div>'
     cells = []
@@ -297,12 +314,16 @@ def day_grid(tags=None, selected=()):
         tag = tags.get(n, "")
         cls = "dayb sel" if sel else ("dayb has" if tag else "dayb")
         tk = f'<span class="tk">{ic("check", 12, "#FFFFFF")}</span>' if sel else ""
-        cells.append(f'<div class="{cls}">{tk}<span class="n">{n}</span><span class="tag">{tag}</span></div>')
-    return f'<div class="stack" style="gap:6px;">{head}<div class="daygrid">{"".join(cells)}</div></div>'
+        k = (counts or {}).get(n, 0)
+        oc = f'<span class="oc">{ic("people", 11)}{k}</span>' if k else ""
+        cells.append(f'<div class="{cls}">{tk}{oc}<span class="n">{n}</span><span class="tag">{tag}</span></div>')
+    grid_cls = "daygrid oc-on" if counts is not None else "daygrid"
+    return f'<div class="stack" style="gap:6px;">{head}<div class="{grid_cls}">{"".join(cells)}</div></div>'
 
-def block_chip(label, sub, on=False):
+def block_chip(label, sub, on=False, others=None):
     chk = ic("check", 16, "#FFFFFF") if on else ""
-    return f'<div class="bchip{" on" if on else ""}">{chk}<span><span class="c1">{label}</span><span class="c2">{sub}</span></span></div>'
+    c3 = f'<span class="c3">{ic("people", 12)}{others}</span>' if others else ""
+    return f'<div class="bchip{" on" if on else ""}">{chk}<span><span class="c1">{label}</span><span class="c2">{sub}</span>{c3}</span></div>'
 
 def time_panel(title_=None, chips_=(), clear=False):
     if title_ is None:
@@ -312,13 +333,17 @@ def time_panel(title_=None, chips_=(), clear=False):
         parts.append(mini("Clear these days", "x"))
     return card(*parts, gap=12, pad=16)
 
-def ans_row(day, rng, open_=False, cells=None):
+def ans_row(day, rng, open_=False, cells=None, overlap=None, peak=None, counts=None):
     rot = "rotate(-90deg)" if open_ else "rotate(90deg)"
-    line = f'<div class="between" style="min-height:44px;"><div class="stack" style="gap:3px;">{date(day, 21)}<div class="sm num" style="color:{T["ink2"]};">{rng}</div></div><div class="chevbox{" open" if open_ else ""}"><span style="display:flex;transform:{rot};">{ic("chev", 16, T["ink2"])}</span></div></div>'
+    ov = f'<p class="oth" style="font-size:12px;">{ic("people", 14, T["ink2"])}<span>{overlap}</span></p>' if overlap else ""
+    line = f'<div class="between" style="min-height:44px;"><div class="stack" style="gap:3px;">{date(day, 21)}<div class="sm num" style="color:{T["ink2"]};">{rng}</div>{ov}</div><div class="chevbox{" open" if open_ else ""}"><span style="display:flex;transform:{rot};">{ic("chev", 16, T["ink2"])}</span></div></div>'
     extra = ""
     if open_:
         cs = "".join(f'<div class="cell{" on" if on else ""}"></div>' for on in cells)
-        extra = (f'<div class="track">{cs}</div><div class="ticks"><span>5:30 pm</span><span>8 pm</span><span>10:30 pm</span></div>'
+        top_ = max(counts) if counts else 0
+        cnt = ('<div class="cnts">' + "".join(f'<span class="{"top" if k == top_ else ""}">{k or "·"}</span>' for k in counts) + '</div>') if counts else ""
+        pk = sm(peak) if peak else ""
+        extra = (f'{pk}{cnt}<div class="track">{cs}</div><div class="ticks"><span>5:30 pm</span><span>8 pm</span><span>10:30 pm</span></div>'
                  f'<div class="chips">{mini("Any time that day")}{mini("Remove day", "x")}</div>')
     return f'<div class="ans">{line}{extra}</div>'
 
@@ -326,18 +351,22 @@ def my_answer(*rows_):
     tail = f'<div style="border-top:1px solid {T["line"]};padding-top:12px;">{mini("Start over", "x")}</div>'
     return f'<div class="stack" style="gap:8px;">{lbl("My answer")}{"".join(rows_)}{tail}</div>'
 
-def availability(grid_, panel_, answer_, minh):
+def my_answer_empty():
+    return f'<div class="stack" style="gap:8px;">{lbl("My answer")}{sm("Nothing yet. Your days and times will be listed here in words.")}</div>'
+
+def availability(grid_, panel_, answer_, minh, others=None, count="3 of 14 days"):
+    line = f'<p class="oth">{ic("people", 16, T["ink2"])}<span>{others}</span></p>' if others else ""
     return shell(
-        top("Catch up · 14 Sep – 27 Sep", right='<div class="sm">3 of 14 days</div>') +
+        top("Catch up · 14 Sep – 27 Sep", right=f'<div class="sm">{count}</div>') +
         body(
             stack(dl("Times I'd actually be up for"), p("Catch-ups run about 2 hours. Replies close Tue 15 Sep, 6 pm."), gap=8),
-            stack(grid_, panel_, gap=14),
+            stack(*([line] if line else []), grid_, panel_, gap=14),
             answer_,
             between(stack(title("I'm easy"), sm("Count me in for whatever works for most people"), gap=2), '<div class="toggle"><i></i></div>'),
             notice("Your friends will only see a combined result. They won't see your calendar or a personal schedule view.", "eye-off"),
             gap=20) +
         foot(pri("Send my times"), ter("None of these dates work for me"))
-    , minh=minh, css=AV_CSS)
+    , minh=minh, css=AV_CSS + (OTHERS_CSS if others else ""))
 
 MON = ("Mon 14 Sep", "6:30–10:30 pm")
 WED = ("Wed 16 Sep", "7–9:30 pm")
@@ -356,6 +385,36 @@ S["AvailabilityPicking"] = availability(day_grid(ANSWER_TAGS, selected=(15, 17, 
 # Adjusting: Wednesday open to its half hours.
 S["AvailabilityAdjusting"] = availability(day_grid(ANSWER_TAGS), time_panel(),
     my_answer(ans_row(*MON), ans_row(*WED, open_=True, cells=[False,False,False,True,True,True,True,True,False,False]), ans_row(*THU)), 1400)
+
+# What others have said, as counts (SUS-129, ADR 00XX): Sunday Crew with five
+# of six in, peaking on Thursday 17th, 6:30–8:30 pm, where all five meet.
+OTHERS_DAYS = {15: 2, 16: 1, 17: 5, 18: 1, 19: 3, 22: 1, 23: 1, 24: 2, 25: 1}
+OTHERS_LINE = "5 of 6 have answered. The number on each day is how many of them could make it."
+THU_COUNTS = [2, 3, 5, 5, 5, 5, 3, 2, 2, 2]
+
+# Empty, with the counts on the days.
+S["AvailabilityOthers"] = availability(day_grid(counts=OTHERS_DAYS), time_panel(),
+    my_answer_empty(), 1250, others=OTHERS_LINE, count="0 of 14 days")
+
+# Days ticked: Tue, Thu and Sat, and what Evening would meet on them.
+S["AvailabilityOthersPicking"] = availability(day_grid(selected=(15, 17, 19), counts=OTHERS_DAYS),
+    time_panel("Tue 15, Thu 17, Sat 19", [block_chip("Evening", "5:30–10:30 pm", others="Up to 5 free")]),
+    my_answer_empty(), 1300, others=OTHERS_LINE, count="0 of 14 days")
+
+# An answer, with Thursday open by the half hour.
+S["AvailabilityOthersAdjusting"] = availability(day_grid({15: "Eve", 17: "Eve", 19: "Eve"}, counts=OTHERS_DAYS), time_panel(),
+    my_answer(
+        ans_row("Tue 15 Sep", "5:30–10:30 pm", overlap="Overlaps with 2 others"),
+        ans_row("Thu 17 Sep", "5:30–10:30 pm", open_=True, cells=[True] * 10, overlap="Overlaps with 5 others",
+                peak="Others free, by the half hour. The most is 5, 6:30–8:30 pm.", counts=THU_COUNTS),
+        ans_row("Sat 19 Sep", "5:30–10:30 pm", overlap="Overlaps with 3 others")),
+    1500, others=OTHERS_LINE)
+
+# The first to answer: no counts anywhere, and a line that teaches.
+S["AvailabilityOthersFirst"] = availability(day_grid(), time_panel(),
+    my_answer_empty(), 1250,
+    others="You're the first to answer. As replies come in, each day will show how many could make it.",
+    count="0 of 14 days")
 
 S["Sent"] = shell(
     top("", back=False, right=wordmark()) +
@@ -1296,7 +1355,7 @@ with open(os.path.join(out, "Main.dc.html"), "w") as f:
     f.write(S["Join"])
 os.remove(os.path.join(out, "Join.dc.html"))
 
-heights = {"CheckEmail":960, "ConfirmedGuestNudge":900, "AppSheet":900, "Availability":1250, "AvailabilityPicking":1300, "AvailabilityAdjusting":1400, "Candidates":1040, "NoQuorum":1000, "Settings":980, "CandidatesMember":1000, "AvailabilityOverlay":1120}
+heights = {"CheckEmail":960, "ConfirmedGuestNudge":900, "AppSheet":900, "Availability":1250, "AvailabilityPicking":1300, "AvailabilityAdjusting":1400, "AvailabilityOthers":1250, "AvailabilityOthersPicking":1300, "AvailabilityOthersAdjusting":1500, "AvailabilityOthersFirst":1250, "Candidates":1040, "NoQuorum":1000, "Settings":980, "CandidatesMember":1000, "AvailabilityOverlay":1120}
 def ab(file, x, y, page, w=W, h=None, title=None):
     d = {"file": file, "x": x, "y": y, "w": w, "h": h or heights.get(file.replace(".dc.html",""), H), "page": page}
     if title: d["title"] = title
@@ -1312,7 +1371,7 @@ pages = [{"id":"first","name":"0 · First time, organiser"},
          {"id":"convert","name":"5 · Guest → app"},
          {"id":"system","name":"6 · States, copy and components"}]
 
-titles = {"Main":"Join · invite landing","ContinueAs":"Continue as · returning member","Name":"Name","Availability":"Availability · partial","AvailabilityPicking":"Availability · days ticked","AvailabilityAdjusting":"Availability · adjusting a day","NoneWork":"None of these dates","Sent":"Sent · email offer","CheckEmail":"Check your email · app nudge","EmailVerified":"Email verified","EmailPrefs":"Email preferences · no sign-in","SaveAccess":"Save access · claim account","CandidatesMember":"Candidates · member view","ConfirmedGuest":"Confirmed · guest","AddToCalendar":"Add to calendar sheet","RescheduledGuest":"Rescheduled · guest","CancelledGuest":"Cancelled · guest","WasThere":"Attendance · morning after","LinkInvalid":"Invite link inactive",
+titles = {"Main":"Join · invite landing","ContinueAs":"Continue as · returning member","Name":"Name","Availability":"Availability · partial","AvailabilityPicking":"Availability · days ticked","AvailabilityAdjusting":"Availability · adjusting a day","AvailabilityOthers":"Availability · what others said","AvailabilityOthersPicking":"Availability · others, days ticked","AvailabilityOthersAdjusting":"Availability · others, adjusting a day","AvailabilityOthersFirst":"Availability · first to answer","NoneWork":"None of these dates","Sent":"Sent · email offer","CheckEmail":"Check your email · app nudge","EmailVerified":"Email verified","EmailPrefs":"Email preferences · no sign-in","SaveAccess":"Save access · claim account","CandidatesMember":"Candidates · member view","ConfirmedGuest":"Confirmed · guest","AddToCalendar":"Add to calendar sheet","RescheduledGuest":"Rescheduled · guest","CancelledGuest":"Cancelled · guest","WasThere":"Attendance · morning after","LinkInvalid":"Invite link inactive",
           "Welcome":"Welcome · sign up or log in","SignIn":"Continue with email","EnterCode":"Enter code","YourName":"Your name · after SSO","FirstCircle":"First circle","InviteCircle":"Invite the circle","CircleHomeJoining":"Circle home · people joining","FirstPlan":"First plan · defaults accepted","EmptyCirclesList":"Circles · first run","CirclesList":"Circles list","CircleHome":"Circle home · finding a time","CircleHomeConfirmed":"Circle home · locked in","CircleHomeDue":"Circle home · about time","CreateCircle":"Create circle","ChooseMode":"Choose how to start","PlanSetup":"Plan setup","CustomWindow":"Custom window","PlanShared":"Plan shared · paste to chat","Waiting":"Waiting · no options yet","Candidates":"Candidates · partial replies","DeadlinePassed":"Replies closed · no decision","EditPlan":"Edit plan · reconfirm warning","ConfirmReview":"Confirm review","ConfirmedOrg":"Confirmed · organiser","ChangeTime":"Change the time","CancelPlan":"Cancel plan","CancelledOrg":"Cancelled · organiser","NoQuorum":"No quorum","Outcome":"Did it happen?","PlanAnother":"Plan another · prefilled","Settings":"Circle settings","NotificationSettings":"Notification settings","Account":"Account","Privacy":"Privacy","Diagnostics":"Founder diagnostics",
           "SparkSetup":"Quiet ask · setup","SparkWaiting":"Quiet ask · initiator waiting","InterestPrompt":"Interest prompt · member","ThresholdRole":"Threshold reached · initiator","Volunteer":"Started quietly · keen member","SparkOpenedMember":"Started quietly · other member","SparkExpired":"Expired · initiator",
           "PushAsk":"Push permission · contextual","CalendarExplain":"Calendar · before permission","CalendarPick":"Calendar · pick calendars","AvailabilityOverlay":"Availability · calendar overlay","CalendarDenied":"Calendar · denied",
@@ -1328,7 +1387,8 @@ boards = []
 grid(["Main","ContinueAs","Name","Availability","NoneWork","Sent",
       "CheckEmail","EmailVerified","EmailPrefs","SaveAccess","CandidatesMember","ConfirmedGuest",
       "AddToCalendar","RescheduledGuest","CancelledGuest","WasThere","LinkInvalid",
-      "AvailabilityPicking","AvailabilityAdjusting"], "guest")
+      "AvailabilityPicking","AvailabilityAdjusting","AvailabilityOthers","AvailabilityOthersPicking",
+      "AvailabilityOthersAdjusting","AvailabilityOthersFirst"], "guest")
 # First run is plan-first (ADR 0026): the invite link and "people joining" are
 # still screens, reached from circle home and settings, but they are not steps.
 grid(["Welcome","SignIn","EnterCode","YourName","FirstCircle","FirstPlan",
