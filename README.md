@@ -1,9 +1,10 @@
 # Circles
 
-Codename only — nothing in code, domains or store metadata should assume the
-final name (architecture §5.4).
+The product is **Wenna** — "Plans with friends". Circles is the codename, the
+repository and the package scope; code reads the name from `brand` and never
+writes it out (architecture §5.4, ADR 0043).
 
-A small group keeps saying "we should catch up" and never does. Circles turns
+A small group keeps saying "we should catch up" and never does. Wenna turns
 one link, pasted into the group chat, into a real time in the diary: friends
 mark the times they would genuinely be up for — **no account, no app, no
 calendar access** — and the organiser confirms.

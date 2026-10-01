@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { hit, size, space } from '@circles/tokens';
 
+import { BrandMark } from './Brand';
 import { Icon } from './Icon';
 import { Title } from './Text';
 import { InvertProvider, usePalette } from './theme';
@@ -53,9 +54,11 @@ type TopBarProps = {
   onBack?: (() => void) | undefined;
   backLabel?: string | undefined;
   right?: ReactNode;
+  /** The small mark in the middle, on the screens that are home (the circles list). */
+  mark?: boolean | undefined;
 };
 
-export function TopBar({ title, onBack, backLabel = 'Go back', right }: TopBarProps) {
+export function TopBar({ title, onBack, backLabel = 'Go back', right, mark }: TopBarProps) {
   const palette = usePalette();
 
   return (
@@ -68,6 +71,7 @@ export function TopBar({ title, onBack, backLabel = 'Go back', right }: TopBarPr
         <View style={styles.topAction} />
       )}
       {title ? <Title style={{ color: palette.ink2 }}>{title}</Title> : null}
+      {!title && mark ? <BrandMark size={24} /> : null}
       <View style={[styles.topAction, styles.topRight]}>{right}</View>
     </View>
   );

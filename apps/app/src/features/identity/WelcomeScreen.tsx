@@ -1,10 +1,8 @@
-import { brand } from '@circles/config';
-
 import {
+  BrandLockup,
   Body,
   BodyText,
   Button,
-  DisplayL,
   DisplayXL,
   InlineLink,
   Screen,
@@ -54,7 +52,7 @@ export function WelcomeScreen({
     return (
       <Screen>
         <Body>
-          <DisplayL>{brand.name}</DisplayL>
+          <BrandLockup />
           <Small accessibilityLiveRegion="polite">{t('welcome', 'opening_your_circles')}</Small>
         </Body>
       </Screen>
@@ -65,7 +63,7 @@ export function WelcomeScreen({
     return (
       <Screen>
         <Body>
-          <DisplayL>{brand.name}</DisplayL>
+          <BrandLockup />
           <BodyText>
             {state === 'offline' ? t('welcome', 'youre_offline') : t('welcome', 'couldnt_load')}
           </BodyText>
@@ -78,7 +76,7 @@ export function WelcomeScreen({
   return (
     <Screen>
       <Body>
-        <DisplayL>{brand.name}</DisplayL>
+        <BrandLockup descriptor />
         <Stack>
           <DisplayXL>{t('welcome', 'make_room_for_each_other')}</DisplayXL>
           <BodyText>{t('welcome', 'find_a_time_your_friends_are_actually')}</BodyText>

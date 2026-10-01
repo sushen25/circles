@@ -1,3 +1,4 @@
+import { brand } from '@circles/config';
 import { EN_PREVIEW_TEMPLATES, ogDescription, ogTitle } from '@circles/domain';
 
 /**
@@ -154,6 +155,7 @@ export function previewCard({ circleName, target, imageUrl }: Card): string {
 <meta property="og:description" content="${escapeHtml(description)}">
 <meta property="og:image" content="${escapeHtml(imageUrl)}">
 <meta property="og:type" content="website">
+<meta property="og:site_name" content="${escapeHtml(brand.name)}">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="${escapeHtml(title)}">
 <meta name="twitter:description" content="${escapeHtml(description)}">

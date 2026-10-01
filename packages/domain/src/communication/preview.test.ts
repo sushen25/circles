@@ -10,7 +10,7 @@ describe('the link preview', () => {
       'Sunday Crew is finding a time to catch up',
     );
     expect(ogDescription(EN_PREVIEW_TEMPLATES)).toBe(
-      "Pick the times you'd actually be up for. No app needed.",
+      "Pick the times you'd be up for. About a minute, and nobody sees your calendar.",
     );
   });
 

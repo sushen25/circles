@@ -77,7 +77,7 @@ export function CirclesListScreen({
   onRetry,
   onBack,
 }: CirclesListProps) {
-  const top = <TopBar onBack={onBack} right={<AccountButton onPress={onAccount} />} />;
+  const top = <TopBar mark onBack={onBack} right={<AccountButton onPress={onAccount} />} />;
 
   if (state === 'loading') {
     return (

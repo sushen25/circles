@@ -5,7 +5,8 @@ purpose — read it every time.
 
 ## What this is
 
-**Circles** (codename; nothing may assume the final name) helps a small group
+**Wenna** (codename Circles, which stays the package scope and the in-product
+word for a group; code reads the name from `brand`, never a literal) helps a small group
 that keeps saying "we should catch up" actually meet. A member shares one link
 into their group chat; friends mark the times they would genuinely be up for,
 with no account and no app; the organiser confirms a real time.

@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import { brand } from '@circles/config';
+
 import {
   CARD_HEADERS,
   destinationFor,
@@ -36,7 +38,18 @@ describe('the link-preview card', () => {
     expect(html).toContain('A circle is finding a time to catch up');
     // Escaped, apostrophe included — the description is rendered into an
     // attribute, and everything that goes there goes through `escapeHtml`.
-    expect(html).toContain('Pick the times you&#39;d actually be up for.');
+    expect(html).toContain('Pick the times you&#39;d be up for.');
+  });
+
+  it('names the product as the site, beside the circle rather than instead of it', () => {
+    const html = previewCard({
+      circleName: 'Sunday Crew',
+      target: `${ORIGIN}/j/pnanaa`,
+      imageUrl: `${ORIGIN}/og-card.png`,
+    });
+
+    expect(html).toContain(`<meta property="og:site_name" content="${brand.name}">`);
+    expect(html).toContain(`<meta property="og:image" content="${ORIGIN}/og-card.png">`);
   });
 
   it('escapes a circle name, which is forty characters somebody chose', () => {

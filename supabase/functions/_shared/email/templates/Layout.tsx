@@ -16,8 +16,18 @@ import { EN_EMAIL, type EmailCopy } from '../copy.ts';
 import { displayFont, interfaceFont, palette } from '../theme.ts';
 
 /**
- * The frame every email shares: the wordmark on the warm ground, one white
- * card, the words, one button, and whatever footer the kind needs.
+ * The frame every email shares: the lockup on the warm ground, one white card,
+ * the words, one button, whatever footer the kind needs, and "Sent by" under
+ * the card.
+ *
+ * The lockup is a PNG on the app's own origin, at twice the size it is shown:
+ * mail clients block SVG, and a logo from a third-party host would be a
+ * tracking pixel. Its alt text is the product name, which is what the
+ * plain-text part and a client with images off show instead. The origin is the
+ * button's, because every button in every email is a link into the app.
+ *
+ * The locked-in email is `confirmed`: the confirmed screen's dark ground and
+ * the lockup's peach variant (manifesto §5.1), with the card unchanged.
  *
  * One button, always. Every notification "deep-links to a decision" (spec §5.8)
  * and an email with two calls to action has not decided which one it is for.
@@ -68,7 +78,16 @@ export type LayoutProps = {
   readonly copy: EmailCopy;
   readonly buttonUrl: string;
   readonly footer: Footer;
+  readonly variant?: 'standard' | 'confirmed' | undefined;
 };
+
+/** Shown at 140 × 40; the files are 280 × 80 (`pnpm gen:brand`). */
+const LOCKUP = { width: 140, height: 40 } as const;
+
+function lockupUrl(buttonUrl: string, confirmed: boolean): string {
+  const file = confirmed ? 'wenna-lockup-dark-2x.png' : 'wenna-lockup-2x.png';
+  return `${new URL(buttonUrl).origin}/brand/${file}`;
+}
 
 function FooterBlock({ footer }: { footer: Footer }): ReactNode {
   if (footer.kind === 'none') return null;
@@ -113,7 +132,8 @@ function FooterBlock({ footer }: { footer: Footer }): ReactNode {
   );
 }
 
-export function Layout({ copy, buttonUrl, footer }: LayoutProps): ReactNode {
+export function Layout({ copy, buttonUrl, footer, variant = 'standard' }: LayoutProps): ReactNode {
+  const confirmed = variant === 'confirmed';
   return (
     <Html lang="en">
       <Head>
@@ -121,19 +141,23 @@ export function Layout({ copy, buttonUrl, footer }: LayoutProps): ReactNode {
         <meta name="supported-color-schemes" content="light" />
       </Head>
       <Preview>{copy.preview}</Preview>
-      <Body style={{ backgroundColor: palette.ground, margin: 0 }}>
+      <Body style={{ backgroundColor: confirmed ? palette.invert : palette.ground, margin: 0 }}>
         <Container style={{ maxWidth: '480px', margin: '0 auto', padding: '24px 16px' }}>
-          <Text
+          <img
+            src={lockupUrl(buttonUrl, confirmed)}
+            width={LOCKUP.width}
+            height={LOCKUP.height}
+            alt={EN_EMAIL.footer.sender}
             style={{
+              display: 'block',
+              border: 0,
+              margin: '0 0 16px',
               fontFamily: displayFont,
               fontSize: '22px',
               lineHeight: '28px',
-              color: palette.ink,
-              margin: '0 0 16px',
+              color: confirmed ? palette.invertInk2 : palette.ink,
             }}
-          >
-            {EN_EMAIL.footer.sender}
-          </Text>
+          />
           <Section
             style={{
               backgroundColor: palette.surface,
@@ -180,6 +204,16 @@ export function Layout({ copy, buttonUrl, footer }: LayoutProps): ReactNode {
             </Button>
             <FooterBlock footer={footer} />
           </Section>
+          <Text
+            style={{
+              ...small,
+              color: confirmed ? palette.invertInk2 : palette.ink2,
+              margin: '16px 0 0',
+              textAlign: 'center',
+            }}
+          >
+            {EN_EMAIL.footer.sentBy}
+          </Text>
         </Container>
       </Body>
     </Html>
