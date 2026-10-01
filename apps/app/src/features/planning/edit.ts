@@ -8,6 +8,7 @@ import {
 } from '@circles/domain';
 
 import type { PlanDetails, Revision } from '../../data/planning';
+import { selectionOf } from './calendar';
 import { deadlineFor, latestStartOf, windowOf, type Band, type DateRange } from './form';
 import type { PlanDraft, ResolveProblem } from './form';
 
@@ -108,9 +109,14 @@ export function resolveEdit(
   let deadline = plan.responseDeadline;
   let deadlineMoved = false;
   const current = fromISO(plan.responseDeadline);
-  // A deadline stands while the window's ends do: a gap opened in the middle
-  // leaves the last possible start where it was.
-  const currentStands = !endsMoved && isDeadlineAllowed(current, fromISO(latestStart), now);
+  // A deadline stands while the window's ends do, and while days are only
+  // taken away: that is a narrowing, which costs nobody anything (ADR 00ZZ),
+  // so it does not move when replies close unless it has to — the deadline
+  // still has to come before the new last possible start (review round 2).
+  const keptDays = selectionOf(kept);
+  const onlyTaken = selectionOf(shape.window).every((day) => keptDays.includes(day));
+  const currentStands =
+    (!endsMoved || onlyTaken) && isDeadlineAllowed(current, fromISO(latestStart), now);
   if (draft.deadline !== undefined || (asksAgain && !currentStands)) {
     const next = deadlineFor(
       options.deadlinePreset ?? draft.preset,

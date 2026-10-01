@@ -96,18 +96,39 @@ function LiveAvailability({ code, step }: AvailabilityFlowProps) {
     void queryClient.invalidateQueries({ queryKey: ['plan-to-answer', code] });
   };
 
-  // Days were taken away from the same question (ADR 00ZZ): the draft the
-  // editor has just written, then the plan as it is, so the editor opens again
-  // on the days that are left with the times still on them.
+  // Days were taken away from the same question (ADR 00ZZ), and a send has
+  // just met it: fetch the plan as it is. The effect below does the rest.
   const onNarrowed = () => {
-    if (userId === undefined) return;
-    void readDraft(userId, code).then((found) => {
-      setDraft(found);
-      void queryClient.invalidateQueries({ queryKey: ['plan-to-answer', code] });
-    });
+    void queryClient.invalidateQueries({ queryKey: ['plan-to-answer', code] });
   };
 
-  if (session.isLoading || userId === undefined || draft === 'reading') {
+  // The plan's days, and the days the draft in hand was last read against. A
+  // narrowing keeps the revision, so the editor is keyed on the days too and
+  // opens again when they change — however the change arrived, by a refused
+  // send or by a refetch on focus. It must open from the draft as it is on the
+  // device *now*, which holds whatever was painted since this page first read
+  // it; so the draft is read again first, and the editor waits for it (review
+  // round 2: opened from the first read, unsent times were lost).
+  const shownDays = question.data ? daysKey(question.data.plan) : undefined;
+  const [draftDays, setDraftDays] = useState<string | undefined>();
+  // The first days seen are the ones the mount's read was for.
+  if (draftDays === undefined && shownDays !== undefined) setDraftDays(shownDays);
+  useEffect(() => {
+    if (shownDays === undefined || userId === undefined) return;
+    if (draftDays === undefined || draftDays === shownDays) return;
+    let live = true;
+    void readDraft(userId, code).then((found) => {
+      if (!live) return;
+      setRead({ for: `${userId}:${code}`, draft: found });
+      setDraftDays(shownDays);
+    });
+    return () => {
+      live = false;
+    };
+  }, [shownDays, draftDays, userId, code]);
+  const rereading = draftDays !== undefined && shownDays !== undefined && draftDays !== shownDays;
+
+  if (session.isLoading || userId === undefined || draft === 'reading' || rereading) {
     return <AvailabilityScreen state="loading" onBack={back} />;
   }
 

@@ -10,7 +10,7 @@
 -- adding one is a new question (`edit`).
 
 begin;
-select plan(40);
+select plan(42);
 
 create or replace function pg_temp.make_user(id uuid, name text)
 returns uuid language sql as $$
@@ -157,6 +157,9 @@ select throws_ok(
 select throws_ok(
   $$ select pg_temp.create_with(array['2099-09-18', '2099-09-27']::date[], '2099-09-17', '2099-09-27') $$,
   'P0001', 'days_invalid', 'days that do not start on the window''s first day are refused');
+select throws_ok(
+  $$ select pg_temp.create_with(array['2099-09-17', '2099-09-27', null]::date[], '2099-09-17', '2099-09-27') $$,
+  'P0001', 'days_invalid', 'and so is a list with a null in it, which a plain comparison would have let through');
 select pg_temp.act_as_postgres();
 
 -- The table holds the same rule for anything that writes it, at commit.
@@ -310,6 +313,11 @@ select throws_ok(
   format($$ select pg_temp.revise(%L, '{}'::jsonb, array['2099-10-16', '2099-09-17']::date[]) $$,
     (select id from gappy)),
   'P0001', 'days_invalid', 'or that are out of order');
+
+select throws_ok(
+  format($$ select pg_temp.revise(%L, '{}'::jsonb, array['2099-09-17', '2099-10-16', null]::date[]) $$,
+    (select id from gappy)),
+  'P0001', 'days_invalid', 'or that carry a null, which would have widened the plan as a narrowing');
 
 -- The commit-time check on everything above.
 select lives_ok($$ set constraints all immediate $$, 'and what was written agrees with the windows');

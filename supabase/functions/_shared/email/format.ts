@@ -10,6 +10,8 @@ import {
   weekday as isoWeekday,
 } from '@circles/domain';
 
+import { EN_DAYS } from './copy.ts';
+
 /**
  * Dates as an email writes them, in the plan's zone.
  *
@@ -159,12 +161,13 @@ export function daysSpan(
   if (days === undefined || days.length === 0) return dateSpan(start, end);
   const runs = dayRuns({ start, end, days });
   if (runs.length > 3) {
-    return `${days.length} days between ${dateSpan(start, start)} and ${dateSpan(end, end)}`;
+    return EN_DAYS.between({
+      count: days.length,
+      from: dateSpan(start, start),
+      to: dateSpan(end, end),
+    });
   }
-  const said = runs.map((run) => dateSpan(run.start, run.end));
-  return said.length === 1
-    ? (said[0] ?? '')
-    : `${said.slice(0, -1).join(', ')} and ${said[said.length - 1] ?? ''}`;
+  return EN_DAYS.list(runs.map((run) => dateSpan(run.start, run.end)));
 }
 
 /** "5:30–10:30 pm": a plan's daily band, in minutes of the local day. */

@@ -103,12 +103,7 @@ begin
   -- Refused rather than tidied, as the domain refuses it (`windowError`): a
   -- list out of order or not ending on the window's ends is a caller that
   -- has misunderstood which days it means.
-  if p_days is not null and (
-    cardinality(p_days) = 0
-    or p_days is distinct from (select array_agg(distinct d order by d) from unnest(p_days) d)
-    or p_days[1] <> p_window_start
-    or p_days[cardinality(p_days)] <> p_window_end
-  ) then
+  if planning.days_invalid(p_days, p_window_start, p_window_end) then
     raise exception 'days_invalid' using errcode = 'P0001';
   end if;
 

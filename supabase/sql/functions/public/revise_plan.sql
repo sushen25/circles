@@ -164,12 +164,7 @@ begin
   -- spelled out as lists and compared as lists, whatever form each is stored in.
   new_start := coalesce((p_payload ->> 'window_start')::date, plan.window_start);
   new_end := coalesce((p_payload ->> 'window_end')::date, plan.window_end);
-  if p_days is not null and (
-    cardinality(p_days) = 0
-    or p_days is distinct from (select array_agg(distinct d order by d) from unnest(p_days) d)
-    or p_days[1] <> new_start
-    or p_days[cardinality(p_days)] <> new_end
-  ) then
+  if planning.days_invalid(p_days, new_start, new_end) then
     raise exception 'days_invalid' using errcode = 'P0001';
   end if;
 
@@ -262,9 +257,10 @@ begin
   end if;
 
   -- A narrowing keeps every answer, and changes what the engine is given, so
-  -- the set is recomputed as it is after a quorum change. No candidate can sit
-  -- on a day nobody picked, so the set that comes back is the same one; the
-  -- version says it was computed from the plan as it now is.
+  -- the set is recomputed as it is after a quorum change. The set can change:
+  -- an "I'm easy" answer counts on every day, so a candidate can sit on a day
+  -- nobody picked, and taking that day away takes the candidate with it. The
+  -- organiser chose that; nobody's answer changed.
   if action = 'narrow' then
     update public.plans p
     set input_version = p.input_version + 1

@@ -65,7 +65,7 @@ export type DaysError =
  * Whether a window is well formed: forwards, at most thirty days from first to
  * last (ADR 0030, which this keeps: the cap is a span), and, if it lists its
  * days, sorted, distinct, inside it and starting and ending on its ends. The
- * database refuses the same shapes (`planning.days_error`).
+ * database refuses the same shapes (`planning.days_invalid`).
  */
 export function windowError(window: DateWindow): DaysError | undefined {
   if (window.end < window.start) return 'window_backwards';
