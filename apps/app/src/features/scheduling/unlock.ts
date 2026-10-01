@@ -1,4 +1,4 @@
-import { type Instant, MAX_WINDOW_DAYS, addDays, localDate, windowDays } from '@circles/domain';
+import { type Instant, MAX_WINDOW_DAYS, localDate, widestFrom, windowDays } from '@circles/domain';
 
 import { t } from '../../copy';
 import type { PlanCandidates } from '../../data/scheduling';
@@ -96,7 +96,8 @@ export function widerWindow(data: PlanCandidates): PlanWindow | undefined {
   // plan that already spans thirty days with gaps in it can still be widened
   // by asking about the days it skipped.
   if (current >= MAX_WINDOW_DAYS && data.days === undefined) return undefined;
-  return { start: String(start), end: String(addDays(start, MAX_WINDOW_DAYS - 1)) };
+  const wider = widestFrom({ start, end: localDate(data.windowEnd) });
+  return { start: String(wider.start), end: String(wider.end) };
 }
 
 /**

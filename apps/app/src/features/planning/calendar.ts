@@ -1,6 +1,7 @@
 import {
   MAX_WINDOW_DAYS,
   addDays,
+  dayRuns,
   daysBetween,
   fromParts,
   localDate,
@@ -108,15 +109,11 @@ export function applyStroke(
   return sorted(next);
 }
 
-/** Runs of consecutive days, for saying the selection in words. */
+/** Runs of consecutive days, for saying the selection in words: the domain's `dayRuns`. */
 export function runsOf(selection: Selection): DateRange[] {
-  const runs: DateRange[] = [];
-  for (const date of selection) {
-    const last = runs[runs.length - 1];
-    if (last !== undefined && addDays(localDate(last.end), 1) === date) last.end = date;
-    else runs.push({ start: date, end: date });
-  }
-  return runs;
+  const window = windowFromDays(selection.map(localDate));
+  if (window === undefined) return [];
+  return dayRuns(window).map((run) => ({ start: run.start, end: run.end }));
 }
 
 /**

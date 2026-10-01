@@ -577,6 +577,27 @@ describe('when the server says no', () => {
     expect(dayButton('Monday', 14)).toHaveAccessibleName(/, no times yet$/);
   });
 
+  it('fetches the plan again, keeping the times, when days were taken away while it was open (ADR 00ZZ)', async () => {
+    submitAnswer.mockRejectedValueOnce(refusal('outside_plan_window'));
+    open();
+    await screen.findByText("Times I'd actually be up for");
+    // The organiser took Tuesday 15 away, which nobody had picked: the same
+    // revision, one day fewer.
+    const days = Array.from({ length: 14 }, (_, i) => `2099-09-${String(14 + i).padStart(2, '0')}`);
+    planToAnswer.mockResolvedValue({
+      plan: { ...PLAN, days: days.filter((day) => day !== '2099-09-15') },
+      answer: null,
+    });
+
+    answerMonday();
+    await send();
+
+    await waitFor(() => expect(screen.queryByRole('button', { name: /^Tuesday\D*15/ })).toBeNull());
+    expect(screen.queryByText(/The plan changed/)).toBeNull();
+    // Monday's evening, painted before the send, is still there to send again.
+    expect(dayButton('Monday', 14)).toHaveAccessibleName(/, 5:30–10:30 pm$/);
+  });
+
   it('says replies have closed when they have', async () => {
     submitAnswer.mockRejectedValueOnce(refusal('replies_closed'));
     open();

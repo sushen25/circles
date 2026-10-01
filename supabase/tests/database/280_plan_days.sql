@@ -212,7 +212,8 @@ select pg_temp.act_as('00000000-0000-0000-0000-0000000028a2');
 select throws_ok(
   format($$ select public.replace_response(%L, 1, 'windows', jsonb_build_array(%L::jsonb)) $$,
     (select id from gappy), pg_temp.win('2099-09-21', 1110, 1290)),
-  '23514', null, 'a window painted on a day the plan does not ask about is refused');
+  '23514', 'outside_plan_window',
+  'a window painted on a day the plan does not ask about is refused, by the name the editor knows');
 select lives_ok(
   format($$ select public.replace_response(%L, 1, 'windows', jsonb_build_array(%L::jsonb)) $$,
     (select id from gappy), pg_temp.win('2099-09-22', 1110, 1290)),

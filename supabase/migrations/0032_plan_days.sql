@@ -707,13 +707,18 @@ begin
   -- window, which the test above has already settled; rows are the days, and
   -- a window on a day between them that is not one of them is availability
   -- for a question nobody was asked.
+  --
+  -- Raised by the name `submit-availability` already answers with, and no
+  -- times in the text: an organiser can take a day away between that
+  -- function's own check and this insert, and the person should hear the
+  -- refusal their editor knows what to do with (it fetches the plan again),
+  -- not an error nobody can read.
   if exists (select 1 from public.plan_days d where d.plan_id = plan.id)
     and not exists (
       select 1 from public.plan_days d where d.plan_id = plan.id and d.day = local_start::date
     )
   then
-    raise exception 'window %–% is on a day the plan does not ask about', new.starts_at, new.ends_at
-      using errcode = 'check_violation';
+    raise exception 'outside_plan_window' using errcode = 'check_violation';
   end if;
 
   return new;

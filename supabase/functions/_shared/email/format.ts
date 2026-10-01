@@ -2,7 +2,7 @@ import {
   type Instant,
   type LocalDate,
   type Zone,
-  addDays,
+  dayRuns,
   formatMinutesOfDay,
   formatRange,
   toLocal,
@@ -157,16 +157,11 @@ export function daysSpan(
   days?: readonly LocalDate[] | undefined,
 ): string {
   if (days === undefined || days.length === 0) return dateSpan(start, end);
-  const runs: { from: LocalDate; to: LocalDate }[] = [];
-  for (const date of days) {
-    const last = runs[runs.length - 1];
-    if (last !== undefined && addDays(last.to, 1) === date) last.to = date;
-    else runs.push({ from: date, to: date });
-  }
+  const runs = dayRuns({ start, end, days });
   if (runs.length > 3) {
     return `${days.length} days between ${dateSpan(start, start)} and ${dateSpan(end, end)}`;
   }
-  const said = runs.map((run) => dateSpan(run.from, run.to));
+  const said = runs.map((run) => dateSpan(run.start, run.end));
   return said.length === 1
     ? (said[0] ?? '')
     : `${said.slice(0, -1).join(', ')} and ${said[said.length - 1] ?? ''}`;

@@ -70,6 +70,7 @@ export type SendAnswerOptions = {
   /** The draft the editor opened from, when it did. */
   draft: Draft | undefined;
   onStale: () => void;
+  onNarrowed?: (() => void) | undefined;
 };
 
 export function useSendAnswer({
@@ -81,6 +82,7 @@ export function useSendAnswer({
   timing,
   draft,
   onStale,
+  onNarrowed,
 }: SendAnswerOptions) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -203,6 +205,26 @@ export function useSendAnswer({
           setPhase({ kind: 'editing' });
           onStale();
           return;
+        case 'outside_plan_window':
+          // Days were taken away while this was open (ADR 00ZZ): a narrowing
+          // keeps the revision, so it is not `stale_revision`, and the answer
+          // is still good on every day that is left. The draft keeps the times
+          // and loses the send, so nothing goes again until the person says;
+          // the plan as it is now makes the editor a new one, opened from that
+          // draft, and the times on the days that went go with them.
+          pending.current = undefined;
+          if (userId !== undefined) {
+            await writeDraft(userId, code, {
+              plan,
+              windows: windowsOf(state, rows, timing),
+              flexible: state.flexible,
+            });
+          }
+          setPhase({ kind: 'editing' });
+          if (onNarrowed === undefined) {
+            void queryClient.invalidateQueries({ queryKey: ['plan-to-answer', code] });
+          } else onNarrowed();
+          return;
         case 'replies_closed':
           pending.current = undefined;
           await clearDraft(userId, code);
@@ -238,7 +260,7 @@ export function useSendAnswer({
       }
       setPhase({ kind: 'error', status, reference });
     },
-    [state, rows, timing, userId, code, plan, router, queryClient, onStale],
+    [state, rows, timing, userId, code, plan, router, queryClient, onStale, onNarrowed],
   );
 
   const waiting = phase.kind === 'offline' ? phase.status : undefined;
