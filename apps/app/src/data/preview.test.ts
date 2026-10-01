@@ -167,6 +167,9 @@ function manifestFor(appEnv: string, appOrigin: string): string {
   });
 }
 
+/** Production's custom domain. */
+const HOME = `https://${brand.domain}`;
+
 /** The host EAS Hosting hands the server, whatever the person pasted. */
 const DEPLOYMENT = new URL('https://sushen25s-team-circles--f0pgx8lb1j.expo.app/j/abc234');
 
@@ -199,14 +202,14 @@ describe('originOf', () => {
   it('names the production origin on a request that arrived on the deployment host', () => {
     // SUS-128, as production served it: the server had no run-time variable,
     // so the card's image and refresh named `…--f0pgx8lb1j.expo.app`.
-    const production = exportedConfig(manifestFor('production', 'https://wenna.app'));
+    const production = exportedConfig(manifestFor('production', HOME));
     withRuntimeEnv({ EXPO_PUBLIC_APP_ORIGIN: undefined }, () => {
-      expect(originOf(DEPLOYMENT, production)).toBe('https://wenna.app');
+      expect(originOf(DEPLOYMENT, production)).toBe(HOME);
     });
   });
 
   it('builds a production card on the production origin, image and refresh both', () => {
-    const production = exportedConfig(manifestFor('production', 'https://wenna.app'));
+    const production = exportedConfig(manifestFor('production', HOME));
     withRuntimeEnv({ EXPO_PUBLIC_APP_ORIGIN: undefined }, () => {
       const origin = originOf(DEPLOYMENT, production);
       const html = previewCard({
@@ -214,8 +217,8 @@ describe('originOf', () => {
         target: destinationFor(origin, 'j', 'abc234'),
         imageUrl: `${origin}/og-card.png`,
       });
-      expect(html).toContain('<meta property="og:image" content="https://wenna.app/og-card.png">');
-      expect(html).toContain('content="0; url=https://wenna.app/j/abc234"');
+      expect(html).toContain(`<meta property="og:image" content="${HOME}/og-card.png">`);
+      expect(html).toContain(`content="0; url=${HOME}/j/abc234"`);
       expect(html).not.toContain('expo.app');
     });
   });
@@ -261,7 +264,7 @@ describe('the name lookup', () => {
     // production card said "A circle" instead of the circle's name.
     const fetchMock = vi.fn(async () => new Response(JSON.stringify('Sunday Crew')));
     vi.stubGlobal('fetch', fetchMock);
-    const production = exportedConfig(manifestFor('production', 'https://wenna.app'));
+    const production = exportedConfig(manifestFor('production', HOME));
     const previous = {
       url: process.env.EXPO_PUBLIC_SUPABASE_URL,
       key: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,

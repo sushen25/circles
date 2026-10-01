@@ -6,6 +6,8 @@ import { exportedConfig, resolveOrigin, resolveSupabase } from './preview-origin
 
 const DEPLOYMENT = 'https://x--abc.expo.app';
 const PRODUCTION_HOME = `https://${brand.domain}`;
+/** Not the brand domain, so a test can tell "configured" from "fell back". */
+const CONFIGURED = 'https://configured.test';
 
 function production(appOrigin: unknown) {
   return exportedConfig(JSON.stringify({ extra: { appEnv: 'production', appOrigin } }));
@@ -18,7 +20,7 @@ describe('exportedConfig', () => {
         name: brand.name,
         extra: {
           appEnv: 'production',
-          appOrigin: 'https://wenna.app',
+          appOrigin: CONFIGURED,
           supabaseUrl: 'https://backend.test',
           supabaseAnonKey: 'public-key',
         },
@@ -26,7 +28,7 @@ describe('exportedConfig', () => {
     );
     expect(config).toEqual({
       appEnv: 'production',
-      appOrigin: 'https://wenna.app',
+      appOrigin: CONFIGURED,
       supabaseUrl: 'https://backend.test',
       supabaseAnonKey: 'public-key',
     });
@@ -47,28 +49,22 @@ describe('exportedConfig', () => {
 
 describe('resolveOrigin in a production build', () => {
   it('uses the exported origin, whatever host the request came in on', () => {
-    expect(resolveOrigin(DEPLOYMENT, undefined, production('https://wenna.app'))).toBe(
-      'https://wenna.app',
-    );
+    expect(resolveOrigin(DEPLOYMENT, undefined, production(CONFIGURED))).toBe(CONFIGURED);
   });
 
   it('ignores a run-time variable, which EAS Hosting does not reliably have', () => {
-    expect(resolveOrigin(DEPLOYMENT, DEPLOYMENT, production('https://wenna.app'))).toBe(
-      'https://wenna.app',
-    );
+    expect(resolveOrigin(DEPLOYMENT, DEPLOYMENT, production(CONFIGURED))).toBe(CONFIGURED);
   });
 
   it('drops a trailing slash, so a card never has `//og-card.png`', () => {
-    expect(resolveOrigin(DEPLOYMENT, undefined, production('https://wenna.app/'))).toBe(
-      'https://wenna.app',
-    );
+    expect(resolveOrigin(DEPLOYMENT, undefined, production(`${CONFIGURED}/`))).toBe(CONFIGURED);
   });
 
   it.each([
     ['missing', undefined],
     ['empty', ''],
-    ['not a URL', 'wenna.app'],
-    ['not https', 'http://wenna.app'],
+    ['not a URL', brand.domain],
+    ['not https', `http://${brand.domain}`],
     ['the vendor host (§5.2)', 'https://sushen25s-team-circles.expo.app'],
     ['a deployment host (§5.2)', DEPLOYMENT],
   ])('falls back to the brand domain when the exported origin is %s', (_, appOrigin) => {

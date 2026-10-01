@@ -12,7 +12,7 @@ import { brand } from '@circles/config';
  * `--environment` is passed. The deploy workflows set the variables in the
  * shell, which is neither, so production served cards whose `og:image` and
  * refresh named the request's own host — the per-deployment `*.expo.app` one,
- * never `wenna.app` (architecture §5.2) — and every card said "A circle",
+ * never the custom domain (architecture §5.2) — and every card said "A circle",
  * because the name lookup had no Supabase URL either.
  *
  * What the server bundle *does* carry is the app config: babel-preset-expo
@@ -88,7 +88,7 @@ function productionOrigin(configured: string | null): string {
  *
  * - **Production** trusts the export and nothing about the request: on EAS
  *   Hosting the request URL is the deployment's own `*.expo.app` host even
- *   when the person pasted `wenna.app`.
+ *   when the person pasted a link on the custom domain.
  * - **Everything else** — `dev`, per-PR previews, local — is served on its own
  *   host by design, so it keeps what it always did: the run-time variable if
  *   there is one, and the request's own origin otherwise. A preview's card
