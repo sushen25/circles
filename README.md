@@ -63,7 +63,7 @@ Native has caveats worth reading before you start:
 | ----- | ------------------- | -------------------------------------- | --------------------- |
 | local | CLI stack in Docker | `pnpm dev:web`                         | development build     |
 | dev   | `circles-dev`       | `sushen25s-team-circles--dev.expo.app` | `development` channel |
-| prod  | `circles-prod`      | `meet.sushensatturu.com`               | `production` channel  |
+| prod  | `circles-prod`      | `wenna.app`                            | `production` channel  |
 
 A merge to `main` pushes migrations, deploys the Edge Functions and the web
 build to `dev`, and publishes an update to the `development` channel. `prod` is

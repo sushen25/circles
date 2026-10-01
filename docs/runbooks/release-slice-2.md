@@ -38,6 +38,10 @@ until these are Done:
   (below). Waive this only knowingly, and write down that you did in
   `cohort-1.md`.
 
+- **SUS-99, production on `wenna.app`.** The host every link carries is
+  permanent once a link leaves the founder, so the domain moves before the
+  first group is invited, not after.
+
 Also due before any real inbox gets mail: **SUS-81**, the emailed tokens in URL
 paths, which hosting logs keep. Slice 2 adds no new token, but it adds letters
 that carry the existing ones.
@@ -103,6 +107,11 @@ SUS-48 sets up:
 - `HEALTH_REPORT_TO` set on prod. It is the only thing that will tell you a
   quiet or cadence job is failing.
 - `RESEND_API_KEY` and `RESEND_WEBHOOK_SECRET` (SUS-84).
+- **No `EMAIL_CAPTURE_URL`, and a `CRON_SECRET` that is not `local`.** Run
+  `make secrets ENV=prod`. As of 28 September both were wrong on prod, put there
+  by `supabase secrets set` run from inside the repository
+  ([`environment-setup.md`](./environment-setup.md) step 9). With
+  `EMAIL_CAPTURE_URL` present, every product email fails to send.
 
 ## Before the deploy
 
@@ -222,7 +231,7 @@ If SUS-48 has not already done these, they are due here:
 - The `production` GitHub environment exists, with its own `EXPO_PUBLIC_*`
   variables pointing at `circles-prod` and a required reviewer. Without it a
   prod deploy quietly takes the repository's `dev` values.
-- `pnpm check:env meet.sushensatturu.com` is six for six.
+- `pnpm check:env wenna.app` is seven for seven (SUS-99 moves production there).
 - `curl -s https://<domain>/p/<code>` contains `Getting things ready` (ADR 0040).
 - The security-advisor table in `environments.md` is stale (SUS-48's comment
   of 15 September). Slice 2 adds definer functions and `private` tables, so
