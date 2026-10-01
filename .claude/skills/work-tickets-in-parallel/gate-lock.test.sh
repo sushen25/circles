@@ -74,7 +74,11 @@ reset
 hold ticket-gate.1 "$(live) /wt/alive"
 hold ticket-gate.2 "garbage"
 gate_clear_dead >/dev/null
-expect "a live holder and an unreadable one are kept" "$(gate_taken)" 2
+expect "a live holder and a fresh lock with no pid yet are kept" "$(gate_taken)" 2
+touch -t 202601010000 "$gate_dir/ticket-gate.2"
+mkdir "$gate_dir/ticket-gate.3"; touch -t 202601010000 "$gate_dir/ticket-gate.3"
+expect "a lock with no pid for over a minute is cleared, holder file or not" "$(gate_clear_dead | wc -l | tr -d ' ')" 2
+expect "and the live one is still there" "$(gate_holders | cut -d' ' -f1)" ticket-gate.1
 
 reset
 gate_self="$$ /wt/me"

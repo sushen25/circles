@@ -3,7 +3,8 @@
 # A counting semaphore made of lock directories in the shared .git, one per
 # place: ticket-gate.1 .. ticket-gate.<limit>. mkdir is the atomic step, a
 # `holder` file inside says "<pid> <worktree>", and a directory whose pid is
-# dead is cleared by the next gate that looks. A live holder is never removed.
+# dead, or that has had no pid in it for a minute, is cleared by the next gate
+# that looks. A live holder is never removed.
 #
 # ticket-gate.lock is the single lock a gate on the script before SUS-134 holds.
 # During a switch-over some worktrees still run that script, and it knows
@@ -40,6 +41,12 @@ gate_clear_dead() {
     # already hold a new lock of the same name.
     if [[ "$pid" =~ ^[0-9]+$ ]] && ! kill -0 "$pid" 2>/dev/null && [ "$(gate_holder "$d")" = "$h" ]; then
       echo "gate: clearing a lock left by a dead process ($h)"
+      rm -rf "$d"
+    # No pid in it: a gate killed between mkdir and writing its holder. One
+    # that is still writing does so within a second, so a minute is dead.
+    elif ! [[ "$pid" =~ ^[0-9]+$ ]] && [ -n "$(find "$d" -maxdepth 0 -mmin +1 2>/dev/null)" ] &&
+      [ "$(gate_holder "$d")" = "$h" ]; then
+      echo "gate: clearing $(basename "$d"), which has had no holder for over a minute"
       rm -rf "$d"
     fi
   done < <(gate_locks)
