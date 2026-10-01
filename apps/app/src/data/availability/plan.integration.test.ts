@@ -181,4 +181,23 @@ describe('an answer an edit cleared (SUS-130)', () => {
     expect(after.answer).not.toBeNull();
     expect(await card(ren)).toBe(false);
   });
+
+  it('is not said on circle home once replies have closed (review round 1)', async () => {
+    const { owner, circleId, planId, code } = await organiserWithPlan();
+    const ren = await joins(code, 'Ren');
+    await answers(ren, planId);
+    await organiserNarrows(owner, planId);
+
+    const { circleHome } = await import('../circles/home');
+    const card = async () => (await as(ren, () => circleHome(circleId)))?.activePlan?.askedAgain;
+    expect(await card()).toBe(true);
+
+    // Past its deadline the plan is still finding a time — the organiser
+    // decides (spec §8) — but it is not asking anybody to add anything.
+    sql(
+      stack,
+      `update public.plans set response_deadline = now() - interval '1 minute' where id = '${planId}'`,
+    );
+    expect(await card()).toBe(false);
+  });
 });
