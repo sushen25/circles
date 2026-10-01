@@ -1,3 +1,6 @@
+import { readFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
+
 import { expect, test } from './fixtures';
 import { sundayCrew } from './stack';
 
@@ -86,4 +89,26 @@ test.describe('the preview fetcher', () => {
     expect(isCard(html)).toBe(true);
     expect(html).toContain('A circle is finding a time to catch up');
   });
+});
+
+test('the exported server bundle carries the app config the card trusts', async () => {
+  test.skip(test.info().project.name !== 'android-chrome', 'one build, asked once');
+  // SUS-128. The server bundle never has the `EXPO_PUBLIC_*` variables on EAS
+  // Hosting, so a production card takes its origin and backend from the app
+  // config babel-preset-expo inlines in place of `process.env.APP_MANIFEST`
+  // (`apps/app/src/data/preview-origin.ts`). If an Expo upgrade stops doing
+  // that, production cards go back to naming the deployment's `*.expo.app`
+  // host — and nothing else in this suite would notice, because the local
+  // server has the variables at run time. This is the build the suite serves.
+  const bundle = await readFile(
+    fileURLToPath(
+      new URL('../../apps/app/dist/server/_expo/functions/+middleware.js', import.meta.url),
+    ),
+    'utf8',
+  );
+  expect(bundle, 'the manifest is inlined, not read at run time').not.toContain(
+    'process.env.APP_MANIFEST',
+  );
+  expect(bundle).toMatch(/\\?"appEnv\\?":\\?"\w+\\?"/);
+  expect(bundle).toMatch(/\\?"appOrigin\\?":\\?"http:\/\/localhost:\d+\\?"/);
 });
