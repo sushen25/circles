@@ -425,7 +425,7 @@ S["CircleHome"] = shell(
             between(lbl("Finding a time"), f'<div class="sm">Replies close Tue 6 pm</div>'),
             title("Catch up in the next 14 days"),
             between(marks(["Maya","Priya","Tom","Jess","Alex","Sam"], waiting=("Alex",)), f'<div class="sm num">5 of 6 replied</div>'),
-            sec("See how it's looking"),
+            row(sec("See how it's looking"), sec("Share the link"), gap=8),
             rec=True),
         card(
             between(stack(lbl("Last caught up"), date("Sat 8 Aug", 22), gap=4), stack(lbl("Next one"), f'<div class="date" style="font-size:22px;">No rush</div>', gap=4)),

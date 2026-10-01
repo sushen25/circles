@@ -1,5 +1,5 @@
 import type { CircleId, PlanId } from '@circles/contracts';
-import { EN_SHARE_TEMPLATES, instant, waitingMessage } from '@circles/domain';
+import { instant } from '@circles/domain';
 import { useIsFocused, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 
@@ -12,6 +12,7 @@ import { planLink } from '../../data/planning';
 import { shareMessage } from '../../platform/share';
 import { isOffline } from '../identity/join/failure';
 import { clockNow, usePlanClock } from '../planning/clock';
+import { reminderMessage } from '../planning/reminder';
 import { CandidatesScreen } from './CandidatesScreen';
 import { isDeadlinePassed } from './deadline';
 import { DeadlinePassedFlow } from './DeadlinePassedFlow';
@@ -138,6 +139,15 @@ function LiveCandidates({ id, planId }: { id: string; planId: string }) {
     }
   };
 
+  // The reminder for the group chat, from the count that is still out: a
+  // count, never names. Where the screen offers it is `onShareAgain`'s to
+  // say; this is only what it sends.
+  const link = planLink(appOrigin(), data.code);
+  const shareAgain = () => {
+    const message = reminderMessage({ remaining, circleName: data.circleName, url: link });
+    void shareMessage(message).then(shared('reminder'));
+  };
+
   // Everybody sees the options; only the organiser decides (§5.6). Before
   // options exist a member sees nothing of what has come in, which is the
   // view's own rule and not this screen's.
@@ -166,7 +176,6 @@ function LiveCandidates({ id, planId }: { id: string; planId: string }) {
   }
 
   if (data.view === 'collecting') {
-    const link = planLink(appOrigin(), data.code);
     return (
       <WaitingScreen
         header={header}
@@ -176,14 +185,7 @@ function LiveCandidates({ id, planId }: { id: string; planId: string }) {
         body={t('waiting', 'body', { count: data.quorum })}
         answered={t('waiting', 'answered', { count: data.repliedCount, total: data.askedCount })}
         still={stillToAnswer(data)}
-        onShareAgain={() => {
-          // The waiting message, not the original ask: the link has already
-          // been in the chat, and `waitingMessage` is the domain's sentence
-          // for exactly this screen — "a count, never names", because a
-          // message pasted into a group chat is read by everyone.
-          const message = waitingMessage({ remaining, url: link, templates: EN_SHARE_TEMPLATES });
-          void shareMessage(message).then(shared('reminder'));
-        }}
+        onShareAgain={shareAgain}
         onEditPlan={toEdit}
         onBack={back}
       />
@@ -211,6 +213,9 @@ function LiveCandidates({ id, planId }: { id: string; planId: string }) {
           // `revise-plan`'s `required_member_ids`, which is S1-26's form.
           else toEdit();
         }}
+        // Only while replies are open: `replace_response` refuses an answer
+        // after the deadline, and a link to nothing is not worth chasing with.
+        onShareAgain={data.repliesOpen ? shareAgain : undefined}
         onConfirmClose={() => resolution.close()}
         onConfirmWiden={() => resolution.widen()}
         onKeepAsItIs={() => resolution.keepAsItIs()}
@@ -264,14 +269,8 @@ function LiveCandidates({ id, planId }: { id: string; planId: string }) {
           params: { id, planId, candidate: selectedId ?? '' },
         })
       }
-      onNudge={() => {
-        const message = waitingMessage({
-          remaining,
-          url: planLink(appOrigin(), data.code),
-          templates: EN_SHARE_TEMPLATES,
-        });
-        void shareMessage(message).then(shared('reminder'));
-      }}
+      onNudge={shareAgain}
+      onShareAgain={shareAgain}
       // Still asking until it is locked in, so still editable (spec §5.3).
       onEditPlan={toEdit}
       onBack={back}
