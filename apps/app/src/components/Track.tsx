@@ -168,7 +168,9 @@ export function Track({
       {...(dimmed ? {} : spaceToPress(() => onChange(paintSpan(cells, index, index, !on))))}
       style={[
         styles.cell,
-        scrolls ? { width: cellWidth, flex: 0 } : null,
+        // A fixed width, not `flex: 0`: react-native-web writes that as
+        // `0 1 0%`, which shrank every cell of a long row to its border.
+        scrolls ? { width: cellWidth } : styles.fill,
         { backgroundColor: palette.surface, borderColor: palette.line },
         busy.includes(index) && {
           backgroundColor: color.lineSoft,
@@ -259,11 +261,11 @@ const styles = StyleSheet.create({
     gap: cellToken.gap,
   },
   cell: {
-    flex: 1,
     height: cellToken.height,
     borderRadius: 6,
     borderWidth: 1,
   },
+  fill: { flex: 1 },
   ticks: {
     flexDirection: 'row',
     justifyContent: 'space-between',
