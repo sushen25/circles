@@ -99,6 +99,11 @@ gate_try >/dev/null; unset -f seq
 expect "a place won while the old lock was briefly held takes the old lock too" "$(gate_holder "$gate_dir/ticket-gate.lock" | cut -d' ' -f2)" /wt/me
 gate_release
 
+reset
+mkdir "$gate_dir/ticket-gate.lock" # a gate killed between mkdir and its holder
+expect "an old lock with no holder makes a try give up, not spin" "$(attempt g)" wait
+expect "and the try leaves no place held" "$(gate_holders | cut -d' ' -f1)" ticket-gate.lock
+
 gate_limit=1
 reset
 hold ticket-gate.lock "$(live) /wt/old-script"

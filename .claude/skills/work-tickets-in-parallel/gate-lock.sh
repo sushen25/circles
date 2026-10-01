@@ -102,6 +102,10 @@ gate_try() {
   # beside us. If someone holds it, count only while the same holder holds it
   # before and after, so that it was counted; a lock that was free while we
   # counted could go to an old-script gate the moment after, uncounted.
+  # A holder still unwritten after three seconds is a gate killed mid-write:
+  # give up this try, and gate_clear_dead clears the lock once it is a minute
+  # old.
+  local tries=0
   while :; do
     if [ "$gate_mine_legacy" = 0 ] && mkdir "$(gate_legacy)" 2>/dev/null; then
       echo "$gate_self" > "$(gate_legacy)/holder"; gate_mine_legacy=1
@@ -110,6 +114,7 @@ gate_try() {
     n=$(gate_taken)
     [ "$gate_mine_legacy" = 1 ] && break
     [ -n "$h" ] && [ "$(gate_holder "$(gate_legacy)")" = "$h" ] && break
+    tries=$((tries + 1)); [ "$tries" -lt 30 ] || { gate_release; return 1; }
     sleep 0.1
   done
   [ "$n" -le "$gate_limit" ] && return 0

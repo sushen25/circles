@@ -179,15 +179,15 @@ cmd_gate() {
   # every checkout, and a cached module carries the EXPO_PUBLIC_* values of
   # whichever export wrote it.
   #
-  # In the background, in a process group of its own, and waited for, so that
-  # a gate that is killed takes its check with it: in the foreground the lock
-  # went and the check ran on, holding no place. The group catches workers a
-  # pool starts while it is being stopped; kill_tree then catches what left
-  # the group (Playwright's web server takes one of its own). SIGKILL cannot
-  # be trapped: a gate killed that way leaves its check running.
+  # In the background and waited for, so that a gate that is killed takes its
+  # check with it: in the foreground the lock went and the check ran on,
+  # holding no place. Not in a process group of its own: from a terminal,
+  # git's pager in a background group is stopped by the kernel and the gate
+  # hangs. SIGKILL cannot be trapped: a gate killed that way leaves its check
+  # running.
   E2E_LIVE_PORT=$((8082 + s * 100)) E2E_SMOKE_PORT=$((8083 + s * 100)) \
     MAILPIT_URL=${MAILPIT_URL:-http://127.0.0.1:$((54324 + s * 100))} \
-    TMPDIR=$(slot_tmp "$s") perl -e 'setpgrp(0, 0); exec @ARGV or die "$ARGV[0]: $!\n"' "$ticket_sh" check &
+    TMPDIR=$(slot_tmp "$s") "$ticket_sh" check &
   gate_check=$!
   local rc=0
   trap 'stop_check; exit 129' HUP
@@ -198,15 +198,21 @@ cmd_gate() {
 }
 
 gate_check=""
-stop_check() {
-  [ -n "$gate_check" ] || return 0
-  kill -TERM -- "-$gate_check" 2>/dev/null || true
-  kill_tree "$gate_check"
-}
+stop_check() { [ -z "$gate_check" ] || stop_tree "$gate_check"; }
 
-kill_tree() { # <pid>: it and everything under it, children first
-  local c; for c in $(pgrep -P "$1" 2>/dev/null); do kill_tree "$c"; done
-  kill "$1" 2>/dev/null || true
+# Stop <pid> and everything under it. Each process is frozen (STOP) before its
+# children are listed, so a pool that replaces dead workers cannot start one
+# the walk misses; then all of them get TERM, and CONT to act on it.
+stop_tree() {
+  local frozen="" queue=$1 p c
+  while [ -n "$queue" ]; do
+    p=${queue%% *}; [ "$p" = "$queue" ] && queue="" || queue=${queue#* }
+    kill -STOP "$p" 2>/dev/null || continue
+    frozen="$frozen $p"
+    for c in $(pgrep -P "$p" 2>/dev/null); do queue="${queue:+$queue }$c"; done
+  done
+  for p in $frozen; do kill -TERM "$p" 2>/dev/null || true; done
+  for p in $frozen; do kill -CONT "$p" 2>/dev/null || true; done
 }
 
 cmd_sync() {
