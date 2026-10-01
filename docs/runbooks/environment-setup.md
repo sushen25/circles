@@ -136,9 +136,12 @@ three through both `1.1.1.1` and `8.8.8.8` before waiting on the certificate.
 > deployed since then, so this no longer blocks anything; it is kept because it
 > explains the Turnstile-first order above.
 
-Then check an invite-shaped URL keeps its fragment:
-`https://wenna.app/join/anything?x=1#secret` opens the join route with
-`#secret` still in the address bar.
+Then check the invite route on the new host. `https://wenna.app/join?x=1#notarealsecret`
+renders the join flow, not the not-found screen. The client takes the fragment
+out of the address bar as it loads (ADR 0023), and no request in the network
+panel carries `notarealsecret`. Then the real thing: once sign-in works
+(SUS-84), make a test circle on prod, copy its invite link, and join it from a
+second browser.
 
 ### How to add a record in Route 53
 
