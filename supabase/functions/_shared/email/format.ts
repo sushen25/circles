@@ -10,7 +10,7 @@ import {
   weekday as isoWeekday,
 } from '@circles/domain';
 
-import { EN_DAYS } from './copy.ts';
+import { EN_DAYS } from './copy-days.ts';
 
 /**
  * Dates as an email writes them, in the plan's zone.

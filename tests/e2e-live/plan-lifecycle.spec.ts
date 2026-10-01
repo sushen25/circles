@@ -224,6 +224,29 @@ test('a plan with gaps: a run of days painted in one stroke, one more tapped, an
   expect(answered).toEqual(['1']);
 });
 
+test('a mouse stroke that comes back to the day it began leaves that day picked', async ({
+  page,
+}) => {
+  const maya = await asMaya(page);
+  const circleId = circleOwnedBy(maya, 'Sunday Crew');
+  await page.goto(`/circles/${circleId}/plan/setup`);
+  await page.getByRole('checkbox', { name: 'Custom' }).first().click();
+  const { buttons, monday } = await nextMonthsDays(page);
+
+  // Monday to Tuesday and back: the release lands on Monday, whose click is
+  // the stroke's and not a tap that would take it off again (review round 2).
+  const a = (await buttons.nth(monday).boundingBox())!;
+  const b = (await buttons.nth(monday + 1).boundingBox())!;
+  await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 8 });
+  await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2, { steps: 8 });
+  await page.mouse.up();
+
+  await expect(buttons.nth(monday)).toHaveAttribute('aria-pressed', 'true');
+  await expect(buttons.nth(monday + 1)).toHaveAttribute('aria-pressed', 'false');
+});
+
 test('on a touch screen, a vertical drag over the calendar scrolls and a sideways one paints', async ({
   page,
 }) => {

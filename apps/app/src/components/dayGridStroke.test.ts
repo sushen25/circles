@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { type DayBox, dayAt } from './dayGridStroke';
+import { type DayBox, dayAt, dayShowingAt } from './dayGridStroke';
 
 /** Two weeks of a month whose 1st is a Tuesday: 44pt days, 5pt apart, 65pt rows. */
 function month(): (DayBox | undefined)[] {
@@ -35,5 +35,13 @@ describe('dayAt: which day a stroke is over (ADR 00ZZ)', () => {
 
   it('says nothing before the grid has laid out', () => {
     expect(dayAt({ x: 60, y: 10 }, [])).toBeUndefined();
+  });
+});
+
+describe('dayShowingAt', () => {
+  it('never answers with a day left over from a longer month', () => {
+    // Thirteen boxes recorded, ten days showing now: below the grid is the tenth.
+    expect(dayAt({ x: 300, y: 80 }, month())).toBe(12);
+    expect(dayShowingAt({ x: 300, y: 80 }, month(), 10)).toBe(9);
   });
 });

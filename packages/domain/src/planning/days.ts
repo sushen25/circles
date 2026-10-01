@@ -138,3 +138,12 @@ export function dayRuns(window: DateWindow): { start: LocalDate; end: LocalDate 
   }
   return runs;
 }
+
+/**
+ * The span from first day to last, inclusive: a single-day window is one day,
+ * not zero. With gaps this is not how many days are asked about —
+ * `askedDayCount` is (ADR 00ZZ).
+ */
+export function windowDays(window: DateWindow): number {
+  return daysBetween(window.start, window.end) + 1;
+}

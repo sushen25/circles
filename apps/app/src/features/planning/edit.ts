@@ -110,9 +110,9 @@ export function resolveEdit(
   let deadlineMoved = false;
   const current = fromISO(plan.responseDeadline);
   // A deadline stands while the window's ends do, and while days are only
-  // taken away: that is a narrowing, which costs nobody anything (ADR 00ZZ),
-  // so it does not move when replies close unless it has to — the deadline
-  // still has to come before the new last possible start (review round 2).
+  // taken away (ADR 00ZZ): it moves only when it has to, to come before the
+  // new last possible start — as for a band change. Whether taking the days
+  // away asks anybody again is the server's to say, not this.
   const keptDays = selectionOf(kept);
   const onlyTaken = selectionOf(shape.window).every((day) => keptDays.includes(day));
   const currentStands =

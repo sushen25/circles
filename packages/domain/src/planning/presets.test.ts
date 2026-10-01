@@ -17,8 +17,8 @@ import {
   roundUpToHalfHour,
   thisWeekend,
   tonight,
-  windowDays,
 } from './presets.js';
+import { windowDays } from './days.js';
 
 /** The circle default. Every preset has to leave room for it. */
 const TWO_HOURS: DurationMinutes = 120;

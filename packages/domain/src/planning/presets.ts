@@ -287,28 +287,11 @@ export function resolvePreset(
       if (custom === undefined) return 'window_backwards';
       const invalid = windowError(custom);
       if (invalid !== undefined) return invalid;
-      // One canonical form, so a set of days with no gap in it is the same
-      // window as the range it covers and never stores a row per day.
+      // One canonical form (a set with no gap is the range). Days already gone
+      // are not refused — an edit opens on the plan's own days — only a window
+      // with no start left, which `checked` asks.
       const window = windowFromDays(askedDays(custom)) ?? custom;
-      // Days already gone are not refused: an edit opens on the plan's own
-      // days, and a plan that began yesterday can still be edited. What has to
-      // be true is that some start is still ahead, which `checked` asks.
       return checked({ window, daily: dailyForWindow(window) });
     }
   }
-}
-
-/**
- * The span from first day to last, inclusive: a single-day window is one day,
- * not zero. With gaps this is not how many days are asked about —
- * `askedDayCount` is (ADR 00ZZ).
- */
-export function windowDays(window: DateWindow): number {
-  let count = 1;
-  let date = window.start;
-  while (date < window.end) {
-    date = addDays(date, 1);
-    count += 1;
-  }
-  return count;
 }

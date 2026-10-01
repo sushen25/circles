@@ -42,3 +42,15 @@ export function dayAt(
   });
   return best;
 }
+
+/**
+ * `dayAt` over the days showing only: boxes recorded for a longer month laid
+ * out earlier are past `dayCount`, and are not days any more.
+ */
+export function dayShowingAt(
+  point: { x: number; y: number },
+  boxes: readonly (DayBox | undefined)[],
+  dayCount: number,
+): number | undefined {
+  return dayAt(point, boxes.slice(0, dayCount));
+}

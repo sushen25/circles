@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { PanResponder, Platform, type LayoutChangeEvent, type View } from 'react-native';
 
-import { type DayBox, dayAt } from './dayGridStroke';
+import { type DayBox, dayShowingAt } from './dayGridStroke';
 
 /**
  * Painting by drag (ADR 00ZZ): a stroke that starts on a day hands the grid's
@@ -62,9 +62,8 @@ export function useDayStroke(paint: GridPaint | undefined, dayCount: number) {
     const at = (x: number, y: number): number | undefined => {
       const from = origin.current;
       if (from === undefined) return undefined;
-      // Only the days showing: a box from a longer month laid out earlier is
-      // not a day any more (review round 2).
-      return dayAt({ x: x - from.x, y: y - from.y }, boxes.current.slice(0, live.current.dayCount));
+      // Only the days showing (review round 2).
+      return dayShowingAt({ x: x - from.x, y: y - from.y }, boxes.current, live.current.dayCount);
     };
     const reach = (x: number, y: number) => {
       const index = at(x, y);
