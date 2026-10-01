@@ -219,7 +219,7 @@ No feed, chat, status posts, likes or generic calendar.
 #### Required plan inputs
 
 - Intent: **Catch up** default; presets dinner, drinks, coffee, activity.
-- Date window: tonight; this weekend; next 7 days; next 14 days; custom (calendar picker, capped at 30 consecutive days — ADR 0030).
+- Date window: tonight; this weekend; next 7 days; next 14 days; custom (calendar picker of specific days — a tap toggles a day, dragging across days paints them in — the first and last at most 30 days apart, so a plan never asks about more than 30 days; ADR 0030, [ADR 00ZZ](decisions/00ZZ-a-plan-may-ask-about-days-with-gaps.md)). A custom plan may have gaps: it asks about the days picked and no others.
 - Time-of-day window with preset defaults: tonight from now rounded up to the next 30 minutes until 11:30 pm; weekdays 5:30–10:30 pm; weekend days 9:00 am–10:30 pm; custom.
 - Duration: 60, 90, 120, 180, 240 or 300 minutes (the last two by ADR 0031).
 - Quorum (defaults from the circle; required members count toward it). A plan records whether its quorum was **chosen** — supplied by the organiser or by the circle's own default — or **defaulted**. While it is defaulted it follows the plan's own audience: every join through the plan's link recomputes it as `max(3, quorum default for the number of people the plan is asking)` and adjusts the plan, keeping every answer. Somebody who joins the circle another way and never opens the plan is not one of them — joining an active plan is an opt-in (§9), and a quorum above the people who were asked is one the plan can never reach ([ADR 0026](decisions/0026-first-run-shares-a-plan-and-a-defaulted-quorum-follows-the-circle.md), adjusted per [ADR 0017](decisions/0017-changing-a-quorum-or-a-deadline-adjusts-a-plan-it-does-not-revise-it.md)). A plan made on a circle of one — the first-run case — therefore asks for three people rather than two, and grows with the chat. The organiser setting a quorum makes it chosen, and a chosen quorum never moves by itself.
@@ -235,7 +235,7 @@ No feed, chat, status posts, likes or generic calendar.
 
 #### Editing
 
-The organiser can edit window, duration, quorum, required members and deadline until confirmation. An edit that invalidates responses creates a new revision, clears the affected responses and shows, before saving, exactly who will be asked again (including anyone who had not yet answered).
+The organiser can edit window, duration, quorum, required members and deadline until confirmation. An edit that invalidates responses creates a new revision, clears the affected responses and shows, before saving, exactly who will be asked again (including anyone who had not yet answered). Taking away days that nobody's answer has times on does not invalidate anything: every answer is kept and no revision starts, and the screen says so before saving; adding a day, or taking away a day somebody picked, is a new question ([ADR 00ZZ](decisions/00ZZ-a-plan-may-ask-about-days-with-gaps.md)).
 
 #### Acceptance criteria
 
@@ -309,7 +309,7 @@ Deterministic and versioned; no LLM. Enumerate 30-minute starts in the circle's 
 - **All active members** see the candidates before confirmation; only the organiser can confirm.
 - Each option shows the date and time on the circle's clock, naming the zone when the reader's own device is in a different one and never because another member's is ([ADR 0032](decisions/0032-the-circles-zone-is-shown-when-the-readers-device-differs.md)), "5 of 6 can make it", the names who can attend, a non-judgemental exception ("Doesn't work for Priya", "Alex hasn't answered"), and an explanation of its rank ("Best attendance", "One fewer, weekend", "Also four, a day later"). Dashed marks denote people who have not answered and never appear inside the "can make it" set.
 - Before any candidate exists the organiser sees a waiting state with what has come in; members see nothing until options exist.
-- No quorum: the closest near-misses, the blocking rule, and three actions: lower quorum, widen the window, close this attempt. Quorum is never lowered silently.
+- No quorum: the closest near-misses, the blocking rule, and three actions: lower quorum, widen the window, close this attempt. Quorum is never lowered silently. Widening asks about every day for thirty days from the first, dropping any gaps, and says so before it does ([ADR 00ZZ](decisions/00ZZ-a-plan-may-ask-about-days-with-gaps.md)).
 
 #### Acceptance criteria
 

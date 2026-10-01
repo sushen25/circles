@@ -72,6 +72,8 @@ function FixturePlanShared() {
 
 /** "in the next two weeks" for the first-run fortnight; nothing for any other window. */
 function windowPhrase(plan: PlanToShare): string | undefined {
+  // A fortnight with gaps in it is not "the next two weeks" (ADR 00ZZ).
+  if (plan.days !== undefined) return undefined;
   const days = windowDays({ start: localDate(plan.windowStart), end: localDate(plan.windowEnd) });
   return days === FORTNIGHT_DAYS ? t('planShared', 'in_the_next_two_weeks') : undefined;
 }

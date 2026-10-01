@@ -68,6 +68,11 @@ export type FormContext = {
   kept?: { window: DateRange; band: Band } | undefined;
   /** The first day the calendar offers, when later than today (Change the time). */
   notBefore?: string | undefined;
+  /**
+   * The days the calendar opens on when the draft has none of its own: Change
+   * the time's, which opens on the plan's days that are still to come.
+   */
+  calendarStart?: DateRange | undefined;
 };
 
 export type FormResolved =
@@ -88,7 +93,11 @@ export type PlanForm = {
 };
 
 const sameRange = (a: DateRange | undefined, b: DateRange | undefined) =>
-  a !== undefined && b !== undefined && a.start === b.start && a.end === b.end;
+  a !== undefined &&
+  b !== undefined &&
+  a.start === b.start &&
+  a.end === b.end &&
+  (a.days ?? []).join() === (b.days ?? []).join();
 
 export function usePlanForm({
   initial,
@@ -112,7 +121,12 @@ export function usePlanForm({
   const [step, setStep] = useState<'form' | 'window'>(startOn);
   const [requiredOpen, setRequiredOpen] = useState(false);
   const [touched, setTouched] = useState(false);
-  const calendar = useCustomWindow(now, context.zone, draft.custom, context.notBefore);
+  const calendar = useCustomWindow(
+    now,
+    context.zone,
+    draft.custom ?? context.calendarStart,
+    context.notBefore,
+  );
 
   const change = (next: Partial<PlanDraft>) => {
     setTouched(true);
@@ -158,7 +172,7 @@ export function usePlanForm({
   const kept = context.kept?.window;
   const isKept = draft.preset === 'custom' && sameRange(draft.custom, kept);
   const openCalendar = () => {
-    calendar.reset(draft.custom);
+    calendar.reset(draft.custom ?? context.calendarStart);
     setStep('window');
   };
   const when: WhenChip[] = [

@@ -1,5 +1,7 @@
+import type { Locator } from '@playwright/test';
+
 import { expect, test, type Browser, type Page } from './fixtures';
-import { signedInAs } from './journeys';
+import { joinsAndAnswers, signedInAs } from './journeys';
 import {
   circleOwnedBy,
   guestInvited,
@@ -146,4 +148,121 @@ test('a member whose times an edit cleared is told so, on the grid and on circle
   await expect(priya.getByText('Finding a time')).toBeVisible();
   await expect(priya.getByText(cleared)).toHaveCount(0);
   await expect(priya.getByRole('button', { name: "See how it's looking" })).toBeVisible();
+});
+
+/**
+ * The days on the calendar, in the month showing (SUS-133, ADR 00ZZ). Next
+ * month, so every day is ahead whatever the date the suite runs on.
+ */
+async function nextMonthsDays(page: Page) {
+  await page.getByRole('button', { name: 'Later month' }).click();
+  const grid = page.getByRole('group', { name: 'Days to ask about' });
+  const buttons = grid.getByRole('button');
+  await expect(buttons.first()).toBeVisible();
+  const labels = await buttons.evaluateAll((all) => all.map((b) => b.getAttribute('aria-label')));
+  // The first Monday, so Monday to Friday is one row of the grid.
+  const monday = labels.findIndex((label) => label?.startsWith('Monday') === true);
+  return { buttons, monday };
+}
+
+/** A sideways stroke with the mouse, from the middle of one day to the middle of another. */
+async function strokeAcross(page: Page, from: Locator, to: Locator) {
+  const a = (await from.boundingBox())!;
+  const b = (await to.boundingBox())!;
+  await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 12 });
+  await page.mouse.up();
+}
+
+test('a plan with gaps: a run of days painted in one stroke, one more tapped, and a guest asked about only those', async ({
+  page,
+  browser,
+}) => {
+  const maya = await asMaya(page);
+  const circleId = circleOwnedBy(maya, 'Sunday Crew');
+
+  await page.goto(`/circles/${circleId}/plan/setup`);
+  // The first "Custom" is the When chip; the second is the hours'.
+  await page.getByRole('checkbox', { name: 'Custom' }).first().click();
+  await expect(
+    page.getByText('Tap the days you could meet, or drag across several.'),
+  ).toBeVisible();
+
+  const { buttons, monday } = await nextMonthsDays(page);
+  await strokeAcross(page, buttons.nth(monday), buttons.nth(monday + 2));
+  for (const index of [monday, monday + 1, monday + 2]) {
+    await expect(buttons.nth(index)).toHaveAttribute('aria-pressed', 'true');
+  }
+  await expect(buttons.nth(monday + 3)).toHaveAttribute('aria-pressed', 'false');
+  // Friday on its own, leaving Thursday out.
+  await buttons.nth(monday + 4).click();
+  await expect(buttons.nth(monday + 4)).toHaveAttribute('aria-pressed', 'true');
+  await expect(
+    page.getByText('4 days · the first and last can be up to 30 days apart'),
+  ).toBeVisible();
+
+  await page.getByRole('button', { name: 'Use these dates' }).click();
+  await page.getByRole('button', { name: 'Ask the group' }).click();
+  await expect(page).toHaveURL(new RegExp(`/circles/${circleId}/plan/[^/]+/shared$`));
+
+  const [plan] = plansIn(circleId);
+  const [shape] = sql(`select window_end - window_start,
+    (select count(*) from public.plan_days d where d.plan_id = p.id)
+    from public.plans p where p.id = '${plan!.id}'`);
+  expect(shape, 'Monday to Friday, four days asked').toEqual(['4', '4']);
+
+  // A guest from the link sees those four days and no others, and answers one.
+  const guest = await (await browser.newContext()).newPage();
+  const scenario = { circleId, planId: plan!.id, planCode: plan!.code, ownerId: maya, secret: '' };
+  const tom = await joinsAndAnswers(guest, scenario, 'Tom');
+  const [answered] = sql(`select count(*) from public.willing_windows w
+    join public.plan_responses r on r.id = w.response_id
+    where r.plan_id = '${plan!.id}' and r.user_id = '${tom}'
+      and (w.starts_at at time zone 'Australia/Melbourne')::date
+        in (select day from public.plan_days where plan_id = '${plan!.id}')`);
+  expect(answered).toEqual(['1']);
+});
+
+test('on a touch screen, a vertical drag over the calendar scrolls and a sideways one paints', async ({
+  page,
+}) => {
+  test.skip(
+    test.info().project.name !== 'android-chrome',
+    'touch is dispatched through Chromium; iOS Safari is checked by hand',
+  );
+  const maya = await asMaya(page);
+  const circleId = circleOwnedBy(maya, 'Sunday Crew');
+  await page.goto(`/circles/${circleId}/plan/setup`);
+  await page.getByRole('checkbox', { name: 'Custom' }).first().click();
+  const { buttons, monday } = await nextMonthsDays(page);
+
+  const cdp = await page.context().newCDPSession(page);
+  const centre = async (index: number) => {
+    const box = (await buttons.nth(index).boundingBox())!;
+    return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  };
+  const touchPath = async (points: { x: number; y: number }[]) => {
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [points[0]!] });
+    for (const point of points.slice(1)) {
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [point] });
+    }
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  };
+  const steps = (a: { x: number; y: number }, b: { x: number; y: number }) =>
+    Array.from({ length: 11 }, (_, i) => ({
+      x: a.x + ((b.x - a.x) * i) / 10,
+      y: a.y + ((b.y - a.y) * i) / 10,
+    }));
+
+  // Straight down through the weeks from the first Monday: a scroll.
+  const start = await centre(monday);
+  await touchPath(steps(start, { x: start.x, y: start.y + 140 }));
+  await expect(page.locator('[aria-pressed="true"]')).toHaveCount(0);
+
+  // Sideways from Monday to Wednesday: a stroke.
+  await touchPath(steps(await centre(monday), await centre(monday + 2)));
+  for (const index of [monday, monday + 1, monday + 2]) {
+    await expect(buttons.nth(index)).toHaveAttribute('aria-pressed', 'true');
+  }
 });

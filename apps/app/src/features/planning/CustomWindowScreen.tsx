@@ -1,3 +1,5 @@
+import { StyleSheet, View } from 'react-native';
+
 import {
   Body,
   Button,
@@ -18,10 +20,12 @@ import { BandPicker, type BandPickerProps } from './parts';
 import type { CustomWindowView } from './useCustomWindow';
 
 /**
- * CustomWindow — `docs/design/CustomWindow.dc.html` (spec §5.3): a month grid
- * to tap a range on, at most thirty days, days already gone shown and not
- * pickable; then the hours of each day. **Use these dates** goes back to the
- * form it came from with the range and the hours on it.
+ * CustomWindow — `docs/design/CustomWindow.dc.html` (spec §5.3, ADR 00ZZ): a
+ * month grid of days to ask about, tapped one at a time or painted by dragging
+ * across them, the first and last at most thirty days apart, days already
+ * gone shown and not pickable; then the hours of each day. **Start over**
+ * clears the days and offers **Undo** until the next change. **Use these
+ * dates** goes back to the form it came from with the days and the hours.
  */
 export type CustomWindowProps = {
   view: CustomWindowView;
@@ -58,11 +62,26 @@ export function CustomWindowScreen({ view, band, problem, onNext, onBack }: Cust
           weekdays={view.weekdays}
           label={t('customWindow', 'grid_label')}
           onToggle={view.onDay}
+          onPaint={view.paint}
         />
-        <Stack>
-          <Title accessibilityLiveRegion="polite">{view.summary}</Title>
-          {view.detail === '' ? null : <Small>{view.detail}</Small>}
-        </Stack>
+        <Between>
+          <View style={styles.summary}>
+            <Stack>
+              <Title accessibilityLiveRegion="polite">{view.summary}</Title>
+              {view.detail === '' ? null : <Small>{view.detail}</Small>}
+            </Stack>
+          </View>
+          {view.onStartOver === undefined ? null : (
+            <CompactButton
+              label={t('customWindow', 'start_over')}
+              icon="x"
+              onPress={view.onStartOver}
+            />
+          )}
+          {view.onUndo === undefined ? null : (
+            <CompactButton label={t('customWindow', 'undo')} tone="accent" onPress={view.onUndo} />
+          )}
+        </Between>
         <BandPicker {...band} />
         {problem === undefined ? null : <Notice kind="warn">{problem}</Notice>}
       </Body>
@@ -76,3 +95,8 @@ export function CustomWindowScreen({ view, band, problem, onNext, onBack }: Cust
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  // The words take what the button leaves; a long run of days wraps.
+  summary: { flex: 1 },
+});

@@ -949,14 +949,28 @@ S["Waiting"] = shell(
     foot(sec("Share the link again"), ter("Edit the plan"))
 )
 
+# Specific days (SUS-133, ADR 00ZZ): a tap toggles a day and a drag paints a
+# run of them in calendar order. Board C's picks: two long weekends and the
+# Tuesday between, the first and last up to thirty days apart.
+CW_PICKED = (17, 18, 19, 20, 22, 24, 25, 26, 27)
+
+def cw_day(n):
+    if not n:
+        return '<div></div>'
+    picked = n in CW_PICKED
+    gone = n < 10
+    style = ("background:" + T["accent"] + ";color:#fff;") if picked else (("color:" + T["ink3"] + ";") if gone else "")
+    tick = f'<span style="position:absolute;top:2px;right:3px;display:flex;">{ic("check", 10, "#fff")}</span>' if picked else ""
+    return f'<div class="num" style="position:relative;height:44px;display:flex;align-items:center;justify-content:center;border-radius:10px;{style}">{tick}{n}</div>'
+
 S["CustomWindow"] = shell(
     top("When?") +
     body(
         dl("Pick the dates to ask about"),
-        stack(lbl("September"), '<div style="display:grid;grid-template-columns:repeat(7, minmax(0, 1fr));gap:4px;">' +
+        stack(lbl("September"), '<div style="display:grid;grid-template-columns:repeat(7, minmax(0, 1fr));gap:4px;touch-action:pan-y;">' +
               "".join(f'<div class="sm" style="text-align:center;">{d}</div>' for d in ["M","T","W","T","F","S","S"]) +
-              "".join(f'<div class="num" style="height:44px;display:flex;align-items:center;justify-content:center;border-radius:10px;{("background:"+T["accent"]+";color:#fff;") if (n and 14<=n<=27) else (("color:"+T["ink3"]+";") if (n and n<7) else "")}">{n if n else ""}</div>' for n in [0]+list(range(1,31))) + '</div>', gap=8),
-        between(stack(title("Mon 14 – Sun 27 Sep"), sm("14 days · up to 30 at once"), gap=2), ""),
+              "".join(cw_day(n) for n in [0]+list(range(1,31))) + '</div>', gap=8),
+        between(stack(title("Thu 17 – Sun 20 Sep, Tue 22 Sep, Thu 24 – Sun 27 Sep"), sm("9 days · the first and last can be up to 30 days apart"), gap=2), mini("Start over", "x")),
         stack(lbl("Times of day"), chips("*Evenings 5:30–10:30", "Weekend days 9–10:30", "Custom"), gap=8),
     ) +
     foot(pri("Use these dates"))

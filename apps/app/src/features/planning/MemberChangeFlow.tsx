@@ -11,6 +11,7 @@ import { isOffline } from '../identity/join/failure';
 import { dateOf, timeOf } from '../scheduling/words';
 import { CancelledGuestScreen } from './CancelledGuestScreen';
 import { doorFor } from './doors';
+import { keptOf } from './edit';
 import * as fixture from './fixtures';
 import { cancelledBy, cancelledDay, offTheTable } from './messages';
 import { RescheduledGuestScreen } from './RescheduledGuestScreen';
@@ -155,7 +156,7 @@ export function RescheduledFlow({ code }: { code: string }) {
       // Only the organiser reopens a plan, so the name is theirs.
       organiserName={organiserOf(plan)}
       previously={`${dateOf(last.startsAt, plan.zone)}, ${timeOf(last.startsAt, last.endsAt, plan.zone)}`}
-      nowAsking={datesWords({ start: plan.windowStart, end: plan.windowEnd })}
+      nowAsking={datesWords(keptOf(plan))}
       onNext={() => router.push({ pathname: '/j/[code]', params: { code: plan.code } })}
       onNotThisTime={() => router.push({ pathname: '/j/[code]/none', params: { code: plan.code } })}
       onBack={back}

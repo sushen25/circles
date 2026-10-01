@@ -30,7 +30,12 @@ import { invokeFunction, newIdempotencyKey } from '../functions';
  * not choose, it reads `bumps_revision` from the answer.
  */
 export type Revision = {
-  window?: { start: string; end: string } | undefined;
+  /**
+   * With `days` when the new window has gaps; without, every day from start to
+   * end — which drops any gaps the plan had, as "Try a wider window" means to
+   * (ADR 00ZZ).
+   */
+  window?: { start: string; end: string; days?: string[] | undefined } | undefined;
   daily?: { startMin: number; endMin: number } | undefined;
   durationMinutes?: number | undefined;
   quorum?: number | undefined;

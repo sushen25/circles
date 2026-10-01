@@ -6,6 +6,7 @@ import {
 } from '@circles/domain';
 
 import { authClient } from '../auth/client';
+import { daysOf } from '../planDays';
 import type { RosterMember } from '../scheduling';
 
 /**
@@ -47,6 +48,8 @@ export type PlanDetails = {
   /** Inclusive local dates. */
   windowStart: string;
   windowEnd: string;
+  /** The days asked about when the window has gaps; absent is every day (ADR 00ZZ). */
+  days?: string[] | undefined;
   band: { startMin: number; endMin: number };
   durationMinutes: DurationMinutes;
   quorum: number;
@@ -82,7 +85,7 @@ export async function planDetails(
   const client = authClient();
 
   const columns =
-    'id, short_code, circle_id, state, title, category, revision, time_zone, window_start, window_end, daily_start_local, daily_end_local, duration_minutes, quorum, quorum_source, response_deadline, cancel_note, organiser_user_id';
+    'id, short_code, circle_id, state, title, category, revision, time_zone, window_start, window_end, plan_days(day), daily_start_local, daily_end_local, duration_minutes, quorum, quorum_source, response_deadline, cancel_note, organiser_user_id';
   const query = client.from('plans').select(columns);
   const { data: plan, error } = await (
     'planId' in key ? query.eq('id', key.planId) : query.eq('short_code', key.code)
@@ -157,6 +160,7 @@ export async function planDetails(
     revision: plan.revision,
     windowStart: plan.window_start,
     windowEnd: plan.window_end,
+    days: daysOf(plan.plan_days),
     band: { startMin: plan.daily_start_local, endMin: plan.daily_end_local },
     durationMinutes: (DURATIONS as readonly number[]).includes(plan.duration_minutes)
       ? (plan.duration_minutes as DurationMinutes)

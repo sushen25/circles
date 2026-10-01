@@ -1,5 +1,5 @@
 import {
-  addDays,
+  askedDays,
   cellsFor,
   formatMinutesOfDay,
   toLocal,
@@ -137,7 +137,10 @@ export function dayRows(
 ): DayRow[] {
   const rows: DayRow[] = [];
 
-  for (let date = timing.window.start; date <= timing.window.end; date = addDays(date, 1)) {
+  // The days the plan asks about, so a plan with gaps has a row for each of
+  // those and none between them; `gridSlots` places each by its date, and
+  // the gaps show as blanks in the calendar (ADR 00ZZ).
+  for (const date of askedDays(timing.window)) {
     const cells = cellsFor(date, timing);
     // A band that does not happen at all on this date (02:00–03:00 the night
     // the clocks go forward) is not a day anybody can be asked about.

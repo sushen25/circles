@@ -11,7 +11,8 @@ import { weekdayOf } from '../scheduling/words';
 import { allows } from './allowed';
 import { ChangeTimeScreen } from './ChangeTimeScreen';
 import { CustomWindowScreen } from './CustomWindowScreen';
-import { editDraftFrom, resolveEdit } from './edit';
+import { rangeOf, selectionOf } from './calendar';
+import { editDraftFrom, keptOf, resolveEdit } from './edit';
 import type { PlanDraft } from './form';
 import * as fixture from './fixtures';
 import { DeadlineSheet } from './sheets';
@@ -148,6 +149,11 @@ function ChangeForm({
     quorumShown: plan.quorum,
     quorumFollows: false,
     notBefore: after,
+    // The picker opens on the plan's own days, those still to come and after
+    // the one off the table (ADR 00ZZ); none left, it opens empty.
+    calendarStart: rangeOf(
+      selectionOf(keptOf(plan)).filter((date) => date >= after && date >= today),
+    ),
   };
   // A new window, with its own hours: the artboard's fortnight by default.
   const [initial] = useState(() => ({

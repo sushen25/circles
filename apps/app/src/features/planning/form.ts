@@ -1,5 +1,7 @@
 import {
+  askedDayCount,
   defaultDeadline,
+  hasGaps,
   fromISO,
   isDeadlineAllowed,
   lastStartOf,
@@ -31,7 +33,11 @@ import {
  * turn a default into a choice nobody made.
  */
 export type Band = { startMin: number; endMin: number };
-export type DateRange = { start: string; end: string };
+/**
+ * Inclusive local dates, and — only when there are gaps — the days between
+ * them that are asked about (ADR 00ZZ). Absent `days` is every day.
+ */
+export type DateRange = { start: string; end: string; days?: string[] | undefined };
 
 export const PRESETS: readonly WindowPreset[] = [
   'tonight',
@@ -110,12 +116,20 @@ export function windowOf(
     custom:
       custom === undefined
         ? undefined
-        : { start: localDate(custom.start), end: localDate(custom.end) },
+        : {
+            start: localDate(custom.start),
+            end: localDate(custom.end),
+            ...(custom.days === undefined ? {} : { days: custom.days.map(localDate) }),
+          },
     daily: band,
   });
   if (typeof resolved === 'string') return resolved;
   return {
-    window: { start: resolved.window.start, end: resolved.window.end },
+    window: {
+      start: resolved.window.start,
+      end: resolved.window.end,
+      ...(resolved.window.days === undefined ? {} : { days: [...resolved.window.days] }),
+    },
     band: { startMin: resolved.daily.startMin, endMin: resolved.daily.endMin },
   };
 }
@@ -236,6 +250,19 @@ export function shownQuorum(
   circle: { defaultQuorum: number | null; members: number },
 ): number {
   return draft.quorum ?? circle.defaultQuorum ?? softQuorum(circle.members);
+}
+
+/**
+ * `plan_created.has_gaps` and `days_asked` for a custom plan (ADR 00ZZ): its
+ * shape, as a flag and a count. Never a date.
+ */
+export function customShape(custom: DateRange): { has_gaps: boolean; days_asked: number } {
+  const window = {
+    start: localDate(custom.start),
+    end: localDate(custom.end),
+    ...(custom.days === undefined ? {} : { days: custom.days.map(localDate) }),
+  };
+  return { has_gaps: hasGaps(window), days_asked: askedDayCount(window) };
 }
 
 /** `plan_created.window` for a preset (S1-22's mapping). */
