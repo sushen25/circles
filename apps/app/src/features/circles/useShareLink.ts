@@ -22,8 +22,8 @@ import { reminderMessage } from '../planning/reminder';
  * Offered while it is still taking answers, which is
  * until its deadline: `replace_response` refuses one after it, and a link that
  * can no longer be used to answer is not worth chasing anybody with. A quiet
- * ask has its own screens and its own anonymity (spec §5.4), so it is not
- * offered here.
+ * ask nobody has taken on has its own screens and its own anonymity (spec
+ * §5.4), so it is not offered here; once somebody has, it is a plan like any.
  */
 export function useShareLink(
   home: CircleHome,
@@ -33,7 +33,7 @@ export function useShareLink(
   const plan = home.activePlan;
   const open =
     plan !== null &&
-    plan.quiet !== true &&
+    !(plan.quiet === true && plan.organiserUserId === null) &&
     isAfter(fromISO(plan.responseDeadline), fromISO(now.toISOString()));
   if (!open) return { onShareLink: undefined, outcome: undefined };
 
