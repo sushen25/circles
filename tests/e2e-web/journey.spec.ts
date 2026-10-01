@@ -104,8 +104,11 @@ test.describe('the controls actually work', () => {
   }) => {
     await page.goto('/j/abc');
 
-    // Sunday Crew's fixture: Tuesday 15 has no times yet.
-    const tuesday = page.getByRole('button', { name: /^Tuesday\D*15\D.*no times yet$/ });
+    // Sunday Crew's fixture: Tuesday 15 has no times yet, and two of the
+    // others could make it (SUS-129).
+    const tuesday = page.getByRole('button', {
+      name: /^Tuesday\D*15\D.*no times yet, 2 others could make it$/,
+    });
     await expect(tuesday).toHaveAttribute('aria-pressed', 'false');
 
     // The page is server-rendered, so the day is clickable before React has
@@ -144,12 +147,12 @@ test.describe('the controls actually work', () => {
   }) => {
     await page.goto('/j/abc');
 
-    const tuesday = page.getByRole('button', { name: /^Tuesday\D*15\D.*no times yet$/ });
+    const tuesday = page.getByRole('button', { name: /^Tuesday\D*15\D.*no times yet\b/ });
     await expect(async () => {
       await tuesday.click();
       await expect(tuesday).toHaveAttribute('aria-pressed', 'true', { timeout: 1000 });
     }).toPass();
-    await page.getByRole('button', { name: /^Friday\D*18\D.*no times yet$/ }).click();
+    await page.getByRole('button', { name: /^Friday\D*18\D.*no times yet\b/ }).click();
 
     const chip = page.getByRole('checkbox', { name: /^Evening/ });
     await chip.click();
