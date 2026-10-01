@@ -439,7 +439,7 @@ EMAIL_CAPTURE_URL = "http://inbucket:8025"
 
 # Local only, and not a secret either: the bearer the internal endpoints
 # compare against (`_shared/internal.ts`). `dev` and `prod` each invent their
-# own with `supabase secrets set`, and the value cannot be read back out — this
+# own with `make secret`, and the value cannot be read back out — this
 # one exists so that `process-scheduled-jobs` and `recalculate-candidates` can
 # be *run* on a local stack at all. Without it they refuse every call, which is
 # the right default for a deployed project and would mean the one background
@@ -447,8 +447,8 @@ EMAIL_CAPTURE_URL = "http://inbucket:8025"
 #
 # The word is the whole value on purpose: short, in the dictionary, and
 # obviously nobody's. A local stack is reachable only from the machine it runs
-# on, and the database settings that make pg_cron actually call the function
-# (`circles.functions_url`, `circles.cron_secret`) are deliberately left unset
+# on, and the Vault secrets that make pg_cron actually call the function
+# (`circles_functions_url`, `circles_cron_secret`) are deliberately not created
 # here, so nothing invokes it until somebody asks it to.
 CRON_SECRET = "local"
 

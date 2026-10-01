@@ -101,9 +101,11 @@ No new cron job and no new secret. Slice 2 runs on the minute `process-jobs`
 job and the daily `retention` job that `0007` created. What it needs is what
 SUS-48 sets up:
 
-- `circles.functions_url` and `circles.cron_secret` set on `circles-prod`, with
-  `CRON_SECRET` matching (see [`environments.md`](./environments.md), "Database
-  settings the cron job reads").
+- The Vault secrets `circles_functions_url` and `circles_cron_secret` created on
+  `circles-prod`, with `CRON_SECRET` matching (see
+  [`environments.md`](./environments.md), "Vault secrets the cron job reads").
+  They were database settings until SUS-127; a hosted project refuses those, so
+  they need migration `0029` deployed first.
 - `HEALTH_REPORT_TO` set on prod. It is the only thing that will tell you a
   quiet or cadence job is failing.
 - `RESEND_API_KEY` and `RESEND_WEBHOOK_SECRET` (SUS-84).

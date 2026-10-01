@@ -529,7 +529,7 @@ Clients read through `supabase-js` with RLS: circles I belong to, active members
 
 ### 9.3 Scheduled work
 
-`pg_cron` runs `process-scheduled-jobs` every minute via `pg_net` (`jobs.invoke_process_scheduled_jobs()`, a no-op until `circles.functions_url` and `circles.cron_secret` are set on the database — see the environments runbook) with a job lease (`jobs.acquire_lease` on `jobs.cron_leases`) so overlapping invocations are no-ops. Retention (§8.5) runs daily at 03:15 as `jobs.run_retention()`, in the database as the owner ([ADR 0014](decisions/0014-retention-runs-in-the-database.md)). Work is discovered from data (`scheduled_for <= now()`, `quiet_expires_at <= now()`, `response_deadline <= now()`, cadence due dates), never from in-memory timers.
+`pg_cron` runs `process-scheduled-jobs` every minute via `pg_net` (`jobs.invoke_process_scheduled_jobs()`, a no-op until the Vault secrets `circles_functions_url` and `circles_cron_secret` exist — see the environments runbook) with a job lease (`jobs.acquire_lease` on `jobs.cron_leases`) so overlapping invocations are no-ops. Retention (§8.5) runs daily at 03:15 as `jobs.run_retention()`, in the database as the owner ([ADR 0014](decisions/0014-retention-runs-in-the-database.md)). Work is discovered from data (`scheduled_for <= now()`, `quiet_expires_at <= now()`, `response_deadline <= now()`, cadence due dates), never from in-memory timers.
 
 ### 9.4 The one server route in the app
 

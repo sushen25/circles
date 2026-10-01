@@ -547,7 +547,8 @@ invent, and its only job is that the database and the Edge Function agree on
 it — `jobs.invoke_process_scheduled_jobs()` sends it as a bearer, and
 `_shared/internal.ts` compares what arrives. Generate it with a password
 manager rather than by hand, because it cannot be read back afterwards and
-S1-20 needs the same string again for `circles.cron_secret`.
+the Vault secret `circles_cron_secret` needs the same string
+([`environments.md`](./environments.md), "Vault secrets the cron job reads").
 
 > **You can prove a secret is the value you meant, without reading it.** The
 > `value` field `supabase secrets list` returns is a plain SHA-256 of the

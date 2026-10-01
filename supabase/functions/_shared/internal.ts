@@ -15,7 +15,7 @@ import { CORS, reference, respond } from './respond.ts';
  * endpoint has none of those — architecture §9.1 marks `recalculate-candidates`
  * and `process-scheduled-jobs` as internal, and the bearer they carry is
  * `CRON_SECRET`, the shared value the database's `jobs.invoke_*` functions send
- * and the runbook sets alongside `circles.cron_secret`.
+ * and the runbook stores in Vault as `circles_cron_secret` (SUS-127).
  *
  * A separate wrapper rather than a mode on the other one, because every step
  * that differs is a step `jsonHandler` must *not* take: `getUser` on a secret is
