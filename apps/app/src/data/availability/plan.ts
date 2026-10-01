@@ -74,7 +74,18 @@ export type OwnAnswer = {
   submittedAt: string;
 };
 
-export type PlanToAnswer = { plan: AnswerablePlan; answer: OwnAnswer | null };
+export type PlanToAnswer = {
+  plan: AnswerablePlan;
+  answer: OwnAnswer | null;
+  /**
+   * Whether this person answered an earlier revision of this plan (SUS-130).
+   * An edit that moves the revision clears the answers (spec §5.3), so somebody
+   * with this and no `answer` had their times cleared by the organiser, and the
+   * editor says the plan changed rather than opening on an empty grid as if
+   * nothing had happened. Absent is false.
+   */
+  answeredEarlierRevision?: boolean | undefined;
+};
 
 export function timingOf(plan: AnswerablePlan): PlanTiming {
   return {
@@ -110,7 +121,7 @@ export async function planToAnswer(code: ShortCode): Promise<PlanToAnswer | null
   const { data: me } = await client.auth.getSession();
   const userId = me.session?.user.id;
 
-  const [circle, organiser, response, open] = await Promise.all([
+  const [circle, organiser, response, earlier, open] = await Promise.all([
     client.from('circles').select('name').eq('id', row.circle_id).maybeSingle(),
     row.organiser_user_id === null
       ? Promise.resolve({ data: null, error: null })
@@ -130,6 +141,17 @@ export async function planToAnswer(code: ShortCode): Promise<PlanToAnswer | null
           .eq('revision', row.revision)
           .eq('user_id', userId)
           .maybeSingle(),
+    // An answer to an earlier question, kept when the edit moved the revision.
+    // Their own rows only, on any revision, through `plan_responses_select_own`.
+    userId === undefined
+      ? Promise.resolve({ data: [], error: null })
+      : client
+          .from('plan_responses')
+          .select('id')
+          .eq('plan_id', row.id)
+          .lt('revision', row.revision)
+          .eq('user_id', userId)
+          .limit(1),
     // `'now'` is Postgres's own input for the current time, so this compares
     // the deadline on the database's clock. The row coming back is the answer.
     client.from('plans').select('id').eq('id', row.id).gt('response_deadline', 'now').maybeSingle(),
@@ -138,6 +160,7 @@ export async function planToAnswer(code: ShortCode): Promise<PlanToAnswer | null
     circle.error !== null ||
     organiser.error !== null ||
     response.error !== null ||
+    earlier.error !== null ||
     open.error !== null
   ) {
     throw new Error('plan lookup failed');
@@ -181,5 +204,5 @@ export async function planToAnswer(code: ShortCode): Promise<PlanToAnswer | null
           submittedAt: stored.submitted_at,
         };
 
-  return { plan, answer };
+  return { plan, answer, answeredEarlierRevision: (earlier.data ?? []).length > 0 };
 }

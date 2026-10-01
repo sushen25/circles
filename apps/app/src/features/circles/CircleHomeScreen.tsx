@@ -9,6 +9,7 @@ import {
   Foot,
   Label,
   Marks,
+  Notice,
   Screen,
   Small,
   Title,
@@ -45,6 +46,11 @@ export type CircleHomeProps = {
   closes?: string | undefined;
   /** "5 of 6 replied". */
   replied?: string | undefined;
+  /**
+   * Said to a reader whose answer an edit cleared, until they answer the plan
+   * as it is now (SUS-130). Absent for everybody else.
+   */
+  askedAgain?: string | undefined;
   members?: readonly Member[] | undefined;
   memberCount?: string | undefined;
   lastCaughtUp?: string | undefined;
@@ -71,6 +77,7 @@ export function CircleHomeScreen({
   planTitle = t('circleHome', 'catch_up_in_the_next_14_days'),
   closes = t('circleHome', 'replies_close_tue_6_pm'),
   replied = t('circleHome', '5_of_6_replied'),
+  askedAgain,
   members = fixture?.circle.members ?? [],
   memberCount = t('circleHome', '6_members'),
   lastCaughtUp = t('circleHome', 'sat_8_aug'),
@@ -109,6 +116,7 @@ export function CircleHomeScreen({
             <Marks members={members} max={MARKS_MAX} more={marksMore} />
             <Small>{replied}</Small>
           </Stack>
+          {askedAgain === undefined ? null : <Notice kind="warn">{askedAgain}</Notice>}
           <Button
             label={t('circleHome', 'see_how_its_looking')}
             variant="secondary"

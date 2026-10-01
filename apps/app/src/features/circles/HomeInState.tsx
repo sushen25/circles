@@ -128,6 +128,7 @@ export function HomeInState({ home, onBack }: { home: CircleHome; onBack: () => 
           deadline: whenWords(plan.responseDeadline, home.zone),
         })}
         replied={t('circleHome', 'replied', { count: plan.replied, total: plan.asked })}
+        askedAgain={plan.askedAgain === true ? t('circleHome', 'asked_again') : undefined}
         lastCaughtUp={lastCaughtUp(home)}
         nextOne={nextOne(home)}
         onSeeHowItsLooking={() =>

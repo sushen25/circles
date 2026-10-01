@@ -709,3 +709,35 @@ describe("the plan's own link, /p/:code", () => {
     await screen.findByText('how it is looking');
   });
 });
+
+describe('an answer an edit cleared, with nothing on the device (SUS-130)', () => {
+  const REVISED = { ...PLAN, revision: 2 };
+
+  it('says the plan changed when the server has an earlier answer and none to this question', async () => {
+    planToAnswer.mockResolvedValue({ plan: REVISED, answer: null, answeredEarlierRevision: true });
+    open();
+
+    await screen.findByText(/The plan changed/);
+    expect(screen.getByText(/of 14 days/)).toHaveTextContent('0 of 14 days');
+  });
+
+  it('says nothing of the kind to somebody who never answered an earlier question', async () => {
+    planToAnswer.mockResolvedValue({ plan: REVISED, answer: null, answeredEarlierRevision: false });
+    open();
+
+    await screen.findByText("Times I'd actually be up for");
+    expect(screen.queryByText(/The plan changed/)).toBeNull();
+  });
+
+  it('stops saying it once they have answered the question as it is now', async () => {
+    planToAnswer.mockResolvedValue({
+      plan: REVISED,
+      answer: answerable.answer,
+      answeredEarlierRevision: true,
+    });
+    open();
+
+    await screen.findByText("Times I'd actually be up for");
+    expect(screen.queryByText(/The plan changed/)).toBeNull();
+  });
+});

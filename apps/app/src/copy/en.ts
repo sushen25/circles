@@ -505,6 +505,8 @@ export const en = {
     one_member_count: '1 member',
     replies_close: 'Replies close {deadline}',
     replied: '{count} of {total} replied',
+    asked_again:
+      'The plan changed, so the times you sent were cleared. Add yours again so they count.',
     not_yet: 'Not yet',
     up_to_you: 'Up to you',
     due_soon: 'Due soon',

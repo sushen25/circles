@@ -348,3 +348,37 @@ describe('circle home and the quiet ask (S2-03)', () => {
     });
   });
 });
+
+describe('circle home, for somebody whose times an edit cleared (SUS-130)', () => {
+  const RUNNING = {
+    id: PLAN,
+    code: 'pnsundaycr',
+    organiserUserId: 'maya',
+    title: 'Catch up',
+    responseDeadline: '2026-09-29T08:00:00Z',
+    replied: 1,
+    asked: 6,
+  };
+  const CLEARED =
+    'The plan changed, so the times you sent were cleared. Add yours again so they count.';
+
+  it('says the plan changed and their times need adding again, on the plan card', async () => {
+    circleHome.mockResolvedValue(
+      home({ me: 'priya', isOwner: false, activePlan: { ...RUNNING, askedAgain: true } }),
+    );
+    wrap(<CircleHomeFlow id={CIRCLE} />);
+
+    expect(await screen.findByText(CLEARED)).toBeVisible();
+    expect(screen.getByText('Finding a time')).toBeVisible();
+  });
+
+  it('says nothing of the kind to somebody it did not happen to', async () => {
+    circleHome.mockResolvedValue(
+      home({ me: 'alex', isOwner: false, activePlan: { ...RUNNING, askedAgain: false } }),
+    );
+    wrap(<CircleHomeFlow id={CIRCLE} />);
+
+    expect(await screen.findByText('Finding a time')).toBeVisible();
+    expect(screen.queryByText(CLEARED)).toBeNull();
+  });
+});

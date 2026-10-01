@@ -3,6 +3,7 @@ import type { Cadence, NudgePolicy } from '@circles/domain';
 import { authClient } from '../auth/client';
 import { morningAfterOf, type MorningAfter } from '../confirmation';
 import {
+  askedAgain,
   FAILED,
   findingPlanOf,
   goingCounts,
@@ -48,6 +49,11 @@ export type HomePlan = {
    * the organiser's. Absent is a named plan.
    */
   quiet?: boolean | undefined;
+  /**
+   * The reader answered before an edit cleared the answers, and has not
+   * answered since (SUS-130): the card says so. Absent is false.
+   */
+  askedAgain?: boolean | undefined;
 };
 
 /**
@@ -163,12 +169,13 @@ export async function circleHome(id: string): Promise<CircleHome | null> {
 
   const finding = findingPlanOf(plans, id);
   const confirmed = plans.filter((p) => p.state === 'confirmed');
-  const [replies, meetups] = await Promise.all([
+  const [replies, meetups, again] = await Promise.all([
     finding === undefined ? undefined : repliesFor(client, finding),
     upcomingMeetups(
       client,
       confirmed.map((p) => p.id),
     ),
+    finding === undefined ? false : askedAgain(client, finding, me),
   ]);
 
   const next = meetups[0];
@@ -219,6 +226,7 @@ export async function circleHome(id: string): Promise<CircleHome | null> {
             responseDeadline: finding.response_deadline,
             ...replies,
             quiet: finding.mode === 'quiet',
+            askedAgain: again,
           },
     quietAsks: own?.muted_quiet_asks === true ? [] : asking,
     lockedIn,

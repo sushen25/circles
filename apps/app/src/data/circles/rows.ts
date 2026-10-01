@@ -96,6 +96,32 @@ export async function repliesFor(
   return { replied: latest.data[0]?.responded_count ?? 0, asked: asked.count ?? 0 };
 }
 
+/**
+ * Whether the reader answered this plan before an edit cleared it, and has not
+ * answered the question as it is now (SUS-130): their newest answer is to an
+ * earlier revision. Their own rows only (`plan_responses_select_own`), which
+ * keep every revision; nobody else's answer is read or counted here.
+ */
+export async function askedAgain(
+  client: Client,
+  plan: Pick<PlanRow, 'id' | 'revision'>,
+  me: string | undefined,
+): Promise<boolean> {
+  if (me === undefined) return false;
+  const { data, error } = await client
+    .from('plan_responses')
+    .select('revision')
+    .eq('plan_id', plan.id)
+    .eq('user_id', me)
+    .order('revision', { ascending: false })
+    .limit(1);
+  // A line on the card, not the home: unread, the card says what it says to
+  // everybody else.
+  if (error !== null) return false;
+  const newest = data[0]?.revision;
+  return newest !== undefined && newest < plan.revision;
+}
+
 export type MeetupRow = {
   confirmationId: string;
   planId: string;
