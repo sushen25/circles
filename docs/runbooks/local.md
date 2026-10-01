@@ -101,7 +101,7 @@ reads that file, which means the same `make dev`, `make logs`, `make psql` and
 `make mail` do the right thing in either place, and `make ports` says which:
 
 ```
-circles (slot 0) · api 54321 · db 54322 · mail 54324 · app 8081 · live 8082
+circles (slot 0) · api 54321 · db 54322 · mail 54324 · app 8081 · live 8082 · smoke 8083
 ```
 
 `make envs` lists every stack running on the machine, whichever checkout
@@ -114,9 +114,15 @@ circles-s2   slot 2 · api 54521 · db 54522 · mail 54524 · /Users/you/Repos/c
 app server on :8282
 ```
 
-So never pass a port by hand, and never edit `config.toml` to change one. Two
-things do not move: the Playwright suites serve on 8082 and 8083 whichever
-checkout runs them, which is why only one `make check` runs at a time, and a
+So never pass a port by hand, and never edit `config.toml` to change one. The
+Playwright suites move with the slot too: 8082 and 8083 here, 8182 and 8183 in
+slot 1, and so on, which `make check`, `make test-live`, `make test-smoke` and
+the parallel skill's `gate` all pass on. So two slots can check at once without
+either one's Playwright reusing the other's server. The parallel skill still
+runs one gate at a time by default, because two at once measured no faster on
+this machine: the rest of a check is CPU and Docker memory. A slot's `make` targets
+also run with a `TMPDIR` of its own, `$TMPDIR/circles-s<N>`, because Expo keeps
+Metro's cache there and the cache is otherwise shared by every checkout. A
 slot's stack starts without Studio to save memory (`make studio` there opens
 only the mail catcher).
 
@@ -270,8 +276,10 @@ Run one file or one test with `pnpm exec vitest run <path>`, or
 typecheck, so the answer before a PR is `pnpm check`.
 
 The two e2e suites export different builds into the same `apps/app/dist` and
-serve them on their own ports, **8083** (smoke) and **8082** (live). Neither
-uses Metro's 8081, so a `pnpm dev:web` left running doesn't interfere.
+serve them on their own ports, **8083** (smoke) and **8082** (live), or
+`E2E_SMOKE_PORT` and `E2E_LIVE_PORT` when set (a parallel slot's `make` targets
+set them to 8083 and 8082 plus 100 x slot). Neither uses Metro's 8081, so a
+`pnpm dev:web` left running doesn't interfere.
 Outside CI, Playwright reuses a server already answering on its port, so if a
 suite behaves as though it got the other suite's build, look for a stray
 `expo serve` on 8082 or 8083.
