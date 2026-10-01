@@ -148,7 +148,13 @@ describe('painting and sending', () => {
     open();
     await screen.findByText("Times I'd actually be up for");
 
-    expect(track).toHaveBeenCalledWith('availability_started', { plan_id: PLAN.id });
+    // Once the others have been read: here they cannot be, so no counts showed.
+    await waitFor(() =>
+      expect(track).toHaveBeenCalledWith('availability_started', {
+        plan_id: PLAN.id,
+        others_shown: false,
+      }),
+    );
   });
 
   it('will not send an empty answer, and says what would make it one', async () => {

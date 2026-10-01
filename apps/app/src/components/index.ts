@@ -34,6 +34,7 @@ export {
 } from './Text';
 export { Toggle } from './Toggle';
 export { Track } from './Track';
+export type { CellCount } from './TrackLines';
 export { usePalette, useInverted } from './theme';
 export {
   SLOT_MINUTES,

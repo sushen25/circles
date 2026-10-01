@@ -1,13 +1,14 @@
 import type { PlanId } from '@circles/contracts';
-import { fromISO, isTonightWindow } from '@circles/domain';
+import { fromISO, isTonightWindow, othersShown, type OthersSaid } from '@circles/domain';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { useEffect, useMemo, useReducer, useState } from 'react';
+import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 
 import { track } from '../../analytics/track';
 import { t } from '../../copy';
 import {
   clearDraft,
+  othersSaid,
   timingOf,
   usualTimes,
   type AnswerablePlan,
@@ -52,6 +53,8 @@ export type AnsweringProps = {
   /** Undefined with no backend: nothing is stored and nothing is sent. */
   userId: string | undefined;
   onStale: () => void;
+  /** With no backend, what the others said in the gallery's scenario (SUS-129). */
+  fixtureOthers?: OthersSaid | undefined;
 };
 
 /**
@@ -80,6 +83,7 @@ export function Answering({
   changed,
   userId,
   onStale,
+  fixtureOthers,
 }: AnsweringProps) {
   const router = useRouter();
 
@@ -129,6 +133,18 @@ export function Answering({
     staleTime: 0,
   });
 
+  // What the others have said, as counts (SUS-129, ADR 00XX). Read again each
+  // time the editor opens, and never kept: not in the draft, not on the
+  // device. A failed or offline read offers nothing — the editor is then
+  // exactly as it was — and the answer can still be sent.
+  const others = useQuery({
+    queryKey: ['others-said', plan.id, plan.revision, userId],
+    queryFn: async () => (await othersSaid(plan.id)) ?? null,
+    enabled: userId !== undefined && plan.acceptingAnswers,
+    staleTime: 0,
+  });
+  const said = userId === undefined ? fixtureOthers : (others.data ?? undefined);
+
   const { phase, send, savedAt, edited } = useSendAnswer({
     code,
     plan,
@@ -151,12 +167,22 @@ export function Answering({
   }, [discardDraft, userId, code]);
 
   // Opening the editor is the start of answering (§11.2's "median response
-  // after link open" reads the last open before the answer).
+  // after link open" reads the last open before the answer). Sent once the
+  // others are known, so it can say whether counts were shown: the answer time
+  // and the "I'm easy" share can then be compared with and without (SUS-129).
+  // Once per opening of the times step, however often the read is repeated.
+  const settled = userId === undefined || others.isFetched;
+  const shown = said !== undefined && othersShown(said);
+  const started = useRef(false);
   useEffect(() => {
-    if (step === 'times' && answerable) {
-      track('availability_started', { plan_id: plan.id as PlanId });
+    if (step !== 'times') {
+      started.current = false;
+      return;
     }
-  }, [step, answerable, plan.id]);
+    if (!answerable || !settled || started.current) return;
+    started.current = true;
+    track('availability_started', { plan_id: plan.id as PlanId, others_shown: shown });
+  }, [step, answerable, settled, shown, plan.id]);
 
   // While an answer is on its way it cannot change: the request has the
   // answer it was sent with, and a success clears the draft an edit would
@@ -211,7 +237,7 @@ export function Answering({
     );
   }
 
-  const view = editorView(state, rows, timing, format, undefined, usual.data ?? undefined);
+  const view = editorView(state, rows, timing, format, undefined, usual.data ?? undefined, said);
   const usualParts = usual.data ?? undefined;
 
   return (
@@ -222,6 +248,7 @@ export function Answering({
       zoneNote={zoneNoteOf(plan)}
       grid={view.grid}
       weekdays={view.weekdays}
+      othersLine={view.othersLine}
       panel={view.panel}
       answers={view.answers}
       canUndo={view.canUndo}

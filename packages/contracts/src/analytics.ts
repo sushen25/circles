@@ -132,7 +132,14 @@ export const catalogue = {
   organiser_accepted: event(2),
 
   // --- availability -------------------------------------------------------
-  availability_started: event(1),
+  /**
+   * `others_shown`: whether the editor showed counts of what others had said
+   * (SUS-129, ADR 00XX), so the time to answer and the "I'm easy" share can
+   * be compared with and without them. A yes or no only: never a count, a
+   * date or a time. Optional because events recorded before it have none;
+   * adding a field changes no existing event's meaning, so the version stays.
+   */
+  availability_started: event(1, { others_shown: z.boolean().optional() }),
   availability_submitted: event(1, {
     /**
      * All five of the spec's outcomes (§5.5). It had three, and §5.5 asks for

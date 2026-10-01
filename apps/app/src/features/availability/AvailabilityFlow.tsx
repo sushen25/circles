@@ -6,10 +6,10 @@ import { useEffect, useState } from 'react';
 import { hasBackend } from '../../data/auth/client';
 import { useSession } from '../../data/auth/session';
 import { planToAnswer, readDraft, type Draft } from '../../data/availability';
-import { answerable } from '../../data/fixtures';
 import { isOffline } from '../identity/join/failure';
 import { Answering, type AvailabilityStep } from './Answering';
 import { AvailabilityScreen } from './AvailabilityScreen';
+import { FixtureAnswering } from './FixtureAnswering';
 
 /**
  * Answering a plan: `/j/:code`, and `/j/:code/none` for "none of these dates"
@@ -40,20 +40,7 @@ export type { AvailabilityStep };
 export type AvailabilityFlowProps = { code: string; step: AvailabilityStep };
 
 export function AvailabilityFlow({ code, step }: AvailabilityFlowProps) {
-  if (!hasBackend()) {
-    return (
-      <Answering
-        code={code}
-        step={step}
-        plan={answerable.plan}
-        answer={answerable.answer}
-        draft={undefined}
-        changed={false}
-        userId={undefined}
-        onStale={() => undefined}
-      />
-    );
-  }
+  if (!hasBackend()) return <FixtureAnswering code={code} step={step} />;
   return <LiveAvailability code={code} step={step} />;
 }
 

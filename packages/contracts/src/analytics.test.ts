@@ -253,3 +253,28 @@ describe('the quiet ask events (SUS-51, spec §8.2)', () => {
     expect(isUnattributed('plan_created')).toBe(false);
   });
 });
+
+describe('availability_started and the counts of what others said (SUS-129)', () => {
+  it('says whether counts were shown, as a yes or no', () => {
+    expect(
+      validateEvent('availability_started', { plan_id: PLAN_ID, others_shown: true }),
+    ).toEqual({
+      name: 'availability_started',
+      version: 1,
+      properties: { plan_id: PLAN_ID, others_shown: true },
+    });
+    // Events from before it carry none, and still validate.
+    expect(validateEvent('availability_started', { plan_id: PLAN_ID })).not.toBeNull();
+  });
+
+  it('never carries a count, a day or a time', () => {
+    expect(validateEvent('availability_started', { others_shown: 5 })).toBeNull();
+    expect(validateEvent('availability_started', { others_count: 5 })).toBeNull();
+    expect(validateEvent('availability_started', { day: '2026-09-17' })).toBeNull();
+    expect(Object.keys(catalogue.availability_started.payload.shape).sort()).toEqual([
+      'circle_id',
+      'others_shown',
+      'plan_id',
+    ]);
+  });
+});

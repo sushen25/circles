@@ -4,6 +4,7 @@ import { PanResponder, Pressable, ScrollView, StyleSheet, View } from 'react-nat
 import { cell as cellToken, color, faceFor, space } from '@circles/tokens';
 
 import { Small, Title, numeric } from './Text';
+import { TrackCounts, TrackMarks, type CellCount } from './TrackLines';
 import { spaceToPress } from './keys';
 import { usePalette } from './theme';
 import {
@@ -53,6 +54,11 @@ type Props = {
   marks?: readonly { at: number; label: string }[] | undefined;
   /** The row's name for a screen reader, when `day` is abbreviated ("Mon 14 Sep"). */
   groupLabel?: string | undefined;
+  /**
+   * A figure over each cell: how many others are free then (SUS-129). Hidden
+   * from a screen reader, so each cell's label has to say it.
+   */
+  counts?: readonly CellCount[] | undefined;
   /** "I'm easy" is on: the row is kept, shown faded, and not paintable. */
   dimmed?: boolean | undefined;
   /** Under the row: "Any time that day". */
@@ -87,6 +93,7 @@ export function Track({
   range: givenRange,
   marks,
   groupLabel,
+  counts,
   dimmed = false,
   footer,
   header = true,
@@ -172,33 +179,11 @@ export function Track({
     />
   ));
 
-  const step = cellWidth + cellToken.gap;
+  const geometry = { count: cells.length, cellWidth: scrolls ? cellWidth : undefined };
   const markRow =
-    marks === undefined ? null : scrolls ? (
-      <View style={[styles.marks, { width: cells.length * step - cellToken.gap }]}>
-        {marks.map((mark) => (
-          <Small
-            key={`${mark.at}-${mark.label}`}
-            style={[
-              styles.tick,
-              numeric,
-              styles.mark,
-              mark.at === cells.length ? { right: 0 } : { left: mark.at * step },
-            ]}
-          >
-            {mark.label}
-          </Small>
-        ))}
-      </View>
-    ) : (
-      <View style={styles.ticks}>
-        {marks.map((mark) => (
-          <Small key={`${mark.at}-${mark.label}`} style={[styles.tick, numeric]}>
-            {mark.label}
-          </Small>
-        ))}
-      </View>
-    );
+    marks === undefined ? null : <TrackMarks marks={marks} {...geometry} />;
+  const countRow =
+    counts === undefined ? null : <TrackCounts counts={counts} {...geometry} />;
 
   return (
     <View style={[styles.day, dimmed && styles.dimmed]}>
@@ -217,6 +202,7 @@ export function Track({
         <View onLayout={(event) => setViewport(event.nativeEvent.layout.width)}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <View style={styles.scrolled}>
+              {countRow}
               <View role="group" aria-label={groupLabel ?? day} style={styles.track}>
                 {grid}
               </View>
@@ -226,6 +212,7 @@ export function Track({
         </View>
       ) : (
         <>
+          {countRow}
           <View
             role="group"
             aria-label={groupLabel ?? day}
@@ -289,12 +276,5 @@ const styles = StyleSheet.create({
   },
   scrolled: {
     gap: space.tight,
-  },
-  marks: {
-    height: 16,
-  },
-  mark: {
-    position: 'absolute',
-    top: 0,
   },
 });

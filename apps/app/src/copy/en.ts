@@ -202,6 +202,28 @@ export const en = {
     too_many_tries: 'Too many tries from here just now. Wait a few minutes, then try again.',
     couldnt_send: "Something went wrong, so your times didn't go through. Please try again.",
     reference: 'Ref {reference}',
+    others_answered:
+      '{count} of {total} have answered. The number on each day is how many of them could make it.',
+    others_answered_besides_you:
+      '{count} of the other {total} have answered. The number on each day is how many of them could make it.',
+    others_first:
+      "You're the first to answer. As replies come in, each day will show how many could make it.",
+    others_no_times_yet:
+      'Nobody else has given times yet. As they do, each day will show how many could make it.',
+    day_others_one: '{label}, 1 other could make it',
+    day_others_other: '{label}, {count} others could make it',
+    block_free: '{count} free',
+    block_up_to_free: 'Up to {count} free',
+    block_nobody_yet: 'Nobody yet',
+    overlap_one: 'Overlaps with 1 other',
+    overlap_other: 'Overlaps with {count} others',
+    overlap_none: 'No overlap with anyone yet',
+    adjust_day_others: '{day}, {time}. {overlap}. Adjust by the half hour',
+    peak: 'Others free, by the half hour. The most is {count}, {time}.',
+    peak_nobody: 'Nobody else has picked this day yet.',
+    cell_others_one: '{label}. 1 other free',
+    cell_others_other: '{label}. {count} others free',
+    cell_nobody: '·',
   },
   availabilityOverlay: {
     catch_up_next_14_days: 'Catch up · next 14 days',

@@ -15,20 +15,34 @@ type Props = {
   label: string;
   /** A second line under the label: a block's hours, "5:30–10:30 pm". */
   detail?: string | undefined;
+  /**
+   * A third line, after the people icon: what others said about these hours,
+   * "3 free" (SUS-129). Read out after the detail.
+   */
+  others?: string | undefined;
   selected?: boolean | undefined;
   onPress?: (() => void) | undefined;
   /** Shown but not in play, and said so: not a checkbox that silently does nothing. */
   disabled?: boolean | undefined;
 };
 
-export function Chip({ label, detail, selected = false, onPress, disabled = false }: Props) {
+export function Chip({
+  label,
+  detail,
+  others,
+  selected = false,
+  onPress,
+  disabled = false,
+}: Props) {
   const palette = usePalette();
   const ink = selected ? palette.onAccent : palette.ink;
+  const soft = selected ? palette.onAccent : palette.ink2;
+  const spoken = [label, detail, others].filter((part) => part !== undefined).join(', ');
 
   return (
     <Pressable
       role="checkbox"
-      aria-label={detail === undefined ? label : `${label}, ${detail}`}
+      aria-label={spoken}
       aria-checked={selected}
       aria-disabled={disabled}
       disabled={disabled}
@@ -47,9 +61,13 @@ export function Chip({ label, detail, selected = false, onPress, disabled = fals
       ) : (
         <View>
           <Text style={[styles.label, styles.strong, { color: ink }]}>{label}</Text>
-          <Text style={[styles.detail, { color: selected ? palette.onAccent : palette.ink2 }]}>
-            {detail}
-          </Text>
+          <Text style={[styles.detail, { color: soft }]}>{detail}</Text>
+          {others === undefined ? null : (
+            <View style={styles.others}>
+              <Icon name="people" size={12} color={soft} />
+              <Text style={[styles.detail, { color: soft }]}>{others}</Text>
+            </View>
+          )}
         </View>
       )}
     </Pressable>
@@ -90,6 +108,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontVariant: ['tabular-nums'],
   },
+  others: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   chips: {
     flexDirection: 'row',
     flexWrap: 'wrap',

@@ -56,11 +56,21 @@ export function AnswerList({
           key={answer.key}
           date={answer.short}
           range={answer.range}
-          label={t('availability', 'adjust_day', { day: answer.spoken, time: answer.range })}
+          others={answer.others}
+          label={
+            answer.others === undefined
+              ? t('availability', 'adjust_day', { day: answer.spoken, time: answer.range })
+              : t('availability', 'adjust_day_others', {
+                  day: answer.spoken,
+                  time: answer.range,
+                  overlap: answer.others,
+                })
+          }
           open={answer.open}
           disabled={!live}
           onToggle={() => onOpen?.(answer.day)}
         >
+          {answer.peak === undefined ? null : <Small>{answer.peak}</Small>}
           <Track
             day={answer.spoken}
             groupLabel={answer.spoken}
@@ -70,6 +80,7 @@ export function AnswerList({
             labels={answer.labels}
             range={answer.range}
             marks={answer.marks}
+            counts={answer.counts}
             header={false}
             dimmed={dimmed}
           />
