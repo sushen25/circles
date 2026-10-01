@@ -94,8 +94,10 @@ function home(overrides: Partial<CircleData.CircleHome> = {}): CircleData.Circle
   };
 }
 
-function wrap(children: ReactNode) {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+function wrap(
+  children: ReactNode,
+  client = new QueryClient({ defaultOptions: { queries: { retry: false } } }),
+) {
   return render(<QueryClientProvider client={client}>{children}</QueryClientProvider>);
 }
 
@@ -346,5 +348,75 @@ describe('circle home and the quiet ask (S2-03)', () => {
       pathname: '/circles/[id]/plan/mode',
       params: { id: CIRCLE },
     });
+  });
+});
+
+describe('circle home, for somebody whose times an edit cleared (SUS-130)', () => {
+  const RUNNING = {
+    id: PLAN,
+    code: 'pnsundaycr',
+    organiserUserId: 'maya',
+    title: 'Catch up',
+    responseDeadline: '2026-09-29T08:00:00Z',
+    replied: 1,
+    asked: 6,
+  };
+  const CLEARED =
+    'The plan changed, so the times you sent were cleared. Add yours again so they count.';
+
+  it('says the plan changed and their times need adding again, on the plan card', async () => {
+    circleHome.mockResolvedValue(
+      home({ me: 'priya', isOwner: false, activePlan: { ...RUNNING, askedAgain: true } }),
+    );
+    wrap(<CircleHomeFlow id={CIRCLE} />);
+
+    expect(await screen.findByText(CLEARED)).toBeVisible();
+    expect(screen.getByText('Finding a time')).toBeVisible();
+  });
+
+  // Review round 2: the line asks for their times, so the card's button is the
+  // way to give them. The organiser's candidates screen has no editor link, so
+  // without this an organiser told to add theirs again had nowhere to do it.
+  it.each([
+    ['a member', 'priya'],
+    ['the organiser, whose own edit cleared theirs,', 'maya'],
+  ])('takes %s from the card to the grid', async (_who, me) => {
+    circleHome.mockResolvedValue(
+      home({ me, isOwner: me === 'maya', activePlan: { ...RUNNING, askedAgain: true } }),
+    );
+    wrap(<CircleHomeFlow id={CIRCLE} />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Add my times' }));
+    expect(push).toHaveBeenCalledWith({ pathname: '/j/[code]', params: { code: 'pnsundaycr' } });
+    expect(screen.queryByRole('button', { name: "See how it's looking" })).toBeNull();
+  });
+
+  // Review round 3: the grid's read is kept for 30 seconds, and one from before
+  // the edit would open on the answer the edit cleared. Circle home has just
+  // been told by the server that it is out of date, so it is.
+  it('does not let the grid open on an answer read before the edit', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const before = ['plan-to-answer', 'pnsundaycr', 'priya'];
+    client.setQueryData(before, { answer: { status: 'flexible' } });
+    circleHome.mockResolvedValue(
+      home({ me: 'priya', isOwner: false, activePlan: { ...RUNNING, askedAgain: true } }),
+    );
+    wrap(<CircleHomeFlow id={CIRCLE} />, client);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Add my times' }));
+    expect(client.getQueryState(before)?.isInvalidated).toBe(true);
+    expect(push).toHaveBeenCalledWith({ pathname: '/j/[code]', params: { code: 'pnsundaycr' } });
+  });
+
+  it('says nothing of the kind to somebody it did not happen to', async () => {
+    circleHome.mockResolvedValue(
+      home({ me: 'alex', isOwner: false, activePlan: { ...RUNNING, askedAgain: false } }),
+    );
+    wrap(<CircleHomeFlow id={CIRCLE} />);
+
+    expect(await screen.findByText('Finding a time')).toBeVisible();
+    expect(screen.queryByText(CLEARED)).toBeNull();
+    expect(screen.getByRole('button', { name: "See how it's looking" })).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Add my times' })).toBeNull();
   });
 });

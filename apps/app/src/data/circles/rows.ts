@@ -96,6 +96,47 @@ export async function repliesFor(
   return { replied: latest.data[0]?.responded_count ?? 0, asked: asked.count ?? 0 };
 }
 
+/**
+ * Whether the reader answered this plan before an edit cleared it, and has not
+ * answered the question as it is now (SUS-130): their newest answer is to an
+ * earlier revision. Their own rows only (`plan_responses_select_own`), which
+ * keep every revision; nobody else's answer is read or counted here.
+ *
+ * Only while the plan is still taking answers, judged on the database's clock
+ * as `planToAnswer` judges it: a plan past its deadline stays finding a time
+ * until the organiser decides (spec §8), and "add yours again" would send them
+ * to a grid that says replies have closed (review round 1).
+ */
+export async function askedAgain(
+  client: Client,
+  plan: Pick<PlanRow, 'id' | 'revision'>,
+  me: string | undefined,
+): Promise<boolean> {
+  if (me === undefined) return false;
+  const [newest, open] = await Promise.all([
+    client
+      .from('plan_responses')
+      .select('revision')
+      .eq('plan_id', plan.id)
+      .eq('user_id', me)
+      .order('revision', { ascending: false })
+      .limit(1),
+    // `'now'` is Postgres's own input for the current time; the row coming
+    // back is the answer.
+    client
+      .from('plans')
+      .select('id')
+      .eq('id', plan.id)
+      .gt('response_deadline', 'now')
+      .maybeSingle(),
+  ]);
+  // A line on the card, not the home: unread, the card says what it says to
+  // everybody else.
+  if (newest.error !== null || open.error !== null || open.data === null) return false;
+  const revision = newest.data[0]?.revision;
+  return revision !== undefined && revision < plan.revision;
+}
+
 export type MeetupRow = {
   confirmationId: string;
   planId: string;

@@ -22,7 +22,8 @@ import { AvailabilityScreen } from './AvailabilityScreen';
  *   wins over the stored answer when it is newer, because it is what the person
  *   last did. A draft for an *older* question is discarded and said so — the
  *   organiser changed the plan, and those times were about dates that are no
- *   longer asked (the rescheduled state).
+ *   longer asked (the rescheduled state). So is an answer the server holds
+ *   only for an older question, with no draft at all (SUS-130).
  * - **Keeping it.** Every change is written to the device as it happens, so a
  *   reload, a dead battery or a tunnel costs nothing (§10: edits "survive
  *   refresh").
@@ -156,9 +157,13 @@ function LiveAvailability({ code, step }: AvailabilityFlowProps) {
 
   if (question.isPending) return <AvailabilityScreen state="loading" onBack={back} />;
 
-  const { plan, answer } = question.data;
+  const { plan, answer, answeredEarlierRevision } = question.data;
   const stale =
     draft !== undefined && (draft.plan.id !== plan.id || draft.plan.revision !== plan.revision);
+  // Answered before the organiser's edit cleared it, and not since: the empty
+  // grid is the plan changing, not the app losing their times (SUS-130). A
+  // successful send deletes the draft, so without this nothing else would say.
+  const cleared = answeredEarlierRevision === true && answer === null;
 
   return (
     <Answering
@@ -171,7 +176,7 @@ function LiveAvailability({ code, step }: AvailabilityFlowProps) {
       answer={answer}
       draft={stale ? undefined : draft}
       discardDraft={stale}
-      changed={changed || stale}
+      changed={changed || stale || cleared}
       userId={userId}
       onStale={onStale}
     />

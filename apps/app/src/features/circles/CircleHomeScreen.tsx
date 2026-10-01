@@ -9,6 +9,7 @@ import {
   Foot,
   Label,
   Marks,
+  Notice,
   Screen,
   Small,
   Title,
@@ -45,6 +46,11 @@ export type CircleHomeProps = {
   closes?: string | undefined;
   /** "5 of 6 replied". */
   replied?: string | undefined;
+  /**
+   * Said to a reader whose answer an edit cleared, until they answer the plan
+   * as it is now (SUS-130). Absent for everybody else.
+   */
+  askedAgain?: string | undefined;
   members?: readonly Member[] | undefined;
   memberCount?: string | undefined;
   lastCaughtUp?: string | undefined;
@@ -57,6 +63,11 @@ export type CircleHomeProps = {
   onNext?: (() => void) | undefined;
   onBack?: (() => void) | undefined;
   onSeeHowItsLooking?: (() => void) | undefined;
+  /**
+   * The card's button while `askedAgain` is said: the line asks for their
+   * times, so the button is the way to give them (SUS-130).
+   */
+  onAddMyTimes?: (() => void) | undefined;
   /** The morning after's card, under the circle's name, when the reader owes it (S1-29). */
   prompt?: ReactNode;
 };
@@ -71,6 +82,7 @@ export function CircleHomeScreen({
   planTitle = t('circleHome', 'catch_up_in_the_next_14_days'),
   closes = t('circleHome', 'replies_close_tue_6_pm'),
   replied = t('circleHome', '5_of_6_replied'),
+  askedAgain,
   members = fixture?.circle.members ?? [],
   memberCount = t('circleHome', '6_members'),
   lastCaughtUp = t('circleHome', 'sat_8_aug'),
@@ -81,6 +93,7 @@ export function CircleHomeScreen({
   onNext,
   onBack,
   onSeeHowItsLooking,
+  onAddMyTimes,
   prompt,
 }: CircleHomeProps) {
   if (state === 'loading' || state === 'error' || state === 'offline') {
@@ -109,11 +122,20 @@ export function CircleHomeScreen({
             <Marks members={members} max={MARKS_MAX} more={marksMore} />
             <Small>{replied}</Small>
           </Stack>
-          <Button
-            label={t('circleHome', 'see_how_its_looking')}
-            variant="secondary"
-            onPress={onSeeHowItsLooking}
-          />
+          {askedAgain === undefined ? null : <Notice kind="warn">{askedAgain}</Notice>}
+          {askedAgain === undefined ? (
+            <Button
+              label={t('circleHome', 'see_how_its_looking')}
+              variant="secondary"
+              onPress={onSeeHowItsLooking}
+            />
+          ) : (
+            <Button
+              label={t('circleHome', 'add_my_times')}
+              variant="secondary"
+              onPress={onAddMyTimes}
+            />
+          )}
         </Card>
         <Card>
           <Row>

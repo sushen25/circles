@@ -1,5 +1,6 @@
 import type { CircleId, PlanId } from '@circles/contracts';
 import { EN_SHARE_TEMPLATES } from '@circles/domain';
+import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 
@@ -38,6 +39,7 @@ import {
  */
 export function HomeInState({ home, onBack }: { home: CircleHome; onBack: () => void }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [shareOutcome, setShareOutcome] = useState<string | undefined>();
   const id = home.id;
   // The morning after's card, when the reader owes an answer (S1-29). Every
@@ -128,6 +130,7 @@ export function HomeInState({ home, onBack }: { home: CircleHome; onBack: () => 
           deadline: whenWords(plan.responseDeadline, home.zone),
         })}
         replied={t('circleHome', 'replied', { count: plan.replied, total: plan.asked })}
+        askedAgain={plan.askedAgain === true ? t('circleHome', 'asked_again') : undefined}
         lastCaughtUp={lastCaughtUp(home)}
         nextOne={nextOne(home)}
         onSeeHowItsLooking={() =>
@@ -138,6 +141,14 @@ export function HomeInState({ home, onBack }: { home: CircleHome; onBack: () => 
             params: { id, planId: plan.id },
           })
         }
+        // The organiser's candidates screen has no way to the grid, so the
+        // card is it (review round 2). The server has just said this reader's
+        // answer is out of date, so a grid read from before the edit is too:
+        // it would open on the cleared answer (review round 3).
+        onAddMyTimes={() => {
+          void queryClient.invalidateQueries({ queryKey: ['plan-to-answer', plan.code] });
+          router.push({ pathname: '/j/[code]', params: { code: plan.code } });
+        }}
         // Two ways to start now that the quiet ask is on (S2-03); with a plan
         // running, either one shows that plan (ADR 0033).
         onNext={() => router.push({ pathname: '/circles/[id]/plan/mode', params: { id } })}
