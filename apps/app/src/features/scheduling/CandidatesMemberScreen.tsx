@@ -48,6 +48,8 @@ export type CandidatesMemberProps = {
   /** Replies have closed: "Change my times" is shown disabled, with why. */
   repliesClosed?: boolean | undefined;
   onChangeMyTimes?: (() => void) | undefined;
+  /** The plan's link again, while replies are open; any member may forward it (SUS-132). */
+  onShareLink?: (() => void) | undefined;
   /** The circle's owner, who may cancel a plan they are not organising (spec §4.5, S1-26). */
   onCancelPlan?: (() => void) | undefined;
   onRetry?: (() => void) | undefined;
@@ -63,6 +65,7 @@ export function CandidatesMemberScreen({
   stale = false,
   repliesClosed = false,
   onChangeMyTimes,
+  onShareLink,
   onCancelPlan,
   onRetry,
   onBack,
@@ -118,7 +121,10 @@ export function CandidatesMemberScreen({
           <CandidateCard key={card.id} card={card} highlighted={card.recommended} />
         ))}
       </Body>
-      {onChangeMyTimes === undefined && onCancelPlan === undefined && !repliesClosed ? null : (
+      {onChangeMyTimes === undefined &&
+      onShareLink === undefined &&
+      onCancelPlan === undefined &&
+      !repliesClosed ? null : (
         <Foot>
           {repliesClosed ? (
             <>
@@ -135,6 +141,9 @@ export function CandidatesMemberScreen({
               variant="secondary"
               onPress={onChangeMyTimes}
             />
+          )}
+          {onShareLink === undefined ? null : (
+            <Tertiary label={t('waiting', 'share_the_link_again')} onPress={onShareLink} />
           )}
           {onCancelPlan === undefined ? null : (
             <Tertiary label={t('confirmedOrg', 'cancel_this_plan')} onPress={onCancelPlan} />

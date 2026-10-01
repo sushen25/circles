@@ -15,6 +15,7 @@ export function MemberView({
   data,
   header,
   onChangeMyTimes,
+  onShareLink,
   onCancelPlan,
   onRetry,
   onBack,
@@ -22,6 +23,7 @@ export function MemberView({
   data: PlanCandidates;
   header: HeaderView;
   onChangeMyTimes?: (() => void) | undefined;
+  onShareLink?: (() => void) | undefined;
   onCancelPlan?: (() => void) | undefined;
   onRetry?: (() => void) | undefined;
   onBack?: (() => void) | undefined;
@@ -51,6 +53,7 @@ export function MemberView({
         stale={data.stale}
         repliesClosed={!data.repliesOpen}
         onChangeMyTimes={onChangeMyTimes}
+        onShareLink={onShareLink}
         onCancelPlan={onCancelPlan}
         onRetry={onRetry}
         onBack={onBack}
@@ -75,6 +78,7 @@ export function MemberView({
       stale={data.stale}
       repliesClosed={!data.repliesOpen}
       onChangeMyTimes={onChangeMyTimes}
+      onShareLink={onShareLink}
       onCancelPlan={onCancelPlan}
       onRetry={onRetry}
       onBack={onBack}

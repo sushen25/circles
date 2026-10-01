@@ -11,10 +11,15 @@ import { shareMessage } from '../../platform/share';
 import { reminderMessage } from '../planning/reminder';
 
 /**
- * "Share the link" on the finding-a-time card (SUS-132): the organiser's way
- * back to the plan's link once they have left the share screen.
+ * "Share the link" on the finding-a-time card (SUS-132): the way back to the
+ * plan's link once the organiser has left the share screen.
  *
- * Offered to the plan's organiser while it is still taking answers, which is
+ * **Offered to every member, not only the organiser** (the founder's decision,
+ * 1 October 2026): the link admits people and is not a secret (ADR 0022), and
+ * the message is the count-only reminder, so a member forwarding it gives
+ * nothing away. Nothing limits how often one is sent.
+ *
+ * Offered while it is still taking answers, which is
  * until its deadline: `replace_response` refuses one after it, and a link that
  * can no longer be used to answer is not worth chasing anybody with. A quiet
  * ask has its own screens and its own anonymity (spec §5.4), so it is not
@@ -29,8 +34,6 @@ export function useShareLink(
   const open =
     plan !== null &&
     plan.quiet !== true &&
-    home.me !== undefined &&
-    plan.organiserUserId === home.me &&
     isAfter(fromISO(plan.responseDeadline), fromISO(now.toISOString()));
   if (!open) return { onShareLink: undefined, outcome: undefined };
 

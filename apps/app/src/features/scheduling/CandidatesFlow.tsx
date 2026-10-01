@@ -7,12 +7,8 @@ import { track } from '../../analytics/track';
 import { t } from '../../copy';
 import { hasBackend } from '../../data/auth/client';
 import { isLockedIn } from '../../data/scheduling';
-import { appOrigin } from '../../data/links/origin';
-import { planLink } from '../../data/planning';
-import { shareMessage } from '../../platform/share';
 import { isOffline } from '../identity/join/failure';
 import { clockNow, usePlanClock } from '../planning/clock';
-import { reminderMessage } from '../planning/reminder';
 import { CandidatesScreen } from './CandidatesScreen';
 import { isDeadlinePassed } from './deadline';
 import { DeadlinePassedFlow } from './DeadlinePassedFlow';
@@ -21,10 +17,11 @@ import { MemberView } from './MemberView';
 import { NoQuorumScreen } from './NoQuorumScreen';
 import { reviewLabel, stillToAnswer, widerWarning } from './lines';
 import { blockedBy, unlocksOf } from './unlock';
+import { shareReminder } from './shareReminder';
 import { useCandidates } from './useCandidates';
 import { useDeadlinePassed } from './useDeadlinePassed';
 import { useResolution } from './useResolution';
-import { cardsOf, headerOf, headlineOf, leadOf, nearMissesOf, notAnswered, nudgeOf } from './view';
+import { cardsOf, headerOf, headlineOf, leadOf, nearMissesOf, nudgeOf } from './view';
 import { WaitingScreen } from './WaitingScreen';
 
 /**
@@ -126,27 +123,9 @@ function LiveCandidates({ id, planId }: { id: string; planId: string }) {
     return <CandidatesScreen state="expired" header={header} onBack={back} />;
   }
 
-  // How many replies are still out, from the summaries the organiser always
-  // sees rather than from the set's own count — that belongs to the set, and a
-  // set one answer behind would have a message saying so.
-  const waiting = notAnswered(data);
-  const remaining =
-    data.responded === null ? Math.max(0, data.askedCount - data.repliedCount) : waiting.length;
-  const ids = { circle_id: id as CircleId, plan_id: data.planId as PlanId };
-  const shared = (kind: 'plan' | 'reminder') => (result: string) => {
-    if (result === 'sheet' || result === 'dismissed' || result === 'copied') {
-      track('share_opened', { ...ids, kind });
-    }
-  };
-
-  // The reminder for the group chat, from the count that is still out: a
-  // count, never names. Where the screen offers it is `onShareAgain`'s to
-  // say; this is only what it sends.
-  const link = planLink(appOrigin(), data.code);
-  const shareAgain = () => {
-    const message = reminderMessage({ remaining, circleName: data.circleName, url: link });
-    void shareMessage(message).then(shared('reminder'));
-  };
+  // The reminder for the group chat: a count, never names. Where a screen
+  // offers it is its own to say; this is only what it sends.
+  const shareAgain = () => shareReminder(data);
 
   // Everybody sees the options; only the organiser decides (§5.6). Before
   // options exist a member sees nothing of what has come in, which is the
@@ -160,6 +139,7 @@ function LiveCandidates({ id, planId }: { id: string; planId: string }) {
         // refuses one past the deadline, and the plan sits in an answerable
         // state after it so the organiser can decide (spec §8).
         onChangeMyTimes={data.repliesOpen ? toEditor : undefined}
+        onShareLink={data.repliesOpen ? shareAgain : undefined}
         // The owner may cancel a plan somebody else organises (spec §4.5).
         onCancelPlan={
           data.isOwner

@@ -34,6 +34,7 @@ vi.mock('../../platform/share', () => ({
 }));
 
 const { CandidatesFlow } = await import('./CandidatesFlow');
+const { MemberCandidatesFlow } = await import('./MemberCandidatesFlow');
 const fixture = await import('./fixtures');
 
 function show(node: ReactNode) {
@@ -106,6 +107,56 @@ describe('SUS-132: share the link again', () => {
 
   it.each(['cancelled', 'confirmed'] as const)('is not on a plan that is %s', async (state) => {
     planCandidates.mockResolvedValue({ ...fixture.ready, state, view: 'closed' });
+    show(flow());
+
+    await waitFor(() => expect(planCandidates).toHaveBeenCalled());
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(screen.queryByRole('button', SHARE)).toBeNull();
+  });
+});
+
+describe('SUS-132: share the link again, as a member', () => {
+  const member = (data: object) => {
+    planCandidates.mockResolvedValue(data);
+  };
+
+  it.each([
+    ['the options', fixture.readyAsMember],
+    ['waiting', { ...fixture.waiting, me: 'priya', isOrganiser: false, isOwner: false }],
+    ['no overlap', { ...fixture.noQuorum, me: 'priya', isOrganiser: false, isOwner: false }],
+  ])('is on %s while replies are open, and sends a count, never names', async (_, data) => {
+    member(data);
+    show(flow());
+
+    fireEvent.click(await screen.findByRole('button', SHARE));
+    await waitFor(() => expect(shareMessage).toHaveBeenCalled());
+    const message = shareMessage.mock.calls[0]?.[0] as string;
+    expect(message).toContain('circles.test');
+    expect(message).not.toMatch(/Alex|Tom|Jess/);
+    expect(track).toHaveBeenCalledWith(
+      'share_opened',
+      expect.objectContaining({ kind: 'reminder' }),
+    );
+  });
+
+  it('is on the plan page a member opens from the link', async () => {
+    member(fixture.readyAsMember);
+    show(<MemberCandidatesFlow code="pnsundaycr" />);
+
+    fireEvent.click(await screen.findByRole('button', SHARE));
+    await waitFor(() => expect(shareMessage).toHaveBeenCalled());
+  });
+
+  it('is not there once replies have closed', async () => {
+    member({ ...fixture.readyAsMember, repliesOpen: false });
+    show(flow());
+
+    expect(await screen.findByRole('button', { name: 'Change my times' })).toBeTruthy();
+    expect(screen.queryByRole('button', SHARE)).toBeNull();
+  });
+
+  it.each(['cancelled', 'confirmed'] as const)('is not on a plan that is %s', async (state) => {
+    member({ ...fixture.readyAsMember, state, view: 'closed' });
     show(flow());
 
     await waitFor(() => expect(planCandidates).toHaveBeenCalled());

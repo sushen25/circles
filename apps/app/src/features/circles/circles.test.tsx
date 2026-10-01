@@ -419,4 +419,18 @@ describe('circle home, for somebody whose times an edit cleared (SUS-130)', () =
     expect(screen.getByRole('button', { name: "See how it's looking" })).toBeVisible();
     expect(screen.queryByRole('button', { name: 'Add my times' })).toBeNull();
   });
+
+  it('is not offered to a member on a quiet ask', async () => {
+    circleHome.mockResolvedValue(
+      home({
+        me: 'priya',
+        isOwner: false,
+        activePlan: { ...OPEN(), organiserUserId: null, quiet: true },
+      }),
+    );
+    wrap(<CircleHomeFlow id={CIRCLE} />);
+
+    expect(await screen.findByText('Started quietly')).toBeVisible();
+    expect(screen.queryByRole('button', SHARE)).toBeNull();
+  });
 });

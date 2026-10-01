@@ -9,6 +9,7 @@ import { isOffline } from '../identity/join/failure';
 import { MemberView } from './MemberView';
 import { CandidatesMemberScreen } from './CandidatesMemberScreen';
 import * as fixture from './fixtures';
+import { shareReminder } from './shareReminder';
 import { useCandidates } from './useCandidates';
 import { headerOf } from './view';
 
@@ -115,6 +116,8 @@ function LiveMember({ code }: { code: string }) {
           ? () => router.push({ pathname: '/j/[code]', params: { code } })
           : undefined
       }
+      // Any member may forward the link while the plan takes answers (SUS-132).
+      onShareLink={data.repliesOpen ? () => shareReminder(data) : undefined}
       // The owner may cancel any plan in the circle (spec §4.5); the organiser
       // does it from their own screens, where this page sends them.
       onCancelPlan={
