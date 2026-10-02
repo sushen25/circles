@@ -2380,6 +2380,7 @@ describe('generate-ics', () => {
     const first = await (
       await load('generate-ics')(get({ confirmation_id: CONFIRMATION_ID }))
     ).text();
+    state.users = [{ id: CALLER, is_anonymous: false }];
     state.rows = {
       meetup_confirmations: {
         ...(state.rows['meetup_confirmations'] as Record<string, unknown>),
