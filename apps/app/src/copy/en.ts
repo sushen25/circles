@@ -1384,7 +1384,7 @@ export const en = {
       'Hosting, the database and email delivery are run by other companies on our behalf, so your details pass through them. They are there to run {brand}, not to market to you.',
     privacy_email_heading: 'What email you get',
     privacy_email_body:
-      'A sign-in code when you sign in. If you organise plans or have an account, letters about your own plans and an occasional nudge to plan the next one; most of these can be turned off in notification settings. If you are a guest, updates about a plan only if you ask, each with a stop link.',
+      'A sign-in code when you sign in. If you sign in to organise plans, letters about those plans and an occasional nudge to plan the next one; most of these can be turned off in notification settings. If you are a guest, updates about a plan only if you ask, each with a stop link.',
     privacy_calendar_heading: 'Your calendar stays yours',
     privacy_calendar_body:
       'Nobody in your circle sees your schedule, only which times work for the group. Calendar events on your phone never leave it.',
@@ -1848,7 +1848,7 @@ export const en = {
       "They see which options work for you, never a personal schedule. Before enough people are keen on a quiet ask, nobody sees anyone's answer.",
     what_email_you_get: 'What email you get',
     guests_get_updates_only_if_they_ask:
-      'Guests get updates about a plan only if they ask, each with a stop link. If you organise plans or have an account, you also get letters about your own plans and an occasional nudge, most of which you can turn off in notification settings. We never sell addresses, and other companies deliver the email for us.',
+      'Guests get updates about a plan only if they ask, each with a stop link. If you sign in to organise plans, you also get letters about those plans and an occasional nudge, most of which you can turn off in notification settings. We never sell addresses, and other companies deliver the email for us.',
     to_have_your_details_removed:
       'To have your details removed, write to {support}. There is no delete button in the app yet.',
   },
