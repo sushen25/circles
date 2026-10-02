@@ -6,7 +6,7 @@
 -- pending, so its subscription stays undeliverable.
 
 begin;
-select plan(30);
+select plan(33);
 
 create or replace function pg_temp.make_user(id uuid, name text, permanent boolean default false)
 returns uuid language sql as $$
@@ -295,6 +295,43 @@ select is(
   array[pg_temp.status_of('back@example.com', '30000000-0000-0000-0000-0000000000d1'),
         pg_temp.status_of('back@example.com', '30000000-0000-0000-0000-0000000000d2')],
   array['verified', 'verified'], 'verifying on the side that was moved to ends with both verified');
+
+select pg_temp.make_user('30000000-0000-0000-0000-0000000000d3', 'Chain one');
+select pg_temp.make_user('30000000-0000-0000-0000-0000000000d4', 'Chain two');
+select pg_temp.make_user('30000000-0000-0000-0000-0000000000d5', 'Chain three');
+select pg_temp.join(pg_temp.c1(), '30000000-0000-0000-0000-0000000000d3');
+select pg_temp.join(pg_temp.c2(), '30000000-0000-0000-0000-0000000000d3');
+select pg_temp.plan_in(pg_temp.c1(), 'qqqqpk');
+select pg_temp.plan_in(pg_temp.c2(), 'qqqqpm');
+select pg_temp.act_as_service();
+select public.request_email_updates((select id from public.plans where short_code = 'qqqqpk'),
+  '30000000-0000-0000-0000-0000000000d3', 'chain@example.com', '2026-09-14', 'r-d3k');
+select public.request_email_updates((select id from public.plans where short_code = 'qqqqpm'),
+  '30000000-0000-0000-0000-0000000000d3', 'chain@example.com', '2026-09-14', 'r-d3m');
+select public.issue_verification_token(
+  pg_temp.contact_of('chain@example.com', '30000000-0000-0000-0000-0000000000d3'),
+  pg_temp.hash_of('t-chain'));
+select pg_temp.act_as('30000000-0000-0000-0000-0000000000d4');
+select public.reattach_member(pg_temp.c1(), '30000000-0000-0000-0000-0000000000d3');
+select pg_temp.act_as('30000000-0000-0000-0000-0000000000d5');
+select public.reattach_member(pg_temp.c1(), '30000000-0000-0000-0000-0000000000d4');
+select pg_temp.act_as_postgres();
+select is(
+  (select array_agg(i order by i) from private.same_person_identities('30000000-0000-0000-0000-0000000000d3') i),
+  array['30000000-0000-0000-0000-0000000000d3', '30000000-0000-0000-0000-0000000000d4',
+        '30000000-0000-0000-0000-0000000000d5']::uuid[],
+  'a membership moved twice links the whole chain to the identity it started on');
+select pg_temp.act_as_service();
+select public.verify_email_contact(pg_temp.hash_of('t-chain'));
+select pg_temp.act_as_postgres();
+select is(
+  array[pg_temp.status_of('chain@example.com', '30000000-0000-0000-0000-0000000000d3'),
+        pg_temp.status_of('chain@example.com', '30000000-0000-0000-0000-0000000000d5')],
+  array['verified', 'verified'],
+  'and verifying on the first identity reaches the copy two moves away');
+select is(pg_temp.recipients('qqqqpk'),
+  array[pg_temp.contact_of('chain@example.com', '30000000-0000-0000-0000-0000000000d5')],
+  'so the moved place''s plan is deliverable');
 
 -- ---------------------------------------------------------------------------
 -- 4. What does not link two identities.

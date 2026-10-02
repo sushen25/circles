@@ -30,11 +30,13 @@ it does today.
 
 **1. One rule for "the same person", in one function.**
 `private.same_person_identities(user_id)` returns the identity itself and every
-identity **directly** linked to it by a `circles.member_reattached` row in
-`private.audit_log`, in either direction (the row records `from_user_id` and
-`to_user_id` by id, written in the same transaction as the move). Nothing else
-makes two identities one person: not the same address, the same circle, the same
-device or the same time.
+identity connected to it by the `circles.member_reattached` rows of **one
+circle**, in either direction (each row records `from_user_id`, `to_user_id` and
+the circle by id, written in the same transaction as the move). A membership
+moved twice, A to B and then B to C, is one chain, so A, B and C are one person
+for this purpose: the contact copied to C, with the verification link still on
+A, is two moves away. The walk never crosses circles. Nothing else makes two
+identities one person: not the same address, the same device or the same time.
 
 **2. `verify_email_contact` uses it three times,** where it used the address
 alone: the pending contacts it promotes; the subscriptions to finished plans it
@@ -49,7 +51,7 @@ withdrawn, nor is it sent anything on this verification.
 |---|---|
 | The contact the link named, held by the person who clicked | verified |
 | A second contact of the same `user_id` at that address | verified (it cannot be split by identity: same row key) |
-| A sibling left by `reconcile_contacts` on the identity a membership moved from, or the copy on the one it moved to, linked by `member_reattached` | verified |
+| A sibling left by `reconcile_contacts` on the identity a membership moved from, or the copy on an identity it moved to, however many moves along, connected by `member_reattached` rows of that circle | verified |
 | Another identity's pending contact at the address, with no recorded link | stays `pending`, its subscription undeliverable; retention removes both after seven days |
 | The organiser's auth address (`dispatch_organiser_contact`) | unchanged: it already promoted only that user's own contact, so a different identity's pending contact at the same address is never touched |
 
@@ -76,14 +78,27 @@ so none is added.
   undeliverable until that identity verifies for itself.** Rejected by the same
   decision; it leaves the contact itself promoted, which is the thing the
   `status` column is meant to say is proven for *that* identity.
-- **The transitive closure of the audit links.** Rejected: one identity that
-  takes several people's places would link all of those people to each other, so
-  one person's verification would promote another's contacts. One link is the
-  distance a split contact needs, because `reconcile_contacts` copies a contact
-  to the identity directly on the other end of the move.
+- **A single hop.** The first draft. Rejected in review: a membership moved
+  twice leaves the copy two links from the identity holding the verification
+  link, and retention then deletes that copy's consent.
+- **The transitive closure across circles.** Rejected: one identity that takes
+  places in two circles would link the two people it took them from, so one
+  person's verification would promote another's contacts. A chain within one
+  circle is one membership's history.
+- **Recording which contact a copy came from** (a lineage row written by
+  `reconcile_contacts`). Exact, and would also connect two copies made from one
+  contact into different circles, but it is a new record, written from now on
+  and absent for earlier splits, and not what was decided. Left for the founder
+  if the residual below matters.
 
 ## Consequences
 
+- A person who lost their session and asked again under a new identity that was
+  never reattached (an invite, not Continue-as) has two unrelated identities at
+  one address. That is the case ADR 0009's uniqueness allows, and it is no
+  longer healed by one click: the identity that verifies keeps its contact, the
+  other is removed by retention, and the person's own fresh request is the one
+  that counts.
 - One migration, `0034` (ADR 0015): `private.same_person_identities` is new, and
   `public.verify_email_contact` changes. No table changes.
 - **A link made by Continue-as is not proof of a person.** A reattachment from
@@ -96,6 +111,12 @@ so none is added.
   address the taker used), but it is not zero. Closing it means refusing the
   link from a place taken without proof, which strands a sibling in the one
   direction the split needs; put to the founder on the ticket, left as decided.
+- **Residual: two copies of one contact, in two circles.** A person who moved
+  circle one to a new identity B and circle two to a new identity D leaves the
+  copies on B and D connected only through the identity they both came from. A
+  link naming the original contact verifies both; a link naming one copy
+  reaches the original but not the other copy, which then stays pending. The
+  chains are per circle by design (see above).
 - Retention is unchanged: a pending contact still goes after seven days with its
   subscription. An identity that asked for updates at somebody else's address and
   never verifies it simply gets nothing, which is what `pending` has always
