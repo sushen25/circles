@@ -1,4 +1,4 @@
--- What the others have said, for the person answering (SUS-129, ADR 00XX).
+-- What the others have said, for the person answering (SUS-129, ADR 0045).
 --
 -- `public.others_availability` is the one way past `plan_responses_select_own`
 -- and `willing_windows_select_own`, so the assertions that matter are about

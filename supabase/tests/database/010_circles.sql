@@ -973,7 +973,7 @@ select is(
        'after_attendance_facts',
        -- SUS-129. What the others have said, for a member answering a plan:
        -- counts, and each other person's windows day by day with nobody's
-       -- name or id and nothing linking their days (ADR 00XX). Null for
+       -- name or id and nothing linking their days (ADR 0045). Null for
        -- anybody who is not an active member. `260_others_availability.sql`.
        'others_availability'
      )),

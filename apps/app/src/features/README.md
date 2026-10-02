@@ -55,7 +55,7 @@ Which days are ticked and which is open are view state and never stored.
 `AvailabilityPicking` and `AvailabilityAdjusting` are states of the same
 route, not routes of their own.
 
-**Counts of what others said, SUS-129 (ADR 00XX):** the four
+**Counts of what others said, SUS-129 (ADR 0045):** the four
 `AvailabilityOthers*` artboards are the same screen with
 `data/availability/others.ts` read on open (`others_availability`) and the
 counts worked out in `others.ts` from the domain's `freeFor`. With no backend,

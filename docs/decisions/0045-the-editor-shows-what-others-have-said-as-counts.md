@@ -1,4 +1,4 @@
-# ADR 00XX: The availability editor shows what others have said, as counts
+# ADR 0045: The availability editor shows what others have said, as counts
 
 _Status: proposed · 1 October 2026_
 

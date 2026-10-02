@@ -113,7 +113,7 @@ AV_CSS = f"""
     .chevbox.open {{ background: {T['accent_soft']}; border-color: {T['accent_soft']}; }}
 """
 
-# What others have said (SUS-129, ADR 00XX): the figure on a day, the third
+# What others have said (SUS-129, ADR 0045): the figure on a day, the third
 # line on a block and an answer line, and the figures over an open day's half
 # hours. Only the artboards that draw counts inline it.
 OTHERS_CSS = f"""
@@ -386,7 +386,7 @@ S["AvailabilityPicking"] = availability(day_grid(ANSWER_TAGS, selected=(15, 17, 
 S["AvailabilityAdjusting"] = availability(day_grid(ANSWER_TAGS), time_panel(),
     my_answer(ans_row(*MON), ans_row(*WED, open_=True, cells=[False,False,False,True,True,True,True,True,False,False]), ans_row(*THU)), 1400)
 
-# What others have said, as counts (SUS-129, ADR 00XX): Sunday Crew with five
+# What others have said, as counts (SUS-129, ADR 0045): Sunday Crew with five
 # of six in, peaking on Thursday 17th, 6:30–8:30 pm, where all five meet.
 OTHERS_DAYS = {15: 2, 16: 1, 17: 5, 18: 1, 19: 3, 22: 1, 23: 1, 24: 2, 25: 1}
 OTHERS_LINE = "5 of 6 have answered. The number on each day is how many of them could make it."

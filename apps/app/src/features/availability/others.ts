@@ -16,7 +16,7 @@ import type { BlockTiming } from './blocks';
 import type { DayRow } from './days';
 
 /**
- * The editor's words for what the others have said (SUS-129, ADR 00XX): the
+ * The editor's words for what the others have said (SUS-129, ADR 0045): the
  * line above the grid, the figure on a day, the third line on a block and on a
  * line of the answer, and the sentence and figures over an open day's half
  * hours. Every number comes from the domain (`freeFor`); this only says it.

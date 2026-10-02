@@ -133,7 +133,7 @@ export function Answering({
     staleTime: 0,
   });
 
-  // What the others have said, as counts (SUS-129, ADR 00XX). Read again each
+  // What the others have said, as counts (SUS-129, ADR 0045). Read again each
   // time the editor opens, and never kept: not in the draft, not on the
   // device. A failed or offline read offers nothing — the editor is then
   // exactly as it was — and the answer can still be sent.

@@ -3,7 +3,7 @@ import { days, sendEvenings } from './journeys';
 import { sundayCrew, type Scenario } from './stack';
 
 /**
- * What the others have said, as counts on the editor (SUS-129, ADR 00XX):
+ * What the others have said, as counts on the editor (SUS-129, ADR 0045):
  * read from `others_availability` as the guest, worked out by the domain, and
  * never with a name beside it.
  *

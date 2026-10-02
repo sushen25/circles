@@ -1,5 +1,5 @@
 /**
- * What the others have said, for the person answering (SUS-129, ADR 00XX).
+ * What the others have said, for the person answering (SUS-129, ADR 0045).
  *
  * The editor shows, as counts, what the people who have already answered said,
  * so a guest can favour the days and hours that meet the most people. Counts

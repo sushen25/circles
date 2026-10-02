@@ -7,7 +7,7 @@
 -- said: how many the plan asks, how many others have answered, with times and
 -- "I'm easy", and each other person's windows per day with nothing to say whose
 -- or to link one day to another. Never the caller's own, only the current
--- revision, and nothing below one other answer with times (ADR 00XX).
+-- revision, and nothing below one other answer with times (ADR 0045).
 --
 -- No table, column or policy changes. `plan_responses` and `willing_windows`
 -- stay readable by their owner alone.
@@ -18,7 +18,7 @@
 -- supabase/sql/functions/public/others_availability.sql
 -- ---------------------------------------------------------------------------
 -- What the others have said about a plan, for the person answering it
--- (SUS-129, ADR 00XX).
+-- (SUS-129, ADR 0045).
 --
 -- The availability editor shows, as counts, what the people who have already
 -- answered said: a figure on each day, on each block of hours, on each line of
@@ -44,7 +44,7 @@
 --
 -- Beyond what per-half-hour counts show, an entry says which start goes with
 -- which end on a day. With exactly one other answer in, the entries are that
--- person's answer, day by day: the founder accepted both (ADR 00XX).
+-- person's answer, day by day: the founder accepted both (ADR 0045).
 --
 -- **The threshold is enforced here**, not on the client: below one other
 -- answer with times, `days` is empty. "I'm easy" answers do not meet it alone.

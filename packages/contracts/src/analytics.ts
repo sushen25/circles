@@ -135,7 +135,7 @@ export const catalogue = {
   availability_started: event(1),
   /**
    * Whether an opening of the editor showed counts of what others had said
-   * (SUS-129, ADR 00XX), sent once that read has settled, so the time to
+   * (SUS-129, ADR 0045), sent once that read has settled, so the time to
    * answer and the "I'm easy" share can be compared with and without them. A
    * yes or no only: never a count, a date or a time. Its own event rather
    * than a field on `availability_started`, which is sent as the editor opens

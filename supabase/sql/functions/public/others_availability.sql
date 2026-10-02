@@ -1,6 +1,6 @@
 -- ---------------------------------------------------------------------------
 -- What the others have said about a plan, for the person answering it
--- (SUS-129, ADR 00XX).
+-- (SUS-129, ADR 0045).
 --
 -- The availability editor shows, as counts, what the people who have already
 -- answered said: a figure on each day, on each block of hours, on each line of
@@ -26,7 +26,7 @@
 --
 -- Beyond what per-half-hour counts show, an entry says which start goes with
 -- which end on a day. With exactly one other answer in, the entries are that
--- person's answer, day by day: the founder accepted both (ADR 00XX).
+-- person's answer, day by day: the founder accepted both (ADR 0045).
 --
 -- **The threshold is enforced here**, not on the client: below one other
 -- answer with times, `days` is empty. "I'm easy" answers do not meet it alone.

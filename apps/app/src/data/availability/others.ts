@@ -5,7 +5,7 @@ import { authClient } from '../auth/client';
 
 /**
  * What the others have said about the plan being answered, for the counts on
- * the editor (SUS-129, ADR 00XX), or `undefined` when there is nothing to say
+ * the editor (SUS-129, ADR 0045), or `undefined` when there is nothing to say
  * to this person.
  *
  * One call, `public.others_availability`, because `plan_responses` and
