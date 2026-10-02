@@ -34,9 +34,6 @@ import { SentScreen, type SentProblem } from './SentScreen';
  * A new idempotency key per tap: the same key would replay the first answer
  * and queue nothing.
  */
-/** How long the "out of date" notice is read before the page loads its copy again. */
-const RELOAD_AFTER_MS = 3000;
-
 export function SentFlow({ code }: { code: string }) {
   if (!hasBackend()) {
     return (
@@ -180,11 +177,11 @@ function Sent({
     track('email_updates_offered', { plan_id: plan.id as PlanId });
   }, [offerEmail, plan.id]);
 
-  // The delayed reload belongs to this screen: leaving it cancels the reload.
-  const reloadTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  useEffect(() => () => clearTimeout(reloadTimer.current), []);
-
   const send = async () => {
+    if (problem === 'copy_changed') {
+      reloadCopy();
+      return;
+    }
     const address = normaliseAddress(email);
     if (address === null) {
       setProblem('not_an_address');
@@ -218,14 +215,13 @@ function Sent({
         setProblem('too_many_tries');
       } else if (failure.kind === 'reason' && failure.reason === 'consent_version_unknown') {
         // The wording on screen is not one the server ever showed anybody.
-        // Nothing was recorded. Say so, then load the current copy a moment
-        // later: reloading at once would unload the page before the notice
-        // could be read.
+        // Nothing was recorded. Say so; the next tap of Send loads the current
+        // copy (a reload here, unprompted, would unload the page before the
+        // notice could be read, and could land on a route the person moved to).
         // A native build has no page to reload (its copy is the build), so it
         // says plainly that it could not send, with the reference.
         if (canReloadCopy()) {
           setProblem('copy_changed');
-          reloadTimer.current = setTimeout(reloadCopy, RELOAD_AFTER_MS);
         } else {
           setProblem('couldnt_send');
           setReference(failure.reference);

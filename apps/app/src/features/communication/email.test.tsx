@@ -193,7 +193,7 @@ describe('Sent', () => {
 });
 
 describe('a stale consent version (ADR 00XX)', () => {
-  it('says nothing was sent, then reloads its copy, when the server does not know the wording', async () => {
+  it('says nothing was sent, and reloads its copy only when the person taps Send again', async () => {
     requestEmailUpdates.mockRejectedValue(refusal('consent_version_unknown'));
     wrap(<SentFlow code={PLAN.code} />);
     fireEvent.change(await screen.findByLabelText('Your email'), {
@@ -205,27 +205,14 @@ describe('a stale consent version (ADR 00XX)', () => {
     });
 
     await screen.findByText(/wording on this page was out of date, so nothing was sent/);
-    // Not at once: the notice has to be readable before the page goes.
+    // Not unprompted: the notice has to be readable, and the person may have moved on.
     expect(reloadCopy).not.toHaveBeenCalled();
-    await waitFor(() => expect(reloadCopy).toHaveBeenCalledTimes(1), { timeout: 5000 });
-    expect(push).not.toHaveBeenCalled();
-  });
-
-  it('does not reload a page the person has left', async () => {
-    requestEmailUpdates.mockRejectedValue(refusal('consent_version_unknown'));
-    const view = wrap(<SentFlow code={PLAN.code} />);
-    fireEvent.change(await screen.findByLabelText('Your email'), {
-      target: { value: 'priya@example.com' },
-    });
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Send verification email' }));
     });
-    await screen.findByText(/out of date, so nothing was sent/);
-
-    view.unmount();
-    await new Promise((resolve) => setTimeout(resolve, 3300));
-
-    expect(reloadCopy).not.toHaveBeenCalled();
+    expect(reloadCopy).toHaveBeenCalledTimes(1);
+    expect(requestEmailUpdates).toHaveBeenCalledTimes(1);
+    expect(push).not.toHaveBeenCalled();
   });
 });
 
