@@ -35,7 +35,12 @@ circle**, in either direction (each row records `from_user_id`, `to_user_id` and
 the circle by id, written in the same transaction as the move). A membership
 moved twice, A to B and then B to C, is one chain, so A, B and C are one person
 for this purpose: the contact copied to C, with the verification link still on
-A, is two moves away. The walk never crosses circles. Nothing else makes two
+A, is two moves away. The walk follows **one membership**, not an identity: two
+rows join only where the move to an identity is followed, as the next thing
+that happens to it in that circle, by a move from it. An identity that passes a
+place on and later takes somebody else's place in the same circle does not make
+those two people one. Rows are ordered by `occurred_at`; one `reattach_member`
+call is one transaction, so two moves never tie. The walk never crosses circles. Nothing else makes two
 identities one person: not the same address, the same device or the same time.
 
 **2. `verify_email_contact` uses it three times,** where it used the address
@@ -78,9 +83,12 @@ so none is added.
   undeliverable until that identity verifies for itself.** Rejected by the same
   decision; it leaves the contact itself promoted, which is the thing the
   `status` column is meant to say is proven for *that* identity.
-- **A single hop.** The first draft. Rejected in review: a membership moved
-  twice leaves the copy two links from the identity holding the verification
-  link, and retention then deletes that copy's consent.
+- **A single hop, then connectivity through any identity of the circle.** The
+  first two drafts, both rejected in review. One hop leaves the copy of a
+  membership moved twice two links from the identity holding the verification
+  link, and retention then deletes that copy's consent. Connectivity through an
+  identity makes two people one when that identity passed a place on and later
+  took another in the same circle.
 - **The transitive closure across circles.** Rejected: one identity that takes
   places in two circles would link the two people it took them from, so one
   person's verification would promote another's contacts. A chain within one

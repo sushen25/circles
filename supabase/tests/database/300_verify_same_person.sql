@@ -6,7 +6,7 @@
 -- pending, so its subscription stays undeliverable.
 
 begin;
-select plan(33);
+select plan(37);
 
 create or replace function pg_temp.make_user(id uuid, name text, permanent boolean default false)
 returns uuid language sql as $$
@@ -313,6 +313,10 @@ select public.issue_verification_token(
   pg_temp.hash_of('t-chain'));
 select pg_temp.act_as('30000000-0000-0000-0000-0000000000d4');
 select public.reattach_member(pg_temp.c1(), '30000000-0000-0000-0000-0000000000d3');
+select pg_temp.act_as_postgres();
+-- Separate calls are separate transactions; this one shares the suite's.
+update private.audit_log set occurred_at = now() - interval '2 hours'
+where action = 'circles.member_reattached' and metadata ->> 'to_user_id' = '30000000-0000-0000-0000-0000000000d4';
 select pg_temp.act_as('30000000-0000-0000-0000-0000000000d5');
 select public.reattach_member(pg_temp.c1(), '30000000-0000-0000-0000-0000000000d4');
 select pg_temp.act_as_postgres();
@@ -342,14 +346,16 @@ select is(
   'an identity with no recorded link is only itself');
 
 -- One identity that took two places links each of them to it, and not to each other.
-insert into private.audit_log (actor_user_id, action, resource_type, resource_id, metadata)
+insert into private.audit_log (actor_user_id, action, resource_type, resource_id, metadata, occurred_at)
 values
   ('30000000-0000-0000-0000-0000000000e3', 'circles.member_reattached', 'circle', pg_temp.c1(),
    jsonb_build_object('from_user_id', '30000000-0000-0000-0000-0000000000e1',
-                      'to_user_id', '30000000-0000-0000-0000-0000000000e3', 'source', 'list')),
+                      'to_user_id', '30000000-0000-0000-0000-0000000000e3', 'source', 'list'),
+   now() - interval '3 hours'),
   ('30000000-0000-0000-0000-0000000000e3', 'circles.member_reattached', 'circle', pg_temp.c2(),
    jsonb_build_object('from_user_id', '30000000-0000-0000-0000-0000000000e2',
-                      'to_user_id', '30000000-0000-0000-0000-0000000000e3', 'source', 'list'));
+                      'to_user_id', '30000000-0000-0000-0000-0000000000e3', 'source', 'list'),
+   now() - interval '2 hours');
 select is(
   (select array_agg(i order by i) from private.same_person_identities('30000000-0000-0000-0000-0000000000e1') i),
   array['30000000-0000-0000-0000-0000000000e1', '30000000-0000-0000-0000-0000000000e3']::uuid[],
@@ -358,6 +364,46 @@ select is(
   (select count(*)::integer from private.same_person_identities('30000000-0000-0000-0000-0000000000e1') i
    where i = '30000000-0000-0000-0000-0000000000e2'),
   0, 'and never the closure: two people who each lost a place to one taker are not one person');
+
+-- One identity, one circle, two different memberships over time. A to B, B on
+-- to D, then B takes C's place: A and C are not one person because B met both.
+insert into private.audit_log (actor_user_id, action, resource_type, resource_id, metadata, occurred_at)
+select null, 'circles.member_reattached', 'circle', pg_temp.c1(),
+  jsonb_build_object('from_user_id', f, 'to_user_id', t, 'source', 'list'), now() - (h || ' hours')::interval
+from (values
+  ('30000000-0000-0000-0000-0000000000a1', '30000000-0000-0000-0000-0000000000a2', 9),
+  ('30000000-0000-0000-0000-0000000000a2', '30000000-0000-0000-0000-0000000000a3', 8),
+  ('30000000-0000-0000-0000-0000000000a4', '30000000-0000-0000-0000-0000000000a2', 7)
+) v (f, t, h);
+select is(
+  (select array_agg(i order by i) from private.same_person_identities('30000000-0000-0000-0000-0000000000a1') i),
+  array['30000000-0000-0000-0000-0000000000a1', '30000000-0000-0000-0000-0000000000a2',
+        '30000000-0000-0000-0000-0000000000a3']::uuid[],
+  'a membership''s chain runs through the identities it passed to, and stops there');
+select is(
+  (select count(*)::integer from private.same_person_identities('30000000-0000-0000-0000-0000000000a1') i
+   where i = '30000000-0000-0000-0000-0000000000a4'),
+  0, 'and not into the next place the same identity took in that circle');
+
+-- A membership that ended some other way (the member was removed) before the
+-- identity took another place does not continue into that other place's move.
+insert into private.audit_log (actor_user_id, action, resource_type, resource_id, metadata, occurred_at)
+select null, 'circles.member_reattached', 'circle', pg_temp.c2(),
+  jsonb_build_object('from_user_id', f, 'to_user_id', t, 'source', 'list'), now() - (h || ' hours')::interval
+from (values
+  ('30000000-0000-0000-0000-0000000000b4', '30000000-0000-0000-0000-0000000000b5', 9),
+  ('30000000-0000-0000-0000-0000000000b6', '30000000-0000-0000-0000-0000000000b5', 8),
+  ('30000000-0000-0000-0000-0000000000b5', '30000000-0000-0000-0000-0000000000b7', 7)
+) v (f, t, h);
+select is(
+  (select array_agg(i order by i) from private.same_person_identities('30000000-0000-0000-0000-0000000000b4') i),
+  array['30000000-0000-0000-0000-0000000000b4', '30000000-0000-0000-0000-0000000000b5']::uuid[],
+  'a place that ended another way is not carried on to the later place''s next move');
+select is(
+  (select array_agg(i order by i) from private.same_person_identities('30000000-0000-0000-0000-0000000000b6') i),
+  array['30000000-0000-0000-0000-0000000000b5', '30000000-0000-0000-0000-0000000000b6',
+        '30000000-0000-0000-0000-0000000000b7']::uuid[],
+  'while the later place''s own chain is whole');
 
 -- A row for any other action links nothing.
 insert into private.audit_log (actor_user_id, action, resource_type, resource_id, metadata)

@@ -28,7 +28,17 @@
 -- person holding one address on two contacts, on either side of a move. A
 -- membership moved twice (A to B, then B to C) carries a contact it already
 -- copied to C, with the verification link still on A, so the walk follows the
--- chain within the circle, not one hop.
+-- whole chain rather than one hop.
+--
+-- **One membership, not one identity.** An identity can hold a membership of a
+-- circle, pass it on, and later take somebody else's place in the same circle;
+-- connecting rows through the identity would make those two people one. So two
+-- rows are joined only when they are consecutive for the identity between them:
+-- one move *to* it, and the next thing that happens to it in that circle is a
+-- move *from* it. If another move touches it first (a different place arriving,
+-- or leaving), the first membership ended some other way and the chain stops.
+-- Rows are ordered by `occurred_at`, the transaction's time: one
+-- `reattach_member` call is one transaction, so two moves never tie.
 --
 -- Within one circle, and no further: an identity that takes places in two
 -- circles would otherwise connect the people it took them from, who have
@@ -45,27 +55,38 @@ stable
 security definer
 set search_path = ''
 as $$
-  with recursive reach (identity, circle_id) as (
-    select p_user_id, a.resource_id
+  with recursive m as (
+    select a.id, a.resource_id as circle_id, a.occurred_at as at,
+           a.metadata ->> 'from_user_id' as from_id, a.metadata ->> 'to_user_id' as to_id
     from private.audit_log a
     where a.action = 'circles.member_reattached'
-      and p_user_id::text in (a.metadata ->> 'from_user_id', a.metadata ->> 'to_user_id')
+  ),
+  -- Row r moved a membership to an identity, and row s is the very next thing
+  -- that happened to that identity in the circle: the same membership moving on.
+  link as (
+    select r.id as first_id, s.id as next_id
+    from m r
+    join m s on s.circle_id = r.circle_id and s.from_id = r.to_id and s.at > r.at
+    where not exists (
+      select 1 from m q
+      where q.circle_id = r.circle_id
+        and q.id not in (r.id, s.id)
+        and r.to_id in (q.from_id, q.to_id)
+        and q.at > r.at and q.at < s.at
+    )
+  ),
+  walk (id) as (
+    select m.id from m where p_user_id::text in (m.from_id, m.to_id)
     union
-    select (
-      case when a.metadata ->> 'from_user_id' = r.identity::text
-        then a.metadata ->> 'to_user_id'
-        else a.metadata ->> 'from_user_id'
-      end
-    )::uuid, r.circle_id
-    from reach r
-    join private.audit_log a
-      on a.action = 'circles.member_reattached'
-     and a.resource_id = r.circle_id
-     and r.identity::text in (a.metadata ->> 'from_user_id', a.metadata ->> 'to_user_id')
+    select case when l.first_id = w.id then l.next_id else l.first_id end
+    from walk w
+    join link l on w.id in (l.first_id, l.next_id)
   )
   select p_user_id
   union
-  select identity from reach
+  select m.from_id::uuid from m join walk w on w.id = m.id
+  union
+  select m.to_id::uuid from m join walk w on w.id = m.id
 $$;
 
 comment on function private.same_person_identities(uuid) is
