@@ -3,6 +3,8 @@ import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
 import { afterEach } from 'vitest';
 
+import './src/test/shift-clock';
+
 /**
  * React Native's build-time global, which Vitest is not.
  *
