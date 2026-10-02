@@ -125,6 +125,15 @@ export function planUrl(origin: string, code: ShortCode): string {
 }
 
 /**
+ * `https://…/j/<code>`: the plan's own link, the one shared into the chat. It
+ * takes a member straight to their times, which is where "add your times
+ * again" has to land (ADR 0046). A short code and nothing else (ADR 0022).
+ */
+export function planInviteUrl(origin: string, code: ShortCode): string {
+  return `${origin.replace(/\/+$/, '')}${DEEP_LINK_ROUTES.planInvite.replace(':code', code)}`;
+}
+
+/**
  * `https://…/p/<code>/outcome` and `…/attendance`: the two "did it happen?"
  * emails' buttons (S1-29). The plan page itself says "this meetup's time has
  * passed" the morning after, which is not an answer to a letter that asks one.

@@ -1,5 +1,5 @@
 import { brand } from '@circles/config';
-import { type Instant, fromISO, weeksSince } from '@circles/domain';
+import { type Instant, acceptsAnswers, fromISO, weeksSince } from '@circles/domain';
 
 import type { Db } from '../_shared/db.ts';
 import { optional } from '../_shared/env.ts';
@@ -175,6 +175,21 @@ export async function inputFor(
         circleName: toOrganiser.circleName,
         circleId: job.circle_id,
       };
+    // "The plan changed, add your times again" (ADR 0046), about the question
+    // as it is now, and checked before a token is minted for it. Held
+    // overnight by quiet hours, the plan may have stopped taking answers by
+    // morning — locked in, called off, or past its deadline — and the person
+    // may have found it and answered already. Either way the letter would ask
+    // for something that cannot or need not be done.
+    case 'asked_again': {
+      const plan = context.eligibility.plan;
+      if (plan === undefined || !acceptsAnswers(plan, now)) return { skip: 'not_asking' };
+      const answered = context.eligibility.responses.some(
+        (r) => r.userId === job.user_id && r.revision === plan.revision,
+      );
+      if (answered) return { skip: 'already_answered' };
+      break;
+    }
     default:
       break;
   }
@@ -192,6 +207,18 @@ export async function inputFor(
   const toSubscriber = { ...toOrganiser, prefsToken, reentryToken };
 
   switch (job.kind) {
+    case 'asked_again': {
+      const plan = context.eligibility.plan;
+      if (plan === undefined) return { skip: 'not_asking' };
+      return {
+        kind: 'asked_again',
+        ...toSubscriber,
+        windowStart: plan.window.start,
+        windowEnd: plan.window.end,
+        dailyStartMin: plan.daily.startMin,
+        dailyEndMin: plan.daily.endMin,
+      };
+    }
     case 'locked_in': {
       const confirmation = context.confirmation;
       if (confirmation === null) return { skip: 'no_confirmation' };

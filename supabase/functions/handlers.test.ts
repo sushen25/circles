@@ -3182,6 +3182,139 @@ describe('process-scheduled-jobs', () => {
     });
   });
 
+  describe('an edit that cleared the answers (SUS-131, ADR 0046)', () => {
+    /** Maya edited the window: revision 2, asking, and Priya had answered revision 1. */
+    const edited = (plan: Record<string, unknown> = {}) =>
+      context({
+        plan: {
+          ...(context().plan as object),
+          state: 'collecting',
+          revision: 2,
+          response_deadline: '2099-09-20T10:00:00.000Z',
+          ...plan,
+        },
+        confirmation: null,
+        attendance: [],
+        answered_earlier: [ORGANISER, MEMBER],
+      });
+    const revised = (action: string, revision = 2) => ({
+      ...outboxEvent('planning.plan_revised', revision),
+      payload: { plan_id: PLAN_ID, revision, action, organiser_user_id: ORGANISER },
+    });
+
+    it('asks again the member whose times it cleared, by email to their subscription, and not the organiser', async () => {
+      planContext = edited();
+      events = [revised('edit')];
+
+      await load('process-scheduled-jobs')(post({}, 'a-shared-secret'));
+
+      // Priya is the one subscriber; Maya made the edit and is not told.
+      expect(enqueued()).toEqual([
+        expect.objectContaining({ kind: 'asked_again', plan_revision: 2, contact_id: CONTACT }),
+      ]);
+    });
+
+    it('writes the same key for a second run of the same edit, so one revision is one letter', async () => {
+      planContext = edited();
+      events = [revised('edit')];
+      await load('process-scheduled-jobs')(post({}, 'a-shared-secret'));
+      const first = enqueued().map((job) => job.idempotency_key);
+
+      state.rpcs = [];
+      await load('process-scheduled-jobs')(post({}, 'a-shared-secret'));
+
+      expect(enqueued().map((job) => job.idempotency_key)).toEqual(first);
+    });
+
+    it('sends nothing for an adjustment, which kept the revision and every answer (ADR 0017)', async () => {
+      planContext = edited({ revision: 1 });
+      events = [revised('adjust', 1)];
+
+      await load('process-scheduled-jobs')(post({}, 'a-shared-secret'));
+
+      expect(enqueued()).toEqual([]);
+    });
+
+    it('sends the letter with what the plan asks now, and opens the grid', async () => {
+      capturing();
+      planContext = edited();
+      withDue(
+        dueJob({
+          kind: 'asked_again',
+          plan_revision: 2,
+          plan_current_revision: 2,
+          plan_state: 'collecting',
+        }),
+      );
+
+      await load('process-scheduled-jobs')(post({}, 'a-shared-secret'));
+
+      expect(called('dispatch_job_result')[0]?.args).toMatchObject({ p_outcome: 'sent' });
+    });
+
+    it('does not ask again about a question a later edit replaced', async () => {
+      withDue(
+        dueJob({
+          kind: 'asked_again',
+          plan_revision: 2,
+          plan_current_revision: 3,
+          plan_state: 'collecting',
+        }),
+      );
+
+      await load('process-scheduled-jobs')(post({}, 'a-shared-secret'));
+
+      expect(called('dispatch_job_result')[0]?.args).toMatchObject({
+        p_outcome: 'skipped',
+        p_error: 'revision_moved_on',
+      });
+    });
+
+    it('does not ask somebody who has answered again while the letter waited for morning', async () => {
+      // Quiet hours held it, and Priya found the plan herself before 08:00.
+      planContext = {
+        ...edited(),
+        responses: [{ plan_id: PLAN_ID, revision: 2, user_id: MEMBER, status: 'windows' }],
+      };
+      withDue(
+        dueJob({
+          kind: 'asked_again',
+          plan_revision: 2,
+          plan_current_revision: 2,
+          plan_state: 'collecting',
+        }),
+      );
+
+      await load('process-scheduled-jobs')(post({}, 'a-shared-secret'));
+
+      expect(called('dispatch_job_result')[0]?.args).toMatchObject({
+        p_outcome: 'skipped',
+        p_error: 'already_answered',
+      });
+      expect(called('issue_preferences_token')).toHaveLength(0);
+    });
+
+    it('does not ask for times the plan stopped taking while the letter waited for morning', async () => {
+      // Quiet hours held it overnight, and the deadline passed before 08:00.
+      planContext = edited({ response_deadline: '2026-09-20T10:00:00.000Z' });
+      withDue(
+        dueJob({
+          kind: 'asked_again',
+          plan_revision: 2,
+          plan_current_revision: 2,
+          plan_state: 'collecting',
+        }),
+      );
+
+      await load('process-scheduled-jobs')(post({}, 'a-shared-secret'));
+
+      expect(called('dispatch_job_result')[0]?.args).toMatchObject({
+        p_outcome: 'skipped',
+        p_error: 'not_asking',
+      });
+    });
+  });
+
   it('leaves the day unclaimed when the health report could not be sent', async () => {
     // Claimed before the letter, a provider having a bad morning cost the
     // whole day's report: every later run that day found the day closed and

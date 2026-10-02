@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import type { EmailCopy } from './copy.ts';
 import { subscriberFooter } from './links.ts';
 import { AboutTime, aboutTimeCopy } from './templates/AboutTime.tsx';
+import { AskedAgain, askedAgainCopy } from './templates/AskedAgain.tsx';
 import { Cancelled, cancelledCopy } from './templates/Cancelled.tsx';
 import { Changed, changedCopy } from './templates/Changed.tsx';
 import {
@@ -63,6 +64,7 @@ const TEMPLATES: { [K in EmailKind]: Template<Extract<EmailInput, { kind: K }>> 
   about_time: { copy: aboutTimeCopy, Component: AboutTime },
   threshold_initiator: { copy: thresholdInitiatorCopy, Component: ThresholdInitiator },
   quiet_expired: { copy: quietExpiredCopy, Component: QuietExpired },
+  asked_again: { copy: askedAgainCopy, Component: AskedAgain },
 };
 
 /**

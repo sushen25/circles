@@ -30,9 +30,10 @@ import { brand } from '@circles/config';
  * verification email keeps the artboard's button and drops its circle name and
  * second line, because the spec says it carries nothing but the link. The
  * others take their wording from the Pushes artboard's row for the same kind,
- * which is what the person would otherwise have received. Three have no row on
+ * which is what the person would otherwise have received. Four have no row on
  * either artboard and are written here for the first time: `replies_closed`,
- * `did_it_happen_participant` (SUS-22's note) and the place-only `changed`.
+ * `did_it_happen_participant` (SUS-22's note), the place-only `changed` and
+ * `asked_again` (ADR 0046).
  */
 
 export type Button = { readonly label: string };
@@ -117,6 +118,23 @@ export const EN_EMAIL = {
         "Mark the times you'd be up for. Takes a minute.",
     ],
     button: { label: 'Choose new times' },
+  }),
+
+  /**
+   * An edit cleared their answers (spec §5.3, ADR 0046). What the plan asks
+   * now, that the earlier times no longer count, and the way back to the grid
+   * — which explains its own empty state (SUS-130), so this does not repeat
+   * it. Nothing about what anybody else said: after an edit nobody has
+   * answered the new question yet (SUS-129).
+   */
+  askedAgain: (p: { circleName: string; dates: string; hours: string }): EmailCopy => ({
+    subject: `${p.circleName}: the plan changed`,
+    preview: 'The times you sent were cleared.',
+    paragraphs: [
+      `The plan changed. ${p.circleName} is now asking about ${p.dates}, ${p.hours}.`,
+      'The times you sent were cleared. Add yours again so they count. Takes a minute.',
+    ],
+    button: { label: 'Add my times' },
   }),
 
   /** The time stands; the venue moved. Not the artboard's — it has no row for this. */

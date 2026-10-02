@@ -5,6 +5,7 @@ import {
   emailVerifyUrl,
   notificationSettingsUrl,
   planAttendanceUrl,
+  planInviteUrl,
   planOutcomeUrl,
   planUrl,
   reentryUrl,
@@ -64,6 +65,15 @@ export function verifyLink(at: string, verifyToken: string): string {
 
 export function planLink(at: string, planCode: string): string {
   return planUrl(origin(at), code(planCode));
+}
+
+/**
+ * `/j/<code>` — "add your times again" (ADR 0046). The plan page would send a
+ * member there anyway; the letter goes straight to the grid, which says why it
+ * is empty (SUS-130).
+ */
+export function planInviteLink(at: string, planCode: string): string {
+  return planInviteUrl(origin(at), code(planCode));
 }
 
 /**

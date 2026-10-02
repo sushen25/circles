@@ -85,13 +85,16 @@ export function occurrenceFor(kind: NotificationKind, input: OccurrenceInput = {
   switch (kind) {
     // One per plan revision. A second `new_plan` for the same revision is a
     // retry, and the index should swallow it. (A quiet ask expires once, and its
-    // plan never asks again.)
+    // plan never asks again.) `asked_again` too, and that is the point: a run of
+    // edits is one letter per question asked, and an `adjust` (no revision) is
+    // never one (ADR 0046).
     case 'new_plan':
     case 'quiet_ask':
     case 'threshold_initiator':
     case 'threshold_keen':
     case 'quiet_expired':
     case 'cancelled':
+    case 'asked_again':
       return ONCE;
 
     // Once per revision, and once more for each hand-off: "the options are

@@ -515,6 +515,10 @@ describe('asking again', () => {
     planDetails.mockResolvedValue(fixture.asking);
     show(<PlanSharedFlow id="sunday-crew" planId="thu-17" again />);
     expect(await screen.findByText('Change of plan. New times, please')).toBeTruthy();
+    // And tells the organiser the answers are gone and who the email reaches,
+    // so the chat is the way to everybody else (SUS-131).
+    expect(screen.getByText(/anyone who'd answered has to answer again/)).toBeTruthy();
+    expect(screen.getByText(/post the link so everyone else sees it/i)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Share to group chat' }));
     await waitFor(() =>
       expect(track).toHaveBeenCalledWith('share_opened', {

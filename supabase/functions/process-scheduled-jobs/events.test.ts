@@ -1,4 +1,4 @@
-import { DOMAIN_EVENT_NAMES, instant, zone } from '@circles/domain';
+import { DOMAIN_EVENT_NAMES, ONCE, instant, zone } from '@circles/domain';
 import { describe, expect, it } from 'vitest';
 
 import type { PlanContext } from './context.ts';
@@ -72,10 +72,16 @@ describe('which events say something', () => {
       ...eventNamed(name),
       payload: { ...eventNamed(name).payload, mode: 'quiet', from_state: 'seeking' },
     });
+    // And one that speaks only for an `edit`, which cleared the answers.
+    const edited = (name: string): OutboxEvent => ({
+      ...eventNamed(name),
+      payload: { ...eventNamed(name).payload, action: 'edit' },
+    });
     const speaks = DOMAIN_EVENT_NAMES.filter(
       (name) =>
         intentsFor(eventNamed(name), context, instant(0)).length > 0 ||
-        intentsFor(quietly(name), asking, instant(0)).length > 0,
+        intentsFor(quietly(name), asking, instant(0)).length > 0 ||
+        intentsFor(edited(name), context, instant(0)).length > 0,
     );
 
     expect([...speaks].sort()).toEqual([...ANNOUNCED].sort());
@@ -86,6 +92,37 @@ describe('which events say something', () => {
     // outbox's own check constraint would never see it.
     for (const name of ANNOUNCED) {
       expect(DOMAIN_EVENT_NAMES).toContain(name);
+    }
+  });
+});
+
+describe('an edit that cleared the answers (ADR 0046)', () => {
+  const ORGANISER = '00000000-0000-4000-8000-000000000001';
+  const revised = (payload: Record<string, unknown>): OutboxEvent => ({
+    ...eventNamed('planning.plan_revised'),
+    payload: { plan_id: PLAN, revision: 2, organiser_user_id: ORGANISER, ...payload },
+  });
+
+  it('asks again once per revision, and never tells the organiser who made it', () => {
+    expect(intentsFor(revised({ action: 'edit' }), context, instant(0))).toEqual([
+      { kind: 'asked_again', occurrence: ONCE, desiredAt: instant(0), actorId: ORGANISER },
+    ]);
+  });
+
+  it('says nothing for an adjustment, which kept the revision and every answer (ADR 0017)', () => {
+    expect(intentsFor(revised({ action: 'adjust' }), context, instant(0))).toEqual([]);
+  });
+
+  it('says nothing for an edit the plan has already moved past', () => {
+    // Edited to 2, then to 3 (or reopened) before this ran: revision 3's own
+    // event asks the question that is true now.
+    expect(intentsFor(revised({ action: 'edit', revision: 1 }), context, instant(0))).toEqual([]);
+  });
+
+  it('says nothing about a plan that is no longer taking answers', () => {
+    for (const planState of ['confirmed', 'cancelled', 'completed']) {
+      const later = { ...context, planState } as PlanContext;
+      expect(intentsFor(revised({ action: 'edit' }), later, instant(0))).toEqual([]);
     }
   });
 });

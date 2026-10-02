@@ -94,6 +94,15 @@ export const SUNDAY_CREW: { readonly [K in EmailKind]: Extract<EmailInput, { kin
     kind: 'quiet_expired',
     circleId: '00000000-0000-4000-8000-000000000001',
   },
+  // Maya moved the window on by a day; availability still runs 5:30–10:30 pm.
+  asked_again: {
+    ...subscriber,
+    kind: 'asked_again',
+    windowStart: localDate('2026-09-18'),
+    windowEnd: localDate('2026-09-21'),
+    dailyStartMin: 17 * 60 + 30,
+    dailyEndMin: 22 * 60 + 30,
+  },
 };
 
 /** Every member of the Sunday Crew but the circle itself. A subject may name none of them. */
