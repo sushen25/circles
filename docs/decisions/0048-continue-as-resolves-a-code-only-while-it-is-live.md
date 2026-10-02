@@ -55,7 +55,7 @@ is ever shared by link (a quiet ask is never shared, §5.4); `join_from_plan`
 already refuses both.
 
 **2. N is fourteen days, measured from the meetup's end; `completed` counts as
-`confirmed`.** What has to keep working inside N:
+`confirmed`.** (Proposed here; the founder approved fourteen on 2 October 2026.) What has to keep working inside N:
 
 - The morning-after letter is sent at nine the next morning, in the reader's
   zone (`morningAfter`), and its buttons open the plan's link. A guest who lost
