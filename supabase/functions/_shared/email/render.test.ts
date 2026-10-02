@@ -1,3 +1,4 @@
+import { brand } from '@circles/config';
 import { NOTIFICATION_KINDS, QUIET_SENSITIVE_KINDS } from '@circles/domain';
 import { describe, expect, it } from 'vitest';
 
@@ -59,6 +60,31 @@ describe('render', () => {
       await expect(email.html).toMatchFileSnapshot(`./__snapshots__/${kind}.html`);
     });
 
+    it('names who sent it and how to reach them, in the HTML and the text (SUS-111)', async () => {
+      const email = await render(SUNDAY_CREW[kind]);
+      expect(EN_EMAIL.footer.sentBy).toContain(brand.operator);
+      for (const part of [email.html, email.text]) {
+        expect(part).toContain(EN_EMAIL.footer.sentBy);
+        expect(part).toContain(brand.supportEmail);
+      }
+      expect(hrefs(email.html)).toContain(`mailto:${brand.supportEmail}`);
+    });
+
+    it('links the privacy page and the terms, except the verification letter', async () => {
+      const email = await render(SUNDAY_CREW[kind]);
+      const legal = [`${ORIGIN}/privacy`, `${ORIGIN}/terms`];
+      const links = hrefs(email.html);
+      for (const link of legal) {
+        if (kind === 'verify_email') {
+          expect(links).not.toContain(link);
+          expect(email.text).not.toContain(link);
+        } else {
+          expect(links).toContain(link);
+          expect(email.text).toContain(link);
+        }
+      }
+    });
+
     it('names nobody but the circle in its subject', async () => {
       const { subject } = await render(SUNDAY_CREW[kind]);
       if (kind !== 'verify_email') expect(subject).toContain('Sunday Crew');
@@ -78,7 +104,9 @@ describe('render', () => {
 
     it('sells nothing: no email mentions the app', async () => {
       const email = await render(SUNDAY_CREW[kind]);
-      expect(`${email.subject}\n${email.text}`).not.toMatch(/\bapp\b|download|install/i);
+      // The contact address is on `.app`; the word is not an offer.
+      const words = `${email.subject}\n${email.text}`.replaceAll(brand.supportEmail, '');
+      expect(words).not.toMatch(/\bapp\b|download|install/i);
     });
   });
 
@@ -174,7 +202,11 @@ describe('render', () => {
   describe('the verification email', () => {
     it('is the button and nothing else: no footer links, no re-entry, no offers', async () => {
       const email = await render(SUNDAY_CREW.verify_email);
-      expect(hrefs(email.html)).toEqual([`${ORIGIN}/v#${fixtureToken('verify')}`]);
+      // The button, and the contact address in the sender block (SUS-111).
+      expect(hrefs(email.html)).toEqual([
+        `${ORIGIN}/v#${fixtureToken('verify')}`,
+        `mailto:${brand.supportEmail}`,
+      ]);
       expect(email.text).not.toContain(EN_EMAIL.footer.stopPlan);
       expect(email.text).not.toContain(EN_EMAIL.footer.manage);
       expect(email.headers).toEqual({});
@@ -193,11 +225,12 @@ describe('render', () => {
     it('is one sentence and the button', async () => {
       const email = await render(SUNDAY_CREW.verify_email);
       const body = email.text.split('\n').filter((line) => line.trim() !== '');
-      // The sentence, the button with its link, and who sent it. The lockup is
-      // an image, which the plain-text part leaves out.
-      expect(body).toHaveLength(3);
+      // The sentence, the button with its link, who sent it and how to reach
+      // them. The lockup is an image, which the plain-text part leaves out.
+      expect(body).toHaveLength(4);
       expect(body[0]?.match(/[.?!](\s|$)/g)).toHaveLength(1);
       expect(body[2]).toBe(EN_EMAIL.footer.sentBy);
+      expect(body[3]).toContain(brand.supportEmail);
     });
   });
 

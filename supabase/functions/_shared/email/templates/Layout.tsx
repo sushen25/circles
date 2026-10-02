@@ -10,9 +10,11 @@ import { Link } from '@react-email/link';
 import { Preview } from '@react-email/preview';
 import { Section } from '@react-email/section';
 import { Text } from '@react-email/text';
+import { brand } from '@circles/config';
 import type { ReactNode } from 'react';
 
 import { EN_EMAIL, type EmailCopy } from '../copy.ts';
+import { contactLink, legalLinks } from '../links.ts';
 import { displayFont, interfaceFont, palette } from '../theme.ts';
 
 /**
@@ -79,6 +81,13 @@ export type LayoutProps = {
   readonly buttonUrl: string;
   readonly footer: Footer;
   readonly variant?: 'standard' | 'confirmed' | undefined;
+  /**
+   * Whether the sender block links the privacy page and the terms. The
+   * verification letter says no: it is the letter that carries only its link
+   * (spec §5.8), so it names the sender and the contact address and nothing
+   * more. Every other kind links both (SUS-111).
+   */
+  readonly legalLinks?: boolean | undefined;
 };
 
 /** Shown at 140 × 40; the files are 280 × 80 (`pnpm gen:brand`). */
@@ -132,8 +141,18 @@ function FooterBlock({ footer }: { footer: Footer }): ReactNode {
   );
 }
 
-export function Layout({ copy, buttonUrl, footer, variant = 'standard' }: LayoutProps): ReactNode {
+export function Layout({
+  copy,
+  buttonUrl,
+  footer,
+  variant = 'standard',
+  legalLinks: showLegal = true,
+}: LayoutProps): ReactNode {
   const confirmed = variant === 'confirmed';
+  const muted = confirmed ? palette.invertInk2 : palette.ink2;
+  const senderLine = { ...small, color: muted, margin: '16px 0 0', textAlign: 'center' } as const;
+  const senderLink = { color: muted, textDecoration: 'underline' };
+  const legal = legalLinks(buttonUrl);
   return (
     <Html lang="en">
       <Head>
@@ -204,16 +223,24 @@ export function Layout({ copy, buttonUrl, footer, variant = 'standard' }: Layout
             </Button>
             <FooterBlock footer={footer} />
           </Section>
-          <Text
-            style={{
-              ...small,
-              color: confirmed ? palette.invertInk2 : palette.ink2,
-              margin: '16px 0 0',
-              textAlign: 'center',
-            }}
-          >
-            {EN_EMAIL.footer.sentBy}
+          <Text style={senderLine}>{EN_EMAIL.footer.sentBy}</Text>
+          <Text style={{ ...senderLine, margin: '4px 0 0' }}>
+            {EN_EMAIL.footer.contactLead}{' '}
+            <Link href={contactLink(brand.supportEmail)} style={senderLink}>
+              {brand.supportEmail}
+            </Link>
           </Text>
+          {showLegal ? (
+            <Text style={{ ...senderLine, margin: '4px 0 0' }}>
+              <Link href={legal.privacyUrl} style={senderLink}>
+                {EN_EMAIL.footer.privacy}
+              </Link>
+              {' · '}
+              <Link href={legal.termsUrl} style={senderLink}>
+                {EN_EMAIL.footer.terms}
+              </Link>
+            </Text>
+          ) : null}
         </Container>
       </Body>
     </Html>

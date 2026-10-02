@@ -104,6 +104,17 @@ export function circleLink(at: string, circleId: string): string {
   return `${origin(at)}/circles/${circleId}`;
 }
 
+/** The privacy page and the terms, from the app origin like every other link. */
+export function legalLinks(at: string): { privacyUrl: string; termsUrl: string } {
+  const base = origin(at);
+  return { privacyUrl: `${base}/privacy`, termsUrl: `${base}/terms` };
+}
+
+/** `mailto:` for the contact address in every footer. */
+export function contactLink(address: string): string {
+  return `mailto:${address}`;
+}
+
 /**
  * Both footer links open `/e#<token>`.
  *

@@ -293,7 +293,19 @@ export const EN_EMAIL = {
     quiet: (circleName: string) =>
       `You're getting this because you asked ${circleName} quietly. Nobody else gets this email.`,
     sender: brand.name,
-    /** Under every email, outside the card: who it is from, once the logo has said it. */
-    sentBy: `Sent by ${brand.name}`,
+    /**
+     * Under every email, outside the card: who it is from, once the logo has
+     * said it, and who stands behind it (Spam Act s17). While the operator is
+     * the brand itself ("Wenna, operated by Wenna" says nothing twice) it is
+     * one short line; a legal name and ABN in `brand.operator` extends it.
+     */
+    sentBy:
+      brand.operator === brand.name
+        ? `Sent by ${brand.name}`
+        : `Sent by ${brand.name}, operated by ${brand.operator}`,
+    /** The contact line, then the address as a mailto (`brand.supportEmail`). */
+    contactLead: 'Questions? Write to',
+    privacy: 'Privacy',
+    terms: 'Terms',
   },
 } as const;

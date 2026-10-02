@@ -5,3 +5,5 @@ Tap below to get email updates about the meetup you asked about, or ignore this 
 Turn on updates https://meet.example.com/v#verify_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 Sent by Wenna
+
+Questions? Write to hello@wenna.app

@@ -33,6 +33,15 @@ export const brand = {
    * sign-in screens, the store subtitle, the link-preview image.
    */
   descriptor: 'Plans with friends',
+  /**
+   * Who the product is operated by, as every email footer names it (SUS-111):
+   * "Sent by Wenna, operated by <operator>". For now the business is not
+   * registered, so this is the brand name and the footer says only "Sent by
+   * Wenna". When there is a legal name and an ABN, this one line becomes
+   * e.g. `'Example Pty Ltd (ABN 12 345 678 901)'`. A postal address is
+   * deliberately not here: the founder has decided not to publish one.
+   */
+  operator: 'Wenna',
   /** Link and app host. Permanent once a link has left the founder — see above. */
   domain: 'wenna.app',
   /** Transactional sender. Mail goes out on a separate authenticated subdomain. */
