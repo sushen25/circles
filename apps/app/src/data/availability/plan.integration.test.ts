@@ -116,15 +116,19 @@ async function answers(client: SupabaseClient, planId: string): Promise<void> {
   expect(sent.error).toBeNull();
 }
 
-/** A day off the front of the window: a new question, so the answers are cleared. */
-async function organiserNarrows(owner: SupabaseClient, planId: string): Promise<void> {
+/**
+ * A day on the end of the window: a new question, so the answers are cleared.
+ * Not a day off the front: an "I'm easy" picks no day, so taking one away
+ * that nobody picked is a narrowing and keeps every answer (ADR 0047).
+ */
+async function organiserWidens(owner: SupabaseClient, planId: string): Promise<void> {
   const { planDetails } = await import('../planning/read');
   const { previewRevision, saveRevision } = await import('../planning/revise');
   const { newIdempotencyKey } = await import('../functions');
   const before = (await as(owner, () => planDetails({ planId })))!;
-  const next = new Date(`${before.windowStart}T12:00:00Z`);
-  next.setUTCDate(next.getUTCDate() + 1);
-  const edit = { window: { start: next.toISOString().slice(0, 10), end: before.windowEnd } };
+  const after = new Date(`${before.windowEnd}T12:00:00Z`);
+  after.setUTCDate(after.getUTCDate() + 1);
+  const edit = { window: { start: before.windowStart, end: after.toISOString().slice(0, 10) } };
   const preview = await as(owner, () => previewRevision(planId, edit));
   expect(preview.bumps_revision).toBe(true);
   const saved = await as(owner, () =>
@@ -146,7 +150,7 @@ describe('an answer an edit cleared (SUS-130)', () => {
     const ren = await joins(code, 'Ren');
     const alex = await joins(code, 'Alex');
     await answers(ren, planId);
-    await organiserNarrows(owner, planId);
+    await organiserWidens(owner, planId);
 
     const { planToAnswer } = await import('./plan');
     const { circleHome } = await import('../circles/home');
@@ -186,7 +190,7 @@ describe('an answer an edit cleared (SUS-130)', () => {
     const { owner, circleId, planId, code } = await organiserWithPlan();
     const ren = await joins(code, 'Ren');
     await answers(ren, planId);
-    await organiserNarrows(owner, planId);
+    await organiserWidens(owner, planId);
 
     const { circleHome } = await import('../circles/home');
     const card = async () => (await as(ren, () => circleHome(circleId)))?.activePlan?.askedAgain;
