@@ -23,6 +23,7 @@ declare
   event_name text;
   event_payload jsonb;
   confirmation_id uuid;
+  problem text;
 begin
   select * into plan from public.plans where id = p_plan_id for update;
   if not found then
@@ -191,6 +192,19 @@ begin
         ), false) then
           raise exception 'requires_saved_place' using errcode = 'P0001';
         end if;
+      when 'own_time' then
+        -- The organiser's own time (ADR 0050): not an option, so the guard is the
+        -- stretch being a valid one. `ownTimeProblem` in the domain, which names
+        -- the same codes in the same order; a stretch nobody named is
+        -- `needs_own_time`.
+        problem := private.own_time_problem(
+          plan,
+          (p_payload ->> 'starts_at')::timestamptz,
+          (p_payload ->> 'ends_at')::timestamptz
+        );
+        if problem is not null then
+          raise exception '%', problem using errcode = 'P0001';
+        end if;
       when 'candidate' then
         -- Eligibility, not presence. This is the line 0003 could not write.
         if not planning.candidate_is_eligible(plan, p_payload ->> 'candidate_id') then
@@ -353,6 +367,15 @@ begin
     perform set_config('circles.deriving_attendance', 'off', true);
   end if;
 
+  -- The organiser setting the final plan (ADR 0050): an own time, a move, or a
+  -- place and note edit. The confirmation is written in here for the reason
+  -- `confirm`'s is: no moment at which a plan is `confirmed` with nothing
+  -- confirmed, and no event about a confirmation a later insert might fail to
+  -- create. `private.apply_organiser_plan` is the whole of it.
+  if p_action in ('confirm_own', 'move_confirmed', 'edit_confirmed') then
+    confirmation_id := private.apply_organiser_plan(plan, p_action, p_actor, p_payload);
+  end if;
+
   -- The event, in the same transaction as the change (ADR 0003). Its name
   -- comes from the transition, not from the caller, and a transition without
   -- a name is refused rather than silently unannounced — `075_outbox_events`
@@ -369,7 +392,7 @@ begin
   event_name := planning.event_for(rule.from_state, p_action);
   if event_name is null
     and not (
-      p_action in ('candidates_gone', 'quorum_follows')
+      p_action in ('candidates_gone', 'quorum_follows', 'edit_confirmed')
       or (p_action = 'cancel' and rule.from_state = 'seeking')
     )
   then
@@ -402,6 +425,11 @@ begin
   end if;
   if p_action = 'confirm' then
     event_payload := event_payload || jsonb_build_object('candidate_id', p_payload ->> 'candidate_id');
+  end if;
+  -- Which of the organiser's own times it was, and no more: the times are on the
+  -- confirmation, and the payload carries ids and flags only (§6.3).
+  if p_action in ('confirm_own', 'move_confirmed') then
+    event_payload := event_payload || jsonb_build_object('own_time', true);
   end if;
   if event_name is not null then
     perform jobs.emit(event_name, 'plan', plan.id, event_payload);

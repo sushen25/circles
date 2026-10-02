@@ -37,6 +37,15 @@ as $$
     -- plan changed" every time a seventh tapped the link.
     when 'quorum_follows' then null
     when 'confirm' then 'confirmation.meetup_confirmed'
+    -- An organiser's own time is the same news as an option locked in
+    -- (ADR 0050): "locked in", to the same people.
+    when 'confirm_own' then 'confirmation.meetup_confirmed'
+    -- Moving a locked-in time without asking anybody again: its own letter,
+    -- which `meetup_rescheduled` ("new times, please") must not be.
+    when 'move_confirmed' then 'confirmation.meetup_moved'
+    -- A place or note edit is not announced: `edit_confirmed` is null, and
+    -- `transition_plan` names it among the silences beside `candidates_gone`.
+    when 'edit_confirmed' then null
     when 'reopen' then 'confirmation.meetup_rescheduled'
     when 'report_outcome' then 'confirmation.outcome_reported'
     -- Cancelling a confirmed meetup is a different message from withdrawing

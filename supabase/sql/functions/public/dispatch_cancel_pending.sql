@@ -19,6 +19,12 @@
 -- and a reopen inside that half hour would otherwise send "locked in" for an
 -- evening that is off, followed by a second "locked in" for the new one.
 --
+-- `moved` is in it for the same reason, once the organiser can move a
+-- locked-in time (ADR 0050): a second move inside the backoff of the first
+-- would otherwise send "moved to Saturday" after the plan had moved on to
+-- Sunday. A move supersedes the confirmation inside the same revision, so the
+-- caller passes the revision the plan is still on.
+--
 -- `skipped`, not `failed`: nothing went wrong. The code says what happened.
 -- ---------------------------------------------------------------------------
 
@@ -35,7 +41,7 @@ as $$
     where j.plan_id = p_plan_id
       and j.plan_revision = p_revision
       and j.status = 'scheduled'
-      and j.kind in ('locked_in', 'reminder', 'did_it_happen', 'did_it_happen_participant')
+      and j.kind in ('locked_in', 'moved', 'reminder', 'did_it_happen', 'did_it_happen_participant')
     returning 1
   )
   select count(*)::integer from cancelled;

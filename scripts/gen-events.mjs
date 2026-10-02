@@ -34,7 +34,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const MIGRATION = join(root, 'supabase/migrations/0027_replies_closed.sql');
+const MIGRATION = join(root, 'supabase/migrations/0035_organiser_sets_the_plan.sql');
 const CARRIES_CONTENT = join(root, 'supabase/sql/functions/jobs/carries_content.sql');
 
 const missing = () => {
