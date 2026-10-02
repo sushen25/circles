@@ -67,7 +67,11 @@ describe('render', () => {
         expect(part).toContain(EN_EMAIL.footer.sentBy);
         expect(part).toContain(brand.supportEmail);
       }
-      expect(hrefs(email.html)).toContain(`mailto:${brand.supportEmail}`);
+      if (kind === 'verify_email') {
+        expect(hrefs(email.html).some((href) => href.startsWith('mailto:'))).toBe(false);
+      } else {
+        expect(hrefs(email.html)).toContain(`mailto:${brand.supportEmail}`);
+      }
     });
 
     it('links the privacy page and the terms, except the verification letter', async () => {
@@ -202,11 +206,8 @@ describe('render', () => {
   describe('the verification email', () => {
     it('is the button and nothing else: no footer links, no re-entry, no offers', async () => {
       const email = await render(SUNDAY_CREW.verify_email);
-      // The button, and the contact address in the sender block (SUS-111).
-      expect(hrefs(email.html)).toEqual([
-        `${ORIGIN}/v#${fixtureToken('verify')}`,
-        `mailto:${brand.supportEmail}`,
-      ]);
+      // Only the button: the contact address in the sender block is plain text.
+      expect(hrefs(email.html)).toEqual([`${ORIGIN}/v#${fixtureToken('verify')}`]);
       expect(email.text).not.toContain(EN_EMAIL.footer.stopPlan);
       expect(email.text).not.toContain(EN_EMAIL.footer.manage);
       expect(email.headers).toEqual({});

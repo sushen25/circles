@@ -82,12 +82,12 @@ export type LayoutProps = {
   readonly footer: Footer;
   readonly variant?: 'standard' | 'confirmed' | undefined;
   /**
-   * Whether the sender block links the privacy page and the terms. The
-   * verification letter says no: it is the letter that carries only its link
-   * (spec §5.8), so it names the sender and the contact address and nothing
-   * more. Every other kind links both (SUS-111).
+   * The verification letter's sender block: who sent it and the contact
+   * address as plain text, with no link of any kind. That letter carries
+   * nothing but its one link (spec §5.8), so a `mailto:` and the privacy page
+   * and terms are all left out; every other kind links all three (SUS-111).
    */
-  readonly legalLinks?: boolean | undefined;
+  readonly minimal?: boolean | undefined;
 };
 
 /** Shown at 140 × 40; the files are 280 × 80 (`pnpm gen:brand`). */
@@ -146,7 +146,7 @@ export function Layout({
   buttonUrl,
   footer,
   variant = 'standard',
-  legalLinks: showLegal = true,
+  minimal = false,
 }: LayoutProps): ReactNode {
   const confirmed = variant === 'confirmed';
   const muted = confirmed ? palette.invertInk2 : palette.ink2;
@@ -226,11 +226,15 @@ export function Layout({
           <Text style={senderLine}>{EN_EMAIL.footer.sentBy}</Text>
           <Text style={{ ...senderLine, margin: '4px 0 0' }}>
             {EN_EMAIL.footer.contactLead}{' '}
-            <Link href={contactLink(brand.supportEmail)} style={senderLink}>
-              {brand.supportEmail}
-            </Link>
+            {minimal ? (
+              brand.supportEmail
+            ) : (
+              <Link href={contactLink(brand.supportEmail)} style={senderLink}>
+                {brand.supportEmail}
+              </Link>
+            )}
           </Text>
-          {showLegal ? (
+          {minimal ? null : (
             <Text style={{ ...senderLine, margin: '4px 0 0' }}>
               <Link href={legal.privacyUrl} style={senderLink}>
                 {EN_EMAIL.footer.privacy}
@@ -240,7 +244,7 @@ export function Layout({
                 {EN_EMAIL.footer.terms}
               </Link>
             </Text>
-          ) : null}
+          )}
         </Container>
       </Body>
     </Html>

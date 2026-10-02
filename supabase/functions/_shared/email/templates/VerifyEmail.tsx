@@ -19,8 +19,9 @@ export function verifyEmailCopy(_input: VerifyEmailInput): EmailCopy {
  * subscription yet to stop, and a preferences token minted for an address that
  * has not proved itself would be a capability handed to whoever typed it — and
  * no re-entry link, which would be a way into a circle for an address nobody
- * has verified. Under the card it names who sent it and how to reach them (a
- * mailto), and links neither the privacy page nor the terms (SUS-111).
+ * has verified. Under the card it names who sent it and how to reach them (the
+ * address is plain text), and links neither the privacy page nor the terms
+ * (SUS-111).
  */
 export function VerifyEmail({ input }: { input: VerifyEmailInput }): ReactNode {
   return (
@@ -28,7 +29,7 @@ export function VerifyEmail({ input }: { input: VerifyEmailInput }): ReactNode {
       copy={verifyEmailCopy(input)}
       buttonUrl={verifyLink(input.origin, input.verifyToken)}
       footer={{ kind: 'none' }}
-      legalLinks={false}
+      minimal
     />
   );
 }
