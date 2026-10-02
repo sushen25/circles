@@ -334,7 +334,7 @@ select throws_ok(
 select throws_ok(
   format('select public.edit_confirmation(%L, %L, %L, %s, %L, null, %L)', (select plan_id from tp),
     null, null, :v2, 'Hope St Radio', 'Come if you can'),
-  'P0001', 'nothing_changed', 'a save that changes nothing is refused, so a repeat is not a second move');
+  'P0001', 'nothing_to_change', 'a save that changes nothing is refused, so a repeat is not a second move');
 
 select pg_temp.act_as_postgres();
 select pg_temp.mark() as m2 \gset

@@ -16,7 +16,7 @@
 --
 -- The place and note are said **whole**: what the screen now shows, with a null
 -- clearing one. A save that moves the time and changes the place is one move. A
--- save that changes nothing is refused as `nothing_changed`, so a repeated
+-- save that changes nothing is refused as `nothing_to_change`, so a repeated
 -- request is not a second move.
 --
 -- A move names the plan's `input_version` the way `confirm_own_time` does, and
@@ -83,7 +83,7 @@ begin
      and p_place_name is not distinct from active.place_name
      and p_place_url is not distinct from active.place_url
      and p_note is not distinct from active.note then
-    raise exception 'nothing_changed' using errcode = 'P0001';
+    raise exception 'nothing_to_change' using errcode = 'P0001';
   end if;
 
   -- Whole, with a null clearing: `jsonb_build_object` keeps the keys, which is

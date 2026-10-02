@@ -32,8 +32,8 @@ import { brand } from '@circles/config';
  * others take their wording from the Pushes artboard's row for the same kind,
  * which is what the person would otherwise have received. Four have no row on
  * either artboard and are written here for the first time: `replies_closed`,
- * `did_it_happen_participant` (SUS-22's note), the place-only `changed` and
- * `asked_again` (ADR 0046).
+ * `did_it_happen_participant` (SUS-22's note), the place-only `changed`,
+ * `asked_again` (ADR 0046) and `moved` (ADR 0050).
  */
 
 export type Button = { readonly label: string };
@@ -106,6 +106,33 @@ export const EN_EMAIL = {
     paragraphs: [
       `See you ${p.placeName === undefined ? '' : `at ${p.placeName} `}at ${p.time}. ` +
         `${p.goingCount} going. If plans change, the link below is the place.`,
+    ],
+    button: { label: 'Open the plan' },
+  }),
+
+  /**
+   * The organiser moved a locked-in time without asking anybody again
+   * (ADR 0050). Where it is now, where it was, and what to do if it does not
+   * work: nothing is asked of anyone it already suits, which is why this is not
+   * `changed`. Not held overnight, and no list of who is going, which a letter
+   * cannot keep current.
+   */
+  moved: (p: {
+    circleName: string;
+    shortDate: string;
+    time: string;
+    previousShortDate: string;
+    placeName?: string | undefined;
+    organiserName?: string | undefined;
+  }): EmailCopy => ({
+    subject: `Change of plan: ${p.circleName} is now ${p.shortDate}`,
+    preview: `Was ${p.previousShortDate}.`,
+    paragraphs: [
+      `Change of plan: ${p.circleName} is now ${p.shortDate}, ${p.time}` +
+        `${p.placeName === undefined ? '' : ` at ${p.placeName}`}.`,
+      `It was ${p.previousShortDate}. ` +
+        (p.organiserName === undefined ? 'The' : `${p.organiserName} moved it. The`) +
+        ' plan has the details, and is the place to say if the new time does not work for you.',
     ],
     button: { label: 'Open the plan' },
   }),

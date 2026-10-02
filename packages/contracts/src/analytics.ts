@@ -174,7 +174,31 @@ export const catalogue = {
   deadline_passed_action: event(1, {
     action: z.enum(['confirm_anyway', 'extend', 'hand_off', 'cancel', 'nothing']),
   }),
-  meetup_confirmed: event(1, { attending_count: count, invited_count: count }),
+  /**
+   * Version 2 (ADR 0050) says whether the time was the organiser's own, and, for
+   * one, whether fewer people could make it than the plan's number. Booleans and
+   * counts only: never the time, the place or who. Version 1 carried neither,
+   * and a query that wants the share of own times needs to tell it from a
+   * confirmation that could not have been one.
+   */
+  meetup_confirmed: event(2, {
+    attending_count: count,
+    invited_count: count,
+    own_time: z.boolean(),
+    below_quorum: z.boolean(),
+  }),
+  /**
+   * The organiser moved a locked-in time (ADR 0050): how many are going and how
+   * many were asked, after it was derived again. Not `meetup_confirmed`, which a
+   * move is not, and not `plan_rescheduled`, which asks everybody again.
+   */
+  meetup_moved: event(1, { attending_count: count, invited_count: count }),
+  /**
+   * The organiser changed a locked-in plan's place or note and nothing else
+   * (ADR 0050): nobody's status changed and nobody was told. No property, because
+   * the place and the note are exactly what an event may not carry.
+   */
+  confirmation_edited: event(1),
   /**
    * "Did you have to chase anyone outside the app?" (spec §5.10) — the three
    * answers the review screen offers and `meetup_confirmations.chased_answer`

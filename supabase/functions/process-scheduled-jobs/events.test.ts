@@ -127,6 +127,55 @@ describe('an edit that cleared the answers (ADR 0046)', () => {
   });
 });
 
+describe('a moved time (ADR 0050)', () => {
+  const moved = (payload: Record<string, unknown> = {}): OutboxEvent => ({
+    ...eventNamed('confirmation.meetup_moved'),
+    payload: { plan_id: PLAN, revision: 2, confirmation_id: CONFIRMATION, ...payload },
+  });
+
+  it('tells everyone once, and reminds and asks again for the new time, all keyed by the new confirmation', () => {
+    const intents = intentsFor(moved(), context, instant(0));
+    expect(intents.map((intent) => intent.kind)).toEqual([
+      'moved',
+      'reminder',
+      'did_it_happen',
+      'did_it_happen_participant',
+    ]);
+    expect(new Set(intents.map((intent) => intent.occurrence))).toEqual(new Set([CONFIRMATION]));
+  });
+
+  it('keeps the revision it supersedes: a move does not open a new one', () => {
+    expect(supersededRevision(moved())).toBe(2);
+  });
+
+  it('says nothing when a later move or lock-in has since replaced the confirmation it is about', () => {
+    const later = moved({ confirmation_id: '00000000-0000-4000-8000-0000000000f9' });
+    expect(intentsFor(later, context, instant(0))).toEqual([]);
+    const locked = {
+      ...eventNamed('confirmation.meetup_confirmed'),
+      payload: {
+        plan_id: PLAN,
+        revision: 2,
+        confirmation_id: '00000000-0000-4000-8000-0000000000f9',
+      },
+    };
+    expect(intentsFor(locked, context, instant(0))).toEqual([]);
+  });
+
+  it('still speaks for a lock-in from before the event named its confirmation', () => {
+    expect(
+      intentsFor(eventNamed('confirmation.meetup_confirmed'), context, instant(0)).map(
+        (intent) => intent.kind,
+      ),
+    ).toContain('locked_in');
+  });
+
+  it('says nothing for a plan with no active confirmation', () => {
+    const none = { ...context, confirmation: null } as PlanContext;
+    expect(intentsFor(moved(), none, instant(0))).toEqual([]);
+  });
+});
+
 describe('which revision a cancellation supersedes', () => {
   it('reads it from the event, because the plan has moved on by now', () => {
     // A reschedule bumped the plan to 2; what it superseded was 1. The plan

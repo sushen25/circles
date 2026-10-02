@@ -87,6 +87,9 @@ export const ANNOUNCED: ReadonlySet<string> = new Set([
   'scheduling.candidates_generated',
   'confirmation.meetup_confirmed',
   'confirmation.meetup_rescheduled',
+  // The organiser moved a locked-in time without asking anybody again
+  // (ADR 0050).
+  'confirmation.meetup_moved',
   'confirmation.meetup_cancelled',
   // The quiet ask (S2-02). `plan_expired` speaks only for an ask that never
   // opened; for every other plan `intentsFor` returns nothing.
@@ -183,6 +186,9 @@ export function intentsFor(
 
     case 'confirmation.meetup_confirmed': {
       if (confirmation === null) return [];
+      // Locked in and then moved before this ran (ADR 0050): the move's event
+      // speaks, about the time the plan is at now.
+      if (speaksForAnother(event, confirmation)) return [];
       const occurrence = occurrenceFor('locked_in', {
         confirmationId: confirmation.id as never,
       });
@@ -190,6 +196,28 @@ export function intentsFor(
       const morning = morningAfterFor(fromISO(confirmation.ends_at));
       return [
         { kind: 'locked_in', occurrence, desiredAt: now, actorId: confirmation.confirmed_by },
+        { kind: 'reminder', occurrence, desiredAt: addMinutes(start, -120), notAfter: start },
+        { kind: 'did_it_happen', occurrence, desiredAt: morning },
+        { kind: 'did_it_happen_participant', occurrence, desiredAt: morning },
+      ];
+    }
+
+    // The organiser moved a locked-in time (ADR 0050): the plan's members are
+    // told once, and the reminder and the morning-after letters follow the new
+    // time. The letters queued for the old one were taken back by `drain`
+    // (`supersededRevision`) before these are written, and the occurrence is the
+    // **new confirmation's**, like a fresh lock-in's: a second move is a second
+    // message, and the same move read twice is one. Read from the context, not
+    // the event: `ANNOUNCED` has the plan's confirmation as it is now, and a
+    // plan moved twice in one tick tells people where it is, once.
+    case 'confirmation.meetup_moved': {
+      if (confirmation === null) return [];
+      if (speaksForAnother(event, confirmation)) return [];
+      const occurrence = occurrenceFor('moved', { confirmationId: confirmation.id as never });
+      const start = fromISO(confirmation.starts_at);
+      const morning = morningAfterFor(fromISO(confirmation.ends_at));
+      return [
+        { kind: 'moved', occurrence, desiredAt: now, actorId: confirmation.confirmed_by },
         { kind: 'reminder', occurrence, desiredAt: addMinutes(start, -120), notAfter: start },
         { kind: 'did_it_happen', occurrence, desiredAt: morning },
         { kind: 'did_it_happen_participant', occurrence, desiredAt: morning },
@@ -244,6 +272,17 @@ export function intentsFor(
 }
 
 /**
+ * Whether an event is about a confirmation that is no longer the plan's active
+ * one: a lock-in the organiser has since moved, or a move since moved again. An
+ * event from before `confirmation_id` was in its payload names none, and speaks
+ * as it always did.
+ */
+function speaksForAnother(event: OutboxEvent, confirmation: { readonly id: string }): boolean {
+  const named = event.payload['confirmation_id'];
+  return typeof named === 'string' && named !== confirmation.id;
+}
+
+/**
  * The revision whose scheduled letters an event calls off.
  *
  * **Read from the event, never from the plan as it is now.** A context is
@@ -268,6 +307,9 @@ export function supersededRevision(event: OutboxEvent): number | null {
   // A cancellation leaves the revision where it is; a reschedule has already
   // bumped it, so what it supersedes is the one before.
   if (event.event_name === 'confirmation.meetup_cancelled') return revision;
+  // A move keeps the revision (ADR 0050): what it supersedes is this
+  // revision's letters about the time it just left, not the one before's.
+  if (event.event_name === 'confirmation.meetup_moved') return revision;
   if (event.event_name === 'confirmation.meetup_rescheduled') return revision - 1;
   return null;
 }

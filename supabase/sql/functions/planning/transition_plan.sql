@@ -431,6 +431,15 @@ begin
   if p_action in ('confirm_own', 'move_confirmed') then
     event_payload := event_payload || jsonb_build_object('own_time', true);
   end if;
+  -- The confirmation this event is about. The drain writes its letters from the
+  -- plan's confirmation *as it is when it runs*, and a plan locked in and moved
+  -- (or moved twice) inside one tick has several events about one active
+  -- confirmation: only the event that made it speaks, because a later one takes
+  -- the earlier one's still-scheduled letters back and the same keys would then
+  -- find them skipped (ADR 0050). An id, never a time or a place.
+  if p_action in ('confirm', 'confirm_own', 'move_confirmed') then
+    event_payload := event_payload || jsonb_build_object('confirmation_id', confirmation_id);
+  end if;
   if event_name is not null then
     perform jobs.emit(event_name, 'plan', plan.id, event_payload);
   end if;
