@@ -34,11 +34,13 @@ vi.mock('../../data/availability', () => ({
 vi.mock('../../data/membership', () => ({ ownNameIn: async () => 'Priya' }));
 
 const requestEmailUpdates = vi.fn();
+const reloadCopy = vi.fn();
 const verifyEmail = vi.fn();
 const managePreferences = vi.fn();
 vi.mock('../../data/email', async (original) => ({
   ...(await original<typeof EmailData>()),
   requestEmailUpdates: (...args: unknown[]) => requestEmailUpdates(...args),
+  reloadCopy: () => reloadCopy(),
   verifyEmail: (...args: unknown[]) => verifyEmail(...args),
   managePreferences: (...args: unknown[]) => managePreferences(...args),
 }));
@@ -88,6 +90,7 @@ beforeEach(() => {
     track,
     planToAnswer,
     requestEmailUpdates,
+    reloadCopy,
     verifyEmail,
     managePreferences,
   ]) {
@@ -185,6 +188,24 @@ describe('Sent', () => {
       params: { code: PLAN.code },
     });
     expect(track).toHaveBeenCalledWith('email_submitted', { plan_id: PLAN.id });
+  });
+});
+
+describe('a stale consent version (ADR 00XX)', () => {
+  it('reloads its copy and says nothing was sent when the server does not know the wording', async () => {
+    requestEmailUpdates.mockRejectedValue(refusal('consent_version_unknown'));
+    wrap(<SentFlow code={PLAN.code} />);
+    fireEvent.change(await screen.findByLabelText('Your email'), {
+      target: { value: 'priya@example.com' },
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Send verification email' }));
+    });
+
+    await screen.findByText(/wording on this page was out of date, so nothing was sent/);
+    expect(reloadCopy).toHaveBeenCalledTimes(1);
+    expect(push).not.toHaveBeenCalled();
   });
 });
 

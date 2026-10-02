@@ -12,5 +12,5 @@ export const PACKAGE_NAME = '@circles/config';
 
 export { brand } from './brand.js';
 export type { Brand } from './brand.js';
-export { CONSENT } from './consent.js';
+export { CONSENT, CONSENT_VERSIONS, consentTextFor, isKnownConsentVersion } from './consent.js';
 export type { Consent } from './consent.js';

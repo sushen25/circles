@@ -10,7 +10,12 @@ import { hasBackend } from '../../data/auth/client';
 import { takeSavedWith } from '../../data/auth/saved';
 import { useSession } from '../../data/auth/session';
 import { planToAnswer, type AnswerablePlan, type OwnAnswer } from '../../data/availability';
-import { normaliseAddress, rememberTypedAddress, requestEmailUpdates } from '../../data/email';
+import {
+  normaliseAddress,
+  rememberTypedAddress,
+  reloadCopy,
+  requestEmailUpdates,
+} from '../../data/email';
 import { answerable } from '../../data/fixtures';
 import { newIdempotencyKey } from '../../data/functions';
 import { ownNameIn } from '../../data/membership';
@@ -203,6 +208,11 @@ function Sent({
       if (failure.kind === 'offline') setProblem('offline');
       else if (failure.kind === 'reason' && failure.reason === 'too_many_requests') {
         setProblem('too_many_tries');
+      } else if (failure.kind === 'reason' && failure.reason === 'consent_version_unknown') {
+        // The wording on screen is not one the server ever showed anybody.
+        // Nothing was recorded; load the current copy and let them read it.
+        setProblem('copy_changed');
+        reloadCopy();
       } else {
         setProblem('couldnt_send');
         setReference(failure.reference);

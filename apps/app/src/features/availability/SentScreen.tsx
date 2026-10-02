@@ -32,7 +32,7 @@ import { t } from '../../copy';
  *
  * Presentational: `SentFlow` owns the plan, the request and the navigation.
  */
-export type SentProblem = 'not_an_address' | 'too_many_tries' | 'offline' | 'couldnt_send';
+export type SentProblem = 'not_an_address' | 'too_many_tries' | 'offline' | 'couldnt_send' | 'copy_changed';
 
 export type SentProps = {
   state?: 'default' | 'loading' | 'error' | 'offline' | undefined;
@@ -76,6 +76,8 @@ function problemCopy(problem: SentProblem): string {
       return t('sent', 'youre_offline');
     case 'couldnt_send':
       return t('sent', 'couldnt_send');
+    case 'copy_changed':
+      return t('sent', 'copy_changed');
   }
 }
 

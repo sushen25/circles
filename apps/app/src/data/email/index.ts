@@ -1,3 +1,4 @@
+import { CONSENT } from '@circles/config';
 import {
   ManageEmailPreferencesResponse,
   RequestEmailUpdatesRequest,
@@ -36,9 +37,28 @@ export async function requestEmailUpdates({
 }: RequestEmailUpdatesOptions): Promise<RequestEmailUpdatesResponse> {
   return await invokeFunction(
     'request-email-updates',
-    { idempotency_key: idempotencyKey, plan_id: planId as PlanId, email },
+    {
+      idempotency_key: idempotencyKey,
+      plan_id: planId as PlanId,
+      email,
+      // The words this build renders (`CONSENT.text` on the Sent card): what is
+      // recorded is what the person was shown, not what the server says today.
+      consent_version: CONSENT.version,
+    },
     RequestEmailUpdatesResponse,
   );
+}
+
+/**
+ * Load this page's copy again, after the server said it does not know the
+ * consent wording this build rendered (`consent_version_unknown`): a deploy has
+ * moved on, and the person should read the current sentence before agreeing to
+ * it. Web only; the native build gets its copy with the build.
+ */
+export function reloadCopy(): void {
+  if (typeof window !== 'undefined' && typeof window.location?.reload === 'function') {
+    window.location.reload();
+  }
 }
 
 /** `/v#<token>`: verify the address the token was sent to. No session needed. */
