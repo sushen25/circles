@@ -296,7 +296,7 @@ export const EN_EMAIL = {
     /**
      * Under every email, outside the card: who it is from, once the logo has
      * said it, and who stands behind it (Spam Act s17). While the operator is
-     * the brand itself ("Wenna, operated by Wenna" says nothing twice) it is
+     * the brand itself ("X, operated by X" says nothing twice) it is
      * one short line; a legal name and ABN in `brand.operator` extends it.
      */
     sentBy:
