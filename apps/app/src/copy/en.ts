@@ -2149,6 +2149,8 @@ export const en = {
     use: 'Use {date}, {time}',
     checking: 'Checking who it works for',
     stretch_failed: "We couldn't check who it works for. Try again.",
+    no_such_time:
+      'That time does not happen on this day, because the clocks go forward. Pick another.',
     loading: 'Getting the plan',
     couldnt_load: "We couldn't load this plan.",
     youre_offline: "You're offline. Connect, then try again.",

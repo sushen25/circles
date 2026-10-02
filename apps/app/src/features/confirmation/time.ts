@@ -71,6 +71,25 @@ export function pickOf(startsAt: string, endsAt: string, zone: string): TimePick
   };
 }
 
+/**
+ * Whether both ends are times a clock in the plan's zone actually reads.
+ *
+ * On the day clocks go forward an hour of wall time never happens, and
+ * `fromLocal` skips forward past it without saying so: 2:30 would become 3:00,
+ * and a stretch shown as an hour would be locked in as half of one. A time that
+ * does not survive the trip to an instant and back is not offered.
+ */
+export function existsOnClock(pick: TimePick, zone: string): boolean {
+  const z = toZone(zone);
+  const reads = (day: LocalDate, minutes: number) => {
+    const next = minutes >= DAY;
+    const wanted = next ? minutes - DAY : minutes;
+    const local = toLocal(at(day, minutes, zone), z);
+    return local.minutesOfDay === wanted && local.date === (next ? addDays(day, 1) : day);
+  };
+  return reads(pick.day, pick.startMin) && reads(pick.day, pick.endMin);
+}
+
 /** The same stretch, on another day: what picking a day does. */
 export function onDay(pick: TimePick, day: LocalDate): TimePick {
   return { ...pick, day };

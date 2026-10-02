@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import * as fixture from '../scheduling/fixtures';
 import {
   canMoveEnd,
+  existsOnClock,
   initialPick,
   instantsOf,
   isoOf,
@@ -97,5 +98,17 @@ describe('where the picker opens', () => {
   it('on tomorrow when every day the plan asks about has gone', () => {
     const late = fromISO('2026-09-30T00:00:00.000Z');
     expect(initialPick(fixture.waiting, late).day).toBe('2026-10-01');
+  });
+});
+
+describe('a time the clock never reads', () => {
+  it('is not offered on the day clocks go forward, and is on any other', () => {
+    // Melbourne's clocks go from 2 am to 3 am on 4 October 2026.
+    const gap = { day: localDate('2026-10-04'), startMin: 150, endMin: 210 };
+    expect(existsOnClock(gap, ZONE)).toBe(false);
+    expect(existsOnClock({ ...gap, startMin: 180, endMin: 240 }, ZONE)).toBe(true);
+    expect(existsOnClock({ ...gap, day: localDate('2026-10-05') }, ZONE)).toBe(true);
+    // And an end past midnight is read on the next day.
+    expect(existsOnClock({ ...friday, endMin: 25 * 60 }, ZONE)).toBe(true);
   });
 });

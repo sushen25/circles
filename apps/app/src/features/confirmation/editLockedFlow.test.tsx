@@ -235,6 +235,12 @@ describe('the states', () => {
     expect(await screen.findByText('This plan is not locked in.')).toBeTruthy();
   });
 
+  it("is not offered once the meetup has ended, by the database's clock", async () => {
+    planConfirmation.mockResolvedValue({ ...confirmationFixture.lockedInOwnTime, view: 'past' });
+    show(edit());
+    expect(await screen.findByText('This plan is not locked in.')).toBeTruthy();
+  });
+
   it('says so when the meetup has finished', async () => {
     editConfirmation.mockRejectedValue(refusal('meetup_has_ended'));
     show(edit());

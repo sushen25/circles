@@ -17,7 +17,16 @@ import { fixtureOthers, fixtureStretch } from './fixtureStretch';
 import { SetTimeScreen } from './SetTimeScreen';
 import { calendarOf, clockOf, optionAt, primaryLabelOf } from './setTime';
 import { stretchWords } from './stretch';
-import { initialPick, isoOf, moveEnd, moveStart, onDay, problemOf, type TimePick } from './time';
+import {
+  existsOnClock,
+  initialPick,
+  isoOf,
+  moveEnd,
+  moveStart,
+  onDay,
+  problemOf,
+  type TimePick,
+} from './time';
 import { useSettled, useStretch } from './useStretch';
 
 /**
@@ -191,7 +200,8 @@ function Picker({
   // The names follow the time once it has held still, and only for a time the
   // domain would accept: asking about the past is a question with no use.
   const settled = useSettled(pick);
-  const valid = problemOf(plan, settled, now) === undefined;
+  const exists = existsOnClock(pick, plan.zone);
+  const valid = exists && problemOf(plan, settled, now) === undefined;
   const range = valid ? isoOf(settled, plan.zone) : undefined;
   const asked = useStretch(planId, range, live);
   const read: StretchRead = live
@@ -233,9 +243,15 @@ function Picker({
       })}
       who={who}
       checking={checking && who !== undefined}
-      problem={read.failed ? t('setTime', 'stretch_failed') : undefined}
+      problem={
+        !exists
+          ? t('setTime', 'no_such_time')
+          : read.failed
+            ? t('setTime', 'stretch_failed')
+            : undefined
+      }
       useLabel={primaryLabelOf(pick, plan, fromEdit)}
-      canUse={problem === undefined && read.data !== undefined && !checking}
+      canUse={exists && problem === undefined && read.data !== undefined && !checking}
       onUse={() => onUse(pick)}
       onBack={onBack}
     />

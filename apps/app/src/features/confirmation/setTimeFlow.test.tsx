@@ -157,6 +157,31 @@ describe('the names as the time changes', () => {
   });
 });
 
+describe('a time the clock never reads', () => {
+  it('is not offered on the day clocks go forward: it says so, and will not review it', async () => {
+    // Melbourne goes from 2 am to 3 am on 4 October 2026: 1:30 am is real.
+    show(
+      <SetTimeFlow
+        id="sunday-crew"
+        planId="thu-17"
+        mode="lock"
+        start="2026-10-03T15:30:00.000Z"
+        end="2026-10-03T17:30:00.000Z"
+      />,
+    );
+    await screen.findByText('Pick the time yourself');
+    fireEvent.click(screen.getByRole('button', { name: 'Start later' }));
+    expect(
+      await screen.findByText(
+        'That time does not happen on this day, because the clocks go forward. Pick another.',
+      ),
+    ).toBeTruthy();
+    expect(screen.getByRole('button', { name: /^Review / }).getAttribute('aria-disabled')).toBe(
+      'true',
+    );
+  });
+});
+
 describe('where the primary leads', () => {
   it('to the review with the start and end, for a time that is not an option', async () => {
     show(
