@@ -50,10 +50,17 @@ begin
   -- `/j/<code>` and `/p/<code>` are the same plan seen twice — the link you
   -- paste into the chat and the page it opens (architecture §5) — so both
   -- resolve through `plans.short_code` and both answer with the circle's name.
+  --
+  -- Only while the code is live (ADR 0048, `private.circles_open_to_continue_as`):
+  -- the same answer a code that never existed gets, so a cancelled or expired
+  -- plan, an archived circle and a plan whose meetup is long past all draw the
+  -- generic card — and the Continue-as screen, which asks this for its title,
+  -- reads that null as "this link isn't active".
   select c.name into circle_name
   from public.plans p
   join public.circles c on c.id = p.circle_id
-  where p.short_code = p_code and c.status = 'active';
+  where p.short_code = p_code
+    and c.id in (select private.circles_open_to_continue_as(p_code));
 
   return circle_name;
 end;
