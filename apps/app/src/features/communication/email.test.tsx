@@ -192,7 +192,7 @@ describe('Sent', () => {
 });
 
 describe('a stale consent version (ADR 00XX)', () => {
-  it('reloads its copy and says nothing was sent when the server does not know the wording', async () => {
+  it('says nothing was sent, then reloads its copy, when the server does not know the wording', async () => {
     requestEmailUpdates.mockRejectedValue(refusal('consent_version_unknown'));
     wrap(<SentFlow code={PLAN.code} />);
     fireEvent.change(await screen.findByLabelText('Your email'), {
@@ -204,7 +204,9 @@ describe('a stale consent version (ADR 00XX)', () => {
     });
 
     await screen.findByText(/wording on this page was out of date, so nothing was sent/);
-    expect(reloadCopy).toHaveBeenCalledTimes(1);
+    // Not at once: the notice has to be readable before the page goes.
+    expect(reloadCopy).not.toHaveBeenCalled();
+    await waitFor(() => expect(reloadCopy).toHaveBeenCalledTimes(1), { timeout: 5000 });
     expect(push).not.toHaveBeenCalled();
   });
 });

@@ -67,5 +67,12 @@ needs no exception.
   recorded under the server's current one, is closed by SUS-139 (above). A
   consequence to keep: a version may be removed from the list only if no
   subscription holds it, which in practice means never.
+- `2026-09-14` stays on the list because records may name it and must be
+  readable, which also means the server will accept it from a caller. No client
+  renders it (the screen showed different words, and clients before SUS-139 sent
+  no version). A caller who sends it records wording that omits the
+  add-your-times-again letter while that letter is still sent. Left as the ticket
+  specified; the founder may prefer a list entry that is readable but not
+  acceptable for new consent.
 - `docs/design/gen.py` carries a hand-typed mockup of the sentence; it is
   updated by hand with each version.

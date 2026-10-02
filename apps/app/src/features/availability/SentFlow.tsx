@@ -33,6 +33,9 @@ import { SentScreen, type SentProblem } from './SentScreen';
  * A new idempotency key per tap: the same key would replay the first answer
  * and queue nothing.
  */
+/** How long the "out of date" notice is read before the page loads its copy again. */
+const RELOAD_AFTER_MS = 3000;
+
 export function SentFlow({ code }: { code: string }) {
   if (!hasBackend()) {
     return (
@@ -210,9 +213,11 @@ function Sent({
         setProblem('too_many_tries');
       } else if (failure.kind === 'reason' && failure.reason === 'consent_version_unknown') {
         // The wording on screen is not one the server ever showed anybody.
-        // Nothing was recorded; load the current copy and let them read it.
+        // Nothing was recorded. Say so, then load the current copy a moment
+        // later: reloading at once would unload the page before the notice
+        // could be read.
         setProblem('copy_changed');
-        reloadCopy();
+        setTimeout(reloadCopy, RELOAD_AFTER_MS);
       } else {
         setProblem('couldnt_send');
         setReference(failure.reference);

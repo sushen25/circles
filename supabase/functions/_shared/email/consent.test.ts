@@ -1,9 +1,4 @@
-import {
-  CONSENT,
-  CONSENT_VERSIONS,
-  consentTextFor,
-  isKnownConsentVersion,
-} from '@circles/config';
+import { CONSENT, CONSENT_VERSIONS, consentTextFor, isKnownConsentVersion } from '@circles/config';
 import { NOTIFICATION_KINDS } from '@circles/domain';
 import { describe, expect, it } from 'vitest';
 
