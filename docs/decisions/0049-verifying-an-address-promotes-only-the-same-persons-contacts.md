@@ -143,8 +143,13 @@ made before this migration has no row and is not linked.
   false link between identities that already moved a place directly, and a
   sibling left pending until the person asks again. Needs millisecond
   concurrency on one circle and gains nobody anything beyond the takeover
-  residual above; writing the row with `clock_timestamp()` would close it and
-  was left out to leave `reattach_member` as SUS-103 reviewed it.
+  residual above. Two moves of one circle starting in the same microsecond tie
+  and stop the chain the same way. Writing the row with `clock_timestamp()`
+  would close both and was left out to leave `reattach_member` as SUS-103 reviewed it.
+- **The links live as long as the audit log (twelve months).** A pending contact
+  lives seven days, so the link outlasts anything it has to heal by a long way.
+  Two identities that created contacts after an old link had expired would be
+  unrelated by then in any case.
 - Retention is unchanged: a pending contact still goes after seven days with its
   subscription. An identity that asked for updates at somebody else's address and
   never verifies it simply gets nothing, which is what `pending` has always
