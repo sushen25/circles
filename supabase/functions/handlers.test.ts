@@ -2364,6 +2364,8 @@ describe('generate-ics', () => {
         confirmed_by: CALLER,
         status: 'active',
         confirmed_at: '2099-09-16T00:00:00+00:00',
+        calendar_uid: '00000000-0000-4000-8000-0000000000ca',
+        calendar_sequence: 0,
         plans: {
           title: 'Catch up',
           short_code: 'pncfmt',
@@ -2372,6 +2374,31 @@ describe('generate-ics', () => {
         },
       },
     };
+  });
+
+  it('keeps one calendar entry across a move: the same UID, and a higher sequence (ADR 0050)', async () => {
+    const first = await (
+      await load('generate-ics')(get({ confirmation_id: CONFIRMATION_ID }))
+    ).text();
+    state.rows = {
+      meetup_confirmations: {
+        ...(state.rows['meetup_confirmations'] as Record<string, unknown>),
+        id: '00000000-0000-4000-8000-0000000000f2',
+        starts_at: '2099-09-19T09:00:00+00:00',
+        ends_at: '2099-09-19T11:00:00+00:00',
+        calendar_sequence: 1,
+      },
+    };
+    const moved = await (
+      await load('generate-ics')(get({ confirmation_id: '00000000-0000-4000-8000-0000000000f2' }))
+    ).text();
+
+    const uid = (file: string) => /^UID:(.*)$/m.exec(file)?.[1]?.trim();
+    expect(uid(first)).toMatch(/^00000000-0000-4000-8000-0000000000ca@/);
+    expect(uid(moved)).toBe(uid(first));
+    expect(first).toContain('SEQUENCE:0');
+    expect(moved).toContain('SEQUENCE:1');
+    expect(moved).toContain('DTSTART:20990919T090000Z');
   });
 
   it('answers with a calendar file a browser will save', async () => {
