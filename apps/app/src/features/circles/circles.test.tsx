@@ -419,6 +419,139 @@ describe('circle home, for somebody whose times an edit cleared (SUS-130)', () =
     expect(screen.getByRole('button', { name: "See how it's looking" })).toBeVisible();
     expect(screen.queryByRole('button', { name: 'Add my times' })).toBeNull();
   });
+});
+
+describe('circle home, sharing the plan link again (SUS-132)', () => {
+  const OPEN = () => ({
+    id: PLAN,
+    code: 'pnsundaycr',
+    organiserUserId: 'maya',
+    title: 'Catch up',
+    // Relative, so the plan is open whenever this runs.
+    responseDeadline: new Date(Date.now() + 3 * 24 * 3600 * 1000).toISOString(),
+    replied: 2,
+    asked: 6,
+  });
+  const SHARE = { name: 'Share the link' };
+
+  it('gives the organiser the plan link in one tap, as a count and never names', async () => {
+    shareMessage.mockResolvedValue('sheet');
+    circleHome.mockResolvedValue(home({ activePlan: OPEN() }));
+    wrap(<CircleHomeFlow id={CIRCLE} />);
+
+    fireEvent.click(await screen.findByRole('button', SHARE));
+    await waitFor(() => expect(shareMessage).toHaveBeenCalledTimes(1));
+    const message = shareMessage.mock.calls[0]?.[0] as string;
+    expect(message).toMatch(/waiting on 4 replies .*\/j\/pnsundaycr$/);
+    for (const name of ['Priya', 'Tom', 'Jess', 'Sam', 'Alex']) expect(message).not.toContain(name);
+    expect(track).toHaveBeenCalledWith(
+      'share_opened',
+      expect.objectContaining({ circle_id: CIRCLE, plan_id: PLAN, kind: 'reminder' }),
+    );
+  });
+
+  it('says so when it copied instead of opening a share sheet', async () => {
+    shareMessage.mockResolvedValue('copied');
+    circleHome.mockResolvedValue(home({ activePlan: OPEN() }));
+    wrap(<CircleHomeFlow id={CIRCLE} />);
+
+    fireEvent.click(await screen.findByRole('button', SHARE));
+    expect(await screen.findByText('Copied. Paste it in the group chat.')).toBeVisible();
+  });
+
+  it('says so when it could not copy, and does not count it as shared', async () => {
+    shareMessage.mockResolvedValue('failed');
+    circleHome.mockResolvedValue(home({ activePlan: OPEN() }));
+    wrap(<CircleHomeFlow id={CIRCLE} />);
+
+    fireEvent.click(await screen.findByRole('button', SHARE));
+    expect(await screen.findByText("Couldn't copy the message. Try again.")).toBeVisible();
+    expect(track).not.toHaveBeenCalledWith('share_opened', expect.anything());
+  });
+
+  it('is not offered once the deadline has passed', async () => {
+    circleHome.mockResolvedValue(
+      home({
+        activePlan: {
+          ...OPEN(),
+          responseDeadline: new Date(Date.now() - 3600 * 1000).toISOString(),
+        },
+      }),
+    );
+    wrap(<CircleHomeFlow id={CIRCLE} />);
+
+    expect(await screen.findByText('Finding a time')).toBeVisible();
+    expect(screen.queryByRole('button', SHARE)).toBeNull();
+  });
+
+  it('is not offered on a quiet ask nobody has taken on', async () => {
+    circleHome.mockResolvedValue(
+      home({ activePlan: { ...OPEN(), organiserUserId: null, quiet: true } }),
+    );
+    wrap(<CircleHomeFlow id={CIRCLE} />);
+
+    expect(await screen.findByText('Started quietly')).toBeVisible();
+    expect(screen.queryByRole('button', SHARE)).toBeNull();
+  });
+
+  it('is offered once somebody has taken a quiet ask on', async () => {
+    shareMessage.mockResolvedValue('sheet');
+    circleHome.mockResolvedValue(home({ activePlan: { ...OPEN(), quiet: true } }));
+    wrap(<CircleHomeFlow id={CIRCLE} />);
+
+    fireEvent.click(await screen.findByRole('button', SHARE));
+    await waitFor(() => expect(shareMessage).toHaveBeenCalledTimes(1));
+  });
+
+  it('is not offered where the plan is locked in, which has its own Share', async () => {
+    circleHome.mockResolvedValue(
+      home({
+        lockedIn: {
+          planId: PLAN,
+          code: 'pnsundaycr',
+          startsAt: '2026-10-17T08:30:00Z',
+          endsAt: '2026-10-17T10:30:00Z',
+          placeName: 'Hope St Radio',
+          going: 5,
+          toConfirm: 1,
+        },
+      }),
+    );
+    wrap(<CircleHomeFlow id={CIRCLE} />);
+
+    expect(await screen.findByText('Locked in')).toBeVisible();
+    expect(screen.queryByRole('button', SHARE)).toBeNull();
+  });
+
+  it('is offered to a member who is not organising it, with the same count-only message', async () => {
+    // The founder's decision, 1 October 2026: any member may forward the link.
+    shareMessage.mockResolvedValue('sheet');
+    circleHome.mockResolvedValue(home({ me: 'priya', isOwner: false, activePlan: OPEN() }));
+    wrap(<CircleHomeFlow id={CIRCLE} />);
+
+    fireEvent.click(await screen.findByRole('button', SHARE));
+    await waitFor(() => expect(shareMessage).toHaveBeenCalledTimes(1));
+    const message = shareMessage.mock.calls[0]?.[0] as string;
+    expect(message).toMatch(/waiting on 4 replies .*\/j\/pnsundaycr$/);
+    expect(message).not.toContain('Alex');
+  });
+
+  it('is not offered to a member once the deadline has passed', async () => {
+    circleHome.mockResolvedValue(
+      home({
+        me: 'priya',
+        isOwner: false,
+        activePlan: {
+          ...OPEN(),
+          responseDeadline: new Date(Date.now() - 3600 * 1000).toISOString(),
+        },
+      }),
+    );
+    wrap(<CircleHomeFlow id={CIRCLE} />);
+
+    expect(await screen.findByText('Finding a time')).toBeVisible();
+    expect(screen.queryByRole('button', SHARE)).toBeNull();
+  });
 
   it('is not offered to a member on a quiet ask', async () => {
     circleHome.mockResolvedValue(
@@ -432,5 +565,19 @@ describe('circle home, for somebody whose times an edit cleared (SUS-130)', () =
 
     expect(await screen.findByText('Started quietly')).toBeVisible();
     expect(screen.queryByRole('button', SHARE)).toBeNull();
+  });
+
+  it('sits beside "Add my times" while the times-cleared line shows, and sends the same message', async () => {
+    shareMessage.mockResolvedValue('sheet');
+    circleHome.mockResolvedValue(
+      home({ me: 'priya', isOwner: false, activePlan: { ...OPEN(), askedAgain: true } }),
+    );
+    wrap(<CircleHomeFlow id={CIRCLE} />);
+
+    expect(await screen.findByRole('button', { name: 'Add my times' })).toBeVisible();
+    expect(screen.queryByRole('button', { name: "See how it's looking" })).toBeNull();
+    fireEvent.click(screen.getByRole('button', SHARE));
+    await waitFor(() => expect(shareMessage).toHaveBeenCalledTimes(1));
+    expect(shareMessage.mock.calls[0]?.[0] as string).toMatch(/waiting on 4 replies/);
   });
 });
