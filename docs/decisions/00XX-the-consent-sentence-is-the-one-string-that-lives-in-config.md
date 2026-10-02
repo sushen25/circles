@@ -1,6 +1,6 @@
 # ADR 00XX: The consent sentence is the one user-facing string that lives in `packages/config`
 
-_Status: proposed · Date: 2 October 2026_
+_Status: proposed · 2 October 2026_
 
 ## Context
 
@@ -50,5 +50,8 @@ needs no exception.
   again after an edit (`asked_again`, ADR 0046); `2026-09-14` did not name it.
 - The client does not send the version it rendered, so a tab opened before a
   deploy would be recorded under the server's current version. Recorded as a
-  follow-up: the client should send the version and the server accept only
-  known ones.
+  follow-up (a launch blocker, to be ticketed): the client should send the
+  version and the server accept only known ones, keeping `2026-09-14` on the
+  list.
+- `docs/design/gen.py` carries a hand-typed mockup of the sentence; it is
+  updated by hand with each version.

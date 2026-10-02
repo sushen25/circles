@@ -422,6 +422,7 @@ S["Sent"] = shell(
         stack(lbl("Sunday Crew"), dxl("Thanks, Priya. Your times are in."), p("Maya will pick a time once replies close on Tuesday. The plan will land in the group chat."), gap=10),
         card(
             row(ic("mail", 20, T["ink2"]), title("Get updates about this meetup by email")),
+            # A mockup of `CONSENT.text` (packages/config/src/consent.ts, ADR 00XX): update by hand on every consent version.
             sm("Email me about this meetup only — when it is locked in, changed or called off, if I need to add my times again after a change, a reminder two hours before, and one question the morning after. Nothing else, and you can stop it from any of those emails without signing in."),
             inp("you@example.com", ph=True),
             pri("Send verification email"),
