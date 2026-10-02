@@ -422,7 +422,7 @@ S["Sent"] = shell(
         stack(lbl("Sunday Crew"), dxl("Thanks, Priya. Your times are in."), p("Maya will pick a time once replies close on Tuesday. The plan will land in the group chat."), gap=10),
         card(
             row(ic("mail", 20, T["ink2"]), title("Get updates about this meetup by email")),
-            sm("We'll send the confirmed time, any important changes and one reminder. Verify your email to turn this on. Nothing else."),
+            sm("Email me about this meetup only — when it is locked in, changed or called off, if I need to add my times again after a change, a reminder two hours before, and one question the morning after. Nothing else, and you can stop it from any of those emails without signing in."),
             inp("you@example.com", ph=True),
             pri("Send verification email"),
             ter("Not now"),
@@ -732,7 +732,7 @@ S["CheckEmail"] = shell(
 S["EmailVerified"] = shell(
     top("", back=False, right=wordmark()) +
     body(
-        stack(lbl("Sunday Crew"), dxl("You'll hear about this meetup by email."), p("Only this one. We'll send the confirmed time, any important changes and one reminder."), gap=10),
+        stack(lbl("Sunday Crew"), dxl("You'll hear about this meetup by email."), p("Only this one. We'll send the confirmed time, any change or cancellation, a request to add your times again if the plan changes, a reminder before it starts, and one question the morning after."), gap=10),
         card(li(ic("check", 22, T["support"]), "This meetup's updates", "On · priya@example.com", right=""), gap=0, pad=6),
         sm("Every email has a link to stop these. No account has been created."),
     ) +
@@ -743,7 +743,7 @@ S["EmailPrefs"] = shell(
     top("", back=False, right=wordmark()) +
     body(
         stack(dl("Email preferences"), p("For priya@example.com. No sign-in needed. Changes apply straight away."), gap=8),
-        card(between(stack(title("Sunday Crew · Catch up, Thu 17 Sep"), sm("Confirmed time, changes and one reminder"), gap=2), '<div class="toggle on"><i></i></div>'), gap=0),
+        card(between(stack(title("Sunday Crew · Catch up, Thu 17 Sep"), sm("Confirmed time, changes, a reminder and one question after"), gap=2), '<div class="toggle on"><i></i></div>'), gap=0),
         sm("Turning this off stops emails for this meetup only. The plan itself isn't affected."),
         ter("Remove this email address entirely"),
     )

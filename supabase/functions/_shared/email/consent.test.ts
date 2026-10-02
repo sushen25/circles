@@ -1,4 +1,5 @@
 import { CONSENT } from '@circles/config';
+import { NOTIFICATION_KINDS } from '@circles/domain';
 import { describe, expect, it } from 'vitest';
 
 import { SUBSCRIBER_KINDS } from './types.ts';
@@ -16,6 +17,16 @@ describe('the consent sentence', () => {
     for (const kind of SUBSCRIBER_KINDS) {
       expect(CONSENT.text, kind).toContain(CONSENT.covers[kind]);
     }
+  });
+
+  it('names every kind the domain says needs a subscription to be emailed', () => {
+    // What decides who is mailed is the domain's table, not the renderer's
+    // footer list; a subscription-gated kind missing from SUBSCRIBER_KINDS
+    // would otherwise slip past the test above.
+    const gated = NOTIFICATION_KINDS.filter(
+      (spec) => spec.channels.includes('email') && spec.emailNeedsSubscription,
+    ).map((spec) => spec.kind);
+    expect(Object.keys(CONSENT.covers).sort()).toEqual([...gated].sort());
   });
 
   it('is pinned to its version: new words need a new version', async () => {

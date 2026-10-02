@@ -1084,7 +1084,8 @@ export const en = {
     email_preferences: 'Email preferences',
     no_sign_in_needed: 'No sign-in needed. Changes apply straight away.',
     plan: '{circle} · {title}',
-    confirmed_time_changes_and_one_reminder: 'Confirmed time, changes and one reminder',
+    confirmed_time_changes_and_one_reminder:
+      'Confirmed time, changes, a reminder and one question after',
     stopped: 'Off. Ask for updates again from the plan to turn them back on.',
     turning_this_off_stops_emails_for_this:
       "Turning this off stops emails for this meetup only. The plan itself isn't affected.",
@@ -1112,9 +1113,9 @@ export const en = {
     youll_hear_about_this_meetup_by_email: "You'll hear about this meetup by email.",
     youll_hear_about_these_meetups_by_email: "You'll hear about these meetups by email.",
     only_this_one_well_send_the_confirmed:
-      "We'll send the confirmed time, any important changes and one reminder. Nothing else.",
+      "We'll send the confirmed time, any change or cancellation, a request to add your times again if the plan changes, a reminder before it starts, and one question the morning after. Nothing else.",
     already_confirmed:
-      "Its time is already set. We'll send any important changes and one reminder.",
+      "Its time is already set. We'll send any change or cancellation, a request to add your times again if the plan changes, a reminder before it starts, and one question the morning after.",
     plan_on: '{circle} · {title}',
     on: 'On',
     every_email_has_a_link_to_stop:
