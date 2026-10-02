@@ -61,7 +61,8 @@ export function JoinAsAccountFlow({ code, onJoined }: JoinAsAccountFlowProps) {
   const circleName = useQuery({
     queryKey: ['circle-name-for-code', code],
     queryFn: () => circleNameForCode(code),
-    staleTime: Infinity,
+    // Not for ever: a null name now also means "this link is not live" (ADR 0048).
+    staleTime: 30_000,
   });
   const personName = useQuery({
     // Whose name, in the key. The query cache outlives a sign-out, and a key
