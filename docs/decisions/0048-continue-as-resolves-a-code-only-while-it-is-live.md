@@ -134,9 +134,12 @@ What this does **not** do, said plainly:
   list picks. Against a rightful member with an address it is a stalemate: their
   link always works.
 - **It does not help a member with no address.** They have no proof to tell them
-  from the person who took their place, so the list's cap binds them: three list
-  picks in seven days is the most any membership can be moved that way, and a taker
-  with a mailbox can still retake after that.
+  from the person who took their place, so the list's cap binds them: no more than
+  three list picks in seven days can move a membership that way, and a taker with
+  a mailbox can still retake after that. (The count walks the audit chain by
+  identity, so an identity that has taken several places in a week can make it read
+  high for a membership it has only just touched: it protects less than three picks
+  would suggest. Older behaviour, noted on SUS-62.)
 - **A taker who saves their place keeps it.** If the person who took a place
   converts that identity into a saved place, either in place (`linkIdentity`, which
   does not spend re-entry links) or through `claim_identity` (which spends them
