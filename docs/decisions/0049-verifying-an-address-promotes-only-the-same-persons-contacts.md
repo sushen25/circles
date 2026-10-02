@@ -36,8 +36,9 @@ the circle by id, written in the same transaction as the move). A membership
 moved twice, A to B and then B to C, is one chain, so A, B and C are one person
 for this purpose: the contact copied to C, with the verification link still on
 A, is two moves away. The walk follows **one membership**, not an identity: two
-rows join only where the move to an identity is followed, as the next thing
-that happens to it in that circle, by a move from it. An identity that passes a
+rows join only where the move to an identity is followed, as the next recorded
+event that touches it in that circle, by a move from it; an owner's removal
+(`circles.member_removed`) in between ends the chain. An identity that passes a
 place on and later takes somebody else's place in the same circle does not make
 those two people one. Rows are ordered by `occurred_at`; one `reattach_member`
 call is one transaction, so two moves never tie. The walk never crosses circles. Nothing else makes two

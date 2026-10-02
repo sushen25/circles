@@ -6,7 +6,7 @@
 -- pending, so its subscription stays undeliverable.
 
 begin;
-select plan(42);
+select plan(44);
 
 create or replace function pg_temp.make_user(id uuid, name text, permanent boolean default false)
 returns uuid language sql as $$
@@ -413,6 +413,24 @@ select is(
   array['30000000-0000-0000-0000-0000000000b5', '30000000-0000-0000-0000-0000000000b6',
         '30000000-0000-0000-0000-0000000000b7']::uuid[],
   'while the later place''s own chain is whole');
+
+-- A place the owner removed ends there: A to B, B removed, B rejoins by an
+-- invite and that new place moves on to C. A and C are not one person.
+insert into private.audit_log (actor_user_id, action, resource_type, resource_id, metadata, occurred_at)
+select null, act, 'circle', pg_temp.c1(), md, now() - (h || ' hours')::interval
+from (values
+  ('circles.member_reattached', jsonb_build_object('from_user_id', '30000000-0000-0000-0000-0000000000a5', 'to_user_id', '30000000-0000-0000-0000-0000000000a6', 'source', 'list'), 6),
+  ('circles.member_removed', jsonb_build_object('user_id', '30000000-0000-0000-0000-0000000000a6'), 5),
+  ('circles.member_reattached', jsonb_build_object('from_user_id', '30000000-0000-0000-0000-0000000000a6', 'to_user_id', '30000000-0000-0000-0000-0000000000a9', 'source', 'list'), 4)
+) v (act, md, h);
+select is(
+  (select array_agg(i order by i) from private.same_person_identities('30000000-0000-0000-0000-0000000000a5') i),
+  array['30000000-0000-0000-0000-0000000000a5', '30000000-0000-0000-0000-0000000000a6']::uuid[],
+  'a removal by the owner ends the chain');
+select is(
+  (select array_agg(i order by i) from private.same_person_identities('30000000-0000-0000-0000-0000000000a9') i),
+  array['30000000-0000-0000-0000-0000000000a6', '30000000-0000-0000-0000-0000000000a9']::uuid[],
+  'and the place taken after it starts a chain of its own');
 
 -- A row for any other action links nothing.
 insert into private.audit_log (actor_user_id, action, resource_type, resource_id, metadata)

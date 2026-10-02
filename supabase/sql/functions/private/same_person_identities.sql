@@ -20,8 +20,8 @@
 -- rows are joined only when they are consecutive for the identity between them:
 -- one move *to* it, and the next recorded move that touches it in that circle is
 -- a move *from* it. If another recorded move touches it first (a different place
--- arriving, or leaving), the chain stops. A removal is not a recorded move, so
--- it does not stop one. Rows are ordered by `occurred_at`, the transaction's
+-- arriving, or leaving) or the owner removes it (`circles.member_removed`), the
+-- chain stops. Rows are ordered by `occurred_at`, the transaction's
 -- time: one call is one transaction, so two moves of one circle never tie; two
 -- calls racing on one circle's lock can commit in the opposite order to their
 -- start (ADR 0049, residuals).
@@ -42,10 +42,14 @@ security definer
 set search_path = ''
 as $$
   with recursive m as (
+    -- Every recorded event in this circle that touches a place held by an
+    -- identity: a move (both ids) or an owner's removal (`from_id` only).
     select a.id, a.resource_id as circle_id, a.occurred_at as at,
-           a.metadata ->> 'from_user_id' as from_id, a.metadata ->> 'to_user_id' as to_id
+           coalesce(a.metadata ->> 'from_user_id', a.metadata ->> 'user_id') as from_id,
+           a.metadata ->> 'to_user_id' as to_id
     from private.audit_log a
-    where a.action in ('circles.member_reattached', 'circles.member_claimed')
+    where a.action in ('circles.member_reattached', 'circles.member_claimed',
+                       'circles.member_removed')
       -- Only the circles this identity appears in: the walk never leaves them,
       -- and one busy circle elsewhere should not slow every verification.
       and a.resource_id in (
@@ -55,21 +59,23 @@ as $$
       )
   ),
   -- Row r moved a membership to an identity, and row s is the very next thing
-  -- that happened to that identity in the circle: the same membership moving on.
+  -- that happened to that identity in the circle, and is a move: the same
+  -- membership moving on. A removal in between ends the membership.
   link as (
     select r.id as first_id, s.id as next_id
     from m r
     join m s on s.circle_id = r.circle_id and s.from_id = r.to_id and s.at > r.at
-    where not exists (
-      select 1 from m q
-      where q.circle_id = r.circle_id
-        and q.id not in (r.id, s.id)
-        and r.to_id in (q.from_id, q.to_id)
-        and q.at > r.at and q.at < s.at
-    )
+    where r.to_id is not null and s.to_id is not null
+      and not exists (
+        select 1 from m q
+        where q.circle_id = r.circle_id
+          and q.id not in (r.id, s.id)
+          and r.to_id in (q.from_id, q.to_id)
+          and q.at > r.at and q.at < s.at
+      )
   ),
   walk (id) as (
-    select m.id from m where p_user_id::text in (m.from_id, m.to_id)
+    select m.id from m where m.to_id is not null and p_user_id::text in (m.from_id, m.to_id)
     union
     select case when l.first_id = w.id then l.next_id else l.first_id end
     from walk w
@@ -83,7 +89,7 @@ as $$
 $$;
 
 comment on function private.same_person_identities(uuid) is
-  'An identity and the identities connected to it by the recorded reattachments of one circle''s membership: the set whose pending contacts verifying an address may promote (ADR 0049).';
+  'An identity and the identities connected to it by the recorded moves (reattachment or claim) of one circle''s membership, ended by an owner''s removal: the set whose pending contacts verifying an address may promote (ADR 0049).';
 
 revoke all on function private.same_person_identities(uuid) from public;
 revoke all on function private.same_person_identities(uuid) from anon, authenticated;
