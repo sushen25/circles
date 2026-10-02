@@ -10,7 +10,7 @@
 -- an answer arriving afterwards changes nothing.
 
 begin;
-select plan(53);
+select plan(58);
 
 create or replace function pg_temp.make_user(id uuid, name text)
 returns uuid language sql as $$
@@ -410,6 +410,23 @@ select is((select count(*)::integer from pg_temp.events_since(:'m3')), 0,
   'and nothing was announced, so nobody is emailed');
 
 -- ---------------------------------------------------------------------------
+-- The letters follow the move: what was queued for the old time is taken back.
+-- ---------------------------------------------------------------------------
+
+select pg_temp.act_as_postgres();
+insert into jobs.notification_jobs (channel, kind, user_id, plan_id, plan_revision, scheduled_for, idempotency_key)
+select 'push', k.kind, '00000000-0000-0000-0000-0000000031a1', tp.plan_id, 1,
+  now() + interval '1 day', repeat(k.digit, 64)
+from tp, (values ('reminder', 'a'), ('moved', 'b'), ('did_it_happen', 'c')) as k (kind, digit);
+
+select is(public.dispatch_cancel_pending((select plan_id from tp), 1), 3,
+  'a move takes back the reminder, the morning-after letter and a moved letter still scheduled');
+select is(
+  (select count(*)::integer from jobs.notification_jobs
+   where plan_id = (select plan_id from tp) and status = 'skipped' and last_error = 'superseded'),
+  3, 'as skipped, because nothing went wrong');
+
+-- ---------------------------------------------------------------------------
 -- Cancelled: refused. And an own time from `ready`.
 -- ---------------------------------------------------------------------------
 
@@ -446,6 +463,45 @@ select pg_temp.act_as_postgres();
 select is(
   (select (state, quorum)::text from public.plans where short_code = 'pnrdyk'),
   '(confirmed,2)', 'and it is confirmed');
+
+-- ---------------------------------------------------------------------------
+-- After a hand-off the new organiser has the same freedom: nothing here is tied
+-- to who made the plan.
+-- ---------------------------------------------------------------------------
+
+insert into public.plans (
+  circle_id, mode, state, organiser_user_id, title, time_zone,
+  window_start, window_end, daily_start_local, daily_end_local,
+  duration_minutes, quorum, response_deadline, short_code
+)
+select circle_id, 'named', 'collecting', '00000000-0000-0000-0000-0000000031a1',
+  'Handed on', 'Australia/Melbourne', date '2099-10-27', date '2099-10-30',
+  1050, 1350, 120, 3, timestamptz '2099-10-26T10:00:00Z', 'pnhndk'
+from t;
+insert into public.plan_participants (plan_id, revision, user_id)
+select p.id, 1, u from public.plans p,
+  unnest(array['00000000-0000-0000-0000-0000000031a1'::uuid, '00000000-0000-0000-0000-0000000031a2'::uuid]) as u
+where p.short_code = 'pnhndk';
+select planning.transition_plan((select id from public.plans where short_code = 'pnhndk'), 'hand_off',
+  '00000000-0000-0000-0000-0000000031a1',
+  '{"organiser_user_id": "00000000-0000-0000-0000-0000000031a2"}'::jsonb);
+
+select pg_temp.act_as('00000000-0000-0000-0000-0000000031a1');
+select throws_ok(
+  format('select public.confirm_own_time(%L, %L, %L, 1, ''none'')',
+    (select id from public.plans where short_code = 'pnhndk'),
+    pg_temp.at('2099-10-28', 1140), pg_temp.at('2099-10-28', 1260)),
+  'P0001', 'not_the_organiser', 'the organiser who handed it on no longer may');
+select pg_temp.act_as('00000000-0000-0000-0000-0000000031a2');
+select lives_ok(
+  format('select public.confirm_own_time(%L, %L, %L, 1, ''none'')',
+    (select id from public.plans where short_code = 'pnhndk'),
+    pg_temp.at('2099-10-28', 1140), pg_temp.at('2099-10-28', 1260)),
+  'and the organiser it was handed to may lock in any time');
+select pg_temp.act_as_postgres();
+select is(
+  (select state from public.plans where short_code = 'pnhndk'), 'confirmed',
+  'and the plan is confirmed');
 
 select * from finish();
 rollback;
