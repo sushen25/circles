@@ -13,7 +13,7 @@
 -- outcomes.
 
 begin;
-select plan(61);
+select plan(62);
 
 create or replace function pg_temp.make_user(id uuid, name text, permanent boolean default false)
 returns uuid language sql as $$
@@ -88,6 +88,11 @@ from t;
 
 create temporary table tp as select id as plan_id from public.plans where short_code = 'pnemab';
 grant select on tp to anon, authenticated, service_role;
+create or replace function pg_temp.status_of(addr text, who uuid) returns text
+language sql security definer as $$
+  select c.status from private.email_contacts c
+  where c.email_normalized = addr and c.user_id = who
+$$;
 create or replace function pg_temp.plan_id() returns uuid
 language sql security definer as $$ select plan_id from tp $$;
 
@@ -285,20 +290,25 @@ select is(
 
 select pg_temp.act_as_postgres();
 select is(
-  (select array_agg(distinct c.status) from private.email_contacts c
-   where c.email_normalized = 'jules@example.com'),
-  array['verified'],
-  'every contact holding that address is verified, not only the one the link named'
+  (select c.status from private.email_contacts c
+   where c.email_normalized = 'jules@example.com'
+     and c.user_id = '00000000-0000-0000-0000-0000000008a2'),
+  'verified',
+  'the contact the link named, held by the person who clicked, is verified'
 );
 
--- Round 1: and this is why. Retention deletes a *pending* contact after seven
--- days and the cascade takes its subscription, so a sibling left pending is a
--- consent that disappears without anybody withdrawing it.
+-- ADR 0049 (SUS-106): verification used to cross to every contact holding the
+-- address. It stops at the same person: the same identity, or one linked to it
+-- by a recorded reattachment. This second identity has neither, so its consent
+-- stays as recorded and is removed by retention after seven days, as it is for
+-- any address nobody proves. The same-person cases, including the split
+-- contact, are in 300_verify_same_person.sql.
 select is(
-  (select count(*)::integer from private.email_contacts c
-   where c.email_normalized = 'jules@example.com' and c.status = 'pending'),
-  0,
-  'so no consent is left waiting to be deleted by retention'
+  (select c.status from private.email_contacts c
+   where c.email_normalized = 'jules@example.com'
+     and c.user_id = '00000000-0000-0000-0000-0000000008a1'),
+  'pending',
+  'another identity''s contact at the same address stays pending'
 );
 
 select ok(
@@ -868,14 +878,7 @@ select throws_ok(
 );
 
 select pg_temp.act_as_postgres();
-select is(
-  (select array_agg(distinct c.status) from private.email_contacts c
-   where c.email_normalized = 'twins@example.com'),
-  array['verified'],
-  'while the address itself is proved for both of them: that is what was proved'
-);
-
--- Two rows, so that the assertion below is comparing two different contacts
+-- Two rows, so that the assertions below are comparing two different contacts
 -- rather than one contact with itself.
 select is(
   (select count(*)::integer from private.email_contacts c
@@ -885,11 +888,24 @@ select is(
 );
 
 select is(
-  (select j.contact_id from jobs.notification_jobs j
+  pg_temp.status_of('twins@example.com', '00000000-0000-0000-0000-0000000008a7'),
+  'verified',
+  'the address is proved for the twin who held the link'
+);
+
+-- ADR 0049: proving an address says nothing about another identity's consent.
+select is(
+  pg_temp.status_of('twins@example.com', '00000000-0000-0000-0000-0000000008a8'),
+  'pending',
+  'and not for the other twin, who is a different identity with no recorded link'
+);
+
+select is(
+  (select count(*)::integer from jobs.notification_jobs j
    where j.kind = 'locked_in'
      and j.plan_id = (select id from public.plans where short_code = 'pnemrb')),
-  pg_temp.contact_of('twins@example.com', '00000000-0000-0000-0000-0000000008a8'),
-  'and the "locked in" for the other twin''s meetup is addressed to the contact that subscribed to it'
+  0,
+  'so the "locked in" for the other twin''s meetup is not queued by this click'
 );
 
 

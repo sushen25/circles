@@ -513,7 +513,7 @@ ready ─(response change)──▶ collecting ─ recalculate ──┘
 | `extend-deadline` | organiser | `extend_deadline`: an `adjust` to a day from the later of now and the deadline, never past the last possible start less thirty minutes, once per revision (`already_extended`, `no_time_to_extend`) (S2-05) |
 | `report-outcome` | organiser (or member for attendance) | Records outcome/attendance; sets `last_met_at` on `happened` |
 | `request-email-updates` | member | Normalise, dedupe per identity, create the contact and record the consent as given ([ADR 0019](decisions/0019-consent-is-recorded-when-it-is-given.md)), enqueue the verification email — whose token is minted by the sender ([ADR 0020](decisions/0020-the-verification-token-is-minted-by-the-sender.md)). Answers identically for a new, verified, shared or suppressed address |
-| `verify-email-contact` | token | Consume the single-use token, verify **every contact holding that address**, drop subscriptions to finished plans and to circles the person has left, send the current state once if a meetup is already locked in |
+| `verify-email-contact` | token | Consume the single-use token, verify **every contact of the same person holding that address** (the same identity, or one linked by a recorded reattachment: ADR 0049), drop subscriptions to finished plans and to circles the person has left, send the current state once if a meetup is already locked in |
 | `manage-email-preferences` | token | Show/disable subscriptions without sign-in |
 | `email-provider-webhook` | Resend signature | Dedupe by provider message id, record delivery, suppress on hard bounce/complaint |
 | `register-push-device` | permanent | Upsert Expo push token |

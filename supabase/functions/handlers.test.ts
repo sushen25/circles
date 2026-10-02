@@ -2654,6 +2654,34 @@ describe('verify-email-contact', () => {
     }
   });
 
+  it('answers the same however many other contacts hold the address', async () => {
+    // ADR 0049 changed which contacts a verification promotes, in the database.
+    // What the page may learn did not change: the clicking identity's own plans
+    // and whether one is already locked in. Anything else the database added to
+    // its answer, a count of contacts promoted or left pending, is dropped here,
+    // because it would say whether somebody else holds the address.
+    state.answer = (fn) => {
+      if (fn === 'take_rate_token') return { data: true, error: null };
+      if (fn === 'verify_email_contact') {
+        return {
+          data: {
+            active_plans: [],
+            already_confirmed: false,
+            promoted_contacts: 3,
+            pending_contacts: 2,
+          },
+          error: null,
+        };
+      }
+      return { data: null, error: null };
+    };
+
+    const response = await load('verify-email-contact')(postWithoutSession({ token: TOKEN }));
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toStrictEqual({ active_plans: [], already_confirmed: false });
+  });
+
   it('says one thing about a spent, expired or invented link', async () => {
     state.answer = (fn) => {
       if (fn === 'take_rate_token') return { data: true, error: null };
