@@ -518,7 +518,7 @@ as $$
       from public.plan_responses r
       where r.plan_id = p.id and r.revision = p.revision
     ), '[]'::jsonb),
-    -- Who answered an **earlier** revision, for `asked_again` (ADR 00YY): an
+    -- Who answered an **earlier** revision, for `asked_again` (ADR 0046): an
     -- edit cleared their times and they are the ones to ask back. Ids only;
     -- the earlier answers are never read (availability is scoped to one
     -- revision). The same people the app tells the plan changed (SUS-130).
