@@ -6,7 +6,7 @@
 -- fourteen-day edge is the edge on any day the suite runs.
 
 begin;
-select plan(46);
+select plan(57);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid
@@ -79,7 +79,8 @@ values (pg_temp.circle_id(), '29000000-0000-0000-0000-0000000000a1', 'Priya'),
        (pg_temp.circle_id(), '29000000-0000-0000-0000-0000000000a2', 'Tom');
 
 insert into private.email_contacts (user_id, email_normalized, status, verified_at)
-values ('29000000-0000-0000-0000-0000000000a1', 'priya-live@example.com', 'verified', now());
+values ('29000000-0000-0000-0000-0000000000a1', 'priya-live@example.com', 'verified', now() - interval '2 days'),
+       ('29000000-0000-0000-0000-0000000000a2', 'tom-live@example.com', 'verified', now() - interval '2 days');
 
 insert into public.plans (
   circle_id, mode, state, organiser_user_id, title, time_zone,
@@ -295,9 +296,9 @@ where token_hash = pg_temp.digest_of('archived-link');
 -- are not counted and not refused, whatever the count stands at.
 -- ---------------------------------------------------------------------------
 select pg_temp.make_user(('29000000-0000-0000-0000-0000000001' || lpad(n::text, 2, '0'))::uuid, 'Taker ' || n, true)
-from generate_series(1, 5) n;
+from generate_series(1, 9) n;
 select pg_temp.make_user(('29000000-0000-0000-0000-0000000002' || lpad(n::text, 2, '0'))::uuid, 'Priya device ' || n, true)
-from generate_series(1, 5) n;
+from generate_series(1, 9) n;
 
 create or replace function pg_temp.priya() returns uuid
 language sql security definer as $$
@@ -378,10 +379,112 @@ select is(
   'and which were picked from the list'
 );
 
+-- ---------------------------------------------------------------------------
+-- An address attached by whoever took the place does not make their moves free
+--
+-- Contacts travel with a membership, so a taker can verify an address of their
+-- own and be sent links for it. A move made with such a link is counted like a
+-- pick from the list; the member's own link, for an address that was on the place
+-- before anybody took it, is not.
+-- ---------------------------------------------------------------------------
+select pg_temp.act_as_postgres();
+create or replace function pg_temp.tom() returns uuid
+language sql security definer as $$
+  select m.user_id from public.circle_members m
+  where m.circle_id = pg_temp.circle_id() and m.display_name_snapshot = 'Tom';
+$$;
+create or replace function pg_temp.link_for(p_email text, p_secret text) returns void
+language sql security definer as $$
+  select public.issue_reentry_token(
+    pg_temp.circle_id(),
+    (select c.id from private.email_contacts c where c.email_normalized = p_email),
+    pg_temp.digest_of(p_secret));
+$$;
+
+select pg_temp.link_for('tom-live@example.com', 'tom-own-1');
+select pg_temp.act_as('29000000-0000-0000-0000-000000000106', true);
+select lives_ok(
+  $$ select public.reattach_member(pg_temp.circle_id(), pg_temp.tom()) $$,
+  'a stranger takes Tom''s place by list (counted move 1)'
+);
+
+select pg_temp.act_as_postgres();
+insert into private.email_contacts (user_id, email_normalized, status, verified_at)
+values ('29000000-0000-0000-0000-000000000106', 'taker-own@example.com', 'verified', now());
+select pg_temp.link_for('taker-own@example.com', 'taker-link-1');
+
+select pg_temp.act_as('29000000-0000-0000-0000-000000000107', true);
+select lives_ok(
+  $$ select public.reattach_member(null, null, pg_temp.digest_of('taker-link-1')) $$,
+  'a second stranger uses the first one''s own address''s link (counted move 2, not free)'
+);
+
+select pg_temp.act_as('29000000-0000-0000-0000-000000000206', true);
+select lives_ok(
+  $$ select public.reattach_member(null, null, pg_temp.digest_of('tom-own-1')) $$,
+  'Tom returns with the link for the address that was on his place before it was taken'
+);
+
+select pg_temp.act_as_postgres();
+select pg_temp.link_for('taker-own@example.com', 'taker-link-2');
+select pg_temp.act_as('29000000-0000-0000-0000-000000000108', true);
+select lives_ok(
+  $$ select public.reattach_member(pg_temp.circle_id(), pg_temp.tom()) $$,
+  'a third stranger picks him from the list (counted move 3)'
+);
+
+select pg_temp.act_as('29000000-0000-0000-0000-000000000109', true);
+select throws_ok(
+  $$ select public.reattach_member(null, null, pg_temp.digest_of('taker-link-2')) $$,
+  'reattach_limit',
+  'and a link for the address a taker added is refused at the cap: it proves nothing'
+);
+
+select pg_temp.act_as_postgres();
+select pg_temp.link_for('tom-live@example.com', 'tom-own-2');
+select pg_temp.act_as('29000000-0000-0000-0000-000000000207', true);
+select lives_ok(
+  $$ select public.reattach_member(null, null, pg_temp.digest_of('tom-own-2')) $$,
+  'while Tom''s own link, for the older address, still gets him back at the cap'
+);
+select pg_temp.act_as_postgres();
+select is(pg_temp.tom(), '29000000-0000-0000-0000-000000000207'::uuid, 'and the place is his');
+
+-- ---------------------------------------------------------------------------
+-- The other states a plan's code is not live in, and a confirmation on a plan
+-- revision that has moved on
+-- ---------------------------------------------------------------------------
+select pg_temp.fresh_limits();
+select pg_temp.set_state('collecting');
+select pg_temp.set_state('ready');
+select pg_temp.set_state('confirmed');
+select pg_temp.meetup_ended(1);
+update public.plans set revision = revision + 1 where short_code = 'kvpqmanx';
+select pg_temp.act_as('29000000-0000-0000-0000-0000000000b1', true);
+select is(pg_temp.offered('kvpqmanx'), 0, 'a locked-in plan whose only confirmation belongs to an earlier revision lists nobody');
+
+select pg_temp.act_as_postgres();
+update public.plans set revision = revision - 1 where short_code = 'kvpqmanx';
+select pg_temp.set_state('collecting');
+select pg_temp.set_state('draft');
+select pg_temp.fresh_limits();
+select pg_temp.act_as('29000000-0000-0000-0000-0000000000b1', true);
+select is(pg_temp.offered('kvpqmanx'), 0, 'a draft plan''s code lists nobody: it has never been shared');
+select pg_temp.act_as_postgres();
+select pg_temp.set_state('seeking');
+select pg_temp.fresh_limits();
+select pg_temp.act_as('29000000-0000-0000-0000-0000000000b1', true);
+select is(pg_temp.offered('kvpqmanx'), 0, 'nor does a quiet ask still gathering interest');
+select pg_temp.act_as_postgres();
+select pg_temp.set_state('expired');
+select pg_temp.act_as_postgres();
+select private.circles_open_to_continue_as('kvpqmanx') as circle_id into temporary table seen;
+select is((select count(*)::integer from seen), 0, 'the rule itself, asked as the database, says nobody');
+
 -- An old audit row, from before the move recorded its source, counts as the
 -- list's: the stricter reading.
 select pg_temp.act_as_postgres();
-update private.audit_log a set metadata = a.metadata - 'source'
+update private.audit_log a set metadata = (a.metadata - 'source') - 'capped'
 where a.action = 'circles.member_reattached' and a.metadata ->> 'source' = 'list';
 select pg_temp.act_as('29000000-0000-0000-0000-000000000105', true);
 select throws_ok(
@@ -470,7 +573,7 @@ select is(
 
 -- The way back is not behind that limit: Guest 1's emailed link still works.
 insert into private.email_contacts (user_id, email_normalized, status, verified_at)
-values (pg_temp.bid('12', 1), 'guest1-burst@example.com', 'verified', now());
+values (pg_temp.bid('12', 1), 'guest1-burst@example.com', 'verified', now() - interval '2 days');
 select public.issue_reentry_token(
   pg_temp.burst_circle(),
   (select id from private.email_contacts where email_normalized = 'guest1-burst@example.com'),

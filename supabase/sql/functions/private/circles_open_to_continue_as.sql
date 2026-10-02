@@ -52,7 +52,7 @@ begin
           where mc.plan_id = pl.id
             and mc.revision = pl.revision
             and mc.status in ('active', 'completed')
-            and now() <= mc.ends_at + private.continue_as_window()
+            and now() < mc.ends_at + private.continue_as_window()
         )
       )
     );

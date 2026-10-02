@@ -85,7 +85,7 @@ migration, not a rewrite.
 **3. The limits are in SQL.** `reattach_member` now refuses unless the circle is
 `active` (answering `member_not_found`, the same answer as a membership that is
 not there, so it says nothing about which), and counts the list path per circle
-with `take_rate_token` (`reattach_circle_sql`, twenty an hour). The Edge
+with `take_rate_token` (`reattach_circle_sql`, twenty an hour, a fixed hourly bucket like every other `take_rate_token` limit, so up to forty can land across a boundary). The Edge
 Function's counters stay as the outer limit and use different scopes, so neither
 spends the other's budget. A refusal raises, and raising rolls its count back, so
 the counter bounds **completed** moves, which is what hurts anybody. That is the
@@ -100,27 +100,45 @@ emailed link.** Of the two options the ticket offered, this is the one chosen:
 
 - *Do not count a move made with a valid re-entry token.* The cap exists to stop
   a name being passed around by people who prove nothing. A re-entry link proves
-  control of the address the member verified; it is single-use, valid for seven
-  days, rate-limited per token in the Edge Function, and cannot be made by anybody
-  who is not already the member. Moves made with it are neither counted nor
-  refused, so **whatever has happened to the place, a member with a live emailed
-  link can take it back**, including from the fifth move in a chain. The audit row
-  records `source` (`list` or `email`) so the walk along the chain, which still
-  crosses those moves, can charge only the list's. Rows written before `source`
-  existed count as the list's: the stricter reading, for a window that closes in
-  seven days.
+  control of an address the membership holds; it is single-use, valid for seven
+  days, and rate-limited per token in the Edge Function. So a move made with one
+  is **established**: neither counted nor refused. Whatever has happened to the
+  place, a member with a live link for an address that was on it before it was
+  taken can take it back, including from the fifth move in a chain.
+- **But only for an address that was there first.** Contacts travel with a
+  membership, so whoever took a place can verify an address of their own and be
+  sent links for it, which proves nothing about them. A move is established only
+  if the token's address was verified before the first counted move of the week
+  (or there has been none). A link for an address attached later is counted like
+  a pick from the list and refused at the cap. The audit row records `capped`
+  (and `source`, `list` or `email`, for the analytics) so the walk along the chain,
+  which still crosses every move, can tell. A row with neither counts.
 - *Count moves away from an identity instead.* Rejected. Every move away from
   an identity is a move into another, so it counts the same moves by a different
   name, and the member's return is still one of them. It does not remove the
   attack; it moves it.
 
-What this does not do: a member **without** a verified address has no proof to
-tell them from the person who took their place, so the list's cap still binds
-them. Three picks from the list in seven days is still the most any membership
-can be moved that way, and each move tells the owner ("rejoined from a new
-device"), who can remove the membership. A member who gave an address is never
-locked out; one who did not can be for up to a week. That is the trade ADR 0006
-made, and the limit on how far the person who would exploit it can go.
+What this does **not** do, said plainly:
+
+- A member **without** a verified address has no proof to tell them from the
+  person who took their place, so the list's cap still binds them. Three counted
+  moves in seven days is the most any membership can be moved that way, and each
+  tells the owner ("rejoined from a new device"), who can remove the membership.
+- Links are minted by the letters the product sends (one per address per letter),
+  which neither side controls. Two people who both hold an address that was on
+  the place more than a week ago can trade it back and forth as often as letters
+  arrive, each move telling the owner. That is a stalemate and not a lockout: the
+  rightful member's own link is always established.
+- **A taker who saves their place keeps it.** If the person who took a place
+  converts that identity into a saved place in the same session (`linkIdentity`
+  converts in place and does not spend re-entry links), the member's link then
+  answers `target_is_permanent` and offers that account's sign-in, which is not
+  theirs. This is older behaviour (a place held by a saved identity is never
+  moved: AGENTS.md privacy invariants) and not changed here, but it is a way for
+  a takeover to leave a member with a live link unable to return, so the guarantee
+  above does not extend to it. Closing it needs a rule for when an emailed link
+  may take a place back from a saved account; that is a product decision, put to
+  the founder on the PR.
 
 **5. The list still returns the user id, not an opaque handle.** The ticket asked
 whether to replace `member_user_id` with a per-list handle so the list alone is
@@ -158,8 +176,7 @@ not enough to make the second call. Not done, for these reasons:
   changes: the audit row's `metadata` carries `source`.
 - A guest who opens the link of a cancelled or expired plan, a plan whose meetup is
   more than fourteen days past, or an archived circle's plan sees "This link isn't
-  active any more." (one change in `ContinueAsFlow`: a null circle name now says
-  so). The link-preview card for such a plan is the generic one.
+  active any more." (a null circle name now says so, in `ContinueAsFlow` and `JoinAsAccountFlow`). The link-preview card for such a plan is the generic one.
 - ADR 0022's single end state for a newcomer on a plan that is not asking splits
   in two. A link that is not live (as above, and a code that never existed)
   ends at "This link isn't active any more" before any name is asked, for guests
