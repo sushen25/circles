@@ -752,6 +752,7 @@ export const en = {
     own_unsure:
       "{names} didn't put this time down. They'll see the plan and can say whether they're coming.",
     own_everyone: 'It works for everyone.',
+    own_everyone_else: 'It works for everyone else.',
     own_moved:
       'Someone answered while you were looking, so this is updated. Check who it works for, then lock it in.',
     own_gone_title: "That time can't be locked in.",
@@ -1114,7 +1115,8 @@ export const en = {
     when: 'When',
     change: 'Change',
     change_label: 'Change the time',
-    notice_place: 'A new place or note shows for everyone straight away. Nobody has to answer again.',
+    notice_place:
+      'A new place or note shows for everyone straight away. Nobody has to answer again.',
     notice_moved:
       'Everyone sees the new time straight away, with {weekday} marked as moved. {tail}',
     tail_nobody: "Everyone's times cover it, so nobody has to answer again.",
@@ -1126,7 +1128,8 @@ export const en = {
     saving: 'Saving',
     keep: 'Keep {weekday} as it is',
     keep_plain: 'Keep it as it is',
-    moved: 'Someone answered while you were looking, so this is updated. Check who it works for, then save.',
+    moved:
+      'Someone answered while you were looking, so this is updated. Check who it works for, then save.',
     ended: 'This meetup has finished, so it can no longer be edited.',
     gone: "That time can't be used. It has gone, or the plan can't take it. Pick another.",
     not_organiser: 'Only the organiser can edit this plan.',

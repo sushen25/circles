@@ -43,7 +43,11 @@ export type Stretch = {
 };
 
 /** The organiser's question: who does this stretch work for? Ids only, never a window. */
-export async function stretchOf(planId: string, startsAt: string, endsAt: string): Promise<Stretch> {
+export async function stretchOf(
+  planId: string,
+  startsAt: string,
+  endsAt: string,
+): Promise<Stretch> {
   const { data, error } = await authClient().rpc('stretch_availability', {
     p_plan_id: planId,
     p_starts_at: startsAt,

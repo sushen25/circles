@@ -38,7 +38,11 @@ export type StretchView = {
   /** The same two facts, for the confirmation and the analytics. */
   belowQuorum: boolean;
   outsidePlanDays: boolean;
-  /** The people who are not going: answered otherwise, or not answered. */
+  /**
+   * The people the time does not cover: answered otherwise, or not answered. The
+   * reader is left out: they chose the time, and the sentences that use this say
+   * who else is asked.
+   */
   notGoing: string[];
 };
 
@@ -48,11 +52,15 @@ function nameOf(data: Words, id: string): string {
   return data.roster.find((m) => m.userId === id)?.name ?? t('candidates', 'someone');
 }
 
-/** The reader is "You", first, wherever they stand in the circle. */
-export function named(data: Words, ids: readonly string[]): string[] {
+/**
+ * The reader is "You", first, wherever they stand in the circle: capitalised at
+ * the start of a sentence ("You, Priya and Tom can make it"), plain inside one
+ * ("Not you, Jess or Sam").
+ */
+export function named(data: Words, ids: readonly string[], opening = false): string[] {
   const mine = data.me !== undefined && ids.includes(data.me);
   return [
-    ...(mine ? [t('setTime', 'you')] : []),
+    ...(mine ? [opening ? t('setTime', 'you') : t('candidates', 'you')] : []),
     ...ids.filter((id) => id !== data.me).map((id) => nameOf(data, id)),
   ];
 }
@@ -66,7 +74,7 @@ export function stretchWords(data: PlanCandidates, stretch: Stretch, pick: TimeP
     available.length,
   );
 
-  const can = phrase(nameList(named(data, available)), 'can');
+  const can = phrase(nameList(named(data, available, true)), 'can');
   const not = phrase(nameList(named(data, stretch.cannot)), 'not');
   const waiting = phrase(nameList(named(data, stretch.awaiting)), 'waiting');
   const date = dateOf(toISO(start), data.zone);
@@ -94,6 +102,8 @@ export function stretchWords(data: PlanCandidates, stretch: Stretch, pick: TimeP
         : undefined,
     belowQuorum: cautions.belowQuorum,
     outsidePlanDays: cautions.outsidePlanDays,
-    notGoing: [...stretch.cannot, ...stretch.awaiting].map((id) => nameOf(data, id)),
+    notGoing: [...stretch.cannot, ...stretch.awaiting]
+      .filter((id) => id !== data.me)
+      .map((id) => nameOf(data, id)),
   };
 }

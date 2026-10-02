@@ -54,7 +54,10 @@ export function ownReviewOf(
       ? (not ?? waiting)
       : t('candidates', 'exception_both', { first: not, second: waiting });
 
-  const unsure = phrase(nameList(named(data, [...stretch.cannot, ...stretch.awaiting])), 'plain');
+  // Who will see a plan they did not put down: everyone it does not cover but the
+  // organiser, who chose it (their own answer still counts them out, above).
+  const unsure = phrase(nameList(words.notGoing), 'plain');
+  const meOut = data.me !== undefined && [...stretch.cannot, ...stretch.awaiting].includes(data.me);
   const prefix = words.outsidePlanDays
     ? t('confirmReview', 'own_prefix_outside', { date: dateOf(toISO(start), data.zone) })
     : words.belowQuorum
@@ -77,7 +80,7 @@ export function ownReviewOf(
     zoneNote: zoneNoteOf(data.zone),
     warning: `${prefix} ${
       unsure === undefined
-        ? t('confirmReview', 'own_everyone')
+        ? t('confirmReview', meOut ? 'own_everyone_else' : 'own_everyone')
         : t('confirmReview', 'own_unsure', { names: unsure })
     }`,
     belowQuorum: words.belowQuorum,

@@ -108,7 +108,12 @@ describe('what would unlock it', () => {
     // "give it one more day", which is what unblocks widening a stalled plan.
     const data = planWith({ repliesOpen: false });
     const justClosed = fromISO(data.responseDeadline);
-    expect(unlocksOf(data, justClosed).map((u) => u.kind)).toEqual(['lower', 'extend', 'set', 'close']);
+    expect(unlocksOf(data, justClosed).map((u) => u.kind)).toEqual([
+      'lower',
+      'extend',
+      'set',
+      'close',
+    ]);
     const extend = unlocksOf(data, justClosed).find((u) => u.kind === 'extend');
     expect(extend?.title).toBe('Give it one more day');
     expect(extend?.body).toMatch(/^Reopens replies until /);

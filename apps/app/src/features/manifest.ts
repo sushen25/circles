@@ -204,9 +204,29 @@ const SCREENS: ScreenEntry[] = [
     href: '/circles/sunday-crew/plan/thu-17/review',
   },
   {
+    screen: 'ConfirmReviewOwn',
+    feature: 'confirmation',
+    href: '/circles/sunday-crew/plan/thu-17/review?start=2026-09-18T09:00:00.000Z&end=2026-09-18T11:00:00.000Z',
+  },
+  {
+    screen: 'SetTime',
+    feature: 'confirmation',
+    href: '/circles/sunday-crew/plan/thu-17/set-time',
+  },
+  {
+    screen: 'EditLocked',
+    feature: 'confirmation',
+    href: '/circles/sunday-crew/plan/thu-17/edit-locked',
+  },
+  {
     screen: 'ConfirmedOrg',
     feature: 'confirmation',
     href: '/circles/sunday-crew/plan/thu-17/confirmed',
+  },
+  {
+    screen: 'ConfirmedGuestMoved',
+    feature: 'confirmation',
+    href: '/p/[code]/confirmed',
   },
   {
     screen: 'CircleHomeConfirmed',
