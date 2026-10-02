@@ -9,7 +9,7 @@ import { isOffline } from '../identity/join/failure';
 import { MemberView } from './MemberView';
 import { CandidatesMemberScreen } from './CandidatesMemberScreen';
 import * as fixture from './fixtures';
-import { shareReminder } from './shareReminder';
+import { useShareReminder } from './shareReminder';
 import { useCandidates } from './useCandidates';
 import { headerOf } from './view';
 
@@ -46,6 +46,7 @@ function LiveMember({ code }: { code: string }) {
   const router = useRouter();
   const query = useCandidates({ code });
   const data = query.data ?? undefined;
+  const { share, outcome: shareOutcome } = useShareReminder(data);
 
   // Once, and guarded by a ref rather than by the effect's dependencies:
   // `useRouter` hands back a new object on some renders, and a `replace` in an
@@ -117,7 +118,8 @@ function LiveMember({ code }: { code: string }) {
           : undefined
       }
       // Any member may forward the link while the plan takes answers (SUS-132).
-      onShareLink={data.repliesOpen ? () => shareReminder(data) : undefined}
+      onShareLink={share}
+      shareOutcome={shareOutcome}
       // The owner may cancel any plan in the circle (spec §4.5); the organiser
       // does it from their own screens, where this page sends them.
       onCancelPlan={

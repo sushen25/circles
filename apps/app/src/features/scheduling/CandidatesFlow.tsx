@@ -17,7 +17,7 @@ import { MemberView } from './MemberView';
 import { NoQuorumScreen } from './NoQuorumScreen';
 import { reviewLabel, stillToAnswer, widerWarning } from './lines';
 import { blockedBy, unlocksOf } from './unlock';
-import { shareReminder } from './shareReminder';
+import { useShareReminder } from './shareReminder';
 import { useCandidates } from './useCandidates';
 import { useDeadlinePassed } from './useDeadlinePassed';
 import { useResolution } from './useResolution';
@@ -58,6 +58,7 @@ function LiveCandidates({ id, planId }: { id: string; planId: string }) {
   const router = useRouter();
   const query = useCandidates({ planId });
   const data = query.data ?? undefined;
+  const { share: shareAgain, outcome: shareOutcome } = useShareReminder(data);
   const resolution = useResolution({ planId, circleId: id });
   // One more day, which the no-quorum screen offers once replies have closed
   // (S2-05). The replies-closed screen has its own; this is the same hook.
@@ -123,10 +124,6 @@ function LiveCandidates({ id, planId }: { id: string; planId: string }) {
     return <CandidatesScreen state="expired" header={header} onBack={back} />;
   }
 
-  // The reminder for the group chat: a count, never names. Where a screen
-  // offers it is its own to say; this is only what it sends.
-  const shareAgain = () => shareReminder(data);
-
   // Everybody sees the options; only the organiser decides (§5.6). Before
   // options exist a member sees nothing of what has come in, which is the
   // view's own rule and not this screen's.
@@ -139,7 +136,8 @@ function LiveCandidates({ id, planId }: { id: string; planId: string }) {
         // refuses one past the deadline, and the plan sits in an answerable
         // state after it so the organiser can decide (spec §8).
         onChangeMyTimes={data.repliesOpen ? toEditor : undefined}
-        onShareLink={data.repliesOpen ? shareAgain : undefined}
+        onShareLink={shareAgain}
+        shareOutcome={shareOutcome}
         // The owner may cancel a plan somebody else organises (spec §4.5).
         onCancelPlan={
           data.isOwner
@@ -166,6 +164,7 @@ function LiveCandidates({ id, planId }: { id: string; planId: string }) {
         answered={t('waiting', 'answered', { count: data.repliedCount, total: data.askedCount })}
         still={stillToAnswer(data)}
         onShareAgain={shareAgain}
+        shareOutcome={shareOutcome}
         onEditPlan={toEdit}
         onBack={back}
       />
@@ -195,7 +194,8 @@ function LiveCandidates({ id, planId }: { id: string; planId: string }) {
         }}
         // Only while replies are open: `replace_response` refuses an answer
         // after the deadline, and a link to nothing is not worth chasing with.
-        onShareAgain={data.repliesOpen ? shareAgain : undefined}
+        onShareAgain={shareAgain}
+        shareOutcome={shareOutcome}
         onConfirmClose={() => resolution.close()}
         onConfirmWiden={() => resolution.widen()}
         onKeepAsItIs={() => resolution.keepAsItIs()}
@@ -251,6 +251,7 @@ function LiveCandidates({ id, planId }: { id: string; planId: string }) {
       }
       onNudge={shareAgain}
       onShareAgain={shareAgain}
+      shareOutcome={shareOutcome}
       // Still asking until it is locked in, so still editable (spec §5.3).
       onEditPlan={toEdit}
       onBack={back}

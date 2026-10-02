@@ -6,6 +6,7 @@ import {
   Foot,
   Notice,
   Screen,
+  Small,
   Tertiary,
   TopBar,
 } from '../../components';
@@ -48,6 +49,8 @@ export type CandidatesProps = {
   onNudge?: (() => void) | undefined;
   /** The plan's link again, while replies are open (SUS-132). */
   onShareAgain?: (() => void) | undefined;
+  /** What sharing did when it copied rather than opened a sheet. */
+  shareOutcome?: string | undefined;
   /** The organiser changes the plan while it is still asking (S1-26). */
   onEditPlan?: (() => void) | undefined;
   onRetry?: (() => void) | undefined;
@@ -69,6 +72,7 @@ export function CandidatesScreen({
   onNext,
   onNudge,
   onShareAgain,
+  shareOutcome,
   onEditPlan,
   onRetry,
   onBack,
@@ -134,6 +138,9 @@ export function CandidatesScreen({
           <Button label={reviewLabel} onPress={onNext} disabled={stale} />
         )}
         {nudgeLabel === undefined ? null : <Tertiary label={nudgeLabel} onPress={onNudge} />}
+        {shareOutcome === undefined ? null : (
+          <Small accessibilityLiveRegion="polite">{shareOutcome}</Small>
+        )}
         {onShareAgain === undefined ? null : (
           <Tertiary label={t('waiting', 'share_the_link_again')} onPress={onShareAgain} />
         )}

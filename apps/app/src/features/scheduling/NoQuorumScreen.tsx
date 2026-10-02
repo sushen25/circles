@@ -65,6 +65,8 @@ export type NoQuorumProps = {
   onKeepAsItIs?: (() => void) | undefined;
   /** The plan's link again, while replies are open (SUS-132). */
   onShareAgain?: (() => void) | undefined;
+  /** What sharing did when it copied rather than opened a sheet. */
+  shareOutcome?: string | undefined;
   onRetry?: (() => void) | undefined;
   onBack?: (() => void) | undefined;
 };
@@ -86,6 +88,7 @@ export function NoQuorumScreen({
   onConfirmWiden,
   onKeepAsItIs,
   onShareAgain,
+  shareOutcome,
   onRetry,
   onBack,
 }: NoQuorumProps) {
@@ -155,6 +158,9 @@ export function NoQuorumScreen({
       </Body>
       {onShareAgain === undefined ? null : (
         <Foot>
+          {shareOutcome === undefined ? null : (
+            <Small accessibilityLiveRegion="polite">{shareOutcome}</Small>
+          )}
           <Tertiary label={t('waiting', 'share_the_link_again')} onPress={onShareAgain} />
         </Foot>
       )}

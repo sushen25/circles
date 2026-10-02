@@ -1,6 +1,6 @@
 import type { CircleId, PlanId } from '@circles/contracts';
 import { fromISO, isAfter } from '@circles/domain';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { track } from '../../analytics/track';
 import { t } from '../../copy';
@@ -25,12 +25,24 @@ import { reminderMessage } from '../planning/reminder';
  * ask nobody has taken on has its own screens and its own anonymity (spec
  * §5.4), so it is not offered here; once somebody has, it is a plan like any.
  */
-export function useShareLink(
-  home: CircleHome,
-  now: Date = new Date(),
-): { onShareLink: (() => void) | undefined; outcome: string | undefined } {
+export function useShareLink(home: CircleHome): {
+  onShareLink: (() => void) | undefined;
+  outcome: string | undefined;
+} {
   const [outcome, setOutcome] = useState<string | undefined>();
+  // A home left open across the deadline is not read again while a plan is
+  // running, so the deadline itself has to re-draw it. A timer cannot run
+  // longer than about 24 days; a plan's window is shorter.
+  const [now, setNow] = useState(() => new Date());
   const plan = home.activePlan;
+  const deadline = plan === null ? undefined : Date.parse(plan.responseDeadline);
+  useEffect(() => {
+    if (deadline === undefined) return;
+    const wait = deadline - Date.now();
+    if (wait <= 0 || wait > 2 ** 31 - 1) return;
+    const timer = setTimeout(() => setNow(new Date()), wait + 50);
+    return () => clearTimeout(timer);
+  }, [deadline]);
   const open =
     plan !== null &&
     !(plan.quiet === true && plan.organiserUserId === null) &&

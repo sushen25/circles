@@ -44,6 +44,8 @@ export type WaitingProps = {
   /** "Still to answer: Alex and Tom." */
   still?: string | undefined;
   onShareAgain?: (() => void) | undefined;
+  /** What sharing did when it copied rather than opened a sheet. */
+  shareOutcome?: string | undefined;
   onEditPlan?: (() => void) | undefined;
   onRetry?: (() => void) | undefined;
   onBack?: (() => void) | undefined;
@@ -57,6 +59,7 @@ export function WaitingScreen({
   answered,
   still,
   onShareAgain,
+  shareOutcome,
   onEditPlan,
   onRetry,
   onBack,
@@ -103,6 +106,9 @@ export function WaitingScreen({
         <Small>{t('waiting', 'only_you')}</Small>
       </Body>
       <Foot>
+        {shareOutcome === undefined ? null : (
+          <Small accessibilityLiveRegion="polite">{shareOutcome}</Small>
+        )}
         <Button
           label={t('waiting', 'share_the_link_again')}
           variant="secondary"

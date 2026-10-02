@@ -164,3 +164,49 @@ describe('SUS-132: share the link again, as a member', () => {
     expect(screen.queryByRole('button', SHARE)).toBeNull();
   });
 });
+
+describe('SUS-132: what the share did, and who is offered it', () => {
+  it('says so when it copied instead of opening a share sheet', async () => {
+    shareMessage.mockResolvedValue('copied');
+    planCandidates.mockResolvedValue(fixture.ready);
+    show(flow());
+
+    fireEvent.click(await screen.findByRole('button', SHARE));
+    expect(await screen.findByText('Copied. Paste it in the group chat.')).toBeTruthy();
+  });
+
+  it('says so when it could not copy, and does not count it as shared', async () => {
+    shareMessage.mockResolvedValue('failed');
+    planCandidates.mockResolvedValue(fixture.readyAsMember);
+    show(flow());
+
+    fireEvent.click(await screen.findByRole('button', SHARE));
+    expect(await screen.findByText("Couldn't copy the message. Try again.")).toBeTruthy();
+    expect(track).not.toHaveBeenCalledWith('share_opened', expect.anything());
+  });
+
+  it('says so on the waiting and no-quorum screens too', async () => {
+    shareMessage.mockResolvedValue('copied');
+    planCandidates.mockResolvedValue(fixture.waiting);
+    const { unmount } = show(flow());
+    fireEvent.click(await screen.findByRole('button', SHARE));
+    expect(await screen.findByText('Copied. Paste it in the group chat.')).toBeTruthy();
+    unmount();
+
+    planCandidates.mockResolvedValue(fixture.noQuorum);
+    show(flow());
+    fireEvent.click(await screen.findByRole('button', SHARE));
+    expect(await screen.findByText('Copied. Paste it in the group chat.')).toBeTruthy();
+  });
+
+  it('is not offered to a member on a quiet ask nobody has taken on', async () => {
+    planCandidates.mockResolvedValue({
+      ...fixture.readyAsMember,
+      organiserUserId: null,
+    });
+    show(flow());
+
+    expect(await screen.findByRole('button', { name: 'Change my times' })).toBeTruthy();
+    expect(screen.queryByRole('button', SHARE)).toBeNull();
+  });
+});

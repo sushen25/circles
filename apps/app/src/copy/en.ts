@@ -2267,6 +2267,8 @@ export const en = {
     only_you:
       "Only you see this while it's incomplete. Members see the options once there are some.",
     share_the_link_again: 'Share the link again',
+    link_copied: 'Copied. Paste it in the group chat.',
+    link_couldnt_copy: "Couldn't copy the message. Try again.",
     edit_the_plan: 'Edit the plan',
     loading: 'Getting the plan',
     couldnt_load: "We couldn't load this plan.",

@@ -580,4 +580,16 @@ describe('circle home, sharing the plan link again (SUS-132)', () => {
     await waitFor(() => expect(shareMessage).toHaveBeenCalledTimes(1));
     expect(shareMessage.mock.calls[0]?.[0] as string).toMatch(/waiting on 4 replies/);
   });
+
+  it('goes at the deadline, on a home left open across it', async () => {
+    circleHome.mockResolvedValue(
+      home({
+        activePlan: { ...OPEN(), responseDeadline: new Date(Date.now() + 400).toISOString() },
+      }),
+    );
+    wrap(<CircleHomeFlow id={CIRCLE} />);
+
+    expect(await screen.findByRole('button', SHARE)).toBeVisible();
+    await waitFor(() => expect(screen.queryByRole('button', SHARE)).toBeNull(), { timeout: 3000 });
+  });
 });

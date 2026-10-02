@@ -50,6 +50,8 @@ export type CandidatesMemberProps = {
   onChangeMyTimes?: (() => void) | undefined;
   /** The plan's link again, while replies are open; any member may forward it (SUS-132). */
   onShareLink?: (() => void) | undefined;
+  /** What sharing did when it copied rather than opened a sheet. */
+  shareOutcome?: string | undefined;
   /** The circle's owner, who may cancel a plan they are not organising (spec §4.5, S1-26). */
   onCancelPlan?: (() => void) | undefined;
   onRetry?: (() => void) | undefined;
@@ -66,6 +68,7 @@ export function CandidatesMemberScreen({
   repliesClosed = false,
   onChangeMyTimes,
   onShareLink,
+  shareOutcome,
   onCancelPlan,
   onRetry,
   onBack,
@@ -141,6 +144,9 @@ export function CandidatesMemberScreen({
               variant="secondary"
               onPress={onChangeMyTimes}
             />
+          )}
+          {shareOutcome === undefined ? null : (
+            <Small accessibilityLiveRegion="polite">{shareOutcome}</Small>
           )}
           {onShareLink === undefined ? null : (
             <Tertiary label={t('waiting', 'share_the_link_again')} onPress={onShareLink} />
