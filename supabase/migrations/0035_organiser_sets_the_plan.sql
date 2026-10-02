@@ -72,6 +72,21 @@ alter table public.meetup_confirmations
     end
   );
 
+-- The confirmation a letter is about, for the five kinds that describe one evening
+-- (`locked_in`, `moved`, `reminder` and the two morning-after letters). Null for
+-- every other kind and for every job written before this. `dispatch_cancel_pending`
+-- uses it to take back the letters of a confirmation a move has replaced and keep
+-- those of the one it made, so a retried event does not skip its own jobs.
+alter table jobs.notification_jobs
+  add column confirmation_id uuid;
+
+comment on column jobs.notification_jobs.confirmation_id is
+  'The meetup_confirmations row a locked_in, moved, reminder or did_it_happen letter is about, or null (ADR 0050).';
+
+-- A new argument is a new signature; the old one would sit beside it and make
+-- every two-argument call ambiguous (0019's lesson).
+drop function if exists public.dispatch_cancel_pending(uuid, integer);
+
 alter table jobs.notification_jobs
   drop constraint notification_jobs_kind,
   add constraint notification_jobs_kind check (kind in (
@@ -1175,7 +1190,15 @@ grant execute on function public.confirm_own_time(uuid, timestamptz, timestamptz
 -- `skipped`, not `failed`: nothing went wrong. The code says what happened.
 -- ---------------------------------------------------------------------------
 
-create or replace function public.dispatch_cancel_pending(p_plan_id uuid, p_revision integer)
+create or replace function public.dispatch_cancel_pending(
+  p_plan_id uuid,
+  p_revision integer,
+  -- The confirmation whose letters must survive: the one a move has just made
+  -- (ADR 0050). A move keeps the revision, so a retried `meetup_moved` event
+  -- would otherwise skip its own jobs, and the unique key would then refuse to
+  -- write them again. Null for a reopen or a cancellation, which keep nothing.
+  p_keep_confirmation uuid default null
+)
 returns integer
 language sql
 volatile
@@ -1189,17 +1212,78 @@ as $$
       and j.plan_revision = p_revision
       and j.status = 'scheduled'
       and j.kind in ('locked_in', 'moved', 'reminder', 'did_it_happen', 'did_it_happen_participant')
+      and (p_keep_confirmation is null or j.confirmation_id is distinct from p_keep_confirmation)
     returning 1
   )
   select count(*)::integer from cancelled;
 $$;
 
-comment on function public.dispatch_cancel_pending(uuid, integer) is
+comment on function public.dispatch_cancel_pending(uuid, integer, uuid) is
   'Skips the still-scheduled reminder and outcome jobs for one plan revision, when its confirmation is cancelled or superseded. Service role only (S1-20).';
 
-revoke all on function public.dispatch_cancel_pending(uuid, integer) from public;
-revoke all on function public.dispatch_cancel_pending(uuid, integer) from anon, authenticated;
-grant execute on function public.dispatch_cancel_pending(uuid, integer) to service_role;
+revoke all on function public.dispatch_cancel_pending(uuid, integer, uuid) from public;
+revoke all on function public.dispatch_cancel_pending(uuid, integer, uuid) from anon, authenticated;
+grant execute on function public.dispatch_cancel_pending(uuid, integer, uuid) to service_role;
+
+-- supabase/sql/functions/public/dispatch_enqueue.sql
+-- ---------------------------------------------------------------------------
+-- The jobs one event turned into, written in one statement.
+--
+-- `on conflict (idempotency_key) do nothing` is the whole of "delivery is
+-- idempotent per recipient, plan revision, kind and occurrence" (spec §5.8).
+-- A drain that crashes between enqueueing and marking the event processed runs
+-- again and writes nothing new; a duplicate key is "already scheduled", not an
+-- error (S1-11).
+--
+-- The count returned is of rows actually inserted, so a drain can say in its
+-- log how much of what it computed was new — a number, not a recipient.
+--
+-- `circle_id` is the circle a job belongs to when there is no plan to find it
+-- through: `about_time` alone (S2-04), which the table's own check holds to
+-- carrying a circle and no plan. A plan's jobs leave it null and are found
+-- through the plan, as they always were.
+-- ---------------------------------------------------------------------------
+
+create or replace function public.dispatch_enqueue(p_jobs jsonb)
+returns integer
+language sql
+volatile
+security definer
+set search_path = ''
+as $$
+  with wanted as (
+    select * from jsonb_to_recordset(coalesce(p_jobs, '[]'::jsonb)) as j (
+      channel text,
+      kind text,
+      user_id uuid,
+      contact_id uuid,
+      plan_id uuid,
+      plan_revision integer,
+      circle_id uuid,
+      confirmation_id uuid,
+      scheduled_for timestamptz,
+      idempotency_key text
+    )
+  ), written as (
+    insert into jobs.notification_jobs (
+      channel, kind, user_id, contact_id, plan_id, plan_revision, circle_id, confirmation_id,
+      scheduled_for, idempotency_key
+    )
+    select w.channel, w.kind, w.user_id, w.contact_id, w.plan_id, w.plan_revision, w.circle_id,
+      w.confirmation_id, w.scheduled_for, w.idempotency_key
+    from wanted w
+    on conflict (idempotency_key) do nothing
+    returning 1
+  )
+  select count(*)::integer from written;
+$$;
+
+comment on function public.dispatch_enqueue(jsonb) is
+  'Inserts notification jobs, ignoring any whose idempotency key already exists, and answers how many were new. Service role only (S1-20).';
+
+revoke all on function public.dispatch_enqueue(jsonb) from public;
+revoke all on function public.dispatch_enqueue(jsonb) from anon, authenticated;
+grant execute on function public.dispatch_enqueue(jsonb) to service_role;
 
 -- supabase/sql/functions/public/edit_confirmation.sql
 -- ---------------------------------------------------------------------------

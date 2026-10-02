@@ -28,7 +28,15 @@
 -- `skipped`, not `failed`: nothing went wrong. The code says what happened.
 -- ---------------------------------------------------------------------------
 
-create or replace function public.dispatch_cancel_pending(p_plan_id uuid, p_revision integer)
+create or replace function public.dispatch_cancel_pending(
+  p_plan_id uuid,
+  p_revision integer,
+  -- The confirmation whose letters must survive: the one a move has just made
+  -- (ADR 0050). A move keeps the revision, so a retried `meetup_moved` event
+  -- would otherwise skip its own jobs, and the unique key would then refuse to
+  -- write them again. Null for a reopen or a cancellation, which keep nothing.
+  p_keep_confirmation uuid default null
+)
 returns integer
 language sql
 volatile
@@ -42,14 +50,15 @@ as $$
       and j.plan_revision = p_revision
       and j.status = 'scheduled'
       and j.kind in ('locked_in', 'moved', 'reminder', 'did_it_happen', 'did_it_happen_participant')
+      and (p_keep_confirmation is null or j.confirmation_id is distinct from p_keep_confirmation)
     returning 1
   )
   select count(*)::integer from cancelled;
 $$;
 
-comment on function public.dispatch_cancel_pending(uuid, integer) is
+comment on function public.dispatch_cancel_pending(uuid, integer, uuid) is
   'Skips the still-scheduled reminder and outcome jobs for one plan revision, when its confirmation is cancelled or superseded. Service role only (S1-20).';
 
-revoke all on function public.dispatch_cancel_pending(uuid, integer) from public;
-revoke all on function public.dispatch_cancel_pending(uuid, integer) from anon, authenticated;
-grant execute on function public.dispatch_cancel_pending(uuid, integer) to service_role;
+revoke all on function public.dispatch_cancel_pending(uuid, integer, uuid) from public;
+revoke all on function public.dispatch_cancel_pending(uuid, integer, uuid) from anon, authenticated;
+grant execute on function public.dispatch_cancel_pending(uuid, integer, uuid) to service_role;

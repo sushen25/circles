@@ -10,7 +10,7 @@
 -- an answer arriving afterwards changes nothing.
 
 begin;
-select plan(58);
+select plan(60);
 
 create or replace function pg_temp.make_user(id uuid, name text)
 returns uuid language sql as $$
@@ -414,13 +414,26 @@ select is((select count(*)::integer from pg_temp.events_since(:'m3')), 0,
 -- ---------------------------------------------------------------------------
 
 select pg_temp.act_as_postgres();
-insert into jobs.notification_jobs (channel, kind, user_id, plan_id, plan_revision, scheduled_for, idempotency_key)
-select 'push', k.kind, '00000000-0000-0000-0000-0000000031a1', tp.plan_id, 1,
+insert into jobs.notification_jobs
+  (channel, kind, user_id, plan_id, plan_revision, confirmation_id, scheduled_for, idempotency_key)
+select 'push', k.kind, '00000000-0000-0000-0000-0000000031a1', tp.plan_id, 1, k.confirmation,
   now() + interval '1 day', repeat(k.digit, 64)
-from tp, (values ('reminder', 'a'), ('moved', 'b'), ('did_it_happen', 'c')) as k (kind, digit);
+from tp, (values
+  ('reminder', 'a', (select id from moved)),
+  ('moved', 'b', (select id from own)),
+  ('did_it_happen', 'c', null::uuid)
+) as k (kind, digit, confirmation);
 
-select is(public.dispatch_cancel_pending((select plan_id from tp), 1), 3,
-  'a move takes back the reminder, the morning-after letter and a moved letter still scheduled');
+-- A retried move event must not skip its own letters: the unique key would then
+-- refuse to write them again. The ones for the confirmation it made are kept.
+select is(public.dispatch_cancel_pending((select plan_id from tp), 1, (select id from moved)), 2,
+  'a move takes back the letters of the confirmation it replaced, and of none');
+select is(
+  (select array_agg(kind order by kind) from jobs.notification_jobs
+   where plan_id = (select plan_id from tp) and status = 'scheduled'),
+  array['reminder'], 'and keeps the ones for the confirmation it made');
+select is(public.dispatch_cancel_pending((select plan_id from tp), 1), 1,
+  'a reopen or a cancellation keeps nothing');
 select is(
   (select count(*)::integer from jobs.notification_jobs
    where plan_id = (select plan_id from tp) and status = 'skipped' and last_error = 'superseded'),

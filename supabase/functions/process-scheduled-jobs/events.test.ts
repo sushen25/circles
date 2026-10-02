@@ -142,6 +142,8 @@ describe('a moved time (ADR 0050)', () => {
       'did_it_happen_participant',
     ]);
     expect(new Set(intents.map((intent) => intent.occurrence))).toEqual(new Set([CONFIRMATION]));
+    // So a move can take back the letters of the confirmation it replaced and keep these.
+    expect(intents.every((intent) => intent.confirmationId === CONFIRMATION)).toBe(true);
   });
 
   it('keeps the revision it supersedes: a move does not open a new one', () => {

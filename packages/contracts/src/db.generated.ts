@@ -1229,7 +1229,11 @@ export type Database = {
       }
       dispatch_begin: { Args: { p_holder: string }; Returns: boolean }
       dispatch_cancel_pending: {
-        Args: { p_plan_id: string; p_revision: number }
+        Args: {
+          p_keep_confirmation?: string
+          p_plan_id: string
+          p_revision: number
+        }
         Returns: number
       }
       dispatch_circle_context: { Args: { p_circle_id: string }; Returns: Json }

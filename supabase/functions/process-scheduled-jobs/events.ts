@@ -65,6 +65,8 @@ export type Intent = {
    * the kind has out of its own audience.
    */
   readonly actorId?: string | undefined;
+  /** The confirmation a letter about one evening is for, so a move can tell its own letters from the ones it replaced. */
+  readonly confirmationId?: string | undefined;
 };
 
 /**
@@ -195,10 +197,27 @@ export function intentsFor(
       const start = fromISO(confirmation.starts_at);
       const morning = morningAfterFor(fromISO(confirmation.ends_at));
       return [
-        { kind: 'locked_in', occurrence, desiredAt: now, actorId: confirmation.confirmed_by },
-        { kind: 'reminder', occurrence, desiredAt: addMinutes(start, -120), notAfter: start },
-        { kind: 'did_it_happen', occurrence, desiredAt: morning },
-        { kind: 'did_it_happen_participant', occurrence, desiredAt: morning },
+        {
+          kind: 'locked_in',
+          occurrence,
+          desiredAt: now,
+          actorId: confirmation.confirmed_by,
+          confirmationId: confirmation.id,
+        },
+        {
+          kind: 'reminder',
+          occurrence,
+          desiredAt: addMinutes(start, -120),
+          notAfter: start,
+          confirmationId: confirmation.id,
+        },
+        { kind: 'did_it_happen', occurrence, desiredAt: morning, confirmationId: confirmation.id },
+        {
+          kind: 'did_it_happen_participant',
+          occurrence,
+          desiredAt: morning,
+          confirmationId: confirmation.id,
+        },
       ];
     }
 
@@ -217,10 +236,27 @@ export function intentsFor(
       const start = fromISO(confirmation.starts_at);
       const morning = morningAfterFor(fromISO(confirmation.ends_at));
       return [
-        { kind: 'moved', occurrence, desiredAt: now, actorId: confirmation.confirmed_by },
-        { kind: 'reminder', occurrence, desiredAt: addMinutes(start, -120), notAfter: start },
-        { kind: 'did_it_happen', occurrence, desiredAt: morning },
-        { kind: 'did_it_happen_participant', occurrence, desiredAt: morning },
+        {
+          kind: 'moved',
+          occurrence,
+          desiredAt: now,
+          actorId: confirmation.confirmed_by,
+          confirmationId: confirmation.id,
+        },
+        {
+          kind: 'reminder',
+          occurrence,
+          desiredAt: addMinutes(start, -120),
+          notAfter: start,
+          confirmationId: confirmation.id,
+        },
+        { kind: 'did_it_happen', occurrence, desiredAt: morning, confirmationId: confirmation.id },
+        {
+          kind: 'did_it_happen_participant',
+          occurrence,
+          desiredAt: morning,
+          confirmationId: confirmation.id,
+        },
       ];
     }
 
