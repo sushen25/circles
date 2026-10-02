@@ -5,6 +5,14 @@ import { defineConfig } from 'vitest/config';
 // database error to an HTTP status, a digest of a request body, the parsing of
 // an `Authorization` header. The Deno runtime is reached only through `env.ts`
 // and `Deno.serve`, both of which stay out of the way here.
+
+// The device's time zone is part of a test's input (SUS-137). A suite that
+// reads "today" from the machine passed in CI, which is UTC, and failed on a
+// laptop in Sydney between midnight and 10:00, when the local date is a day
+// ahead. Unless the run names a zone (`TZ=Australia/Sydney pnpm test:unit`, to
+// look for exactly that), it is UTC, whatever machine it runs on.
+process.env.TZ ??= 'UTC';
+
 export default defineConfig({
   // The email templates are `.tsx` (ADR 0008). Deno reads each file's
   // `@jsxImportSource` pragma; esbuild is told the same thing here.
