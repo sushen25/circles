@@ -139,7 +139,11 @@ export function icsFor(input: IcsInput): string {
     property('METHOD', 'PUBLISH'),
     property('CALSCALE', 'GREGORIAN'),
     'BEGIN:VEVENT',
-    property('UID', `${confirmation.id}@${identity.domain}`),
+    // The calendar entry's identity, kept across a move (ADR 0050) so a
+    // calendar moves its entry instead of adding a second; `SEQUENCE` is what
+    // tells it which version is newer.
+    property('UID', `${confirmation.calendarUid ?? confirmation.id}@${identity.domain}`),
+    property('SEQUENCE', String(confirmation.calendarSequence ?? 0)),
     property('DTSTAMP', toIcsUtc(stamp)),
     property('DTSTART', toIcsUtc(confirmation.candidate.start)),
     property('DTEND', toIcsUtc(confirmation.candidate.end)),

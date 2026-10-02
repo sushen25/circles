@@ -9,7 +9,7 @@
  * The rows are the "Push copy" artboard's rows, in its order, plus the four the
  * spec names elsewhere: `replies_closed` (§5.7, §5.8), `verify_email`,
  * `quiet_expired` (§5.4.7, the SparkExpired artboard, ADR 0038) and
- * `asked_again` (§5.3, §5.8, ADR 0046). No
+ * `asked_again` (§5.3, §5.8, ADR 0046) and `moved` (§5.7, §5.8, ADR 0050). No
  * sentence lives here — `copyKey` names one, and the copy package renders it
  * (non-negotiable 6).
  */
@@ -26,6 +26,7 @@ export type NotificationKind =
   | 'options_ready'
   | 'replies_closed'
   | 'locked_in'
+  | 'moved'
   | 'changed'
   | 'cancelled'
   | 'reminder'
@@ -190,6 +191,20 @@ export const NOTIFICATION_KINDS: readonly NotificationSpec[] = [
     audience: 'members',
     channels: ['push', 'email'],
     copyKey: 'push.locked_in',
+    respectsQuietHours: false,
+  },
+  {
+    // The organiser moved a locked-in time (ADR 0050): "Change of plan: Sunday
+    // Crew is now Sat 19 Sep". Not `changed`, which means "new times, please" and
+    // asks everybody again. Held by nothing: it is a time that moved, and
+    // quiet hours exempt confirmed and cancelled for the same reason — news you
+    // need before you leave the house.
+    kind: 'moved',
+    emailNeedsSubscription: true,
+    organiserEmailSwitch: false,
+    audience: 'members',
+    channels: ['push', 'email'],
+    copyKey: 'push.moved',
     respectsQuietHours: false,
   },
   {

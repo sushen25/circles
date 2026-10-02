@@ -42,6 +42,7 @@ export const DOMAIN_EVENT_NAMES = [
 
   'confirmation.meetup_confirmed',
   'confirmation.meetup_rescheduled',
+  'confirmation.meetup_moved',
   'confirmation.meetup_cancelled',
   'confirmation.attendance_updated',
   'confirmation.outcome_reported',
