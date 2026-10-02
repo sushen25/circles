@@ -84,7 +84,9 @@ function LiveOwnReview({
   const router = useRouter();
   const query = useCandidates({ planId });
   const data = query.data ?? undefined;
-  const stretch = useStretch(planId, { startsAt: start, endsAt: end });
+  // Only once the read says this is the organiser: the answer is theirs alone, and
+  // asking as anybody else would show a generic error ahead of "only the organiser".
+  const stretch = useStretch(planId, { startsAt: start, endsAt: end }, data?.isOrganiser === true);
   const [clock] = usePlanClock(clockNow, true);
   const [form, setForm] = useState<ReviewForm>(EMPTY);
   const [chased, setChased] = useState<ChasedAnswer>();
@@ -146,7 +148,7 @@ function LiveOwnReview({
   if (query.isPending || lock.already || (locked && !query.isError)) {
     return <ConfirmReviewScreen state="loading" onBack={back} />;
   }
-  if (query.isError || stretch.isError) {
+  if (query.isError || (data?.isOrganiser === true && stretch.isError)) {
     return (
       <ConfirmReviewScreen
         state={isOffline() ? 'offline' : 'error'}

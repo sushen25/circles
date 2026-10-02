@@ -172,6 +172,14 @@ describe('a moved time (ADR 0050)', () => {
     ).toContain('locked_in');
   });
 
+  it('keeps a lock-in from before the payload named its confirmation quiet once the plan has moved', () => {
+    const moved = {
+      ...context,
+      confirmation: { ...context.confirmation, moved_from_starts_at: '2026-09-16T08:30:00.000Z' },
+    } as PlanContext;
+    expect(intentsFor(eventNamed('confirmation.meetup_confirmed'), moved, instant(0))).toEqual([]);
+  });
+
   it('says nothing for a plan with no active confirmation', () => {
     const none = { ...context, confirmation: null } as PlanContext;
     expect(intentsFor(moved(), none, instant(0))).toEqual([]);

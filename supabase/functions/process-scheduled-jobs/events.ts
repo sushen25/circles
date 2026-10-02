@@ -313,9 +313,19 @@ export function intentsFor(
  * event from before `confirmation_id` was in its payload names none, and speaks
  * as it always did.
  */
-function speaksForAnother(event: OutboxEvent, confirmation: { readonly id: string }): boolean {
+function speaksForAnother(
+  event: OutboxEvent,
+  confirmation: { readonly id: string; readonly moved_from_starts_at?: string | null | undefined },
+): boolean {
   const named = event.payload['confirmation_id'];
-  return typeof named === 'string' && named !== confirmation.id;
+  if (typeof named === 'string') return named !== confirmation.id;
+  // An event from before the id was in the payload names none. A lock-in the plan
+  // has since moved is told by the move's own event, so it stays quiet; one for a
+  // plan that was never moved speaks as it always did.
+  return (
+    event.event_name === 'confirmation.meetup_confirmed' &&
+    typeof confirmation.moved_from_starts_at === 'string'
+  );
 }
 
 /**

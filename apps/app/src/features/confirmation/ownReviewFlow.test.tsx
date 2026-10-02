@@ -199,6 +199,8 @@ describe('the organiser reviewing their own time', () => {
 describe('the states', () => {
   it('shows nothing to a member but that only the organiser locks a time in', async () => {
     planCandidates.mockResolvedValue(fixture.readyAsMember);
+    // The organiser-only read refuses them, which must not show ahead of the answer.
+    stretchOf.mockRejectedValue(new Error('stretch_availability failed'));
     show(review());
     expect(await screen.findByText('Only the organiser locks a time in.')).toBeTruthy();
     expect(confirmOwnTime).not.toHaveBeenCalled();
