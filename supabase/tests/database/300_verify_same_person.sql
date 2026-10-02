@@ -6,7 +6,7 @@
 -- pending, so its subscription stays undeliverable.
 
 begin;
-select plan(38);
+select plan(42);
 
 create or replace function pg_temp.make_user(id uuid, name text, permanent boolean default false)
 returns uuid language sql as $$
@@ -394,8 +394,8 @@ select is(
         '30000000-0000-0000-0000-0000000000a3', '30000000-0000-0000-0000-0000000000a4']::uuid[],
   'the identity both memberships passed through is linked to the people on both');
 
--- A membership that ended some other way (the member was removed) before the
--- identity took another place does not continue into that other place's move.
+-- A membership that was passed on, and then the identity took another place:
+-- the first place's chain does not continue into the other place's next move.
 insert into private.audit_log (actor_user_id, action, resource_type, resource_id, metadata, occurred_at)
 select null, 'circles.member_reattached', 'circle', pg_temp.c2(),
   jsonb_build_object('from_user_id', f, 'to_user_id', t, 'source', 'list'), now() - (h || ' hours')::interval
@@ -407,7 +407,7 @@ from (values
 select is(
   (select array_agg(i order by i) from private.same_person_identities('30000000-0000-0000-0000-0000000000b4') i),
   array['30000000-0000-0000-0000-0000000000b4', '30000000-0000-0000-0000-0000000000b5']::uuid[],
-  'a place that ended another way is not carried on to the later place''s next move');
+  'a place that was passed on is not carried over to the later place''s next move');
 select is(
   (select array_agg(i order by i) from private.same_person_identities('30000000-0000-0000-0000-0000000000b6') i),
   array['30000000-0000-0000-0000-0000000000b5', '30000000-0000-0000-0000-0000000000b6',
@@ -480,6 +480,79 @@ select is(pg_temp.status_of('claim2@example.com', '30000000-0000-0000-0000-00000
 select is(pg_temp.recipients('qqqqpj'),
   array[pg_temp.contact_of('claim2@example.com', '30000000-0000-0000-0000-0000000000aa')],
   'so the saved place is deliverable for that plan too');
+
+
+-- A split, then a claim. The verification link stays on the guest the contact was
+-- split from; the copy follows the membership to a new session and then to a
+-- saved place, and only the recorded claim connects them.
+select pg_temp.make_user('30000000-0000-0000-0000-0000000000c3', 'Split guest');
+select pg_temp.make_user('30000000-0000-0000-0000-0000000000c4', 'Split session');
+select pg_temp.make_user('30000000-0000-0000-0000-0000000000c5', 'Split saved', true);
+select pg_temp.join(pg_temp.c1(), '30000000-0000-0000-0000-0000000000c3');
+select pg_temp.join(pg_temp.c2(), '30000000-0000-0000-0000-0000000000c3');
+select pg_temp.plan_in(pg_temp.c1(), 'qqqqpn', 'ready');
+select pg_temp.plan_in(pg_temp.c2(), 'qqqqpp');
+select pg_temp.act_as_service();
+select public.request_email_updates((select id from public.plans where short_code = 'qqqqpn'),
+  '30000000-0000-0000-0000-0000000000c3', 'later@example.com', '2026-09-14', 'r-c3n');
+select public.request_email_updates((select id from public.plans where short_code = 'qqqqpp'),
+  '30000000-0000-0000-0000-0000000000c3', 'later@example.com', '2026-09-14', 'r-c3p');
+select public.issue_verification_token(
+  pg_temp.contact_of('later@example.com', '30000000-0000-0000-0000-0000000000c3'),
+  pg_temp.hash_of('t-later'));
+select pg_temp.act_as('30000000-0000-0000-0000-0000000000c4');
+select public.reattach_member(pg_temp.c1(), '30000000-0000-0000-0000-0000000000c3');
+select pg_temp.act_as_service();
+select public.claim_identity('30000000-0000-0000-0000-0000000000c5',
+  '30000000-0000-0000-0000-0000000000c4', 'reattached');
+select pg_temp.act_as_postgres();
+update private.audit_log set occurred_at = now() - interval '1 hour'
+where action = 'circles.member_reattached' and metadata ->> 'to_user_id' = '30000000-0000-0000-0000-0000000000c4';
+
+-- Locked in only now, so a letter is owed to whoever holds the place.
+insert into public.plan_participants (plan_id, revision, user_id)
+select id, 1, '30000000-0000-0000-0000-0000000000c5'::uuid from public.plans where short_code = 'qqqqpn';
+insert into public.candidate_sets (
+  plan_id, revision, input_version, scoring_version, input_hash,
+  starts_considered, eligible_count, responded_count, active_member_count
+)
+select p.id, p.revision, p.input_version, p.scoring_version, 'seed', 10, 1, 1, 4
+from public.plans p where p.short_code = 'qqqqpn';
+insert into public.candidates (
+  candidate_set_id, is_near_miss, rank, starts_at, ends_at, available_user_ids,
+  explicit_count, flexible_count, explanation_code, explanation_count
+)
+select cset.id, false, 1, timestamptz '2099-09-18T08:30:00Z', timestamptz '2099-09-18T10:30:00Z',
+  array['30000000-0000-0000-0000-0000000000c5'::uuid], 1, 0, 'best_attendance', 1
+from public.candidate_sets cset join public.plans p on p.id = cset.plan_id
+where p.short_code = 'qqqqpn';
+select planning.transition_plan(
+  (select id from public.plans where short_code = 'qqqqpn'), 'confirm',
+  '30000000-0000-0000-0000-000000000001',
+  jsonb_build_object('candidate_id', '2099-09-18T08:30:00+00:00'));
+
+select is(
+  (select array_agg(i order by i) from private.same_person_identities('30000000-0000-0000-0000-0000000000c3') i),
+  array['30000000-0000-0000-0000-0000000000c3', '30000000-0000-0000-0000-0000000000c4',
+        '30000000-0000-0000-0000-0000000000c5']::uuid[],
+  'a claim is a recorded link, so the chain runs on from the session to the saved place');
+
+select pg_temp.act_as_service();
+select public.verify_email_contact(pg_temp.hash_of('t-later'));
+select pg_temp.act_as_postgres();
+select is(
+  array[pg_temp.status_of('later@example.com', '30000000-0000-0000-0000-0000000000c3'),
+        pg_temp.status_of('later@example.com', '30000000-0000-0000-0000-0000000000c5')],
+  array['verified', 'verified'],
+  'verifying on the guest reaches the copy that was reattached and then claimed');
+select is(pg_temp.recipients('qqqqpn'),
+  array[pg_temp.contact_of('later@example.com', '30000000-0000-0000-0000-0000000000c5')],
+  'and the saved place is deliverable for the moved plan');
+select is(
+  (select array_agg(j.contact_id) from jobs.notification_jobs j
+   where j.kind = 'locked_in' and j.plan_id = (select id from public.plans where short_code = 'qqqqpn')),
+  array[pg_temp.contact_of('later@example.com', '30000000-0000-0000-0000-0000000000c5')],
+  'and the "locked in" letter is addressed to the contact that holds that subscription, not the one the link named');
 
 select * from finish();
 rollback;

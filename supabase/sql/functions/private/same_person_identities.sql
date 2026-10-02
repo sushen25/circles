@@ -5,9 +5,10 @@
 -- Verifying an address proves that whoever held the link controls it. It says
 -- nothing about another identity's consent, so promotion stops at "the same
 -- person": the identity itself, and the identities that **one membership's
--- history of reattachments** connects it to. `reattach_member` records both ids
--- and the circle in `private.audit_log` (`circles.member_reattached`, written in
--- the move's own transaction), and `reconcile_contacts` is what leaves one
+-- history of reattachments and claims** connects it to. `reattach_member` and
+-- `claim_identity` record both ids and the circle in `private.audit_log`
+-- (`circles.member_reattached`, `circles.member_claimed`, written in the move's
+-- own transaction), and `reconcile_contacts` is what leaves one
 -- person holding one address on two contacts, on either side of a move. A
 -- membership moved twice (A to B, then B to C) carries a contact it already
 -- copied to C, with the verification link still on A, so the walk follows the
@@ -17,18 +18,20 @@
 -- circle, pass it on, and later take somebody else's place in the same circle;
 -- connecting rows through the identity would make those two people one. So two
 -- rows are joined only when they are consecutive for the identity between them:
--- one move *to* it, and the next thing that happens to it in that circle is a
--- move *from* it. If another move touches it first (a different place arriving,
--- or leaving), the first membership ended some other way and the chain stops.
--- Rows are ordered by `occurred_at`, the transaction's time: one
--- `reattach_member` call is one transaction, so two moves never tie.
+-- one move *to* it, and the next recorded move that touches it in that circle is
+-- a move *from* it. If another recorded move touches it first (a different place
+-- arriving, or leaving), the chain stops. A removal is not a recorded move, so
+-- it does not stop one. Rows are ordered by `occurred_at`, the transaction's
+-- time: one call is one transaction, so two moves of one circle never tie; two
+-- calls racing on one circle's lock can commit in the opposite order to their
+-- start (ADR 0049, residuals).
 --
 -- Within one circle, and no further: an identity that takes places in two
 -- circles would otherwise connect the people it took them from, who have
 -- nothing to do with each other. Nothing else makes two identities one person:
--- not the same address, circle or time. A claim (`claim_identity`) is not a row
--- here and needs none: it moves or merges the guest's contacts into the saved
--- place's own, so nothing of the person is left behind to link to.
+-- not the same address, circle or time. A claim is recorded
+-- for each circle it moves, because a split leaves the verification link on the
+-- guest and the copy on the saved place.
 -- ---------------------------------------------------------------------------
 
 create or replace function private.same_person_identities(p_user_id uuid)
@@ -42,7 +45,14 @@ as $$
     select a.id, a.resource_id as circle_id, a.occurred_at as at,
            a.metadata ->> 'from_user_id' as from_id, a.metadata ->> 'to_user_id' as to_id
     from private.audit_log a
-    where a.action = 'circles.member_reattached'
+    where a.action in ('circles.member_reattached', 'circles.member_claimed')
+      -- Only the circles this identity appears in: the walk never leaves them,
+      -- and one busy circle elsewhere should not slow every verification.
+      and a.resource_id in (
+        select x.resource_id from private.audit_log x
+        where x.action in ('circles.member_reattached', 'circles.member_claimed')
+          and p_user_id::text in (x.metadata ->> 'from_user_id', x.metadata ->> 'to_user_id')
+      )
   ),
   -- Row r moved a membership to an identity, and row s is the very next thing
   -- that happened to that identity in the circle: the same membership moving on.

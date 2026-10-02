@@ -30,8 +30,8 @@ it does today.
 
 **1. One rule for "the same person", in one function.**
 `private.same_person_identities(user_id)` returns the identity itself and every
-identity connected to it by the `circles.member_reattached` rows of **one
-circle**, in either direction (each row records `from_user_id`, `to_user_id` and
+identity connected to it by the `circles.member_reattached` and
+`circles.member_claimed` rows of **one circle**, in either direction (each row records `from_user_id`, `to_user_id` and
 the circle by id, written in the same transaction as the move). A membership
 moved twice, A to B and then B to C, is one chain, so A, B and C are one person
 for this purpose: the contact copied to C, with the verification link still on
@@ -58,20 +58,20 @@ withdrawn, nor is it sent anything on this verification.
 | A second contact of the same `user_id` at that address | verified (it cannot be split by identity: same row key) |
 | A sibling left by `reconcile_contacts` on the identity a membership moved from, or the copy on an identity it moved to, however many moves along, connected by `member_reattached` rows of that circle | verified |
 | Another identity's pending contact at the address, with no recorded link | stays `pending`, its subscription undeliverable; retention removes both after seven days |
+| The copy that followed a membership to a new session and then to a saved place by a claim | verified (the claim is a recorded link) |
 | The organiser's auth address (`dispatch_organiser_contact`) | unchanged: it already promoted only that user's own contact, so a different identity's pending contact at the same address is never touched |
 
-**4. A claim is not a recorded link, and needs none.** `claim_identity` writes
-one audit row, `growth.account_claimed`, which names the destination and not the
-anonymous identity it came from, so it cannot be walked. It does not need to be:
-a claim moves, or merges into the saved place's own contact, every contact the
-guest holds for a circle it moves, through `reconcile_contacts`, and the carried
-status stays (verified stays verified; a pending contact travels pending and is
-verified by its own link or promoted by the rule above, as the same `user_id`).
-What a claim leaves on the guest identity is only what belongs to circles the
-guest is no longer an active member of, whose subscriptions are not deliverable
-anyway (`email_recipients_for` requires an active member). Adding a new audit
-row to the claim would invent a link for rows that predate it and buy nothing,
-so none is added.
+**4. A claim is now a recorded link.** `claim_identity` wrote one audit row,
+`growth.account_claimed`, which names the destination and not the anonymous
+identity it came from, so there was nothing to walk. A claim does leave one
+person on both ends: `reconcile_contacts` splits a contact whose identity keeps
+another circle's consent, and the verification link stays on the guest while
+the copy goes to the saved place (found in review: a reattached session that
+then saved its place was left pending). So `claim_identity` now writes one
+`circles.member_claimed` row per circle it moves or merges, with `from_user_id`,
+`to_user_id` and the circle, in the same transaction, and the walk reads those
+rows with `member_reattached`'s. Nothing earlier is rewritten or guessed: a claim
+made before this migration has no row and is not linked.
 
 ## Alternatives considered
 
@@ -108,7 +108,10 @@ so none is added.
   other is removed by retention, and the person's own fresh request is the one
   that counts.
 - One migration, `0034` (ADR 0015): `private.same_person_identities` is new, and
-  `public.verify_email_contact` changes. No table changes.
+  `public.verify_email_contact` and `public.claim_identity` change. No table
+  changes. The new `member_claimed` row is not read by the Continue-as cap
+  (`list_moves_this_week` reads `member_reattached` only), so a claim does not
+  count against it, as before.
 - **A link made by Continue-as is not proof of a person.** A reattachment from
   the list is made by whoever picks a name (ADR 0006, ADR 0048). A taker who
   has recorded a pending contact at an address, and then takes a guest's place,
@@ -133,6 +136,14 @@ so none is added.
   link naming the original contact verifies both; a link naming one copy
   reaches the original but not the other copy, which then stays pending. The
   chains are per circle by design (see above).
+- **Residual: ordering is by `occurred_at`, the transaction's start.** Two
+  reattachments racing on one circle's lock can commit in the opposite order to
+  their start times, so the chain can read with those two moves swapped: one
+  false link between identities that already moved a place directly, and a
+  sibling left pending until the person asks again. Needs millisecond
+  concurrency on one circle and gains nobody anything beyond the takeover
+  residual above; writing the row with `clock_timestamp()` would close it and
+  was left out to leave `reattach_member` as SUS-103 reviewed it.
 - Retention is unchanged: a pending contact still goes after seven days with its
   subscription. An identity that asked for updates at somebody else's address and
   never verifies it simply gets nothing, which is what `pending` has always
