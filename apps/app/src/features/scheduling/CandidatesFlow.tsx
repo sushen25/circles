@@ -1,5 +1,5 @@
 import type { CircleId, PlanId } from '@circles/contracts';
-import { EN_SHARE_TEMPLATES, instant, waitingMessage } from '@circles/domain';
+import { instant } from '@circles/domain';
 import { useIsFocused, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 
@@ -7,9 +7,6 @@ import { track } from '../../analytics/track';
 import { t } from '../../copy';
 import { hasBackend } from '../../data/auth/client';
 import { isLockedIn } from '../../data/scheduling';
-import { appOrigin } from '../../data/links/origin';
-import { planLink } from '../../data/planning';
-import { shareMessage } from '../../platform/share';
 import { isOffline } from '../identity/join/failure';
 import { clockNow, usePlanClock } from '../planning/clock';
 import { CandidatesScreen } from './CandidatesScreen';
@@ -20,10 +17,11 @@ import { MemberView } from './MemberView';
 import { NoQuorumScreen } from './NoQuorumScreen';
 import { reviewLabel, stillToAnswer, widerWarning } from './lines';
 import { blockedBy, unlocksOf } from './unlock';
+import { useShareReminder } from './shareReminder';
 import { useCandidates } from './useCandidates';
 import { useDeadlinePassed } from './useDeadlinePassed';
 import { useResolution } from './useResolution';
-import { cardsOf, headerOf, headlineOf, leadOf, nearMissesOf, notAnswered, nudgeOf } from './view';
+import { cardsOf, headerOf, headlineOf, leadOf, nearMissesOf, nudgeOf } from './view';
 import { WaitingScreen } from './WaitingScreen';
 
 /**
@@ -60,6 +58,7 @@ function LiveCandidates({ id, planId }: { id: string; planId: string }) {
   const router = useRouter();
   const query = useCandidates({ planId });
   const data = query.data ?? undefined;
+  const { share: shareAgain, outcome: shareOutcome } = useShareReminder(data);
   const resolution = useResolution({ planId, circleId: id });
   // One more day, which the no-quorum screen offers once replies have closed
   // (S2-05). The replies-closed screen has its own; this is the same hook.
@@ -125,19 +124,6 @@ function LiveCandidates({ id, planId }: { id: string; planId: string }) {
     return <CandidatesScreen state="expired" header={header} onBack={back} />;
   }
 
-  // How many replies are still out, from the summaries the organiser always
-  // sees rather than from the set's own count — that belongs to the set, and a
-  // set one answer behind would have a message saying so.
-  const waiting = notAnswered(data);
-  const remaining =
-    data.responded === null ? Math.max(0, data.askedCount - data.repliedCount) : waiting.length;
-  const ids = { circle_id: id as CircleId, plan_id: data.planId as PlanId };
-  const shared = (kind: 'plan' | 'reminder') => (result: string) => {
-    if (result === 'sheet' || result === 'dismissed' || result === 'copied') {
-      track('share_opened', { ...ids, kind });
-    }
-  };
-
   // Everybody sees the options; only the organiser decides (§5.6). Before
   // options exist a member sees nothing of what has come in, which is the
   // view's own rule and not this screen's.
@@ -150,6 +136,8 @@ function LiveCandidates({ id, planId }: { id: string; planId: string }) {
         // refuses one past the deadline, and the plan sits in an answerable
         // state after it so the organiser can decide (spec §8).
         onChangeMyTimes={data.repliesOpen ? toEditor : undefined}
+        onShareLink={shareAgain}
+        shareOutcome={shareOutcome}
         // The owner may cancel a plan somebody else organises (spec §4.5).
         onCancelPlan={
           data.isOwner
@@ -166,7 +154,6 @@ function LiveCandidates({ id, planId }: { id: string; planId: string }) {
   }
 
   if (data.view === 'collecting') {
-    const link = planLink(appOrigin(), data.code);
     return (
       <WaitingScreen
         header={header}
@@ -176,14 +163,8 @@ function LiveCandidates({ id, planId }: { id: string; planId: string }) {
         body={t('waiting', 'body', { count: data.quorum })}
         answered={t('waiting', 'answered', { count: data.repliedCount, total: data.askedCount })}
         still={stillToAnswer(data)}
-        onShareAgain={() => {
-          // The waiting message, not the original ask: the link has already
-          // been in the chat, and `waitingMessage` is the domain's sentence
-          // for exactly this screen — "a count, never names", because a
-          // message pasted into a group chat is read by everyone.
-          const message = waitingMessage({ remaining, url: link, templates: EN_SHARE_TEMPLATES });
-          void shareMessage(message).then(shared('reminder'));
-        }}
+        onShareAgain={shareAgain}
+        shareOutcome={shareOutcome}
         onEditPlan={toEdit}
         onBack={back}
       />
@@ -211,6 +192,10 @@ function LiveCandidates({ id, planId }: { id: string; planId: string }) {
           // `revise-plan`'s `required_member_ids`, which is S1-26's form.
           else toEdit();
         }}
+        // Only while replies are open: `replace_response` refuses an answer
+        // after the deadline, and a link to nothing is not worth chasing with.
+        onShareAgain={shareAgain}
+        shareOutcome={shareOutcome}
         onConfirmClose={() => resolution.close()}
         onConfirmWiden={() => resolution.widen()}
         onKeepAsItIs={() => resolution.keepAsItIs()}
@@ -264,14 +249,9 @@ function LiveCandidates({ id, planId }: { id: string; planId: string }) {
           params: { id, planId, candidate: selectedId ?? '' },
         })
       }
-      onNudge={() => {
-        const message = waitingMessage({
-          remaining,
-          url: planLink(appOrigin(), data.code),
-          templates: EN_SHARE_TEMPLATES,
-        });
-        void shareMessage(message).then(shared('reminder'));
-      }}
+      onNudge={shareAgain}
+      onShareAgain={shareAgain}
+      shareOutcome={shareOutcome}
       // Still asking until it is locked in, so still editable (spec §5.3).
       onEditPlan={toEdit}
       onBack={back}

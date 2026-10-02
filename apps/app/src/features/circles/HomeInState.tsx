@@ -20,6 +20,7 @@ import { EmptyCircleScreen } from './EmptyCircleScreen';
 import { aboutTimeBody, homeState, lockedInWords } from './lines';
 import { useMorningAfterCard } from './MorningAfterCard';
 import { useNudgeActions } from './useNudgeActions';
+import { useShareLink } from './useShareLink';
 import {
   cadenceWords,
   homeSubtitle,
@@ -72,6 +73,7 @@ export function HomeInState({ home, onBack }: { home: CircleHome; onBack: () => 
       </>
     );
   const nudge = useNudgeActions(home);
+  const shareLink = useShareLink(home);
 
   const members = home.members.map((m) => ({ name: m.name }));
   const memberCount =
@@ -133,6 +135,8 @@ export function HomeInState({ home, onBack }: { home: CircleHome; onBack: () => 
         askedAgain={plan.askedAgain === true ? t('circleHome', 'asked_again') : undefined}
         lastCaughtUp={lastCaughtUp(home)}
         nextOne={nextOne(home)}
+        onShareLink={shareLink.onShareLink}
+        shareOutcome={shareLink.outcome}
         onSeeHowItsLooking={() =>
           router.push({
             pathname: unclaimed

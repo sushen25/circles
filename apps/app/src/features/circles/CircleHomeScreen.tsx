@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import {
   Body,
   Button,
+  ButtonRow,
   Card,
   CircleHeader,
   DateText,
@@ -68,6 +69,10 @@ export type CircleHomeProps = {
    * times, so the button is the way to give them (SUS-130).
    */
   onAddMyTimes?: (() => void) | undefined;
+  /** Offered to the organiser while the plan takes answers (SUS-132). */
+  onShareLink?: (() => void) | undefined;
+  /** What sharing did when it copied rather than opened a sheet. */
+  shareOutcome?: string | undefined;
   /** The morning after's card, under the circle's name, when the reader owes it (S1-29). */
   prompt?: ReactNode;
 };
@@ -94,6 +99,8 @@ export function CircleHomeScreen({
   onBack,
   onSeeHowItsLooking,
   onAddMyTimes,
+  onShareLink,
+  shareOutcome,
   prompt,
 }: CircleHomeProps) {
   if (state === 'loading' || state === 'error' || state === 'offline') {
@@ -123,18 +130,32 @@ export function CircleHomeScreen({
             <Small>{replied}</Small>
           </Stack>
           {askedAgain === undefined ? null : <Notice kind="warn">{askedAgain}</Notice>}
-          {askedAgain === undefined ? (
-            <Button
-              label={t('circleHome', 'see_how_its_looking')}
-              variant="secondary"
-              onPress={onSeeHowItsLooking}
-            />
-          ) : (
-            <Button
-              label={t('circleHome', 'add_my_times')}
-              variant="secondary"
-              onPress={onAddMyTimes}
-            />
+          {/* While the times-cleared line shows, the way back to the grid leads
+              and "Share the link" stays beside it (SUS-132). */}
+          <ButtonRow>
+            {askedAgain === undefined ? (
+              <Button
+                label={t('circleHome', 'see_how_its_looking')}
+                variant="secondary"
+                onPress={onSeeHowItsLooking}
+              />
+            ) : (
+              <Button
+                label={t('circleHome', 'add_my_times')}
+                variant="secondary"
+                onPress={onAddMyTimes}
+              />
+            )}
+            {onShareLink === undefined ? null : (
+              <Button
+                label={t('circleHome', 'share_the_link')}
+                variant="secondary"
+                onPress={onShareLink}
+              />
+            )}
+          </ButtonRow>
+          {shareOutcome === undefined ? null : (
+            <Small accessibilityLiveRegion="polite">{shareOutcome}</Small>
           )}
         </Card>
         <Card>

@@ -113,7 +113,7 @@ the domain's `circleHomeState` (`HomeInState`): finding a time
 `/circles/[id]/plan/[planId]/confirmed`), just you (`EmptyCircleScreen`), about
 time and between catch-ups (`CircleHomeDueScreen`, `due` or not), and never
 met (`CircleHomeJoiningScreen`). The invite link is the owner's: members are
-not offered it. The reads are `data/circles` (`useCircles`, `useCircle`), all
+not offered it. The finding-a-time card also has **Share the link** for every member while the plan takes answers (SUS-132; never on a quiet ask, never after the deadline): the plan's count-only reminder, as the options and no-quorum screens' **Share the link again** is. The reads are `data/circles` (`useCircles`, `useCircle`), all
 through RLS; the secret is held in memory only (ADR 0028). A circle's colour is
 a `circleColor` token from `@circles/tokens` (`CircleBadge`, `Swatches`).
 

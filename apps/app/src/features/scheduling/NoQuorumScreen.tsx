@@ -7,6 +7,7 @@ import {
   Button,
   Card,
   DisplayL,
+  Foot,
   Label,
   Notice,
   Screen,
@@ -62,6 +63,10 @@ export type NoQuorumProps = {
   onConfirmClose?: (() => void) | undefined;
   onConfirmWiden?: (() => void) | undefined;
   onKeepAsItIs?: (() => void) | undefined;
+  /** The plan's link again, while replies are open (SUS-132). */
+  onShareAgain?: (() => void) | undefined;
+  /** What sharing did when it copied rather than opened a sheet. */
+  shareOutcome?: string | undefined;
   onRetry?: (() => void) | undefined;
   onBack?: (() => void) | undefined;
 };
@@ -82,6 +87,8 @@ export function NoQuorumScreen({
   onConfirmClose,
   onConfirmWiden,
   onKeepAsItIs,
+  onShareAgain,
+  shareOutcome,
   onRetry,
   onBack,
 }: NoQuorumProps) {
@@ -149,6 +156,14 @@ export function NoQuorumScreen({
         </Card>
         {problem === undefined ? null : <Notice kind="warn">{problem}</Notice>}
       </Body>
+      {onShareAgain === undefined ? null : (
+        <Foot>
+          {shareOutcome === undefined ? null : (
+            <Small accessibilityLiveRegion="polite">{shareOutcome}</Small>
+          )}
+          <Tertiary label={t('waiting', 'share_the_link_again')} onPress={onShareAgain} />
+        </Foot>
+      )}
       <Sheet
         visible={asking === 'close'}
         onDismiss={() => onKeepAsItIs?.()}

@@ -507,6 +507,9 @@ export const en = {
     catch_up_in_the_next_14_days: 'Catch up in the next 14 days',
     '5_of_6_replied': '5 of 6 replied',
     see_how_its_looking: "See how it's looking",
+    share_the_link: 'Share the link',
+    link_copied: 'Copied. Paste it in the group chat.',
+    link_couldnt_copy: "Couldn't copy the message. Try again.",
     last_caught_up: 'Last caught up',
     sat_8_aug: 'Sat 8 Aug',
     next_one: 'Next one',
@@ -2286,6 +2289,8 @@ export const en = {
     only_you:
       "Only you see this while it's incomplete. Members see the options once there are some.",
     share_the_link_again: 'Share the link again',
+    link_copied: 'Copied. Paste it in the group chat.',
+    link_couldnt_copy: "Couldn't copy the message. Try again.",
     edit_the_plan: 'Edit the plan',
     loading: 'Getting the plan',
     couldnt_load: "We couldn't load this plan.",
