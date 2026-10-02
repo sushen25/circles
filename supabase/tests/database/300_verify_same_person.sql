@@ -6,7 +6,7 @@
 -- pending, so its subscription stays undeliverable.
 
 begin;
-select plan(37);
+select plan(38);
 
 create or replace function pg_temp.make_user(id uuid, name text, permanent boolean default false)
 returns uuid language sql as $$
@@ -384,6 +384,15 @@ select is(
   (select count(*)::integer from private.same_person_identities('30000000-0000-0000-0000-0000000000a1') i
    where i = '30000000-0000-0000-0000-0000000000a4'),
   0, 'and not into the next place the same identity took in that circle');
+
+-- The identity at the junction is directly linked to each neighbour (the
+-- founder's rule: an identity linked by a recorded reattachment), so verifying
+-- as it reaches all of them. What is not allowed is reaching *through* it.
+select is(
+  (select array_agg(i order by i) from private.same_person_identities('30000000-0000-0000-0000-0000000000a2') i),
+  array['30000000-0000-0000-0000-0000000000a1', '30000000-0000-0000-0000-0000000000a2',
+        '30000000-0000-0000-0000-0000000000a3', '30000000-0000-0000-0000-0000000000a4']::uuid[],
+  'the identity both memberships passed through is linked to the people on both');
 
 -- A membership that ended some other way (the member was removed) before the
 -- identity took another place does not continue into that other place's move.

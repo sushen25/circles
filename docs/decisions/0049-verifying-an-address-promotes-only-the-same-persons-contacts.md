@@ -119,6 +119,14 @@ so none is added.
   address the taker used), but it is not zero. Closing it means refusing the
   link from a place taken without proof, which strands a sibling in the one
   direction the split needs; put to the founder on the ticket, left as decided.
+- **The identity at a junction is linked to everybody who passed through it.**
+  If B took A's place, passed it on to C, and also took D's place, then B is
+  directly linked to A, C and D, which is the founder's rule, and verifying as B
+  reaches all three. A and D are not linked to each other: the walk from either
+  of them never passes through B into the other's chain. B is the one identity
+  that both places touched, and it is the one that can ask for an address on
+  behalf of either, so verifying as it answering for both is the same exposure
+  as the takeover residual above and no wider.
 - **Residual: two copies of one contact, in two circles.** A person who moved
   circle one to a new identity B and circle two to a new identity D leaves the
   copies on B and D connected only through the identity they both came from. A
