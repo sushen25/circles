@@ -17,19 +17,44 @@
  * **Changing the words means a new version**, never an edit in place. An old
  * subscription keeps the version it consented to, and a version that quietly
  * changed meaning would make every record before it a lie.
+ *
+ * Two tests hold this in place (`supabase/functions/_shared/email/consent.test.ts`):
+ * every plan-update letter (`SUBSCRIBER_KINDS`) has a phrase in `covers` that
+ * the sentence contains, so a new kind cannot ship without somebody reading
+ * the sentence; and each version is pinned to a hash of its words, so editing
+ * the text without a new version fails.
+ *
+ * Versions so far:
+ * - `2026-09-14`: locked in, changed, called off, the reminder and the
+ *   morning-after question. It did not name the letter that asks somebody to
+ *   add their times again after an edit (`asked_again`, ADR 0046).
+ * - `2026-10-02`: the same, naming that letter too.
  */
 export const CONSENT = {
   /**
    * The date the wording was settled, which sorts and reads. Not a number:
    * `v2` tells you nothing about whether it is older than the row beside it.
    */
-  version: '2026-09-14',
+  version: '2026-10-02',
   scope: 'plan_updates',
   text:
     'Email me about this meetup only — when it is locked in, changed or called ' +
-    'off, a reminder two hours before, and one question the morning after. ' +
-    'Nothing else, and you can stop it from any of those emails without ' +
-    'signing in.',
+    'off, if I need to add my times again after a change, a reminder two hours ' +
+    'before, and one question the morning after. Nothing else, and you can stop ' +
+    'it from any of those emails without signing in.',
+  /**
+   * For each plan-update letter, the words in `text` that say it will come.
+   * Keyed by the email kind's name (`SUBSCRIBER_KINDS` in the Edge Functions'
+   * email types, which this package cannot import); a test ties the two.
+   */
+  covers: {
+    locked_in: 'locked in',
+    changed: 'changed',
+    cancelled: 'called off',
+    reminder: 'a reminder two hours before',
+    did_it_happen_participant: 'one question the morning after',
+    asked_again: 'add my times again',
+  },
 } as const;
 
 export type Consent = typeof CONSENT;

@@ -1,0 +1,68 @@
+import { CONSENT } from '@circles/config';
+import { render, screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+
+vi.mock('expo-router', () => ({}));
+
+const { SentScreen } = await import('./SentScreen');
+
+/**
+ * SUS-109 (audit H4). The words beside the box where somebody types their
+ * address are the words recorded against the subscription (ADR 0019).
+ */
+describe('the email offer', () => {
+  it('shows CONSENT.text, byte for byte', () => {
+    render(<SentScreen offerEmail circleName="Sunday Crew" headline="Thanks." />);
+
+    const shown = screen.getByText((_, node) => node?.textContent === CONSENT.text);
+    expect(shown.textContent).toBe(CONSENT.text);
+  });
+
+  it('is not drawn when the offer is dismissed', () => {
+    render(<SentScreen offerEmail={false} />);
+
+    expect(screen.queryByText((_, node) => node?.textContent === CONSENT.text)).toBeNull();
+  });
+});
+
+/** Every non-test source under `src/features` and `src/routes`, as text. */
+declare global {
+  // Vite's, which Vitest runs on; `vite/client` is not a dependency of the app.
+  interface ImportMeta {
+    glob(
+      patterns: string[],
+      options: { query: string; import: string; eager: true },
+    ): Record<string, string>;
+  }
+}
+const SOURCES = import.meta.glob(['/src/**/*.{ts,tsx}', '!/src/**/*.test.{ts,tsx}'], {
+  query: '?raw',
+  import: 'default',
+  eager: true,
+});
+
+describe('every screen that asks for plan-update email', () => {
+  // A flow that calls `request-email-updates` is listed with the file that
+  // draws what the person agrees to, which must render `CONSENT.text`. A new
+  // caller that is not listed fails this test: decide where the sentence goes.
+  const SCREEN_OF_CALLER: Record<string, string | null> = {
+    'features/availability/SentFlow.tsx': 'features/availability/SentScreen.tsx',
+    // Resend: the same agreement, made on the offer that sent the first letter.
+    // It collects nothing and offers nothing new; "Use a different one" goes
+    // back to the offer, which shows the sentence.
+    'features/communication/CheckEmailFlow.tsx': null,
+  };
+
+  it('is listed, and renders CONSENT.text', () => {
+    const callers = Object.entries(SOURCES)
+      .filter(([, text]) => /\brequestEmailUpdates\b/.test(text))
+      .map(([path]) => path.replace(/^\/src\//, ''))
+      .filter((path) => !path.startsWith('data/'));
+
+    expect(callers.sort()).toEqual(Object.keys(SCREEN_OF_CALLER).sort());
+    for (const [, screenFile] of Object.entries(SCREEN_OF_CALLER)) {
+      if (screenFile === null) continue;
+      expect(SOURCES[`/src/${screenFile}`], screenFile).toMatch(/\{CONSENT\.text\}/);
+    }
+  });
+});

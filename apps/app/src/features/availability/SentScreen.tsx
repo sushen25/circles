@@ -1,3 +1,5 @@
+import { CONSENT } from '@circles/config';
+
 import {
   Body,
   BodyText,
@@ -24,6 +26,9 @@ import { t } from '../../copy';
  * The answer is in; the rest is optional and must read that way. The email card
  * is one tap to dismiss and records nothing when it is, and "save access" is a
  * tertiary under it (§5.11: the only prompt here in Slice 1).
+ *
+ * The sentence under the email card is `CONSENT.text`, the words recorded with
+ * the subscription, not a string from the copy file (SUS-109).
  *
  * Presentational: `SentFlow` owns the plan, the request and the navigation.
  */
@@ -139,7 +144,8 @@ export function SentScreen({
             <Row>
               <Title>{t('sent', 'get_updates_about_this_meetup_by_email')}</Title>
             </Row>
-            <Small>{t('sent', 'well_send_the_confirmed_time_any_important')}</Small>
+            {/* What is recorded is what is shown: `CONSENT.text`, never a copy key (ADR 0019). */}
+            <Small>{CONSENT.text}</Small>
             <Input
               aria-label={t('sent', 'your_email')}
               placeholder={t('sent', 'you_example_com')}

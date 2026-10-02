@@ -2011,8 +2011,6 @@ export const en = {
     time_gets_picked:
       'A time gets picked once replies close on {day}. The plan will land in the group chat.',
     get_updates_about_this_meetup_by_email: 'Get updates about this meetup by email',
-    well_send_the_confirmed_time_any_important:
-      "We'll send the confirmed time, any important changes and one reminder. Verify your email to turn this on. Nothing else.",
     your_email: 'Your email',
     you_example_com: 'you@example.com',
     not_an_address: "That doesn't look like an email address.",
