@@ -37,11 +37,11 @@ export function PrivacyScreen({ onBack }: PrivacyProps) {
         </Card>
         <Card>
           <Row>
-            <Title>{t('privacy', 'email_is_optional_and_narrow')}</Title>
+            <Title>{t('privacy', 'what_email_you_get')}</Title>
           </Row>
-          <BodyText>{t('privacy', 'meetup_updates_only_per_meetup_with_a')}</BodyText>
+          <BodyText>{t('privacy', 'anyone_gets_updates_only_if_they_ask')}</BodyText>
         </Card>
-        <Small>{t('privacy', 'you_can_leave_a_circle_delete_your')}</Small>
+        <Small>{t('privacy', 'to_have_your_details_removed')}</Small>
       </Body>
     </Screen>
   );

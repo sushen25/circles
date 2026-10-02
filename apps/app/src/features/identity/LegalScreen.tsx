@@ -23,6 +23,8 @@ const SECTIONS: Record<LegalKind, readonly (readonly [string, string])[]> = {
   privacy: [
     [t('legal', 'privacy_keep_heading'), t('legal', 'privacy_keep_body')],
     [t('legal', 'privacy_never_heading'), t('legal', 'privacy_never_body')],
+    [t('legal', 'privacy_others_heading'), t('legal', 'privacy_others_body')],
+    [t('legal', 'privacy_email_heading'), t('legal', 'privacy_email_body')],
     [t('legal', 'privacy_calendar_heading'), t('legal', 'privacy_calendar_body')],
     [t('legal', 'privacy_leave_heading'), t('legal', 'privacy_leave_body')],
   ],
