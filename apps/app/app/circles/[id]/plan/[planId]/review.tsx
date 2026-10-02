@@ -4,11 +4,13 @@ import { ReviewFlow } from '../../../../../src/features/confirmation/ReviewFlow'
 
 /** Route only — thin composition, no logic (architecture §7.1). */
 export default function Route() {
-  const { id, planId, candidate } = useLocalSearchParams<{
+  const { id, planId, candidate, start, end } = useLocalSearchParams<{
     id: string;
     planId: string;
     candidate?: string;
+    start?: string;
+    end?: string;
   }>();
 
-  return <ReviewFlow id={id} planId={planId} candidate={candidate} />;
+  return <ReviewFlow id={id} planId={planId} candidate={candidate} start={start} end={end} />;
 }

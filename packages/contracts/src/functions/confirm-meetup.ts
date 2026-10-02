@@ -21,7 +21,12 @@ import { Mutation } from './shared.js';
  * **Or a day and time of the organiser's own** ([ADR 0050](../../../../docs/decisions/0050-the-organiser-sets-the-final-plan.md)):
  * the same endpoint, the same review screen, a different first half of the body.
  */
-const Details = {
+/**
+ * What the review screen collects beside the time, whichever half of the body
+ * names the time. Exported so the screen judges a field by the schema's own rule
+ * instead of restating it.
+ */
+export const ConfirmDetails = {
   /** A line on a card, not a paragraph — the domain's limit, not a second one. */
   place_name: z.string().trim().min(1).max(PLACE_NAME_MAX_LENGTH).optional(),
   /**
@@ -43,7 +48,7 @@ const Details = {
 const ConfirmOption = Mutation.extend({
   plan_id: PlanId,
   candidate_id: Instant,
-  ...Details,
+  ...ConfirmDetails,
   /**
    * The candidate set the options on the screen came from — the `id` of the
    * `candidate_sets` row the client already loaded to render them.
@@ -79,7 +84,7 @@ const ConfirmOwnTime = Mutation.extend({
   starts_at: Instant,
   ends_at: Instant,
   expected_input_version: z.int().min(1),
-  ...Details,
+  ...ConfirmDetails,
 }).strict();
 
 /**

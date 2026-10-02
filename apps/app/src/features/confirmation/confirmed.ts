@@ -6,6 +6,7 @@ import {
   fromISO,
   icsFilename,
   lockedInMessage,
+  movedMessage,
   planId,
   toISO,
   toLocal,
@@ -58,6 +59,8 @@ export type ConfirmedView = {
   unsaid: string;
   /** "Maya says: “…”" — absent without a note. */
   note: string | undefined;
+  /** "Moved from Fri 18 Sep, 7–9 pm" — present only on a plan the organiser moved. */
+  movedFrom: string | undefined;
 };
 
 function nameOf(data: PlanConfirmation, id: string): string {
@@ -130,6 +133,16 @@ export function confirmedOf(data: PlanConfirmation, confirmation: LockedIn): Con
         : organiser === undefined
           ? confirmation.note
           : t('confirmedGuest', 'says', { name: organiser, what: confirmation.note }),
+    movedFrom:
+      confirmation.movedFrom === undefined
+        ? undefined
+        : t('confirmedGuest', 'moved_from', {
+            previous: `${dateOf(confirmation.movedFrom.startsAt, data.zone)}, ${timeOf(
+              confirmation.movedFrom.startsAt,
+              confirmation.movedFrom.endsAt,
+              data.zone,
+            )}`,
+          }),
   };
 }
 
@@ -171,6 +184,16 @@ export function asDomain(data: PlanConfirmation, confirmation: LockedIn): Confir
     confirmedBy: userId(confirmation.confirmedBy),
     status: confirmation.status,
     confirmedAt: fromISO(confirmation.confirmedAt),
+    ownTime: confirmation.ownTime,
+    belowQuorum: confirmation.belowQuorum,
+    ...(confirmation.movedFrom === undefined
+      ? {}
+      : {
+          movedFrom: {
+            start: fromISO(confirmation.movedFrom.startsAt),
+            end: fromISO(confirmation.movedFrom.endsAt),
+          },
+        }),
   };
 }
 
@@ -183,7 +206,10 @@ export function asDomain(data: PlanConfirmation, confirmation: LockedIn): Confir
  * so the email and the paste agree.
  */
 export function messageOf(data: PlanConfirmation, confirmation: LockedIn, origin: string): string {
-  return lockedInMessage({
+  // After a move: "Change of plan: Sunday Crew is now Sat 19 Sep, 7–9 pm at …"
+  // (ADR 0050). `changed` stays the message for asking again.
+  const say = confirmation.movedFrom === undefined ? lockedInMessage : movedMessage;
+  return say({
     confirmation: asDomain(data, confirmation),
     circleName: data.circleName,
     zone: toZone(data.zone),

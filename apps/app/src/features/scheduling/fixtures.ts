@@ -44,6 +44,8 @@ const BASE: PlanCandidates = {
   quorumChosen: false,
   windowStart: '2026-09-14',
   windowEnd: '2026-09-20',
+  durationMinutes: 120,
+  dailyStartMin: 17 * 60 + 30,
   responseDeadline: DEADLINE,
   repliesOpen: true,
   /** Sunday 20 September, 8:30 pm Melbourne: the band ends 10:30, two hours long. */

@@ -70,7 +70,12 @@ export function useOwnAnswer(
                 detail: t('confirmedGuest', 'tap_below_if_that_changes'),
               }
             : {
-                title: t('confirmedGuest', 'you_unsaid'),
+                // Somebody the move left to confirm is told the time moved:
+                // they may have said yes to the old one (ADR 0050).
+                title: t(
+                  'confirmedGuest',
+                  confirmation.movedFrom === undefined ? 'you_unsaid' : 'moved_unsaid',
+                ),
                 detail: t('confirmedGuest', 'say_below'),
               },
     actions,

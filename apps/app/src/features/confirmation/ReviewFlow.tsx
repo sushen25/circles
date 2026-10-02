@@ -9,6 +9,7 @@ import { isOffline } from '../identity/join/failure';
 import * as fixture from '../scheduling/fixtures';
 import { useCandidates } from '../scheduling/useCandidates';
 import { ConfirmReviewScreen } from './ConfirmReviewScreen';
+import { OwnReviewFlow } from './OwnReviewFlow';
 import { candidateIn, fieldsOf, reviewOf, type ReviewForm } from './review';
 import { useLockIn } from './useLockIn';
 
@@ -27,11 +28,19 @@ export function ReviewFlow({
   id,
   planId,
   candidate,
+  start,
+  end,
 }: {
   id: string;
   planId: string;
   candidate: string | undefined;
+  /** A time the organiser chose themselves, instead of an option (ADR 0050). */
+  start?: string | undefined;
+  end?: string | undefined;
 }) {
+  if (candidate === undefined && start !== undefined && end !== undefined) {
+    return <OwnReviewFlow id={id} planId={planId} start={start} end={end} />;
+  }
   return hasBackend() ? (
     <LiveReview id={id} planId={planId} candidate={candidate ?? ''} />
   ) : (

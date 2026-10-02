@@ -76,6 +76,9 @@ export type PlanCandidates = {
   windowEnd: string;
   /** The days asked about when the window has gaps; absent is every day (ADR 0047). */
   days?: string[] | undefined;
+  /** How long the plan asked for, and when each day's band opens: where a picker starts. */
+  durationMinutes: number;
+  dailyStartMin: number;
   responseDeadline: string;
   /** Judged by the database's clock, never this device's. */
   repliesOpen: boolean;
@@ -273,6 +276,8 @@ export async function planCandidates(
     windowStart: plan.window_start,
     windowEnd: plan.window_end,
     days: daysOf(plan.plan_days),
+    durationMinutes: plan.duration_minutes,
+    dailyStartMin: plan.daily_start_local,
     responseDeadline: plan.response_deadline,
     repliesOpen: ANSWERABLE_STATES.includes(state) && open.data !== null,
     latestStart: latestStartOf(plan),

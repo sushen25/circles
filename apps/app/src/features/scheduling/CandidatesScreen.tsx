@@ -12,7 +12,7 @@ import {
 } from '../../components';
 import { Stack } from '../../components/layout';
 import { t } from '../../copy';
-import { CandidateCard, CandidateHeader, Placeholder } from './parts';
+import { CandidateCard, CandidateHeader, Placeholder, SetTimeRow } from './parts';
 import type { CardView, HeaderView } from './view';
 
 /**
@@ -45,6 +45,8 @@ export type CandidatesProps = {
   stale?: boolean | undefined;
   problem?: string | undefined;
   onSelect?: ((id: string) => void) | undefined;
+  /** "Pick a different time": any day and time, not only an option (ADR 0050). */
+  onSetTime?: (() => void) | undefined;
   onNext?: (() => void) | undefined;
   onNudge?: (() => void) | undefined;
   /** The plan's link again, while replies are open (SUS-132). */
@@ -69,6 +71,7 @@ export function CandidatesScreen({
   stale = false,
   problem,
   onSelect,
+  onSetTime,
   onNext,
   onNudge,
   onShareAgain,
@@ -131,6 +134,13 @@ export function CandidatesScreen({
             onPress={onSelect === undefined ? undefined : () => onSelect(card.id)}
           />
         ))}
+        {onSetTime === undefined ? null : (
+          <SetTimeRow
+            title={t('candidates', 'different_time_title')}
+            detail={t('candidates', 'different_time_body')}
+            onPress={onSetTime}
+          />
+        )}
         {problem === undefined ? null : <Notice kind="warn">{problem}</Notice>}
       </Body>
       <Foot>

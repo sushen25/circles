@@ -4,70 +4,73 @@ import { useState } from 'react';
 
 import { track } from '../../analytics/track';
 import { t } from '../../copy';
-import { confirmMeetup, type ChasedAnswer } from '../../data/confirmation';
+import { confirmOwnTime, stretchOf, type ChasedAnswer } from '../../data/confirmation';
 import { FunctionError } from '../../data/functions';
-import { planCandidates } from '../../data/scheduling';
 import { isOffline } from '../identity/join/failure';
-import { candidateIn } from './review';
 
 /**
- * Locking the time in (spec §5.7), and every way that can be refused.
+ * Locking in a time of the organiser's own (ADR 0050), and every way that can be
+ * refused.
  *
- * **Checked twice, for two different windows.** The plan is read again at the
- * tap, and nothing is sent if the set on screen is no longer the plan's
- * current one: the screen is as old as its last poll, and an answer landing in
- * between moves what "5 of 6 can make it" means. `expected_set_id` then closes
- * the window between this read and the server's lock, which no client read
- * can. Either refusal ends the same way — read again and show it, never resend
- * with the newer id — because the organiser is deciding about what they saw.
+ * **Checked twice, for two windows**, as `useLockIn` does for an option: who the
+ * time works for is read again at the tap, and nothing is sent if an answer has
+ * landed since the names on screen; then `expected_input_version` closes the
+ * window between that read and the server's lock. Either ends the same way: read
+ * again and show it, and never resend under the newer version — the organiser is
+ * deciding about the names they saw.
  *
- * Refusals are read from `Problem.reason`, never the message (architecture
- * §9.1).
+ * Refusals are read from `Problem.reason`, never the message.
  */
 
-/** The options moved between the render and the tap. Not a server refusal. */
-class OptionsMoved extends Error {}
+/** The names moved between the render and the tap. Not a server refusal. */
+class NamesMoved extends Error {}
 
-export type LockInInput = {
-  /**
-   * The plan's circle **as the read has it**, never the route's: the URL's
-   * segment is only a path, and a stale one would put the events and the
-   * next screen against somebody else's circle.
-   */
+export type LockInOwnInput = {
   circleId: string;
-  candidateId: string;
-  expectedSetId: string;
+  startsAt: string;
+  endsAt: string;
+  /** The plan's input version as the names on screen were read. */
+  expectedInputVersion: number;
   invitedCount: number;
+  belowQuorum: boolean;
   chasedAnswer: ChasedAnswer;
   placeName: string | undefined;
   placeUrl: string | undefined;
   note: string | undefined;
 };
 
-export type LockIn = {
+export type LockInOwn = {
   busy: boolean;
   problem: string | undefined;
   /** The plan is already locked in: the confirmed screen is where to be. */
   already: boolean;
-  lockIn: (input: LockInInput) => void;
+  /** An answer landed since the names on screen: they are being read again. */
+  moved: boolean;
+  lockIn: (input: LockInOwnInput) => void;
 };
 
-function problemOf(error: unknown): { problem: string; already?: boolean } {
+function problemOf(error: unknown): { problem: string; already?: boolean; moved?: boolean } {
   if (isOffline()) return { problem: t('confirmReview', 'youre_offline') };
-  if (error instanceof OptionsMoved) return { problem: t('confirmReview', 'moved') };
+  if (error instanceof NamesMoved) return { problem: t('confirmReview', 'own_moved'), moved: true };
   if (!(error instanceof FunctionError)) return { problem: t('confirmReview', 'problem_generic') };
   switch (error.reason) {
-    case 'stale_candidates':
-      return { problem: t('confirmReview', 'moved') };
-    case 'needs_candidate':
-      return { problem: t('confirmReview', 'gone_title') };
-    case 'candidate_has_passed':
+    case 'stale_availability':
+      return { problem: t('confirmReview', 'own_moved'), moved: true };
+    case 'own_time_in_the_past':
       return { problem: t('confirmReview', 'passed') };
+    case 'needs_own_time':
+    case 'own_time_off_the_half_hour':
+    case 'own_time_ends_before_it_starts':
+    case 'own_time_too_short':
+    case 'own_time_too_long':
+    case 'own_time_too_far_ahead':
+      return { problem: t('confirmReview', 'own_gone_title') };
     case 'not_the_organiser':
       return { problem: t('confirmReview', 'not_organiser_title') };
     case 'plan_not_found':
       return { problem: t('candidates', 'denied_title') };
     case 'wrong_state':
+    case 'plan_is_finished':
       return { problem: t('confirmReview', 'already'), already: true };
     default:
       return error.reference === undefined
@@ -76,33 +79,32 @@ function problemOf(error: unknown): { problem: string; already?: boolean } {
   }
 }
 
-export function useLockIn({
+export function useLockInOwn({
   planId,
   onLocked,
 }: {
   planId: string;
   onLocked: (circleId: string) => void;
-}): LockIn {
+}): LockInOwn {
   const client = useQueryClient();
   const [problem, setProblem] = useState<string>();
   const [already, setAlready] = useState(false);
-  const again = () => client.invalidateQueries({ queryKey: ['plan-candidates', planId] });
+  const [moved, setMoved] = useState(false);
+  const again = () =>
+    Promise.all([
+      client.invalidateQueries({ queryKey: ['plan-candidates', planId] }),
+      client.invalidateQueries({ queryKey: ['stretch', planId] }),
+    ]);
 
   const locking = useMutation({
-    mutationFn: async (input: LockInInput) => {
-      const now = await planCandidates({ planId });
-      if (
-        now === null ||
-        now.stale ||
-        now.set?.id !== input.expectedSetId ||
-        candidateIn(now, input.candidateId) === undefined
-      ) {
-        throw new OptionsMoved();
-      }
-      return confirmMeetup({
+    mutationFn: async (input: LockInOwnInput) => {
+      const now = await stretchOf(planId, input.startsAt, input.endsAt);
+      if (now.inputVersion !== input.expectedInputVersion) throw new NamesMoved();
+      return confirmOwnTime({
         planId,
-        candidateId: input.candidateId,
-        expectedSetId: input.expectedSetId,
+        startsAt: input.startsAt,
+        endsAt: input.endsAt,
+        expectedInputVersion: input.expectedInputVersion,
         chasedAnswer: input.chasedAnswer,
         placeName: input.placeName,
         placeUrl: input.placeUrl,
@@ -115,20 +117,19 @@ export function useLockIn({
         ...ids,
         attending_count: confirmed.going.length,
         invited_count: input.invitedCount,
-        // An option the engine offered (ADR 0050): neither flag can be true.
-        own_time: false,
-        below_quorum: false,
+        own_time: true,
+        below_quorum: input.belowQuorum,
       });
       track('organiser_chased', { ...ids, answer: input.chasedAnswer });
       setProblem(undefined);
-      // Circle home, the options and the plan page all describe this plan, and
-      // every one of them is now wrong.
+      setMoved(false);
       void client.invalidateQueries();
       onLocked(input.circleId);
     },
     onError: (error) => {
       const read = problemOf(error);
       setProblem(read.problem);
+      setMoved(read.moved === true);
       if (read.already === true) setAlready(true);
       void again();
     },
@@ -138,6 +139,7 @@ export function useLockIn({
     busy: locking.isPending,
     problem,
     already,
+    moved,
     lockIn: (input) => {
       setProblem(undefined);
       locking.mutate(input);
