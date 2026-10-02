@@ -1378,14 +1378,19 @@ export const en = {
     privacy_keep_body:
       'Your name, your time zone, the circles you are in, and the times you mark as good for you. If you sign in, your email address, so you can get back in.',
     privacy_never_heading: 'What we never do',
-    privacy_never_body:
-      'No ads. We do not sell or share your data. Your email is used to sign you in and, only if you ask, for updates about a plan.',
+    privacy_never_body: 'No ads. We do not sell your data, and we do not use it for advertising.',
+    privacy_others_heading: 'Who else handles it',
+    privacy_others_body:
+      'Hosting, the database and email delivery are run by other companies on our behalf, so your details pass through them. They are there to run {brand}, not to market to you.',
+    privacy_email_heading: 'What email you get',
+    privacy_email_body:
+      'A sign-in code when you sign in. If you organise plans or have an account, letters about your own plans and an occasional nudge to plan the next one; most of these can be turned off in notification settings. If you are a guest, updates about a plan only if you ask, each with a stop link.',
     privacy_calendar_heading: 'Your calendar stays yours',
     privacy_calendar_body:
       'Nobody in your circle sees your schedule, only which times work for the group. Calendar events on your phone never leave it.',
-    privacy_leave_heading: 'Leaving',
+    privacy_leave_heading: 'Removing your details',
     privacy_leave_body:
-      'You can leave a circle or delete your account from settings. Deleting it removes your details.',
+      'A circle owner can remove a member. To have your details removed, write to {support}. There is no delete button in the app yet.',
     questions: 'Questions: {support}',
   },
   linkInvalid: {
@@ -1841,11 +1846,11 @@ export const en = {
     friends_see_a_combined_result: 'Friends see a combined result',
     they_see_which_options_work_for_you:
       "They see which options work for you, never a personal schedule. Before enough people are keen on a quiet ask, nobody sees anyone's answer.",
-    email_is_optional_and_narrow: 'Email is optional and narrow',
-    meetup_updates_only_per_meetup_with_a:
-      'Meetup updates only, per meetup, with a stop link in every email. We never sell or share addresses.',
-    you_can_leave_a_circle_delete_your:
-      'You can leave a circle, delete your data or export it any time from Account.',
+    what_email_you_get: 'What email you get',
+    guests_get_updates_only_if_they_ask:
+      'Guests get updates about a plan only if they ask, each with a stop link. If you organise plans or have an account, you also get letters about your own plans and an occasional nudge, most of which you can turn off in notification settings. We never sell addresses, and other companies deliver the email for us.',
+    to_have_your_details_removed:
+      'To have your details removed, write to {support}. There is no delete button in the app yet.',
   },
   pushAsk: {
     want_to_know_when_sunday_crew_has: 'Want to know when Sunday Crew has options?',
