@@ -2,12 +2,15 @@ import {
   type Instant,
   type LocalDate,
   type Zone,
+  dayRuns,
   formatMinutesOfDay,
   formatRange,
   toLocal,
   toParts,
   weekday as isoWeekday,
 } from '@circles/domain';
+
+import { EN_DAYS } from './copy-days.ts';
 
 /**
  * Dates as an email writes them, in the plan's zone.
@@ -141,6 +144,30 @@ export function dateSpan(start: LocalDate, end: LocalDate): string {
   return from.month === to.month
     ? `${from.weekday} ${from.day} – ${last}`
     : `${from.weekday} ${from.day} ${from.month} – ${last}`;
+}
+
+/**
+ * A plan's days as a person writes them (ADR 0047). Every day from the first
+ * to the last is `dateSpan`'s "Thu 17 – Sun 20 Sep"; with gaps, each run of
+ * days is said that way and the runs are listed — "Thu 17 – Sat 19 Sep, Tue 22
+ * Sep and Thu 24 Sep" — so the letter never claims a day the plan skips. More
+ * than three runs is a count rather than a list nobody reads to the end.
+ */
+export function daysSpan(
+  start: LocalDate,
+  end: LocalDate,
+  days?: readonly LocalDate[] | undefined,
+): string {
+  if (days === undefined || days.length === 0) return dateSpan(start, end);
+  const runs = dayRuns({ start, end, days });
+  if (runs.length > 3) {
+    return EN_DAYS.between({
+      count: days.length,
+      from: dateSpan(start, start),
+      to: dateSpan(end, end),
+    });
+  }
+  return EN_DAYS.list(runs.map((run) => dateSpan(run.start, run.end)));
 }
 
 /** "5:30–10:30 pm": a plan's daily band, in minutes of the local day. */

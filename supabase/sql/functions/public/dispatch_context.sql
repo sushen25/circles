@@ -30,6 +30,11 @@ as $$
   select jsonb_build_object(
     'circle', to_jsonb(c) - 'created_at' - 'updated_at' - 'creation_key',
     'plan', to_jsonb(p) - 'created_at' - 'updated_at',
+    -- The days the plan asks about when it has gaps, else null (ADR 0047), so
+    -- a message that names the dates names only those.
+    'days', (
+      select jsonb_agg(d.day order by d.day) from public.plan_days d where d.plan_id = p.id
+    ),
     'organiser_name', (
       select m.display_name_snapshot from public.circle_members m
       where m.circle_id = p.circle_id and m.user_id = p.organiser_user_id

@@ -60,6 +60,13 @@ export function widerWarning(
   if (askedAgain === undefined) return undefined;
   const day = dateOf(`${widerEnd(data)}T12:00:00.000Z`, 'UTC');
   const names = listOf(namesWithYou(data, askedAgain));
+  // A plan with gaps is told it will ask about every day, not only the days
+  // picked, before it does (ADR 0047).
+  if (data.days !== undefined) {
+    return names === undefined
+      ? t('customWindow', 'wider_confirm_gaps_nobody', { day })
+      : t('customWindow', 'wider_confirm_gaps', { day, name: names });
+  }
   return names === undefined
     ? t('noQuorum', 'wider_confirm_body_nobody', { day })
     : t('noQuorum', 'wider_confirm_body', { day, name: names });

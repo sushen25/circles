@@ -1,6 +1,14 @@
-import { fromISO, isDeadlineAllowed, type Instant, type WindowPreset } from '@circles/domain';
+import {
+  fromISO,
+  isDeadlineAllowed,
+  localDate,
+  sameDays,
+  type Instant,
+  type WindowPreset,
+} from '@circles/domain';
 
 import type { PlanDetails, Revision } from '../../data/planning';
+import { selectionOf } from './calendar';
 import { deadlineFor, latestStartOf, windowOf, type Band, type DateRange } from './form';
 import type { PlanDraft, ResolveProblem } from './form';
 
@@ -28,7 +36,7 @@ export function editDraftFrom(plan: PlanDetails): PlanDraft {
   return {
     category: plan.category,
     preset: 'custom',
-    custom: { start: plan.windowStart, end: plan.windowEnd },
+    custom: keptOf(plan),
     band: plan.band,
     duration: plan.durationMinutes,
     quorum: plan.quorum,
@@ -36,6 +44,19 @@ export function editDraftFrom(plan: PlanDetails): PlanDraft {
     deadline: undefined,
   };
 }
+
+/** The plan's own dates, with its days when it has gaps (ADR 0047). */
+export function keptOf(plan: Pick<PlanDetails, 'windowStart' | 'windowEnd' | 'days'>): DateRange {
+  return plan.days === undefined
+    ? { start: plan.windowStart, end: plan.windowEnd }
+    : { start: plan.windowStart, end: plan.windowEnd, days: [...plan.days] };
+}
+
+const asWindow = (range: DateRange) => ({
+  start: localDate(range.start),
+  end: localDate(range.end),
+  ...(range.days === undefined ? {} : { days: range.days.map(localDate) }),
+});
 
 export type EditResolved =
   | {
@@ -66,14 +87,19 @@ export function resolveEdit(
     deadlinePreset?: WindowPreset;
   } = {},
 ): EditResolved {
-  const kept = { start: plan.windowStart, end: plan.windowEnd };
+  const kept = keptOf(plan);
   // The plan's own dates go through the same resolution as a custom window:
   // a band that no longer fits, or dates that have gone by, are refused here
   // exactly as the server would refuse them.
   const shape = windowOf(draft.preset, draft.custom, draft.band, draft.duration, now, plan.zone);
   if (typeof shape === 'string') return { ok: false, problem: shape };
 
-  const windowChanged = shape.window.start !== kept.start || shape.window.end !== kept.end;
+  // The days, compared as days: a plan's days written two ways are one plan.
+  // Whether a change to them costs anybody a reply is the server's to say —
+  // taking away days nobody picked does not (ADR 0047) — and the screen reads
+  // `bumps_revision` off the preview rather than guessing.
+  const windowChanged = !sameDays(asWindow(shape.window), asWindow(kept));
+  const endsMoved = shape.window.start !== kept.start || shape.window.end !== kept.end;
   const bandChanged =
     shape.band.startMin !== plan.band.startMin || shape.band.endMin !== plan.band.endMin;
   const durationChanged = draft.duration !== plan.durationMinutes;
@@ -83,7 +109,14 @@ export function resolveEdit(
   let deadline = plan.responseDeadline;
   let deadlineMoved = false;
   const current = fromISO(plan.responseDeadline);
-  const currentStands = !windowChanged && isDeadlineAllowed(current, fromISO(latestStart), now);
+  // A deadline stands while the window's ends do, and while days are only
+  // taken away (ADR 0047): it moves only when it has to, to come before the
+  // new last possible start — as for a band change. Whether taking the days
+  // away asks anybody again is the server's to say, not this.
+  const keptDays = selectionOf(kept);
+  const onlyTaken = selectionOf(shape.window).every((day) => keptDays.includes(day));
+  const currentStands =
+    (!endsMoved || onlyTaken) && isDeadlineAllowed(current, fromISO(latestStart), now);
   if (draft.deadline !== undefined || (asksAgain && !currentStands)) {
     const next = deadlineFor(
       options.deadlinePreset ?? draft.preset,

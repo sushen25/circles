@@ -12,7 +12,7 @@ import { contains, interval } from '../shared/interval.js';
 import { type Instant, addMinutes } from '../shared/instant.js';
 import { type LocalDate, isWeekend } from '../shared/local-date.js';
 import { fromLocal, fromLocalEnd, localSlotStarts, toLocal } from '../shared/zone.js';
-import { addDays } from '../shared/local-date.js';
+import { askedDays } from '../planning/days.js';
 import { inputHash } from './hash.js';
 import {
   SCORING_VERSION,
@@ -56,9 +56,11 @@ type Scored = {
  */
 export function enumerateCandidateStarts(plan: EnginePlan, now: Instant): Instant[] {
   const starts: Instant[] = [];
-  let date = plan.window.start;
 
-  while (date <= plan.window.end) {
+  // Only the days the plan asks about (ADR 0047): a day between them that it
+  // does not ask about has no answers, and offering a time on it would be
+  // offering a day nobody was asked.
+  for (const date of askedDays(plan.window)) {
     const bandStart = fromLocal(date, plan.daily.startMin, plan.zone);
     const bandEnd = fromLocalEnd(date, plan.daily.endMin, plan.zone);
 
@@ -68,7 +70,6 @@ export function enumerateCandidateStarts(plan: EnginePlan, now: Instant): Instan
       if (start <= now) continue;
       starts.push(start);
     }
-    date = addDays(date, 1);
   }
   return starts;
 }

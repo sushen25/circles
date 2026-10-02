@@ -27,7 +27,12 @@ create or replace function public.revise_plan(
   -- `create_plan` draws.
   p_required_member_ids uuid[] default null,
   -- What the preview said the plan was. Null means the caller did not preview.
-  p_expected_version text default null
+  p_expected_version text default null,
+  -- The days the plan should ask about, sorted and distinct, first and last
+  -- the window's ends (ADR 0047). Null leaves them alone — unless the window's
+  -- ends move, when the plan asks about every day of the new window: that is
+  -- what "Try a wider window" sends, and it drops the gaps on purpose.
+  p_days date[] default null
 )
 returns jsonb
 language plpgsql
@@ -43,6 +48,12 @@ declare
   key text;
   effective_deadline timestamptz;
   wanted uuid[];
+  new_start date;
+  new_end date;
+  old_days date[];
+  new_days date[];
+  days_changed boolean;
+  reasks boolean;
 begin
   if caller is null then
     raise exception 'revise_plan requires a signed-in actor'
@@ -148,9 +159,48 @@ begin
     end if;
   end if;
 
-  if p_payload = '{}'::jsonb and p_required_member_ids is null and not p_reopen then
+  -- The days (ADR 0047), as the plan asks about them now and as it would.
+  -- No rows in `plan_days` is every day of the window, so both sides are
+  -- spelled out as lists and compared as lists, whatever form each is stored in.
+  new_start := coalesce((p_payload ->> 'window_start')::date, plan.window_start);
+  new_end := coalesce((p_payload ->> 'window_end')::date, plan.window_end);
+  if planning.days_invalid(p_days, new_start, new_end) then
+    raise exception 'days_invalid' using errcode = 'P0001';
+  end if;
+
+  old_days := coalesce(
+    (select array_agg(d.day order by d.day) from public.plan_days d where d.plan_id = plan.id),
+    (select array_agg(g::date order by g)
+     from generate_series(plan.window_start, plan.window_end, interval '1 day') g)
+  );
+  new_days := case
+    when p_days is not null then p_days
+    when new_start = plan.window_start and new_end = plan.window_end then old_days
+    else (select array_agg(g::date order by g)
+          from generate_series(new_start, new_end, interval '1 day') g)
+  end;
+  days_changed := new_days is distinct from old_days;
+
+  if p_payload = '{}'::jsonb and p_required_member_ids is null and not p_reopen
+    and not days_changed
+  then
     raise exception 'nothing_to_change' using errcode = 'P0001';
   end if;
+
+  -- Whether the change to the days is a new question. Adding a day is: nobody
+  -- has said anything about it. Taking away a day somebody picked is: their
+  -- answer no longer means what they said. Taking away days that nobody
+  -- picked is not — every answer still stands as given — and the founder
+  -- chose that it should not cost anybody a reply (ADR 0047). Decided here,
+  -- under the lock, from `picked_days`, the same question the preview asked.
+  reasks := days_changed and (
+    exists (select 1 from unnest(new_days) d where d <> all (old_days))
+    or exists (
+      select 1 from unnest(old_days) d
+      where d <> all (new_days)
+        and d in (select pd from public.picked_days(p_plan_id) pd)
+    )
+  );
 
   -- Which action this is, from what is being changed rather than from what the
   -- caller says it is. A payload touching the window, the band or the duration
@@ -162,11 +212,16 @@ begin
   -- the expensive change. It could not get far if it tried —
   -- `planning.allowed_keys('adjust')` is those two keys alone — but the caller
   -- having no say is simpler than the caller being caught.
+  --
+  -- The days are judged by what they cost rather than by which keys moved: a
+  -- window whose last day went, unpicked, is a `narrow` although `window_end`
+  -- changed, and a gap filled in the middle is an `edit` although neither end
+  -- did.
   action := case
     when p_reopen then 'reopen'
-    when p_payload ?| array[
-      'window_start', 'window_end', 'daily_start_local', 'daily_end_local', 'duration_minutes'
-    ] then 'edit'
+    when p_payload ?| array['daily_start_local', 'daily_end_local', 'duration_minutes'] then 'edit'
+    when reasks then 'edit'
+    when days_changed then 'narrow'
     else 'adjust'
   end;
 
@@ -189,6 +244,29 @@ begin
   end if;
 
   revised := planning.transition_plan(p_plan_id, action, caller, p_payload);
+
+  -- The days, written in their one form: rows only when there are gaps. After
+  -- the transition, so a new revision and its days arrive together; the
+  -- deferred `enforce_plan_days` checks the pair at commit.
+  if days_changed then
+    delete from public.plan_days d where d.plan_id = revised.id;
+    if cardinality(new_days) < (new_end - new_start) + 1 then
+      insert into public.plan_days (plan_id, day)
+      select revised.id, d from unnest(new_days) d;
+    end if;
+  end if;
+
+  -- A narrowing keeps every answer, and changes what the engine is given, so
+  -- the set is recomputed as it is after a quorum change. The set can change:
+  -- an "I'm easy" answer counts on every day, so a candidate can sit on a day
+  -- nobody picked, and taking that day away takes the candidate with it. The
+  -- organiser chose that; nobody's answer changed.
+  if action = 'narrow' then
+    update public.plans p
+    set input_version = p.input_version + 1
+    where p.id = revised.id
+    returning * into revised;
+  end if;
 
   -- Who has to be there, if the organiser said. Spec §9's answer to "a required
   -- person leaves" is that "the plan becomes ineligible until the organiser
@@ -223,7 +301,9 @@ begin
   -- ready plan ready (ADR 0017). `candidates_gone` has no guards and no event:
   -- nobody is told the set is being recomputed, because nobody was told it
   -- existed.
-  if revised.state = 'ready' and (p_payload ? 'quorum' or p_required_member_ids is not null) then
+  if revised.state = 'ready'
+    and (p_payload ? 'quorum' or p_required_member_ids is not null or action = 'narrow')
+  then
     revised := planning.transition_plan(revised.id, 'candidates_gone', caller);
   end if;
 
@@ -236,14 +316,17 @@ begin
     'audience', audience,
     -- The version the audience was read at, which is the version this answer
     -- describes — not the one the change has just produced.
-    'version', plan.revision || '.' || plan.input_version
+    'version', plan.revision || '.' || plan.input_version,
+    -- Which of the four this was, so the handler reports what the database
+    -- decided rather than what it guessed: a `narrow` asks nobody again.
+    'action', action
   );
 end;
 $$;
 
-comment on function public.revise_plan(uuid, boolean, jsonb, uuid[], text) is
+comment on function public.revise_plan(uuid, boolean, jsonb, uuid[], text, date[]) is
   'Edits a plan, or reopens a confirmed one, as the calling organiser. Returns the revised plan and the audience it had before the change, derived under the same lock. A fixed set of actions over planning.transition_plan, which no client can call.';
 
-revoke all on function public.revise_plan(uuid, boolean, jsonb, uuid[], text) from public;
-revoke all on function public.revise_plan(uuid, boolean, jsonb, uuid[], text) from anon, authenticated;
-grant execute on function public.revise_plan(uuid, boolean, jsonb, uuid[], text) to authenticated;
+revoke all on function public.revise_plan(uuid, boolean, jsonb, uuid[], text, date[]) from public;
+revoke all on function public.revise_plan(uuid, boolean, jsonb, uuid[], text, date[]) from anon, authenticated;
+grant execute on function public.revise_plan(uuid, boolean, jsonb, uuid[], text, date[]) to authenticated;

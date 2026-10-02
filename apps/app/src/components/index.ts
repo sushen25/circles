@@ -9,7 +9,7 @@ export { Card } from './Card';
 export { Chip, Chips } from './Chip';
 export { CircleBadge, CircleHeader, circleHex } from './CircleBadge';
 export { CodeInput } from './CodeInput';
-export { DayGrid, type GridDay } from './DayGrid';
+export { DayGrid, type GridDay, type GridPaint } from './DayGrid';
 export { Icon, type IconName } from './Icon';
 export { Input } from './Input';
 export { ListRow } from './ListRow';

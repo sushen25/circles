@@ -1,8 +1,17 @@
 import { useState } from 'react';
-import { Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import {
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
+  type LayoutChangeEvent,
+} from 'react-native';
 
 import { color, faceFor, hit, radius } from '@circles/tokens';
 
+import { type GridPaint, useDayStroke } from './useDayStroke';
 import { Icon } from './Icon';
 import { Label } from './Text';
 import { usePalette } from './theme';
@@ -60,11 +69,20 @@ type Props = {
   onToggle?: ((index: number) => void) | undefined;
   /** "I'm easy" is on, or an answer is on its way: shown, faded, not pressable. */
   dimmed?: boolean | undefined;
+  /**
+   * Paint by dragging across days as well as tapping them (SUS-133). Absent,
+   * the grid is exactly what it was: taps only, as the availability editor's.
+   * Offered only while the grid is seven columns — wrapped into a list at
+   * large text, its days are tapped one at a time.
+   */
+  onPaint?: GridPaint | undefined;
 };
 
 const COLUMNS = 7;
 
-export function DayGrid({ days, weekdays, label, onToggle, dimmed = false }: Props) {
+export type { GridPaint };
+
+export function DayGrid({ days, weekdays, label, onToggle, dimmed = false, onPaint }: Props) {
   const { fontScale } = useWindowDimensions();
   const [width, setWidth] = useState(0);
   // The gap gives way before the columns do: seven 44pt columns fit a 360pt
@@ -77,6 +95,10 @@ export function DayGrid({ days, weekdays, label, onToggle, dimmed = false }: Pro
   const wraps = gap < 1;
   // Room for the figure in the corner, on every day alike so the rows line up.
   const counted = days.some((day) => day.others !== undefined);
+  const stroke = useDayStroke(
+    onPaint !== undefined && !wraps && !dimmed ? onPaint : undefined,
+    days.length,
+  );
 
   const button = (day: GridDay, index: number) => (
     <DayButton
@@ -85,7 +107,21 @@ export function DayGrid({ days, weekdays, label, onToggle, dimmed = false }: Pro
       wraps={wraps}
       counted={counted}
       dimmed={dimmed}
-      onPress={onToggle === undefined ? undefined : () => onToggle(index)}
+      onPress={
+        onToggle === undefined
+          ? undefined
+          : () => {
+              // The click a mouse makes when a stroke ends on the day it began
+              // is the stroke's, not a tap (review round 2).
+              if (stroke?.swallowsClick() === true) return;
+              onToggle(index);
+            }
+      }
+      onLayout={
+        stroke === undefined
+          ? undefined
+          : (event) => stroke.placeDay(index, Math.floor(day.slot / COLUMNS), event)
+      }
     />
   );
 
@@ -96,7 +132,11 @@ export function DayGrid({ days, weekdays, label, onToggle, dimmed = false }: Pro
     const weeks = Math.ceil((Math.max(...days.map((d) => d.slot), 0) + 1) / COLUMNS);
     const bySlot = new Map(days.map((day, index) => [day.slot, index]));
     body = Array.from({ length: weeks }, (_, week) => (
-      <View key={week} style={[styles.week, { gap }]}>
+      <View
+        key={week}
+        style={[styles.week, { gap }]}
+        onLayout={stroke === undefined ? undefined : (event) => stroke.placeWeek(week, event)}
+      >
         {Array.from({ length: COLUMNS }, (__, col) => {
           const index = bySlot.get(week * COLUMNS + col);
           return index === undefined ? (
@@ -123,7 +163,13 @@ export function DayGrid({ days, weekdays, label, onToggle, dimmed = false }: Pro
           ))}
         </View>
       )}
-      <View role="group" aria-label={label} style={styles.days}>
+      <View
+        ref={stroke?.ref}
+        role="group"
+        aria-label={label}
+        style={[styles.days, stroke !== undefined && styles.paintable]}
+        {...(stroke?.handlers ?? {})}
+      >
         {body}
       </View>
     </View>
@@ -136,12 +182,14 @@ function DayButton({
   counted,
   dimmed,
   onPress,
+  onLayout,
 }: {
   day: GridDay;
   wraps: boolean;
   counted: boolean;
   dimmed: boolean;
   onPress: (() => void) | undefined;
+  onLayout?: ((event: LayoutChangeEvent) => void) | undefined;
 }) {
   const palette = usePalette();
   const ink = day.selected ? palette.onAccent : day.hasTimes ? color.accentDark : palette.ink;
@@ -152,6 +200,7 @@ function DayButton({
 
   return (
     <Pressable
+      onLayout={onLayout}
       role="button"
       aria-label={day.label}
       aria-disabled={dimmed || day.disabled === true}
@@ -192,6 +241,8 @@ const styles = StyleSheet.create({
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: GAP },
   heading: { flex: 1, textAlign: 'center' },
   blank: { flex: 1 },
+  // The browser keeps the vertical scroll; a sideways start is a stroke.
+  paintable: { touchAction: 'pan-y', userSelect: 'none' } as object,
   day: {
     flex: 1,
     minHeight: 60,

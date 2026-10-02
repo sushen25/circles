@@ -12,6 +12,7 @@ import {
 import type { ShortCode } from '@circles/contracts';
 
 import { authClient } from '../auth/client';
+import { daysOf } from '../planDays';
 
 /**
  * The plan somebody is answering, and what they have said so far (spec §5.5).
@@ -38,6 +39,8 @@ export type AnswerablePlan = {
   zone: string;
   windowStart: string;
   windowEnd: string;
+  /** The days asked about when the window has gaps; absent is every day (ADR 0047). */
+  days?: string[] | undefined;
   dailyStartMin: number;
   dailyEndMin: number;
   durationMinutes: DurationMinutes;
@@ -89,7 +92,11 @@ export type PlanToAnswer = {
 
 export function timingOf(plan: AnswerablePlan): PlanTiming {
   return {
-    window: { start: localDate(plan.windowStart), end: localDate(plan.windowEnd) },
+    window: {
+      start: localDate(plan.windowStart),
+      end: localDate(plan.windowEnd),
+      ...(plan.days === undefined ? {} : { days: plan.days.map(localDate) }),
+    },
     daily: { startMin: plan.dailyStartMin, endMin: plan.dailyEndMin },
     durationMinutes: plan.durationMinutes,
     zone: zone(plan.zone),
@@ -111,7 +118,7 @@ export async function planToAnswer(code: ShortCode): Promise<PlanToAnswer | null
   const { data: row, error } = await client
     .from('plans')
     .select(
-      'id, short_code, circle_id, title, category, state, revision, time_zone, window_start, window_end, daily_start_local, daily_end_local, duration_minutes, response_deadline, organiser_user_id',
+      'id, short_code, circle_id, title, category, state, revision, time_zone, window_start, window_end, plan_days(day), daily_start_local, daily_end_local, duration_minutes, response_deadline, organiser_user_id',
     )
     .eq('short_code', code)
     .maybeSingle();
@@ -183,6 +190,7 @@ export async function planToAnswer(code: ShortCode): Promise<PlanToAnswer | null
     zone: row.time_zone,
     windowStart: row.window_start,
     windowEnd: row.window_end,
+    days: daysOf(row.plan_days),
     dailyStartMin: row.daily_start_local,
     dailyEndMin: row.daily_end_local,
     durationMinutes: duration,

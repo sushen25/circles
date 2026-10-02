@@ -945,15 +945,26 @@ export const en = {
     grid_label: 'Days to ask about',
     earlier_month: 'Earlier month',
     later_month: 'Later month',
-    pick_start: 'Tap the first day you could meet.',
-    pick_end: 'Now tap the last day, up to {date}, or use just this one.',
+    pick_days: 'Tap the days you could meet, or drag across several.',
     range: '{from} – {to}',
-    days_count: '{count} days · the most you can ask about at once is 30',
+    run_separator: ', ',
+    picked_between: '{count} days between {from} and {to}',
+    picked_count: '{count} days · the first and last can be up to 30 days apart',
     one_day: 'One day',
+    start_over: 'Start over',
+    cleared: 'Cleared.',
+    undo: 'Undo',
     day_past: '{date}, already gone',
-    day_too_far: '{date}, more than 30 days from the first, so it starts again',
+    day_out_of_reach: '{date}, more than 30 days from the other days picked',
     day_off: "{date}, the day that's off the table",
     day_picked: '{date}, picked',
+    // "Try a wider window" on a plan with gaps (ADR 0047): it asks about every
+    // day, and says so before it does.
+    wider_body_gaps: 'Ask about every day for {count} days, not only the {total} picked',
+    wider_confirm_gaps:
+      'The plan would ask about every day to {day}, not only the days picked. It becomes a new question, so everyone who has answered is asked again: {name}.',
+    wider_confirm_gaps_nobody:
+      'The plan would ask about every day to {day}, not only the days picked. Nobody has answered yet.',
   },
   deadlinePassed: {
     headline: 'Replies have closed. {day} still works for {count}.',
@@ -1048,6 +1059,9 @@ export const en = {
     checking: "Checking who'd be asked again",
     no_reask:
       'Nobody has to answer again: this changes what happens to the answers, not the question.',
+    // Days taken away that nobody picked (ADR 0047): the plan keeps every answer.
+    no_reask_days:
+      "Nobody has to answer again: nobody picked the days you're taking away, so every answer stays.",
     warn_again:
       'Changing this means {name} will be asked for their times again. Anything sent for the old times is cleared.',
     warn_again_fresh_one:

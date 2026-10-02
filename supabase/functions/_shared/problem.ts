@@ -77,6 +77,7 @@ const REASONS: Record<ProblemReason, { status: number; error: Problem['error'] }
   window_too_long: { status: 400, error: 'invalid_request' },
   window_backwards: { status: 400, error: 'invalid_request' },
   window_has_passed: { status: 400, error: 'invalid_request' },
+  days_invalid: { status: 400, error: 'invalid_request' },
   band_shorter_than_meetup: { status: 400, error: 'invalid_request' },
   band_backwards: { status: 400, error: 'invalid_request' },
   band_unaligned: { status: 400, error: 'invalid_request' },

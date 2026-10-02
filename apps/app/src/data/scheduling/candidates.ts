@@ -1,6 +1,7 @@
 import { ANSWERABLE_STATES, type PlanState } from '@circles/domain';
 
 import { authClient } from '../auth/client';
+import { daysOf } from '../planDays';
 
 /**
  * What the candidates, waiting and no-quorum screens read (spec §5.6).
@@ -73,6 +74,8 @@ export type PlanCandidates = {
   /** Inclusive local dates — the days being asked about. */
   windowStart: string;
   windowEnd: string;
+  /** The days asked about when the window has gaps; absent is every day (ADR 0047). */
+  days?: string[] | undefined;
   responseDeadline: string;
   /** Judged by the database's clock, never this device's. */
   repliesOpen: boolean;
@@ -140,7 +143,7 @@ export async function planCandidates(
   const client = authClient();
 
   const columns =
-    'id, short_code, circle_id, title, state, revision, input_version, time_zone, quorum, quorum_source, window_start, window_end, daily_start_local, daily_end_local, duration_minutes, response_deadline, organiser_user_id, deadline_extended_on_revision';
+    'id, short_code, circle_id, title, state, revision, input_version, time_zone, quorum, quorum_source, window_start, window_end, plan_days(day), daily_start_local, daily_end_local, duration_minutes, response_deadline, organiser_user_id, deadline_extended_on_revision';
   const query = client.from('plans').select(columns);
   const { data: plan, error } = await (
     'planId' in key ? query.eq('id', key.planId) : query.eq('short_code', key.code)
@@ -269,6 +272,7 @@ export async function planCandidates(
     quorumChosen: plan.quorum_source === 'chosen',
     windowStart: plan.window_start,
     windowEnd: plan.window_end,
+    days: daysOf(plan.plan_days),
     responseDeadline: plan.response_deadline,
     repliesOpen: ANSWERABLE_STATES.includes(state) && open.data !== null,
     latestStart: latestStartOf(plan),

@@ -53,6 +53,9 @@ const Draft = z.object({
     zone: z.string(),
     windowStart: z.string(),
     windowEnd: z.string(),
+    // Optional for the reason `organiserUserId` gives: a draft saved before a
+    // plan could have gaps has none (ADR 0047).
+    days: z.array(z.string()).optional(),
     dailyStartMin: z.int(),
     dailyEndMin: z.int(),
     durationMinutes: z.union([

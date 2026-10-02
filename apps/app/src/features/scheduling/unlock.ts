@@ -1,4 +1,4 @@
-import { type Instant, MAX_WINDOW_DAYS, addDays, localDate, windowDays } from '@circles/domain';
+import { type Instant, MAX_WINDOW_DAYS, localDate, widestFrom, windowDays } from '@circles/domain';
 
 import { t } from '../../copy';
 import type { PlanCandidates } from '../../data/scheduling';
@@ -92,8 +92,12 @@ export function blockedBy(data: PlanCandidates): string {
 export function widerWindow(data: PlanCandidates): PlanWindow | undefined {
   const start = localDate(data.windowStart);
   const current = windowDays({ start, end: localDate(data.windowEnd) });
-  if (current >= MAX_WINDOW_DAYS) return undefined;
-  return { start: String(start), end: String(addDays(start, MAX_WINDOW_DAYS - 1)) };
+  // Every day for thirty days from the first, and the gaps go (ADR 0047): a
+  // plan that already spans thirty days with gaps in it can still be widened
+  // by asking about the days it skipped.
+  if (current >= MAX_WINDOW_DAYS && data.days === undefined) return undefined;
+  const wider = widestFrom({ start, end: localDate(data.windowEnd) });
+  return { start: String(wider.start), end: String(wider.end) };
 }
 
 /**
@@ -135,10 +139,19 @@ export function unlocksOf(data: PlanCandidates, now?: Instant): Unlock[] {
       kind: 'wider',
       window: wider,
       title: t('noQuorum', 'wider_title'),
-      body: t('noQuorum', 'wider_body', {
-        count: MAX_WINDOW_DAYS,
-        total: windowDays({ start: localDate(data.windowStart), end: localDate(data.windowEnd) }),
-      }),
+      body:
+        data.days === undefined
+          ? t('noQuorum', 'wider_body', {
+              count: MAX_WINDOW_DAYS,
+              total: windowDays({
+                start: localDate(data.windowStart),
+                end: localDate(data.windowEnd),
+              }),
+            })
+          : t('customWindow', 'wider_body_gaps', {
+              count: MAX_WINDOW_DAYS,
+              total: data.days.length,
+            }),
     });
   }
   if (!data.repliesOpen && now !== undefined) {

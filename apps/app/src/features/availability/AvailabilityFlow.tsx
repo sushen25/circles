@@ -96,7 +96,39 @@ function LiveAvailability({ code, step }: AvailabilityFlowProps) {
     void queryClient.invalidateQueries({ queryKey: ['plan-to-answer', code] });
   };
 
-  if (session.isLoading || userId === undefined || draft === 'reading') {
+  // Days were taken away from the same question (ADR 0047), and a send has
+  // just met it: fetch the plan as it is. The effect below does the rest.
+  const onNarrowed = () => {
+    void queryClient.invalidateQueries({ queryKey: ['plan-to-answer', code] });
+  };
+
+  // The plan's days, and the days the draft in hand was last read against. A
+  // narrowing keeps the revision, so the editor is keyed on the days too and
+  // opens again when they change — however the change arrived, by a refused
+  // send or by a refetch on focus. It must open from the draft as it is on the
+  // device *now*, which holds whatever was painted since this page first read
+  // it; so the draft is read again first, and the editor waits for it (review
+  // round 2: opened from the first read, unsent times were lost).
+  const shownDays = question.data ? daysKey(question.data.plan) : undefined;
+  const [draftDays, setDraftDays] = useState<string | undefined>();
+  // The first days seen are the ones the mount's read was for.
+  if (draftDays === undefined && shownDays !== undefined) setDraftDays(shownDays);
+  useEffect(() => {
+    if (shownDays === undefined || userId === undefined) return;
+    if (draftDays === undefined || draftDays === shownDays) return;
+    let live = true;
+    void readDraft(userId, code).then((found) => {
+      if (!live) return;
+      setRead({ for: `${userId}:${code}`, draft: found });
+      setDraftDays(shownDays);
+    });
+    return () => {
+      live = false;
+    };
+  }, [shownDays, draftDays, userId, code]);
+  const rereading = draftDays !== undefined && shownDays !== undefined && draftDays !== shownDays;
+
+  if (session.isLoading || userId === undefined || draft === 'reading' || rereading) {
     return <AvailabilityScreen state="loading" onBack={back} />;
   }
 
@@ -119,7 +151,7 @@ function LiveAvailability({ code, step }: AvailabilityFlowProps) {
   if (fromDevice) {
     return (
       <Answering
-        key={`${userId}:${draft.plan.id}:${draft.plan.revision}:device`}
+        key={`${userId}:${draft.plan.id}:${draft.plan.revision}:${daysKey(draft.plan)}:device`}
         code={code}
         step={step}
         plan={draft.plan}
@@ -128,6 +160,7 @@ function LiveAvailability({ code, step }: AvailabilityFlowProps) {
         changed={false}
         userId={userId}
         onStale={onStale}
+        onNarrowed={onNarrowed}
       />
     );
   }
@@ -156,7 +189,9 @@ function LiveAvailability({ code, step }: AvailabilityFlowProps) {
     <Answering
       // A new question is a new editor: nothing painted against the old dates
       // may carry over into the new grid.
-      key={`${userId}:${plan.id}:${plan.revision}`}
+      // So are the same question's days taken away (ADR 0047): a narrowing
+      // keeps the revision, and the editor's rows are the plan's days.
+      key={`${userId}:${plan.id}:${plan.revision}:${daysKey(plan)}`}
       code={code}
       step={step}
       plan={plan}
@@ -166,6 +201,12 @@ function LiveAvailability({ code, step }: AvailabilityFlowProps) {
       changed={changed || stale || cleared}
       userId={userId}
       onStale={onStale}
+      onNarrowed={onNarrowed}
     />
   );
+}
+
+/** Which days a plan asks about, as part of the editor's key. */
+function daysKey(plan: { windowStart: string; windowEnd: string; days?: string[] | undefined }) {
+  return `${plan.windowStart}/${plan.windowEnd}/${plan.days?.join(',') ?? ''}`;
 }

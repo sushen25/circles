@@ -153,10 +153,11 @@ describe('preview, then save with the token', () => {
     const { previewRevision, saveRevision } = await import('./revise');
     const { newIdempotencyKey } = await import('../functions');
     const before = (await as(owner, () => planDetails({ planId })))!;
-    // A day shorter at the front: the deadline three days out still fits.
-    const next = new Date(`${before.windowStart}T12:00:00Z`);
+    // A day longer at the end: a day nobody has said anything about, so a new
+    // question (ADR 0047; taking a day away that nobody picked would not be).
+    const next = new Date(`${before.windowEnd}T12:00:00Z`);
     next.setUTCDate(next.getUTCDate() + 1);
-    const later = { start: next.toISOString().slice(0, 10), end: before.windowEnd };
+    const later = { start: before.windowStart, end: next.toISOString().slice(0, 10) };
     const edit = { window: later };
 
     const preview = await as(owner, () => previewRevision(planId, edit));
@@ -178,6 +179,40 @@ describe('preview, then save with the token', () => {
     expect(saved.revision).toBe(before.revision + 1);
     const after = (await as(owner, () => planDetails({ planId })))!;
     expect({ start: after.windowStart, end: after.windowEnd }).toEqual(later);
+  });
+
+  it('takes away a day nobody picked without asking anybody again (ADR 0047)', async () => {
+    const { owner, planId, code } = await organiserWithPlan();
+    const ren = await joins(code, 'Ren');
+    // "I'm easy" has times on no day in particular, so no day is picked.
+    await answers(ren.client, planId);
+
+    const { planDetails } = await import('./read');
+    const { previewRevision, saveRevision } = await import('./revise');
+    const { newIdempotencyKey } = await import('../functions');
+    const before = (await as(owner, () => planDetails({ planId })))!;
+    const second = new Date(`${before.windowStart}T12:00:00Z`);
+    second.setUTCDate(second.getUTCDate() + 2);
+    const days: string[] = [];
+    for (
+      let at = new Date(`${before.windowStart}T12:00:00Z`);
+      at.toISOString().slice(0, 10) <= before.windowEnd;
+      at.setUTCDate(at.getUTCDate() + 1)
+    ) {
+      if (at.getTime() !== second.getTime()) days.push(at.toISOString().slice(0, 10));
+    }
+    const edit = { window: { start: before.windowStart, end: before.windowEnd, days } };
+
+    const preview = await as(owner, () => previewRevision(planId, edit));
+    expect(preview.bumps_revision).toBe(false);
+    expect(preview.asked_again).toEqual([]);
+    const saved = await as(owner, () =>
+      saveRevision(planId, edit, preview.version, newIdempotencyKey()),
+    );
+    expect(saved.revision).toBe(before.revision);
+    expect(saved.bumps_revision).toBe(false);
+    const after = (await as(owner, () => planDetails({ planId })))!;
+    expect(after.days).toEqual(days);
   });
 
   it('adjusts a quorum without a new revision, and refuses an edit that changes nothing', async () => {

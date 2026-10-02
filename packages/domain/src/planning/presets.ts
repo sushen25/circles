@@ -12,9 +12,9 @@
 import { type Instant, isBefore } from '../shared/instant.js';
 import { type LocalDate, addDays, isWeekend, weekday } from '../shared/local-date.js';
 import { type Zone, fromLocal, toLocal } from '../shared/zone.js';
+import { askedDays, windowError, windowFromDays } from './days.js';
 import {
   FORTNIGHT_DAYS,
-  MAX_WINDOW_DAYS,
   type DailyWindow,
   type DateWindow,
   type DurationMinutes,
@@ -176,12 +176,16 @@ export function nextDays(now: Instant, z: Zone, days: number): PresetWindow {
 
 /** Weekend hours only when every day in the range is a weekend day. */
 export function dailyForRange(start: LocalDate, end: LocalDate): DailyWindow {
-  let date = start;
-  while (date <= end) {
-    if (!isWeekend(date)) return WEEKDAY_EVENING;
-    date = addDays(date, 1);
-  }
-  return WEEKEND_DAY;
+  return dailyForWindow({ start, end });
+}
+
+/**
+ * Weekend hours only when every day *asked about* is a weekend day, so "the
+ * next two weekends" picked as four days gets the weekend's hours rather than
+ * the evening band the weekdays between them would have suggested.
+ */
+export function dailyForWindow(window: DateWindow): DailyWindow {
+  return askedDays(window).every(isWeekend) ? WEEKEND_DAY : WEEKDAY_EVENING;
 }
 
 export type PresetError =
@@ -190,11 +194,16 @@ export type PresetError =
   | 'window_backwards'
   | 'band_shorter_than_meetup'
   | 'window_has_passed'
+  /** A custom window's days are unsorted, repeated, or not inside it (ADR 0047). */
+  | 'days_invalid'
   | BandError;
 
 export type PresetOptions = {
   readonly durationMinutes: DurationMinutes;
-  /** Required by `custom`: the dates the person picked. */
+  /**
+   * Required by `custom`: the dates the person picked — the first and last,
+   * and the days between when there are gaps (ADR 0047).
+   */
   readonly custom?: DateWindow | undefined;
   /**
    * An explicit daily band, overriding the preset's default.
@@ -276,20 +285,13 @@ export function resolvePreset(
       return checked(nextDays(now, z, FORTNIGHT_DAYS));
     case 'custom': {
       if (custom === undefined) return 'window_backwards';
-      if (custom.end < custom.start) return 'window_backwards';
-      if (windowDays(custom) > MAX_WINDOW_DAYS) return 'window_too_long';
-      return checked({ window: custom, daily: dailyForRange(custom.start, custom.end) });
+      const invalid = windowError(custom);
+      if (invalid !== undefined) return invalid;
+      // One canonical form (a set with no gap is the range). Days already gone
+      // are not refused — an edit opens on the plan's own days — only a window
+      // with no start left, which `checked` asks.
+      const window = windowFromDays(askedDays(custom)) ?? custom;
+      return checked({ window, daily: dailyForWindow(window) });
     }
   }
-}
-
-/** Inclusive: a single-day window is one day, not zero. */
-export function windowDays(window: DateWindow): number {
-  let count = 1;
-  let date = window.start;
-  while (date < window.end) {
-    date = addDays(date, 1);
-    count += 1;
-  }
-  return count;
 }

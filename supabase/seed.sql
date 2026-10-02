@@ -490,6 +490,40 @@ where user_id = '00000000-0000-4000-8000-000000000102'
 select pg_temp.act_as_postgres();
 
 -- ---------------------------------------------------------------------------
+-- F. Weekend Walks — a plan with gaps (SUS-133, ADR 0047).
+--
+-- Sunday Crew's plan asks about every day of its week; this one asks about
+-- the next two weekends and nothing between them, which is what the custom
+-- picker makes when an organiser taps four days. The days are rows in
+-- `plan_days` because there are gaps; the window is still its first and last
+-- day. Priya has answered the first Saturday; Tom has not. Maya owns it, so
+-- the availability editor (`/j/pnwkends`) shows four days with the week
+-- between them blank, and Edit plan opens the picker on those four.
+-- ---------------------------------------------------------------------------
+
+select pg_temp.seed_circle('00000000-0000-4000-8000-000000000a06', '00000000-0000-4000-8000-000000000101',
+  'Weekend Walks', 'moss', 'wkndwaks', 'seed-weekend-walks', 'monthly');
+select pg_temp.join_circle('00000000-0000-4000-8000-000000000a06', '00000000-0000-4000-8000-000000000102');
+select pg_temp.join_circle('00000000-0000-4000-8000-000000000a06', '00000000-0000-4000-8000-000000000103');
+
+select pg_temp.named_plan(
+  '00000000-0000-4000-8000-000000000b06', '00000000-0000-4000-8000-000000000a06',
+  '00000000-0000-4000-8000-000000000101', 'pnwkends',
+  (select next_monday + 5 from dates), (select next_monday + 13 from dates),
+  2, ((select next_monday + 4 from dates)::timestamp + interval '8 hours') at time zone 'Australia/Melbourne'
+);
+-- As `create_plan` writes them: only because there are gaps, checked at commit.
+select pg_temp.act_as_postgres();
+insert into public.plan_days (plan_id, day)
+select '00000000-0000-4000-8000-000000000b06', next_monday + offset_days
+from dates, unnest(array[5, 6, 12, 13]) as offset_days;
+
+select pg_temp.act_as('00000000-0000-4000-8000-000000000102');
+select public.replace_response('00000000-0000-4000-8000-000000000b06', 1, 'windows', jsonb_build_array(
+  pg_temp.win((select next_monday + 5 from dates), 10 * 60, 13 * 60)));
+select pg_temp.act_as_postgres();
+
+-- ---------------------------------------------------------------------------
 -- The outbox now holds every event the scenarios produced. They are marked
 -- processed: a local dispatcher (S1-20) would otherwise try to notify people
 -- who do not exist about a seed. Clear `processed_at` to replay them.

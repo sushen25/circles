@@ -16,6 +16,11 @@ as $$
     -- answers" structural rather than a comparison somebody has to remember
     -- (spec §5.3). A window cannot ride along on an adjustment.
     when action = 'adjust' then array['quorum', 'response_deadline']
+    -- Days taken away that nobody picked (ADR 0047): the window's ends may
+    -- move inward, and the two keys an adjustment takes may ride along. Never
+    -- the band or the duration, which are always a new question.
+    -- `revise_plan` derives it; no caller names it.
+    when action = 'narrow' then array['window_start', 'window_end', 'quorum', 'response_deadline']
     -- The quorum alone. `quorum_follows` is the circle moving a quorum nobody
     -- chose (ADR 0026); a deadline riding along on it would be a change no
     -- organiser asked for and nobody announced.

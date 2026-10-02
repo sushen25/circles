@@ -65,13 +65,14 @@ function refusal(reason: string | undefined) {
 const noAnswer = () => new FunctionError(undefined, 'submit-availability failed');
 const stored = { response_id: 'r', revision: 1 };
 
-function open(step: 'times' | 'none' = 'times') {
+function open(step: 'times' | 'none' = 'times'): QueryClient {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={client}>
       <AvailabilityFlow code={CODE} step={step} />
     </QueryClientProvider>,
   );
+  return client;
 }
 
 /** The date is in the runtime's locale ("Monday 14 September", "Monday September 14"). */
@@ -575,6 +576,46 @@ describe('when the server says no', () => {
 
     await screen.findByText(/The plan changed/);
     expect(dayButton('Monday', 14)).toHaveAccessibleName(/, no times yet$/);
+  });
+
+  it('fetches the plan again, keeping the times, when days were taken away while it was open (ADR 0047)', async () => {
+    submitAnswer.mockRejectedValueOnce(refusal('outside_plan_window'));
+    open();
+    await screen.findByText("Times I'd actually be up for");
+    // The organiser took Tuesday 15 away, which nobody had picked: the same
+    // revision, one day fewer.
+    const days = Array.from({ length: 14 }, (_, i) => `2099-09-${String(14 + i).padStart(2, '0')}`);
+    planToAnswer.mockResolvedValue({
+      plan: { ...PLAN, days: days.filter((day) => day !== '2099-09-15') },
+      answer: null,
+    });
+
+    answerMonday();
+    await send();
+
+    await waitFor(() => expect(screen.queryByRole('button', { name: /^Tuesday\D*15/ })).toBeNull());
+    expect(screen.queryByText(/The plan changed/)).toBeNull();
+    // Monday's evening, painted before the send, is still there to send again.
+    expect(dayButton('Monday', 14)).toHaveAccessibleName(/, 5:30–10:30 pm$/);
+  });
+
+  it('keeps unsent times when days are taken away and the plan is read again (ADR 0047, round 2)', async () => {
+    const client = open();
+    await screen.findByText("Times I'd actually be up for");
+    answerMonday();
+    // Written to the device as it is painted, and not sent.
+    await waitFor(async () => expect((await readDraft('priya', CODE))?.windows).toHaveLength(1));
+    const days = Array.from({ length: 14 }, (_, i) => `2099-09-${String(14 + i).padStart(2, '0')}`);
+    planToAnswer.mockResolvedValue({
+      plan: { ...PLAN, days: days.filter((day) => day !== '2099-09-15') },
+      answer: null,
+    });
+
+    // A refetch, as on focus: no send was made.
+    await act(async () => client.invalidateQueries());
+
+    await waitFor(() => expect(screen.queryByRole('button', { name: /^Tuesday\D*15/ })).toBeNull());
+    expect(dayButton('Monday', 14)).toHaveAccessibleName(/, 5:30–10:30 pm$/);
   });
 
   it('says replies have closed when they have', async () => {

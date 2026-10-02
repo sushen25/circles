@@ -15,6 +15,34 @@ import { reaskWarning } from './words';
 const NOW = fromISO(new Date(fixture.FIXTURE_NOW).toISOString());
 const plan = fixture.asking;
 
+describe('taking days away (ADR 0047)', () => {
+  const without = (gone: string) => ({
+    ...editDraftFrom(plan),
+    custom: {
+      start: '2026-09-14',
+      end: gone === '2026-09-20' ? '2026-09-19' : '2026-09-20',
+      days: ['14', '15', '16', '17', '18', '19', '20']
+        .map((n) => `2026-09-${n}`)
+        .filter((day) => day !== gone),
+    },
+  });
+
+  it('leaves a deadline that still fits where it was, even when the last day goes', () => {
+    const resolved = resolveEdit(plan, without('2026-09-20'), NOW);
+    expect(resolved.ok && resolved.deadline).toBe(plan.responseDeadline);
+    expect(resolved.ok && resolved.revision.responseDeadline).toBeUndefined();
+    expect(resolved.ok && resolved.revision.window).toEqual({
+      start: '2026-09-14',
+      end: '2026-09-19',
+    });
+  });
+
+  it('sends the days when a gap opens in the middle', () => {
+    const resolved = resolveEdit(plan, without('2026-09-16'), NOW);
+    expect(resolved.ok && resolved.revision.window?.days).toHaveLength(6);
+  });
+});
+
 describe('the edit request', () => {
   it('is nothing at all until something changes', () => {
     const resolved = resolveEdit(plan, editDraftFrom(plan), NOW);

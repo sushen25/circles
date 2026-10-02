@@ -15,7 +15,7 @@ import { isOffline } from '../identity/join/failure';
 import { movedOn, usePlanClock } from './clock';
 import { CustomWindowScreen } from './CustomWindowScreen';
 import { FIXTURE_NOW, sundayCrew } from './fixtures';
-import { defaultDraft, resolveDraft, WINDOW_EVENT, type PlanDraft } from './form';
+import { customShape, defaultDraft, resolveDraft, WINDOW_EVENT, type PlanDraft } from './form';
 import { InitiateGateFlow } from '../growth/InitiateGateFlow';
 import { PlanInProgress } from './PlanInProgressFlow';
 import { PlanSetupScreen } from './PlanSetupScreen';
@@ -212,6 +212,10 @@ function LiveSetup({
           mode: 'named',
           window: WINDOW_EVENT[draft.preset],
           used_defaults: !touched,
+          // A custom plan's shape: a flag and a count, never the dates (ADR 0047).
+          ...(draft.preset === 'custom' && draft.custom !== undefined
+            ? customShape(draft.custom)
+            : {}),
         });
         void queryClient.invalidateQueries({ queryKey: ['circle-home', id] });
         router.replace({

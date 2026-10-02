@@ -259,6 +259,26 @@ describe('render', () => {
       });
       expect(one.text).toContain('asking about Fri 18 Sep, 5:30');
     });
+
+    it('names only the days a plan with gaps asks about (ADR 0047)', async () => {
+      const d = (value: string) => value as typeof SUNDAY_CREW.asked_again.windowStart;
+      const gappy = await render({
+        ...SUNDAY_CREW.asked_again,
+        windowStart: d('2026-09-17'),
+        windowEnd: d('2026-09-24'),
+        days: ['2026-09-17', '2026-09-18', '2026-09-19', '2026-09-22', '2026-09-24'].map(d),
+      });
+      expect(gappy.text).toContain(
+        'asking about Thu 17 – Sat 19 Sep, Tue 22 Sep and Thu 24 Sep, 5:30',
+      );
+      const scattered = await render({
+        ...SUNDAY_CREW.asked_again,
+        windowStart: d('2026-09-14'),
+        windowEnd: d('2026-09-24'),
+        days: ['2026-09-14', '2026-09-16', '2026-09-18', '2026-09-20', '2026-09-24'].map(d),
+      });
+      expect(scattered.text).toContain('asking about 5 days between Mon 14 Sep and Thu 24 Sep');
+    });
   });
 
   describe('subjects, as the Emails artboard writes them', () => {

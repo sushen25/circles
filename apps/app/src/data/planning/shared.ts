@@ -1,4 +1,5 @@
 import { authClient } from '../auth/client';
+import { daysOf } from '../planDays';
 
 /**
  * What PlanShared needs to write the message (spec §5.1 step 8): the plan's
@@ -17,13 +18,17 @@ export type PlanToShare = {
   /** Inclusive local dates. */
   windowStart: string;
   windowEnd: string;
+  /** The days asked about when the window has gaps; absent is every day (ADR 0047). */
+  days?: string[] | undefined;
 };
 
 export async function planToShare(planId: string): Promise<PlanToShare | null> {
   const client = authClient();
   const { data: plan, error } = await client
     .from('plans')
-    .select('id, short_code, circle_id, time_zone, response_deadline, window_start, window_end')
+    .select(
+      'id, short_code, circle_id, time_zone, response_deadline, window_start, window_end, plan_days(day)',
+    )
     .eq('id', planId)
     .maybeSingle();
   if (error !== null) {
@@ -48,5 +53,6 @@ export async function planToShare(planId: string): Promise<PlanToShare | null> {
     responseDeadline: plan.response_deadline,
     windowStart: plan.window_start,
     windowEnd: plan.window_end,
+    days: daysOf(plan.plan_days),
   };
 }

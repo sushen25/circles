@@ -13,7 +13,7 @@ import type { UserId } from '../circles/types.js';
 import type { ResponseStatus } from '../availability/types.js';
 import type { Instant } from '../shared/instant.js';
 import type { Interval } from '../shared/interval.js';
-import type { LocalDate } from '../shared/local-date.js';
+import type { DateWindow } from '../planning/types.js';
 import type { Zone } from '../shared/zone.js';
 
 /** Bumped whenever the algorithm changes; stored with every set (§12). */
@@ -25,7 +25,8 @@ export const SCORING_VERSION = 1;
  * which is exactly what the setup screen does.
  */
 export type EnginePlan = {
-  readonly window: { readonly start: LocalDate; readonly end: LocalDate };
+  /** With `days` when it has gaps: the engine offers nothing on a day not asked about. */
+  readonly window: DateWindow;
   readonly daily: { readonly startMin: number; readonly endMin: number };
   readonly zone: Zone;
   readonly durationMinutes: number;

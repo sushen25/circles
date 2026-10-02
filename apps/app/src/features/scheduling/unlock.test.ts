@@ -88,6 +88,14 @@ describe('what would unlock it', () => {
     expect(wider?.body).toBe('Ask about 30 days instead of 7');
   });
 
+  it('widens a plan with gaps to every day, and says the gaps go (ADR 0047)', () => {
+    const days = ['2026-09-14', '2026-09-15', '2026-09-19', '2026-10-13'];
+    const data = planWith({ windowStart: '2026-09-14', windowEnd: '2026-10-13', days });
+    expect(widerWindow(data)).toEqual({ start: '2026-09-14', end: '2026-10-13' });
+    const wider = unlocksOf(data).find((u) => u.kind === 'wider');
+    expect(wider?.body).toBe('Ask about every day for 30 days, not only the 4 picked');
+  });
+
   it('offers no wider window to a plan already asking about thirty days', () => {
     const data = planWith({ windowStart: '2026-09-14', windowEnd: '2026-10-13' });
     expect(widerWindow(data)).toBeUndefined();

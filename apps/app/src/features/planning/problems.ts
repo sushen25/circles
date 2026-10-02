@@ -36,6 +36,7 @@ const DOMAIN: readonly string[] = [
   'window_too_long',
   'window_backwards',
   'window_has_passed',
+  'days_invalid',
   'band_shorter_than_meetup',
   'band_backwards',
   'band_unaligned',

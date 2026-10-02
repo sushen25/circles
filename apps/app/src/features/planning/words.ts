@@ -12,7 +12,8 @@ import { listOf } from '../scheduling/sentences';
 import { nameList } from '../scheduling/names';
 import type { DeadlineChoice } from './deadlines';
 import { bandWords, deviceTimeFormat } from './firstPlan';
-import type { Band, PlanDraft, ResolveProblem, TonightNote } from './form';
+import { runsOf } from './calendar';
+import type { Band, DateRange, PlanDraft, ResolveProblem, TonightNote } from './form';
 import { whenWords } from './when';
 
 /**
@@ -69,10 +70,36 @@ export function durationLabel(duration: DurationMinutes): string {
 }
 
 /** "Mon 14 – Sun 27 Sep" style, as the device writes dates; one day on its own. */
-export function datesWords(range: { start: string; end: string }): string {
+function spanWords(range: { start: string; end: string }): string {
   const from = dateWords(localDate(range.start), 'short');
   if (range.start === range.end) return from;
   return t('customWindow', 'range', { from, to: dateWords(localDate(range.end), 'short') });
+}
+
+/**
+ * A window in words. Every day from first to last is one span, "Mon 14 – Sun
+ * 27 Sep"; with gaps it is its runs, "Thu 17 – Sun 20 Sep, Tue 22 Sep", and
+ * past three runs a count, "9 days between Thu 17 Sep and Sun 27 Sep", which a
+ * person can read to the end (ADR 0047).
+ */
+export function datesWords(range: DateRange): string {
+  if (range.days === undefined) return spanWords(range);
+  return pickedWords(range.days);
+}
+
+/** The days picked on CustomWindow, as `datesWords` says a window with gaps. */
+export function pickedWords(days: readonly string[]): string {
+  const runs = runsOf(days);
+  const first = days[0];
+  const last = days[days.length - 1];
+  if (runs.length > 3 && first !== undefined && last !== undefined) {
+    return t('customWindow', 'picked_between', {
+      count: days.length,
+      from: dateWords(localDate(first), 'short'),
+      to: dateWords(localDate(last), 'short'),
+    });
+  }
+  return runs.map(spanWords).join(t('customWindow', 'run_separator'));
 }
 
 export function timeWords(minutes: number): string {
@@ -177,6 +204,7 @@ export function problemWords(problem: ResolveProblem): string {
       return t('planSetup', 'problem_band_shorter_than_meetup');
     case 'window_too_long':
     case 'window_backwards':
+    case 'days_invalid':
       return t('planSetup', 'problem_window');
     case 'band_backwards':
     case 'band_unaligned':

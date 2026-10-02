@@ -60,12 +60,30 @@ begin
       using errcode = 'check_violation';
   end if;
 
+  -- And on a day the plan asks about (ADR 0047). No rows is every day of the
+  -- window, which the test above has already settled; rows are the days, and
+  -- a window on a day between them that is not one of them is availability
+  -- for a question nobody was asked.
+  --
+  -- Raised by the name `submit-availability` already answers with, and no
+  -- times in the text: an organiser can take a day away between that
+  -- function's own check and this insert, and the person should hear the
+  -- refusal their editor knows what to do with (it fetches the plan again),
+  -- not an error nobody can read.
+  if exists (select 1 from public.plan_days d where d.plan_id = plan.id)
+    and not exists (
+      select 1 from public.plan_days d where d.plan_id = plan.id and d.day = local_start::date
+    )
+  then
+    raise exception 'outside_plan_window' using errcode = 'check_violation';
+  end if;
+
   return new;
 end;
 $$;
 
 comment on function public.enforce_window_shape() is
-  'Half-hour aligned in the plan''s zone, inside the plan''s window and band, and attached to a `windows` response. Mirrors normaliseWindows() in packages/domain/src/availability/windows.ts.';
+  'Half-hour aligned in the plan''s zone, inside the plan''s window and band, on a day it asks about, and attached to a `windows` response. Mirrors normaliseWindows() in packages/domain/src/availability/windows.ts.';
 
 revoke all on function public.enforce_window_shape() from public;
 revoke all on function public.enforce_window_shape() from anon, authenticated;

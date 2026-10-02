@@ -84,7 +84,13 @@ Deno.serve(
         custom:
           body.custom === undefined
             ? undefined
-            : { start: toLocalDate(body.custom.start), end: toLocalDate(body.custom.end) },
+            : {
+                start: toLocalDate(body.custom.start),
+                end: toLocalDate(body.custom.end),
+                // The days, when the picker left gaps (ADR 0047). The domain
+                // judges them and writes them in their one form.
+                days: body.custom.days?.map(toLocalDate),
+              },
         daily: body.daily,
       });
 
@@ -138,6 +144,8 @@ Deno.serve(
         p_quorum: quorum,
         p_response_deadline: deadline,
         p_required_member_ids: body.required_member_ids ?? null,
+        // Only when there are gaps; `resolvePreset` drops them otherwise.
+        ...(resolved.window.days === undefined ? {} : { p_days: [...resolved.window.days] }),
       });
       if (error !== null) throw error;
 
@@ -153,7 +161,11 @@ Deno.serve(
         // Parsed, not cast. The domain brands a `LocalDate` one way and the
         // contract another, and a cast between them would be a claim rather than
         // a check — the same reason `circleDto` parses instead of asserting.
-        window: DateWindow.parse({ start: resolved.window.start, end: resolved.window.end }),
+        window: DateWindow.parse({
+          start: resolved.window.start,
+          end: resolved.window.end,
+          ...(resolved.window.days === undefined ? {} : { days: resolved.window.days }),
+        }),
         daily: { startMin: resolved.daily.startMin, endMin: resolved.daily.endMin },
         duration_minutes: durationMinutes,
         quorum: plan.quorum,

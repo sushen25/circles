@@ -30,3 +30,21 @@ export function toLocalDate(value: string): LocalDate {
 export function toZone(value: string): Zone {
   return zone(value);
 }
+
+/**
+ * A plan row's window as the domain's `DateWindow`, with its days when it has
+ * gaps (ADR 0047). `plan_days` is embedded in the select as `plan_days(day)`;
+ * no rows is every day of the window, and is no `days` here.
+ */
+export function windowOfRow(row: {
+  window_start: string;
+  window_end: string;
+  plan_days?: readonly { day: string }[] | null;
+}): { start: LocalDate; end: LocalDate; days?: LocalDate[] } {
+  const days = (row.plan_days ?? []).map((entry) => entry.day).sort();
+  return {
+    start: localDate(row.window_start),
+    end: localDate(row.window_end),
+    ...(days.length === 0 ? {} : { days: days.map(localDate) }),
+  };
+}

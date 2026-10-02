@@ -177,6 +177,59 @@ describe('editing the dates', () => {
     expect(saveRevision.mock.calls[1]?.[3]).toBe(saveRevision.mock.calls[0]?.[3]);
   });
 
+  it('opens the picker on the plan’s days, and says taking away one nobody picked costs nothing (ADR 0047)', async () => {
+    previewRevision.mockResolvedValue({
+      ...ASKS_AGAIN,
+      asked_again: [],
+      fresh_ask: [],
+      invalidating: [],
+      bumps_revision: false,
+    });
+    show(<EditPlanFlow id="sunday-crew" planId="thu-17" />);
+    fireEvent.click((await screen.findAllByRole('checkbox', { name: 'Custom' }))[0]!);
+
+    // The plan asks about Mon 14 to Sun 20, so Wednesday is picked.
+    const wednesday = await screen.findByRole('button', { name: /16.*, picked$/ });
+    expect(wednesday).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(wednesday);
+    expect(screen.getByRole('button', { name: /16/ })).toHaveAttribute('aria-pressed', 'false');
+    fireEvent.click(screen.getByRole('button', { name: 'Use these dates' }));
+
+    expect(
+      await screen.findByText(
+        "Nobody has to answer again: nobody picked the days you're taking away, so every answer stays.",
+      ),
+    ).toBeTruthy();
+    expect(previewRevision.mock.calls.at(-1)?.[1]).toMatchObject({
+      window: {
+        start: '2026-09-14',
+        end: '2026-09-20',
+        days: ['2026-09-14', '2026-09-15', '2026-09-17', '2026-09-18', '2026-09-19', '2026-09-20'],
+      },
+    });
+  });
+
+  it('gives back exactly the days Start over cleared, with Undo', async () => {
+    show(<EditPlanFlow id="sunday-crew" planId="thu-17" />);
+    fireEvent.click((await screen.findAllByRole('checkbox', { name: 'Custom' }))[0]!);
+    fireEvent.click(await screen.findByRole('button', { name: /16.*, picked$/ }));
+    const summary = screen.getByText(/, /, { selector: '[aria-live]' }).textContent;
+
+    fireEvent.click(screen.getByRole('button', { name: 'Start over' }));
+    expect(screen.getByText('Cleared.')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Use these dates' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
+    expect(screen.getByText(/, /, { selector: '[aria-live]' }).textContent).toBe(summary);
+    expect(screen.getByRole('button', { name: /16/ })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('button', { name: /17.*, picked$/ })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+  });
+
   it('says a quorum change costs nobody a reply, and goes back when saved', async () => {
     previewRevision.mockResolvedValue({
       ...ASKS_AGAIN,
@@ -234,6 +287,23 @@ describe('changing a locked-in time', () => {
       pathname: '/circles/[id]/plan/[planId]/shared',
       params: { id: 'sunday-crew', planId: 'thu-17', again: '1' },
     });
+  });
+
+  it('opens the picker on the plan’s days still to come, the day off the table held back (ADR 0047)', async () => {
+    planDetails.mockResolvedValue(fixture.lockedIn);
+    show(<ChangeTimeFlow id="sunday-crew" planId="thu-17" />);
+    fireEvent.click((await screen.findAllByRole('checkbox', { name: 'Custom' }))[0]!);
+
+    // Thursday 17 is the time being changed: off the table, and not pickable.
+    const thursday = await screen.findByRole('button', { name: /17.*off the table$/ });
+    expect(thursday).toHaveAttribute('aria-disabled', 'true');
+    expect(thursday).toHaveAttribute('aria-pressed', 'false');
+    // Friday to Sunday were asked about and are still ahead, so they are picked.
+    expect(screen.getByRole('button', { name: /18.*, picked$/ })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(screen.getByRole('button', { name: /20.*, picked$/ })).toBeTruthy();
   });
 
   it('is not offered for a plan that is not locked in', async () => {

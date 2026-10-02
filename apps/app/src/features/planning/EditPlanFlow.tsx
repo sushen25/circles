@@ -8,7 +8,7 @@ import type { PlanDetails } from '../../data/planning';
 import { isOffline } from '../identity/join/failure';
 import { allows } from './allowed';
 import { CustomWindowScreen } from './CustomWindowScreen';
-import { changesSomething, editDraftFrom, namesWithYou, resolveEdit } from './edit';
+import { changesSomething, editDraftFrom, keptOf, namesWithYou, resolveEdit } from './edit';
 import { EditPlanScreen } from './EditPlanScreen';
 import * as fixture from './fixtures';
 import { DeadlineSheet, RequiredSheet } from './sheets';
@@ -178,7 +178,7 @@ function EditForm({
     members: plan.participants.length,
     quorumShown: plan.quorum,
     quorumFollows: false,
-    kept: { window: { start: plan.windowStart, end: plan.windowEnd }, band: plan.band },
+    kept: { window: keptOf(plan), band: plan.band },
   };
   const [initial] = useState(() => editDraftFrom(plan));
   const form = usePlanForm({
@@ -221,7 +221,15 @@ function EditForm({
             ),
             asksAgain: true,
           }
-        : { text: t('editPlan', 'no_reask'), asksAgain: false };
+        : {
+            // Taking away days nobody picked keeps every answer (ADR 0047), and
+            // the screen says that is why before the organiser saves.
+            text:
+              revision?.window === undefined
+                ? t('editPlan', 'no_reask')
+                : t('editPlan', 'no_reask_days'),
+            asksAgain: false,
+          };
 
   return (
     <EditPlanScreen

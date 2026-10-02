@@ -149,6 +149,26 @@ describe('validateEvent', () => {
     ).not.toBeNull();
   });
 
+  it('records a custom plan with gaps as a flag and a count, never its dates (ADR 0047)', () => {
+    expect(
+      validateEvent('plan_created', {
+        mode: 'named',
+        window: 'custom',
+        used_defaults: false,
+        has_gaps: true,
+        days_asked: 9,
+      }),
+    ).not.toBeNull();
+    expect(
+      acceptEvent('plan_created', {
+        mode: 'named',
+        window: 'custom',
+        used_defaults: false,
+        days: ['2026-09-17'],
+      })?.properties,
+    ).not.toHaveProperty('days');
+  });
+
   it('returns null rather than throwing, so tracking never breaks a screen', () => {
     expect(validateEvent('availability_submitted', { status: 'nonsense' })).toBeNull();
     // The value is irrelevant — it is the *key* that must never be accepted.

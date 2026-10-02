@@ -100,3 +100,39 @@ describe('joinNames', () => {
     expect(joinNames([])).toBe('');
   });
 });
+
+describe('changing the days (ADR 0047)', () => {
+  const before = plan({ window: { start: localDate('2026-09-14'), end: localDate('2026-09-20') } });
+  const without = (gone: string) => ({
+    start: localDate('2026-09-14'),
+    end: localDate('2026-09-20'),
+    days: ['14', '15', '16', '17', '18', '19', '20']
+      .map((n) => `2026-09-${n}`)
+      .filter((date) => date !== gone)
+      .map(localDate),
+  });
+
+  it('asks nobody again when the days taken away were picked by nobody', () => {
+    const after = plan({ window: without('2026-09-16') });
+    const cost = invalidatedResponses(before, after, members, [priya], false, [
+      localDate('2026-09-17'),
+    ]);
+    expect(cost.bumpsRevision).toBe(false);
+    expect(cost.askedAgain).toEqual([]);
+  });
+
+  it('asks everybody again when a day somebody picked goes, the editor included', () => {
+    const after = plan({ window: without('2026-09-17') });
+    const cost = invalidatedResponses(before, after, members, [priya], false, [
+      localDate('2026-09-17'),
+    ]);
+    expect(cost.bumpsRevision).toBe(true);
+    expect(cost.changes).toEqual(['window']);
+  });
+
+  it('counts any change to the days when the caller cannot say who picked what', () => {
+    expect(invalidatingChanges(before, plan({ window: without('2026-09-16') }))).toEqual([
+      'window',
+    ]);
+  });
+});

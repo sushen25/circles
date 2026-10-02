@@ -69,6 +69,58 @@ describe('DayGrid', () => {
   });
 });
 
+describe('DayGrid painting by drag (SUS-133)', () => {
+  const paint = { begin: vi.fn(), extend: vi.fn(), end: vi.fn() };
+  const group = () => screen.getByRole('group', { name: 'Days to ask about' });
+
+  it('is the grid it always was without a paint handler: no stroke, the page scrolls', () => {
+    render(<DayGrid days={[day(0), day(1)]} weekdays={WEEKDAYS} label="Days to ask about" />);
+    expect(getComputedStyle(group()).touchAction).not.toBe('pan-y');
+  });
+
+  it('keeps the vertical scroll for the browser and takes a sideways stroke for itself', () => {
+    render(
+      <DayGrid
+        days={[day(0), day(1)]}
+        weekdays={WEEKDAYS}
+        label="Days to ask about"
+        onToggle={vi.fn()}
+        onPaint={paint}
+      />,
+    );
+    expect(getComputedStyle(group()).touchAction).toBe('pan-y');
+  });
+
+  it('still takes a tap on each day, which is how a screen reader or a keyboard picks', () => {
+    const onToggle = vi.fn();
+    render(
+      <DayGrid
+        days={[day(0), day(1)]}
+        weekdays={WEEKDAYS}
+        label="Days to ask about"
+        onToggle={onToggle}
+        onPaint={paint}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Day 15, no times yet' }));
+    expect(onToggle).toHaveBeenCalledWith(1);
+    expect(paint.begin).not.toHaveBeenCalled();
+  });
+
+  it('offers no stroke while dimmed', () => {
+    render(
+      <DayGrid
+        days={[day(0)]}
+        weekdays={WEEKDAYS}
+        label="Days to ask about"
+        onPaint={paint}
+        dimmed
+      />,
+    );
+    expect(getComputedStyle(group()).touchAction).not.toBe('pan-y');
+  });
+});
+
 describe('AnswerRow', () => {
   it('names the day, says whether it is open, and shows what is under it only when it is', () => {
     const { rerender } = render(
