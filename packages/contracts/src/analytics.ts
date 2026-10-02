@@ -133,6 +133,15 @@ export const catalogue = {
 
   // --- availability -------------------------------------------------------
   availability_started: event(1),
+  /**
+   * Whether an opening of the editor showed counts of what others had said
+   * (SUS-129, ADR 0045), sent once that read has settled, so the time to
+   * answer and the "I'm easy" share can be compared with and without them. A
+   * yes or no only: never a count, a date or a time. Its own event rather
+   * than a field on `availability_started`, which is sent as the editor opens
+   * and is never held back for an optional read.
+   */
+  availability_others_read: event(1, { others_shown: z.boolean() }),
   availability_submitted: event(1, {
     /**
      * All five of the spec's outcomes (§5.5). It had three, and §5.5 asks for

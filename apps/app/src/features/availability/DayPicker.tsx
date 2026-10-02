@@ -1,12 +1,16 @@
+import { StyleSheet, View } from 'react-native';
+
 import {
   Card,
   Chip,
   Chips,
   CompactButton,
   DayGrid,
+  Icon,
   Small,
   Title,
   type GridDay,
+  usePalette,
 } from '../../components';
 import { Between, Stack } from '../../components/layout';
 import { t } from '../../copy';
@@ -25,6 +29,12 @@ type Props = {
   grid: readonly GridDay[];
   weekdays: readonly string[];
   panel: PanelView | undefined;
+  /**
+   * Above the grid, the legend for every count on the screen: "5 of 6 have
+   * answered. The number on each day is how many of them could make it."
+   * Undefined when nothing is known about the others (SUS-129).
+   */
+  othersLine?: string | undefined;
   /** "I'm easy" is on, or an answer is on its way. */
   dimmed: boolean;
   onTick?: ((day: number) => void) | undefined;
@@ -37,6 +47,7 @@ export function DayPicker({
   grid,
   weekdays,
   panel,
+  othersLine,
   dimmed,
   onTick,
   onDone,
@@ -44,9 +55,18 @@ export function DayPicker({
   onClearTicked,
 }: Props) {
   const live = !dimmed;
+  const palette = usePalette();
 
   return (
     <Stack gap={14}>
+      {othersLine === undefined ? null : (
+        <View style={[styles.line, dimmed && styles.dimmed]}>
+          <View style={styles.icon}>
+            <Icon name="people" size={16} color={palette.ink2} />
+          </View>
+          <Small style={styles.words}>{othersLine}</Small>
+        </View>
+      )}
       <DayGrid
         days={grid}
         weekdays={weekdays}
@@ -75,6 +95,7 @@ export function DayPicker({
                   key={block.kind}
                   label={block.label}
                   detail={block.detail}
+                  others={block.others}
                   selected={block.on}
                   disabled={!live}
                   onPress={() => onBlock?.(block.kind)}
@@ -95,3 +116,11 @@ export function DayPicker({
     </Stack>
   );
 }
+
+const styles = StyleSheet.create({
+  line: { flexDirection: 'row', gap: 8, alignItems: 'flex-start' },
+  icon: { paddingTop: 2 },
+  words: { flexShrink: 1 },
+  // Faded with the grid under "I'm easy", as the counts are.
+  dimmed: { opacity: 0.45 },
+});

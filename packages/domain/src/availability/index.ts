@@ -4,3 +4,4 @@ export * from './shortcuts.js';
 export * from './cells.js';
 export * from './format.js';
 export * from './dayparts.js';
+export * from './others.js';

@@ -19,17 +19,21 @@ artboard.
 
 ### availability
 
-| Artboard                        | Route                       | Component                   |
-| ------------------------------- | --------------------------- | --------------------------- |
-| `Availability.dc.html`          | `/j/[code]`                 | `AvailabilityScreen`        |
-| `AvailabilityPicking.dc.html`   | `/j/[code]` (days ticked)   | `AvailabilityScreen`        |
-| `AvailabilityAdjusting.dc.html` | `/j/[code]` (a day open)    | `AvailabilityScreen`        |
-| `AvailabilityOverlay.dc.html`   | `/j/[code]/overlay`         | `AvailabilityOverlayScreen` |
-| `CalendarDenied.dc.html`        | `/j/[code]/calendar/denied` | `CalendarDeniedScreen`      |
-| `CalendarExplain.dc.html`       | `/j/[code]/calendar`        | `CalendarExplainScreen`     |
-| `CalendarPick.dc.html`          | `/j/[code]/calendar/pick`   | `CalendarPickScreen`        |
-| `NoneWork.dc.html`              | `/j/[code]/none`            | `NoneWorkScreen`            |
-| `Sent.dc.html`                  | `/j/[code]/sent`            | `SentScreen`                |
+| Artboard                              | Route                             | Component                   |
+| ------------------------------------- | --------------------------------- | --------------------------- |
+| `Availability.dc.html`                | `/j/[code]`                       | `AvailabilityScreen`        |
+| `AvailabilityPicking.dc.html`         | `/j/[code]` (days ticked)         | `AvailabilityScreen`        |
+| `AvailabilityAdjusting.dc.html`       | `/j/[code]` (a day open)          | `AvailabilityScreen`        |
+| `AvailabilityOthers.dc.html`          | `/j/[code]` (others' counts)      | `AvailabilityScreen`        |
+| `AvailabilityOthersPicking.dc.html`   | `/j/[code]` (counts, days ticked) | `AvailabilityScreen`        |
+| `AvailabilityOthersAdjusting.dc.html` | `/j/[code]` (counts, a day open)  | `AvailabilityScreen`        |
+| `AvailabilityOthersFirst.dc.html`     | `/j/[code]` (first to answer)     | `AvailabilityScreen`        |
+| `AvailabilityOverlay.dc.html`         | `/j/[code]/overlay`               | `AvailabilityOverlayScreen` |
+| `CalendarDenied.dc.html`              | `/j/[code]/calendar/denied`       | `CalendarDeniedScreen`      |
+| `CalendarExplain.dc.html`             | `/j/[code]/calendar`              | `CalendarExplainScreen`     |
+| `CalendarPick.dc.html`                | `/j/[code]/calendar/pick`         | `CalendarPickScreen`        |
+| `NoneWork.dc.html`                    | `/j/[code]/none`                  | `NoneWorkScreen`            |
+| `Sent.dc.html`                        | `/j/[code]/sent`                  | `SentScreen`                |
 
 **Real since S1-25:** `/j/[code]` and `/j/[code]/none` render
 `AvailabilityFlow`, which reads the plan and the member's own answer, keeps a
@@ -50,6 +54,13 @@ reducer in `editor.ts`; the blocks are the domain's shortcuts (`blocks.ts`).
 Which days are ticked and which is open are view state and never stored.
 `AvailabilityPicking` and `AvailabilityAdjusting` are states of the same
 route, not routes of their own.
+
+**Counts of what others said, SUS-129 (ADR 0045):** the four
+`AvailabilityOthers*` artboards are the same screen with
+`data/availability/others.ts` read on open (`others_availability`) and the
+counts worked out in `others.ts` from the domain's `freeFor`. With no backend,
+the gallery's `partial` and `complete` fixtures show the reader and four others answered and
+`empty` shows the first-to-answer line (`FixtureAnswering`).
 
 **Real since S1-30:** `/j/[code]/sent` (`SentFlow`), `/j/[code]/check-email`
 (`CheckEmailFlow`) and `/j/[code]/save-access` (`SaveAccessFlow`, which uses

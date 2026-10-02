@@ -20,6 +20,11 @@ type Props = {
   date: string;
   /** "5:30–10:30 pm" */
   range: string;
+  /**
+   * A third line, after the people icon: "Overlaps with 3 others" (SUS-129).
+   * Shown, not spoken: the caller says it in `label`, where it belongs.
+   */
+  others?: string | undefined;
   /** What the line is called when spoken: it names the day and its times. */
   label: string;
   open: boolean;
@@ -32,6 +37,7 @@ type Props = {
 export function AnswerRow({
   date,
   range,
+  others,
   label,
   open,
   onToggle,
@@ -54,6 +60,12 @@ export function AnswerRow({
         <View style={styles.words}>
           <DateText style={styles.date}>{date}</DateText>
           <Small style={[numeric, { color: palette.ink2 }]}>{range}</Small>
+          {others === undefined ? null : (
+            <View style={styles.others}>
+              <Icon name="people" size={14} color={palette.ink2} />
+              <Small style={{ color: palette.ink2 }}>{others}</Small>
+            </View>
+          )}
         </View>
         <View
           style={[
@@ -90,6 +102,7 @@ const styles = StyleSheet.create({
     fontFamily: faceFor('Newsreader', 400),
     fontSize: 21,
   },
+  others: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   chevron: {
     width: 36,
     height: 36,

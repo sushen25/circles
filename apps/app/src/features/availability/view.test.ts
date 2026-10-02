@@ -1,4 +1,11 @@
-import { localDate, zone, type PlanTiming } from '@circles/domain';
+import {
+  fromISO,
+  interval,
+  localDate,
+  zone,
+  type OthersSaid,
+  type PlanTiming,
+} from '@circles/domain';
 import { describe, expect, it } from 'vitest';
 
 import { dayRows, gridSlots, type RowWords } from './days';
@@ -199,5 +206,183 @@ describe('my answer', () => {
     const cleared = run({ type: 'whole_day', day: 1 }, { type: 'start_over' });
     expect(view(cleared).canUndo).toBe(true);
     expect(view(cleared).answers).toEqual([]);
+  });
+});
+
+describe('what the others have said (SUS-129)', () => {
+  /** One person's evening on a day of September 2026, Melbourne (UTC+10). */
+  const evening = (day: number, from: string, to: string) =>
+    interval(fromISO(`2026-09-${day}T${from}:00+10:00`), fromISO(`2026-09-${day}T${to}:00+10:00`));
+  // Five of six in: all five meet on Thursday 17th from 6:30 to 8:30; two on
+  // Tuesday 15th; one on Saturday 19th; nobody on Monday 14th.
+  const FIVE: OthersSaid = {
+    asked: 6,
+    answered: 5,
+    withTimes: 5,
+    flexible: 0,
+    readerAnswered: false,
+    days: [
+      [evening(15, '17:30', '22:30')],
+      [evening(15, '18:30', '21:30')],
+      [evening(17, '17:30', '20:30')],
+      [evening(17, '17:30', '21:00')],
+      [evening(17, '18:00', '22:30')],
+      [evening(17, '18:30', '20:30')],
+      [evening(17, '18:30', '22:30')],
+      [evening(19, '17:30', '19:00')],
+    ],
+  };
+  const NOBODY: OthersSaid = { ...FIVE, answered: 0, withTimes: 0, days: [] };
+
+  function withOthers(timing: PlanTiming, others: OthersSaid | undefined) {
+    const { rows, run } = setUp(timing);
+    const view = (state: EditorState) =>
+      editorView(state, rows, timing, TWELVE, 'en-AU', undefined, others);
+    return { rows, run, view };
+  }
+
+  it('says nothing at all when the others could not be read: the editor as it was', () => {
+    const { run, view } = withOthers(EVENINGS, undefined);
+    const shown = view(
+      run({ type: 'tick', day: 3 }, { type: 'whole_day', day: 3 }, { type: 'open', day: 3 }),
+    );
+    expect(shown.othersLine).toBeUndefined();
+    expect(shown.grid.every((day) => day.others === undefined)).toBe(true);
+    expect(shown.panel?.blocks.every((block) => block.others === undefined)).toBe(true);
+    expect(shown.answers[0]).toMatchObject({
+      others: undefined,
+      peak: undefined,
+      counts: undefined,
+    });
+  });
+
+  it('puts the legend above the grid and a figure on each day somebody could make', () => {
+    const { run, view } = withOthers(EVENINGS, FIVE);
+    const shown = view(run());
+    expect(shown.othersLine).toBe(
+      '5 of 6 have answered. The number on each day is how many of them could make it.',
+    );
+    expect(shown.grid[0]!.others).toBeUndefined();
+    expect(shown.grid[1]!.others).toBe('2');
+    expect(shown.grid[3]!.others).toBe('5');
+    expect(shown.grid[5]!.others).toBe('1');
+    // In words for a screen reader; nothing added to a day nobody picked.
+    expect(shown.grid[3]!.label).toMatch(
+      /^Thursday 17 September, no times yet, 5 others could make it$/,
+    );
+    expect(shown.grid[5]!.label).toMatch(/, 1 other could make it$/);
+    expect(shown.grid[0]!.label).toMatch(/^Monday 14 September, no times yet$/);
+  });
+
+  it('gives each block a third line: agreed, up to, or nobody yet', () => {
+    const { run, view } = withOthers(EVENINGS, FIVE);
+    const one = view(run({ type: 'tick', day: 3 })).panel!.blocks;
+    expect(one.map((block) => block.others)).toEqual(['5 free']);
+    const three = view(
+      run({ type: 'tick', day: 1 }, { type: 'tick', day: 3 }, { type: 'tick', day: 5 }),
+    ).panel!.blocks;
+    expect(three.map((block) => block.others)).toEqual(['Up to 5 free']);
+    const none = view(run({ type: 'tick', day: 0 })).panel!.blocks;
+    expect(none.map((block) => block.others)).toEqual(['Nobody yet']);
+  });
+
+  it('counts a block by anyone with any half hour inside it, not the most at once', () => {
+    const timing = WHOLE_DAYS;
+    const { run, view } = withOthers(timing, {
+      ...FIVE,
+      withTimes: 2,
+      // Saturday 19th: one free in the morning, another late in the morning.
+      days: [[evening(19, '09:00', '09:30')], [evening(19, '11:30', '12:00')]],
+    });
+    const blocks = view(run({ type: 'tick', day: 5 })).panel!.blocks;
+    expect(blocks.find((block) => block.kind === 'morning')?.others).toBe('2 free');
+    expect(blocks.find((block) => block.kind === 'evening')?.others).toBe('Nobody yet');
+  });
+
+  it('says how many others each line of the answer overlaps', () => {
+    const { run, view } = withOthers(EVENINGS, FIVE);
+    const early = [true, false, false, false, false, false, false, false, false, false];
+    const answers = view(
+      run(
+        { type: 'whole_day', day: 0 },
+        { type: 'paint', day: 3, cells: early },
+        { type: 'whole_day', day: 1 },
+      ),
+    ).answers;
+    expect(answers.map((answer) => answer.others)).toEqual([
+      'No overlap with anyone yet',
+      'Overlaps with 2 others',
+      // 5:30–6 pm on Thursday: two of the five are free then.
+      'Overlaps with 2 others',
+    ]);
+  });
+
+  it('opens a day with the sentence and a figure over each half hour', () => {
+    const { run, view } = withOthers(EVENINGS, FIVE);
+    const [thursday] = view(run({ type: 'whole_day', day: 3 }, { type: 'open', day: 3 })).answers;
+    expect(thursday!.peak).toBe('Others free, by the half hour. The most is 5, 6:30–8:30 pm.');
+    expect(thursday!.counts?.map((count) => count.text)).toEqual([
+      '2',
+      '3',
+      '5',
+      '5',
+      '5',
+      '5',
+      '3',
+      '2',
+      '2',
+      '2',
+    ]);
+    expect(thursday!.counts?.filter((count) => count.top)).toHaveLength(4);
+    // Each cell says it in words, so the figures can be hidden from a reader.
+    expect(thursday!.labels[2]).toMatch(/6:30 to 7 pm\. 5 others free$/);
+  });
+
+  it('says a day nobody picked has nobody, with no figures', () => {
+    const { run, view } = withOthers(EVENINGS, FIVE);
+    const [monday] = view(run({ type: 'whole_day', day: 0 }, { type: 'open', day: 0 })).answers;
+    expect(monday!.peak).toBe('Nobody else has picked this day yet.');
+    expect(monday!.counts).toBeUndefined();
+  });
+
+  it('teaches, below the threshold, and shows no counts anywhere', () => {
+    const { run, view } = withOthers(EVENINGS, NOBODY);
+    const shown = view(
+      run({ type: 'tick', day: 3 }, { type: 'whole_day', day: 3 }, { type: 'open', day: 3 }),
+    );
+    expect(shown.othersLine).toBe(
+      "You're the first to answer. As replies come in, each day will show how many could make it.",
+    );
+    expect(shown.grid.every((day) => day.others === undefined)).toBe(true);
+    expect(shown.panel!.blocks[0]!.others).toBeUndefined();
+    expect(shown.answers[0]).toMatchObject({
+      others: undefined,
+      peak: undefined,
+      counts: undefined,
+    });
+  });
+
+  it('does not call it the first answer when others have said no or "I\'m easy"', () => {
+    const { run, view } = withOthers(EVENINGS, { ...NOBODY, answered: 2, flexible: 1 });
+    expect(view(run()).othersLine).toBe(
+      'Nobody else has given times yet. As they do, each day will show how many could make it.',
+    );
+  });
+
+  it('adds "I\'m easy" to every count, and counts the others besides a reader who has answered', () => {
+    const { run, view } = withOthers(EVENINGS, {
+      ...FIVE,
+      answered: 4,
+      withTimes: 3,
+      flexible: 1,
+      readerAnswered: true,
+    });
+    const shown = view(run({ type: 'tick', day: 0 }));
+    expect(shown.othersLine).toBe(
+      '4 of the other 5 have answered. The number on each day is how many of them could make it.',
+    );
+    expect(shown.grid[0]!.others).toBe('1');
+    expect(shown.grid[3]!.others).toBe('6');
+    expect(shown.panel!.blocks[0]!.others).toBe('1 free');
   });
 });

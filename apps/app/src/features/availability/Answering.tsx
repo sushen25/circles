@@ -1,13 +1,14 @@
 import type { PlanId } from '@circles/contracts';
-import { fromISO, isTonightWindow } from '@circles/domain';
+import { fromISO, isTonightWindow, othersShown, type OthersSaid } from '@circles/domain';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { useEffect, useMemo, useReducer, useState } from 'react';
+import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 
 import { track } from '../../analytics/track';
 import { t } from '../../copy';
 import {
   clearDraft,
+  othersSaid,
   timingOf,
   usualTimes,
   type AnswerablePlan,
@@ -52,6 +53,8 @@ export type AnsweringProps = {
   /** Undefined with no backend: nothing is stored and nothing is sent. */
   userId: string | undefined;
   onStale: () => void;
+  /** With no backend, what the others said in the gallery's scenario (SUS-129). */
+  fixtureOthers?: OthersSaid | undefined;
 };
 
 /**
@@ -80,6 +83,7 @@ export function Answering({
   changed,
   userId,
   onStale,
+  fixtureOthers,
 }: AnsweringProps) {
   const router = useRouter();
 
@@ -129,6 +133,30 @@ export function Answering({
     staleTime: 0,
   });
 
+  // What the others have said, as counts (SUS-129, ADR 0045). Read again each
+  // time the editor opens, and never kept: not in the draft, not on the
+  // device. A failed or offline read offers nothing — the editor is then
+  // exactly as it was — and the answer can still be sent.
+  const others = useQuery({
+    queryKey: ['others-said', plan.id, plan.revision, userId],
+    queryFn: async () => (await othersSaid(plan.id)) ?? null,
+    enabled: userId !== undefined && plan.acceptingAnswers,
+    // Once per opening, and only this opening's (review round 1): what an
+    // earlier opening read is never shown while this one's read is on its way
+    // or after it fails (`isFetchedAfterMount` below), is dropped once the
+    // editor closes, and is not read again while the editor stays open.
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  });
+  const said =
+    userId === undefined
+      ? fixtureOthers
+      : others.isFetchedAfterMount && !others.isError
+        ? (others.data ?? undefined)
+        : undefined;
+
   const { phase, send, savedAt, edited } = useSendAnswer({
     code,
     plan,
@@ -157,6 +185,19 @@ export function Answering({
       track('availability_started', { plan_id: plan.id as PlanId });
     }
   }, [step, answerable, plan.id]);
+
+  // Whether this opening showed counts of what others said (SUS-129), once
+  // its read has settled, so the answer time and the "I'm easy" share can be
+  // compared with and without them. Its own event, not a field on the start:
+  // the start is never held back for an optional read (review round 2).
+  const settled = userId === undefined || others.isFetchedAfterMount;
+  const shown = said !== undefined && othersShown(said);
+  const reported = useRef(false);
+  useEffect(() => {
+    if (step !== 'times' || !answerable || !settled || reported.current) return;
+    reported.current = true;
+    track('availability_others_read', { plan_id: plan.id as PlanId, others_shown: shown });
+  }, [step, answerable, settled, shown, plan.id]);
 
   // While an answer is on its way it cannot change: the request has the
   // answer it was sent with, and a success clears the draft an edit would
@@ -211,7 +252,7 @@ export function Answering({
     );
   }
 
-  const view = editorView(state, rows, timing, format, undefined, usual.data ?? undefined);
+  const view = editorView(state, rows, timing, format, undefined, usual.data ?? undefined, said);
   const usualParts = usual.data ?? undefined;
 
   return (
@@ -222,6 +263,7 @@ export function Answering({
       zoneNote={zoneNoteOf(plan)}
       grid={view.grid}
       weekdays={view.weekdays}
+      othersLine={view.othersLine}
       panel={view.panel}
       answers={view.answers}
       canUndo={view.canUndo}

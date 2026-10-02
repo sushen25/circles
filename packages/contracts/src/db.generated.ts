@@ -1355,6 +1355,7 @@ export type Database = {
       }
       member_cap: { Args: never; Returns: number }
       my_turn_to_plan: { Args: { p_circle_id: string }; Returns: boolean }
+      others_availability: { Args: { p_plan_id: string }; Returns: Json }
       own_email_hint: { Args: never; Returns: string }
       plan_candidate_summary: { Args: { p_plan_id: string }; Returns: Json }
       plan_last_possible_start: {

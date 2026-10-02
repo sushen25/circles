@@ -172,6 +172,42 @@
       "title": "Availability \u00b7 adjusting a day"
     },
     {
+      "file": "AvailabilityOthers.dc.html",
+      "x": 480,
+      "y": 3900,
+      "w": 390,
+      "h": 1250,
+      "page": "guest",
+      "title": "Availability \u00b7 what others said"
+    },
+    {
+      "file": "AvailabilityOthersPicking.dc.html",
+      "x": 960,
+      "y": 3900,
+      "w": 390,
+      "h": 1300,
+      "page": "guest",
+      "title": "Availability \u00b7 others, days ticked"
+    },
+    {
+      "file": "AvailabilityOthersAdjusting.dc.html",
+      "x": 1440,
+      "y": 3900,
+      "w": 390,
+      "h": 1500,
+      "page": "guest",
+      "title": "Availability \u00b7 others, adjusting a day"
+    },
+    {
+      "file": "AvailabilityOthersFirst.dc.html",
+      "x": 1920,
+      "y": 3900,
+      "w": 390,
+      "h": 1250,
+      "page": "guest",
+      "title": "Availability \u00b7 first to answer"
+    },
+    {
       "file": "Welcome.dc.html",
       "x": 0,
       "y": 0,

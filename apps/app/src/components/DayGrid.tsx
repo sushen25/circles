@@ -39,6 +39,12 @@ export type GridDay = {
   selected: boolean;
   hasTimes: boolean;
   /**
+   * How many others could make it, as a small figure with a people icon in the
+   * day's top-left corner (SUS-129). The label carries it in words; the figure
+   * is hidden from a screen reader. Absent on every day, the grid is as it was.
+   */
+  others?: string | undefined;
+  /**
    * Shown, faded and not pressable: a day in the past on the plan setup's
    * calendar, or one past the thirty-day cap. Its label has to say why.
    */
@@ -69,12 +75,15 @@ export function DayGrid({ days, weekdays, label, onToggle, dimmed = false }: Pro
   const column = hit * Math.max(1, fontScale);
   const gap = width > 0 ? Math.min(GAP, (width - COLUMNS * column) / (COLUMNS - 1)) : GAP;
   const wraps = gap < 1;
+  // Room for the figure in the corner, on every day alike so the rows line up.
+  const counted = days.some((day) => day.others !== undefined);
 
   const button = (day: GridDay, index: number) => (
     <DayButton
       key={day.key}
       day={day}
       wraps={wraps}
+      counted={counted}
       dimmed={dimmed}
       onPress={onToggle === undefined ? undefined : () => onToggle(index)}
     />
@@ -124,11 +133,13 @@ export function DayGrid({ days, weekdays, label, onToggle, dimmed = false }: Pro
 function DayButton({
   day,
   wraps,
+  counted,
   dimmed,
   onPress,
 }: {
   day: GridDay;
   wraps: boolean;
+  counted: boolean;
   dimmed: boolean;
   onPress: (() => void) | undefined;
 }) {
@@ -149,6 +160,7 @@ function DayButton({
       {...state}
       style={[
         styles.day,
+        counted && styles.dayCounted,
         wraps && styles.dayWrapped,
         { backgroundColor: palette.surface, borderColor: palette.lineStrong },
         day.hasTimes && { backgroundColor: color.accentSoft, borderColor: color.accentSoft },
@@ -161,6 +173,12 @@ function DayButton({
           <Icon name="check" size={10} color={palette.onAccent} />
         </View>
       ) : null}
+      {day.others === undefined ? null : (
+        <View style={styles.others} aria-hidden>
+          <Icon name="people" size={11} color={ink} />
+          <Text style={[styles.othersText, { color: ink }]}>{day.others}</Text>
+        </View>
+      )}
       <Text style={[styles.number, { color: ink }]}>{wraps ? day.name : day.number}</Text>
       <Text style={[styles.tag, { color: ink }]}>{day.tag ?? ' '}</Text>
     </Pressable>
@@ -185,12 +203,28 @@ const styles = StyleSheet.create({
     borderRadius: radius.chip,
     borderWidth: 1,
   },
+  // 66 rather than 60, so the figure in the corner clears the date.
+  dayCounted: { minHeight: 66, paddingTop: 15, paddingBottom: 3 },
   dayWrapped: {
     flexGrow: 1,
     flexBasis: 96,
     paddingHorizontal: 8,
   },
   tick: { position: 'absolute', top: 2, right: 3 },
+  others: {
+    position: 'absolute',
+    top: 4,
+    left: 5,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  othersText: {
+    fontFamily: faceFor('Figtree', 600),
+    fontSize: 11,
+    lineHeight: 12,
+    fontVariant: ['tabular-nums'],
+  },
   number: {
     fontFamily: faceFor('Newsreader', 400),
     fontSize: 21,

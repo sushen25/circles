@@ -1,4 +1,4 @@
-import { fixtures as domain } from '@circles/domain';
+import { fixtures as domain, fromISO, interval, type OthersSaid } from '@circles/domain';
 
 import type { PlanToAnswer } from '../availability';
 
@@ -137,4 +137,56 @@ export const answerable: PlanToAnswer = {
     // In the past, as an answer's submission always is: a draft saved now is newer.
     submittedAt: '2026-09-01T09:00:00Z',
   },
+};
+
+/**
+ * What the others have said, as the editor reads it (SUS-129), to the reader
+ * of `answerable` — who has answered (Monday, Wednesday and Thursday), so is
+ * one of the five, and reads about the other four: Alex has not answered
+ * (review round 2). The counts peak on Thursday 17th, 6:30–8:30 pm, where all
+ * four meet — the time the scenario confirms — and nobody else has picked
+ * Monday 14th. One entry per person per day, as `others_availability` returns
+ * them, in Melbourne evenings (UTC+10 in September).
+ */
+function evening(day: number, from: string, to: string) {
+  return interval(
+    fromISO(`2099-09-${day}T${from}:00+10:00`),
+    fromISO(`2099-09-${day}T${to}:00+10:00`),
+  );
+}
+
+export const othersPartial: OthersSaid = {
+  asked: 6,
+  answered: 4,
+  withTimes: 4,
+  flexible: 0,
+  readerAnswered: true,
+  days: [
+    [evening(15, '17:30', '22:30')],
+    [evening(15, '18:30', '21:30')],
+    [evening(16, '17:30', '20:30')],
+    [evening(17, '17:30', '21:00')],
+    [evening(17, '18:00', '22:30')],
+    [evening(17, '18:30', '20:30')],
+    [evening(17, '18:30', '22:30')],
+    [evening(18, '17:30', '22:30')],
+    [evening(19, '17:30', '19:00')],
+    [evening(19, '17:30', '22:30')],
+    [evening(19, '19:00', '22:00')],
+    [evening(22, '17:30', '22:30')],
+    [evening(23, '17:30', '22:30')],
+    [evening(24, '17:30', '22:30')],
+    [evening(24, '18:30', '21:30')],
+    [evening(25, '17:30', '22:30')],
+  ],
+};
+
+/** Nobody else has answered yet: "You're the first to answer." */
+export const othersFirst: OthersSaid = {
+  asked: 6,
+  answered: 0,
+  withTimes: 0,
+  flexible: 0,
+  readerAnswered: false,
+  days: [],
 };

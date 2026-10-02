@@ -970,7 +970,12 @@ select is(
        'hand_off_organiser', 'extend_deadline', 'hand_off_candidates',
        -- S2-07. Whether "I was there" is the circle's first: security invoker,
        -- so it reads nothing RLS does not already show the caller.
-       'after_attendance_facts'
+       'after_attendance_facts',
+       -- SUS-129. What the others have said, for a member answering a plan:
+       -- counts, and each other person's windows day by day with nobody's
+       -- name or id and nothing linking their days (ADR 0045). Null for
+       -- anybody who is not an active member. `260_others_availability.sql`.
+       'others_availability'
      )),
   '',
   'only the intended functions in public are callable by authenticated'

@@ -44,6 +44,8 @@ export type AvailabilityProps = {
   zoneNote?: string | undefined;
   grid?: readonly GridDay[] | undefined;
   weekdays?: readonly string[] | undefined;
+  /** Above the grid: what the others have said, or nothing (SUS-129). */
+  othersLine?: string | undefined;
   /** The card under the grid; undefined while no day is ticked. */
   panel?: PanelView | undefined;
   answers?: readonly AnswerView[] | undefined;
@@ -82,6 +84,7 @@ export function AvailabilityScreen({
   zoneNote,
   grid = [],
   weekdays = [],
+  othersLine,
   panel,
   answers = [],
   canUndo = false,
@@ -185,6 +188,7 @@ export function AvailabilityScreen({
           grid={grid}
           weekdays={weekdays}
           panel={panel}
+          othersLine={othersLine}
           dimmed={dimmed}
           onTick={onTick}
           onDone={onDone}

@@ -1,6 +1,12 @@
-import { cellsToWindows, rangeText, type DayPart, type TimeFormat } from '@circles/domain';
+import {
+  cellsToWindows,
+  rangeText,
+  type DayPart,
+  type OthersSaid,
+  type TimeFormat,
+} from '@circles/domain';
 
-import type { GridDay } from '../../components';
+import type { CellCount, GridDay } from '../../components';
 import { t } from '../../copy';
 import {
   blockSpan,
@@ -12,6 +18,15 @@ import {
 } from './blocks';
 import { dayName, dayNumber, gridSlots, weekdayHeadings, type DayRow, type Mark } from './days';
 import { blockOn, hasTimes, paintedDays, wholeDayOn, type EditorState } from './editor';
+import {
+  blockLine,
+  counted,
+  dayFree,
+  dayLabel,
+  dayOthers,
+  othersLine,
+  overlapLine,
+} from './others';
 import { BLOCK_LABEL, TAG_WORD } from './words';
 
 /**
@@ -26,6 +41,8 @@ export type BlockView = {
   label: string;
   /** "5:30–10:30 pm", or "9 am–12 pm · 1 of these 3 days" when it is not on all of them. */
   detail: string;
+  /** "3 free", "Up to 5 free", "Nobody yet": what others said (SUS-129). */
+  others?: string | undefined;
   on: boolean;
 };
 
@@ -55,6 +72,12 @@ export type AnswerView = {
   marks: Mark[];
   /** Every cell on: "Any time that day" becomes "Clear this day". */
   wholeDay: boolean;
+  /** "Overlaps with 3 others", when there are counts to show (SUS-129). */
+  others?: string | undefined;
+  /** Over the open day's cells: "Others free, by the half hour. The most is 5, …" */
+  peak?: string | undefined;
+  /** A figure over each of the open day's cells; absent on a day nobody else picked. */
+  counts?: CellCount[] | undefined;
 };
 
 export type EditorView = {
@@ -71,6 +94,11 @@ export type EditorView = {
    * on this plan. Offered to start an answer, never to overwrite one.
    */
   canUseUsual: boolean;
+  /**
+   * The line above the grid: "5 of 6 have answered…", or "You're the first to
+   * answer…". Undefined when the others could not be read (SUS-129).
+   */
+  othersLine: string | undefined;
 };
 
 export function editorView(
@@ -80,7 +108,10 @@ export function editorView(
   format: TimeFormat,
   locale?: string,
   usual?: readonly DayPart[],
+  /** What the others have said; undefined says nothing about them at all. */
+  said?: OthersSaid,
 ): EditorView {
+  const others = counted(said);
   const range = (day: number) =>
     rangeText(cellsToWindows(rows[day]!.date, state.days[day] ?? [], timing), timing.zone, format);
   const slots = gridSlots(rows);
@@ -88,15 +119,19 @@ export function editorView(
   const grid: GridDay[] = rows.map((row, day) => {
     const times = range(day);
     const tag = dayTag(state.days[day] ?? [], row, timing);
+    const free = others === undefined ? 0 : dayFree(others, row);
+    const label =
+      times === undefined
+        ? t('availability', 'day_no_times', { day: row.spoken })
+        : t('availability', 'day_with_times', { day: row.spoken, time: times });
     return {
       key: row.date,
       number: dayNumber(row.date, locale),
       name: dayName(row.date, locale),
       tag: tag === undefined ? undefined : TAG_WORD[tag](),
-      label:
-        times === undefined
-          ? t('availability', 'day_no_times', { day: row.spoken })
-          : t('availability', 'day_with_times', { day: row.spoken, time: times }),
+      label: dayLabel(label, free),
+      // No figure on a day nobody else has time on.
+      others: free > 0 ? String(free) : undefined,
       slot: slots[day]!,
       selected: state.ticked.includes(day),
       hasTimes: times !== undefined,
@@ -131,6 +166,13 @@ export function editorView(
                       count: offer.days.length,
                       total: state.ticked.length,
                     }),
+              others:
+                others === undefined
+                  ? undefined
+                  : blockLine(
+                      others,
+                      offer.days.map((day) => blockSpan(offer.kind, rows[day]!, timing)!),
+                    ),
               on: blockOn(offer.kind, state, rows, timing),
             };
           }),
@@ -142,6 +184,8 @@ export function editorView(
   const answers: AnswerView[] = rows.flatMap((row, day) => {
     const open = state.open === day;
     if (!open && !hasTimes(state, day)) return [];
+    const cells = state.days[day] ?? [];
+    const near = others === undefined || !open ? undefined : dayOthers(others, row, timing, format);
     return [
       {
         key: row.date,
@@ -150,10 +194,13 @@ export function editorView(
         spoken: row.spoken,
         range: range(day) ?? t('availability', 'not_this_day'),
         open,
-        cells: state.days[day] ?? [],
-        labels: row.cellLabels,
+        cells,
+        labels: near?.labels ?? row.cellLabels,
         marks: row.marks,
         wholeDay: wholeDayOn(state, day),
+        others: others === undefined ? undefined : overlapLine(others, row, cells),
+        peak: near?.sentence,
+        counts: near?.counts,
       },
     ];
   });
@@ -170,5 +217,6 @@ export function editorView(
       !state.flexible &&
       paintedDays(state) === 0 &&
       usualCells(rows, timing, usual).some((cells) => cells.some(Boolean)),
+    othersLine: othersLine(said),
   };
 }
