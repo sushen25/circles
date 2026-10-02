@@ -239,6 +239,14 @@ describe('an account that is not a member', () => {
     Object.assign(session, { status: 'saved', userId: 'maya', isAnonymous: false });
   });
 
+  it('is told the link is not active when no circle is behind it now (ADR 0048)', async () => {
+    circleNameForCode.mockResolvedValue(null);
+    arrive();
+
+    expect(await screen.findByText("This link isn't active any more.")).toBeTruthy();
+    expect(joinPlan).not.toHaveBeenCalled();
+  });
+
   it('sees one button naming the circle and themselves, never a list, and joins with no name', async () => {
     ownDisplayName.mockResolvedValue('Maya');
     joinPlan.mockResolvedValue(joined());

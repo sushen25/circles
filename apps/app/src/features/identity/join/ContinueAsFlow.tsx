@@ -76,7 +76,9 @@ export function ContinueAsFlow({ code, arrivedWithoutSession, onReattached }: Co
   const circleName = useQuery({
     queryKey: ['circle-name-for-code', code],
     queryFn: () => circleNameForCode(code),
-    staleTime: Infinity,
+    // Not for ever: the name is also the answer to "is this link still live?", and a
+    // plan can be cancelled, expire or pass the fourteen days while a tab is open.
+    staleTime: 30_000,
   });
 
   const guests = useQuery({

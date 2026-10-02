@@ -75,11 +75,17 @@ export function JoinAsAccountFlow({ code, onJoined }: JoinAsAccountFlowProps) {
   const back = () => (router.canGoBack() ? router.back() : router.replace('/'));
   const whatIsBrand = () => router.push('/get-the-app');
 
-  // No circle behind the code: unknown, or archived. Nothing new is said by
-  // saying so — `preview_for_code` already answers this for any code, to every
-  // chat app that unfurls the link — and a join button for no circle would be
-  // a button that can only fail.
-  if (inactive || circleName.data === null) {
+  // No circle behind the code *now*: unknown, archived, or a plan that is
+  // cancelled, expired or long past (ADR 0048). Nothing new is said by saying so —
+  // `preview_for_code` already answers this for any code, to every chat app that
+  // unfurls the link — and a join button for no circle would be a button that
+  // can only fail. The same screen as a guest gets on the same link.
+  if (circleName.data === null) {
+    return <LinkInvalidScreen reason="inactive" onBack={back} onWhatIsBrand={whatIsBrand} />;
+  }
+
+  // The circle is there but the plan is not taking answers: join-plan said so.
+  if (inactive) {
     return <LinkInvalidScreen reason="ask_for_invite" onBack={back} onWhatIsBrand={whatIsBrand} />;
   }
 

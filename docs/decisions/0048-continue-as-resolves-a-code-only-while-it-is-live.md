@@ -160,6 +160,14 @@ not enough to make the second call. Not done, for these reasons:
   more than fourteen days past, or an archived circle's plan sees "This link isn't
   active any more." (one change in `ContinueAsFlow`: a null circle name now says
   so). The link-preview card for such a plan is the generic one.
+- ADR 0022's single end state for a newcomer on a plan that is not asking splits
+  in two. A link that is not live (as above, and a code that never existed)
+  ends at "This link isn't active any more" before any name is asked, for guests
+  and for accounts alike. A link that is live but not taking answers (replies
+  closed, or locked in recently) still asks for a name and then says "You need the
+  invite link to join". Nothing is let in on either path, and what the first
+  says is what `preview_for_code` already tells any chat app that unfurls the
+  link.
 - A plan still `confirmed` after N, because nobody answered "did it happen?",
   stops offering Continue-as; the organiser can still answer, and the people with
   an emailed link can still get back in. Nothing else about the plan changes.
