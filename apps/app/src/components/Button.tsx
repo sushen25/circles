@@ -110,7 +110,11 @@ export function CompactButton({ label, icon, tone = 'plain', disabled, ...props 
   );
 }
 
-/** A row of buttons that share the width evenly. */
+/**
+ * A row of buttons, side by side while they fit and wrapped onto the next line
+ * when they do not: a narrow phone, a long translation, or text at 200%. A row
+ * that cannot wrap pushes its last button through the card's edge (SUS-132).
+ */
 export function ButtonRow({ children }: { children: React.ReactNode }) {
   return <View style={styles.row}>{children}</View>;
 }
@@ -160,6 +164,7 @@ const styles = StyleSheet.create({
   },
   row: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     gap: 12,
   },

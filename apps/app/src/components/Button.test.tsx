@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { hit, size } from '@circles/tokens';
 
-import { Button, CompactButton, Tertiary } from './Button';
+import { Button, ButtonRow, CompactButton, Tertiary } from './Button';
 
 describe('Button', () => {
   it('is a button to a screen reader and calls back when pressed', () => {
@@ -47,5 +47,24 @@ describe('Button', () => {
     expect(element).toHaveStyle({ 'min-height': `${hit}px` });
     fireEvent.click(screen.getByRole('button', { name: 'Remove Tuesday 15 September' }));
     expect(onPress).toHaveBeenCalledOnce();
+  });
+});
+
+describe('ButtonRow', () => {
+  it('sits its buttons side by side and wraps them rather than overflowing the card', () => {
+    // jsdom does no layout, so this pins the style that decides it: a row that
+    // cannot wrap pushes its last button through a 390-wide card's edge
+    // (SUS-132, found in a screenshot).
+    const { container } = render(
+      <ButtonRow>
+        <Button label="See how it's looking" variant="secondary" onPress={() => undefined} />
+        <Button label="Share the link" variant="secondary" onPress={() => undefined} />
+      </ButtonRow>,
+    );
+
+    expect(container.firstElementChild).toHaveStyle({
+      'flex-direction': 'row',
+      'flex-wrap': 'wrap',
+    });
   });
 });
