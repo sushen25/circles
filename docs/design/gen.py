@@ -1093,7 +1093,7 @@ S["Privacy"] = shell(
         dl("What we keep, and who sees it"),
         card(row(ic("eye-off", 20, T["ink2"]), title("Your calendar stays on your phone")), p("If you turn on the calendar check, we read busy times on this device only, to grey out clashes. Event names never leave your phone."), gap=8),
         card(row(ic("people", 20, T["ink2"]), title("Friends see a combined result")), p("They see which options work for you, never a personal schedule. Before enough people are keen on a quiet ask, nobody sees anyone's answer."), gap=8),
-        card(row(ic("mail", 20, T["ink2"]), title("What email you get")), p("Guests get updates about a plan only if they ask, each with a stop link. If you sign in to organise plans, you also get letters about those plans and an occasional nudge, most of which you can turn off in notification settings. We never sell addresses, and other companies deliver the email for us."), gap=8),
+        card(row(ic("mail", 20, T["ink2"]), title("What email you get")), p("Anyone in a circle gets updates about a plan only if they ask, each with a stop link. If you sign in to organise plans, you also get letters about those plans and an occasional nudge, most of which you can turn off in notification settings. We never sell addresses, and other companies deliver the email for us."), gap=8),
         sm("To have your details removed, write to hello@wenna.app. There is no delete button in the app yet."),
     )
 )

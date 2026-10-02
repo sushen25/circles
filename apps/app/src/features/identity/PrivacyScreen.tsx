@@ -39,7 +39,7 @@ export function PrivacyScreen({ onBack }: PrivacyProps) {
           <Row>
             <Title>{t('privacy', 'what_email_you_get')}</Title>
           </Row>
-          <BodyText>{t('privacy', 'guests_get_updates_only_if_they_ask')}</BodyText>
+          <BodyText>{t('privacy', 'anyone_gets_updates_only_if_they_ask')}</BodyText>
         </Card>
         <Small>{t('privacy', 'to_have_your_details_removed')}</Small>
       </Body>
