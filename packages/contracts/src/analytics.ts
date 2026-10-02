@@ -105,7 +105,7 @@ export const catalogue = {
     window: z.enum(['tonight', 'weekend', 'next_week', 'next_two_weeks', 'custom']),
     used_defaults: z.boolean(),
     /**
-     * A custom plan's shape (SUS-133, ADR 00ZZ): whether it has gaps, and how
+     * A custom plan's shape (SUS-133, ADR 0047): whether it has gaps, and how
      * many days it asks about. A count and a flag, never a date. Optional, so
      * every event sent before the picker picked days, and every preset, is
      * still the same event; the version stays.

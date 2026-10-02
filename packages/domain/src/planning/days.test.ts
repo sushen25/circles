@@ -115,7 +115,7 @@ describe('windowError', () => {
   });
 });
 
-describe('daysChange: what changing the days costs (ADR 00ZZ)', () => {
+describe('daysChange: what changing the days costs (ADR 0047)', () => {
   const week = { start: d('2026-09-14'), end: d('2026-09-20') };
 
   it('is free to take away days nobody picked', () => {

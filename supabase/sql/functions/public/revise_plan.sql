@@ -29,7 +29,7 @@ create or replace function public.revise_plan(
   -- What the preview said the plan was. Null means the caller did not preview.
   p_expected_version text default null,
   -- The days the plan should ask about, sorted and distinct, first and last
-  -- the window's ends (ADR 00ZZ). Null leaves them alone — unless the window's
+  -- the window's ends (ADR 0047). Null leaves them alone — unless the window's
   -- ends move, when the plan asks about every day of the new window: that is
   -- what "Try a wider window" sends, and it drops the gaps on purpose.
   p_days date[] default null
@@ -159,7 +159,7 @@ begin
     end if;
   end if;
 
-  -- The days (ADR 00ZZ), as the plan asks about them now and as it would.
+  -- The days (ADR 0047), as the plan asks about them now and as it would.
   -- No rows in `plan_days` is every day of the window, so both sides are
   -- spelled out as lists and compared as lists, whatever form each is stored in.
   new_start := coalesce((p_payload ->> 'window_start')::date, plan.window_start);
@@ -191,7 +191,7 @@ begin
   -- has said anything about it. Taking away a day somebody picked is: their
   -- answer no longer means what they said. Taking away days that nobody
   -- picked is not — every answer still stands as given — and the founder
-  -- chose that it should not cost anybody a reply (ADR 00ZZ). Decided here,
+  -- chose that it should not cost anybody a reply (ADR 0047). Decided here,
   -- under the lock, from `picked_days`, the same question the preview asked.
   reasks := days_changed and (
     exists (select 1 from unnest(new_days) d where d <> all (old_days))

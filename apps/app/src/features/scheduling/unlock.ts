@@ -92,7 +92,7 @@ export function blockedBy(data: PlanCandidates): string {
 export function widerWindow(data: PlanCandidates): PlanWindow | undefined {
   const start = localDate(data.windowStart);
   const current = windowDays({ start, end: localDate(data.windowEnd) });
-  // Every day for thirty days from the first, and the gaps go (ADR 00ZZ): a
+  // Every day for thirty days from the first, and the gaps go (ADR 0047): a
   // plan that already spans thirty days with gaps in it can still be widened
   // by asking about the days it skipped.
   if (current >= MAX_WINDOW_DAYS && data.days === undefined) return undefined;

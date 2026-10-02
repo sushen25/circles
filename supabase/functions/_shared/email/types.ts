@@ -101,7 +101,7 @@ export type AskedAgainInput = ToSubscriber & {
   readonly windowStart: LocalDate;
   readonly windowEnd: LocalDate;
   /**
-   * The days asked about, when the window has gaps (ADR 00ZZ): the letter
+   * The days asked about, when the window has gaps (ADR 0047): the letter
    * names those and no others. Absent is every day from start to end.
    */
   readonly days?: readonly LocalDate[] | undefined;

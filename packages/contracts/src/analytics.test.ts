@@ -149,7 +149,7 @@ describe('validateEvent', () => {
     ).not.toBeNull();
   });
 
-  it('records a custom plan with gaps as a flag and a count, never its dates (ADR 00ZZ)', () => {
+  it('records a custom plan with gaps as a flag and a count, never its dates (ADR 0047)', () => {
     expect(
       validateEvent('plan_created', {
         mode: 'named',

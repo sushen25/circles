@@ -1,4 +1,4 @@
--- A plan can ask about days with gaps between them (SUS-133, ADR 00ZZ).
+-- A plan can ask about days with gaps between them (SUS-133, ADR 0047).
 --
 -- `plan_days` holds the days only when there are gaps; no rows is every day of
 -- the window, which is every preset and every plan stored before this. This
@@ -244,7 +244,7 @@ select is(pg_temp.revise((select id from plain), '{"quorum": 3}'::jsonb, null) -
 select is(pg_temp.days_of((select id from plain)), array[]::date[], 'that writes no days');
 
 -- ---------------------------------------------------------------------------
--- What changing the days costs (ADR 00ZZ). Priya picked Tue 22 on the gappy
+-- What changing the days costs (ADR 0047). Priya picked Tue 22 on the gappy
 -- plan above; nobody picked anything else.
 -- ---------------------------------------------------------------------------
 

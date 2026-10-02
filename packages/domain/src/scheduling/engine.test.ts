@@ -633,7 +633,7 @@ describe('the set itself', () => {
   });
 });
 
-describe('a plan with gaps (ADR 00ZZ)', () => {
+describe('a plan with gaps (ADR 0047)', () => {
   const early = fromISO('2026-01-01T00:00:00Z');
   const band = { startMin: 60, endMin: 5 * 60 }; // 01:00–05:00
 

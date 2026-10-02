@@ -57,7 +57,7 @@ export interface CreatePlanOptions {
   title: string;
   category: CreatePlanRequest['category'];
   preset: CreatePlanRequest['preset'];
-  /** With `days` when the picker left gaps (ADR 00ZZ). */
+  /** With `days` when the picker left gaps (ADR 0047). */
   custom?: { start: string; end: string; days?: string[] | undefined } | undefined;
   daily?: { startMin: number; endMin: number } | undefined;
   durationMinutes?: number | undefined;

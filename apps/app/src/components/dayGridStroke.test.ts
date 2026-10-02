@@ -12,7 +12,7 @@ function month(): (DayBox | undefined)[] {
   return boxes;
 }
 
-describe('dayAt: which day a stroke is over (ADR 00ZZ)', () => {
+describe('dayAt: which day a stroke is over (ADR 0047)', () => {
   it('finds the day under the finger, across rows', () => {
     // Monday the 31st of the month before is a blank: the nearest day is the 1st.
     expect(dayAt({ x: 10, y: 10 }, month())).toBe(0);

@@ -15,7 +15,7 @@ import { reaskWarning } from './words';
 const NOW = fromISO(new Date(fixture.FIXTURE_NOW).toISOString());
 const plan = fixture.asking;
 
-describe('taking days away (ADR 00ZZ)', () => {
+describe('taking days away (ADR 0047)', () => {
   const without = (gone: string) => ({
     ...editDraftFrom(plan),
     custom: {

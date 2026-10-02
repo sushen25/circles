@@ -61,7 +61,7 @@ type ConfirmationRow = {
 type ContextRow = {
   circle: Record<string, unknown>;
   plan: Record<string, unknown>;
-  /** The days the plan asks about when it has gaps; null is every day (ADR 00ZZ). */
+  /** The days the plan asks about when it has gaps; null is every day (ADR 0047). */
   days?: string[] | null;
   organiser_name: string | null;
   members: MemberRow[];

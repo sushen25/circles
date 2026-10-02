@@ -45,7 +45,7 @@ export function editDraftFrom(plan: PlanDetails): PlanDraft {
   };
 }
 
-/** The plan's own dates, with its days when it has gaps (ADR 00ZZ). */
+/** The plan's own dates, with its days when it has gaps (ADR 0047). */
 export function keptOf(plan: Pick<PlanDetails, 'windowStart' | 'windowEnd' | 'days'>): DateRange {
   return plan.days === undefined
     ? { start: plan.windowStart, end: plan.windowEnd }
@@ -96,7 +96,7 @@ export function resolveEdit(
 
   // The days, compared as days: a plan's days written two ways are one plan.
   // Whether a change to them costs anybody a reply is the server's to say —
-  // taking away days nobody picked does not (ADR 00ZZ) — and the screen reads
+  // taking away days nobody picked does not (ADR 0047) — and the screen reads
   // `bumps_revision` off the preview rather than guessing.
   const windowChanged = !sameDays(asWindow(shape.window), asWindow(kept));
   const endsMoved = shape.window.start !== kept.start || shape.window.end !== kept.end;
@@ -110,7 +110,7 @@ export function resolveEdit(
   let deadlineMoved = false;
   const current = fromISO(plan.responseDeadline);
   // A deadline stands while the window's ends do, and while days are only
-  // taken away (ADR 00ZZ): it moves only when it has to, to come before the
+  // taken away (ADR 0047): it moves only when it has to, to come before the
   // new last possible start — as for a band change. Whether taking the days
   // away asks anybody again is the server's to say, not this.
   const keptDays = selectionOf(kept);

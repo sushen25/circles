@@ -59,7 +59,7 @@ export async function changedRequiredMembers(
 }
 
 /**
- * The window an edit would leave (ADR 00ZZ). A window sent with its days is
+ * The window an edit would leave (ADR 0047). A window sent with its days is
  * those days; one sent without is every day from its start to its end — what
  * "Try a wider window" sends, dropping the gaps on purpose; none sent is the
  * plan's own. In the canonical form, so a list with no gap is the range.

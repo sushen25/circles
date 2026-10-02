@@ -978,7 +978,7 @@ select is(
        'others_availability',
        -- SUS-133. Which days somebody picked, to the organiser alone: dates
        -- only, never whose, and what decides whether taking a day away asks
-       -- people again (ADR 00ZZ). `280_plan_days.sql`.
+       -- people again (ADR 0047). `280_plan_days.sql`.
        'picked_days'
      )),
   '',

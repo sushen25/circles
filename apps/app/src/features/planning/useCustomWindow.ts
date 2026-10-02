@@ -20,7 +20,7 @@ import { pickedWords } from './words';
 /**
  * CustomWindow's month grid: which month is showing, the days picked, the
  * stroke in progress and the undo, and the words for all of them. The rules
- * are `calendar.ts`'s; this holds the taps and the strokes (ADR 00ZZ).
+ * are `calendar.ts`'s; this holds the taps and the strokes (ADR 0047).
  *
  * Months page forward from this one without end: the spec caps how *long* a
  * window is (thirty days from first to last), not how far ahead it may be, so

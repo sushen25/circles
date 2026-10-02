@@ -14,7 +14,7 @@ import {
 import type { DateRange } from './form';
 
 /**
- * The CustomWindow month grid (spec §5.3, ADR 00ZZ): the days to ask about,
+ * The CustomWindow month grid (spec §5.3, ADR 0047): the days to ask about,
  * picked one at a time or painted in a stroke.
  *
  * A tap toggles a day. A stroke — a drag that starts on a day — gives every

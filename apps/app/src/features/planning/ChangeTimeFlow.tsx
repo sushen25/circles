@@ -150,7 +150,7 @@ function ChangeForm({
     quorumFollows: false,
     notBefore: after,
     // The picker opens on the plan's own days, those still to come and after
-    // the one off the table (ADR 00ZZ); none left, it opens empty.
+    // the one off the table (ADR 0047); none left, it opens empty.
     calendarStart: rangeOf(
       selectionOf(keptOf(plan)).filter((date) => date >= after && date >= today),
     ),

@@ -4,7 +4,7 @@ import { PanResponder, Platform, type LayoutChangeEvent, type View } from 'react
 import { type DayBox, dayShowingAt } from './dayGridStroke';
 
 /**
- * Painting by drag (ADR 00ZZ): a stroke that starts on a day hands the grid's
+ * Painting by drag (ADR 0047): a stroke that starts on a day hands the grid's
  * index of each day the finger reaches. What a stroke *does* is the caller's —
  * plan setup's picker fills in calendar order — and the grid only says where
  * the finger is.

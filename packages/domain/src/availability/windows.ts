@@ -42,7 +42,7 @@ export type WindowError =
  */
 export function planDays(plan: PlanTiming): Interval[] {
   const days: Interval[] = [];
-  // The days asked about, not every date between the ends (ADR 00ZZ): a window
+  // The days asked about, not every date between the ends (ADR 0047): a window
   // painted on a day the plan skips is outside it, as the database says too.
   for (const date of askedDays(plan.window)) {
     const start = fromLocal(date, plan.daily.startMin, plan.zone);

@@ -61,7 +61,7 @@ export function widerWarning(
   const day = dateOf(`${widerEnd(data)}T12:00:00.000Z`, 'UTC');
   const names = listOf(namesWithYou(data, askedAgain));
   // A plan with gaps is told it will ask about every day, not only the days
-  // picked, before it does (ADR 00ZZ).
+  // picked, before it does (ADR 0047).
   if (data.days !== undefined) {
     return names === undefined
       ? t('customWindow', 'wider_confirm_gaps_nobody', { day })

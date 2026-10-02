@@ -147,7 +147,7 @@ export function dateSpan(start: LocalDate, end: LocalDate): string {
 }
 
 /**
- * A plan's days as a person writes them (ADR 00ZZ). Every day from the first
+ * A plan's days as a person writes them (ADR 0047). Every day from the first
  * to the last is `dateSpan`'s "Thu 17 – Sun 20 Sep"; with gaps, each run of
  * days is said that way and the runs are listed — "Thu 17 – Sat 19 Sep, Tue 22
  * Sep and Thu 24 Sep" — so the letter never claims a day the plan skips. More

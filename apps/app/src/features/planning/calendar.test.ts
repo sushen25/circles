@@ -23,7 +23,7 @@ function span(from: string, to: string): string[] {
 const TODAY = '2026-09-10';
 const open = (date: string) => date >= TODAY;
 
-/** The CustomWindow grid picks specific days (spec §5.3, ADR 00ZZ). */
+/** The CustomWindow grid picks specific days (spec §5.3, ADR 0047). */
 describe('a tap', () => {
   it('toggles one day', () => {
     const one = toggleDay([], '2026-09-16');

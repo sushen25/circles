@@ -53,7 +53,7 @@ export type AnsweringProps = {
   /** Undefined with no backend: nothing is stored and nothing is sent. */
   userId: string | undefined;
   onStale: () => void;
-  /** Days taken away from the same question (ADR 00ZZ): fetch the plan again. */
+  /** Days taken away from the same question (ADR 0047): fetch the plan again. */
   onNarrowed?: (() => void) | undefined;
   /** With no backend, what the others said in the gallery's scenario (SUS-129). */
   fixtureOthers?: OthersSaid | undefined;

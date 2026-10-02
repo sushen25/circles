@@ -222,7 +222,7 @@ function EditForm({
             asksAgain: true,
           }
         : {
-            // Taking away days nobody picked keeps every answer (ADR 00ZZ), and
+            // Taking away days nobody picked keeps every answer (ADR 0047), and
             // the screen says that is why before the organiser saves.
             text:
               revision?.window === undefined

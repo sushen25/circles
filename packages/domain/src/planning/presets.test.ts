@@ -374,7 +374,7 @@ describe('isTonightWindow', () => {
   });
 });
 
-describe('a custom window with gaps (ADR 00ZZ)', () => {
+describe('a custom window with gaps (ADR 0047)', () => {
   const THURSDAY_NOON = fromISO('2026-09-17T02:00:00Z');
 
   it('keeps its days, and gets weekend hours when every day asked about is a weekend', () => {

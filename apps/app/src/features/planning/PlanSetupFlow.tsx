@@ -212,7 +212,7 @@ function LiveSetup({
           mode: 'named',
           window: WINDOW_EVENT[draft.preset],
           used_defaults: !touched,
-          // A custom plan's shape: a flag and a count, never the dates (ADR 00ZZ).
+          // A custom plan's shape: a flag and a count, never the dates (ADR 0047).
           ...(draft.preset === 'custom' && draft.custom !== undefined
             ? customShape(draft.custom)
             : {}),

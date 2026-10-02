@@ -52,7 +52,7 @@ create or replace function public.create_plan(
   -- Absent means "the organiser alone", which is spec §5.3's default. An empty
   -- array is a different answer — nobody is required — and is kept as one.
   p_required_member_ids uuid[] default null,
-  -- The days a custom plan asks about, when it has gaps (ADR 00ZZ): sorted,
+  -- The days a custom plan asks about, when it has gaps (ADR 0047): sorted,
   -- distinct, and starting and ending on the window's ends. Null — every
   -- preset, and a custom range with no gap — means every day of the window,
   -- and so does a list that leaves no day out: it is stored as no rows.

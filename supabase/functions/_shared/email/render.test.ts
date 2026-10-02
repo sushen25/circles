@@ -260,7 +260,7 @@ describe('render', () => {
       expect(one.text).toContain('asking about Fri 18 Sep, 5:30');
     });
 
-    it('names only the days a plan with gaps asks about (ADR 00ZZ)', async () => {
+    it('names only the days a plan with gaps asks about (ADR 0047)', async () => {
       const d = (value: string) => value as typeof SUNDAY_CREW.asked_again.windowStart;
       const gappy = await render({
         ...SUNDAY_CREW.asked_again,

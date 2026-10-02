@@ -87,7 +87,7 @@ Deno.serve(
             : {
                 start: toLocalDate(body.custom.start),
                 end: toLocalDate(body.custom.end),
-                // The days, when the picker left gaps (ADR 00ZZ). The domain
+                // The days, when the picker left gaps (ADR 0047). The domain
                 // judges them and writes them in their one form.
                 days: body.custom.days?.map(toLocalDate),
               },

@@ -70,7 +70,7 @@ export const DateWindow = z
     start: LocalDate,
     end: LocalDate,
     /**
-     * The days asked about, when the window has gaps (ADR 00ZZ): sorted,
+     * The days asked about, when the window has gaps (ADR 0047): sorted,
      * distinct, the first `start` and the last `end`. Absent means every day
      * from `start` to `end`. The domain judges the set (`windowError`); the
      * bound here only keeps a request finite.

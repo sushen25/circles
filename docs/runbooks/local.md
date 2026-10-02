@@ -212,7 +212,7 @@ actually reach. The ids are fixed, so URLs survive a reset.
 | Uni Mates | `unmates` | A quiet ask still gathering interest (`pnunmates`). |
 | The Big Table | `bgtabde` | A circle at the member cap, where screens break if they are going to. |
 | Book Club | `bkcrew` | Locked in for the Thursday after next (`pnbkcrew`). |
-| Weekend Walks | `wkndwaks` | A plan with gaps (`pnwkends`): the next two weekends and nothing between them, so the editor shows four days and Edit plan opens the picker on them (ADR 00ZZ). |
+| Weekend Walks | `wkndwaks` | A plan with gaps (`pnwkends`): the next two weekends and nothing between them, so the editor shows four days and Edit plan opens the picker on them (ADR 0047). |
 
 Everyone in the seed except Alex has a saved place. Nobody in it can sign in with
 a password, and no seeded circle has an invite link.

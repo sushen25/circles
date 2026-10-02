@@ -125,7 +125,7 @@ export const ProblemReason = z.enum([
   'window_too_long',
   'window_backwards',
   'window_has_passed',
-  /** A window's days are unsorted, repeated, or not inside it (ADR 00ZZ). */
+  /** A window's days are unsorted, repeated, or not inside it (ADR 0047). */
   'days_invalid',
   'band_shorter_than_meetup',
   'band_backwards',

@@ -1,5 +1,5 @@
 /**
- * Where a finger is on the DayGrid, as a day (ADR 00ZZ's drag).
+ * Where a finger is on the DayGrid, as a day (ADR 0047's drag).
  *
  * Pure, so the arithmetic is tested without a touch screen: the grid records
  * each day's box as it lays out, relative to the grid's own top-left, and a

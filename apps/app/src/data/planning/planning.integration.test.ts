@@ -154,7 +154,7 @@ describe('preview, then save with the token', () => {
     const { newIdempotencyKey } = await import('../functions');
     const before = (await as(owner, () => planDetails({ planId })))!;
     // A day longer at the end: a day nobody has said anything about, so a new
-    // question (ADR 00ZZ; taking a day away that nobody picked would not be).
+    // question (ADR 0047; taking a day away that nobody picked would not be).
     const next = new Date(`${before.windowEnd}T12:00:00Z`);
     next.setUTCDate(next.getUTCDate() + 1);
     const later = { start: before.windowStart, end: next.toISOString().slice(0, 10) };
@@ -181,7 +181,7 @@ describe('preview, then save with the token', () => {
     expect({ start: after.windowStart, end: after.windowEnd }).toEqual(later);
   });
 
-  it('takes away a day nobody picked without asking anybody again (ADR 00ZZ)', async () => {
+  it('takes away a day nobody picked without asking anybody again (ADR 0047)', async () => {
     const { owner, planId, code } = await organiserWithPlan();
     const ren = await joins(code, 'Ren');
     // "I'm easy" has times on no day in particular, so no day is picked.

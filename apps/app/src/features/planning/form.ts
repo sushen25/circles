@@ -35,7 +35,7 @@ import {
 export type Band = { startMin: number; endMin: number };
 /**
  * Inclusive local dates, and — only when there are gaps — the days between
- * them that are asked about (ADR 00ZZ). Absent `days` is every day.
+ * them that are asked about (ADR 0047). Absent `days` is every day.
  */
 export type DateRange = { start: string; end: string; days?: string[] | undefined };
 
@@ -253,7 +253,7 @@ export function shownQuorum(
 }
 
 /**
- * `plan_created.has_gaps` and `days_asked` for a custom plan (ADR 00ZZ): its
+ * `plan_created.has_gaps` and `days_asked` for a custom plan (ADR 0047): its
  * shape, as a flag and a count. Never a date.
  */
 export function customShape(custom: DateRange): { has_gaps: boolean; days_asked: number } {

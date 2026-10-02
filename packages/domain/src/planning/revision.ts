@@ -26,7 +26,7 @@ function sameDaily(a: DailyWindow, b: DailyWindow): boolean {
 /**
  * What about the question changed.
  *
- * The days are the one change that can be free (ADR 00ZZ): taking away days
+ * The days are the one change that can be free (ADR 0047): taking away days
  * that nobody picked leaves every answer meaning what it meant, so it is not a
  * new question. `picked` is the days somebody's answer has times on, which
  * only the server can see; without it, any change to the days counts, which
@@ -47,7 +47,7 @@ export function invalidatingChanges(
 
 /**
  * Whether an edit takes days away without asking anybody again: the window's
- * days changed, and the change is a `narrow` (ADR 00ZZ). `revise_plan` makes it
+ * days changed, and the change is a `narrow` (ADR 0047). `revise_plan` makes it
  * without a new revision.
  */
 export function narrowsDays(

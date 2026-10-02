@@ -512,7 +512,7 @@ select is(
 );
 
 -- A day added, so a new question. (Taking away days nobody picked is not one
--- since ADR 00ZZ — `280_plan_days.sql` has that branch — so these edits all
+-- since ADR 0047 — `280_plan_days.sql` has that branch — so these edits all
 -- move the window outward.)
 select is(
   pg_temp.revision_of(public.revise_plan(

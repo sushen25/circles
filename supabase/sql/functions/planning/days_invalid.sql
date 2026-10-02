@@ -1,5 +1,5 @@
 -- ---------------------------------------------------------------------------
--- Whether a list of days is not a plan's days (ADR 00ZZ): the one check
+-- Whether a list of days is not a plan's days (ADR 0047): the one check
 -- `create_plan` and `revise_plan` both make, so they cannot disagree, and the
 -- database's half of the domain's `windowError`.
 --
@@ -27,7 +27,7 @@ as $$
 $$;
 
 comment on function planning.days_invalid(date[], date, date) is
-  'True when a list of days is not sorted, distinct and null-free, or does not start and end on the window''s ends (ADR 00ZZ). Null is no list, and not invalid.';
+  'True when a list of days is not sorted, distinct and null-free, or does not start and end on the window''s ends (ADR 0047). Null is no list, and not invalid.';
 
 revoke all on function planning.days_invalid(date[], date, date) from public;
 revoke all on function planning.days_invalid(date[], date, date) from anon, authenticated;

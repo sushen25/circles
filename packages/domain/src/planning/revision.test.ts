@@ -101,7 +101,7 @@ describe('joinNames', () => {
   });
 });
 
-describe('changing the days (ADR 00ZZ)', () => {
+describe('changing the days (ADR 0047)', () => {
   const before = plan({ window: { start: localDate('2026-09-14'), end: localDate('2026-09-20') } });
   const without = (gone: string) => ({
     start: localDate('2026-09-14'),

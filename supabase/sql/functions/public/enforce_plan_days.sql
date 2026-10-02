@@ -1,5 +1,5 @@
 -- ---------------------------------------------------------------------------
--- A plan's listed days agree with its window (ADR 00ZZ).
+-- A plan's listed days agree with its window (ADR 0047).
 --
 -- `plan_days` holds the days a plan asks about **only when it has gaps**. No
 -- rows means every day from `window_start` to `window_end`, which is every
@@ -65,7 +65,7 @@ end;
 $$;
 
 comment on function public.enforce_plan_days() is
-  'Deferred: a plan''s listed days start and end on its window''s ends and leave at least one day out; no rows means every day (ADR 00ZZ).';
+  'Deferred: a plan''s listed days start and end on its window''s ends and leave at least one day out; no rows means every day (ADR 0047).';
 
 revoke all on function public.enforce_plan_days() from public;
 revoke all on function public.enforce_plan_days() from anon, authenticated;

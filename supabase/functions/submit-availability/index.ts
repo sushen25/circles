@@ -82,7 +82,7 @@ Deno.serve(
         })),
         {
           // With its days, so a window on a day the plan skips is refused here
-          // as `enforce_window_shape` would refuse it (ADR 00ZZ).
+          // as `enforce_window_shape` would refuse it (ADR 0047).
           window: windowOfRow(plan),
           daily: { startMin: plan.daily_start_local, endMin: plan.daily_end_local },
           // Parsed rather than asserted: `plans_duration` allows only the four

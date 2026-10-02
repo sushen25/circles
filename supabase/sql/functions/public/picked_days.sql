@@ -1,6 +1,6 @@
 -- ---------------------------------------------------------------------------
 -- The days somebody has picked: the fact that decides what taking a day away
--- costs (ADR 00ZZ).
+-- costs (ADR 0047).
 --
 -- Removing a day **nobody** picked keeps everybody's answers and starts no
 -- new revision; removing a day somebody picked is a new question (ADR 0017).
@@ -57,7 +57,7 @@ end;
 $$;
 
 comment on function public.picked_days(uuid) is
-  'The dates on which some answer to the plan''s current revision has times, for its organiser: what decides whether taking a day away asks people again (ADR 00ZZ).';
+  'The dates on which some answer to the plan''s current revision has times, for its organiser: what decides whether taking a day away asks people again (ADR 0047).';
 
 revoke all on function public.picked_days(uuid) from public;
 revoke all on function public.picked_days(uuid) from anon, authenticated;

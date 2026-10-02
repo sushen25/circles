@@ -48,7 +48,7 @@ export type PlanDetails = {
   /** Inclusive local dates. */
   windowStart: string;
   windowEnd: string;
-  /** The days asked about when the window has gaps; absent is every day (ADR 00ZZ). */
+  /** The days asked about when the window has gaps; absent is every day (ADR 0047). */
   days?: string[] | undefined;
   band: { startMin: number; endMin: number };
   durationMinutes: DurationMinutes;

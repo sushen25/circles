@@ -1,5 +1,5 @@
 /**
- * Which days a plan asks about (ADR 00ZZ).
+ * Which days a plan asks about (ADR 0047).
  *
  * A window is its first and last day, and — when it has gaps — the days in
  * between that it asks about. **No days means every day from the first to the
@@ -88,7 +88,7 @@ export function sameDays(a: DateWindow, b: DateWindow): boolean {
 }
 
 /**
- * What changing a plan's days does to its answers (ADR 00ZZ).
+ * What changing a plan's days does to its answers (ADR 0047).
  *
  * - `same`: nothing to say.
  * - `narrow`: days were only taken away, and nobody had picked any of them.
@@ -142,7 +142,7 @@ export function dayRuns(window: DateWindow): { start: LocalDate; end: LocalDate 
 /**
  * The span from first day to last, inclusive: a single-day window is one day,
  * not zero. With gaps this is not how many days are asked about —
- * `askedDayCount` is (ADR 00ZZ).
+ * `askedDayCount` is (ADR 0047).
  */
 export function windowDays(window: DateWindow): number {
   return daysBetween(window.start, window.end) + 1;

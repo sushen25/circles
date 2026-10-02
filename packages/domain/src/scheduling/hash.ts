@@ -47,7 +47,7 @@ export function canonicalise(input: EngineInput): string {
 
   return [
     // The days only when there are gaps, so every plan stored before a plan
-    // could have them hashes exactly as it did (ADR 00ZZ).
+    // could have them hashes exactly as it did (ADR 0047).
     `v${plan.window.start}/${plan.window.end}${plan.window.days === undefined ? '' : `:${plan.window.days.join(',')}`}`,
     `d${plan.daily.startMin}-${plan.daily.endMin}`,
     `z${plan.zone}`,

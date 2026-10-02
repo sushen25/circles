@@ -60,7 +60,7 @@ begin
       using errcode = 'check_violation';
   end if;
 
-  -- And on a day the plan asks about (ADR 00ZZ). No rows is every day of the
+  -- And on a day the plan asks about (ADR 0047). No rows is every day of the
   -- window, which the test above has already settled; rows are the days, and
   -- a window on a day between them that is not one of them is availability
   -- for a question nobody was asked.

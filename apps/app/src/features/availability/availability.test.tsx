@@ -578,7 +578,7 @@ describe('when the server says no', () => {
     expect(dayButton('Monday', 14)).toHaveAccessibleName(/, no times yet$/);
   });
 
-  it('fetches the plan again, keeping the times, when days were taken away while it was open (ADR 00ZZ)', async () => {
+  it('fetches the plan again, keeping the times, when days were taken away while it was open (ADR 0047)', async () => {
     submitAnswer.mockRejectedValueOnce(refusal('outside_plan_window'));
     open();
     await screen.findByText("Times I'd actually be up for");
@@ -599,7 +599,7 @@ describe('when the server says no', () => {
     expect(dayButton('Monday', 14)).toHaveAccessibleName(/, 5:30–10:30 pm$/);
   });
 
-  it('keeps unsent times when days are taken away and the plan is read again (ADR 00ZZ, round 2)', async () => {
+  it('keeps unsent times when days are taken away and the plan is read again (ADR 0047, round 2)', async () => {
     const client = open();
     await screen.findByText("Times I'd actually be up for");
     answerMonday();

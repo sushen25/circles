@@ -1,6 +1,6 @@
 # ADR 0030: A plan may ask about up to thirty days
 
-_Status: accepted · 24 September 2026 · amended by [ADR 00ZZ](00ZZ-a-plan-may-ask-about-days-with-gaps.md): the thirty days are a span from the first day to the last, and a custom plan may ask about days with gaps between them; "Try a wider window" drops the gaps_
+_Status: accepted · 24 September 2026 · amended by [ADR 0047](0047-a-plan-may-ask-about-days-with-gaps.md): the thirty days are a span from the first day to the last, and a custom plan may ask about days with gaps between them; "Try a wider window" drops the gaps_
 
 ## Context
 

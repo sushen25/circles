@@ -96,7 +96,7 @@ function LiveAvailability({ code, step }: AvailabilityFlowProps) {
     void queryClient.invalidateQueries({ queryKey: ['plan-to-answer', code] });
   };
 
-  // Days were taken away from the same question (ADR 00ZZ), and a send has
+  // Days were taken away from the same question (ADR 0047), and a send has
   // just met it: fetch the plan as it is. The effect below does the rest.
   const onNarrowed = () => {
     void queryClient.invalidateQueries({ queryKey: ['plan-to-answer', code] });
@@ -189,7 +189,7 @@ function LiveAvailability({ code, step }: AvailabilityFlowProps) {
     <Answering
       // A new question is a new editor: nothing painted against the old dates
       // may carry over into the new grid.
-      // So are the same question's days taken away (ADR 00ZZ): a narrowing
+      // So are the same question's days taken away (ADR 0047): a narrowing
       // keeps the revision, and the editor's rows are the plan's days.
       key={`${userId}:${plan.id}:${plan.revision}:${daysKey(plan)}`}
       code={code}

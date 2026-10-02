@@ -1,5 +1,5 @@
 /**
- * A plan's days with gaps, in words (ADR 00ZZ): its runs listed, "Thu 17 – Sat
+ * A plan's days with gaps, in words (ADR 0047): its runs listed, "Thu 17 – Sat
  * 19 Sep, Tue 22 Sep and Thu 24 Sep", or past three runs a count. The dates
  * come in already written; `format.ts`'s `daysSpan` writes them.
  */

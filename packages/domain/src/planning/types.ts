@@ -76,7 +76,7 @@ export type WindowPreset = 'tonight' | 'this_weekend' | 'next_7_days' | 'next_14
 /**
  * The calendar days the plan may land on: the first and the last, inclusive,
  * and — only when it has gaps — the days in between that it asks about
- * (ADR 00ZZ). Absent `days` means every day from `start` to `end`, which is
+ * (ADR 0047). Absent `days` means every day from `start` to `end`, which is
  * every preset and every plan made before a plan could have gaps. `days.ts`
  * holds the rules; read the dates through `askedDays`, never by walking from
  * `start` to `end`.
@@ -109,7 +109,7 @@ export const DURATIONS: readonly DurationMinutes[] = [60, 90, 120, 180, 240, 300
 /**
  * A window may span at most 30 days from its first to its last (spec §5.3,
  * ADR 0030). With gaps, that is still the span, so a plan never asks about more
- * than thirty days (ADR 00ZZ).
+ * than thirty days (ADR 0047).
  */
 export const MAX_WINDOW_DAYS = 30;
 

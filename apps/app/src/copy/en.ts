@@ -955,7 +955,7 @@ export const en = {
     day_out_of_reach: '{date}, more than 30 days from the other days picked',
     day_off: "{date}, the day that's off the table",
     day_picked: '{date}, picked',
-    // "Try a wider window" on a plan with gaps (ADR 00ZZ): it asks about every
+    // "Try a wider window" on a plan with gaps (ADR 0047): it asks about every
     // day, and says so before it does.
     wider_body_gaps: 'Ask about every day for {count} days, not only the {total} picked',
     wider_confirm_gaps:
@@ -1056,7 +1056,7 @@ export const en = {
     checking: "Checking who'd be asked again",
     no_reask:
       'Nobody has to answer again: this changes what happens to the answers, not the question.',
-    // Days taken away that nobody picked (ADR 00ZZ): the plan keeps every answer.
+    // Days taken away that nobody picked (ADR 0047): the plan keeps every answer.
     no_reask_days:
       "Nobody has to answer again: nobody picked the days you're taking away, so every answer stays.",
     warn_again:

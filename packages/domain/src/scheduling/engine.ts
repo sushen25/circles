@@ -57,7 +57,7 @@ type Scored = {
 export function enumerateCandidateStarts(plan: EnginePlan, now: Instant): Instant[] {
   const starts: Instant[] = [];
 
-  // Only the days the plan asks about (ADR 00ZZ): a day between them that it
+  // Only the days the plan asks about (ADR 0047): a day between them that it
   // does not ask about has no answers, and offering a time on it would be
   // offering a day nobody was asked.
   for (const date of askedDays(plan.window)) {

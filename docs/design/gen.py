@@ -949,7 +949,7 @@ S["Waiting"] = shell(
     foot(sec("Share the link again"), ter("Edit the plan"))
 )
 
-# Specific days (SUS-133, ADR 00ZZ): a tap toggles a day and a drag paints a
+# Specific days (SUS-133, ADR 0047): a tap toggles a day and a drag paints a
 # run of them in calendar order. Board C's picks: two long weekends and the
 # Tuesday between, the first and last up to thirty days apart.
 CW_PICKED = (17, 18, 19, 20, 22, 24, 25, 26, 27)

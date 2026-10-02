@@ -234,7 +234,7 @@ export const TRANSITIONS: readonly Transition[] = [
   // is then *structural*: `planning.allowed_keys('adjust')` is quorum and
   // deadline alone, so a window cannot ride along on one.
   { from: 'collecting', action: 'adjust', to: 'collecting', guards: ['organiser'] },
-  // Taking away days nobody picked (ADR 00ZZ). It changes the question's
+  // Taking away days nobody picked (ADR 0047). It changes the question's
   // dates, so it cannot be an `adjust` — `allowed_keys('adjust')` stays the
   // two keys that never touch them — and it costs nobody a reply, so it cannot
   // be an `edit`. `public.revise_plan` derives it under the plan's lock, from

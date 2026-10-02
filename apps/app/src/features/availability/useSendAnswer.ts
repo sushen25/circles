@@ -206,7 +206,7 @@ export function useSendAnswer({
           onStale();
           return;
         case 'outside_plan_window':
-          // Days were taken away while this was open (ADR 00ZZ): a narrowing
+          // Days were taken away while this was open (ADR 0047): a narrowing
           // keeps the revision, so it is not `stale_revision`, and the answer
           // is still good on every day that is left. The draft keeps the times
           // and loses the send, so nothing goes again until the person says;

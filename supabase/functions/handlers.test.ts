@@ -1006,7 +1006,7 @@ describe('revise-plan', () => {
     expect(called('revise_plan')).toHaveLength(0);
   });
 
-  // ADR 00ZZ: what changing the days costs depends on who picked what, which
+  // ADR 0047: what changing the days costs depends on who picked what, which
   // `picked_days` says and `revise_plan` decides again under its lock.
   describe('the days', () => {
     const picking = (days: string[]): void => {

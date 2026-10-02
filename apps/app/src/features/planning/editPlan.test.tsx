@@ -177,7 +177,7 @@ describe('editing the dates', () => {
     expect(saveRevision.mock.calls[1]?.[3]).toBe(saveRevision.mock.calls[0]?.[3]);
   });
 
-  it('opens the picker on the plan’s days, and says taking away one nobody picked costs nothing (ADR 00ZZ)', async () => {
+  it('opens the picker on the plan’s days, and says taking away one nobody picked costs nothing (ADR 0047)', async () => {
     previewRevision.mockResolvedValue({
       ...ASKS_AGAIN,
       asked_again: [],
@@ -289,7 +289,7 @@ describe('changing a locked-in time', () => {
     });
   });
 
-  it('opens the picker on the plan’s days still to come, the day off the table held back (ADR 00ZZ)', async () => {
+  it('opens the picker on the plan’s days still to come, the day off the table held back (ADR 0047)', async () => {
     planDetails.mockResolvedValue(fixture.lockedIn);
     show(<ChangeTimeFlow id="sunday-crew" planId="thu-17" />);
     fireEvent.click((await screen.findAllByRole('checkbox', { name: 'Custom' }))[0]!);

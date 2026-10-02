@@ -490,7 +490,7 @@ where user_id = '00000000-0000-4000-8000-000000000102'
 select pg_temp.act_as_postgres();
 
 -- ---------------------------------------------------------------------------
--- F. Weekend Walks — a plan with gaps (SUS-133, ADR 00ZZ).
+-- F. Weekend Walks — a plan with gaps (SUS-133, ADR 0047).
 --
 -- Sunday Crew's plan asks about every day of its week; this one asks about
 -- the next two weekends and nothing between them, which is what the custom

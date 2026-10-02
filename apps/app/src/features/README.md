@@ -283,7 +283,7 @@ and `cancelPlan` through the Edge Functions).
   (`CustomWindowScreen`, a `DayGrid` month of specific days — a tap toggles
   one, a sideways drag paints a run of them in calendar order through
   `DayGrid`'s `onPaint` — the first and last at most 30 days apart, with Start
-  over and Undo; `calendar.ts` holds the rules, ADR 00ZZ).
+  over and Undo; `calendar.ts` holds the rules, ADR 0047).
 - `/circles/[id]/plan/mode` (`ChooseModeFlow`) — Plan openly, or See if people
   are keen (S2-03). Circle home's **Plan a catch-up** comes here.
 - `/circles/[id]/plan/[planId]/edit` (`EditPlanFlow`) — the setup's controls,

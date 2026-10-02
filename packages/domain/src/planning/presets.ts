@@ -194,7 +194,7 @@ export type PresetError =
   | 'window_backwards'
   | 'band_shorter_than_meetup'
   | 'window_has_passed'
-  /** A custom window's days are unsorted, repeated, or not inside it (ADR 00ZZ). */
+  /** A custom window's days are unsorted, repeated, or not inside it (ADR 0047). */
   | 'days_invalid'
   | BandError;
 
@@ -202,7 +202,7 @@ export type PresetOptions = {
   readonly durationMinutes: DurationMinutes;
   /**
    * Required by `custom`: the dates the person picked — the first and last,
-   * and the days between when there are gaps (ADR 00ZZ).
+   * and the days between when there are gaps (ADR 0047).
    */
   readonly custom?: DateWindow | undefined;
   /**

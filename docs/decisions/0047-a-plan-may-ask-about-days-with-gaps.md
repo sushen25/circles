@@ -1,4 +1,4 @@
-# ADR 00ZZ: A plan may ask about days with gaps between them
+# ADR 0047: A plan may ask about days with gaps between them
 
 _Status: proposed · 1 October 2026 · amends [ADR 0030](0030-a-plan-may-ask-about-up-to-thirty-days.md) and spec §5.3_
 

@@ -20,7 +20,7 @@ import { BandPicker, type BandPickerProps } from './parts';
 import type { CustomWindowView } from './useCustomWindow';
 
 /**
- * CustomWindow — `docs/design/CustomWindow.dc.html` (spec §5.3, ADR 00ZZ): a
+ * CustomWindow — `docs/design/CustomWindow.dc.html` (spec §5.3, ADR 0047): a
  * month grid of days to ask about, tapped one at a time or painted by dragging
  * across them, the first and last at most thirty days apart, days already
  * gone shown and not pickable; then the hours of each day. **Start over**

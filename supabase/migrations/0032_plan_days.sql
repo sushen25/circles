@@ -1,5 +1,5 @@
 -- ---------------------------------------------------------------------------
--- 0032 — A plan can ask about days with gaps between them (SUS-133, ADR 00ZZ).
+-- 0032 — A plan can ask about days with gaps between them (SUS-133, ADR 0047).
 --
 -- The custom picker picks specific days now, by tap or by dragging across
 -- them, so a plan is no longer always "every day from `window_start` to
@@ -31,7 +31,7 @@ create table public.plan_days (
 );
 
 comment on table public.plan_days is
-  'The days a plan asks about, only when its window has gaps; no rows means every day from window_start to window_end (ADR 00ZZ).';
+  'The days a plan asks about, only when its window has gaps; no rows means every day from window_start to window_end (ADR 0047).';
 
 alter table public.plan_days enable row level security;
 
@@ -108,7 +108,7 @@ as $$
     -- answers" structural rather than a comparison somebody has to remember
     -- (spec §5.3). A window cannot ride along on an adjustment.
     when action = 'adjust' then array['quorum', 'response_deadline']
-    -- Days taken away that nobody picked (ADR 00ZZ): the window's ends may
+    -- Days taken away that nobody picked (ADR 0047): the window's ends may
     -- move inward, and the two keys an adjustment takes may ride along. Never
     -- the band or the duration, which are always a new question.
     -- `revise_plan` derives it; no caller names it.
@@ -139,7 +139,7 @@ revoke all on function planning.allowed_keys(text) from anon, authenticated;
 
 -- supabase/sql/functions/planning/days_invalid.sql
 -- ---------------------------------------------------------------------------
--- Whether a list of days is not a plan's days (ADR 00ZZ): the one check
+-- Whether a list of days is not a plan's days (ADR 0047): the one check
 -- `create_plan` and `revise_plan` both make, so they cannot disagree, and the
 -- database's half of the domain's `windowError`.
 --
@@ -167,7 +167,7 @@ as $$
 $$;
 
 comment on function planning.days_invalid(date[], date, date) is
-  'True when a list of days is not sorted, distinct and null-free, or does not start and end on the window''s ends (ADR 00ZZ). Null is no list, and not invalid.';
+  'True when a list of days is not sorted, distinct and null-free, or does not start and end on the window''s ends (ADR 0047). Null is no list, and not invalid.';
 
 revoke all on function planning.days_invalid(date[], date, date) from public;
 revoke all on function planning.days_invalid(date[], date, date) from anon, authenticated;
@@ -197,7 +197,7 @@ as $$
     -- change cost nobody a second reply is the *absence* of a re-ask, which the
     -- notification rules read from the revision rather than from the name.
     when 'adjust' then 'planning.plan_revised'
-    -- And a narrowing (ADR 00ZZ): the plan's days changed, nobody's answer did.
+    -- And a narrowing (ADR 0047): the plan's days changed, nobody's answer did.
     when 'narrow' then 'planning.plan_revised'
     when 'candidates_ready' then 'scheduling.candidates_generated'
     -- `candidates_gone` is the engine's bookkeeping: an answer moved, the set
@@ -292,7 +292,7 @@ create or replace function public.create_plan(
   -- Absent means "the organiser alone", which is spec §5.3's default. An empty
   -- array is a different answer — nobody is required — and is kept as one.
   p_required_member_ids uuid[] default null,
-  -- The days a custom plan asks about, when it has gaps (ADR 00ZZ): sorted,
+  -- The days a custom plan asks about, when it has gaps (ADR 0047): sorted,
   -- distinct, and starting and ending on the window's ends. Null — every
   -- preset, and a custom range with no gap — means every day of the window,
   -- and so does a list that leaves no day out: it is stored as no rows.
@@ -478,7 +478,7 @@ as $$
   select jsonb_build_object(
     'circle', to_jsonb(c) - 'created_at' - 'updated_at' - 'creation_key',
     'plan', to_jsonb(p) - 'created_at' - 'updated_at',
-    -- The days the plan asks about when it has gaps, else null (ADR 00ZZ), so
+    -- The days the plan asks about when it has gaps, else null (ADR 0047), so
     -- a message that names the dates names only those.
     'days', (
       select jsonb_agg(d.day order by d.day) from public.plan_days d where d.plan_id = p.id
@@ -599,7 +599,7 @@ grant execute on function public.dispatch_context(uuid) to service_role;
 
 -- supabase/sql/functions/public/enforce_plan_days.sql
 -- ---------------------------------------------------------------------------
--- A plan's listed days agree with its window (ADR 00ZZ).
+-- A plan's listed days agree with its window (ADR 0047).
 --
 -- `plan_days` holds the days a plan asks about **only when it has gaps**. No
 -- rows means every day from `window_start` to `window_end`, which is every
@@ -665,7 +665,7 @@ end;
 $$;
 
 comment on function public.enforce_plan_days() is
-  'Deferred: a plan''s listed days start and end on its window''s ends and leave at least one day out; no rows means every day (ADR 00ZZ).';
+  'Deferred: a plan''s listed days start and end on its window''s ends and leave at least one day out; no rows means every day (ADR 0047).';
 
 revoke all on function public.enforce_plan_days() from public;
 revoke all on function public.enforce_plan_days() from anon, authenticated;
@@ -733,7 +733,7 @@ begin
       using errcode = 'check_violation';
   end if;
 
-  -- And on a day the plan asks about (ADR 00ZZ). No rows is every day of the
+  -- And on a day the plan asks about (ADR 0047). No rows is every day of the
   -- window, which the test above has already settled; rows are the days, and
   -- a window on a day between them that is not one of them is availability
   -- for a question nobody was asked.
@@ -805,7 +805,7 @@ as $$
       'window_start', p.window_start,
       'window_end', p.window_end,
       -- The days asked about when the window has gaps, else null: every day
-      -- (ADR 00ZZ). The engine offers no time on a day that is not listed.
+      -- (ADR 0047). The engine offers no time on a day that is not listed.
       'days', (
         select jsonb_agg(d.day order by d.day)
         from public.plan_days d where d.plan_id = p.id
@@ -895,7 +895,7 @@ grant execute on function public.engine_input(uuid) to service_role;
 -- supabase/sql/functions/public/picked_days.sql
 -- ---------------------------------------------------------------------------
 -- The days somebody has picked: the fact that decides what taking a day away
--- costs (ADR 00ZZ).
+-- costs (ADR 0047).
 --
 -- Removing a day **nobody** picked keeps everybody's answers and starts no
 -- new revision; removing a day somebody picked is a new question (ADR 0017).
@@ -952,7 +952,7 @@ end;
 $$;
 
 comment on function public.picked_days(uuid) is
-  'The dates on which some answer to the plan''s current revision has times, for its organiser: what decides whether taking a day away asks people again (ADR 00ZZ).';
+  'The dates on which some answer to the plan''s current revision has times, for its organiser: what decides whether taking a day away asks people again (ADR 0047).';
 
 revoke all on function public.picked_days(uuid) from public;
 revoke all on function public.picked_days(uuid) from anon, authenticated;
@@ -990,7 +990,7 @@ create or replace function public.revise_plan(
   -- What the preview said the plan was. Null means the caller did not preview.
   p_expected_version text default null,
   -- The days the plan should ask about, sorted and distinct, first and last
-  -- the window's ends (ADR 00ZZ). Null leaves them alone — unless the window's
+  -- the window's ends (ADR 0047). Null leaves them alone — unless the window's
   -- ends move, when the plan asks about every day of the new window: that is
   -- what "Try a wider window" sends, and it drops the gaps on purpose.
   p_days date[] default null
@@ -1120,7 +1120,7 @@ begin
     end if;
   end if;
 
-  -- The days (ADR 00ZZ), as the plan asks about them now and as it would.
+  -- The days (ADR 0047), as the plan asks about them now and as it would.
   -- No rows in `plan_days` is every day of the window, so both sides are
   -- spelled out as lists and compared as lists, whatever form each is stored in.
   new_start := coalesce((p_payload ->> 'window_start')::date, plan.window_start);
@@ -1152,7 +1152,7 @@ begin
   -- has said anything about it. Taking away a day somebody picked is: their
   -- answer no longer means what they said. Taking away days that nobody
   -- picked is not — every answer still stands as given — and the founder
-  -- chose that it should not cost anybody a reply (ADR 00ZZ). Decided here,
+  -- chose that it should not cost anybody a reply (ADR 0047). Decided here,
   -- under the lock, from `picked_days`, the same question the preview asked.
   reasks := days_changed and (
     exists (select 1 from unnest(new_days) d where d <> all (old_days))

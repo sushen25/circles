@@ -33,7 +33,7 @@ export function toZone(value: string): Zone {
 
 /**
  * A plan row's window as the domain's `DateWindow`, with its days when it has
- * gaps (ADR 00ZZ). `plan_days` is embedded in the select as `plan_days(day)`;
+ * gaps (ADR 0047). `plan_days` is embedded in the select as `plan_days(day)`;
  * no rows is every day of the window, and is no `days` here.
  */
 export function windowOfRow(row: {

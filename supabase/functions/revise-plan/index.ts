@@ -107,7 +107,7 @@ Deno.serve(
       // gets asked again.
       //
       // The days are the one change whose cost depends on the answers (ADR
-      // 00ZZ): taking away days nobody picked keeps every answer, so which
+      // 0047): taking away days nobody picked keeps every answer, so which
       // days somebody picked is asked first — of `picked_days`, the function
       // `revise_plan` decides from under the plan's lock. Only when the days
       // move, so an edit that leaves them alone costs no round trip.

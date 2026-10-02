@@ -151,7 +151,7 @@ test('a member whose times an edit cleared is told so, on the grid and on circle
 });
 
 /**
- * The days on the calendar, in the month showing (SUS-133, ADR 00ZZ). Next
+ * The days on the calendar, in the month showing (SUS-133, ADR 0047). Next
  * month, so every day is ahead whatever the date the suite runs on.
  */
 async function nextMonthsDays(page: Page) {

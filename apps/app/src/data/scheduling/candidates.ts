@@ -74,7 +74,7 @@ export type PlanCandidates = {
   /** Inclusive local dates — the days being asked about. */
   windowStart: string;
   windowEnd: string;
-  /** The days asked about when the window has gaps; absent is every day (ADR 00ZZ). */
+  /** The days asked about when the window has gaps; absent is every day (ADR 0047). */
   days?: string[] | undefined;
   responseDeadline: string;
   /** Judged by the database's clock, never this device's. */

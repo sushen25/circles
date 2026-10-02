@@ -80,7 +80,7 @@ function spanWords(range: { start: string; end: string }): string {
  * A window in words. Every day from first to last is one span, "Mon 14 – Sun
  * 27 Sep"; with gaps it is its runs, "Thu 17 – Sun 20 Sep, Tue 22 Sep", and
  * past three runs a count, "9 days between Thu 17 Sep and Sun 27 Sep", which a
- * person can read to the end (ADR 00ZZ).
+ * person can read to the end (ADR 0047).
  */
 export function datesWords(range: DateRange): string {
   if (range.days === undefined) return spanWords(range);

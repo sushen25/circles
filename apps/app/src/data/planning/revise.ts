@@ -33,7 +33,7 @@ export type Revision = {
   /**
    * With `days` when the new window has gaps; without, every day from start to
    * end — which drops any gaps the plan had, as "Try a wider window" means to
-   * (ADR 00ZZ).
+   * (ADR 0047).
    */
   window?: { start: string; end: string; days?: string[] | undefined } | undefined;
   daily?: { startMin: number; endMin: number } | undefined;

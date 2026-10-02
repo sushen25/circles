@@ -22,7 +22,7 @@ as $$
     -- change cost nobody a second reply is the *absence* of a re-ask, which the
     -- notification rules read from the revision rather than from the name.
     when 'adjust' then 'planning.plan_revised'
-    -- And a narrowing (ADR 00ZZ): the plan's days changed, nobody's answer did.
+    -- And a narrowing (ADR 0047): the plan's days changed, nobody's answer did.
     when 'narrow' then 'planning.plan_revised'
     when 'candidates_ready' then 'scheduling.candidates_generated'
     -- `candidates_gone` is the engine's bookkeeping: an answer moved, the set
