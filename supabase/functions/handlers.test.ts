@@ -2386,7 +2386,9 @@ describe('request-email-updates', () => {
   });
 
   it('refuses a request that sends no version, and records nothing', async () => {
-    const { consent_version: _omitted, ...without } = body;
+    const without = Object.fromEntries(
+      Object.entries(body).filter(([key]) => key !== 'consent_version'),
+    );
 
     const response = await load('request-email-updates')(post(without));
 

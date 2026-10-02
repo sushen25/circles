@@ -278,7 +278,9 @@ describe('RequestEmailUpdatesRequest', () => {
     // ADR 00XX: what is recorded is what the person was shown. A request that
     // does not say would have the server guess, and a guess is the bug.
     expect(RequestEmailUpdatesRequest.parse(body).consent_version).toBe('2026-10-02');
-    const { consent_version: _omitted, ...without } = body;
+    const without = Object.fromEntries(
+      Object.entries(body).filter(([key]) => key !== 'consent_version'),
+    );
     expect(RequestEmailUpdatesRequest.safeParse(without).success).toBe(false);
     expect(RequestEmailUpdatesRequest.safeParse({ ...body, consent_version: '' }).success).toBe(
       false,
