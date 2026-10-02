@@ -41,6 +41,7 @@ vi.mock('../../data/email', async (original) => ({
   ...(await original<typeof EmailData>()),
   requestEmailUpdates: (...args: unknown[]) => requestEmailUpdates(...args),
   reloadCopy: () => reloadCopy(),
+  canReloadCopy: () => true,
   verifyEmail: (...args: unknown[]) => verifyEmail(...args),
   managePreferences: (...args: unknown[]) => managePreferences(...args),
 }));
@@ -208,6 +209,23 @@ describe('a stale consent version (ADR 00XX)', () => {
     expect(reloadCopy).not.toHaveBeenCalled();
     await waitFor(() => expect(reloadCopy).toHaveBeenCalledTimes(1), { timeout: 5000 });
     expect(push).not.toHaveBeenCalled();
+  });
+
+  it('does not reload a page the person has left', async () => {
+    requestEmailUpdates.mockRejectedValue(refusal('consent_version_unknown'));
+    const view = wrap(<SentFlow code={PLAN.code} />);
+    fireEvent.change(await screen.findByLabelText('Your email'), {
+      target: { value: 'priya@example.com' },
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Send verification email' }));
+    });
+    await screen.findByText(/out of date, so nothing was sent/);
+
+    view.unmount();
+    await new Promise((resolve) => setTimeout(resolve, 3300));
+
+    expect(reloadCopy).not.toHaveBeenCalled();
   });
 });
 

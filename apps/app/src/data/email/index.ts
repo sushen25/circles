@@ -55,10 +55,12 @@ export async function requestEmailUpdates({
  * moved on, and the person should read the current sentence before agreeing to
  * it. Web only; the native build gets its copy with the build.
  */
+export function canReloadCopy(): boolean {
+  return typeof window !== 'undefined' && typeof window.location?.reload === 'function';
+}
+
 export function reloadCopy(): void {
-  if (typeof window !== 'undefined' && typeof window.location?.reload === 'function') {
-    window.location.reload();
-  }
+  if (canReloadCopy()) window.location.reload();
 }
 
 /** `/v#<token>`: verify the address the token was sent to. No session needed. */

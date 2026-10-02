@@ -11,6 +11,7 @@ import { takeSavedWith } from '../../data/auth/saved';
 import { useSession } from '../../data/auth/session';
 import { planToAnswer, type AnswerablePlan, type OwnAnswer } from '../../data/availability';
 import {
+  canReloadCopy,
   normaliseAddress,
   rememberTypedAddress,
   reloadCopy,
@@ -179,6 +180,10 @@ function Sent({
     track('email_updates_offered', { plan_id: plan.id as PlanId });
   }, [offerEmail, plan.id]);
 
+  // The delayed reload belongs to this screen: leaving it cancels the reload.
+  const reloadTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(reloadTimer.current), []);
+
   const send = async () => {
     const address = normaliseAddress(email);
     if (address === null) {
@@ -216,8 +221,15 @@ function Sent({
         // Nothing was recorded. Say so, then load the current copy a moment
         // later: reloading at once would unload the page before the notice
         // could be read.
-        setProblem('copy_changed');
-        setTimeout(reloadCopy, RELOAD_AFTER_MS);
+        // A native build has no page to reload (its copy is the build), so it
+        // says plainly that it could not send, with the reference.
+        if (canReloadCopy()) {
+          setProblem('copy_changed');
+          reloadTimer.current = setTimeout(reloadCopy, RELOAD_AFTER_MS);
+        } else {
+          setProblem('couldnt_send');
+          setReference(failure.reference);
+        }
       } else {
         setProblem('couldnt_send');
         setReference(failure.reference);
