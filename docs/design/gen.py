@@ -1068,7 +1068,7 @@ S["EditLocked"] = shell(
         stack(dl("Edit this plan"), p("Change the time, the place or the note. Nobody is asked for their times again."), gap=8),
         stack(lbl("When"),
               between(stack(title("Sat 19 Sep"), sm("7–9 pm"), gap=2), ter("Change")),
-              sm("3 of 6 can make it · You, Tom and Jess can make it · Doesn't work for Priya or Sam · Alex hasn't answered"), gap=8),
+              sm("You, Tom and Jess can make it · Doesn't work for Priya or Sam · Alex hasn't answered"), gap=8),
         stack(lbl("Where"), inp("Hope St Radio"), inp("Address or map link, optional", ph=True), gap=8),
         stack(lbl("A note for everyone"), f'<div class="input" style="height:auto;min-height:72px;align-items:flex-start;padding:14px 16px;">Come if you can.</div>', sm("14 of 280"), gap=8),
         notice("Everyone sees the new time straight away, with Friday marked as moved. Anyone whose times cover it stays going without doing a thing. Priya, Sam and Alex are asked whether they can come.", "shield", "warn"),

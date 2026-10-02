@@ -211,7 +211,7 @@ function Edit({
       date={dateOf(next.startsAt, plan.zone)}
       time={timeOf(next.startsAt, next.endsAt, plan.zone)}
       moved={moved}
-      whoLine={words === undefined ? undefined : `${words.count} · ${words.line}`}
+      whoLine={words?.line}
       placeName={form.placeName}
       placeUrl={form.placeUrl}
       placeUrlError={fields.placeUrlError}

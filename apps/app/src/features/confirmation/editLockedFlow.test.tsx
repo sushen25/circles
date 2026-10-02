@@ -146,7 +146,7 @@ describe('changing only the place or the note', () => {
 describe('moving the time', () => {
   it('says who it still works for and who is asked, before anything is saved', async () => {
     show(edit(SAT.start, SAT.end));
-    expect(await screen.findByText(/^3 of 6 can make it · /)).toBeTruthy();
+    expect(await screen.findByText(/^You, Tom and Jess can make it · /)).toBeTruthy();
     expect(
       screen.getByText(
         'Everyone sees the new time straight away, with Friday marked as moved. Anyone whose times cover it stays going without doing a thing. Priya, Sam and Alex are asked whether they can come.',
@@ -156,7 +156,7 @@ describe('moving the time', () => {
 
   it('sends the new time and the version of the names it showed, and tells the catalogue it moved', async () => {
     show(edit(SAT.start, SAT.end));
-    await screen.findByText(/^3 of 6 can make it · /);
+    await screen.findByText(/^You, Tom and Jess can make it · /);
     await waitFor(() => expect(save().getAttribute('aria-disabled')).not.toBe('true'));
     fireEvent.click(save());
 
@@ -182,7 +182,7 @@ describe('moving the time', () => {
 
   it('does not freeze names nobody saw: an answer landing before the tap is noticed and nothing is sent', async () => {
     show(edit(SAT.start, SAT.end));
-    await screen.findByText(/^3 of 6 can make it · /);
+    await screen.findByText(/^You, Tom and Jess can make it · /);
     await waitFor(() => expect(save().getAttribute('aria-disabled')).not.toBe('true'));
     stretchOf.mockResolvedValue({ ...fixtureStretch(SAT.start, SAT.end), inputVersion: 6 });
     fireEvent.click(save());
@@ -197,7 +197,7 @@ describe('moving the time', () => {
   it('says the same when the server finds the names are behind', async () => {
     editConfirmation.mockRejectedValue(refusal('stale_availability'));
     show(edit(SAT.start, SAT.end));
-    await screen.findByText(/^3 of 6 can make it · /);
+    await screen.findByText(/^You, Tom and Jess can make it · /);
     await waitFor(() => expect(save().getAttribute('aria-disabled')).not.toBe('true'));
     fireEvent.click(save());
     expect(
