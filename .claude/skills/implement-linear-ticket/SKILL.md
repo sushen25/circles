@@ -117,6 +117,30 @@ Steps, in order:
    A bug found this way is fixed like a review finding (failing test first) and
    gets a review round of its own.
 
+   **Screenshots, when the ticket changes something on screen.** Take one
+   during the walk for each manual step whose expected result is visible, and
+   one for each edge state the notes list, so the founder can see what "should
+   appear" means before running anything. A ticket with no UI change (database,
+   functions, tooling) has none. Say so in one line rather than leaving the
+   reader to wonder.
+
+   - Capture them in the walk itself (`page.screenshot({ path })` in the
+     throwaway spec), at a phone viewport (390 × 844) unless the step is about
+     a wider one. Use the seed's people and plans only. A real address, a
+     sign-in code or a token never goes in a screenshot: the repo is public.
+   - Host them on the repo's `testing-screenshots` branch, which is never
+     merged, under `sus-N/` with names that say the step (`03-card-share.png`).
+     Add them with the contents API rather than a commit on the ticket's branch,
+     so no binary ever lands in the ticket's history:
+     `gh api -X PUT repos/sushen25/circles/contents/sus-N/<name>.png -f branch=testing-screenshots -f message="SUS-N: <name>" -f content="$(base64 -i <file>)"`
+     (create the branch from `main` the first time; add `-f sha=<blob sha>`
+     to replace a file that already exists).
+   - Embed each one under its step, in both the PR comment and the Linear
+     comment:
+     `![step 3: the card offers Share the link](https://raw.githubusercontent.com/sushen25/circles/testing-screenshots/sus-N/03-card-share.png)`.
+   - When a review round changes what a screen shows, retake the screenshots it
+     changed in the same pass as the notes.
+
    Post them as a PR comment (`gh pr comment <n> --body-file <file>`) and as a
    Linear comment, and **update both when a review round changes behaviour** the
    notes describe.
