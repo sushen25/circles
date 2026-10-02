@@ -6,7 +6,7 @@
 -- fourteen-day edge is the edge on any day the suite runs.
 
 begin;
-select plan(57);
+select plan(58);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid
@@ -296,7 +296,7 @@ where token_hash = pg_temp.digest_of('archived-link');
 -- are not counted and not refused, whatever the count stands at.
 -- ---------------------------------------------------------------------------
 select pg_temp.make_user(('29000000-0000-0000-0000-0000000001' || lpad(n::text, 2, '0'))::uuid, 'Taker ' || n, true)
-from generate_series(1, 9) n;
+from generate_series(1, 10) n;
 select pg_temp.make_user(('29000000-0000-0000-0000-0000000002' || lpad(n::text, 2, '0'))::uuid, 'Priya device ' || n, true)
 from generate_series(1, 9) n;
 
@@ -380,12 +380,13 @@ select is(
 );
 
 -- ---------------------------------------------------------------------------
--- An address attached by whoever took the place does not make their moves free
+-- What the cap does not do (ADR 0048, decision 4, as the founder decided it)
 --
--- Contacts travel with a membership, so a taker can verify an address of their
--- own and be sent links for it. A move made with such a link is counted like a
--- pick from the list; the member's own link, for an address that was on the place
--- before anybody took it, is not.
+-- Contacts travel with a membership, so whoever took a place can verify a mailbox
+-- of their own and be sent links for it. A move made with any valid link is
+-- neither counted nor refused by the cap; the taker's own links are no different.
+-- That is the stated residual (each move tells the owner, links come one per
+-- letter), and this test is the record of it rather than a promise.
 -- ---------------------------------------------------------------------------
 select pg_temp.act_as_postgres();
 create or replace function pg_temp.tom() returns uuid
@@ -405,47 +406,48 @@ select pg_temp.link_for('tom-live@example.com', 'tom-own-1');
 select pg_temp.act_as('29000000-0000-0000-0000-000000000106', true);
 select lives_ok(
   $$ select public.reattach_member(pg_temp.circle_id(), pg_temp.tom()) $$,
-  'a stranger takes Tom''s place by list (counted move 1)'
+  'a stranger takes Tom''s place by list (list move 1)'
 );
 
 select pg_temp.act_as_postgres();
 insert into private.email_contacts (user_id, email_normalized, status, verified_at)
 values ('29000000-0000-0000-0000-000000000106', 'taker-own@example.com', 'verified', now());
 select pg_temp.link_for('taker-own@example.com', 'taker-link-1');
-
 select pg_temp.act_as('29000000-0000-0000-0000-000000000107', true);
 select lives_ok(
   $$ select public.reattach_member(null, null, pg_temp.digest_of('taker-link-1')) $$,
-  'a second stranger uses the first one''s own address''s link (counted move 2, not free)'
+  'a second stranger uses a link for the first one''s own mailbox: allowed, and not counted'
 );
 
 select pg_temp.act_as('29000000-0000-0000-0000-000000000206', true);
 select lives_ok(
   $$ select public.reattach_member(null, null, pg_temp.digest_of('tom-own-1')) $$,
-  'Tom returns with the link for the address that was on his place before it was taken'
+  'Tom returns with the link for his own address'
 );
 
-select pg_temp.act_as_postgres();
-select pg_temp.link_for('taker-own@example.com', 'taker-link-2');
+-- Two more list picks fill the cap (the first stranger's, and these), and a link
+-- still gets Tom back, which is the property the cap exists to keep.
+select pg_temp.link_for('tom-live@example.com', 'tom-own-2');
 select pg_temp.act_as('29000000-0000-0000-0000-000000000108', true);
 select lives_ok(
   $$ select public.reattach_member(pg_temp.circle_id(), pg_temp.tom()) $$,
-  'a third stranger picks him from the list (counted move 3)'
+  'a third stranger picks him from the list (list move 2)'
 );
-
 select pg_temp.act_as('29000000-0000-0000-0000-000000000109', true);
-select throws_ok(
-  $$ select public.reattach_member(null, null, pg_temp.digest_of('taker-link-2')) $$,
-  'reattach_limit',
-  'and a link for the address a taker added is refused at the cap: it proves nothing'
+select lives_ok(
+  $$ select public.reattach_member(pg_temp.circle_id(), pg_temp.tom()) $$,
+  'and a fourth (list move 3)'
 );
-
-select pg_temp.act_as_postgres();
-select pg_temp.link_for('tom-live@example.com', 'tom-own-2');
+select pg_temp.act_as('29000000-0000-0000-0000-000000000110', true);
+select throws_ok(
+  $$ select public.reattach_member(pg_temp.circle_id(), pg_temp.tom()) $$,
+  'reattach_limit',
+  'and a fifth pick from the list is refused'
+);
 select pg_temp.act_as('29000000-0000-0000-0000-000000000207', true);
 select lives_ok(
   $$ select public.reattach_member(null, null, pg_temp.digest_of('tom-own-2')) $$,
-  'while Tom''s own link, for the older address, still gets him back at the cap'
+  'while Tom''s own link still gets him back'
 );
 select pg_temp.act_as_postgres();
 select is(pg_temp.tom(), '29000000-0000-0000-0000-000000000207'::uuid, 'and the place is his');
@@ -484,7 +486,7 @@ select is((select count(*)::integer from seen), 0, 'the rule itself, asked as th
 -- An old audit row, from before the move recorded its source, counts as the
 -- list's: the stricter reading.
 select pg_temp.act_as_postgres();
-update private.audit_log a set metadata = (a.metadata - 'source') - 'capped'
+update private.audit_log a set metadata = a.metadata - 'source'
 where a.action = 'circles.member_reattached' and a.metadata ->> 'source' = 'list';
 select pg_temp.act_as('29000000-0000-0000-0000-000000000105', true);
 select throws_ok(

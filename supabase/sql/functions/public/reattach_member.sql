@@ -46,10 +46,6 @@ declare
   target uuid := p_target_user_id;
   token private.email_action_tokens;
   chosen public.circles;
-  moves integer;
-  first_counted timestamptz;
-  token_verified timestamptz;
-  established boolean := false;
   -- `member_reattached`'s analytics payload is `source: 'list' | 'email'`
   -- (packages/contracts/src/analytics.ts), and the reattach rate by source is
   -- what tells us whether the emailed path is worth its machinery. The function
@@ -238,77 +234,18 @@ begin
     raise exception 'already_member' using errcode = 'unique_violation';
   end if;
 
-  -- Three per membership per seven days (ADR 0006), **counting the moves that
-  -- proved nothing** (ADR 0048). Counting is not a simple `where user_id = target`:
-  -- every reattachment *changes* the membership's user id, so the previous ones are
-  -- recorded against identities this one has never seen. The audit rows form a
-  -- chain — each names the identity it moved from and the one it moved to — and the
-  -- membership's history is the walk backwards along it.
-  --
-  -- Why not every move. The cap exists to stop a name being passed back and forth
-  -- by people who prove nothing. It used to count the member's own moves as well,
-  -- so somebody who took a place, let its owner take it back, and took it again
-  -- left the owner — with a valid emailed link in hand — refused for a week, and
-  -- the only remedy was removing the membership, which deletes their answers.
-  --
-  -- So a move made with an emailed re-entry token is **established**, and neither
-  -- counted nor refused, when the address it was sent to was verified *before the
-  -- first counted move of the week* — an address that was on the place
-  -- before anybody took it. An address verified after that (by whoever held the
-  -- place since, which they may do, and which then travels with the membership
-  -- because contacts do) proves nothing about the person it was sent to, so a move
-  -- made with it is counted like a pick from the list and refused at the cap.
-  -- With no counted move in the week there is nothing to be established against,
-  -- and any live link is established.
-  --
-  -- What is left, said plainly: an address attached to a place more than a week
-  -- before the move that uses it is established, and links are minted by the
-  -- letters the product sends (one per address per letter, seven days), which
-  -- neither side controls — so two people who both hold such an address can trade
-  -- a place back and forth as often as letters arrive, each move telling the owner.
-  -- That is a stalemate, never a lockout: the rightful member's own link is always
-  -- established. ADR 0048 records it.
-  --
-  -- Rows written without `capped` count (the stricter reading, for a window that
-  -- closes in seven days).
-  --
-  -- `union`, not `union all`, and the row's own id in the result — because the
-  -- chain can be a *cycle*. A membership moves A→B, and later, from the session
-  -- on device A that is still valid, B→A. The history then loops A→B→A→B, and
-  -- `union all` follows it until the statement is cancelled or the server runs
-  -- out of memory. `union` discards a row already in the result, so revisiting
-  -- the same audit row ends the recursion; carrying the id keeps two genuinely
-  -- separate moves between the same pair of identities counted as two.
-  with recursive chain (id, from_id, to_id, capped, at) as (
-    select a.id, a.metadata ->> 'from_user_id', a.metadata ->> 'to_user_id',
-           coalesce(a.metadata ->> 'capped', 'true') = 'true', a.occurred_at
-    from private.audit_log a
-    where a.action = 'circles.member_reattached'
-      and a.resource_id = target_circle
-      and a.occurred_at > now() - interval '7 days'
-      and a.metadata ->> 'to_user_id' = target::text
-    union
-    select a.id, a.metadata ->> 'from_user_id', a.metadata ->> 'to_user_id',
-           coalesce(a.metadata ->> 'capped', 'true') = 'true', a.occurred_at
-    from private.audit_log a
-    join chain on a.metadata ->> 'to_user_id' = chain.from_id
-    where a.action = 'circles.member_reattached'
-      and a.resource_id = target_circle
-      and a.occurred_at > now() - interval '7 days'
-  )
-  select count(*) filter (where capped), min(at) filter (where capped)
-  into moves, first_counted
-  from chain;
-
-  if p_reentry_token_hash is not null then
-    select c.verified_at into token_verified
-    from private.email_contacts c where c.id = token.contact_id;
-
-    established := moves = 0
-      or (token_verified is not null and token_verified < first_counted);
-  end if;
-
-  if not established and moves >= 3 then
+  -- Three per membership per seven days (ADR 0006), **counting only the moves
+  -- somebody made by picking a name** (ADR 0048; `private.list_moves_this_week`
+  -- says how, and why). A move made with the member's own emailed re-entry link is
+  -- never refused here: whatever happened to the place, a member with a live link
+  -- can always take it back, and counting the member's own moves was how the cap
+  -- was used against them. What that leaves open is in ADR 0048: whoever holds a
+  -- place can attach a mailbox of their own and be sent links too, so link
+  -- holders can trade a place back and forth as often as letters arrive, each move
+  -- telling the owner.
+  if p_reentry_token_hash is null
+    and private.list_moves_this_week(target_circle, target) >= 3
+  then
     raise exception 'reattach_limit' using errcode = 'too_many_rows';
   end if;
 
@@ -338,13 +275,12 @@ begin
   end if;
 
   -- Ids only (non-negotiable 8). The two ids are what makes the chain above
-  -- walkable, and `capped` is what lets the cap above count only the moves it is
-  -- for (`source`, 'list' or 'email', is the analytics' and the reader's); a display name here would be the leak the
+  -- walkable, and `source` ('list' or 'email') is what lets the cap above count
+  -- only the moves it is for; a display name here would be the leak the
   -- constraint on this table refuses anyway.
   insert into private.audit_log (actor_user_id, action, resource_type, resource_id, metadata)
   values (caller, 'circles.member_reattached', 'circle', target_circle,
-          jsonb_build_object('from_user_id', target, 'to_user_id', caller, 'source', entry_source,
-                             'capped', not established));
+          jsonb_build_object('from_user_id', target, 'to_user_id', caller, 'source', entry_source));
 
   -- The owner's "Priya rejoined from a new device" (spec §5.1) starts here.
   -- No name: the notification pipeline reads the roster for that.
@@ -356,7 +292,7 @@ end;
 $$;
 
 comment on function public.reattach_member(uuid, uuid, bytea) is
-  'Moves a guest membership and everything scoped to it onto the calling anonymous identity, from the Continue-as list or an emailed re-entry token (ADR 0006). Only in an active circle; a per-circle hourly limit on the list path; at most three counted moves per membership per seven days, and a move made with a re-entry token for an address that was on the place before the week''s first counted move is never refused by that cap (ADR 0048); never onto a saved-place member.';
+  'Moves a guest membership and everything scoped to it onto the calling anonymous identity, from the Continue-as list or an emailed re-entry token (ADR 0006). Only in an active circle; a per-circle hourly limit on the list path; at most three list moves per membership per seven days, and a move made with a valid re-entry token is never refused by that cap (ADR 0048); never onto a saved-place member.';
 
 revoke all on function public.reattach_member(uuid, uuid, bytea) from public;
 revoke all on function public.reattach_member(uuid, uuid, bytea) from anon, authenticated;

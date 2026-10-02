@@ -55,7 +55,7 @@ is ever shared by link (a quiet ask is never shared, §5.4); `join_from_plan`
 already refuses both.
 
 **2. N is fourteen days, measured from the meetup's end; `completed` counts as
-`confirmed`.** (Proposed here; the founder approved fourteen on 2 October 2026.) What has to keep working inside N:
+`confirmed`.** (Proposed here; the founder approved fourteen on 2 October 2026, and the same day decided in chat that `completed` takes the same window as `confirmed`.) What has to keep working inside N:
 
 - The morning-after letter is sent at nine the next morning, in the reader's
   zone (`morningAfter`), and its buttons open the plan's link. A guest who lost
@@ -95,50 +95,59 @@ then a member of that circle and cannot complete another in it, so a per-caller
 limit could only ever count failures, which are rolled back. The roster
 lookup keeps its thirty-an-hour limit per caller.
 
-**4. The cap does not count, or refuse, a move made with the member's own
-emailed link.** Of the two options the ticket offered, this is the one chosen:
+**4. The cap does not count, or refuse, a move made with a valid emailed link.**
+The founder decided this in chat on 2 October 2026, after reading the analysis and
+the residuals below. Of the two options the ticket offered:
 
-- *Do not count a move made with a valid re-entry token.* The cap exists to stop
-  a name being passed around by people who prove nothing. A re-entry link proves
-  control of an address the membership holds; it is single-use, valid for seven
-  days, and rate-limited per token in the Edge Function. So a move made with one
-  is **established**: neither counted nor refused. Whatever has happened to the
-  place, a member with a live link for an address that was on it before it was
-  taken can take it back, including from the fifth move in a chain.
-- **But only for an address that was there first.** Contacts travel with a
-  membership, so whoever took a place can verify an address of their own and be
-  sent links for it, which proves nothing about them. A move is established only
-  if the token's address was verified before the first counted move of the week
-  (or there has been none). A link for an address attached later is counted like
-  a pick from the list and refused at the cap. The audit row records `capped`
-  (and `source`, `list` or `email`, for the analytics) so the walk along the chain,
-  which still crosses every move, can tell. A row with neither counts.
+- *Do not count a move made with a valid re-entry token.* Chosen. The cap exists
+  to stop a name being passed around by people who prove nothing. A re-entry link
+  proves control of an address the membership holds; it is single-use, valid for
+  seven days, and rate-limited per token in the Edge Function. Only the moves made
+  by picking a name from the list are counted (`private.list_moves_this_week`), and
+  a move made with a link is never refused by the cap, so **whatever has happened
+  to the place, a member with a valid emailed link can take it back**, including
+  from the fifth move in a chain. The audit row records `source` (`list` or
+  `email`); the walk along the chain crosses every move and charges only the
+  list's. Rows written without a `source` count: the stricter reading, for a
+  window that closes in seven days.
 - *Count moves away from an identity instead.* Rejected. Every move away from
   an identity is a move into another, so it counts the same moves by a different
   name, and the member's return is still one of them. It does not remove the
   attack; it moves it.
+- *Exempt only links for an address that was on the place first.* Tried and
+  dropped. Contacts travel with a membership, so no field the database holds says
+  when an address reached a place: `verified_at` says when it was proved anywhere,
+  merging contacts changes it, and a member who legitimately adds an address after
+  an earlier return has no "first" to be before. Two review rounds found a way
+  round it and a way for it to refuse the real member.
 
 What this does **not** do, said plainly:
 
-- A member **without** a verified address has no proof to tell them from the
-  person who took their place, so the list's cap still binds them. Three counted
-  moves in seven days is the most any membership can be moved that way, and each
-  tells the owner ("rejoined from a new device"), who can remove the membership.
-- Links are minted by the letters the product sends (one per address per letter),
-  which neither side controls. Two people who both hold an address that was on
-  the place more than a week ago can trade it back and forth as often as letters
-  arrive, each move telling the owner. That is a stalemate and not a lockout: the
-  rightful member's own link is always established.
+- **A taker with a mailbox of their own can keep trading the place.** Contacts
+  travel with a membership, so whoever holds a place can verify an address and be
+  sent links for it, and a move made with one is not counted. The earlier claim
+  that a link "cannot be minted by anybody who is not already the member" was
+  wrong and is withdrawn. What bounds it: a link is minted by the letters the
+  product sends, one per address per letter and valid seven days, which neither
+  side controls; each move tells the owner ("rejoined from a new device"), who can
+  remove the membership; and the per-circle limit of decision 3 still applies to
+  list picks. Against a rightful member with an address it is a stalemate: their
+  link always works.
+- **It does not help a member with no address.** They have no proof to tell them
+  from the person who took their place, so the list's cap binds them: three list
+  picks in seven days is the most any membership can be moved that way, and a taker
+  with a mailbox can still retake after that.
 - **A taker who saves their place keeps it.** If the person who took a place
-  converts that identity into a saved place in the same session (`linkIdentity`
-  converts in place and does not spend re-entry links), the member's link then
-  answers `target_is_permanent` and offers that account's sign-in, which is not
-  theirs. This is older behaviour (a place held by a saved identity is never
-  moved: AGENTS.md privacy invariants) and not changed here, but it is a way for
-  a takeover to leave a member with a live link unable to return, so the guarantee
+  converts that identity into a saved place, either in place (`linkIdentity`, which
+  does not spend re-entry links) or through `claim_identity` (which spends them
+  through `retire_reentry_links`), the member's link then answers
+  `target_is_permanent` and offers that account's sign-in, which is not theirs.
+  This is older behaviour (a place held by a saved identity is never moved:
+  AGENTS.md privacy invariants) and is not changed here, but it is a way for a
+  takeover to leave a member with a live link unable to return, so the guarantee
   above does not extend to it. Closing it needs a rule for when an emailed link
   may take a place back from a saved account; that is a product decision, put to
-  the founder on the PR.
+  the founder on the dashboard and left open.
 
 **5. The list still returns the user id, not an opaque handle.** The ticket asked
 whether to replace `member_user_id` with a per-list handle so the list alone is
