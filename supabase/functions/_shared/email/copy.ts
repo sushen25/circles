@@ -1,5 +1,7 @@
 import { brand } from '@circles/config';
 
+import { moved } from './copy-moved.ts';
+
 /**
  * Every sentence an email says, in English (non-negotiable 6's intent, for the
  * one surface that cannot import `apps/app/src/copy`).
@@ -110,32 +112,7 @@ export const EN_EMAIL = {
     button: { label: 'Open the plan' },
   }),
 
-  /**
-   * The organiser moved a locked-in time without asking anybody again
-   * (ADR 0050). Where it is now, where it was, and what to do if it does not
-   * work: nothing is asked of anyone it already suits, which is why this is not
-   * `changed`. Not held overnight, and no list of who is going, which a letter
-   * cannot keep current.
-   */
-  moved: (p: {
-    circleName: string;
-    shortDate: string;
-    time: string;
-    previousShortDate: string;
-    placeName?: string | undefined;
-    organiserName?: string | undefined;
-  }): EmailCopy => ({
-    subject: `Change of plan: ${p.circleName} is now ${p.shortDate}`,
-    preview: `Was ${p.previousShortDate}.`,
-    paragraphs: [
-      `Change of plan: ${p.circleName} is now ${p.shortDate}, ${p.time}` +
-        `${p.placeName === undefined ? '' : ` at ${p.placeName}`}.`,
-      `It was ${p.previousShortDate}. ` +
-        (p.organiserName === undefined ? 'The' : `${p.organiserName} moved it. The`) +
-        ' plan has the details, and is the place to say if the new time does not work for you.',
-    ],
-    button: { label: 'Open the plan' },
-  }),
+  moved,
 
   changed: (p: { circleName: string; shortDate: string; weekday: string }): EmailCopy => ({
     subject: `Change of plan: ${p.circleName}, ${p.shortDate} is off`,

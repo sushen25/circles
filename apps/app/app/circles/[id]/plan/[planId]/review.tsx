@@ -1,5 +1,6 @@
 import { useLocalSearchParams } from 'expo-router';
 
+import { OwnReviewFlow } from '../../../../../src/features/confirmation/OwnReviewFlow';
 import { ReviewFlow } from '../../../../../src/features/confirmation/ReviewFlow';
 
 /** Route only — thin composition, no logic (architecture §7.1). */
@@ -12,5 +13,9 @@ export default function Route() {
     end?: string;
   }>();
 
-  return <ReviewFlow id={id} planId={planId} candidate={candidate} start={start} end={end} />;
+  // A time the organiser chose themselves, instead of one of the options (ADR 0050).
+  if (candidate === undefined && start !== undefined && end !== undefined) {
+    return <OwnReviewFlow id={id} planId={planId} start={start} end={end} />;
+  }
+  return <ReviewFlow id={id} planId={planId} candidate={candidate} />;
 }

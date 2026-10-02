@@ -235,21 +235,18 @@ export async function inputFor(
         ...(context.organiserName === undefined ? {} : { organiserName: context.organiserName }),
       };
     }
-    // The organiser moved a locked-in time without asking anybody again
-    // (ADR 0050). Written from the confirmation the move made, which says where
-    // it came from, so nothing here guesses at which superseded row was the
-    // last one. A confirmation that is not a move has nothing to say.
+    // The confirmation a move made says where it came from (ADR 0050).
     case 'moved': {
       const confirmation = context.confirmation;
-      if (confirmation === null || !confirmation.moved_from_starts_at) {
+      if (confirmation === null || !confirmation.moved_from_starts_at)
         return { skip: 'no_confirmation' };
-      }
       return {
         kind: 'moved',
         ...toSubscriber,
         start: fromISO(confirmation.starts_at),
         end: fromISO(confirmation.ends_at),
         previousStart: fromISO(confirmation.moved_from_starts_at),
+        previousEnd: fromISO(confirmation.moved_from_ends_at ?? confirmation.moved_from_starts_at),
         zone: context.planZone,
         ...(confirmation.place_name === null ? {} : { placeName: confirmation.place_name }),
         ...(context.organiserName === undefined ? {} : { organiserName: context.organiserName }),

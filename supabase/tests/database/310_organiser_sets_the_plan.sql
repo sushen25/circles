@@ -10,7 +10,7 @@
 -- an answer arriving afterwards changes nothing.
 
 begin;
-select plan(60);
+select plan(61);
 
 create or replace function pg_temp.make_user(id uuid, name text)
 returns uuid language sql as $$
@@ -402,6 +402,8 @@ select is((select (id = (select id from moved), place_name, place_url, note)::te
 select is(
   (select count(*)::integer from public.meetup_confirmations where plan_id = (select plan_id from tp)),
   2, 'no new confirmation was written');
+select is((select calendar_sequence from public.meetup_confirmations where id = (select id from moved)), 2,
+  'but the calendar entry''s sequence rose, so a calendar takes the new place');
 select is(
   (select count(*)::integer from public.attendance a where a.confirmation_id = (select id from moved)
    and a.status = 'going'),

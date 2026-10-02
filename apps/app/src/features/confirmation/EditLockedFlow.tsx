@@ -189,7 +189,11 @@ function Edit({
   const current = { startsAt: confirmation.startsAt, endsAt: confirmation.endsAt };
   const next =
     start !== undefined && end !== undefined ? { startsAt: start, endsAt: end } : current;
-  const moved = next.startsAt !== current.startsAt || next.endsAt !== current.endsAt;
+  // Instants, not strings: the database writes `+00:00` where the picker writes
+  // `.000Z`, and the same time spelled twice is not a move.
+  const moved =
+    Date.parse(next.startsAt) !== Date.parse(current.startsAt) ||
+    Date.parse(next.endsAt) !== Date.parse(current.endsAt);
   const pick: TimePick = pickOf(next.startsAt, next.endsAt, plan.zone);
   const valid = !moved || timeProblemOf(plan, pick, clock as Instant) === undefined;
 

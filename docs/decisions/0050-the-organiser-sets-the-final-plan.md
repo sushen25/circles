@@ -43,14 +43,14 @@ hour in the plan's zone; it ends after it starts; it lasts from 30 minutes to 5
 hours; and it starts no later than the end of the plan's last day plus 30 days.
 Any future day inside that is allowed, including a day the plan never asked
 about, and the picker says so. The rule is one pure function in the domain
-(`validOwnTime`), and `private.is_valid_own_time` mirrors it in SQL, refusing in
+(`ownTimeProblem`), and `private.own_time_problem` mirrors it in SQL, refusing in
 the database as well as on the screen.
 
 **3. Who can make this stretch is one rule.** The engine's own test (a window that
 fully contains the stretch, or "I'm easy") is extracted as `whoCanMake` and the
 engine calls it for every candidate. The picker, the review screen and the
 server read the same answer: `private.stretch_availability` mirrors it in SQL,
-under the same members-list order, and a test holds the two to the same cases.
+under the same members-list order, and the domain's `stretch.test.ts` and pgTAP `310` are written against the same Sunday Crew scenario, so a change to one is a change to the other.
 The organiser reads it by name through `public.stretch_availability(plan, start,
 end)`, granted to the plan's organiser alone. It returns who can make the stretch,
 who answered otherwise and who has not answered, which is what the candidate

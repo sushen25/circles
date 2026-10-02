@@ -7,7 +7,7 @@
  * enough that a mistyped month does not become a plan.
  *
  * One function, called by the state machine's `own_time` guard, the picker and
- * the review screen. `private.is_valid_own_time` is the same rule in SQL and
+ * the review screen. `private.own_time_problem` is the same rule in SQL and
  * refuses in the database as well as on the screen; both name the same codes,
  * in the same order, so a client can tell somebody what was wrong.
  *

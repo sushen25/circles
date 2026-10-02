@@ -144,6 +144,25 @@ describe('changing only the place or the note', () => {
 });
 
 describe('moving the time', () => {
+  it('is not a move when the picker brings back the time the plan already has, spelled another way', async () => {
+    // The database writes +00:00 where the picker writes .000Z.
+    planConfirmation.mockResolvedValue({
+      ...confirmationFixture.lockedInOwnTime,
+      confirmation: {
+        ...confirmationFixture.lockedInOwnTime.confirmation!,
+        startsAt: '2026-09-18T09:00:00+00:00',
+        endsAt: '2026-09-18T11:00:00+00:00',
+      },
+    });
+    show(edit('2026-09-18T09:00:00.000Z', '2026-09-18T11:00:00.000Z'));
+    expect(
+      await screen.findByText(
+        'A new place or note shows for everyone straight away. Nobody has to answer again.',
+      ),
+    ).toBeTruthy();
+    expect(stretchOf).not.toHaveBeenCalled();
+  });
+
   it('says who it still works for and who is asked, before anything is saved', async () => {
     show(edit(SAT.start, SAT.end));
     expect(await screen.findByText(/^You, Tom and Jess can make it · /)).toBeTruthy();
@@ -188,7 +207,7 @@ describe('moving the time', () => {
     fireEvent.click(save());
     expect(
       await screen.findByText(
-        'Someone answered while you were looking, so this is updated. Check who it works for, then save.',
+        'The people this plan asks changed while you were looking, so this is updated. Check who it works for, then save.',
       ),
     ).toBeTruthy();
     expect(editConfirmation).not.toHaveBeenCalled();
@@ -202,7 +221,7 @@ describe('moving the time', () => {
     fireEvent.click(save());
     expect(
       await screen.findByText(
-        'Someone answered while you were looking, so this is updated. Check who it works for, then save.',
+        'The people this plan asks changed while you were looking, so this is updated. Check who it works for, then save.',
       ),
     ).toBeTruthy();
     expect(dismissTo).not.toHaveBeenCalled();

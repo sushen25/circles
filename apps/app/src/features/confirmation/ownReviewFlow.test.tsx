@@ -48,7 +48,7 @@ vi.mock('../../data/confirmation', async (original) => ({
   confirmOwnTime: (...a: unknown[]) => confirmOwnTime(...a),
 }));
 
-const { ReviewFlow } = await import('./ReviewFlow');
+const { OwnReviewFlow } = await import('./OwnReviewFlow');
 const fixture = await import('../scheduling/fixtures');
 
 const START = '2026-09-18T09:00:00.000Z';
@@ -59,9 +59,7 @@ function show(node: ReactNode) {
   return render(<QueryClientProvider client={client}>{node}</QueryClientProvider>);
 }
 
-const review = () => (
-  <ReviewFlow id="sunday-crew" planId="thu-17" candidate={undefined} start={START} end={END} />
-);
+const review = () => <OwnReviewFlow id="sunday-crew" planId="thu-17" start={START} end={END} />;
 const lockIn = () => screen.getByRole('button', { name: 'Lock it in' });
 
 function refusal(reason: string): FunctionError {

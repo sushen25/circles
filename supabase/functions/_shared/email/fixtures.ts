@@ -52,6 +52,7 @@ export const SUNDAY_CREW: { readonly [K in EmailKind]: Extract<EmailInput, { kin
     start: fromLocal(localDate('2026-09-19'), 19 * 60, MELBOURNE),
     end: fromLocal(localDate('2026-09-19'), 21 * 60, MELBOURNE),
     previousStart: START,
+    previousEnd: END,
     zone: MELBOURNE,
     placeName: 'Hope St Radio',
     organiserName: 'Maya',

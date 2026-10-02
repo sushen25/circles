@@ -12,6 +12,7 @@ import {
 } from '@circles/domain';
 
 import { handedOverIntents, repliesClosedIntent } from './closing.ts';
+import { revisionOf, speaksForAnother } from './revisions.ts';
 import type { PlanContext } from './context.ts';
 
 /**
@@ -106,6 +107,41 @@ function morningAfterFor(end: Instant): (zone: Zone) => Instant {
 }
 
 /**
+ * The four letters about one evening: the news (`locked_in`, or `moved` after the
+ * organiser moved it), the reminder two hours before, and the two morning-after
+ * ones. All keyed by the confirmation, so a move can take back the ones it
+ * replaced and keep these (ADR 0050).
+ */
+function eveningIntents(
+  first: 'locked_in' | 'moved',
+  confirmation: NonNullable<PlanContext['confirmation']>,
+  now: Instant,
+): readonly Intent[] {
+  const occurrence = occurrenceFor(first, { confirmationId: confirmation.id as never });
+  const start = fromISO(confirmation.starts_at);
+  const morning = morningAfterFor(fromISO(confirmation.ends_at));
+  const id = confirmation.id;
+  return [
+    {
+      kind: first,
+      occurrence,
+      desiredAt: now,
+      actorId: confirmation.confirmed_by,
+      confirmationId: id,
+    },
+    {
+      kind: 'reminder',
+      occurrence,
+      desiredAt: addMinutes(start, -120),
+      notAfter: start,
+      confirmationId: id,
+    },
+    { kind: 'did_it_happen', occurrence, desiredAt: morning, confirmationId: id },
+    { kind: 'did_it_happen_participant', occurrence, desiredAt: morning, confirmationId: id },
+  ];
+}
+
+/**
  * The kinds one event implies.
  *
  * An empty list marks the event processed, which is the right answer for every
@@ -191,34 +227,7 @@ export function intentsFor(
       // Locked in and then moved before this ran (ADR 0050): the move's event
       // speaks, about the time the plan is at now.
       if (speaksForAnother(event, confirmation)) return [];
-      const occurrence = occurrenceFor('locked_in', {
-        confirmationId: confirmation.id as never,
-      });
-      const start = fromISO(confirmation.starts_at);
-      const morning = morningAfterFor(fromISO(confirmation.ends_at));
-      return [
-        {
-          kind: 'locked_in',
-          occurrence,
-          desiredAt: now,
-          actorId: confirmation.confirmed_by,
-          confirmationId: confirmation.id,
-        },
-        {
-          kind: 'reminder',
-          occurrence,
-          desiredAt: addMinutes(start, -120),
-          notAfter: start,
-          confirmationId: confirmation.id,
-        },
-        { kind: 'did_it_happen', occurrence, desiredAt: morning, confirmationId: confirmation.id },
-        {
-          kind: 'did_it_happen_participant',
-          occurrence,
-          desiredAt: morning,
-          confirmationId: confirmation.id,
-        },
-      ];
+      return eveningIntents('locked_in', confirmation, now);
     }
 
     // The organiser moved a locked-in time (ADR 0050): the plan's members are
@@ -227,37 +236,11 @@ export function intentsFor(
     // (`supersededRevision`) before these are written, and the occurrence is the
     // **new confirmation's**, like a fresh lock-in's: a second move is a second
     // message, and the same move read twice is one. Read from the context, not
-    // the event: `ANNOUNCED` has the plan's confirmation as it is now, and a
-    // plan moved twice in one tick tells people where it is, once.
+    // the event, so a plan moved twice in one tick tells people where it is, once.
     case 'confirmation.meetup_moved': {
       if (confirmation === null) return [];
       if (speaksForAnother(event, confirmation)) return [];
-      const occurrence = occurrenceFor('moved', { confirmationId: confirmation.id as never });
-      const start = fromISO(confirmation.starts_at);
-      const morning = morningAfterFor(fromISO(confirmation.ends_at));
-      return [
-        {
-          kind: 'moved',
-          occurrence,
-          desiredAt: now,
-          actorId: confirmation.confirmed_by,
-          confirmationId: confirmation.id,
-        },
-        {
-          kind: 'reminder',
-          occurrence,
-          desiredAt: addMinutes(start, -120),
-          notAfter: start,
-          confirmationId: confirmation.id,
-        },
-        { kind: 'did_it_happen', occurrence, desiredAt: morning, confirmationId: confirmation.id },
-        {
-          kind: 'did_it_happen_participant',
-          occurrence,
-          desiredAt: morning,
-          confirmationId: confirmation.id,
-        },
-      ];
+      return eveningIntents('moved', confirmation, now);
     }
 
     case 'confirmation.meetup_rescheduled':
@@ -307,55 +290,4 @@ export function intentsFor(
   }
 }
 
-/**
- * Whether an event is about a confirmation that is no longer the plan's active
- * one: a lock-in the organiser has since moved, or a move since moved again. An
- * event from before `confirmation_id` was in its payload names none, and speaks
- * as it always did.
- */
-function speaksForAnother(
-  event: OutboxEvent,
-  confirmation: { readonly id: string; readonly moved_from_starts_at?: string | null | undefined },
-): boolean {
-  const named = event.payload['confirmation_id'];
-  if (typeof named === 'string') return named !== confirmation.id;
-  // An event from before the id was in the payload names none. A lock-in the plan
-  // has since moved is told by the move's own event, so it stays quiet; one for a
-  // plan that was never moved speaks as it always did.
-  return (
-    event.event_name === 'confirmation.meetup_confirmed' &&
-    typeof confirmation.moved_from_starts_at === 'string'
-  );
-}
-
-/**
- * The revision whose scheduled letters an event calls off.
- *
- * **Read from the event, never from the plan as it is now.** A context is
- * loaded once per plan per run, after every event in the batch has happened,
- * and "reopen, then fix the window" is the ordinary shape of a reschedule —
- * two bumps in one tick. Taking the plan's current revision and subtracting
- * one then names a revision that was never confirmed, and the evening that was
- * actually called off keeps its reminder and both morning-after letters for
- * ever. Every transition event carries the revision it left the plan at
- * (S1-11), which is the number that cannot drift.
- */
-export function revisionOf(event: OutboxEvent): number | null {
-  const revision = event.payload['revision'];
-  return typeof revision === 'number' && Number.isSafeInteger(revision) && revision >= 1
-    ? revision
-    : null;
-}
-
-export function supersededRevision(event: OutboxEvent): number | null {
-  const revision = revisionOf(event);
-  if (revision === null) return null;
-  // A cancellation leaves the revision where it is; a reschedule has already
-  // bumped it, so what it supersedes is the one before.
-  if (event.event_name === 'confirmation.meetup_cancelled') return revision;
-  // A move keeps the revision (ADR 0050): what it supersedes is this
-  // revision's letters about the time it just left, not the one before's.
-  if (event.event_name === 'confirmation.meetup_moved') return revision;
-  if (event.event_name === 'confirmation.meetup_rescheduled') return revision - 1;
-  return null;
-}
+export { revisionOf, speaksForAnother, supersededRevision } from './revisions.ts';

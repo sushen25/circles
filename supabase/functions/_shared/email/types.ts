@@ -73,6 +73,7 @@ export type MovedInput = ToSubscriber & {
   readonly end: Instant;
   /** Where the plan was before it moved. */
   readonly previousStart: Instant;
+  readonly previousEnd: Instant;
   readonly zone: Zone;
   readonly placeName?: string | undefined;
   readonly organiserName?: string | undefined;

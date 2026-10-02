@@ -822,7 +822,10 @@ begin
     update public.meetup_confirmations c
     set place_name = case when p_payload ? 'place_name' then p_payload ->> 'place_name' else c.place_name end,
         place_url = case when p_payload ? 'place_url' then p_payload ->> 'place_url' else c.place_url end,
-        note = case when p_payload ? 'note' then p_payload ->> 'note' else c.note end
+        note = case when p_payload ? 'note' then p_payload ->> 'note' else c.note end,
+        -- The calendar entry's content changed (LOCATION, DESCRIPTION): a higher
+        -- sequence is what tells a calendar to take the new file (RFC 5545).
+        calendar_sequence = c.calendar_sequence + 1
     where c.id = old.id;
     return old.id;
   end if;

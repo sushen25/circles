@@ -13,6 +13,7 @@ export function movedCopy(input: MovedInput): EmailCopy {
     shortDate: shortDate(input.start, input.zone),
     time: timeRange(input.start, input.end, input.zone),
     previousShortDate: shortDate(input.previousStart, input.zone),
+    previousTime: timeRange(input.previousStart, input.previousEnd, input.zone),
     placeName: input.placeName,
     organiserName: input.organiserName,
   });

@@ -1129,7 +1129,7 @@ export const en = {
     keep: 'Keep {weekday} as it is',
     keep_plain: 'Keep it as it is',
     moved:
-      'Someone answered while you were looking, so this is updated. Check who it works for, then save.',
+      'The people this plan asks changed while you were looking, so this is updated. Check who it works for, then save.',
     ended: 'This meetup has finished, so it can no longer be edited.',
     gone: "That time can't be used. It has gone, or the plan can't take it. Pick another.",
     not_organiser: 'Only the organiser can edit this plan.',
