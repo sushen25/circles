@@ -1,4 +1,4 @@
--- An edit that clears answers asks those people again (SUS-131, ADR 00YY).
+-- An edit that clears answers asks those people again (SUS-131, ADR 0046).
 --
 -- The dispatcher decides who hears `asked_again` from `dispatch_context`'s
 -- `answered_earlier`, and whether to say anything at all from the event's

@@ -280,7 +280,7 @@ describe('answers from another revision', () => {
   });
 });
 
-describe('asked again (ADR 00YY)', () => {
+describe('asked again (ADR 0046)', () => {
   // An edit moved the plan to revision 2. Everybody but Alex had answered
   // revision 1, and those answers no longer count.
   const edited = sundayCrewPlan({ revision: 2 });

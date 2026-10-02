@@ -127,7 +127,7 @@ export function planUrl(origin: string, code: ShortCode): string {
 /**
  * `https://…/j/<code>`: the plan's own link, the one shared into the chat. It
  * takes a member straight to their times, which is where "add your times
- * again" has to land (ADR 00YY). A short code and nothing else (ADR 0022).
+ * again" has to land (ADR 0046). A short code and nothing else (ADR 0022).
  */
 export function planInviteUrl(origin: string, code: ShortCode): string {
   return `${origin.replace(/\/+$/, '')}${DEEP_LINK_ROUTES.planInvite.replace(':code', code)}`;

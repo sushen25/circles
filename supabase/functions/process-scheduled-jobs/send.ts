@@ -133,7 +133,7 @@ const REVISION_SCOPED: readonly string[] = [
   'replies_closed',
   'deadline_approaching',
   // "Add your times again" to a question that has since been replaced: the
-  // newer revision's own event writes the letter that is true (ADR 00YY).
+  // newer revision's own event writes the letter that is true (ADR 0046).
   'asked_again',
 ];
 

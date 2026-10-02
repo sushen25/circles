@@ -33,7 +33,7 @@ import { brand } from '@circles/config';
  * which is what the person would otherwise have received. Four have no row on
  * either artboard and are written here for the first time: `replies_closed`,
  * `did_it_happen_participant` (SUS-22's note), the place-only `changed` and
- * `asked_again` (ADR 00YY).
+ * `asked_again` (ADR 0046).
  */
 
 export type Button = { readonly label: string };
@@ -121,7 +121,7 @@ export const EN_EMAIL = {
   }),
 
   /**
-   * An edit cleared their answers (spec §5.3, ADR 00YY). What the plan asks
+   * An edit cleared their answers (spec §5.3, ADR 0046). What the plan asks
    * now, that the earlier times no longer count, and the way back to the grid
    * — which explains its own empty state (SUS-130), so this does not repeat
    * it. Nothing about what anybody else said: after an edit nobody has

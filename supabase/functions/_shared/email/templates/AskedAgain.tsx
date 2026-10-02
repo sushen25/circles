@@ -16,7 +16,7 @@ export function askedAgainCopy(input: AskedAgainInput): EmailCopy {
 }
 
 /**
- * "The plan changed, add your times again" (spec §5.3, ADR 00YY): to somebody
+ * "The plan changed, add your times again" (spec §5.3, ADR 0046): to somebody
  * whose answer an edit cleared. The button opens `/j/<code>`, the grid, where
  * the empty state explains itself (SUS-130).
  */

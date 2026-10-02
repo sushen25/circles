@@ -65,7 +65,7 @@ type ContextRow = {
   members: MemberRow[];
   participant_ids: string[];
   responses: { plan_id: string; revision: number; user_id: string; status: string }[];
-  /** Who answered an earlier revision, for `asked_again` (ADR 00YY). Ids only. */
+  /** Who answered an earlier revision, for `asked_again` (ADR 0046). Ids only. */
   answered_earlier?: string[];
   confirmation: ConfirmationRow | null;
   superseded_confirmation: ConfirmationRow | null;

@@ -127,7 +127,7 @@ export function intentsFor(
       // key is what makes the organiser's inbox hold one (S1-16).
       return [{ kind: 'options_ready', occurrence: ONCE, desiredAt: now }];
 
-    // "The plan changed, add your times again" (ADR 00YY), to the people whose
+    // "The plan changed, add your times again" (ADR 0046), to the people whose
     // answers the edit cleared. Once per **revision** — `ONCE`, and the
     // revision is in the key — so a run of edits is one letter per question
     // asked and never one per outbox row.

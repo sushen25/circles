@@ -1,4 +1,4 @@
-# ADR 00YY: An edit that clears answers asks those people again
+# ADR 0046: An edit that clears answers asks those people again
 
 _Status: proposed · 1 October 2026_
 

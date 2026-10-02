@@ -31,7 +31,7 @@ describe('the kind table', () => {
     // `replies_closed` is §5.7's "one reminder at the deadline" and one of
     // §5.8's four organiser email kinds; the Pushes artboard has no row for it.
     // `quiet_expired` is §5.4.7's closing notice, the SparkExpired artboard
-    // (ADR 0038). `asked_again` is §5.3's re-ask after an edit (ADR 00YY).
+    // (ADR 0038). `asked_again` is §5.3's re-ask after an edit (ADR 0046).
     expect(NOTIFICATION_KINDS.map((s) => s.kind)).toEqual([
       ...ARTBOARD.slice(0, 6),
       'replies_closed',

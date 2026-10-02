@@ -7,7 +7,7 @@
 -- open the plan. The dispatcher now writes `asked_again` for it, once per
 -- revision, to the members who had answered an earlier revision and have not
 -- answered this one — by push, or by email to a verified subscriber to the
--- plan (ADR 00YY). An `adjust` (quorum, deadline, required members; ADR 0017)
+-- plan (ADR 0046). An `adjust` (quorum, deadline, required members; ADR 0017)
 -- keeps the revision and sends nothing.
 --
 --   * `notification_jobs_kind` — `asked_again`.
@@ -94,7 +94,7 @@ as $$
       from public.plan_responses r
       where r.plan_id = p.id and r.revision = p.revision
     ), '[]'::jsonb),
-    -- Who answered an **earlier** revision, for `asked_again` (ADR 00YY): an
+    -- Who answered an **earlier** revision, for `asked_again` (ADR 0046): an
     -- edit cleared their times and they are the ones to ask back. Ids only;
     -- the earlier answers are never read (availability is scoped to one
     -- revision). The same people the app tells the plan changed (SUS-130).

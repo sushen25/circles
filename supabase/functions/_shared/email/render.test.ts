@@ -237,7 +237,7 @@ describe('render', () => {
     });
   });
 
-  describe('the asked-again email (ADR 00YY)', () => {
+  describe('the asked-again email (ADR 0046)', () => {
     it('says what the plan asks now, that the earlier times are gone, and opens the grid', async () => {
       const email = await render(SUNDAY_CREW.asked_again);
       expect(email.subject).toBe('Sunday Crew: the plan changed');

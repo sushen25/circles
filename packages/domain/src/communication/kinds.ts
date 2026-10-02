@@ -9,7 +9,7 @@
  * The rows are the "Push copy" artboard's rows, in its order, plus the four the
  * spec names elsewhere: `replies_closed` (§5.7, §5.8), `verify_email`,
  * `quiet_expired` (§5.4.7, the SparkExpired artboard, ADR 0038) and
- * `asked_again` (§5.3, §5.8, ADR 00YY). No
+ * `asked_again` (§5.3, §5.8, ADR 0046). No
  * sentence lives here — `copyKey` names one, and the copy package renders it
  * (non-negotiable 6).
  */
@@ -276,7 +276,7 @@ export const NOTIFICATION_KINDS: readonly NotificationSpec[] = [
     respectsQuietHours: true,
   },
   {
-    // "The plan changed, add your times again" (spec §5.3, ADR 00YY): an edit
+    // "The plan changed, add your times again" (spec §5.3, ADR 0046): an edit
     // that moved the revision cleared these people's answers, and nothing else
     // would bring them back. A member kind like `changed` — push first, email
     // only on a verified subscription to this plan — and held overnight like

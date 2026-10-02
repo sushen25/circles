@@ -3182,7 +3182,7 @@ describe('process-scheduled-jobs', () => {
     });
   });
 
-  describe('an edit that cleared the answers (SUS-131, ADR 00YY)', () => {
+  describe('an edit that cleared the answers (SUS-131, ADR 0046)', () => {
     /** Maya edited the window: revision 2, asking, and Priya had answered revision 1. */
     const edited = (plan: Record<string, unknown> = {}) =>
       context({

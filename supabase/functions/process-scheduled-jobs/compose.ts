@@ -175,7 +175,7 @@ export async function inputFor(
         circleName: toOrganiser.circleName,
         circleId: job.circle_id,
       };
-    // "The plan changed, add your times again" (ADR 00YY), about the question
+    // "The plan changed, add your times again" (ADR 0046), about the question
     // as it is now, and checked before a token is minted for it. Held
     // overnight by quiet hours, the plan may have stopped taking answers by
     // morning — locked in, called off, or past its deadline — and the person

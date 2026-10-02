@@ -68,7 +68,7 @@ export function planLink(at: string, planCode: string): string {
 }
 
 /**
- * `/j/<code>` — "add your times again" (ADR 00YY). The plan page would send a
+ * `/j/<code>` — "add your times again" (ADR 0046). The plan page would send a
  * member there anyway; the letter goes straight to the grid, which says why it
  * is empty (SUS-130).
  */

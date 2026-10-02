@@ -92,7 +92,7 @@ export type ChangedInput = ToSubscriber & { readonly kind: 'changed'; readonly z
 
 /**
  * An edit moved the plan to a new revision and cleared this person's answer
- * (spec §5.3, ADR 00YY). What the plan asks now, from the plan as it is: its
+ * (spec §5.3, ADR 0046). What the plan asks now, from the plan as it is: its
  * window and its daily band, which are calendar dates and minutes of the day
  * rather than instants, because that is what the question is.
  */

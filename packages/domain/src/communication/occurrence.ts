@@ -87,7 +87,7 @@ export function occurrenceFor(kind: NotificationKind, input: OccurrenceInput = {
     // retry, and the index should swallow it. (A quiet ask expires once, and its
     // plan never asks again.) `asked_again` too, and that is the point: a run of
     // edits is one letter per question asked, and an `adjust` (no revision) is
-    // never one (ADR 00YY).
+    // never one (ADR 0046).
     case 'new_plan':
     case 'quiet_ask':
     case 'threshold_initiator':

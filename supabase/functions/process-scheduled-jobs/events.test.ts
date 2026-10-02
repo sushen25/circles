@@ -96,7 +96,7 @@ describe('which events say something', () => {
   });
 });
 
-describe('an edit that cleared the answers (ADR 00YY)', () => {
+describe('an edit that cleared the answers (ADR 0046)', () => {
   const ORGANISER = '00000000-0000-4000-8000-000000000001';
   const revised = (payload: Record<string, unknown>): OutboxEvent => ({
     ...eventNamed('planning.plan_revised'),

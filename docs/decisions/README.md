@@ -48,6 +48,7 @@ Short records of decisions that shape the product or the code. A new ADR is requ
 | [0043](./0043-the-product-is-wenna-and-confirmations-sign-off-with-the-day.md) | The product is Wenna, the link preview says what the brand doc says, and a confirmation signs off with the day | proposed |
 | [0044](./0044-production-is-wenna-app-and-the-host-is-permanent-once-a-link-leaves.md) | Production is `wenna.app`, and the host is permanent once a link leaves the founder | proposed |
 | [0045](./0045-the-editor-shows-what-others-have-said-as-counts.md) | The availability editor shows what others have said, as counts | proposed |
+| [0046](./0046-an-edit-that-clears-answers-asks-those-people-again.md) | An edit that clears answers asks those people again | proposed |
 
 ## Template
 
