@@ -28,17 +28,15 @@ for (const [name, viewport] of [
       await expect(page).toHaveTitle(`${brand.name} — ${brand.descriptor}`);
       await expect(page.getByRole('heading', { level: 1 })).toContainText('everyone');
 
-      const { overflow, small } = await page.evaluate(() => ({
+      const { overflow, small } = (await page.evaluate(`({
         overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
         small: [...document.querySelectorAll('a')]
           .filter((a) => {
             const r = a.getBoundingClientRect();
-            return (
-              r.width > 0 && !a.classList.contains('skip') && (r.height < 43.5 || r.width < 43.5)
-            );
+            return r.width > 0 && !a.classList.contains('skip') && (r.height < 43.5 || r.width < 43.5);
           })
-          .map((a) => a.textContent?.trim()),
-      }));
+          .map((a) => a.textContent.trim()),
+      })`)) as { overflow: number; small: string[] };
       expect(overflow).toBeLessThanOrEqual(0);
       expect(small).toEqual([]);
       expect(problems).toEqual([]);
