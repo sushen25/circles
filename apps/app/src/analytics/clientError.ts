@@ -66,7 +66,11 @@ export function routePattern(segments: readonly string[]): string {
       else parts.push(':other');
     }
   }
-  return `/${parts.join('/')}`.slice(0, 40).replace(/\/$/, '') || '/';
+  const route = `/${parts.join('/')}`;
+  // A pattern the catalogue would refuse is reported as `:other` rather than
+  // cut mid-word: a screen whose crash cannot be found by its reference is
+  // worse than one reported under a coarser route (review round 2).
+  return route.length > 40 ? '/:other' : route;
 }
 
 /**
@@ -164,9 +168,16 @@ export function resetClientErrors(): void {
  * more is sent and the session's last reference is returned, which at least
  * leads to the session's trail.
  */
-export function reportClientError(source: ClientErrorSource, error: unknown): string {
+export function reportClientError(
+  source: ClientErrorSource,
+  error: unknown,
+  segments?: readonly string[],
+): string {
   try {
-    const route = currentRoute;
+    // A boundary inside a screen knows which screen it is in, from the router's
+    // own focused state. The layout's last write is the screen the person came
+    // *from* when a screen throws on its first render (review round 2).
+    const route = segments === undefined ? currentRoute : routePattern(segments);
     const errorClass = errorClassOf(error);
     const key = `${route}|${errorClass}|${source}`;
 

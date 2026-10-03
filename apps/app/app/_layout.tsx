@@ -17,12 +17,23 @@ import { configureAnalytics, flush } from '../src/analytics/track';
 import { retryWhenReachable, trackEventsTransport } from '../src/analytics/transport';
 import { startSessionTracking } from '../src/data/auth/session';
 import { accessToken } from '../src/data/session';
+import { AppErrorBoundary } from '../src/features/system/AppErrorBoundary';
 import { ShellScreen } from '../src/features/system/ShellScreen';
 import { useHydrated } from '../src/platform/hydration';
 
-// What a crash on any screen lands on (SUS-112). Re-exported by name because
-// Expo Router looks for an `ErrorBoundary` export on the layout.
-export { AppErrorBoundary as ErrorBoundary } from '../src/features/system/AppErrorBoundary';
+// What a crash lands on (SUS-112). Two places, one screen:
+//
+// * `unstable_settings.screenErrorBoundary` wraps **each screen** in the
+//   boundary, inside the navigator. A crash there keeps the Stack, so the
+//   address stays on the screen that failed and "Try again" tries that screen
+//   again. It is Expo Router's own setting for exactly this (layouts only).
+// * `ErrorBoundary` is the last resort, for the layout itself failing. It
+//   replaces the whole navigator, so it can only offer the start.
+//
+// Review round 2 found that the last resort alone rewrote the address to `/`
+// and sent "Try again" back to the welcome screen.
+export { AppErrorBoundary as ErrorBoundary };
+export const unstable_settings = { screenErrorBoundary: AppErrorBoundary };
 
 void SplashScreen.preventAutoHideAsync();
 

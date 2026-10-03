@@ -125,7 +125,9 @@ Deno.serve(
         // reference from any error can be found in the logs"). These fields
         // have already passed the catalogue's patterns: a reference, a route
         // pattern, two fixed lists, a commit and a platform. Logged after the
-        // insert, so a line means the row is there.
+        // insert, for every event the ingest accepted: a replay of an event id
+        // already stored is a no-op on the row but is still a line, and the
+        // client replays identical content, so the two agree.
         for (const row of rows) {
           if (row.event_name !== 'client_error') continue;
           const p = row.properties as Record<string, unknown>;

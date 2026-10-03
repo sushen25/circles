@@ -6,7 +6,7 @@ import { log } from '../_shared/logging.ts';
 /**
  * The daily health summary (ticket step 5).
  *
- * Four counts and two timestamps, once a day from 08:00 UTC. Whether the day
+ * Counts, one route pattern and two timestamps, once a day from 08:00 UTC. Whether the day
  * is still owed is a fact in the database — `public.dispatch_health_due` —
  * because a dispatcher that runs every minute and remembers nothing between
  * runs cannot decide "once a day" for itself. The claim that closes the day is

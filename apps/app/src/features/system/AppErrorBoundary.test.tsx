@@ -9,7 +9,7 @@ import { t } from '../../copy';
 import { AppErrorBoundary } from './AppErrorBoundary';
 
 const replace = vi.hoisted(() => vi.fn());
-vi.mock('expo-router', () => ({ router: { replace } }));
+vi.mock('expo-router', () => ({ router: { replace }, useSegments: () => ['p', '[code]'] }));
 
 afterEach(() => {
   resetAnalytics();

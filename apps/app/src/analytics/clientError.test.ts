@@ -91,6 +91,41 @@ describe('routePattern', () => {
   });
 });
 
+describe('every real route', () => {
+  it('has a pattern the catalogue accepts, within its 40 characters, never :other', () => {
+    for (const file of Object.keys(ROUTE_FILES).filter((name) => !name.includes('+api'))) {
+      const segments = file
+        .replace(/^\/app\//, '')
+        .replace(/\.(tsx|ts)$/, '')
+        .split('/')
+        .filter(
+          (segment) => segment !== 'index' && !segment.startsWith('+') && !segment.startsWith('_'),
+        );
+      if (segments.length === 0) continue;
+      const route = routePattern(segments);
+      expect(route, file).not.toContain(':other');
+      expect(route.length, file).toBeLessThanOrEqual(40);
+      expect(
+        validateEvent('client_error', {
+          route,
+          error_class: 'other',
+          source: 'boundary',
+          build: 'dev',
+          platform: 'web',
+          reference: 'K7QM2X4P',
+        }),
+        `${file} -> ${route}`,
+      ).not.toBeNull();
+    }
+  });
+
+  it('reports a pattern that would be refused as :other, not cut mid-word', () => {
+    expect(routePattern(['circles', '[id]', 'plan', '[planId]', 'change-time', 'candidates'])).toBe(
+      '/:other',
+    );
+  });
+});
+
 describe('errorClassOf', () => {
   it('maps a name to a fixed list and everything else to other', () => {
     expect(errorClassOf(new TypeError('x'))).toBe('type_error');
@@ -174,6 +209,14 @@ describe('reportClientError', () => {
       'route',
       'source',
     ]);
+  });
+
+  it('reports a boundary under the screen it is in, not the one the layout last saw', () => {
+    // The layout's last write is the screen the person came from when a screen
+    // throws on its first render (review round 2).
+    setCurrentRoute(['terms']);
+    reportClientError('boundary', new TypeError('x'), ['privacy']);
+    expect(properties()[0]).toMatchObject({ route: '/privacy' });
   });
 
   it('reports the same crash once, and shows its first reference every time after', () => {

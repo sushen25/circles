@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, useSegments } from 'expo-router';
 import { useMemo } from 'react';
 import { Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -26,7 +26,15 @@ export function AppErrorBoundary({ error, retry }: AppErrorBoundaryProps) {
   // Reported during render, once per error: the screen shows the reference it
   // was reported under, and `reportClientError` returns the same one for the
   // same crash however often this renders (strict mode, a re-render loop).
-  const reference = useMemo(() => reportClientError('boundary', error), [error]);
+  // The segments are read here, from the router's focused state, so a screen
+  // that throws on its first render is reported under itself and not under the
+  // screen the person came from.
+  const segments = useSegments();
+  const reference = useMemo(
+    () => reportClientError('boundary', error, segments),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- one report per error
+    [error],
+  );
 
   const goHome = (): void => {
     if (Platform.OS === 'web' && typeof globalThis.location?.assign === 'function') {
