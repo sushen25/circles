@@ -212,7 +212,7 @@ The client imports the same `packages/domain` the server uses, so the app can sh
 │       ├── eas.json
 │       ├── app/                    # Expo Router routes ONLY — thin composition, no logic
 │       │   ├── _layout.tsx
-│       │   ├── index.tsx           # Welcome (SSO / email)
+│       │   ├── index.tsx           # first circle (no sign-in before it, ADR 0053)
 │       │   ├── (auth)/             # email, code, name
 │       │   ├── join.tsx            # /join#secret → redeem
 │       │   ├── j/[code].tsx        # plan short link → respond
@@ -642,7 +642,7 @@ Definition of done per feature: acceptance criteria pass; all eight screen state
 | Slice | Product scope | Infrastructure it needs |
 |---|---|---|
 | **0 — Foundation** | Monorepo, tokens, components, routes with fixtures, Supabase local + migrations + seed, CI, `AGENTS.md` | Repo, Supabase CLI, GitHub Actions, EAS project, dev Supabase project, holding domain |
-| **1 — Web end-to-end** | Welcome (Apple/Google/email), first-time flow, circle, invite, anonymous join with continue-as, named plan, availability (+ flexible, none-work), engine, candidates (organiser/member), confirm, confirmed pages, share messages, `.ics` + Google link, outcome and attendance, plan-update email with verification and preferences, organiser email notifications, OG route, analytics | EAS Hosting Starter + custom domain, Resend domain auth, Apple/Google sign-in configuration (web + native credentials), Turnstile, pg_cron |
+| **1 — Web end-to-end** | First-time flow (first circle and plan with no account, then the saved-place gate: Apple/Google/email), circle, invite, anonymous join with continue-as, named plan, availability (+ flexible, none-work), engine, candidates (organiser/member), confirm, confirmed pages, share messages, `.ics` + Google link, outcome and attendance, plan-update email with verification and preferences, organiser email notifications, OG route, analytics | EAS Hosting Starter + custom domain, Resend domain auth, Apple/Google sign-in configuration (web + native credentials), Turnstile, pg_cron |
 | **2 — Relationship loop (web)** | Quiet ask with organiser acceptance, tonight/weekend presets, cadence + take-turns nudges, plan another, corroborated attendance, deadline-passed handling, edit/reschedule/cancel, guest → account nudges | Nothing new; more cron kinds |
 | **3 — Native** | Development builds, calendar overlay, push (contextual ask), native add-to-calendar, universal links, app nudges and app landing | Apple Developer + Play accounts, EAS Build credits, AASA/assetlinks on the domain, Sentry |
 | **4 — Hardening** | Rate limits and abuse tests, RLS audit, accessibility pass, DST matrix, retry UI, privacy pages, deletion, diagnostics export, product-marketing consent if still wanted | Supabase Pro, spend cap, backups verified, log retention |

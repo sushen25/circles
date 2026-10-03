@@ -6,7 +6,8 @@ import { useMemo, useRef, useState } from 'react';
 import { deviceTimeZone, ownProfile, saveProfile, useSession } from '../../data/auth';
 import { hasBackend } from '../../data/auth/client';
 import { newestCircleId } from '../../data/circles';
-import { afterNaming } from './afterSignIn';
+import { readDraft } from '../../data/draft';
+import { afterNaming, FINISH_PATH } from './afterSignIn';
 import { isOffline } from './join/failure';
 import { TimeZoneScreen } from './TimeZoneScreen';
 import { useSavedPlace } from './useSavedPlace';
@@ -25,12 +26,12 @@ export function YourNameFlow() {
   return hasBackend() ? <LiveYourName /> : <FixtureYourName />;
 }
 
-/** No backend: the gallery and the fixture journey, which carry on to FirstCircle. */
+/** No backend: the gallery and the fixture journey, which carry on to the plan's share screen. */
 function FixtureYourName() {
   const router = useRouter();
   return (
     <YourNameScreen
-      onNext={() => router.push('/circles/new')}
+      onNext={() => router.push('/circles/sunday-crew/plan/thu-17/shared')}
       onBack={() => (router.canGoBack() ? router.back() : router.replace('/'))}
     />
   );
@@ -109,6 +110,14 @@ function LiveYourName() {
       setProblem(isOffline() ? 'offline' : 'couldnt_save');
       setBusy(false);
       saving.current = false;
+      return;
+    }
+    // At the first run's gate, or signed in with a plan drafted: the circle and
+    // the plan are made next (ADR 0053). A draft nobody carried through the gate
+    // is not carried on from here.
+    const draft = await readDraft().catch(() => null);
+    if (draft?.proceed === true && draft.way !== undefined) {
+      router.replace(FINISH_PATH);
       return;
     }
     let circleId: string | undefined;

@@ -27,7 +27,7 @@ import {
   RESEND_AFTER_MS,
   type EnterCodeProblem,
 } from './EnterCodeScreen';
-import { SignInScreen, type SignInProblem } from './SignInScreen';
+import { SignInScreen, type SignInPlace, type SignInProblem } from './SignInScreen';
 
 /**
  * `/sign-in` — the organiser's email path (spec §5.1 step 2), and where "I have
@@ -65,6 +65,13 @@ type Step =
 export type SignInFlowProps = {
   /** The `next` query parameter, exactly as it arrived. Only a plan link survives. */
   returnTo?: string | string[] | undefined;
+  /**
+   * This is the organiser gate of the first run (ADR 0053), not the ordinary
+   * sign-in: the screen says the plan is ready, and once the code is through
+   * the person goes on to make it. `onPassed` is told first, so the draft can
+   * say the organiser may proceed.
+   */
+  gate?: { place: SignInPlace; onPassed: () => Promise<void> } | undefined;
 };
 
 function emailProblem(error: unknown): SignInProblem {
@@ -76,7 +83,7 @@ function emailProblem(error: unknown): SignInProblem {
       : 'couldnt_send';
 }
 
-export function SignInFlow({ returnTo }: SignInFlowProps) {
+export function SignInFlow({ returnTo, gate }: SignInFlowProps) {
   const next = safeReturnPath(returnTo);
   const router = useRouter();
   const session = useSession();
@@ -114,11 +121,12 @@ export function SignInFlow({ returnTo }: SignInFlowProps) {
       try {
         if (step.via.kind === 'link') {
           const { route } = step.via;
+          const moment = gate === undefined ? 'settings' : 'organiser_gate';
           await savePlace({
-            moment: 'settings',
+            moment,
             signIn: () => submitLinkCode(step.address, codeText, route),
           });
-          track('account_claimed', { moment: 'settings' });
+          track('account_claimed', { moment });
         } else {
           await submitSignInCode(step.address, codeText);
         }
@@ -155,7 +163,9 @@ export function SignInFlow({ returnTo }: SignInFlowProps) {
       // trigger left at `Guest`), so they are not asked again and not counted
       // as `account_completed` — `account_claimed` said what happened (review
       // round 4).
-      const savedGuest = step.via.kind === 'link';
+      // At the first run's gate the name is the profile's, which the circle is
+      // about to be made under, so a saved guest is asked for one too.
+      const savedGuest = step.via.kind === 'link' && gate === undefined;
       try {
         const profile = await ownProfile();
         hasName = savedGuest || (profile?.name !== null && profile?.name !== undefined);
@@ -172,7 +182,10 @@ export function SignInFlow({ returnTo }: SignInFlowProps) {
       } catch {
         // Unknown: Your name reads the profile again and says what it finds.
       }
-      router.replace(destinationAfterSignIn({ next, hasName, circleId }));
+      if (gate !== undefined) await gate.onPassed().catch(() => undefined);
+      router.replace(
+        destinationAfterSignIn({ next, draft: gate !== undefined, hasName, circleId }),
+      );
     };
 
     return (
@@ -227,6 +240,9 @@ export function SignInFlow({ returnTo }: SignInFlowProps) {
       problem={problem}
       busy={busy}
       returning={next === NOTIFICATION_SETTINGS_PATH ? 'settings' : next !== undefined}
+      place={gate?.place}
+      onTerms={() => router.push('/terms')}
+      onPrivacy={() => router.push('/privacy')}
       onEmailChange={setEmail}
       onSendCode={() => {
         const address = normaliseAddress(email);

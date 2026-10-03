@@ -10,7 +10,10 @@ import { expect, test } from '@playwright/test';
  * not on a test id. If the copy changes, this test should change with it.
  */
 const JOURNEY = [
-  { path: '/', expect: /Make room for each other/i },
+  { path: '/start', expect: /Who do you keep meaning to see/i },
+  { path: '/circles/new/plan', expect: /Your first catch-up/i },
+  { path: '/circles/new/save', expect: /Your plan's ready/i },
+  { path: '/name', expect: /What should friends call you/i },
   { path: '/circles', expect: /Your circles|New circle/i },
   { path: '/circles/sunday-crew', expect: /Sunday Crew/i },
   { path: '/circles/sunday-crew/plan/setup', expect: /catch up|window|when/i },
@@ -48,16 +51,21 @@ test.describe('the named-plan journey', () => {
     });
   }
 
-  test('walks from the welcome screen to the confirmation by tapping', async ({ page }) => {
+  test('walks the first run by tapping: circle, plan, save your place, name, share', async ({
+    page,
+  }) => {
     await page.goto('/start');
 
-    // Each step's primary action moves to the next screen in the journey.
-    for (let i = 0; i < 4; i += 1) {
-      const primary = page.getByRole('button').first();
-      await expect(primary).toBeVisible();
-      await primary.click();
-      await page.waitForTimeout(150);
-    }
+    // First circle → plan → the gate → Your name → the plan's share screen, each
+    // by its own primary action (ADR 0053): no sign-in comes before the plan.
+    await page.getByRole('button', { name: /^Create/ }).click();
+    await expect(page.getByText('Your first catch-up')).toBeVisible();
+    await page.getByRole('button', { name: 'Ask the group' }).click();
+    await expect(page.getByText("Your plan's ready. Save your place.")).toBeVisible();
+    await page.getByRole('button', { name: 'Send me a code' }).click();
+    await expect(page.getByText('What should friends call you?')).toBeVisible();
+    await page.getByRole('button', { name: 'Continue' }).click();
+    await expect(page.getByText('Ask Sunday Crew.')).toBeVisible();
 
     expect(page.url()).not.toContain('/gallery');
   });

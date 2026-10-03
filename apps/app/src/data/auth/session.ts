@@ -3,6 +3,7 @@ import { useSyncExternalStore } from 'react';
 import { Platform } from 'react-native';
 
 import { setAccessToken } from '../session';
+import { clearDraft } from '../draft';
 import { authClient } from './client';
 import { resumePendingClaim } from './link';
 
@@ -250,9 +251,14 @@ export function sessionState(): SessionState {
 export async function signOut(): Promise<void> {
   const client = authClient();
   const { error } = await client.auth.signOut();
-  if (error === null) return;
-  const local = await client.auth.signOut({ scope: 'local' });
-  if (local.error !== null) throw new Error('sign out failed');
+  if (error !== null) {
+    const local = await client.auth.signOut({ scope: 'local' });
+    if (local.error !== null) throw new Error('sign out failed');
+  }
+  // A circle's name typed on this device is not the next person's to find
+  // (ADR 0053). Cleared only once the person is out, and never allowed to
+  // fail the sign-out.
+  await clearDraft();
 }
 
 /** Resets module state so a test starts from nothing. */
