@@ -275,6 +275,12 @@ export const catalogue = {
     moment: z.enum(['confirmed', 'reattached', 'second_response', 'after_attendance']),
   }),
 
+  // --- site ---------------------------------------------------------------
+  // The marketing site's one event (SUS-149): somebody opened the app from its
+  // "Start a plan" button. Nothing in it, not even a plan or a circle: there
+  // is neither yet.
+  site_start_plan_clicked: event(1),
+
   // --- native, Slice 3 ----------------------------------------------------
   calendar_explanation_viewed: event(1),
   calendar_permission_result: event(1, { granted: z.boolean() }),

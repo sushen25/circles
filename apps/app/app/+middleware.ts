@@ -7,6 +7,7 @@ import {
   previewCard,
   previewTargetFor,
 } from '../src/data/preview';
+import { SITE_HEADERS, sitePage } from '../src/features/site/page';
 
 /**
  * Link previews, on the paths people actually paste (architecture §9.4).
@@ -17,15 +18,27 @@ import {
  * `/og/...` is a card no chat app ever asks for. Middleware is the one place
  * that sees a request to a page before the page does.
  *
- * It answers **only** a preview fetcher, and only on those three paths.
+ * It answers **only** a preview fetcher, and only on those three paths —
+ * apart from `/`, which it answers for everybody with the marketing site.
  * Everything else falls through untouched, which is every request a person
  * makes: the user-agent test is routing, not authorisation, and the content it
  * guards is public by design.
  */
 export default async function middleware(request: Request): Promise<Response | undefined> {
+  const url = new URL(request.url);
+
+  // The bare host is the marketing site, for everybody (ADR 00XX). A document
+  // request for `/` only: the app's own front door is `/start`, and a client
+  // navigation to `/` inside the app never reaches the server.
+  if (url.pathname === '/') {
+    return new Response(request.method === 'HEAD' ? null : sitePage(originOf(url)), {
+      status: 200,
+      headers: { ...SITE_HEADERS },
+    });
+  }
+
   if (!isPreviewAgent(request.headers.get('user-agent'))) return undefined;
 
-  const url = new URL(request.url);
   const preview = previewTargetFor(url.pathname);
   if (preview === null) return undefined;
 
@@ -56,6 +69,6 @@ export const unstable_settings = {
   // branch is code no request reaches.
   matcher: {
     methods: ['GET', 'HEAD'],
-    patterns: ['/join', '/join/', '/j/[code]', '/p/[code]'],
+    patterns: ['/', '/join', '/join/', '/j/[code]', '/p/[code]'],
   },
 };

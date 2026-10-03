@@ -49,7 +49,7 @@ test.describe('the named-plan journey', () => {
   }
 
   test('walks from the welcome screen to the confirmation by tapping', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/start');
 
     // Each step's primary action moves to the next screen in the journey.
     for (let i = 0; i < 4; i += 1) {

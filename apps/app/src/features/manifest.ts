@@ -104,6 +104,11 @@ const SCREENS: ScreenEntry[] = [
     href: '/',
   },
   {
+    screen: 'Start',
+    feature: 'site',
+    href: '/start',
+  },
+  {
     screen: 'SignIn',
     feature: 'identity',
     href: '/(auth)/sign-in',

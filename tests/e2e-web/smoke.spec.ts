@@ -4,7 +4,7 @@ import { brand } from '@circles/config';
 
 test.describe('web build', () => {
   test('serves the placeholder screen', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/start');
 
     await expect(page.getByRole('heading', { name: brand.name })).toBeVisible();
   });

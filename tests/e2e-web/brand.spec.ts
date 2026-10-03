@@ -9,7 +9,7 @@ import { brand } from '@circles/config';
  */
 test.describe('brand', () => {
   test('the page is titled and linked to its icons and manifest', async ({ page }) => {
-    await page.goto('/');
+    await page.goto('/start');
 
     await expect(page).toHaveTitle(brand.name);
     await expect(page.locator('link[rel="icon"][href="/favicon.ico"]')).toHaveCount(1);
