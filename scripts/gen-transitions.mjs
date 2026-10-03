@@ -6,21 +6,28 @@
 //   pnpm gen:transitions     rewrite the generated block in the migration
 //   pnpm check:transitions   fail if it no longer matches the domain
 //
-// The generated block lives inside `0003_planning.sql` between markers rather
-// than in a file of its own, because Supabase migrations have no include
-// mechanism and a seed that is not applied is not a mirror.
+// The generated block lives inside a migration between markers rather than in
+// a file of its own, because Supabase migrations have no include mechanism and
+// a seed that is not applied is not a mirror.
 //
-// **Once this migration has shipped**, regenerating in place would edit an
-// applied migration. From that point a domain change means a *new* migration
-// that reseeds `planning.transitions`, and `MIGRATION` below moves to it. The
-// check compares the domain against whichever file is named here, so pointing
-// it at the new one is the whole of the change.
-import { readFileSync, writeFileSync } from 'node:fs';
+// Which migration: the check compares the domain against the latest one that
+// holds the block. `gen:transitions` writes into the highest-numbered migration
+// that is not on `origin/main` (`migrations.mjs`), and refuses when there is
+// none, because a shipped migration is never edited. A domain change therefore
+// means `pnpm gen:migration <name>` with the block in it (below), then this.
+// The block is a reseed:
+//
+//   delete from planning.transitions;
+//
+//   -- BEGIN GENERATED: transitions (scripts/gen-transitions.mjs)
+//   -- END GENERATED: transitions
+import { writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
+import { MIGRATIONS, holderOf, readAll, resolveWriteTarget } from './migrations.mjs';
+
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const MIGRATION = join(root, 'supabase/migrations/0035_organiser_sets_the_plan.sql');
 const BEGIN = '-- BEGIN GENERATED: transitions (scripts/gen-transitions.mjs)';
 const END = '-- END GENERATED: transitions';
 
@@ -54,13 +61,15 @@ function render() {
   ].join('\n');
 }
 
-const sql = readFileSync(MIGRATION, 'utf8');
-const start = sql.indexOf(BEGIN);
-const finish = sql.indexOf(END);
-if (start === -1 || finish === -1) {
-  console.error(`gen-transitions: markers not found in ${MIGRATION}`);
+const files = readAll();
+const holder = holderOf(files, BEGIN);
+if (holder === undefined || !files.get(holder).includes(END)) {
+  console.error('gen-transitions: no migration holds the transitions block (markers not found).');
   process.exit(2);
 }
+const sql = files.get(holder);
+const start = sql.indexOf(BEGIN);
+const finish = sql.indexOf(END);
 
 const current = sql.slice(start, finish + END.length);
 const generated = render();
@@ -70,15 +79,33 @@ if (process.argv.includes('--check')) {
     console.error(
       'check:transitions: the SQL transition table no longer matches ' +
         'packages/domain/src/planning/state-machine.ts.\n' +
-        'Run `pnpm gen:transitions`. If this migration has already shipped, ' +
-        'add a new migration that reseeds planning.transitions and point ' +
-        'MIGRATION in scripts/gen-transitions.mjs at it.',
+        `Add a migration with \`pnpm gen:migration <name>\` (unless this branch already has one), ` +
+        'put the block in it (see the header of scripts/gen-transitions.mjs), and run ' +
+        '`pnpm gen:transitions`. A migration on main is never edited.',
     );
     process.exit(1);
   }
-  console.log(`check:transitions: ok (${TRANSITIONS.length} transitions)`);
+  console.log(`check:transitions: ok (${TRANSITIONS.length} transitions, in ${holder})`);
   process.exit(0);
 }
 
-writeFileSync(MIGRATION, sql.slice(0, start) + generated + sql.slice(finish + END.length));
-console.log(`gen:transitions: wrote ${TRANSITIONS.length} transitions to ${MIGRATION}`);
+if (current === generated) {
+  console.log(`gen:transitions: up to date (${TRANSITIONS.length} transitions in ${holder})`);
+  process.exit(0);
+}
+
+const target = resolveWriteTarget({
+  gen: 'gen:transitions',
+  files,
+  begin: BEGIN,
+  holder,
+  template: `delete from planning.transitions;\n\n${BEGIN}\n${END}`,
+});
+const targetSql = files.get(target);
+const from = targetSql.indexOf(BEGIN);
+const to = targetSql.indexOf(END);
+writeFileSync(
+  join(MIGRATIONS, target),
+  targetSql.slice(0, from) + generated + targetSql.slice(to + END.length),
+);
+console.log(`gen:transitions: wrote ${TRANSITIONS.length} transitions to ${target}`);
