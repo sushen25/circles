@@ -105,6 +105,10 @@ describe('the copy file', () => {
       'names',
       'previous',
       'tail',
+      // SUS-150's: the drafted plan summarised on Save your place.
+      'band',
+      'duration',
+      'closes',
     ]);
     for (const [screen, strings] of Object.entries(en)) {
       for (const [key, value] of Object.entries(strings)) {
