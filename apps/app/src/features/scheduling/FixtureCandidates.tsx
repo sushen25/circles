@@ -25,6 +25,7 @@ export type CandidatesRoute = 'candidates' | 'waiting' | 'no-quorum' | 'deadline
 export function FixtureCandidates({ which }: { which: CandidatesRoute }) {
   const router = useRouter();
   const back = () => router.back();
+  const toSetTime = () => router.push('/circles/sunday-crew/plan/thu-17/set-time');
   const data =
     which === 'waiting'
       ? fixture.waiting
@@ -46,6 +47,7 @@ export function FixtureCandidates({ which }: { which: CandidatesRoute }) {
         // A moment after replies closed, so the button says what it would give.
         extension={extensionOf(closed, fromISO(closed.responseDeadline))}
         onLockIn={() => router.push('/circles/sunday-crew/plan/thu-17/review')}
+        onSetTime={toSetTime}
         onBack={back}
       />
     );
@@ -58,6 +60,7 @@ export function FixtureCandidates({ which }: { which: CandidatesRoute }) {
         body={t('waiting', 'body', { count: data.quorum })}
         answered={t('waiting', 'answered', { count: data.repliedCount, total: data.askedCount })}
         still={stillToAnswer(data)}
+        onSetTime={toSetTime}
         onBack={back}
       />
     );
@@ -69,6 +72,9 @@ export function FixtureCandidates({ which }: { which: CandidatesRoute }) {
         blocked={blockedBy(data)}
         nearMisses={nearMissesOf(data)}
         unlocks={unlocksOf(data)}
+        onUnlock={(unlock) => {
+          if (unlock.kind === 'set') toSetTime();
+        }}
         onBack={back}
       />
     );
@@ -83,6 +89,7 @@ export function FixtureCandidates({ which }: { which: CandidatesRoute }) {
       reviewLabel={reviewLabel(data, data.candidates[0]?.id)}
       nudgeLabel={nudgeOf(data)}
       onNext={() => router.push('/circles/sunday-crew/plan/thu-17/review')}
+      onSetTime={toSetTime}
       onBack={back}
     />
   );

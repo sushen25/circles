@@ -29,12 +29,23 @@ import type {
 /**
  * The initial status of every active member.
  *
- * `going` for anyone frozen into the confirmation as available — including
- * flexible members, who said yes to whatever suits. `cant` for anyone who
- * answered and is not in that set: they either marked other times or said none
- * of these work, and both are an answer. `unknown` for anyone who never
- * answered, which the ConfirmedOrg artboard renders as "1 to confirm" rather
- * than as a no.
+ * **One of the offered options.** `going` for anyone frozen into the
+ * confirmation as available — including flexible members, who said yes to
+ * whatever suits. `cant` for anyone who answered and is not in that set: they
+ * either marked other times or said none of these work, and both are an answer.
+ * `unknown` for anyone who never answered, which the ConfirmedOrg artboard
+ * renders as "1 to confirm" rather than as a no.
+ *
+ * **A time the organiser set themselves** (ADR 0050). `going` for anyone whose
+ * times cover it or who said "I'm easy" — the same available set — and
+ * **everybody else `unknown`**, answered or not. They never said no to this
+ * time: the organiser chose it knowing the answers, and `cant` would put words
+ * in their mouth (manifesto §3.5). That includes the organiser, whose status
+ * follows their own answer by the same rule.
+ *
+ * Moving a time derives it again, from the same responses by the same rule, so
+ * somebody whose times cover the new one is going with nothing to do, and a
+ * status somebody set by hand for the old one does not carry over.
  *
  * Responses from another revision are ignored: an edit invalidated them, and
  * reusing them would be answering a question nobody was asked.
@@ -50,11 +61,12 @@ export function deriveAttendance(
       .filter((r) => r.planId === confirmation.planId && r.revision === confirmation.revision)
       .map((r) => r.userId),
   );
+  const ownTime = confirmation.ownTime === true;
 
   return members.map((userId) => ({
     confirmationId: confirmation.id,
     userId,
-    status: statusFor(userId, available, answered),
+    status: statusFor(userId, available, answered, ownTime),
     // Derived at the moment of confirmation, so it is not a fresh fact with a
     // timestamp of its own — it is what the confirmation already said.
     updatedAt: confirmation.confirmedAt,
@@ -65,8 +77,10 @@ function statusFor(
   userId: UserId,
   available: ReadonlySet<UserId>,
   answered: ReadonlySet<UserId>,
+  ownTime: boolean,
 ): AttendanceStatus {
   if (available.has(userId)) return 'going';
+  if (ownTime) return 'unknown';
   return answered.has(userId) ? 'cant' : 'unknown';
 }
 

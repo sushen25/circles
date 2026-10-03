@@ -7,6 +7,8 @@
  * usually months later and in production.
  */
 
+import { type OwnTimeProblem, ownTimeProblem } from '../confirmation/own-time.js';
+import type { Instant } from '../shared/instant.js';
 import { type Result, err, ok } from '../shared/result.js';
 import { type HandOffRefusal, type HandOffTarget, handOffRefusal } from './hand-off.js';
 import { type Plan, type PlanState, isTerminal } from './types.js';
@@ -23,6 +25,9 @@ export type PlanAction =
   | 'narrow'
   | 'quorum_follows'
   | 'confirm'
+  | 'confirm_own'
+  | 'move_confirmed'
+  | 'edit_confirmed'
   | 'reopen'
   | 'cancel'
   | 'report_outcome'
@@ -60,6 +65,8 @@ export type TransitionErrorCode =
   | 'threshold_not_reached'
   | 'plan_in_progress'
   | 'plan_is_finished'
+  | 'needs_own_time'
+  | OwnTimeProblem
   | HandOffRefusal;
 
 /**
@@ -118,6 +125,14 @@ export type TransitionContext = {
    * found them. Absent means "unknown", and unknown fails closed.
    */
   readonly handOffTo?: HandOffTarget | undefined;
+  /**
+   * Required by `confirm_own` and `move_confirmed`: the stretch the organiser
+   * has chosen, and the moment they chose it. The guard is the time being a
+   * valid own time (`ownTimeProblem`), not the time being on offer. Absent
+   * means "unknown", and unknown fails closed.
+   */
+  readonly ownTime?:
+    { readonly start: Instant; readonly end: Instant; readonly now: Instant } | undefined;
 };
 
 type Guard =
@@ -131,7 +146,8 @@ type Guard =
   | 'keen_initiator_or_owner'
   | 'threshold'
   | 'no_open_plan'
-  | 'hand_off_target';
+  | 'hand_off_target'
+  | 'own_time';
 
 export type Transition = {
   readonly from: PlanState;
@@ -270,6 +286,11 @@ export const TRANSITIONS: readonly Transition[] = [
   // `adjust` does: `join_from_plan` follows it with `candidates_gone`.
   { from: 'ready', action: 'quorum_follows', to: 'ready', guards: [] },
   { from: 'ready', action: 'confirm', to: 'confirmed', guards: ['organiser', 'candidate'] },
+  // The organiser's own time (ADR 0050): not an option, so no `candidate` guard
+  // and no need to be `ready` — no quorum, replies closed and the waiting
+  // screen are all `collecting`. The guard is the time being a valid one.
+  { from: 'collecting', action: 'confirm_own', to: 'confirmed', guards: ['organiser', 'own_time'] },
+  { from: 'ready', action: 'confirm_own', to: 'confirmed', guards: ['organiser', 'own_time'] },
 
   // "Hand this to someone else" (spec §5.7, §9). The organiser gives the plan
   // to another member, from the two states in which there is still something
@@ -295,6 +316,16 @@ export const TRANSITIONS: readonly Transition[] = [
     guards: ['organiser', 'no_open_plan'],
     bumpsRevision: true,
   },
+  // Edit this plan (ADR 0050): the plan stays `confirmed` and the revision
+  // stays put, so nobody is asked again. A move writes a new active confirmation
+  // beside the superseded one; a place or note edit updates the active one.
+  {
+    from: 'confirmed',
+    action: 'move_confirmed',
+    to: 'confirmed',
+    guards: ['organiser', 'own_time'],
+  },
+  { from: 'confirmed', action: 'edit_confirmed', to: 'confirmed', guards: ['organiser'] },
   { from: 'confirmed', action: 'cancel', to: 'cancelled', guards: ['organiser_or_owner'] },
   { from: 'confirmed', action: 'report_outcome', to: 'completed', guards: ['organiser'] },
 ];
@@ -311,6 +342,8 @@ const GUARD_ERRORS: Record<Guard, TransitionErrorCode> = {
   threshold: 'threshold_not_reached',
   no_open_plan: 'plan_in_progress',
   hand_off_target: 'requires_saved_place',
+  // Never read: `own_time` names its own refusal, from the stretch.
+  own_time: 'needs_own_time',
 };
 
 function fails(guard: Guard, context: TransitionContext): boolean {
@@ -338,6 +371,7 @@ function fails(guard: Guard, context: TransitionContext): boolean {
     case 'no_organiser_yet':
     case 'threshold':
     case 'hand_off_target':
+    case 'own_time':
       return false; // these depend on the plan, checked in canTransition
     case 'no_open_plan':
       // Fails closed when the caller did not say: a plan made beside one
@@ -411,6 +445,15 @@ export function canTransition(
       if (target === undefined) return fail('not_a_member');
       const refusal = handOffRefusal(target, plan.organiserUserId);
       if (refusal !== undefined) return fail(refusal);
+      continue;
+    }
+    if (guard === 'own_time') {
+      // Fails closed on a stretch nobody named, and otherwise says what was
+      // wrong with it, in the order the SQL checks.
+      const stretch = context.ownTime;
+      if (stretch === undefined) return fail('needs_own_time');
+      const problem = ownTimeProblem(plan, stretch.start, stretch.end, stretch.now);
+      if (problem !== undefined) return fail(problem);
       continue;
     }
     if (fails(guard, context)) return fail(GUARD_ERRORS[guard]);

@@ -170,14 +170,16 @@ function freeze(request: ConfirmRequest, candidate: Candidate): Confirmation {
 }
 
 /**
- * "Change the time" and "Cancel this plan", from the confirmation's side.
+ * "Ask for new times", "Cancel this plan" and a move, from the confirmation's
+ * side.
  *
- * Both **supersede rather than mutate** (architecture §6.2). The row keeps the
- * time it held, because "Thursday is off the table" is a thing that has to stay
- * true in the record after Thursday stops being the plan — the ChangeTime
- * screen promises everyone will see exactly that.
+ * All three **supersede rather than mutate** (architecture §6.2). The third,
+ * `move`, is the organiser moving the time without asking anybody again
+ * (ADR 0050), and keeps the revision. The row keeps the time it held, because
+ * "Thursday is off the table" is a thing that has to stay true in the record
+ * after Thursday stops being the plan.
  */
-export type SupersedeReason = 'reopen' | 'cancel';
+export type SupersedeReason = 'reopen' | 'cancel' | 'move';
 
 export type SupersedeError = {
   readonly code: 'confirmation_not_active';
@@ -196,7 +198,7 @@ export function supersede(
       status: confirmation.status,
     });
   }
-  return ok({ ...confirmation, status: reason === 'reopen' ? 'superseded' : 'cancelled' });
+  return ok({ ...confirmation, status: reason === 'cancel' ? 'cancelled' : 'superseded' });
 }
 
 /**

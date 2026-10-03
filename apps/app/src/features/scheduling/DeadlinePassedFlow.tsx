@@ -28,11 +28,13 @@ export function DeadlinePassedFlow({
   circleId,
   data,
   header,
+  onSetTime,
   onBack,
 }: {
   circleId: string;
   data: PlanCandidates;
   header: HeaderView;
+  onSetTime?: (() => void) | undefined;
   onBack: () => void;
 }) {
   const router = useRouter();
@@ -84,6 +86,7 @@ export function DeadlinePassedFlow({
         if (member !== undefined) actions.choose(member);
       }}
       onConfirmHandOff={actions.handOff}
+      onSetTime={onSetTime}
       onBackToList={actions.backToList}
       onDismissSheet={actions.dismiss}
       onBack={onBack}

@@ -32,10 +32,14 @@ describe('the kind table', () => {
     // §5.8's four organiser email kinds; the Pushes artboard has no row for it.
     // `quiet_expired` is §5.4.7's closing notice, the SparkExpired artboard
     // (ADR 0038). `asked_again` is §5.3's re-ask after an edit (ADR 0046).
+    // `moved` is the organiser moving a locked-in time (ADR 0050), a sibling of
+    // `locked_in` and `changed`.
     expect(NOTIFICATION_KINDS.map((s) => s.kind)).toEqual([
       ...ARTBOARD.slice(0, 6),
       'replies_closed',
-      ...ARTBOARD.slice(6),
+      'locked_in',
+      'moved',
+      ...ARTBOARD.slice(7),
       'did_it_happen_participant',
       'verify_email',
       'quiet_expired',
@@ -58,12 +62,13 @@ describe('the kind table', () => {
     }
   });
 
-  it('exempts exactly confirmed, cancelled and the verification from quiet hours', () => {
-    // Spec §5.8: "quiet hours 9 pm–8 am local except confirmed and cancelled".
+  it('exempts exactly confirmed, moved, cancelled and the verification from quiet hours', () => {
+    // Spec §5.8: "quiet hours 9 pm–8 am local except confirmed, moved and
+    // cancelled" (a moved time is news you need before you leave the house).
     // `verify_email` is the third because somebody is waiting at the screen for
     // it and the link expires.
     const exempt = NOTIFICATION_KINDS.filter((s) => !s.respectsQuietHours).map((s) => s.kind);
-    expect(exempt).toEqual(['locked_in', 'cancelled', 'verify_email']);
+    expect(exempt).toEqual(['locked_in', 'moved', 'cancelled', 'verify_email']);
   });
 
   it('holds "changed" until morning, unlike its neighbour on the artboard', () => {
@@ -154,6 +159,7 @@ describe('the kind table', () => {
       ['replies_closed', true, false],
       ['about_time', true, false],
       ['locked_in', true, false],
+      ['moved', true, false],
       ['did_it_happen_participant', true, false],
       ['verify_email', true, false],
     ];

@@ -1,4 +1,4 @@
-import { ConfirmMeetupRequest } from '@circles/contracts';
+import { ConfirmDetails } from '@circles/contracts';
 import {
   NOTE_MAX_LENGTH,
   PLACE_NAME_MAX_LENGTH,
@@ -128,7 +128,7 @@ export function fieldsOf(form: ReviewForm): ReviewFields {
   const placeName = form.placeName.trim();
   const placeUrl = form.placeUrl.trim();
   const note = form.note.trim();
-  const fields = ConfirmMeetupRequest.shape;
+  const fields = ConfirmDetails;
   const urlBad = placeUrl !== '' && !fields.place_url.safeParse(placeUrl).success;
   return {
     placeName: placeName === '' ? undefined : placeName,
@@ -148,6 +148,6 @@ export function fieldsOf(form: ReviewForm): ReviewFields {
 
 /** The longest map link the request takes — read from the schema, not restated. */
 export const PLACE_URL_MAX_LENGTH: number | undefined =
-  ConfirmMeetupRequest.shape.place_url.unwrap().maxLength ?? undefined;
+  ConfirmDetails.place_url.unwrap().maxLength ?? undefined;
 
 export { NOTE_MAX_LENGTH, PLACE_NAME_MAX_LENGTH };

@@ -235,6 +235,23 @@ export async function inputFor(
         ...(context.organiserName === undefined ? {} : { organiserName: context.organiserName }),
       };
     }
+    // The confirmation a move made says where it came from (ADR 0050).
+    case 'moved': {
+      const confirmation = context.confirmation;
+      if (confirmation === null || !confirmation.moved_from_starts_at)
+        return { skip: 'no_confirmation' };
+      return {
+        kind: 'moved',
+        ...toSubscriber,
+        start: fromISO(confirmation.starts_at),
+        end: fromISO(confirmation.ends_at),
+        previousStart: fromISO(confirmation.moved_from_starts_at),
+        previousEnd: fromISO(confirmation.moved_from_ends_at ?? confirmation.moved_from_starts_at),
+        zone: context.planZone,
+        ...(confirmation.place_name === null ? {} : { placeName: confirmation.place_name }),
+        ...(context.organiserName === undefined ? {} : { organiserName: context.organiserName }),
+      };
+    }
     case 'changed': {
       const previous = context.supersededConfirmation;
       if (previous === null) return { skip: 'no_confirmation' };

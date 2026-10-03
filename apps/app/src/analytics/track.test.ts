@@ -99,12 +99,22 @@ describe('the catalogue is the contract', () => {
     const transport = vi.fn(async () => undefined);
     configureAnalytics({ now: at, transport });
 
-    track('meetup_confirmed', { attending_count: 5, invited_count: 6 });
+    track('meetup_confirmed', {
+      attending_count: 5,
+      invited_count: 6,
+      own_time: false,
+      below_quorum: false,
+    });
     await flush();
 
     expect(transport).toHaveBeenCalledOnce();
     const [batch] = transport.mock.calls[0] as unknown as [{ properties: object }[]];
-    expect(Object.keys(batch[0]!.properties)).toEqual(['attending_count', 'invited_count']);
+    expect(Object.keys(batch[0]!.properties)).toEqual([
+      'attending_count',
+      'invited_count',
+      'own_time',
+      'below_quorum',
+    ]);
   });
 });
 

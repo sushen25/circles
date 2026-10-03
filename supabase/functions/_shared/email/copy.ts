@@ -1,5 +1,7 @@
 import { brand } from '@circles/config';
 
+import { moved } from './copy-moved.ts';
+
 /**
  * Every sentence an email says, in English (non-negotiable 6's intent, for the
  * one surface that cannot import `apps/app/src/copy`).
@@ -32,8 +34,8 @@ import { brand } from '@circles/config';
  * others take their wording from the Pushes artboard's row for the same kind,
  * which is what the person would otherwise have received. Four have no row on
  * either artboard and are written here for the first time: `replies_closed`,
- * `did_it_happen_participant` (SUS-22's note), the place-only `changed` and
- * `asked_again` (ADR 0046).
+ * `did_it_happen_participant` (SUS-22's note), the place-only `changed`,
+ * `asked_again` (ADR 0046) and `moved` (ADR 0050).
  */
 
 export type Button = { readonly label: string };
@@ -109,6 +111,8 @@ export const EN_EMAIL = {
     ],
     button: { label: 'Open the plan' },
   }),
+
+  moved,
 
   changed: (p: { circleName: string; shortDate: string; weekday: string }): EmailCopy => ({
     subject: `Change of plan: ${p.circleName}, ${p.shortDate} is off`,

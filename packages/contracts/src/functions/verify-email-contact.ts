@@ -33,8 +33,9 @@ export const VerifyEmailContactResponse = z.object({
    * Never one that has finished: "verification after the plan completed or was
    * cancelled: no stale mail is sent" (spec §9), so a subscription to a plan
    * that is over is withdrawn by the click and is not listed. Never another
-   * identity's, either — one click verifies every contact holding the address,
-   * but the answer goes to one browser held by one person.
+   * identity's, either — one click verifies the contacts of the person who
+   * holds the link that hold the address (ADR 0049), and the answer goes to one
+   * browser held by one person.
    */
   active_plans: z.array(
     z.object({

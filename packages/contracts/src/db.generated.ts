@@ -302,6 +302,9 @@ export type Database = {
       meetup_confirmations: {
         Row: {
           available_user_ids: string[]
+          below_quorum: boolean
+          calendar_sequence: number
+          calendar_uid: string
           candidate_id: string
           chased_answer: string | null
           confirmed_at: string
@@ -309,7 +312,10 @@ export type Database = {
           created_at: string
           ends_at: string
           id: string
+          moved_from_ends_at: string | null
+          moved_from_starts_at: string | null
           note: string | null
+          own_time: boolean
           place_name: string | null
           place_url: string | null
           plan_id: string
@@ -322,6 +328,9 @@ export type Database = {
         }
         Insert: {
           available_user_ids: string[]
+          below_quorum?: boolean
+          calendar_sequence?: number
+          calendar_uid?: string
           candidate_id: string
           chased_answer?: string | null
           confirmed_at?: string
@@ -329,7 +338,10 @@ export type Database = {
           created_at?: string
           ends_at: string
           id?: string
+          moved_from_ends_at?: string | null
+          moved_from_starts_at?: string | null
           note?: string | null
+          own_time?: boolean
           place_name?: string | null
           place_url?: string | null
           plan_id: string
@@ -342,6 +354,9 @@ export type Database = {
         }
         Update: {
           available_user_ids?: string[]
+          below_quorum?: boolean
+          calendar_sequence?: number
+          calendar_uid?: string
           candidate_id?: string
           chased_answer?: string | null
           confirmed_at?: string
@@ -349,7 +364,10 @@ export type Database = {
           created_at?: string
           ends_at?: string
           id?: string
+          moved_from_ends_at?: string | null
+          moved_from_starts_at?: string | null
           note?: string | null
+          own_time?: boolean
           place_name?: string | null
           place_url?: string | null
           plan_id?: string
@@ -992,6 +1010,9 @@ export type Database = {
         }
         Returns: {
           available_user_ids: string[]
+          below_quorum: boolean
+          calendar_sequence: number
+          calendar_uid: string
           candidate_id: string
           chased_answer: string | null
           confirmed_at: string
@@ -999,7 +1020,54 @@ export type Database = {
           created_at: string
           ends_at: string
           id: string
+          moved_from_ends_at: string | null
+          moved_from_starts_at: string | null
           note: string | null
+          own_time: boolean
+          place_name: string | null
+          place_url: string | null
+          plan_id: string
+          revision: number
+          starts_at: string
+          status: string
+          superseded_at: string | null
+          superseded_reason: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "meetup_confirmations"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      confirm_own_time: {
+        Args: {
+          p_chased_answer: string
+          p_ends_at: string
+          p_expected_input_version: number
+          p_note?: string
+          p_place_name?: string
+          p_place_url?: string
+          p_plan_id: string
+          p_starts_at: string
+        }
+        Returns: {
+          available_user_ids: string[]
+          below_quorum: boolean
+          calendar_sequence: number
+          calendar_uid: string
+          candidate_id: string
+          chased_answer: string | null
+          confirmed_at: string
+          confirmed_by: string
+          created_at: string
+          ends_at: string
+          id: string
+          moved_from_ends_at: string | null
+          moved_from_starts_at: string | null
+          note: string | null
+          own_time: boolean
           place_name: string | null
           place_url: string | null
           plan_id: string
@@ -1161,7 +1229,11 @@ export type Database = {
       }
       dispatch_begin: { Args: { p_holder: string }; Returns: boolean }
       dispatch_cancel_pending: {
-        Args: { p_plan_id: string; p_revision: number }
+        Args: {
+          p_keep_confirmation?: string
+          p_plan_id: string
+          p_revision: number
+        }
         Returns: number
       }
       dispatch_circle_context: { Args: { p_circle_id: string }; Returns: Json }
@@ -1214,6 +1286,49 @@ export type Database = {
         Returns: number
       }
       dispatch_timed_work: { Args: { p_limit?: number }; Returns: Json }
+      edit_confirmation: {
+        Args: {
+          p_ends_at: string
+          p_expected_input_version: number
+          p_note?: string
+          p_place_name?: string
+          p_place_url?: string
+          p_plan_id: string
+          p_starts_at: string
+        }
+        Returns: {
+          available_user_ids: string[]
+          below_quorum: boolean
+          calendar_sequence: number
+          calendar_uid: string
+          candidate_id: string
+          chased_answer: string | null
+          confirmed_at: string
+          confirmed_by: string
+          created_at: string
+          ends_at: string
+          id: string
+          moved_from_ends_at: string | null
+          moved_from_starts_at: string | null
+          note: string | null
+          own_time: boolean
+          place_name: string | null
+          place_url: string | null
+          plan_id: string
+          revision: number
+          starts_at: string
+          status: string
+          superseded_at: string | null
+          superseded_reason: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "meetup_confirmations"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       email_preferences: {
         Args: { p_action: string; p_plan_id?: string; p_token_hash: string }
         Returns: Json
@@ -1580,6 +1695,10 @@ export type Database = {
           p_revision: number
           p_set: Json
         }
+        Returns: Json
+      }
+      stretch_availability: {
+        Args: { p_ends_at: string; p_plan_id: string; p_starts_at: string }
         Returns: Json
       }
       take_rate_token: {

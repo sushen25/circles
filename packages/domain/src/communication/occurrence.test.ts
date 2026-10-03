@@ -73,6 +73,7 @@ describe('occurrenceFor', () => {
   it('ties the confirmation kinds to the confirmation', () => {
     for (const kind of [
       'locked_in',
+      'moved',
       'reminder',
       'did_it_happen',
       'did_it_happen_participant',
@@ -122,7 +123,7 @@ describe('occurrenceFor', () => {
   });
 
   it('refuses rather than inventing one when the caller left the id out', () => {
-    for (const kind of ['locked_in', 'reminder', 'did_it_happen'] as const) {
+    for (const kind of ['locked_in', 'moved', 'reminder', 'did_it_happen'] as const) {
       expect(() => occurrenceFor(kind)).toThrow(RangeError);
     }
     expect(() => occurrenceFor('about_time')).toThrow(RangeError);

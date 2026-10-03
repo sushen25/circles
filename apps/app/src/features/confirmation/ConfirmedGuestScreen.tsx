@@ -76,6 +76,7 @@ export function ConfirmedGuestScreen({
           <DateText>{view.dayMonth}</DateText>
           <BodyText>{view.time}</BodyText>
           {view.zoneNote === undefined ? null : <Small>{view.zoneNote}</Small>}
+          {view.movedFrom === undefined ? null : <Small>{view.movedFrom}</Small>}
         </Stack>
         {view.placeName === undefined && onOpenMaps === undefined ? null : (
           <Stack>

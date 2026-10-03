@@ -6,11 +6,14 @@ import {
   Button,
   Card,
   DateText,
+  Icon,
   Label,
+  ListRow,
   Marks,
   Screen,
   Small,
   TopBar,
+  usePalette,
 } from '../../components';
 import { Between, Row, Stack } from '../../components/layout';
 import { t } from '../../copy';
@@ -91,6 +94,38 @@ export function CandidateCard({ card, highlighted, onPress, selected }: Candidat
     >
       {inside}
     </Pressable>
+  );
+}
+
+/**
+ * "Pick a different time" / "Set the time yourself": the row that lets the
+ * organiser choose any day and time, not only one the engine offered (ADR 0050).
+ * One row for the options, the waiting screen and replies closed; the no-quorum
+ * screen's is a line of its own list (`unlock.ts`).
+ */
+export function SetTimeRow({
+  title,
+  detail,
+  onPress,
+  disabled,
+}: {
+  title: string;
+  detail: string;
+  onPress: (() => void) | undefined;
+  disabled?: boolean | undefined;
+}) {
+  const palette = usePalette();
+  return (
+    <Card>
+      <ListRow
+        title={title}
+        detail={detail}
+        label={`${title}. ${detail}`}
+        leading={<Icon name="calendar" size={22} color={palette.accent} />}
+        disabled={disabled}
+        onPress={onPress}
+      />
+    </Card>
   );
 }
 
