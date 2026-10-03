@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { EN_PREVIEW_TEMPLATES, ogDescription, ogTitle } from './preview.js';
+import {
+  EN_PREVIEW_CARDS,
+  EN_PREVIEW_TEMPLATES,
+  ogDescription,
+  ogTitle,
+  previewCopy,
+} from './preview.js';
 
 const MEMBER_NAMES = ['Maya', 'Priya', 'Tom', 'Jess', 'Sam', 'Alex', 'Nic'];
 
@@ -40,5 +46,66 @@ describe('the link preview', () => {
     for (const name of ['Sunday Crew', 'the 5am club', "Jess & Tom's"]) {
       expect(ogTitle(name, EN_PREVIEW_TEMPLATES)).toContain(name);
     }
+  });
+});
+
+describe('the card for each link and plan state', () => {
+  const circle = 'Sunday Crew';
+  const copy = (
+    kind: string,
+    circleName: string | null,
+    planState: 'asking' | 'locked_in' | null,
+  ) => previewCopy({ kind, circleName, planState }, 'Acme');
+
+  it('says a confirmed plan is locked in, by the circle name alone', () => {
+    expect(copy('p', circle, 'locked_in')).toEqual({
+      title: 'Sunday Crew is locked in',
+      description: 'The day, the time, the place, and add to calendar.',
+    });
+  });
+
+  it('keeps the asking card for a plan that is still asking, on either link', () => {
+    for (const kind of ['p', 'j']) {
+      expect(copy(kind, circle, 'asking')).toEqual({
+        title: ogTitle(circle, EN_PREVIEW_TEMPLATES),
+        description: ogDescription(EN_PREVIEW_TEMPLATES),
+      });
+    }
+  });
+
+  it('is the same locked-in card whichever of the two plan links it came by', () => {
+    expect(copy('j', circle, 'locked_in')).toEqual(copy('p', circle, 'locked_in'));
+  });
+
+  it('draws the generic card, which claims no plan, for a link that does not resolve', () => {
+    for (const kind of ['p', 'j']) {
+      const card = copy(kind, null, null);
+      expect(card.title).toBe('Plans with friends, on Acme');
+      expect(`${card.title} ${card.description}`).not.toMatch(/finding a time|locked/i);
+    }
+  });
+
+  it('draws the invite card for /join, whatever else it is given', () => {
+    const card = copy('join', null, null);
+    expect(card.title).toBe("You're invited to a circle on Acme");
+    expect(`${card.title} ${card.description}`).not.toMatch(/finding a time|locked/i);
+    expect(copy('join', circle, 'locked_in')).toEqual(card);
+  });
+
+  it('never says more than "locked in": no date, time, place or member, in any card', () => {
+    const everything = [
+      copy('p', circle, 'locked_in'),
+      copy('p', circle, 'asking'),
+      copy('p', null, null),
+      copy('join', null, null),
+    ].map((card) => `${card.title} ${card.description}`);
+    for (const text of everything) {
+      expect(text).not.toMatch(/\d/);
+      for (const name of MEMBER_NAMES) expect(text).not.toContain(name);
+    }
+  });
+
+  it('keeps the asking card as the template everything else renders', () => {
+    expect(EN_PREVIEW_CARDS.asking).toBe(EN_PREVIEW_TEMPLATES);
   });
 });

@@ -1,4 +1,28 @@
 -- ---------------------------------------------------------------------------
+-- 0037 — The link preview says whether a plan is locked in (SUS-151, ADR 0054).
+--
+-- `public.preview_for_code` used to answer one `text`, the circle's name, so a
+-- locked-in plan's link unfurled as "finding a time". It now answers at most one
+-- row of (circle_name, plan_state), where `plan_state` is a closed enum of two
+-- words, `asking` and `locked_in`. No row where it returned null before: the
+-- Continue-as screen reads that as "this link isn't active", and it still does.
+--
+-- The return type changes, so the old function is dropped first; the grant is
+-- repeated by the definition below. `MIGRATION` in `scripts/gen-sql-functions.mjs`
+-- now points here.
+-- ---------------------------------------------------------------------------
+
+create type public.preview_plan_state as enum ('asking', 'locked_in');
+
+comment on type public.preview_plan_state is
+  'The only thing a link-preview card may learn about a plan besides its circle''s name (ADR 0054). Two words, never a date, a place or a person.';
+
+drop function if exists public.preview_for_code(text, text);
+
+-- BEGIN GENERATED: function definitions (scripts/gen-sql-functions.mjs)
+
+-- supabase/sql/functions/public/preview_for_code.sql
+-- ---------------------------------------------------------------------------
 -- The circle's name, and whether its plan is locked in, for a link preview, to
 -- anybody at all.
 --
@@ -80,3 +104,5 @@ comment on function public.preview_for_code(text, text) is
 
 revoke all on function public.preview_for_code(text, text) from public;
 grant execute on function public.preview_for_code(text, text) to anon, authenticated, service_role;
+
+-- END GENERATED: function definitions

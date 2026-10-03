@@ -7,7 +7,7 @@ import {
   destinationFor,
   escapeHtml,
   isPreviewAgent,
-  lookupCircleName,
+  lookupPreview,
   originOf,
   previewCard,
   previewTargetFor,
@@ -19,7 +19,9 @@ const ORIGIN = 'https://example.com';
 describe('the link-preview card', () => {
   it('names the circle and nothing else about the plan', () => {
     const html = previewCard({
+      kind: 'j',
       circleName: 'Sunday Crew',
+      planState: 'asking',
       target: `${ORIGIN}/j/pnanaa`,
       imageUrl: `${ORIGIN}/og-card.png`,
     });
@@ -30,22 +32,64 @@ describe('the link-preview card', () => {
     expect(html).not.toMatch(/Thursday|Hope St|6:30|Maya|Priya/);
   });
 
-  it('says nothing at all when there is no circle to name', () => {
+  it('says a confirmed plan is locked in, by the circle name alone', () => {
     const html = previewCard({
+      kind: 'p',
+      circleName: 'Sunday Crew',
+      planState: 'locked_in',
+      target: `${ORIGIN}/p/pnanaa`,
+      imageUrl: `${ORIGIN}/og-card.png`,
+    });
+
+    expect(html).toContain('<meta property="og:title" content="Sunday Crew is locked in">');
+    expect(html).toContain(
+      '<meta property="og:description" content="The day, the time, the place, and add to calendar.">',
+    );
+    expect(html).not.toContain('finding a time');
+    // The words a chat shows, not the markup around them.
+    const shown = [...html.matchAll(/property="og:(?:title|description)" content="([^"]*)"/g)]
+      .map((match) => match[1])
+      .join(' ');
+    expect(shown).not.toMatch(/\d|Thursday|Hope St|Maya|Priya/);
+  });
+
+  it('claims no plan for a link that does not resolve, such as a cancelled plan', () => {
+    const html = previewCard({
+      kind: 'p',
       circleName: null,
+      planState: null,
+      target: `${ORIGIN}/p/pnanaa`,
+      imageUrl: `${ORIGIN}/og-card.png`,
+    });
+
+    expect(html).toContain(
+      `<meta property="og:title" content="Plans with friends, on ${brand.name}">`,
+    );
+    expect(html).not.toMatch(/finding a time|locked/);
+  });
+
+  it('draws the invite card for /join, which no code can resolve', () => {
+    const html = previewCard({
+      kind: 'join',
+      circleName: null,
+      planState: null,
       target: `${ORIGIN}/join`,
       imageUrl: `${ORIGIN}/og-card.png`,
     });
 
-    expect(html).toContain('A circle is finding a time to catch up');
-    // Escaped, apostrophe included — the description is rendered into an
-    // attribute, and everything that goes there goes through `escapeHtml`.
-    expect(html).toContain('Pick the times you&#39;d be up for.');
+    // Escaped, apostrophe included: the title is rendered into an attribute,
+    // and everything that goes there goes through `escapeHtml`.
+    expect(html).toContain(
+      `<meta property="og:title" content="You&#39;re invited to a circle on ${brand.name}">`,
+    );
+    expect(html).not.toMatch(/finding a time|locked/);
   });
 
   it('names the product as the site, beside the circle rather than instead of it', () => {
     const html = previewCard({
+      kind: 'j',
       circleName: 'Sunday Crew',
+      planState: 'asking',
       target: `${ORIGIN}/j/pnanaa`,
       imageUrl: `${ORIGIN}/og-card.png`,
     });
@@ -56,7 +100,9 @@ describe('the link-preview card', () => {
 
   it('escapes a circle name, which is forty characters somebody chose', () => {
     const html = previewCard({
+      kind: 'p',
       circleName: '"><script>alert(1)</script>',
+      planState: 'asking',
       target: `${ORIGIN}/p/pnanaa`,
       imageUrl: `${ORIGIN}/og-card.png`,
     });
@@ -67,7 +113,9 @@ describe('the link-preview card', () => {
 
   it('carries the fragment onward without ever having seen it', () => {
     const html = previewCard({
-      circleName: 'Sunday Crew',
+      kind: 'join',
+      circleName: null,
+      planState: null,
       target: `${ORIGIN}/join`,
       imageUrl: `${ORIGIN}/og-card.png`,
     });
@@ -213,7 +261,9 @@ describe('originOf', () => {
     withRuntimeEnv({ EXPO_PUBLIC_APP_ORIGIN: undefined }, () => {
       const origin = originOf(DEPLOYMENT, production);
       const html = previewCard({
+        kind: 'j',
         circleName: null,
+        planState: null,
         target: destinationFor(origin, 'j', 'abc234'),
         imageUrl: `${origin}/og-card.png`,
       });
@@ -262,7 +312,10 @@ describe('the name lookup', () => {
   it('asks the exported backend when the server has no run-time variables', async () => {
     // Same root cause: on EAS Hosting the lookup had no Supabase URL, so every
     // production card said "A circle" instead of the circle's name.
-    const fetchMock = vi.fn(async () => new Response(JSON.stringify('Sunday Crew')));
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(JSON.stringify([{ circle_name: 'Sunday Crew', plan_state: 'locked_in' }])),
+    );
     vi.stubGlobal('fetch', fetchMock);
     const production = exportedConfig(manifestFor('production', HOME));
     const previous = {
@@ -272,7 +325,10 @@ describe('the name lookup', () => {
     delete process.env.EXPO_PUBLIC_SUPABASE_URL;
     delete process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
     try {
-      await expect(lookupCircleName('j', 'pnanaa', production)).resolves.toBe('Sunday Crew');
+      await expect(lookupPreview('j', 'pnanaa', production)).resolves.toEqual({
+        circleName: 'Sunday Crew',
+        planState: 'locked_in',
+      });
       expect(fetchMock).toHaveBeenCalledWith(
         'https://backend.test/rest/v1/rpc/preview_for_code',
         expect.objectContaining({ method: 'POST' }),
@@ -281,6 +337,49 @@ describe('the name lookup', () => {
       if (previous.url !== undefined) process.env.EXPO_PUBLIC_SUPABASE_URL = previous.url;
       if (previous.key !== undefined) process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY = previous.key;
     }
+  });
+});
+
+describe('what the lookup makes of the database answer', () => {
+  const production = exportedConfig(manifestFor('production', HOME));
+  const nothing = { circleName: null, planState: null };
+  const answer = (body: unknown, status = 200) => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(JSON.stringify(body), { status })),
+    );
+    return lookupPreview('p', 'pnanaa', production);
+  };
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('reads no row as nothing, which is what null always meant', async () => {
+    await expect(answer([])).resolves.toEqual(nothing);
+  });
+
+  it('reads an asking plan', async () => {
+    await expect(answer([{ circle_name: 'Sunday Crew', plan_state: 'asking' }])).resolves.toEqual({
+      circleName: 'Sunday Crew',
+      planState: 'asking',
+    });
+  });
+
+  it('treats a word outside the closed set, or a failed call, as nothing', async () => {
+    await expect(
+      answer([{ circle_name: 'Sunday Crew', plan_state: 'cancelled' }]),
+    ).resolves.toEqual(nothing);
+    await expect(answer([{ circle_name: 'Sunday Crew' }])).resolves.toEqual(nothing);
+    await expect(answer([{ circle_name: '', plan_state: 'asking' }])).resolves.toEqual(nothing);
+    await expect(answer({ message: 'nope' }, 500)).resolves.toEqual(nothing);
+  });
+
+  it('does not ask at all for an invite, which has no code', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    await expect(lookupPreview('join', null, production)).resolves.toEqual(nothing);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });
 

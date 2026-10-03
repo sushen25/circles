@@ -3,7 +3,7 @@ import {
   PREVIEW_KINDS,
   destinationFor,
   isPreviewAgent,
-  lookupCircleName,
+  lookupPreview,
   originOf,
   previewCard,
 } from '../../src/data/preview';
@@ -34,10 +34,10 @@ export async function GET(request: Request, params: Record<string, string>): Pro
   // because the browser reattaches it to the destination.
   if (!isPreviewAgent(request.headers.get('user-agent'))) return Response.redirect(target, 302);
 
-  const name = await lookupCircleName(kind, code);
+  const found = await lookupPreview(kind, code);
 
-  return new Response(
-    previewCard({ circleName: name, target, imageUrl: `${origin}/og-card.png` }),
-    { status: 200, headers: { ...CARD_HEADERS } },
-  );
+  return new Response(previewCard({ kind, ...found, target, imageUrl: `${origin}/og-card.png` }), {
+    status: 200,
+    headers: { ...CARD_HEADERS },
+  });
 }

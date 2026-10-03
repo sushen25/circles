@@ -106,6 +106,7 @@ export const CLIENT_ERROR_ROUTE_WORDS = [
   'setup',
   'shared',
   'sign-in',
+  'start',
   'terms',
   'threshold',
   'v',

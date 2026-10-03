@@ -45,8 +45,9 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SOURCE = join(root, 'supabase/sql/functions');
 const MIGRATIONS = join(root, 'supabase/migrations');
 // `0033` is SUS-103's, `0034` SUS-106's and `0035` SUS-138's; a function change goes
-// in a new migration (ADR 0015). `0036` is the health summary's client crashes (SUS-112).
-const MIGRATION = join(MIGRATIONS, '0036_health_counts_client_errors.sql');
+// in a new migration (ADR 0015). `0036` is the health summary's client crashes (SUS-112)
+// and `0037` the link preview's plan state (SUS-151).
+const MIGRATION = join(MIGRATIONS, '0037_link_preview_plan_state.sql');
 
 function walk(dir, into = new Map()) {
   for (const entry of readdirSync(dir).sort()) {
