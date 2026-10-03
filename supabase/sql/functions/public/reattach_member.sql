@@ -208,7 +208,7 @@ begin
     select 1 from auth.users u where u.id = target and coalesce(u.is_anonymous, false)
   ) then
     if p_reentry_token_hash is null
-      or not private.takeback_allowed(target_circle, target, token.contact_id, token.created_at)
+      or not private.takeback_allowed(target_circle, target, token.contact_id, token.minted_for_user_id)
     then
       raise exception 'target_is_permanent' using errcode = 'insufficient_privilege';
     end if;

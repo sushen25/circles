@@ -17,7 +17,9 @@
 --   7  a link that was already used      cannot take anything back
 --   8  the circle's owner                keeps the place
 --   9  a profile flag and no account     keeps the place
---  10  the rightful guest saved the place; a former taker's link  cannot take it
+--  10  the rightful guest came back by email and saved; a former taker's link cannot take it
+--  13  the same, but she came back by picking her name from the list
+--  14  a letter to the guest's address minted after the pick   is refused (stated in the ADR)
 --  11  a claim merged into an existing member  the guest's link cannot take that member's place
 --  12  the account organises an open plan   keeps the place
 --
@@ -25,7 +27,7 @@
 -- guest's fresh session k=3, a second account k=5.
 
 begin;
-select plan(50);
+select plan(54);
 
 create or replace function pg_temp.uid(n integer, k integer) returns uuid
 language sql immutable as $$
@@ -460,7 +462,7 @@ select is(pg_temp.holder(9), pg_temp.uid(9, 2), '9: nothing moved');
 
 -- ===========================================================================
 -- 10  The rightful guest got the place back and saved it; a former taker's link
---     (minted after the taker held the place) must not take it from them
+--     (minted for the taker, who held the place later) must not take it from them
 -- ===========================================================================
 select pg_temp.base(10);
 select pg_temp.act_as(pg_temp.uid(10, 2), true);
@@ -471,8 +473,6 @@ values (pg_temp.uid(10, 2), 'taker-10@example.com', 'verified', now());
 select public.issue_reentry_token(pg_temp.circle(10),
   (select id from private.email_contacts where email_normalized = 'taker-10@example.com'),
   pg_temp.digest_of('taker-link-10'));
-update private.email_action_tokens set created_at = now() + interval '1 minute'
-where token_hash = pg_temp.digest_of('taker-link-10');
 select pg_temp.act_as(pg_temp.uid(10, 3), true);
 select public.reattach_member(p_reentry_token_hash => pg_temp.digest_of('link-10'));
 select pg_temp.act_as_postgres();
@@ -531,6 +531,63 @@ select throws_ok(
 );
 select pg_temp.act_as_postgres();
 select is(pg_temp.holder(12), pg_temp.uid(12, 2), '12: nothing moved');
+
+
+-- ===========================================================================
+-- 13  The rightful guest came back by picking her own name from the list, saved,
+--     and a former taker's link must still not take the place
+-- ===========================================================================
+select pg_temp.base(13);
+select pg_temp.act_as(pg_temp.uid(13, 2), true);
+select public.reattach_member(pg_temp.circle(13), pg_temp.uid(13, 1));
+select pg_temp.act_as_postgres();
+insert into private.email_contacts (user_id, email_normalized, status, verified_at)
+values (pg_temp.uid(13, 2), 'taker-13@example.com', 'verified', now());
+select public.issue_reentry_token(pg_temp.circle(13),
+  (select id from private.email_contacts where email_normalized = 'taker-13@example.com'),
+  pg_temp.digest_of('taker-link-13'));
+select pg_temp.act_as(pg_temp.uid(13, 3), true);
+select public.reattach_member(pg_temp.circle(13), pg_temp.uid(13, 2));
+select pg_temp.act_as_postgres();
+update auth.users
+set is_anonymous = false, email = 'guest-13@example.com', raw_app_meta_data = '{"is_anonymous": false}'
+where id = pg_temp.uid(13, 3);
+update public.profiles set is_permanent = true where user_id = pg_temp.uid(13, 3);
+select pg_temp.make_user(pg_temp.uid(13, 6), 'Former taker, fresh', true);
+select pg_temp.act_as(pg_temp.uid(13, 6), true);
+select throws_ok(
+  $$ select public.reattach_member(p_reentry_token_hash => extensions.digest('taker-link-13', 'sha256')) $$,
+  'target_is_permanent',
+  '13: picking her own name back does not turn the taker''s link into a way to take her saved place'
+);
+select pg_temp.act_as_postgres();
+select is(pg_temp.holder(13), pg_temp.uid(13, 3), '13: nothing moved');
+
+-- ===========================================================================
+-- 14  A letter to the guest's address minted after the pick is minted for the taker
+-- ===========================================================================
+select pg_temp.base(14);
+select pg_temp.act_as(pg_temp.uid(14, 2), true);
+select public.reattach_member(pg_temp.circle(14), pg_temp.uid(14, 1));
+select pg_temp.act_as_postgres();
+select public.issue_reentry_token(pg_temp.circle(14),
+  (select id from private.email_contacts where email_normalized = 'guest-14@example.com'),
+  pg_temp.digest_of('late-link-14'));
+update auth.users
+set is_anonymous = false, email = 'taker-account-14@example.com', raw_app_meta_data = '{"is_anonymous": false}'
+where id = pg_temp.uid(14, 2);
+update public.profiles set is_permanent = true where user_id = pg_temp.uid(14, 2);
+select pg_temp.act_as(pg_temp.uid(14, 3), true);
+select throws_ok(
+  $$ select public.reattach_member(p_reentry_token_hash => extensions.digest('late-link-14', 'sha256')) $$,
+  'target_is_permanent',
+  '14: a link minted after the pick, though sent to the guest''s address, is refused (ADR 0049: stated limit)'
+);
+select is(
+  (select id from public.reattach_member(p_reentry_token_hash => pg_temp.digest_of('link-14'))),
+  pg_temp.circle(14),
+  '14: and the link minted before the pick takes the place back'
+);
 
 select * from finish();
 rollback;

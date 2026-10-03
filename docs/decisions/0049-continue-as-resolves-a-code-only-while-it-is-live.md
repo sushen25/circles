@@ -181,15 +181,28 @@ member's to use, and a link spent by being used is not. Using a retired link
 clears the mark, so it works once.
 
 *A condition the founder's rule needs to be safe.* The rule is for one story: a
-place was **picked from the list** and then saved, after the real guest's link was
-sent. So the link is honoured only if the account came to hold the place by a list
-pick made **after the link was minted** (`private.takeback_allowed` walks the
-recorded moves back from the holder, through claims, and looks for one). Without it
-a link minted for somebody who held the place *later* (a taker's own mailbox) could
-take the place from the real guest once the guest had saved it under their own
-address, and a saved account has no link of its own to answer with: saving would
-leave the guest worse off than staying a guest. A review found this; it is
-reproduced in `295_take_back_from_saved_account` scene 10.
+place was **picked from the list** and then saved, and the real guest's link was
+sent before that. So the link is honoured only if it was **minted for the person the
+place was picked from**: `email_action_tokens.minted_for_user_id` (new, fixed at
+issue, never moved with the place) must be the first identity in the recorded chain
+of moves leading to the account (the one nobody moved the place *to*), and the chain
+must hold a list pick. Without this, a link minted for somebody who held the place
+*later* (a taker's own mailbox) could take it from the real guest once she had saved
+it, whether she came back by email or by picking her own name, and a saved account
+has no link of its own to answer with, so saving would leave her worse off than
+staying a guest. Two reviews found the variants; they are scenes 10 and 13 of
+`295_take_back_from_saved_account`. A guest who simply saved (nobody picked her
+place) matches nothing, so her own old links cannot take the place from her own
+account.
+
+*Costs of the condition, stated plainly.* A link minted *after* the pick, even a
+letter sent to the guest's own address (the address travels with the place, so
+letters keep coming), is minted for the taker and does not qualify: only the links
+minted before the pick (they last seven days) take the place back (scene 14). A
+guest with two addresses gets the link's address back with the place; her other
+address and its consent for this circle stay with the account, which is not the
+guest's to give up in this move. Links minted before the column existed carry no
+identity and never take a place back.
 
 *The edge cases, settled:*
 
@@ -242,14 +255,11 @@ reproduced in `295_take_back_from_saved_account` scene 10.
   flag alone is not enough, and a missing auth row is not), the link's contact must
   exist, and any error leaves the link unspent.
 
-*Residuals, plainly.* A guest who saves their own place under a different address
-(an Apple relay, say) is safe from their own old links: nobody picked their place,
-so there is no list pick for the rule to find. Anybody who can read the real
-guest's mailbox can use the link, as before. A taker who has attached a mailbox of
-their own and whose link was minted before a *later* list pick into another saved
-account can still take that place with it: the same stalemate as decision 4, now
-reaching a saved account, and each move tells the owner. The take-back is not
-counted toward the cap, as decided.
+*Residuals, plainly.* Anybody who can read the real guest's mailbox can use her
+link, as before. A guest who saves under a different address (an Apple relay) after
+being picked is the same person as the link, so her own pre-pick link can take the
+place from her own account; the rule cannot know it. The take-back is not counted
+toward the cap, as decided.
 
 ## Alternatives considered
 

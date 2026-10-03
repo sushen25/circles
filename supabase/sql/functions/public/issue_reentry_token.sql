@@ -72,10 +72,12 @@ begin
   end if;
 
   insert into private.email_action_tokens (
-    contact_id, purpose, token_hash, expires_at, membership_circle_id, membership_user_id
+    contact_id, purpose, token_hash, expires_at, membership_circle_id, membership_user_id,
+    minted_for_user_id
   )
   values (
-    contact.id, 'reentry', p_token_hash, now() + interval '7 days', p_circle_id, contact.user_id
+    contact.id, 'reentry', p_token_hash, now() + interval '7 days', p_circle_id, contact.user_id,
+    contact.user_id
   )
   returning id into token_id;
 
