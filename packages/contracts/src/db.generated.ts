@@ -1516,7 +1516,10 @@ export type Database = {
       }
       preview_for_code: {
         Args: { p_code: string; p_kind: string }
-        Returns: string
+        Returns: {
+          circle_name: string
+          plan_state: Database["public"]["Enums"]["preview_plan_state"]
+        }[]
       }
       quiet_viewer_facts: {
         Args: { p_plan_id: string; p_user_id: string }
@@ -1714,7 +1717,7 @@ export type Database = {
       verify_email_contact: { Args: { p_token_hash: string }; Returns: Json }
     }
     Enums: {
-      [_ in never]: never
+      preview_plan_state: "asking" | "locked_in"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1841,7 +1844,9 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      preview_plan_state: ["asking", "locked_in"],
+    },
   },
 } as const
 

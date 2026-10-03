@@ -6,7 +6,7 @@
 -- fourteen-day edge is the edge on any day the suite runs.
 
 begin;
-select plan(58);
+select plan(76);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid
@@ -163,12 +163,93 @@ select pg_temp.act_as('29000000-0000-0000-0000-0000000000b1', true);
 
 select is(pg_temp.offered('kvpqmanx'), 2, 'a collecting plan''s code lists the circle''s guests');
 select is(pg_temp.offered(pg_temp.circle_code()), 2, 'the circle''s own code lists them too, while it is active');
-select is(public.preview_for_code('p', 'kvpqmanx'), 'Live Crew', 'and the link preview names the circle');
+select is((select circle_name from public.preview_for_code('p', 'kvpqmanx')), 'Live Crew', 'and the link preview names the circle');
 
 select pg_temp.act_as_postgres();
 select pg_temp.set_state('ready');
 select pg_temp.act_as('29000000-0000-0000-0000-0000000000b1', true);
 select is(pg_temp.offered('kvpqmanx'), 2, 'a plan with options on offer still lists them');
+
+-- ---------------------------------------------------------------------------
+-- What the link preview says about the plan (SUS-151, ADR 00ZZ): a name and one
+-- of two words, to a caller with no session at all
+-- ---------------------------------------------------------------------------
+create or replace function pg_temp.as_anon() returns void
+language plpgsql as $$
+begin
+  perform set_config('role', 'anon', true);
+  perform set_config('request.jwt.claims', '', true);
+end;
+$$;
+
+-- The state word for a code as anon would see it; null where there is no row.
+create or replace function pg_temp.preview_state(p_kind text, p_code text) returns text
+language sql as $$ select plan_state::text from public.preview_for_code(p_kind, p_code) $$;
+create or replace function pg_temp.preview_rows(p_kind text, p_code text) returns integer
+language sql as $$ select count(*)::integer from public.preview_for_code(p_kind, p_code) $$;
+
+select pg_temp.act_as_postgres();
+select pg_temp.set_state('collecting');
+select pg_temp.as_anon();
+select is(pg_temp.preview_state('p', 'kvpqmanx'), 'asking', 'a collecting plan is asking, as an unauthenticated caller sees it');
+select is(pg_temp.preview_state('j', 'kvpqmanx'), 'asking', 'the /j/ link is the same plan, the same answer');
+
+select pg_temp.act_as_postgres();
+select pg_temp.set_state('ready');
+select pg_temp.as_anon();
+select is(pg_temp.preview_state('p', 'kvpqmanx'), 'asking', 'a plan with options on offer is still asking');
+
+select pg_temp.act_as_postgres();
+select pg_temp.set_state('confirmed');
+select pg_temp.meetup_ended(-3);
+select pg_temp.as_anon();
+select is(pg_temp.preview_state('p', 'kvpqmanx'), 'locked_in', 'a confirmed plan with an active confirmation is locked in');
+select is(pg_temp.preview_state('j', 'kvpqmanx'), 'locked_in', 'whichever of the two links is asked');
+select is((select circle_name from public.preview_for_code('p', 'kvpqmanx')), 'Live Crew', 'and still names the circle');
+
+select pg_temp.act_as_postgres();
+select pg_temp.meetup_ended(5, 'completed');
+select pg_temp.set_state('completed');
+select pg_temp.as_anon();
+select is(pg_temp.preview_state('p', 'kvpqmanx'), 'locked_in', 'a completed plan inside the window is locked in');
+
+select pg_temp.act_as_postgres();
+select pg_temp.meetup_ended(15, 'completed');
+select pg_temp.as_anon();
+select is(pg_temp.preview_rows('p', 'kvpqmanx'), 0, 'and past the window there is no row, exactly as before');
+
+select pg_temp.act_as_postgres();
+select pg_temp.meetup_ended(2, 'cancelled');
+select pg_temp.as_anon();
+select is(pg_temp.preview_rows('p', 'kvpqmanx'), 0, 'a completed plan with a cancelled outcome has no row');
+
+select pg_temp.act_as_postgres();
+select pg_temp.meetup_ended(-3);
+select pg_temp.set_state('cancelled');
+select pg_temp.as_anon();
+select is(pg_temp.preview_rows('p', 'kvpqmanx'), 0, 'a cancelled plan has no row, so its link draws the generic card');
+
+select pg_temp.act_as_postgres();
+select pg_temp.set_state('expired');
+select pg_temp.as_anon();
+select is(pg_temp.preview_rows('p', 'kvpqmanx'), 0, 'an expired plan has no row');
+
+select is(pg_temp.preview_rows('join', null), 0, '/join has no row');
+select is(pg_temp.preview_rows('p', 'nxsuchcade'), 0, 'an unknown code has no row');
+select is(pg_temp.preview_rows('p', 'not a code!'), 0, 'a malformed code has no row');
+select is(pg_temp.preview_rows('p', null), 0, 'a null code has no row');
+
+select pg_temp.act_as_postgres();
+select pg_temp.set_state('collecting');
+select pg_temp.set_state('ready');
+select is(
+  (select array(select jsonb_object_keys(to_jsonb(r)) order by 1)
+   from public.preview_for_code('p', 'kvpqmanx') r),
+  array['circle_name', 'plan_state'],
+  'the answer has a name and a state and no other column'
+);
+select is(enum_range(null::public.preview_plan_state)::text, '{asking,locked_in}', 'and the state is a closed enum of two words');
+select ok(has_function_privilege('anon', 'public.preview_for_code(text, text)', 'execute'), 'and the lookup is still granted to anon');
 
 -- ---------------------------------------------------------------------------
 -- A plan that is over
@@ -177,7 +258,7 @@ select pg_temp.act_as_postgres();
 select pg_temp.set_state('cancelled');
 select pg_temp.act_as('29000000-0000-0000-0000-0000000000b1', true);
 select is(pg_temp.offered('kvpqmanx'), 0, 'a cancelled plan''s code lists nobody');
-select is(public.preview_for_code('p', 'kvpqmanx'), null, 'and the preview is the generic one, as for a code that never existed');
+select is((select count(*)::int from public.preview_for_code('p', 'kvpqmanx')), 0, 'and the preview is the generic one, as for a code that never existed');
 select is(pg_temp.offered(pg_temp.circle_code()), 2, 'while the circle''s own code is unaffected by a plan ending');
 
 select pg_temp.act_as_postgres();
@@ -214,7 +295,7 @@ select pg_temp.act_as_postgres();
 select pg_temp.meetup_ended(14.1);
 select pg_temp.act_as('29000000-0000-0000-0000-0000000000b1', true);
 select is(pg_temp.offered('kvpqmanx'), 0, 'and not just after');
-select is(public.preview_for_code('p', 'kvpqmanx'), null, 'where the preview is generic too');
+select is((select count(*)::int from public.preview_for_code('p', 'kvpqmanx')), 0, 'where the preview is generic too');
 
 -- The same plan once the organiser has answered "did it happen?": the people
 -- who come back to say "I was there" are inside the same window.
@@ -248,7 +329,7 @@ update public.circles set status = 'archived' where id = pg_temp.circle_id();
 select pg_temp.act_as('29000000-0000-0000-0000-0000000000b1', true);
 select is(pg_temp.offered(pg_temp.circle_code()), 0, 'an archived circle''s own code lists nobody');
 select is(pg_temp.offered('kvpqmanx'), 0, 'nor does the code of an asking plan in an archived circle');
-select is(public.preview_for_code('p', 'kvpqmanx'), null, 'and the preview is generic');
+select is((select count(*)::int from public.preview_for_code('p', 'kvpqmanx')), 0, 'and the preview is generic');
 
 -- reattach_member refuses there, by list and by emailed link, and the link is
 -- not spent by the refusal.

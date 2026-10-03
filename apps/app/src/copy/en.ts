@@ -1394,8 +1394,6 @@ export const en = {
     share_to_group_chat: 'Share to group chat',
     copy_link: 'Copy link',
     skip_for_now_ill_plan_first: "Skip for now, I'll plan first",
-    join_circle_generic: 'Join a circle',
-    pick_the_times_youd_be_up_for: "Pick the times you'd actually be up for. No app needed.",
     now_invite: 'Now invite {circle}.',
     copied: 'Copied. Paste it into your group chat.',
     couldnt_copy: "We couldn't copy it here. Press and hold the link to copy it yourself.",

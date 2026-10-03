@@ -96,33 +96,33 @@ from t;
 
 select pg_temp.act_as_anon();
 select is(
-  public.preview_for_code('p', 'pnanaa'),
+  (select circle_name from public.preview_for_code('p', 'pnanaa')),
   'Sunday Crew',
   'a stranger with the short code gets the circle name, which is what the chat card needs'
 );
 select is(
-  public.preview_for_code('j', 'pnanaa'),
+  (select circle_name from public.preview_for_code('j', 'pnanaa')),
   'Sunday Crew',
   'and the same for the invite link, which is the same plan seen from the chat'
 );
 select is(
-  public.preview_for_code('p', 'pnanaa') ~ 'Secret dinner',
+  (select circle_name from public.preview_for_code('p', 'pnanaa')) ~ 'Secret dinner',
   false,
   'and never the plan''s title: a card is rendered to a whole thread, including people outside the circle'
 );
 select is(
-  public.preview_for_code('join', 'pnanaa'),
-  null,
+  (select count(*)::int from public.preview_for_code('join', 'pnanaa')),
+  0,
   'a circle invite has no preview at all — its secret lives in the fragment, which never reaches a server'
 );
 select is(
-  public.preview_for_code('p', 'pnanab'),
-  null,
+  (select count(*)::int from public.preview_for_code('p', 'pnanab')),
+  0,
   'a code that is not ours says nothing, so the short-code space cannot be walked for circles that exist'
 );
 select is(
-  public.preview_for_code('p', 'DROP TABLE'),
-  null,
+  (select count(*)::int from public.preview_for_code('p', 'DROP TABLE')),
+  0,
   'and a code that is not even a code is refused on shape, before it reaches a table'
 );
 
@@ -130,8 +130,8 @@ select pg_temp.act_as_postgres();
 update public.circles set status = 'archived' where id = pg_temp.circle();
 select pg_temp.act_as_anon();
 select is(
-  public.preview_for_code('p', 'pnanaa'),
-  null,
+  (select count(*)::int from public.preview_for_code('p', 'pnanaa')),
+  0,
   'an archived circle stops previewing, the same way it stops being anything else'
 );
 select pg_temp.act_as_postgres();

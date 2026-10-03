@@ -105,5 +105,6 @@ export async function circleNameForCode(code: ShortCode): Promise<string | null>
   // a screen acts on that — the account's join sends it to the invite state —
   // so a dropped connection must not look like it. It is an error, with Retry.
   if (error !== null) throw new Error('circle name lookup failed');
-  return data ?? null;
+  // No row is what null used to be (ADR 00ZZ): an inactive or unknown link.
+  return data?.[0]?.circle_name ?? null;
 }
