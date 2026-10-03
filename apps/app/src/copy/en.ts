@@ -2337,8 +2337,6 @@ export const en = {
     locked_date: 'Thu 17 Sep',
     locked_time: '6:30–8:30 pm',
     locked_place: 'Hope St Radio',
-    locked_card_title: 'Sunday Crew is locked in',
-    locked_card_description: 'The day, the time, the place, and add to calendar.',
     open_plan_label: 'Open the Sunday Crew plan on {brand}',
     open_locked_label: 'Open the locked-in Sunday Crew plan on {brand}',
     card_tag: 'Plans with friends',

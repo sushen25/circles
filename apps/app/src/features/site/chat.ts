@@ -17,7 +17,8 @@ import { markSvg, text, type SiteKey } from './mark';
  * (`EN_SHARE_TEMPLATES`, `EN_PREVIEW_TEMPLATES`), so this page cannot say
  * something the product does not. The link itself is taken off the sentence
  * the way the share screen does (`withoutLink`), because the card stands in
- * for it.
+ * for it. A `/p/<code>` link has one card today, so the locked-in message's
+ * card is that one; the canvas's own wording for it follows SUS-151.
  */
 
 /** Never rendered: it is only what `withoutLink` takes off. */
@@ -79,7 +80,7 @@ export function afterThread(): string {
 
   const planCard = `<div class="pv" role="img" aria-label="${text('open_plan_label')}"><div class="pv-img" aria-hidden="true">${lockup()}</div><div class="pv-body"><div class="pv-title">${escapeHtml(ogTitle(circle, EN_PREVIEW_TEMPLATES))}</div><div class="pv-desc">${escapeHtml(ogDescription(EN_PREVIEW_TEMPLATES))}</div><div class="pv-site">${site}</div></div></div>`;
 
-  const lockedCard = `<div class="pv compact" role="img" aria-label="${text('open_locked_label')}"><div class="pv-img" aria-hidden="true">${markSvg(34)}</div><div class="pv-body"><div class="pv-title">${text('locked_card_title')}</div><div class="pv-desc">${text('locked_card_description')}</div><div class="pv-site">${site}</div></div></div>`;
+  const lockedCard = `<div class="pv compact" role="img" aria-label="${text('open_locked_label')}"><div class="pv-img" aria-hidden="true">${markSvg(34)}</div><div class="pv-body"><div class="pv-title">${escapeHtml(ogTitle(circle, EN_PREVIEW_TEMPLATES))}</div><div class="pv-desc">${escapeHtml(ogDescription(EN_PREVIEW_TEMPLATES))}</div><div class="pv-site">${site}</div></div></div>`;
 
   return `<div class="pane after"><h2 class="pane-title">${text('after_title')} <em>${escapeHtml(brand.name)}</em></h2>
 <div class="col thread" role="group" aria-label="${text('after_label')}">
