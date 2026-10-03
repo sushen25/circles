@@ -61,6 +61,15 @@ begin
       ) as keeps_other_circles
     from private.email_contacts ec
     where ec.user_id = p_from
+      -- One address only, when a place is being taken back from a saved account
+      -- (`private.hand_back_membership` names it): the account's own addresses and
+      -- anything else it attached stay with it. Unset, every contact of this circle
+      -- moves, as for a guest-to-guest move. A client cannot set this, and setting
+      -- it could only ever move *less*.
+      and (
+        nullif(current_setting('circles.takeback_email_hash', true), '') is null
+        or ec.email_hash = decode(current_setting('circles.takeback_email_hash', true), 'hex')
+      )
       and (
         exists (
           select 1 from private.email_subscriptions s

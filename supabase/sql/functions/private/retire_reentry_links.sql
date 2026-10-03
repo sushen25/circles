@@ -17,7 +17,14 @@
 --     moves the membership at all — it reaches the token through the *contact*,
 --     and the same refusal was waiting there.
 --
--- Idempotent: `coalesce` leaves an already-spent token alone.
+-- Idempotent: a token already spent is left alone.
+--
+-- A token spent *here* is marked `retired_at`, and a token spent by being used is
+-- not. The difference matters to exactly one reader, `reattach_member`: an
+-- emailed link may take a place back from a saved account when the account's own
+-- address is not the link's (ADR 0048, decision 6), and a link the member never
+-- got to use is still theirs to use, but a link that already moved a place is
+-- spent for good. Without the mark the two cannot be told apart.
 -- ---------------------------------------------------------------------------
 
 create or replace function private.retire_reentry_links(
@@ -40,8 +47,9 @@ begin
   end if;
 
   update private.email_action_tokens t
-  set used_at = coalesce(t.used_at, now())
+  set used_at = now(), retired_at = now()
   where t.purpose = 'reentry'
+    and t.used_at is null
     and t.membership_circle_id = p_circle_id
     and t.membership_user_id = p_from;
 end;
