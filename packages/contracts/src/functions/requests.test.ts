@@ -275,7 +275,7 @@ describe('RequestEmailUpdatesRequest', () => {
   };
 
   it('carries the consent version the screen rendered, and refuses a request without one', () => {
-    // ADR 00XX: what is recorded is what the person was shown. A request that
+    // ADR 0048: what is recorded is what the person was shown. A request that
     // does not say would have the server guess, and a guess is the bug.
     expect(RequestEmailUpdatesRequest.parse(body).consent_version).toBe('2026-10-02');
     const without = Object.fromEntries(

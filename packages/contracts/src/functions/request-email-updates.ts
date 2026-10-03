@@ -28,7 +28,7 @@ export const RequestEmailUpdatesRequest = Mutation.extend({
   /**
    * The `CONSENT.version` the screen rendered when the person asked. Required:
    * a subscription is recorded under the words the person was shown, so the
-   * server never fills this in from its own current version (ADR 00XX). Which
+   * server never fills this in from its own current version (ADR 0048). Which
    * versions are acceptable is the server's list (`CONSENT_VERSIONS`), not this
    * schema's; an unknown one is refused as `consent_version_unknown`.
    */

@@ -130,7 +130,7 @@ From architecture §7.6:
 5. Every RLS policy ships with a test proving both the allow and the deny.
 6. Every user-facing string is a key in `src/copy`; no literals in components.
    One exception: the email consent sentence is `CONSENT.text` in
-   `packages/config`, versioned, and rendered, never copied (ADR 00XX).
+   `packages/config`, versioned, and rendered, never copied (ADR 0048).
 7. Every analytics event is declared in the catalogue first.
 8. No sensitive data — names, emails, tokens, event titles, notes — in logs or
    analytics payloads. A plan's short code is not a token: it is in every

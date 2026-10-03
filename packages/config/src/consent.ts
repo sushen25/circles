@@ -47,7 +47,7 @@ const TEXT_2026_10_02 =
 /**
  * Every version of the sentence that has ever been shown, with its words, oldest
  * first. A subscription stores the version it was made under, and the client
- * sends the version it rendered (ADR 00XX), so the server accepts exactly the
+ * sends the version it rendered (ADR 0048), so the server accepts exactly the
  * versions on this list and any recorded version can be turned back into words.
  *
  * **Append only.** Never remove or edit an entry: a version that is gone is a

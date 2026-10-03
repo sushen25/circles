@@ -50,7 +50,7 @@ Short records of decisions that shape the product or the code. A new ADR is requ
 | [0045](./0045-the-editor-shows-what-others-have-said-as-counts.md) | The availability editor shows what others have said, as counts | proposed |
 | [0046](./0046-an-edit-that-clears-answers-asks-those-people-again.md) | An edit that clears answers asks those people again | proposed |
 | [0047](./0047-a-plan-may-ask-about-days-with-gaps.md) | A plan may ask about days with gaps between them | proposed |
-| [00XX](./00XX-the-consent-sentence-is-the-one-string-that-lives-in-config.md) | The consent sentence is the one user-facing string that lives in `packages/config` | proposed |
+| [0048](./0048-the-consent-sentence-is-the-one-string-that-lives-in-config.md) | The consent sentence is the one user-facing string that lives in `packages/config` | proposed |
 
 ## Template
 

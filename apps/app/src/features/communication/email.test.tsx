@@ -192,7 +192,7 @@ describe('Sent', () => {
   });
 });
 
-describe('a stale consent version (ADR 00XX)', () => {
+describe('a stale consent version (ADR 0048)', () => {
   it('says nothing was sent, and reloads its copy only when the person taps Send again', async () => {
     requestEmailUpdates.mockRejectedValue(refusal('consent_version_unknown'));
     wrap(<SentFlow code={PLAN.code} />);
