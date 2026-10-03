@@ -101,6 +101,8 @@ test('a new organiser reaches a shareable plan link with two typed inputs and no
 
   await page.goto('/start');
   const email = `${globalThis.crypto.randomUUID()}@example.test`;
+  // The seed already has a Sunday Crew, so what counts is the difference.
+  const sundayCrewsBefore = circleCountNamed('Sunday Crew');
 
   // The first screen is the circle, with no sign-in before it (ADR 00YY). The
   // two typed inputs are the circle's name and, after the gate, the organiser's.
@@ -119,7 +121,9 @@ test('a new organiser reaches a shareable plan link with two typed inputs and no
 
   // The gate is the third screen, after the plan, and nothing exists yet.
   await expect(page.getByText("Your plan's ready. Save your place.")).toBeVisible();
-  expect(circleCountNamed('Sunday Crew'), 'nothing made before the place is saved').toBe(0);
+  expect(circleCountNamed('Sunday Crew'), 'nothing made before the place is saved').toBe(
+    sundayCrewsBefore,
+  );
   await signInByCode(page, email);
 
   await expect(page).toHaveURL(/\/name$/);
@@ -298,9 +302,12 @@ test('the draft survives the email code, and the circle is made only after it', 
   expect(circleCountNamed(name), 'a code was asked for, still nothing made').toBe(0);
 
   // Reload in the middle of the round trip: the gate asks again, the draft holds.
+  // A second address, because the auth server holds a second code for the first
+  // back for a minute.
   await page.reload();
   await expect(page.getByText("Your plan's ready. Save your place.")).toBeVisible();
-  await signInByCode(page, email);
+  const second = `${globalThis.crypto.randomUUID()}@example.test`;
+  await signInByCode(page, second);
   await page.getByLabel('Your name').fill('Maya');
   await page.getByRole('button', { name: 'Continue' }).click();
 
@@ -312,7 +319,7 @@ test('a signed-in organiser goes circle, plan, share with no gate', async ({ pag
   const maya = await accountToSignInTo('Maya');
   await page.goto('/sign-in');
   await signInByCode(page, maya.email);
-  await expect(page).toHaveURL(/\/circles$/);
+  await expect(page).toHaveURL(/\/circles(\/new)?$/);
 
   const name = `Again ${globalThis.crypto.randomUUID().slice(0, 8)}`;
   await page.goto('/circles/new');
