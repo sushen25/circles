@@ -101,8 +101,6 @@ test('a new organiser reaches a shareable plan link with two typed inputs and no
 
   await page.goto('/start');
   const email = `${globalThis.crypto.randomUUID()}@example.test`;
-  // The seed already has a Sunday Crew, so what counts is the difference.
-  const sundayCrewsBefore = circleCountNamed('Sunday Crew');
 
   // The first screen is the circle, with no sign-in before it (ADR 00YY). The
   // two typed inputs are the circle's name and, after the gate, the organiser's.
@@ -121,9 +119,10 @@ test('a new organiser reaches a shareable plan link with two typed inputs and no
 
   // The gate is the third screen, after the plan, and nothing exists yet.
   await expect(page.getByText("Your plan's ready. Save your place.")).toBeVisible();
-  expect(circleCountNamed('Sunday Crew'), 'nothing made before the place is saved').toBe(
-    sundayCrewsBefore,
-  );
+  expect(
+    requests.filter((request) => /create-circle|create-plan/.test(request)),
+    'nothing is sent to be made before the place is saved',
+  ).toEqual([]);
   await signInByCode(page, email);
 
   await expect(page).toHaveURL(/\/name$/);

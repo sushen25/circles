@@ -65,7 +65,7 @@ test.describe('the named-plan journey', () => {
     await page.getByRole('button', { name: 'Send me a code' }).click();
     await expect(page.getByText('What should friends call you?')).toBeVisible();
     await page.getByRole('button', { name: 'Continue' }).click();
-    await expect(page.getByText(/paste|share|chat/i).first()).toBeVisible();
+    await expect(page.getByText('Ask Sunday Crew.')).toBeVisible();
 
     expect(page.url()).not.toContain('/gallery');
   });
