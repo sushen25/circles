@@ -60,31 +60,25 @@ export async function enforce(db: Db, limits: readonly Limit[]): Promise<void> {
 /**
  * The caller's address, as the edge saw it. Only ever used as a hash input.
  *
- * `cf-connecting-ip`, then `x-real-ip`: both are written by the proxy in front
- * of us and neither can be set by a client that reaches it. `x-forwarded-for`
- * is the fallback and it is a compromise — it is a *list* a client can start,
- * so its first entry is a value the caller chose and a determined one can vary
- * it to get a fresh bucket.
+ * `cf-connecting-ip` and nothing else. Read on `circles-dev` on 3 October 2026
+ * (the readings are in docs/runbooks/environments.md): Supabase's Cloudflare
+ * layer writes it with the real client address, and a request that arrives
+ * carrying one of its own is refused there (HTTP 403, Cloudflare error 1000)
+ * before it reaches a function, so a client cannot choose this value.
  *
- * The first entry anyway, rather than the last. The last is the hop our own
- * proxy added, which sounds safer and is worse where it is wrong: if that hop
- * is a gateway rather than the client — which is exactly what it is locally,
- * and may be what a Cloudflare edge is — then every caller in the world shares
- * one bucket and the limit denies service to everybody at once. A key that one
- * attacker can sidestep beats a key that locks everyone out.
+ * The other headers are not read, on purpose. `x-real-ip` never arrived.
+ * `x-forwarded-for` arrived rewritten by the platform, so a forged entry did
+ * not survive, but its shape is a list of hops the platform may change, and a
+ * second source is a second thing to be wrong about. `forwarded` passed
+ * through exactly as the caller wrote it, which is the kind of header a limit
+ * must never trust.
  *
- * Which header actually arrives is a deployment fact and is not yet settled;
- * SUS-71 carries the check.
+ * Without `cf-connecting-ip` (the local stack has no Cloudflare in front, and
+ * a request should never lack it on a hosted project) every caller shares the
+ * one bucket `unknown`. That fails closed: the limit gets tighter, never
+ * looser, and a missing header cannot be used to dodge it.
  */
 export function callerAddress(request: Request): string {
-  for (const header of ['cf-connecting-ip', 'x-real-ip']) {
-    const direct = request.headers.get(header)?.trim();
-    if (direct !== undefined && direct !== '') return direct;
-  }
-
-  const hops = (request.headers.get('x-forwarded-for') ?? '')
-    .split(',')
-    .map((hop) => hop.trim())
-    .filter((hop) => hop !== '');
-  return hops[0] ?? 'unknown';
+  const address = request.headers.get('cf-connecting-ip')?.trim();
+  return address !== undefined && address !== '' ? address : 'unknown';
 }
