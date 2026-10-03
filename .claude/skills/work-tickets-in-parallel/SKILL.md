@@ -263,7 +263,11 @@ grep -n 'project_id\|^port' ../circles-wt/sus-0/supabase/config.toml   # circles
   function folder: after those, `make restart` as before. The Supabase CLI
   (2.116) has no setting for a container's memory, so there is no cap; an idle
   slot's runtime still holds what it grew to until its next gate or
-  `make restart-edge`. `TICKET_EDGE_RESTART=0` skips the restart.
+  `make restart-edge`. `TICKET_EDGE_RESTART=0` skips the restart. Measured on
+  3 October: the restart adds 1 to 2 s to a gate (a full `make restart` is
+  about 32 s), and slot 1's runtime went 25 MiB to 3.6 GiB over one gate, then
+  3.56 GiB at the start of the next (restarted to 25 MiB-ish, 3.0 GiB at the
+  end), with no OOM kill across three gates in a row.
 - **Metro's cache is not per checkout; a slot's `TMPDIR` makes it so.** Expo
   keeps it in `$TMPDIR/metro-cache`, and its keys do not depend on where the
   checkout is: the transform base hash came out the same
