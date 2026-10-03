@@ -1,3 +1,4 @@
+import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 
 import { track } from '../../analytics/track';
@@ -34,6 +35,21 @@ export function useOrganiserDraft(): {
       current = false;
     };
   }, []);
+
+  // Read again whenever the screen comes back into view. A card left on the back
+  // stack after the finish has cleared the draft would otherwise go on showing
+  // it, and "Ask the group" on it would make a second circle.
+  useFocusEffect(
+    useCallback(() => {
+      let current = true;
+      void readDraft().then((draft) => {
+        if (current) setState((was) => (was.loaded ? { loaded: true, draft } : was));
+      });
+      return () => {
+        current = false;
+      };
+    }, []),
+  );
 
   const save = useCallback(async (patch: DraftPatch) => {
     const { draft, created } = await saveDraft(patch);

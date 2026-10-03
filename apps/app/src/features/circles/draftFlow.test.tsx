@@ -15,10 +15,19 @@ import type * as Planning from '../../data/planning';
 
 const push = vi.fn();
 const replace = vi.fn();
-vi.mock('expo-router', () => ({
-  useRouter: () => ({ push, replace, back: vi.fn(), canGoBack: () => false }),
-  useFocusEffect: () => undefined,
-}));
+const focus = { epoch: 0 };
+vi.mock('expo-router', async () => {
+  const { useEffect } = await import('react');
+  return {
+    useRouter: () => ({ push, replace, back: vi.fn(), canGoBack: () => false }),
+    // Runs the effect on mount and again whenever a test says the screen came
+    // back into view.
+    useFocusEffect: (effect: () => void) => {
+      const epoch = focus.epoch;
+      useEffect(() => effect(), [effect, epoch]);
+    },
+  };
+});
 const track = vi.fn();
 vi.mock('../../analytics/track', () => ({ track: (...args: unknown[]) => track(...args) }));
 vi.mock('../../data/auth/client', () => ({ hasBackend: () => true }));
@@ -186,6 +195,23 @@ describe('the first plan, drafted', () => {
       expect((await readDraft())?.keys.plan).not.toBe(before.draft.keys.plan),
     );
     expect(await readDraft()).toMatchObject({ preset: 'this_weekend' });
+  });
+
+  it('sends a card left behind after the finish back to the start when it is seen again', async () => {
+    Object.assign(session, { status: 'saved', userId: 'maya' });
+    await saveDraft({ circleName: 'Sunday Crew' });
+    const view = wrap(<FirstPlanDraftFlow />);
+    await screen.findByText('Most of the group need to make it');
+
+    localStorage.clear();
+    focus.epoch += 1;
+    view.rerender(
+      <QueryClientProvider client={new QueryClient()}>
+        <FirstPlanDraftFlow />
+      </QueryClientProvider>,
+    );
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/circles/new'));
+    expect(createCircle).not.toHaveBeenCalled();
   });
 
   it('writes the whole draft, so a card left behind after the finish makes no empty one', async () => {
