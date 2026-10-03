@@ -66,7 +66,7 @@ export type FirstPlanProps = {
    */
   onJustInvite?: (() => void) | undefined;
   /**
-   * Off before there is a circle to change the plan of (ADR 00YY): the chips
+   * Off before there is a circle to change the plan of (ADR 0053): the chips
    * above are how the defaults are adjusted, and the full setup is reached from
    * the plan once it is made.
    */

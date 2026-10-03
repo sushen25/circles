@@ -85,9 +85,9 @@ the entry point takes the token out of the address bar before the router loads
 | `InviteCircle.dc.html`        | `/circles/[id]/invite`          | `InviteCircleScreen`        |
 | `Settings.dc.html`            | `/circles/[id]/settings`        | `SettingsScreen`            |
 
-**Real since S1-22:** `/circles/new` (`FirstCircleFlow`; a draft since ADR 00YY, and `create-circle` is called by `FinishDraftFlow`),
+**Real since S1-22:** `/circles/new` (`FirstCircleFlow`; a draft since ADR 0053, and `create-circle` is called by `FinishDraftFlow`),
 `/circles/[id]/invite` (`InviteCircleFlow`) and `/circles/[id]` (`CircleHomeFlow`).
-**Since SUS-150 (ADR 00YY)** the first run drafts on the device and creates nothing until the place is saved: `/circles/new` → `/circles/new/plan` → `/circles/new/save` (the gate) → `/name` → `/circles/new/finish`, which makes the circle and the plan and goes to the plan's share screen. A signed-in organiser skips the gate and Your name. The draft is `data/draft`.
+**Since SUS-150 (ADR 0053)** the first run drafts on the device and creates nothing until the place is saved: `/circles/new` → `/circles/new/plan` → `/circles/new/save` (the gate) → `/name` → `/circles/new/finish`, which makes the circle and the plan and goes to the plan's share screen. A signed-in organiser skips the gate and Your name. The draft is `data/draft`.
 **Since S1-22b (ADR 0026)** the first run goes plan-first, then
 `/circles/[id]/plan/[planId]/shared` → the availability editor:
 the invite screen and the filling-up home are reached from circle home, from
@@ -218,7 +218,7 @@ there?" to whoever still owes it (`PastMeetup`), and the emailed way back in
 | `SavePlace.dc.html`   | `/circles/new/save`     | `SignInScreen` (`place`) |
 | `YourName.dc.html`    | `/name`                 | `YourNameScreen`         |
 
-**Real since S1-22:** `/` (`WelcomeFlow`; since ADR 00YY the first circle for somebody with no saved place, and its loading and error states for an account being sent on), `/sign-in` (`SignInFlow`, which
+**Real since S1-22:** `/` (`WelcomeFlow`; since ADR 0053 the first circle for somebody with no saved place, and its loading and error states for an account being sent on), `/sign-in` (`SignInFlow`, which
 drives `SignInScreen` and `EnterCodeScreen` on one route so the address never
 travels in a URL) and `/name` (`YourNameFlow`, with `TimeZoneScreen` for the
 zone). `/sign-in?next=/j/<code>` is where "I have an account" on a plan link

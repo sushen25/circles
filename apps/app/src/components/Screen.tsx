@@ -56,7 +56,7 @@ type TopBarProps = {
   right?: ReactNode;
   /**
    * In place of the back action, on a screen that is the front of something
-   * and has nowhere to go back to: the first run's wordmark (ADR 00YY).
+   * and has nowhere to go back to: the first run's wordmark (ADR 0053).
    */
   left?: ReactNode;
   /** The small mark in the middle, on the screens that are home (the circles list). */

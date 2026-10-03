@@ -117,7 +117,7 @@ afterEach(() => {
 });
 
 describe('the front door', () => {
-  it('is the first circle with a quiet Sign in, and no sign-in before it (ADR 00YY)', async () => {
+  it('is the first circle with a quiet Sign in, and no sign-in before it (ADR 0053)', async () => {
     wrap(<WelcomeFlow />);
     expect(await screen.findByLabelText('Circle name')).toBeVisible();
     expect(screen.queryByRole('button', { name: 'Continue with email' })).toBeNull();
@@ -180,7 +180,7 @@ describe('the front door', () => {
   });
 });
 
-describe('Save your place, the gate of the first run (ADR 00YY)', () => {
+describe('Save your place, the gate of the first run (ADR 0053)', () => {
   const place = {
     circle: 'Sunday Crew',
     kind: 'plan' as const,

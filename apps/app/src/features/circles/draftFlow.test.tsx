@@ -7,7 +7,7 @@ import type * as CircleData from '../../data/circles';
 import type * as Planning from '../../data/planning';
 
 /**
- * The first run before sign-in (ADR 00YY): the circle and plan are drafted on
+ * The first run before sign-in (ADR 0053): the circle and plan are drafted on
  * the device, nothing reaches the server until the place is saved, and the
  * finish makes them once. What each screen records, what it sends, and — the
  * invariant — that walking away at the gate creates nothing.

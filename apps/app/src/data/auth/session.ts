@@ -256,7 +256,7 @@ export async function signOut(): Promise<void> {
     if (local.error !== null) throw new Error('sign out failed');
   }
   // A circle's name typed on this device is not the next person's to find
-  // (ADR 00YY). Cleared only once the person is out, and never allowed to
+  // (ADR 0053). Cleared only once the person is out, and never allowed to
   // fail the sign-out.
   await clearDraft();
 }

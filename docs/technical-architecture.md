@@ -212,7 +212,7 @@ The client imports the same `packages/domain` the server uses, so the app can sh
 │       ├── eas.json
 │       ├── app/                    # Expo Router routes ONLY — thin composition, no logic
 │       │   ├── _layout.tsx
-│       │   ├── index.tsx           # first circle (no sign-in before it, ADR 00YY)
+│       │   ├── index.tsx           # first circle (no sign-in before it, ADR 0053)
 │       │   ├── (auth)/             # email, code, name
 │       │   ├── join.tsx            # /join#secret → redeem
 │       │   ├── j/[code].tsx        # plan short link → respond

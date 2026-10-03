@@ -147,7 +147,7 @@ Get a new organiser from opening the app to a shared circle invitation with two 
 
 #### First-time organiser flow (canvas page 0)
 
-**No sign-in before value, for the organiser either** ([ADR 00YY](decisions/00YY-the-organiser-gate-moves-to-before-the-share.md)). From the website's **Start a plan**, the organiser names the circle and accepts or adjusts the plan with no account. Nothing is created on the server until their place is saved.
+**No sign-in before value, for the organiser either** ([ADR 0053](decisions/0053-the-organiser-gate-moves-to-before-the-share.md)). From the website's **Start a plan**, the organiser names the circle and accepts or adjusts the plan with no account. Nothing is created on the server until their place is saved.
 
 1. **First circle** (step 1 of 2): circle name and a loose cadence (weekly, fortnightly, monthly, every two months, no goal). Nothing else. The wordmark is in the top bar with a quiet **Sign in** for returning organisers. No permissions, no account.
 2. **First plan with defaults accepted** (step 2 of 2): one card summarising the defaults (catch up, next 14 days, evenings, about 2 hours, a quorum that follows the circle as people join, replies close in 3 days); the three "when" chips; **Ask the group**, **See if people are keen instead**, or the quiet **Just invite people for now**. The circle and the plan are held on this device as a draft, which survives a reload and the sign-in round trip and expires 24 hours after it was last changed.
@@ -183,7 +183,7 @@ Returning organisers use the quiet **Sign in** on the first screen; Apple and Go
 
 #### Saving a place and the organiser gate
 
-- Creating a circle, a named plan or a quiet ask on the server requires a saved place ([ADR 0004](decisions/0004-organiser-requires-permanent-identity.md)). In the first run the screen that asks for it comes **after the plan is drafted and before it is shared** ([ADR 00YY](decisions/00YY-the-organiser-gate-moves-to-before-the-share.md)): one screen (email code; Apple and Google when SUS-77 lands) worded as a practical need ("Your plan's ready. Save your place — so it's yours on any device"). Nothing is created before it is passed, so abandoning it leaves nothing behind. A guest who already belongs to a circle and starts a plan in it meets the same screen first, linking their existing membership. Nothing already sent changes. Responding never requires it.
+- Creating a circle, a named plan or a quiet ask on the server requires a saved place ([ADR 0004](decisions/0004-organiser-requires-permanent-identity.md)). In the first run the screen that asks for it comes **after the plan is drafted and before it is shared** ([ADR 0053](decisions/0053-the-organiser-gate-moves-to-before-the-share.md)): one screen (email code; Apple and Google when SUS-77 lands) worded as a practical need ("Your plan's ready. Save your place — so it's yours on any device"). Nothing is created before it is passed, so abandoning it leaves nothing behind. A guest who already belongs to a circle and starts a plan in it meets the same screen first, linking their existing membership. Nothing already sent changes. Responding never requires it.
 - A guest may also save their place voluntarily from the prompts in §5.11.
 
 #### Acceptance criteria
@@ -522,7 +522,7 @@ confirmed | ready | collecting ─cancel──▶ cancelled
 
 | Stage | Metric |
 |---|---|
-| Organiser entry | `organiser_draft_started` → `organiser_gate_shown` → `organiser_gate_passed`: how many who start a first plan reach the gate, and how many pass it (no payload: [ADR 00YY](decisions/00YY-the-organiser-gate-moves-to-before-the-share.md)) |
+| Organiser entry | `organiser_draft_started` → `organiser_gate_shown` → `organiser_gate_passed`: how many who start a first plan reach the gate, and how many pass it (no payload: [ADR 0053](decisions/0053-the-organiser-gate-moves-to-before-the-share.md)) |
 | Circle acquisition | Circles created; source; expected member count |
 | Invitation | Link-preview impressions are unobservable; join-link opens → joins → first response |
 | Activation | Circle confirms first meetup within 7 days |

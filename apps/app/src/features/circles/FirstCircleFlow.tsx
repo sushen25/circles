@@ -15,7 +15,7 @@ import {
  * `/circles/new`, and `/` for somebody with no saved place — the first circle
  * (spec §5.1 step 1 of 2).
  *
- * **Nothing is created here, and nobody has to sign in** (ADR 00YY). The name
+ * **Nothing is created here, and nobody has to sign in** (ADR 0053). The name
  * and the cadence are held on this device as a draft, and the circle is made
  * after the plan is ready and the place is saved (`FinishDraftFlow`). So there
  * is no gate on this route: anybody can type a circle's name, and the organiser

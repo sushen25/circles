@@ -1,4 +1,4 @@
--- The first run drafts before sign-in (SUS-150, ADR 00YY).
+-- The first run drafts before sign-in (SUS-150, ADR 0053).
 --
 -- The draft lives on the device, so what the database owes the feature is what it
 -- always did: nothing is made for somebody without a saved place, and an attempt

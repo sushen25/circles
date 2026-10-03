@@ -29,7 +29,7 @@ import type { ScreenState } from '../state';
  * `returning` is somebody sent here from a plan link by "I have an account"
  * (ADR 0022): the headline says what they are doing, and the fine print does
  * not tell them friends never need an account, which is not the question.
- * `place` is the organiser gate of the first run (ADR 00YY): the screen after the
+ * `place` is the organiser gate of the first run (ADR 0053): the screen after the
  * plan is drafted, worded as a practical need, with the plan summarised so that
  * nothing feels lost. The same address field and the same code step.
  * `'settings'` is an organiser who followed an email's footer to notification

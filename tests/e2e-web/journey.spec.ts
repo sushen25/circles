@@ -10,7 +10,7 @@ import { expect, test } from '@playwright/test';
  * not on a test id. If the copy changes, this test should change with it.
  */
 const JOURNEY = [
-  { path: '/', expect: /Who do you keep meaning to see/i },
+  { path: '/start', expect: /Who do you keep meaning to see/i },
   { path: '/circles/new/plan', expect: /Your first catch-up/i },
   { path: '/circles/new/save', expect: /Your plan's ready/i },
   { path: '/name', expect: /What should friends call you/i },
@@ -57,7 +57,7 @@ test.describe('the named-plan journey', () => {
     await page.goto('/start');
 
     // First circle → plan → the gate → Your name → the plan's share screen, each
-    // by its own primary action (ADR 00YY): no sign-in comes before the plan.
+    // by its own primary action (ADR 0053): no sign-in comes before the plan.
     await page.getByRole('button', { name: /^Create/ }).click();
     await expect(page.getByText('Your first catch-up')).toBeVisible();
     await page.getByRole('button', { name: 'Ask the group' }).click();

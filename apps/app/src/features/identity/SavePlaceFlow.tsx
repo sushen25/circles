@@ -16,7 +16,7 @@ import { WelcomeScreen } from './WelcomeScreen';
 
 /**
  * `/circles/new/save` — **Save your place**, the organiser gate of the first run
- * (spec §5.1, ADR 00YY). After the plan is drafted and before it is shared: "Your
+ * (spec §5.1, ADR 0053). After the plan is drafted and before it is shared: "Your
  * plan's ready. Save your place", with the plan summarised so that nothing feels
  * lost. It is the ordinary email-and-code sign-in (`SignInFlow`), in its gate
  * wording; Apple and Google join it with SUS-77.

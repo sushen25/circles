@@ -15,7 +15,7 @@ import { presetLabel, tonightNoteWords } from './words';
 
 /**
  * `/circles/new/plan` — the first plan, drafted before there is a circle
- * (spec §5.1 step 2 of 2, ADR 00YY).
+ * (spec §5.1 step 2 of 2, ADR 0053).
  *
  * The same card as `FirstPlanFlow`, worked out from the same rules, over a
  * circle of one in the device's zone with no default of its own — which is what

@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { DRAFT_KEY, DRAFT_TTL_MS, clearDraft, readDraft, saveDraft } from './organiserDraft';
 
 /**
- * The first run's draft (ADR 00YY): what a person typed before there was an
+ * The first run's draft (ADR 0053): what a person typed before there was an
  * account, kept on this device, back after a reload, gone a day after the last
  * change.
  */

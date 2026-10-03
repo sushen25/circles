@@ -14,7 +14,7 @@ import { WINDOW_EVENT } from '../planning/form';
 import { FinishDraftScreen, type FinishDraftProblem } from './FinishDraftScreen';
 
 /**
- * `/circles/new/finish` — where the drafted circle and plan are made (ADR 00YY).
+ * `/circles/new/finish` — where the drafted circle and plan are made (ADR 0053).
  *
  * Reached with a saved place and a name: from the gate once the code is through
  * (and Your name, for an account that has none), or straight from the plan card

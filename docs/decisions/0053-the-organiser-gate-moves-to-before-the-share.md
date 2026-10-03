@@ -1,4 +1,4 @@
-# ADR 00YY: The first run drafts the circle and plan with no account; the saved-place gate moves to before the share
+# ADR 0053: The first run drafts the circle and plan with no account; the saved-place gate moves to before the share
 
 _Status: proposed · 3 October 2026 · amends spec §5.1, §6.1, §11.2 and §11.3; narrows [ADR 0004](0004-organiser-requires-permanent-identity.md) on _when_ the gate is shown, not on what it protects; builds on [ADR 0026](0026-first-run-shares-a-plan-and-a-defaulted-quorum-follows-the-circle.md)_
 

@@ -22,7 +22,7 @@ import {
  * The first run (S1-22, S1-22b, SUS-150; spec §5.1, §6.1): first circle → first
  * plan → Save your place (email → code) → name → the plan's share screen → the
  * organiser's own times → circle home. Nothing is created until the place is
- * saved (ADR 00YY). Then the ways a returning organiser comes in, and
+ * saved (ADR 0053). Then the ways a returning organiser comes in, and
  * "I have an account" on a plan link (ADR 0022). Against the real stack: the
  * email code comes from the mail catcher, and every step ends in the database.
  */
@@ -69,7 +69,7 @@ function circleCountNamed(name: string): number {
 }
 
 async function draftThroughThePlan(page: Page, circleName: string): Promise<void> {
-  await page.goto('/');
+  await page.goto('/start');
   await page.getByLabel('Circle name').fill(circleName);
   await page.getByRole('button', { name: `Create ${circleName}` }).click();
   await expect(page.getByText('Your first catch-up')).toBeVisible();
@@ -102,7 +102,7 @@ test('a new organiser reaches a shareable plan link with two typed inputs and no
   await page.goto('/start');
   const email = `${globalThis.crypto.randomUUID()}@example.test`;
 
-  // The first screen is the circle, with no sign-in before it (ADR 00YY). The
+  // The first screen is the circle, with no sign-in before it (ADR 0053). The
   // two typed inputs are the circle's name and, after the gate, the organiser's.
   let typed = 0;
   await expect(page.getByLabel('Circle name')).toBeVisible();
@@ -266,7 +266,7 @@ test('abandoning at the gate creates nothing, and a reload keeps the draft', asy
   await page.reload();
   await expect(page.getByText("Your plan's ready. Save your place.")).toBeVisible();
   // Back at the front door the name is still typed.
-  await page.goto('/');
+  await page.goto('/start');
   await expect(page.getByLabel('Circle name')).toHaveValue(name);
 
   expect(circleCountNamed(name), 'no circle after walking away').toBe(0);
@@ -281,7 +281,7 @@ test('a draft older than 24 hours is gone', async ({ page }) => {
     globalThis.localStorage.setItem(key, JSON.stringify(draft));
   });
 
-  await page.goto('/');
+  await page.goto('/start');
   await expect(page.getByLabel('Circle name')).toHaveValue('');
   expect(
     await page.evaluate(() => globalThis.localStorage.getItem('circles.organiser-draft')),

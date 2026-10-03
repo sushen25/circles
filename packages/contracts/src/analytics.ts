@@ -84,7 +84,7 @@ export const catalogue = {
   member_reattached: event(1, { source: z.enum(['list', 'email']) }),
   duplicate_member_removed: event(1),
   guest_started_circle: event(1),
-  // The first run's gate comes after the plan is drafted (ADR 00YY). No payload:
+  // The first run's gate comes after the plan is drafted (ADR 0053). No payload:
   // nothing about the circle, the plan or the person, so V3 reads off the funnel.
   organiser_draft_started: event(1),
   organiser_gate_shown: event(1),

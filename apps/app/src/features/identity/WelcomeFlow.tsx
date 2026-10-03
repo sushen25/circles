@@ -14,7 +14,7 @@ import { WelcomeScreen } from './WelcomeScreen';
  * `/` — the front door (spec §5.1).
  *
  * Somebody without a saved place — nobody at all, or a guest — is at the first
- * circle: no sign-in before value, for the organiser either (ADR 00YY). A
+ * circle: no sign-in before value, for the organiser either (ADR 0053). A
  * returning organiser's way in is the quiet "Sign in" on that screen. An account
  * that is already signed in is not asked anything: it goes to its circles, to its
  * newest circle, or to Your name if it has never been named

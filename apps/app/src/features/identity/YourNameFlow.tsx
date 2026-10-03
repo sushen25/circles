@@ -113,7 +113,7 @@ function LiveYourName() {
       return;
     }
     // At the first run's gate, or signed in with a plan drafted: the circle and
-    // the plan are made next (ADR 00YY). A draft nobody carried through the gate
+    // the plan are made next (ADR 0053). A draft nobody carried through the gate
     // is not carried on from here.
     const draft = await readDraft().catch(() => null);
     if (draft?.proceed === true && draft.way !== undefined) {

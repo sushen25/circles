@@ -71,7 +71,7 @@ describe('after signing in', () => {
     expect(afterNaming(undefined)).toBe('/circles/new');
   });
 
-  it('goes on to make a drafted circle only from the gate of the first run (ADR 00YY)', () => {
+  it('goes on to make a drafted circle only from the gate of the first run (ADR 0053)', () => {
     expect(destinationAfterSignIn({ hasName: true, circleId: 'c1', draft: true })).toBe(
       '/circles/new/finish',
     );

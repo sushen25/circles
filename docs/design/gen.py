@@ -841,7 +841,7 @@ S["YourName"] = shell(
 )
 
 def first_top(step):
-    # The first screen of the run, entered from the website (ADR 00YY): the
+    # The first screen of the run, entered from the website (ADR 0053): the
     # wordmark where Back would be, and a quiet Sign in for a returning organiser.
     return ('<div class="top"><div style="display:flex;align-items:center;gap:7px;height:44px;">' + wordmark() + '</div>'
             f'<div class="t">{step}</div>'
@@ -1501,7 +1501,7 @@ grid(["Main","ContinueAs","Name","Availability","NoneWork","Sent",
       "AddToCalendar","RescheduledGuest","CancelledGuest","WasThere","LinkInvalid","ConfirmedGuestMoved",
       "AvailabilityPicking","AvailabilityAdjusting","AvailabilityOthers","AvailabilityOthersPicking",
       "AvailabilityOthersAdjusting","AvailabilityOthersFirst"], "guest")
-# First run is plan-first (ADR 0026) and drafts before sign-in (ADR 00YY): the
+# First run is plan-first (ADR 0026) and drafts before sign-in (ADR 0053): the
 # invite link and "people joining" are still screens, reached from circle home
 # and settings, but they are not steps.
 grid(["FirstCircle","FirstPlan","SavePlace","EnterCode","YourName","PlanShared",
@@ -1524,7 +1524,7 @@ boards.append(ab("Components.dc.html", 0, 2*RY, "system", w=1180, h=1060, title=
 
 annotations = [
     {"id":"convert-note","x":1520,"y":0,"w":420,"page":"convert","text":"Guest → app. The map (left) says when a prompt may appear and for which conversion. The screens below are the prompts themselves, in the order a guest would meet them: the locked-in nudge (reminder), the app sheet (the only place the app is pitched in full), rejoined-twice, second response, after attendance (starts the cross-circle loop), the organiser gate (sign-in, not install), and what the app shows on first open once the same email links the identity.\nDesign rule from the manifesto: none of these appear before the person's answer is in, and each is one tap to dismiss."},
-    {"id":"first-flow","x":0,"y":-210,"w":900,"page":"first","text":"First time, organiser, in reading order, with no account until the plan is ready (ADR 00YY). Row 1: first circle (name + loose cadence only) → first plan with defaults accepted in one tap → Save your place (the gate) → the email's code → name (time zone from the phone) → the plan's link ready for the chat.\nRow 2: the organiser's own times → sent → circle home with the plan live; then Sign in, for a returning organiser, who never meets the draft.\nThe first thing shared is a plan, not an invite (ADR 0026): one link, carrying the question, and whoever taps it joins on the way in. The invite link and the filling-up home are still screens, on the organiser page, reached from circle home or from 'Just invite people for now'.\nTwo typed inputs and one sign-in before the first real result; the sign-in is the third screen, never the first. No permissions, no photo, no contacts, no calendar. Apple and Google sit under the email button once SUS-77 lands."},
+    {"id":"first-flow","x":0,"y":-210,"w":900,"page":"first","text":"First time, organiser, in reading order, with no account until the plan is ready (ADR 0053). Row 1: first circle (name + loose cadence only) → first plan with defaults accepted in one tap → Save your place (the gate) → the email's code → name (time zone from the phone) → the plan's link ready for the chat.\nRow 2: the organiser's own times → sent → circle home with the plan live; then Sign in, for a returning organiser, who never meets the draft.\nThe first thing shared is a plan, not an invite (ADR 0026): one link, carrying the question, and whoever taps it joins on the way in. The invite link and the filling-up home are still screens, on the organiser page, reached from circle home or from 'Just invite people for now'.\nTwo typed inputs and one sign-in before the first real result; the sign-in is the third screen, never the first. No permissions, no photo, no contacts, no calendar. Apple and Google sit under the email button once SUS-77 lands."},
     {"id":"first-note-sso","x":0,"y":-60,"w":390,"page":"first","text":"Nothing is created until the place is saved: the circle and the plan are held on this device, survive a reload and the sign-in round trip, and are gone 24 hours after the last change. Walking away at Save leaves nothing in the database. A signed-in organiser skips Save and Your name."},
     {"id":"guest-flow","x":0,"y":-190,"w":900,"page":"guest","text":"Guest path, entirely on mobile web, in reading order. Row 1: link tapped from the group chat → Join → (returning with no session: Continue as) → Name → paint times → 'none of these' branch → Sent with the optional email offer.\nRow 2: email verification and no-sign-in preferences → optional account claim → what a member (not the organiser) sees of the options → Confirmed.\nRow 3: add-to-calendar sheet, rescheduled and cancelled states, morning-after attendance, and an inactive invite link.\nZero account prompts before the answer."},
     {"id":"guest-note-avail","x":3*GX,"y":-90,"w":390,"page":"guest","text":"Days first, then a time once (ADR 0024): tick the days, pick a block, and the answer is listed in words. A line opens to adjust that day by the half hour; the two states are on row 4. 'I'm easy' is the plan-level flexible response (review 6.5)."},

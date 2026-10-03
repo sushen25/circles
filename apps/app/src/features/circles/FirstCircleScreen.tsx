@@ -45,7 +45,7 @@ export type FirstCircleProps = {
   onNext?: (() => void) | undefined;
   onBack?: (() => void) | undefined;
   /**
-   * The front door of the first run, for somebody with no account (ADR 00YY):
+   * The front door of the first run, for somebody with no account (ADR 0053):
    * the wordmark in the top bar, a quiet Sign in for a returning organiser, and
    * a line saying nothing is asked of them yet. Absent, this is the same form
    * reached from the circles list, with a way back.

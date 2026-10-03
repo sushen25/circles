@@ -15,7 +15,7 @@ export type AfterSignIn = {
   next?: string | undefined;
   /**
    * Signed in at the gate of the first run, with a circle and a plan drafted
-   * (ADR 00YY): on to the finish, which makes them, or to Your name first when
+   * (ADR 0053): on to the finish, which makes them, or to Your name first when
    * the account has none. Never set for the ordinary sign-in, so a returning
    * organiser is not handed a stale draft's circle.
    */

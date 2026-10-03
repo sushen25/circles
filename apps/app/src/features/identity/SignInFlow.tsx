@@ -66,7 +66,7 @@ export type SignInFlowProps = {
   /** The `next` query parameter, exactly as it arrived. Only a plan link survives. */
   returnTo?: string | string[] | undefined;
   /**
-   * This is the organiser gate of the first run (ADR 00YY), not the ordinary
+   * This is the organiser gate of the first run (ADR 0053), not the ordinary
    * sign-in: the screen says the plan is ready, and once the code is through
    * the person goes on to make it. `onPassed` is told first, so the draft can
    * say the organiser may proceed.

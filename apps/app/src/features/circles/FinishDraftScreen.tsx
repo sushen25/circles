@@ -4,7 +4,7 @@ import { t } from '../../copy';
 
 /**
  * FinishDraft — the moment after the place is saved and the name is in, while
- * the circle and the plan the organiser drafted are made (ADR 00YY). It is
+ * the circle and the plan the organiser drafted are made (ADR 0053). It is
  * seen for a second, or not at all; it exists for the second it is slow and for
  * the time it fails, so that what was chosen is never lost without a word.
  */

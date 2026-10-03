@@ -6,7 +6,7 @@ import { newIdempotencyKey } from '../functions';
 
 /**
  * The circle and the plan an organiser has drafted before there is an account
- * to own them (spec §5.1, ADR 00YY).
+ * to own them (spec §5.1, ADR 0053).
  *
  * **Nothing here is on a server.** `create-circle` and `create-plan` run once
  * the place is saved and the organiser has a name, so a person who walks away

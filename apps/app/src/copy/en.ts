@@ -1293,7 +1293,7 @@ export const en = {
     a_loose_aim_not_a_rule_nobody: 'A loose aim, not a rule. Nobody gets scored.',
     create_sunday_crew: 'Create Sunday Crew',
     you_can_change_anything_later: 'You can change anything later.',
-    // The first screen of the run, before there is an account (ADR 00YY).
+    // The first screen of the run, before there is an account (ADR 0053).
     no_account_yet: 'No account yet. You can change anything later.',
     sign_in: 'Sign in',
     sign_in_hint: 'Sign in to an account you already have',
@@ -1327,7 +1327,7 @@ export const en = {
     tue_15_sep_6_pm: 'Tue 15 Sep, 6 pm',
     friends_mark_the_times_theyd_actually_be:
       "Friends mark the times they'd actually be up for. You'll see the best options and pick one. Nobody's calendar is shared.",
-    // Before there is a circle to count (ADR 00YY): a number nobody can judge yet.
+    // Before there is a circle to count (ADR 0053): a number nobody can judge yet.
     most_of_the_group: 'Most of the group need to make it',
     friends_mark_then_sign_in:
       "Friends mark the times they'd actually be up for. You'll see the best options and pick one. Nobody's calendar is shared. Next, a quick sign-in so this plan is yours on any device.",
@@ -2282,7 +2282,7 @@ export const en = {
       'Circle name only. Never member names, dates chosen, or anything from a quiet ask.',
   },
   savePlace: {
-    // The gate, after the plan is drafted and before it is shared (ADR 00YY).
+    // The gate, after the plan is drafted and before it is shared (ADR 0053).
     your_plan_is_ready: "Your plan's ready. Save your place.",
     your_circle_is_ready: "Your circle's ready. Save your place.",
     body: 'One sign-in, so {circle} is yours on any device and you can lock the time in later. Friends you invite never need one.',
