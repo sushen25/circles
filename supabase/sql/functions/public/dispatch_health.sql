@@ -14,7 +14,16 @@
 --   * plans still in `ready` more than 48 hours past their deadline, which is
 --     an organiser who was told the replies closed and did nothing.
 --
--- Counts and two timestamps, and nothing else: this value goes into an email
+-- And, from SUS-112, how many crashes the product's own clients reported in the
+-- last 24 hours (`client_error` events, which carry no free text) and the route
+-- pattern with the most of them — `/p/:code`, never an address. That is the one
+-- thing here that is not a count, and it is safe to email for the same reason
+-- the count is: the ingest holds it to a pattern of at most 40 characters of
+-- `[a-z0-9-:/.+]`, and `jobs.carries_content` holds the whole summary to it.
+-- Received time, not the client's: a phone's clock is the one thing a crash
+-- report cannot be trusted on.
+--
+-- Counts, a route pattern and two timestamps, and nothing else: this value goes into an email
 -- and a log line, so a plan title or an address in it would be the leak
 -- non-negotiable 8 names. The lease times come from `jobs.cron_leases`, which
 -- is where "did the dispatcher run at all" is recorded (S1-12).
@@ -64,6 +73,17 @@ begin
       select count(*) from public.plans p
       where p.state = 'ready' and p.response_deadline < now() - interval '48 hours'
     ),
+    'client_errors_24h', (
+      select count(*) from analytics.events e
+      where e.event_name = 'client_error' and e.received_at >= now() - interval '24 hours'
+    ),
+    'client_error_top_route', (
+      select e.properties ->> 'route' from analytics.events e
+      where e.event_name = 'client_error' and e.received_at >= now() - interval '24 hours'
+      group by e.properties ->> 'route'
+      order by count(*) desc, e.properties ->> 'route'
+      limit 1
+    ),
     'dispatcher_last_finished_at', (
       select l.last_finished_at from jobs.cron_leases l where l.name = 'process_scheduled_jobs'
     ),
@@ -82,7 +102,7 @@ end;
 $$;
 
 comment on function public.dispatch_health(boolean) is
-  'The daily health summary as counts: failed jobs, stuck outbox rows, suppressions, plans stuck in ready, and when each scheduled job last finished. Claims the day''s report through private.audit_log and answers null when it is already made. No identifiers, no content. Service role only (S1-20).';
+  'The daily health summary as counts: failed jobs, stuck outbox rows, suppressions, plans stuck in ready, client crashes in the last day with the route pattern that had most, and when each scheduled job last finished. Claims the day''s report through private.audit_log and answers null when it is already made. No identifiers, no content. Service role only (S1-20).';
 
 revoke all on function public.dispatch_health(boolean) from public;
 revoke all on function public.dispatch_health(boolean) from anon, authenticated;

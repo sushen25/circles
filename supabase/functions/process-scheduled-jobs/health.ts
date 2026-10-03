@@ -35,6 +35,10 @@ const FIELDS: readonly string[] = [
   'stuck_outbox',
   'suppressed_24h',
   'stuck_ready_plans',
+  // Crashes the product's own clients reported in the last day, and the route
+  // pattern with the most (SUS-112): a count and a pattern like `/p/:code`.
+  'client_errors_24h',
+  'client_error_top_route',
   'dispatcher_last_finished_at',
   'retention_last_finished_at',
 ];

@@ -3780,6 +3780,35 @@ describe('process-scheduled-jobs', () => {
     expect(called('dispatch_health').map((call) => call.args['p_claim'])).toEqual([false, true]);
   });
 
+  it("puts the day's client crashes and their route pattern in the health letter", async () => {
+    // SUS-112: somewhere for the founder to see it. A count and a pattern,
+    // never an address.
+    process.env.HEALTH_REPORT_TO = 'ops@example.com';
+    capturing();
+    const bodies: string[] = [];
+    (globalThis as { fetch?: unknown }).fetch = (_url: string, init?: { body?: unknown }) => {
+      bodies.push(String(init?.body ?? ''));
+      return Promise.resolve(new Response(JSON.stringify({ ID: 'captured' })));
+    };
+    const answer = state.answer;
+    state.answer = (fn, args) => {
+      if (fn === 'dispatch_health_due') return { data: true, error: null };
+      if (fn === 'dispatch_health') {
+        return {
+          data: { client_errors_24h: 7, client_error_top_route: '/p/:code' },
+          error: null,
+        };
+      }
+      return answer(fn, args);
+    };
+
+    await load('process-scheduled-jobs')(post({}, 'a-shared-secret'));
+
+    const letter = bodies.join('\n');
+    expect(letter).toContain('client_errors_24h: 7');
+    expect(letter).toContain('client_error_top_route: /p/:code');
+  });
+
   it('records a failure as a code, never as the exception that caused it', async () => {
     // `outbox_last_error_is_a_code` refuses anything else, and the reason it
     // does is that an exception's message is where an address turns up.
