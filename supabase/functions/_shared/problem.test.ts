@@ -1,15 +1,26 @@
-import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
-
 import { describe, expect, it } from 'vitest';
 
 import { ProblemReason, WIRE_REASON_OF } from '@circles/contracts';
 
 import { problemFor, reasonOf } from './problem.ts';
 
-const TRANSITION_SQL = fileURLToPath(
-  new URL('../../sql/functions/planning/transition_plan.sql', import.meta.url),
-);
+declare global {
+  // Vite's, which Vitest runs on. `node:fs` is not for an Edge Function's
+  // folder (§7.2), and a test here is read as one.
+  interface ImportMeta {
+    glob(
+      patterns: string[],
+      options: { query: string; import: string; eager: true },
+    ): Record<string, string>;
+  }
+}
+
+const SOURCES = import.meta.glob(['../../sql/functions/planning/transition_plan.sql'], {
+  query: '?raw',
+  import: 'default',
+  eager: true,
+});
+const TRANSITION_SQL = Object.values(SOURCES)[0] ?? '';
 
 /**
  * What `transition_plan` raises that is deliberately not a refusal: a caller
@@ -25,7 +36,7 @@ function raisedBy(source: string): string[] {
 }
 
 describe('every refusal the database raises reaches the person as a reason', () => {
-  const raised = raisedBy(readFileSync(TRANSITION_SQL, 'utf8'));
+  const raised = raisedBy(TRANSITION_SQL);
 
   it('reads the source it is guarding', () => {
     // A pattern that stops matching would pass every case below with nothing in it.
