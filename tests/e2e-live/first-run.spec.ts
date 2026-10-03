@@ -82,7 +82,7 @@ test('a new organiser reaches a shareable plan link with two typed inputs and no
   const requests: string[] = [];
   page.on('request', (request) => requests.push(`${request.url()} ${request.postData() ?? ''}`));
 
-  await page.goto('/');
+  await page.goto('/start');
   await page.getByRole('button', { name: 'Continue with email' }).click();
   const email = `${globalThis.crypto.randomUUID()}@example.test`;
   await signInByCode(page, email);

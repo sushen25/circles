@@ -61,7 +61,7 @@ test.describe('the served HTML', () => {
       '/a',
       '/e',
       '/v',
-      '/',
+      '/start',
     ];
     for (const path of paths) {
       const response = await request.get(path);
@@ -73,6 +73,18 @@ test.describe('the served HTML', () => {
       expect(html, `${path} has no field before React owns it`).not.toMatch(/<(input|textarea)\b/);
     }
   });
+});
+
+test('the bare host is the site, in the served HTML, with no shell and no script', async ({
+  request,
+}) => {
+  const response = await request.get('/');
+  expect(response.status()).toBe(200);
+  const html = await response.text();
+  expect(html).toContain('<h1');
+  expect(html).not.toContain('Getting things ready');
+  expect(html).not.toMatch(/<script/i);
+  expect(html).not.toMatch(/<(input|textarea)\b/);
 });
 
 test('a name typed the moment the field appears is the name that is sent', async ({ page }) => {

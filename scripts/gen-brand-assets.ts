@@ -196,7 +196,7 @@ function manifest(): string {
       name: brand.name,
       short_name: brand.name,
       description: brand.descriptor,
-      start_url: '/',
+      start_url: '/start',
       display: 'standalone',
       background_color: GROUND,
       theme_color: GROUND,
@@ -210,6 +210,26 @@ function manifest(): string {
     2,
   )}\n`;
 }
+
+// The marketing site (SUS-149) is served by middleware, which has no file
+// system: it takes the mark as a string and the fonts as plain files at
+// `/fonts/`. Both are copied from their masters here and never edited.
+const SITE = join(ROOT, 'apps/app/src/features/site');
+mkdirSync(`${PUBLIC}/fonts`, { recursive: true });
+for (const file of [
+  'Figtree-Regular.ttf',
+  'Figtree-Medium.ttf',
+  'Figtree-SemiBold.ttf',
+  'Newsreader-Regular.ttf',
+]) {
+  copyFileSync(join(FONTS, file), `${PUBLIC}/fonts/${file}`);
+}
+writeFileSync(
+  join(SITE, 'mark.generated.ts'),
+  `// Written by \`pnpm gen:brand\` from apps/app/assets/brand/wenna-mark.svg. Do not edit.\n` +
+    `export const MARK_MASTER = ${JSON.stringify(mark.replace(/\s+$/, ''))};\n` +
+    `export const MARK_MASTER_FILL = '${TERRACOTTA}';\n`,
+);
 
 const browser = await chromium.launch();
 const page = await browser.newPage({ deviceScaleFactor: 1 });

@@ -36,3 +36,4 @@ brand's hex. Re-run it after changing a master and commit what it writes:
 | `public/brand/wenna-lockup-2x.png`, `wenna-lockup-dark-2x.png`                         | the email header, 280 × 80 shown at 140 × 40                                 |
 | `public/og-card.png`                                                                   | the link-preview image, 1200 × 630: lockup and descriptor on warm ground     |
 | `public/manifest.webmanifest`                                                          | written from `brand`                                                         |
+| `public/fonts/*.ttf`, `src/features/site/mark.generated.ts`                            | the site's fonts and mark: copied from `packages/tokens` and the master      |

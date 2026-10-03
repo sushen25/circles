@@ -2,7 +2,7 @@
   "name": "Wenna",
   "short_name": "Wenna",
   "description": "Plans with friends",
-  "start_url": "/",
+  "start_url": "/start",
   "display": "standalone",
   "background_color": "#FBF7F1",
   "theme_color": "#FBF7F1",
