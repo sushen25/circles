@@ -9,6 +9,7 @@ import {
   lockInFirstOption,
   planFor,
   signedInAccount,
+  sql,
   sundayCrew,
 } from './stack';
 
@@ -72,6 +73,45 @@ test("the organiser's options have no serious accessibility violations", async (
 
   await page.goto(`/circles/${circleId}/plan/${plan.id}/candidates`);
   await expect(page.getByText('Best attendance')).toBeVisible();
+  expect(await seriousViolations(page)).toEqual([]);
+});
+
+test("the organiser's time picker and edit screen have no serious accessibility violations (ADR 0050)", async ({
+  page,
+}) => {
+  const maya = await signedInAccount('Maya');
+  const circleId = circleOwnedBy(maya.userId, 'Sunday Crew');
+  const plan = planFor(circleId, maya.userId);
+  const crew = { circleId, planId: plan.id, planCode: plan.code, ownerId: maya.userId, secret: '' };
+  guestWhoAnswered(crew, 'Tom');
+  guestInvited(crew, 'Alex');
+  await signedInAs(page, maya.stored);
+
+  // The picker, with who it works for read in.
+  await page.goto(`/circles/${circleId}/plan/${plan.id}/set-time`);
+  await expect(page.getByText('Pick the time yourself')).toBeVisible();
+  await expect(page.getByText(/ can make it$/).first()).toBeVisible();
+  expect(await seriousViolations(page)).toEqual([]);
+
+  // The edit screen, on a plan locked in on a time of her own.
+  sql(`
+    begin;
+    select set_config('role', 'authenticated', true);
+    select set_config('request.jwt.claims',
+      '{"sub": "${maya.userId}", "role": "authenticated", "is_anonymous": false}', true);
+    select public.confirm_own_time(
+      '${plan.id}',
+      (select (window_start::timestamp + interval '19 hours') at time zone 'Australia/Melbourne'
+        from public.plans where id = '${plan.id}'),
+      (select (window_start::timestamp + interval '21 hours') at time zone 'Australia/Melbourne'
+        from public.plans where id = '${plan.id}'),
+      (select input_version from public.plans where id = '${plan.id}'),
+      'none'
+    );
+    commit;
+  `);
+  await page.goto(`/circles/${circleId}/plan/${plan.id}/edit-locked`);
+  await expect(page.getByText(/^Change the time, the place or the note\./)).toBeVisible();
   expect(await seriousViolations(page)).toEqual([]);
 });
 

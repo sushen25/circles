@@ -54,6 +54,7 @@ export type Unlock =
   | { kind: 'required'; title: string; body: string }
   | { kind: 'wider'; window: PlanWindow; title: string; body: string }
   | { kind: 'extend'; title: string; body: string }
+  | { kind: 'set'; title: string; body: string }
   | { kind: 'close'; title: string; body: string };
 
 /** The member a `required_missing` near-miss names, when that is the rule. */
@@ -160,6 +161,14 @@ export function unlocksOf(data: PlanCandidates, now?: Instant): Unlock[] {
       unlocks.push({ kind: 'extend', title: extension.title, body: extension.body });
     }
   }
+  // The organiser's own time (ADR 0050): the fourth row, before closing. It
+  // changes neither the number nor the dates, and says who it works for before
+  // anything is locked in.
+  unlocks.push({
+    kind: 'set',
+    title: t('noQuorum', 'set_title'),
+    body: t('noQuorum', 'set_body'),
+  });
   unlocks.push({
     kind: 'close',
     title: t('noQuorum', 'close_title'),

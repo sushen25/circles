@@ -63,6 +63,23 @@ export type LockedInInput = ToSubscriber & {
 };
 
 /**
+ * The organiser moved a locked-in time without asking anybody again
+ * (ADR 0050): where the plan is now and where it was. Not `changed`, which says
+ * the time is off and asks everybody for new ones.
+ */
+export type MovedInput = ToSubscriber & {
+  readonly kind: 'moved';
+  readonly start: Instant;
+  readonly end: Instant;
+  /** Where the plan was before it moved. */
+  readonly previousStart: Instant;
+  readonly previousEnd: Instant;
+  readonly zone: Zone;
+  readonly placeName?: string | undefined;
+  readonly organiserName?: string | undefined;
+};
+
+/**
  * A material change to a confirmed meetup, which is one of two things (spec
  * §5.8: "time or place materially changed"):
  *
@@ -185,6 +202,7 @@ export type QuietExpiredInput = Base & {
 export type EmailInput =
   | VerifyEmailInput
   | LockedInInput
+  | MovedInput
   | ChangedInput
   | AskedAgainInput
   | CancelledInput
@@ -204,6 +222,7 @@ export type EmailKind = EmailInput['kind'];
 export const EMAIL_KINDS = [
   'verify_email',
   'locked_in',
+  'moved',
   'changed',
   'cancelled',
   'reminder',
@@ -229,6 +248,7 @@ export const QUIET_KINDS = [
 /** The plan-update kinds, which carry the two footer links and a re-entry link. */
 export const SUBSCRIBER_KINDS = [
   'locked_in',
+  'moved',
   'changed',
   'cancelled',
   'reminder',

@@ -10,6 +10,7 @@ import {
   changedMessage,
   inviteMessage,
   lockedInMessage,
+  movedMessage,
   newPlanMessage,
   waitingMessage,
   withoutLink,
@@ -66,6 +67,34 @@ describe('lockedInMessage', () => {
     // 1440 minutes, not 0: a midnight end wrapped to zero would print a range
     // running backwards.
     expect(lockedInMessage(input({ confirmation: lateNight }))).toContain('10 pm–12 am');
+  });
+});
+
+describe('movedMessage', () => {
+  const saturday = () =>
+    confirmation({
+      candidate: {
+        start: fromISO('2026-09-19T09:00:00Z'), // 7 pm Melbourne
+        end: fromISO('2026-09-19T11:00:00Z'), // 9 pm
+        availableUserIds: [],
+      },
+    });
+
+  it('says the plan is now on the new day and time, at the place', () => {
+    expect(movedMessage(input({ confirmation: saturday() }))).toBe(
+      'Change of plan: Sunday Crew is now Sat 19 Sep, 7–9 pm at Hope St Radio. ' +
+        `Details and add-to-calendar: ${LINK}`,
+    );
+  });
+
+  it('reads properly with no place, and is not the message that asks for new times', () => {
+    const message = movedMessage(
+      input({ confirmation: confirmation({ ...saturday(), placeName: undefined }) }),
+    );
+    expect(message).toBe(
+      `Change of plan: Sunday Crew is now Sat 19 Sep, 7–9 pm. Details and add-to-calendar: ${LINK}`,
+    );
+    expect(message).not.toContain('New times, please');
   });
 });
 

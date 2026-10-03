@@ -96,6 +96,15 @@ describe('the copy file', () => {
       // ("this weekend"), or when it stops asking.
       'threshold',
       'when',
+      // SUS-138's: the organiser sets the final plan. How long a stretch is and
+      // how long the plan asked for, the weekday a move leaves, the people a move
+      // asks, who moved from where, and the quorum a caution names.
+      'length',
+      'asked',
+      'weekday',
+      'names',
+      'previous',
+      'tail',
     ]);
     for (const [screen, strings] of Object.entries(en)) {
       for (const [key, value] of Object.entries(strings)) {

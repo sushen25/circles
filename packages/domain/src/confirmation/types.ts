@@ -91,6 +91,28 @@ export type Confirmation = {
   readonly confirmedBy: UserId;
   readonly status: ConfirmationStatus;
   readonly confirmedAt: Instant;
+  /**
+   * The time was the organiser's own, not one of the engine's options
+   * (ADR 0050). Absent means it was an option, which is every confirmation made
+   * before the organiser could set a time. It decides who starts out going:
+   * `deriveAttendance`.
+   */
+  readonly ownTime?: boolean | undefined;
+  /** An own time with fewer people able to make it than the plan's number. */
+  readonly belowQuorum?: boolean | undefined;
+  /**
+   * Where the plan was before the organiser moved it, on the confirmation the
+   * move wrote. "Moved from Fri 18" is a fact about this row, and a guest who
+   * had the old time in a calendar is told it by this.
+   */
+  readonly movedFrom?: { readonly start: Instant; readonly end: Instant } | undefined;
+  /**
+   * The calendar entry's identity, kept across a move so a calendar moves its
+   * entry rather than adding a second; `calendarSequence` rises with each move
+   * (RFC 5545 `SEQUENCE`). Absent is `id` and zero.
+   */
+  readonly calendarUid?: string | undefined;
+  readonly calendarSequence?: number | undefined;
 };
 
 /**

@@ -38,6 +38,16 @@ as $$
     -- decides, not what is being decided (S2-05).
     when action = 'hand_off' then array['organiser_user_id']
     when action = 'confirm' then array['candidate_id', 'place_name', 'place_url', 'note', 'chased_answer']
+    -- The organiser's own time and edits to it (ADR 0050). The stretch is two
+    -- instants; `edit_confirmed` and a move say the place and note whole, a
+    -- present key with a null clearing it.
+    when action = 'confirm_own' then array[
+      'starts_at', 'ends_at', 'place_name', 'place_url', 'note', 'chased_answer'
+    ]
+    when action = 'move_confirmed' then array[
+      'starts_at', 'ends_at', 'place_name', 'place_url', 'note'
+    ]
+    when action = 'edit_confirmed' then array['place_name', 'place_url', 'note']
     else array[]::text[]
   end;
 $$;

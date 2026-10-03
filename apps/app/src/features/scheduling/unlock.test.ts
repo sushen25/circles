@@ -39,7 +39,7 @@ describe('what would unlock it', () => {
       nearMisses: [missWith([], { kind: 'quorum_short', by: 4 })],
     });
     expect(lowerTarget(data)).toBeUndefined();
-    expect(unlocksOf(data).map((u) => u.kind)).toEqual(['wider', 'close']);
+    expect(unlocksOf(data).map((u) => u.kind)).toEqual(['wider', 'set', 'close']);
   });
 
   it('never offers to lower to one: a meetup of one is not a meetup', () => {
@@ -63,7 +63,7 @@ describe('what would unlock it', () => {
         }),
       ],
     });
-    expect(unlocksOf(data).map((u) => u.kind)).toEqual(['required', 'wider', 'close']);
+    expect(unlocksOf(data).map((u) => u.kind)).toEqual(['required', 'wider', 'set', 'close']);
     expect(blockedBy(data)).toBe(
       "Alex has to be there and can't make any of these. Here's the closest it got.",
     );
@@ -99,7 +99,7 @@ describe('what would unlock it', () => {
   it('offers no wider window to a plan already asking about thirty days', () => {
     const data = planWith({ windowStart: '2026-09-14', windowEnd: '2026-10-13' });
     expect(widerWindow(data)).toBeUndefined();
-    expect(unlocksOf(data).map((u) => u.kind)).toEqual(['lower', 'close']);
+    expect(unlocksOf(data).map((u) => u.kind)).toEqual(['lower', 'set', 'close']);
   });
 
   it('offers one more day in place of a wider window once replies have closed', () => {
@@ -108,7 +108,12 @@ describe('what would unlock it', () => {
     // "give it one more day", which is what unblocks widening a stalled plan.
     const data = planWith({ repliesOpen: false });
     const justClosed = fromISO(data.responseDeadline);
-    expect(unlocksOf(data, justClosed).map((u) => u.kind)).toEqual(['lower', 'extend', 'close']);
+    expect(unlocksOf(data, justClosed).map((u) => u.kind)).toEqual([
+      'lower',
+      'extend',
+      'set',
+      'close',
+    ]);
     const extend = unlocksOf(data, justClosed).find((u) => u.kind === 'extend');
     expect(extend?.title).toBe('Give it one more day');
     expect(extend?.body).toMatch(/^Reopens replies until /);
@@ -118,11 +123,13 @@ describe('what would unlock it', () => {
     const spent = planWith({ repliesOpen: false, extendedThisRevision: true });
     expect(unlocksOf(spent, fromISO(spent.responseDeadline)).map((u) => u.kind)).toEqual([
       'lower',
+      'set',
       'close',
     ]);
     const late = planWith({ repliesOpen: false });
     expect(unlocksOf(late, fromISO(late.latestStart)).map((u) => u.kind)).toEqual([
       'lower',
+      'set',
       'close',
     ]);
   });

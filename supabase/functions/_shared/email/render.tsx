@@ -15,6 +15,7 @@ import {
   didItHappenParticipantCopy,
 } from './templates/DidItHappen.tsx';
 import { LockedIn, lockedInCopy } from './templates/LockedIn.tsx';
+import { Moved, movedCopy } from './templates/Moved.tsx';
 import { OptionsReady, optionsReadyCopy } from './templates/OptionsReady.tsx';
 import {
   QuietExpired,
@@ -51,6 +52,7 @@ type Template<Input> = {
 const TEMPLATES: { [K in EmailKind]: Template<Extract<EmailInput, { kind: K }>> } = {
   verify_email: { copy: verifyEmailCopy, Component: VerifyEmail },
   locked_in: { copy: lockedInCopy, Component: LockedIn },
+  moved: { copy: movedCopy, Component: Moved },
   changed: { copy: changedCopy, Component: Changed },
   cancelled: { copy: cancelledCopy, Component: Cancelled },
   reminder: { copy: reminderCopy, Component: Reminder },

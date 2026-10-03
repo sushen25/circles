@@ -144,6 +144,9 @@ describe('the organiser reviewing Thursday', () => {
       plan_id: 'thu-17',
       attending_count: 5,
       invited_count: 6,
+      // An option the engine offered: neither can be true (ADR 0050).
+      own_time: false,
+      below_quorum: false,
     });
     expect(track).toHaveBeenCalledWith('organiser_chased', {
       circle_id: 'sunday-crew',

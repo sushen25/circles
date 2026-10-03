@@ -49,7 +49,8 @@ export type ConfirmedOrgProps = {
   notice?: string | undefined;
   onShare?: (() => void) | undefined;
   onAddToCalendar?: (() => void) | undefined;
-  onChangeTime?: (() => void) | undefined;
+  onEditPlan?: (() => void) | undefined;
+  onAskForNewTimes?: (() => void) | undefined;
   onCancelPlan?: (() => void) | undefined;
   onRetry?: (() => void) | undefined;
   onBack?: (() => void) | undefined;
@@ -66,7 +67,8 @@ export function ConfirmedOrgScreen({
   notice,
   onShare,
   onAddToCalendar,
-  onChangeTime,
+  onEditPlan,
+  onAskForNewTimes,
   onCancelPlan,
   onRetry,
   onBack,
@@ -85,6 +87,7 @@ export function ConfirmedOrgScreen({
           <DateText>{view.dayMonth}</DateText>
           <BodyText>{view.timePlace}</BodyText>
           {view.zoneNote === undefined ? null : <Small>{view.zoneNote}</Small>}
+          {view.movedFrom === undefined ? null : <Small>{view.movedFrom}</Small>}
         </Stack>
         <Card>
           <Label>{t('confirmedOrg', 'ready_to_paste_into_the_group_chat')}</Label>
@@ -118,10 +121,15 @@ export function ConfirmedOrgScreen({
           variant="secondary"
           onPress={onAddToCalendar}
         />
-        {onChangeTime === undefined && onCancelPlan === undefined ? null : (
+        {onEditPlan === undefined &&
+        onAskForNewTimes === undefined &&
+        onCancelPlan === undefined ? null : (
           <ButtonRow>
-            {onChangeTime === undefined ? null : (
-              <Tertiary label={t('confirmedOrg', 'change_the_time')} onPress={onChangeTime} />
+            {onEditPlan === undefined ? null : (
+              <Tertiary label={t('confirmedOrg', 'edit_this_plan')} onPress={onEditPlan} />
+            )}
+            {onAskForNewTimes === undefined ? null : (
+              <Tertiary label={t('confirmedOrg', 'ask_for_new_times')} onPress={onAskForNewTimes} />
             )}
             {onCancelPlan === undefined ? null : (
               <Tertiary label={t('confirmedOrg', 'cancel_this_plan')} onPress={onCancelPlan} />

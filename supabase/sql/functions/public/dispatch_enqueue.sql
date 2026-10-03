@@ -32,16 +32,17 @@ as $$
       plan_id uuid,
       plan_revision integer,
       circle_id uuid,
+      confirmation_id uuid,
       scheduled_for timestamptz,
       idempotency_key text
     )
   ), written as (
     insert into jobs.notification_jobs (
-      channel, kind, user_id, contact_id, plan_id, plan_revision, circle_id, scheduled_for,
-      idempotency_key
+      channel, kind, user_id, contact_id, plan_id, plan_revision, circle_id, confirmation_id,
+      scheduled_for, idempotency_key
     )
     select w.channel, w.kind, w.user_id, w.contact_id, w.plan_id, w.plan_revision, w.circle_id,
-      w.scheduled_for, w.idempotency_key
+      w.confirmation_id, w.scheduled_for, w.idempotency_key
     from wanted w
     on conflict (idempotency_key) do nothing
     returning 1

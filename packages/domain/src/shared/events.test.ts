@@ -17,7 +17,7 @@ describe('domain events', () => {
       planning: 10,
       availability: 2,
       scheduling: 2,
-      confirmation: 5,
+      confirmation: 6,
       communication: 3,
       growth: 3,
     });

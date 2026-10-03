@@ -153,7 +153,7 @@ select ok(
   not has_function_privilege('anon', 'public.dispatch_health(boolean)', 'execute')
   and not has_function_privilege('anon', 'public.dispatch_timed_work(integer)', 'execute')
   and not has_function_privilege('anon', 'public.dispatch_job_result(uuid, text, text, text, timestamptz)', 'execute')
-  and not has_function_privilege('anon', 'public.dispatch_cancel_pending(uuid, integer)', 'execute')
+  and not has_function_privilege('anon', 'public.dispatch_cancel_pending(uuid, integer, uuid)', 'execute')
   and not has_function_privilege('anon', 'public.dispatch_event_result(uuid, text)', 'execute')
   and not has_function_privilege('anon', 'public.dispatch_end(text)', 'execute'),
   'and nor does an anonymous caller, including the two that only expire and count'

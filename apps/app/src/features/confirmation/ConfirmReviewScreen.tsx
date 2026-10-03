@@ -36,6 +36,8 @@ export type ConfirmReviewState = 'default' | 'loading' | 'error' | 'offline' | '
 
 export type ConfirmReviewProps = {
   state?: ConfirmReviewState | undefined;
+  /** The back bar's title, when the screen was reached from somewhere other than the options. */
+  backTitle?: string | undefined;
   date?: string | undefined;
   time?: string | undefined;
   members?: readonly Member[] | undefined;
@@ -75,6 +77,7 @@ const CHASE: readonly { answer: ChasedAnswer; key: 'chase_none' | 'chase_one' | 
 
 export function ConfirmReviewScreen({
   state = 'default',
+  backTitle,
   date,
   time,
   members = [],
@@ -102,7 +105,7 @@ export function ConfirmReviewScreen({
   onRetry,
   onBack,
 }: ConfirmReviewProps) {
-  const back = t('confirmReview', 'back_to_options');
+  const back = backTitle ?? t('confirmReview', 'back_to_options');
   if (state === 'loading') {
     return <Placeholder topTitle={back} message={t('confirmReview', 'loading')} onBack={onBack} />;
   }
