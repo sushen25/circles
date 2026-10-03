@@ -6,7 +6,7 @@
     "node": ">=22"
   },
   "scripts": {
-    "check": "pnpm run format:check && pnpm run lint && pnpm run check:brand && pnpm run check:tokens && pnpm run typecheck && pnpm run check:imports && pnpm run check:transitions && pnpm run check:events && pnpm run check:functions && pnpm run check:workflows && pnpm run test:unit && pnpm run db:test && pnpm run test:integration && pnpm run check:types && pnpm run test:e2e:smoke && pnpm run test:e2e:live",
+    "check": "pnpm run format:check && pnpm run lint && pnpm run check:brand && pnpm run check:tokens && pnpm run typecheck && pnpm run check:imports && pnpm run check:migrations && pnpm run check:transitions && pnpm run check:events && pnpm run check:functions && pnpm run check:workflows && pnpm run test:unit && pnpm run db:test && pnpm run test:integration && pnpm run check:types && pnpm run test:e2e:smoke && pnpm run test:e2e:live",
     "dev": "pnpm --filter app exec expo start",
     "dev:web": "pnpm --filter app exec expo start --web",
     "dev:ios": "pnpm --filter app run ios",
@@ -31,6 +31,8 @@
     "gen:types": "supabase gen types typescript --local > packages/contracts/src/db.generated.ts",
     "gen:tokens": "node --experimental-strip-types scripts/gen-tokens.ts",
     "gen:brand": "node --experimental-strip-types scripts/gen-brand-assets.ts",
+    "gen": "node scripts/gen.mjs",
+    "gen:migration": "node scripts/gen-migration.mjs",
     "gen:transitions": "node scripts/gen-transitions.mjs",
     "gen:events": "node scripts/gen-events.mjs",
     "gen:functions": "node scripts/gen-sql-functions.mjs",
@@ -38,6 +40,7 @@
     "check:tokens": "node --experimental-strip-types scripts/gen-tokens.ts --check",
     "check:types": "supabase gen types typescript --local | diff -u packages/contracts/src/db.generated.ts - || (echo \"check:types: packages/contracts/src/db.generated.ts is stale — run pnpm gen:types\" >&2; exit 1)",
     "check:imports": "node scripts/check-import-map.mjs",
+    "check:migrations": "node scripts/check-migrations.mjs",
     "check:transitions": "node scripts/gen-transitions.mjs --check",
     "check:events": "node scripts/gen-events.mjs --check",
     "check:functions": "node scripts/gen-sql-functions.mjs --check",

@@ -23,13 +23,15 @@
 // the cases first, because a guard nobody has seen fail is a guard nobody
 // knows works.
 //
-// **Once the migration named below has shipped**, regenerating in place would
-// edit an applied migration. From that point a change means a *new* migration
-// carrying the changed definitions, and `MIGRATION` moves to it — the same
-// rule the other two generators carry.
+// Which migration: the highest-numbered one that is not on `origin/main`
+// (`migrations.mjs`). A shipped migration is never edited, so with none new
+// this refuses when a definition has changed — add one with
+// `pnpm gen:migration <name>` — and does nothing when none has. A new migration
+// needs no markers: the block is added at its end. `pnpm check:functions`
+// checks the same file, or the latest block when nothing is new.
 import { readFileSync, writeFileSync, readdirSync, statSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { basename, dirname, join, relative, sep } from 'node:path';
+import { dirname, join, relative, sep } from 'node:path';
 
 import {
   BEGIN,
@@ -40,13 +42,11 @@ import {
   render,
 } from './sql-functions-rules.mjs';
 import { CLAIMS, selfTest } from './sql-functions-cases.mjs';
+import { findTarget, holderOf, resolveWriteTarget } from './migrations.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SOURCE = join(root, 'supabase/sql/functions');
 const MIGRATIONS = join(root, 'supabase/migrations');
-// `0033` is SUS-103's, `0034` SUS-106's and `0035` SUS-138's; a function change goes
-// in a new migration (ADR 0015). `0036` is the health summary's client crashes (SUS-112).
-const MIGRATION = join(MIGRATIONS, '0036_health_counts_client_errors.sql');
 
 function walk(dir, into = new Map()) {
   for (const entry of readdirSync(dir).sort()) {
@@ -71,16 +71,27 @@ function main() {
     }
   }
 
-  const { checked, earlier } = migrationsFor(
-    new Map(
-      readdirSync(MIGRATIONS)
-        .sort()
-        .filter((entry) => entry.endsWith('.sql'))
-        .map((entry) => [entry, readFileSync(join(MIGRATIONS, entry), 'utf8')]),
-    ),
-    basename(MIGRATION),
+  const files = new Map(
+    readdirSync(MIGRATIONS)
+      .sort()
+      .filter((entry) => entry.endsWith('.sql'))
+      .map((entry) => [entry, readFileSync(join(MIGRATIONS, entry), 'utf8')]),
   );
 
+  // The file this run is about. Checking: this branch's new migration, or the
+  // latest block when nothing is new (and when `origin` cannot be read, which
+  // `pnpm check:migrations` fails on in CI). Writing: decided below, once we
+  // know there is something to write.
+  const holder = holderOf(files, BEGIN);
+  const found = findTarget({ fetch: !checking });
+  if (found.note && !found.unreachable) console.warn(`gen-sql-functions: ${found.note}`);
+  const name = found.newest ?? holder;
+  if (name === undefined) {
+    console.error('gen-sql-functions: no migration holds a function block, and none is new.');
+    process.exit(2);
+  }
+
+  const { checked, earlier } = migrationsFor(files, name);
   const { problems, sources } = analyse(walk(SOURCE), checked);
 
   if (problems.length > 0) {
@@ -89,41 +100,66 @@ function main() {
     process.exit(1);
   }
 
-  const migration = readFileSync(MIGRATION, 'utf8');
+  const migration = files.get(name);
   const start = migration.indexOf(BEGIN);
   const finish = migration.indexOf(END);
-  if (start === -1 || finish === -1) {
-    console.error(`gen-sql-functions: markers not found in ${relative(root, MIGRATION)}`);
-    process.exit(2);
-  }
+  const hasBlock = start !== -1 && finish !== -1;
 
   const { text: rendered, changed } = render(sources, priorRenderings(earlier));
-  const current = migration.slice(start, finish + END.length);
+  const current = hasBlock ? migration.slice(start, finish + END.length) : null;
+  // A migration with no block says nothing about functions, which is the right
+  // answer exactly when nothing has changed since the earlier ones.
+  const matches = hasBlock ? current === rendered : changed.length === 0;
 
   if (checking) {
-    if (current !== rendered) {
+    if (!matches) {
       console.error(
         'check:functions: the generated block no longer matches supabase/sql/functions/.\n' +
-          'Run `pnpm gen:functions`. If that migration has already shipped, add a new one ' +
-          'and point MIGRATION in scripts/gen-sql-functions.mjs at it.',
+          'Run `pnpm gen:functions`. A migration on main is never edited: if none on this ' +
+          'branch is new, add one first with `pnpm gen:migration <name>`.',
       );
       process.exit(1);
     }
     console.log(
       `check:functions: ok (${sources.size} functions, ${changed.length} carried by ` +
-        `${relative(root, MIGRATION)}, ${CLAIMS} rules proven)`,
+        `${name}, ${CLAIMS} rules proven)`,
     );
     process.exit(0);
   }
 
-  writeFileSync(
-    MIGRATION,
-    migration.slice(0, start) + rendered + migration.slice(finish + END.length),
+  if (matches) {
+    console.log(`gen:functions: up to date (${sources.size} functions, none changed; ${name})`);
+    return;
+  }
+
+  const target =
+    found.newest ??
+    resolveWriteTarget({
+      gen: 'gen:functions',
+      files,
+      begin: BEGIN,
+      holder,
+      template: null,
+    });
+  // `found.newest` can be a migration with no block yet; `resolveWriteTarget`
+  // covers a missing or unreadable base. Either way the target may be a file
+  // without markers, and the block is then appended.
+  const targetSql = files.get(target);
+  const from = targetSql.indexOf(BEGIN);
+  const to = targetSql.indexOf(END);
+  const { text, changed: carried } = render(
+    sources,
+    priorRenderings(new Map([...files].filter(([entry]) => entry !== target))),
   );
+  const next =
+    from === -1 || to === -1
+      ? `${targetSql.replace(/\s*$/, '')}\n\n${text}\n`
+      : targetSql.slice(0, from) + text + targetSql.slice(to + END.length);
+  writeFileSync(join(MIGRATIONS, target), next);
   console.log(
-    `gen:functions: ${changed.length} of ${sources.size} function(s) changed ` +
-      `(${changed.map(({ where }) => where.split('/').pop()).join(', ') || 'none'}); wrote to ` +
-      `${relative(root, MIGRATION)}`,
+    `gen:functions: ${carried.length} of ${sources.size} function(s) changed ` +
+      `(${carried.map(({ where }) => where.split('/').pop()).join(', ') || 'none'}); wrote to ` +
+      `${target}`,
   );
 }
 

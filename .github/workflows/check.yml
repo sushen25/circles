@@ -143,6 +143,12 @@ jobs:
 
       - name: pnpm check
         if: steps.scope.outputs.kind == 'code'
+        env:
+          # What `check:migrations` compares the migrations with: the pull
+          # request's base branch, so a PR stacked on another ticket's branch
+          # holds one new migration, not the stack's. Through the environment,
+          # never interpolated into the script.
+          MIGRATION_BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || 'origin/main' }}
         run: pnpm check
 
       - name: Upload the Playwright report
