@@ -61,13 +61,12 @@ export function NameFlow() {
   });
 
   const back = () => (router.canGoBack() ? router.back() : router.replace('/'));
-  const whatIsBrand = () => router.push('/get-the-app');
 
   if (secret === undefined) {
-    return <LinkInvalidScreen reason="open_again" onBack={back} onWhatIsBrand={whatIsBrand} />;
+    return <LinkInvalidScreen reason="open_again" onBack={back} />;
   }
   if (inactive || preview.data === null) {
-    return <LinkInvalidScreen reason="inactive" onBack={back} onWhatIsBrand={whatIsBrand} />;
+    return <LinkInvalidScreen reason="inactive" onBack={back} />;
   }
 
   return (

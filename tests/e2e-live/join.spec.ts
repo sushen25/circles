@@ -19,10 +19,13 @@ test('an invite opened in a tab already on /join is read, and taken out of the a
 
   await page.goto('/join');
   await expect(page.getByText('Open the invite link again.')).toBeVisible();
+  // "What is Wenna?" opened a fixture sheet naming another group (SUS-140).
+  await expect(page.getByRole('button', { name: /^What is / })).toHaveCount(0);
 
   await page.goto(`/join#${crew.secret}`);
 
   await expect(page.getByText('Sunday Crew is finding a time to catch up.')).toBeVisible();
+  await expect(page.getByRole('button', { name: /^What is / })).toHaveCount(0);
   expect(page.url()).not.toContain('#');
 });
 

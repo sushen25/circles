@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 
-import { useFixture } from '../../src/data/fixtures/useFixture';
-import { ReattachedNudgeScreen } from '../../src/features/growth/ReattachedNudgeScreen';
+import { useFixture } from '../../../src/data/fixtures/useFixture';
+import { ReattachedNudgeScreen } from '../../../src/features/growth/ReattachedNudgeScreen';
 
 /**
  * Route only — thin composition, no logic (architecture §7.1).
