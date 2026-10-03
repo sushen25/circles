@@ -38,10 +38,9 @@ Deno.serve(
     guard: async ({ body, actor, service }) => {
       if (actor.isAnonymous) {
         // The state machine refuses this too, and that is the enforcement
-        // (ADR 0004). Saying it here first is what makes the *reason* right:
-        // `transition_plan` raises `needs_permanent_identity`, which is not a
-        // `ProblemReason`, so the client got a 500 and no way to know it should
-        // offer InitiateGate.
+        // (ADR 0004). Saying it here first keeps the reason the one the client
+        // already reads as its cue for InitiateGate, and the sentence better
+        // than the generic one `needs_permanent_identity` carries.
         throw new Refusal('requires_saved_place', 'Save your place first, then start a plan.');
       }
 
