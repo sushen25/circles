@@ -11,7 +11,10 @@
 // last: they are read from the running local database, which has to hold the
 // migrations as they now are. If an earlier step rewrote a migration this run,
 // it stops before types and says so, because generating them from a database
-// that has not seen the change would succeed and be wrong.
+// that has not seen the change would succeed and be wrong. It cannot see what
+// the database has applied, so after any new or edited migration run
+// `pnpm db:reset` yourself before this; `check:types` in `pnpm check` is the
+// backstop that fails on stale types.
 import { spawnSync } from 'node:child_process';
 
 import { createHash } from 'node:crypto';
@@ -39,6 +42,11 @@ for (const step of steps) {
         '  pnpm db:reset && pnpm gen:types',
     );
     process.exit(1);
+  }
+  if (step === 'gen:types') {
+    console.log(
+      '\ngen: types come from the running database; `pnpm db:reset` first if a migration is new or edited.',
+    );
   }
   console.log(`\n> pnpm ${step}`);
   const run = pnpm
