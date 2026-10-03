@@ -171,7 +171,7 @@ select pg_temp.act_as('29000000-0000-0000-0000-0000000000b1', true);
 select is(pg_temp.offered('kvpqmanx'), 2, 'a plan with options on offer still lists them');
 
 -- ---------------------------------------------------------------------------
--- What the link preview says about the plan (SUS-151, ADR 00ZZ): a name and one
+-- What the link preview says about the plan (SUS-151, ADR 0054): a name and one
 -- of two words, to a caller with no session at all
 -- ---------------------------------------------------------------------------
 create or replace function pg_temp.as_anon() returns void

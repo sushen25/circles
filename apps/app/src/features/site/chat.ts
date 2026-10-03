@@ -1,11 +1,5 @@
 import { brand } from '@circles/config';
-import {
-  EN_PREVIEW_TEMPLATES,
-  EN_SHARE_TEMPLATES,
-  ogDescription,
-  ogTitle,
-  withoutLink,
-} from '@circles/domain';
+import { EN_SHARE_TEMPLATES, previewCopy, withoutLink } from '@circles/domain';
 
 import { t } from '../../copy';
 import { escapeHtml } from '../../data/preview';
@@ -14,11 +8,12 @@ import { markSvg, text, type SiteKey } from './mark';
 /**
  * The hero's two threads. What the organiser pastes, and what the chat draws
  * from the link, come from the same templates the product uses
- * (`EN_SHARE_TEMPLATES`, `EN_PREVIEW_TEMPLATES`), so this page cannot say
+ * (`EN_SHARE_TEMPLATES`, `previewCopy`), so this page cannot say
  * something the product does not. The link itself is taken off the sentence
  * the way the share screen does (`withoutLink`), because the card stands in
- * for it. A `/p/<code>` link has one card today, so the locked-in message's
- * card is that one; the canvas's own wording for it follows SUS-151.
+ * for it. A `/p/<code>` link draws the asking card while the plan is asking and
+ * the locked-in card once it is confirmed (ADR 0054), and each is the card the
+ * product's own link preview draws.
  */
 
 /** Never rendered: it is only what `withoutLink` takes off. */
@@ -77,10 +72,15 @@ export function afterThread(): string {
     EXAMPLE_URL,
   );
   const site = escapeHtml(brand.domain);
+  const asking = previewCopy({ kind: 'p', circleName: circle, planState: 'asking' }, brand.name);
+  const lockedIn = previewCopy(
+    { kind: 'p', circleName: circle, planState: 'locked_in' },
+    brand.name,
+  );
 
-  const planCard = `<div class="pv" role="img" aria-label="${text('open_plan_label')}"><div class="pv-img" aria-hidden="true">${lockup()}</div><div class="pv-body"><div class="pv-title">${escapeHtml(ogTitle(circle, EN_PREVIEW_TEMPLATES))}</div><div class="pv-desc">${escapeHtml(ogDescription(EN_PREVIEW_TEMPLATES))}</div><div class="pv-site">${site}</div></div></div>`;
+  const planCard = `<div class="pv" role="img" aria-label="${text('open_plan_label')}"><div class="pv-img" aria-hidden="true">${lockup()}</div><div class="pv-body"><div class="pv-title">${escapeHtml(asking.title)}</div><div class="pv-desc">${escapeHtml(asking.description)}</div><div class="pv-site">${site}</div></div></div>`;
 
-  const lockedCard = `<div class="pv compact" role="img" aria-label="${text('open_locked_label')}"><div class="pv-img" aria-hidden="true">${markSvg(34)}</div><div class="pv-body"><div class="pv-title">${escapeHtml(ogTitle(circle, EN_PREVIEW_TEMPLATES))}</div><div class="pv-desc">${escapeHtml(ogDescription(EN_PREVIEW_TEMPLATES))}</div><div class="pv-site">${site}</div></div></div>`;
+  const lockedCard = `<div class="pv compact" role="img" aria-label="${text('open_locked_label')}"><div class="pv-img" aria-hidden="true">${markSvg(34)}</div><div class="pv-body"><div class="pv-title">${escapeHtml(lockedIn.title)}</div><div class="pv-desc">${escapeHtml(lockedIn.description)}</div><div class="pv-site">${site}</div></div></div>`;
 
   return `<div class="pane after"><h2 class="pane-title">${text('after_title')} <em>${escapeHtml(brand.name)}</em></h2>
 <div class="col thread" role="group" aria-label="${text('after_label')}">

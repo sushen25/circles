@@ -1,8 +1,6 @@
-# ADR 00ZZ: The link preview may say a plan is locked in, as one of two words next to the name
+# ADR 0054: The link preview may say a plan is locked in, as one of two words next to the name
 
 _Status: proposed · 3 October 2026 · amends [ADR 0043](0043-the-product-is-wenna-and-confirmations-sign-off-with-the-day.md) (the link preview's wording) and architecture §9.4 ("circle name only")_
-
-_Numbered `00ZZ` until it merges: main ends at 0051 and two other open PRs use `00XX` and `00YY`. The number is the last thing to change._
 
 ## Context
 

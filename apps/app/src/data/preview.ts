@@ -16,7 +16,7 @@ import {
  * route itself is composition and a `fetch`.
  *
  * **The card carries the circle's name and, for a confirmed plan, the words
- * "locked in" — nothing else** (ADR 00ZZ). Not because something strips the
+ * "locked in" — nothing else** (ADR 0054). Not because something strips the
  * rest, but because nothing else is ever in scope: a title takes a name,
  * a description takes nothing at all, and the database function behind it
  * returns a name and one of two words, `asking` or `locked_in`. A preview is rendered to

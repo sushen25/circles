@@ -109,7 +109,7 @@ export function InviteCircleScreen({
     );
   }
 
-  // The card a chat draws from `/join` is the invite card (ADR 00ZZ): it names no
+  // The card a chat draws from `/join` is the invite card (ADR 0054): it names no
   // circle and claims no plan, so the mock under the message is the same words.
   const card = previewCopy({ kind: 'join', circleName: null, planState: null }, brand.name);
 

@@ -30,14 +30,14 @@ export const EN_PREVIEW_TEMPLATES: PreviewTemplates = {
 
 /**
  * The two words the database may say about a plan next to its circle's name
- * (`public.preview_plan_state`, ADR 00ZZ). A closed set on purpose: a third
+ * (`public.preview_plan_state`, ADR 0054). A closed set on purpose: a third
  * needs a migration and an ADR, and nothing here takes a date, a place or a
  * person.
  */
 export type PlanPreviewState = 'asking' | 'locked_in';
 
 /**
- * The cards a chat can draw (ADR 00ZZ). `asking` and `lockedIn` carry the
+ * The cards a chat can draw (ADR 0054). `asking` and `lockedIn` carry the
  * circle's name; `plan` and `invite` are the generic ones, for a link that does
  * not resolve and for a circle invite, and are worded to be true of any link:
  * they take the product's name and nothing else.

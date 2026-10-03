@@ -1,5 +1,5 @@
 -- ---------------------------------------------------------------------------
--- 0037 — The link preview says whether a plan is locked in (SUS-151, ADR 00ZZ).
+-- 0037 — The link preview says whether a plan is locked in (SUS-151, ADR 0054).
 --
 -- `public.preview_for_code` used to answer one `text`, the circle's name, so a
 -- locked-in plan's link unfurled as "finding a time". It now answers at most one
@@ -15,7 +15,7 @@
 create type public.preview_plan_state as enum ('asking', 'locked_in');
 
 comment on type public.preview_plan_state is
-  'The only thing a link-preview card may learn about a plan besides its circle''s name (ADR 00ZZ). Two words, never a date, a place or a person.';
+  'The only thing a link-preview card may learn about a plan besides its circle''s name (ADR 0054). Two words, never a date, a place or a person.';
 
 drop function if exists public.preview_for_code(text, text);
 
@@ -33,7 +33,7 @@ drop function if exists public.preview_for_code(text, text);
 -- `invite_preview`, which needs the invite's secret where this needs only a code.
 --
 -- What it answers is the circle's **name** and one of **two words** about the
--- plan, `asking` or `locked_in` (ADR 00ZZ, amending architecture §9.4: "circle
+-- plan, `asking` or `locked_in` (ADR 0054, amending architecture §9.4: "circle
 -- name only. Never member names, dates chosen, or anything from a quiet ask").
 -- The second is an enum, not text: a card for a confirmed plan has to say it is
 -- locked in, because the organiser pastes that link at the moment it is, and the
@@ -100,7 +100,7 @@ end;
 $$;
 
 comment on function public.preview_for_code(text, text) is
-  'The circle name behind a plan short code and whether the plan is locked in (asking or locked_in), for a link-preview card; no row for anything else. Answers an unauthenticated stranger, knowing only a short code; it returns a name and a two-word enum and nothing a plan could add to (ADR 00ZZ, architecture §9.4).';
+  'The circle name behind a plan short code and whether the plan is locked in (asking or locked_in), for a link-preview card; no row for anything else. Answers an unauthenticated stranger, knowing only a short code; it returns a name and a two-word enum and nothing a plan could add to (ADR 0054, architecture §9.4).';
 
 revoke all on function public.preview_for_code(text, text) from public;
 grant execute on function public.preview_for_code(text, text) to anon, authenticated, service_role;
