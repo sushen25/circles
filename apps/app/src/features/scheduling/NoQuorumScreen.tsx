@@ -205,6 +205,7 @@ export function NoQuorumScreen({
 }
 
 function busyWord(kind: Unlock['kind']): string {
+  if (kind === 'set') return t('noQuorum', 'checking');
   if (kind === 'close') return t('noQuorum', 'closing');
   if (kind === 'wider') return t('noQuorum', 'checking');
   if (kind === 'extend') return t('deadlinePassed', 'extending');

@@ -45,6 +45,19 @@ begin
   -- for exactly the people who had asked to be emailed.
   perform private.retire_reentry_links(p_circle_id, p_from, p_to);
 
+  -- In the merge path `p_from` still holds its own membership here, and its links
+  -- are about to name somebody else's long-standing one. A link just retired is made
+  -- plain used, so that it can never take that membership back from its holder
+  -- (ADR 0049 decision 6). In the move path the membership has already left `p_from`
+  -- and the link is still the member's to use once.
+  if exists (
+    select 1 from public.circle_members m where m.circle_id = p_circle_id and m.user_id = p_from
+  ) then
+    update private.email_action_tokens t set retired_at = null
+    where t.purpose = 'reentry' and t.membership_circle_id = p_circle_id
+      and t.membership_user_id = p_from and t.retired_at is not null;
+  end if;
+
   for contact in
     select ec.id, ec.email_hash,
       -- Whether this contact has anything outside the circle being moved, which
@@ -61,6 +74,15 @@ begin
       ) as keeps_other_circles
     from private.email_contacts ec
     where ec.user_id = p_from
+      -- One address only, when a place is being taken back from a saved account
+      -- (`private.hand_back_membership` names it): the account's own addresses and
+      -- anything else it attached stay with it. Unset, every contact of this circle
+      -- moves, as for a guest-to-guest move. A client cannot set this, and setting
+      -- it could only ever move *less*.
+      and (
+        nullif(current_setting('circles.takeback_email_hash', true), '') is null
+        or ec.email_hash = decode(current_setting('circles.takeback_email_hash', true), 'hex')
+      )
       and (
         exists (
           select 1 from private.email_subscriptions s

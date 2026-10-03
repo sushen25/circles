@@ -610,3 +610,81 @@ describe('the states that are not the happy one', () => {
     expect(screen.queryByText('This plan is decided.')).toBeNull();
   });
 });
+
+describe('the organiser sets the time themselves (ADR 0051)', () => {
+  const toPicker = (params: Record<string, string>) => ({
+    pathname: '/circles/[id]/plan/[planId]/set-time',
+    params: { id: CIRCLE, planId: PLAN, mode: 'lock', ...params },
+  });
+
+  it('offers "Pick a different time" under the options, and opens the picker on the selected one', async () => {
+    planCandidates.mockResolvedValue(fixture.ready);
+    show(organiser());
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: "Pick a different time. Any day and time, even one that isn't an option. You'll see who it works for.",
+      }),
+    );
+    const top = fixture.ready.candidates[0]!;
+    expect(push).toHaveBeenCalledWith(toPicker({ start: top.startsAt, end: top.endsAt }));
+  });
+
+  it('opens it on the option the organiser selected, not the first', async () => {
+    planCandidates.mockResolvedValue(fixture.ready);
+    show(organiser());
+    await screen.findByText(/Pick a different time/);
+    const saturday = fixture.ready.candidates[1]!;
+    fireEvent.click(screen.getByRole('button', { name: new RegExp(`^One fewer, weekend`) }));
+    fireEvent.click(screen.getByRole('button', { name: /^Pick a different time\./ }));
+    expect(push).toHaveBeenCalledWith(toPicker({ start: saturday.startsAt, end: saturday.endsAt }));
+  });
+
+  it('offers "Set the time yourself" as the fourth row with no overlap, beside the other three', async () => {
+    planCandidates.mockResolvedValue(fixture.noQuorum);
+    show(<CandidatesFlow id={CIRCLE} planId={PLAN} which="no-quorum" />);
+    const row = await screen.findByRole('button', {
+      name: "Set the time yourself. Pick any day and time. You'll see who it works for before you lock it in.",
+    });
+    // The others stay, in their order, with this before closing.
+    expect(screen.getByRole('button', { name: /^Lower to 3 people\./ })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /^Close this attempt\./ })).toBeTruthy();
+    fireEvent.click(row);
+    // Nothing selected here: the picker opens on the closest near-miss itself.
+    expect(push).toHaveBeenCalledWith(toPicker({}));
+  });
+
+  it('offers it on the waiting screen too, before any option exists', async () => {
+    planCandidates.mockResolvedValue(fixture.waiting);
+    show(<CandidatesFlow id={CIRCLE} planId={PLAN} which="waiting" />);
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: "Set the time yourself. Pick any day and time. You'll see who it works for before you lock it in.",
+      }),
+    );
+    expect(push).toHaveBeenCalledWith({
+      pathname: '/circles/[id]/plan/[planId]/set-time',
+      params: { id: CIRCLE, planId: PLAN, mode: 'lock' },
+    });
+  });
+
+  it('offers it on the replies-closed screen as well', async () => {
+    planCandidates.mockResolvedValue(fixture.deadlinePassed);
+    show(organiser());
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: "Set the time yourself. Pick any day and time. You'll see who it works for before you lock it in.",
+      }),
+    );
+    expect(push).toHaveBeenCalledWith({
+      pathname: '/circles/[id]/plan/[planId]/set-time',
+      params: { id: CIRCLE, planId: PLAN, mode: 'lock' },
+    });
+  });
+
+  it('offers nothing of the kind to a member', async () => {
+    planCandidates.mockResolvedValue(fixture.readyAsMember);
+    show(<MemberCandidatesFlow code="pnsundaycr" />);
+    await screen.findByText(/looks good/);
+    expect(screen.queryByRole('button', { name: /^Pick a different time/ })).toBeNull();
+  });
+});

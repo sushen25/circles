@@ -36,6 +36,21 @@
 --
 -- Saved-place members are excluded, so the list never names somebody this
 -- function could not then be used to reattach to.
+--
+-- **A code opens the list only while it is live** (ADR 0049): the circle's own
+-- code while the circle is active; a plan's code while the plan is asking or
+-- options are on offer, or locked in and the meetup ended less than fourteen
+-- days ago; never for a cancelled or expired plan or an archived circle. The
+-- rule is `private.circles_open_to_continue_as`, shared with the link
+-- preview, so what the screen calls "not active" and what this refuses are
+-- one decision. This used to match any plan the circle had ever had, so an old
+-- forwarded link listed every guest for ever.
+--
+-- The list still carries each person's user id rather than an opaque handle, so
+-- the id remains what `reattach_member` is called with. What bounds that is
+-- there, not here — the circle must be active, the per-circle limit and the
+-- cap apply to a direct call — and ADR 0049 says why a handle was not worth
+-- its cost and what is left over.
 -- ---------------------------------------------------------------------------
 
 -- `volatile`, not `stable`, because counting a lookup is a write. The cost is a
@@ -67,19 +82,7 @@ begin
   join public.circles c on c.id = m.circle_id
   join public.profiles p on p.user_id = m.user_id
   join auth.users u on u.id = m.user_id
-  where (
-      c.short_code = p_short_code
-      -- "When someone opens a circle **or plan link** with no session … the page
-      -- lists the circle's guest members" (spec §5.1), and §6.2's journey is somebody
-      -- tapping "Locked in" in a chat, which is a `/p/:code` link. Taking only the
-      -- circle's code meant that arrival could not reach the list at all, and nothing
-      -- else maps a plan code to a circle for a caller with no membership. The
-      -- ticket says `circle_short_code`; the spec wins (non-negotiable 1).
-      or exists (
-        select 1 from public.plans pl
-        where pl.short_code = p_short_code and pl.circle_id = c.id
-      )
-    )
+  where c.id in (select private.circles_open_to_continue_as(p_short_code))
     and m.status = 'active'
     -- Two records of one fact, and the stricter reading wins. `profiles` is
     -- the durable record `handle_user_updated` maintains; `auth.users` is

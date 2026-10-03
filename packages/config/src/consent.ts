@@ -86,6 +86,9 @@ export const CONSENT = {
   covers: {
     locked_in: 'locked in',
     changed: 'changed',
+    // The letter that says a locked-in meetup moved (ADR 0051) is a change to it, which
+    // the sentence already promises; no new words, so no new version.
+    moved: 'changed',
     cancelled: 'called off',
     reminder: 'a reminder two hours before',
     did_it_happen_participant: 'one question the morning after',

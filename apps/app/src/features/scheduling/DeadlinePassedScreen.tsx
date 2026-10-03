@@ -61,6 +61,8 @@ export type DeadlinePassedProps = {
   onLockIn?: (() => void) | undefined;
   onHandOff?: (() => void) | undefined;
   onExtend?: (() => void) | undefined;
+  /** "Set the time yourself": any day and time, not only the top option (ADR 0051). */
+  onSetTime?: (() => void) | undefined;
   onChoose?: ((userId: string) => void) | undefined;
   onConfirmHandOff?: (() => void) | undefined;
   onBackToList?: (() => void) | undefined;
@@ -89,6 +91,7 @@ export function DeadlinePassedScreen({
   onLockIn,
   onHandOff,
   onExtend,
+  onSetTime,
   onChoose,
   onConfirmHandOff,
   onBackToList,
@@ -170,6 +173,22 @@ export function DeadlinePassedScreen({
                 leading={<Icon name="clock" size={22} color={palette.accent} />}
                 disabled={!extension.available || acting}
                 onPress={onExtend}
+              />
+            </>
+          )}
+          {onSetTime === undefined ? null : (
+            <>
+              <Divider />
+              <ListRow
+                title={t('deadlinePassed', 'set_title')}
+                detail={t('deadlinePassed', 'set_body')}
+                label={t('deadlinePassed', 'row_label', {
+                  title: t('deadlinePassed', 'set_title'),
+                  detail: t('deadlinePassed', 'set_body'),
+                })}
+                leading={<Icon name="calendar" size={22} color={palette.accent} />}
+                disabled={acting}
+                onPress={onSetTime}
               />
             </>
           )}

@@ -8,12 +8,12 @@
  */
 
 import type { UserId } from '../circles/types.js';
-import { contains, interval } from '../shared/interval.js';
 import { type Instant, addMinutes } from '../shared/instant.js';
 import { type LocalDate, isWeekend } from '../shared/local-date.js';
 import { fromLocal, fromLocalEnd, localSlotStarts, toLocal } from '../shared/zone.js';
 import { askedDays } from '../planning/days.js';
 import { inputHash } from './hash.js';
+import { byMemberList, whoCanMake } from './stretch.js';
 import {
   SCORING_VERSION,
   type Candidate,
@@ -74,55 +74,14 @@ export function enumerateCandidateStarts(plan: EnginePlan, now: Instant): Instan
   return starts;
 }
 
-/**
- * Step 2 — who can make it.
- *
- * Explicit means a window **fully contains** the whole meetup, not that it
- * overlaps: someone free 7–8 cannot attend a two-hour dinner starting at 7.
- * Flexible members count without constraining. Everyone else — non-responders,
- * `none_work`, `more_notice`, `not_this_time` — is unavailable, and a
- * non-responder never appears in the available set (§5.6).
- */
-/**
- * The members-list order, which is how the app renders people and so how the
- * engine reports them.
- *
- * Every set the engine returns is ordered by this and nothing else. A required
- * member who has since left the circle is not on the list; those sort last, by
- * id, so the answer stays canonical rather than depending on the order the
- * caller happened to pass `requiredMemberIds` in — that field is a set, and
- * `canonicalise` sorts it, so two inputs with the same hash must give the same
- * answer.
- */
-function byMemberList(activeMemberIds: readonly UserId[]): (a: UserId, b: UserId) => number {
-  const position = new Map(activeMemberIds.map((id, index) => [id, index] as const));
-  const at = (id: UserId) => position.get(id) ?? Number.MAX_SAFE_INTEGER;
-  return (a, b) => at(a) - at(b) || a.localeCompare(b);
-}
-
 function score(plan: EnginePlan, input: EngineInput, start: Instant): Scored {
   const end = addMinutes(start, plan.durationMinutes);
   const local = toLocal(start, plan.zone);
-  const meetup = interval(start, end);
-  const byId = new Map(input.responses);
 
-  const explicit: UserId[] = [];
-  const flexible: UserId[] = [];
-
-  // Iterated in `activeMemberIds` order, so the available list is stable.
-  for (const userId of input.activeMemberIds) {
-    const response = byId.get(userId);
-    if (response === undefined) continue;
-
-    if (response.status === 'flexible') {
-      flexible.push(userId);
-    } else if (response.status === 'windows' && response.windows.some((w) => contains(w, meetup))) {
-      explicit.push(userId);
-    }
-  }
-
+  // Step 2 is `whoCanMake`, which the organiser's picker asks of any stretch
+  // (ADR 0051): one rule, so the options and the picker cannot disagree.
+  const { explicit, flexible, available } = whoCanMake(input, start, end);
   const order = byMemberList(input.activeMemberIds);
-  const available = [...explicit, ...flexible].sort(order);
   const availableSet = new Set(available);
   const requiredMissing = plan.requiredMemberIds.filter((id) => !availableSet.has(id)).sort(order);
 

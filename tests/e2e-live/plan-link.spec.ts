@@ -102,13 +102,16 @@ test('an account that is not a member sees one button naming the circle and itse
   expect(isParticipant(crew.planId, sam.userId)).toBe(true);
 });
 
-test('a plan that is not asking ends at the same place whatever the reason', async ({
+test('a plan that is not asking ends at one place, and a link that is not live at another', async ({
   browser,
 }) => {
-  // A plan past its deadline, a cancelled one, a quiet ask still gathering
-  // interest and a code that does not exist. The server refuses all four with
-  // one `invite_inactive`, so the screen a newcomer ends on must be one screen.
-  const ends: string[] = [];
+  // A plan past its deadline is still live (ADR 0049): the person gives a name and
+  // is told to ask for the invite. A cancelled plan, a quiet ask still gathering
+  // interest and a code that does not exist are not live, and share one end state
+  // with no name step: "this link isn't active". The server refuses all four
+  // joins with one `invite_inactive`, and nothing is let in either way.
+  const live: string[] = [];
+  const dead: string[] = [];
 
   for (const how of ['deadline_passed', 'cancelled', 'quiet_ask', 'no_such_plan'] as const) {
     const crew = sundayCrew();
@@ -119,17 +122,24 @@ test('a plan that is not asking ends at the same place whatever the reason', asy
     const context = await browser.newContext();
     const page = await context.newPage();
     await page.goto(`/j/${code}`);
-    await typeName(page, 'Ada');
 
-    await expect(page.getByText('You need the invite link to join.'), how).toBeVisible();
-    ends.push(await page.locator('body').innerText());
+    if (how === 'deadline_passed') {
+      await typeName(page, 'Ada');
+      await expect(page.getByText('You need the invite link to join.'), how).toBeVisible();
+      live.push(await page.locator('body').innerText());
+    } else {
+      await expect(page.getByText("This link isn't active any more."), how).toBeVisible();
+      await expect(page.getByLabel('Your name'), `${how} asks for no name`).toHaveCount(0);
+      dead.push(await page.locator('body').innerText());
+    }
     if (how !== 'no_such_plan') {
       expect(memberNamed(crew.circleId, 'Ada'), `${how} let nobody in`).toBeUndefined();
     }
     await context.close();
   }
 
-  expect(new Set(ends).size, 'one end state for every plan that is not asking').toBe(1);
+  expect(live).toHaveLength(1);
+  expect(new Set(dead).size, 'one end state for every link that is not live').toBe(1);
 });
 
 test('somebody who joins by invite after the plan was made is asked by it on arrival', async ({

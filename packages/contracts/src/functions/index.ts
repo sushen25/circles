@@ -12,6 +12,7 @@ export * from './confirm-meetup.js';
 export * from './create-circle.js';
 export * from './create-plan.js';
 export * from './delete-account.js';
+export * from './edit-confirmation.js';
 export * from './email-provider-webhook.js';
 export * from './extend-deadline.js';
 export * from './generate-ics.js';

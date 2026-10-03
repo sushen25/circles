@@ -208,7 +208,13 @@ function Confirmed({
           onAddToCalendar={calendar.show}
           // S1-26's screens, by the plan's own circle rather than a route
           // segment: this flow is reached from `/p/:code` too.
-          onChangeTime={() =>
+          onEditPlan={() =>
+            router.push({
+              pathname: '/circles/[id]/plan/[planId]/edit-locked',
+              params: { id: data.circleId, planId: data.planId },
+            })
+          }
+          onAskForNewTimes={() =>
             router.push({
               pathname: '/circles/[id]/plan/[planId]/change-time',
               params: { id: data.circleId, planId: data.planId },

@@ -6,7 +6,7 @@
 -- "single use" true when two clicks arrive together. Reading the row and then
 -- marking it used is the version with the race in it.
 --
--- **Verification is by address, not by row.** Uniqueness has been
+-- **Verification is by address and by person, not by row.** Uniqueness has been
 -- `(email_hash, user_id)` since 0009, and `private.reconcile_contacts` splits a
 -- contact when its identity's memberships are divided — so one person can hold
 -- one address on two contacts, one verified and one pending. Verifying only the
@@ -15,6 +15,14 @@
 -- disappears without anybody withdrawing it. Suppression already works this way
 -- by hash (`record_suppression`); this is the same reasoning in the other
 -- direction.
+--
+-- **"Not by row" stops at the person (ADR 0050).** What is proved is that the
+-- holder of the link controls the address, which says nothing about another
+-- identity's consent to a plan. So the contacts this touches — promoted, stopped
+-- for a finished plan, owed a "locked in" letter — are the ones held by the same
+-- `user_id` or by an identity linked to it by a recorded reattachment
+-- (`private.same_person_identities`). Another identity's pending contact at the
+-- address stays pending, and retention removes it as it always has.
 --
 -- What verification changes is the **contact**, not the consent. That was
 -- recorded when it was given (ADR 0019), and an unverified contact is what
@@ -59,10 +67,13 @@ begin
     return jsonb_build_object('active_plans', '[]'::jsonb, 'already_confirmed', false);
   end if;
 
-  -- Every contact holding this address, not only the one the link named.
+  -- Every contact of this person holding this address, not only the one the
+  -- link named, and nobody else's.
   update private.email_contacts c
   set status = 'verified', verified_at = now(), updated_at = now()
-  where c.email_hash = contact.email_hash and c.status = 'pending';
+  where c.email_hash = contact.email_hash
+    and c.status = 'pending'
+    and c.user_id in (select private.same_person_identities(contact.user_id));
 
   -- The plans that are over take their subscriptions with them, across all of
   -- them: "verification after the plan completed or was cancelled: no stale
@@ -78,6 +89,7 @@ begin
     set status = 'withdrawn', withdrawn_at = now(), updated_at = now()
     from public.plans p, private.email_contacts c
     where c.email_hash = contact.email_hash
+      and c.user_id in (select private.same_person_identities(contact.user_id))
       and s.contact_id = c.id
       and s.status = 'active'
       and p.id = s.plan_id
@@ -161,6 +173,7 @@ begin
     join public.circle_members m on m.circle_id = p.circle_id and m.user_id = c.user_id
     join public.meetup_confirmations mc on mc.plan_id = p.id and mc.status = 'active'
     where c.email_hash = contact.email_hash
+      and c.user_id in (select private.same_person_identities(contact.user_id))
       and s.status = 'active'
       and m.status = 'active'
   loop
@@ -199,7 +212,7 @@ end;
 $$;
 
 comment on function public.verify_email_contact(bytea) is
-  'Consumes a verification token in one statement and verifies every contact holding that address, drops subscriptions to finished plans, and queues the current state for each decided plan against the contact that subscribed to it. Answers with the clicking identity''s own plans, named so an unauthenticated page can read them. Service role only.';
+  'Consumes a verification token in one statement and verifies every pending contact of the same person (the same identity, or one linked by a recorded reattachment) holding that address, and no other identity''s (ADR 0050), drops subscriptions to finished plans, and queues the current state for each decided plan against the contact that subscribed to it. Answers with the clicking identity''s own plans, named so an unauthenticated page can read them. Service role only.';
 
 revoke all on function public.verify_email_contact(bytea) from public;
 revoke all on function public.verify_email_contact(bytea) from anon, authenticated;

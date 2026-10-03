@@ -164,6 +164,30 @@ export const ProblemReason = z.enum([
    */
   'no_time_to_extend',
 
+  // SUS-138. The organiser sets the final plan (ADR 0051).
+
+  /**
+   * `confirm-meetup` (an own time), `edit-confirmation` (a move): an answer
+   * arrived since the names the organiser was shown, so the screen is out of
+   * date. The own-time counterpart of `stale_candidates`: refetch who it works
+   * for, show it, and ask again.
+   */
+  'stale_availability',
+  /**
+   * `confirm-meetup`, `edit-confirmation`: what is wrong with the time chosen,
+   * by the domain's own codes (`ownTimeProblem`). The screen should have
+   * stopped each of them; the database refuses them all the same.
+   */
+  'needs_own_time',
+  'own_time_off_the_half_hour',
+  'own_time_ends_before_it_starts',
+  'own_time_too_short',
+  'own_time_too_long',
+  'own_time_in_the_past',
+  'own_time_too_far_ahead',
+  /** `edit-confirmation`: the meetup has finished, and a finished plan is not edited. */
+  'meetup_has_ended',
+
   // S1-18. Asking for email, and stopping it.
 
   /**

@@ -16,6 +16,9 @@ const thursday: ConfirmationRead = {
   revision: 1,
   confirmedBy: 'maya',
   confirmedAt: '2026-09-14T09:00:00.000Z',
+  ownTime: false,
+  belowQuorum: false,
+  movedFrom: undefined,
 };
 
 /** Whether the meetup has still to end, by the database's clock. */

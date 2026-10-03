@@ -44,7 +44,7 @@ Deno.serve(
       const { data, error } = await caller
         .from('meetup_confirmations')
         .select(
-          'id, plan_id, revision, starts_at, ends_at, available_user_ids, place_name, place_url, note, confirmed_by, status, confirmed_at, plans(title, short_code, time_zone, circles(name))',
+          'id, plan_id, revision, starts_at, ends_at, available_user_ids, place_name, place_url, note, confirmed_by, status, confirmed_at, calendar_uid, calendar_sequence, plans(title, short_code, time_zone, circles(name))',
         )
         .eq('id', query.confirmation_id)
         .maybeSingle();
@@ -68,6 +68,9 @@ Deno.serve(
         confirmed_by: string;
         status: ConfirmationStatus;
         confirmed_at: string;
+        /** One calendar entry across a move: same UID, higher sequence (ADR 0051). */
+        calendar_uid: string;
+        calendar_sequence: number;
         plans: {
           title: string;
           short_code: string;
@@ -94,6 +97,8 @@ Deno.serve(
         confirmedBy: userId(row.confirmed_by),
         status: row.status,
         confirmedAt: toInstant(row.confirmed_at),
+        calendarUid: row.calendar_uid,
+        calendarSequence: row.calendar_sequence,
       };
 
       const circleName = row.plans.circles.name;

@@ -119,6 +119,13 @@ function LiveCandidates({ id, planId }: { id: string; planId: string }) {
   const toEditor = () => router.push({ pathname: '/j/[code]', params: { code: data.code } });
   const toEdit = () =>
     router.push({ pathname: '/circles/[id]/plan/[planId]/edit', params: { id, planId } });
+  // Any day and time, not only an option (ADR 0051). The selected option, when
+  // there is one, is where the picker opens.
+  const toSetTime = (start?: string, end?: string) =>
+    router.push({
+      pathname: '/circles/[id]/plan/[planId]/set-time',
+      params: { id, planId, mode: 'lock', ...(start === undefined ? {} : { start, end }) },
+    });
 
   if (data.view === 'closed') {
     return <CandidatesScreen state="expired" header={header} onBack={back} />;
@@ -166,6 +173,7 @@ function LiveCandidates({ id, planId }: { id: string; planId: string }) {
         onShareAgain={shareAgain}
         shareOutcome={shareOutcome}
         onEditPlan={toEdit}
+        onSetTime={() => toSetTime()}
         onBack={back}
       />
     );
@@ -188,6 +196,7 @@ function LiveCandidates({ id, planId }: { id: string; planId: string }) {
           else if (unlock.kind === 'extend') closed.extend();
           else if (unlock.kind === 'close') resolution.askToClose();
           else if (unlock.kind === 'wider') resolution.askToWiden(unlock.window);
+          else if (unlock.kind === 'set') toSetTime();
           // A required member who cannot make it is changed in the editor:
           // `revise-plan`'s `required_member_ids`, which is S1-26's form.
           else toEdit();
@@ -207,7 +216,15 @@ function LiveCandidates({ id, planId }: { id: string; planId: string }) {
   // Replies closed with options on offer and nothing locked in: the three ways
   // out (spec §5.7, S2-05).
   if (isDeadlinePassed(data)) {
-    return <DeadlinePassedFlow circleId={id} data={data} header={header} onBack={back} />;
+    return (
+      <DeadlinePassedFlow
+        circleId={id}
+        data={data}
+        header={header}
+        onSetTime={() => toSetTime()}
+        onBack={back}
+      />
+    );
   }
 
   const selectedId =
@@ -249,6 +266,10 @@ function LiveCandidates({ id, planId }: { id: string; planId: string }) {
           params: { id, planId, candidate: selectedId ?? '' },
         })
       }
+      onSetTime={() => {
+        const picked = data.candidates.find((c) => c.id === selectedId);
+        toSetTime(picked?.startsAt, picked?.endsAt);
+      }}
       onNudge={shareAgain}
       onShareAgain={shareAgain}
       shareOutcome={shareOutcome}

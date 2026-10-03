@@ -75,6 +75,14 @@ export type LockedInParts = {
   readonly url: string;
 };
 
+export type MovedParts = {
+  readonly circleName: string;
+  readonly date: string;
+  readonly time: string;
+  readonly place?: string | undefined;
+  readonly url: string;
+};
+
 export type ChangedParts = {
   /**
    * The day that is off, after "Change the time". Absent for an edit to a plan
@@ -104,6 +112,7 @@ export type ShareTemplates = {
   readonly waiting: (parts: WaitingParts) => string;
   readonly lockedIn: (parts: LockedInParts) => string;
   readonly changed: (parts: ChangedParts) => string;
+  readonly moved: (parts: MovedParts) => string;
   readonly cancelled: (parts: CancelledParts) => string;
 };
 
@@ -138,6 +147,12 @@ export const EN_SHARE_TEMPLATES: ShareTemplates = {
     weekday === undefined
       ? `Change of plan. New times, please: ${url}`
       : `Change of plan: ${weekday} is off. New times, please: ${url}`,
+
+  // The organiser moved a locked-in time without asking anybody again
+  // (ADR 0051). "Changed" stays for asking again.
+  moved: ({ circleName, date, time, place, url }) =>
+    `Change of plan: ${circleName} is now ${date}, ${time}${place === undefined ? '' : ` at ${place}`}. ` +
+    `Details and add-to-calendar: ${url}`,
 
   cancelled: ({ circleName, weekday, note, url }) =>
     `Update: ${weekday === undefined ? `${circleName}'s` : `${weekday}'s ${circleName}`} ` +
@@ -232,6 +247,18 @@ export function changedMessage(input: ShareInput): string {
   const { confirmation, zone, url, format, templates } = input;
   return templates.changed({
     weekday: format.weekday(confirmation.candidate.start, zone),
+    url,
+  });
+}
+
+/** "Change of plan: Sunday Crew is now Sat 19 Sep, 7–9 pm at Hope St Radio. …" */
+export function movedMessage(input: ShareInput): string {
+  const { confirmation, circleName, zone, url, format, templates } = input;
+  return templates.moved({
+    circleName,
+    date: format.shortDate(confirmation.candidate.start, zone),
+    time: timeRange(confirmation, zone, format.time),
+    place: confirmation.placeName,
     url,
   });
 }

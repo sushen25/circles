@@ -43,7 +43,7 @@ test('changing a locked-in time asks again, and a member hears Thursday is off f
   lockInFirstOption(plan.id, maya);
 
   await page.goto(`/circles/${circleId}/plan/${plan.id}/confirmed`);
-  await page.getByRole('button', { name: 'Change the time' }).click();
+  await page.getByRole('button', { name: 'Ask for new times' }).click();
   await expect(page.getByText('Ask for new times?')).toBeVisible();
   const ask = page.getByRole('button', { name: 'Ask again' });
   await expect(ask).not.toHaveAttribute('aria-disabled', 'true');

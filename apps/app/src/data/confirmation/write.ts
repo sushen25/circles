@@ -2,6 +2,7 @@ import {
   ConfirmMeetupRequest,
   ConfirmMeetupResponse,
   GenerateIcsRequest,
+  type ConfirmOptionRequest,
 } from '@circles/contracts';
 
 import { authClient } from '../auth/client';
@@ -15,7 +16,7 @@ import { FunctionError, invokeFunction, newIdempotencyKey, problemOf } from '../
  * whether a member may change their answer. This is the door to each.
  */
 
-export type ChasedAnswer = ConfirmMeetupRequest['chased_answer'];
+export type ChasedAnswer = ConfirmOptionRequest['chased_answer'];
 
 export type ConfirmInput = {
   planId: string;

@@ -211,8 +211,8 @@ select throws_ok(
 
 select is(
   (select count(*)::integer from planning.transitions),
-  27,
-  'twenty-seven transitions, seeded from the generated block'
+  31,
+  'thirty-one transitions, seeded from the generated block'
 );
 
 -- Two of them are `adjust`, and the point of it is the column it does *not*

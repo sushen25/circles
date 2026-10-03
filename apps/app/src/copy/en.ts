@@ -420,6 +420,10 @@ export const en = {
     closed_title: 'This plan is decided.',
     closed_body: 'There is nothing left to pick.',
     go_to_circle: 'Go to the circle',
+    /** The row under the options: any day and time, not only an offered one (ADR 0051). */
+    different_time_title: 'Pick a different time',
+    different_time_body:
+      "Any day and time, even one that isn't an option. You'll see who it works for.",
   },
   candidatesMember: {
     lead_organiser:
@@ -740,6 +744,19 @@ export const en = {
     loading: 'Getting the option',
     couldnt_load: "We couldn't load this.",
     try_again: 'Try again',
+    /** A time the organiser set themselves (ADR 0051). */
+    back_to_time: 'Back to the time',
+    own_prefix: "This isn't one of the options.",
+    own_prefix_short: "This isn't one of the options, and the plan asked for at least {quorum}.",
+    own_prefix_outside: "This isn't one of the options, and the plan never asked about {date}.",
+    own_unsure:
+      "{names} didn't put this time down. They'll see the plan and can say whether they're coming.",
+    own_everyone: 'It works for everyone.',
+    own_everyone_else: 'It works for everyone else.',
+    own_moved:
+      'Someone answered while you were looking, so this is updated. Check who it works for, then lock it in.',
+    own_gone_title: "That time can't be locked in.",
+    own_gone_body: 'It has gone, or it is not a time the plan can use. Pick another.',
   },
   confirmedGuest: {
     locked_in: 'Locked in',
@@ -753,6 +770,9 @@ export const en = {
     tap_below_if_that_changes: 'Tap below if that changes',
     say_below: 'Let everyone know below',
     says: '{name} says: “{what}”',
+    /** The organiser moved the time without asking anybody again (ADR 0051). */
+    moved_from: 'Moved from {previous}',
+    moved_unsaid: 'The time moved. Are you coming?',
     add_to_calendar: 'Add to calendar',
     i_cant_make_it_after_all: "I can't make it after all",
     i_can_make_it: 'I can make it',
@@ -803,7 +823,8 @@ export const en = {
     copied: 'Copied. Paste it into the group chat.',
     share_failed: "Couldn't open sharing here. Select the message above and copy it.",
     add_to_my_calendar: 'Add to my calendar',
-    change_the_time: 'Change the time',
+    edit_this_plan: 'Edit this plan',
+    ask_for_new_times: 'Ask for new times',
     cancel_this_plan: 'Cancel this plan',
     loading: 'Getting the plan',
     couldnt_load: "We couldn't load this plan.",
@@ -977,6 +998,8 @@ export const en = {
     hand_off_body: 'Another member picks the time',
     extend_title: 'Give it one more day',
     extend_body: 'Reopens replies until {deadline}',
+    set_title: 'Set the time yourself',
+    set_body: "Pick any day and time. You'll see who it works for before you lock it in.",
     extend_used: 'It has had its extra day already.',
     extend_no_time: 'Too close to the last possible start to reopen replies.',
     extending: 'Reopening replies',
@@ -1079,6 +1102,50 @@ export const en = {
     locked_title: 'This plan is locked in.',
     locked_body:
       'To move it, change the time from the confirmed screen, which asks everyone again.',
+  },
+  editLocked: {
+    /**
+     * Edit this plan (ADR 0051): the time, the place and the note of a locked-in
+     * plan. Moving the time asks nobody for their times again, and the screen
+     * says who it still works for and who is asked whether they can come.
+     */
+    headline: 'Edit this plan',
+    lead: 'Change the time, the place or the note. Nobody is asked for their times again.',
+    back_to_plan: 'Back to the plan',
+    when: 'When',
+    change: 'Change',
+    change_label: 'Change the time',
+    notice_place:
+      'A new place or note shows for everyone straight away. Nobody has to answer again.',
+    notice_moved:
+      'Everyone sees the new time straight away, with {weekday} marked as moved. {tail}',
+    tail_nobody: "Everyone's times cover it, so nobody has to answer again.",
+    tail_one:
+      'Anyone whose times cover it stays going without doing a thing. {names} is asked whether they can come.',
+    tail_many:
+      'Anyone whose times cover it stays going without doing a thing. {names} are asked whether they can come.',
+    save: 'Save changes',
+    saving: 'Saving',
+    keep: 'Keep {weekday} as it is',
+    keep_plain: 'Keep it as it is',
+    moved:
+      'The people this plan asks changed while you were looking, so this is updated. Check who it works for, then save.',
+    ended: 'This meetup has finished, so it can no longer be edited.',
+    gone: "That time can't be used. It has gone, or the plan can't take it. Pick another.",
+    not_organiser: 'Only the organiser can edit this plan.',
+    nothing: 'There is nothing to save yet.',
+    problem_generic: "That didn't go through. Try again.",
+    problem_reference:
+      "That didn't go through. Try again, or quote {reference} if it keeps happening.",
+    loading: 'Getting the plan',
+    couldnt_load: "We couldn't load this plan.",
+    youre_offline: "You're offline. Connect, then try again.",
+    try_again: 'Try again',
+    denied_title: 'Only the organiser edits a plan.',
+    denied_body: 'You can see the plan and say whether you are coming.',
+    over_title: 'This plan is not locked in.',
+    over_body: 'There is nothing to edit. The plan page has the rest.',
+    go_to_plan: 'Go to the plan',
   },
   emailPrefs: {
     email_preferences: 'Email preferences',
@@ -1499,6 +1566,8 @@ export const en = {
     problem_finished: 'This plan has already been decided.',
     problem_nothing: 'That is already the number this plan uses.',
     problem_stale: 'Somebody answered while that was open. Have another look.',
+    set_title: 'Set the time yourself',
+    set_body: "Pick any day and time. You'll see who it works for before you lock it in.",
     loading: 'Getting the plan',
     couldnt_load: "We couldn't load this plan.",
     youre_offline: "You're offline. Connect, then try again.",
@@ -2033,6 +2102,66 @@ export const en = {
     see_my_answer: 'Change my answer',
     see_how_its_looking: "See how it's looking",
   },
+  setTime: {
+    /**
+     * Pick the time yourself (ADR 0051): any day and time, with who it works for
+     * said by name before anything is locked in. The same screen serves "Pick a
+     * different time", "Set the time yourself" and the edit screen's Change.
+     */
+    headline: 'Pick the time yourself',
+    lead: "Any day and time, even one nobody put down. It's your call, and you'll see who it works for first.",
+    back_to_options: 'Back to options',
+    back_to_plan: 'Back to the plan',
+    earlier_month: 'Earlier month',
+    later_month: 'Later month',
+    others_note: 'The number on a day is how many of the others could make some of it.',
+    days_label: 'The day',
+    day_gone: '{date}, already gone',
+    day_too_far: '{date}, too far ahead',
+    day_picked: 'picked',
+    day_others_one: '{date}, 1 other could make some of it',
+    day_others_many: '{date}, {count} others could make some of it',
+    time_on: 'Time on {date}',
+    starts: 'Starts {time}',
+    ends: 'Ends {time}',
+    earlier: 'Earlier',
+    later: 'Later',
+    start_earlier: 'Start earlier',
+    start_later: 'Start later',
+    end_earlier: 'End earlier',
+    end_later: 'End later',
+    length_half_hour: 'Half an hour',
+    length_hour: '1 hour',
+    length_hours: '{count} hours',
+    length_and_a_half: '{count} and a half hours',
+    length_as_asked: '{length}, as the plan asked.',
+    length_not_asked: '{length}. The plan asked for {asked}.',
+    who_label: 'Who it works for',
+    who_count: '{count} of {total} can make it',
+    you: 'You',
+    nobody_can: 'Nobody can make this one',
+    outside_none: 'Nobody was asked about this day, so nobody has said either way.',
+    outside_rest: 'The others were not asked about this day.',
+    caution_short:
+      "That's {count} of you, and this plan asked for at least {quorum}. You can still lock it in. Everyone sees who it works for.",
+    caution_outside:
+      'The plan never asked about {date}. You can still lock it in. Everyone is asked to say whether they can come.',
+    review: 'Review {day}',
+    use: 'Use {date}, {time}',
+    checking: 'Checking who it works for',
+    stretch_failed: "We couldn't check who it works for. Try again.",
+    no_such_time:
+      'That time does not happen on this day, because the clocks go forward. Pick another.',
+    loading: 'Getting the plan',
+    couldnt_load: "We couldn't load this plan.",
+    youre_offline: "You're offline. Connect, then try again.",
+    try_again: 'Try again',
+    denied_title: 'Only the organiser picks the time.',
+    denied_body: 'You can see the options and change your own times.',
+    over_title: 'This plan is not picking a time any more.',
+    over_body: 'It was called off, ran out of time, or is already decided.',
+    go_to_plan: 'Go to the plan',
+  },
   settings: {
     sunday_crew: 'Sunday Crew',
     circle_settings: 'Circle settings',
@@ -2312,6 +2441,8 @@ export const en = {
     link_copied: 'Copied. Paste it in the group chat.',
     link_couldnt_copy: "Couldn't copy the message. Try again.",
     edit_the_plan: 'Edit the plan',
+    set_title: 'Set the time yourself',
+    set_body: "Pick any day and time. You'll see who it works for before you lock it in.",
     loading: 'Getting the plan',
     couldnt_load: "We couldn't load this plan.",
     youre_offline: "You're offline. Connect, then try again.",

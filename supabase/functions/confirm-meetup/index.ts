@@ -1,4 +1,4 @@
-import { ConfirmMeetupRequest, ConfirmMeetupResponse } from '@circles/contracts';
+import { ConfirmMeetupRequest, ConfirmMeetupResponse, isOwnTimeRequest } from '@circles/contracts';
 
 import { jsonHandler } from '../_shared/http.ts';
 import { fromInstant, toInstant } from '../_shared/moment.ts';
@@ -25,23 +25,46 @@ import { fromInstant, toInstant } from '../_shared/moment.ts';
  * tell an organiser something true. "Out of date" is measured against the set
  * the organiser was *shown*, whose id they send: by the time a tap arrives, an
  * answer may have produced a whole new current set.
+ *
+ * **Or a day and time of their own** (ADR 0051): `public.confirm_own_time`, which
+ * hands the plan to `planning.transition_plan(…, 'confirm_own', …)` the same way.
+ * Not in any candidate set, so the guard is the time being a valid one, and
+ * "out of date" is measured against the plan's input version instead
+ * (`stale_availability`).
  */
 Deno.serve(
   jsonHandler({
     name: 'confirm-meetup',
     schema: ConfirmMeetupRequest,
     handle: async ({ body, caller }): Promise<ConfirmMeetupResponse> => {
-      const { data, error } = await caller.rpc('confirm_meetup', {
-        p_plan_id: body.plan_id,
-        p_candidate_id: body.candidate_id,
-        // Checked under the plan's lock, where "is this still the set you were
-        // looking at?" can still be answered truthfully.
-        p_expected_set_id: body.expected_set_id,
-        p_place_name: body.place_name ?? null,
-        p_place_url: body.place_url ?? null,
-        p_note: body.note ?? null,
-        p_chased_answer: body.chased_answer,
-      });
+      // Or the organiser's own day and time (ADR 0051). The same lock, the same
+      // transition table, the same refusals; what differs is what is checked
+      // for being current. An option names the candidate set the organiser was
+      // shown. An own time has no set, so it names the plan's input version as
+      // `stretch_availability` returned it with the names they saw, and an
+      // answer that has landed since is `stale_availability`.
+      const { data, error } = isOwnTimeRequest(body)
+        ? await caller.rpc('confirm_own_time', {
+            p_plan_id: body.plan_id,
+            p_starts_at: body.starts_at,
+            p_ends_at: body.ends_at,
+            p_expected_input_version: body.expected_input_version,
+            p_place_name: body.place_name ?? null,
+            p_place_url: body.place_url ?? null,
+            p_note: body.note ?? null,
+            p_chased_answer: body.chased_answer,
+          })
+        : await caller.rpc('confirm_meetup', {
+            p_plan_id: body.plan_id,
+            p_candidate_id: body.candidate_id,
+            // Checked under the plan's lock, where "is this still the set you
+            // were looking at?" can still be answered truthfully.
+            p_expected_set_id: body.expected_set_id,
+            p_place_name: body.place_name ?? null,
+            p_place_url: body.place_url ?? null,
+            p_note: body.note ?? null,
+            p_chased_answer: body.chased_answer,
+          });
       if (error !== null) throw error;
 
       const confirmation = (Array.isArray(data) ? data[0] : data) as {

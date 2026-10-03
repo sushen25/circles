@@ -159,7 +159,7 @@ select is(
   (select coalesce(string_agg(from_state || '/' || action, ', '), '')
    from planning.transitions
    where planning.event_for(from_state, action) is null),
-  'seeking/cancel, collecting/quorum_follows, ready/candidates_gone, ready/quorum_follows',
+  'seeking/cancel, collecting/quorum_follows, ready/candidates_gone, ready/quorum_follows, confirmed/edit_confirmed',
   'every transition in planning.transitions has an outbox event name, except the named silences'
 );
 

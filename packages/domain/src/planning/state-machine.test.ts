@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { instant } from '../shared/instant.js';
+import { instant, addMinutes, fromISO } from '../shared/instant.js';
+import { localDate } from '../shared/local-date.js';
+import { MELBOURNE } from '../shared/fixtures.js';
+import { fromLocal } from '../shared/zone.js';
 import { isErr, isOk } from '../shared/result.js';
 import { userId } from '../circles/types.js';
 import { plan } from './fixtures.js';
@@ -26,6 +29,14 @@ const ORGANISER: Actor = {
   isOwner: true,
   isInitiator: true,
   isKeen: true,
+};
+
+/** Thursday 7–9 pm Melbourne in the fixture plan's week, from the Monday before. */
+const OWN_START = fromLocal(localDate('2026-09-17'), 19 * 60, MELBOURNE);
+const OWN_TIME = {
+  start: OWN_START,
+  end: addMinutes(OWN_START, 120),
+  now: fromISO('2026-09-14T00:00:00Z'),
 };
 
 const MEMBER: Actor = { ...ORGANISER, userId: 'user-2', isOrganiser: false, isOwner: false };
@@ -175,6 +186,7 @@ describe('every row is reachable and every non-row is refused', () => {
         eligibleCandidateIds: ['cand-1'],
         keenCount: 99,
         circleHasOpenPlan: false,
+        ownTime: OWN_TIME,
         handOffTo: {
           userId: userId('user-2'),
           isMember: true,
@@ -469,7 +481,7 @@ describe('transitionsFrom', () => {
       transitionsFrom('confirmed')
         .map((t) => t.action)
         .sort(),
-    ).toEqual(['cancel', 'reopen', 'report_outcome']);
+    ).toEqual(['cancel', 'edit_confirmed', 'move_confirmed', 'reopen', 'report_outcome']);
   });
 
   it('is empty for a finished plan', () => {
@@ -565,5 +577,79 @@ describe('hand_off (S2-05)', () => {
       });
       expect(isErr(result), state).toBe(true);
     }
+  });
+});
+
+describe("the organiser's own time (ADR 0051)", () => {
+  const ask = (state: PlanState, action: PlanAction, actor: Actor, ownTime = OWN_TIME) =>
+    canTransition(plan({ state }), action, { actor, ownTime });
+
+  it('is allowed from collecting as well as ready, which is where no quorum and replies closed are', () => {
+    for (const state of ['collecting', 'ready'] as const) {
+      const result = ask(state, 'confirm_own', ORGANISER);
+      expect(isOk(result), state).toBe(true);
+      if (isOk(result)) expect(result.value.state).toBe('confirmed');
+    }
+  });
+
+  it('needs the organiser, and not a candidate', () => {
+    for (const actor of [MEMBER, GUEST, STRANGER]) {
+      const result = ask('ready', 'confirm_own', actor);
+      expect(isErr(result)).toBe(true);
+    }
+    const noOne = ask('ready', 'confirm_own', MEMBER);
+    if (isErr(noOne)) expect(noOne.error.code).toBe('not_the_organiser');
+  });
+
+  it('fails closed on a stretch nobody named, and says what was wrong with a bad one', () => {
+    const unnamed = canTransition(plan({ state: 'collecting' }), 'confirm_own', {
+      actor: ORGANISER,
+    });
+    if (isErr(unnamed)) expect(unnamed.error.code).toBe('needs_own_time');
+    else throw new Error('expected a refusal');
+
+    const past = ask('collecting', 'confirm_own', ORGANISER, {
+      ...OWN_TIME,
+      now: addMinutes(OWN_START, 1),
+    });
+    if (isErr(past)) expect(past.error.code).toBe('own_time_in_the_past');
+    else throw new Error('expected a refusal');
+  });
+
+  it('is refused once the plan is cancelled, and is not offered on a draft or a seeking ask', () => {
+    for (const state of ['cancelled', 'expired', 'completed'] as const) {
+      const result = ask(state, 'confirm_own', ORGANISER);
+      if (isErr(result)) expect(result.error.code).toBe('plan_is_finished');
+      else throw new Error('expected a refusal');
+    }
+    for (const state of ['draft', 'seeking'] as const) {
+      expect(isErr(ask(state, 'confirm_own', ORGANISER))).toBe(true);
+    }
+  });
+
+  it('moves and edits a confirmed plan without leaving confirmed or opening a revision', () => {
+    for (const action of ['move_confirmed', 'edit_confirmed'] as const) {
+      const result = canTransition(plan({ state: 'confirmed', revision: 3 }), action, {
+        actor: ORGANISER,
+        ownTime: OWN_TIME,
+      });
+      expect(isOk(result), action).toBe(true);
+      if (isOk(result)) {
+        expect(result.value.state).toBe('confirmed');
+        expect(result.value.revision).toBe(3);
+      }
+    }
+  });
+
+  it('keeps the move and the edit for the organiser, and a move for a valid time', () => {
+    expect(isErr(ask('confirmed', 'move_confirmed', MEMBER))).toBe(true);
+    expect(isErr(ask('confirmed', 'edit_confirmed', MEMBER))).toBe(true);
+    const tooFar = ask('confirmed', 'move_confirmed', ORGANISER, {
+      ...OWN_TIME,
+      start: fromLocal(localDate('2026-12-01'), 19 * 60, MELBOURNE),
+      end: fromLocal(localDate('2026-12-01'), 21 * 60, MELBOURNE),
+    });
+    if (isErr(tooFar)) expect(tooFar.error.code).toBe('own_time_too_far_ahead');
+    else throw new Error('expected a refusal');
   });
 });

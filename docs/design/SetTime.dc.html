@@ -1,0 +1,90 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600&family=Newsreader:opsz,wght@6..72,400&display=swap');
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #FBF7F1; color: #221E19; font-family: Figtree, system-ui, -apple-system, 'Segoe UI', sans-serif; font-size: 15px; line-height: 1.5; -webkit-font-smoothing: antialiased; text-wrap: pretty; }
+    a { color: #A0431F; } a:hover { color: #C2542F; }
+    .screen { width: 390px; min-height: 844px; display: flex; flex-direction: column; background: #FBF7F1; }
+    .screen.invert { background: #2E241C; color: #F7F1EA; }
+    .top { display: flex; align-items: center; justify-content: space-between; height: 56px; padding: 0 16px 0 12px; }
+    .top .t { font-family: Figtree; font-weight: 600; font-size: 15px; color: #6C6156; }
+    .body { display: flex; flex-direction: column; gap: 22px; padding: 8px 22px 24px; flex-grow: 1; }
+    .foot { display: flex; flex-direction: column; gap: 10px; padding: 12px 22px 28px; }
+    .lbl { font-family: Figtree; font-weight: 600; font-size: 12px; line-height: 1.3; letter-spacing: 0.07em; text-transform: uppercase; color: #796D61; }
+    .invert .lbl { color: #E8A07A; }
+    .invert .top .t { color: #CFC3B6; }
+    .dxl { font-family: Newsreader, Georgia, 'Times New Roman', serif; font-weight: 400; font-size: 40px; line-height: 1.08; letter-spacing: -0.018em; margin: 0; }
+    .dl { font-family: Newsreader, Georgia, 'Times New Roman', serif; font-weight: 400; font-size: 31px; line-height: 1.12; letter-spacing: -0.015em; margin: 0; }
+    .date { font-family: Newsreader, Georgia, 'Times New Roman', serif; font-weight: 400; font-size: 24px; line-height: 1.1; margin: 0; font-variant-numeric: tabular-nums; }
+    .title { font-family: Figtree; font-weight: 600; font-size: 16px; line-height: 1.3; margin: 0; }
+    .p { font-family: Figtree; font-size: 15px; line-height: 1.5; color: #6C6156; margin: 0; }
+    .invert .p { color: #CFC3B6; }
+    .sm { font-family: Figtree; font-size: 13px; line-height: 1.45; color: #796D61; margin: 0; }
+    .invert .sm { color: #A89B8D; }
+    .num { font-variant-numeric: tabular-nums; }
+    .btn { display: flex; align-items: center; justify-content: center; height: 55px; border-radius: 14px; font-family: Figtree; font-weight: 600; font-size: 16px; text-decoration: none; }
+    .btn.pri { background: #C2542F; color: #FFFFFF; box-shadow: 0 1px 2px rgba(74,55,38,.04), 0 14px 30px -20px rgba(74,55,38,.28); }
+    .btn.sec { background: #FFFFFF; color: #6C6156; border: 1px solid #EAE0D3; }
+    .invert .btn.pri { background: #E8A07A; color: #2E241C; }
+    .invert .btn.sec { background: transparent; color: #F7F1EA; border: 1px solid #5A4B3E; }
+    .ter { display: flex; align-items: center; justify-content: center; min-height: 44px; font-family: Figtree; font-size: 14px; color: #796D61; text-decoration: underline; text-underline-offset: 3px; }
+    .invert .ter { color: #A89B8D; }
+    .card { background: #FFFFFF; border: 1px solid #EAE0D3; border-radius: 18px; padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+    .card.rec { border: 1.5px solid #C2542F; }
+    .invert .card { background: #3A2E25; border-color: #4E4034; }
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+    .chip { display: flex; align-items: center; gap: 6px; height: 44px; padding: 0 16px; border-radius: 12px; background: #FFFFFF; border: 1px solid #EAE0D3; font-family: Figtree; font-weight: 500; font-size: 14px; color: #221E19; }
+    .chip.on { background: #C2542F; border-color: #C2542F; color: #FFFFFF; }
+    .marks { display: flex; align-items: center; }
+    .mark { width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-family: Figtree; font-weight: 600; font-size: 12px; margin-left: -5px; background: #F6E5DC; color: #A0431F; border: 2px solid #FBF7F1; }
+    .mark:first-child { margin-left: 0; }
+    .mark.wait { background: transparent; border: 1.5px dashed #796D61; color: #796D61; }
+    .mark.lg { width: 36px; height: 36px; font-size: 14px; border-radius: 10px; margin-left: 0; border: 0; }
+    .invert .mark { border-color: #2E241C; background: #5A4030; color: #E8A07A; }
+    .invert .mark.wait { background: transparent; border: 1.5px dashed #8A7A6A; color: #A89B8D; }
+    .notice { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 14px; background: #FFFFFF; border: 1px solid #EAE0D3; font-size: 13px; line-height: 1.45; color: #6C6156; }
+    .notice.warn { background: #FBF0E4; border-color: #EBD9C2; color: #6B5427; }
+    .notice.ok { background: #E6EDE1; border-color: #D3DFCC; color: #4F6B45; }
+    .notice svg { flex-shrink: 0; margin-top: 1px; }
+    .row { display: flex; align-items: center; gap: 12px; }
+    .row > .btn { flex: 1; }
+    .between { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .stack { display: flex; flex-direction: column; gap: 6px; }
+    .input { display: flex; align-items: center; height: 54px; padding: 0 16px; border-radius: 13px; background: #FFFFFF; border: 1px solid #EAE0D3; font-family: Figtree; font-size: 16px; color: #221E19; }
+    .input.ph { color: #796D61; }
+    .divider { height: 1px; background: #F1E9DE; }
+    .track { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 3px; }
+    .cell { height: 42px; border-radius: 6px; background: #FFFFFF; border: 1px solid #EAE0D3; }
+    .cell.on { background: #C2542F; border-color: #C2542F; }
+    .cell.busy { background: #F1E9DE; border-color: #F1E9DE; }
+    .ticks { display: flex; justify-content: space-between; font-size: 11px; color: #796D61; font-variant-numeric: tabular-nums; }
+    .li { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 6px 0; }
+    .icon-sq { width: 44px; height: 44px; border-radius: 12px; background: #C2542F; color: #FFFFFF; display: flex; align-items: center; justify-content: center; font-family: Newsreader, Georgia, serif; font-size: 22px; }
+    .wordmark { font-family: Newsreader, Georgia, serif; font-size: 22px; letter-spacing: -0.01em; color: #221E19; }
+    .invert .wordmark { color: #F7F1EA; }
+    .radio { width: 22px; height: 22px; border-radius: 999px; border: 1.5px solid #EAE0D3; background: #FFFFFF; flex-shrink: 0; }
+    .radio.on { border: 7px solid #C2542F; }
+    .toggle { width: 46px; height: 28px; border-radius: 999px; background: #EAE0D3; position: relative; flex-shrink: 0; }
+    .toggle.on { background: #C2542F; }
+    .toggle i { position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 999px; background: #fff; }
+    .toggle.on i { left: 21px; }
+</style>
+</helmet>
+<div class="screen" style="width:390px;min-height:1500px;">
+<div class="top"><div style="display:flex;align-items:center;width:44px;height:44px;justify-content:center;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12.5 4.5 5 12l7.5 7.5"/></svg></div><div class="t">Back to options</div><div style="display:flex;align-items:center;justify-content:flex-end;min-width:44px;height:44px;"></div></div><div class="body" style="gap:22px;padding:8px 22px 24px;"><div class="stack" style="gap:8px;"><h1 class="dl">Pick the time yourself</h1><p class="p">Any day and time, even one nobody put down. It's your call, and you'll see who it works for first.</p></div>
+<div class="stack" style="gap:8px;"><div class="between"><div class="lbl">September 2026</div><div class="row" style="gap:6px;"><div class="mini">Earlier month</div><div class="mini">Later month</div></div></div><p class="sm">The number on a day is how many of the others could make some of it.</p><div style="display:grid;grid-template-columns:repeat(7, minmax(0, 1fr));gap:4px;"><div class="sm" style="text-align:center;">Mon</div><div class="sm" style="text-align:center;">Tue</div><div class="sm" style="text-align:center;">Wed</div><div class="sm" style="text-align:center;">Thu</div><div class="sm" style="text-align:center;">Fri</div><div class="sm" style="text-align:center;">Sat</div><div class="sm" style="text-align:center;">Sun</div><div></div><div class="num" style="position:relative;height:56px;display:flex;align-items:center;justify-content:center;border-radius:10px;color:#796D61;">1</div><div class="num" style="position:relative;height:56px;display:flex;align-items:center;justify-content:center;border-radius:10px;color:#796D61;">2</div><div class="num" style="position:relative;height:56px;display:flex;align-items:center;justify-content:center;border-radius:10px;color:#796D61;">3</div><div class="num" style="position:relative;height:56px;display:flex;align-items:center;justify-content:center;border-radius:10px;color:#796D61;">4</div><div class="num" style="position:relative;height:56px;display:flex;align-items:center;justify-content:center;border-radius:10px;color:#796D61;">5</div><div class="num" style="position:relative;height:56px;display:flex;align-items:center;justify-content:center;border-radius:10px;color:#796D61;">6</div><div class="num" style="position:relative;height:56px;display:flex;align-items:center;justify-content:center;border-radius:10px;color:#796D61;">7</div><div class="num" style="position:relative;height:56px;display:flex;align-items:center;justify-content:center;border-radius:10px;color:#796D61;">8</div><div class="num" style="position:relative;height:56px;display:flex;align-items:center;justify-content:center;border-radius:10px;color:#796D61;">9</div><div class="num" style="position:relative;height:56px;display:flex;align-items:center;justify-content:center;border-radius:10px;">10</div><div class="num" style="position:relative;height:56px;display:flex;align-items:center;justify-content:center;border-radius:10px;">11</div><div class="num" style="position:relative;height:56px;display:flex;align-items:center;justify-content:center;border-radius:10px;">12</div><div class="num" style="position:relative;height:56px;display:flex;align-items:center;justify-content:center;border-radius:10px;">13</div><div class="num" style="position:relative;height:56px;display:flex;align-items:center;justify-content:center;border-radius:10px;">14</div><div class="num" style="position:relative;height:56px;display:flex;align-items:center;justify-content:center;border-radius:10px;"><span style="position:absolute;top:3px;left:4px;display:flex;align-items:center;gap:2px;font-size:11px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8.5" r="3.2"/><path d="M3.5 19c0-3 2.5-5 5.5-5s5.5 2 5.5 5"/><circle cx="16.5" cy="9.5" r="2.5"/><path d="M15.5 14.2c2.6.2 5 2 5 4.8"/></svg>1</span>15</div><div class="num" style="position:relative;height:56px;display:flex;align-items:center;justify-content:center;border-radius:10px;"><span style="position:absolute;top:3px;left:4px;display:flex;align-items:center;gap:2px;font-size:11px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8.5" r="3.2"/><path d="M3.5 19c0-3 2.5-5 5.5-5s5.5 2 5.5 5"/><circle cx="16.5" cy="9.5" r="2.5"/><path d="M15.5 14.2c2.6.2 5 2 5 4.8"/></svg>1</span>16</div><div class="num" style="position:relative;height:56px;display:flex;align-items:center;justify-content:center;border-radius:10px;"><span style="position:absolute;top:3px;left:4px;display:flex;align-items:center;gap:2px;font-size:11px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8.5" r="3.2"/><path d="M3.5 19c0-3 2.5-5 5.5-5s5.5 2 5.5 5"/><circle cx="16.5" cy="9.5" r="2.5"/><path d="M15.5 14.2c2.6.2 5 2 5 4.8"/></svg>4</span>17</div><div class="num" style="position:relative;height:56px;display:flex;align-items:center;justify-content:center;border-radius:10px;background:#C2542F;color:#fff;"><span style="position:absolute;top:3px;left:4px;display:flex;align-items:center;gap:2px;font-size:11px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8.5" r="3.2"/><path d="M3.5 19c0-3 2.5-5 5.5-5s5.5 2 5.5 5"/><circle cx="16.5" cy="9.5" r="2.5"/><path d="M15.5 14.2c2.6.2 5 2 5 4.8"/></svg>2</span><span style="position:absolute;top:2px;right:3px;display:flex;"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.5 9.5 17.5 19.5 7"/></svg></span>18</div><div class="num" style="position:relative;height:56px;display:flex;align-items:center;justify-content:center;border-radius:10px;"><span style="position:absolute;top:3px;left:4px;display:flex;align-items:center;gap:2px;font-size:11px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8.5" r="3.2"/><path d="M3.5 19c0-3 2.5-5 5.5-5s5.5 2 5.5 5"/><circle cx="16.5" cy="9.5" r="2.5"/><path d="M15.5 14.2c2.6.2 5 2 5 4.8"/></svg>3</span>19</div><div class="num" style="position:relative;height:56px;display:flex;align-items:center;justify-content:center;border-radius:10px;"><span style="position:absolute;top:3px;left:4px;display:flex;align-items:center;gap:2px;font-size:11px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8.5" r="3.2"/><path d="M3.5 19c0-3 2.5-5 5.5-5s5.5 2 5.5 5"/><circle cx="16.5" cy="9.5" r="2.5"/><path d="M15.5 14.2c2.6.2 5 2 5 4.8"/></svg>3</span>20</div><div class="num" style="position:relative;height:56px;display:flex;align-items:center;justify-content:center;border-radius:10px;">21</div><div class="num" style="position:relative;height:56px;display:flex;align-items:center;justify-content:center;border-radius:10px;">22</div><div class="num" style="position:relative;height:56px;display:flex;align-items:center;justify-content:center;border-radius:10px;">23</div><div class="num" style="position:relative;height:56px;display:flex;align-items:center;justify-content:center;border-radius:10px;">24</div><div class="num" style="position:relative;height:56px;display:flex;align-items:center;justify-content:center;border-radius:10px;">25</div><div class="num" style="position:relative;height:56px;display:flex;align-items:center;justify-content:center;border-radius:10px;">26</div><div class="num" style="position:relative;height:56px;display:flex;align-items:center;justify-content:center;border-radius:10px;">27</div><div class="num" style="position:relative;height:56px;display:flex;align-items:center;justify-content:center;border-radius:10px;">28</div><div class="num" style="position:relative;height:56px;display:flex;align-items:center;justify-content:center;border-radius:10px;">29</div><div class="num" style="position:relative;height:56px;display:flex;align-items:center;justify-content:center;border-radius:10px;">30</div></div></div>
+<div class="stack" style="gap:8px;"><div class="lbl">Time on Fri 18 Sep</div><div class="between"><div class="title num">Starts 7 pm</div><div class="row" style="gap:6px;"><div class="mini">Earlier</div><div class="mini">Later</div></div></div><div class="between"><div class="title num">Ends 9 pm</div><div class="row" style="gap:6px;"><div class="mini">Earlier</div><div class="mini">Later</div></div></div><p class="sm">2 hours, as the plan asked.</p></div>
+<div class="stack" style="gap:8px;"><div class="lbl">Who it works for</div><div class="marks"><div class="mark" title="Priya">P</div><div class="mark" title="Tom">T</div><div class="mark wait" title="Alex">A</div></div><div class="title">2 of 6 can make it</div><p class="sm">Priya and Tom can make it · Not you, Jess or Sam · Alex hasn't answered</p></div>
+<div class="notice warn"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 5 6.5v5c0 4.2 3 7.6 7 9 4-1.4 7-4.8 7-9v-5z"/><path d="M9.5 12l1.8 1.8L15 10"/></svg><div>That's 2 of you, and this plan asked for at least 4. You can still lock it in. Everyone sees who it works for.</div></div></div><div class="foot"><div class="btn pri">Review Friday</div></div>
+</div>
+</x-dc>
+</body>
+</html>

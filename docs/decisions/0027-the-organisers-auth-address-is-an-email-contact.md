@@ -1,6 +1,6 @@
 # ADR 0027: The organiser's auth address is an email contact, verified by auth
 
-_Status: accepted · 22 September 2026_
+_Status: accepted · 22 September 2026 · its last consequence amended by [ADR 0050](0050-verifying-an-address-promotes-only-the-same-persons-contacts.md)_
 
 ## Context
 
@@ -103,6 +103,10 @@ ready" — which is the message that makes the product work at all.
   preferences token, because a preferences token is scoped to a plan-update
   subscription that does not exist. SUS-83 owns the setting that turns them off
   in the app, and until it lands there is no way to stop them but to bounce.
+- **Amended by ADR 0050 (2 October 2026):** only the identity's *own* pending
+  contact at that address is promoted, and no other identity's, whatever the
+  address; and the same rule now holds for a verification link. What follows
+  describes that one identity's contact.
 - A `pending` contact at the same address is promoted to `verified` by this
   function. If that identity also had an unverified plan-update subscription at
   that address, that subscription becomes deliverable. This is deliberate — the

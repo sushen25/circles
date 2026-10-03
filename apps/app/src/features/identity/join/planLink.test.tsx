@@ -168,6 +168,21 @@ describe('a guest, in a circle that has guests', () => {
   });
 });
 
+describe('a guest, on a link that is no longer live', () => {
+  it('is told the link is not active, and is never asked for a name or shown the list', async () => {
+    // A cancelled or expired plan, a meetup long past and an archived circle all
+    // answer the circle lookup with null and the list with nobody (ADR 0049).
+    circleNameForCode.mockResolvedValue(null);
+    guestMembersFor.mockResolvedValue({ kind: 'listed', members: [] });
+    arrive();
+
+    expect(await screen.findByText("This link isn't active any more.")).toBeTruthy();
+    expect(screen.queryByText('What should the group call you?')).toBeNull();
+    expect(screen.queryByText('Welcome back. Which one is you?')).toBeNull();
+    expect(joinPlan).not.toHaveBeenCalled();
+  });
+});
+
 describe('a guest whose circle lookup fails', () => {
   it('is offered Try again, not a name step with a blank where the circle should be', async () => {
     guestMembersFor.mockResolvedValue({ kind: 'listed', members: [] });
@@ -222,6 +237,14 @@ describe('the moment after joining', () => {
 describe('an account that is not a member', () => {
   beforeEach(() => {
     Object.assign(session, { status: 'saved', userId: 'maya', isAnonymous: false });
+  });
+
+  it('is told the link is not active when no circle is behind it now (ADR 0049)', async () => {
+    circleNameForCode.mockResolvedValue(null);
+    arrive();
+
+    expect(await screen.findByText("This link isn't active any more.")).toBeTruthy();
+    expect(joinPlan).not.toHaveBeenCalled();
   });
 
   it('sees one button naming the circle and themselves, never a list, and joins with no name', async () => {

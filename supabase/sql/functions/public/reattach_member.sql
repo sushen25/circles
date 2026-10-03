@@ -14,20 +14,15 @@
 --
 -- The safeguards are all here rather than in the Edge Function, because they
 -- are the decision and not the throttle: the caller must be a guest, the target
--- must be a guest, and a membership may move at most three times in seven days.
--- "A reattachment moves a membership only within a circle the guest already
--- belongs to, never onto a saved-place member" is an AGENTS.md privacy
--- invariant, so it is enforced where it cannot be skipped.
+-- must be a guest (the one exception, an emailed link taking a place back from a
+-- saved account, is ADR 0049 decision 6), and a membership may be moved by the
+-- list at most three times in seven days. Enforced where it cannot be skipped.
 --
--- **The old identity is not deleted here.** The ticket asked for that; three
--- things say otherwise. An anonymous identity can hold memberships in more than
--- one circle, and deleting it would cascade away the ones this reattachment did
--- not touch. `circles.owner_user_id`, `circle_invites.created_by` and
--- `plans.organiser_user_id` reference `auth.users` with no action, so a delete
--- can *fail* — turning a lost session into a guest who cannot get back in, at
--- the worst possible moment. And retention already owns this: `run_retention`
--- deletes anonymous identities with no memberships after thirty days
--- (ADR 0014, §8.5), which is precisely what this one becomes.
+-- **The old identity is not deleted here.** It can hold memberships in other
+-- circles; `circles.owner_user_id`, `circle_invites.created_by` and
+-- `plans.organiser_user_id` reference `auth.users` with no action, so a delete can
+-- *fail* at the worst moment; and `run_retention` already deletes anonymous
+-- identities with no memberships after thirty days (ADR 0014, §8.5).
 -- ---------------------------------------------------------------------------
 
 create or replace function public.reattach_member(
@@ -46,12 +41,13 @@ declare
   target uuid := p_target_user_id;
   token private.email_action_tokens;
   chosen public.circles;
-  moves integer;
   -- `member_reattached`'s analytics payload is `source: 'list' | 'email'`
   -- (packages/contracts/src/analytics.ts), and the reattach rate by source is
   -- what tells us whether the emailed path is worth its machinery. The function
   -- is the only place that knows which one happened.
   entry_source text := case when p_reentry_token_hash is null then 'list' else 'email' end;
+  -- The place is held by a saved account and the link may take it back (ADR 0049, 6).
+  taking_back boolean := false;
 begin
   if caller is null then
     raise exception 'reattach_member requires a signed-in actor'
@@ -78,14 +74,10 @@ begin
     )
   then
     -- With one exception: the emailed link, opened by the account its membership
-    -- now belongs to. §10 — "if the browser already holds the right identity, it
-    -- simply routes to the plan". A guest who saved their place keeps the same
-    -- user id (`linkIdentity` converts in place), so the token still names them.
-    -- Nothing moves and nothing is spent: they are handed the circle they are
-    -- already an active member of, which RLS would show them anyway. Anybody
-    -- else signed in is still refused, and the client can now tell the two apart
-    -- — before, both were `caller_is_permanent`, and the right account was told
-    -- its own link was for somebody else.
+    -- now belongs to (§10: "if the browser already holds the right identity, it
+    -- simply routes to the plan"). `linkIdentity` keeps the user id, so the token
+    -- still names them. Nothing moves and nothing is spent. Anybody else signed in
+    -- is refused, and the client can tell the two apart.
     if p_reentry_token_hash is not null then
       select c.* into chosen
       from private.email_action_tokens t
@@ -111,23 +103,22 @@ begin
   end if;
 
   if p_reentry_token_hash is not null then
-    -- Single-use, 7-day, bound to a membership (§14). Spent whether or not the
-    -- rest succeeds is wrong — so it is spent here, inside the same
-    -- transaction, and a later failure rolls the spend back with it.
+    -- Single-use, 7-day, bound to a membership (§14); spent below, in this
+    -- transaction, so a later failure rolls the spend back.
     select * into token
     from private.email_action_tokens t
     where t.token_hash = p_reentry_token_hash
       and t.purpose = 'reentry'
-      and t.used_at is null
+      -- Unspent; or spent by `retire_reentry_links` when the place became a saved
+      -- account's, which is the link still being the member's to use (never a link
+      -- that already moved a place: that one has no `retired_at`).
+      and (t.used_at is null or t.retired_at is not null)
       and t.expires_at > now();
 
     if not found then
-      -- Before calling it invalid: a token whose membership has since become a
-      -- saved place is not a broken link, it is a link to an account. §10 — "if
-      -- the membership belongs to a permanent identity, the page offers that
-      -- identity's sign-in instead" — and the client can only show that if it is
-      -- told which of the two happened. Saying so to the holder of the emailed
-      -- token reveals nothing they did not already have.
+      -- Before calling it invalid: a used or expired link to a membership that
+      -- is now a saved place is a link to an account (§10: the page offers that
+      -- identity's sign-in), and the client can only show that if told so.
       if exists (
         select 1
         from private.email_action_tokens t
@@ -171,6 +162,29 @@ begin
     return chosen;
   end if;
 
+  -- An archived circle is not somewhere anybody comes back to (ADR 0049), with
+  -- an emailed link or without. The same answer a membership that was never
+  -- there gets, so this tells nobody which of the two it was.
+  if chosen.status <> 'active' then
+    raise exception 'member_not_found' using errcode = 'no_data_found';
+  end if;
+
+  -- The volume limit, **here** as well as in the Edge Function (ADR 0049): this
+  -- function is granted to `authenticated`, so a client calling the RPC directly
+  -- never meets the Edge Function's counters. A different scope from the Edge one,
+  -- so neither eats the other's budget. A refusal raises and rolls the count back,
+  -- so this bounds *completed* moves: twenty a circle an hour is far above what
+  -- coming back needs and far below what taking people over needs.
+  --
+  -- The **list** path only. The emailed link is the way back for the rightful
+  -- member, so filling the hourly budget with takeovers must not turn it away; the
+  -- token has its own single-use, seven-day limit (and the Edge per-token counter).
+  if p_reentry_token_hash is null and not public.take_rate_token(
+    'reattach_circle_sql', extensions.digest(target_circle::text, 'sha256'), 20, interval '1 hour'
+  ) then
+    raise exception 'too_many_requests' using errcode = 'too_many_rows';
+  end if;
+
   -- `for update` on the membership itself, not only on the circle. The circle lock
   -- above serialises two reattachments; it does nothing about `claim_identity`,
   -- which locks `circle_members` rows instead. Without this, a claim running on
@@ -185,15 +199,20 @@ begin
     raise exception 'member_not_found' using errcode = 'no_data_found';
   end if;
 
-  -- Never onto a saved-place member. Both records are read, and the stricter
-  -- wins, for the reason `guest_members_for_reattach` reads both: whichever of
-  -- them is stale, the answer has to be no.
+  -- Never onto a saved-place member, by either record: whichever is stale, the
+  -- answer has to be no. The one exception is an emailed link that proves an address
+  -- the account does not hold (ADR 0049, decision 6): that takes the place *back*.
   if exists (
     select 1 from public.profiles p where p.user_id = target and p.is_permanent
   ) or not exists (
     select 1 from auth.users u where u.id = target and coalesce(u.is_anonymous, false)
   ) then
-    raise exception 'target_is_permanent' using errcode = 'insufficient_privilege';
+    if p_reentry_token_hash is null
+      or not private.takeback_allowed(target_circle, target, token.contact_id)
+    then
+      raise exception 'target_is_permanent' using errcode = 'insufficient_privilege';
+    end if;
+    taking_back := true;
   end if;
 
   -- The caller already belongs here under their own name. Moving a second
@@ -206,38 +225,14 @@ begin
     raise exception 'already_member' using errcode = 'unique_violation';
   end if;
 
-  -- Three per membership per seven days (ADR 0006). Counting is not a simple
-  -- `where user_id = target`: every reattachment *changes* the membership's
-  -- user id, so the previous ones are recorded against identities this one has
-  -- never seen. The audit rows form a chain — each names the identity it moved
-  -- from and the one it moved to — and the membership's history is the walk
-  -- backwards along it.
-  --
-  -- `union`, not `union all`, and the row's own id in the result — because the
-  -- chain can be a *cycle*. A membership moves A→B, and later, from the session
-  -- on device A that is still valid, B→A. The history then loops A→B→A→B, and
-  -- `union all` follows it until the statement is cancelled or the server runs
-  -- out of memory. `union` discards a row already in the result, so revisiting
-  -- the same audit row ends the recursion; carrying the id keeps two genuinely
-  -- separate moves between the same pair of identities counted as two.
-  with recursive chain (id, from_id, to_id) as (
-    select a.id, a.metadata ->> 'from_user_id', a.metadata ->> 'to_user_id'
-    from private.audit_log a
-    where a.action = 'circles.member_reattached'
-      and a.resource_id = target_circle
-      and a.occurred_at > now() - interval '7 days'
-      and a.metadata ->> 'to_user_id' = target::text
-    union
-    select a.id, a.metadata ->> 'from_user_id', a.metadata ->> 'to_user_id'
-    from private.audit_log a
-    join chain on a.metadata ->> 'to_user_id' = chain.from_id
-    where a.action = 'circles.member_reattached'
-      and a.resource_id = target_circle
-      and a.occurred_at > now() - interval '7 days'
-  )
-  select count(*) into moves from chain;
-
-  if moves >= 3 then
+  -- Three per membership per seven days (ADR 0006), **counting only the moves made
+  -- by picking a name** (ADR 0049; `private.list_moves_this_week`). A move made with
+  -- an emailed re-entry link is never refused here, a take-back from a saved account
+  -- included, so a member with a live link can always return. What that leaves open
+  -- is in ADR 0049, decision 4.
+  if p_reentry_token_hash is null
+    and private.list_moves_this_week(target_circle, target) >= 3
+  then
     raise exception 'reattach_limit' using errcode = 'too_many_rows';
   end if;
 
@@ -251,10 +246,17 @@ begin
     -- and burning the link for that is a link they cannot use when they actually
     -- need it. Inside the same transaction either way, so a later failure rolls the
     -- spend back with it.
-    update private.email_action_tokens t set used_at = now() where t.id = token.id;
+    -- A retired link is now simply used, and cannot take anything back twice.
+    update private.email_action_tokens t
+    set used_at = coalesce(t.used_at, now()), retired_at = null
+    where t.id = token.id;
   end if;
 
-  perform private.move_membership(target_circle, target, caller);
+  if taking_back then
+    perform private.hand_back_membership(target_circle, target, caller, token.contact_id);
+  else
+    perform private.move_membership(target_circle, target, caller);
+  end if;
 
   -- And the lock is not taken on trust. If the membership is not the caller's by
   -- now, something moved it and this reattachment achieved nothing — so it says
@@ -267,23 +269,30 @@ begin
   end if;
 
   -- Ids only (non-negotiable 8). The two ids are what makes the chain above
-  -- walkable; a display name here would be the leak the constraint on this
-  -- table refuses anyway.
+  -- walkable, and `source` ('list' or 'email') is what lets the cap above count
+  -- only the moves it is for; a display name here would be the leak the
+  -- constraint on this table refuses anyway.
   insert into private.audit_log (actor_user_id, action, resource_type, resource_id, metadata)
   values (caller, 'circles.member_reattached', 'circle', target_circle,
-          jsonb_build_object('from_user_id', target, 'to_user_id', caller));
+          jsonb_build_object('from_user_id', target, 'to_user_id', caller, 'source', entry_source,
+                             'from_saved_account', taking_back));
 
   -- The owner's "Priya rejoined from a new device" (spec §5.1) starts here.
   -- No name: the notification pipeline reads the roster for that.
+  -- A place taken back from a saved account is told the same way, with the account's
+  -- id on the event so both parties are named: no new channel (ADR 0049, 6).
   perform jobs.emit('circles.member_reattached', 'circle', target_circle,
-    jsonb_build_object('circle_id', target_circle, 'user_id', caller, 'source', entry_source));
+    jsonb_build_object('circle_id', target_circle, 'user_id', caller, 'source', entry_source)
+    || case when taking_back
+         then jsonb_build_object('from_user_id', target, 'from_saved_account', true)
+         else '{}'::jsonb end);
 
   return chosen;
 end;
 $$;
 
 comment on function public.reattach_member(uuid, uuid, bytea) is
-  'Moves a guest membership and everything scoped to it onto the calling anonymous identity, from the Continue-as list or an emailed re-entry token (ADR 0006). At most three per membership per seven days; never onto a saved-place member.';
+  'Moves a guest membership and everything scoped to it onto the calling anonymous identity, from the Continue-as list or an emailed re-entry token (ADR 0006). Only in an active circle; a per-circle hourly limit on the list path; at most three list moves per membership per seven days, and a move made with a valid re-entry token is never refused by that cap (ADR 0049); never onto a saved-place member; but a valid re-entry token takes a place back from a saved account whose own address is not the link''s, moving that circle only (ADR 0049, decision 6).';
 
 revoke all on function public.reattach_member(uuid, uuid, bytea) from public;
 revoke all on function public.reattach_member(uuid, uuid, bytea) from anon, authenticated;

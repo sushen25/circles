@@ -210,3 +210,34 @@ describe('icsFilename', () => {
     expect(icsFilename('')).toBe('catch-up.ics');
   });
 });
+
+describe('a moved time (ADR 0051)', () => {
+  const first = () => confirmation({ calendarUid: 'calendar-uid-1', calendarSequence: 0 });
+  const moved = () =>
+    confirmation({
+      id: 'confirmation-2' as never,
+      calendarUid: 'calendar-uid-1',
+      calendarSequence: 1,
+      candidate: {
+        start: fromISO('2026-09-19T09:00:00Z'),
+        end: fromISO('2026-09-19T11:00:00Z'),
+        availableUserIds: [],
+      },
+    });
+
+  it('keeps the same UID with a higher SEQUENCE, so a calendar moves the entry rather than doubling it', () => {
+    const before = parseEvent(build({ confirmation: first() }));
+    const after = parseEvent(build({ confirmation: moved() }));
+    expect(after.uid).toBe(before.uid);
+    expect(after.uid).toBe('calendar-uid-1@example.com');
+    expect(Number(after.component.getFirstPropertyValue('sequence'))).toBe(1);
+    expect(Number(before.component.getFirstPropertyValue('sequence'))).toBe(0);
+    expect(after.startDate.toJSDate().toISOString()).toBe('2026-09-19T09:00:00.000Z');
+  });
+
+  it('falls back to the confirmation id and sequence zero for one made before moves existed', () => {
+    const event = parseEvent(build());
+    expect(event.uid).toBe('confirmation-1@example.com');
+    expect(Number(event.component.getFirstPropertyValue('sequence'))).toBe(0);
+  });
+});

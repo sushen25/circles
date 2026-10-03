@@ -542,9 +542,12 @@ S["Candidates"] = shell(
         candidate("Thu 17 Sep", "6:30–8:30 pm", "5 of 6", ["Maya","Priya","Tom","Jess","Sam"], "Alex hasn't answered", "Best attendance", rec=True),
         candidate("Sat 19 Sep", "6:30–8:30 pm", "4 of 6", ["Maya","Tom","Jess","Sam"], "Doesn't work for Priya", "One fewer, weekend"),
         candidate("Sun 20 Sep", "4–6 pm", "4 of 6", ["Maya","Priya","Jess","Sam"], "Doesn't work for Tom", "Also four, a day later"),
+        # Any day and time (SUS-138, ADR 0051): a row in the body, not the footer,
+        # which already has the review and the nudge.
+        card(li(ic("cal", 22, T["accent_dark"]), "Pick a different time", "Any day and time, even one that isn't an option. You'll see who it works for.", right=ic("chev",18,T["ink3"])), gap=0, pad=6),
         gap=16) +
     foot(pri("Review Thursday"), ter("Nudge Alex"))
-, minh=1040)
+, minh=1170)
 
 S["ConfirmReview"] = shell(
     top("Back to options") +
@@ -568,7 +571,7 @@ S["ConfirmedOrg"] = shell(
              ),
         between(stack(title("5 going · 1 to confirm"), sm("Alex hasn't said yet"), gap=2), marks(["Maya","Priya","Tom","Jess","Sam","Alex"], waiting=("Alex",))),
     ) +
-    foot(pri("Share to group chat"), sec("Add to my calendar"), ter("Change the time · Cancel this plan"))
+    foot(pri("Share to group chat"), sec("Add to my calendar"), ter("Edit this plan · Ask for new times · Cancel this plan"))
 , invert=True)
 
 S["NoQuorum"] = shell(
@@ -581,6 +584,7 @@ S["NoQuorum"] = shell(
         lbl("What would unlock it"),
         card(li(ic("people", 22, T["accent_dark"]), "Lower to 3 people", "Saturday becomes possible"), divider(),
              li(ic("cal", 22, T["accent_dark"]), "Try a wider window", "Ask about the next two weeks instead"), divider(),
+             li(ic("cal", 22, T["accent_dark"]), "Set the time yourself", "Pick any day and time. You'll see who it works for before you lock it in."), divider(),
              li(ic("x", 22, T["ink3"]), "Close this attempt", "The circle just sees it didn't line up"), gap=0, pad=6),
         gap=16)
 , minh=1000)
@@ -946,6 +950,7 @@ S["Waiting"] = shell(
         stack(dl("Waiting on a few more."), p("Options appear once at least 4 people can make the same time. No need to chase anyone yet; a reminder goes to anyone who hasn't answered on Monday."), gap=8),
         card(lbl("So far"), day_row("Thu 17 Sep", "6:30–10:30 pm works for 2", [False,False,True,True,True,True,True,True,True,True]), gap=10),
         sm("Only you see this while it's incomplete. Members see the options once there are some."),
+        card(li(ic("cal", 22, T["accent_dark"]), "Set the time yourself", "Pick any day and time. You'll see who it works for before you lock it in.", right=ic("chev",18,T["ink3"])), gap=0, pad=6),
     ) +
     foot(sec("Share the link again"), ter("Edit the plan"))
 )
@@ -995,10 +1000,96 @@ S["DeadlinePassed"] = shell(
         between(row(marks(["Maya","Priya","Tom","Jess","Sam","Alex"], waiting=("Alex",)), sm("5 of 6 replied")), sm("Replies closed")),
         stack(dl("Replies have closed. Thursday still works for five."), p("Nothing changes until you lock something in. Thursday stays possible until Wednesday night."), gap=8),
         candidate("Thu 17 Sep", "6:30–8:30 pm", "5 of 6", ["Maya","Priya","Tom","Jess","Sam"], "Alex didn't answer", "Best attendance", rec=True),
-        card(li(ic("people", 22, T["accent_dark"]), "Hand this to someone else", "Another member picks the time"), divider(), li(ic("clock", 22, T["accent_dark"]), "Give it one more day", "Reopens replies until Wed 6 pm"), gap=0, pad=6),
+        card(li(ic("people", 22, T["accent_dark"]), "Hand this to someone else", "Another member picks the time"), divider(), li(ic("clock", 22, T["accent_dark"]), "Give it one more day", "Reopens replies until Wed 6 pm"), divider(), li(ic("cal", 22, T["accent_dark"]), "Set the time yourself", "Pick any day and time. You'll see who it works for before you lock it in."), gap=0, pad=6),
         gap=16) +
     foot(pri("Lock in Thursday"))
 )
+
+# The organiser sets the final plan (SUS-138, ADR 0051). One day at a time from
+# today, a start and an end by the half hour, and, live, who it works for by
+# name. Friday 18 Sep, 7-9 pm, which no option offered and which works for two
+# of six: so the caution says it. The figure on a day is how many of the others
+# could make some of it (SUS-129).
+ST_COUNTS = {15: 1, 16: 1, 17: 4, 18: 2, 19: 3, 20: 3}
+
+def st_day(n, picked=18):
+    if not n:
+        return '<div></div>'
+    sel = n == picked
+    gone = n < 10
+    k = ST_COUNTS.get(n, 0)
+    style = ("background:" + T["accent"] + ";color:#fff;") if sel else (("color:" + T["ink3"] + ";") if gone else "")
+    tick = f'<span style="position:absolute;top:2px;right:3px;display:flex;">{ic("check", 10, "#fff")}</span>' if sel else ""
+    cnt = f'<span style="position:absolute;top:3px;left:4px;display:flex;align-items:center;gap:2px;font-size:11px;">{ic("people", 11)}{k}</span>' if k else ""
+    return f'<div class="num" style="position:relative;height:56px;display:flex;align-items:center;justify-content:center;border-radius:10px;{style}">{cnt}{tick}{n}</div>'
+
+def st_calendar():
+    return stack(
+        between(lbl("September 2026"), row(mini("Earlier month"), mini("Later month"), gap=6)),
+        sm("The number on a day is how many of the others could make some of it."),
+        '<div style="display:grid;grid-template-columns:repeat(7, minmax(0, 1fr));gap:4px;">' +
+        "".join(f'<div class="sm" style="text-align:center;">{d}</div>' for d in ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"]) +
+        "".join(st_day(n) for n in [0] + list(range(1, 31))) + '</div>', gap=8)
+
+S["SetTime"] = shell(
+    top("Back to options") +
+    body(
+        stack(dl("Pick the time yourself"), p("Any day and time, even one nobody put down. It's your call, and you'll see who it works for first."), gap=8),
+        st_calendar(),
+        stack(lbl("Time on Fri 18 Sep"),
+              between(f'<div class="title num">Starts 7 pm</div>', row(mini("Earlier"), mini("Later"), gap=6)),
+              between(f'<div class="title num">Ends 9 pm</div>', row(mini("Earlier"), mini("Later"), gap=6)),
+              sm("2 hours, as the plan asked."), gap=8),
+        stack(lbl("Who it works for"), marks(["Priya","Tom","Alex"], waiting=("Alex",)),
+              title("2 of 6 can make it"),
+              sm("Priya and Tom can make it · Not you, Jess or Sam · Alex hasn't answered"), gap=8),
+        notice("That's 2 of you, and this plan asked for at least 4. You can still lock it in. Everyone sees who it works for.", "shield", "warn"),
+        gap=22) +
+    foot(pri("Review Friday"))
+, minh=1500)
+
+S["ConfirmReviewOwn"] = shell(
+    top("Back to the time") +
+    body(
+        stack(lbl("Lock it in?"), date("Friday 18 September", 32), f'<div class="num" style="font-family:Newsreader,Georgia,serif;font-size:22px;color:{T["ink2"]};">7–9 pm</div>', gap=6),
+        between(marks(["Priya","Tom","Alex"], waiting=("Alex",)), sm("2 of 6 can make it · Not you, Jess or Sam · Alex hasn't answered")),
+        stack(lbl("Where"), inp("Hope St Radio"), inp("Address or map link, optional", ph=True), gap=8),
+        stack(lbl("A note for everyone"), f'<div class="input" style="height:auto;min-height:72px;align-items:flex-start;padding:14px 16px;">Come if you can.</div>', gap=8),
+        # One caution in place of the unanswered warning: it is not an option,
+        # and it says who did not put it down.
+        notice("This isn't one of the options, and the plan asked for at least 4. Jess, Sam and Alex didn't put this time down. They'll see the plan and can say whether they're coming.", "shield", "warn"),
+        stack(p("Did you have to chase anyone outside the app?"), chips("*No", "One person", "More than one"), sm("It tells us whether the link did the chasing for you."), gap=10),
+    ) +
+    foot(pri("Lock it in"), sm("Times are frozen once locked. Later replies won't move it."))
+, minh=980)
+
+S["EditLocked"] = shell(
+    top("Back to the plan") +
+    body(
+        stack(dl("Edit this plan"), p("Change the time, the place or the note. Nobody is asked for their times again."), gap=8),
+        stack(lbl("When"),
+              between(stack(title("Sat 19 Sep"), sm("7–9 pm"), gap=2), ter("Change")),
+              sm("You, Tom and Jess can make it · Doesn't work for Priya or Sam · Alex hasn't answered"), gap=8),
+        stack(lbl("Where"), inp("Hope St Radio"), inp("Address or map link, optional", ph=True), gap=8),
+        stack(lbl("A note for everyone"), f'<div class="input" style="height:auto;min-height:72px;align-items:flex-start;padding:14px 16px;">Come if you can.</div>', sm("14 of 280"), gap=8),
+        notice("Everyone sees the new time straight away, with Friday marked as moved. Anyone whose times cover it stays going without doing a thing. Priya, Sam and Alex are asked whether they can come.", "shield", "warn"),
+    ) +
+    foot(pri("Save changes"), ter("Keep Friday as it is"))
+, minh=980)
+
+S["ConfirmedGuestMoved"] = shell(
+    top("Sunday Crew", back=False, right=ic("share", 22, T["invert_ink"])) +
+    body(
+        lbl("Locked in"),
+        stack(f'<div class="date" style="font-size:40px;line-height:1.05;">Saturday<br>19 September</div>', f'<div class="num" style="font-family:Newsreader,Georgia,serif;font-size:26px;color:{T["invert_accent"]};">7–9 pm</div>', sm("Moved from Fri 18 Sep, 7–9 pm"), gap=8),
+        stack(row(ic("pin", 18, T["invert_ink2"]), title("Hope St Radio")), gap=6),
+        card(between(stack(title("3 going · 3 to confirm"), sm("Maya, Tom, Jess going · Priya, Sam, Alex to confirm"), gap=2), marks(["Maya","Tom","Jess","Priya","Sam","Alex"], waiting=("Priya","Sam","Alex"))),
+             divider(),
+             stack(title("The time moved. Are you coming?"), sm("Let everyone know below"), gap=2)),
+        p("Maya says: “Come if you can.”"),
+    ) +
+    foot(pri("Add to calendar"), ter("I can make it"), ter("I can't make it"))
+, invert=True, minh=900)
 
 S["CancelPlan"] = shell(
     top("Back") +
@@ -1370,7 +1461,7 @@ with open(os.path.join(out, "Main.dc.html"), "w") as f:
     f.write(S["Join"])
 os.remove(os.path.join(out, "Join.dc.html"))
 
-heights = {"CheckEmail":960, "ConfirmedGuestNudge":900, "AppSheet":900, "Availability":1250, "AvailabilityPicking":1300, "AvailabilityAdjusting":1400, "AvailabilityOthers":1250, "AvailabilityOthersPicking":1300, "AvailabilityOthersAdjusting":1500, "AvailabilityOthersFirst":1250, "Candidates":1040, "NoQuorum":1000, "Settings":980, "CandidatesMember":1000, "AvailabilityOverlay":1120}
+heights = {"CheckEmail":960, "ConfirmedGuestNudge":900, "AppSheet":900, "Availability":1250, "AvailabilityPicking":1300, "AvailabilityAdjusting":1400, "AvailabilityOthers":1250, "AvailabilityOthersPicking":1300, "AvailabilityOthersAdjusting":1500, "AvailabilityOthersFirst":1250, "Candidates":1170, "NoQuorum":1080, "SetTime":1500, "ConfirmReviewOwn":980, "EditLocked":980, "ConfirmedGuestMoved":900, "DeadlinePassed":960, "Settings":980, "CandidatesMember":1000, "AvailabilityOverlay":1120}
 def ab(file, x, y, page, w=W, h=None, title=None):
     d = {"file": file, "x": x, "y": y, "w": w, "h": h or heights.get(file.replace(".dc.html",""), H), "page": page}
     if title: d["title"] = title
@@ -1387,7 +1478,7 @@ pages = [{"id":"first","name":"0 · First time, organiser"},
          {"id":"system","name":"6 · States, copy and components"}]
 
 titles = {"Main":"Join · invite landing","ContinueAs":"Continue as · returning member","Name":"Name","Availability":"Availability · partial","AvailabilityPicking":"Availability · days ticked","AvailabilityAdjusting":"Availability · adjusting a day","AvailabilityOthers":"Availability · what others said","AvailabilityOthersPicking":"Availability · others, days ticked","AvailabilityOthersAdjusting":"Availability · others, adjusting a day","AvailabilityOthersFirst":"Availability · first to answer","NoneWork":"None of these dates","Sent":"Sent · email offer","CheckEmail":"Check your email · app nudge","EmailVerified":"Email verified","EmailPrefs":"Email preferences · no sign-in","SaveAccess":"Save access · claim account","CandidatesMember":"Candidates · member view","ConfirmedGuest":"Confirmed · guest","AddToCalendar":"Add to calendar sheet","RescheduledGuest":"Rescheduled · guest","CancelledGuest":"Cancelled · guest","WasThere":"Attendance · morning after","LinkInvalid":"Invite link inactive",
-          "Welcome":"Welcome · sign up or log in","SignIn":"Continue with email","EnterCode":"Enter code","YourName":"Your name · after SSO","FirstCircle":"First circle","InviteCircle":"Invite the circle","CircleHomeJoining":"Circle home · people joining","FirstPlan":"First plan · defaults accepted","EmptyCirclesList":"Circles · first run","CirclesList":"Circles list","CircleHome":"Circle home · finding a time","CircleHomeConfirmed":"Circle home · locked in","CircleHomeDue":"Circle home · about time","CreateCircle":"Create circle","ChooseMode":"Choose how to start","PlanSetup":"Plan setup","CustomWindow":"Custom window","PlanShared":"Plan shared · paste to chat","Waiting":"Waiting · no options yet","Candidates":"Candidates · partial replies","DeadlinePassed":"Replies closed · no decision","EditPlan":"Edit plan · reconfirm warning","ConfirmReview":"Confirm review","ConfirmedOrg":"Confirmed · organiser","ChangeTime":"Change the time","CancelPlan":"Cancel plan","CancelledOrg":"Cancelled · organiser","NoQuorum":"No quorum","Outcome":"Did it happen?","PlanAnother":"Plan another · prefilled","Settings":"Circle settings","NotificationSettings":"Notification settings","Account":"Account","Privacy":"Privacy","Diagnostics":"Founder diagnostics",
+          "Welcome":"Welcome · sign up or log in","SignIn":"Continue with email","EnterCode":"Enter code","YourName":"Your name · after SSO","FirstCircle":"First circle","InviteCircle":"Invite the circle","CircleHomeJoining":"Circle home · people joining","FirstPlan":"First plan · defaults accepted","EmptyCirclesList":"Circles · first run","CirclesList":"Circles list","CircleHome":"Circle home · finding a time","CircleHomeConfirmed":"Circle home · locked in","CircleHomeDue":"Circle home · about time","CreateCircle":"Create circle","ChooseMode":"Choose how to start","PlanSetup":"Plan setup","CustomWindow":"Custom window","PlanShared":"Plan shared · paste to chat","Waiting":"Waiting · no options yet","Candidates":"Candidates · partial replies","DeadlinePassed":"Replies closed · no decision","EditPlan":"Edit plan · reconfirm warning","ConfirmReview":"Confirm review","ConfirmedOrg":"Confirmed · organiser","ChangeTime":"Ask for new times","SetTime":"Set the time yourself","ConfirmReviewOwn":"Confirm review · a time of your own","EditLocked":"Edit this plan · locked in","ConfirmedGuestMoved":"Confirmed · guest, moved","CancelPlan":"Cancel plan","CancelledOrg":"Cancelled · organiser","NoQuorum":"No quorum","Outcome":"Did it happen?","PlanAnother":"Plan another · prefilled","Settings":"Circle settings","NotificationSettings":"Notification settings","Account":"Account","Privacy":"Privacy","Diagnostics":"Founder diagnostics",
           "SparkSetup":"Quiet ask · setup","SparkWaiting":"Quiet ask · initiator waiting","InterestPrompt":"Interest prompt · member","ThresholdRole":"Threshold reached · initiator","Volunteer":"Started quietly · keen member","SparkOpenedMember":"Started quietly · other member","SparkExpired":"Expired · initiator",
           "PushAsk":"Push permission · contextual","CalendarExplain":"Calendar · before permission","CalendarPick":"Calendar · pick calendars","AvailabilityOverlay":"Availability · calendar overlay","CalendarDenied":"Calendar · denied",
           "ConversionMap":"Guest → app · the map","ConfirmedGuestNudge":"Locked in · reminder nudge","AppSheet":"App sheet · four things a browser can't do","ReattachedNudge":"Rejoined · save your place","SecondSent":"Second response · app nudge","AfterAttendance":"After attendance · start a circle","InitiateGate":"Wants to organise · sign in first","AppLanding":"App first open · linked",
@@ -1401,7 +1492,7 @@ def grid(names, page, per_row=6, y0=0):
 boards = []
 grid(["Main","ContinueAs","Name","Availability","NoneWork","Sent",
       "CheckEmail","EmailVerified","EmailPrefs","SaveAccess","CandidatesMember","ConfirmedGuest",
-      "AddToCalendar","RescheduledGuest","CancelledGuest","WasThere","LinkInvalid",
+      "AddToCalendar","RescheduledGuest","CancelledGuest","WasThere","LinkInvalid","ConfirmedGuestMoved",
       "AvailabilityPicking","AvailabilityAdjusting","AvailabilityOthers","AvailabilityOthersPicking",
       "AvailabilityOthersAdjusting","AvailabilityOthersFirst"], "guest")
 # First run is plan-first (ADR 0026): the invite link and "people joining" are
@@ -1412,7 +1503,8 @@ grid(["EmptyCirclesList","CirclesList","CreateCircle","InviteCircle","CircleHome
       "ChooseMode","PlanSetup","CustomWindow","Waiting","Candidates",
       "DeadlinePassed","EditPlan","ConfirmReview","ConfirmedOrg","CircleHomeConfirmed","ChangeTime",
       "CancelPlan","CancelledOrg","NoQuorum","Outcome","CircleHomeDue","PlanAnother",
-      "Settings","NotificationSettings","Account","Privacy","Diagnostics"], "organiser")
+      "Settings","NotificationSettings","Account","Privacy","Diagnostics",
+      "SetTime","ConfirmReviewOwn","EditLocked"], "organiser")
 grid(["SparkSetup","SparkWaiting","InterestPrompt","ThresholdRole","Volunteer","SparkOpenedMember","SparkExpired"], "quiet")
 grid(["PushAsk","CalendarExplain","CalendarPick","AvailabilityOverlay","CalendarDenied"], "native")
 boards.append(ab("ConversionMap.dc.html", 0, 0, "convert", w=1400, h=1100, title=titles["ConversionMap"]))

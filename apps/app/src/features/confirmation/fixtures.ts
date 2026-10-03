@@ -43,6 +43,9 @@ export const lockedIn: PlanConfirmation = {
     revision: 1,
     confirmedBy: 'maya',
     confirmedAt: '2026-09-14T09:00:00.000Z',
+    ownTime: false,
+    belowQuorum: false,
+    movedFrom: undefined,
   },
   attendance: [
     { userId: 'maya', status: 'going' },
@@ -71,6 +74,67 @@ export const morningAfter: PlanConfirmation = { ...lockedIn, view: 'past' };
 /** The same morning, read by Priya, who has not said whether she made it. */
 export const morningAfterAsMember: PlanConfirmation = {
   ...morningAfter,
+  me: 'priya',
+  isOrganiser: false,
+};
+
+/**
+ * Maya locked in a time of her own (ADR 0051): Friday 18 September, 7–9 pm, which
+ * no option offered and which works for two of the six. Priya and Tom put it
+ * down, so they are going; everybody else is **to confirm**, Maya included — her
+ * own times did not cover it — and nobody is "can't make it", because nobody said
+ * no to a time she chose. Melbourne is UTC+10, so 7 pm is 09:00Z.
+ */
+export const lockedInOwnTime: PlanConfirmation = {
+  ...lockedIn,
+  confirmation: {
+    ...lockedIn.confirmation!,
+    id: 'confirmation-own',
+    startsAt: '2026-09-18T09:00:00.000Z',
+    endsAt: '2026-09-18T11:00:00.000Z',
+    going: ['priya', 'tom'],
+    ownTime: true,
+    belowQuorum: true,
+  },
+  attendance: [
+    { userId: 'maya', status: 'unknown' },
+    { userId: 'priya', status: 'going' },
+    { userId: 'tom', status: 'going' },
+    { userId: 'jess', status: 'unknown' },
+    { userId: 'sam', status: 'unknown' },
+    { userId: 'alex', status: 'unknown' },
+  ],
+};
+
+/**
+ * Then Maya moved it to Saturday 19 September, 7–9 pm, without asking anybody
+ * again. Whoever's times cover it is going with nothing to do (Maya, Tom and
+ * Jess); Priya, Sam and Alex are to confirm. It says where it moved from.
+ */
+export const lockedInMoved: PlanConfirmation = {
+  ...lockedInOwnTime,
+  confirmation: {
+    ...lockedInOwnTime.confirmation!,
+    id: 'confirmation-moved',
+    startsAt: '2026-09-19T09:00:00.000Z',
+    endsAt: '2026-09-19T11:00:00.000Z',
+    going: ['maya', 'tom', 'jess'],
+    belowQuorum: true,
+    movedFrom: { startsAt: '2026-09-18T09:00:00.000Z', endsAt: '2026-09-18T11:00:00.000Z' },
+  },
+  attendance: [
+    { userId: 'maya', status: 'going' },
+    { userId: 'priya', status: 'unknown' },
+    { userId: 'tom', status: 'going' },
+    { userId: 'jess', status: 'going' },
+    { userId: 'sam', status: 'unknown' },
+    { userId: 'alex', status: 'unknown' },
+  ],
+};
+
+/** The moved plan, read by Priya, who is asked whether she can come. */
+export const lockedInMovedAsMember: PlanConfirmation = {
+  ...lockedInMoved,
   me: 'priya',
   isOrganiser: false,
 };

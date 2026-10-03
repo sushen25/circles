@@ -185,6 +185,7 @@ const handlers = {
   'recalculate-candidates': await serveOf('recalculate-candidates'),
   'process-scheduled-jobs': await serveOf('process-scheduled-jobs'),
   'confirm-meetup': await serveOf('confirm-meetup'),
+  'edit-confirmation': await serveOf('edit-confirmation'),
   'report-outcome': await serveOf('report-outcome'),
   'generate-ics': await serveOf('generate-ics'),
   'request-email-updates': await serveOf('request-email-updates'),
@@ -1997,6 +1998,200 @@ describe('confirm-meetup', () => {
   });
 });
 
+describe('confirm-meetup, an own time (ADR 0051)', () => {
+  const CONFIRMATION = {
+    id: '00000000-0000-4000-8000-0000000000f2',
+    starts_at: '2099-09-18T09:00:00+00:00',
+    ends_at: '2099-09-18T11:00:00+00:00',
+    available_user_ids: ['00000000-0000-4000-8000-0000000000a1'],
+  };
+  const body = {
+    idempotency_key: KEY,
+    plan_id: PLAN_ID,
+    starts_at: '2099-09-18T09:00:00.000Z',
+    ends_at: '2099-09-18T11:00:00.000Z',
+    expected_input_version: 4,
+    chased_answer: 'none' as const,
+  };
+
+  beforeEach(() => {
+    state.users = [{ id: CALLER, is_anonymous: false }];
+    state.answer = (fn) => {
+      if (fn === 'begin_request') {
+        return {
+          data: [{ state: 'fresh', response_status: null, response_body: null }],
+          error: null,
+        };
+      }
+      if (fn === 'confirm_own_time') return { data: CONFIRMATION, error: null };
+      return { data: null, error: null };
+    };
+  });
+
+  it("locks in a time of the organiser's own and never touches the candidate path", async () => {
+    const response = await load('confirm-meetup')(post({ ...body, place_name: 'Hope St Radio' }));
+
+    expect(response.status).toBe(200);
+    expect(called('confirm_meetup')).toHaveLength(0);
+    const args = called('confirm_own_time')[0]?.args;
+    expect(args?.['p_starts_at']).toBe(body.starts_at);
+    expect(args?.['p_ends_at']).toBe(body.ends_at);
+    expect(args?.['p_place_name']).toBe('Hope St Radio');
+    expect(args?.['p_chased_answer']).toBe('none');
+    expect(await response.json()).toMatchObject({
+      confirmation_id: CONFIRMATION.id,
+      going: CONFIRMATION.available_user_ids,
+    });
+  });
+
+  it("sends the plan's input version the organiser was shown, which is how a stale screen is noticed", async () => {
+    await load('confirm-meetup')(post(body));
+    expect(called('confirm_own_time')[0]?.args['p_expected_input_version']).toBe(4);
+  });
+
+  it('will not lock in a time without saying which version of the names it saw', async () => {
+    const response = await load('confirm-meetup')(
+      post({ ...body, expected_input_version: undefined }),
+    );
+    expect(response.status).toBe(400);
+    expect(called('confirm_own_time')).toHaveLength(0);
+  });
+
+  it('refuses a body that names both a candidate and a stretch', async () => {
+    const response = await load('confirm-meetup')(
+      post({
+        ...body,
+        candidate_id: '2099-09-17T08:30:00.000Z',
+        expected_set_id: '00000000-0000-4000-8000-0000000000e1',
+      }),
+    );
+    expect(response.status).toBe(400);
+    expect(called('confirm_own_time')).toHaveLength(0);
+    expect(called('confirm_meetup')).toHaveLength(0);
+  });
+
+  it('answers a stale screen as stale_availability, and a bad time by what is wrong with it', async () => {
+    for (const [message, status] of [
+      ['stale_availability', 409],
+      ['own_time_in_the_past', 409],
+      ['own_time_off_the_half_hour', 400],
+      ['own_time_too_far_ahead', 400],
+    ] as const) {
+      state.users = [{ id: CALLER, is_anonymous: false }];
+      state.answer = (fn) => {
+        if (fn === 'begin_request') {
+          return {
+            data: [{ state: 'fresh', response_status: null, response_body: null }],
+            error: null,
+          };
+        }
+        return { data: null, error: { message, code: 'P0001' } };
+      };
+      const response = await load('confirm-meetup')(post(body));
+      expect(response.status, message).toBe(status);
+      expect(await response.json()).toMatchObject({ reason: message });
+    }
+  });
+});
+
+describe('edit-confirmation (ADR 0051)', () => {
+  const CONFIRMATION = {
+    id: '00000000-0000-4000-8000-0000000000f3',
+    starts_at: '2099-09-19T09:00:00+00:00',
+    ends_at: '2099-09-19T11:00:00+00:00',
+    available_user_ids: [],
+  };
+  const GOING = '00000000-0000-4000-8000-0000000000a1';
+
+  beforeEach(() => {
+    state.users = [{ id: CALLER, is_anonymous: false }];
+    state.rows = { attendance: [{ user_id: GOING }] };
+    state.answer = (fn) => {
+      if (fn === 'begin_request') {
+        return {
+          data: [{ state: 'fresh', response_status: null, response_body: null }],
+          error: null,
+        };
+      }
+      if (fn === 'edit_confirmation') return { data: CONFIRMATION, error: null };
+      return { data: null, error: null };
+    };
+  });
+
+  it('edits the place and note alone without naming a time or a version', async () => {
+    const response = await load('edit-confirmation')(
+      post({ idempotency_key: KEY, plan_id: PLAN_ID, place_name: 'Naked for Satan' }),
+    );
+
+    expect(response.status).toBe(200);
+    const args = called('edit_confirmation')[0]?.args;
+    expect(args?.['p_starts_at']).toBeNull();
+    expect(args?.['p_ends_at']).toBeNull();
+    expect(args?.['p_place_name']).toBe('Naked for Satan');
+    // Whole, with nothing meaning cleared.
+    expect(args?.['p_note']).toBeNull();
+    expect(await response.json()).toMatchObject({
+      confirmation_id: CONFIRMATION.id,
+      going: [GOING],
+    });
+  });
+
+  it('moves the time, naming the version of the names the organiser saw', async () => {
+    const response = await load('edit-confirmation')(
+      post({
+        idempotency_key: KEY,
+        plan_id: PLAN_ID,
+        starts_at: '2099-09-19T09:00:00.000Z',
+        ends_at: '2099-09-19T11:00:00.000Z',
+        expected_input_version: 6,
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    const args = called('edit_confirmation')[0]?.args;
+    expect(args?.['p_starts_at']).toBe('2099-09-19T09:00:00.000Z');
+    expect(args?.['p_expected_input_version']).toBe(6);
+  });
+
+  it('refuses half a time, and a move that does not say which names it saw', async () => {
+    for (const extra of [
+      { starts_at: '2099-09-19T09:00:00.000Z', expected_input_version: 6 },
+      { starts_at: '2099-09-19T09:00:00.000Z', ends_at: '2099-09-19T11:00:00.000Z' },
+    ]) {
+      const response = await load('edit-confirmation')(
+        post({ idempotency_key: KEY, plan_id: PLAN_ID, ...extra }),
+      );
+      expect(response.status).toBe(400);
+    }
+    expect(called('edit_confirmation')).toHaveLength(0);
+  });
+
+  it('tells a stale move and an unchanged save apart', async () => {
+    for (const [message, status] of [
+      ['stale_availability', 409],
+      ['nothing_to_change', 400],
+      ['meetup_has_ended', 409],
+      ['not_the_organiser', 403],
+    ] as const) {
+      state.users = [{ id: CALLER, is_anonymous: false }];
+      state.answer = (fn) => {
+        if (fn === 'begin_request') {
+          return {
+            data: [{ state: 'fresh', response_status: null, response_body: null }],
+            error: null,
+          };
+        }
+        return { data: null, error: { message, code: 'P0001' } };
+      };
+      const response = await load('edit-confirmation')(
+        post({ idempotency_key: KEY, plan_id: PLAN_ID, note: 'Bring cash' }),
+      );
+      expect(response.status, message).toBe(status);
+      expect(await response.json()).toMatchObject({ reason: message });
+    }
+  });
+});
+
 describe('report-outcome', () => {
   const CONFIRMATION_ID = '00000000-0000-4000-8000-0000000000f1';
 
@@ -2169,6 +2364,8 @@ describe('generate-ics', () => {
         confirmed_by: CALLER,
         status: 'active',
         confirmed_at: '2099-09-16T00:00:00+00:00',
+        calendar_uid: '00000000-0000-4000-8000-0000000000ca',
+        calendar_sequence: 0,
         plans: {
           title: 'Catch up',
           short_code: 'pncfmt',
@@ -2177,6 +2374,32 @@ describe('generate-ics', () => {
         },
       },
     };
+  });
+
+  it('keeps one calendar entry across a move: the same UID, and a higher sequence (ADR 0051)', async () => {
+    const first = await (
+      await load('generate-ics')(get({ confirmation_id: CONFIRMATION_ID }))
+    ).text();
+    state.users = [{ id: CALLER, is_anonymous: false }];
+    state.rows = {
+      meetup_confirmations: {
+        ...(state.rows['meetup_confirmations'] as Record<string, unknown>),
+        id: '00000000-0000-4000-8000-0000000000f2',
+        starts_at: '2099-09-19T09:00:00+00:00',
+        ends_at: '2099-09-19T11:00:00+00:00',
+        calendar_sequence: 1,
+      },
+    };
+    const moved = await (
+      await load('generate-ics')(get({ confirmation_id: '00000000-0000-4000-8000-0000000000f2' }))
+    ).text();
+
+    const uid = (file: string) => /^UID:(.*)$/m.exec(file)?.[1]?.trim();
+    expect(uid(first)).toMatch(/^00000000-0000-4000-8000-0000000000ca@/);
+    expect(uid(moved)).toBe(uid(first));
+    expect(first).toContain('SEQUENCE:0');
+    expect(moved).toContain('SEQUENCE:1');
+    expect(moved).toContain('DTSTART:20990919T090000Z');
   });
 
   it('answers with a calendar file a browser will save', async () => {
@@ -2697,6 +2920,34 @@ describe('verify-email-contact', () => {
     } finally {
       for (const sink of sinks) sink.mockRestore();
     }
+  });
+
+  it('answers the same however many other contacts hold the address', async () => {
+    // ADR 0050 changed which contacts a verification promotes, in the database.
+    // What the page may learn did not change: the clicking identity's own plans
+    // and whether one is already locked in. Anything else the database added to
+    // its answer, a count of contacts promoted or left pending, is dropped here,
+    // because it would say whether somebody else holds the address.
+    state.answer = (fn) => {
+      if (fn === 'take_rate_token') return { data: true, error: null };
+      if (fn === 'verify_email_contact') {
+        return {
+          data: {
+            active_plans: [],
+            already_confirmed: false,
+            promoted_contacts: 3,
+            pending_contacts: 2,
+          },
+          error: null,
+        };
+      }
+      return { data: null, error: null };
+    };
+
+    const response = await load('verify-email-contact')(postWithoutSession({ token: TOKEN }));
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toStrictEqual({ active_plans: [], already_confirmed: false });
   });
 
   it('says one thing about a spent, expired or invented link', async () => {

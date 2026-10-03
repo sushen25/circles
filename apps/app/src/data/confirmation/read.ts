@@ -55,6 +55,15 @@ export type ConfirmationRead = {
   revision: number;
   confirmedBy: string;
   confirmedAt: string;
+  /** The organiser's own time, not one of the options (ADR 0051). */
+  ownTime: boolean;
+  /** An own time that fewer could make than the plan asked for. */
+  belowQuorum: boolean;
+  /**
+   * Where the plan was before the organiser moved it, on the confirmation that
+   * move wrote: "Moved from Fri 18" is a fact about this row.
+   */
+  movedFrom: { startsAt: string; endsAt: string } | undefined;
 };
 
 export type AttendanceRead = {
@@ -147,7 +156,7 @@ export async function planConfirmation(
     client
       .from('meetup_confirmations')
       .select(
-        'id, revision, starts_at, ends_at, place_name, place_url, note, status, available_user_ids, confirmed_by, confirmed_at',
+        'id, revision, starts_at, ends_at, place_name, place_url, note, status, available_user_ids, confirmed_by, confirmed_at, own_time, below_quorum, moved_from_starts_at, moved_from_ends_at',
       )
       .eq('plan_id', plan.id)
       .eq('revision', plan.revision)
@@ -174,6 +183,12 @@ export async function planConfirmation(
           revision: row.revision,
           confirmedBy: row.confirmed_by,
           confirmedAt: row.confirmed_at,
+          ownTime: row.own_time,
+          belowQuorum: row.below_quorum,
+          movedFrom:
+            row.moved_from_starts_at === null || row.moved_from_ends_at === null
+              ? undefined
+              : { startsAt: row.moved_from_starts_at, endsAt: row.moved_from_ends_at },
         };
 
   let attendance: AttendanceRead[] = [];

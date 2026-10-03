@@ -6,6 +6,7 @@ import {
   guestWhoAnswered,
   lockInFirstOption,
   memberNamed,
+  planStopsAsking,
   responderIds,
   stackConfig,
   sundayCrew,
@@ -61,6 +62,27 @@ test('with storage cleared, the plan link offers the guests by name and one tap 
     'aria-checked',
     'true',
   );
+});
+
+test("a cancelled plan's link no longer offers the guests: it says it is not active", async ({
+  page,
+}) => {
+  // ADR 0049: a code opens "Continue as" only while the plan is live. A link
+  // forwarded months ago, or to somebody who was never in the chat, must not list
+  // anyone, and nothing moves.
+  const crew = sundayCrew();
+  const tom = guestWhoAnswered(crew, 'Tom');
+  planStopsAsking(crew, 'cancelled');
+
+  await page.goto(`/p/${crew.planCode}`);
+
+  await expect(page.getByText("This link isn't active any more.")).toBeVisible();
+  await expect(page.getByText('Welcome back. Which one is you?')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Continue as Tom' })).toHaveCount(0);
+
+  // Tom's place is exactly where it was.
+  expect(memberNamed(crew.circleId, 'Tom')?.userId).toBe(tom);
+  expect(responderIds(crew.planId)).toEqual([tom]);
 });
 
 test('the "Get back in" link in a real email restores access without the list, once', async ({

@@ -44,6 +44,19 @@ export const SUNDAY_CREW: { readonly [K in EmailKind]: Extract<EmailInput, { kin
     note: "Table's booked under my name. Come hungry.",
     organiserName: 'Maya',
   },
+  // Maya moved Thursday to Saturday 7–9 pm, at the same place, without asking
+  // anybody again (ADR 0051).
+  moved: {
+    ...subscriber,
+    kind: 'moved',
+    start: fromLocal(localDate('2026-09-19'), 19 * 60, MELBOURNE),
+    end: fromLocal(localDate('2026-09-19'), 21 * 60, MELBOURNE),
+    previousStart: START,
+    previousEnd: END,
+    zone: MELBOURNE,
+    placeName: 'Hope St Radio',
+    organiserName: 'Maya',
+  },
   changed: {
     ...subscriber,
     kind: 'changed',

@@ -101,10 +101,18 @@ describe('the organiser', () => {
     );
   });
 
-  it("changes the time or cancels on S1-26's screens, by the plan's own circle", async () => {
+  it("edits the plan, asks for new times or cancels, by the plan's own circle", async () => {
     // From the plan link too, which has no circle in its route (SUS-42).
     show(<ConfirmedFlow target={{ code: 'pnsundaycr' }} />);
-    fireEvent.click(await screen.findByRole('button', { name: 'Change the time' }));
+    // Three quiet actions where there were two (ADR 0051): the sibling edit, and
+    // "Change the time" renamed for what it does.
+    expect(screen.queryByRole('button', { name: 'Change the time' })).toBeNull();
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit this plan' }));
+    expect(push).toHaveBeenCalledWith({
+      pathname: '/circles/[id]/plan/[planId]/edit-locked',
+      params: { id: 'sunday-crew', planId: 'thu-17' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Ask for new times' }));
     expect(push).toHaveBeenCalledWith({
       pathname: '/circles/[id]/plan/[planId]/change-time',
       params: { id: 'sunday-crew', planId: 'thu-17' },
@@ -152,7 +160,8 @@ describe('a member', () => {
     ).toBeTruthy();
     expect(screen.getByText('Open in Maps')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Share to group chat' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Change the time' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Edit this plan' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Ask for new times' })).toBeNull();
   });
 
   it('reads the same zone note as the organiser when they are away from home', async () => {

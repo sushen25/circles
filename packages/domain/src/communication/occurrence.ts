@@ -133,10 +133,13 @@ export function occurrenceFor(kind: NotificationKind, input: OccurrenceInput = {
     case 'deadline_approaching':
       return ONCE;
 
-    // Tied to the confirmation, because these three describe a specific
-    // evening. A reopen supersedes the confirmation and makes a new one, so a
-    // fresh id is exactly the signal that this is a different message.
+    // Tied to the confirmation, because these describe a specific evening. A
+    // reopen supersedes the confirmation and makes a new one, so a fresh id is
+    // exactly the signal that this is a different message. So does a move
+    // (ADR 0051), which writes a new confirmation too: "moved to Saturday" and
+    // then "moved to Sunday" are two things to be told.
     case 'locked_in':
+    case 'moved':
     case 'reminder':
     case 'did_it_happen':
     case 'did_it_happen_participant':

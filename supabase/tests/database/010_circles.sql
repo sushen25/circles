@@ -979,7 +979,12 @@ select is(
        -- SUS-133. Which days somebody picked, to the organiser alone: dates
        -- only, never whose, and what decides whether taking a day away asks
        -- people again (ADR 0047). `280_plan_days.sql`.
-       'picked_days'
+       'picked_days',
+       -- SUS-138. The organiser sets the final plan (ADR 0051): who a stretch
+       -- works for, by id, to the organiser alone; locking in a time of their
+       -- own; and editing a locked-in plan's time, place and note.
+       -- `310_organiser_sets_the_plan.sql`.
+       'stretch_availability', 'confirm_own_time', 'edit_confirmation'
      )),
   '',
   'only the intended functions in public are callable by authenticated'

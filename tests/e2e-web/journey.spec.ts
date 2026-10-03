@@ -21,6 +21,14 @@ const JOURNEY = [
   { path: '/circles/sunday-crew/plan/thu-17/waiting', expect: /Waiting on|have answered/i },
   { path: '/circles/sunday-crew/plan/thu-17/no-quorum', expect: /enough overlap|unlock/i },
   { path: '/circles/sunday-crew/plan/thu-17/review', expect: /Lock it in|confirm/i },
+  // The organiser sets the final plan (SUS-138, ADR 0051): the picker, the review
+  // of a time that is not an option, and the edit screen.
+  { path: '/circles/sunday-crew/plan/thu-17/set-time', expect: /Pick the time yourself/i },
+  {
+    path: '/circles/sunday-crew/plan/thu-17/review?start=2026-09-18T09:00:00.000Z&end=2026-09-18T11:00:00.000Z',
+    expect: /This isn't one of the options/i,
+  },
+  { path: '/circles/sunday-crew/plan/thu-17/edit-locked', expect: /Edit this plan/i },
   { path: '/circles/sunday-crew/plan/thu-17/confirmed', expect: /Locked in|Thu 17 Sep/i },
   { path: '/circles/sunday-crew/plan/thu-17/outcome', expect: /happen|How did it go/i },
 ];
@@ -68,7 +76,7 @@ test.describe('the fixture switch', () => {
 test.describe('the gallery', () => {
   test('lists every screen', async ({ page }) => {
     await page.goto('/gallery');
-    await expect(page.getByText('73 screens', { exact: false })).toBeVisible();
+    await expect(page.getByText('77 screens', { exact: false })).toBeVisible();
   });
 });
 

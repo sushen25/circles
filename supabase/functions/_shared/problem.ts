@@ -136,6 +136,17 @@ const REASONS: Record<ProblemReason, { status: number; error: Problem['error'] }
   already_the_organiser: { status: 409, error: 'conflict' },
   already_extended: { status: 409, error: 'conflict' },
   no_time_to_extend: { status: 409, error: 'conflict' },
+
+  // SUS-138. The organiser sets the final plan (ADR 0051).
+  stale_availability: { status: 409, error: 'conflict' },
+  needs_own_time: { status: 400, error: 'invalid_request' },
+  own_time_off_the_half_hour: { status: 400, error: 'invalid_request' },
+  own_time_ends_before_it_starts: { status: 400, error: 'invalid_request' },
+  own_time_too_short: { status: 400, error: 'invalid_request' },
+  own_time_too_long: { status: 400, error: 'invalid_request' },
+  own_time_in_the_past: { status: 409, error: 'conflict' },
+  own_time_too_far_ahead: { status: 400, error: 'invalid_request' },
+  meetup_has_ended: { status: 409, error: 'conflict' },
 };
 
 /**

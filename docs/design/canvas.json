@@ -154,9 +154,18 @@
       "title": "Invite link inactive"
     },
     {
-      "file": "AvailabilityPicking.dc.html",
+      "file": "ConfirmedGuestMoved.dc.html",
       "x": 2400,
       "y": 2600,
+      "w": 390,
+      "h": 900,
+      "page": "guest",
+      "title": "Confirmed \u00b7 guest, moved"
+    },
+    {
+      "file": "AvailabilityPicking.dc.html",
+      "x": 0,
+      "y": 3900,
       "w": 390,
       "h": 1300,
       "page": "guest",
@@ -164,7 +173,7 @@
     },
     {
       "file": "AvailabilityAdjusting.dc.html",
-      "x": 0,
+      "x": 480,
       "y": 3900,
       "w": 390,
       "h": 1400,
@@ -173,7 +182,7 @@
     },
     {
       "file": "AvailabilityOthers.dc.html",
-      "x": 480,
+      "x": 960,
       "y": 3900,
       "w": 390,
       "h": 1250,
@@ -182,7 +191,7 @@
     },
     {
       "file": "AvailabilityOthersPicking.dc.html",
-      "x": 960,
+      "x": 1440,
       "y": 3900,
       "w": 390,
       "h": 1300,
@@ -191,7 +200,7 @@
     },
     {
       "file": "AvailabilityOthersAdjusting.dc.html",
-      "x": 1440,
+      "x": 1920,
       "y": 3900,
       "w": 390,
       "h": 1500,
@@ -200,7 +209,7 @@
     },
     {
       "file": "AvailabilityOthersFirst.dc.html",
-      "x": 1920,
+      "x": 2400,
       "y": 3900,
       "w": 390,
       "h": 1250,
@@ -383,7 +392,7 @@
       "x": 1440,
       "y": 1300,
       "w": 390,
-      "h": 1040,
+      "h": 1170,
       "page": "organiser",
       "title": "Candidates \u00b7 partial replies"
     },
@@ -392,7 +401,7 @@
       "x": 1920,
       "y": 1300,
       "w": 390,
-      "h": 844,
+      "h": 960,
       "page": "organiser",
       "title": "Replies closed \u00b7 no decision"
     },
@@ -439,7 +448,7 @@
       "w": 390,
       "h": 844,
       "page": "organiser",
-      "title": "Change the time"
+      "title": "Ask for new times"
     },
     {
       "file": "CancelPlan.dc.html",
@@ -464,7 +473,7 @@
       "x": 0,
       "y": 3900,
       "w": 390,
-      "h": 1000,
+      "h": 1080,
       "page": "organiser",
       "title": "No quorum"
     },
@@ -539,6 +548,33 @@
       "h": 844,
       "page": "organiser",
       "title": "Founder diagnostics"
+    },
+    {
+      "file": "SetTime.dc.html",
+      "x": 1440,
+      "y": 5200,
+      "w": 390,
+      "h": 1500,
+      "page": "organiser",
+      "title": "Set the time yourself"
+    },
+    {
+      "file": "ConfirmReviewOwn.dc.html",
+      "x": 1920,
+      "y": 5200,
+      "w": 390,
+      "h": 980,
+      "page": "organiser",
+      "title": "Confirm review \u00b7 a time of your own"
+    },
+    {
+      "file": "EditLocked.dc.html",
+      "x": 2400,
+      "y": 5200,
+      "w": 390,
+      "h": 980,
+      "page": "organiser",
+      "title": "Edit this plan \u00b7 locked in"
     },
     {
       "file": "SparkSetup.dc.html",

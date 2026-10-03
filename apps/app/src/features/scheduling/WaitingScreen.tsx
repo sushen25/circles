@@ -14,7 +14,7 @@ import {
 } from '../../components';
 import { Stack } from '../../components/layout';
 import { t } from '../../copy';
-import { CandidateHeader, Placeholder } from './parts';
+import { CandidateHeader, Placeholder, SetTimeRow } from './parts';
 import type { HeaderView } from './view';
 
 /**
@@ -47,6 +47,8 @@ export type WaitingProps = {
   /** What sharing did when it copied rather than opened a sheet. */
   shareOutcome?: string | undefined;
   onEditPlan?: (() => void) | undefined;
+  /** "Set the time yourself", before any option exists (ADR 0051). */
+  onSetTime?: (() => void) | undefined;
   onRetry?: (() => void) | undefined;
   onBack?: (() => void) | undefined;
 };
@@ -61,6 +63,7 @@ export function WaitingScreen({
   onShareAgain,
   shareOutcome,
   onEditPlan,
+  onSetTime,
   onRetry,
   onBack,
 }: WaitingProps) {
@@ -104,6 +107,13 @@ export function WaitingScreen({
           </Stack>
         </Card>
         <Small>{t('waiting', 'only_you')}</Small>
+        {onSetTime === undefined ? null : (
+          <SetTimeRow
+            title={t('waiting', 'set_title')}
+            detail={t('waiting', 'set_body')}
+            onPress={onSetTime}
+          />
+        )}
       </Body>
       <Foot>
         {shareOutcome === undefined ? null : (
