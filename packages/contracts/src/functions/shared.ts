@@ -295,6 +295,13 @@ export const ProblemReason = z.enum([
   'deadline_not_passed',
   /** `accept-organiser`: somebody accepted first. */
   'already_taken',
+
+  /**
+   * `request-email-updates`: the consent wording the client sent is not one we
+   * ever showed (ADR 00XX). Neutral on purpose: it names no version. The client
+   * reloads its copy and asks again.
+   */
+  'consent_version_unknown',
 ]);
 export type ProblemReason = z.infer<typeof ProblemReason>;
 

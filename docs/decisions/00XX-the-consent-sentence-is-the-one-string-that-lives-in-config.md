@@ -1,6 +1,6 @@
 # ADR 00XX: The consent sentence is the one user-facing string that lives in `packages/config`
 
-_Status: proposed · 2 October 2026_
+_Status: proposed · 2 October 2026 · amended the same day by SUS-139_
 
 ## Context
 
@@ -32,6 +32,21 @@ needs no exception.
 - **A screen that calls `request-email-updates` must render the sentence**, or
   be listed as an exemption with its reason (a resend collects nothing new). A
   test scans the app and fails for an unlisted caller.
+- **The version recorded is the version the person saw** (SUS-139). The client
+  sends the `CONSENT.version` it rendered with the address
+  (`consent_version`, required, in the `request-email-updates` contract). A tab
+  opened before a deploy still shows the old words, and the record says those
+  words, not the server's current ones.
+- **The server accepts only versions it knows.** `CONSENT_VERSIONS` in
+  `packages/config/src/consent.ts` lists every version ever shown, oldest first,
+  each with its text, so any recorded version can be turned back into words
+  (`consentTextFor`). It is append-only, a test pins each entry to a hash, and
+  `CONSENT` must be the last entry. An unknown version is refused as
+  `consent_version_unknown` (HTTP 400, naming no version) before any rate
+  counter is spent; a missing one fails the contract and is a 400
+  `invalid_request`. On `consent_version_unknown` the Sent screen says nothing
+  was sent and reloads its copy, so the person reads the current sentence before
+  agreeing to it.
 - Copy that *describes* the subscription after the fact (the verified landing,
   the preferences row) lives in `src/copy` as usual, and must not promise less
   than the sentence does.
@@ -48,10 +63,16 @@ needs no exception.
 
 - Version `2026-10-02` adds the letter that asks somebody to add their times
   again after an edit (`asked_again`, ADR 0046); `2026-09-14` did not name it.
-- The client does not send the version it rendered, so a tab opened before a
-  deploy would be recorded under the server's current version. Recorded as a
-  follow-up (a launch blocker, to be ticketed): the client should send the
-  version and the server accept only known ones, keeping `2026-09-14` on the
-  list.
+- The earlier gap, that the client did not send the version and a stale tab was
+  recorded under the server's current one, is closed by SUS-139 (above). A
+  consequence to keep: a version may be removed from the list only if no
+  subscription holds it, which in practice means never.
+- `2026-09-14` stays on the list because records may name it and must be
+  readable, which also means the server will accept it from a caller. No client
+  renders it (the screen showed different words, and clients before SUS-139 sent
+  no version). A caller who sends it records wording that omits the
+  add-your-times-again letter while that letter is still sent. Left as the ticket
+  specified; the founder may prefer a list entry that is readable but not
+  acceptable for new consent.
 - `docs/design/gen.py` carries a hand-typed mockup of the sentence; it is
   updated by hand with each version.

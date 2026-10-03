@@ -29,7 +29,47 @@
  *   morning-after question. It did not name the letter that asks somebody to
  *   add their times again after an edit (`asked_again`, ADR 0046).
  * - `2026-10-02`: the same, naming that letter too.
+ *
+ * Add a version by appending to `CONSENT_VERSIONS` and pointing `CONSENT` at it.
  */
+const TEXT_2026_09_14 =
+  'Email me about this meetup only — when it is locked in, changed or called ' +
+  'off, a reminder two hours before, and one question the morning after. ' +
+  'Nothing else, and you can stop it from any of those emails without ' +
+  'signing in.';
+
+const TEXT_2026_10_02 =
+  'Email me about this meetup only — when it is locked in, changed or called ' +
+  'off, if I need to add my times again after a change, a reminder two hours ' +
+  'before, and one question the morning after. Nothing else, and you can stop ' +
+  'it from any of those emails without signing in.';
+
+/**
+ * Every version of the sentence that has ever been shown, with its words, oldest
+ * first. A subscription stores the version it was made under, and the client
+ * sends the version it rendered (ADR 00XX), so the server accepts exactly the
+ * versions on this list and any recorded version can be turned back into words.
+ *
+ * **Append only.** Never remove or edit an entry: a version that is gone is a
+ * record that cannot say what was agreed. A test pins each entry's text to a
+ * hash, and requires `CONSENT` to be the last one.
+ */
+export const CONSENT_VERSIONS = [
+  { version: '2026-09-14', text: TEXT_2026_09_14 },
+  { version: '2026-10-02', text: TEXT_2026_10_02 },
+] as const;
+
+/** The words a recorded version stands for, or undefined for a version never shown. */
+export function consentTextFor(version: string): string | undefined {
+  return CONSENT_VERSIONS.find((entry) => entry.version === version)?.text;
+}
+
+/** Whether `version` is one that was shown to somebody, and so may be recorded. */
+export function isKnownConsentVersion(version: string): boolean {
+  return consentTextFor(version) !== undefined;
+}
+
+/** The sentence the screen shows today: the last entry of `CONSENT_VERSIONS`. */
 export const CONSENT = {
   /**
    * The date the wording was settled, which sorts and reads. Not a number:
@@ -37,11 +77,7 @@ export const CONSENT = {
    */
   version: '2026-10-02',
   scope: 'plan_updates',
-  text:
-    'Email me about this meetup only — when it is locked in, changed or called ' +
-    'off, if I need to add my times again after a change, a reminder two hours ' +
-    'before, and one question the morning after. Nothing else, and you can stop ' +
-    'it from any of those emails without signing in.',
+  text: TEXT_2026_10_02,
   /**
    * For each plan-update letter, the words in `text` that say it will come.
    * Keyed by the email kind's name (`SUBSCRIBER_KINDS` in the Edge Functions'

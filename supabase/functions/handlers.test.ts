@@ -1,4 +1,4 @@
-import { CONSENT } from '@circles/config';
+import { CONSENT, CONSENT_VERSIONS, consentTextFor } from '@circles/config';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
@@ -2271,7 +2271,12 @@ describe('generate-ics', () => {
 });
 
 describe('request-email-updates', () => {
-  const body = { idempotency_key: KEY, plan_id: PLAN_ID, email: 'Jules@example.com ' };
+  const body = {
+    idempotency_key: KEY,
+    plan_id: PLAN_ID,
+    email: 'Jules@example.com ',
+    consent_version: CONSENT.version,
+  };
 
   beforeEach(() => {
     state.users = [{ id: CALLER, is_anonymous: false }];
@@ -2349,6 +2354,46 @@ describe('request-email-updates', () => {
 
     // A consent record that cannot say what was agreed is not one.
     expect(called('request_email_updates')[0]?.args['p_consent_version']).toBe(CONSENT.version);
+  });
+
+  it('records a stale but known version as sent, not the current one', async () => {
+    // A tab opened before a deploy still shows the old words; the record must
+    // say those words (ADR 00XX), and they can be read back from the list.
+    const stale = CONSENT_VERSIONS[0].version;
+    expect(stale).not.toBe(CONSENT.version);
+
+    const response = await load('request-email-updates')(post({ ...body, consent_version: stale }));
+
+    expect(response.status).toBe(200);
+    expect(called('request_email_updates')[0]?.args['p_consent_version']).toBe(stale);
+    expect(consentTextFor(stale)).toBeDefined();
+  });
+
+  it('refuses a version it never showed, neutrally, and records nothing', async () => {
+    const response = await load('request-email-updates')(
+      post({ ...body, consent_version: '2099-01-01' }),
+    );
+    const answered = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(answered.reason).toBe('consent_version_unknown');
+    // Neutral: it does not say which versions exist, or echo what it was sent.
+    expect(JSON.stringify(answered)).not.toContain('2099');
+    expect(JSON.stringify(answered)).not.toContain(CONSENT.version);
+    expect(called('request_email_updates')).toHaveLength(0);
+    // And it is not an attempt on the address: nothing was counted.
+    expect(called('take_rate_token')).toHaveLength(0);
+  });
+
+  it('refuses a request that sends no version, and records nothing', async () => {
+    const without = Object.fromEntries(
+      Object.entries(body).filter(([key]) => key !== 'consent_version'),
+    );
+
+    const response = await load('request-email-updates')(post(without));
+
+    expect(response.status).toBe(400);
+    expect(called('request_email_updates')).toHaveLength(0);
   });
 
   it('counts the attempt against this person and this address, not the address', async () => {

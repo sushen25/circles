@@ -25,6 +25,14 @@ export const RequestEmailUpdatesRequest = Mutation.extend({
    * typed the same address twice should not end up with two contacts.
    */
   email: z.string().trim().toLowerCase().normalize('NFC').max(254).pipe(z.email()),
+  /**
+   * The `CONSENT.version` the screen rendered when the person asked. Required:
+   * a subscription is recorded under the words the person was shown, so the
+   * server never fills this in from its own current version (ADR 00XX). Which
+   * versions are acceptable is the server's list (`CONSENT_VERSIONS`), not this
+   * schema's; an unknown one is refused as `consent_version_unknown`.
+   */
+  consent_version: z.string().min(1).max(32),
 });
 export type RequestEmailUpdatesRequest = z.infer<typeof RequestEmailUpdatesRequest>;
 

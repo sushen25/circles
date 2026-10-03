@@ -2021,6 +2021,8 @@ export const en = {
     too_many_tries: "That's as many links as we send to one address in a day. Try again tomorrow.",
     youre_offline: "You're offline. Connect, then try again.",
     couldnt_send: "Something went wrong, so the link didn't go. Please try again.",
+    copy_changed:
+      'The wording on this page was out of date, so nothing was sent. Tap Send again to load the current wording, then read it and try again.',
     reference: 'Ref {reference}',
     save_access_note: 'Optional: save your access on every device, so you never have to rejoin.',
     save_access: 'Save access on every device',
