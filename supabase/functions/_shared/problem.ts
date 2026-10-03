@@ -1,4 +1,4 @@
-import type { Problem, ProblemReason } from '@circles/contracts';
+import { type Problem, type ProblemReason, WIRE_REASON_OF } from '@circles/contracts';
 
 /**
  * Turning a failure into something a client can act on, without telling it
@@ -147,6 +147,12 @@ const REASONS: Record<ProblemReason, { status: number; error: Problem['error'] }
   own_time_in_the_past: { status: 409, error: 'conflict' },
   own_time_too_far_ahead: { status: 400, error: 'invalid_request' },
   meetup_has_ended: { status: 409, error: 'conflict' },
+
+  // SUS-142. Raised by `planning.transition_plan`, and until now nobody's reason.
+  needs_permanent_identity: { status: 403, error: 'forbidden' },
+  already_has_organiser: { status: 409, error: 'conflict' },
+  not_keen_initiator_or_owner: { status: 403, error: 'forbidden' },
+  threshold_not_reached: { status: 409, error: 'conflict' },
 };
 
 /**
@@ -163,7 +169,14 @@ export function reasonOf(
 ): ProblemReason | undefined {
   const message = error?.message?.trim();
   if (message === undefined) return undefined;
-  return message in REASONS ? (message as ProblemReason) : undefined;
+  if (Object.hasOwn(REASONS, message)) return message as ProblemReason;
+  // The domain's own name for a refusal, where the wire spells it differently
+  // (`needs_saved_place` is `requires_saved_place`). Total by type: see
+  // `WIRE_REASON_OF`, so the fallback is never a 500 for a code we know.
+  if (Object.hasOwn(WIRE_REASON_OF, message)) {
+    return WIRE_REASON_OF[message as keyof typeof WIRE_REASON_OF] ?? undefined;
+  }
+  return undefined;
 }
 
 export function problemFor(

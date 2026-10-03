@@ -320,6 +320,18 @@ export const ProblemReason = z.enum([
   /** `accept-organiser`: somebody accepted first. */
   'already_taken',
 
+  // SUS-142. What `planning.transition_plan` raises that had no wire name, so a
+  // person got a 500. Each is about the caller and only the caller.
+
+  /** The transition needs a saved place (Apple, Google, email code): the caller has an anonymous session. */
+  'needs_permanent_identity',
+  /** `accept-organiser`: the plan has an organiser already. */
+  'already_has_organiser',
+  /** A quiet ask is opened early only by a keen member, whoever started it, or the owner. */
+  'not_keen_initiator_or_owner',
+  /** A quiet ask opens when enough people are keen, and not enough are yet. */
+  'threshold_not_reached',
+
   /**
    * `request-email-updates`: the consent wording the client sent is not one we
    * ever showed (ADR 0048). Neutral on purpose: it names no version. The client

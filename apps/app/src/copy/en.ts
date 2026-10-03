@@ -2011,6 +2011,7 @@ export const en = {
     refused_not_keen: "Only someone who said they're keen can pick the time.",
     refused_deadline_not_passed: 'The circle owner can take it on once replies close.',
     refused_wrong_state: "It isn't ready for somebody to pick the time yet.",
+    refused_not_enough_keen: 'Not enough people have said they are keen yet.',
   },
   reattachedNudge: {
     /** "Welcome back, Priya." — the name they continued as. */
