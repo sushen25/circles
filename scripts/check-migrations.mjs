@@ -53,6 +53,16 @@ function selfTest() {
       (p) => p.some((x) => x.startsWith('0002_c.sql')),
     ],
     [
+      'two new migrations with the same version',
+      new Map([
+        [a, 'one'],
+        [b, 'two'],
+        ['0003_x.sql', 'x'],
+        ['0003_y.sql', 'y'],
+      ]),
+      (p) => p.some((x) => x.includes('share version 0003')),
+    ],
+    [
       'a new migration with no version',
       new Map([
         [a, 'one'],
