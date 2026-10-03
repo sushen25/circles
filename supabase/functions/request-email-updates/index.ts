@@ -1,7 +1,8 @@
-import { CONSENT } from '@circles/config';
+import { isKnownConsentVersion } from '@circles/config';
 import { RequestEmailUpdatesRequest, type RequestEmailUpdatesResponse } from '@circles/contracts';
 
 import { jsonHandler } from '../_shared/http.ts';
+import { Refusal } from '../_shared/problem.ts';
 import { callerAddress, enforce } from '../_shared/rate.ts';
 
 /**
@@ -19,14 +20,24 @@ import { callerAddress, enforce } from '../_shared/rate.ts';
  * product — and a suppressed address in particular has asked not to hear from
  * us, which has to outrank telling a third party about it (spec §9).
  *
- * The consent recorded is `CONSENT.version` from `packages/config`: a consent
- * record that cannot say what was agreed is not one.
+ * The consent recorded is the version the client says it rendered, if it is on
+ * `CONSENT_VERSIONS` in `packages/config` (ADR 0048): a consent record that
+ * cannot say what was agreed is not one, and a tab opened before a deploy still
+ * shows the old words. An unknown version is refused, and the client reloads.
  */
 Deno.serve(
   jsonHandler({
     name: 'request-email-updates',
     schema: RequestEmailUpdatesRequest,
     guard: async ({ actor, body, service, request }) => {
+      // Before the counters: an unknown version is a stale or broken client, not
+      // an attempt on an address, and it should not spend the person's three.
+      if (!isKnownConsentVersion(body.consent_version)) {
+        throw new Refusal(
+          'consent_version_unknown',
+          'That page is out of date. Reload it and try again.',
+        );
+      }
       // Three a day for *this person and this address*, not for the address
       // alone. A counter keyed on the address is shared by everybody who can
       // name it, and `take_rate_token` counts refusals too — so three requests
@@ -58,7 +69,7 @@ Deno.serve(
         p_plan_id: body.plan_id,
         p_user_id: actor.userId,
         p_email: body.email,
-        p_consent_version: CONSENT.version,
+        p_consent_version: body.consent_version,
         p_request_id: requestId,
       });
       if (error !== null) throw error;

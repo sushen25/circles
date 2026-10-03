@@ -1151,7 +1151,8 @@ export const en = {
     email_preferences: 'Email preferences',
     no_sign_in_needed: 'No sign-in needed. Changes apply straight away.',
     plan: '{circle} · {title}',
-    confirmed_time_changes_and_one_reminder: 'Confirmed time, changes and one reminder',
+    confirmed_time_changes_and_one_reminder:
+      'Confirmed time, changes, a reminder and one question after',
     stopped: 'Off. Ask for updates again from the plan to turn them back on.',
     turning_this_off_stops_emails_for_this:
       "Turning this off stops emails for this meetup only. The plan itself isn't affected.",
@@ -1179,9 +1180,9 @@ export const en = {
     youll_hear_about_this_meetup_by_email: "You'll hear about this meetup by email.",
     youll_hear_about_these_meetups_by_email: "You'll hear about these meetups by email.",
     only_this_one_well_send_the_confirmed:
-      "We'll send the confirmed time, any important changes and one reminder. Nothing else.",
+      "We'll send the confirmed time, any change or cancellation, a request to add your times again if the plan changes, a reminder before it starts, and one question the morning after. Nothing else.",
     already_confirmed:
-      "Its time is already set. We'll send any important changes and one reminder.",
+      "Its time is already set. We'll send any change or cancellation, a request to add your times again if the plan changes, a reminder before it starts, and one question the morning after.",
     plan_on: '{circle} · {title}',
     on: 'On',
     every_email_has_a_link_to_stop:
@@ -1451,7 +1452,7 @@ export const en = {
       'Hosting, the database and email delivery are run by other companies on our behalf, so your details pass through them. They are there to run {brand}, not to market to you.',
     privacy_email_heading: 'What email you get',
     privacy_email_body:
-      'A sign-in code when you sign in. If you sign in to organise plans, letters about those plans and an occasional nudge to plan the next one; most of these can be turned off in notification settings. Otherwise, updates about a plan only if you ask, each with a stop link.',
+      'A sign-in code when you sign in. If you sign in to organise plans or start a quiet ask, letters about those and an occasional nudge to plan the next one; some of these can be turned off in notification settings. Anyone can ask for updates about a plan, and each of those emails has a stop link.',
     privacy_calendar_heading: 'Your calendar stays yours',
     privacy_calendar_body:
       'Nobody in your circle sees your schedule, only which times work for the group. Calendar events on your phone never leave it.',
@@ -1916,8 +1917,8 @@ export const en = {
     they_see_which_options_work_for_you:
       "They see which options work for you, never a personal schedule. Before enough people are keen on a quiet ask, nobody sees anyone's answer.",
     what_email_you_get: 'What email you get',
-    anyone_gets_updates_only_if_they_ask:
-      'Anyone in a circle gets updates about a plan only if they ask, each with a stop link. If you sign in to organise plans, you also get letters about those plans and an occasional nudge, most of which you can turn off in notification settings. We never sell addresses, and other companies deliver the email for us.',
+    anyone_can_ask_for_plan_updates:
+      'Anyone can ask for updates about a plan, and each of those emails has a stop link. If you sign in to organise plans or start a quiet ask, you also get letters about those and an occasional nudge, some of which you can turn off in notification settings. We never sell addresses, and other companies deliver the email for us.',
     to_have_your_details_removed:
       'To have your details removed, write to {support}. There is no delete button in the app yet.',
   },
@@ -2080,8 +2081,6 @@ export const en = {
     time_gets_picked:
       'A time gets picked once replies close on {day}. The plan will land in the group chat.',
     get_updates_about_this_meetup_by_email: 'Get updates about this meetup by email',
-    well_send_the_confirmed_time_any_important:
-      "We'll send the confirmed time, any important changes and one reminder. Verify your email to turn this on. Nothing else.",
     your_email: 'Your email',
     you_example_com: 'you@example.com',
     not_an_address: "That doesn't look like an email address.",
@@ -2091,6 +2090,8 @@ export const en = {
     too_many_tries: "That's as many links as we send to one address in a day. Try again tomorrow.",
     youre_offline: "You're offline. Connect, then try again.",
     couldnt_send: "Something went wrong, so the link didn't go. Please try again.",
+    copy_changed:
+      'The wording on this page was out of date, so nothing was sent. Tap Send again to load the current wording, then read it and try again.',
     reference: 'Ref {reference}',
     save_access_note: 'Optional: save your access on every device, so you never have to rejoin.',
     save_access: 'Save access on every device',

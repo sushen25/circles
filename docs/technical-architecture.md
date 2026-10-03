@@ -353,7 +353,7 @@ Every artboard in `docs/design/` maps to one route + one feature component; the 
 - Never write a table type by hand; run `pnpm gen:types`.
 - Never change schema in the dashboard; write a migration and a pgTAP test in the same PR.
 - Every RLS policy ships with a test that proves both the allow and the deny.
-- Every user-facing string is a key in `src/copy`; no literals in components.
+- Every user-facing string is a key in `src/copy`; no literals in components. One exception: the email consent sentence is `CONSENT.text` in `packages/config`, versioned and rendered, never copied (ADR 0048).
 - Every analytics event is declared in the catalogue first.
 - No sensitive data (names, emails, tokens, event titles, notes) in logs or analytics payloads. A plan's short code is not a token for this rule: it is in every link the product shares, by design, and what it admits to is bounded and visible ([ADR 0022](decisions/0022-a-plan-link-admits-new-members-while-the-plan-is-asking.md)). It still stays out of analytics payloads and our own function logs.
 - `pnpm check` (format, lint, typecheck, unit, database tests, web e2e smoke) must pass; CI runs the same command.
@@ -513,7 +513,7 @@ ready ─(response change)──▶ collecting ─ recalculate ──┘
 | `hand-off-organiser` | organiser | `hand_off_organiser`: the `hand_off` transition to an active member the plan is asking, with a saved place (`not_a_participant`, `requires_saved_place` otherwise), `planning.organiser_changed`, and the old organiser's queued organiser letters skipped in the same transaction (S2-05) |
 | `extend-deadline` | organiser | `extend_deadline`: an `adjust` to a day from the later of now and the deadline, never past the last possible start less thirty minutes, once per revision (`already_extended`, `no_time_to_extend`) (S2-05) |
 | `report-outcome` | organiser (or member for attendance) | Records outcome/attendance; sets `last_met_at` on `happened` |
-| `request-email-updates` | member | Normalise, dedupe per identity, create the contact and record the consent as given ([ADR 0019](decisions/0019-consent-is-recorded-when-it-is-given.md)), enqueue the verification email — whose token is minted by the sender ([ADR 0020](decisions/0020-the-verification-token-is-minted-by-the-sender.md)). Answers identically for a new, verified, shared or suppressed address |
+| `request-email-updates` | member | Normalise, dedupe per identity, create the contact and record the consent as given, under the version the client rendered if the server knows it ([ADR 0019](decisions/0019-consent-is-recorded-when-it-is-given.md), ADR 0048), enqueue the verification email — whose token is minted by the sender ([ADR 0020](decisions/0020-the-verification-token-is-minted-by-the-sender.md)). Answers identically for a new, verified, shared or suppressed address |
 | `verify-email-contact` | token | Consume the single-use token, verify **every contact of the same person holding that address** (the same identity, or one linked by a recorded reattachment: ADR 0050), drop subscriptions to finished plans and to circles the person has left, send the current state once if a meetup is already locked in |
 | `manage-email-preferences` | token | Show/disable subscriptions without sign-in |
 | `email-provider-webhook` | Resend signature | Dedupe by provider message id, record delivery, suppress on hard bounce/complaint |

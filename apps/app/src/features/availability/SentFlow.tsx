@@ -10,7 +10,13 @@ import { hasBackend } from '../../data/auth/client';
 import { takeSavedWith } from '../../data/auth/saved';
 import { useSession } from '../../data/auth/session';
 import { planToAnswer, type AnswerablePlan, type OwnAnswer } from '../../data/availability';
-import { normaliseAddress, rememberTypedAddress, requestEmailUpdates } from '../../data/email';
+import {
+  canReloadCopy,
+  normaliseAddress,
+  rememberTypedAddress,
+  reloadCopy,
+  requestEmailUpdates,
+} from '../../data/email';
 import { answerable } from '../../data/fixtures';
 import { newIdempotencyKey } from '../../data/functions';
 import { ownNameIn } from '../../data/membership';
@@ -172,6 +178,10 @@ function Sent({
   }, [offerEmail, plan.id]);
 
   const send = async () => {
+    if (problem === 'copy_changed') {
+      reloadCopy();
+      return;
+    }
     const address = normaliseAddress(email);
     if (address === null) {
       setProblem('not_an_address');
@@ -203,6 +213,19 @@ function Sent({
       if (failure.kind === 'offline') setProblem('offline');
       else if (failure.kind === 'reason' && failure.reason === 'too_many_requests') {
         setProblem('too_many_tries');
+      } else if (failure.kind === 'reason' && failure.reason === 'consent_version_unknown') {
+        // The wording on screen is not one the server ever showed anybody.
+        // Nothing was recorded. Say so; the next tap of Send loads the current
+        // copy (a reload here, unprompted, would unload the page before the
+        // notice could be read, and could land on a route the person moved to).
+        // A native build has no page to reload (its copy is the build), so it
+        // says plainly that it could not send, with the reference.
+        if (canReloadCopy()) {
+          setProblem('copy_changed');
+        } else {
+          setProblem('couldnt_send');
+          setReference(failure.reference);
+        }
       } else {
         setProblem('couldnt_send');
         setReference(failure.reference);

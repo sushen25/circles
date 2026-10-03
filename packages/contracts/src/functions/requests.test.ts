@@ -5,6 +5,7 @@ import { ClaimIdentityRequest } from './claim-identity.js';
 import { ExtendDeadlineRequest } from './extend-deadline.js';
 import { HandOffOrganiserRequest } from './hand-off-organiser.js';
 import { JoinPlanRequest } from './join-plan.js';
+import { RequestEmailUpdatesRequest } from './request-email-updates.js';
 import { RecordNudgeRequest } from './record-nudge.js';
 import { ReattachMemberRequest } from './reattach-member.js';
 import { RedeemInviteRequest } from './redeem-invite.js';
@@ -262,5 +263,30 @@ describe('RecordNudgeRequest', () => {
         answer: 'shown',
       }).success,
     ).toBe(false);
+  });
+});
+
+describe('RequestEmailUpdatesRequest', () => {
+  const body = {
+    idempotency_key: KEY,
+    plan_id: '00000000-0000-4000-8000-0000000000a1',
+    email: 'jules@example.com',
+    consent_version: '2026-10-02',
+  };
+
+  it('carries the consent version the screen rendered, and refuses a request without one', () => {
+    // ADR 0048: what is recorded is what the person was shown. A request that
+    // does not say would have the server guess, and a guess is the bug.
+    expect(RequestEmailUpdatesRequest.parse(body).consent_version).toBe('2026-10-02');
+    const without = Object.fromEntries(
+      Object.entries(body).filter(([key]) => key !== 'consent_version'),
+    );
+    expect(RequestEmailUpdatesRequest.safeParse(without).success).toBe(false);
+    expect(RequestEmailUpdatesRequest.safeParse({ ...body, consent_version: '' }).success).toBe(
+      false,
+    );
+    expect(RequestEmailUpdatesRequest.safeParse({ ...body, consent_version: 3 }).success).toBe(
+      false,
+    );
   });
 });
