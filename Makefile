@@ -58,7 +58,7 @@ REF       = $(or $(REF_$(ENV)),$(error ENV must be dev or prod: make $@ ENV=dev)
 SINCE  ?= 10m
 FOLLOW ?= -f
 
-.PHONY: help ports envs setup dev dev-live dev-down web up down restart reset nuke status env \
+.PHONY: help ports envs setup dev dev-live dev-down web up down restart restart-edge reset nuke status env \
 	logs logs-errors logs-db logs-auth logs-api psql sql limits mail studio \
 	gen types build check test test-unit test-db test-live test-live-headed test-smoke lint typecheck format \
 	secrets secret unsecret
@@ -136,6 +136,9 @@ down: ## Stop the stack, keeping its data
 restart: ## Stop and start the stack (needed after a new Edge Function or a new packages/*/dist file)
 	$(PNPM) db:stop
 	@$(MAKE) --no-print-directory up
+
+restart-edge: ## Restart only the Edge runtime (about a second): gives its memory back, does not pick up new files
+	docker restart supabase_edge_runtime_$(PROJECT)
 
 reset: ## Fresh seed data: re-runs every migration and supabase/seed.sql
 	$(PNPM) db:reset
