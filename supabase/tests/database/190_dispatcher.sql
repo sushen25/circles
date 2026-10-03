@@ -12,7 +12,7 @@
 -- made — which is also how the dispatcher itself has to think.
 
 begin;
-select plan(66);
+select plan(69);
 
 create or replace function pg_temp.make_user(
   id uuid, name text, permanent boolean default false, confirmed boolean default false
@@ -790,8 +790,9 @@ select is(
 
 select ok(
   (public.dispatch_health(false)) ?& array['failed_jobs_24h', 'stuck_outbox', 'suppressed_24h',
-    'stuck_ready_plans', 'dispatcher_last_finished_at', 'retention_last_finished_at'],
-  'reading it without claiming gives the four counts and the two lease times'
+    'stuck_ready_plans', 'client_errors_24h', 'client_error_top_route',
+    'dispatcher_last_finished_at', 'retention_last_finished_at'],
+  'reading it without claiming gives the counts, the crash route and the two lease times'
 );
 
 select ok(
@@ -804,6 +805,39 @@ select cmp_ok(
   '>=',
   1,
   'and the count is real: the job given up on above is in it'
+);
+
+-- SUS-112: client crashes, as a count and the route pattern with most. Events
+-- of the kind the ingest stores, and one older than a day that must not count.
+select pg_temp.act_as_postgres();
+delete from analytics.events where event_name = 'client_error';
+insert into analytics.events (event_id, event_name, schema_version, properties, occurred_at, received_at)
+select gen_random_uuid(), 'client_error', 1,
+  jsonb_build_object('route', r, 'error_class', 'type_error', 'source', 'boundary',
+    'build', 'dev', 'platform', 'web', 'reference', 'K7QM2X4P'),
+  now(), at
+from (values ('/p/:code', now()), ('/p/:code', now()), ('/settings', now()),
+  ('/circles', now() - interval '25 hours')) as v (r, at);
+
+select pg_temp.act_as_service();
+select is(
+  ((public.dispatch_health(false)) ->> 'client_errors_24h')::integer,
+  3,
+  'crashes in the last day are counted, and one from 25 hours ago is not'
+);
+select is(
+  (public.dispatch_health(false)) ->> 'client_error_top_route',
+  '/p/:code',
+  'and the route pattern with the most is named, as a pattern and never an address'
+);
+
+select pg_temp.act_as_postgres();
+delete from analytics.events where event_name = 'client_error';
+select pg_temp.act_as_service();
+select is(
+  (public.dispatch_health(false)) -> 'client_error_top_route',
+  'null'::jsonb,
+  'with no crashes the route is null rather than an empty string'
 );
 
 select * from finish();

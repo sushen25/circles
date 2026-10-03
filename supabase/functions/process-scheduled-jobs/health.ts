@@ -6,7 +6,7 @@ import { log } from '../_shared/logging.ts';
 /**
  * The daily health summary (ticket step 5).
  *
- * Four counts and two timestamps, once a day from 08:00 UTC. Whether the day
+ * Counts, one route pattern and two timestamps, once a day from 08:00 UTC. Whether the day
  * is still owed is a fact in the database — `public.dispatch_health_due` —
  * because a dispatcher that runs every minute and remembers nothing between
  * runs cannot decide "once a day" for itself. The claim that closes the day is
@@ -35,6 +35,10 @@ const FIELDS: readonly string[] = [
   'stuck_outbox',
   'suppressed_24h',
   'stuck_ready_plans',
+  // Crashes the product's own clients reported in the last day, and the route
+  // pattern with the most (SUS-112): a count and a pattern like `/p/:code`.
+  'client_errors_24h',
+  'client_error_top_route',
   'dispatcher_last_finished_at',
   'retention_last_finished_at',
 ];

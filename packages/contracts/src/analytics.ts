@@ -1,6 +1,16 @@
 import { z } from 'zod';
 
+import {
+  CLIENT_ERROR_BUILD,
+  CLIENT_ERROR_CLASSES,
+  CLIENT_ERROR_REFERENCE,
+  CLIENT_ERROR_ROUTE,
+  CLIENT_ERROR_SOURCES,
+  isKnownRoute,
+} from './clientError.js';
 import { CircleId, PlanId } from './ids.js';
+
+export * from './clientError.js';
 
 /**
  * The analytics catalogue: every event the product may emit, with a versioned
@@ -280,6 +290,31 @@ export const catalogue = {
   calendar_permission_result: event(1, { granted: z.boolean() }),
   calendar_overlay_used: event(1, { overridden_cells: count }),
   push_permission_result: event(1, { granted: z.boolean() }),
+
+  // --- faults -------------------------------------------------------------
+  //
+  // A screen that crashed, or a script error nobody caught (SUS-112, audit
+  // H7). **No free text, by construction**: no message, no stack, no address,
+  // no fragment. The route is a file path, the class and source are lists, and
+  // the reference is what the person reads out. No `circle_id` or `plan_id`
+  // either — a crash is about a screen, not a group — and the shape is strict
+  // about those two as well. Sentry (SUS-61) replaces the transport, not the
+  // boundary and not this event.
+  client_error: {
+    version: 1,
+    payload: z.strictObject({
+      route: z
+        .string()
+        .max(40)
+        .regex(CLIENT_ERROR_ROUTE)
+        .refine(isKnownRoute, 'a route is made of known words and parameters'),
+      error_class: z.enum(CLIENT_ERROR_CLASSES),
+      source: z.enum(CLIENT_ERROR_SOURCES),
+      build: z.string().regex(CLIENT_ERROR_BUILD),
+      platform: z.enum(['web', 'ios', 'android']),
+      reference: z.string().regex(CLIENT_ERROR_REFERENCE),
+    }),
+  },
 } as const;
 
 export type EventName = keyof typeof catalogue;

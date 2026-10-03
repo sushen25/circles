@@ -1,5 +1,5 @@
 import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
+import { Stack, useSegments } from 'expo-router';
 import Head from 'expo-router/head';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
@@ -12,12 +12,28 @@ import { brand } from '@circles/config';
 import { color } from '@circles/tokens';
 import { fontAssets } from '@circles/tokens/font-assets';
 
+import { listenForClientErrors, setCurrentRoute } from '../src/analytics/clientError';
 import { configureAnalytics, flush } from '../src/analytics/track';
 import { retryWhenReachable, trackEventsTransport } from '../src/analytics/transport';
 import { startSessionTracking } from '../src/data/auth/session';
 import { accessToken } from '../src/data/session';
+import { AppErrorBoundary } from '../src/features/system/AppErrorBoundary';
 import { ShellScreen } from '../src/features/system/ShellScreen';
 import { useHydrated } from '../src/platform/hydration';
+
+// What a crash lands on (SUS-112). Two places, one screen:
+//
+// * `unstable_settings.screenErrorBoundary` wraps **each screen** in the
+//   boundary, inside the navigator. A crash there keeps the Stack, so the
+//   address stays on the screen that failed and "Try again" tries that screen
+//   again. It is Expo Router's own setting for exactly this (layouts only).
+// * `ErrorBoundary` is the last resort, for the layout itself failing. It
+//   replaces the whole navigator, so it can only offer the start.
+//
+// Review round 2 found that the last resort alone rewrote the address to `/`
+// and sent "Try again" back to the welcome screen.
+export { AppErrorBoundary as ErrorBoundary };
+export const unstable_settings = { screenErrorBoundary: AppErrorBoundary };
 
 void SplashScreen.preventAutoHideAsync();
 
@@ -59,6 +75,16 @@ export default function RootLayout() {
    * and the route itself renders only on the device, from the device's facts.
    */
   const hydrated = useHydrated();
+
+  // The route's file path, for a crash report (SUS-112). Written while
+  // rendering, not in an effect: a screen that throws while it mounts stops
+  // this commit, so an effect would still hold the screen before it. The
+  // router's segments name the file that matched, never the address.
+  setCurrentRoute(useSegments());
+
+  // Script errors and rejected promises on the web, which never reach a render
+  // and so never reach the boundary.
+  useEffect(() => listenForClientErrors(), []);
 
   useEffect(() => {
     if (fontsLoaded || fontError) {

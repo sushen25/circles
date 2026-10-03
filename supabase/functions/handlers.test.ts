@@ -2760,6 +2760,62 @@ describe('track-events', () => {
     expect(JSON.stringify(rows)).not.toContain('Maya');
   });
 
+  it('logs a crash by its reference, with the catalogue fields and nothing else', async () => {
+    // SUS-48: "a reference from any error the group hits can be found in the
+    // logs". The line carries the six fields the catalogue allows; the message
+    // and stack a careless client might send are dropped before the insert.
+    const lines: string[] = [];
+    const spy = vi.spyOn(console, 'log').mockImplementation((line: unknown) => {
+      lines.push(String(line));
+    });
+    try {
+      await load('track-events')(
+        post({
+          events: [
+            {
+              ...EVENT,
+              name: 'client_error',
+              properties: {
+                route: '/p/:code',
+                error_class: 'type_error',
+                source: 'boundary',
+                build: 'dev',
+                platform: 'web',
+                reference: 'K7QM2X4P',
+                message: 'Priya at /p/K7QM2X',
+                stack: 'at https://example.test/p/K7QM2X#key',
+              },
+            },
+          ],
+        }),
+      );
+    } finally {
+      spy.mockRestore();
+    }
+
+    const line = lines
+      .map((text) => JSON.parse(text) as Record<string, unknown>)
+      .find((entry) => entry['event'] === 'client_error');
+    expect(line?.['client_error']).toEqual({
+      reference: 'K7QM2X4P',
+      route: '/p/:code',
+      error_class: 'type_error',
+      source: 'boundary',
+      build: 'dev',
+      platform: 'web',
+    });
+    expect(lines.join('\n')).not.toMatch(/Priya|K7QM2X#|example\.test/);
+    const rows = called('record_events')[0]?.args['p_rows'] as Record<string, unknown>[];
+    expect(Object.keys(rows[0]?.['properties'] as object).sort()).toEqual([
+      'build',
+      'error_class',
+      'platform',
+      'reference',
+      'route',
+      'source',
+    ]);
+  });
+
   it('refuses a version the catalogue does not hold', async () => {
     // An old client sending a shape that has since changed, or a new one ahead
     // of the server: either way the payload's meaning is not knowable.
@@ -3722,6 +3778,35 @@ describe('process-scheduled-jobs', () => {
     await load('process-scheduled-jobs')(post({}, 'a-shared-secret'));
 
     expect(called('dispatch_health').map((call) => call.args['p_claim'])).toEqual([false, true]);
+  });
+
+  it("puts the day's client crashes and their route pattern in the health letter", async () => {
+    // SUS-112: somewhere for the founder to see it. A count and a pattern,
+    // never an address.
+    process.env.HEALTH_REPORT_TO = 'ops@example.com';
+    capturing();
+    const bodies: string[] = [];
+    (globalThis as { fetch?: unknown }).fetch = (_url: string, init?: { body?: unknown }) => {
+      bodies.push(String(init?.body ?? ''));
+      return Promise.resolve(new Response(JSON.stringify({ ID: 'captured' })));
+    };
+    const answer = state.answer;
+    state.answer = (fn) => {
+      if (fn === 'dispatch_health_due') return { data: true, error: null };
+      if (fn === 'dispatch_health') {
+        return {
+          data: { client_errors_24h: 7, client_error_top_route: '/p/:code' },
+          error: null,
+        };
+      }
+      return answer(fn);
+    };
+
+    await load('process-scheduled-jobs')(post({}, 'a-shared-secret'));
+
+    const letter = bodies.join('\n');
+    expect(letter).toContain('client_errors_24h: 7');
+    expect(letter).toContain('client_error_top_route: /p/:code');
   });
 
   it('records a failure as a code, never as the exception that caused it', async () => {

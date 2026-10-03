@@ -1,4 +1,22 @@
 -- ---------------------------------------------------------------------------
+-- 0036 — The daily health summary counts client crashes (SUS-112, audit H7).
+--
+-- `public.dispatch_health` gains `client_errors_24h` (how many `client_error`
+-- events arrived in the last 24 hours, by received time) and
+-- `client_error_top_route` (the route pattern with the most of them, such as
+-- `/p/:code`, or null). Both are safe to email: the ingest holds a route to a
+-- pattern of at most 40 characters of `[a-z0-9-:/.+]`, and
+-- `jobs.carries_content` holds the whole summary to the same alphabet.
+--
+-- No table changes. `MIGRATION` in `scripts/gen-sql-functions.mjs` now points
+-- here; `gen-transitions.mjs` and `gen-events.mjs` stay on `0035`, which is the
+-- last migration that changed what they render.
+-- ---------------------------------------------------------------------------
+
+-- BEGIN GENERATED: function definitions (scripts/gen-sql-functions.mjs)
+
+-- supabase/sql/functions/public/dispatch_health.sql
+-- ---------------------------------------------------------------------------
 -- What the founder needs to know once a day, as counts.
 --
 -- Four numbers, chosen because each one is something no screen would ever show
@@ -107,3 +125,5 @@ comment on function public.dispatch_health(boolean) is
 revoke all on function public.dispatch_health(boolean) from public;
 revoke all on function public.dispatch_health(boolean) from anon, authenticated;
 grant execute on function public.dispatch_health(boolean) to service_role;
+
+-- END GENERATED: function definitions
