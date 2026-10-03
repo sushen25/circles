@@ -246,7 +246,7 @@ select ok(
 select is(
   (select metadata ->> 'source' || '/' || (metadata ->> 'from_saved_account') from private.audit_log
    where action = 'circles.member_reattached' and resource_id = pg_temp.circle(1)
-   order by occurred_at desc, id desc limit 1),
+     and metadata ->> 'to_user_id' = pg_temp.uid(1, 3)::text),
   'email/true',
   '1: the audit row says it was an emailed move from a saved account'
 );

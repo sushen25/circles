@@ -1410,6 +1410,11 @@ select isnt_empty(
   'spent, so it is no longer a way in without signing in'
 );
 
+-- The account's own email is the link's address, so it is the same person signed
+-- in and keeps the place (ADR 0049 decision 6). An account whose email is not the
+-- link's has the place taken back by the link: `295_take_back_from_saved_account`.
+select pg_temp.act_as_postgres();
+update auth.users set email = 'mo@example.com' where id = '95000000-0000-0000-0000-0000000b7102';
 select pg_temp.act_as('95000000-0000-0000-0000-0000000b7103', true);
 select throws_ok(
   format($$ select public.reattach_member(null, null, %L) $$,
