@@ -181,28 +181,21 @@ member's to use, and a link spent by being used is not. Using a retired link
 clears the mark, so it works once.
 
 *A condition the founder's rule needs to be safe.* The rule is for one story: a
-place was **picked from the list** and then saved, and the real guest's link was
-sent before that. So the link is honoured only if it was **minted for the person the
-place was picked from**: `email_action_tokens.minted_for_user_id` (new, fixed at
-issue, never moved with the place) must be the first identity in the recorded chain
-of moves leading to the account (the one nobody moved the place *to*), and the chain
-must hold a list pick. Without this, a link minted for somebody who held the place
-*later* (a taker's own mailbox) could take it from the real guest once she had saved
-it, whether she came back by email or by picking her own name, and a saved account
-has no link of its own to answer with, so saving would leave her worse off than
-staying a guest. Two reviews found the variants; they are scenes 10 and 13 of
-`295_take_back_from_saved_account`. A guest who simply saved (nobody picked her
-place) matches nothing, so her own old links cannot take the place from her own
-account.
-
-*Costs of the condition, stated plainly.* A link minted *after* the pick, even a
-letter sent to the guest's own address (the address travels with the place, so
-letters keep coming), is minted for the taker and does not qualify: only the links
-minted before the pick (they last seven days) take the place back (scene 14). A
-guest with two addresses gets the link's address back with the place; her other
-address and its consent for this circle stay with the account, which is not the
-guest's to give up in this move. Links minted before the column existed carry no
-identity and never take a place back.
+place was **picked from the list** and then saved, and the link is to the real
+guest's own mailbox. So the link is honoured only if the chain of recorded moves
+leading to the account holds a list pick, and the link's **address is one a link was
+once minted for the place's first holder**: the identity nobody moved the place to
+(or, in a loop, the earliest mover). `email_action_tokens.minted_for_user_id` (new,
+fixed at issue, never moved with the place) records whom each link was minted for.
+Keyed on the address, not on the identity the link names, so a guest who has changed
+identity (a new device, an emailed return) and whose newest letter is minted for her
+current one is still recognised (scenes 14 and 15). Without the condition, a link to
+a taker's own mailbox, minted for somebody who held the place *later*, could take it
+from the real guest once she had saved it, whether she came back by email or by
+picking her own name, and a saved account has no link of its own to answer with, so
+saving would leave her worse off than staying a guest. Three reviews found the
+variants (scenes 10 and 13). A guest nobody picked from matches nothing, so her own
+old links cannot take the place from her own account.
 
 *The edge cases, settled:*
 
@@ -256,10 +249,13 @@ identity and never take a place back.
   exist, and any error leaves the link unspent.
 
 *Residuals, plainly.* Anybody who can read the real guest's mailbox can use her
-link, as before. A guest who saves under a different address (an Apple relay) after
-being picked is the same person as the link, so her own pre-pick link can take the
-place from her own account; the rule cannot know it. The take-back is not counted
-toward the cap, as decided.
+link, as before. A guest with two addresses gets the link's address back with the
+place; her other address and its consent for this circle stay with the account.
+A guest who was picked (even picking her own name on a new device counts as a pick)
+and then saved under a different address (an Apple relay) can have her own old
+link take the place from her own account: the rule cannot tell a self-pick from a
+taker's, and she can save again from the browser the link opened in. The take-back
+is not counted toward the cap, as decided.
 
 ## Alternatives considered
 

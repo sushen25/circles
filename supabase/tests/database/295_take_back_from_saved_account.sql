@@ -19,7 +19,8 @@
 --   9  a profile flag and no account     keeps the place
 --  10  the rightful guest came back by email and saved; a former taker's link cannot take it
 --  13  the same, but she came back by picking her name from the list
---  14  a letter to the guest's address minted after the pick   is refused (stated in the ADR)
+--  14  a letter to the guest's address minted after the pick   still takes the place back
+--  15  a guest who changed identity before the pick   her newest letter takes the place back
 --  11  a claim merged into an existing member  the guest's link cannot take that member's place
 --  12  the account organises an open plan   keeps the place
 --
@@ -27,7 +28,7 @@
 -- guest's fresh session k=3, a second account k=5.
 
 begin;
-select plan(54);
+select plan(56);
 
 create or replace function pg_temp.uid(n integer, k integer) returns uuid
 language sql immutable as $$
@@ -578,15 +579,45 @@ set is_anonymous = false, email = 'taker-account-14@example.com', raw_app_meta_d
 where id = pg_temp.uid(14, 2);
 update public.profiles set is_permanent = true where user_id = pg_temp.uid(14, 2);
 select pg_temp.act_as(pg_temp.uid(14, 3), true);
-select throws_ok(
-  $$ select public.reattach_member(p_reentry_token_hash => extensions.digest('late-link-14', 'sha256')) $$,
-  'target_is_permanent',
-  '14: a link minted after the pick, though sent to the guest''s address, is refused (ADR 0049: stated limit)'
-);
 select is(
-  (select id from public.reattach_member(p_reentry_token_hash => pg_temp.digest_of('link-14'))),
+  (select id from public.reattach_member(p_reentry_token_hash => pg_temp.digest_of('late-link-14'))),
   pg_temp.circle(14),
-  '14: and the link minted before the pick takes the place back'
+  '14: a link minted after the pick, to the guest''s own address, takes the place back'
+);
+select pg_temp.act_as_postgres();
+select is(pg_temp.holder(14), pg_temp.uid(14, 3), '14: the place moved');
+
+-- ===========================================================================
+-- 15  The guest changed identity (picked her own name on a new device) before the
+--     taker came; her newest letter is minted for that newer identity
+-- ===========================================================================
+select pg_temp.base(15);
+select pg_temp.act_as(pg_temp.uid(15, 3), true);
+select public.reattach_member(pg_temp.circle(15), pg_temp.uid(15, 1));
+select pg_temp.act_as_postgres();
+select public.issue_reentry_token(pg_temp.circle(15),
+  (select id from private.email_contacts where email_normalized = 'guest-15@example.com'),
+  pg_temp.digest_of('newest-link-15'));
+select pg_temp.act_as(pg_temp.uid(15, 2), true);
+select public.reattach_member(pg_temp.circle(15), pg_temp.uid(15, 3));
+select pg_temp.act_as_postgres();
+update auth.users
+set is_anonymous = false, email = 'taker-account-15@example.com', raw_app_meta_data = '{"is_anonymous": false}'
+where id = pg_temp.uid(15, 2);
+update public.profiles set is_permanent = true where user_id = pg_temp.uid(15, 2);
+select pg_temp.make_user(pg_temp.uid(15, 6), 'Guest, third device', true);
+select pg_temp.act_as(pg_temp.uid(15, 6), true);
+select is(
+  (select id from public.reattach_member(p_reentry_token_hash => pg_temp.digest_of('newest-link-15'))),
+  pg_temp.circle(15),
+  '15: her newest letter, minted for her newer identity, takes the place back'
+);
+select pg_temp.act_as_postgres();
+select is(
+  (select user_id from public.circle_members
+   where circle_id = pg_temp.circle(15) and display_name_snapshot = 'Guest 15' and status = 'active'),
+  pg_temp.uid(15, 6),
+  '15: the place moved'
 );
 
 select * from finish();

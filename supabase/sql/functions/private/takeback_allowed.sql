@@ -18,17 +18,20 @@
 --     and does not organise a plan that is still open: the plan's guards want its
 --     organiser to be a member, so taking the place would strand it until the
 --     owner cancels it. The account keeps the place until then;
---   * **the link was minted for the person the place was picked from.** Walking the
---     recorded moves back from the holder (through claims), there is a move made by
---     the list, and the first identity in that chain, the one nobody moved the place
---     *to*, is the identity `email_action_tokens.minted_for_user_id` says the link
---     was minted for. That is the story this rule is for: a guest's place was picked
---     from the list and then saved, and the guest's link predates it. Without it, a
---     link minted for somebody who held the place *later* (a taker's own mailbox)
---     could take the place from the real guest once the guest had saved it, and a
---     saved account has no link of its own to answer with. An account that was
---     never picked from (a guest who simply saved) matches nothing here, so their
---     own old links cannot take the place from their own account;
+--   * **the link's address is one the place's first holder had.** Walking the
+--     recorded moves back from the holder (through claims) there is a move made by
+--     the list, and the address is one that a link was once minted for the place's
+--     *first holder*: the identity nobody moved the place to (or, in a loop, the
+--     earliest mover). `email_action_tokens.minted_for_user_id` records whom each
+--     link was minted for and never moves with the place. That is the story this
+--     rule is for: a guest's place was picked from the list and then saved, and the
+--     link is to the guest's own mailbox. Without it, a link to a taker's own
+--     mailbox (minted for somebody who held the place *later*) could take the place
+--     from the real guest once she had saved it, whether she came back by email or
+--     by picking her own name; a saved account has no link of its own to answer
+--     with. Keyed on the address and not on the identity the link names, so a guest
+--     who has changed identity (new device, an emailed return) and whose newest
+--     letter is minted for her current one is still recognised;
 --   * **the account's own address is not the link's address.** An account whose
 --     email is the address the link was sent to is the same person, signed in, and
 --     keeps the place. Compared lower-cased, against `auth.users.email` and every
@@ -40,8 +43,7 @@
 create or replace function private.takeback_allowed(
   p_circle_id uuid,
   p_holder uuid,
-  p_contact_id uuid,
-  p_minted_for uuid
+  p_contact_id uuid
 )
 returns boolean
 language sql
@@ -61,12 +63,12 @@ as $$
       where pl.circle_id = p_circle_id and pl.organiser_user_id = p_holder
         and pl.state not in ('cancelled', 'expired', 'completed')
     )
-    and p_minted_for is not null
     and exists (
-      with recursive chain (id, from_id, to_id, picked) as (
+      with recursive chain (id, from_id, to_id, picked, at) as (
         select a.id, a.metadata ->> 'from_user_id', a.metadata ->> 'to_user_id',
                a.action = 'circles.member_reattached'
-                 and coalesce(a.metadata ->> 'source', 'list') = 'list'
+                 and coalesce(a.metadata ->> 'source', 'list') = 'list',
+               a.occurred_at
         from private.audit_log a
         where a.resource_type = 'circle' and a.resource_id = p_circle_id
           and a.action in ('circles.member_reattached', 'circles.member_claimed')
@@ -74,18 +76,31 @@ as $$
         union
         select a.id, a.metadata ->> 'from_user_id', a.metadata ->> 'to_user_id',
                a.action = 'circles.member_reattached'
-                 and coalesce(a.metadata ->> 'source', 'list') = 'list'
+                 and coalesce(a.metadata ->> 'source', 'list') = 'list',
+               a.occurred_at
         from private.audit_log a
         join chain on a.metadata ->> 'to_user_id' = chain.from_id
         where a.resource_type = 'circle' and a.resource_id = p_circle_id
           and a.action in ('circles.member_reattached', 'circles.member_claimed')
+      ),
+      firsts as (
+        select c.from_id from chain c
+        where not exists (select 1 from chain x where x.to_id = c.from_id)
+        union
+        select (select e.from_id from chain e order by e.at, e.id limit 1)
+        where not exists (
+          select 1 from chain c where not exists (select 1 from chain x where x.to_id = c.from_id)
+        )
       )
       select 1
       where exists (select 1 from chain where picked)
         and exists (
-          select 1 from chain c
-          where c.from_id = p_minted_for::text
-            and not exists (select 1 from chain x where x.to_id = c.from_id)
+          select 1
+          from private.email_action_tokens t
+          join private.email_contacts tk on tk.id = t.contact_id
+          join private.email_contacts k on k.id = p_contact_id and k.email_hash = tk.email_hash
+          where t.purpose = 'reentry' and t.membership_circle_id = p_circle_id
+            and t.minted_for_user_id::text in (select f.from_id from firsts f)
         )
     )
     and not exists (
@@ -106,8 +121,8 @@ as $$
     );
 $$;
 
-comment on function private.takeback_allowed(uuid, uuid, uuid, uuid) is
-  'Whether an emailed re-entry link may take a place back from a saved account: a real account, not the circle''s owner or an open plan''s organiser, whose own address is not the link''s, and and whose place was picked from the identity the link was minted for. Every doubt is a no.';
+comment on function private.takeback_allowed(uuid, uuid, uuid) is
+  'Whether an emailed re-entry link may take a place back from a saved account: a real account, not the circle''s owner or an open plan''s organiser, whose own address is not the link''s, and and whose place was picked from the first holder, whose address the link is. Every doubt is a no.';
 
-revoke all on function private.takeback_allowed(uuid, uuid, uuid, uuid) from public;
-revoke all on function private.takeback_allowed(uuid, uuid, uuid, uuid) from anon, authenticated;
+revoke all on function private.takeback_allowed(uuid, uuid, uuid) from public;
+revoke all on function private.takeback_allowed(uuid, uuid, uuid) from anon, authenticated;
