@@ -4,19 +4,21 @@ import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
- * The organiser's way in (S1-22): Welcome, the email, the code, Your name.
+ * The organiser's way in (S1-22): the front door, the email, the code, Your name.
  * The auth server's own behaviour is the live suite's (`organiser.spec.ts`);
  * these pin what each screen sends and where it goes next.
  */
 
 const push = vi.fn();
 const replace = vi.fn();
+const where = { pathname: '/' };
 /** Whether the screen under test is the one in front. */
 const focus = { focused: true, epoch: 0 };
 vi.mock('expo-router', async () => {
   const { useEffect } = await import('react');
   return {
     useRouter: () => ({ push, replace, back: vi.fn(), canGoBack: () => false }),
+    usePathname: () => where.pathname,
     useFocusEffect: (effect: () => void) => {
       const epoch = focus.epoch;
       useEffect(() => {
@@ -90,6 +92,7 @@ async function enter(code: string) {
 beforeEach(() => {
   focus.focused = true;
   focus.epoch = 0;
+  where.pathname = '/';
   Object.assign(session, { status: 'none', userId: undefined, isLoading: false });
   for (const mock of [
     push,
@@ -113,19 +116,14 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-describe('Welcome', () => {
-  it('offers email, and no button for a provider that is not built (SUS-77)', async () => {
+describe('the front door', () => {
+  it('is the first circle with a quiet Sign in, and no sign-in before it (ADR 00YY)', async () => {
     wrap(<WelcomeFlow />);
-    expect(await screen.findByRole('button', { name: 'Continue with email' })).toBeVisible();
-    expect(screen.queryByRole('button', { name: 'Continue with Apple' })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Continue with Google' })).toBeNull();
-  });
+    expect(await screen.findByLabelText('Circle name')).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Continue with email' })).toBeNull();
 
-  it('links the terms and the privacy basics', async () => {
-    wrap(<WelcomeFlow />);
-    fireEvent.click(await screen.findByRole('link', { name: 'terms' }));
-    fireEvent.click(screen.getByRole('link', { name: 'privacy' }));
-    expect(push.mock.calls).toEqual([['/terms'], ['/privacy']]);
+    fireEvent.click(screen.getByRole('button', { name: 'Sign in' }));
+    expect(push).toHaveBeenCalledWith('/sign-in');
   });
 
   it('sends a returning account with a name and circles straight to them', async () => {
@@ -135,6 +133,15 @@ describe('Welcome', () => {
     wrap(<WelcomeFlow />);
     // Their circles list, which is live since S1-23.
     await waitFor(() => expect(replace).toHaveBeenCalledWith('/circles'));
+  });
+
+  it("sends a signed-in organiser from the website's Start a plan to a new circle, with no gate", async () => {
+    where.pathname = '/start';
+    Object.assign(session, { status: 'saved', userId: 'maya' });
+    auth.ownProfile.mockResolvedValue({ name: 'Maya', zone: 'Australia/Melbourne' });
+    newestCircleId.mockResolvedValue('c1');
+    wrap(<WelcomeFlow />);
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/circles/new'));
   });
 
   it('asks again each time it comes back into view, rather than reusing an old answer (review round 4)', async () => {
@@ -170,6 +177,52 @@ describe('Welcome', () => {
     wrap(<WelcomeFlow />);
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(replace).not.toHaveBeenCalled();
+  });
+});
+
+describe('Save your place, the gate of the first run (ADR 00YY)', () => {
+  const place = {
+    circle: 'Sunday Crew',
+    kind: 'plan' as const,
+    title: 'Catch up · next 14 days',
+    detail: 'Evenings · about 2 hours',
+  };
+
+  it('says the plan is ready and summarises it, and links the terms', async () => {
+    wrap(<SignInFlow gate={{ place, onPassed: async () => undefined }} />);
+    expect(await screen.findByText("Your plan's ready. Save your place.")).toBeVisible();
+    expect(screen.getByText('Catch up · next 14 days')).toBeVisible();
+    fireEvent.click(screen.getByRole('link', { name: 'terms' }));
+    fireEvent.click(screen.getByRole('link', { name: 'privacy' }));
+    expect(push.mock.calls).toEqual([['/terms'], ['/privacy']]);
+  });
+
+  it('goes on to make the circle once the code is through, telling the draft first', async () => {
+    auth.ownProfile.mockResolvedValue({ name: 'Maya', zone: 'Australia/Melbourne' });
+    const onPassed = vi.fn().mockResolvedValue(undefined);
+    wrap(<SignInFlow gate={{ place, onPassed }} />);
+    await sendCodeTo(ADDRESS);
+    await enter('123456');
+
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/circles/new/finish'));
+    expect(onPassed).toHaveBeenCalledTimes(1);
+  });
+
+  it('asks a new account its name first', async () => {
+    wrap(<SignInFlow gate={{ place, onPassed: async () => undefined }} />);
+    await sendCodeTo(ADDRESS);
+    await enter('123456');
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/name'));
+  });
+
+  it('is never what an ordinary sign-in does: a returning organiser is not handed a draft', async () => {
+    auth.ownProfile.mockResolvedValue({ name: 'Maya', zone: 'Australia/Melbourne' });
+    newestCircleId.mockResolvedValue('c1');
+    wrap(<SignInFlow />);
+    await sendCodeTo(ADDRESS);
+    await enter('123456');
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/circles'));
+    expect(replace).not.toHaveBeenCalledWith('/circles/new/finish');
   });
 });
 

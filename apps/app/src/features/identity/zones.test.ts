@@ -70,4 +70,20 @@ describe('after signing in', () => {
     expect(destinationAfterSignIn({ hasName: true, circleId: undefined })).toBe('/circles/new');
     expect(afterNaming(undefined)).toBe('/circles/new');
   });
+
+  it('goes on to make a drafted circle only from the gate of the first run (ADR 00YY)', () => {
+    expect(destinationAfterSignIn({ hasName: true, circleId: 'c1', draft: true })).toBe(
+      '/circles/new/finish',
+    );
+    expect(destinationAfterSignIn({ hasName: false, circleId: undefined, draft: true })).toBe(
+      '/name',
+    );
+    expect(destinationAfterSignIn({ hasName: true, circleId: 'c1' })).toBe('/circles');
+  });
+
+  it('opens a new circle for a signed-in organiser who started a plan from the website', () => {
+    expect(destinationAfterSignIn({ hasName: true, circleId: 'c1', starting: true })).toBe(
+      '/circles/new',
+    );
+  });
 });

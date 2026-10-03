@@ -99,9 +99,9 @@ const SCREENS: ScreenEntry[] = [
     href: '/join/invalid',
   },
   {
-    screen: 'Welcome',
+    screen: 'SavePlace',
     feature: 'identity',
-    href: '/',
+    href: '/circles/new/save',
   },
   {
     screen: 'SignIn',

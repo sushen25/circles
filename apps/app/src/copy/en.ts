@@ -1293,6 +1293,10 @@ export const en = {
     a_loose_aim_not_a_rule_nobody: 'A loose aim, not a rule. Nobody gets scored.',
     create_sunday_crew: 'Create Sunday Crew',
     you_can_change_anything_later: 'You can change anything later.',
+    // The first screen of the run, before there is an account (ADR 00YY).
+    no_account_yet: 'No account yet. You can change anything later.',
+    sign_in: 'Sign in',
+    sign_in_hint: 'Sign in to an account you already have',
     create_named: 'Create {name}',
     create_circle: 'Create circle',
     creating: 'Creating',
@@ -1323,6 +1327,10 @@ export const en = {
     tue_15_sep_6_pm: 'Tue 15 Sep, 6 pm',
     friends_mark_the_times_theyd_actually_be:
       "Friends mark the times they'd actually be up for. You'll see the best options and pick one. Nobody's calendar is shared.",
+    // Before there is a circle to count (ADR 00YY): a number nobody can judge yet.
+    most_of_the_group: 'Most of the group need to make it',
+    friends_mark_then_sign_in:
+      "Friends mark the times they'd actually be up for. You'll see the best options and pick one. Nobody's calendar is shared. Next, a quick sign-in so this plan is yours on any device.",
     ask_the_group: 'Ask the group',
     see_if_people_are_keen_instead: 'See if people are keen instead',
     step_2_of_2: 'Step 2 of 2',
@@ -2273,6 +2281,31 @@ export const en = {
     circle_name_only_never_member_names_dates:
       'Circle name only. Never member names, dates chosen, or anything from a quiet ask.',
   },
+  savePlace: {
+    // The gate, after the plan is drafted and before it is shared (ADR 00YY).
+    your_plan_is_ready: "Your plan's ready. Save your place.",
+    your_circle_is_ready: "Your circle's ready. Save your place.",
+    body: 'One sign-in, so {circle} is yours on any device and you can lock the time in later. Friends you invite never need one.',
+    body_invite:
+      'One sign-in, so {circle} is yours on any device and you can invite people to it. Friends you invite never need one.',
+    just_the_invite: 'An invite link for now. No plan yet.',
+    detail: '{band} · {duration} · replies close {closes}',
+    by_continuing_you_agree_to_the: 'By continuing you agree to the',
+    terms: 'terms',
+    and: 'and',
+    privacy: 'privacy',
+    basics_no_ads_no_selling_data_18: 'basics: no ads, no selling data, 18+.',
+  },
+  finish: {
+    // After the place is saved and the name is in: the circle and the plan are made.
+    setting_up: 'Setting up {circle}',
+    couldnt_set_up:
+      "Something went wrong, so {circle} wasn't set up. What you chose is kept. Please try again.",
+    too_many_tries: "That's a lot of new circles at once. Wait a little, then try again.",
+    youre_offline: "You're offline. Connect, then try again.",
+    try_again: 'Try again',
+    reference: 'Ref {reference}',
+  },
   shell: {
     loading: 'Getting things ready',
   },
@@ -2668,18 +2701,6 @@ export const en = {
   },
   welcome: {
     brand: '{brand}',
-    make_room_for_each_other: 'Make room for each other.',
-    find_a_time_your_friends_are_actually:
-      'Find a time your friends are actually up for, without chasing everyone or sharing calendars.',
-    continue_with_apple: 'Continue with Apple',
-    continue_with_google: 'Continue with Google',
-    continue_with_email: 'Continue with email',
-    friends_you_invite_never_need_an_account:
-      'Friends you invite never need an account. By continuing you agree to the',
-    terms: 'terms',
-    and: 'and',
-    privacy: 'privacy',
-    basics_no_ads_no_selling_data_18: 'basics: no ads, no selling data, 18+.',
     opening_your_circles: 'Opening your circles',
     couldnt_load: "We couldn't load your circles.",
     youre_offline: "You're offline. Connect, then try again.",

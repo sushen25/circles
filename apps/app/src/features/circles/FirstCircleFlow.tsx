@@ -1,16 +1,10 @@
-import type { IdempotencyKey } from '@circles/contracts';
 import { isValidDisplayName, normaliseDisplayName } from '@circles/domain';
-import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
-import { track } from '../../analytics/track';
-import { deviceTimeZone, ownProfile, useSession } from '../../data/auth';
+import { guard, useSession } from '../../data/auth';
 import { hasBackend } from '../../data/auth/client';
-import { createCircle, keepInviteSecret } from '../../data/circles';
-import { newIdempotencyKey } from '../../data/functions';
-import { failureOf } from '../identity/join/failure';
-import { useSavedPlace } from '../identity/useSavedPlace';
+import { useOrganiserDraft } from './useOrganiserDraft';
 import {
   FirstCircleScreen,
   type CircleCadence,
@@ -18,16 +12,22 @@ import {
 } from './FirstCircleScreen';
 
 /**
- * `/circles/new` — the first circle (spec §5.1 step 4), through `create-circle`.
+ * `/circles/new`, and `/` for somebody with no saved place — the first circle
+ * (spec §5.1 step 1 of 2).
  *
- * On success the invite secret is held in memory — the invite screen is still
- * reachable from the next one — and the person is sent on to make the first
- * plan, with `replace`, so Back does not return to a form that has already made
- * a circle (ADR 0026).
+ * **Nothing is created here, and nobody has to sign in** (ADR 00YY). The name
+ * and the cadence are held on this device as a draft, and the circle is made
+ * after the plan is ready and the place is saved (`FinishDraftFlow`). So there
+ * is no gate on this route: anybody can type a circle's name, and the organiser
+ * gate is the screen after the plan.
  *
- * **One key per request.** A retry of the same name and cadence reuses the
- * key, so a tap after a timeout returns the circle the first one made; a
- * different name is a different request and gets a new one (ADR 0016).
+ * Somebody with no saved place is at the front of the product, and sees the
+ * wordmark and a quiet **Sign in** for a returning organiser. A signed-in
+ * organiser arrives from their circles list and sees the same form with a way
+ * back.
+ *
+ * The draft is written as the name is typed (after a pause) and when the person
+ * moves on, so a reload, or the round trip to an email code, brings it back.
  */
 export function FirstCircleFlow() {
   return hasBackend() ? <LiveFirstCircle /> : <FixtureFirstCircle />;
@@ -43,105 +43,79 @@ function FixtureFirstCircle() {
       cadence={cadence}
       onNameChange={setName}
       onCadenceChange={setCadence}
-      onNext={() => router.push('/circles/sunday-crew/plan/new')}
-      onBack={() => router.back()}
+      onNext={() => router.push('/circles/new/plan')}
+      onSignIn={() => router.push('/sign-in')}
     />
   );
 }
 
-const REASONS: Record<string, FirstCircleProblem> = {
-  display_name_unusable: 'name_unusable',
-  too_many_requests: 'too_many_tries',
-};
+/** How long a typed name waits for the next keystroke before it is written down. */
+const SAVE_AFTER_MS = 300;
 
 function LiveFirstCircle() {
   const router = useRouter();
   const session = useSession();
-  const gate = useSavedPlace();
-  const profile = useQuery({
-    queryKey: ['own-profile', session.userId],
-    queryFn: ownProfile,
-    enabled: gate === 'allow',
-    staleTime: 60_000,
-  });
+  const signedIn = guard({ route: 'saved', session }).kind === 'allow';
+  const { loaded, draft, save } = useOrganiserDraft();
 
   const [name, setName] = useState('');
   const [cadence, setCadence] = useState<CircleCadence>('monthly');
-  const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<FirstCircleProblem | undefined>();
-  const [reference, setReference] = useState<string | undefined>();
-  const key = useRef<{ for: string; key: IdempotencyKey } | undefined>(undefined);
-  const inFlight = useRef(false);
+  const hydrated = useRef(false);
+  const typedBeforeLoad = useRef(false);
 
-  const back = () => (router.canGoBack() ? router.back() : router.replace('/'));
+  // What was typed before a reload comes back, once, unless the person has
+  // already started typing again.
+  useEffect(() => {
+    if (!loaded || hydrated.current) return;
+    hydrated.current = true;
+    if (draft === null || typedBeforeLoad.current) return;
+    setName(draft.circleName);
+    setCadence(draft.cadence);
+  }, [loaded, draft]);
 
-  const create = async () => {
-    if (inFlight.current) return;
+  // Written after the person pauses. Nothing is written for an empty form that
+  // has no draft behind it, so a visitor who only looked leaves nothing.
+  const pending = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => {
+    if (!hydrated.current) return;
+    if (name.trim() === '' && draft === null) return;
+    pending.current = setTimeout(() => void save({ circleName: name, cadence }), SAVE_AFTER_MS);
+    return () => clearTimeout(pending.current);
+    // `draft` is not a dependency: writing it would write again.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [name, cadence, loaded]);
+
+  const next = async () => {
     const clean = normaliseDisplayName(name);
     if (!isValidDisplayName(clean)) {
       setProblem('name_unusable');
       return;
     }
-    const request = `${clean}\n${cadence}`;
-    if (key.current?.for !== request) key.current = { for: request, key: newIdempotencyKey() };
-
-    inFlight.current = true;
-    setBusy(true);
-    setProblem(undefined);
-    setReference(undefined);
-    try {
-      // The zone the person confirmed on Your name — read before anything is
-      // made, never guessed while the read is still out (review round 1). Only
-      // a profile that has never chosen one falls back to this device's.
-      const known = profile.data !== undefined ? profile.data : (await profile.refetch()).data;
-      if (known === undefined) throw new Error('profile unavailable');
-      const made = await createCircle({
-        name: clean,
-        cadence,
-        timeZone: known?.zone ?? deviceTimeZone() ?? 'UTC',
-        idempotencyKey: key.current.key,
-      });
-      keepInviteSecret(made.circle.id, made.invite_secret);
-      track('circle_created', { circle_id: made.circle.id });
-      // On to the plan, not the invite (ADR 0026): what the group chat gets is
-      // one link with a question in it. The invite secret is still held for
-      // "Just invite people for now" on the next screen.
-      router.replace({ pathname: '/circles/[id]/plan/new', params: { id: made.circle.id } });
-    } catch (error) {
-      const failure = failureOf(error);
-      if (failure.kind === 'offline') {
-        setProblem('offline');
-      } else if (failure.kind === 'reason' && failure.reason === 'requires_saved_place') {
-        // The session stopped being a saved place underneath the screen.
-        router.replace('/');
-      } else if (failure.kind === 'reason' && REASONS[failure.reason] !== undefined) {
-        setProblem(REASONS[failure.reason]);
-      } else {
-        setProblem('couldnt_create');
-        setReference(failure.reference);
-      }
-      setBusy(false);
-    } finally {
-      inFlight.current = false;
-    }
+    clearTimeout(pending.current);
+    await save({ circleName: clean, cadence });
+    router.push('/circles/new/plan');
   };
-
-  if (gate === 'wait') return <FirstCircleScreen state="loading" onBack={back} />;
 
   return (
     <FirstCircleScreen
       name={name}
       cadence={cadence}
       problem={problem}
-      reference={reference}
-      busy={busy}
       onNameChange={(text) => {
+        typedBeforeLoad.current = true;
         setName(text);
         if (problem === 'name_unusable') setProblem(undefined);
       }}
-      onCadenceChange={setCadence}
-      onNext={() => void create()}
-      onBack={back}
+      onCadenceChange={(value) => {
+        typedBeforeLoad.current = true;
+        setCadence(value);
+      }}
+      onNext={() => void next()}
+      onBack={
+        signedIn ? () => (router.canGoBack() ? router.back() : router.replace('/')) : undefined
+      }
+      onSignIn={signedIn ? undefined : () => router.push('/sign-in')}
     />
   );
 }

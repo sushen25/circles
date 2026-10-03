@@ -1,53 +1,45 @@
 import { useQuery } from '@tanstack/react-query';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, usePathname, useRouter } from 'expo-router';
 import { useCallback } from 'react';
 
 import { ownProfile, useSession } from '../../data/auth';
 import { hasBackend } from '../../data/auth/client';
 import { newestCircleId } from '../../data/circles';
+import { FirstCircleFlow } from '../circles/FirstCircleFlow';
 import { destinationAfterSignIn } from './afterSignIn';
 import { isOffline } from './join/failure';
 import { WelcomeScreen } from './WelcomeScreen';
 
 /**
- * `/` — the front door (spec §5.1 step 1).
+ * `/` — the front door (spec §5.1).
  *
- * Somebody without a saved place — nobody at all, or a guest — sees Welcome and
- * one way in, by email. An account that is already signed in is not asked to
- * sign in again: it goes to its circles, to its first circle, or to Your name
- * if it has never been named (`destinationAfterSignIn`).
+ * Somebody without a saved place — nobody at all, or a guest — is at the first
+ * circle: no sign-in before value, for the organiser either (ADR 00YY). A
+ * returning organiser's way in is the quiet "Sign in" on that screen. An account
+ * that is already signed in is not asked anything: it goes to its circles, to its
+ * newest circle, or to Your name if it has never been named
+ * (`destinationAfterSignIn`) — unless it came from the website's "Start a plan"
+ * (`/start`), when a signed-in organiser goes on to a new circle, with no gate.
  *
- * With no backend this is the fixture journey's first screen, unchanged.
+ * With no backend this is the fixture journey's first screen.
  */
 export function WelcomeFlow() {
-  const router = useRouter();
-  const common = {
-    onContinueWithEmail: () => router.push('/sign-in'),
-    onTerms: () => router.push('/terms'),
-    onPrivacy: () => router.push('/privacy'),
-  };
-
-  if (!hasBackend()) return <WelcomeScreen {...common} onNext={() => router.push('/circles')} />;
-  return <LiveWelcome {...common} />;
+  return hasBackend() ? <LiveWelcome /> : <FirstCircleFlow />;
 }
 
-type Common = {
-  onContinueWithEmail: () => void;
-  onTerms: () => void;
-  onPrivacy: () => void;
-};
-
-function LiveWelcome(common: Common) {
+function LiveWelcome() {
   const router = useRouter();
   const session = useSession();
+  const starting = usePathname() === '/start';
   const signedIn = session.status === 'saved' || session.status === 'app';
 
   const where = useQuery({
-    queryKey: ['after-sign-in', session.userId],
+    queryKey: ['after-sign-in', session.userId, starting],
     queryFn: async () => {
       const profile = await ownProfile();
       const hasName = profile?.name !== null && profile?.name !== undefined;
       return destinationAfterSignIn({
+        starting,
         hasName,
         circleId: hasName ? await newestCircleId() : undefined,
       });
@@ -96,5 +88,5 @@ function LiveWelcome(common: Common) {
     return <WelcomeScreen state="loading" />;
   }
 
-  return <WelcomeScreen {...common} />;
+  return <FirstCircleFlow />;
 }

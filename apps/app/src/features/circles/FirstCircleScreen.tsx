@@ -1,4 +1,5 @@
 import {
+  BrandLockup,
   Body,
   BodyText,
   Button,
@@ -11,6 +12,7 @@ import {
   Notice,
   Screen,
   Small,
+  Tertiary,
   TopBar,
 } from '../../components';
 import { Stack } from '../../components/layout';
@@ -42,6 +44,13 @@ export type FirstCircleProps = {
   /** The screen's one decision. */
   onNext?: (() => void) | undefined;
   onBack?: (() => void) | undefined;
+  /**
+   * The front door of the first run, for somebody with no account (ADR 00YY):
+   * the wordmark in the top bar, a quiet Sign in for a returning organiser, and
+   * a line saying nothing is asked of them yet. Absent, this is the same form
+   * reached from the circles list, with a way back.
+   */
+  onSignIn?: (() => void) | undefined;
 };
 
 const CADENCES: readonly [CircleCadence, () => string][] = [
@@ -75,15 +84,30 @@ export function FirstCircleScreen({
   onCadenceChange,
   onNext,
   onBack,
+  onSignIn,
 }: FirstCircleProps) {
   const typed = name.trim().replace(/\s+/g, ' ');
 
   return (
     <Screen>
-      <TopBar onBack={onBack} backLabel={t('common', 'back')} />
+      {onSignIn === undefined ? (
+        <TopBar onBack={onBack} backLabel={t('common', 'back')} />
+      ) : (
+        <TopBar
+          left={<BrandLockup size={22} />}
+          title={t('firstCircle', 'step_1_of_2')}
+          right={
+            <Tertiary
+              label={t('firstCircle', 'sign_in')}
+              accessibilityHint={t('firstCircle', 'sign_in_hint')}
+              onPress={onSignIn}
+            />
+          }
+        />
+      )}
       <Body>
         <Stack>
-          <Label>{t('firstCircle', 'step_1_of_2')}</Label>
+          {onSignIn === undefined ? <Label>{t('firstCircle', 'step_1_of_2')}</Label> : null}
           <DisplayL>{t('firstCircle', 'who_do_you_keep_meaning_to_see')}</DisplayL>
           <BodyText>{t('firstCircle', 'a_circle_is_one_group_of_friends')}</BodyText>
         </Stack>
@@ -130,7 +154,11 @@ export function FirstCircleScreen({
           onPress={onNext}
           disabled={busy}
         />
-        <Small>{t('firstCircle', 'you_can_change_anything_later')}</Small>
+        <Small>
+          {onSignIn === undefined
+            ? t('firstCircle', 'you_can_change_anything_later')
+            : t('firstCircle', 'no_account_yet')}
+        </Small>
       </Foot>
     </Screen>
   );

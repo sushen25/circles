@@ -54,16 +54,23 @@ type TopBarProps = {
   onBack?: (() => void) | undefined;
   backLabel?: string | undefined;
   right?: ReactNode;
+  /**
+   * In place of the back action, on a screen that is the front of something
+   * and has nowhere to go back to: the first run's wordmark (ADR 00YY).
+   */
+  left?: ReactNode;
   /** The small mark in the middle, on the screens that are home (the circles list). */
   mark?: boolean | undefined;
 };
 
-export function TopBar({ title, onBack, backLabel = 'Go back', right, mark }: TopBarProps) {
+export function TopBar({ title, onBack, backLabel = 'Go back', right, left, mark }: TopBarProps) {
   const palette = usePalette();
 
   return (
     <View style={styles.top}>
-      {onBack ? (
+      {left !== undefined ? (
+        <View style={styles.topLeft}>{left}</View>
+      ) : onBack ? (
         <Pressable role="button" aria-label={backLabel} onPress={onBack} style={styles.topAction}>
           <Icon name="back" color={palette.ink} />
         </Pressable>
@@ -116,6 +123,10 @@ const styles = StyleSheet.create({
     width: hit,
     height: hit,
     alignItems: 'center',
+    justifyContent: 'center',
+  },
+  topLeft: {
+    height: hit,
     justifyContent: 'center',
   },
   topRight: {

@@ -65,6 +65,14 @@ export type FirstPlanProps = {
    * before there is anything to answer (ADR 0026). Nobody is made to plan.
    */
   onJustInvite?: (() => void) | undefined;
+  /**
+   * Off before there is a circle to change the plan of (ADR 00YY): the chips
+   * above are how the defaults are adjusted, and the full setup is reached from
+   * the plan once it is made.
+   */
+  changeable?: boolean | undefined;
+  /** The line under the card, when it has more to say (the sign-in to come). */
+  note?: string | undefined;
 };
 
 function problemCopy(problem: FirstPlanProblem): string {
@@ -84,10 +92,12 @@ function Line({
   title,
   detail,
   onChange,
+  changeable = true,
 }: {
   title: string;
   detail?: string | undefined;
   onChange?: (() => void) | undefined;
+  changeable?: boolean | undefined;
 }) {
   return (
     <Between>
@@ -95,11 +105,13 @@ function Line({
         <Title>{title}</Title>
         {detail === undefined || detail === '' ? null : <Small>{detail}</Small>}
       </Stack>
-      <Tertiary
-        label={t('firstPlan', 'change')}
-        accessibilityHint={t('firstPlan', 'change_hint', { what: title })}
-        onPress={onChange}
-      />
+      {changeable ? (
+        <Tertiary
+          label={t('firstPlan', 'change')}
+          accessibilityHint={t('firstPlan', 'change_hint', { what: title })}
+          onPress={onChange}
+        />
+      ) : null}
     </Between>
   );
 }
@@ -125,6 +137,8 @@ export function FirstPlanScreen({
   onSeeIfPeopleAre,
   offerQuiet = true,
   onJustInvite,
+  changeable = true,
+  note = t('firstPlan', 'friends_mark_the_times_theyd_actually_be'),
 }: FirstPlanProps) {
   if (state === 'loading') {
     return (
@@ -179,19 +193,20 @@ export function FirstPlanScreen({
           </Stack>
         )}
         <Card>
-          <Line title={window} detail={band} onChange={onChange} />
+          <Line title={window} detail={band} onChange={onChange} changeable={changeable} />
           <Divider />
-          <Line title={duration} onChange={onChange} />
+          <Line title={duration} onChange={onChange} changeable={changeable} />
           <Divider />
           <Line
             title={quorum}
             detail={t('firstPlan', 'adjusts_as_more_people_join')}
             onChange={onChange}
+            changeable={changeable}
           />
           <Divider />
-          <Line title={closesIn} detail={closesAt} onChange={onChange} />
+          <Line title={closesIn} detail={closesAt} onChange={onChange} changeable={changeable} />
         </Card>
-        <Small>{t('firstPlan', 'friends_mark_the_times_theyd_actually_be')}</Small>
+        <Small>{note}</Small>
         {problem === undefined ? null : <Notice kind="warn">{problemCopy(problem)}</Notice>}
         {reference === undefined ? null : (
           <Small>{t('firstPlan', 'reference', { reference })}</Small>

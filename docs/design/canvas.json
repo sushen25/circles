@@ -217,26 +217,35 @@
       "title": "Availability \u00b7 first to answer"
     },
     {
-      "file": "Welcome.dc.html",
+      "file": "FirstCircle.dc.html",
       "x": 0,
       "y": 0,
       "w": 390,
       "h": 844,
       "page": "first",
-      "title": "Welcome \u00b7 sign up or log in"
+      "title": "First circle \u00b7 no account"
     },
     {
-      "file": "SignIn.dc.html",
+      "file": "FirstPlan.dc.html",
       "x": 480,
       "y": 0,
       "w": 390,
       "h": 844,
       "page": "first",
-      "title": "Continue with email"
+      "title": "First plan \u00b7 no account"
+    },
+    {
+      "file": "SavePlace.dc.html",
+      "x": 960,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "page": "first",
+      "title": "Save your place \u00b7 the gate, before the share"
     },
     {
       "file": "EnterCode.dc.html",
-      "x": 960,
+      "x": 1440,
       "y": 0,
       "w": 390,
       "h": 844,
@@ -245,35 +254,17 @@
     },
     {
       "file": "YourName.dc.html",
-      "x": 1440,
-      "y": 0,
-      "w": 390,
-      "h": 844,
-      "page": "first",
-      "title": "Your name \u00b7 after SSO"
-    },
-    {
-      "file": "FirstCircle.dc.html",
       "x": 1920,
       "y": 0,
       "w": 390,
       "h": 844,
       "page": "first",
-      "title": "First circle"
-    },
-    {
-      "file": "FirstPlan.dc.html",
-      "x": 2400,
-      "y": 0,
-      "w": 390,
-      "h": 844,
-      "page": "first",
-      "title": "First plan \u00b7 defaults accepted"
+      "title": "Your name \u00b7 after sign-in"
     },
     {
       "file": "PlanShared.dc.html",
-      "x": 0,
-      "y": 1300,
+      "x": 2400,
+      "y": 0,
       "w": 390,
       "h": 844,
       "page": "first",
@@ -281,7 +272,7 @@
     },
     {
       "file": "Availability.dc.html",
-      "x": 480,
+      "x": 0,
       "y": 1300,
       "w": 390,
       "h": 1250,
@@ -290,7 +281,7 @@
     },
     {
       "file": "Sent.dc.html",
-      "x": 960,
+      "x": 480,
       "y": 1300,
       "w": 390,
       "h": 844,
@@ -299,12 +290,21 @@
     },
     {
       "file": "CircleHome.dc.html",
-      "x": 1440,
+      "x": 960,
       "y": 1300,
       "w": 390,
       "h": 844,
       "page": "first",
       "title": "Circle home \u00b7 finding a time"
+    },
+    {
+      "file": "SignIn.dc.html",
+      "x": 1440,
+      "y": 1300,
+      "w": 390,
+      "h": 844,
+      "page": "first",
+      "title": "Sign in \u00b7 returning organiser"
     },
     {
       "file": "EmptyCirclesList.dc.html",
@@ -826,7 +826,7 @@
       "y": -210,
       "w": 900,
       "page": "first",
-      "text": "First time, organiser, in reading order. Row 1: Welcome (Apple, Google or email) \u2192 email \u2192 code \u2192 name (prefilled from SSO, time zone from the phone) \u2192 first circle (name + loose cadence only) \u2192 first plan with defaults accepted in one tap.\nRow 2: the plan's link ready for the chat \u2192 the organiser's own times \u2192 sent \u2192 circle home with the plan live.\nThe first thing shared is a plan, not an invite (ADR 0026): one link, carrying the question, and whoever taps it joins on the way in. The invite link and the filling-up home are still screens, on the organiser page, reached from circle home or from 'Just invite people for now'.\nTwo inputs before the first real result (a name and a circle name). No permissions, no photo, no contacts, no calendar. SSO buttons carry the platform's own marks in the build; the circles here are placeholders."
+      "text": "First time, organiser, in reading order, with no account until the plan is ready (ADR 00YY). Row 1: first circle (name + loose cadence only) \u2192 first plan with defaults accepted in one tap \u2192 Save your place (the gate) \u2192 the email's code \u2192 name (time zone from the phone) \u2192 the plan's link ready for the chat.\nRow 2: the organiser's own times \u2192 sent \u2192 circle home with the plan live; then Sign in, for a returning organiser, who never meets the draft.\nThe first thing shared is a plan, not an invite (ADR 0026): one link, carrying the question, and whoever taps it joins on the way in. The invite link and the filling-up home are still screens, on the organiser page, reached from circle home or from 'Just invite people for now'.\nTwo typed inputs and one sign-in before the first real result; the sign-in is the third screen, never the first. No permissions, no photo, no contacts, no calendar. Apple and Google sit under the email button once SUS-77 lands."
     },
     {
       "id": "first-note-sso",
@@ -834,7 +834,7 @@
       "y": -60,
       "w": 390,
       "page": "first",
-      "text": "Returning users land on the same Welcome; Apple/Google resolves to the existing account. Email path is the fallback for everyone else and the only path that needs a code."
+      "text": "Nothing is created until the place is saved: the circle and the plan are held on this device, survive a reload and the sign-in round trip, and are gone 24 hours after the last change. Walking away at Save leaves nothing in the database. A signed-in organiser skips Save and Your name."
     },
     {
       "id": "guest-flow",
