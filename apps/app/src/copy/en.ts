@@ -2304,6 +2304,7 @@ export const en = {
     too_many_tries: "That's a lot of new circles at once. Wait a little, then try again.",
     youre_offline: "You're offline. Connect, then try again.",
     try_again: 'Try again',
+    change_the_time: 'Change the time',
     reference: 'Ref {reference}',
   },
   shell: {

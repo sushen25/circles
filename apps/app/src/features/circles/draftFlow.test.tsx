@@ -51,6 +51,7 @@ const { FinishDraftFlow } = await import('./FinishDraftFlow');
 const { FirstPlanDraftFlow } = await import('../planning/FirstPlanDraftFlow');
 const { SavePlaceFlow } = await import('../identity/SavePlaceFlow');
 const { readDraft, saveDraft } = await import('../../data/draft');
+const { FunctionError } = await import('../../data/functions');
 
 const CIRCLE = '00000000-0000-4000-8000-00000000c1c1';
 const PLAN = '00000000-0000-4000-8000-00000000b1a1';
@@ -249,6 +250,38 @@ describe('the finish', () => {
     expect(planKeys).toHaveLength(2);
     expect(planKeys[0]).toBe(planKeys[1]);
     expect(await readDraft()).toBeNull();
+  });
+
+  it('counts the circle once, however many times the finish runs', async () => {
+    Object.assign(session, { status: 'saved', userId: 'maya' });
+    await draftReady();
+    createFirstPlan.mockRejectedValueOnce(new Error('timeout'));
+    wrap(<FinishDraftFlow />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Try again' }));
+    await waitFor(() => expect(replace).toHaveBeenCalled());
+
+    expect(createCircle).toHaveBeenCalledTimes(2);
+    expect(track.mock.calls.filter(([name]) => name === 'circle_created')).toHaveLength(1);
+  });
+
+  it('offers a way back to the card when Tonight has run out, not a retry that cannot work', async () => {
+    Object.assign(session, { status: 'saved', userId: 'maya' });
+    await draftReady();
+    createFirstPlan.mockRejectedValueOnce(
+      new FunctionError(
+        { error: 'conflict', reason: 'too_late_for_tonight', message: 'x' } as never,
+        'x',
+      ),
+    );
+    wrap(<FinishDraftFlow />);
+
+    await screen.findByRole('button', { name: 'Change the time' });
+    fireEvent.click(screen.getByRole('button', { name: 'Change the time' }));
+    expect(replace).toHaveBeenCalledWith('/circles/new/plan');
+    expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
+    // Kept: the circle made so far is the same one when the plan is asked again.
+    expect(await readDraft()).not.toBeNull();
   });
 
   it('asks for a name first when the account has none', async () => {

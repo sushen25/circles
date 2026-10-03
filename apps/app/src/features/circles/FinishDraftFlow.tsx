@@ -33,6 +33,8 @@ import { FinishDraftScreen, type FinishDraftProblem } from './FinishDraftScreen'
  */
 const REASONS: Record<string, FinishDraftProblem> = {
   too_many_requests: 'too_many_tries',
+  // Tonight, chosen, and the evening ran out while the gate and the name were done.
+  too_late_for_tonight: 'too_late',
 };
 
 export function FinishDraftFlow() {
@@ -79,7 +81,10 @@ export function FinishDraftFlow() {
         idempotencyKey: draft.keys.circle,
       });
       keepInviteSecret(made.circle.id, made.invite_secret);
-      track('circle_created', { circle_id: made.circle.id });
+      if (!draft.circleCounted) {
+        track('circle_created', { circle_id: made.circle.id });
+        await saveDraft({ circleCounted: true });
+      }
 
       if (draft.way === 'invite') {
         await clearDraft();
@@ -127,8 +132,11 @@ export function FinishDraftFlow() {
       .finally(() => {
         running.current = false;
       });
-    // `attempt` is the Try again button: another run of the same effect.
-  }, [decision.kind, attempt, router, queryClient]);
+    // `attempt` is the Try again button: another run of the same effect. The router
+    // and the query client are left out on purpose: a new identity for either must
+    // not run the finish again, which makes nothing twice only because of the keys.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [decision.kind, attempt]);
 
   return (
     <FinishDraftScreen
@@ -136,6 +144,7 @@ export function FinishDraftFlow() {
       problem={problem}
       reference={reference}
       onRetry={() => setAttempt((count) => count + 1)}
+      onChangeTime={() => router.replace('/circles/new/plan')}
     />
   );
 }

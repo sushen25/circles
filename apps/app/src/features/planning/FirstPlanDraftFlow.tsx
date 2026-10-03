@@ -1,9 +1,10 @@
 import { fromISO } from '@circles/domain';
+import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 
 import { t } from '../../copy';
-import { deviceTimeZone, guard, useSession } from '../../data/auth';
+import { deviceTimeZone, guard, ownProfile, useSession } from '../../data/auth';
 import { hasBackend } from '../../data/auth/client';
 import type { DraftPreset, DraftWay } from '../../data/draft';
 import { useOrganiserDraft } from '../circles/useOrganiserDraft';
@@ -60,6 +61,14 @@ function LiveFirstPlanDraft() {
   const session = useSession();
   const signedIn = guard({ route: 'saved', session }).kind === 'allow';
   const { loaded, draft, save } = useOrganiserDraft();
+  // The circle is made in the profile's zone, so a signed-in organiser's card is
+  // worked out in it (the device's only stands in until there is a profile).
+  const profile = useQuery({
+    queryKey: ['own-profile', session.userId],
+    queryFn: ownProfile,
+    enabled: signedIn,
+    staleTime: 60_000,
+  });
 
   // The moment the card was opened: the preview is of a plan made about now,
   // and a clock read during a render would make it a different plan each time.
@@ -74,14 +83,23 @@ function LiveFirstPlanDraft() {
 
   const back = () => (router.canGoBack() ? router.back() : router.replace('/circles/new'));
 
-  if (!loaded || missing || draft === null || session.isLoading) {
+  if (
+    !loaded ||
+    missing ||
+    draft === null ||
+    session.isLoading ||
+    (signedIn && profile.isPending)
+  ) {
     return <FirstPlanScreen state="loading" circleName="" onBack={back} />;
   }
 
-  const chosen = preset ?? draft.preset;
-  const zone = deviceTimeZone() ?? 'UTC';
+  const zone = profile.data?.zone ?? deviceTimeZone() ?? 'UTC';
   const opened = fromISO(new Date(openedAt).toISOString());
   const input = { zone, defaultDurationMinutes: 120, defaultQuorum: null, members: 1 };
+  // A preset that has run out since it was chosen (Tonight, late in the evening) is
+  // not kept: the card falls back to the fortnight rather than offer a refusal.
+  const asked = preset ?? draft.preset;
+  const chosen = firstPlanPreview(input, opened, asked).available ? asked : 'next_14_days';
   const preview = firstPlanPreview(input, opened, chosen);
   const words = firstPlanCardWords(preview, chosen, zone, openedAt);
   const offTonight = tonightNote(undefined, preview.durationMinutes, opened, zone);

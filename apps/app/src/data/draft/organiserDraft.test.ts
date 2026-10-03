@@ -83,6 +83,15 @@ describe('the organiser draft', () => {
     expect(elsewhen.draft.keys.plan).not.toBe(renamed.draft.keys.plan);
   });
 
+  it('forgets that the circle was counted when the circle changes', async () => {
+    await saveDraft({ circleName: 'Sunday Crew' }, NOW);
+    await saveDraft({ circleCounted: true }, NOW);
+    expect((await saveDraft({ way: 'ask' }, NOW + 1_000)).draft.circleCounted).toBe(true);
+    expect((await saveDraft({ circleName: 'Sunday Club' }, NOW + 2_000)).draft.circleCounted).toBe(
+      false,
+    );
+  });
+
   it('is cleared when asked', async () => {
     await saveDraft({ circleName: 'Sunday Crew' }, NOW);
     await clearDraft();

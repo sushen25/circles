@@ -55,6 +55,11 @@ const Draft = z.object({
    * in" of a returning organiser — never has it, and is never made into a circle.
    */
   proceed: z.boolean(),
+  /**
+   * `circle_created` has been counted for the circle these keys make. A finish
+   * that runs again returns the same circle, and must not count it again.
+   */
+  circleCounted: z.boolean().default(false),
   keys: z.object({ circle: IdempotencyKey, plan: IdempotencyKey }),
 });
 
@@ -65,7 +70,7 @@ export type DraftWay = (typeof DRAFT_WAYS)[number];
 
 /** What a change may carry. `way` and `proceed` are set by the screens that choose them. */
 export type DraftPatch = Partial<
-  Pick<OrganiserDraft, 'circleName' | 'cadence' | 'preset' | 'way' | 'proceed'>
+  Pick<OrganiserDraft, 'circleName' | 'cadence' | 'preset' | 'way' | 'proceed' | 'circleCounted'>
 >;
 
 function blank(now: number): OrganiserDraft {
@@ -76,6 +81,7 @@ function blank(now: number): OrganiserDraft {
     cadence: 'monthly',
     preset: 'next_14_days',
     proceed: false,
+    circleCounted: false,
     keys: { circle: newIdempotencyKey(), plan: newIdempotencyKey() },
   };
 }
@@ -119,8 +125,10 @@ export async function saveDraft(
   // the plan is made in that circle; a different preset is a different plan.
   const circleChanged = next.circleName !== base.circleName || next.cadence !== base.cadence;
   const planChanged = next.preset !== base.preset;
-  if (circleChanged) next.keys = { circle: newIdempotencyKey(), plan: newIdempotencyKey() };
-  else if (planChanged) next.keys = { ...next.keys, plan: newIdempotencyKey() };
+  if (circleChanged) {
+    next.keys = { circle: newIdempotencyKey(), plan: newIdempotencyKey() };
+    next.circleCounted = false;
+  } else if (planChanged) next.keys = { ...next.keys, plan: newIdempotencyKey() };
   try {
     await sessionStorage.setItem(DRAFT_KEY, JSON.stringify(next));
   } catch {
