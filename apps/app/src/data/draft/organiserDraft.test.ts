@@ -1,4 +1,6 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { sessionStorage } from '../auth/storage';
 
 import { DRAFT_KEY, DRAFT_TTL_MS, clearDraft, readDraft, saveDraft } from './organiserDraft';
 
@@ -90,6 +92,21 @@ describe('the organiser draft', () => {
     expect((await saveDraft({ circleName: 'Sunday Club' }, NOW + 2_000)).draft.circleCounted).toBe(
       false,
     );
+  });
+
+  it('goes on from memory when the device refuses the write, rather than losing the draft', async () => {
+    const write = vi.spyOn(sessionStorage, 'setItem').mockRejectedValue(new Error('storage'));
+    vi.spyOn(sessionStorage, 'getItem').mockResolvedValue(null);
+    try {
+      await saveDraft({ circleName: 'Sunday Crew', cadence: 'weekly' }, NOW);
+      expect(await readDraft(NOW + 1_000)).toMatchObject({ circleName: 'Sunday Crew' });
+
+      await clearDraft();
+      expect(await readDraft(NOW + 2_000)).toBeNull();
+    } finally {
+      write.mockRestore();
+      vi.restoreAllMocks();
+    }
   });
 
   it('is cleared when asked', async () => {

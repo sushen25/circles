@@ -73,6 +73,15 @@ export type DraftPatch = Partial<
   Pick<OrganiserDraft, 'circleName' | 'cadence' | 'preset' | 'way' | 'proceed' | 'circleCounted'>
 >;
 
+/**
+ * What the device refused to keep. The web adapter mirrors in memory itself;
+ * native secure storage does not, and a write it rejects would otherwise read
+ * back as "no draft" on the very next screen and send the person back to the
+ * start. While the last write failed, this copy is the draft for this run of
+ * the app.
+ */
+let refused: string | null = null;
+
 function blank(now: number): OrganiserDraft {
   return {
     v: 1,
@@ -92,8 +101,9 @@ export async function readDraft(now: number = Date.now()): Promise<OrganiserDraf
   try {
     raw = await sessionStorage.getItem(DRAFT_KEY);
   } catch {
-    return null;
+    raw = null;
   }
+  if (refused !== null) raw = refused;
   if (raw === null) return null;
   let draft: OrganiserDraft | undefined;
   try {
@@ -129,16 +139,20 @@ export async function saveDraft(
     next.keys = { circle: newIdempotencyKey(), plan: newIdempotencyKey() };
     next.circleCounted = false;
   } else if (planChanged) next.keys = { ...next.keys, plan: newIdempotencyKey() };
+  const raw = JSON.stringify(next);
   try {
-    await sessionStorage.setItem(DRAFT_KEY, JSON.stringify(next));
+    await sessionStorage.setItem(DRAFT_KEY, raw);
+    refused = null;
   } catch {
-    // The browser would not keep it. The flow goes on with what is in memory;
-    // a reload then starts again, which is the cost of a refused write.
+    // The device would not keep it. The flow goes on from memory; a reload then
+    // starts again, which is the cost of a refused write.
+    refused = raw;
   }
   return { draft: next, created: before === null };
 }
 
 export async function clearDraft(): Promise<void> {
+  refused = null;
   try {
     await sessionStorage.removeItem(DRAFT_KEY);
   } catch {
