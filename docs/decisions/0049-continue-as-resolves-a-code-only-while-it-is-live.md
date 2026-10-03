@@ -180,6 +180,17 @@ a membership passes to a saved account) now marks the links it spends with
 member's to use, and a link spent by being used is not. Using a retired link
 clears the mark, so it works once.
 
+*A condition the founder's rule needs to be safe.* The rule is for one story: a
+place was **picked from the list** and then saved, after the real guest's link was
+sent. So the link is honoured only if the account came to hold the place by a list
+pick made **after the link was minted** (`private.takeback_allowed` walks the
+recorded moves back from the holder, through claims, and looks for one). Without it
+a link minted for somebody who held the place *later* (a taker's own mailbox) could
+take the place from the real guest once the guest had saved it under their own
+address, and a saved account has no link of its own to answer with: saving would
+leave the guest worse off than staying a guest. A review found this; it is
+reproduced in `295_take_back_from_saved_account` scene 10.
+
 *The edge cases, settled:*
 
 - **The account has no email of its own** (a phone sign-in): there is none to
@@ -198,37 +209,47 @@ clears the mark, so it works once.
   own contact, and a link that can no longer move anything is of no use to them.
 - **What the account holder sees afterwards**: the circle is gone from their list
   and unreadable (they have no membership and no tombstone), everything else is as
-  it was. They are told as the owner is told (next bullet). They can rejoin the
+  it was. Nothing is sent to them (see "Who is told"). They can rejoin the
   ordinary ways (the circle's invite).
 - **The weekly cap**: the move is an emailed-link move, which the founder already
   exempted (decision 4). It is recorded with `source: 'email'`, is never counted
   or refused, and the chain walk crosses it without charging it. The hourly
   per-circle limit applies to the list only.
-- **Who is told, and how**: no new channel. The move writes the same audit row and
+- **Who is told, and how**: no new channel, and honestly little. The move writes the same audit row and
   emits the same `circles.member_reattached` event as every reattachment, so the
   owner sees "Priya rejoined from a new device" as before; for a take-back the
   audit row carries `from_saved_account: true` and the event adds the account's
   `from_user_id`, so the pipeline that tells the owner can name the other party too.
-  No consumer of that event writes to the account holder in this release: the
-  record is there and the wording is the dispatcher's, not built here.
-- **Not moved from the circle's owner**: an owner must stay a member
-  (`enforce_owner_stays_member`) and handing a circle on is its own operation, so a
-  link never takes the owner's place. The refusal is the existing
+  No consumer of that event writes to the account holder in this release (the
+  owner's notice is the circle-home line of §5.1, and nothing in the dispatcher
+  sends an email for it): the record is there and the wording is the dispatcher's,
+  not built here. This is the same as every existing takeover, where the person
+  displaced is told nothing.
+- **Not moved from the circle's owner, nor from the organiser of a plan that is
+  still open** (not cancelled, expired or completed): an owner must stay a member
+  (`enforce_owner_stays_member`), handing a circle on is its own operation, and every
+  organiser guard also wants the organiser to be a member, so taking the place would
+  strand the plan. The account keeps the place until the plan is over or the owner
+  cancels it (a taker can use this to hold a place, at the price of making and
+  keeping a plan; cancelling it is the owner's to do). The refusal is the existing
   `target_is_permanent`.
+- **A claim that merged into an existing member's own membership** (the account
+  was already in the circle; the guest's row is removed and its links now name the
+  account's long-standing place): the link is plainly spent (`reconcile_contacts`
+  clears `retired_at` when `p_from` still holds a membership), so it can never take
+  that place. The guest's place was removed by the merge in any case.
 - **Every doubt is a no**: the holder must be an account by `auth.users` (a profile
   flag alone is not enough, and a missing auth row is not), the link's contact must
   exist, and any error leaves the link unspent.
-- **The organiser role is not moved**, as for a move from the list:
-  `plans.organiser_user_id` is not part of a membership.
 
 *Residuals, plainly.* A guest who saves their own place under a different address
-(an Apple relay, say) leaves their old links valid for their seven days, and a link
-opened from the first address then takes the place from their own account; the
-account's holder is the same person but the rule cannot know it, and they are told.
-Anybody who can read a guest's mailbox can use the link as before. The take-back is
-not counted toward the cap, as decided, so a taker with a mailbox of their own who
-has saved an account with another address can still take the place back from the
-real guest by their own link, as in decision 4; each move tells the owner.
+(an Apple relay, say) is safe from their own old links: nobody picked their place,
+so there is no list pick for the rule to find. Anybody who can read the real
+guest's mailbox can use the link, as before. A taker who has attached a mailbox of
+their own and whose link was minted before a *later* list pick into another saved
+account can still take that place with it: the same stalemate as decision 4, now
+reaching a saved account, and each move tells the owner. The take-back is not
+counted toward the cap, as decided.
 
 ## Alternatives considered
 

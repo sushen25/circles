@@ -17,12 +17,15 @@
 --   7  a link that was already used      cannot take anything back
 --   8  the circle's owner                keeps the place
 --   9  a profile flag and no account     keeps the place
+--  10  the rightful guest saved the place; a former taker's link  cannot take it
+--  11  a claim merged into an existing member  the guest's link cannot take that member's place
+--  12  the account organises an open plan   keeps the place
 --
 -- Maya (k=4 of each scene) owns the circle; the guest is k=1, the taker k=2, the
 -- guest's fresh session k=3, a second account k=5.
 
 begin;
-select plan(43);
+select plan(50);
 
 create or replace function pg_temp.uid(n integer, k integer) returns uuid
 language sql immutable as $$
@@ -110,7 +113,7 @@ begin
   )
   values (c, 'named', 'collecting', pg_temp.uid(n, 4), 'Catch up', 'Australia/Melbourne',
           date '2099-09-17', date '2099-09-20', 1050, 1350, 120, 2,
-          timestamptz '2099-09-20T10:00:00Z', 'kvpqma' || substr('qrstuvwxyz', n, 1) || 'x')
+          timestamptz '2099-09-20T10:00:00Z', 'kvpqma' || translate(n::text, '01', 'pq') || 'x')
   returning id into p;
 
   insert into scenes values (n, c, o, p);
@@ -162,7 +165,9 @@ begin
     acct := holder;
   else
     acct := pg_temp.uid(n, 5);
-    perform pg_temp.make_user(acct, 'Account ' || n, false, account_email);
+    if not exists (select 1 from auth.users where id = acct) then
+      perform pg_temp.make_user(acct, 'Account ' || n, false, account_email);
+    end if;
     perform public.claim_identity(acct, holder, 'reattached');
   end if;
 end;
@@ -451,6 +456,81 @@ select throws_ok(
 );
 select pg_temp.act_as_postgres();
 select is(pg_temp.holder(9), pg_temp.uid(9, 2), '9: nothing moved');
+
+
+-- ===========================================================================
+-- 10  The rightful guest got the place back and saved it; a former taker's link
+--     (minted after the taker held the place) must not take it from them
+-- ===========================================================================
+select pg_temp.base(10);
+select pg_temp.act_as(pg_temp.uid(10, 2), true);
+select public.reattach_member(pg_temp.circle(10), pg_temp.uid(10, 1));
+select pg_temp.act_as_postgres();
+insert into private.email_contacts (user_id, email_normalized, status, verified_at)
+values (pg_temp.uid(10, 2), 'taker-10@example.com', 'verified', now());
+select public.issue_reentry_token(pg_temp.circle(10),
+  (select id from private.email_contacts where email_normalized = 'taker-10@example.com'),
+  pg_temp.digest_of('taker-link-10'));
+update private.email_action_tokens set created_at = now() + interval '1 minute'
+where token_hash = pg_temp.digest_of('taker-link-10');
+select pg_temp.act_as(pg_temp.uid(10, 3), true);
+select public.reattach_member(p_reentry_token_hash => pg_temp.digest_of('link-10'));
+select pg_temp.act_as_postgres();
+update auth.users
+set is_anonymous = false, email = 'guest-10@example.com', raw_app_meta_data = '{"is_anonymous": false}'
+where id = pg_temp.uid(10, 3);
+update public.profiles set is_permanent = true where user_id = pg_temp.uid(10, 3);
+select pg_temp.make_user(pg_temp.uid(10, 6), 'Former taker, fresh', true);
+select pg_temp.act_as(pg_temp.uid(10, 6), true);
+select throws_ok(
+  $$ select public.reattach_member(p_reentry_token_hash => extensions.digest('taker-link-10', 'sha256')) $$,
+  'target_is_permanent',
+  '10: a link minted for a later holder cannot take the place from the real guest''s saved account'
+);
+select pg_temp.act_as_postgres();
+select is(pg_temp.holder(10), pg_temp.uid(10, 3), '10: nothing moved');
+
+-- ===========================================================================
+-- 11  A claim that merged into an existing member's own membership
+-- ===========================================================================
+select pg_temp.base(11);
+select pg_temp.make_user(pg_temp.uid(11, 5), 'Pat', false, 'pat-11@example.com');
+insert into public.circle_members (circle_id, user_id, display_name_snapshot)
+values (pg_temp.circle(11), pg_temp.uid(11, 5), 'Pat 11');
+select pg_temp.take_and_save(11, 'unused@example.com', 'claim');
+select pg_temp.act_as_postgres();
+select pg_temp.act_as(pg_temp.uid(11, 3), true);
+select throws_ok(
+  $$ select public.reattach_member(p_reentry_token_hash => extensions.digest('link-11', 'sha256')) $$,
+  'target_is_permanent',
+  '11: the guest''s link cannot take an existing member''s own place after a merge'
+);
+select pg_temp.act_as_postgres();
+select is(
+  (select user_id from public.circle_members
+   where circle_id = pg_temp.circle(11) and display_name_snapshot = 'Pat 11' and status = 'active'),
+  pg_temp.uid(11, 5),
+  '11: Pat still holds her membership'
+);
+select ok(
+  (select retired_at is null from private.email_action_tokens where token_hash = pg_temp.digest_of('link-11')),
+  '11: the merged link is plainly spent, not retired');
+
+-- ===========================================================================
+-- 12  The account organises a plan that is still open
+-- ===========================================================================
+select pg_temp.base(12);
+select pg_temp.take_and_save(12, 'organiser-12@example.com', 'inplace');
+select pg_temp.act_as_postgres();
+update public.plans set organiser_user_id = pg_temp.uid(12, 2) where circle_id = pg_temp.circle(12);
+select pg_temp.act_as(pg_temp.uid(12, 3), true);
+select throws_ok(
+  $$ select public.reattach_member(p_reentry_token_hash => extensions.digest('link-12', 'sha256')) $$,
+  'target_is_permanent',
+  '12: an account that organises an open plan keeps the place until the plan is over'
+);
+select pg_temp.act_as_postgres();
+select is(pg_temp.holder(12), pg_temp.uid(12, 2), '12: nothing moved');
 
 select * from finish();
 rollback;
