@@ -104,7 +104,6 @@ export function ReentryFlow({ token: given }: { token?: string | undefined } = {
   }, [parsed.success, parsed.data?.token, key, router, attempt]);
 
   const back = () => (router.canGoBack() ? router.back() : router.replace('/'));
-  const whatIsBrand = () => router.push('/get-the-app');
 
   if (!hasBackend() || !parsed.success || failed !== undefined) {
     return (
@@ -118,7 +117,6 @@ export function ReentryFlow({ token: given }: { token?: string | undefined } = {
           });
         }}
         onBack={back}
-        onWhatIsBrand={whatIsBrand}
       />
     );
   }

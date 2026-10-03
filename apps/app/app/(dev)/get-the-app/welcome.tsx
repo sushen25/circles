@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 
-import { useFixture } from '../../src/data/fixtures/useFixture';
-import { AppLandingScreen } from '../../src/features/growth/AppLandingScreen';
+import { useFixture } from '../../../src/data/fixtures/useFixture';
+import { AppLandingScreen } from '../../../src/features/growth/AppLandingScreen';
 
 /** Route only — thin composition, no logic (architecture §7.1). */
 export default function Route() {

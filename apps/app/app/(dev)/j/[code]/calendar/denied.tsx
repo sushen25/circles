@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 
-import { useFixture } from '../../../../src/data/fixtures/useFixture';
-import { CalendarDeniedScreen } from '../../../../src/features/availability/CalendarDeniedScreen';
+import { useFixture } from '../../../../../src/data/fixtures/useFixture';
+import { CalendarDeniedScreen } from '../../../../../src/features/availability/CalendarDeniedScreen';
 
 /** Route only — thin composition, no logic (architecture §7.1). */
 export default function Route() {

@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 
-import { useFixture } from '../../../../src/data/fixtures/useFixture';
-import { CalendarPickScreen } from '../../../../src/features/availability/CalendarPickScreen';
+import { useFixture } from '../../../../../src/data/fixtures/useFixture';
+import { CalendarPickScreen } from '../../../../../src/features/availability/CalendarPickScreen';
 
 /** Route only — thin composition, no logic (architecture §7.1). */
 export default function Route() {

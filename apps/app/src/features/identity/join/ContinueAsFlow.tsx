@@ -104,7 +104,6 @@ export function ContinueAsFlow({ code, arrivedWithoutSession, onReattached }: Co
       <LinkInvalidScreen
         reason="ask_for_invite"
         onBack={back}
-        onWhatIsBrand={() => router.push('/get-the-app')}
       />
     );
   }
@@ -141,7 +140,6 @@ export function ContinueAsFlow({ code, arrivedWithoutSession, onReattached }: Co
       <LinkInvalidScreen
         reason="inactive"
         onBack={back}
-        onWhatIsBrand={() => router.push('/get-the-app')}
       />
     );
   }

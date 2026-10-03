@@ -136,7 +136,9 @@ export function MainScreen({
       </Body>
       <Foot>
         <Button label={t('main', 'choose_my_times')} onPress={onNext} disabled={busy} />
-        <Tertiary label={t('main', 'what_is_brand')} onPress={onWhatIsBrand} />
+        {onWhatIsBrand === undefined ? null : (
+          <Tertiary label={t('main', 'what_is_brand')} onPress={onWhatIsBrand} />
+        )}
       </Foot>
     </Screen>
   );
