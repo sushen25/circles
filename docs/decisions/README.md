@@ -51,10 +51,10 @@ Short records of decisions that shape the product or the code. A new ADR is requ
 | [0046](./0046-an-edit-that-clears-answers-asks-those-people-again.md) | An edit that clears answers asks those people again | proposed |
 | [0047](./0047-a-plan-may-ask-about-days-with-gaps.md) | A plan may ask about days with gaps between them | proposed |
 | [0048](./0048-the-consent-sentence-is-the-one-string-that-lives-in-config.md) | The consent sentence is the one user-facing string that lives in `packages/config` | proposed |
-| [00XX](./00XX-the-bare-host-is-the-website.md) | The bare host is the website, and the app's front door on the web is `/start` | proposed |
 | [0049](./0049-continue-as-resolves-a-code-only-while-it-is-live.md) | Continue-as resolves a code only while it is live, and its limits are enforced in SQL | proposed |
 | [0050](./0050-verifying-an-address-promotes-only-the-same-persons-contacts.md) | Verifying an address promotes only the contacts that belong to the same person | proposed |
 | [0051](./0051-the-organiser-sets-the-final-plan.md) | The organiser sets the final plan: any day and time, edited afterwards without asking everyone again | proposed |
+| [0052](./0052-the-bare-host-is-the-website.md) | The bare host is the website, and the app's front door on the web is `/start` | proposed |
 
 ## Template
 

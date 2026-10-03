@@ -9,7 +9,7 @@ import { FONT_FILES, SITE_CSS } from './styles';
 /**
  * The site, as one HTML document with no script in it.
  *
- * Served by the middleware at `/` (ADR 00XX) rather than rendered by a route:
+ * Served by the middleware at `/` (ADR 0052) rather than rendered by a route:
  * the route tree's root renders a neutral shell until React has hydrated
  * (ADR 0040), which is right for a screen that depends on the visitor and
  * wrong for a page that is the same for everyone and has to be there, words
