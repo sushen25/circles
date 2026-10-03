@@ -3791,7 +3791,7 @@ describe('process-scheduled-jobs', () => {
       return Promise.resolve(new Response(JSON.stringify({ ID: 'captured' })));
     };
     const answer = state.answer;
-    state.answer = (fn, args) => {
+    state.answer = (fn) => {
       if (fn === 'dispatch_health_due') return { data: true, error: null };
       if (fn === 'dispatch_health') {
         return {
@@ -3799,7 +3799,7 @@ describe('process-scheduled-jobs', () => {
           error: null,
         };
       }
-      return answer(fn, args);
+      return answer(fn);
     };
 
     await load('process-scheduled-jobs')(post({}, 'a-shared-secret'));
