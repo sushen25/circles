@@ -248,6 +248,13 @@ old links cannot take the place from her own account.
   flag alone is not enough, and a missing auth row is not), the link's contact must
   exist, and any error leaves the link unspent.
 
+*Accepted by the founder, 3 October 2026:* the condition above (a list pick in the
+chain, and the link's address minted for the first holder) and the residual stated
+next. He also decided, the same day, that the plan-update consent sentence's
+"changed" covers the letter that says a locked-in meetup moved
+(`covers.moved: 'changed'` in `packages/config/src/consent.ts`, no new consent
+version; see ADR 0051).
+
 *Residuals, plainly.* Anybody who can read the real guest's mailbox can use her
 link, as before. A guest with two addresses gets the link's address back with the
 place; her other address and its consent for this circle stay with the account.
