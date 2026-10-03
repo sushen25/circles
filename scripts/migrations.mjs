@@ -112,6 +112,17 @@ export function judge(base, local, ref = 'origin/main') {
     }
   }
   const latest = Math.max(0, ...[...base.keys()].map((name) => versionOf(name) ?? 0));
+  const seen = new Map();
+  for (const name of local.keys()) {
+    const version = versionOf(name);
+    if (version === null) continue;
+    if (seen.has(version)) {
+      problems.push(
+        `${name} and ${seen.get(version)} share version ${String(version).padStart(4, '0')}. ` +
+          'Supabase records a migration by its version, so the second would never apply.',
+      );
+    } else seen.set(version, name);
+  }
   for (const name of local.keys()) {
     if (base.has(name)) continue;
     const version = versionOf(name);
