@@ -21,7 +21,7 @@ import { callerAddress, enforce } from '../_shared/rate.ts';
  * us, which has to outrank telling a third party about it (spec §9).
  *
  * The consent recorded is the version the client says it rendered, if it is on
- * `CONSENT_VERSIONS` in `packages/config` (ADR 00XX): a consent record that
+ * `CONSENT_VERSIONS` in `packages/config` (ADR 0048): a consent record that
  * cannot say what was agreed is not one, and a tab opened before a deploy still
  * shows the old words. An unknown version is refused, and the client reloads.
  */

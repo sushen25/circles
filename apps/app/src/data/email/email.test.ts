@@ -22,7 +22,7 @@ describe('requestEmailUpdates', () => {
     invokeFunction.mockReset().mockResolvedValue({ status: 'check_email' });
   });
 
-  it('sends the consent version this build rendered, alongside the address (ADR 00XX)', async () => {
+  it('sends the consent version this build rendered, alongside the address (ADR 0048)', async () => {
     await requestEmailUpdates({
       planId: 'plan-1',
       email: 'priya@example.com',

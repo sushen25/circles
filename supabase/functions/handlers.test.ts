@@ -2358,7 +2358,7 @@ describe('request-email-updates', () => {
 
   it('records a stale but known version as sent, not the current one', async () => {
     // A tab opened before a deploy still shows the old words; the record must
-    // say those words (ADR 00XX), and they can be read back from the list.
+    // say those words (ADR 0048), and they can be read back from the list.
     const stale = CONSENT_VERSIONS[0].version;
     expect(stale).not.toBe(CONSENT.version);
 
