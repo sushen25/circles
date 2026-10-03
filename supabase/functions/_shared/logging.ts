@@ -34,6 +34,21 @@ export interface LogFields {
    * A count is not about anybody.
    */
   counts?: Readonly<Record<string, number>> | undefined;
+  /**
+   * What a crash on somebody's phone says about itself (SUS-112): only the
+   * catalogue's `client_error` fields, each of which has already passed a
+   * pattern or a fixed list too narrow to hold words. A fixed shape, not a bag.
+   */
+  client_error?:
+    | {
+        reference: string;
+        route: string;
+        error_class: string;
+        source: string;
+        build: string;
+        platform: string;
+      }
+    | undefined;
 }
 
 export function log(level: 'info' | 'warn' | 'error', fields: LogFields): void {

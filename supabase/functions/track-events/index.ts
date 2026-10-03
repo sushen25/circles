@@ -2,6 +2,7 @@ import { acceptEvent, TrackEventsRequest, type TrackEventsResponse } from '@circ
 
 import { sha256Hex } from '../_shared/hash.ts';
 import { ingestHandler } from '../_shared/ingest.ts';
+import { log } from '../_shared/logging.ts';
 import { callerAddress, enforce } from '../_shared/rate.ts';
 
 /**
@@ -63,7 +64,7 @@ Deno.serve(
         { scope: 'track_ip', key: callerAddress(request), max: 600, window: '1 minute', cost },
       ]);
     },
-    handle: async ({ body, actor, service }): Promise<TrackEventsResponse> => {
+    handle: async ({ body, actor, service, requestId }): Promise<TrackEventsResponse> => {
       const rows = [];
       const now = Date.now();
 
@@ -119,6 +120,29 @@ Deno.serve(
         // second arrival of an event is the same event rather than a new one.
         const { error } = await service.rpc('record_events', { p_rows: rows });
         if (error !== null) throw error;
+
+        // A crash somebody read out to the founder (SUS-112, SUS-48's "a
+        // reference from any error can be found in the logs"). These fields
+        // have already passed the catalogue's patterns: a reference, a route
+        // pattern, two fixed lists, a commit and a platform. Logged after the
+        // insert, so a line means the row is there.
+        for (const row of rows) {
+          if (row.event_name !== 'client_error') continue;
+          const p = row.properties as Record<string, unknown>;
+          log('info', {
+            fn: 'track-events',
+            request_id: requestId,
+            event: 'client_error',
+            client_error: {
+              reference: String(p.reference),
+              route: String(p.route),
+              error_class: String(p.error_class),
+              source: String(p.source),
+              build: String(p.build),
+              platform: String(p.platform),
+            },
+          });
+        }
       }
 
       return { accepted: rows.length, rejected: body.events.length - rows.length };

@@ -1638,6 +1638,15 @@ export const en = {
     try_again: 'Try again',
     sending: 'Sending',
   },
+  /** The screen a crash lands on (SUS-112): an error boundary, in the product's voice. */
+  crash: {
+    title: "That screen didn't load.",
+    detail:
+      "Nothing you've already sent is lost. Try again, and if it keeps happening, quote this reference.",
+    reference: 'Ref {reference}',
+    try_again: 'Try again',
+    go_home: 'Go to the start',
+  },
   outcome: {
     brand: '{brand}',
     /** "Sunday Crew · Thu 17 Sep". */

@@ -4,6 +4,7 @@ import { z } from 'zod';
 
 import {
   CLAIM_MOMENTS,
+  CLIENT_ERROR_CLASSES,
   FORBIDDEN_PAYLOAD_KEYS,
   NUDGE_MOMENTS,
   UNATTRIBUTED_EVENTS,
@@ -307,5 +308,86 @@ describe('availability_others_read (SUS-129)', () => {
       'circle_id',
       'plan_id',
     ]);
+  });
+});
+
+describe('client_error (SUS-112)', () => {
+  const ok = {
+    route: '/circles/:id/plan/:planId/confirmed',
+    error_class: 'type_error',
+    source: 'boundary',
+    build: 'dev',
+    platform: 'web',
+    reference: 'K7QM2X4P',
+  };
+
+  it('accepts a route pattern, a class, a build, a platform and a reference', () => {
+    expect(validateEvent('client_error', ok)).not.toBeNull();
+    expect(validateEvent('client_error', { ...ok, build: '1a2b3c4d5e6f' })).not.toBeNull();
+    expect(validateEvent('client_error', { ...ok, route: '/' })).not.toBeNull();
+    for (const error_class of CLIENT_ERROR_CLASSES) {
+      expect(validateEvent('client_error', { ...ok, error_class }), error_class).not.toBeNull();
+    }
+  });
+
+  it('refuses free text in every field', () => {
+    const refused: Record<string, unknown[]> = {
+      route: [
+        '/p/K7QM2X#fragment',
+        '/p/K7QM2X?x=1',
+        'https://wenna.example/p/K7QM2X',
+        '/p/[code]',
+        '/sunday crew',
+        '/priya@example.com',
+        `/${'a'.repeat(40)}`,
+        '',
+      ],
+      error_class: ['Cannot read properties of undefined', 'TypeError'],
+      build: ['main', 'a b', 'DEV'],
+      reference: ['k7qm2x4p', 'K7QM2X4', 'K7QM2X4PP', 'O0O0O0O0', 'hello world'],
+      platform: ['macos'],
+    };
+    for (const [field, values] of Object.entries(refused)) {
+      for (const value of values) {
+        expect(
+          validateEvent('client_error', { ...ok, [field]: value }),
+          `${field}: ${String(value)}`,
+        ).toBeNull();
+      }
+    }
+  });
+
+  it('carries no message, stack, url, fragment, code or name, and no circle or plan', () => {
+    for (const extra of [
+      'message',
+      'stack',
+      'url',
+      'fragment',
+      'plan_code',
+      'name',
+      'plan_id',
+      'circle_id',
+    ]) {
+      expect(validateEvent('client_error', { ...ok, [extra]: 'x' }), extra).toBeNull();
+    }
+  });
+
+  it('drops an undeclared key at the ingest and keeps the event', () => {
+    const accepted = acceptEvent('client_error', {
+      ...ok,
+      message: 'Priya',
+      stack: 'at /p/K7QM2X',
+    });
+    expect(accepted?.properties).toEqual(ok);
+  });
+
+  it('fits what analytics.events accepts: strings of at most 40 of [A-Za-z0-9_./:+-]', () => {
+    const longest = {
+      ...ok,
+      route: '/circles/:id/plan/:planId/change-time',
+      build: 'a'.repeat(40),
+    };
+    for (const value of Object.values(longest)) expect(value).toMatch(/^[A-Za-z0-9_./:+-]{1,40}$/);
+    expect(validateEvent('client_error', longest)).not.toBeNull();
   });
 });

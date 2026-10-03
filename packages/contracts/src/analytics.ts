@@ -65,6 +65,42 @@ export const CLAIM_MOMENTS = [
 ] as const;
 export type ClaimMoment = (typeof CLAIM_MOMENTS)[number];
 
+/**
+ * What `client_error` may say about a crash (SUS-112). Every field is a fixed
+ * list or a pattern too narrow to hold words, and the patterns are held to
+ * what `jobs.carries_content` lets into `analytics.events.properties`: at most
+ * 40 characters of `[A-Za-z0-9_./:+-]`. A value outside that does not fail
+ * softly, it makes `record_events` raise and takes the whole batch of fifty
+ * with it, so these are not "nice to have" bounds.
+ *
+ * - `route` — the route's *file path*, never the address: `/p/:code`, not
+ *   `/p/K7QM2X`. A dynamic segment is `:name` (the file's `[name]`, whose
+ *   brackets the content check refuses), and a group like `(auth)` is not in
+ *   the address and not in the pattern. `/` stands for the root.
+ * - `reference` — eight characters from an alphabet with no look-alikes, so a
+ *   person can read it out. Minted on the device, never derived from anything.
+ * - `build` — a commit (7 to 40 hex digits) or `dev`.
+ */
+export const CLIENT_ERROR_CLASSES = [
+  'type_error',
+  'reference_error',
+  'range_error',
+  'syntax_error',
+  'chunk_load',
+  'other',
+] as const;
+export type ClientErrorClass = (typeof CLIENT_ERROR_CLASSES)[number];
+
+/** Where it was caught: the screen's boundary, or the window's two listeners. */
+export const CLIENT_ERROR_SOURCES = ['boundary', 'window_error', 'unhandled_rejection'] as const;
+export type ClientErrorSource = (typeof CLIENT_ERROR_SOURCES)[number];
+
+const ROUTE_SEGMENT = '(?:[a-z0-9-]+|:[A-Za-z]+|:\\.\\.\\.[A-Za-z]+|\\+[a-z-]+)';
+export const CLIENT_ERROR_ROUTE = new RegExp(`^/(?:${ROUTE_SEGMENT}(?:/${ROUTE_SEGMENT})*)?$`);
+/** Eight characters, no `0 O 1 I`, so it can be read out over the phone. */
+export const CLIENT_ERROR_REFERENCE = /^[2-9A-HJ-NP-Z]{8}$/;
+export const CLIENT_ERROR_BUILD = /^(?:[0-9a-f]{7,40}|dev)$/;
+
 export const catalogue = {
   // --- identity -----------------------------------------------------------
   account_started: event(1),
@@ -280,6 +316,27 @@ export const catalogue = {
   calendar_permission_result: event(1, { granted: z.boolean() }),
   calendar_overlay_used: event(1, { overridden_cells: count }),
   push_permission_result: event(1, { granted: z.boolean() }),
+
+  // --- faults -------------------------------------------------------------
+  //
+  // A screen that crashed, or a script error nobody caught (SUS-112, audit
+  // H7). **No free text, by construction**: no message, no stack, no address,
+  // no fragment. The route is a file path, the class and source are lists, and
+  // the reference is what the person reads out. No `circle_id` or `plan_id`
+  // either — a crash is about a screen, not a group — and the shape is strict
+  // about those two as well. Sentry (SUS-61) replaces the transport, not the
+  // boundary and not this event.
+  client_error: {
+    version: 1,
+    payload: z.strictObject({
+      route: z.string().max(40).regex(CLIENT_ERROR_ROUTE),
+      error_class: z.enum(CLIENT_ERROR_CLASSES),
+      source: z.enum(CLIENT_ERROR_SOURCES),
+      build: z.string().regex(CLIENT_ERROR_BUILD),
+      platform: z.enum(['web', 'ios', 'android']),
+      reference: z.string().regex(CLIENT_ERROR_REFERENCE),
+    }),
+  },
 } as const;
 
 export type EventName = keyof typeof catalogue;
