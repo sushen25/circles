@@ -214,6 +214,17 @@ describe('the first plan, drafted', () => {
     expect(createCircle).not.toHaveBeenCalled();
   });
 
+  it('does not offer the card when the signed-in profile cannot be read', async () => {
+    Object.assign(session, { status: 'saved', userId: 'maya' });
+    ownProfile.mockRejectedValue(new Error('down'));
+    await saveDraft({ circleName: 'Sunday Crew' });
+    wrap(<FirstPlanDraftFlow />);
+
+    await screen.findByText("We couldn't load this circle.");
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Ask the group' })).toBeNull();
+  });
+
   it('writes the whole draft, so a card left behind after the finish makes no empty one', async () => {
     Object.assign(session, { status: 'saved', userId: 'maya' });
     await saveDraft({ circleName: 'Sunday Crew', cadence: 'weekly' });

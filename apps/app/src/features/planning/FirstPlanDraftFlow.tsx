@@ -7,6 +7,7 @@ import { t } from '../../copy';
 import { deviceTimeZone, guard, ownProfile, useSession } from '../../data/auth';
 import { hasBackend } from '../../data/auth/client';
 import type { DraftPreset, DraftWay } from '../../data/draft';
+import { isOffline } from '../identity/join/failure';
 import { useOrganiserDraft } from '../circles/useOrganiserDraft';
 import { FIRST_PLAN_PRESETS, firstPlanPreview } from './firstPlan';
 import { firstPlanCardWords } from './firstPlanCard';
@@ -82,6 +83,18 @@ function LiveFirstPlanDraft() {
   }, [missing, router]);
 
   const back = () => (router.canGoBack() ? router.back() : router.replace('/circles/new'));
+
+  if (signedIn && profile.isError) {
+    // Not a profile with no zone: the card would be worked out in the device's, and
+    // the circle is made in the profile's.
+    return (
+      <FirstPlanScreen
+        state={isOffline() ? 'offline' : 'error'}
+        onRetry={() => void profile.refetch()}
+        onBack={back}
+      />
+    );
+  }
 
   if (
     !loaded ||
