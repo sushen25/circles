@@ -20,7 +20,7 @@ export function movedCopy(input: MovedInput): EmailCopy {
 }
 
 /**
- * "Change of plan: Sunday Crew is now Sat 19 Sep" (ADR 0050).
+ * "Change of plan: Sunday Crew is now Sat 19 Sep" (ADR 0051).
  *
  * On the confirmed ground, like the letter it follows (manifesto §5.1): the plan
  * still stands, it is somewhere else in the week. It asks nobody to do anything

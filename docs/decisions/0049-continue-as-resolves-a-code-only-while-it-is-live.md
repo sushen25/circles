@@ -1,6 +1,6 @@
-# ADR 0048: Continue-as resolves a code only while it is live, and its limits are enforced in SQL
+# ADR 0049: Continue-as resolves a code only while it is live, and its limits are enforced in SQL
 
-_Status: proposed · 2 October 2026 · amends [ADR 0006](0006-continue-as-reattaches-a-guest-membership-without-owner-approval.md) and [ADR 0022](0022-a-plan-link-admits-new-members-while-the-plan-is-asking.md), and spec §5.1_
+_Status: proposed · 2 October 2026, decision 6 added 3 October 2026 · amends [ADR 0006](0006-continue-as-reattaches-a-guest-membership-without-owner-approval.md) and [ADR 0022](0022-a-plan-link-admits-new-members-while-the-plan-is-asking.md), and spec §5.1_
 
 ## Context
 
@@ -140,17 +140,8 @@ What this does **not** do, said plainly:
   identity, so an identity that has taken several places in a week can make it read
   high for a membership it has only just touched: it protects less than three picks
   would suggest. Older behaviour, noted on SUS-62.)
-- **A taker who saves their place keeps it.** If the person who took a place
-  converts that identity into a saved place, either in place (`linkIdentity`, which
-  does not spend re-entry links) or through `claim_identity` (which spends them
-  through `retire_reentry_links`), the member's link then answers
-  `target_is_permanent` and offers that account's sign-in, which is not theirs.
-  This is older behaviour (a place held by a saved identity is never moved:
-  AGENTS.md privacy invariants) and is not changed here, but it is a way for a
-  takeover to leave a member with a live link unable to return, so the guarantee
-  above does not extend to it. Closing it needs a rule for when an emailed link
-  may take a place back from a saved account; that is a product decision, put to
-  the founder on the dashboard and left open.
+- **A taker who saves their place no longer keeps it from a link.** That was a
+  residual of this ADR's first version and is closed by decision 6.
 
 **5. The list still returns the user id, not an opaque handle.** The ticket asked
 whether to replace `member_user_id` with a per-list handle so the list alone is
@@ -170,6 +161,75 @@ not enough to make the second call. Not done, for these reasons:
   carries per-token and per-circle limits across functions, so that it is weighed
   with the rest of the abuse model and not forgotten.
 
+**6. An emailed link may take a place back from a saved account whose own email
+is not the link's address.** (The founder's decision of 3 October 2026.) If
+someone picks a guest from the Continue-as list and then saves the place as an
+account, in place (`linkIdentity`) or through `claim_identity`, the real guest's
+link used to answer "that place belongs to an account" and offer the taker's
+sign-in: the guest could not get back. Now the link moves the place to the guest's
+new session, **unless the account's own email is the link's address**, in which
+case it is the same person signed in and keeps the place. A pick from the list
+still never moves a saved place.
+
+*Where it is enforced.* In SQL, in `reattach_member`, not in the Edge Function:
+`private.takeback_allowed` decides, `private.hand_back_membership` moves. The link
+is found by its hash, so the caller names no account and no circle. The token must
+be unexpired and either unspent or **retired**: `retire_reentry_links` (called when
+a membership passes to a saved account) now marks the links it spends with
+`email_action_tokens.retired_at`, because a link spent by a claim is still the
+member's to use, and a link spent by being used is not. Using a retired link
+clears the mark, so it works once.
+
+*The edge cases, settled:*
+
+- **The account has no email of its own** (a phone sign-in): there is none to
+  match, so the link is not the account holder's and takes the place back.
+- **The address matches only by case** (`Guest@Example.com` against `guest@example.com`):
+  the same address, and the account keeps the place. Compared lower-cased and
+  trimmed, against `auth.users.email` and the email on every one of the account's
+  sign-in identities.
+- **The account holds other circles**: only this circle's membership moves
+  (`move_membership` is scoped to one circle). The account keeps its other
+  memberships, its sign-in and profile. Of its email contacts only the **link's
+  address** moves with the place; the account's own address, its consent and any
+  other address it attached stay with it (`reconcile_contacts` is told, by a
+  transaction-local setting, to move that one contact). The account's other
+  re-entry links for this circle are deleted, since a link must name its holder's
+  own contact, and a link that can no longer move anything is of no use to them.
+- **What the account holder sees afterwards**: the circle is gone from their list
+  and unreadable (they have no membership and no tombstone), everything else is as
+  it was. They are told as the owner is told (next bullet). They can rejoin the
+  ordinary ways (the circle's invite).
+- **The weekly cap**: the move is an emailed-link move, which the founder already
+  exempted (decision 4). It is recorded with `source: 'email'`, is never counted
+  or refused, and the chain walk crosses it without charging it. The hourly
+  per-circle limit applies to the list only.
+- **Who is told, and how**: no new channel. The move writes the same audit row and
+  emits the same `circles.member_reattached` event as every reattachment, so the
+  owner sees "Priya rejoined from a new device" as before; for a take-back the
+  audit row carries `from_saved_account: true` and the event adds the account's
+  `from_user_id`, so the pipeline that tells the owner can name the other party too.
+  No consumer of that event writes to the account holder in this release: the
+  record is there and the wording is the dispatcher's, not built here.
+- **Not moved from the circle's owner**: an owner must stay a member
+  (`enforce_owner_stays_member`) and handing a circle on is its own operation, so a
+  link never takes the owner's place. The refusal is the existing
+  `target_is_permanent`.
+- **Every doubt is a no**: the holder must be an account by `auth.users` (a profile
+  flag alone is not enough, and a missing auth row is not), the link's contact must
+  exist, and any error leaves the link unspent.
+- **The organiser role is not moved**, as for a move from the list:
+  `plans.organiser_user_id` is not part of a membership.
+
+*Residuals, plainly.* A guest who saves their own place under a different address
+(an Apple relay, say) leaves their old links valid for their seven days, and a link
+opened from the first address then takes the place from their own account; the
+account's holder is the same person but the rule cannot know it, and they are told.
+Anybody who can read a guest's mailbox can use the link as before. The take-back is
+not counted toward the cap, as decided, so a taker with a mailbox of their own who
+has saved an account with another address can still take the place back from the
+real guest by their own link, as in decision 4; each move tells the owner.
+
 ## Alternatives considered
 
 - **`collecting` and `ready` only**, as the narrowest reading. Rejected by the
@@ -183,7 +243,7 @@ not enough to make the second call. Not done, for these reasons:
 
 ## Consequences
 
-- `guest_members_for_reattach`, `preview_for_code`, `reattach_member` and two new
+- `guest_members_for_reattach`, `preview_for_code`, `reattach_member` and four new
   private functions change in one migration (`0033`, ADR 0015). No table
   changes: the audit row's `metadata` carries `source`.
 - A guest who opens the link of a cancelled or expired plan, a plan whose meetup is

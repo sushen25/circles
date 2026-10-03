@@ -235,7 +235,7 @@ export async function inputFor(
         ...(context.organiserName === undefined ? {} : { organiserName: context.organiserName }),
       };
     }
-    // The confirmation a move made says where it came from (ADR 0050).
+    // The confirmation a move made says where it came from (ADR 0051).
     case 'moved': {
       const confirmation = context.confirmation;
       if (confirmation === null || !confirmation.moved_from_starts_at)

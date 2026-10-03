@@ -1,6 +1,6 @@
 -- ---------------------------------------------------------------------------
 -- The circle (if any) a short code may still be used to Continue-as in
--- (spec §5.1, ADR 0048).
+-- (spec §5.1, ADR 0049).
 --
 -- A code is not a key forever. ADR 0006 accepted that Continue-as needs no
 -- owner approval, and ADR 0022 accepted a plan code in URLs and logs because it

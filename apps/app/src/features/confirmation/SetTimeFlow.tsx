@@ -31,7 +31,7 @@ import { useSettled, useStretch } from './useStretch';
 
 /**
  * `/circles/:id/plan/:planId/set-time?mode=lock|edit&start&end` — the organiser
- * picks any day and time (ADR 0050).
+ * picks any day and time (ADR 0051).
  *
  * One flow behind "Pick a different time" on the options, "Set the time
  * yourself" on the waiting, no-quorum and replies-closed screens, and the edit

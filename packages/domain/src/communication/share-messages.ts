@@ -149,7 +149,7 @@ export const EN_SHARE_TEMPLATES: ShareTemplates = {
       : `Change of plan: ${weekday} is off. New times, please: ${url}`,
 
   // The organiser moved a locked-in time without asking anybody again
-  // (ADR 0050). "Changed" stays for asking again.
+  // (ADR 0051). "Changed" stays for asking again.
   moved: ({ circleName, date, time, place, url }) =>
     `Change of plan: ${circleName} is now ${date}, ${time}${place === undefined ? '' : ` at ${place}`}. ` +
     `Details and add-to-calendar: ${url}`,

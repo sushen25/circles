@@ -161,7 +161,7 @@ export function unlocksOf(data: PlanCandidates, now?: Instant): Unlock[] {
       unlocks.push({ kind: 'extend', title: extension.title, body: extension.body });
     }
   }
-  // The organiser's own time (ADR 0050): the fourth row, before closing. It
+  // The organiser's own time (ADR 0051): the fourth row, before closing. It
   // changes neither the number nor the dates, and says who it works for before
   // anything is locked in.
   unlocks.push({

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { stretchOf } from '../../data/confirmation';
 
 /**
- * Who a stretch works for, kept current while the screen is open (ADR 0050).
+ * Who a stretch works for, kept current while the screen is open (ADR 0051).
  *
  * Asked of the database each time the stretch changes, and again every fifteen
  * seconds and on every return to the screen: people answer from the group chat

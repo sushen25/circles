@@ -541,7 +541,7 @@ S["Candidates"] = shell(
         candidate("Thu 17 Sep", "6:30–8:30 pm", "5 of 6", ["Maya","Priya","Tom","Jess","Sam"], "Alex hasn't answered", "Best attendance", rec=True),
         candidate("Sat 19 Sep", "6:30–8:30 pm", "4 of 6", ["Maya","Tom","Jess","Sam"], "Doesn't work for Priya", "One fewer, weekend"),
         candidate("Sun 20 Sep", "4–6 pm", "4 of 6", ["Maya","Priya","Jess","Sam"], "Doesn't work for Tom", "Also four, a day later"),
-        # Any day and time (SUS-138, ADR 0050): a row in the body, not the footer,
+        # Any day and time (SUS-138, ADR 0051): a row in the body, not the footer,
         # which already has the review and the nudge.
         card(li(ic("cal", 22, T["accent_dark"]), "Pick a different time", "Any day and time, even one that isn't an option. You'll see who it works for.", right=ic("chev",18,T["ink3"])), gap=0, pad=6),
         gap=16) +
@@ -1004,7 +1004,7 @@ S["DeadlinePassed"] = shell(
     foot(pri("Lock in Thursday"))
 )
 
-# The organiser sets the final plan (SUS-138, ADR 0050). One day at a time from
+# The organiser sets the final plan (SUS-138, ADR 0051). One day at a time from
 # today, a start and an end by the half hour, and, live, who it works for by
 # name. Friday 18 Sep, 7-9 pm, which no option offered and which works for two
 # of six: so the caution says it. The figure on a day is how many of the others

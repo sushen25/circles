@@ -1,6 +1,6 @@
 -- ---------------------------------------------------------------------------
 -- 0034 — Verifying an address promotes only the same person's contacts
--- (SUS-106, ADR 0049).
+-- (SUS-106, ADR 0050).
 --
 -- `public.verify_email_contact` marked every pending contact at an address
 -- verified, whoever held it. It now promotes, withdraws finished-plan
@@ -17,7 +17,7 @@
 -- supabase/sql/functions/private/same_person_identities.sql
 -- ---------------------------------------------------------------------------
 -- The identities that count as one person for verifying an address
--- (ADR 0049).
+-- (ADR 0050).
 --
 -- Verifying an address proves that whoever held the link controls it. It says
 -- nothing about another identity's consent, so promotion stops at "the same
@@ -41,7 +41,7 @@
 -- chain stops. Rows are ordered by `occurred_at`, the transaction's
 -- time: one call is one transaction, so two moves of one circle never tie; two
 -- calls racing on one circle's lock can commit in the opposite order to their
--- start (ADR 0049, residuals).
+-- start (ADR 0050, residuals).
 --
 -- Within one circle, and no further: an identity that takes places in two
 -- circles would otherwise connect the people it took them from, who have
@@ -106,7 +106,7 @@ as $$
 $$;
 
 comment on function private.same_person_identities(uuid) is
-  'An identity and the identities connected to it by the recorded moves (reattachment or claim) of one circle''s membership, ended by an owner''s removal: the set whose pending contacts verifying an address may promote (ADR 0049).';
+  'An identity and the identities connected to it by the recorded moves (reattachment or claim) of one circle''s membership, ended by an owner''s removal: the set whose pending contacts verifying an address may promote (ADR 0050).';
 
 revoke all on function private.same_person_identities(uuid) from public;
 revoke all on function private.same_person_identities(uuid) from anon, authenticated;
@@ -297,7 +297,7 @@ begin
       -- identities (`reconcile_contacts` splits a contact whose identity keeps
       -- another circle's consent, with the verification link on the side left
       -- behind), and verifying an address promotes only the same person's
-      -- contacts (ADR 0049) — which `private.same_person_identities` reads from
+      -- contacts (ADR 0050) — which `private.same_person_identities` reads from
       -- here and from `reattach_member`'s rows. Ids and a circle, nothing else.
       insert into private.audit_log (actor_user_id, action, resource_type, resource_id, metadata)
       values (p_user_id, 'circles.member_claimed', 'circle', membership.circle_id,
@@ -350,7 +350,7 @@ grant execute on function public.claim_identity(uuid, uuid, text) to service_rol
 -- by hash (`record_suppression`); this is the same reasoning in the other
 -- direction.
 --
--- **"Not by row" stops at the person (ADR 0049).** What is proved is that the
+-- **"Not by row" stops at the person (ADR 0050).** What is proved is that the
 -- holder of the link controls the address, which says nothing about another
 -- identity's consent to a plan. So the contacts this touches — promoted, stopped
 -- for a finished plan, owed a "locked in" letter — are the ones held by the same
@@ -546,7 +546,7 @@ end;
 $$;
 
 comment on function public.verify_email_contact(bytea) is
-  'Consumes a verification token in one statement and verifies every pending contact of the same person (the same identity, or one linked by a recorded reattachment) holding that address, and no other identity''s (ADR 0049), drops subscriptions to finished plans, and queues the current state for each decided plan against the contact that subscribed to it. Answers with the clicking identity''s own plans, named so an unauthenticated page can read them. Service role only.';
+  'Consumes a verification token in one statement and verifies every pending contact of the same person (the same identity, or one linked by a recorded reattachment) holding that address, and no other identity''s (ADR 0050), drops subscriptions to finished plans, and queues the current state for each decided plan against the contact that subscribed to it. Answers with the clicking identity''s own plans, named so an unauthenticated page can read them. Service role only.';
 
 revoke all on function public.verify_email_contact(bytea) from public;
 revoke all on function public.verify_email_contact(bytea) from anon, authenticated;

@@ -24,7 +24,7 @@ import { useStretch } from './useStretch';
 
 /**
  * `/circles/:id/plan/:planId/edit-locked?start&end` — the organiser edits a
- * locked-in plan (ADR 0050): its time, its place and its note.
+ * locked-in plan (ADR 0051): its time, its place and its note.
  *
  * Change opens the same time picker as "Pick a different time"; choosing a time
  * there comes back here with `start` and `end`, and the place and note typed

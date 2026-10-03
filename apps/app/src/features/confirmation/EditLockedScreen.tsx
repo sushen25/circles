@@ -19,7 +19,7 @@ import { Placeholder } from '../scheduling/parts';
 import { NOTE_MAX_LENGTH, PLACE_NAME_MAX_LENGTH, PLACE_URL_MAX_LENGTH } from './review';
 
 /**
- * EditLocked — `docs/design/EditLocked.dc.html` (spec §5.7, ADR 0050).
+ * EditLocked — `docs/design/EditLocked.dc.html` (spec §5.7, ADR 0051).
  *
  * "Edit this plan" on a locked-in plan: when (with a Change that opens the same
  * time picker), where, and the note. Changing only the place or note says a new

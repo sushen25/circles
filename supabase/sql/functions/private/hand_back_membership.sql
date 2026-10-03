@@ -1,5 +1,5 @@
 -- ---------------------------------------------------------------------------
--- Take one circle's membership back from a saved account (ADR 0048, decision 6).
+-- Take one circle's membership back from a saved account (ADR 0049, decision 6).
 --
 -- `reattach_member` calls this after `private.takeback_allowed` has said yes. It
 -- moves the membership the way every move does, through `move_membership`, with

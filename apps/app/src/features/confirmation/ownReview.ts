@@ -12,7 +12,7 @@ import { named, stretchWords } from './stretch';
 import { instantsOf, pickOf, type TimePick } from './time';
 
 /**
- * The review screen's words for a time the organiser set (ADR 0050), in the
+ * The review screen's words for a time the organiser set (ADR 0051), in the
  * words the options' review uses (`review.ts`): the count, who can make it, who
  * cannot and who has not answered — and **one caution in place of the unanswered
  * warning**, saying that it is not one of the options.

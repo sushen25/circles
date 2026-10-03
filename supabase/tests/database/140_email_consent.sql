@@ -297,7 +297,7 @@ select is(
   'the contact the link named, held by the person who clicked, is verified'
 );
 
--- ADR 0049 (SUS-106): verification used to cross to every contact holding the
+-- ADR 0050 (SUS-106): verification used to cross to every contact holding the
 -- address. It stops at the same person: the same identity, or one linked to it
 -- by a recorded reattachment. This second identity has neither, so its consent
 -- stays as recorded and is removed by retention after seven days, as it is for
@@ -893,7 +893,7 @@ select is(
   'the address is proved for the twin who held the link'
 );
 
--- ADR 0049: proving an address says nothing about another identity's consent.
+-- ADR 0050: proving an address says nothing about another identity's consent.
 select is(
   pg_temp.status_of('twins@example.com', '00000000-0000-0000-0000-0000000008a8'),
   'pending',

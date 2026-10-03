@@ -1998,7 +1998,7 @@ describe('confirm-meetup', () => {
   });
 });
 
-describe('confirm-meetup, an own time (ADR 0050)', () => {
+describe('confirm-meetup, an own time (ADR 0051)', () => {
   const CONFIRMATION = {
     id: '00000000-0000-4000-8000-0000000000f2',
     starts_at: '2099-09-18T09:00:00+00:00',
@@ -2094,7 +2094,7 @@ describe('confirm-meetup, an own time (ADR 0050)', () => {
   });
 });
 
-describe('edit-confirmation (ADR 0050)', () => {
+describe('edit-confirmation (ADR 0051)', () => {
   const CONFIRMATION = {
     id: '00000000-0000-4000-8000-0000000000f3',
     starts_at: '2099-09-19T09:00:00+00:00',
@@ -2376,7 +2376,7 @@ describe('generate-ics', () => {
     };
   });
 
-  it('keeps one calendar entry across a move: the same UID, and a higher sequence (ADR 0050)', async () => {
+  it('keeps one calendar entry across a move: the same UID, and a higher sequence (ADR 0051)', async () => {
     const first = await (
       await load('generate-ics')(get({ confirmation_id: CONFIRMATION_ID }))
     ).text();
@@ -2878,7 +2878,7 @@ describe('verify-email-contact', () => {
   });
 
   it('answers the same however many other contacts hold the address', async () => {
-    // ADR 0049 changed which contacts a verification promotes, in the database.
+    // ADR 0050 changed which contacts a verification promotes, in the database.
     // What the page may learn did not change: the clicking identity's own plans
     // and whether one is already locked in. Anything else the database added to
     // its answer, a count of contacts promoted or left pending, is dropped here,

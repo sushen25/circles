@@ -8,7 +8,7 @@ import type * as Scheduling from '../../data/scheduling';
 import { fixtureStretch } from './fixtureStretch';
 
 /**
- * The time picker (ADR 0050): where it opens, what it says about who a time works
+ * The time picker (ADR 0051): where it opens, what it says about who a time works
  * for as the time changes, and where its primary leads from each door.
  */
 

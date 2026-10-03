@@ -171,7 +171,7 @@ describe('a guest, in a circle that has guests', () => {
 describe('a guest, on a link that is no longer live', () => {
   it('is told the link is not active, and is never asked for a name or shown the list', async () => {
     // A cancelled or expired plan, a meetup long past and an archived circle all
-    // answer the circle lookup with null and the list with nobody (ADR 0048).
+    // answer the circle lookup with null and the list with nobody (ADR 0049).
     circleNameForCode.mockResolvedValue(null);
     guestMembersFor.mockResolvedValue({ kind: 'listed', members: [] });
     arrive();
@@ -239,7 +239,7 @@ describe('an account that is not a member', () => {
     Object.assign(session, { status: 'saved', userId: 'maya', isAnonymous: false });
   });
 
-  it('is told the link is not active when no circle is behind it now (ADR 0048)', async () => {
+  it('is told the link is not active when no circle is behind it now (ADR 0049)', async () => {
     circleNameForCode.mockResolvedValue(null);
     arrive();
 

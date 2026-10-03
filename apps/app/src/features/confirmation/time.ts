@@ -19,7 +19,7 @@ import {
 import type { PlanCandidates } from '../../data/scheduling';
 
 /**
- * The picker's clock (ADR 0050): one day, a start and an end on the half hour.
+ * The picker's clock (ADR 0051): one day, a start and an end on the half hour.
  *
  * Minutes since local midnight on the picked day, so stepping is arithmetic and
  * a stretch that runs past midnight is an end beyond 24:00 rather than a second

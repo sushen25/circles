@@ -93,7 +93,7 @@ export type Confirmation = {
   readonly confirmedAt: Instant;
   /**
    * The time was the organiser's own, not one of the engine's options
-   * (ADR 0050). Absent means it was an option, which is every confirmation made
+   * (ADR 0051). Absent means it was an option, which is every confirmation made
    * before the organiser could set a time. It decides who starts out going:
    * `deriveAttendance`.
    */

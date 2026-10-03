@@ -20,7 +20,7 @@
 -- evening that is off, followed by a second "locked in" for the new one.
 --
 -- `moved` is in it for the same reason, once the organiser can move a
--- locked-in time (ADR 0050): a second move inside the backoff of the first
+-- locked-in time (ADR 0051): a second move inside the backoff of the first
 -- would otherwise send "moved to Saturday" after the plan had moved on to
 -- Sunday. A move supersedes the confirmation inside the same revision, so the
 -- caller passes the revision the plan is still on.
@@ -32,7 +32,7 @@ create or replace function public.dispatch_cancel_pending(
   p_plan_id uuid,
   p_revision integer,
   -- The confirmation whose letters must survive: the one a move has just made
-  -- (ADR 0050). A move keeps the revision, so a retried `meetup_moved` event
+  -- (ADR 0051). A move keeps the revision, so a retried `meetup_moved` event
   -- would otherwise skip its own jobs, and the unique key would then refuse to
   -- write them again. Null for a reopen or a cancellation, which keep nothing.
   p_keep_confirmation uuid default null

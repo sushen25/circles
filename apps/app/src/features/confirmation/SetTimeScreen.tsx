@@ -24,7 +24,7 @@ import { MARKS_MAX, Placeholder } from '../scheduling/parts';
 import type { StretchView } from './stretch';
 
 /**
- * SetTime — `docs/design/SetTime.dc.html` (spec §5.7, ADR 0050).
+ * SetTime — `docs/design/SetTime.dc.html` (spec §5.7, ADR 0051).
  *
  * One day picked at a time, from today, and a start and an end on the half
  * hour; then, live as either changes, who the time works for by name and a

@@ -119,7 +119,7 @@ function LiveCandidates({ id, planId }: { id: string; planId: string }) {
   const toEditor = () => router.push({ pathname: '/j/[code]', params: { code: data.code } });
   const toEdit = () =>
     router.push({ pathname: '/circles/[id]/plan/[planId]/edit', params: { id, planId } });
-  // Any day and time, not only an option (ADR 0050). The selected option, when
+  // Any day and time, not only an option (ADR 0051). The selected option, when
   // there is one, is where the picker opens.
   const toSetTime = (start?: string, end?: string) =>
     router.push({

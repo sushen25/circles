@@ -36,7 +36,7 @@ import type {
  * `unknown` for anyone who never answered, which the ConfirmedOrg artboard
  * renders as "1 to confirm" rather than as a no.
  *
- * **A time the organiser set themselves** (ADR 0050). `going` for anyone whose
+ * **A time the organiser set themselves** (ADR 0051). `going` for anyone whose
  * times cover it or who said "I'm easy" — the same available set — and
  * **everybody else `unknown`**, answered or not. They never said no to this
  * time: the organiser chose it knowing the answers, and `cant` would put words

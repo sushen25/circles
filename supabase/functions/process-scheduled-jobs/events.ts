@@ -91,7 +91,7 @@ export const ANNOUNCED: ReadonlySet<string> = new Set([
   'confirmation.meetup_confirmed',
   'confirmation.meetup_rescheduled',
   // The organiser moved a locked-in time without asking anybody again
-  // (ADR 0050).
+  // (ADR 0051).
   'confirmation.meetup_moved',
   'confirmation.meetup_cancelled',
   // The quiet ask (S2-02). `plan_expired` speaks only for an ask that never
@@ -110,7 +110,7 @@ function morningAfterFor(end: Instant): (zone: Zone) => Instant {
  * The four letters about one evening: the news (`locked_in`, or `moved` after the
  * organiser moved it), the reminder two hours before, and the two morning-after
  * ones. All keyed by the confirmation, so a move can take back the ones it
- * replaced and keep these (ADR 0050).
+ * replaced and keep these (ADR 0051).
  */
 function eveningIntents(
   first: 'locked_in' | 'moved',
@@ -224,13 +224,13 @@ export function intentsFor(
 
     case 'confirmation.meetup_confirmed': {
       if (confirmation === null) return [];
-      // Locked in and then moved before this ran (ADR 0050): the move's event
+      // Locked in and then moved before this ran (ADR 0051): the move's event
       // speaks, about the time the plan is at now.
       if (speaksForAnother(event, confirmation)) return [];
       return eveningIntents('locked_in', confirmation, now);
     }
 
-    // The organiser moved a locked-in time (ADR 0050): the plan's members are
+    // The organiser moved a locked-in time (ADR 0051): the plan's members are
     // told once, and the reminder and the morning-after letters follow the new
     // time. The letters queued for the old one were taken back by `drain`
     // (`supersededRevision`) before these are written, and the occurrence is the

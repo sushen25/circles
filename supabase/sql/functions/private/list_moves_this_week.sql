@@ -1,6 +1,6 @@
 -- ---------------------------------------------------------------------------
 -- How many times a membership has been moved by picking a name this week
--- (ADR 0006, ADR 0048): the number `reattach_member`'s cap is about.
+-- (ADR 0006, ADR 0049): the number `reattach_member`'s cap is about.
 --
 -- Counting is not a simple `where user_id = target`: every reattachment
 -- *changes* the membership's user id, so the previous ones are recorded against

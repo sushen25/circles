@@ -1,6 +1,6 @@
 -- ---------------------------------------------------------------------------
 -- Who a stretch of time works for, for the organiser choosing one
--- (ADR 0050).
+-- (ADR 0051).
 --
 -- The picker, the review screen and the edit screen say it by name before
 -- anything is locked in: "You, Priya and Tom can make it · Doesn't work for Jess
@@ -58,7 +58,7 @@ end;
 $$;
 
 comment on function public.stretch_availability(uuid, timestamptz, timestamptz) is
-  'For the plan''s organiser: who of the people the plan is asking can make a stretch, who answered otherwise and who has not, with the plan''s input version and revision. Ids only (ADR 0050).';
+  'For the plan''s organiser: who of the people the plan is asking can make a stretch, who answered otherwise and who has not, with the plan''s input version and revision. Ids only (ADR 0051).';
 
 revoke all on function public.stretch_availability(uuid, timestamptz, timestamptz) from public;
 revoke all on function public.stretch_availability(uuid, timestamptz, timestamptz) from anon, authenticated;

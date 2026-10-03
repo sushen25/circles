@@ -1,5 +1,5 @@
 -- Continue-as resolves a code only while the code is live, and its limits are
--- enforced in SQL (SUS-103, ADR 0048).
+-- enforced in SQL (SUS-103, ADR 0049).
 --
 -- Asserted as client roles with a JWT: the functions read `auth.uid()`, and run
 -- as postgres they would all say yes. Dates are relative to `now()` so the
@@ -189,7 +189,7 @@ select is(pg_temp.offered('kvpqmanx'), 0, 'an expired plan''s code lists nobody'
 select is(pg_temp.offered('nxsuchcade'), 0, 'and a code nobody issued lists nobody, the same answer');
 
 -- ---------------------------------------------------------------------------
--- A plan that is locked in: inside the window, and past it (ADR 0048)
+-- A plan that is locked in: inside the window, and past it (ADR 0049)
 -- ---------------------------------------------------------------------------
 select pg_temp.act_as_postgres();
 select pg_temp.fresh_limits();
@@ -288,7 +288,7 @@ update private.email_action_tokens set used_at = now()
 where token_hash = pg_temp.digest_of('archived-link');
 
 -- ---------------------------------------------------------------------------
--- The cap cannot be used against the member (ADR 0048)
+-- The cap cannot be used against the member (ADR 0049)
 --
 -- Priya (a1) has a verified address. A stranger takes her place, she comes back
 -- with her emailed link, the stranger takes it again, she comes back again —
@@ -380,7 +380,7 @@ select is(
 );
 
 -- ---------------------------------------------------------------------------
--- What the cap does not do (ADR 0048, decision 4, as the founder decided it)
+-- What the cap does not do (ADR 0049, decision 4, as the founder decided it)
 --
 -- Contacts travel with a membership, so whoever took a place can verify a mailbox
 -- of their own and be sent links for it. A move made with any valid link is
@@ -508,7 +508,7 @@ select throws_ok(
 );
 
 -- ---------------------------------------------------------------------------
--- The SQL-side limit, on a direct call (ADR 0048)
+-- The SQL-side limit, on a direct call (ADR 0049)
 --
 -- Ten guests, each moved twice: twenty completed moves in one circle in the
 -- hour. The twenty-first — somebody's third, which the cap would allow — is

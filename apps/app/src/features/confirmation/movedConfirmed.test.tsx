@@ -7,7 +7,7 @@ import type * as Confirmation from '../../data/confirmation';
 
 /**
  * The confirmed screens after the organiser set their own time, and after they
- * moved it (ADR 0050): what each person sees, and what the organiser pastes.
+ * moved it (ADR 0051): what each person sees, and what the organiser pastes.
  */
 
 vi.mock('expo-router', () => ({

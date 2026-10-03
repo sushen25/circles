@@ -1,5 +1,5 @@
 -- ---------------------------------------------------------------------------
--- 0035 — The organiser sets the final plan (SUS-138, ADR 0050).
+-- 0035 — The organiser sets the final plan (SUS-138, ADR 0051).
 --
 -- The organiser can lock in any day and time, not only an option, and edit a
 -- locked-in plan's time, place and note without asking everyone again. The
@@ -25,9 +25,24 @@
 --     `planning.transition_plan`, `planning.allowed_keys`, `planning.event_for`
 --     and `public.dispatch_cancel_pending` (the new actions and kind).
 --
+--   * SUS-103, ADR 0049 decision 6 (the founder's decision of 3 October 2026): an
+--     emailed re-entry link may take a place back from a saved account whose own
+--     email is not the link's address. `email_action_tokens` gains `retired_at`
+--     (set by `retire_reentry_links`, so a link spent by a claim can be told from
+--     one that already moved a place); new `private.takeback_allowed` and
+--     `private.hand_back_membership`; `reattach_member`, `reconcile_contacts` and
+--     `retire_reentry_links` change. Those functions sit in this migration's
+--     generated block, which renders every function, because `0033` shipped
+--     with the branch before them.
+--
 -- `MIGRATION` in `scripts/gen-sql-functions.mjs`, `scripts/gen-transitions.mjs`
 -- and `scripts/gen-events.mjs` now points here.
 -- ---------------------------------------------------------------------------
+
+alter table private.email_action_tokens add column retired_at timestamptz;
+
+comment on column private.email_action_tokens.retired_at is
+  'When `retire_reentry_links` spent the link because its membership became a saved account''s. Null for a link that is unspent or was spent by being used. Only a retired link may still take the place back (ADR 0049, decision 6).';
 
 alter table public.meetup_confirmations
   add column own_time boolean not null default false,
@@ -45,11 +60,11 @@ alter table public.meetup_confirmations
   alter column calendar_uid set default gen_random_uuid();
 
 comment on column public.meetup_confirmations.own_time is
-  'The time was the organiser''s own, not one of the engine''s options (ADR 0050). It decides who starts out going: everybody a candidate did not cover is to confirm, never can''t make it.';
+  'The time was the organiser''s own, not one of the engine''s options (ADR 0051). It decides who starts out going: everybody a candidate did not cover is to confirm, never can''t make it.';
 comment on column public.meetup_confirmations.below_quorum is
-  'An own time with fewer people able to make it than the plan''s number, as it was when locked in. The plan''s number is not changed by it (ADR 0050).';
+  'An own time with fewer people able to make it than the plan''s number, as it was when locked in. The plan''s number is not changed by it (ADR 0051).';
 comment on column public.meetup_confirmations.moved_from_starts_at is
-  'On the confirmation a move wrote: the start the plan had before it moved, so "moved from Fri 18" is a fact about this row (ADR 0050).';
+  'On the confirmation a move wrote: the start the plan had before it moved, so "moved from Fri 18" is a fact about this row (ADR 0051).';
 comment on column public.meetup_confirmations.calendar_uid is
   'The calendar entry''s UID, kept across a move so a calendar moves its entry rather than adding a second; calendar_sequence rises with each move (RFC 5545).';
 
@@ -81,7 +96,7 @@ alter table jobs.notification_jobs
   add column confirmation_id uuid;
 
 comment on column jobs.notification_jobs.confirmation_id is
-  'The meetup_confirmations row a locked_in, moved, reminder or did_it_happen letter is about, or null (ADR 0050).';
+  'The meetup_confirmations row a locked_in, moved, reminder or did_it_happen letter is about, or null (ADR 0051).';
 
 -- A new argument is a new signature; the old one would sit beside it and make
 -- every two-argument call ambiguous (0019's lesson).
@@ -213,7 +228,7 @@ as $$
     -- decides, not what is being decided (S2-05).
     when action = 'hand_off' then array['organiser_user_id']
     when action = 'confirm' then array['candidate_id', 'place_name', 'place_url', 'note', 'chased_answer']
-    -- The organiser's own time and edits to it (ADR 0050). The stretch is two
+    -- The organiser's own time and edits to it (ADR 0051). The stretch is two
     -- instants; `edit_confirmed` and a move say the place and note whole, a
     -- present key with a null clearing it.
     when action = 'confirm_own' then array[
@@ -271,7 +286,7 @@ as $$
     when 'quorum_follows' then null
     when 'confirm' then 'confirmation.meetup_confirmed'
     -- An organiser's own time is the same news as an option locked in
-    -- (ADR 0050): "locked in", to the same people.
+    -- (ADR 0051): "locked in", to the same people.
     when 'confirm_own' then 'confirmation.meetup_confirmed'
     -- Moving a locked-in time without asking anybody again: its own letter,
     -- which `meetup_rescheduled` ("new times, please") must not be.
@@ -500,7 +515,7 @@ begin
           raise exception 'requires_saved_place' using errcode = 'P0001';
         end if;
       when 'own_time' then
-        -- The organiser's own time (ADR 0050): not an option, so the guard is the
+        -- The organiser's own time (ADR 0051): not an option, so the guard is the
         -- stretch being a valid one. `ownTimeProblem` in the domain, which names
         -- the same codes in the same order; a stretch nobody named is
         -- `needs_own_time`.
@@ -674,7 +689,7 @@ begin
     perform set_config('circles.deriving_attendance', 'off', true);
   end if;
 
-  -- The organiser setting the final plan (ADR 0050): an own time, a move, or a
+  -- The organiser setting the final plan (ADR 0051): an own time, a move, or a
   -- place and note edit. The confirmation is written in here for the reason
   -- `confirm`'s is: no moment at which a plan is `confirmed` with nothing
   -- confirmed, and no event about a confirmation a later insert might fail to
@@ -743,7 +758,7 @@ begin
   -- (or moved twice) inside one tick has several events about one active
   -- confirmation: only the event that made it speaks, because a later one takes
   -- the earlier one's still-scheduled letters back and the same keys would then
-  -- find them skipped (ADR 0050). An id, never a time or a place.
+  -- find them skipped (ADR 0051). An id, never a time or a place.
   if p_action in ('confirm', 'confirm_own', 'move_confirmed') then
     event_payload := event_payload || jsonb_build_object('confirmation_id', confirmation_id);
   end if;
@@ -763,7 +778,7 @@ grant execute on function planning.transition_plan(uuid, text, uuid, jsonb) to s
 -- supabase/sql/functions/private/apply_organiser_plan.sql
 -- ---------------------------------------------------------------------------
 -- What the organiser setting the final plan does to the confirmation
--- (ADR 0050), in the transaction `planning.transition_plan` has already opened
+-- (ADR 0051), in the transaction `planning.transition_plan` has already opened
 -- under the plan's row lock.
 --
 --   * `confirm_own` writes the first confirmation, for a stretch that is not in
@@ -898,16 +913,77 @@ end;
 $$;
 
 comment on function private.apply_organiser_plan(public.plans, text, uuid, jsonb) is
-  'The confirmation side of the organiser setting the final plan: an own time, a move (supersede and write a new active confirmation in the same revision) or a place and note edit in place. Called by transition_plan under the plan''s lock (ADR 0050).';
+  'The confirmation side of the organiser setting the final plan: an own time, a move (supersede and write a new active confirmation in the same revision) or a place and note edit in place. Called by transition_plan under the plan''s lock (ADR 0051).';
 
 revoke all on function private.apply_organiser_plan(public.plans, text, uuid, jsonb) from public;
 revoke all on function private.apply_organiser_plan(public.plans, text, uuid, jsonb) from anon, authenticated;
 grant execute on function private.apply_organiser_plan(public.plans, text, uuid, jsonb) to service_role;
 
+-- supabase/sql/functions/private/hand_back_membership.sql
+-- ---------------------------------------------------------------------------
+-- Take one circle's membership back from a saved account (ADR 0049, decision 6).
+--
+-- `reattach_member` calls this after `private.takeback_allowed` has said yes. It
+-- moves the membership the way every move does, through `move_membership`, with
+-- three differences that exist because the holder is an account with a life
+-- outside this circle:
+--
+--   * **Only this circle's membership moves.** `move_membership` is already scoped
+--     to one circle; the account keeps its other circles, its sign-in and its
+--     profile, and nothing about them is read or written here.
+--   * **Only the link's address moves.** A guest-to-guest move carries every
+--     address attached to the place, and here the holder's own sign-in address may
+--     be among them. `reconcile_contacts` is told, through a transaction-local
+--     setting, to move the one contact the link names and leave the rest, so the
+--     account's address and consent are never handed to somebody else.
+--   * **The holder's other links for this circle are deleted first.** A re-entry
+--     link names a membership and a contact that must belong to that membership's
+--     holder; links for the holder's other addresses would be left pointing at a
+--     person who no longer holds the place. They are the holder's, and a link that
+--     can no longer move anything is of no use to them.
+-- ---------------------------------------------------------------------------
+
+create or replace function private.hand_back_membership(
+  p_circle_id uuid,
+  p_from uuid,
+  p_to uuid,
+  p_contact_id uuid
+)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  link_hash bytea;
+begin
+  select k.email_hash into link_hash from private.email_contacts k where k.id = p_contact_id;
+  if link_hash is null then
+    raise exception 'member_not_found' using errcode = 'no_data_found';
+  end if;
+
+  delete from private.email_action_tokens t
+  where t.purpose = 'reentry'
+    and t.membership_circle_id = p_circle_id
+    and t.membership_user_id = p_from
+    and t.contact_id <> p_contact_id;
+
+  perform set_config('circles.takeback_email_hash', encode(link_hash, 'hex'), true);
+  perform private.move_membership(p_circle_id, p_from, p_to);
+  perform set_config('circles.takeback_email_hash', '', true);
+end;
+$$;
+
+comment on function private.hand_back_membership(uuid, uuid, uuid, uuid) is
+  'Moves one circle membership from a saved account to a guest identity named by an emailed link: that circle only, only the link''s address, the account''s other links for it deleted.';
+
+revoke all on function private.hand_back_membership(uuid, uuid, uuid, uuid) from public;
+revoke all on function private.hand_back_membership(uuid, uuid, uuid, uuid) from anon, authenticated;
+
 -- supabase/sql/functions/private/own_time_problem.sql
 -- ---------------------------------------------------------------------------
 -- What is wrong with a stretch the organiser wants to lock in, if anything
--- (ADR 0050).
+-- (ADR 0051).
 --
 -- `ownTimeProblem` in `packages/domain`, rule for rule and in the same order:
 -- shape before the clock, so a stretch that is off the half hour is wrong
@@ -971,15 +1047,301 @@ end;
 $$;
 
 comment on function private.own_time_problem(public.plans, timestamptz, timestamptz) is
-  'The first thing wrong with a stretch the organiser wants to lock in, as ownTimeProblem has it in the domain, or null (ADR 0050).';
+  'The first thing wrong with a stretch the organiser wants to lock in, as ownTimeProblem has it in the domain, or null (ADR 0051).';
 
 revoke all on function private.own_time_problem(public.plans, timestamptz, timestamptz) from public;
 revoke all on function private.own_time_problem(public.plans, timestamptz, timestamptz) from anon, authenticated;
 grant execute on function private.own_time_problem(public.plans, timestamptz, timestamptz) to service_role;
 
+-- supabase/sql/functions/private/reconcile_contacts.sql
+-- ---------------------------------------------------------------------------
+-- The address a membership is reachable at, when the membership changes hands.
+--
+-- Shared by `move_membership` (the destination has no membership here) and
+-- `adopt_membership_rows` (it has one, and the duplicate is being retired),
+-- because the work is the same either way and the first version of this ticket
+-- had it in one and not the other — which left a retired duplicate's consent and
+-- its emailed links bound to a membership that no longer exists.
+--
+-- Three rules, in order of how badly getting them wrong would hurt:
+--
+--   * **Only this circle's rows move.** A contact belongs to an identity and an
+--     identity can be in several circles, so handing the contact over whole would
+--     carry another circle's consent to an identity that is not a member of it.
+--   * **A withdrawal survives a merge.** Where both identities hold consent for
+--     one plan at one address, the result is withdrawn if *either* of them is.
+--     Choosing by identity — "the destination's row is the one that persists" —
+--     discards an unsubscribe, and unsubscribing is immediate here (§14, and the
+--     Spam Act).
+--   * **Queued mail is re-pointed before anything is deleted.** An email job names
+--     a contact and carries no `user_id` at all, and
+--     `notification_jobs_contact_fkey` is `on delete cascade`: the tidy-up would
+--     otherwise take away messages somebody is waiting for, without a word.
+-- ---------------------------------------------------------------------------
+
+create or replace function private.reconcile_contacts(
+  p_circle_id uuid,
+  p_from uuid,
+  p_to uuid
+)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  contact record;
+  destination_contact uuid;
+begin
+  -- Before the contact is touched at all. Every branch below either moves the
+  -- contact — whose `user_id` cascades into `email_action_tokens.membership_user_id`
+  -- — or re-points the token's `contact_id`, and an unspent re-entry token arriving
+  -- at a permanent identity is refused by `enforce_reentry_for_guests`. That
+  -- refusal took the whole claim with it, which made saving your place impossible
+  -- for exactly the people who had asked to be emailed.
+  perform private.retire_reentry_links(p_circle_id, p_from, p_to);
+
+  for contact in
+    select ec.id, ec.email_hash,
+      -- Whether this contact has anything outside the circle being moved, which
+      -- decides both whether it is split and whether it survives the move.
+      exists (
+        select 1 from private.email_subscriptions other
+        join public.plans pl on pl.id = other.plan_id
+        where other.contact_id = ec.id and pl.circle_id <> p_circle_id
+        union all
+        select 1 from private.email_action_tokens other
+        where other.contact_id = ec.id
+          and other.membership_circle_id is not null
+          and other.membership_circle_id <> p_circle_id
+      ) as keeps_other_circles
+    from private.email_contacts ec
+    where ec.user_id = p_from
+      -- One address only, when a place is being taken back from a saved account
+      -- (`private.hand_back_membership` names it): the account's own addresses and
+      -- anything else it attached stay with it. Unset, every contact of this circle
+      -- moves, as for a guest-to-guest move. A client cannot set this, and setting
+      -- it could only ever move *less*.
+      and (
+        nullif(current_setting('circles.takeback_email_hash', true), '') is null
+        or ec.email_hash = decode(current_setting('circles.takeback_email_hash', true), 'hex')
+      )
+      and (
+        exists (
+          select 1 from private.email_subscriptions s
+          join public.plans p on p.id = s.plan_id
+          where s.contact_id = ec.id and p.circle_id = p_circle_id
+        )
+        or exists (
+          select 1 from private.email_action_tokens t
+          where t.contact_id = ec.id and t.membership_circle_id = p_circle_id
+        )
+      )
+  loop
+    select ec.id into destination_contact
+    from private.email_contacts ec
+    where ec.user_id = p_to and ec.email_hash = contact.email_hash;
+
+    if not found then
+      -- `is not null and <>` inside `keeps_other_circles`, not `is distinct from`. A
+      -- `verify` or `prefs` token has no membership at all — the constraint on
+      -- `email_action_tokens` requires it null for anything but `reentry` — and
+      -- `null is distinct from <uuid>` is true, so every contact with a verification
+      -- link outstanding looked like a contact tied to another circle. It was split
+      -- instead of travelling: the consent went to a fresh copy with no links, the
+      -- links stayed on an identity with no consent, and retention took both.
+      if contact.keeps_other_circles then
+        -- Split: a copy for the destination carrying the same address and the
+        -- same standing — verified stays verified, because it is the same person
+        -- and the same address, and suppressed stays suppressed, because that is
+        -- global by hash (spec §9). Uniqueness is `(email_hash, user_id)`, so two
+        -- identities holding one address is what 0009 made legal.
+        insert into private.email_contacts
+          (user_id, email_normalized, status, verified_at, suppressed_at, suppression_reason)
+        select p_to, ec.email_normalized, ec.status, ec.verified_at, ec.suppressed_at,
+               ec.suppression_reason
+        from private.email_contacts ec
+        where ec.id = contact.id
+        returning id into destination_contact;
+      else
+        -- Nothing outside this circle and nowhere to merge into: the contact
+        -- itself travels, and everything hanging off it comes by cascade.
+        update private.email_contacts ec set user_id = p_to where ec.id = contact.id;
+        continue;
+      end if;
+    end if;
+
+    -- An address this person has already verified stays verified. The split branch
+    -- copies `status` and `verified_at` "because it is the same person and the same
+    -- address", and the merge branch was re-pointing consent onto a `pending` row and
+    -- leaving it pending — so saving your place could *unverify* an address, and
+    -- retention's seven-day rule for pending contacts could then sweep the consent.
+    --
+    -- One direction only. A suppressed contact is never promoted: suppression is
+    -- global by hash (spec §9), `record_suppression` keeps it that way, and "no
+    -- automatic reactivation" is the rule.
+    update private.email_contacts kept
+    set status = 'verified', verified_at = coalesce(kept.verified_at, source.verified_at, now())
+    from private.email_contacts source
+    where kept.id = destination_contact
+      and source.id = contact.id
+      and kept.status = 'pending'
+      and source.status = 'verified';
+
+    -- Consent, where the destination already has some for the same plan. The
+    -- unique index is on `(contact_id, scope, plan_id)`, so the two cannot simply
+    -- both be re-pointed — and which one survives is not a question about
+    -- identities.
+    update private.email_subscriptions kept
+    set status = 'withdrawn',
+        withdrawn_at = coalesce(kept.withdrawn_at, source.withdrawn_at, now())
+    from private.email_subscriptions source
+    where kept.contact_id = destination_contact
+      and source.contact_id = contact.id
+      and source.scope = kept.scope
+      and source.plan_id is not distinct from kept.plan_id
+      and source.plan_id in (select pl.id from public.plans pl where pl.circle_id = p_circle_id)
+      -- Either side having withdrawn makes the answer withdrawn. A merge is not a
+      -- new consent, and it must never be a way to undo an unsubscribe.
+      and 'withdrawn' in (source.status, kept.status)
+      and kept.status <> 'withdrawn';
+
+    delete from private.email_subscriptions source
+    where source.contact_id = contact.id
+      and source.plan_id in (select pl.id from public.plans pl where pl.circle_id = p_circle_id)
+      and exists (
+        select 1 from private.email_subscriptions kept
+        where kept.contact_id = destination_contact
+          and kept.scope = source.scope
+          and kept.plan_id is not distinct from source.plan_id
+      );
+
+    update private.email_subscriptions sub
+    set contact_id = destination_contact, user_id = p_to
+    where sub.contact_id = contact.id
+      and sub.plan_id in (select pl.id from public.plans pl where pl.circle_id = p_circle_id);
+
+    -- Two kinds of link, and they move differently.
+    --
+    -- A `reentry` token names a membership, so it takes the new identity with it.
+    -- In the move path the cascade has already done that; in the duplicate-merge
+    -- path the membership never moved, and leaving the token behind both breaks the
+    -- composite foreign key — `(contact_id, membership_user_id)` must be a real
+    -- `(id, user_id)` pair on `email_contacts` — and points an emailed link at a
+    -- membership about to be removed.
+    update private.email_action_tokens tok
+    set contact_id = destination_contact, membership_user_id = p_to
+    where tok.contact_id = contact.id
+      and tok.purpose = 'reentry'
+      and tok.membership_circle_id = p_circle_id;
+
+    -- A `verify` or `prefs` token names no membership and must keep naming none
+    -- (the `email_action_tokens_membership_for_reentry` constraint), but it is
+    -- still this person's link to this address — the preferences page has to work
+    -- without a sign-in (spec §5.8) and unsubscribing is immediate (§14).
+    --
+    -- So it follows the contact only when the contact is going away. A source that
+    -- keeps another circle's consent keeps its own links too: moving them would
+    -- leave *it* with consent nobody can verify or manage, which is the same defect
+    -- the other way round. A person who ends up holding one address on two contacts
+    -- needs verification to be by address rather than by row — written on SUS-34,
+    -- which owns `verify-email-contact`.
+    if not contact.keeps_other_circles then
+      update private.email_action_tokens tok
+      set contact_id = destination_contact
+      where tok.contact_id = contact.id and tok.membership_circle_id is null;
+    end if;
+
+    update jobs.notification_jobs job
+    set contact_id = destination_contact
+    where job.contact_id = contact.id
+      and job.sent_at is null
+      and job.plan_id in (select pl.id from public.plans pl where pl.circle_id = p_circle_id);
+
+    -- The old row goes only once nothing points at it any more. A contact still
+    -- holding another circle's consent is that circle's, and stays.
+    delete from private.email_contacts ec
+    where ec.id = contact.id
+      and not exists (select 1 from private.email_subscriptions sub where sub.contact_id = ec.id)
+      and not exists (select 1 from private.email_action_tokens tok where tok.contact_id = ec.id)
+      and not exists (select 1 from jobs.notification_jobs job where job.contact_id = ec.id);
+  end loop;
+end;
+$$;
+
+comment on function private.reconcile_contacts(uuid, uuid, uuid) is
+  'Moves one circle''s email consent, links and queued mail from one identity to another, merging where both hold the address. A withdrawal survives the merge.';
+
+revoke all on function private.reconcile_contacts(uuid, uuid, uuid) from public;
+revoke all on function private.reconcile_contacts(uuid, uuid, uuid) from anon, authenticated;
+
+-- supabase/sql/functions/private/retire_reentry_links.sql
+-- ---------------------------------------------------------------------------
+-- A membership is about to belong to somebody with a saved place, so its
+-- emailed way in without signing in has to stop being one.
+--
+-- `enforce_reentry_for_guests` refuses to *issue* a re-entry token against a
+-- permanent identity, and the same rule has to hold when a membership becomes a
+-- permanent identity's. Spent rather than deleted, so that following the link
+-- still finds something and `reattach_member` can offer that identity's sign-in
+-- (§10's third outcome) instead of calling the link broken.
+--
+-- Called from two places, and the reason is ordering rather than duplication:
+--
+--   * `move_membership`, *before* it rewrites `circle_members.user_id`, because
+--     `email_action_tokens.membership_user_id` follows that by cascade and the
+--     trigger fires on it;
+--   * `reconcile_contacts`, at the top, because the duplicate-merge path never
+--     moves the membership at all — it reaches the token through the *contact*,
+--     and the same refusal was waiting there.
+--
+-- Idempotent: a token already spent is left alone.
+--
+-- A token spent *here* is marked `retired_at`, and a token spent by being used is
+-- not. The difference matters to exactly one reader, `reattach_member`: an
+-- emailed link may take a place back from a saved account when the account's own
+-- address is not the link's (ADR 0049, decision 6), and a link the member never
+-- got to use is still theirs to use, but a link that already moved a place is
+-- spent for good. Without the mark the two cannot be told apart.
+-- ---------------------------------------------------------------------------
+
+create or replace function private.retire_reentry_links(
+  p_circle_id uuid,
+  p_from uuid,
+  p_to uuid
+)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if not exists (select 1 from public.profiles p where p.user_id = p_to and p.is_permanent)
+    and not exists (
+      select 1 from auth.users u where u.id = p_to and not coalesce(u.is_anonymous, true)
+    )
+  then
+    return;
+  end if;
+
+  update private.email_action_tokens t
+  set used_at = now(), retired_at = now()
+  where t.purpose = 'reentry'
+    and t.used_at is null
+    and t.membership_circle_id = p_circle_id
+    and t.membership_user_id = p_from;
+end;
+$$;
+
+comment on function private.retire_reentry_links(uuid, uuid, uuid) is
+  'Spends a membership''s outstanding re-entry links when it passes to an identity with a saved place. Spent, not deleted, so the emailed link can still route to sign-in.';
+
+revoke all on function private.retire_reentry_links(uuid, uuid, uuid) from public;
+revoke all on function private.retire_reentry_links(uuid, uuid, uuid) from anon, authenticated;
+
 -- supabase/sql/functions/private/stretch_availability.sql
 -- ---------------------------------------------------------------------------
--- Who can make a stretch of time (ADR 0050).
+-- Who can make a stretch of time (ADR 0051).
 --
 -- `whoCanMake` in `packages/domain`, which the engine itself calls for every
 -- start it enumerates: a member whose willing windows fully contain the stretch,
@@ -1048,15 +1410,83 @@ as $$
 $$;
 
 comment on function private.stretch_availability(uuid, timestamptz, timestamptz) is
-  'Who of the people the plan is asking can make a stretch, who answered otherwise and who has not answered, as whoCanMake has it in the domain: windows that fully contain it, or "I''m easy". Ids only (ADR 0050).';
+  'Who of the people the plan is asking can make a stretch, who answered otherwise and who has not answered, as whoCanMake has it in the domain: windows that fully contain it, or "I''m easy". Ids only (ADR 0051).';
 
 revoke all on function private.stretch_availability(uuid, timestamptz, timestamptz) from public;
 revoke all on function private.stretch_availability(uuid, timestamptz, timestamptz) from anon, authenticated;
 grant execute on function private.stretch_availability(uuid, timestamptz, timestamptz) to service_role;
 
+-- supabase/sql/functions/private/takeback_allowed.sql
+-- ---------------------------------------------------------------------------
+-- May an emailed re-entry link take a place back from a saved account?
+-- (ADR 0049, decision 6; the founder's decision of 3 October 2026.)
+--
+-- A saved place is never *offered* by the list and never moved by a pick, and that
+-- stays. This is the one exception, and it is for a person who proves the address
+-- the place was reachable at: if somebody took a guest's place from the Continue-as
+-- list and then saved it as their own account, the real guest's emailed link must
+-- still get them back, or the takeover is permanent.
+--
+-- Yes only when all of these hold, and the answer is a plain boolean so that every
+-- way of being unsure is a no:
+--
+--   * the holder really is a saved account, by `auth.users` (the record only the
+--     auth server writes), not by a profile flag or a token that may be stale;
+--   * the holder does not own the circle: an owner stays a member
+--     (`enforce_owner_stays_member`), and handing a circle on is its own operation;
+--   * **the account's own address is not the link's address.** An account whose
+--     email is the address the link was sent to is the same person, signed in, and
+--     keeps the place. Compared lower-cased, against `auth.users.email` and every
+--     address on the account's sign-in identities. An account with *no* address of
+--     its own (a phone sign-in) has none to match, so the link is not the account
+--     holder's and may take the place back.
+-- ---------------------------------------------------------------------------
+
+create or replace function private.takeback_allowed(
+  p_circle_id uuid,
+  p_holder uuid,
+  p_contact_id uuid
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+      select 1 from auth.users u where u.id = p_holder and not coalesce(u.is_anonymous, true)
+    )
+    and exists (select 1 from private.email_contacts k where k.id = p_contact_id)
+    and not exists (
+      select 1 from public.circles c where c.id = p_circle_id and c.owner_user_id = p_holder
+    )
+    and not exists (
+      select 1
+      from private.email_contacts k
+      where k.id = p_contact_id
+        and (
+          exists (
+            select 1 from auth.users u
+            where u.id = p_holder and lower(btrim(u.email)) = lower(btrim(k.email_normalized))
+          )
+          or exists (
+            select 1 from auth.identities i
+            where i.user_id = p_holder
+              and lower(btrim(i.identity_data ->> 'email')) = lower(btrim(k.email_normalized))
+          )
+        )
+    );
+$$;
+
+comment on function private.takeback_allowed(uuid, uuid, uuid) is
+  'Whether an emailed re-entry link may take a place back from a saved account: the holder is a real account, not the circle''s owner, and its own address is not the link''s. Every doubt is a no.';
+
+revoke all on function private.takeback_allowed(uuid, uuid, uuid) from public;
+revoke all on function private.takeback_allowed(uuid, uuid, uuid) from anon, authenticated;
+
 -- supabase/sql/functions/public/confirm_own_time.sql
 -- ---------------------------------------------------------------------------
--- Locking in a time the organiser chose themselves (ADR 0050).
+-- Locking in a time the organiser chose themselves (ADR 0051).
 --
 -- A wrapper over `planning.transition_plan(plan, 'confirm_own', …)`, as
 -- `confirm_meetup` is for an option, and for the same reasons: `planning` is not
@@ -1156,7 +1586,7 @@ end;
 $$;
 
 comment on function public.confirm_own_time(uuid, timestamptz, timestamptz, integer, text, text, text, text) is
-  'Locks in a time the calling organiser chose, through planning.transition_plan, and refuses it as stale_availability when an answer arrived since the names they were shown (ADR 0050).';
+  'Locks in a time the calling organiser chose, through planning.transition_plan, and refuses it as stale_availability when an answer arrived since the names they were shown (ADR 0051).';
 
 revoke all on function public.confirm_own_time(uuid, timestamptz, timestamptz, integer, text, text, text, text) from public;
 revoke all on function public.confirm_own_time(uuid, timestamptz, timestamptz, integer, text, text, text, text) from anon, authenticated;
@@ -1185,7 +1615,7 @@ grant execute on function public.confirm_own_time(uuid, timestamptz, timestamptz
 -- evening that is off, followed by a second "locked in" for the new one.
 --
 -- `moved` is in it for the same reason, once the organiser can move a
--- locked-in time (ADR 0050): a second move inside the backoff of the first
+-- locked-in time (ADR 0051): a second move inside the backoff of the first
 -- would otherwise send "moved to Saturday" after the plan had moved on to
 -- Sunday. A move supersedes the confirmation inside the same revision, so the
 -- caller passes the revision the plan is still on.
@@ -1197,7 +1627,7 @@ create or replace function public.dispatch_cancel_pending(
   p_plan_id uuid,
   p_revision integer,
   -- The confirmation whose letters must survive: the one a move has just made
-  -- (ADR 0050). A move keeps the revision, so a retried `meetup_moved` event
+  -- (ADR 0051). A move keeps the revision, so a retried `meetup_moved` event
   -- would otherwise skip its own jobs, and the unique key would then refuse to
   -- write them again. Null for a reopen or a cancellation, which keep nothing.
   p_keep_confirmation uuid default null
@@ -1290,7 +1720,7 @@ grant execute on function public.dispatch_enqueue(jsonb) to service_role;
 
 -- supabase/sql/functions/public/edit_confirmation.sql
 -- ---------------------------------------------------------------------------
--- Editing a locked-in plan: its time, its place and its note (ADR 0050).
+-- Editing a locked-in plan: its time, its place and its note (ADR 0051).
 --
 -- "Edit this plan" on the confirmed screen. Three things can change, and the
 -- difference between them is the whole of the design:
@@ -1402,16 +1832,317 @@ end;
 $$;
 
 comment on function public.edit_confirmation(uuid, timestamptz, timestamptz, integer, text, text, text) is
-  'The calling organiser edits a locked-in plan: a new time is a move (supersede and write a new active confirmation, same revision), a place or note alone updates it in place. Nobody is asked again (ADR 0050).';
+  'The calling organiser edits a locked-in plan: a new time is a move (supersede and write a new active confirmation, same revision), a place or note alone updates it in place. Nobody is asked again (ADR 0051).';
 
 revoke all on function public.edit_confirmation(uuid, timestamptz, timestamptz, integer, text, text, text) from public;
 revoke all on function public.edit_confirmation(uuid, timestamptz, timestamptz, integer, text, text, text) from anon, authenticated;
 grant execute on function public.edit_confirmation(uuid, timestamptz, timestamptz, integer, text, text, text) to authenticated;
 
+-- supabase/sql/functions/public/reattach_member.sql
+-- ---------------------------------------------------------------------------
+-- reattach_member
+--
+-- A guest comes back with no session — the expected path, not the rare one
+-- (ADR 0006: Safari drops script-writable storage after seven idle days, and
+-- chat in-app browsers isolate it). They sign in anonymously again, pick their
+-- name from the Continue-as list or arrive on an emailed `/a/<token>` link, and
+-- this moves the membership and everything scoped to it onto the new identity.
+--
+-- Two ways in, one path through. The list names the membership; the token
+-- authorises it. Everything after resolution is identical, which is the point
+-- ADR 0006 and §10 both make: "this reuses one reattachment path for both the
+-- manual and the emailed case".
+--
+-- The safeguards are all here rather than in the Edge Function, because they
+-- are the decision and not the throttle: the caller must be a guest, the target
+-- must be a guest (the one exception, an emailed link taking a place back from a
+-- saved account, is ADR 0049 decision 6), and a membership may be moved by the
+-- list at most three times in seven days. Enforced where it cannot be skipped.
+--
+-- **The old identity is not deleted here.** It can hold memberships in other
+-- circles; `circles.owner_user_id`, `circle_invites.created_by` and
+-- `plans.organiser_user_id` reference `auth.users` with no action, so a delete can
+-- *fail* at the worst moment; and `run_retention` already deletes anonymous
+-- identities with no memberships after thirty days (ADR 0014, §8.5).
+-- ---------------------------------------------------------------------------
+
+create or replace function public.reattach_member(
+  p_circle_id uuid default null,
+  p_target_user_id uuid default null,
+  p_reentry_token_hash bytea default null
+)
+returns public.circles
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  caller uuid := (select auth.uid());
+  target_circle uuid := p_circle_id;
+  target uuid := p_target_user_id;
+  token private.email_action_tokens;
+  chosen public.circles;
+  -- `member_reattached`'s analytics payload is `source: 'list' | 'email'`
+  -- (packages/contracts/src/analytics.ts), and the reattach rate by source is
+  -- what tells us whether the emailed path is worth its machinery. The function
+  -- is the only place that knows which one happened.
+  entry_source text := case when p_reentry_token_hash is null then 'list' else 'email' end;
+  -- The place is held by a saved account and the link may take it back (ADR 0049, 6).
+  taking_back boolean := false;
+begin
+  if caller is null then
+    raise exception 'reattach_member requires a signed-in actor'
+      using errcode = 'insufficient_privilege';
+  end if;
+
+  -- A saved-place identity does not reattach: it signs in. §10 — "if the
+  -- membership belongs to a permanent identity, the page offers that identity's
+  -- sign-in instead".
+  --
+  -- Three records of the same fact, and the strictest wins, which is the rule
+  -- this function already applies to the *target* and had no business not
+  -- applying to the caller. `auth_is_permanent()` reads the JWT, and a JWT
+  -- outlives the event it describes: `linkIdentity` converts the user in place,
+  -- so an access token issued minutes earlier keeps `is_anonymous: true` for the
+  -- rest of its hour (§14) while `auth.users` and `profiles` have already moved
+  -- on. For that hour the stale token was enough to take a *second* guest
+  -- membership and attach it to a saved place, where Continue-as can never move
+  -- it again.
+  if public.auth_is_permanent()
+    or exists (select 1 from public.profiles p where p.user_id = caller and p.is_permanent)
+    or exists (
+      select 1 from auth.users u where u.id = caller and not coalesce(u.is_anonymous, true)
+    )
+  then
+    -- With one exception: the emailed link, opened by the account its membership
+    -- now belongs to (§10: "if the browser already holds the right identity, it
+    -- simply routes to the plan"). `linkIdentity` keeps the user id, so the token
+    -- still names them. Nothing moves and nothing is spent. Anybody else signed in
+    -- is refused, and the client can tell the two apart.
+    if p_reentry_token_hash is not null then
+      select c.* into chosen
+      from private.email_action_tokens t
+      join public.circle_members m
+        on m.circle_id = t.membership_circle_id and m.user_id = t.membership_user_id
+      join public.circles c on c.id = t.membership_circle_id
+      where t.token_hash = p_reentry_token_hash
+        and t.purpose = 'reentry'
+        and t.membership_user_id = caller
+        and m.status = 'active';
+
+      if found then
+        return chosen;
+      end if;
+    end if;
+
+    raise exception 'caller_is_permanent' using errcode = 'insufficient_privilege';
+  end if;
+
+  if (p_reentry_token_hash is null) = (target is null) then
+    raise exception 'reattach_member takes a target membership or a re-entry token, not both and not neither'
+      using errcode = 'invalid_parameter_value';
+  end if;
+
+  if p_reentry_token_hash is not null then
+    -- Single-use, 7-day, bound to a membership (§14); spent below, in this
+    -- transaction, so a later failure rolls the spend back.
+    select * into token
+    from private.email_action_tokens t
+    where t.token_hash = p_reentry_token_hash
+      and t.purpose = 'reentry'
+      -- Unspent; or spent by `retire_reentry_links` when the place became a saved
+      -- account's, which is the link still being the member's to use (never a link
+      -- that already moved a place: that one has no `retired_at`).
+      and (t.used_at is null or t.retired_at is not null)
+      and t.expires_at > now();
+
+    if not found then
+      -- Before calling it invalid: a used or expired link to a membership that
+      -- is now a saved place is a link to an account (§10: the page offers that
+      -- identity's sign-in), and the client can only show that if told so.
+      if exists (
+        select 1
+        from private.email_action_tokens t
+        join public.profiles p on p.user_id = t.membership_user_id
+        where t.token_hash = p_reentry_token_hash and t.purpose = 'reentry' and p.is_permanent
+      ) then
+        raise exception 'target_is_permanent' using errcode = 'insufficient_privilege';
+      end if;
+
+      raise exception 'token_invalid' using errcode = 'no_data_found';
+    end if;
+
+    target_circle := token.membership_circle_id;
+    target := token.membership_user_id;
+  end if;
+
+  -- Serialises two reattachments of the same membership: without it both read
+  -- a chain of two and both decide they are the third.
+  select * into chosen from public.circles c where c.id = target_circle for update;
+  if not found then
+    raise exception 'member_not_found' using errcode = 'no_data_found';
+  end if;
+
+  if target = caller then
+    -- Already theirs — but *only* if it is. This return used to come before any
+    -- membership check at all, so any anonymous session that knew a circle's uuid
+    -- could name itself as the target and be handed the circle: the name, the
+    -- colour, the zone, the cadence, the short code. RLS refuses that same read,
+    -- and §9.4 exposes the name alone and nothing else. It was also an existence
+    -- oracle over circle uuids.
+    --
+    -- A genuine retry is served by the idempotency record before it ever reaches
+    -- this function, so nothing is lost by asking.
+    if not exists (
+      select 1 from public.circle_members m
+      where m.circle_id = target_circle and m.user_id = caller and m.status = 'active'
+    ) then
+      raise exception 'member_not_found' using errcode = 'no_data_found';
+    end if;
+
+    return chosen;
+  end if;
+
+  -- An archived circle is not somewhere anybody comes back to (ADR 0049), with
+  -- an emailed link or without. The same answer a membership that was never
+  -- there gets, so this tells nobody which of the two it was.
+  if chosen.status <> 'active' then
+    raise exception 'member_not_found' using errcode = 'no_data_found';
+  end if;
+
+  -- The volume limit, **here** as well as in the Edge Function (ADR 0049): this
+  -- function is granted to `authenticated`, so a client calling the RPC directly
+  -- never meets the Edge Function's counters. A different scope from the Edge one,
+  -- so neither eats the other's budget. A refusal raises and rolls the count back,
+  -- so this bounds *completed* moves: twenty a circle an hour is far above what
+  -- coming back needs and far below what taking people over needs.
+  --
+  -- The **list** path only. The emailed link is the way back for the rightful
+  -- member, so filling the hourly budget with takeovers must not turn it away; the
+  -- token has its own single-use, seven-day limit (and the Edge per-token counter).
+  if p_reentry_token_hash is null and not public.take_rate_token(
+    'reattach_circle_sql', extensions.digest(target_circle::text, 'sha256'), 20, interval '1 hour'
+  ) then
+    raise exception 'too_many_requests' using errcode = 'too_many_rows';
+  end if;
+
+  -- `for update` on the membership itself, not only on the circle. The circle lock
+  -- above serialises two reattachments; it does nothing about `claim_identity`,
+  -- which locks `circle_members` rows instead. Without this, a claim running on
+  -- another device could move the membership between this check and the move — and
+  -- the move would match no rows while the audit row, the event and a successful
+  -- answer all went out to a caller who had been given nothing.
+  if not exists (
+    select 1 from public.circle_members m
+    where m.circle_id = target_circle and m.user_id = target and m.status = 'active'
+    for update
+  ) then
+    raise exception 'member_not_found' using errcode = 'no_data_found';
+  end if;
+
+  -- Never onto a saved-place member, by either record: whichever is stale, the
+  -- answer has to be no. The one exception is an emailed link that proves an address
+  -- the account does not hold (ADR 0049, decision 6): that takes the place *back*.
+  if exists (
+    select 1 from public.profiles p where p.user_id = target and p.is_permanent
+  ) or not exists (
+    select 1 from auth.users u where u.id = target and coalesce(u.is_anonymous, false)
+  ) then
+    if p_reentry_token_hash is null
+      or not private.takeback_allowed(target_circle, target, token.contact_id)
+    then
+      raise exception 'target_is_permanent' using errcode = 'insufficient_privilege';
+    end if;
+    taking_back := true;
+  end if;
+
+  -- The caller already belongs here under their own name. Moving a second
+  -- membership onto them would collide with their own row, and the thing they
+  -- actually want is the session they are already holding.
+  if exists (
+    select 1 from public.circle_members m
+    where m.circle_id = target_circle and m.user_id = caller
+  ) then
+    raise exception 'already_member' using errcode = 'unique_violation';
+  end if;
+
+  -- Three per membership per seven days (ADR 0006), **counting only the moves made
+  -- by picking a name** (ADR 0049; `private.list_moves_this_week`). A move made with
+  -- an emailed re-entry link is never refused here, a take-back from a saved account
+  -- included, so a member with a live link can always return. What that leaves open
+  -- is in ADR 0049, decision 4.
+  if p_reentry_token_hash is null
+    and private.list_moves_this_week(target_circle, target) >= 3
+  then
+    raise exception 'reattach_limit' using errcode = 'too_many_rows';
+  end if;
+
+  -- The move itself lives in `private.move_membership`, shared with
+  -- `claim_identity`: one list of the tables a membership owns, because two
+  -- lists means one of them forgets a table and a guest comes back to find
+  -- their answers gone.
+  if p_reentry_token_hash is not null then
+    -- Spent here rather than on the way in. The early return above answers "already
+    -- theirs" for somebody who follows their own link while the session still works,
+    -- and burning the link for that is a link they cannot use when they actually
+    -- need it. Inside the same transaction either way, so a later failure rolls the
+    -- spend back with it.
+    -- A retired link is now simply used, and cannot take anything back twice.
+    update private.email_action_tokens t
+    set used_at = coalesce(t.used_at, now()), retired_at = null
+    where t.id = token.id;
+  end if;
+
+  if taking_back then
+    perform private.hand_back_membership(target_circle, target, caller, token.contact_id);
+  else
+    perform private.move_membership(target_circle, target, caller);
+  end if;
+
+  -- And the lock is not taken on trust. If the membership is not the caller's by
+  -- now, something moved it and this reattachment achieved nothing — so it says
+  -- so, rather than announcing a rejoin that did not happen.
+  if not exists (
+    select 1 from public.circle_members m
+    where m.circle_id = target_circle and m.user_id = caller and m.status = 'active'
+  ) then
+    raise exception 'member_not_found' using errcode = 'no_data_found';
+  end if;
+
+  -- Ids only (non-negotiable 8). The two ids are what makes the chain above
+  -- walkable, and `source` ('list' or 'email') is what lets the cap above count
+  -- only the moves it is for; a display name here would be the leak the
+  -- constraint on this table refuses anyway.
+  insert into private.audit_log (actor_user_id, action, resource_type, resource_id, metadata)
+  values (caller, 'circles.member_reattached', 'circle', target_circle,
+          jsonb_build_object('from_user_id', target, 'to_user_id', caller, 'source', entry_source,
+                             'from_saved_account', taking_back));
+
+  -- The owner's "Priya rejoined from a new device" (spec §5.1) starts here.
+  -- No name: the notification pipeline reads the roster for that.
+  -- A place taken back from a saved account is told the same way, with the account's
+  -- id on the event so both parties are named: no new channel (ADR 0049, 6).
+  perform jobs.emit('circles.member_reattached', 'circle', target_circle,
+    jsonb_build_object('circle_id', target_circle, 'user_id', caller, 'source', entry_source)
+    || case when taking_back
+         then jsonb_build_object('from_user_id', target, 'from_saved_account', true)
+         else '{}'::jsonb end);
+
+  return chosen;
+end;
+$$;
+
+comment on function public.reattach_member(uuid, uuid, bytea) is
+  'Moves a guest membership and everything scoped to it onto the calling anonymous identity, from the Continue-as list or an emailed re-entry token (ADR 0006). Only in an active circle; a per-circle hourly limit on the list path; at most three list moves per membership per seven days, and a move made with a valid re-entry token is never refused by that cap (ADR 0049); never onto a saved-place member; but a valid re-entry token takes a place back from a saved account whose own address is not the link''s, moving that circle only (ADR 0049, decision 6).';
+
+revoke all on function public.reattach_member(uuid, uuid, bytea) from public;
+revoke all on function public.reattach_member(uuid, uuid, bytea) from anon, authenticated;
+grant execute on function public.reattach_member(uuid, uuid, bytea) to authenticated;
+
 -- supabase/sql/functions/public/stretch_availability.sql
 -- ---------------------------------------------------------------------------
 -- Who a stretch of time works for, for the organiser choosing one
--- (ADR 0050).
+-- (ADR 0051).
 --
 -- The picker, the review screen and the edit screen say it by name before
 -- anything is locked in: "You, Priya and Tom can make it · Doesn't work for Jess
@@ -1469,7 +2200,7 @@ end;
 $$;
 
 comment on function public.stretch_availability(uuid, timestamptz, timestamptz) is
-  'For the plan''s organiser: who of the people the plan is asking can make a stretch, who answered otherwise and who has not, with the plan''s input version and revision. Ids only (ADR 0050).';
+  'For the plan''s organiser: who of the people the plan is asking can make a stretch, who answered otherwise and who has not, with the plan''s input version and revision. Ids only (ADR 0051).';
 
 revoke all on function public.stretch_availability(uuid, timestamptz, timestamptz) from public;
 revoke all on function public.stretch_availability(uuid, timestamptz, timestamptz) from anon, authenticated;

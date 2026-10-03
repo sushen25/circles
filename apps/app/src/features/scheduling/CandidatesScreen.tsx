@@ -45,7 +45,7 @@ export type CandidatesProps = {
   stale?: boolean | undefined;
   problem?: string | undefined;
   onSelect?: ((id: string) => void) | undefined;
-  /** "Pick a different time": any day and time, not only an option (ADR 0050). */
+  /** "Pick a different time": any day and time, not only an option (ADR 0051). */
   onSetTime?: (() => void) | undefined;
   onNext?: (() => void) | undefined;
   onNudge?: (() => void) | undefined;

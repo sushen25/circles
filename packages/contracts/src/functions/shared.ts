@@ -164,7 +164,7 @@ export const ProblemReason = z.enum([
    */
   'no_time_to_extend',
 
-  // SUS-138. The organiser sets the final plan (ADR 0050).
+  // SUS-138. The organiser sets the final plan (ADR 0051).
 
   /**
    * `confirm-meetup` (an own time), `edit-confirmation` (a move): an answer

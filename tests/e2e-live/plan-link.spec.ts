@@ -105,7 +105,7 @@ test('an account that is not a member sees one button naming the circle and itse
 test('a plan that is not asking ends at one place, and a link that is not live at another', async ({
   browser,
 }) => {
-  // A plan past its deadline is still live (ADR 0048): the person gives a name and
+  // A plan past its deadline is still live (ADR 0049): the person gives a name and
   // is told to ask for the invite. A cancelled plan, a quiet ask still gathering
   // interest and a code that does not exist are not live, and share one end state
   // with no name step: "this link isn't active". The server refuses all four

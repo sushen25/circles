@@ -1,6 +1,6 @@
 -- ---------------------------------------------------------------------------
 -- What the organiser setting the final plan does to the confirmation
--- (ADR 0050), in the transaction `planning.transition_plan` has already opened
+-- (ADR 0051), in the transaction `planning.transition_plan` has already opened
 -- under the plan's row lock.
 --
 --   * `confirm_own` writes the first confirmation, for a stretch that is not in
@@ -135,7 +135,7 @@ end;
 $$;
 
 comment on function private.apply_organiser_plan(public.plans, text, uuid, jsonb) is
-  'The confirmation side of the organiser setting the final plan: an own time, a move (supersede and write a new active confirmation in the same revision) or a place and note edit in place. Called by transition_plan under the plan''s lock (ADR 0050).';
+  'The confirmation side of the organiser setting the final plan: an own time, a move (supersede and write a new active confirmation in the same revision) or a place and note edit in place. Called by transition_plan under the plan''s lock (ADR 0051).';
 
 revoke all on function private.apply_organiser_plan(public.plans, text, uuid, jsonb) from public;
 revoke all on function private.apply_organiser_plan(public.plans, text, uuid, jsonb) from anon, authenticated;

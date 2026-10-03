@@ -61,7 +61,7 @@ export function JoinAsAccountFlow({ code, onJoined }: JoinAsAccountFlowProps) {
   const circleName = useQuery({
     queryKey: ['circle-name-for-code', code],
     queryFn: () => circleNameForCode(code),
-    // Not for ever: a null name now also means "this link is not live" (ADR 0048).
+    // Not for ever: a null name now also means "this link is not live" (ADR 0049).
     staleTime: 30_000,
   });
   const personName = useQuery({
@@ -77,7 +77,7 @@ export function JoinAsAccountFlow({ code, onJoined }: JoinAsAccountFlowProps) {
   const whatIsBrand = () => router.push('/get-the-app');
 
   // No circle behind the code *now*: unknown, archived, or a plan that is
-  // cancelled, expired or long past (ADR 0048). Nothing new is said by saying so —
+  // cancelled, expired or long past (ADR 0049). Nothing new is said by saying so —
   // `preview_for_code` already answers this for any code, to every chat app that
   // unfurls the link — and a join button for no circle would be a button that
   // can only fail. The same screen as a guest gets on the same link.

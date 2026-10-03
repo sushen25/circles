@@ -1,6 +1,6 @@
 -- ---------------------------------------------------------------------------
 -- 0033 — Continue-as resolves a code only while it is live, and its limits are
--- enforced in SQL (SUS-103, ADR 0048).
+-- enforced in SQL (SUS-103, ADR 0049).
 --
 -- Three things in the identity-continuity functions went further than ADR 0006
 -- and ADR 0022 accepted: any plan code a circle had ever had listed its guests
@@ -29,7 +29,7 @@
 -- supabase/sql/functions/private/circles_open_to_continue_as.sql
 -- ---------------------------------------------------------------------------
 -- The circle (if any) a short code may still be used to Continue-as in
--- (spec §5.1, ADR 0048).
+-- (spec §5.1, ADR 0049).
 --
 -- A code is not a key forever. ADR 0006 accepted that Continue-as needs no
 -- owner approval, and ADR 0022 accepted a plan code in URLs and logs because it
@@ -93,7 +93,7 @@ revoke all on function private.circles_open_to_continue_as(text) from anon, auth
 
 -- supabase/sql/functions/private/continue_as_window.sql
 -- ---------------------------------------------------------------------------
--- How long after a meetup its plan's link still offers Continue-as (ADR 0048).
+-- How long after a meetup its plan's link still offers Continue-as (ADR 0049).
 --
 -- One number, in one place, because three things read it and they must agree:
 -- the list a guest picks their name from, the link-preview's circle name that
@@ -124,7 +124,7 @@ revoke all on function private.continue_as_window() from anon, authenticated;
 -- supabase/sql/functions/private/list_moves_this_week.sql
 -- ---------------------------------------------------------------------------
 -- How many times a membership has been moved by picking a name this week
--- (ADR 0006, ADR 0048): the number `reattach_member`'s cap is about.
+-- (ADR 0006, ADR 0049): the number `reattach_member`'s cap is about.
 --
 -- Counting is not a simple `where user_id = target`: every reattachment
 -- *changes* the membership's user id, so the previous ones are recorded against
@@ -220,7 +220,7 @@ revoke all on function private.list_moves_this_week(uuid, uuid) from anon, authe
 -- Saved-place members are excluded, so the list never names somebody this
 -- function could not then be used to reattach to.
 --
--- **A code opens the list only while it is live** (ADR 0048): the circle's own
+-- **A code opens the list only while it is live** (ADR 0049): the circle's own
 -- code while the circle is active; a plan's code while the plan is asking or
 -- options are on offer, or locked in and the meetup ended less than fourteen
 -- days ago; never for a cancelled or expired plan or an archived circle. The
@@ -232,7 +232,7 @@ revoke all on function private.list_moves_this_week(uuid, uuid) from anon, authe
 -- The list still carries each person's user id rather than an opaque handle, so
 -- the id remains what `reattach_member` is called with. What bounds that is
 -- there, not here — the circle must be active, the per-circle limit and the
--- cap apply to a direct call — and ADR 0048 says why a handle was not worth
+-- cap apply to a direct call — and ADR 0049 says why a handle was not worth
 -- its cost and what is left over.
 -- ---------------------------------------------------------------------------
 
@@ -339,7 +339,7 @@ begin
   -- paste into the chat and the page it opens (architecture §5) — so both
   -- resolve through `plans.short_code` and both answer with the circle's name.
   --
-  -- Only while the code is live (ADR 0048, `private.circles_open_to_continue_as`):
+  -- Only while the code is live (ADR 0049, `private.circles_open_to_continue_as`):
   -- the same answer a code that never existed gets, so a cancelled or expired
   -- plan, an archived circle and a plan whose meetup is long past all draw the
   -- generic card — and the Continue-as screen, which asks this for its title,
@@ -533,14 +533,14 @@ begin
     return chosen;
   end if;
 
-  -- An archived circle is not somewhere anybody comes back to (ADR 0048), with
+  -- An archived circle is not somewhere anybody comes back to (ADR 0049), with
   -- an emailed link or without. The same answer a membership that was never
   -- there gets, so this tells nobody which of the two it was.
   if chosen.status <> 'active' then
     raise exception 'member_not_found' using errcode = 'no_data_found';
   end if;
 
-  -- The volume limit, **here** as well as in the Edge Function (ADR 0048). This
+  -- The volume limit, **here** as well as in the Edge Function (ADR 0049). This
   -- function is granted to `authenticated`, which includes any anonymous
   -- session, so a client that calls the RPC directly never meets the Edge
   -- Function's counters; this is the one it cannot skip. A different scope from
@@ -598,11 +598,11 @@ begin
   end if;
 
   -- Three per membership per seven days (ADR 0006), **counting only the moves
-  -- somebody made by picking a name** (ADR 0048; `private.list_moves_this_week`
+  -- somebody made by picking a name** (ADR 0049; `private.list_moves_this_week`
   -- says how, and why). A move made with the member's own emailed re-entry link is
   -- never refused here: whatever happened to the place, a member with a live link
   -- can always take it back, and counting the member's own moves was how the cap
-  -- was used against them. What that leaves open is in ADR 0048: whoever holds a
+  -- was used against them. What that leaves open is in ADR 0049: whoever holds a
   -- place can attach a mailbox of their own and be sent links too, so link
   -- holders can trade a place back and forth as often as letters arrive, each move
   -- telling the owner.
@@ -655,7 +655,7 @@ end;
 $$;
 
 comment on function public.reattach_member(uuid, uuid, bytea) is
-  'Moves a guest membership and everything scoped to it onto the calling anonymous identity, from the Continue-as list or an emailed re-entry token (ADR 0006). Only in an active circle; a per-circle hourly limit on the list path; at most three list moves per membership per seven days, and a move made with a valid re-entry token is never refused by that cap (ADR 0048); never onto a saved-place member.';
+  'Moves a guest membership and everything scoped to it onto the calling anonymous identity, from the Continue-as list or an emailed re-entry token (ADR 0006). Only in an active circle; a per-circle hourly limit on the list path; at most three list moves per membership per seven days, and a move made with a valid re-entry token is never refused by that cap (ADR 0049); never onto a saved-place member.';
 
 revoke all on function public.reattach_member(uuid, uuid, bytea) from public;
 revoke all on function public.reattach_member(uuid, uuid, bytea) from anon, authenticated;

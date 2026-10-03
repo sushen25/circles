@@ -37,7 +37,7 @@
 -- Saved-place members are excluded, so the list never names somebody this
 -- function could not then be used to reattach to.
 --
--- **A code opens the list only while it is live** (ADR 0048): the circle's own
+-- **A code opens the list only while it is live** (ADR 0049): the circle's own
 -- code while the circle is active; a plan's code while the plan is asking or
 -- options are on offer, or locked in and the meetup ended less than fourteen
 -- days ago; never for a cancelled or expired plan or an archived circle. The
@@ -49,7 +49,7 @@
 -- The list still carries each person's user id rather than an opaque handle, so
 -- the id remains what `reattach_member` is called with. What bounds that is
 -- there, not here — the circle must be active, the per-circle limit and the
--- cap apply to a direct call — and ADR 0048 says why a handle was not worth
+-- cap apply to a direct call — and ADR 0049 says why a handle was not worth
 -- its cost and what is left over.
 -- ---------------------------------------------------------------------------
 

@@ -115,7 +115,7 @@ export function useLockIn({
         ...ids,
         attending_count: confirmed.going.length,
         invited_count: input.invitedCount,
-        // An option the engine offered (ADR 0050): neither flag can be true.
+        // An option the engine offered (ADR 0051): neither flag can be true.
         own_time: false,
         below_quorum: false,
       });

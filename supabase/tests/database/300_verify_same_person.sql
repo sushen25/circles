@@ -1,5 +1,5 @@
 -- Verifying an address promotes only the contacts of the same person (SUS-106,
--- ADR 0049).
+-- ADR 0050).
 --
 -- "The same person" is the same `user_id`, or an identity linked to it by a
 -- recorded reattachment. Anybody else's pending contact at the address stays

@@ -580,7 +580,7 @@ describe('hand_off (S2-05)', () => {
   });
 });
 
-describe("the organiser's own time (ADR 0050)", () => {
+describe("the organiser's own time (ADR 0051)", () => {
   const ask = (state: PlanState, action: PlanAction, actor: Actor, ownTime = OWN_TIME) =>
     canTransition(plan({ state }), action, { actor, ownTime });
 

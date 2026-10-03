@@ -1,5 +1,5 @@
 -- ---------------------------------------------------------------------------
--- Editing a locked-in plan: its time, its place and its note (ADR 0050).
+-- Editing a locked-in plan: its time, its place and its note (ADR 0051).
 --
 -- "Edit this plan" on the confirmed screen. Three things can change, and the
 -- difference between them is the whole of the design:
@@ -111,7 +111,7 @@ end;
 $$;
 
 comment on function public.edit_confirmation(uuid, timestamptz, timestamptz, integer, text, text, text) is
-  'The calling organiser edits a locked-in plan: a new time is a move (supersede and write a new active confirmation, same revision), a place or note alone updates it in place. Nobody is asked again (ADR 0050).';
+  'The calling organiser edits a locked-in plan: a new time is a move (supersede and write a new active confirmation, same revision), a place or note alone updates it in place. Nobody is asked again (ADR 0051).';
 
 revoke all on function public.edit_confirmation(uuid, timestamptz, timestamptz, integer, text, text, text) from public;
 revoke all on function public.edit_confirmation(uuid, timestamptz, timestamptz, integer, text, text, text) from anon, authenticated;

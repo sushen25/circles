@@ -207,7 +207,7 @@ export function asDomain(data: PlanConfirmation, confirmation: LockedIn): Confir
  */
 export function messageOf(data: PlanConfirmation, confirmation: LockedIn, origin: string): string {
   // After a move: "Change of plan: Sunday Crew is now Sat 19 Sep, 7–9 pm at …"
-  // (ADR 0050). `changed` stays the message for asking again.
+  // (ADR 0051). `changed` stays the message for asking again.
   const say = confirmation.movedFrom === undefined ? lockedInMessage : movedMessage;
   return say({
     confirmation: asDomain(data, confirmation),

@@ -420,7 +420,7 @@ export const en = {
     closed_title: 'This plan is decided.',
     closed_body: 'There is nothing left to pick.',
     go_to_circle: 'Go to the circle',
-    /** The row under the options: any day and time, not only an offered one (ADR 0050). */
+    /** The row under the options: any day and time, not only an offered one (ADR 0051). */
     different_time_title: 'Pick a different time',
     different_time_body:
       "Any day and time, even one that isn't an option. You'll see who it works for.",
@@ -744,7 +744,7 @@ export const en = {
     loading: 'Getting the option',
     couldnt_load: "We couldn't load this.",
     try_again: 'Try again',
-    /** A time the organiser set themselves (ADR 0050). */
+    /** A time the organiser set themselves (ADR 0051). */
     back_to_time: 'Back to the time',
     own_prefix: "This isn't one of the options.",
     own_prefix_short: "This isn't one of the options, and the plan asked for at least {quorum}.",
@@ -770,7 +770,7 @@ export const en = {
     tap_below_if_that_changes: 'Tap below if that changes',
     say_below: 'Let everyone know below',
     says: '{name} says: “{what}”',
-    /** The organiser moved the time without asking anybody again (ADR 0050). */
+    /** The organiser moved the time without asking anybody again (ADR 0051). */
     moved_from: 'Moved from {previous}',
     moved_unsaid: 'The time moved. Are you coming?',
     add_to_calendar: 'Add to calendar',
@@ -1105,7 +1105,7 @@ export const en = {
   },
   editLocked: {
     /**
-     * Edit this plan (ADR 0050): the time, the place and the note of a locked-in
+     * Edit this plan (ADR 0051): the time, the place and the note of a locked-in
      * plan. Moving the time asks nobody for their times again, and the screen
      * says who it still works for and who is asked whether they can come.
      */
@@ -2103,7 +2103,7 @@ export const en = {
   },
   setTime: {
     /**
-     * Pick the time yourself (ADR 0050): any day and time, with who it works for
+     * Pick the time yourself (ADR 0051): any day and time, with who it works for
      * said by name before anything is locked in. The same screen serves "Pick a
      * different time", "Set the time yourself" and the edit screen's Change.
      */

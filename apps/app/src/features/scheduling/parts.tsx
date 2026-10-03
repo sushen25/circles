@@ -99,7 +99,7 @@ export function CandidateCard({ card, highlighted, onPress, selected }: Candidat
 
 /**
  * "Pick a different time" / "Set the time yourself": the row that lets the
- * organiser choose any day and time, not only one the engine offered (ADR 0050).
+ * organiser choose any day and time, not only one the engine offered (ADR 0051).
  * One row for the options, the waiting screen and replies closed; the no-quorum
  * screen's is a line of its own list (`unlock.ts`).
  */

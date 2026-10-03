@@ -1,6 +1,6 @@
 -- ---------------------------------------------------------------------------
 -- What is wrong with a stretch the organiser wants to lock in, if anything
--- (ADR 0050).
+-- (ADR 0051).
 --
 -- `ownTimeProblem` in `packages/domain`, rule for rule and in the same order:
 -- shape before the clock, so a stretch that is off the half hour is wrong
@@ -64,7 +64,7 @@ end;
 $$;
 
 comment on function private.own_time_problem(public.plans, timestamptz, timestamptz) is
-  'The first thing wrong with a stretch the organiser wants to lock in, as ownTimeProblem has it in the domain, or null (ADR 0050).';
+  'The first thing wrong with a stretch the organiser wants to lock in, as ownTimeProblem has it in the domain, or null (ADR 0051).';
 
 revoke all on function private.own_time_problem(public.plans, timestamptz, timestamptz) from public;
 revoke all on function private.own_time_problem(public.plans, timestamptz, timestamptz) from anon, authenticated;

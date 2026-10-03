@@ -193,7 +193,7 @@ begin
           raise exception 'requires_saved_place' using errcode = 'P0001';
         end if;
       when 'own_time' then
-        -- The organiser's own time (ADR 0050): not an option, so the guard is the
+        -- The organiser's own time (ADR 0051): not an option, so the guard is the
         -- stretch being a valid one. `ownTimeProblem` in the domain, which names
         -- the same codes in the same order; a stretch nobody named is
         -- `needs_own_time`.
@@ -367,7 +367,7 @@ begin
     perform set_config('circles.deriving_attendance', 'off', true);
   end if;
 
-  -- The organiser setting the final plan (ADR 0050): an own time, a move, or a
+  -- The organiser setting the final plan (ADR 0051): an own time, a move, or a
   -- place and note edit. The confirmation is written in here for the reason
   -- `confirm`'s is: no moment at which a plan is `confirmed` with nothing
   -- confirmed, and no event about a confirmation a later insert might fail to
@@ -436,7 +436,7 @@ begin
   -- (or moved twice) inside one tick has several events about one active
   -- confirmation: only the event that made it speaks, because a later one takes
   -- the earlier one's still-scheduled letters back and the same keys would then
-  -- find them skipped (ADR 0050). An id, never a time or a place.
+  -- find them skipped (ADR 0051). An id, never a time or a place.
   if p_action in ('confirm', 'confirm_own', 'move_confirmed') then
     event_payload := event_payload || jsonb_build_object('confirmation_id', confirmation_id);
   end if;

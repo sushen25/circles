@@ -1,5 +1,5 @@
 -- ---------------------------------------------------------------------------
--- How long after a meetup its plan's link still offers Continue-as (ADR 0048).
+-- How long after a meetup its plan's link still offers Continue-as (ADR 0049).
 --
 -- One number, in one place, because three things read it and they must agree:
 -- the list a guest picks their name from, the link-preview's circle name that

@@ -1,6 +1,6 @@
 -- ---------------------------------------------------------------------------
 -- The identities that count as one person for verifying an address
--- (ADR 0049).
+-- (ADR 0050).
 --
 -- Verifying an address proves that whoever held the link controls it. It says
 -- nothing about another identity's consent, so promotion stops at "the same
@@ -24,7 +24,7 @@
 -- chain stops. Rows are ordered by `occurred_at`, the transaction's
 -- time: one call is one transaction, so two moves of one circle never tie; two
 -- calls racing on one circle's lock can commit in the opposite order to their
--- start (ADR 0049, residuals).
+-- start (ADR 0050, residuals).
 --
 -- Within one circle, and no further: an identity that takes places in two
 -- circles would otherwise connect the people it took them from, who have
@@ -89,7 +89,7 @@ as $$
 $$;
 
 comment on function private.same_person_identities(uuid) is
-  'An identity and the identities connected to it by the recorded moves (reattachment or claim) of one circle''s membership, ended by an owner''s removal: the set whose pending contacts verifying an address may promote (ADR 0049).';
+  'An identity and the identities connected to it by the recorded moves (reattachment or claim) of one circle''s membership, ended by an owner''s removal: the set whose pending contacts verifying an address may promote (ADR 0050).';
 
 revoke all on function private.same_person_identities(uuid) from public;
 revoke all on function private.same_person_identities(uuid) from anon, authenticated;

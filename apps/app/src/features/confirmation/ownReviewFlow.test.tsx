@@ -9,7 +9,7 @@ import { FunctionError } from '../../data/functions';
 import { fixtureStretch } from './fixtureStretch';
 
 /**
- * Reviewing a time the organiser chose (ADR 0050): what it shows, what a tap
+ * Reviewing a time the organiser chose (ADR 0051): what it shows, what a tap
  * sends, and the one thing it must never do: freeze names nobody saw.
  */
 

@@ -76,7 +76,7 @@ test("the organiser's options have no serious accessibility violations", async (
   expect(await seriousViolations(page)).toEqual([]);
 });
 
-test("the organiser's time picker and edit screen have no serious accessibility violations (ADR 0050)", async ({
+test("the organiser's time picker and edit screen have no serious accessibility violations (ADR 0051)", async ({
   page,
 }) => {
   const maya = await signedInAccount('Maya');

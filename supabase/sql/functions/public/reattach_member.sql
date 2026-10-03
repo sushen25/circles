@@ -15,7 +15,7 @@
 -- The safeguards are all here rather than in the Edge Function, because they
 -- are the decision and not the throttle: the caller must be a guest, the target
 -- must be a guest (the one exception, an emailed link taking a place back from a
--- saved account, is ADR 0048 decision 6), and a membership may be moved by the
+-- saved account, is ADR 0049 decision 6), and a membership may be moved by the
 -- list at most three times in seven days. Enforced where it cannot be skipped.
 --
 -- **The old identity is not deleted here.** It can hold memberships in other
@@ -46,7 +46,7 @@ declare
   -- what tells us whether the emailed path is worth its machinery. The function
   -- is the only place that knows which one happened.
   entry_source text := case when p_reentry_token_hash is null then 'list' else 'email' end;
-  -- The place is held by a saved account and the link may take it back (ADR 0048, 6).
+  -- The place is held by a saved account and the link may take it back (ADR 0049, 6).
   taking_back boolean := false;
 begin
   if caller is null then
@@ -162,14 +162,14 @@ begin
     return chosen;
   end if;
 
-  -- An archived circle is not somewhere anybody comes back to (ADR 0048), with
+  -- An archived circle is not somewhere anybody comes back to (ADR 0049), with
   -- an emailed link or without. The same answer a membership that was never
   -- there gets, so this tells nobody which of the two it was.
   if chosen.status <> 'active' then
     raise exception 'member_not_found' using errcode = 'no_data_found';
   end if;
 
-  -- The volume limit, **here** as well as in the Edge Function (ADR 0048): this
+  -- The volume limit, **here** as well as in the Edge Function (ADR 0049): this
   -- function is granted to `authenticated`, so a client calling the RPC directly
   -- never meets the Edge Function's counters. A different scope from the Edge one,
   -- so neither eats the other's budget. A refusal raises and rolls the count back,
@@ -201,7 +201,7 @@ begin
 
   -- Never onto a saved-place member, by either record: whichever is stale, the
   -- answer has to be no. The one exception is an emailed link that proves an address
-  -- the account does not hold (ADR 0048, decision 6): that takes the place *back*.
+  -- the account does not hold (ADR 0049, decision 6): that takes the place *back*.
   if exists (
     select 1 from public.profiles p where p.user_id = target and p.is_permanent
   ) or not exists (
@@ -226,10 +226,10 @@ begin
   end if;
 
   -- Three per membership per seven days (ADR 0006), **counting only the moves made
-  -- by picking a name** (ADR 0048; `private.list_moves_this_week`). A move made with
+  -- by picking a name** (ADR 0049; `private.list_moves_this_week`). A move made with
   -- an emailed re-entry link is never refused here, a take-back from a saved account
   -- included, so a member with a live link can always return. What that leaves open
-  -- is in ADR 0048, decision 4.
+  -- is in ADR 0049, decision 4.
   if p_reentry_token_hash is null
     and private.list_moves_this_week(target_circle, target) >= 3
   then
@@ -280,7 +280,7 @@ begin
   -- The owner's "Priya rejoined from a new device" (spec §5.1) starts here.
   -- No name: the notification pipeline reads the roster for that.
   -- A place taken back from a saved account is told the same way, with the account's
-  -- id on the event so both parties are named: no new channel (ADR 0048, 6).
+  -- id on the event so both parties are named: no new channel (ADR 0049, 6).
   perform jobs.emit('circles.member_reattached', 'circle', target_circle,
     jsonb_build_object('circle_id', target_circle, 'user_id', caller, 'source', entry_source)
     || case when taking_back
@@ -292,7 +292,7 @@ end;
 $$;
 
 comment on function public.reattach_member(uuid, uuid, bytea) is
-  'Moves a guest membership and everything scoped to it onto the calling anonymous identity, from the Continue-as list or an emailed re-entry token (ADR 0006). Only in an active circle; a per-circle hourly limit on the list path; at most three list moves per membership per seven days, and a move made with a valid re-entry token is never refused by that cap (ADR 0048); never onto a saved-place member; but a valid re-entry token takes a place back from a saved account whose own address is not the link''s, moving that circle only (ADR 0048, decision 6).';
+  'Moves a guest membership and everything scoped to it onto the calling anonymous identity, from the Continue-as list or an emailed re-entry token (ADR 0006). Only in an active circle; a per-circle hourly limit on the list path; at most three list moves per membership per seven days, and a move made with a valid re-entry token is never refused by that cap (ADR 0049); never onto a saved-place member; but a valid re-entry token takes a place back from a saved account whose own address is not the link''s, moving that circle only (ADR 0049, decision 6).';
 
 revoke all on function public.reattach_member(uuid, uuid, bytea) from public;
 revoke all on function public.reattach_member(uuid, uuid, bytea) from anon, authenticated;

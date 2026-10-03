@@ -35,7 +35,7 @@ import { moved } from './copy-moved.ts';
  * which is what the person would otherwise have received. Four have no row on
  * either artboard and are written here for the first time: `replies_closed`,
  * `did_it_happen_participant` (SUS-22's note), the place-only `changed`,
- * `asked_again` (ADR 0046) and `moved` (ADR 0050).
+ * `asked_again` (ADR 0046) and `moved` (ADR 0051).
  */
 
 export type Button = { readonly label: string };

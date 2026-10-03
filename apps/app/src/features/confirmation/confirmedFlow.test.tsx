@@ -104,7 +104,7 @@ describe('the organiser', () => {
   it("edits the plan, asks for new times or cancels, by the plan's own circle", async () => {
     // From the plan link too, which has no circle in its route (SUS-42).
     show(<ConfirmedFlow target={{ code: 'pnsundaycr' }} />);
-    // Three quiet actions where there were two (ADR 0050): the sibling edit, and
+    // Three quiet actions where there were two (ADR 0051): the sibling edit, and
     // "Change the time" renamed for what it does.
     expect(screen.queryByRole('button', { name: 'Change the time' })).toBeNull();
     fireEvent.click(await screen.findByRole('button', { name: 'Edit this plan' }));

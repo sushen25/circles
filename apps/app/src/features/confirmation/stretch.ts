@@ -10,7 +10,7 @@ import { dateOf } from '../scheduling/words';
 import { instantsOf, planShape, type TimePick } from './time';
 
 /**
- * Who a stretch works for, in the words the candidate cards use (ADR 0050).
+ * Who a stretch works for, in the words the candidate cards use (ADR 0051).
  *
  * "You, Priya and Tom can make it · Doesn't work for Jess or Sam · Alex hasn't
  * answered": the same three clauses and the same names-then-a-count rule as an

@@ -7,7 +7,7 @@ import { Mutation } from './shared.js';
 
 /**
  * `edit-confirmation` — the organiser edits a locked-in plan without asking
- * anybody again ([ADR 0050](../../../../docs/decisions/0050-the-organiser-sets-the-final-plan.md)).
+ * anybody again ([ADR 0051](../../../../docs/decisions/0051-the-organiser-sets-the-final-plan.md)).
  *
  * "Edit this plan" on the confirmed screen. Three things can change:
  *

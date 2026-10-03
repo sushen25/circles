@@ -1,4 +1,4 @@
-# ADR 0049: Verifying an address promotes only the contacts that belong to the same person
+# ADR 0050: Verifying an address promotes only the contacts that belong to the same person
 
 _Status: proposed · 2 October 2026 · amends the last consequence of [ADR 0027](0027-the-organisers-auth-address-is-an-email-contact.md); builds on [ADR 0019](0019-consent-is-recorded-when-it-is-given.md) and [ADR 0020](0020-the-verification-token-is-minted-by-the-sender.md)_
 
@@ -114,7 +114,7 @@ made before this migration has no row and is not linked.
   (`list_moves_this_week` reads `member_reattached` only), so a claim does not
   count against it, as before.
 - **A link made by Continue-as is not proof of a person.** A reattachment from
-  the list is made by whoever picks a name (ADR 0006, ADR 0048). A taker who
+  the list is made by whoever picks a name (ADR 0006, ADR 0049). A taker who
   has recorded a pending contact at an address, and then takes a guest's place,
   becomes directly linked to that guest, and the guest verifying that address
   would then promote the taker's contact. This is the founder's rule as decided,

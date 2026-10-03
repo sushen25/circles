@@ -38,7 +38,7 @@ as $$
     when 'quorum_follows' then null
     when 'confirm' then 'confirmation.meetup_confirmed'
     -- An organiser's own time is the same news as an option locked in
-    -- (ADR 0050): "locked in", to the same people.
+    -- (ADR 0051): "locked in", to the same people.
     when 'confirm_own' then 'confirmation.meetup_confirmed'
     -- Moving a locked-in time without asking anybody again: its own letter,
     -- which `meetup_rescheduled` ("new times, please") must not be.

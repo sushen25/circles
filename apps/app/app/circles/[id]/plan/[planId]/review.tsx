@@ -13,7 +13,7 @@ export default function Route() {
     end?: string;
   }>();
 
-  // A time the organiser chose themselves, instead of one of the options (ADR 0050).
+  // A time the organiser chose themselves, instead of one of the options (ADR 0051).
   if (candidate === undefined && start !== undefined && end !== undefined) {
     return <OwnReviewFlow id={id} planId={planId} start={start} end={end} />;
   }

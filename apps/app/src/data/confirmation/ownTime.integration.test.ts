@@ -10,7 +10,7 @@ import { readStackConfig, sql, type Stack } from '../testing/stack.integration';
 
 /**
  * The organiser sets the final plan, against the real stack, through the app's
- * own calls (SUS-138, ADR 0050): who a stretch works for, locking in a time no
+ * own calls (SUS-138, ADR 0051): who a stretch works for, locking in a time no
  * option offered, moving it, and changing the place, as the people who do it.
  *
  * pgTAP proves the database and the handler tests prove the endpoints; this

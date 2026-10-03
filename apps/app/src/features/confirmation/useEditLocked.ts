@@ -9,7 +9,7 @@ import { FunctionError } from '../../data/functions';
 import { isOffline } from '../identity/join/failure';
 
 /**
- * Saving an edit to a locked-in plan (ADR 0050), and every way that can be
+ * Saving an edit to a locked-in plan (ADR 0051), and every way that can be
  * refused.
  *
  * A **move** is checked twice, like locking in a time of one's own: who the new

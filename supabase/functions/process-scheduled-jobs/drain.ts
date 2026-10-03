@@ -44,7 +44,7 @@ export type JobRow = {
   plan_revision: number | null;
   /** Set only for `about_time`: the circle it belongs to, since it has no plan. */
   circle_id?: string | null;
-  /** The confirmation a letter about one evening is for (ADR 0050). */
+  /** The confirmation a letter about one evening is for (ADR 0051). */
   confirmation_id?: string | null;
   scheduled_for: string;
   idempotency_key: string;
@@ -224,7 +224,7 @@ export async function drain(
               p_revision: superseded,
               // A move keeps the revision, so what it supersedes is told apart
               // by confirmation: the letters of the one it made are kept, so a
-              // retried event does not skip its own jobs (ADR 0050).
+              // retried event does not skip its own jobs (ADR 0051).
               p_keep_confirmation:
                 event.event_name === 'confirmation.meetup_moved'
                   ? (context.confirmation?.id ?? null)

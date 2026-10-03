@@ -1,5 +1,5 @@
 /**
- * The organiser sets the final plan (ADR 0050): lock in any day and time, move
+ * The organiser sets the final plan (ADR 0051): lock in any day and time, move
  * a locked-in time, and edit its place and note.
  *
  * The same shape as `confirm`, and for the same reason: whether the organiser is
@@ -73,7 +73,7 @@ type Common = {
    * The plan's input version as the screen read it when it showed who the time
    * works for. If an answer has landed since, the names on the screen are not
    * the names that would be frozen, and the request is refused so the screen can
-   * update and ask again (ADR 0050 §7). The own-time counterpart of
+   * update and ask again (ADR 0051 §7). The own-time counterpart of
    * `expected_set_id`.
    */
   readonly expectedInputVersion: number;
@@ -174,7 +174,7 @@ export type Moved = OwnConfirmed & {
   readonly superseded: Confirmation;
 };
 
-/** Whether the meetup has already finished: past that, there is nothing to edit (ADR 0050). */
+/** Whether the meetup has already finished: past that, there is nothing to edit (ADR 0051). */
 function hasEnded(confirmation: Confirmation, now: Instant): boolean {
   return confirmation.candidate.end <= now;
 }

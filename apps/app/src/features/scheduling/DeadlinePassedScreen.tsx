@@ -61,7 +61,7 @@ export type DeadlinePassedProps = {
   onLockIn?: (() => void) | undefined;
   onHandOff?: (() => void) | undefined;
   onExtend?: (() => void) | undefined;
-  /** "Set the time yourself": any day and time, not only the top option (ADR 0050). */
+  /** "Set the time yourself": any day and time, not only the top option (ADR 0051). */
   onSetTime?: (() => void) | undefined;
   onChoose?: ((userId: string) => void) | undefined;
   onConfirmHandOff?: (() => void) | undefined;

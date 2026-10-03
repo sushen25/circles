@@ -79,7 +79,7 @@ function score(plan: EnginePlan, input: EngineInput, start: Instant): Scored {
   const local = toLocal(start, plan.zone);
 
   // Step 2 is `whoCanMake`, which the organiser's picker asks of any stretch
-  // (ADR 0050): one rule, so the options and the picker cannot disagree.
+  // (ADR 0051): one rule, so the options and the picker cannot disagree.
   const { explicit, flexible, available } = whoCanMake(input, start, end);
   const order = byMemberList(input.activeMemberIds);
   const availableSet = new Set(available);

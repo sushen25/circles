@@ -1,5 +1,5 @@
 -- ---------------------------------------------------------------------------
--- Locking in a time the organiser chose themselves (ADR 0050).
+-- Locking in a time the organiser chose themselves (ADR 0051).
 --
 -- A wrapper over `planning.transition_plan(plan, 'confirm_own', …)`, as
 -- `confirm_meetup` is for an option, and for the same reasons: `planning` is not
@@ -99,7 +99,7 @@ end;
 $$;
 
 comment on function public.confirm_own_time(uuid, timestamptz, timestamptz, integer, text, text, text, text) is
-  'Locks in a time the calling organiser chose, through planning.transition_plan, and refuses it as stale_availability when an answer arrived since the names they were shown (ADR 0050).';
+  'Locks in a time the calling organiser chose, through planning.transition_plan, and refuses it as stale_availability when an answer arrived since the names they were shown (ADR 0051).';
 
 revoke all on function public.confirm_own_time(uuid, timestamptz, timestamptz, integer, text, text, text, text) from public;
 revoke all on function public.confirm_own_time(uuid, timestamptz, timestamptz, integer, text, text, text, text) from anon, authenticated;

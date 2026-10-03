@@ -211,7 +211,7 @@ describe('icsFilename', () => {
   });
 });
 
-describe('a moved time (ADR 0050)', () => {
+describe('a moved time (ADR 0051)', () => {
   const first = () => confirmation({ calendarUid: 'calendar-uid-1', calendarSequence: 0 });
   const moved = () =>
     confirmation({

@@ -37,7 +37,7 @@ import {
 import type { SetTimeCalendar, SetTimeClock } from './SetTimeScreen';
 
 /**
- * The picker's words and numbers (ADR 0050), apart from the screen and the flow
+ * The picker's words and numbers (ADR 0051), apart from the screen and the flow
  * that hold them. Everything here is a pure function of the plan, the stretch
  * picked and the clock, so a test can say what a screen would show.
  */
@@ -94,7 +94,7 @@ function othersOn(others: OthersSaid | undefined, day: string, zone: string): nu
 /**
  * The month's days, one picked. A day gone is faded and says so; so is a day
  * past the last the plan may be set on. A day the plan never asked about is not
- * faded: it is allowed, and the caution says so (ADR 0050).
+ * faded: it is allowed, and the caution says so (ADR 0051).
  */
 export function gridDays(input: {
   month: string;

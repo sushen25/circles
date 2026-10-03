@@ -31,7 +31,7 @@ import { PlanNameFlow } from './PlanNameFlow';
  * - **A code that is no longer live ends at "this link isn't active".** The
  *   circle's name is what says so (`preview_for_code` answers null for a plan
  *   that is cancelled, expired or long past, and for an archived circle), and
- *   the list for such a code is empty for the same reason (ADR 0048).
+ *   the list for such a code is empty for the same reason (ADR 0049).
  * - **A circle with no guests skips the question.** There is nobody to be, so
  *   "Which one is you?" would be a question with one answer.
  */
@@ -132,7 +132,7 @@ export function ContinueAsFlow({ code, arrivedWithoutSession, onReattached }: Co
   }
 
   // No circle behind this code *now*: the plan was cancelled or expired, its
-  // meetup is long past, or the circle is archived (ADR 0048). The name lookup
+  // meetup is long past, or the circle is archived (ADR 0049). The name lookup
   // answers null for all of those and for a code that never existed, so the
   // person is told the link is not active rather than asked for a name that
   // could join nobody.

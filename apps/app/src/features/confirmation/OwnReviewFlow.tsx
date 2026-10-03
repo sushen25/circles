@@ -20,7 +20,7 @@ import { useStretch } from './useStretch';
 
 /**
  * `/circles/:id/plan/:planId/review?start=<ISO>&end=<ISO>` — the organiser's last
- * look at a time they chose themselves (ADR 0050).
+ * look at a time they chose themselves (ADR 0051).
  *
  * The same screen as the options' review, with the chosen time, who it works for
  * by name, and one caution in place of the unanswered warning. Place, note, the

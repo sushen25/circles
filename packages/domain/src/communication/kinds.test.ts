@@ -32,7 +32,7 @@ describe('the kind table', () => {
     // §5.8's four organiser email kinds; the Pushes artboard has no row for it.
     // `quiet_expired` is §5.4.7's closing notice, the SparkExpired artboard
     // (ADR 0038). `asked_again` is §5.3's re-ask after an edit (ADR 0046).
-    // `moved` is the organiser moving a locked-in time (ADR 0050), a sibling of
+    // `moved` is the organiser moving a locked-in time (ADR 0051), a sibling of
     // `locked_in` and `changed`.
     expect(NOTIFICATION_KINDS.map((s) => s.kind)).toEqual([
       ...ARTBOARD.slice(0, 6),

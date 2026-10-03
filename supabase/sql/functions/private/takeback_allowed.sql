@@ -1,6 +1,6 @@
 -- ---------------------------------------------------------------------------
 -- May an emailed re-entry link take a place back from a saved account?
--- (ADR 0048, decision 6; the founder's decision of 3 October 2026.)
+-- (ADR 0049, decision 6; the founder's decision of 3 October 2026.)
 --
 -- A saved place is never *offered* by the list and never moved by a pick, and that
 -- stays. This is the one exception, and it is for a person who proves the address

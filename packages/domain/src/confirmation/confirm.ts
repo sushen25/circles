@@ -175,7 +175,7 @@ function freeze(request: ConfirmRequest, candidate: Candidate): Confirmation {
  *
  * All three **supersede rather than mutate** (architecture §6.2). The third,
  * `move`, is the organiser moving the time without asking anybody again
- * (ADR 0050), and keeps the revision. The row keeps the time it held, because
+ * (ADR 0051), and keeps the revision. The row keeps the time it held, because
  * "Thursday is off the table" is a thing that has to stay true in the record
  * after Thursday stops being the plan.
  */

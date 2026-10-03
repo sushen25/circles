@@ -64,7 +64,7 @@ export type LockedInInput = ToSubscriber & {
 
 /**
  * The organiser moved a locked-in time without asking anybody again
- * (ADR 0050): where the plan is now and where it was. Not `changed`, which says
+ * (ADR 0051): where the plan is now and where it was. Not `changed`, which says
  * the time is off and asks everybody for new ones.
  */
 export type MovedInput = ToSubscriber & {

@@ -6,7 +6,7 @@ import type { ReviewFields } from './review';
 
 /**
  * The edit screen's words and its one rule about when there is something to
- * save (ADR 0050).
+ * save (ADR 0051).
  *
  * What saving does differs by what changed, and the screen says which, before:
  * a new place or note shows for everyone straight away; a moved time says who it

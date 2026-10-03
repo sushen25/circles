@@ -16,7 +16,7 @@
 -- by hash (`record_suppression`); this is the same reasoning in the other
 -- direction.
 --
--- **"Not by row" stops at the person (ADR 0049).** What is proved is that the
+-- **"Not by row" stops at the person (ADR 0050).** What is proved is that the
 -- holder of the link controls the address, which says nothing about another
 -- identity's consent to a plan. So the contacts this touches — promoted, stopped
 -- for a finished plan, owed a "locked in" letter — are the ones held by the same
@@ -212,7 +212,7 @@ end;
 $$;
 
 comment on function public.verify_email_contact(bytea) is
-  'Consumes a verification token in one statement and verifies every pending contact of the same person (the same identity, or one linked by a recorded reattachment) holding that address, and no other identity''s (ADR 0049), drops subscriptions to finished plans, and queues the current state for each decided plan against the contact that subscribed to it. Answers with the clicking identity''s own plans, named so an unauthenticated page can read them. Service role only.';
+  'Consumes a verification token in one statement and verifies every pending contact of the same person (the same identity, or one linked by a recorded reattachment) holding that address, and no other identity''s (ADR 0050), drops subscriptions to finished plans, and queues the current state for each decided plan against the contact that subscribed to it. Answers with the clicking identity''s own plans, named so an unauthenticated page can read them. Service role only.';
 
 revoke all on function public.verify_email_contact(bytea) from public;
 revoke all on function public.verify_email_contact(bytea) from anon, authenticated;

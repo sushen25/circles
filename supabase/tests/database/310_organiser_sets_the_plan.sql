@@ -1,4 +1,4 @@
--- The organiser sets the final plan (SUS-138, ADR 0050).
+-- The organiser sets the final plan (SUS-138, ADR 0051).
 --
 -- An own time is accepted from `collecting` and `ready` and from nobody but the
 -- organiser; a time in the past, off the half hour or too far ahead is refused in

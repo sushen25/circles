@@ -1,5 +1,5 @@
 -- An emailed re-entry link may take a place back from a saved account when the
--- account's own email is not the link's address (SUS-103, ADR 0048 decision 6;
+-- account's own email is not the link's address (SUS-103, ADR 0049 decision 6;
 -- the founder's decision of 3 October 2026).
 --
 -- The story: somebody picks a guest from the Continue-as list, then saves the place
@@ -22,7 +22,7 @@
 -- guest's fresh session k=3, a second account k=5.
 
 begin;
-select plan(66);
+select plan(43);
 
 create or replace function pg_temp.uid(n integer, k integer) returns uuid
 language sql immutable as $$
@@ -110,7 +110,7 @@ begin
   )
   values (c, 'named', 'collecting', pg_temp.uid(n, 4), 'Catch up', 'Australia/Melbourne',
           date '2099-09-17', date '2099-09-20', 1050, 1350, 120, 2,
-          timestamptz '2099-09-20T10:00:00Z', 'kvpqma' || (n + 1)::text || 'x')
+          timestamptz '2099-09-20T10:00:00Z', 'kvpqma' || substr('qrstuvwxyz', n, 1) || 'x')
   returning id into p;
 
   insert into scenes values (n, c, o, p);
@@ -253,7 +253,7 @@ select is(
 select is(
   (select payload ->> 'from_user_id' from jobs.outbox
    where event_name = 'circles.member_reattached' and aggregate_id = pg_temp.circle(1)
-   order by created_at desc, id desc limit 1),
+   order by seq desc limit 1),
   pg_temp.uid(1, 2)::text,
   '1: the member_reattached event names the account the place came from, so both parties are told the same way'
 );

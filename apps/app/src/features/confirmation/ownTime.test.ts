@@ -14,7 +14,7 @@ import { pickOf, type TimePick } from './time';
 
 /**
  * What the picker, the review and the edit screen say about a time the organiser
- * chose (ADR 0050), against the Sunday Crew: Maya organises, Priya, Tom, Jess and
+ * chose (ADR 0051), against the Sunday Crew: Maya organises, Priya, Tom, Jess and
  * Sam have answered, Alex has not.
  */
 

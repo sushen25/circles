@@ -55,7 +55,7 @@ export type ConfirmationRead = {
   revision: number;
   confirmedBy: string;
   confirmedAt: string;
-  /** The organiser's own time, not one of the options (ADR 0050). */
+  /** The organiser's own time, not one of the options (ADR 0051). */
   ownTime: boolean;
   /** An own time that fewer could make than the plan asked for. */
   belowQuorum: boolean;

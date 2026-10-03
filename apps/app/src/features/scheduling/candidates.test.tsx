@@ -611,7 +611,7 @@ describe('the states that are not the happy one', () => {
   });
 });
 
-describe('the organiser sets the time themselves (ADR 0050)', () => {
+describe('the organiser sets the time themselves (ADR 0051)', () => {
   const toPicker = (params: Record<string, string>) => ({
     pathname: '/circles/[id]/plan/[planId]/set-time',
     params: { id: CIRCLE, planId: PLAN, mode: 'lock', ...params },

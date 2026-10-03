@@ -11,7 +11,7 @@ import { invokeFunction, newIdempotencyKey } from '../functions';
 import type { ChasedAnswer } from './write';
 
 /**
- * The organiser sets the final plan (ADR 0050): who a stretch works for, locking
+ * The organiser sets the final plan (ADR 0051): who a stretch works for, locking
  * in a time of their own, and editing a locked-in plan.
  *
  * Nothing here decides anything. `public.stretch_availability` answers who can

@@ -79,7 +79,7 @@ export const morningAfterAsMember: PlanConfirmation = {
 };
 
 /**
- * Maya locked in a time of her own (ADR 0050): Friday 18 September, 7–9 pm, which
+ * Maya locked in a time of her own (ADR 0051): Friday 18 September, 7–9 pm, which
  * no option offered and which works for two of the six. Priya and Tom put it
  * down, so they are going; everybody else is **to confirm**, Maya included — her
  * own times did not cover it — and nobody is "can't make it", because nobody said

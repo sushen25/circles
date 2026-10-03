@@ -18,7 +18,7 @@ import { Mutation } from './shared.js';
  * Everything else is what the review screen collects: a place, a note, and the
  * one survey question §5.10 asks there.
  *
- * **Or a day and time of the organiser's own** ([ADR 0050](../../../../docs/decisions/0050-the-organiser-sets-the-final-plan.md)):
+ * **Or a day and time of the organiser's own** ([ADR 0051](../../../../docs/decisions/0051-the-organiser-sets-the-final-plan.md)):
  * the same endpoint, the same review screen, a different first half of the body.
  */
 /**
@@ -70,7 +70,7 @@ const ConfirmOption = Mutation.extend({
 
 /**
  * Lock in a day and time of the organiser's own, which no option offered
- * (ADR 0050).
+ * (ADR 0051).
  *
  * The stretch is two instants, validated by the domain's `ownTimeProblem` in the
  * database and on the screen. An own time has no set to name, so it names the

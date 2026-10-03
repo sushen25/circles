@@ -1,5 +1,5 @@
 -- ---------------------------------------------------------------------------
--- Who can make a stretch of time (ADR 0050).
+-- Who can make a stretch of time (ADR 0051).
 --
 -- `whoCanMake` in `packages/domain`, which the engine itself calls for every
 -- start it enumerates: a member whose willing windows fully contain the stretch,
@@ -68,7 +68,7 @@ as $$
 $$;
 
 comment on function private.stretch_availability(uuid, timestamptz, timestamptz) is
-  'Who of the people the plan is asking can make a stretch, who answered otherwise and who has not answered, as whoCanMake has it in the domain: windows that fully contain it, or "I''m easy". Ids only (ADR 0050).';
+  'Who of the people the plan is asking can make a stretch, who answered otherwise and who has not answered, as whoCanMake has it in the domain: windows that fully contain it, or "I''m easy". Ids only (ADR 0051).';
 
 revoke all on function private.stretch_availability(uuid, timestamptz, timestamptz) from public;
 revoke all on function private.stretch_availability(uuid, timestamptz, timestamptz) from anon, authenticated;

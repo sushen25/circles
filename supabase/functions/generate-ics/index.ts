@@ -68,7 +68,7 @@ Deno.serve(
         confirmed_by: string;
         status: ConfirmationStatus;
         confirmed_at: string;
-        /** One calendar entry across a move: same UID, higher sequence (ADR 0050). */
+        /** One calendar entry across a move: same UID, higher sequence (ADR 0051). */
         calendar_uid: string;
         calendar_sequence: number;
         plans: {

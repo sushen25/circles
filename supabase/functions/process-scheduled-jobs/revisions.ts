@@ -46,7 +46,7 @@ export function supersededRevision(event: OutboxEvent): number | null {
   // A cancellation leaves the revision where it is; a reschedule has already
   // bumped it, so what it supersedes is the one before.
   if (event.event_name === 'confirmation.meetup_cancelled') return revision;
-  // A move keeps the revision (ADR 0050): what it supersedes is this
+  // A move keeps the revision (ADR 0051): what it supersedes is this
   // revision's letters about the time it just left, not the one before's.
   if (event.event_name === 'confirmation.meetup_moved') return revision;
   if (event.event_name === 'confirmation.meetup_rescheduled') return revision - 1;

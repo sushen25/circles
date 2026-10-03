@@ -12,7 +12,7 @@ import type { Stretch } from '../../data/confirmation';
 
 /**
  * What Sunday Crew said, for the picker in a build with no backend: the numbers
- * the design's board shows (ADR 0050). Times are on the Melbourne clock, as hours
+ * the design's board shows (ADR 0051). Times are on the Melbourne clock, as hours
  * and minutes, on days of September 2026; Alex has not answered.
  *
  * The *who* is the domain's own `whoCanMake`, the function the engine calls and

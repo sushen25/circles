@@ -71,7 +71,7 @@ export function useOwnAnswer(
               }
             : {
                 // Somebody the move left to confirm is told the time moved:
-                // they may have said yes to the old one (ADR 0050).
+                // they may have said yes to the old one (ADR 0051).
                 title: t(
                   'confirmedGuest',
                   confirmation.movedFrom === undefined ? 'you_unsaid' : 'moved_unsaid',

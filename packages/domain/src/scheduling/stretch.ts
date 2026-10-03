@@ -1,6 +1,6 @@
 /**
  * Who can make a stretch of time — the engine's own test, on its own, so that
- * the picker, the review screen and the server cannot disagree (ADR 0050).
+ * the picker, the review screen and the server cannot disagree (ADR 0051).
  *
  * The engine asks it for every start it enumerates; the organiser's picker asks
  * it for any stretch they care to try. It is **one rule**: a member whose

@@ -2,7 +2,7 @@ import type { EmailCopy } from './copy.ts';
 
 /**
  * The organiser moved a locked-in time without asking anybody again
- * (ADR 0050). Where it is now, where it was (day *and* time, so a same-day move
+ * (ADR 0051). Where it is now, where it was (day *and* time, so a same-day move
  * such as "the table moved to 7:30" says what changed), and what to do if it does
  * not work: nothing is asked of anyone it already suits, which is why this is not
  * `changed`. Not held overnight, and no list of who is going, which a letter

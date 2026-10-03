@@ -56,7 +56,7 @@ type ConfirmationRow = {
   status: string;
   confirmed_by: string;
   available_user_ids: string[];
-  /** The organiser's own time, and where a move came from (ADR 0050). */
+  /** The organiser's own time, and where a move came from (ADR 0051). */
   own_time?: boolean;
   moved_from_starts_at?: string | null;
   moved_from_ends_at?: string | null;

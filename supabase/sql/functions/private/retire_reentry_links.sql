@@ -22,7 +22,7 @@
 -- A token spent *here* is marked `retired_at`, and a token spent by being used is
 -- not. The difference matters to exactly one reader, `reattach_member`: an
 -- emailed link may take a place back from a saved account when the account's own
--- address is not the link's (ADR 0048, decision 6), and a link the member never
+-- address is not the link's (ADR 0049, decision 6), and a link the member never
 -- got to use is still theirs to use, but a link that already moved a place is
 -- spent for good. Without the mark the two cannot be told apart.
 -- ---------------------------------------------------------------------------

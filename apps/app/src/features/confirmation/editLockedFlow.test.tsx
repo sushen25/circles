@@ -10,7 +10,7 @@ import { fixtureStretch } from './fixtureStretch';
 import * as confirmationFixture from './fixtures';
 
 /**
- * Editing a locked-in plan (ADR 0050): a new place or note changes nobody and
+ * Editing a locked-in plan (ADR 0051): a new place or note changes nobody and
  * says so; a moved time says who it still works for and who is asked, and is held
  * to the names the organiser saw.
  */

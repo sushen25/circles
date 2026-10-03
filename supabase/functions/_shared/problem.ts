@@ -136,7 +136,7 @@ const REASONS: Record<ProblemReason, { status: number; error: Problem['error'] }
   already_extended: { status: 409, error: 'conflict' },
   no_time_to_extend: { status: 409, error: 'conflict' },
 
-  // SUS-138. The organiser sets the final plan (ADR 0050).
+  // SUS-138. The organiser sets the final plan (ADR 0051).
   stale_availability: { status: 409, error: 'conflict' },
   needs_own_time: { status: 400, error: 'invalid_request' },
   own_time_off_the_half_hour: { status: 400, error: 'invalid_request' },

@@ -67,7 +67,7 @@ test('with storage cleared, the plan link offers the guests by name and one tap 
 test("a cancelled plan's link no longer offers the guests: it says it is not active", async ({
   page,
 }) => {
-  // ADR 0048: a code opens "Continue as" only while the plan is live. A link
+  // ADR 0049: a code opens "Continue as" only while the plan is live. A link
   // forwarded months ago, or to somebody who was never in the chat, must not list
   // anyone, and nothing moves.
   const crew = sundayCrew();

@@ -26,7 +26,7 @@ import { fromInstant, toInstant } from '../_shared/moment.ts';
  * the organiser was *shown*, whose id they send: by the time a tap arrives, an
  * answer may have produced a whole new current set.
  *
- * **Or a day and time of their own** (ADR 0050): `public.confirm_own_time`, which
+ * **Or a day and time of their own** (ADR 0051): `public.confirm_own_time`, which
  * hands the plan to `planning.transition_plan(…, 'confirm_own', …)` the same way.
  * Not in any candidate set, so the guard is the time being a valid one, and
  * "out of date" is measured against the plan's input version instead
@@ -37,7 +37,7 @@ Deno.serve(
     name: 'confirm-meetup',
     schema: ConfirmMeetupRequest,
     handle: async ({ body, caller }): Promise<ConfirmMeetupResponse> => {
-      // Or the organiser's own day and time (ADR 0050). The same lock, the same
+      // Or the organiser's own day and time (ADR 0051). The same lock, the same
       // transition table, the same refusals; what differs is what is checked
       // for being current. An option names the candidate set the organiser was
       // shown. An own time has no set, so it names the plan's input version as

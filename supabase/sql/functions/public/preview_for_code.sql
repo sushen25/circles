@@ -51,7 +51,7 @@ begin
   -- paste into the chat and the page it opens (architecture §5) — so both
   -- resolve through `plans.short_code` and both answer with the circle's name.
   --
-  -- Only while the code is live (ADR 0048, `private.circles_open_to_continue_as`):
+  -- Only while the code is live (ADR 0049, `private.circles_open_to_continue_as`):
   -- the same answer a code that never existed gets, so a cancelled or expired
   -- plan, an archived circle and a plan whose meetup is long past all draw the
   -- generic card — and the Continue-as screen, which asks this for its title,

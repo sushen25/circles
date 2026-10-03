@@ -47,7 +47,7 @@ export type WaitingProps = {
   /** What sharing did when it copied rather than opened a sheet. */
   shareOutcome?: string | undefined;
   onEditPlan?: (() => void) | undefined;
-  /** "Set the time yourself", before any option exists (ADR 0050). */
+  /** "Set the time yourself", before any option exists (ADR 0051). */
   onSetTime?: (() => void) | undefined;
   onRetry?: (() => void) | undefined;
   onBack?: (() => void) | undefined;

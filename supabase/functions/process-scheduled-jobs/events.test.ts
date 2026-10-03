@@ -127,7 +127,7 @@ describe('an edit that cleared the answers (ADR 0046)', () => {
   });
 });
 
-describe('a moved time (ADR 0050)', () => {
+describe('a moved time (ADR 0051)', () => {
   const moved = (payload: Record<string, unknown> = {}): OutboxEvent => ({
     ...eventNamed('confirmation.meetup_moved'),
     payload: { plan_id: PLAN, revision: 2, confirmation_id: CONFIRMATION, ...payload },

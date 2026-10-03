@@ -5,7 +5,7 @@ import { fromInstant, toInstant } from '../_shared/moment.ts';
 
 /**
  * The organiser edits a locked-in plan: its time, its place and its note
- * (ADR 0050).
+ * (ADR 0051).
  *
  * Thin, like `confirm-meetup`, because everything that decides anything is one
  * transaction below: `public.edit_confirmation` hands the plan to

@@ -14,7 +14,7 @@ import {
 } from './stack';
 
 /**
- * The organiser sets the final plan, end to end (SUS-138, ADR 0050): a day and
+ * The organiser sets the final plan, end to end (SUS-138, ADR 0051): a day and
  * time no option offered, below the plan's number, with who it works for said
  * before it is locked in; a guest who finds themselves "to confirm" and says
  * they can come; the organiser moving it, which tells people once and asks

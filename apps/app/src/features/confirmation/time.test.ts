@@ -21,7 +21,7 @@ const ZONE = 'Australia/Melbourne';
 const NOW = fromISO('2026-09-10T00:00:00.000Z');
 const friday = { day: localDate('2026-09-18'), startMin: 19 * 60, endMin: 21 * 60 };
 
-describe('the picker clock (ADR 0050)', () => {
+describe('the picker clock (ADR 0051)', () => {
   it("turns a stretch on the plan's clock into instants, and back", () => {
     // Melbourne is UTC+10 in September: 7 pm is 09:00Z.
     expect(isoOf(friday, ZONE)).toEqual({

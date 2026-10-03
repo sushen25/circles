@@ -21,7 +21,7 @@ const JOURNEY = [
   { path: '/circles/sunday-crew/plan/thu-17/waiting', expect: /Waiting on|have answered/i },
   { path: '/circles/sunday-crew/plan/thu-17/no-quorum', expect: /enough overlap|unlock/i },
   { path: '/circles/sunday-crew/plan/thu-17/review', expect: /Lock it in|confirm/i },
-  // The organiser sets the final plan (SUS-138, ADR 0050): the picker, the review
+  // The organiser sets the final plan (SUS-138, ADR 0051): the picker, the review
   // of a time that is not an option, and the edit screen.
   { path: '/circles/sunday-crew/plan/thu-17/set-time', expect: /Pick the time yourself/i },
   {

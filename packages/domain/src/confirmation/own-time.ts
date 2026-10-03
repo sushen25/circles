@@ -1,5 +1,5 @@
 /**
- * What a valid own time is (ADR 0050).
+ * What a valid own time is (ADR 0051).
  *
  * The organiser may lock in a stretch the engine never offered. The freedom is
  * wide and not unbounded: the stretch must be a real one (it starts in the

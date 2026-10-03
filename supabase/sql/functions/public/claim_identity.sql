@@ -182,7 +182,7 @@ begin
       -- identities (`reconcile_contacts` splits a contact whose identity keeps
       -- another circle's consent, with the verification link on the side left
       -- behind), and verifying an address promotes only the same person's
-      -- contacts (ADR 0049) — which `private.same_person_identities` reads from
+      -- contacts (ADR 0050) — which `private.same_person_identities` reads from
       -- here and from `reattach_member`'s rows. Ids and a circle, nothing else.
       insert into private.audit_log (actor_user_id, action, resource_type, resource_id, metadata)
       values (p_user_id, 'circles.member_claimed', 'circle', membership.circle_id,

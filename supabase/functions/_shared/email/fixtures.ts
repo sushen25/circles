@@ -45,7 +45,7 @@ export const SUNDAY_CREW: { readonly [K in EmailKind]: Extract<EmailInput, { kin
     organiserName: 'Maya',
   },
   // Maya moved Thursday to Saturday 7–9 pm, at the same place, without asking
-  // anybody again (ADR 0050).
+  // anybody again (ADR 0051).
   moved: {
     ...subscriber,
     kind: 'moved',

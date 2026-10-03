@@ -286,7 +286,7 @@ export const TRANSITIONS: readonly Transition[] = [
   // `adjust` does: `join_from_plan` follows it with `candidates_gone`.
   { from: 'ready', action: 'quorum_follows', to: 'ready', guards: [] },
   { from: 'ready', action: 'confirm', to: 'confirmed', guards: ['organiser', 'candidate'] },
-  // The organiser's own time (ADR 0050): not an option, so no `candidate` guard
+  // The organiser's own time (ADR 0051): not an option, so no `candidate` guard
   // and no need to be `ready` — no quorum, replies closed and the waiting
   // screen are all `collecting`. The guard is the time being a valid one.
   { from: 'collecting', action: 'confirm_own', to: 'confirmed', guards: ['organiser', 'own_time'] },
@@ -316,7 +316,7 @@ export const TRANSITIONS: readonly Transition[] = [
     guards: ['organiser', 'no_open_plan'],
     bumpsRevision: true,
   },
-  // Edit this plan (ADR 0050): the plan stays `confirmed` and the revision
+  // Edit this plan (ADR 0051): the plan stays `confirmed` and the revision
   // stays put, so nobody is asked again. A move writes a new active confirmation
   // beside the superseded one; a place or note edit updates the active one.
   {

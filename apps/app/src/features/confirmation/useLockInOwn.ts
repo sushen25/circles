@@ -9,7 +9,7 @@ import { FunctionError } from '../../data/functions';
 import { isOffline } from '../identity/join/failure';
 
 /**
- * Locking in a time of the organiser's own (ADR 0050), and every way that can be
+ * Locking in a time of the organiser's own (ADR 0051), and every way that can be
  * refused.
  *
  * **Checked twice, for two windows**, as `useLockIn` does for an option: who the
