@@ -338,6 +338,11 @@ describe('client_error (SUS-112)', () => {
         'https://wenna.example/p/K7QM2X',
         '/p/[code]',
         '/sunday crew',
+        // Right alphabet, wrong content: only a list tells a screen from somebody's words.
+        '/priya',
+        '/p/k7qm2x',
+        '/p/:priya',
+        '/circles/sunday-crew',
         '/priya@example.com',
         `/${'a'.repeat(40)}`,
         '',

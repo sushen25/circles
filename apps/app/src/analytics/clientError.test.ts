@@ -1,4 +1,9 @@
-import { CLIENT_ERROR_BUILD, CLIENT_ERROR_REFERENCE, validateEvent } from '@circles/contracts';
+import {
+  CLIENT_ERROR_BUILD,
+  CLIENT_ERROR_ROUTE_PARAMS,
+  CLIENT_ERROR_REFERENCE,
+  validateEvent,
+} from '@circles/contracts';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
@@ -57,6 +62,7 @@ describe('routePattern', () => {
     // If a segment ever were the real address, a plan code or an email is not a word of ours.
     expect(routePattern(['p', 'K7QM2X'])).toBe('/p/:other');
     expect(routePattern(['priya@example.com'])).toBe('/:other');
+    expect(routePattern(['p', '[priya]'])).toBe('/p/:other');
   });
 
   it('knows every route in app/, so :other means a real mistake', () => {
@@ -67,10 +73,21 @@ describe('routePattern', () => {
       }
     }
     words.delete('app');
+    const params = new Set<string>();
+    for (const file of Object.keys(ROUTE_FILES)) {
+      for (const [, name] of file.matchAll(/\[(?:\.\.\.)?([A-Za-z]+)\]/g)) params.add(name!);
+    }
+    expect(
+      [...params].filter((name) => !CLIENT_ERROR_ROUTE_PARAMS.includes(name as never)),
+      'add these to CLIENT_ERROR_ROUTE_PARAMS in packages/contracts/src/analytics.ts',
+    ).toEqual([]);
     expect(words.size, 'the glob found the routes').toBeGreaterThan(20);
     words.delete('index');
     const missing = [...words].filter((word) => !ROUTE_WORDS.has(word));
-    expect(missing, 'add these to ROUTE_WORDS in clientError.ts').toEqual([]);
+    expect(
+      missing,
+      'add these to CLIENT_ERROR_ROUTE_WORDS in packages/contracts/src/analytics.ts',
+    ).toEqual([]);
   });
 });
 

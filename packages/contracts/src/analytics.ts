@@ -95,9 +95,105 @@ export type ClientErrorClass = (typeof CLIENT_ERROR_CLASSES)[number];
 export const CLIENT_ERROR_SOURCES = ['boundary', 'window_error', 'unhandled_rejection'] as const;
 export type ClientErrorSource = (typeof CLIENT_ERROR_SOURCES)[number];
 
+/**
+ * Every word a route's path is made of, and every parameter it names. A route
+ * is stored only if each of its segments is one of these (or `:other`, or
+ * `+not-found`), so `/p/:code` is a pattern and `/priya` or `/p/k7qm2x` is
+ * refused: the regex below bounds the *alphabet*, and only a list can tell a
+ * screen's name from somebody's. A new route adds its word here; the app's
+ * `clientError.test.ts` fails until it does.
+ */
+export const CLIENT_ERROR_ROUTE_WORDS = [
+  'a',
+  'account',
+  'after',
+  'another',
+  'attendance',
+  'brand',
+  'calendar',
+  'cancel',
+  'cancelled',
+  'candidates',
+  'change-time',
+  'check-email',
+  'circles',
+  'code',
+  'components',
+  'confirmed',
+  'continue',
+  'create',
+  'deadline',
+  'denied',
+  'diagnostics',
+  'e',
+  'edit',
+  'edit-locked',
+  'empty',
+  'expired',
+  'gallery',
+  'gate',
+  'get-the-app',
+  'interest',
+  'invalid',
+  'invite',
+  'j',
+  'join',
+  'mode',
+  'name',
+  'new',
+  'no-quorum',
+  'none',
+  'notifications',
+  'nudge',
+  'offline',
+  'og',
+  'opened',
+  'outcome',
+  'overlay',
+  'p',
+  'pick',
+  'plan',
+  'privacy',
+  'push',
+  'quiet',
+  'rejoined',
+  'rescheduled',
+  'review',
+  'save-access',
+  'sent',
+  'sent-again',
+  'set-time',
+  'settings',
+  'setup',
+  'shared',
+  'sign-in',
+  'terms',
+  'threshold',
+  'v',
+  'volunteer',
+  'waiting',
+  'welcome',
+  'window',
+] as const;
+export const CLIENT_ERROR_ROUTE_PARAMS = ['id', 'kind', 'planId', 'code', 'other'] as const;
+
 const ROUTE_SEGMENT = '(?:[a-z0-9-]+|:[A-Za-z]+|:\\.\\.\\.[A-Za-z]+|\\+[a-z-]+)';
 export const CLIENT_ERROR_ROUTE = new RegExp(`^/(?:${ROUTE_SEGMENT}(?:/${ROUTE_SEGMENT})*)?$`);
 /** Eight characters, no `0 O 1 I`, so it can be read out over the phone. */
+function isKnownRoute(route: string): boolean {
+  const words: readonly string[] = CLIENT_ERROR_ROUTE_WORDS;
+  const params: readonly string[] = CLIENT_ERROR_ROUTE_PARAMS;
+  return route
+    .split('/')
+    .slice(1)
+    .filter((segment) => segment !== '')
+    .every((segment) =>
+      segment.startsWith(':')
+        ? params.includes(segment.slice(1))
+        : segment === '+not-found' || words.includes(segment),
+    );
+}
+
 export const CLIENT_ERROR_REFERENCE = /^[2-9A-HJ-NP-Z]{8}$/;
 export const CLIENT_ERROR_BUILD = /^(?:[0-9a-f]{7,40}|dev)$/;
 
@@ -329,7 +425,11 @@ export const catalogue = {
   client_error: {
     version: 1,
     payload: z.strictObject({
-      route: z.string().max(40).regex(CLIENT_ERROR_ROUTE),
+      route: z
+        .string()
+        .max(40)
+        .regex(CLIENT_ERROR_ROUTE)
+        .refine(isKnownRoute, 'a route is made of known words and parameters'),
       error_class: z.enum(CLIENT_ERROR_CLASSES),
       source: z.enum(CLIENT_ERROR_SOURCES),
       build: z.string().regex(CLIENT_ERROR_BUILD),

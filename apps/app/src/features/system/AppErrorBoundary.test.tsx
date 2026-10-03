@@ -8,7 +8,8 @@ import { t } from '../../copy';
 
 import { AppErrorBoundary } from './AppErrorBoundary';
 
-vi.mock('expo-router', () => ({ router: { replace: vi.fn() } }));
+const replace = vi.hoisted(() => vi.fn());
+vi.mock('expo-router', () => ({ router: { replace } }));
 
 afterEach(() => {
   resetAnalytics();
@@ -44,6 +45,21 @@ function Broken(): never {
 }
 
 describe('AppErrorBoundary', () => {
+  it('on a phone, goes home and clears the boundary, so the crash screen does not stay up', async () => {
+    const native = await import('react-native');
+    const was = native.Platform.OS;
+    native.Platform.OS = 'ios';
+    const retry = vi.fn(async () => undefined);
+    try {
+      render(<AppErrorBoundary error={new Error('x')} retry={retry} />);
+      fireEvent.click(screen.getByRole('button', { name: t('crash', 'go_home') }));
+    } finally {
+      native.Platform.OS = was;
+    }
+    expect(replace).toHaveBeenCalledWith('/');
+    expect(retry).toHaveBeenCalledOnce();
+  });
+
   it('shows the error screen with a reference when a screen throws, and reports it once', () => {
     const quiet = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     setCurrentRoute(['p', '[code]']);

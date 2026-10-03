@@ -33,11 +33,16 @@ export function AppErrorBoundary({ error, retry }: AppErrorBoundaryProps) {
       globalThis.location.assign('/');
       return;
     }
+    // On a phone this boundary stands in for the root layout, so the router's
+    // own `replace` is not enough: the error state above it stays set and the
+    // crash screen stays up. Navigate if the router is still there, and clear
+    // the boundary either way (review round 1).
     try {
       router.replace('/');
     } catch {
-      void retry();
+      // The navigator may be what broke; `retry` below is then all there is.
     }
+    void retry();
   };
 
   return (

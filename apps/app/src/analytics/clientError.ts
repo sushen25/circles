@@ -2,6 +2,8 @@ import { Platform } from 'react-native';
 
 import {
   CLIENT_ERROR_BUILD,
+  CLIENT_ERROR_ROUTE_PARAMS,
+  CLIENT_ERROR_ROUTE_WORDS,
   type ClientErrorClass,
   type ClientErrorSource,
 } from '@circles/contracts';
@@ -26,84 +28,15 @@ import { track } from './track';
  */
 
 /**
- * Every literal word a route's path is made of, which is how `routePattern`
- * knows a segment is a file's name and not somebody's code. A segment that is
- * not here is reported as `:other`. `clientError.test.ts` reads the `app/`
- * directory and fails when a route adds a word this list lacks, so the list
- * cannot rot into reporting `:other` for a real screen.
+ * The words a route's path is made of live in `@circles/contracts`
+ * (`CLIENT_ERROR_ROUTE_WORDS`), because the ingest holds a stored route to the
+ * same list: a client of any age can send anything, and only a list, not a
+ * pattern, tells `/p/:code` from `/priya`. `clientError.test.ts` reads the
+ * `app/` directory and fails when a route adds a word or a parameter the list
+ * lacks, so it cannot rot into reporting `:other` for a real screen.
  */
-export const ROUTE_WORDS: ReadonlySet<string> = new Set([
-  'a',
-  'account',
-  'after',
-  'another',
-  'attendance',
-  'brand',
-  'calendar',
-  'cancel',
-  'cancelled',
-  'candidates',
-  'change-time',
-  'check-email',
-  'circles',
-  'code',
-  'components',
-  'confirmed',
-  'continue',
-  'create',
-  'deadline',
-  'denied',
-  'diagnostics',
-  'e',
-  'edit',
-  'edit-locked',
-  'empty',
-  'expired',
-  'gallery',
-  'gate',
-  'get-the-app',
-  'interest',
-  'invalid',
-  'invite',
-  'j',
-  'join',
-  'mode',
-  'name',
-  'new',
-  'no-quorum',
-  'none',
-  'notifications',
-  'nudge',
-  'offline',
-  'og',
-  'opened',
-  'outcome',
-  'overlay',
-  'p',
-  'pick',
-  'plan',
-  'privacy',
-  'push',
-  'quiet',
-  'rejoined',
-  'rescheduled',
-  'review',
-  'save-access',
-  'sent',
-  'sent-again',
-  'set-time',
-  'settings',
-  'setup',
-  'shared',
-  'sign-in',
-  'terms',
-  'threshold',
-  'v',
-  'volunteer',
-  'waiting',
-  'welcome',
-  'window',
-]);
+export const ROUTE_WORDS: ReadonlySet<string> = new Set(CLIENT_ERROR_ROUTE_WORDS);
+const ROUTE_PARAMS: ReadonlySet<string> = new Set(CLIENT_ERROR_ROUTE_PARAMS);
 
 const PARAMETER = /^\[([A-Za-z]+)\]$/;
 const REST = /^\[\.\.\.([A-Za-z]+)\]$/;
@@ -117,17 +50,18 @@ const SPECIAL = /^\+[a-z-]+$/;
  *
  * `[code]` becomes `:code` because `analytics.events` refuses brackets. A
  * group, `(auth)`, is not in the address and is dropped. Anything that is not
- * a parameter, a group or a word in `ROUTE_WORDS` becomes `:other`.
+ * a known parameter, a group or a word in `ROUTE_WORDS` becomes `:other`.
  */
 export function routePattern(segments: readonly string[]): string {
   const parts: string[] = [];
   for (const segment of segments) {
     if (GROUP.test(segment)) continue;
     const rest = REST.exec(segment);
-    if (rest !== null) parts.push(`:...${rest[1]}`);
+    if (rest !== null) parts.push(':other');
     else {
       const parameter = PARAMETER.exec(segment);
-      if (parameter !== null) parts.push(`:${parameter[1]}`);
+      if (parameter !== null)
+        parts.push(ROUTE_PARAMS.has(parameter[1]!) ? `:${parameter[1]}` : ':other');
       else if (SPECIAL.test(segment) || ROUTE_WORDS.has(segment)) parts.push(segment);
       else parts.push(':other');
     }
