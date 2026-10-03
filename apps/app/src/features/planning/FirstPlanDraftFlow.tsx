@@ -107,7 +107,15 @@ function LiveFirstPlanDraft() {
   const go = async (way: DraftWay) => {
     if (busy) return;
     setBusy(true);
-    await save({ preset: chosen, way, proceed: signedIn });
+    // The whole draft, not a patch: a card left on the back stack after the
+    // finish has cleared storage must not write a draft with no circle in it.
+    await save({
+      circleName: draft.circleName,
+      cadence: draft.cadence,
+      preset: chosen,
+      way,
+      proceed: signedIn,
+    });
     router.push(signedIn ? '/circles/new/finish' : '/circles/new/save');
     setBusy(false);
   };

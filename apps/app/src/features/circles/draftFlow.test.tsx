@@ -111,6 +111,16 @@ describe('the first circle, with no account', () => {
     expect(screen.getByRole('checkbox', { name: 'Weekly' })).toBeChecked();
   });
 
+  it('does not renew a draft just by showing it', async () => {
+    const day = 24 * 60 * 60 * 1000;
+    const old = Date.now() - day + 3_600_000;
+    await saveDraft({ circleName: 'Sunday Crew' }, old);
+    wrap(<FirstCircleFlow />);
+    await waitFor(() => expect(screen.getByLabelText('Circle name')).toHaveValue('Sunday Crew'));
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    expect((await readDraft())?.updatedAt).toBe(old);
+  });
+
   it('refuses an unusable name without writing a draft', async () => {
     wrap(<FirstCircleFlow />);
     await act(async () => {
@@ -176,6 +186,22 @@ describe('the first plan, drafted', () => {
       expect((await readDraft())?.keys.plan).not.toBe(before.draft.keys.plan),
     );
     expect(await readDraft()).toMatchObject({ preset: 'this_weekend' });
+  });
+
+  it('writes the whole draft, so a card left behind after the finish makes no empty one', async () => {
+    Object.assign(session, { status: 'saved', userId: 'maya' });
+    await saveDraft({ circleName: 'Sunday Crew', cadence: 'weekly' });
+    wrap(<FirstPlanDraftFlow />);
+    await screen.findByText('Most of the group need to make it');
+    localStorage.clear();
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Ask the group' }));
+    });
+    expect(await readDraft()).toMatchObject({
+      circleName: 'Sunday Crew',
+      cadence: 'weekly',
+      way: 'ask',
+    });
   });
 
   it('goes back to the first circle when there is no draft (expired or never made)', async () => {

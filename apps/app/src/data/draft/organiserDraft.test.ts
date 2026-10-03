@@ -109,6 +109,23 @@ describe('the organiser draft', () => {
     }
   });
 
+  it('stays cleared when the device refuses the deletion, and tries again', async () => {
+    await saveDraft({ circleName: 'Sunday Crew' }, NOW);
+    const remove = vi
+      .spyOn(sessionStorage, 'removeItem')
+      .mockRejectedValueOnce(new Error('storage'));
+    try {
+      await clearDraft();
+      // Refused once: the record is on disk, and is not handed back. The next
+      // read tries the removal again, which now takes.
+      expect(await readDraft(NOW + 1_000)).toBeNull();
+      expect(remove).toHaveBeenCalledTimes(2);
+      expect(globalThis.localStorage.getItem(DRAFT_KEY)).toBeNull();
+    } finally {
+      vi.restoreAllMocks();
+    }
+  });
+
   it('is cleared when asked', async () => {
     await saveDraft({ circleName: 'Sunday Crew' }, NOW);
     await clearDraft();

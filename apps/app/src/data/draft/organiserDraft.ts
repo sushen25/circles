@@ -82,6 +82,14 @@ export type DraftPatch = Partial<
  */
 let refused: string | null = null;
 
+/**
+ * A deletion the device refused. The record is still on disk, and without this
+ * the next read would find it: after a sign-out, somebody else's circle name;
+ * after a finish, a draft already used. While it is set the draft is "none", and
+ * the removal is tried again on each read until it takes.
+ */
+let cleared = false;
+
 function blank(now: number): OrganiserDraft {
   return {
     v: 1,
@@ -97,6 +105,10 @@ function blank(now: number): OrganiserDraft {
 
 /** The draft, or `null` when there is none, it has expired, or it cannot be read. */
 export async function readDraft(now: number = Date.now()): Promise<OrganiserDraft | null> {
+  if (cleared) {
+    await clearDraft();
+    if (cleared) return null;
+  }
   let raw: string | null;
   try {
     raw = await sessionStorage.getItem(DRAFT_KEY);
@@ -140,6 +152,7 @@ export async function saveDraft(
     next.circleCounted = false;
   } else if (planChanged) next.keys = { ...next.keys, plan: newIdempotencyKey() };
   const raw = JSON.stringify(next);
+  cleared = false;
   try {
     await sessionStorage.setItem(DRAFT_KEY, raw);
     refused = null;
@@ -155,7 +168,8 @@ export async function clearDraft(): Promise<void> {
   refused = null;
   try {
     await sessionStorage.removeItem(DRAFT_KEY);
+    cleared = false;
   } catch {
-    // Already unreachable.
+    cleared = true;
   }
 }

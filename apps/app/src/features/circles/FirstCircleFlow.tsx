@@ -63,6 +63,8 @@ function LiveFirstCircle() {
   const [problem, setProblem] = useState<FirstCircleProblem | undefined>();
   const hydrated = useRef(false);
   const typedBeforeLoad = useRef(false);
+  // Only an edit is written: reopening the form with a draft must not renew it.
+  const edited = useRef(false);
 
   // What was typed before a reload comes back, once, unless the person has
   // already started typing again.
@@ -78,7 +80,7 @@ function LiveFirstCircle() {
   // has no draft behind it, so a visitor who only looked leaves nothing.
   const pending = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => {
-    if (!hydrated.current) return;
+    if (!hydrated.current || !edited.current) return;
     if (name.trim() === '' && draft === null) return;
     pending.current = setTimeout(() => void save({ circleName: name, cadence }), SAVE_AFTER_MS);
     return () => clearTimeout(pending.current);
@@ -104,11 +106,13 @@ function LiveFirstCircle() {
       problem={problem}
       onNameChange={(text) => {
         typedBeforeLoad.current = true;
+        edited.current = true;
         setName(text);
         if (problem === 'name_unusable') setProblem(undefined);
       }}
       onCadenceChange={(value) => {
         typedBeforeLoad.current = true;
+        edited.current = true;
         setCadence(value);
       }}
       onNext={() => void next()}
