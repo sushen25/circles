@@ -62,7 +62,7 @@ edge_fresh() {
   command -v docker >/dev/null 2>&1 || return 0
   local c; c=$(edge_container) || return 0
   docker inspect "$c" >/dev/null 2>&1 || { echo "== edge runtime: $c is not running; nothing to restart"; return 0; }
-  local mem; mem=$(docker stats --no-stream --format '{{.MemUsage}}' "$c" 2>/dev/null | cut -d/ -f1 | tr -d ' ')
+  local mem; mem=$(docker stats --no-stream --format '{{.MemUsage}}' "$c" 2>/dev/null | cut -d/ -f1 | tr -d ' ') || mem=
   local t0=$SECONDS
   docker restart "$c" >/dev/null 2>&1 || { echo "== edge runtime: could not restart $c (continuing)"; return 0; }
   # Any reply but 502/503 or no connection means the runtime is serving.
@@ -72,7 +72,7 @@ edge_fresh() {
     code=$(curl -s -o /dev/null -m 5 -w '%{http_code}' "http://127.0.0.1:${port:-54321}/functions/v1/hello" 2>/dev/null || true)
     case $code in 000|502|503) sleep 0.5 ;; *) break ;; esac
   done
-  echo "== edge runtime: restarted $c (was${mem:+ $mem}, answering again after $((SECONDS - t0))s)"
+  echo "== edge runtime: restarted $c (${mem:+was $mem, }answering again after $((SECONDS - t0))s)"
 }
 
 # After a failed check: if the container was OOM-killed, say it is the machine
