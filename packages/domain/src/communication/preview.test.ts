@@ -55,7 +55,7 @@ describe('the card for each link and plan state', () => {
     kind: string,
     circleName: string | null,
     planState: 'asking' | 'locked_in' | null,
-  ) => previewCopy({ kind, circleName, planState }, 'Wenna');
+  ) => previewCopy({ kind, circleName, planState }, 'Acme');
 
   it('says a confirmed plan is locked in, by the circle name alone', () => {
     expect(copy('p', circle, 'locked_in')).toEqual({
@@ -80,14 +80,14 @@ describe('the card for each link and plan state', () => {
   it('draws the generic card, which claims no plan, for a link that does not resolve', () => {
     for (const kind of ['p', 'j']) {
       const card = copy(kind, null, null);
-      expect(card.title).toBe('Plans with friends, on Wenna');
+      expect(card.title).toBe('Plans with friends, on Acme');
       expect(`${card.title} ${card.description}`).not.toMatch(/finding a time|locked/i);
     }
   });
 
   it('draws the invite card for /join, whatever else it is given', () => {
     const card = copy('join', null, null);
-    expect(card.title).toBe("You're invited to a circle on Wenna");
+    expect(card.title).toBe("You're invited to a circle on Acme");
     expect(`${card.title} ${card.description}`).not.toMatch(/finding a time|locked/i);
     expect(copy('join', circle, 'locked_in')).toEqual(card);
   });
