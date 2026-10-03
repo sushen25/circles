@@ -213,9 +213,7 @@ function LiveGate({ target, children }: { target: Target; children: ReactNode })
         // navigating, not by a link in a chat, and a non-member has no way to
         // learn its code — so the honest answer here is the invite, for an
         // account and a guest alike (ADR 0022 admits through a *plan's* code).
-        return (
-          <LinkInvalidScreen reason="ask_for_invite" onBack={back} />
-        );
+        return <LinkInvalidScreen reason="ask_for_invite" onBack={back} />;
       }
       if (decision.kind === 'join_as_account') {
         return <JoinAsAccountFlow code={target.code as ShortCode} onJoined={becameMember} />;

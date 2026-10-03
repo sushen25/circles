@@ -100,12 +100,7 @@ export function ContinueAsFlow({ code, arrivedWithoutSession, onReattached }: Co
   }
 
   if (askForInvite) {
-    return (
-      <LinkInvalidScreen
-        reason="ask_for_invite"
-        onBack={back}
-      />
-    );
+    return <LinkInvalidScreen reason="ask_for_invite" onBack={back} />;
   }
 
   const title = circleName.data ?? undefined;
@@ -136,12 +131,7 @@ export function ContinueAsFlow({ code, arrivedWithoutSession, onReattached }: Co
   // person is told the link is not active rather than asked for a name that
   // could join nobody.
   if (circleName.data === null) {
-    return (
-      <LinkInvalidScreen
-        reason="inactive"
-        onBack={back}
-      />
-    );
+    return <LinkInvalidScreen reason="inactive" onBack={back} />;
   }
 
   if ((imNew || nobodyToBe) && !signedIn) {
