@@ -177,6 +177,16 @@ begin
         perform private.move_membership(membership.circle_id, p_anonymous_user_id, p_user_id);
         merged := merged + 1;
       end if;
+
+      -- The link, recorded. Either branch leaves one person's contacts on both
+      -- identities (`reconcile_contacts` splits a contact whose identity keeps
+      -- another circle's consent, with the verification link on the side left
+      -- behind), and verifying an address promotes only the same person's
+      -- contacts (ADR 0049) — which `private.same_person_identities` reads from
+      -- here and from `reattach_member`'s rows. Ids and a circle, nothing else.
+      insert into private.audit_log (actor_user_id, action, resource_type, resource_id, metadata)
+      values (p_user_id, 'circles.member_claimed', 'circle', membership.circle_id,
+              jsonb_build_object('from_user_id', p_anonymous_user_id, 'to_user_id', p_user_id));
     end loop;
   end if;
 
