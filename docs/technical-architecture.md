@@ -353,7 +353,7 @@ Every artboard in `docs/design/` maps to one route + one feature component; the 
 - Never write a table type by hand; run `pnpm gen:types`.
 - Never change schema in the dashboard; write a migration and a pgTAP test in the same PR.
 - Every RLS policy ships with a test that proves both the allow and the deny.
-- Every user-facing string is a key in `src/copy`; no literals in components.
+- Every user-facing string is a key in `src/copy`; no literals in components. One exception: the email consent sentence is `CONSENT.text` in `packages/config`, versioned and rendered, never copied (ADR 00XX).
 - Every analytics event is declared in the catalogue first.
 - No sensitive data (names, emails, tokens, event titles, notes) in logs or analytics payloads. A plan's short code is not a token for this rule: it is in every link the product shares, by design, and what it admits to is bounded and visible ([ADR 0022](decisions/0022-a-plan-link-admits-new-members-while-the-plan-is-asking.md)). It still stays out of analytics payloads and our own function logs.
 - `pnpm check` (format, lint, typecheck, unit, database tests, web e2e smoke) must pass; CI runs the same command.
