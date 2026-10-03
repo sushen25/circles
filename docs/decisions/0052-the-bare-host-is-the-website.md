@@ -1,6 +1,6 @@
-# ADR 00XX: The bare host is the website, and the app's front door on the web is `/start`
+# ADR 0052: The bare host is the website, and the app's front door on the web is `/start`
 
-_Status: proposed · 3 October 2026 · number taken in the final rebase_
+_Status: proposed · 3 October 2026_
 
 ## Context
 

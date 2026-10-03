@@ -6,7 +6,7 @@ import { markSvg, text } from './mark';
 
 /**
  * Where "Start a plan" goes. The app's own front door lives at `/start` (the
- * site took `/`, ADR 00XX), and `via=site` is how the app knows the visitor
+ * site took `/`, ADR 0052), and `via=site` is how the app knows the visitor
  * arrived from here: it records `site_start_plan_clicked`, which carries
  * nothing at all (`useSiteArrival`).
  */

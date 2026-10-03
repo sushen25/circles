@@ -27,7 +27,7 @@ import { SITE_HEADERS, sitePage } from '../src/features/site/page';
 export default async function middleware(request: Request): Promise<Response | undefined> {
   const url = new URL(request.url);
 
-  // The bare host is the marketing site, for everybody (ADR 00XX). A document
+  // The bare host is the marketing site, for everybody (ADR 0052). A document
   // request for `/` only: the app's own front door is `/start`, and a client
   // navigation to `/` inside the app never reaches the server.
   if (url.pathname === '/') {
