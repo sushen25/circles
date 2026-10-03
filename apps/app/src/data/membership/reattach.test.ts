@@ -15,6 +15,21 @@ describe('circleNameForCode', () => {
     await expect(circleNameForCode(CODE)).resolves.toBeNull();
   });
 
+  it('reads no row, which is what the lookup now answers where it once answered null', async () => {
+    rpc.mockResolvedValue({ data: [], error: null });
+    await expect(circleNameForCode(CODE)).resolves.toBeNull();
+  });
+
+  it('answers the name of a live plan, whatever its state', async () => {
+    for (const state of ['asking', 'locked_in']) {
+      rpc.mockResolvedValue({
+        data: [{ circle_name: 'Sunday Crew', plan_state: state }],
+        error: null,
+      });
+      await expect(circleNameForCode(CODE)).resolves.toBe('Sunday Crew');
+    }
+  });
+
   it('throws when the lookup itself fails, so offline is not "no such circle"', async () => {
     // Null sends an account's join to the ask-for-the-invite state. A dropped
     // connection answered as null told somebody offline, holding a live plan
