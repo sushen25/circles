@@ -1,3 +1,19 @@
+-- 0038_claim_due_keys_on_confirmation
+--
+-- A second move in one plan revision sent nobody an email (SUS-152). A move
+-- keeps the revision and writes a new confirmation (ADR 0051), so the second
+-- move's `moved` letter, and the reminder and morning-after letters for its
+-- new time, matched the first move's on kind, plan, revision and address.
+-- `dispatch_claim_due` marked them `superseded` the moment the first had been
+-- sent, and the sender skipped them as copies.
+--
+-- The claim now carries each job's `confirmation_id` and the copy rule compares
+-- it: another confirmation's letter is not a copy. Jobs with none compare null
+-- with null and collapse as before. The function itself is regenerated below.
+
+-- BEGIN GENERATED: function definitions (scripts/gen-sql-functions.mjs)
+
+-- supabase/sql/functions/public/dispatch_claim_due.sql
 -- ---------------------------------------------------------------------------
 -- The email jobs that are due, with the one address each is for.
 --
@@ -164,3 +180,5 @@ comment on function public.dispatch_claim_due(integer) is
 revoke all on function public.dispatch_claim_due(integer) from public;
 revoke all on function public.dispatch_claim_due(integer) from anon, authenticated;
 grant execute on function public.dispatch_claim_due(integer) to service_role;
+
+-- END GENERATED: function definitions

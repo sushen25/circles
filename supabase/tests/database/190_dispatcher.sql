@@ -12,7 +12,7 @@
 -- made — which is also how the dispatcher itself has to think.
 
 begin;
-select plan(69);
+select plan(71);
 
 create or replace function pg_temp.make_user(
   id uuid, name text, permanent boolean default false, confirmed boolean default false
@@ -478,6 +478,44 @@ select pg_temp.act_as_postgres();
 update jobs.notification_jobs j
 set status = 'scheduled', sent_at = null, provider_message_id = null
 where j.provider_message_id = 'already-gone';
+
+-- A second move in one revision (SUS-152). A move keeps the revision and writes
+-- a new confirmation, so "one letter per kind, revision and address" dropped the
+-- second move's email for an address that had been told about the first. The
+-- letter is about one confirmation, and the copy rule is too: another
+-- confirmation's letter is not a copy, whereas a sibling contact's copy of the
+-- same confirmation still is.
+insert into jobs.notification_jobs
+  (channel, kind, contact_id, plan_id, plan_revision, confirmation_id, scheduled_for, idempotency_key,
+   status, sent_at, provider_message_id)
+select 'email', 'moved', tk.contact_one, pg_temp.live_plan(), 1,
+  '00000000-0000-0000-0000-00000019b001'::uuid, now() - interval '2 hours', repeat('d', 64),
+  'sent', now() - interval '2 hours', 'first-move-gone'
+from tk;
+insert into jobs.notification_jobs
+  (channel, kind, contact_id, plan_id, plan_revision, confirmation_id, scheduled_for, idempotency_key)
+select 'email', 'moved', tk.contact_one, pg_temp.live_plan(), 1,
+  '00000000-0000-0000-0000-00000019b002'::uuid, now() - interval '1 minute', repeat('e', 64)
+from tk
+union all
+select 'email', 'moved', tk.contact_two, pg_temp.live_plan(), 1,
+  '00000000-0000-0000-0000-00000019b001'::uuid, now() - interval '1 minute', repeat('f', 64)
+from tk;
+
+select pg_temp.act_as_service();
+select is(
+  (select (j ->> 'superseded')::boolean from jsonb_array_elements(public.dispatch_claim_due(200)) j
+   where j ->> 'idempotency_key' = repeat('e', 64)),
+  false,
+  'a second move''s letter, about another confirmation, is not a copy of the first move''s');
+select is(
+  (select (j ->> 'superseded')::boolean from jsonb_array_elements(public.dispatch_claim_due(200)) j
+   where j ->> 'idempotency_key' = repeat('f', 64)),
+  true,
+  'while a sibling contact''s copy of the same move to the same address still is');
+
+select pg_temp.act_as_postgres();
+delete from jobs.notification_jobs where idempotency_key in (repeat('d', 64), repeat('e', 64), repeat('f', 64));
 select pg_temp.act_as_service();
 
 select is(

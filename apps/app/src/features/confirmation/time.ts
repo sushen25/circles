@@ -65,9 +65,18 @@ export function pickOf(startsAt: string, endsAt: string, zone: string): TimePick
   return {
     day: start.date,
     startMin: start.minutesOfDay,
-    // From the real length, not the end's clock: a stretch over a change of
-    // clocks has the length it has, and the end's own date is no help to it.
-    endMin: end.date === start.date ? end.minutesOfDay : start.minutesOfDay + length,
+    // Where the wall clock reads the end, which is what `at` turns back into an
+    // instant. Taken from the real length instead, a stretch over a change of
+    // clocks came back an hour out: 10 pm to 4 am across the night clocks go
+    // forward is five hours, and 10 pm plus five hours is 3 am (SUS-152). The
+    // length is the fallback for an end more than a day on, which the product's
+    // longest stretch cannot reach from a start in the same day.
+    endMin:
+      end.date === start.date
+        ? end.minutesOfDay
+        : end.date === addDays(start.date, 1)
+          ? DAY + end.minutesOfDay
+          : start.minutesOfDay + length,
   };
 }
 

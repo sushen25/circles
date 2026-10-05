@@ -207,7 +207,10 @@ function Edit({
 
   const fields = fieldsOf(form);
   const changed = detailsChanged(fields, confirmation);
-  const canSave = fields.valid && valid && (moved ? stretch !== undefined : changed);
+  // The names on screen may still be the last time's (`keepPreviousData`), and
+  // with them its version: a move waits for the answer about this time.
+  const stale = live && moved && asked.isPlaceholderData;
+  const canSave = fields.valid && valid && (moved ? stretch !== undefined && !stale : changed);
 
   const previousDay = weekdayOf(current.startsAt, plan.zone);
   return (
