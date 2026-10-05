@@ -1456,6 +1456,183 @@ flow = f"""
 </div>"""
 S["ConversionMap"] = shell(flow, width=1400, minh=1100)
 
+# ---- Loading and busy (SUS-155) ----
+# A busy button that looks busy, loading screens shaped like the screen they
+# are loading, and a line for a wait that runs long. Only these artboards
+# inline the stylesheet. The pulse and the spinner both stop under
+# prefers-reduced-motion (manifesto §6).
+LB_CSS = f"""
+    .sk {{ background: {T['line']}; border-radius: 8px; animation: skpulse 1.6s ease-in-out infinite; }}
+    .invert .sk {{ background: {T['invert_line']}; }}
+    @keyframes skpulse {{ 0%, 100% {{ opacity: 1; }} 50% {{ opacity: 0.5; }} }}
+    .spin {{ animation: spin 0.9s linear infinite; flex-shrink: 0; }}
+    @keyframes spin {{ to {{ transform: rotate(360deg); }} }}
+    @media (prefers-reduced-motion: reduce) {{ .sk, .spin {{ animation: none; }} }}
+    .still .sk, .still .spin {{ animation: none; }}
+    .btn.busy {{ gap: 10px; }}
+    .btn.faded, .mini.faded {{ opacity: 0.5; }}
+    .mini.busy {{ gap: 8px; }}
+    .well {{ display: flex; flex-direction: column; gap: 12px; padding: 18px; border-radius: 18px; background: {T['surface']}; border: 1px solid {T['line']}; }}
+    .well.invert {{ background: {T['invert']}; border-color: {T['invert']}; }}
+    .cap {{ font-family: Figtree; font-size: 13px; line-height: 1.45; color: {T['ink3']}; margin: 0; }}
+    .well.invert .cap {{ color: {T['invert_ink3']}; }}
+    .tag {{ display: inline-flex; align-self: flex-start; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; background: {T['line_soft']}; color: {T['ink2']}; }}
+    .tag.new {{ background: {T['accent_soft']}; color: {T['accent_dark']}; }}
+    .step {{ display: flex; flex-direction: column; gap: 6px; padding: 14px; border-radius: 14px; background: {T['surface']}; border: 1px solid {T['line']}; }}
+    .step .when {{ font-family: Figtree; font-weight: 600; font-size: 13px; color: {T['accent_dark']}; font-variant-numeric: tabular-nums; }}
+"""
+
+def spin(size=18):
+    return (f'<svg class="spin" width="{size}" height="{size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+            f'stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M12 3a9 9 0 1 1-9 9"/></svg>')
+
+def sk(w="100%", h=14, r=8, extra=""):
+    if isinstance(w, int): w = f"{w}px"
+    return f'<div class="sk" style="width:{w};height:{h}px;border-radius:{r}px;flex-shrink:0;{extra}"></div>'
+def sk_marks(n=5, edge=None):
+    edge = edge or T["surface"]
+    return '<div style="display:flex;">' + "".join(
+        f'<div class="sk" style="width:28px;height:28px;border-radius:8px;margin-left:{0 if i == 0 else -5}px;border:2px solid {edge};"></div>' for i in range(n)) + '</div>'
+def sk_card(*parts, gap=12):
+    return f'<div class="card" style="gap:{gap}px;">' + "".join(parts) + '</div>'
+def busy_pri(t): return f'<div class="btn pri busy" aria-busy="true">{spin()}{t}</div>'
+def busy_sec(t): return f'<div class="btn sec busy" aria-busy="true">{spin()}{t}</div>'
+def busy_mini(t, acc=False): return f'<div class="mini busy{" acc" if acc else ""}" aria-busy="true">{spin(16)}{t}</div>'
+def old_pri(t): return f'<div class="btn pri faded">{t}</div>'
+def old_sec(t): return f'<div class="btn sec faded">{t}</div>'
+def old_mini(t): return f'<div class="mini faded">{t}</div>'
+def well(*parts, invert=False): return f'<div class="well{" invert" if invert else ""}">' + "".join(parts) + '</div>'
+def cap(t): return f'<p class="cap">{t}</p>'
+def tag(t, new=False): return f'<span class="tag{" new" if new else ""}">{t}</span>'
+def step(when, what): return f'<div class="step"><div class="when">{when}</div><div class="sm" style="color:{T["ink2"]};">{what}</div></div>'
+
+def loading_screen(sentence, shape, slow=None, retry=False):
+    # The bar is the screen's own; the sentence is the live region and the only
+    # words (the same sentence the screens say today); then the shape of what is coming.
+    words = [p(sentence)]
+    if slow: words.append(p(slow))
+    parts = [stack(*words, gap=4)]
+    if retry: parts.append(sec("Try again"))
+    return shell(
+        top("") + body(*parts, shape, gap=20),
+        css=LB_CSS)
+
+shape_home = (
+    f'<div style="display:flex;align-items:center;gap:14px;">' + sk(52, 52, 14) + f'<div style="flex:1;display:flex;flex-direction:column;gap:8px;">' + sk("60%", 26, 8) + sk("40%", 12) + '</div></div>' +
+    sk_card(
+        '<div class="between">' + sk(90, 10) + sk(110, 10) + '</div>',
+        sk("75%", 18),
+        '<div class="between">' + sk_marks(6) + sk(80, 12) + '</div>',
+        f'<div style="display:flex;gap:8px;"><div style="flex:1;">' + sk("100%", 44, 12) + '</div><div style="flex:1;">' + sk("100%", 44, 12) + '</div></div>') +
+    sk_card(
+        '<div class="between">' + stack(sk(80, 10), sk(110, 22, 8), gap=8) + stack(sk(70, 10), sk(90, 22, 8), gap=8) + '</div>',
+        sk("92%", 12)) +
+    f'<div style="flex-grow:1;"></div>' + sk("100%", 55, 14))
+shape_options = (
+    '<div class="between">' + row(sk_marks(6, T["ground"]), sk(90, 12), gap=10) + sk(80, 12) + '</div>' +
+    stack(sk("92%", 26, 8), sk("62%", 26, 8), gap=8) +
+    "".join(sk_card(
+        '<div class="between">' + sk(100, 10) + sk(36, 10) + '</div>',
+        stack(sk("55%", 24, 8), sk("38%", 14), gap=8),
+        '<div class="between">' + sk_marks(5) + sk(110, 12) + '</div>', gap=10) for _ in range(3)))
+shape_confirmed = (
+    stack(sk(80, 10), sk("62%", 36, 8), sk("78%", 36, 8), sk("55%", 22, 8), gap=10) +
+    sk_card(sk(150, 10), sk("100%", 14), sk("86%", 14), sk("64%", 14)) +
+    '<div class="between">' + stack(sk(130, 16), sk(100, 12), gap=8) + sk_marks(6, T["ground"]) + '</div>' +
+    f'<div style="flex-grow:1;"></div>' + stack(sk("100%", 55, 14), sk("100%", 55, 14), gap=10))
+
+S["LoadingCircleHome"] = loading_screen("Getting your circle", shape_home)
+S["LoadingOptions"] = loading_screen("Getting the options", shape_options)
+S["LoadingConfirmed"] = loading_screen("Getting the plan", shape_confirmed)
+S["LoadingSlowEight"] = loading_screen("Getting the options", shape_options, slow="Still working on it…")
+S["LoadingSlowTwenty"] = loading_screen("Getting the options", shape_options, slow="Still working on it…", retry=True)
+
+row_icon = ic("cal", 22, T["accent_dark"])
+def li_busy(main, sub): return f'<div class="li" aria-busy="true">{row_icon}<div class="stack" style="gap:2px;flex-grow:1;"><div class="title">{main}</div><div class="sm">{sub}</div></div><span style="color:{T["accent_dark"]};display:flex;">{spin(20)}</span></div>'
+S["BusyRow"] = shell(
+    top("Add to calendar") +
+    body(
+        stack(tag("Today"), cap("The whole row fades, the chevron goes, and nothing says it is working."), gap=8),
+        card(f'<div class="li" style="opacity:.5;">{row_icon}<div class="stack" style="gap:2px;flex-grow:1;"><div class="title">Apple or device calendar</div><div class="sm">Getting the file</div></div></div>', gap=0, pad=6),
+        divider(),
+        stack(tag("Proposed", new=True), cap("The row keeps its colour. The spinner sits where the chevron was, after about 150 ms. A second tap on the row does nothing, and the other rows stay as they are."), gap=8),
+        card(li_busy("Apple or device calendar", "Getting the file"), gap=0, pad=6),
+        stack(tag("Proposed · after about 8 s", new=True), gap=8),
+        card(li_busy("Apple or device calendar", "Still working on it…"), gap=0, pad=6),
+        sm("The row's detail line is the live region, so a screen reader hears “Getting the file” once, then the slow line once."),
+        gap=18),
+    css=LB_CSS, minh=760)
+
+S["BusyButtons"] = shell(f'''
+<div style="display:flex;flex-direction:column;gap:28px;padding:32px;">
+  <div class="stack" style="gap:4px;">{wordmark()}<div class="sm">A button that is working keeps its colour and its width, shows a spinner beside the &ldquo;-ing&rdquo; label after about 150 ms, ignores a second tap and sets aria-busy. Faded stays for one meaning only: you can&rsquo;t do this yet.</div></div>
+  <div style="display:grid;grid-template-columns:repeat(2, minmax(0, 1fr));gap:24px 32px;">
+    {sheet_section("Primary", tag("Today"), old_pri("Locking it in"), cap("Reads the same as a button you aren&rsquo;t allowed to press."))}
+    {sheet_section("&nbsp;", tag("Proposed", new=True), busy_pri("Locking it in"), cap("Full terracotta, white label, white spinner. Same height, same width."))}
+    {sheet_section("Secondary", tag("Today"), old_sec("Asking again"), cap("Surface and hairline at half strength."))}
+    {sheet_section("&nbsp;", tag("Proposed", new=True), busy_sec("Asking again"), cap("Surface and hairline kept; the spinner takes the label&rsquo;s colour."))}
+    {sheet_section("Compact", tag("Today"), old_mini("Saving"), cap("Used inside cards and lists."))}
+    {sheet_section("&nbsp;", tag("Proposed", new=True), busy_mini("Saving", acc=True), cap("The spinner takes the icon&rsquo;s place when there is one. Width is held at the larger of the two labels, so it never jumps."))}
+    {sheet_section("On the dark ground", tag("Today"), well(old_pri("Sending"), old_sec("Cancelling"), invert=True))}
+    {sheet_section("&nbsp;", tag("Proposed", new=True), well(busy_pri("Sending"), busy_sec("Cancelling"), invert=True))}
+  </div>
+  <div class="stack" style="gap:14px;">{lbl("A primary button, over time")}
+    <div style="display:grid;grid-template-columns:repeat(2, minmax(0, 1fr));gap:24px 32px;">
+      {well(lbl("0 ms · the tap"), f'<div class="btn pri">Locking it in</div>', cap("The label changes at once, in full colour. No spinner yet, so a save that takes 80 ms never flickers."))}
+      {well(lbl("About 150 ms"), busy_pri("Locking it in"), cap("The spinner appears beside the label. Taps are ignored until the call settles."))}
+      {well(lbl("About 8 s"), busy_pri("Locking it in"), f'<p class="p" style="text-align:center;">Still working on it…</p>', cap("A line appears under the button. The button keeps going; nothing is cancelled."))}
+      {well(lbl("Not yet, for contrast"), old_pri("Lock it in"), f'<p class="sm" style="text-align:center;">Pick a time first.</p>', cap("Disabled keeps the half-strength look and says why in words. It has no spinner and no -ing label."))}
+    </div>
+  </div>
+</div>''', width=900, minh=1300, css=AV_CSS + LB_CSS)
+
+S["LoadingTiming"] = shell(f'''
+<div style="display:flex;flex-direction:column;gap:26px;padding:32px;">
+  <div class="stack" style="gap:4px;">{wordmark()}<div class="sm">Timing. One set of numbers, shared by every busy button, row and loading screen, so a fast wait shows nothing and a long one says so.</div></div>
+  <div class="stack" style="gap:12px;">{lbl("A busy button or row")}
+    <div style="display:grid;grid-template-columns:repeat(4, minmax(0, 1fr));gap:12px;">
+      {step("0 ms", "Tapped. The label changes to the -ing word, in full colour. Taps are ignored from here.")}
+      {step("About 150 ms", "The spinner appears. An instant save never shows one.")}
+      {step("About 8 s", "&ldquo;Still working on it…&rdquo; appears under the button or in the row.")}
+      {step("Settled", "The spinner stays for at least about 400 ms once shown, then the result takes its place.")}
+    </div>
+  </div>
+  <div class="stack" style="gap:12px;">{lbl("A loading screen")}
+    <div style="display:grid;grid-template-columns:repeat(5, minmax(0, 1fr));gap:12px;">
+      {step("0 to about 300 ms", "The top bar and the ground only. A fast load never flashes a skeleton or a sentence.")}
+      {step("About 300 ms", "The skeleton and the sentence (&ldquo;Getting the plan&rdquo;) appear together. The sentence is read out once.")}
+      {step("At least about 400 ms", "Once shown, the skeleton stays for at least this long, so it never strobes.")}
+      {step("About 8 s", "&ldquo;Still working on it…&rdquo; joins the sentence.")}
+      {step("About 20 s", "A &ldquo;Try again&rdquo; button joins the line.")}
+    </div>
+  </div>
+  <div class="sm">All of this comes from one hook, so the calendar row and every screen use the same clock. Reduced motion changes how it moves, never when it appears.</div>
+</div>''', width=900, minh=560, css=AV_CSS + LB_CSS)
+
+def frame_card(op, t):
+    inner = sk_card(sk("45%", 14), sk("80%", 12), sk("55%", 12))
+    return f'<div class="stack still" style="gap:8px;"><div style="opacity:{op};">{inner}</div><div class="sm num">{t}</div></div>'
+
+S["LoadingMotion"] = shell(f'''
+<div style="display:flex;flex-direction:column;gap:26px;padding:32px;">
+  <div class="stack" style="gap:4px;">{wordmark()}<div class="sm">Motion. The skeleton breathes and the spinner turns. Under reduced motion neither moves, and nothing else is lost, because the words carry the state.</div></div>
+  <div style="display:grid;grid-template-columns:repeat(2, minmax(0, 1fr));gap:32px;">
+    <div class="stack" style="gap:14px;">{lbl("Motion on")}
+      <div style="display:grid;grid-template-columns:repeat(3, minmax(0, 1fr));gap:10px;">{frame_card(1, "0 ms")}{frame_card(0.5, "800 ms")}{frame_card(1, "1600 ms")}</div>
+      {cap("A soft pulse: opacity 1 to 0.5 and back over 1.6 s. Nothing moves, grows or slides.")}
+      {busy_pri("Locking it in")}
+      {cap("The spinner turns once every 0.9 s.")}
+    </div>
+    <div class="stack still" style="gap:14px;">{lbl("Reduced motion")}
+      <div style="display:grid;grid-template-columns:repeat(3, minmax(0, 1fr));gap:10px;">{frame_card(1, "0 ms")}{frame_card(1, "800 ms")}{frame_card(1, "1600 ms")}</div>
+      {cap("The skeleton holds still at full strength. The sentence is still read out once.")}
+      {busy_pri("Locking it in")}
+      {cap("The spinner is a still three-quarter ring. The -ing label and aria-busy say the rest. The 150 ms, 300 ms, 8 s and 20 s steps do not change.")}
+    </div>
+  </div>
+</div>''', width=900, minh=640, css=AV_CSS + LB_CSS)
+
+
 # ============ write files ============
 out = os.environ.get("CIRCLES_DESIGN_OUT", os.path.dirname(os.path.abspath(__file__)))
 for name, html in S.items():
@@ -1467,7 +1644,7 @@ with open(os.path.join(out, "Main.dc.html"), "w") as f:
     f.write(S["Join"])
 os.remove(os.path.join(out, "Join.dc.html"))
 
-heights = {"CheckEmail":960, "ConfirmedGuestNudge":900, "AppSheet":900, "Availability":1250, "AvailabilityPicking":1300, "AvailabilityAdjusting":1400, "AvailabilityOthers":1250, "AvailabilityOthersPicking":1300, "AvailabilityOthersAdjusting":1500, "AvailabilityOthersFirst":1250, "Candidates":1170, "NoQuorum":1080, "SetTime":1500, "ConfirmReviewOwn":980, "EditLocked":980, "ConfirmedGuestMoved":900, "DeadlinePassed":960, "Settings":980, "CandidatesMember":1000, "AvailabilityOverlay":1120}
+heights = {"CheckEmail":960, "ConfirmedGuestNudge":900, "AppSheet":900, "Availability":1250, "AvailabilityPicking":1300, "AvailabilityAdjusting":1400, "AvailabilityOthers":1250, "AvailabilityOthersPicking":1300, "AvailabilityOthersAdjusting":1500, "AvailabilityOthersFirst":1250, "Candidates":1170, "NoQuorum":1080, "SetTime":1500, "ConfirmReviewOwn":980, "EditLocked":980, "ConfirmedGuestMoved":900, "DeadlinePassed":960, "Settings":980, "CandidatesMember":1000, "AvailabilityOverlay":1120, "LoadingOptions":1170, "LoadingSlowEight":1170, "LoadingSlowTwenty":1170, "BusyRow":760, "BusyButtons":1300, "LoadingTiming":560, "LoadingMotion":640}
 def ab(file, x, y, page, w=W, h=None, title=None):
     d = {"file": file, "x": x, "y": y, "w": w, "h": h or heights.get(file.replace(".dc.html",""), H), "page": page}
     if title: d["title"] = title
@@ -1481,14 +1658,16 @@ pages = [{"id":"first","name":"0 · First time, organiser"},
          {"id":"quiet","name":"3 · Quiet ask"},
          {"id":"native","name":"4 · Native only (Slice 3)"},
          {"id":"convert","name":"5 · Guest → app"},
-         {"id":"system","name":"6 · States, copy and components"}]
+         {"id":"system","name":"6 · States, copy and components"},
+         {"id":"loading","name":"7 · Loading and busy"}]
 
 titles = {"Main":"Join · invite landing","ContinueAs":"Continue as · returning member","Name":"Name","Availability":"Availability · partial","AvailabilityPicking":"Availability · days ticked","AvailabilityAdjusting":"Availability · adjusting a day","AvailabilityOthers":"Availability · what others said","AvailabilityOthersPicking":"Availability · others, days ticked","AvailabilityOthersAdjusting":"Availability · others, adjusting a day","AvailabilityOthersFirst":"Availability · first to answer","NoneWork":"None of these dates","Sent":"Sent · email offer","CheckEmail":"Check your email · app nudge","EmailVerified":"Email verified","EmailPrefs":"Email preferences · no sign-in","SaveAccess":"Save access · claim account","CandidatesMember":"Candidates · member view","ConfirmedGuest":"Confirmed · guest","AddToCalendar":"Add to calendar sheet","RescheduledGuest":"Rescheduled · guest","CancelledGuest":"Cancelled · guest","WasThere":"Attendance · morning after","LinkInvalid":"Invite link inactive",
           "SignIn":"Sign in · returning organiser","SavePlace":"Save your place · the gate, before the share","EnterCode":"Enter code","YourName":"Your name · after sign-in","FirstCircle":"First circle · no account","InviteCircle":"Invite the circle","CircleHomeJoining":"Circle home · people joining","FirstPlan":"First plan · no account","EmptyCirclesList":"Circles · first run","CirclesList":"Circles list","CircleHome":"Circle home · finding a time","CircleHomeConfirmed":"Circle home · locked in","CircleHomeDue":"Circle home · about time","CreateCircle":"Create circle","ChooseMode":"Choose how to start","PlanSetup":"Plan setup","CustomWindow":"Custom window","PlanShared":"Plan shared · paste to chat","Waiting":"Waiting · no options yet","Candidates":"Candidates · partial replies","DeadlinePassed":"Replies closed · no decision","EditPlan":"Edit plan · reconfirm warning","ConfirmReview":"Confirm review","ConfirmedOrg":"Confirmed · organiser","ChangeTime":"Ask for new times","SetTime":"Set the time yourself","ConfirmReviewOwn":"Confirm review · a time of your own","EditLocked":"Edit this plan · locked in","ConfirmedGuestMoved":"Confirmed · guest, moved","CancelPlan":"Cancel plan","CancelledOrg":"Cancelled · organiser","NoQuorum":"No quorum","Outcome":"Did it happen?","PlanAnother":"Plan another · prefilled","Settings":"Circle settings","NotificationSettings":"Notification settings","Account":"Account","Privacy":"Privacy","Diagnostics":"Founder diagnostics",
           "SparkSetup":"Quiet ask · setup","SparkWaiting":"Quiet ask · initiator waiting","InterestPrompt":"Interest prompt · member","ThresholdRole":"Threshold reached · initiator","Volunteer":"Started quietly · keen member","SparkOpenedMember":"Started quietly · other member","SparkExpired":"Expired · initiator",
           "PushAsk":"Push permission · contextual","CalendarExplain":"Calendar · before permission","CalendarPick":"Calendar · pick calendars","AvailabilityOverlay":"Availability · calendar overlay","CalendarDenied":"Calendar · denied",
           "ConversionMap":"Guest → app · the map","ConfirmedGuestNudge":"Locked in · reminder nudge","AppSheet":"App sheet · four things a browser can't do","ReattachedNudge":"Rejoined · save your place","SecondSent":"Second response · app nudge","AfterAttendance":"After attendance · start a circle","InitiateGate":"Wants to organise · sign in first","AppLanding":"App first open · linked",
-          "EmptyCircle":"Empty circle","Offline":"Offline and error","Emails":"Email templates","Pushes":"Push copy","ShareMessages":"Share-sheet messages","Components":"Components and tokens"}
+          "EmptyCircle":"Empty circle","Offline":"Offline and error","Emails":"Email templates","Pushes":"Push copy","ShareMessages":"Share-sheet messages","Components":"Components and tokens",
+          "LoadingCircleHome":"Loading · circle home","LoadingOptions":"Loading · options","LoadingConfirmed":"Loading · confirmed","LoadingSlowEight":"Loading · still working, about 8 s","LoadingSlowTwenty":"Loading · try again, about 20 s","BusyRow":"Busy · list row","BusyButtons":"Busy · buttons","LoadingTiming":"Loading and busy · timing","LoadingMotion":"Loading and busy · reduced motion"}
 
 def grid(names, page, per_row=6, y0=0):
     for i, n in enumerate(names):
@@ -1521,6 +1700,11 @@ boards.append(ab("Emails.dc.html", 2*GX, 0, "system", w=1400, h=560, title=title
 boards.append(ab("Pushes.dc.html", 0, RY, "system", w=1180, h=520, title=titles["Pushes"]))
 boards.append(ab("ShareMessages.dc.html", 1180+120, RY, "system", w=1180, h=640, title=titles["ShareMessages"]))
 boards.append(ab("Components.dc.html", 0, 2*RY, "system", w=1180, h=1060, title=titles["Components"]))
+# Loading and busy (SUS-155): the phone boards in a row, then the wide ones.
+grid(["LoadingCircleHome","LoadingOptions","LoadingConfirmed","LoadingSlowEight","LoadingSlowTwenty","BusyRow"], "loading")
+boards.append(ab("BusyButtons.dc.html", 0, RY+400, "loading", w=900, title=titles["BusyButtons"]))
+boards.append(ab("LoadingTiming.dc.html", 1000, RY+400, "loading", w=900, title=titles["LoadingTiming"]))
+boards.append(ab("LoadingMotion.dc.html", 1000, RY+1100, "loading", w=900, title=titles["LoadingMotion"]))
 
 annotations = [
     {"id":"convert-note","x":1520,"y":0,"w":420,"page":"convert","text":"Guest → app. The map (left) says when a prompt may appear and for which conversion. The screens below are the prompts themselves, in the order a guest would meet them: the locked-in nudge (reminder), the app sheet (the only place the app is pitched in full), rejoined-twice, second response, after attendance (starts the cross-circle loop), the organiser gate (sign-in, not install), and what the app shows on first open once the same email links the identity.\nDesign rule from the manifesto: none of these appear before the person's answer is in, and each is one tap to dismiss."},
@@ -1532,6 +1716,7 @@ annotations = [
     {"id":"org-note-cand","x":5*GX,"y":RY-130,"w":390,"page":"organiser","text":"At most three options, each explains its rank, names who's in and who it doesn't work for. Never a heat map. The recommended card gets a 1.5px accent border, not a fill. Non-responders are never counted as available."},
     {"id":"quiet-flow","x":0,"y":-190,"w":900,"page":"quiet","text":"Quiet ask (spec 'quiet spark'). Setup → initiator waits with no counts → members get an aggregate prompt → at threshold (3) the initiator privately chooses to organise or ask for a volunteer (fixes the identity leak, review 6.1) → keen members and other members see 'started quietly' with counts only → or it expires with neutral copy.\nNo initiator name anywhere; no individual answers before threshold; no rejection counts."},
     {"id":"native-note","x":0,"y":-170,"w":900,"page":"native","text":"Native-only enhancements, deferred to Slice 3 (founder decision). Push permission is asked contextually after the first real plan, never at onboarding. The calendar check is explained before the OS prompt, reads selected calendars for the plan's dates on-device only, greys cells the person can paint over, and shows when it was last read. Denial leaves full manual parity with no nagging."},
+    {"id":"loading-note","x":0,"y":-210,"w":900,"page":"loading","text":"Loading and busy (SUS-155), for approval before the build. A button that is working keeps its colour and width and shows a spinner beside its -ing label, rather than fading to the look of a button you cannot press. A loading screen is shaped like the screen it is loading: circle home (cards), options (a stack of cards) and confirmed (a detail), and those three shapes cover the rest.\nTiming: the spinner after about 150 ms, the skeleton after about 300 ms, and a minimum display of about 400 ms once shown. A long wait says so at about 8 s (Still working on it…) and offers Try again at about 20 s. Under reduced motion the pulse and the spinner hold still."},
     {"id":"system-note","x":0,"y":-150,"w":900,"page":"system","text":"States every screen owes (empty, offline, error with a reference to pass on), the operational email templates for web-only members, every push notification's copy and recipient, the share-sheet messages the organiser pastes into the chat, and the components sheet lifting tokens verbatim from design-manifesto.md §5."},
 ]
 

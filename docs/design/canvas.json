@@ -809,6 +809,87 @@
       "h": 1060,
       "page": "system",
       "title": "Components and tokens"
+    },
+    {
+      "file": "LoadingCircleHome.dc.html",
+      "x": 0,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "page": "loading",
+      "title": "Loading \u00b7 circle home"
+    },
+    {
+      "file": "LoadingOptions.dc.html",
+      "x": 480,
+      "y": 0,
+      "w": 390,
+      "h": 1170,
+      "page": "loading",
+      "title": "Loading \u00b7 options"
+    },
+    {
+      "file": "LoadingConfirmed.dc.html",
+      "x": 960,
+      "y": 0,
+      "w": 390,
+      "h": 844,
+      "page": "loading",
+      "title": "Loading \u00b7 confirmed"
+    },
+    {
+      "file": "LoadingSlowEight.dc.html",
+      "x": 1440,
+      "y": 0,
+      "w": 390,
+      "h": 1170,
+      "page": "loading",
+      "title": "Loading \u00b7 still working, about 8 s"
+    },
+    {
+      "file": "LoadingSlowTwenty.dc.html",
+      "x": 1920,
+      "y": 0,
+      "w": 390,
+      "h": 1170,
+      "page": "loading",
+      "title": "Loading \u00b7 try again, about 20 s"
+    },
+    {
+      "file": "BusyRow.dc.html",
+      "x": 2400,
+      "y": 0,
+      "w": 390,
+      "h": 760,
+      "page": "loading",
+      "title": "Busy \u00b7 list row"
+    },
+    {
+      "file": "BusyButtons.dc.html",
+      "x": 0,
+      "y": 1700,
+      "w": 900,
+      "h": 1300,
+      "page": "loading",
+      "title": "Busy \u00b7 buttons"
+    },
+    {
+      "file": "LoadingTiming.dc.html",
+      "x": 1000,
+      "y": 1700,
+      "w": 900,
+      "h": 560,
+      "page": "loading",
+      "title": "Loading and busy \u00b7 timing"
+    },
+    {
+      "file": "LoadingMotion.dc.html",
+      "x": 1000,
+      "y": 2400,
+      "w": 900,
+      "h": 640,
+      "page": "loading",
+      "title": "Loading and busy \u00b7 reduced motion"
     }
   ],
   "annotations": [
@@ -885,6 +966,14 @@
       "text": "Native-only enhancements, deferred to Slice 3 (founder decision). Push permission is asked contextually after the first real plan, never at onboarding. The calendar check is explained before the OS prompt, reads selected calendars for the plan's dates on-device only, greys cells the person can paint over, and shows when it was last read. Denial leaves full manual parity with no nagging."
     },
     {
+      "id": "loading-note",
+      "x": 0,
+      "y": -210,
+      "w": 900,
+      "page": "loading",
+      "text": "Loading and busy (SUS-155), for approval before the build. A button that is working keeps its colour and width and shows a spinner beside its -ing label, rather than fading to the look of a button you cannot press. A loading screen is shaped like the screen it is loading: circle home (cards), options (a stack of cards) and confirmed (a detail), and those three shapes cover the rest.\nTiming: the spinner after about 150 ms, the skeleton after about 300 ms, and a minimum display of about 400 ms once shown. A long wait says so at about 8 s (Still working on it\u2026) and offers Try again at about 20 s. Under reduced motion the pulse and the spinner hold still."
+    },
+    {
       "id": "system-note",
       "x": 0,
       "y": -150,
@@ -921,6 +1010,10 @@
     {
       "id": "system",
       "name": "6 \u00b7 States, copy and components"
+    },
+    {
+      "id": "loading",
+      "name": "7 \u00b7 Loading and busy"
     }
   ],
   "launch": {
