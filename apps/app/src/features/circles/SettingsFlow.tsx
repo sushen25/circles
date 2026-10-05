@@ -130,19 +130,18 @@ function LiveSettings({ id }: { id: string }) {
 
   const save = async (patch: CirclePatch) => {
     setProblem(undefined);
-    const putBack =
-      patch.status === undefined && patch.cadenceSnoozedUntil === undefined
-        ? showAtOnce({
-            ...(patch.color === undefined ? {} : { color: patch.color }),
-            ...(patch.cadence === undefined ? {} : { cadence: patch.cadence }),
-            ...(patch.nudgePolicy === undefined ? {} : { nudgePolicy: patch.nudgePolicy }),
-          })
-        : () => undefined;
+    if (patch.status === undefined && patch.cadenceSnoozedUntil === undefined) {
+      showAtOnce({
+        ...(patch.color === undefined ? {} : { color: patch.color }),
+        ...(patch.cadence === undefined ? {} : { cadence: patch.cadence }),
+        ...(patch.nudgePolicy === undefined ? {} : { nudgePolicy: patch.nudgePolicy }),
+      });
+    }
     try {
       await updateCircle(id, patch);
       await refresh();
     } catch {
-      putBack();
+      void refresh();
       setProblem(isOffline() ? t('settings', 'youre_offline') : t('settings', 'couldnt_save'));
     }
   };
@@ -245,13 +244,13 @@ function LiveSettings({ id }: { id: string }) {
       onColorChange={(color) => void save({ color })}
       onQuietAsksChange={(on) => {
         setProblem(undefined);
-        const putBack = showAtOnce((home) =>
+        showAtOnce((home) =>
           home.mine === null ? {} : { mine: { ...home.mine, mutedQuietAsks: !on } },
         );
         void saveMySwitches(id, { mutedQuietAsks: !on })
           .then(refresh)
           .catch(() => {
-            putBack();
+            void refresh();
             setProblem(t('settings', 'couldnt_save'));
           });
       }}
