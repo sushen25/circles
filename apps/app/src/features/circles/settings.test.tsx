@@ -291,3 +291,47 @@ describe('a member who is not the owner', () => {
     );
   });
 });
+
+describe('a choice the server nearly always accepts', () => {
+  it('shows the quiet-asks switch at once, before the server has answered', async () => {
+    let answer: () => void = () => undefined;
+    saveMySwitches.mockReturnValue(new Promise<void>((resolve) => (answer = resolve)));
+    wrap(<SettingsFlow id={CIRCLE} />);
+
+    const toggle = await screen.findByRole('switch', { name: 'Quiet asks' });
+    expect(toggle.getAttribute('aria-checked')).toBe('true');
+    await act(async () => {
+      fireEvent.click(toggle);
+    });
+    expect(screen.getByRole('switch', { name: 'Quiet asks' }).getAttribute('aria-checked')).toBe(
+      'false',
+    );
+    answer();
+  });
+
+  it('puts the switch back, and says so, when the server refuses', async () => {
+    saveMySwitches.mockRejectedValue(new Error('no'));
+    wrap(<SettingsFlow id={CIRCLE} />);
+
+    await act(async () => {
+      fireEvent.click(await screen.findByRole('switch', { name: 'Quiet asks' }));
+    });
+    expect(await screen.findByText("That didn't save. Try again.")).toBeVisible();
+    expect(screen.getByRole('switch', { name: 'Quiet asks' }).getAttribute('aria-checked')).toBe(
+      'true',
+    );
+  });
+
+  it('puts the rhythm back, and says so, when the server refuses', async () => {
+    updateCircle.mockRejectedValue(new Error('no'));
+    fetchInviteSecret.mockResolvedValue(undefined);
+    wrap(<SettingsFlow id={CIRCLE} />);
+
+    fireEvent.click((await screen.findAllByRole('button', { name: 'Change' }))[0]!);
+    await act(async () => {
+      fireEvent.click(screen.getByRole('radio', { name: 'About fortnightly' }));
+    });
+    expect(await screen.findByText("That didn't save. Try again.")).toBeVisible();
+    expect(updateCircle).toHaveBeenCalledWith(CIRCLE, { cadence: 'fortnightly' });
+  });
+});

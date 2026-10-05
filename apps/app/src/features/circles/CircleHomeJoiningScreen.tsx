@@ -16,6 +16,8 @@ import {
   Tertiary,
   TopBar,
   type Member,
+  Loading,
+  useLoadingHold,
 } from '../../components';
 import { Row, Stack } from '../../components/layout';
 import { t } from '../../copy';
@@ -75,14 +77,15 @@ export function CircleHomeJoiningScreen({
   onBack,
   prompt,
 }: CircleHomeJoiningProps) {
-  if (state === 'loading') {
+  const loading = useLoadingHold(state === 'loading');
+  if (loading) {
     return (
-      <Screen>
-        <TopBar onBack={onBack} backLabel={t('common', 'back')} />
-        <Body>
-          <Small accessibilityLiveRegion="polite">{t('circleHome', 'loading')}</Small>
-        </Body>
-      </Screen>
+      <Loading
+        message={t('circleHome', 'loading')}
+        shape="home"
+        onBack={onBack}
+        onRetry={onRetry}
+      />
     );
   }
 

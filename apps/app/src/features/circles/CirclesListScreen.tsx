@@ -7,8 +7,9 @@ import {
   Foot,
   ListRow,
   Screen,
-  Small,
   TopBar,
+  Loading,
+  useLoadingHold,
 } from '../../components';
 import { t } from '../../copy';
 import type { Fixture } from '../../data/fixtures';
@@ -79,14 +80,15 @@ export function CirclesListScreen({
 }: CirclesListProps) {
   const top = <TopBar mark onBack={onBack} right={<AccountButton onPress={onAccount} />} />;
 
-  if (state === 'loading') {
+  const loading = useLoadingHold(state === 'loading');
+  if (loading) {
     return (
-      <Screen>
-        {top}
-        <Body>
-          <Small accessibilityLiveRegion="polite">{t('circlesList', 'loading')}</Small>
-        </Body>
-      </Screen>
+      <Loading
+        message={t('circlesList', 'loading')}
+        shape="list"
+        onBack={onBack}
+        onRetry={onRetry}
+      />
     );
   }
 

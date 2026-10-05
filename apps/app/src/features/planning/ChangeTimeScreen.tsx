@@ -102,8 +102,10 @@ export function ChangeTimeScreen(props: ChangeTimeProps) {
       </Body>
       <Foot>
         <Button
-          label={busy ? t('changeTime', 'asking') : t('changeTime', 'ask_again')}
-          disabled={busy || props.canAsk !== true}
+          label={t('changeTime', 'ask_again')}
+          busyLabel={t('changeTime', 'asking')}
+          busy={busy}
+          disabled={props.canAsk !== true}
           onPress={props.onNext}
         />
         <Tertiary label={t('changeTime', 'keep_day', { day })} onPress={props.onKeep} />

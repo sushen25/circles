@@ -7,12 +7,14 @@ import {
   DisplayXL,
   Foot,
   Label,
+  Loading,
   Notice,
   Screen,
   Small,
   Tertiary,
   Title,
   TopBar,
+  useLoadingHold,
 } from '../../components';
 import { Stack } from '../../components/layout';
 import { t } from '../../copy';
@@ -55,15 +57,10 @@ export function EmailVerifiedScreen({
   onSaveAccess,
   onRetry,
 }: EmailVerifiedProps) {
-  if (state === 'loading') {
-    return (
-      <Screen>
-        <TopBar />
-        <Body>
-          <Small accessibilityLiveRegion="polite">{t('emailVerified', 'checking')}</Small>
-        </Body>
-      </Screen>
-    );
+  const loading = useLoadingHold(state === 'loading');
+
+  if (loading) {
+    return <Loading message={t('emailVerified', 'checking')} shape="detail" onRetry={onRetry} />;
   }
 
   if (state === 'expired' || state === 'no_token') {

@@ -91,15 +91,15 @@ export function InterestPromptScreen({
         ) : (
           <>
             <Button
-              label={busy ? t('interestPrompt', 'sending') : t('interestPrompt', 'im_keen')}
-              disabled={busy}
+              label={t('interestPrompt', 'im_keen')}
+              busyLabel={t('interestPrompt', 'sending')}
+              busy={busy}
               onPress={onNext}
             />
             <Button
               label={t('interestPrompt', 'not_this_time')}
               variant="secondary"
-              disabled={busy}
-              onPress={onNotThisTime}
+              onPress={busy ? undefined : onNotThisTime}
             />
           </>
         )}

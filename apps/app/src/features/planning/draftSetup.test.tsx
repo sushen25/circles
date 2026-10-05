@@ -121,8 +121,8 @@ describe('the card, with a slow device write', () => {
     });
     try {
       fireEvent.click(screen.getByRole('checkbox', { name: 'This weekend' }));
-      // Held: the button is off while the write is out.
-      expect(screen.getByRole('button', { name: /^Ask/ })).toBeDisabled();
+      // Held: the button is busy while the write is out, and taps do nothing.
+      expect(screen.getByRole('button', { name: /^Ask/ })).toHaveAttribute('aria-busy', 'true');
       await waitFor(async () =>
         expect(await readDraft()).toMatchObject({ plan: { preset: 'this_weekend' } }),
       );

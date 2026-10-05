@@ -928,6 +928,7 @@ export const en = {
   },
   createCircle: {
     new_circle: 'New circle',
+    loading: 'Getting things ready',
     whos_this_for: "Who's this for?",
     circle_name: 'Circle name',
     sunday_crew: 'Sunday Crew',

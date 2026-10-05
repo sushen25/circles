@@ -63,11 +63,8 @@ export function EditPlanScreen(props: EditPlanProps) {
     );
   }
 
-  const label = busy
-    ? t('editPlan', 'saving')
-    : warning?.asksAgain === true
-      ? t('editPlan', 'save_and_ask_again')
-      : t('editPlan', 'save');
+  const label =
+    warning?.asksAgain === true ? t('editPlan', 'save_and_ask_again') : t('editPlan', 'save');
 
   return (
     <Screen>
@@ -91,7 +88,13 @@ export function EditPlanScreen(props: EditPlanProps) {
         )}
       </Body>
       <Foot>
-        <Button label={label} disabled={busy || props.canSave !== true} onPress={props.onNext} />
+        <Button
+          label={label}
+          busyLabel={t('editPlan', 'saving')}
+          busy={busy}
+          disabled={props.canSave !== true}
+          onPress={props.onNext}
+        />
         <Tertiary label={t('editPlan', 'keep_the_plan_as_it_is')} onPress={props.onKeepThePlanAs} />
         {props.onCancelPlan === undefined ? null : (
           <Tertiary label={t('confirmedOrg', 'cancel_this_plan')} onPress={props.onCancelPlan} />

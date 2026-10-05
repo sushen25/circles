@@ -168,8 +168,10 @@ export function SparkSetupScreen(props: SparkSetupProps) {
       </Body>
       <Foot>
         <Button
-          label={busy ? t('sparkSetup', 'asking') : t('sparkSetup', 'ask_quietly')}
-          disabled={busy || blocked}
+          label={t('sparkSetup', 'ask_quietly')}
+          busyLabel={t('sparkSetup', 'asking')}
+          busy={busy}
+          disabled={blocked}
           onPress={props.onNext}
         />
       </Foot>

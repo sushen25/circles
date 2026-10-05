@@ -1,7 +1,17 @@
 import { brand } from '@circles/config';
 import { previewCopy } from '@circles/domain';
 
-import { Body, BodyText, Button, DisplayL, Foot, Screen, Small, TopBar } from '../../components';
+import {
+  Body,
+  BodyText,
+  Button,
+  DisplayL,
+  Foot,
+  Screen,
+  TopBar,
+  Loading,
+  useLoadingHold,
+} from '../../components';
 import { Stack } from '../../components/layout';
 import { t } from '../../copy';
 import type { Fixture } from '../../data/fixtures';
@@ -56,14 +66,15 @@ export function InviteCircleScreen({
   onSkipForNowIll,
   onSettings,
 }: InviteCircleProps) {
-  if (state === 'loading') {
+  const loading = useLoadingHold(state === 'loading');
+  if (loading) {
     return (
-      <Screen>
-        <TopBar onBack={onBack} backLabel={t('common', 'back')} />
-        <Body>
-          <Small accessibilityLiveRegion="polite">{t('inviteCircle', 'loading')}</Small>
-        </Body>
-      </Screen>
+      <Loading
+        message={t('inviteCircle', 'loading')}
+        shape="detail"
+        onBack={onBack}
+        onRetry={onRetry}
+      />
     );
   }
 

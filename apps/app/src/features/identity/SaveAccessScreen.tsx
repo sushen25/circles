@@ -105,9 +105,10 @@ export function SaveAccessScreen({
       </Body>
       <Foot>
         <Button
-          label={busy ? t('saveAccess', 'sending') : t('saveAccess', 'send_me_a_code')}
+          label={t('saveAccess', 'send_me_a_code')}
+          busyLabel={t('saveAccess', 'sending')}
+          busy={busy}
           onPress={onSendCode}
-          disabled={busy}
         />
         <Tertiary label={t('saveAccess', 'not_now')} onPress={onNotNow} />
       </Foot>

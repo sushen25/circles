@@ -33,8 +33,9 @@ export function WithdrawAskSheet({
         {problem === undefined ? null : <Small accessibilityLiveRegion="polite">{problem}</Small>}
       </Stack>
       <Button
-        label={busy ? t('sparkWaiting', 'withdrawing') : t('sparkWaiting', 'withdraw')}
-        disabled={busy}
+        label={t('sparkWaiting', 'withdraw')}
+        busyLabel={t('sparkWaiting', 'withdrawing')}
+        busy={busy}
         onPress={onWithdraw}
       />
       <Tertiary label={t('sparkWaiting', 'sheet_dismiss')} onPress={onDismiss} />

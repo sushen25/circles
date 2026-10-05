@@ -1,4 +1,12 @@
-import { BrandLockup, Body, BodyText, Button, Screen, Small } from '../../components';
+import {
+  BrandLockup,
+  Body,
+  BodyText,
+  Button,
+  Loading,
+  Screen,
+  useLoadingHold,
+} from '../../components';
 import { t } from '../../copy';
 import type { ScreenState } from '../state';
 
@@ -17,6 +25,12 @@ export type WelcomeProps = {
 };
 
 export function WelcomeScreen({ state, onRetry }: WelcomeProps) {
+  const loading = useLoadingHold(state !== 'error' && state !== 'offline');
+  const wait = (
+    <Loading message={t('welcome', 'opening_your_circles')} shape="list" onRetry={onRetry} />
+  );
+  if (loading) return wait;
+
   if (state === 'error' || state === 'offline') {
     return (
       <Screen>
@@ -31,12 +45,5 @@ export function WelcomeScreen({ state, onRetry }: WelcomeProps) {
     );
   }
 
-  return (
-    <Screen>
-      <Body>
-        <BrandLockup />
-        <Small accessibilityLiveRegion="polite">{t('welcome', 'opening_your_circles')}</Small>
-      </Body>
-    </Screen>
-  );
+  return wait;
 }

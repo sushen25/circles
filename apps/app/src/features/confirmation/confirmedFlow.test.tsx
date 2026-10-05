@@ -221,7 +221,7 @@ describe('the calendar sheet', () => {
     const row = screen.getByRole('button', {
       name: 'Apple or device calendar. Downloads an .ics file',
     });
-    await waitFor(() => expect(row.getAttribute('aria-disabled')).not.toBe('true'));
+    await waitFor(() => expect(row.getAttribute('aria-busy')).not.toBe('true'));
     fireEvent.click(row);
     await waitFor(() =>
       expect(saveFile).toHaveBeenCalledWith(
@@ -246,13 +246,13 @@ describe('the calendar sheet', () => {
 
     const row = () =>
       screen.getByRole('button', { name: 'Apple or device calendar. Downloads an .ics file' });
-    expect(row().getAttribute('aria-disabled')).toBe('true');
+    expect(row().getAttribute('aria-busy')).toBe('true');
     fireEvent.click(row());
     expect(saveFile).not.toHaveBeenCalled();
 
     arrive('BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n');
-    await waitFor(() => expect(row().getAttribute('aria-disabled')).not.toBe('true'));
-    // react-native-web hands a Pressable its new `disabled` in an effect, so
+    await waitFor(() => expect(row().getAttribute('aria-busy')).not.toBe('true'));
+    // react-native-web hands a Pressable its new `onPress` in an effect, so
     // let the commit's effects run before tapping, as any real tap would.
     await act(async () => undefined);
     fireEvent.click(row());

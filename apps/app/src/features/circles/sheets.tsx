@@ -50,7 +50,7 @@ export function ConfirmSheet({
         {body === undefined ? null : <BodyText>{body}</BodyText>}
       </Stack>
       {problem === undefined ? null : <Small accessibilityLiveRegion="polite">{problem}</Small>}
-      <Button label={confirmLabel} variant="secondary" disabled={busy} onPress={onConfirm} />
+      <Button label={confirmLabel} variant="secondary" busy={busy} onPress={onConfirm} />
       <Tertiary label={t('common', 'cancel')} onPress={onDismiss} />
     </Sheet>
   );

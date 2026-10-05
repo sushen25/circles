@@ -7,14 +7,15 @@ import {
   DisplayL,
   Input,
   ListRow,
+  Loading,
   Notice,
   Screen,
   SettingRow,
   Sheet,
-  Small,
   Tertiary,
   Title,
   TopBar,
+  useLoadingHold,
 } from '../../components';
 import { Divider, Stack } from '../../components/layout';
 import { t } from '../../copy';
@@ -76,18 +77,20 @@ export function AccountScreen({
   onRetry,
   onBack,
 }: AccountProps) {
+  const loading = useLoadingHold(state === 'loading');
   const top = (
     <TopBar title={t('account', 'account')} onBack={onBack} backLabel={t('common', 'back')} />
   );
 
-  if (state === 'loading') {
+  if (loading) {
     return (
-      <Screen>
-        {top}
-        <Body>
-          <Small accessibilityLiveRegion="polite">{t('account', 'loading')}</Small>
-        </Body>
-      </Screen>
+      <Loading
+        message={t('account', 'loading')}
+        shape="list"
+        topTitle={t('account', 'account')}
+        onBack={onBack}
+        onRetry={onRetry}
+      />
     );
   }
   if (state === 'error' || state === 'offline') {
@@ -143,7 +146,9 @@ export function AccountScreen({
           />
         </Card>
         <Tertiary
-          label={busy ? t('account', 'signing_out') : t('account', 'sign_out')}
+          label={t('account', 'sign_out')}
+          busyLabel={t('account', 'signing_out')}
+          busy={busy && !editingName}
           onPress={onSignOut}
         />
       </Body>
@@ -167,8 +172,9 @@ export function AccountScreen({
         />
         {nameProblem === undefined ? null : <Notice kind="warn">{nameProblem}</Notice>}
         <Button
-          label={busy ? t('account', 'saving') : t('account', 'save')}
-          disabled={busy}
+          label={t('account', 'save')}
+          busyLabel={t('account', 'saving')}
+          busy={busy}
           onPress={onSaveName}
         />
         <Tertiary label={t('common', 'cancel')} onPress={onCloseName} />

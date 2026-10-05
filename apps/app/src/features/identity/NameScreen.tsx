@@ -133,9 +133,11 @@ export function NameScreen({
       </Body>
       <Foot>
         <Button
-          label={busy ? t('name', 'joining') : t('name', 'continue')}
+          label={t('name', 'continue')}
+          busyLabel={t('name', 'joining')}
+          busy={busy}
           onPress={onNext}
-          disabled={busy || (value !== undefined && value.trim() === '')}
+          disabled={value !== undefined && value.trim() === ''}
         />
         {onHaveAccount === undefined ? null : (
           <Tertiary label={t('name', 'i_have_an_account')} onPress={onHaveAccount} />

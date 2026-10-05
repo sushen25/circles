@@ -23,6 +23,7 @@ import { newIdempotencyKey } from '../../data/functions';
 import { appOrigin } from '../../data/links/origin';
 import { copyText } from '../../platform/share';
 import { isOffline } from '../identity/join/failure';
+import { putHomeBack, showHomeAtOnce, type HomeChange } from './optimisticHome';
 import { SettingsScreen, type InviteView } from './SettingsScreen';
 import {
   cadenceLabel,
@@ -120,12 +121,28 @@ function LiveSettings({ id }: { id: string }) {
   const data: CircleHome = home.data;
   const canManage = mayManageCircle({ viewerIsOwner: data.isOwner });
 
+  // A choice the server nearly always accepts (colour, how often, who gets
+  // nudged, the quiet-asks switch) shows at once and is put back, with the
+  // notice, if the server refuses (manifesto §7.4).
+  const homeKey = ['circle-home', id];
+  const showAtOnce = (change: HomeChange) => showHomeAtOnce(queryClient, homeKey, change);
+  const putBack = (before: CircleHome | undefined) => putHomeBack(queryClient, homeKey, before);
+
   const save = async (patch: CirclePatch) => {
     setProblem(undefined);
+    const before =
+      patch.status === undefined && patch.cadenceSnoozedUntil === undefined
+        ? showAtOnce({
+            ...(patch.color === undefined ? {} : { color: patch.color }),
+            ...(patch.cadence === undefined ? {} : { cadence: patch.cadence }),
+            ...(patch.nudgePolicy === undefined ? {} : { nudgePolicy: patch.nudgePolicy }),
+          })
+        : undefined;
     try {
       await updateCircle(id, patch);
       await refresh();
     } catch {
+      putBack(before);
       setProblem(isOffline() ? t('settings', 'youre_offline') : t('settings', 'couldnt_save'));
     }
   };
@@ -228,9 +245,15 @@ function LiveSettings({ id }: { id: string }) {
       onColorChange={(color) => void save({ color })}
       onQuietAsksChange={(on) => {
         setProblem(undefined);
+        const before = showAtOnce((home) =>
+          home.mine === null ? home : { ...home, mine: { ...home.mine, mutedQuietAsks: !on } },
+        );
         void saveMySwitches(id, { mutedQuietAsks: !on })
           .then(refresh)
-          .catch(() => setProblem(t('settings', 'couldnt_save')));
+          .catch(() => {
+            putBack(before);
+            setProblem(t('settings', 'couldnt_save'));
+          });
       }}
       onRemove={(userId) =>
         setAsking({

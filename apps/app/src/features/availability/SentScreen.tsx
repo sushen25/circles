@@ -16,6 +16,8 @@ import {
   Tertiary,
   Title,
   TopBar,
+  Loading,
+  useLoadingHold,
 } from '../../components';
 import { Row, Stack } from '../../components/layout';
 import { t } from '../../copy';
@@ -103,14 +105,10 @@ export function SentScreen({
   onRetry,
   onBack,
 }: SentProps) {
-  if (state === 'loading') {
+  const loading = useLoadingHold(state === 'loading');
+  if (loading) {
     return (
-      <Screen>
-        <TopBar onBack={onBack} backLabel={t('common', 'back')} />
-        <Body>
-          <Small accessibilityLiveRegion="polite">{t('sent', 'finding_it')}</Small>
-        </Body>
-      </Screen>
+      <Loading message={t('sent', 'finding_it')} shape="detail" onBack={onBack} onRetry={onRetry} />
     );
   }
 
@@ -165,9 +163,10 @@ export function SentScreen({
               <Small>{t('sent', 'reference', { reference })}</Small>
             )}
             <Button
-              label={busy ? t('sent', 'sending') : t('sent', 'send_verification_email')}
+              label={t('sent', 'send_verification_email')}
+              busyLabel={t('sent', 'sending')}
+              busy={busy}
               onPress={onSendVerification}
-              disabled={busy}
             />
             <Tertiary label={t('sent', 'not_now')} onPress={onNotNow} />
           </Card>

@@ -229,7 +229,7 @@ describe('the moment after joining', () => {
       await client.invalidateQueries({ queryKey: ['guest-members'] });
     });
 
-    expect(screen.getByText('Finding the circle')).toBeTruthy();
+    expect(await screen.findByText('Finding the circle')).toBeTruthy();
     expect(screen.queryByText('Welcome back. Which one is you?')).toBeNull();
   });
 });

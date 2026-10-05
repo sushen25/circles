@@ -4,11 +4,13 @@ import {
   Button,
   DisplayL,
   Foot,
+  Loading,
   Notice,
   Screen,
   Small,
   Tertiary,
   TopBar,
+  useLoadingHold,
 } from '../../components';
 import { Stack } from '../../components/layout';
 import { t } from '../../copy';
@@ -80,8 +82,16 @@ export function CandidatesScreen({
   onRetry,
   onBack,
 }: CandidatesProps) {
-  if (state === 'loading') {
-    return <Placeholder message={t('candidates', 'loading')} onBack={onBack} />;
+  const loading = useLoadingHold(state === 'loading');
+  if (loading) {
+    return (
+      <Loading
+        message={t('candidates', 'loading')}
+        shape="cards"
+        onBack={onBack}
+        onRetry={onRetry}
+      />
+    );
   }
   if (state === 'error' || state === 'offline') {
     return (

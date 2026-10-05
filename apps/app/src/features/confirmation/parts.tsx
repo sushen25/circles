@@ -1,4 +1,5 @@
 import { t } from '../../copy';
+import { Loading } from '../../components';
 import { Placeholder } from '../scheduling/parts';
 
 /**
@@ -67,5 +68,13 @@ export function ConfirmedPlaceholder({
       />
     );
   }
-  return <Placeholder topTitle={title} message={t('confirmedOrg', 'loading')} onBack={onBack} />;
+  return (
+    <Loading
+      topTitle={title}
+      message={t('confirmedOrg', 'loading')}
+      shape="detail"
+      onBack={onBack}
+      onRetry={onRetry}
+    />
+  );
 }

@@ -145,14 +145,13 @@ export function FirstCircleScreen({
       <Foot>
         <Button
           label={
-            busy
-              ? t('firstCircle', 'creating')
-              : typed === ''
-                ? t('firstCircle', 'create_circle')
-                : t('firstCircle', 'create_named', { name: typed })
+            typed === ''
+              ? t('firstCircle', 'create_circle')
+              : t('firstCircle', 'create_named', { name: typed })
           }
+          busyLabel={t('firstCircle', 'creating')}
+          busy={busy}
           onPress={onNext}
-          disabled={busy}
         />
         <Small>
           {onSignIn === undefined

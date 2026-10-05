@@ -1,6 +1,14 @@
-import { Pressable } from 'react-native';
-
-import { Button, Card, Notice, Sheet, Small, Title } from '../../components';
+import {
+  Button,
+  Card,
+  Icon,
+  ListRow,
+  Notice,
+  Sheet,
+  Small,
+  Title,
+  usePalette,
+} from '../../components';
 import { Stack } from '../../components/layout';
 import { t } from '../../copy';
 
@@ -37,6 +45,7 @@ export function AddToCalendarSheet({
   onDevice,
   onDismiss,
 }: AddToCalendarProps) {
+  const palette = usePalette();
   const device = t('addToCalendar', 'apple_or_device_calendar');
   const downloads = t('addToCalendar', 'downloads_an_ics_file');
   return (
@@ -50,20 +59,16 @@ export function AddToCalendarSheet({
         <Title>{title}</Title>
         <Small>{detail}</Small>
       </Stack>
-      <Pressable
-        role="button"
-        aria-label={`${device}. ${downloads}`}
-        aria-disabled={busy}
-        disabled={busy}
-        onPress={onDevice}
-      >
-        <Card>
-          <Stack>
-            <Title>{device}</Title>
-            <Small>{busy ? t('addToCalendar', 'downloading') : downloads}</Small>
-          </Stack>
-        </Card>
-      </Pressable>
+      <Card>
+        <ListRow
+          title={device}
+          detail={busy ? t('addToCalendar', 'downloading') : downloads}
+          label={`${device}. ${downloads}`}
+          leading={<Icon name="calendar" size={22} color={palette.accent} />}
+          busy={busy}
+          onPress={onDevice}
+        />
+      </Card>
       {status === undefined ? null : <Notice>{status}</Notice>}
       <Small>{t('addToCalendar', 'nothing_is_added_to_anyones_calendar_without')}</Small>
       <Button label={t('addToCalendar', 'cancel')} variant="secondary" onPress={onDismiss} />

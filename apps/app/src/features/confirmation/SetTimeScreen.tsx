@@ -8,12 +8,14 @@ import {
   DisplayL,
   Foot,
   Label,
+  Loading,
   Marks,
   Notice,
   Screen,
   Small,
   Title,
   TopBar,
+  useLoadingHold,
   type GridDay,
   type GridPaint,
 } from '../../components';
@@ -103,8 +105,17 @@ export function SetTimeScreen({
   onRetry,
   onBack,
 }: SetTimeProps) {
-  if (state === 'loading') {
-    return <Placeholder topTitle={backTitle} message={t('setTime', 'loading')} onBack={onBack} />;
+  const loading = useLoadingHold(state === 'loading');
+  if (loading) {
+    return (
+      <Loading
+        topTitle={backTitle}
+        message={t('setTime', 'loading')}
+        shape="detail"
+        onBack={onBack}
+        onRetry={onRetry}
+      />
+    );
   }
   if (state === 'error' || state === 'offline') {
     return (

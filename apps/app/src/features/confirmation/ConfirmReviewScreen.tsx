@@ -8,11 +8,13 @@ import {
   Foot,
   Input,
   Label,
+  Loading,
   Marks,
   Notice,
   Screen,
   Small,
   TopBar,
+  useLoadingHold,
   type Member,
 } from '../../components';
 import { Row, Stack } from '../../components/layout';
@@ -106,8 +108,19 @@ export function ConfirmReviewScreen({
   onBack,
 }: ConfirmReviewProps) {
   const back = backTitle ?? t('confirmReview', 'back_to_options');
-  if (state === 'loading') {
-    return <Placeholder topTitle={back} message={t('confirmReview', 'loading')} onBack={onBack} />;
+  const loading = useLoadingHold(state === 'loading');
+  // Not yet: nothing to lock in, or the plan is still being refreshed. Not an action in progress.
+  const cannotYet = !canLockIn || waiting;
+  if (loading) {
+    return (
+      <Loading
+        topTitle={back}
+        message={t('confirmReview', 'loading')}
+        shape="detail"
+        onBack={onBack}
+        onRetry={onRetry}
+      />
+    );
   }
   if (state === 'error' || state === 'offline') {
     return (
@@ -208,9 +221,11 @@ export function ConfirmReviewScreen({
       </Body>
       <Foot>
         <Button
-          label={busy ? t('confirmReview', 'locking') : t('confirmReview', 'lock_it_in_2')}
+          label={t('confirmReview', 'lock_it_in_2')}
+          busyLabel={t('confirmReview', 'locking')}
+          busy={busy}
           onPress={onLockIn}
-          disabled={!canLockIn || busy || waiting}
+          disabled={cannotYet}
         />
         <Small>{t('confirmReview', 'times_are_frozen_once_locked_later_replies')}</Small>
       </Foot>

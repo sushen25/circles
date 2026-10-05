@@ -6,12 +6,14 @@ import {
   Foot,
   Input,
   Label,
+  Loading,
   Notice,
   Screen,
   Small,
   Tertiary,
   Title,
   TopBar,
+  useLoadingHold,
 } from '../../components';
 import { Between, Stack } from '../../components/layout';
 import { t } from '../../copy';
@@ -89,8 +91,17 @@ export function EditLockedScreen({
   onBack,
 }: EditLockedProps) {
   const back = t('editLocked', 'back_to_plan');
-  if (state === 'loading') {
-    return <Placeholder topTitle={back} message={t('editLocked', 'loading')} onBack={onBack} />;
+  const loading = useLoadingHold(state === 'loading');
+  if (loading) {
+    return (
+      <Loading
+        topTitle={back}
+        message={t('editLocked', 'loading')}
+        shape="detail"
+        onBack={onBack}
+        onRetry={onRetry}
+      />
+    );
   }
   if (state === 'error' || state === 'offline') {
     return (
@@ -183,9 +194,11 @@ export function EditLockedScreen({
       </Body>
       <Foot>
         <Button
-          label={busy ? t('editLocked', 'saving') : t('editLocked', 'save')}
+          label={t('editLocked', 'save')}
+          busyLabel={t('editLocked', 'saving')}
+          busy={busy}
           onPress={onSave}
-          disabled={!canSave || busy}
+          disabled={!canSave}
         />
         <Tertiary label={keepLabel ?? t('editLocked', 'keep_plain')} onPress={onKeep} />
       </Foot>

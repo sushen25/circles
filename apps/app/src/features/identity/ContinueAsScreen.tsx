@@ -1,5 +1,4 @@
 import { Fragment } from 'react';
-import { Pressable } from 'react-native';
 
 import {
   Body,
@@ -8,15 +7,17 @@ import {
   Card,
   DisplayL,
   Foot,
+  ListRow,
+  Loading,
   Marks,
   Notice,
   Screen,
   Small,
   Tertiary,
-  Title,
   TopBar,
+  useLoadingHold,
 } from '../../components';
-import { Divider, Row } from '../../components/layout';
+import { Divider } from '../../components/layout';
 import { t } from '../../copy';
 import type { Fixture } from '../../data/fixtures';
 import type { ScreenState } from '../state';
@@ -93,14 +94,17 @@ export function ContinueAsScreen({
   onRetry,
   onBack,
 }: ContinueAsProps) {
-  if (state === 'loading') {
+  const loading = useLoadingHold(state === 'loading');
+
+  if (loading) {
     return (
-      <Screen>
-        <TopBar title={circleName} onBack={onBack} backLabel={t('common', 'back')} />
-        <Body>
-          <Small accessibilityLiveRegion="polite">{t('continueAs', 'finding_the_circle')}</Small>
-        </Body>
-      </Screen>
+      <Loading
+        message={t('continueAs', 'finding_the_circle')}
+        shape="list"
+        topTitle={circleName}
+        onBack={onBack}
+        onRetry={onRetry}
+      />
     );
   }
 
@@ -140,20 +144,13 @@ export function ContinueAsScreen({
               {listed.map((option, index) => (
                 <Fragment key={option.key}>
                   {index === 0 ? null : <Divider />}
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={t('continueAs', 'continue_as', { name: option.name })}
-                    accessibilityState={{ busy: busyKey === option.key }}
-                    disabled={busyKey !== undefined}
-                    onPress={() => onPick?.(option)}
-                  >
-                    <Row>
-                      <Marks members={[{ name: option.name }]} label={option.name} />
-                      <Title>
-                        {busyKey === option.key ? t('continueAs', 'rejoining') : option.name}
-                      </Title>
-                    </Row>
-                  </Pressable>
+                  <ListRow
+                    title={busyKey === option.key ? t('continueAs', 'rejoining') : option.name}
+                    label={t('continueAs', 'continue_as', { name: option.name })}
+                    leading={<Marks members={[{ name: option.name }]} label={option.name} />}
+                    busy={busyKey === option.key}
+                    onPress={busyKey !== undefined ? undefined : () => onPick?.(option)}
+                  />
                 </Fragment>
               ))}
             </Card>

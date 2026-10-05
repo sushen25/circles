@@ -108,11 +108,13 @@ export function SetTimeRow({
   detail,
   onPress,
   disabled,
+  busy,
 }: {
   title: string;
   detail: string;
   onPress: (() => void) | undefined;
   disabled?: boolean | undefined;
+  busy?: boolean | undefined;
 }) {
   const palette = usePalette();
   return (
@@ -123,6 +125,7 @@ export function SetTimeRow({
         label={`${title}. ${detail}`}
         leading={<Icon name="calendar" size={22} color={palette.accent} />}
         disabled={disabled}
+        busy={busy}
         onPress={onPress}
       />
     </Card>

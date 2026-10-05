@@ -6,11 +6,13 @@ import {
   DisplayL,
   Foot,
   Label,
+  Loading,
   Screen,
   Small,
   Tertiary,
   Title,
   TopBar,
+  useLoadingHold,
 } from '../../components';
 import { Stack } from '../../components/layout';
 import { t } from '../../copy';
@@ -67,8 +69,11 @@ export function WaitingScreen({
   onRetry,
   onBack,
 }: WaitingProps) {
-  if (state === 'loading') {
-    return <Placeholder message={t('waiting', 'loading')} onBack={onBack} />;
+  const loading = useLoadingHold(state === 'loading');
+  if (loading) {
+    return (
+      <Loading message={t('waiting', 'loading')} shape="cards" onBack={onBack} onRetry={onRetry} />
+    );
   }
   if (state === 'error' || state === 'offline') {
     return (
