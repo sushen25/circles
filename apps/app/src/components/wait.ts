@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { AccessibilityInfo } from 'react-native';
 
 /**
@@ -137,4 +137,28 @@ export function useLoadingHold(loading: boolean): boolean {
   }, [loading, since, shownAt, until]);
 
   return loading || holding;
+}
+
+/**
+ * A press handler that does nothing while `busy`. The guard is a ref written in
+ * a layout effect rather than an `onPress` swapped for `undefined`: the tap
+ * that follows a settled save reads the commit's value at once, where a
+ * Pressable is handed its new props a beat later.
+ */
+export function useBusyGuard<A extends unknown[]>(
+  busy: boolean,
+  onPress: ((...args: A) => void) | null | undefined,
+): ((...args: A) => void) | undefined {
+  const guard = useRef(busy);
+  useLayoutEffect(() => {
+    guard.current = busy;
+  }, [busy]);
+  const latest = useRef(onPress);
+  useLayoutEffect(() => {
+    latest.current = onPress;
+  });
+  const press = useCallback((...args: A) => {
+    if (!guard.current) latest.current?.(...args);
+  }, []);
+  return onPress === undefined || onPress === null ? undefined : press;
 }

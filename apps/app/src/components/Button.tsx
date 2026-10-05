@@ -15,7 +15,7 @@ import { Icon, type IconName } from './Icon';
 import { Spinner } from './Spinner';
 import { Small } from './Text';
 import { useInverted, usePalette } from './theme';
-import { WAIT, useDelayedShow, useSlow } from './wait';
+import { WAIT, useBusyGuard, useDelayedShow, useSlow } from './wait';
 import { t } from '../copy';
 
 /**
@@ -49,7 +49,8 @@ function useBusy(busy: boolean | undefined, onPress: PressableProps['onPress']) 
   // A button's spinner goes with its "-ing" label, so there is no minimum to keep.
   const spinner = useDelayedShow(working, WAIT.spinnerAfter, 0);
   const { slow } = useSlow(working);
-  return { working, spinner, slow, onPress: working ? undefined : onPress };
+  const press = useBusyGuard(working, onPress);
+  return { working, spinner, slow, onPress: press };
 }
 
 /**

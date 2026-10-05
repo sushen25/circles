@@ -9,7 +9,7 @@ import { Icon } from './Icon';
 import { Spinner } from './Spinner';
 import { Small, Title } from './Text';
 import { usePalette } from './theme';
-import { useDelayedShow, useSlow } from './wait';
+import { useBusyGuard, useDelayedShow, useSlow } from './wait';
 
 /**
  * A line in a list that opens something: a leading square, a title, a line of
@@ -53,6 +53,7 @@ export function ListRow({
   const palette = usePalette();
   const spinner = useDelayedShow(busy);
   const { slow } = useSlow(busy);
+  const press = useBusyGuard(busy, onPress);
   const said = slow ? `${label}. ${t('common', 'still_working')}` : label;
   return (
     <Pressable
@@ -61,7 +62,7 @@ export function ListRow({
       aria-busy={busy}
       aria-disabled={disabled}
       disabled={disabled || onPress === undefined}
-      onPress={busy ? undefined : onPress}
+      onPress={press}
       style={({ pressed }) => [
         styles.row,
         disabled && styles.disabled,

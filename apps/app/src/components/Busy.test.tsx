@@ -46,6 +46,14 @@ describe('a busy Button', () => {
     );
   });
 
+  it('takes the very next tap once it is no longer busy', () => {
+    const onPress = vi.fn();
+    const { rerender } = render(<Button label="Save" busyLabel="Saving" busy onPress={onPress} />);
+    rerender(<Button label="Save" busyLabel="Saving" onPress={onPress} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(onPress).toHaveBeenCalledOnce();
+  });
+
   it('holds its width at the longer of the two labels', () => {
     const { container } = render(
       <Button label="Lock it in" busyLabel="Locking it in" onPress={() => undefined} />,
