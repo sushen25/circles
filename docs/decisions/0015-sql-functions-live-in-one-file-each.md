@@ -95,8 +95,10 @@ already exists in exactly that form, applying it changes nothing.
 
 - To change a function you edit its file and run `pnpm gen:functions`; the gate
   refuses the commit if you forget.
-- Once `0008` ships, a change means a new migration and moving `MIGRATION` in
-  the generator, exactly as the other two generators already require. That
+- Once `0008` ships, a change means a new migration. (Since SUS-141 nothing is
+  moved by hand: `pnpm gen:migration <name>` adds it, the generators write into
+  the highest-numbered migration that is not on `origin/main`, and
+  `pnpm check:migrations` fails on an edit to one that is.) That
   migration carries **only the functions whose files changed** — the generator
   compares each file against what earlier migrations last said about it. The
   first ticket to use the flow (SUS-75) changed two functions, and its migration

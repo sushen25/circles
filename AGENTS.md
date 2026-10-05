@@ -33,7 +33,10 @@ pnpm dev:android       # native development build
 pnpm check             # the gate: everything CI runs
 pnpm db:test           # reset the database and run pgTAP
 pnpm gen:types         # regenerate database types from the local schema
-pnpm gen:functions     # re-render supabase/sql/functions/ into its migration (ADR 0015)
+pnpm gen               # every generator in order: events, transitions, functions, types
+pnpm gen:migration <name>  # the branch's one new, numbered migration; the generators write into it
+pnpm gen:functions     # re-render supabase/sql/functions/ into that migration (ADR 0015)
+pnpm check:migrations  # fails if a migration already on origin/main was edited (inside pnpm check)
 pnpm gen:tokens        # regenerate design tokens from docs/design/gen.py
 pnpm test:e2e          # Playwright: fixtures with no backend (smoke), then the journeys against the local stack in five browser projects (live)
 pnpm check:env <domain>  # a deployed environment from outside: HTTPS, HSTS, SPF/DKIM/DMARC
