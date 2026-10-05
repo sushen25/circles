@@ -19,6 +19,7 @@ import {
   Small,
   Tertiary,
   TopBar,
+  useLoadingHold,
 } from '../../components';
 import { Divider, Stack } from '../../components/layout';
 import { t } from '../../copy';
@@ -100,6 +101,12 @@ export function OutcomeScreen({
   onToCircle,
   onBack,
 }: OutcomeProps) {
+  const loading = useLoadingHold(state === 'loading');
+  if (loading) {
+    return (
+      <MorningPlaceholder screen="outcome" state="loading" onRetry={onRetry} onBack={onBack} />
+    );
+  }
   if (state === 'answered' && words !== undefined) {
     return (
       <Screen>
@@ -193,8 +200,10 @@ export function OutcomeScreen({
       </Body>
       <Foot>
         <Button
-          label={busy ? t('outcome', 'saving') : t('outcome', 'save')}
-          disabled={busy || choice === undefined || changed === undefined}
+          label={t('outcome', 'save')}
+          busyLabel={t('outcome', 'saving')}
+          busy={busy}
+          disabled={choice === undefined || changed === undefined}
           onPress={onSave}
         />
       </Foot>

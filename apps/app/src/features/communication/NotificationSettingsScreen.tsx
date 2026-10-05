@@ -5,6 +5,7 @@ import {
   Card,
   CompactButton,
   DisplayL,
+  Loading,
   Notice,
   Screen,
   SettingRow,
@@ -13,6 +14,7 @@ import {
   Title,
   Toggle,
   TopBar,
+  useLoadingHold,
 } from '../../components';
 import { Divider, Stack } from '../../components/layout';
 import { t } from '../../copy';
@@ -73,6 +75,7 @@ export function NotificationSettingsScreen({
   onRetry,
   onBack,
 }: NotificationSettingsProps) {
+  const loading = useLoadingHold(state === 'loading');
   const top = (
     <TopBar
       title={t('notificationSettings', 'notifications')}
@@ -81,14 +84,15 @@ export function NotificationSettingsScreen({
     />
   );
 
-  if (state === 'loading') {
+  if (loading) {
     return (
-      <Screen>
-        {top}
-        <Body>
-          <Small accessibilityLiveRegion="polite">{t('notificationSettings', 'loading')}</Small>
-        </Body>
-      </Screen>
+      <Loading
+        message={t('notificationSettings', 'loading')}
+        shape="list"
+        topTitle={t('notificationSettings', 'notifications')}
+        onBack={onBack}
+        onRetry={onRetry}
+      />
     );
   }
   if (state === 'error' || state === 'offline') {

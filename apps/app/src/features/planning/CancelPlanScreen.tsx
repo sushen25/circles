@@ -99,8 +99,9 @@ export function CancelPlanScreen(props: CancelPlanProps) {
       </Body>
       <Foot>
         <Button
-          label={busy ? t('cancelPlan', 'cancelling') : t('cancelPlan', 'cancel_the_catch_up')}
-          disabled={busy}
+          label={t('cancelPlan', 'cancel_the_catch_up')}
+          busyLabel={t('cancelPlan', 'cancelling')}
+          busy={busy}
           onPress={props.onNext}
         />
         <Tertiary label={t('cancelPlan', 'keep_it')} onPress={props.onKeepIt} />

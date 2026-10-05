@@ -9,6 +9,7 @@ import {
   Foot,
   Icon,
   ListRow,
+  Loading,
   Notice,
   Screen,
   Sheet,
@@ -16,6 +17,7 @@ import {
   Tertiary,
   Title,
   TopBar,
+  useLoadingHold,
   usePalette,
 } from '../../components';
 import { Divider, Stack } from '../../components/layout';
@@ -100,9 +102,17 @@ export function DeadlinePassedScreen({
   onBack,
 }: DeadlinePassedProps) {
   const palette = usePalette();
+  const loading = useLoadingHold(state === 'loading');
 
-  if (state === 'loading') {
-    return <Placeholder message={t('deadlinePassed', 'loading')} onBack={onBack} />;
+  if (loading) {
+    return (
+      <Loading
+        message={t('deadlinePassed', 'loading')}
+        shape="cards"
+        onBack={onBack}
+        onRetry={onRetry}
+      />
+    );
   }
   if (state === 'error' || state === 'offline') {
     return (
@@ -128,7 +138,8 @@ export function DeadlinePassedScreen({
 
   const handOffTitle = t('deadlinePassed', 'hand_off_title');
   const handOffBody = t('deadlinePassed', 'hand_off_body');
-  const acting = busy !== undefined || stale;
+  const working = busy !== undefined;
+  const press = (handler: (() => void) | undefined) => (working ? undefined : handler);
   const available = rows.filter((row) => row.available);
   const name = targetName ?? '';
 
@@ -157,8 +168,8 @@ export function DeadlinePassedScreen({
             detail={handOffBody}
             label={t('deadlinePassed', 'row_label', { title: handOffTitle, detail: handOffBody })}
             leading={<Icon name="people" size={22} color={palette.accent} />}
-            disabled={acting}
-            onPress={onHandOff}
+            disabled={stale}
+            onPress={press(onHandOff)}
           />
           {extension === undefined ? null : (
             <>
@@ -171,8 +182,9 @@ export function DeadlinePassedScreen({
                   detail: extension.body,
                 })}
                 leading={<Icon name="clock" size={22} color={palette.accent} />}
-                disabled={!extension.available || acting}
-                onPress={onExtend}
+                disabled={!extension.available || stale}
+                busy={busy === 'extend'}
+                onPress={press(onExtend)}
               />
             </>
           )}
@@ -187,8 +199,8 @@ export function DeadlinePassedScreen({
                   detail: t('deadlinePassed', 'set_body'),
                 })}
                 leading={<Icon name="calendar" size={22} color={palette.accent} />}
-                disabled={acting}
-                onPress={onSetTime}
+                disabled={stale}
+                onPress={press(onSetTime)}
               />
             </>
           )}
@@ -197,7 +209,7 @@ export function DeadlinePassedScreen({
       </Body>
       <Foot>
         {lockInLabel === undefined ? null : (
-          <Button label={lockInLabel} onPress={onLockIn} disabled={acting} />
+          <Button label={lockInLabel} onPress={press(onLockIn)} disabled={stale} />
         )}
       </Foot>
       <Sheet
@@ -250,12 +262,9 @@ export function DeadlinePassedScreen({
           <BodyText>{t('deadlinePassed', 'confirm_body', { name })}</BodyText>
         </Stack>
         <Button
-          label={
-            busy === 'hand_off'
-              ? t('deadlinePassed', 'handing')
-              : t('deadlinePassed', 'confirm', { name })
-          }
-          disabled={busy === 'hand_off'}
+          label={t('deadlinePassed', 'confirm', { name })}
+          busyLabel={t('deadlinePassed', 'handing')}
+          busy={busy === 'hand_off'}
           onPress={onConfirmHandOff}
         />
         <Tertiary label={t('deadlinePassed', 'back_to_list')} onPress={onBackToList} />

@@ -15,6 +15,7 @@ import {
   Tertiary,
   Title,
   TopBar,
+  useLoadingHold,
 } from '../../components';
 import { Stack } from '../../components/layout';
 import { t } from '../../copy';
@@ -73,8 +74,11 @@ export function ConfirmedOrgScreen({
   onRetry,
   onBack,
 }: ConfirmedOrgProps) {
-  if (state !== 'default' || view === undefined) {
-    return <ConfirmedPlaceholder state={state} onRetry={onRetry} onBack={onBack} />;
+  const loading = useLoadingHold(state === 'loading');
+  if (loading || state !== 'default' || view === undefined) {
+    return (
+      <ConfirmedPlaceholder state={loading ? 'loading' : state} onRetry={onRetry} onBack={onBack} />
+    );
   }
 
   return (
@@ -105,8 +109,9 @@ export function ConfirmedOrgScreen({
             {actions.map((action) => (
               <Tertiary
                 key={action.label}
-                label={busy ? t('confirmedGuest', 'saving') : action.label}
-                disabled={busy}
+                label={action.label}
+                busyLabel={t('confirmedGuest', 'saving')}
+                busy={busy}
                 onPress={action.onPress}
               />
             ))}

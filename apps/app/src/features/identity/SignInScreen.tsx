@@ -111,9 +111,10 @@ export function SignInScreen({
   const notice = problem === undefined ? null : <Notice kind="warn">{problemCopy(problem)}</Notice>;
   const button = (
     <Button
-      label={busy ? t('signIn', 'sending') : t('signIn', 'send_me_a_code')}
+      label={t('signIn', 'send_me_a_code')}
+      busyLabel={t('signIn', 'sending')}
+      busy={busy}
       onPress={send}
-      disabled={busy}
     />
   );
 

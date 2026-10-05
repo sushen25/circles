@@ -5,10 +5,12 @@ import {
   DisplayL,
   Foot,
   Notice,
+  Loading,
   Screen,
   Small,
   Tertiary,
   TopBar,
+  useLoadingHold,
 } from '../../components';
 import { Stack } from '../../components/layout';
 import { t } from '../../copy';
@@ -73,8 +75,16 @@ export function CandidatesMemberScreen({
   onRetry,
   onBack,
 }: CandidatesMemberProps) {
-  if (state === 'loading') {
-    return <Placeholder message={t('candidatesMember', 'loading')} onBack={onBack} />;
+  const loading = useLoadingHold(state === 'loading');
+  if (loading) {
+    return (
+      <Loading
+        message={t('candidatesMember', 'loading')}
+        shape="cards"
+        onBack={onBack}
+        onRetry={onRetry}
+      />
+    );
   }
   if (state === 'error' || state === 'offline') {
     return (

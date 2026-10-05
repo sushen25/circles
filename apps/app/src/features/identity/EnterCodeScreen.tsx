@@ -115,7 +115,7 @@ export function EnterCodeScreen({
 }: EnterCodeProps) {
   const wait = useSecondsUntil(resendAt);
   const complete = code.length === 6;
-  const resendDisabled = wait > 0 || busy;
+  const resendDisabled = wait > 0;
 
   return (
     <Screen>
@@ -145,9 +145,11 @@ export function EnterCodeScreen({
       </Body>
       <Foot>
         <Button
-          label={busy ? t('enterCode', 'checking') : t('enterCode', 'continue')}
+          label={t('enterCode', 'continue')}
+          busyLabel={t('enterCode', 'checking')}
+          busy={busy}
           onPress={onContinue}
-          disabled={busy || !complete}
+          disabled={!complete}
         />
         <Tertiary
           label={
@@ -157,7 +159,7 @@ export function EnterCodeScreen({
           }
           disabled={resendDisabled}
           aria-disabled={resendDisabled}
-          onPress={onSendNewCode}
+          onPress={busy ? undefined : onSendNewCode}
         />
       </Foot>
     </Screen>

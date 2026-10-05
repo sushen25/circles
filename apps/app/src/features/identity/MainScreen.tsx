@@ -5,12 +5,14 @@ import {
   DisplayXL,
   Foot,
   Label,
+  Loading,
   Marks,
   Notice,
   Screen,
   Small,
   Tertiary,
   TopBar,
+  useLoadingHold,
 } from '../../components';
 import { Row } from '../../components/layout';
 import { t } from '../../copy';
@@ -72,6 +74,7 @@ export function MainScreen({
   onWhatIsBrand,
 }: MainProps) {
   const view = invite ?? fromFixture(fixture);
+  const loading = useLoadingHold(state === 'loading' || view === undefined);
 
   // Failures first. The live flow has no invite to show when the preview is the
   // thing that failed, and a check for the view ahead of this one kept that
@@ -97,14 +100,14 @@ export function MainScreen({
     );
   }
 
-  if (state === 'loading' || view === undefined) {
+  if (loading || view === undefined) {
     return (
-      <Screen>
-        <TopBar onBack={onBack} backLabel={t('common', 'back')} />
-        <Body>
-          <Small accessibilityLiveRegion="polite">{t('main', 'opening_the_invite')}</Small>
-        </Body>
-      </Screen>
+      <Loading
+        message={t('main', 'opening_the_invite')}
+        shape="detail"
+        onBack={onBack}
+        onRetry={onRetry}
+      />
     );
   }
 
@@ -135,7 +138,7 @@ export function MainScreen({
         <Notice>{t('main', 'no_account_or_app_needed_your_friends')}</Notice>
       </Body>
       <Foot>
-        <Button label={t('main', 'choose_my_times')} onPress={onNext} disabled={busy} />
+        <Button label={t('main', 'choose_my_times')} busy={busy} onPress={onNext} />
         {onWhatIsBrand === undefined ? null : (
           <Tertiary label={t('main', 'what_is_brand')} onPress={onWhatIsBrand} />
         )}

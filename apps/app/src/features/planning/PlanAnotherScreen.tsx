@@ -145,8 +145,9 @@ export function PlanAnotherScreen(props: PlanAnotherProps) {
       </Body>
       <Foot>
         <Button
-          label={busy ? t('planAnother', 'asking') : t('planAnother', 'ask_the_group')}
-          disabled={busy}
+          label={t('planAnother', 'ask_the_group')}
+          busyLabel={t('planAnother', 'asking')}
+          busy={busy}
           onPress={props.onNext}
         />
         {props.offerQuiet === false ? null : (

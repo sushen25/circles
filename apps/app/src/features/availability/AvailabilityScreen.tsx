@@ -12,6 +12,8 @@ import {
   Toggle,
   TopBar,
   type GridDay,
+  Loading,
+  useLoadingHold,
 } from '../../components';
 import { Row, Stack } from '../../components/layout';
 import { t } from '../../copy';
@@ -110,14 +112,15 @@ export function AvailabilityScreen({
   onRetry,
   onBack,
 }: AvailabilityProps) {
-  if (state === 'loading') {
+  const loading = useLoadingHold(state === 'loading');
+  if (loading) {
     return (
-      <Screen>
-        <TopBar onBack={onBack} backLabel={t('common', 'back')} />
-        <Body>
-          <Small accessibilityLiveRegion="polite">{t('availability', 'finding_the_plan')}</Small>
-        </Body>
-      </Screen>
+      <Loading
+        message={t('availability', 'finding_the_plan')}
+        shape="detail"
+        onBack={onBack}
+        onRetry={onRetry}
+      />
     );
   }
 
@@ -227,9 +230,11 @@ export function AvailabilityScreen({
       <Foot>
         {canSend ? null : <Small>{t('availability', 'pick_or_easy')}</Small>}
         <Button
-          label={busy ? t('availability', 'sending') : t('availability', 'send_my_times')}
+          label={t('availability', 'send_my_times')}
+          busyLabel={t('availability', 'sending')}
+          busy={busy}
           onPress={onSend}
-          disabled={busy || !canSend}
+          disabled={!canSend}
         />
         <Tertiary
           label={t('availability', 'none_of_these_dates_work_for_me')}

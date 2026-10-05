@@ -18,11 +18,13 @@ import {
   useCircle,
   type CirclePatch,
   type CircleHome,
+  circleKeys,
 } from '../../data/circles';
 import { newIdempotencyKey } from '../../data/functions';
 import { appOrigin } from '../../data/links/origin';
 import { copyText } from '../../platform/share';
 import { isOffline } from '../identity/join/failure';
+import { showHomeAtOnce, type HomeChange } from './optimisticHome';
 import { SettingsScreen, type InviteView } from './SettingsScreen';
 import {
   cadenceLabel,
@@ -120,12 +122,26 @@ function LiveSettings({ id }: { id: string }) {
   const data: CircleHome = home.data;
   const canManage = mayManageCircle({ viewerIsOwner: data.isOwner });
 
+  // A choice the server nearly always accepts (colour, how often, who gets
+  // nudged, the quiet-asks switch) shows at once and is put back, with the
+  // notice, if the server refuses (manifesto §7.4).
+  const homeKey = circleKeys.home(id, session.userId);
+  const showAtOnce = (change: HomeChange) => showHomeAtOnce(queryClient, homeKey, change);
+
   const save = async (patch: CirclePatch) => {
     setProblem(undefined);
+    if (patch.status === undefined && patch.cadenceSnoozedUntil === undefined) {
+      showAtOnce({
+        ...(patch.color === undefined ? {} : { color: patch.color }),
+        ...(patch.cadence === undefined ? {} : { cadence: patch.cadence }),
+        ...(patch.nudgePolicy === undefined ? {} : { nudgePolicy: patch.nudgePolicy }),
+      });
+    }
     try {
       await updateCircle(id, patch);
       await refresh();
     } catch {
+      void refresh();
       setProblem(isOffline() ? t('settings', 'youre_offline') : t('settings', 'couldnt_save'));
     }
   };
@@ -228,9 +244,15 @@ function LiveSettings({ id }: { id: string }) {
       onColorChange={(color) => void save({ color })}
       onQuietAsksChange={(on) => {
         setProblem(undefined);
+        showAtOnce((home) =>
+          home.mine === null ? {} : { mine: { ...home.mine, mutedQuietAsks: !on } },
+        );
         void saveMySwitches(id, { mutedQuietAsks: !on })
           .then(refresh)
-          .catch(() => setProblem(t('settings', 'couldnt_save')));
+          .catch(() => {
+            void refresh();
+            setProblem(t('settings', 'couldnt_save'));
+          });
       }}
       onRemove={(userId) =>
         setAsking({

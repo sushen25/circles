@@ -1,4 +1,5 @@
 import { t } from '../../copy';
+import { Loading } from '../../components';
 import { Placeholder } from '../scheduling/parts';
 import type { MorningAfterWords } from './morningAfter';
 
@@ -77,6 +78,8 @@ export function MorningPlaceholder({
         />
       );
     case 'loading':
-      return <Placeholder message={t(screen, 'loading')} onBack={onBack} />;
+      return (
+        <Loading message={t(screen, 'loading')} shape="detail" onBack={onBack} onRetry={onRetry} />
+      );
   }
 }

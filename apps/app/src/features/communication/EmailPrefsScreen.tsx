@@ -5,6 +5,7 @@ import {
   Card,
   DisplayL,
   Foot,
+  Loading,
   Notice,
   Screen,
   Small,
@@ -12,6 +13,7 @@ import {
   Title,
   Toggle,
   TopBar,
+  useLoadingHold,
 } from '../../components';
 import { Row, Stack } from '../../components/layout';
 import { t } from '../../copy';
@@ -78,16 +80,12 @@ export function EmailPrefsScreen({
   onKeep,
   onRetry,
 }: EmailPrefsProps) {
+  const loading = useLoadingHold(state === 'loading');
+  if (loading) {
+    return <Loading message={t('emailPrefs', 'loading')} shape="list" onRetry={onRetry} />;
+  }
+
   switch (state) {
-    case 'loading':
-      return (
-        <Screen>
-          <TopBar />
-          <Body>
-            <Small accessibilityLiveRegion="polite">{t('emailPrefs', 'loading')}</Small>
-          </Body>
-        </Screen>
-      );
     case 'removed':
       return <Message title={t('emailPrefs', 'removed')} body={t('emailPrefs', 'removed_body')} />;
     case 'expired':
@@ -185,8 +183,8 @@ export function EmailPrefsScreen({
             <Button
               label={t('emailPrefs', 'remove_it')}
               variant="secondary"
+              busy={removing}
               onPress={onConfirmRemove}
-              disabled={removing}
             />
             <Tertiary label={t('emailPrefs', 'keep_it')} onPress={onKeep} />
           </Card>

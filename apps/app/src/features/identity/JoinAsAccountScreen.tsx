@@ -5,11 +5,13 @@ import {
   DisplayL,
   DisplayXL,
   Foot,
+  Loading,
   Notice,
   Screen,
   Small,
   Tertiary,
   TopBar,
+  useLoadingHold,
 } from '../../components';
 import { t } from '../../copy';
 import type { ScreenState } from '../state';
@@ -69,6 +71,8 @@ export function JoinAsAccountScreen({
   onRetry,
   onBack,
 }: JoinAsAccountProps) {
+  const loading = useLoadingHold(state === 'loading' || circleName === undefined);
+
   if (state === 'error' || state === 'offline') {
     return (
       <Screen>
@@ -87,20 +91,19 @@ export function JoinAsAccountScreen({
     );
   }
 
-  if (state === 'loading' || circleName === undefined) {
+  if (loading || circleName === undefined) {
     return (
-      <Screen>
-        <TopBar onBack={onBack} backLabel={t('common', 'back')} />
-        <Body>
-          <Small accessibilityLiveRegion="polite">{t('joinAsAccount', 'finding_the_circle')}</Small>
-        </Body>
-      </Screen>
+      <Loading
+        message={t('joinAsAccount', 'finding_the_circle')}
+        shape="detail"
+        onBack={onBack}
+        onRetry={onRetry}
+      />
     );
   }
 
-  const label = busy
-    ? t('joinAsAccount', 'joining')
-    : personName === null
+  const label =
+    personName === null
       ? t('joinAsAccount', 'join', { circle: circleName })
       : t('joinAsAccount', 'join_as', { circle: circleName, name: personName });
 
@@ -120,7 +123,12 @@ export function JoinAsAccountScreen({
         )}
       </Body>
       <Foot>
-        <Button label={label} onPress={onJoin} disabled={busy} />
+        <Button
+          label={label}
+          busyLabel={t('joinAsAccount', 'joining')}
+          busy={busy}
+          onPress={onJoin}
+        />
         <Tertiary label={t('joinAsAccount', 'not_now')} onPress={onNotNow} />
       </Foot>
     </Screen>

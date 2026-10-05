@@ -7,11 +7,13 @@ import {
   Foot,
   Input,
   Label,
+  Loading,
   Notice,
   Screen,
   Small,
   Swatches,
   TopBar,
+  useLoadingHold,
 } from '../../components';
 import { Stack } from '../../components/layout';
 import { t } from '../../copy';
@@ -96,12 +98,15 @@ export function CreateCircleScreen({
       backLabel={t('common', 'back')}
     />
   );
-  if (state === 'loading') {
+  const loading = useLoadingHold(state === 'loading');
+  if (loading) {
     return (
-      <Screen>
-        {top}
-        <Body>{null}</Body>
-      </Screen>
+      <Loading
+        message={t('createCircle', 'loading')}
+        shape="detail"
+        topTitle={t('createCircle', 'new_circle')}
+        onBack={onBack}
+      />
     );
   }
 
@@ -158,9 +163,10 @@ export function CreateCircleScreen({
       </Body>
       <Foot>
         <Button
-          label={busy ? t('createCircle', 'creating') : t('createCircle', 'create_circle')}
+          label={t('createCircle', 'create_circle')}
+          busyLabel={t('createCircle', 'creating')}
+          busy={busy}
           onPress={onNext}
-          disabled={busy}
         />
       </Foot>
     </Screen>

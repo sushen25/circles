@@ -7,12 +7,14 @@ import {
   Foot,
   Input,
   Label,
+  Loading,
   Notice,
   Screen,
   Small,
   Tertiary,
   Title,
   TopBar,
+  useLoadingHold,
 } from '../../components';
 import { Between, Stack } from '../../components/layout';
 import { t } from '../../copy';
@@ -76,14 +78,11 @@ export function YourNameScreen({
   onNext,
   onBack,
 }: YourNameProps) {
-  if (state === 'loading') {
+  const loading = useLoadingHold(state === 'loading');
+
+  if (loading) {
     return (
-      <Screen>
-        <TopBar onBack={onBack} backLabel={t('common', 'back')} />
-        <Body>
-          <Small accessibilityLiveRegion="polite">{t('yourName', 'loading')}</Small>
-        </Body>
-      </Screen>
+      <Loading message={t('yourName', 'loading')} shape="list" onBack={onBack} onRetry={onRetry} />
     );
   }
 
@@ -155,9 +154,10 @@ export function YourNameScreen({
       </Body>
       <Foot>
         <Button
-          label={busy ? t('yourName', 'saving') : t('yourName', 'continue')}
+          label={t('yourName', 'continue')}
+          busyLabel={t('yourName', 'saving')}
+          busy={busy}
           onPress={onNext}
-          disabled={busy}
         />
       </Foot>
     </Screen>

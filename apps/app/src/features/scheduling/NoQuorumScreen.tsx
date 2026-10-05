@@ -1,5 +1,4 @@
 import { Fragment } from 'react';
-import { Pressable } from 'react-native';
 
 import {
   Body,
@@ -9,6 +8,8 @@ import {
   DisplayL,
   Foot,
   Label,
+  ListRow,
+  Loading,
   Notice,
   Screen,
   Sheet,
@@ -16,6 +17,7 @@ import {
   Tertiary,
   Title,
   TopBar,
+  useLoadingHold,
 } from '../../components';
 import { Divider, Stack } from '../../components/layout';
 import { t } from '../../copy';
@@ -92,8 +94,11 @@ export function NoQuorumScreen({
   onRetry,
   onBack,
 }: NoQuorumProps) {
-  if (state === 'loading') {
-    return <Placeholder message={t('noQuorum', 'loading')} onBack={onBack} />;
+  const loading = useLoadingHold(state === 'loading');
+  if (loading) {
+    return (
+      <Loading message={t('noQuorum', 'loading')} shape="cards" onBack={onBack} onRetry={onRetry} />
+    );
   }
   if (state === 'error' || state === 'offline') {
     return (
@@ -135,22 +140,17 @@ export function NoQuorumScreen({
           {unlocks.map((unlock, index) => (
             <Fragment key={unlock.kind}>
               {index === 0 ? null : <Divider />}
-              <Pressable
-                role="button"
+              <ListRow
+                title={busy === unlock.kind ? busyWord(unlock.kind) : unlock.title}
+                detail={unlock.body}
                 // Both halves: an explicit label replaces the name a reader
                 // would build from the row, and the body is where "the plan
                 // then keeps 3 as its number" is said.
-                aria-label={`${unlock.title}. ${unlock.body}`}
-                aria-busy={busy === unlock.kind}
-                aria-disabled={stale || busy !== undefined}
-                disabled={stale || busy !== undefined}
-                onPress={() => onUnlock?.(unlock)}
-              >
-                <Stack>
-                  <Title>{busy === unlock.kind ? busyWord(unlock.kind) : unlock.title}</Title>
-                  <Small>{unlock.body}</Small>
-                </Stack>
-              </Pressable>
+                label={`${unlock.title}. ${unlock.body}`}
+                busy={busy === unlock.kind}
+                disabled={stale}
+                onPress={busy !== undefined ? undefined : () => onUnlock?.(unlock)}
+              />
             </Fragment>
           ))}
         </Card>
@@ -175,10 +175,11 @@ export function NoQuorumScreen({
           <BodyText>{t('noQuorum', 'confirm_body')}</BodyText>
         </Stack>
         <Button
-          label={busy === 'close' ? t('noQuorum', 'closing') : t('noQuorum', 'confirm_close')}
+          label={t('noQuorum', 'confirm_close')}
+          busyLabel={t('noQuorum', 'closing')}
           variant="secondary"
-          disabled={busy === 'close'}
-          onPress={onConfirmClose}
+          busy={busy === 'close'}
+          onPress={busy === undefined ? onConfirmClose : undefined}
         />
         <Tertiary label={t('noQuorum', 'keep_open')} onPress={onKeepAsItIs} />
       </Sheet>
@@ -193,10 +194,11 @@ export function NoQuorumScreen({
           {widerWarning === undefined ? null : <BodyText>{widerWarning}</BodyText>}
         </Stack>
         <Button
-          label={busy === 'wider' ? t('noQuorum', 'widening') : t('noQuorum', 'wider_confirm')}
+          label={t('noQuorum', 'wider_confirm')}
+          busyLabel={t('noQuorum', 'widening')}
           variant="secondary"
-          disabled={busy === 'wider'}
-          onPress={onConfirmWiden}
+          busy={busy === 'wider'}
+          onPress={busy === undefined ? onConfirmWiden : undefined}
         />
         <Tertiary label={t('noQuorum', 'wider_keep')} onPress={onKeepAsItIs} />
       </Sheet>

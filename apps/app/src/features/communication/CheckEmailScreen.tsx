@@ -88,8 +88,10 @@ export function CheckEmailScreen({
           />
           {address === undefined ? null : (
             <Tertiary
-              label={resending ? t('checkEmail', 'resending') : t('checkEmail', 'resend_the_link')}
-              onPress={resending ? undefined : onResend}
+              label={t('checkEmail', 'resend_the_link')}
+              busyLabel={t('checkEmail', 'resending')}
+              busy={resending}
+              onPress={onResend}
             />
           )}
         </Stack>

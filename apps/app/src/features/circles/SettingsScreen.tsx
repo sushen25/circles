@@ -17,6 +17,8 @@ import {
   Title,
   Toggle,
   TopBar,
+  Loading,
+  useLoadingHold,
 } from '../../components';
 import { Divider, Stack } from '../../components/layout';
 import { t } from '../../copy';
@@ -154,14 +156,16 @@ export function SettingsScreen({
 }: SettingsProps) {
   const top = <TopBar title={circleName} onBack={onBack} backLabel={t('common', 'back')} />;
 
-  if (state === 'loading') {
+  const loading = useLoadingHold(state === 'loading');
+  if (loading) {
     return (
-      <Screen>
-        {top}
-        <Body>
-          <Small accessibilityLiveRegion="polite">{t('settings', 'loading')}</Small>
-        </Body>
-      </Screen>
+      <Loading
+        message={t('settings', 'loading')}
+        shape="list"
+        topTitle={circleName}
+        onBack={onBack}
+        onRetry={onRetry}
+      />
     );
   }
   if (state === 'error' || state === 'offline') {

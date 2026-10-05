@@ -10,6 +10,7 @@ import {
   Small,
   Tertiary,
   TopBar,
+  useLoadingHold,
 } from '../../components';
 import { Stack } from '../../components/layout';
 import { t } from '../../copy';
@@ -62,6 +63,12 @@ export function WasThereScreen({
   onToCircle,
   onBack,
 }: WasThereProps) {
+  const loading = useLoadingHold(state === 'loading');
+  if (loading) {
+    return (
+      <MorningPlaceholder screen="wasThere" state="loading" onRetry={onRetry} onBack={onBack} />
+    );
+  }
   if ((state === 'done' || state === 'not_asked') && words !== undefined) {
     const done = state === 'done';
     return (
@@ -125,18 +132,20 @@ export function WasThereScreen({
       </Body>
       <Foot>
         <Button
-          label={saving === 'was_there' ? t('wasThere', 'saving') : t('wasThere', 'i_was_there')}
-          disabled={busy}
-          onPress={onWasThere}
+          label={t('wasThere', 'i_was_there')}
+          busyLabel={t('wasThere', 'saving')}
+          busy={saving === 'was_there'}
+          onPress={busy ? undefined : onWasThere}
         />
         <Button
-          label={saving === 'missed' ? t('wasThere', 'saving') : t('wasThere', 'i_couldnt_make_it')}
+          label={t('wasThere', 'i_couldnt_make_it')}
+          busyLabel={t('wasThere', 'saving')}
+          busy={saving === 'missed'}
           variant="secondary"
-          disabled={busy}
-          onPress={onMissed}
+          onPress={busy ? undefined : onMissed}
         />
         {onNotNow === undefined ? null : (
-          <Tertiary label={t('wasThere', 'not_now')} disabled={busy} onPress={onNotNow} />
+          <Tertiary label={t('wasThere', 'not_now')} onPress={busy ? undefined : onNotNow} />
         )}
       </Foot>
     </Screen>

@@ -1,4 +1,13 @@
-import { Body, Button, DisplayL, Foot, Screen, Small, TopBar } from '../../components';
+import {
+  Body,
+  Button,
+  DisplayL,
+  Foot,
+  Screen,
+  TopBar,
+  Loading,
+  useLoadingHold,
+} from '../../components';
 import { t } from '../../copy';
 import type { Fixture } from '../../data/fixtures';
 import { ShareScreen } from '../sharing/ShareScreen';
@@ -61,14 +70,15 @@ export function PlanSharedScreen({
   onCopy,
   onShare,
 }: PlanSharedProps) {
-  if (state === 'loading') {
+  const loading = useLoadingHold(state === 'loading');
+  if (loading) {
     return (
-      <Screen>
-        <TopBar onBack={onBack} backLabel={t('common', 'back')} />
-        <Body>
-          <Small accessibilityLiveRegion="polite">{t('planShared', 'loading')}</Small>
-        </Body>
-      </Screen>
+      <Loading
+        message={t('planShared', 'loading')}
+        shape="detail"
+        onBack={onBack}
+        onRetry={onRetry}
+      />
     );
   }
   if (state === 'error' || state === 'offline') {

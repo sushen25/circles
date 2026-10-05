@@ -93,13 +93,11 @@ export function PlanSetupScreen(props: PlanSetupProps) {
       <Foot>
         <Button
           label={
-            props.draft === true
-              ? t('planSetup', 'save_plan')
-              : busy
-                ? t('planSetup', 'asking')
-                : t('planSetup', 'ask_the_group')
+            props.draft === true ? t('planSetup', 'save_plan') : t('planSetup', 'ask_the_group')
           }
-          disabled={busy || problem !== undefined}
+          busyLabel={props.draft === true ? undefined : t('planSetup', 'asking')}
+          busy={busy}
+          disabled={problem !== undefined}
           onPress={props.onNext}
         />
         <Small>

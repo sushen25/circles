@@ -70,15 +70,15 @@ export function VolunteerScreen({
       </Body>
       <Foot>
         <Button
-          label={busy ? t('volunteer', 'taking') : t('volunteer', 'ill_pick_the_time')}
-          disabled={busy}
+          label={t('volunteer', 'ill_pick_the_time')}
+          busyLabel={t('volunteer', 'taking')}
+          busy={busy}
           onPress={onNext}
         />
         <Button
           label={t('volunteer', 'send_my_times')}
           variant="secondary"
-          disabled={busy}
-          onPress={onSendMyTimes}
+          onPress={busy ? undefined : onSendMyTimes}
         />
         <Tertiary label={t('volunteer', 'not_this_one')} onPress={onNotThisOne} />
       </Foot>

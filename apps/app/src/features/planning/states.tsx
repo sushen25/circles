@@ -1,4 +1,14 @@
-import { Body, BodyText, Button, DisplayL, Foot, Screen, Small, TopBar } from '../../components';
+import {
+  Body,
+  BodyText,
+  Button,
+  DisplayL,
+  Foot,
+  Screen,
+  TopBar,
+  Loading,
+  useLoadingHold,
+} from '../../components';
 import { Stack } from '../../components/layout';
 import { t } from '../../copy';
 import type { ScreenState } from '../state';
@@ -27,14 +37,15 @@ export function PlanStateScreen({
   onRetry?: (() => void) | undefined;
   onBack?: (() => void) | undefined;
 }) {
-  if (state === 'loading') {
+  const loading = useLoadingHold(state === 'loading');
+  if (loading) {
     return (
-      <Screen>
-        <TopBar onBack={onBack} backLabel={t('common', 'back')} />
-        <Body>
-          <Small accessibilityLiveRegion="polite">{t('planSetup', 'loading')}</Small>
-        </Body>
-      </Screen>
+      <Loading
+        message={t('planSetup', 'loading')}
+        shape="detail"
+        onBack={onBack}
+        onRetry={onRetry}
+      />
     );
   }
   if (state === 'error' || state === 'offline') {

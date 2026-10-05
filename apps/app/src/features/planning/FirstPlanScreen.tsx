@@ -14,6 +14,8 @@ import {
   Tertiary,
   Title,
   TopBar,
+  Loading,
+  useLoadingHold,
 } from '../../components';
 import { Between, Divider, Stack } from '../../components/layout';
 import { t } from '../../copy';
@@ -147,14 +149,16 @@ export function FirstPlanScreen({
   quorumChangeable = true,
   note = t('firstPlan', 'friends_mark_the_times_theyd_actually_be'),
 }: FirstPlanProps) {
-  if (state === 'loading') {
+  const loading = useLoadingHold(state === 'loading');
+  if (loading) {
     return (
-      <Screen>
-        <TopBar title={circleName} onBack={onBack} backLabel={t('common', 'back')} />
-        <Body>
-          <Small accessibilityLiveRegion="polite">{t('firstPlan', 'loading')}</Small>
-        </Body>
-      </Screen>
+      <Loading
+        message={t('firstPlan', 'loading')}
+        shape="detail"
+        topTitle={circleName}
+        onBack={onBack}
+        onRetry={onRetry}
+      />
     );
   }
   if (state === 'error' || state === 'offline') {
@@ -221,9 +225,10 @@ export function FirstPlanScreen({
       </Body>
       <Foot>
         <Button
-          label={busy ? t('firstPlan', 'asking') : t('firstPlan', 'ask_the_group')}
+          label={t('firstPlan', 'ask_the_group')}
+          busyLabel={t('firstPlan', 'asking')}
+          busy={busy}
           onPress={onNext}
-          disabled={busy}
         />
         {offerQuiet ? (
           <Tertiary

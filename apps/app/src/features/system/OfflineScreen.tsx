@@ -68,9 +68,10 @@ export function OfflineScreen({
       </Body>
       <Foot>
         <Button
-          label={busy ? t('offline', 'sending') : t('offline', 'try_again')}
+          label={t('offline', 'try_again')}
+          busyLabel={t('offline', 'sending')}
+          busy={busy}
           onPress={onTryAgain}
-          disabled={busy}
         />
       </Foot>
     </Screen>
