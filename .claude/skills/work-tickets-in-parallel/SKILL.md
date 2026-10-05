@@ -255,9 +255,19 @@ grep -n 'project_id\|^port' ../circles-wt/sus-0/supabase/config.toml   # circles
   over a gate and keeps it: on 1 October two idle slots held 3.3 and 2.3 GB, and
   slot 3's was killed by Docker's out-of-memory killer (exit 137) six minutes
   into its live suite while no other gate was running. It looks like 503s from
-  every function. `make restart` in your own slot before gating gives it back
-  (3.7 GB to 25 MB). Restarting or capping it at the start of a gate is
-  SUS-135, not done here.
+  every function. `ticket.sh check`, and so `parallel.sh gate`, now runs
+  `docker restart` on its own slot's Edge runtime before `pnpm check` (about
+  1 s; it does not touch the other containers or the other slots), and a failed
+  check whose container was OOM-killed prints "edge runtime OOM-killed, not your
+  code". A restart of that one container does not pick up a new `dist` file or
+  function folder: after those, `make restart` as before. The Supabase CLI
+  (2.116) has no setting for a container's memory, so there is no cap; an idle
+  slot's runtime still holds what it grew to until its next gate or
+  `make restart-edge`. `TICKET_EDGE_RESTART=0` skips the restart. Measured on
+  3 October: the restart adds 1 to 2 s to a gate (a full `make restart` is
+  about 32 s), and slot 1's runtime went 25 MiB to 3.6 GiB over one gate, then
+  3.56 GiB at the start of the next (restarted to 25 MiB-ish, 3.0 GiB at the
+  end), with no OOM kill across three gates in a row.
 - **Metro's cache is not per checkout; a slot's `TMPDIR` makes it so.** Expo
   keeps it in `$TMPDIR/metro-cache`, and its keys do not depend on where the
   checkout is: the transform base hash came out the same

@@ -54,6 +54,7 @@ function problemOf(error: unknown): string {
     case 'not_the_organiser':
       return t('deadlinePassed', 'problem_not_organiser');
     case 'requires_saved_place':
+    case 'needs_permanent_identity':
       return t('deadlinePassed', 'problem_saved_place');
     case 'not_a_member':
     case 'not_a_participant':

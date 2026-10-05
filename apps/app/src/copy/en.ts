@@ -1409,8 +1409,6 @@ export const en = {
     share_to_group_chat: 'Share to group chat',
     copy_link: 'Copy link',
     skip_for_now_ill_plan_first: "Skip for now, I'll plan first",
-    join_circle_generic: 'Join a circle',
-    pick_the_times_youd_be_up_for: "Pick the times you'd actually be up for. No app needed.",
     now_invite: 'Now invite {circle}.',
     copied: 'Copied. Paste it into your group chat.',
     couldnt_copy: "We couldn't copy it here. Press and hold the link to copy it yourself.",
@@ -2029,6 +2027,7 @@ export const en = {
     refused_not_keen: "Only someone who said they're keen can pick the time.",
     refused_deadline_not_passed: 'The circle owner can take it on once replies close.',
     refused_wrong_state: "It isn't ready for somebody to pick the time yet.",
+    refused_not_enough_keen: 'Not enough people have said they are keen yet.',
   },
   reattachedNudge: {
     /** "Welcome back, Priya." — the name they continued as. */

@@ -1,5 +1,5 @@
 import { brand } from '@circles/config';
-import { EN_PREVIEW_TEMPLATES, ogDescription, ogTitle } from '@circles/domain';
+import { previewCopy, type PlanPreviewState } from '@circles/domain';
 
 import {
   exportedConfig,
@@ -15,10 +15,11 @@ import {
  * (ADR 0001); everything it decides is here, where it can be tested, and the
  * route itself is composition and a `fetch`.
  *
- * **The card carries the circle's name and nothing else.** Not because
- * something strips the rest, but because nothing else is ever in scope:
- * `ogTitle` takes a name, `ogDescription` takes nothing at all, and the
- * database function behind it returns one `text`. A preview is rendered to
+ * **The card carries the circle's name and, for a confirmed plan, the words
+ * "locked in" — nothing else** (ADR 0054). Not because something strips the
+ * rest, but because nothing else is ever in scope: a title takes a name,
+ * a description takes nothing at all, and the database function behind it
+ * returns a name and one of two words, `asking` or `locked_in`. A preview is rendered to
  * everybody in the thread, including people who are not in the circle — and a
  * quiet ask exists precisely to keep "somebody wants to organise something"
  * out of that thread.
@@ -143,18 +144,18 @@ export function destinationFor(origin: string, kind: string, code: string | null
 }
 
 export interface Card {
-  /** Null for a circle invite, an unknown code, or a database we could not reach. */
+  /** `join`, `j` or `p`: the path that was pasted. */
+  kind: string;
+  /** Null for a circle invite, an unknown or inactive code, or a database we could not reach. */
   circleName: string | null;
+  /** Null exactly when `circleName` is. */
+  planState: PlanPreviewState | null;
   target: string;
   imageUrl: string;
 }
 
-export function previewCard({ circleName, target, imageUrl }: Card): string {
-  const title =
-    circleName === null
-      ? EN_PREVIEW_TEMPLATES.title('A circle')
-      : ogTitle(circleName, EN_PREVIEW_TEMPLATES);
-  const description = ogDescription(EN_PREVIEW_TEMPLATES);
+export function previewCard({ kind, circleName, planState, target, imageUrl }: Card): string {
+  const { title, description } = previewCopy({ kind, circleName, planState }, brand.name);
 
   // The refresh carries anybody who lands here on to the real route. The script
   // runs first where there is one and takes the fragment with it, which is how
@@ -184,21 +185,31 @@ export function previewCard({ circleName, target, imageUrl }: Card): string {
 </html>`;
 }
 
+/** What the lookup found: both null for anything we will not or cannot resolve. */
+export interface PreviewFound {
+  circleName: string | null;
+  planState: PlanPreviewState | null;
+}
+
+const NOTHING: PreviewFound = { circleName: null, planState: null };
+
 /**
- * The circle's name behind a short code, or null for anything we will not or
- * cannot resolve.
+ * The circle's name and whether its plan is locked in, behind a short code, or
+ * nothing for anything we will not or cannot resolve.
  *
  * PostgREST directly rather than through a client library: this runs on a
  * server with no session, and the one thing it does is call a function granted
  * to `anon`. Every failure is a generic card and never an error page — a group
- * chat should not learn that our database is having a bad morning.
+ * chat should not learn that our database is having a bad morning. The function
+ * answers no row where it once answered null, and a word it does not know is
+ * the same as no answer, so the closed set is closed here too.
  */
-export async function lookupCircleName(
+export async function lookupPreview(
   kind: string,
   code: string | null,
   exported: ExportedConfig = EXPORTED,
-): Promise<string | null> {
-  if (kind === 'join' || code === null) return null;
+): Promise<PreviewFound> {
+  if (kind === 'join' || code === null) return NOTHING;
 
   const backend = resolveSupabase(
     {
@@ -207,7 +218,7 @@ export async function lookupCircleName(
     },
     exported,
   );
-  if (backend === null) return null;
+  if (backend === null) return NOTHING;
   const { url, key } = backend;
 
   try {
@@ -216,10 +227,15 @@ export async function lookupCircleName(
       headers: { 'content-type': 'application/json', apikey: key, Authorization: `Bearer ${key}` },
       body: JSON.stringify({ p_kind: kind, p_code: code }),
     });
-    if (!response.ok) return null;
-    const name: unknown = await response.json();
-    return typeof name === 'string' && name.length > 0 ? name : null;
+    if (!response.ok) return NOTHING;
+    const rows: unknown = await response.json();
+    const row: unknown = Array.isArray(rows) ? rows[0] : undefined;
+    if (typeof row !== 'object' || row === null) return NOTHING;
+    const { circle_name: name, plan_state: state } = row as Record<string, unknown>;
+    if (typeof name !== 'string' || name.length === 0) return NOTHING;
+    if (state !== 'asking' && state !== 'locked_in') return NOTHING;
+    return { circleName: name, planState: state };
   } catch {
-    return null;
+    return NOTHING;
   }
 }
