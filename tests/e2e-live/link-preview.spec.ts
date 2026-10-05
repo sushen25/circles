@@ -80,14 +80,17 @@ test.describe('the preview fetcher', () => {
     }
   });
 
-  test('gets the generic card for an invite, which names no circle', async ({ request }) => {
+  test('gets the invite card for an invite, which names no circle and claims no plan', async ({
+    request,
+  }) => {
     once();
     // The secret is in the fragment, which no request carries, so the server
     // cannot know which circle `/join` is for.
     const response = await request.get('/join', { headers: { 'user-agent': WHATSAPP_PREVIEW } });
     const html = await response.text();
     expect(isCard(html)).toBe(true);
-    expect(html).toContain('A circle is finding a time to catch up');
+    expect(html).toContain('You&#39;re invited to a circle on');
+    expect(html).not.toContain('finding a time');
   });
 });
 

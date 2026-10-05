@@ -2,7 +2,7 @@ import {
   CARD_HEADERS,
   destinationFor,
   isPreviewAgent,
-  lookupCircleName,
+  lookupPreview,
   originOf,
   previewCard,
   previewTargetFor,
@@ -44,11 +44,12 @@ export default async function middleware(request: Request): Promise<Response | u
 
   const origin = originOf(url);
   const { kind, code } = preview;
-  const name = await lookupCircleName(kind, code);
+  const found = await lookupPreview(kind, code);
 
   return new Response(
     previewCard({
-      circleName: name,
+      kind,
+      ...found,
       target: destinationFor(origin, kind, code),
       imageUrl: `${origin}/og-card.png`,
     }),

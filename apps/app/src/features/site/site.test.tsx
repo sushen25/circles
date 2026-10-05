@@ -7,6 +7,7 @@ import {
   EN_SHARE_TEMPLATES,
   ogDescription,
   ogTitle,
+  previewCopy,
   withoutLink,
 } from '@circles/domain';
 
@@ -67,6 +68,15 @@ describe('the chat on the page is the product’s own', () => {
   it('shows the preview card the chat would draw from the link', () => {
     expect(words).toContain(ogTitle(circle, EN_PREVIEW_TEMPLATES));
     expect(words).toContain(ogDescription(EN_PREVIEW_TEMPLATES));
+  });
+
+  it('shows the locked-in card under the locked-in message, as the product now draws it', () => {
+    const locked = previewCopy(
+      { kind: 'p', circleName: circle, planState: 'locked_in' },
+      brand.name,
+    );
+    expect(words).toContain(locked.title);
+    expect(words).toContain(locked.description);
   });
 });
 
