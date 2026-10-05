@@ -22,6 +22,8 @@ export const en = {
     cancel: 'Cancel',
     done: 'Done',
     dismiss: 'Dismiss',
+    still_working: 'Still working on it…',
+    try_again: 'Try again',
   },
   account: {
     account: 'Account',
