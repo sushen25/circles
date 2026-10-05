@@ -1,6 +1,6 @@
 import { fromISO } from '@circles/domain';
-import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
 
 import { t } from '../../copy';
 import { hasBackend } from '../../data/auth/client';
@@ -70,7 +70,10 @@ function LiveFirstPlanDraft() {
 
   // The moment the card was opened: the preview is of a plan made about now,
   // and a clock read during a render would make it a different plan each time.
-  const [openedAt] = useState(() => Date.now());
+  const [openedAt, setOpenedAt] = useState(() => Date.now());
+  // The card stays mounted under the setup, so coming back to it is a new look at the
+  // clock: Tonight may have run out in between.
+  useFocusEffect(useCallback(() => setOpenedAt(Date.now()), []));
   const [busy, setBusy] = useState(false);
 
   const missing = loaded && (draft === null || draft.circleName.trim() === '');
@@ -108,11 +111,13 @@ function LiveFirstPlanDraft() {
     if (busy) return;
     setBusy(true);
     // The whole draft, not a patch: a card left on the back stack after the
-    // finish has cleared storage must not write a draft with no circle in it.
+    // finish has cleared storage must not write a draft with no circle in it. The
+    // plan is worked out again at the tap, so one that ran out since the card was
+    // drawn falls back here and not at the server, after the circle is made.
     await save({
       circleName: draft.circleName,
       cadence: draft.cadence,
-      plan,
+      plan: draftCard(draft.plan, zone, Date.now()).plan,
       way,
       proceed: where.signedIn,
     });
@@ -135,7 +140,10 @@ function LiveFirstPlanDraft() {
           const next: DraftPlan = { ...plan, preset: each };
           delete next.custom;
           delete next.deadline;
-          void save({ plan: next });
+          // Held until it is written: Ask the group in the meantime would write the
+          // old plan over it.
+          setBusy(true);
+          void save({ plan: next }).finally(() => setBusy(false));
         },
       }))}
       presetNote={offTonight === undefined ? undefined : tonightNoteWords(offTonight)}

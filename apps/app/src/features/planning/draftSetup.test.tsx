@@ -107,6 +107,33 @@ describe('the First plan card, before sign-in', () => {
   });
 });
 
+describe('the card, with a slow device write', () => {
+  it('holds Ask the group until a window just picked is written, so the old plan is not written over it', async () => {
+    const { sessionStorage } = await import('../../data/auth/storage');
+    await saveDraft({ circleName: 'Sunday Crew' });
+    wrap(<FirstPlanDraftFlow />);
+    await screen.findByText('Most of the group need to make it');
+
+    const write = sessionStorage.setItem.bind(sessionStorage);
+    const slow = vi.spyOn(sessionStorage, 'setItem').mockImplementation(async (key, value) => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      await write(key, value);
+    });
+    try {
+      fireEvent.click(screen.getByRole('checkbox', { name: 'This weekend' }));
+      // Held: the button is off while the write is out.
+      expect(screen.getByRole('button', { name: /^Ask/ })).toBeDisabled();
+      await waitFor(async () =>
+        expect(await readDraft()).toMatchObject({ plan: { preset: 'this_weekend' } }),
+      );
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      expect((await readDraft())?.plan.preset).toBe('this_weekend');
+    } finally {
+      slow.mockRestore();
+    }
+  });
+});
+
 describe('the plan setup in draft mode', () => {
   it('is the full setup, less what a circle of one cannot answer', async () => {
     await saveDraft({ circleName: 'Sunday Crew' });
