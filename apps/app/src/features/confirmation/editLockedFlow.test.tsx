@@ -173,6 +173,27 @@ describe('moving the time', () => {
     ).toBeTruthy();
   });
 
+  it('keeps Save off while the names for a newly picked time are on their way (SUS-152)', async () => {
+    // Changing the time a second time keeps the first time's names on screen
+    // (`keepPreviousData`), and with them its version: Save would hold the new
+    // time to names that belong to the old one.
+    const SUN = { start: '2026-09-20T09:00:00.000Z', end: '2026-09-20T11:00:00.000Z' };
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const view = render(
+      <QueryClientProvider client={client}>{edit(SAT.start, SAT.end)}</QueryClientProvider>,
+    );
+    await screen.findByText(/^You, Tom and Jess can make it · /);
+    await waitFor(() => expect(save().getAttribute('aria-disabled')).not.toBe('true'));
+
+    stretchOf.mockImplementation(() => new Promise(() => undefined));
+    view.rerender(
+      <QueryClientProvider client={client}>{edit(SUN.start, SUN.end)}</QueryClientProvider>,
+    );
+
+    await waitFor(() => expect(stretchOf).toHaveBeenCalledWith('thu-17', SUN.start, SUN.end));
+    expect(save().getAttribute('aria-disabled')).toBe('true');
+  });
+
   it('sends the new time and the version of the names it showed, and tells the catalogue it moved', async () => {
     show(edit(SAT.start, SAT.end));
     await screen.findByText(/^You, Tom and Jess can make it · /);

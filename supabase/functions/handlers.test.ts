@@ -2402,6 +2402,33 @@ describe('generate-ics', () => {
     expect(moved).toContain('DTSTART:20990919T090000Z');
   });
 
+  it('hands out an in-place edit as the same entry with its new place and a higher sequence (SUS-152)', async () => {
+    // SUS-152 finding 4 said the calendar file goes stale after an in-place
+    // edit. The file is built from the row on every request and sent no-store,
+    // and `apply_organiser_plan` raises the sequence with the edit, so a calendar
+    // takes the new place.
+    const before = await (
+      await load('generate-ics')(get({ confirmation_id: CONFIRMATION_ID }))
+    ).text();
+    state.users = [{ id: CALLER, is_anonymous: false }];
+    state.rows = {
+      meetup_confirmations: {
+        ...(state.rows['meetup_confirmations'] as Record<string, unknown>),
+        place_name: 'Naked for Satan',
+        calendar_sequence: 1,
+      },
+    };
+    const response = await load('generate-ics')(get({ confirmation_id: CONFIRMATION_ID }));
+    const after = await response.text();
+
+    expect(response.headers.get('cache-control')).toBe('no-store');
+    expect(before).toContain('LOCATION:Hope St Radio');
+    expect(before).toContain('SEQUENCE:0');
+    expect(after).toContain('LOCATION:Naked for Satan');
+    expect(after).toContain('SEQUENCE:1');
+    expect(/^UID:(.*)$/m.exec(after)?.[1]).toBe(/^UID:(.*)$/m.exec(before)?.[1]);
+  });
+
   it('answers with a calendar file a browser will save', async () => {
     const response = await load('generate-ics')(get({ confirmation_id: CONFIRMATION_ID }));
 
@@ -3562,6 +3589,23 @@ describe('process-scheduled-jobs', () => {
     expect(outcomes).toContainEqual(['skipped', 'duplicate_address']);
     // And exactly one letter left the building.
     expect(state.fetched.filter((url) => url.includes('capture.test'))).toHaveLength(1);
+  });
+
+  it('sends one address the letters of two confirmations in one revision (SUS-152)', async () => {
+    // A move keeps the revision and writes a new confirmation, so the second
+    // move's letter shares kind, plan, revision and address with the first.
+    // They are two messages about two times, not two copies of one.
+    capturing();
+    withDue(
+      dueJob({ id: '00000000-0000-4000-8000-00000000j001', confirmation_id: 'conf-1' }),
+      dueJob({ id: '00000000-0000-4000-8000-00000000j002', confirmation_id: 'conf-2' }),
+    );
+
+    await load('process-scheduled-jobs')(post({}, 'a-shared-secret'));
+
+    const outcomes = called('dispatch_job_result').map((call) => call.args['p_outcome']);
+    expect(outcomes).toEqual(['sent', 'sent']);
+    expect(state.fetched.filter((url) => url.includes('capture.test'))).toHaveLength(2);
   });
 
   it('does not send a letter about options the plan has stopped asking about', async () => {

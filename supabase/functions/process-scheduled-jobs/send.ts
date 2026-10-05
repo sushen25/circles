@@ -66,6 +66,12 @@ export type DueJob = {
   readonly user_id: string;
   readonly plan_id: string | null;
   readonly plan_revision: number | null;
+  /**
+   * The confirmation the letter is about, when it is about one. A move keeps the
+   * revision and writes a new confirmation, so two letters of one kind in one
+   * revision to one address are two messages when this differs (SUS-152).
+   */
+  readonly confirmation_id?: string | null;
   readonly idempotency_key: string;
   readonly attempt_count: number;
   readonly email: string;
@@ -178,15 +184,21 @@ async function record(
 /**
  * What makes two jobs the same letter to the same mailbox.
  *
- * The same tuple `dispatch_claim_due` partitions on, with the address in place
- * of the contact. `changed` and `verify_email` are excluded there and are
+ * The same tuple `dispatch_claim_due` partitions on (kind, plan, revision,
+ * confirmation), with the address in place of the contact. `changed` and `verify_email` are excluded there and are
  * excluded here for the same reason: both can legitimately occur twice within
  * one revision, keyed by change id and verification id, and collapsing them is
  * how nobody gets told the venue moved.
  */
 function copyKey(job: DueJob): string {
   if (NEVER_COLLAPSED.includes(job.kind)) return job.id;
-  return [job.kind, job.plan_id ?? '', job.plan_revision ?? '', job.email].join('\u0000');
+  return [
+    job.kind,
+    job.plan_id ?? '',
+    job.plan_revision ?? '',
+    job.confirmation_id ?? '',
+    job.email,
+  ].join('\u0000');
 }
 
 /**

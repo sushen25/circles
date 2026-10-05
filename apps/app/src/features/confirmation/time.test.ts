@@ -38,6 +38,26 @@ describe('the picker clock (ADR 0051)', () => {
     expect(instantsOf(late, ZONE).end).toBe(fromISO('2026-09-18T15:00:00.000Z'));
   });
 
+  it('keeps the end where the clock reads it across midnight and a change of clocks (SUS-152)', () => {
+    // Melbourne's clocks go forward at 2 am on 4 October 2026: 10 pm Saturday to
+    // 4 am Sunday is five hours, and 4 am on the wall. Reading the end from the
+    // length put it at 3 am, and saving the edit moved the end an hour.
+    const startsAt = '2026-10-03T12:00:00.000Z';
+    const endsAt = '2026-10-03T17:00:00.000Z';
+    const across = pickOf(startsAt, endsAt, ZONE);
+    expect(across).toEqual({ day: '2026-10-03', startMin: 22 * 60, endMin: 28 * 60 });
+    expect(isoOf(across, ZONE)).toEqual({ startsAt, endsAt });
+
+    // The same on the night clocks go back (3 am to 2 am on 5 April 2026):
+    // 10 pm to 4 am is seven hours of real time.
+    const back = pickOf('2026-04-04T11:00:00.000Z', '2026-04-04T18:00:00.000Z', ZONE);
+    expect(back).toEqual({ day: '2026-04-04', startMin: 22 * 60, endMin: 28 * 60 });
+    expect(isoOf(back, ZONE)).toEqual({
+      startsAt: '2026-04-04T11:00:00.000Z',
+      endsAt: '2026-04-04T18:00:00.000Z',
+    });
+  });
+
   it('keeps the length when the start moves, and changes it when the end does', () => {
     expect(lengthOf(moveStart(friday, 1))).toBe(120);
     expect(moveStart(friday, 1).startMin).toBe(19 * 60 + 30);
