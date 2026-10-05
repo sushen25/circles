@@ -165,4 +165,23 @@ test('the organiser locks in a time of their own, moves it, and changes the plac
       /^New place:|^Change of plan:/.test(letter.subject),
     ),
   ).toHaveLength(1);
+
+  // A second move in the same revision (SUS-152): a new confirmation, so a letter of
+  // its own. The first move's letter had already gone, and the second was
+  // dropped as a copy of it.
+  await page.getByRole('button', { name: 'Edit this plan' }).click();
+  await page.getByRole('button', { name: 'Change', exact: true }).click();
+  await pickDay(page, first, 2);
+  await page.getByRole('button', { name: /^Use / }).click();
+  await expect(page.getByText(/^Everyone sees the new time straight away, with /)).toBeVisible();
+  await page.getByRole('button', { name: 'Save changes' }).click();
+  await expect(page).toHaveURL(new RegExp(`/circles/${circleId}/plan/${plan.id}/confirmed$`));
+  expect(revisionOf(plan.id)).toBe(1);
+  await runDispatcher();
+  await runDispatcher();
+  const changes = (await lettersTo(address)).filter((letter) =>
+    /^Change of plan: Sunday Crew is now /.test(letter.subject),
+  );
+  expect(changes).toHaveLength(2);
+  expect(new Set(changes.map((letter) => letter.subject)).size).toBe(2);
 });
