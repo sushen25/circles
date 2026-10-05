@@ -42,6 +42,53 @@ cmd_start() {
   fi
 }
 
+# --- The stack's Edge runtime -------------------------------------------------
+# Its memory grows by about 2 GB per gate and is never given back (SUS-134 saw
+# one OOM-killed, exit 137, while its gate ran alone). From inside a gate that
+# looks like a 503 or BOOT_ERROR from every function, i.e. like a code failure.
+# So a check starts this checkout's Edge runtime fresh, and says so when one
+# was OOM-killed anyway. Only this checkout's own container, named by the
+# project_id in its supabase/config.toml (circles, circles-s1, ...).
+edge_container() {
+  local id; id=$(sed -n 's/^project_id = "\(.*\)"/\1/p' supabase/config.toml 2>/dev/null | head -1)
+  [ -n "$id" ] && echo "supabase_edge_runtime_$id"
+}
+
+# `docker restart` of the one container, about a second, and only once the
+# gateway answers again. Does nothing when docker, the container or the stack
+# is missing, or TICKET_EDGE_RESTART=0.
+edge_fresh() {
+  [ "${TICKET_EDGE_RESTART:-1}" = 0 ] && return 0
+  command -v docker >/dev/null 2>&1 || return 0
+  local c; c=$(edge_container) || return 0
+  docker inspect "$c" >/dev/null 2>&1 || { echo "== edge runtime: $c is not running; nothing to restart"; return 0; }
+  local mem; mem=$(docker stats --no-stream --format '{{.MemUsage}}' "$c" 2>/dev/null | cut -d/ -f1 | tr -d ' ') || mem=
+  local t0=$SECONDS
+  docker restart "$c" >/dev/null 2>&1 || { echo "== edge runtime: could not restart $c (continuing)"; return 0; }
+  # Any reply but 502/503 or no connection means the runtime is serving.
+  local port; port=$(awk '/^\[api\]/{a=1;next} /^\[/{a=0} a&&/^port *=/{print $3; exit}' supabase/config.toml)
+  local code=000 i
+  for i in $(seq 1 60); do
+    code=$(curl -s -o /dev/null -m 5 -w '%{http_code}' "http://127.0.0.1:${port:-54321}/functions/v1/hello" 2>/dev/null || true)
+    case $code in 000|502|503) sleep 0.5 ;; *) break ;; esac
+  done
+  echo "== edge runtime: restarted $c (${mem:+was $mem, }answering again after $((SECONDS - t0))s)"
+}
+
+# After a failed check: if the container was OOM-killed, say it is the machine
+# and not the code. A restart at the start of the check clears the flag, so a
+# true flag now means it happened during this check.
+edge_report() {
+  command -v docker >/dev/null 2>&1 || return 0
+  local c; c=$(edge_container) || return 0
+  [ "$(docker inspect -f '{{.State.OOMKilled}}' "$c" 2>/dev/null || true)" = true ] || return 0
+  cat >&2 <<EOM
+== edge runtime OOM-killed, not your code: $c ran out of Docker's memory during this check.
+   Every Edge Function answered 503 or BOOT_ERROR after that point. Free memory (other
+   slots' edge runtimes grow too: docker stats --no-stream), then: make restart, and rerun.
+EOM
+}
+
 cmd_check() {
   local rc=0
   echo "== changed vs $(baseref)"
@@ -50,8 +97,9 @@ cmd_check() {
   echo "== git diff --check (whitespace errors)"
   git diff --check "$(baseref)...HEAD" || rc=1
   if [ -f package.json ] && node -e 'process.exit(require("./package.json").scripts?.check ? 0 : 1)'; then
+    edge_fresh
     echo "== pnpm check"
-    corepack pnpm check || rc=1
+    corepack pnpm check || { rc=1; edge_report; }
   else
     echo "== no check script in package.json; skipping pnpm check"
   fi

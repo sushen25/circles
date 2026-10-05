@@ -34,6 +34,7 @@ make dev      # stack up, env written, packages built, web app on http://localho
 | The same build the live e2e suite serves (exported, no Metro) | `make dev-live` (http://localhost:8082) |
 | **Stop everything**: the app servers on 8081, 8082 and 8083, then the stack (data kept) | `make dev-down` |
 | Start, stop, restart the stack | `make up`, `make down`, `make restart` |
+| Give the Edge runtime's memory back (about a second; see "When it goes wrong") | `make restart-edge` |
 | Fresh seed data | `make reset` |
 | Throw the stack's data away | `make nuke` |
 | The stack's URLs and keys | `make status` |
@@ -302,6 +303,19 @@ suite behaves as though it got the other suite's build, look for a stray
   the functions container cannot see it. Run `pnpm db:stop && pnpm db:start`;
   restarting that one container is not enough (`make restart`). The log is
   `make logs`, which is `docker logs supabase_edge_runtime_circles`.
+- **Every Edge Function returns 503 or `BOOT_ERROR` partway through a gate or a
+  long session, and nothing in your code explains it.** Docker's out-of-memory
+  killer may have taken the Edge runtime: it grows by about 2 GB over a gate and
+  keeps it, and every slot's does the same. Check with
+  `docker inspect supabase_edge_runtime_<project> --format '{{.State.OOMKilled}}'`
+  (`true` means it did; the exit code is 137). `make restart-edge` starts it
+  fresh in about a second, and `make restart` does that too along with the rest
+  of the stack. `ticket.sh check` (so `parallel.sh gate` too) restarts it at the
+  start of every run, and when a check fails with the container OOM-killed it
+  says "edge runtime OOM-killed, not your code". `TICKET_EDGE_RESTART=0` skips
+  the restart. The Supabase CLI has no per-project memory setting for it, so
+  there is no cap to set; `docker update --memory` works until the next
+  `make restart`, which recreates the container without it.
 - **A screen shows Sunday Crew but nothing reaches the database.** You are in
   fixture mode. Check `apps/app/.env.local` exists, is in `apps/app/`, and that
   the dev server printed `env: load .env.local`. Restart it after creating it.
