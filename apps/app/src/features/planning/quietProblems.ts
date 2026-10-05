@@ -47,11 +47,15 @@ export function quietRefusalOf(
     case 'initiator_is_keen':
       return settled(t('quiet', 'refused_interest_closed'), { reread: true });
     case 'already_taken':
+    case 'already_has_organiser':
       return settled(t('quiet', 'refused_taken'), { reread: true });
     case 'not_keen':
+    case 'not_keen_initiator_or_owner':
       return settled(t('quiet', 'refused_not_keen'), { reread: true });
     case 'deadline_not_passed':
       return settled(t('quiet', 'refused_deadline_not_passed'), { reread: true });
+    case 'threshold_not_reached':
+      return settled(t('quiet', 'refused_not_enough_keen'), { reread: true });
     case 'wrong_state':
       return settled(t('quiet', 'refused_wrong_state'), { reread: true });
     default:

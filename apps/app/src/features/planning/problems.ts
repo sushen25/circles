@@ -72,6 +72,7 @@ function refusalFor(
     case 'preview_is_stale':
       return { message: t('planSetup', 'problem_stale'), stale: true };
     case 'requires_saved_place':
+    case 'needs_permanent_identity':
       return { message: t('planSetup', 'problem_generic'), needsSavedPlace: true };
     case 'too_many_requests':
       return { message: t('planSetup', 'problem_too_many') };
