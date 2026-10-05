@@ -15,7 +15,7 @@ import { Icon, type IconName } from './Icon';
 import { Spinner } from './Spinner';
 import { Small } from './Text';
 import { useInverted, usePalette } from './theme';
-import { useDelayedShow, useSlow } from './wait';
+import { WAIT, useDelayedShow, useSlow } from './wait';
 import { t } from '../copy';
 
 /**
@@ -46,7 +46,8 @@ type BusyProps = {
 /** What every busy control shares: the spinner's clock, the slow line's, the tap guard. */
 function useBusy(busy: boolean | undefined, onPress: PressableProps['onPress']) {
   const working = busy === true;
-  const spinner = useDelayedShow(working);
+  // A button's spinner goes with its "-ing" label, so there is no minimum to keep.
+  const spinner = useDelayedShow(working, WAIT.spinnerAfter, 0);
   const { slow } = useSlow(working);
   return { working, spinner, slow, onPress: working ? undefined : onPress };
 }
@@ -59,20 +60,36 @@ function Words({
   label,
   other,
   style,
+  lead,
+  gap = 10,
 }: {
   label: string;
   other: string | undefined;
   style: StyleProp<TextStyle>;
+  /** The spinner, or a compact button's icon, before the words. */
+  lead?: ReactNode;
+  gap?: number;
 }) {
-  if (other === undefined || other.length <= label.length)
-    return <Text style={style}>{label}</Text>;
-  // The longer one holds the width, unseen; the one being said sits over it.
+  const row = [styles.content, { gap }];
+  if (other === undefined || other.length <= label.length) {
+    return (
+      <View style={row}>
+        {lead}
+        <Text style={style}>{label}</Text>
+      </View>
+    );
+  }
+  // The longer one holds the width, unseen; the one being said sits over it,
+  // with the spinner beside it.
   return (
     <View>
       <Text aria-hidden style={[style, styles.sizer]}>
         {other}
       </Text>
-      <Text style={[style, styles.overlay]}>{label}</Text>
+      <View style={[row, styles.overlay]}>
+        {lead}
+        <Text style={style}>{label}</Text>
+      </View>
     </View>
   );
 }
@@ -131,14 +148,12 @@ export function Button({
         ]}
         {...props}
       >
-        <View style={styles.content}>
-          {view.spinner ? <Spinner color={ink} /> : null}
-          <Words
-            label={said}
-            other={view.working ? label : busyLabel}
-            style={[styles.label, { color: ink }]}
-          />
-        </View>
+        <Words
+          label={said}
+          other={view.working ? label : busyLabel}
+          style={[styles.label, { color: ink }]}
+          lead={view.spinner ? <Spinner color={ink} /> : null}
+        />
       </Pressable>
     </Slow>
   );
@@ -161,14 +176,12 @@ export function Tertiary({ label, busyLabel, busy, onPress, ...props }: Tertiary
         style={styles.tertiary}
         {...props}
       >
-        <View style={styles.content}>
-          {view.spinner ? <Spinner size={14} color={palette.ink3} /> : null}
-          <Words
-            label={said}
-            other={view.working ? label : busyLabel}
-            style={[styles.tertiaryLabel, { color: palette.ink3 }]}
-          />
-        </View>
+        <Words
+          label={said}
+          other={view.working ? label : busyLabel}
+          style={[styles.tertiaryLabel, { color: palette.ink3 }]}
+          lead={view.spinner ? <Spinner size={14} color={palette.ink3} /> : null}
+        />
       </Pressable>
     </Slow>
   );
@@ -226,15 +239,18 @@ export function CompactButton({
         ]}
         {...props}
       >
-        {view.spinner ? (
-          <Spinner size={16} color={ink} />
-        ) : icon === undefined ? null : (
-          <Icon name={icon} size={16} color={ink} />
-        )}
         <Words
           label={said}
           other={view.working ? label : busyLabel}
           style={[styles.compactLabel, { color: ink }, accent && styles.compactAccent]}
+          gap={6}
+          lead={
+            view.spinner ? (
+              <Spinner size={16} color={ink} />
+            ) : icon === undefined ? null : (
+              <Icon name={icon} size={16} color={ink} />
+            )
+          }
         />
       </Pressable>
     </Slow>
@@ -280,7 +296,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     top: 0,
-    textAlign: 'center',
+    bottom: 0,
   },
   slowWrap: {
     gap: 8,

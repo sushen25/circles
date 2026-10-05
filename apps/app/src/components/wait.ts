@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
 import { AccessibilityInfo } from 'react-native';
 
 /**
@@ -105,30 +105,36 @@ export function useReducedMotion(): boolean {
  * rest of the minimum display if the skeleton had already appeared when the
  * data arrived. The skeleton itself is `Loading`'s, which starts its own
  * 300 ms clock when it mounts, at the same moment this starts its.
+ *
+ * The hold is worked out in the render that `loading` ends in, so `Loading`
+ * is never unmounted and mounted again in between.
  */
 export function useLoadingHold(loading: boolean): boolean {
-  const [holding, setHolding] = useState(false);
-  // When this wait began, kept outside render state: it only matters at the moment it ends.
-  const began = useRef<number | undefined>(undefined);
+  const [since, setSince] = useState<number | undefined>(undefined);
+  const shownAt = since === undefined ? undefined : since + WAIT.skeletonAfter;
+  const until = shownAt === undefined ? undefined : shownAt + WAIT.shownAtLeast;
+  // A hold is a function of the clock; the timer below renders again when it ends.
+  // eslint-disable-next-line react-hooks/purity
+  const now = Date.now();
+  const holding =
+    !loading && shownAt !== undefined && until !== undefined && now >= shownAt && now < until;
 
   useLayoutEffect(() => {
     if (loading) {
-      began.current ??= Date.now();
+      // Layout effects run before paint; this only records when the wait began.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      if (since === undefined) setSince(Date.now());
       return undefined;
     }
-    const since = began.current;
-    began.current = undefined;
-    if (since === undefined) return undefined;
-    const shownAt = since + WAIT.skeletonAfter;
-    if (Date.now() < shownAt) return undefined;
-    const leave = shownAt + WAIT.shownAtLeast - Date.now();
-    if (leave <= 0) return undefined;
-    // Before paint, so the screen behind never shows for a frame: the hold has
-    // to begin in the same commit that the data arrives in.
-    setHolding(true);
-    const id = setTimeout(() => setHolding(false), leave);
+    if (shownAt === undefined || until === undefined) return undefined;
+    const left = until - Date.now();
+    if (Date.now() < shownAt || left <= 0) {
+      setSince(undefined);
+      return undefined;
+    }
+    const id = setTimeout(() => setSince(undefined), left);
     return () => clearTimeout(id);
-  }, [loading]);
+  }, [loading, since, shownAt, until]);
 
   return loading || holding;
 }

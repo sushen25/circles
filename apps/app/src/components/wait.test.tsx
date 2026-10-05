@@ -111,4 +111,35 @@ describe('useLoadingHold', () => {
     tick(0);
     expect(result.current).toBe(false);
   });
+
+  it('survives a second load that starts inside the hold, and ends when that one does', () => {
+    const { result, rerender } = renderHook(({ on }) => useLoadingHold(on), {
+      initialProps: { on: true },
+    });
+    tick(WAIT.skeletonAfter + 100);
+    rerender({ on: false });
+    expect(result.current).toBe(true);
+    rerender({ on: true });
+    tick(2_000);
+    expect(result.current).toBe(true);
+    rerender({ on: false });
+    tick(0);
+    expect(result.current).toBe(false);
+  });
+
+  it('is already true in the render the load ends in, so the screen is never unmounted', () => {
+    const seen: boolean[] = [];
+    const { rerender } = renderHook(
+      ({ on }) => {
+        const v = useLoadingHold(on);
+        seen.push(v);
+        return v;
+      },
+      { initialProps: { on: true } },
+    );
+    tick(WAIT.skeletonAfter + 100);
+    seen.length = 0;
+    rerender({ on: false });
+    expect(seen[0]).toBe(true);
+  });
 });

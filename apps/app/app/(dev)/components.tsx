@@ -23,6 +23,7 @@ import {
   type IconName,
   Input,
   Label,
+  ListRow,
   Marks,
   Notice,
   Radio,
@@ -110,6 +111,24 @@ export default function ComponentsScreen() {
               onPress={() => setSelectedChip((v) => !v)}
             />
           </Chips>
+        </Section>
+
+        <Section label="Busy · works on it, keeps its colour, ignores taps">
+          <Button label="Lock it in" busyLabel="Locking it in" busy />
+          <Button label="Ask again" busyLabel="Asking again" variant="secondary" busy />
+          <Chips>
+            <CompactButton label="Save" busyLabel="Saving" icon="check" tone="accent" busy />
+            <CompactButton label="Remove day" busyLabel="Removing" icon="x" busy />
+          </Chips>
+          <Card>
+            <ListRow
+              title="Apple or device calendar"
+              detail="Getting the file"
+              label="Apple or device calendar. Getting the file"
+              leading={<Icon name="calendar" size={22} color={color.accentDark} />}
+              busy
+            />
+          </Card>
         </Section>
 
         <Section label="Marks and notices">
