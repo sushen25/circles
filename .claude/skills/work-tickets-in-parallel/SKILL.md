@@ -92,9 +92,12 @@ Steps, in order:
    - A ticket that moves or renames something everyone imports (the copy
      package, `components/`, a domain module's exports) runs **alone, first**.
      Land it, then fan out.
-   - At most one ticket in the set may add migrations or SQL functions. The
-     generated functions migration (ADR 0015) and `db.generated.ts` do not
-     merge; two branches that both regenerate them guarantee a conflict.
+   - A ticket adds **one new migration** (`pnpm gen:migration <name>`); the
+     generators write into it, and the gate refuses an edit to any migration
+     already on main. Two tickets may each add one, but queue them: both take
+     the next number and both regenerate `db.generated.ts`, so the second to
+     land renumbers in its final rebase (the gate fails until it does) and
+     regenerates with `pnpm gen`.
    - No more tickets than free slots.
 4. **Say what you chose and why, then wait for the founder's go-ahead** before
    spawning anything: the set, what was left out and the reason, the merge
@@ -150,7 +153,7 @@ Steps, in order:
 
 ```bash
 .claude/skills/work-tickets-in-parallel/parallel.sh sync
-corepack pnpm gen:functions && corepack pnpm gen:types   # only if the merge touched SQL
+corepack pnpm gen   # only if the merge touched SQL; renumber your migration first if main took its number
 .claude/skills/work-tickets-in-parallel/parallel.sh gate
 ```
 

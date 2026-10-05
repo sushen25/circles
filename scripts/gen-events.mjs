@@ -13,9 +13,18 @@
 // kinds of thing, and each is written in exactly one place.
 //
 // The event names are a **table constraint** on `jobs.outbox`, so they live in
-// the migration that last replaced it — `MIGRATION` below. That was the one
-// that created the table until S2-05 added `planning.organiser_changed`; 0006's
-// block is history now, like its fragments.
+// the migration that last replaced it: the latest one that holds the block.
+// `gen:events` writes into the highest-numbered migration that is not on
+// `origin/main` (`migrations.mjs`) and refuses when there is none, because a
+// shipped migration is never edited. A change to the event names therefore
+// means `pnpm gen:migration <name>` with the constraint in it (below), then
+// this. Earlier blocks are history, like 0006's fragments.
+//
+//   alter table jobs.outbox drop constraint outbox_event_name;
+//   alter table jobs.outbox add constraint outbox_event_name check (event_name in (
+//   -- BEGIN GENERATED: event names (scripts/gen-events.mjs)
+//   -- END GENERATED: event names
+//   ));
 //
 // The fragments are the body of **`jobs.carries_content`**, and a function's
 // definition lives in `supabase/sql/functions/` (ADR 0015). That is the copy a
@@ -25,16 +34,24 @@
 // from when the function was first created; it is history and is deliberately
 // not regenerated. Do not edit it, and do not trust it — read the tree.
 //
-// **Once `MIGRATION` has shipped**, a change to the event names means a new
-// migration that replaces the constraint, and `MIGRATION` moves to it. The
-// fragments need no new migration at all: the tree is rendered into whichever
-// functions migration is current, by `gen-sql-functions.mjs`.
+// The fragments need no new migration of their own: the tree is rendered into
+// the branch's new functions migration by `gen-sql-functions.mjs`.
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
+import { MIGRATIONS, holderOf, readAll, resolveWriteTarget } from './migrations.mjs';
+
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const MIGRATION = join(root, 'supabase/migrations/0035_organiser_sets_the_plan.sql');
+const EVENT_BEGIN = '-- BEGIN GENERATED: event names (scripts/gen-events.mjs)';
+const EVENT_END = '-- END GENERATED: event names';
+const files = readAll();
+const HOLDER = holderOf(files, EVENT_BEGIN);
+if (HOLDER === undefined) {
+  console.error('gen-events: no migration holds the event names block (markers not found).');
+  process.exit(2);
+}
+const MIGRATION = join(MIGRATIONS, HOLDER);
 const CARRIES_CONTENT = join(root, 'supabase/sql/functions/jobs/carries_content.sql');
 
 const missing = () => {
@@ -53,8 +70,8 @@ const { FORBIDDEN_PAYLOAD_KEYS } = await import(
 
 const BLOCKS = [
   {
-    begin: '-- BEGIN GENERATED: event names (scripts/gen-events.mjs)',
-    end: '-- END GENERATED: event names',
+    begin: EVENT_BEGIN,
+    end: EVENT_END,
     files: [MIGRATION],
     render: () =>
       DOMAIN_EVENT_NAMES.map(
@@ -96,8 +113,9 @@ if (process.argv.includes('--check')) {
       'check:events: the outbox constraints no longer match DOMAIN_EVENT_NAMES / ' +
         'FORBIDDEN_PAYLOAD_KEYS.\nRun `pnpm gen:events`, then `pnpm gen:functions` — the ' +
         'fragments are part of a function definition, so the functions migration is ' +
-        'rendered from the tree afterwards. If this migration has already shipped, add a ' +
-        'new migration and point MIGRATION in scripts/gen-events.mjs at it.',
+        'rendered from the tree afterwards. If the event names changed, add a migration with ' +
+        '`pnpm gen:migration <name>` (unless this branch has one) and put the constraint in it ' +
+        '(see the header of scripts/gen-events.mjs); a migration on main is never edited.',
     );
     process.exit(1);
   }
@@ -107,8 +125,43 @@ if (process.argv.includes('--check')) {
   process.exit(0);
 }
 
-for (const [target, sql] of updated) writeFileSync(target, sql);
+if (!drifted) {
+  console.log(`gen:events: up to date (${DOMAIN_EVENT_NAMES.length} events in ${HOLDER})`);
+  process.exit(0);
+}
+
+const eventsDrifted = updated.get(MIGRATION) !== readFileSync(MIGRATION, 'utf8');
+let written = null;
+if (eventsDrifted) {
+  const name = resolveWriteTarget({
+    gen: 'gen:events',
+    files,
+    begin: EVENT_BEGIN,
+    holder: HOLDER,
+    template:
+      'alter table jobs.outbox drop constraint outbox_event_name;\n' +
+      'alter table jobs.outbox add constraint outbox_event_name check (event_name in (\n' +
+      `${EVENT_BEGIN}\n${EVENT_END}\n));`,
+  });
+  const sql = files.get(name);
+  const from = sql.indexOf(EVENT_BEGIN);
+  const to = sql.indexOf(EVENT_END);
+  const rendered = updated.get(MIGRATION);
+  const generated = rendered.slice(
+    rendered.indexOf(EVENT_BEGIN),
+    rendered.indexOf(EVENT_END) + EVENT_END.length,
+  );
+  writeFileSync(
+    join(MIGRATIONS, name),
+    sql.slice(0, from) + generated + sql.slice(to + EVENT_END.length),
+  );
+  written = name;
+}
+for (const [target, sql] of updated) {
+  if (target !== MIGRATION) writeFileSync(target, sql);
+}
 console.log(
   `gen:events: wrote ${DOMAIN_EVENT_NAMES.length} events and ${FORBIDDEN_PAYLOAD_KEYS.length} fragments ` +
-    `to ${targets.length} file(s). Run \`pnpm gen:functions\` to carry the fragments into the functions migration.`,
+    `(names: ${written ?? 'unchanged'}). Run \`pnpm gen:functions\` to carry the fragments into ` +
+    'the functions migration.',
 );
