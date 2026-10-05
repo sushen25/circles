@@ -1,6 +1,3 @@
-import { readdirSync, readFileSync, statSync } from 'node:fs';
-import { join, relative } from 'node:path';
-
 import { describe, expect, it } from 'vitest';
 
 /**
@@ -17,13 +14,12 @@ const CONTROLS = ['Button', 'CompactButton', 'Tertiary', 'ListRow', 'SetTimeRow'
 const PROGRESS =
   /\b(busy|acting|saving|sending|pending|submitting|working|loading|removing|stopping|waiting|signingOut|asking|locking)\w*\b/i;
 
-function sources(dir: string): string[] {
-  return readdirSync(dir).flatMap((name) => {
-    const path = join(dir, name);
-    if (statSync(path).isDirectory()) return sources(path);
-    return path.endsWith('.tsx') && !path.endsWith('.test.tsx') ? [path] : [];
-  });
-}
+/** Every screen's source as text, found by Vite so no test reads the disk itself. */
+const SOURCES = import.meta.glob(['/src/**/*.tsx', '!/**/*.test.tsx'], {
+  query: '?raw',
+  import: 'default',
+  eager: true,
+}) as Record<string, string>;
 
 /** The attribute text of every opening tag of `names`, found by balancing braces. */
 function openings(text: string): { tag: string; attrs: string; at: number }[] {
@@ -92,10 +88,9 @@ describe('busy usage', () => {
   });
 
   it('is clean across every screen', () => {
-    const root = join(__dirname, '..');
-    const bad = sources(root).flatMap((file) =>
-      offences(readFileSync(file, 'utf8')).map((o) => `${relative(root, file)}:${o}`),
-    );
+    const files = Object.entries(SOURCES);
+    expect(files.length).toBeGreaterThan(50);
+    const bad = files.flatMap(([file, text]) => offences(text).map((o) => `${file}:${o}`));
     expect(bad).toEqual([]);
   });
 });
