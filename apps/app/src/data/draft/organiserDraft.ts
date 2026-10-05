@@ -37,7 +37,9 @@ import { newIdempotencyKey } from '../functions';
  * request it was made for, so a change to what the request says makes a new one.
  *
  * SUS-92 adds an MMKV store for answers; this record moves into it when that
- * reaches `main`. Four functions in this file are the whole interface.
+ * reaches `main`. Four functions in this file are the whole interface, and
+ * every one of them takes its turn in a single line (`inLine`), so a slow
+ * adapter cannot interleave two of them.
  */
 export const DRAFT_KEY = 'circles.organiser-draft';
 export const DRAFT_TTL_MS = 24 * 60 * 60 * 1000;
@@ -131,6 +133,24 @@ let refused: string | null = null;
  */
 let cleared = false;
 
+/**
+ * The line every touch of the record waits in. Native storage is asynchronous,
+ * so `saveDraft` (read, merge, write) and `clearDraft` could otherwise
+ * interleave: two quick saves would each merge into the same old record and the
+ * later write would drop the earlier one's fields, and a save already in flight
+ * would land after a clear and bring a finished or signed-out draft back. Run
+ * one at a time, in the order they were called, a clear stays the last word on
+ * everything called before it, and a save called after it starts a fresh draft.
+ * A failed turn never stops the line.
+ */
+let line: Promise<unknown> = Promise.resolve();
+
+function inLine<T>(turn: () => Promise<T>): Promise<T> {
+  const result = line.then(turn, turn);
+  line = result.catch(() => undefined);
+  return result;
+}
+
 /** What the plan is before anything is chosen: the fortnight, two hours, the defaults. */
 export const DEFAULT_PLAN: DraftPlan = {
   category: 'catch_up',
@@ -171,9 +191,13 @@ function blank(now: number): OrganiserDraft {
 }
 
 /** The draft, or `null` when there is none, it has expired, or it cannot be read. */
-export async function readDraft(now: number = Date.now()): Promise<OrganiserDraft | null> {
+export function readDraft(now: number = Date.now()): Promise<OrganiserDraft | null> {
+  return inLine(() => read(now));
+}
+
+async function read(now: number): Promise<OrganiserDraft | null> {
   if (cleared) {
-    await clearDraft();
+    await remove();
     if (cleared) return null;
   }
   let raw: string | null;
@@ -193,7 +217,7 @@ export async function readDraft(now: number = Date.now()): Promise<OrganiserDraf
   }
   // Unreadable, or older than a day: removed, so nothing keeps answering for it.
   if (draft === undefined || now - draft.updatedAt >= DRAFT_TTL_MS) {
-    await clearDraft();
+    await remove();
     return null;
   }
   return draft;
@@ -203,11 +227,18 @@ export async function readDraft(now: number = Date.now()): Promise<OrganiserDraf
  * Applies a change and writes it. `created` is true for the write that made the
  * draft, which is what `organiser_draft_started` is counted on.
  */
-export async function saveDraft(
+export function saveDraft(
   patch: DraftPatch,
   now: number = Date.now(),
 ): Promise<{ draft: OrganiserDraft; created: boolean }> {
-  const before = await readDraft(now);
+  return inLine(() => write(patch, now));
+}
+
+async function write(
+  patch: DraftPatch,
+  now: number,
+): Promise<{ draft: OrganiserDraft; created: boolean }> {
+  const before = await read(now);
   const base = before ?? blank(now);
   const next: OrganiserDraft = { ...base, ...patch, updatedAt: now };
   // A different circle is a different request, and a different plan too, since
@@ -231,7 +262,11 @@ export async function saveDraft(
   return { draft: next, created: before === null };
 }
 
-export async function clearDraft(): Promise<void> {
+export function clearDraft(): Promise<void> {
+  return inLine(remove);
+}
+
+async function remove(): Promise<void> {
   refused = null;
   try {
     await sessionStorage.removeItem(DRAFT_KEY);
