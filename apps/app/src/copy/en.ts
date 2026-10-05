@@ -1314,6 +1314,13 @@ export const en = {
     catch_up_next_14_days: 'Catch up · next 14 days',
     catch_up_this_weekend: 'Catch up · this weekend',
     catch_up_tonight: 'Catch up · tonight',
+    // The same line for a plan set up in full: any kind, any window.
+    window_title: '{what} · {when}',
+    when_tonight: 'tonight',
+    when_this_weekend: 'this weekend',
+    when_next_7_days: 'next 7 days',
+    when_next_14_days: 'next 14 days',
+    when_custom: 'custom dates',
     when: 'When?',
     tonight_hours: 'Tonight, {time}',
     too_late_for_tonight:
@@ -1776,6 +1783,9 @@ export const en = {
     ask_the_group: 'Ask the group',
     well_give_you_a_short_message_to:
       "We'll give you a short message to paste into the group chat.",
+    // The setup of a plan drafted before sign-in (ADR 0053).
+    save_plan: 'Save plan',
+    saved_on_this_device: "Kept on this device. Nothing is sent until you've signed in.",
     custom_dates: 'Custom · {dates}',
     times_of_day: 'Times of day',
     evenings: 'Evenings',
@@ -2305,6 +2315,8 @@ export const en = {
     youre_offline: "You're offline. Connect, then try again.",
     try_again: 'Try again',
     change_the_time: 'Change the time',
+    time_passed:
+      "The time you chose has gone by while you signed in. Pick another and we'll set it up.",
     reference: 'Ref {reference}',
   },
   shell: {

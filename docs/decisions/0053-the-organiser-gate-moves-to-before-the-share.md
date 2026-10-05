@@ -41,7 +41,7 @@ name) goes First circle → First plan → Paste to chat with no gate and no You
 name.
 
 **2. Nothing is created on the server until the place is saved.** The circle's
-name, its cadence and the plan's preset are held **on the device**. `create-circle`
+name, its cadence and the plan's whole setup are held **on the device**. `create-circle`
 and `create-plan` are called, in that order, once the sign-in has completed and
 the organiser has a name. They are unchanged: `create-circle` still refuses an
 anonymous session, and `create-plan` still needs a member who can organise. So
@@ -51,7 +51,7 @@ circle, not a plan, not an anonymous user.
 
 **3. The draft is one record in the session storage adapter** (`data/auth/storage`:
 `localStorage` on the web, the chunked secure store on native), under one key. It
-holds the circle's name and cadence, the plan's preset, the organiser's chosen
+holds the circle's name and cadence, the plan's setup (see 3a), the organiser's chosen
 way on (ask the group, just invite, or see if people are keen), and two
 idempotency keys. It **survives a reload and the round trip to an email code or
 an OAuth provider**, because it is written as it is typed and read when each
@@ -59,6 +59,25 @@ screen mounts. It **expires 24 hours after it was last changed**: a read past th
 removes it and answers "no draft". Keeping the keys in it means a finish that was
 interrupted after the circle was made, and runs again, returns the same circle
 and the same plan instead of a second one (ADR 0016).
+
+**3a. The organiser can change anything on the plan before signing in.** The
+First plan card's **Change** on the window, the length and the replies opens the
+full plan setup, in a **draft mode** at `/circles/new/plan/setup`: the same screen,
+controls and validation as `/circles/:id/plan/setup`, over a circle of one. It
+reads its starting values from the draft and **Save plan** writes the setup back
+into it and returns to the card; it calls nothing on the server (no `circleHome`,
+no `create-plan`). The record's format is version 2: the kind of plan, the
+window (a preset, or custom dates with their gaps), the hours, the length and the
+reply deadline. A record of any other version reads as "no draft". The finish
+makes the plan with `create-plan`, in the request the live setup sends, from
+whatever the draft holds then, so no server API is added. A circle of one has no
+quorum to set and nobody to require, so draft mode **leaves those two controls
+out**: the quorum is never sent and stays *defaulted*, following the people who
+join (ADR 0026 is unchanged), and the card's quorum line, "Most of the group
+need to make it", has no Change. Opening the setup does not renew the 24 hours;
+saving a change does. A time chosen that has passed by the finish (a deadline, a
+window) is answered with "Change the time", back to the card, and the card drops
+a stale deadline or window rather than offer it.
 
 When SUS-92's MMKV store reaches `main`, this record moves into it with no change
 to what it holds; the draft's reads and writes are four functions in one file.
@@ -118,7 +137,7 @@ never requires a saved place.
   the draft, is what follows them.
 - A shared browser can show the next person a circle name the first typed. The
   draft is cleared when a circle is made from it and when somebody signs out, and
-  it holds nothing but that name, a cadence and a preset.
+  it holds nothing but that name, a cadence and the plan's setup.
 - The draft is never sent anywhere before the place is saved, and never to
   analytics at any time.
 - The first-run tests that began with "Continue with email" on `/` begin at

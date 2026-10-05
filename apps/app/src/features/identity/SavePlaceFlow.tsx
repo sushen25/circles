@@ -1,4 +1,3 @@
-import { fromISO } from '@circles/domain';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
@@ -6,8 +5,7 @@ import { track } from '../../analytics/track';
 import { t } from '../../copy';
 import { deviceTimeZone, guard, useSession } from '../../data/auth';
 import { useOrganiserDraft } from '../circles/useOrganiserDraft';
-import { firstPlanPreview } from '../planning/firstPlan';
-import { firstPlanCardWords } from '../planning/firstPlanCard';
+import { draftCard } from '../planning/draftPlan';
 import { FINISH_PATH } from './afterSignIn';
 import { hasBackend } from '../../data/auth/client';
 import { SignInFlow } from './SignInFlow';
@@ -102,14 +100,7 @@ function LiveSavePlace() {
         detail: t('savePlace', 'just_the_invite'),
       };
     }
-    const zone = deviceTimeZone() ?? 'UTC';
-    const now = openedAt;
-    const preview = firstPlanPreview(
-      { zone, defaultDurationMinutes: 120, defaultQuorum: null, members: 1 },
-      fromISO(new Date(now).toISOString()),
-      draft.preset,
-    );
-    const words = firstPlanCardWords(preview, draft.preset, zone, now);
+    const words = draftCard(draft.plan, deviceTimeZone() ?? 'UTC', openedAt).words;
     return {
       circle: draft.circleName,
       kind: 'plan' as const,

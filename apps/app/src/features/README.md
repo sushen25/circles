@@ -87,7 +87,7 @@ the entry point takes the token out of the address bar before the router loads
 
 **Real since S1-22:** `/circles/new` (`FirstCircleFlow`; a draft since ADR 0053, and `create-circle` is called by `FinishDraftFlow`),
 `/circles/[id]/invite` (`InviteCircleFlow`) and `/circles/[id]` (`CircleHomeFlow`).
-**Since SUS-150 (ADR 0053)** the first run drafts on the device and creates nothing until the place is saved: `/circles/new` → `/circles/new/plan` → `/circles/new/save` (the gate) → `/name` → `/circles/new/finish`, which makes the circle and the plan and goes to the plan's share screen. A signed-in organiser skips the gate and Your name. The draft is `data/draft`.
+**Since SUS-150 (ADR 0053)** the first run drafts on the device and creates nothing until the place is saved: `/circles/new` → `/circles/new/plan` → `/circles/new/save` (the gate) → `/name` → `/circles/new/finish`, which makes the circle and the plan and goes to the plan's share screen. A signed-in organiser skips the gate and Your name. The draft is `data/draft`. **Change** on the card opens `/circles/new/plan/setup` (`PlanSetupDraftFlow`): the plan setup over the draft, with no quorum or required people, which saves into the draft and sends nothing.
 **Since S1-22b (ADR 0026)** the first run goes plan-first, then
 `/circles/[id]/plan/[planId]/shared` → the availability editor:
 the invite screen and the filling-up home are reached from circle home, from

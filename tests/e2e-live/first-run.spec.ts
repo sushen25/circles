@@ -5,6 +5,7 @@ import {
   accountToSignInTo,
   circleOwnedBy,
   circlesOwnedBy,
+  durationOf,
   guestWhoAnswered,
   isParticipant,
   latestCodeFor,
@@ -115,6 +116,19 @@ test('a new organiser reaches a shareable plan link with two typed inputs and no
   await expect(page.getByText('Your first catch-up')).toBeVisible();
   expect(await typedFieldsOnScreen(page), 'nothing to type on the first plan').toBe(0);
   await expect(page.getByText('Most of the group need to make it')).toBeVisible();
+
+  // Anything on the card can be changed with no account: the full setup, over the
+  // draft. Three hours instead of two, saved on the device and sent nowhere.
+  await expect(page.getByText('About 2 hours')).toBeVisible();
+  await page.getByRole('button', { name: 'Change' }).first().click();
+  await expect(page).toHaveURL(/\/circles\/new\/plan\/setup$/);
+  await expect(page.getByRole('button', { name: 'Save plan' })).toBeVisible();
+  await page.getByRole('checkbox', { name: '3 hrs' }).click();
+  await page.getByRole('button', { name: 'Save plan' }).click();
+  await expect(page.getByText('About 3 hours')).toBeVisible();
+  // It survives a reload.
+  await page.reload();
+  await expect(page.getByText('About 3 hours')).toBeVisible();
   await page.getByRole('button', { name: 'Ask the group' }).click();
 
   // The gate is the third screen, after the plan, and nothing exists yet.
@@ -140,6 +154,8 @@ test('a new organiser reaches a shareable plan link with two typed inputs and no
   // people tap the link (ADR 0026, unchanged).
   const draftedPlan = plansIn(circlesOwnedBy(profileFor(email)!.userId)[0]!.id)[0];
   expect(quorumOf(draftedPlan!.id)).toEqual({ quorum: 3, source: 'defaulted' });
+  // And the plan made after the gate is the one that was changed before it.
+  expect(durationOf(draftedPlan!.id)).toBe(180);
 
   // In the database: a profile named and zoned, the circle it owns, and a plan
   // whose quorum is a placeholder.

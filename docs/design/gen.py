@@ -893,10 +893,10 @@ S["FirstPlan"] = shell(
     body(
         stack(lbl("Step 2 of 2"), dl("Your first catch-up"), p("We've picked sensible defaults. Tap anything to change it, or just ask the group."), gap=8),
         stack(lbl("When?"), chips("*Next 14 days", "This weekend", "Tonight"), gap=8),
-        card(between(stack(title("Catch up · next 14 days"), sm("Evenings, 5:30–10:30 pm"), gap=2)), divider(),
-             between(stack(title("About 2 hours"), sm(""), gap=2)), divider(),
+        card(between(stack(title("Catch up · next 14 days"), sm("Evenings, 5:30–10:30 pm"), gap=2), ter("Change")), divider(),
+             between(stack(title("About 2 hours"), sm(""), gap=2), ter("Change")), divider(),
              between(stack(title("Most of the group need to make it"), sm("Adjusts as more people join"), gap=2)), divider(),
-             between(stack(title("Replies close in 3 days"), sm("Tue 15 Sep, 6 pm"), gap=2)), gap=12),
+             between(stack(title("Replies close in 3 days"), sm("Tue 15 Sep, 6 pm"), gap=2), ter("Change")), gap=12),
         sm("Friends mark the times they'd actually be up for. You'll see the best options and pick one. Nobody's calendar is shared. Next, a quick sign-in so this plan is yours on any device."),
     ) +
     foot(pri("Ask the group"), ter("See if people are keen instead"), ter("Just invite people for now"))

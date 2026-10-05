@@ -49,17 +49,17 @@ vi.mock('../../data/circles', async (original) => ({
   ...(await original<typeof CircleData>()),
   createCircle: (...a: unknown[]) => createCircle(...a),
 }));
-const createFirstPlan = vi.fn();
+const createPlan = vi.fn();
 vi.mock('../../data/planning', async (original) => ({
   ...(await original<typeof Planning>()),
-  createFirstPlan: (...a: unknown[]) => createFirstPlan(...a),
+  createPlan: (...a: unknown[]) => createPlan(...a),
 }));
 
 const { FirstCircleFlow } = await import('./FirstCircleFlow');
 const { FinishDraftFlow } = await import('./FinishDraftFlow');
 const { FirstPlanDraftFlow } = await import('../planning/FirstPlanDraftFlow');
 const { SavePlaceFlow } = await import('../identity/SavePlaceFlow');
-const { readDraft, saveDraft } = await import('../../data/draft');
+const { DEFAULT_PLAN, readDraft, saveDraft } = await import('../../data/draft');
 const { FunctionError } = await import('../../data/functions');
 
 const CIRCLE = '00000000-0000-4000-8000-00000000c1c1';
@@ -79,12 +79,12 @@ async function draftReady(way: 'ask' | 'invite' = 'ask') {
 beforeEach(() => {
   globalThis.localStorage.clear();
   Object.assign(session, { status: 'none', userId: undefined, isLoading: false });
-  for (const mock of [push, replace, track, createCircle, createFirstPlan, ownProfile]) {
+  for (const mock of [push, replace, track, createCircle, createPlan, ownProfile]) {
     mock.mockReset();
   }
   ownProfile.mockResolvedValue({ name: 'Maya', zone: 'Europe/London' });
   createCircle.mockResolvedValue({ circle: { id: CIRCLE }, invite_secret: SECRET });
-  createFirstPlan.mockResolvedValue({ plan_id: PLAN });
+  createPlan.mockResolvedValue({ plan_id: PLAN });
 });
 
 describe('the first circle, with no account', () => {
@@ -160,7 +160,7 @@ describe('the first plan, drafted', () => {
 
     expect(push).toHaveBeenCalledWith('/circles/new/save');
     expect(createCircle).not.toHaveBeenCalled();
-    expect(createFirstPlan).not.toHaveBeenCalled();
+    expect(createPlan).not.toHaveBeenCalled();
     expect(await readDraft()).toMatchObject({ way: 'ask', proceed: false });
   });
 
@@ -194,7 +194,7 @@ describe('the first plan, drafted', () => {
     await waitFor(async () =>
       expect((await readDraft())?.keys.plan).not.toBe(before.draft.keys.plan),
     );
-    expect(await readDraft()).toMatchObject({ preset: 'this_weekend' });
+    expect(await readDraft()).toMatchObject({ plan: { preset: 'this_weekend' } });
   });
 
   it('sends a card left behind after the finish back to the start when it is seen again', async () => {
@@ -251,7 +251,7 @@ describe('the finish', () => {
   it('makes the circle, then the plan, once each, and clears the draft', async () => {
     Object.assign(session, { status: 'saved', userId: 'maya' });
     await draftReady();
-    const { draft } = await saveDraft({ preset: 'this_weekend' });
+    const { draft } = await saveDraft({ plan: { ...DEFAULT_PLAN, preset: 'this_weekend' } });
     wrap(<FinishDraftFlow />);
 
     await waitFor(() =>
@@ -267,11 +267,11 @@ describe('the finish', () => {
       timeZone: 'Europe/London',
       idempotencyKey: draft.keys.circle,
     });
-    expect(createFirstPlan).toHaveBeenCalledWith(
+    expect(createPlan).toHaveBeenCalledWith(
       expect.objectContaining({ circleId: CIRCLE, preset: 'this_weekend' }),
     );
     expect(createCircle.mock.invocationCallOrder[0]!).toBeLessThan(
-      createFirstPlan.mock.invocationCallOrder[0]!,
+      createPlan.mock.invocationCallOrder[0]!,
     );
     expect(track).toHaveBeenCalledWith('circle_created', { circle_id: CIRCLE });
     expect(await readDraft()).toBeNull();
@@ -290,13 +290,13 @@ describe('the finish', () => {
         params: { id: CIRCLE },
       }),
     );
-    expect(createFirstPlan).not.toHaveBeenCalled();
+    expect(createPlan).not.toHaveBeenCalled();
   });
 
   it('keeps the draft when the plan fails, and Try again sends the same keys', async () => {
     Object.assign(session, { status: 'saved', userId: 'maya' });
     await draftReady();
-    createFirstPlan.mockRejectedValueOnce(new Error('timeout'));
+    createPlan.mockRejectedValueOnce(new Error('timeout'));
     wrap(<FinishDraftFlow />);
 
     fireEvent.click(await screen.findByRole('button', { name: 'Try again' }));
@@ -305,7 +305,7 @@ describe('the finish', () => {
     const circleKeys = createCircle.mock.calls.map(
       ([o]) => (o as { idempotencyKey: string }).idempotencyKey,
     );
-    const planKeys = createFirstPlan.mock.calls.map(
+    const planKeys = createPlan.mock.calls.map(
       ([o]) => (o as { idempotencyKey: string }).idempotencyKey,
     );
     expect(circleKeys).toHaveLength(2);
@@ -318,7 +318,7 @@ describe('the finish', () => {
   it('counts the circle once, however many times the finish runs', async () => {
     Object.assign(session, { status: 'saved', userId: 'maya' });
     await draftReady();
-    createFirstPlan.mockRejectedValueOnce(new Error('timeout'));
+    createPlan.mockRejectedValueOnce(new Error('timeout'));
     wrap(<FinishDraftFlow />);
 
     fireEvent.click(await screen.findByRole('button', { name: 'Try again' }));
@@ -331,7 +331,7 @@ describe('the finish', () => {
   it('offers a way back to the card when Tonight has run out, not a retry that cannot work', async () => {
     Object.assign(session, { status: 'saved', userId: 'maya' });
     await draftReady();
-    createFirstPlan.mockRejectedValueOnce(
+    createPlan.mockRejectedValueOnce(
       new FunctionError(
         { error: 'conflict', reason: 'too_late_for_tonight', message: 'x' } as never,
         'x',
@@ -364,7 +364,7 @@ describe('the finish', () => {
 
     await waitFor(() => expect(replace).toHaveBeenCalledWith('/circles/new/save'));
     expect(createCircle).not.toHaveBeenCalled();
-    expect(createFirstPlan).not.toHaveBeenCalled();
+    expect(createPlan).not.toHaveBeenCalled();
   });
 
   it('does nothing without a draft', async () => {

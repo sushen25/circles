@@ -4,13 +4,14 @@ import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 
 import { track } from '../../analytics/track';
-import { t } from '../../copy';
 import { deviceTimeZone, guard, ownProfile, useSession } from '../../data/auth';
 import { createCircle, keepInviteSecret } from '../../data/circles';
 import { clearDraft, readDraft, saveDraft } from '../../data/draft';
-import { createFirstPlan } from '../../data/planning';
+import { createPlan } from '../../data/planning';
 import { failureOf } from '../identity/join/failure';
-import { WINDOW_EVENT } from '../planning/form';
+import { formOf, isUntouched } from '../planning/draftPlan';
+import { customShape, WINDOW_EVENT } from '../planning/form';
+import { categoryLabel } from '../planning/words';
 import { FinishDraftScreen, type FinishDraftProblem } from './FinishDraftScreen';
 
 /**
@@ -35,6 +36,9 @@ const REASONS: Record<string, FinishDraftProblem> = {
   too_many_requests: 'too_many_tries',
   // Tonight, chosen, and the evening ran out while the gate and the name were done.
   too_late_for_tonight: 'too_late',
+  // A window or a deadline chosen on the card, passed while the gate was done.
+  window_has_passed: 'time_passed',
+  deadline_out_of_range: 'time_passed',
 };
 
 export function FinishDraftFlow() {
@@ -93,18 +97,31 @@ export function FinishDraftFlow() {
       }
 
       const circleId = made.circle.id as CircleId;
-      const plan = await createFirstPlan({
+      const setup = formOf(draft.plan);
+      // Only what was chosen is sent, as the plan setup does: a field left at its
+      // default is the server's to resolve, and the quorum stays defaulted
+      // (ADR 0026). The idempotency key is the draft's, made with it.
+      const plan = await createPlan({
         circleId,
-        title: t('firstPlan', 'plan_title'),
-        preset: draft.preset,
+        title: categoryLabel(setup.category),
+        category: setup.category,
+        preset: setup.preset,
+        custom: setup.preset === 'custom' ? setup.custom : undefined,
+        daily: setup.band,
+        durationMinutes: setup.duration === 120 ? undefined : setup.duration,
+        responseDeadline: setup.deadline,
         idempotencyKey: draft.keys.plan,
       });
       track('plan_created', {
         circle_id: circleId,
         plan_id: plan.plan_id,
         mode: 'named',
-        window: WINDOW_EVENT[draft.preset],
-        used_defaults: draft.preset === 'next_14_days',
+        window: WINDOW_EVENT[setup.preset],
+        used_defaults: isUntouched(draft.plan),
+        // A custom plan's shape: a flag and a count, never the dates (ADR 0047).
+        ...(setup.preset === 'custom' && setup.custom !== undefined
+          ? customShape(setup.custom)
+          : {}),
       });
       void queryClient.invalidateQueries({ queryKey: ['circle-home', circleId] });
       await clearDraft();

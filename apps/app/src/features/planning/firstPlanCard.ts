@@ -1,6 +1,9 @@
+import type { PlanCategory, WindowPreset } from '@circles/domain';
+
 import { t } from '../../copy';
-import { bandWords, type FirstPlanPreset, type FirstPlanPreview } from './firstPlan';
-import { closesAtWords, closesIn } from './words';
+import { bandWords, type FirstPlanPreview } from './firstPlan';
+import type { DateRange } from './form';
+import { categoryLabel, closesAtWords, closesIn, datesWords } from './words';
 
 /**
  * The words on FirstPlan's card, from a preview — one place, for the card made
@@ -17,11 +20,32 @@ const DURATION: Record<number, () => string> = {
   300: () => t('firstPlan', 'about_5_hours'),
 };
 
-const WINDOW_TITLE: Record<FirstPlanPreset, () => string> = {
+const WINDOW_TITLE: Partial<Record<WindowPreset, () => string>> = {
   next_14_days: () => t('firstPlan', 'catch_up_next_14_days'),
   this_weekend: () => t('firstPlan', 'catch_up_this_weekend'),
   tonight: () => t('firstPlan', 'catch_up_tonight'),
 };
+
+/**
+ * "Catch up · next 14 days". The first-run card is always a catch-up in one of
+ * three windows; a plan drafted with the full setup can be any kind in any
+ * window, and says so in the same shape.
+ */
+function windowTitle(
+  preset: WindowPreset,
+  category: PlanCategory,
+  custom: DateRange | undefined,
+): string {
+  const known = WINDOW_TITLE[preset];
+  if (known !== undefined && category === 'catch_up') return known();
+  const when =
+    preset === 'custom'
+      ? custom === undefined
+        ? t('firstPlan', 'when_custom')
+        : datesWords(custom)
+      : t('firstPlan', `when_${preset}`);
+  return t('firstPlan', 'window_title', { what: categoryLabel(category), when });
+}
 
 export type FirstPlanCardWords = {
   window: string;
@@ -32,14 +56,15 @@ export type FirstPlanCardWords = {
 };
 
 export function firstPlanCardWords(
-  preview: FirstPlanPreview,
-  preset: FirstPlanPreset,
+  preview: Pick<FirstPlanPreview, 'band' | 'durationMinutes' | 'deadline' | 'latestStart'>,
+  preset: WindowPreset,
   zone: string,
   openedAt: number,
+  plan: { category?: PlanCategory | undefined; custom?: DateRange | undefined } = {},
 ): FirstPlanCardWords {
   const band = bandWords(preview.band);
   return {
-    window: WINDOW_TITLE[preset](),
+    window: windowTitle(preset, plan.category ?? 'catch_up', plan.custom),
     band:
       preset === 'tonight'
         ? t('firstPlan', 'tonight_hours', { time: band })

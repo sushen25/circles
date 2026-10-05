@@ -66,11 +66,17 @@ export type FirstPlanProps = {
    */
   onJustInvite?: (() => void) | undefined;
   /**
-   * Off before there is a circle to change the plan of (ADR 0053): the chips
-   * above are how the defaults are adjusted, and the full setup is reached from
-   * the plan once it is made.
+   * Off only in the gallery's no-backend fixture. Before the circle exists the
+   * card is still changeable: **Change** opens the plan setup in its draft mode
+   * (ADR 0053).
    */
   changeable?: boolean | undefined;
+  /**
+   * Off for the quorum line of a circle of one: "Most of the group" is not a
+   * number anybody can set until there is a group, and it follows the people
+   * who join (ADR 0026).
+   */
+  quorumChangeable?: boolean | undefined;
   /** The line under the card, when it has more to say (the sign-in to come). */
   note?: string | undefined;
 };
@@ -138,6 +144,7 @@ export function FirstPlanScreen({
   offerQuiet = true,
   onJustInvite,
   changeable = true,
+  quorumChangeable = true,
   note = t('firstPlan', 'friends_mark_the_times_theyd_actually_be'),
 }: FirstPlanProps) {
   if (state === 'loading') {
@@ -201,7 +208,7 @@ export function FirstPlanScreen({
             title={quorum}
             detail={t('firstPlan', 'adjusts_as_more_people_join')}
             onChange={onChange}
-            changeable={changeable}
+            changeable={changeable && quorumChangeable}
           />
           <Divider />
           <Line title={closesIn} detail={closesAt} onChange={onChange} changeable={changeable} />

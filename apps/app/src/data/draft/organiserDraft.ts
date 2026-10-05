@@ -1,4 +1,5 @@
 import { IdempotencyKey } from '@circles/contracts';
+import { DURATIONS, type DurationMinutes } from '@circles/domain';
 import { z } from 'zod';
 
 import { sessionStorage } from '../auth/storage';
@@ -24,6 +25,12 @@ import { newIdempotencyKey } from '../functions';
  * removes the record and says there is none. Sliding rather than fixed: a
  * person who comes back at hour twenty-three and edits has not abandoned it.
  *
+ * **The whole plan setup travels with it** (`plan`): what the organiser chose on
+ * the First plan card and on the plan setup in its draft mode — the kind, the
+ * window, the hours, the length and the reply deadline. The finish makes the
+ * plan from exactly this. It has no quorum and no required people: a circle of
+ * one has nobody to count, so the quorum stays the server's own (ADR 0026).
+ *
  * **The idempotency keys travel with it** (ADR 0016). A finish interrupted
  * after the circle was made runs again with the same keys and gets the same
  * circle and the same plan, not a second of each. A key is only good for the
@@ -36,17 +43,50 @@ export const DRAFT_KEY = 'circles.organiser-draft';
 export const DRAFT_TTL_MS = 24 * 60 * 60 * 1000;
 
 export const DRAFT_CADENCES = ['weekly', 'fortnightly', 'monthly', 'two_monthly', 'none'] as const;
-export const DRAFT_PRESETS = ['next_14_days', 'this_weekend', 'tonight'] as const;
+/** The window presets of the plan setup (spec §5.3). */
+export const DRAFT_PRESETS = [
+  'tonight',
+  'this_weekend',
+  'next_7_days',
+  'next_14_days',
+  'custom',
+] as const;
+export const DRAFT_CATEGORIES = ['catch_up', 'dinner', 'drinks', 'coffee', 'activity'] as const;
 /** What happens once the place is saved: ask the group, or just invite people. */
 export const DRAFT_WAYS = ['ask', 'invite'] as const;
 
+const DraftPlan = z.object({
+  category: z.enum(DRAFT_CATEGORIES),
+  preset: z.enum(DRAFT_PRESETS),
+  /** Inclusive local dates, with the days asked about when there are gaps (ADR 0047). */
+  custom: z
+    .object({
+      start: z.string().max(10),
+      end: z.string().max(10),
+      days: z.array(z.string().max(10)).max(120).optional(),
+    })
+    .optional(),
+  /** An explicit daily band; absent, the window's own suggestion. */
+  band: z.object({ startMin: z.number().int(), endMin: z.number().int() }).optional(),
+  duration: z.custom<DurationMinutes>(
+    (value) => typeof value === 'number' && (DURATIONS as readonly number[]).includes(value),
+  ),
+  /** ISO. Absent, the preset's default deadline. */
+  deadline: z.string().max(40).optional(),
+});
+
+/**
+ * The shape of the stored record. **Version 2** holds the whole plan setup;
+ * version 1 held only a preset. A record of another version does not parse and
+ * is read as "no draft", never crashed on.
+ */
 const Draft = z.object({
-  v: z.literal(1),
+  v: z.literal(2),
   /** Epoch milliseconds of the last change: the 24 hours run from here. */
   updatedAt: z.number().int(),
   circleName: z.string().max(80),
   cadence: z.enum(DRAFT_CADENCES),
-  preset: z.enum(DRAFT_PRESETS),
+  plan: DraftPlan,
   /** Set when Ask the group or Just invite people was chosen. */
   way: z.enum(DRAFT_WAYS).optional(),
   /**
@@ -66,11 +106,12 @@ const Draft = z.object({
 export type OrganiserDraft = z.infer<typeof Draft>;
 export type DraftCadence = (typeof DRAFT_CADENCES)[number];
 export type DraftPreset = (typeof DRAFT_PRESETS)[number];
+export type DraftPlan = z.infer<typeof DraftPlan>;
 export type DraftWay = (typeof DRAFT_WAYS)[number];
 
 /** What a change may carry. `way` and `proceed` are set by the screens that choose them. */
 export type DraftPatch = Partial<
-  Pick<OrganiserDraft, 'circleName' | 'cadence' | 'preset' | 'way' | 'proceed' | 'circleCounted'>
+  Pick<OrganiserDraft, 'circleName' | 'cadence' | 'plan' | 'way' | 'proceed' | 'circleCounted'>
 >;
 
 /**
@@ -90,13 +131,39 @@ let refused: string | null = null;
  */
 let cleared = false;
 
+/** What the plan is before anything is chosen: the fortnight, two hours, the defaults. */
+export const DEFAULT_PLAN: DraftPlan = {
+  category: 'catch_up',
+  preset: 'next_14_days',
+  duration: 120,
+};
+
+/** The same plan, whatever order the keys came in: a request is the same request. */
+function planKey(plan: DraftPlan): string {
+  return JSON.stringify([
+    plan.category,
+    plan.preset,
+    plan.custom?.start,
+    plan.custom?.end,
+    plan.custom?.days,
+    plan.band?.startMin,
+    plan.band?.endMin,
+    plan.duration,
+    plan.deadline,
+  ]);
+}
+
+export function samePlan(a: DraftPlan, b: DraftPlan): boolean {
+  return planKey(a) === planKey(b);
+}
+
 function blank(now: number): OrganiserDraft {
   return {
-    v: 1,
+    v: 2,
     updatedAt: now,
     circleName: '',
     cadence: 'monthly',
-    preset: 'next_14_days',
+    plan: DEFAULT_PLAN,
     proceed: false,
     circleCounted: false,
     keys: { circle: newIdempotencyKey(), plan: newIdempotencyKey() },
@@ -144,9 +211,9 @@ export async function saveDraft(
   const base = before ?? blank(now);
   const next: OrganiserDraft = { ...base, ...patch, updatedAt: now };
   // A different circle is a different request, and a different plan too, since
-  // the plan is made in that circle; a different preset is a different plan.
+  // the plan is made in that circle; a different setup is a different plan.
   const circleChanged = next.circleName !== base.circleName || next.cadence !== base.cadence;
-  const planChanged = next.preset !== base.preset;
+  const planChanged = !samePlan(next.plan, base.plan);
   if (circleChanged) {
     next.keys = { circle: newIdempotencyKey(), plan: newIdempotencyKey() };
     next.circleCounted = false;

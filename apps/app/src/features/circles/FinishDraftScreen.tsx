@@ -8,14 +8,15 @@ import { t } from '../../copy';
  * seen for a second, or not at all; it exists for the second it is slow and for
  * the time it fails, so that what was chosen is never lost without a word.
  */
-export type FinishDraftProblem = 'too_many_tries' | 'couldnt_set_up' | 'offline' | 'too_late';
+export type FinishDraftProblem =
+  'too_many_tries' | 'couldnt_set_up' | 'offline' | 'too_late' | 'time_passed';
 
 export type FinishDraftProps = {
   circleName?: string | undefined;
   problem?: FinishDraftProblem | undefined;
   reference?: string | undefined;
   onRetry?: (() => void) | undefined;
-  /** For `too_late`: back to the plan's card, to pick a time that is still open. */
+  /** For `too_late` and `time_passed`: back to the plan's card, to pick a time that is still open. */
   onChangeTime?: (() => void) | undefined;
 };
 
@@ -27,6 +28,8 @@ function problemCopy(problem: FinishDraftProblem, circle: string): string {
       return t('finish', 'youre_offline');
     case 'too_late':
       return t('firstPlan', 'too_late_for_tonight');
+    case 'time_passed':
+      return t('finish', 'time_passed');
     case 'couldnt_set_up':
       return t('finish', 'couldnt_set_up', { circle });
   }
@@ -59,7 +62,7 @@ export function FinishDraftScreen({
       </Body>
       {problem === undefined ? null : (
         <Foot>
-          {problem === 'too_late' ? (
+          {problem === 'too_late' || problem === 'time_passed' ? (
             <Button label={t('finish', 'change_the_time')} onPress={onChangeTime} />
           ) : (
             <Button label={t('finish', 'try_again')} onPress={onRetry} />

@@ -548,6 +548,13 @@ export function plansIn(
   }));
 }
 
+/** How long a plan's meetup runs, in minutes. */
+export function durationOf(planId: string): number {
+  return Number(
+    sql(`select duration_minutes from public.plans where id = '${planId}'`)[0]?.[0] ?? 0,
+  );
+}
+
 /** A circle `userId` owns, with them as its one member. Its id. */
 export function circleOwnedBy(userId: string, name: string): string {
   const circleId = randomUUID();
