@@ -206,4 +206,94 @@ describe('the organiser draft', () => {
     await clearDraft();
     expect(await readDraft(NOW)).toBeNull();
   });
+
+  describe('on a storage adapter that answers slowly (native secure storage)', () => {
+    /** Every call to the adapter takes a few turns of the event loop to land. */
+    function slowStorage(): void {
+      const real = {
+        get: sessionStorage.getItem.bind(sessionStorage),
+        set: sessionStorage.setItem.bind(sessionStorage),
+        remove: sessionStorage.removeItem.bind(sessionStorage),
+      };
+      const later = () => new Promise<void>((resolve) => setTimeout(resolve, 10));
+      vi.spyOn(sessionStorage, 'getItem').mockImplementation(async (key) => {
+        const value = await real.get(key);
+        await later();
+        return value;
+      });
+      vi.spyOn(sessionStorage, 'setItem').mockImplementation(async (key, value) => {
+        await later();
+        await real.set(key, value);
+      });
+      vi.spyOn(sessionStorage, 'removeItem').mockImplementation(async (key) => {
+        await later();
+        await real.remove(key);
+      });
+    }
+
+    it('keeps both changes when two writes overlap', async () => {
+      slowStorage();
+      try {
+        // A preset chip, then the setup's Save, without waiting for the chip.
+        const chip = saveDraft({ circleName: 'Sunday Crew' }, NOW);
+        const save = saveDraft({ cadence: 'weekly' }, NOW + 1);
+        const [first, second] = await Promise.all([chip, save]);
+
+        expect(first.created).toBe(true);
+        expect(second.created).toBe(false);
+        expect(await readDraft(NOW + 2)).toMatchObject({
+          circleName: 'Sunday Crew',
+          cadence: 'weekly',
+        });
+        expect(JSON.parse(globalThis.localStorage.getItem(DRAFT_KEY) ?? 'null')).toMatchObject({
+          circleName: 'Sunday Crew',
+          cadence: 'weekly',
+        });
+      } finally {
+        vi.restoreAllMocks();
+      }
+    });
+
+    it('never brings back a draft that was cleared while a write was in flight', async () => {
+      await saveDraft({ circleName: 'Sunday Crew' }, NOW);
+      slowStorage();
+      try {
+        const inFlight = saveDraft({ cadence: 'weekly' }, NOW + 1);
+        const cleared = clearDraft();
+        await Promise.all([inFlight, cleared]);
+
+        expect(await readDraft(NOW + 2)).toBeNull();
+        expect(globalThis.localStorage.getItem(DRAFT_KEY)).toBeNull();
+      } finally {
+        vi.restoreAllMocks();
+      }
+    });
+
+    it('lets a write that comes after the clear start a fresh draft', async () => {
+      await saveDraft({ circleName: 'Sunday Crew' }, NOW);
+      slowStorage();
+      try {
+        const cleared = clearDraft();
+        const fresh = saveDraft({ cadence: 'weekly' }, NOW + 1);
+        await Promise.all([cleared, fresh]);
+
+        expect((await fresh).created).toBe(true);
+        expect(await readDraft(NOW + 2)).toMatchObject({ circleName: '', cadence: 'weekly' });
+      } finally {
+        vi.restoreAllMocks();
+      }
+    });
+
+    it('does not renew the 24 hours by being read, even while a write is waiting', async () => {
+      await saveDraft({ circleName: 'Sunday Crew' }, NOW);
+      slowStorage();
+      try {
+        const reads = Promise.all([readDraft(NOW + 1_000), readDraft(NOW + DRAFT_TTL_MS - 1)]);
+        await reads;
+        expect(await readDraft(NOW + DRAFT_TTL_MS)).toBeNull();
+      } finally {
+        vi.restoreAllMocks();
+      }
+    });
+  });
 });
