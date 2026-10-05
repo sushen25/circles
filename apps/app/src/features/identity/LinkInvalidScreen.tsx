@@ -70,11 +70,13 @@ export function LinkInvalidScreen({
         {reason === 'other_account' ? (
           <Button label={t('linkInvalid', 'sign_out_and_continue')} onPress={onSignOut} />
         ) : null}
-        <Button
-          label={t('linkInvalid', 'what_is_brand')}
-          variant="secondary"
-          onPress={onWhatIsBrand}
-        />
+        {onWhatIsBrand === undefined ? null : (
+          <Button
+            label={t('linkInvalid', 'what_is_brand')}
+            variant="secondary"
+            onPress={onWhatIsBrand}
+          />
+        )}
       </Foot>
     </Screen>
   );

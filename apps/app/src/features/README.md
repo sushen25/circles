@@ -15,6 +15,18 @@ then edited. **That script will not overwrite an existing screen** — once a
 screen has been touched, this file and the code are the authority, not the
 artboard.
 
+**Routes that render fixtures live in `app/(dev)`** (SUS-140): the gallery, the
+brand sheet, and the screens of features that are not built (`/get-the-app*`,
+`/join/continue`, `/join/invalid`, `/join/rejoined`, `/circles/gate`, the
+`/circles/[id]/quiet/*` states, `/j/[code]/calendar*`, `/overlay`, `/sent-again`,
+`/p/[code]/after`, `/nudge`, `/settings/push`, `/settings/diagnostics`). The group
+is not in the address. Its layout redirects to `/start` in a production build that
+has a backend, and `src/platform/devRoutes.test.ts` fails if a route outside the
+group reads `useFixture` without a live branch (`hasBackend()`). When a feature
+is built, its route leaves `(dev)` and draws real data. A screen's "What is
+Wenna?" link is drawn only when a route hands it somewhere to go; the live join
+flows do not, because the sheet it opened named a fixture circle.
+
 73 screens across 9 contexts.
 
 ### availability

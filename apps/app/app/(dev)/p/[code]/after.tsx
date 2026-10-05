@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 
-import { useFixture } from '../../../src/data/fixtures/useFixture';
-import { AfterAttendanceScreen } from '../../../src/features/growth/AfterAttendanceScreen';
+import { useFixture } from '../../../../src/data/fixtures/useFixture';
+import { AfterAttendanceScreen } from '../../../../src/features/growth/AfterAttendanceScreen';
 
 /**
  * Route only — thin composition, no logic (architecture §7.1).

@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 
-import { useFixture } from '../../../src/data/fixtures/useFixture';
-import { ConfirmedGuestNudgeScreen } from '../../../src/features/growth/ConfirmedGuestNudgeScreen';
+import { useFixture } from '../../../../src/data/fixtures/useFixture';
+import { ConfirmedGuestNudgeScreen } from '../../../../src/features/growth/ConfirmedGuestNudgeScreen';
 
 /** Route only — thin composition, no logic (architecture §7.1). */
 export default function Route() {

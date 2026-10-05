@@ -59,12 +59,11 @@ export function JoinFlow() {
   });
 
   const back = () => (router.canGoBack() ? router.back() : router.replace('/'));
-  const whatIsBrand = () => router.push('/get-the-app');
 
   if (secret === undefined) return <MainScreen state="loading" onBack={back} />;
 
   if (secret === null) {
-    return <LinkInvalidScreen reason="open_again" onBack={back} onWhatIsBrand={whatIsBrand} />;
+    return <LinkInvalidScreen reason="open_again" onBack={back} />;
   }
 
   if (preview.isError || startFailed) {
@@ -83,7 +82,7 @@ export function JoinFlow() {
   if (preview.isPending) return <MainScreen state="loading" onBack={back} />;
 
   if (preview.data === null) {
-    return <LinkInvalidScreen reason="inactive" onBack={back} onWhatIsBrand={whatIsBrand} />;
+    return <LinkInvalidScreen reason="inactive" onBack={back} />;
   }
 
   const { circle_name, inviter_name, member_initials } = preview.data;
@@ -97,7 +96,6 @@ export function JoinFlow() {
       }}
       busy={starting}
       onBack={back}
-      onWhatIsBrand={whatIsBrand}
       onNext={() => {
         // "Choose my times creates an anonymous session tied to that browser and
         // asks for a display name" (§5.1). The session first, so the Name step

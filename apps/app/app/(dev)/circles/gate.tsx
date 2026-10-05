@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 
-import { useFixture } from '../../src/data/fixtures/useFixture';
-import { InitiateGateScreen } from '../../src/features/growth/InitiateGateScreen';
+import { useFixture } from '../../../src/data/fixtures/useFixture';
+import { InitiateGateScreen } from '../../../src/features/growth/InitiateGateScreen';
 
 /**
  * Route only — thin composition, no logic (architecture §7.1).

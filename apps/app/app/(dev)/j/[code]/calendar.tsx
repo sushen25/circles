@@ -1,12 +1,12 @@
 import { useRouter } from 'expo-router';
 
 import { useFixture } from '../../../../src/data/fixtures/useFixture';
-import { VolunteerScreen } from '../../../../src/features/planning/VolunteerScreen';
+import { CalendarExplainScreen } from '../../../../src/features/availability/CalendarExplainScreen';
 
 /** Route only — thin composition, no logic (architecture §7.1). */
 export default function Route() {
   const router = useRouter();
   const fixture = useFixture();
 
-  return <VolunteerScreen fixture={fixture} onBack={() => router.back()} />;
+  return <CalendarExplainScreen fixture={fixture} onBack={() => router.back()} />;
 }
