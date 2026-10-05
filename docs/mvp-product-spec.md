@@ -147,17 +147,21 @@ Get a new organiser from opening the app to a shared circle invitation with two 
 
 #### First-time organiser flow (canvas page 0)
 
-1. **Welcome**: brand line, one sentence, then Continue with Apple, Continue with Google, Continue with email. Terms line: no ads, no selling data, 18+.
-2. **Email path only**: address → six-digit code (10-minute validity).
-3. **Your name**: prefilled from the SSO provider; time zone taken from the device; both editable. No photo, phone number or contacts.
-4. **First circle** (step 1 of 2): circle name and a loose cadence (weekly, fortnightly, monthly, every two months, no goal). Nothing else.
-5. **First plan with defaults accepted** (step 2 of 2): one card summarising the defaults (catch up, next 14 days, evenings and weekend days, about 2 hours, a quorum that follows the circle as people join, replies close in 3 days); **Ask the group**, **See if people are keen instead**, or the quiet **Just invite people for now**.
-6. **Paste to chat**: what lands in the chat, the plan's link and the paste-ready message; **Share to group chat**, **Copy**, then **Add my times**.
-7. **The organiser's own times**: the availability editor for the plan just made, then the sent screen, then circle home, finding a time.
+**No sign-in before value, for the organiser either** ([ADR 0053](decisions/0053-the-organiser-gate-moves-to-before-the-share.md)). From the website's **Start a plan**, the organiser names the circle and accepts or adjusts the plan with no account. Nothing is created on the server until their place is saved.
+
+1. **First circle** (step 1 of 2): circle name and a loose cadence (weekly, fortnightly, monthly, every two months, no goal). Nothing else. The wordmark is in the top bar with a quiet **Sign in** for returning organisers. No permissions, no account.
+2. **First plan with defaults accepted** (step 2 of 2): one card summarising the defaults (catch up, next 14 days, evenings, about 2 hours, a quorum that follows the circle as people join, replies close in 3 days); the three "when" chips; a **Change** on the window, the length and the replies that opens the full plan setup (§5.3) on the device's draft, with no quorum or required people, which a circle of one cannot answer, and with nothing sent; **Ask the group**, **See if people are keen instead**, or the quiet **Just invite people for now**. The circle and the plan are held on this device as a draft, which survives a reload and the sign-in round trip and expires 24 hours after it was last changed.
+3. **Save your place** (unnumbered): "Your plan's ready. Save your place — so it's yours on any device." It summarises the drafted plan so nothing feels lost. The email code (six digits, 10-minute validity) is primary; Apple and Google are secondary and arrive with SUS-77. Terms line: no ads, no selling data, 18+. Abandoning here creates nothing in the database.
+4. **Your name**: prefilled from the SSO provider where there is one; time zone taken from the device; both editable. No photo, phone number or contacts. Skipped when the account already has a name.
+5. **Paste to chat**: the circle and the plan are made now (`create-circle`, then `create-plan`); what lands in the chat, the plan's link and the paste-ready message; **Share to group chat**, **Copy**, then **Add my times**.
+6. **The organiser's own times**: the availability editor for the plan just made, then the sent screen.
+7. **Circle home, finding a time.**
+
+A signed-in organiser goes First circle → First plan → Paste to chat with no gate and no Your name. **See if people are keen instead** and **Just invite people for now** reach the gate too, before anything is created; after it the circle is made and they go where they chose.
 
 **The first thing shared is a plan, not an invite** ([ADR 0026](decisions/0026-first-run-shares-a-plan-and-a-defaulted-quorum-follows-the-circle.md)). A plan link carries the question the group chat was failing to answer, and it admits the people who tap it ([ADR 0022](decisions/0022-a-plan-link-admits-new-members-while-the-plan-is-asking.md)), so one link does the work of two. The invite link and the circle-home-as-people-join screen are still the product's, reached from circle home and settings (§5.2) and from **Just invite people for now**; they are not steps in the first run.
 
-Returning users land on the same Welcome; Apple and Google resolve to the existing account.
+Returning organisers use the quiet **Sign in** on the first screen; Apple and Google resolve to the existing account.
 
 #### Invitee entry (canvas page 1)
 
@@ -179,15 +183,17 @@ Returning users land on the same Welcome; Apple and Google resolve to the existi
 
 #### Saving a place and the organiser gate
 
-- Starting a named plan or quiet ask from the web requires a saved place: one screen (Apple, Google, email) worded as a practical need ("so we can find you again on any device"), linking the existing guest membership. Nothing already sent changes. Responding never requires it.
+- Creating a circle, a named plan or a quiet ask on the server requires a saved place ([ADR 0004](decisions/0004-organiser-requires-permanent-identity.md)). In the first run the screen that asks for it comes **after the plan is drafted and before it is shared** ([ADR 0053](decisions/0053-the-organiser-gate-moves-to-before-the-share.md)): one screen (email code; Apple and Google when SUS-77 lands) worded as a practical need ("Your plan's ready. Save your place — so it's yours on any device"). Nothing is created before it is passed, so abandoning it leaves nothing behind. A guest who already belongs to a circle and starts a plan in it meets the same screen first, linking their existing membership. Nothing already sent changes. Responding never requires it.
 - A guest may also save their place voluntarily from the prompts in §5.11.
 
 #### Acceptance criteria
 
-- A new owner reaches a shareable **plan** link with two typed inputs (name, circle name) and no permission dialogs, and lands in the availability editor for that plan.
+- A new owner reaches a shareable **plan** link with two typed inputs (circle name, own name), one sign-in and no permission dialogs, and lands in the availability editor for that plan. The sign-in is the third screen, never the first.
+- Abandoning at the gate creates nothing in the database. A reload or an OAuth round trip at any step keeps the draft; the draft is gone 24 hours after it was last changed.
+- A signed-in organiser goes circle → plan → share with no gate.
 - An invitee reaches a submitted answer with zero account, permission or install prompts, **from the circle's invite link or from a plan link**; the email offer and every later prompt dismiss in one tap.
 - A guest who returns with no session can reattach in one tap; the owner can see it happened; the reattach rate is instrumented.
-- Organising from the web is gated on a saved place; responding is not.
+- Organising from the web is gated on a saved place, at the moment before the first thing is shared; responding is not.
 - Google sign-in on web is configured per origin, against `wenna.app` (ADR 0044). Apple and Google sign-in are deferred past the founder cohort (SUS-77).
 
 ### 5.2 Persistent private circles
@@ -392,10 +398,10 @@ Pricing is explored in the post-meetup interviews and tested later with a real c
 ### 6.1 First-time organiser
 
 ```text
-Welcome → Continue with Apple
+website "Start a plan" → first circle: "Sunday Crew", about monthly (no account)
+→ first plan, defaults accepted → "Ask the group" (still no account)
+→ "Your plan's ready. Save your place": email code, or Apple
 → name prefilled, time zone from phone
-→ first circle: "Sunday Crew", about monthly
-→ first plan, defaults accepted → "Ask the group"
 → the plan's message + link → shared to the group chat
 → "Add my times" → own availability sent → circle home, finding a time
 → Priya and Tom tap the link, add a name and answer; the quorum follows the circle
@@ -437,7 +443,7 @@ Every screen exists as an artboard in `docs/design/`; the canvas pages are the I
 
 | Page | Screens |
 |---|---|
-| 0 First time, organiser | Welcome (Apple / Google / email), email, code, name, first circle, first plan, plan shared, availability, sent, circle home |
+| 0 First time, organiser | First circle, first plan, save your place, email, code, name, plan shared, availability, sent, circle home |
 | 1 Guest path (web) | Join, continue as, name, availability, none of these dates, sent (email offer), check email (app prompt), email verified, email preferences, save access, candidates (member view), confirmed (guest), add to calendar, rescheduled, cancelled, attendance, invite link inactive |
 | 2 Organiser path | First-run and populated circle lists, create circle, invite circle, circle home joining, choose how to start, plan setup, custom window, waiting, candidates, replies closed, edit plan, confirm review, confirmed (organiser), circle home locked in, change time, cancel, cancelled, no quorum, did it happen, circle home about time, plan another, circle settings, notification settings, account, privacy, founder diagnostics |
 | 3 Quiet ask | Setup, initiator waiting, interest prompt, threshold reached (initiator), started quietly (keen member), started quietly (other member), expired |
@@ -516,6 +522,7 @@ confirmed | ready | collecting ─cancel──▶ cancelled
 
 | Stage | Metric |
 |---|---|
+| Organiser entry | `organiser_draft_started` → `organiser_gate_shown` → `organiser_gate_passed`: how many who start a first plan reach the gate, and how many pass it (no payload: [ADR 0053](decisions/0053-the-organiser-gate-moves-to-before-the-share.md)) |
 | Circle acquisition | Circles created; source; expected member count |
 | Invitation | Link-preview impressions are unobservable; join-link opens → joins → first response |
 | Activation | Circle confirms first meetup within 7 days |
@@ -531,7 +538,7 @@ confirmed | ready | collecting ─cancel──▶ cancelled
 
 ### 11.3 Required analytics events
 
-Typed catalogue with a versioned payload schema; at minimum: `account_started`, `account_completed(provider)`, `circle_created`, `circle_invite_shared`, `circle_join_opened`, `circle_joined`, `session_missing_on_return`, `member_reattached(source: list|email)`, `duplicate_member_removed`, `plan_created`, `plan_shared`, `plan_edited`, `plan_expired`, `plan_cancelled`, `plan_rescheduled`, `quiet_ask_created` and `quiet_interest_answered` (recorded against nobody, and no answer), `quiet_threshold_reached`, `organiser_accepted` (no role: [ADR 0041](decisions/0041-keen-members-may-take-the-role-as-soon-as-it-opens.md)), `availability_started`, `availability_others_read(others_shown)`, `availability_submitted(status)`, `candidate_set_generated`, `candidate_viewed(role)`, `candidate_selected`, `deadline_passed_action`, `meetup_confirmed(own_time, below_quorum)`, `meetup_moved`, `confirmation_edited`, `organiser_chased(answer)`, `share_opened(kind)`, `calendar_add_opened`, `ics_downloaded`, `email_updates_offered`, `email_submitted`, `email_verified`, `email_subscription_changed`, `organiser_email_changed(enabled)`, `email_delivery_result(code)`, `outcome_reported`, `attendance_confirmed`, `cadence_prompt_sent(recipient_role)`, `plan_another_started`, `app_nudge_shown|dismissed|tapped(moment)`, `account_claimed(moment)`, `app_first_open_linked`, `guest_started_circle`, and in Slice 3 `calendar_explanation_viewed`, `calendar_permission_result`, `calendar_overlay_used`, `push_permission_result`. Beside them, `client_error` (SUS-112): a crash on a screen or an uncaught script error, with a route pattern, an error class from a fixed list, where it was caught, the build, the platform and a reference the person can read out, and no message, stack, address, fragment or plan code.
+Typed catalogue with a versioned payload schema; at minimum: `account_started`, `account_completed(provider)`, `organiser_draft_started`, `organiser_gate_shown` and `organiser_gate_passed` (each with no payload), `circle_created`, `circle_invite_shared`, `circle_join_opened`, `circle_joined`, `session_missing_on_return`, `member_reattached(source: list|email)`, `duplicate_member_removed`, `plan_created`, `plan_shared`, `plan_edited`, `plan_expired`, `plan_cancelled`, `plan_rescheduled`, `quiet_ask_created` and `quiet_interest_answered` (recorded against nobody, and no answer), `quiet_threshold_reached`, `organiser_accepted` (no role: [ADR 0041](decisions/0041-keen-members-may-take-the-role-as-soon-as-it-opens.md)), `availability_started`, `availability_others_read(others_shown)`, `availability_submitted(status)`, `candidate_set_generated`, `candidate_viewed(role)`, `candidate_selected`, `deadline_passed_action`, `meetup_confirmed(own_time, below_quorum)`, `meetup_moved`, `confirmation_edited`, `organiser_chased(answer)`, `share_opened(kind)`, `calendar_add_opened`, `ics_downloaded`, `email_updates_offered`, `email_submitted`, `email_verified`, `email_subscription_changed`, `organiser_email_changed(enabled)`, `email_delivery_result(code)`, `outcome_reported`, `attendance_confirmed`, `cadence_prompt_sent(recipient_role)`, `plan_another_started`, `app_nudge_shown|dismissed|tapped(moment)`, `account_claimed(moment)`, `app_first_open_linked`, `guest_started_circle`, and in Slice 3 `calendar_explanation_viewed`, `calendar_permission_result`, `calendar_overlay_used`, `push_permission_result`. Beside them, `client_error` (SUS-112): a crash on a screen or an uncaught script error, with a route pattern, an error class from a fixed list, where it was caught, the build, the platform and a reference the person can read out, and no message, stack, address, fragment or plan code.
 
 No names, emails, notes, tokens or event titles in any payload.
 

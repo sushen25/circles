@@ -60,7 +60,7 @@ const SCREENS = {
   LinkInvalid: ['identity', '/join/invalid'],
 
   // First time, organiser
-  Welcome: ['identity', '/'],
+  SavePlace: ['identity', '/circles/new/save'],
   SignIn: ['identity', '/(auth)/sign-in'],
   EnterCode: ['identity', '/(auth)/code'],
   YourName: ['identity', '/(auth)/name'],
@@ -593,7 +593,6 @@ const DESTINATIONS = {
   'ConfirmedGuest.onGetTheApp': '/get-the-app',
   'ConfirmedGuest.onICantMakeIt': '/p/[code]/attendance',
   'Candidates.onNoneOfTheseDates': '/circles/[id]/plan/[planId]/no-quorum',
-  'Welcome.onContinueWithEmail': '/(auth)/sign-in',
   'ConfirmReview.onNotThisOne': '/circles/[id]/plan/[planId]/candidates',
   'Settings.onCopyLink': '/circles/[id]/invite',
 };

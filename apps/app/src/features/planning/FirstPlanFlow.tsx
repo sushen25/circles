@@ -12,12 +12,13 @@ import { circleHome } from '../../data/circles';
 import { newIdempotencyKey } from '../../data/functions';
 import { createFirstPlan } from '../../data/planning';
 import { failureOf, isOffline } from '../identity/join/failure';
-import { bandWords, FIRST_PLAN_PRESETS, firstPlanPreview, type FirstPlanPreset } from './firstPlan';
+import { FIRST_PLAN_PRESETS, firstPlanPreview, type FirstPlanPreset } from './firstPlan';
+import { firstPlanCardWords } from './firstPlanCard';
 import { FirstPlanScreen, type FirstPlanProblem } from './FirstPlanScreen';
 import { tonightNote, WINDOW_EVENT } from './form';
 import { InitiateGateFlow } from '../growth/InitiateGateFlow';
 import { PlanInProgress } from './PlanInProgressFlow';
-import { closesAtWords, closesIn, presetLabel, tonightNoteWords } from './words';
+import { presetLabel, tonightNoteWords } from './words';
 
 /**
  * `/circles/:id/plan/new` — the first plan, defaults accepted (spec §5.1): one
@@ -37,7 +38,7 @@ export function FirstPlanFlow({ id }: { id: string }) {
   return hasBackend() ? <LiveFirstPlan id={id} /> : <FixtureFirstPlan />;
 }
 
-function FixtureFirstPlan() {
+export function FixtureFirstPlan() {
   const router = useRouter();
   return (
     <FirstPlanScreen
@@ -54,25 +55,10 @@ function FixtureFirstPlan() {
   );
 }
 
-const DURATION: Record<number, () => string> = {
-  60: () => t('firstPlan', 'about_1_hour'),
-  90: () => t('firstPlan', 'about_90_minutes'),
-  120: () => t('firstPlan', 'about_2_hours'),
-  180: () => t('firstPlan', 'about_3_hours'),
-  240: () => t('firstPlan', 'about_4_hours'),
-  300: () => t('firstPlan', 'about_5_hours'),
-};
-
 const REASONS: Record<string, FirstPlanProblem> = {
   too_many_requests: 'too_many_tries',
   // Tonight chosen, and the evening ran out while the card was open.
   too_late_for_tonight: 'too_late',
-};
-
-const WINDOW_TITLE: Record<FirstPlanPreset, () => string> = {
-  next_14_days: () => t('firstPlan', 'catch_up_next_14_days'),
-  this_weekend: () => t('firstPlan', 'catch_up_this_weekend'),
-  tonight: () => t('firstPlan', 'catch_up_tonight'),
 };
 
 function LiveFirstPlan({ id }: { id: string }) {
@@ -158,7 +144,7 @@ function LiveFirstPlan({ id }: { id: string }) {
   };
   const opened = fromISO(new Date(openedAt).toISOString());
   const preview = firstPlanPreview(input, opened, preset);
-  const band = bandWords(preview.band);
+  const words = firstPlanCardWords(preview, preset, data.zone, openedAt);
   const offTonight = tonightNote(undefined, preview.durationMinutes, opened, data.zone);
 
   const ask = async () => {
@@ -225,33 +211,16 @@ function LiveFirstPlan({ id }: { id: string }) {
         },
       }))}
       presetNote={offTonight === undefined ? undefined : tonightNoteWords(offTonight)}
-      window={WINDOW_TITLE[preset]()}
-      band={
-        preset === 'tonight'
-          ? t('firstPlan', 'tonight_hours', { time: band })
-          : preview.band.startMin >= 17 * 60
-            ? t('firstPlan', 'evenings', { time: band })
-            : t('firstPlan', 'days', { time: band })
-      }
-      duration={(DURATION[preview.durationMinutes] ?? DURATION[120]!)()}
+      window={words.window}
+      band={words.band}
+      duration={words.duration}
       quorum={
         preview.quorum <= preview.members
           ? t('firstPlan', 'at_least_of', { count: preview.quorum, total: preview.members })
           : t('firstPlan', 'at_least', { count: preview.quorum })
       }
-      closesIn={
-        preview.deadline === undefined
-          ? t('firstPlan', 'replies_close_in_3_days')
-          : closesIn(preview.deadline, openedAt)
-      }
-      closesAt={
-        preview.deadline === undefined || preview.latestStart === undefined
-          ? ''
-          : closesAtWords(
-              { deadline: preview.deadline, latestStart: preview.latestStart },
-              data.zone,
-            )
-      }
+      closesIn={words.closesIn}
+      closesAt={words.closesAt}
       problem={problem}
       reference={reference}
       busy={busy}

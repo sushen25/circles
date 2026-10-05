@@ -43,6 +43,12 @@ export type PlanSetupProps = {
   /** The sheets, drawn over the form. */
   sheets?: ReactNode;
   onRetry?: (() => void) | undefined;
+  /**
+   * Draft mode (ADR 0053): the setup of a plan that does not exist yet, saved on
+   * this device. The button says what it does, and the note under it says
+   * nothing has been sent.
+   */
+  draft?: boolean | undefined;
   /** The screen's one decision: Ask the group. */
   onNext?: (() => void) | undefined;
   onBack?: (() => void) | undefined;
@@ -86,11 +92,21 @@ export function PlanSetupScreen(props: PlanSetupProps) {
       </Body>
       <Foot>
         <Button
-          label={busy ? t('planSetup', 'asking') : t('planSetup', 'ask_the_group')}
+          label={
+            props.draft === true
+              ? t('planSetup', 'save_plan')
+              : busy
+                ? t('planSetup', 'asking')
+                : t('planSetup', 'ask_the_group')
+          }
           disabled={busy || problem !== undefined}
           onPress={props.onNext}
         />
-        <Small>{t('planSetup', 'well_give_you_a_short_message_to')}</Small>
+        <Small>
+          {props.draft === true
+            ? t('planSetup', 'saved_on_this_device')
+            : t('planSetup', 'well_give_you_a_short_message_to')}
+        </Small>
       </Foot>
       {props.sheets}
     </Screen>

@@ -829,21 +829,10 @@ S["RescheduledGuest"] = shell(
 def sso_btn(label):
     return f'<div class="btn sec" style="gap:10px;color:{T["ink"]};"><div style="width:20px;height:20px;border-radius:999px;border:1.5px solid {T["ink3"]};"></div>{label}</div>'
 
-S["Welcome"] = shell(
-    body(
-        f'<div style="height:72px;"></div>',
-        wordmark(),
-        stack(dxl("Make room for each other."), p("Find a time your friends are actually up for, without chasing everyone or sharing calendars."), gap=12),
-        f'<div style="flex-grow:1;"></div>',
-        stack(sso_btn("Continue with Apple"), sso_btn("Continue with Google"), sec("Continue with email"), gap=10),
-        sm("Friends you invite never need an account. By continuing you agree to the <a href=\"#\">terms</a> and <a href=\"#\">privacy</a> basics: no ads, no selling data, 18+."),
-        pad="8px 22px 28px")
-)
-
 S["YourName"] = shell(
     top("") +
     body(
-        stack(dl("What should friends call you?"), p("Filled in from your Google account. Change it if you like."), gap=8),
+        stack(dl("What should friends call you?"), p("The name that goes on the plan and in the chat. Filled in from your sign-in where we can."), gap=8),
         stack(lbl("Your name"), inp("Maya"), gap=8),
         card(between(stack(title("Time zone"), sm("Melbourne (AEST) · from your phone"), gap=2), f'<div class="sm">Change</div>'), gap=0),
         sm("That's all we need. No photo, no phone number, no contacts."),
@@ -851,14 +840,31 @@ S["YourName"] = shell(
     foot(pri("Continue"))
 )
 
+def first_top(step):
+    # The first screen of the run, entered from the website (ADR 0053): the
+    # wordmark where Back would be, and a quiet Sign in for a returning organiser.
+    return ('<div class="top"><div style="display:flex;align-items:center;gap:7px;height:44px;">' + wordmark() + '</div>'
+            f'<div class="t">{step}</div>'
+            f'<div style="display:flex;align-items:center;justify-content:flex-end;min-width:44px;height:44px;font-size:14px;text-decoration:underline;text-underline-offset:3px;color:{T["ink2"]};">Sign in</div></div>')
+
 S["FirstCircle"] = shell(
-    top("") +
+    first_top("Step 1 of 2") +
     body(
-        stack(lbl("Step 1 of 2"), dl("Who do you keep meaning to see?"), p("A circle is one group of friends. Name it the way you'd say it in the group chat."), gap=8),
+        stack(dl("Who do you keep meaning to see?"), p("A circle is one group of friends. Name it the way you'd say it in the group chat."), gap=8),
         stack(lbl("Circle name"), inp("Sunday Crew"), gap=8),
         stack(lbl("How often would you like to catch up?"), chips("Weekly", "Fortnightly", "*Monthly", "Every two months", "No goal"), sm("A loose aim, not a rule. Nobody gets scored."), gap=8),
     ) +
-    foot(pri("Create Sunday Crew"), sm("You can change anything later."))
+    foot(pri("Create Sunday Crew"), f'<div class="sm" style="text-align:center;">No account yet. You can change anything later.</div>')
+)
+
+S["SavePlace"] = shell(
+    top("Sunday Crew") +
+    body(
+        stack(dl("Your plan's ready. Save your place."), p("One sign-in, so Sunday Crew is yours on any device and you can lock the time in later. Friends you invite never need one."), gap=10),
+        card(title("Catch up · next 14 days"), sm("Evenings · about 2 hours · replies close Tue 15 Sep, 6 pm"), gap=4, pad=16),
+        stack(lbl("Your email"), inp("maya@example.com"), sm("We'll email a one-time code. No password."), gap=8),
+    ) +
+    foot(pri("Send me a code"), f'<div class="sm" style="text-align:center;">By continuing you agree to the terms and privacy basics: no ads, no selling data, 18+.</div>')
 )
 
 S["InviteCircle"] = shell(
@@ -885,15 +891,15 @@ S["CircleHomeJoining"] = shell(
 S["FirstPlan"] = shell(
     top("Sunday Crew") +
     body(
-        stack(dl("Your first catch-up"), p("We've picked sensible defaults. Tap anything to change it, or just ask the group."), gap=8),
+        stack(lbl("Step 2 of 2"), dl("Your first catch-up"), p("We've picked sensible defaults. Tap anything to change it, or just ask the group."), gap=8),
         stack(lbl("When?"), chips("*Next 14 days", "This weekend", "Tonight"), gap=8),
-        card(between(stack(title("Catch up · next 14 days"), sm("Evenings and weekend days"), gap=2), f'<div class="sm">Change</div>'), divider(),
-             between(stack(title("About 2 hours"), sm(""), gap=2), f'<div class="sm">Change</div>'), divider(),
-             between(stack(title("At least 2 of 3 need to make it"), sm("Adjusts as more people join"), gap=2), f'<div class="sm">Change</div>'), divider(),
-             between(stack(title("Replies close in 3 days"), sm("Tue 15 Sep, 6 pm"), gap=2), f'<div class="sm">Change</div>'), gap=12),
-        sm("Friends mark the times they'd actually be up for. You'll see the best options and pick one. Nobody's calendar is shared."),
+        card(between(stack(title("Catch up · next 14 days"), sm("Evenings, 5:30–10:30 pm"), gap=2), ter("Change")), divider(),
+             between(stack(title("About 2 hours"), sm(""), gap=2), ter("Change")), divider(),
+             between(stack(title("Most of the group need to make it"), sm("Adjusts as more people join"), gap=2)), divider(),
+             between(stack(title("Replies close in 3 days"), sm("Tue 15 Sep, 6 pm"), gap=2), ter("Change")), gap=12),
+        sm("Friends mark the times they'd actually be up for. You'll see the best options and pick one. Nobody's calendar is shared. Next, a quick sign-in so this plan is yours on any device."),
     ) +
-    foot(pri("Ask the group"), ter("See if people are keen instead"))
+    foot(pri("Ask the group"), ter("See if people are keen instead"), ter("Just invite people for now"))
 )
 
 # ---- Organiser additions ----
@@ -1478,7 +1484,7 @@ pages = [{"id":"first","name":"0 · First time, organiser"},
          {"id":"system","name":"6 · States, copy and components"}]
 
 titles = {"Main":"Join · invite landing","ContinueAs":"Continue as · returning member","Name":"Name","Availability":"Availability · partial","AvailabilityPicking":"Availability · days ticked","AvailabilityAdjusting":"Availability · adjusting a day","AvailabilityOthers":"Availability · what others said","AvailabilityOthersPicking":"Availability · others, days ticked","AvailabilityOthersAdjusting":"Availability · others, adjusting a day","AvailabilityOthersFirst":"Availability · first to answer","NoneWork":"None of these dates","Sent":"Sent · email offer","CheckEmail":"Check your email · app nudge","EmailVerified":"Email verified","EmailPrefs":"Email preferences · no sign-in","SaveAccess":"Save access · claim account","CandidatesMember":"Candidates · member view","ConfirmedGuest":"Confirmed · guest","AddToCalendar":"Add to calendar sheet","RescheduledGuest":"Rescheduled · guest","CancelledGuest":"Cancelled · guest","WasThere":"Attendance · morning after","LinkInvalid":"Invite link inactive",
-          "Welcome":"Welcome · sign up or log in","SignIn":"Continue with email","EnterCode":"Enter code","YourName":"Your name · after SSO","FirstCircle":"First circle","InviteCircle":"Invite the circle","CircleHomeJoining":"Circle home · people joining","FirstPlan":"First plan · defaults accepted","EmptyCirclesList":"Circles · first run","CirclesList":"Circles list","CircleHome":"Circle home · finding a time","CircleHomeConfirmed":"Circle home · locked in","CircleHomeDue":"Circle home · about time","CreateCircle":"Create circle","ChooseMode":"Choose how to start","PlanSetup":"Plan setup","CustomWindow":"Custom window","PlanShared":"Plan shared · paste to chat","Waiting":"Waiting · no options yet","Candidates":"Candidates · partial replies","DeadlinePassed":"Replies closed · no decision","EditPlan":"Edit plan · reconfirm warning","ConfirmReview":"Confirm review","ConfirmedOrg":"Confirmed · organiser","ChangeTime":"Ask for new times","SetTime":"Set the time yourself","ConfirmReviewOwn":"Confirm review · a time of your own","EditLocked":"Edit this plan · locked in","ConfirmedGuestMoved":"Confirmed · guest, moved","CancelPlan":"Cancel plan","CancelledOrg":"Cancelled · organiser","NoQuorum":"No quorum","Outcome":"Did it happen?","PlanAnother":"Plan another · prefilled","Settings":"Circle settings","NotificationSettings":"Notification settings","Account":"Account","Privacy":"Privacy","Diagnostics":"Founder diagnostics",
+          "SignIn":"Sign in · returning organiser","SavePlace":"Save your place · the gate, before the share","EnterCode":"Enter code","YourName":"Your name · after sign-in","FirstCircle":"First circle · no account","InviteCircle":"Invite the circle","CircleHomeJoining":"Circle home · people joining","FirstPlan":"First plan · no account","EmptyCirclesList":"Circles · first run","CirclesList":"Circles list","CircleHome":"Circle home · finding a time","CircleHomeConfirmed":"Circle home · locked in","CircleHomeDue":"Circle home · about time","CreateCircle":"Create circle","ChooseMode":"Choose how to start","PlanSetup":"Plan setup","CustomWindow":"Custom window","PlanShared":"Plan shared · paste to chat","Waiting":"Waiting · no options yet","Candidates":"Candidates · partial replies","DeadlinePassed":"Replies closed · no decision","EditPlan":"Edit plan · reconfirm warning","ConfirmReview":"Confirm review","ConfirmedOrg":"Confirmed · organiser","ChangeTime":"Ask for new times","SetTime":"Set the time yourself","ConfirmReviewOwn":"Confirm review · a time of your own","EditLocked":"Edit this plan · locked in","ConfirmedGuestMoved":"Confirmed · guest, moved","CancelPlan":"Cancel plan","CancelledOrg":"Cancelled · organiser","NoQuorum":"No quorum","Outcome":"Did it happen?","PlanAnother":"Plan another · prefilled","Settings":"Circle settings","NotificationSettings":"Notification settings","Account":"Account","Privacy":"Privacy","Diagnostics":"Founder diagnostics",
           "SparkSetup":"Quiet ask · setup","SparkWaiting":"Quiet ask · initiator waiting","InterestPrompt":"Interest prompt · member","ThresholdRole":"Threshold reached · initiator","Volunteer":"Started quietly · keen member","SparkOpenedMember":"Started quietly · other member","SparkExpired":"Expired · initiator",
           "PushAsk":"Push permission · contextual","CalendarExplain":"Calendar · before permission","CalendarPick":"Calendar · pick calendars","AvailabilityOverlay":"Availability · calendar overlay","CalendarDenied":"Calendar · denied",
           "ConversionMap":"Guest → app · the map","ConfirmedGuestNudge":"Locked in · reminder nudge","AppSheet":"App sheet · four things a browser can't do","ReattachedNudge":"Rejoined · save your place","SecondSent":"Second response · app nudge","AfterAttendance":"After attendance · start a circle","InitiateGate":"Wants to organise · sign in first","AppLanding":"App first open · linked",
@@ -1495,10 +1501,11 @@ grid(["Main","ContinueAs","Name","Availability","NoneWork","Sent",
       "AddToCalendar","RescheduledGuest","CancelledGuest","WasThere","LinkInvalid","ConfirmedGuestMoved",
       "AvailabilityPicking","AvailabilityAdjusting","AvailabilityOthers","AvailabilityOthersPicking",
       "AvailabilityOthersAdjusting","AvailabilityOthersFirst"], "guest")
-# First run is plan-first (ADR 0026): the invite link and "people joining" are
-# still screens, reached from circle home and settings, but they are not steps.
-grid(["Welcome","SignIn","EnterCode","YourName","FirstCircle","FirstPlan",
-      "PlanShared","Availability","Sent","CircleHome"], "first")
+# First run is plan-first (ADR 0026) and drafts before sign-in (ADR 0053): the
+# invite link and "people joining" are still screens, reached from circle home
+# and settings, but they are not steps.
+grid(["FirstCircle","FirstPlan","SavePlace","EnterCode","YourName","PlanShared",
+      "Availability","Sent","CircleHome","SignIn"], "first")
 grid(["EmptyCirclesList","CirclesList","CreateCircle","InviteCircle","CircleHomeJoining",
       "ChooseMode","PlanSetup","CustomWindow","Waiting","Candidates",
       "DeadlinePassed","EditPlan","ConfirmReview","ConfirmedOrg","CircleHomeConfirmed","ChangeTime",
@@ -1517,8 +1524,8 @@ boards.append(ab("Components.dc.html", 0, 2*RY, "system", w=1180, h=1060, title=
 
 annotations = [
     {"id":"convert-note","x":1520,"y":0,"w":420,"page":"convert","text":"Guest → app. The map (left) says when a prompt may appear and for which conversion. The screens below are the prompts themselves, in the order a guest would meet them: the locked-in nudge (reminder), the app sheet (the only place the app is pitched in full), rejoined-twice, second response, after attendance (starts the cross-circle loop), the organiser gate (sign-in, not install), and what the app shows on first open once the same email links the identity.\nDesign rule from the manifesto: none of these appear before the person's answer is in, and each is one tap to dismiss."},
-    {"id":"first-flow","x":0,"y":-210,"w":900,"page":"first","text":"First time, organiser, in reading order. Row 1: Welcome (Apple, Google or email) → email → code → name (prefilled from SSO, time zone from the phone) → first circle (name + loose cadence only) → first plan with defaults accepted in one tap.\nRow 2: the plan's link ready for the chat → the organiser's own times → sent → circle home with the plan live.\nThe first thing shared is a plan, not an invite (ADR 0026): one link, carrying the question, and whoever taps it joins on the way in. The invite link and the filling-up home are still screens, on the organiser page, reached from circle home or from 'Just invite people for now'.\nTwo inputs before the first real result (a name and a circle name). No permissions, no photo, no contacts, no calendar. SSO buttons carry the platform's own marks in the build; the circles here are placeholders."},
-    {"id":"first-note-sso","x":0,"y":-60,"w":390,"page":"first","text":"Returning users land on the same Welcome; Apple/Google resolves to the existing account. Email path is the fallback for everyone else and the only path that needs a code."},
+    {"id":"first-flow","x":0,"y":-210,"w":900,"page":"first","text":"First time, organiser, in reading order, with no account until the plan is ready (ADR 0053). Row 1: first circle (name + loose cadence only) → first plan with defaults accepted in one tap → Save your place (the gate) → the email's code → name (time zone from the phone) → the plan's link ready for the chat.\nRow 2: the organiser's own times → sent → circle home with the plan live; then Sign in, for a returning organiser, who never meets the draft.\nThe first thing shared is a plan, not an invite (ADR 0026): one link, carrying the question, and whoever taps it joins on the way in. The invite link and the filling-up home are still screens, on the organiser page, reached from circle home or from 'Just invite people for now'.\nTwo typed inputs and one sign-in before the first real result; the sign-in is the third screen, never the first. No permissions, no photo, no contacts, no calendar. Apple and Google sit under the email button once SUS-77 lands."},
+    {"id":"first-note-sso","x":0,"y":-60,"w":390,"page":"first","text":"Nothing is created until the place is saved: the circle and the plan are held on this device, survive a reload and the sign-in round trip, and are gone 24 hours after the last change. Walking away at Save leaves nothing in the database. A signed-in organiser skips Save and Your name."},
     {"id":"guest-flow","x":0,"y":-190,"w":900,"page":"guest","text":"Guest path, entirely on mobile web, in reading order. Row 1: link tapped from the group chat → Join → (returning with no session: Continue as) → Name → paint times → 'none of these' branch → Sent with the optional email offer.\nRow 2: email verification and no-sign-in preferences → optional account claim → what a member (not the organiser) sees of the options → Confirmed.\nRow 3: add-to-calendar sheet, rescheduled and cancelled states, morning-after attendance, and an inactive invite link.\nZero account prompts before the answer."},
     {"id":"guest-note-avail","x":3*GX,"y":-90,"w":390,"page":"guest","text":"Days first, then a time once (ADR 0024): tick the days, pick a block, and the answer is listed in words. A line opens to adjust that day by the half hour; the two states are on row 4. 'I'm easy' is the plan-level flexible response (review 6.5)."},
     {"id":"org-flow","x":0,"y":-210,"w":900,"page":"organiser","text":"Organiser path (signed in by email code). Row 1: sign in → code → first-run and populated circle lists → create circle → circle home while finding a time.\nRow 2: choose how to start → plan setup (+ custom window) → paste-to-chat moment → waiting with no options yet → candidates.\nRow 3: replies closed with no decision → edit plan with reconfirm warning → confirm review → confirmed → circle home locked in → change the time.\nRow 4: cancel → cancelled → no quorum → did it happen → circle home when it's about time → plan another, prefilled.\nRow 5: circle, notification and account settings, privacy, founder diagnostics.\nNo pricing prompt in MVP. Cadence copy never says 'on track' or 'overdue'."},

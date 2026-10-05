@@ -1,28 +1,24 @@
 import type { CircleId, IdempotencyKey } from '@circles/contracts';
-import { DURATIONS, fromISO, softQuorum, type DurationMinutes } from '@circles/domain';
+import { softQuorum } from '@circles/domain';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
 
 import { track } from '../../analytics/track';
-import { t } from '../../copy';
 import { guard, useSession } from '../../data/auth';
 import { hasBackend } from '../../data/auth/client';
 import { circleHome } from '../../data/circles';
 import { newIdempotencyKey } from '../../data/functions';
 import { createPlan } from '../../data/planning';
 import { isOffline } from '../identity/join/failure';
-import { movedOn, usePlanClock } from './clock';
-import { CustomWindowScreen } from './CustomWindowScreen';
 import { FIXTURE_NOW, sundayCrew } from './fixtures';
-import { customShape, defaultDraft, resolveDraft, WINDOW_EVENT, type PlanDraft } from './form';
+import { customShape, WINDOW_EVENT, type PlanDraft } from './form';
+import { SetupForm } from './SetupForm';
+import type { FormContext } from './usePlanForm';
 import { InitiateGateFlow } from '../growth/InitiateGateFlow';
 import { PlanInProgress } from './PlanInProgressFlow';
 import { PlanSetupScreen } from './PlanSetupScreen';
-import { refusalOf, type Refused } from './problems';
-import { DeadlineSheet, RequiredSheet } from './sheets';
-import { usePlanForm, type FormContext } from './usePlanForm';
-import { categoryLabel, closesDetail } from './words';
+import { categoryLabel } from './words';
 
 /**
  * `/circles/:id/plan/setup` — a plan with everything open to change (spec
@@ -234,107 +230,6 @@ function LiveSetup({
         if (refused.conclusive) key.current = undefined;
       }}
       onBack={back}
-    />
-  );
-}
-
-function SetupForm({
-  initial: opening,
-  context,
-  circleName,
-  circleDuration,
-  now,
-  freshNow,
-  startOn,
-  onAsk,
-  onRefused,
-  onBack,
-}: {
-  initial?: PlanDraft | undefined;
-  context: FormContext;
-  /** For the refusal that names the circle. Absent on fixtures. */
-  circleName?: string | undefined;
-  circleDuration: number;
-  now: number;
-  /**
-   * The clock at the tap. The server resolves the preset when the plan is
-   * made, so a form left open past midnight — or past tonight's last start —
-   * would otherwise send a window it no longer shows. Absent on fixtures,
-   * whose clock is fixed.
-   */
-  freshNow?: (() => number) | undefined;
-  startOn: 'form' | 'window';
-  onAsk: (draft: PlanDraft, touched: boolean) => Promise<void>;
-  onRefused?: ((refused: Refused) => void) | undefined;
-  onBack: () => void;
-}) {
-  // A default deadline is counted from when the plan is made, so the one on
-  // screen keeps time with the clock rather than with when the form opened.
-  const [clock, setClock] = usePlanClock(now, freshNow !== undefined);
-  const instant = fromISO(new Date(clock).toISOString());
-  const duration = (DURATIONS as readonly number[]).includes(circleDuration)
-    ? (circleDuration as DurationMinutes)
-    : 120;
-  const [initial] = useState(() => opening ?? defaultDraft({ duration }));
-  const form = usePlanForm({
-    initial,
-    context,
-    now: instant,
-    startOn,
-    resolve: (draft) => resolveDraft(draft, instant, context.zone),
-    // "You can pick sooner" while it is the default; once picked, it was.
-    closesDetail: (resolved, draft) => closesDetail(resolved, draft, context.zone),
-  });
-  const [busy, setBusy] = useState(false);
-  const [refused, setRefused] = useState<Refused>();
-  const inFlight = useRef(false);
-
-  if (form.step === 'window') return <CustomWindowScreen {...form.window} />;
-
-  const ask = async () => {
-    if (inFlight.current || !form.resolved.ok) return;
-    if (freshNow !== undefined) {
-      const fresh = freshNow();
-      const then = resolveDraft(form.draft, fromISO(new Date(fresh).toISOString()), context.zone);
-      if (movedOn(form.resolved, then, form.draft.deadline === undefined)) {
-        // Show what would be made now, and let the organiser ask again.
-        setClock(fresh);
-        setRefused({ message: t('planSetup', 'problem_moved_on'), conclusive: true });
-        return;
-      }
-    }
-    inFlight.current = true;
-    setBusy(true);
-    setRefused(undefined);
-    try {
-      await onAsk(form.draft, form.touched);
-    } catch (error) {
-      const answer = refusalOf(error, { circleName });
-      setRefused(answer);
-      onRefused?.(answer);
-      setBusy(false);
-    } finally {
-      inFlight.current = false;
-    }
-  };
-
-  return (
-    <PlanSetupScreen
-      category={form.draft.category}
-      onCategory={form.setCategory}
-      controls={form.controls}
-      problem={form.problem}
-      refused={refused?.message}
-      reference={refused?.reference}
-      busy={busy}
-      onNext={() => void ask()}
-      onBack={onBack}
-      sheets={
-        <>
-          {form.deadlineSheet === undefined ? null : <DeadlineSheet {...form.deadlineSheet} />}
-          <RequiredSheet {...form.requiredSheet} />
-        </>
-      }
     />
   );
 }

@@ -28,15 +28,18 @@ export type PlanControlsProps = {
   band: BandPickerProps;
   duration: DurationMinutes;
   onDuration: (duration: DurationMinutes) => void;
-  quorum: {
-    line: string;
-    detail: string;
-    canFewer: boolean;
-    canMore: boolean;
-    onFewer: () => void;
-    onMore: () => void;
-  };
-  required: { title: string; detail: string; onChange?: (() => void) | undefined };
+  /** Absent for a circle of one, drafted before the circle exists (ADR 0053). */
+  quorum?:
+    | {
+        line: string;
+        detail: string;
+        canFewer: boolean;
+        canMore: boolean;
+        onFewer: () => void;
+        onMore: () => void;
+      }
+    | undefined;
+  required?: { title: string; detail: string; onChange?: (() => void) | undefined } | undefined;
   closes: { title: string; detail: string; onChange?: (() => void) | undefined };
 };
 
@@ -82,23 +85,35 @@ export function PlanControls({
         </Chips>
       </Stack>
       <Card>
-        <Stack>
-          <Title>{quorum.line}</Title>
-          <Small>{quorum.detail}</Small>
-        </Stack>
-        <Stepper
-          fewerLabel={t('planSetup', 'fewer_short')}
-          moreLabel={t('planSetup', 'more_short')}
-          fewerSpoken={t('planSetup', 'fewer')}
-          moreSpoken={t('planSetup', 'more')}
-          canFewer={quorum.canFewer}
-          canMore={quorum.canMore}
-          onFewer={quorum.onFewer}
-          onMore={quorum.onMore}
-        />
-        <Divider />
-        <SettingLine title={required.title} detail={required.detail} onChange={required.onChange} />
-        <Divider />
+        {quorum === undefined ? null : (
+          <>
+            <Stack>
+              <Title>{quorum.line}</Title>
+              <Small>{quorum.detail}</Small>
+            </Stack>
+            <Stepper
+              fewerLabel={t('planSetup', 'fewer_short')}
+              moreLabel={t('planSetup', 'more_short')}
+              fewerSpoken={t('planSetup', 'fewer')}
+              moreSpoken={t('planSetup', 'more')}
+              canFewer={quorum.canFewer}
+              canMore={quorum.canMore}
+              onFewer={quorum.onFewer}
+              onMore={quorum.onMore}
+            />
+            <Divider />
+          </>
+        )}
+        {required === undefined ? null : (
+          <>
+            <SettingLine
+              title={required.title}
+              detail={required.detail}
+              onChange={required.onChange}
+            />
+            <Divider />
+          </>
+        )}
         <SettingLine title={closes.title} detail={closes.detail} onChange={closes.onChange} />
       </Card>
     </>

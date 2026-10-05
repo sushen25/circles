@@ -5,6 +5,7 @@ import {
   accountToSignInTo,
   circleOwnedBy,
   circlesOwnedBy,
+  durationOf,
   guestWhoAnswered,
   isParticipant,
   latestCodeFor,
@@ -12,14 +13,17 @@ import {
   plansIn,
   planFor,
   profileFor,
+  quorumOf,
+  sql,
   signedInAccount,
   sundayCrew,
 } from './stack';
 
 /**
- * The first run (S1-22, S1-22b; spec §5.1, §6.1): Welcome → email → code →
- * name → first circle → first plan → the plan's share screen → the organiser's
- * own times → circle home. Then the ways a returning organiser comes in, and
+ * The first run (S1-22, S1-22b, SUS-150; spec §5.1, §6.1): first circle → first
+ * plan → Save your place (email → code) → name → the plan's share screen → the
+ * organiser's own times → circle home. Nothing is created until the place is
+ * saved (ADR 0053). Then the ways a returning organiser comes in, and
  * "I have an account" on a plan link (ADR 0022). Against the real stack: the
  * email code comes from the mail catcher, and every step ends in the database.
  */
@@ -60,6 +64,20 @@ async function typedFieldsOnScreen(page: Page): Promise<number> {
     .count();
 }
 
+/** How many circles with this name exist at all: the abandoned draft's witness. */
+function circleCountNamed(name: string): number {
+  return Number(sql(`select count(*) from circles where name = '${name}'`)[0]?.[0] ?? 0);
+}
+
+async function draftThroughThePlan(page: Page, circleName: string): Promise<void> {
+  await page.goto('/start');
+  await page.getByLabel('Circle name').fill(circleName);
+  await page.getByRole('button', { name: `Create ${circleName}` }).click();
+  await expect(page.getByText('Your first catch-up')).toBeVisible();
+  await page.getByRole('button', { name: 'Ask the group' }).click();
+  await expect(page.getByText("Your plan's ready. Save your place.")).toBeVisible();
+}
+
 async function signInByCode(page: Page, email: string): Promise<void> {
   await page.getByLabel('Your email').fill(email);
   await page.getByRole('button', { name: 'Send me a code' }).click();
@@ -83,13 +101,44 @@ test('a new organiser reaches a shareable plan link with two typed inputs and no
   page.on('request', (request) => requests.push(`${request.url()} ${request.postData() ?? ''}`));
 
   await page.goto('/start');
-  await page.getByRole('button', { name: 'Continue with email' }).click();
   const email = `${globalThis.crypto.randomUUID()}@example.test`;
+
+  // The first screen is the circle, with no sign-in before it (ADR 0053). The
+  // two typed inputs are the circle's name and, after the gate, the organiser's.
+  let typed = 0;
+  await expect(page.getByLabel('Circle name')).toBeVisible();
+  expect(await typedFieldsOnScreen(page), 'FirstCircle has one field').toBe(1);
+  await page.getByLabel('Circle name').fill('Sunday Crew');
+  typed += 1;
+  await page.getByRole('button', { name: 'Create Sunday Crew' }).click();
+
+  // The plan, drafted: a circle of one, so the quorum is words and not a number.
+  await expect(page.getByText('Your first catch-up')).toBeVisible();
+  expect(await typedFieldsOnScreen(page), 'nothing to type on the first plan').toBe(0);
+  await expect(page.getByText('Most of the group need to make it')).toBeVisible();
+
+  // Anything on the card can be changed with no account: the full setup, over the
+  // draft. Three hours instead of two, saved on the device and sent nowhere.
+  await expect(page.getByText('About 2 hours')).toBeVisible();
+  await page.getByRole('button', { name: 'Change' }).first().click();
+  await expect(page).toHaveURL(/\/circles\/new\/plan\/setup$/);
+  await expect(page.getByRole('button', { name: 'Save plan' })).toBeVisible();
+  await page.getByRole('checkbox', { name: '3 hrs' }).click();
+  await page.getByRole('button', { name: 'Save plan' }).click();
+  await expect(page.getByText('About 3 hours')).toBeVisible();
+  // It survives a reload.
+  await page.reload();
+  await expect(page.getByText('About 3 hours')).toBeVisible();
+  await page.getByRole('button', { name: 'Ask the group' }).click();
+
+  // The gate is the third screen, after the plan, and nothing exists yet.
+  await expect(page.getByText("Your plan's ready. Save your place.")).toBeVisible();
+  expect(
+    requests.filter((request) => /create-circle|create-plan/.test(request)),
+    'nothing is sent to be made before the place is saved',
+  ).toEqual([]);
   await signInByCode(page, email);
 
-  // After the email path's address and code (spec §5.1 step 2): the two typed
-  // inputs are the organiser's name and the circle's name, and nothing else.
-  let typed = 0;
   await expect(page).toHaveURL(/\/name$/);
   await expect(page.getByLabel('Your name')).toBeVisible();
   expect(await typedFieldsOnScreen(page), 'Your name has one field').toBe(1);
@@ -97,24 +146,16 @@ test('a new organiser reaches a shareable plan link with two typed inputs and no
   typed += 1;
   await page.getByRole('button', { name: 'Continue' }).click();
 
-  await expect(page).toHaveURL(/\/circles\/new$/);
-  await expect(page.getByLabel('Circle name')).toBeVisible();
-  expect(await typedFieldsOnScreen(page), 'FirstCircle has one field').toBe(1);
-  await page.getByLabel('Circle name').fill('Sunday Crew');
-  typed += 1;
-  await page.getByRole('button', { name: 'Create Sunday Crew' }).click();
-
-  // Straight to the plan, with no invite step in between (ADR 0026).
-  await expect(page.getByText('Your first catch-up')).toBeVisible();
-  expect(await typedFieldsOnScreen(page), 'nothing to type on the first plan').toBe(0);
-  // A circle of one asks for three, not two: the placeholder that follows the
-  // circle as people tap the link.
-  await expect(page.getByText('At least 3 need to make it')).toBeVisible();
-  await page.getByRole('button', { name: 'Ask the group' }).click();
-
+  // Straight to the share screen: the circle and the plan are made on the way.
   await expect(page.getByText('Ask Sunday Crew.')).toBeVisible();
   expect(typed).toBe(2);
   expect(await page.evaluate('window.permissionAsks'), 'no permission was asked for').toEqual([]);
+  // A circle of one asks for three: the placeholder that follows the circle as
+  // people tap the link (ADR 0026, unchanged).
+  const draftedPlan = plansIn(circlesOwnedBy(profileFor(email)!.userId)[0]!.id)[0];
+  expect(quorumOf(draftedPlan!.id)).toEqual({ quorum: 3, source: 'defaulted' });
+  // And the plan made after the gate is the one that was changed before it.
+  expect(durationOf(draftedPlan!.id)).toBe(180);
 
   // In the database: a profile named and zoned, the circle it owns, and a plan
   // whose quorum is a placeholder.
@@ -231,4 +272,77 @@ test('where the browser has a share sheet, "Share to group chat" hands it the pl
     .poll(() => page.evaluate('window.shared.map((d) => d.text).join("\\n")'))
     .toMatch(new RegExp(`/j/${plan.code}\\b`));
   await expect(page.getByText('Copied', { exact: true })).toHaveCount(0);
+});
+
+test('abandoning at the gate creates nothing, and a reload keeps the draft', async ({ page }) => {
+  const name = `Abandon ${globalThis.crypto.randomUUID().slice(0, 8)}`;
+  await draftThroughThePlan(page, name);
+
+  // A reload on the gate: the draft is still there, and so is the screen.
+  await page.reload();
+  await expect(page.getByText("Your plan's ready. Save your place.")).toBeVisible();
+  // Back at the front door the name is still typed.
+  await page.goto('/start');
+  await expect(page.getByLabel('Circle name')).toHaveValue(name);
+
+  expect(circleCountNamed(name), 'no circle after walking away').toBe(0);
+});
+
+test('a draft older than 24 hours is gone', async ({ page }) => {
+  await draftThroughThePlan(page, 'Stale Crew');
+  await page.evaluate(() => {
+    const key = 'circles.organiser-draft';
+    const draft = JSON.parse(globalThis.localStorage.getItem(key) ?? '{}');
+    draft.updatedAt = Date.now() - 24 * 60 * 60 * 1000 - 1000;
+    globalThis.localStorage.setItem(key, JSON.stringify(draft));
+  });
+
+  await page.goto('/start');
+  await expect(page.getByLabel('Circle name')).toHaveValue('');
+  expect(
+    await page.evaluate(() => globalThis.localStorage.getItem('circles.organiser-draft')),
+  ).toBe(null);
+});
+
+test('the draft survives the email code, and the circle is made only after it', async ({
+  page,
+}) => {
+  const name = `Coded ${globalThis.crypto.randomUUID().slice(0, 8)}`;
+  const email = `${globalThis.crypto.randomUUID()}@example.test`;
+  await draftThroughThePlan(page, name);
+
+  await page.getByLabel('Your email').fill(email);
+  await page.getByRole('button', { name: 'Send me a code' }).click();
+  await expect(page.getByLabel('Code', { exact: true })).toBeVisible();
+  expect(circleCountNamed(name), 'a code was asked for, still nothing made').toBe(0);
+
+  // Reload in the middle of the round trip: the gate asks again, the draft holds.
+  // A second address, because the auth server holds a second code for the first
+  // back for a minute.
+  await page.reload();
+  await expect(page.getByText("Your plan's ready. Save your place.")).toBeVisible();
+  const second = `${globalThis.crypto.randomUUID()}@example.test`;
+  await signInByCode(page, second);
+  await page.getByLabel('Your name').fill('Maya');
+  await page.getByRole('button', { name: 'Continue' }).click();
+
+  await expect(page.getByText(`Ask ${name}.`)).toBeVisible();
+  expect(circleCountNamed(name)).toBe(1);
+});
+
+test('a signed-in organiser goes circle, plan, share with no gate', async ({ page }) => {
+  const maya = await accountToSignInTo('Maya');
+  await page.goto('/sign-in');
+  await signInByCode(page, maya.email);
+  await expect(page).toHaveURL(/\/circles(\/new)?$/);
+
+  const name = `Again ${globalThis.crypto.randomUUID().slice(0, 8)}`;
+  await page.goto('/circles/new');
+  await page.getByLabel('Circle name').fill(name);
+  await page.getByRole('button', { name: `Create ${name}` }).click();
+  await page.getByRole('button', { name: 'Ask the group' }).click();
+
+  await expect(page.getByText(`Ask ${name}.`)).toBeVisible();
+  await expect(page.getByText('Save your place')).toHaveCount(0);
+  expect(circleCountNamed(name)).toBe(1);
 });

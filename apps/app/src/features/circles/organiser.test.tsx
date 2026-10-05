@@ -76,7 +76,6 @@ vi.mock('../growth/InitiateGateFlow', async () => {
     ),
   };
 });
-const { FirstCircleFlow } = await import('./FirstCircleFlow');
 const { InviteCircleFlow } = await import('./InviteCircleFlow');
 const { CircleHomeFlow, JOINING_POLL_MS } = await import('./CircleHomeFlow');
 const { FirstPlanFlow } = await import('../planning/FirstPlanFlow');
@@ -150,88 +149,6 @@ beforeEach(() => {
   circleHome.mockResolvedValue(home());
   ownProfile.mockReset();
   ownProfile.mockResolvedValue({ name: 'Maya', zone: 'Australia/Melbourne' });
-});
-
-describe('FirstCircle', () => {
-  it('makes the circle from the name and cadence, and goes on to the first plan', async () => {
-    createCircle.mockResolvedValue({ circle: { id: CIRCLE }, invite_secret: SECRET });
-    wrap(<FirstCircleFlow />);
-
-    fireEvent.change(await screen.findByLabelText('Circle name'), {
-      target: { value: ' Sunday  Crew ' },
-    });
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Fortnightly' }));
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Create Sunday Crew' }));
-    });
-
-    expect(createCircle).toHaveBeenCalledWith(
-      expect.objectContaining({
-        name: 'Sunday Crew',
-        cadence: 'fortnightly',
-        timeZone: 'Australia/Melbourne',
-      }),
-    );
-    expect(track).toHaveBeenCalledWith('circle_created', { circle_id: CIRCLE });
-    // The plan, not the invite (ADR 0026): what the chat gets is one link with
-    // a question in it.
-    expect(replace).toHaveBeenCalledWith({
-      pathname: '/circles/[id]/plan/new',
-      params: { id: CIRCLE },
-    });
-    // The secret is held for the invite screen, never put in the address.
-    expect(JSON.stringify(replace.mock.calls)).not.toContain(SECRET);
-  });
-
-  it('uses the zone chosen on Your name even when the profile is still loading (review round 1)', async () => {
-    let answer: (profile: unknown) => void = () => undefined;
-    ownProfile.mockImplementation(
-      () =>
-        new Promise((resolve) => {
-          answer = resolve;
-        }),
-    );
-    createCircle.mockResolvedValue({ circle: { id: CIRCLE }, invite_secret: SECRET });
-    wrap(<FirstCircleFlow />);
-
-    fireEvent.change(await screen.findByLabelText('Circle name'), {
-      target: { value: 'Sunday Crew' },
-    });
-    await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Create Sunday Crew' }));
-    });
-    expect(createCircle).not.toHaveBeenCalled();
-
-    await act(async () => {
-      answer({ name: 'Maya', zone: 'Europe/London' });
-    });
-    await waitFor(() =>
-      expect(createCircle).toHaveBeenCalledWith(
-        expect.objectContaining({ timeZone: 'Europe/London' }),
-      ),
-    );
-  });
-
-  it('retries with the same key, so a second tap cannot make a second circle', async () => {
-    createCircle.mockRejectedValueOnce(new Error('timeout')).mockResolvedValue({
-      circle: { id: CIRCLE },
-      invite_secret: SECRET,
-    });
-    wrap(<FirstCircleFlow />);
-    fireEvent.change(await screen.findByLabelText('Circle name'), {
-      target: { value: 'Sunday Crew' },
-    });
-    for (let i = 0; i < 2; i += 1) {
-      await act(async () => {
-        fireEvent.click(screen.getByRole('button', { name: 'Create Sunday Crew' }));
-      });
-    }
-    const keys = createCircle.mock.calls.map(
-      ([o]) => (o as { idempotencyKey: string }).idempotencyKey,
-    );
-    expect(keys).toHaveLength(2);
-    expect(keys[0]).toBe(keys[1]);
-  });
 });
 
 describe('InviteCircle', () => {

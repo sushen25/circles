@@ -64,6 +64,13 @@ export type FormContext = {
   quorumShown: number;
   /** Whether an untouched quorum follows the circle (a new plan's, ADR 0026). */
   quorumFollows: boolean;
+  /**
+   * A circle of one, drafted before the circle exists (ADR 0053): there is
+   * nobody to count or to require, so the quorum and the required people are not
+   * asked for. The server keeps the quorum defaulted, as for any plan whose
+   * quorum nobody chose (ADR 0026).
+   */
+  alone?: boolean | undefined;
   /** The edit's own dates, offered as the first "When" chip, and the hours they had. */
   kept?: { window: DateRange; band: Band } | undefined;
   /** The first day the calendar offers, when later than today (Change the time). */
@@ -235,27 +242,31 @@ export function usePlanForm({
       band: bandPicker,
       duration: draft.duration,
       onDuration: (duration: DurationMinutes) => change({ duration }),
-      quorum: {
-        line: quorumLine(quorum, context.members),
-        detail:
-          context.quorumFollows && draft.quorum === undefined
-            ? t('planSetup', 'quorum_adjusts')
-            : t('planSetup', 'so_one_busy_week_doesnt_sink_the'),
-        canFewer: quorum > range.min,
-        canMore: quorum < range.max,
-        onFewer: () => change({ quorum: Math.max(range.min, quorum - 1) }),
-        onMore: () => change({ quorum: Math.min(range.max, quorum + 1) }),
-      },
-      required: {
-        title: t('planSetup', 'required_title'),
-        detail:
-          required.length === 0
-            ? t('planSetup', 'required_nobody')
-            : required.length === 1 && required[0] === context.me
-              ? t('planSetup', 'required_just_you')
-              : (listOf(requiredNames) ?? t('planSetup', 'required_nobody')),
-        onChange: context.people.length === 0 ? undefined : () => setRequiredOpen(true),
-      },
+      quorum: context.alone
+        ? undefined
+        : {
+            line: quorumLine(quorum, context.members),
+            detail:
+              context.quorumFollows && draft.quorum === undefined
+                ? t('planSetup', 'quorum_adjusts')
+                : t('planSetup', 'so_one_busy_week_doesnt_sink_the'),
+            canFewer: quorum > range.min,
+            canMore: quorum < range.max,
+            onFewer: () => change({ quorum: Math.max(range.min, quorum - 1) }),
+            onMore: () => change({ quorum: Math.min(range.max, quorum + 1) }),
+          },
+      required: context.alone
+        ? undefined
+        : {
+            title: t('planSetup', 'required_title'),
+            detail:
+              required.length === 0
+                ? t('planSetup', 'required_nobody')
+                : required.length === 1 && required[0] === context.me
+                  ? t('planSetup', 'required_just_you')
+                  : (listOf(requiredNames) ?? t('planSetup', 'required_nobody')),
+            onChange: context.people.length === 0 ? undefined : () => setRequiredOpen(true),
+          },
       closes: resolved.ok
         ? {
             title: closesIn(resolved.deadline, now),
