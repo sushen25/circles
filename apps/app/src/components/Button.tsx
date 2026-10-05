@@ -64,15 +64,15 @@ function Words({
   other: string | undefined;
   style: StyleProp<TextStyle>;
 }) {
-  const longer = other !== undefined && other.length > label.length ? other : undefined;
+  if (other === undefined || other.length <= label.length)
+    return <Text style={style}>{label}</Text>;
+  // The longer one holds the width, unseen; the one being said sits over it.
   return (
     <View>
-      <Text style={style}>{label}</Text>
-      {longer === undefined ? null : (
-        <Text aria-hidden style={[style, styles.sizer]}>
-          {longer}
-        </Text>
-      )}
+      <Text aria-hidden style={[style, styles.sizer]}>
+        {other}
+      </Text>
+      <Text style={[style, styles.overlay]}>{label}</Text>
     </View>
   );
 }
@@ -273,9 +273,14 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   sizer: {
-    height: 0,
     opacity: 0,
-    overflow: 'hidden',
+  },
+  overlay: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    textAlign: 'center',
   },
   slowWrap: {
     gap: 8,

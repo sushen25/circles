@@ -49,14 +49,9 @@ export function Skeleton({ shape }: { shape: SkeletonShape }) {
   }, [reduced, pulse]);
 
   return (
-    <Animated.View
-      aria-hidden
-      testID="skeleton"
-      style={[styles.shape, { opacity: pulse }]}
-      pointerEvents="none"
-    >
-      {shapes[shape]()}
-    </Animated.View>
+    <View aria-hidden testID="skeleton" style={styles.shape} pointerEvents="none">
+      <Animated.View style={[styles.shape, { opacity: pulse }]}>{shapes[shape]()}</Animated.View>
+    </View>
   );
 }
 

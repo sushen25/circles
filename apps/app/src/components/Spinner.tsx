@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Animated, Easing, Platform } from 'react-native';
+import { Animated, Easing, Platform, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
 import { useReducedMotion } from './wait';
@@ -33,20 +33,18 @@ export function Spinner({ size = 18, color }: { size?: number; color: string }) 
   const rotate = turn.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
 
   return (
-    <Animated.View
-      aria-hidden
-      testID="spinner"
-      style={{ width: size, height: size, transform: [{ rotate }] }}
-    >
-      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>
-        <Path
-          d="M12 3a9 9 0 1 1-9 9"
-          stroke={color}
-          strokeWidth={2.6}
-          strokeLinecap="round"
-          fill="none"
-        />
-      </Svg>
-    </Animated.View>
+    <View aria-hidden testID="spinner">
+      <Animated.View style={{ width: size, height: size, transform: [{ rotate }] }}>
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>
+          <Path
+            d="M12 3a9 9 0 1 1-9 9"
+            stroke={color}
+            strokeWidth={2.6}
+            strokeLinecap="round"
+            fill="none"
+          />
+        </Svg>
+      </Animated.View>
+    </View>
   );
 }

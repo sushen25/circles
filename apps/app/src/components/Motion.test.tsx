@@ -25,8 +25,10 @@ async function draw(reduced: boolean) {
 describe('reduced motion', () => {
   it('holds the pulse and the spinner still, and still draws them', async () => {
     await draw(true);
-    expect(screen.getByTestId('skeleton')).toHaveStyle({ opacity: '1' });
-    expect(screen.getByTestId('spinner').style.transform).toBe('rotate(0deg)');
+    expect(screen.getByTestId('skeleton').firstElementChild).toHaveStyle({ opacity: '1' });
+    expect((screen.getByTestId('spinner').firstElementChild as HTMLElement).style.transform).toBe(
+      'rotate(0deg)',
+    );
   });
 
   it('runs both loops when motion is allowed', async () => {
