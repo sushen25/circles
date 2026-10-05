@@ -18,6 +18,7 @@ import {
   useCircle,
   type CirclePatch,
   type CircleHome,
+  circleKeys,
 } from '../../data/circles';
 import { newIdempotencyKey } from '../../data/functions';
 import { appOrigin } from '../../data/links/origin';
@@ -124,7 +125,7 @@ function LiveSettings({ id }: { id: string }) {
   // A choice the server nearly always accepts (colour, how often, who gets
   // nudged, the quiet-asks switch) shows at once and is put back, with the
   // notice, if the server refuses (manifesto §7.4).
-  const homeKey = ['circle-home', id];
+  const homeKey = circleKeys.home(id, session.userId);
   const showAtOnce = (change: HomeChange) => showHomeAtOnce(queryClient, homeKey, change);
   const putBack = (before: CircleHome | undefined) => putHomeBack(queryClient, homeKey, before);
 
