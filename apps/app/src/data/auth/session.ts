@@ -37,6 +37,16 @@ export interface SessionState {
   userId: string | undefined;
   isAnonymous: boolean;
   /**
+   * The sign-in address, only when auth has **confirmed** it (`email_confirmed_at`
+   * set) and the identity is not anonymous; otherwise undefined. A confirmed
+   * address is proof for that person's own plan-update contact (ADR 0055), so
+   * the Sent card offers a signed-in member one button instead of a field.
+   * Lower-cased and trimmed the way the server compares it. It is what
+   * `supabase-js` already holds for the session, kept in memory only: never
+   * rendered into a URL, a log or an analytics payload.
+   */
+  confirmedEmail: string | undefined;
+  /**
    * True until the stored session has been read back.
    *
    * Every guard depends on this. Without it, the first render of a circle route
@@ -51,6 +61,7 @@ const SIGNED_OUT: SessionState = {
   status: 'none',
   userId: undefined,
   isAnonymous: false,
+  confirmedEmail: undefined,
   isLoading: true,
 };
 
@@ -90,11 +101,21 @@ function resumeClaimFor(session: Session | null): void {
   void resumePendingClaim().catch(() => undefined);
 }
 
+/** The address auth has confirmed for a permanent identity, as the server reads it. */
+function confirmedEmailOf(session: Session | null): string | undefined {
+  const user = session?.user;
+  if (user === undefined || user.is_anonymous === true) return undefined;
+  if (user.email_confirmed_at === undefined || user.email_confirmed_at === null) return undefined;
+  const address = user.email?.trim().toLowerCase();
+  return address === undefined || address === '' ? undefined : address;
+}
+
 function publish(session: Session | null): void {
   const next: SessionState = {
     status: statusOf(session),
     userId: session?.user.id,
     isAnonymous: session?.user.is_anonymous === true,
+    confirmedEmail: confirmedEmailOf(session),
     isLoading: false,
   };
 
@@ -104,6 +125,7 @@ function publish(session: Session | null): void {
     state.status === next.status &&
     state.userId === next.userId &&
     state.isAnonymous === next.isAnonymous &&
+    state.confirmedEmail === next.confirmedEmail &&
     state.isLoading === next.isLoading
   ) {
     return;

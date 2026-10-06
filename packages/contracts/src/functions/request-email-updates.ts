@@ -52,5 +52,15 @@ export const RequestEmailUpdatesResponse = z.object({
    * has to outrank telling somebody else about it.
    */
   status: z.literal('check_email'),
+  /**
+   * **Only for the address's own confirmed owner** (SUS-164, ADR 0055): present
+   * when the address asked about is the caller's own confirmed sign-in address,
+   * and absent, not null, for everybody else, so a non-owner's answer is
+   * byte-for-byte the one above. `live`: emails will arrive. `pending`: a link
+   * was sent. `suppressed`: nothing will ever be sent to it, and the screen must
+   * not promise any. The owner proved the address with a code, so this tells
+   * them nothing about anyone else's.
+   */
+  delivery: z.enum(['live', 'pending', 'suppressed']).optional(),
 });
 export type RequestEmailUpdatesResponse = z.infer<typeof RequestEmailUpdatesResponse>;

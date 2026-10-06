@@ -421,8 +421,10 @@ S["AvailabilityOthersFirst"] = availability(day_grid(), time_panel(),
 # (packages/config/src/consent.ts, ADR 0048): update by hand on every consent version.
 CONSENT_2026_10_06 = "Only about this meetup: when it's locked in, moved, called off or needs your times again, one reminder, and one question after. Stop any time from the email itself."
 
-def sent_card(address="", switch="on", primary_note=None):
-    """The one-step card. `switch` is "on", "off" or None (no switch: the place is already saved)."""
+def sent_card(address="", switch="on", member=None):
+    """The one-step card. `switch` is "on", "off" or None (no switch: the place is already saved).
+    `member` (SUS-164): a signed-in member's confirmed address, shown as text in place of the
+    field, with no switch and no "use a different address"."""
     rows = []
     if switch is not None:
         on = switch == "on"
@@ -431,7 +433,7 @@ def sent_card(address="", switch="on", primary_note=None):
             f'<div class="toggle{" on" if on else ""}"><i></i></div>'))
     return card(
         row(ic("mail", 20, T["ink2"]), title("Hear when it's locked in")),
-        inp(address, ph=False) if address else inp("you@example.com", ph=True),
+        sm(f"We'll email you at {member}.") if member else (inp(address, ph=False) if address else inp("you@example.com", ph=True)),
         sm(CONSENT_2026_10_06),
         *rows,
         pri("Email me about this meetup"),
@@ -457,6 +459,27 @@ S["SentPartial"] = shell(top("", back=False, right=wordmark()) + body(
     sent_head(),
     notice("Your place is saved. We couldn't turn on the emails; try again.", "shield", "warn"),
     sent_card("priya@example.com", switch=None),
+    ter("Change my answer")))
+
+# A signed-in member with a confirmed address (SUS-164): their address as text, the
+# sentence directly above one button. No field, no switch, no other address (ADR 0055).
+S["SentMember"] = shell(top("", back=False, right=wordmark()) + body(sent_head(), sent_card(member="priya@example.com", switch=None), ter("Change my answer")))
+
+# Done for the member: one line, a live region. The place was already saved.
+S["SentMemberDone"] = shell(top("", back=False, right=wordmark()) + body(
+    sent_head(),
+    notice("Done. We'll email priya@example.com about this meetup.", "check", "ok"),
+    ter("Change my answer")))
+
+# The owner of a suppressed address (it bounced, or asked to stop) is told the
+# truth, and promised nothing: on the member's one button, and after the code.
+S["SentSuppressed"] = shell(top("", back=False, right=wordmark()) + body(
+    sent_head(),
+    notice("We can't send email to priya@example.com right now, so check the plan here.", "shield", "warn"),
+    ter("Change my answer")))
+S["SentSuppressedSaved"] = shell(top("", back=False, right=wordmark()) + body(
+    sent_head(),
+    notice("Your place is saved. We can't send email to priya@example.com right now, so check the plan here.", "shield", "warn"),
     ter("Change my answer")))
 
 S["ConfirmedGuest"] = shell(
@@ -1699,7 +1722,7 @@ pages = [{"id":"first","name":"0 · First time, organiser"},
          {"id":"system","name":"6 · States, copy and components"},
          {"id":"loading","name":"7 · Loading and busy"}]
 
-titles = {"Main":"Join · invite landing","ContinueAs":"Continue as · returning member","Name":"Name","Availability":"Availability · partial","AvailabilityPicking":"Availability · days ticked","AvailabilityAdjusting":"Availability · adjusting a day","AvailabilityOthers":"Availability · what others said","AvailabilityOthersPicking":"Availability · others, days ticked","AvailabilityOthersAdjusting":"Availability · others, adjusting a day","AvailabilityOthersFirst":"Availability · first to answer","NoneWork":"None of these dates","Sent":"Sent · one step, switch on","SentSwitchOff":"Sent · switch off","SentCode":"Sent · the code","SentDone":"Sent · done","SentPartial":"Sent · place saved, emails failed","CheckEmail":"Check your email · app nudge","EmailVerified":"Email verified","EmailPrefs":"Email preferences · no sign-in","SaveAccess":"Save access · the account's other doors","CandidatesMember":"Candidates · member view","ConfirmedGuest":"Confirmed · guest","AddToCalendar":"Add to calendar sheet","RescheduledGuest":"Rescheduled · guest","CancelledGuest":"Cancelled · guest","WasThere":"Attendance · morning after","LinkInvalid":"Invite link inactive",
+titles = {"Main":"Join · invite landing","ContinueAs":"Continue as · returning member","Name":"Name","Availability":"Availability · partial","AvailabilityPicking":"Availability · days ticked","AvailabilityAdjusting":"Availability · adjusting a day","AvailabilityOthers":"Availability · what others said","AvailabilityOthersPicking":"Availability · others, days ticked","AvailabilityOthersAdjusting":"Availability · others, adjusting a day","AvailabilityOthersFirst":"Availability · first to answer","NoneWork":"None of these dates","Sent":"Sent · one step, switch on","SentSwitchOff":"Sent · switch off","SentCode":"Sent · the code","SentDone":"Sent · done","SentPartial":"Sent · place saved, emails failed","SentMember":"Sent · signed in, one button","SentMemberDone":"Sent · signed in, done","SentSuppressed":"Sent · address suppressed","SentSuppressedSaved":"Sent · suppressed, after the code","CheckEmail":"Check your email · app nudge","EmailVerified":"Email verified","EmailPrefs":"Email preferences · no sign-in","SaveAccess":"Save access · the account's other doors","CandidatesMember":"Candidates · member view","ConfirmedGuest":"Confirmed · guest","AddToCalendar":"Add to calendar sheet","RescheduledGuest":"Rescheduled · guest","CancelledGuest":"Cancelled · guest","WasThere":"Attendance · morning after","LinkInvalid":"Invite link inactive",
           "SignIn":"Sign in · returning organiser","SavePlace":"Save your place · the gate, before the share","EnterCode":"Enter code","YourName":"Your name · after sign-in","FirstCircle":"First circle · no account","InviteCircle":"Invite the circle","CircleHomeJoining":"Circle home · people joining","FirstPlan":"First plan · no account","EmptyCirclesList":"Circles · first run","CirclesList":"Circles list","CircleHome":"Circle home · finding a time","CircleHomeConfirmed":"Circle home · locked in","CircleHomeDue":"Circle home · about time","CreateCircle":"Create circle","ChooseMode":"Choose how to start","PlanSetup":"Plan setup","CustomWindow":"Custom window","PlanShared":"Plan shared · paste to chat","Waiting":"Waiting · no options yet","Candidates":"Candidates · partial replies","DeadlinePassed":"Replies closed · no decision","EditPlan":"Edit plan · reconfirm warning","ConfirmReview":"Confirm review","ConfirmedOrg":"Confirmed · organiser","ChangeTime":"Ask for new times","SetTime":"Set the time yourself","ConfirmReviewOwn":"Confirm review · a time of your own","EditLocked":"Edit this plan · locked in","ConfirmedGuestMoved":"Confirmed · guest, moved","CancelPlan":"Cancel plan","CancelledOrg":"Cancelled · organiser","NoQuorum":"No quorum","Outcome":"Did it happen?","PlanAnother":"Plan another · prefilled","Settings":"Circle settings","NotificationSettings":"Notification settings","Account":"Account","Privacy":"Privacy","Diagnostics":"Founder diagnostics",
           "SparkSetup":"Quiet ask · setup","SparkWaiting":"Quiet ask · initiator waiting","InterestPrompt":"Interest prompt · member","ThresholdRole":"Threshold reached · initiator","Volunteer":"Started quietly · keen member","SparkOpenedMember":"Started quietly · other member","SparkExpired":"Expired · initiator",
           "PushAsk":"Push permission · contextual","CalendarExplain":"Calendar · before permission","CalendarPick":"Calendar · pick calendars","AvailabilityOverlay":"Availability · calendar overlay","CalendarDenied":"Calendar · denied",
@@ -1718,7 +1741,8 @@ grid(["Main","ContinueAs","Name","Availability","NoneWork","Sent",
       "AddToCalendar","RescheduledGuest","CancelledGuest","WasThere","LinkInvalid","ConfirmedGuestMoved",
       "AvailabilityPicking","AvailabilityAdjusting","AvailabilityOthers","AvailabilityOthersPicking",
       "AvailabilityOthersAdjusting","AvailabilityOthersFirst",
-      "SentSwitchOff","SentCode","SentDone","SentPartial"], "guest")
+      "SentSwitchOff","SentCode","SentDone","SentPartial",
+      "SentMember","SentMemberDone","SentSuppressed","SentSuppressedSaved"], "guest")
 # First run is plan-first (ADR 0026) and drafts before sign-in (ADR 0053): the
 # invite link and "people joining" are still screens, reached from circle home
 # and settings, but they are not steps.
@@ -1749,7 +1773,7 @@ annotations = [
     {"id":"convert-note","x":1520,"y":0,"w":420,"page":"convert","text":"Guest → app. The map (left) says when a prompt may appear and for which conversion. The screens below are the prompts themselves, in the order a guest would meet them: the locked-in nudge (reminder), the app sheet (the only place the app is pitched in full), rejoined-twice, second response, after attendance (starts the cross-circle loop), the organiser gate (sign-in, not install), and what the app shows on first open once the same email links the identity.\nDesign rule from the manifesto: none of these appear before the person's answer is in, and each is one tap to dismiss."},
     {"id":"first-flow","x":0,"y":-210,"w":900,"page":"first","text":"First time, organiser, in reading order, with no account until the plan is ready (ADR 0053). Row 1: first circle (name + loose cadence only) → first plan with defaults accepted in one tap → Save your place (the gate) → the email's code → name (time zone from the phone) → the plan's link ready for the chat.\nRow 2: the organiser's own times → sent → circle home with the plan live; then Sign in, for a returning organiser, who never meets the draft.\nThe first thing shared is a plan, not an invite (ADR 0026): one link, carrying the question, and whoever taps it joins on the way in. The invite link and the filling-up home are still screens, on the organiser page, reached from circle home or from 'Just invite people for now'.\nTwo typed inputs and one sign-in before the first real result; the sign-in is the third screen, never the first. No permissions, no photo, no contacts, no calendar. Apple and Google sit under the email button once SUS-77 lands."},
     {"id":"first-note-sso","x":0,"y":-60,"w":390,"page":"first","text":"Nothing is created until the place is saved: the circle and the plan are held on this device, survive a reload and the sign-in round trip, and are gone 24 hours after the last change. Walking away at Save leaves nothing in the database. A signed-in organiser skips Save and Your name."},
-    {"id":"guest-flow","x":0,"y":-190,"w":900,"page":"guest","text":"Guest path, entirely on mobile web, in reading order. Row 1: link tapped from the group chat → Join → (returning with no session: Continue as) → Name → paint times → 'none of these' branch → Sent with the one-step card: an address, a 'Save my place' switch on by default, one button. Row 4 holds its other states: switch off, the code, done, and the place saved with the emails failed.\nRow 2: email verification and no-sign-in preferences → Save access (the account screen, still reached from the Continue-as prompt and the organiser gate, no longer from Sent) → what a member (not the organiser) sees of the options → Confirmed.\nRow 3: add-to-calendar sheet, rescheduled and cancelled states, morning-after attendance, and an inactive invite link.\nZero account prompts before the answer."},
+    {"id":"guest-flow","x":0,"y":-190,"w":900,"page":"guest","text":"Guest path, entirely on mobile web, in reading order. Row 1: link tapped from the group chat → Join → (returning with no session: Continue as) → Name → paint times → 'none of these' branch → Sent with the one-step card: an address, a 'Save my place' switch on by default, one button. Row 4 holds its other states: switch off, the code, done, and the place saved with the emails failed; row 5 the signed-in member's one-button card, its done line, and the two lines for an address that cannot be emailed.\nRow 2: email verification and no-sign-in preferences → Save access (the account screen, still reached from the Continue-as prompt and the organiser gate, no longer from Sent) → what a member (not the organiser) sees of the options → Confirmed.\nRow 3: add-to-calendar sheet, rescheduled and cancelled states, morning-after attendance, and an inactive invite link.\nZero account prompts before the answer."},
     {"id":"guest-note-avail","x":3*GX,"y":-90,"w":390,"page":"guest","text":"Days first, then a time once (ADR 0024): tick the days, pick a block, and the answer is listed in words. A line opens to adjust that day by the half hour; the two states are on row 4. 'I'm easy' is the plan-level flexible response (review 6.5)."},
     {"id":"org-flow","x":0,"y":-210,"w":900,"page":"organiser","text":"Organiser path (signed in by email code). Row 1: sign in → code → first-run and populated circle lists → create circle → circle home while finding a time.\nRow 2: choose how to start → plan setup (+ custom window) → paste-to-chat moment → waiting with no options yet → candidates.\nRow 3: replies closed with no decision → edit plan with reconfirm warning → confirm review → confirmed → circle home locked in → change the time.\nRow 4: cancel → cancelled → no quorum → did it happen → circle home when it's about time → plan another, prefilled.\nRow 5: circle, notification and account settings, privacy, founder diagnostics.\nNo pricing prompt in MVP. Cadence copy never says 'on track' or 'overdue'."},
     {"id":"org-note-cand","x":5*GX,"y":RY-130,"w":390,"page":"organiser","text":"At most three options, each explains its rank, names who's in and who it doesn't work for. Never a heat map. The recommended card gets a 1.5px accent border, not a fill. Non-responders are never counted as available."},

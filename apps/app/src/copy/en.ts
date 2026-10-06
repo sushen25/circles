@@ -2122,6 +2122,13 @@ export const en = {
     nothing_is_saved: 'Nothing is saved.',
     kept_and_updates_on:
       "Done. We'll email {address} about this meetup, and your place in {circle} is saved: sign in with that address on any phone to get back to it.",
+    // One button for a signed-in member (SUS-164): their confirmed address, no field.
+    well_email_you_at: "We'll email you at {address}.",
+    kept_member_updates_on: "Done. We'll email {address} about this meetup.",
+    // The address is suppressed (it bounced, or asked to stop): nothing is promised.
+    cant_email_member: "We can't send email to {address} right now, so check the plan here.",
+    cant_email_saved:
+      "Your place is saved. We can't send email to {address} right now, so check the plan here.",
     saved_but_emails_off: "Your place is saved. We couldn't turn on the emails; try again.",
     sending: 'Sending',
     not_now: 'Not now',

@@ -18,6 +18,13 @@ describe('the email offer', () => {
     expect(shown.textContent).toBe(CONSENT.text);
   });
 
+  it("shows it, byte for byte, on the signed-in member's one-button card too", () => {
+    render(<SentScreen offerEmail confirmedEmail="priya@example.com" />);
+
+    expect(screen.getByText((_, node) => node?.textContent === CONSENT.text)).toBeVisible();
+    expect(screen.queryByRole('textbox')).toBeNull();
+  });
+
   it('is not drawn when the offer is dismissed', () => {
     render(<SentScreen offerEmail={false} />);
 
@@ -52,9 +59,9 @@ describe('every screen that asks for plan-update email', () => {
   // draws what the person agrees to, which must render `CONSENT.text`. A new
   // caller that is not listed fails this test: decide where the sentence goes.
   const SCREEN_OF_CALLER: Record<string, string | null> = {
-    '/src/features/availability/SentFlow.tsx': '/src/features/availability/SentScreen.tsx',
+    '/src/features/availability/SentFlow.tsx': '/src/features/availability/SentCard.tsx',
     // The card's primary, one step (SUS-162): the same card and the same sentence.
-    '/src/features/availability/useEmailOffer.ts': '/src/features/availability/SentScreen.tsx',
+    '/src/features/availability/useEmailOffer.ts': '/src/features/availability/SentCard.tsx',
     // Resend: the same agreement, made on the offer that sent the first letter.
     // It collects nothing and offers nothing new; "Use a different one" goes
     // back to the offer, which shows the sentence.

@@ -5,7 +5,10 @@ import { ClaimIdentityRequest } from './claim-identity.js';
 import { ExtendDeadlineRequest } from './extend-deadline.js';
 import { HandOffOrganiserRequest } from './hand-off-organiser.js';
 import { JoinPlanRequest } from './join-plan.js';
-import { RequestEmailUpdatesRequest } from './request-email-updates.js';
+import {
+  RequestEmailUpdatesRequest,
+  RequestEmailUpdatesResponse,
+} from './request-email-updates.js';
 import { RecordNudgeRequest } from './record-nudge.js';
 import { ReattachMemberRequest } from './reattach-member.js';
 import { RedeemInviteRequest } from './redeem-invite.js';
@@ -288,5 +291,21 @@ describe('RequestEmailUpdatesRequest', () => {
     expect(RequestEmailUpdatesRequest.safeParse({ ...body, consent_version: 3 }).success).toBe(
       false,
     );
+  });
+});
+
+describe('RequestEmailUpdatesResponse', () => {
+  it('is the neutral answer without `delivery`, and accepts the owner-only word', () => {
+    expect(RequestEmailUpdatesResponse.parse({ status: 'check_email' })).toEqual({
+      status: 'check_email',
+    });
+    for (const delivery of ['live', 'pending', 'suppressed']) {
+      expect(RequestEmailUpdatesResponse.parse({ status: 'check_email', delivery }).delivery).toBe(
+        delivery,
+      );
+    }
+    expect(
+      RequestEmailUpdatesResponse.safeParse({ status: 'check_email', delivery: 'bounced' }).success,
+    ).toBe(false);
   });
 });

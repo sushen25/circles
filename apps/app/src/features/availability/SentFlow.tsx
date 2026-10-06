@@ -1,25 +1,22 @@
-import type { PlanId, ShortCode } from '@circles/contracts';
-import { fromISO, toLocal, toParts, zone as toZone } from '@circles/domain';
+import type { ShortCode } from '@circles/contracts';
 import { useQuery } from '@tanstack/react-query';
 import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
 
 import { track } from '../../analytics/track';
-import { t } from '../../copy';
 import { hasBackend } from '../../data/auth/client';
 import { useSession } from '../../data/auth/session';
-import { planToAnswer, type AnswerablePlan, type OwnAnswer } from '../../data/availability';
+import { planToAnswer } from '../../data/availability';
 import { requestEmailUpdates } from '../../data/email';
 import { answerable } from '../../data/fixtures';
 import { newIdempotencyKey } from '../../data/functions';
 import { ownNameIn } from '../../data/membership';
-import { useNudge, type Nudge } from '../growth/useNudge';
+import { useNudge } from '../growth/useNudge';
 import { EnterCodeScreen } from '../identity/EnterCodeScreen';
 import { isOffline } from '../identity/join/failure';
 import { SavePlaceByEmail } from '../identity/SavePlaceByEmail';
-import { useOneStep, type OneStep, type OneStepStage } from './oneStep';
+import { useOneStep, type OneStepStage } from './oneStep';
 import { SentScreen } from './SentScreen';
-import { useEmailOffer } from './useEmailOffer';
+import { Sent } from './SentView';
 
 /**
  * `/j/:code/sent` — after an answer (spec §5.1, §5.8, S1-30).
@@ -46,7 +43,10 @@ export function SentFlow({ code }: { code: string }) {
   return hasBackend() ? <LiveSent code={code} /> : <FixtureSent code={code} />;
 }
 
-/** The gallery: `?state=code|done|partial` opens the card's other states. */
+/**
+ * The gallery: `?state=code|done|partial|member|joined|suppressed|suppressed_saved`
+ * opens the card's other states (`member` is the signed-in one-button card).
+ */
 function fixtureStage(state: string | undefined): OneStepStage {
   const address = 'priya@example.com';
   switch (state) {
@@ -60,6 +60,12 @@ function fixtureStage(state: string | undefined): OneStepStage {
       return { kind: 'done', address };
     case 'partial':
       return { kind: 'partial', address };
+    case 'joined':
+      return { kind: 'joined', address };
+    case 'suppressed':
+      return { kind: 'suppressed', address, saved: false };
+    case 'suppressed_saved':
+      return { kind: 'suppressed', address, saved: true };
     default:
       return { kind: 'card' };
   }
@@ -88,7 +94,12 @@ function FixtureSent({ code }: { code: string }) {
       name="Priya"
       live={false}
       one={one}
-      canSave
+      canSave={state !== 'member' && state !== 'joined' && state !== 'suppressed'}
+      confirmedEmail={
+        state === 'member' || state === 'joined' || state === 'suppressed'
+          ? 'priya@example.com'
+          : undefined
+      }
     />
   );
 }
@@ -154,7 +165,7 @@ function LiveSent({ code }: { code: string }) {
           // The place is saved; now this plan's updates, for the address that
           // just proved itself. A new key: this is a new request.
           try {
-            await requestEmailUpdates({
+            const answer = await requestEmailUpdates({
               planId,
               email: address,
               idempotencyKey: newIdempotencyKey(),
@@ -163,7 +174,10 @@ function LiveSent({ code }: { code: string }) {
             // this one does not overwrite what is on screen now.
             if (!one.stillCoding(start.sentAt)) return;
             offer.tap();
-            one.toDone(address);
+            // The address just proved itself, so the server may say the truth
+            // about it (SUS-164): a suppressed one is never promised email.
+            if (answer.delivery === 'suppressed') one.toSuppressed(address, true);
+            else one.toDone(address);
           } catch {
             if (!one.stillCoding(start.sentAt)) return;
             one.toPartial(address);
@@ -205,109 +219,9 @@ function LiveSent({ code }: { code: string }) {
       name={name.data ?? null}
       live
       canSave={session.status === 'guest'}
+      confirmedEmail={session.confirmedEmail}
       offer={offer}
       one={one}
     />
-  );
-}
-
-type SentInnerProps = {
-  code: string;
-  userId: string | undefined;
-  plan: AnswerablePlan;
-  answer: OwnAnswer | null;
-  name: string | null;
-  live: boolean;
-  /** The "Save my place" switch is for a guest: a saved place has nothing to save. */
-  canSave: boolean;
-  /** The email card's prompt: whether to show it, and where its answer goes. */
-  offer?: Nudge | undefined;
-  one: OneStep;
-};
-
-function Sent({ code, userId, plan, answer, name, live, canSave, offer, one }: SentInnerProps) {
-  const router = useRouter();
-  const organising = plan.organiserUserId !== null && plan.organiserUserId === userId;
-  // Without a backend (the gallery), always offered to anybody but the organiser.
-  const { stage } = one;
-  // When the emails failed the card is back for the emails alone, whatever the
-  // once-per-plan nudge said; "Not now" still takes it away.
-  const [dismissed, setDismissed] = useState(
-    organising || (stage.kind !== 'partial' && offer !== undefined && offer.showing !== 'show'),
-  );
-  // After the place is saved and the emails are on, the card is gone.
-  const offerEmail = stage.kind === 'done' ? false : !dismissed;
-  const switchShown = canSave && stage.kind === 'card';
-  const { problem, reference, busy, send, cancel } = useEmailOffer({
-    code,
-    plan,
-    userId,
-    live,
-    canSave: switchShown,
-    offer,
-    one,
-  });
-
-  // The offer was made: once per visit, and only while it is on screen.
-  const offered = useRef(false);
-  useEffect(() => {
-    if (!offerEmail || offered.current) return;
-    offered.current = true;
-    track('email_updates_offered', { plan_id: plan.id as PlanId });
-  }, [offerEmail, plan.id]);
-
-  const gaveTimes = answer === null || answer.status === 'windows' || answer.status === 'flexible';
-  const headline =
-    name === null
-      ? t('sent', gaveTimes ? 'thanks_times_in_anonymous' : 'thanks_answer_in_anonymous')
-      : t('sent', gaveTimes ? 'thanks_times_in' : 'thanks_answer_in', { name });
-  const day = closingDay(plan);
-  const body =
-    plan.organiserName === null
-      ? t('sent', 'time_gets_picked', { day })
-      : t('sent', 'organiser_picks', { name: plan.organiserName, day });
-
-  return (
-    <SentScreen
-      circleName={plan.circleName}
-      headline={headline}
-      body={body}
-      offerEmail={offerEmail}
-      email={one.email}
-      problem={problem}
-      reference={reference}
-      busy={busy}
-      savePlace={switchShown ? one.save : undefined}
-      kept={stage.kind === 'done' ? stage.address : undefined}
-      emailsFailed={stage.kind === 'partial'}
-      onEmailChange={one.setEmail}
-      onSavePlaceChange={one.setSave}
-      onSubmit={() => void send()}
-      onNotNow={() => {
-        cancel();
-        offer?.dismiss();
-        setDismissed(true);
-      }}
-      onChangeAnswer={
-        plan.acceptingAnswers
-          ? () => router.push({ pathname: '/j/[code]', params: { code } })
-          : undefined
-      }
-      onSeeCircle={
-        organising
-          ? () => router.dismissTo({ pathname: '/circles/[id]', params: { id: plan.circleId } })
-          : undefined
-      }
-      onBack={() => (router.canGoBack() ? router.back() : router.replace('/'))}
-    />
-  );
-}
-
-/** "Tuesday": the day replies close, on the plan's own clock, in the device's words. */
-function closingDay(plan: AnswerablePlan): string {
-  const { date } = toLocal(fromISO(plan.responseDeadline), toZone(plan.zone));
-  const { year, month, day } = toParts(date);
-  return new Intl.DateTimeFormat(undefined, { weekday: 'long', timeZone: 'UTC' }).format(
-    new Date(Date.UTC(year, month - 1, day, 12)),
   );
 }

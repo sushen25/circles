@@ -31,25 +31,29 @@ flows do not, because the sheet it opened named a fixture circle.
 
 ### availability
 
-| Artboard                              | Route                             | Component                   |
-| ------------------------------------- | --------------------------------- | --------------------------- |
-| `Availability.dc.html`                | `/j/[code]`                       | `AvailabilityScreen`        |
-| `AvailabilityPicking.dc.html`         | `/j/[code]` (days ticked)         | `AvailabilityScreen`        |
-| `AvailabilityAdjusting.dc.html`       | `/j/[code]` (a day open)          | `AvailabilityScreen`        |
-| `AvailabilityOthers.dc.html`          | `/j/[code]` (others' counts)      | `AvailabilityScreen`        |
-| `AvailabilityOthersPicking.dc.html`   | `/j/[code]` (counts, days ticked) | `AvailabilityScreen`        |
-| `AvailabilityOthersAdjusting.dc.html` | `/j/[code]` (counts, a day open)  | `AvailabilityScreen`        |
-| `AvailabilityOthersFirst.dc.html`     | `/j/[code]` (first to answer)     | `AvailabilityScreen`        |
-| `AvailabilityOverlay.dc.html`         | `/j/[code]/overlay`               | `AvailabilityOverlayScreen` |
-| `CalendarDenied.dc.html`              | `/j/[code]/calendar/denied`       | `CalendarDeniedScreen`      |
-| `CalendarExplain.dc.html`             | `/j/[code]/calendar`              | `CalendarExplainScreen`     |
-| `CalendarPick.dc.html`                | `/j/[code]/calendar/pick`         | `CalendarPickScreen`        |
-| `NoneWork.dc.html`                    | `/j/[code]/none`                  | `NoneWorkScreen`            |
-| `Sent.dc.html`                        | `/j/[code]/sent`                  | `SentScreen`                |
-| `SentSwitchOff.dc.html`               | `/j/[code]/sent` (switch off)     | `SentScreen`                |
-| `SentCode.dc.html`                    | `/j/[code]/sent?state=code`       | `EnterCodeScreen`           |
-| `SentDone.dc.html`                    | `/j/[code]/sent?state=done`       | `SentScreen`                |
-| `SentPartial.dc.html`                 | `/j/[code]/sent?state=partial`    | `SentScreen`                |
+| Artboard                              | Route                                   | Component                   |
+| ------------------------------------- | --------------------------------------- | --------------------------- |
+| `Availability.dc.html`                | `/j/[code]`                             | `AvailabilityScreen`        |
+| `AvailabilityPicking.dc.html`         | `/j/[code]` (days ticked)               | `AvailabilityScreen`        |
+| `AvailabilityAdjusting.dc.html`       | `/j/[code]` (a day open)                | `AvailabilityScreen`        |
+| `AvailabilityOthers.dc.html`          | `/j/[code]` (others' counts)            | `AvailabilityScreen`        |
+| `AvailabilityOthersPicking.dc.html`   | `/j/[code]` (counts, days ticked)       | `AvailabilityScreen`        |
+| `AvailabilityOthersAdjusting.dc.html` | `/j/[code]` (counts, a day open)        | `AvailabilityScreen`        |
+| `AvailabilityOthersFirst.dc.html`     | `/j/[code]` (first to answer)           | `AvailabilityScreen`        |
+| `AvailabilityOverlay.dc.html`         | `/j/[code]/overlay`                     | `AvailabilityOverlayScreen` |
+| `CalendarDenied.dc.html`              | `/j/[code]/calendar/denied`             | `CalendarDeniedScreen`      |
+| `CalendarExplain.dc.html`             | `/j/[code]/calendar`                    | `CalendarExplainScreen`     |
+| `CalendarPick.dc.html`                | `/j/[code]/calendar/pick`               | `CalendarPickScreen`        |
+| `NoneWork.dc.html`                    | `/j/[code]/none`                        | `NoneWorkScreen`            |
+| `Sent.dc.html`                        | `/j/[code]/sent`                        | `SentScreen`                |
+| `SentSwitchOff.dc.html`               | `/j/[code]/sent` (switch off)           | `SentScreen`                |
+| `SentCode.dc.html`                    | `/j/[code]/sent?state=code`             | `EnterCodeScreen`           |
+| `SentDone.dc.html`                    | `/j/[code]/sent?state=done`             | `SentScreen`                |
+| `SentPartial.dc.html`                 | `/j/[code]/sent?state=partial`          | `SentScreen`                |
+| `SentMember.dc.html`                  | `/j/[code]/sent?state=member`           | `SentScreen` (`SentCard`)   |
+| `SentMemberDone.dc.html`              | `/j/[code]/sent?state=joined`           | `SentScreen`                |
+| `SentSuppressed.dc.html`              | `/j/[code]/sent?state=suppressed`       | `SentScreen`                |
+| `SentSuppressedSaved.dc.html`         | `/j/[code]/sent?state=suppressed_saved` | `SentScreen`                |
 
 **Real since S1-25:** `/j/[code]` and `/j/[code]/none` render
 `AvailabilityFlow`, which reads the plan and the member's own answer, keeps a
@@ -96,6 +100,15 @@ Off, the verification link and Check your email as before. The `?state=` values
 open the gallery's code, done and partial-failure states.
 `/j/[code]/save-access` is still the account screen for the other doors; Sent no
 longer links to it.
+
+**One button for a signed-in member, SUS-164:** a session with a confirmed
+address (`useSession().confirmedEmail`) gets the same card with that address as
+text, no field and no switch (`SentCard`); the primary calls
+`request-email-updates` with the session's address and goes straight to done,
+never to Check your email. The server adds `delivery` to its answer only when
+the address is the caller's own confirmed one; `suppressed` (on this path and
+after the code) shows a line that promises nothing. The gallery's `?state=member`,
+`joined`, `suppressed` and `suppressed_saved` open them.
 
 ### circles
 
