@@ -21,7 +21,7 @@ import {
 } from '../../components';
 import { Divider, Stack } from '../../components/layout';
 import { t } from '../../copy';
-import { CandidateCard, CandidateHeader, Placeholder } from './parts';
+import { CandidateCard, CandidateHeader, ChangeMyTimes, Placeholder } from './parts';
 import type { Unlock } from './unlock';
 import type { CardView, HeaderView } from './view';
 
@@ -69,6 +69,10 @@ export type NoQuorumProps = {
   onShareAgain?: (() => void) | undefined;
   /** What sharing did when it copied rather than opened a sheet. */
   shareOutcome?: string | undefined;
+  /** The organiser's own answer, opened as a member's is (SUS-158). */
+  onChangeMyTimes?: (() => void) | undefined;
+  /** Replies have closed: "Change my times" is shown disabled, with why. */
+  repliesClosed?: boolean | undefined;
   onRetry?: (() => void) | undefined;
   onBack?: (() => void) | undefined;
 };
@@ -91,6 +95,8 @@ export function NoQuorumScreen({
   onKeepAsItIs,
   onShareAgain,
   shareOutcome,
+  onChangeMyTimes,
+  repliesClosed = false,
   onRetry,
   onBack,
 }: NoQuorumProps) {
@@ -156,12 +162,15 @@ export function NoQuorumScreen({
         </Card>
         {problem === undefined ? null : <Notice kind="warn">{problem}</Notice>}
       </Body>
-      {onShareAgain === undefined ? null : (
+      {onShareAgain === undefined && onChangeMyTimes === undefined && !repliesClosed ? null : (
         <Foot>
+          <ChangeMyTimes closed={repliesClosed} onPress={onChangeMyTimes} />
           {shareOutcome === undefined ? null : (
             <Small accessibilityLiveRegion="polite">{shareOutcome}</Small>
           )}
-          <Tertiary label={t('waiting', 'share_the_link_again')} onPress={onShareAgain} />
+          {onShareAgain === undefined ? null : (
+            <Tertiary label={t('waiting', 'share_the_link_again')} onPress={onShareAgain} />
+          )}
         </Foot>
       )}
       <Sheet

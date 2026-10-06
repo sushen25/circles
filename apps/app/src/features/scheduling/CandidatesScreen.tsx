@@ -14,7 +14,7 @@ import {
 } from '../../components';
 import { Stack } from '../../components/layout';
 import { t } from '../../copy';
-import { CandidateCard, CandidateHeader, Placeholder, SetTimeRow } from './parts';
+import { CandidateCard, CandidateHeader, ChangeMyTimes, Placeholder, SetTimeRow } from './parts';
 import type { CardView, HeaderView } from './view';
 
 /**
@@ -57,6 +57,10 @@ export type CandidatesProps = {
   shareOutcome?: string | undefined;
   /** The organiser changes the plan while it is still asking (S1-26). */
   onEditPlan?: (() => void) | undefined;
+  /** The organiser's own answer, opened as a member's is (SUS-158). */
+  onChangeMyTimes?: (() => void) | undefined;
+  /** Replies have closed: "Change my times" is shown disabled, with why. */
+  repliesClosed?: boolean | undefined;
   onRetry?: (() => void) | undefined;
   onBack?: (() => void) | undefined;
 };
@@ -79,6 +83,8 @@ export function CandidatesScreen({
   onShareAgain,
   shareOutcome,
   onEditPlan,
+  onChangeMyTimes,
+  repliesClosed = false,
   onRetry,
   onBack,
 }: CandidatesProps) {
@@ -157,6 +163,7 @@ export function CandidatesScreen({
         {reviewLabel === undefined ? null : (
           <Button label={reviewLabel} onPress={onNext} disabled={stale} />
         )}
+        <ChangeMyTimes closed={repliesClosed} onPress={onChangeMyTimes} />
         {nudgeLabel === undefined ? null : <Tertiary label={nudgeLabel} onPress={onNudge} />}
         {shareOutcome === undefined ? null : (
           <Small accessibilityLiveRegion="polite">{shareOutcome}</Small>

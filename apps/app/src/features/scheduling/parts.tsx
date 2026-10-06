@@ -166,3 +166,36 @@ export function Placeholder({
     </Screen>
   );
 }
+
+/**
+ * "Change my times" on the organiser's screens — the member's action, with the
+ * member's words (SUS-158). While replies are open it opens the same editor a
+ * member's does. Once they have closed it stays, disabled, with the member's
+ * line saying why: `replace_response` refuses an answer then, and a button
+ * that vanished left people looking for it. A locked-in plan never shows
+ * these screens; it is moved with "Change the time" (SUS-138).
+ */
+export function ChangeMyTimes({
+  closed = false,
+  onPress,
+}: {
+  closed?: boolean | undefined;
+  onPress?: (() => void) | undefined;
+}) {
+  if (closed) {
+    return (
+      <>
+        <Small>{t('candidatesMember', 'closed_note')}</Small>
+        <Button label={t('candidatesMember', 'change_my_times')} variant="secondary" disabled />
+      </>
+    );
+  }
+  if (onPress === undefined) return null;
+  return (
+    <Button
+      label={t('candidatesMember', 'change_my_times')}
+      variant="secondary"
+      onPress={onPress}
+    />
+  );
+}

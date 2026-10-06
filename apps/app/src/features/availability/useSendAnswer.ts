@@ -59,6 +59,18 @@ function resumeFrom(draft: Draft | undefined): Pending | undefined {
 /** Resends while the times are waiting on the device, beyond `online` and focus. */
 const RESEND_EVERY_MS = 30_000;
 
+/**
+ * Where an answer goes once it is in. Nothing means the sent screen; `plan` is
+ * the organiser's candidates screen, which they opened the editor from to
+ * change their own times (SUS-158).
+ */
+export type ReturnTo = 'plan';
+
+/** The one value a route's `returnTo` parameter may mean. */
+export function returnToOf(value: string | string[] | undefined): ReturnTo | undefined {
+  return value === 'plan' ? 'plan' : undefined;
+}
+
 export type SendAnswerOptions = {
   code: string;
   plan: AnswerablePlan;
@@ -71,6 +83,7 @@ export type SendAnswerOptions = {
   draft: Draft | undefined;
   onStale: () => void;
   onNarrowed?: (() => void) | undefined;
+  returnTo?: ReturnTo | undefined;
 };
 
 export function useSendAnswer({
@@ -83,6 +96,7 @@ export function useSendAnswer({
   draft,
   onStale,
   onNarrowed,
+  returnTo,
 }: SendAnswerOptions) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -181,6 +195,16 @@ export function useSendAnswer({
           window_count: windows.length,
         });
         void queryClient.invalidateQueries({ queryKey: ['plan-to-answer', code] });
+        if (returnTo === 'plan') {
+          // Back to the options they came from, read again: their own answer
+          // is one of the inputs to what is on offer.
+          void queryClient.invalidateQueries({ queryKey: ['plan-candidates'] });
+          router.dismissTo({
+            pathname: '/circles/[id]/plan/[planId]/candidates',
+            params: { id: plan.circleId, planId: plan.id },
+          });
+          return;
+        }
         router.replace({ pathname: '/j/[code]/sent', params: { code } });
         return;
       }
@@ -260,7 +284,7 @@ export function useSendAnswer({
       }
       setPhase({ kind: 'error', status, reference });
     },
-    [state, rows, timing, userId, code, plan, router, queryClient, onStale, onNarrowed],
+    [state, rows, timing, userId, code, plan, router, queryClient, onStale, onNarrowed, returnTo],
   );
 
   const waiting = phase.kind === 'offline' ? phase.status : undefined;
