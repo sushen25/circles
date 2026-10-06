@@ -61,7 +61,10 @@ export function policyOptions(): PickerOption<NudgePolicy>[] {
   }));
 }
 
-/** "You · owner", "Owner", "You", "Joined 3 Sep" — and whether Remove is offered. */
+/**
+ * "You · owner", "Owner", "You · guest", "You · place saved", "Guest · joined 3 Sep",
+ * "Place saved · joined 3 Sep" — and whether Remove is offered.
+ */
 export function memberRows(home: CircleHome): SettingsMember[] {
   // The owner first, as the artboard lists them; everyone else as they joined.
   const ordered = [
@@ -71,14 +74,15 @@ export function memberRows(home: CircleHome): SettingsMember[] {
   return ordered.map((member) => {
     const you = member.userId === home.me;
     const owner = member.role === 'owner';
+    const tier = member.savedPlace ? t('settings', 'place_saved') : t('settings', 'guest');
     const detail =
       you && owner
         ? t('settings', 'you_owner')
         : owner
           ? t('settings', 'owner')
           : you
-            ? t('settings', 'you')
-            : t('settings', 'joined_on', { date: dayWords(member.joinedAt, home.zone) });
+            ? t('settings', member.savedPlace ? 'you_place_saved' : 'you_guest')
+            : t('settings', 'tier_joined_on', { tier, date: dayWords(member.joinedAt, home.zone) });
     return {
       userId: member.userId,
       name: member.name,

@@ -58,6 +58,7 @@ Short records of decisions that shape the product or the code. A new ADR is requ
 | [0053](./0053-the-organiser-gate-moves-to-before-the-share.md) | The first run drafts the circle and plan with no account; the saved-place gate moves to before the share | proposed |
 | [0054](./0054-the-link-preview-may-say-a-plan-is-locked-in.md) | The link preview may say a plan is locked in, as one of two words next to the name | proposed |
 | [0055](./0055-after-sending-one-step-keeps-your-place-and-turns-on-the-updates.md) | After sending, one step keeps the guest's place and turns on the plan's updates | proposed |
+| [00XX](./00XX-members-can-see-who-has-saved-a-place.md) | A circle's members can see which of them has saved a place | proposed |
 
 ## Template
 

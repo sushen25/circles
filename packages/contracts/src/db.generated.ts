@@ -834,14 +834,17 @@ export type Database = {
       member_profiles: {
         Row: {
           display_name: string | null
+          has_saved_place: boolean | null
           user_id: string | null
         }
         Insert: {
           display_name?: string | null
+          has_saved_place?: boolean | null
           user_id?: string | null
         }
         Update: {
           display_name?: string | null
+          has_saved_place?: boolean | null
           user_id?: string | null
         }
         Relationships: []

@@ -110,9 +110,15 @@ function home(overrides: Record<string, unknown> = {}) {
     isOwner: true,
     me: 'maya',
     members: [
-      { userId: 'maya', name: 'Maya', joinedAt: '2026-01-01T00:00:00Z', role: 'owner' },
-      { userId: 'priya', name: 'Priya', joinedAt: minutesAgo(1), role: 'member' },
-      { userId: 'tom', name: 'Tom', joinedAt: minutesAgo(2), role: 'member' },
+      {
+        userId: 'maya',
+        name: 'Maya',
+        joinedAt: '2026-01-01T00:00:00Z',
+        role: 'owner',
+        savedPlace: true,
+      },
+      { userId: 'priya', name: 'Priya', joinedAt: minutesAgo(1), role: 'member', savedPlace: true },
+      { userId: 'tom', name: 'Tom', joinedAt: minutesAgo(2), role: 'member', savedPlace: true },
     ],
     activePlan: null,
     lockedIn: null,

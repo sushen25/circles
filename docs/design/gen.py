@@ -662,11 +662,11 @@ S["Settings"] = shell(
              li("", "Quiet asks", "On", right='<div class="toggle on"><i></i></div>'), gap=0, pad=6),
         stack(lbl("Members"),
               card(li(marks(["Maya"], large=True), "Maya", "You · owner", right=""), divider(),
-                   li(marks(["Priya"], large=True), "Priya", "Joined 3 Sep", right=f'<div class="sm">Remove</div>'), divider(),
-                   li(marks(["Alex"], large=True), "Alex", "Joined 3 Sep", right=f'<div class="sm">Remove</div>'), divider(),
-                   li(marks(["Tom"], large=True), "Tom", "Joined 4 Sep", right=f'<div class="sm">Remove</div>'), divider(),
-                   li(marks(["Jess"], large=True), "Jess", "Joined 4 Sep", right=f'<div class="sm">Remove</div>'), divider(),
-                   li(marks(["Sam"], large=True), "Sam", "Joined 5 Sep", right=f'<div class="sm">Remove</div>'), gap=0, pad=6), gap=8),
+                   li(marks(["Priya"], large=True), "Priya", "Place saved · joined 3 Sep", right=f'<div class="sm">Remove</div>'), divider(),
+                   li(marks(["Alex"], large=True), "Alex", "Guest · joined 3 Sep", right=f'<div class="sm">Remove</div>'), divider(),
+                   li(marks(["Tom"], large=True), "Tom", "Place saved · joined 4 Sep", right=f'<div class="sm">Remove</div>'), divider(),
+                   li(marks(["Jess"], large=True), "Jess", "Place saved · joined 4 Sep", right=f'<div class="sm">Remove</div>'), divider(),
+                   li(marks(["Sam"], large=True), "Sam", "Place saved · joined 5 Sep", right=f'<div class="sm">Remove</div>'), gap=0, pad=6), gap=8),
         ter("Archive this circle"),
         gap=18)
 , minh=980)

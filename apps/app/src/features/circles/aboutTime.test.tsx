@@ -78,6 +78,7 @@ function home(overrides: Partial<CircleData.CircleHome> = {}): CircleData.Circle
       name,
       joinedAt: `2026-01-0${i + 1}T00:00:00Z`,
       role: i === 0 ? ('owner' as const) : ('member' as const),
+      savedPlace: true,
     })),
     activePlan: null,
     lockedIn: null,
