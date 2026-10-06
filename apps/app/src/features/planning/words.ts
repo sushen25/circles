@@ -13,6 +13,7 @@ import { nameList } from '../scheduling/names';
 import type { DeadlineChoice } from './deadlines';
 import { bandWords, deviceTimeFormat } from './firstPlan';
 import { runsOf } from './calendar';
+import { customShape } from './form';
 import type { Band, DateRange, PlanDraft, ResolveProblem, TonightNote } from './form';
 import { whenWords } from './when';
 
@@ -85,6 +86,27 @@ function spanWords(range: { start: string; end: string }): string {
 export function datesWords(range: DateRange): string {
   if (range.days === undefined) return spanWords(range);
   return pickedWords(range.days);
+}
+
+/** How many days a window asks about: its picked days, or every day from first to last. */
+function dayCount(range: DateRange): number {
+  return customShape(range).days_asked;
+}
+
+/**
+ * The Custom chip says that custom dates are picked and how many, never which:
+ * the dates are written on the line under the chips, where they can wrap
+ * (SUS-160). A count always fits beside "Next 14 days"; a list of runs did not.
+ */
+export function customChipLabel(range: DateRange): string {
+  const count = dayCount(range);
+  return count === 1 ? t('planSetup', 'custom_day') : t('planSetup', 'custom_days', { count });
+}
+
+/** Edit plan's chip for the dates the plan already has, in the same short form. */
+export function keptChipLabel(range: DateRange): string {
+  const count = dayCount(range);
+  return count === 1 ? t('editPlan', 'these_date') : t('editPlan', 'these_dates', { count });
 }
 
 /** The days picked on CustomWindow, as `datesWords` says a window with gaps. */

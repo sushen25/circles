@@ -44,4 +44,12 @@ describe('Chip', () => {
   it('is at least a 44pt tap target', () => {
     expect(size.chip).toBeGreaterThanOrEqual(hit);
   });
+
+  it('keeps its row: a long label may shrink to an ellipsis, and is still spoken in full', () => {
+    const long = 'Custom · Wed 7 Oct, Fri 9 Oct – Wed 14 Oct, Fri 16 Oct, Sun 18 Oct';
+    render(<Chip label={long} onPress={() => undefined} />);
+    const chip = screen.getByRole('checkbox', { name: long });
+    expect(getComputedStyle(chip).maxWidth).toBe('100%');
+    expect(getComputedStyle(chip).flexShrink).toBe('1');
+  });
 });

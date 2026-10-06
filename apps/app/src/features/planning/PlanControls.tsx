@@ -23,6 +23,8 @@ export type WhenChip = {
 
 export type PlanControlsProps = {
   when: WhenChip[];
+  /** The picked dates in full, written under the chips so they wrap and read to the end. */
+  datesLine?: string | undefined;
   /** Why a chip is off: "Too late for tonight. Try this weekend." */
   whenNote?: string | undefined;
   band: BandPickerProps;
@@ -45,6 +47,7 @@ export type PlanControlsProps = {
 
 export function PlanControls({
   when,
+  datesLine,
   whenNote,
   band,
   duration,
@@ -68,6 +71,7 @@ export function PlanControls({
             />
           ))}
         </Chips>
+        {datesLine === undefined ? null : <Small>{datesLine}</Small>}
         {whenNote === undefined ? null : <Small>{whenNote}</Small>}
       </Stack>
       <BandPicker {...band} />
