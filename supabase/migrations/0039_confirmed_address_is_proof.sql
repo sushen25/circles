@@ -1,3 +1,10 @@
+-- 0039_confirmed_address_is_proof
+--
+-- What this changes, and why, in a sentence or two.
+
+-- BEGIN GENERATED: function definitions (scripts/gen-sql-functions.mjs)
+
+-- supabase/sql/functions/public/request_email_updates.sql
 -- ---------------------------------------------------------------------------
 -- "Email me about this meetup."
 --
@@ -183,3 +190,5 @@ comment on function public.request_email_updates(uuid, uuid, text, text, text) i
 revoke all on function public.request_email_updates(uuid, uuid, text, text, text) from public;
 revoke all on function public.request_email_updates(uuid, uuid, text, text, text) from anon, authenticated;
 grant execute on function public.request_email_updates(uuid, uuid, text, text, text) to service_role;
+
+-- END GENERATED: function definitions
