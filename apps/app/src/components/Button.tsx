@@ -280,8 +280,15 @@ export function CompactButton({
  * when they do not: a narrow phone, a long translation, or text at 200%. A row
  * that cannot wrap pushes its last button through the card's edge (SUS-132).
  */
-export function ButtonRow({ children }: { children: React.ReactNode }) {
-  return <View style={styles.row}>{children}</View>;
+export function ButtonRow({
+  children,
+  center = false,
+}: {
+  children: React.ReactNode;
+  /** Sit in the middle of the line, as a footer's second row does (SUS-161). */
+  center?: boolean;
+}) {
+  return <View style={center ? [styles.row, styles.centred] : styles.row}>{children}</View>;
 }
 
 const styles = StyleSheet.create({
@@ -360,5 +367,8 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     alignItems: 'center',
     gap: 12,
+  },
+  centred: {
+    justifyContent: 'center',
   },
 });

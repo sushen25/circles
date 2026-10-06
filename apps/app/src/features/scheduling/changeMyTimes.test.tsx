@@ -84,6 +84,21 @@ describe('Change my times, as the organiser', () => {
     expect(screen.getByText('Replies have closed, so times can no longer change.')).toBeTruthy();
   });
 
+  it('keeps the disabled button and its line in the footer, after the answers, on no overlap', async () => {
+    planCandidates.mockResolvedValue({ ...fixture.noQuorum, repliesOpen: false });
+    show(organiser());
+    const button = await screen.findByRole('button', CHANGE);
+    const note = screen.getByText('Replies have closed, so times can no longer change.');
+    const first = screen.getByText('What would unlock it');
+    expect(button.getAttribute('aria-disabled')).toBe('true');
+    expect(Boolean(first.compareDocumentPosition(button) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(
+      true,
+    );
+    expect(Boolean(button.compareDocumentPosition(note) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(
+      true,
+    );
+  });
+
   it('is not offered on a locked-in plan: it is moved with the confirmed screen, not an answer', async () => {
     planCandidates.mockResolvedValue({ ...fixture.ready, state: 'confirmed' });
     show(organiser());

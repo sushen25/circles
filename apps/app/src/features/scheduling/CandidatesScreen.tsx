@@ -1,10 +1,9 @@
 import { useState } from 'react';
-import { View } from 'react-native';
-
 import {
   Body,
   BodyText,
   Button,
+  ButtonRow,
   CompactButton,
   DisplayL,
   Foot,
@@ -17,6 +16,7 @@ import {
 } from '../../components';
 import { Stack } from '../../components/layout';
 import { t } from '../../copy';
+import { ChangeMyTimesButton, ChangeMyTimesNote, hasChangeMyTimes } from './PlanActions';
 import { CandidateCard, CandidateHeader, Placeholder, SetTimeRow } from './parts';
 import type { CardView, HeaderView } from './view';
 
@@ -94,6 +94,7 @@ export function CandidatesScreen({
   // What a share said belongs beside the button that asked: the header's, or
   // the footer's nudge, which stays on screen while the header has scrolled away.
   const [fromNudge, setFromNudge] = useState(false);
+  const change = { onChangeMyTimes, repliesClosed };
   const loading = useLoadingHold(state === 'loading');
   if (loading) {
     return (
@@ -154,8 +155,6 @@ export function CandidatesScreen({
             }
             shareOutcome={fromNudge ? undefined : shareOutcome}
             onEditPlan={onEditPlan}
-            onChangeMyTimes={onChangeMyTimes}
-            repliesClosed={repliesClosed}
           />
         )}
         <Stack>
@@ -185,22 +184,26 @@ export function CandidatesScreen({
         {reviewLabel === undefined ? null : (
           <Button label={reviewLabel} onPress={onNext} disabled={stale} />
         )}
-        {nudgeLabel === undefined ? null : (
-          <View style={{ alignSelf: 'center' }}>
-            <CompactButton
-              label={nudgeLabel}
-              onPress={() => {
-                setFromNudge(true);
-                onNudge?.();
-              }}
-            />
-          </View>
+        {nudgeLabel === undefined && !hasChangeMyTimes(change) ? null : (
+          <ButtonRow center>
+            {nudgeLabel === undefined ? null : (
+              <CompactButton
+                label={nudgeLabel}
+                onPress={() => {
+                  setFromNudge(true);
+                  onNudge?.();
+                }}
+              />
+            )}
+            <ChangeMyTimesButton {...change} />
+          </ButtonRow>
         )}
         {fromNudge && shareOutcome !== undefined ? (
           <Small accessibilityLiveRegion="polite" style={{ textAlign: 'center' }}>
             {shareOutcome}
           </Small>
         ) : null}
+        <ChangeMyTimesNote {...change} />
       </Foot>
     </Screen>
   );

@@ -312,9 +312,11 @@ def plan_actions(*labels):
         out.append(mini(t, "share") if t.startswith("Share") else mini(t))
     return '<div style="display:flex;flex-wrap:wrap;gap:12px;">' + "".join(out) + '</div>'
 
-def compact_foot(primary, nudge):
-    """The footer keeps the decision; the nudge is a compact button under it, centred (SUS-161)."""
-    return foot(pri(primary), f'<div style="align-self:center;">{mini(nudge)}</div>')
+def compact_foot(primary, *compact):
+    """The footer keeps the decision; the nudge and "Change my times" are compact buttons in one centred, wrapping row under it (SUS-161)."""
+    items = [pri(primary)] if primary else []
+    items.append('<div style="display:flex;flex-wrap:wrap;justify-content:center;gap:12px;">' + "".join(mini(t) for t in compact) + '</div>')
+    return foot(*items)
 
 def day_grid(tags=None, selected=(), counts=None):
     tags = tags or {}
@@ -599,7 +601,7 @@ S["Candidates"] = shell(
     top("Catch up · next 14 days", right=ic("share", 22, T["ink2"])) +
     body(
         stack(between(row(marks(["Maya","Priya","Tom","Jess","Sam","Alex"], waiting=("Alex",)), sm("5 of 6 replied")), sm("Closes Tue 6 pm")),
-              plan_actions("Share the link again", "Edit the plan", "Change my times"), gap=8),
+              plan_actions("Share the link again", "Edit the plan"), gap=8),
         stack(dl("Thursday looks good for five of you."), p("Alex hasn't answered yet. You can lock a time in now or wait until Tuesday."), gap=8),
         candidate("Thu 17 Sep", "6:30–8:30 pm", "5 of 6", ["Maya","Priya","Tom","Jess","Sam"], "Alex hasn't answered", "Best attendance", rec=True),
         candidate("Sat 19 Sep", "6:30–8:30 pm", "4 of 6", ["Maya","Tom","Jess","Sam"], "Doesn't work for Priya", "One fewer, weekend"),
@@ -608,7 +610,7 @@ S["Candidates"] = shell(
         # which already has the review and the nudge.
         card(li(ic("cal", 22, T["accent_dark"]), "Pick a different time", "Any day and time, even one that isn't an option. You'll see who it works for.", right=ic("chev",18,T["ink3"])), gap=0, pad=6),
         gap=16) +
-    compact_foot("Review Thursday", "Nudge Alex")
+    compact_foot("Review Thursday", "Nudge Alex", "Change my times")
 , minh=1170)
 
 S["ConfirmReview"] = shell(
@@ -640,7 +642,7 @@ S["NoQuorum"] = shell(
     top("Drinks · next 7 days") +
     body(
         stack(between(marks(["Maya","Priya","Tom","Jess","Alex","Sam"]), sm("6 of 6 replied")),
-              plan_actions("Share the link again", "Change my times"), gap=8),
+              plan_actions("Share the link again"), gap=8),
         stack(dl("There wasn't enough overlap this time."), p("Nothing in the next 7 days works for at least 4 of you. Here's the closest it got."), gap=8),
         candidate("Fri 11 Sep", "7–9 pm", "3 of 6", ["Maya","Priya","Jess"], "Not Alex, Tom or Sam", "Closest"),
         candidate("Sat 12 Sep", "6:30–8:30 pm", "3 of 6", ["Maya","Tom","Jess"], "Not Priya, Alex or Sam", "Also three, a day later"),
@@ -649,7 +651,8 @@ S["NoQuorum"] = shell(
              li(ic("cal", 22, T["accent_dark"]), "Try a wider window", "Ask about the next two weeks instead"), divider(),
              li(ic("cal", 22, T["accent_dark"]), "Set the time yourself", "Pick any day and time. You'll see who it works for before you lock it in."), divider(),
              li(ic("x", 22, T["ink3"]), "Close this attempt", "The circle just sees it didn't line up"), gap=0, pad=6),
-        gap=16)
+        gap=16) +
+    compact_foot(None, "Change my times")
 , minh=1000)
 
 S["Outcome"] = shell(
@@ -1027,12 +1030,13 @@ S["Waiting"] = shell(
     top("Catch up · next 14 days", right=ic("share", 22, T["ink2"])) +
     body(
         stack(between(row(marks(["Maya","Priya","Alex","Tom","Jess","Sam"], waiting=("Alex","Tom","Jess","Sam")), sm("2 of 6 replied")), sm("Closes Tue 6 pm")),
-              plan_actions("Share the link again", "Edit the plan", "Change my times"), gap=8),
+              plan_actions("Share the link again", "Edit the plan"), gap=8),
         stack(dl("Waiting on a few more."), p("Options appear once at least 4 people can make the same time. No need to chase anyone yet; a reminder goes to anyone who hasn't answered on Monday."), gap=8),
         card(lbl("So far"), day_row("Thu 17 Sep", "6:30–10:30 pm works for 2", [False,False,True,True,True,True,True,True,True,True]), gap=10),
         sm("Only you see this while it's incomplete. Members see the options once there are some."),
         card(li(ic("cal", 22, T["accent_dark"]), "Set the time yourself", "Pick any day and time. You'll see who it works for before you lock it in.", right=ic("chev",18,T["ink3"])), gap=0, pad=6),
-    )
+    ) +
+    compact_foot(None, "Change my times")
 )
 
 # Specific days (SUS-133, ADR 0047): a tap toggles a day and a drag paints a

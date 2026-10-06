@@ -7,8 +7,9 @@ import type * as Scheduling from '../../data/scheduling';
 
 /**
  * SUS-161: plan actions sit beside the plan, and the footer keeps the decision.
- * "Beside the plan" is document order: the header's buttons come before the
- * first card, and the nudge comes after the primary.
+ * "Beside the plan" is document order: share and edit come before the first
+ * card; the footer holds the primary, then the nudge and "Change my times"
+ * together on one row (and "Change my times" alone where there is no nudge).
  */
 
 vi.mock('expo-router', () => ({
@@ -51,7 +52,7 @@ beforeEach(() => {
 });
 
 describe('SUS-161: the footer keeps the decision', () => {
-  it('options: share and edit come before the first card, the nudge after the primary', async () => {
+  it('options: share and edit come before the first card; the nudge and change my times follow the primary', async () => {
     planCandidates.mockResolvedValue(fixture.ready);
     show(flow());
     await screen.findByRole('button', { name: 'Share the link again' });
@@ -63,28 +64,43 @@ describe('SUS-161: the footer keeps the decision', () => {
     const review = button(/^Review/);
     const nudge = button(/^Nudge/);
 
-    for (const header of [share, edit, change]) expect(before(header, firstCard)).toBe(true);
+    for (const header of [share, edit]) expect(before(header, firstCard)).toBe(true);
+    expect(before(firstCard, change)).toBe(true);
     expect(before(review, nudge)).toBe(true);
-    for (const header of [share, edit, change]) expect(before(nudge, header)).toBe(false);
+    expect(before(nudge, change)).toBe(true);
   });
 
-  it('waiting: the plan actions come before the answers card', async () => {
+  it('options with nobody to nudge: change my times alone follows the primary', async () => {
+    planCandidates.mockResolvedValue({
+      ...fixture.ready,
+      responded: fixture.noQuorum.responded,
+      repliedCount: 6,
+    });
+    show(flow());
+    await screen.findByRole('button', { name: 'Share the link again' });
+
+    expect(screen.queryByRole('button', { name: /^Nudge/ })).toBeNull();
+    expect(before(button(/^Review/), button('Change my times'))).toBe(true);
+  });
+
+  it('waiting: the plan actions come before the answers card, change my times after it', async () => {
     planCandidates.mockResolvedValue(fixture.waiting);
     show(flow());
     await screen.findByRole('button', { name: 'Share the link again' });
 
-    const share = button('Share the link again');
-    expect(before(share, screen.getByText('So far'))).toBe(true);
+    const so = screen.getByText('So far');
+    expect(before(button('Share the link again'), so)).toBe(true);
+    expect(before(so, button('Change my times'))).toBe(true);
   });
 
-  it('no overlap: share and change my times come before the unlock list', async () => {
+  it('no overlap: share comes before the unlock list, change my times after it', async () => {
     planCandidates.mockResolvedValue(fixture.noQuorum);
     show(flow());
     await screen.findByRole('button', { name: 'Share the link again' });
 
     const unlock = screen.getByRole('button', { name: /^Lower to/ });
     expect(before(button('Share the link again'), unlock)).toBe(true);
-    expect(before(button('Change my times'), unlock)).toBe(true);
+    expect(before(unlock, button('Change my times'))).toBe(true);
   });
 
   it('says what a share did beside the button that asked, so the footer nudge is not answered offscreen', async () => {

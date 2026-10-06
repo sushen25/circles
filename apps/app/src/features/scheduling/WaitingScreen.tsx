@@ -13,6 +13,7 @@ import {
 } from '../../components';
 import { Stack } from '../../components/layout';
 import { t } from '../../copy';
+import { ChangeMyTimesFoot } from './PlanActions';
 import { CandidateHeader, Placeholder, SetTimeRow } from './parts';
 import type { HeaderView } from './view';
 
@@ -108,8 +109,6 @@ export function WaitingScreen({
             onShareAgain={onShareAgain}
             shareOutcome={shareOutcome}
             onEditPlan={onEditPlan}
-            onChangeMyTimes={onChangeMyTimes}
-            repliesClosed={repliesClosed}
           />
         )}
         <Stack>
@@ -132,6 +131,7 @@ export function WaitingScreen({
           />
         )}
       </Body>
+      <ChangeMyTimesFoot onChangeMyTimes={onChangeMyTimes} repliesClosed={repliesClosed} />
     </Screen>
   );
 }

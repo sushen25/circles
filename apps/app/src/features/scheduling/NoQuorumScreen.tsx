@@ -19,6 +19,7 @@ import {
 } from '../../components';
 import { Divider, Stack } from '../../components/layout';
 import { t } from '../../copy';
+import { ChangeMyTimesFoot } from './PlanActions';
 import { CandidateCard, CandidateHeader, Placeholder } from './parts';
 import type { Unlock } from './unlock';
 import type { CardView, HeaderView } from './view';
@@ -135,8 +136,6 @@ export function NoQuorumScreen({
             header={header}
             onShareAgain={onShareAgain}
             shareOutcome={shareOutcome}
-            onChangeMyTimes={onChangeMyTimes}
-            repliesClosed={repliesClosed}
           />
         )}
         <Stack>
@@ -168,6 +167,7 @@ export function NoQuorumScreen({
         </Card>
         {problem === undefined ? null : <Notice kind="warn">{problem}</Notice>}
       </Body>
+      <ChangeMyTimesFoot onChangeMyTimes={onChangeMyTimes} repliesClosed={repliesClosed} />
       <Sheet
         visible={asking === 'close'}
         onDismiss={() => onKeepAsItIs?.()}
