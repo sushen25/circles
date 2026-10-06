@@ -36,6 +36,8 @@ export type ChangeTimeProps = {
   /** "Thursday". */
   day?: string | undefined;
   when?: WhenChip[] | undefined;
+  /** The custom dates in full, under the chips. */
+  datesLine?: string | undefined;
   closes?: PlanControlsProps['closes'] | undefined;
   problem?: string | undefined;
   refused?: string | undefined;
@@ -89,6 +91,7 @@ export function ChangeTimeScreen(props: ChangeTimeProps) {
               />
             ))}
           </Chips>
+          {props.datesLine === undefined ? null : <Small>{props.datesLine}</Small>}
         </Stack>
         <Card>
           <SettingLine title={closes.title} detail={closes.detail} onChange={closes.onChange} />

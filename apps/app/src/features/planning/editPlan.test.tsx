@@ -207,6 +207,21 @@ describe('editing the dates', () => {
         days: ['2026-09-14', '2026-09-15', '2026-09-17', '2026-09-18', '2026-09-19', '2026-09-20'],
       },
     });
+    // The chip stays short; the days are written once, under the chips (SUS-160).
+    expect(screen.getByRole('checkbox', { name: 'Custom · 6 days' })).toBeChecked();
+    const { pickedWords } = await import('./words');
+    expect(
+      screen.getAllByText(
+        pickedWords([
+          '2026-09-14',
+          '2026-09-15',
+          '2026-09-17',
+          '2026-09-18',
+          '2026-09-19',
+          '2026-09-20',
+        ]),
+      ),
+    ).toHaveLength(1);
   });
 
   it('gives back exactly the days Start over cleared, with Undo', async () => {

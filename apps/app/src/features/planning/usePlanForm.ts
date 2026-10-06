@@ -28,7 +28,9 @@ import { useCustomWindow } from './useCustomWindow';
 import { useDeadlineSheet } from './useDeadlineSheet';
 import {
   closesIn,
+  customChipLabel,
   datesWords,
+  keptChipLabel,
   presetLabel,
   problemWords,
   quorumLine,
@@ -188,7 +190,7 @@ export function usePlanForm({
       : [
           {
             key: 'kept',
-            label: t('editPlan', 'these_dates', { dates: datesWords(kept) }),
+            label: keptChipLabel(kept),
             selected: isKept,
             onPress: () => newDates('custom', kept),
           },
@@ -200,7 +202,7 @@ export function usePlanForm({
         key: preset,
         label:
           custom && selected && draft.custom !== undefined
-            ? t('planSetup', 'custom_dates', { dates: datesWords(draft.custom) })
+            ? customChipLabel(draft.custom)
             : presetLabel(preset),
         selected,
         disabled:
@@ -238,6 +240,10 @@ export function usePlanForm({
     setCategory: (category) => change({ category }),
     controls: {
       when,
+      datesLine:
+        draft.preset === 'custom' && draft.custom !== undefined
+          ? datesWords(draft.custom)
+          : undefined,
       whenNote: offTonight === undefined ? undefined : tonightNoteWords(offTonight),
       band: bandPicker,
       duration: draft.duration,

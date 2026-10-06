@@ -306,3 +306,46 @@ describe('the card falls back when the draft no longer holds', () => {
     expect(within(document.body).queryByText(/Jan 2020/)).toBeNull();
   });
 });
+
+describe('the Custom chip with long picked dates (SUS-160)', () => {
+  /** Local calendar days from today, as the picker stores them. */
+  function inDays(n: number): string {
+    const d = new Date();
+    d.setDate(d.getDate() + n);
+    const pad = (x: number) => String(x).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  }
+
+  it('says Custom and a count on the chip, and writes the three runs once, below it', async () => {
+    const days = [3, 5, 6, 7, 8, 9, 10, 12].map(inDays);
+    await saveDraft({
+      circleName: 'Sunday Crew',
+      plan: { ...DEFAULT_PLAN, preset: 'custom', custom: { start: days[0]!, end: days[7]!, days } },
+    });
+    wrap(<PlanSetupDraftFlow />);
+    await screen.findByRole('button', { name: 'Save plan' });
+
+    // The chip is short, and its spoken name is the same short text.
+    const chip = screen.getByRole('checkbox', { name: 'Custom · 8 days' });
+    expect(chip).toBeChecked();
+    expect(chip.textContent).toBe('Custom · 8 days');
+
+    // The dates are written once, in full, outside any chip: three runs, so no
+    // "days between" collapse, and they wrap rather than run off the screen.
+    const { pickedWords } = await import('./words');
+    const written = pickedWords(days);
+    expect(written.split(', ')).toHaveLength(3);
+    const line = screen.getAllByText(written);
+    expect(line).toHaveLength(1);
+    expect(chip.contains(line[0]!)).toBe(false);
+    expect(screen.queryByText(/days between/)).toBeNull();
+  });
+
+  it('writes no dates line when a preset is chosen', async () => {
+    await saveDraft({ circleName: 'Sunday Crew' });
+    wrap(<PlanSetupDraftFlow />);
+    await screen.findByRole('button', { name: 'Save plan' });
+    expect(screen.queryByText(/^[A-Z][a-z]{2} \d+ [A-Z][a-z]{2}, /)).toBeNull();
+    expect(screen.queryByText(/^Custom ·/)).toBeNull();
+  });
+});

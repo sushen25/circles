@@ -205,6 +205,11 @@ function ChangeForm({
     <ChangeTimeScreen
       day={day}
       when={when}
+      datesLine={
+        when.some((chip) => chip.key === 'custom' && chip.selected)
+          ? form.controls.datesLine
+          : undefined
+      }
       closes={form.controls.closes}
       problem={form.problem}
       refused={saving.refused?.message}

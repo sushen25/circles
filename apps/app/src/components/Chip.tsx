@@ -57,9 +57,11 @@ export function Chip({
     >
       {selected ? <Icon name="check" size={16} color={palette.onAccent} /> : null}
       {detail === undefined ? (
-        <Text style={[styles.label, { color: ink }]}>{label}</Text>
+        <Text numberOfLines={1} style={[styles.label, styles.shrink, { color: ink }]}>
+          {label}
+        </Text>
       ) : (
-        <View>
+        <View style={styles.shrink}>
           <Text style={[styles.label, styles.strong, { color: ink }]}>{label}</Text>
           <Text style={[styles.detail, { color: soft }]}>{detail}</Text>
           {others === undefined ? null : (
@@ -80,7 +82,11 @@ export function Chips({ children }: { children: React.ReactNode }) {
 }
 
 const styles = StyleSheet.create({
+  // A chip never runs past the screen: it is at most its row wide, and a label
+  // longer than that ends in an ellipsis. The accessible label is the full text.
   chip: {
+    maxWidth: '100%',
+    flexShrink: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
@@ -96,6 +102,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 14,
   },
+  shrink: { flexShrink: 1 },
   label: {
     fontFamily: faceFor('Figtree', 500),
     fontSize: 14,
