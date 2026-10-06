@@ -63,6 +63,7 @@ const ICONS: IconName[] = [
 
 export default function ComponentsScreen() {
   const [selectedChip, setSelectedChip] = useState(true);
+  const [working, setWorking] = useState(false);
   const [toggle, setToggle] = useState(true);
   const [radio, setRadio] = useState(0);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -129,6 +130,23 @@ export default function ComponentsScreen() {
               busy
             />
           </Card>
+        </Section>
+
+        <Section label="Busy · nothing moves when it turns busy">
+          <Chips>
+            <CompactButton
+              label="Done"
+              busyLabel="Finishing"
+              busy={working}
+              onPress={() => undefined}
+            />
+            <CompactButton label="Undo" onPress={() => undefined} />
+          </Chips>
+          <Button
+            label={working ? 'Turn busy off' : 'Turn busy on'}
+            variant="secondary"
+            onPress={() => setWorking((v) => !v)}
+          />
         </Section>
 
         <Section label="Marks and notices">

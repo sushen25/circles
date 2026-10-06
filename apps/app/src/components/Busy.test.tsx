@@ -97,6 +97,40 @@ describe('a busy CompactButton', () => {
   });
 });
 
+describe('a compact button with no icon keeps its width when it turns busy (SUS-157)', () => {
+  // jsdom lays nothing out, so the width is pinned the way it is built: the room
+  // for the spinner is in the layout before the spinner exists, and is the same
+  // size idle and busy. The real widths are measured in the gallery spec.
+  it("keeps the spinner's room free while idle, and the same room once busy", () => {
+    const { rerender } = render(
+      <CompactButton label="Save" busyLabel="Saving" busy={false} onPress={() => undefined} />,
+    );
+    const idle = screen.getByTestId('spinner-room');
+    expect(idle).toHaveStyle({ width: '22px' });
+    expect(screen.queryByTestId('spinner')).not.toBeInTheDocument();
+
+    rerender(<CompactButton label="Save" busyLabel="Saving" busy onPress={() => undefined} />);
+    tick(WAIT.spinnerAfter);
+    expect(screen.getByTestId('spinner')).toBeInTheDocument();
+    expect(screen.getAllByTestId('spinner-room')).toHaveLength(1);
+    expect(screen.getByTestId('spinner-room')).toHaveStyle({ width: '22px' });
+  });
+
+  it('holds the room with no busyLabel too, when the button can be busy', () => {
+    render(<CompactButton label="Done" busy={false} onPress={() => undefined} />);
+    expect(screen.getByTestId('spinner-room')).toBeInTheDocument();
+  });
+
+  it("asks for no room where the spinner takes an icon's place, or the button never works", () => {
+    const { rerender } = render(
+      <CompactButton label="Save" icon="check" busy={false} onPress={() => undefined} />,
+    );
+    expect(screen.queryByTestId('spinner-room')).not.toBeInTheDocument();
+    rerender(<CompactButton label="Change" onPress={() => undefined} />);
+    expect(screen.queryByTestId('spinner-room')).not.toBeInTheDocument();
+  });
+});
+
 describe('a busy Tertiary', () => {
   it('says the -ing word and ignores taps', () => {
     const onPress = vi.fn();

@@ -43,6 +43,9 @@ type BusyProps = {
   busyLabel?: string | undefined;
 };
 
+/** The spinner's edge on each control; also the room an icon-less one keeps free for it. */
+const SPINNER = { button: 18, tertiary: 14, compact: 16 } as const;
+
 /** What every busy control shares: the spinner's clock, the slow line's, the tap guard. */
 function useBusy(busy: boolean | undefined, onPress: PressableProps['onPress']) {
   const working = busy === true;
@@ -55,7 +58,11 @@ function useBusy(busy: boolean | undefined, onPress: PressableProps['onPress']) 
 
 /**
  * Holds the button as wide as the longer of its two labels, so the tap that
- * swaps "Lock it in" for "Locking it in" moves nothing.
+ * swaps "Lock it in" for "Locking it in" moves nothing. `reserve` is the room
+ * for a spinner that has no icon to take the place of: a control that can turn
+ * busy keeps it free from the start, so the spinner arriving moves nothing
+ * either (SUS-157). The width is the same idle and busy; only what is drawn in
+ * it changes.
  */
 function Words({
   label,
@@ -63,6 +70,7 @@ function Words({
   style,
   lead,
   gap = 10,
+  reserve = 0,
 }: {
   label: string;
   other: string | undefined;
@@ -70,9 +78,12 @@ function Words({
   /** The spinner, or a compact button's icon, before the words. */
   lead?: ReactNode;
   gap?: number;
+  /** The spinner's width, to keep free when nothing else sits where it will go. */
+  reserve?: number;
 }) {
   const row = [styles.content, { gap }];
-  if (other === undefined || other.length <= label.length) {
+  const longer = other !== undefined && other.length > label.length ? other : label;
+  if (longer === label && reserve === 0) {
     return (
       <View style={row}>
         {lead}
@@ -80,13 +91,16 @@ function Words({
       </View>
     );
   }
-  // The longer one holds the width, unseen; the one being said sits over it,
-  // with the spinner beside it.
+  // The longest words hold the width, unseen, with the spinner's room before
+  // them; what is being said sits over it, with the spinner beside it.
   return (
     <View>
-      <Text aria-hidden style={[style, styles.sizer]}>
-        {other}
-      </Text>
+      <View style={[styles.content, { gap }]}>
+        {reserve > 0 ? <View testID="spinner-room" style={{ width: reserve }} /> : null}
+        <Text aria-hidden style={[style, styles.sizer]}>
+          {longer}
+        </Text>
+      </View>
       <View style={[row, styles.overlay]}>
         {lead}
         <Text style={style}>{label}</Text>
@@ -154,6 +168,7 @@ export function Button({
           other={view.working ? label : busyLabel}
           style={[styles.label, { color: ink }]}
           lead={view.spinner ? <Spinner color={ink} /> : null}
+          reserve={busy === undefined ? 0 : SPINNER.button + 10}
         />
       </Pressable>
     </Slow>
@@ -181,7 +196,8 @@ export function Tertiary({ label, busyLabel, busy, onPress, ...props }: Tertiary
           label={said}
           other={view.working ? label : busyLabel}
           style={[styles.tertiaryLabel, { color: palette.ink3 }]}
-          lead={view.spinner ? <Spinner size={14} color={palette.ink3} /> : null}
+          lead={view.spinner ? <Spinner size={SPINNER.tertiary} color={palette.ink3} /> : null}
+          reserve={busy === undefined ? 0 : SPINNER.tertiary + 10}
         />
       </Pressable>
     </Slow>
@@ -245,9 +261,10 @@ export function CompactButton({
           other={view.working ? label : busyLabel}
           style={[styles.compactLabel, { color: ink }, accent && styles.compactAccent]}
           gap={6}
+          reserve={busy === undefined || icon !== undefined ? 0 : SPINNER.compact + 6}
           lead={
             view.spinner ? (
-              <Spinner size={16} color={ink} />
+              <Spinner size={SPINNER.compact} color={ink} />
             ) : icon === undefined ? null : (
               <Icon name={icon} size={16} color={ink} />
             )
