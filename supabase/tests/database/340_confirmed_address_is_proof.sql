@@ -10,7 +10,7 @@
 -- unchanged, and a suppressed address still says nothing and sends nothing.
 
 begin;
-select plan(18);
+select plan(20);
 
 create or replace function pg_temp.make_user(
   id uuid, name text, addr text, confirmed boolean, anonymous boolean default false
@@ -46,6 +46,10 @@ begin
 end;
 $$;
 
+create or replace function pg_temp.contact_of(addr text, who uuid) returns uuid
+language sql security definer as $$
+  select c.id from private.email_contacts c where c.email_normalized = addr and c.user_id = who
+$$;
 create or replace function pg_temp.status_of(addr text, who uuid) returns text
 language sql security definer as $$
   select c.status from private.email_contacts c
@@ -204,6 +208,60 @@ select is(
    where r.user_id = '00000000-0000-0000-0000-0000000009a1'),
   1,
   'while the verified one is a recipient straight away');
+
+-- ---------------------------------------------------------------------------
+-- A plan already locked in: the subscription owes the current state, once
+-- ---------------------------------------------------------------------------
+select pg_temp.act_as_postgres();
+insert into public.plans (
+  circle_id, mode, state, organiser_user_id, title, time_zone,
+  window_start, window_end, daily_start_local, daily_end_local,
+  duration_minutes, quorum, response_deadline, short_code
+)
+select circle_id, 'named', 'ready', '00000000-0000-0000-0000-0000000009a0',
+  'Decided', 'Australia/Melbourne', date '2099-09-17', date '2099-09-20',
+  1050, 1350, 120, 2, timestamptz '2099-09-20T10:00:00Z', 'pcnfac'
+from t;
+insert into public.plan_participants (plan_id, revision, user_id)
+select id, 1, '00000000-0000-0000-0000-0000000009a1'::uuid from public.plans where short_code = 'pcnfac';
+insert into public.candidate_sets (
+  plan_id, revision, input_version, scoring_version, input_hash,
+  starts_considered, eligible_count, responded_count, active_member_count
+)
+select p.id, p.revision, p.input_version, p.scoring_version, 'seed', 10, 1, 1, 4
+from public.plans p where p.short_code = 'pcnfac';
+insert into public.candidates (
+  candidate_set_id, is_near_miss, rank, starts_at, ends_at, available_user_ids,
+  explicit_count, flexible_count, explanation_code, explanation_count
+)
+select cset.id, false, 1, timestamptz '2099-09-18T08:30:00Z', timestamptz '2099-09-18T10:30:00Z',
+  array['00000000-0000-0000-0000-0000000009a1'::uuid], 1, 0, 'best_attendance', 1
+from public.candidate_sets cset join public.plans p on p.id = cset.plan_id
+where p.short_code = 'pcnfac';
+select planning.transition_plan(
+  (select id from public.plans where short_code = 'pcnfac'), 'confirm',
+  '00000000-0000-0000-0000-0000000009a0',
+  jsonb_build_object('candidate_id', '2099-09-18T08:30:00+00:00'));
+
+select pg_temp.act_as_service();
+select public.request_email_updates((select id from public.plans where short_code = 'pcnfac'),
+  '00000000-0000-0000-0000-0000000009a1', 'ada@proof.test', '2026-10-06', 'r-ada-late');
+select public.request_email_updates((select id from public.plans where short_code = 'pcnfac'),
+  '00000000-0000-0000-0000-0000000009a1', 'ada@proof.test', '2026-10-06', 'r-ada-late-2');
+select pg_temp.act_as_postgres();
+select is(
+  (select count(*)::integer from jobs.notification_jobs j
+   where j.kind = 'locked_in'
+     and j.plan_id = (select id from public.plans where short_code = 'pcnfac')
+     and j.contact_id = pg_temp.contact_of('ada@proof.test', '00000000-0000-0000-0000-0000000009a1')),
+  1,
+  'subscribing with a confirmed address after the time was decided queues the current "locked in" letter, once');
+select is(
+  (select count(*)::integer from jobs.notification_jobs j
+   where j.kind = 'verify_email'
+     and j.plan_id = (select id from public.plans where short_code = 'pcnfac')),
+  0,
+  'and still sends no verification email');
 
 select * from finish();
 rollback;

@@ -151,6 +151,23 @@ begin
   -- A verified address needs no second verification: the subscription above is
   -- already live, and another link would be an email nobody asked for.
   if contact.status = 'verified' then
+    -- The current state, once, for somebody who subscribes after a time was
+    -- decided: `verify_email_contact` does this for a late verification, and
+    -- this is the other way in (a confirmed sign-in address, or a contact
+    -- verified earlier). The key is the dispatcher's own `locked_in` key for
+    -- this recipient and this confirmation, so a letter they already had is
+    -- not sent twice.
+    insert into jobs.notification_jobs (
+      channel, kind, contact_id, plan_id, plan_revision, scheduled_for, idempotency_key
+    )
+    select 'email', 'locked_in', contact.id, p_plan_id, mc.revision, now(),
+      jobs.idempotency_key(
+        'email', contact.id::text, p_plan_id::text, mc.revision::text,
+        'locked_in', mc.id::text)
+    from public.meetup_confirmations mc
+    where mc.plan_id = p_plan_id and mc.status = 'active'
+    on conflict (idempotency_key) do nothing;
+
     return jsonb_build_object('sent', false);
   end if;
 
