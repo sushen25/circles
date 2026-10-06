@@ -2,6 +2,7 @@ import { expect, test } from './fixtures';
 import { addressFor, joinsAndAnswers, subscribesFromSent } from './journeys';
 import { letterTo, lettersTo, linkIn, runDispatcher } from './mail';
 import {
+  consentVersionOf,
   emailContactOf,
   isAnonymousUser,
   latestCodeFor,
@@ -33,7 +34,8 @@ test('the verification email’s link verifies the address, in a browser with no
   const address = addressFor('ren');
 
   await page.getByLabel('Your email').fill(address);
-  await page.getByRole('button', { name: 'Send verification email' }).click();
+  await page.getByRole('switch', { name: /^Save my place in/ }).click();
+  await page.getByRole('button', { name: 'Email me about this meetup' }).click();
   await expect(page.getByText('Check your email.')).toBeVisible();
   await expect(page.getByText(`We sent a link to ${address}.`, { exact: false })).toBeVisible();
   expect(emailContactOf(ren)).toBe('pending');
@@ -100,23 +102,50 @@ test('stopping one meetup from the preferences page means its lock-in sends that
   await elsewhere.close();
 });
 
-test('saving access turns the guest into an account, by email code', async ({ page }) => {
+test('one step: the switch on saves the place and turns on the updates, with one email and no link', async ({
+  page,
+  browser,
+}) => {
   const crew = sundayCrew();
   const ren = await joinsAndAnswers(page, crew, 'Ren');
   const address = addressFor('ren');
 
-  await page.getByRole('button', { name: 'Save access on every device' }).click();
-  // Sent stays mounted under it in the web stack, with its own email field.
-  await page.getByLabel('Your email').filter({ visible: true }).fill(address);
-  await page.getByRole('button', { name: 'Send me a code' }).click();
+  await page.getByLabel('Your email').fill(address);
+  await expect(page.getByRole('switch', { name: /^Save my place in/ })).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+  await page.getByRole('button', { name: 'Email me about this meetup' }).click();
   await expect(page.getByText('Enter the code we emailed')).toBeVisible();
 
   await page.getByLabel('Code', { exact: true }).fill(await latestCodeFor(address));
-  await page.getByRole('button', { name: 'Continue' }).filter({ visible: true }).click();
+  await page.getByRole('button', { name: 'Continue' }).click();
 
-  await expect(
-    page.getByText(`Your place is saved. Sign in with ${address}`, { exact: false }),
-  ).toBeVisible();
+  // Back on Sent, one line, and the card is gone.
+  await expect(page.getByRole('status')).toContainText(
+    `Done. We'll email ${address} about this meetup`,
+  );
+  await expect(page.getByText("Hear when it's locked in")).toHaveCount(0);
   expect(isAnonymousUser(ren), 'the same identity, now an account').toBe(false);
   expect(memberNamed(crew.circleId, 'Ren')?.userId).toBe(ren);
+  // A confirmed sign-in address is its own proof: verified, subscribed, nothing sent.
+  expect(emailContactOf(ren)).toBe('verified');
+  expect(subscriptionOf(ren, crew.planId)).toBe('active');
+  expect(consentVersionOf(ren, crew.planId)).toBe('2026-10-06');
+  await runDispatcher();
+  expect(
+    (await lettersTo(address))
+      .map((letter) => letter.subject)
+      .filter((s) => /^Turn on updates/.test(s)),
+  ).toEqual([]);
+
+  // A second answer, so there is a set to lock in. Then the locked-in letter
+  // arrives, with no verification email before it.
+  const jessPhone = await browser.newContext();
+  await joinsAndAnswers(await jessPhone.newPage(), crew, 'Jess');
+  await jessPhone.close();
+  lockInFirstOption(crew.planId, crew.ownerId);
+  await letterTo(address, /^Locked in: Sunday Crew/);
+  const subjects = (await lettersTo(address)).map((letter) => letter.subject);
+  expect(subjects.filter((subject) => /^Turn on updates/.test(subject))).toEqual([]);
 });

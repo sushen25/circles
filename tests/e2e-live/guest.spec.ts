@@ -70,9 +70,9 @@ test('from the chat to Sent in a name and five taps, and the email offer decline
   expect(answer?.windows).toHaveLength(3);
 
   // The offer is an offer: one tap and it is gone, and nothing is kept.
-  await expect(page.getByText('Get updates about this meetup by email')).toBeVisible();
+  await expect(page.getByText("Hear when it's locked in")).toBeVisible();
   await page.getByRole('button', { name: 'Not now' }).click();
-  await expect(page.getByText('Get updates about this meetup by email')).toHaveCount(0);
+  await expect(page.getByText("Hear when it's locked in")).toHaveCount(0);
   expect(emailContactOf(priya!.userId)).toBeUndefined();
   await expectNoPrompts(page, dialogs);
 });

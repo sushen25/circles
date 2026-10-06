@@ -421,6 +421,12 @@ export function subscriptionOf(userId: string, planId: string): string | undefin
     where user_id = '${userId}' and plan_id = '${planId}'`)[0]?.[0];
 }
 
+/** The consent version `userId`'s subscription to `planId` was recorded under. */
+export function consentVersionOf(userId: string, planId: string): string | undefined {
+  return sql(`select consent_text_version from private.email_subscriptions
+    where user_id = '${userId}' and plan_id = '${planId}'`)[0]?.[0];
+}
+
 /** A preferences token for `userId`'s contact, minted the way the email sender mints one. */
 export function prefsTokenFor(userId: string): string {
   const token = mint(randomBytes(32).toString('base64url'), 'token');

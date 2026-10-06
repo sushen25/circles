@@ -32,19 +32,27 @@ import { SaveAccessScreen, type SaveAccessProblem } from './SaveAccessScreen';
  * The address is held here, in memory, and handed to `onSaved`; it is personal
  * data and never goes in a URL.
  */
-type Step =
-  | { kind: 'email' }
-  | {
-      kind: 'code';
-      address: string;
-      route: Awaited<ReturnType<typeof requestLinkCode>>;
-      /** When the newest code was sent: the resend wait and the ten minutes run from here. */
-      sentAt: number;
-    };
+type CodeStep = {
+  kind: 'code';
+  address: string;
+  route: Awaited<ReturnType<typeof requestLinkCode>>;
+  /** When the newest code was sent: the resend wait and the ten minutes run from here. */
+  sentAt: number;
+};
+type Step = { kind: 'email' } | CodeStep;
+
+/**
+ * A code already asked for, by a door that has the address (the one-step card on
+ * Sent, SUS-162): the flow opens on the code step, and Back leaves through
+ * `onBack` rather than to an address the person has already given.
+ */
+export type CodeStart = Omit<CodeStep, 'kind'>;
 
 export type SavePlaceByEmailProps = {
   moment: SaveMoment;
   circleName: string | undefined;
+  /** Open on the code step: the code was asked for before this mounted. */
+  start?: CodeStart | undefined;
   /** Saved. The session is now a saved place. */
   onSaved: (address: string) => void | Promise<void>;
   onNotNow: () => void;
@@ -63,12 +71,15 @@ function sendProblem(error: unknown): SaveAccessProblem & EnterCodeProblem {
 export function SavePlaceByEmail({
   moment,
   circleName,
+  start,
   onSaved,
   onNotNow,
   onBack,
 }: SavePlaceByEmailProps) {
   const live = hasBackend();
-  const [step, setStep] = useState<Step>({ kind: 'email' });
+  const [step, setStep] = useState<Step>(
+    start === undefined ? { kind: 'email' } : { kind: 'code', ...start },
+  );
   const [email, setEmail] = useState('');
   const [codeText, setCodeText] = useState('');
   const [busy, setBusy] = useState(false);
@@ -133,7 +144,7 @@ export function SavePlaceByEmail({
             })
             .catch((error: unknown) => setCodeProblem(sendProblem(error)));
         }}
-        onBack={() => setStep({ kind: 'email' })}
+        onBack={start === undefined ? () => setStep({ kind: 'email' }) : onBack}
       />
     );
   }

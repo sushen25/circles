@@ -29,6 +29,9 @@
  *   morning-after question. It did not name the letter that asks somebody to
  *   add their times again after an edit (`asked_again`, ADR 0046).
  * - `2026-10-02`: the same, naming that letter too.
+ * - `2026-10-06`: a shorter sentence for the one-step card on Sent (SUS-162):
+ *   locked in, moved, called off or needs your times again, one reminder, one
+ *   question after.
  *
  * Add a version by appending to `CONSENT_VERSIONS` and pointing `CONSENT` at it.
  */
@@ -44,6 +47,11 @@ const TEXT_2026_10_02 =
   'before, and one question the morning after. Nothing else, and you can stop ' +
   'it from any of those emails without signing in.';
 
+const TEXT_2026_10_06 =
+  "Only about this meetup: when it's locked in, moved, called off or needs " +
+  'your times again, one reminder, and one question after. Stop any time from ' +
+  'the email itself.';
+
 /**
  * Every version of the sentence that has ever been shown, with its words, oldest
  * first. A subscription stores the version it was made under, and the client
@@ -57,6 +65,7 @@ const TEXT_2026_10_02 =
 export const CONSENT_VERSIONS = [
   { version: '2026-09-14', text: TEXT_2026_09_14 },
   { version: '2026-10-02', text: TEXT_2026_10_02 },
+  { version: '2026-10-06', text: TEXT_2026_10_06 },
 ] as const;
 
 /** The words a recorded version stands for, or undefined for a version never shown. */
@@ -75,9 +84,9 @@ export const CONSENT = {
    * The date the wording was settled, which sorts and reads. Not a number:
    * `v2` tells you nothing about whether it is older than the row beside it.
    */
-  version: '2026-10-02',
+  version: '2026-10-06',
   scope: 'plan_updates',
-  text: TEXT_2026_10_02,
+  text: TEXT_2026_10_06,
   /**
    * For each plan-update letter, the words in `text` that say it will come.
    * Keyed by the email kind's name (`SUBSCRIBER_KINDS` in the Edge Functions'
@@ -85,14 +94,14 @@ export const CONSENT = {
    */
   covers: {
     locked_in: 'locked in',
-    changed: 'changed',
-    // The letter that says a locked-in meetup moved (ADR 0051) is a change to it, which
-    // the sentence already promises; no new words, so no new version.
-    moved: 'changed',
+    // The letter that says the plan changed, and the one that says a locked-in
+    // meetup moved (ADR 0051), are both a meetup that has moved.
+    changed: 'moved',
+    moved: 'moved',
     cancelled: 'called off',
-    reminder: 'a reminder two hours before',
-    did_it_happen_participant: 'one question the morning after',
-    asked_again: 'add my times again',
+    reminder: 'one reminder',
+    did_it_happen_participant: 'one question after',
+    asked_again: 'needs your times again',
   },
 } as const;
 

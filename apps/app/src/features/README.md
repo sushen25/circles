@@ -46,6 +46,10 @@ flows do not, because the sheet it opened named a fixture circle.
 | `CalendarPick.dc.html`                | `/j/[code]/calendar/pick`         | `CalendarPickScreen`        |
 | `NoneWork.dc.html`                    | `/j/[code]/none`                  | `NoneWorkScreen`            |
 | `Sent.dc.html`                        | `/j/[code]/sent`                  | `SentScreen`                |
+| `SentSwitchOff.dc.html`               | `/j/[code]/sent` (switch off)     | `SentScreen`                |
+| `SentCode.dc.html`                    | `/j/[code]/sent?state=code`       | `EnterCodeScreen`           |
+| `SentDone.dc.html`                    | `/j/[code]/sent?state=done`       | `SentScreen`                |
+| `SentPartial.dc.html`                 | `/j/[code]/sent?state=partial`    | `SentScreen`                |
 
 **Real since S1-25:** `/j/[code]` and `/j/[code]/none` render
 `AvailabilityFlow`, which reads the plan and the member's own answer, keeps a
@@ -80,6 +84,18 @@ the gallery's `partial` and `complete` fixtures show the reader and four others 
 their token in the fragment (`/v#<token>`, ADR 0023), as is re-entry at `/a`:
 the entry point takes the token out of the address bar before the router loads
 (`data/links/tokens.ts`). `EmailVerifyFlow` and `EmailPrefsFlow` need no session.
+
+**One step on Sent, SUS-162:** the card is one address, the consent sentence
+(`CONSENT.text`), a "Save my place" switch on by default and one primary.
+`SentFlow` holds the step (`oneStep.ts`) above the screens, because signing in
+can change the user id and remount `Sent`. On, `useEmailOffer` asks for a code
+(`requestLinkCode`) and `SavePlaceByEmail` (opened on its code step) saves the
+place, then `request-email-updates` turns on the plan's updates; a confirmed
+sign-in address is its own proof on the server, so no verification link is sent.
+Off, the verification link and Check your email as before. The `?state=` values
+open the gallery's code, done and partial-failure states.
+`/j/[code]/save-access` is still the account screen for the other doors; Sent no
+longer links to it.
 
 ### circles
 
