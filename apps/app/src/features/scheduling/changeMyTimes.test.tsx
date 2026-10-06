@@ -64,6 +64,16 @@ describe('Change my times, as the organiser', () => {
     });
   });
 
+  it('opens the editor from the no-overlap screen, where a wrong answer is what blocks it', async () => {
+    planCandidates.mockResolvedValue(fixture.noQuorum);
+    show(organiser());
+    fireEvent.click(await screen.findByRole('button', CHANGE));
+    expect(push).toHaveBeenCalledWith({
+      pathname: '/j/[code]',
+      params: { code: fixture.noQuorum.code, returnTo: 'plan' },
+    });
+  });
+
   it('is shown disabled, with why, on the waiting screen once replies have closed', async () => {
     planCandidates.mockResolvedValue({ ...fixture.waiting, repliesOpen: false });
     show(organiser());
