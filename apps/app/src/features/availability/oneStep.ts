@@ -39,6 +39,8 @@ export interface OneStep {
   toDone: (address: string) => void;
   toPartial: (address: string) => void;
   toCard: () => void;
+  /** False once somebody has signed out since this began: nothing more is done for them. */
+  stillMine: () => boolean;
 }
 
 interface Held {
@@ -92,6 +94,7 @@ export function useOneStep(key: string, initial: OneStepStage = { kind: 'card' }
       (address) => set({ stage: { kind: 'partial', address }, email: address }),
       [set],
     ),
+    stillMine: useCallback(() => since.current === journeyGeneration(), []),
     toCard: useCallback(() => set({ stage: { kind: 'card' } }), [set]),
   };
 }

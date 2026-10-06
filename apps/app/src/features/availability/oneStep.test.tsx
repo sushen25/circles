@@ -54,6 +54,7 @@ vi.mock('../../data/growth', () => ({
 const { SentFlow } = await import('./SentFlow');
 const { forgetSessionNudges } = await import('../growth/useNudge');
 const { forgetOneSteps } = await import('./oneStep');
+const { forgetJourneys } = await import('../../data/auth/journey');
 const { answerable } = await import('../../data/fixtures');
 
 const PLAN = answerable.plan;
@@ -224,6 +225,19 @@ describe('with the switch on', () => {
 
     expect(await screen.findByText(/^Done\. We'll email priya@example\.com/)).toBeVisible();
     expect(requestEmailUpdates).toHaveBeenCalledTimes(1);
+  });
+
+  it('asks for nothing for somebody who signed out while the sign-in was going', async () => {
+    savePlace.mockImplementation(async (options: { signIn: () => Promise<unknown> }) => {
+      await options.signIn();
+      forgetJourneys();
+      return {};
+    });
+    await reachTheCode();
+    await enterTheCode();
+
+    expect(requestEmailUpdates).not.toHaveBeenCalled();
+    expect(screen.queryByText(/^Done\./)).toBeNull();
   });
 
   it('keeps the address and the switch when the code could not be sent', async () => {
