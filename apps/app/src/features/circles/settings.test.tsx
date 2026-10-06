@@ -303,8 +303,14 @@ describe('a choice the server nearly always accepts', () => {
     await act(async () => {
       fireEvent.click(toggle);
     });
-    expect(screen.getByRole('switch', { name: 'Quiet asks' }).getAttribute('aria-checked')).toBe(
-      'false',
+    // The cache tells its observers in a `setTimeout(0)` of its own, which
+    // `act` does not wait for: on a busy machine the assertion ran first.
+    // Waiting for it is still "before the server has answered" - `answer` is
+    // called below, after.
+    await waitFor(() =>
+      expect(screen.getByRole('switch', { name: 'Quiet asks' }).getAttribute('aria-checked')).toBe(
+        'false',
+      ),
     );
     answer();
   });

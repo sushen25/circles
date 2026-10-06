@@ -11,7 +11,7 @@ import {
 import { clearRateCounters, mint, mintedSecrets } from './stack';
 
 export { expect };
-export type { Browser, Page } from '@playwright/test';
+export type { Browser, Download, Page } from '@playwright/test';
 
 /**
  * The live suite's `test`. Every spec in `tests/e2e-live/` imports it from here

@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest';
 
-import { cleanup } from '@testing-library/react';
+import { cleanup, configure } from '@testing-library/react';
 import { afterEach } from 'vitest';
 
 import './src/test/shift-clock';
@@ -23,3 +23,15 @@ import './src/test/shift-clock';
 // Vitest only auto-cleans when `globals` is on, and it is not; without this,
 // one test's DOM is still mounted during the next and queries match twice.
 afterEach(cleanup);
+
+// How long `findBy*` and `waitFor` wait: ten seconds, not Testing Library's one
+// (SUS-163). The wait is for a screen to render, and under load that is
+// dominated by the time this worker spends waiting for a core, not by the
+// screen: with the whole suite running beside a busy machine (or CI's three
+// workers on a shared runner) a first render of a big screen took longer than
+// a second and `usualTimes`, `settings` and `lifecycle` failed under load and passed alone. A
+// wait that succeeds returns the moment its condition holds, so a passing test
+// is no slower; only a test that is really broken waits longer to say so. The
+// same reasoning, and the same number as Playwright's `expect` timeout, as
+// `testTimeout` in `vitest.config.ts`.
+configure({ asyncUtilTimeout: 10_000 });

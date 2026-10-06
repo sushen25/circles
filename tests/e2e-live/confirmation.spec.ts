@@ -1,4 +1,5 @@
 import { expect, test, type Page } from './fixtures';
+import { downloadCalendarFile } from './journeys';
 
 import {
   attendanceStatusOf,
@@ -74,9 +75,8 @@ test('the organiser reviews, locks it in, and gets the message and the calendar 
     page.getByText("Nothing is added to anyone's calendar without their tap."),
   ).toBeVisible();
   await expect(page.getByText(/Google/)).toHaveCount(0);
-  const download = page.waitForEvent('download');
-  await page.getByRole('button', { name: /^Apple or device calendar/ }).click();
-  expect((await download).suggestedFilename()).toMatch(/^sunday-crew-\d{4}-\d{2}-\d{2}\.ics$/);
+  const download = await downloadCalendarFile(page);
+  expect(download.suggestedFilename()).toMatch(/^sunday-crew-\d{4}-\d{2}-\d{2}\.ics$/);
 });
 
 test("a member lands on the confirmed screen from the plan link and says they can't make it", async ({
