@@ -4,6 +4,7 @@ import { Platform } from 'react-native';
 
 import { setAccessToken } from '../session';
 import { clearDraft } from '../draft';
+import { forgetJourneys } from './journey';
 import { authClient } from './client';
 import { resumePendingClaim } from './link';
 
@@ -258,6 +259,8 @@ export async function signOut(): Promise<void> {
   // A circle's name typed on this device is not the next person's to find
   // (ADR 0053). Cleared only once the person is out, and never allowed to
   // fail the sign-out.
+  // Nor a journey in progress, with the address typed into it (SUS-162).
+  forgetJourneys();
   await clearDraft();
 }
 
@@ -268,4 +271,5 @@ export function resetSessionForTests(): void {
   appInstalled = false;
   started = false;
   listeners.clear();
+  forgetJourneys();
 }

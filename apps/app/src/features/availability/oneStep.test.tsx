@@ -53,6 +53,7 @@ vi.mock('../../data/growth', () => ({
 
 const { SentFlow } = await import('./SentFlow');
 const { forgetSessionNudges } = await import('../growth/useNudge');
+const { forgetOneSteps } = await import('./oneStep');
 const { answerable } = await import('../../data/fixtures');
 
 const PLAN = answerable.plan;
@@ -100,6 +101,7 @@ beforeEach(() => {
   }
   globalThis.localStorage.clear();
   forgetSessionNudges();
+  forgetOneSteps();
   planToAnswer.mockResolvedValue({ plan: PLAN, answer: answerable.answer });
   requestEmailUpdates.mockResolvedValue({ status: 'check_email' });
   requestLinkCode.mockResolvedValue('new_identity');
@@ -195,6 +197,32 @@ describe('with the switch on', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Not now' }));
 
     expect(screen.queryByText("Hear when it's locked in")).toBeNull();
+    expect(requestEmailUpdates).toHaveBeenCalledTimes(1);
+  });
+
+  it('survives the route being replaced mid-sign-in, as when the address already has an account', async () => {
+    // Signing into an existing account changes the user id; the membership gate
+    // above the route then replaces its children while the sign-in is still going.
+    const mounted: { view?: ReturnType<typeof wrap> } = {};
+    const tree = () => <SentFlow key={session.userId} code={PLAN.code} />;
+    savePlace.mockImplementation(async (options: { signIn: () => Promise<unknown> }) => {
+      await options.signIn();
+      Object.assign(session, { status: 'saved', userId: 'priya-existing', isAnonymous: false });
+      mounted.view?.rerender(
+        <QueryClientProvider client={new QueryClient()}>{tree()}</QueryClientProvider>,
+      );
+      return {};
+    });
+    requestLinkCode.mockResolvedValue('existing_account');
+    mounted.view = wrap(tree());
+    await typeAddress();
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', PRIMARY));
+    });
+    await screen.findByText('Enter the code we emailed');
+    await enterTheCode();
+
+    expect(await screen.findByText(/^Done\. We'll email priya@example\.com/)).toBeVisible();
     expect(requestEmailUpdates).toHaveBeenCalledTimes(1);
   });
 

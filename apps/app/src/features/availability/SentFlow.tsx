@@ -32,8 +32,9 @@ import { useEmailOffer } from './useEmailOffer';
  * one email arrives: the code. **Off**, today's path: the verification link and
  * Check your email, no account.
  *
- * The step lives here, above the screens, because signing in can change the
- * person's user id, which reloads the plan and remounts `Sent`.
+ * The step is held in memory outside the components (`oneStep.ts`), because
+ * signing in can change the person's user id, which reloads the plan and makes
+ * the membership gate above the route replace this component.
  *
  * **Not now asks for nothing** — no contact, no consent, no email — and the
  * card goes; `record-nudge` hears that it was turned down, which is how the
@@ -66,7 +67,7 @@ function fixtureStage(state: string | undefined): OneStepStage {
 
 function FixtureSent({ code }: { code: string }) {
   const { state } = useLocalSearchParams<{ state?: string }>();
-  const one = useOneStep(fixtureStage(state));
+  const one = useOneStep(`fixture:${code}:${state ?? ''}`, fixtureStage(state));
   if (one.stage.kind === 'code') {
     const { address } = one.stage.start;
     return (
@@ -131,7 +132,7 @@ function LiveSent({ code }: { code: string }) {
     failOpen: true,
   });
 
-  const one = useOneStep();
+  const one = useOneStep(code);
   const back = () => (router.canGoBack() ? router.back() : router.replace('/'));
 
   if (one.stage.kind === 'code') {

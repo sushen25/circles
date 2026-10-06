@@ -57,6 +57,7 @@ vi.mock('../../data/growth', () => ({
 
 const { SentFlow } = await import('../availability/SentFlow');
 const { forgetSessionNudges } = await import('../growth/useNudge');
+const { forgetOneSteps } = await import('../availability/oneStep');
 const { EmailVerifyFlow } = await import('./EmailVerifyFlow');
 const { EmailPrefsFlow } = await import('./EmailPrefsFlow');
 const { heldToken, holdTokenForTests, releaseToken } = await import('../../data/links/tokens');
@@ -103,6 +104,7 @@ beforeEach(() => {
   planToAnswer.mockResolvedValue({ plan: PLAN, answer: answerable.answer });
   requestEmailUpdates.mockResolvedValue({ status: 'check_email' });
   forgetSessionNudges();
+  forgetOneSteps();
   const answered = new Map<string, { suppressed: boolean }>();
   const shown = new Set<string>();
   askToShow
