@@ -63,7 +63,6 @@ vi.mock('../../data/growth', () => ({
 const { SentFlow } = await import('./SentFlow');
 const { forgetSessionNudges } = await import('../growth/useNudge');
 const { forgetOneSteps } = await import('./oneStep');
-const { forgetJourneys } = await import('../../data/auth/journey');
 const { answerable } = await import('../../data/fixtures');
 
 const PLAN = answerable.plan;
