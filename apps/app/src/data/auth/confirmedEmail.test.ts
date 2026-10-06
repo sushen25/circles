@@ -40,7 +40,7 @@ beforeEach(() => {
 
 describe('confirmedEmail', () => {
   it('is the confirmed address, lower-cased and trimmed, for a saved place', async () => {
-    await signIn({ email: ' Priya@Example.com ', email_confirmed_at: '2026-10-06T00:00:00Z' });
+    await signIn({ email: ' PRIYA@example.com ', email_confirmed_at: '2026-10-06T00:00:00Z' });
 
     expect(sessionState().confirmedEmail).toBe('priya@example.com');
   });
