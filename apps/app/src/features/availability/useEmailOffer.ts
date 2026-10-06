@@ -19,6 +19,13 @@ import type { Nudge } from '../growth/useNudge';
 import type { OneStep } from './oneStep';
 import type { SentProblem } from './SentScreen';
 
+let lastSentAt = 0;
+/** When a code was asked for, and the attempt's id: never the same twice, even in one millisecond. */
+function nextSentAt(): number {
+  lastSentAt = Math.max(Date.now(), lastSentAt + 1);
+  return lastSentAt;
+}
+
 /**
  * What the card's primary does (spec §5.8, SUS-162). Pressing it is the consent.
  *
@@ -77,7 +84,7 @@ export function useEmailOffer({
     if (!live) {
       // The gallery: no backend to ask. The code step is a screen to look at.
       if (savePlace) {
-        one.toCode({ address, route: 'new_identity', sentAt: Date.now() }, plan.id);
+        one.toCode({ address, route: 'new_identity', sentAt: nextSentAt() }, plan.id);
         return;
       }
       rememberTypedAddress(userId ?? '', plan.id, address);
@@ -94,7 +101,7 @@ export function useEmailOffer({
         const route = await requestLinkCode(address);
         if (attempt.current !== mine) return;
         track('email_submitted', { plan_id: planId, save_place: true });
-        one.toCode({ address, route, sentAt: Date.now() }, plan.id);
+        one.toCode({ address, route, sentAt: nextSentAt() }, plan.id);
         return;
       }
       await requestEmailUpdates({

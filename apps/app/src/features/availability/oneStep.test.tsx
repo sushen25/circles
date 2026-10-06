@@ -274,6 +274,27 @@ describe('with the switch on', () => {
     expect(screen.queryByText('Enter the code we emailed')).toBeNull();
   });
 
+  it('does not let an abandoned subscription overwrite a newer attempt', async () => {
+    let finish: () => void = () => undefined;
+    requestEmailUpdates.mockReturnValueOnce(
+      new Promise((resolve) => (finish = () => resolve({ status: 'check_email' }))),
+    );
+    await reachTheCode();
+    await enterTheCode();
+    fireEvent.click(await screen.findByRole('button', { name: 'Back' }));
+    // Back on the card; a second attempt reaches its own code screen.
+    await act(async () => {
+      fireEvent.click(await screen.findByRole('button', PRIMARY));
+    });
+    await screen.findByText('Enter the code we emailed');
+    await act(async () => {
+      finish();
+    });
+
+    expect(screen.getByText('Enter the code we emailed')).toBeVisible();
+    expect(screen.queryByText(/^Done\./)).toBeNull();
+  });
+
   it('keeps the address and the switch when the code could not be sent', async () => {
     requestLinkCode.mockRejectedValue(new Error('down'));
     wrap(<SentFlow code={PLAN.code} />);

@@ -158,9 +158,13 @@ function LiveSent({ code }: { code: string }) {
               email: address,
               idempotencyKey: newIdempotencyKey(),
             });
+            // Backed out while the request was out, and maybe started another:
+            // this one does not overwrite what is on screen now.
+            if (!one.stillCoding(start.sentAt)) return;
             offer.tap();
             one.toDone(address);
           } catch {
+            if (!one.stillCoding(start.sentAt)) return;
             one.toPartial(address);
           }
         }}
