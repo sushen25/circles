@@ -240,6 +240,26 @@ describe('with the switch on', () => {
     expect(screen.queryByText(/^Done\./)).toBeNull();
   });
 
+  it('asks for nothing for somebody who backed out of the code step while it was being checked', async () => {
+    let finish: () => void = () => undefined;
+    savePlace.mockImplementation(
+      (options: { signIn: () => Promise<unknown> }) =>
+        new Promise((resolve) => {
+          finish = () => void options.signIn().then(() => resolve({}));
+        }),
+    );
+    await reachTheCode();
+    fireEvent.change(screen.getByLabelText('Code'), { target: { value: '123456' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    await act(async () => {
+      finish();
+    });
+
+    expect(requestEmailUpdates).not.toHaveBeenCalled();
+    expect(screen.queryByText(/^Done\./)).toBeNull();
+  });
+
   it('keeps the address and the switch when the code could not be sent', async () => {
     requestLinkCode.mockRejectedValue(new Error('down'));
     wrap(<SentFlow code={PLAN.code} />);

@@ -147,6 +147,9 @@ function LiveSent({ code }: { code: string }) {
           // Somebody signed out while this was going (another tab, say): whoever
           // is signed in now did not ask for these emails.
           if (!one.stillMine()) return;
+          // Or they backed out of the code step while it was being checked: the
+          // place is saved, but they did not go on to ask for the emails.
+          if (!one.stillCoding()) return;
           // The place is saved; now this plan's updates, for the address that
           // just proved itself. A new key: this is a new request.
           try {
