@@ -409,6 +409,12 @@ or an answer. `quietScreenOf` turns a view into a screen.
 | `NoQuorum.dc.html`         | `/circles/[id]/plan/[planId]/no-quorum`  | `NoQuorumScreen`         |
 | `Waiting.dc.html`          | `/circles/[id]/plan/[planId]/waiting`    | `WaitingScreen`          |
 
+**Footer and header (SUS-161):** on `Candidates`, `Waiting` and `NoQuorum` the
+plan's own actions (Share the link again, Edit the plan, Change my times) are
+compact buttons in `PlanActions`, in the header under the plan's facts. The
+footer keeps the decision: the primary and, on `Candidates`, the nudge as a
+compact button under it. `DeadlinePassed` carries none of the plan actions.
+
 **Real since S1-27:** `/circles/[id]/plan/[planId]/{candidates,waiting,no-quorum}`
 all render `CandidatesFlow`, and `/p/[code]` renders `MemberCandidatesFlow`
 behind `PlanLinkFlow`. One flow behind three organiser routes, because which of
