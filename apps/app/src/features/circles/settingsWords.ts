@@ -74,7 +74,7 @@ export function memberRows(home: CircleHome): SettingsMember[] {
   return ordered.map((member) => {
     const you = member.userId === home.me;
     const owner = member.role === 'owner';
-    const tier = member.savedPlace ? t('settings', 'place_saved') : t('settings', 'guest');
+    const joined = dayWords(member.joinedAt, home.zone);
     const detail =
       you && owner
         ? t('settings', 'you_owner')
@@ -82,7 +82,9 @@ export function memberRows(home: CircleHome): SettingsMember[] {
           ? t('settings', 'owner')
           : you
             ? t('settings', member.savedPlace ? 'you_place_saved' : 'you_guest')
-            : t('settings', 'tier_joined_on', { tier, date: dayWords(member.joinedAt, home.zone) });
+            : t('settings', member.savedPlace ? 'place_saved_joined_on' : 'guest_joined_on', {
+                date: joined,
+              });
     return {
       userId: member.userId,
       name: member.name,
