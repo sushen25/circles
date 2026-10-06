@@ -18,7 +18,7 @@ A guest who answers from a link is a complete, permanent way to use Circles, not
 | Moment | Anonymous guest | → Saved place | → App |
 |---|---|---|---|
 | Link tapped from the chat | Join → name → paint times → send. No prompts of any kind before the answer. | — | Installed members: the universal link opens in the app, same screen, same identity. |
-| Times sent | Offer email updates for this meetup (not an account, not the app). | "Save access on every device" as a tertiary link under the email card. | — |
+| Times sent | Offer email updates for this meetup (not the app), on one card. | The card's "Save my place" switch, on by default: one code saves the place and turns on the updates (ADR 0055). | — |
 | Times sent **and** an email given | "Check your email" screen; the response is already in and both investments are made. | — | **Prompt: rather have these on your phone?** The app gives the same updates as a notification, one reminder, and greys clashes next time. Once per plan. |
 | Returned with no session | Continue as [name], one tap, no sign-in. | **Prompt: save your place** (once, after the reattach). | Second reattach: the app sheet instead — the pain is now real. |
 | Meetup locked in | Add to calendar (.ics / Google), no gate. | — | **Prompt: a nudge on the day** (one reminder, two hours before). |
