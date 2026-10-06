@@ -384,6 +384,55 @@ apply to redirects or to static assets, neither of which carries either. A
 route that sets the header itself takes precedence, so a server route is free
 to be stricter and cannot accidentally be laxer than this.
 
+## Which header carries the caller's address
+
+**Tested on `circles-dev` on 3 October 2026 (SUS-107).** Every per-address rate
+limit keys on `cf-connecting-ip` and on nothing else
+(`supabase/functions/_shared/rate.ts`, `callerAddress`).
+
+A throwaway Edge Function, deployed to `circles-dev` only and removed
+afterwards, returned the four candidate headers exactly as a function receives
+them. Real client addresses are personal data and this repository is public, so
+they are redacted below; the made-up values are from the documentation range
+(RFC 5737) and are verbatim.
+
+| Request | `cf-connecting-ip` | `x-real-ip` | `x-forwarded-for` | `forwarded` |
+|---|---|---|---|---|
+| plain | the caller's public address (redacted) | not sent | the caller's address twice, then a platform address (redacted) | not sent |
+| `cf-connecting-ip: 203.0.113.7` forged | **refused before the function ran: HTTP 403, Cloudflare error 1000** | n/a | n/a | n/a |
+| `x-real-ip: 203.0.113.7` forged | the caller's public address (redacted) | not sent: dropped | as plain | not sent |
+| `x-forwarded-for: 203.0.113.7` forged | the caller's public address (redacted) | not sent | as plain: the forged entry is gone | not sent |
+| `forwarded: for=203.0.113.7` forged | the caller's public address (redacted) | not sent | as plain | `for=203.0.113.7`, **passed through as written** |
+| `x-real-ip`, `x-forwarded-for` and `forwarded` all forged | the caller's public address (redacted) | not sent | as plain | as written |
+
+What that settles:
+
+- **`cf-connecting-ip` is the caller's address and cannot be chosen by the
+  caller.** A request that brings one of its own never reaches a function.
+- `x-real-ip` is never delivered, and `x-forwarded-for` is rewritten by the
+  platform, so neither is a second source worth reading.
+- **`forwarded` is attacker-controlled** and passes through untouched. Nothing
+  may key on it.
+- The per-address limits therefore do not give a caller a bucket of their
+  choosing, and they do not put every caller in one bucket either.
+
+**Second network: not measured.** A second reading from a different network was
+attempted on 5 October 2026 and came back empty (the request did not complete on
+that network), and the founder chose on 6 October 2026 to go ahead on the first
+reading. What it would have confirmed, that two callers on different networks get
+different buckets, follows from the table above: the key is the caller's own
+public address, which Cloudflare sets and the caller cannot change. The unit tests
+in `_shared/kit.test.ts` cover the code's half (two addresses, two keys). The
+temporary function `tmp-sus107-ip-echo` was deleted from `circles-dev` on
+6 October 2026, and `supabase functions list` no longer shows it.
+
+The local stack has no Cloudflare in front, so `cf-connecting-ip` is absent
+there and every local caller shares the bucket `unknown`. A hosted request
+without it does the same, which fails closed. If a limit is ever hit by a real
+group on a hosted project, check this first. To repeat the reading, deploy a
+function that echoes those four headers to `dev` (never `prod`), call it, and
+remove it again.
+
 ## Expected security-advisor warnings
 
 `get_advisors(type: "security")` on a hosted project reports four warnings that

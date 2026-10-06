@@ -128,33 +128,49 @@ describe('sha256Hex', () => {
 });
 
 describe('callerAddress', () => {
-  it('prefers the headers a client cannot write at all', () => {
-    const cloudflare = new Request('https://example.test', {
-      headers: { 'cf-connecting-ip': '198.51.100.9', 'x-forwarded-for': '203.0.113.7' },
-    });
-    expect(callerAddress(cloudflare)).toBe('198.51.100.9');
+  // The readings behind the rule are in docs/runbooks/environments.md: on
+  // hosted Supabase `cf-connecting-ip` is the real address and cannot be forged
+  // (the platform refuses a request that carries its own); every other address
+  // header is either absent, rewritten, or passed through as the caller wrote it.
+  const at = (headers: Record<string, string>) =>
+    callerAddress(new Request('https://example.test', { headers }));
 
-    const real = new Request('https://example.test', {
-      headers: { 'x-real-ip': '198.51.100.10', 'x-forwarded-for': '203.0.113.7' },
-    });
-    expect(callerAddress(real)).toBe('198.51.100.10');
+  it('keys on cf-connecting-ip', () => {
+    expect(at({ 'cf-connecting-ip': '198.51.100.9' })).toBe('198.51.100.9');
   });
 
-  it('falls back to the front of the forwarded list, which is distinct if spoofable', () => {
-    // The last hop is the one our own proxy added, which sounds safer and is
-    // worse where it is wrong: a gateway address is the same for everybody, so
-    // one bucket would rate-limit the whole product at once. A key one attacker
-    // can sidestep beats a key that locks everyone out.
-    const request = new Request('https://example.test', {
-      headers: { 'x-forwarded-for': '203.0.113.7, 70.41.3.18' },
+  it('gives a request that forges every other address header the same key as one that does not', () => {
+    const plain = at({ 'cf-connecting-ip': '198.51.100.9' });
+    const forged = at({
+      'cf-connecting-ip': '198.51.100.9',
+      'x-real-ip': '203.0.113.2',
+      'x-forwarded-for': '203.0.113.3, 203.0.113.4',
+      forwarded: 'for=203.0.113.5',
     });
-    expect(callerAddress(request)).toBe('203.0.113.7');
+    expect(forged).toBe(plain);
+  });
+
+  it('does not read any other header when cf-connecting-ip is missing', () => {
+    for (const headers of [
+      { 'x-real-ip': '203.0.113.2' },
+      { 'x-forwarded-for': '203.0.113.3, 203.0.113.4' },
+      { forwarded: 'for=203.0.113.5' },
+    ]) {
+      expect(at(headers)).toBe('unknown');
+    }
+  });
+
+  it('gives two callers on different addresses different keys', () => {
+    expect(at({ 'cf-connecting-ip': '198.51.100.9' })).not.toBe(
+      at({ 'cf-connecting-ip': '198.51.100.10' }),
+    );
   });
 
   it('has a constant to count against when there is no header', () => {
     // Not a throw and not a random value: a missing address must still be
     // counted, or a caller who can strip the header has no limit at all.
     expect(callerAddress(new Request('https://example.test'))).toBe('unknown');
+    expect(at({ 'cf-connecting-ip': '  ' })).toBe('unknown');
   });
 });
 
