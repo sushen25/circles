@@ -91,6 +91,25 @@ describe('Loading: what it keeps and how it retries (SUS-157)', () => {
     stop();
   });
 
+  it('asks a query again that had an answer and was only being refreshed', async () => {
+    const client = new QueryClient();
+    client.setQueryData(['plan'], { answer: null });
+    const fetch = vi.fn(() => new Promise<{ answer: null }>(() => undefined));
+    const observer = new QueryObserver(client, {
+      queryKey: ['plan'],
+      queryFn: fetch,
+      staleTime: 0,
+    });
+    const stop = observer.subscribe(() => undefined);
+    inClient(client);
+    tick(WAIT.retryAfter);
+    expect(fetch).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    await act(async () => undefined);
+    expect(fetch).toHaveBeenCalledTimes(2);
+    stop();
+  });
+
   it('offers no "Try again" when nothing is waiting on a query', () => {
     inClient(new QueryClient());
     tick(WAIT.retryAfter);

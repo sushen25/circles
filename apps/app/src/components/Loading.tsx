@@ -58,11 +58,16 @@ function isWaiting(query: Query): boolean {
 function useRetryWaiting(stuck: boolean): (() => void) | undefined {
   const client = useContext(QueryClientContext);
   if (!stuck || client === undefined) return undefined;
-  if (client.getQueryCache().findAll({ predicate: isWaiting }).length === 0) return undefined;
+  const targets = client.getQueryCache().findAll({ predicate: isWaiting });
+  if (targets.length === 0) return undefined;
+  // The targets are fixed before anything is cancelled: a query that had data and
+  // was only being refreshed stops matching `isWaiting` the moment its fetch is
+  // cancelled, and would never be asked again.
+  const same = (query: Query) => targets.includes(query);
   return () =>
     void client
-      .cancelQueries({ predicate: isWaiting })
-      .then(() => client.refetchQueries({ predicate: isWaiting }));
+      .cancelQueries({ predicate: same })
+      .then(() => client.refetchQueries({ predicate: same }));
 }
 
 export function Loading({ message, shape, topTitle, header, onBack, onRetry }: Props) {
