@@ -13,7 +13,14 @@ import type { SessionState } from './session';
  */
 
 function session(over: Partial<SessionState> = {}): SessionState {
-  return { status: 'saved', userId: 'u', isAnonymous: false, isLoading: false, ...over };
+  return {
+    status: 'saved',
+    userId: 'u',
+    isAnonymous: false,
+    confirmedEmail: undefined,
+    isLoading: false,
+    ...over,
+  };
 }
 
 const LOADING = session({ isLoading: true });

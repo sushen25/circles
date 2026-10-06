@@ -20,6 +20,12 @@ import { callerAddress, enforce } from '../_shared/rate.ts';
  * product — and a suppressed address in particular has asked not to hear from
  * us, which has to outrank telling a third party about it (spec §9).
  *
+ * **The one exception is the address's own confirmed owner** (SUS-164): the
+ * database adds `delivery` (`live`, `pending`, `suppressed`) when the address
+ * is the caller's own confirmed sign-in address, because promising email to an
+ * address that will never get any is worse than saying so, and they proved the
+ * address with a code. Nobody else gets the key.
+ *
  * The consent recorded is the version the client says it rendered, if it is on
  * `CONSENT_VERSIONS` in `packages/config` (ADR 0048): a consent record that
  * cannot say what was agreed is not one, and a tab opened before a deploy still
@@ -65,7 +71,7 @@ Deno.serve(
       // `requestId` is the occurrence in the job's idempotency key: a retry is
       // answered by the claim above and never arrives, and a genuine resend is
       // a different request and so a different email.
-      const { error } = await service.rpc('request_email_updates', {
+      const { data, error } = await service.rpc('request_email_updates', {
         p_plan_id: body.plan_id,
         p_user_id: actor.userId,
         p_email: body.email,
@@ -74,8 +80,17 @@ Deno.serve(
       });
       if (error !== null) throw error;
 
-      // Nothing about the address, and nothing about what happened to it.
-      return { status: 'check_email' };
+      // Nothing about the address, and nothing about what happened to it...
+      //
+      // ...except to its own confirmed owner (SUS-164). The database decides
+      // who that is (the address is the caller's confirmed sign-in address) and
+      // adds `delivery` to its answer for them alone; this passes it on if it is
+      // one of the three words and drops anything else, so a non-owner's
+      // response is exactly `{ status: 'check_email' }` as it always was.
+      const delivery = (data as { delivery?: unknown } | null)?.delivery;
+      return delivery === 'live' || delivery === 'pending' || delivery === 'suppressed'
+        ? { status: 'check_email', delivery }
+        : { status: 'check_email' };
     },
   }),
 );

@@ -1,29 +1,37 @@
-import { CONSENT } from '@circles/config';
 import { View } from 'react-native';
 
 import {
   Body,
   BodyText,
   Button,
-  Card,
   DisplayL,
   DisplayXL,
   Foot,
-  Input,
   Label,
   Notice,
   Screen,
-  SettingRow,
-  Small,
   Tertiary,
-  Title,
-  Toggle,
   TopBar,
   Loading,
   useLoadingHold,
 } from '../../components';
-import { Row, Stack } from '../../components/layout';
+import { Stack } from '../../components/layout';
 import { t } from '../../copy';
+import { SentCard, type SentProblem } from './SentCard';
+
+export type { SentProblem };
+
+export type SentOutcome = {
+  kind: 'saved_and_on' | 'on' | 'cant_member' | 'cant_saved';
+  address: string;
+};
+
+const OUTCOME_COPY = {
+  saved_and_on: 'kept_and_updates_on',
+  on: 'kept_member_updates_on',
+  cant_member: 'cant_email_member',
+  cant_saved: 'cant_email_saved',
+} as const;
 
 /**
  * Sent — `docs/design/Sent.dc.html` (spec §5.1, §5.8).
@@ -31,7 +39,8 @@ import { t } from '../../copy';
  * The answer is in; the rest is optional and must read that way. One card, one
  * address: the consent sentence, a "Save my place" switch (on by default; on
  * adds a code and an account, off is the verification link) and one primary
- * whose own words are the consent. It is one tap to dismiss and records nothing
+ * whose own words are the consent. A signed-in member with a confirmed address
+ * sees that address as text and one button (`SentCard`, SUS-164). It is one tap to dismiss and records nothing
  * when it is (§5.11). SUS-162.
  *
  * The sentence in the card is `CONSENT.text`, the words recorded with the
@@ -40,9 +49,6 @@ import { t } from '../../copy';
  *
  * Presentational: `SentFlow` owns the plan, the request and the navigation.
  */
-export type SentProblem =
-  'not_an_address' | 'too_many_tries' | 'offline' | 'couldnt_send' | 'copy_changed';
-
 export type SentProps = {
   state?: 'default' | 'loading' | 'error' | 'offline' | undefined;
   circleName?: string | undefined;
@@ -61,8 +67,13 @@ export type SentProps = {
    * to save (a saved place already, or the emails-only retry).
    */
   savePlace?: boolean | undefined;
-  /** Done: the address the emails and the saved place are now on. */
-  kept?: string | undefined;
+  /**
+   * A signed-in member's confirmed address (SUS-164): the card shows it as text
+   * with one button, and has no field and no switch.
+   */
+  confirmedEmail?: string | undefined;
+  /** How it ended, with the address it is about; each reads as one line in the live region. */
+  outcome?: SentOutcome | undefined;
   /** The place was saved and the emails could not be turned on. */
   emailsFailed?: boolean | undefined;
   onEmailChange?: ((email: string) => void) | undefined;
@@ -81,21 +92,6 @@ export type SentProps = {
   onBack?: (() => void) | undefined;
 };
 
-function problemCopy(problem: SentProblem): string {
-  switch (problem) {
-    case 'not_an_address':
-      return t('sent', 'not_an_address');
-    case 'too_many_tries':
-      return t('sent', 'too_many_tries');
-    case 'offline':
-      return t('sent', 'youre_offline');
-    case 'couldnt_send':
-      return t('sent', 'couldnt_send');
-    case 'copy_changed':
-      return t('sent', 'copy_changed');
-  }
-}
-
 export function SentScreen({
   state = 'default',
   circleName,
@@ -107,7 +103,8 @@ export function SentScreen({
   reference,
   busy = false,
   savePlace,
-  kept,
+  confirmedEmail,
+  outcome,
   emailsFailed = false,
   onEmailChange,
   onSavePlaceChange,
@@ -152,55 +149,30 @@ export function SentScreen({
         </Stack>
         {/* Always mounted, so a screen reader hears the line arrive. */}
         <View aria-live="polite" role="status">
-          {kept === undefined ? null : (
-            <Notice kind="ok">
-              {t('sent', 'kept_and_updates_on', { address: kept, circle: circleName ?? '' })}
+          {outcome === undefined ? null : (
+            <Notice kind={outcome.kind.startsWith('cant') ? 'warn' : 'ok'}>
+              {t('sent', OUTCOME_COPY[outcome.kind], {
+                address: outcome.address,
+                circle: circleName ?? '',
+              })}
             </Notice>
           )}
           {emailsFailed ? <Notice kind="warn">{t('sent', 'saved_but_emails_off')}</Notice> : null}
         </View>
         {offerEmail ? (
-          <Card>
-            <Row>
-              <Title>{t('sent', 'hear_when_its_locked_in')}</Title>
-            </Row>
-            <Input
-              aria-label={t('sent', 'your_email')}
-              placeholder={t('sent', 'you_example_com')}
-              value={email}
-              onChangeText={onEmailChange}
-              autoComplete="email"
-              inputMode="email"
-              autoCapitalize="none"
-              autoCorrect={false}
-              onSubmitEditing={onSubmit}
-            />
-            {/* What is recorded is what is shown: `CONSENT.text`, never a copy key (ADR 0019). */}
-            <Small>{CONSENT.text}</Small>
-            {savePlace === undefined ? null : (
-              <SettingRow
-                title={t('sent', 'save_my_place', { circle: circleName ?? '' })}
-                detail={t('sent', savePlace ? 'get_back_from_any_phone' : 'nothing_is_saved')}
-              >
-                <Toggle
-                  value={savePlace}
-                  onValueChange={(on) => onSavePlaceChange?.(on)}
-                  label={t('sent', 'save_my_place', { circle: circleName ?? '' })}
-                />
-              </SettingRow>
-            )}
-            {problem === undefined ? null : <Notice kind="warn">{problemCopy(problem)}</Notice>}
-            {reference === undefined ? null : (
-              <Small>{t('sent', 'reference', { reference })}</Small>
-            )}
-            <Button
-              label={t('sent', 'email_me_about_this_meetup')}
-              busyLabel={t('sent', 'sending')}
-              busy={busy}
-              onPress={onSubmit}
-            />
-            <Tertiary label={t('sent', 'not_now')} onPress={onNotNow} />
-          </Card>
+          <SentCard
+            circleName={circleName}
+            email={email}
+            confirmedEmail={confirmedEmail}
+            problem={problem}
+            reference={reference}
+            busy={busy}
+            savePlace={savePlace}
+            onEmailChange={onEmailChange}
+            onSavePlaceChange={onSavePlaceChange}
+            onSubmit={onSubmit}
+            onNotNow={onNotNow}
+          />
         ) : null}
         {onChangeAnswer === undefined ? null : (
           <Tertiary label={t('sent', 'see_my_answer')} onPress={onChangeAnswer} />

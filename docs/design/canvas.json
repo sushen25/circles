@@ -253,6 +253,42 @@
       "title": "Sent \u00b7 place saved, emails failed"
     },
     {
+      "file": "SentMember.dc.html",
+      "x": 1920,
+      "y": 5200,
+      "w": 390,
+      "h": 844,
+      "page": "guest",
+      "title": "Sent \u00b7 signed in, one button"
+    },
+    {
+      "file": "SentMemberDone.dc.html",
+      "x": 2400,
+      "y": 5200,
+      "w": 390,
+      "h": 844,
+      "page": "guest",
+      "title": "Sent \u00b7 signed in, done"
+    },
+    {
+      "file": "SentSuppressed.dc.html",
+      "x": 0,
+      "y": 6500,
+      "w": 390,
+      "h": 844,
+      "page": "guest",
+      "title": "Sent \u00b7 address suppressed"
+    },
+    {
+      "file": "SentSuppressedSaved.dc.html",
+      "x": 480,
+      "y": 6500,
+      "w": 390,
+      "h": 844,
+      "page": "guest",
+      "title": "Sent \u00b7 suppressed, after the code"
+    },
+    {
       "file": "FirstCircle.dc.html",
       "x": 0,
       "y": 0,
@@ -959,7 +995,7 @@
       "y": -190,
       "w": 900,
       "page": "guest",
-      "text": "Guest path, entirely on mobile web, in reading order. Row 1: link tapped from the group chat \u2192 Join \u2192 (returning with no session: Continue as) \u2192 Name \u2192 paint times \u2192 'none of these' branch \u2192 Sent with the one-step card: an address, a 'Save my place' switch on by default, one button. Row 4 holds its other states: switch off, the code, done, and the place saved with the emails failed.\nRow 2: email verification and no-sign-in preferences \u2192 Save access (the account screen, still reached from the Continue-as prompt and the organiser gate, no longer from Sent) \u2192 what a member (not the organiser) sees of the options \u2192 Confirmed.\nRow 3: add-to-calendar sheet, rescheduled and cancelled states, morning-after attendance, and an inactive invite link.\nZero account prompts before the answer."
+      "text": "Guest path, entirely on mobile web, in reading order. Row 1: link tapped from the group chat \u2192 Join \u2192 (returning with no session: Continue as) \u2192 Name \u2192 paint times \u2192 'none of these' branch \u2192 Sent with the one-step card: an address, a 'Save my place' switch on by default, one button. Row 4 holds its other states: switch off, the code, done, and the place saved with the emails failed; row 5 the signed-in member's one-button card, its done line, and the two lines for an address that cannot be emailed.\nRow 2: email verification and no-sign-in preferences \u2192 Save access (the account screen, still reached from the Continue-as prompt and the organiser gate, no longer from Sent) \u2192 what a member (not the organiser) sees of the options \u2192 Confirmed.\nRow 3: add-to-calendar sheet, rescheduled and cancelled states, morning-after attendance, and an inactive invite link.\nZero account prompts before the answer."
     },
     {
       "id": "guest-note-avail",

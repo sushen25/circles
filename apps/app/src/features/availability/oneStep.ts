@@ -26,7 +26,14 @@ export type OneStepStage =
   /** The place is saved and this plan's emails are on, for `address`. */
   | { kind: 'done'; address: string }
   /** The place is saved; the emails could not be turned on. */
-  | { kind: 'partial'; address: string };
+  | { kind: 'partial'; address: string }
+  /** A signed-in member's one button: this plan's emails are on for `address`. */
+  | { kind: 'joined'; address: string }
+  /**
+   * The address is suppressed, so nothing will be sent (the owner-only
+   * `delivery`, SUS-164). `saved`: the place was saved in this visit.
+   */
+  | { kind: 'suppressed'; address: string; saved: boolean };
 
 export interface OneStep {
   stage: OneStepStage;
@@ -38,6 +45,8 @@ export interface OneStep {
   toCode: (start: CodeStart, planId: string) => void;
   toDone: (address: string) => void;
   toPartial: (address: string) => void;
+  toJoined: (address: string) => void;
+  toSuppressed: (address: string, saved: boolean) => void;
   toCard: () => void;
   /** False once somebody has signed out since this began: nothing more is done for them. */
   stillMine: () => boolean;
@@ -95,6 +104,11 @@ export function useOneStep(key: string, initial: OneStepStage = { kind: 'card' }
     setSave: useCallback((save) => set({ save }), [set]),
     toCode: useCallback((start, planId) => set({ stage: { kind: 'code', start, planId } }), [set]),
     toDone: useCallback((address) => set({ stage: { kind: 'done', address } }), [set]),
+    toJoined: useCallback((address) => set({ stage: { kind: 'joined', address } }), [set]),
+    toSuppressed: useCallback(
+      (address, saved) => set({ stage: { kind: 'suppressed', address, saved } }),
+      [set],
+    ),
     // The card comes back for the emails alone, with the address already in it.
     toPartial: useCallback(
       (address) => set({ stage: { kind: 'partial', address }, email: address }),

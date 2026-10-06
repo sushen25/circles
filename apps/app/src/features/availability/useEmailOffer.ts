@@ -36,6 +36,12 @@ function nextSentAt(): number {
  *   sends the verification link and Check your email follows (a retry for the
  *   address that was just confirmed goes straight to done: nothing is sent).
  *
+ * - **A signed-in member with a confirmed address** (`confirmedEmail`, SUS-164):
+ *   no field, no switch. The address is the session's own, proof already, so
+ *   `request-email-updates` makes the subscription live and sends nothing; the
+ *   answer's owner-only `delivery` says whether anything will ever arrive.
+ *   Check your email is never reached from here.
+ *
  * A new idempotency key per tap: the same key would replay the first answer and
  * queue nothing.
  */
@@ -45,6 +51,7 @@ export function useEmailOffer({
   userId,
   live,
   canSave,
+  confirmedEmail,
   offer,
   one,
 }: {
@@ -54,6 +61,8 @@ export function useEmailOffer({
   live: boolean;
   /** The switch is offered: a guest, and the card is not the emails-only retry. */
   canSave: boolean;
+  /** The session's confirmed sign-in address: the one-button card, no field. */
+  confirmedEmail?: string | undefined;
   offer: Nudge | undefined;
   one: OneStep;
 }) {
@@ -78,15 +87,20 @@ export function useEmailOffer({
       reloadCopy();
       return;
     }
-    const address = normaliseAddress(one.email);
+    const member = confirmedEmail !== undefined;
+    const address = member ? confirmedEmail : normaliseAddress(one.email);
     if (address === null) {
       setProblem('not_an_address');
       setReference(undefined);
       return;
     }
-    const savePlace = canSave && one.save;
+    const savePlace = !member && canSave && one.save;
     const planId = plan.id as PlanId;
     if (!live) {
+      if (member) {
+        one.toJoined(address);
+        return;
+      }
       // The gallery: no backend to ask. The code step is a screen to look at.
       if (savePlace) {
         one.toCode({ address, route: 'new_identity', sentAt: nextSentAt() }, plan.id);
@@ -111,14 +125,27 @@ export function useEmailOffer({
         one.toCode({ address, route, sentAt: nextSentAt() }, plan.id);
         return;
       }
-      await requestEmailUpdates({
+      const answer = await requestEmailUpdates({
         planId: plan.id,
         email: address,
         idempotencyKey: newIdempotencyKey(),
       });
-      track('email_submitted', { plan_id: planId, save_place: false });
+      // The member's one button has no switch, so it says nothing about one.
+      track(
+        'email_submitted',
+        member ? { plan_id: planId } : { plan_id: planId, save_place: false },
+      );
       if (attempt.current !== mine) return;
       offer?.tap();
+      if (member) {
+        // The emails for the plan are on, or, only for the owner of an address that
+        // bounced or opted out, they are not and nothing is promised.
+        const saved = one.stage.kind === 'partial';
+        if (answer.delivery === 'suppressed') one.toSuppressed(address, saved);
+        else if (saved) one.toDone(address);
+        else one.toJoined(address);
+        return;
+      }
       if (one.stage.kind === 'partial' && one.stage.address === address) {
         // The confirmed address is its own proof: the emails are on, nothing was sent.
         one.toDone(address);

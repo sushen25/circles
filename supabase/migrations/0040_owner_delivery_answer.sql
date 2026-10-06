@@ -1,3 +1,13 @@
+-- 0040_owner_delivery_answer
+--
+-- `request_email_updates` adds `delivery` (live, pending or suppressed) to its answer
+-- only when the address asked about is the caller's own confirmed sign-in address, so
+-- the screen never promises email to an address that cannot receive it (SUS-164,
+-- ADR 0055). Every other caller gets the answer it always got. No table changes.
+
+-- BEGIN GENERATED: function definitions (scripts/gen-sql-functions.mjs)
+
+-- supabase/sql/functions/public/request_email_updates.sql
 -- ---------------------------------------------------------------------------
 -- "Email me about this meetup."
 --
@@ -221,3 +231,5 @@ comment on function public.request_email_updates(uuid, uuid, text, text, text) i
 revoke all on function public.request_email_updates(uuid, uuid, text, text, text) from public;
 revoke all on function public.request_email_updates(uuid, uuid, text, text, text) from anon, authenticated;
 grant execute on function public.request_email_updates(uuid, uuid, text, text, text) to service_role;
+
+-- END GENERATED: function definitions

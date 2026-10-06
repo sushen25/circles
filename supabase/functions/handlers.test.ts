@@ -2574,6 +2574,68 @@ describe('request-email-updates', () => {
     expect(await response.json()).toEqual({ status: 'check_email' });
   });
 
+  describe('the owner-only delivery signal (SUS-164)', () => {
+    const answering = (answer: unknown) => {
+      state.answer = (fn) => {
+        if (fn === 'begin_request') {
+          return {
+            data: [{ state: 'fresh', response_status: null, response_body: null }],
+            error: null,
+          };
+        }
+        if (fn === 'take_rate_token') return { data: true, error: null };
+        if (fn === 'request_email_updates') return { data: answer, error: null };
+        return { data: null, error: null };
+      };
+    };
+
+    it.each(['live', 'pending', 'suppressed'] as const)(
+      'passes on %s when the database says the caller owns the address',
+      async (delivery) => {
+        answering({ sent: delivery === 'pending', delivery });
+
+        const response = await load('request-email-updates')(post(body));
+
+        expect(await response.json()).toEqual({ status: 'check_email', delivery });
+      },
+    );
+
+    it.each([
+      ['an email that was sent', { sent: true }],
+      ['nothing sent, verified already', { sent: false }],
+      ['nothing sent, suppressed', { sent: false }],
+      ['no answer at all', null],
+    ])('answers a non-owner exactly as before: %s', async (_name, answer) => {
+      answering(answer);
+
+      const response = await load('request-email-updates')(post(body));
+      const text = await response.text();
+
+      // Byte for byte, not merely "equal": a `delivery: undefined` that
+      // serialises away today and appears tomorrow is what this is for.
+      expect(text).toBe(JSON.stringify({ status: 'check_email' }));
+      expect(text).not.toContain('delivery');
+    });
+
+    it('drops any word that is not one of the three, rather than echo it', async () => {
+      answering({ sent: false, delivery: 'bounced <script>' });
+
+      const response = await load('request-email-updates')(post(body));
+
+      expect(await response.json()).toEqual({ status: 'check_email' });
+    });
+
+    it('asks the database about the caller, never about a user the client named', async () => {
+      answering({ sent: false, delivery: 'live' });
+
+      await load('request-email-updates')(
+        post({ ...body, user_id: '00000000-0000-4000-8000-00000000dead' }),
+      );
+
+      expect(called('request_email_updates')[0]?.args['p_user_id']).toBe(CALLER);
+    });
+  });
+
   it('mints no token, because a token minted here could never reach the email', async () => {
     // Round 2's P1. An earlier draft made one, hashed it into the database and
     // dropped the readable half — `jobs.notification_jobs` has no payload
