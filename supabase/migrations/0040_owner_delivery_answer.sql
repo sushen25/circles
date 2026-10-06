@@ -1,6 +1,9 @@
 -- 0040_owner_delivery_answer
 --
--- What this changes, and why, in a sentence or two.
+-- `request_email_updates` adds `delivery` (live, pending or suppressed) to its answer
+-- only when the address asked about is the caller's own confirmed sign-in address, so
+-- the screen never promises email to an address that cannot receive it (SUS-164,
+-- ADR 0055). Every other caller gets the answer it always got. No table changes.
 
 -- BEGIN GENERATED: function definitions (scripts/gen-sql-functions.mjs)
 
