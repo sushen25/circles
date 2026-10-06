@@ -2,6 +2,7 @@ import { useCallback, useRef, useSyncExternalStore } from 'react';
 
 import {
   forgetJourneys,
+  journeyGeneration,
   readJourney,
   subscribeJourneys,
   writeJourney,
@@ -48,8 +49,13 @@ interface Held {
 
 const journeyKey = (key: string) => `sent-one-step:${key}`;
 
-function write(key: string, fallback: Held, patch: Partial<Held>): void {
-  writeJourney(journeyKey(key), { ...(readJourney<Held>(journeyKey(key)) ?? fallback), ...patch });
+/** `since`: the generation the caller started in; a write from before a sign-out is dropped. */
+function write(key: string, fallback: Held, patch: Partial<Held>, since: number): void {
+  writeJourney(
+    journeyKey(key),
+    { ...(readJourney<Held>(journeyKey(key)) ?? fallback), ...patch },
+    since,
+  );
 }
 
 /** For tests: a new session. */
@@ -68,7 +74,11 @@ export function useOneStep(key: string, initial: OneStepStage = { kind: 'card' }
     () => readJourney<Held>(journeyKey(key)) ?? fresh.current,
     () => fresh.current,
   );
-  const set = useCallback((patch: Partial<Held>) => write(key, fresh.current, patch), [key]);
+  const since = useRef(journeyGeneration());
+  const set = useCallback(
+    (patch: Partial<Held>) => write(key, fresh.current, patch, since.current),
+    [key],
+  );
   return {
     stage: state.stage,
     email: state.email,

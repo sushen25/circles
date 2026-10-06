@@ -12,12 +12,23 @@
  */
 const held = new Map<string, unknown>();
 const listeners = new Set<() => void>();
+let generation = 0;
+
+/**
+ * Which stretch between sign-outs this is. A write made by something started
+ * before a sign-out (a request still in flight) carries the generation it
+ * started in and is dropped, so it cannot bring cleared state back.
+ */
+export function journeyGeneration(): number {
+  return generation;
+}
 
 export function readJourney<T>(key: string): T | undefined {
   return held.get(key) as T | undefined;
 }
 
-export function writeJourney(key: string, value: unknown): void {
+export function writeJourney(key: string, value: unknown, since?: number): void {
+  if (since !== undefined && since !== generation) return;
   held.set(key, value);
   for (const listener of listeners) listener();
 }
@@ -29,6 +40,7 @@ export function subscribeJourneys(listener: () => void): () => void {
 
 /** Sign-out, and tests: nothing is carried to the next person. */
 export function forgetJourneys(): void {
+  generation += 1;
   held.clear();
   for (const listener of listeners) listener();
 }
