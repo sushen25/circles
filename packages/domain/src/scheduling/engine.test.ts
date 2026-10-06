@@ -527,6 +527,24 @@ describe('determinism', () => {
 });
 
 describe('performance', () => {
+  // The budget is on the engine's work, so it is measured as the median of
+  // several runs after one that warms the code up (SUS-163). A single timing
+  // also counts whatever the machine did meanwhile: the first call's
+  // just-in-time compilation, a worker waiting for a core, a garbage
+  // collection. It read 63 ms on a busy laptop and failed in CI for an engine
+  // that takes a few milliseconds. The bar is the same 50 ms; a slow engine
+  // still fails it on every run, and a slow moment no longer does.
+  const RUNS = 9;
+  const medianMs = (run: () => void): number => {
+    run();
+    const times = Array.from({ length: RUNS }, () => {
+      const started = performance.now();
+      run();
+      return performance.now() - started;
+    }).sort((a, b) => a - b);
+    return times[Math.floor(RUNS / 2)]!;
+  };
+
   it('handles eight members across a fortnight well inside 50 ms', () => {
     const members = [...SUNDAY_CREW, userId('kim'), userId('raj')];
     const days = Array.from({ length: 14 }, (_, i) => `2026-09-${String(14 + i).padStart(2, '0')}`);
@@ -539,11 +557,7 @@ describe('performance', () => {
     );
     const input = sundayCrewInput({ responses, activeMemberIds: members });
 
-    const started = performance.now();
-    generateCandidates(input);
-    const elapsed = performance.now() - started;
-
-    expect(elapsed).toBeLessThan(50);
+    expect(medianMs(() => generateCandidates(input))).toBeLessThan(50);
   });
 
   it('handles eight members across thirty days inside the same 50 ms (ADR 0030)', () => {
@@ -571,11 +585,7 @@ describe('performance', () => {
       },
     });
 
-    const started = performance.now();
-    generateCandidates(input);
-    const elapsed = performance.now() - started;
-
-    expect(elapsed).toBeLessThan(50);
+    expect(medianMs(() => generateCandidates(input))).toBeLessThan(50);
   });
 });
 

@@ -1,4 +1,4 @@
-import { expect, type Page } from './fixtures';
+import { expect, type Download, type Page } from './fixtures';
 import { letterTo, linkIn } from './mail';
 import { memberNamed, sessionStorageKey, type Scenario } from './stack';
 
@@ -11,6 +11,26 @@ import { memberNamed, sessionStorageKey, type Scenario } from './stack';
 /** The plan's days, in the grid, in date order. */
 export const days = (page: Page) =>
   page.getByRole('group', { name: 'Days in this plan' }).getByRole('button');
+
+/**
+ * On the open "Add to my calendar" sheet: taps "Apple or device calendar" and
+ * returns the download it starts (SUS-163).
+ *
+ * The sheet fetches the file when it opens, and the row ignores taps until the
+ * file is here (`useCalendar`: Safari hands a download to Calendar only from a
+ * tap it can see, so the save happens synchronously inside the tap). A tap
+ * made while the row is `aria-busy` is swallowed and no download ever starts,
+ * so `waitForEvent` sat out the whole test timeout whenever the fetch was slow
+ * - under load, and in CI. Waiting for the row to be ready is waiting for what
+ * the person waits for, and needs no longer timeout.
+ */
+export async function downloadCalendarFile(page: Page): Promise<Download> {
+  const row = page.getByRole('button', { name: /^Apple or device calendar/ });
+  await expect(row).toHaveAttribute('aria-busy', 'false');
+  const download = page.waitForEvent('download');
+  await row.click();
+  return download;
+}
 
 /** On the editor: ticks `indices`, turns Evening on, and sends. Waits for Sent. */
 export async function sendEvenings(page: Page, code: string, ...indices: number[]): Promise<void> {

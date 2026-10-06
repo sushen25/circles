@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 
 import { expect, test } from './fixtures';
-import { sendEvenings, signedInAs } from './journeys';
+import { downloadCalendarFile, sendEvenings, signedInAs } from './journeys';
 import {
   circleOwnedBy,
   guestInvited,
@@ -110,9 +110,8 @@ test('five answers to a lock-in, a calendar file, the morning after, and circle 
 
   // The calendar file downloads, and says what was locked in.
   await page.getByRole('button', { name: 'Add to my calendar' }).click();
-  const download = page.waitForEvent('download');
-  await page.getByRole('button', { name: /^Apple or device calendar/ }).click();
-  const ics = await readFile((await (await download).path())!, 'utf8');
+  const download = await downloadCalendarFile(page);
+  const ics = await readFile((await download.path())!, 'utf8');
   const lines = ics.split(/\r\n/);
   expect(lines[0]).toBe('BEGIN:VCALENDAR');
   expect(lines).toContain(`DTSTART:${stored![3]}`);
