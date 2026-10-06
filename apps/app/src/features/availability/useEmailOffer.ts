@@ -1,6 +1,6 @@
 import type { PlanId } from '@circles/contracts';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 import { track } from '../../analytics/track';
 import { requestLinkCode } from '../../data/auth';
@@ -54,6 +54,12 @@ export function useEmailOffer({
   const [problem, setProblem] = useState<SentProblem | undefined>();
   const [reference, setReference] = useState<string | undefined>();
   const [busy, setBusy] = useState(false);
+  // Which tap is the live one: "Not now" ends it, so a slow answer that arrives
+  // afterwards changes nothing on a card the person has dismissed.
+  const attempt = useRef(0);
+  const cancel = () => {
+    attempt.current += 1;
+  };
 
   const send = async () => {
     if (problem === 'copy_changed') {
@@ -78,12 +84,15 @@ export function useEmailOffer({
       router.push({ pathname: '/j/[code]/check-email', params: { code } });
       return;
     }
+    attempt.current += 1;
+    const mine = attempt.current;
     setBusy(true);
     setProblem(undefined);
     setReference(undefined);
     try {
       if (savePlace) {
         const route = await requestLinkCode(address);
+        if (attempt.current !== mine) return;
         track('email_submitted', { plan_id: planId, save_place: true });
         one.toCode({ address, route, sentAt: Date.now() }, plan.id);
         return;
@@ -94,6 +103,7 @@ export function useEmailOffer({
         idempotencyKey: newIdempotencyKey(),
       });
       track('email_submitted', { plan_id: planId, save_place: false });
+      if (attempt.current !== mine) return;
       offer?.tap();
       if (one.stage.kind === 'partial' && one.stage.address === address) {
         // The confirmed address is its own proof: the emails are on, nothing was sent.
@@ -141,5 +151,5 @@ export function useEmailOffer({
     }
   };
 
-  return { problem, reference, busy, send };
+  return { problem, reference, busy, send, cancel };
 }

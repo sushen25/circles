@@ -260,6 +260,20 @@ describe('with the switch on', () => {
     expect(screen.queryByText(/^Done\./)).toBeNull();
   });
 
+  it('does not open the code screen over a card dismissed while the code was being sent', async () => {
+    let answer: (route: string) => void = () => undefined;
+    requestLinkCode.mockReturnValue(new Promise((resolve) => (answer = resolve)));
+    wrap(<SentFlow code={PLAN.code} />);
+    await typeAddress();
+    fireEvent.click(screen.getByRole('button', PRIMARY));
+    fireEvent.click(await screen.findByRole('button', { name: 'Not now' }));
+    await act(async () => {
+      answer('new_identity');
+    });
+
+    expect(screen.queryByText('Enter the code we emailed')).toBeNull();
+  });
+
   it('keeps the address and the switch when the code could not be sent', async () => {
     requestLinkCode.mockRejectedValue(new Error('down'));
     wrap(<SentFlow code={PLAN.code} />);

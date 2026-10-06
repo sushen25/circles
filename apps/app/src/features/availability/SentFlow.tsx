@@ -149,7 +149,7 @@ function LiveSent({ code }: { code: string }) {
           if (!one.stillMine()) return;
           // Or they backed out of the code step while it was being checked: the
           // place is saved, but they did not go on to ask for the emails.
-          if (!one.stillCoding()) return;
+          if (!one.stillCoding(start.sentAt)) return;
           // The place is saved; now this plan's updates, for the address that
           // just proved itself. A new key: this is a new request.
           try {
@@ -233,7 +233,7 @@ function Sent({ code, userId, plan, answer, name, live, canSave, offer, one }: S
   // After the place is saved and the emails are on, the card is gone.
   const offerEmail = stage.kind === 'done' ? false : !dismissed;
   const switchShown = canSave && stage.kind === 'card';
-  const { problem, reference, busy, send } = useEmailOffer({
+  const { problem, reference, busy, send, cancel } = useEmailOffer({
     code,
     plan,
     userId,
@@ -279,6 +279,7 @@ function Sent({ code, userId, plan, answer, name, live, canSave, offer, one }: S
       onSavePlaceChange={one.setSave}
       onSubmit={() => void send()}
       onNotNow={() => {
+        cancel();
         offer?.dismiss();
         setDismissed(true);
       }}

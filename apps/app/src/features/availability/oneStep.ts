@@ -41,8 +41,12 @@ export interface OneStep {
   toCard: () => void;
   /** False once somebody has signed out since this began: nothing more is done for them. */
   stillMine: () => boolean;
-  /** Whether the code step is still the one on screen: Back or Not now cancels what it was for. */
-  stillCoding: () => boolean;
+  /**
+   * Whether the code step with this attempt id (`start.sentAt`) is still the one
+   * on screen: Back or Not now cancels what it was for, and a newer attempt is
+   * not this one.
+   */
+  stillCoding: (attempt: number) => boolean;
 }
 
 interface Held {
@@ -98,7 +102,10 @@ export function useOneStep(key: string, initial: OneStepStage = { kind: 'card' }
     ),
     stillMine: useCallback(() => since.current === journeyGeneration(), []),
     stillCoding: useCallback(
-      () => readJourney<Held>(journeyKey(key))?.stage.kind === 'code',
+      (attempt) => {
+        const { stage } = readJourney<Held>(journeyKey(key)) ?? { stage: undefined };
+        return stage?.kind === 'code' && stage.start.sentAt === attempt;
+      },
       [key],
     ),
     toCard: useCallback(() => set({ stage: { kind: 'card' } }), [set]),
