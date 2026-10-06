@@ -217,13 +217,14 @@ function Sent({ code, userId, plan, answer, name, live, canSave, offer, one }: S
   const router = useRouter();
   const organising = plan.organiserUserId !== null && plan.organiserUserId === userId;
   // Without a backend (the gallery), always offered to anybody but the organiser.
-  const [dismissed, setDismissed] = useState(
-    organising || (offer !== undefined && offer.showing !== 'show'),
-  );
   const { stage } = one;
-  // After the place is saved the card is gone, and when the emails failed it is
-  // back for the emails alone, whatever the once-per-plan nudge said.
-  const offerEmail = stage.kind === 'partial' ? true : stage.kind === 'done' ? false : !dismissed;
+  // When the emails failed the card is back for the emails alone, whatever the
+  // once-per-plan nudge said; "Not now" still takes it away.
+  const [dismissed, setDismissed] = useState(
+    organising || (stage.kind !== 'partial' && offer !== undefined && offer.showing !== 'show'),
+  );
+  // After the place is saved and the emails are on, the card is gone.
+  const offerEmail = stage.kind === 'done' ? false : !dismissed;
   const switchShown = canSave && stage.kind === 'card';
   const { problem, reference, busy, send } = useEmailOffer({
     code,

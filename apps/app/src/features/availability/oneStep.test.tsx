@@ -186,6 +186,18 @@ describe('with the switch on', () => {
     expect(push).not.toHaveBeenCalled();
   });
 
+  it('lets the emails-only card be dismissed with Not now', async () => {
+    requestEmailUpdates.mockRejectedValueOnce(new Error('down'));
+    await reachTheCode();
+    await enterTheCode();
+    await screen.findByText("Your place is saved. We couldn't turn on the emails; try again.");
+
+    fireEvent.click(screen.getByRole('button', { name: 'Not now' }));
+
+    expect(screen.queryByText("Hear when it's locked in")).toBeNull();
+    expect(requestEmailUpdates).toHaveBeenCalledTimes(1);
+  });
+
   it('keeps the address and the switch when the code could not be sent', async () => {
     requestLinkCode.mockRejectedValue(new Error('down'));
     wrap(<SentFlow code={PLAN.code} />);
