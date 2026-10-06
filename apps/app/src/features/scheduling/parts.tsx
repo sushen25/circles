@@ -17,6 +17,7 @@ import {
 } from '../../components';
 import { Between, Row, Stack } from '../../components/layout';
 import { t } from '../../copy';
+import { PlanActions, type PlanActionsProps } from './PlanActions';
 import type { CardView, HeaderView } from './view';
 
 /**
@@ -43,7 +44,7 @@ export const MARKS_MAX = 8;
 /** What the count tile at the end of a capped row says. */
 const more = (rest: number) => t('candidates', 'marks_more', { count: rest });
 
-export function CandidateHeader({ header }: { header: HeaderView }) {
+export function CandidateHeader({ header, ...actions }: { header: HeaderView } & PlanActionsProps) {
   return (
     <Stack gap={8}>
       <Row>
@@ -54,6 +55,7 @@ export function CandidateHeader({ header }: { header: HeaderView }) {
       </Row>
       <Small>{header.closes}</Small>
       {header.zoneNote === undefined ? null : <Small>{header.zoneNote}</Small>}
+      <PlanActions {...actions} />
     </Stack>
   );
 }
@@ -164,38 +166,5 @@ export function Placeholder({
         )}
       </Body>
     </Screen>
-  );
-}
-
-/**
- * "Change my times" on the organiser's screens — the member's action, with the
- * member's words (SUS-158). While replies are open it opens the same editor a
- * member's does. Once they have closed it stays, disabled, with the member's
- * line saying why: `replace_response` refuses an answer then, and a button
- * that vanished left people looking for it. A locked-in plan never shows
- * these screens; it is moved with "Change the time" (SUS-138).
- */
-export function ChangeMyTimes({
-  closed = false,
-  onPress,
-}: {
-  closed?: boolean | undefined;
-  onPress?: (() => void) | undefined;
-}) {
-  if (closed) {
-    return (
-      <>
-        <Small>{t('candidatesMember', 'closed_note')}</Small>
-        <Button label={t('candidatesMember', 'change_my_times')} variant="secondary" disabled />
-      </>
-    );
-  }
-  if (onPress === undefined) return null;
-  return (
-    <Button
-      label={t('candidatesMember', 'change_my_times')}
-      variant="secondary"
-      onPress={onPress}
-    />
   );
 }

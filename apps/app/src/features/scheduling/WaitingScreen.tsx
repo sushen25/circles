@@ -1,22 +1,20 @@
 import {
   Body,
   BodyText,
-  Button,
   Card,
   DisplayL,
-  Foot,
   Label,
   Loading,
   Screen,
   Small,
-  Tertiary,
   Title,
   TopBar,
   useLoadingHold,
 } from '../../components';
 import { Stack } from '../../components/layout';
 import { t } from '../../copy';
-import { CandidateHeader, ChangeMyTimes, Placeholder, SetTimeRow } from './parts';
+import { ChangeMyTimesFoot } from './PlanActions';
+import { CandidateHeader, Placeholder, SetTimeRow } from './parts';
 import type { HeaderView } from './view';
 
 /**
@@ -105,7 +103,14 @@ export function WaitingScreen({
     <Screen>
       <TopBar title={header?.title} onBack={onBack} backLabel={t('common', 'back')} />
       <Body>
-        {header === undefined ? null : <CandidateHeader header={header} />}
+        {header === undefined ? null : (
+          <CandidateHeader
+            header={header}
+            onShareAgain={onShareAgain}
+            shareOutcome={shareOutcome}
+            onEditPlan={onEditPlan}
+          />
+        )}
         <Stack>
           <DisplayL>{headline ?? t('waiting', 'headline')}</DisplayL>
           {body === undefined ? null : <BodyText>{body}</BodyText>}
@@ -126,18 +131,7 @@ export function WaitingScreen({
           />
         )}
       </Body>
-      <Foot>
-        <ChangeMyTimes closed={repliesClosed} onPress={onChangeMyTimes} />
-        {shareOutcome === undefined ? null : (
-          <Small accessibilityLiveRegion="polite">{shareOutcome}</Small>
-        )}
-        <Button
-          label={t('waiting', 'share_the_link_again')}
-          variant="secondary"
-          onPress={onShareAgain}
-        />
-        <Tertiary label={t('waiting', 'edit_the_plan')} onPress={onEditPlan} />
-      </Foot>
+      <ChangeMyTimesFoot onChangeMyTimes={onChangeMyTimes} repliesClosed={repliesClosed} />
     </Screen>
   );
 }

@@ -1,5 +1,6 @@
 import { fromISO } from '@circles/domain';
 import { useRouter } from 'expo-router';
+import { useState } from 'react';
 
 import { t } from '../../copy';
 import { CandidatesScreen } from './CandidatesScreen';
@@ -24,6 +25,11 @@ export type CandidatesRoute = 'candidates' | 'waiting' | 'no-quorum' | 'deadline
 
 export function FixtureCandidates({ which }: { which: CandidatesRoute }) {
   const router = useRouter();
+  // Share says what it did, as the live flow does when it copies.
+  const [shareOutcome, setShareOutcome] = useState<string | undefined>();
+  const shareAgain = () => setShareOutcome(t('waiting', 'link_copied'));
+  const toEdit = () => router.push('/circles/sunday-crew/plan/thu-17/edit');
+  const toChangeMine = () => router.push('/j/pnsundaycr');
   const back = () => router.back();
   const toSetTime = () => router.push('/circles/sunday-crew/plan/thu-17/set-time');
   const data =
@@ -60,6 +66,10 @@ export function FixtureCandidates({ which }: { which: CandidatesRoute }) {
         body={t('waiting', 'body', { count: data.quorum })}
         answered={t('waiting', 'answered', { count: data.repliedCount, total: data.askedCount })}
         still={stillToAnswer(data)}
+        onShareAgain={shareAgain}
+        shareOutcome={shareOutcome}
+        onEditPlan={toEdit}
+        onChangeMyTimes={toChangeMine}
         onSetTime={toSetTime}
         onBack={back}
       />
@@ -72,6 +82,9 @@ export function FixtureCandidates({ which }: { which: CandidatesRoute }) {
         blocked={blockedBy(data)}
         nearMisses={nearMissesOf(data)}
         unlocks={unlocksOf(data)}
+        onShareAgain={shareAgain}
+        shareOutcome={shareOutcome}
+        onChangeMyTimes={toChangeMine}
         onUnlock={(unlock) => {
           if (unlock.kind === 'set') toSetTime();
         }}
@@ -88,6 +101,11 @@ export function FixtureCandidates({ which }: { which: CandidatesRoute }) {
       selectedId={data.candidates[0]?.id}
       reviewLabel={reviewLabel(data, data.candidates[0]?.id)}
       nudgeLabel={nudgeOf(data)}
+      onNudge={shareAgain}
+      onShareAgain={shareAgain}
+      shareOutcome={shareOutcome}
+      onEditPlan={toEdit}
+      onChangeMyTimes={toChangeMine}
       onNext={() => router.push('/circles/sunday-crew/plan/thu-17/review')}
       onSetTime={toSetTime}
       onBack={back}

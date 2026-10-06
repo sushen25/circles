@@ -280,8 +280,15 @@ export function CompactButton({
  * when they do not: a narrow phone, a long translation, or text at 200%. A row
  * that cannot wrap pushes its last button through the card's edge (SUS-132).
  */
-export function ButtonRow({ children }: { children: React.ReactNode }) {
-  return <View style={styles.row}>{children}</View>;
+export function ButtonRow({
+  children,
+  center = false,
+}: {
+  children: React.ReactNode;
+  /** Sit in the middle of the line, as a footer's second row does (SUS-161). */
+  center?: boolean;
+}) {
+  return <View style={center ? [styles.row, styles.centred] : styles.row}>{children}</View>;
 }
 
 const styles = StyleSheet.create({
@@ -305,6 +312,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
+    flexShrink: 1,
   },
   sizer: {
     opacity: 0,
@@ -336,6 +344,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
+    // Never wider than the line it sits on: at 200% type a long label wraps
+    // inside its button rather than running off the screen (SUS-161).
+    maxWidth: '100%',
     gap: 6,
     minHeight: hit,
     paddingHorizontal: 14,
@@ -345,6 +356,8 @@ const styles = StyleSheet.create({
   compactLabel: {
     fontFamily: faceFor('Figtree', 500),
     fontSize: 14,
+    flexShrink: 1,
+    textAlign: 'center',
   },
   compactAccent: {
     fontFamily: faceFor('Figtree', 600),
@@ -354,5 +367,8 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     alignItems: 'center',
     gap: 12,
+  },
+  centred: {
+    justifyContent: 'center',
   },
 });

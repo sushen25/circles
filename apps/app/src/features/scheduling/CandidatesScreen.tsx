@@ -1,20 +1,23 @@
+import { useState } from 'react';
 import {
   Body,
   BodyText,
   Button,
+  ButtonRow,
+  CompactButton,
   DisplayL,
   Foot,
   Loading,
   Notice,
   Screen,
   Small,
-  Tertiary,
   TopBar,
   useLoadingHold,
 } from '../../components';
 import { Stack } from '../../components/layout';
 import { t } from '../../copy';
-import { CandidateCard, CandidateHeader, ChangeMyTimes, Placeholder, SetTimeRow } from './parts';
+import { ChangeMyTimesButton, ChangeMyTimesNote, hasChangeMyTimes } from './PlanActions';
+import { CandidateCard, CandidateHeader, Placeholder, SetTimeRow } from './parts';
 import type { CardView, HeaderView } from './view';
 
 /**
@@ -88,6 +91,10 @@ export function CandidatesScreen({
   onRetry,
   onBack,
 }: CandidatesProps) {
+  // What a share said belongs beside the button that asked: the header's, or
+  // the footer's nudge, which stays on screen while the header has scrolled away.
+  const [fromNudge, setFromNudge] = useState(false);
+  const change = { onChangeMyTimes, repliesClosed };
   const loading = useLoadingHold(state === 'loading');
   if (loading) {
     return (
@@ -135,7 +142,21 @@ export function CandidatesScreen({
     <Screen>
       <TopBar title={header?.title} onBack={onBack} backLabel={t('common', 'back')} />
       <Body>
-        {header === undefined ? null : <CandidateHeader header={header} />}
+        {header === undefined ? null : (
+          <CandidateHeader
+            header={header}
+            onShareAgain={
+              onShareAgain === undefined
+                ? undefined
+                : () => {
+                    setFromNudge(false);
+                    onShareAgain();
+                  }
+            }
+            shareOutcome={fromNudge ? undefined : shareOutcome}
+            onEditPlan={onEditPlan}
+          />
+        )}
         <Stack>
           {headline === undefined ? null : <DisplayL>{headline}</DisplayL>}
           {lead === undefined ? null : <BodyText>{lead}</BodyText>}
@@ -163,17 +184,26 @@ export function CandidatesScreen({
         {reviewLabel === undefined ? null : (
           <Button label={reviewLabel} onPress={onNext} disabled={stale} />
         )}
-        <ChangeMyTimes closed={repliesClosed} onPress={onChangeMyTimes} />
-        {nudgeLabel === undefined ? null : <Tertiary label={nudgeLabel} onPress={onNudge} />}
-        {shareOutcome === undefined ? null : (
-          <Small accessibilityLiveRegion="polite">{shareOutcome}</Small>
+        {nudgeLabel === undefined && !hasChangeMyTimes(change) ? null : (
+          <ButtonRow center>
+            {nudgeLabel === undefined ? null : (
+              <CompactButton
+                label={nudgeLabel}
+                onPress={() => {
+                  setFromNudge(true);
+                  onNudge?.();
+                }}
+              />
+            )}
+            <ChangeMyTimesButton {...change} />
+          </ButtonRow>
         )}
-        {onShareAgain === undefined ? null : (
-          <Tertiary label={t('waiting', 'share_the_link_again')} onPress={onShareAgain} />
-        )}
-        {onEditPlan === undefined ? null : (
-          <Tertiary label={t('waiting', 'edit_the_plan')} onPress={onEditPlan} />
-        )}
+        {fromNudge && shareOutcome !== undefined ? (
+          <Small accessibilityLiveRegion="polite" style={{ textAlign: 'center' }}>
+            {shareOutcome}
+          </Small>
+        ) : null}
+        <ChangeMyTimesNote {...change} />
       </Foot>
     </Screen>
   );

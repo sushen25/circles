@@ -6,14 +6,12 @@ import {
   Button,
   Card,
   DisplayL,
-  Foot,
   Label,
   ListRow,
   Loading,
   Notice,
   Screen,
   Sheet,
-  Small,
   Tertiary,
   Title,
   TopBar,
@@ -21,7 +19,8 @@ import {
 } from '../../components';
 import { Divider, Stack } from '../../components/layout';
 import { t } from '../../copy';
-import { CandidateCard, CandidateHeader, ChangeMyTimes, Placeholder } from './parts';
+import { ChangeMyTimesFoot } from './PlanActions';
+import { CandidateCard, CandidateHeader, Placeholder } from './parts';
 import type { Unlock } from './unlock';
 import type { CardView, HeaderView } from './view';
 
@@ -132,7 +131,13 @@ export function NoQuorumScreen({
     <Screen>
       <TopBar title={header?.title} onBack={onBack} backLabel={t('common', 'back')} />
       <Body>
-        {header === undefined ? null : <CandidateHeader header={header} />}
+        {header === undefined ? null : (
+          <CandidateHeader
+            header={header}
+            onShareAgain={onShareAgain}
+            shareOutcome={shareOutcome}
+          />
+        )}
         <Stack>
           <DisplayL>{headline ?? t('noQuorum', 'headline')}</DisplayL>
           {blocked === undefined ? null : <BodyText>{blocked}</BodyText>}
@@ -162,17 +167,7 @@ export function NoQuorumScreen({
         </Card>
         {problem === undefined ? null : <Notice kind="warn">{problem}</Notice>}
       </Body>
-      {onShareAgain === undefined && onChangeMyTimes === undefined && !repliesClosed ? null : (
-        <Foot>
-          <ChangeMyTimes closed={repliesClosed} onPress={onChangeMyTimes} />
-          {shareOutcome === undefined ? null : (
-            <Small accessibilityLiveRegion="polite">{shareOutcome}</Small>
-          )}
-          {onShareAgain === undefined ? null : (
-            <Tertiary label={t('waiting', 'share_the_link_again')} onPress={onShareAgain} />
-          )}
-        </Foot>
-      )}
+      <ChangeMyTimesFoot onChangeMyTimes={onChangeMyTimes} repliesClosed={repliesClosed} />
       <Sheet
         visible={asking === 'close'}
         onDismiss={() => onKeepAsItIs?.()}
