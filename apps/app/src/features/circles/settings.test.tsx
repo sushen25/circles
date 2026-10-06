@@ -75,10 +75,34 @@ function home(overrides: Partial<CircleData.CircleHome> = {}): CircleData.Circle
     isOwner: true,
     me: 'maya',
     members: [
-      { userId: 'maya', name: 'Maya', joinedAt: '2026-09-01T00:00:00Z', role: 'owner' },
-      { userId: 'priya', name: 'Priya', joinedAt: '2026-09-03T00:00:00Z', role: 'member' },
-      { userId: 'tom', name: 'Tom', joinedAt: '2026-09-04T00:00:00Z', role: 'member' },
-      { userId: 'jess', name: 'Jess', joinedAt: '2026-09-04T00:00:00Z', role: 'member' },
+      {
+        userId: 'maya',
+        name: 'Maya',
+        joinedAt: '2026-09-01T00:00:00Z',
+        role: 'owner',
+        savedPlace: true,
+      },
+      {
+        userId: 'priya',
+        name: 'Priya',
+        joinedAt: '2026-09-03T00:00:00Z',
+        role: 'member',
+        savedPlace: true,
+      },
+      {
+        userId: 'tom',
+        name: 'Tom',
+        joinedAt: '2026-09-04T00:00:00Z',
+        role: 'member',
+        savedPlace: false,
+      },
+      {
+        userId: 'jess',
+        name: 'Jess',
+        joinedAt: '2026-09-04T00:00:00Z',
+        role: 'member',
+        savedPlace: true,
+      },
     ],
     activePlan: null,
     lockedIn: null,
@@ -261,6 +285,30 @@ describe('the owner’s other settings', () => {
       );
     });
     expect(updateCircle).toHaveBeenCalledWith(CIRCLE, { status: 'archived' });
+  });
+});
+
+describe('who is a guest and who has saved their place (SUS-165)', () => {
+  it('says the tier on every row, to the owner', async () => {
+    wrap(<SettingsFlow id={CIRCLE} />);
+
+    expect(await screen.findByText('You · owner')).toBeVisible();
+    expect(screen.getByText(/^Place saved · joined .*\b3\b/)).toBeVisible();
+    expect(screen.getByText(/^Guest · joined .*\b4\b/)).toBeVisible();
+  });
+
+  it('says it to a guest too, and "You · guest" on their own row', async () => {
+    circleHome.mockResolvedValue(
+      home({
+        isOwner: false,
+        me: 'tom',
+      }),
+    );
+    wrap(<SettingsFlow id={CIRCLE} />);
+
+    expect(await screen.findByText('You · guest')).toBeVisible();
+    expect(screen.getByText('Owner')).toBeVisible();
+    expect(screen.getByText(/^Place saved · joined .*\b3\b/)).toBeVisible();
   });
 });
 

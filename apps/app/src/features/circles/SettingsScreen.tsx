@@ -102,7 +102,7 @@ function fixtureMembers(): SettingsMember[] {
     {
       userId: 'alex',
       name: t('settings', 'alex'),
-      detail: t('settings', 'joined_3_sep'),
+      detail: t('settings', 'guest_joined_3_sep'),
       removable: true,
     },
     {

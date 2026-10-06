@@ -55,6 +55,12 @@ test('the owner resets a link nobody can show, and removes a member, from settin
   await expect(page).toHaveURL(new RegExp(`/circles/${circleId}$`));
   await page.getByRole('button', { name: 'Circle settings' }).click();
 
+  // SUS-165: the tier, in words, on every row. Maya has a saved place (an
+  // owner always does); Tom and Priya are guests on the link.
+  await expect(page.getByText('You · owner')).toBeVisible();
+  await expect(page.getByText(/^Guest · joined /)).toHaveCount(2);
+  await expect(page.getByText(/^Place saved · joined /)).toHaveCount(0);
+
   await expect(page.getByText(/can't be shown again/)).toBeVisible();
   await page.getByRole('button', { name: 'Reset link' }).click();
   const rotated = page.waitForResponse(/\/functions\/v1\/rotate-invite$/);
@@ -75,6 +81,14 @@ test('the owner resets a link nobody can show, and removes a member, from settin
     sql(`select count(*) from public.circle_invites
          where circle_id = '${circleId}' and revoked_at is null`)[0]?.[0],
   ).toBe('1');
+
+  // Tom saves his place (the auth row stops being anonymous, as linkIdentity
+  // does it): the words change on the next read.
+  sql(`update auth.users set is_anonymous = false, raw_app_meta_data = '{"is_anonymous": false}'
+       where id = '${tom}'`);
+  await page.reload();
+  await expect(page.getByText(/^Place saved · joined /)).toHaveCount(1);
+  await expect(page.getByText(/^Guest · joined /)).toHaveCount(1);
 
   await page.getByRole('button', { name: 'Remove Tom' }).click();
   await page.getByLabel('Remove Tom?').getByRole('button', { name: 'Remove Tom' }).click();

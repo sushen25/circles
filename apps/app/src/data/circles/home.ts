@@ -27,6 +27,8 @@ export type HomeMember = {
   /** ISO. The newest are the "just joined". */
   joinedAt: string;
   role: 'owner' | 'member';
+  /** Has an account (Apple, Google or an email code), rather than being a guest on the link. */
+  savedPlace: boolean;
 };
 
 export type HomePlan = {
@@ -166,6 +168,20 @@ export async function circleHome(id: string): Promise<CircleHome | null> {
     quietAsksIn(client, id),
   ]);
   if (members.error !== null) throw new Error(FAILED);
+  // Through the definer view, which only answers about people the reader
+  // shares an active circle with (ADR 0056). Asked about this roster alone, so
+  // a reader in many circles never meets the API's row cap.
+  const saved = await client
+    .from('member_profiles')
+    .select('user_id, has_saved_place')
+    .in(
+      'user_id',
+      members.data.map((m) => m.user_id),
+    );
+  if (saved.error !== null) throw new Error(FAILED);
+  const savedBy = new Set(
+    saved.data.filter((r) => r.has_saved_place === true).map((r) => r.user_id),
+  );
 
   const finding = findingPlanOf(plans, id);
   const confirmed = plans.filter((p) => p.state === 'confirmed');
@@ -214,6 +230,8 @@ export async function circleHome(id: string): Promise<CircleHome | null> {
       name: m.display_name_snapshot,
       joinedAt: m.joined_at,
       role: m.role === 'owner' ? 'owner' : 'member',
+      // An owner always has a saved place, whatever the view says.
+      savedPlace: m.role === 'owner' || savedBy.has(m.user_id),
     })),
     activePlan:
       finding === undefined || replies === undefined
