@@ -64,6 +64,8 @@ export function useEmailOffer({
   // Which tap is the live one: "Not now" ends it, so a slow answer that arrives
   // afterwards changes nothing on a card the person has dismissed.
   const attempt = useRef(0);
+  // The busy guard is a ref, so a second Enter before the first answer is read is ignored.
+  const sending = useRef(false);
   const cancel = () => {
     attempt.current += 1;
   };
@@ -91,6 +93,8 @@ export function useEmailOffer({
       router.push({ pathname: '/j/[code]/check-email', params: { code } });
       return;
     }
+    if (sending.current) return;
+    sending.current = true;
     attempt.current += 1;
     const mine = attempt.current;
     setBusy(true);
@@ -154,6 +158,7 @@ export function useEmailOffer({
         setReference(failure.reference);
       }
     } finally {
+      sending.current = false;
       setBusy(false);
     }
   };

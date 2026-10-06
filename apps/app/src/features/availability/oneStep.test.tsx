@@ -295,6 +295,19 @@ describe('with the switch on', () => {
     expect(screen.queryByText(/^Done\./)).toBeNull();
   });
 
+  it('sends once when Enter is pressed twice before the first answer', async () => {
+    requestEmailUpdates.mockReturnValue(new Promise(() => undefined));
+    wrap(<SentFlow code={PLAN.code} />);
+    await typeAddress();
+    fireEvent.click(await screen.findByRole('switch', SWITCH));
+    const field = screen.getByLabelText('Your email');
+    fireEvent.keyDown(field, { key: 'Enter' });
+    fireEvent.keyDown(field, { key: 'Enter' });
+
+    await waitFor(() => expect(requestEmailUpdates).toHaveBeenCalled());
+    expect(requestEmailUpdates).toHaveBeenCalledTimes(1);
+  });
+
   it('keeps the address and the switch when the code could not be sent', async () => {
     requestLinkCode.mockRejectedValue(new Error('down'));
     wrap(<SentFlow code={PLAN.code} />);
