@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider, QueryObserver } from '@tanstack/react-query';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -47,6 +48,52 @@ describe('Loading', () => {
     render(<Loading message="Getting the options" shape="cards" />);
     tick(WAIT.retryAfter);
     expect(screen.getByText('Still working on it…')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument();
+  });
+});
+
+describe('Loading: what it keeps and how it retries (SUS-157)', () => {
+  it('draws its header at once, with the bar, before any skeleton', () => {
+    render(<Loading message="Opening" shape="list" header={<p>the lockup</p>} />);
+    expect(screen.getByText('the lockup')).toBeInTheDocument();
+    expect(screen.queryByTestId('skeleton')).not.toBeInTheDocument();
+    tick(WAIT.skeletonAfter);
+    expect(screen.getByText('the lockup')).toBeInTheDocument();
+    expect(screen.getByTestId('skeleton')).toBeInTheDocument();
+  });
+
+  function inClient(client: QueryClient) {
+    return render(
+      <QueryClientProvider client={client}>
+        <Loading message="Getting the plan" shape="detail" />
+      </QueryClientProvider>,
+    );
+  }
+
+  /** A query a screen is waiting on: observed, with no answer yet, and a fetch that never ends. */
+  function waitingQuery(client: QueryClient, fetch: () => Promise<string>) {
+    const observer = new QueryObserver(client, { queryKey: ['plan'], queryFn: fetch });
+    return { stop: observer.subscribe(() => undefined) };
+  }
+
+  it('without an onRetry, "Try again" asks the waiting query again after about 20 s', async () => {
+    const client = new QueryClient();
+    const fetch = vi.fn(() => new Promise<string>(() => undefined));
+    const { stop } = waitingQuery(client, fetch);
+    inClient(client);
+    tick(WAIT.retryAfter - 1);
+    expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument();
+    tick(1);
+    expect(fetch).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    await act(async () => undefined);
+    expect(fetch).toHaveBeenCalledTimes(2);
+    stop();
+  });
+
+  it('offers no "Try again" when nothing is waiting on a query', () => {
+    inClient(new QueryClient());
+    tick(WAIT.retryAfter);
     expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument();
   });
 });

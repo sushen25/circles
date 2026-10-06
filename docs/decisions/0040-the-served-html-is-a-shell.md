@@ -118,3 +118,18 @@ What this settles for each of the three:
   into, with the scripts held back.
 - The shell's copy is one key, `shell.loading`. It is the only text the served
   HTML ever contains, and it must stay true for every visitor to every route.
+
+## Notes
+
+- **The shell's first paint after SUS-155 (decided in SUS-157, 6 October 2026).**
+  Every route's own loading state is now the `Loading` screen, which draws
+  nothing but the bar for its first 300 ms. The shell keeps its one sentence
+  (`shell.loading`) and sets it in the same type, in the same place, as the
+  sentence `Loading` shows, so the words, not the layout, are what change when a
+  route takes over. It does not draw a skeleton: the shell is one document for
+  every route and cannot know which of the four shapes the route will want, and
+  a shape that turned out wrong would be the kind of guess this ADR exists to
+  avoid. This changes none of the decision above, so it is recorded here and
+  not in an ADR of its own. The served HTML is never empty, and
+  `served-html.spec.ts` and the messenger user-agent projects still pass
+  against it.

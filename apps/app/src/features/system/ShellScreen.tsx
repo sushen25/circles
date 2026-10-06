@@ -1,4 +1,4 @@
-import { Body, Screen, Small, TopBar } from '../../components';
+import { Body, BodyText, Screen, TopBar } from '../../components';
 import { t } from '../../copy';
 
 /**
@@ -17,7 +17,7 @@ export function ShellScreen() {
     <Screen>
       <TopBar />
       <Body>
-        <Small accessibilityLiveRegion="polite">{t('shell', 'loading')}</Small>
+        <BodyText accessibilityLiveRegion="polite">{t('shell', 'loading')}</BodyText>
       </Body>
     </Screen>
   );

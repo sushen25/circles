@@ -27,7 +27,12 @@ export type WelcomeProps = {
 export function WelcomeScreen({ state, onRetry }: WelcomeProps) {
   const loading = useLoadingHold(state !== 'error' && state !== 'offline');
   const wait = (
-    <Loading message={t('welcome', 'opening_your_circles')} shape="list" onRetry={onRetry} />
+    <Loading
+      message={t('welcome', 'opening_your_circles')}
+      shape="list"
+      header={<BrandLockup />}
+      onRetry={onRetry}
+    />
   );
   if (loading) return wait;
 
