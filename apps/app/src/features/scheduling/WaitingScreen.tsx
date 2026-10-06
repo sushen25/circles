@@ -16,7 +16,7 @@ import {
 } from '../../components';
 import { Stack } from '../../components/layout';
 import { t } from '../../copy';
-import { CandidateHeader, Placeholder, SetTimeRow } from './parts';
+import { CandidateHeader, ChangeMyTimes, Placeholder, SetTimeRow } from './parts';
 import type { HeaderView } from './view';
 
 /**
@@ -49,6 +49,10 @@ export type WaitingProps = {
   /** What sharing did when it copied rather than opened a sheet. */
   shareOutcome?: string | undefined;
   onEditPlan?: (() => void) | undefined;
+  /** The organiser's own answer, opened as a member's is (SUS-158). */
+  onChangeMyTimes?: (() => void) | undefined;
+  /** Replies have closed: "Change my times" is shown disabled, with why. */
+  repliesClosed?: boolean | undefined;
   /** "Set the time yourself", before any option exists (ADR 0051). */
   onSetTime?: (() => void) | undefined;
   onRetry?: (() => void) | undefined;
@@ -65,6 +69,8 @@ export function WaitingScreen({
   onShareAgain,
   shareOutcome,
   onEditPlan,
+  onChangeMyTimes,
+  repliesClosed = false,
   onSetTime,
   onRetry,
   onBack,
@@ -121,6 +127,7 @@ export function WaitingScreen({
         )}
       </Body>
       <Foot>
+        <ChangeMyTimes closed={repliesClosed} onPress={onChangeMyTimes} />
         {shareOutcome === undefined ? null : (
           <Small accessibilityLiveRegion="polite">{shareOutcome}</Small>
         )}

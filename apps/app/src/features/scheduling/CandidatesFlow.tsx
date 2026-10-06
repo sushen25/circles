@@ -117,6 +117,10 @@ function LiveCandidates({ id, planId }: { id: string; planId: string }) {
 
   const header = headerOf(data);
   const toEditor = () => router.push({ pathname: '/j/[code]', params: { code: data.code } });
+  // The organiser's own times, and back here afterwards rather than on the sent
+  // screen: changing them is part of looking at the options (SUS-158).
+  const toChangeMine = () =>
+    router.push({ pathname: '/j/[code]', params: { code: data.code, returnTo: 'plan' } });
   const toEdit = () =>
     router.push({ pathname: '/circles/[id]/plan/[planId]/edit', params: { id, planId } });
   // Any day and time, not only an option (ADR 0051). The selected option, when
@@ -173,6 +177,8 @@ function LiveCandidates({ id, planId }: { id: string; planId: string }) {
         onShareAgain={shareAgain}
         shareOutcome={shareOutcome}
         onEditPlan={toEdit}
+        onChangeMyTimes={data.repliesOpen ? toChangeMine : undefined}
+        repliesClosed={!data.repliesOpen}
         onSetTime={() => toSetTime()}
         onBack={back}
       />
@@ -205,6 +211,8 @@ function LiveCandidates({ id, planId }: { id: string; planId: string }) {
         // after the deadline, and a link to nothing is not worth chasing with.
         onShareAgain={shareAgain}
         shareOutcome={shareOutcome}
+        onChangeMyTimes={data.repliesOpen ? toChangeMine : undefined}
+        repliesClosed={!data.repliesOpen}
         onConfirmClose={() => resolution.close()}
         onConfirmWiden={() => resolution.widen()}
         onKeepAsItIs={() => resolution.keepAsItIs()}
@@ -275,6 +283,8 @@ function LiveCandidates({ id, planId }: { id: string; planId: string }) {
       shareOutcome={shareOutcome}
       // Still asking until it is locked in, so still editable (spec §5.3).
       onEditPlan={toEdit}
+      onChangeMyTimes={data.repliesOpen ? toChangeMine : undefined}
+      repliesClosed={!data.repliesOpen}
       onBack={back}
     />
   );

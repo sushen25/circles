@@ -8,6 +8,7 @@ import { useSession } from '../../data/auth/session';
 import { planToAnswer, readDraft, type Draft } from '../../data/availability';
 import { isOffline } from '../identity/join/failure';
 import { Answering, type AvailabilityStep } from './Answering';
+import type { ReturnTo } from './useSendAnswer';
 import { AvailabilityScreen } from './AvailabilityScreen';
 import { FixtureAnswering } from './FixtureAnswering';
 
@@ -37,14 +38,19 @@ import { FixtureAnswering } from './FixtureAnswering';
  */
 export type { AvailabilityStep };
 
-export type AvailabilityFlowProps = { code: string; step: AvailabilityStep };
+export type AvailabilityFlowProps = {
+  code: string;
+  step: AvailabilityStep;
+  /** Where a sent answer goes instead of the sent screen (SUS-158). */
+  returnTo?: ReturnTo | undefined;
+};
 
-export function AvailabilityFlow({ code, step }: AvailabilityFlowProps) {
+export function AvailabilityFlow({ code, step, returnTo }: AvailabilityFlowProps) {
   if (!hasBackend()) return <FixtureAnswering code={code} step={step} />;
-  return <LiveAvailability code={code} step={step} />;
+  return <LiveAvailability code={code} step={step} returnTo={returnTo} />;
 }
 
-function LiveAvailability({ code, step }: AvailabilityFlowProps) {
+function LiveAvailability({ code, step, returnTo }: AvailabilityFlowProps) {
   const router = useRouter();
   const session = useSession();
   const userId = session.userId;
@@ -161,6 +167,7 @@ function LiveAvailability({ code, step }: AvailabilityFlowProps) {
         userId={userId}
         onStale={onStale}
         onNarrowed={onNarrowed}
+        returnTo={returnTo}
       />
     );
   }
@@ -202,6 +209,7 @@ function LiveAvailability({ code, step }: AvailabilityFlowProps) {
       userId={userId}
       onStale={onStale}
       onNarrowed={onNarrowed}
+      returnTo={returnTo}
     />
   );
 }

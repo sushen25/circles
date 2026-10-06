@@ -27,7 +27,7 @@ import {
   type EditorState,
 } from './editor';
 import { NoneWorkScreen, type NoneWorkStatus } from './NoneWorkScreen';
-import { useSendAnswer } from './useSendAnswer';
+import { useSendAnswer, type ReturnTo } from './useSendAnswer';
 import { editorView } from './view';
 import { ROW_WORDS, introOf, timeOfDay, titleOf, zoneNoteOf } from './words';
 
@@ -55,6 +55,8 @@ export type AnsweringProps = {
   onStale: () => void;
   /** Days taken away from the same question (ADR 0047): fetch the plan again. */
   onNarrowed?: (() => void) | undefined;
+  /** Where a sent answer goes, when it is not the sent screen (SUS-158). */
+  returnTo?: ReturnTo | undefined;
   /** With no backend, what the others said in the gallery's scenario (SUS-129). */
   fixtureOthers?: OthersSaid | undefined;
 };
@@ -86,6 +88,7 @@ export function Answering({
   userId,
   onStale,
   onNarrowed,
+  returnTo,
   fixtureOthers,
 }: AnsweringProps) {
   const router = useRouter();
@@ -170,6 +173,7 @@ export function Answering({
     draft: opened,
     onStale,
     onNarrowed,
+    returnTo,
   });
 
   // Judged by the server when the plan was read (`acceptingAnswers`): state and
@@ -294,7 +298,12 @@ export function Answering({
           : undefined
       }
       onSend={() => void send(state.flexible ? 'flexible' : 'windows')}
-      onNoneOfTheseDates={() => router.push({ pathname: '/j/[code]/none', params: { code } })}
+      onNoneOfTheseDates={() =>
+        router.push({
+          pathname: '/j/[code]/none',
+          params: returnTo === undefined ? { code } : { code, returnTo },
+        })
+      }
       onBack={back}
     />
   );
