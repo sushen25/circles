@@ -3,7 +3,7 @@
 -- `public.member_profiles` gains `has_saved_place`: whether a co-member's account
 -- is permanent (Apple, Google or an email code) rather than a guest on the link.
 -- Circle settings says "Guest" or "Place saved" on every member row (SUS-165,
--- ADR 00XX). The view is still scoped to people the caller shares an *active*
+-- ADR 0056). The view is still scoped to people the caller shares an *active*
 -- circle with, so a non-member and a removed member read no row at all. The
 -- column is derived (`profiles.is_permanent`, which the auth trigger only ever
 -- sets one way) and nothing else of `profiles` is exposed. No table changes.

@@ -393,7 +393,7 @@ select is(
 
 -- The column limit is the view's whole design (ADR 0032): a zone is close to
 -- a location, and no member's is readable by another. A column here is a
--- decision, not a tidy-up: `has_saved_place` is ADR 00XX, tested in 360.
+-- decision, not a tidy-up: `has_saved_place` is ADR 0056, tested in 360.
 select columns_are(
   'public', 'member_profiles', array['user_id', 'display_name', 'has_saved_place'],
   'member_profiles exposes a name, an id and whether a place is saved, and nothing else'

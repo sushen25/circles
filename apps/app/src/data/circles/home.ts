@@ -169,7 +169,7 @@ export async function circleHome(id: string): Promise<CircleHome | null> {
   ]);
   if (members.error !== null) throw new Error(FAILED);
   // Through the definer view, which only answers about people the reader
-  // shares an active circle with (ADR 00XX). Asked about this roster alone, so
+  // shares an active circle with (ADR 0056). Asked about this roster alone, so
   // a reader in many circles never meets the API's row cap.
   const saved = await client
     .from('member_profiles')
