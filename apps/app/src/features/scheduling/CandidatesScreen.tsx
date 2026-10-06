@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { View } from 'react-native';
 
 import {
@@ -10,6 +11,7 @@ import {
   Loading,
   Notice,
   Screen,
+  Small,
   TopBar,
   useLoadingHold,
 } from '../../components';
@@ -89,6 +91,9 @@ export function CandidatesScreen({
   onRetry,
   onBack,
 }: CandidatesProps) {
+  // What a share said belongs beside the button that asked: the header's, or
+  // the footer's nudge, which stays on screen while the header has scrolled away.
+  const [fromNudge, setFromNudge] = useState(false);
   const loading = useLoadingHold(state === 'loading');
   if (loading) {
     return (
@@ -139,8 +144,15 @@ export function CandidatesScreen({
         {header === undefined ? null : (
           <CandidateHeader
             header={header}
-            onShareAgain={onShareAgain}
-            shareOutcome={shareOutcome}
+            onShareAgain={
+              onShareAgain === undefined
+                ? undefined
+                : () => {
+                    setFromNudge(false);
+                    onShareAgain();
+                  }
+            }
+            shareOutcome={fromNudge ? undefined : shareOutcome}
             onEditPlan={onEditPlan}
             onChangeMyTimes={onChangeMyTimes}
             repliesClosed={repliesClosed}
@@ -175,9 +187,20 @@ export function CandidatesScreen({
         )}
         {nudgeLabel === undefined ? null : (
           <View style={{ alignSelf: 'center' }}>
-            <CompactButton label={nudgeLabel} onPress={onNudge} />
+            <CompactButton
+              label={nudgeLabel}
+              onPress={() => {
+                setFromNudge(true);
+                onNudge?.();
+              }}
+            />
           </View>
         )}
+        {fromNudge && shareOutcome !== undefined ? (
+          <Small accessibilityLiveRegion="polite" style={{ textAlign: 'center' }}>
+            {shareOutcome}
+          </Small>
+        ) : null}
       </Foot>
     </Screen>
   );

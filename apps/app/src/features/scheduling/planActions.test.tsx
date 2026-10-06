@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -27,7 +27,11 @@ vi.mock('../../data/scheduling', async (original) => ({
   ...(await original<typeof Scheduling>()),
   planCandidates: (...a: unknown[]) => planCandidates(...a),
 }));
-vi.mock('../../platform/share', () => ({ shareMessage: vi.fn(), copyText: vi.fn() }));
+const shareMessage = vi.fn();
+vi.mock('../../platform/share', () => ({
+  shareMessage: (...a: unknown[]) => shareMessage(...a),
+  copyText: vi.fn(),
+}));
 
 const { CandidatesFlow } = await import('./CandidatesFlow');
 const fixture = await import('./fixtures');
@@ -41,7 +45,10 @@ const button = (name: string | RegExp) => screen.getByRole('button', { name });
 const before = (a: HTMLElement, b: HTMLElement) =>
   Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+  vi.clearAllMocks();
+  shareMessage.mockResolvedValue('copied');
+});
 
 describe('SUS-161: the footer keeps the decision', () => {
   it('options: share and edit come before the first card, the nudge after the primary', async () => {
@@ -78,5 +85,18 @@ describe('SUS-161: the footer keeps the decision', () => {
     const unlock = screen.getByRole('button', { name: /^Lower to/ });
     expect(before(button('Share the link again'), unlock)).toBe(true);
     expect(before(button('Change my times'), unlock)).toBe(true);
+  });
+
+  it('says what a share did beside the button that asked, so the footer nudge is not answered offscreen', async () => {
+    planCandidates.mockResolvedValue(fixture.ready);
+    show(flow());
+    fireEvent.click(await screen.findByRole('button', { name: 'Share the link again' }));
+    const copied = await screen.findByText(/^Copied/);
+    expect(before(copied, button(/^Review/))).toBe(true);
+
+    fireEvent.click(button(/^Nudge/));
+    const after = await screen.findByText(/^Copied/);
+    expect(before(button(/^Nudge/), after)).toBe(true);
+    expect(screen.getAllByText(/^Copied/)).toHaveLength(1);
   });
 });
