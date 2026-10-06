@@ -308,6 +308,22 @@ describe('with the switch on', () => {
     expect(requestEmailUpdates).toHaveBeenCalledTimes(1);
   });
 
+  it('ignores a code request that answers after the card was left', async () => {
+    let answerOld: (route: string) => void = () => undefined;
+    requestLinkCode.mockReturnValueOnce(new Promise((resolve) => (answerOld = resolve)));
+    const first = wrap(<SentFlow code={PLAN.code} />);
+    await typeAddress('old@example.com');
+    fireEvent.click(screen.getByRole('button', PRIMARY));
+    first.unmount();
+
+    wrap(<SentFlow code={PLAN.code} />);
+    await act(async () => {
+      answerOld('new_identity');
+    });
+
+    expect(screen.queryByText('Enter the code we emailed')).toBeNull();
+  });
+
   it('keeps the address and the switch when the code could not be sent', async () => {
     requestLinkCode.mockRejectedValue(new Error('down'));
     wrap(<SentFlow code={PLAN.code} />);

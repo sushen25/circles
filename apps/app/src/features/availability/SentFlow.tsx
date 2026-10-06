@@ -139,6 +139,7 @@ function LiveSent({ code }: { code: string }) {
     const { start, planId } = one.stage;
     return (
       <SavePlaceByEmail
+        key={start.sentAt}
         moment="after_answer"
         circleName={plan?.circleName}
         start={start}

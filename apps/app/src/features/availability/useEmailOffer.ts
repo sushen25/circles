@@ -1,6 +1,6 @@
 import type { PlanId } from '@circles/contracts';
 import { useRouter } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { track } from '../../analytics/track';
 import { requestLinkCode } from '../../data/auth';
@@ -69,6 +69,9 @@ export function useEmailOffer({
   const cancel = () => {
     attempt.current += 1;
   };
+  // Leaving Sent ends what was asked there: an answer that arrives later must not
+  // open a code screen, or replace a newer attempt, from a card that is gone.
+  useEffect(() => cancel, []);
 
   const send = async () => {
     if (problem === 'copy_changed') {
