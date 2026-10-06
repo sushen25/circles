@@ -416,7 +416,15 @@ What that settles:
 - The per-address limits therefore do not give a caller a bucket of their
   choosing, and they do not put every caller in one bucket either.
 
-**Second network:** SECOND_NETWORK_PENDING
+**Second network: not measured.** A second reading from a different network was
+attempted on 5 October 2026 and came back empty (the request did not complete on
+that network), and the founder chose on 6 October 2026 to go ahead on the first
+reading. What it would have confirmed, that two callers on different networks get
+different buckets, follows from the table above: the key is the caller's own
+public address, which Cloudflare sets and the caller cannot change. The unit tests
+in `_shared/kit.test.ts` cover the code's half (two addresses, two keys). The
+temporary function `tmp-sus107-ip-echo` was deleted from `circles-dev` on
+6 October 2026, and `supabase functions list` no longer shows it.
 
 The local stack has no Cloudflare in front, so `cf-connecting-ip` is absent
 there and every local caller shares the bucket `unknown`. A hosted request
