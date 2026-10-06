@@ -34,6 +34,7 @@ describe('the consent sentence', () => {
     const pinned: Record<string, string> = {
       '2026-09-14': '3856889b9710a73294328c72e5ff563384dcd10238dfd8a5ee3ded4b4360ad15',
       '2026-10-02': 'c359f8fd2957e5a32d4d945bab3c93bc8a1143ba08c2fdba06f23f061e7663d1',
+      '2026-10-06': '38f85e9aa83f8f26e62a6bf5b7e81d2a0a2058b68f2cc8e74433fb9860959c29',
     };
     // A version dropped from the list is a record that can no longer be read.
     expect(CONSENT_VERSIONS.map((entry) => entry.version)).toEqual(Object.keys(pinned));

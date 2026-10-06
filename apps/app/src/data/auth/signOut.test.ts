@@ -10,6 +10,7 @@ const signOut = vi.fn();
 vi.mock('./client', () => ({ authClient: () => ({ auth: { signOut } }) }));
 
 const session = await import('./session');
+const { readJourney, writeJourney } = await import('./journey');
 
 beforeEach(() => signOut.mockReset());
 
@@ -26,6 +27,24 @@ describe('signOut', () => {
       .mockResolvedValueOnce({ error: null });
     await session.signOut();
     expect(signOut).toHaveBeenLastCalledWith({ scope: 'local' });
+  });
+
+  it('forgets a journey in progress, and the address typed into it, so the next person inherits nothing', async () => {
+    signOut.mockResolvedValue({ error: null });
+    writeJourney('sent-one-step:abcdef', { email: 'priya@example.com' });
+
+    await session.signOut();
+
+    expect(readJourney('sent-one-step:abcdef')).toBeUndefined();
+  });
+
+  it('does not forget it when the sign-out failed: the person is still in', async () => {
+    signOut.mockResolvedValue({ error: { message: 'storage' } });
+    writeJourney('sent-one-step:abcdef', { email: 'priya@example.com' });
+
+    await expect(session.signOut()).rejects.toThrow();
+
+    expect(readJourney('sent-one-step:abcdef')).toBeDefined();
   });
 
   it('throws when even the local sign-out failed, so nobody is told they left', async () => {

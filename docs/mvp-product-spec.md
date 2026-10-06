@@ -169,8 +169,8 @@ Returning organisers use the quiet **Sign in** on the first screen; Apple and Go
 - Before any prompt the page shows: circle name, inviter's name, who is in so far, a one-sentence privacy statement, and the expected effort.
 - **Choose my times** creates an anonymous session tied to that browser and asks for a display name. Duplicate active names in a circle are prevented; the owner can resolve accidents.
 - **A plan link admits new people too, while the plan is taking answers** ([ADR 0022](decisions/0022-a-plan-link-admits-new-members-while-the-plan-is-asking.md)). It is the link the group chat actually sees. Somebody new gives a display name and is a guest member of the circle and one of the people that plan is asking, in one step. A plan that is not taking answers admits nobody. If its link is no longer live (a cancelled or expired plan, a quiet ask still gathering interest, a meetup more than 14 days past, an archived circle) the refusal is the one a link that never existed gets, "This link isn't active any more", with no name asked for; if it is still live (replies closed, or locked in recently) the person gives a name and is told to ask for the circle's invite link ([ADR 0049](decisions/0049-continue-as-resolves-a-code-only-while-it-is-live.md)). A quiet ask is never shared by link (§5.4), so nobody it needs is kept out.
-- After the first useful response, a skippable **Get updates about this meetup by email** card appears (§5.8). Dismissal is one tap. No marketing checkbox exists.
-- A tertiary **Save access on every device** link follows the email card; it explains that sign-in is an account and is separate from meetup email.
+- After the first useful response, a skippable card appears (§5.8): an address, the consent sentence, a **Save my place in {circle}** switch (on by default) and one primary, **Email me about this meetup** ([ADR 0055](decisions/0055-after-sending-one-step-keeps-your-place-and-turns-on-the-updates.md)). With the switch on, a sign-in code is emailed and entering it saves the place and turns on this plan's updates, with no verification link; off, the verification link and no account. Dismissal is one tap. No marketing checkbox exists, and no pre-ticked box: the button's own words are the consent.
+- The separate **Save access on every device** screen is no longer reached from Sent; it remains behind the Continue-as prompt and the organiser gate.
 
 #### Identity continuity (Continue as)
 
@@ -380,7 +380,7 @@ Two conversions, each with its own moments. A prompt appears only after the thin
 
 | Moment | Prompt |
 |---|---|
-| Times sent | Email updates card, then "save access on every device" as a tertiary link |
+| Times sent | One card: email updates, with a "Save my place" switch on by default (ADR 0055) |
 | Times sent **and** email given | "Rather have these on your phone?" — app (same updates as notifications, one reminder, clash greying next time) |
 | Returned with no session | After Continue-as: "Keep your place for good?" — saved place. Second time: the app sheet |
 | Meetup locked in | "Want a nudge on Thursday?" — app reminder, beside the always-available add-to-calendar |

@@ -2111,11 +2111,18 @@ export const en = {
       '{name} will pick a time once replies close on {day}. The plan will land in the group chat.',
     time_gets_picked:
       'A time gets picked once replies close on {day}. The plan will land in the group chat.',
-    get_updates_about_this_meetup_by_email: 'Get updates about this meetup by email',
+    // The one-step card (SUS-162): an address, the sentence, a switch, one button.
+    hear_when_its_locked_in: "Hear when it's locked in",
     your_email: 'Your email',
     you_example_com: 'you@example.com',
     not_an_address: "That doesn't look like an email address.",
-    send_verification_email: 'Send verification email',
+    email_me_about_this_meetup: 'Email me about this meetup',
+    save_my_place: 'Save my place in {circle}',
+    get_back_from_any_phone: 'Get back from any phone.',
+    nothing_is_saved: 'Nothing is saved.',
+    kept_and_updates_on:
+      "Done. We'll email {address} about this meetup, and your place in {circle} is saved: sign in with that address on any phone to get back to it.",
+    saved_but_emails_off: "Your place is saved. We couldn't turn on the emails; try again.",
     sending: 'Sending',
     not_now: 'Not now',
     too_many_tries: "That's as many links as we send to one address in a day. Try again tomorrow.",
@@ -2124,9 +2131,6 @@ export const en = {
     copy_changed:
       'The wording on this page was out of date, so nothing was sent. Tap Send again to load the current wording, then read it and try again.',
     reference: 'Ref {reference}',
-    save_access_note: 'Optional: save your access on every device, so you never have to rejoin.',
-    save_access: 'Save access on every device',
-    place_saved: 'Your place is saved. Sign in with {address} on any device to get back to it.',
     finding_it: 'Finding your answer',
     couldnt_load: "We couldn't load this just now.",
     try_again: 'Try again',

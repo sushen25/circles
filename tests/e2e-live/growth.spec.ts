@@ -58,7 +58,7 @@ test('no prompt of any kind on Join, Name or Availability: nothing is even asked
   // After the answer, the email card is the first thing that may be offered,
   // and it is asked about as the Times-sent moment.
   await sendEvenings(page, crew.planCode);
-  await expect(page.getByText('Get updates about this meetup by email')).toBeVisible();
+  await expect(page.getByText("Hear when it's locked in")).toBeVisible();
   expect(asked.map((body) => (JSON.parse(body) as { moment: string }).moment)).toEqual([
     'sent_save_access',
   ]);

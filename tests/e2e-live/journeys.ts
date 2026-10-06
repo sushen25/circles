@@ -46,13 +46,15 @@ export async function joinsAndAnswers(page: Page, crew: Scenario, name: string):
 }
 
 /**
- * From Sent: asks for updates at `address`, and opens the verification link from
+ * From Sent, with the "Save my place" switch off: asks for updates at `address`, and opens the verification link from
  * the email the stack actually sent, in the same browser. Returns once the
  * address is verified.
  */
 export async function subscribesFromSent(page: Page, address: string): Promise<void> {
   await page.getByLabel('Your email').fill(address);
-  await page.getByRole('button', { name: 'Send verification email' }).click();
+  // The card's switch is on by default and saves a place; this is the other path.
+  await page.getByRole('switch', { name: /^Save my place in/ }).click();
+  await page.getByRole('button', { name: 'Email me about this meetup' }).click();
   await expect(page.getByText('Check your email.')).toBeVisible();
   const letter = await letterTo(address, /^Turn on updates/);
   await page.goto(linkIn(letter, '/v', page.url()));

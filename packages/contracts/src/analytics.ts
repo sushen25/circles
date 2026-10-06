@@ -269,7 +269,10 @@ export const catalogue = {
 
   // --- email --------------------------------------------------------------
   email_updates_offered: event(1),
-  email_submitted: event(1),
+  // `save_place`: whether the "Save my place" switch was on when the one-step card's
+  // primary was pressed (SUS-162), so the account and no-account paths can be
+  // compared. Absent on a resend from Check your email, which has no switch.
+  email_submitted: event(1, { save_place: z.boolean().optional() }),
   email_verified: event(1),
   email_subscription_changed: event(1, { enabled: z.boolean() }),
   // "Emails about plans you organise" (ADR 0029): a person's own switch, not a

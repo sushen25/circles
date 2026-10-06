@@ -187,7 +187,7 @@ test('a new organiser reaches a shareable plan link with two typed inputs and no
   await page.getByRole('button', { name: 'Send my times' }).click();
   await expect(page.getByText('Thanks, Maya. Your times are in.')).toBeVisible();
   // An account is already told about this plan, so the guest offer is not made.
-  await expect(page.getByText('Get updates about this meetup by email')).toHaveCount(0);
+  await expect(page.getByText("Hear when it's locked in")).toHaveCount(0);
 
   await page.getByRole('button', { name: "See how it's looking" }).click();
   // Exact: the share screen stays mounted underneath on the web stack, and its

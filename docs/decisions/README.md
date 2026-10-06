@@ -57,6 +57,7 @@ Short records of decisions that shape the product or the code. A new ADR is requ
 | [0052](./0052-the-bare-host-is-the-website.md) | The bare host is the website, and the app's front door on the web is `/start` | proposed |
 | [0053](./0053-the-organiser-gate-moves-to-before-the-share.md) | The first run drafts the circle and plan with no account; the saved-place gate moves to before the share | proposed |
 | [0054](./0054-the-link-preview-may-say-a-plan-is-locked-in.md) | The link preview may say a plan is locked in, as one of two words next to the name | proposed |
+| [0055](./0055-after-sending-one-step-keeps-your-place-and-turns-on-the-updates.md) | After sending, one step keeps the guest's place and turns on the plan's updates | proposed |
 
 ## Template
 

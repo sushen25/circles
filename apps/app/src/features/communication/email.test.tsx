@@ -57,6 +57,7 @@ vi.mock('../../data/growth', () => ({
 
 const { SentFlow } = await import('../availability/SentFlow');
 const { forgetSessionNudges } = await import('../growth/useNudge');
+const { forgetOneSteps } = await import('../availability/oneStep');
 const { EmailVerifyFlow } = await import('./EmailVerifyFlow');
 const { EmailPrefsFlow } = await import('./EmailPrefsFlow');
 const { heldToken, holdTokenForTests, releaseToken } = await import('../../data/links/tokens');
@@ -103,6 +104,7 @@ beforeEach(() => {
   planToAnswer.mockResolvedValue({ plan: PLAN, answer: answerable.answer });
   requestEmailUpdates.mockResolvedValue({ status: 'check_email' });
   forgetSessionNudges();
+  forgetOneSteps();
   const answered = new Map<string, { suppressed: boolean }>();
   const shown = new Set<string>();
   askToShow
@@ -119,6 +121,11 @@ beforeEach(() => {
   recordAnswer.mockReset().mockResolvedValue(undefined);
 });
 
+/** The card's switch is on by default; these walk the path with it off. */
+function switchOff() {
+  fireEvent.click(screen.getByRole('switch', { name: /^Save my place in / }));
+}
+
 describe('Sent', () => {
   it('"Not now" asks for nothing: no email, no contact, only the offer and that it was declined', async () => {
     wrap(<SentFlow code={PLAN.code} />);
@@ -126,7 +133,7 @@ describe('Sent', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Not now' }));
 
-    expect(screen.queryByText('Get updates about this meetup by email')).toBeNull();
+    expect(screen.queryByText("Hear when it's locked in")).toBeNull();
     expect(requestEmailUpdates).not.toHaveBeenCalled();
     expect(track.mock.calls.map(([name]) => name)).toEqual(['email_updates_offered']);
     expect(recordAnswer).toHaveBeenCalledWith(
@@ -141,7 +148,7 @@ describe('Sent', () => {
     wrap(<SentFlow code={PLAN.code} />);
     await screen.findByText('Thanks, Priya. Your times are in.');
 
-    expect(screen.queryByText('Get updates about this meetup by email')).toBeNull();
+    expect(screen.queryByText("Hear when it's locked in")).toBeNull();
     expect(track.mock.calls.map(([name]) => name)).not.toContain('email_updates_offered');
   });
 
@@ -151,14 +158,14 @@ describe('Sent', () => {
 
     // After the one retry `useNudge` allows.
     expect(
-      await screen.findByText('Get updates about this meetup by email', {}, { timeout: 4000 }),
+      await screen.findByText("Hear when it's locked in", {}, { timeout: 4000 }),
     ).toBeVisible();
   });
 
   it('refuses what is not an address before asking the server', async () => {
     wrap(<SentFlow code={PLAN.code} />);
     fireEvent.change(await screen.findByLabelText('Your email'), { target: { value: 'priya@' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Send verification email' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Email me about this meetup' }));
 
     await screen.findByText("That doesn't look like an email address.");
     expect(requestEmailUpdates).not.toHaveBeenCalled();
@@ -172,13 +179,14 @@ describe('Sent', () => {
     fireEvent.change(await screen.findByLabelText('Your email'), {
       target: { value: '  PRIYA@example.com ' },
     });
+    switchOff();
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Send verification email' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Email me about this meetup' }));
     });
     await screen.findByText('Ref R1');
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Send verification email' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Email me about this meetup' }));
     });
 
     const [first, second] = requestEmailUpdates.mock.calls.map(([options]) => options);
@@ -188,7 +196,7 @@ describe('Sent', () => {
       pathname: '/j/[code]/check-email',
       params: { code: PLAN.code },
     });
-    expect(track).toHaveBeenCalledWith('email_submitted', { plan_id: PLAN.id });
+    expect(track).toHaveBeenCalledWith('email_submitted', { plan_id: PLAN.id, save_place: false });
   });
 });
 
@@ -199,16 +207,17 @@ describe('a stale consent version (ADR 0048)', () => {
     fireEvent.change(await screen.findByLabelText('Your email'), {
       target: { value: 'priya@example.com' },
     });
+    switchOff();
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Send verification email' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Email me about this meetup' }));
     });
 
     await screen.findByText(/wording on this page was out of date, so nothing was sent/);
     // Not unprompted: the notice has to be readable, and the person may have moved on.
     expect(reloadCopy).not.toHaveBeenCalled();
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Send verification email' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Email me about this meetup' }));
     });
     expect(reloadCopy).toHaveBeenCalledTimes(1);
     expect(requestEmailUpdates).toHaveBeenCalledTimes(1);
@@ -224,8 +233,7 @@ describe('the organiser answering their own plan (ADR 0026)', () => {
 
     // An account already hears about this plan (§5.8); asking it to subscribe
     // is asking for what it has.
-    expect(screen.queryByText('Get updates about this meetup by email')).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Save access on every device' })).toBeNull();
+    expect(screen.queryByText("Hear when it's locked in")).toBeNull();
     expect(track.mock.calls.map(([name]) => name)).not.toContain('email_updates_offered');
 
     fireEvent.click(screen.getByRole('button', { name: "See how it's looking" }));
@@ -244,7 +252,7 @@ describe('the organiser answering their own plan (ADR 0026)', () => {
     wrap(<SentFlow code={PLAN.code} />);
     await screen.findByText(/Your times are in\./);
 
-    expect(screen.getByText('Get updates about this meetup by email')).toBeVisible();
+    expect(screen.getByText("Hear when it's locked in")).toBeVisible();
     expect(screen.queryByRole('button', { name: "See how it's looking" })).toBeNull();
   });
 
@@ -252,7 +260,7 @@ describe('the organiser answering their own plan (ADR 0026)', () => {
     wrap(<SentFlow code={PLAN.code} />);
     await screen.findByText(/Your times are in\./);
 
-    expect(screen.getByText('Get updates about this meetup by email')).toBeVisible();
+    expect(screen.getByText("Hear when it's locked in")).toBeVisible();
     expect(screen.queryByRole('button', { name: "See how it's looking" })).toBeNull();
   });
 });
@@ -263,8 +271,9 @@ describe('round 1', () => {
     fireEvent.change(await screen.findByLabelText('Your email'), {
       target: { value: 'priya@example.com' },
     });
+    switchOff();
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Send verification email' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Email me about this meetup' }));
     });
 
     expect(push).toHaveBeenCalled();
@@ -298,9 +307,7 @@ describe('round 2', () => {
     wrap(<SentFlow code={PLAN.code} />);
     await screen.findByText('Thanks, Priya. Your times are in.');
 
-    await waitFor(() =>
-      expect(screen.queryByText('Get updates about this meetup by email')).toBeNull(),
-    );
+    await waitFor(() => expect(screen.queryByText("Hear when it's locked in")).toBeNull());
     expect(track.mock.calls.filter(([name]) => name === 'email_updates_offered')).toHaveLength(1);
   });
 });

@@ -63,6 +63,11 @@ needs no exception.
 
 - Version `2026-10-02` adds the letter that asks somebody to add their times
   again after an edit (`asked_again`, ADR 0046); `2026-09-14` did not name it.
+- Version `2026-10-06` (SUS-162) is a shorter sentence for the one-step card on
+  Sent, which saves a place and turns on this plan's updates with one address
+  and one code. It names the same letters in fewer words (moved, called off,
+  needs your times again, one reminder, one question after), and `covers` is
+  re-pointed at its phrases. The two earlier versions stay on the list.
 - The earlier gap, that the client did not send the version and a stale tab was
   recorded under the server's current one, is closed by SUS-139 (above). A
   consequence to keep: a version may be removed from the list only if no

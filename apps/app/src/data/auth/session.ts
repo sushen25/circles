@@ -4,6 +4,7 @@ import { Platform } from 'react-native';
 
 import { setAccessToken } from '../session';
 import { clearDraft } from '../draft';
+import { forgetJourneys } from './journey';
 import { authClient } from './client';
 import { resumePendingClaim } from './link';
 
@@ -185,7 +186,11 @@ export function startSessionTracking(): () => void {
     resumeClaimFor(data.session);
   });
 
-  const { data: subscription } = client.auth.onAuthStateChange((_event, session) => {
+  const { data: subscription } = client.auth.onAuthStateChange((event, session) => {
+    // Another tab, an expiry or this one: whoever was here has gone, and what
+    // they were part-way through (an address typed into a card) goes with them.
+    // A guest becoming an account is `SIGNED_IN`, not this, so a journey survives it.
+    if (event === 'SIGNED_OUT') forgetJourneys();
     // Synchronously, before any await: the transport may send between the state
     // change and the profile query, and an event attributed to the previous
     // identity is worse than one attributed to nobody.
@@ -258,6 +263,8 @@ export async function signOut(): Promise<void> {
   // A circle's name typed on this device is not the next person's to find
   // (ADR 0053). Cleared only once the person is out, and never allowed to
   // fail the sign-out.
+  // Nor a journey in progress, with the address typed into it (SUS-162).
+  forgetJourneys();
   await clearDraft();
 }
 
@@ -268,4 +275,5 @@ export function resetSessionForTests(): void {
   appInstalled = false;
   started = false;
   listeners.clear();
+  forgetJourneys();
 }

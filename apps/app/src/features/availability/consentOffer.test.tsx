@@ -53,6 +53,8 @@ describe('every screen that asks for plan-update email', () => {
   // caller that is not listed fails this test: decide where the sentence goes.
   const SCREEN_OF_CALLER: Record<string, string | null> = {
     '/src/features/availability/SentFlow.tsx': '/src/features/availability/SentScreen.tsx',
+    // The card's primary, one step (SUS-162): the same card and the same sentence.
+    '/src/features/availability/useEmailOffer.ts': '/src/features/availability/SentScreen.tsx',
     // Resend: the same agreement, made on the offer that sent the first letter.
     // It collects nothing and offers nothing new; "Use a different one" goes
     // back to the offer, which shows the sentence.

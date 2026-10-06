@@ -1,33 +1,41 @@
 import type { PlanId, ShortCode } from '@circles/contracts';
 import { fromISO, toLocal, toParts, zone as toZone } from '@circles/domain';
 import { useQuery } from '@tanstack/react-query';
-import { Redirect, useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Redirect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
 
 import { track } from '../../analytics/track';
 import { t } from '../../copy';
 import { hasBackend } from '../../data/auth/client';
-import { takeSavedWith } from '../../data/auth/saved';
 import { useSession } from '../../data/auth/session';
 import { planToAnswer, type AnswerablePlan, type OwnAnswer } from '../../data/availability';
-import {
-  canReloadCopy,
-  normaliseAddress,
-  rememberTypedAddress,
-  reloadCopy,
-  requestEmailUpdates,
-} from '../../data/email';
+import { requestEmailUpdates } from '../../data/email';
 import { answerable } from '../../data/fixtures';
 import { newIdempotencyKey } from '../../data/functions';
 import { ownNameIn } from '../../data/membership';
 import { useNudge, type Nudge } from '../growth/useNudge';
-import { failureOf, isOffline } from '../identity/join/failure';
-import { SentScreen, type SentProblem } from './SentScreen';
+import { EnterCodeScreen } from '../identity/EnterCodeScreen';
+import { isOffline } from '../identity/join/failure';
+import { SavePlaceByEmail } from '../identity/SavePlaceByEmail';
+import { useOneStep, type OneStep, type OneStepStage } from './oneStep';
+import { SentScreen } from './SentScreen';
+import { useEmailOffer } from './useEmailOffer';
 
 /**
  * `/j/:code/sent` — after an answer (spec §5.1, §5.8, S1-30).
  *
- * The email offer: one address, `request-email-updates`, then Check your email.
+ * One step, one card (SUS-162): an address, and a switch that keeps the
+ * person's place. **On**, a code is emailed, and the right code saves the place
+ * (`SavePlaceByEmail`, `savePlace`, `claim-identity`) and then turns on this
+ * plan's updates for that address with `request-email-updates`. A confirmed
+ * sign-in address is proof on the server, so no verification link is sent and
+ * one email arrives: the code. **Off**, today's path: the verification link and
+ * Check your email, no account.
+ *
+ * The step is held in memory outside the components (`oneStep.ts`), because
+ * signing in can change the person's user id, which reloads the plan and makes
+ * the membership gate above the route replace this component.
+ *
  * **Not now asks for nothing** — no contact, no consent, no email — and the
  * card goes; `record-nudge` hears that it was turned down, which is how the
  * card is offered at most once per plan on every device (spec §5.11, S2-07).
@@ -35,19 +43,54 @@ import { SentScreen, type SentProblem } from './SentScreen';
  * and queue nothing.
  */
 export function SentFlow({ code }: { code: string }) {
-  if (!hasBackend()) {
+  return hasBackend() ? <LiveSent code={code} /> : <FixtureSent code={code} />;
+}
+
+/** The gallery: `?state=code|done|partial` opens the card's other states. */
+function fixtureStage(state: string | undefined): OneStepStage {
+  const address = 'priya@example.com';
+  switch (state) {
+    case 'code':
+      return {
+        kind: 'code',
+        start: { address, route: 'new_identity', sentAt: 0 },
+        planId: answerable.plan.id,
+      };
+    case 'done':
+      return { kind: 'done', address };
+    case 'partial':
+      return { kind: 'partial', address };
+    default:
+      return { kind: 'card' };
+  }
+}
+
+function FixtureSent({ code }: { code: string }) {
+  const { state } = useLocalSearchParams<{ state?: string }>();
+  const one = useOneStep(`fixture:${code}:${state ?? ''}`, fixtureStage(state));
+  if (one.stage.kind === 'code') {
+    const { address } = one.stage.start;
     return (
-      <Sent
-        code={code}
-        userId={undefined}
-        plan={answerable.plan}
-        answer={answerable.answer}
-        name="Priya"
-        live={false}
+      <EnterCodeScreen
+        address={address}
+        code="47"
+        onContinue={() => one.toDone(address)}
+        onBack={one.toCard}
       />
     );
   }
-  return <LiveSent code={code} />;
+  return (
+    <Sent
+      code={code}
+      userId={undefined}
+      plan={answerable.plan}
+      answer={answerable.answer}
+      name="Priya"
+      live={false}
+      one={one}
+      canSave
+    />
+  );
 }
 
 function LiveSent({ code }: { code: string }) {
@@ -89,7 +132,48 @@ function LiveSent({ code }: { code: string }) {
     failOpen: true,
   });
 
+  const one = useOneStep(code);
   const back = () => (router.canGoBack() ? router.back() : router.replace('/'));
+
+  if (one.stage.kind === 'code') {
+    const { start, planId } = one.stage;
+    return (
+      <SavePlaceByEmail
+        key={start.sentAt}
+        moment="after_answer"
+        circleName={plan?.circleName}
+        start={start}
+        onSaved={async (address) => {
+          track('account_claimed', { moment: 'after_answer' });
+          // Somebody signed out while this was going (another tab, say): whoever
+          // is signed in now did not ask for these emails.
+          if (!one.stillMine()) return;
+          // Or they backed out of the code step while it was being checked: the
+          // place is saved, but they did not go on to ask for the emails.
+          if (!one.stillCoding(start.sentAt)) return;
+          // The place is saved; now this plan's updates, for the address that
+          // just proved itself. A new key: this is a new request.
+          try {
+            await requestEmailUpdates({
+              planId,
+              email: address,
+              idempotencyKey: newIdempotencyKey(),
+            });
+            // Backed out while the request was out, and maybe started another:
+            // this one does not overwrite what is on screen now.
+            if (!one.stillCoding(start.sentAt)) return;
+            offer.tap();
+            one.toDone(address);
+          } catch {
+            if (!one.stillCoding(start.sentAt)) return;
+            one.toPartial(address);
+          }
+        }}
+        onNotNow={one.toCard}
+        onBack={one.toCard}
+      />
+    );
+  }
 
   if (question.isError || question.data === null) {
     return (
@@ -120,8 +204,9 @@ function LiveSent({ code }: { code: string }) {
       answer={question.data.answer}
       name={name.data ?? null}
       live
-      offerSaveAccess={session.status === 'guest'}
+      canSave={session.status === 'guest'}
       offer={offer}
+      one={one}
     />
   );
 }
@@ -133,41 +218,35 @@ type SentInnerProps = {
   answer: OwnAnswer | null;
   name: string | null;
   live: boolean;
-  offerSaveAccess?: boolean;
+  /** The "Save my place" switch is for a guest: a saved place has nothing to save. */
+  canSave: boolean;
   /** The email card's prompt: whether to show it, and where its answer goes. */
   offer?: Nudge | undefined;
+  one: OneStep;
 };
 
-function Sent({
-  code,
-  userId,
-  plan,
-  answer,
-  name,
-  live,
-  offerSaveAccess = false,
-  offer,
-}: SentInnerProps) {
+function Sent({ code, userId, plan, answer, name, live, canSave, offer, one }: SentInnerProps) {
   const router = useRouter();
   const organising = plan.organiserUserId !== null && plan.organiserUserId === userId;
   // Without a backend (the gallery), always offered to anybody but the organiser.
-  const [offerEmail, setOfferEmail] = useState(
-    !organising && (offer === undefined || offer.showing === 'show'),
+  const { stage } = one;
+  // When the emails failed the card is back for the emails alone, whatever the
+  // once-per-plan nudge said; "Not now" still takes it away.
+  const [dismissed, setDismissed] = useState(
+    organising || (stage.kind !== 'partial' && offer !== undefined && offer.showing !== 'show'),
   );
-  const [email, setEmail] = useState('');
-  const [problem, setProblem] = useState<SentProblem | undefined>();
-  const [reference, setReference] = useState<string | undefined>();
-  const [busy, setBusy] = useState(false);
-  // Taken when this screen comes back into view, not when it first mounts: on
-  // the web stack Sent stays mounted under SaveAccess, and the note is written
-  // only once that succeeds.
-  const [savedWith, setSavedWith] = useState<string | undefined>();
-  useFocusEffect(
-    useCallback(() => {
-      const address = takeSavedWith(code);
-      if (address !== undefined) setSavedWith(address);
-    }, [code]),
-  );
+  // After the place is saved and the emails are on, the card is gone.
+  const offerEmail = stage.kind === 'done' ? false : !dismissed;
+  const switchShown = canSave && stage.kind === 'card';
+  const { problem, reference, busy, send, cancel } = useEmailOffer({
+    code,
+    plan,
+    userId,
+    live,
+    canSave: switchShown,
+    offer,
+    one,
+  });
 
   // The offer was made: once per visit, and only while it is on screen.
   const offered = useRef(false);
@@ -176,64 +255,6 @@ function Sent({
     offered.current = true;
     track('email_updates_offered', { plan_id: plan.id as PlanId });
   }, [offerEmail, plan.id]);
-
-  const send = async () => {
-    if (problem === 'copy_changed') {
-      reloadCopy();
-      return;
-    }
-    const address = normaliseAddress(email);
-    if (address === null) {
-      setProblem('not_an_address');
-      setReference(undefined);
-      return;
-    }
-    if (!live) {
-      rememberTypedAddress(userId ?? '', plan.id, address);
-      router.push({ pathname: '/j/[code]/check-email', params: { code } });
-      return;
-    }
-    setBusy(true);
-    setProblem(undefined);
-    setReference(undefined);
-    try {
-      await requestEmailUpdates({
-        planId: plan.id,
-        email: address,
-        idempotencyKey: newIdempotencyKey(),
-      });
-      track('email_submitted', { plan_id: plan.id as PlanId });
-      offer?.tap();
-      rememberTypedAddress(userId ?? '', plan.id, address);
-      // The card stays, address and all: "Use a different one" on Check your
-      // email comes back here, and there must be somewhere to type it.
-      router.push({ pathname: '/j/[code]/check-email', params: { code } });
-    } catch (error) {
-      const failure = failureOf(error);
-      if (failure.kind === 'offline') setProblem('offline');
-      else if (failure.kind === 'reason' && failure.reason === 'too_many_requests') {
-        setProblem('too_many_tries');
-      } else if (failure.kind === 'reason' && failure.reason === 'consent_version_unknown') {
-        // The wording on screen is not one the server ever showed anybody.
-        // Nothing was recorded. Say so; the next tap of Send loads the current
-        // copy (a reload here, unprompted, would unload the page before the
-        // notice could be read, and could land on a route the person moved to).
-        // A native build has no page to reload (its copy is the build), so it
-        // says plainly that it could not send, with the reference.
-        if (canReloadCopy()) {
-          setProblem('copy_changed');
-        } else {
-          setProblem('couldnt_send');
-          setReference(failure.reference);
-        }
-      } else {
-        setProblem('couldnt_send');
-        setReference(failure.reference);
-      }
-    } finally {
-      setBusy(false);
-    }
-  };
 
   const gaveTimes = answer === null || answer.status === 'windows' || answer.status === 'flexible';
   const headline =
@@ -252,19 +273,21 @@ function Sent({
       headline={headline}
       body={body}
       offerEmail={offerEmail}
-      email={email}
+      email={one.email}
       problem={problem}
       reference={reference}
       busy={busy}
-      offerSaveAccess={offerSaveAccess}
-      savedWith={savedWith}
-      onEmailChange={setEmail}
-      onSendVerification={() => void send()}
+      savePlace={switchShown ? one.save : undefined}
+      kept={stage.kind === 'done' ? stage.address : undefined}
+      emailsFailed={stage.kind === 'partial'}
+      onEmailChange={one.setEmail}
+      onSavePlaceChange={one.setSave}
+      onSubmit={() => void send()}
       onNotNow={() => {
+        cancel();
         offer?.dismiss();
-        setOfferEmail(false);
+        setDismissed(true);
       }}
-      onSaveAccess={() => router.push({ pathname: '/j/[code]/save-access', params: { code } })}
       onChangeAnswer={
         plan.acceptingAnswers
           ? () => router.push({ pathname: '/j/[code]', params: { code } })
