@@ -510,9 +510,25 @@ export type Adoption = {
   fields: AdoptionField[];
 };
 
+/** Every Monday from the period's first to the last week with an event, so a silent week is a zero. */
+function weeksOf(result: FounderAnalytics): string[] {
+  const last = result.events.reduce((max, row) => (row.week > max ? row.week : max), result.since);
+  const weeks: string[] = [];
+  for (
+    let day = new Date(`${result.since}T00:00:00Z`);
+    ;
+    day = new Date(day.getTime() + 7 * 86_400_000)
+  ) {
+    const week = day.toISOString().slice(0, 10);
+    if (week > last || weeks.length > 60) break;
+    weeks.push(week);
+  }
+  return weeks;
+}
+
 /** Every event in the catalogue, in its order, with its weekly counts and its splits. */
 export function adoptionOf(result: FounderAnalytics): Adoption[] {
-  const weeks = [...new Set(result.events.map((row) => row.week))].sort();
+  const weeks = weeksOf(result);
   return (Object.keys(catalogue) as EventName[]).map((event) => {
     const rows = result.events.filter((row) => row.event_name === event);
     const byWeek = new Map<string, number>();
@@ -545,6 +561,9 @@ export function isEmpty(result: FounderAnalytics): boolean {
   return (
     result.events.length === 0 &&
     result.north_star.length === 0 &&
-    Object.values(result.counters).every((n) => n === 0)
+    Object.values(result.counters).every((n) => n === 0) &&
+    Object.values(result.gates).every(
+      (g) => (g.denominator ?? 0) === 0 && (g.count ?? 0) === 0 && (g.n ?? 0) === 0,
+    )
   );
 }

@@ -238,6 +238,28 @@ describe('the period', () => {
     expect(sinceFor(90, new Date('2026-10-07T00:00:00Z'))).toBe('2026-07-09');
   });
 
+  it('is not empty when a gate has something to say, and a silent week is a zero', () => {
+    expect(
+      isEmpty({ ...emptyFounderAnalytics, gates: { happened: { numerator: 0, denominator: 5 } } }),
+    ).toBe(false);
+    const row = (week: string) => ({
+      event_name: 'plan_shared',
+      schema_version: 1,
+      week,
+      field: null,
+      value: null,
+      events: 1,
+    });
+    const list = adoptionOf({
+      ...emptyFounderAnalytics,
+      since: '2026-09-07',
+      events: [row('2026-09-07'), row('2026-09-21')],
+    });
+    expect(list.find((a) => a.event === 'plan_shared')?.weeks.map((w) => w.count)).toEqual([
+      1, 0, 1,
+    ]);
+  });
+
   it('knows an empty database', () => {
     expect(isEmpty(emptyFounderAnalytics)).toBe(true);
     expect(isEmpty(founderAnalyticsFixture)).toBe(false);
