@@ -1385,6 +1385,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      founder_analytics: { Args: { p_since: string }; Returns: Json }
       founder_summary: { Args: never; Returns: Json }
       guest_members_for_reattach: {
         Args: { p_short_code: string }
