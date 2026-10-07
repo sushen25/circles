@@ -52,6 +52,7 @@ export function useOwnAnswer(
           ? t('confirmedGuest', 'i_cant_make_it_after_all')
           : t('confirmedGuest', 'i_cant_make_it'),
       onPress: () => attendance.change('cant'),
+      tone: 'plain',
     });
   }
 

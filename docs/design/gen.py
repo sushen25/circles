@@ -46,8 +46,10 @@ BASE_CSS = f"""
     .btn.sec {{ background: {T['surface']}; color: {T['ink2']}; border: 1px solid {T['line']}; }}
     .invert .btn.pri {{ background: {T['invert_accent']}; color: {T['invert']}; }}
     .invert .btn.sec {{ background: transparent; color: {T['invert_ink']}; border: 1px solid {T['invert_line_strong']}; }}
-    .ter {{ display: flex; align-items: center; justify-content: center; min-height: 44px; font-family: Figtree; font-size: 14px; color: {T['ink3']}; text-decoration: underline; text-underline-offset: 3px; }}
-    .invert .ter {{ color: {T['invert_ink3']}; }}
+    .ter {{ display: flex; align-items: center; justify-content: center; align-self: center; min-height: 44px; max-width: 100%; padding: 0 14px; border-radius: 12px; border: 1px solid {T['accent_soft']}; background: {T['accent_soft']}; font-family: Figtree; font-weight: 600; font-size: 14px; color: {T['accent_dark']}; text-align: center; }}
+    .ter.plain {{ background: {T['surface']}; border-color: {T['line']}; color: {T['ink2']}; font-weight: 500; }}
+    .invert .ter {{ background: {T['invert_accent']}29; border-color: {T['invert_accent']}29; color: {T['invert_accent']}; }}
+    .invert .ter.plain {{ background: transparent; border-color: {T['invert_line_strong']}; color: {T['invert_ink2']}; }}
     .card {{ background: {T['surface']}; border: 1px solid {T['line']}; border-radius: 18px; padding: 18px; display: flex; flex-direction: column; gap: 12px; }}
     .card.rec {{ border: 1.5px solid {T['accent']}; }}
     .invert .card {{ background: {T['invert_surface']}; border-color: {T['invert_line']}; }}
@@ -195,7 +197,9 @@ def p(t): return f'<p class="p">{t}</p>'
 def sm(t): return f'<p class="sm">{t}</p>'
 def pri(t): return f'<div class="btn pri">{t}</div>'
 def sec(t): return f'<div class="btn sec">{t}</div>'
-def ter(t): return f'<div class="ter">{t}</div>'
+def ter(t, plain=False):
+    """The quiet action (SUS-168): the soft accent button, or with plain=True the hairline one for letting go."""
+    return f'<div class="ter{" plain" if plain else ""}">{t}</div>'
 def card(*parts, rec=False, gap=12, pad=18):
     return f'<div class="card{" rec" if rec else ""}" style="gap:{gap}px;padding:{pad}px;">' + "\n".join(parts) + '</div>'
 def chips(*items):
@@ -386,7 +390,7 @@ def availability(grid_, panel_, answer_, minh, others=None, count="3 of 14 days"
             between(stack(title("I'm easy"), sm("Count me in for whatever works for most people"), gap=2), '<div class="toggle"><i></i></div>'),
             notice("Your friends will only see a combined result. They won't see your calendar or a personal schedule view.", "eye-off"),
             gap=20) +
-        foot(pri("Send my times"), ter("None of these dates work for me"))
+        foot(pri("Send my times"), ter("None of these dates work for me", plain=True))
     , minh=minh, css=AV_CSS + (OTHERS_CSS if others else ""))
 
 MON = ("Mon 14 Sep", "6:30–10:30 pm")
@@ -514,7 +518,7 @@ S["ConfirmedGuest"] = shell(
              between(stack(title("You're going"), sm("Tap below if that changes"), gap=2), ic("check", 22, T["invert_accent"]))),
         p("Maya says: “Table's booked under my name. Come hungry.”"),
     ) +
-    foot(pri("Add to calendar"), ter("I can't make it after all"))
+    foot(pri("Add to calendar"), ter("I can't make it after all", plain=True))
 , invert=True)
 
 S["WasThere"] = shell(
@@ -643,7 +647,7 @@ S["ConfirmedOrg"] = shell(
              ),
         between(stack(title("5 going · 1 to confirm"), sm("Alex hasn't said yet"), gap=2), marks(["Maya","Priya","Tom","Jess","Sam","Alex"], waiting=("Alex",))),
     ) +
-    foot(pri("Share to group chat"), sec("Add to my calendar"), ter("Edit this plan · Ask for new times · Cancel this plan"))
+    foot(pri("Share to group chat"), sec("Add to my calendar"), f'<div style="display:flex;flex-wrap:wrap;justify-content:center;gap:12px 18px;">' + ter("Edit this plan") + ter("Ask for new times") + ter("Cancel this plan", plain=True) + '</div>')
 , invert=True)
 
 S["NoQuorum"] = shell(
@@ -691,7 +695,7 @@ S["Settings"] = shell(
                    li(marks(["Tom"], large=True), "Tom", "Place saved · joined 4 Sep", right=f'<div class="sm">Remove</div>'), divider(),
                    li(marks(["Jess"], large=True), "Jess", "Place saved · joined 4 Sep", right=f'<div class="sm">Remove</div>'), divider(),
                    li(marks(["Sam"], large=True), "Sam", "Place saved · joined 5 Sep", right=f'<div class="sm">Remove</div>'), gap=0, pad=6), gap=8),
-        ter("Archive this circle"),
+        ter("Archive this circle", plain=True),
         gap=18)
 , minh=980)
 
@@ -778,7 +782,7 @@ sheet = f'''
   <div class="stack" style="gap:4px;">{wordmark()}<div class="sm">Components and type, lifted from the design manifesto v1. Terracotta is reserved for the current action and a member's own choices.</div></div>
   <div style="display:grid;grid-template-columns:repeat(3, minmax(0, 1fr));gap:32px;">
     {sheet_section("Type", dxl("Display XL 40"), dl("Display L 31"), date("Date 24 · Sat 19 Sep"), title("Title 16 · Figtree 600"), p("Body 15 · Figtree 400, line 1.5"), sm("Small 13"), lbl("Label 12 · 0.07em"))}
-    {sheet_section("Buttons", pri("Primary · names the outcome"), sec("Secondary"), ter("Tertiary · quiet, never hidden"), row(mini("Compact · Done", "check", acc=True), mini("Start over", "x"), gap=8), chips("Chip", "*Selected"))}
+    {sheet_section("Buttons", pri("Primary · names the outcome"), sec("Secondary"), ter("Tertiary · the way forward"), ter("Tertiary plain · lets go, never hidden", plain=True), f'<div class="invert" style="display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:14px;background:{T["invert"]};">' + ter("On the inverted ground") + ter("Cancel this plan", plain=True) + '</div>', row(mini("Compact · Done", "check", acc=True), mini("Start over", "x"), gap=8), chips("Chip", "*Selected"))}
     {sheet_section("Marks and notices", row(marks(["Maya","Priya","Tom","Alex"], waiting=("Alex",)), sm("dashed = hasn't answered")), notice("Advisory notice, one sentence.", "shield"), notice("Warn: confirming while someone hasn't replied.", "clock", "warn"), notice("Affirmative only, never a status colour.", "check", "ok"))}
   </div>
   <div style="display:grid;grid-template-columns:repeat(2, minmax(0, 1fr));gap:32px;">
@@ -824,7 +828,7 @@ S["EmailPrefs"] = shell(
         stack(dl("Email preferences"), p("For priya@example.com. No sign-in needed. Changes apply straight away."), gap=8),
         card(between(stack(title("Sunday Crew · Catch up, Thu 17 Sep"), sm("Confirmed time, changes, a reminder and one question after"), gap=2), '<div class="toggle on"><i></i></div>'), gap=0),
         sm("Turning this off stops emails for this meetup only. The plan itself isn't affected."),
-        ter("Remove this email address entirely"),
+        ter("Remove this email address entirely", plain=True),
     )
 )
 
@@ -1180,7 +1184,7 @@ S["ConfirmedGuestMoved"] = shell(
              stack(title("The time moved. Are you coming?"), sm("Let everyone know below"), gap=2)),
         p("Maya says: “Come if you can.”"),
     ) +
-    foot(pri("Add to calendar"), ter("I can make it"), ter("I can't make it"))
+    foot(pri("Add to calendar"), ter("I can make it"), ter("I can't make it", plain=True))
 , invert=True, minh=900)
 
 S["CancelPlan"] = shell(
@@ -1266,8 +1270,8 @@ S["Account"] = shell(
              between(stack(title("Time zone"), sm("Melbourne (AEST)"), gap=2), f'<div class="sm">Change</div>'), divider(),
              between(stack(title("Email"), sm("maya@example.com"), gap=2), ""), gap=0),
         card(li(ic("shield", 22, T["ink2"]), "Privacy", "What we keep, what friends see"), divider(), li(ic("mail", 22, T["ink2"]), "Email preferences", "Meetup updates"), gap=0, pad=6),
-        ter("Sign out"),
-        ter("Delete my account and data"),
+        ter("Sign out", plain=True),
+        ter("Delete my account and data", plain=True),
     )
 )
 
@@ -1299,7 +1303,7 @@ S["SparkWaiting"] = shell(
         card(between(sm("Closes"), title("Fri 11 Sep, 12 pm")), divider(), between(sm("Opens up when"), title("3 of 6 are keen")), gap=8),
         sm("Changed your mind? You can withdraw it and nobody will know it was asked."),
     ) +
-    foot(sec("Back to Sunday Crew"), ter("Withdraw the ask"))
+    foot(sec("Back to Sunday Crew"), ter("Withdraw the ask", plain=True))
 )
 
 S["SparkOpenedMember"] = shell(
@@ -1358,7 +1362,7 @@ S["AvailabilityOverlay"] = shell(
         between(stack(title("I'm easy"), sm("Count me in for whatever works for most people"), gap=2), '<div class="toggle"><i></i></div>'),
         notice("Only the times you paint are sent. Your calendar never leaves this phone.", "eye-off"),
         gap=18) +
-    foot(pri("Send my times"), ter("None of these dates work for me"))
+    foot(pri("Send my times"), ter("None of these dates work for me", plain=True))
 , minh=1120)
 
 S["CalendarDenied"] = shell(
@@ -1443,7 +1447,7 @@ S["ConfirmedGuestNudge"] = shell(
         card(between(stack(title("5 going · 1 to confirm"), sm("Maya, Priya, Tom, Jess, Sam · Alex to confirm"), gap=2), marks(["Maya","Priya","Tom","Jess","Sam","Alex"], waiting=("Alex",)))),
         card(row(ic("clock", 20, T["invert_accent"]), title("Want a nudge on Thursday?")), p("The app sends one reminder two hours before, and nothing else. Or add it to your calendar below."), row(sec("Get the app"), gap=8), gap=10),
     ) +
-    foot(pri("Add to calendar"), ter("I can't make it after all"))
+    foot(pri("Add to calendar"), ter("I can't make it after all", plain=True))
 , invert=True, minh=900)
 
 S["AppSheet"] = shell(

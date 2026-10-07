@@ -151,6 +151,7 @@ export function AvailabilityOverlayScreen({
       <Foot>
         <Button label={t('availabilityOverlay', 'send_my_times')} onPress={onNext} />
         <Tertiary
+          tone="plain"
           label={t('availabilityOverlay', 'none_of_these_dates_work_for_me')}
           onPress={onNoneOfTheseDates}
         />

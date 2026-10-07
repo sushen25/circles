@@ -162,7 +162,11 @@ export function CandidatesMemberScreen({
             <Tertiary label={t('waiting', 'share_the_link_again')} onPress={onShareLink} />
           )}
           {onCancelPlan === undefined ? null : (
-            <Tertiary label={t('confirmedOrg', 'cancel_this_plan')} onPress={onCancelPlan} />
+            <Tertiary
+              tone="plain"
+              label={t('confirmedOrg', 'cancel_this_plan')}
+              onPress={onCancelPlan}
+            />
           )}
         </Foot>
       )}

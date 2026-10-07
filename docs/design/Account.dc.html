@@ -35,8 +35,10 @@
     .btn.sec { background: #FFFFFF; color: #6C6156; border: 1px solid #EAE0D3; }
     .invert .btn.pri { background: #E8A07A; color: #2E241C; }
     .invert .btn.sec { background: transparent; color: #F7F1EA; border: 1px solid #5A4B3E; }
-    .ter { display: flex; align-items: center; justify-content: center; min-height: 44px; font-family: Figtree; font-size: 14px; color: #796D61; text-decoration: underline; text-underline-offset: 3px; }
-    .invert .ter { color: #A89B8D; }
+    .ter { display: flex; align-items: center; justify-content: center; align-self: center; min-height: 44px; max-width: 100%; padding: 0 14px; border-radius: 12px; border: 1px solid #F6E5DC; background: #F6E5DC; font-family: Figtree; font-weight: 600; font-size: 14px; color: #A0431F; text-align: center; }
+    .ter.plain { background: #FFFFFF; border-color: #EAE0D3; color: #6C6156; font-weight: 500; }
+    .invert .ter { background: #E8A07A29; border-color: #E8A07A29; color: #E8A07A; }
+    .invert .ter.plain { background: transparent; border-color: #5A4B3E; color: #CFC3B6; }
     .card { background: #FFFFFF; border: 1px solid #EAE0D3; border-radius: 18px; padding: 18px; display: flex; flex-direction: column; gap: 12px; }
     .card.rec { border: 1.5px solid #C2542F; }
     .invert .card { background: #3A2E25; border-color: #4E4034; }
@@ -88,8 +90,8 @@
 <div class="card" style="gap:0px;padding:6px;"><div class="li"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6C6156" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5 5 6.5v5c0 4.2 3 7.6 7 9 4-1.4 7-4.8 7-9v-5z"/><path d="M9.5 12l1.8 1.8L15 10"/></svg><div class="stack" style="gap:2px;flex-grow:1;"><div class="title">Privacy</div><div class="sm">What we keep, what friends see</div></div><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#796D61" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4.5 15.5 12 8 19.5"/></svg></div>
 <div class="divider"></div>
 <div class="li"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6C6156" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5.5" width="17" height="13" rx="2.5"/><path d="m4 7 8 6 8-6"/></svg><div class="stack" style="gap:2px;flex-grow:1;"><div class="title">Email preferences</div><div class="sm">Meetup updates</div></div><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#796D61" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4.5 15.5 12 8 19.5"/></svg></div></div>
-<div class="ter">Sign out</div>
-<div class="ter">Delete my account and data</div></div>
+<div class="ter plain">Sign out</div>
+<div class="ter plain">Delete my account and data</div></div>
 </div>
 </x-dc>
 </body>

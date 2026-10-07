@@ -208,7 +208,7 @@ All times and counts use `font-variant-numeric: tabular-nums`. Body copy uses `t
 
 - **Primary button.** 54&ndash;56px tall, accent fill, 14px radius, one per screen. Its label names the outcome, not the mechanism.
 - **Secondary.** Same height, white fill, `line` border, `ink-2` label.
-- **Tertiary.** Underlined text, `ink-3`, 44px tap area. Everything destructive or reversible lives here &mdash; quiet, never hidden.
+- **Tertiary.** The quiet action is a button, never an underlined link: the compact 44px button, centred on its line. Two tones. *Accent* (the default) is the `accent-soft` fill with `accent-dark` ink, the same as Done and Undo, for every way forward or correction: Not now, Change my answer, Use my previous times. *Plain* is surface with the hairline border and `ink-2`, for the one action on a screen that lets go of something: None of these dates work for me, Cancel this plan, I can't make it after all. Quiet, never hidden. On the inverted ground, accent is `invert-accent` on a 16% tint of itself and plain is `invert-line-strong` with `invert-ink-2`. A row of them wraps rather than overflowing.
 - **Compact button.** Bordered, sized to its label, optional icon, 44px tall. For secondary actions inside a card or list (Done, Clear these days, Remove day, Start over, Undo), where underlined text at a card's edge reads as a stray link. `accent-soft` fill for the one a panel is waiting on (ADR 0024).
 - **Chip / option.** 42&ndash;46px tall. Selected = accent fill plus a check glyph. Selection is never colour alone.
 - **Card.** `surface` on `line`, 16&ndash;22px radius. The recommended option gets a 1.5px accent border, not a different fill.
@@ -230,7 +230,7 @@ These come from the spec (&sect;10) and are treated as correctness, not polish.
 
 - **WCAG 2.2 AA** for contrast and interaction on mobile web.
 - **Never colour alone.** Every availability state, attendance state and selection carries text or a glyph as well. A painted block is always accompanied by its time range in words.
-- **44&times;44pt minimum** for anything tappable, including tertiary text links.
+- **44&times;44pt minimum** for anything tappable, including the tertiary buttons.
 - **Dynamic type** to at least 200% without hiding a decision action. Layouts are flex/grid with `gap`; nothing is positioned by fixed height alone.
 - **Screen-reader labels** on every date, time and availability control &mdash; the availability grid must be operable and comprehensible without sight of the fill.
 - **Plain, neutral language** for every rejection, expiry and missed-cadence state.

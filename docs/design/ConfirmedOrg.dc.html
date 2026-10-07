@@ -35,8 +35,10 @@
     .btn.sec { background: #FFFFFF; color: #6C6156; border: 1px solid #EAE0D3; }
     .invert .btn.pri { background: #E8A07A; color: #2E241C; }
     .invert .btn.sec { background: transparent; color: #F7F1EA; border: 1px solid #5A4B3E; }
-    .ter { display: flex; align-items: center; justify-content: center; min-height: 44px; font-family: Figtree; font-size: 14px; color: #796D61; text-decoration: underline; text-underline-offset: 3px; }
-    .invert .ter { color: #A89B8D; }
+    .ter { display: flex; align-items: center; justify-content: center; align-self: center; min-height: 44px; max-width: 100%; padding: 0 14px; border-radius: 12px; border: 1px solid #F6E5DC; background: #F6E5DC; font-family: Figtree; font-weight: 600; font-size: 14px; color: #A0431F; text-align: center; }
+    .ter.plain { background: #FFFFFF; border-color: #EAE0D3; color: #6C6156; font-weight: 500; }
+    .invert .ter { background: #E8A07A29; border-color: #E8A07A29; color: #E8A07A; }
+    .invert .ter.plain { background: transparent; border-color: #5A4B3E; color: #CFC3B6; }
     .card { background: #FFFFFF; border: 1px solid #EAE0D3; border-radius: 18px; padding: 18px; display: flex; flex-direction: column; gap: 12px; }
     .card.rec { border: 1.5px solid #C2542F; }
     .invert .card { background: #3A2E25; border-color: #4E4034; }
@@ -85,7 +87,7 @@
 <p class="p">Locked in: Sunday Crew, Thu 17 Sep, 6:30–8:30 pm at Hope St Radio. Details and add-to-calendar: circles.app/p/8k2v</p></div>
 <div class="between"><div class="stack" style="gap:2px;"><div class="title">5 going · 1 to confirm</div><p class="sm">Alex hasn't said yet</p></div><div class="marks"><div class="mark" title="Maya">M</div><div class="mark" title="Priya">P</div><div class="mark" title="Tom">T</div><div class="mark" title="Jess">J</div><div class="mark" title="Sam">S</div><div class="mark wait" title="Alex">A</div></div></div></div><div class="foot"><div class="btn pri">Share to group chat</div>
 <div class="btn sec">Add to my calendar</div>
-<div class="ter">Edit this plan · Ask for new times · Cancel this plan</div></div>
+<div style="display:flex;flex-wrap:wrap;justify-content:center;gap:12px 18px;"><div class="ter">Edit this plan</div><div class="ter">Ask for new times</div><div class="ter plain">Cancel this plan</div></div></div>
 </div>
 </x-dc>
 </body>

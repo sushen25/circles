@@ -284,7 +284,11 @@ export function SettingsScreen({
           </Card>
         </Stack>
         {canManage && !archived ? (
-          <Tertiary label={t('settings', 'archive_this_circle')} onPress={onArchiveThisCircle} />
+          <Tertiary
+            tone="plain"
+            label={t('settings', 'archive_this_circle')}
+            onPress={onArchiveThisCircle}
+          />
         ) : null}
         {canManage && archived ? (
           <Button label={t('settings', 'bring_back')} variant="secondary" onPress={onBringBack} />

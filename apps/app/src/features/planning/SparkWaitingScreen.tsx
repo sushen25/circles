@@ -81,7 +81,11 @@ export function SparkWaitingScreen({
       </Body>
       <Foot>
         <Button label={backLabel} variant="secondary" onPress={onBackToSundayCrew} />
-        <Tertiary label={t('sparkWaiting', 'withdraw_the_ask')} onPress={onWithdrawTheAsk} />
+        <Tertiary
+          tone="plain"
+          label={t('sparkWaiting', 'withdraw_the_ask')}
+          onPress={onWithdrawTheAsk}
+        />
       </Foot>
       {sheet}
     </Screen>

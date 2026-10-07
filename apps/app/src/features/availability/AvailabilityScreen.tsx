@@ -247,6 +247,7 @@ export function AvailabilityScreen({
           disabled={!canSend}
         />
         <Tertiary
+          tone="plain"
           label={t('availability', 'none_of_these_dates_work_for_me')}
           onPress={locked ? undefined : onNoneOfTheseDates}
         />
