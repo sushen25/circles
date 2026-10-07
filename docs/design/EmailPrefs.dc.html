@@ -35,8 +35,10 @@
     .btn.sec { background: #FFFFFF; color: #6C6156; border: 1px solid #EAE0D3; }
     .invert .btn.pri { background: #E8A07A; color: #2E241C; }
     .invert .btn.sec { background: transparent; color: #F7F1EA; border: 1px solid #5A4B3E; }
-    .ter { display: flex; align-items: center; justify-content: center; min-height: 44px; font-family: Figtree; font-size: 14px; color: #796D61; text-decoration: underline; text-underline-offset: 3px; }
-    .invert .ter { color: #A89B8D; }
+    .ter { display: flex; align-items: center; justify-content: center; align-self: center; min-height: 44px; max-width: 100%; padding: 0 14px; border-radius: 12px; border: 1px solid #F6E5DC; background: #F6E5DC; font-family: Figtree; font-weight: 600; font-size: 14px; color: #A0431F; text-align: center; }
+    .ter.plain { background: #FFFFFF; border-color: #EAE0D3; color: #6C6156; font-weight: 500; }
+    .invert .ter { background: #E8A07A29; border-color: #E8A07A29; color: #E8A07A; }
+    .invert .ter.plain { background: transparent; border-color: #5A4B3E; color: #CFC3B6; }
     .card { background: #FFFFFF; border: 1px solid #EAE0D3; border-radius: 18px; padding: 18px; display: flex; flex-direction: column; gap: 12px; }
     .card.rec { border: 1.5px solid #C2542F; }
     .invert .card { background: #3A2E25; border-color: #4E4034; }
@@ -82,7 +84,7 @@
 <div class="top"><div style="width:44px;"></div><div class="t"></div><div style="display:flex;align-items:center;justify-content:flex-end;min-width:44px;height:44px;"><div class="wordmark">Circles</div></div></div><div class="body" style="gap:22px;padding:8px 22px 24px;"><div class="stack" style="gap:8px;"><h1 class="dl">Email preferences</h1><p class="p">For priya@example.com. No sign-in needed. Changes apply straight away.</p></div>
 <div class="card" style="gap:0px;padding:18px;"><div class="between"><div class="stack" style="gap:2px;"><div class="title">Sunday Crew · Catch up, Thu 17 Sep</div><p class="sm">Confirmed time, changes, a reminder and one question after</p></div><div class="toggle on"><i></i></div></div></div>
 <p class="sm">Turning this off stops emails for this meetup only. The plan itself isn't affected.</p>
-<div class="ter">Remove this email address entirely</div></div>
+<div class="ter plain">Remove this email address entirely</div></div>
 </div>
 </x-dc>
 </body>

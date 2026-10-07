@@ -1,9 +1,10 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-import { hit, size } from '@circles/tokens';
+import { color, hit, size } from '@circles/tokens';
 
 import { Button, ButtonRow, CompactButton, Tertiary } from './Button';
+import { InvertProvider } from './theme';
 
 describe('Button', () => {
   it('is a button to a screen reader and calls back when pressed', () => {
@@ -23,8 +24,8 @@ describe('Button', () => {
   });
 
   it('clears the 44pt minimum, primary and tertiary alike', () => {
-    // Tertiary is underlined text; its tap area is the thing that has to be big
-    // enough, not its type (manifesto §6).
+    // The quiet action is a compact button now, so its height is the thing that
+    // has to be big enough, not its type (manifesto §6).
     expect(size.button).toBeGreaterThanOrEqual(hit);
 
     const { container } = render(<Tertiary label="Not this week" onPress={() => undefined} />);
@@ -47,6 +48,52 @@ describe('Button', () => {
     expect(element).toHaveStyle({ 'min-height': `${hit}px` });
     fireEvent.click(screen.getByRole('button', { name: 'Remove Tuesday 15 September' }));
     expect(onPress).toHaveBeenCalledOnce();
+  });
+});
+
+describe('Tertiary, the quiet action (SUS-168)', () => {
+  const view = (node: React.ReactNode, inverted = false) => {
+    const { container } = render(<InvertProvider value={inverted}>{node}</InvertProvider>);
+    return container.firstElementChild as HTMLElement;
+  };
+
+  it('is the soft accent button by default, with no underline', () => {
+    const element = view(<Tertiary label="Not now" onPress={() => undefined} />);
+    expect(element).toHaveStyle({ 'background-color': color.accentSoft, 'min-height': `${hit}px` });
+    expect(screen.getByText('Not now')).toHaveStyle({ color: color.accentDark });
+    expect(screen.getByText('Not now')).not.toHaveStyle({ 'text-decoration-line': 'underline' });
+  });
+
+  it('has a hairline plain tone for the action that lets go', () => {
+    const element = view(<Tertiary tone="plain" label="Cancel this plan" />);
+    expect(element).toHaveStyle({
+      'background-color': color.surface,
+      'border-color': color.line,
+      'min-height': `${hit}px`,
+    });
+    expect(screen.getByText('Cancel this plan')).toHaveStyle({ color: color.ink2 });
+  });
+
+  it('takes the inverted values on the confirmed screen', () => {
+    const accent = view(<Tertiary label="Edit this plan" />, true);
+    expect(accent).toHaveStyle({ 'background-color': `${color.invertAccent}29` });
+    expect(screen.getByText('Edit this plan')).toHaveStyle({ color: color.invertAccent });
+  });
+
+  it('takes the inverted hairline and ink for the plain tone', () => {
+    const plain = view(<Tertiary tone="plain" label="Cancel this plan" />, true);
+    expect(plain).toHaveStyle({
+      'background-color': 'rgba(0, 0, 0, 0)',
+      'border-color': color.invertLineStrong,
+    });
+    expect(screen.getByText('Cancel this plan')).toHaveStyle({ color: color.invertInk2 });
+  });
+
+  it('stays a button named by its label, and does not press when disabled', () => {
+    const onPress = vi.fn();
+    render(<Tertiary label="Not now" disabled onPress={onPress} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Not now' }));
+    expect(onPress).not.toHaveBeenCalled();
   });
 });
 

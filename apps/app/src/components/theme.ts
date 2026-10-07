@@ -25,6 +25,11 @@ export type Palette = {
   label: string;
   /** Outline of a member who has not answered. */
   waiting: string;
+  /** The quiet button's accent tone: its fill and its ink (Done, Undo, Not now). */
+  softFill: string;
+  softInk: string;
+  /** The quiet button's plain tone, the hairline one for letting go. */
+  plainFill: string;
 };
 
 const light: Palette = {
@@ -39,6 +44,9 @@ const light: Palette = {
   onAccent: color.surface,
   label: color.ink3,
   waiting: color.ink3,
+  softFill: color.accentSoft,
+  softInk: color.accentDark,
+  plainFill: color.surface,
 };
 
 const inverted: Palette = {
@@ -53,6 +61,10 @@ const inverted: Palette = {
   onAccent: color.invert,
   label: color.invertAccent,
   waiting: color.invertMarkLine,
+  // The accent on a 16% tint of itself, so it is a tone of the ground, not a patch.
+  softFill: `${color.invertAccent}29`,
+  softInk: color.invertAccent,
+  plainFill: 'transparent',
 };
 
 const InvertContext = createContext(false);

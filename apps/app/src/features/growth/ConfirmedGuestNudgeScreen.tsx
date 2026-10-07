@@ -87,6 +87,7 @@ export function ConfirmedGuestNudgeScreen({
       <Foot>
         <Button label={t('confirmedGuestNudge', 'add_to_calendar')} onPress={onNext} />
         <Tertiary
+          tone="plain"
           label={t('confirmedGuestNudge', 'i_cant_make_it_after_all')}
           onPress={onICantMakeIt}
         />

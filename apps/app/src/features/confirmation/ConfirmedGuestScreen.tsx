@@ -34,7 +34,8 @@ import { ConfirmedPlaceholder, type ConfirmedState } from './parts';
  *
  * Presentational. The flow owns the write, the maps link and the sheet.
  */
-export type AttendanceAction = { label: string; onPress: () => void };
+/** `plain` is the one that lets go ("I can't make it"), the quieter tone (manifesto §5.4). */
+export type AttendanceAction = { label: string; onPress: () => void; tone?: 'plain' };
 
 export type ConfirmedGuestProps = {
   state?: ConfirmedState | undefined;
@@ -117,6 +118,7 @@ export function ConfirmedGuestScreen({
           <Tertiary
             key={action.label}
             label={action.label}
+            tone={action.tone}
             busyLabel={t('confirmedGuest', 'saving')}
             busy={busy}
             onPress={action.onPress}

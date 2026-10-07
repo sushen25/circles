@@ -110,6 +110,7 @@ export function ConfirmedOrgScreen({
               <Tertiary
                 key={action.label}
                 label={action.label}
+                tone={action.tone}
                 busyLabel={t('confirmedGuest', 'saving')}
                 busy={busy}
                 onPress={action.onPress}
@@ -137,7 +138,11 @@ export function ConfirmedOrgScreen({
               <Tertiary label={t('confirmedOrg', 'ask_for_new_times')} onPress={onAskForNewTimes} />
             )}
             {onCancelPlan === undefined ? null : (
-              <Tertiary label={t('confirmedOrg', 'cancel_this_plan')} onPress={onCancelPlan} />
+              <Tertiary
+                tone="plain"
+                label={t('confirmedOrg', 'cancel_this_plan')}
+                onPress={onCancelPlan}
+              />
             )}
           </ButtonRow>
         )}

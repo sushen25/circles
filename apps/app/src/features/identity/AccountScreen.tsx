@@ -146,6 +146,7 @@ export function AccountScreen({
           />
         </Card>
         <Tertiary
+          tone="plain"
           label={t('account', 'sign_out')}
           busyLabel={t('account', 'signing_out')}
           busy={busy && !editingName}

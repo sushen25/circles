@@ -97,7 +97,11 @@ export function EditPlanScreen(props: EditPlanProps) {
         />
         <Tertiary label={t('editPlan', 'keep_the_plan_as_it_is')} onPress={props.onKeepThePlanAs} />
         {props.onCancelPlan === undefined ? null : (
-          <Tertiary label={t('confirmedOrg', 'cancel_this_plan')} onPress={props.onCancelPlan} />
+          <Tertiary
+            tone="plain"
+            label={t('confirmedOrg', 'cancel_this_plan')}
+            onPress={props.onCancelPlan}
+          />
         )}
       </Foot>
       {props.sheets}

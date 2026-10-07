@@ -190,6 +190,7 @@ export function EmailPrefsScreen({
           </Card>
         ) : (
           <Tertiary
+            tone="plain"
             label={t('emailPrefs', 'remove_this_email_address_entirely')}
             onPress={onRemove}
           />

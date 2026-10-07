@@ -36,6 +36,7 @@ import {
   TopBar,
   Track,
 } from '../../src/components';
+import { InvertProvider } from '../../src/components/theme';
 
 /**
  * Every component in one place, so a change can be eyeballed against
@@ -99,7 +100,14 @@ export default function ComponentsScreen() {
         <Section label="Buttons">
           <Button label="Primary · names the outcome" />
           <Button label="Secondary" variant="secondary" />
-          <Tertiary label="Tertiary · quiet, never hidden" />
+          <Tertiary label="Tertiary · the way forward" />
+          <Tertiary tone="plain" label="Tertiary plain · lets go, never hidden" />
+          <View style={styles.inverted}>
+            <InvertProvider value>
+              <Tertiary label="Not now" />
+              <Tertiary tone="plain" label="Cancel this plan" />
+            </InvertProvider>
+          </View>
           <Chips>
             <CompactButton label="Compact · Done" icon="check" tone="accent" />
             <CompactButton label="Start over" icon="x" />
@@ -326,6 +334,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+  },
+  inverted: {
+    backgroundColor: color.invert,
+    borderRadius: 18,
+    padding: 18,
+    gap: 10,
   },
   grow: {
     flex: 1,
