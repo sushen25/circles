@@ -101,6 +101,29 @@ describe('the organiser', () => {
     );
   });
 
+  it('SUS-169: the plan actions sit with the plan, and the footer keeps share and the calendar', async () => {
+    show(<ConfirmedFlow target={{ planId: 'thu-17' }} />);
+    const edit = await screen.findByRole('button', { name: 'Edit this plan' });
+    const ask = screen.getByRole('button', { name: 'Ask for new times' });
+    const cancel = screen.getByRole('button', { name: 'Cancel this plan' });
+    const paste = screen.getByText('Ready to paste into the group chat');
+    const share = screen.getByRole('button', { name: 'Share to group chat' });
+    const calendar = screen.getByRole('button', { name: 'Add to my calendar' });
+    const decline = screen.getByRole('button', { name: "I can't make it after all" });
+    const follows = (a: HTMLElement, b: HTMLElement) =>
+      Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+
+    for (const action of [edit, ask, cancel]) {
+      expect(follows(action, paste)).toBe(true);
+      expect(follows(action, share)).toBe(true);
+    }
+    expect(follows(decline, share)).toBe(true);
+    expect(follows(share, calendar)).toBe(true);
+    expect(
+      screen.getAllByRole('button', { name: /Share to group chat|Add to my calendar/ }),
+    ).toHaveLength(2);
+  });
+
   it("edits the plan, asks for new times or cancels, by the plan's own circle", async () => {
     // From the plan link too, which has no circle in its route (SUS-42).
     show(<ConfirmedFlow target={{ code: 'pnsundaycr' }} />);

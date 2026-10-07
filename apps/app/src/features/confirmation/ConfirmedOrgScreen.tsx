@@ -32,6 +32,10 @@ import type { ConfirmedView } from './confirmed';
  * is on the screen whole — the same text the share sheet gets — with who is
  * coming and who has still to say under it.
  *
+ * The plan's own actions (edit, ask for new times, cancel) sit under the plan's
+ * facts and scroll away; the footer keeps the decision: share and calendar
+ * (SUS-169, as SUS-161 did for Options).
+ *
  * Presentational. The words come from `confirmed.ts`; the flow owns sharing,
  * the calendar sheet and navigation.
  */
@@ -92,6 +96,28 @@ export function ConfirmedOrgScreen({
           <BodyText>{view.timePlace}</BodyText>
           {view.zoneNote === undefined ? null : <Small>{view.zoneNote}</Small>}
           {view.movedFrom === undefined ? null : <Small>{view.movedFrom}</Small>}
+          {onEditPlan === undefined &&
+          onAskForNewTimes === undefined &&
+          onCancelPlan === undefined ? null : (
+            <ButtonRow>
+              {onEditPlan === undefined ? null : (
+                <Tertiary label={t('confirmedOrg', 'edit_this_plan')} onPress={onEditPlan} />
+              )}
+              {onAskForNewTimes === undefined ? null : (
+                <Tertiary
+                  label={t('confirmedOrg', 'ask_for_new_times')}
+                  onPress={onAskForNewTimes}
+                />
+              )}
+              {onCancelPlan === undefined ? null : (
+                <Tertiary
+                  tone="plain"
+                  label={t('confirmedOrg', 'cancel_this_plan')}
+                  onPress={onCancelPlan}
+                />
+              )}
+            </ButtonRow>
+          )}
         </Stack>
         <Card>
           <Label>{t('confirmedOrg', 'ready_to_paste_into_the_group_chat')}</Label>
@@ -127,25 +153,6 @@ export function ConfirmedOrgScreen({
           variant="secondary"
           onPress={onAddToCalendar}
         />
-        {onEditPlan === undefined &&
-        onAskForNewTimes === undefined &&
-        onCancelPlan === undefined ? null : (
-          <ButtonRow center>
-            {onEditPlan === undefined ? null : (
-              <Tertiary label={t('confirmedOrg', 'edit_this_plan')} onPress={onEditPlan} />
-            )}
-            {onAskForNewTimes === undefined ? null : (
-              <Tertiary label={t('confirmedOrg', 'ask_for_new_times')} onPress={onAskForNewTimes} />
-            )}
-            {onCancelPlan === undefined ? null : (
-              <Tertiary
-                tone="plain"
-                label={t('confirmedOrg', 'cancel_this_plan')}
-                onPress={onCancelPlan}
-              />
-            )}
-          </ButtonRow>
-        )}
       </Foot>
     </Screen>
   );
