@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, View, type PressableProps } from 'react-native';
 
-import { color, faceFor, hit, radius } from '@circles/tokens';
+import { faceFor, hit, radius } from '@circles/tokens';
 
 import { SPINNER, Slow, Words, shared, useBusy, type BusyProps } from './busyParts';
 import { Icon, type IconName } from './Icon';
@@ -16,9 +16,9 @@ type CompactProps = Omit<PressableProps, 'children' | 'style'> &
      * `accent` for a way forward or a correction: "Done", "Undo", "Not now".
      * `plain` for the one action that lets go of something: "Cancel this plan".
      */
-    tone?: 'plain' | 'accent';
+    tone?: 'plain' | 'accent' | undefined;
     /** Sit in the middle of the line, as a quiet action under a primary does. */
-    centered?: boolean;
+    centered?: boolean | undefined;
   };
 
 /**
