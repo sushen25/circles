@@ -13,7 +13,7 @@
 -- is a count of this file's scenario.
 
 begin;
-select plan(46);
+select plan(48);
 
 create or replace function pg_temp.make_user(id uuid, name text, permanent boolean default true)
 returns uuid language sql as $$
@@ -203,6 +203,13 @@ select gen_random_uuid(), 'probe_event', 1,
        jsonb_build_object('shade', 'tone_' || chr(96 + n)), pg_temp.at(1, '12:00')
 from generate_series(1, 12) n;
 
+-- `code` is an enum in exactly one event; anywhere else it is a short code.
+insert into analytics.events (event_id, event_name, schema_version, properties, occurred_at)
+values
+  (gen_random_uuid(), 'email_delivery_result', 1, '{"code": "bounced"}', pg_temp.at(1, '12:00')),
+  (gen_random_uuid(), 'email_delivery_result', 1, '{"code": "delivered"}', pg_temp.at(1, '12:00')),
+  (gen_random_uuid(), 'probe_event', 1, '{"code": "pnanaa"}', pg_temp.at(1, '12:00'));
+
 -- The quiet ask's two unattributed events: counts, and nothing a row of them
 -- carries, even if it carried something.
 insert into analytics.events (event_id, event_name, schema_version, properties, occurred_at)
@@ -275,6 +282,16 @@ select is(
   'and neither is the field it came in: identifiers, hashes, references and a field of thirteen words are excluded in SQL'
 );
 
+select is(
+  (select array_agg(value order by value) from pg_temp.rows('email_delivery_result', pg_temp.d(0)) where field = 'code'),
+  array['bounced', 'delivered'],
+  'the delivery result splits by its enum, which is a code the catalogue declares'
+);
+select is(
+  (select count(*)::int from pg_temp.rows('probe_event', pg_temp.d(0)) where field = 'code'),
+  0,
+  'while a code on any other event is a short code and is not split'
+);
 select is(
   (select array_agg(field order by field nulls first) from pg_temp.rows('quiet_ask_created', pg_temp.d(0))),
   array[null::text],
@@ -397,13 +414,13 @@ insert into public.plan_responses (plan_id, revision, user_id, status, submitted
 select p.id, p.revision, '00000000-0000-0000-0000-0000000f0002', 'flexible', pg_temp.at(5, '10:00'), pg_temp.at(5, '10:00')
 from public.plans p where p.short_code = 'fapaab';
 select is(
-  (select array[answered, unchased] from analytics.gate_unchased where day = pg_temp.d(2)),
-  array[1::bigint, 1::bigint],
-  'chasing, in members: the organiser said they chased nobody, so the one member who had answered was not chased'
+  (select array[members, unchased] from analytics.gate_unchased where day = pg_temp.d(2)),
+  array[3::bigint, 1::bigint],
+  'chasing, in members: of three the plan asked, one answered and the organiser chased nobody, so one answered unchased, and the two who did not answer are in the denominator'
 );
 select is(
-  (select array[answered, unchased] from analytics.gate_unchased where day = pg_temp.d(9)),
-  array[1::bigint, 0::bigint],
+  (select array[members, unchased] from analytics.gate_unchased where day = pg_temp.d(9)),
+  array[3::bigint, 0::bigint],
   'and where they said they chased one of the one who answered, nobody counts as having answered unchased'
 );
 select is(

@@ -36,7 +36,8 @@
 --   * `circle_id`, `plan_id` and anything else that is an identifier is a key
 --     the catalogue lets a payload carry (`identifiers` in analytics.ts), and a
 --     breakdown by one is a breakdown by circle or by plan.
---   * `build`, `route` and `reference` are `client_error`'s strings; the build
+--   * `build`, `route`, `reference`, `token` and (outside the one event whose
+--     `code` is an enum) `code` are strings that are not enums; the build
 --     is a commit hash and the reference is what a person reads out. Neither is
 --     an enum, and a lower-case hash would otherwise pass the shape test below.
 --   * The shape test: a boolean, or a string of lower-case letters and
@@ -64,7 +65,10 @@ with usable as (
   cross join lateral jsonb_each(e.properties) kv
   where e.event_name not in ('quiet_ask_created', 'quiet_interest_answered')
     and kv.key !~ '(^|_)id$'
-    and kv.key not in ('build', 'route', 'reference', 'token', 'code')
+    and kv.key not in ('build', 'route', 'reference', 'token')
+    -- A `code` is a short code in a link or an emailed one unless the catalogue
+    -- says it is an enum: `email_delivery_result`'s is, the one place it is.
+    and (kv.key <> 'code' or e.event_name = 'email_delivery_result')
     and (
       jsonb_typeof(kv.value) = 'boolean'
       or (jsonb_typeof(kv.value) = 'string' and (kv.value #>> '{}') ~ '^[a-z][a-z_]{0,23}$')
@@ -122,15 +126,16 @@ group by 1;
 
 -- "At least 60% of members respond without one-to-one chasing (survey)": the
 -- organiser's answer at confirmation (`chased_answer`), turned into members. The
--- members are the ones who had answered the plan by then. `none` is all of them
--- unchased; `one` is all but one; `more` ("several", and the survey cannot say
--- how many) counts as all of them chased. So the share is a floor: a gate read
--- "met" off it is met, and one read "not met" may be better than it looks.
--- Day: the confirmation.
+-- denominator is the members the plan asked (`plan_participants`), whether or not
+-- they answered. The numerator is those who answered and were not chased: `none`
+-- is every one who answered; `one` is all but one of them; `more` ("several", and
+-- the survey cannot say how many) counts as all of them chased. So the share is a
+-- floor: a gate read "met" off it is met, and one read "not met" may be better
+-- than it looks. Day: the confirmation.
 create view analytics.gate_unchased as
 select
   mc.confirmed_at::date as day,
-  sum(r.responders)::bigint as answered,
+  sum(r.members)::bigint as members,
   sum(
     case mc.chased_answer
       when 'none' then r.responders
@@ -140,9 +145,11 @@ select
   )::bigint as unchased
 from public.meetup_confirmations mc
 cross join lateral (
-  select count(*) as responders
-  from public.plan_responses pr
-  where pr.plan_id = mc.plan_id and pr.revision = mc.revision
+  select
+    (select count(*) from public.plan_participants pp
+      where pp.plan_id = mc.plan_id and pp.revision = mc.revision) as members,
+    (select count(*) from public.plan_responses pr
+      where pr.plan_id = mc.plan_id and pr.revision = mc.revision) as responders
 ) r
 where mc.chased_answer is not null
 group by 1;
@@ -451,7 +458,7 @@ begin
         from analytics.gate_circles_confirm where day >= v_from),
       'unchased', (
         select jsonb_build_object(
-          'numerator', coalesce(sum(unchased), 0)::int, 'denominator', coalesce(sum(answered), 0)::int)
+          'numerator', coalesce(sum(unchased), 0)::int, 'denominator', coalesce(sum(members), 0)::int)
         from analytics.gate_unchased where day >= v_from),
       'response_time', (
         select jsonb_build_object(

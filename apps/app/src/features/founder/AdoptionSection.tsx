@@ -69,9 +69,11 @@ function Rates({ data }: { data: FounderAnalytics }) {
       {rates.map((rate) => {
         const label =
           (copy.founderAnalytics as Record<string, string>)[`rate_${rate.id}`] ?? rate.id;
+        const note = (copy.founderAnalytics as Record<string, string>)[`rate_${rate.id}_note`];
         return (
           <Stack key={rate.id} gap={2}>
             <Small>{label}</Small>
+            {note === undefined ? null : <Small>{note}</Small>}
             <Small>
               {rate.value === null
                 ? t('founderAnalytics', 'rate_none')

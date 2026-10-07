@@ -1125,7 +1125,7 @@ export const en = {
     gate_unchased_measure: 'Members who answered without being chased',
     gate_unchased_target: 'at least 60%',
     gate_unchased_note:
-      'Members who had answered, from the organiser\'s answer at confirmation. "Several chased" counts as all of them, so this is a floor.',
+      'Of the members the plan asked, those who answered and were not chased, from the organiser\'s answer at confirmation. "Several chased" counts as all of them, so this is a floor.',
     gate_response_time_measure: 'Median wait from opening the link to answering',
     gate_response_time_target: 'under 2 minutes, aiming for under 60 seconds',
     gate_response_time_note: 'Only answers with a recorded link open before them.',
@@ -1214,6 +1214,8 @@ export const en = {
     adoption_quiet: 'Not sent in this period',
     rates: 'Rates',
     rate_previous_times_used: 'Previous times used when offered',
+    rate_previous_times_used_note:
+      'An opening whose read had not settled in time records no offer, yet a use after it still counts, so a slow read can push this above 100%.',
     rate_flexible_answers: 'Answers that were flexible',
     rate_of: '{label} · {count} of {total}',
     rate_none: 'Nothing to measure yet',
