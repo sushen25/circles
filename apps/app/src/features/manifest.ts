@@ -294,6 +294,11 @@ const SCREENS: ScreenEntry[] = [
     href: '/settings/diagnostics',
   },
   {
+    screen: 'FounderAnalytics',
+    feature: 'founder',
+    href: '/founder/analytics',
+  },
+  {
     screen: 'SparkSetup',
     feature: 'planning',
     href: '/circles/sunday-crew/quiet/new',
