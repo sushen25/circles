@@ -1134,7 +1134,7 @@ export const en = {
     gate_reattach_measure: 'Returns without a session that got back in',
     gate_reattach_target: 'at least 80%',
     gate_reattach_note:
-      'Returns with no session, and those who got back in from the list. Emailed links are counted apart.',
+      'Returns with no session, and those who got back in from the list. The two are counted, not matched, so one who still had a session counts too and this can only overstate. Emailed links are counted apart.',
     gate_second_meetup_measure: 'Groups that started a second meetup',
     gate_second_meetup_target: 'at least one',
     gate_other_organiser_measure: 'Plans organised by someone other than the owner',
@@ -1144,7 +1144,7 @@ export const en = {
     gate_email_verified_measure: 'Guests who gave an email and verified it',
     gate_email_verified_target: 'at least half',
     gate_email_verified_note:
-      'Guests who chose a route, confirmed by the link or by the code. A confirmation on another device is not matched, so this is a floor.',
+      'Guests who chose a route, confirmed by the link or by the code. A confirmation on another device, or one that signs in to an existing account, is not matched, so this is a floor.',
     gate_confirm_in_week_measure: 'Circles that confirmed a meetup within seven days',
     gate_confirm_in_week_target: 'at least 50%',
     gate_another_in_cadence_measure: 'Successful circles that planned another within their cadence',

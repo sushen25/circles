@@ -194,7 +194,10 @@ group by 1;
 -- screen (`source = 'list'`), which is the path a return with no session takes
 -- and where `session_missing_on_return` is recorded. The emailed-link route
 -- (`source = 'email'`) starts from a letter, not from a return, so it is in
--- neither half. Neither route involves the owner.
+-- neither half. Neither route involves the owner. The two halves are counted and
+-- not matched (a browser with no session has no identity to match on), so a
+-- reattachment by somebody who still had a session counts too: the share can
+-- only overstate, and the screen says so.
 create view analytics.gate_reattach as
 select
   e.occurred_at::date as day,
@@ -243,7 +246,8 @@ group by 1;
 -- the same one confirming afterwards, by the emailed link (`email_verified`) or,
 -- on the save-my-place route, by typing the code back (`account_claimed`). A
 -- confirmation on another device is not matched, so the share is a floor and
--- never a ceiling. Day: the submission.
+-- never a ceiling. (So is one that signs in to an existing account: the claim
+-- is then that account's id, not the guest's.) Day: the submission.
 create view analytics.gate_email_verified as
 with submitted as (
   select coalesce(e.user_id::text, e.anonymous_id) as actor, min(e.occurred_at) as at
