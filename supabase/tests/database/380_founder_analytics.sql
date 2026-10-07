@@ -405,6 +405,18 @@ select is(
   array[2::bigint, 1::bigint],
   'every test circle confirms a meetup: two were made that day and one did'
 );
+-- A time that was moved leaves a superseded confirmation with the same answer
+-- copied into its replacement: one survey, not two (the chasing assertions that
+-- follow would read it twice).
+insert into public.meetup_confirmations (
+  plan_id, revision, candidate_id, starts_at, ends_at, available_user_ids, confirmed_by, status,
+  confirmed_at, superseded_at, superseded_reason, chased_answer
+)
+select mc.plan_id, mc.revision, mc.candidate_id, mc.starts_at - interval '1 day', mc.ends_at - interval '1 day',
+       mc.available_user_ids, mc.confirmed_by, 'superseded', mc.confirmed_at + interval '1 hour',
+       mc.confirmed_at + interval '2 hours', 'move', mc.chased_answer
+from public.meetup_confirmations mc where mc.id = :'first_meetup';
+
 -- Two members answered the first plan, and one the second.
 insert into public.plan_responses (plan_id, revision, user_id, status, submitted_at, created_at)
 select p.id, p.revision, u, 'flexible', pg_temp.at(1, '10:02'), pg_temp.at(1, '10:02')

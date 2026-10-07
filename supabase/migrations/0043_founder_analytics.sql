@@ -143,7 +143,15 @@ select
       else 0
     end
   )::bigint as unchased
-from public.meetup_confirmations mc
+from (
+  -- One survey per plan revision: moving a locked-in time supersedes the
+  -- confirmation and copies the answer into its replacement, and it is the
+  -- same answer about the same members.
+  select distinct on (c.plan_id, c.revision) c.*
+  from public.meetup_confirmations c
+  where c.chased_answer is not null
+  order by c.plan_id, c.revision, c.confirmed_at desc
+) mc
 cross join lateral (
   select
     (select count(*) from public.plan_participants pp
