@@ -186,6 +186,24 @@ describe('who gets it', () => {
     expect(fetchFounderAnalytics).not.toHaveBeenCalled();
   });
 
+  it('never shows one account the numbers it fetched for another', async () => {
+    fetchFounderAnalytics.mockResolvedValue(founderAnalyticsFixture);
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const tree = () => (
+      <QueryClientProvider client={client}>
+        <AnalyticsFlow />
+      </QueryClientProvider>
+    );
+    const { rerender } = render(tree());
+    await waitFor(() => expect(screen.getByText('North star')).toBeTruthy());
+
+    // Somebody else signs in on this tab, and their answer has not arrived.
+    session.userId = 'outsider';
+    fetchFounderAnalytics.mockReturnValue(new Promise(() => undefined));
+    rerender(tree());
+    await waitFor(() => expect(screen.queryByText('North star')).toBeNull());
+  });
+
   it('waits for the session before it decides', () => {
     session.isLoading = true;
     wrap(<AnalyticsFlow />);

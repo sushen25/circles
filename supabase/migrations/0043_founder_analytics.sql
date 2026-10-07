@@ -307,14 +307,30 @@ from public.circles c
 join analytics.circle_activation a on a.circle_id = c.id and a.within_7_days
 group by 2
 union all
-select 'answers', r.created_at::date, count(*)
-from public.plan_responses r group by 2
+-- A member's first answer in a circle, once: "join-link opens → joins → first
+-- response" (§11.2). Counting every answer would let one person who answers two
+-- plans be two first responses.
+select 'answers', f.first_at::date, count(*)
+from (
+  select p.circle_id, r.user_id, min(r.created_at) as first_at
+  from public.plan_responses r
+  join public.plans p on p.id = r.plan_id
+  group by p.circle_id, r.user_id
+) f
+group by 2
 union all
 select 'plans_created', p.created_at::date, count(*)
 from public.plans p group by 2
 union all
-select 'plans_confirmed', mc.confirmed_at::date, count(distinct mc.plan_id)
-from public.meetup_confirmations mc group by 2
+-- A plan on the day it was first confirmed, once: one reopened and confirmed
+-- again on another day is still one plan decided.
+select 'plans_confirmed', f.first_at::date, count(*)
+from (
+  select mc.plan_id, min(mc.confirmed_at) as first_at
+  from public.meetup_confirmations mc
+  group by mc.plan_id
+) f
+group by 2
 union all
 select 'reported_happened', o.reported_at::date, count(distinct o.confirmation_id)
 from public.outcome_reports o where o.outcome = 'happened' group by 2

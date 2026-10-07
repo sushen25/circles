@@ -4,7 +4,7 @@ import {
   sinceFor,
   type FounderPeriod,
 } from '@circles/contracts';
-import { keepPreviousData, useQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
 
@@ -54,7 +54,11 @@ function LiveAnalytics() {
     enabled: signedIn,
     staleTime: 0,
     retry: (count, error) => !(error instanceof NotFounderError) && count < 2,
-    placeholderData: keepPreviousData,
+    // The last period's numbers while the next arrives, and only for the same
+    // person: another account signing in on this tab must not be shown the
+    // previous one's answer while its own is on the way (review round 1).
+    placeholderData: (previous, previousQuery) =>
+      previousQuery?.queryKey[1] === session.userId ? previous : undefined,
   });
   const reference = useMemo(
     () =>
