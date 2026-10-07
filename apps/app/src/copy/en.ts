@@ -1076,7 +1076,8 @@ export const en = {
     // Neutral on purpose: it is on screen while the allowlist is still being asked,
     // and must not tell anybody else the route exists.
     loading: 'Getting things ready',
-    error_title: "We couldn't load the numbers.",
+    // Neutral, like the wait: a failure can come before the allowlist has answered.
+    error_title: "We couldn't load this page.",
     offline_title: "You're offline. Connect, then try again.",
     try_again: 'Try again',
     reference: 'Ref {reference}',

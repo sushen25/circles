@@ -140,9 +140,10 @@ describe('the other states', () => {
 
   it('gives an error a reference to read out, and a way to try again', () => {
     render(<AnalyticsScreen state="error" reference="K7QM2XAB" />);
-    expect(screen.getByText("We couldn't load the numbers.")).toBeTruthy();
+    expect(screen.getByText("We couldn't load this page.")).toBeTruthy();
     expect(screen.getByText('Ref K7QM2XAB')).toBeTruthy();
     expect(screen.getByText('Try again')).toBeTruthy();
+    expect(screen.queryByText('Founder tools')).toBeNull();
   });
 
   it('says it is offline when it is', () => {

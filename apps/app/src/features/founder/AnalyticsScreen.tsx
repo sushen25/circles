@@ -84,7 +84,7 @@ export function AnalyticsScreen({
   if (state === 'error' || state === 'offline') {
     return (
       <Screen>
-        <TopBar title={title} onBack={onBack} backLabel={t('common', 'back')} />
+        <TopBar onBack={onBack} backLabel={t('common', 'back')} />
         <Body>
           <DisplayL>
             {state === 'offline'

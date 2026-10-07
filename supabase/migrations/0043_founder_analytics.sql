@@ -388,6 +388,10 @@ from (
   select p.circle_id, r.user_id, min(r.created_at) as first_at
   from public.plan_responses r
   join public.plans p on p.id = r.plan_id
+  join public.circles c on c.id = p.circle_id
+  -- Not the owner, who made the circle rather than joined it and is not one of
+  -- the joins this step is a share of.
+  where r.user_id <> c.owner_user_id
   group by p.circle_id, r.user_id
 ) f
 group by 2
