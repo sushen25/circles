@@ -13,7 +13,7 @@
 -- is a count of this file's scenario.
 
 begin;
-select plan(49);
+select plan(51);
 
 create or replace function pg_temp.make_user(id uuid, name text, permanent boolean default true)
 returns uuid language sql as $$
@@ -434,6 +434,16 @@ select is(
   'and one that is over and was not reported is counted as one that did not'
 );
 
+-- And one the organiser moved outside the app is in neither number.
+select pg_temp.meetup('fapaad', '00000000-0000-0000-0000-0000000f0001', pg_temp.d(1), pg_temp.d(6), null) as fourth_meetup \gset
+insert into public.outcome_reports (confirmation_id, reported_by, outcome, reported_at)
+values (:'fourth_meetup', '00000000-0000-0000-0000-0000000f0001', 'moved_outside', pg_temp.at(7, '09:00'));
+select is(
+  (select count(*)::int from analytics.gate_happened where day = pg_temp.d(6)),
+  0,
+  'a meetup moved outside the app is neither failure nor success'
+);
+
 -- A meetup reported as not having happened stays in the denominator.
 select pg_temp.meetup('fapaac', '00000000-0000-0000-0000-0000000f0001', pg_temp.d(1), pg_temp.d(3), null) as third_meetup \gset
 insert into public.outcome_reports (confirmation_id, reported_by, outcome, reported_at)
@@ -482,11 +492,25 @@ select is(
   1::bigint,
   'a group that made another plan after its first meetup was confirmed has started a second meetup'
 );
+-- Started by Priya, as the creation's own event says; Maya's was started by Maya.
+select jobs.emit('planning.plan_created', 'plan', p.id,
+  jsonb_build_object('organiser_user_id', case p.short_code
+    when 'fapaab' then '00000000-0000-0000-0000-0000000f0002' else '00000000-0000-0000-0000-0000000f0001' end))
+from public.plans p where p.short_code in ('fapaaa', 'fapaab');
 select is(
   (select plans from analytics.gate_other_organiser where day = pg_temp.d(7)),
   1::bigint,
-  'and that plan was organised by somebody other than the owner'
+  'and that plan was started by somebody other than the owner'
 );
+-- Handed off afterwards, Maya's plan is organised by Priya and was not started by her.
+update public.plans set organiser_user_id = '00000000-0000-0000-0000-0000000f0002' where short_code = 'fapaaa';
+select is(
+  (select count(*)::int from analytics.gate_other_organiser where day = pg_temp.d(0)),
+  0,
+  'a plan the owner started and handed off is not somebody else starting one'
+);
+update public.plans set organiser_user_id = '00000000-0000-0000-0000-0000000f0001' where short_code = 'fapaaa';
+
 select is(
   (select count(*)::int from analytics.gate_other_organiser where day = pg_temp.d(0)),
   0,
@@ -548,7 +572,7 @@ from public.meetup_confirmations mc where mc.id = :'first_meetup';
 select is(
   (select array_agg(day order by day) from analytics.funnel_counts
    where counter = 'plans_confirmed' and day between pg_temp.d(0) and pg_temp.d(9)),
-  array[pg_temp.d(2), pg_temp.d(3), pg_temp.d(9)],
+  array[pg_temp.d(2), pg_temp.d(3), pg_temp.d(6), pg_temp.d(9)],
   'a plan confirmed again on another day is counted on the day it was first confirmed, once'
 );
 select is(
