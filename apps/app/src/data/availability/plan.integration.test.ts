@@ -205,3 +205,44 @@ describe('an answer an edit cleared (SUS-130)', () => {
     expect(await card()).toBe(false);
   });
 });
+
+describe('previous times (SUS-159)', () => {
+  it('are read through the function, as the signed-in person alone, and as text', async () => {
+    const { owner, circleId, planId, code } = await organiserWithPlan();
+    const ren = await joins(code, 'Ren');
+    const alex = await joins(code, 'Alex');
+    const idOf = async (who: SupabaseClient) => (await who.auth.getUser()).data.user!.id;
+    const organiser = await idOf(owner);
+    const [earlier, renRow, alexRow] = [key(), key(), key()];
+    const shortCode = `p${earlier.replace(/[^2-9a-f]/g, '').slice(0, 8)}`;
+
+    // An earlier plan in the circle, answered with times: Ren on a Thursday
+    // evening, Alex on a Saturday morning. Written as the database holds
+    // them, since no client may write another plan's answers.
+    sql(
+      stack,
+      `insert into public.plans (id, circle_id, mode, state, organiser_user_id, title, time_zone,
+         window_start, window_end, daily_start_local, daily_end_local, duration_minutes, quorum,
+         response_deadline, short_code)
+       values ('${earlier}', '${circleId}', 'named', 'cancelled',
+         '${organiser}', 'Earlier', 'Australia/Melbourne', '2099-08-13', '2099-08-16', 0, 1440, 60, 2,
+         timestamptz '2099-08-13T00:00:00+10', '${shortCode}');
+       insert into public.plan_responses (id, plan_id, revision, user_id, status) values
+         ('${renRow}', '${earlier}', 1, '${await idOf(ren)}', 'windows'),
+         ('${alexRow}', '${earlier}', 1, '${await idOf(alex)}', 'windows');
+       insert into public.willing_windows (response_id, starts_at, ends_at) values
+         ('${renRow}', timestamptz '2099-08-13T18:00:00+10', timestamptz '2099-08-13T20:00:00+10'),
+         ('${alexRow}', timestamptz '2099-08-15T09:00:00+10', timestamptz '2099-08-15T11:00:00+10');`,
+    );
+
+    const { usualTimes } = await import('./usual');
+    // The plan being answered asks about evenings, weekday and weekend.
+    expect(await as(ren, () => usualTimes(planId))).toEqual(['weekday_evening']);
+    // Alex offered a Saturday morning, which this plan does not ask about,
+    // and never sees Ren's Thursday evening.
+    expect(await as(alex, () => usualTimes(planId))).toEqual([]);
+    // Somebody who answered nothing is offered nothing.
+    const sam = await joins(code, 'Sam');
+    expect(await as(sam, () => usualTimes(planId))).toEqual([]);
+  });
+});

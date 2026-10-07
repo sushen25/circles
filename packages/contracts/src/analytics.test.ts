@@ -306,11 +306,44 @@ describe('availability_others_read (SUS-129)', () => {
     ]);
   });
 
-  it('leaves availability_started as it was, sent as the editor opens', () => {
+  it('leaves availability_started sent as the editor opens: its one flag is optional', () => {
     expect(Object.keys(catalogue.availability_started.payload.shape).sort()).toEqual([
       'circle_id',
       'plan_id',
+      'usual_offered',
     ]);
+    expect(validateEvent('availability_started', { plan_id: PLAN_ID })).not.toBeNull();
+  });
+});
+
+describe('the previous-times flags (SUS-159)', () => {
+  it('accepts a boolean on the start and on the submit, and nothing else', () => {
+    expect(
+      validateEvent('availability_started', { plan_id: PLAN_ID, usual_offered: true }),
+    ).toEqual({
+      name: 'availability_started',
+      version: 1,
+      properties: { plan_id: PLAN_ID, usual_offered: true },
+    });
+    expect(
+      validateEvent('availability_submitted', { status: 'windows', usual_used: false }),
+    ).not.toBeNull();
+    expect(validateEvent('availability_started', { usual_offered: 'yes' })).toBeNull();
+    expect(
+      validateEvent('availability_submitted', { status: 'windows', usual_used: 1 }),
+    ).toBeNull();
+  });
+
+  it('refuses a day-part, or a list of them, on either event', () => {
+    expect(
+      validateEvent('availability_started', { usual_offered: true, parts: ['weekday_evening'] }),
+    ).toBeNull();
+    expect(
+      validateEvent('availability_submitted', { status: 'windows', parts: 'weekday_evening' }),
+    ).toBeNull();
+    expect(
+      validateEvent('availability_submitted', { status: 'windows', usual_used: 'weekday_evening' }),
+    ).toBeNull();
   });
 });
 

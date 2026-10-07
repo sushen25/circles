@@ -12,6 +12,7 @@ import {
   blockSpan,
   dayTag,
   offeredBlocks,
+  paintedParts,
   usualCells,
   type BlockKind,
   type BlockTiming,
@@ -27,7 +28,7 @@ import {
   othersLine,
   overlapLine,
 } from './others';
-import { BLOCK_LABEL, TAG_WORD } from './words';
+import { BLOCK_LABEL, TAG_WORD, previousWords } from './words';
 
 /**
  * Everything the editor screen shows, worked out from the answer (spec §5.5,
@@ -89,11 +90,14 @@ export type EditorView = {
   painted: number;
   canUndo: boolean;
   /**
-   * "Use my usual times" is on offer (ADR 0005): there is a usual to use, the
-   * answer is still empty and not "I'm easy", and the usual paints something
-   * on this plan. Offered to start an answer, never to overwrite one.
+   * "Use my previous times" is on offer (ADR 0005, ADR 0037): there is
+   * something offered before, the answer is still empty and not "I'm easy",
+   * and it paints something on this plan. Offered to start an answer, never to
+   * overwrite one.
    */
   canUseUsual: boolean;
+  /** What the tap will paint on this plan, in words; undefined when it is not on offer. */
+  previousHint: string | undefined;
   /**
    * The line above the grid: "5 of 6 have answered…", or "You're the first to
    * answer…". Undefined when the others could not be read (SUS-129).
@@ -205,6 +209,12 @@ export function editorView(
     ];
   });
 
+  const willPaint =
+    usual !== undefined &&
+    !state.flexible &&
+    paintedDays(state) === 0 &&
+    usualCells(rows, timing, usual).some((cells) => cells.some(Boolean));
+
   return {
     grid,
     weekdays: weekdayHeadings(locale),
@@ -212,11 +222,13 @@ export function editorView(
     answers,
     painted: paintedDays(state),
     canUndo: state.undo !== undefined,
-    canUseUsual:
-      usual !== undefined &&
-      !state.flexible &&
-      paintedDays(state) === 0 &&
-      usualCells(rows, timing, usual).some((cells) => cells.some(Boolean)),
+    canUseUsual: willPaint,
+    previousHint:
+      willPaint && usual !== undefined
+        ? t('availability', 'use_my_previous_times_hint', {
+            parts: previousWords(paintedParts(rows, timing, usual)),
+          })
+        : undefined,
     othersLine: othersLine(said),
   };
 }

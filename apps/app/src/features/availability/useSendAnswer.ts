@@ -84,6 +84,8 @@ export type SendAnswerOptions = {
   onStale: () => void;
   onNarrowed?: (() => void) | undefined;
   returnTo?: ReturnTo | undefined;
+  /** The answer began from "Use my previous times", even if it was edited since (SUS-159). */
+  usedPrevious?: boolean | undefined;
 };
 
 export function useSendAnswer({
@@ -97,6 +99,7 @@ export function useSendAnswer({
   onStale,
   onNarrowed,
   returnTo,
+  usedPrevious = false,
 }: SendAnswerOptions) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -193,6 +196,7 @@ export function useSendAnswer({
           plan_id: plan.id as PlanId,
           status,
           window_count: windows.length,
+          usual_used: usedPrevious,
         });
         void queryClient.invalidateQueries({ queryKey: ['plan-to-answer', code] });
         if (returnTo === 'plan') {
@@ -284,7 +288,20 @@ export function useSendAnswer({
       }
       setPhase({ kind: 'error', status, reference });
     },
-    [state, rows, timing, userId, code, plan, router, queryClient, onStale, onNarrowed, returnTo],
+    [
+      state,
+      rows,
+      timing,
+      userId,
+      code,
+      plan,
+      router,
+      queryClient,
+      onStale,
+      onNarrowed,
+      returnTo,
+      usedPrevious,
+    ],
   );
 
   const waiting = phase.kind === 'offline' ? phase.status : undefined;

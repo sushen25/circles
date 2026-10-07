@@ -78,8 +78,8 @@ export function blockMask(
 }
 
 /**
- * "Use my usual times" (ADR 0005, S2-06): the cells somebody's usual dayparts
- * cover on this plan, day by day — weekday parts on weekdays, weekend parts on
+ * "Use my previous times" (ADR 0005, S2-06, SUS-159): the cells the day-parts
+ * somebody has offered cover on this plan, day by day — weekday parts on weekdays, weekend parts on
  * weekends, each part as the block of the same name, clipped to the plan's
  * hours as every block is. Nothing outside the plan is painted, and a part the
  * plan does not ask about paints nothing.
@@ -98,7 +98,7 @@ export function usualCells(
   return rows.map((row) => {
     const prefix = isWeekend(row.date) ? 'weekend_' : 'weekday_';
     // Tonight, the part of the evening already gone is not on offer (review
-    // round 1): the usual is clipped to From now, as the chips are.
+    // round 1): what was offered is clipped to From now, as the chips are.
     const ahead = timing.tonight === undefined ? undefined : blockMask('from_now', row, timing);
     const cells = row.cells.map(() => false);
     for (const [part, kind] of Object.entries(PART_BLOCK)) {
@@ -110,6 +110,21 @@ export function usualCells(
     }
     return cells;
   });
+}
+
+/**
+ * Of those parts, the ones that paint something on this plan: the words under
+ * "Use my previous times" name these and no more (SUS-159), so the tap says what
+ * it will do on this plan's days and hours.
+ */
+export function paintedParts(
+  rows: readonly DayRow[],
+  timing: BlockTiming,
+  parts: readonly DayPart[],
+): DayPart[] {
+  return parts.filter((part) =>
+    usualCells(rows, timing, [part]).some((cells) => cells.some(Boolean)),
+  );
 }
 
 /**

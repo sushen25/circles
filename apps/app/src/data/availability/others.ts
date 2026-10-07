@@ -16,7 +16,7 @@ import { authClient } from '../auth/client';
  * editor reads it again each time it opens.
  *
  * A malformed reply is treated as no reply. This is an optional read, like
- * the usual times (ADR 0037): it offers nothing rather than an error.
+ * the previous times (ADR 0037): it offers nothing rather than an error.
  */
 const Window = z.object({ start: z.string(), end: z.string() });
 const Reply = z.object({

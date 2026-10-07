@@ -10,7 +10,6 @@ import {
   clearDraft,
   othersSaid,
   timingOf,
-  usualTimes,
   type AnswerablePlan,
   type Draft,
   type OwnAnswer,
@@ -27,6 +26,7 @@ import {
   type EditorState,
 } from './editor';
 import { NoneWorkScreen, type NoneWorkStatus } from './NoneWorkScreen';
+import { usePreviousTimes, useStartedEvent } from './usePreviousTimes';
 import { useSendAnswer, type ReturnTo } from './useSendAnswer';
 import { editorView } from './view';
 import { ROW_WORDS, introOf, timeOfDay, titleOf, zoneNoteOf } from './words';
@@ -127,16 +127,12 @@ export function Answering({
       : initial;
   });
 
-  // "Use my usual times" (ADR 0005): the reader's own usual. A
-  // failed read offers nothing rather than an error — it is a shortcut.
-  const usual = useQuery({
-    queryKey: ['usual-times', plan.circleId, plan.id, userId],
-    queryFn: async () =>
-      (await usualTimes({ circleId: plan.circleId, planId: plan.id, userId: userId! })) ?? null,
-    enabled: userId !== undefined && plan.acceptingAnswers,
-    // Read again each time the editor opens: an answer given to another plan
-    // since may be the one that makes a usual (review round 2).
-    staleTime: 0,
+  // "Use my previous times" (ADR 0037's amendment): the reader's own earlier
+  // offers, only the parts this plan asks about, in one request.
+  const previous = usePreviousTimes({
+    planId: plan.id,
+    userId,
+    enabled: plan.acceptingAnswers,
   });
 
   // What the others have said, as counts (SUS-129, ADR 0045). Read again each
@@ -174,6 +170,7 @@ export function Answering({
     onStale,
     onNarrowed,
     returnTo,
+    usedPrevious: previous.used,
   });
 
   // Judged by the server when the plan was read (`acceptingAnswers`): state and
@@ -187,12 +184,15 @@ export function Answering({
   }, [discardDraft, userId, code]);
 
   // Opening the editor is the start of answering (§11.2's "median response
-  // after link open" reads the last open before the answer).
-  useEffect(() => {
-    if (step === 'times' && answerable) {
-      track('availability_started', { plan_id: plan.id as PlanId });
-    }
-  }, [step, answerable, plan.id]);
+  // after link open" reads the last open before the answer), with whether
+  // "Use my previous times" was on show (SUS-159).
+  const view = editorView(state, rows, timing, format, undefined, previous.parts, said);
+  useStartedEvent({
+    active: step === 'times' && answerable,
+    planId: plan.id,
+    settled: previous.settled,
+    offered: view.canUseUsual,
+  });
 
   // Whether this opening showed counts of what others said (SUS-129), once
   // its read has settled, so the answer time and the "I'm easy" share can be
@@ -241,6 +241,7 @@ export function Answering({
   }
 
   const problem = phase.kind === 'editing' ? phase.problem : undefined;
+  const offered = previous.parts;
 
   if (step === 'none') {
     return (
@@ -259,9 +260,6 @@ export function Answering({
       />
     );
   }
-
-  const view = editorView(state, rows, timing, format, undefined, usual.data ?? undefined, said);
-  const usualParts = usual.data ?? undefined;
 
   return (
     <AvailabilityScreen
@@ -293,10 +291,14 @@ export function Answering({
       // Counts as the person's edit, so it writes a draft like any other:
       // they asked for it, and what it paints is theirs to change.
       onUseUsual={
-        view.canUseUsual && usualParts !== undefined
-          ? () => edit({ type: 'usual', parts: usualParts })
+        view.canUseUsual && offered !== undefined
+          ? () => {
+              previous.markUsed();
+              edit({ type: 'usual', parts: offered });
+            }
           : undefined
       }
+      previousHint={view.previousHint}
       onSend={() => void send(state.flexible ? 'flexible' : 'windows')}
       onNoneOfTheseDates={() =>
         router.push({

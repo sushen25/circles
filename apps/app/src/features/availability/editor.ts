@@ -61,7 +61,7 @@ export type EditorAction =
   | { type: 'undo' }
   | { type: 'flexible'; on: boolean }
   /**
-   * "Use my usual times": paints the person's usual dayparts onto the plan
+   * "Use my previous times": paints the day-parts the person has offered before onto the plan
    * (ADR 0005). Added to what is there, never sent — it is a start the person
    * then changes, and Send is still theirs to press.
    */

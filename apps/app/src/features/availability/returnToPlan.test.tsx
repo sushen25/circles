@@ -26,7 +26,7 @@ vi.mock('../../data/availability', async (original) => ({
   planToAnswer: (...a: unknown[]) => planToAnswer(...a),
   submitAnswer: (...a: unknown[]) => submitAnswer(...a),
   othersSaid: async () => undefined,
-  usualTimes: async () => undefined,
+  usualTimes: async () => [],
 }));
 
 const { AvailabilityFlow } = await import('./AvailabilityFlow');
