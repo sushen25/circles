@@ -642,11 +642,12 @@ S["ConfirmedOrg"] = shell(
     body(
         lbl("Locked in"),
         stack(f'<div class="date" style="font-size:40px;line-height:1.05;">Thursday<br>17 September</div>', f'<div class="num" style="font-family:Newsreader,Georgia,serif;font-size:26px;color:{T["invert_accent"]};">6:30–8:30 pm · Hope St Radio</div>',
-              '<div style="display:flex;flex-wrap:wrap;gap:12px;">' + ter("Edit this plan") + ter("Ask for new times") + ter("Cancel this plan", plain=True) + '</div>', gap=8),
+              '<div style="display:flex;flex-wrap:wrap;gap:12px;">' + ter("Edit this plan") + ter("Ask for new times") + '</div>', gap=8),
         card(lbl("Ready to paste into the group chat"),
              p("Locked in: Sunday Crew, Thu 17 Sep, 6:30–8:30 pm at Hope St Radio. Details and add-to-calendar: circles.app/p/8k2v"),
              ),
         between(stack(title("5 going · 1 to confirm"), sm("Alex hasn't said yet"), gap=2), marks(["Maya","Priya","Tom","Jess","Sam","Alex"], waiting=("Alex",))),
+        stack(title("You're going"), ter("I can't make it after all"), ter("Cancel this plan", plain=True), gap=8),
     ) +
     foot(pri("Share to group chat"), sec("Add to my calendar"))
 , invert=True)

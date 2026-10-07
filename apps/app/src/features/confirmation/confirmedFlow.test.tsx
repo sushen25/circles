@@ -113,10 +113,15 @@ describe('the organiser', () => {
     const follows = (a: HTMLElement, b: HTMLElement) =>
       Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
 
-    for (const action of [edit, ask, cancel]) {
+    // Edit and Ask sit under the plan's facts; Cancel is last in the body,
+    // after the organiser's own answer, and still above the footer.
+    for (const action of [edit, ask]) {
       expect(follows(action, paste)).toBe(true);
-      expect(follows(action, share)).toBe(true);
+      expect(follows(action, decline)).toBe(true);
     }
+    expect(follows(decline, cancel)).toBe(true);
+    expect(follows(paste, cancel)).toBe(true);
+    expect(follows(cancel, share)).toBe(true);
     expect(follows(decline, share)).toBe(true);
     expect(follows(share, calendar)).toBe(true);
     expect(
