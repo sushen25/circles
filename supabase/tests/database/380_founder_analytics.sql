@@ -388,15 +388,23 @@ select is(
   array[2::bigint, 1::bigint],
   'every test circle confirms a meetup: two were made that day and one did'
 );
+-- Two members answered the first plan, and one the second.
+insert into public.plan_responses (plan_id, revision, user_id, status, submitted_at, created_at)
+select p.id, p.revision, u, 'flexible', pg_temp.at(1, '10:02'), pg_temp.at(1, '10:02')
+from public.plans p, unnest(array['00000000-0000-0000-0000-0000000f0003'::uuid]) u
+where p.short_code = 'fapaaa';
+insert into public.plan_responses (plan_id, revision, user_id, status, submitted_at, created_at)
+select p.id, p.revision, '00000000-0000-0000-0000-0000000f0002', 'flexible', pg_temp.at(5, '10:00'), pg_temp.at(5, '10:00')
+from public.plans p where p.short_code = 'fapaab';
 select is(
   (select array[answered, unchased] from analytics.gate_unchased where day = pg_temp.d(2)),
   array[1::bigint, 1::bigint],
-  'chasing: one organiser said they chased nobody'
+  'chasing, in members: the organiser said they chased nobody, so the one member who had answered was not chased'
 );
 select is(
   (select array[answered, unchased] from analytics.gate_unchased where day = pg_temp.d(9)),
   array[1::bigint, 0::bigint],
-  'and one said they chased somebody, which is an answer and not a yes'
+  'and where they said they chased one of the one who answered, nobody counts as having answered unchased'
 );
 select is(
   (select array[meetups, happened] from analytics.gate_happened where day = pg_temp.d(2)),
@@ -432,10 +440,14 @@ from (values
   ('session_missing_on_return'), ('session_missing_on_return'),
   ('member_reattached'), ('member_reattached'), ('member_reattached'), ('member_reattached')
 ) as v (n);
+-- Somebody arriving from an emailed link is a different population, in neither half.
+insert into analytics.events (event_id, event_name, schema_version, properties, occurred_at)
+select gen_random_uuid(), 'member_reattached', 1, '{"source": "email"}', pg_temp.at(3, '10:00')
+from generate_series(1, 5);
 select is(
   (select array[missing, reattached] from analytics.gate_reattach where day = pg_temp.d(3)),
   array[5::bigint, 4::bigint],
-  'returns with no session, and the ones that got back in'
+  'returns with no session, and the ones that got back in from the list: the five who came by an emailed link are in neither number'
 );
 
 select is(
@@ -456,13 +468,20 @@ select is(
 
 insert into analytics.events (event_id, event_name, schema_version, user_id, properties, occurred_at)
 values
-  (gen_random_uuid(), 'email_submitted', 1, '00000000-0000-0000-0000-0000000f0002', '{}', pg_temp.at(4, '10:00')),
-  (gen_random_uuid(), 'email_submitted', 1, '00000000-0000-0000-0000-0000000f0003', '{}', pg_temp.at(4, '10:00')),
-  (gen_random_uuid(), 'email_verified', 1, '00000000-0000-0000-0000-0000000f0002', '{}', pg_temp.at(4, '10:05'));
+  -- Verified by the emailed link.
+  (gen_random_uuid(), 'email_submitted', 1, '00000000-0000-0000-0000-0000000f0002', '{"save_place": false}', pg_temp.at(4, '10:00')),
+  (gen_random_uuid(), 'email_verified', 1, '00000000-0000-0000-0000-0000000f0002', '{}', pg_temp.at(4, '10:05')),
+  -- Verified by typing the code back, which is how the default route says so.
+  (gen_random_uuid(), 'email_submitted', 1, '00000000-0000-0000-0000-0000000f0003', '{"save_place": true}', pg_temp.at(4, '10:00')),
+  (gen_random_uuid(), 'account_claimed', 1, '00000000-0000-0000-0000-0000000f0003', '{"moment": "after_answer"}', pg_temp.at(4, '10:06')),
+  -- Never verified.
+  (gen_random_uuid(), 'email_submitted', 1, '00000000-0000-0000-0000-0000000f0004', '{"save_place": true}', pg_temp.at(4, '10:00')),
+  -- A saved member's one button: no route, nothing to verify, not a guest.
+  (gen_random_uuid(), 'email_submitted', 1, '00000000-0000-0000-0000-0000000f0001', '{}', pg_temp.at(4, '10:00'));
 select is(
   (select array[submitted, verified] from analytics.gate_email_verified where day = pg_temp.d(4)),
-  array[2::bigint, 1::bigint],
-  'of two guests who submitted an email, one verified it'
+  array[3::bigint, 2::bigint],
+  'of three guests who submitted an email, two confirmed it, by either route; a saved member''s one button is not a guest'
 );
 
 select is(
@@ -499,9 +518,6 @@ insert into public.meetup_confirmations (
 select mc.plan_id, 2, mc.candidate_id, mc.starts_at, mc.ends_at, mc.available_user_ids, mc.confirmed_by,
        'superseded', pg_temp.at(3, '09:00'), pg_temp.at(4, '09:00'), 'reopen'
 from public.meetup_confirmations mc where mc.id = :'first_meetup';
-insert into public.plan_responses (plan_id, revision, user_id, status, submitted_at, created_at)
-select p.id, p.revision, '00000000-0000-0000-0000-0000000f0002', 'flexible', pg_temp.at(5, '10:00'), pg_temp.at(5, '10:00')
-from public.plans p where p.short_code = 'fapaab';
 select is(
   (select array_agg(day order by day) from analytics.funnel_counts
    where counter = 'plans_confirmed' and day between pg_temp.d(0) and pg_temp.d(9)),
@@ -509,10 +525,10 @@ select is(
   'a plan confirmed again on another day is counted on the day it was first confirmed, once'
 );
 select is(
-  (select array_agg(day order by day) from analytics.funnel_counts
+  (select array_agg(day::text || ':' || n order by day) from analytics.funnel_counts
    where counter = 'answers' and day between pg_temp.d(0) and pg_temp.d(9)),
-  array[pg_temp.d(1)],
-  'and a member answering a second plan is not a second first response'
+  array[pg_temp.d(1)::text || ':2'],
+  'and a member answering a second plan is not a second first response: two members, two'
 );
 
 select is(

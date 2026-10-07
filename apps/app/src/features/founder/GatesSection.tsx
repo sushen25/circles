@@ -130,6 +130,7 @@ function wordsOf(id: Gate['id']): Words {
       return {
         measure: t('founderAnalytics', 'gate_reattach_measure'),
         target: t('founderAnalytics', 'gate_reattach_target'),
+        note: t('founderAnalytics', 'gate_reattach_note'),
       };
     case 'second_meetup':
       return {

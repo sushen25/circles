@@ -1122,10 +1122,10 @@ export const en = {
     missing: 'Missing: {label}',
     gate_confirmed_meetup_measure: 'Circles that confirmed a real meetup',
     gate_confirmed_meetup_target: 'every circle',
-    gate_unchased_measure: 'Confirmed meetups where nobody had to be chased',
+    gate_unchased_measure: 'Members who answered without being chased',
     gate_unchased_target: 'at least 60%',
     gate_unchased_note:
-      "The organiser's answer at confirmation, counted per meetup rather than per member.",
+      'Members who had answered, from the organiser\'s answer at confirmation. "Several chased" counts as all of them, so this is a floor.',
     gate_response_time_measure: 'Median wait from opening the link to answering',
     gate_response_time_target: 'under 2 minutes, aiming for under 60 seconds',
     gate_response_time_note: 'Only answers with a recorded link open before them.',
@@ -1133,6 +1133,8 @@ export const en = {
     gate_happened_target: 'at least 70%',
     gate_reattach_measure: 'Returns without a session that got back in',
     gate_reattach_target: 'at least 80%',
+    gate_reattach_note:
+      'Returns with no session, and those who got back in from the list. Emailed links are counted apart.',
     gate_second_meetup_measure: 'Groups that started a second meetup',
     gate_second_meetup_target: 'at least one',
     gate_other_organiser_measure: 'Plans organised by someone other than the owner',
@@ -1142,7 +1144,7 @@ export const en = {
     gate_email_verified_measure: 'Guests who gave an email and verified it',
     gate_email_verified_target: 'at least half',
     gate_email_verified_note:
-      'A verification on another device is not matched, so this is a floor.',
+      'Guests who chose a route, confirmed by the link or by the code. A confirmation on another device is not matched, so this is a floor.',
     gate_confirm_in_week_measure: 'Circles that confirmed a meetup within seven days',
     gate_confirm_in_week_target: 'at least 50%',
     gate_another_in_cadence_measure: 'Successful circles that planned another within their cadence',

@@ -121,14 +121,29 @@ left join analytics.circle_activation a on a.circle_id = c.id
 group by 1;
 
 -- "At least 60% of members respond without one-to-one chasing (survey)": the
--- organiser's answer at confirmation (`chased_answer`). Day: the confirmation.
--- `none` is the organiser having chased nobody; `one` and `more` are not.
+-- organiser's answer at confirmation (`chased_answer`), turned into members. The
+-- members are the ones who had answered the plan by then. `none` is all of them
+-- unchased; `one` is all but one; `more` ("several", and the survey cannot say
+-- how many) counts as all of them chased. So the share is a floor: a gate read
+-- "met" off it is met, and one read "not met" may be better than it looks.
+-- Day: the confirmation.
 create view analytics.gate_unchased as
 select
   mc.confirmed_at::date as day,
-  count(*) as answered,
-  count(*) filter (where mc.chased_answer = 'none') as unchased
+  sum(r.responders)::bigint as answered,
+  sum(
+    case mc.chased_answer
+      when 'none' then r.responders
+      when 'one' then greatest(r.responders - 1, 0)
+      else 0
+    end
+  )::bigint as unchased
 from public.meetup_confirmations mc
+cross join lateral (
+  select count(*) as responders
+  from public.plan_responses pr
+  where pr.plan_id = mc.plan_id and pr.revision = mc.revision
+) r
 where mc.chased_answer is not null
 group by 1;
 
@@ -168,13 +183,18 @@ where mc.status in ('active', 'completed') and mc.ends_at < now()
 group by 1;
 
 -- "At least 80% of returns-without-session reattach without owner help":
--- noticing there is no session, and getting back in by either route. Both are
--- events, and neither route involves the owner.
+-- noticing there is no session, and getting back in from the list on the same
+-- screen (`source = 'list'`), which is the path a return with no session takes
+-- and where `session_missing_on_return` is recorded. The emailed-link route
+-- (`source = 'email'`) starts from a letter, not from a return, so it is in
+-- neither half. Neither route involves the owner.
 create view analytics.gate_reattach as
 select
   e.occurred_at::date as day,
   count(*) filter (where e.event_name = 'session_missing_on_return') as missing,
-  count(*) filter (where e.event_name = 'member_reattached') as reattached
+  count(*) filter (
+    where e.event_name = 'member_reattached' and e.properties ->> 'source' = 'list'
+  ) as reattached
 from analytics.events e
 where e.event_name in ('session_missing_on_return', 'member_reattached')
 group by 1;
@@ -210,21 +230,27 @@ where p.organiser_user_id is not null and p.organiser_user_id <> c.owner_user_id
 group by 1;
 
 -- "At least half of guests who submit an email verify it": a guest, here, is
--- the user id or, without a session, the browser id on the event. Verified
--- means the same one verified afterwards. A verification from another device
--- is not matched, so the share is a floor and never a ceiling. Day: the
--- submission.
+-- the user id or, without a session, the browser id on the event. Only a
+-- submission that says which route it took counts (`save_place` present): a
+-- saved member's one button says nothing and has nothing to verify. Verified is
+-- the same one confirming afterwards, by the emailed link (`email_verified`) or,
+-- on the save-my-place route, by typing the code back (`account_claimed`). A
+-- confirmation on another device is not matched, so the share is a floor and
+-- never a ceiling. Day: the submission.
 create view analytics.gate_email_verified as
 with submitted as (
   select coalesce(e.user_id::text, e.anonymous_id) as actor, min(e.occurred_at) as at
   from analytics.events e
-  where e.event_name = 'email_submitted' and coalesce(e.user_id::text, e.anonymous_id) is not null
+  where e.event_name = 'email_submitted'
+    and e.properties ? 'save_place'
+    and coalesce(e.user_id::text, e.anonymous_id) is not null
   group by 1
 ),
 verified as (
   select coalesce(e.user_id::text, e.anonymous_id) as actor, e.occurred_at as at
   from analytics.events e
-  where e.event_name = 'email_verified' and coalesce(e.user_id::text, e.anonymous_id) is not null
+  where e.event_name in ('email_verified', 'account_claimed')
+    and coalesce(e.user_id::text, e.anonymous_id) is not null
 )
 select
   s.at::date as day,
