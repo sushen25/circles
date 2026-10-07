@@ -649,6 +649,15 @@
       "title": "Edit this plan \u00b7 locked in"
     },
     {
+      "file": "FounderAnalytics.dc.html",
+      "x": 0,
+      "y": 6500,
+      "w": 390,
+      "h": 2100,
+      "page": "organiser",
+      "title": "Founder analytics"
+    },
+    {
       "file": "SparkSetup.dc.html",
       "x": 0,
       "y": 0,
