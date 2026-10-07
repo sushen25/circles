@@ -130,7 +130,7 @@ export function ConfirmedOrgScreen({
         {onEditPlan === undefined &&
         onAskForNewTimes === undefined &&
         onCancelPlan === undefined ? null : (
-          <ButtonRow>
+          <ButtonRow center>
             {onEditPlan === undefined ? null : (
               <Tertiary label={t('confirmedOrg', 'edit_this_plan')} onPress={onEditPlan} />
             )}
