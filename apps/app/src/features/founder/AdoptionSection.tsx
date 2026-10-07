@@ -40,7 +40,6 @@ export function AdoptionSection({ data }: { data: FounderAnalytics }) {
           {event.fields.map((field) => (
             <Stack key={field.field} gap={4}>
               <Divider />
-              <Small>{field.field}</Small>
               {field.values.map((value) => (
                 <Line
                   key={value.value}
