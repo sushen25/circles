@@ -52,8 +52,8 @@ as $$
     from plan
     join public.plan_days d on d.plan_id = plan.id
     union
-    select g::date
-    from plan, generate_series(plan.window_start, plan.window_end, interval '1 day') g
+    select plan.window_start + g
+    from plan, generate_series(0, plan.window_end - plan.window_start) g
     where not exists (select 1 from public.plan_days d where d.plan_id = plan.id)
   ),
   bands (part, band_start, band_end) as (

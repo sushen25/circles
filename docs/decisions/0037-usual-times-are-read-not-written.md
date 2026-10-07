@@ -121,7 +121,10 @@ dates.
 - **One name, and it says what it will do.** The button reads **Use my previous
   times** whatever the history ("usual" claimed a habit the data could not
   always back), with a hint naming what the tap will paint on this plan, such
-  as "Weekday evenings and Saturday afternoons".
+  as "Weekday evenings and weekend afternoons". The database's list is the parts
+  the plan's hours can touch, a superset of what the tap paints (the shortcuts are
+  9 to noon, noon to 5, and 5:30 to midnight); the client names and paints only
+  the parts that actually fill a cell.
 
 **Measured.** `availability_started` gains `usual_offered` and
 `availability_submitted` gains `usual_used`, both booleans and nothing else:

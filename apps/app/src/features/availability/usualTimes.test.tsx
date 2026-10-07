@@ -227,6 +227,16 @@ describe('what the previous times are measured by', () => {
     );
   });
 
+  it('still counts an opening left before the read came back, without the flag', async () => {
+    usualTimes.mockReturnValue(new Promise(() => undefined));
+    const opened = open();
+    await screen.findByText("Times I'd actually be up for");
+    expect(track).not.toHaveBeenCalledWith('availability_started', expect.anything());
+    opened.unmount();
+    expect(track).toHaveBeenCalledWith('availability_started', { plan_id: PLAN.id });
+    expect(track).toHaveBeenCalledTimes(1);
+  });
+
   it('carries no day-part in any event', async () => {
     usualTimes.mockResolvedValue(['weekday_evening', 'weekend_morning']);
     open();

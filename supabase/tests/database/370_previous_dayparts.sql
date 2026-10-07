@@ -8,7 +8,7 @@
 -- plan it was given to.
 
 begin;
-select plan(33);
+select plan(35);
 
 create or replace function pg_temp.make_user(id uuid, name text)
 returns uuid language sql as $$
@@ -168,8 +168,10 @@ select is(pg_typeof(public.previous_dayparts(pg_temp.pid('pdwade')))::text, 'tex
 
 select is(pg_temp.prev('00000000-0000-0000-0000-0000000037a5', 'pdwade'), array[]::text[],
   'somebody in no circle gets nothing');
+select pg_temp.act_as('00000000-0000-0000-0000-0000000037a2');
 select is(public.previous_dayparts(gen_random_uuid()), array[]::text[],
   'nor does a plan that does not exist, and the two cannot be told apart');
+select pg_temp.act_as_postgres();
 
 -- ---------------------------------------------------------------------------
 -- No history, and history that is not times.
@@ -321,6 +323,19 @@ select is(pg_temp.prev('00000000-0000-0000-0000-0000000037a3', 'pdgap2'),
   'a plan with gaps asks only its listed days: a weekend between two weekdays is not asked');
 select is(pg_temp.prev('00000000-0000-0000-0000-0000000037a1', 'pdgap2'), array[]::text[],
   'and weekend parts offered are not returned for it');
+
+-- A plan whose only weekend day is a Sunday, and a session in a zone whose
+-- clocks change at midnight: neither moves a day or a part.
+select pg_temp.mkplan((select a from t), 'Sunday', 'Australia/Melbourne', date '2099-09-20', date '2099-09-20', 0, 1440, 'pdsund');
+select pg_temp.mkplan((select a from t), 'Sat to Mon', 'Australia/Melbourne', date '2099-09-05', date '2099-09-07', 0, 1440, 'pdtzne');
+insert into tp select short_code, id from public.plans where short_code in ('pdsund', 'pdtzne');
+select is(pg_temp.prev('00000000-0000-0000-0000-0000000037a3', 'pdsund'), array['weekend_evening'],
+  'a Sunday is a weekend day: the stored weekend evening is offered for a Sunday-only plan');
+set local timezone = 'America/Santiago';
+select is(pg_temp.prev('00000000-0000-0000-0000-0000000037a3', 'pdtzne'),
+  array['weekday_morning', 'weekday_afternoon', 'weekday_evening', 'weekend_evening'],
+  'the session''s time zone (clocks change at midnight there) does not drop the plan''s last day');
+reset timezone;
 
 -- ---------------------------------------------------------------------------
 -- The tables are still the owner's alone.

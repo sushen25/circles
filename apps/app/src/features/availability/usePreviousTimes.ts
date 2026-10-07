@@ -54,6 +54,8 @@ export function useStartedEvent(input: {
 }) {
   const { active, planId, settled, offered } = input;
   const sent = useRef<string | undefined>(undefined);
+  const settledNow = useRef(settled);
+  settledNow.current = settled;
   useEffect(() => {
     if (!active || sent.current === planId) return;
     const send = (flag: { usual_offered: boolean } | Record<string, never>) => {
@@ -65,6 +67,12 @@ export function useStartedEvent(input: {
       return;
     }
     const timer = setTimeout(() => send({}), START_WAITS_FOR_IT_MS);
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      // Left before the read came back (a bounce, or a move to another step):
+      // the start still counts, without the flag. Only when the read is still
+      // out, not when it has just settled and this effect is about to run again.
+      if (!settledNow.current && sent.current !== planId) send({});
+    };
   }, [active, planId, settled, offered]);
 }
