@@ -1109,6 +1109,8 @@ export const en = {
     // Gates
     gates_founder: 'Decision gates · founder cohort',
     gates_external: 'Decision gates · external cohort',
+    gates_external_note:
+      'Pooled: nothing records which cohort a circle belongs to, so founder circles count here too until one does.',
     gates_detail:
       'Each against its target in the spec, for the period. A gate that nothing computes yet says so and says what is missing.',
     target: 'Target {label}',

@@ -41,7 +41,11 @@ function Cohort({
   return (
     <Stack gap={10}>
       <Label>{title}</Label>
-      {cohort === 'founder' ? <Small>{t('founderAnalytics', 'gates_detail')}</Small> : null}
+      <Small>
+        {cohort === 'founder'
+          ? t('founderAnalytics', 'gates_detail')
+          : t('founderAnalytics', 'gates_external_note')}
+      </Small>
       <Card gap={14}>
         {gates.map((gate, index) => (
           <Stack key={gate.id} gap={10}>

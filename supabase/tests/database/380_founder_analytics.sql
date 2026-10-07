@@ -13,7 +13,7 @@
 -- is a count of this file's scenario.
 
 begin;
-select plan(48);
+select plan(49);
 
 create or replace function pg_temp.make_user(id uuid, name text, permanent boolean default true)
 returns uuid language sql as $$
@@ -434,6 +434,16 @@ select is(
   'and one that is over and was not reported is counted as one that did not'
 );
 
+-- A meetup reported as not having happened stays in the denominator.
+select pg_temp.meetup('fapaac', '00000000-0000-0000-0000-0000000f0001', pg_temp.d(1), pg_temp.d(3), null) as third_meetup \gset
+insert into public.outcome_reports (confirmation_id, reported_by, outcome, reported_at)
+values (:'third_meetup', '00000000-0000-0000-0000-0000000f0001', 'cancelled', pg_temp.at(4, '09:00'));
+select is(
+  (select array[meetups, happened] from analytics.gate_happened where day = pg_temp.d(3)),
+  array[1::bigint, 0::bigint],
+  'a meetup the organiser reported as cancelled counts against the share that happened'
+);
+
 -- Response after a link open: ninety seconds.
 insert into analytics.events (event_id, event_name, schema_version, user_id, plan_id, properties, occurred_at)
 select gen_random_uuid(), 'availability_started', 1, '00000000-0000-0000-0000-0000000f0002', p.id, '{}',
@@ -538,7 +548,7 @@ from public.meetup_confirmations mc where mc.id = :'first_meetup';
 select is(
   (select array_agg(day order by day) from analytics.funnel_counts
    where counter = 'plans_confirmed' and day between pg_temp.d(0) and pg_temp.d(9)),
-  array[pg_temp.d(2), pg_temp.d(9)],
+  array[pg_temp.d(2), pg_temp.d(3), pg_temp.d(9)],
   'a plan confirmed again on another day is counted on the day it was first confirmed, once'
 );
 select is(

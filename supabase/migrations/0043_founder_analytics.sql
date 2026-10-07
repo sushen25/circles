@@ -174,7 +174,8 @@ cross join lateral (
 where o.opened_at is not null;
 
 -- "At least 70% of confirmed meetups reported happened": the meetups that were
--- not moved or called off, once they are over. Day: when it was to start.
+-- not moved or called off, and those reported as not having happened, once they
+-- are over. Day: when it was to start.
 create view analytics.gate_happened as
 select
   mc.starts_at::date as day,
@@ -186,7 +187,14 @@ select
     )
   ) as happened
 from public.meetup_confirmations mc
-where mc.status in ('active', 'completed') and mc.ends_at < now()
+where mc.ends_at < now()
+  and (
+    mc.status in ('active', 'completed')
+    -- A meetup the organiser then reported as cancelled is closed by that report
+    -- (`apply_outcome`), and it is exactly the failure this gate counts. A time
+    -- that was moved or called off before it came is not.
+    or exists (select 1 from public.outcome_reports o where o.confirmation_id = mc.id)
+  )
 group by 1;
 
 -- "At least 80% of returns-without-session reattach without owner help":
@@ -287,7 +295,7 @@ group by 1;
 
 -- "At least 30% of successful circles initiate another within cadence": a
 -- circle with a cadence whose first meetup reported as happened, once that
--- cadence has run its course, and whether a plan was made after the
+-- cadence (in the circle's own zone, as the scheduler counts it) has run its course, and whether a plan was made after the
 -- confirmation and by then. Day: when the meetup was to start.
 create view analytics.gate_another_in_cadence as
 with first_happened as (
@@ -296,10 +304,10 @@ with first_happened as (
     mc.confirmed_at,
     mc.starts_at,
     case c.cadence
-      when 'weekly' then mc.starts_at + interval '7 days'
-      when 'fortnightly' then mc.starts_at + interval '14 days'
-      when 'monthly' then mc.starts_at + interval '1 month'
-      when 'two_monthly' then mc.starts_at + interval '2 months'
+      when 'weekly' then ((mc.starts_at at time zone c.time_zone) + interval '7 days') at time zone c.time_zone
+      when 'fortnightly' then ((mc.starts_at at time zone c.time_zone) + interval '14 days') at time zone c.time_zone
+      when 'monthly' then ((mc.starts_at at time zone c.time_zone) + interval '1 month') at time zone c.time_zone
+      when 'two_monthly' then ((mc.starts_at at time zone c.time_zone) + interval '2 months') at time zone c.time_zone
     end as due_by
   from public.outcome_reports o
   join public.meetup_confirmations mc on mc.id = o.confirmation_id
