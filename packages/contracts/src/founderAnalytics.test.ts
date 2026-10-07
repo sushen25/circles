@@ -260,6 +260,26 @@ describe('the period', () => {
     ]);
   });
 
+  it('runs the weeks to the end of the period when it is told where that is', () => {
+    const list = adoptionOf(founderAnalyticsFixture, '2026-10-05');
+    expect(list[0]?.weeks.map((w) => w.week)).toEqual([
+      '2026-09-07',
+      '2026-09-14',
+      '2026-09-21',
+      '2026-09-28',
+      '2026-10-05',
+    ]);
+  });
+
+  it('is under two minutes, not up to it', () => {
+    const at = (median_seconds: number) => ({
+      ...emptyFounderAnalytics,
+      gates: { response_time: { median_seconds, n: 9 } },
+    });
+    expect(judgeGate(gate('response_time'), at(119))).toMatchObject({ status: 'met' });
+    expect(judgeGate(gate('response_time'), at(120))).toMatchObject({ status: 'not_met' });
+  });
+
   it('knows an empty database', () => {
     expect(isEmpty(emptyFounderAnalytics)).toBe(true);
     expect(isEmpty(founderAnalyticsFixture)).toBe(false);

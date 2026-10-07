@@ -17,7 +17,7 @@ import { Line } from './Line';
  * is still every event and a quiet one is not a blank card.
  */
 export function AdoptionSection({ data }: { data: FounderAnalytics }) {
-  const events = adoptionOf(data);
+  const events = adoptionOf(data, new Date().toISOString().slice(0, 10));
   const sent = events.filter((event) => event.total > 0);
   const quiet = events.filter((event) => event.total === 0);
 

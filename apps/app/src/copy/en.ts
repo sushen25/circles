@@ -1148,7 +1148,7 @@ export const en = {
     gate_email_verified_measure: 'Guests who gave an email and verified it',
     gate_email_verified_target: 'at least half',
     gate_email_verified_note:
-      'Guests who chose a route, confirmed by the link or by the code. A confirmation on another device, or one that signs in to an existing account, is not matched, so this is a floor.',
+      "Only guests on the plan's email offer: the save-your-place screens record no submission. Confirmed by the link or by the code. A confirmation on another device, or one that signs in to an existing account, is not matched, so this is a floor and a partial one.",
     gate_confirm_in_week_measure: 'Circles that confirmed a meetup within seven days',
     gate_confirm_in_week_target: 'at least 50%',
     gate_another_in_cadence_measure: 'Successful circles that planned another within their cadence',

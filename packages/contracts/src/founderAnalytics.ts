@@ -81,7 +81,7 @@ export type Gate = {
   cohort: 'founder' | 'external';
   kind: GateKind;
   /** `gt` is "more than": the target is that it is not nothing. */
-  comparator: 'gte' | 'lte' | 'gt';
+  comparator: 'gte' | 'lte' | 'lt' | 'gt';
   /** A fraction for a share, a number for a count, seconds for a median. */
   threshold: number;
   /** Fewer answers than this and the gate says "too few to say". */
@@ -117,7 +117,7 @@ export const GATES: readonly Gate[] = [
     id: 'response_time',
     cohort: 'founder',
     kind: 'median',
-    comparator: 'lte',
+    comparator: 'lt',
     threshold: 120,
     minN: 5,
     measuredBy: 'response_time',
@@ -230,6 +230,7 @@ export type JudgedGate =
 function passes(gate: Gate, value: number): boolean {
   if (gate.comparator === 'gte') return value >= gate.threshold;
   if (gate.comparator === 'lte') return value <= gate.threshold;
+  if (gate.comparator === 'lt') return value < gate.threshold;
   return value > gate.threshold;
 }
 
@@ -511,8 +512,12 @@ export type Adoption = {
 };
 
 /** Every Monday from the period's first to the last week with an event, so a silent week is a zero. */
-function weeksOf(result: FounderAnalytics): string[] {
-  const last = result.events.reduce((max, row) => (row.week > max ? row.week : max), result.since);
+function weeksOf(result: FounderAnalytics, until?: string): string[] {
+  const lastEvent = result.events.reduce(
+    (max, row) => (row.week > max ? row.week : max),
+    result.since,
+  );
+  const last = until !== undefined && until > lastEvent ? until : lastEvent;
   const weeks: string[] = [];
   for (
     let day = new Date(`${result.since}T00:00:00Z`);
@@ -526,9 +531,13 @@ function weeksOf(result: FounderAnalytics): string[] {
   return weeks;
 }
 
-/** Every event in the catalogue, in its order, with its weekly counts and its splits. */
-export function adoptionOf(result: FounderAnalytics): Adoption[] {
-  const weeks = weeksOf(result);
+/**
+ * Every event in the catalogue, in its order, with its weekly counts and its
+ * splits. `until` (any day) extends the weeks to the one it falls in, so the
+ * quiet weeks at the end of a period are zeros and not missing.
+ */
+export function adoptionOf(result: FounderAnalytics, until?: string): Adoption[] {
+  const weeks = weeksOf(result, until);
   return (Object.keys(catalogue) as EventName[]).map((event) => {
     const rows = result.events.filter((row) => row.event_name === event);
     const byWeek = new Map<string, number>();
