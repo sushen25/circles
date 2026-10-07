@@ -54,8 +54,21 @@ export function useStartedEvent(input: {
 }) {
   const { active, planId, settled, offered } = input;
   const sent = useRef<string | undefined>(undefined);
-  const settledNow = useRef(settled);
-  settledNow.current = settled;
+  const latest = useRef({ active, planId, settled });
+  useEffect(() => {
+    latest.current = { active, planId, settled };
+  });
+  // Left before the read came back (a bounce): the start still counts, without
+  // the flag. Only on leaving; a read that settles first sends its own.
+  useEffect(
+    () => () => {
+      const now = latest.current;
+      if (!now.active || now.settled || sent.current === now.planId) return;
+      sent.current = now.planId;
+      track('availability_started', { plan_id: now.planId as PlanId });
+    },
+    [],
+  );
   useEffect(() => {
     if (!active || sent.current === planId) return;
     const send = (flag: { usual_offered: boolean } | Record<string, never>) => {
@@ -67,12 +80,6 @@ export function useStartedEvent(input: {
       return;
     }
     const timer = setTimeout(() => send({}), START_WAITS_FOR_IT_MS);
-    return () => {
-      clearTimeout(timer);
-      // Left before the read came back (a bounce, or a move to another step):
-      // the start still counts, without the flag. Only when the read is still
-      // out, not when it has just settled and this effect is about to run again.
-      if (!settledNow.current && sent.current !== planId) send({});
-    };
+    return () => clearTimeout(timer);
   }, [active, planId, settled, offered]);
 }
