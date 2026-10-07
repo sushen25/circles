@@ -155,7 +155,16 @@ export const catalogue = {
   organiser_accepted: event(2),
 
   // --- availability -------------------------------------------------------
-  availability_started: event(1),
+  availability_started: event(1, {
+    /**
+     * Whether "Use my previous times" was on offer when the editor opened
+     * (SUS-159, ADR 0037): a yes or no, never a day-part. Optional because
+     * the start is never held back for an optional read (ADR 0045): when the
+     * read has not settled in time the field is left out, which says
+     * "unknown", and an older client's start has none either.
+     */
+    usual_offered: z.boolean().optional(),
+  }),
   /**
    * Whether an opening of the editor showed counts of what others had said
    * (SUS-129, ADR 0045), sent once that read has settled, so the time to
@@ -174,6 +183,12 @@ export const catalogue = {
      */
     status: z.enum(['windows', 'flexible', 'none_work', 'more_notice', 'not_this_time']),
     window_count: count.optional(),
+    /**
+     * Whether the answer began from "Use my previous times", even if it was
+     * edited afterwards (SUS-159). A yes or no, never a day-part. Optional so
+     * an older client's event, which has none, still validates.
+     */
+    usual_used: z.boolean().optional(),
   }),
 
   // --- scheduling and confirmation ---------------------------------------

@@ -13,7 +13,7 @@ import {
 import { editorView } from './view';
 
 /**
- * "Use my usual times" (ADR 0005) and tonight's editor (S2-06), as the reducer
+ * "Use my previous times" (ADR 0005, SUS-159) and tonight's editor (S2-06), as the reducer
  * and the view see them: what the pre-fill paints, that it paints nothing
  * else and sends nothing, and which chips a tonight plan offers.
  */
@@ -52,7 +52,7 @@ const view = (
   return editorView(state, rows, timing, { hour12: true }, 'en-AU', usual);
 };
 
-describe('use my usual times', () => {
+describe('use my previous times', () => {
   it('paints weekday evenings on the weekdays and nothing on the weekend', () => {
     const { rows, run, start } = setUp(WEEK);
     const filled = run(start, { type: 'usual', parts: ['weekday_evening'] });
@@ -108,6 +108,52 @@ describe('use my usual times', () => {
       false,
     );
   });
+
+  it("says what it will paint on this plan, in the day-parts' own words", () => {
+    const { start } = setUp(WEEK);
+    expect(view(start, WEEK, ['weekday_evening']).previousHint).toBe(
+      'Weekday evenings. Nothing is sent until you send it.',
+    );
+    expect(view(start, WEEK, ['weekday_evening', 'weekend_afternoon']).previousHint).toBe(
+      'Weekday evenings and weekend afternoons. Nothing is sent until you send it.',
+    );
+    expect(
+      view(start, WEEK, ['weekday_morning', 'weekday_evening', 'weekend_morning']).previousHint,
+    ).toBe(
+      'Weekday mornings, weekday evenings and weekend mornings. Nothing is sent until you send it.',
+    );
+  });
+
+  it('names only the parts it paints here: a weekend part on a weekdays-only plan is left out', () => {
+    const weekdays: PlanTiming = {
+      ...WEEK,
+      window: { start: localDate('2026-09-14'), end: localDate('2026-09-16') },
+    };
+    const { start } = setUp(weekdays);
+    const said = view(start, weekdays, ['weekday_evening', 'weekend_morning']);
+    expect(said.canUseUsual).toBe(true);
+    expect(said.previousHint).toBe('Weekday evenings. Nothing is sent until you send it.');
+  });
+
+  it('says nothing when it is not on offer', () => {
+    const { run, start } = setUp(WEEK);
+    expect(view(start, WEEK, undefined).previousHint).toBeUndefined();
+    expect(view(start, WEEK, []).previousHint).toBeUndefined();
+    const painted = run(start, { type: 'whole_day', day: MON });
+    expect(view(painted, WEEK, ['weekday_evening']).previousHint).toBeUndefined();
+  });
+
+  it('is the same words after one answer as after several: the union is what is painted', () => {
+    const { rows, run, start } = setUp(WEEK);
+    const all = run(start, {
+      type: 'usual',
+      parts: ['weekday_evening', 'weekend_morning', 'weekend_afternoon'],
+    });
+    // A part offered once is painted like the rest: Saturday and Sunday mornings and afternoons.
+    expect(all.days[SAT]!.some(Boolean)).toBe(true);
+    expect(all.days[MON]!.some(Boolean)).toBe(true);
+    expect(windowsOf(all, rows, WEEK)).toHaveLength(7);
+  });
 });
 
 describe('tonight', () => {
@@ -142,7 +188,7 @@ describe('tonight', () => {
     );
   });
 
-  it('paints a usual evening only from now on, not the part of it already gone', () => {
+  it('paints a previous evening only from now on, not the part of it already gone', () => {
     const { rows, run, start } = setUp(TONIGHT);
     const filled = run(start, { type: 'usual', parts: ['weekday_evening'] });
     // Opened at 7:40 pm: from 8 pm, not from 5:30.

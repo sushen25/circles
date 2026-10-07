@@ -1524,6 +1524,7 @@ export type Database = {
           plan_state: Database["public"]["Enums"]["preview_plan_state"]
         }[]
       }
+      previous_dayparts: { Args: { p_plan_id: string }; Returns: string[] }
       quiet_viewer_facts: {
         Args: { p_plan_id: string; p_user_id: string }
         Returns: Json

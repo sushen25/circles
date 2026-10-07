@@ -1,15 +1,24 @@
 import { expect, test, type Page } from './fixtures';
-import { sendEvenings, signedInAs } from './journeys';
+import { joinsAndAnswers, sendEvenings, signedInAs } from './journeys';
 
-import { answerOf, circleOwnedBy, planFor, plansIn, signedInAccount, sql } from './stack';
+import {
+  answerOf,
+  circleOwnedBy,
+  planFor,
+  planStopsAsking,
+  plansIn,
+  signedInAccount,
+  sql,
+  sundayCrew,
+} from './stack';
 
 /**
  * Tonight, end to end (S2-06, spec §5.3 and §5.5): the organiser picks
  * **Tonight** on the setup, the plan made is today alone with replies closing
  * within the hour, and the editor opens on its one day with **From now** and
- * **Later tonight**. Then **Use my usual times** (ADR 0005, ADR 0037): after
- * two answers in a circle, a third plan offers them, and they paint without
- * sending.
+ * **Later tonight**. Then **Use my previous times** (ADR 0005, ADR 0037,
+ * SUS-159): from one earlier answer with times in a circle, the next plan
+ * offers them, says what it will paint, and paints without sending.
  *
  * Tonight is on the clock, so the circle is put in a zone where it is early
  * afternoon now — whatever hour the suite runs at, tonight is on offer. The
@@ -60,7 +69,40 @@ test('an organiser asks about tonight, and the editor asks about tonight', async
   expect(answerOf(plan!.id, mayaId)?.status).toBe('windows');
 });
 
-test('after two answers in a circle, the third plan offers the usual times and sends nothing', async ({
+const PREVIOUS = { name: /^Use my previous times/ };
+/** What the tap will paint: the evenings the plan asks about, and nothing else. */
+const HINT =
+  /^(Weekday evenings|Weekend evenings|Weekday evenings and weekend evenings)\. Nothing is sent until you send it\.$/;
+
+test('from the first repeat, a guest finds their previous times offered, painted and sent', async ({
+  page,
+}) => {
+  const crew = sundayCrew();
+  const ren = await joinsAndAnswers(page, crew, 'Ren');
+  expect(answerOf(crew.planId, ren)?.status).toBe('windows');
+  // One answer with times, in a circle whose next plan has not been asked yet.
+  planStopsAsking(crew, 'cancelled');
+
+  const second = planFor(crew.circleId, crew.ownerId);
+  await page.goto(`/j/${second.code}`);
+  await expect(page.getByText("Times I'd actually be up for")).toBeVisible();
+  await expect(page.getByRole('button', PREVIOUS)).toBeVisible();
+  await expect(page.getByText(HINT)).toBeVisible();
+
+  await page.getByRole('button', PREVIOUS).click();
+  await expect(
+    page.getByRole('button', { name: /Adjust by the half hour$/ }).first(),
+  ).toBeVisible();
+  // Painted, not sent: Send is still theirs, and the offer is gone.
+  await expect(page.getByRole('button', PREVIOUS)).toHaveCount(0);
+  expect(answerOf(second.id, ren)).toBeUndefined();
+
+  await page.getByRole('button', { name: 'Send my times' }).click();
+  await expect(page).toHaveURL(new RegExp(`/j/${second.code}/sent$`));
+  expect(answerOf(second.id, ren)?.status).toBe('windows');
+});
+
+test('after several answers in a circle, the next plan offers them all and sends nothing', async ({
   page,
 }) => {
   const mayaId = await asMaya(page);
@@ -77,11 +119,14 @@ test('after two answers in a circle, the third plan offers the usual times and s
 
   const third = planFor(circleId, mayaId);
   await page.goto(`/j/${third.code}`);
-  await page.getByRole('button', { name: 'Use my usual times' }).click();
+  await expect(page.getByText(HINT)).toBeVisible();
+  await page.getByRole('button', PREVIOUS).click();
   await expect(
     page.getByRole('button', { name: /Adjust by the half hour$/ }).first(),
   ).toBeVisible();
   // Painted, not sent: Send is still the person's, and the button is gone.
-  await expect(page.getByRole('button', { name: 'Use my usual times' })).toHaveCount(0);
+  await expect(page.getByRole('button', PREVIOUS)).toHaveCount(0);
   expect(answerOf(third.id, mayaId)).toBeUndefined();
+  // And the word on no screen.
+  await expect(page.getByText(/usual/i)).toHaveCount(0);
 });

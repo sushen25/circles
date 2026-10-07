@@ -984,7 +984,12 @@ select is(
        -- works for, by id, to the organiser alone; locking in a time of their
        -- own; and editing a locked-in plan's time, place and note.
        -- `310_organiser_sets_the_plan.sql`.
-       'stretch_availability', 'confirm_own_time', 'edit_confirmation'
+       'stretch_availability', 'confirm_own_time', 'edit_confirmation',
+       -- SUS-159. The day-parts the caller has offered before, in the parts
+       -- this plan asks about: text, never a window, over the caller's own
+       -- rows in the plan's circle, for an active member only.
+       -- `370_previous_dayparts.sql`.
+       'previous_dayparts'
      )),
   '',
   'only the intended functions in public are callable by authenticated'

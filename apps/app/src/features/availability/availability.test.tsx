@@ -31,7 +31,7 @@ vi.mock('../../data/availability', async (original) => ({
   submitAnswer: (...args: unknown[]) => submitAnswer(...args),
   othersSaid: (...args: unknown[]) => othersSaid(...args),
   // No usual times here: `usualTimes.test.tsx` is the pre-fill's.
-  usualTimes: async () => undefined,
+  usualTimes: async () => [],
   onChanceToResend: (retry: () => void) => {
     resend = retry;
     return () => {
@@ -142,6 +142,7 @@ describe('painting and sending', () => {
       plan_id: PLAN.id,
       status: 'windows',
       window_count: 1,
+      usual_used: false,
     });
     // Sent, so nothing is left waiting on the device.
     expect(await readDraft('priya', CODE)).toBeUndefined();
@@ -151,7 +152,12 @@ describe('painting and sending', () => {
     open();
     await screen.findByText("Times I'd actually be up for");
 
-    expect(track).toHaveBeenCalledWith('availability_started', { plan_id: PLAN.id });
+    await waitFor(() =>
+      expect(track).toHaveBeenCalledWith('availability_started', {
+        plan_id: PLAN.id,
+        usual_offered: false,
+      }),
+    );
   });
 
   it('will not send an empty answer, and says what would make it one', async () => {
@@ -678,6 +684,7 @@ describe('none of these dates', () => {
       plan_id: PLAN.id,
       status,
       window_count: 0,
+      usual_used: false,
     });
   });
 
@@ -840,7 +847,12 @@ describe('what the others have said (SUS-129)', () => {
     othersSaid.mockReturnValue(new Promise(() => undefined));
     open();
     await screen.findByText("Times I'd actually be up for");
-    expect(track).toHaveBeenCalledWith('availability_started', { plan_id: PLAN.id });
+    await waitFor(() =>
+      expect(track).toHaveBeenCalledWith('availability_started', {
+        plan_id: PLAN.id,
+        usual_offered: false,
+      }),
+    );
     expect(track).not.toHaveBeenCalledWith('availability_others_read', expect.anything());
   });
 

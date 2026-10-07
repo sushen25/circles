@@ -4,6 +4,7 @@ import {
   localDate,
   toLocal,
   zone as toZone,
+  type DayPart,
   type LocalDate,
   type TimeFormat,
 } from '@circles/domain';
@@ -106,4 +107,29 @@ export function timeOfDay(iso: string): string {
   return new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' }).format(
     new Date(iso),
   );
+}
+
+const PART_WORDS: Record<DayPart, () => string> = {
+  weekday_morning: () => t('availability', 'previous_weekday_morning'),
+  weekday_afternoon: () => t('availability', 'previous_weekday_afternoon'),
+  weekday_evening: () => t('availability', 'previous_weekday_evening'),
+  weekend_morning: () => t('availability', 'previous_weekend_morning'),
+  weekend_afternoon: () => t('availability', 'previous_weekend_afternoon'),
+  weekend_evening: () => t('availability', 'previous_weekend_evening'),
+};
+
+/**
+ * What "Use my previous times" will paint, in the day-parts' own words:
+ * "Weekday evenings and weekend afternoons". Only the parts that paint on this
+ * plan are named, so the tap is informed (SUS-159). Words only; the parts are
+ * never sent anywhere, and never put in an event.
+ */
+export function previousWords(parts: readonly DayPart[]): string {
+  const words = parts.map((part) => PART_WORDS[part]());
+  const last = words[words.length - 1] ?? '';
+  const list =
+    words.length > 1
+      ? t('availability', 'previous_list_last', { rest: words.slice(0, -1).join(', '), last })
+      : last;
+  return list.charAt(0).toUpperCase() + list.slice(1);
 }

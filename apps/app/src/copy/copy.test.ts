@@ -109,6 +109,11 @@ describe('the copy file', () => {
       'band',
       'duration',
       'closes',
+      // SUS-159's: what "Use my previous times" will paint, in the day-parts'
+      // own words, and the list's last item.
+      'parts',
+      'rest',
+      'last',
     ]);
     for (const [screen, strings] of Object.entries(en)) {
       for (const [key, value] of Object.entries(strings)) {

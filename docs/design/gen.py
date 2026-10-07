@@ -367,12 +367,20 @@ def my_answer(*rows_):
 def my_answer_empty():
     return f'<div class="stack" style="gap:8px;">{lbl("My answer")}{sm("Nothing yet. Your days and times will be listed here in words.")}</div>'
 
-def availability(grid_, panel_, answer_, minh, others=None, count="3 of 14 days"):
+# "Use my previous times" (SUS-159, ADR 0037): on an empty answer, a tertiary
+# with a line under it naming the day-parts it will paint on this plan.
+PREVIOUS_HINT = "Weekday evenings and weekend evenings. Nothing is sent until you send it."
+
+def previous_times():
+    return stack(ter("Use my previous times"), sm(PREVIOUS_HINT), gap=6)
+
+def availability(grid_, panel_, answer_, minh, others=None, count="3 of 14 days", previous=False):
     line = f'<p class="oth">{ic("people", 16, T["ink2"])}<span>{others}</span></p>' if others else ""
     return shell(
         top("Catch up · 14 Sep – 27 Sep", right=f'<div class="sm">{count}</div>') +
         body(
             stack(dl("Times I'd actually be up for"), p("Catch-ups run about 2 hours. Replies close Tue 15 Sep, 6 pm."), gap=8),
+            *([previous_times()] if previous else []),
             stack(*([line] if line else []), grid_, panel_, gap=14),
             answer_,
             between(stack(title("I'm easy"), sm("Count me in for whatever works for most people"), gap=2), '<div class="toggle"><i></i></div>'),
@@ -407,7 +415,7 @@ THU_COUNTS = [2, 3, 5, 5, 5, 5, 3, 2, 2, 2]
 
 # Empty, with the counts on the days.
 S["AvailabilityOthers"] = availability(day_grid(counts=OTHERS_DAYS), time_panel(),
-    my_answer_empty(), 1250, others=OTHERS_LINE, count="0 of 14 days")
+    my_answer_empty(), 1320, others=OTHERS_LINE, count="0 of 14 days", previous=True)
 
 # Days ticked: Tue, Thu and Sat, and what Evening would meet on them.
 S["AvailabilityOthersPicking"] = availability(day_grid(selected=(15, 17, 19), counts=OTHERS_DAYS),
@@ -425,9 +433,9 @@ S["AvailabilityOthersAdjusting"] = availability(day_grid({15: "Eve", 17: "Eve", 
 
 # The first to answer: no counts anywhere, and a line that teaches.
 S["AvailabilityOthersFirst"] = availability(day_grid(), time_panel(),
-    my_answer_empty(), 1250,
+    my_answer_empty(), 1320,
     others="You're the first to answer. As replies come in, each day will show how many could make it.",
-    count="0 of 14 days")
+    count="0 of 14 days", previous=True)
 
 # After sending, one step (SUS-162): one card, one address, a "Save my place"
 # switch that is on by default. The sentence is a mockup of `CONSENT.text`
@@ -1722,7 +1730,7 @@ with open(os.path.join(out, "Main.dc.html"), "w") as f:
     f.write(S["Join"])
 os.remove(os.path.join(out, "Join.dc.html"))
 
-heights = {"CheckEmail":960, "ConfirmedGuestNudge":900, "AppSheet":900, "Availability":1250, "AvailabilityPicking":1300, "AvailabilityAdjusting":1400, "AvailabilityOthers":1250, "AvailabilityOthersPicking":1300, "AvailabilityOthersAdjusting":1500, "AvailabilityOthersFirst":1250, "Candidates":1170, "NoQuorum":1080, "SetTime":1500, "ConfirmReviewOwn":980, "EditLocked":980, "ConfirmedGuestMoved":900, "DeadlinePassed":960, "Settings":980, "CandidatesMember":1000, "AvailabilityOverlay":1120, "LoadingOptions":1170, "LoadingSlowEight":1170, "LoadingSlowTwenty":1170, "BusyRow":760, "BusyButtons":1300, "LoadingTiming":560, "LoadingMotion":640}
+heights = {"CheckEmail":960, "ConfirmedGuestNudge":900, "AppSheet":900, "Availability":1250, "AvailabilityPicking":1300, "AvailabilityAdjusting":1400, "AvailabilityOthers":1320, "AvailabilityOthersPicking":1300, "AvailabilityOthersAdjusting":1500, "AvailabilityOthersFirst":1320, "Candidates":1170, "NoQuorum":1080, "SetTime":1500, "ConfirmReviewOwn":980, "EditLocked":980, "ConfirmedGuestMoved":900, "DeadlinePassed":960, "Settings":980, "CandidatesMember":1000, "AvailabilityOverlay":1120, "LoadingOptions":1170, "LoadingSlowEight":1170, "LoadingSlowTwenty":1170, "BusyRow":760, "BusyButtons":1300, "LoadingTiming":560, "LoadingMotion":640}
 def ab(file, x, y, page, w=W, h=None, title=None):
     d = {"file": file, "x": x, "y": y, "w": w, "h": h or heights.get(file.replace(".dc.html",""), H), "page": page}
     if title: d["title"] = title

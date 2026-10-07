@@ -161,9 +161,15 @@ export const en = {
     any_time: 'Any time',
     from_now: 'From now',
     later_tonight: 'Later tonight',
-    use_my_usual_times: 'Use my usual times',
-    use_my_usual_times_hint:
-      'Fills in the times you usually give this circle. Nothing is sent until you send it.',
+    use_my_previous_times: 'Use my previous times',
+    use_my_previous_times_hint: '{parts}. Nothing is sent until you send it.',
+    previous_list_last: '{rest} and {last}',
+    previous_weekday_morning: 'weekday mornings',
+    previous_weekday_afternoon: 'weekday afternoons',
+    previous_weekday_evening: 'weekday evenings',
+    previous_weekend_morning: 'weekend mornings',
+    previous_weekend_afternoon: 'weekend afternoons',
+    previous_weekend_evening: 'weekend evenings',
     block_some_days: '{time} · {count} of these {total} days',
     times_vary: 'Times vary by day',
     clear_these_days: 'Clear these days',
@@ -2495,7 +2501,7 @@ export const en = {
     feat1_title: 'Quiet ask',
     feat1_body:
       "Want to see everyone but don't want to be the one who asks? Tap “I'd be up for a catch up” and nothing happens, until enough people have quietly said the same. Then the group hears there's interest, and nobody hears who started it.",
-    feat2_title: 'Usual times, remembered',
+    feat2_title: 'Previous times, remembered',
     feat2_body:
       'Book club, Tuesday footy, the monthly dinner. {brand} learns when your group tends to meet and pre-fills the ask next time. Groups with a rhythm get a gentle “about time?” when the gap is getting long. One nudge, never a guilt trip.',
     feat3_title: 'Replies close on time',
