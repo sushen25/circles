@@ -247,16 +247,16 @@ group by 1;
 -- *started* a named plan is not who organises it now (a hand-off moves the
 -- organiser), so it is read from the creation itself: the outbox event's
 -- organiser at that moment (kept 30 days) or the `plan_created` event's user
--- (kept, but sent by a client that can be blocked); either is evidence. A quiet
--- ask counts once somebody has taken the role (the organiser is public from
--- then, ADR 0041); who started it is exactly what stays in `private`.
+-- (kept, but sent by a client that can be blocked); either is evidence. Quiet
+-- asks are not counted: who started one is exactly what stays in `private`, and
+-- who organises it (a volunteer may) says nothing about it (ADR 0041), so the
+-- gate is a floor on "a plan or a quiet ask".
 create view analytics.gate_other_organiser as
 select p.created_at::date as day, count(*) as plans
 from public.plans p
 join public.circles c on c.id = p.circle_id
-where (
-    p.mode = 'named'
-    and (
+where p.mode = 'named'
+  and (
       exists (
         select 1 from jobs.outbox o
         where o.aggregate_id = p.id
@@ -270,9 +270,7 @@ where (
           and e.user_id is not null
           and e.user_id <> c.owner_user_id
       )
-    )
   )
-  or (p.mode = 'quiet' and p.organiser_user_id is not null and p.organiser_user_id <> c.owner_user_id)
 group by 1;
 
 -- "At least half of guests who submit an email verify it": a guest, here, is

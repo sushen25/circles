@@ -1142,10 +1142,10 @@ export const en = {
       'Returns with no session, and those who got back in from the list. The two are counted, not matched, so one who still had a session counts too and this can only overstate. Emailed links are counted apart.',
     gate_second_meetup_measure: 'Groups that started a second meetup',
     gate_second_meetup_target: 'at least one',
-    gate_other_organiser_measure: 'Plans organised by someone other than the owner',
+    gate_other_organiser_measure: 'Plans started by someone other than the owner',
     gate_other_organiser_target: 'at least one',
     gate_other_organiser_note:
-      'A quiet ask counts once somebody has taken the role; who started it stays private.',
+      'Named plans only: who starts a quiet ask stays private, so this is a floor on a plan or a quiet ask.',
     gate_email_verified_measure: 'Guests who gave an email and verified it',
     gate_email_verified_target: 'at least half',
     gate_email_verified_note:
