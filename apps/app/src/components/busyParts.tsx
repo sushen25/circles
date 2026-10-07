@@ -76,7 +76,7 @@ export function Words({
   // The longest words hold the width, unseen, with the spinner's room before
   // them; what is being said sits over it, with the spinner beside it.
   return (
-    <View>
+    <View style={styles.sizing}>
       <View style={[styles.content, { gap }]}>
         {reserve > 0 ? <View testID="spinner-room" style={{ width: reserve }} /> : null}
         <Text aria-hidden style={[style, styles.sizer]}>
@@ -117,6 +117,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
+    flexShrink: 1,
+  },
+  // Shrinks with its button, so the unseen sizer wraps at 200% and the words
+  // over it wrap with it rather than running past the pill's edge.
+  sizing: {
     flexShrink: 1,
   },
   sizer: {
