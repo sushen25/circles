@@ -75,6 +75,10 @@ function LiveAnalytics() {
   if (!signedIn || query.error instanceof NotFounderError) {
     return <AnalyticsScreen state="denied" />;
   }
+  // Asked but not sent, because the browser is offline: not a wait to sit through.
+  if (query.fetchStatus === 'paused' && query.data === undefined) {
+    return <AnalyticsScreen state="offline" onRetry={() => void query.refetch()} onBack={back} />;
+  }
   if (query.isPending) return <AnalyticsScreen state="loading" onBack={back} />;
   if (query.isError && query.data === undefined) {
     return (

@@ -5,7 +5,7 @@ import {
   emptyFounderAnalytics,
   founderAnalyticsFixture,
 } from '@circles/contracts';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, onlineManager } from '@tanstack/react-query';
 import { render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -129,7 +129,7 @@ describe('the screen, from a fixture', () => {
 describe('the other states', () => {
   it('is shaped like the screen while it loads', async () => {
     render(<AnalyticsScreen state="loading" />);
-    await waitFor(() => expect(screen.getByText('Getting the numbers')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('Getting things ready')).toBeTruthy());
   });
 
   it('says there are no events yet, for an empty database', () => {
@@ -202,6 +202,26 @@ describe('who gets it', () => {
     fetchFounderAnalytics.mockReturnValue(new Promise(() => undefined));
     rerender(tree());
     await waitFor(() => expect(screen.queryByText('North star')).toBeNull());
+  });
+
+  it('says it is offline when the question cannot be sent, rather than waiting for ever', async () => {
+    onlineManager.setOnline(false);
+    try {
+      wrap(<AnalyticsFlow />);
+      await waitFor(() =>
+        expect(screen.getByText("You're offline. Connect, then try again.")).toBeTruthy(),
+      );
+      expect(fetchFounderAnalytics).not.toHaveBeenCalled();
+    } finally {
+      onlineManager.setOnline(true);
+    }
+  });
+
+  it('shows nothing that names the screen while it is still being decided', async () => {
+    fetchFounderAnalytics.mockReturnValue(new Promise(() => undefined));
+    const { container } = wrap(<AnalyticsFlow />);
+    await waitFor(() => expect(screen.getByText('Getting things ready')).toBeTruthy());
+    expect(container.textContent).not.toMatch(/Founder tools|Analytics|numbers/);
   });
 
   it('waits for the session before it decides', () => {

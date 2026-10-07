@@ -1073,7 +1073,9 @@ export const en = {
     period_group: 'Period',
     from_date: 'From {date}. Weeks start on Monday, in UTC.',
     never_split: 'Nothing here is split by person, circle or plan.',
-    loading: 'Getting the numbers',
+    // Neutral on purpose: it is on screen while the allowlist is still being asked,
+    // and must not tell anybody else the route exists.
+    loading: 'Getting things ready',
     error_title: "We couldn't load the numbers.",
     offline_title: "You're offline. Connect, then try again.",
     try_again: 'Try again',

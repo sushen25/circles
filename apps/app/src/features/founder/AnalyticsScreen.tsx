@@ -76,7 +76,6 @@ export function AnalyticsScreen({
       <Loading
         message={t('founderAnalytics', 'loading')}
         shape="cards"
-        topTitle={title}
         onBack={onBack}
         onRetry={onRetry}
       />
