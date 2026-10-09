@@ -51,6 +51,28 @@ describe('Button', () => {
   });
 });
 
+describe('the pill\'s side padding (SUS-176)', () => {
+  it('is 10, so three typical pills fit one line at 390pt, and stays a 44pt target both ways', () => {
+    const { container } = render(<CompactButton label="Done" onPress={() => undefined} />);
+    const element = container.firstElementChild as HTMLElement;
+    expect(element).toHaveStyle({
+      'padding-left': '10px',
+      'padding-right': '10px',
+      'min-width': `${hit}px`,
+      'min-height': `${hit}px`,
+    });
+  });
+
+  it('is the same for a Tertiary, which is the compact button centred', () => {
+    const { container } = render(<Tertiary label="Not now" />);
+    expect(container.firstElementChild as HTMLElement).toHaveStyle({
+      'padding-left': '10px',
+      'padding-right': '10px',
+      'min-width': `${hit}px`,
+    });
+  });
+});
+
 describe('Tertiary, the quiet action (SUS-168)', () => {
   const view = (node: React.ReactNode, inverted = false) => {
     const { container } = render(<InvertProvider value={inverted}>{node}</InvertProvider>);
