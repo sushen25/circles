@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { DB_TIMEOUT_MS, timeBounded } from './db.ts';
+import { asService, DB_TIMEOUT_MS, timeBounded } from './db.ts';
 
 /** The fetch every Supabase client is given: nothing waits longer than ten seconds. */
 
@@ -45,9 +45,35 @@ describe('timeBounded', () => {
     );
 
     await expect(timeBounded('https://example.test/x')).rejects.toMatchObject({
-      name: 'TimeoutError',
+      name: 'AbortError',
     });
     expect(timeout).toHaveBeenCalledWith(DB_TIMEOUT_MS);
+    timeout.mockRestore();
+  });
+});
+
+describe('through the real client', () => {
+  it('makes one request and returns an error when PostgREST never answers, with no retries', async () => {
+    process.env.SUPABASE_URL = 'http://127.0.0.1:1';
+    process.env.SUPABASE_SERVICE_ROLE_KEY = 'service';
+    const timeout = vi
+      .spyOn(AbortSignal, 'timeout')
+      .mockImplementation(() => AbortSignal.abort(new DOMException('timed out', 'TimeoutError')));
+    const stub = vi.fn(
+      (_url: string, init: RequestInit) =>
+        new Promise((_resolve, reject) => {
+          if (init.signal?.aborted === true) reject(init.signal.reason);
+        }),
+    );
+    vi.stubGlobal('fetch', stub);
+
+    const started = Date.now();
+    const { error } = await asService().from('plans').select('id');
+
+    expect(error).not.toBeNull();
+    expect(stub).toHaveBeenCalledTimes(1);
+    // The SDK's retry back-off alone is seconds; giving up at once is well under one.
+    expect(Date.now() - started).toBeLessThan(1_000);
     timeout.mockRestore();
   });
 });

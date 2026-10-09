@@ -34,12 +34,26 @@ function url(): string {
  */
 export const DB_TIMEOUT_MS = 10_000;
 
-export function timeBounded(
+export async function timeBounded(
   input: Parameters<typeof fetch>[0],
   init?: RequestInit,
 ): ReturnType<typeof fetch> {
   // `fetch` is read at call time, so a test's stub and a runtime's own both apply.
-  return fetch(input, { ...init, signal: init?.signal ?? AbortSignal.timeout(DB_TIMEOUT_MS) });
+  try {
+    return await fetch(input, {
+      ...init,
+      signal: init?.signal ?? AbortSignal.timeout(DB_TIMEOUT_MS),
+    });
+  } catch (thrown) {
+    // postgrest-js retries a `TimeoutError` as a flaky network, and every retry
+    // gets a fresh ten seconds: a stalled read took about 47 s over four
+    // requests. It gives up at once on an `AbortError`, which is what running
+    // out of time is here, so say that.
+    if ((thrown as { name?: unknown } | null)?.name === 'TimeoutError') {
+      throw new DOMException(`no answer within ${DB_TIMEOUT_MS} ms`, 'AbortError');
+    }
+    throw thrown;
+  }
 }
 
 export function asCaller(authorization: string): Db {
