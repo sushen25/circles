@@ -25,7 +25,15 @@ Then, as the change touches them:
   rule lives, §8.2 the table-by-table data model, §8.4 the RLS strategy, §9.1
   the function surface, §16 testing.
 - `docs/decisions/` — the ADRs. A change that contradicts one needs a new ADR,
-  not a comment.
+  not a comment. Each record's frontmatter (`status`, `amends`, `amended_by`,
+  `builds_on`) says which others it touches, so a new ADR that amends an old
+  one and says so in neither file's frontmatter is a finding, and so is a
+  record whose status line and frontmatter disagree (`pnpm check:docs` catches
+  the second; read for the first).
+- `docs/Home.md` — the map of the rest of `docs/`, and its writing rules. The
+  folder is an Obsidian vault that is read on GitHub and by code, so a
+  wikilink, a heading link, a renamed file or a document added without its row
+  in `Home.md` or `runbooks/README.md` is a P2 with a reason, not a taste.
 
 ## Get the diff
 
@@ -288,7 +296,10 @@ that only `pnpm check` found. Report the gate, not the filtered run.
 1: product rules live in the spec and change only through an ADR. If the review
 says "the spec says X and the code does Y", either conform or write the ADR and
 update the spec — a decision recorded in a Linear ticket is not the spec, and a
-client built against the spec will disagree with the code.
+client built against the spec will disagree with the code. The ADR starts from
+`docs/_templates/adr.md`, with its frontmatter, its row in
+`docs/decisions/README.md` and the spec change in the same PR; the next round
+checks that the three say the same thing.
 
 **Findings in code this change only moved** go on the ticket that owns that
 code, named and evidenced, not fixed here.

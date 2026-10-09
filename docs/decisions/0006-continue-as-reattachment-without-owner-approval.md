@@ -1,6 +1,6 @@
 ---
 adr: 6
-title: "'Continue as' reattaches a guest membership without owner approval"
+title: "\"Continue as\" reattaches a guest membership without owner approval"
 status: accepted
 date: 2026-09-06
 ---

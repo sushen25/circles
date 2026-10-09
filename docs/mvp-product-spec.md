@@ -305,7 +305,7 @@ Explained before the OS prompt; selected calendars only; reads only the plan's d
 
 #### Definitions
 
-A member is **available** for a candidate if their windows fully contain it or they answered flexible. Non-responders and "none work", "more notice", "not this time" are unavailable. A candidate is **eligible** when all required members are available, the available count meets quorum (required members count toward it), and it starts and ends inside the allowed window. An organiser's own time ([§5.7](#57-decision-and-confirmation), [ADR 0051](decisions/0051-the-organiser-sets-the-final-plan.md)) is outside eligibility and says so: eligibility decides what the engine offers, not what the organiser may decide. "Who can make this stretch" is the one rule above, applied to any stretch, and the engine and the organiser's picker read the same function.
+A member is **available** for a candidate if their windows fully contain it or they answered flexible. Non-responders and "none work", "more notice", "not this time" are unavailable. A candidate is **eligible** when all required members are available, the available count meets quorum (required members count toward it), and it starts and ends inside the allowed window. An organiser's own time (§5.7, [ADR 0051](decisions/0051-the-organiser-sets-the-final-plan.md)) is outside eligibility and says so: eligibility decides what the engine offers, not what the organiser may decide. "Who can make this stretch" is the one rule above, applied to any stretch, and the engine and the organiser's picker read the same function.
 
 #### Algorithm
 

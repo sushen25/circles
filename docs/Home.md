@@ -39,3 +39,10 @@ up and outside the vault, where agents and tooling find it by path.
   `amended_by`, `builds_on` as lists of ADR numbers). The status line under
   the heading stays, because GitHub readers see that and not the table.
   A new ADR starts from the template in `_templates/adr.md`.
+- A new runbook gets a row in `runbooks/README.md`; any other new document
+  gets a row in the table above. The skills in `.claude/skills/` point here
+  and expect both.
+- `pnpm check:docs`, inside `pnpm check` and in CI's prose lane, fails on a
+  link to nothing, a heading link, a wikilink or callout, or an ADR whose
+  frontmatter, status line and README row disagree. It skips `audits/` (not in
+  git), `_templates/` and `design/`.
