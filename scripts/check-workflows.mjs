@@ -222,18 +222,22 @@ const ciRules = (path, file, doc) => {
   }
 
   if (file === 'check.yml') {
-    const cancel = doc?.concurrency?.['cancel-in-progress'];
-    // Literal `true` cancels everything, `main` included. Only an expression
-    // that exempts `main` is accepted.
-    if (cancel === true || typeof cancel !== 'string' || !/refs\/heads\/main/.test(cancel)) {
+    // Known-safe forms only. Matching on the words "main" and `github.sha`
+    // accepted `github.ref == 'refs/heads/main'` (cancels exactly the runs to
+    // protect) and a reversed group condition, so the two expressions are
+    // compared whole, after whitespace and quote style are normalised.
+    const norm = (value) =>
+      typeof value === 'string' ? value.replace(/\s+/g, ' ').replace(/"/g, "'").trim() : value;
+    const cancel = norm(doc?.concurrency?.['cancel-in-progress']);
+    if (cancel !== "${{ github.ref != 'refs/heads/main' }}") {
       fail(
-        "`cancel-in-progress` must exempt `main` (e.g. `${{ github.ref != 'refs/heads/main' }}`): a cancelled `main` check is a commit deployed without a verdict",
+        "`cancel-in-progress` must be exactly `${{ github.ref != 'refs/heads/main' }}`: a cancelled `main` check is a commit deployed without a verdict",
       );
     }
-    const group = doc?.concurrency?.group;
-    if (typeof group !== 'string' || !/github\.sha/.test(group)) {
+    const group = norm(doc?.concurrency?.group);
+    if (group !== "check-${{ github.ref == 'refs/heads/main' && github.sha || github.ref }}") {
       fail(
-        'the concurrency group must include `github.sha` on `main`: a group holds one pending run, and a third push cancels it',
+        "the concurrency group must be exactly `check-${{ github.ref == 'refs/heads/main' && github.sha || github.ref }}`: a group holds one pending run, and a third push on `main` would cancel it",
       );
     }
   }
