@@ -22,6 +22,27 @@ export function reviewLabel(
 }
 
 /**
+ * The waiting screen's headline and body.
+ *
+ * When the organiser's own times are the only ones in, the screen says so
+ * ("Your times are in") instead of counting a quorum nobody has had the chance
+ * to reach (ADR 0026: a circle of one starts at three).
+ */
+export function waitingWords(data: PlanCandidates): { headline: string; body: string } {
+  if (data.repliedCount === 0) {
+    return {
+      headline: t('waiting', 'headline_first'),
+      body: t('waiting', 'body', { count: data.quorum }),
+    };
+  }
+  const onlyMine =
+    data.repliedCount === 1 && data.me !== undefined && data.responded?.includes(data.me) === true;
+  return onlyMine
+    ? { headline: t('waiting', 'headline_only_you'), body: t('waiting', 'body_only_you') }
+    : { headline: t('waiting', 'headline'), body: t('waiting', 'body', { count: data.quorum }) };
+}
+
+/**
  * "Still to answer: you and Tom."
  *
  * The reader is named "you" and put first: the organiser is usually one of the

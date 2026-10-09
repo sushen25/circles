@@ -255,6 +255,8 @@ export async function planCandidates(
   const state = plan.state as PlanState;
   const isOrganiser = me !== undefined && plan.organiser_user_id === me;
   const summariesVisible = isOrganiser || summaries.data.length > 0;
+  const repliesOpen = ANSWERABLE_STATES.includes(state) && open.data !== null;
+  const answeredCount = summariesVisible ? summaries.data.length : (set?.responded_count ?? 0);
   const rosterMembers: RosterMember[] = roster.data.map((m) => ({
     userId: m.user_id,
     name: m.display_name_snapshot,
@@ -279,7 +281,7 @@ export async function planCandidates(
     durationMinutes: plan.duration_minutes,
     dailyStartMin: plan.daily_start_local,
     responseDeadline: plan.response_deadline,
-    repliesOpen: ANSWERABLE_STATES.includes(state) && open.data !== null,
+    repliesOpen,
     latestStart: latestStartOf(plan),
     extendedThisRevision: plan.deadline_extended_on_revision === plan.revision,
     organiserUserId: plan.organiser_user_id,
@@ -295,7 +297,7 @@ export async function planCandidates(
     responded: summariesVisible
       ? summaries.data.flatMap((r) => (r.user_id === null ? [] : [r.user_id]))
       : null,
-    repliedCount: summariesVisible ? summaries.data.length : (set?.responded_count ?? 0),
+    repliedCount: answeredCount,
     askedCount: audience.length,
     set:
       set === undefined
@@ -310,6 +312,10 @@ export async function planCandidates(
     stale: set !== undefined && set.input_version !== plan.input_version,
     candidates,
     nearMisses,
-    view: viewOf(state, candidates, nearMisses),
+    view: viewOf(state, candidates, nearMisses, {
+      quorum: plan.quorum,
+      answeredCount,
+      repliesOpen,
+    }),
   };
 }

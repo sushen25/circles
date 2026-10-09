@@ -15,7 +15,7 @@ import { DeadlinePassedFlow } from './DeadlinePassedFlow';
 import { FixtureCandidates, type CandidatesRoute } from './FixtureCandidates';
 import { MemberView } from './MemberView';
 import { NoQuorumScreen } from './NoQuorumScreen';
-import { reviewLabel, stillToAnswer, widerWarning } from './lines';
+import { reviewLabel, stillToAnswer, waitingWords, widerWarning } from './lines';
 import { blockedBy, unlocksOf } from './unlock';
 import { useShareReminder } from './shareReminder';
 import { useCandidates } from './useCandidates';
@@ -168,10 +168,8 @@ function LiveCandidates({ id, planId }: { id: string; planId: string }) {
     return (
       <WaitingScreen
         header={header}
-        headline={
-          data.repliedCount === 0 ? t('waiting', 'headline_first') : t('waiting', 'headline')
-        }
-        body={t('waiting', 'body', { count: data.quorum })}
+        headline={waitingWords(data).headline}
+        body={waitingWords(data).body}
         answered={t('waiting', 'answered', { count: data.repliedCount, total: data.askedCount })}
         still={stillToAnswer(data)}
         onShareAgain={shareAgain}
