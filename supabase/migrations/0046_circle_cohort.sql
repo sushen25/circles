@@ -35,7 +35,7 @@
 -- Events with no circle: an event carries a circle or plan only when its
 -- payload named one. Where it has neither, its cohort is the one of the person's
 -- circles: `founder` if they belong to any founder circle, else `external` if
--- they belong to any circle. An event nobody can place (no circle, no plan, no
+-- they belong to any circle (a current membership outranks a removed one). An event nobody can place (no circle, no plan, no
 -- user, or a user in no circle) is in neither cohort.
 
 -- ---------------------------------------------------------------------------
@@ -90,7 +90,14 @@ select e.id as event_id,
     (select cc.cohort from public.plans p
        join analytics.circle_cohort cc on cc.circle_id = p.circle_id
       where p.id = e.plan_id),
-    (select case when bool_or(cc.cohort = 'founder') then 'founder' else 'external' end
+    -- Active memberships first: somebody removed from a founder circle who is in
+    -- an external one now is external. With none active, the removed ones say.
+    (select case
+        when bool_or(cc.cohort = 'founder') filter (where m.status = 'active') then 'founder'
+        when count(*) filter (where m.status = 'active') > 0 then 'external'
+        when bool_or(cc.cohort = 'founder') then 'founder'
+        else 'external'
+      end
        from public.circle_members m
        join analytics.circle_cohort cc on cc.circle_id = m.circle_id
       where m.user_id = e.user_id
