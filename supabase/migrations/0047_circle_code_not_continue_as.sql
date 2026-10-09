@@ -1,3 +1,228 @@
+-- 0047_circle_code_not_continue_as
+--
+-- Continue-as resolves plan codes only (SUS-180, ADR 0059). A circle's own code
+-- opens no list and moves no place: every member can read it, nothing rotates
+-- it and no link the product shares carries it, so a member who had been
+-- removed could keep using it for as long as the circle existed.
+--
+-- And `reattach_member`'s list path, which takes a circle and a member rather
+-- than a code, now asks whether one of the circle's plans is live, so a caller
+-- who kept the two ids needs a live plan link as much as one who kept a code.
+--
+-- Changes (all function bodies, in the generated block below):
+--   * private.circles_open_to_continue_as: the circle-code branch is gone;
+--   * private.plan_live_for_continue_as (new): the one statement of "live";
+--   * public.reattach_member: the list path requires a live plan.
+-- No table changes.
+
+-- BEGIN GENERATED: function definitions (scripts/gen-sql-functions.mjs)
+
+-- supabase/sql/functions/private/circles_open_to_continue_as.sql
+-- ---------------------------------------------------------------------------
+-- The circle (if any) a short code may still be used to Continue-as in
+-- (spec §5.1, ADR 0049, ADR 0059).
+--
+-- A code is not a key forever. ADR 0006 accepted that Continue-as needs no
+-- owner approval, and ADR 0022 accepted a plan code in URLs and logs because it
+-- "admits for days, not for good" — so the list a code opens has to stop with
+-- the code's life, and this is the one place that says when:
+--
+--   * a **plan** code: while the circle is `active` and the plan is
+--     `collecting` or `ready`, or has been locked in (`confirmed`, and
+--     `completed` once the outcome is in) and its meetup ended less than
+--     `private.continue_as_window()` ago. `completed` is the same plan the
+--     morning after: refusing it would shut the people who come back to say
+--     "I was there" out the moment the organiser answered the question.
+--     `private.plan_live_for_continue_as` holds that rule;
+--   * **nothing else**. A circle's own code resolves to nothing (ADR 0059): it
+--     is readable by every member for as long as they are one, no link the
+--     product shares carries it, and nothing rotates it, so a member removed
+--     from the circle could keep using it for ever. Neither does a `cancelled`
+--     or `expired` plan, a quiet ask that has not found its footing (`draft`,
+--     `seeking`: never shared by link, §5.4), or an archived circle.
+--
+-- Empty for a code that matches none of these, and the caller cannot tell
+-- "unknown" from "no longer live", which is the point.
+-- ---------------------------------------------------------------------------
+
+create or replace function private.circles_open_to_continue_as(p_short_code text)
+returns setof uuid
+-- plpgsql, not sql, so the functions it reads are looked up when this runs and not when
+-- it is created: the generated block renders files in name order, and this one
+-- sorts before the ones it reads.
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+begin
+  return query
+  select pl.circle_id
+  from public.plans pl
+  where pl.short_code = p_short_code
+    and private.plan_live_for_continue_as(pl.id);
+end;
+$$;
+
+revoke all on function private.circles_open_to_continue_as(text) from public;
+revoke all on function private.circles_open_to_continue_as(text) from anon, authenticated;
+
+-- supabase/sql/functions/private/plan_live_for_continue_as.sql
+-- ---------------------------------------------------------------------------
+-- Whether a plan's code may still be used to Continue-as in its circle
+-- (ADR 0049, ADR 0059).
+--
+-- The one statement of the rule. `private.circles_open_to_continue_as` asks it
+-- of the plan a code names; `public.reattach_member` asks it of the circle a
+-- membership is in, because the list path takes a circle and a member and
+-- no code, and a caller who remembered both would otherwise need no code at all.
+--
+-- Live means the circle is `active` and the plan is `collecting` or `ready`, or
+-- `confirmed` or `completed` with a confirmation (active or completed) whose
+-- meetup ended less than `private.continue_as_window()` ago.
+-- ---------------------------------------------------------------------------
+
+create or replace function private.plan_live_for_continue_as(p_plan_id uuid)
+returns boolean
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+begin
+  return exists (
+    select 1
+    from public.plans pl
+    join public.circles c on c.id = pl.circle_id
+    where pl.id = p_plan_id
+      and c.status = 'active'
+      and (
+        pl.state in ('collecting', 'ready')
+        or (
+          pl.state in ('confirmed', 'completed')
+          and exists (
+            select 1 from public.meetup_confirmations mc
+            where mc.plan_id = pl.id
+              and mc.revision = pl.revision
+              and mc.status in ('active', 'completed')
+              and now() < mc.ends_at + private.continue_as_window()
+          )
+        )
+      )
+  );
+end;
+$$;
+
+revoke all on function private.plan_live_for_continue_as(uuid) from public;
+revoke all on function private.plan_live_for_continue_as(uuid) from anon, authenticated;
+
+-- supabase/sql/functions/public/guest_members_for_reattach.sql
+-- ---------------------------------------------------------------------------
+-- The "Continue as" list (spec §5.1, ADR 0006).
+--
+-- Somebody opens a circle or plan link with no session, or with a session that
+-- holds no membership of that circle. To offer "Continue as Priya" the page
+-- needs the circle's guest names — and nothing else. Display names only: no
+-- reply state, no email flag, no join time. That is not a nicety, it is the
+-- constraint ADR 0006 wrote down ("the continue-as list must never show reply
+-- status or email presence"), because the list is shown before anybody has
+-- proved they belong here.
+--
+-- Keyed by short code rather than circle id, like the link-preview route
+-- (§9.4): the short code is what the person actually has.
+--
+-- And it hands the circle id *back*, because `reattach_member` needs one and a
+-- session that has just signed in anonymously has no way to get it: RLS shows it no
+-- circle it is not a member of, and nothing else maps a code to an id. Without this
+-- the sequence §10 describes — call the list, then call `reattach-member` with what
+-- it returned — could not be completed by the client the contract is written for.
+-- The pgTAP tests missed it by passing a circle id from a `postgres`-side fixture;
+-- no client can do that. It reveals nothing: the caller already holds the code, and
+-- needs the id to make the very next call.
+--
+-- Granted to `authenticated` only, which includes an anonymous session but not
+-- the `anon` role. A visitor arriving with no session at all signs in
+-- anonymously first — the client has to do that anyway before it can reattach,
+-- so it costs the flow nothing.
+--
+-- That grant is **not** a volume control, and this comment used to claim it was:
+-- "scraping costs one anonymous identity per attempt". It does not. One
+-- anonymous session can call this as often as it likes with as many short codes
+-- as it likes, and Supabase's per-IP signup limit never comes into it. So the
+-- limit is here, in the function, where a client calling the RPC directly meets
+-- it too: thirty lookups per caller per hour, which is far more than a person
+-- opening a link will ever need and far less than a scrape.
+--
+-- Saved-place members are excluded, so the list never names somebody this
+-- function could not then be used to reattach to.
+--
+-- **A code opens the list only while it is live** (ADR 0049, ADR 0059): a plan's
+-- code while the plan is asking or options are on offer, or locked in and the
+-- meetup ended less than fourteen days ago; never for a cancelled or expired
+-- plan or an archived circle, and never a circle's own code, which every member
+-- can read and which nothing rotates. The
+-- rule is `private.circles_open_to_continue_as`, shared with the link
+-- preview, so what the screen calls "not active" and what this refuses are
+-- one decision. This used to match any plan the circle had ever had, so an old
+-- forwarded link listed every guest for ever.
+--
+-- The list still carries each person's user id rather than an opaque handle, so
+-- the id remains what `reattach_member` is called with. What bounds that is
+-- there, not here — the circle must be active, the per-circle limit and the
+-- cap apply to a direct call — and ADR 0049 says why a handle was not worth
+-- its cost and what is left over.
+-- ---------------------------------------------------------------------------
+
+-- `volatile`, not `stable`, because counting a lookup is a write. The cost is a
+-- function the planner cannot fold into a surrounding query; the benefit is that
+-- the limit cannot be skipped by the one caller it is meant for.
+create or replace function public.guest_members_for_reattach(p_short_code text)
+returns table (circle_id uuid, member_user_id uuid, display_name text)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  caller uuid := (select auth.uid());
+begin
+  if caller is null then
+    raise exception 'guest_members_for_reattach requires a signed-in actor'
+      using errcode = 'insufficient_privilege';
+  end if;
+
+  if not public.take_rate_token(
+    'roster_lookup', extensions.digest(caller::text, 'sha256'), 30, interval '1 hour'
+  ) then
+    raise exception 'too_many_requests' using errcode = 'too_many_rows';
+  end if;
+
+  return query
+  select m.circle_id, m.user_id, m.display_name_snapshot
+  from public.circle_members m
+  join public.circles c on c.id = m.circle_id
+  join public.profiles p on p.user_id = m.user_id
+  join auth.users u on u.id = m.user_id
+  where c.id in (select private.circles_open_to_continue_as(p_short_code))
+    and m.status = 'active'
+    -- Two records of one fact, and the stricter reading wins. `profiles` is
+    -- the durable record `handle_user_updated` maintains; `auth.users` is
+    -- Supabase's own. A row where they disagree is a row this list must not
+    -- name, whichever of the two is the stale one — "a saved-place member can
+    -- never be reattached to" is a privacy invariant, not a preference.
+    and not p.is_permanent
+    and u.is_anonymous
+  order by m.display_name_snapshot, m.user_id;
+end;
+$$;
+
+comment on function public.guest_members_for_reattach(text) is
+  'The Continue-as list: display names of a circle''s guest members, by short code. Never reply state, never email presence (ADR 0006).';
+
+revoke all on function public.guest_members_for_reattach(text) from public;
+revoke all on function public.guest_members_for_reattach(text) from anon, authenticated;
+grant execute on function public.guest_members_for_reattach(text) to authenticated;
+
+-- supabase/sql/functions/public/reattach_member.sql
 -- ---------------------------------------------------------------------------
 -- reattach_member
 --
@@ -311,3 +536,5 @@ comment on function public.reattach_member(uuid, uuid, bytea) is
 revoke all on function public.reattach_member(uuid, uuid, bytea) from public;
 revoke all on function public.reattach_member(uuid, uuid, bytea) from anon, authenticated;
 grant execute on function public.reattach_member(uuid, uuid, bytea) to authenticated;
+
+-- END GENERATED: function definitions

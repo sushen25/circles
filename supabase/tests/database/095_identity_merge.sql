@@ -566,6 +566,17 @@ language sql security definer as $$ select circle_id from cycle_fixture $$;
 insert into public.circle_members (circle_id, user_id, display_name_snapshot)
 values (pg_temp.cycle_circle(), '95000000-0000-0000-0000-00000000c0d2', 'Nic');
 
+-- A list move needs one of the circle's plans to be live (ADR 0059).
+insert into public.plans (
+  circle_id, mode, state, organiser_user_id, title, time_zone,
+  window_start, window_end, daily_start_local, daily_end_local,
+  duration_minutes, quorum, response_deadline, short_code
+)
+values (pg_temp.cycle_circle(), 'named', 'collecting',
+        '95000000-0000-0000-0000-00000000c0d1', 'Catch up', 'Australia/Melbourne',
+        date '2099-09-17', date '2099-09-20', 1050, 1350, 120, 2,
+        timestamptz '2099-09-20T10:00:00Z', 'cycpen');
+
 select pg_temp.act_as('95000000-0000-0000-0000-00000000c0d3', true);
 select lives_ok(
   $$ select public.reattach_member(pg_temp.cycle_circle(), '95000000-0000-0000-0000-00000000c0d2') $$,
