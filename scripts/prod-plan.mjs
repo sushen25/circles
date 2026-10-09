@@ -47,13 +47,26 @@ export function isTransactional(sql) {
 export function changedFunctions(paths) {
   const names = new Set();
   for (const path of paths) {
-    const m = /^supabase\/functions\/([^/]+)\//.exec(path);
+    const m = /^supabase\/functions\/([^/_][^/]*)\//.exec(path);
     if (m) names.add(m[1]);
   }
   return [...names].sort();
 }
 
-export function render({ base, sha, migrations, functions, note }) {
+/**
+ * Paths every function bundle is built from: `_shared`, the import map, the
+ * workspace packages and the lockfile (AGENTS.md, "Edge runtime"). A change to
+ * one redeploys all of them, so the plan says that instead of listing none.
+ */
+export function sharedChanged(paths) {
+  return paths.filter((path) =>
+    /^(supabase\/functions\/(_[^/]+\/|import_map\.json$|deno\.)|packages\/|pnpm-lock\.yaml$)/.test(
+      path,
+    ),
+  );
+}
+
+export function render({ base, sha, migrations, functions, shared = [], note }) {
   const lines = ['### Production plan: what this deploy changes', ''];
   lines.push(
     base
@@ -72,7 +85,13 @@ export function render({ base, sha, migrations, functions, note }) {
       );
     }
   }
-  lines.push('', `**Edge Functions touched: ${functions.length}**`, '');
+  if (shared.length > 0) {
+    lines.push(
+      '',
+      `**Shared code changed, so every Edge Function is redeployed** (${shared.length} file(s), e.g. \`${shared[0]}\`).`,
+    );
+  }
+  lines.push('', `**Edge Functions with their own changes: ${functions.length}**`, '');
   lines.push(functions.length === 0 ? 'None.' : functions.map((f) => `- \`${f}\``).join('\n'));
   lines.push(
     '',
@@ -101,7 +120,7 @@ function lastDeployedSha(repo, sha) {
       '--jq',
       '.[0].state // ""',
     ).trim();
-    if (state !== 'success' || deployed === sha) continue;
+    if (state !== 'success') continue;
     try {
       git('merge-base', '--is-ancestor', deployed, sha);
       return { base: deployed, note: null };
@@ -128,21 +147,29 @@ function main() {
   const { base, note } = lastDeployedSha(repo, sha);
   let migrations;
   let functions;
+  let changed;
   if (base) {
     migrations = parseNameStatus(
       git('diff', '--name-status', base, sha, '--', 'supabase/migrations'),
     );
-    functions = changedFunctions(
-      git('diff', '--name-only', base, sha, '--', 'supabase/functions').split('\n'),
-    );
+    changed = git(
+      'diff',
+      '--name-only',
+      base,
+      sha,
+      '--',
+      'supabase/functions',
+      'packages',
+      'pnpm-lock.yaml',
+    ).split('\n');
+    functions = changedFunctions(changed);
   } else {
     migrations = git('ls-tree', '--name-only', sha, 'supabase/migrations/')
       .split('\n')
       .filter(Boolean)
       .map((f) => ['A', f]);
-    functions = changedFunctions(
-      git('ls-tree', '-r', '--name-only', sha, 'supabase/functions/').split('\n'),
-    );
+    changed = git('ls-tree', '-r', '--name-only', sha, 'supabase/functions/').split('\n');
+    functions = changedFunctions(changed);
   }
 
   const rows = migrations
@@ -153,7 +180,14 @@ function main() {
       transactional: status === 'D' ? true : isTransactional(readFileSync(file, 'utf8')),
     }));
 
-  const out = render({ base, sha, migrations: rows, functions, note });
+  const out = render({
+    base,
+    sha,
+    migrations: rows,
+    functions,
+    shared: base ? sharedChanged(changed) : [],
+    note,
+  });
   console.log(out);
   if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${out}\n`);
 }

@@ -3,7 +3,13 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import { decide, judge } from './green-check.mjs';
-import { changedFunctions, isTransactional, parseNameStatus, render } from './prod-plan.mjs';
+import {
+  changedFunctions,
+  isTransactional,
+  parseNameStatus,
+  render,
+  sharedChanged,
+} from './prod-plan.mjs';
 
 const run = (over) => ({
   id: 1,
@@ -111,4 +117,35 @@ test('the plan names each migration and warns about the one with no transaction'
     render({ base: null, sha: 'b'.repeat(40), migrations: [], functions: [], note: null }),
     /No earlier successful production deployment/,
   );
+});
+
+test('shared code is not an endpoint, and a change to it is named', () => {
+  assert.deepEqual(
+    changedFunctions(['supabase/functions/_shared/http.ts', 'supabase/functions/a/x.ts']),
+    ['a'],
+  );
+  assert.deepEqual(
+    sharedChanged([
+      'supabase/functions/_shared/http.ts',
+      'supabase/functions/import_map.json',
+      'packages/domain/src/x.ts',
+      'pnpm-lock.yaml',
+      'supabase/functions/a/x.ts',
+    ]),
+    [
+      'supabase/functions/_shared/http.ts',
+      'supabase/functions/import_map.json',
+      'packages/domain/src/x.ts',
+      'pnpm-lock.yaml',
+    ],
+  );
+  const text = render({
+    base: 'a'.repeat(40),
+    sha: 'b'.repeat(40),
+    migrations: [],
+    functions: [],
+    shared: ['packages/domain/src/x.ts'],
+    note: null,
+  });
+  assert.match(text, /every Edge Function is redeployed/);
 });

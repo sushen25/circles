@@ -35,13 +35,22 @@ $SUPABASE link --project-ref <circles-prod project ref>
 stamp=$(date -u +%Y%m%dT%H%M%SZ)
 $SUPABASE db dump --linked -f "circles-prod-$stamp-schema.sql"
 $SUPABASE db dump --linked --data-only --use-copy \
-  -s public,private,analytics,jobs,planning -f "circles-prod-$stamp-data.sql"
+  -s auth,public,private,analytics,jobs,planning -f "circles-prod-$stamp-data.sql"
 $SUPABASE db dump --linked --role-only -f "circles-prod-$stamp-roles.sql"
 ```
 
 The schema dump covers every schema the CLI includes by default; the data dump
-names ours (`public`, `private`, `analytics`, `jobs`, `planning`) because
-`--data-only` is otherwise limited to what the CLI considers user data.
+names ours (`public`, `private`, `analytics`, `jobs`, `planning`) and `auth`
+because `--data-only` is otherwise limited to what the CLI considers user data,
+and the application tables (`profiles`, `circles`, memberships) reference
+`auth.users`: without it, saved accounts cannot be restored with their
+foreign keys intact.
+
+**Restoring** is not rehearsed. The order to try is the roles file, the schema
+file, then the data file with `auth` before the application schemas, so the
+foreign keys to `auth.users` resolve. **Do a restore into a scratch local
+project once before relying on any of this** (`make reset` shows what a clean
+one looks like), and write down what you had to change here.
 
 Then:
 
