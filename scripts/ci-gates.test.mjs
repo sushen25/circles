@@ -304,7 +304,7 @@ test('the smoke test fetches the bundle the shell names', async () => {
   const serve = (bundle) => async (url) => {
     const u = String(url);
     if (u.endsWith('/start')) return new Response(shell, { status: 200 });
-    if (u.includes('/_expo/static/js/web/')) return bundle;
+    if (u.includes('/_expo/static/js/web/')) return bundle.clone();
     return new Response(card, { status: 200 });
   };
   try {
@@ -312,6 +312,17 @@ test('the smoke test fetches the bundle the shell names', async () => {
       new Response('x', { status: 200, headers: { 'content-type': 'application/javascript' } }),
     );
     assert.ok((await smoke('https://app.example')).every((r) => r.ok));
+    const SHA40 = 'c'.repeat(40);
+    globalThis.fetch = serve(
+      new Response(`var b="${SHA40}"`, {
+        status: 200,
+        headers: { 'content-type': 'application/javascript' },
+      }),
+    );
+    assert.ok((await smoke('https://app.example', { sha: SHA40 })).every((r) => r.ok));
+    const stale = await smoke('https://app.example', { sha: 'd'.repeat(40) });
+    assert.equal(stale[0].ok, false);
+    assert.match(stale[0].detail, /previous release/);
     globalThis.fetch = serve(new Response('gone', { status: 404 }));
     const missing = await smoke('https://app.example');
     assert.equal(missing[0].ok, false);

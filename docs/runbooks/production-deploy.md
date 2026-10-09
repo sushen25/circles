@@ -122,7 +122,7 @@ ends **red**. The deploy has already happened by then; red is how you find out.
   marketing page that the bare host serves since ADR 0052) and the preview card
   of `/j/abc234` as a chat app would. The card's `og:image` and its refresh must
   be on `EXPO_PUBLIC_APP_ORIGIN`, never the per-deployment `*.expo.app` host
-  (SUS-128). It retries for two minutes while the CDN catches up.
+  (SUS-128). The bundle it names must load as JavaScript and carry the deployed commit (the build id the export inlined), so a CDN still serving the last release is not a pass. It retries for two minutes while the CDN catches up.
 - `pnpm check:env <host>`: HTTPS, HSTS, the app's `Referrer-Policy`, SPF, DKIM,
   the bounce MX and DMARC.
 
@@ -193,7 +193,10 @@ release checklist, and then fix forward on `main`. The next deploy's plan diffs
 from the last successful deployment, which is now the rolled-back commit, so it
 lists the migrations production already has as if they were new. `db push`
 skips what the database has recorded, so they are not applied twice; the
-dry-run in `apply` prints the CLI's own list, which is the one to trust.
+dry-run in `apply` prints the CLI's own list, which is the one to trust. The
+list of Edge Functions with changes is informational (`functions deploy` deploys
+all of them) and is also measured from the dispatched commit, so after a
+rollback it can under-list what the redeploy brings back.
 
 ### Walking it once
 

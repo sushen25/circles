@@ -2,7 +2,7 @@
 /**
  * Looks at the web build a deploy has just put live, from outside (SUS-144).
  *
- *   node scripts/smoke-web.mjs --origin https://app.example [--wait 120]
+ *   node scripts/smoke-web.mjs --origin https://app.example [--wait 120] [--sha <commit>]
  *
  * Two requests, no credentials:
  *
@@ -15,7 +15,8 @@
  *    card is generic, but it is built from the same origin.
  *
  * The CDN can take a little while to serve a new deployment, so both are retried
- * until `--wait` seconds have passed. `pnpm check:env` does the headers and DNS.
+ * until `--wait` seconds have passed. With `--sha`, the bundle must also carry
+ * that commit (the build id), so a CDN still serving the last release is not a pass. `pnpm check:env` does the headers and DNS.
  */
 
 import { appendFileSync } from 'node:fs';
@@ -54,8 +55,7 @@ export function judgePreview(html, origin) {
 async function getHead(url) {
   const res = await fetch(url, { redirect: 'follow', signal: AbortSignal.timeout(15000) });
   if (!res.ok) throw new Error(`${url} answered ${res.status} ${res.statusText}`);
-  await res.arrayBuffer();
-  return { type: res.headers.get('content-type') ?? '' };
+  return { type: res.headers.get('content-type') ?? '', body: await res.text() };
 }
 
 async function get(url, headers = {}) {
@@ -66,7 +66,7 @@ async function get(url, headers = {}) {
 
 export async function smoke(
   origin,
-  { wait = 0, sleep = (s) => new Promise((r) => setTimeout(r, s * 1000)) } = {},
+  { wait = 0, sha, sleep = (s) => new Promise((r) => setTimeout(r, s * 1000)) } = {},
 ) {
   const checks = [
     [
@@ -75,7 +75,17 @@ export async function smoke(
         const shell = judgeShell(await get(`${origin}/start`));
         if (!shell.ok) return shell;
         // A shell that points at a bundle which 404s is an app that cannot load.
-        const { type } = await getHead(`${origin}${shell.bundle}`);
+        const { type, body } = await getHead(`${origin}${shell.bundle}`);
+        // The build id the export inlined (EXPO_PUBLIC_BUILD_ID) is the deployed
+        // commit. While the CDN still serves the previous release the bundle
+        // loads and the page is fine, so only this tells old from new; retried
+        // until it matches or --wait runs out.
+        if (sha && /javascript/i.test(type) && !body.includes(sha)) {
+          return {
+            ok: false,
+            detail: `the live bundle does not carry the deployed commit ${sha}: still the previous release?`,
+          };
+        }
         return /javascript/i.test(type)
           ? { ok: true, detail: `the app shell, and its bundle ${shell.bundle} loads` }
           : {
@@ -117,7 +127,12 @@ async function main() {
     console.error('usage: smoke-web.mjs --origin https://<host> [--wait <seconds>]');
     process.exit(2);
   }
-  const results = await smoke(origin, { wait: Number(opt('wait') ?? 0) || 0 });
+  const sha = opt('sha');
+  if (sha !== undefined && !/^[0-9a-f]{40}$/.test(sha)) {
+    console.error('smoke-web: --sha must be a full 40-character commit');
+    process.exit(2);
+  }
+  const results = await smoke(origin, { wait: Number(opt('wait') ?? 0) || 0, sha });
   const lines = results.map((r) => `- ${r.ok ? 'ok' : '**FAILED**'}: ${r.name}: ${r.detail}`);
   const text = `### Smoke test of ${origin}\n\n${lines.join('\n')}`;
   console.log(text);

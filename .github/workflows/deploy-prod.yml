@@ -271,12 +271,13 @@ jobs:
       - name: Smoke test the live site
         env:
           APP_ORIGIN: ${{ vars.EXPO_PUBLIC_APP_ORIGIN }}
+          DEPLOYED_SHA: ${{ needs.plan.outputs.sha }}
         run: |
           case "$APP_ORIGIN" in
             https://*) ;;
             *) echo "EXPO_PUBLIC_APP_ORIGIN must be an https origin, got '$APP_ORIGIN'." >&2; exit 1 ;;
           esac
-          node scripts/smoke-web.mjs --origin "$APP_ORIGIN" --wait 120
+          node scripts/smoke-web.mjs --origin "$APP_ORIGIN" --wait 120 --sha "$DEPLOYED_SHA"
           pnpm check:env "${APP_ORIGIN#https://}"
 
   # Tags the release. Its own job so that `contents: write` is held by one job
