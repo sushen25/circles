@@ -22,24 +22,44 @@ export function reviewLabel(
 }
 
 /**
- * The waiting screen's headline and body.
+ * The waiting screen's words.
  *
  * When the organiser's own times are the only ones in, the screen says so
- * ("Your times are in") instead of counting a quorum nobody has had the chance
- * to reach (ADR 0026: a circle of one starts at three).
+ * ("Your times are in", "Just you so far") instead of counting a quorum
+ * nobody has had the chance to reach, or claiming "everyone has answered"
+ * of a circle of one (ADR 0026: a circle of one starts at three).
  */
-export function waitingWords(data: PlanCandidates): { headline: string; body: string } {
+export function waitingWords(data: PlanCandidates): {
+  headline: string;
+  body: string;
+  answered: string;
+  still: string | undefined;
+} {
+  const counted = t('waiting', 'answered', { count: data.repliedCount, total: data.askedCount });
   if (data.repliedCount === 0) {
     return {
       headline: t('waiting', 'headline_first'),
       body: t('waiting', 'body', { count: data.quorum }),
+      answered: counted,
+      still: stillToAnswer(data),
     };
   }
   const onlyMine =
     data.repliedCount === 1 && data.me !== undefined && data.responded?.includes(data.me) === true;
-  return onlyMine
-    ? { headline: t('waiting', 'headline_only_you'), body: t('waiting', 'body_only_you') }
-    : { headline: t('waiting', 'headline'), body: t('waiting', 'body', { count: data.quorum }) };
+  if (onlyMine) {
+    return {
+      headline: t('waiting', 'headline_only_you'),
+      body: t('waiting', 'body_only_you'),
+      answered: t('waiting', 'answered_only_you'),
+      still: undefined,
+    };
+  }
+  return {
+    headline: t('waiting', 'headline'),
+    body: t('waiting', 'body', { count: data.quorum }),
+    answered: counted,
+    still: stillToAnswer(data),
+  };
 }
 
 /**
