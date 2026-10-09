@@ -90,7 +90,12 @@ export function usePrefetchPlanPage(code: string): void {
     void Promise.all([access, others]).then(([answer]) => {
       if (answer?.membership === 'member') return;
       for (const other of [key.planByCode, key.planDetails, key.planToAnswer, key.planCandidates]) {
-        queryClient.removeQueries({ queryKey: other, exact: true });
+        // Nobody reading it: forget it, so the first reader waits for a real
+        // answer. Somebody already reading it (they joined while the last read
+        // was out) is told to read again; deleting the entry would leave their
+        // observer on the `null` with nothing to replace it.
+        queryClient.removeQueries({ queryKey: other, exact: true, type: 'inactive' });
+        void queryClient.invalidateQueries({ queryKey: other, exact: true, type: 'active' });
       }
     });
   }, [queryClient, userId, code]);

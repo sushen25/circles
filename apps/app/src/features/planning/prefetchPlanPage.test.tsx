@@ -1,4 +1,4 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider, QueryObserver } from '@tanstack/react-query';
 import { render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -174,6 +174,37 @@ describe('the plan page reads', () => {
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(queryClient.getQueryData(keys.planToAnswer)).toBeUndefined();
     expect(queryClient.getQueryData(keys.planByCode)).toBeUndefined();
+  });
+
+  it('send a reader who joined meanwhile back for a real answer', async () => {
+    let resolveCandidates: (value: null) => void = () => undefined;
+    reads.planAccess.mockResolvedValue({ membership: 'not_member' });
+    reads.planByCode.mockResolvedValue(null);
+    reads.planDetails.mockResolvedValue(null);
+    reads.planToAnswer.mockResolvedValueOnce(null).mockResolvedValue({ plan: 'p', answer: null });
+    reads.planCandidates.mockImplementation(
+      () => new Promise((resolve) => (resolveCandidates = resolve)),
+    );
+    const queryClient = client();
+    render(
+      <QueryClientProvider client={queryClient}>
+        <Page code={CODE} />
+      </QueryClientProvider>,
+    );
+    const keys = planPageKeys(CODE as never, 'nina');
+    await waitFor(() => expect(queryClient.getQueryData(keys.planToAnswer)).toBeNull());
+    // The gate mounts and reads it, as `PlanLinkFlow` does after they join.
+    const observer = new QueryObserver(queryClient, {
+      queryKey: keys.planToAnswer,
+      queryFn: () => reads.planToAnswer(),
+      staleTime: 30_000,
+    });
+    const unsubscribe = observer.subscribe(() => undefined);
+    resolveCandidates(null);
+    await waitFor(() =>
+      expect(observer.getCurrentResult().data).toEqual({ plan: 'p', answer: null }),
+    );
+    unsubscribe();
   });
 
   it('use the keys the gates use', () => {
