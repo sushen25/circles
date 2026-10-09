@@ -46,11 +46,11 @@ export function judge(runs) {
   // A re-run creates a new check run for the same job. The latest one is the
   // verdict, so a cancelled run that was superseded by a green one does not
   // block, and a green one that was superseded by a red one does.
-  const latest = [...ours].sort(
-    (a, b) =>
-      String(b.started_at ?? '').localeCompare(String(a.started_at ?? '')) ||
-      (b.id ?? 0) - (a.id ?? 0),
-  )[0];
+  //
+  // By id, which only ever grows, and not by `started_at`: a run that is queued
+  // has no start time yet, and sorting it as "oldest" would put an older success
+  // in front of a newer run that has not begun.
+  const latest = [...ours].sort((a, b) => (b.id ?? 0) - (a.id ?? 0))[0];
   if (latest.status !== 'completed') {
     return {
       state: 'pending',

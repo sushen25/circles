@@ -149,3 +149,10 @@ test('shared code is not an endpoint, and a change to it is named', () => {
   });
   assert.match(text, /every Edge Function is redeployed/);
 });
+
+test('a newer run that has not started yet is the verdict, not the older success before it', () => {
+  const older = run({ id: 1 });
+  const queued = run({ id: 2, status: 'queued', conclusion: null, started_at: null });
+  assert.equal(judge([older, queued]).state, 'pending');
+  assert.equal(judge([queued, older]).state, 'pending');
+});
