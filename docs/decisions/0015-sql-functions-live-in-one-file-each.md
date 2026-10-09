@@ -1,3 +1,9 @@
+---
+adr: 15
+title: "A database function's definition lives in one file, generated into migrations"
+status: accepted
+date: 2026-09-11
+---
 # ADR 0015: A database function's definition lives in one file, generated into migrations
 
 _Status: accepted · Date: 11 September 2026_

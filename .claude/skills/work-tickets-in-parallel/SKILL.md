@@ -181,10 +181,17 @@ worktree.
 
 ## Files every ticket wants
 
-- **ADR numbers.** Two branches will both reach for the next number. Draft as
-  `docs/decisions/00XX-<slug>.md`, refer to it as "ADR 00XX" in the PR, and
-  take the real number in the final rebase before merge, when main says what is
-  next. Update `docs/decisions/README.md` in that same commit.
+- **ADR numbers.** Two branches will both reach for the next number. Draft
+  from `docs/_templates/adr.md` as `docs/decisions/00XX-<slug>.md`, refer to
+  it as "ADR 00XX" in the PR, and take the real number in the final rebase
+  before merge, when main says what is next. The number lives in three places
+  — the filename, the heading and the frontmatter `adr:` — and the row in
+  `docs/decisions/README.md`, plus any other record's `amends` /
+  `amended_by` / `builds_on` list that names it, move in that same commit.
+  `pnpm check:docs`, inside the gate, fails until they agree.
+- **`docs/Home.md` and `docs/runbooks/README.md`.** One row per new document,
+  at the position the table's order dictates. Two tickets each adding a
+  runbook merge clean when neither appends at the end.
 - **`apps/app/src/copy/en.ts`.** Add keys only inside your feature's own
   namespace and never reorder or reformat a neighbour's. Two tickets adding to
   different namespaces then merge clean.
@@ -298,6 +305,11 @@ grep -n 'project_id\|^port' ../circles-wt/sus-0/supabase/config.toml   # circles
 - **Untracked files do not travel into a worktree**, the reverse of
   `ticket.sh start`. `.env` is copied; anything else local (a scratch SQL file,
   an unpublished skill) has to be copied by hand.
+- **The Obsidian vault is the primary checkout's `docs/`, not your
+  worktree's.** `obsidian vault=docs …` reads slot 0's files, so from a slot it
+  answers about `main` plus whatever the founder has open, not about your
+  branch. Rely on `pnpm check:docs` in the gate for links and ADR frontmatter,
+  and open the vault only to read.
 - **A new file in `packages/*/dist` still needs a stack restart**, per slot:
   `parallel.sh down && parallel.sh up`. `add` builds before the first `up` for
   this reason.

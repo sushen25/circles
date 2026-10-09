@@ -1,10 +1,17 @@
+---
+adr: 49
+title: "Continue-as resolves a code only while it is live, and its limits are enforced in SQL"
+status: proposed
+date: 2026-10-02
+amends: [6, 22]
+---
 # ADR 0049: Continue-as resolves a code only while it is live, and its limits are enforced in SQL
 
-_Status: proposed · 2 October 2026, decision 6 added 3 October 2026 · amends [ADR 0006](0006-continue-as-reattaches-a-guest-membership-without-owner-approval.md) and [ADR 0022](0022-a-plan-link-admits-new-members-while-the-plan-is-asking.md), and spec §5.1_
+_Status: proposed · 2 October 2026, decision 6 added 3 October 2026 · amends [ADR 0006](0006-continue-as-reattachment-without-owner-approval.md) and [ADR 0022](0022-a-plan-link-admits-new-members-while-the-plan-is-asking.md), and spec §5.1_
 
 ## Context
 
-[ADR 0006](0006-continue-as-reattaches-a-guest-membership-without-owner-approval.md)
+[ADR 0006](0006-continue-as-reattachment-without-owner-approval.md)
 accepted that Continue-as needs no owner approval, on the strength of three
 safeguards: only guest memberships can be taken, at most three moves per
 membership per seven days, and the owner is told. [ADR 0022](0022-a-plan-link-admits-new-members-while-the-plan-is-asking.md)

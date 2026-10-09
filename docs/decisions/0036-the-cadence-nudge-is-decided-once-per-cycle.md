@@ -1,3 +1,9 @@
+---
+adr: 36
+title: "The cadence nudge is decided once per cycle, when circle home says it is about time"
+status: proposed
+date: 2026-09-25
+---
 # ADR 0036: The cadence nudge is decided once per cycle, when circle home says it is about time
 
 _Status: proposed · 25 September 2026_

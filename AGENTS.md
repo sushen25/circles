@@ -37,6 +37,7 @@ pnpm gen               # every generator in order: events, transitions, function
 pnpm gen:migration <name>  # the branch's one new, numbered migration; the generators write into it
 pnpm gen:functions     # re-render supabase/sql/functions/ into that migration (ADR 0015)
 pnpm check:migrations  # fails if a migration already on origin/main was edited (inside pnpm check)
+pnpm check:docs        # links in docs/ resolve; each ADR's frontmatter, status line and README row agree (inside pnpm check)
 pnpm gen:tokens        # regenerate design tokens from docs/design/gen.py
 pnpm test:e2e          # Playwright: fixtures with no backend (smoke), then the journeys against the local stack in five browser projects (live)
 pnpm check:env <domain>  # a deployed environment from outside: HTTPS, HSTS, SPF/DKIM/DMARC
@@ -185,6 +186,20 @@ Write an ADR in [`docs/decisions/`](docs/decisions/README.md), numbered
 sequentially, following the shape of the existing ones: Context, Decision,
 Alternatives considered, Consequences. A superseded record stays in place with a
 status line. Then change the spec or the architecture in the same PR.
+
+## The docs are an Obsidian vault
+
+`docs/` opens in Obsidian as a vault. The files stay plain Markdown in git;
+Obsidian adds the graph, backlinks and a live ADR table
+(`docs/decisions/decisions.base`) on top, and nothing in the repository reads
+`.obsidian/`. The writing rules are in [`docs/Home.md`](docs/Home.md): relative
+Markdown links with the `.md` extension, no Obsidian-only syntax, no heading
+links, no renames. ADRs carry frontmatter (`adr`, `title`, `status`, `date`,
+and `amends`, `amended_by`, `builds_on` as lists of ADR numbers) and keep their
+status line; a new one starts from `docs/_templates/adr.md`. `docs/.obsidian/`
+is committed except the per-machine workspace files. `pnpm check:docs`, inside
+the gate, fails on a link to nothing or an ADR whose three copies of its status
+disagree.
 
 ## The scenario
 

@@ -1,3 +1,9 @@
+---
+adr: 20
+title: "The verification token is minted by whoever sends the email"
+status: accepted
+date: 2026-09-14
+---
 # ADR 0020: The verification token is minted by whoever sends the email
 
 _Status: accepted · Date: 14 September 2026_

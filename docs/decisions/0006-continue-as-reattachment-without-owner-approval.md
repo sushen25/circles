@@ -1,3 +1,9 @@
+---
+adr: 6
+title: "\"Continue as\" reattaches a guest membership without owner approval"
+status: accepted
+date: 2026-09-06
+---
 # ADR 0006: "Continue as" reattaches a guest membership without owner approval
 
 _Status: accepted · Date: 6 September 2026_

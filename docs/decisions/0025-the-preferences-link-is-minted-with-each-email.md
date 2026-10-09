@@ -1,3 +1,10 @@
+---
+adr: 25
+title: "The preferences link is minted with each email, and both footer links open it"
+status: accepted
+date: 2026-09-19
+amended_by: [29]
+---
 # ADR 0025: The preferences link is minted with each email, and both footer links open it
 
 _Status: accepted · Date: 19 September 2026 · numbered when rebased onto main (SUS-82 takes 0024) · its open question on organiser email is answered by [ADR 0029](./0029-an-organiser-turns-organiser-email-off-in-the-app.md)_

@@ -1,0 +1,74 @@
+# The ADR index as a live table. Rows come from each record's frontmatter;
+# the hand-written table in README.md stays the GitHub-facing index.
+filters:
+  and:
+    - file.inFolder("decisions")
+    - file.hasProperty("adr")
+properties:
+  adr:
+    displayName: ADR
+  title:
+    displayName: Decision
+  status:
+    displayName: Status
+  date:
+    displayName: Date
+  amends:
+    displayName: Amends
+  amended_by:
+    displayName: Amended by
+  builds_on:
+    displayName: Builds on
+views:
+  - type: table
+    name: All
+    order:
+      - adr
+      - title
+      - status
+      - date
+      - amends
+      - amended_by
+      - builds_on
+    sort:
+      - property: adr
+        direction: DESC
+  - type: table
+    name: Proposed
+    filters: status == "proposed"
+    order:
+      - adr
+      - title
+      - date
+      - amends
+      - builds_on
+    sort:
+      - property: adr
+        direction: DESC
+  - type: table
+    name: Accepted
+    filters: status == "accepted"
+    order:
+      - adr
+      - title
+      - date
+      - amended_by
+    sort:
+      - property: adr
+        direction: DESC
+  - type: table
+    name: Related to another ADR
+    filters:
+      or:
+        - amends != null
+        - amended_by != null
+        - builds_on != null
+    order:
+      - adr
+      - title
+      - amends
+      - amended_by
+      - builds_on
+    sort:
+      - property: adr
+        direction: ASC

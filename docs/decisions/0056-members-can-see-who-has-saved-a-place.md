@@ -1,3 +1,10 @@
+---
+adr: 56
+title: "A circle's members can see which of them has saved a place"
+status: proposed
+date: 2026-10-06
+builds_on: [32]
+---
 # ADR 0056: A circle's members can see which of them has saved a place
 
 _Status: proposed · 6 October 2026 · builds on [ADR 0032](0032-the-circles-zone-is-shown-when-the-readers-device-differs.md), which kept `member_profiles` to a name and an id_

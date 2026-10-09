@@ -1,3 +1,10 @@
+---
+adr: 51
+title: "The organiser sets the final plan: any day and time, edited afterwards without asking everyone again"
+status: proposed
+date: 2026-10-02
+builds_on: [17, 18, 46]
+---
 # ADR 0051: The organiser sets the final plan: any day and time, edited afterwards without asking everyone again
 
 _Status: proposed · 2 October 2026 · amends spec §5.6, §5.7, §5.8 and §8.2; builds on [ADR 0017](0017-quorum-and-deadline-adjust-a-plan-without-a-revision.md), [ADR 0018](0018-the-recalculation-runs-in-the-request-that-caused-it.md) and [ADR 0046](0046-an-edit-that-clears-answers-asks-those-people-again.md)_

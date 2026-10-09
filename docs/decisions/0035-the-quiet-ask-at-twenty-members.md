@@ -1,3 +1,9 @@
+---
+adr: 35
+title: "The quiet ask at twenty members — its threshold, its stop time, and what it does beside an open plan"
+status: accepted
+date: 2026-09-25
+---
 # ADR 0035: The quiet ask at twenty members — its threshold, its stop time, and what it does beside an open plan
 
 _Status: accepted · 25 September 2026_

@@ -1,3 +1,9 @@
+---
+adr: 1
+title: "Host the web app on EAS Hosting (Starter) with Expo Router `server` output"
+status: accepted
+date: 2026-09-06
+---
 # ADR 0001: Host the web app on EAS Hosting (Starter) with Expo Router `server` output
 
 _Status: accepted · Date: 6 September 2026_

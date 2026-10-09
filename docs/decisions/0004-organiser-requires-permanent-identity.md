@@ -1,3 +1,9 @@
+---
+adr: 4
+title: "Organising a plan requires a saved place (permanent identity); responding never does"
+status: accepted
+date: 2026-09-06
+---
 # ADR 0004: Organising a plan requires a saved place (permanent identity); responding never does
 
 _Status: accepted · Date: 6 September 2026_

@@ -1,3 +1,11 @@
+---
+adr: 50
+title: "Verifying an address promotes only the contacts that belong to the same person"
+status: proposed
+date: 2026-10-02
+amends: [27]
+builds_on: [19, 20]
+---
 # ADR 0050: Verifying an address promotes only the contacts that belong to the same person
 
 _Status: proposed · 2 October 2026 · amends the last consequence of [ADR 0027](0027-the-organisers-auth-address-is-an-email-contact.md); builds on [ADR 0019](0019-consent-is-recorded-when-it-is-given.md) and [ADR 0020](0020-the-verification-token-is-minted-by-the-sender.md)_

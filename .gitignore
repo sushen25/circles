@@ -32,3 +32,10 @@ test-results/
 
 # CI deploy output
 eas-deploy.json
+
+# Obsidian: docs/ is a vault. Its settings are shared; the window state, any
+# community plugin's data and the trash are per machine.
+docs/.obsidian/workspace.json
+docs/.obsidian/workspace-mobile.json
+docs/.obsidian/plugins/
+docs/.trash/

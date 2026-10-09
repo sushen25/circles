@@ -1,3 +1,9 @@
+---
+adr: 10
+title: "Tonight's deadline gives up its margin rather than the plan"
+status: accepted
+date: 2026-09-10
+---
 # ADR 0010: Tonight's deadline gives up its margin rather than the plan
 
 _Status: accepted · Date: 10 September 2026_

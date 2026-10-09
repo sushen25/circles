@@ -2,7 +2,7 @@
 
 _Research date: 2 September 2026_
 
-_Product context: [initial MVP product specification](../initial-mvp-product-spec.md), [meetup market research](./meetup-market-research.md), [consumer SaaS success research](./consumer-saas-success-research.md), [software moat research](./software-moats-research.md), and [design manifesto](./design-manifesto.md)_
+_Product context: [initial MVP product specification](../initial-mvp-product-spec.md), [meetup market research](./meetup-market-research.md), [consumer SaaS success research](./consumer-saas-success-research.md), [software moat research](./software-moats-research.md), and [design manifesto](../design-manifesto.md)_
 
 ## Executive recommendation
 
@@ -434,7 +434,7 @@ The product should not claim that “everyone wants to meet” when only a thres
 
 ## 8. Visual brand direction
 
-The [design manifesto](./design-manifesto.md) already establishes an appropriate product system: warm off-white, terracotta, near-black, restrained green, Newsreader for human moments, Figtree for utility, calm working screens, and a generous confirmation moment.
+The [design manifesto](../design-manifesto.md) already establishes an appropriate product system: warm off-white, terracotta, near-black, restrained green, Newsreader for human moments, Figtree for utility, calm working screens, and a generous confirmation moment.
 
 Brand development should extend it rather than replace it.
 
@@ -842,11 +842,11 @@ Run the comprehension, invite, spelling, association, delayed-recall, and referr
 
 ### Existing product research
 
-- [Initial MVP product specification](./initial-mvp-product-spec.md)
+- [Initial MVP product specification](../initial-mvp-product-spec.md)
 - [Meetup market research](./meetup-market-research.md)
 - [Consumer SaaS success research](./consumer-saas-success-research.md)
 - [Software moat research](./software-moats-research.md)
-- [Design manifesto](./design-manifesto.md)
+- [Design manifesto](../design-manifesto.md)
 
 ### Competitor positioning
 

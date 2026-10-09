@@ -6,7 +6,7 @@ _Date: 26 August 2026_
 
 _Primary test audience: the founder's 2–3 existing friend groups, followed by non-friend groups_
 
-_Research inputs: [consumer SaaS success research](../consumer-saas-success-research.md) and [meetup market research](../meetup-market-research.md)_
+_Research inputs: [consumer SaaS success research](research/consumer-saas-success-research.md) and [meetup market research](research/meetup-market-research.md)_
 
 ## 1. Executive product decision
 

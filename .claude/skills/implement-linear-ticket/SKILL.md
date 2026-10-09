@@ -58,8 +58,13 @@ Steps, in order:
    already written there.
 2. **Check blockers.** For every id in `relations.blockedBy`, `get_issue` it;
    all must be `Done` (or `Canceled`). Otherwise stop and report which block.
-3. **Read first.** `AGENTS.md`, then everything in the ticket's "Read first"
-   list, then `docs/tickets.md` "Working a ticket".
+3. **Read first.** `AGENTS.md`, then `docs/Home.md` — the map of `docs/` and
+   the rules for writing there — then everything in the ticket's "Read first"
+   list, then `docs/tickets.md` "Working a ticket". The ADRs are indexed in
+   `docs/decisions/README.md`, and each one carries frontmatter (`status`,
+   `amends`, `amended_by`, `builds_on` as ADR numbers), so a grep on
+   `amends:` or `builds_on:` finds the records that touch the one you are
+   about to change.
 4. **Claim it.** `save_issue` with `id: "SUS-N"`, `state: "In Progress"`
    (add `assignee: "me"` if unassigned).
 5. **Branch.**
@@ -73,6 +78,20 @@ Steps, in order:
 6. **Implement** within the ticket's Scope; respect Out of scope. Commit with
    the repo's trailer (`Co-Authored-By: Claude …`). Anything the ticket asked you
    to decide goes in a Linear comment (step 10) and the PR body's "Decisions taken".
+
+   **Keep the docs in step with the code, in the same commits.** A rule that
+   changes gets an ADR (`AGENTS.md`, "Changing a rule"): copy
+   `docs/_templates/adr.md`, fill the frontmatter (`adr`, `title`, `status`,
+   `date`, and `amends` / `amended_by` / `builds_on` as ADR numbers), keep the
+   status line saying the same thing, add the row to
+   `docs/decisions/README.md`, and change the spec or the architecture in the
+   same PR. A record you amend gets `amended_by` and a note on its status
+   line. A new runbook gets a row in `docs/runbooks/README.md`; any other new
+   document gets a row in `docs/Home.md`. Links are relative Markdown with the
+   `.md` extension, no heading links, no Obsidian-only syntax, no renames —
+   `docs/Home.md` says why. `pnpm check:docs`, inside the gate, fails on a
+   link to nothing or on an ADR whose frontmatter, status line and README row
+   disagree, so a doc left behind fails the check rather than the reader.
 7. **Check.**
 
 ```bash
@@ -198,8 +217,8 @@ because it also checks whitespace and the design canvas; `make check` is the
 
 `ticket.sh check` is the gate. It runs `git diff --check`, the design-canvas
 drift check when `docs/design/` changed, and `pnpm check` — formatting, lint,
-the brand/token/type/import/workflow checks, typecheck, unit tests, pgTAP and
-the Playwright smoke suite.
+the brand/token/type/import/workflow/docs checks, typecheck, unit tests, pgTAP
+and the Playwright smoke suite.
 
 ```bash
 .claude/skills/implement-linear-ticket/ticket.sh check
@@ -240,8 +259,9 @@ tests.
   every push.
 - **`check` runs `corepack pnpm check`** (`pnpm` is not installed globally here;
   `corepack` ships with Node 24). It takes about six minutes, or about one for a
-  change touching only Markdown and `.claude/` — those take the prose lane and
-  skip the suites, `preview` and `deploy-dev` (SUS-72).
+  change touching only Markdown and `.claude/` — those take the prose lane
+  (Prettier and `check:docs`) and skip the suites, `preview` and `deploy-dev`
+  (SUS-72).
 
 ## Troubleshooting
 

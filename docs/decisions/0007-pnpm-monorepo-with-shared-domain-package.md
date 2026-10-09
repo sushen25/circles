@@ -1,3 +1,9 @@
+---
+adr: 7
+title: "One pnpm monorepo with a pure `packages/domain` shared by the client and Edge Functions"
+status: accepted
+date: 2026-09-06
+---
 # ADR 0007: One pnpm monorepo with a pure `packages/domain` shared by the client and Edge Functions
 
 _Status: accepted · Date: 6 September 2026_

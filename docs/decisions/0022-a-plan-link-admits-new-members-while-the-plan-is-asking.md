@@ -1,3 +1,10 @@
+---
+adr: 22
+title: "A plan link admits new members while the plan is taking answers"
+status: accepted
+date: 2026-09-17
+amended_by: [26, 35]
+---
 # ADR 0022: A plan link admits new members while the plan is taking answers
 
 _Status: accepted (one point narrowed by ADR 0026; its remark on a circle of one is superseded by [ADR 0035](./0035-the-quiet-ask-at-twenty-members.md)) · Date: 17 September 2026_

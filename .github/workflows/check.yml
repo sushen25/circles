@@ -77,13 +77,15 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
 
-      # Needed either way: prose still gets Prettier. Root Markdown is
-      # formatted (`docs/` is not), so this is the one gate prose can fail.
+      # Needed either way: prose still gets Prettier and the docs check. Root
+      # Markdown is formatted (`docs/` is not), and `check:docs` fails on a
+      # link to nothing or an ADR whose frontmatter has drifted from its
+      # status line, so these are the two gates prose can fail.
       - run: pnpm install --frozen-lockfile
 
-      - name: Formatting only
+      - name: Prose only — formatting and the docs check
         if: steps.scope.outputs.kind == 'prose'
-        run: pnpm run format:check
+        run: pnpm run format:check && pnpm run check:docs
 
       # Two engines since S1-31: Chromium for Chrome on Android and the Android
       # in-app browsers, WebKit for mobile Safari and the iOS ones. The browser

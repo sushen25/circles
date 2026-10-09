@@ -359,7 +359,7 @@ wrong role from a wrong account.
 
 The names differ on purpose, and `check:workflows` enforces the split; why, the
 caveats that remain, and how to rotate them are in
-[`ci.md`](./ci.md#deploy-credentials-two-sets-and-only-an-approved-job-gets-productions).
+[`ci.md`](./ci.md), under "Deploy credentials".
 
 **Setting `EXPO_TOKEN` is what switches the deploy workflows on.** Until it
 exists they skip and report; the moment it is set they run for real, and

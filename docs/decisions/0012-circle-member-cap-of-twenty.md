@@ -1,3 +1,10 @@
+---
+adr: 12
+title: "A circle holds up to twenty active members"
+status: accepted
+date: 2026-09-10
+amended_by: [35]
+---
 # ADR 0012: A circle holds up to twenty active members
 
 _Status: accepted · Date: 10 September 2026 · its line on the quiet-ask threshold is corrected by [ADR 0035](./0035-the-quiet-ask-at-twenty-members.md)_

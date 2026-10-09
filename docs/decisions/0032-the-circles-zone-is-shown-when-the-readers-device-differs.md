@@ -1,3 +1,9 @@
+---
+adr: 32
+title: "The circle's zone is shown when the reader's device differs, not when a member's does"
+status: accepted
+date: 2026-09-24
+---
 # ADR 0032: The circle's zone is shown when the reader's device differs, not when a member's does
 
 _Status: accepted · 24 September 2026_

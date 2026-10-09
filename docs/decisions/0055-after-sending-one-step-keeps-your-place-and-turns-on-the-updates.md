@@ -1,3 +1,11 @@
+---
+adr: 55
+title: "After sending, one step keeps the guest's place and turns on the plan's updates"
+status: proposed
+date: 2026-10-06
+amends: [19]
+builds_on: [27, 48, 50]
+---
 # ADR 0055: After sending, one step keeps the guest's place and turns on the plan's updates
 
 _Status: proposed · 6 October 2026 (amended the same day, see the last section) · amends spec §5.1 and §5.11 (the Times-sent prompts) and [ADR 0019](0019-consent-is-recorded-when-it-is-given.md)'s reading of what proves a contact for a signed-in person; builds on [ADR 0027](0027-the-organisers-auth-address-is-an-email-contact.md), [ADR 0048](0048-the-consent-sentence-is-the-one-string-that-lives-in-config.md) and [ADR 0050](0050-verifying-an-address-promotes-only-the-same-persons-contacts.md)_

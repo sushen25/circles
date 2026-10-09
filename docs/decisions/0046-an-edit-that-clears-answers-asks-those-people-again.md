@@ -1,3 +1,9 @@
+---
+adr: 46
+title: "An edit that clears answers asks those people again"
+status: proposed
+date: 2026-10-01
+---
 # ADR 0046: An edit that clears answers asks those people again
 
 _Status: proposed · 1 October 2026_

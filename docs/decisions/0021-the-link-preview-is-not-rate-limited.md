@@ -1,3 +1,9 @@
+---
+adr: 21
+title: "The link preview is not rate-limited; the code space is the control"
+status: accepted
+date: 2026-09-15
+---
 # ADR 0021: The link preview is not rate-limited; the code space is the control
 
 _Status: accepted · Date: 15 September 2026_

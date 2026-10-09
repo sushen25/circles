@@ -1,3 +1,9 @@
+---
+adr: 24
+title: "Availability is answered days first, then a time once"
+status: accepted
+date: 2026-09-19
+---
 # ADR 0024: Availability is answered days first, then a time once
 
 _Status: accepted · Date: 19 September 2026_

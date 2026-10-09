@@ -1,3 +1,9 @@
+---
+adr: 43
+title: "The product is Wenna, the link preview says what the brand doc says, and a confirmation signs off with the day"
+status: proposed
+date: 2026-09-29
+---
 # ADR 0043: The product is Wenna, the link preview says what the brand doc says, and a confirmation signs off with the day
 
 _Status: proposed · 29 September 2026_
