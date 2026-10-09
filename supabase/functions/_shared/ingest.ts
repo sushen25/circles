@@ -3,8 +3,10 @@ import type { z } from 'zod';
 import { type Actor, bearerOf, identify } from './auth.ts';
 import { asService, type Db } from './db.ts';
 import { log } from './logging.ts';
+import { optional } from './env.ts';
 import { plainProblem, problemOf } from './problem.ts';
 import { CORS, reference, respond } from './respond.ts';
+import { sameSecret } from './secret.ts';
 
 /**
  * The skeleton for a function that **records** rather than decides.
@@ -103,7 +105,17 @@ export function ingestHandler<Schema extends z.ZodType>(
 
       let actor: Actor | undefined;
       const bearer = bearerOf(request.headers.get('Authorization'));
-      if (bearer !== undefined) {
+      // The publishable key is what the client sends with no session, and always
+      // for the "nobody" batch. It is not a user token, so asking the auth server
+      // about it is a round trip that can only say no, and "no" leaves `actor`
+      // undefined. Skipping is therefore the same answer without the trip, and it
+      // only ever means "treat as nobody": nothing is granted on a match. Compared
+      // whole and in constant time, never by prefix; if the key is not configured
+      // nothing is skipped.
+      const anonKey = optional('SUPABASE_ANON_KEY');
+      const isAnonKey =
+        bearer !== undefined && anonKey !== undefined && sameSecret(bearer, anonKey);
+      if (bearer !== undefined && !isAnonKey) {
         const identified = await identify(service, bearer);
         if (identified.outcome === 'unavailable') {
           return fail(

@@ -10,7 +10,6 @@ import {
 
 import type { Db } from '../_shared/db.ts';
 import { EmailSendError, sendEmail } from '../_shared/email/resend.ts';
-import { render } from '../_shared/email/render.tsx';
 import { log } from '../_shared/logging.ts';
 import { type CircleContext, nudgeAtSend } from './cadence.ts';
 import { closingHeld } from './closing.ts';
@@ -388,6 +387,9 @@ export async function send(
         continue;
       }
 
+      // Loaded here and not at the top: the renderer drags in react-dom and
+      // prettier, and an idle tick, the common one, never reaches this line.
+      const { render } = await import('../_shared/email/render.tsx');
       const email = await render(input);
       const { providerMessageId } = await sendEmail(
         { to: job.email, ...email, tags: { kind: job.kind } },

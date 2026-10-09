@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { Refusal, Unavailable } from './problem.ts';
-import { verifyTurnstile } from './turnstile.ts';
+import { TURNSTILE_TIMEOUT_MS, verifyTurnstile } from './turnstile.ts';
 
 /**
  * The check that guards anonymous web joins, and the two ways it can be absent.
@@ -119,5 +119,64 @@ describe('with a secret configured', () => {
     cloudflareSays(true);
 
     await expect(verifyTurnstile(request(), undefined)).rejects.toBeInstanceOf(Refusal);
+  });
+});
+
+describe('a Cloudflare that does not answer', () => {
+  beforeEach(() => {
+    process.env.SUPABASE_URL = HOSTED;
+    process.env.TURNSTILE_SECRET_KEY = 'the-real-secret';
+  });
+
+  it('is given five seconds, by a signal on the request', async () => {
+    cloudflareSays(true);
+
+    await verifyTurnstile(request('web'), 'a-token');
+
+    const init = (fetch as unknown as { mock: { calls: [string, RequestInit][] } }).mock
+      .calls[0]![1];
+    expect(init.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it('is an outage, not a refusal: the join is released to be retried', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new DOMException('The operation timed out.', 'TimeoutError');
+      }),
+    );
+
+    await expect(verifyTurnstile(request('web'), 'a-token')).rejects.toBeInstanceOf(Unavailable);
+  });
+
+  it('really does give up when nothing arrives', async () => {
+    // The platform's timer is real; what is tested is that the request obeys the signal.
+    const timeout = vi
+      .spyOn(AbortSignal, 'timeout')
+      .mockImplementation(() => AbortSignal.abort(new DOMException('timed out', 'TimeoutError')));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        (_url: string, init: RequestInit) =>
+          new Promise((_resolve, reject) => {
+            if (init.signal?.aborted === true) reject(init.signal.reason);
+          }),
+      ),
+    );
+
+    await expect(verifyTurnstile(request('web'), 'a-token')).rejects.toBeInstanceOf(Unavailable);
+    expect(timeout).toHaveBeenCalledWith(TURNSTILE_TIMEOUT_MS);
+    timeout.mockRestore();
+  });
+
+  it('does not hide any other failure behind the same answer', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => {
+        throw new TypeError('boom');
+      }),
+    );
+
+    await expect(verifyTurnstile(request('web'), 'a-token')).rejects.toBeInstanceOf(TypeError);
   });
 });

@@ -23,15 +23,35 @@ function url(): string {
   return required('SUPABASE_URL');
 }
 
+/**
+ * How long one call to PostgREST or the auth server may take.
+ *
+ * supabase-js sets none, so a stuck upstream held the function to the platform's
+ * wall-clock limit, and in the scheduler could outlive its 90 s lease. Ten
+ * seconds is several times the slowest call the functions make (the scheduler's
+ * claim and result RPCs are single statements over indexed rows), and a caller
+ * that brings its own signal keeps it.
+ */
+export const DB_TIMEOUT_MS = 10_000;
+
+export function timeBounded(
+  input: Parameters<typeof fetch>[0],
+  init?: RequestInit,
+): ReturnType<typeof fetch> {
+  // `fetch` is read at call time, so a test's stub and a runtime's own both apply.
+  return fetch(input, { ...init, signal: init?.signal ?? AbortSignal.timeout(DB_TIMEOUT_MS) });
+}
+
 export function asCaller(authorization: string): Db {
   return createClient(url(), required('SUPABASE_ANON_KEY'), {
-    global: { headers: { Authorization: authorization } },
+    global: { headers: { Authorization: authorization }, fetch: timeBounded },
     auth: { persistSession: false, autoRefreshToken: false },
   });
 }
 
 export function asService(): Db {
   return createClient(url(), required('SUPABASE_SERVICE_ROLE_KEY'), {
+    global: { fetch: timeBounded },
     auth: { persistSession: false, autoRefreshToken: false },
   });
 }

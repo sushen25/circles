@@ -69,3 +69,16 @@ function base64url(bytes: Uint8Array): string {
   const binary = String.fromCharCode(...bytes);
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
+
+/** Constant-time, so a wrong bearer cannot be narrowed by how long it took. */
+export function sameSecret(given: string, expected: string): boolean {
+  const a = new TextEncoder().encode(given);
+  const b = new TextEncoder().encode(expected);
+  // Lengths are compared as data too: returning early on a length mismatch is
+  // the timing leak this function exists to avoid.
+  let difference = a.length ^ b.length;
+  for (let i = 0; i < Math.max(a.length, b.length); i += 1) {
+    difference |= (a[i] ?? 0) ^ (b[i] ?? 0);
+  }
+  return difference === 0;
+}

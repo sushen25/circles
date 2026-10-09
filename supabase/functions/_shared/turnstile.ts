@@ -24,6 +24,14 @@ import { Refusal, Unavailable } from './problem.ts';
 
 const VERIFY_URL = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
 
+/** Cloudflare answers in well under a second; five is generous and still far inside the wall-clock limit. */
+export const TURNSTILE_TIMEOUT_MS = 5_000;
+
+function isTimeout(thrown: unknown): boolean {
+  const name = (thrown as { name?: unknown } | null)?.name;
+  return name === 'TimeoutError' || name === 'AbortError';
+}
+
 /**
  * Whether this is a deployed project rather than somebody's laptop.
  *
@@ -70,8 +78,22 @@ export async function verifyTurnstile(request: Request, token: string | undefine
   body.append('secret', secret);
   body.append('response', token);
 
-  const answer = await fetch(VERIFY_URL, { method: 'POST', body });
-  const result = (await answer.json()) as { success?: boolean };
+  // A stuck Cloudflare would otherwise hold the join to the platform's
+  // wall-clock limit. Nothing has been done yet, so the same 503 as an unarmed
+  // check is right: the claim is released and a retry is safe. The signal also
+  // covers reading the body.
+  let result: { success?: boolean };
+  try {
+    const answer = await fetch(VERIFY_URL, {
+      method: 'POST',
+      body,
+      signal: AbortSignal.timeout(TURNSTILE_TIMEOUT_MS),
+    });
+    result = (await answer.json()) as { success?: boolean };
+  } catch (thrown) {
+    if (isTimeout(thrown)) throw new Unavailable();
+    throw thrown;
+  }
 
   if (result.success !== true) {
     // Nothing from Cloudflare's `error-codes` is repeated back: it describes the
