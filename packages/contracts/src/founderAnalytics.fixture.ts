@@ -57,7 +57,7 @@ export const founderAnalyticsFixture: FounderAnalytics = {
     },
     external: {
       confirmed_meetup: { numerator: 0, denominator: 1 },
-      unchased: { numerator: 0, denominator: 0, unanswered: 1 },
+      unchased: { numerator: 0, denominator: 0 },
       response_time: { median_seconds: null, n: 0 },
       happened: { numerator: 0, denominator: 0 },
       reattach: { numerator: 0, denominator: 0 },

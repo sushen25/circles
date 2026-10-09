@@ -51,7 +51,11 @@ function Cohort({
         {gates.map((gate, index) => (
           <Stack key={gate.id} gap={10}>
             {index === 0 ? null : <Divider />}
-            <GateRow gate={gate} judged={judgeGate(gate, data)} unanswered={unansweredOf(gate, data)} />
+            <GateRow
+              gate={gate}
+              judged={judgeGate(gate, data)}
+              unanswered={unansweredOf(gate, data)}
+            />
           </Stack>
         ))}
       </Card>

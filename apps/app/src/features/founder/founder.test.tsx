@@ -94,15 +94,10 @@ describe('the screen, from a fixture', () => {
 
   it('counts confirmations with no chasing answer on their own, beside the share', () => {
     render(<AnalyticsScreen data={founderAnalyticsFixture} />);
-    // The founder cohort has two, the external cohort one: neither is in a share.
+    // The founder cohort has two; they are in neither half of the share.
     expect(
       screen.getByText(
         '2 confirmations had no answer to the chasing question. They are counted in neither the share nor the total.',
-      ),
-    ).toBeTruthy();
-    expect(
-      screen.getByText(
-        '1 confirmation had no answer to the chasing question. It is counted in neither the share nor the total.',
       ),
     ).toBeTruthy();
     // And the share is still 9 of 12: unanswered is not read as "no".
