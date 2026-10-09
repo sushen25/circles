@@ -6,6 +6,7 @@ import {
 } from '@circles/domain';
 
 import { authClient } from '../auth/client';
+import { planRoster } from '../planning/roster';
 import { isLockedIn, type RosterMember } from '../scheduling';
 
 /**
@@ -146,11 +147,7 @@ export async function planConfirmation(
 
   const [circle, roster, confirmations] = await Promise.all([
     client.from('circles').select('name').eq('id', plan.circle_id).maybeSingle(),
-    client
-      .from('circle_members')
-      .select('user_id, display_name_snapshot, status, joined_at')
-      .eq('circle_id', plan.circle_id)
-      .order('joined_at', { ascending: true }),
+    planRoster(client, plan.id),
     // The current revision's, newest first. A reopened plan has moved to a
     // new revision, so a superseded Thursday is never read as this plan's time.
     client
