@@ -52,7 +52,8 @@ many circles each cohort rests on, as a count.
 **Events with no circle.** Four gates count events. An event is placed by the
 circle on it, else the circle of its plan, else by the person: `founder` when
 they belong to any founder circle, `external` when they belong only to other
-circles. An event nobody can place is in neither cohort. The list reattach
+circles. A current membership outranks a removed one: someone removed from a
+founder circle who is in an external circle now is external. An event nobody can place is in neither cohort. The list reattach
 event now carries its circle.
 
 ## Alternatives considered

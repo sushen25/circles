@@ -4,7 +4,7 @@
 -- for each cohort on its own.
 
 begin;
-select plan(32);
+select plan(34);
 
 create or replace function pg_temp.make_user(id uuid, name text)
 returns uuid language sql as $$
@@ -55,6 +55,8 @@ select pg_temp.make_user('00000000-0000-0000-0000-0000000c0002', 'Maya');
 select pg_temp.make_user('00000000-0000-0000-0000-0000000c0003', 'Nina');
 select pg_temp.make_user('00000000-0000-0000-0000-0000000c0004', 'Tom');
 select pg_temp.make_user('00000000-0000-0000-0000-0000000c0005', 'Late');
+select pg_temp.make_user('00000000-0000-0000-0000-0000000c0006', 'Ruth');
+select pg_temp.make_user('00000000-0000-0000-0000-0000000c0007', 'Omar');
 insert into private.allowlist (user_id) values ('00000000-0000-0000-0000-0000000c0001');
 
 -- ---------------------------------------------------------------------------
@@ -252,6 +254,24 @@ select is(
 select is(
   (select array[claims, elsewhere] from analytics.gate_claim_moments where day = pg_temp.d(1) and cohort = 'founder'),
   array[1::bigint, 1::bigint], 'an event with only a user counts in the cohort of the circles they belong to'
+);
+-- Ruth was removed from the founder circle and is in Real Circle now; Omar was
+-- removed from the founder circle and is in no other.
+insert into public.circle_members (circle_id, user_id, display_name_snapshot, status)
+select f, '00000000-0000-0000-0000-0000000c0006'::uuid, 'Ruth', 'removed' from cs
+union all select r, '00000000-0000-0000-0000-0000000c0006'::uuid, 'Ruth', 'active' from cs
+union all select f, '00000000-0000-0000-0000-0000000c0007'::uuid, 'Omar', 'removed' from cs;
+insert into analytics.events (event_id, event_name, schema_version, user_id, properties, occurred_at)
+values
+  (gen_random_uuid(), 'account_claimed', 1, '00000000-0000-0000-0000-0000000c0006', '{"moment": "after_answer"}', pg_temp.at(6, '11:00')),
+  (gen_random_uuid(), 'account_claimed', 1, '00000000-0000-0000-0000-0000000c0007', '{"moment": "after_answer"}', pg_temp.at(6, '11:00'));
+select is(
+  (select array[claims, elsewhere] from analytics.gate_claim_moments where day = pg_temp.d(6) and cohort = 'external'),
+  array[1::bigint, 1::bigint], 'a person removed from a founder circle who is in an external one now is external'
+);
+select is(
+  (select array[claims, elsewhere] from analytics.gate_claim_moments where day = pg_temp.d(6) and cohort = 'founder'),
+  array[1::bigint, 1::bigint], 'and one removed with no other circle is still placed by the circle they left'
 );
 select is(
   (select array_agg(cohort order by cohort nulls last) from analytics.gate_claim_moments where day = pg_temp.d(1)),
