@@ -2,7 +2,7 @@
 /**
  * Looks at the web build a deploy has just put live, from outside (SUS-144).
  *
- *   node scripts/smoke-web.mjs --origin https://wenna.app [--wait 120]
+ *   node scripts/smoke-web.mjs --origin https://app.example [--wait 120]
  *
  * Two requests, no credentials:
  *

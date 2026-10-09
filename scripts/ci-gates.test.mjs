@@ -268,7 +268,7 @@ const shell =
 
 test('the smoke test recognises the app shell and nothing else', () => {
   assert.ok(judgeShell(shell).ok);
-  assert.equal(judgeShell('<!doctype html><p>Wenna</p>').ok, false); // the marketing page
+  assert.equal(judgeShell('<!doctype html><p>Marketing</p>').ok, false); // the marketing page
   assert.equal(judgeShell('<!doctype html><div id="root"></div>').ok, false); // no bundle
   assert.equal(judgeShell('502 Bad Gateway').ok, false);
   assert.equal(judgeShell('').ok, false);
@@ -277,20 +277,20 @@ test('the smoke test recognises the app shell and nothing else', () => {
 test('the smoke test requires the preview card on the configured origin', () => {
   const card = (host) =>
     `<meta property="og:image" content="https://${host}/og-card.png"><meta http-equiv="refresh" content="0; url=https://${host}/j/abc234">`;
-  assert.ok(judgePreview(card('wenna.app'), 'https://wenna.app').ok);
+  assert.ok(judgePreview(card('app.example'), 'https://app.example').ok);
   assert.match(
-    judgePreview(card('team--f0pgx8lb1j.expo.app'), 'https://wenna.app').detail,
+    judgePreview(card('team--f0pgx8lb1j.expo.app'), 'https://app.example').detail,
     /vendor host/,
   );
-  assert.match(judgePreview(card('other.example'), 'https://wenna.app').detail, /not on/);
+  assert.match(judgePreview(card('other.example'), 'https://app.example').detail, /not on/);
   assert.equal(
     judgePreview(
-      '<meta property="og:image" content="https://wenna.app/x.png">',
-      'https://wenna.app',
+      '<meta property="og:image" content="https://app.example/x.png">',
+      'https://app.example',
     ).ok,
     false,
   );
-  assert.equal(judgePreview('', 'https://wenna.app').ok, false);
+  assert.equal(judgePreview('', 'https://app.example').ok, false);
   // a lookalike prefix is not the origin
-  assert.equal(judgePreview(card('wenna.app.evil.example'), 'https://wenna.app').ok, false);
+  assert.equal(judgePreview(card('app.example.evil.example'), 'https://app.example').ok, false);
 });
