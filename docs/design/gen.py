@@ -1297,6 +1297,69 @@ S["Diagnostics"] = shell(
     )
 )
 
+# SUS-166: the founder's numbers, one screen behind the allowlist. Counts and
+# rates only: never a name, an id, a circle or a plan, and nothing is split by
+# an identifier. A gate no view computes reads "Not measured" and says what is
+# missing.
+def fa_gate(measure, target, value, n, verdict, ok=None):
+    colour = T["support"] if ok is True else (T["warn_ink"] if ok is False else T["ink3"])
+    return stack(
+        between(title(measure), f'<div class="sm" style="color:{colour};font-weight:600;">{verdict}</div>'),
+        between(sm(f"Target {target}"), sm(f"{value} · n {n}") if n else sm(value)),
+        gap=2)
+
+def fa_row(a, b): return between(sm(a), f'<div class="sm num" style="color:{T["ink"]};">{b}</div>')
+
+S["FounderAnalytics"] = shell(
+    top("Founder tools") +
+    body(
+        stack(dl("Analytics"), sm("Counts and rates, never a name or an id. Allowlisted accounts only."), gap=4),
+        chips("Last 7 days", "*Last 30 days", "Last 90 days"),
+        stack(lbl("North star"), card(
+            between(title("Oct 2026"), f'<div class="date num">1.2</div>'),
+            sm("Reported-happened meetups per activated circle · 5 meetups, 4 circles"),
+            sm("Corroborated by somebody else: 3"),
+            divider(),
+            between(sm("Sep 2026"), sm("0.8 · corroborated 2")),
+            between(sm("Aug 2026"), sm("0 · corroborated 0")),
+            gap=8), gap=10),
+        stack(lbl("Decision gates · founder cohort"), card(
+            fa_gate("Circles that confirm a real meetup", "every circle", "3 of 4", 4, "Not met", False),
+            divider(),
+            fa_gate("Members who answer without chasing", "at least 60%", "75%", 12, "Met", True),
+            divider(),
+            fa_gate("Median wait from link open to answer", "under 60 seconds", "1 m 40 s", 18, "Not met", False),
+            divider(),
+            fa_gate("Meetups reported as happened", "at least 70%", "2 of 2", 2, "Too few to say"),
+            divider(),
+            fa_gate("Guests who verify the email they gave", "at least half", "Not measured", "", "Not measured"),
+            sm("Missing: no event ties a verification to the guest who gave the address on another device."),
+            gap=12), gap=10),
+        stack(lbl("Funnel"), card(
+            title("Invitation"),
+            fa_row("Join links opened", "41"), fa_row("Joined", "29 · 71%"), fa_row("Answered", "24 · 83%"),
+            divider(),
+            title("Decision"),
+            fa_row("Plans made", "9"), fa_row("Confirmed", "5 · 56%"),
+            divider(),
+            title("Outcome"),
+            fa_row("Reported happened", "4 · 80%"), fa_row("Corroborated", "3 · 75%"),
+            gap=8), gap=10),
+        stack(lbl("Feature adoption"), card(
+            between(title("availability_started"), sm("153 this period")),
+            fa_row("usual_offered · true", "41"), fa_row("usual_offered · false", "112"),
+            divider(),
+            between(title("availability_submitted"), sm("98 this period")),
+            fa_row("usual_used · true", "37"), fa_row("usual_used · false", "61"),
+            divider(),
+            title("Rates"),
+            between(sm("Previous times used when offered"), f'<div class="sm num" style="color:{T["ink"]};">90% · 37 of 41</div>'),
+            gap=8), gap=10),
+        sm("Weeks start on Monday, in UTC. Nothing here is split by person, circle or plan."),
+        gap=24,
+    )
+, minh=2100)
+
 # ---- Quiet additions ----
 S["SparkWaiting"] = shell(
     top("Sunday Crew", back=False, right=wordmark()) +
@@ -1736,7 +1799,7 @@ with open(os.path.join(out, "Main.dc.html"), "w") as f:
     f.write(S["Join"])
 os.remove(os.path.join(out, "Join.dc.html"))
 
-heights = {"CheckEmail":960, "ConfirmedGuestNudge":900, "AppSheet":900, "Availability":1250, "AvailabilityPicking":1300, "AvailabilityAdjusting":1400, "AvailabilityOthers":1320, "AvailabilityOthersPicking":1300, "AvailabilityOthersAdjusting":1500, "AvailabilityOthersFirst":1320, "Candidates":1170, "NoQuorum":1080, "SetTime":1500, "ConfirmReviewOwn":980, "EditLocked":980, "ConfirmedGuestMoved":900, "DeadlinePassed":960, "Settings":980, "CandidatesMember":1000, "AvailabilityOverlay":1120, "LoadingOptions":1170, "LoadingSlowEight":1170, "LoadingSlowTwenty":1170, "BusyRow":760, "BusyButtons":1300, "LoadingTiming":560, "LoadingMotion":640}
+heights = {"FounderAnalytics":2100, "CheckEmail":960, "ConfirmedGuestNudge":900, "AppSheet":900, "Availability":1250, "AvailabilityPicking":1300, "AvailabilityAdjusting":1400, "AvailabilityOthers":1320, "AvailabilityOthersPicking":1300, "AvailabilityOthersAdjusting":1500, "AvailabilityOthersFirst":1320, "Candidates":1170, "NoQuorum":1080, "SetTime":1500, "ConfirmReviewOwn":980, "EditLocked":980, "ConfirmedGuestMoved":900, "DeadlinePassed":960, "Settings":980, "CandidatesMember":1000, "AvailabilityOverlay":1120, "LoadingOptions":1170, "LoadingSlowEight":1170, "LoadingSlowTwenty":1170, "BusyRow":760, "BusyButtons":1300, "LoadingTiming":560, "LoadingMotion":640}
 def ab(file, x, y, page, w=W, h=None, title=None):
     d = {"file": file, "x": x, "y": y, "w": w, "h": h or heights.get(file.replace(".dc.html",""), H), "page": page}
     if title: d["title"] = title
@@ -1754,7 +1817,7 @@ pages = [{"id":"first","name":"0 · First time, organiser"},
          {"id":"loading","name":"7 · Loading and busy"}]
 
 titles = {"Main":"Join · invite landing","ContinueAs":"Continue as · returning member","Name":"Name","Availability":"Availability · partial","AvailabilityPicking":"Availability · days ticked","AvailabilityAdjusting":"Availability · adjusting a day","AvailabilityOthers":"Availability · what others said","AvailabilityOthersPicking":"Availability · others, days ticked","AvailabilityOthersAdjusting":"Availability · others, adjusting a day","AvailabilityOthersFirst":"Availability · first to answer","NoneWork":"None of these dates","Sent":"Sent · one step, switch on","SentSwitchOff":"Sent · switch off","SentCode":"Sent · the code","SentDone":"Sent · done","SentPartial":"Sent · place saved, emails failed","SentMember":"Sent · signed in, one button","SentMemberDone":"Sent · signed in, done","SentSuppressed":"Sent · address suppressed","SentSuppressedSaved":"Sent · suppressed, after the code","CheckEmail":"Check your email · app nudge","EmailVerified":"Email verified","EmailPrefs":"Email preferences · no sign-in","SaveAccess":"Save access · the account's other doors","CandidatesMember":"Candidates · member view","ConfirmedGuest":"Confirmed · guest","AddToCalendar":"Add to calendar sheet","RescheduledGuest":"Rescheduled · guest","CancelledGuest":"Cancelled · guest","WasThere":"Attendance · morning after","LinkInvalid":"Invite link inactive",
-          "SignIn":"Sign in · returning organiser","SavePlace":"Save your place · the gate, before the share","EnterCode":"Enter code","YourName":"Your name · after sign-in","FirstCircle":"First circle · no account","InviteCircle":"Invite the circle","CircleHomeJoining":"Circle home · people joining","FirstPlan":"First plan · no account","EmptyCirclesList":"Circles · first run","CirclesList":"Circles list","CircleHome":"Circle home · finding a time","CircleHomeConfirmed":"Circle home · locked in","CircleHomeDue":"Circle home · about time","CreateCircle":"Create circle","ChooseMode":"Choose how to start","PlanSetup":"Plan setup","CustomWindow":"Custom window","PlanShared":"Plan shared · paste to chat","Waiting":"Waiting · no options yet","Candidates":"Candidates · partial replies","DeadlinePassed":"Replies closed · no decision","EditPlan":"Edit plan · reconfirm warning","ConfirmReview":"Confirm review","ConfirmedOrg":"Confirmed · organiser","ChangeTime":"Ask for new times","SetTime":"Set the time yourself","ConfirmReviewOwn":"Confirm review · a time of your own","EditLocked":"Edit this plan · locked in","ConfirmedGuestMoved":"Confirmed · guest, moved","CancelPlan":"Cancel plan","CancelledOrg":"Cancelled · organiser","NoQuorum":"No quorum","Outcome":"Did it happen?","PlanAnother":"Plan another · prefilled","Settings":"Circle settings","NotificationSettings":"Notification settings","Account":"Account","Privacy":"Privacy","Diagnostics":"Founder diagnostics",
+          "SignIn":"Sign in · returning organiser","SavePlace":"Save your place · the gate, before the share","EnterCode":"Enter code","YourName":"Your name · after sign-in","FirstCircle":"First circle · no account","InviteCircle":"Invite the circle","CircleHomeJoining":"Circle home · people joining","FirstPlan":"First plan · no account","EmptyCirclesList":"Circles · first run","CirclesList":"Circles list","CircleHome":"Circle home · finding a time","CircleHomeConfirmed":"Circle home · locked in","CircleHomeDue":"Circle home · about time","CreateCircle":"Create circle","ChooseMode":"Choose how to start","PlanSetup":"Plan setup","CustomWindow":"Custom window","PlanShared":"Plan shared · paste to chat","Waiting":"Waiting · no options yet","Candidates":"Candidates · partial replies","DeadlinePassed":"Replies closed · no decision","EditPlan":"Edit plan · reconfirm warning","ConfirmReview":"Confirm review","ConfirmedOrg":"Confirmed · organiser","ChangeTime":"Ask for new times","SetTime":"Set the time yourself","ConfirmReviewOwn":"Confirm review · a time of your own","EditLocked":"Edit this plan · locked in","ConfirmedGuestMoved":"Confirmed · guest, moved","CancelPlan":"Cancel plan","CancelledOrg":"Cancelled · organiser","NoQuorum":"No quorum","Outcome":"Did it happen?","PlanAnother":"Plan another · prefilled","Settings":"Circle settings","NotificationSettings":"Notification settings","Account":"Account","Privacy":"Privacy","Diagnostics":"Founder diagnostics","FounderAnalytics":"Founder analytics",
           "SparkSetup":"Quiet ask · setup","SparkWaiting":"Quiet ask · initiator waiting","InterestPrompt":"Interest prompt · member","ThresholdRole":"Threshold reached · initiator","Volunteer":"Started quietly · keen member","SparkOpenedMember":"Started quietly · other member","SparkExpired":"Expired · initiator",
           "PushAsk":"Push permission · contextual","CalendarExplain":"Calendar · before permission","CalendarPick":"Calendar · pick calendars","AvailabilityOverlay":"Availability · calendar overlay","CalendarDenied":"Calendar · denied",
           "ConversionMap":"Guest → app · the map","ConfirmedGuestNudge":"Locked in · reminder nudge","AppSheet":"App sheet · four things a browser can't do","ReattachedNudge":"Rejoined · save your place","SecondSent":"Second response · app nudge","AfterAttendance":"After attendance · start a circle","InitiateGate":"Wants to organise · sign in first","AppLanding":"App first open · linked",
@@ -1784,7 +1847,7 @@ grid(["EmptyCirclesList","CirclesList","CreateCircle","InviteCircle","CircleHome
       "DeadlinePassed","EditPlan","ConfirmReview","ConfirmedOrg","CircleHomeConfirmed","ChangeTime",
       "CancelPlan","CancelledOrg","NoQuorum","Outcome","CircleHomeDue","PlanAnother",
       "Settings","NotificationSettings","Account","Privacy","Diagnostics",
-      "SetTime","ConfirmReviewOwn","EditLocked"], "organiser")
+      "SetTime","ConfirmReviewOwn","EditLocked","FounderAnalytics"], "organiser")
 grid(["SparkSetup","SparkWaiting","InterestPrompt","ThresholdRole","Volunteer","SparkOpenedMember","SparkExpired"], "quiet")
 grid(["PushAsk","CalendarExplain","CalendarPick","AvailabilityOverlay","CalendarDenied"], "native")
 boards.append(ab("ConversionMap.dc.html", 0, 0, "convert", w=1400, h=1100, title=titles["ConversionMap"]))

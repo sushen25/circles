@@ -15,6 +15,8 @@ export const DEPENDS_ON = [DOMAIN] as const;
 export * from './ids.js';
 export * from './time.js';
 export * from './analytics.js';
+export * from './founderAnalytics.js';
+export { emptyFounderAnalytics, founderAnalyticsFixture } from './founderAnalytics.fixture.js';
 export * from './growth.js';
 export * from './deeplinks.js';
 export * from './dtos.js';

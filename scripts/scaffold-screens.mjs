@@ -97,6 +97,7 @@ const SCREENS = {
   Account: ['identity', '/settings/account'],
   Privacy: ['identity', '/settings/privacy'],
   Diagnostics: ['identity', '/settings/diagnostics'],
+  FounderAnalytics: ['founder', '/founder/analytics'],
 
   // Quiet ask
   SparkSetup: ['planning', '/circles/[id]/quiet/new'],

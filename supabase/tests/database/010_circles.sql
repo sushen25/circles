@@ -940,7 +940,9 @@ select is(
        -- with a circle's name, and has no field anything else could be added
        -- to. `founder_summary` answers only a user named in
        -- `private.allowlist`, which is empty until somebody is put in it.
-       'preview_for_code', 'founder_summary',
+       -- `founder_analytics` (SUS-166) is the same kind: the same allowlist,
+       -- checked against `auth.uid()`, and counts and ratios only.
+       'preview_for_code', 'founder_summary', 'founder_analytics',
        -- S1-24. The Join page before joining: a circle's name, its inviter's
        -- name and one initial per member, to whoever holds the invite secret —
        -- by its digest, so the secret is never a statement parameter.
