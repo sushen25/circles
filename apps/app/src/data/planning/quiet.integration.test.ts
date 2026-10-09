@@ -145,7 +145,7 @@ beforeAll(async () => {
 describe('a quiet ask', () => {
   it('opens exactly once under fifty answers arriving together', async () => {
     const maya = await person('Maya');
-    const keen = [await person('Priya'), await person('Tom'), await person('Jess')];
+    const keen = [await person('Nina'), await person('Tom'), await person('Jess')];
     const circleId = circleOf(maya, keen);
     const planId = await askQuietly(maya, circleId);
     // Four members: the threshold is three, and Maya counts as one of them.
@@ -186,20 +186,20 @@ describe('a quiet ask', () => {
 
   it('is organised by somebody keen, first come first served, and never by a guest or the uninterested', async () => {
     const maya = await person('Maya');
-    const priya = await person('Priya');
+    const nina = await person('Nina');
     const tom = await person('Tom');
     const sam = await person('Sam');
-    const circleId = circleOf(maya, [priya, tom, sam]);
+    const circleId = circleOf(maya, [nina, tom, sam]);
     const planId = await askQuietly(maya, circleId);
-    await call('answer-interest', priya, { plan_id: planId, interested: true });
+    await call('answer-interest', nina, { plan_id: planId, interested: true });
     await call('answer-interest', tom, { plan_id: planId, interested: true });
 
     const refused = await call('accept-organiser', sam, { plan_id: planId });
     expect(refused).toMatchObject({ status: 403, body: { reason: 'not_keen' } });
 
-    // Priya volunteers; Tom, just as keen, is second.
-    const accepted = await call('accept-organiser', priya, { plan_id: planId, role: 'initiator' });
-    expect(accepted).toMatchObject({ status: 200, body: { organiser_member_id: priya.userId } });
+    // Nina volunteers; Tom, just as keen, is second.
+    const accepted = await call('accept-organiser', nina, { plan_id: planId, role: 'initiator' });
+    expect(accepted).toMatchObject({ status: 200, body: { organiser_member_id: nina.userId } });
     const second = await call('accept-organiser', tom, { plan_id: planId });
     expect(second).toMatchObject({ status: 409, body: { reason: 'already_taken' } });
 
@@ -209,20 +209,20 @@ describe('a quiet ask', () => {
       `select payload from jobs.outbox
        where aggregate_id = '${planId}' and event_name = 'planning.organiser_accepted'`,
     );
-    expect(payload).toContain(priya.userId);
+    expect(payload).toContain(nina.userId);
     expect(payload).not.toMatch(/source|role|initiator|volunteer/);
   });
 
   it('shows each member only what is theirs to see, built on the server', async () => {
     const maya = await person('Maya');
-    const priya = await person('Priya');
+    const nina = await person('Nina');
     const tom = await person('Tom');
-    const circleId = circleOf(maya, [priya, tom]);
+    const circleId = circleOf(maya, [nina, tom]);
     const planId = await askQuietly(maya, circleId);
-    await call('answer-interest', priya, { plan_id: planId, interested: false });
+    await call('answer-interest', nina, { plan_id: planId, interested: false });
 
     const mine = await call('quiet-view', maya, { plan_id: planId });
-    const hers = await call('quiet-view', priya, { plan_id: planId });
+    const hers = await call('quiet-view', nina, { plan_id: planId });
     const his = await call('quiet-view', tom, { plan_id: planId });
     expect(mine.body['view']).toMatchObject({ phase: 'seeking', threshold: 3, may_withdraw: true });
     expect(hers.body['view']).toMatchObject({ answered_by_me: true, may_withdraw: false });
@@ -235,11 +235,11 @@ describe('a quiet ask', () => {
 
   it('refuses a guest who volunteers, with the reason that offers a saved place', async () => {
     const maya = await person('Maya');
-    const priya = await person('Priya');
-    const circleId = circleOf(maya, [priya]);
+    const nina = await person('Nina');
+    const circleId = circleOf(maya, [nina]);
     const planId = await askQuietly(maya, circleId);
-    // A circle of two needs both; Priya's answer opens it.
-    await call('answer-interest', priya, { plan_id: planId, interested: true });
+    // A circle of two needs both; Nina's answer opens it.
+    await call('answer-interest', nina, { plan_id: planId, interested: true });
 
     const guestSession = await fetch(`${stack.url}/auth/v1/signup`, {
       method: 'POST',
@@ -261,8 +261,8 @@ describe('a quiet ask', () => {
   it('is withdrawn silently, and an ask that runs out of time is told to its initiator alone', async () => {
     const maya = await person('Maya');
     const tom = await person('Tom');
-    const priya = await person('Priya');
-    const circleId = circleOf(maya, [tom, priya]);
+    const nina = await person('Nina');
+    const circleId = circleOf(maya, [tom, nina]);
 
     // Maya withdraws hers: nothing is announced, so nothing is ever sent.
     const withdrawn = await askQuietly(maya, circleId);
@@ -309,6 +309,6 @@ describe('a quiet ask', () => {
     }
     expect(await subjectsTo(emailOf(tom))).toEqual(['Sunday Crew: this one closed quietly']);
     expect(await subjectsTo(emailOf(maya))).toEqual([]);
-    expect(await subjectsTo(emailOf(priya))).toEqual([]);
+    expect(await subjectsTo(emailOf(nina))).toEqual([]);
   });
 });

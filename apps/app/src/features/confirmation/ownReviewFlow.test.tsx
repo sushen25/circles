@@ -82,7 +82,7 @@ beforeEach(() => {
     confirmation_id: 'c1',
     starts_at: START,
     ends_at: END,
-    going: ['priya', 'tom'],
+    going: ['nina', 'tom'],
   });
 });
 afterEach(() => vi.useRealTimers());

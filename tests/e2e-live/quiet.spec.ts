@@ -209,13 +209,13 @@ test('replies close with nobody organising: the owner, who never answered, may t
 }) => {
   const {
     circleId,
-    people: [maya, tom, jess, priya],
-  } = await savedPlaces('Maya', 'Tom', 'Jess', 'Priya');
-  // Tom asks; Jess and Priya are keen, which is three of four. Maya owns the
+    people: [maya, tom, jess, nina],
+  } = await savedPlaces('Maya', 'Tom', 'Jess', 'Nina');
+  // Tom asks; Jess and Nina are keen, which is three of four. Maya owns the
   // circle and says nothing.
   const ask = askedInSql(circleId, tom!.userId);
   keenInSql(ask.id, jess!.userId);
-  keenInSql(ask.id, priya!.userId);
+  keenInSql(ask.id, nina!.userId);
   const owner = await open(browser, maya!);
 
   await owner.page.goto(`/p/${ask.code}`);
@@ -304,16 +304,16 @@ test('a keen guest is not offered the role: the ask opens to them as a member’
   page,
 }) => {
   const crew = sundayCrew();
-  await joinsAndAnswers(page, crew, 'Priya');
+  await joinsAndAnswers(page, crew, 'Nina');
   sql(`select planning.transition_plan('${crew.planId}', 'cancel', '${crew.ownerId}', '{}')`);
   // Maya asks; of two members, two keen opens it.
   const ask = askedInSql(crew.circleId, crew.ownerId);
-  const priya = watched(page, { userId: '', name: 'Priya' });
+  const nina = watched(page, { userId: '', name: 'Nina' });
 
-  await answersKeen(priya, crew.circleId, { opensIt: true });
+  await answersKeen(nina, crew.circleId, { opensIt: true });
   await expect(page.getByRole('button', { name: 'Choose my times' })).toBeVisible();
   await expect(page.getByRole('button', { name: "I'll pick the time" })).toHaveCount(0);
   await expect(page.getByText('Save your place first')).toHaveCount(0);
   expect(sql(`select state from public.plans where id = '${ask.id}'`)[0]?.[0]).toBe('collecting');
-  expectNothingConnects({ userId: crew.ownerId }, priya);
+  expectNothingConnects({ userId: crew.ownerId }, nina);
 });

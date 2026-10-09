@@ -8,7 +8,7 @@ import { EmailSendError, sendEmail } from './resend.ts';
  * `EMAIL_CAPTURE_URL`, cannot reach Resend even with a key in its environment.
  */
 
-const ADDRESS = 'priya@example.com';
+const ADDRESS = 'nina@example.com';
 const MESSAGE = {
   to: ADDRESS,
   subject: 'Locked in: Sunday Crew, Thu 17 Sep',

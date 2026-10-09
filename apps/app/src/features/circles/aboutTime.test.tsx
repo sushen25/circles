@@ -73,7 +73,7 @@ function home(overrides: Partial<CircleData.CircleHome> = {}): CircleData.Circle
     defaultQuorum: null,
     isOwner: true,
     me: 'maya',
-    members: ['Maya', 'Priya', 'Tom', 'Jess', 'Sam', 'Alex'].map((name, i) => ({
+    members: ['Maya', 'Nina', 'Tom', 'Jess', 'Sam', 'Alex'].map((name, i) => ({
       userId: name.toLowerCase(),
       name,
       joinedAt: `2026-01-0${i + 1}T00:00:00Z`,
@@ -149,7 +149,7 @@ describe('the about-time card', () => {
   });
 
   it('offers a member who is not the owner no snooze, and their own switch', async () => {
-    circleHome.mockResolvedValue(due({ isOwner: false, me: 'priya' }));
+    circleHome.mockResolvedValue(due({ isOwner: false, me: 'nina' }));
     wrap(<CircleHomeFlow id={CIRCLE} />);
 
     fireEvent.click(await screen.findByRole('button', { name: 'Turn off nudges' }));

@@ -80,7 +80,7 @@ beforeEach(() => {
     confirmation_id: 'c1',
     starts_at: THU,
     ends_at: fixture.ready.candidates[0]!.endsAt,
-    going: ['maya', 'priya', 'tom', 'jess', 'sam'],
+    going: ['maya', 'nina', 'tom', 'jess', 'sam'],
   });
 });
 

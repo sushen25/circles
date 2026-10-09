@@ -45,7 +45,7 @@ test('the owner resets a link nobody can show, and removes a member, from settin
   // Made directly, with no invite: the case a reset exists for.
   const circleId = circleOwnedBy(maya.userId, 'Book Club');
   const tom = guestIn(circleId, 'Tom');
-  guestIn(circleId, 'Priya');
+  guestIn(circleId, 'Nina');
 
   await signInByCode(page, maya.email);
   await expect(page).toHaveURL(/\/circles$/);
@@ -56,7 +56,7 @@ test('the owner resets a link nobody can show, and removes a member, from settin
   await page.getByRole('button', { name: 'Circle settings' }).click();
 
   // SUS-165: the tier, in words, on every row. Maya has a saved place (an
-  // owner always does); Tom and Priya are guests on the link.
+  // owner always does); Tom and Nina are guests on the link.
   await expect(page.getByText('You · owner')).toBeVisible();
   await expect(page.getByText(/^Guest · joined /)).toHaveCount(2);
   await expect(page.getByText(/^Place saved · joined /)).toHaveCount(0);
@@ -98,5 +98,5 @@ test('the owner resets a link nobody can show, and removes a member, from settin
     sql(`select status from public.circle_members
          where circle_id = '${circleId}' and user_id = '${tom}'`)[0]?.[0],
   ).toBe('removed');
-  await expect(page.getByRole('button', { name: 'Remove Priya' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Remove Nina' })).toBeVisible();
 });

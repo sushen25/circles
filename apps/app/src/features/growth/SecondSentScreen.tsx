@@ -39,7 +39,7 @@ export function SecondSentScreen({ onNext, onBack, onNotNow }: SecondSentProps) 
       <Body>
         <Stack>
           <Label>{t('secondSent', 'sunday_crew')}</Label>
-          <DisplayXL>{t('secondSent', 'thanks_priya_your_times_are_in')}</DisplayXL>
+          <DisplayXL>{t('secondSent', 'thanks_nina_your_times_are_in')}</DisplayXL>
           <BodyText>{t('secondSent', 'thats_the_second_time_round_maya_will')}</BodyText>
         </Stack>
         <Card>

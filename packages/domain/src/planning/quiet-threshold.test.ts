@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { ALEX, JESS, PRIYA, TOM } from '../scheduling/fixtures.js';
+import { ALEX, JESS, NINA, TOM } from '../scheduling/fixtures.js';
 import { addMinutes } from '../shared/instant.js';
 import { lastPossibleStart } from './deadline.js';
 import { FRIDAY_MIDDAY, TOM_ASKS, quietAsk, quietPlan } from './fixtures.js';
@@ -18,7 +18,7 @@ describe('nextQuietStep', () => {
   const met = quietAsk({
     answers: [
       [TOM, 'keen'],
-      [PRIYA, 'keen'],
+      [NINA, 'keen'],
       [JESS, 'keen'],
     ],
   });
@@ -46,7 +46,7 @@ describe('onThreshold', () => {
   const met = quietAsk({
     answers: [
       [TOM, 'keen'],
-      [PRIYA, 'keen'],
+      [NINA, 'keen'],
       [ALEX, 'not_this_time'],
       [JESS, 'keen'],
     ],
@@ -62,7 +62,7 @@ describe('onThreshold', () => {
     // This weekend: twenty-four hours from the moment it opened, not from when it was asked.
     expect(plan.responseDeadline).toBe(addMinutes(wednesday, DAY));
     expect(plan.responseDeadline).toBeLessThanOrEqual(lastPossibleStart(plan));
-    expect([...initialResponders].sort()).toEqual([JESS, PRIYA, TOM].sort());
+    expect([...initialResponders].sort()).toEqual([JESS, NINA, TOM].sort());
   });
 
   it('refuses below the threshold', () => {

@@ -46,9 +46,9 @@ begin
 end;
 $$;
 
--- Maya organises, Priya and Tom answer, Nobody is in another circle entirely.
+-- Maya organises, Nina and Tom answer, Nobody is in another circle entirely.
 select pg_temp.make_user('00000000-0000-0000-0000-0000000002a1', 'Maya');
-select pg_temp.make_user('00000000-0000-0000-0000-0000000002a2', 'Priya');
+select pg_temp.make_user('00000000-0000-0000-0000-0000000002a2', 'Nina');
 select pg_temp.make_user('00000000-0000-0000-0000-0000000002a3', 'Tom');
 select pg_temp.make_user('00000000-0000-0000-0000-0000000002a4', 'Nobody');
 
@@ -62,7 +62,7 @@ grant select on t to anon, authenticated, service_role;
 -- Cast, because a `union all` of quoted literals resolves them to text before
 -- the uuid column ever sees them.
 insert into public.circle_members (circle_id, user_id, display_name_snapshot)
-select circle_id, '00000000-0000-0000-0000-0000000002a2'::uuid, 'Priya' from t
+select circle_id, '00000000-0000-0000-0000-0000000002a2'::uuid, 'Nina' from t
 union all
 select circle_id, '00000000-0000-0000-0000-0000000002a3'::uuid, 'Tom' from t;
 
@@ -136,7 +136,7 @@ select lives_ok(
     (select plan_id from tp),
     pg_temp.win('2099-09-17', 1110, 1230),
     pg_temp.win('2099-09-19', 1140, 1260)),
-  'Priya answers with two windows'
+  'Nina answers with two windows'
 );
 select is(
   (select count(*)::integer from public.willing_windows),
@@ -375,7 +375,7 @@ select pg_temp.act_as('00000000-0000-0000-0000-0000000002a3');
 select public.replace_response((select plan_id from tp), 1, 'windows',
   jsonb_build_array(pg_temp.win('2099-09-17', 1110, 1230)));
 
--- Scoped to this plan: Priya also answered the Kathmandu plan above with a
+-- Scoped to this plan: Nina also answered the Kathmandu plan above with a
 -- window, and an unscoped count would report her own row as a leak.
 select pg_temp.act_as('00000000-0000-0000-0000-0000000002a2');
 select is(
@@ -383,7 +383,7 @@ select is(
    join public.plan_responses r on r.id = ww.response_id
    where r.plan_id = (select plan_id from tp)),
   0,
-  'Priya (now flexible) reads no windows on this plan — Tom''s are not hers'
+  'Nina (now flexible) reads no windows on this plan — Tom''s are not hers'
 );
 select is(
   (select count(*)::integer from public.plan_responses where plan_id = (select plan_id from tp)),

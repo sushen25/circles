@@ -74,7 +74,7 @@ function panelTwo(): string {
 }
 
 function panelThree(): string {
-  const marks = (['maya', 'jordan', 'priya', 'sam', 'alex'] as const).map(mark).join('');
+  const marks = (['maya', 'jordan', 'nina', 'sam', 'alex'] as const).map(mark).join('');
   return `<div class="panel" role="img" aria-label="${text('panel3_label')}"><div class="label">${text('panel3_kicker')}</div>
 <div class="pdate">${text('panel3_title')}</div>
 <div class="cands"><div class="cand"><div class="pdate num">${text('panel3_best')}</div>

@@ -99,7 +99,7 @@ describe('stableJson', () => {
   });
 
   it('distinguishes requests that differ', () => {
-    expect(stableJson({ name: 'Priya' })).not.toBe(stableJson({ name: 'priya' }));
+    expect(stableJson({ name: 'Nina' })).not.toBe(stableJson({ name: 'nina' }));
     expect(stableJson({ a: '1' })).not.toBe(stableJson({ a: 1 }));
   });
 });

@@ -140,7 +140,7 @@ Rules that carry most of the weight:
 
 - **Say the thing.** "Send my times", not "Submit availability". "Lock it in?", not "Confirm your selection".
 - **Second person for the reader, first person for their own data.** "Times I'd actually be up for" is the member's own voice; "Your friends only see a combined result" is ours, speaking to them.
-- **Name people, not counts, wherever the count would sting.** "Doesn't work for Priya" reads as information. "1 unavailable" reads as a scoreboard.
+- **Name people, not counts, wherever the count would sting.** "Doesn't work for Nina" reads as information. "1 unavailable" reads as a scoreboard.
 - **No exclamation marks in the working screens.** One is permitted on the confirmation, and only if it earns itself.
 - **No manufactured urgency.** Deadlines are stated as facts ("Replies close Tue 6 pm"), never as pressure ("Hurry &mdash; 3 hours left!").
 - **Never blame the user or the group.** The subject of a failure sentence is the situation, not a person: "Not enough people were free this time", not "Your friends didn't respond".

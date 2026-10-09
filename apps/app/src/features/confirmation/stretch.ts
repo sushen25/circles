@@ -12,7 +12,7 @@ import { instantsOf, planShape, type TimePick } from './time';
 /**
  * Who a stretch works for, in the words the candidate cards use (ADR 0051).
  *
- * "You, Priya and Tom can make it · Doesn't work for Jess or Sam · Alex hasn't
+ * "You, Nina and Tom can make it · Doesn't work for Jess or Sam · Alex hasn't
  * answered": the same three clauses and the same names-then-a-count rule as an
  * option's card (`cards.ts`), so a time the organiser picked reads like a time
  * the engine offered. The *who* is the database's, by the engine's own rule
@@ -54,7 +54,7 @@ function nameOf(data: Words, id: string): string {
 
 /**
  * The reader is "You", first, wherever they stand in the circle: capitalised at
- * the start of a sentence ("You, Priya and Tom can make it"), plain inside one
+ * the start of a sentence ("You, Nina and Tom can make it"), plain inside one
  * ("Not you, Jess or Sam").
  */
 export function named(data: Words, ids: readonly string[], opening = false): string[] {

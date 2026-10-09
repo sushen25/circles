@@ -38,7 +38,7 @@ export type CardView = {
    * state, which is the wrong fact here: these marks mean "can make it".
    */
   membersLabel: string;
-  /** "Doesn't work for Priya · Alex hasn't answered". */
+  /** "Doesn't work for Nina · Alex hasn't answered". */
   exception: string | undefined;
   /**
    * The whole card in one sentence, for when it is a button.

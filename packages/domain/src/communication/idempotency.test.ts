@@ -6,7 +6,7 @@ import { type IdempotencyParts, idempotencyInput, idempotencyKey } from './idemp
 
 const BASE: IdempotencyParts = {
   channel: 'push',
-  recipientId: userId('user-priya'),
+  recipientId: userId('user-nina'),
   planId: planId('plan-1'),
   revision: 1,
   kind: 'locked_in',
@@ -73,7 +73,7 @@ describe('idempotencyInput', () => {
 
   it('carries every part', () => {
     const input = idempotencyInput(BASE);
-    for (const part of ['push', 'user-priya', 'plan-1', '1', 'locked_in', 'confirmation-1']) {
+    for (const part of ['push', 'user-nina', 'plan-1', '1', 'locked_in', 'confirmation-1']) {
       expect(input).toContain(part);
     }
   });

@@ -20,7 +20,7 @@ export const JoinDisplayName = z
   .string()
   // Normalised *before* it is judged, and therefore before it is stored.
   // Refining alone validated the collapsed form and then passed the original
-  // through, so `"  Priya\nSmith  "` was accepted and kept its newline, and a
+  // through, so `"  Nina\nSmith  "` was accepted and kept its newline, and a
   // forty-character name padded with spaces stored more than forty characters.
   // The value the schema yields is the value SQL gets.
   .transform(normaliseDisplayName)

@@ -24,14 +24,14 @@ vi.mock('expo-router', () => ({
 const track = vi.fn();
 vi.mock('../../analytics/track', () => ({ track: (...args: unknown[]) => track(...args) }));
 vi.mock('../../data/auth/client', () => ({ hasBackend: () => true }));
-const session = { status: 'guest', userId: 'priya', isAnonymous: true, isLoading: false };
+const session = { status: 'guest', userId: 'nina', isAnonymous: true, isLoading: false };
 vi.mock('../../data/auth/session', () => ({ useSession: () => session }));
 
 const planToAnswer = vi.fn();
 vi.mock('../../data/availability', () => ({
   planToAnswer: (...args: unknown[]) => planToAnswer(...args),
 }));
-vi.mock('../../data/membership', () => ({ ownNameIn: async () => 'Priya' }));
+vi.mock('../../data/membership', () => ({ ownNameIn: async () => 'Nina' }));
 
 const requestEmailUpdates = vi.fn();
 const reloadCopy = vi.fn();
@@ -84,7 +84,7 @@ function refusal(reason: string) {
 beforeEach(() => {
   // Shared and mutated by the organiser's cases below: put it back, or the
   // guest's tests run as an account.
-  Object.assign(session, { status: 'guest', userId: 'priya', isAnonymous: true });
+  Object.assign(session, { status: 'guest', userId: 'nina', isAnonymous: true });
   for (const mock of [
     push,
     dismissTo,
@@ -129,7 +129,7 @@ function switchOff() {
 describe('Sent', () => {
   it('"Not now" asks for nothing: no email, no contact, only the offer and that it was declined', async () => {
     wrap(<SentFlow code={PLAN.code} />);
-    await screen.findByText('Thanks, Priya. Your times are in.');
+    await screen.findByText('Thanks, Nina. Your times are in.');
 
     fireEvent.click(screen.getByRole('button', { name: 'Not now' }));
 
@@ -146,7 +146,7 @@ describe('Sent', () => {
   it('does not offer the card again when record-nudge says this plan has had it, on any device', async () => {
     askToShow.mockResolvedValue({ suppressed: true, reason: 'already_shown' });
     wrap(<SentFlow code={PLAN.code} />);
-    await screen.findByText('Thanks, Priya. Your times are in.');
+    await screen.findByText('Thanks, Nina. Your times are in.');
 
     expect(screen.queryByText("Hear when it's locked in")).toBeNull();
     expect(track.mock.calls.map(([name]) => name)).not.toContain('email_updates_offered');
@@ -164,7 +164,7 @@ describe('Sent', () => {
 
   it('refuses what is not an address before asking the server', async () => {
     wrap(<SentFlow code={PLAN.code} />);
-    fireEvent.change(await screen.findByLabelText('Your email'), { target: { value: 'priya@' } });
+    fireEvent.change(await screen.findByLabelText('Your email'), { target: { value: 'nina@' } });
     fireEvent.click(screen.getByRole('button', { name: 'Email me about this meetup' }));
 
     await screen.findByText("That doesn't look like an email address.");
@@ -177,7 +177,7 @@ describe('Sent', () => {
     });
     wrap(<SentFlow code={PLAN.code} />);
     fireEvent.change(await screen.findByLabelText('Your email'), {
-      target: { value: '  PRIYA@example.com ' },
+      target: { value: '  NINA@example.com ' },
     });
     switchOff();
 
@@ -190,7 +190,7 @@ describe('Sent', () => {
     });
 
     const [first, second] = requestEmailUpdates.mock.calls.map(([options]) => options);
-    expect(second.email).toBe('priya@example.com');
+    expect(second.email).toBe('nina@example.com');
     expect(second.idempotencyKey).not.toBe(first.idempotencyKey);
     expect(push).toHaveBeenCalledWith({
       pathname: '/j/[code]/check-email',
@@ -205,7 +205,7 @@ describe('a stale consent version (ADR 0048)', () => {
     requestEmailUpdates.mockRejectedValue(refusal('consent_version_unknown'));
     wrap(<SentFlow code={PLAN.code} />);
     fireEvent.change(await screen.findByLabelText('Your email'), {
-      target: { value: 'priya@example.com' },
+      target: { value: 'nina@example.com' },
     });
     switchOff();
 
@@ -248,7 +248,7 @@ describe('the organiser answering their own plan (ADR 0026)', () => {
     // organiser hears about their own plan without subscribing (§5.8); every
     // other web member needs the verified per-plan subscription, account or
     // not, or they never get the confirmed time.
-    Object.assign(session, { status: 'saved', userId: 'priya', isAnonymous: false });
+    Object.assign(session, { status: 'saved', userId: 'nina', isAnonymous: false });
     wrap(<SentFlow code={PLAN.code} />);
     await screen.findByText(/Your times are in\./);
 
@@ -269,7 +269,7 @@ describe('round 1', () => {
   it('keeps the email card after a send, so "Use a different one" comes back to it', async () => {
     wrap(<SentFlow code={PLAN.code} />);
     fireEvent.change(await screen.findByLabelText('Your email'), {
-      target: { value: 'priya@example.com' },
+      target: { value: 'nina@example.com' },
     });
     switchOff();
     await act(async () => {
@@ -277,7 +277,7 @@ describe('round 1', () => {
     });
 
     expect(push).toHaveBeenCalled();
-    expect(screen.getByLabelText('Your email')).toHaveValue('priya@example.com');
+    expect(screen.getByLabelText('Your email')).toHaveValue('nina@example.com');
   });
 
   it('says it could not load, with a way to try again, rather than loading for ever', async () => {
@@ -305,7 +305,7 @@ describe('round 2', () => {
     first.unmount();
 
     wrap(<SentFlow code={PLAN.code} />);
-    await screen.findByText('Thanks, Priya. Your times are in.');
+    await screen.findByText('Thanks, Nina. Your times are in.');
 
     await waitFor(() => expect(screen.queryByText("Hear when it's locked in")).toBeNull());
     expect(track.mock.calls.filter(([name]) => name === 'email_updates_offered')).toHaveLength(1);
@@ -341,7 +341,7 @@ describe('round 3', () => {
       ],
       already_confirmed: false,
     });
-    noteSavedWith(PLAN.code, 'priya@example.com');
+    noteSavedWith(PLAN.code, 'nina@example.com');
     wrap(<EmailVerifyFlow />);
 
     await screen.findByText(/Your place is saved/);

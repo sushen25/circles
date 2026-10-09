@@ -45,10 +45,10 @@ begin
 end;
 $$;
 
--- Maya organises. Priya and Tom have saved places; Sam is a guest; Jess has
+-- Maya organises. Nina and Tom have saved places; Sam is a guest; Jess has
 -- left the circle; Ren joined after the plan was made, so it is not asking him.
 select pg_temp.make_user('00000000-0000-0000-0000-0000000024a1', 'Maya', true);
-select pg_temp.make_user('00000000-0000-0000-0000-0000000024a2', 'Priya', true);
+select pg_temp.make_user('00000000-0000-0000-0000-0000000024a2', 'Nina', true);
 select pg_temp.make_user('00000000-0000-0000-0000-0000000024a3', 'Tom', true);
 select pg_temp.make_user('00000000-0000-0000-0000-0000000024a4', 'Sam', false);
 select pg_temp.make_user('00000000-0000-0000-0000-0000000024a5', 'Jess', true);
@@ -64,7 +64,7 @@ grant select on t to anon, authenticated, service_role;
 
 insert into public.circle_members (circle_id, user_id, display_name_snapshot, status)
 select circle_id, u.id, u.name, u.status from t,
-  (values ('00000000-0000-0000-0000-0000000024a2'::uuid, 'Priya', 'active'),
+  (values ('00000000-0000-0000-0000-0000000024a2'::uuid, 'Nina', 'active'),
           ('00000000-0000-0000-0000-0000000024a3'::uuid, 'Tom', 'active'),
           ('00000000-0000-0000-0000-0000000024a4'::uuid, 'Sam', 'active'),
           ('00000000-0000-0000-0000-0000000024a5'::uuid, 'Jess', 'removed'),
@@ -119,7 +119,7 @@ select pg_temp.act_as('00000000-0000-0000-0000-0000000024a1');
 select results_eq(
   format($$ select display_name, has_saved_place from public.hand_off_candidates(%L)
             order by display_name $$, pg_temp.plan_id()),
-  $$ values ('Priya'::text, true), ('Sam'::text, false), ('Tom'::text, true) $$,
+  $$ values ('Nina'::text, true), ('Sam'::text, false), ('Tom'::text, true) $$,
   'the organiser sees everyone the plan asks but themselves, and which of them has a saved place — not Ren, whom it never asked'
 );
 
@@ -237,10 +237,10 @@ where id = pg_temp.plan_id();
 -- ---------------------------------------------------------------------------
 
 -- Letters already written to Maya, which a hand-off has to take back, and one
--- to Priya about something else, which it must leave alone.
+-- to Nina about something else, which it must leave alone.
 insert into private.email_contacts (user_id, email_normalized, status, verified_at)
 values ('00000000-0000-0000-0000-0000000024a1', 'maya-rc@example.com', 'verified', now()),
-       ('00000000-0000-0000-0000-0000000024a2', 'priya-rc@example.com', 'verified', now());
+       ('00000000-0000-0000-0000-0000000024a2', 'nina-rc@example.com', 'verified', now());
 
 insert into jobs.notification_jobs (
   channel, kind, contact_id, plan_id, plan_revision, scheduled_for, idempotency_key, status
@@ -248,7 +248,7 @@ insert into jobs.notification_jobs (
 select 'email', k.kind, c.id, pg_temp.plan_id(), 1, now() + interval '8 hours', k.key, 'scheduled'
 from (values ('replies_closed', 'maya-rc@example.com', '0000000000000000000000000000000000000000000000000000000000000001'),
              ('options_ready', 'maya-rc@example.com', '0000000000000000000000000000000000000000000000000000000000000002'),
-             ('replies_closed', 'priya-rc@example.com', '0000000000000000000000000000000000000000000000000000000000000003')) as k (kind, addr, key)
+             ('replies_closed', 'nina-rc@example.com', '0000000000000000000000000000000000000000000000000000000000000003')) as k (kind, addr, key)
 join private.email_contacts c on c.email_normalized = k.addr;
 
 select pg_temp.act_as('00000000-0000-0000-0000-0000000024a2');
@@ -313,14 +313,14 @@ select pg_temp.act_as('00000000-0000-0000-0000-0000000024a1');
 select lives_ok(
   format($$ select public.hand_off_organiser(%L, %L) $$, pg_temp.plan_id(),
     '00000000-0000-0000-0000-0000000024a2'),
-  'the organiser hands it to Priya'
+  'the organiser hands it to Nina'
 );
 
 select pg_temp.act_as_postgres();
 select is(
   (select organiser_user_id::text || '/' || state || '/' || revision from public.plans where id = pg_temp.plan_id()),
   '00000000-0000-0000-0000-0000000024a2/ready/1',
-  'Priya organises it now, and nothing else about the plan moved'
+  'Nina organises it now, and nothing else about the plan moved'
 );
 select ok(
   exists (
@@ -354,7 +354,7 @@ select throws_ok(
 select pg_temp.act_as('00000000-0000-0000-0000-0000000024a2');
 select lives_ok(
   format($$ select public.extend_deadline(%L) $$, pg_temp.plan_id()),
-  'while Priya, who organises it now, can'
+  'while Nina, who organises it now, can'
 );
 
 -- A hand-off is for a plan that is still to be decided.
@@ -530,7 +530,7 @@ insert into jobs.notification_jobs (
 select 'email', 'replies_closed', c.id, pg_temp.plan_id(), 1, now() - interval '1 minute', k.key, k.status,
   case when k.status = 'sent' then now() end
 from (values ('0000000000000000000000000000000000000000000000000000000000000011', 'sent'), ('0000000000000000000000000000000000000000000000000000000000000012', 'scheduled')) as k (key, status)
-cross join private.email_contacts c where c.email_normalized = 'priya-rc@example.com';
+cross join private.email_contacts c where c.email_normalized = 'nina-rc@example.com';
 
 select pg_temp.act_as_service();
 select is(
@@ -555,7 +555,7 @@ from (values ('options_ready', '000000000000000000000000000000000000000000000000
              ('cancelled', '0000000000000000000000000000000000000000000000000000000000000023', 'sent'),
              ('cancelled', '0000000000000000000000000000000000000000000000000000000000000024', 'scheduled'))
   as k (kind, key, status)
-cross join private.email_contacts c where c.email_normalized = 'priya-rc@example.com';
+cross join private.email_contacts c where c.email_normalized = 'nina-rc@example.com';
 select pg_temp.act_as_service();
 select is(
   (select (j ->> 'superseded')::boolean
@@ -582,7 +582,7 @@ insert into jobs.notification_jobs (
 select 'email', 'replies_closed', c.id, pg_temp.plan_id(), 1, now() + interval '8 hours', k.key, 'scheduled'
 from (values ('0000000000000000000000000000000000000000000000000000000000000031'),
              ('0000000000000000000000000000000000000000000000000000000000000032')) as k (key)
-cross join private.email_contacts c where c.email_normalized = 'priya-rc@example.com';
+cross join private.email_contacts c where c.email_normalized = 'nina-rc@example.com';
 
 select ok(
   not has_function_privilege('authenticated', 'public.dispatch_supersede_closing(uuid, text[])', 'execute')
@@ -594,7 +594,7 @@ select is(
   public.dispatch_supersede_closing(pg_temp.plan_id(),
     array['0000000000000000000000000000000000000000000000000000000000000032']),
   3,
-  'every held replies_closed but the one being written is taken back: Priya''s two from earlier and the new older one'
+  'every held replies_closed but the one being written is taken back: Nina''s two from earlier and the new older one'
 );
 select pg_temp.act_as_postgres();
 select is(

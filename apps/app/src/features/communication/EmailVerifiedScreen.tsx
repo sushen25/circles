@@ -25,7 +25,7 @@ import { t } from '../../copy';
  * Opened from an email, usually in a browser with no session, so everything
  * here comes from `verify-email-contact`'s answer: the plans this address will
  * hear about, by name. The address itself is never returned, so the artboard's
- * "On · priya@example.com" reads "On".
+ * "On · nina@example.com" reads "On".
  */
 export type VerifiedPlan = { key: string; circleName: string; planTitle: string };
 

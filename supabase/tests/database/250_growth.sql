@@ -1,9 +1,9 @@
 -- Guest → saved place (S2-07): the prompts' record and the one fact the
 -- after-attendance prompt needs from the database.
 --
--- Sunday Crew: Maya owns it, Priya is a guest member, Sam is somebody else's
+-- Sunday Crew: Maya owns it, Nina is a guest member, Sam is somebody else's
 -- friend with an account and no place in it. Two meetups: 5 March, which
--- happened on Maya's word, and 17 September, which Priya says she was at.
+-- happened on Maya's word, and 17 September, which Nina says she was at.
 
 begin;
 select plan(24);
@@ -46,7 +46,7 @@ end;
 $$;
 
 select pg_temp.make_user('25000000-0000-0000-0000-0000000000a1', 'Maya');
-select pg_temp.make_user('25000000-0000-0000-0000-0000000000a2', 'Priya', false);
+select pg_temp.make_user('25000000-0000-0000-0000-0000000000a2', 'Nina', false);
 select pg_temp.make_user('25000000-0000-0000-0000-0000000000a3', 'Sam');
 
 select pg_temp.act_as('25000000-0000-0000-0000-0000000000a1');
@@ -56,7 +56,7 @@ select pg_temp.act_as_postgres();
 grant select on t to authenticated, anon;
 
 insert into public.circle_members (circle_id, user_id, display_name_snapshot)
-select circle_id, '25000000-0000-0000-0000-0000000000a2'::uuid, 'Priya' from t;
+select circle_id, '25000000-0000-0000-0000-0000000000a2'::uuid, 'Nina' from t;
 
 -- A confirmed meetup, in the past, that Maya organised and both were asked to.
 create or replace function pg_temp.meetup(code text, day date, plan_state text) returns uuid
@@ -108,7 +108,7 @@ select pg_temp.act_as('25000000-0000-0000-0000-0000000000a2', true);
 select is(
   (select array[attended, first_in_circle] from public.after_attendance_facts(:'thursday')),
   array[false, true],
-  'before Priya answers, it is the circle''s first meetup and she has not said she was there'
+  'before Nina answers, it is the circle''s first meetup and she has not said she was there'
 );
 
 select pg_temp.act_as_postgres();
@@ -151,7 +151,7 @@ select is(
   'once another meetup of the circle happened, Thursday is not its first'
 );
 
--- The same earlier meetup, reported `not_sure` by the organiser, but Priya said
+-- The same earlier meetup, reported `not_sure` by the organiser, but Nina said
 -- she was there: her own word counts for her.
 select pg_temp.act_as_postgres();
 -- As though Maya had said `not_sure`: the report is not `happened`, and the
@@ -173,7 +173,7 @@ select pg_temp.act_as('25000000-0000-0000-0000-0000000000a2', true);
 select is(
   (select first_in_circle from public.after_attendance_facts(:'thursday')),
   false,
-  'but one Priya herself says she was at does'
+  'but one Nina herself says she was at does'
 );
 
 -- "Last caught up" alone is not a meetup: only a `happened` report moves it,
@@ -207,7 +207,7 @@ select pg_temp.act_as('25000000-0000-0000-0000-0000000000a2', true);
 select is(
   (select attended from public.after_attendance_facts(:'thursday')),
   false,
-  'an evening the organiser says was called off is not the moment, whatever Priya said'
+  'an evening the organiser says was called off is not the moment, whatever Nina said'
 );
 
 -- ---------------------------------------------------------------------------
@@ -218,7 +218,7 @@ select lives_ok(
   format($$insert into public.nudge_states (user_id, moment, plan_id)
     values ('25000000-0000-0000-0000-0000000000a2', 'after_attendance_start_circle', '%s')$$,
     :'thursday'),
-  'Priya records the after-attendance prompt against the plan it followed'
+  'Nina records the after-attendance prompt against the plan it followed'
 );
 select lives_ok(
   format($$insert into public.nudge_states (user_id, moment, plan_id)

@@ -88,7 +88,7 @@ const PLAN = '00000000-0000-4000-8000-00000000b1a1';
 // Made at run time: a fixed secret-shaped literal is what a scanner looks for.
 const SECRET = (globalThis.crypto.randomUUID() + globalThis.crypto.randomUUID()).replace(/-/g, '');
 
-/** Fixed gaps, so "just joined" always lists Priya before Tom. */
+/** Fixed gaps, so "just joined" always lists Nina before Tom. */
 function minutesAgo(minutes: number): string {
   return new Date(Date.now() - minutes * 60_000).toISOString();
 }
@@ -117,7 +117,7 @@ function home(overrides: Record<string, unknown> = {}) {
         role: 'owner',
         savedPlace: true,
       },
-      { userId: 'priya', name: 'Priya', joinedAt: minutesAgo(1), role: 'member', savedPlace: true },
+      { userId: 'nina', name: 'Nina', joinedAt: minutesAgo(1), role: 'member', savedPlace: true },
       { userId: 'tom', name: 'Tom', joinedAt: minutesAgo(2), role: 'member', savedPlace: true },
     ],
     activePlan: null,
@@ -232,7 +232,7 @@ describe('the circle home', () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     try {
       wrap(<CircleHomeFlow id={CIRCLE} />);
-      expect(await screen.findByText('Priya and Tom just joined')).toBeVisible();
+      expect(await screen.findByText('Nina and Tom just joined')).toBeVisible();
       expect(screen.getByText('3 in so far · about monthly')).toBeVisible();
 
       const before = circleHome.mock.calls.length;
@@ -323,7 +323,7 @@ describe('the first plan', () => {
   });
 
   it('shows a guest member the organiser gate in place of the card, not a fixture (S2-07)', async () => {
-    Object.assign(session, { status: 'guest', userId: 'priya', isAnonymous: true });
+    Object.assign(session, { status: 'guest', userId: 'nina', isAnonymous: true });
     wrap(<FirstPlanFlow id={CIRCLE} />);
     expect(await screen.findByText(`organiser gate: plan in ${CIRCLE}`)).toBeTruthy();
     expect(replace).not.toHaveBeenCalled();

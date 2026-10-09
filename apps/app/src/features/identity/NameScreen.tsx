@@ -104,7 +104,7 @@ export function NameScreen({
           <Input
             accessibilityLabelledBy="guest-name-label"
             aria-label={t('name', 'your_name')}
-            placeholder={t('name', 'priya')}
+            placeholder={t('name', 'nina')}
             value={value}
             onChangeText={onChangeText}
             onSubmitEditing={onNext}

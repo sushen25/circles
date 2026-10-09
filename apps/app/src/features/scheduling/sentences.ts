@@ -7,8 +7,8 @@ import { nameList, type NameList } from './names';
  * People, written into a sentence (spec §5.6, ADR 0012).
  *
  * One rule — `nameList`'s "up to three, then a count" — and four copy keys per
- * kind of sentence, so that "Not Priya, Tom and 5 others", "Priya, Tom and 5
- * others can make it" and "you, Priya and 4 others" are the same rule wearing
+ * kind of sentence, so that "Not Nina, Tom and 5 others", "Nina, Tom and 5
+ * others can make it" and "you, Nina and 4 others" are the same rule wearing
  * different words. They live together because the moment one of them grows a
  * fourth case the others have to as well.
  */
@@ -24,7 +24,7 @@ export function namesOf(data: PlanCandidates, userIds: readonly string[]): strin
 }
 
 /**
- * "you, Priya and 4 others" — a plain list of people, capped by the same
+ * "you, Nina and 4 others" — a plain list of people, capped by the same
  * names-then-a-count rule as everything else on these screens.
  */
 export function listOf(names: readonly string[]): string | undefined {

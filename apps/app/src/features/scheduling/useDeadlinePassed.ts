@@ -22,7 +22,7 @@ import { isOffline } from '../identity/join/failure';
  * screen refetches afterwards and, with replies open again, becomes the
  * ordinary options screen.
  *
- * **Hand this to someone else** asks twice — who, then "hand it to Priya?" —
+ * **Hand this to someone else** asks twice — who, then "hand it to Nina?" —
  * because it cannot be taken back by the person doing it: from the moment it
  * lands the plan is somebody else's to decide, and this screen becomes the
  * member's view of it.

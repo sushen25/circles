@@ -13,7 +13,7 @@ import { needsQuietAudience, withQuietAudience } from './quiet.ts';
 
 const PLAN = '00000000-0000-4000-8000-0000000000b1';
 const TOM = '00000000-0000-4000-8000-000000000003';
-const PRIYA = '00000000-0000-4000-8000-000000000002';
+const NINA = '00000000-0000-4000-8000-000000000002';
 
 const context = {
   planId: PLAN,
@@ -95,7 +95,7 @@ describe('the quiet audience', () => {
       rpc: (fn: string, args: Record<string, unknown>) => {
         calls.push({ fn, args });
         return Promise.resolve({
-          data: { initiator_user_id: TOM, keen_user_ids: [TOM, PRIYA] },
+          data: { initiator_user_id: TOM, keen_user_ids: [TOM, NINA] },
           error: null,
         });
       },
@@ -106,7 +106,7 @@ describe('the quiet audience', () => {
       { fn: 'dispatch_quiet_audience', args: { p_plan_id: PLAN, p_kind: 'threshold_keen' } },
     ]);
     expect(addressed.eligibility.quietInitiatorId).toBe(TOM);
-    expect(addressed.eligibility.keenMemberIds).toEqual([TOM, PRIYA]);
+    expect(addressed.eligibility.keenMemberIds).toEqual([TOM, NINA]);
     // The context the rest of the run shares is untouched.
     expect(context.eligibility.quietInitiatorId).toBeUndefined();
     expect(context.eligibility.keenMemberIds).toBeUndefined();

@@ -29,7 +29,7 @@ describe('the link-preview card', () => {
     expect(html).toContain('Sunday Crew is finding a time to catch up');
     // The card is rendered to a whole thread, including people outside the
     // circle. Nothing about who, when or where may be in it (§5.2).
-    expect(html).not.toMatch(/Thursday|Hope St|6:30|Maya|Priya/);
+    expect(html).not.toMatch(/Thursday|Hope St|6:30|Maya|Nina/);
   });
 
   it('says a confirmed plan is locked in, by the circle name alone', () => {
@@ -50,7 +50,7 @@ describe('the link-preview card', () => {
     const shown = [...html.matchAll(/property="og:(?:title|description)" content="([^"]*)"/g)]
       .map((match) => match[1])
       .join(' ');
-    expect(shown).not.toMatch(/\d|Thursday|Hope St|Maya|Priya/);
+    expect(shown).not.toMatch(/\d|Thursday|Hope St|Maya|Nina/);
   });
 
   it('claims no plan for a link that does not resolve, such as a cancelled plan', () => {

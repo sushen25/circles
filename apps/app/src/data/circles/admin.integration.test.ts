@@ -99,8 +99,8 @@ describe('the invite link', () => {
 
     expect(await linkOf(maya, circleId)).toBe(secret);
 
-    const priya = await guestJoining(secret, 'Priya');
-    const refused = await priya.functions.invoke('get-invite-link', {
+    const nina = await guestJoining(secret, 'Nina');
+    const refused = await nina.functions.invoke('get-invite-link', {
       body: { circle_id: circleId },
     });
     expect(await refusalOf(refused.error)).toEqual({ status: 403, reason: 'not_the_owner' });
@@ -109,7 +109,7 @@ describe('the invite link', () => {
   it('stops working when it is reset, and everybody already in stays in', async () => {
     const maya = await owner();
     const { circleId, secret: old } = await circleOf(maya);
-    const priya = await guestJoining(old, 'Priya');
+    const nina = await guestJoining(old, 'Nina');
 
     const rotated = await maya.functions.invoke('rotate-invite', {
       body: { idempotency_key: key(), circle_id: circleId },
@@ -126,7 +126,7 @@ describe('the invite link', () => {
     });
     expect(await refusalOf(withOld.error)).toEqual({ status: 404, reason: 'invite_inactive' });
 
-    const { data: seen } = await priya.from('circles').select('id').eq('id', circleId);
+    const { data: seen } = await nina.from('circles').select('id').eq('id', circleId);
     expect(seen).toHaveLength(1);
 
     await guestJoining(fresh, 'Jess');
@@ -141,9 +141,9 @@ describe('the invite link', () => {
   it('can be reset only by the owner', async () => {
     const maya = await owner();
     const { circleId, secret } = await circleOf(maya);
-    const priya = await guestJoining(secret, 'Priya');
+    const nina = await guestJoining(secret, 'Nina');
 
-    const refused = await priya.functions.invoke('rotate-invite', {
+    const refused = await nina.functions.invoke('rotate-invite', {
       body: { idempotency_key: key(), circle_id: circleId },
     });
     expect(await refusalOf(refused.error)).toEqual({ status: 403, reason: 'not_the_owner' });
@@ -155,7 +155,7 @@ describe('removing a member', () => {
   it('takes them out of the circle at once and out of the next recalculation', async () => {
     const maya = await owner();
     const { circleId, secret } = await circleOf(maya);
-    const priya = await guestJoining(secret, 'Priya');
+    const nina = await guestJoining(secret, 'Nina');
     const tom = await guestJoining(secret, 'Tom');
     const tomId = (await tom.auth.getUser()).data.user?.id ?? '';
 
@@ -171,7 +171,7 @@ describe('removing a member', () => {
     expect(plan.error).toBeNull();
     const planId = (plan.data as { plan_id: string }).plan_id;
 
-    for (const member of [maya, priya, tom]) {
+    for (const member of [maya, nina, tom]) {
       const answered = await member.functions.invoke('submit-availability', {
         body: { idempotency_key: key(), plan_id: planId, revision: 1, status: 'flexible' },
       });
@@ -209,9 +209,9 @@ describe('removing a member', () => {
     const maya = await owner();
     const mayaId = (await maya.auth.getUser()).data.user?.id ?? '';
     const { circleId, secret } = await circleOf(maya);
-    const priya = await guestJoining(secret, 'Priya');
+    const nina = await guestJoining(secret, 'Nina');
 
-    const byMember = await priya.functions.invoke('remove-member', {
+    const byMember = await nina.functions.invoke('remove-member', {
       body: { idempotency_key: key(), circle_id: circleId, user_id: mayaId },
     });
     expect(await refusalOf(byMember.error)).toEqual({ status: 403, reason: 'not_the_owner' });

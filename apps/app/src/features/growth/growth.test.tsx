@@ -20,7 +20,7 @@ const track = vi.fn();
 vi.mock('../../analytics/track', () => ({ track: (...a: unknown[]) => track(...a) }));
 vi.mock('../../data/auth/client', () => ({ hasBackend: () => true }));
 
-const session = { status: 'guest', userId: 'priya', isAnonymous: true, isLoading: false };
+const session = { status: 'guest', userId: 'nina', isAnonymous: true, isLoading: false };
 const savePlace = vi.fn();
 const requestLinkCode = vi.fn();
 const bootstrapProfile = vi.fn();
@@ -57,7 +57,7 @@ vi.mock('../../data/auth', async () => {
     bootstrapProfile: (...a: unknown[]) => bootstrapProfile(...a),
   };
 });
-vi.mock('../../data/membership', () => ({ ownNameIn: async () => 'Priya' }));
+vi.mock('../../data/membership', () => ({ ownNameIn: async () => 'Nina' }));
 vi.mock('../../data/circles', () => ({
   newestCircleId: async () => 'sunday-crew',
   belongsToAnyCircle: async () => true,
@@ -89,7 +89,7 @@ beforeEach(() => {
   for (const mock of [push, replace, track, savePlace, requestLinkCode, bootstrapProfile]) {
     mock.mockReset();
   }
-  Object.assign(session, { status: 'guest', userId: 'priya', isAnonymous: true });
+  Object.assign(session, { status: 'guest', userId: 'nina', isAnonymous: true });
   forgetSessionNudges();
   askToShow.mockReset().mockResolvedValue({ suppressed: false });
   recordAnswer.mockReset().mockResolvedValue(undefined);
@@ -114,7 +114,7 @@ describe('the organiser gate', () => {
     expect(await screen.findByText('Save your place first')).toBeVisible();
     expect(
       await screen.findByText(
-        "This links your existing place as Priya. Nothing you've sent changes.",
+        "This links your existing place as Nina. Nothing you've sent changes.",
       ),
     ).toBeVisible();
     // Apple and Google are S1-14b's: no button that goes nowhere.
@@ -143,13 +143,13 @@ describe('the organiser gate', () => {
       />,
     );
     await screen.findByText(
-      "This links your existing place as Priya. Nothing you've sent changes.",
+      "This links your existing place as Nina. Nothing you've sent changes.",
     );
     expect(screen.getByText(/^Starting a circle makes you its owner/)).toBeVisible();
 
     fireEvent.click(screen.getByRole('button', { name: 'Continue with email' }));
     fireEvent.change(await screen.findByLabelText('Your email'), {
-      target: { value: 'priya@example.com' },
+      target: { value: 'nina@example.com' },
     });
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Send me a code' }));
@@ -161,7 +161,7 @@ describe('the organiser gate', () => {
 
     await waitFor(() => expect(saved).toHaveBeenCalled());
     expect(savePlace).toHaveBeenCalledWith(expect.objectContaining({ moment: 'organiser_gate' }));
-    expect(bootstrapProfile).toHaveBeenCalledWith({ name: 'Priya' });
+    expect(bootstrapProfile).toHaveBeenCalledWith({ name: 'Nina' });
     expect(track).toHaveBeenCalledWith('account_claimed', { moment: 'organiser_gate' });
     expect(recordAnswer).toHaveBeenCalledWith(
       { moment: 'organiser_gate' },
@@ -214,7 +214,7 @@ describe('Keep your place for good?', () => {
       </ReattachedNudgeFlow>,
     );
 
-    expect(await screen.findByText('Welcome back, Priya.')).toBeVisible();
+    expect(await screen.findByText('Welcome back, Nina.')).toBeVisible();
     expect(askToShow).toHaveBeenCalledWith(
       { moment: 'reattached_save_place', planId: 'thu-17' },
       expect.any(String),

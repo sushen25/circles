@@ -17,7 +17,7 @@ const confirmation = past.confirmation!;
 function withMine(status: PlanConfirmation['attendance'][number]['status']): PlanConfirmation {
   return {
     ...member,
-    attendance: member.attendance.map((a) => (a.userId === 'priya' ? { ...a, status } : a)),
+    attendance: member.attendance.map((a) => (a.userId === 'nina' ? { ...a, status } : a)),
   };
 }
 

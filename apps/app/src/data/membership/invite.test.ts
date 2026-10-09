@@ -126,11 +126,11 @@ describe('redeemInvite', () => {
     turnstile.mockResolvedValue(undefined);
     invoke.mockResolvedValue({ data: answer, error: null });
 
-    await redeemInvite({ secret: SECRET, displayName: 'Priya', idempotencyKey: KEY as never });
+    await redeemInvite({ secret: SECRET, displayName: 'Nina', idempotencyKey: KEY as never });
 
     const [name, { body }] = invoke.mock.calls[0]!;
     expect(name).toBe('redeem-invite');
-    expect(body).toEqual({ idempotency_key: KEY, secret: SECRET, display_name: 'Priya' });
+    expect(body).toEqual({ idempotency_key: KEY, secret: SECRET, display_name: 'Nina' });
     expect('turnstile_token' in body).toBe(false);
   });
 
@@ -138,7 +138,7 @@ describe('redeemInvite', () => {
     turnstile.mockResolvedValue('fresh-token');
     invoke.mockResolvedValue({ data: answer, error: null });
 
-    await redeemInvite({ secret: SECRET, displayName: 'Priya', idempotencyKey: KEY as never });
+    await redeemInvite({ secret: SECRET, displayName: 'Nina', idempotencyKey: KEY as never });
 
     expect(invoke.mock.calls[0]![1].body.turnstile_token).toBe('fresh-token');
   });
@@ -149,7 +149,7 @@ describe('redeemInvite', () => {
 
     const failure = await redeemInvite({
       secret: SECRET,
-      displayName: 'Priya',
+      displayName: 'Nina',
       idempotencyKey: KEY as never,
     }).then(
       () => new Error('redeemInvite resolved when it should have thrown'),

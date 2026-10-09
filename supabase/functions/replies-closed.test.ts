@@ -69,7 +69,7 @@ const handlers = {
 };
 
 const MAYA = '00000000-0000-4000-8000-0000000000a1';
-const PRIYA = '00000000-0000-4000-8000-0000000000a2';
+const NINA = '00000000-0000-4000-8000-0000000000a2';
 const PLAN = '00000000-0000-4000-8000-0000000000b1';
 const KEY = '00000000-0000-4000-8000-000000000001';
 
@@ -109,14 +109,14 @@ beforeEach(() => {
 describe('hand-off-organiser', () => {
   it('hands the plan to the member named, through the one function that decides', async () => {
     const response = await handlers['hand-off-organiser'](
-      post({ idempotency_key: KEY, plan_id: PLAN, to_user_id: PRIYA }),
+      post({ idempotency_key: KEY, plan_id: PLAN, to_user_id: NINA }),
     );
 
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ ok: true });
     expect(called('hand_off_organiser')[0]?.args).toEqual({
       p_plan_id: PLAN,
-      p_to_user_id: PRIYA,
+      p_to_user_id: NINA,
     });
   });
 
@@ -124,7 +124,7 @@ describe('hand-off-organiser', () => {
     state.answer = refusing('hand_off_organiser', 'requires_saved_place');
 
     const response = await handlers['hand-off-organiser'](
-      post({ idempotency_key: KEY, plan_id: PLAN, to_user_id: PRIYA }),
+      post({ idempotency_key: KEY, plan_id: PLAN, to_user_id: NINA }),
     );
 
     expect(response.status).toBe(403);
@@ -135,7 +135,7 @@ describe('hand-off-organiser', () => {
     state.answer = refusing('hand_off_organiser', 'not_the_organiser');
 
     const response = await handlers['hand-off-organiser'](
-      post({ idempotency_key: KEY, plan_id: PLAN, to_user_id: PRIYA }),
+      post({ idempotency_key: KEY, plan_id: PLAN, to_user_id: NINA }),
     );
 
     expect(response.status).toBe(403);

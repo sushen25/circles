@@ -36,7 +36,7 @@ export function addressOf(userId: string): string {
  * (`replace_response`), and the engine is the dispatcher's, run until the plan
  * is ready: a set written by hand is stale the moment anything bumps the
  * plan's input, and the sweep then recalculates it from the real answers
- * underneath the test. Tom is a guest; Priya has a saved place, and the plan
+ * underneath the test. Tom is a guest; Nina has a saved place, and the plan
  * is asking her but she has not answered. `closed: false` leaves the deadline
  * for the test to pass itself.
  */
@@ -51,13 +51,13 @@ export async function closedWithAnOption({ closed = true }: { closed?: boolean }
     ownerId: maya.userId,
     secret: '',
   };
-  const priya = await accountToSignInTo('Priya');
+  const nina = await accountToSignInTo('Nina');
   sql(`
     begin;
     insert into public.circle_members (circle_id, user_id, display_name_snapshot)
-    values ('${circleId}', '${priya.userId}', 'Priya');
+    values ('${circleId}', '${nina.userId}', 'Nina');
     insert into public.plan_participants (plan_id, revision, user_id)
-    values ('${plan.id}', 1, '${priya.userId}');
+    values ('${plan.id}', 1, '${nina.userId}');
     commit;
   `);
   const tom = guestWhoAnswered(crew, 'Tom');
@@ -81,7 +81,7 @@ export async function closedWithAnOption({ closed = true }: { closed?: boolean }
       `update public.plans set response_deadline = now() - interval '1 minute' where id = '${plan.id}'`,
     );
   }
-  return { maya, circleId, plan, tom, priya };
+  return { maya, circleId, plan, tom, nina };
 }
 
 export function stateOf(planId: string): string {
@@ -114,14 +114,14 @@ export async function closedLetters(address: string): Promise<number> {
 }
 
 /**
- * Priya's `replies_closed` jobs for the plan, by status, sorted. Live ones are
+ * Nina's `replies_closed` jobs for the plan, by status, sorted. Live ones are
  * everything but `skipped`; the skipped ones carry why.
  */
-export function closingJobsToPriya(planId: string, priyaId: string): string[][] {
+export function closingJobsToNina(planId: string, ninaId: string): string[][] {
   return sql(`select j.status, coalesce(j.last_error, '') from jobs.notification_jobs j
               join private.email_contacts c on c.id = j.contact_id
               where j.plan_id = '${planId}' and j.kind = 'replies_closed'
-                and c.user_id = '${priyaId}'
+                and c.user_id = '${ninaId}'
               order by j.status, j.last_error`);
 }
 

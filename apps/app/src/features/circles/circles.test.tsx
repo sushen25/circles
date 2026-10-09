@@ -79,7 +79,7 @@ function home(overrides: Partial<CircleData.CircleHome> = {}): CircleData.Circle
     defaultQuorum: null,
     isOwner: true,
     me: 'maya',
-    members: ['Maya', 'Priya', 'Tom', 'Jess', 'Sam', 'Alex'].map((name, i) => ({
+    members: ['Maya', 'Nina', 'Tom', 'Jess', 'Sam', 'Alex'].map((name, i) => ({
       userId: name.toLowerCase(),
       name,
       joinedAt: `2026-01-0${i + 1}T00:00:00Z`,
@@ -282,7 +282,7 @@ describe('circle home, in the state the data puts it in', () => {
   });
 
   it('offers a member who is not the owner no invite link, and settings still', async () => {
-    circleHome.mockResolvedValue(home({ isOwner: false, me: 'priya' }));
+    circleHome.mockResolvedValue(home({ isOwner: false, me: 'nina' }));
     wrap(<CircleHomeFlow id={CIRCLE} />);
 
     fireEvent.click(await screen.findByRole('button', { name: 'Circle settings' }));
@@ -367,7 +367,7 @@ describe('circle home, for somebody whose times an edit cleared (SUS-130)', () =
 
   it('says the plan changed and their times need adding again, on the plan card', async () => {
     circleHome.mockResolvedValue(
-      home({ me: 'priya', isOwner: false, activePlan: { ...RUNNING, askedAgain: true } }),
+      home({ me: 'nina', isOwner: false, activePlan: { ...RUNNING, askedAgain: true } }),
     );
     wrap(<CircleHomeFlow id={CIRCLE} />);
 
@@ -379,7 +379,7 @@ describe('circle home, for somebody whose times an edit cleared (SUS-130)', () =
   // way to give them. The organiser's candidates screen has no editor link, so
   // without this an organiser told to add theirs again had nowhere to do it.
   it.each([
-    ['a member', 'priya'],
+    ['a member', 'nina'],
     ['the organiser, whose own edit cleared theirs,', 'maya'],
   ])('takes %s from the card to the grid', async (_who, me) => {
     circleHome.mockResolvedValue(
@@ -397,10 +397,10 @@ describe('circle home, for somebody whose times an edit cleared (SUS-130)', () =
   // been told by the server that it is out of date, so it is.
   it('does not let the grid open on an answer read before the edit', async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    const before = ['plan-to-answer', 'pnsundaycr', 'priya'];
+    const before = ['plan-to-answer', 'pnsundaycr', 'nina'];
     client.setQueryData(before, { answer: { status: 'flexible' } });
     circleHome.mockResolvedValue(
-      home({ me: 'priya', isOwner: false, activePlan: { ...RUNNING, askedAgain: true } }),
+      home({ me: 'nina', isOwner: false, activePlan: { ...RUNNING, askedAgain: true } }),
     );
     wrap(<CircleHomeFlow id={CIRCLE} />, client);
 
@@ -444,7 +444,7 @@ describe('circle home, sharing the plan link again (SUS-132)', () => {
     await waitFor(() => expect(shareMessage).toHaveBeenCalledTimes(1));
     const message = shareMessage.mock.calls[0]?.[0] as string;
     expect(message).toMatch(/waiting on 4 replies .*\/j\/pnsundaycr$/);
-    for (const name of ['Priya', 'Tom', 'Jess', 'Sam', 'Alex']) expect(message).not.toContain(name);
+    for (const name of ['Nina', 'Tom', 'Jess', 'Sam', 'Alex']) expect(message).not.toContain(name);
     expect(track).toHaveBeenCalledWith(
       'share_opened',
       expect.objectContaining({ circle_id: CIRCLE, plan_id: PLAN, kind: 'reminder' }),
@@ -527,7 +527,7 @@ describe('circle home, sharing the plan link again (SUS-132)', () => {
   it('is offered to a member who is not organising it, with the same count-only message', async () => {
     // The founder's decision, 1 October 2026: any member may forward the link.
     shareMessage.mockResolvedValue('sheet');
-    circleHome.mockResolvedValue(home({ me: 'priya', isOwner: false, activePlan: OPEN() }));
+    circleHome.mockResolvedValue(home({ me: 'nina', isOwner: false, activePlan: OPEN() }));
     wrap(<CircleHomeFlow id={CIRCLE} />);
 
     fireEvent.click(await screen.findByRole('button', SHARE));
@@ -540,7 +540,7 @@ describe('circle home, sharing the plan link again (SUS-132)', () => {
   it('is not offered to a member once the deadline has passed', async () => {
     circleHome.mockResolvedValue(
       home({
-        me: 'priya',
+        me: 'nina',
         isOwner: false,
         activePlan: {
           ...OPEN(),
@@ -557,7 +557,7 @@ describe('circle home, sharing the plan link again (SUS-132)', () => {
   it('is not offered to a member on a quiet ask', async () => {
     circleHome.mockResolvedValue(
       home({
-        me: 'priya',
+        me: 'nina',
         isOwner: false,
         activePlan: { ...OPEN(), organiserUserId: null, quiet: true },
       }),
@@ -571,7 +571,7 @@ describe('circle home, sharing the plan link again (SUS-132)', () => {
   it('sits beside "Add my times" while the times-cleared line shows, and sends the same message', async () => {
     shareMessage.mockResolvedValue('sheet');
     circleHome.mockResolvedValue(
-      home({ me: 'priya', isOwner: false, activePlan: { ...OPEN(), askedAgain: true } }),
+      home({ me: 'nina', isOwner: false, activePlan: { ...OPEN(), askedAgain: true } }),
     );
     wrap(<CircleHomeFlow id={CIRCLE} />);
 

@@ -5,7 +5,7 @@
 -- the cap, the name, rejoining after removal — is the invite's rules, through
 -- `private.admit_member`.
 --
--- Sunday Crew: Maya owns it and has an account. Priya is a guest member. Tom
+-- Sunday Crew: Maya owns it and has an account. Nina is a guest member. Tom
 -- joined through the invite after the plan was made, so the plan never asked
 -- him. Kai was a member and was removed. Ren is a stranger with a guest
 -- session; Sam is a stranger with an account.
@@ -68,7 +68,7 @@ end;
 $$;
 
 select pg_temp.make_user('17000000-0000-0000-0000-000000000001', 'Maya');
-select pg_temp.make_user('17000000-0000-0000-0000-000000000002', 'Priya', true);
+select pg_temp.make_user('17000000-0000-0000-0000-000000000002', 'Nina', true);
 select pg_temp.make_user('17000000-0000-0000-0000-000000000003', 'Tom', true);
 select pg_temp.make_user('17000000-0000-0000-0000-000000000004', 'Kai', true);
 select pg_temp.make_user('17000000-0000-0000-0000-000000000005', 'Ren', true);
@@ -85,7 +85,7 @@ from public.create_circle('Sunday Crew', 'sky', 'Australia/Melbourne', 'sus79-jo
 select pg_temp.act_as_postgres();
 
 insert into public.circle_members (circle_id, user_id, display_name_snapshot)
-select circle_id, '17000000-0000-0000-0000-000000000002'::uuid, 'Priya' from fixture
+select circle_id, '17000000-0000-0000-0000-000000000002'::uuid, 'Nina' from fixture
 union all
 select circle_id, '17000000-0000-0000-0000-000000000004'::uuid, 'Kai' from fixture;
 
@@ -115,7 +115,7 @@ create temporary table plan_ids as
 select short_code, id from public.plans where short_code like 'pn%';
 grant select on plan_ids, fixture to authenticated, service_role;
 
--- Maya, Priya and Kai were asked. Tom joins afterwards, so he was not.
+-- Maya, Nina and Kai were asked. Tom joins afterwards, so he was not.
 insert into public.plan_participants (plan_id, revision, user_id)
 select id, 1, u from plan_ids, unnest(array[
   '17000000-0000-0000-0000-000000000001'::uuid,
@@ -155,7 +155,7 @@ select throws_ok(
 );
 
 select throws_ok(
-  $$select public.join_from_plan('17000000-0000-0000-0000-000000000005', 'pnaskng2', 'Priya')$$,
+  $$select public.join_from_plan('17000000-0000-0000-0000-000000000005', 'pnaskng2', 'Nina')$$,
   '23505', 'duplicate_name',
   'a name somebody in the circle already has is refused'
 );
@@ -594,7 +594,7 @@ select is(
 -- never ran — and the transition it goes through was refused as an
 -- unannounced one the moment it did.
 select lives_ok(
-  $$select public.join_from_plan('17000000-0000-0000-0000-000000000002', 'pnwakes2', 'Priya')$$,
+  $$select public.join_from_plan('17000000-0000-0000-0000-000000000002', 'pnwakes2', 'Nina')$$,
   'a fifth joins'
 );
 select lives_ok(

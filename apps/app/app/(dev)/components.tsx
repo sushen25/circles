@@ -162,7 +162,7 @@ export default function ComponentsScreen() {
             <Marks
               members={[
                 { name: 'Maya' },
-                { name: 'Priya' },
+                { name: 'Nina' },
                 { name: 'Tom' },
                 { name: 'Alex', waiting: true },
               ]}

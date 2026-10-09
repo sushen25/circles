@@ -79,7 +79,7 @@ describe('a request that works', () => {
       handle: () => Promise.resolve({ joined: true }),
     });
 
-    const response = await handler(post({ idempotency_key: KEY, display_name: 'Priya' }));
+    const response = await handler(post({ idempotency_key: KEY, display_name: 'Nina' }));
 
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ joined: true });
@@ -93,7 +93,7 @@ describe('a request that works', () => {
       schema: Body,
       handle: () => Promise.resolve({}),
     });
-    const response = await handler(post({ idempotency_key: KEY, display_name: 'Priya' }));
+    const response = await handler(post({ idempotency_key: KEY, display_name: 'Nina' }));
     expect(response.headers.get('x-request-id')).toMatch(/^[0-9a-f-]{36}$/);
   });
 
@@ -110,7 +110,7 @@ describe('a request that works', () => {
       handle: () => Promise.resolve({}),
     });
     const response = await handler(
-      post({ idempotency_key: KEY, display_name: 'Priya' }, { 'x-request-id': tokenShaped }),
+      post({ idempotency_key: KEY, display_name: 'Nina' }, { 'x-request-id': tokenShaped }),
     );
     expect(response.headers.get('x-request-id')).not.toBe(tokenShaped);
   });
@@ -127,7 +127,7 @@ describe('a request that is refused', () => {
       handle: () => Promise.reject(new Refusal('duplicate_name', 'Somebody is using that name.')),
     });
 
-    const response = await handler(post({ idempotency_key: KEY, display_name: 'Priya' }));
+    const response = await handler(post({ idempotency_key: KEY, display_name: 'Nina' }));
 
     expect(response.status).toBe(409);
     expect(await response.json()).toMatchObject({
@@ -155,7 +155,7 @@ describe('a request that is refused', () => {
       handle: () => Promise.reject(new Refusal('circle_full', 'That circle is full.')),
     });
 
-    const response = await handler(post({ idempotency_key: KEY, display_name: 'Priya' }));
+    const response = await handler(post({ idempotency_key: KEY, display_name: 'Nina' }));
     // The original failure is the one worth reporting; the release failing would
     // only hide why.
     expect(response.status).toBe(409);
@@ -170,7 +170,7 @@ describe('a request that is refused', () => {
       handle: () => Promise.reject(Object.assign(new Error('invite_inactive'), { code: 'P0001' })),
     });
 
-    const response = await handler(post({ idempotency_key: KEY, display_name: 'Priya' }));
+    const response = await handler(post({ idempotency_key: KEY, display_name: 'Nina' }));
     expect(response.status).toBe(404);
     expect(await response.json()).toMatchObject({ reason: 'invite_inactive' });
   });
@@ -186,7 +186,7 @@ describe('a request that is refused', () => {
       handle: () => Promise.reject(new Error('socket hang up')),
     });
 
-    const response = await handler(post({ idempotency_key: KEY, display_name: 'Priya' }));
+    const response = await handler(post({ idempotency_key: KEY, display_name: 'Nina' }));
 
     expect(response.status).toBe(500);
     expect(called('release_request')).toHaveLength(0);
@@ -201,7 +201,7 @@ describe('a request that is refused', () => {
       handle: () => Promise.reject(Object.assign(new Error('circle_full'), { code: 'P0001' })),
     });
 
-    await handler(post({ idempotency_key: KEY, display_name: 'Priya' }));
+    await handler(post({ idempotency_key: KEY, display_name: 'Nina' }));
     expect(called('release_request')).toHaveLength(1);
   });
 
@@ -212,7 +212,7 @@ describe('a request that is refused', () => {
       handle: () =>
         Promise.reject(
           Object.assign(
-            new Error('duplicate key value violates "x": Key (email)=(priya@example.com)'),
+            new Error('duplicate key value violates "x": Key (email)=(nina@example.com)'),
             {
               code: '23505',
             },
@@ -220,12 +220,12 @@ describe('a request that is refused', () => {
         ),
     });
 
-    const response = await handler(post({ idempotency_key: KEY, display_name: 'Priya' }));
+    const response = await handler(post({ idempotency_key: KEY, display_name: 'Nina' }));
     const body = await response.text();
 
     expect(response.status).toBe(500);
     // A Postgres message can quote the row that caused it (non-negotiable 8).
-    expect(body).not.toContain('priya@example.com');
+    expect(body).not.toContain('nina@example.com');
     expect(body).not.toContain('duplicate key');
   });
 });
@@ -252,7 +252,7 @@ describe('a request whose answer could not be recorded', () => {
       handle: () => Promise.resolve({ moved: true }),
     });
 
-    const response = await handler(post({ idempotency_key: KEY, display_name: 'Priya' }));
+    const response = await handler(post({ idempotency_key: KEY, display_name: 'Nina' }));
 
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ moved: true });
@@ -276,7 +276,7 @@ describe('a retry', () => {
       handle: () => Promise.reject(new Error('the work must not run again')),
     });
 
-    const response = await handler(post({ idempotency_key: KEY, display_name: 'Priya' }));
+    const response = await handler(post({ idempotency_key: KEY, display_name: 'Nina' }));
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ joined: true });
   });
@@ -296,7 +296,7 @@ describe('a retry', () => {
       handle: () => Promise.reject(new Error('the work must not run twice at once')),
     });
 
-    const response = await handler(post({ idempotency_key: KEY, display_name: 'Priya' }));
+    const response = await handler(post({ idempotency_key: KEY, display_name: 'Nina' }));
     expect(await response.json()).toMatchObject({ reason: 'in_progress' });
   });
 
@@ -311,7 +311,7 @@ describe('a retry', () => {
       schema: Body,
       handle: () => Promise.resolve({}),
     });
-    const response = await handler(post({ idempotency_key: KEY, display_name: 'Priya' }));
+    const response = await handler(post({ idempotency_key: KEY, display_name: 'Nina' }));
     expect(await response.json()).toMatchObject({ reason: 'idempotency_mismatch' });
   });
 });
@@ -359,7 +359,7 @@ describe('what never reaches the handler', () => {
       schema: Body,
       handle: () => Promise.resolve({}),
     });
-    const response = await handler(post({ idempotency_key: KEY, display_name: 'Priya' }));
+    const response = await handler(post({ idempotency_key: KEY, display_name: 'Nina' }));
     expect(response.status).toBe(401);
   });
 
@@ -385,14 +385,14 @@ describe('what never reaches the handler', () => {
       schema: Body,
       handle: () => Promise.resolve({}),
     });
-    const response = await handler(post({ idempotency_key: KEY, display_name: 'Priya Sharma' }));
+    const response = await handler(post({ idempotency_key: KEY, display_name: 'Nina Sharma' }));
     const body = (await response.json()) as { message: string };
 
     expect(response.status).toBe(400);
     expect(body.message).toContain('display_name');
     // Zod's own message quotes what it was given, and what it was given is
     // somebody's name (non-negotiable 8).
-    expect(body.message).not.toContain('Priya');
+    expect(body.message).not.toContain('Nina');
   });
 });
 
@@ -408,7 +408,7 @@ describe('when the function itself is not in a fit state', () => {
       schema: Body,
       handle: () => Promise.resolve({}),
     });
-    const response = await handler(post({ idempotency_key: KEY, display_name: 'Priya' }));
+    const response = await handler(post({ idempotency_key: KEY, display_name: 'Nina' }));
 
     expect(response.status).toBe(503);
     expect(await response.json()).toMatchObject({ error: 'unavailable' });
@@ -424,7 +424,7 @@ describe('when the function itself is not in a fit state', () => {
       schema: Body,
       handle: () => Promise.resolve({}),
     });
-    const response = await handler(post({ idempotency_key: KEY, display_name: 'Priya' }));
+    const response = await handler(post({ idempotency_key: KEY, display_name: 'Nina' }));
 
     expect(await response.text()).not.toContain('SUPABASE_URL');
   });
@@ -441,7 +441,7 @@ describe('the guard phase', () => {
       handle: () => Promise.reject(new Error('the work must not run')),
     });
 
-    const response = await handler(post({ idempotency_key: KEY, display_name: 'Priya' }));
+    const response = await handler(post({ idempotency_key: KEY, display_name: 'Nina' }));
 
     expect(response.status).toBe(429);
     expect(called('release_request')).toHaveLength(1);
@@ -459,7 +459,7 @@ describe('the guard phase', () => {
       handle: () => Promise.resolve({}),
     });
 
-    const response = await handler(post({ idempotency_key: KEY, display_name: 'Priya' }));
+    const response = await handler(post({ idempotency_key: KEY, display_name: 'Nina' }));
 
     expect(response.status).toBe(500);
     expect(called('release_request')).toHaveLength(1);
@@ -489,7 +489,7 @@ describe('the guard phase', () => {
       handle: () => Promise.reject(new Error('the work must not run again')),
     });
 
-    const response = await handler(post({ idempotency_key: KEY, display_name: 'Priya' }));
+    const response = await handler(post({ idempotency_key: KEY, display_name: 'Nina' }));
 
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ joined: true });
@@ -504,7 +504,7 @@ describe('the guard phase', () => {
       handle: () => Promise.resolve({ joined: true }),
     });
 
-    const response = await handler(post({ idempotency_key: KEY, display_name: 'Priya' }));
+    const response = await handler(post({ idempotency_key: KEY, display_name: 'Nina' }));
     expect(await response.json()).toEqual({ joined: true });
     expect(called('begin_request')).toHaveLength(1);
   });
@@ -525,11 +525,11 @@ describe('what identifies a request', () => {
       handle: () => Promise.resolve({}),
     });
 
-    await handler(post({ idempotency_key: KEY, display_name: 'Priya', turnstile_token: 'one' }));
+    await handler(post({ idempotency_key: KEY, display_name: 'Nina', turnstile_token: 'one' }));
     const first = fingerprintOf();
 
     state.calls = [];
-    await handler(post({ idempotency_key: KEY, display_name: 'Priya', turnstile_token: 'two' }));
+    await handler(post({ idempotency_key: KEY, display_name: 'Nina', turnstile_token: 'two' }));
 
     expect(fingerprintOf()).toBe(first);
   });
@@ -543,7 +543,7 @@ describe('what identifies a request', () => {
       handle: () => Promise.resolve({}),
     });
 
-    await handler(post({ idempotency_key: KEY, display_name: 'Priya', turnstile_token: 'one' }));
+    await handler(post({ idempotency_key: KEY, display_name: 'Nina', turnstile_token: 'one' }));
     const first = fingerprintOf();
 
     state.calls = [];
@@ -571,7 +571,7 @@ describe('telling a refusal from a failure', () => {
         ),
     });
 
-    const response = await handler(post({ idempotency_key: KEY, display_name: 'Priya' }));
+    const response = await handler(post({ idempotency_key: KEY, display_name: 'Nina' }));
 
     expect(response.status).toBe(500);
     expect(called('release_request')).toHaveLength(1);
@@ -584,7 +584,7 @@ describe('telling a refusal from a failure', () => {
       handle: () => Promise.reject(new Error('socket hang up')),
     });
 
-    await handler(post({ idempotency_key: KEY, display_name: 'Priya' }));
+    await handler(post({ idempotency_key: KEY, display_name: 'Nina' }));
     expect(called('release_request')).toHaveLength(0);
   });
 
@@ -599,7 +599,7 @@ describe('telling a refusal from a failure', () => {
       handle: () => Promise.resolve({}),
     });
 
-    const response = await handler(post({ idempotency_key: KEY, display_name: 'Priya' }));
+    const response = await handler(post({ idempotency_key: KEY, display_name: 'Nina' }));
 
     expect(response.status).toBe(503);
     expect(await response.json()).toMatchObject({ error: 'unavailable' });
@@ -614,7 +614,7 @@ describe('telling a refusal from a failure', () => {
       handle: () => Promise.resolve({}),
     });
 
-    const response = await handler(post({ idempotency_key: KEY, display_name: 'Priya' }));
+    const response = await handler(post({ idempotency_key: KEY, display_name: 'Nina' }));
     expect(response.status).toBe(401);
   });
 });
@@ -631,7 +631,7 @@ describe('a dependency that could not be reached', () => {
       handle: () => Promise.reject(new Unavailable('That could not be confirmed just now.')),
     });
 
-    const response = await handler(post({ idempotency_key: KEY, display_name: 'Priya' }));
+    const response = await handler(post({ idempotency_key: KEY, display_name: 'Nina' }));
 
     expect(response.status).toBe(503);
     expect(await response.json()).toMatchObject({ error: 'unavailable' });
@@ -646,7 +646,7 @@ describe('a dependency that could not be reached', () => {
     });
 
     const body = (await (
-      await handler(post({ idempotency_key: KEY, display_name: 'Priya' }))
+      await handler(post({ idempotency_key: KEY, display_name: 'Nina' }))
     ).json()) as { reason?: string };
 
     // No `reason`: there is nothing for a screen to branch on, and nothing for the

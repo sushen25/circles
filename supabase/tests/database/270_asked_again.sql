@@ -38,9 +38,9 @@ begin
 end;
 $$;
 
--- Maya organises; Priya and Tom answer; Jess does not.
+-- Maya organises; Nina and Tom answer; Jess does not.
 select pg_temp.make_user('00000000-0000-0000-0000-0000000027a1', 'Maya');
-select pg_temp.make_user('00000000-0000-0000-0000-0000000027a2', 'Priya');
+select pg_temp.make_user('00000000-0000-0000-0000-0000000027a2', 'Nina');
 select pg_temp.make_user('00000000-0000-0000-0000-0000000027a3', 'Tom');
 select pg_temp.make_user('00000000-0000-0000-0000-0000000027a4', 'Jess');
 
@@ -54,7 +54,7 @@ grant select on t to authenticated;
 
 insert into public.circle_members (circle_id, user_id, display_name_snapshot)
 select circle_id, u.id, u.name from t, (values
-  ('00000000-0000-0000-0000-0000000027a2'::uuid, 'Priya'),
+  ('00000000-0000-0000-0000-0000000027a2'::uuid, 'Nina'),
   ('00000000-0000-0000-0000-0000000027a3'::uuid, 'Tom'),
   ('00000000-0000-0000-0000-0000000027a4'::uuid, 'Jess')
 ) as u (id, name);
@@ -131,7 +131,7 @@ select is((pg_temp.last_revised() ->> 'revision')::integer, 2,
   'with the revision it moved the plan to, which keys one letter per revision');
 select is(pg_temp.answered_earlier(),
   array['00000000-0000-0000-0000-0000000027a2', '00000000-0000-0000-0000-0000000027a3']::uuid[],
-  'answered_earlier names Priya and Tom, whose times were cleared, and not Jess, who never answered');
+  'answered_earlier names Nina and Tom, whose times were cleared, and not Jess, who never answered');
 
 select ok(
   not exists (

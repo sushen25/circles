@@ -122,7 +122,7 @@ describe('the screen, from a fixture', () => {
     const text = container.textContent ?? '';
     expect(text).not.toMatch(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}/);
     expect(text).not.toMatch(/@/);
-    expect(text).not.toMatch(/Maya|Priya|Sunday/);
+    expect(text).not.toMatch(/Maya|Nina|Sunday/);
   });
 });
 

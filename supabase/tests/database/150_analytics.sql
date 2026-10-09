@@ -52,9 +52,9 @@ begin
 end;
 $$;
 
--- Maya owns Sunday Crew; Priya and Tom are in it.
+-- Maya owns Sunday Crew; Nina and Tom are in it.
 select pg_temp.make_user('00000000-0000-0000-0000-00000000aa01', 'Maya');
-select pg_temp.make_user('00000000-0000-0000-0000-00000000aa02', 'Priya', false);
+select pg_temp.make_user('00000000-0000-0000-0000-00000000aa02', 'Nina', false);
 select pg_temp.make_user('00000000-0000-0000-0000-00000000aa03', 'Tom', false);
 select pg_temp.make_user('00000000-0000-0000-0000-00000000aa04', 'Outsider');
 
@@ -76,7 +76,7 @@ language sql security definer as $$ select circle_id from t $$;
 
 insert into public.circle_members (circle_id, user_id, display_name_snapshot)
 select circle_id, u, n from t, (values
-  ('00000000-0000-0000-0000-00000000aa02'::uuid, 'Priya'),
+  ('00000000-0000-0000-0000-00000000aa02'::uuid, 'Nina'),
   ('00000000-0000-0000-0000-00000000aa03'::uuid, 'Tom')
 ) as v (u, n);
 
@@ -495,7 +495,7 @@ select is(
 -- dropped out of §11.4's gate: the figure was computed over the people who
 -- never did the two things the product most wants them to do, and changed
 -- retroactively when they did.
-select pg_temp.make_user('00000000-0000-0000-0000-00000000aa05', 'Priya Again', false);
+select pg_temp.make_user('00000000-0000-0000-0000-00000000aa05', 'Nina Again', false);
 select private.move_membership(
   pg_temp.circle(), '00000000-0000-0000-0000-00000000aa02', '00000000-0000-0000-0000-00000000aa05');
 
@@ -632,7 +632,7 @@ select is(
   'and the numbers in it are the views'' own'
 );
 select is(
-  (select public.founder_summary()::text ~* 'Maya|Priya|Sunday Crew|Catch up'),
+  (select public.founder_summary()::text ~* 'Maya|Nina|Sunday Crew|Catch up'),
   false,
   'with no person and no circle named anywhere in it: the founder reads counts, not people'
 );

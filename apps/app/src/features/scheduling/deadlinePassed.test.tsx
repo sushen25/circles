@@ -63,7 +63,7 @@ beforeEach(() => {
   vi.setSystemTime(new Date('2026-09-15T10:00:00.000Z'));
   planCandidates.mockResolvedValue(fixture.deadlinePassed);
   handOffCandidates.mockResolvedValue([
-    { userId: 'priya', name: 'Priya', hasSavedPlace: true },
+    { userId: 'nina', name: 'Nina', hasSavedPlace: true },
     { userId: 'sam', name: 'Sam', hasSavedPlace: false },
   ]);
 });
@@ -172,11 +172,11 @@ describe('hand this to someone else', () => {
     fireEvent.click(sam);
     expect(screen.queryByText('Hand it to Sam?')).toBeNull();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Priya' }));
-    expect(await screen.findByText('Hand it to Priya?')).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Hand it to Priya' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Nina' }));
+    expect(await screen.findByText('Hand it to Nina?')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Hand it to Nina' }));
 
-    await waitFor(() => expect(handOffOrganiser).toHaveBeenCalledWith('thu-17', 'priya'));
+    await waitFor(() => expect(handOffOrganiser).toHaveBeenCalledWith('thu-17', 'nina'));
     await waitFor(() =>
       expect(track).toHaveBeenCalledWith('deadline_passed_action', {
         circle_id: 'sunday-crew',
@@ -201,8 +201,8 @@ describe('hand this to someone else', () => {
     show(organiser());
 
     fireEvent.click(await screen.findByRole('button', { name: /^Hand this to someone else/ }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Priya' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Hand it to Priya' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Nina' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Hand it to Nina' }));
 
     expect(
       await screen.findByText('They need a saved place before they can organise.'),

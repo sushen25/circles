@@ -18,7 +18,7 @@ vi.mock('expo-router', () => ({
 const track = vi.fn();
 vi.mock('../../analytics/track', () => ({ track: (...args: unknown[]) => track(...args) }));
 vi.mock('../../data/auth/client', () => ({ hasBackend: () => true }));
-const session = { status: 'guest', userId: 'priya', isAnonymous: true, isLoading: false };
+const session = { status: 'guest', userId: 'nina', isAnonymous: true, isLoading: false };
 vi.mock('../../data/auth/session', () => ({ useSession: () => session }));
 
 const planToAnswer = vi.fn();
@@ -50,7 +50,7 @@ function open(client = new QueryClient({ defaultOptions: { queries: { retry: fal
 const previousButton = () => screen.queryByRole('button', { name: /^Use my previous times/ });
 
 beforeEach(() => {
-  session.userId = 'priya';
+  session.userId = 'nina';
   for (const mock of [planToAnswer, submitAnswer, usualTimes, track]) mock.mockReset();
   globalThis.localStorage.clear();
   planToAnswer.mockResolvedValue({ plan: PLAN, answer: null });
@@ -85,7 +85,7 @@ describe('use my previous times', () => {
     expect(screen.queryByRole('button', { name: /^Saturday.*Adjust/ })).toBeNull();
     expect(submitAnswer).not.toHaveBeenCalled();
     // An edit like any other: the device keeps it until it is sent.
-    await waitFor(async () => expect(await readDraft('priya', PLAN.code)).toBeDefined());
+    await waitFor(async () => expect(await readDraft('nina', PLAN.code)).toBeDefined());
     // Offered to start an answer, not to overwrite one.
     expect(previousButton()).toBeNull();
   });

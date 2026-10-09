@@ -80,7 +80,7 @@ describe('the organiser, with options', () => {
     expect(screen.getByText('Best attendance')).toBeTruthy();
     expect(screen.getByText('5 of 6')).toBeTruthy();
     expect(screen.getByText("Alex hasn't answered")).toBeTruthy();
-    expect(screen.getByText("Doesn't work for Priya · Alex hasn't answered")).toBeTruthy();
+    expect(screen.getByText("Doesn't work for Nina · Alex hasn't answered")).toBeTruthy();
 
     // Alex is dashed in the header and inside no "can make it" row.
     const canMakeIt = screen.getAllByRole('img').slice(1);
@@ -142,7 +142,7 @@ describe('the organiser, with options', () => {
       ...fixture.ready,
       stale: true,
       repliedCount: 4,
-      responded: ['maya', 'priya', 'tom', 'jess', 'sam'],
+      responded: ['maya', 'nina', 'tom', 'jess', 'sam'],
     });
     show(organiser());
 
@@ -221,7 +221,7 @@ describe('the organiser, with nothing yet', () => {
     show(<CandidatesFlow id={CIRCLE} planId={PLAN} which="waiting" />);
 
     expect(await screen.findByText('Waiting on the first reply.')).toBeTruthy();
-    expect(screen.getByText('Still to answer: you, Priya and 4 others.')).toBeTruthy();
+    expect(screen.getByText('Still to answer: you, Nina and 4 others.')).toBeTruthy();
   });
 });
 
@@ -272,7 +272,7 @@ describe('the organiser, with no overlap', () => {
 
   it('shows who a wider window costs before asking for it, and saves that preview', async () => {
     previewWiderWindow.mockResolvedValue({
-      asked_again: ['maya', 'priya', 'tom'],
+      asked_again: ['maya', 'nina', 'tom'],
       fresh_ask: [],
       invalidating: ['window'],
       bumps_revision: true,
@@ -286,7 +286,7 @@ describe('the organiser, with no overlap', () => {
     fireEvent.click(wider);
 
     // §5.3: exactly who is asked again, before saving — and the reader is "you".
-    expect(await screen.findByText(/asked again: you, Priya and Tom\./)).toBeTruthy();
+    expect(await screen.findByText(/asked again: you, Nina and Tom\./)).toBeTruthy();
     await waitFor(() =>
       expect(previewWiderWindow).toHaveBeenCalledWith(PLAN, {
         start: '2026-09-14',
@@ -308,7 +308,7 @@ describe('the organiser, with no overlap', () => {
 
   it('closes the sheet on a refusal, so the reason is readable and the retry is fresh', async () => {
     previewWiderWindow.mockResolvedValue({
-      asked_again: ['priya'],
+      asked_again: ['nina'],
       fresh_ask: [],
       invalidating: ['window'],
       bumps_revision: true,
@@ -426,7 +426,7 @@ describe('a member', () => {
   it('sees nothing of what has come in until options exist', async () => {
     planCandidates.mockResolvedValue({
       ...fixture.waiting,
-      me: 'priya',
+      me: 'nina',
       isOrganiser: false,
       responded: null,
     });
@@ -465,7 +465,7 @@ describe('a member', () => {
   it('is shown no marks at all while reply state is not theirs to read', async () => {
     planCandidates.mockResolvedValue({
       ...fixture.waiting,
-      me: 'priya',
+      me: 'nina',
       isOrganiser: false,
       responded: null,
       repliedCount: 1,
@@ -481,7 +481,7 @@ describe('a member', () => {
   it('is never told there was no overlap from a set the plan has moved past', async () => {
     planCandidates.mockResolvedValue({
       ...fixture.noQuorum,
-      me: 'priya',
+      me: 'nina',
       isOrganiser: false,
       stale: true,
     });
@@ -491,7 +491,7 @@ describe('a member', () => {
   });
 
   it("is told the closest it got is nobody's fault", async () => {
-    planCandidates.mockResolvedValue({ ...fixture.noQuorum, me: 'priya', isOrganiser: false });
+    planCandidates.mockResolvedValue({ ...fixture.noQuorum, me: 'nina', isOrganiser: false });
     show(organiser());
 
     expect(await screen.findByText("There wasn't enough overlap this time.")).toBeTruthy();

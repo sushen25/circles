@@ -43,7 +43,7 @@ end;
 $$;
 
 select pg_temp.make_user('00000000-0000-0000-0000-0000000004a1', 'Maya');
-select pg_temp.make_user('00000000-0000-0000-0000-0000000004a2', 'Priya');
+select pg_temp.make_user('00000000-0000-0000-0000-0000000004a2', 'Nina');
 select pg_temp.make_user('00000000-0000-0000-0000-0000000004a3', 'Guest', true);
 
 select pg_temp.act_as('00000000-0000-0000-0000-0000000004a1');
@@ -53,7 +53,7 @@ create temporary table t as select id as circle_id from public.circles where cre
 grant select on t to anon, authenticated, service_role;
 insert into public.circle_members (circle_id, user_id, display_name_snapshot)
 select circle_id, u, n from t, (values
-  ('00000000-0000-0000-0000-0000000004a2'::uuid, 'Priya'),
+  ('00000000-0000-0000-0000-0000000004a2'::uuid, 'Nina'),
   ('00000000-0000-0000-0000-0000000004a3'::uuid, 'Guest')
 ) as v (u, n);
 
@@ -313,12 +313,12 @@ select throws_ok(
 
 select lives_ok(
   $$insert into private.email_contacts (user_id, email_normalized)
-    values ('00000000-0000-0000-0000-0000000004a2', 'priya@example.com')$$,
+    values ('00000000-0000-0000-0000-0000000004a2', 'nina@example.com')$$,
   'a contact is created pending'
 );
 select is(
   (select email_hash from private.email_contacts where user_id = '00000000-0000-0000-0000-0000000004a2'),
-  extensions.digest('priya@example.com', 'sha256'),
+  extensions.digest('nina@example.com', 'sha256'),
   'with its hash derived from the address, not supplied'
 );
 select throws_ok(
@@ -335,18 +335,18 @@ select id as contact from private.email_contacts where user_id = '00000000-0000-
 -- identity*, not per table.
 select lives_ok(
   $$insert into private.email_contacts (user_id, email_normalized)
-    values ('00000000-0000-0000-0000-0000000004a1', 'priya@example.com')$$,
+    values ('00000000-0000-0000-0000-0000000004a1', 'nina@example.com')$$,
   'a second identity may be reachable at the same address (spec §9)'
 );
 select throws_ok(
   $$insert into private.email_contacts (user_id, email_normalized)
-    values ('00000000-0000-0000-0000-0000000004a1', 'priya@example.com')$$,
+    values ('00000000-0000-0000-0000-0000000004a1', 'nina@example.com')$$,
   '23505',
   null,
   'but one identity cannot hold it twice'
 );
 select is(
-  (select count(*)::integer from private.email_contacts where email_normalized = 'priya@example.com'),
+  (select count(*)::integer from private.email_contacts where email_normalized = 'nina@example.com'),
   2,
   'so one address, two contacts, and neither knows about the other'
 );
@@ -368,7 +368,7 @@ select lives_ok(
   'suppressed with both is'
 );
 select is(
-  (select reason from private.email_suppressions where email_hash = extensions.digest('priya@example.com', 'sha256')),
+  (select reason from private.email_suppressions where email_hash = extensions.digest('nina@example.com', 'sha256')),
   'bounced',
   'and the address is remembered as suppressed, by hash, apart from the contact'
 );
@@ -379,13 +379,13 @@ select is(
 -- there.
 select is(
   (select array_agg(distinct status) from private.email_contacts
-   where email_normalized = 'priya@example.com'),
+   where email_normalized = 'nina@example.com'),
   array['suppressed'],
   'and every other identity holding that address is suppressed with it'
 );
 select is(
   (select count(*)::integer from private.email_contacts
-   where email_normalized = 'priya@example.com' and verified_at is not null),
+   where email_normalized = 'nina@example.com' and verified_at is not null),
   0,
   'none of them left verified'
 );
@@ -429,7 +429,7 @@ select throws_ok(
     values ('%s', '00000000-0000-0000-0000-0000000004a1', 'plan_updates', '%s', 'v1')$$, :'contact', :'plan_a'),
   '23503',
   null,
-  'never for somebody else through Priya''s address — consent is the owner''s'
+  'never for somebody else through Nina''s address — consent is the owner''s'
 );
 select lives_ok(
   format($$insert into private.email_subscriptions (contact_id, user_id, scope, plan_id, consent_text_version)
@@ -468,7 +468,7 @@ select throws_ok(
     :'contact', (select circle_id from t)),
   '23503',
   null,
-  'nor for a membership that is not the contact owner''s — Priya''s address cannot return the guest'
+  'nor for a membership that is not the contact owner''s — Nina''s address cannot return the guest'
 );
 insert into private.email_contacts (user_id, email_normalized)
 values ('00000000-0000-0000-0000-0000000004a3', 'guest@example.com')
@@ -480,11 +480,11 @@ select lives_ok(
   'a guest''s own membership, through their own address, is issued'
 );
 insert into private.email_action_tokens (contact_id, purpose, token_hash, expires_at)
-values (:'contact', 'verify', extensions.digest('t-priya', 'sha256'), now() + interval '1 day')
-returning id as priya_token \gset
+values (:'contact', 'verify', extensions.digest('t-nina', 'sha256'), now() + interval '1 day')
+returning id as nina_token \gset
 select throws_ok(
   format($$update private.email_action_tokens set purpose = 'reentry', membership_circle_id = '%s', membership_user_id = '00000000-0000-0000-0000-0000000004a2' where id = '%s'$$,
-    (select circle_id from t), :'priya_token'),
+    (select circle_id from t), :'nina_token'),
   '23514',
   'reentry_token_for_permanent_identity',
   'nor can a verify token be turned into a re-entry for a saved-place member after the fact'
@@ -542,7 +542,7 @@ select throws_ok(
 select pg_temp.act_as('00000000-0000-0000-0000-0000000004a2');
 select lives_ok(
   format($$insert into public.nudge_states (user_id, moment, plan_id) values ('00000000-0000-0000-0000-0000000004a2', 'locked_in_app', '%s')$$, :'plan_a'),
-  'Priya records a prompt shown to her'
+  'Nina records a prompt shown to her'
 );
 select throws_ok(
   format($$insert into public.nudge_states (user_id, moment, plan_id) values ('00000000-0000-0000-0000-0000000004a2', 'locked_in_app', '%s')$$, :'plan_a'),
@@ -574,7 +574,7 @@ select lives_ok(
 );
 
 -- Select and update: own rows, both ways.
-select is((select count(*)::integer from public.nudge_states), 2, 'Priya reads her own two rows');
+select is((select count(*)::integer from public.nudge_states), 2, 'Nina reads her own two rows');
 select lives_ok(
   format($$update public.nudge_states set answer = 'dismissed' where user_id = '00000000-0000-0000-0000-0000000004a2' and moment = 'locked_in_app' and plan_id = '%s'$$, :'plan_a'),
   'and records what she did with a prompt'
@@ -601,7 +601,7 @@ select is(
   'and her update touched nothing: the row was never hers to match'
 );
 
--- Removed, Priya keeps her history to read and not to add to.
+-- Removed, Nina keeps her history to read and not to add to.
 select pg_temp.act_as_postgres();
 update public.circle_members set status = 'removed'
 where circle_id = (select circle_id from t) and user_id = '00000000-0000-0000-0000-0000000004a2';

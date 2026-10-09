@@ -31,7 +31,7 @@ describe('signOut', () => {
 
   it('forgets a journey in progress, and the address typed into it, so the next person inherits nothing', async () => {
     signOut.mockResolvedValue({ error: null });
-    writeJourney('sent-one-step:abcdef', { email: 'priya@example.com' });
+    writeJourney('sent-one-step:abcdef', { email: 'nina@example.com' });
 
     await session.signOut();
 
@@ -40,7 +40,7 @@ describe('signOut', () => {
 
   it('does not forget it when the sign-out failed: the person is still in', async () => {
     signOut.mockResolvedValue({ error: { message: 'storage' } });
-    writeJourney('sent-one-step:abcdef', { email: 'priya@example.com' });
+    writeJourney('sent-one-step:abcdef', { email: 'nina@example.com' });
 
     await expect(session.signOut()).rejects.toThrow();
 

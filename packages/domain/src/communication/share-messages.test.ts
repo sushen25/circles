@@ -213,7 +213,7 @@ describe('waitingMessage', () => {
     // Pasted into a chat everyone reads. Naming the four who have not replied
     // is a nudge with an audience.
     const text = waitingMessage({ remaining: 4, url: LINK, templates: EN_SHARE_TEMPLATES });
-    for (const name of ['Alex', 'Priya', 'Tom', 'Jess', 'Sam', 'Nic']) {
+    for (const name of ['Alex', 'Nina', 'Tom', 'Jess', 'Sam', 'Nic']) {
       expect(text).not.toContain(name);
     }
   });

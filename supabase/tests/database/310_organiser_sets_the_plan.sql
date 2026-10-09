@@ -63,9 +63,9 @@ create or replace function pg_temp.mark() returns bigint language sql security d
   select coalesce(max(seq), 0) from jobs.outbox;
 $$;
 
--- Maya organises. Priya, Tom, Jess, Sam and Alex are asked.
+-- Maya organises. Nina, Tom, Jess, Sam and Alex are asked.
 select pg_temp.make_user('00000000-0000-0000-0000-0000000031a1', 'Maya');
-select pg_temp.make_user('00000000-0000-0000-0000-0000000031a2', 'Priya');
+select pg_temp.make_user('00000000-0000-0000-0000-0000000031a2', 'Nina');
 select pg_temp.make_user('00000000-0000-0000-0000-0000000031a3', 'Tom');
 select pg_temp.make_user('00000000-0000-0000-0000-0000000031a4', 'Jess');
 select pg_temp.make_user('00000000-0000-0000-0000-0000000031a5', 'Sam');
@@ -81,7 +81,7 @@ grant select on t to authenticated;
 
 insert into public.circle_members (circle_id, user_id, display_name_snapshot)
 select circle_id, u.id, u.name from t, (values
-  ('00000000-0000-0000-0000-0000000031a2'::uuid, 'Priya'),
+  ('00000000-0000-0000-0000-0000000031a2'::uuid, 'Nina'),
   ('00000000-0000-0000-0000-0000000031a3'::uuid, 'Tom'),
   ('00000000-0000-0000-0000-0000000031a4'::uuid, 'Jess'),
   ('00000000-0000-0000-0000-0000000031a5'::uuid, 'Sam'),
@@ -109,7 +109,7 @@ select plan_id, 1, u from tp, unnest(array[
   '00000000-0000-0000-0000-0000000031a5'::uuid, '00000000-0000-0000-0000-0000000031a6'::uuid
 ]) as u;
 
--- Thursday 6:30-8:30 pm suits Maya, Priya and Tom; Saturday 7-9 pm suits Maya
+-- Thursday 6:30-8:30 pm suits Maya, Nina and Tom; Saturday 7-9 pm suits Maya
 -- and Tom; Jess is easy; Sam cannot this time; Alex has not answered.
 select pg_temp.act_as('00000000-0000-0000-0000-0000000031a1');
 select public.replace_response((select plan_id from tp), 1, 'windows',
@@ -141,7 +141,7 @@ select is(
   jsonb_build_array(
     '00000000-0000-0000-0000-0000000031a1', '00000000-0000-0000-0000-0000000031a2',
     '00000000-0000-0000-0000-0000000031a3', '00000000-0000-0000-0000-0000000031a4'),
-  'Thursday 7-8 pm works for Maya, Priya, Tom, and Jess, who is easy'
+  'Thursday 7-8 pm works for Maya, Nina, Tom, and Jess, who is easy'
 );
 select is(
   (select r -> 'cannot' from thursday),
@@ -307,7 +307,7 @@ select is((select available_user_ids from public.meetup_confirmations where id =
 -- A move: Saturday 7-9 pm. Same revision, one active confirmation, derived again.
 -- ---------------------------------------------------------------------------
 
--- Priya sets herself to going for Friday by hand; it must not carry over.
+-- Nina sets herself to going for Friday by hand; it must not carry over.
 select pg_temp.act_as('00000000-0000-0000-0000-0000000031a2');
 update public.attendance set status = 'going'
 where confirmation_id = (select id from own) and user_id = '00000000-0000-0000-0000-0000000031a2';
@@ -371,7 +371,7 @@ select is(
    where a.confirmation_id = (select id from moved) and a.status = 'unknown'),
   array['00000000-0000-0000-0000-0000000031a2', '00000000-0000-0000-0000-0000000031a5',
     '00000000-0000-0000-0000-0000000031a6']::uuid[],
-  'Priya, Sam and Alex are to confirm, and what Priya set by hand for Friday did not carry over');
+  'Nina, Sam and Alex are to confirm, and what Nina set by hand for Friday did not carry over');
 select is(
   (select count(*)::integer from public.attendance a where a.confirmation_id = (select id from moved)
    and a.status = 'cant'),

@@ -48,7 +48,7 @@ export function SentFlow({ code }: { code: string }) {
  * opens the card's other states (`member` is the signed-in one-button card).
  */
 function fixtureStage(state: string | undefined): OneStepStage {
-  const address = 'priya@example.com';
+  const address = 'nina@example.com';
   switch (state) {
     case 'code':
       return {
@@ -91,13 +91,13 @@ function FixtureSent({ code }: { code: string }) {
       userId={undefined}
       plan={answerable.plan}
       answer={answerable.answer}
-      name="Priya"
+      name="Nina"
       live={false}
       one={one}
       canSave={state !== 'member' && state !== 'joined' && state !== 'suppressed'}
       confirmedEmail={
         state === 'member' || state === 'joined' || state === 'suppressed'
-          ? 'priya@example.com'
+          ? 'nina@example.com'
           : undefined
       }
     />

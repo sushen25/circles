@@ -51,7 +51,7 @@ test('an allowlisted account sees the north star, the gates, the funnel and adop
 test('a signed-in account that is not on the allowlist gets the not-found screen', async ({
   page,
 }) => {
-  const somebody = await signedInAccount('Priya');
+  const somebody = await signedInAccount('Nina');
   await signedInAs(page, somebody.stored);
   await page.goto('/founder/analytics');
 

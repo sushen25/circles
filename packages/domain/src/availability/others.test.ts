@@ -60,7 +60,7 @@ describe('othersShown', () => {
 });
 
 describe('freeFor', () => {
-  // Priya 6–7, Tom 8–9 on Thursday; Jess Thursday 6:30–8:30 and Friday.
+  // Nina 6–7, Tom 8–9 on Thursday; Jess Thursday 6:30–8:30 and Friday.
   const others = said({
     answered: 3,
     withTimes: 3,
@@ -82,7 +82,7 @@ describe('freeFor', () => {
   });
 
   it('does not count a window that only touches the span at its end', () => {
-    // Priya stops at 7; a span from 7 shares no half hour with her.
+    // Nina stops at 7; a span from 7 shares no half hour with her.
     expect(freeFor(others, [at(THU, H(19), H(19, 30))])).toBe(1);
   });
 

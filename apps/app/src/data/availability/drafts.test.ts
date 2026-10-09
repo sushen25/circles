@@ -19,44 +19,44 @@ beforeEach(() => {
 
 describe('drafts', () => {
   it('comes back after a reload with what was painted, the question, and the send in flight', async () => {
-    await writeDraft('priya', plan.code, {
+    await writeDraft('nina', plan.code, {
       plan,
       windows: [MONDAY],
       flexible: false,
       pending: { status: 'windows', idempotencyKey: KEY as never },
     });
 
-    const draft = await readDraft('priya', plan.code);
+    const draft = await readDraft('nina', plan.code);
     expect(draft?.windows).toEqual([MONDAY]);
     expect(draft?.plan.revision).toBe(plan.revision);
     expect(draft?.pending?.idempotencyKey).toBe(KEY);
   });
 
   it("is nobody else's: the next person on the same browser sees none", async () => {
-    await writeDraft('priya', plan.code, { plan, windows: [MONDAY], flexible: false });
+    await writeDraft('nina', plan.code, { plan, windows: [MONDAY], flexible: false });
 
     expect(await readDraft('tom', plan.code)).toBeUndefined();
   });
 
   it('keeps the revision it answered, so a changed plan finds it and can say so', async () => {
-    await writeDraft('priya', plan.code, { plan, windows: [MONDAY], flexible: false });
+    await writeDraft('nina', plan.code, { plan, windows: [MONDAY], flexible: false });
 
     // Found under the code whatever the plan's revision is now; the caller
     // compares, and discards it with a notice.
-    expect((await readDraft('priya', plan.code))?.plan.revision).toBe(1);
+    expect((await readDraft('nina', plan.code))?.plan.revision).toBe(1);
   });
 
   it('throws away something it cannot read rather than showing it wrongly', async () => {
-    globalThis.localStorage.setItem(`circles.answer-draft.priya.${plan.code}`, '{"v":0}');
+    globalThis.localStorage.setItem(`circles.answer-draft.nina.${plan.code}`, '{"v":0}');
 
-    expect(await readDraft('priya', plan.code)).toBeUndefined();
-    expect(globalThis.localStorage.getItem(`circles.answer-draft.priya.${plan.code}`)).toBeNull();
+    expect(await readDraft('nina', plan.code)).toBeUndefined();
+    expect(globalThis.localStorage.getItem(`circles.answer-draft.nina.${plan.code}`)).toBeNull();
   });
 
   it('is gone once cleared', async () => {
-    await writeDraft('priya', plan.code, { plan, windows: [MONDAY], flexible: true });
-    await clearDraft('priya', plan.code);
+    await writeDraft('nina', plan.code, { plan, windows: [MONDAY], flexible: true });
+    await clearDraft('nina', plan.code);
 
-    expect(await readDraft('priya', plan.code)).toBeUndefined();
+    expect(await readDraft('nina', plan.code)).toBeUndefined();
   });
 });

@@ -4,7 +4,7 @@
 -- link, and a function that only worked for `authenticated` would push a sign-in
 -- in front of the one page §5.1 says must come before any prompt.
 --
--- Sunday Crew, as ever: Maya owns it and made the link, Priya joined as a guest.
+-- Sunday Crew, as ever: Maya owns it and made the link, Nina joined as a guest.
 
 begin;
 select plan(12);
@@ -62,7 +62,7 @@ end;
 $$;
 
 select pg_temp.make_user('16000000-0000-0000-0000-000000000001', 'Maya');
-select pg_temp.make_user('16000000-0000-0000-0000-000000000002', 'Priya', true);
+select pg_temp.make_user('16000000-0000-0000-0000-000000000002', 'Nina', true);
 select pg_temp.make_user('16000000-0000-0000-0000-000000000003', 'Tom', true);
 
 select pg_temp.act_as('16000000-0000-0000-0000-000000000001');
@@ -79,7 +79,7 @@ select circle_id, extensions.digest('sunday-crew-live-secret', 'sha256'),
 from fixture;
 
 select pg_temp.act_as('16000000-0000-0000-0000-000000000002', true);
-select public.redeem_invite(extensions.digest('sunday-crew-live-secret', 'sha256'), 'Priya');
+select public.redeem_invite(extensions.digest('sunday-crew-live-secret', 'sha256'), 'Nina');
 
 -- ---------------------------------------------------------------------------
 -- The allow: a stranger with the link.
@@ -110,7 +110,7 @@ select is(
 select is(
   (select member_initials
    from public.invite_preview(extensions.digest('sunday-crew-live-secret', 'sha256'))),
-  array['M', 'P'],
+  array['M', 'N'],
   'and one initial per active member, in the order they joined'
 );
 

@@ -47,14 +47,14 @@ describe('a candidate card', () => {
     expect(first?.date).toMatch(/17/);
     expect(first?.date).toMatch(/Sep/);
     expect(first?.time).toBe('6:30–8:30 pm');
-    expect(first?.members.map((m) => m.name)).toEqual(['Maya', 'Priya', 'Tom', 'Jess', 'Sam']);
+    expect(first?.members.map((m) => m.name)).toEqual(['Maya', 'Nina', 'Tom', 'Jess', 'Sam']);
     expect(first?.recommended).toBe(true);
   });
 
   it('tells "has not answered" apart from "does not work"', () => {
-    // Priya answered and cannot make the Saturday; Alex has not answered.
+    // Nina answered and cannot make the Saturday; Alex has not answered.
     const card = cardsOf(fixture.ready)[1];
-    expect(card?.exception).toBe("Doesn't work for Priya · Alex hasn't answered");
+    expect(card?.exception).toBe("Doesn't work for Nina · Alex hasn't answered");
   });
 
   it('names up to three, then counts — at a circle of twenty', () => {
@@ -90,8 +90,8 @@ describe('a candidate card', () => {
     expect(first?.label).toContain('Best attendance');
     expect(first?.label).toContain('5 of 6');
     expect(first?.label).toContain('6:30–8:30 pm');
-    expect(first?.label).toContain('Maya, Priya and 3 others can make it');
-    expect(second?.label).toContain("Doesn't work for Priya · Alex hasn't answered");
+    expect(first?.label).toContain('Maya, Nina and 3 others can make it');
+    expect(second?.label).toContain("Doesn't work for Nina · Alex hasn't answered");
   });
 
   it('says nothing about names it cannot read', () => {

@@ -18,7 +18,7 @@ import { track } from './track';
  * class (`TypeError`, a failed chunk) and what comes out is one of six words.
  * Its message, its stack and its cause are not copied, not truncated, not
  * hashed: a message is where a name, an address or a plan code ends up
- * (`Cannot read properties of undefined (reading 'priya@example.com')`), and
+ * (`Cannot read properties of undefined (reading 'nina@example.com')`), and
  * there is no length at which that is safe. The address is not read either.
  * The route is the *file's* path, from the router's own segments, so the code
  * in `/p/K7QM2X#key` cannot reach it because it is never in the input.
@@ -31,7 +31,7 @@ import { track } from './track';
  * The words a route's path is made of live in `@circles/contracts`
  * (`CLIENT_ERROR_ROUTE_WORDS`), because the ingest holds a stored route to the
  * same list: a client of any age can send anything, and only a list, not a
- * pattern, tells `/p/:code` from `/priya`. `clientError.test.ts` reads the
+ * pattern, tells `/p/:code` from `/nina`. `clientError.test.ts` reads the
  * `app/` directory and fails when a route adds a word or a parameter the list
  * lacks, so it cannot rot into reporting `:other` for a real screen.
  */

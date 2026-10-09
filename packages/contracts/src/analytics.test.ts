@@ -375,11 +375,11 @@ describe('client_error (SUS-112)', () => {
         '/p/[code]',
         '/sunday crew',
         // Right alphabet, wrong content: only a list tells a screen from somebody's words.
-        '/priya',
+        '/nina',
         '/p/k7qm2x',
-        '/p/:priya',
+        '/p/:nina',
         '/circles/sunday-crew',
-        '/priya@example.com',
+        '/nina@example.com',
         `/${'a'.repeat(40)}`,
         '',
       ],
@@ -416,7 +416,7 @@ describe('client_error (SUS-112)', () => {
   it('drops an undeclared key at the ingest and keeps the event', () => {
     const accepted = acceptEvent('client_error', {
       ...ok,
-      message: 'Priya',
+      message: 'Nina',
       stack: 'at /p/K7QM2X',
     });
     expect(accepted?.properties).toEqual(ok);

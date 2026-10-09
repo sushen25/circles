@@ -6,7 +6,7 @@
 -- names them: that account gets its circle back, with nothing moved and nothing
 -- spent. Every other signed-in account is refused exactly as before.
 --
--- Sunday Crew: Maya owns it, Priya joined as a guest and has since saved her
+-- Sunday Crew: Maya owns it, Nina joined as a guest and has since saved her
 -- place, Tom is still a guest, Sam has an account and is nobody's token.
 
 begin;
@@ -55,7 +55,7 @@ end;
 $$;
 
 select pg_temp.make_user('16500000-0000-0000-0000-000000000001', 'Maya');
-select pg_temp.make_user('16500000-0000-0000-0000-000000000002', 'Priya', true);
+select pg_temp.make_user('16500000-0000-0000-0000-000000000002', 'Nina', true);
 select pg_temp.make_user('16500000-0000-0000-0000-000000000003', 'Tom', true);
 select pg_temp.make_user('16500000-0000-0000-0000-000000000004', 'Sam');
 
@@ -68,25 +68,25 @@ grant select on fixture to authenticated;
 select pg_temp.act_as_postgres();
 
 insert into public.circle_members (circle_id, user_id, display_name_snapshot)
-select circle_id, '16500000-0000-0000-0000-000000000002'::uuid, 'Priya' from fixture
+select circle_id, '16500000-0000-0000-0000-000000000002'::uuid, 'Nina' from fixture
 union all
 select circle_id, '16500000-0000-0000-0000-000000000003'::uuid, 'Tom' from fixture;
 
 insert into private.email_contacts (user_id, email_normalized, status, verified_at)
 values
-  ('16500000-0000-0000-0000-000000000002', 'priya@example.com', 'verified', now()),
+  ('16500000-0000-0000-0000-000000000002', 'nina@example.com', 'verified', now()),
   ('16500000-0000-0000-0000-000000000003', 'tom@example.com', 'verified', now());
 
 select public.issue_reentry_token(
   (select circle_id from fixture),
-  (select id from private.email_contacts where email_normalized = 'priya@example.com'),
-  extensions.digest('priya-reentry-link', 'sha256'));
+  (select id from private.email_contacts where email_normalized = 'nina@example.com'),
+  extensions.digest('nina-reentry-link', 'sha256'));
 select public.issue_reentry_token(
   (select circle_id from fixture),
   (select id from private.email_contacts where email_normalized = 'tom@example.com'),
   extensions.digest('tom-reentry-link', 'sha256'));
 
--- Priya saves her place, in place: same id, now permanent.
+-- Nina saves her place, in place: same id, now permanent.
 update auth.users
 set is_anonymous = false, raw_app_meta_data = '{"is_anonymous": false}'
 where id = '16500000-0000-0000-0000-000000000002';
@@ -100,7 +100,7 @@ select pg_temp.act_as('16500000-0000-0000-0000-000000000002');
 
 select is(
   (select id from public.reattach_member(
-    p_reentry_token_hash => extensions.digest('priya-reentry-link', 'sha256'))),
+    p_reentry_token_hash => extensions.digest('nina-reentry-link', 'sha256'))),
   (select circle_id from fixture),
   'the account the link names gets its circle back'
 );
@@ -109,14 +109,14 @@ select pg_temp.act_as_postgres();
 
 select is(
   (select user_id from public.circle_members
-   where circle_id = (select circle_id from fixture) and display_name_snapshot = 'Priya'),
+   where circle_id = (select circle_id from fixture) and display_name_snapshot = 'Nina'),
   '16500000-0000-0000-0000-000000000002'::uuid,
   'and nothing moved'
 );
 
 select ok(
   (select used_at is null from private.email_action_tokens
-   where token_hash = extensions.digest('priya-reentry-link', 'sha256')),
+   where token_hash = extensions.digest('nina-reentry-link', 'sha256')),
   'and the link is not spent: it did nothing a link has to be spent for'
 );
 
@@ -134,9 +134,9 @@ select is(
 select pg_temp.act_as('16500000-0000-0000-0000-000000000004');
 select throws_ok(
   $$ select public.reattach_member(
-       p_reentry_token_hash => extensions.digest('priya-reentry-link', 'sha256')) $$,
+       p_reentry_token_hash => extensions.digest('nina-reentry-link', 'sha256')) $$,
   'caller_is_permanent',
-  'somebody else signed in cannot use Priya''s link to reach her circle'
+  'somebody else signed in cannot use Nina''s link to reach her circle'
 );
 
 select pg_temp.act_as('16500000-0000-0000-0000-000000000002');
@@ -144,7 +144,7 @@ select throws_ok(
   $$ select public.reattach_member(
        p_reentry_token_hash => extensions.digest('tom-reentry-link', 'sha256')) $$,
   'caller_is_permanent',
-  'nor can Priya use Tom''s link to take his guest membership'
+  'nor can Nina use Tom''s link to take his guest membership'
 );
 
 -- Removed since the email went out: the link no longer names a member.
@@ -156,7 +156,7 @@ where circle_id = (select circle_id from fixture)
 select pg_temp.act_as('16500000-0000-0000-0000-000000000002');
 select throws_ok(
   $$ select public.reattach_member(
-       p_reentry_token_hash => extensions.digest('priya-reentry-link', 'sha256')) $$,
+       p_reentry_token_hash => extensions.digest('nina-reentry-link', 'sha256')) $$,
   'caller_is_permanent',
   'a removed member is not handed back the circle they were removed from'
 );

@@ -50,7 +50,7 @@ describe('RedeemInviteRequest', () => {
   const body = {
     idempotency_key: KEY,
     secret: 'x'.repeat(43),
-    display_name: 'Priya',
+    display_name: 'Nina',
   };
 
   it('accepts a join', () => {
@@ -87,8 +87,8 @@ describe('RedeemInviteRequest', () => {
     // The refinement alone validated the collapsed form and passed the original
     // through, so a newline reached the column and a padded forty-character name
     // stored more than forty characters.
-    const parsed = RedeemInviteRequest.parse({ ...body, display_name: '  Priya   Sharma \n' });
-    expect(parsed.display_name).toBe('Priya Sharma');
+    const parsed = RedeemInviteRequest.parse({ ...body, display_name: '  Nina   Sharma \n' });
+    expect(parsed.display_name).toBe('Nina Sharma');
   });
 
   it('refuses a secret too short to be one', () => {

@@ -30,7 +30,7 @@ import type { CardView, HeaderView } from './view';
  *
  * The header and the exception line are **stacked rather than set beside**
  * their marks, which is one deliberate departure from the artboards: those were
- * drawn for a circle of six, and at twenty "13 of 20 replied" and "Not Priya,
+ * drawn for a circle of six, and at twenty "13 of 20 replied" and "Not Nina,
  * Tom and 5 others" are sentences that need the width of the screen (ADR 0012).
  */
 

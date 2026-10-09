@@ -52,16 +52,16 @@ end;
 $$;
 
 -- ---------------------------------------------------------------------------
--- Sunday Crew: Maya owns it, Priya is a guest with a full history, and three
+-- Sunday Crew: Maya owns it, Nina is a guest with a full history, and three
 -- spare devices stand by for the chain.
 -- ---------------------------------------------------------------------------
 select pg_temp.make_user('95000000-0000-0000-0000-000000000001', 'Maya');
-select pg_temp.make_user('95000000-0000-0000-0000-0000000000a1', 'Priya', true);
+select pg_temp.make_user('95000000-0000-0000-0000-0000000000a1', 'Nina', true);
 select pg_temp.make_user('95000000-0000-0000-0000-0000000000b1', 'Device B', true);
 select pg_temp.make_user('95000000-0000-0000-0000-0000000000c1', 'Device C', true);
 select pg_temp.make_user('95000000-0000-0000-0000-0000000000d1', 'Device D', true);
 select pg_temp.make_user('95000000-0000-0000-0000-0000000000e1', 'Device E', true);
-select pg_temp.make_user('95000000-0000-0000-0000-0000000000f1', 'Priya Saved');
+select pg_temp.make_user('95000000-0000-0000-0000-0000000000f1', 'Nina Saved');
 select pg_temp.make_user('95000000-0000-0000-0000-0000000000f2', 'Tom', true);
 
 select pg_temp.act_as('95000000-0000-0000-0000-000000000001');
@@ -75,7 +75,7 @@ create or replace function pg_temp.circle_id() returns uuid
 language sql security definer as $$ select circle_id from fixture $$;
 
 insert into public.circle_members (circle_id, user_id, display_name_snapshot)
-values (pg_temp.circle_id(), '95000000-0000-0000-0000-0000000000a1', 'Priya'),
+values (pg_temp.circle_id(), '95000000-0000-0000-0000-0000000000a1', 'Nina'),
        (pg_temp.circle_id(), '95000000-0000-0000-0000-0000000000f2', 'Tom');
 
 insert into public.plans (
@@ -139,7 +139,7 @@ $$;
 -- Round 14: what the plan's `input_version` was before the move, because rewriting
 -- `plan_responses.user_id` fires `bump_input_version` and a bump stales every
 -- candidate set in the circle — so `confirm` answered `needs_candidate` until
--- somebody answered again. Spec §6.2's own journey from the other side: Priya comes
+-- somebody answered again. Spec §6.2's own journey from the other side: Nina comes
 -- back on a new device and Maya can no longer lock in.
 create temporary table version_before as
 select input_version from public.plans where id = pg_temp.plan_id();
@@ -155,7 +155,7 @@ select pg_temp.act_as_postgres();
 
 select is(
   (select m.user_id from public.circle_members m
-   where m.circle_id = pg_temp.circle_id() and m.display_name_snapshot = 'Priya'),
+   where m.circle_id = pg_temp.circle_id() and m.display_name_snapshot = 'Nina'),
   '95000000-0000-0000-0000-0000000000b1'::uuid,
   'the membership is the new identity''s'
 );
@@ -208,7 +208,7 @@ select is(
 -- Round 14: and the organiser can still lock in. Rewriting `plan_responses.user_id`
 -- fires `bump_input_version`, so a rejoin staled every candidate set in the circle
 -- and `confirm` answered `needs_candidate` until somebody answered again — spec
--- §6.2's own journey from the other side: Priya comes back and Maya cannot confirm.
+-- §6.2's own journey from the other side: Nina comes back and Maya cannot confirm.
 select is(
   (select p.input_version from public.plans p where p.id = pg_temp.plan_id()),
   (select input_version from version_before),
@@ -247,7 +247,7 @@ select is(
 select is(
   (select count(*)::integer from jobs.outbox o
    where o.event_name = 'circles.member_reattached'
-     and o.payload::text like '%Priya%'),
+     and o.payload::text like '%Nina%'),
   0,
   'without a name in the payload (non-negotiable 8) — unscoped on purpose: no circle''s payload may carry one'
 );
@@ -350,14 +350,14 @@ select throws_ok(
 -- ---------------------------------------------------------------------------
 select pg_temp.act_as_postgres();
 insert into private.email_contacts (user_id, email_normalized)
-values ('95000000-0000-0000-0000-0000000000e1', 'priya@example.com');
+values ('95000000-0000-0000-0000-0000000000e1', 'nina@example.com');
 
 insert into private.email_action_tokens (
   contact_id, purpose, token_hash, expires_at, membership_circle_id, membership_user_id
 )
 select ec.id, 'reentry', extensions.digest('reentry-secret', 'sha256'),
        now() + interval '7 days', pg_temp.circle_id(), '95000000-0000-0000-0000-0000000000e1'
-from private.email_contacts ec where ec.email_normalized = 'priya@example.com';
+from private.email_contacts ec where ec.email_normalized = 'nina@example.com';
 
 select pg_temp.make_user('95000000-0000-0000-0000-0000000000e2', 'Device E2', true);
 select pg_temp.act_as('95000000-0000-0000-0000-0000000000e2', true);
@@ -371,7 +371,7 @@ select lives_ok(
 select pg_temp.act_as_postgres();
 select is(
   (select m.user_id from public.circle_members m
-   where m.circle_id = pg_temp.circle_id() and m.display_name_snapshot = 'Priya'),
+   where m.circle_id = pg_temp.circle_id() and m.display_name_snapshot = 'Nina'),
   '95000000-0000-0000-0000-0000000000e2'::uuid,
   'onto the identity that held the token'
 );
@@ -387,7 +387,7 @@ select is(
 
 select is(
   (select ec.user_id from private.email_contacts ec
-   where ec.email_normalized = 'priya@example.com'),
+   where ec.email_normalized = 'nina@example.com'),
   '95000000-0000-0000-0000-0000000000e2'::uuid,
   'and their email contact came too — the token''s deferred constraint requires it'
 );
@@ -440,7 +440,7 @@ select is(
 
 select is(
   (select m.user_id from public.circle_members m
-   where m.circle_id = pg_temp.circle_id() and m.display_name_snapshot = 'Priya'),
+   where m.circle_id = pg_temp.circle_id() and m.display_name_snapshot = 'Nina'),
   '95000000-0000-0000-0000-0000000000f1'::uuid,
   'the membership is now the saved-place identity''s'
 );

@@ -48,9 +48,9 @@ returns jsonb language sql as $$
   );
 $$;
 
--- Maya organises; Priya answers; Kim is in another circle altogether.
+-- Maya organises; Nina answers; Kim is in another circle altogether.
 select pg_temp.make_user('00000000-0000-0000-0000-0000000028a1', 'Maya');
-select pg_temp.make_user('00000000-0000-0000-0000-0000000028a2', 'Priya');
+select pg_temp.make_user('00000000-0000-0000-0000-0000000028a2', 'Nina');
 select pg_temp.make_user('00000000-0000-0000-0000-0000000028a3', 'Kim');
 
 -- One circle per plan, because a circle has one open plan at a time (ADR 0033).
@@ -63,7 +63,7 @@ begin
   perform pg_temp.act_as_postgres();
   select id into made from public.circles where creation_key = key;
   insert into public.circle_members (circle_id, user_id, display_name_snapshot)
-  values (made, '00000000-0000-0000-0000-0000000028a2', 'Priya');
+  values (made, '00000000-0000-0000-0000-0000000028a2', 'Nina');
   return made;
 end;
 $$;
@@ -244,7 +244,7 @@ select is(pg_temp.revise((select id from plain), '{"quorum": 3}'::jsonb, null) -
 select is(pg_temp.days_of((select id from plain)), array[]::date[], 'that writes no days');
 
 -- ---------------------------------------------------------------------------
--- What changing the days costs (ADR 0047). Priya picked Tue 22 on the gappy
+-- What changing the days costs (ADR 0047). Nina picked Tue 22 on the gappy
 -- plan above; nobody picked anything else.
 -- ---------------------------------------------------------------------------
 

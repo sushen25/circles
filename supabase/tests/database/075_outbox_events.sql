@@ -97,7 +97,7 @@ create or replace function pg_temp.mark() returns bigint language sql security d
 $$;
 
 select pg_temp.make_user('00000000-0000-0000-0000-0000000005a1', 'Maya');
-select pg_temp.make_user('00000000-0000-0000-0000-0000000005a2', 'Priya');
+select pg_temp.make_user('00000000-0000-0000-0000-0000000005a2', 'Nina');
 select pg_temp.make_user('00000000-0000-0000-0000-0000000005a3', 'Tom');
 
 -- ---------------------------------------------------------------------------
@@ -142,7 +142,7 @@ select is((select count(*)::integer from pg_temp.events_since(:'m1')), 0, 'a rep
 select pg_temp.mark() as m2 \gset
 insert into public.circle_members (circle_id, user_id, display_name_snapshot)
 select circle_id, u, n from t, (values
-  ('00000000-0000-0000-0000-0000000005a2'::uuid, 'Priya'),
+  ('00000000-0000-0000-0000-0000000005a2'::uuid, 'Nina'),
   ('00000000-0000-0000-0000-0000000005a3'::uuid, 'Tom')
 ) as v (u, n);
 select is(

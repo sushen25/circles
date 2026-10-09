@@ -182,7 +182,7 @@ export function updateAttendance(
  * A repeat of the choice already recorded returns the row untouched rather than
  * restamping it. Two taps on the same button, or a retried request, would
  * otherwise look like a fresh answer: the confirmed screen orders by
- * `updatedAt`, and "Priya just changed her mind" is a thing it would then say
+ * `updatedAt`, and "Nina just changed her mind" is a thing it would then say
  * about somebody who did not.
  */
 export function applyAttendance(

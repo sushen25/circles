@@ -96,9 +96,9 @@ export const en = {
   },
   appLanding: {
     brand: '{brand}',
-    welcome_back_priya: 'Welcome back, Priya.',
-    signed_in_as_priya_example_com_your:
-      'Signed in as priya@example.com. Your circles are already here.',
+    welcome_back_nina: 'Welcome back, Nina.',
+    signed_in_as_nina_example_com_your:
+      'Signed in as nina@example.com. Your circles are already here.',
     sunday_crew: 'Sunday Crew',
     locked_in_thu_17_sep_youre_going: "Locked in · Thu 17 Sep · you're going",
     links_you_tap_from_the_group_chat:
@@ -293,7 +293,7 @@ export const en = {
     personal: 'Personal',
     icloud: 'iCloud',
     work: 'Work',
-    google_priya_work_example: 'Google · priya@work.example',
+    google_nina_work_example: 'Google · nina@work.example',
     birthdays: 'Birthdays',
     all_day_marked_free_ignored_anyway: 'All-day, marked free · ignored anyway',
     footy_fixtures: 'Footy fixtures',
@@ -609,7 +609,7 @@ export const en = {
   circleHomeJoining: {
     sunday_crew: 'Sunday Crew',
     '3_in_so_far_about_monthly': '3 in so far · about monthly',
-    priya_and_tom_just_joined: 'Priya and Tom just joined',
+    nina_and_tom_just_joined: 'Nina and Tom just joined',
     share_again: 'Share again',
     ready_when_you_are: 'Ready when you are',
     you_dont_have_to_wait_for_everyone:
@@ -802,7 +802,7 @@ export const en = {
     brunswick_east: 'Brunswick East ·',
     open_in_maps: 'Open in Maps',
     '5_going_1_to_confirm': '5 going · 1 to confirm',
-    maya_priya_tom_jess_sam_alex_to: 'Maya, Priya, Tom, Jess, Sam · Alex to confirm',
+    maya_nina_tom_jess_sam_alex_to: 'Maya, Nina, Tom, Jess, Sam · Alex to confirm',
     want_a_nudge_on_thursday: 'Want a nudge on Thursday?',
     the_app_sends_one_reminder_two_hours:
       'The app sends one reminder two hours before, and nothing else. Or add it to your calendar below.',
@@ -1249,8 +1249,8 @@ export const en = {
     unchanged: 'Unchanged',
     replies_close_fri_18_sep_6_pm: 'Replies close Fri 18 Sep, 6 pm',
     moved_to_match_the_new_dates: 'Moved to match the new dates',
-    changing_the_dates_means_priya_tom_jess:
-      'Changing the dates means Priya, Tom, Jess and Sam will be asked for their times again, and Alex gets a fresh ask. Anything sent for the old dates is cleared.',
+    changing_the_dates_means_nina_tom_jess:
+      'Changing the dates means Nina, Tom, Jess and Sam will be asked for their times again, and Alex gets a fresh ask. Anything sent for the old dates is cleared.',
     save_and_ask_again: 'Save and ask again',
     keep_the_plan_as_it_is: 'Keep the plan as it is',
     these_dates: 'These dates · {count} days',
@@ -1391,7 +1391,7 @@ export const en = {
     emails_web_only_members: 'Emails · web-only members',
     operational_only_subjects_never_reveal_a_quiet:
       'Operational only. Subjects never reveal a quiet initiator or calendar details. Every email carries the two links at the bottom.',
-    from_brand_to_priya_example_com: 'From {brand} · to priya@example.com',
+    from_brand_to_nina_example_com: 'From {brand} · to nina@example.com',
     turn_on_updates_for_sunday_crews_catch: "Turn on updates for Sunday Crew's catch-up",
     one_tap_works_for_24_hours: 'One tap. Works for 24 hours.',
     tap_below_to_get_the_confirmed_time:
@@ -1554,7 +1554,7 @@ export const en = {
     continue_with_apple: 'Continue with Apple',
     continue_with_google: 'Continue with Google',
     continue_with_email: 'Continue with email',
-    /** "This links your existing place as Priya." — the name the circle knows them by. */
+    /** "This links your existing place as Nina." — the name the circle knows them by. */
     this_links_your_existing_place_as:
       "This links your existing place as {name}. Nothing you've sent changes.",
     not_now: 'Not now',
@@ -1706,7 +1706,7 @@ export const en = {
     just_for_this_circle:
       'This is only what {circle} will call you. Your account keeps its own name.',
     your_name: 'Your name',
-    priya: 'Priya',
+    nina: 'Nina',
     this_is_what_the_others_will_see:
       'This is what {inviter} and the others will see next to your times.',
     this_is_what_the_circle_will_see: 'This is what the circle will see next to your times.',
@@ -2213,7 +2213,7 @@ export const en = {
     refused_not_enough_keen: 'Not enough people have said they are keen yet.',
   },
   reattachedNudge: {
-    /** "Welcome back, Priya." — the name they continued as. */
+    /** "Welcome back, Nina." — the name they continued as. */
     welcome_back_name: 'Welcome back, {name}.',
     welcome_back: 'Welcome back.',
     youve_rejoined_from_a_new_browser_and:
@@ -2269,7 +2269,7 @@ export const en = {
     prefer_email_turn_on_updates_for_this: 'Prefer email? Turn on updates for this meetup .',
     brand: '{brand}',
     sunday_crew: 'Sunday Crew',
-    thanks_priya_your_times_are_in: 'Thanks, Priya. Your times are in.',
+    thanks_nina_your_times_are_in: 'Thanks, Nina. Your times are in.',
     thats_the_second_time_round_maya_will:
       "That's the second time round. Maya will pick once replies close on Friday.",
     doing_this_again_next_month: 'Doing this again next month?',
@@ -2401,7 +2401,7 @@ export const en = {
     members: 'Members',
     maya: 'Maya',
     you_owner: 'You · owner',
-    priya: 'Priya',
+    nina: 'Nina',
     joined_3_sep: 'Place saved · joined 3 Sep',
     guest_joined_3_sep: 'Guest · joined 3 Sep',
     remove: 'Remove',
@@ -2570,8 +2570,8 @@ export const en = {
     maya_initial: 'M',
     jordan: 'Jordan',
     jordan_initial: 'J',
-    priya: 'Priya',
-    priya_initial: 'P',
+    nina: 'Nina',
+    nina_initial: 'N',
     sam: 'Sam',
     sam_initial: 'S',
     alex: 'Alex',
@@ -2641,10 +2641,10 @@ export const en = {
     panel3_kicker: 'Sunday Crew · 5 of 6 replied',
     panel3_title: 'Times that work',
     panel3_best: 'Thu 17 Sep · 6:30–8:30 pm',
-    panel3_best_people: "Maya, Jordan, Priya, Sam and Alex can make it; Theo hasn't answered",
+    panel3_best_people: "Maya, Jordan, Nina, Sam and Alex can make it; Theo hasn't answered",
     panel3_best_count: '5 of 6 · waiting on Theo',
     panel3_other: 'Sat 19 Sep · 3:00 pm',
-    panel3_other_count: "4 of 6 · doesn't work for Priya",
+    panel3_other_count: "4 of 6 · doesn't work for Nina",
     panel3_lock: 'Lock in Thursday',
 
     privacy_title: 'Nobody sees your calendar. Nobody gets turned down.',

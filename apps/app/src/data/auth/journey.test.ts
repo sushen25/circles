@@ -8,8 +8,8 @@ import { forgetJourneys, journeyGeneration, readJourney, writeJourney } from './
  */
 describe('journeys', () => {
   it('holds a value until it is forgotten', () => {
-    writeJourney('k', { email: 'priya@example.com' });
-    expect(readJourney('k')).toEqual({ email: 'priya@example.com' });
+    writeJourney('k', { email: 'nina@example.com' });
+    expect(readJourney('k')).toEqual({ email: 'nina@example.com' });
 
     forgetJourneys();
 
@@ -20,7 +20,7 @@ describe('journeys', () => {
     const started = journeyGeneration();
     forgetJourneys();
 
-    writeJourney('k', { email: 'priya@example.com' }, started);
+    writeJourney('k', { email: 'nina@example.com' }, started);
 
     expect(readJourney('k')).toBeUndefined();
     writeJourney('k', { email: 'next@example.com' }, journeyGeneration());

@@ -208,7 +208,7 @@ actually reach. The ids are fixed, so URLs survive a reset.
 
 | Circle | Short code | What it is for |
 |---|---|---|
-| **Sunday Crew** | `sundaycrew` | The canvas's scenario. Maya owns it; Priya, Tom, Jess and Sam have answered plan `pnsundaycr`, which is still open for answers; **Alex is a guest** who has not. |
+| **Sunday Crew** | `sundaycrew` | The canvas's scenario. Maya owns it; Nina, Tom, Jess and Sam have answered plan `pnsundaycr`, which is still open for answers; **Alex is a guest** who has not. |
 | Thursday Regulars | `thursdays` | A meetup that happened, with its outcome reported (`pnthursday`). |
 | Uni Mates | `unmates` | A quiet ask still gathering interest (`pnunmates`). |
 | The Big Table | `bgtabde` | A circle at the member cap, where screens break if they are going to. |

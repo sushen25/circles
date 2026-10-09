@@ -55,7 +55,7 @@ $$;
 -- Sunday Crew, four of them, in the order they joined — which is the order the
 -- engine is given and therefore the order every available list comes back in.
 select pg_temp.make_user('00000000-0000-0000-0000-0000000006a1', 'Maya');
-select pg_temp.make_user('00000000-0000-0000-0000-0000000006a2', 'Priya');
+select pg_temp.make_user('00000000-0000-0000-0000-0000000006a2', 'Nina');
 select pg_temp.make_user('00000000-0000-0000-0000-0000000006a3', 'Tom');
 select pg_temp.make_user('00000000-0000-0000-0000-0000000006a4', 'Departed');
 
@@ -67,7 +67,7 @@ create temporary table t as select id as circle_id from public.circles where cre
 grant select on t to anon, authenticated, service_role;
 
 insert into public.circle_members (circle_id, user_id, display_name_snapshot, joined_at)
-select circle_id, '00000000-0000-0000-0000-0000000006a2'::uuid, 'Priya', now() + interval '1 minute' from t
+select circle_id, '00000000-0000-0000-0000-0000000006a2'::uuid, 'Nina', now() + interval '1 minute' from t
 union all
 select circle_id, '00000000-0000-0000-0000-0000000006a3'::uuid, 'Tom', now() + interval '2 minutes' from t
 union all
@@ -219,7 +219,7 @@ select is(
   'nobody has answered yet'
 );
 
--- Priya paints 18:30–20:30 on the 17th; Tom is easy; Departed says none work.
+-- Nina paints 18:30–20:30 on the 17th; Tom is easy; Departed says none work.
 select pg_temp.act_as('00000000-0000-0000-0000-0000000006a2');
 select public.replace_response(pg_temp.plan_id(), 1, 'windows', jsonb_build_array(jsonb_build_object(
   'start', timestamptz '2099-09-17T08:30:00Z', 'end', timestamptz '2099-09-17T10:30:00Z')));

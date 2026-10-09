@@ -7,7 +7,7 @@
 -- quiet*.ts`); what is proved here is that the database, which is the
 -- authority, says the same thing in the same order.
 --
--- Sunday Crew: Maya owns it; Priya, Tom, Jess and Sam have saved places; Alex
+-- Sunday Crew: Maya owns it; Nina, Tom, Jess and Sam have saved places; Alex
 -- is a guest. Six active members, so the threshold is three. Kai is in no
 -- circle of theirs and owns one of his own with nobody else in it.
 
@@ -115,7 +115,7 @@ as $$
 $$;
 
 select pg_temp.make_user('24000000-0000-0000-0000-0000000000a1', 'Maya');
-select pg_temp.make_user('24000000-0000-0000-0000-0000000000a2', 'Priya');
+select pg_temp.make_user('24000000-0000-0000-0000-0000000000a2', 'Nina');
 select pg_temp.make_user('24000000-0000-0000-0000-0000000000a3', 'Tom');
 select pg_temp.make_user('24000000-0000-0000-0000-0000000000a4', 'Jess');
 select pg_temp.make_user('24000000-0000-0000-0000-0000000000a5', 'Sam');
@@ -366,7 +366,7 @@ select is(
 );
 select pg_temp.act_as_postgres();
 
--- Held: Priya's ask reaches three while Maya's is finding a time.
+-- Held: Nina's ask reaches three while Maya's is finding a time.
 select pg_temp.answer(:'q2', '24000000-0000-0000-0000-0000000000a1', true);
 select is(pg_temp.answer(:'q2', '24000000-0000-0000-0000-0000000000a3', true), false,
   'an ask at its threshold beside an open plan does not open');
@@ -431,7 +431,7 @@ select throws_ok(
 );
 
 -- The owner's fallback waits for replies to close. Olga owns a circle of four
--- and is not keen; Priya asks, Tom and Jess are keen.
+-- and is not keen; Nina asks, Tom and Jess are keen.
 select pg_temp.act_as_postgres();
 select pg_temp.circle('24000000-0000-0000-0000-0000000000a8', 'q-olga', array[
   '24000000-0000-0000-0000-0000000000a2', '24000000-0000-0000-0000-0000000000a3',

@@ -56,7 +56,7 @@ export interface ReattachFromListOptions {
   idempotencyKey: IdempotencyKey;
 }
 
-/** "Continue as Priya": move Priya's guest membership onto this session. */
+/** "Continue as Nina": move Nina's guest membership onto this session. */
 export async function reattachFromList({
   circleId,
   memberUserId,

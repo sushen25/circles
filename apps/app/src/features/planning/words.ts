@@ -240,7 +240,7 @@ export function problemWords(problem: ResolveProblem): string {
 /**
  * The re-ask warning (spec §5.3), from the preview's own lists. Two lists,
  * because being asked twice is a different imposition from being asked once:
- * "…Priya and Tom will be asked for their times again, and Alex gets a fresh
+ * "…Nina and Tom will be asked for their times again, and Alex gets a fresh
  * ask". Names up to three, then a count (`nameList`, S1-27), so a circle of
  * twenty reads as a sentence.
  */

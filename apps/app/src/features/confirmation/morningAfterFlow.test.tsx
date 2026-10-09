@@ -342,7 +342,7 @@ describe('a member', () => {
     show(<MorningAfterFlow target={{ code: 'pnsundaycr' }} />);
     fireEvent.click(await screen.findByRole('button', { name: 'Not now' }));
     await waitFor(() => expect(dismissTo).toHaveBeenCalledWith(TO_CIRCLE));
-    expect(setAttendanceDismissed).toHaveBeenCalledWith('priya', 'confirmation-1');
+    expect(setAttendanceDismissed).toHaveBeenCalledWith('nina', 'confirmation-1');
     expect(reportAttendance).not.toHaveBeenCalled();
   });
 
@@ -350,7 +350,7 @@ describe('a member', () => {
     planConfirmation.mockResolvedValue({
       ...fixture.morningAfterAsMember,
       attendance: fixture.morningAfterAsMember.attendance.map((a) =>
-        a.userId === 'priya' ? { ...a, status: 'was_there' as const } : a,
+        a.userId === 'nina' ? { ...a, status: 'was_there' as const } : a,
       ),
     });
     show(<MorningAfterFlow target={{ code: 'pnsundaycr' }} />);
@@ -364,7 +364,7 @@ describe('a member', () => {
     planConfirmation.mockResolvedValue({
       ...fixture.morningAfterAsMember,
       attendance: fixture.morningAfterAsMember.attendance.map((a) =>
-        a.userId === 'priya' ? { ...a, status: 'was_there' as const } : a,
+        a.userId === 'nina' ? { ...a, status: 'was_there' as const } : a,
       ),
     });
     show(<MorningAfterFlow target={{ code: 'pnsundaycr' }} />);

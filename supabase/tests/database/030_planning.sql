@@ -59,7 +59,7 @@ end;
 $$;
 
 select pg_temp.make_user('00000000-0000-0000-0000-0000000001a1', 'Maya');
-select pg_temp.make_user('00000000-0000-0000-0000-0000000001a2', 'Priya');
+select pg_temp.make_user('00000000-0000-0000-0000-0000000001a2', 'Nina');
 select pg_temp.make_user('00000000-0000-0000-0000-0000000001a3', 'Outsider');
 select pg_temp.make_user('00000000-0000-0000-0000-0000000001a9', 'Guest', true);
 
@@ -71,7 +71,7 @@ create temporary table t as select id as circle_id from public.circles where cre
 grant select on t to anon, authenticated;
 
 insert into public.circle_members (circle_id, user_id, display_name_snapshot)
-select circle_id, '00000000-0000-0000-0000-0000000001a2', 'Priya' from t;
+select circle_id, '00000000-0000-0000-0000-0000000001a2', 'Nina' from t;
 
 /* A plan in `collecting`, owned by Maya. Inserted directly, because creating one
    is `create-plan`'s job (S1-15) and this ticket is the tables underneath it. */
@@ -631,9 +631,9 @@ select pg_temp.act_as_postgres();
 -- the threshold enters `collecting`. The refusal beside an open plan is tested
 -- in Sunday Crew, just after.
 select pg_temp.make_circle('key-threshold') as circle_threshold \gset
--- Priya reads the count below, and a count is the circle's to read.
+-- Nina reads the count below, and a count is the circle's to read.
 insert into public.circle_members (circle_id, user_id, display_name_snapshot)
-values (:'circle_threshold', '00000000-0000-0000-0000-0000000001a2', 'Priya');
+values (:'circle_threshold', '00000000-0000-0000-0000-0000000001a2', 'Nina');
 select pg_temp.make_plan('pngggg', 'seeking', 'quiet', null, :'circle_threshold') as plan_seeking \gset
 insert into private.plan_interest (plan_id, user_id, response)
 values
@@ -916,10 +916,10 @@ select ok(
 -- ---------------------------------------------------------------------------
 -- In a circle of its own with the same two members, because the reopen at the
 -- end enters `collecting` and Sunday Crew has plans open (ADR 0033). Removing
--- Priya from *this* circle is what the test is about; she stays in Sunday Crew.
+-- Nina from *this* circle is what the test is about; she stays in Sunday Crew.
 select pg_temp.make_circle('key-left') as circle_left \gset
 insert into public.circle_members (circle_id, user_id, display_name_snapshot)
-values (:'circle_left', '00000000-0000-0000-0000-0000000001a2', 'Priya');
+values (:'circle_left', '00000000-0000-0000-0000-0000000001a2', 'Nina');
 select pg_temp.make_plan('rjnpen', 'confirmed', 'named',
   '00000000-0000-0000-0000-0000000001a1', :'circle_left') as plan_left \gset
 

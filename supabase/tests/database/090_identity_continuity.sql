@@ -4,7 +4,7 @@
 -- functions under test read `auth.uid()` and the organiser gate reads the
 -- `is_anonymous` claim: run as postgres they would all say yes.
 --
--- The scenario is AGENTS.md's — Sunday Crew, Maya owning it, Priya and Tom
+-- The scenario is AGENTS.md's — Sunday Crew, Maya owning it, Nina and Tom
 -- joining as guests — so that nothing here invents a second cast.
 
 begin;
@@ -70,7 +70,7 @@ language sql
 as $$ select extensions.digest(secret, 'sha256') $$;
 
 select pg_temp.make_user('90000000-0000-0000-0000-000000000001', 'Maya');
-select pg_temp.make_user('90000000-0000-0000-0000-000000000002', 'Priya', true);
+select pg_temp.make_user('90000000-0000-0000-0000-000000000002', 'Nina', true);
 select pg_temp.make_user('90000000-0000-0000-0000-000000000003', 'Tom', true);
 select pg_temp.make_user('90000000-0000-0000-0000-000000000004', 'Jess', true);
 select pg_temp.make_user('90000000-0000-0000-0000-000000000005', 'Sam');
@@ -85,7 +85,7 @@ select pg_temp.act_as_postgres();
 
 -- Reading, as the test rather than as the actor. `circle_invites` is not
 -- readable by a member — the secret digest lives there — and an assertion about
--- the use count should not have to stop being Priya to make it.
+-- the use count should not have to stop being Nina to make it.
 create or replace function pg_temp.invite_uses(p_circle uuid)
 returns integer
 language sql
@@ -141,19 +141,19 @@ from fixture;
 select pg_temp.act_as('90000000-0000-0000-0000-000000000002', true);
 
 select throws_ok(
-  $$ select public.redeem_invite(pg_temp.digest_of('no-such-secret'), 'Priya') $$,
+  $$ select public.redeem_invite(pg_temp.digest_of('no-such-secret'), 'Nina') $$,
   'invite_inactive',
   'a secret nobody issued is an inactive invite'
 );
 
 select throws_ok(
-  $$ select public.redeem_invite(pg_temp.digest_of('rotated-secret'), 'Priya') $$,
+  $$ select public.redeem_invite(pg_temp.digest_of('rotated-secret'), 'Nina') $$,
   'invite_inactive',
   'a rotated link is an inactive invite, not a different error'
 );
 
 select lives_ok(
-  $$ select public.redeem_invite(pg_temp.digest_of('live-secret'), 'Priya') $$,
+  $$ select public.redeem_invite(pg_temp.digest_of('live-secret'), 'Nina') $$,
   'a guest redeems a live link'
 );
 
@@ -165,7 +165,7 @@ select is(
 
 select is(
   (pg_temp.membership(pg_temp.circle_id(), '90000000-0000-0000-0000-000000000002')).display_name_snapshot,
-  'Priya',
+  'Nina',
   'under the name they gave'
 );
 
@@ -179,7 +179,7 @@ select is(pg_temp.invite_uses(pg_temp.circle_id()), 1, 'one redemption, one use 
 
 -- Idempotence by state: the same caller, the same link, again.
 select lives_ok(
-  $$ select public.redeem_invite(pg_temp.digest_of('live-secret'), 'Priya') $$,
+  $$ select public.redeem_invite(pg_temp.digest_of('live-secret'), 'Nina') $$,
   'redeeming twice is not an error'
 );
 
@@ -198,7 +198,7 @@ select is(
 select pg_temp.act_as('90000000-0000-0000-0000-000000000003', true);
 
 select throws_ok(
-  $$ select public.redeem_invite(pg_temp.digest_of('live-secret'), '  priya ') $$,
+  $$ select public.redeem_invite(pg_temp.digest_of('live-secret'), '  nina ') $$,
   'duplicate_name',
   'a name that differs only by case and spacing is a duplicate'
 );
@@ -346,7 +346,7 @@ select pg_temp.act_as('90000000-0000-0000-0000-000000000004', true);
 select bag_eq(
   format($$ select display_name from public.guest_members_for_reattach(%L) $$,
          (select short_code from fixture)),
-  $$ values ('Priya'), ('Tom again'), ('One Too Many') $$,
+  $$ values ('Nina'), ('Tom again'), ('One Too Many') $$,
   'the list is the circle''s active guests'
 );
 

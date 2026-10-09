@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { UserId } from '../circles/types.js';
 import type { Actor } from '../planning/state-machine.js';
-import { ALEX, JESS, NIC, PRIYA, SAM, SUNDAY_CREW, TOM } from '../scheduling/fixtures.js';
+import { ALEX, JESS, NIC, NINA, SAM, SUNDAY_CREW, TOM } from '../scheduling/fixtures.js';
 import { MELBOURNE } from '../shared/fixtures.js';
 import { addMinutes } from '../shared/instant.js';
 import { localDate } from '../shared/local-date.js';
@@ -59,7 +59,7 @@ describe('confirmOwn', () => {
     expect(c.ownTime).toBe(true);
     expect(c.belowQuorum).toBe(false);
     // Thursday 7-8 pm sits inside everyone's 6:30-8:30 window but Alex's, who has not answered.
-    expect(c.candidate.availableUserIds).toEqual([SAM, PRIYA, TOM, JESS, NIC]);
+    expect(c.candidate.availableUserIds).toEqual([SAM, NINA, TOM, JESS, NIC]);
     expect(c.calendarUid).toBe(A_CONFIRMATION_ID);
     expect(c.calendarSequence).toBe(0);
   });
@@ -117,7 +117,7 @@ describe('confirmOwn', () => {
 
 describe('who is going after an own time', () => {
   it('has the people whose times cover it going, and everyone else to confirm: nobody is "can\'t make it"', () => {
-    // Saturday 7-9 pm: Priya answered other times; Alex did not answer.
+    // Saturday 7-9 pm: Nina answered other times; Alex did not answer.
     const result = confirmOwn(base({ start: at('2026-09-19', 19), end: at('2026-09-19', 21) }));
     if (!result.ok) throw new Error('refused');
     const attendance = deriveAttendance(
@@ -128,7 +128,7 @@ describe('who is going after an own time', () => {
     const status = (id: UserId) => attendance.find((a) => a.userId === id)?.status;
     expect(status(SAM)).toBe('going');
     expect(status(TOM)).toBe('going');
-    expect(status(PRIYA)).toBe('unknown');
+    expect(status(NINA)).toBe('unknown');
     expect(status(ALEX)).toBe('unknown');
     expect(attendanceCounts(attendance).cant).toBe(0);
   });
@@ -160,7 +160,7 @@ describe('who is going after an own time', () => {
       sundayCrewStoredResponses(),
       SUNDAY_CREW,
     );
-    expect(attendance.find((a) => a.userId === PRIYA)?.status).toBe('cant');
+    expect(attendance.find((a) => a.userId === NINA)?.status).toBe('cant');
     expect(attendance.find((a) => a.userId === ALEX)?.status).toBe('unknown');
   });
 });
@@ -211,7 +211,7 @@ describe('moveConfirmed', () => {
     expect(result.value.confirmation.calendarSequence).toBe(1);
   });
 
-  it("derives who is going again from this revision's answers: Tom, Jess and Nic going, Priya and Alex to confirm", () => {
+  it("derives who is going again from this revision's answers: Tom, Jess and Nic going, Nina and Alex to confirm", () => {
     const result = moveConfirmed(live());
     if (!result.ok) throw new Error('refused');
     const attendance = deriveAttendance(
@@ -226,7 +226,7 @@ describe('moveConfirmed', () => {
       NIC,
     ]);
     expect(attendance.filter((a) => a.status === 'unknown').map((a) => a.userId)).toEqual([
-      PRIYA,
+      NINA,
       ALEX,
     ]);
   });

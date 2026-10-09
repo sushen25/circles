@@ -51,7 +51,7 @@ function home(overrides: Partial<CircleData.CircleHome> = {}): CircleData.Circle
     defaultQuorum: null,
     isOwner: true,
     me: 'maya',
-    members: ['Maya', 'Priya'].map((name, i) => ({
+    members: ['Maya', 'Nina'].map((name, i) => ({
       userId: name.toLowerCase(),
       name,
       joinedAt: `2026-01-0${i + 1}T00:00:00Z`,
@@ -95,7 +95,7 @@ describe('circle home the morning after', () => {
   });
 
   it('asks a member whether they made it, and remembers "Not now"', async () => {
-    show(home({ isOwner: false, me: 'priya', morningAfter: { ...OWED, ask: 'attendance' } }));
+    show(home({ isOwner: false, me: 'nina', morningAfter: { ...OWED, ask: 'attendance' } }));
     expect(screen.getByText("Did you make it to Thursday's catch-up?")).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'Answer' }));
     expect(push).toHaveBeenCalledWith({
@@ -104,7 +104,7 @@ describe('circle home the morning after', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'Not now' }));
     await waitFor(() =>
-      expect(setAttendanceDismissed).toHaveBeenCalledWith('priya', 'confirmation-1'),
+      expect(setAttendanceDismissed).toHaveBeenCalledWith('nina', 'confirmation-1'),
     );
   });
 

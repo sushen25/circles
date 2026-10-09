@@ -47,7 +47,7 @@ test('no prompt of any kind on Join, Name or Availability: nothing is even asked
   await page.getByRole('button', { name: 'Choose my times' }).click();
   await expect(page.getByLabel('Your name')).toBeVisible();
   await expectNoPrompt(page);
-  await page.getByLabel('Your name').fill('Priya');
+  await page.getByLabel('Your name').fill('Nina');
   await page.getByRole('button', { name: 'Continue' }).click();
 
   await expect(page).toHaveURL(new RegExp(`/j/${crew.planCode}$`));
@@ -68,7 +68,7 @@ test('a guest who meets the organiser gate keeps their membership and name, and 
   page,
 }) => {
   const crew = sundayCrew();
-  const priya = await joinsAndAnswers(page, crew, 'Priya');
+  const nina = await joinsAndAnswers(page, crew, 'Nina');
   // Maya's plan is called off, so the circle is free for somebody else's.
   sql(`select planning.transition_plan('${crew.planId}', 'cancel', '${crew.ownerId}', '{}')`);
 
@@ -81,11 +81,11 @@ test('a guest who meets the organiser gate keeps their membership and name, and 
   // The gate is drawn in place of the form, and says whose place it keeps.
   await expect(page.getByText('Save your place first')).toBeVisible();
   await expect(
-    page.getByText("This links your existing place as Priya. Nothing you've sent changes."),
+    page.getByText("This links your existing place as Nina. Nothing you've sent changes."),
   ).toBeVisible();
   await expect(page.getByRole('button', { name: 'Ask the group' })).toHaveCount(0);
 
-  const address = addressFor('priya');
+  const address = addressFor('nina');
   await page.getByRole('button', { name: 'Continue with email' }).click();
   await page.getByLabel('Your email').fill(address);
   await page.getByRole('button', { name: 'Send me a code' }).click();
@@ -97,15 +97,15 @@ test('a guest who meets the organiser gate keeps their membership and name, and 
   await expect(page).toHaveURL(planning);
 
   // The same membership, under the same name — now a saved place.
-  expect(memberNamed(crew.circleId, 'Priya')).toEqual({ userId: priya, anonymous: false });
+  expect(memberNamed(crew.circleId, 'Nina')).toEqual({ userId: nina, anonymous: false });
   await expect
     .poll(
-      () => sql(`select display_name from public.profiles where user_id = '${priya}'`)[0]?.[0],
+      () => sql(`select display_name from public.profiles where user_id = '${nina}'`)[0]?.[0],
       { message: 'the profile has the name the circle knows her by' },
     )
-    .toBe('Priya');
+    .toBe('Nina');
   const [claimed] = sql(`select metadata ->> 'moment' from private.audit_log
-    where action = 'growth.account_claimed' and resource_id = '${priya}'`);
+    where action = 'growth.account_claimed' and resource_id = '${nina}'`);
   expect(claimed?.[0]).toBe('organiser_gate');
 
   await page.getByRole('button', { name: 'Ask the group' }).click();
@@ -113,7 +113,7 @@ test('a guest who meets the organiser gate keeps their membership and name, and 
   const made = plansIn(crew.circleId).find((plan) => plan.state === 'collecting');
   expect(made, 'a plan is finding a time').toBeDefined();
   const [organiser] = sql(`select organiser_user_id from public.plans where id = '${made!.id}'`);
-  expect(organiser?.[0], 'and Priya organises it').toBe(priya);
+  expect(organiser?.[0], 'and Nina organises it').toBe(nina);
 });
 
 test('"Keep your place for good?" follows a Continue-as from the list, once, and "Carry on" is the page', async ({
@@ -159,7 +159,7 @@ test('a guest who taps "See if people are keen" meets the gate, keeps their plac
   page,
 }) => {
   const crew = sundayCrew();
-  const priya = await joinsAndAnswers(page, crew, 'Priya');
+  const nina = await joinsAndAnswers(page, crew, 'Nina');
   sql(`select planning.transition_plan('${crew.planId}', 'cancel', '${crew.ownerId}', '{}')`);
 
   // ChooseMode's quiet door is a tap, so the gate is drawn in place of the
@@ -168,10 +168,10 @@ test('a guest who taps "See if people are keen" meets the gate, keeps their plac
   await page.getByRole('button', { name: /^See if people are keen\./ }).click();
   await expect(page.getByText('Save your place first')).toBeVisible();
   await expect(
-    page.getByText("This links your existing place as Priya. Nothing you've sent changes."),
+    page.getByText("This links your existing place as Nina. Nothing you've sent changes."),
   ).toBeVisible();
 
-  const address = addressFor('priya');
+  const address = addressFor('nina');
   await page.getByRole('button', { name: 'Continue with email' }).click();
   await page.getByLabel('Your email').fill(address);
   await page.getByRole('button', { name: 'Send me a code' }).click();
@@ -186,12 +186,12 @@ test('a guest who taps "See if people are keen" meets the gate, keeps their plac
 
   // The same membership, a saved place now, credited to the gate — and the
   // ask hers, which only `private` knows.
-  expect(memberNamed(crew.circleId, 'Priya')).toEqual({ userId: priya, anonymous: false });
+  expect(memberNamed(crew.circleId, 'Nina')).toEqual({ userId: nina, anonymous: false });
   const [claimed] = sql(`select metadata ->> 'moment' from private.audit_log
-    where action = 'growth.account_claimed' and resource_id = '${priya}'`);
+    where action = 'growth.account_claimed' and resource_id = '${nina}'`);
   expect(claimed?.[0]).toBe('organiser_gate');
   const askId = page.url().split('/').at(-1)!;
   expect(
     sql(`select initiator_user_id from private.plan_initiators where plan_id = '${askId}'`),
-  ).toEqual([[priya]]);
+  ).toEqual([[nina]]);
 });

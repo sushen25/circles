@@ -6,10 +6,10 @@ import { localDate } from '../shared/local-date.js';
 import { plan } from './fixtures.js';
 import { invalidatedResponses, invalidatingChanges, joinNames } from './revision.js';
 
-const priya = userId('priya');
+const nina = userId('nina');
 const tom = userId('tom');
 const alex = userId('alex');
-const members = [priya, tom, alex];
+const members = [nina, tom, alex];
 
 describe('invalidatingChanges', () => {
   const before = plan();
@@ -54,18 +54,18 @@ describe('invalidatedResponses', () => {
   const after = plan({ durationMinutes: 180 });
 
   it('asks the people who already answered to answer again', () => {
-    const result = invalidatedResponses(before, after, members, [priya, tom]);
-    expect(result.askedAgain).toEqual([priya, tom]);
+    const result = invalidatedResponses(before, after, members, [nina, tom]);
+    expect(result.askedAgain).toEqual([nina, tom]);
     expect(result.bumpsRevision).toBe(true);
   });
 
   it('lists those who had not answered separately — being asked twice is a different imposition', () => {
-    const result = invalidatedResponses(before, after, members, [priya, tom]);
+    const result = invalidatedResponses(before, after, members, [nina, tom]);
     expect(result.freshAsk).toEqual([alex]);
   });
 
   it('costs nobody a reply when only the quorum moved', () => {
-    const result = invalidatedResponses(before, plan({ quorum: 2 }), members, [priya, tom]);
+    const result = invalidatedResponses(before, plan({ quorum: 2 }), members, [nina, tom]);
     expect(result).toMatchObject({ askedAgain: [], freshAsk: [], bumpsRevision: false });
   });
 
@@ -79,9 +79,9 @@ describe('invalidatedResponses', () => {
     // the same — so a comparison of timings alone named nobody while costing
     // everybody, which is the warning being wrong about the most expensive edit
     // there is.
-    const result = invalidatedResponses(before, plan(), members, [priya, tom], true);
+    const result = invalidatedResponses(before, plan(), members, [nina, tom], true);
     expect(result).toMatchObject({
-      askedAgain: [priya, tom],
+      askedAgain: [nina, tom],
       freshAsk: [alex],
       changes: [],
       bumpsRevision: true,
@@ -91,9 +91,9 @@ describe('invalidatedResponses', () => {
 
 describe('joinNames', () => {
   it('reads like a person wrote it', () => {
-    expect(joinNames(['Priya', 'Tom', 'Jess'])).toBe('Priya, Tom and Jess');
-    expect(joinNames(['Priya', 'Tom'])).toBe('Priya and Tom');
-    expect(joinNames(['Priya'])).toBe('Priya');
+    expect(joinNames(['Nina', 'Tom', 'Jess'])).toBe('Nina, Tom and Jess');
+    expect(joinNames(['Nina', 'Tom'])).toBe('Nina and Tom');
+    expect(joinNames(['Nina'])).toBe('Nina');
   });
 
   it('is empty for nobody, so the caller can drop the clause entirely', () => {
@@ -114,7 +114,7 @@ describe('changing the days (ADR 0047)', () => {
 
   it('asks nobody again when the days taken away were picked by nobody', () => {
     const after = plan({ window: without('2026-09-16') });
-    const cost = invalidatedResponses(before, after, members, [priya], false, [
+    const cost = invalidatedResponses(before, after, members, [nina], false, [
       localDate('2026-09-17'),
     ]);
     expect(cost.bumpsRevision).toBe(false);
@@ -123,7 +123,7 @@ describe('changing the days (ADR 0047)', () => {
 
   it('asks everybody again when a day somebody picked goes, the editor included', () => {
     const after = plan({ window: without('2026-09-17') });
-    const cost = invalidatedResponses(before, after, members, [priya], false, [
+    const cost = invalidatedResponses(before, after, members, [nina], false, [
       localDate('2026-09-17'),
     ]);
     expect(cost.bumpsRevision).toBe(true);

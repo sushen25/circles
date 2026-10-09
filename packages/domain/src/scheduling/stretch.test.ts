@@ -8,7 +8,7 @@ import {
   ALEX,
   JESS,
   NIC,
-  PRIYA,
+  NINA,
   SAM,
   SUNDAY_CREW,
   TOM,
@@ -25,16 +25,16 @@ const crew = { responses: sundayCrewResponses(), activeMemberIds: SUNDAY_CREW };
 describe('whoCanMake', () => {
   it('is the Thursday on the Candidates artboard: five can, Alex has not answered', () => {
     const result = whoCanMake(crew, at('2026-09-17', 18, 30), at('2026-09-17', 20, 30));
-    expect(result.available).toEqual([SAM, PRIYA, TOM, JESS, NIC]);
+    expect(result.available).toEqual([SAM, NINA, TOM, JESS, NIC]);
     expect(result.awaiting).toEqual([ALEX]);
     expect(result.cannot).toEqual([]);
   });
 
   it('says "cannot" for somebody who answered other times, and never for somebody who did not answer', () => {
-    // Saturday 7-9 pm: Priya marked Thursday and Sunday, not Saturday.
+    // Saturday 7-9 pm: Nina marked Thursday and Sunday, not Saturday.
     const result = whoCanMake(crew, at('2026-09-19', 19), at('2026-09-19', 21));
     expect(result.available).toEqual([SAM, TOM, JESS, NIC]);
-    expect(result.cannot).toEqual([PRIYA]);
+    expect(result.cannot).toEqual([NINA]);
     expect(result.awaiting).toEqual([ALEX]);
   });
 
@@ -42,20 +42,20 @@ describe('whoCanMake', () => {
     // Thursday 7-9 pm runs past the 6:30-8:30 pm windows.
     const result = whoCanMake(crew, at('2026-09-17', 19), at('2026-09-17', 21));
     expect(result.available).toEqual([]);
-    expect(result.cannot).toEqual([SAM, PRIYA, TOM, JESS, NIC]);
+    expect(result.cannot).toEqual([SAM, NINA, TOM, JESS, NIC]);
   });
 
   it('counts "I\'m easy" without any window, in members-list order', () => {
     const easy = {
       responses: [
-        ...sundayCrewResponses().filter(([user]) => user !== PRIYA),
-        [PRIYA, { status: 'flexible', windows: [] }] as const,
+        ...sundayCrewResponses().filter(([user]) => user !== NINA),
+        [NINA, { status: 'flexible', windows: [] }] as const,
       ],
       activeMemberIds: SUNDAY_CREW,
     } as const;
     const result = whoCanMake(easy, at('2026-09-26', 10), at('2026-09-26', 11));
-    expect(result.flexible).toEqual([PRIYA]);
-    expect(result.available).toEqual([PRIYA]);
+    expect(result.flexible).toEqual([NINA]);
+    expect(result.available).toEqual([NINA]);
     expect(result.cannot).toEqual([SAM, TOM, JESS, NIC]);
   });
 

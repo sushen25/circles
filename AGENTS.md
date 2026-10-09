@@ -191,7 +191,7 @@ status line. Then change the spec or the architecture in the same PR.
 Every fixture, test and piece of placeholder copy uses the same one, so they
 cannot quietly disagree:
 
-**Sunday Crew** — six members. **Maya** owns it. Priya, Tom, Jess and Sam have
+**Sunday Crew** — six members. **Maya** owns it. Nina, Tom, Jess and Sam have
 answered; **Alex has not**, which is the point: the partial state is the most
 common real one. The plan is **Thursday 17 September, 6:30–8:30 pm, at Hope St
 Radio**, in `Australia/Melbourne`. Availability runs 5:30–10:30 pm in ten
