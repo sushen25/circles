@@ -83,18 +83,28 @@ exists.
 Generate token offers *Resource access: Project*, a project list and per-area
 permissions. Each deploy token names exactly one project, so the dev token
 cannot reach `circles-prod` at all. Grant what the workflow runs and nothing
-else: `supabase link` and `db push` (which creates a temporary login role
-through the Management API) need the project readable and the database
-writable, and `functions deploy` needs Edge Functions writable. The older
-"legacy" token on that form reaches the whole account; CI never uses one.
+else — this set was proven on `github-actions-prod`, 9 October 2026, by the
+read-only check in "Rotating them":
+
+| Permission | Level | Needed by |
+|---|---|---|
+| Project | read | `supabase link` |
+| API gateway keys (`api_gateway_keys_read`) | read | `supabase link`, which reads the project's keys; without it, link fails with `Missing required permission(s): api_gateway_keys_read` |
+| Database | write | `db push`, which creates a temporary login role through the Management API |
+| Edge Functions | write | `functions deploy` |
+
+The older "legacy" token on that form reaches the whole account; CI never uses
+one.
 
 **Supabase tokens expire.** A CI token that lapses fails the next deploy with an
-authentication error that looks like a misconfiguration. Pick a long expiry and
-write the date here when you mint one:
+authentication error that looks like a misconfiguration. Mint the replacement
+a week before the date, prove it with the read-only check, and store it with
+the same `gh secret set` — the workflow does not change. Write the date here
+when you mint one:
 
 | Token | Project | Expires |
 |---|---|---|
-| `github-actions-prod` | `circles-prod` | _fill in_ |
+| `github-actions-prod` | `circles-prod` | 7 January 2027 (90 days from 9 October 2026) |
 | `github-actions-dev` | `circles-dev` | _fill in_ |
 
 **What still reaches production, and was accepted.**
