@@ -217,7 +217,7 @@ In the repository settings, **Secrets and variables → Actions**:
       (`SUPABASE_PROD_ACCESS_TOKEN`, `SUPABASE_PROD_PROJECT_REF`,
       `EXPO_PROD_TOKEN`), the repository keeps dev-only tokens, and the
       September ones are revoked. The steps are in
-      [`ci.md`, "Rotating them"](./ci.md#rotating-them). `deploy-prod` fails
+      [`ci.md`](./ci.md), "Rotating them". `deploy-prod` fails
       until the three production names exist.
 - [x] **Variables** (repository scope — these are the `dev` values, and previews
       read them):
