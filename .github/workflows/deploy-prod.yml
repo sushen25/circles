@@ -34,7 +34,7 @@ on:
         required: true
         type: string
       backup:
-        description: Type backed-up once the pre-deploy dump is stored privately (docs/runbooks/release-slice-2.md, step 1)
+        description: Type backed-up once the pre-deploy dump is stored privately (docs/runbooks/production-deploy.md, step 1)
         required: true
         type: string
 
@@ -67,7 +67,7 @@ jobs:
             exit 1
           }
           [ "$BACKUP" = "backed-up" ] || {
-            echo "Take the backup first (docs/runbooks/release-slice-2.md, step 1), then dispatch again with 'backed-up'." >&2
+            echo "Take the backup first (docs/runbooks/production-deploy.md, step 1), then dispatch again with 'backed-up'." >&2
             exit 1
           }
 
