@@ -1,6 +1,13 @@
+---
+adr: 57
+title: "Who started a plan is kept as long as the plan, not for twelve months"
+status: proposed
+date: 2026-10-09
+builds_on: [14]
+---
 # ADR 0057: Who started a plan is kept as long as the plan, not for twelve months
 
-_Status: proposed · 9 October 2026 · amends architecture §8.5 ("Audit log: 12 months") for one action, and builds on the note in migration 0003 that who created a plan belongs in the audit log_
+_Status: proposed · 9 October 2026 · amends architecture §8.5 ("Audit log: 12 months") for one action, and builds on [ADR 0014](0014-retention-runs-in-the-database.md) and the note in migration 0003 that who created a plan belongs in the audit log_
 
 ## Context
 
