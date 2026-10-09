@@ -54,11 +54,32 @@ const IS_INSTALL = /\bpnpm\s+(install|add|remove|update|import|dlx)\b/;
 const PROD_ONLY = ['SUPABASE_PROD_ACCESS_TOKEN', 'SUPABASE_PROD_PROJECT_REF', 'EXPO_PROD_TOKEN'];
 const DEV_TOKENS = ['SUPABASE_ACCESS_TOKEN', 'EXPO_TOKEN'];
 
-/** Every `secrets.NAME` the value mentions, however deeply it is nested. */
-const secretsIn = (value) =>
-  new Set(
-    [...JSON.stringify(value ?? null).matchAll(/\bsecrets\.([A-Za-z0-9_]+)/g)].map((m) => m[1]),
-  );
+/** Every string in a parsed YAML value, however deeply it is nested. */
+const stringsIn = (value) =>
+  typeof value === 'string'
+    ? [value]
+    : value && typeof value === 'object'
+      ? Object.values(value).flatMap(stringsIn)
+      : [];
+
+/**
+ * Every secret the value reads, upper-cased. GitHub accepts `secrets.NAME`,
+ * `secrets['NAME']` and `secrets["NAME"]`, and matches names without regard to
+ * case, so a check that knew only `secrets.NAME` would wave the others through.
+ * `toJSON(secrets)` reads all of them at once and is reported as `*`.
+ */
+const secretsIn = (value) => {
+  const found = new Set();
+  for (const text of stringsIn(value)) {
+    for (const m of text.matchAll(
+      /\bsecrets\s*(?:\.\s*([A-Za-z0-9_]+)|\[\s*['"]([A-Za-z0-9_]+)['"]\s*\])/gi,
+    )) {
+      found.add((m[1] ?? m[2]).toUpperCase());
+    }
+    if (/\btoJSON\s*\(\s*secrets\s*\)/i.test(text)) found.add('*');
+  }
+  return found;
+};
 
 /** `environment: production` and `environment: { name: production }` both count. */
 const environmentOf = (job) =>
@@ -96,6 +117,11 @@ for (const dir of DIRS) {
             `${path} · ${jobName}: reads \`${name}\`, which only a job in the \`production\` environment may read`,
           );
         }
+      }
+      if (secrets.has('*')) {
+        problems.push(
+          `${path} · ${jobName}: \`toJSON(secrets)\` hands the job every secret, production's included; name the ones it needs`,
+        );
       }
       for (const name of DEV_TOKENS) {
         if (secrets.has(name) && production) {
