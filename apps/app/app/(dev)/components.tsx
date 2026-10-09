@@ -184,9 +184,9 @@ export default function ComponentsScreen() {
           </View>
           <View testID="row-three-short">
             <ButtonRow>
-              <CompactButton label={t('availability', 'done')} icon="check" tone="accent" />
-              <CompactButton label={t('customWindow', 'undo')} />
+              <CompactButton label={t('wasThere', 'not_now')} tone="accent" />
               <CompactButton label={t('customWindow', 'start_over')} icon="x" />
+              <CompactButton label={t('availability', 'remove_day')} icon="x" />
             </ButtonRow>
           </View>
           <View testID="row-three-typical">
