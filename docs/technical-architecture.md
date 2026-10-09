@@ -484,7 +484,7 @@ ready ─(response change)──▶ collecting ─ recalculate ──┘
 | Unverified contacts and expired tokens | 7 days |
 | Verified plan-only contacts | 30 days after every plan they are subscribed to has completed, expired or been cancelled; suppressed contacts and `email_suppressions` are never deleted |
 | Abandoned anonymous identities (no membership, > 30 days) | delete |
-| Audit log | 12 months |
+| Audit log | 12 months, except `plan.created` (who started a named plan): kept while the plan exists, removed with it ([ADR 0057](decisions/0057-who-started-a-plan-is-kept-as-long-as-the-plan.md)) |
 | Deleted accounts | revoke immediately; purge identifiers within 30 days |
 
 ## 9. Backend surface

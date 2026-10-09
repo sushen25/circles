@@ -1145,7 +1145,7 @@ export const en = {
     gate_other_organiser_measure: 'Plans started by someone other than the owner',
     gate_other_organiser_target: 'at least one',
     gate_other_organiser_note:
-      "Named plans only: who starts a quiet ask stays private, so this is a floor on a plan or a quiet ask. Who started a plan is kept for 30 days by the server and otherwise by the client's own event, which can be lost.",
+      'Named plans only: who starts a quiet ask stays private, so this is a floor on a plan or a quiet ask. Plans from before who started them was recorded count only where their creator could still be recovered.',
     gate_email_verified_measure: 'Guests who gave an email and verified it',
     gate_email_verified_target: 'at least half',
     gate_email_verified_note:
