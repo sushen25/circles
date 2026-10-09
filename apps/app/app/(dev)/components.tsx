@@ -176,7 +176,7 @@ export default function ComponentsScreen() {
                 label={t('candidates', 'nudge_three', {
                   name: 'Maya',
                   other: 'Ben',
-                  third: 'Priya',
+                  third: 'Nina',
                 })}
               />
               <CompactButton label={t('candidatesMember', 'change_my_times')} />
