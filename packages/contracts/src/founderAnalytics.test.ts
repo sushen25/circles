@@ -117,6 +117,27 @@ describe('the gates', () => {
     expect(judgeGate(gate('unchased'), emptyFounderAnalytics)).toEqual({ status: 'not_measured' });
   });
 
+  it('are read from their own cohort and never pooled with the other', () => {
+    // The external gate rests on the external cohort's 3 of 6, not the founder
+    // cohort's 3 of 3 beside it and not the 6 of 9 of the two together.
+    expect(judgeGate(gate('confirm_in_week'), founderAnalyticsFixture)).toMatchObject({
+      status: 'met',
+      numerator: 3,
+      denominator: 6,
+    });
+    // A cohort the function did not return a gate for is "not measured", not
+    // the other cohort's number.
+    const onlyFounder = {
+      ...founderAnalyticsFixture,
+      gates: { founder: founderAnalyticsFixture.gates.founder ?? {} },
+    };
+    expect(judgeGate(gate('confirm_in_week'), onlyFounder)).toEqual({ status: 'not_measured' });
+    expect(FounderAnalytics.parse(founderAnalyticsFixture).cohort_circles).toEqual({
+      founder: 3,
+      external: 3,
+    });
+  });
+
   it('judge a share against its target, and say when there are too few answers', () => {
     expect(judgeGate(gate('unchased'), founderAnalyticsFixture)).toMatchObject({
       status: 'met',
@@ -142,7 +163,7 @@ describe('the gates', () => {
     });
     const slow = {
       ...founderAnalyticsFixture,
-      gates: { response_time: { median_seconds: 400, n: 9 } },
+      gates: { founder: { response_time: { median_seconds: 400, n: 9 } } },
     };
     expect(judgeGate(gate('response_time'), slow)).toMatchObject({ status: 'not_met' });
     expect(judgeGate(gate('second_meetup'), founderAnalyticsFixture)).toMatchObject({
@@ -240,7 +261,10 @@ describe('the period', () => {
 
   it('is not empty when a gate has something to say, and a silent week is a zero', () => {
     expect(
-      isEmpty({ ...emptyFounderAnalytics, gates: { happened: { numerator: 0, denominator: 5 } } }),
+      isEmpty({
+        ...emptyFounderAnalytics,
+        gates: { founder: { happened: { numerator: 0, denominator: 5 } } },
+      }),
     ).toBe(false);
     const row = (week: string) => ({
       event_name: 'plan_shared',
@@ -274,7 +298,7 @@ describe('the period', () => {
   it('is under two minutes, not up to it', () => {
     const at = (median_seconds: number) => ({
       ...emptyFounderAnalytics,
-      gates: { response_time: { median_seconds, n: 9 } },
+      gates: { founder: { response_time: { median_seconds, n: 9 } } },
     });
     expect(judgeGate(gate('response_time'), at(119))).toMatchObject({ status: 'met' });
     expect(judgeGate(gate('response_time'), at(120))).toMatchObject({ status: 'not_met' });
