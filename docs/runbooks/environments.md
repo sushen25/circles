@@ -349,9 +349,17 @@ error rather than a silent one. Every deploy step runs `eas whoami` first and
 prints the identity and its accounts; that line is the fastest way to tell a
 wrong role from a wrong account.
 
-**GitHub secrets** (deploy credentials, genuinely secret):
-`SUPABASE_ACCESS_TOKEN`, `SUPABASE_DEV_PROJECT_REF`, `SUPABASE_PROD_PROJECT_REF`,
-`EXPO_TOKEN`.
+**GitHub secrets** (deploy credentials, genuinely secret), in two sets:
+
+- **Repository scope, dev and previews:** `SUPABASE_ACCESS_TOKEN`,
+  `SUPABASE_DEV_PROJECT_REF`, `EXPO_TOKEN`. Every same-repo branch can read
+  these, so none of them may reach production.
+- **`production` environment, only after the required reviewer approves:**
+  `SUPABASE_PROD_ACCESS_TOKEN`, `SUPABASE_PROD_PROJECT_REF`, `EXPO_PROD_TOKEN`.
+
+The names differ on purpose, and `check:workflows` enforces the split; why, the
+caveats that remain, and how to rotate them are in
+[`ci.md`](./ci.md#deploy-credentials-two-sets-and-only-an-approved-job-gets-productions).
 
 **Setting `EXPO_TOKEN` is what switches the deploy workflows on.** Until it
 exists they skip and report; the moment it is set they run for real, and
@@ -359,10 +367,11 @@ exists they skip and report; the moment it is set they run for real, and
 there yet. Set the variables first, then the token — in the other order the next
 push to `main` goes red for a reason that has nothing to do with the commit.
 
-Every deploy workflow is guarded on its secret being present and **succeeds**
-while the secret is absent, saying what is missing in the run summary. A red
-cross for infrastructure nobody has set up yet teaches people to ignore red
-crosses.
+`deploy-dev` and `preview` are guarded on their secrets being present and
+**succeed** while one is absent, saying what is missing in the run summary. A
+red cross for infrastructure nobody has set up yet teaches people to ignore red
+crosses. `deploy-prod` fails instead: a production deploy that deployed nothing
+must not look like one that did.
 
 ## Checking it from the outside
 
