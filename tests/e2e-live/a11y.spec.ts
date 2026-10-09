@@ -44,6 +44,17 @@ test('Join has no serious accessibility violations', async ({ page }) => {
   expect(await seriousViolations(page)).toEqual([]);
 });
 
+test('the guest name screen opens with the cursor in the field, and no serious violations', async ({
+  page,
+}) => {
+  const crew = sundayCrew();
+  await page.goto(`/j/${crew.planCode}`);
+  const field = page.getByLabel('Your name');
+  await expect(field).toBeFocused();
+  await expect(field).toHaveAttribute('placeholder', 'Your first name');
+  expect(await seriousViolations(page)).toEqual([]);
+});
+
 test('the availability editor has no serious accessibility violations', async ({ page }) => {
   const crew = sundayCrew();
   await page.goto(`/j/${crew.planCode}`);

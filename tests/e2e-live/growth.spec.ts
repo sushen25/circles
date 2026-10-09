@@ -147,7 +147,7 @@ test('"Keep your place for good?" follows a Continue-as from the list, once, and
     new URL(response.url()).pathname.endsWith('/functions/v1/record-nudge'),
   );
   await second.getByRole('button', { name: 'Continue as Tom' }).click();
-  await expect(second.getByText('Welcome back. Which one is you?')).toHaveCount(0);
+  await expect(second.getByText('Have you answered this before?')).toHaveCount(0);
   // Once `record-nudge` has answered, not merely before it has.
   await answered;
   await expectNoPrompt(second);

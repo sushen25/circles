@@ -120,7 +120,8 @@ export function YourNameScreen({
           <Label>{t('yourName', 'your_name')}</Label>
           <Input
             aria-label={t('yourName', 'your_name')}
-            placeholder={t('yourName', 'maya')}
+            placeholder={t('yourName', 'your_first_name')}
+            autoFocus
             value={name}
             onChangeText={onNameChange}
             autoComplete="given-name"

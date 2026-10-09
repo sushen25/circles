@@ -23,7 +23,7 @@ import { isOffline } from './failure';
  * and one server-answered fact — whether a row came back through RLS — and
  * this renders what it says. The server remains the authority either way; this
  * decides which *screen* somebody sees, so that a guest whose session Safari
- * cleared meets "Which one is you?" rather than an empty page.
+ * cleared meets "Have you answered this before?" rather than an empty page.
  *
  * With no backend configured the route renders as it always has, from
  * fixtures (`hasBackend`), so the gallery and the smoke export are unchanged.

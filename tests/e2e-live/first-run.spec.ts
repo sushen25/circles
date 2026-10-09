@@ -222,7 +222,7 @@ test('"I have an account" on a plan link signs in and comes back to the one-tap 
   const ren = await accountToSignInTo('Ren');
 
   await page.goto(`/p/${crew.planCode}`);
-  await expect(page.getByText('Welcome back. Which one is you?')).toBeVisible();
+  await expect(page.getByText('Have you answered this before?')).toBeVisible();
   await page.getByRole('button', { name: 'I have an account' }).click();
 
   await expect(page).toHaveURL(new RegExp(`/sign-in\\?next=(%2F|/)p(%2F|/)${crew.planCode}$`));

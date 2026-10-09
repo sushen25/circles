@@ -132,7 +132,7 @@ export function ContinueAsScreen({
     <Screen>
       <TopBar title={circleName} onBack={onBack} backLabel={t('common', 'back')} />
       <Body>
-        <DisplayL>{t('continueAs', 'welcome_back_which_one_is_you')}</DisplayL>
+        <DisplayL>{t('continueAs', 'have_you_answered_this_before')}</DisplayL>
         {listed.length === 0 ? (
           <BodyText>
             {signedIn ? t('continueAs', 'signed_in_no_names') : t('continueAs', 'no_names_to_pick')}
