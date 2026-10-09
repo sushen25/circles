@@ -21,6 +21,16 @@
  * - a `production` job never reads the dev names. GitHub resolves a missing
  *   environment secret to the repository secret of the same name, so that
  *   would deploy production with whatever token previews hold.
+ *
+ * And it holds the shape SUS-105 gave the deploys, because each piece is a line
+ * somebody can delete without any test failing (see `ciRules`):
+ *
+ * - `deploy-prod` has a `plan` job outside any environment that runs the
+ *   green-check and the migration plan, and every `production` job needs it, so
+ *   the approval prompt comes after a readable plan and a green commit;
+ * - nothing in a `production` job is skipped or allowed to fail quietly;
+ * - `deploy-dev` waits for the commit's `check` before it deploys;
+ * - `check` never cancels a run on `main`.
  */
 
 import { readFileSync, readdirSync } from 'node:fs';
@@ -95,6 +105,144 @@ const environmentOf = (job) =>
 
 const problems = [];
 
+/** The job names a job `needs`, however it is written. */
+const needsOf = (job) => [job?.needs ?? []].flat();
+
+/** Every `run:` line of a job, joined. */
+const runText = (job) =>
+  (Array.isArray(job?.steps) ? job.steps : [])
+    .map((step) => (typeof step?.run === 'string' ? step.run : ''))
+    .join('\n');
+
+/** Jobs reached from `name` through `needs`, `name` included. */
+const needsClosure = (jobs, name, seen = new Set()) => {
+  if (seen.has(name)) return seen;
+  seen.add(name);
+  for (const dep of needsOf(jobs[name])) needsClosure(jobs, dep, seen);
+  return seen;
+};
+
+/**
+ * A step that has to run, or the job has to fail: no `if`, no
+ * `continue-on-error`, on the step or on its job.
+ */
+const unconditional = (job, step) =>
+  step.if === undefined &&
+  job.if === undefined &&
+  step['continue-on-error'] === undefined &&
+  job['continue-on-error'] === undefined;
+
+const ciRules = (path, file, doc) => {
+  const jobs = doc?.jobs ?? {};
+  const fail = (message) => problems.push(`${path}: ${message}`);
+
+  if (file === 'deploy-prod.yml') {
+    const plan = jobs.plan;
+    if (!plan) {
+      fail('has no `plan` job, so the migration plan cannot be read before the approval prompt');
+    } else {
+      if (environmentOf(plan) !== undefined) {
+        fail('the `plan` job is in an environment, which puts the approval prompt before the plan');
+      }
+      for (const [script, why] of [
+        ['green-check.mjs', 'a red or unfinished commit would reach the approval prompt'],
+        ['prod-plan.mjs', 'the pending migrations would not be in the run summary'],
+      ]) {
+        const step = (plan.steps ?? []).find(
+          (s) => typeof s?.run === 'string' && s.run.includes(script),
+        );
+        if (!step) fail(`the \`plan\` job never runs scripts/${script}: ${why}`);
+        else if (!unconditional(plan, step)) {
+          fail(`scripts/${script} is conditional or may fail quietly in \`plan\`: ${why}`);
+        }
+      }
+    }
+
+    const production = Object.entries(jobs).filter(
+      ([, job]) => environmentOf(job) === 'production',
+    );
+    if (production.length === 0) fail('has no job in the `production` environment');
+    for (const [name, job] of production) {
+      if (name !== 'plan' && !needsClosure(jobs, name).has('plan')) {
+        fail(`\`${name}\` is in \`production\` but does not need \`plan\``);
+      }
+      // A missing secret is a failure, not a skip: an `if` on a step or a
+      // `continue-on-error` is how a production deploy goes green having done
+      // nothing.
+      for (const step of job.steps ?? []) {
+        const label = step.name ?? step.uses ?? step.run?.split('\n')[0] ?? 'a step';
+        if (step.if !== undefined)
+          fail(
+            `\`${name}\` step "${label}" has an \`if\`; a production step runs or the job fails`,
+          );
+        if (step['continue-on-error'] !== undefined) {
+          fail(`\`${name}\` step "${label}" has \`continue-on-error\``);
+        }
+      }
+      if (job.if !== undefined)
+        fail(`\`${name}\` has an \`if\`; a skipped production job reports success`);
+      const guard = (job.steps ?? []).find(
+        (s) =>
+          typeof s?.run === 'string' &&
+          /\bexit 1\b/.test(s.run) &&
+          PROD_ONLY.every((n) => secretsIn(s.env).has(n)),
+      );
+      if (!guard) {
+        fail(`\`${name}\` has no step that fails when ${PROD_ONLY.join(', ')} is missing`);
+      }
+    }
+  }
+
+  if (file === 'deploy-dev.yml') {
+    const waiters = Object.entries(jobs).filter(
+      ([, job]) =>
+        environmentOf(job) === undefined &&
+        runText(job).includes('green-check.mjs') &&
+        /--wait\s+\d+/.test(runText(job)),
+    );
+    if (waiters.length === 0) {
+      fail(
+        'no job waits for `check` (scripts/green-check.mjs --wait): a commit whose check fails would be deployed to dev',
+      );
+    }
+    for (const [name, job] of waiters) {
+      const step = (job.steps ?? []).find(
+        (s) => typeof s?.run === 'string' && s.run.includes('green-check.mjs'),
+      );
+      if (!unconditional(job, step))
+        fail(`the green-check in \`${name}\` is conditional or may fail quietly`);
+    }
+    for (const [name, job] of Object.entries(jobs)) {
+      if (environmentOf(job) === undefined) continue;
+      const reached = needsClosure(jobs, name);
+      if (!waiters.some(([waiter]) => reached.has(waiter) && waiter !== name)) {
+        fail(`\`${name}\` deploys without needing a job that waits for \`check\``);
+      }
+    }
+  }
+
+  if (file === 'check.yml') {
+    // Known-safe forms only. Matching on the words "main" and `github.sha`
+    // accepted `github.ref == 'refs/heads/main'` (cancels exactly the runs to
+    // protect) and a reversed group condition, so the two expressions are
+    // compared whole, after whitespace and quote style are normalised.
+    const norm = (value) =>
+      typeof value === 'string' ? value.replace(/\s+/g, ' ').replace(/"/g, "'").trim() : value;
+    const cancel = norm(doc?.concurrency?.['cancel-in-progress']);
+    if (cancel !== "${{ github.ref != 'refs/heads/main' }}") {
+      fail(
+        "`cancel-in-progress` must be exactly `${{ github.ref != 'refs/heads/main' }}`: a cancelled `main` check is a commit deployed without a verdict",
+      );
+    }
+    const group = norm(doc?.concurrency?.group);
+    if (group !== "check-${{ github.ref == 'refs/heads/main' && github.sha || github.ref }}") {
+      fail(
+        "the concurrency group must be exactly `check-${{ github.ref == 'refs/heads/main' && github.sha || github.ref }}`: a group holds one pending run, and a third push on `main` would cancel it",
+      );
+    }
+  }
+};
+
 for (const dir of DIRS) {
   let files;
   try {
@@ -112,6 +260,8 @@ for (const dir of DIRS) {
       problems.push(`${path}: not valid YAML — ${error?.message ?? error}`);
       continue;
     }
+
+    ciRules(path, file, doc);
 
     for (const [jobName, job] of Object.entries(doc?.jobs ?? {})) {
       const steps = Array.isArray(job?.steps) ? job.steps : [];
@@ -178,5 +328,5 @@ if (problems.length > 0) {
 }
 
 console.log(
-  'check:workflows: every job installs before it uses pnpm, and only production jobs read production credentials',
+  'check:workflows: every job installs before it uses pnpm, only production jobs read production credentials, production waits for a green plan, dev waits for check',
 );

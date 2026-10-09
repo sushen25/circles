@@ -44,7 +44,7 @@
     "check:transitions": "node scripts/gen-transitions.mjs --check",
     "check:events": "node scripts/gen-events.mjs --check",
     "check:functions": "node scripts/gen-sql-functions.mjs --check",
-    "check:workflows": "node scripts/check-workflows.mjs",
+    "check:workflows": "node scripts/check-workflows.mjs && node --test scripts/ci-gates.test.mjs",
     "check:docs": "node scripts/check-docs.mjs",
     "check:env": "node scripts/check-environment.mjs",
     "check:client-env": "node scripts/check-client-env.mjs"

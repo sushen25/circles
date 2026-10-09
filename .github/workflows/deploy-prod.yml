@@ -1,7 +1,20 @@
 # Production is deployed by a person, on purpose (architecture §18).
 #
-# `workflow_dispatch` only, and the `production` environment carries a required
-# reviewer, so this waits for an approval in GitHub before it does anything.
+# `workflow_dispatch` only, in two jobs (SUS-105):
+#
+# - `plan` has no environment, so nothing waits for it. It refuses a commit whose
+#   `check` run is not a success, refuses a dispatch that does not confirm the
+#   backup, and writes the migrations and functions this deploy would change
+#   into the run summary.
+# - `apply` is in the `production` environment, whose required reviewer is the
+#   approval. It `needs: plan`, so the approval prompt only appears once the
+#   plan is readable and the commit is green; a red or still-running commit
+#   fails in `plan`, before anyone is asked.
+#
+# `plan` cannot run `db push --dry-run`: that needs the production access token,
+# and a job that can read it has already been approved. Its list comes from git
+# and the deployments API (scripts/prod-plan.mjs). The dry run still runs, first
+# in `apply`.
 #
 # Its credentials are secrets of the `production` environment, not of the
 # repository, so only a job that has passed that approval can read them
@@ -9,7 +22,8 @@
 # and `EXPO_PROD_TOKEN` — because an environment secret that shares a name with
 # a repository secret falls back to the repository one when it is missing: a
 # deleted production token would quietly become a deploy with the dev token.
-# `check:workflows` refuses these names anywhere but a `production` job.
+# `check:workflows` refuses these names anywhere but a `production` job, and
+# holds the shape of `plan` and `apply` in place.
 name: deploy-prod
 
 on:
@@ -17,6 +31,10 @@ on:
     inputs:
       confirm:
         description: Type the word deploy to confirm
+        required: true
+        type: string
+      backup:
+        description: Type backed-up once the pre-deploy dump is stored privately (docs/runbooks/production-deploy.md, step 1)
         required: true
         type: string
 
@@ -28,29 +46,81 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  deploy:
-    name: deploy to prod
+  plan:
+    name: plan
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-    # Configure this environment with a required reviewer. That approval is
-    # the gate; the input below only guards against a mis-click.
-    environment: production
+    timeout-minutes: 10
+    # No `environment`: the approval comes after this job, not before it.
+    permissions:
+      contents: read
+      checks: read
+      deployments: read
 
     steps:
       - name: Confirm
+        env:
+          CONFIRM: ${{ inputs.confirm }}
+          BACKUP: ${{ inputs.backup }}
         run: |
-          [ "${{ inputs.confirm }}" = "deploy" ] || {
+          [ "$CONFIRM" = "deploy" ] || {
             echo "Type 'deploy' to confirm." >&2
             exit 1
           }
+          [ "$BACKUP" = "backed-up" ] || {
+            echo "Take the backup first (docs/runbooks/production-deploy.md, step 1), then dispatch again with 'backed-up'." >&2
+            exit 1
+          }
 
+      # The full history, because the plan diffs this commit against the one
+      # production was last deployed from.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # A commit is deployed only if its own `check` run succeeded. No run,
+      # queued, in progress, cancelled and timed out all refuse, not just
+      # `failure`: three production deploys on 3, 5 and 9 October went out on a
+      # failed, a cancelled and a still-running check.
+      - name: Refuse a commit whose check is not green
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: node scripts/green-check.mjs --repo "$REPO" --sha "$SHA"
+
+      - name: What this deploy changes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: node scripts/prod-plan.mjs --repo "$REPO" --sha "$SHA"
+
+      - name: What to check before approving
+        run: |
+          {
+            echo "### Before approving"
+            echo ""
+            echo "- The backup of \`circles-prod\` was taken for this deploy and is stored privately (the dispatcher typed \`backed-up\`)."
+            echo "- The migration list above is the one you expect. A migration with no transaction can be left half applied."
+            echo "- Rejecting the approval stops here, before anything has changed."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  apply:
+    name: deploy to prod
+    needs: plan
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # Configure this environment with a required reviewer. That approval is
+    # the gate; the inputs above only guard against a mis-click.
+    environment: production
+
+    steps:
       - uses: actions/checkout@v4
 
       # Unlike deploy-dev, a missing secret here is a failure, not a skip. A
       # production deploy that deploys nothing and reports success is the one
       # green tick that most needs to be true.
       - name: What is configured
-        id: config
         env:
           SUPABASE_PROD_ACCESS_TOKEN: ${{ secrets.SUPABASE_PROD_ACCESS_TOKEN }}
           SUPABASE_PROD_PROJECT_REF: ${{ secrets.SUPABASE_PROD_PROJECT_REF }}
@@ -64,23 +134,17 @@ jobs:
             echo "Missing from the production environment's secrets:$missing — see docs/runbooks/ci.md." >&2
             exit 1
           fi
-          echo "supabase=true" >> "$GITHUB_OUTPUT"
-          echo "expo=true" >> "$GITHUB_OUTPUT"
 
-      # Both consumers need dist/: app.config.ts imports @circles/config, and the
       # Nothing below runs without this: `pnpm run build`, every
       # `pnpm exec supabase`, and the export all go through pnpm. It sat after
       # the Supabase steps until Codex noticed, which nothing else would have —
       # this workflow has never run.
       - uses: pnpm/action-setup@v4
-        if: steps.config.outputs.expo == 'true' || steps.config.outputs.supabase == 'true'
       - uses: actions/setup-node@v4
-        if: steps.config.outputs.expo == 'true' || steps.config.outputs.supabase == 'true'
         with:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-        if: steps.config.outputs.expo == 'true' || steps.config.outputs.supabase == 'true'
 
       # Edge Functions import @circles/domain through the import map. dist/ is
       # gitignored, so it exists only after a build. `pnpm check` gets away
@@ -100,7 +164,6 @@ jobs:
       # touches anything outside the runner, so the only cost of moving it up
       # is that it runs on deploys that would not have used it.
       - name: Check the client configuration
-        if: steps.config.outputs.expo == 'true'
         env:
           EXPO_PUBLIC_SUPABASE_URL: ${{ vars.EXPO_PUBLIC_SUPABASE_URL }}
           EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
@@ -111,11 +174,12 @@ jobs:
         run: node scripts/check-client-env.mjs
 
       - name: Build the workspace packages
-        if: steps.config.outputs.expo == 'true' || steps.config.outputs.supabase == 'true'
         run: pnpm run build
 
-      - name: Show the migration plan before applying it
-        if: steps.config.outputs.supabase == 'true'
+      # The CLI's own list, read from the project. The list a reviewer saw before
+      # approving came from git (the `plan` job); this one is the project's.
+      - name: Dry run of the migrations
+
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_PROD_ACCESS_TOKEN }}
         run: |
@@ -123,7 +187,6 @@ jobs:
           pnpm exec supabase db push --linked --dry-run
 
       - name: Push migrations
-        if: steps.config.outputs.supabase == 'true'
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_PROD_ACCESS_TOKEN }}
         run: pnpm exec supabase db push --linked
@@ -137,12 +200,10 @@ jobs:
       # has not arrived yet fails on its first request rather than its first
       # deploy.
       - name: Deploy Edge Functions
-        if: steps.config.outputs.supabase == 'true'
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_PROD_ACCESS_TOKEN }}
         run: pnpm exec supabase functions deploy --project-ref "${{ secrets.SUPABASE_PROD_PROJECT_REF }}"
       - name: Deploy the web build
-        if: steps.config.outputs.expo == 'true'
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_PROD_TOKEN }}
           EXPO_PUBLIC_APP_ENV: production

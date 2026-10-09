@@ -9,6 +9,7 @@ situation, written the first time it happens rather than imagined in advance.
 | [CI](./ci.md) | What each workflow does, what it costs, what still needs a person |
 | [Environments](./environments.md) | What exists in `local`, `dev` and `prod`; domains, configuration, secrets, cost |
 | [Environment setup](./environment-setup.md) | The one-time founder checklist that creates all of the above |
+| [Production deploy](./production-deploy.md) | The backup to take first, dispatching `deploy-prod`, and reading the migration plan before approving |
 | [Release: Slice 2](./release-slice-2.md) | Putting the quiet ask, cadence and replies closed on prod: prerequisites, what deploys, the checks before and after, the ADRs to decide, and the H4–H6 evidence to collect |
 | [Store listing](./store-listing.md) | The name, subtitle, description and icons to enter at first submission, and the one thing to check with App Review |
 | Stuck plans | A plan that will not transition — past its deadline with no candidates, or a confirmation that did not send |
