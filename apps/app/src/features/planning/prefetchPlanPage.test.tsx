@@ -114,6 +114,43 @@ describe('the plan page reads', () => {
     expect(screen.queryByText('the plan')).toBeNull();
   });
 
+  it('are kept for a member, and dropped for somebody who is not in the plan yet', async () => {
+    const keep = (access: unknown) => {
+      reads.planAccess.mockResolvedValue(access);
+      for (const name of ['planByCode', 'planDetails', 'planToAnswer', 'planCandidates'] as const) {
+        reads[name].mockResolvedValue(null);
+      }
+      const queryClient = client();
+      render(
+        <QueryClientProvider client={queryClient}>
+          <Page code={CODE} />
+        </QueryClientProvider>,
+      );
+      return queryClient;
+    };
+    const keys = planPageKeys(CODE as never, 'nina');
+    const others = [keys.planByCode, keys.planDetails, keys.planToAnswer, keys.planCandidates];
+
+    const member = keep({
+      membership: 'member',
+      circleId: 'c',
+      state: 'asking',
+      needsAsking: false,
+    });
+    await waitFor(() => expect(member.getQueryData(keys.membership)).toBeDefined());
+    await waitFor(() => expect(member.getQueryData(keys.planCandidates)).toBeNull());
+    for (const key of others) expect(member.getQueryData(key), String(key)).toBeNull();
+
+    // `null` is what RLS gives somebody outside the plan; kept, the gates would
+    // read it as the plan not existing for as long as it stays fresh.
+    const guest = keep({ membership: 'not_member' });
+    await waitFor(() => expect(guest.getQueryData(keys.membership)).toBeDefined());
+    // Let the other reads land and the clean-up run, then look.
+    await waitFor(() => expect(reads.planCandidates).toHaveBeenCalledTimes(2));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    for (const key of others) expect(guest.getQueryData(key), String(key)).toBeUndefined();
+  });
+
   it('use the keys the gates use', () => {
     expect(planPageKeys(CODE as never, 'nina')).toEqual({
       membership: ['membership', 'plan', CODE, 'nina'],

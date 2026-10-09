@@ -5,7 +5,7 @@ import { useEffect } from 'react';
 import { useSession } from '../../data/auth';
 import { hasBackend } from '../../data/auth/client';
 import { planToAnswer } from '../../data/availability';
-import { planAccess } from '../../data/membership';
+import { planAccess, type PlanAccess } from '../../data/membership';
 import { planByCode, planDetails } from '../../data/planning';
 import { planCandidates } from '../../data/scheduling';
 
@@ -55,23 +55,38 @@ export function usePrefetchPlanPage(code: string): void {
     const short = parsed.data;
     // `prefetchQuery` never throws; a failed read is the gate's to report,
     // when it asks again.
-    void queryClient.prefetchQuery({
-      queryKey: key.membership,
-      queryFn: () => planAccess(short),
-      staleTime: 30_000,
-    });
-    void queryClient.prefetchQuery({ queryKey: key.planByCode, queryFn: () => planByCode(short) });
-    void queryClient.prefetchQuery({
-      queryKey: key.planDetails,
-      queryFn: () => planDetails({ code: short }),
-    });
-    void queryClient.prefetchQuery({
-      queryKey: key.planToAnswer,
-      queryFn: () => planToAnswer(short),
-    });
-    void queryClient.prefetchQuery({
-      queryKey: key.planCandidates,
-      queryFn: () => planCandidates({ code: short }),
+    const reads = Promise.all([
+      queryClient.prefetchQuery({
+        queryKey: key.membership,
+        queryFn: () => planAccess(short),
+        staleTime: 30_000,
+      }),
+      queryClient.prefetchQuery({ queryKey: key.planByCode, queryFn: () => planByCode(short) }),
+      queryClient.prefetchQuery({
+        queryKey: key.planDetails,
+        queryFn: () => planDetails({ code: short }),
+      }),
+      queryClient.prefetchQuery({
+        queryKey: key.planToAnswer,
+        queryFn: () => planToAnswer(short),
+      }),
+      queryClient.prefetchQuery({
+        queryKey: key.planCandidates,
+        queryFn: () => planCandidates({ code: short }),
+      }),
+    ]);
+
+    // Somebody who is not in the plan reads `null` from each of the other four
+    // (RLS), and a `null` left in the cache is an answer the gates would trust
+    // for thirty seconds: the person joins a minute later and meets "we couldn't
+    // load this plan". Only a member's reads are kept; the live suite's guest
+    // who arrives on this link and gives a name is the case that found it.
+    void reads.then(() => {
+      const access = queryClient.getQueryData<PlanAccess>(key.membership);
+      if (access?.membership === 'member') return;
+      for (const other of [key.planByCode, key.planDetails, key.planToAnswer, key.planCandidates]) {
+        queryClient.removeQueries({ queryKey: other, exact: true });
+      }
     });
   }, [queryClient, userId, code]);
 }
