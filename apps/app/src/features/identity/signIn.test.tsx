@@ -385,7 +385,7 @@ describe('signing in by email', () => {
   });
 
   it('does not ask a guest who saved their place for a name, or count a new account (review round 4)', async () => {
-    Object.assign(session, { status: 'guest', userId: 'priya' });
+    Object.assign(session, { status: 'guest', userId: 'nina' });
     belongsToAnyCircle.mockResolvedValue(true);
     newestCircleId.mockResolvedValue('c1');
     auth.requestLinkCode.mockResolvedValue('new_identity');
@@ -400,7 +400,7 @@ describe('signing in by email', () => {
   });
 
   it("saves a guest's place rather than stranding their circles", async () => {
-    Object.assign(session, { status: 'guest', userId: 'priya' });
+    Object.assign(session, { status: 'guest', userId: 'nina' });
     belongsToAnyCircle.mockResolvedValue(true);
     auth.requestLinkCode.mockResolvedValue('existing_account');
     auth.savePlace.mockResolvedValue({});
@@ -459,7 +459,7 @@ describe('Your name', () => {
   });
 
   it('sends somebody without a saved place back to Welcome', async () => {
-    Object.assign(session, { status: 'guest', userId: 'priya' });
+    Object.assign(session, { status: 'guest', userId: 'nina' });
     wrap(<YourNameFlow />);
     await waitFor(() => expect(replace).toHaveBeenCalledWith('/'));
   });

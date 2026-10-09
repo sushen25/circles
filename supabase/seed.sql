@@ -15,7 +15,7 @@ create extension if not exists pgtap with schema extensions;
 -- can describe a state the product cannot reach. The one exception is the
 -- circle row itself, for the sake of a fixed id; see `seed_circle`.
 --
---   A. Sunday Crew, mid-plan — the canvas's circle: Maya, Priya, Tom, Jess,
+--   A. Sunday Crew, mid-plan — the canvas's circle: Maya, Nina, Tom, Jess,
 --      Sam have answered, Alex has not, candidates are generated. The partial
 --      state is the most common real one and every screen has to read in it.
 --   B. Thursday Regulars — a confirmed meetup that happened, with an outcome
@@ -140,7 +140,7 @@ $$;
 -- The people. Alex is a guest — joined from the chat link, never signed in —
 -- because the guest-to-saved-place journey (spec §5.11) needs one to exist.
 select pg_temp.seed_user('00000000-0000-4000-8000-000000000101', 'Maya');
-select pg_temp.seed_user('00000000-0000-4000-8000-000000000102', 'Priya');
+select pg_temp.seed_user('00000000-0000-4000-8000-000000000102', 'Nina');
 select pg_temp.seed_user('00000000-0000-4000-8000-000000000103', 'Tom');
 select pg_temp.seed_user('00000000-0000-4000-8000-000000000104', 'Jess');
 select pg_temp.seed_user('00000000-0000-4000-8000-000000000105', 'Sam');
@@ -179,7 +179,7 @@ select pg_temp.named_plan(
 );
 
 -- Five answers; Alex outstanding. Everyone who answered can do Thursday
--- 6:30–8:30; Priya, Tom and Jess can also do Friday; Sam and Priya Saturday
+-- 6:30–8:30; Nina, Tom and Jess can also do Friday; Sam and Nina Saturday
 -- from 5:30. Exact two-hour windows, so the engine has one start per day.
 select pg_temp.act_as('00000000-0000-4000-8000-000000000101');
 select public.replace_response('00000000-0000-4000-8000-000000000b01', 1, 'windows', jsonb_build_array(
@@ -348,7 +348,7 @@ update public.circles
 set created_at = created_at - interval '40 days'
 where id = '00000000-0000-4000-8000-000000000a02';
 
--- The morning after: Priya was there, Tom was not; Nic says it happened.
+-- The morning after: Nina was there, Tom was not; Nic says it happened.
 create or replace function pg_temp.conf_b() returns uuid language sql as $$
   select id from public.meetup_confirmations
   where plan_id = '00000000-0000-4000-8000-000000000b02' and status = 'active';
@@ -434,7 +434,7 @@ $$;
 -- "locked in" state and the circles list's "Locked in · Thu 24 Sep". Maya owns
 -- it, so all three of circle home's states are one sign-in away: Sunday Crew
 -- finding a time, Book Club locked in, The Big Table between catch-ups.
--- Priya has said she is going; Jess has not said yet.
+-- Nina has said she is going; Jess has not said yet.
 -- ---------------------------------------------------------------------------
 
 select pg_temp.seed_circle('00000000-0000-4000-8000-000000000a05', '00000000-0000-4000-8000-000000000101',
@@ -496,7 +496,7 @@ select pg_temp.act_as_postgres();
 -- the next two weekends and nothing between them, which is what the custom
 -- picker makes when an organiser taps four days. The days are rows in
 -- `plan_days` because there are gaps; the window is still its first and last
--- day. Priya has answered the first Saturday; Tom has not. Maya owns it, so
+-- day. Nina has answered the first Saturday; Tom has not. Maya owns it, so
 -- the availability editor (`/j/pnwkends`) shows four days with the week
 -- between them blank, and Edit plan opens the picker on those four.
 -- ---------------------------------------------------------------------------

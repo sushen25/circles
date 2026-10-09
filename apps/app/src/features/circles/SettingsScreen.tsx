@@ -94,8 +94,8 @@ function fixtureMembers(): SettingsMember[] {
       removable: false,
     },
     {
-      userId: 'priya',
-      name: t('settings', 'priya'),
+      userId: 'nina',
+      name: t('settings', 'nina'),
       detail: t('settings', 'joined_3_sep'),
       removable: true,
     },

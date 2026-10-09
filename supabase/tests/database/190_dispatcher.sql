@@ -67,13 +67,13 @@ language sql security definer as $$
   select j.status from jobs.notification_jobs j where j.idempotency_key = key
 $$;
 
--- Maya organises and has confirmed her address by signing in. Priya reads
+-- Maya organises and has confirmed her address by signing in. Nina reads
 -- email at one address and holds two identities at it — a laptop and a phone
 -- that lost its session, which is the commonest real thing that happens
 -- (spec §9). Tom is in the circle and has asked for nothing.
 select pg_temp.make_user('00000000-0000-0000-0000-0000000019a1', 'Maya', true, true);
-select pg_temp.make_user('00000000-0000-0000-0000-0000000019a2', 'Priya');
-select pg_temp.make_user('00000000-0000-0000-0000-0000000019a3', 'Priya 2');
+select pg_temp.make_user('00000000-0000-0000-0000-0000000019a2', 'Nina');
+select pg_temp.make_user('00000000-0000-0000-0000-0000000019a3', 'Nina 2');
 select pg_temp.make_user('00000000-0000-0000-0000-0000000019a4', 'Tom', true, false);
 
 select pg_temp.act_as('00000000-0000-0000-0000-0000000019a1');
@@ -86,8 +86,8 @@ grant select on t to anon, authenticated, service_role;
 
 insert into public.circle_members (circle_id, user_id, display_name_snapshot)
 select circle_id, u.id, u.name from t,
-  (values ('00000000-0000-0000-0000-0000000019a2'::uuid, 'Priya'),
-          ('00000000-0000-0000-0000-0000000019a3'::uuid, 'Priya 2'),
+  (values ('00000000-0000-0000-0000-0000000019a2'::uuid, 'Nina'),
+          ('00000000-0000-0000-0000-0000000019a3'::uuid, 'Nina 2'),
           ('00000000-0000-0000-0000-0000000019a4'::uuid, 'Tom')) as u (id, name);
 
 -- A live plan, and one whose fortnight is over.
@@ -130,12 +130,12 @@ select pg_temp.live_plan(), 1, u.id from (values
 -- One address, two identities, both subscribed to the same plan. This is the
 -- fixture the "one copy per event" rule exists for.
 insert into private.email_contacts (user_id, email_normalized, status, verified_at)
-values ('00000000-0000-0000-0000-0000000019a2', 'priya@example.com', 'verified', now()),
-       ('00000000-0000-0000-0000-0000000019a3', 'priya@example.com', 'verified', now());
+values ('00000000-0000-0000-0000-0000000019a2', 'nina@example.com', 'verified', now()),
+       ('00000000-0000-0000-0000-0000000019a3', 'nina@example.com', 'verified', now());
 
 insert into private.email_subscriptions (contact_id, user_id, scope, plan_id, status, consent_text_version)
 select c.id, c.user_id, 'plan_updates', pg_temp.live_plan(), 'active', '2026-09-14'
-from private.email_contacts c where c.email_normalized = 'priya@example.com';
+from private.email_contacts c where c.email_normalized = 'nina@example.com';
 
 -- ---------------------------------------------------------------------------
 -- Who may call any of it
@@ -232,7 +232,7 @@ select ok(
 );
 
 select throws_ok(
-  format($$ update jobs.outbox set last_error = 'Invalid to field: priya@example.com' where id = %L $$,
+  format($$ update jobs.outbox set last_error = 'Invalid to field: nina@example.com' where id = %L $$,
     pg_temp.failing_event()),
   '23514'::text,
   null::text,
@@ -257,7 +257,7 @@ select is(
 select is(
   jsonb_array_length(public.dispatch_context(pg_temp.live_plan()) -> 'email_recipients'),
   2,
-  'both of Priya''s identities may be emailed about this plan: two contacts, one address'
+  'both of Nina''s identities may be emailed about this plan: two contacts, one address'
 );
 select is(
   public.dispatch_context('00000000-0000-0000-0000-00000000dead'),
@@ -312,14 +312,14 @@ select is(
 -- ---------------------------------------------------------------------------
 select pg_temp.act_as_postgres();
 create temporary table tk as
-select encode(extensions.digest('locked-in-priya-one', 'sha256'), 'hex') as key_one,
-       encode(extensions.digest('locked-in-priya-two', 'sha256'), 'hex') as key_two,
-       encode(extensions.digest('reminder-priya-one', 'sha256'), 'hex') as key_reminder,
+select encode(extensions.digest('locked-in-nina-one', 'sha256'), 'hex') as key_one,
+       encode(extensions.digest('locked-in-nina-two', 'sha256'), 'hex') as key_two,
+       encode(extensions.digest('reminder-nina-one', 'sha256'), 'hex') as key_reminder,
        (select c.id from private.email_contacts c
-        where c.email_normalized = 'priya@example.com'
+        where c.email_normalized = 'nina@example.com'
           and c.user_id = '00000000-0000-0000-0000-0000000019a2') as contact_one,
        (select c.id from private.email_contacts c
-        where c.email_normalized = 'priya@example.com'
+        where c.email_normalized = 'nina@example.com'
           and c.user_id = '00000000-0000-0000-0000-0000000019a3') as contact_two;
 grant select on tk to anon, authenticated, service_role;
 
@@ -379,7 +379,7 @@ update public.circle_members m set status = 'removed'
 where m.user_id = (
   select c.user_id from private.email_contacts c
   join jobs.notification_jobs j on j.contact_id = c.id
-  where c.email_normalized = 'priya@example.com' and j.kind = 'locked_in'
+  where c.email_normalized = 'nina@example.com' and j.kind = 'locked_in'
   order by j.scheduled_for, j.created_at, j.id limit 1);
 
 select pg_temp.act_as_service();
@@ -463,7 +463,7 @@ set status = 'sent', sent_at = now(), provider_message_id = 'already-gone'
 where j.id = (
   select j2.id from jobs.notification_jobs j2
   join private.email_contacts c on c.id = j2.contact_id
-  where c.email_normalized = 'priya@example.com' and j2.kind = 'locked_in'
+  where c.email_normalized = 'nina@example.com' and j2.kind = 'locked_in'
   order by j2.scheduled_for, j2.created_at, j2.id limit 1);
 
 select pg_temp.act_as_service();
@@ -521,7 +521,7 @@ select pg_temp.act_as_service();
 select is(
   (select distinct j ->> 'email' from jsonb_array_elements(public.dispatch_claim_due(200)) j
    where j ->> 'plan_id' = pg_temp.live_plan()::text),
-  'priya@example.com',
+  'nina@example.com',
   'the address is read here, once, by the only thing that needs it'
 );
 
@@ -612,7 +612,7 @@ select is(
 );
 
 select throws_ok(
-  format($$ update jobs.notification_jobs set last_error = 'bounced: priya@example.com' where id = %L $$,
+  format($$ update jobs.notification_jobs set last_error = 'bounced: nina@example.com' where id = %L $$,
     (select job_two from tj)),
   '23514'::text,
   null::text,

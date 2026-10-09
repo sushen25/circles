@@ -38,16 +38,16 @@ test('from the chat to Sent in a name and five taps, and the email offer decline
   expect(page.url()).not.toContain('#');
 
   await page.getByRole('button', { name: 'Choose my times' }).click();
-  await page.getByLabel('Your name').fill('Priya');
+  await page.getByLabel('Your name').fill('Nina');
   await page.getByRole('button', { name: 'Continue' }).click();
 
   await expect(page).toHaveURL(new RegExp(`/j/${crew.planCode}$`));
   await expect(page.getByText("Times I'd actually be up for")).toBeVisible();
   await expectNoPrompts(page, dialogs);
 
-  const priya = memberNamed(crew.circleId, 'Priya');
-  expect(priya, 'Priya is a member of Sunday Crew').toBeDefined();
-  expect(priya?.anonymous, 'as a guest, with no account').toBe(true);
+  const nina = memberNamed(crew.circleId, 'Nina');
+  expect(nina, 'Nina is a member of Sunday Crew').toBeDefined();
+  expect(nina?.anonymous, 'as a guest, with no account').toBe(true);
 
   // Three days and Evening; "I'm easy" stays off, so the answer is the times.
   const days = page.getByRole('group', { name: 'Days in this plan' }).getByRole('button');
@@ -64,8 +64,8 @@ test('from the chat to Sent in a name and five taps, and the email offer decline
   await page.getByRole('button', { name: 'Send my times' }).click();
 
   await expect(page).toHaveURL(new RegExp(`/j/${crew.planCode}/sent$`));
-  await expect(page.getByText('Thanks, Priya. Your times are in.')).toBeVisible();
-  const answer = answerOf(crew.planId, priya!.userId);
+  await expect(page.getByText('Thanks, Nina. Your times are in.')).toBeVisible();
+  const answer = answerOf(crew.planId, nina!.userId);
   expect(answer?.status).toBe('windows');
   expect(answer?.windows).toHaveLength(3);
 
@@ -73,7 +73,7 @@ test('from the chat to Sent in a name and five taps, and the email offer decline
   await expect(page.getByText("Hear when it's locked in")).toBeVisible();
   await page.getByRole('button', { name: 'Not now' }).click();
   await expect(page.getByText("Hear when it's locked in")).toHaveCount(0);
-  expect(emailContactOf(priya!.userId)).toBeUndefined();
+  expect(emailContactOf(nina!.userId)).toBeUndefined();
   await expectNoPrompts(page, dialogs);
 });
 

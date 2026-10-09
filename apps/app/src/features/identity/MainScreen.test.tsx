@@ -19,7 +19,7 @@ describe('MainScreen', () => {
     // would be reply state the Join page has no business with (ADR 0006).
     render(
       <MainScreen
-        invite={{ circleName: 'Sunday Crew', inviterName: 'Maya', memberInitials: ['M', 'P'] }}
+        invite={{ circleName: 'Sunday Crew', inviterName: 'Maya', memberInitials: ['M', 'N'] }}
       />,
     );
 

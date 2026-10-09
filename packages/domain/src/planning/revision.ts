@@ -113,7 +113,7 @@ export function invalidatedResponses(
 }
 
 /**
- * "Priya, Tom and Jess" — an Oxford-comma-free list in the product's voice.
+ * "Nina, Tom and Jess" — an Oxford-comma-free list in the product's voice.
  * Returns the names, joined; the sentence around them is copy, and lives in
  * `apps/app/src/copy`.
  */

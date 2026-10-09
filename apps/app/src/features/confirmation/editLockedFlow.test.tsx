@@ -168,7 +168,7 @@ describe('moving the time', () => {
     expect(await screen.findByText(/^You, Tom and Jess can make it · /)).toBeTruthy();
     expect(
       screen.getByText(
-        'Everyone sees the new time straight away, with Friday marked as moved. Anyone whose times cover it stays going without doing a thing. Priya, Sam and Alex are asked whether they can come.',
+        'Everyone sees the new time straight away, with Friday marked as moved. Anyone whose times cover it stays going without doing a thing. Nina, Sam and Alex are asked whether they can come.',
       ),
     ).toBeTruthy();
   });

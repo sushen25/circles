@@ -57,7 +57,7 @@ describe('what would unlock it', () => {
   it('offers to change who has to be there when that is the rule, not a lower number', () => {
     const data = planWith({
       nearMisses: [
-        missWith(['maya', 'priya', 'jess'], {
+        missWith(['maya', 'nina', 'jess'], {
           kind: 'required_missing',
           userId: 'alex' as never,
         }),

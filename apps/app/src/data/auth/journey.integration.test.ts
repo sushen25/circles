@@ -200,7 +200,7 @@ describe('a guest who joins a circle and then saves their place', () => {
       body: {
         idempotency_key: globalThis.crypto.randomUUID(),
         secret,
-        display_name: 'Priya',
+        display_name: 'Nina',
       },
     });
     expect(joined.error).toBeNull();
@@ -239,7 +239,7 @@ describe('a guest who joins a circle and then saves their place', () => {
     // The same membership row, under the same name, still active — not a second
     // one created for the permanent identity, which is the failure this guards.
     expect(after.data?.filter((m) => m.user_id === guestId)).toEqual([
-      { user_id: guestId, display_name_snapshot: 'Priya', status: 'active' },
+      { user_id: guestId, display_name_snapshot: 'Nina', status: 'active' },
     ]);
     expect(after.data).toHaveLength(before.data?.length ?? 0);
 

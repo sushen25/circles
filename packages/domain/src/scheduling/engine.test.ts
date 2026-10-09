@@ -11,7 +11,7 @@ import {
   ALEX,
   JESS,
   NIC,
-  PRIYA,
+  NINA,
   SAM,
   SUNDAY_CREW,
   TOM,
@@ -41,12 +41,12 @@ describe('the Candidates artboard', () => {
 
   it('says five of six for Thursday, because Alex has not answered', () => {
     const [thursday] = set.eligible;
-    expect(thursday?.availableUserIds).toEqual([SAM, PRIYA, TOM, JESS, NIC]);
+    expect(thursday?.availableUserIds).toEqual([SAM, NINA, TOM, JESS, NIC]);
     expect(thursday?.availableUserIds).not.toContain(ALEX);
   });
 
-  it('loses Priya on the Saturday and Tom on the Sunday', () => {
-    expect(set.eligible[1]?.availableUserIds).not.toContain(PRIYA);
+  it('loses Nina on the Saturday and Tom on the Sunday', () => {
+    expect(set.eligible[1]?.availableUserIds).not.toContain(NINA);
     expect(set.eligible[2]?.availableUserIds).not.toContain(TOM);
   });
 
@@ -112,13 +112,13 @@ describe('availability', () => {
     const input = sundayCrewInput({
       responses: [
         [SAM, { status: 'windows', windows: [on('2026-09-17', 18 * 60, 20 * 60)] }],
-        [PRIYA, { status: 'flexible', windows: [] }],
+        [NINA, { status: 'flexible', windows: [] }],
       ],
-      activeMemberIds: [SAM, PRIYA],
+      activeMemberIds: [SAM, NINA],
       plan: { ...NEXT_FORTNIGHT, quorum: 2 },
     });
     const [best] = generateCandidates(input).eligible;
-    expect(best?.availableUserIds).toEqual([SAM, PRIYA]);
+    expect(best?.availableUserIds).toEqual([SAM, NINA]);
     expect(best?.explicitCount).toBe(1);
     expect(best?.flexibleCount).toBe(1);
   });
@@ -128,11 +128,11 @@ describe('availability', () => {
     const input = sundayCrewInput({
       responses: [
         [SAM, { status: 'windows', windows: [explicitDay] }],
-        [PRIYA, { status: 'windows', windows: [explicitDay] }],
+        [NINA, { status: 'windows', windows: [explicitDay] }],
         [TOM, { status: 'flexible', windows: [] }],
         [JESS, { status: 'flexible', windows: [] }],
       ],
-      activeMemberIds: [SAM, PRIYA, TOM, JESS],
+      activeMemberIds: [SAM, NINA, TOM, JESS],
       plan: { ...NEXT_FORTNIGHT, quorum: 2 },
     });
     // Every start has the two flexible members; only Thursday 6–8 has the two
@@ -198,7 +198,7 @@ describe('explanations agree with the clock', () => {
         plan: { ...NEXT_FORTNIGHT, quorum: 3 },
         responses: [
           [SAM, { status: 'windows', windows: both() }],
-          [PRIYA, { status: 'windows', windows: both() }],
+          [NINA, { status: 'windows', windows: both() }],
           [TOM, { status: 'windows', windows: both() }],
           [JESS, { status: 'windows', windows: fridayOnly() }],
           [NIC, { status: 'windows', windows: fridayOnly() }],
@@ -378,7 +378,7 @@ describe('near-misses when nothing is eligible', () => {
         plan: { ...NEXT_FORTNIGHT, quorum: 6 },
         responses: [
           [SAM, { status: 'windows', windows: [on('2026-09-17', 18 * 60, 20 * 60)] }],
-          [PRIYA, { status: 'windows', windows: [on('2026-09-17', 18 * 60, 20 * 60)] }],
+          [NINA, { status: 'windows', windows: [on('2026-09-17', 18 * 60, 20 * 60)] }],
           [TOM, { status: 'windows', windows: [on('2026-09-17', 18 * 60, 20 * 60)] }],
           [JESS, { status: 'windows', windows: [on('2026-09-16', 18 * 60, 20 * 60)] }],
           [NIC, { status: 'windows', windows: [on('2026-09-16', 18 * 60, 20 * 60)] }],
@@ -452,7 +452,7 @@ describe('determinism', () => {
 
   it('is stable across many random inputs', () => {
     const days = ['2026-09-17', '2026-09-18', '2026-09-19', '2026-09-20'];
-    const member = fc.constantFrom(SAM, PRIYA, TOM, JESS, NIC, ALEX);
+    const member = fc.constantFrom(SAM, NINA, TOM, JESS, NIC, ALEX);
     const window = fc
       .tuple(fc.constantFrom(...days), fc.integer({ min: 18, max: 20 }))
       .map(([day, hour]) => on(day, hour * 60, (hour + 2) * 60));
@@ -480,12 +480,12 @@ describe('determinism', () => {
     // `requiredMemberIds` is a set, and `canonicalise` sorts it — so two inputs
     // that hash the same have to answer the same. Reporting whichever id came
     // first in the array made the reason depend on how the caller built it.
-    const required = [PRIYA, TOM];
+    const required = [NINA, TOM];
     const answers = [
       [SAM, { status: 'flexible' as const, windows: [] }],
       [JESS, { status: 'flexible' as const, windows: [] }],
     ] as const;
-    const forOrder = (requiredMemberIds: readonly (typeof PRIYA)[]) =>
+    const forOrder = (requiredMemberIds: readonly (typeof NINA)[]) =>
       generateCandidates(
         sundayCrewInput({
           plan: { ...NEXT_FORTNIGHT, quorum: 2, requiredMemberIds },
@@ -496,7 +496,7 @@ describe('determinism', () => {
     const forwards = forOrder(required);
     const backwards = forOrder([...required].reverse());
 
-    expect(forwards.nearMisses[0]?.reason).toEqual({ kind: 'required_missing', userId: PRIYA });
+    expect(forwards.nearMisses[0]?.reason).toEqual({ kind: 'required_missing', userId: NINA });
     expect(backwards).toEqual(forwards);
     expect(backwards.inputHash).toBe(forwards.inputHash);
   });

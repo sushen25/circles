@@ -17,7 +17,7 @@ describe('confirmedOf', () => {
     const view = confirmedOf(lockedIn, confirmation);
     expect(view.counts).toBe('5 going · 1 to confirm');
     expect(view.unsaid).toBe("Alex hasn't said yet");
-    expect(view.names).toBe('Maya, Priya and 3 others going · Alex to confirm');
+    expect(view.names).toBe('Maya, Nina and 3 others going · Alex to confirm');
     expect(view.timePlace).toMatch(/ · Hope St Radio$/);
     expect(view.note).toBe("Maya says: “Table's booked under my name. Come hungry.”");
   });

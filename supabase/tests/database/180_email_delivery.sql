@@ -68,11 +68,11 @@ returns uuid language sql security definer as $$
   ) returning id;
 $$;
 
--- Maya owns the circle. Priya is a guest reading email at one address, and
--- Priya's second identity (a lost session, joined again) holds the same one.
+-- Maya owns the circle. Nina is a guest reading email at one address, and
+-- Nina's second identity (a lost session, joined again) holds the same one.
 select pg_temp.make_user('00000000-0000-0000-0000-0000000018a1', 'Maya', true);
-select pg_temp.make_user('00000000-0000-0000-0000-0000000018a2', 'Priya');
-select pg_temp.make_user('00000000-0000-0000-0000-0000000018a3', 'Priya');
+select pg_temp.make_user('00000000-0000-0000-0000-0000000018a2', 'Nina');
+select pg_temp.make_user('00000000-0000-0000-0000-0000000018a3', 'Nina');
 select pg_temp.make_user('00000000-0000-0000-0000-0000000018a4', 'Tom');
 
 select pg_temp.act_as('00000000-0000-0000-0000-0000000018a1');
@@ -85,8 +85,8 @@ grant select on t to anon, authenticated, service_role;
 
 insert into public.circle_members (circle_id, user_id, display_name_snapshot)
 select circle_id, u.id, u.name from t,
-  (values ('00000000-0000-0000-0000-0000000018a2'::uuid, 'Priya'),
-          ('00000000-0000-0000-0000-0000000018a3'::uuid, 'Priya 2'),
+  (values ('00000000-0000-0000-0000-0000000018a2'::uuid, 'Nina'),
+          ('00000000-0000-0000-0000-0000000018a3'::uuid, 'Nina 2'),
           ('00000000-0000-0000-0000-0000000018a4'::uuid, 'Tom')) as u (id, name);
 
 insert into public.plans (
@@ -104,8 +104,8 @@ grant select on tp to anon, authenticated, service_role;
 
 insert into private.email_contacts (user_id, email_normalized, status, verified_at)
 values
-  ('00000000-0000-0000-0000-0000000018a2', 'priya@example.com', 'verified', now()),
-  ('00000000-0000-0000-0000-0000000018a3', 'priya@example.com', 'verified', now()),
+  ('00000000-0000-0000-0000-0000000018a2', 'nina@example.com', 'verified', now()),
+  ('00000000-0000-0000-0000-0000000018a3', 'nina@example.com', 'verified', now()),
   ('00000000-0000-0000-0000-0000000018a4', 'tom@example.com', 'verified', now());
 insert into private.email_contacts (user_id, email_normalized)
 values ('00000000-0000-0000-0000-0000000018a4', 'tom-pending@example.com');
@@ -254,31 +254,31 @@ select is(
 -- A complaint suppresses the address: every contact, subscription and job
 -- ---------------------------------------------------------------------------
 select pg_temp.sent_job(
-  pg_temp.contact_of('priya@example.com', '00000000-0000-0000-0000-0000000018a2'),
-  (select plan_id from tp), 'msg-priya-1', 'k-priya-1');
+  pg_temp.contact_of('nina@example.com', '00000000-0000-0000-0000-0000000018a2'),
+  (select plan_id from tp), 'msg-nina-1', 'k-nina-1');
 
 select pg_temp.act_as_postgres();
--- A reminder queued for Priya's second identity, at the same address.
+-- A reminder queued for Nina's second identity, at the same address.
 insert into jobs.notification_jobs (
   channel, kind, contact_id, plan_id, plan_revision, scheduled_for, idempotency_key
 ) values (
-  'email', 'reminder', pg_temp.contact_of('priya@example.com', '00000000-0000-0000-0000-0000000018a3'),
+  'email', 'reminder', pg_temp.contact_of('nina@example.com', '00000000-0000-0000-0000-0000000018a3'),
   (select plan_id from tp), 1, now() + interval '1 day',
-  encode(extensions.digest('k-priya-reminder', 'sha256'), 'hex')
+  encode(extensions.digest('k-nina-reminder', 'sha256'), 'hex')
 );
 
 select pg_temp.act_as_service();
 select is(
-  public.record_email_delivery('msg-priya-1', 'complained', now(), true,
-    extensions.digest('priya@example.com', 'sha256')) -> 'suppressed',
+  public.record_email_delivery('msg-nina-1', 'complained', now(), true,
+    extensions.digest('nina@example.com', 'sha256')) -> 'suppressed',
   'true'::jsonb,
   'a complaint suppresses'
 );
 
 select is(
   array[
-    pg_temp.status_of('priya@example.com', '00000000-0000-0000-0000-0000000018a2'),
-    pg_temp.status_of('priya@example.com', '00000000-0000-0000-0000-0000000018a3')
+    pg_temp.status_of('nina@example.com', '00000000-0000-0000-0000-0000000018a2'),
+    pg_temp.status_of('nina@example.com', '00000000-0000-0000-0000-0000000018a3')
   ],
   array['suppressed', 'suppressed'],
   'the contact the message went to, and the sibling holding the same address'
@@ -288,7 +288,7 @@ select pg_temp.act_as_postgres();
 select is(
   (select array_agg(distinct s.status) from private.email_subscriptions s
    join private.email_contacts c on c.id = s.contact_id
-   where c.email_normalized = 'priya@example.com'),
+   where c.email_normalized = 'nina@example.com'),
   array['withdrawn'],
   'every subscription at the address is withdrawn'
 );
@@ -297,19 +297,19 @@ select is(
    where o.event_name = 'communication.subscription_changed'
      and o.payload ->> 'status' = 'withdrawn'
      and (o.payload ->> 'contact_id')::uuid in (
-       select id from private.email_contacts where email_normalized = 'priya@example.com')),
+       select id from private.email_contacts where email_normalized = 'nina@example.com')),
   2,
   'each with an event of its own'
 );
 select is(
   (select status || ':' || last_error from jobs.notification_jobs
-   where idempotency_key = encode(extensions.digest('k-priya-reminder', 'sha256'), 'hex')),
+   where idempotency_key = encode(extensions.digest('k-nina-reminder', 'sha256'), 'hex')),
   'skipped:suppressed',
   'and the reminder still queued for it will not be sent'
 );
 select is(
   (select reason from private.email_suppressions
-   where email_hash = extensions.digest('priya@example.com', 'sha256')),
+   where email_hash = extensions.digest('nina@example.com', 'sha256')),
   'complained',
   'the tombstone says why, and outlives the contacts'
 );

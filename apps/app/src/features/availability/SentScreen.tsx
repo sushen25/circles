@@ -52,7 +52,7 @@ const OUTCOME_COPY = {
 export type SentProps = {
   state?: 'default' | 'loading' | 'error' | 'offline' | undefined;
   circleName?: string | undefined;
-  /** "Thanks, Priya. Your times are in." */
+  /** "Thanks, Nina. Your times are in." */
   headline?: string | undefined;
   /** "Maya will pick a time once replies close on Tuesday…" */
   body?: string | undefined;

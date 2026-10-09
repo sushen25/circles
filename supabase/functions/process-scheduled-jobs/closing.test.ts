@@ -19,7 +19,7 @@ import type { DueJob } from './send.ts';
 
 const PLAN = '00000000-0000-4000-8000-0000000000b1';
 const MAYA = '00000000-0000-4000-8000-0000000000a1';
-const PRIYA = '00000000-0000-4000-8000-0000000000a2';
+const NINA = '00000000-0000-4000-8000-0000000000a2';
 const DEADLINE = fromISO('2026-09-15T08:00:00.000Z');
 const NOW = addMinutes(DEADLINE, 120);
 
@@ -94,7 +94,7 @@ const handed = (id = '00000000-0000-4000-8000-0000000000e2'): OutboxEvent => ({
 
 describe('what a hand-off tells the new organiser', () => {
   it('replies closed: the letter that opens the three ways out', () => {
-    const [intent, ...rest] = handedOverIntents(handed(), contextOf({ organiser: PRIYA }), NOW);
+    const [intent, ...rest] = handedOverIntents(handed(), contextOf({ organiser: NINA }), NOW);
     expect(rest).toEqual([]);
     expect(intent?.kind).toBe('replies_closed');
   });
@@ -109,7 +109,7 @@ describe('what a hand-off tells the new organiser', () => {
   });
 
   it('options on offer and replies still open: options ready', () => {
-    const open = contextOf({ organiser: PRIYA, deadline: addMinutes(NOW, 60) });
+    const open = contextOf({ organiser: NINA, deadline: addMinutes(NOW, 60) });
     expect(handedOverIntents(handed(), open, NOW).map((i) => i.kind)).toEqual(['options_ready']);
   });
 
@@ -138,7 +138,7 @@ describe('a letter that has stopped being true', () => {
   });
 
   it('is not sent to somebody who has handed the plan on', () => {
-    const handed = contextOf({ organiser: PRIYA });
+    const handed = contextOf({ organiser: NINA });
     for (const kind of ['options_ready', 'did_it_happen']) {
       expect(closingHeld(due(kind, MAYA), handed, NOW), kind).toBe('organiser_changed');
     }
@@ -149,11 +149,11 @@ describe('a letter that has stopped being true', () => {
 
   it("leaves the owner's fallback letter alone while nobody organises (SUS-50)", () => {
     const unorganised = { ...contextOf({}), organiserUserId: undefined } as PlanContext;
-    expect(closingHeld(due('replies_closed', PRIYA), unorganised, NOW)).toBeUndefined();
+    expect(closingHeld(due('replies_closed', NINA), unorganised, NOW)).toBeUndefined();
   });
 
   it('leaves every member kind alone', () => {
-    const handed = contextOf({ organiser: PRIYA, state: 'confirmed' });
+    const handed = contextOf({ organiser: NINA, state: 'confirmed' });
     for (const kind of ['locked_in', 'reminder', 'cancelled', 'did_it_happen_participant']) {
       expect(closingHeld(due(kind, MAYA), handed, NOW), kind).toBeUndefined();
     }

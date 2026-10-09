@@ -22,7 +22,7 @@ describe('GuestMemberOption', () => {
     const row: ListedRow = {
       circle_id: '00000000-0000-4000-8000-0000000000c1',
       member_user_id: '00000000-0000-4000-8000-0000000000a1',
-      display_name: 'Priya',
+      display_name: 'Nina',
     };
 
     const parsed = GuestMemberOption.parse(row);
@@ -33,7 +33,7 @@ describe('GuestMemberOption', () => {
     const parsed = GuestMemberOption.parse({
       circle_id: '00000000-0000-4000-8000-0000000000c1',
       member_user_id: '00000000-0000-4000-8000-0000000000a1',
-      display_name: 'Priya',
+      display_name: 'Nina',
     });
 
     expect(parsed.circle_id).toBe('00000000-0000-4000-8000-0000000000c1');
@@ -45,7 +45,7 @@ describe('GuestMemberOption', () => {
     const parsed = GuestMemberOption.parse({
       circle_id: '00000000-0000-4000-8000-0000000000c1',
       member_user_id: '00000000-0000-4000-8000-0000000000a1',
-      display_name: 'Priya',
+      display_name: 'Nina',
       has_replied: true,
       email_verified: true,
     });
@@ -65,7 +65,7 @@ describe('InvitePreview', () => {
     const row: PreviewRow = {
       circle_name: 'Sunday Crew',
       inviter_name: 'Maya',
-      member_initials: ['M', 'P'],
+      member_initials: ['M', 'N'],
     };
 
     expect(Object.keys(InvitePreview.parse(row)).sort()).toEqual(Object.keys(row).sort());

@@ -14,7 +14,7 @@ import { emailProviderWebhook } from './handler.ts';
  * scanner fails CI for, and rightly.
  */
 
-const ADDRESS = 'priya@example.com';
+const ADDRESS = 'nina@example.com';
 const PLAN = '00000000-0000-4000-8000-0000000000aa';
 const CIRCLE = '00000000-0000-4000-8000-0000000000bb';
 const CONTACT = '00000000-0000-4000-8000-0000000000cc';
@@ -208,7 +208,7 @@ describe('email-provider-webhook', () => {
   });
 
   it('normalises the address as the contact table does before hashing it', async () => {
-    const body = event('email.bounced', { to: ['Priya <  PRIYA@example.com >'] });
+    const body = event('email.bounced', { to: ['Nina <  NINA@example.com >'] });
     await webhook()(post(body, await sign(body)));
     expect(calls[0]?.args['p_email_hash']).toBe(await sha256Hex(ADDRESS));
   });

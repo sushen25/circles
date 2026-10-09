@@ -44,10 +44,10 @@ begin
 end;
 $$;
 
--- Maya owns circle A, Priya and Tom are members; Gone will be removed; Nobody
--- is in no circle; Priya is also a member of circle B, owned by Maya.
+-- Maya owns circle A, Nina and Tom are members; Gone will be removed; Nobody
+-- is in no circle; Nina is also a member of circle B, owned by Maya.
 select pg_temp.make_user('00000000-0000-0000-0000-0000000037a1', 'Maya');
-select pg_temp.make_user('00000000-0000-0000-0000-0000000037a2', 'Priya');
+select pg_temp.make_user('00000000-0000-0000-0000-0000000037a2', 'Nina');
 select pg_temp.make_user('00000000-0000-0000-0000-0000000037a3', 'Tom');
 select pg_temp.make_user('00000000-0000-0000-0000-0000000037a4', 'Gone');
 select pg_temp.make_user('00000000-0000-0000-0000-0000000037a5', 'Nobody');
@@ -64,12 +64,12 @@ grant select on t to anon, authenticated;
 
 insert into public.circle_members (circle_id, user_id, display_name_snapshot)
 select a, u.id, u.name from t, (values
-  ('00000000-0000-0000-0000-0000000037a2'::uuid, 'Priya'),
+  ('00000000-0000-0000-0000-0000000037a2'::uuid, 'Nina'),
   ('00000000-0000-0000-0000-0000000037a3'::uuid, 'Tom'),
   ('00000000-0000-0000-0000-0000000037a4'::uuid, 'Gone')
 ) as u (id, name);
 insert into public.circle_members (circle_id, user_id, display_name_snapshot)
-select b, '00000000-0000-0000-0000-0000000037a2', 'Priya' from t;
+select b, '00000000-0000-0000-0000-0000000037a2', 'Nina' from t;
 
 create or replace function pg_temp.mkplan(circle uuid, title text, zone text, first_day date,
   last_day date, from_min integer, to_min integer, code text)
@@ -188,7 +188,7 @@ select is(pg_temp.prev('00000000-0000-0000-0000-0000000037a3', 'pdwade'), array[
 -- One earlier answer is enough.
 -- ---------------------------------------------------------------------------
 
--- Priya, Thursday 6-8 pm on the second plan.
+-- Nina, Thursday 6-8 pm on the second plan.
 select pg_temp.reply('00000000-0000-0000-0000-0000000037a2', 'pdsad3', 1, 'windows',
   jsonb_build_array(jsonb_build_array('2099-08-13', 1080, 1200)));
 select is(pg_temp.prev('00000000-0000-0000-0000-0000000037a2', 'pdwade'),
@@ -253,9 +253,9 @@ select is(pg_temp.prev('00000000-0000-0000-0000-0000000037a3', 'pdevng'), array[
 
 select is(pg_temp.prev('00000000-0000-0000-0000-0000000037a2', 'pdwade'),
   array['weekday_evening', 'weekend_morning'],
-  'Tom''s windows are never Priya''s: her answer did not change when his arrived');
+  'Tom''s windows are never Nina''s: her answer did not change when his arrived');
 
--- Priya, in circle B, Sunday 8-10 pm.
+-- Nina, in circle B, Sunday 8-10 pm.
 select pg_temp.reply('00000000-0000-0000-0000-0000000037a2', 'pdesse', 1, 'windows',
   jsonb_build_array(jsonb_build_array('2099-09-20', 1200, 1320)));
 select is(pg_temp.prev('00000000-0000-0000-0000-0000000037a2', 'pdwade'),
@@ -344,7 +344,7 @@ reset timezone;
 select pg_temp.act_as('00000000-0000-0000-0000-0000000037a2');
 select is(
   (select count(*)::integer from public.plan_responses where user_id <> '00000000-0000-0000-0000-0000000037a2'),
-  0, 'Priya still cannot select anybody else''s response');
+  0, 'Nina still cannot select anybody else''s response');
 select is(
   (select count(*)::integer from public.willing_windows w
    join public.plan_responses r on r.id = w.response_id

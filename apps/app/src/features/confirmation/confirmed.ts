@@ -53,7 +53,7 @@ export type ConfirmedView = {
   counts: string;
   /** Going first, then those still to say, dashed. Nobody who can't. */
   members: Member[];
-  /** "Maya, Priya and 3 others going · Alex to confirm" — also what the marks announce. */
+  /** "Maya, Nina and 3 others going · Alex to confirm" — also what the marks announce. */
   names: string;
   /** "Alex hasn't said yet", or that everyone has. */
   unsaid: string;

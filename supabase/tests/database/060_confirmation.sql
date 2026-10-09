@@ -42,9 +42,9 @@ begin
 end;
 $$;
 
--- Maya organises, Priya and Tom are members, Nobody is outside the circle.
+-- Maya organises, Nina and Tom are members, Nobody is outside the circle.
 select pg_temp.make_user('00000000-0000-0000-0000-0000000003a1', 'Maya');
-select pg_temp.make_user('00000000-0000-0000-0000-0000000003a2', 'Priya');
+select pg_temp.make_user('00000000-0000-0000-0000-0000000003a2', 'Nina');
 select pg_temp.make_user('00000000-0000-0000-0000-0000000003a3', 'Tom');
 select pg_temp.make_user('00000000-0000-0000-0000-0000000003a4', 'Nobody');
 
@@ -55,7 +55,7 @@ select pg_temp.act_as_postgres();
 create temporary table t as select id as circle_id from public.circles where creation_key = 'key-confirm';
 grant select on t to anon, authenticated, service_role;
 insert into public.circle_members (circle_id, user_id, display_name_snapshot)
-select circle_id, '00000000-0000-0000-0000-0000000003a2'::uuid, 'Priya' from t
+select circle_id, '00000000-0000-0000-0000-0000000003a2'::uuid, 'Nina' from t
 union all
 select circle_id, '00000000-0000-0000-0000-0000000003a3'::uuid, 'Tom' from t;
 
@@ -207,7 +207,7 @@ select lives_ok(
   format($$update public.attendance set status = 'cant'
     where confirmation_id = '%s' and user_id = '00000000-0000-0000-0000-0000000003a2'$$,
     :'future_conf'),
-  'Priya can say she cannot make it after all'
+  'Nina can say she cannot make it after all'
 );
 select is(
   (select status from public.attendance
@@ -327,7 +327,7 @@ select is(
   (select count(*)::integer from public.attendance
    where confirmation_id = :'past_conf' and user_id = '00000000-0000-0000-0000-0000000003a2'),
   0,
-  'Priya''s answer about the past is not Maya''s to read — not even the organiser''s'
+  'Nina''s answer about the past is not Maya''s to read — not even the organiser''s'
 );
 select is(
   (select count(*)::integer from public.attendance

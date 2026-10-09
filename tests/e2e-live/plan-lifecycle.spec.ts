@@ -107,7 +107,7 @@ test('a member whose times an edit cleared is told so, on the grid and on circle
   const maya = await asMaya(page);
   const circleId = circleOwnedBy(maya, 'Sunday Crew');
   const plan = planFor(circleId, maya);
-  const priya = await memberOf(browser, circleId, plan.id, 'Priya', true);
+  const nina = await memberOf(browser, circleId, plan.id, 'Nina', true);
   const jess = await memberOf(browser, circleId, plan.id, 'Jess', false);
 
   await page.goto(`/circles/${circleId}/plan/${plan.id}/edit`);
@@ -120,13 +120,13 @@ test('a member whose times an edit cleared is told so, on the grid and on circle
   const cleared =
     'The plan changed, so the times you sent were cleared. Add yours again so they count.';
 
-  // Priya answered the first question, on no device this one has seen.
-  await priya.goto(`/circles/${circleId}`);
-  await expect(priya.getByText(cleared)).toBeVisible();
+  // Nina answered the first question, on no device this one has seen.
+  await nina.goto(`/circles/${circleId}`);
+  await expect(nina.getByText(cleared)).toBeVisible();
   // The card's button is the way to add them (review round 2).
-  await priya.getByRole('button', { name: 'Add my times' }).click();
-  await expect(priya).toHaveURL(new RegExp(`/j/${plan.code}$`));
-  await expect(priya.getByText(changed)).toBeVisible();
+  await nina.getByRole('button', { name: 'Add my times' }).click();
+  await expect(nina).toHaveURL(new RegExp(`/j/${plan.code}$`));
+  await expect(nina.getByText(changed)).toBeVisible();
 
   // Jess never answered: a revised plan is just a plan to her.
   await jess.goto(`/j/${plan.code}`);
@@ -137,17 +137,17 @@ test('a member whose times an edit cleared is told so, on the grid and on circle
   await expect(jess.getByText(cleared)).toHaveCount(0);
   await expect(jess.getByRole('button', { name: "See how it's looking" })).toBeVisible();
 
-  // Once Priya answers the question as it is now, neither says it again.
-  await priya.getByRole('switch', { name: "I'm easy" }).click();
-  await priya.getByRole('button', { name: 'Send my times' }).click();
-  await expect(priya).toHaveURL(new RegExp(`/j/${plan.code}/sent$`));
-  await priya.goto(`/j/${plan.code}`);
-  await expect(priya.getByText("Times I'd actually be up for")).toBeVisible();
-  await expect(priya.getByText(changed)).toHaveCount(0);
-  await priya.goto(`/circles/${circleId}`);
-  await expect(priya.getByText('Finding a time')).toBeVisible();
-  await expect(priya.getByText(cleared)).toHaveCount(0);
-  await expect(priya.getByRole('button', { name: "See how it's looking" })).toBeVisible();
+  // Once Nina answers the question as it is now, neither says it again.
+  await nina.getByRole('switch', { name: "I'm easy" }).click();
+  await nina.getByRole('button', { name: 'Send my times' }).click();
+  await expect(nina).toHaveURL(new RegExp(`/j/${plan.code}/sent$`));
+  await nina.goto(`/j/${plan.code}`);
+  await expect(nina.getByText("Times I'd actually be up for")).toBeVisible();
+  await expect(nina.getByText(changed)).toHaveCount(0);
+  await nina.goto(`/circles/${circleId}`);
+  await expect(nina.getByText('Finding a time')).toBeVisible();
+  await expect(nina.getByText(cleared)).toHaveCount(0);
+  await expect(nina.getByRole('button', { name: "See how it's looking" })).toBeVisible();
 });
 
 /**

@@ -119,7 +119,7 @@ export const SUNDAY_CREW: { readonly [K in EmailKind]: Extract<EmailInput, { kin
 };
 
 /** Every member of the Sunday Crew but the circle itself. A subject may name none of them. */
-export const MEMBER_NAMES = ['Maya', 'Priya', 'Tom', 'Jess', 'Sam', 'Alex'];
+export const MEMBER_NAMES = ['Maya', 'Nina', 'Tom', 'Jess', 'Sam', 'Alex'];
 
 /** The other kind of `changed`: same Thursday, and the venue moved. */
 export const CHANGED_PLACE: Extract<EmailInput, { kind: 'changed' }> = {

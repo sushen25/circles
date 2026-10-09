@@ -81,15 +81,15 @@ async function signedInAs(page: Page, stored: string): Promise<void> {
   });
 }
 
-/** Maya's own circle, with Priya asked, and last night's meetup not yet reported. */
+/** Maya's own circle, with Nina asked, and last night's meetup not yet reported. */
 async function mayaTheMorningAfter() {
   const maya = await signedInAccount('Maya');
   const circleId = circleOwnedBy(maya.userId, 'Sunday Crew');
   const plan = planFor(circleId, maya.userId);
   const crew = { circleId, planId: plan.id, planCode: plan.code, ownerId: maya.userId, secret: '' };
-  const priya = guestInvited(crew, 'Priya');
-  const confirmationId = happenedTheOtherNight(plan.id, maya.userId, [maya.userId, priya]);
-  return { maya, circleId, plan, priya, confirmationId };
+  const nina = guestInvited(crew, 'Nina');
+  const confirmationId = happenedTheOtherNight(plan.id, maya.userId, [maya.userId, nina]);
+  return { maya, circleId, plan, nina, confirmationId };
 }
 
 test('"it happened", from the emailed link, is on circle home at once', async ({ page }) => {

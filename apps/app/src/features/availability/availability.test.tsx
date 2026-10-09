@@ -18,7 +18,7 @@ vi.mock('expo-router', () => ({
 const track = vi.fn();
 vi.mock('../../analytics/track', () => ({ track: (...args: unknown[]) => track(...args) }));
 vi.mock('../../data/auth/client', () => ({ hasBackend: () => true }));
-const session = { status: 'guest', userId: 'priya', isAnonymous: true, isLoading: false };
+const session = { status: 'guest', userId: 'nina', isAnonymous: true, isLoading: false };
 vi.mock('../../data/auth/session', () => ({ useSession: () => session }));
 
 const planToAnswer = vi.fn();
@@ -106,7 +106,7 @@ async function send() {
 }
 
 beforeEach(() => {
-  session.userId = 'priya';
+  session.userId = 'nina';
   for (const mock of [replace, push, track, planToAnswer, submitAnswer, askToPlan]) {
     mock.mockReset();
   }
@@ -145,7 +145,7 @@ describe('painting and sending', () => {
       usual_used: false,
     });
     // Sent, so nothing is left waiting on the device.
-    expect(await readDraft('priya', CODE)).toBeUndefined();
+    expect(await readDraft('nina', CODE)).toBeUndefined();
   });
 
   it('counts opening it as starting, with the plan, for the time-to-answer median', async () => {
@@ -230,11 +230,11 @@ describe('days first, then a time once (ADR 0024)', () => {
     fireEvent.click(dayButton('Thursday', 17));
     // Ticking sets no time, so there is nothing to keep yet.
     await act(async () => undefined);
-    expect(await readDraft('priya', CODE)).toBeUndefined();
+    expect(await readDraft('nina', CODE)).toBeUndefined();
 
     fireEvent.click(evening());
     fireEvent.click(screen.getByRole('button', { name: /^Tuesday.*Adjust by the half hour$/ }));
-    await waitFor(async () => expect(await readDraft('priya', CODE)).toBeDefined());
+    await waitFor(async () => expect(await readDraft('nina', CODE)).toBeDefined());
     const stored = JSON.stringify(globalThis.localStorage);
     expect(stored).not.toMatch(/ticked|"open"|undo/);
 
@@ -373,7 +373,7 @@ describe('a connection that goes nowhere', () => {
     await send();
 
     await screen.findByText('Your times are saved on this phone.');
-    const draft = await readDraft('priya', CODE);
+    const draft = await readDraft('nina', CODE);
     expect(draft?.pending?.status).toBe('windows');
     const firstKey = submitAnswer.mock.calls[0]![0].idempotencyKey;
 
@@ -387,7 +387,7 @@ describe('a connection that goes nowhere', () => {
   });
 
   it('sends a draft that was on its way when the page went away, as soon as the page is back', async () => {
-    await writeDraft('priya', CODE, {
+    await writeDraft('nina', CODE, {
       plan: PLAN,
       windows: [MONDAY],
       flexible: false,
@@ -403,7 +403,7 @@ describe('a connection that goes nowhere', () => {
   });
 
   it('shows the plan from the device when the plan cannot be fetched', async () => {
-    await writeDraft('priya', CODE, { plan: PLAN, windows: [WEDNESDAY], flexible: false });
+    await writeDraft('nina', CODE, { plan: PLAN, windows: [WEDNESDAY], flexible: false });
     planToAnswer.mockRejectedValue(new Error('plan lookup failed'));
     open();
 
@@ -414,7 +414,7 @@ describe('a connection that goes nowhere', () => {
 describe('what the device had, against what the server has', () => {
   it('prefers a draft newer than the stored answer: it is what the person last did', async () => {
     planToAnswer.mockResolvedValue({ plan: PLAN, answer: answerable.answer });
-    await writeDraft('priya', CODE, { plan: PLAN, windows: [WEDNESDAY], flexible: false });
+    await writeDraft('nina', CODE, { plan: PLAN, windows: [WEDNESDAY], flexible: false });
     open();
 
     await screen.findByText('7–9:30 pm');
@@ -423,12 +423,12 @@ describe('what the device had, against what the server has', () => {
 
   it('throws away a draft of a question that has since changed, and says so', async () => {
     planToAnswer.mockResolvedValue({ plan: { ...PLAN, revision: 2 }, answer: null });
-    await writeDraft('priya', CODE, { plan: PLAN, windows: [MONDAY], flexible: false });
+    await writeDraft('nina', CODE, { plan: PLAN, windows: [MONDAY], flexible: false });
     open();
 
     await screen.findByText(/The plan changed/);
     expect(screen.getByText(/of 14 days/)).toHaveTextContent('0 of 14 days');
-    await waitFor(async () => expect(await readDraft('priya', CODE)).toBeUndefined());
+    await waitFor(async () => expect(await readDraft('nina', CODE)).toBeUndefined());
   });
 });
 
@@ -453,7 +453,7 @@ describe('round 2', () => {
       plan: PLAN,
       answer: { ...answerable.answer, submittedAt: '2999-01-01T00:00:00Z' },
     });
-    await writeDraft('priya', CODE, {
+    await writeDraft('nina', CODE, {
       plan: PLAN,
       windows: [WEDNESDAY],
       flexible: false,
@@ -488,7 +488,7 @@ describe('round 3', () => {
   it('waits for the server before letting an unsent draft win over an answer given since', async () => {
     let answerNow: (value: unknown) => void = () => undefined;
     planToAnswer.mockReturnValue(new Promise((resolve) => (answerNow = resolve)));
-    await writeDraft('priya', CODE, { plan: PLAN, windows: [WEDNESDAY], flexible: false });
+    await writeDraft('nina', CODE, { plan: PLAN, windows: [WEDNESDAY], flexible: false });
     open();
     // The device's draft is read first; the server is slower.
     await act(async () => {
@@ -513,7 +513,7 @@ describe('round 4', () => {
     planToAnswer.mockRejectedValueOnce(new Error('plan lookup failed'));
     planToAnswer.mockResolvedValue({ plan: { ...PLAN, revision: 2 }, answer: null });
     submitAnswer.mockRejectedValueOnce(refusal('stale_revision'));
-    await writeDraft('priya', CODE, { plan: PLAN, windows: [WEDNESDAY], flexible: false });
+    await writeDraft('nina', CODE, { plan: PLAN, windows: [WEDNESDAY], flexible: false });
     open();
     await screen.findByText('7–9:30 pm');
 
@@ -529,7 +529,7 @@ describe('round 5', () => {
   it("never shows or sends one person's draft to the next person on the same page", async () => {
     planToAnswer.mockReturnValue(new Promise(() => undefined));
     submitAnswer.mockReturnValue(new Promise(() => undefined));
-    await writeDraft('priya', CODE, {
+    await writeDraft('nina', CODE, {
       plan: PLAN,
       windows: [WEDNESDAY],
       flexible: false,
@@ -544,7 +544,7 @@ describe('round 5', () => {
     const { rerender } = render(page());
     await waitFor(() => expect(submitAnswer).toHaveBeenCalledTimes(1));
 
-    // Priya signs out on a shared browser; Tom signs in, and the page stays.
+    // Nina signs out on a shared browser; Tom signs in, and the page stays.
     session.userId = 'tom';
     rerender(page());
 
@@ -610,7 +610,7 @@ describe('when the server says no', () => {
     await screen.findByText("Times I'd actually be up for");
     answerMonday();
     // Written to the device as it is painted, and not sent.
-    await waitFor(async () => expect((await readDraft('priya', CODE))?.windows).toHaveLength(1));
+    await waitFor(async () => expect((await readDraft('nina', CODE))?.windows).toHaveLength(1));
     const days = Array.from({ length: 14 }, (_, i) => `2099-09-${String(14 + i).padStart(2, '0')}`);
     planToAnswer.mockResolvedValue({
       plan: { ...PLAN, days: days.filter((day) => day !== '2099-09-15') },
@@ -662,7 +662,7 @@ describe('when the server says no', () => {
     await screen.findByText("Something didn't save.");
     expect(screen.getByText('Ref R1')).toBeInTheDocument();
     expect(screen.getByText(/send Maya this reference/)).toBeInTheDocument();
-    expect((await readDraft('priya', CODE))?.windows).toEqual([MONDAY_EVENING]);
+    expect((await readDraft('nina', CODE))?.windows).toEqual([MONDAY_EVENING]);
   });
 });
 
@@ -718,7 +718,7 @@ describe("the plan's own link, /p/:code", () => {
 
   it('is the editor for somebody whose changed answer is still waiting on the device (round 1)', async () => {
     planToAnswer.mockResolvedValue({ plan: PLAN, answer: answerable.answer });
-    await writeDraft('priya', CODE, {
+    await writeDraft('nina', CODE, {
       plan: PLAN,
       windows: [WEDNESDAY],
       flexible: false,
@@ -743,7 +743,7 @@ describe("the plan's own link, /p/:code", () => {
       plan: PLAN,
       answer: { ...answerable.answer, submittedAt: '2999-01-01T00:00:00Z' },
     });
-    await writeDraft('priya', CODE, { plan: PLAN, windows: [WEDNESDAY], flexible: false });
+    await writeDraft('nina', CODE, { plan: PLAN, windows: [WEDNESDAY], flexible: false });
     openLink();
 
     await screen.findByText('how it is looking');
@@ -825,8 +825,8 @@ describe('what the others have said (SUS-129)', () => {
     open();
     await screen.findByText(/^4 of the other 5 have answered\./);
     answerMonday();
-    await waitFor(async () => expect(await readDraft('priya', CODE)).toBeDefined());
-    const draft = JSON.stringify(await readDraft('priya', CODE));
+    await waitFor(async () => expect(await readDraft('nina', CODE)).toBeDefined());
+    const draft = JSON.stringify(await readDraft('nina', CODE));
     expect(draft).not.toMatch(/answered|others|withTimes|flexible"?:\s*\d/);
   });
 

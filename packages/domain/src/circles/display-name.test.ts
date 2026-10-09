@@ -31,7 +31,7 @@ describe('isValidDisplayName', () => {
   });
 
   it('accepts an ordinary name', () => {
-    expect(isValidDisplayName('Priya')).toBe(true);
+    expect(isValidDisplayName('Nina')).toBe(true);
   });
 
   it('rejects one long enough to break a members list', () => {

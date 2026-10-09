@@ -4,7 +4,7 @@ import { circle } from '../circles/fixtures.js';
 import { LAST_MET } from '../circles/fixtures.js';
 import type { Actor } from '../planning/state-machine.js';
 import { planId } from '../planning/types.js';
-import { ALEX, PRIYA, SAM, SUNDAY_CREW } from '../scheduling/fixtures.js';
+import { ALEX, NINA, SAM, SUNDAY_CREW } from '../scheduling/fixtures.js';
 import { fromISO, toISO } from '../shared/instant.js';
 import { zone } from '../shared/zone.js';
 import { A_STRANGER, confirmation, sundayCrewPlan } from './fixtures.js';
@@ -165,7 +165,7 @@ describe('corroboration', () => {
 
   it('needs somebody other than the reporter', () => {
     expect(corroboration(base, [wasThere(SAM)])).toBe('reported');
-    expect(corroboration(base, [wasThere(SAM), wasThere(PRIYA)])).toBe('corroborated');
+    expect(corroboration(base, [wasThere(SAM), wasThere(NINA)])).toBe('corroborated');
   });
 
   it('is "reported" when nobody has said anything', () => {
@@ -176,11 +176,11 @@ describe('corroboration', () => {
     // Corroboration is the evidence behind the north-star metric; counting
     // another evening's attendance would flatter it.
     const elsewhere: Attendance = {
-      ...wasThere(PRIYA),
+      ...wasThere(NINA),
       confirmationId: confirmationId('confirmation-elsewhere'),
     };
     expect(corroboration(base, [elsewhere])).toBe('reported');
-    expect(corroboration(base, [elsewhere, wasThere(PRIYA)])).toBe('corroborated');
+    expect(corroboration(base, [elsewhere, wasThere(NINA)])).toBe('corroborated');
   });
 
   it('does not count someone who says they missed it', () => {
@@ -190,7 +190,7 @@ describe('corroboration', () => {
 
   it('is never corroborated for an outcome other than happened', () => {
     for (const outcome of OUTCOMES.filter((o) => o !== 'happened')) {
-      expect(corroboration({ ...base, outcome }, [wasThere(PRIYA)])).toBe('reported');
+      expect(corroboration({ ...base, outcome }, [wasThere(NINA)])).toBe('reported');
     }
   });
 });

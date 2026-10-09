@@ -10,7 +10,7 @@
  * sentence. At twenty, seven people missing is an ordinary good option and
  * seven names is a list, not a sentence — so three is the ceiling: one, two or
  * three are named, and beyond that two are named and the rest are counted
- * ("Not Priya, Tom and 5 others"). Two named rather than three, because the
+ * ("Not Nina, Tom and 5 others"). Two named rather than three, because the
  * count is the point once there is one and "and 5 others" needs room to be read.
  *
  * **Numbers up to twenty in words.** "Thursday looks good for five of you"

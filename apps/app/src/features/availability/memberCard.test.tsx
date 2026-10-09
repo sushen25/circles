@@ -27,7 +27,7 @@ vi.mock('../../analytics/track', () => ({ track: (...args: unknown[]) => track(.
 vi.mock('../../data/auth/client', () => ({ hasBackend: () => true }));
 const session: Record<string, unknown> = {
   status: 'guest',
-  userId: 'priya',
+  userId: 'nina',
   isAnonymous: true,
   confirmedEmail: undefined,
   isLoading: false,
@@ -48,7 +48,7 @@ const planToAnswer = vi.fn();
 vi.mock('../../data/availability', () => ({
   planToAnswer: (...args: unknown[]) => planToAnswer(...args),
 }));
-vi.mock('../../data/membership', () => ({ ownNameIn: async () => 'Priya' }));
+vi.mock('../../data/membership', () => ({ ownNameIn: async () => 'Nina' }));
 
 const requestEmailUpdates = vi.fn();
 vi.mock('../../data/email', async (original) => ({
@@ -74,10 +74,10 @@ function wrap(children: ReactNode) {
   return render(<QueryClientProvider client={client}>{children}</QueryClientProvider>);
 }
 
-const ADDRESS = 'priya@example.com';
+const ADDRESS = 'nina@example.com';
 
 function signInAs(confirmedEmail: string | undefined) {
-  Object.assign(session, { status: 'saved', userId: 'priya', isAnonymous: false, confirmedEmail });
+  Object.assign(session, { status: 'saved', userId: 'nina', isAnonymous: false, confirmedEmail });
 }
 
 async function tap() {
@@ -89,7 +89,7 @@ async function tap() {
 beforeEach(() => {
   Object.assign(session, {
     status: 'guest',
-    userId: 'priya',
+    userId: 'nina',
     isAnonymous: true,
     confirmedEmail: undefined,
   });
@@ -115,7 +115,7 @@ beforeEach(() => {
     await options.signIn();
     return {};
   });
-  submitLinkCode.mockResolvedValue({ session: { user: { id: 'priya' } } });
+  submitLinkCode.mockResolvedValue({ session: { user: { id: 'nina' } } });
 });
 
 describe('a signed-in member with a confirmed address', () => {
@@ -260,7 +260,7 @@ describe('the switch-on path, for an address that turns out to be suppressed', (
   it('still says the emails are on when the owner is told they are', async () => {
     await reachTheCodeAndEnterIt();
 
-    expect(await screen.findByText(/^Done\. We'll email priya@example\.com/)).toBeVisible();
+    expect(await screen.findByText(/^Done\. We'll email nina@example\.com/)).toBeVisible();
   });
 
   it('after a failed attempt, the confirmed member retries with one button and gets the saved line', async () => {
@@ -278,7 +278,7 @@ describe('the switch-on path, for an address that turns out to be suppressed', (
 
     await tap();
 
-    expect(await screen.findByText(/^Done\. We'll email priya@example\.com/)).toBeVisible();
+    expect(await screen.findByText(/^Done\. We'll email nina@example\.com/)).toBeVisible();
     expect(requestEmailUpdates).toHaveBeenCalledTimes(2);
     expect(requestLinkCode).toHaveBeenCalledTimes(1);
   });

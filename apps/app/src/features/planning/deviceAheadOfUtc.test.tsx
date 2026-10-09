@@ -46,7 +46,7 @@ vi.mock('../../data/circles', async (original) => ({
     isOwner: true,
     members: [
       { userId: 'maya', name: 'Maya' },
-      { userId: 'priya', name: 'Priya' },
+      { userId: 'nina', name: 'Nina' },
       { userId: 'tom', name: 'Tom' },
     ],
     activePlan: null,

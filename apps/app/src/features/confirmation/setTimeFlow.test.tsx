@@ -80,7 +80,7 @@ describe('where the picker opens', () => {
     expect(await screen.findByText('Pick the time yourself')).toBeTruthy();
     expect(await screen.findByText('5 of 6 can make it')).toBeTruthy();
     expect(
-      screen.getByText(/^You, Priya and 3 others can make it · Alex hasn't answered$/),
+      screen.getByText(/^You, Nina and 3 others can make it · Alex hasn't answered$/),
     ).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Review Thursday' })).toBeTruthy();
     // 5 of 6 meets the 4 the plan asked for, and the day was asked about: no caution.

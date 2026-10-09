@@ -71,7 +71,7 @@ end;
 $$;
 
 select pg_temp.make_user('00000000-0000-0000-0000-00000000a001', 'Maya');
-select pg_temp.make_user('00000000-0000-0000-0000-00000000a002', 'Priya');
+select pg_temp.make_user('00000000-0000-0000-0000-00000000a002', 'Nina');
 select pg_temp.make_user('00000000-0000-0000-0000-00000000a003', 'Tom');
 select pg_temp.make_user('00000000-0000-0000-0000-00000000a009', 'Guest', true);
 
@@ -177,7 +177,7 @@ create temporary table t_circle as
 grant select on t_circle to anon, authenticated;
 
 insert into public.circle_members (circle_id, user_id, display_name_snapshot)
-select id, '00000000-0000-0000-0000-00000000a002', 'Priya' from t_circle;
+select id, '00000000-0000-0000-0000-00000000a002', 'Nina' from t_circle;
 
 select pg_temp.act_as('00000000-0000-0000-0000-00000000a002');
 select is(
@@ -586,7 +586,7 @@ select isnt(
 select pg_temp.act_as_postgres();
 select is(public.canonical_display_name('Tom  B'), 'tom b', 'inner runs of space collapse');
 select is(public.canonical_display_name(E'Tom\tB'), 'tom b', 'a tab is whitespace too');
-select is(public.canonical_display_name('  Priya '), 'priya', 'and the ends are trimmed');
+select is(public.canonical_display_name('  Nina '), 'nina', 'and the ends are trimmed');
 select is(public.canonical_display_name('Zoë'), 'zoe', 'diacritics do not make a different person');
 select is(public.canonical_display_name(E'Zo\u0308e'), 'zoe', 'however the accent was typed');
 select is(public.canonical_display_name(E'A\u00a0B'), 'a b', 'a non-breaking space is a space');

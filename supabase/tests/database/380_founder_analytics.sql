@@ -59,10 +59,10 @@ create or replace function pg_temp.at(n integer, hhmm text) returns timestamptz 
   select ((pg_temp.d(n)::text || ' ' || hhmm)::timestamp at time zone 'UTC')
 $$;
 
--- Maya owns Sunday Crew; Priya and Tom are in it; Sam is on the allowlist and
+-- Maya owns Sunday Crew; Nina and Tom are in it; Sam is on the allowlist and
 -- owns nothing; Outsider is signed in and is nobody.
 select pg_temp.make_user('00000000-0000-0000-0000-0000000f0001', 'Maya');
-select pg_temp.make_user('00000000-0000-0000-0000-0000000f0002', 'Priya');
+select pg_temp.make_user('00000000-0000-0000-0000-0000000f0002', 'Nina');
 select pg_temp.make_user('00000000-0000-0000-0000-0000000f0003', 'Tom');
 select pg_temp.make_user('00000000-0000-0000-0000-0000000f0004', 'Sam');
 select pg_temp.make_user('00000000-0000-0000-0000-0000000f0005', 'Outsider');
@@ -179,7 +179,7 @@ values (gen_random_uuid(), 'circle_join_opened', 1, repeat('b', 64), '{}', pg_te
 -- table lets a short code through, and so does an ingest that has a bug.
 insert into analytics.events (event_id, event_name, schema_version, properties, occurred_at)
 values (gen_random_uuid(), 'probe_event', 1, jsonb_build_object(
-  'label', 'Maya_and_Priya_Sunday',             -- free-text-shaped: capitals
+  'label', 'Maya_and_Nina_Sunday',             -- free-text-shaped: capitals
   'shout', 'ThisIsMixedCase',                   -- ditto
   'long_word', 'a_word_far_too_long_to_be_enum', -- over 24 characters
   'digits', 'abc123def456',                     -- a hash's shape
@@ -310,7 +310,7 @@ select is(
 
 -- What comes out names nobody, anywhere in it.
 select is(
-  (select j::text ~* '00000000-0000-0000-0000-0000000f000|00000000-0000-0000-0000-00000000c1c1|00000000-0000-0000-0000-00000000d1d1|bbbbbbbb|Maya|Priya|Tom|Sam|Outsider|Sunday|ThisIsMixedCase|abcdefabc|abc123def456' from fa),
+  (select j::text ~* '00000000-0000-0000-0000-0000000f000|00000000-0000-0000-0000-00000000c1c1|00000000-0000-0000-0000-00000000d1d1|bbbbbbbb|Maya|Nina|Tom|Sam|Outsider|Sunday|ThisIsMixedCase|abcdefabc|abc123def456' from fa),
   false,
   'no user, browser, circle or plan id, no name and no free text appears anywhere in the answer'
 );
@@ -336,7 +336,7 @@ select is(
 -- The gates, from one scenario two weeks ago.
 --
 -- Sunday Crew, made on the 3rd by Maya (weekly), meets on the 5th, and makes a
--- second plan on the 10th, organised by Priya, which meets on the 12th. A
+-- second plan on the 10th, organised by Nina, which meets on the 12th. A
 -- second circle made the same day never meets.
 -- ---------------------------------------------------------------------------
 select pg_temp.act_as('00000000-0000-0000-0000-0000000f0001');
@@ -349,7 +349,7 @@ update public.circles set created_at = pg_temp.at(0, '00:00') where creation_key
 create temporary table t as select id as circle_id from public.circles where creation_key = 'key-fa';
 insert into public.circle_members (circle_id, user_id, display_name_snapshot)
 select circle_id, u, n from t, (values
-  ('00000000-0000-0000-0000-0000000f0002'::uuid, 'Priya'),
+  ('00000000-0000-0000-0000-0000000f0002'::uuid, 'Nina'),
   ('00000000-0000-0000-0000-0000000f0003'::uuid, 'Tom')
 ) as v (u, n);
 
@@ -504,7 +504,7 @@ select is(
   1::bigint,
   'a group that made another plan after its first meetup was confirmed has started a second meetup'
 );
--- Started by Priya, as the creation's own event says; Maya's was started by Maya.
+-- Started by Nina, as the creation's own event says; Maya's was started by Maya.
 select jobs.emit('planning.plan_created', 'plan', p.id,
   jsonb_build_object('organiser_user_id', case p.short_code
     when 'fapaab' then '00000000-0000-0000-0000-0000000f0002' else '00000000-0000-0000-0000-0000000f0001' end))
@@ -514,7 +514,7 @@ select is(
   1::bigint,
   'and that plan was started by somebody other than the owner'
 );
--- Handed off afterwards, Maya's plan is organised by Priya and was not started by her.
+-- Handed off afterwards, Maya's plan is organised by Nina and was not started by her.
 update public.plans set organiser_user_id = '00000000-0000-0000-0000-0000000f0002' where short_code = 'fapaaa';
 select is(
   (select count(*)::int from analytics.gate_other_organiser where day = pg_temp.d(0)),

@@ -19,11 +19,11 @@ import { markSvg, text, type SiteKey } from './mark';
 /** Never rendered: it is only what `withoutLink` takes off. */
 const EXAMPLE_URL = `https://${brand.domain}/p/example`;
 
-export type Person = 'maya' | 'jordan' | 'priya' | 'sam' | 'alex' | 'theo';
+export type Person = 'maya' | 'jordan' | 'nina' | 'sam' | 'alex' | 'theo';
 export const TONE: Record<Person, string> = {
   maya: 'clay',
   jordan: 'sky',
-  priya: 'plum',
+  nina: 'plum',
   sam: 'ochre',
   alex: 'moss',
   theo: 'moss',
@@ -46,7 +46,7 @@ export function beforeThread(): string {
   return `<div class="pane before"><h2 class="pane-title">${text('before_title')}</h2>
 <div class="col thread" role="group" aria-label="${text('before_label')}">
 <div class="divider">${text('chat_when')}</div>
-${say('maya', 'before_1')}${say('jordan', 'before_2')}${say('priya', 'before_3')}${say('sam', 'before_4')}
+${say('maya', 'before_1')}${say('jordan', 'before_2')}${say('nina', 'before_3')}${say('sam', 'before_4')}
 <div class="divider end">${text('chat_eleven_days')}</div>
 </div></div>`;
 }
@@ -89,6 +89,6 @@ ${message('maya', `<span>${escapeHtml(asked)}</span>${planCard}`, true)}
 ${say('jordan', 'reply_1')}${say('alex', 'reply_2')}
 <div class="divider gap-top">${text('chat_wednesday')}</div>
 ${message('maya', `<span class="num">${escapeHtml(locked)}</span>${lockedCard}`, true)}
-${say('priya', 'reply_3')}
+${say('nina', 'reply_3')}
 </div></div>`;
 }

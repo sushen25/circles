@@ -31,8 +31,8 @@ async function signIn(page: Page, stored: string): Promise<void> {
  * days ago, reported as happened. `report_outcome` as Maya is what moves
  * `last_met_at` and completes the plan.
  */
-function metTwentySixDaysAgo(circleId: string, mayaId: string, priyaId: string): void {
-  sql(`begin; ${metSql(circleId, mayaId, [mayaId, priyaId], 26)} commit;`);
+function metTwentySixDaysAgo(circleId: string, mayaId: string, ninaId: string): void {
+  sql(`begin; ${metSql(circleId, mayaId, [mayaId, ninaId], 26)} commit;`);
 }
 
 /**
@@ -92,11 +92,11 @@ test('a circle a month on from its last meetup asks one person, and Plan another
   page,
 }) => {
   const maya = await signedInAccount('Maya');
-  const priya = await signedInAccount('Priya');
+  const nina = await signedInAccount('Nina');
   const circleId = circleOwnedBy(maya.userId, 'Sunday Crew');
   sql(`insert into public.circle_members (circle_id, user_id, display_name_snapshot)
-    values ('${circleId}', '${priya.userId}', 'Priya')`);
-  metTwentySixDaysAgo(circleId, maya.userId, priya.userId);
+    values ('${circleId}', '${nina.userId}', 'Nina')`);
+  metTwentySixDaysAgo(circleId, maya.userId, nina.userId);
   // The dispatcher's decision for this cycle: Maya was asked.
   sql(promptedThisCycle(circleId, maya.userId, 'owner', 'current_date + 5'));
 
@@ -130,14 +130,14 @@ test('a member who is not the one asked reads the quieter card, and can turn the
   page,
 }) => {
   const maya = await signedInAccount('Maya');
-  const priya = await signedInAccount('Priya');
+  const nina = await signedInAccount('Nina');
   const circleId = circleOwnedBy(maya.userId, 'Sunday Crew');
   sql(`insert into public.circle_members (circle_id, user_id, display_name_snapshot)
-    values ('${circleId}', '${priya.userId}', 'Priya')`);
-  metTwentySixDaysAgo(circleId, maya.userId, priya.userId);
+    values ('${circleId}', '${nina.userId}', 'Nina')`);
+  metTwentySixDaysAgo(circleId, maya.userId, nina.userId);
   sql(promptedThisCycle(circleId, maya.userId, 'owner', 'current_date + 5'));
 
-  await signIn(page, priya.stored);
+  await signIn(page, nina.stored);
   await page.goto(`/circles/${circleId}`);
   await expect(page.getByText(/Plan the next one when the group's keen\. No rush\./)).toBeVisible();
   await expect(page.getByText(/your turn/)).toHaveCount(0);
@@ -150,7 +150,7 @@ test('a member who is not the one asked reads the quieter card, and can turn the
   ).toBeVisible();
   expect(
     sql(`select muted_nudges from public.circle_members
-      where circle_id = '${circleId}' and user_id = '${priya.userId}'`),
+      where circle_id = '${circleId}' and user_id = '${nina.userId}'`),
   ).toEqual([['t']]);
 });
 
@@ -162,8 +162,8 @@ test('swept by the dispatcher: a circle that met before its due date is a new cy
     test.info().project.name !== 'android-chrome',
     'the dispatcher and the inbox, not the browser: the same in every project',
   );
-  const [maya, priya, tom, jess] = await Promise.all(
-    ['Maya', 'Priya', 'Tom', 'Jess'].map((name) => signedInAccount(name)),
+  const [maya, nina, tom, jess] = await Promise.all(
+    ['Maya', 'Nina', 'Tom', 'Jess'].map((name) => signedInAccount(name)),
   );
   const circleId = circleOwnedBy(maya!.userId, 'Sunday Crew');
   // Four, so the circle takes turns; joined in this order, which is the
@@ -172,32 +172,32 @@ test('swept by the dispatcher: a circle that met before its due date is a new cy
     update public.circle_members set joined_at = now() - interval '90 days'
     where circle_id = '${circleId}' and user_id = '${maya!.userId}';
     insert into public.circle_members (circle_id, user_id, display_name_snapshot, joined_at) values
-      ('${circleId}', '${priya!.userId}', 'Priya', now() - interval '89 days'),
+      ('${circleId}', '${nina!.userId}', 'Nina', now() - interval '89 days'),
       ('${circleId}', '${tom!.userId}', 'Tom', now() - interval '88 days'),
       ('${circleId}', '${jess!.userId}', 'Jess', now() - interval '87 days');
   `);
 
-  // Last cycle: Maya organised, Maya and Priya went, and the turn after
-  // Maya's was Priya's — decided in the same breath, so no sweep can be first.
+  // Last cycle: Maya organised, Maya and Nina went, and the turn after
+  // Maya's was Nina's — decided in the same breath, so no sweep can be first.
   sql(`begin;
-    ${metSql(circleId, maya!.userId, [maya!.userId, priya!.userId], 50)}
-    ${promptedThisCycle(circleId, priya!.userId, 'take_turns', 'current_date - 20')}
+    ${metSql(circleId, maya!.userId, [maya!.userId, nina!.userId], 50)}
+    ${promptedThisCycle(circleId, nina!.userId, 'take_turns', 'current_date - 20')}
     commit;`);
-  const priyas = await (await browser.newContext()).newPage();
-  await signIn(priyas, priya!.stored);
-  await priyas.goto(`/circles/${circleId}`);
-  await expect(priyas.getByText(/It's your turn to plan/)).toBeVisible();
+  const ninas = await (await browser.newContext()).newPage();
+  await signIn(ninas, nina!.stored);
+  await ninas.goto(`/circles/${circleId}`);
+  await expect(ninas.getByText(/It's your turn to plan/)).toBeVisible();
 
-  // Before that due date came, they met again: Priya organised, and Maya,
-  // Priya and Tom went. A new cycle, so last cycle's turn is nobody's now.
+  // Before that due date came, they met again: Nina organised, and Maya,
+  // Nina and Tom went. A new cycle, so last cycle's turn is nobody's now.
   sql(`begin;
-    ${metSql(circleId, priya!.userId, [maya!.userId, priya!.userId, tom!.userId], 26)}
+    ${metSql(circleId, nina!.userId, [maya!.userId, nina!.userId, tom!.userId], 26)}
     commit;`);
-  await priyas.reload();
-  await expect(priyas.getByText('About time for the next one')).toBeVisible();
-  await expect(priyas.getByText(/your turn/)).toHaveCount(0);
+  await ninas.reload();
+  await expect(ninas.getByText('About time for the next one')).toBeVisible();
+  await expect(ninas.getByText(/your turn/)).toHaveCount(0);
 
-  // A month on from that, the sweep decides the new cycle: after Priya, Tom.
+  // A month on from that, the sweep decides the new cycle: after Nina, Tom.
   const decided = () =>
     sql(`select p.user_id, p.recipient_role from private.cadence_prompts p
          join public.circles c on c.id = p.circle_id and c.last_met_at = p.last_met_at
@@ -223,9 +223,9 @@ test('swept by the dispatcher: a circle that met before its due date is a new cy
   await expect(
     toms.getByText(/It's your turn to plan, if the group's keen\. No rush\./),
   ).toBeVisible();
-  await priyas.reload();
+  await ninas.reload();
   await expect(
-    priyas.getByText(/Plan the next one when the group's keen\. No rush\./),
+    ninas.getByText(/Plan the next one when the group's keen\. No rush\./),
   ).toBeVisible();
-  await expect(priyas.getByText(/your turn/)).toHaveCount(0);
+  await expect(ninas.getByText(/your turn/)).toHaveCount(0);
 });

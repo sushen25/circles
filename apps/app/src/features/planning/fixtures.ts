@@ -3,7 +3,7 @@ import type { FormContext } from './usePlanForm';
 
 /**
  * Sunday Crew, for the plan screens in the gallery and in a build with no
- * backend (AGENTS.md, "The scenario"): Maya organises, Priya, Tom, Jess and
+ * backend (AGENTS.md, "The scenario"): Maya organises, Nina, Tom, Jess and
  * Sam have answered, Alex has not, and Thursday 17 September 6:30–8:30 pm is
  * the time. Whole `PlanDetails` rather than screen props, so the gallery goes
  * through the same sentences the product does.
@@ -18,7 +18,7 @@ const ZONE = 'Australia/Melbourne';
 
 const ROSTER = [
   { userId: 'maya', name: 'Maya', active: true },
-  { userId: 'priya', name: 'Priya', active: true },
+  { userId: 'nina', name: 'Nina', active: true },
   { userId: 'tom', name: 'Tom', active: true },
   { userId: 'jess', name: 'Jess', active: true },
   { userId: 'sam', name: 'Sam', active: true },
@@ -92,16 +92,16 @@ export const reopened: PlanDetails = {
   revision: 2,
   windowStart: '2026-09-21',
   windowEnd: '2026-09-27',
-  me: 'priya',
+  me: 'nina',
   isOrganiser: false,
   isOwner: false,
   lastConfirmation: { ...lockedIn.lastConfirmation!, status: 'superseded' },
 };
 
-/** The same cancellation, as Priya reads it on the plan's link. */
+/** The same cancellation, as Nina reads it on the plan's link. */
 export const cancelledAsMember: PlanDetails = {
   ...cancelled,
-  me: 'priya',
+  me: 'nina',
   isOrganiser: false,
   isOwner: false,
 };

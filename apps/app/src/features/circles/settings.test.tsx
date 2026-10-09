@@ -83,8 +83,8 @@ function home(overrides: Partial<CircleData.CircleHome> = {}): CircleData.Circle
         savedPlace: true,
       },
       {
-        userId: 'priya',
-        name: 'Priya',
+        userId: 'nina',
+        name: 'Nina',
         joinedAt: '2026-09-03T00:00:00Z',
         role: 'member',
         savedPlace: true,
@@ -314,7 +314,7 @@ describe('who is a guest and who has saved their place (SUS-165)', () => {
 
 describe('a member who is not the owner', () => {
   beforeEach(() => {
-    circleHome.mockResolvedValue(home({ isOwner: false, me: 'priya' }));
+    circleHome.mockResolvedValue(home({ isOwner: false, me: 'nina' }));
   });
 
   it('sees the settings, changes none of the owner’s, and is never shown the link', async () => {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { UserId } from '../circles/types.js';
-import { PRIYA, SAM } from '../scheduling/fixtures.js';
+import { NINA, SAM } from '../scheduling/fixtures.js';
 import { type EligibilityContext, recipientsFor } from './eligibility.js';
 import { NOBODY_HAS_PUSH, eligibilityContext, sundayCrewMembers } from './fixtures.js';
 import type { NotificationKind } from './kinds.js';
@@ -54,22 +54,22 @@ describe('the organiser-email switch', () => {
   });
 
   it('belongs to the person it is set on, not to whoever organises', () => {
-    // Priya turning hers off says nothing about Sam's letters.
-    const priyaOff = context({ mutedOrganiserEmail: (id) => id === PRIYA });
-    expect(recipientsFor('options_ready', priyaOff)).toEqual([{ userId: SAM, channel: 'email' }]);
+    // Nina turning hers off says nothing about Sam's letters.
+    const ninaOff = context({ mutedOrganiserEmail: (id) => id === NINA });
+    expect(recipientsFor('options_ready', ninaOff)).toEqual([{ userId: SAM, channel: 'email' }]);
   });
 
   it('leaves plan-update email alone, which a subscription governs', () => {
-    // Priya subscribed to this plan and has turned organiser email off. Her
+    // Nina subscribed to this plan and has turned organiser email off. Her
     // locked-in email is consent she gave per plan, with its own stop link.
-    const priya = context({
+    const nina = context({
       actorId: SAM,
-      hasPlanEmailSubscription: (id) => id === PRIYA,
-      mutedOrganiserEmail: (id) => id === PRIYA,
+      hasPlanEmailSubscription: (id) => id === NINA,
+      mutedOrganiserEmail: (id) => id === NINA,
     });
-    expect(recipientsFor('locked_in', priya)).toEqual([{ userId: PRIYA, channel: 'email' }]);
-    expect(recipientsFor('did_it_happen_participant', priya)).toEqual([
-      { userId: PRIYA, channel: 'email' },
+    expect(recipientsFor('locked_in', nina)).toEqual([{ userId: NINA, channel: 'email' }]);
+    expect(recipientsFor('did_it_happen_participant', nina)).toEqual([
+      { userId: NINA, channel: 'email' },
     ]);
   });
 

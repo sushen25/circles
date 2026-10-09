@@ -176,7 +176,7 @@ Returning organisers use the quiet **Sign in** on the first screen; Apple and Go
 
 - What somebody who is not a member sees on a plan link depends on who they are ([ADR 0022](decisions/0022-a-plan-link-admits-new-members-while-the-plan-is-asking.md)). **Signed in with an account:** one tap, **Join [circle] as [name]**, and then the plan — never a list of names. **Anybody else:** the page lists the circle's guest members by display name only (no reply state) and offers **Continue as [name]**, **I'm new here** and **I have an account**. When the circle has no guest members the list is skipped and the page asks for a name.
 - **I'm new here** asks for a display name and joins them while the plan is taking answers; otherwise it tells them to ask for the circle's invite link. **I have an account** signs them in and returns them to the same link. It exists because saved-place members are never on the list, so without it somebody with an account on a new device would be told their own name is taken.
-- Reattaching moves the membership and its responses to the new session in one tap. The owner sees "Priya rejoined from a new device" on circle home. A membership may be moved at most three times in seven days by picking a name from the list; a move made with a valid emailed re-entry link is never counted or refused by that limit, so a member with a live link can always get back. A saved-place member can never be reattached to *from the list*; an emailed link, though, may take a place back from a saved account whose own email is not the link's address (the founder's decision of 3 October 2026). If the account's own email is the link's address it is the same person signed in and keeps the place, and only that circle's membership moves: the account keeps everything else ([ADR 0049](decisions/0049-continue-as-resolves-a-code-only-while-it-is-live.md)).
+- Reattaching moves the membership and its responses to the new session in one tap. The owner sees "Nina rejoined from a new device" on circle home. A membership may be moved at most three times in seven days by picking a name from the list; a move made with a valid emailed re-entry link is never counted or refused by that limit, so a member with a live link can always get back. A saved-place member can never be reattached to *from the list*; an emailed link, though, may take a place back from a saved account whose own email is not the link's address (the founder's decision of 3 October 2026). If the account's own email is the link's address it is the same person signed in and keeps the place, and only that circle's membership moves: the account keeps everything else ([ADR 0049](decisions/0049-continue-as-resolves-a-code-only-while-it-is-live.md)).
 - **A link offers Continue-as only while it is live** ([ADR 0049](decisions/0049-continue-as-resolves-a-code-only-while-it-is-live.md)). A plan link does while the circle is active and the plan is asking or has options on offer, or is locked in or finished and its meetup ended less than 14 days ago (the morning-after question and "I was there" are answered inside that window). A cancelled or expired plan, or an archived circle, lists nobody, and the person sees "This link isn't active any more." The limits are the database's: reattaching is refused in an archived circle and is rate-limited per circle whoever calls it.
 - Every plan-update email deep-links with a single-use re-entry token that authorises the same reattachment without the list.
 - The web build is tested inside WhatsApp's and Messenger's in-app browsers, not only mobile Safari and Chrome.
@@ -314,7 +314,7 @@ Deterministic and versioned; no LLM. Enumerate 30-minute starts in the circle's 
 #### Presentation
 
 - **All active members** see the candidates before confirmation; only the organiser can confirm.
-- Each option shows the date and time on the circle's clock, naming the zone when the reader's own device is in a different one and never because another member's is ([ADR 0032](decisions/0032-the-circles-zone-is-shown-when-the-readers-device-differs.md)), "5 of 6 can make it", the names who can attend, a non-judgemental exception ("Doesn't work for Priya", "Alex hasn't answered"), and an explanation of its rank ("Best attendance", "One fewer, weekend", "Also four, a day later"). Dashed marks denote people who have not answered and never appear inside the "can make it" set.
+- Each option shows the date and time on the circle's clock, naming the zone when the reader's own device is in a different one and never because another member's is ([ADR 0032](decisions/0032-the-circles-zone-is-shown-when-the-readers-device-differs.md)), "5 of 6 can make it", the names who can attend, a non-judgemental exception ("Doesn't work for Nina", "Alex hasn't answered"), and an explanation of its rank ("Best attendance", "One fewer, weekend", "Also four, a day later"). Dashed marks denote people who have not answered and never appear inside the "can make it" set.
 - Before any candidate exists the organiser sees a waiting state with what has come in; members see nothing until options exist.
 - No quorum: the closest near-misses, the blocking rule, and three actions: lower quorum, widen the window, close this attempt. Quorum is never lowered silently. Widening asks about every day for thirty days from the first, dropping any gaps, and says so before it does ([ADR 0047](decisions/0047-a-plan-may-ask-about-days-with-gaps.md)).
 
@@ -406,7 +406,7 @@ website "Start a plan" → first circle: "Sunday Crew", about monthly (no accoun
 → name prefilled, time zone from phone
 → the plan's message + link → shared to the group chat
 → "Add my times" → own availability sent → circle home, finding a time
-→ Priya and Tom tap the link, add a name and answer; the quorum follows the circle
+→ Nina and Tom tap the link, add a name and answer; the quorum follows the circle
 → options arrive as replies come in → confirm Thursday → share "Locked in"
 → next morning: did it happen? → happened → last caught up updates
 ```
@@ -418,7 +418,7 @@ Taps the link in WhatsApp (in-app browser)
 → Join → name → paints times → Send my times
 → email card → verifies → app prompt dismissed
 → ten days later taps "Locked in" in iMessage (Safari, no session)
-→ Continue as Priya → confirmed page → add to calendar
+→ Continue as Nina → confirmed page → add to calendar
 → "Keep your place for good?" → later
 → morning after: I was there → "another group?" → starts a circle → signs in
 ```
@@ -427,9 +427,9 @@ Taps the link in WhatsApp (in-app browser)
 
 ```text
 Tom (saved place) taps "See if people are keen" → this weekend → stop Friday midday
-→ members get the aggregate prompt → Priya, Jess keen → threshold
-→ Tom privately chooses "Ask for a volunteer" → Priya taps "I'll pick the time"
-→ keen members choose times → Priya confirms → nobody knows Tom asked
+→ members get the aggregate prompt → Nina, Jess keen → threshold
+→ Tom privately chooses "Ask for a volunteer" → Nina taps "I'll pick the time"
+→ keen members choose times → Nina confirms → nobody knows Tom asked
 ```
 
 ### 6.4 Second meetup

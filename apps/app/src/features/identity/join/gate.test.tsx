@@ -91,13 +91,13 @@ describe('MembershipGate', () => {
 
 describe('membership that cannot be read', () => {
   beforeEach(() => {
-    Object.assign(session, { status: 'guest', userId: 'priya' });
+    Object.assign(session, { status: 'guest', userId: 'nina' });
     globalThis.localStorage.clear();
     planAccess.mockRejectedValue(new Error('plan access lookup failed'));
   });
 
   it('still shows the page to somebody with times for this plan saved on the device (S1-25)', async () => {
-    await writeDraft('priya', 'pnsundaycr', {
+    await writeDraft('nina', 'pnsundaycr', {
       plan: answerable.plan,
       windows: [],
       flexible: true,

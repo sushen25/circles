@@ -28,7 +28,7 @@ const { readJourney, writeJourney } = await import('./journey');
 describe('a journey and the auth events', () => {
   it('is kept through a sign-in and forgotten at a sign-out observed from anywhere', () => {
     startSessionTracking();
-    writeJourney('sent-one-step:abcdef', { email: 'priya@example.com' });
+    writeJourney('sent-one-step:abcdef', { email: 'nina@example.com' });
 
     notify?.('SIGNED_IN', null);
     expect(readJourney('sent-one-step:abcdef')).toBeDefined();

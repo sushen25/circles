@@ -42,7 +42,7 @@ export type CircleHomeJoiningProps = {
   color?: string | undefined;
   subtitle?: string | undefined;
   members?: readonly Member[] | undefined;
-  /** "Priya and Tom just joined", or undefined when nobody has lately. */
+  /** "Nina and Tom just joined", or undefined when nobody has lately. */
   joined?: string | undefined;
   lastCaughtUp?: string | undefined;
   nextOne?: string | undefined;
@@ -66,7 +66,7 @@ export function CircleHomeJoiningScreen({
   color = 'clay',
   subtitle = t('circleHomeJoining', '3_in_so_far_about_monthly'),
   members = fixture?.circle.members.slice(0, 3).map((m) => ({ name: m.name })) ?? [],
-  joined = fixture === undefined ? undefined : t('circleHomeJoining', 'priya_and_tom_just_joined'),
+  joined = fixture === undefined ? undefined : t('circleHomeJoining', 'nina_and_tom_just_joined'),
   lastCaughtUp = t('circleHomeJoining', 'not_yet'),
   nextOne = t('circleHomeJoining', 'up_to_you'),
   firstPlan = true,

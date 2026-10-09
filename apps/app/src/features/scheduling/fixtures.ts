@@ -4,7 +4,7 @@ import type { PlanCandidates, RosterMember } from '../../data/scheduling';
  * Sunday Crew's options, for the gallery and for a build with no backend.
  *
  * The same cast as everywhere else (AGENTS.md, "The scenario"): Maya owns it,
- * Priya, Tom, Jess and Sam have answered, **Alex has not**. These are whole
+ * Nina, Tom, Jess and Sam have answered, **Alex has not**. These are whole
  * `PlanCandidates` rather than screen props on purpose — the gallery then
  * renders through the real `view.ts`, so a sentence that is wrong on fixtures
  * is wrong in the product too.
@@ -21,7 +21,7 @@ const DEADLINE = '2026-09-15T08:00:00.000Z';
 
 const ROSTER: RosterMember[] = [
   { userId: 'maya', name: 'Maya', active: true },
-  { userId: 'priya', name: 'Priya', active: true },
+  { userId: 'nina', name: 'Nina', active: true },
   { userId: 'tom', name: 'Tom', active: true },
   { userId: 'jess', name: 'Jess', active: true },
   { userId: 'sam', name: 'Sam', active: true },
@@ -57,7 +57,7 @@ const BASE: PlanCandidates = {
   isOwner: true,
   roster: ROSTER,
   participants: EVERYONE,
-  responded: ['maya', 'priya', 'tom', 'jess', 'sam'],
+  responded: ['maya', 'nina', 'tom', 'jess', 'sam'],
   repliedCount: 5,
   askedCount: 6,
   set: {
@@ -83,7 +83,7 @@ export const ready: PlanCandidates = {
       startsAt: THU.start,
       endsAt: THU.end,
       rank: 1,
-      availableUserIds: ['maya', 'priya', 'tom', 'jess', 'sam'],
+      availableUserIds: ['maya', 'nina', 'tom', 'jess', 'sam'],
       explanationCode: 'best_attendance',
       explanationCount: 5,
       nearMissReason: null,
@@ -103,7 +103,7 @@ export const ready: PlanCandidates = {
       startsAt: SUN.start,
       endsAt: SUN.end,
       rank: 3,
-      availableUserIds: ['maya', 'priya', 'jess', 'sam'],
+      availableUserIds: ['maya', 'nina', 'jess', 'sam'],
       explanationCode: 'also_n_later',
       explanationCount: 4,
       nearMissReason: null,
@@ -116,7 +116,7 @@ export const waiting: PlanCandidates = {
   ...BASE,
   state: 'collecting',
   view: 'collecting',
-  responded: ['maya', 'priya'],
+  responded: ['maya', 'nina'],
   repliedCount: 2,
   set: { ...(BASE.set as NonNullable<PlanCandidates['set']>), respondedCount: 2, eligibleCount: 0 },
 };
@@ -135,7 +135,7 @@ export const noQuorum: PlanCandidates = {
       startsAt: FRI.start,
       endsAt: FRI.end,
       rank: 1,
-      availableUserIds: ['maya', 'priya', 'jess'],
+      availableUserIds: ['maya', 'nina', 'jess'],
       explanationCode: 'closest',
       explanationCount: 3,
       nearMissReason: { kind: 'quorum_short', by: 1 },
@@ -156,7 +156,7 @@ export const noQuorum: PlanCandidates = {
 /** The same options, read by somebody who is not organising. */
 export const readyAsMember: PlanCandidates = {
   ...ready,
-  me: 'priya',
+  me: 'nina',
   isOrganiser: false,
   isOwner: false,
 };

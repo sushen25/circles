@@ -335,7 +335,7 @@ describe('redeem-invite', () => {
   const body = {
     idempotency_key: KEY,
     secret: 'x'.repeat(43),
-    display_name: 'Priya',
+    display_name: 'Nina',
   };
 
   it('joins, and answers with a DTO rather than the row', async () => {
@@ -2871,7 +2871,7 @@ describe('track-events', () => {
                 build: 'dev',
                 platform: 'web',
                 reference: 'K7QM2X4P',
-                message: 'Priya at /p/K7QM2X',
+                message: 'Nina at /p/K7QM2X',
                 stack: 'at https://example.test/p/K7QM2X#key',
               },
             },
@@ -2893,7 +2893,7 @@ describe('track-events', () => {
       build: 'dev',
       platform: 'web',
     });
-    expect(lines.join('\n')).not.toMatch(/Priya|K7QM2X#|example\.test/);
+    expect(lines.join('\n')).not.toMatch(/Nina|K7QM2X#|example\.test/);
     const rows = called('record_events')[0]?.args['p_rows'] as Record<string, unknown>[];
     expect(Object.keys(rows[0]?.['properties'] as object).sort()).toEqual([
       'build',
@@ -3235,7 +3235,7 @@ describe('process-scheduled-jobs', () => {
     members: [ORGANISER, MEMBER].map((userId, index) => ({
       circle_id: CIRCLE_ID,
       user_id: userId,
-      display_name: index === 0 ? 'Maya' : 'Priya',
+      display_name: index === 0 ? 'Maya' : 'Nina',
       role: index === 0 ? 'owner' : 'member',
       status: 'active',
       joined_at: '2026-09-01T00:00:00.000Z',
@@ -3387,7 +3387,7 @@ describe('process-scheduled-jobs', () => {
     await load('process-scheduled-jobs')(post({}, 'a-shared-secret'));
 
     // `locked_in` goes to members, and the one member with a verified
-    // subscription is Priya. Maya confirmed it, and would not be told even if
+    // subscription is Nina. Maya confirmed it, and would not be told even if
     // she were subscribed.
     expect(enqueued().filter((job) => job.kind === 'locked_in')).toHaveLength(1);
   });
@@ -3724,7 +3724,7 @@ describe('process-scheduled-jobs', () => {
   });
 
   describe('an edit that cleared the answers (SUS-131, ADR 0046)', () => {
-    /** Maya edited the window: revision 2, asking, and Priya had answered revision 1. */
+    /** Maya edited the window: revision 2, asking, and Nina had answered revision 1. */
     const edited = (plan: Record<string, unknown> = {}) =>
       context({
         plan: {
@@ -3749,7 +3749,7 @@ describe('process-scheduled-jobs', () => {
 
       await load('process-scheduled-jobs')(post({}, 'a-shared-secret'));
 
-      // Priya is the one subscriber; Maya made the edit and is not told.
+      // Nina is the one subscriber; Maya made the edit and is not told.
       expect(enqueued()).toEqual([
         expect.objectContaining({ kind: 'asked_again', plan_revision: 2, contact_id: CONTACT }),
       ]);
@@ -3812,7 +3812,7 @@ describe('process-scheduled-jobs', () => {
     });
 
     it('does not ask somebody who has answered again while the letter waited for morning', async () => {
-      // Quiet hours held it, and Priya found the plan herself before 08:00.
+      // Quiet hours held it, and Nina found the plan herself before 08:00.
       planContext = {
         ...edited(),
         responses: [{ plan_id: PLAN_ID, revision: 2, user_id: MEMBER, status: 'windows' }],
@@ -3924,7 +3924,7 @@ describe('process-scheduled-jobs', () => {
       if (fn === 'dispatch_enqueue') {
         return {
           data: null,
-          error: { code: '23505', message: 'duplicate key: priya@example.com' },
+          error: { code: '23505', message: 'duplicate key: nina@example.com' },
         };
       }
       return answer(fn);

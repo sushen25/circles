@@ -17,7 +17,7 @@ import { type DueJob, send } from './send.ts';
 
 const CIRCLE = '00000000-0000-4000-8000-0000000000c1';
 const MAYA = '00000000-0000-4000-8000-000000000001';
-const PRIYA = '00000000-0000-4000-8000-000000000002';
+const NINA = '00000000-0000-4000-8000-000000000002';
 const TOM = '00000000-0000-4000-8000-000000000003';
 const JESS = '00000000-0000-4000-8000-000000000004';
 const CONTACT = '00000000-0000-4000-8000-00000000c002';
@@ -33,7 +33,7 @@ function member(userId: string, index: number, overrides: Record<string, unknown
   return {
     circle_id: CIRCLE,
     user_id: userId,
-    display_name: ['Maya', 'Priya', 'Tom', 'Jess'][index] ?? 'Someone',
+    display_name: ['Maya', 'Nina', 'Tom', 'Jess'][index] ?? 'Someone',
     role: index === 0 ? 'owner' : 'member',
     status: 'active',
     joined_at: `2026-01-0${index + 1}T00:00:00.000Z`,
@@ -64,10 +64,10 @@ function circleContext(overrides: Record<string, unknown> = {}) {
       last_met_at: LAST_MET,
       cadence_snoozed_until: null,
     },
-    members: [MAYA, PRIYA, TOM, JESS].map((id, index) => member(id, index)),
+    members: [MAYA, NINA, TOM, JESS].map((id, index) => member(id, index)),
     has_open_plan: false,
     last_organiser_id: MAYA,
-    last_happened_attendees: [MAYA, PRIYA, TOM, JESS],
+    last_happened_attendees: [MAYA, NINA, TOM, JESS],
     prompted_for: null,
     push_user_ids: [],
     ...overrides,
@@ -104,13 +104,13 @@ describe('the cadence pass', () => {
 
     expect(result).toEqual({ prompted: 1, nudgesQueued: 1 });
     const prompt = calls.find((c) => c.fn === 'dispatch_prompt_cadence')?.args;
-    // Maya organised last, so the turn is Priya's.
+    // Maya organised last, so the turn is Nina's.
     expect(prompt).toMatchObject({
       p_circle_id: CIRCLE,
       // The cycle, handed back as the database gave it.
       p_last_met_at: LAST_MET,
       p_due_date: '2026-09-08',
-      p_user_id: PRIYA,
+      p_user_id: NINA,
       p_recipient_role: 'take_turns',
     });
     const jobs = prompt?.['p_jobs'] as Record<string, unknown>[];
@@ -125,9 +125,9 @@ describe('the cadence pass', () => {
       circle_id: CIRCLE,
     });
     expect(jobs[0]?.['idempotency_key']).toMatch(/^[0-9a-f]{64}$/);
-    // Asked for Priya's address and nobody else's: one person, never the circle.
+    // Asked for Nina's address and nobody else's: one person, never the circle.
     expect(calls.filter((c) => c.fn === 'dispatch_organiser_contact')).toEqual([
-      { fn: 'dispatch_organiser_contact', args: { p_user_id: PRIYA } },
+      { fn: 'dispatch_organiser_contact', args: { p_user_id: NINA } },
     ]);
 
     const tracked = calls.find((c) => c.fn === 'record_events')?.args['p_rows'] as Record<
@@ -173,7 +173,7 @@ describe('the cadence pass', () => {
 
   it('records a decision for nobody when everyone said no, and measures nothing', async () => {
     const context = circleContext({
-      members: [MAYA, PRIYA, TOM, JESS].map((id, index) =>
+      members: [MAYA, NINA, TOM, JESS].map((id, index) =>
         member(id, index, { muted_nudges: true }),
       ),
     });
@@ -196,11 +196,11 @@ describe('the cadence pass', () => {
   });
 
   it('passes the turn on from somebody nothing can reach, and asks them no more', async () => {
-    // Review round 2: Priya's turn, but her address bounced. She is not told
+    // Review round 2: Nina's turn, but her address bounced. She is not told
     // it is her turn with nothing sent; Tom, next in join order, is asked.
     const { db, calls } = fakeDb((fn, args) => {
       if (fn === 'dispatch_circle_context') return circleContext();
-      if (fn === 'dispatch_organiser_contact') return args['p_user_id'] === PRIYA ? null : CONTACT;
+      if (fn === 'dispatch_organiser_contact') return args['p_user_id'] === NINA ? null : CONTACT;
       if (fn === 'dispatch_prompt_cadence') return 1;
       return null;
     });
@@ -214,7 +214,7 @@ describe('the cadence pass', () => {
     });
     expect(
       calls.filter((c) => c.fn === 'dispatch_organiser_contact').map((c) => c.args['p_user_id']),
-    ).toEqual([PRIYA, TOM]);
+    ).toEqual([NINA, TOM]);
   });
 
   it('decides for nobody when nobody can be reached', async () => {
@@ -270,7 +270,7 @@ describe('the cadence pass', () => {
       lastMet += 31 * 86_400_000;
     }
 
-    expect(asked).toEqual([PRIYA, TOM, JESS]);
+    expect(asked).toEqual([NINA, TOM, JESS]);
   });
 });
 
@@ -279,12 +279,12 @@ describe('sending a cadence nudge', () => {
     id: '00000000-0000-4000-8000-00000000a001',
     kind: 'about_time',
     contact_id: CONTACT,
-    user_id: PRIYA,
+    user_id: NINA,
     plan_id: null,
     plan_revision: null,
     idempotency_key: 'a'.repeat(64),
     attempt_count: 0,
-    email: 'priya@example.com',
+    email: 'nina@example.com',
     contact_status: 'verified',
     subscribed: false,
     member_active: true,
@@ -341,8 +341,8 @@ describe('sending a cadence nudge', () => {
     [
       'the person turned nudges off since',
       {
-        members: [MAYA, PRIYA].map((id, index) =>
-          member(id, index, id === PRIYA ? { muted_nudges: true } : {}),
+        members: [MAYA, NINA].map((id, index) =>
+          member(id, index, id === NINA ? { muted_nudges: true } : {}),
         ),
       },
       'nudges_off',
@@ -350,8 +350,8 @@ describe('sending a cadence nudge', () => {
     [
       'the person left',
       {
-        members: [MAYA, PRIYA].map((id, index) =>
-          member(id, index, id === PRIYA ? { status: 'removed' } : {}),
+        members: [MAYA, NINA].map((id, index) =>
+          member(id, index, id === NINA ? { status: 'removed' } : {}),
         ),
       },
       'not_a_member',

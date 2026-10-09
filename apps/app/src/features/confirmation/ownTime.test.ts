@@ -14,7 +14,7 @@ import { pickOf, type TimePick } from './time';
 
 /**
  * What the picker, the review and the edit screen say about a time the organiser
- * chose (ADR 0051), against the Sunday Crew: Maya organises, Priya, Tom, Jess and
+ * chose (ADR 0051), against the Sunday Crew: Maya organises, Nina, Tom, Jess and
  * Sam have answered, Alex has not.
  */
 
@@ -36,7 +36,7 @@ describe("who a time works for, in the cards' own words", () => {
     // Maya's own times do not cover Friday, so she is among those it does not
     // work for: she follows her own answer like anyone (the founder, 2 Oct).
     expect(words.line).toBe(
-      "Priya and Tom can make it · Not you, Jess or Sam · Alex hasn't answered",
+      "Nina and Tom can make it · Not you, Jess or Sam · Alex hasn't answered",
     );
     expect(words.notGoing).toEqual(['Jess', 'Sam', 'Alex']);
   });
@@ -44,7 +44,7 @@ describe("who a time works for, in the cards' own words", () => {
   it('puts the reader first as "You" when their own times cover it', () => {
     const words = stretchWords(plan, read(SAT), pickOf(SAT.startsAt, SAT.endsAt, plan.zone));
     expect(words.line).toBe(
-      "You, Tom and Jess can make it · Doesn't work for Priya or Sam · Alex hasn't answered",
+      "You, Tom and Jess can make it · Doesn't work for Nina or Sam · Alex hasn't answered",
     );
     expect(words.count).toBe('3 of 6 can make it');
   });
@@ -170,9 +170,9 @@ describe('what saving an edit would do', () => {
 
   it('says who a moved time still works for and who is asked', () => {
     expect(
-      editNoticeOf({ moved: true, previousWeekday: 'Friday', asked: ['Priya', 'Sam', 'Alex'] }),
+      editNoticeOf({ moved: true, previousWeekday: 'Friday', asked: ['Nina', 'Sam', 'Alex'] }),
     ).toBe(
-      'Everyone sees the new time straight away, with Friday marked as moved. Anyone whose times cover it stays going without doing a thing. Priya, Sam and Alex are asked whether they can come.',
+      'Everyone sees the new time straight away, with Friday marked as moved. Anyone whose times cover it stays going without doing a thing. Nina, Sam and Alex are asked whether they can come.',
     );
     expect(editNoticeOf({ moved: true, previousWeekday: 'Friday', asked: ['Alex'] })).toMatch(
       /Alex is asked whether they can come\.$/,

@@ -36,9 +36,9 @@ begin
 end;
 $$;
 
--- Maya organises, Priya and Tom are asked too.
+-- Maya organises, Nina and Tom are asked too.
 select pg_temp.make_user('00000000-0000-0000-0000-0000000002a1', 'Maya');
-select pg_temp.make_user('00000000-0000-0000-0000-0000000002a2', 'Priya');
+select pg_temp.make_user('00000000-0000-0000-0000-0000000002a2', 'Nina');
 select pg_temp.make_user('00000000-0000-0000-0000-0000000002a3', 'Tom');
 
 select pg_temp.act_as('00000000-0000-0000-0000-0000000002a1');
@@ -51,7 +51,7 @@ grant select on t to anon, authenticated, service_role;
 -- Cast, because a `union all` of quoted literals resolves them to text before
 -- the uuid column ever sees them.
 insert into public.circle_members (circle_id, user_id, display_name_snapshot)
-select circle_id, '00000000-0000-0000-0000-0000000002a2'::uuid, 'Priya' from t
+select circle_id, '00000000-0000-0000-0000-0000000002a2'::uuid, 'Nina' from t
 union all
 select circle_id, '00000000-0000-0000-0000-0000000002a3'::uuid, 'Tom' from t;
 

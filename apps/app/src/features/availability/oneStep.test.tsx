@@ -22,7 +22,7 @@ vi.mock('expo-router', () => ({
 const track = vi.fn();
 vi.mock('../../analytics/track', () => ({ track: (...args: unknown[]) => track(...args) }));
 vi.mock('../../data/auth/client', () => ({ hasBackend: () => true }));
-const session = { status: 'guest', userId: 'priya', isAnonymous: true, isLoading: false };
+const session = { status: 'guest', userId: 'nina', isAnonymous: true, isLoading: false };
 vi.mock('../../data/auth/session', () => ({ useSession: () => session }));
 
 const requestLinkCode = vi.fn();
@@ -39,7 +39,7 @@ const planToAnswer = vi.fn();
 vi.mock('../../data/availability', () => ({
   planToAnswer: (...args: unknown[]) => planToAnswer(...args),
 }));
-vi.mock('../../data/membership', () => ({ ownNameIn: async () => 'Priya' }));
+vi.mock('../../data/membership', () => ({ ownNameIn: async () => 'Nina' }));
 
 const requestEmailUpdates = vi.fn();
 vi.mock('../../data/email', async (original) => ({
@@ -66,7 +66,7 @@ function wrap(children: ReactNode) {
   return render(<QueryClientProvider client={client}>{children}</QueryClientProvider>);
 }
 
-async function typeAddress(address = 'priya@example.com') {
+async function typeAddress(address = 'nina@example.com') {
   fireEvent.change(await screen.findByLabelText('Your email'), { target: { value: address } });
 }
 
@@ -87,7 +87,7 @@ async function enterTheCode() {
 }
 
 beforeEach(() => {
-  Object.assign(session, { status: 'guest', userId: 'priya', isAnonymous: true });
+  Object.assign(session, { status: 'guest', userId: 'nina', isAnonymous: true });
   for (const mock of [
     push,
     replace,
@@ -111,7 +111,7 @@ beforeEach(() => {
     await options.signIn();
     return {};
   });
-  submitLinkCode.mockResolvedValue({ session: { user: { id: 'priya' } } });
+  submitLinkCode.mockResolvedValue({ session: { user: { id: 'nina' } } });
 });
 
 describe('the card', () => {
@@ -135,7 +135,7 @@ describe('the card', () => {
   });
 
   it('shows no switch to somebody whose place is already saved', async () => {
-    Object.assign(session, { status: 'saved', userId: 'priya', isAnonymous: false });
+    Object.assign(session, { status: 'saved', userId: 'nina', isAnonymous: false });
     wrap(<SentFlow code={PLAN.code} />);
 
     await screen.findByRole('button', PRIMARY);
@@ -147,7 +147,7 @@ describe('with the switch on', () => {
   it('asks for a code and nothing else: no subscription, no link', async () => {
     await reachTheCode();
 
-    expect(requestLinkCode).toHaveBeenCalledWith('priya@example.com');
+    expect(requestLinkCode).toHaveBeenCalledWith('nina@example.com');
     expect(requestEmailUpdates).not.toHaveBeenCalled();
     expect(track).toHaveBeenCalledWith('email_submitted', { plan_id: PLAN.id, save_place: true });
     expect(push).not.toHaveBeenCalled();
@@ -157,11 +157,11 @@ describe('with the switch on', () => {
     await reachTheCode();
     await enterTheCode();
 
-    expect(await screen.findByText(/^Done\. We'll email priya@example\.com/)).toBeVisible();
+    expect(await screen.findByText(/^Done\. We'll email nina@example\.com/)).toBeVisible();
     expect(savePlace).toHaveBeenCalledWith(expect.objectContaining({ moment: 'after_answer' }));
-    expect(submitLinkCode).toHaveBeenCalledWith('priya@example.com', '123456', 'new_identity');
+    expect(submitLinkCode).toHaveBeenCalledWith('nina@example.com', '123456', 'new_identity');
     const [options] = requestEmailUpdates.mock.calls[0] ?? [];
-    expect(options).toMatchObject({ planId: PLAN.id, email: 'priya@example.com' });
+    expect(options).toMatchObject({ planId: PLAN.id, email: 'nina@example.com' });
     expect(track).toHaveBeenCalledWith('account_claimed', { moment: 'after_answer' });
     // The line is a live region and the card is gone; no check-your-email step.
     expect(screen.getByRole('status')).toHaveTextContent(/your place in .* is saved/);
@@ -178,12 +178,12 @@ describe('with the switch on', () => {
       await screen.findByText("Your place is saved. We couldn't turn on the emails; try again."),
     ).toBeVisible();
     expect(screen.queryByRole('switch')).toBeNull();
-    expect(screen.getByLabelText('Your email')).toHaveValue('priya@example.com');
+    expect(screen.getByLabelText('Your email')).toHaveValue('nina@example.com');
 
     await act(async () => {
       fireEvent.click(screen.getByRole('button', PRIMARY));
     });
-    expect(await screen.findByText(/^Done\. We'll email priya@example\.com/)).toBeVisible();
+    expect(await screen.findByText(/^Done\. We'll email nina@example\.com/)).toBeVisible();
     expect(requestEmailUpdates).toHaveBeenCalledTimes(2);
     expect(requestLinkCode).toHaveBeenCalledTimes(1);
     expect(push).not.toHaveBeenCalled();
@@ -208,7 +208,7 @@ describe('with the switch on', () => {
     const tree = () => <SentFlow key={session.userId} code={PLAN.code} />;
     savePlace.mockImplementation(async (options: { signIn: () => Promise<unknown> }) => {
       await options.signIn();
-      Object.assign(session, { status: 'saved', userId: 'priya-existing', isAnonymous: false });
+      Object.assign(session, { status: 'saved', userId: 'nina-existing', isAnonymous: false });
       mounted.view?.rerender(
         <QueryClientProvider client={new QueryClient()}>{tree()}</QueryClientProvider>,
       );
@@ -223,7 +223,7 @@ describe('with the switch on', () => {
     await screen.findByText('Enter the code we emailed');
     await enterTheCode();
 
-    expect(await screen.findByText(/^Done\. We'll email priya@example\.com/)).toBeVisible();
+    expect(await screen.findByText(/^Done\. We'll email nina@example\.com/)).toBeVisible();
     expect(requestEmailUpdates).toHaveBeenCalledTimes(1);
   });
 
@@ -333,7 +333,7 @@ describe('with the switch on', () => {
     });
 
     expect(await screen.findByText(/Something went wrong, so the link didn't go/)).toBeVisible();
-    expect(screen.getByLabelText('Your email')).toHaveValue('priya@example.com');
+    expect(screen.getByLabelText('Your email')).toHaveValue('nina@example.com');
     expect(screen.getByRole('switch', SWITCH)).toHaveAttribute('aria-checked', 'true');
   });
 
@@ -342,7 +342,7 @@ describe('with the switch on', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Back' }));
 
-    expect(await screen.findByLabelText('Your email')).toHaveValue('priya@example.com');
+    expect(await screen.findByLabelText('Your email')).toHaveValue('nina@example.com');
   });
 });
 

@@ -4,7 +4,7 @@
  * The artboard is the specification here: six members, quorum four, a two-hour
  * catch-up across the next fortnight, and three options — Thursday 17 September
  * 6:30–8:30 pm with five of six (Alex has not answered), Saturday the 19th with
- * four (not Priya), Sunday the 20th 4–6 pm with four (not Tom). A test that
+ * four (not Nina), Sunday the 20th 4–6 pm with four (not Tom). A test that
  * reproduces that is a test that the engine agrees with the design.
  */
 
@@ -17,14 +17,14 @@ import { fromLocal, fromLocalEnd } from '../shared/zone.js';
 import type { EngineInput, EnginePlan, MemberResponse } from './types.js';
 
 export const SAM: UserId = userId('sam');
-export const PRIYA: UserId = userId('priya');
+export const NINA: UserId = userId('nina');
 export const TOM: UserId = userId('tom');
 export const JESS: UserId = userId('jess');
 export const NIC: UserId = userId('nic');
 export const ALEX: UserId = userId('alex');
 
 /** The order the members list renders in, and so the order available sets use. */
-export const SUNDAY_CREW: readonly UserId[] = [SAM, PRIYA, TOM, JESS, NIC, ALEX];
+export const SUNDAY_CREW: readonly UserId[] = [SAM, NINA, TOM, JESS, NIC, ALEX];
 
 const hm = (hours: number, minutes = 0) => hours * 60 + minutes;
 
@@ -84,8 +84,8 @@ export function sundayCrewResponses(): readonly (readonly [UserId, MemberRespons
 
   return [
     [SAM, windows(thursday(), saturday(), sunday())],
-    // Priya cannot do Saturday.
-    [PRIYA, windows(thursday(), sunday())],
+    // Nina cannot do Saturday.
+    [NINA, windows(thursday(), sunday())],
     // Tom cannot do Sunday.
     [TOM, windows(thursday(), saturday())],
     [JESS, windows(thursday(), saturday(), sunday())],
@@ -111,7 +111,7 @@ export function sundayCrewInput(overrides: Partial<EngineInput> = {}): EngineInp
 /**
  * The NoQuorum artboard: six of six replied, quorum four, and nothing reaches
  * it. The closest is Friday 11 September 7–9 pm with three — not Alex, Tom or
- * Sam — and then Saturday the 12th 6:30–8:30 pm, also three, not Priya, Alex or
+ * Sam — and then Saturday the 12th 6:30–8:30 pm, also three, not Nina, Alex or
  * Sam.
  */
 export const NEXT_WEEK: EnginePlan = {
@@ -135,7 +135,7 @@ export function noQuorumInput(): EngineInput {
     // waiting state — and no time reaches four.
     responses: [
       [SAM, { status: 'not_this_time', windows: [] }],
-      [PRIYA, windows(friday())],
+      [NINA, windows(friday())],
       [TOM, windows(saturday())],
       [JESS, windows(friday(), saturday())],
       [NIC, windows(friday(), saturday())],

@@ -38,6 +38,6 @@ for (const path of FIXTURE_ONLY) {
   test(`${path} goes to the front door and shows no fixture`, async ({ page }) => {
     await page.goto(path);
     await expect(page).toHaveURL(/\/start$/);
-    await expect(page.getByText(/Sunday Crew|priya@example\.com/i)).toHaveCount(0);
+    await expect(page.getByText(/Sunday Crew|nina@example\.com/i)).toHaveCount(0);
   });
 }

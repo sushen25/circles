@@ -49,10 +49,10 @@ begin
 end;
 $$;
 
--- Maya owns it and organised last time; Priya and Tom came; Jess did not.
+-- Maya owns it and organised last time; Nina and Tom came; Jess did not.
 -- Nic is in another circle entirely.
 select pg_temp.make_user('00000000-0000-0000-0000-0000000023a1', 'Maya');
-select pg_temp.make_user('00000000-0000-0000-0000-0000000023a2', 'Priya');
+select pg_temp.make_user('00000000-0000-0000-0000-0000000023a2', 'Nina');
 select pg_temp.make_user('00000000-0000-0000-0000-0000000023a3', 'Tom');
 select pg_temp.make_user('00000000-0000-0000-0000-0000000023a4', 'Jess');
 select pg_temp.make_user('00000000-0000-0000-0000-0000000023a5', 'Nic');
@@ -76,13 +76,13 @@ $$;
 
 insert into public.circle_members (circle_id, user_id, display_name_snapshot)
 select circle_id, u.id, u.name from t,
-  (values ('00000000-0000-0000-0000-0000000023a2'::uuid, 'Priya'),
+  (values ('00000000-0000-0000-0000-0000000023a2'::uuid, 'Nina'),
           ('00000000-0000-0000-0000-0000000023a3'::uuid, 'Tom'),
           ('00000000-0000-0000-0000-0000000023a4'::uuid, 'Jess')) as u (id, name);
 update public.circles set nudge_policy = 'take_turns' where id = pg_temp.circle();
 
 -- The last meetup: confirmed twenty-six days ago, everyone but Jess going,
--- Priya said "I was there", and Maya reported that it happened — which is
+-- Nina said "I was there", and Maya reported that it happened — which is
 -- what moves `last_met_at`.
 insert into public.plans (
   circle_id, mode, state, organiser_user_id, title, time_zone,
@@ -319,7 +319,7 @@ select throws_ok(
 -- ---------------------------------------------------------------------------
 
 select pg_temp.act_as('00000000-0000-0000-0000-0000000023a2');
-select ok(public.my_turn_to_plan(pg_temp.circle()), 'Priya, who was asked, is told it is her turn');
+select ok(public.my_turn_to_plan(pg_temp.circle()), 'Nina, who was asked, is told it is her turn');
 select pg_temp.act_as('00000000-0000-0000-0000-0000000023a3');
 select ok(not public.my_turn_to_plan(pg_temp.circle()), 'Tom, in the same circle, is not');
 select pg_temp.act_as('00000000-0000-0000-0000-0000000023a5');
@@ -331,7 +331,7 @@ where circle_id = pg_temp.circle() and user_id = '00000000-0000-0000-0000-000000
 select pg_temp.act_as('00000000-0000-0000-0000-0000000023a2');
 select ok(
   not public.my_turn_to_plan(pg_temp.circle()),
-  'and once Priya turns nudges off, she is not told it is her turn'
+  'and once Nina turns nudges off, she is not told it is her turn'
 );
 
 -- ---------------------------------------------------------------------------

@@ -56,10 +56,10 @@ returns jsonb language sql as $$
   );
 $$;
 
--- Maya owns the circle; Priya, Tom and Jess are members; Sam is a guest (an
+-- Maya owns the circle; Nina, Tom and Jess are members; Sam is a guest (an
 -- anonymous session); Gone will be removed; Nobody is in no circle at all.
 select pg_temp.make_user('00000000-0000-0000-0000-0000000026a1', 'Maya');
-select pg_temp.make_user('00000000-0000-0000-0000-0000000026a2', 'Priya');
+select pg_temp.make_user('00000000-0000-0000-0000-0000000026a2', 'Nina');
 select pg_temp.make_user('00000000-0000-0000-0000-0000000026a3', 'Tom');
 select pg_temp.make_user('00000000-0000-0000-0000-0000000026a4', 'Jess');
 select pg_temp.make_user('00000000-0000-0000-0000-0000000026a5', 'Sam', true);
@@ -75,7 +75,7 @@ grant select on t to anon, authenticated;
 
 insert into public.circle_members (circle_id, user_id, display_name_snapshot)
 select circle_id, u.id, u.name from t, (values
-  ('00000000-0000-0000-0000-0000000026a2'::uuid, 'Priya'),
+  ('00000000-0000-0000-0000-0000000026a2'::uuid, 'Nina'),
   ('00000000-0000-0000-0000-0000000026a3'::uuid, 'Tom'),
   ('00000000-0000-0000-0000-0000000026a4'::uuid, 'Jess'),
   ('00000000-0000-0000-0000-0000000026a5'::uuid, 'Sam'),
@@ -229,7 +229,7 @@ select is(
   pg_temp.seen_by('00000000-0000-0000-0000-0000000026a2') - 'days',
   jsonb_build_object('asked', 6, 'answered', 3, 'with_times', 1, 'flexible', 1,
     'reader_answered', true),
-  'Priya, having answered, is not among the others she reads about'
+  'Nina, having answered, is not among the others she reads about'
 );
 select is(
   pg_temp.seen_by('00000000-0000-0000-0000-0000000026a2') -> 'days',
@@ -241,7 +241,7 @@ select is(
 select is(
   pg_temp.seen_by('00000000-0000-0000-0000-0000000026a4') -> 'days',
   jsonb_build_array(jsonb_build_array(pg_temp.win('2099-09-17', 1050, 1140))),
-  'while Jess reads Priya''s and not her own'
+  'while Jess reads Nina''s and not her own'
 );
 
 -- ---------------------------------------------------------------------------
@@ -379,7 +379,7 @@ select is(
 select is(
   (pg_temp.seen_by('00000000-0000-0000-0000-0000000026a2') ->> 'reader_answered')::boolean,
   false,
-  'and Priya''s answer to the old question is not an answer to this one'
+  'and Nina''s answer to the old question is not an answer to this one'
 );
 
 -- ---------------------------------------------------------------------------
@@ -390,7 +390,7 @@ select pg_temp.act_as('00000000-0000-0000-0000-0000000026a2');
 select is(
   (select count(*)::integer from public.plan_responses where user_id <> '00000000-0000-0000-0000-0000000026a2'),
   0,
-  'Priya still cannot select anybody else''s response'
+  'Nina still cannot select anybody else''s response'
 );
 select is(
   (select count(*)::integer from public.willing_windows w

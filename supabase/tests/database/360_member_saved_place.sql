@@ -39,10 +39,10 @@ begin
 end;
 $$;
 
--- Maya (saved place, owner), Priya (saved), Sam (guest), Jo (guest, removed
+-- Maya (saved place, owner), Nina (saved), Sam (guest), Jo (guest, removed
 -- later), Zed (guest, in no circle with them).
 select pg_temp.make_user('00000000-0000-0000-0000-00000000c001', 'Maya', false);
-select pg_temp.make_user('00000000-0000-0000-0000-00000000c002', 'Priya', false);
+select pg_temp.make_user('00000000-0000-0000-0000-00000000c002', 'Nina', false);
 select pg_temp.make_user('00000000-0000-0000-0000-00000000c003', 'Sam', true);
 select pg_temp.make_user('00000000-0000-0000-0000-00000000c004', 'Jo', true);
 select pg_temp.make_user('00000000-0000-0000-0000-00000000c009', 'Zed', true);
@@ -54,7 +54,7 @@ select pg_temp.act_as_postgres();
 insert into public.circle_members (circle_id, user_id, display_name_snapshot)
 select c.id, m.id, m.name
 from public.circles c,
-  (values ('00000000-0000-0000-0000-00000000c002'::uuid, 'Priya'),
+  (values ('00000000-0000-0000-0000-00000000c002'::uuid, 'Nina'),
           ('00000000-0000-0000-0000-00000000c003', 'Sam'),
           ('00000000-0000-0000-0000-00000000c004', 'Jo')) as m(id, name)
 where c.name = 'Saved Place Crew';

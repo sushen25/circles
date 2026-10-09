@@ -14,7 +14,7 @@ import { t } from '../../copy';
 /**
  * The two bottom sheets circle settings, notification settings and account
  * are made of: a question with one answer that does something ("Reset link?",
- * "Remove Priya?", "Archive Sunday Crew?"), and a choice among a few
+ * "Remove Nina?", "Archive Sunday Crew?"), and a choice among a few
  * ("How often would you like to catch up?"). Presentational; the flow decides
  * what each one says and does.
  */

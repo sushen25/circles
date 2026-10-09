@@ -67,12 +67,12 @@ export function CalendarPickScreen({ onNext, onBack }: CalendarPickProps) {
           <Row>
             <Stack>
               <Title>{t('calendarPick', 'work')}</Title>
-              <Small>{t('calendarPick', 'google_priya_work_example')}</Small>
+              <Small>{t('calendarPick', 'google_nina_work_example')}</Small>
             </Stack>
             <Toggle
               value={toggle1}
               onValueChange={setToggle1}
-              label={t('calendarPick', 'google_priya_work_example')}
+              label={t('calendarPick', 'google_nina_work_example')}
             />
           </Row>
           <Divider />

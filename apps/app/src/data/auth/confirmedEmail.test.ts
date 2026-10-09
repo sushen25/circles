@@ -40,13 +40,13 @@ beforeEach(() => {
 
 describe('confirmedEmail', () => {
   it('is the confirmed address, lower-cased and trimmed, for a saved place', async () => {
-    await signIn({ email: ' PRIYA@example.com ', email_confirmed_at: '2026-10-06T00:00:00Z' });
+    await signIn({ email: ' NINA@example.com ', email_confirmed_at: '2026-10-06T00:00:00Z' });
 
-    expect(sessionState().confirmedEmail).toBe('priya@example.com');
+    expect(sessionState().confirmedEmail).toBe('nina@example.com');
   });
 
   it('is absent when auth has not confirmed the address', async () => {
-    await signIn({ email: 'priya@example.com', email_confirmed_at: null });
+    await signIn({ email: 'nina@example.com', email_confirmed_at: null });
 
     expect(sessionState().confirmedEmail).toBeUndefined();
   });
@@ -54,7 +54,7 @@ describe('confirmedEmail', () => {
   it('is absent for an anonymous guest, whatever it holds', async () => {
     await signIn({
       is_anonymous: true,
-      email: 'priya@example.com',
+      email: 'nina@example.com',
       email_confirmed_at: '2026-10-06T00:00:00Z',
     });
 
@@ -65,8 +65,8 @@ describe('confirmedEmail', () => {
     await signIn({ email_confirmed_at: '2026-10-06T00:00:00Z' });
     expect(sessionState().confirmedEmail).toBeUndefined();
 
-    await signIn({ email: 'priya@example.com', email_confirmed_at: '2026-10-06T00:00:00Z' });
-    expect(sessionState().confirmedEmail).toBe('priya@example.com');
+    await signIn({ email: 'nina@example.com', email_confirmed_at: '2026-10-06T00:00:00Z' });
+    expect(sessionState().confirmedEmail).toBe('nina@example.com');
     notify?.('SIGNED_OUT', null);
     await vi.waitFor(() => expect(sessionState().userId).toBeUndefined());
     expect(sessionState().confirmedEmail).toBeUndefined();

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import fc from 'fast-check';
 
 import { type UserId, userId } from '../circles/types.js';
-import { ALEX, JESS, PRIYA, SAM, SUNDAY_CREW, TOM } from '../scheduling/fixtures.js';
+import { ALEX, JESS, NINA, SAM, SUNDAY_CREW, TOM } from '../scheduling/fixtures.js';
 import { addMinutes, instant } from '../shared/instant.js';
 import { FRIDAY_MIDDAY, TOM_ASKS, quietAsk, quietPlan } from './fixtures.js';
 import { type Interest, keenCount, recordInterest } from './quiet.js';
@@ -22,7 +22,7 @@ const STATES: readonly PlanState[] = [
 ];
 
 const viewer = (overrides: Partial<QuietViewer> = {}): QuietViewer => ({
-  userId: PRIYA,
+  userId: NINA,
   isMember: true,
   isPermanent: true,
   isOwner: false,
@@ -51,7 +51,7 @@ const arbViewer = fc.record({
 const arbFacts = fc.record({
   now: fc.integer({ min: 0, max: 14 * 24 * 60 }).map((m) => addMinutes(TOM_ASKS, m)),
   keenCount: fc.option(fc.integer({ min: 0, max: 20 }), { nil: null }),
-  organiserName: fc.option(fc.constantFrom('Priya', 'Tom', 'Sam'), { nil: null }),
+  organiserName: fc.option(fc.constantFrom('Nina', 'Tom', 'Sam'), { nil: null }),
   everOpened: fc.option(fc.boolean(), { nil: undefined }),
 });
 const arbPlan = fc
@@ -77,7 +77,7 @@ describe('quietView never exposes an initiator', () => {
   it('enumerates every state for every kind of viewer, exhaustively', () => {
     const kinds: QuietViewer[] = [
       viewer({ userId: TOM, isInitiator: true, myAnswer: 'keen' }),
-      viewer({ userId: PRIYA, myAnswer: 'keen' }),
+      viewer({ userId: NINA, myAnswer: 'keen' }),
       viewer({ userId: ALEX, myAnswer: 'not_this_time' }),
       viewer({ userId: JESS }),
       viewer({ userId: SAM, isOwner: true }),
@@ -182,14 +182,14 @@ describe('quietView', () => {
       organiser: null,
       mayTakeRole: true,
     });
-    const taken = quietPlan({ state: 'collecting', organiserUserId: PRIYA });
+    const taken = quietPlan({ state: 'collecting', organiserUserId: NINA });
     expect(
       quietView(taken, viewer({ userId: JESS }), {
         ...FACTS,
         keenCount: 3,
-        organiserName: 'Priya',
+        organiserName: 'Nina',
       }),
-    ).toEqual({ phase: 'opened', keenCount: 3, organiser: 'Priya', mayTakeRole: false });
+    ).toEqual({ phase: 'opened', keenCount: 3, organiser: 'Nina', mayTakeRole: false });
   });
 
   it('offers the role to the owner who was not keen only once replies have closed', () => {
@@ -239,7 +239,7 @@ describe('the count shown after threshold cannot be differenced', () => {
     const met = quietAsk({
       answers: [
         [TOM, 'keen'],
-        [PRIYA, 'keen'],
+        [NINA, 'keen'],
         [JESS, 'keen'],
       ],
     });

@@ -23,7 +23,7 @@ describe.skipIf(target === undefined || target === '')('email preview', () => {
         const email = await render(input);
         const sent = await sendEmail(
           {
-            to: 'priya@example.com',
+            to: 'nina@example.com',
             subject: email.subject,
             html: email.html,
             text: email.text,

@@ -61,8 +61,8 @@ describe('routePattern', () => {
   it('never lets an unknown segment through, whatever it looks like', () => {
     // If a segment ever were the real address, a plan code or an email is not a word of ours.
     expect(routePattern(['p', 'K7QM2X'])).toBe('/p/:other');
-    expect(routePattern(['priya@example.com'])).toBe('/:other');
-    expect(routePattern(['p', '[priya]'])).toBe('/p/:other');
+    expect(routePattern(['nina@example.com'])).toBe('/:other');
+    expect(routePattern(['p', '[nina]'])).toBe('/p/:other');
   });
 
   it('knows every route in app/, so :other means a real mistake', () => {
@@ -177,10 +177,8 @@ describe('reportClientError', () => {
     // address and a name.
     const planCode = 'K7QM2X';
     window.history.replaceState(null, '', `/p/${planCode}#secret-fragment`);
-    const error = new TypeError(
-      `Cannot read properties of undefined (reading 'priya@example.com')`,
-    );
-    error.stack = `TypeError at https://wenna.example/p/${planCode}#secret-fragment Priya`;
+    const error = new TypeError(`Cannot read properties of undefined (reading 'nina@example.com')`);
+    error.stack = `TypeError at https://wenna.example/p/${planCode}#secret-fragment Nina`;
     (error as { cause?: unknown }).cause = new Error(`Sunday Crew ${planCode}`);
 
     setCurrentRoute(['p', '[code]']);
@@ -192,8 +190,8 @@ describe('reportClientError', () => {
       planCode,
       'secret-fragment',
       'fragment',
-      'priya',
-      'Priya',
+      'nina',
+      'Nina',
       'example',
       'Sunday',
       'wenna',

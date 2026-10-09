@@ -1,7 +1,7 @@
 -- Running a circle (S1-23): the owner's link shown again, the link reset, a
 -- member removed, and the nudge switch a member keeps for themselves.
 --
--- Sunday Crew: Maya owns it and has an account. Priya and Tom are guest
+-- Sunday Crew: Maya owns it and has an account. Nina and Tom are guest
 -- members who have answered the plan that is asking. Sam has an account and is
 -- in a different circle.
 
@@ -51,7 +51,7 @@ end;
 $$;
 
 select pg_temp.make_user('20000000-0000-0000-0000-000000000001', 'Maya');
-select pg_temp.make_user('20000000-0000-0000-0000-000000000002', 'Priya', true);
+select pg_temp.make_user('20000000-0000-0000-0000-000000000002', 'Nina', true);
 select pg_temp.make_user('20000000-0000-0000-0000-000000000003', 'Tom', true);
 select pg_temp.make_user('20000000-0000-0000-0000-000000000004', 'Sam');
 select pg_temp.make_user('20000000-0000-0000-0000-000000000005', 'Ren', true);
@@ -76,7 +76,7 @@ select is(
 
 insert into public.circle_members (circle_id, user_id, display_name_snapshot)
 select circle_id, u, n from fixture, (values
-  ('20000000-0000-0000-0000-000000000002'::uuid, 'Priya'),
+  ('20000000-0000-0000-0000-000000000002'::uuid, 'Nina'),
   ('20000000-0000-0000-0000-000000000003'::uuid, 'Tom')
 ) as m(u, n);
 
@@ -270,7 +270,7 @@ select is(
   (select count(*)::integer from public.plan_responses
    where plan_id = (select id from the_plan) and user_id = '20000000-0000-0000-0000-000000000002'),
   1,
-  'and Priya''s is not'
+  'and Nina''s is not'
 );
 select is(
   (select count(*)::integer from public.plan_participants

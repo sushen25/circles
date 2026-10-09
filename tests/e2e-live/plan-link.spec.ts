@@ -152,12 +152,12 @@ test('somebody who joins by invite after the plan was made is asked by it on arr
 
   await page.goto(`/join#${crew.secret}`);
   await page.getByRole('button', { name: 'Choose my times' }).click();
-  await typeName(page, 'Priya');
+  await typeName(page, 'Nina');
   await expect(page).toHaveURL(new RegExp(`/j/${crew.planCode}$`));
 
-  const priya = memberNamed(crew.circleId, 'Priya');
-  expect(priya).toBeDefined();
-  await expect.poll(() => isParticipant(crew.planId, priya!.userId)).toBe(true);
+  const nina = memberNamed(crew.circleId, 'Nina');
+  expect(nina).toBeDefined();
+  await expect.poll(() => isParticipant(crew.planId, nina!.userId)).toBe(true);
 });
 
 test('a quorum nobody chose follows the circle as people tap the link', async ({ page }) => {

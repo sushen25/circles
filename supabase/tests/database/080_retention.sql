@@ -51,7 +51,7 @@ returns jsonb language sql as $$
 $$;
 
 select pg_temp.make_user('00000000-0000-0000-0000-0000000006a1', 'Maya');
-select pg_temp.make_user('00000000-0000-0000-0000-0000000006a2', 'Priya');
+select pg_temp.make_user('00000000-0000-0000-0000-0000000006a2', 'Nina');
 select pg_temp.make_user('00000000-0000-0000-0000-0000000006a3', 'Tom');
 select pg_temp.make_user('00000000-0000-0000-0000-0000000006a4', 'Sam');
 
@@ -64,12 +64,12 @@ create temporary table t_old as select id as circle_id from public.circles where
 grant select on t, t_old to anon, authenticated, service_role;
 insert into public.circle_members (circle_id, user_id, display_name_snapshot)
 select circle_id, u, n from t, (values
-  ('00000000-0000-0000-0000-0000000006a2'::uuid, 'Priya'),
+  ('00000000-0000-0000-0000-0000000006a2'::uuid, 'Nina'),
   ('00000000-0000-0000-0000-0000000006a3'::uuid, 'Tom'),
   ('00000000-0000-0000-0000-0000000006a4'::uuid, 'Sam')
 ) as v (u, n);
 insert into public.circle_members (circle_id, user_id, display_name_snapshot)
-select circle_id, '00000000-0000-0000-0000-0000000006a2', 'Priya' from t_old;
+select circle_id, '00000000-0000-0000-0000-0000000006a2', 'Nina' from t_old;
 
 -- A plan whose band runs from 9 am, so a window can cover a morning.
 create or replace function pg_temp.make_plan(circle uuid, code text, day date)
@@ -96,7 +96,7 @@ $$;
 select pg_temp.make_plan((select circle_id from t), 'pnretaa', date '2099-09-14') as plan_a \gset
 select pg_temp.make_plan((select circle_id from t_old), 'pnretbb', date '2099-09-14') as plan_old \gset
 
--- Priya offers a weekday evening and a weekend morning-into-afternoon; Tom a
+-- Nina offers a weekday evening and a weekend morning-into-afternoon; Tom a
 -- weekday evening; Sam the same in the circle that will be archived.
 select pg_temp.act_as('00000000-0000-0000-0000-0000000006a2');
 select public.replace_response(:'plan_a', 1, 'windows', jsonb_build_array(
@@ -185,7 +185,7 @@ update jobs.outbox set occurred_at = now() - interval '31 days' where id = :'old
 
 -- Notification jobs and delivery events.
 insert into private.email_contacts (user_id, email_normalized) values
-  ('00000000-0000-0000-0000-0000000006a2', 'priya@example.com')
+  ('00000000-0000-0000-0000-0000000006a2', 'nina@example.com')
 returning id as contact \gset
 insert into jobs.notification_jobs (id, channel, kind, contact_id, plan_id, plan_revision, scheduled_for, idempotency_key, created_at)
 values
@@ -277,7 +277,7 @@ insert into private.audit_log (action, resource_type, occurred_at) values
   ('circle.renamed', 'circle', now() - interval '13 months'),
   ('circle.renamed', 'circle', now() - interval '1 day');
 
--- Windows: Priya's answer is 13 months old, Tom's is fresh; Sam's circle is
+-- Windows: Nina's answer is 13 months old, Tom's is fresh; Sam's circle is
 -- archived and has been for a month.
 update public.plan_responses set submitted_at = now() - interval '13 months'
 where plan_id = :'plan_a' and user_id = '00000000-0000-0000-0000-0000000006a2';
@@ -332,7 +332,7 @@ select is((select action from private.audit_log order by occurred_at desc limit 
 select is(
   (select count(*)::integer from public.willing_windows w join public.plan_responses r on r.id = w.response_id
    where r.user_id = '00000000-0000-0000-0000-0000000006a2' and r.plan_id = :'plan_a'),
-  0, 'Priya''s year-old windows went'
+  0, 'Nina''s year-old windows went'
 );
 select is(
   (select count(*)::integer from public.willing_windows w join public.plan_responses r on r.id = w.response_id
@@ -365,7 +365,7 @@ select is(
   3, 'and that is everything that went: three windows, no more'
 );
 
--- A second answer of Priya's crosses the line on a later night. The summary
+-- A second answer of Nina's crosses the line on a later night. The summary
 -- adds to what it holds; it does not start again from what is left.
 select pg_temp.make_plan((select circle_id from t), 'pnretcc', date '2099-10-05') as plan_c \gset
 select pg_temp.act_as('00000000-0000-0000-0000-0000000006a2');
@@ -452,7 +452,7 @@ select is(
 -- ---------------------------------------------------------------------------
 
 select pg_temp.act_as('00000000-0000-0000-0000-0000000006a2');
-select is((select count(*)::integer from public.member_dayparts), 1, 'Priya reads her own summary');
+select is((select count(*)::integer from public.member_dayparts), 1, 'Nina reads her own summary');
 select throws_ok(
   format($$insert into public.member_dayparts (circle_id, user_id, summary) values ('%s', '00000000-0000-0000-0000-0000000006a2', '{"parts": [], "counts": {}}')$$, (select circle_id from t)),
   '42501', null, 'and cannot write one'
@@ -460,7 +460,7 @@ select throws_ok(
 select pg_temp.act_as('00000000-0000-0000-0000-0000000006a1');
 select is((select count(*)::integer from public.member_dayparts), 0, 'Maya, the owner, reads nobody''s — it pre-fills, it does not score');
 
--- Removed, Priya reads nothing; a month on, the summary itself goes.
+-- Removed, Nina reads nothing; a month on, the summary itself goes.
 select pg_temp.act_as_postgres();
 update public.circle_members set status = 'removed'
 where circle_id = (select circle_id from t) and user_id = '00000000-0000-0000-0000-0000000006a2';

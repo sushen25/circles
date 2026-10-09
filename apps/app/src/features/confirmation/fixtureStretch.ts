@@ -40,7 +40,7 @@ const RESPONSES = [
     },
   ],
   [
-    uid('priya'),
+    uid('nina'),
     {
       status: 'windows' as const,
       windows: [
@@ -83,7 +83,7 @@ const RESPONSES = [
   ],
 ] as const;
 
-const MEMBERS = ['maya', 'priya', 'tom', 'jess', 'sam', 'alex'].map(uid);
+const MEMBERS = ['maya', 'nina', 'tom', 'jess', 'sam', 'alex'].map(uid);
 
 export function fixtureStretch(startsAt: string, endsAt: string): Stretch {
   const { available, cannot, awaiting } = whoCanMake(

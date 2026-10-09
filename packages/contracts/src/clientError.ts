@@ -37,7 +37,7 @@ export type ClientErrorSource = (typeof CLIENT_ERROR_SOURCES)[number];
 /**
  * Every word a route's path is made of, and every parameter it names. A route
  * is stored only if each of its segments is one of these (or `:other`, or
- * `+not-found`), so `/p/:code` is a pattern and `/priya` or `/p/k7qm2x` is
+ * `+not-found`), so `/p/:code` is a pattern and `/nina` or `/p/k7qm2x` is
  * refused: the regex below bounds the *alphabet*, and only a list can tell a
  * screen's name from somebody's. A new route adds its word here; the app's
  * `clientError.test.ts` fails until it does.

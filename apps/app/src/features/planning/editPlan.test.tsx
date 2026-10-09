@@ -51,7 +51,7 @@ function show(node: ReactNode) {
 
 const IDS = { circle_id: 'sunday-crew', plan_id: 'thu-17' };
 const ASKS_AGAIN = {
-  asked_again: ['maya', 'priya', 'tom', 'jess', 'sam'],
+  asked_again: ['maya', 'nina', 'tom', 'jess', 'sam'],
   fresh_ask: ['alex'],
   invalidating: ['window'],
   bumps_revision: true,
@@ -75,7 +75,7 @@ describe('editing the dates', () => {
 
     expect(
       await screen.findByText(
-        'Changing this means you, Priya and 3 others will be asked for their times again, and Alex gets a fresh ask. Anything sent for the old times is cleared.',
+        'Changing this means you, Nina and 3 others will be asked for their times again, and Alex gets a fresh ask. Anything sent for the old times is cleared.',
       ),
     ).toBeTruthy();
     const [, sent] = previewRevision.mock.calls.at(-1) as [string, Planning.Revision];
@@ -269,7 +269,7 @@ describe('editing the dates', () => {
   });
 
   it("is the organiser's alone, and says so", async () => {
-    planDetails.mockResolvedValue({ ...fixture.asking, isOrganiser: false, me: 'priya' });
+    planDetails.mockResolvedValue({ ...fixture.asking, isOrganiser: false, me: 'nina' });
     show(<EditPlanFlow id="sunday-crew" planId="thu-17" />);
     expect(await screen.findByText('Only the organiser can edit this plan.')).toBeTruthy();
     expect(previewRevision).not.toHaveBeenCalled();

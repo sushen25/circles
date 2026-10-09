@@ -38,9 +38,9 @@ begin
 end;
 $$;
 
--- Maya organises; Priya and Tom are in the circle and on the plan.
+-- Maya organises; Nina and Tom are in the circle and on the plan.
 select pg_temp.make_user('00000000-0000-0000-0000-0000000007a1', 'Maya');
-select pg_temp.make_user('00000000-0000-0000-0000-0000000007a2', 'Priya');
+select pg_temp.make_user('00000000-0000-0000-0000-0000000007a2', 'Nina');
 select pg_temp.make_user('00000000-0000-0000-0000-0000000007a3', 'Tom');
 
 select pg_temp.act_as('00000000-0000-0000-0000-0000000007a1');
@@ -52,7 +52,7 @@ select id as circle_id from public.circles where creation_key = 'key-confirm-fn'
 grant select on t to anon, authenticated, service_role;
 
 insert into public.circle_members (circle_id, user_id, display_name_snapshot)
-select circle_id, '00000000-0000-0000-0000-0000000007a2'::uuid, 'Priya' from t
+select circle_id, '00000000-0000-0000-0000-0000000007a2'::uuid, 'Nina' from t
 union all
 select circle_id, '00000000-0000-0000-0000-0000000007a3'::uuid, 'Tom' from t;
 
@@ -78,7 +78,7 @@ select plan_id, 1, u from tp, unnest(array[
   '00000000-0000-0000-0000-0000000007a3'::uuid
 ]) as u;
 
--- Priya and Tom answered, so there is something for the candidate to be made of.
+-- Nina and Tom answered, so there is something for the candidate to be made of.
 select pg_temp.act_as('00000000-0000-0000-0000-0000000007a2');
 select public.replace_response(pg_temp.plan_id(), 1, 'flexible');
 select pg_temp.act_as('00000000-0000-0000-0000-0000000007a3');

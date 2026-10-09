@@ -6,7 +6,7 @@ import { confirmation, sundayCrewPlan } from '../confirmation/fixtures.js';
 import { confirmationId } from '../confirmation/types.js';
 import { planId } from '../planning/types.js';
 import { deriveAttendance } from '../confirmation/attendance.js';
-import { ALEX, JESS, NIC, PRIYA, SAM, SUNDAY_CREW, TOM } from '../scheduling/fixtures.js';
+import { ALEX, JESS, NIC, NINA, SAM, SUNDAY_CREW, TOM } from '../scheduling/fixtures.js';
 import { sundayCrewStoredResponses } from '../confirmation/fixtures.js';
 import { fromISO } from '../shared/instant.js';
 import { type EligibilityContext, channelFor, recipientsFor } from './eligibility.js';
@@ -25,25 +25,25 @@ const ids = (kind: NotificationKind, context: EligibilityContext): readonly User
 describe('audiences', () => {
   it('tells the whole circle about a new plan, except whoever made it', () => {
     const context = eligibilityContext({ actorId: SAM });
-    expect(ids('new_plan', context)).toEqual([PRIYA, TOM, JESS, NIC, ALEX]);
+    expect(ids('new_plan', context)).toEqual([NINA, TOM, JESS, NIC, ALEX]);
   });
 
   it('never sends a quiet ask back to its own initiator', () => {
     // The initiator is not identifiable from anything anyone receives (§8.2),
     // and a push telling them about their own ask is the loudest possible tell.
-    const context = eligibilityContext({ quietInitiatorId: PRIYA });
-    expect(ids('quiet_ask', context)).not.toContain(PRIYA);
+    const context = eligibilityContext({ quietInitiatorId: NINA });
+    expect(ids('quiet_ask', context)).not.toContain(NINA);
     expect(ids('quiet_ask', context)).toHaveLength(5);
   });
 
   it('offers the role to the initiator alone at threshold', () => {
-    const context = eligibilityContext({ quietInitiatorId: PRIYA });
-    expect(ids('threshold_initiator', context)).toEqual([PRIYA]);
+    const context = eligibilityContext({ quietInitiatorId: NINA });
+    expect(ids('threshold_initiator', context)).toEqual([NINA]);
     expect(ids('threshold_initiator', eligibilityContext())).toEqual([]);
   });
 
   it('asks only the keen ones for their times', () => {
-    const context = eligibilityContext({ quietInitiatorId: PRIYA, keenMemberIds: [TOM, NIC] });
+    const context = eligibilityContext({ quietInitiatorId: NINA, keenMemberIds: [TOM, NIC] });
     expect(ids('threshold_keen', context)).toEqual([TOM, NIC]);
   });
 
@@ -85,7 +85,7 @@ describe('audiences', () => {
     );
     // Five going, Alex still unknown — and "unknown" is not "going".
     const context = eligibilityContext({ attendance, confirmationId: confirmed.id });
-    expect(ids('reminder', context)).toEqual([SAM, PRIYA, TOM, JESS, NIC]);
+    expect(ids('reminder', context)).toEqual([SAM, NINA, TOM, JESS, NIC]);
   });
 
   it('sends a reminder to nobody when nobody has said they are coming', () => {
@@ -123,9 +123,9 @@ describe('audiences', () => {
 
 describe('the rules that cut across every kind', () => {
   it('never tells anyone about their own action', () => {
-    const context = eligibilityContext({ actorId: PRIYA });
+    const context = eligibilityContext({ actorId: NINA });
     for (const kind of ['new_plan', 'locked_in', 'changed', 'cancelled'] as const) {
-      expect(ids(kind, context)).not.toContain(PRIYA);
+      expect(ids(kind, context)).not.toContain(NINA);
     }
   });
 
@@ -137,7 +137,7 @@ describe('the rules that cut across every kind', () => {
   it('tells nobody anything about an archived circle (spec §5.2)', () => {
     const context = eligibilityContext({
       circle: circle({ ownerUserId: SAM, status: 'archived' }),
-      quietInitiatorId: PRIYA,
+      quietInitiatorId: NINA,
       keenMemberIds: [NIC],
     });
     for (const kind of [
@@ -153,7 +153,7 @@ describe('the rules that cut across every kind', () => {
 
   it('honours mutedAll for every kind', () => {
     const members = sundayCrewMembers({ [NIC]: { mutedAll: true } });
-    const context = eligibilityContext({ members, quietInitiatorId: PRIYA, keenMemberIds: [NIC] });
+    const context = eligibilityContext({ members, quietInitiatorId: NINA, keenMemberIds: [NIC] });
     for (const kind of ['new_plan', 'quiet_ask', 'threshold_keen', 'locked_in'] as const) {
       expect(ids(kind, context)).not.toContain(NIC);
     }
@@ -163,7 +163,7 @@ describe('the rules that cut across every kind', () => {
     // Someone who does not want to be asked "would you be up for something?"
     // every week still wants to know when a plan is confirmed.
     const members = sundayCrewMembers({ [JESS]: { mutedQuietAsks: true } });
-    const context = eligibilityContext({ members, quietInitiatorId: PRIYA, keenMemberIds: [JESS] });
+    const context = eligibilityContext({ members, quietInitiatorId: NINA, keenMemberIds: [JESS] });
     expect(ids('quiet_ask', context)).not.toContain(JESS);
     expect(ids('threshold_keen', context)).not.toContain(JESS);
     expect(ids('locked_in', context)).toContain(JESS);
@@ -199,13 +199,13 @@ describe('channels', () => {
   });
 
   it('picks per person, not per kind', () => {
-    const hasPushDevice = (id: UserId) => id === PRIYA;
+    const hasPushDevice = (id: UserId) => id === NINA;
     const context = eligibilityContext({
       hasPushDevice,
       actorId: SAM,
       hasPlanEmailSubscription: (id) => id === TOM,
     });
-    expect(channelFor('locked_in', PRIYA, context)).toBe('push');
+    expect(channelFor('locked_in', NINA, context)).toBe('push');
     expect(channelFor('locked_in', TOM, context)).toBe('email');
     expect(channelFor('locked_in', JESS, context)).toBeUndefined();
     expect(channelFor('new_plan', TOM, context)).toBeUndefined();
@@ -221,7 +221,7 @@ describe('the nudge recipient', () => {
   it('takes its turn from whoever was actually at the last meetup', () => {
     const context = eligibilityContext({
       circle: circle({ ownerUserId: SAM, nudgePolicy: 'take_turns' }),
-      nudge: { lastHappenedAttendees: [PRIYA, TOM], lastOrganiserId: PRIYA },
+      nudge: { lastHappenedAttendees: [NINA, TOM], lastOrganiserId: NINA },
     });
     expect(ids('about_time', context)).toHaveLength(1);
   });
@@ -284,7 +284,7 @@ describe('asked again (ADR 0046)', () => {
   // An edit moved the plan to revision 2. Everybody but Alex had answered
   // revision 1, and those answers no longer count.
   const edited = sundayCrewPlan({ revision: 2 });
-  const answeredEarlier = [SAM, PRIYA, TOM, JESS, NIC];
+  const answeredEarlier = [SAM, NINA, TOM, JESS, NIC];
 
   it('goes to the people whose answers the edit cleared, and not to the organiser who made it', () => {
     const context = eligibilityContext({
@@ -292,7 +292,7 @@ describe('asked again (ADR 0046)', () => {
       answeredEarlierIds: answeredEarlier,
       actorId: SAM,
     });
-    expect(ids('asked_again', context)).toEqual([PRIYA, TOM, JESS, NIC]);
+    expect(ids('asked_again', context)).toEqual([NINA, TOM, JESS, NIC]);
   });
 
   it('leaves out somebody who has already answered the plan as it is now', () => {
@@ -303,7 +303,7 @@ describe('asked again (ADR 0046)', () => {
       answeredEarlierIds: answeredEarlier,
     });
     expect(ids('asked_again', context)).not.toContain(TOM);
-    expect(ids('asked_again', context)).toContain(PRIYA);
+    expect(ids('asked_again', context)).toContain(NINA);
   });
 
   it('asks nobody who never answered: there were no times of theirs to clear', () => {
@@ -319,8 +319,8 @@ describe('asked again (ADR 0046)', () => {
     // cleared (SUS-130); the organiser's preview listed them too, among the
     // people who had not answered (spec §5.3).
     const twice = sundayCrewPlan({ revision: 3 });
-    const context = eligibilityContext({ plan: twice, responses: [], answeredEarlierIds: [PRIYA] });
-    expect(ids('asked_again', context)).toEqual([PRIYA]);
+    const context = eligibilityContext({ plan: twice, responses: [], answeredEarlierIds: [NINA] });
+    expect(ids('asked_again', context)).toEqual([NINA]);
   });
 
   it('emails only a verified subscriber to this plan', () => {
@@ -328,9 +328,9 @@ describe('asked again (ADR 0046)', () => {
       plan: edited,
       answeredEarlierIds: answeredEarlier,
       hasPushDevice: NOBODY_HAS_PUSH,
-      hasPlanEmailSubscription: (id) => id === PRIYA,
+      hasPlanEmailSubscription: (id) => id === NINA,
     });
-    expect(recipientsFor('asked_again', context)).toEqual([{ userId: PRIYA, channel: 'email' }]);
+    expect(recipientsFor('asked_again', context)).toEqual([{ userId: NINA, channel: 'email' }]);
   });
 });
 
@@ -398,8 +398,8 @@ describe('a removed member', () => {
   it('is not offered the organiser role, even as the quiet initiator', () => {
     // `quiet_initiator` names one person rather than filtering a list, so it is
     // the audience that would otherwise skip every check the others get free.
-    const members = sundayCrewMembers({ [PRIYA]: { status: 'removed' } });
-    const context = eligibilityContext({ members, quietInitiatorId: PRIYA });
+    const members = sundayCrewMembers({ [NINA]: { status: 'removed' } });
+    const context = eligibilityContext({ members, quietInitiatorId: NINA });
     expect(ids('threshold_initiator', context)).toEqual([]);
   });
 
@@ -417,10 +417,10 @@ describe('the participant half of "did it happen"', () => {
     // §5.8 lists it among the five plan-update emails: a subscriber is the one
     // person who can say whether they were actually there.
     const context = eligibilityContext({
-      hasPlanEmailSubscription: (id) => id === PRIYA || id === TOM,
+      hasPlanEmailSubscription: (id) => id === NINA || id === TOM,
     });
     expect(recipientsFor('did_it_happen_participant', context)).toEqual([
-      { userId: PRIYA, channel: 'email' },
+      { userId: NINA, channel: 'email' },
       { userId: TOM, channel: 'email' },
     ]);
   });
@@ -430,7 +430,7 @@ describe('the participant half of "did it happen"', () => {
   });
 
   it("leaves the organiser's own version alone", () => {
-    const context = eligibilityContext({ hasPlanEmailSubscription: (id) => id === PRIYA });
+    const context = eligibilityContext({ hasPlanEmailSubscription: (id) => id === NINA });
     expect(ids('did_it_happen', context)).toEqual([SAM]);
   });
 });
@@ -451,9 +451,9 @@ describe('email consent', () => {
     const context = eligibilityContext({
       ...noPush,
       actorId: SAM,
-      hasPlanEmailSubscription: (id) => id === PRIYA,
+      hasPlanEmailSubscription: (id) => id === NINA,
     });
-    expect(recipientsFor('locked_in', context)).toEqual([{ userId: PRIYA, channel: 'email' }]);
+    expect(recipientsFor('locked_in', context)).toEqual([{ userId: NINA, channel: 'email' }]);
   });
 
   it('is not required for the organiser kinds', () => {

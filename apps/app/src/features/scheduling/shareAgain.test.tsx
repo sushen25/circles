@@ -122,8 +122,8 @@ describe('SUS-132: share the link again, as a member', () => {
 
   it.each([
     ['the options', fixture.readyAsMember],
-    ['waiting', { ...fixture.waiting, me: 'priya', isOrganiser: false, isOwner: false }],
-    ['no overlap', { ...fixture.noQuorum, me: 'priya', isOrganiser: false, isOwner: false }],
+    ['waiting', { ...fixture.waiting, me: 'nina', isOrganiser: false, isOwner: false }],
+    ['no overlap', { ...fixture.noQuorum, me: 'nina', isOrganiser: false, isOwner: false }],
   ])('is on %s while replies are open, and sends a count, never names', async (_, data) => {
     member(data);
     show(flow());

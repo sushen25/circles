@@ -91,7 +91,7 @@ describe('after a move', () => {
     planConfirmation.mockResolvedValue(fixture.lockedInMoved);
     show(<ConfirmedFlow target={{ planId: 'thu-17' }} />);
     expect(await screen.findByText('3 going · 3 to confirm')).toBeTruthy();
-    expect(screen.getByText("Priya, Sam and Alex haven't said yet")).toBeTruthy();
+    expect(screen.getByText("Nina, Sam and Alex haven't said yet")).toBeTruthy();
   });
 
   it('asks somebody the move left to confirm, and shows the two buttons they already had', async () => {
@@ -101,7 +101,7 @@ describe('after a move', () => {
     expect(screen.getByText(/^Moved from /)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'I can make it' }));
     await waitFor(() =>
-      expect(setAttendance).toHaveBeenCalledWith('confirmation-moved', 'priya', 'going'),
+      expect(setAttendance).toHaveBeenCalledWith('confirmation-moved', 'nina', 'going'),
     );
     expect(screen.getByRole('button', { name: "I can't make it" })).toBeTruthy();
     // And no organiser controls.

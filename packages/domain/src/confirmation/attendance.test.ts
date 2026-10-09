@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { userId } from '../circles/types.js';
-import { ALEX, JESS, NIC, PRIYA, SAM, SUNDAY_CREW, TOM } from '../scheduling/fixtures.js';
+import { ALEX, JESS, NIC, NINA, SAM, SUNDAY_CREW, TOM } from '../scheduling/fixtures.js';
 import { fromISO } from '../shared/instant.js';
 import {
   applyAttendance,
@@ -37,19 +37,19 @@ describe('deriveAttendance', () => {
     // Everyone whose windows fit the confirmed time is already going, in the
     // members-list order the marks render in.
     const going = attendances.filter((a) => a.status === 'going').map((a) => a.userId);
-    expect(going).toEqual([SAM, PRIYA, TOM, JESS, NIC]);
+    expect(going).toEqual([SAM, NINA, TOM, JESS, NIC]);
   });
 
   it('marks someone who answered but cannot make this time as cant, not unknown', () => {
-    // Priya answered, and is dropped from the frozen available set.
-    const withoutPriya = confirmation({
+    // Nina answered, and is dropped from the frozen available set.
+    const withoutNina = confirmation({
       candidate: {
         ...confirmation().candidate,
-        availableUserIds: confirmation().candidate.availableUserIds.filter((id) => id !== PRIYA),
+        availableUserIds: confirmation().candidate.availableUserIds.filter((id) => id !== NINA),
       },
     });
-    const derived = deriveAttendance(withoutPriya, sundayCrewStoredResponses(plan), SUNDAY_CREW);
-    expect(derived.find((a) => a.userId === PRIYA)?.status).toBe('cant');
+    const derived = deriveAttendance(withoutNina, sundayCrewStoredResponses(plan), SUNDAY_CREW);
+    expect(derived.find((a) => a.userId === NINA)?.status).toBe('cant');
     expect(derived.find((a) => a.userId === ALEX)?.status).toBe('unknown');
   });
 

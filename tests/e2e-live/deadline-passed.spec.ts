@@ -7,7 +7,7 @@ import {
   closedLetters,
   closedWithAnOption,
   closingJobsFor,
-  closingJobsToPriya,
+  closingJobsToNina,
   releaseHeld,
   signedInAs,
   zoneAtTwoInTheMorning,
@@ -86,13 +86,13 @@ test('the organiser is told, gives it one more day, and is told again when that 
 test('the organiser hands it to a member with a saved place, never to a guest', async ({
   page,
 }) => {
-  const { maya, circleId, plan, priya } = await closedWithAnOption();
+  const { maya, circleId, plan, nina } = await closedWithAnOption();
   await signedInAs(page, maya.stored);
 
   // The deadline's sweep announces it first, as it does within the minute on
   // a deployed project, and Maya opens the screen from that letter. Left to
   // chance, the sweep sometimes landed after the hand-off — whenever no other
-  // test's dispatcher happened to run first — and by day that sends Priya a
+  // test's dispatcher happened to run first — and by day that sends Nina a
   // second letter after the first has gone (SUS-95; the product half is
   // SUS-96). That order is pinned in the test below instead.
   const announced = () =>
@@ -107,39 +107,39 @@ test('the organiser hands it to a member with a saved place, never to a guest', 
   const tom = page.getByRole('button', { name: 'Tom. Needs a saved place' });
   await expect(tom).toBeVisible();
   await expect(tom).toHaveAttribute('aria-disabled', 'true');
-  await page.getByRole('button', { name: 'Priya', exact: true }).click();
-  await expect(page.getByText('Hand it to Priya?')).toBeVisible();
-  await page.getByRole('button', { name: 'Hand it to Priya' }).click();
+  await page.getByRole('button', { name: 'Nina', exact: true }).click();
+  await expect(page.getByText('Hand it to Nina?')).toBeVisible();
+  await page.getByRole('button', { name: 'Hand it to Nina' }).click();
 
   // Maya is a member of it now, and sees it as one.
-  await expect(page.getByText('Replies have closed. Priya picks one of these.')).toBeVisible();
+  await expect(page.getByText('Replies have closed. Nina picks one of these.')).toBeVisible();
   const change = page.getByRole('button', { name: 'Change my times' });
   await expect(change).toHaveAttribute('aria-disabled', 'true');
   expect(sql(`select organiser_user_id from public.plans where id = '${plan.id}'`)[0]![0]).toBe(
-    priya.userId,
+    nina.userId,
   );
 
-  // Priya is told it is hers, with the letter that opens the three ways out.
+  // Nina is told it is hers, with the letter that opens the three ways out.
   // It is written by the next drain, and held until morning in the evening,
   // so it is released before it is counted or read (SUS-91): one letter, gone.
   for (
     let attempt = 0;
-    attempt < 20 && closingJobsToPriya(plan.id, priya.userId).length === 0;
+    attempt < 20 && closingJobsToNina(plan.id, nina.userId).length === 0;
     attempt += 1
   ) {
     await runDispatcher();
   }
   await releaseHeld(plan.id);
-  expect(closingJobsToPriya(plan.id, priya.userId)).toEqual([['sent', '']]);
-  await letterTo(priya.email, CLOSED);
-  expect(await closedLetters(priya.email)).toBe(1);
+  expect(closingJobsToNina(plan.id, nina.userId)).toEqual([['sent', '']]);
+  await letterTo(nina.email, CLOSED);
+  expect(await closedLetters(nina.email)).toBe(1);
 });
 
 test('a sweep that lands after the hand-off, overnight, replaces the letter rather than adding one', async () => {
   // Overnight for everybody, whenever this runs, so both letters are held.
-  const { maya, plan, priya } = await closedWithAnOption({ closed: false });
+  const { maya, plan, nina } = await closedWithAnOption({ closed: false });
   sql(`update public.profiles set time_zone = '${zoneAtTwoInTheMorning()}'
-       where user_id in ('${maya.userId}', '${priya.userId}')`);
+       where user_id in ('${maya.userId}', '${nina.userId}')`);
 
   // The deadline passes and Maya hands it over in one transaction, so no
   // dispatcher — this test's or another's — can sweep in between: the
@@ -150,7 +150,7 @@ test('a sweep that lands after the hand-off, overnight, replaces the letter rath
     select set_config('role', 'authenticated', true);
     select set_config('request.jwt.claims',
       '{"sub": "${maya.userId}", "role": "authenticated", "is_anonymous": false}', true);
-    select organiser_user_id from public.hand_off_organiser('${plan.id}', '${priya.userId}');
+    select organiser_user_id from public.hand_off_organiser('${plan.id}', '${nina.userId}');
     commit;
   `);
 
@@ -158,24 +158,24 @@ test('a sweep that lands after the hand-off, overnight, replaces the letter rath
   // sweep's, which takes the place of the held one (`supersedeClosing`).
   for (
     let attempt = 0;
-    attempt < 20 && closingJobsToPriya(plan.id, priya.userId).length < 2;
+    attempt < 20 && closingJobsToNina(plan.id, nina.userId).length < 2;
     attempt += 1
   ) {
     await runDispatcher();
   }
-  expect(closingJobsToPriya(plan.id, priya.userId)).toEqual([
+  expect(closingJobsToNina(plan.id, nina.userId)).toEqual([
     ['scheduled', ''],
     ['skipped', 'superseded'],
   ]);
 
   // Morning: one letter reaches her.
   await releaseHeld(plan.id);
-  expect(closingJobsToPriya(plan.id, priya.userId)).toEqual([
+  expect(closingJobsToNina(plan.id, nina.userId)).toEqual([
     ['sent', ''],
     ['skipped', 'superseded'],
   ]);
-  await letterTo(priya.email, CLOSED);
-  expect(await closedLetters(priya.email)).toBe(1);
+  await letterTo(nina.email, CLOSED);
+  expect(await closedLetters(nina.email)).toBe(1);
 });
 
 test('the organiser locks in the top option from the replies-closed screen, through to Locked in', async ({

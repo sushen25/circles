@@ -5,7 +5,7 @@ import type { PlanToAnswer } from '../availability';
 /**
  * The Sunday Crew scenario — the one the whole canvas is drawn around.
  *
- * Maya owns the circle. Priya, Tom, Jess and Sam have answered; **Alex has
+ * Maya owns the circle. Nina, Tom, Jess and Sam have answered; **Alex has
  * not**, which is the point: the partial state is the most common real one and
  * every screen has to read well in it (manifesto §7).
  *
@@ -37,7 +37,7 @@ const EVENING_START = 17 * 60 + 30;
 
 const SUNDAY_CREW: Member[] = [
   { name: 'Maya' },
-  { name: 'Priya' },
+  { name: 'Nina' },
   { name: 'Tom' },
   { name: 'Jess' },
   { name: 'Sam' },

@@ -108,16 +108,16 @@ describe('the re-ask warning', () => {
   const words = { you: 'you', someone: 'Someone' };
 
   it('names who is asked again and who gets a fresh ask, the reader first as "you"', () => {
-    const again = namesWithYou(plan, ['priya', 'maya', 'tom'], words);
-    expect(again).toEqual(['you', 'Priya', 'Tom']);
+    const again = namesWithYou(plan, ['nina', 'maya', 'tom'], words);
+    expect(again).toEqual(['you', 'Nina', 'Tom']);
     expect(reaskWarning(again, namesWithYou(plan, ['alex'], words))).toBe(
-      'Changing this means you, Priya and Tom will be asked for their times again, and Alex gets a fresh ask. Anything sent for the old times is cleared.',
+      'Changing this means you, Nina and Tom will be asked for their times again, and Alex gets a fresh ask. Anything sent for the old times is cleared.',
     );
   });
 
   it('counts past three names, so twenty people read as a sentence', () => {
-    expect(reaskWarning(['you', 'Priya', 'Tom', 'Jess', 'Sam'], ['Alex', 'Ren'])).toBe(
-      'Changing this means you, Priya and 3 others will be asked for their times again, and Alex and Ren get a fresh ask. Anything sent for the old times is cleared.',
+    expect(reaskWarning(['you', 'Nina', 'Tom', 'Jess', 'Sam'], ['Alex', 'Ren'])).toBe(
+      'Changing this means you, Nina and 3 others will be asked for their times again, and Alex and Ren get a fresh ask. Anything sent for the old times is cleared.',
     );
   });
 
@@ -150,7 +150,7 @@ describe('which day is off', () => {
   it('names who cancelled only when nobody else could have', () => {
     expect(cancelledBy(fixture.cancelledAsMember)).toBe('Maya');
     // The owner may cancel somebody else's plan, and nothing records who did.
-    expect(cancelledBy({ ...fixture.cancelledAsMember, ownerUserId: 'priya' })).toBeUndefined();
+    expect(cancelledBy({ ...fixture.cancelledAsMember, ownerUserId: 'nina' })).toBeUndefined();
   });
 
   it('names the locked-in day of a cancelled plan, and none for one that was still asking', () => {

@@ -29,13 +29,13 @@ import {
  */
 
 /**
- * Priya, Tom, Jess and Sam, answered: each is free 6:30–8:30 pm on the plan's
+ * Nina, Tom, Jess and Sam, answered: each is free 6:30–8:30 pm on the plan's
  * second evening, the scenario's Thursday. Alex is asked and says nothing.
  * Written through `replace_response` as each of them, so every answer is the
  * product's own; the engine runs when Maya sends hers.
  */
 function theCrewAnswers(crew: Scenario): void {
-  for (const name of ['Priya', 'Tom', 'Jess', 'Sam']) {
+  for (const name of ['Nina', 'Tom', 'Jess', 'Sam']) {
     const userId = guestInvited(crew, name);
     sql(`
       begin;

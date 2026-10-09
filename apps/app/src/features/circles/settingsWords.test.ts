@@ -21,7 +21,7 @@ const home = (me: string, members: HomeMember[]): CircleHome =>
 
 const ROSTER = [
   member({ userId: 'maya', role: 'owner' }),
-  member({ userId: 'priya' }),
+  member({ userId: 'nina' }),
   member({ userId: 'sam', savedPlace: false, joinedAt: '2026-09-04T12:00:00Z' }),
 ];
 
@@ -32,26 +32,26 @@ describe('the detail line on a member row (SUS-165)', () => {
   it('says the tier before the date, to the owner', () => {
     const rows = memberRows(home('maya', ROSTER));
     expect(detailOf(rows, 'maya')).toBe('You · owner');
-    expect(detailOf(rows, 'priya')).toMatch(/^Place saved · joined .*\b3\b/);
+    expect(detailOf(rows, 'nina')).toMatch(/^Place saved · joined .*\b3\b/);
     expect(detailOf(rows, 'sam')).toMatch(/^Guest · joined .*\b4\b/);
   });
 
   it('says it to everybody else too, not only the owner', () => {
-    const rows = memberRows(home('priya', ROSTER));
+    const rows = memberRows(home('nina', ROSTER));
     expect(detailOf(rows, 'maya')).toBe('Owner');
-    expect(detailOf(rows, 'priya')).toBe('You · place saved');
+    expect(detailOf(rows, 'nina')).toBe('You · place saved');
     expect(detailOf(rows, 'sam')).toMatch(/^Guest · joined .*\b4\b/);
   });
 
   it('says "You · guest" on a guest’s own row', () => {
     const rows = memberRows(home('sam', ROSTER));
     expect(detailOf(rows, 'sam')).toBe('You · guest');
-    expect(detailOf(rows, 'priya')).toMatch(/^Place saved · joined .*\b3\b/);
+    expect(detailOf(rows, 'nina')).toMatch(/^Place saved · joined .*\b3\b/);
   });
 
   it('never calls an owner a guest, whatever the flag says', () => {
     const rows = memberRows(
-      home('priya', [
+      home('nina', [
         member({ userId: 'maya', role: 'owner', savedPlace: false }),
         ...ROSTER.slice(1),
       ]),

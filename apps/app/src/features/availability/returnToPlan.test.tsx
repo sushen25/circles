@@ -17,7 +17,7 @@ vi.mock('expo-router', () => ({
 }));
 vi.mock('../../analytics/track', () => ({ track: vi.fn() }));
 vi.mock('../../data/auth/client', () => ({ hasBackend: () => true }));
-const session = { status: 'saved', userId: 'priya', isAnonymous: false, isLoading: false };
+const session = { status: 'saved', userId: 'nina', isAnonymous: false, isLoading: false };
 vi.mock('../../data/auth/session', () => ({ useSession: () => session }));
 const planToAnswer = vi.fn();
 const submitAnswer = vi.fn();

@@ -65,7 +65,7 @@ export function ConfirmedGuestNudgeScreen({
           <Row>
             <Stack>
               <Title>{t('confirmedGuestNudge', '5_going_1_to_confirm')}</Title>
-              <Small>{t('confirmedGuestNudge', 'maya_priya_tom_jess_sam_alex_to')}</Small>
+              <Small>{t('confirmedGuestNudge', 'maya_nina_tom_jess_sam_alex_to')}</Small>
             </Stack>
             <Marks members={fixture.circle.members} />
           </Row>

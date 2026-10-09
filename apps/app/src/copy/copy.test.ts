@@ -68,11 +68,11 @@ describe('the copy file', () => {
       // S1-30's.
       'day',
       'address',
-      // S1-22's: "Priya and Tom just joined".
+      // S1-22's: "Nina and Tom just joined".
       'other',
       // S1-27's: the third name a sentence will hold before it counts instead
       // ("Not Alex, Tom or Sam"), and the two halves of a card's exception
-      // line ("Doesn't work for Priya · Alex hasn't answered").
+      // line ("Doesn't work for Nina · Alex hasn't answered").
       'third',
       'first',
       'second',

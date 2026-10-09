@@ -19,7 +19,7 @@ describe('the email offer', () => {
   });
 
   it("shows it, byte for byte, on the signed-in member's one-button card too", () => {
-    render(<SentScreen offerEmail confirmedEmail="priya@example.com" />);
+    render(<SentScreen offerEmail confirmedEmail="nina@example.com" />);
 
     expect(screen.getByText((_, node) => node?.textContent === CONSENT.text)).toBeVisible();
     expect(screen.queryByRole('textbox')).toBeNull();

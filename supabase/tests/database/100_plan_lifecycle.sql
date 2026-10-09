@@ -66,10 +66,10 @@ $$;
 create or replace function pg_temp.revision_of(result jsonb) returns integer
 language sql immutable as $$ select (result -> 'plan' ->> 'revision')::integer $$;
 
--- Sunday Crew again: Maya owns it, Priya and Tom are guests, Sam has a saved
+-- Sunday Crew again: Maya owns it, Nina and Tom are guests, Sam has a saved
 -- place and is a member but not the organiser.
 select pg_temp.make_user('10000000-0000-0000-0000-000000000001', 'Maya');
-select pg_temp.make_user('10000000-0000-0000-0000-000000000002', 'Priya', true);
+select pg_temp.make_user('10000000-0000-0000-0000-000000000002', 'Nina', true);
 select pg_temp.make_user('10000000-0000-0000-0000-000000000003', 'Tom', true);
 select pg_temp.make_user('10000000-0000-0000-0000-000000000004', 'Sam');
 
@@ -161,13 +161,13 @@ select is(
 
 select pg_temp.act_as('10000000-0000-0000-0000-000000000002', true);
 select throws_ok(
-  $$ select public.redeem_invite(pg_temp.digest_of('first-link'), 'Priya') $$,
+  $$ select public.redeem_invite(pg_temp.digest_of('first-link'), 'Nina') $$,
   'invite_inactive',
   'the first link no longer opens anything'
 );
 
 select lives_ok(
-  $$ select public.redeem_invite(pg_temp.digest_of('second-link'), 'Priya') $$,
+  $$ select public.redeem_invite(pg_temp.digest_of('second-link'), 'Nina') $$,
   'and the current one does'
 );
 
@@ -908,7 +908,7 @@ select pg_temp.act_as_postgres();
 -- The handler used to ask `reask_audience` and then call this, and an answer
 -- landing between the two was cleared by the revision bump while being reported
 -- as somebody who had never answered — the warning wrong about precisely the
--- person it was most about. Read under this function's lock, Priya is somebody
+-- person it was most about. Read under this function's lock, Nina is somebody
 -- who is being asked again.
 -- ---------------------------------------------------------------------------
 insert into public.plan_responses (plan_id, revision, user_id, status)

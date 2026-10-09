@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { PRIYA, SAM, TOM } from '../scheduling/fixtures.js';
+import { NINA, SAM, TOM } from '../scheduling/fixtures.js';
 import { addMinutes } from '../shared/instant.js';
 import { FRIDAY_MIDDAY, TOM_ASKS, quietPlan } from './fixtures.js';
 import { acceptOrganiser, expire, withdraw } from './quiet-lifecycle.js';
 import type { Actor } from './state-machine.js';
 
 const MEMBER: Actor = {
-  userId: PRIYA,
+  userId: NINA,
   isPermanent: true,
   isMember: true,
   isOrganiser: false,
@@ -31,7 +31,7 @@ describe('acceptOrganiser', () => {
 
   it('someone other than the initiator can become organiser: a keen volunteer', () => {
     const result = acceptOrganiser(opened, KEEN, 'volunteer', beforeDeadline);
-    expect(result.ok && result.value.organiserUserId).toBe(PRIYA);
+    expect(result.ok && result.value.organiserUserId).toBe(NINA);
   });
 
   it('a volunteer must be keen', () => {
@@ -73,7 +73,7 @@ describe('acceptOrganiser', () => {
   });
 
   it('first acceptance wins; a second is refused', () => {
-    const taken = quietPlan({ state: 'collecting', organiserUserId: PRIYA });
+    const taken = quietPlan({ state: 'collecting', organiserUserId: NINA });
     const result = acceptOrganiser(taken, INITIATOR, 'initiator', beforeDeadline);
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error.code).toBe('already_has_organiser');

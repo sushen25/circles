@@ -40,7 +40,7 @@ export function homeSubtitle(home: CircleHome): string {
 const JUST_MS = 24 * 60 * 60 * 1000;
 
 /**
- * "Priya and Tom just joined" — the people who arrived in the last day, newest
+ * "Nina and Tom just joined" — the people who arrived in the last day, newest
  * first, never the reader. Undefined when nobody has.
  */
 export function justJoined(

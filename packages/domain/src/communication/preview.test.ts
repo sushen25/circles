@@ -8,7 +8,7 @@ import {
   previewCopy,
 } from './preview.js';
 
-const MEMBER_NAMES = ['Maya', 'Priya', 'Tom', 'Jess', 'Sam', 'Alex', 'Nic'];
+const MEMBER_NAMES = ['Maya', 'Nina', 'Tom', 'Jess', 'Sam', 'Alex', 'Nic'];
 
 describe('the link preview', () => {
   it('is the artboard, word for word', () => {

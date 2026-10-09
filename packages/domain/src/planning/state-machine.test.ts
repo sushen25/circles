@@ -524,14 +524,14 @@ describe('acceptsAnswers', () => {
 });
 
 describe('hand_off (S2-05)', () => {
-  const PRIYA = userId('user-2');
-  const saved = { userId: PRIYA, isMember: true, isParticipant: true, isPermanent: true };
+  const NINA = userId('user-2');
+  const saved = { userId: NINA, isMember: true, isParticipant: true, isPermanent: true };
 
   it('gives the plan to the member it names, and moves nothing else', () => {
     for (const state of ['collecting', 'ready'] as const) {
       const before = plan({ state });
       const result = canTransition(before, 'hand_off', { actor: ORGANISER, handOffTo: saved });
-      expect(isOk(result) && result.value.organiserUserId).toBe(PRIYA);
+      expect(isOk(result) && result.value.organiserUserId).toBe(NINA);
       expect(isOk(result) && result.value.state).toBe(state);
       expect(isOk(result) && result.value.revision).toBe(before.revision);
     }

@@ -37,8 +37,8 @@ export function AppLandingScreen({ onNext }: AppLandingProps) {
       <Body>
         <BrandLockup descriptor />
         <Stack>
-          <DisplayXL>{t('appLanding', 'welcome_back_priya')}</DisplayXL>
-          <BodyText>{t('appLanding', 'signed_in_as_priya_example_com_your')}</BodyText>
+          <DisplayXL>{t('appLanding', 'welcome_back_nina')}</DisplayXL>
+          <BodyText>{t('appLanding', 'signed_in_as_nina_example_com_your')}</BodyText>
         </Stack>
         <Card>
           <Stack>

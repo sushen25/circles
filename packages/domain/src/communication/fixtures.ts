@@ -10,13 +10,13 @@ import { type Member, type UserId, userId } from '../circles/types.js';
 import { circle as circleFixture, member as memberFixture } from '../circles/fixtures.js';
 import { type Overrides, build } from '../shared/build.js';
 import { fromISO } from '../shared/instant.js';
-import { ALEX, JESS, NIC, PRIYA, SAM, SUNDAY_CREW, TOM } from '../scheduling/fixtures.js';
+import { ALEX, JESS, NIC, NINA, SAM, SUNDAY_CREW, TOM } from '../scheduling/fixtures.js';
 import { sundayCrewPlan, sundayCrewStoredResponses } from '../confirmation/fixtures.js';
 import type { EligibilityContext } from './eligibility.js';
 
 const NAMES: Readonly<Record<string, string>> = {
   [SAM]: 'Sam',
-  [PRIYA]: 'Priya',
+  [NINA]: 'Nina',
   [TOM]: 'Tom',
   [JESS]: 'Jess',
   [NIC]: 'Nic',

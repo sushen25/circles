@@ -1,7 +1,7 @@
 import { authClient } from '../auth/client';
 
 /**
- * What this circle calls the person in the session, for "Thanks, Priya". Read
+ * What this circle calls the person in the session, for "Thanks, Nina". Read
  * through RLS: a member can read the circle's members, and the row is theirs.
  * `null` when there is no such row — the screen then thanks them without a name.
  */

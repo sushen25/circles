@@ -55,9 +55,9 @@ returns bytea
 language sql
 as $$ select extensions.digest(secret, 'sha256') $$;
 
--- Maya owns Live Crew; Priya is a guest with a verified address; Tom is a guest.
+-- Maya owns Live Crew; Nina is a guest with a verified address; Tom is a guest.
 select pg_temp.make_user('29000000-0000-0000-0000-000000000001', 'Maya');
-select pg_temp.make_user('29000000-0000-0000-0000-0000000000a1', 'Priya', true);
+select pg_temp.make_user('29000000-0000-0000-0000-0000000000a1', 'Nina', true);
 select pg_temp.make_user('29000000-0000-0000-0000-0000000000a2', 'Tom', true);
 select pg_temp.make_user('29000000-0000-0000-0000-0000000000b1', 'Stranger', true);
 
@@ -75,11 +75,11 @@ create or replace function pg_temp.circle_code() returns text
 language sql security definer as $$ select short_code from fixture $$;
 
 insert into public.circle_members (circle_id, user_id, display_name_snapshot)
-values (pg_temp.circle_id(), '29000000-0000-0000-0000-0000000000a1', 'Priya'),
+values (pg_temp.circle_id(), '29000000-0000-0000-0000-0000000000a1', 'Nina'),
        (pg_temp.circle_id(), '29000000-0000-0000-0000-0000000000a2', 'Tom');
 
 insert into private.email_contacts (user_id, email_normalized, status, verified_at)
-values ('29000000-0000-0000-0000-0000000000a1', 'priya-live@example.com', 'verified', now() - interval '2 days'),
+values ('29000000-0000-0000-0000-0000000000a1', 'nina-live@example.com', 'verified', now() - interval '2 days'),
        ('29000000-0000-0000-0000-0000000000a2', 'tom-live@example.com', 'verified', now() - interval '2 days');
 
 insert into public.plans (
@@ -336,7 +336,7 @@ select is((select count(*)::int from public.preview_for_code('p', 'kvpqmanx')), 
 select pg_temp.act_as_postgres();
 select public.issue_reentry_token(
   pg_temp.circle_id(),
-  (select id from private.email_contacts where email_normalized = 'priya-live@example.com'),
+  (select id from private.email_contacts where email_normalized = 'nina-live@example.com'),
   pg_temp.digest_of('archived-link'));
 
 select pg_temp.act_as('29000000-0000-0000-0000-0000000000b1', true);
@@ -371,68 +371,68 @@ where token_hash = pg_temp.digest_of('archived-link');
 -- ---------------------------------------------------------------------------
 -- The cap cannot be used against the member (ADR 0049)
 --
--- Priya (a1) has a verified address. A stranger takes her place, she comes back
+-- Nina (a1) has a verified address. A stranger takes her place, she comes back
 -- with her emailed link, the stranger takes it again, she comes back again —
 -- and again. The list's moves are counted and the fourth is refused; her own
 -- are not counted and not refused, whatever the count stands at.
 -- ---------------------------------------------------------------------------
 select pg_temp.make_user(('29000000-0000-0000-0000-0000000001' || lpad(n::text, 2, '0'))::uuid, 'Taker ' || n, true)
 from generate_series(1, 10) n;
-select pg_temp.make_user(('29000000-0000-0000-0000-0000000002' || lpad(n::text, 2, '0'))::uuid, 'Priya device ' || n, true)
+select pg_temp.make_user(('29000000-0000-0000-0000-0000000002' || lpad(n::text, 2, '0'))::uuid, 'Nina device ' || n, true)
 from generate_series(1, 9) n;
 
-create or replace function pg_temp.priya() returns uuid
+create or replace function pg_temp.nina() returns uuid
 language sql security definer as $$
   select m.user_id from public.circle_members m
-  where m.circle_id = pg_temp.circle_id() and m.display_name_snapshot = 'Priya';
+  where m.circle_id = pg_temp.circle_id() and m.display_name_snapshot = 'Nina';
 $$;
 
 create or replace function pg_temp.emailed_link(p_name text) returns void
 language sql security definer as $$
   select public.issue_reentry_token(
     pg_temp.circle_id(),
-    (select c.id from private.email_contacts c where c.user_id = pg_temp.priya() and c.status = 'verified'),
+    (select c.id from private.email_contacts c where c.user_id = pg_temp.nina() and c.status = 'verified'),
     pg_temp.digest_of(p_name));
 $$;
 
 select pg_temp.emailed_link('link-1');
 select pg_temp.act_as('29000000-0000-0000-0000-000000000101', true);
 select lives_ok(
-  $$ select public.reattach_member(pg_temp.circle_id(), pg_temp.priya()) $$,
-  'a stranger takes Priya''s place (list move 1)'
+  $$ select public.reattach_member(pg_temp.circle_id(), pg_temp.nina()) $$,
+  'a stranger takes Nina''s place (list move 1)'
 );
 
 select pg_temp.act_as('29000000-0000-0000-0000-000000000201', true);
 select lives_ok(
   $$ select public.reattach_member(null, null, pg_temp.digest_of('link-1')) $$,
-  'Priya takes it back with the link she was emailed'
+  'Nina takes it back with the link she was emailed'
 );
 select pg_temp.act_as_postgres();
-select is(pg_temp.priya(), '29000000-0000-0000-0000-000000000201'::uuid, 'and it is hers again');
+select is(pg_temp.nina(), '29000000-0000-0000-0000-000000000201'::uuid, 'and it is hers again');
 
 select pg_temp.emailed_link('link-2');
 select pg_temp.act_as('29000000-0000-0000-0000-000000000102', true);
 select lives_ok(
-  $$ select public.reattach_member(pg_temp.circle_id(), pg_temp.priya()) $$,
+  $$ select public.reattach_member(pg_temp.circle_id(), pg_temp.nina()) $$,
   'the stranger takes it again (list move 2)'
 );
 select pg_temp.act_as('29000000-0000-0000-0000-000000000202', true);
 select lives_ok(
   $$ select public.reattach_member(null, null, pg_temp.digest_of('link-2')) $$,
-  'and Priya returns'
+  'and Nina returns'
 );
 
 select pg_temp.act_as_postgres();
 select pg_temp.emailed_link('link-3');
 select pg_temp.act_as('29000000-0000-0000-0000-000000000103', true);
 select lives_ok(
-  $$ select public.reattach_member(pg_temp.circle_id(), pg_temp.priya()) $$,
+  $$ select public.reattach_member(pg_temp.circle_id(), pg_temp.nina()) $$,
   'a third time (list move 3)'
 );
 
 select pg_temp.act_as('29000000-0000-0000-0000-000000000104', true);
 select throws_ok(
-  $$ select public.reattach_member(pg_temp.circle_id(), pg_temp.priya()) $$,
+  $$ select public.reattach_member(pg_temp.circle_id(), pg_temp.nina()) $$,
   'reattach_limit',
   'and the fourth pick from the list is refused: the cap still stops people passing a name around'
 );
@@ -440,10 +440,10 @@ select throws_ok(
 select pg_temp.act_as('29000000-0000-0000-0000-000000000203', true);
 select lives_ok(
   $$ select public.reattach_member(null, null, pg_temp.digest_of('link-3')) $$,
-  'but Priya, five moves into the chain, gets back with her link: her moves are not counted and not refused'
+  'but Nina, five moves into the chain, gets back with her link: her moves are not counted and not refused'
 );
 select pg_temp.act_as_postgres();
-select is(pg_temp.priya(), '29000000-0000-0000-0000-000000000203'::uuid, 'and the place is hers');
+select is(pg_temp.nina(), '29000000-0000-0000-0000-000000000203'::uuid, 'and the place is hers');
 
 select is(
   (select count(*)::integer from private.audit_log a
@@ -571,7 +571,7 @@ update private.audit_log a set metadata = a.metadata - 'source'
 where a.action = 'circles.member_reattached' and a.metadata ->> 'source' = 'list';
 select pg_temp.act_as('29000000-0000-0000-0000-000000000105', true);
 select throws_ok(
-  $$ select public.reattach_member(pg_temp.circle_id(), pg_temp.priya()) $$,
+  $$ select public.reattach_member(pg_temp.circle_id(), pg_temp.nina()) $$,
   'reattach_limit',
   'rows with no recorded source still count as the list''s'
 );

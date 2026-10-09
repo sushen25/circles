@@ -202,7 +202,7 @@ describe('a member', () => {
     show(<ConfirmedFlow target={{ code: 'pnsundaycr' }} />);
     fireEvent.click(await screen.findByRole('button', { name: "I can't make it after all" }));
     await waitFor(() =>
-      expect(setAttendance).toHaveBeenCalledWith('confirmation-1', 'priya', 'cant'),
+      expect(setAttendance).toHaveBeenCalledWith('confirmation-1', 'nina', 'cant'),
     );
     await waitFor(() =>
       expect(track).toHaveBeenCalledWith('attendance_updated', { ...IDS, status: 'cant' }),
@@ -213,14 +213,14 @@ describe('a member', () => {
     planConfirmation.mockResolvedValue({
       ...fixture.lockedInAsMember,
       attendance: fixture.lockedIn.attendance.map((a) =>
-        a.userId === 'priya' ? { ...a, status: 'cant' as const } : a,
+        a.userId === 'nina' ? { ...a, status: 'cant' as const } : a,
       ),
     });
     show(<ConfirmedFlow target={{ code: 'pnsundaycr' }} />);
     expect(await screen.findByText("You can't make it")).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'I can make it' }));
     await waitFor(() =>
-      expect(setAttendance).toHaveBeenCalledWith('confirmation-1', 'priya', 'going'),
+      expect(setAttendance).toHaveBeenCalledWith('confirmation-1', 'nina', 'going'),
     );
   });
 

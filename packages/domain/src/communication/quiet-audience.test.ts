@@ -1,17 +1,17 @@
 import { describe, expect, it } from 'vitest';
 
-import { JESS, PRIYA, SAM, TOM } from '../scheduling/fixtures.js';
+import { JESS, NINA, SAM, TOM } from '../scheduling/fixtures.js';
 import { recipientsFor } from './eligibility.js';
 import { NOBODY_HAS_PUSH, eligibilityContext, sundayCrewMembers } from './fixtures.js';
 
 /**
  * Who hears about a quiet ask (spec §5.8, S2-02). The dispatcher reads the
  * initiator and the keen members only for these kinds and hands them in; what
- * they mean is decided here. Tom asked; Priya and Jess were keen.
+ * they mean is decided here. Tom asked; Nina and Jess were keen.
  */
 
 const quiet = (overrides = {}) =>
-  eligibilityContext({ quietInitiatorId: TOM, keenMemberIds: [TOM, PRIYA, JESS], ...overrides });
+  eligibilityContext({ quietInitiatorId: TOM, keenMemberIds: [TOM, NINA, JESS], ...overrides });
 
 const ids = (kind: Parameters<typeof recipientsFor>[0], context = quiet()) =>
   recipientsFor(kind, context).map((r) => r.userId);
@@ -23,7 +23,7 @@ describe('the quiet kinds', () => {
   });
 
   it('tell the keen members to choose times, and not the initiator, who has their own message', () => {
-    expect(ids('threshold_keen').sort()).toEqual([JESS, PRIYA].sort());
+    expect(ids('threshold_keen').sort()).toEqual([JESS, NINA].sort());
     expect(ids('threshold_initiator')).toEqual([TOM]);
   });
 
@@ -76,7 +76,7 @@ describe('the owner’s fallback', () => {
   });
 
   it('tells the organiser instead, once somebody has taken it', () => {
-    expect(ids('replies_closed', opened(PRIYA))).toEqual([PRIYA]);
+    expect(ids('replies_closed', opened(NINA))).toEqual([NINA]);
   });
 
   it('is only that letter: the other organiser kinds still wait for an organiser', () => {

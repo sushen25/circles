@@ -48,7 +48,7 @@ export function stillToAnswer(data: PlanCandidates): string {
 
 /**
  * "The plan would run to Sun 4 Oct. It becomes a new question, so everyone who
- * has answered is asked again: you, Priya and 4 others."
+ * has answered is asked again: you, Nina and 4 others."
  *
  * The names are the ones `revise-plan`'s preview returned, not a list this
  * screen worked out: §5.3's promise is about what the server will actually do.
