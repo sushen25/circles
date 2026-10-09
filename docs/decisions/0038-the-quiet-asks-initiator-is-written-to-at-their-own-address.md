@@ -1,3 +1,9 @@
+---
+adr: 38
+title: "The quiet ask's initiator is written to at their own address"
+status: accepted
+date: 2026-09-25
+---
 # ADR 0038: The quiet ask's initiator is written to at their own address
 
 _Status: accepted · 25 September 2026_

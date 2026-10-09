@@ -1,3 +1,9 @@
+---
+adr: 11
+title: "A near-miss needs someone, unless nobody is anywhere"
+status: accepted
+date: 2026-09-10
+---
 # ADR 0011: A near-miss needs someone, unless nobody is anywhere
 
 _Status: accepted · Date: 10 September 2026_

@@ -1,3 +1,9 @@
+---
+adr: 17
+title: "Changing a quorum or a deadline adjusts a plan; it does not revise it"
+status: accepted
+date: 2026-09-14
+---
 # ADR 0017: Changing a quorum or a deadline adjusts a plan; it does not revise it
 
 _Status: accepted · Date: 14 September 2026_

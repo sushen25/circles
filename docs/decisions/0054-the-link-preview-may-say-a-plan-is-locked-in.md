@@ -1,3 +1,10 @@
+---
+adr: 54
+title: "The link preview may say a plan is locked in, as one of two words next to the name"
+status: proposed
+date: 2026-10-03
+amends: [43]
+---
 # ADR 0054: The link preview may say a plan is locked in, as one of two words next to the name
 
 _Status: proposed · 3 October 2026 · amends [ADR 0043](0043-the-product-is-wenna-and-confirmations-sign-off-with-the-day.md) (the link preview's wording) and architecture §9.4 ("circle name only")_

@@ -62,7 +62,21 @@ Short records of decisions that shape the product or the code. A new ADR is requ
 
 ## Template
 
+The frontmatter feeds [decisions.base](./decisions.base), the live table of
+these records in Obsidian. The status line is what GitHub readers see, so both
+are kept and say the same thing. Numbers are plain (`adr: 53`), and the three
+relation lists are omitted when empty.
+
 ```markdown
+---
+adr: NN
+title: "Title"
+status: proposed
+date: YYYY-MM-DD
+amends: [NN]        # records this one changes
+amended_by: [NN]    # records that change this one
+builds_on: [NN]     # records this one relies on
+---
 # ADR NNNN: Title
 
 _Status: proposed | accepted | superseded by NNNN · Date_

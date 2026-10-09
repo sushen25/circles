@@ -1,3 +1,9 @@
+---
+adr: 3
+title: "Publish domain events through a Postgres outbox drained by cron, not database webhooks"
+status: accepted
+date: 2026-09-06
+---
 # ADR 0003: Publish domain events through a Postgres outbox drained by cron, not database webhooks
 
 _Status: accepted · Date: 6 September 2026_

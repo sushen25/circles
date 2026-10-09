@@ -1,3 +1,9 @@
+---
+adr: 28
+title: "An invite secret is derived, so its owner can see it again"
+status: accepted
+date: 2026-09-23
+---
 # ADR 0028: An invite secret is derived, so its owner can see it again
 
 _Status: accepted · 23 September 2026_

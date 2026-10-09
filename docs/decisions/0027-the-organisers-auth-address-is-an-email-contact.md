@@ -1,3 +1,10 @@
+---
+adr: 27
+title: "The organiser's auth address is an email contact, verified by auth"
+status: accepted
+date: 2026-09-22
+amended_by: [50]
+---
 # ADR 0027: The organiser's auth address is an email contact, verified by auth
 
 _Status: accepted · 22 September 2026 · its last consequence amended by [ADR 0050](0050-verifying-an-address-promotes-only-the-same-persons-contacts.md)_

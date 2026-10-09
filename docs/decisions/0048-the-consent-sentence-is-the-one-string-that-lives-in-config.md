@@ -1,3 +1,9 @@
+---
+adr: 48
+title: "The consent sentence is the one user-facing string that lives in `packages/config`"
+status: proposed
+date: 2026-10-02
+---
 # ADR 0048: The consent sentence is the one user-facing string that lives in `packages/config`
 
 _Status: proposed · 2 October 2026 · amended the same day by SUS-139_

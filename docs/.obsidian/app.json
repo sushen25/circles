@@ -1,0 +1,14 @@
+{
+  "useMarkdownLinks": true,
+  "newLinkFormat": "relative",
+  "alwaysUpdateLinks": true,
+  "newFileLocation": "current",
+  "attachmentFolderPath": "_attachments",
+  "showUnsupportedFiles": false,
+  "userIgnoreFilters": [
+    "design/"
+  ],
+  "strictLineBreaks": true,
+  "trashOption": "system",
+  "promptDelete": true
+}

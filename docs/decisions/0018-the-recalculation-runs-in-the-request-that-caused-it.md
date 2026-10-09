@@ -1,3 +1,9 @@
+---
+adr: 18
+title: "The recalculation runs in the request that caused it"
+status: accepted
+date: 2026-09-14
+---
 # ADR 0018: The recalculation runs in the request that caused it
 
 _Status: accepted · Date: 14 September 2026_

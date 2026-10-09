@@ -1,3 +1,10 @@
+---
+adr: 29
+title: "An organiser turns organiser email off in the app, not by a link"
+status: accepted
+date: 2026-09-24
+builds_on: [25]
+---
 # ADR 0029: An organiser turns organiser email off in the app, not by a link
 
 _Status: accepted · 24 September 2026 · answers the question ADR 0025 left open_

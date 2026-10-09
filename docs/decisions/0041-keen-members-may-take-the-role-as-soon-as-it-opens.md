@@ -1,3 +1,9 @@
+---
+adr: 41
+title: "Keen members may take the organiser role as soon as a quiet ask opens, and the quiet ask's analytics name nobody"
+status: proposed
+date: 2026-09-26
+---
 # ADR 0041: Keen members may take the organiser role as soon as a quiet ask opens, and the quiet ask's analytics name nobody
 
 _Status: proposed · 26 September 2026_

@@ -1,3 +1,9 @@
+---
+adr: 2
+title: "Style with React Native `StyleSheet` and a tokens package generated from the design source"
+status: accepted
+date: 2026-09-06
+---
 # ADR 0002: Style with React Native `StyleSheet` and a tokens package generated from the design source
 
 _Status: accepted · Date: 6 September 2026_

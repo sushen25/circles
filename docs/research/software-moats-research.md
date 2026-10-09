@@ -2,7 +2,7 @@
 
 _Research date: 2 September 2026_
 
-_Product context: [initial MVP product specification](./initial-mvp-product-spec.md), [meetup market research](./meetup-market-research.md), [consumer SaaS success research](./consumer-saas-success-research.md), and [technical architecture](./technical-architecture.md)_
+_Product context: [initial MVP product specification](../initial-mvp-product-spec.md), [meetup market research](./meetup-market-research.md), [consumer SaaS success research](./consumer-saas-success-research.md), and [technical architecture](../technical-architecture.md)_
 
 ## Executive conclusion
 

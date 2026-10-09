@@ -1,3 +1,9 @@
+---
+adr: 14
+title: "Retention runs in the database from pg_cron, not in the dispatcher"
+status: accepted
+date: 2026-09-10
+---
 # ADR 0014: Retention runs in the database from pg_cron, not in the dispatcher
 
 _Status: accepted · Date: 10 September 2026_

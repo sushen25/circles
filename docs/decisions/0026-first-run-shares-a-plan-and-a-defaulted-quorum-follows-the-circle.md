@@ -1,3 +1,9 @@
+---
+adr: 26
+title: "First run shares a plan, not an invite, and a defaulted quorum follows the circle"
+status: accepted
+date: 2026-09-20
+---
 # ADR 0026: First run shares a plan, not an invite, and a defaulted quorum follows the circle
 
 _Status: accepted · Date: 20 September 2026_
@@ -57,7 +63,7 @@ that path and leaves the first run with it.
 **4. While it is defaulted, the quorum follows the plan's audience.** Every join
 through `join-plan` recomputes it from the number of people the plan is asking —
 its participants at the current revision, not the circle's roster — and applies
-it as an **adjustment** ([ADR 0017](./0017-changing-a-quorum-or-a-deadline-adjusts-a-plan-it-does-not-revise-it.md)):
+it as an **adjustment** ([ADR 0017](./0017-quorum-and-deadline-adjust-a-plan-without-a-revision.md)):
 no new revision, answers kept, and the candidate set restaled and recalculated in
 the same request as any other adjustment.
 

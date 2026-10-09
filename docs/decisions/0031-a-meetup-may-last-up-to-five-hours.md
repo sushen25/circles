@@ -1,3 +1,9 @@
+---
+adr: 31
+title: "A meetup may last up to five hours"
+status: accepted
+date: 2026-09-24
+---
 # ADR 0031: A meetup may last up to five hours
 
 _Status: accepted · 24 September 2026_

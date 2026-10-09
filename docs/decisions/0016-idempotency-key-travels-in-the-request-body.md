@@ -1,3 +1,9 @@
+---
+adr: 16
+title: "The idempotency key travels in the request body, not in a header"
+status: accepted
+date: 2026-09-11
+---
 # ADR 0016: The idempotency key travels in the request body, not in a header
 
 _Status: accepted · Date: 11 September 2026_

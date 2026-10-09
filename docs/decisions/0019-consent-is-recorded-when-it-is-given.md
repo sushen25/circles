@@ -1,3 +1,9 @@
+---
+adr: 19
+title: "Consent is recorded when it is given, and a preferences link does not expire on use"
+status: accepted
+date: 2026-09-14
+---
 # ADR 0019: Consent is recorded when it is given, and a preferences link does not expire on use
 
 _Status: accepted · Date: 14 September 2026_

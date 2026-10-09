@@ -1,3 +1,9 @@
+---
+adr: 33
+title: "A circle has one open plan at a time"
+status: accepted
+date: 2026-09-24
+---
 # ADR 0033: A circle has one open plan at a time
 
 _Status: accepted · 24 September 2026_

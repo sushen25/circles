@@ -1,3 +1,9 @@
+---
+adr: 45
+title: "The availability editor shows what others have said, as counts"
+status: proposed
+date: 2026-10-01
+---
 # ADR 0045: The availability editor shows what others have said, as counts
 
 _Status: proposed · 1 October 2026_

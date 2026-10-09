@@ -1,3 +1,9 @@
+---
+adr: 37
+title: "A member's usual times are worked out when they are read, not written when they answer"
+status: proposed
+date: 2026-09-25
+---
 # ADR 0037: A member's usual times are worked out when they are read, not written when they answer
 
 _Status: proposed · 25 September 2026_

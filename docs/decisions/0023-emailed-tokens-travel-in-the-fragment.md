@@ -1,3 +1,9 @@
+---
+adr: 23
+title: "Emailed tokens travel in the URL fragment"
+status: accepted
+date: 2026-09-19
+---
 # ADR 0023: Emailed tokens travel in the URL fragment
 
 _Status: accepted · Date: 19 September 2026_

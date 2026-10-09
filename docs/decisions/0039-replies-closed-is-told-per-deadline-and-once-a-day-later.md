@@ -1,3 +1,9 @@
+---
+adr: 39
+title: "Replies closed is told once per deadline and once a day later; one more day is a day from now, once per revision"
+status: proposed
+date: 2026-09-25
+---
 # ADR 0039: Replies closed is told once per deadline and once a day later; one more day is a day from now, once per revision
 
 _Status: proposed · 25 September 2026_

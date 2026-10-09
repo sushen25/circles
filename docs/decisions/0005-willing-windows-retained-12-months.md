@@ -1,3 +1,9 @@
+---
+adr: 5
+title: "Retain willing windows for 12 months for members of active circles"
+status: accepted
+date: 2026-09-06
+---
 # ADR 0005: Retain willing windows for 12 months for members of active circles
 
 _Status: accepted · Date: 6 September 2026_

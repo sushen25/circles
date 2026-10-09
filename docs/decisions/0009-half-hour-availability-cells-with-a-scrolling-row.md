@@ -1,3 +1,9 @@
+---
+adr: 9
+title: "Availability cells are half an hour each, and the day row scrolls"
+status: accepted
+date: 2026-09-09
+---
 # ADR 0009: Availability cells are half an hour each, and the day row scrolls
 
 _Status: accepted · Date: 9 September 2026_

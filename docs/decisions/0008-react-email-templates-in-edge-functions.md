@@ -1,3 +1,9 @@
+---
+adr: 8
+title: "Render email templates with React Email inside Edge Functions"
+status: accepted
+date: 2026-09-06
+---
 # ADR 0008: Render email templates with React Email inside Edge Functions
 
 _Status: accepted · Date: 6 September 2026_

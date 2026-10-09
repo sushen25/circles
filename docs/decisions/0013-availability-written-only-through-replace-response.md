@@ -1,3 +1,9 @@
+---
+adr: 13
+title: "A member's availability is written only through `replace_response`"
+status: accepted
+date: 2026-09-10
+---
 # ADR 0013: A member's availability is written only through `replace_response`
 
 _Status: accepted · Date: 10 September 2026_

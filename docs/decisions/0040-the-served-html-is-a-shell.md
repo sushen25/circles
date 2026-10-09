@@ -1,3 +1,9 @@
+---
+adr: 40
+title: "The served HTML is a neutral shell; every screen renders on the device"
+status: proposed
+date: 2026-09-25
+---
 # ADR 0040: The served HTML is a neutral shell; every screen renders on the device
 
 _Status: proposed · 25 September 2026_
