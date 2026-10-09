@@ -16,6 +16,7 @@ const state = vi.hoisted(() => ({
     id: string;
     is_anonymous: boolean;
   } | null,
+  failure: null as { name: string; status: number } | null,
 }));
 
 vi.mock('@supabase/supabase-js', () => ({
@@ -23,6 +24,12 @@ vi.mock('@supabase/supabase-js', () => ({
     auth: {
       getUser: (token: string) => {
         state.getUserCalls.push(token);
+        if (state.failure !== null) {
+          return Promise.resolve({
+            data: { user: null },
+            error: Object.assign(new Error('timed out'), state.failure),
+          });
+        }
         return Promise.resolve(
           state.user === null
             ? { data: { user: null }, error: Object.assign(new Error('no'), { status: 401 }) }
@@ -66,6 +73,7 @@ beforeEach(() => {
   process.env.SUPABASE_ANON_KEY = ANON;
   process.env.SUPABASE_SERVICE_ROLE_KEY = 'service';
   state.getUserCalls = [];
+  state.failure = null;
   state.user = { id: '00000000-0000-4000-8000-00000000user', is_anonymous: false };
 });
 
@@ -116,6 +124,16 @@ describe('everything that is not exactly the publishable key', () => {
     await handler(post('a.real.token'));
 
     expect(state.getUserCalls).toEqual(['a.real.token']);
+  });
+
+  it('answers 503 when the auth server cannot be reached, rather than recording nobody', async () => {
+    state.failure = { name: 'AuthRetryableFetchError', status: 0 };
+    const { seen, handler } = recorder();
+
+    const response = await handler(post('a.real.token'));
+
+    expect(response.status).toBe(503);
+    expect(seen).toEqual([]);
   });
 
   it('accepts a request with no bearer, as before', async () => {

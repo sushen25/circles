@@ -39,8 +39,14 @@ export async function identify(db: Db, token: string): Promise<Identification> {
 
   if (error !== null) {
     // A rejection carries a status from the auth server; a failure to ask does not.
-    const status = (error as { status?: unknown }).status;
-    return typeof status === 'number' ? { outcome: 'rejected' } : { outcome: 'unavailable' };
+    // supabase-js reports a failed fetch (unreachable, or the 10 s timeout in
+    // `db.ts`) as an `AuthRetryableFetchError` with status 0, so a number alone
+    // is not proof the server answered.
+    const { status, name } = error as { status?: unknown; name?: unknown };
+    const couldNotAsk = name === 'AuthRetryableFetchError' || status === 0;
+    return typeof status === 'number' && !couldNotAsk
+      ? { outcome: 'rejected' }
+      : { outcome: 'unavailable' };
   }
 
   if (data.user === null) return { outcome: 'rejected' };
