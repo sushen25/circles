@@ -3,7 +3,7 @@
  * Writes what a production deploy is about to change into the run summary, so a
  * reviewer can read it before approving (SUS-105).
  *
- *   node scripts/prod-plan.mjs --repo owner/name --sha <sha> [--rollback <tag>]
+ *   node scripts/prod-plan.mjs --repo owner/name --sha <sha> [--rollback <tag> --head <sha>]
  *
  * The exact plan is `supabase db push --dry-run`, and it needs the production
  * access token, which is a secret of the `production` environment: a job that
@@ -141,29 +141,40 @@ function lastDeployedSha(repo, sha) {
 
 /**
  * A rollback redeploys older code and applies no migration. What matters to the
- * person approving is the migrations the database keeps that this code has
- * never seen, and whether the code can live with them.
+ * person approving is the migrations the database has that this code has never
+ * seen, and whether the code can live with them.
+ *
+ * Two lists, because "what production has applied" is not known from outside:
+ * `applied` is what the last *successful* deployment carried; `possible` is
+ * everything after that up to the dispatched commit, which a deployment that
+ * applied its migrations and then failed (the web deploy, the smoke test) may
+ * also have run. Treating the second as empty would be a claim of safety that
+ * nothing supports, so it is listed, and the dry run is the way to tell.
  */
-export function renderRollback({ tag, sha, base, kept, note }) {
+export function renderRollback({ tag, sha, base, applied, possible = [], note }) {
   const lines = ['### Rollback plan: what this redeploys', ''];
   lines.push(
     `Redeploys \`${tag}\` (\`${sha}\`): its Edge Functions (all of them) and its web build.`,
     base
-      ? `Production is running \`${base}\` now.`
+      ? `The last successful production deployment recorded \`${base}\`.`
       : 'No earlier successful production deployment was found.',
   );
   if (note) lines.push('', note);
   lines.push('', '**No migration is applied or undone.** Migrations are forward-only.', '');
-  lines.push(`**Migrations the database keeps that this code predates: ${kept.length}**`, '');
+  lines.push(`**Migrations the database has that this code predates: ${applied.length}**`, '');
+  lines.push(applied.length === 0 ? 'None.' : applied.map((f) => `- \`${f}\``).join('\n'));
   lines.push(
-    kept.length === 0
-      ? 'None: the schema is the one this code was written for.'
-      : kept.map((f) => `- \`${f}\``).join('\n'),
+    '',
+    `**Migrations that a failed or half-finished deployment may also have applied: ${possible.length}**`,
+    '',
+    possible.length === 0
+      ? 'None between the last successful deployment and the dispatched commit.'
+      : possible.map((f) => `- \`${f}\``).join('\n'),
   );
-  if (kept.length > 0) {
+  if (applied.length + possible.length > 0) {
     lines.push(
       '',
-      'The old code will run against a schema with these changes. Approve only if each is additive (a new column or table, a new function) or the old code does not touch what it changed. A renamed or dropped column, or a tightened constraint, is not safe to roll back over.',
+      'The old code will run against a schema with the first list, and possibly the second. Approve only if each is additive (a new column or table, a new function) or the old code does not touch what it changed. A renamed or dropped column, or a tightened constraint, is not safe to roll back over. Anything in the second list that production does not have yet will simply not be applied.',
     );
   }
   return lines.join('\n');
@@ -182,18 +193,31 @@ function main() {
 
   const rollbackTag = opt('rollback');
   if (rollbackTag) {
+    const head = opt('head');
+    if (!/^[0-9a-f]{40}$/.test(head ?? '')) {
+      console.error(
+        'prod-plan: --rollback needs the dispatched commit as a full 40-character --head',
+      );
+      process.exit(2);
+    }
     const base = lastDeployed(repo);
-    const kept = base
-      ? parseNameStatus(git('diff', '--name-status', sha, base, '--', 'supabase/migrations'))
-          .filter(([, file]) => file.endsWith('.sql'))
-          .map(([, file]) => file.replace(/^supabase\/migrations\//, ''))
-      : [];
+    const migrationsBetween = (from, to) =>
+      parseNameStatus(git('diff', '--name-status', from, to, '--', 'supabase/migrations'))
+        .filter(([, file]) => file.endsWith('.sql'))
+        .map(([, file]) => file.replace(/^supabase\/migrations\//, ''));
+    // The deployments API records the dispatched commit, not the one a rollback
+    // deployed. For the schema that is the right base: migrations never roll back.
+    const applied = base ? migrationsBetween(sha, base) : migrationsBetween(sha, head);
+    const possible = base ? migrationsBetween(base, head).filter((f) => !applied.includes(f)) : [];
     const out = renderRollback({
       tag: rollbackTag,
       sha,
       base,
-      kept,
-      note: base ? null : 'Migrations the database keeps could not be listed.',
+      applied,
+      possible,
+      note: base
+        ? null
+        : 'Everything between the tag and the dispatched commit is listed as applied, because nothing says otherwise.',
     });
     console.log(out);
     if (process.env.GITHUB_STEP_SUMMARY)

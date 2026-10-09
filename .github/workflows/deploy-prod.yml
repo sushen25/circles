@@ -120,7 +120,8 @@ jobs:
           REPO: ${{ github.repository }}
           SHA: ${{ steps.target.outputs.sha }}
           ROLLBACK_TAG: ${{ steps.target.outputs.tag }}
-        run: node scripts/prod-plan.mjs --repo "$REPO" --sha "$SHA" --rollback "$ROLLBACK_TAG"
+          HEAD_SHA: ${{ github.sha }}
+        run: node scripts/prod-plan.mjs --repo "$REPO" --sha "$SHA" --rollback "$ROLLBACK_TAG" --head "$HEAD_SHA"
 
       - name: What to check before approving
         run: |

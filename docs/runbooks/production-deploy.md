@@ -140,10 +140,13 @@ first; the backup from step 1 is what you restore from if the compensating
 migration cannot be written in time.
 
 **What is live.** `git fetch --tags && git tag -l 'prod-*' --sort=-creatordate |
-head` lists releases, newest first. The newest tag is what the last
-*successful* run deployed. GitHub's Deployments (Code → Deployments →
-`production`) is the record `plan` itself uses, and it also records rollbacks,
-which tags do not; if the two disagree, Deployments is right.
+head` lists releases, newest first. After a normal deploy the newest tag is
+live. After a **rollback** it is not: a rollback makes no tag, and GitHub's
+Deployments (Code → Deployments → `production`), which `plan` reads, records the
+commit the workflow was *dispatched* on, not the tag it redeployed. So after a
+rollback the run summary ("Rolled back to …") is the record, and you should
+write the tag down. The next normal deploy puts live what it is dispatched on
+and tags it again.
 
 ## Rolling back
 
@@ -156,14 +159,18 @@ resolves the tag to its commit and refuses unless the tag is one of ours
 (`prod-<yyyymmdd>-<7 hex>`), still points at the commit its name says, and that
 commit is an ancestor of the dispatched one. It then runs the same `check`
 refusal as any deploy, on that commit. Its summary, "Rollback plan", lists the
-migrations the database keeps that the old code has never seen. `apply`, after
+migrations the database has that the old code has never seen: those the last
+successful deployment carried and, separately, those a deployment that failed
+after migrating (at the smoke test, say) may also have applied. The second list
+is a possibility, not a fact: the repository cannot see the production
+database. `apply`, after
 the approval, checks out the tag's commit and deploys its Edge Functions and its
 web build with the tag's own `EXPO_PUBLIC_BUILD_ID`. It **applies no migration**
 and does not dry-run any: `db push` refuses a database that has migrations the
 checkout lacks. No new tag is made; the summary says which one is live again.
 The smoke test and `check:env` run as for any deploy.
 
-**Before approving, read the kept migrations.** The old code runs against the
+**Before approving, read both migration lists.** The old code runs against the
 newer schema. That is safe over an additive migration (a new table or column, a
 new function) and unsafe over a rename, a drop, a tightened constraint or a
 changed function signature the old code calls. If it is unsafe, a rollback of
@@ -197,11 +204,12 @@ changes nothing but proves the path:
 
 1. After the first deploy that creates a tag, dispatch `deploy-prod` again with
    `rollback_to` set to that tag, which is also the newest release. Read the
-   "Rollback plan": it should say no migrations are kept.
+   "Rollback plan": both migration lists should say none.
 2. Approve. The run should end green after `smoke-web.mjs` and `check:env`, and
    `tag the release` should say it made no new tag.
-3. `git tag -l 'prod-*'` should be unchanged and Deployments should show the
-   new `production` entry on the same commit.
+3. `git tag -l 'prod-*'` should be unchanged, and Deployments should show a new
+   `production` entry on the commit you dispatched from (which, in this walk,
+   is the tagged one).
 4. Dispatch with `rollback_to` = `prod-20260101-0000000` (a tag that does not
    exist) and with a branch name. Both must fail in `plan`, before the
    approval prompt.

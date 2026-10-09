@@ -9,7 +9,7 @@ import { join } from 'node:path';
 
 import { decide, judge } from './green-check.mjs';
 import { isProdTag, resolve, tagFor, tagMatchesSha } from './release.mjs';
-import { judgePreview, judgeShell } from './smoke-web.mjs';
+import { judgePreview, judgeShell, smoke } from './smoke-web.mjs';
 import {
   renderRollback,
   changedFunctions,
@@ -247,20 +247,22 @@ test('resolve: no tag deploys the dispatched commit; a tag must be ours, unmoved
   }
 });
 
-test('rollback plan names the migrations the database keeps, or says there are none', () => {
+test('rollback plan lists applied and possibly applied migrations, and never claims safety it cannot know', () => {
   const out = renderRollback({
     tag: 'prod-20261001-aaaaaaa',
     sha: SHA,
     base: 'b'.repeat(40),
-    kept: ['0042_x.sql'],
+    applied: ['0042_x.sql'],
+    possible: ['0043_drop.sql'],
   });
   assert.match(out, /No migration is applied or undone/);
   assert.match(out, /0042_x\.sql/);
+  assert.match(out, /0043_drop\.sql/);
+  assert.match(out, /failed or half-finished deployment may also have applied: 1/);
   assert.match(out, /additive/);
-  assert.match(
-    renderRollback({ tag: 't', sha: SHA, base: null, kept: [] }),
-    /schema is the one this code was written for/,
-  );
+  const none = renderRollback({ tag: 't', sha: SHA, base: null, applied: [], possible: [] });
+  assert.match(none, /predates: 0/);
+  assert.doesNotMatch(none, /additive/);
 });
 
 const shell =
@@ -293,4 +295,32 @@ test('the smoke test requires the preview card on the configured origin', () => 
   assert.equal(judgePreview('', 'https://app.example').ok, false);
   // a lookalike prefix is not the origin
   assert.equal(judgePreview(card('app.example.evil.example'), 'https://app.example').ok, false);
+});
+
+test('the smoke test fetches the bundle the shell names', async () => {
+  const real = globalThis.fetch;
+  const card =
+    '<meta property="og:image" content="https://app.example/og-card.png"><meta http-equiv="refresh" content="0; url=https://app.example/j/abc234">';
+  const serve = (bundle) => async (url) => {
+    const u = String(url);
+    if (u.endsWith('/start')) return new Response(shell, { status: 200 });
+    if (u.includes('/_expo/static/js/web/')) return bundle;
+    return new Response(card, { status: 200 });
+  };
+  try {
+    globalThis.fetch = serve(
+      new Response('x', { status: 200, headers: { 'content-type': 'application/javascript' } }),
+    );
+    assert.ok((await smoke('https://app.example')).every((r) => r.ok));
+    globalThis.fetch = serve(new Response('gone', { status: 404 }));
+    const missing = await smoke('https://app.example');
+    assert.equal(missing[0].ok, false);
+    assert.match(missing[0].detail, /404/);
+    globalThis.fetch = serve(
+      new Response('<html>', { status: 200, headers: { 'content-type': 'text/html' } }),
+    );
+    assert.match((await smoke('https://app.example'))[0].detail, /not JavaScript/);
+  } finally {
+    globalThis.fetch = real;
+  }
 });

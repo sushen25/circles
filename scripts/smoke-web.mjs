@@ -26,10 +26,11 @@ export function judgeShell(html) {
   if (!/<!doctype html/i.test(text)) return { ok: false, detail: 'not an HTML document' };
   if (!/<div id="root"/.test(text))
     return { ok: false, detail: 'no <div id="root"> (not the app shell)' };
-  if (!/<script[^>]+src="\/_expo\/static\/js\/web\//.test(text)) {
+  const bundle = /<script[^>]+src="(\/_expo\/static\/js\/web\/[^"]+)"/.exec(text)?.[1];
+  if (!bundle) {
     return { ok: false, detail: 'no web bundle script (an export that did not finish)' };
   }
-  return { ok: true, detail: 'the app shell with its bundle' };
+  return { ok: true, detail: 'the app shell with its bundle', bundle };
 }
 
 export function judgePreview(html, origin) {
@@ -50,6 +51,13 @@ export function judgePreview(html, origin) {
   return { ok: true, detail: `og:image and refresh are on ${origin}` };
 }
 
+async function getHead(url) {
+  const res = await fetch(url, { redirect: 'follow', signal: AbortSignal.timeout(15000) });
+  if (!res.ok) throw new Error(`${url} answered ${res.status} ${res.statusText}`);
+  await res.arrayBuffer();
+  return { type: res.headers.get('content-type') ?? '' };
+}
+
 async function get(url, headers = {}) {
   const res = await fetch(url, { headers, redirect: 'follow', signal: AbortSignal.timeout(15000) });
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
@@ -61,7 +69,21 @@ export async function smoke(
   { wait = 0, sleep = (s) => new Promise((r) => setTimeout(r, s * 1000)) } = {},
 ) {
   const checks = [
-    ['app shell at /start', () => get(`${origin}/start`), judgeShell],
+    [
+      'app shell at /start',
+      async () => {
+        const shell = judgeShell(await get(`${origin}/start`));
+        if (!shell.ok) return shell;
+        // A shell that points at a bundle which 404s is an app that cannot load.
+        const { type } = await getHead(`${origin}${shell.bundle}`);
+        return /javascript/i.test(type)
+          ? { ok: true, detail: `the app shell, and its bundle ${shell.bundle} loads` }
+          : {
+              ok: false,
+              detail: `the bundle ${shell.bundle} is served as '${type}', not JavaScript`,
+            };
+      },
+    ],
     [
       'preview card at /j/abc234',
       () => get(`${origin}/j/abc234`, { 'user-agent': 'WhatsApp/2.24.16.78 A' }),
@@ -69,7 +91,7 @@ export async function smoke(
     ],
   ];
   const results = [];
-  for (const [name, fetchIt, judge] of checks) {
+  for (const [name, fetchIt, judge = (r) => r] of checks) {
     const deadline = Date.now() + wait * 1000;
     let result;
     for (;;) {
