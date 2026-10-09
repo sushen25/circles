@@ -47,10 +47,10 @@ green tick that most needs to be true.
 
 | Secret | Scope | Read by | Reaches production? |
 |---|---|---|---|
-| `SUPABASE_ACCESS_TOKEN` | repository | `deploy-dev` | must not — see the Supabase caveat below |
+| `SUPABASE_ACCESS_TOKEN` | repository | `deploy-dev` | no — scoped to `circles-dev` |
 | `SUPABASE_DEV_PROJECT_REF` | repository | `deploy-dev` | no |
 | `EXPO_TOKEN` | repository | `deploy-dev`, `preview` | must not — see the Expo caveat below |
-| `SUPABASE_PROD_ACCESS_TOKEN` | `production` environment | `deploy-prod` | yes |
+| `SUPABASE_PROD_ACCESS_TOKEN` | `production` environment | `deploy-prod` | yes — scoped to `circles-prod` |
 | `SUPABASE_PROD_PROJECT_REF` | `production` environment | `deploy-prod` | — (a ref, not a credential) |
 | `EXPO_PROD_TOKEN` | `production` environment | `deploy-prod` | yes |
 
@@ -79,14 +79,26 @@ nobody meant to start, and it is what keeps the production credentials away
 from every other job. Turn "prevent self-review" on the day a second reviewer
 exists.
 
+**Supabase tokens are scoped to one project.** Account → Access Tokens →
+Generate token offers *Resource access: Project*, a project list and per-area
+permissions. Each deploy token names exactly one project, so the dev token
+cannot reach `circles-prod` at all. Grant what the workflow runs and nothing
+else: `supabase link` and `db push` (which creates a temporary login role
+through the Management API) need the project readable and the database
+writable, and `functions deploy` needs Edge Functions writable. The older
+"legacy" token on that form reaches the whole account; CI never uses one.
+
+**Supabase tokens expire.** A CI token that lapses fails the next deploy with an
+authentication error that looks like a misconfiguration. Pick a long expiry and
+write the date here when you mint one:
+
+| Token | Project | Expires |
+|---|---|---|
+| `github-actions-prod` | `circles-prod` | _fill in_ |
+| `github-actions-dev` | `circles-dev` | _fill in_ |
+
 **What still reaches production, and was accepted.**
 
-- **Supabase.** A personal access token cannot be scoped to one project. If
-  `circles-dev` and `circles-prod` share an organisation, the dev token can run
-  SQL on production too, and the split above only narrows *which* runs hold a
-  token. The fix is moving `circles-prod` into an organisation of its own and
-  minting the production token from an account that is only in that one.
-  _Decision pending (dashboard question `sus104-supabase-org`)._
 - **Expo.** A token that can deploy a project's preview aliases can also run
   `eas deploy --prod` on it: EAS has no per-alias permission. Separate tokens
   still mean a leaked preview token can be revoked without touching production,
@@ -96,9 +108,13 @@ exists.
 
 Founder work in three consoles; nothing here can be done from the repository.
 
-1. **Supabase** → Account → Access Tokens: create `github-actions-prod` (from
-   the production-only account, if `circles-prod` moves) and
-   `github-actions-dev`.
+1. **Supabase** → Account → Access Tokens → Generate token, twice, with
+   *Resource access: Project* and the permissions above: `github-actions-prod`
+   on `circles-prod` only, and `github-actions-dev` on `circles-dev` only.
+   Before storing the production one, prove it reaches what the workflow
+   needs, read-only:
+   `SUPABASE_ACCESS_TOKEN=… pnpm exec supabase link --project-ref <prod ref>`
+   then `pnpm exec supabase db push --linked --dry-run`.
 2. **Expo** (`sushen25s-team`, the account that owns the project — see
    `environments.md`) → Robot users: create one robot for production deploys
    and one for dev and previews, each with the role today's CI robot has, and a
@@ -107,7 +123,9 @@ Founder work in three consoles; nothing here can be done from the repository.
    `SUPABASE_PROD_ACCESS_TOKEN`, `SUPABASE_PROD_PROJECT_REF`, `EXPO_PROD_TOKEN`.
 4. **GitHub** → Settings → Secrets and variables → Actions → Repository secrets:
    replace `SUPABASE_ACCESS_TOKEN` and `EXPO_TOKEN` with the dev tokens, and
-   delete `SUPABASE_PROD_PROJECT_REF`.
+   delete `SUPABASE_PROD_PROJECT_REF`. Store each token with
+   `gh secret set NAME [--env production]`, which prompts without echoing, so
+   the value is never in shell history.
 5. Check: `gh api repos/sushen25/circles/environments/production/secrets`
    lists the three production names, and `gh api
    repos/sushen25/circles/actions/secrets` lists only
@@ -116,9 +134,10 @@ Founder work in three consoles; nothing here can be done from the repository.
    `deploy-prod` dispatch stops at the approval prompt, then authenticates
    (`eas whoami` names the production robot).
 7. **Revoke the old tokens** — the Supabase and Expo ones named `github-actions`
-   from September, and any other account-wide Supabase token, including the one
-   kept for local log queries in `~/.config/circles/supabase-token`. A token for
-   reading dev logs should come from an account that cannot see production.
+   from September, and any other account-wide (legacy) Supabase token,
+   including the one kept for local log queries in
+   `~/.config/circles/supabase-token`. Replace that one with a token scoped to
+   `circles-dev`.
 
 ## The repository is public
 
