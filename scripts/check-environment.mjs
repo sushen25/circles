@@ -53,7 +53,10 @@ async function txt(host) {
 
 // --- the app itself -------------------------------------------------------
 try {
-  const res = await fetch(`https://${domain}/`, { method: 'GET', redirect: 'follow' });
+  // `/start`, not `/`: since ADR 0052 the bare host is the marketing site, which
+  // sends its own referrer policy. `/start` is an app route, and the app routes
+  // are the ones that carry invite secrets (SUS-144).
+  const res = await fetch(`https://${domain}/start`, { method: 'GET', redirect: 'follow' });
   record('HTTPS serves the app', res.ok, `${res.status} ${res.statusText}`);
 
   const hsts = res.headers.get('strict-transport-security');

@@ -3,7 +3,7 @@
  * Writes what a production deploy is about to change into the run summary, so a
  * reviewer can read it before approving (SUS-105).
  *
- *   node scripts/prod-plan.mjs --repo owner/name --sha <sha>
+ *   node scripts/prod-plan.mjs --repo owner/name --sha <sha> [--rollback <tag>]
  *
  * The exact plan is `supabase db push --dry-run`, and it needs the production
  * access token, which is a secret of the `production` environment: a job that
@@ -103,7 +103,7 @@ export function render({ base, sha, migrations, functions, shared = [], note }) 
 const git = (...a) => execFileSync('git', a, { encoding: 'utf8' });
 const gh = (...a) => execFileSync('gh', a, { encoding: 'utf8' });
 
-function lastDeployedSha(repo, sha) {
+function lastDeployed(repo) {
   const rows = gh(
     'api',
     `repos/${repo}/deployments?environment=production&per_page=30`,
@@ -120,28 +120,85 @@ function lastDeployedSha(repo, sha) {
       '--jq',
       '.[0].state // ""',
     ).trim();
-    if (state !== 'success') continue;
-    try {
-      git('merge-base', '--is-ancestor', deployed, sha);
-      return { base: deployed, note: null };
-    } catch {
-      return {
-        base: null,
-        note: `Production's last deployment (\`${deployed}\`) is not an ancestor of this commit, or is not in the clone. Listing every migration instead.`,
-      };
-    }
+    if (state === 'success') return deployed;
   }
-  return { base: null, note: null };
+  return null;
+}
+
+function lastDeployedSha(repo, sha) {
+  const deployed = lastDeployed(repo);
+  if (!deployed) return { base: null, note: null };
+  try {
+    git('merge-base', '--is-ancestor', deployed, sha);
+    return { base: deployed, note: null };
+  } catch {
+    return {
+      base: null,
+      note: `Production's last deployment (\`${deployed}\`) is not an ancestor of this commit, or is not in the clone. Listing every migration instead.`,
+    };
+  }
+}
+
+/**
+ * A rollback redeploys older code and applies no migration. What matters to the
+ * person approving is the migrations the database keeps that this code has
+ * never seen, and whether the code can live with them.
+ */
+export function renderRollback({ tag, sha, base, kept, note }) {
+  const lines = ['### Rollback plan: what this redeploys', ''];
+  lines.push(
+    `Redeploys \`${tag}\` (\`${sha}\`): its Edge Functions (all of them) and its web build.`,
+    base
+      ? `Production is running \`${base}\` now.`
+      : 'No earlier successful production deployment was found.',
+  );
+  if (note) lines.push('', note);
+  lines.push('', '**No migration is applied or undone.** Migrations are forward-only.', '');
+  lines.push(`**Migrations the database keeps that this code predates: ${kept.length}**`, '');
+  lines.push(
+    kept.length === 0
+      ? 'None: the schema is the one this code was written for.'
+      : kept.map((f) => `- \`${f}\``).join('\n'),
+  );
+  if (kept.length > 0) {
+    lines.push(
+      '',
+      'The old code will run against a schema with these changes. Approve only if each is additive (a new column or table, a new function) or the old code does not touch what it changed. A renamed or dropped column, or a tightened constraint, is not safe to roll back over.',
+    );
+  }
+  return lines.join('\n');
 }
 
 function main() {
   const argv = process.argv.slice(2);
-  const opt = (name) => argv[argv.indexOf(`--${name}`) + 1];
+  const opt = (name) =>
+    argv.includes(`--${name}`) ? argv[argv.indexOf(`--${name}`) + 1] : undefined;
   const repo = opt('repo');
   const sha = opt('sha');
   if (!/^[\w.-]+\/[\w.-]+$/.test(repo ?? '') || !/^[0-9a-f]{40}$/.test(sha ?? '')) {
     console.error('prod-plan: --repo owner/name and a full 40-character --sha are required');
     process.exit(2);
+  }
+
+  const rollbackTag = opt('rollback');
+  if (rollbackTag) {
+    const base = lastDeployed(repo);
+    const kept = base
+      ? parseNameStatus(git('diff', '--name-status', sha, base, '--', 'supabase/migrations'))
+          .filter(([, file]) => file.endsWith('.sql'))
+          .map(([, file]) => file.replace(/^supabase\/migrations\//, ''))
+      : [];
+    const out = renderRollback({
+      tag: rollbackTag,
+      sha,
+      base,
+      kept,
+      note: base ? null : 'Migrations the database keeps could not be listed.',
+    });
+    console.log(out);
+    if (process.env.GITHUB_STEP_SUMMARY)
+      appendFileSync(process.env.GITHUB_STEP_SUMMARY, `${out}\n`);
+    return;
   }
 
   const { base, note } = lastDeployedSha(repo, sha);

@@ -650,7 +650,7 @@ Definition of done per feature: acceptance criteria pass; all eight screen state
 ## 18. Operations
 
 - **Deploy**: migrations via `supabase db push` from CI with a reviewed plan; functions via `supabase functions deploy`; web via `eas deploy`; native via EAS Update for JS-only changes and EAS Build for native changes.
-- **Rollback**: migrations are forward-only with compensating migrations; EAS Update supports channel rollback; functions redeploy from the previous tag.
+- **Release tags and rollback**: every successful production deploy is tagged `prod-<yyyymmdd>-<shortsha>` by `deploy-prod`, after a smoke test of the live site (`scripts/smoke-web.mjs`, `pnpm check:env`) has passed. Rolling back is a dispatch of `deploy-prod` with `rollback_to` set to one of those tags: it redeploys that commit's functions and web build and applies no migration. Migrations are forward-only with compensating migrations, so a rollback is "older code on the newer schema"; EAS Update supports channel rollback for native. See [Production deploy](runbooks/production-deploy.md).
 - **Backups**: Pro daily backups from the external cohort onward; weekly `pg_dump` to encrypted storage before that.
 - **Monitoring**: Supabase logs and function error rates; a daily `health` cron that emails the founder counts of failed jobs, bounced emails, and stuck plans; Sentry from Slice 3.
 - **Incidents**: user-visible reference ids map to request ids in logs; a runbook in `docs/runbooks/` for stuck plans, suppressed contacts, and identity merges.

@@ -1,7 +1,8 @@
 # Production deploy
 
 How `deploy-prod` is run: the backup first, then the dispatch, then reading the
-plan before approving. Written by SUS-105. The release checklists
+plan before approving, what the run does after it lands, and how to go back.
+Written by SUS-105; the tags, the smoke test and the rollback are SUS-144. The release checklists
 ([Release: Slice 2](./release-slice-2.md) and its successors) say *what* a
 particular release contains; this says how any release is put on `circles-prod`.
 **Nothing here has been run against the hosted project by an agent.** The
@@ -75,6 +76,8 @@ GitHub → Actions → `deploy-prod` → Run workflow, on `main`.
 - `confirm`: `deploy`.
 - `backup`: `backed-up`, once step 1 is done. Anything else fails the `plan`
   job before it does anything.
+- `rollback_to`: leave empty. Only a rollback fills it in (see "Rolling back"
+  below).
 
 ## 3. Read the plan, then approve
 
@@ -112,14 +115,102 @@ the same: the plan is written before you are asked.
 
 ## 4. After it lands
 
-Run the checks in the release checklist's *After the deploy*. If the push
+`apply` ends with two checks of the live site, so a deploy that landed badly
+ends **red**. The deploy has already happened by then; red is how you find out.
+
+- `scripts/smoke-web.mjs` fetches `/start` (the app shell and its bundle, not the
+  marketing page that the bare host serves since ADR 0052) and the preview card
+  of `/j/abc234` as a chat app would. The card's `og:image` and its refresh must
+  be on `EXPO_PUBLIC_APP_ORIGIN`, never the per-deployment `*.expo.app` host
+  (SUS-128). It retries for two minutes while the CDN catches up.
+- `pnpm check:env <host>`: HTTPS, HSTS, the app's `Referrer-Policy`, SPF, DKIM,
+  the bounce MX and DMARC.
+
+If both pass, a third job, `tag the release`, pushes the tag
+**`prod-<yyyymmdd>-<shortsha>`** (UTC date, first seven characters of the
+commit) on the deployed commit and names it in the run summary. It is the only
+job with `contents: write`, and it reads no secret. A red smoke test means no
+tag: the release is live but unverified, so decide between fixing forward and
+rolling back to the previous tag, and look at what is live with
+`git tag -l 'prod-*'` against the run history.
+
+Then run the checks in the release checklist's *After the deploy*. If the push
 failed inside a non-transactional migration, that section says what to look at
 first; the backup from step 1 is what you restore from if the compensating
 migration cannot be written in time.
+
+**What is live.** `git fetch --tags && git tag -l 'prod-*' --sort=-creatordate |
+head` lists releases, newest first. The newest tag is what the last
+*successful* run deployed. GitHub's Deployments (Code → Deployments →
+`production`) is the record `plan` itself uses, and it also records rollbacks,
+which tags do not; if the two disagree, Deployments is right.
+
+## Rolling back
+
+A rollback is "redeploy code that worked, against the schema as it is now". It
+is one dispatch.
+
+**What it does.** Dispatch `deploy-prod` on `main` with `rollback_to` set to a
+tag from `git tag -l 'prod-*'`, and `confirm` and `backup` as usual. `plan`
+resolves the tag to its commit and refuses unless the tag is one of ours
+(`prod-<yyyymmdd>-<7 hex>`), still points at the commit its name says, and that
+commit is an ancestor of the dispatched one. It then runs the same `check`
+refusal as any deploy, on that commit. Its summary, "Rollback plan", lists the
+migrations the database keeps that the old code has never seen. `apply`, after
+the approval, checks out the tag's commit and deploys its Edge Functions and its
+web build with the tag's own `EXPO_PUBLIC_BUILD_ID`. It **applies no migration**
+and does not dry-run any: `db push` refuses a database that has migrations the
+checkout lacks. No new tag is made; the summary says which one is live again.
+The smoke test and `check:env` run as for any deploy.
+
+**Before approving, read the kept migrations.** The old code runs against the
+newer schema. That is safe over an additive migration (a new table or column, a
+new function) and unsafe over a rename, a drop, a tightened constraint or a
+changed function signature the old code calls. If it is unsafe, a rollback of
+the code makes it worse; the answer is a fix-forward, or a compensating
+migration written and shipped as a normal deploy.
+
+**What cannot be rolled back.**
+
+- **Migrations.** They are forward-only. The backup from step 1 is the only way
+  to undo data, and restoring it is not rehearsed (step 1).
+- **Side effects.** Emails and push notifications already sent, cron jobs that
+  already ran, and rows written by the new code while it was live.
+- **Secrets and settings** changed in Supabase, EAS or the `production`
+  environment between the two releases: the old code runs with the new values.
+- **EAS Update channels** (native, Slice 3) have their own rollback and are not
+  touched by this.
+
+**Afterwards.** Read the smoke test summary, run *After the deploy* from the
+release checklist, and then fix forward on `main`. The next deploy's plan diffs
+from the last successful deployment, which is now the rolled-back commit, so it
+lists the migrations production already has as if they were new. `db push`
+skips what the database has recorded, so they are not applied twice; the
+dry-run in `apply` prints the CLI's own list, which is the one to trust.
+
+### Walking it once
+
+Nothing in this workflow has been dispatched by an agent, and `deploy-prod`
+cannot target dev (it is the `production` environment, with the `*_PROD_*`
+secrets). The first walk is therefore a no-op rollback on production, which
+changes nothing but proves the path:
+
+1. After the first deploy that creates a tag, dispatch `deploy-prod` again with
+   `rollback_to` set to that tag, which is also the newest release. Read the
+   "Rollback plan": it should say no migrations are kept.
+2. Approve. The run should end green after `smoke-web.mjs` and `check:env`, and
+   `tag the release` should say it made no new tag.
+3. `git tag -l 'prod-*'` should be unchanged and Deployments should show the
+   new `production` entry on the same commit.
+4. Dispatch with `rollback_to` = `prod-20260101-0000000` (a tag that does not
+   exist) and with a branch name. Both must fail in `plan`, before the
+   approval prompt.
 
 ## What is still on you
 
 - The `production` environment's required reviewer and its `main`-only branch
   policy are GitHub settings. `check:workflows` cannot see them.
+- The tag job pushes with the workflow's own token, so a ruleset that blocks tag
+  creation by `github-actions` would stop it. None exists today.
 - `enforce_admins` and "require branches to be up to date" on `main` are
   founder settings, and are recorded in [CI](./ci.md), "Branch protection".

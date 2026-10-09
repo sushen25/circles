@@ -29,6 +29,13 @@
  *   green-check and the migration plan, and every `production` job needs it, so
  *   the approval prompt comes after a readable plan and a green commit;
  * - nothing in a `production` job is skipped or allowed to fail quietly;
+ * - `deploy-prod` deploys the commit `plan` resolved (the dispatched one, or a
+ *   rollback's tag), and the green-check and the plan judge that same commit
+ *   (SUS-144);
+ * - a rollback skips the migrations inside the script, not with an `if`, and
+ *   the run ends with the smoke test of the live site, after the web deploy;
+ * - the release is tagged by one job that needs every production job, holds the
+ *   only `contents: write` and reads no secret;
  * - `deploy-dev` waits for the commit's `check` before it deploys;
  * - `check` never cancels a run on `main`.
  */
@@ -158,10 +165,65 @@ const ciRules = (path, file, doc) => {
       }
     }
 
+    // The commit that is judged is the commit that is deployed (SUS-144).
+    const resolver = (plan?.steps ?? []).find(
+      (s) =>
+        typeof s?.run === 'string' && s.run.includes('release.mjs') && s.run.includes('resolve'),
+    );
+    if (!resolver?.id) {
+      fail(
+        'the `plan` job has no `id`-ed step running `release.mjs resolve`, so a rollback target is never resolved',
+      );
+    } else {
+      if (!unconditional(plan, resolver))
+        fail('`release.mjs resolve` is conditional or may fail quietly in `plan`');
+      const output = `steps.${resolver.id}.outputs.sha`;
+      for (const script of ['green-check.mjs', 'prod-plan.mjs']) {
+        const step = (plan.steps ?? []).find(
+          (s) => typeof s?.run === 'string' && s.run.includes(script),
+        );
+        if (step && !JSON.stringify(step.env ?? {}).includes(output)) {
+          fail(
+            `scripts/${script} must judge \`${output}\`, the commit that will be deployed, not \`github.sha\``,
+          );
+        }
+      }
+    }
+
     const production = Object.entries(jobs).filter(
       ([, job]) => environmentOf(job) === 'production',
     );
     if (production.length === 0) fail('has no job in the `production` environment');
+
+    // Tagging needs `contents: write`. Exactly one job has it: it needs every
+    // production job (so it only runs after a deploy and its smoke test passed),
+    // is in no environment, and reads no secret.
+    if (doc?.permissions?.contents !== 'read')
+      fail('the workflow-level `permissions` must be `contents: read`');
+    const writers = Object.entries(jobs).filter(
+      ([, job]) => job?.permissions?.contents === 'write',
+    );
+    const taggers = writers.filter(([, job]) => runText(job).includes('release.mjs'));
+    if (writers.length !== 1 || taggers.length !== 1) {
+      fail('exactly one job, the one that runs `release.mjs tag`, may have `contents: write`');
+    }
+    for (const [name, job] of taggers) {
+      for (const [other] of production) {
+        if (!needsClosure(jobs, name).has(other))
+          fail(
+            `\`${name}\` tags without needing \`${other}\`, so a failed deploy or smoke test could still be tagged`,
+          );
+      }
+      if (environmentOf(job) !== undefined)
+        fail(`\`${name}\` is in an environment; tagging would ask for the approval a second time`);
+      if (secretsIn(job).size > 0) fail(`\`${name}\` holds \`contents: write\` and reads a secret`);
+      const step = (job.steps ?? []).find(
+        (s) => typeof s?.run === 'string' && /release\.mjs\s+tag\b/.test(s.run),
+      );
+      if (!step) fail(`\`${name}\` never runs \`release.mjs tag\`, so a release is not tagged`);
+      else if (!unconditional(job, step))
+        fail(`\`release.mjs tag\` is conditional or may fail quietly in \`${name}\``);
+    }
     for (const [name, job] of production) {
       if (name !== 'plan' && !needsClosure(jobs, name).has('plan')) {
         fail(`\`${name}\` is in \`production\` but does not need \`plan\``);
@@ -181,6 +243,43 @@ const ciRules = (path, file, doc) => {
       }
       if (job.if !== undefined)
         fail(`\`${name}\` has an \`if\`; a skipped production job reports success`);
+      const checkout = (job.steps ?? []).find((s) =>
+        String(s?.uses ?? '').startsWith('actions/checkout'),
+      );
+      if (!JSON.stringify(checkout?.with?.ref ?? '').includes('needs.plan.outputs.sha')) {
+        fail(
+          `\`${name}\` does not check out \`needs.plan.outputs.sha\`, so a rollback would deploy the wrong code`,
+        );
+      }
+      // Migrations are forward-only. A step that pushes them must read the
+      // rollback flag, in the script, because the step itself may not have an `if`.
+      for (const step of job.steps ?? []) {
+        if (
+          typeof step?.run === 'string' &&
+          /\bdb push\b/.test(step.run) &&
+          !/\$\{?ROLLBACK\b/.test(step.run)
+        ) {
+          fail(
+            `\`${name}\` step "${step.name ?? 'db push'}" pushes migrations without reading ROLLBACK`,
+          );
+        }
+      }
+      // After the web deploy, so it looks at what was just put live.
+      const steps = job.steps ?? [];
+      const deployAt = steps.findIndex(
+        (s) => typeof s?.run === 'string' && /\beas deploy\b/.test(s.run),
+      );
+      const smokeAt = steps.findIndex(
+        (s) =>
+          typeof s?.run === 'string' &&
+          s.run.includes('smoke-web.mjs') &&
+          /\bcheck:env\b/.test(s.run),
+      );
+      if (deployAt !== -1 && (smokeAt === -1 || smokeAt < deployAt)) {
+        fail(
+          `\`${name}\` deploys the web build but does not smoke test it afterwards (scripts/smoke-web.mjs and pnpm check:env)`,
+        );
+      }
       const guard = (job.steps ?? []).find(
         (s) =>
           typeof s?.run === 'string' &&
