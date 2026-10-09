@@ -20,7 +20,7 @@ const state = vi.hoisted(() => ({
   // `supabase-js` returns an `AuthRetryableFetchError` here rather than throwing,
   // and it carries no HTTP status — which is how "could not ask" is told apart
   // from "asked and told no".
-  authError: null as { message: string; status?: number } | null,
+  authError: null as { message: string; name?: string; status?: number } | null,
 }));
 
 vi.mock('@supabase/supabase-js', () => ({
@@ -603,6 +603,20 @@ describe('telling a refusal from a failure', () => {
 
     expect(response.status).toBe(503);
     expect(await response.json()).toMatchObject({ error: 'unavailable' });
+  });
+
+  it('says "ours" for the SDK\'s own failed-fetch error, which carries status 0 (a timeout is one)', async () => {
+    state.authError = { message: 'timed out', name: 'AuthRetryableFetchError', status: 0 };
+
+    const handler = jsonHandler({
+      name: 'test-fn',
+      schema: Body,
+      handle: () => Promise.resolve({}),
+    });
+
+    const response = await handler(post({ idempotency_key: KEY, display_name: 'Nina' }));
+
+    expect(response.status).toBe(503);
   });
 
   it('and "sign in again" when it was asked and said no', async () => {
