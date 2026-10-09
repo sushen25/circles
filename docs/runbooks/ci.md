@@ -112,9 +112,17 @@ Founder work in three consoles; nothing here can be done from the repository.
    *Resource access: Project* and the permissions above: `github-actions-prod`
    on `circles-prod` only, and `github-actions-dev` on `circles-dev` only.
    Before storing the production one, prove it reaches what the workflow
-   needs, read-only:
-   `SUPABASE_ACCESS_TOKEN=… pnpm exec supabase link --project-ref <prod ref>`
-   then `pnpm exec supabase db push --linked --dry-run`.
+   needs, read-only, **in a scratch copy of `supabase/`** — `link` writes the
+   project ref into `supabase/.temp`, and a checkout linked to production makes
+   every later `--linked` command aim at it:
+
+   ```bash
+   d=$(mktemp -d) && cp -R supabase "$d/" && cd "$d"
+   read -rs SUPABASE_ACCESS_TOKEN && export SUPABASE_ACCESS_TOKEN
+   ~/Repos/circles/node_modules/.bin/supabase link --project-ref bhunoaqswteamabbyckp
+   ~/Repos/circles/node_modules/.bin/supabase db push --linked --dry-run
+   ~/Repos/circles/node_modules/.bin/supabase functions list --project-ref bhunoaqswteamabbyckp
+   ```
 2. **Expo** (`sushen25s-team`, the account that owns the project — see
    `environments.md`) → Robot users: create one robot for production deploys
    and one for dev and previews, each with the role today's CI robot has, and a
