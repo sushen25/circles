@@ -54,29 +54,37 @@ const IS_INSTALL = /\bpnpm\s+(install|add|remove|update|import|dlx)\b/;
 const PROD_ONLY = ['SUPABASE_PROD_ACCESS_TOKEN', 'SUPABASE_PROD_PROJECT_REF', 'EXPO_PROD_TOKEN'];
 const DEV_TOKENS = ['SUPABASE_ACCESS_TOKEN', 'EXPO_TOKEN'];
 
-/** Every string in a parsed YAML value, however deeply it is nested. */
-const stringsIn = (value) =>
-  typeof value === 'string'
-    ? [value]
-    : value && typeof value === 'object'
-      ? Object.values(value).flatMap(stringsIn)
-      : [];
+/**
+ * Every expression in a parsed YAML value: each `${{ … }}`, and every `if:`,
+ * which is an expression without the braces. Prose in a `run:` script that
+ * happens to say "secrets" is neither.
+ */
+const expressionsIn = (value, key) => {
+  if (typeof value === 'string') {
+    return key === 'if' ? [value] : [...value.matchAll(/\$\{\{([\s\S]*?)\}\}/g)].map((m) => m[1]);
+  }
+  if (value && typeof value === 'object') {
+    return Object.entries(value).flatMap(([k, v]) => expressionsIn(v, k));
+  }
+  return [];
+};
 
 /**
- * Every secret the value reads, upper-cased. GitHub accepts `secrets.NAME`,
- * `secrets['NAME']` and `secrets["NAME"]`, and matches names without regard to
- * case, so a check that knew only `secrets.NAME` would wave the others through.
- * `toJSON(secrets)` reads all of them at once and is reported as `*`.
+ * Every secret the value reads, upper-cased, because GitHub matches names
+ * without regard to case. `secrets.NAME`, `secrets['NAME']` and
+ * `secrets["NAME"]` are resolved. Any other use of `secrets` — an index computed
+ * from `env`, `toJSON(secrets)`, `secrets.*` — cannot be, and is reported as
+ * `?`: enumerating the readable forms and ignoring the rest would be the
+ * checker this file warns against above.
  */
 const secretsIn = (value) => {
   const found = new Set();
-  for (const text of stringsIn(value)) {
+  for (const text of expressionsIn(value)) {
     for (const m of text.matchAll(
-      /\bsecrets\s*(?:\.\s*([A-Za-z0-9_]+)|\[\s*['"]([A-Za-z0-9_]+)['"]\s*\])/gi,
+      /\bsecrets\b(\s*\.\s*([A-Za-z_][A-Za-z0-9_]*)\b(?!\s*[.[(])|\s*\[\s*(['"])([A-Za-z0-9_]+)\3\s*\])?/gi,
     )) {
-      found.add((m[1] ?? m[2]).toUpperCase());
+      found.add(m[1] === undefined ? '?' : (m[2] ?? m[4]).toUpperCase());
     }
-    if (/\btoJSON\s*\(\s*secrets\s*\)/i.test(text)) found.add('*');
   }
   return found;
 };
@@ -118,9 +126,9 @@ for (const dir of DIRS) {
           );
         }
       }
-      if (secrets.has('*')) {
+      if (secrets.has('?')) {
         problems.push(
-          `${path} · ${jobName}: \`toJSON(secrets)\` hands the job every secret, production's included; name the ones it needs`,
+          `${path} · ${jobName}: reads secrets in a form this check cannot resolve (a computed index, \`toJSON(secrets)\`, \`secrets.*\`); name each one as \`secrets.NAME\``,
         );
       }
       for (const name of DEV_TOKENS) {
