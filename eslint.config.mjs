@@ -295,5 +295,15 @@ export default tseslint.config(
       globals: globals.node,
     },
   },
+  {
+    // Metro reads its configuration with `require`, so these stay CommonJS
+    // (apps/app/metro.config.js and the resolvers beside it, SUS-174).
+    files: ['apps/*/metro.config.js', 'apps/*/metro/**/*.js'],
+    languageOptions: {
+      globals: globals.node,
+      sourceType: 'commonjs',
+    },
+    rules: { '@typescript-eslint/no-require-imports': 'off' },
+  },
   prettier,
 );

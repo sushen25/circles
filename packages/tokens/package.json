@@ -14,7 +14,11 @@
       "types": "./dist/font-assets.d.ts",
       "default": "./dist/font-assets.js"
     },
-    "./assets/fonts/*": "./assets/fonts/*"
+    "./assets/fonts/*": "./assets/fonts/*",
+    "./font-assets.web": {
+      "types": "./dist/font-assets.web.d.ts",
+      "default": "./dist/font-assets.web.js"
+    }
   },
   "files": [
     "dist",

@@ -42,6 +42,14 @@ export default defineConfig({
       'expo-secure-store': fileURLToPath(
         new URL('./src/test/expo-secure-store-stub.ts', import.meta.url),
       ),
+      // The middleware names the site's fonts through the bundler's asset
+      // registry, which Vitest does not have: a face is a number, and a number
+      // has the URL the bundler would give it. Before `@circles/tokens`, which
+      // would otherwise take the prefix.
+      '@circles/tokens/font-assets': fileURLToPath(
+        new URL('./src/test/font-assets-stub.ts', import.meta.url),
+      ),
+      'expo-asset': fileURLToPath(new URL('./src/test/expo-asset-stub.ts', import.meta.url)),
       '@circles/tokens': fileURLToPath(
         new URL('../../packages/tokens/src/index.ts', import.meta.url),
       ),

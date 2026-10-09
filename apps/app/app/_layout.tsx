@@ -37,6 +37,20 @@ export const unstable_settings = { screenErrorBoundary: AppErrorBoundary };
 
 void SplashScreen.preventAutoHideAsync();
 
+/**
+ * Where the app's API lives, so the browser can open the connection while the
+ * bundle downloads (SUS-174). The value is inlined at export, so it is in the
+ * pre-rendered HTML; without it the first request pays DNS and TLS after the
+ * bundle has run. `undefined` for the no-backend build, which has no API.
+ */
+const apiOrigin = (() => {
+  try {
+    return new URL(process.env.EXPO_PUBLIC_SUPABASE_URL ?? '').origin;
+  } catch {
+    return undefined;
+  }
+})();
+
 // Once, at the root, before any screen can record anything. `track()` buffers
 // until a transport exists; without this line every event in the product
 // accumulates in memory and the funnel reads zero (architecture §15).
@@ -114,6 +128,9 @@ export default function RootLayout() {
       <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
       <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
       <link rel="manifest" href="/manifest.webmanifest" />
+      {apiOrigin !== undefined ? (
+        <link rel="preconnect" href={apiOrigin} crossOrigin="anonymous" />
+      ) : null}
       <meta name="theme-color" content={color.ground} />
     </Head>
   );

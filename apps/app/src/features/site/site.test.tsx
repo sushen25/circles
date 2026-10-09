@@ -16,6 +16,8 @@ import { t } from '../../copy';
 import { escapeHtml } from '../../data/preview';
 import { SITE_HEADERS, sitePage } from './page';
 import { START_HREF } from './sections';
+import { STUB_FONT_URLS } from '../../test/font-assets-stub';
+import { siteFontsFrom } from './styles';
 import { useSiteArrival } from './useSiteArrival';
 
 /**
@@ -25,7 +27,8 @@ import { useSiteArrival } from './useSiteArrival';
  */
 
 const ORIGIN = `https://${brand.domain}`;
-const html = sitePage(ORIGIN);
+const FONTS = siteFontsFrom((face) => `/assets/fonts/${face}.0123abcd.woff2`);
+const html = sitePage(ORIGIN, FONTS);
 /** The page's text as a reader gets it: tags gone, entities decoded. */
 const words = html
   .replace(/<style>[\s\S]*?<\/style>/g, '')
@@ -117,6 +120,25 @@ describe('the page', () => {
 
   it('names no one’s calendar as a thing it reads, and offers no email capture', () => {
     expect(html).not.toMatch(/<form|<input|type="email"/i);
+  });
+});
+
+describe('the site’s fonts are the app’s (SUS-174)', () => {
+  const urls = Object.values(STUB_FONT_URLS);
+
+  it('are the WOFF2 files at the app’s own URLs, preloaded, not a second copy', async () => {
+    const page = await (await middleware(new Request(`${ORIGIN}/`)))!.text();
+    for (const url of [
+      STUB_FONT_URLS['Newsreader-Regular'],
+      STUB_FONT_URLS['Figtree-Regular'],
+      STUB_FONT_URLS['Figtree-SemiBold'],
+    ]) {
+      expect(page).toContain(
+        `<link rel="preload" href="${url}" as="font" type="font/woff2" crossorigin>`,
+      );
+    }
+    for (const url of urls) expect(page).toContain(`url(${url}) format('woff2')`);
+    expect(page).not.toMatch(/\.ttf|["(]\/fonts\//);
   });
 });
 
