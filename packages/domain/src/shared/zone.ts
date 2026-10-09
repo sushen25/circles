@@ -1,4 +1,4 @@
-import { fromZonedTime } from 'date-fns-tz';
+import { fromZonedTime } from 'date-fns-tz/fromZonedTime';
 
 import { type Instant, MINUTE_MILLIS, instant } from './instant.js';
 import { type LocalDate, addDays, fromParts, localDate } from './local-date.js';

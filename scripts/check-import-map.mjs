@@ -106,7 +106,9 @@ if (problems.size > 0) {
       `  "${specifier}"  — imported by ${where[0]}${where.length > 1 ? ` (+${where.length - 1} more)` : ''}`,
     );
   }
-  console.error(`\nDeno has no node_modules. Add each as "npm:<name>@<range>" to the map.`);
+  console.error(
+    `\nDeno has no node_modules. Add each as "npm:<name>@<range>" to the map. A subpath import ("pkg/sub") is covered by a prefix entry: "pkg/": "npm:/pkg@<range>/".`,
+  );
   process.exit(1);
 }
 

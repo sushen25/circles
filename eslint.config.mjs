@@ -239,6 +239,13 @@ export default tseslint.config(
                 'Only shared/zone.ts may convert between zones. Use toLocal/fromLocal from there.',
             },
           ],
+          patterns: [
+            {
+              group: ['date-fns-tz/*'],
+              message:
+                'Only shared/zone.ts may convert between zones. Use toLocal/fromLocal from there.',
+            },
+          ],
         },
       ],
     },
