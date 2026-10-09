@@ -30,18 +30,68 @@ A failing run uploads the Playwright report as an artefact.
 
 ## `deploy-dev`, `deploy-prod`, `preview`
 
-**All three work.** A merge to `main` deploys `dev`, a PR gets a preview URL,
-and `deploy-prod` has run against production since 3 October 2026. It is
-`workflow_dispatch` only and runs in the `production` environment, whose
-required reviewer is the approval gate (§18). It prints
-`supabase db push --dry-run` before applying anything.
+**All three work.** A merge to `main` deploys `dev` once its `check` has
+passed, a PR gets a preview URL, and `deploy-prod` has run against production
+since 3 October 2026.
+
+### `deploy-dev` waits for `check`
+
+`check` and `deploy-dev` start in the same second on the same push, so
+`deploy-dev` has a first job, `wait-for-check`, that polls the checks API for
+the commit's `check` run (`scripts/green-check.mjs --wait`) and a second, `deploy`,
+that `needs` it. The wait is up to 40 minutes (`check` has a 30-minute limit and
+a median near 27), and a commit with no `check` run at all gets five minutes to
+get one. A failed, cancelled or timed-out check fails the wait and nothing is
+deployed. A manual dispatch waits too. Until SUS-105 a formatting failure on
+29 September and a cancelled run on 2 October both reached dev.
+
+A Markdown-only push still does not start `deploy-dev` (`paths-ignore`), so it
+has no wait to pass.
+
+### How the check conclusion is looked up
+
+`scripts/green-check.mjs` calls `GET /repos/{repo}/commits/{sha}/check-runs`
+with the workflow's own token (`checks: read`) and keeps the runs named `check`
+that **GitHub Actions** created, because any app can create a check run with any
+name. The latest by start time decides, so a re-run replaces the run before it.
+Only a **completed `success`** is green. Everything else is not: no run,
+queued, in progress, cancelled, timed out, skipped, neutral and failure. In
+`deploy-prod` that is an immediate refusal; in `deploy-dev` queued and in
+progress are waited out and the rest refuse.
+
+### `deploy-prod` is two jobs
+
+`workflow_dispatch` only. See [Production deploy](./production-deploy.md) for
+the steps a person takes.
+
+| Job | Environment | What it does |
+|---|---|---|
+| `plan` | none | Refuses a dispatch without `confirm: deploy` and `backup: backed-up`; refuses a commit whose `check` is not green; writes the pending migrations and functions to the run summary (`scripts/prod-plan.mjs`) |
+| `apply` | `production`, `needs: plan` | The required reviewer's approval; then the missing-secret check, the dry run, migrations, functions and the web build |
+
+The approval prompt therefore comes after the plan is readable and the commit is
+known to be green. `plan` has no environment, so it cannot read the production
+secrets and cannot run `db push --dry-run`; its list is built from git and the
+`production` deployments (the commit last deployed, to this one). The dry run
+still runs, first in `apply`.
+
+**The backup is a manual step, not an artifact.** The repository is public,
+so a workflow artifact is downloadable by anyone, and one holding production
+data is not acceptable. The workflow only checks that the dispatcher confirmed
+it (`backup: backed-up`); the command and where to put the files are in
+[Production deploy](./production-deploy.md).
 
 `deploy-dev` and `preview` guard every step on its secret, and the run summary
 says which are missing rather than failing the build — a red cross on `main` for
 infrastructure nobody has set up teaches people to ignore red crosses.
-**`deploy-prod` does the opposite**: a missing production secret fails the job,
-because a production deploy that deploys nothing and goes green is the one
-green tick that most needs to be true.
+**`deploy-prod` does the opposite**: a missing production secret fails `apply`,
+and no step in it has an `if`, because a production deploy that deploys nothing
+and goes green is the one green tick that most needs to be true.
+
+`check:workflows` holds all of this in place: `plan` exists outside any
+environment and runs both scripts unconditionally, every `production` job
+`needs` it, no production step is conditional, `deploy` in `deploy-dev` needs
+the waiting job, and `check.yml` does not cancel runs on `main`.
 
 ## Deploy credentials: two sets, and only an approved job gets production's
 
@@ -168,9 +218,23 @@ Decided by the founder on 2 October 2026. Three things follow:
 - **Fork PRs get no secrets** and need an approval before their workflows run.
   The exposure is same-repo branches and the dependency tree, which is what the
   credential split above is for.
-- **Branch protection is on**: `main` requires the `check` status. It does not
-  apply to admins (`enforce_admins` is off), so the owner can still merge past a
-  red check. Do not.
+- **Branch protection is on**: `main` requires the `check` status.
+
+## Branch protection
+
+What the repository does, and what only the founder can change. Checked with
+`gh api repos/sushen25/circles/branches/main/protection` on 9 October 2026.
+
+| Setting | Now | Why it matters | Decision |
+|---|---|---|---|
+| Required status `check` | on | A PR cannot merge red | done |
+| `enforce_admins` | **off** | The owner can merge past a red check, or push to `main` with no PR. That is how `ff3a132` (29 September) and PR #123 (3 October) reached `main` | Waiting on the founder (SUS-105 asks). Until then: **do not merge past a red check.** The workflows now backstop it: a red or unfinished `main` commit is not deployed to dev (`wait-for-check`) and `deploy-prod` refuses it |
+| "Require branches to be up to date" (`strict`) | **off** | A PR need not include `main` before it merges, so two PRs that are green separately first meet on `main` (`4611bcb`, 2 October) | Waiting on the founder, and on SUS-179: with it on, every stacked PR pays the 27-minute gate twice. Merge queue is the alternative. Until then: rebase before merging, as the ticket skills say |
+
+`check.yml` no longer cancels a run on `main` (SUS-105): each `main` commit gets
+its own concurrency group, because a group holds one pending run and a third
+push would cancel it. A cancelled `main` check was a commit that dev and
+production had no verdict for.
 
 ## What it costs, and the lever if it matters
 
@@ -280,7 +344,7 @@ generated from and `check:tokens` reads it.
 |---|---|
 | `check` | Runs. gitleaks and `format:check` execute; the suites, Playwright and Supabase do not. |
 | `preview` | Does not run. |
-| `deploy-dev` | Does not run. |
+| `deploy-dev` | Does not run (no wait to pass either). |
 
 The two mechanisms differ on purpose:
 

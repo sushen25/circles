@@ -11,6 +11,14 @@ It does not repeat [`environments.md`](./environments.md) or
 [`environment-setup.md`](./environment-setup.md). Where a step is theirs, it
 points there.
 
+## Step one: the backup
+
+Before anything else on this page, take the dump described in
+[Production deploy](./production-deploy.md), step 1. This release applies `0025`
+and `0027`, which are not transactional, and rollback is a compensating
+migration that nobody has written. `deploy-prod` refuses a dispatch that does
+not say the backup exists. Then read the plan it writes before approving.
+
 ## Before anything: the prerequisites
 
 Slice 2 goes out on top of Slice 1, not in place of it. Don't start this list
@@ -48,8 +56,9 @@ that carry the existing ones.
 
 ## What deploys
 
-`deploy-prod.yml` (with the `production` environment's required reviewer) does
-all of it: `supabase db push --linked` (a dry run first), then
+`deploy-prod.yml` does all of it, once the backup is taken and the plan has been
+read ([Production deploy](./production-deploy.md)): `supabase db push --linked`
+(a dry run first), then
 `supabase functions deploy` for every function, then the web build.
 
 ### Migrations

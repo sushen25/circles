@@ -1,4 +1,12 @@
-# Merges to `main` go to `dev` (architecture §5.1, §18).
+# Merges to `main` go to `dev` (architecture §5.1, §18), once the commit's own
+# `check` run has succeeded (SUS-105).
+#
+# `check` and this workflow start in the same second on the same push, so
+# `wait-for-check` polls the checks API until the run finishes, and `deploy`
+# `needs` it. A commit whose check fails, is cancelled or never appears is not
+# deployed. A manual dispatch waits too: dispatching a commit that is red is the
+# same mistake as pushing one. Before this, a formatting failure on 29 September
+# and a cancelled run on 2 October both reached dev.
 #
 # Every step is guarded on its secret being present. All of them are set, so
 # this deploys for real; the guards remain so that a rotated-away secret says
@@ -28,8 +36,30 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  wait-for-check:
+    name: wait for check
+    runs-on: ubuntu-latest
+    # `check` has a 30-minute limit and a median of 27, so the wait is longer.
+    timeout-minutes: 45
+    # No environment, so no secrets: it reads the checks API with the workflow's
+    # own token and nothing else.
+    permissions:
+      contents: read
+      checks: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require this commit's check to succeed
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        # 2400 s of waiting for `check` to finish; a commit with no `check` run
+        # at all is given 300 s to get one before it counts as having none.
+        run: node scripts/green-check.mjs --repo "$REPO" --sha "$SHA" --wait 2400 --grace 300
+
   deploy:
     name: deploy to dev
+    needs: wait-for-check
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: dev

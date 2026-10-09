@@ -8,9 +8,16 @@ on:
     branches: [main]
 
 concurrency:
-  # One run per branch. A newer push makes an older run irrelevant.
-  group: check-${{ github.ref }}
-  cancel-in-progress: true
+  # One run per branch. A newer push makes an older run irrelevant, except on
+  # `main`: a `main` check that a later merge cancels is a commit `deploy-dev`
+  # and `deploy-prod` have no verdict for, and on 2 October three in a row were
+  # cancelled while their commits were deployed (SUS-105).
+  #
+  # `cancel-in-progress: false` alone is not enough: a group holds one running
+  # and one pending run, and a third push cancels the pending one. So on `main`
+  # every commit gets a group of its own and no run is ever replaced.
+  group: check-${{ github.ref == 'refs/heads/main' && github.sha || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 # Least privilege. Gitleaks reads the PR's commits; nothing here writes.
 permissions:
