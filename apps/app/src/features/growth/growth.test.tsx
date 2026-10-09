@@ -142,9 +142,7 @@ describe('the organiser gate', () => {
         onNotNow={vi.fn()}
       />,
     );
-    await screen.findByText(
-      "This links your existing place as Nina. Nothing you've sent changes.",
-    );
+    await screen.findByText("This links your existing place as Nina. Nothing you've sent changes.");
     expect(screen.getByText(/^Starting a circle makes you its owner/)).toBeVisible();
 
     fireEvent.click(screen.getByRole('button', { name: 'Continue with email' }));

@@ -99,10 +99,9 @@ test('a guest who meets the organiser gate keeps their membership and name, and 
   // The same membership, under the same name — now a saved place.
   expect(memberNamed(crew.circleId, 'Nina')).toEqual({ userId: nina, anonymous: false });
   await expect
-    .poll(
-      () => sql(`select display_name from public.profiles where user_id = '${nina}'`)[0]?.[0],
-      { message: 'the profile has the name the circle knows her by' },
-    )
+    .poll(() => sql(`select display_name from public.profiles where user_id = '${nina}'`)[0]?.[0], {
+      message: 'the profile has the name the circle knows her by',
+    })
     .toBe('Nina');
   const [claimed] = sql(`select metadata ->> 'moment' from private.audit_log
     where action = 'growth.account_claimed' and resource_id = '${nina}'`);

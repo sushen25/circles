@@ -177,9 +177,7 @@ describe('reportClientError', () => {
     // address and a name.
     const planCode = 'K7QM2X';
     window.history.replaceState(null, '', `/p/${planCode}#secret-fragment`);
-    const error = new TypeError(
-      `Cannot read properties of undefined (reading 'nina@example.com')`,
-    );
+    const error = new TypeError(`Cannot read properties of undefined (reading 'nina@example.com')`);
     error.stack = `TypeError at https://wenna.example/p/${planCode}#secret-fragment Nina`;
     (error as { cause?: unknown }).cause = new Error(`Sunday Crew ${planCode}`);
 
