@@ -372,7 +372,7 @@ No repeated daily reminders; at most one deadline reminder per member per plan; 
 
 - The morning after a confirmed meetup the organiser is asked **Did this catch-up happen?** — happened, cancelled, moved outside Circles, not sure — with an optional one-line note for the circle's record. Copy says nobody is scored and nobody is told who came.
 - Members may tap **I was there** / **I couldn't make it** from circle home or the emailed link.
-- **Organiser micro-survey**: on the confirmation review, "Did you have to chase anyone outside the app?" (no / one person / more than one); on the outcome report, "Did the plan change outside the app?". Two taps each; this is the evidence for H2.
+- **Organiser micro-survey**: on the confirmation review, "Did you have to chase anyone outside the app?" (no / one person / more than one), which is optional and never holds "Lock it in": an unanswered question is stored as not answered, and the founder's analytics counts those separately, never as "no"; on the outcome report, "Did the plan change outside the app?". Two taps each; this is the evidence for H2.
 - "Reported happened" = organiser says so; "corroborated happened" = at least one other member confirms attendance.
 
 ### 5.11 Guest → saved place → app

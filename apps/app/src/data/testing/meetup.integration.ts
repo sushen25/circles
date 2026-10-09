@@ -166,7 +166,7 @@ export async function nextOneLockedIn(
       planId,
       candidateId: options.candidates[0]!.id,
       expectedSetId: options.set!.id,
-      chasedAnswer: 'none',
+      // Left unanswered on purpose (SUS-194): the lock-in does not wait for the survey.
     }),
   );
   return { planId, confirmationId: confirmed.confirmation_id };

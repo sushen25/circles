@@ -51,7 +51,7 @@ function Cohort({
         {gates.map((gate, index) => (
           <Stack key={gate.id} gap={10}>
             {index === 0 ? null : <Divider />}
-            <GateRow gate={gate} judged={judgeGate(gate, data)} />
+            <GateRow gate={gate} judged={judgeGate(gate, data)} unanswered={unansweredOf(gate, data)} />
           </Stack>
         ))}
       </Card>
@@ -66,7 +66,21 @@ function circlesOf(count: number): string {
     : t('founderAnalytics', 'gates_cohort_circles', { count });
 }
 
-function GateRow({ gate, judged }: { gate: Gate; judged: JudgedGate }) {
+/** Confirmations a gate's numbers left out because nobody answered (the chasing question). */
+function unansweredOf(gate: Gate, data: FounderAnalytics): number {
+  if (gate.measuredBy === null) return 0;
+  return data.gates[gate.cohort]?.[gate.measuredBy]?.unanswered ?? 0;
+}
+
+function GateRow({
+  gate,
+  judged,
+  unanswered,
+}: {
+  gate: Gate;
+  judged: JudgedGate;
+  unanswered: number;
+}) {
   const words = wordsOf(gate.id);
   return (
     <Stack gap={4}>
@@ -81,6 +95,13 @@ function GateRow({ gate, judged }: { gate: Gate; judged: JudgedGate }) {
         <Small>{valueOf(gate, judged)}</Small>
       )}
       {words.note === undefined ? null : <Small>{words.note}</Small>}
+      {unanswered === 0 ? null : (
+        <Small>
+          {unanswered === 1
+            ? t('founderAnalytics', 'gate_unchased_unanswered_one')
+            : t('founderAnalytics', 'gate_unchased_unanswered', { count: unanswered })}
+        </Small>
+      )}
     </Stack>
   );
 }

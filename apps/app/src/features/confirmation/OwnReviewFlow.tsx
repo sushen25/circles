@@ -215,7 +215,7 @@ function LiveOwnReview({
       notice={lock.problem ?? (moved ? t('confirmReview', 'own_moved') : undefined)}
       busy={lock.busy}
       onLockIn={(fields) => {
-        if (chased === undefined || stretch.data === undefined) return;
+        if (stretch.data === undefined) return;
         // What is on screen now is what the organiser is confirming.
         setSeen(stretch.data.inputVersion);
         lock.lockIn({
@@ -280,7 +280,7 @@ function OwnReview({
       chased={chased}
       notice={notice}
       busy={busy}
-      canLockIn={fields.valid && chased !== undefined}
+      canLockIn={fields.valid}
       onPlaceName={(placeName) => setForm({ ...form, placeName })}
       onPlaceUrl={(placeUrl) => setForm({ ...form, placeUrl })}
       onNote={(note) => setForm({ ...form, note })}

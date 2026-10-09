@@ -1989,9 +1989,16 @@ describe('confirm-meetup', () => {
     expect(await response.json()).toMatchObject({ reason: 'stale_candidates' });
   });
 
-  it('will not confirm without answering the survey', async () => {
+  it('confirms without an answer to the survey, and passes null on as "not answered" (SUS-194)', async () => {
     const withoutSurvey = { ...body, chased_answer: undefined };
     const response = await load('confirm-meetup')(post(withoutSurvey));
+
+    expect(response.status).toBe(200);
+    expect(called('confirm_meetup')[0]?.args?.['p_chased_answer']).toBeNull();
+  });
+
+  it('will not confirm an answer that is not none, one or more', async () => {
+    const response = await load('confirm-meetup')(post({ ...body, chased_answer: 'lots' }));
 
     expect(response.status).toBe(400);
     expect(called('confirm_meetup')).toHaveLength(0);

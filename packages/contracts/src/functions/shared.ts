@@ -224,9 +224,10 @@ export const ProblemReason = z.enum([
   /** `confirm-meetup`: the time has passed while the review screen was open. */
   'candidate_has_passed',
   /**
-   * `confirm-meetup`: the survey on the review screen was not answered. Two taps
-   * (spec §5.10), required by the endpoint *and* by the RPC behind it — the
-   * evidence for H2 is not optional because of the door somebody came through.
+   * `confirm-meetup`: the survey answer is not one of `none | one | more`. Not
+   * answering is allowed since SUS-194 (stored as "not answered"); the RPC behind
+   * the endpoint refuses a wrong value whichever door it came through. The name
+   * stays, because it is in the refusal catalogue clients already read.
    */
   'chased_answer_required',
   /** `report-outcome`: an outcome has been reported, and a different one cannot replace it. */

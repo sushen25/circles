@@ -66,7 +66,8 @@ begin
             from analytics.gate_circles_confirm where day >= v_from and cohort = k.cohort),
           'unchased', (
             select jsonb_build_object(
-              'numerator', coalesce(sum(unchased), 0)::int, 'denominator', coalesce(sum(members), 0)::int)
+              'numerator', coalesce(sum(unchased), 0)::int, 'denominator', coalesce(sum(members), 0)::int,
+              'unanswered', coalesce(sum(unanswered), 0)::int)
             from analytics.gate_unchased where day >= v_from and cohort = k.cohort),
           'response_time', (
             select jsonb_build_object(
