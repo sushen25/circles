@@ -105,7 +105,7 @@ when you mint one:
 | Token | Project | Expires |
 |---|---|---|
 | `github-actions-prod` | `circles-prod` | 7 January 2027 (90 days from 9 October 2026) |
-| `github-actions-dev` | `circles-dev` | _fill in_ |
+| `github-actions-dev` | `circles-dev` | 7 January 2027 (90 days from 9 October 2026) |
 
 **What still reaches production, and was accepted.**
 
