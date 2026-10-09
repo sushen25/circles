@@ -55,12 +55,18 @@ export function usePrefetchPlanPage(code: string): void {
     const short = parsed.data;
     // `prefetchQuery` never throws; a failed read is the gate's to report,
     // when it asks again.
-    const reads = Promise.all([
-      queryClient.prefetchQuery({
+    // Membership is `fetchQuery`, not `prefetchQuery`, to have its answer: it
+    // is the answer to *this* request that says whether the other four are
+    // worth keeping, not whatever the cache holds by the time they land (a
+    // person who joins meanwhile turns the cache's answer into "member").
+    const access: Promise<PlanAccess | undefined> = queryClient
+      .fetchQuery({
         queryKey: key.membership,
         queryFn: () => planAccess(short),
         staleTime: 30_000,
-      }),
+      })
+      .catch(() => undefined);
+    const others = Promise.all([
       queryClient.prefetchQuery({ queryKey: key.planByCode, queryFn: () => planByCode(short) }),
       queryClient.prefetchQuery({
         queryKey: key.planDetails,
@@ -81,9 +87,8 @@ export function usePrefetchPlanPage(code: string): void {
     // for thirty seconds: the person joins a minute later and meets "we couldn't
     // load this plan". Only a member's reads are kept; the live suite's guest
     // who arrives on this link and gives a name is the case that found it.
-    void reads.then(() => {
-      const access = queryClient.getQueryData<PlanAccess>(key.membership);
-      if (access?.membership === 'member') return;
+    void Promise.all([access, others]).then(([answer]) => {
+      if (answer?.membership === 'member') return;
       for (const other of [key.planByCode, key.planDetails, key.planToAnswer, key.planCandidates]) {
         queryClient.removeQueries({ queryKey: other, exact: true });
       }

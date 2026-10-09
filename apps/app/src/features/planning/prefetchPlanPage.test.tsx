@@ -151,6 +151,31 @@ describe('the plan page reads', () => {
     for (const key of others) expect(guest.getQueryData(key), String(key)).toBeUndefined();
   });
 
+  it('are dropped for a non-member even if the membership cache says member by then', async () => {
+    let resolveCandidates: (value: null) => void = () => undefined;
+    reads.planAccess.mockResolvedValue({ membership: 'not_member' });
+    reads.planByCode.mockResolvedValue(null);
+    reads.planDetails.mockResolvedValue(null);
+    reads.planToAnswer.mockResolvedValue(null);
+    reads.planCandidates.mockImplementation(
+      () => new Promise((resolve) => (resolveCandidates = resolve)),
+    );
+    const queryClient = client();
+    render(
+      <QueryClientProvider client={queryClient}>
+        <Page code={CODE} />
+      </QueryClientProvider>,
+    );
+    const keys = planPageKeys(CODE as never, 'nina');
+    await waitFor(() => expect(queryClient.getQueryData(keys.planToAnswer)).toBeNull());
+    // They join while the last read is still out: the gate writes "member".
+    queryClient.setQueryData(keys.membership, { membership: 'member' });
+    resolveCandidates(null);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(queryClient.getQueryData(keys.planToAnswer)).toBeUndefined();
+    expect(queryClient.getQueryData(keys.planByCode)).toBeUndefined();
+  });
+
   it('use the keys the gates use', () => {
     expect(planPageKeys(CODE as never, 'nina')).toEqual({
       membership: ['membership', 'plan', CODE, 'nina'],
