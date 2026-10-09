@@ -123,7 +123,11 @@ const styles = StyleSheet.create({
     maxWidth: '100%',
     gap: 6,
     minHeight: hit,
-    paddingHorizontal: 14,
+    // A one-word pill ("Done") stays a 44pt target in both dimensions.
+    minWidth: hit,
+    // 10, not 14: three typical pills fit one line at 390pt (SUS-176).
+    paddingHorizontal: 10,
+    justifyContent: 'center',
     borderRadius: radius.chip,
     borderWidth: 1,
   },

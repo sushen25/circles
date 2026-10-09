@@ -46,7 +46,7 @@ BASE_CSS = f"""
     .btn.sec {{ background: {T['surface']}; color: {T['ink2']}; border: 1px solid {T['line']}; }}
     .invert .btn.pri {{ background: {T['invert_accent']}; color: {T['invert']}; }}
     .invert .btn.sec {{ background: transparent; color: {T['invert_ink']}; border: 1px solid {T['invert_line_strong']}; }}
-    .ter {{ display: flex; align-items: center; justify-content: center; align-self: center; min-height: 44px; max-width: 100%; padding: 0 14px; border-radius: 12px; border: 1px solid {T['accent_soft']}; background: {T['accent_soft']}; font-family: Figtree; font-weight: 600; font-size: 14px; color: {T['accent_dark']}; text-align: center; }}
+    .ter {{ display: flex; align-items: center; justify-content: center; align-self: center; min-height: 44px; min-width: 44px; max-width: 100%; padding: 0 10px; border-radius: 12px; border: 1px solid {T['accent_soft']}; background: {T['accent_soft']}; font-family: Figtree; font-weight: 600; font-size: 14px; color: {T['accent_dark']}; text-align: center; }}
     .ter.plain {{ background: {T['surface']}; border-color: {T['line']}; color: {T['ink2']}; font-weight: 500; }}
     .invert .ter {{ background: {T['invert_accent']}29; border-color: {T['invert_accent']}29; color: {T['invert_accent']}; }}
     .invert .ter.plain {{ background: transparent; border-color: {T['invert_line_strong']}; color: {T['invert_ink2']}; }}
@@ -95,7 +95,7 @@ BASE_CSS = f"""
 # and the compact button. Kept to the artboards that draw them, so adding them
 # does not rewrite every other artboard's inlined stylesheet.
 AV_CSS = f"""
-    .mini {{ display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 14px; border-radius: 12px; border: 1px solid {T['line']}; background: {T['surface']}; font-family: Figtree; font-size: 14px; font-weight: 500; color: {T['ink2']}; white-space: nowrap; align-self: flex-start; }}
+    .mini {{ display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; min-width: 44px; padding: 0 10px; border-radius: 12px; border: 1px solid {T['line']}; background: {T['surface']}; font-family: Figtree; font-size: 14px; font-weight: 500; color: {T['ink2']}; white-space: nowrap; align-self: flex-start; }}
     .mini.acc {{ background: {T['accent_soft']}; border-color: {T['accent_soft']}; color: {T['accent_dark']}; font-weight: 600; }}
     .wkhead {{ display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 5px; text-align: center; }}
     .daygrid {{ display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 5px; }}

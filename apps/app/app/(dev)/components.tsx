@@ -157,6 +157,47 @@ export default function ComponentsScreen() {
           />
         </Section>
 
+        <Section label="Rows of quiet pills · 10 side padding, one line at 390 when they fit (SUS-176)">
+          <View testID="row-confirmed-organiser">
+            <ButtonRow>
+              <Tertiary label={t('confirmedOrg', 'edit_this_plan')} />
+              <Tertiary label={t('confirmedOrg', 'ask_for_new_times')} />
+            </ButtonRow>
+          </View>
+          <View testID="row-waiting-organiser">
+            <ButtonRow>
+              <CompactButton label={t('waiting', 'share_the_link_again')} icon="share" />
+              <CompactButton label={t('waiting', 'edit_the_plan')} />
+            </ButtonRow>
+          </View>
+          <View testID="row-candidates-nudge">
+            <ButtonRow center>
+              <CompactButton
+                label={t('candidates', 'nudge_three', {
+                  name: 'Maya',
+                  other: 'Ben',
+                  third: 'Nina',
+                })}
+              />
+              <CompactButton label={t('candidatesMember', 'change_my_times')} />
+            </ButtonRow>
+          </View>
+          <View testID="row-three-short">
+            <ButtonRow>
+              <CompactButton label={t('wasThere', 'not_now')} tone="accent" />
+              <CompactButton label={t('customWindow', 'start_over')} icon="x" />
+              <CompactButton label={t('availability', 'remove_day')} icon="x" />
+            </ButtonRow>
+          </View>
+          <View testID="row-three-typical">
+            <ButtonRow>
+              <Tertiary label={t('confirmedOrg', 'edit_this_plan')} />
+              <Tertiary label={t('confirmedOrg', 'ask_for_new_times')} />
+              <Tertiary tone="plain" label={t('confirmedOrg', 'cancel_this_plan')} />
+            </ButtonRow>
+          </View>
+        </Section>
+
         <Section label="Marks and notices">
           <View style={styles.row}>
             <Marks
