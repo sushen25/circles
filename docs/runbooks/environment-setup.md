@@ -211,6 +211,14 @@ In the repository settings, **Secrets and variables → Actions**:
 
 - [x] Secrets → `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DEV_PROJECT_REF`,
       `SUPABASE_PROD_PROJECT_REF`, `EXPO_TOKEN`. All four confirmed present.
+- [ ] **Split them (SUS-104).** Those four are account-wide tokens at
+      repository scope, readable by every branch's `preview` run. Production's
+      move to the `production` environment under their own names
+      (`SUPABASE_PROD_ACCESS_TOKEN`, `SUPABASE_PROD_PROJECT_REF`,
+      `EXPO_PROD_TOKEN`), the repository keeps dev-only tokens, and the
+      September ones are revoked. The steps are in
+      [`ci.md`, "Rotating them"](./ci.md#rotating-them). `deploy-prod` fails
+      until the three production names exist.
 - [x] **Variables** (repository scope — these are the `dev` values, and previews
       read them):
       `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`,
@@ -595,6 +603,3 @@ the Vault secret `circles_cron_secret` needs the same string
 
 - **Store accounts** (Apple Developer US$99/yr, Play US$25 once) — Slice 3, S3-01.
 - **Supabase Pro** on `prod` — Slice 4, before the external cohort.
-- **Branch protection on `main`** — needs GitHub Pro on a private repository, or
-  making the repository public. Until then CI can be bypassed by anyone who
-  chooses to.

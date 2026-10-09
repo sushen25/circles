@@ -30,53 +30,154 @@ A failing run uploads the Playwright report as an artefact.
 
 ## `deploy-dev`, `deploy-prod`, `preview`
 
-**`deploy-dev` and `preview` work.** Every secret they need is set, a merge to
-`main` deploys, and a PR gets a preview URL. `deploy-prod` has never run: it is
-`workflow_dispatch` only, the `production` environment does not exist yet, and
-its secrets are absent (SUS-71).
+**All three work.** A merge to `main` deploys `dev`, a PR gets a preview URL,
+and `deploy-prod` has run against production since 3 October 2026. It is
+`workflow_dispatch` only and runs in the `production` environment, whose
+required reviewer is the approval gate (§18). It prints
+`supabase db push --dry-run` before applying anything.
 
-Every step is still guarded on its secret, and the run summary says which are
-missing rather than failing the build — a red cross on `main` for infrastructure
-nobody has set up teaches people to ignore red crosses.
+`deploy-dev` and `preview` guard every step on its secret, and the run summary
+says which are missing rather than failing the build — a red cross on `main` for
+infrastructure nobody has set up teaches people to ignore red crosses.
+**`deploy-prod` does the opposite**: a missing production secret fails the job,
+because a production deploy that deploys nothing and goes green is the one
+green tick that most needs to be true.
 
-**Treat `deploy-prod`'s first real run as untested.** Turning `deploy-dev` on
-found six defects in a path that had only ever skipped: no workspace build
-before the export, no `eas-cli` installed at all, no `pipefail` (which is why
-the second looked green), the build placed after the Supabase steps rather than
-before, `date-fns-tz` missing from the Edge Function import map, and a
-`workflow_dispatch` run sending an empty `eas update --message`. Two of those
-shapes are now caught locally by `check:client-env` and `check:imports`; the
-rest are working-process rule 2.13.
+## Deploy credentials: two sets, and only an approved job gets production's
 
-| Secret | Used by | Comes from |
+| Secret | Scope | Read by | Reaches production? |
+|---|---|---|---|
+| `SUPABASE_ACCESS_TOKEN` | repository | `deploy-dev` | no — scoped to `circles-dev` |
+| `SUPABASE_DEV_PROJECT_REF` | repository | `deploy-dev` | no |
+| `EXPO_TOKEN` | repository | `deploy-dev`, `preview` | must not — see the Expo caveat below |
+| `SUPABASE_PROD_ACCESS_TOKEN` | `production` environment | `deploy-prod` | yes — scoped to `circles-prod` |
+| `SUPABASE_PROD_PROJECT_REF` | `production` environment | `deploy-prod` | — (a ref, not a credential) |
+| `EXPO_PROD_TOKEN` | `production` environment | `deploy-prod` | yes |
+
+**Why the environment, and not the repository.** A repository secret is handed
+to every workflow run on a same-repo branch, including `preview`, which runs the
+PR's own workflow file and executes every dependency through `expo export`. One
+compromised npm package, or one branch from anything with push access, could
+then deploy production or run SQL on it with no approval. An environment secret
+is handed only to a job that names the environment, and only after its
+protection rules pass — here, the required reviewer and the `main`-only branch
+policy. The approval used to gate the *job* while the credentials sat at
+repository scope, so it gated nothing (SUS-104).
+
+**Why different names.** When a job names an environment and the environment
+lacks a secret, GitHub falls back to the repository secret of the same name. A
+production token stored as `SUPABASE_ACCESS_TOKEN` and later deleted would
+silently become a production deploy with the dev token. With distinct names the
+fallback finds nothing and `deploy-prod` fails, saying which is missing.
+`check:workflows` keeps it that way: it fails if a production name is read
+outside a `production` job, or a `production` job reads a dev name.
+
+**With one reviewer, the approval is a pause, not a review.** `sushen25` is the
+only required reviewer and "prevent self-review" is off, because turning it on
+with one person would make production undeployable. It still stops a deploy
+nobody meant to start, and it is what keeps the production credentials away
+from every other job. Turn "prevent self-review" on the day a second reviewer
+exists.
+
+**Supabase tokens are scoped to one project.** Account → Access Tokens →
+Generate token offers *Resource access: Project*, a project list and per-area
+permissions. Each deploy token names exactly one project, so the dev token
+cannot reach `circles-prod` at all. Grant what the workflow runs and nothing
+else — this set was proven on `github-actions-prod`, 9 October 2026, by the
+read-only check in "Rotating them":
+
+| Permission | Level | Needed by |
 |---|---|---|
-| `SUPABASE_ACCESS_TOKEN` | dev, prod | Supabase account tokens |
-| `SUPABASE_DEV_PROJECT_REF` | dev | the `circles-dev` project |
-| `SUPABASE_PROD_PROJECT_REF` | prod | the `circles-prod` project |
-| `EXPO_TOKEN` | dev, prod, preview | Expo account tokens |
+| Project | read | `supabase link` |
+| API gateway keys (`api_gateway_keys_read`) | read | `supabase link`, which reads the project's keys; without it, link fails with `Missing required permission(s): api_gateway_keys_read` |
+| Database | write | `db push`, which creates a temporary login role through the Management API |
+| Edge Functions | write | `functions deploy` |
 
-`deploy-prod` is `workflow_dispatch` only and runs in the `production`
-environment: **configure that environment with a required reviewer**, which is
-the actual approval gate (§18). It also prints `supabase db push --dry-run`
-before applying anything.
+The older "legacy" token on that form reaches the whole account; CI never uses
+one.
 
-## Still to do by hand
+**Supabase tokens expire.** A CI token that lapses fails the next deploy with an
+authentication error that looks like a misconfiguration. Mint the replacement
+a week before the date, prove it with the read-only check, and store it with
+the same `gh secret set` — the workflow does not change. Write the date here
+when you mint one:
 
-**Required status checks on `main` are not set.** The repository is private on a
-free plan, and branch protection needs GitHub Pro or a public repository:
+| Token | Project | Expires |
+|---|---|---|
+| `github-actions-prod` | `circles-prod` | 7 January 2027 (90 days from 9 October 2026) |
+| `github-actions-dev` | `circles-dev` | _fill in_ |
 
-```
-Upgrade to GitHub Pro or make this repository public to enable this feature. (HTTP 403)
-```
+**What still reaches production, and was accepted.**
 
-Until one of those, `check` runs on every PR but nothing stops a merge while it
-is red. Two ways out, both the founder's call: upgrade, or make the repository
-public. Neither is something to decide on someone's behalf.
+- **Expo.** A token that can deploy a project's preview aliases can also run
+  `eas deploy --prod` on it: EAS has no per-alias permission. Separate tokens
+  still mean a leaked preview token can be revoked without touching production,
+  and its use shows up as a different actor.
+
+### Rotating them
+
+Founder work in three consoles; nothing here can be done from the repository.
+
+1. **Supabase** → Account → Access Tokens → Generate token, twice, with
+   *Resource access: Project* and the permissions above: `github-actions-prod`
+   on `circles-prod` only, and `github-actions-dev` on `circles-dev` only.
+   Before storing the production one, prove it reaches what the workflow
+   needs, read-only, **in a scratch copy of `supabase/`** — `link` writes the
+   project ref into `supabase/.temp`, and a checkout linked to production makes
+   every later `--linked` command aim at it:
+
+   ```bash
+   d=$(mktemp -d) && cp -R supabase "$d/" && cd "$d"
+   read -rs SUPABASE_ACCESS_TOKEN && export SUPABASE_ACCESS_TOKEN
+   ~/Repos/circles/node_modules/.bin/supabase link --project-ref bhunoaqswteamabbyckp
+   ~/Repos/circles/node_modules/.bin/supabase db push --linked --dry-run
+   ~/Repos/circles/node_modules/.bin/supabase functions list --project-ref bhunoaqswteamabbyckp
+   ```
+2. **Expo** (`sushen25s-team`, the account that owns the project — see
+   `environments.md`) → Robot users: create one robot for production deploys
+   and one for dev and previews, each with the role today's CI robot has, and a
+   token for each.
+3. **GitHub** → Settings → Environments → `production` → Environment secrets:
+   `SUPABASE_PROD_ACCESS_TOKEN`, `SUPABASE_PROD_PROJECT_REF`, `EXPO_PROD_TOKEN`.
+4. **GitHub** → Settings → Secrets and variables → Actions → Repository secrets:
+   replace `SUPABASE_ACCESS_TOKEN` and `EXPO_TOKEN` with the dev tokens, and
+   delete `SUPABASE_PROD_PROJECT_REF`. Store each token with
+   `gh secret set NAME [--env production]`, which prompts without echoing, so
+   the value is never in shell history.
+5. Check: `gh api repos/sushen25/circles/environments/production/secrets`
+   lists the three production names, and `gh api
+   repos/sushen25/circles/actions/secrets` lists only
+   `EXPO_TOKEN`, `SUPABASE_ACCESS_TOKEN` and `SUPABASE_DEV_PROJECT_REF`.
+6. Prove it: a PR's `preview` and the next `deploy-dev` go green, and a
+   `deploy-prod` dispatch stops at the approval prompt, then authenticates
+   (`eas whoami` names the production robot).
+7. **Revoke the old tokens** — the Supabase and Expo ones named `github-actions`
+   from September, and any other account-wide (legacy) Supabase token,
+   including the one kept for local log queries in
+   `~/.config/circles/supabase-token`. Replace that one with a token scoped to
+   `circles-dev`.
+
+## The repository is public
+
+Decided by the founder on 2 October 2026. Three things follow:
+
+- **Everything committed is world-readable**: runbooks, ADRs, project refs,
+  workflow files, and every branch name. A Linear ticket's title becomes its
+  branch name, so a ticket about an unfixed weakness should have a neutral
+  title. Audit reports stay in `docs/audits/`, which is git-excluded.
+- **Fork PRs get no secrets** and need an approval before their workflows run.
+  The exposure is same-repo branches and the dependency tree, which is what the
+  credential split above is for.
+- **Branch protection is on**: `main` requires the `check` status. It does not
+  apply to admins (`enforce_admins` is off), so the owner can still merge past a
+  red check. Do not.
 
 ## What it costs, and the lever if it matters
 
-The repository is private, so Actions minutes are metered: **2,000 a month** on
-the Free plan, Linux at 1×, **each job rounded up to the whole minute**.
+**Actions minutes are free on a public repository**, so nothing below costs
+money today. It is kept because it would again if the repository went private:
+then the Free plan meters **2,000 minutes a month**, Linux at 1×, **each job
+rounded up to the whole minute**.
 
 Measured on 7 September 2026, before any deploy step was doing real work:
 
@@ -124,11 +225,8 @@ Tracked as **SUS-70**, and no longer blocked: S0-11 is done, so there is
 something to measure. Take a month of real numbers against the table above
 before pulling it.
 
-There is a larger lever behind it: **Actions is free and unlimited on public
-repositories**, and branch protection is free there too, which would also
-resolve the required-status-check gap above. That is a decision about publishing
-the specs and the design canvas, not about cost — at 36 minutes for a heavy day,
-cost is not the pressure.
+The larger lever — making the repository public, which makes Actions free and
+branch protection available — was pulled on 2 October 2026.
 
 ## Build, update, deploy — three different things
 
@@ -233,6 +331,12 @@ that workflow has never executed.
 `.eas/workflows` and fails when a step uses `pnpm exec`, `pnpm run` or
 `pnpm --filter` before the job's `pnpm install`, or with no install at all. It
 is in `pnpm check`.
+
+It also keeps the two sets of deploy credentials apart: a production secret
+name (`SUPABASE_PROD_ACCESS_TOKEN`, `SUPABASE_PROD_PROJECT_REF`,
+`EXPO_PROD_TOKEN`) read by a job outside the `production` environment fails it,
+and so does a `production` job reading `SUPABASE_ACCESS_TOKEN` or `EXPO_TOKEN`
+(see "Deploy credentials" above).
 
 This is the cheapest available answer to a problem that has now bitten twice: CI
 cannot exercise the deploy paths on a pull request, so the next best thing is a
