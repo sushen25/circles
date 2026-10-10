@@ -1,7 +1,9 @@
 -- ---------------------------------------------------------------------------
 -- The founder's analytics screen, to one pair of eyes (SUS-166).
 --
--- The north star, the decision gates' two numbers each, the funnel's row
+-- The north star, the decision gates' two numbers each (counted once for the
+-- founder cohort's circles and once for the external cohort's, spec §11.4,
+-- ADR 0058, and never pooled), the funnel's row
 -- counts and every event's weekly count with its boolean and enum splits, from
 -- the Monday of the week `p_since` falls in, as one object.
 --
@@ -53,49 +55,61 @@ begin
       from analytics.north_star_monthly v
       where v.month >= date_trunc('month', v_from)
     ),
-    'gates', jsonb_build_object(
-      'confirmed_meetup', (
-        select jsonb_build_object(
-          'numerator', coalesce(sum(confirmed), 0)::int, 'denominator', coalesce(sum(circles), 0)::int)
-        from analytics.gate_circles_confirm where day >= v_from),
-      'unchased', (
-        select jsonb_build_object(
-          'numerator', coalesce(sum(unchased), 0)::int, 'denominator', coalesce(sum(members), 0)::int)
-        from analytics.gate_unchased where day >= v_from),
-      'response_time', (
-        select jsonb_build_object(
-          'median_seconds', percentile_cont(0.5) within group (order by seconds), 'n', count(*)::int)
-        from analytics.open_to_response where day >= v_from),
-      'happened', (
-        select jsonb_build_object(
-          'numerator', coalesce(sum(happened), 0)::int, 'denominator', coalesce(sum(meetups), 0)::int)
-        from analytics.gate_happened where day >= v_from),
-      'reattach', (
-        select jsonb_build_object(
-          'numerator', coalesce(sum(reattached), 0)::int, 'denominator', coalesce(sum(missing), 0)::int)
-        from analytics.gate_reattach where day >= v_from),
-      'second_meetup', (
-        select jsonb_build_object('count', coalesce(sum(circles), 0)::int)
-        from analytics.gate_second_meetup where day >= v_from),
-      'other_organiser', (
-        select jsonb_build_object('count', coalesce(sum(plans), 0)::int)
-        from analytics.gate_other_organiser where day >= v_from),
-      'email_verified', (
-        select jsonb_build_object(
-          'numerator', coalesce(sum(verified), 0)::int, 'denominator', coalesce(sum(submitted), 0)::int)
-        from analytics.gate_email_verified where day >= v_from),
-      'confirm_in_week', (
-        select jsonb_build_object(
-          'numerator', coalesce(sum(confirmed_in_week), 0)::int, 'denominator', coalesce(sum(circles), 0)::int)
-        from analytics.gate_confirm_in_week where day >= v_from),
-      'another_in_cadence', (
-        select jsonb_build_object(
-          'numerator', coalesce(sum(another), 0)::int, 'denominator', coalesce(sum(successful), 0)::int)
-        from analytics.gate_another_in_cadence where day >= v_from),
-      'claim_moments', (
-        select jsonb_build_object(
-          'numerator', coalesce(sum(elsewhere), 0)::int, 'denominator', coalesce(sum(claims), 0)::int)
-        from analytics.gate_claim_moments where day >= v_from)
+    -- Every gate is counted once per cohort (spec §11.4); the screen reads the
+    -- founder cohort's gates from `founder` and the external cohort's from
+    -- `external`. Nothing is pooled.
+    'gates', (
+      select jsonb_object_agg(k.cohort, jsonb_build_object(
+          'confirmed_meetup', (
+            select jsonb_build_object(
+              'numerator', coalesce(sum(confirmed), 0)::int, 'denominator', coalesce(sum(circles), 0)::int)
+            from analytics.gate_circles_confirm where day >= v_from and cohort = k.cohort),
+          'unchased', (
+            select jsonb_build_object(
+              'numerator', coalesce(sum(unchased), 0)::int, 'denominator', coalesce(sum(members), 0)::int)
+            from analytics.gate_unchased where day >= v_from and cohort = k.cohort),
+          'response_time', (
+            select jsonb_build_object(
+              'median_seconds', percentile_cont(0.5) within group (order by seconds), 'n', count(*)::int)
+            from analytics.open_to_response where day >= v_from and cohort = k.cohort),
+          'happened', (
+            select jsonb_build_object(
+              'numerator', coalesce(sum(happened), 0)::int, 'denominator', coalesce(sum(meetups), 0)::int)
+            from analytics.gate_happened where day >= v_from and cohort = k.cohort),
+          'reattach', (
+            select jsonb_build_object(
+              'numerator', coalesce(sum(reattached), 0)::int, 'denominator', coalesce(sum(missing), 0)::int)
+            from analytics.gate_reattach where day >= v_from and cohort = k.cohort),
+          'second_meetup', (
+            select jsonb_build_object('count', coalesce(sum(circles), 0)::int)
+            from analytics.gate_second_meetup where day >= v_from and cohort = k.cohort),
+          'other_organiser', (
+            select jsonb_build_object('count', coalesce(sum(plans), 0)::int)
+            from analytics.gate_other_organiser where day >= v_from and cohort = k.cohort),
+          'email_verified', (
+            select jsonb_build_object(
+              'numerator', coalesce(sum(verified), 0)::int, 'denominator', coalesce(sum(submitted), 0)::int)
+            from analytics.gate_email_verified where day >= v_from and cohort = k.cohort),
+          'confirm_in_week', (
+            select jsonb_build_object(
+              'numerator', coalesce(sum(confirmed_in_week), 0)::int, 'denominator', coalesce(sum(circles), 0)::int)
+            from analytics.gate_confirm_in_week where day >= v_from and cohort = k.cohort),
+          'another_in_cadence', (
+            select jsonb_build_object(
+              'numerator', coalesce(sum(another), 0)::int, 'denominator', coalesce(sum(successful), 0)::int)
+            from analytics.gate_another_in_cadence where day >= v_from and cohort = k.cohort),
+          'claim_moments', (
+            select jsonb_build_object(
+              'numerator', coalesce(sum(elsewhere), 0)::int, 'denominator', coalesce(sum(claims), 0)::int)
+            from analytics.gate_claim_moments where day >= v_from and cohort = k.cohort)
+      ))
+      from (values ('founder'), ('external')) as k(cohort)
+    ),
+    'cohort_circles', (
+      select coalesce(jsonb_object_agg(k.cohort, (
+        select count(*)::int from analytics.circle_cohort cc where cc.cohort = k.cohort
+      )), '{}'::jsonb)
+      from (values ('founder'), ('external')) as k(cohort)
     ),
     'counters', (
       select coalesce(jsonb_object_agg(c.counter, c.n), '{}'::jsonb)

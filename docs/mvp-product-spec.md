@@ -550,6 +550,8 @@ Founder cohort (qualitative targets): every test circle confirms at least one re
 
 External cohort: at least 50% of activated circles confirm within seven days; at least 30% of successful circles initiate another within cadence; conversions to saved place and app arrive at value moments rather than only at the organiser gate; willingness to pay is then tested with a real transaction.
 
+Which cohort a circle is in is a fact only the founder can see ([ADR 0058](decisions/0058-every-circle-carries-a-cohort-only-the-founder-can-see.md)). A circle is in the founder cohort when its owner is on the founder allowlist at creation and in the external cohort otherwise; the founder can change it. The founder analytics screen counts each cohort's gates over that cohort's circles alone.
+
 ## 12. Architecture summary
 
 The implementation is specified in the [technical architecture](./technical-architecture.md). Product-relevant decisions:
