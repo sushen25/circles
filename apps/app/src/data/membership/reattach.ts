@@ -29,7 +29,7 @@ export type GuestListResult =
   | { kind: 'limited' };
 
 /**
- * The circle's guest members by display name, from a circle or plan short code.
+ * The circle's guest members by display name, from a plan's short code (a circle's own code opens nothing, ADR 0059).
  *
  * Names and ids only, and the schema is where that is held: a column the
  * function grew would be stripped by the parse rather than rendered.

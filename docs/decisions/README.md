@@ -61,6 +61,7 @@ Short records of decisions that shape the product or the code. A new ADR is requ
 | [0056](./0056-members-can-see-who-has-saved-a-place.md) | A circle's members can see which of them has saved a place | proposed |
 | [0057](./0057-who-started-a-plan-is-kept-as-long-as-the-plan.md) | Who started a plan is kept as long as the plan, not for twelve months | proposed |
 | [0058](./0058-every-circle-carries-a-cohort-only-the-founder-can-see.md) | Every circle carries a cohort that only the founder can see | proposed |
+| [0059](./0059-continue-as-resolves-plan-codes-only.md) | Continue-as resolves plan codes only, never a circle's own code | proposed |
 
 ## Template
 
