@@ -69,6 +69,12 @@ exposed to anyone else (AGENTS.md; spec §5.4).
   moves to the real member. The mailbox proved the person returning; the taker's
   answer is the cost of the taker having held the place. Closing that needs the
   chain of moves, and is not done here.
+- The row an opened ask keeps belongs to an identity with no membership left. If
+  that identity has nothing else, retention deletes it after its usual period and
+  the row goes with it, so the shown count of an opened ask can fall by one then.
+  The same happens today when a member is removed from a circle after it opened.
+  Keeping the count independent of the identity needs the count stored on the
+  plan, which is a larger change than this one.
 - Availability and willing windows are unchanged: members already see availability
   by name.
 - Spec §5.4 and ADR 0049 say so.
