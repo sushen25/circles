@@ -1,5 +1,6 @@
 import { circleHomeState, fromISO, type CircleHomeState } from '@circles/domain';
 
+import type { Member } from '../../components';
 import { t } from '../../copy';
 import type { CircleHome, CircleSummary } from '../../data/circles';
 import { dayWords } from '../planning/when';
@@ -117,3 +118,60 @@ export function lockedInWords(home: CircleHome): {
 /** "+12" on a marks row past eight (the candidates screens' cap, ADR 0012). */
 export const MARKS_MAX = 8;
 export const marksMore = (rest: number) => t('circleHome', 'marks_more', { count: rest });
+
+/** "Maya, Nina and Tom": every name, the last one after "and". */
+export function namesLabel(names: readonly string[]): string {
+  const last = names[names.length - 1];
+  if (last === undefined) return '';
+  if (names.length === 1) return last;
+  return t('circleHome', 'marks_names_and', { names: names.slice(0, -1).join(', '), last });
+}
+
+/**
+ * What a screen reader hears over the plan card's marks (SUS-198): "Maya, Nina,
+ * Tom, Jess and Sam answered; Alex hasn't yet". Built from the same `waiting`
+ * flag that draws the dashed outline, so the two cannot disagree. Everybody is
+ * named, as the marks' label always does; the visible row is what is capped.
+ */
+export function answeredLabel(members: readonly Member[]): string {
+  const answered = members.filter((m) => m.waiting !== true).map((m) => m.name);
+  const waiting = members.filter((m) => m.waiting === true).map((m) => m.name);
+  if (waiting.length === 0) {
+    return answered.length === 0
+      ? ''
+      : t('circleHome', 'marks_answered', { names: namesLabel(answered) });
+  }
+  const one = waiting.length === 1;
+  if (answered.length === 0) {
+    return t('circleHome', one ? 'marks_none_answered_one' : 'marks_none_answered_many', {
+      waiting: namesLabel(waiting),
+    });
+  }
+  return t('circleHome', one ? 'marks_answered_one_waiting' : 'marks_answered_many_waiting', {
+    answered: namesLabel(answered),
+    waiting: namesLabel(waiting),
+  });
+}
+
+/**
+ * The marks on the plan card, and what they say aloud.
+ *
+ * With reply state: everybody the plan asked, the people still to answer
+ * dashed. Without it (a member before options exist, spec §5.6): the circle's
+ * people as plain marks, labelled by name only — never "answered", which the
+ * data does not say.
+ */
+export function planMarks(home: CircleHome): { members: Member[]; label: string } {
+  const answers = home.activePlan?.answers;
+  if (answers === undefined) {
+    const members = home.members.map((m) => ({ name: m.name }));
+    return { members, label: namesLabel(members.map((m) => m.name)) };
+  }
+  const replied = new Map(answers.map((a) => [a.userId, a.replied]));
+  const members: Member[] = home.members
+    .filter((m) => replied.has(m.userId))
+    .map((m) =>
+      replied.get(m.userId) === true ? { name: m.name } : { name: m.name, waiting: true },
+    );
+  return { members, label: answeredLabel(members) };
+}

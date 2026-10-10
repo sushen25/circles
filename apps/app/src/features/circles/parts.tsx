@@ -3,7 +3,7 @@ import { Pressable } from 'react-native';
 import { CompactButton, Icon, Marks, Small, usePalette, type Member } from '../../components';
 import { Stack } from '../../components/layout';
 import { t } from '../../copy';
-import { MARKS_MAX, marksMore } from './lines';
+import { MARKS_MAX, marksMore, namesLabel } from './lines';
 
 /**
  * The gear in a top bar: the reader's account on the circles list, the
@@ -51,11 +51,12 @@ export function MembersLine({
 }) {
   return (
     <Stack>
+      {/* Plain marks: this row is who is in, never who has answered. */}
       <Marks
-        members={members}
+        members={members.map((m) => ({ name: m.name }))}
         max={MARKS_MAX}
         more={marksMore}
-        label={members.map((m) => m.name).join(', ')}
+        label={namesLabel(members.map((m) => m.name))}
       />
       <Small>{memberCount}</Small>
       {onInviteLink === undefined ? null : (

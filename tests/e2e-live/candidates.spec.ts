@@ -70,6 +70,15 @@ test('the organiser gets options that say who is in, who is not, and why', async
   await review.click();
   // The candidate travels as its start instant, which `confirm-meetup` takes.
   await expect(page).toHaveURL(/candidate=\d{4}-\d{2}-\d{2}T/);
+
+  // Circle home says the same about the same people (SUS-198): the plan card's
+  // marks name who has answered and who has not, and the members row below
+  // says only who is in.
+  await page.goto(`/circles/${circleId}`);
+  await expect(
+    page.getByRole('img', { name: "Maya and Tom answered; Alex hasn't yet" }),
+  ).toBeVisible();
+  await expect(page.getByRole('img', { name: 'Maya, Tom and Alex' })).toBeVisible();
 });
 
 test('a member who has answered sees the same options, with nothing to confirm', async ({
