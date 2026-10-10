@@ -141,7 +141,7 @@ function Confirmed({
   const view = confirmedOf(data, confirmation);
   const ids = { circle_id: data.circleId as CircleId, plan_id: data.planId as PlanId };
   // Everything the file says that this screen reads (the plan's own title is not read here).
-  const calendarVersion = [
+  const calendarVersion = JSON.stringify([
     confirmation.id,
     data.circleName,
     data.zone,
@@ -150,7 +150,7 @@ function Confirmed({
     confirmation.placeName,
     confirmation.placeUrl,
     confirmation.note,
-  ].join('\n');
+  ]);
   const calendar = useCalendar({
     circleId: data.circleId,
     planId: data.planId,
