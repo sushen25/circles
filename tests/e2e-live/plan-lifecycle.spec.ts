@@ -133,7 +133,7 @@ test('a member whose times an edit cleared is told so, on the grid and on circle
   await expect(jess.getByText("Times I'd actually be up for")).toBeVisible();
   await expect(jess.getByText(changed)).toHaveCount(0);
   await jess.goto(`/circles/${circleId}`);
-  await expect(jess.getByText('Finding a time')).toBeVisible();
+  await expect(jess.getByText('Finding a time').first()).toBeVisible();
   await expect(jess.getByText(cleared)).toHaveCount(0);
   await expect(jess.getByRole('button', { name: "See how it's looking" })).toBeVisible();
 
@@ -145,7 +145,7 @@ test('a member whose times an edit cleared is told so, on the grid and on circle
   await expect(nina.getByText("Times I'd actually be up for")).toBeVisible();
   await expect(nina.getByText(changed)).toHaveCount(0);
   await nina.goto(`/circles/${circleId}`);
-  await expect(nina.getByText('Finding a time')).toBeVisible();
+  await expect(nina.getByText('Finding a time').first()).toBeVisible();
   await expect(nina.getByText(cleared)).toHaveCount(0);
   await expect(nina.getByRole('button', { name: "See how it's looking" })).toBeVisible();
 });

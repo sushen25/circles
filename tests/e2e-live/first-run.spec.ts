@@ -192,7 +192,7 @@ test('a new organiser reaches a shareable plan link with two typed inputs and no
   await page.getByRole('button', { name: "See how it's looking" }).click();
   // Exact: the share screen stays mounted underneath on the web stack, and its
   // preview card reads "Sunday Crew is finding a time to catch up".
-  await expect(page.getByText('Finding a time', { exact: true })).toBeVisible();
+  await expect(page.getByText('Finding a time', { exact: true }).first()).toBeVisible();
   await expect(page.getByText('1 of 1 replied')).toBeVisible();
 });
 
