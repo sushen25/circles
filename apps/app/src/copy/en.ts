@@ -1459,6 +1459,18 @@ export const en = {
     couldnt_sign_in: "Something went wrong, so you're not signed in yet. Please try again.",
     couldnt_send: "We couldn't send a new code. Please try again.",
   },
+  feedback: {
+    link: 'Something off? Tell me',
+    /** The mail subject: the screen and the platform, never the plan or the circle. */
+    subject: '{brand} feedback · {screen} · {platform}',
+    /** After the tap, for when no mail app opened: the address, in plain text. */
+    no_mail_app: 'No mail app? Write to {support}',
+    copy_address: 'Copy address',
+    address_copied: 'Address copied',
+    screen_sent: 'Sent',
+    screen_confirmed: 'Confirmed',
+    screen_circle_home: 'Circle home',
+  },
   firstCircle: {
     step_1_of_2: 'Step 1 of 2',
     who_do_you_keep_meaning_to_see: 'Who do you keep meaning to see?',

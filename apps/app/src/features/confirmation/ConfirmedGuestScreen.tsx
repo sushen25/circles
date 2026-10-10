@@ -19,6 +19,7 @@ import {
 } from '../../components';
 import { Divider, Stack } from '../../components/layout';
 import { t } from '../../copy';
+import { FeedbackLink } from '../feedback/FeedbackLink';
 import { MARKS_MAX } from '../scheduling/parts';
 import type { ConfirmedView } from './confirmed';
 import { ConfirmedPlaceholder, type ConfirmedState } from './parts';
@@ -124,6 +125,7 @@ export function ConfirmedGuestScreen({
             onPress={action.onPress}
           />
         ))}
+        <FeedbackLink screen="confirmed" />
       </Foot>
     </Screen>
   );

@@ -17,6 +17,7 @@ import {
 } from '../../components';
 import { Row, Stack } from '../../components/layout';
 import { t } from '../../copy';
+import { FeedbackLink } from '../feedback/FeedbackLink';
 import type { Fixture } from '../../data/fixtures';
 import type { ScreenState } from '../state';
 import { MembersLine, SettingsButton } from './parts';
@@ -134,6 +135,7 @@ export function CircleHomeConfirmedScreen({
           variant="secondary"
           onPress={onPlanAnother}
         />
+        <FeedbackLink screen="circle_home" />
       </Foot>
     </Screen>
   );

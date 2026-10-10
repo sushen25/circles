@@ -114,6 +114,9 @@ describe('the copy file', () => {
       'parts',
       'rest',
       'last',
+      // SUS-170's: the feedback mail's subject names the screen and the platform.
+      'screen',
+      'platform',
     ]);
     for (const [screen, strings] of Object.entries(en)) {
       for (const [key, value] of Object.entries(strings)) {
