@@ -11,6 +11,15 @@
 #   plan is readable and the commit is green; a red or still-running commit
 #   fails in `plan`, before anyone is asked.
 #
+# A release is tagged `prod-<yyyymmdd>-<shortsha>` once `apply` has succeeded,
+# by a third job (`tag`) that is the only place with `contents: write` and reads
+# no secret (SUS-144). The `rollback_to` input names one of those tags and
+# redeploys its functions and web build: `plan` resolves it to a commit, checks
+# that commit's own `check` run like any other, and `apply` deploys that commit
+# without pushing or planning any migration (they are forward-only). Rolled back
+# or not, `apply` ends by looking at the live site (scripts/smoke-web.mjs and
+# `pnpm check:env`), so a deploy that landed badly ends red.
+#
 # `plan` cannot run `db push --dry-run`: that needs the production access token,
 # and a job that can read it has already been approved. Its list comes from git
 # and the deployments API (scripts/prod-plan.mjs). The dry run still runs, first
@@ -37,6 +46,11 @@ on:
         description: Type backed-up once the pre-deploy dump is stored privately (docs/runbooks/production-deploy.md, step 1)
         required: true
         type: string
+      rollback_to:
+        description: Leave empty to deploy this commit. A prod-yyyymmdd-sha tag (git tag -l 'prod-*') redeploys that release's functions and web build and applies no migration (docs/runbooks/production-deploy.md, Rolling back)
+        required: false
+        default: ''
+        type: string
 
 permissions:
   contents: read
@@ -55,6 +69,11 @@ jobs:
       contents: read
       checks: read
       deployments: read
+    # What `apply` and `tag` deploy: this commit, or the one `rollback_to` names.
+    outputs:
+      sha: ${{ steps.target.outputs.sha }}
+      rollback: ${{ steps.target.outputs.rollback }}
+      tag: ${{ steps.target.outputs.tag }}
 
     steps:
       - name: Confirm
@@ -77,6 +96,13 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Resolve what to deploy
+        id: target
+        env:
+          HEAD_SHA: ${{ github.sha }}
+          ROLLBACK_TO: ${{ inputs.rollback_to }}
+        run: node scripts/release.mjs resolve --head "$HEAD_SHA" --tag "$ROLLBACK_TO"
+
       # A commit is deployed only if its own `check` run succeeded. No run,
       # queued, in progress, cancelled and timed out all refuse, not just
       # `failure`: three production deploys on 3, 5 and 9 October went out on a
@@ -85,15 +111,17 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
-          SHA: ${{ github.sha }}
+          SHA: ${{ steps.target.outputs.sha }}
         run: node scripts/green-check.mjs --repo "$REPO" --sha "$SHA"
 
       - name: What this deploy changes
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
-          SHA: ${{ github.sha }}
-        run: node scripts/prod-plan.mjs --repo "$REPO" --sha "$SHA"
+          SHA: ${{ steps.target.outputs.sha }}
+          ROLLBACK_TAG: ${{ steps.target.outputs.tag }}
+          HEAD_SHA: ${{ github.sha }}
+        run: node scripts/prod-plan.mjs --repo "$REPO" --sha "$SHA" --rollback "$ROLLBACK_TAG" --head "$HEAD_SHA"
 
       - name: What to check before approving
         run: |
@@ -101,7 +129,7 @@ jobs:
             echo "### Before approving"
             echo ""
             echo "- The backup of \`circles-prod\` was taken for this deploy and is stored privately (the dispatcher typed \`backed-up\`)."
-            echo "- The migration list above is the one you expect. A migration with no transaction can be left half applied."
+            echo "- The migration list above is the one you expect. A migration with no transaction can be left half applied. (A rollback applies none.)"
             echo "- Rejecting the approval stops here, before anything has changed."
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -115,7 +143,10 @@ jobs:
     environment: production
 
     steps:
+      # The commit `plan` resolved: the dispatched one, or a rollback's tag.
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.plan.outputs.sha }}
 
       # Unlike deploy-dev, a missing secret here is a failure, not a skip. A
       # production deploy that deploys nothing and reports success is the one
@@ -168,7 +199,7 @@ jobs:
           EXPO_PUBLIC_SUPABASE_URL: ${{ vars.EXPO_PUBLIC_SUPABASE_URL }}
           EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
           EXPO_PUBLIC_APP_ORIGIN: ${{ vars.EXPO_PUBLIC_APP_ORIGIN }}
-          EXPO_PUBLIC_BUILD_ID: ${{ github.sha }}
+          EXPO_PUBLIC_BUILD_ID: ${{ needs.plan.outputs.sha }}
           EXPO_PUBLIC_TURNSTILE_SITE_KEY: ${{ vars.EXPO_PUBLIC_TURNSTILE_SITE_KEY }}
           REQUIRE_TURNSTILE: 'true'
         run: node scripts/check-client-env.mjs
@@ -178,18 +209,33 @@ jobs:
 
       # The CLI's own list, read from the project. The list a reviewer saw before
       # approving came from git (the `plan` job); this one is the project's.
+      #
+      # A rollback has fewer migrations than the database, and `db push` refuses
+      # a remote history the checkout does not have. It is skipped inside the
+      # script, not with an `if`: no production step may be conditional, and
+      # `check:workflows` holds both of these to reading ROLLBACK.
       - name: Dry run of the migrations
-
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_PROD_ACCESS_TOKEN }}
+          ROLLBACK: ${{ needs.plan.outputs.rollback }}
         run: |
           pnpm exec supabase link --project-ref "${{ secrets.SUPABASE_PROD_PROJECT_REF }}"
-          pnpm exec supabase db push --linked --dry-run
+          if [ "$ROLLBACK" = "true" ]; then
+            echo "Rollback: migrations are forward-only, no dry run."
+          else
+            pnpm exec supabase db push --linked --dry-run
+          fi
 
       - name: Push migrations
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_PROD_ACCESS_TOKEN }}
-        run: pnpm exec supabase db push --linked
+          ROLLBACK: ${{ needs.plan.outputs.rollback }}
+        run: |
+          if [ "$ROLLBACK" = "true" ]; then
+            echo "Rollback: migrations are forward-only, nothing pushed."
+          else
+            pnpm exec supabase db push --linked
+          fi
 
       # `deploy-dev` has had this step since S0-06; production never did, and
       # nothing noticed until there were functions to deploy. Without it
@@ -210,10 +256,56 @@ jobs:
           EXPO_PUBLIC_SUPABASE_URL: ${{ vars.EXPO_PUBLIC_SUPABASE_URL }}
           EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
           EXPO_PUBLIC_APP_ORIGIN: ${{ vars.EXPO_PUBLIC_APP_ORIGIN }}
-          EXPO_PUBLIC_BUILD_ID: ${{ github.sha }}
+          EXPO_PUBLIC_BUILD_ID: ${{ needs.plan.outputs.sha }}
           EXPO_PUBLIC_TURNSTILE_SITE_KEY: ${{ vars.EXPO_PUBLIC_TURNSTILE_SITE_KEY }}
         run: |
           set -o pipefail
           pnpm --filter app exec eas whoami
           pnpm --filter app run export
           pnpm --filter app exec eas deploy --prod --non-interactive
+
+      # The deploy has already happened by here; what this step does is make the
+      # run red, so the founder knows, when the site is not serving it. The
+      # public host needs no secret. `check:env` takes the host out of the
+      # origin the build was exported with.
+      - name: Smoke test the live site
+        env:
+          APP_ORIGIN: ${{ vars.EXPO_PUBLIC_APP_ORIGIN }}
+          DEPLOYED_SHA: ${{ needs.plan.outputs.sha }}
+        run: |
+          case "$APP_ORIGIN" in
+            https://*) ;;
+            *) echo "EXPO_PUBLIC_APP_ORIGIN must be an https origin, got '$APP_ORIGIN'." >&2; exit 1 ;;
+          esac
+          node scripts/smoke-web.mjs --origin "$APP_ORIGIN" --wait 120 --sha "$DEPLOYED_SHA"
+          pnpm check:env "${APP_ORIGIN#https://}"
+
+  # Tags the release. Its own job so that `contents: write` is held by one job
+  # that reads no secret and never sees one; `apply` keeps `contents: read`.
+  # Not in `production`, so it does not ask for the approval a second time. It
+  # runs only if `apply` succeeded, smoke test included. A rollback names the
+  # tag it redeployed and creates none.
+  tag:
+    name: tag the release
+    needs: [plan, apply]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.plan.outputs.sha }}
+      - name: Tag the deployed commit
+        env:
+          SHA: ${{ needs.plan.outputs.sha }}
+          ROLLBACK: ${{ needs.plan.outputs.rollback }}
+          ROLLED_BACK_TO: ${{ needs.plan.outputs.tag }}
+        run: |
+          if [ "$ROLLBACK" = "true" ]; then
+            echo "### Rolled back to \`$ROLLED_BACK_TO\`" >> "$GITHUB_STEP_SUMMARY"
+            echo "No new tag: the release is still \`$ROLLED_BACK_TO\`." >> "$GITHUB_STEP_SUMMARY"
+          else
+            node scripts/release.mjs tag --sha "$SHA"
+          fi

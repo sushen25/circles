@@ -59,7 +59,7 @@ queued, in progress, cancelled, timed out, skipped, neutral and failure. In
 `deploy-prod` that is an immediate refusal; in `deploy-dev` queued and in
 progress are waited out and the rest refuse.
 
-### `deploy-prod` is two jobs
+### `deploy-prod` is three jobs
 
 `workflow_dispatch` only. See [Production deploy](./production-deploy.md) for
 the steps a person takes.
@@ -67,7 +67,8 @@ the steps a person takes.
 | Job | Environment | What it does |
 |---|---|---|
 | `plan` | none | Refuses a dispatch without `confirm: deploy` and `backup: backed-up`; refuses a commit whose `check` is not green; writes the pending migrations and functions to the run summary (`scripts/prod-plan.mjs`) |
-| `apply` | `production`, `needs: plan` | The required reviewer's approval; then the missing-secret check, the dry run, migrations, functions and the web build |
+| `apply` | `production`, `needs: plan` | The required reviewer's approval; then the missing-secret check, the dry run, migrations, functions and the web build, and last a smoke test of the live site (`scripts/smoke-web.mjs`, `pnpm check:env`). With `rollback_to` it deploys that tag's commit and skips the migrations |
+| `tag` | none, `needs: plan, apply` | Pushes `prod-<yyyymmdd>-<shortsha>` (`scripts/release.mjs`). The only job with `contents: write`; it reads no secret and runs only after the smoke test passed |
 
 The approval prompt therefore comes after the plan is readable and the commit is
 known to be green. `plan` has no environment, so it cannot read the production
