@@ -114,6 +114,9 @@ describe('the copy file', () => {
       'parts',
       'rest',
       'last',
+      // SUS-198's: circle home's marks say who answered and who has not yet.
+      'answered',
+      'waiting',
     ]);
     for (const [screen, strings] of Object.entries(en)) {
       for (const [key, value] of Object.entries(strings)) {
