@@ -236,7 +236,7 @@ A circle has at most one live link. To make another, revoke the first:
   tap *Choose my times*, and give a name nobody in the circle has. You land on
   `/j/pnsundaycr`.
 - **Come back with no session:** in another private window, open
-  `http://localhost:8081/p/pnsundaycr`. *Which one is you?* lists the circle's
+  `http://localhost:8081/p/pnsundaycr`. *Have you answered this before?* lists the circle's
   guests (Alex, plus anyone you joined as) and nobody with a saved place.
 - **The emailed re-entry link:** the steps, with the SQL to mint a token, are
   in the testing notes on

@@ -115,7 +115,8 @@ export function FirstCircleScreen({
           <Label>{t('firstCircle', 'circle_name')}</Label>
           <Input
             aria-label={t('firstCircle', 'circle_name')}
-            placeholder={t('firstCircle', 'sunday_crew')}
+            placeholder={t('firstCircle', 'circle_name_hint')}
+            autoFocus
             value={name}
             onChangeText={onNameChange}
             autoCapitalize="words"

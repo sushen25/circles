@@ -273,7 +273,7 @@ S["Join"] = shell(
 S["ContinueAs"] = shell(
     top("Sunday Crew") +
     body(
-        stack(dl("Welcome back. Which one is you?"), p("Pick your name to carry on where you left off. Maya can see when someone rejoins."), gap=10),
+        stack(dl("Have you answered this before?"), p("Pick your name to carry on where you left off. Maya can see when someone rejoins."), gap=10),
         card(
             li(marks(["Nina"], large=True), "Nina", "Joined 3 Sep"),
             divider(),
@@ -293,7 +293,7 @@ S["Name"] = shell(
     top("Sunday Crew") +
     body(
         stack(dl("What should the group call you?"), p("Just a first name is fine. No email, no password."), gap=10),
-        inp("Nina"),
+        inp("Your first name", ph=True),
         sm("This is what Maya and the others will see next to your times."),
     ) +
     foot(pri("Continue"))
@@ -575,7 +575,7 @@ S["CreateCircle"] = shell(
     top("New circle") +
     body(
         dl("Who's this for?"),
-        stack(lbl("Circle name"), inp("Sunday Crew"), gap=8),
+        stack(lbl("Circle name"), inp("e.g. the name of your group chat", ph=True), gap=8),
         stack(lbl("Colour"), row(*[f'<div style="width:44px;height:44px;border-radius:12px;background:{c};{"outline:2px solid "+T["ink"]+";outline-offset:3px;" if i==0 else ""}"></div>' for i, c in enumerate(CIRCLE.values())], gap=10), gap=8),
         stack(lbl("How often would you like to catch up?"), chips("Weekly", "Fortnightly", "*Monthly", "Every two months", "No goal"), sm("A loose aim, not a rule. We'll gently nudge someone when it's about time."), gap=8),
         stack(lbl("Where, roughly"), inp("Inner north, optional", ph=True), gap=8),
@@ -913,7 +913,7 @@ S["YourName"] = shell(
     top("") +
     body(
         stack(dl("What should friends call you?"), p("The name that goes on the plan and in the chat. Filled in from your sign-in where we can."), gap=8),
-        stack(lbl("Your name"), inp("Maya"), gap=8),
+        stack(lbl("Your name"), inp("Your first name", ph=True), gap=8),
         card(between(stack(title("Time zone"), sm("Melbourne (AEST) · from your phone"), gap=2), f'<div class="sm">Change</div>'), gap=0),
         sm("That's all we need. No photo, no phone number, no contacts."),
     ) +
@@ -931,7 +931,7 @@ S["FirstCircle"] = shell(
     first_top("Step 1 of 2") +
     body(
         stack(dl("Who do you keep meaning to see?"), p("A circle is one group of friends. Name it the way you'd say it in the group chat."), gap=8),
-        stack(lbl("Circle name"), inp("Sunday Crew"), gap=8),
+        stack(lbl("Circle name"), inp("e.g. the name of your group chat", ph=True), gap=8),
         stack(lbl("How often would you like to catch up?"), chips("Weekly", "Fortnightly", "*Monthly", "Every two months", "No goal"), sm("A loose aim, not a rule. Nobody gets scored."), gap=8),
     ) +
     foot(pri("Create Sunday Crew"), f'<div class="sm" style="text-align:center;">No account yet. You can change anything later.</div>')

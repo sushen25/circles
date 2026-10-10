@@ -24,14 +24,14 @@ import {
  */
 
 /**
- * Records whether "Which one is you?" was ever on screen, not just whether it
+ * Records whether "Have you answered this before?" was ever on screen, not just whether it
  * is gone by the time the test looks. A string, because this runs in the page
  * and the test project has no DOM library.
  */
 async function watchForTheList(page: Page): Promise<void> {
   await page.addInitScript({
     content: `new MutationObserver(() => {
-      if (document.body && document.body.innerText.includes('Which one is you?')) window.sawList = true;
+      if (document.body && document.body.innerText.includes('Have you answered this before?')) window.sawList = true;
     }).observe(document, { subtree: true, childList: true, characterData: true });`,
   });
 }
@@ -48,7 +48,7 @@ test('a stranger taps "I\'m new here", gives a name, and is a guest the plan is 
   guestWhoAnswered(crew, 'Tom');
 
   await page.goto(`/p/${crew.planCode}`);
-  await expect(page.getByText('Welcome back. Which one is you?')).toBeVisible();
+  await expect(page.getByText('Have you answered this before?')).toBeVisible();
   await page.getByRole('button', { name: "I'm new here" }).click();
   await typeName(page, 'Ren');
 
@@ -59,7 +59,7 @@ test('a stranger taps "I\'m new here", gives a name, and is a guest the plan is 
   expect(isParticipant(crew.planId, ren!.userId), 'and somebody the plan is asking').toBe(true);
 });
 
-test('a circle with no guests never asks "Which one is you?"', async ({ page }) => {
+test('a circle with no guests never asks "Have you answered this before?"', async ({ page }) => {
   // Maya, the owner, has a saved place, so there is nobody to continue as.
   const crew = sundayCrew();
   await watchForTheList(page);

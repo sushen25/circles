@@ -119,7 +119,7 @@ export function CreateCircleScreen({
           <Label>{t('createCircle', 'circle_name')}</Label>
           <Input
             aria-label={t('createCircle', 'circle_name')}
-            placeholder={t('createCircle', 'sunday_crew')}
+            placeholder={t('createCircle', 'circle_name_hint')}
             value={name}
             onChangeText={onNameChange}
             autoCapitalize="words"

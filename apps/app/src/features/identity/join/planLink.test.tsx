@@ -120,7 +120,7 @@ describe('a guest, in a circle that has guests', () => {
     joinPlan.mockResolvedValue(joined());
     arrive();
 
-    await screen.findByText('Welcome back. Which one is you?');
+    await screen.findByText('Have you answered this before?');
     fireEvent.click(screen.getByRole('button', { name: "I'm new here" }));
     await type('Ren');
 
@@ -178,7 +178,7 @@ describe('a guest, on a link that is no longer live', () => {
 
     expect(await screen.findByText("This link isn't active any more.")).toBeTruthy();
     expect(screen.queryByText('What should the group call you?')).toBeNull();
-    expect(screen.queryByText('Welcome back. Which one is you?')).toBeNull();
+    expect(screen.queryByText('Have you answered this before?')).toBeNull();
     expect(joinPlan).not.toHaveBeenCalled();
   });
 });
@@ -195,13 +195,13 @@ describe('a guest whose circle lookup fails', () => {
 });
 
 describe('a guest, in a circle with no guests', () => {
-  it('never sees "Which one is you?": there is nobody to be', async () => {
+  it('never sees "Have you answered this before?": there is nobody to be', async () => {
     guestMembersFor.mockResolvedValue({ kind: 'listed', members: [] });
     joinPlan.mockResolvedValue(joined());
     arrive();
 
     await screen.findByText('What should the group call you?');
-    expect(screen.queryByText('Welcome back. Which one is you?')).toBeNull();
+    expect(screen.queryByText('Have you answered this before?')).toBeNull();
 
     await type('Ren');
     await waitFor(() => expect(joinPlan).toHaveBeenCalledTimes(1));
@@ -212,7 +212,7 @@ describe('the moment after joining', () => {
   it('holds the loading state, rather than offering the person themselves to continue as', async () => {
     // Between the join and the gate re-reading membership, the page still
     // thinks they are outside — and the guest list, read again, now holds their
-    // own name. The live suite caught "Which one is you?" flashing up with Ren
+    // own name. The live suite caught "Have you answered this before?" flashing up with Ren
     // on it, on Ren's way in.
     guestMembersFor.mockResolvedValue({ kind: 'listed', members: [] });
     joinPlan.mockResolvedValue(joined());
@@ -230,7 +230,7 @@ describe('the moment after joining', () => {
     });
 
     expect(await screen.findByText('Finding the circle')).toBeTruthy();
-    expect(screen.queryByText('Welcome back. Which one is you?')).toBeNull();
+    expect(screen.queryByText('Have you answered this before?')).toBeNull();
   });
 });
 
@@ -253,7 +253,7 @@ describe('an account that is not a member', () => {
     arrive();
 
     const button = await screen.findByRole('button', { name: 'Join Sunday Crew as Maya' });
-    expect(screen.queryByText('Welcome back. Which one is you?')).toBeNull();
+    expect(screen.queryByText('Have you answered this before?')).toBeNull();
     expect(guestMembersFor).not.toHaveBeenCalled();
 
     await act(async () => {
@@ -377,7 +377,7 @@ describe('"I have an account" (ADR 0022, SUS-80)', () => {
   it('is offered beside the list, and signs in with a way back to this plan link', async () => {
     arrive();
 
-    await screen.findByText('Welcome back. Which one is you?');
+    await screen.findByText('Have you answered this before?');
     fireEvent.click(screen.getByRole('button', { name: 'I have an account' }));
 
     expect(push).toHaveBeenCalledWith({ pathname: '/sign-in', params: { next: `/p/${CODE}` } });

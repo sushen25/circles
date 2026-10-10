@@ -14,7 +14,7 @@ import { useHaveAccount } from './haveAccount';
 import { PlanNameFlow } from './PlanNameFlow';
 
 /**
- * "Welcome back. Which one is you?" (ADR 0006, spec §5.1, §6.2), and "I'm new
+ * "Have you answered this before?" (ADR 0006, spec §5.1, §6.2), and "I'm new
  * here" (ADR 0022).
  *
  * Shown in place of a plan page when a guest session — or one this page has
@@ -33,7 +33,7 @@ import { PlanNameFlow } from './PlanNameFlow';
  *   that is cancelled, expired or long past, and for an archived circle), and
  *   the list for such a code is empty for the same reason (ADR 0049).
  * - **A circle with no guests skips the question.** There is nobody to be, so
- *   "Which one is you?" would be a question with one answer.
+ *   "Have you answered this before?" would be a question with one answer.
  */
 export type ContinueAsFlowProps = {
   code: ShortCode;
@@ -41,7 +41,7 @@ export type ContinueAsFlowProps = {
   arrivedWithoutSession: boolean;
   /**
    * The membership moved or was made; the gate should ask again. `'list'` when
-   * it was a pick from "Which one is you?" — the one reattach the "save your
+   * it was a pick from "Have you answered this before?" — the one reattach the "save your
    * place" prompt follows (S2-07).
    */
   onReattached: (via?: 'list') => void;
@@ -61,7 +61,7 @@ export function ContinueAsFlow({ code, arrivedWithoutSession, onReattached }: Co
   /**
    * Joined, and waiting for the gate to notice. Until it re-reads membership
    * this page still thinks they are outside, and the list — read again — now
-   * holds their own name: "Which one is you?" offering them themselves, for a
+   * holds their own name: "Have you answered this before?" offering them themselves, for a
    * moment, on the way in. So it holds the loading state instead.
    */
   const [joinedHere, setJoinedHere] = useState(false);

@@ -23,12 +23,12 @@ import {
  */
 
 /**
- * Records whether "Which one is you?" was ever on screen, not only whether it
+ * Records whether "Have you answered this before?" was ever on screen, not only whether it
  * is gone by the time the test looks. A string, because it runs in the page and
  * the test project is compiled without the DOM library.
  */
 const WATCH_FOR_THE_LIST = `new MutationObserver(() => {
-  if (document.body && document.body.innerText.includes('Which one is you?')) window.sawList = true;
+  if (document.body && document.body.innerText.includes('Have you answered this before?')) window.sawList = true;
 }).observe(document, { subtree: true, childList: true, characterData: true });`;
 
 test('with storage cleared, the plan link offers the guests by name and one tap restores the answer', async ({
@@ -40,14 +40,14 @@ test('with storage cleared, the plan link offers the guests by name and one tap 
 
   await page.goto(`/p/${crew.planCode}`);
 
-  await expect(page.getByText('Welcome back. Which one is you?')).toBeVisible();
+  await expect(page.getByText('Have you answered this before?')).toBeVisible();
   const tomsRow = page.getByRole('button', { name: 'Continue as Tom' });
   await expect(tomsRow).toBeVisible();
   // Guests only: Maya has a saved place and can never be reattached to (ADR 0006).
   await expect(page.getByRole('button', { name: 'Continue as Maya' })).toHaveCount(0);
 
   await tomsRow.click();
-  await expect(page.getByText('Welcome back. Which one is you?')).toHaveCount(0);
+  await expect(page.getByText('Have you answered this before?')).toHaveCount(0);
 
   // The membership and its answer moved to this browser's new identity…
   const now = memberNamed(crew.circleId, 'Tom');
@@ -77,7 +77,7 @@ test("a cancelled plan's link no longer offers the guests: it says it is not act
   await page.goto(`/p/${crew.planCode}`);
 
   await expect(page.getByText("This link isn't active any more.")).toBeVisible();
-  await expect(page.getByText('Welcome back. Which one is you?')).toHaveCount(0);
+  await expect(page.getByText('Have you answered this before?')).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Continue as Tom' })).toHaveCount(0);
 
   // Tom's place is exactly where it was.

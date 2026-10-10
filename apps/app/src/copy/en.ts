@@ -850,7 +850,7 @@ export const en = {
     over_body: 'Nothing is happening at this time any more.',
   },
   continueAs: {
-    welcome_back_which_one_is_you: 'Welcome back. Which one is you?',
+    have_you_answered_this_before: 'Have you answered this before?',
     pick_your_name_to_carry_on_where:
       'Pick your name to carry on where you left off. The circle can see when someone rejoins.',
     continue_as: 'Continue as {name}',
@@ -937,7 +937,7 @@ export const en = {
     loading: 'Getting things ready',
     whos_this_for: "Who's this for?",
     circle_name: 'Circle name',
-    sunday_crew: 'Sunday Crew',
+    circle_name_hint: 'e.g. the name of your group chat',
     colour: 'Colour',
     how_often_would_you_like_to_catch: 'How often would you like to catch up?',
     weekly: 'Weekly',
@@ -1465,7 +1465,7 @@ export const en = {
     a_circle_is_one_group_of_friends:
       "A circle is one group of friends. Name it the way you'd say it in the group chat.",
     circle_name: 'Circle name',
-    sunday_crew: 'Sunday Crew',
+    circle_name_hint: 'e.g. the name of your group chat',
     how_often_would_you_like_to_catch: 'How often would you like to catch up?',
     weekly: 'Weekly',
     fortnightly: 'Fortnightly',
@@ -1706,7 +1706,7 @@ export const en = {
     just_for_this_circle:
       'This is only what {circle} will call you. Your account keeps its own name.',
     your_name: 'Your name',
-    nina: 'Nina',
+    your_first_name: 'Your first name',
     this_is_what_the_others_will_see:
       'This is what {inviter} and the others will see next to your times.',
     this_is_what_the_circle_will_see: 'This is what the circle will see next to your times.',
@@ -2927,7 +2927,7 @@ export const en = {
       'Filled in from your Apple account. Change it if you like.',
     the_name_your_friends_know: 'The name your friends know you by. Your first name is plenty.',
     your_name: 'Your name',
-    maya: 'Maya',
+    your_first_name: 'Your first name',
     time_zone: 'Time zone',
     melbourne_aest: 'Melbourne (AEST)',
     zone_from_your_phone: '{zone} · from your phone',
