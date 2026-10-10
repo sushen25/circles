@@ -4,10 +4,11 @@ title: "A circle's members can see which of them has saved a place"
 status: proposed
 date: 2026-10-06
 builds_on: [32]
+amended_by: [60]
 ---
 # ADR 0056: A circle's members can see which of them has saved a place
 
-_Status: proposed · 6 October 2026 · builds on [ADR 0032](0032-the-circles-zone-is-shown-when-the-readers-device-differs.md), which kept `member_profiles` to a name and an id_
+_Status: proposed (a member no longer reads another's saved-place state: [ADR 0060](0060-a-quiet-asks-initiator-is-not-inferable-from-member-data.md)) · 6 October 2026 · builds on [ADR 0032](0032-the-circles-zone-is-shown-when-the-readers-device-differs.md), which kept `member_profiles` to a name and an id_
 
 ## Context
 

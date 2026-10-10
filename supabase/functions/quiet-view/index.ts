@@ -55,7 +55,7 @@ Deno.serve(
         row.organiser_user_id === null
           ? Promise.resolve({ data: null, error: null })
           : caller
-              .from('circle_members')
+              .from('circle_roster')
               .select('display_name_snapshot')
               .eq('circle_id', row.circle_id)
               .eq('user_id', row.organiser_user_id)

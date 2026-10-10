@@ -2440,6 +2440,7 @@ export const en = {
     quiet_asks_hint: 'Whether you get asked if you are keen. Just for you.',
     you: 'You',
     owner: 'Owner',
+    joined_on: 'Joined {date}',
     guest_joined_on: 'Guest · joined {date}',
     place_saved_joined_on: 'Place saved · joined {date}',
     you_guest: 'You · guest',

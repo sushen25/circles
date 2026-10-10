@@ -19,7 +19,12 @@ export type HandOffCandidate = {
   userId: string;
   name: string;
   /** A guest cannot organise (spec §8.2); the sheet shows them greyed. */
-  hasSavedPlace: boolean;
+  /**
+   * Whether they have a saved place (a guest cannot organise, spec §8.2). Only
+   * the circle's owner is told; for any other organiser it is `null` and the
+   * sheet offers everybody (ADR 0060).
+   */
+  hasSavedPlace: boolean | null;
 };
 
 /**
@@ -35,7 +40,7 @@ export async function handOffCandidates(planId: string): Promise<HandOffCandidat
   return (data ?? []).map((row) => ({
     userId: row.member_user_id,
     name: row.display_name,
-    hasSavedPlace: row.has_saved_place,
+    hasSavedPlace: row.has_saved_place as boolean | null,
   }));
 }
 

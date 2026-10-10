@@ -2,12 +2,14 @@ import { ANSWERABLE_STATES, type PlanState } from '@circles/domain';
 
 import { authClient } from '../auth/client';
 import { daysOf } from '../planDays';
+import { planRoster } from '../planning/roster';
 
 /**
  * What the candidates, waiting and no-quorum screens read (spec §5.6).
  *
  * Every row here is readable through RLS by an active member of the circle, so
- * this calls no function: `plans`, `circles`, `circle_members`,
+ * this calls one function only, `plan_roster`, for names (ADR 0060; the
+ * member table is readable for the reader's own row alone): `plans`, `circles`,
  * `plan_participants`, `candidate_sets` and `candidates` each have a
  * member-select policy, and `response_summaries` is the definer view that says
  * **who has answered and with what status, never what they said** (migration
@@ -165,11 +167,7 @@ export async function planCandidates(
     client.from('circles').select('name, owner_user_id').eq('id', plan.circle_id).maybeSingle(),
     // No status filter: a required member who has left the circle is still
     // named by a near-miss, and a name for their id has to come from somewhere.
-    client
-      .from('circle_members')
-      .select('user_id, display_name_snapshot, status, joined_at')
-      .eq('circle_id', plan.circle_id)
-      .order('joined_at', { ascending: true }),
+    planRoster(client, plan.id),
     client
       .from('plan_participants')
       .select('user_id, joined_at')

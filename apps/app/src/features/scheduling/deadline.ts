@@ -106,12 +106,14 @@ export function handOffRowsOf(
       const refusal = handOffRefusal(
         // `hand_off_candidates` lists active members the plan is asking, so
         // those two are true of everybody it returns; the saved place is what
-        // varies.
+        // varies. It is told to the circle's owner only (ADR 0060): for any
+        // other organiser it is unknown, everybody is offered, and the
+        // hand-off itself refuses a guest.
         {
           userId: userId(member.userId),
           isMember: true,
           isParticipant: true,
-          isPermanent: member.hasSavedPlace,
+          isPermanent: member.hasSavedPlace ?? true,
         },
         organiser,
       );

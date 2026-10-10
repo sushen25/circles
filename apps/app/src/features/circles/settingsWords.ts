@@ -82,9 +82,13 @@ export function memberRows(home: CircleHome): SettingsMember[] {
           ? t('settings', 'owner')
           : you
             ? t('settings', member.savedPlace ? 'you_place_saved' : 'you_guest')
-            : t('settings', member.savedPlace ? 'place_saved_joined_on' : 'guest_joined_on', {
-                date: joined,
-              });
+            : // Whether somebody has a saved place is for the owner to see (ADR 0060):
+              // anybody else reads only when they joined.
+              member.savedPlace === null
+              ? t('settings', 'joined_on', { date: joined })
+              : t('settings', member.savedPlace ? 'place_saved_joined_on' : 'guest_joined_on', {
+                  date: joined,
+                });
     return {
       userId: member.userId,
       name: member.name,
