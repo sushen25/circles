@@ -90,6 +90,8 @@ async function linkFor(caller: Db, confirmationId: string): Promise<Download> {
     body: JSON.stringify({
       token: signed?.token ?? null,
       expires_at: signed === undefined ? null : signed.expiresAt.toISOString(),
+      expires_in:
+        signed === undefined ? null : Math.round((signed.expiresAt.getTime() - Date.now()) / 1000),
     }),
     contentType: 'application/json',
     filename: '',

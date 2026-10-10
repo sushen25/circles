@@ -42,11 +42,17 @@ export const GenerateIcsRequest = z.object({
 export type GenerateIcsRequest = z.infer<typeof GenerateIcsRequest>;
 
 /**
- * The answer to `format=link`. Both fields are null when the deployment has no
+ * The answer to `format=link`. All three fields are null when the deployment has no
  * `CALENDAR_LINK_KEY`, and the app then fetches the file itself.
  */
 export const GenerateIcsLinkResponse = z.object({
   token: CalendarToken.nullable(),
   expires_at: z.iso.datetime().nullable(),
+  /**
+   * Seconds the token has left, as the server counts them. The app works out
+   * its own deadline from this and its own clock, never from `expires_at`
+   * against the phone's: a phone an hour fast would think every link dead.
+   */
+  expires_in: z.number().int().positive().nullable(),
 });
 export type GenerateIcsLinkResponse = z.infer<typeof GenerateIcsLinkResponse>;
