@@ -313,7 +313,7 @@
       "w": 390,
       "h": 844,
       "page": "guest",
-      "title": "Add to calendar \u00b7 ready (iPhone)"
+      "title": "Add to calendar \u00b7 ready (iPhone, a link)"
     },
     {
       "file": "AddToCalendarFailed.dc.html",
@@ -332,6 +332,24 @@
       "h": 844,
       "page": "guest",
       "title": "Add to calendar \u00b7 after the tap (iPhone)"
+    },
+    {
+      "file": "AddToCalendarAfterTapAndroid.dc.html",
+      "x": 2400,
+      "y": 7800,
+      "w": 390,
+      "h": 844,
+      "page": "guest",
+      "title": "Add to calendar \u00b7 after the tap (Android)"
+    },
+    {
+      "file": "AddToCalendarInApp.dc.html",
+      "x": 0,
+      "y": 9100,
+      "w": 390,
+      "h": 844,
+      "page": "guest",
+      "title": "Add to calendar \u00b7 WhatsApp or Messenger"
     },
     {
       "file": "FirstCircle.dc.html",
@@ -1057,7 +1075,7 @@
       "y": 7710,
       "w": 900,
       "page": "guest",
-      "text": "Add to calendar, over time (SUS-154). The file is fetched when the confirmed screen loads, so the sheet normally opens on the ready row. Preparing: the row is visibly pending (spinner after about 150 ms, aria-busy, 'Getting it ready\u2026'). After about 8 s it says 'Still working on it\u2026'. On failure the row keeps its place and offers 'Try again' inside it. Ready: the line says what the tap does on this device ('Saves the event for Calendar' on iPhone, 'Downloads an event file' elsewhere). After the tap: the next step for the platform. On an iPhone, 'Saved. Open it from Downloads, then tap Add to Calendar.'; on Android, 'Saved. Open the file from your notifications or Downloads, then choose Calendar.'; elsewhere, 'Downloaded. Open the file to add it to your calendar.' Inside WhatsApp or Messenger: 'Saved. If nothing opened, open this page in your browser and try again.'"
+      "text": "Add to calendar, over time (SUS-154). The file is fetched when the confirmed screen loads, so the sheet normally opens on the ready row. Preparing: the row is visibly pending (spinner after about 150 ms, aria-busy, 'Getting it ready\u2026'). After about 8 s it says 'Still working on it\u2026'. On failure the row keeps its place and offers 'Try again' inside it. Ready: the line says what the tap does on this device. On an iPhone the row is a plain link to the file, signed for 15 minutes (ADR 0063), so the tap is one navigation and iOS opens its own Add to Calendar: 'Opens your Calendar'. On Android and desktop the same link downloads an event file ('Downloads an event file'). After the tap: on an iPhone, 'Opening Calendar. If nothing appears, tap again.'; on Android, 'Saved. Open the file from your notifications or Downloads, then choose Calendar.'. Inside WhatsApp or Messenger the row keeps the file path ('Saves the event for Calendar') and says 'Saved. If nothing opened, open this page in your browser and try again.' A deployment with no signing key falls back to that file path everywhere."
     },
     {
       "id": "guest-note-avail",

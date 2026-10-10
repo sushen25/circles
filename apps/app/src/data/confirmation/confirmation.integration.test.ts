@@ -170,3 +170,54 @@ describe('the calendar file', () => {
     );
   });
 });
+
+describe('the calendar link (ADR 0063)', () => {
+  it('is a plain navigation: a member gets a link, and the link alone gets the file', async () => {
+    const { ren, confirmed } = await lockedIn();
+    const { calendarLink } = await import('./write');
+    const link = await as(ren.client, () => calendarLink(confirmed.confirmation_id));
+    expect(link).not.toBeNull();
+    expect(link!.expiresAt - Date.now()).toBeGreaterThan(14 * 60_000);
+    expect(link!.expiresAt - Date.now()).toBeLessThanOrEqual(15 * 60_000);
+
+    // Nothing but the URL: no bearer, no apikey, as a browser navigation sends it.
+    const response = await fetch(link!.url);
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toContain('text/calendar');
+    expect(response.headers.get('content-disposition')).toMatch(/^inline;/);
+    expect(response.headers.get('cache-control')).toBe('no-store');
+    const file = await response.text();
+    expect(file.startsWith('BEGIN:VCALENDAR')).toBe(true);
+    expect(file).not.toMatch(/token=/);
+  });
+
+  it('is refused for another confirmation, a changed token and no token at all', async () => {
+    const { ren, confirmed } = await lockedIn();
+    const { calendarLink } = await import('./write');
+    const link = await as(ren.client, () => calendarLink(confirmed.confirmation_id));
+    const url = new URL(link!.url);
+
+    const other = new URL(url);
+    other.searchParams.set('confirmation_id', crypto.randomUUID());
+    expect((await fetch(other)).status).toBe(404);
+
+    const changed = new URL(url);
+    const token = changed.searchParams.get('token') ?? '';
+    changed.searchParams.set('token', `${token.slice(0, -1)}${token.endsWith('A') ? 'B' : 'A'}`);
+    expect((await fetch(changed)).status).toBe(404);
+
+    const none = new URL(url);
+    none.searchParams.delete('token');
+    expect((await fetch(none)).status).toBe(401);
+  });
+
+  it('is nothing to somebody outside the circle: no token is handed out', async () => {
+    const { confirmed } = await lockedIn();
+    const stranger = clientFor(`stranger-${Math.random()}`);
+    expect((await stranger.auth.signInAnonymously()).error).toBeNull();
+    const { calendarLink } = await import('./write');
+    await expect(as(stranger, () => calendarLink(confirmed.confirmation_id))).rejects.toMatchObject(
+      { reason: 'confirmation_not_found' },
+    );
+  });
+});

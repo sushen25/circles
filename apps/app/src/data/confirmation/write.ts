@@ -1,6 +1,7 @@
 import {
   ConfirmMeetupRequest,
   ConfirmMeetupResponse,
+  GenerateIcsLinkResponse,
   GenerateIcsRequest,
   type ConfirmOptionRequest,
 } from '@circles/contracts';
@@ -102,9 +103,9 @@ export async function setAttendance(
  * with the domain's own `icsFilename`, the same rule the function uses.
  */
 export async function calendarFile(confirmationId: string): Promise<string> {
-  const query = new URLSearchParams(
-    GenerateIcsRequest.parse({ confirmation_id: confirmationId }),
-  ).toString();
+  const query = new URLSearchParams({
+    confirmation_id: GenerateIcsRequest.parse({ confirmation_id: confirmationId }).confirmation_id,
+  }).toString();
   const { data, error } = await authClient().functions.invoke(`generate-ics?${query}`, {
     method: 'GET',
   });
@@ -114,4 +115,41 @@ export async function calendarFile(confirmationId: string): Promise<string> {
   }
   if (typeof data !== 'string') throw new FunctionError(undefined, 'generate-ics failed');
   return data;
+}
+
+/**
+ * A link the browser can navigate to for the calendar file, or `null` when the
+ * deployment cannot make one and the file has to be fetched instead (ADR 0063).
+ *
+ * The function hands back a 15-minute token for this one confirmation; the
+ * link is that token on the function's own address. **It is a credential for
+ * a quarter of an hour**: it goes to the row's tap and nowhere else, not into
+ * analytics, a log or storage, and `expiresAt` is what the caller refreshes
+ * it by.
+ */
+export type CalendarLink = { url: string; expiresAt: number };
+
+export async function calendarLink(confirmationId: string): Promise<CalendarLink | null> {
+  const query = new URLSearchParams({
+    confirmation_id: GenerateIcsRequest.parse({ confirmation_id: confirmationId }).confirmation_id,
+    format: 'link',
+  }).toString();
+  const { data, error } = await authClient().functions.invoke(`generate-ics?${query}`, {
+    method: 'GET',
+  });
+  if (error !== null) {
+    const problem = await problemOf(error);
+    throw new FunctionError(problem, problem?.message ?? 'generate-ics failed');
+  }
+  const parsed = GenerateIcsLinkResponse.safeParse(data);
+  if (!parsed.success) throw new FunctionError(undefined, 'generate-ics failed');
+  const { token, expires_at: expiresAt } = parsed.data;
+  if (token === null || expiresAt === null) return null;
+
+  const base = process.env.EXPO_PUBLIC_SUPABASE_URL;
+  if (base === undefined || base === '') throw new FunctionError(undefined, 'generate-ics failed');
+  const link = new URL(`${base.replace(/\/+$/, '')}/functions/v1/generate-ics`);
+  link.searchParams.set('confirmation_id', confirmationId);
+  link.searchParams.set('token', token);
+  return { url: link.toString(), expiresAt: Date.parse(expiresAt) };
 }

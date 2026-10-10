@@ -31,11 +31,13 @@ vi.mock('../../data/links/origin', () => ({ appOrigin: () => 'https://circles.te
 const planConfirmation = vi.fn();
 const setAttendance = vi.fn();
 const calendarFile = vi.fn();
+const calendarLink = vi.fn();
 vi.mock('../../data/confirmation', async (original) => ({
   ...(await original<typeof Confirmation>()),
   planConfirmation: (...a: unknown[]) => planConfirmation(...a),
   setAttendance: (...a: unknown[]) => setAttendance(...a),
   calendarFile: (...a: unknown[]) => calendarFile(...a),
+  calendarLink: (...a: unknown[]) => calendarLink(...a),
 }));
 const shareMessage = vi.fn();
 vi.mock('../../platform/share', () => ({
@@ -43,7 +45,11 @@ vi.mock('../../platform/share', () => ({
   copyText: vi.fn(),
 }));
 const saveFile = vi.fn();
-vi.mock('../../platform/download', () => ({ saveFile: (...a: unknown[]) => saveFile(...a) }));
+const openLink = vi.fn();
+vi.mock('../../platform/download', () => ({
+  saveFile: (...a: unknown[]) => saveFile(...a),
+  openLink: (...a: unknown[]) => openLink(...a),
+}));
 
 const { ConfirmedFlow } = await import('./ConfirmedFlow');
 const fixture = await import('./fixtures');
@@ -68,6 +74,10 @@ beforeEach(() => {
   setAttendance.mockResolvedValue(undefined);
   calendarFile.mockResolvedValue('BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n');
   saveFile.mockReturnValue('saved');
+  openLink.mockReturnValue('saved');
+  // No key on the deployment: the file is fetched with the bearer, which is
+  // what the tests below say unless they hand out a link.
+  calendarLink.mockResolvedValue(null);
 });
 
 describe('the organiser', () => {
@@ -362,6 +372,94 @@ describe('the calendar sheet', () => {
     } finally {
       agent.mockRestore();
     }
+  });
+
+  describe('with a link (ADR 0063)', () => {
+    const IPHONE =
+      'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1';
+    const LINK = {
+      url: 'https://api.test/functions/v1/generate-ics?confirmation_id=confirmation-1&token=T',
+      expiresAt: Date.now() + 15 * 60_000,
+    };
+
+    it('follows the link on the tap, with no file fetched, and says it opens Calendar on an iPhone', async () => {
+      calendarLink.mockResolvedValue(LINK);
+      const agent = vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(IPHONE);
+      try {
+        show(<ConfirmedFlow target={{ code: 'pnsundaycr' }} calendar />);
+        expect(await screen.findByText('Opens your Calendar')).toBeTruthy();
+        await act(async () => undefined);
+        fireEvent.click(
+          screen.getByRole('button', { name: 'Apple or device calendar. Opens your Calendar' }),
+        );
+        // Synchronously, inside the tap.
+        expect(openLink).toHaveBeenCalledWith(LINK.url);
+        expect(saveFile).not.toHaveBeenCalled();
+        expect(calendarFile).not.toHaveBeenCalled();
+        expect(calendarLink).toHaveBeenCalledTimes(1);
+        expect(calendarLink).toHaveBeenCalledWith('confirmation-1');
+        // `ics_downloaded` on the tap, with the plan's ids and nothing of the link.
+        expect(track).toHaveBeenCalledWith('ics_downloaded', IDS);
+        for (const call of track.mock.calls) expect(JSON.stringify(call)).not.toContain('token');
+        expect(
+          await screen.findByText('Opening Calendar. If nothing appears, tap again.'),
+        ).toBeTruthy();
+      } finally {
+        agent.mockRestore();
+      }
+    });
+
+    it('does not follow a link that has run out: it gets a new one and waits for the next tap', async () => {
+      // The first link is about to run out, and the refresh a minute before
+      // that fails (a phone that was asleep): the tap finds it dead.
+      calendarLink.mockResolvedValueOnce({ ...LINK, expiresAt: Date.now() + 5_000 });
+      calendarLink.mockRejectedValueOnce(new Error('asleep'));
+      calendarLink.mockResolvedValue(LINK);
+      show(<ConfirmedFlow target={{ code: 'pnsundaycr' }} calendar />);
+      await screen.findByText('Downloads an event file');
+      // The refresh has been tried, and failed, before the tap.
+      await waitFor(() => expect(calendarLink).toHaveBeenCalledTimes(2));
+      await act(async () => undefined);
+      fireEvent.click(screen.getByRole('button', { name: /^Apple or device calendar\. / }));
+      expect(openLink).not.toHaveBeenCalled();
+      await waitFor(() => expect(calendarLink).toHaveBeenCalledTimes(3));
+      await waitFor(() =>
+        expect(
+          screen
+            .getByRole('button', { name: /^Apple or device calendar\. / })
+            .getAttribute('aria-busy'),
+        ).toBe('false'),
+      );
+      await act(async () => undefined);
+      fireEvent.click(screen.getByRole('button', { name: /^Apple or device calendar\. / }));
+      expect(openLink).toHaveBeenCalledWith(LINK.url);
+    });
+
+    it('keeps the file path inside WhatsApp and Messenger', async () => {
+      calendarLink.mockResolvedValue(LINK);
+      const agent = vi
+        .spyOn(navigator, 'userAgent', 'get')
+        .mockReturnValue(
+          'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) Mobile/15E148 [FBAN/MessengerForiOS;FBAV/458.0]',
+        );
+      try {
+        show(<ConfirmedFlow target={{ code: 'pnsundaycr' }} calendar />);
+        expect(await screen.findByText('Saves the event for Calendar')).toBeTruthy();
+        expect(calendarLink).not.toHaveBeenCalled();
+        expect(calendarFile).toHaveBeenCalledTimes(1);
+      } finally {
+        agent.mockRestore();
+      }
+    });
+
+    it('shows a failed token fetch as "Try again" in the row, like any other failure', async () => {
+      calendarLink.mockRejectedValueOnce(new Error('boom'));
+      calendarLink.mockResolvedValue(LINK);
+      show(<ConfirmedFlow target={{ code: 'pnsundaycr' }} calendar />);
+      fireEvent.click(await screen.findByRole('button', { name: 'Try again' }));
+      await waitFor(() => expect(calendarLink).toHaveBeenCalledTimes(2));
+      expect(await screen.findByText('Downloads an event file')).toBeTruthy();
+    });
   });
 
   it('opens on arrival at the calendar link', async () => {
