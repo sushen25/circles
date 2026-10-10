@@ -91,6 +91,13 @@ export const catalogue = {
   organiser_gate_passed: event(1),
   app_first_open_linked: event(1),
 
+  // --- feedback -----------------------------------------------------------
+  //
+  // "Something off? Tell me" was tapped (SUS-170). The screen it sat on and
+  // nothing else: the message goes by email, and what the person writes never
+  // touches the product. No circle or plan id is passed either.
+  feedback_opened: event(1, { screen: z.enum(['sent', 'confirmed', 'circle_home']) }),
+
   // --- circles ------------------------------------------------------------
   circle_created: event(1),
   circle_invite_shared: event(1, { kind: z.enum(['link', 'sheet', 'copy']) }),

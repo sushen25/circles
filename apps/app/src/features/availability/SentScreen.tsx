@@ -17,6 +17,7 @@ import {
 } from '../../components';
 import { Stack } from '../../components/layout';
 import { t } from '../../copy';
+import { FeedbackLink } from '../feedback/FeedbackLink';
 import { SentCard, type SentProblem } from './SentCard';
 
 export type { SentProblem };
@@ -178,11 +179,12 @@ export function SentScreen({
           <Tertiary label={t('sent', 'see_my_answer')} onPress={onChangeAnswer} />
         )}
       </Body>
-      {onSeeCircle === undefined ? null : (
-        <Foot>
+      <Foot>
+        {onSeeCircle === undefined ? null : (
           <Button label={t('sent', 'see_how_its_looking')} onPress={onSeeCircle} />
-        </Foot>
-      )}
+        )}
+        <FeedbackLink screen="sent" />
+      </Foot>
     </Screen>
   );
 }
