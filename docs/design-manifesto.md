@@ -259,7 +259,7 @@ A shorter list than the principles, and easier to check.
 
 - A feed, a like, a follower count, or a public profile.
 - Streaks, guilt, or "you haven't met in X" framing.
-- A visible rejection count, or the identity of someone who didn't reply.
+- A visible rejection count, or the identity of someone who didn't reply shown as a failing: the options say "{name} hasn't answered" in one quiet line, because a card must say who we are waiting on (§3.4), and nothing else names the slow, in a reminder to the group, a tally or the message that a plan faded ([ADR 0066](decisions/0066-the-group-sees-who-can-make-each-option-and-nobody-sees-whole-availability.md)).
 - A calendar grid on a phone that a person must interpret.
 - Event titles or calendar contents leaving anyone's device.
 - A paywall on knowing whether your friends replied. Core coordination is free, forever, for everyone in the circle.
