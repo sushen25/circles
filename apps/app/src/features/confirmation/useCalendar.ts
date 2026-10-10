@@ -5,31 +5,43 @@ import { Platform } from 'react-native';
 import { track } from '../../analytics/track';
 import { t } from '../../copy';
 import { calendarFile } from '../../data/confirmation';
+import { currentDevice, type Device } from '../../platform/device';
 import { saveFile } from '../../platform/download';
 import { isOffline } from '../identity/join/failure';
 
 /**
  * The add-to-calendar sheet's state, and the download behind its one row.
  *
- * **The file is fetched when the sheet opens, and the row waits for it.**
- * Mobile Safari hands a download to Calendar only from a tap it can see, and a
- * tap followed by a network round trip is, by the time the file arrives, no
- * longer one. So the row is not tappable until the file is here, and a tap
- * saves it synchronously, inside the gesture. A fetch that failed is retried
- * by the next tap, which then waits again rather than saving late.
+ * **The file is fetched when the confirmed screen loads (`prepare`), not when
+ * the sheet opens,** so the common case opens on a ready row. Mobile Safari
+ * hands a download to Calendar only from a tap it can see, and a tap followed
+ * by a network round trip is, by the time the file arrives, no longer one. So
+ * the row is not tappable until the file is here, and a tap saves it
+ * synchronously, inside the gesture. While it is not, the row says so
+ * (`preparing`, then the shared "still working" line), and a failed fetch is
+ * retried by "Try again" in the row (SUS-154).
  *
  * `calendar_add_opened` when the sheet opens and `ics_downloaded` only when a
  * file was actually handed over (spec §11.3) — the difference between the two
  * is how many people looked and did not add it.
  */
+export type CalendarPhase = 'idle' | 'preparing' | 'ready' | 'failed';
+
 export type Calendar = {
   open: boolean;
-  /** The file is on its way; the row is not tappable yet. */
-  busy: boolean;
+  phase: CalendarPhase;
+  /** Why the fetch failed, in words, for the row. */
+  problem: string | undefined;
+  /** What the tap just did, in words: the next step on this device. */
   status: string | undefined;
+  /** What the tap will do on this device, in words, for the ready row. */
+  ready: string;
+  /** Start fetching the file now; a no-op if it is here or on its way. */
+  prepare: () => void;
   show: () => void;
   hide: () => void;
   download: () => void;
+  retry: () => void;
 };
 
 export type CalendarTarget = {
@@ -39,33 +51,72 @@ export type CalendarTarget = {
   filename: string;
 };
 
+/** What the tap does, per device: `ready_ios`, `ready_android`, `ready_other`. */
+function readyWords(device: Device): string {
+  return t('addToCalendar', `ready_${device.kind}`);
+}
+
+/** The next step once the file is saved: in an in-app browser it may land nowhere. */
+function savedWords(device: Device): string {
+  return device.inApp
+    ? t('addToCalendar', 'saved_in_app')
+    : t('addToCalendar', `saved_${device.kind}`);
+}
+
 export function useCalendar(target: CalendarTarget | undefined): Calendar {
   const [open, setOpen] = useState(false);
-  const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string>();
-  /** The file, once it is here — per confirmation: a rescheduled meetup is a different file. */
-  const file = useRef<{ id: string; contents: string } | undefined>(undefined);
+  /** Which confirmation the phase is about: a rescheduled meetup is a different file. */
+  const [state, setState] = useState<{
+    id: string;
+    phase: CalendarPhase;
+    problem?: string;
+    contents?: string;
+  }>();
+  const inFlight = useRef<string | undefined>(undefined);
   const ids =
     target === undefined
       ? {}
       : { circle_id: target.circleId as CircleId, plan_id: target.planId as PlanId };
 
-  const fetchFile = (id: string) => {
-    setBusy(true);
-    calendarFile(id)
+  const id = target?.confirmationId;
+  const mine = state !== undefined && state.id === id ? state : undefined;
+  const phase: CalendarPhase = mine?.phase ?? 'idle';
+
+  const fetchFile = (confirmationId: string) => {
+    if (inFlight.current === confirmationId) return;
+    inFlight.current = confirmationId;
+    setState({ id: confirmationId, phase: 'preparing' });
+    calendarFile(confirmationId)
       .then((contents) => {
-        file.current = { id, contents };
+        setState({ id: confirmationId, phase: 'ready', contents });
       })
       .catch(() => {
-        setStatus(isOffline() ? t('addToCalendar', 'offline') : t('addToCalendar', 'failed'));
+        setState({
+          id: confirmationId,
+          phase: 'failed',
+          problem: isOffline() ? t('addToCalendar', 'offline') : t('addToCalendar', 'failed'),
+        });
       })
-      .finally(() => setBusy(false));
+      .finally(() => {
+        if (inFlight.current === confirmationId) inFlight.current = undefined;
+      });
+  };
+
+  const prepare = () => {
+    if (id === undefined || phase === 'ready' || phase === 'preparing') return;
+    // A failure is not retried on its own; the row's "Try again" does it.
+    if (phase === 'failed') return;
+    fetchFile(id);
   };
 
   return {
     open,
-    busy,
+    phase,
+    problem: mine?.problem,
     status,
+    ready: readyWords(currentDevice()),
+    prepare,
     show: () => {
       setStatus(undefined);
       setOpen(true);
@@ -73,29 +124,31 @@ export function useCalendar(target: CalendarTarget | undefined): Calendar {
         ...ids,
         surface: Platform.OS === 'web' ? 'web' : 'native',
       });
-      if (target !== undefined && file.current?.id !== target.confirmationId && !busy) {
-        fetchFile(target.confirmationId);
-      }
+      // The confirmed screen has usually fetched it already.
+      prepare();
     },
     hide: () => setOpen(false),
-    download: () => {
-      if (target === undefined || busy) return;
+    retry: () => {
+      if (id === undefined) return;
       setStatus(undefined);
-      const ready = file.current?.id === target.confirmationId ? file.current : undefined;
-      if (ready === undefined) {
-        fetchFile(target.confirmationId);
-        return;
-      }
+      fetchFile(id);
+    },
+    download: () => {
+      if (target === undefined) return;
+      const contents = mine?.contents;
+      // Not here yet: the row is busy or offering a retry, and says so.
+      if (phase !== 'ready' || contents === undefined) return;
+      setStatus(undefined);
       // Synchronously, inside the tap.
-      const saved = saveFile(ready.contents, target.filename, 'text/calendar;charset=utf-8');
+      const saved = saveFile(contents, target.filename, 'text/calendar;charset=utf-8');
       if (saved === 'saved') {
         track('ics_downloaded', ids);
-        setStatus(t('addToCalendar', 'saved'));
+        setStatus(savedWords(currentDevice()));
       } else {
         setStatus(
           saved === 'unsupported'
             ? t('addToCalendar', 'unsupported')
-            : t('addToCalendar', 'failed'),
+            : t('addToCalendar', 'save_failed'),
         );
       }
     },
