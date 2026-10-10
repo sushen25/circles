@@ -273,7 +273,7 @@ Quiet asks exist only inside a private circle; there is no anonymous text or tar
 
 #### Acceptance criteria
 
-- No UI, notification, email, log or analytics event can identify the initiator or an individual interest answer before threshold.
+- No UI, notification, email, log or analytics event can identify the initiator or an individual interest answer before threshold. A guest's place taken from the Continue-as list does not bring the previous holder's answer with it; only a move that proves the person does ([ADR 0062](decisions/0062-a-continue-as-pick-does-not-carry-the-quiet-ask-answer.md)).
 - A quiet plan cannot acquire an organiser without an explicit acceptance.
 - Someone other than the initiator can become organiser.
 
