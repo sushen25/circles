@@ -50,9 +50,16 @@ and nothing on iOS, which is exactly the kind of bug that looks fine on one
 platform in review.
 
 To add a weight: add it to `FAMILIES` in `scripts/fetch-fonts.mjs`, run
-`node scripts/fetch-fonts.mjs`, add the file to `src/font-assets.ts` and the
-weight to `fontFace` in `src/fonts.ts`. `faceFor` throws for a weight with no
+`node scripts/fetch-fonts.mjs`, run `scripts/make-woff2.py`, add the file to `src/font-assets.ts` and
+`src/font-assets.web.ts`, and the weight to `fontFace` in `src/fonts.ts`. `faceFor` throws for a weight with no
 file rather than guessing.
+
+Each face is there twice: `.ttf` for native, which cannot read WOFF2, and
+`.woff2` for the web build, about half the bytes. `src/font-assets.ts` names the
+first and `src/font-assets.web.ts` the second; the app's Metro config
+(`apps/app/metro/web-font-assets.js`) sends every web bundle, the pre-render
+included, to the second. `scripts/make-woff2.py` writes the WOFF2 files from the
+TrueType ones, unchanged glyph for glyph; run it after `fetch-fonts.mjs`.
 
 `scripts/fetch-fonts.mjs` asks the Google Fonts CSS API with a deliberately
 ancient user agent, because that is the only way it still serves per-weight

@@ -4,11 +4,13 @@ import { PlanLinkFlow } from '../../src/features/availability/PlanLinkFlow';
 import { MembershipGate } from '../../src/features/identity/join/MembershipGate';
 import { PlanChangeGate } from '../../src/features/planning/MemberChangeFlow';
 import { QuietLinkGate } from '../../src/features/planning/QuietLinkGate';
+import { usePrefetchPlanPage } from '../../src/features/planning/usePrefetchPlanPage';
 import { MemberCandidatesFlow } from '../../src/features/scheduling/MemberCandidatesFlow';
 
 /** Route only — thin composition, no logic (architecture §7.1). */
 export default function Route() {
   const { code } = useLocalSearchParams<{ code: string }>();
+  usePrefetchPlanPage(code);
 
   return (
     <MembershipGate target={{ kind: 'plan', code }}>

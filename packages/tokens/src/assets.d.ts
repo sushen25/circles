@@ -6,3 +6,9 @@ declare module '*.ttf' {
   const asset: number;
   export default asset;
 }
+
+/** The web build's fonts (`font-assets.web.ts`); the same opaque handle. */
+declare module '*.woff2' {
+  const asset: number;
+  export default asset;
+}

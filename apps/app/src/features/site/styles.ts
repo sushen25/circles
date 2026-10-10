@@ -30,26 +30,48 @@ const tint = {
   ochreSoft: '#F5EAD8',
 } as const;
 
-export const FONT_FILES = {
-  figtreeRegular: '/fonts/Figtree-Regular.ttf',
-  figtreeMedium: '/fonts/Figtree-Medium.ttf',
-  figtreeSemiBold: '/fonts/Figtree-SemiBold.ttf',
-  newsreader: '/fonts/Newsreader-Regular.ttf',
-} as const;
+/**
+ * The four faces the site uses, as URLs. Handed in rather than written here
+ * (SUS-174): they are the app's own WOFF2 files at the hashed URLs the
+ * bundler gave them, so a visitor who goes from `/` to `/start` already has
+ * them (`siteFontsFrom`, in the middleware). A literal path here would be a
+ * second copy of each file, downloaded twice.
+ */
+export interface SiteFonts {
+  figtreeRegular: string;
+  figtreeMedium: string;
+  figtreeSemiBold: string;
+  newsreader: string;
+}
+
+/** The faces `@circles/tokens/font-assets` registers, which are the ones the site uses. */
+export type SiteFace =
+  'Figtree-Regular' | 'Figtree-Medium' | 'Figtree-SemiBold' | 'Newsreader-Regular';
+
+/** The site's fonts, given a way to turn a registered face into the URL the app loads it from. */
+export function siteFontsFrom(urlOf: (face: SiteFace) => string): SiteFonts {
+  return {
+    figtreeRegular: urlOf('Figtree-Regular'),
+    figtreeMedium: urlOf('Figtree-Medium'),
+    figtreeSemiBold: urlOf('Figtree-SemiBold'),
+    newsreader: urlOf('Newsreader-Regular'),
+  };
+}
 
 const face = (family: string, weight: number, file: string) =>
-  `@font-face{font-family:'${family}';font-weight:${weight};font-style:normal;font-display:swap;src:url(${file}) format('truetype')}`;
+  `@font-face{font-family:'${family}';font-weight:${weight};font-style:normal;font-display:swap;src:url(${file}) format('woff2')}`;
 
-const fonts = [
-  face('Figtree', 400, FONT_FILES.figtreeRegular),
-  face('Figtree', 500, FONT_FILES.figtreeMedium),
-  face('Figtree', 600, FONT_FILES.figtreeSemiBold),
-  face('Figtree', 700, FONT_FILES.figtreeSemiBold),
-  face('Newsreader', 400, FONT_FILES.newsreader),
-  face('Newsreader', 500, FONT_FILES.newsreader),
-].join('');
+const fontFaces = (f: SiteFonts) =>
+  [
+    face('Figtree', 400, f.figtreeRegular),
+    face('Figtree', 500, f.figtreeMedium),
+    face('Figtree', 600, f.figtreeSemiBold),
+    face('Figtree', 700, f.figtreeSemiBold),
+    face('Newsreader', 400, f.newsreader),
+    face('Newsreader', 500, f.newsreader),
+  ].join('');
 
-export const SITE_CSS = `${fonts}
+export const siteCss = (fonts: SiteFonts) => `${fontFaces(fonts)}
 :root{
   --ground:${c.ground};--surface:${c.surface};--line:${c.line};--line-soft:${c.lineSoft};
   --ink:${c.ink};--ink2:${c.ink2};--ink3:${c.ink3};

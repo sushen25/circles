@@ -4,7 +4,7 @@ import { color } from '@circles/tokens';
 import { t } from '../../copy';
 import { escapeHtml } from '../../data/preview';
 import { close, free, header, hero, how, organisers, privacy } from './sections';
-import { FONT_FILES, SITE_CSS } from './styles';
+import { siteCss, type SiteFonts } from './styles';
 
 /**
  * The site, as one HTML document with no script in it.
@@ -16,19 +16,19 @@ import { FONT_FILES, SITE_CSS } from './styles';
  * and all, before anything runs. Nothing here depends on the visitor, the
  * clock or the locale, so nothing here can be a guess.
  *
- * No third-party request: the fonts are the repo's own files at `/fonts/`, the
- * mark is inline, and there is no analytics script. The one event the site
+ * No third-party request: the fonts are the app's own files, at the URLs the
+ * app loads them from, the mark is inline, and there is no analytics script. The one event the site
  * records is sent by the app when it opens from the button
  * (`useSiteArrival`).
  */
-export function sitePage(origin: string): string {
+export function sitePage(origin: string, fonts: SiteFonts): string {
   const title = `${brand.name} — ${brand.descriptor}`;
   const description = t('site', 'meta_description');
   const image = `${origin}/og-card.png`;
   const meta = (name: string, content: string, attr = 'property') =>
     `<meta ${attr}="${name}" content="${escapeHtml(content)}">`;
-  const preload = [FONT_FILES.newsreader, FONT_FILES.figtreeRegular, FONT_FILES.figtreeSemiBold]
-    .map((href) => `<link rel="preload" href="${href}" as="font" type="font/ttf" crossorigin>`)
+  const preload = [fonts.newsreader, fonts.figtreeRegular, fonts.figtreeSemiBold]
+    .map((href) => `<link rel="preload" href="${href}" as="font" type="font/woff2" crossorigin>`)
     .join('');
 
   return `<!doctype html>
@@ -46,7 +46,7 @@ ${meta('og:type', 'website')}${meta('og:site_name', brand.name)}${meta('og:title
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="manifest" href="/manifest.webmanifest">
 ${preload}
-<style>${SITE_CSS}</style>
+<style>${siteCss(fonts)}</style>
 </head>
 <body>
 <a class="skip" href="#top">${escapeHtml(t('site', 'skip'))}</a>

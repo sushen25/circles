@@ -1,3 +1,6 @@
+import { fontAssets } from '@circles/tokens/font-assets';
+import { Asset } from 'expo-asset';
+
 import {
   CARD_HEADERS,
   destinationFor,
@@ -8,6 +11,15 @@ import {
   previewTargetFor,
 } from '../src/data/preview';
 import { SITE_HEADERS, sitePage } from '../src/features/site/page';
+import { siteFontsFrom } from '../src/features/site/styles';
+
+/**
+ * The site's fonts are the app's: the URLs the bundler gave the WOFF2 files,
+ * hash and all, which the app's own pages preload. A visitor who goes from `/`
+ * to `/start` finds them in the browser's cache and downloads nothing twice
+ * (SUS-174).
+ */
+const SITE_FONTS = siteFontsFrom((face) => Asset.fromModule(fontAssets[face]).uri);
 
 /**
  * Link previews, on the paths people actually paste (architecture §9.4).
@@ -31,7 +43,7 @@ export default async function middleware(request: Request): Promise<Response | u
   // request for `/` only: the app's own front door is `/start`, and a client
   // navigation to `/` inside the app never reaches the server.
   if (url.pathname === '/') {
-    return new Response(request.method === 'HEAD' ? null : sitePage(originOf(url)), {
+    return new Response(request.method === 'HEAD' ? null : sitePage(originOf(url), SITE_FONTS), {
       status: 200,
       headers: { ...SITE_HEADERS },
     });
