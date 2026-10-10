@@ -12,6 +12,7 @@ situation, written the first time it happens rather than imagined in advance.
 | [Production deploy](./production-deploy.md) | The backup to take first, dispatching `deploy-prod`, reading the migration plan before approving, the release tags and smoke test, and rolling back |
 | [Release: Slice 2](./release-slice-2.md) | Putting the quiet ask, cadence and replies closed on prod: prerequisites, what deploys, the checks before and after, the ADRs to decide, and the H4–H6 evidence to collect |
 | [Store listing](./store-listing.md) | The name, subtitle, description and icons to enter at first submission, and the one thing to check with App Review |
+| [Founder cohorts](./founder-cohorts.md) | Which of spec §11.4's two cohorts a circle is counted in, how to look and how to change it |
 | Stuck plans | A plan that will not transition — past its deadline with no candidates, or a confirmation that did not send |
 | Suppressed contacts | An address that has hard-bounced or complained and is no longer receiving anything |
 | Identity merges | A guest who has ended up as two members of one circle, or a claim that half-linked |
