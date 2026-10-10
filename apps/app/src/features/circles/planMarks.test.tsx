@@ -105,7 +105,7 @@ describe('circle home, the plan card and the members row (SUS-198)', () => {
     const card = await screen.findByRole('img', {
       name: "Maya, Nina, Tom, Jess and Sam answered; Alex hasn't yet",
     });
-    const marks = [...card.children];
+    const marks = Array.from(card.children);
     expect(marks.map((m) => m.textContent)).toEqual(['M', 'N', 'T', 'J', 'S', 'A']);
     expect(marks.map(dashed)).toEqual([false, false, false, false, false, true]);
   });
@@ -117,7 +117,7 @@ describe('circle home, the plan card and the members row (SUS-198)', () => {
     const row = await screen.findByRole('img', {
       name: 'Maya, Nina, Tom, Jess, Sam and Alex',
     });
-    expect([...row.children].some(dashed)).toBe(false);
+    expect(Array.from(row.children).some(dashed)).toBe(false);
     expect(screen.getAllByRole('img').map((e) => e.getAttribute('aria-label'))).toEqual([
       "Maya, Nina, Tom, Jess and Sam answered; Alex hasn't yet",
       'Maya, Nina, Tom, Jess, Sam and Alex',
@@ -158,7 +158,7 @@ describe('circle home, the plan card and the members row (SUS-198)', () => {
     expect(
       screen
         .getAllByRole('img')
-        .flatMap((e) => [...e.children])
+        .flatMap((e) => Array.from(e.children))
         .some(dashed),
     ).toBe(false);
   });
