@@ -15,8 +15,9 @@ import { sameSecret } from './secret.ts';
  * not a hint about the clock.
  *
  * **Not single-use**, on purpose: iOS may ask for the link twice (a preview and
- * then the open). Replay is bounded by the lifetime, and what a replay reads is
- * what the plan's public link already shows.
+ * then the open). Replay is bounded by the lifetime, and what a replay reads is the
+ * event's title, time, place and note: what a member sees, and more than a
+ * stranger sees at the plan's public link (ADR 0063).
  */
 export const CALENDAR_TOKEN_SECONDS = 15 * 60;
 

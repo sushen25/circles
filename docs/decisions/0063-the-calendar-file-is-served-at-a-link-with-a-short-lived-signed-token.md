@@ -36,10 +36,12 @@ exactly as before and is still how the token is obtained.
   bearer. The caller's own client reads `meetup_confirmations`, so row-level
   security answers "may this person see this confirmation?" as it always did; a
   stranger and a confirmation that does not exist get the same refusal. The
-  answer is JSON, `{ token, expires_at }`. With no key configured it is
-  `{ token: null }`, and the app falls back to fetching the file with the bearer
-  (the blob path), so a deployment without the secret loses the one-tap
-  behaviour and nothing else.
+  answer is JSON, `{ token, expires_at, expires_in }`; the app counts its own
+  deadline from `expires_in` on its own clock, so a phone with a wrong clock
+  still knows when a link runs out. With no key configured all three are null,
+  and the app falls back to fetching the file with the bearer (the blob path),
+  so a deployment without the secret loses the one-tap behaviour and nothing
+  else.
 - **The token** is `<exp>.<mac>`. `exp` is the expiry in whole seconds since
   the epoch. `mac` is base64url of HMAC-SHA-256 over
   `circles.calendar.v1:<confirmation_id>:<exp>` under `CALENDAR_LINK_KEY`, an
@@ -58,18 +60,30 @@ exactly as before and is still how the token is obtained.
   nothing. With no key configured every token is refused.
 - **The response** is `text/calendar; charset=utf-8`, `Content-Disposition:
   inline` (iOS Safari treats `attachment` as a download), and
-  `Cache-Control: private, no-store`, so nothing outlives the token. It is
+  `Cache-Control: no-store`, so nothing outlives the token. It is
   built from the row on every request, so a moved, edited or cancelled meetup
   is told as it now is (ADR 0051), whatever the token was minted for.
-- **What the file holds** is unchanged: day, time, place, note, the plan's
-  short link and the circle's name, exactly what the `/p/` page and the
-  locked-in share message already show. No token, no member list, no email
-  address.
+- **What the file holds** is unchanged: the circle's name and the plan's title,
+  the day and time, the place, the note and the plan's short link. That is what
+  a **member** sees on the confirmed screen, and it is **more than a stranger
+  sees at `/p/<code>`**, which shows no date, no place and no person. So
+  whoever holds a live link can read the event's title, time, place and note
+  until it expires; that is the content of the exposure, stated plainly. No
+  token, no member list and no email address is in the file.
 - **Where the token may be.** In the link and the request for it, and nowhere
-  else: never in analytics, never in a log line (the function logs fixed
-  fields and a request id, and the query string is never logged), never in the
-  file, never persisted by the app. The app holds it in memory and builds the
-  link at the tap.
+  we control anywhere else: never in analytics, never in a log line the function
+  writes (it logs fixed fields and a request id, never the query string), never
+  in the file, never persisted by the app. The app holds it in memory and
+  builds the link at the tap. **One exception we cannot avoid:** a token in a
+  query string is part of the request URL, and the platform's own request log
+  records the URL (Kong's access log locally; the project's function request
+  logs on a hosted project, for that plan's log retention). A live token is
+  therefore readable by whoever can read those logs, and a dead one stays
+  there. This is accepted because the token is dead after 15 minutes, covers
+  one confirmation and reads only, and the readers of the platform logs are the
+  project's own operators. It is still a departure from AGENTS.md's "no log
+  ever holds a token", of the kind the emailed `/a`, `/e` and `/v` paths already
+  are (SUS-81), and is **flagged for the founder to accept at merge**.
 - **The gateway.** `generate-ics` sets `verify_jwt = false`, as the email-link
   functions do, because the gateway has no JWT to check on a navigation; the
   function does its own authentication, for the bearer and for the token.
@@ -81,8 +95,10 @@ exactly as before and is still how the token is obtained.
 **What the token does not do.** It is not single-use: iOS can request a link
 twice (a preview, then the open), and a single-use token would turn that into a
 refusal. So whoever holds the link can read the file for the rest of its 15
-minutes. That is the accepted cost, and what they can read is what the plan's
-public link already shows. There is no revocation short of expiry.
+minutes. That is the accepted cost, and what they can read is the event's title,
+time, place and note (above), which is more than the plan's public link shows.
+The link is only ever handed to a member and used in their own tap. There is no
+revocation short of expiry.
 
 ## Alternatives considered
 
@@ -116,7 +132,11 @@ public link already shows. There is no revocation short of expiry.
 - The app fetches a token as the confirmed screen loads (the same early fetch
   SUS-154 part B added for the file), shows the same pending, slow and
   failed row states while it does, refreshes it before it expires, and fires
-  `ics_downloaded` on the tap.
+  `ics_downloaded` on the tap. With a link, "downloaded" means the link was
+  followed: if the navigation then fails (a rotated key, a deleted confirmation)
+  the person lands on the function's JSON refusal rather than in the app, and
+  the event is still counted. The app will not follow a link within 10 seconds
+  of its end, which makes that rare; it is a known gap.
 - Tests prove: an expired token, a token for another confirmation, a tampered
   token and a missing token are each refused and read nothing; a request with
   neither token nor bearer is refused; the answer is `text/calendar` and
