@@ -140,10 +140,19 @@ function Confirmed({
   const router = useRouter();
   const view = confirmedOf(data, confirmation);
   const ids = { circle_id: data.circleId as CircleId, plan_id: data.planId as PlanId };
+  const calendarVersion = [
+    confirmation.id,
+    confirmation.startsAt,
+    confirmation.endsAt,
+    confirmation.placeName,
+    confirmation.placeUrl,
+    confirmation.note,
+  ].join('\n');
   const calendar = useCalendar({
     circleId: data.circleId,
     planId: data.planId,
     confirmationId: confirmation.id,
+    version: calendarVersion,
     filename: calendarFilename(data, confirmation),
   });
   const own = useOwnAnswer(data, confirmation, queryKey);
@@ -153,12 +162,12 @@ function Confirmed({
   // Fetch the calendar file as the screen loads, so the sheet, whenever it is
   // opened, is usually ready (SUS-154). Without a backend there is no file.
   const { prepare } = calendar;
-  const confirmationId = confirmation.id;
+  const version = calendarVersion;
   useEffect(() => {
     if (hasBackend()) prepare();
-    // `prepare` is new every render and reads the latest state; the confirmation is the key.
+    // `prepare` is new every render and reads the latest state; the version is the key.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [confirmationId]);
+  }, [version]);
 
   // `/p/:code/calendar`: the sheet is open on arrival, and counts as opened.
   const opened = useRef(false);
