@@ -574,6 +574,16 @@ for (const dir of DIRS) {
           );
         }
       }
+      // `green-check.mjs` reads the check runs and the runs of `check.yml`.
+      if (runText(job).includes('green-check.mjs')) {
+        for (const scope of ['checks', 'actions']) {
+          if ((job.permissions ?? {})[scope] !== 'read') {
+            problems.push(
+              `${path} · ${jobName}: runs green-check.mjs without \`${scope}: read\`, so it would be refused (or see no runs) when it is needed`,
+            );
+          }
+        }
+      }
       if (secrets.has('?')) {
         problems.push(
           `${path} · ${jobName}: reads secrets in a form this check cannot resolve (a computed index, \`toJSON(secrets)\`, \`secrets.*\`); name each one as \`secrets.NAME\``,

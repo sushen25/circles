@@ -62,6 +62,21 @@ test('the latest run decides, so a re-run replaces a cancelled one and a red one
   assert.equal(judge([green, red]).state, 'red');
 });
 
+test('while check.yml is still running the verdict is pending, whatever check runs exist', () => {
+  const wf = (over) => ({ status: 'in_progress', path: '.github/workflows/check.yml', ...over });
+  // The aggregating job does not exist until the suites are done.
+  assert.equal(judge([], [wf()]).state, 'pending');
+  assert.equal(judge([run()], [wf({ status: 'queued' })]).state, 'pending');
+  // A re-run in flight: the old attempt's red is not the verdict.
+  assert.equal(judge([run({ conclusion: 'failure' })], [wf()]).state, 'pending');
+  // Finished workflow runs say nothing; the check run does.
+  assert.equal(judge([], [wf({ status: 'completed' })]).state, 'none');
+  assert.equal(judge([run()], [wf({ status: 'completed' })]).state, 'green');
+  assert.equal(judge([run({ conclusion: 'failure' })], [wf({ status: 'completed' })]).state, 'red');
+  // Another workflow's unfinished run is not this one.
+  assert.equal(judge([run()], [wf({ path: '.github/workflows/preview.yml' })]).state, 'green');
+});
+
 test('only a GitHub Actions run named check counts', () => {
   assert.equal(judge([run({ app: { slug: 'some-app' } })]).state, 'none');
   assert.equal(judge([run({ app: null })]).state, 'none');
@@ -436,21 +451,38 @@ test('the job summary names the runs and the minutes, per project', () => {
  * `check:workflows` run on a copy of the repo's workflows with one edit, in a
  * directory of its own, so the rule is proved by the thing it guards.
  */
-const checkWorkflowsOn = (edit) => {
+const checkWorkflowsOn = (edit, other, editOther) => {
   const dir = mkdtempSync(join(tmpdir(), 'wf-'));
   cpSync('.github', join(dir, '.github'), { recursive: true });
   cpSync('package.json', join(dir, 'package.json'));
   const path = join(dir, '.github/workflows/check.yml');
-  const before = readFileSync(path, 'utf8');
-  const after = edit(before);
-  assert.notEqual(after, before, 'the edit changed nothing, so it proves nothing');
-  writeFileSync(path, after);
+  if (edit) {
+    const before = readFileSync(path, 'utf8');
+    const after = edit(before);
+    assert.notEqual(after, before, 'the edit changed nothing, so it proves nothing');
+    writeFileSync(path, after);
+  }
+  if (other) {
+    const otherPath = join(dir, other);
+    const otherBefore = readFileSync(otherPath, 'utf8');
+    const otherAfter = editOther(otherBefore);
+    assert.notEqual(otherAfter, otherBefore, 'the edit changed nothing, so it proves nothing');
+    writeFileSync(otherPath, otherAfter);
+  }
   const result = spawnSync('node', [join(process.cwd(), 'scripts/check-workflows.mjs')], {
     cwd: dir,
     encoding: 'utf8',
   });
   return { status: result.status, output: `${result.stdout}${result.stderr}` };
 };
+
+test('mutation: a job that runs green-check without actions and checks read fails', () => {
+  const r = checkWorkflowsOn(null, '.github/workflows/deploy-dev.yml', (t) =>
+    t.replace('      actions: read\n', ''),
+  );
+  assert.equal(r.status, 1);
+  assert.match(r.output, /runs green-check\.mjs without `actions: read`/);
+});
 
 test('check.yml as it is passes', () => {
   assert.equal(checkWorkflowsOn((t) => `${t}\n# unchanged but for this\n`).status, 0);

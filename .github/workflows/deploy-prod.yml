@@ -67,6 +67,7 @@ jobs:
     # No `environment`: the approval comes after this job, not before it.
     permissions:
       contents: read
+      actions: read
       checks: read
       deployments: read
     # What `apply` and `tag` deploy: this commit, or the one `rollback_to` names.
