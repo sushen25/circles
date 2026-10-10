@@ -5,6 +5,7 @@ import {
   type NearMissReason,
   type PlanState,
   type UserId,
+  hasMissed,
   lastPossibleStart,
   localDate,
   toISO,
@@ -84,15 +85,22 @@ export function reasonOf(value: unknown): NearMissReason | null {
   return null;
 }
 
-/** Which of the four states the plan is in, from the rows a screen will show. */
+/**
+ * Which of the four states the plan is in, from the rows a screen will show.
+ *
+ * Near-misses alone do not make it `no_quorum`: the domain decides whether the
+ * plan can really be said to have missed (`hasMissed`), and until it can the
+ * plan is still `collecting`, whatever the engine's closest times are.
+ */
 export function viewOf(
   state: PlanState,
   candidates: readonly CandidateRow[],
   nearMisses: readonly CandidateRow[],
+  asking: { quorum: number; answeredCount: number; repliesOpen: boolean },
 ): SchedulingView {
   if (!ANSWERABLE_STATES.includes(state)) return 'closed';
   if (candidates.length > 0) return 'ready';
-  if (nearMisses.length > 0) return 'no_quorum';
+  if (nearMisses.length > 0 && hasMissed(asking)) return 'no_quorum';
   return 'collecting';
 }
 

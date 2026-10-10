@@ -222,14 +222,18 @@ export function guestInvited(scenario: Scenario, name: string): string {
  * has no candidate set, and a test that wants one has somebody answer through
  * the editor.
  */
-export function guestWhoAnswered(scenario: Scenario, name: string): string {
+export function guestWhoAnswered(
+  scenario: Scenario,
+  name: string,
+  status: 'flexible' | 'none_work' = 'flexible',
+): string {
   const userId = guestInvited(scenario, name);
   sql(`
     begin;
     select set_config('role', 'authenticated', true);
     select set_config('request.jwt.claims',
       '{"sub": "${userId}", "role": "authenticated", "is_anonymous": true}', true);
-    select public.replace_response('${scenario.planId}', 1, 'flexible');
+    select public.replace_response('${scenario.planId}', 1, '${status}');
     commit;
   `);
   return userId;

@@ -114,8 +114,12 @@ test('the organiser opens their times from the waiting screen, and lands back on
 });
 
 test('the organiser changes their times from the no-overlap screen too', async ({ page }) => {
-  // Alone in the circle with a quorum of two: the closest it got is theirs.
-  const { plan, here } = await organiserWhoAnswered(page, () => undefined);
+  // A quorum of two, both answered, and Tom has no time that works: the plan
+  // has really missed, and the closest it got is the organiser's own. (Alone in
+  // the circle it would still be waiting, not missed: SUS-193.)
+  const { plan, here } = await organiserWhoAnswered(page, (crew) => {
+    guestWhoAnswered(crew, 'Tom', 'none_work');
+  });
 
   await page.goto(here);
   await expect(page.getByText("There wasn't enough overlap this time.")).toBeVisible();

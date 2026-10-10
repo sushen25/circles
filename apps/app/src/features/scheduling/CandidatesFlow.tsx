@@ -4,7 +4,6 @@ import { useIsFocused, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 
 import { track } from '../../analytics/track';
-import { t } from '../../copy';
 import { hasBackend } from '../../data/auth/client';
 import { isLockedIn } from '../../data/scheduling';
 import { isOffline } from '../identity/join/failure';
@@ -15,7 +14,7 @@ import { DeadlinePassedFlow } from './DeadlinePassedFlow';
 import { FixtureCandidates, type CandidatesRoute } from './FixtureCandidates';
 import { MemberView } from './MemberView';
 import { NoQuorumScreen } from './NoQuorumScreen';
-import { reviewLabel, stillToAnswer, widerWarning } from './lines';
+import { reviewLabel, waitingWords, widerWarning } from './lines';
 import { blockedBy, unlocksOf } from './unlock';
 import { useShareReminder } from './shareReminder';
 import { useCandidates } from './useCandidates';
@@ -165,15 +164,14 @@ function LiveCandidates({ id, planId }: { id: string; planId: string }) {
   }
 
   if (data.view === 'collecting') {
+    const words = waitingWords(data);
     return (
       <WaitingScreen
         header={header}
-        headline={
-          data.repliedCount === 0 ? t('waiting', 'headline_first') : t('waiting', 'headline')
-        }
-        body={t('waiting', 'body', { count: data.quorum })}
-        answered={t('waiting', 'answered', { count: data.repliedCount, total: data.askedCount })}
-        still={stillToAnswer(data)}
+        headline={words.headline}
+        body={words.body}
+        answered={words.answered}
+        still={words.still}
         onShareAgain={shareAgain}
         shareOutcome={shareOutcome}
         onEditPlan={toEdit}

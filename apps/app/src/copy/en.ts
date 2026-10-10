@@ -2844,6 +2844,9 @@ export const en = {
   waiting: {
     headline: 'Waiting on a few more.',
     headline_first: 'Waiting on the first reply.',
+    headline_only_you: 'Your times are in.',
+    body_only_you: 'Options appear here as friends reply. Nobody needs chasing yet.',
+    answered_only_you: 'Just you so far.',
     body: 'Options appear once {count} people can make the same time. Nobody needs chasing yet.',
     so_far: 'So far',
     answered: '{count} of {total} have answered.',
