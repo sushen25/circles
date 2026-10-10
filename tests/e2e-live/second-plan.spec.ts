@@ -13,9 +13,9 @@ import {
 
 /**
  * One open plan per circle (SUS-89, spec §5.3, ADR 0033): with a plan already
- * finding a time, "Plan a catch-up" shows that plan with Edit and Cancel
- * instead of the setup form — from circle home, from the setup URL and from
- * the calendar URL — and the request the form would have sent is refused by
+ * finding a time, circle home leads with that plan's action rather than "Plan a
+ * catch-up", and the setup URLs show the plan with Edit and Cancel instead of
+ * the form — from the setup URL and from the calendar URL — and the request the form would have sent is refused by
  * name. Calling the plan off frees the circle, and the form is back.
  *
  * The screens are S1-26's; what is new is which one the organiser lands on.
@@ -62,11 +62,16 @@ test('a circle already finding a time shows that plan instead of a second form, 
   const circleId = circleOwnedBy(maya.userId, 'Sunday Crew');
   const plan = planFor(circleId, maya.userId);
 
-  // Circle home's own button lands on the running plan, not a form — on
-  // ChooseMode's URL since S2-03, which shows the running plan in place of
-  // both ways to start one.
+  // Circle home leads with the running plan's own action and offers no
+  // "Plan a catch-up" beside it (SUS-197); "Next one" names the plan.
   await page.goto(`/circles/${circleId}`);
-  await page.getByRole('button', { name: 'Plan a catch-up' }).click();
+  await expect(page.getByRole('button', { name: "See how it's looking" })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Plan a catch-up' })).toHaveCount(0);
+  await expect(page.getByText('No rush')).toHaveCount(0);
+
+  // The setup URLs land on the running plan, not a form — ChooseMode's, since
+  // S2-03, shows the running plan in place of both ways to start one.
+  await page.goto(`/circles/${circleId}/plan/mode`);
   await expect(page).toHaveURL(new RegExp(`/circles/${circleId}/plan/mode$`));
   await expect(page.getByText('Sunday Crew is already finding a time')).toBeVisible();
   // Circle home stays mounted underneath on the web stack and says the same

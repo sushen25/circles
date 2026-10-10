@@ -560,15 +560,15 @@ S["CircleHome"] = shell(
             between(lbl("Finding a time"), f'<div class="sm">Replies close Tue 6 pm</div>'),
             title("Catch up in the next 14 days"),
             between(marks(["Maya","Nina","Tom","Jess","Alex","Sam"], waiting=("Alex",)), f'<div class="sm num">5 of 6 replied</div>'),
-            row(sec("See how it's looking"), sec("Share the link"), gap=8),
+            row(sec("Share the link"), gap=8),
             rec=True),
         card(
-            between(stack(lbl("Last caught up"), date("Sat 8 Aug", 22), gap=4), stack(lbl("Next one"), f'<div class="date" style="font-size:22px;">No rush</div>', gap=4)),
+            between(stack(lbl("Last caught up"), date("Sat 8 Aug", 22), gap=4), stack(lbl("Next one"), f'<div class="date" style="font-size:22px;">Finding a time</div>', gap=4)),
             sm("You aim for about monthly. Early October would keep the rhythm."),
         ),
         between(row(marks(["Maya","Nina","Alex","Tom","Jess","Sam"]), sm("6 members")), f'<div class="row" style="gap:6px;color:{T["accent_dark"]};font-weight:600;font-size:14px;white-space:nowrap;">{ic("link",18)}Invite link</div>'),
     ) +
-    foot(pri("Plan a catch-up"))
+    foot(pri("See how it's looking"))
 )
 
 S["CreateCircle"] = shell(
@@ -1222,11 +1222,11 @@ S["CircleHomeConfirmed"] = shell(
     top("", right=ic("gear", 22, T["ink2"])) +
     body(
         row('<div class="icon-sq" style="width:52px;height:52px;font-size:26px;">S</div>', stack(dl("Sunday Crew"), sm("6 members · about monthly"), gap=2)),
-        card(between(lbl("Locked in"), f'<div class="sm">5 going · 1 to confirm</div>'), stack(date("Thu 17 Sep", 28), f'<div class="num" style="color:{T["ink2"]};">6:30–8:30 pm · Hope St Radio</div>', gap=2), row(sec("Details"), sec("Share"), gap=8), rec=True),
+        card(between(lbl("Locked in"), f'<div class="sm">5 going · 1 to confirm</div>'), stack(date("Thu 17 Sep", 28), f'<div class="num" style="color:{T["ink2"]};">6:30–8:30 pm · Hope St Radio</div>', gap=2), row(sec("Share"), gap=8), rec=True),
         card(between(stack(lbl("Last caught up"), date("Sat 8 Aug", 22), gap=4), stack(lbl("Next one"), date("Thu 17 Sep", 22), gap=4))),
         between(row(marks(["Maya","Nina","Alex","Tom","Jess","Sam"]), sm("6 members")), f'<div class="row" style="gap:6px;color:{T["accent_dark"]};font-weight:600;font-size:14px;white-space:nowrap;">{ic("link",18)}Invite link</div>'),
     ) +
-    foot(sec("Plan another"))
+    foot(pri("Details"), ter("Plan another"))
 )
 
 S["CircleHomeDue"] = shell(

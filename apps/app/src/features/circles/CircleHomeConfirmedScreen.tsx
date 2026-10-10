@@ -12,6 +12,7 @@ import {
   Label,
   Screen,
   Small,
+  Tertiary,
   TopBar,
   type Member,
 } from '../../components';
@@ -26,9 +27,9 @@ import { MembersLine, SettingsButton } from './parts';
  * §5.2): the next confirmed meetup with who is going, last caught up, and the
  * meetup as the "next one".
  *
- * "Details" opens the confirmed screen for that plan (S1-28's); "Share" puts the
- * locked-in message in the group chat. "Plan another" is the primary action,
- * secondary in weight because nothing is waiting on it.
+ * "Details" opens the confirmed screen for that plan (S1-28's) and is the
+ * primary; "Share" puts the locked-in message in the group chat. "Plan
+ * another" is a quiet pill beneath: nothing is waiting on it.
  */
 export type CircleHomeConfirmedProps = {
   fixture?: Fixture | undefined;
@@ -100,11 +101,6 @@ export function CircleHomeConfirmedScreen({
           </Stack>
           <ButtonRow>
             <Button
-              label={t('circleHomeConfirmed', 'details')}
-              variant="secondary"
-              onPress={onDetails}
-            />
-            <Button
               label={t('circleHomeConfirmed', 'share')}
               variant="secondary"
               onPress={onShare}
@@ -128,12 +124,11 @@ export function CircleHomeConfirmedScreen({
         </Card>
         <MembersLine members={members} memberCount={memberCount} onInviteLink={onInviteLink} />
       </Body>
+      {/* The meetup's own step leads, "Plan another" is the quiet way on
+          (SUS-197). */}
       <Foot>
-        <Button
-          label={t('circleHomeConfirmed', 'plan_another')}
-          variant="secondary"
-          onPress={onPlanAnother}
-        />
+        <Button label={t('circleHomeConfirmed', 'details')} onPress={onDetails} />
+        <Tertiary label={t('circleHomeConfirmed', 'plan_another')} onPress={onPlanAnother} />
       </Foot>
     </Screen>
   );

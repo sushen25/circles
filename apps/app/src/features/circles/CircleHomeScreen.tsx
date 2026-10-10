@@ -28,7 +28,7 @@ import { MembersLine, SettingsButton } from './parts';
 /**
  * CircleHome, finding a time — `docs/design/CircleHome.dc.html` (spec §5.2):
  * the active plan with its reply count and deadline, last caught up, next one,
- * members and the invite link, and one primary action.
+ * members and the invite link, and one primary action: the plan's own.
  *
  * The locked-in and about-time states are their own screens
  * (`CircleHomeConfirmedScreen`, `CircleHomeDueScreen`); the flow picks which
@@ -67,13 +67,13 @@ export type CircleHomeProps = {
   onInviteLink?: (() => void) | undefined;
   onSettings?: (() => void) | undefined;
   onRetry?: (() => void) | undefined;
-  /** The screen's one decision. */
-  onNext?: (() => void) | undefined;
+  /** Which of the plan's two actions leads; from `circleHomePrimary`. */
+  primary?: 'see_how_its_looking' | 'add_my_times' | undefined;
   onBack?: (() => void) | undefined;
   onSeeHowItsLooking?: (() => void) | undefined;
   /**
-   * The card's button while `askedAgain` is said: the line asks for their
-   * times, so the button is the way to give them (SUS-130).
+   * The primary while `askedAgain` is said: the line asks for their times, so
+   * the button is the way to give them (SUS-130).
    */
   onAddMyTimes?: (() => void) | undefined;
   /** Offered to the organiser while the plan takes answers (SUS-132). */
@@ -104,7 +104,7 @@ export function CircleHomeScreen({
   onInviteLink,
   onSettings,
   onRetry,
-  onNext,
+  primary = 'see_how_its_looking',
   onBack,
   onSeeHowItsLooking,
   onAddMyTimes,
@@ -144,30 +144,15 @@ export function CircleHomeScreen({
             <Small>{replied}</Small>
           </Stack>
           {askedAgain === undefined ? null : <Notice kind="warn">{askedAgain}</Notice>}
-          {/* While the times-cleared line shows, the way back to the grid leads
-              and "Share the link" stays beside it (SUS-132). */}
-          <ButtonRow>
-            {askedAgain === undefined ? (
-              <Button
-                label={t('circleHome', 'see_how_its_looking')}
-                variant="secondary"
-                onPress={onSeeHowItsLooking}
-              />
-            ) : (
-              <Button
-                label={t('circleHome', 'add_my_times')}
-                variant="secondary"
-                onPress={onAddMyTimes}
-              />
-            )}
-            {onShareLink === undefined ? null : (
+          {onShareLink === undefined ? null : (
+            <ButtonRow>
               <Button
                 label={t('circleHome', 'share_the_link')}
                 variant="secondary"
                 onPress={onShareLink}
               />
-            )}
-          </ButtonRow>
+            </ButtonRow>
+          )}
           {shareOutcome === undefined ? null : (
             <Small accessibilityLiveRegion="polite">{shareOutcome}</Small>
           )}
@@ -186,8 +171,15 @@ export function CircleHomeScreen({
         </Card>
         <MembersLine members={members} memberCount={memberCount} onInviteLink={onInviteLink} />
       </Body>
+      {/* The plan's own next step leads (SUS-197): the domain says which
+          (`circleHomePrimary`). There is no "Plan a catch-up" here — a second
+          plan is refused while this one runs (ADR 0033). */}
       <Foot>
-        <Button label={t('circleHome', 'plan_a_catch_up')} onPress={onNext} />
+        {primary === 'add_my_times' ? (
+          <Button label={t('circleHome', 'add_my_times')} onPress={onAddMyTimes} />
+        ) : (
+          <Button label={t('circleHome', 'see_how_its_looking')} onPress={onSeeHowItsLooking} />
+        )}
       </Foot>
     </Screen>
   );
