@@ -25,7 +25,7 @@ Short records of decisions that shape the product or the code. A new ADR is requ
 | [0019](./0019-consent-is-recorded-when-it-is-given.md) | Consent is recorded when it is given, and a preferences link does not expire on use | accepted |
 | [0020](./0020-the-verification-token-is-minted-by-the-sender.md) | The verification token is minted by whoever sends the email | accepted |
 | [0021](./0021-the-link-preview-is-not-rate-limited.md) | The link preview is not rate-limited; the code space is the control | accepted |
-| [0022](./0022-a-plan-link-admits-new-members-while-the-plan-is-asking.md) | A plan link admits new members while the plan is taking answers | accepted (one point narrowed by 0026; circle-of-one remark superseded by 0035) |
+| [0022](./0022-a-plan-link-admits-new-members-while-the-plan-is-asking.md) | A plan link admits new members while the plan is taking answers | accepted (one point narrowed by 0026; circle-of-one remark superseded by 0035; rate limits restated by 0064) |
 | [0023](./0023-emailed-tokens-travel-in-the-fragment.md) | Emailed tokens travel in the URL fragment, never the path | accepted |
 | [0024](./0024-availability-days-first-then-a-time-once.md) | Availability is answered days first, then a time once | accepted |
 | [0025](./0025-the-preferences-link-is-minted-with-each-email.md) | The preferences link is minted with each email, and both footer links open it | accepted (organiser-email question answered by 0029) |
@@ -66,6 +66,7 @@ Short records of decisions that shape the product or the code. A new ADR is requ
 | [0061](./0061-the-chasing-survey-never-holds-lock-it-in.md) | The chasing survey never holds Lock it in: an unanswered question is stored as not answered and counted on its own | proposed |
 | [0062](./0062-a-continue-as-pick-does-not-carry-the-quiet-ask-answer.md) | A Continue-as pick does not hand the taker the previous holder's quiet-ask answer | proposed |
 | [0063](./0063-the-calendar-file-is-served-at-a-link-with-a-short-lived-signed-token.md) | The calendar file is served at a link with a short-lived signed token | proposed |
+| [0064](./0064-join-limits-charge-the-person-asking-and-a-members-call-is-free.md) | Join limits charge the person asking, and a member's call is free | proposed |
 | [0065](./0065-co-members-see-the-circles-name-for-a-member-and-nothing-else.md) | Co-members see the circle's name for a member and nothing else of their name: no view of account names, and a rename leaves every circle alone | proposed |
 | [0067](./0067-every-cadence-nudge-carries-a-stop-link-and-the-sent-card-says-an-account-is-made.md) | Every cadence nudge carries a stop link that needs no sign-in, and the Sent card says an account is made | proposed |
 
