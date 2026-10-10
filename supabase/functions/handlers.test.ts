@@ -18,7 +18,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const state = vi.hoisted(() => ({
   rpcs: [] as { fn: string; args: Record<string, unknown> }[],
-  answer: (_fn: string) => ({ data: null as unknown, error: null as unknown }),
+  answer: (_fn: string, _args?: Record<string, unknown>) => ({
+    data: null as unknown,
+    error: null as unknown,
+  }),
   /** One entry per `getUser` call, in order: the caller first, then any token a handler checks. */
   users: [] as ({ id: string; is_anonymous: boolean } | { error: { status?: number } })[],
   /** Every token `getUser` was actually given — the mock used to ignore its argument. */
@@ -49,7 +52,7 @@ const state = vi.hoisted(() => ({
 const client = vi.hoisted(() => ({
   rpc: (fn: string, args: Record<string, unknown>) => {
     state.rpcs.push({ fn, args });
-    return Promise.resolve(state.answer(fn));
+    return Promise.resolve(state.answer(fn, args));
   },
   /**
    * Just enough of PostgREST's builder to be chained and awaited.
@@ -224,6 +227,48 @@ function get(query: Record<string, string>): Request {
 
 const called = (fn: string) => state.rpcs.filter((call) => call.fn === fn);
 
+/**
+ * `take_rate_token` as the database does it: one counter per scope and key, every
+ * attempt counted, a yes while the count is within the limit. The default mock
+ * says yes to everything, which cannot show a limit being reached or two callers
+ * sharing one. Wraps whatever `state.answer` already was, for every other RPC.
+ */
+function withRealCounters(): void {
+  const counters = new Map<string, number>();
+  const base = state.answer;
+  state.answer = (fn, args) => {
+    if (fn !== 'take_rate_token' || args === undefined) return base(fn, args);
+    const key = `${String(args['p_scope'])}|${String(args['p_key_hash'])}`;
+    const taken = (counters.get(key) ?? 0) + Number(args['p_cost'] ?? 1);
+    counters.set(key, taken);
+    return { data: taken <= Number(args['p_limit']), error: null };
+  };
+}
+
+/** Somebody at an address, as the edge reports it. */
+function postFrom(address: string, body: unknown): Request {
+  return new Request('https://example.test/fn', {
+    method: 'POST',
+    headers: {
+      authorization: 'Bearer a.token',
+      'content-type': 'application/json',
+      'cf-connecting-ip': address,
+    },
+    body: JSON.stringify(body),
+  });
+}
+
+/** The next caller the token resolves to. */
+function asPerson(n: number): string {
+  return `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
+}
+
+/** A well-formed code that no plan has: eight characters of the short-code alphabet. */
+function guessedCode(n: number): string {
+  const alphabet = 'abcdefghjkmnpqrstuvwxyz23456789';
+  return `pn${alphabet[Math.floor(n / alphabet.length)] ?? 'a'}${alphabet[n % alphabet.length] ?? 'a'}xyzab`;
+}
+
 beforeEach(() => {
   process.env.SUPABASE_URL = 'https://example.test';
   process.env.SUPABASE_ANON_KEY = 'anon';
@@ -360,7 +405,7 @@ describe('redeem-invite', () => {
     expect(JSON.stringify(state.rpcs)).not.toContain(body.secret);
   });
 
-  it('counts the attempt against the link and the address before doing anything', async () => {
+  it('counts a stranger against the link and caller, the caller and the address, before doing anything', async () => {
     const handler = load('redeem-invite');
     expect((await handler(post(body))).status).toBe(200);
 
@@ -369,7 +414,7 @@ describe('redeem-invite', () => {
     // asserting something the code never promised — and it failed about one run in
     // three, which is worse than not testing it.
     const scopes = called('take_rate_token').map((call) => call.args['p_scope']);
-    expect(scopes.sort()).toEqual(['redeem_invite', 'redeem_ip']);
+    expect(scopes.sort()).toEqual(['redeem_caller', 'redeem_invite', 'redeem_ip']);
   });
 
   it('does not run the guard at all for a retry that was already answered', async () => {
@@ -388,6 +433,64 @@ describe('redeem-invite', () => {
     expect(response.status).toBe(200);
     expect(called('take_rate_token')).toHaveLength(0);
     expect(called('redeem_invite')).toHaveLength(0);
+  });
+
+  describe('limits (SUS-113)', () => {
+    const inviteBody = (n: number) => ({
+      idempotency_key: KEY,
+      secret: 'x'.repeat(43),
+      display_name: `Guest ${n}`,
+    });
+
+    function arrives(person: number): void {
+      state.users = [{ id: asPerson(person), is_anonymous: true }];
+    }
+
+    it('lets twenty people join one link inside an hour, from one address', async () => {
+      withRealCounters();
+      for (let n = 1; n <= 20; n += 1) {
+        arrives(n);
+        const response = await load('redeem-invite')(postFrom('198.51.100.7', inviteBody(n)));
+        expect(response.status).toBe(200);
+      }
+      expect(called('redeem_invite')).toHaveLength(20);
+    });
+
+    it('charges nothing for somebody who is already a member', async () => {
+      state.rows['circle_invites'] = { circle_id: CIRCLE_ROW.id };
+      state.counts['circle_members'] = 1;
+      withRealCounters();
+
+      for (let n = 0; n < 200; n += 1) {
+        arrives(1);
+        expect((await load('redeem-invite')(post(inviteBody(1)))).status).toBe(200);
+      }
+      expect(called('take_rate_token')).toHaveLength(0);
+    });
+
+    it('does not let one caller refuse another', async () => {
+      withRealCounters();
+      const base = state.answer;
+      let junk = true;
+      state.answer = (fn, args) =>
+        fn === 'redeem_invite' && junk
+          ? { data: null, error: { message: 'invite_inactive', code: 'P0002' } }
+          : base(fn, args);
+
+      let refused = 0;
+      for (let n = 0; n < 15; n += 1) {
+        arrives(1);
+        const response = await load('redeem-invite')(postFrom('198.51.100.7', inviteBody(1)));
+        if (response.status === 429) refused += 1;
+      }
+      expect(refused).toBeGreaterThan(0);
+
+      junk = false;
+      arrives(2);
+      expect((await load('redeem-invite')(postFrom('198.51.100.7', inviteBody(2)))).status).toBe(
+        200,
+      );
+    });
   });
 });
 
@@ -476,12 +579,12 @@ describe('join-plan', () => {
     expect((await load('join-plan')(post(body))).status).toBe(200);
   });
 
-  it('counts the attempt against the code and the address, under scopes of its own', async () => {
+  it('counts a stranger against the code and caller, the caller and the address, under scopes of its own', async () => {
     joins(true);
     expect((await load('join-plan')(post(body))).status).toBe(200);
 
     const scopes = called('take_rate_token').map((call) => call.args['p_scope']);
-    expect(scopes.sort()).toEqual(['join_plan', 'join_plan_ip']);
+    expect(scopes.sort()).toEqual(['join_plan', 'join_plan_caller', 'join_plan_ip']);
     // Hashed on the way in, like every key: a counter row does not hold the code.
     expect(JSON.stringify(called('take_rate_token'))).not.toContain(CODE);
   });
@@ -496,6 +599,110 @@ describe('join-plan', () => {
     expect(response.status).toBe(429);
     expect(await response.json()).toMatchObject({ reason: 'too_many_requests' });
     expect(called('join_from_plan')).toHaveLength(0);
+  });
+
+  describe('limits (SUS-113)', () => {
+    const joinBody = (code: string, n: number) => ({
+      idempotency_key: KEY,
+      plan_code: code,
+      display_name: `Guest ${n}`,
+    });
+
+    function arrives(person: number): void {
+      state.users = [{ id: asPerson(person), is_anonymous: true }];
+    }
+
+    /** Every code is refused as `invite_inactive`, the way a guess is. */
+    function everyCodeIsRefused(): void {
+      const base = state.answer;
+      state.answer = (fn, args) =>
+        fn === 'join_from_plan'
+          ? { data: null, error: { message: 'invite_inactive', code: 'P0002' } }
+          : base(fn, args);
+    }
+
+    it('lets twenty people join one link inside an hour, from one address', async () => {
+      joins(true);
+      withRealCounters();
+      for (let n = 1; n <= 20; n += 1) {
+        arrives(n);
+        const response = await load('join-plan')(postFrom('198.51.100.7', joinBody(CODE, n)));
+        expect(response.status).toBe(200);
+      }
+      expect(called('join_from_plan')).toHaveLength(20);
+    });
+
+    it('charges nothing for somebody who is already a member, however often they call', async () => {
+      joins(true);
+      state.rows['plans'] = { circle_id: CIRCLE_ROW.id };
+      state.counts['circle_members'] = 1;
+      withRealCounters();
+
+      for (let n = 0; n < 200; n += 1) {
+        arrives(1);
+        expect(
+          (await load('join-plan')(post({ idempotency_key: KEY, plan_code: CODE }))).status,
+        ).toBe(200);
+      }
+      expect(called('take_rate_token')).toHaveLength(0);
+      expect(called('join_from_plan')).toHaveLength(200);
+    });
+
+    it('does not let one caller refuse another, on the same code from the same address', async () => {
+      joins(true);
+      withRealCounters();
+      const joined = state.answer;
+      everyCodeIsRefused();
+
+      let refused = 0;
+      for (let n = 0; n < 15; n += 1) {
+        arrives(1);
+        const response = await load('join-plan')(postFrom('198.51.100.7', joinBody(CODE, 1)));
+        if (response.status === 429) refused += 1;
+      }
+      // The first caller's own repeats do run out...
+      expect(refused).toBeGreaterThan(0);
+
+      // ...and somebody else, on the same code and from the same address, is untouched.
+      state.answer = joined;
+      arrives(2);
+      expect((await load('join-plan')(postFrom('198.51.100.7', joinBody(CODE, 2)))).status).toBe(
+        200,
+      );
+    });
+
+    it('still limits one caller trying codes', async () => {
+      joins(true);
+      withRealCounters();
+      everyCodeIsRefused();
+
+      const statuses: number[] = [];
+      for (let n = 0; n < 40; n += 1) {
+        arrives(1);
+        statuses.push(
+          (await load('join-plan')(postFrom('198.51.100.7', joinBody(guessedCode(n), 1)))).status,
+        );
+      }
+      // Refused as a guess (404) until the caller's allowance is gone, then 429.
+      expect(statuses.slice(0, 30).every((status) => status === 404)).toBe(true);
+      expect(statuses.slice(30).every((status) => status === 429)).toBe(true);
+    });
+
+    it('still limits one address trying codes through fresh identities', async () => {
+      joins(true);
+      withRealCounters();
+      everyCodeIsRefused();
+
+      const statuses: number[] = [];
+      for (let n = 1; n <= 130; n += 1) {
+        arrives(n);
+        statuses.push(
+          (await load('join-plan')(postFrom('198.51.100.7', joinBody(guessedCode(n), n)))).status,
+        );
+      }
+      expect(statuses.slice(0, 120).every((status) => status === 404)).toBe(true);
+      expect(statuses.slice(120).every((status) => status === 429)).toBe(true);
+    });
   });
 
   it('refuses a web join with no Turnstile token when Turnstile is armed', async () => {

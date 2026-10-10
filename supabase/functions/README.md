@@ -100,7 +100,9 @@ directly never meets at all.
 
 `service` bypasses RLS. It is for the kit's own bookkeeping (`begin_request`,
 `take_rate_token`) and for `claim-identity`, whose authorisation is a second
-access token that the database cannot see. Every other use wants a reason in a
+access token that the database cannot see, and for the two single-column reads
+`join-plan` and `redeem-invite` make to find out whether a caller is already a member
+(an active member's call is not charged; `JOIN_LIMITS` in `rate.ts`). Every other use wants a reason in a
 comment.
 
 **Rate limits and Turnstile are volume, not permission.** Skipping them lets

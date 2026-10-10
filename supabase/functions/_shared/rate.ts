@@ -58,6 +58,97 @@ export async function enforce(db: Db, limits: readonly Limit[]): Promise<void> {
 }
 
 /**
+ * What joining costs, for `join-plan` and `redeem-invite` alike (SUS-113).
+ *
+ * The rule: **a limit is spent by the person who makes the attempts, never by
+ * everybody who holds the link.** The old buckets were per link, so one person
+ * (or one honest group opening a link together) could use up the allowance for
+ * everyone else, and a call by somebody already in the circle was charged like a
+ * stranger's. Now:
+ *
+ * - A call by an **active member of the circle the link opens costs nothing**.
+ *   It is not counted anywhere. (Whether they are one is looked up first; if
+ *   that lookup fails the caller is treated as a stranger, so a failure can only
+ *   tighten a limit.)
+ * - Anybody else is counted three ways, each keyed on who is asking:
+ *   per link *and* caller, per caller across all links, and per address.
+ *   Admission is bounded by the circle's member cap (ADR 0012), not by a counter
+ *   everyone shares, so twenty people can join one link inside an hour,
+ *   including from one address.
+ * - The caller counters are what makes guessing slow: they count every attempt
+ *   by a stranger, accepted or refused, and are small. A person joins once, so
+ *   an honest caller never gets near them; somebody walking the code space
+ *   meets the per-caller one within a few dozen tries.
+ * - The address counter is sized for a household, an office or a carrier's
+ *   shared address, as the anonymous sign-in limit is (§14: 60 an hour per
+ *   address), and is high enough that a full circle of twenty arriving
+ *   together stays far below it. It is what stops one script from minting
+ *   fresh identities to get fresh per-caller allowances.
+ *
+ * These are volume limits, not permission: every rule that matters is decided in
+ * the database.
+ */
+export const JOIN_LIMITS = {
+  /** One caller on one link: a retry after `duplicate_name`, a second tap. */
+  perLinkAndCaller: 10,
+  /** One caller across every link: the brake on trying codes. */
+  perCaller: 30,
+  /** One address: a household or a carrier, twice the 60 a person may sign in. */
+  perAddress: 120,
+} as const;
+
+export interface JoinLimitKeys {
+  /** Scopes: one counter name per function, so the two never share a row. */
+  scopes: { link: string; caller: string; address: string };
+  /** The link as the function knows it: a plan code, or a digest of an invite secret. */
+  link: string;
+  userId: string;
+  request: Request;
+}
+
+export function joinLimits(keys: JoinLimitKeys): Limit[] {
+  const window = '1 hour';
+  return [
+    {
+      scope: keys.scopes.link,
+      key: `${keys.link}:${keys.userId}`,
+      max: JOIN_LIMITS.perLinkAndCaller,
+      window,
+    },
+    { scope: keys.scopes.caller, key: keys.userId, max: JOIN_LIMITS.perCaller, window },
+    {
+      scope: keys.scopes.address,
+      key: callerAddress(keys.request),
+      max: JOIN_LIMITS.perAddress,
+      window,
+    },
+  ];
+}
+
+/**
+ * Is this person already an active member of the circle? The one read a join
+ * limit makes before deciding whether to charge.
+ *
+ * With the service client, because the caller may not be a member and RLS would
+ * answer "no" for the wrong reason; it reads one count and returns a boolean.
+ * Anything but a clear yes is a no, which charges the caller.
+ */
+export async function isActiveMember(
+  db: Db,
+  circleId: string | null,
+  userId: string,
+): Promise<boolean> {
+  if (circleId === null) return false;
+  const { count, error } = await db
+    .from('circle_members')
+    .select('user_id', { count: 'exact', head: true })
+    .eq('circle_id', circleId)
+    .eq('user_id', userId)
+    .eq('status', 'active');
+  return error === null && (count ?? 0) > 0;
+}
+
+/**
  * The caller's address, as the edge saw it. Only ever used as a hash input.
  *
  * `cf-connecting-ip` and nothing else. Read on `circles-dev` on 3 October 2026
