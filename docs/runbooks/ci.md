@@ -29,7 +29,7 @@ side by side, because one job took 27 of its 30 minutes and the live suite was
 | gitleaks (`scope`) | First, before the build. Finishing a build before reporting a leaked secret helps nobody. |
 | `pnpm install --frozen-lockfile` | Catches a lockfile that was never updated — it has already caught one. |
 | Playwright browsers | Cached on the lockfile hash. The system libraries are not, and `scripts/playwright-deps.sh` installs them (see "The apt step"). |
-| `supabase start` | `database` and each live shard start their own stack: database only, no studio or realtime. |
+| `supabase start` | `database` and each live shard start their own stack (Postgres, Auth, the Edge runtime and Mailpit; no studio or realtime). |
 | `pnpm run check:static`, `check:stack`, `test:e2e:live --shard=i/2` | The gate, a part to a job. |
 
 ### One verdict, and what it is named
@@ -50,12 +50,16 @@ holds it in place: `check` needs every other job, has `always()`, runs the
 verdict script unconditionally, nothing else in `check.yml` is called `check`,
 no suite job may `continue-on-error`, every job has a `timeout-minutes` of 20
 or less, CI runs every part of `pnpm check` and no `pnpm run` that is not one,
-and the live job's shards are all of `1/N` to `N/N`. The tests for it are
+each suite step is exactly its one command (an `|| true`, a pipe or a second
+line would hide a red exit), the live job's shards are all of `1/N` to `N/N` and
+the step passes the matrix's own value, and no other workflow has a job named
+`check` (branch protection matches by name, and a quick job of that name would
+turn the required check green minutes before the real one exists). The tests for it are
 mutations: `scripts/ci-gates.test.mjs` takes each of those out of a copy of
 `check.yml` and expects `check:workflows` to fail.
 
 **The `check` run does not exist until the suites finish.** GitHub creates a job's
-check run when the job is scheduled, and `check` is scheduled last. For the ten
+check run when the job starts, and `check` starts last. For the ten
 minutes in between a commit has jobs named `static`, `database` and `live (1/2)`
 and no `check`, which `scripts/green-check.mjs` used to read as "no run":
 `deploy-dev` gives that five minutes of grace and then refuses. So
@@ -71,19 +75,31 @@ and the job named `check` is that context. While the suites run the context is
 
 ### What it costs
 
-Measured from real runs of this change (SUS-179, PR #164); the before column is
-the architecture review's 60 runs of 9 October 2026.
+Measured from three real runs of this change on 10 October 2026 (SUS-179, PR #164,
+runs 38054828688, 38055553115 and 38056840619; the table gives the range); the
+before column is the architecture review's 60 runs of 9 October 2026.
 
 | Job | Before (one job) | After |
 |---|---|---|
-| `scope` | inside the job | RUN1_SCOPE |
-| `static` | about 4.4 min of the job | RUN1_STATIC |
-| `database` | about 6 min of the job | RUN1_DB |
-| `live (1/2)`, `live (2/2)` | 15.6 min of the job | RUN1_LIVE |
-| `check` | — | RUN1_CHECK |
-| **Run, wall clock** | **27.2 min median** (p90 28.1, max 28.6) | **RUN1_WALL** |
+| `scope` | inside the job | 10 s |
+| `static` | about 4.4 min of the job | 2.5 to 3.3 min |
+| `database` | about 6 min of the job | 6.3 to 6.9 min |
+| `live (1/2)`, `live (2/2)` | 15.6 min of the job | 8.1 to 9.2 min (the suite itself 4.9 to 5.4) |
+| `check` | — | 6 s |
+| **Run, wall clock** | **27.2 min median** (p90 28.1, max 28.6) | **8.5 to 9.6 min** |
 
-OBSERVED_PLACEHOLDER
+The slowest job is a live shard, and it is a third of the old single job's time;
+the longest of the three is 9.2 minutes, under the ticket's 12. A live shard
+spends about 1 minute on the browsers' libraries, 1.8 on `supabase start` and
+5 on the suite. Locally `pnpm check` took 8.5 minutes on 10 October 2026 (the
+live suite 4.9 of them).
+
+**Not yet observed:** the ticket's bar is a median under 15 minutes over ten
+consecutive green runs, and three is what exists before merge. Watch the next
+seven on `main` and on PRs (`gh run list --workflow check`), and the job
+summary's run count on each live shard: 205 and 167 now. If a shard passes
+10 minutes, add a third shard (`shard: ['1/3', '2/3', '3/3']`; `check:workflows`
+accepts any complete set).
 
 The live suite is 372 runs now, not 556: Chromium and WebKit run every spec, and
 the two in-app-browser projects and the en-AU one run only the specs that say they
@@ -112,8 +128,10 @@ Currently `in-app-browser` is `availability`, `continuity`, `first-run`, `guest`
 `candidates`, `confirmation`, `guest`, `join`, `plan-link`, `served-html` and
 `zone-note`; the other 20 are `core`. **A new spec must say.** With no line,
 `pnpm check:workflows` fails and names the file and the three choices; a spec
-tagged `core` whose code reads the user agent, the share sheet or the second
-locale fails too. An untagged spec would otherwise run in two of five projects
+tagged `core` whose own code reads the user agent, the share sheet or the second
+locale fails too. That check reads the spec's text only: a helper in
+`journeys.ts` or `fixtures.ts` that looks at the user agent, or a branch on a
+project's name, is not seen, so tag by what the journey needs, not by what passes. An untagged spec would otherwise run in two of five projects
 and nobody would see it was missing from the other three. If you rebase onto
 this and a spec of yours is named, that is the check working.
 
@@ -121,8 +139,9 @@ this and a spec of yours is named, that is the check working.
 
 `playwright install-deps` sat in its apt step until the job's 30-minute timeout
 twice (SUS-143), on a step that takes under a minute. `scripts/playwright-deps.sh`
-gives each attempt three minutes, kills it and tries again, three times, with
-`dpkg --configure -a` between; the step has a 12-minute limit of its own, and
+gives each attempt three minutes, kills it and tries again, three times, killing a
+hung `apt-get` by name (the timeout runs as the runner user and cannot signal the
+root-owned apt below `sudo`) and running `dpkg --configure -a` between; the step has a 12-minute limit of its own, and
 the hang costs three minutes instead of the run. It is a retry and not a fix for
 whatever hangs apt: if it fires, the log says `did not finish (attempt n of 3)`.
 The system libraries cannot be cached (apt owns them), and they are 30 to 60
@@ -132,7 +151,7 @@ seconds of a live job.
 
 A failed `database` or `live` job uploads `playwright-report/` (the HTML report
 for the smoke and live suites, under `smoke/` and `live/`) and `test-results/`
-(traces, kept on the first retry, and failure screenshots) as the artefacts
+(traces, kept on the first retry) as the artefacts
 `playwright-report-smoke` and `playwright-report-live-<n>`, for seven days.
 Download one and `pnpm exec playwright show-report playwright-report/live`.
 The repository is public, so an artefact is downloadable by anyone: the suites
@@ -179,7 +198,7 @@ has no wait to pass.
 the `check` job is the last of its workflow and does not exist yet. Then it calls `GET /repos/{repo}/commits/{sha}/check-runs`
 with the workflow's own token (`checks: read`) and keeps the runs named `check`
 that **GitHub Actions** created, because any app can create a check run with any
-name. The latest by start time decides, so a re-run replaces the run before it.
+name. The latest by id decides, so a re-run replaces the run before it.
 Only a **completed `success`** is green. Everything else is not: no run,
 queued, in progress, cancelled, timed out, skipped, neutral and failure. In
 `deploy-prod` that is an immediate refusal; in `deploy-dev` queued and in

@@ -267,7 +267,7 @@ pnpm mail maya.local@example.com
 
 | Command | Needs the stack? | What it runs |
 |---|---|---|
-| `pnpm check` | yes | Everything CI runs, in CI's order. About ten minutes. |
+| `pnpm check` | yes | Everything CI runs, in CI's order. About nine minutes (8.5 on 10 October 2026); CI runs the same parts side by side in about nine. |
 | `pnpm test:unit` | no | Vitest across the packages, the app and the Edge Functions. |
 | `pnpm db:test` | yes | **Resets the database**, then pgTAP. |
 | `pnpm test:integration` | yes | The app's auth module against real Supabase Auth and Mailpit. |

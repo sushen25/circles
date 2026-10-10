@@ -202,7 +202,7 @@ build: ## Build the shared packages (Edge Functions and the app read their dist)
 
 # --- Checks -------------------------------------------------------------------
 
-check: up ## Everything CI runs, in CI's order (about ten minutes), on this checkout's ports
+check: up ## Everything CI runs, in CI's order (about nine minutes), on this checkout's ports
 	MAILPIT_URL=$(MAIL_URL) E2E_LIVE_PORT=$(LIVE_PORT) E2E_SMOKE_PORT=$(SMOKE_PORT) $(PNPM) check
 
 test: test-unit ## Unit tests (no stack needed)
