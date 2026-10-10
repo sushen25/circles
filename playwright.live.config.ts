@@ -1,6 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 import { LOCALE, OTHER_LOCALE, SERVER_LOCALE_ENV } from './tests/locale';
+import { specsFor } from './tests/e2e-live/scopes';
 
 // 8082 in the primary checkout. A parallel slot passes its own
 // (`make test-live` does) so a hand run never lands on another slot's server.
@@ -16,12 +17,22 @@ const baseURL = `http://localhost:${PORT}`;
  * people actually meet — the first run, a guest's answer, the way back in, the
  * emailed links, the organiser's loop — through the Edge Functions and RLS.
  *
- * Five projects, two engines. In the first four the user agent is the point:
+ * Five projects, two engines. **Every spec runs in the first two.** The other
+ * three run only the specs that say they depend on what those projects differ
+ * on (`// @e2e:` on a spec's first lines; `tests/e2e-live/scopes.ts` says how,
+ * and `pnpm check:workflows` fails a spec that does not say). Until SUS-179 all
+ * five ran everything they could, and the live step went from 11.1 to 15.6
+ * minutes of CI's 27 in nine days.
  *
+ * - **android-chrome** — Chromium, as Chrome on Android. The one project the
+ *   once-only tests run in (`test.skip(project !== 'android-chrome')`).
  * - **iphone-safari** — WebKit, as mobile Safari. It is also what WhatsApp opens
  *   a link in on iOS (SFSafariViewController), which sends Safari's own user
  *   agent, so a separate "whatsapp-ios" project would be this one twice.
- * - **android-chrome** — Chromium, as Chrome on Android.
+ *
+ * The next two run the `in-app-browser` specs, where the user agent is the
+ * point:
+ *
  * - **whatsapp-android** — Chromium with an Android WebView user agent (`; wv`).
  *   Neither in-app browser says "WhatsApp": only WhatsApp's *preview fetcher*
  *   does, and `+middleware.ts` serves that the link card rather than the page —
@@ -30,7 +41,7 @@ const baseURL = `http://localhost:${PORT}`;
  *   WKWebView, with the `FBAN`/`FBAV` tokens it adds. Until S1-31 this ran on
  *   Chromium because CI had no WebKit.
  *
- * The fifth is the first one again in the scenario's own locale:
+ * The last runs the `locale` specs:
  *
  * - **iphone-safari-en-au** — mobile Safari in `en-AU`, against a server in
  *   `en-US` (`tests/locale.ts`). The served HTML is a shell with nothing
@@ -39,26 +50,15 @@ const baseURL = `http://localhost:${PORT}`;
  *   a hydration error, and this project is where a date rendered into the
  *   server's *text* would be caught (SUS-90). React's production build reports
  *   text mismatches only: one in an attribute, an `aria-label` say, would pass.
+ *   The served HTML is the same shell on every route, so what this project
+ *   proves is about the server and the browser disagreeing, not about any one
+ *   journey; the specs it takes are every way a link from a chat lands (plan
+ *   link, invite, name step) and the screens that write dates.
  *
- *   It runs `EN_AU_SPECS`, not everything. The served HTML is the same shell on
- *   every route, so what this project proves is about the server and the
- *   browser disagreeing, not about any one journey; the subset is every way a
- *   link from a chat lands (plan link, invite, name step) and the screens that
- *   write dates (the editor, the options, the confirmation, the zone note).
- *   All of it took the live step from about 7.7 to 9.9 minutes in CI, against
- *   a budget of ten; this is about two fifths of the fifth project's time.
+ * CI runs this suite as two shards on two runners (`.github/workflows/check.yml`,
+ * `--shard=1/2` and `2/2`); the measured times are in `docs/runbooks/ci.md`.
+ * Locally it is one run, about as long as the whole of the old one.
  */
-const EN_AU_SPECS = [
-  'served-html',
-  'guest',
-  'join',
-  'plan-link',
-  'availability',
-  'candidates',
-  'confirmation',
-  'zone-note',
-].map((name) => `**/${name}.spec.ts`);
-
 // Which build this suite needs, for `tests/expect-build-mode.ts` below.
 process.env['EXPECTED_BUILD_MODE'] = 'live';
 process.env['BUILD_MODE_URL'] = `${baseURL}/build-mode.json`;
@@ -71,13 +71,22 @@ export default defineConfig({
   // the per-address rate counters (every local request comes from one
   // address), which each test clears as it starts, and the dispatcher's lease,
   // which `runDispatcher` waits for. At one worker the four projects took 5.3
-  // minutes locally, against 3.1 at two; S1-31's budget for CI is ten. The
-  // fifth (SUS-90) runs a subset, `EN_AU_SPECS`, to stay inside it.
+  // minutes locally, against 3.1 at two.
   fullyParallel: false,
   workers: 2,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 1 : 0,
-  reporter: process.env.CI ? 'github' : 'list',
+  // In CI: annotations on the pull request, the HTML report and the traces
+  // (uploaded when a job fails, SUS-143) and a JSON file the job summary is
+  // written from (`scripts/live-summary.mjs`, SUS-179). The report is in a
+  // folder of its own because the smoke suite writes one too.
+  reporter: process.env.CI
+    ? [
+        ['github'],
+        ['html', { open: 'never', outputFolder: 'playwright-report/live' }],
+        ['json', { outputFile: 'playwright-report/live-results.json' }],
+      ]
+    : 'list',
   timeout: 60_000,
   // Every step here is a round trip through an Edge Function, and WebKit on a
   // CI runner is the slowest of the four; five seconds was Chromium's margin.
@@ -88,6 +97,7 @@ export default defineConfig({
     { name: 'android-chrome', use: { ...devices['Pixel 7'] } },
     {
       name: 'whatsapp-android',
+      testMatch: specsFor('in-app-browser'),
       use: {
         ...devices['Pixel 7'],
         userAgent:
@@ -96,6 +106,7 @@ export default defineConfig({
     },
     {
       name: 'messenger-ios',
+      testMatch: specsFor('in-app-browser'),
       use: {
         ...devices['iPhone 14'],
         userAgent:
@@ -104,7 +115,7 @@ export default defineConfig({
     },
     {
       name: 'iphone-safari-en-au',
-      testMatch: EN_AU_SPECS,
+      testMatch: specsFor('locale'),
       use: { ...devices['iPhone 14'], locale: OTHER_LOCALE },
     },
   ],

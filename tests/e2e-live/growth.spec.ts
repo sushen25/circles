@@ -1,3 +1,4 @@
+// @e2e: core
 import { expect, test, type Page } from './fixtures';
 import { addressFor, joinsAndAnswers, sendEvenings } from './journeys';
 import { asksFromTheForm } from './quiet-people';

@@ -1,3 +1,4 @@
+// @e2e: in-app-browser
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 

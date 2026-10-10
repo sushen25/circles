@@ -1,3 +1,4 @@
+// @e2e: core
 import { expect, test } from './fixtures';
 import { signedInAs } from './journeys';
 import { signedInAccount, sql, stackConfig } from './stack';

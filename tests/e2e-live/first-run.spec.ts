@@ -1,3 +1,4 @@
+// @e2e: in-app-browser
 import { expect, test, type Page } from './fixtures';
 
 import { signedInAs } from './journeys';

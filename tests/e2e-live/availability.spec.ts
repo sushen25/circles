@@ -1,3 +1,4 @@
+// @e2e: in-app-browser, locale
 import { expect, test, type Page } from './fixtures';
 
 import {
@@ -13,8 +14,9 @@ import {
 /**
  * Answering a plan, end to end (spec §5.5, S1-25, ADR 0024): days and a block
  * in the page, windows in the database, and the same answer when the page opens
- * again. Every test runs in all three user agents, WhatsApp's in-app browser
- * among them.
+ * again. Every test runs in the in-app browsers as well as the two engines
+ * (WhatsApp's is the one the touch editor is most likely to meet), and in the
+ * en-AU project, because the editor writes dates.
  *
  * Each starts as a stranger on the plan's link in a circle with no guests, so
  * the way in is the name step and nothing else (S1-24d): the editor is what

@@ -1,3 +1,4 @@
+// @e2e: core
 import type { Locator } from '@playwright/test';
 
 import { expect, test, type Browser, type Page } from './fixtures';

@@ -1,3 +1,4 @@
+// @e2e: core
 import { randomUUID } from 'node:crypto';
 
 import { expect, test, type Page } from './fixtures';

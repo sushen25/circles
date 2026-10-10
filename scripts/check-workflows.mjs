@@ -37,7 +37,14 @@
  * - the release is tagged by one job that needs every production job, holds the
  *   only `contents: write` and reads no secret;
  * - `deploy-dev` waits for the commit's `check` before it deploys;
- * - `check` never cancels a run on `main`.
+ * - `check` never cancels a run on `main`;
+ * - `check.yml` is several jobs and one verdict (SUS-179): the job named
+ *   `check` needs all the others, runs `if: always()` and judges them with
+ *   `scripts/check-verdict.mjs`; the jobs run exactly the parts `pnpm check`
+ *   is made of (no more, no fewer); the live suite's shards cover the whole
+ *   suite. The commit's `check` is what `scripts/green-check.mjs`, the branch
+ *   protection and `deploy-dev` read, so a unit-test job that went green under
+ *   that name while the live suite was red would deploy a broken commit.
  */
 
 import { readFileSync, readdirSync } from 'node:fs';
@@ -138,6 +145,189 @@ const unconditional = (job, step) =>
   job.if === undefined &&
   step['continue-on-error'] === undefined &&
   job['continue-on-error'] === undefined;
+
+/**
+ * What `pnpm check` is made of: the `pnpm run NAME` parts of the root
+ * `package.json` script of that name, in order.
+ */
+export const partsOf = (scripts, name = 'check') =>
+  String(scripts?.[name] ?? '')
+    .split('&&')
+    .map((part) => /^\s*pnpm run ([\w:.-]+)\s*$/.exec(part)?.[1])
+    .filter((part) => part !== undefined);
+
+/** Every `pnpm run NAME [args]` in a run script, with whatever follows the name. */
+export const pnpmRunsIn = (text) =>
+  [...String(text ?? '').matchAll(/\bpnpm run ([\w:.-]+)([^\n&;|]*)/g)].map((m) => ({
+    name: m[1],
+    args: m[2].trim(),
+  }));
+
+/** Scripts a job may run that are not a part of `pnpm check`. */
+const SETUP_RUNS = ['build', 'format:check', 'check:docs'];
+
+/** The only conditions on a step or a job: the change is code, or it is prose. */
+const KIND_IF = /^(\$\{\{\s*)?needs\.scope\.outputs\.kind == '(code|prose)'(\s*\}\})?$/;
+
+/** `1/2`, `2/2`: every shard of one total, and no other. */
+export const coversAllShards = (shards) => {
+  const parsed = (shards ?? []).map((s) => /^(\d+)\/(\d+)$/.exec(String(s)));
+  if (parsed.length === 0 || parsed.some((m) => m === null)) return false;
+  const totals = new Set(parsed.map((m) => m[2]));
+  if (totals.size !== 1) return false;
+  const total = Number([...totals][0]);
+  const indexes = parsed.map((m) => Number(m[1])).sort((a, b) => a - b);
+  return indexes.length === total && indexes.every((n, i) => n === i + 1);
+};
+
+const checkYamlRules = (doc, fail, scripts) => {
+  const jobs = doc?.jobs ?? {};
+  const norm = (value) =>
+    typeof value === 'string' ? value.replace(/\s+/g, ' ').replace(/"/g, "'").trim() : value;
+
+  // 1. One verdict, named `check`.
+  const verdict = jobs.check;
+  if (!verdict) {
+    fail(
+      'has no job `check`: the commit would have no check run of that name, and nothing can deploy',
+    );
+    return;
+  }
+  if (verdict.name !== 'check') {
+    fail('the job `check` must have `name: check`: the check run is named after the job name');
+  }
+  for (const [id, job] of Object.entries(jobs)) {
+    if (id !== 'check' && job?.name === 'check') {
+      fail(
+        `\`${id}\` is also named \`check\`: two verdicts under one name, and the latest decides`,
+      );
+    }
+  }
+
+  // 2. It needs every other job, and runs whatever they did.
+  const others = Object.keys(jobs).filter((id) => id !== 'check');
+  const needed = needsOf(verdict);
+  for (const id of others) {
+    if (!needed.includes(id)) {
+      fail(
+        `\`check\` does not \`needs\` \`${id}\`: that job could fail and \`check\` would still go green`,
+      );
+    }
+  }
+  const verdictIf = norm(verdict.if);
+  if (verdictIf !== '${{ always() }}' && verdictIf !== 'always()') {
+    fail(
+      '`check` must run `if: ${{ always() }}`: when a job it needs fails it is otherwise skipped, and a skipped required check counts as passing',
+    );
+  }
+  if (verdict['continue-on-error'] !== undefined) {
+    fail('`check` has `continue-on-error`: a red verdict must be red');
+  }
+  const judging = (verdict.steps ?? []).filter(
+    (s) => typeof s?.run === 'string' && s.run.includes('check-verdict.mjs'),
+  );
+  if (judging.length === 0) {
+    fail('`check` does not run scripts/check-verdict.mjs, so nothing judges the other jobs');
+  }
+  for (const step of judging) {
+    if (step.if !== undefined || step['continue-on-error'] !== undefined) {
+      fail('the step that runs scripts/check-verdict.mjs is conditional or may fail quietly');
+    }
+    if (!/toJSON\(\s*needs\s*\)/.test(JSON.stringify(step.env ?? {}))) {
+      fail('check-verdict.mjs is not given `toJSON(needs)`, so it has nothing to judge');
+    }
+  }
+
+  // 3. No suite job can fail quietly or hang for ever.
+  for (const id of others) {
+    const job = jobs[id];
+    if (job?.['continue-on-error'] !== undefined) {
+      fail(`\`${id}\` has \`continue-on-error\`: it could fail and \`check\` would go green`);
+    }
+    for (const step of job?.steps ?? []) {
+      if (step?.['continue-on-error'] !== undefined && /\bpnpm\b/.test(step.run ?? '')) {
+        fail(`a step of \`${id}\` that runs pnpm has \`continue-on-error\``);
+      }
+    }
+  }
+  for (const [id, job] of Object.entries(jobs)) {
+    const minutes = Number(job?.['timeout-minutes']);
+    if (!(minutes > 0 && minutes <= 20)) {
+      fail(
+        `\`${id}\` needs a \`timeout-minutes\` of 20 or less (30 was one job, and it was 27 minutes long)`,
+      );
+    }
+  }
+
+  // 4. The jobs run what `pnpm check` is made of: every part, and nothing more.
+  const parts = partsOf(scripts);
+  if (parts.length === 0) {
+    fail(
+      'package.json `check` is not a chain of `pnpm run …` parts, so what CI must run cannot be read',
+    );
+    return;
+  }
+  const seen = new Map(); // part -> [{job, step, args}]
+  for (const [id, job] of Object.entries(jobs)) {
+    for (const step of job?.steps ?? []) {
+      for (const { name, args } of pnpmRunsIn(step?.run)) {
+        if (parts.includes(name)) {
+          seen.set(name, [...(seen.get(name) ?? []), { id, job, step, args }]);
+        } else if (!SETUP_RUNS.includes(name)) {
+          fail(
+            `\`${id}\` runs \`pnpm run ${name}\`, which is not a part of \`pnpm check\` (${parts.join(', ')}): CI would run more than the local gate`,
+          );
+        }
+      }
+      if (/\bpnpm check\b/.test(step?.run ?? '')) {
+        fail(`\`${id}\` runs \`pnpm check\`; the jobs run its parts, one each`);
+      }
+    }
+  }
+  for (const part of parts) {
+    const uses = seen.get(part) ?? [];
+    if (uses.length === 0) {
+      fail(
+        `no job runs \`pnpm run ${part}\`, a part of \`pnpm check\`: CI would run less than the local gate`,
+      );
+      continue;
+    }
+    for (const { id, job, step } of uses) {
+      const jobIf = norm(job.if);
+      const stepIf = norm(step.if);
+      const fine = (cond) => cond === undefined || KIND_IF.test(cond);
+      if (!fine(jobIf) || !fine(stepIf) || step['continue-on-error'] !== undefined) {
+        fail(
+          `\`${id}\` runs \`pnpm run ${part}\` under a condition other than the change being code (\`${jobIf ?? stepIf}\`)`,
+        );
+      }
+      if (/'prose'/.test(`${jobIf ?? ''}${stepIf ?? ''}`)) {
+        fail(`\`${id}\` runs \`pnpm run ${part}\` only for prose changes`);
+      }
+    }
+  }
+
+  // 5. A sharded part runs every shard.
+  for (const part of parts) {
+    for (const { id, job, args } of seen.get(part) ?? []) {
+      const matrix = job?.strategy?.matrix?.shard;
+      if (args.includes('--shard')) {
+        if (!coversAllShards(matrix)) {
+          fail(
+            `\`${id}\` shards \`${part}\` but its matrix is \`${JSON.stringify(matrix)}\`, not every shard of one total (1/2 and 2/2): part of the suite would never run`,
+          );
+        }
+        if (job?.strategy?.['fail-fast'] === true) {
+          fail(`\`${id}\` is \`fail-fast\`: the other shard's result would be lost`);
+        }
+      } else if (matrix !== undefined) {
+        fail(
+          `\`${id}\` has a shard matrix but runs \`${part}\` without --shard: every runner would run all of it`,
+        );
+      }
+    }
+  }
+};
 
 const ciRules = (path, file, doc) => {
   const jobs = doc?.jobs ?? {};
@@ -339,6 +529,15 @@ const ciRules = (path, file, doc) => {
         "the concurrency group must be exactly `check-${{ github.ref == 'refs/heads/main' && github.sha || github.ref }}`: a group holds one pending run, and a third push on `main` would cancel it",
       );
     }
+    let scripts;
+    try {
+      scripts = JSON.parse(readFileSync('package.json', 'utf8')).scripts;
+    } catch {
+      fail(
+        'package.json cannot be read from the working directory, so what CI must run is unknown',
+      );
+    }
+    checkYamlRules(doc, fail, scripts);
   }
 };
 

@@ -1,3 +1,4 @@
+// @e2e: core
 import { readFile } from 'node:fs/promises';
 
 import { expect, test } from './fixtures';

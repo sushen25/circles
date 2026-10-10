@@ -1,3 +1,4 @@
+// @e2e: in-app-browser
 import { expect, test } from './fixtures';
 import { addressFor, joinsAndAnswers, subscribesFromSent } from './journeys';
 import { letterTo, linkIn } from './mail';

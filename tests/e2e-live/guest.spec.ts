@@ -1,3 +1,4 @@
+// @e2e: in-app-browser, locale
 import { expect, test, type Page } from './fixtures';
 import { answerOf, emailContactOf, memberNamed, sundayCrew } from './stack';
 

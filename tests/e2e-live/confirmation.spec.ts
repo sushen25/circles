@@ -1,3 +1,4 @@
+// @e2e: locale
 import { expect, test, type Page } from './fixtures';
 import { downloadCalendarFile } from './journeys';
 
