@@ -548,6 +548,32 @@ test('mutation: CI must run every part of pnpm check, and no more', () => {
   assert.match(r.output, /under a condition other than the change being code/);
 });
 
+test('mutation: the shard is the matrix value, and every segment of pnpm check is comparable', () => {
+  let r = checkWorkflowsOn((t) => t.replace('--shard="$SHARD"', '--shard=1/2'));
+  assert.equal(r.status, 1);
+  assert.match(r.output, /not the matrix's shard/);
+  r = checkWorkflowsOn((t) =>
+    t.replace(
+      /SHARD: \$\{\{ matrix\.shard \}\}\n( +)run: pnpm run test/,
+      'SHARD: 1/2\n$1run: pnpm run test',
+    ),
+  );
+  assert.equal(r.status, 1);
+  assert.match(r.output, /not the matrix's shard/);
+  // A command appended to the local gate that CI's jobs do not mirror.
+  const dir = mkdtempSync(join(tmpdir(), 'wf-'));
+  cpSync('.github', join(dir, '.github'), { recursive: true });
+  const pkg = JSON.parse(readFileSync('package.json', 'utf8'));
+  pkg.scripts.check += ' && node scripts/check-client-env.mjs';
+  writeFileSync(join(dir, 'package.json'), JSON.stringify(pkg));
+  const result = spawnSync('node', [join(process.cwd(), 'scripts/check-workflows.mjs')], {
+    cwd: dir,
+    encoding: 'utf8',
+  });
+  assert.equal(result.status, 1);
+  assert.match(`${result.stdout}${result.stderr}`, /which is not a plain `pnpm run NAME`/);
+});
+
 test('mutation: the live shards cover the whole suite', () => {
   let r = checkWorkflowsOn((t) => t.replace("shard: ['1/2', '2/2']", "shard: ['1/2']"));
   assert.equal(r.status, 1);

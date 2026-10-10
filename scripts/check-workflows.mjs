@@ -150,11 +150,18 @@ const unconditional = (job, step) =>
  * What `pnpm check` is made of: the `pnpm run NAME` parts of the root
  * `package.json` script of that name, in order.
  */
-export const partsOf = (scripts, name = 'check') =>
-  String(scripts?.[name] ?? '')
+export const partsOf = (scripts, name = 'check') => {
+  const segments = String(scripts?.[name] ?? '')
     .split('&&')
-    .map((part) => /^\s*pnpm run ([\w:.-]+)\s*$/.exec(part)?.[1])
-    .filter((part) => part !== undefined);
+    .map((segment) => segment.trim());
+  const named = segments.map((segment) => /^pnpm run ([\w:.-]+)$/.exec(segment)?.[1]);
+  return {
+    parts: named.filter((part) => part !== undefined),
+    // Anything else (`node x.mjs`, a part with arguments, `;`, `||`) would be
+    // run locally and invisible to the comparison with the workflow.
+    unrecognised: segments.filter((_, i) => named[i] === undefined),
+  };
+};
 
 /** Every `pnpm run NAME [args]` in a run script, with whatever follows the name. */
 export const pnpmRunsIn = (text) =>
@@ -260,7 +267,12 @@ const checkYamlRules = (doc, fail, scripts) => {
   }
 
   // 4. The jobs run what `pnpm check` is made of: every part, and nothing more.
-  const parts = partsOf(scripts);
+  const { parts, unrecognised } = partsOf(scripts);
+  for (const segment of unrecognised) {
+    fail(
+      `package.json \`check\` runs \`${segment}\`, which is not a plain \`pnpm run NAME\`: the local gate would run something CI's jobs cannot be compared with`,
+    );
+  }
   if (parts.length === 0) {
     fail(
       'package.json `check` is not a chain of `pnpm run …` parts, so what CI must run cannot be read',
@@ -312,6 +324,18 @@ const checkYamlRules = (doc, fail, scripts) => {
     for (const { id, job, args } of seen.get(part) ?? []) {
       const matrix = job?.strategy?.matrix?.shard;
       if (args.includes('--shard')) {
+        // The argument must be the matrix's value, through the step's
+        // environment: `--shard=1/2` typed in would run the first half twice.
+        const step = (job.steps ?? []).find((s) => pnpmRunsIn(s?.run).some((r) => r.name === part));
+        const bound =
+          /^--shard="?\$SHARD"?$/.test(args) &&
+          /^\$\{\{\s*matrix\.shard\s*\}\}$/.test(String(step?.env?.SHARD ?? '').trim());
+        const inline = /^--shard="?\$\{\{\s*matrix\.shard\s*\}\}"?$/.test(args);
+        if (!bound && !inline) {
+          fail(
+            `\`${id}\` runs \`${part}\` with \`${args}\`, not the matrix's shard (\`--shard="$SHARD"\` with \`SHARD: \${{ matrix.shard }}\`): every runner could run the same half`,
+          );
+        }
         if (!coversAllShards(matrix)) {
           fail(
             `\`${id}\` shards \`${part}\` but its matrix is \`${JSON.stringify(matrix)}\`, not every shard of one total (1/2 and 2/2): part of the suite would never run`,
