@@ -67,13 +67,25 @@ export const en = {
     detail: '{day}, {time}',
     detail_place: '{day}, {time} · {what}',
     apple_or_device_calendar: 'Apple or device calendar',
-    downloads_an_ics_file: 'Downloads an .ics file',
+    /** What the tap does on this device, under the row's title. */
+    ready_ios: 'Saves the event for Calendar',
+    ready_android: 'Downloads an event file',
+    ready_other: 'Downloads an event file',
     nothing_is_added_to_anyones_calendar_without:
       "Nothing is added to anyone's calendar without their tap.",
-    downloading: 'Getting the file',
-    saved: 'Downloaded. Open it to add it to your calendar.',
+    /** In the row while the file is on its way; "Still working on it…" is `common.still_working`. */
+    preparing: 'Getting it ready…',
+    /** After the tap: the next step, named for the platform. */
+    saved_ios: 'Saved. Open it from Downloads, then tap Add to Calendar.',
+    saved_android:
+      'Saved. Open the file from your notifications or Downloads, then choose Calendar.',
+    saved_other: 'Downloaded. Open the file to add it to your calendar.',
+    saved_in_app: 'Saved. If nothing opened, open this page in your browser and try again.',
     unsupported: "This device can't save the file yet. Open the link in a browser to download it.",
-    failed: "We couldn't get the file. Try again in a moment.",
+    /** In the row, beside "Try again". */
+    failed: "We couldn't get it.",
+    /** After a tap that could not hand the file over. */
+    save_failed: "We couldn't save the file. Try again in a moment.",
     offline: "You're offline. Connect, then try again.",
     cancel: 'Cancel',
   },

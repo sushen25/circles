@@ -150,6 +150,16 @@ function Confirmed({
   const [shareNotice, setShareNotice] = useState<string>();
   const origin = useOrigin();
 
+  // Fetch the calendar file as the screen loads, so the sheet, whenever it is
+  // opened, is usually ready (SUS-154). Without a backend there is no file.
+  const { prepare } = calendar;
+  const confirmationId = confirmation.id;
+  useEffect(() => {
+    if (hasBackend()) prepare();
+    // `prepare` is new every render and reads the latest state; the confirmation is the key.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [confirmationId]);
+
   // `/p/:code/calendar`: the sheet is open on arrival, and counts as opened.
   const opened = useRef(false);
   const { show } = calendar;
@@ -174,9 +184,12 @@ function Confirmed({
           ? t('addToCalendar', 'detail', { day, time: view.time })
           : t('addToCalendar', 'detail_place', { day, time: view.time, what: view.placeName })
       }
-      busy={calendar.busy}
+      phase={calendar.phase}
+      ready={calendar.ready}
+      problem={calendar.problem}
       status={calendar.status}
       onDevice={calendar.download}
+      onRetry={calendar.retry}
       onDismiss={calendar.hide}
     />
   );

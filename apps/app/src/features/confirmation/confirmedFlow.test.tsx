@@ -237,6 +237,22 @@ describe('a member', () => {
 describe('the calendar sheet', () => {
   beforeEach(() => planConfirmation.mockResolvedValue(fixture.lockedInAsMember));
 
+  const DEVICE_ROW = /^Apple or device calendar\. /;
+  const row = () => screen.getByRole('button', { name: DEVICE_ROW });
+  const readyRow = () =>
+    screen.getByRole('button', { name: 'Apple or device calendar. Downloads an event file' });
+
+  it('fetches the file as the confirmed screen loads, so the sheet opens ready', async () => {
+    show(<ConfirmedFlow target={{ code: 'pnsundaycr' }} />);
+    const open = await screen.findByRole('button', { name: 'Add to calendar' });
+    await waitFor(() => expect(calendarFile).toHaveBeenCalledWith('confirmation-1'));
+    await act(async () => undefined);
+    fireEvent.click(open);
+    expect(readyRow().getAttribute('aria-busy')).toBe('false');
+    // Once: opening the sheet does not fetch it again.
+    expect(calendarFile).toHaveBeenCalledTimes(1);
+  });
+
   it('offers the device calendar and not Google, and downloads the file', async () => {
     show(<ConfirmedFlow target={{ code: 'pnsundaycr' }} />);
     fireEvent.click(await screen.findByRole('button', { name: 'Add to calendar' }));
@@ -246,11 +262,9 @@ describe('the calendar sheet', () => {
     ).toBeTruthy();
     expect(screen.queryByText(/Google/)).toBeNull();
 
-    const row = screen.getByRole('button', {
-      name: 'Apple or device calendar. Downloads an .ics file',
-    });
-    await waitFor(() => expect(row.getAttribute('aria-busy')).not.toBe('true'));
-    fireEvent.click(row);
+    await waitFor(() => expect(row().getAttribute('aria-busy')).not.toBe('true'));
+    await act(async () => undefined);
+    fireEvent.click(readyRow());
     await waitFor(() =>
       expect(saveFile).toHaveBeenCalledWith(
         'BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n',
@@ -258,23 +272,23 @@ describe('the calendar sheet', () => {
         'text/calendar;charset=utf-8',
       ),
     );
-    // Fetched once, when the sheet opened, so the tap can hand it over at once.
     expect(calendarFile).toHaveBeenCalledTimes(1);
     expect(calendarFile).toHaveBeenCalledWith('confirmation-1');
     await waitFor(() => expect(track).toHaveBeenCalledWith('ics_downloaded', IDS));
+    // The next step, named for this device (a desktop browser in the test).
+    expect(screen.getByText('Downloaded. Open the file to add it to your calendar.')).toBeTruthy();
   });
 
   // Mobile Safari only hands a download over from inside the tap, so the row
   // waits for the file and the tap saves it without awaiting anything.
-  it('keeps the row shut until the file is here, then saves inside the tap', async () => {
+  it('shows a pending row until the file is here, then saves inside the tap', async () => {
     let arrive: (ics: string) => void = () => undefined;
     calendarFile.mockReturnValue(new Promise<string>((resolve) => (arrive = resolve)));
     show(<ConfirmedFlow target={{ code: 'pnsundaycr' }} />);
     fireEvent.click(await screen.findByRole('button', { name: 'Add to calendar' }));
 
-    const row = () =>
-      screen.getByRole('button', { name: 'Apple or device calendar. Downloads an .ics file' });
     expect(row().getAttribute('aria-busy')).toBe('true');
+    expect(row().getAttribute('aria-label')).toBe('Apple or device calendar. Getting it ready…');
     fireEvent.click(row());
     expect(saveFile).not.toHaveBeenCalled();
 
@@ -286,6 +300,68 @@ describe('the calendar sheet', () => {
     fireEvent.click(row());
     // Synchronously: no waitFor.
     expect(saveFile).toHaveBeenCalledTimes(1);
+  });
+
+  it('says "Still working on it" when the file takes about eight seconds', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      calendarFile.mockReturnValue(new Promise<string>(() => undefined));
+      show(<ConfirmedFlow target={{ code: 'pnsundaycr' }} calendar />);
+      expect(await screen.findByText('Getting it ready…')).toBeTruthy();
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(8_100);
+      });
+      expect(screen.getByText('Still working on it…')).toBeTruthy();
+      expect(row().getAttribute('aria-busy')).toBe('true');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('offers "Try again" inside the row when the fetch fails, and the retry works', async () => {
+    calendarFile.mockRejectedValueOnce(new Error('boom'));
+    show(<ConfirmedFlow target={{ code: 'pnsundaycr' }} calendar />);
+    expect(await screen.findByText("We couldn't get it.")).toBeTruthy();
+    // No separate notice, and no still card: the retry is in the row.
+    const retry = screen.getByRole('button', { name: 'Try again' });
+    expect(calendarFile).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(retry);
+    await waitFor(() => expect(calendarFile).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(row().getAttribute('aria-busy')).toBe('false'));
+    expect(screen.queryByText("We couldn't get it.")).toBeNull();
+  });
+
+  it.each([
+    [
+      'an iPhone',
+      'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1',
+      'Saves the event for Calendar',
+      'Saved. Open it from Downloads, then tap Add to Calendar.',
+    ],
+    [
+      'Android Chrome',
+      'Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36',
+      'Downloads an event file',
+      'Saved. Open the file from your notifications or Downloads, then choose Calendar.',
+    ],
+    [
+      'Messenger on iOS',
+      'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 [FBAN/MessengerForiOS;FBAV/458.0.0.43.109]',
+      'Saves the event for Calendar',
+      'Saved. If nothing opened, open this page in your browser and try again.',
+    ],
+  ])('names what the tap does, and the next step, on %s', async (_name, ua, ready, saved) => {
+    const agent = vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(ua);
+    try {
+      show(<ConfirmedFlow target={{ code: 'pnsundaycr' }} calendar />);
+      expect(await screen.findByText(ready)).toBeTruthy();
+      await act(async () => undefined);
+      fireEvent.click(screen.getByRole('button', { name: `Apple or device calendar. ${ready}` }));
+      expect(await screen.findByText(saved)).toBeTruthy();
+    } finally {
+      agent.mockRestore();
+    }
   });
 
   it('opens on arrival at the calendar link', async () => {
