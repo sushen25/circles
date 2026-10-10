@@ -76,6 +76,11 @@ export default defineConfig({
   workers: 2,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 1 : 0,
+  // A stack that has stopped answering (an Edge runtime that died: every test
+  // then waits out its timeouts) fails all of a shard's tests one by one and
+  // used to take the job's whole 15 minutes to say so. Twenty failures is not
+  // flakiness. Only a red run ends early; a green one runs every test.
+  maxFailures: process.env.CI ? 20 : 0,
   // In CI: annotations on the pull request, the HTML report and the traces
   // (uploaded when a job fails, SUS-143) and a JSON file the job summary is
   // written from (`scripts/live-summary.mjs`, SUS-179). The report is in a

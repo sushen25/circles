@@ -203,7 +203,9 @@ jobs:
         run: pnpm run check:stack
 
       - name: Upload the Playwright report
-        if: failure()
+        # Not `failure()`: a job that hit its timeout is cancelled, and that is
+        # exactly when the report is wanted.
+        if: ${{ !success() }}
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report-smoke
@@ -284,7 +286,9 @@ jobs:
         run: node scripts/live-summary.mjs playwright-report/live-results.json "$SHARD"
 
       - name: Upload the Playwright report and traces
-        if: failure()
+        # Not `failure()`: a job that hit its timeout is cancelled, and that is
+        # exactly when the report is wanted.
+        if: ${{ !success() }}
         uses: actions/upload-artifact@v4
         with:
           # One per shard: the same name twice is an error.

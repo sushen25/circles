@@ -94,6 +94,22 @@ spends about 1 minute on the browsers' libraries, 1.8 on `supabase start` and
 5 on the suite. Locally `pnpm check` took 8.5 minutes on 10 October 2026 (the
 live suite 4.9 of them).
 
+**One shard failed in four runs, and the verdict was right.** On run 38057476701
+`live (1/2)` met a stack that had stopped answering from its first test (the
+join step timed out, then `process-scheduled-jobs answered 503`), failed test
+after test and was cancelled at its 15-minute limit; `static`, `database` and
+`live (2/2)` were green. `check` reported `failure`, `green-check` refused the
+commit, and "Re-run failed jobs" re-ran the one shard, which passed in 8.4
+minutes, after which `check` was green and `green-check` agreed (while the
+re-run was going it said "the `check.yml` workflow is in_progress"). The cause
+of the dead stack is not known: no Supabase logs are kept. Two things came out
+of it: the report upload now runs when a job is cancelled as well as when it
+fails (`if: ${{ !success() }}`), and the live config stops after 20 failures in
+CI (`maxFailures`), so a dead stack costs about three minutes and not fifteen.
+If it recurs, the lead to follow is the Edge runtime's memory (the live job
+starts a fresh stack where `pnpm check` used to start it after `db:test` and the
+integration suite).
+
 **Not yet observed:** the ticket's bar is a median under 15 minutes over ten
 consecutive green runs, and three is what exists before merge. Watch the next
 seven on `main` and on PRs (`gh run list --workflow check`), and the job
