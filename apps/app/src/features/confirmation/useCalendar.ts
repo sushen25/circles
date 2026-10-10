@@ -48,6 +48,11 @@ export type CalendarTarget = {
   circleId: string;
   planId: string;
   confirmationId: string;
+  /**
+   * What the file says, as a key: the same confirmation edited (a new place or
+   * note) is a different file, so a fetched one is only good for this version.
+   */
+  version: string;
   filename: string;
 };
 
@@ -66,48 +71,46 @@ function savedWords(device: Device): string {
 export function useCalendar(target: CalendarTarget | undefined): Calendar {
   const [open, setOpen] = useState(false);
   const [status, setStatus] = useState<string>();
-  /** Which confirmation the phase is about: a rescheduled meetup is a different file. */
+  /** Which version of the confirmation the phase is about: a moved or edited one is a different file. */
   const [state, setState] = useState<{
-    id: string;
+    key: string;
     phase: CalendarPhase;
     problem?: string;
     contents?: string;
   }>();
-  const inFlight = useRef<string | undefined>(undefined);
+  /** The version the screen wants now; an answer for any other is obsolete and ignored. */
+  const wanted = useRef<string | undefined>(undefined);
   const ids =
     target === undefined
       ? {}
       : { circle_id: target.circleId as CircleId, plan_id: target.planId as PlanId };
 
-  const id = target?.confirmationId;
-  const mine = state !== undefined && state.id === id ? state : undefined;
+  const key = target?.version;
+  const mine = state !== undefined && state.key === key ? state : undefined;
   const phase: CalendarPhase = mine?.phase ?? 'idle';
 
-  const fetchFile = (confirmationId: string) => {
-    if (inFlight.current === confirmationId) return;
-    inFlight.current = confirmationId;
-    setState({ id: confirmationId, phase: 'preparing' });
+  const fetchFile = (confirmationId: string, version: string) => {
+    wanted.current = version;
+    setState({ key: version, phase: 'preparing' });
     calendarFile(confirmationId)
       .then((contents) => {
-        setState({ id: confirmationId, phase: 'ready', contents });
+        if (wanted.current === version) setState({ key: version, phase: 'ready', contents });
       })
       .catch(() => {
+        if (wanted.current !== version) return;
         setState({
-          id: confirmationId,
+          key: version,
           phase: 'failed',
           problem: isOffline() ? t('addToCalendar', 'offline') : t('addToCalendar', 'failed'),
         });
-      })
-      .finally(() => {
-        if (inFlight.current === confirmationId) inFlight.current = undefined;
       });
   };
 
   const prepare = () => {
-    if (id === undefined || phase === 'ready' || phase === 'preparing') return;
+    // Asked already for this version (a second caller in the same render, say).
+    if (target === undefined || phase !== 'idle' || wanted.current === target.version) return;
     // A failure is not retried on its own; the row's "Try again" does it.
-    if (phase === 'failed') return;
-    fetchFile(id);
+    fetchFile(target.confirmationId, target.version);
   };
 
   return {
@@ -129,9 +132,9 @@ export function useCalendar(target: CalendarTarget | undefined): Calendar {
     },
     hide: () => setOpen(false),
     retry: () => {
-      if (id === undefined) return;
+      if (target === undefined) return;
       setStatus(undefined);
-      fetchFile(id);
+      fetchFile(target.confirmationId, target.version);
     },
     download: () => {
       if (target === undefined) return;
