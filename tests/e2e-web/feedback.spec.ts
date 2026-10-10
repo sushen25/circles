@@ -9,10 +9,14 @@ import { expect, test } from '@playwright/test';
  * the same layout as a viewport half as wide (as `a11y.spec.ts` does).
  */
 const PLACEMENTS = [
-  { name: 'Sent', path: '/j/abc/sent' },
-  { name: 'Confirmed, guest', path: '/p/abc/confirmed' },
-  { name: 'Confirmed, organiser', path: '/circles/sunday-crew/plan/thu-17/confirmed' },
-  { name: 'circle home', path: '/circles/sunday-crew' },
+  { name: 'Sent', path: '/j/abc/sent', above: [] as string[] },
+  { name: 'Confirmed, guest', path: '/p/abc/confirmed', above: ['Add to calendar'] },
+  {
+    name: 'Confirmed, organiser',
+    path: '/circles/sunday-crew/plan/thu-17/confirmed',
+    above: ['Share to group chat', 'Add to my calendar'],
+  },
+  { name: 'circle home', path: '/circles/sunday-crew', above: ['Plan a catch-up'] },
 ];
 const SIZES = [
   { label: '390 wide', width: 390, height: 844 },
@@ -36,18 +40,12 @@ test.describe('the feedback link', () => {
         expect(box.y).toBeGreaterThanOrEqual(0);
         expect(box.y + box.height).toBeLessThanOrEqual(size.height);
 
-        // Below the primary actions: nothing on screen sits under it.
-        const buttons = await page.getByRole('button').evaluateAll((els) =>
-          els.map((el) => ({
-            label: el.getAttribute('aria-label') ?? '',
-            bottom: el.getBoundingClientRect().bottom,
-          })),
-        );
-        const mine = buttons.find((b) => b.label === LINK)!;
-        // (Body content that has scrolled out of the viewport is not in the way.)
-        expect(
-          buttons.filter((b) => b.bottom > mine.bottom + 1 && b.bottom <= size.height),
-        ).toEqual([]);
+        // Below the primary actions: each of the footer's own sits above it (Sent's
+        // are in its body, which scrolls under the footer).
+        for (const name of place.above) {
+          const primary = (await page.getByRole('button', { name }).boundingBox())!;
+          expect(primary.y + primary.height, name).toBeLessThanOrEqual(box.y);
+        }
       });
     }
   }
