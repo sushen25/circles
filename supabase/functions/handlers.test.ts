@@ -2670,7 +2670,7 @@ describe('generate-ics', () => {
       const spies = (['log', 'warn', 'error'] as const).map((level) =>
         vi
           .spyOn(console, level)
-          .mockImplementation((line: unknown) => void lines.push(String(line))),
+          .mockImplementation((...args: unknown[]) => void lines.push(args.map(String).join(' '))),
       );
       try {
         const { token } = await minted();
