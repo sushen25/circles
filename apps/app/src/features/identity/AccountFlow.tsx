@@ -81,9 +81,6 @@ function LiveAccount() {
     try {
       await saveProfile(next);
       await queryClient.invalidateQueries({ queryKey: ['own-profile'] });
-      // A name follows into every circle (`sync_member_names`), so the homes
-      // that show it are stale too.
-      await queryClient.invalidateQueries({ queryKey: ['circle-home'] });
       return true;
     } catch {
       return false;

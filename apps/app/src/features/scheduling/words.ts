@@ -60,8 +60,8 @@ export function deadlineOf(iso: string, zone: string): string {
  *
  * The reader's own device is the whole test (ADR 0032). Spec §5.6 once asked
  * for the zone "if any member differs", and no client can tell: a member's
- * zone lives in `profiles`, readable by its owner alone, and `member_profiles`
- * exposes a name and an id on purpose. The rule is now the reader's — whose
+ * zone lives in `profiles`, readable by its owner alone, and no view of it
+ * exists for co-members (ADR 0065). The rule is now the reader's — whose
  * clock is this? — and a friend's zone stays theirs.
  */
 export function zoneNoteOf(zone: string): string | undefined {
