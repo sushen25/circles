@@ -28,9 +28,8 @@ create or replace function public.confirm_own_time(
   -- The plan's input version as `stretch_availability` returned it with the
   -- names the organiser was shown.
   p_expected_input_version integer,
-  -- "Did you have to chase anyone outside the app?" (spec §5.10), required as in
-  -- `confirm_meetup`: this function is granted to `authenticated` too, and the
-  -- evidence for H2 is not optional because of the door somebody came through.
+  -- "Did you have to chase anyone outside the app?" (spec §5.10), optional as in
+  -- `confirm_meetup`: null is stored as "not answered" (SUS-194).
   p_chased_answer text,
   p_place_name text default null,
   p_place_url text default null,
@@ -61,7 +60,7 @@ begin
     raise exception 'not_the_organiser' using errcode = 'P0001';
   end if;
 
-  if p_chased_answer is null or p_chased_answer not in ('none', 'one', 'more') then
+  if p_chased_answer is not null and p_chased_answer not in ('none', 'one', 'more') then
     raise exception 'chased_answer_required' using errcode = 'P0001';
   end if;
 

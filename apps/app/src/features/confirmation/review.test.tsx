@@ -92,12 +92,32 @@ describe('the organiser reviewing Thursday', () => {
     expect(screen.getByText('Did you have to chase anyone outside the app?')).toBeTruthy();
   });
 
-  it('asks the survey before it locks anything in', async () => {
+  it('asks the survey but never holds the lock-in for it', async () => {
     show(review());
     await screen.findByText('Lock it in?');
-    expect(lockIn().getAttribute('aria-disabled')).toBe('true');
-    fireEvent.click(screen.getByRole('checkbox', { name: 'One person' }));
+    expect(screen.getByText('Did you have to chase anyone outside the app?')).toBeTruthy();
     expect(lockIn().getAttribute('aria-disabled')).not.toBe('true');
+  });
+
+  it('locks in with the question unanswered: no answer is sent and none is recorded', async () => {
+    show(review());
+    await screen.findByText('Lock it in?');
+    planCandidates.mockResolvedValueOnce(fixture.ready);
+    planCandidates.mockResolvedValue({ ...fixture.ready, state: 'confirmed', view: 'closed' });
+    fireEvent.click(lockIn());
+
+    await waitFor(() => expect(confirmMeetup).toHaveBeenCalledTimes(1));
+    expect(confirmMeetup).toHaveBeenCalledWith({
+      planId: 'thu-17',
+      candidateId: THU,
+      expectedSetId: 'set-1',
+      chasedAnswer: undefined,
+      placeName: undefined,
+      placeUrl: undefined,
+      note: undefined,
+    });
+    await waitFor(() => expect(track).toHaveBeenCalledWith('meetup_confirmed', expect.anything()));
+    expect(track).not.toHaveBeenCalledWith('organiser_chased', expect.anything());
   });
 
   it('sends the start instant, the set it showed and the answers, then shows the confirmation', async () => {

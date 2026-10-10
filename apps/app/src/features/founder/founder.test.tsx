@@ -92,6 +92,18 @@ describe('the screen, from a fixture', () => {
     expect(screen.getByText('50% · 3 of 6')).toBeTruthy();
   });
 
+  it('counts confirmations with no chasing answer on their own, beside the share', () => {
+    render(<AnalyticsScreen data={founderAnalyticsFixture} />);
+    // The founder cohort has two; they are in neither half of the share.
+    expect(
+      screen.getByText(
+        '2 confirmations had no answer to the chasing question. They are counted in neither the share nor the total.',
+      ),
+    ).toBeTruthy();
+    // And the share is still 9 of 12: unanswered is not read as "no".
+    expect(screen.getByText('75% · 9 of 12')).toBeTruthy();
+  });
+
   it('says "Not measured" for a gate no view computes, and what is missing', () => {
     render(<AnalyticsScreen data={founderAnalyticsFixture} />);
     expect(screen.getAllByText('Not measured')).toHaveLength(2);

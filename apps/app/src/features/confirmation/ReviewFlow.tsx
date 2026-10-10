@@ -211,7 +211,7 @@ function LiveReview({ id, planId, candidate }: { id: string; planId: string; can
       waiting={data.stale}
       busy={lock.busy}
       onLockIn={(fields) => {
-        if (chased === undefined || setId === undefined) return;
+        if (setId === undefined) return;
         // What is on screen now is what the organiser is confirming.
         setSeenSet(setId);
         lock.lockIn({
@@ -279,7 +279,7 @@ function Review({
       notice={notice}
       waiting={waiting}
       busy={busy}
-      canLockIn={fields.valid && chased !== undefined}
+      canLockIn={fields.valid}
       onPlaceName={(placeName) => setForm({ ...form, placeName })}
       onPlaceUrl={(placeUrl) => setForm({ ...form, placeUrl })}
       onNote={(note) => setForm({ ...form, note })}

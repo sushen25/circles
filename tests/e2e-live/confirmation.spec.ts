@@ -58,8 +58,8 @@ test('the organiser reviews, locks it in, and gets the message and the calendar 
   await expect(page.getByText('Lock it in?')).toBeVisible();
   await expect(page.getByText(/^Alex hasn't replied\./)).toBeVisible();
   const lockIn = page.getByRole('button', { name: 'Lock it in' });
-  // The survey is required, so the button waits for it.
-  await expect(lockIn).toHaveAttribute('aria-disabled', 'true');
+  // The survey is optional: the button does not wait for it (SUS-194).
+  await expect(lockIn).not.toHaveAttribute('aria-disabled', 'true');
   await page.getByLabel('Where it is').fill('Hope St Radio');
   await page.getByRole('checkbox', { name: 'One person' }).click();
   await lockIn.click();

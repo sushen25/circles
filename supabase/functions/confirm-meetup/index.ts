@@ -52,7 +52,7 @@ Deno.serve(
             p_place_name: body.place_name ?? null,
             p_place_url: body.place_url ?? null,
             p_note: body.note ?? null,
-            p_chased_answer: body.chased_answer,
+            p_chased_answer: body.chased_answer ?? null,
           })
         : await caller.rpc('confirm_meetup', {
             p_plan_id: body.plan_id,
@@ -63,7 +63,7 @@ Deno.serve(
             p_place_name: body.place_name ?? null,
             p_place_url: body.place_url ?? null,
             p_note: body.note ?? null,
-            p_chased_answer: body.chased_answer,
+            p_chased_answer: body.chased_answer ?? null,
           });
       if (error !== null) throw error;
 

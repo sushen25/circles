@@ -720,7 +720,7 @@ export const en = {
     chase_none: 'No',
     chase_one: 'One person',
     chase_more: 'More than one',
-    chase_hint: 'It tells us whether the link did the chasing for you.',
+    chase_hint: 'Optional. It tells us whether the link did the chasing for you.',
     warn_one: "{name} hasn't replied. They'll see the plan and can say whether they're coming.",
     warn_two:
       "{name} and {other} haven't replied. They'll see the plan and can say whether they're coming.",
@@ -1133,6 +1133,10 @@ export const en = {
     gate_unchased_target: 'at least 60%',
     gate_unchased_note:
       'Of the members the plan asked, those who answered and were not chased, from the organiser\'s answer at confirmation. "Several chased" counts as all of them, so this is a floor.',
+    gate_unchased_unanswered_one:
+      '1 confirmation had no answer to the chasing question. It is counted in neither the share nor the total.',
+    gate_unchased_unanswered:
+      '{count} confirmations had no answer to the chasing question. They are counted in neither the share nor the total.',
     gate_response_time_measure: 'Median wait from opening the link to answering',
     gate_response_time_target: 'under 2 minutes, aiming for under 60 seconds',
     gate_response_time_note: 'Only answers with a recorded link open before them.',

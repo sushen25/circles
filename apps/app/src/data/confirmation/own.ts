@@ -71,7 +71,7 @@ export type ConfirmOwnTimeInput = {
   endsAt: string;
   /** The plan's `inputVersion` as `stretchOf` returned it with the names on screen. */
   expectedInputVersion: number;
-  chasedAnswer: ChasedAnswer;
+  chasedAnswer?: ChasedAnswer | undefined;
   placeName?: string | undefined;
   placeUrl?: string | undefined;
   note?: string | undefined;
