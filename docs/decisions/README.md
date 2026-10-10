@@ -60,6 +60,7 @@ Short records of decisions that shape the product or the code. A new ADR is requ
 | [0055](./0055-after-sending-one-step-keeps-your-place-and-turns-on-the-updates.md) | After sending, one step keeps the guest's place and turns on the plan's updates | proposed |
 | [0056](./0056-members-can-see-who-has-saved-a-place.md) | A circle's members can see which of them has saved a place | proposed |
 | [0057](./0057-who-started-a-plan-is-kept-as-long-as-the-plan.md) | Who started a plan is kept as long as the plan, not for twelve months | proposed |
+| [0066](./0066-the-group-sees-who-can-make-each-option-and-nobody-sees-whole-availability.md) | The group sees who can make each option, and nobody sees anyone's whole availability | proposed |
 
 ## Template
 
