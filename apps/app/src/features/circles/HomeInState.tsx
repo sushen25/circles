@@ -17,7 +17,7 @@ import { CircleHomeDueScreen } from './CircleHomeDueScreen';
 import { CircleHomeJoiningScreen } from './CircleHomeJoiningScreen';
 import { CircleHomeScreen } from './CircleHomeScreen';
 import { EmptyCircleScreen } from './EmptyCircleScreen';
-import { aboutTimeBody, homeState, lockedInWords } from './lines';
+import { aboutTimeBody, homeState, lockedInWords, planMarks } from './lines';
 import { useMorningAfterCard } from './MorningAfterCard';
 import { useNudgeActions } from './useNudgeActions';
 import { useShareLink } from './useShareLink';
@@ -121,9 +121,12 @@ export function HomeInState({ home, onBack }: { home: CircleHome; onBack: () => 
     // Started quietly and nobody has taken it on: "started quietly", and the
     // quiet screens, which offer the role to whoever may take it (§5.4).
     const unclaimed = plan.quiet === true && plan.organiserUserId === null;
+    const marks = planMarks(home);
     return (
       <CircleHomeScreen
         {...shared}
+        planMembers={marks.members}
+        planMarksLabel={marks.label}
         prompt={prompt}
         subtitle={homeSubtitle(home)}
         label={unclaimed ? t('quiet', 'started_quietly') : undefined}

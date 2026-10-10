@@ -3,6 +3,7 @@ import type { Cadence, NudgePolicy } from '@circles/domain';
 import { authClient } from '../auth/client';
 import { morningAfterOf, type MorningAfter } from '../confirmation';
 import {
+  answersFor,
   askedAgain,
   FAILED,
   findingPlanOf,
@@ -45,6 +46,12 @@ export type HomePlan = {
   responseDeadline: string;
   replied: number;
   asked: number;
+  /**
+   * Who was asked and whether each has answered, for the card's marks
+   * (SUS-198). Absent when the reader may not see it: a member before options
+   * exist (spec §5.6).
+   */
+  answers?: readonly { userId: string; replied: boolean }[] | undefined;
   /**
    * Started as a quiet ask (spec §5.4). Its card says "started quietly", and
    * while nobody has taken the role it leads to the quiet screens rather than
@@ -185,13 +192,14 @@ export async function circleHome(id: string): Promise<CircleHome | null> {
 
   const finding = findingPlanOf(plans, id);
   const confirmed = plans.filter((p) => p.state === 'confirmed');
-  const [replies, meetups, again] = await Promise.all([
+  const [replies, meetups, again, answers] = await Promise.all([
     finding === undefined ? undefined : repliesFor(client, finding),
     upcomingMeetups(
       client,
       confirmed.map((p) => p.id),
     ),
     finding === undefined ? false : askedAgain(client, finding, me),
+    finding === undefined ? undefined : answersFor(client, finding, me),
   ]);
 
   const next = meetups[0];
@@ -243,6 +251,7 @@ export async function circleHome(id: string): Promise<CircleHome | null> {
             organiserUserId: finding.organiser_user_id,
             responseDeadline: finding.response_deadline,
             ...replies,
+            answers,
             quiet: finding.mode === 'quiet',
             askedAgain: again,
           },

@@ -22,7 +22,7 @@ import { t } from '../../copy';
 import type { Fixture } from '../../data/fixtures';
 import type { ScreenState } from '../state';
 import { CircleHomeJoiningScreen } from './CircleHomeJoiningScreen';
-import { MARKS_MAX, marksMore } from './lines';
+import { answeredLabel, MARKS_MAX, marksMore } from './lines';
 import { MembersLine, SettingsButton } from './parts';
 
 /**
@@ -53,6 +53,13 @@ export type CircleHomeProps = {
    */
   askedAgain?: string | undefined;
   members?: readonly Member[] | undefined;
+  /**
+   * The marks on the plan card: who the plan asked, the people still to answer
+   * dashed (SUS-198). Defaults to `members`, which is right only in fixtures.
+   */
+  planMembers?: readonly Member[] | undefined;
+  /** What a screen reader hears over them; built from `planMembers` when absent. */
+  planMarksLabel?: string | undefined;
   memberCount?: string | undefined;
   lastCaughtUp?: string | undefined;
   nextOne?: string | undefined;
@@ -89,6 +96,8 @@ export function CircleHomeScreen({
   replied = t('circleHome', '5_of_6_replied'),
   askedAgain,
   members = fixture?.circle.members ?? [],
+  planMembers = members,
+  planMarksLabel,
   memberCount = t('circleHome', '6_members'),
   lastCaughtUp = t('circleHome', 'sat_8_aug'),
   nextOne = t('circleHome', 'no_rush'),
@@ -126,7 +135,12 @@ export function CircleHomeScreen({
           </Stack>
           <Title>{planTitle}</Title>
           <Stack>
-            <Marks members={members} max={MARKS_MAX} more={marksMore} />
+            <Marks
+              members={planMembers}
+              max={MARKS_MAX}
+              more={marksMore}
+              label={planMarksLabel ?? answeredLabel(planMembers)}
+            />
             <Small>{replied}</Small>
           </Stack>
           {askedAgain === undefined ? null : <Notice kind="warn">{askedAgain}</Notice>}
