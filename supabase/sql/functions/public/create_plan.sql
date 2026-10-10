@@ -194,12 +194,21 @@ begin
   -- not repeated above: this function holds the circle's lock from the top, so
   -- the guard's own lock is the same one, and two "Ask the group" taps arriving
   -- together are decided one after the other.
+  -- Who started it, durably (SUS-177). The outbox event says the same for 30
+  -- days and the client's `plan_created` for as long as the client managed to
+  -- send it; this is the record the founder's organiser gate reads. Ids and the
+  -- moment, in the plan's own transaction, so a plan without it cannot exist.
+  -- Named plans only: who starts a quiet ask stays in `private.plan_initiators`
+  -- and `create_quiet_ask` does not come through here.
+  insert into private.audit_log (actor_user_id, action, resource_type, resource_id, occurred_at)
+  values (caller, 'plan.created', 'plan', created.id, created.created_at);
+
   return planning.transition_plan(created.id, 'create_named', caller);
 end;
 $$;
 
 comment on function public.create_plan(uuid, text, text, date, date, integer, integer, integer, integer, timestamptz, uuid[], date[]) is
-  'Creates a named plan as a draft, addresses it to the circle''s active members, and moves it to collecting through the state machine. Defaults are resolved by the domain before it is called.';
+  'Creates a named plan as a draft, addresses it to the circle''s active members, and moves it to collecting through the state machine, and records who created it in private.audit_log (plan.created, kept as long as the plan). Defaults are resolved by the domain before it is called.';
 
 revoke all on function public.create_plan(uuid, text, text, date, date, integer, integer, integer, integer, timestamptz, uuid[], date[]) from public;
 revoke all on function public.create_plan(uuid, text, text, date, date, integer, integer, integer, integer, timestamptz, uuid[], date[]) from anon, authenticated;

@@ -36,6 +36,7 @@ declare
   n_requests integer;
   n_counters integer;
   n_audit integer;
+  n_audit_plans integer;
   result jsonb;
 begin
   -- Outbox and pipeline bookkeeping: 30 days. An unprocessed outbox row is
@@ -224,9 +225,20 @@ begin
   delete from jobs.rate_counters where window_start < now() - interval '1 day';
   get diagnostics n_counters = row_count;
 
-  -- Audit log: 12 months.
-  delete from private.audit_log where occurred_at < now() - interval '12 months';
+  -- Audit log: 12 months, except who started a plan (below).
+  -- `plan.created` (who started a plan, SUS-177) is not a 12-month fact: the
+  -- founder's organiser gate reads it for as long as the plan exists. It goes
+  -- when the plan does (a circle's deletion cascades to its plans), and not
+  -- before.
+  delete from private.audit_log
+  where occurred_at < now() - interval '12 months' and action <> 'plan.created';
   get diagnostics n_audit = row_count;
+
+  delete from private.audit_log a
+  where a.action = 'plan.created'
+    and not exists (select 1 from public.plans p where p.id = a.resource_id);
+  get diagnostics n_audit_plans = row_count;
+  n_audit := n_audit + n_audit_plans;
 
   result := jsonb_build_object(
     'outbox', n_outbox,

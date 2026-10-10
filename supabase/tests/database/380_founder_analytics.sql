@@ -504,10 +504,13 @@ select is(
   1::bigint,
   'a group that made another plan after its first meetup was confirmed has started a second meetup'
 );
--- Started by Nina, as the creation's own event says; Maya's was started by Maya.
-select jobs.emit('planning.plan_created', 'plan', p.id,
-  jsonb_build_object('organiser_user_id', case p.short_code
-    when 'fapaab' then '00000000-0000-0000-0000-0000000f0002' else '00000000-0000-0000-0000-0000000f0001' end))
+-- Started by Nina, as the plan's own audit row says (written by create_plan,
+-- 400_plan_creator.sql); Maya's was started by Maya.
+insert into private.audit_log (actor_user_id, action, resource_type, resource_id, occurred_at)
+select case p.short_code
+    when 'fapaab' then '00000000-0000-0000-0000-0000000f0002'::uuid
+    else '00000000-0000-0000-0000-0000000f0001'::uuid end,
+  'plan.created', 'plan', p.id, p.created_at
 from public.plans p where p.short_code in ('fapaaa', 'fapaab');
 select is(
   (select plans from analytics.gate_other_organiser where day = pg_temp.d(7)),
