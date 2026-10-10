@@ -460,6 +460,13 @@ CRON_SECRET = "local"
 # never shown again. A local stack's links are nobody's.
 INVITE_LINK_KEY = "local"
 
+# Local only, and the same kind of value: the key `generate-ics` signs the
+# calendar link's token with (ADR 0063). `dev` and `prod` each set their own with
+# `supabase secrets set CALENDAR_LINK_KEY=$(openssl rand -base64 32)`; without it
+# a deployed project makes no token and the app falls back to fetching the file
+# with the bearer, so the secret can be set after the code is deployed.
+CALENDAR_LINK_KEY = "local"
+
 [analytics]
 # Off locally. This is the CLI's Logflare log viewer, not the product's
 # analytics — those are a first-party `analytics` schema and SQL views
@@ -540,4 +547,13 @@ verify_jwt = false
 # Supabase JWT to send, so the gateway cannot be the thing that checks it. The
 # function does, and refuses every request while the secret is unset.
 [functions.email-provider-webhook]
+verify_jwt = false
+
+# The calendar file at a link (ADR 0063). A tap on the confirmed screen is a
+# plain navigation, which carries no bearer, so the gateway has no JWT to check
+# on it. The function authenticates both ways in itself: the member's bearer
+# (the file, or a token for it) and the short-lived HMAC token in the query
+# (the file only, for the one confirmation it was signed for). A request with
+# neither is refused before anything is read.
+[functions.generate-ics]
 verify_jwt = false

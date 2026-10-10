@@ -1741,6 +1741,40 @@ S["BusyButtons"] = shell(f'''
   </div>
 </div>''', width=900, minh=1300, css=AV_CSS + LB_CSS)
 
+# ---- Add to calendar sheet states (SUS-154) ----
+# The file is fetched when the confirmed screen loads, so the common case opens
+# on a ready row. The states below are what the row says when it is not.
+CAL_TITLE = "Apple or device calendar"
+def cal_sheet(*parts):
+    return shell(
+        '<div style="flex-grow:1;"></div>' +
+        f'<div style="background:{T["ground"]};border-radius:22px 22px 0 0;border-top:1px solid {T["line"]};padding:8px 22px 28px;display:flex;flex-direction:column;gap:14px;">'
+        f'<div style="width:40px;height:4px;border-radius:999px;background:{T["line"]};margin:0 auto 6px;"></div>'
+        + stack(title("Add Thursday to your calendar"), sm("Thu 17 Sep, 6:30–8:30 pm · Hope St Radio"), gap=2)
+        + "".join(parts)
+        + sm("Nothing is added to anyone's calendar without their tap.")
+        + sec("Cancel") + '</div>',
+        css=LB_CSS)
+def cal_ready(sub): return card(li(row_icon, CAL_TITLE, sub), gap=0, pad=6)
+def cal_failed(sub):
+    return card(f'<div class="li">{row_icon}<div class="stack" style="gap:2px;flex-grow:1;"><div class="title">{CAL_TITLE}</div><div class="sm">{sub}</div></div>{ter("Try again")}</div>', gap=0, pad=6)
+
+S["AddToCalendarPreparing"] = cal_sheet(card(li_busy(CAL_TITLE, "Getting it ready…"), gap=0, pad=6))
+S["AddToCalendarSlow"] = cal_sheet(card(li_busy(CAL_TITLE, "Still working on it…"), gap=0, pad=6))
+S["AddToCalendarReady"] = cal_sheet(cal_ready("Opens your Calendar"))
+S["AddToCalendarFailed"] = cal_sheet(cal_failed("We couldn't get it."))
+S["AddToCalendarAfterTap"] = cal_sheet(
+    cal_ready("Opens your Calendar"),
+    notice("Opening Calendar. If nothing appears, tap again.", icon="check", kind="ok"))
+# Where the tap is a download: Android and desktop get a link too (the browser saves it);
+# an in-app browser keeps the file path and says where to go if nothing opened.
+S["AddToCalendarAfterTapAndroid"] = cal_sheet(
+    cal_ready("Downloads an event file"),
+    notice("Saved. Open the file from your notifications or Downloads, then choose Calendar.", icon="check", kind="ok"))
+S["AddToCalendarInApp"] = cal_sheet(
+    cal_ready("Saves the event for Calendar"),
+    notice("Saved. If nothing opened, open this page in your browser and try again.", icon="check", kind="ok"))
+
 S["LoadingTiming"] = shell(f'''
 <div style="display:flex;flex-direction:column;gap:26px;padding:32px;">
   <div class="stack" style="gap:4px;">{wordmark()}<div class="sm">Timing. One set of numbers, shared by every busy button, row and loading screen, so a fast wait shows nothing and a long one says so.</div></div>
@@ -1822,7 +1856,7 @@ titles = {"Main":"Join · invite landing","ContinueAs":"Continue as · returning
           "PushAsk":"Push permission · contextual","CalendarExplain":"Calendar · before permission","CalendarPick":"Calendar · pick calendars","AvailabilityOverlay":"Availability · calendar overlay","CalendarDenied":"Calendar · denied",
           "ConversionMap":"Guest → app · the map","ConfirmedGuestNudge":"Locked in · reminder nudge","AppSheet":"App sheet · four things a browser can't do","ReattachedNudge":"Rejoined · save your place","SecondSent":"Second response · app nudge","AfterAttendance":"After attendance · start a circle","InitiateGate":"Wants to organise · sign in first","AppLanding":"App first open · linked",
           "EmptyCircle":"Empty circle","Offline":"Offline and error","Emails":"Email templates","Pushes":"Push copy","ShareMessages":"Share-sheet messages","Components":"Components and tokens",
-          "LoadingCircleHome":"Loading · circle home","LoadingOptions":"Loading · options","LoadingConfirmed":"Loading · confirmed","LoadingSlowEight":"Loading · still working, about 8 s","LoadingSlowTwenty":"Loading · try again, about 20 s","BusyRow":"Busy · list row","BusyButtons":"Busy · buttons","LoadingTiming":"Loading and busy · timing","LoadingMotion":"Loading and busy · reduced motion"}
+          "LoadingCircleHome":"Loading · circle home","LoadingOptions":"Loading · options","LoadingConfirmed":"Loading · confirmed","LoadingSlowEight":"Loading · still working, about 8 s","LoadingSlowTwenty":"Loading · try again, about 20 s","BusyRow":"Busy · list row","BusyButtons":"Busy · buttons","AddToCalendarPreparing":"Add to calendar · preparing","AddToCalendarSlow":"Add to calendar · still working, about 8 s","AddToCalendarReady":"Add to calendar · ready (iPhone, a link)","AddToCalendarFailed":"Add to calendar · failed, retry in the row","AddToCalendarAfterTap":"Add to calendar · after the tap (iPhone)","AddToCalendarAfterTapAndroid":"Add to calendar · after the tap (Android)","AddToCalendarInApp":"Add to calendar · WhatsApp or Messenger","LoadingTiming":"Loading and busy · timing","LoadingMotion":"Loading and busy · reduced motion"}
 
 def grid(names, page, per_row=6, y0=0):
     for i, n in enumerate(names):
@@ -1837,6 +1871,8 @@ grid(["Main","ContinueAs","Name","Availability","NoneWork","Sent",
       "AvailabilityOthersAdjusting","AvailabilityOthersFirst",
       "SentSwitchOff","SentCode","SentDone","SentPartial",
       "SentMember","SentMemberDone","SentSuppressed","SentSuppressedSaved"], "guest")
+# The add-to-calendar sheet over time (SUS-154): below the guest path's last row.
+grid(["AddToCalendarPreparing","AddToCalendarSlow","AddToCalendarReady","AddToCalendarFailed","AddToCalendarAfterTap","AddToCalendarAfterTapAndroid","AddToCalendarInApp"], "guest", y0=6*RY)
 # First run is plan-first (ADR 0026) and drafts before sign-in (ADR 0053): the
 # invite link and "people joining" are still screens, reached from circle home
 # and settings, but they are not steps.
@@ -1868,6 +1904,7 @@ annotations = [
     {"id":"first-flow","x":0,"y":-210,"w":900,"page":"first","text":"First time, organiser, in reading order, with no account until the plan is ready (ADR 0053). Row 1: first circle (name + loose cadence only) → first plan with defaults accepted in one tap → Save your place (the gate) → the email's code → name (time zone from the phone) → the plan's link ready for the chat.\nRow 2: the organiser's own times → sent → circle home with the plan live; then Sign in, for a returning organiser, who never meets the draft.\nThe first thing shared is a plan, not an invite (ADR 0026): one link, carrying the question, and whoever taps it joins on the way in. The invite link and the filling-up home are still screens, on the organiser page, reached from circle home or from 'Just invite people for now'.\nTwo typed inputs and one sign-in before the first real result; the sign-in is the third screen, never the first. No permissions, no photo, no contacts, no calendar. Apple and Google sit under the email button once SUS-77 lands."},
     {"id":"first-note-sso","x":0,"y":-60,"w":390,"page":"first","text":"Nothing is created until the place is saved: the circle and the plan are held on this device, survive a reload and the sign-in round trip, and are gone 24 hours after the last change. Walking away at Save leaves nothing in the database. A signed-in organiser skips Save and Your name."},
     {"id":"guest-flow","x":0,"y":-190,"w":900,"page":"guest","text":"Guest path, entirely on mobile web, in reading order. Row 1: link tapped from the group chat → Join → (returning with no session: Continue as) → Name → paint times → 'none of these' branch → Sent with the one-step card: an address, a 'Save my place' switch on by default, one button. Row 4 holds its other states: switch off, the code, done, and the place saved with the emails failed; row 5 the signed-in member's one-button card, its done line, and the two lines for an address that cannot be emailed.\nRow 2: email verification and no-sign-in preferences → Save access (the account screen, still reached from the Continue-as prompt and the organiser gate, no longer from Sent) → what a member (not the organiser) sees of the options → Confirmed.\nRow 3: add-to-calendar sheet, rescheduled and cancelled states, morning-after attendance, and an inactive invite link.\nZero account prompts before the answer."},
+    {"id":"guest-note-calendar","x":0,"y":6*RY-90,"w":900,"page":"guest","text":"Add to calendar, over time (SUS-154). The file is fetched when the confirmed screen loads, so the sheet normally opens on the ready row. Preparing: the row is visibly pending (spinner after about 150 ms, aria-busy, 'Getting it ready…'). After about 8 s it says 'Still working on it…'. On failure the row keeps its place and offers 'Try again' inside it. Ready: the line says what the tap does on this device. On an iPhone the row is a plain link to the file, signed for 15 minutes (ADR 0063), so the tap is one navigation and iOS opens its own Add to Calendar: 'Opens your Calendar'. On Android and desktop the same link downloads an event file ('Downloads an event file'). After the tap: on an iPhone, 'Opening Calendar. If nothing appears, tap again.'; on Android, 'Saved. Open the file from your notifications or Downloads, then choose Calendar.'. Inside WhatsApp or Messenger the row keeps the file path ('Saves the event for Calendar') and says 'Saved. If nothing opened, open this page in your browser and try again.' A deployment with no signing key falls back to that file path everywhere."},
     {"id":"guest-note-avail","x":3*GX,"y":-90,"w":390,"page":"guest","text":"Days first, then a time once (ADR 0024): tick the days, pick a block, and the answer is listed in words. A line opens to adjust that day by the half hour; the two states are on row 4. 'I'm easy' is the plan-level flexible response (review 6.5)."},
     {"id":"org-flow","x":0,"y":-210,"w":900,"page":"organiser","text":"Organiser path (signed in by email code). Row 1: sign in → code → first-run and populated circle lists → create circle → circle home while finding a time.\nRow 2: choose how to start → plan setup (+ custom window) → paste-to-chat moment → waiting with no options yet → candidates.\nRow 3: replies closed with no decision → edit plan with reconfirm warning → confirm review → confirmed → circle home locked in → change the time.\nRow 4: cancel → cancelled → no quorum → did it happen → circle home when it's about time → plan another, prefilled.\nRow 5: circle, notification and account settings, privacy, founder diagnostics.\nNo pricing prompt in MVP. Cadence copy never says 'on track' or 'overdue'."},
     {"id":"org-note-cand","x":5*GX,"y":RY-130,"w":390,"page":"organiser","text":"At most three options, each explains its rank, names who's in and who it doesn't work for. Never a heat map. The recommended card gets a 1.5px accent border, not a fill. Non-responders are never counted as available."},

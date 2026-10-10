@@ -45,3 +45,30 @@ export function saveFile(contents: string, filename: string, type: string): Save
     if (done !== undefined) setTimeout(() => URL.revokeObjectURL(done), 60_000);
   }
 }
+
+/**
+ * Following a link to a file, from inside a tap (ADR 0063).
+ *
+ * A plain navigation to a `text/calendar` response, which iOS Safari opens into
+ * the system "Add to Calendar" sheet and other browsers save. A hidden anchor
+ * clicked synchronously, like `saveFile`'s, so it counts as the tap's own
+ * navigation and a popup blocker has nothing to block; no `download`
+ * attribute, because that is exactly what stops iOS opening it as an event.
+ * The link is a credential for its lifetime: it is not logged or kept here.
+ */
+export function openLink(url: string): SaveResult {
+  if (Platform.OS !== 'web') return 'unsupported';
+  if (typeof document === 'undefined') return 'failed';
+  try {
+    const link = document.createElement('a');
+    link.href = url;
+    link.rel = 'noopener noreferrer';
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    return 'saved';
+  } catch {
+    return 'failed';
+  }
+}

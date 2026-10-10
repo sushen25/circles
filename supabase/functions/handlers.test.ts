@@ -2518,6 +2518,179 @@ describe('generate-ics', () => {
     const response = await load('generate-ics')(post({ confirmation_id: CONFIRMATION_ID }));
     expect(response.status).toBe(405);
   });
+
+  describe('the link a tap navigates to (ADR 0063)', () => {
+    const OTHER_ID = '00000000-0000-4000-8000-0000000000f2';
+
+    /** What a navigation sends: the token, and no bearer, no apikey, nothing. */
+    function navigate(query: Record<string, string>): Request {
+      const url = new URL('https://example.test/fn');
+      for (const [key, value] of Object.entries(query)) url.searchParams.set(key, value);
+      return new Request(url);
+    }
+
+    async function minted(id = CONFIRMATION_ID): Promise<{ token: string; expires_at: string }> {
+      state.users = [{ id: CALLER, is_anonymous: false }];
+      const response = await load('generate-ics')(get({ confirmation_id: id, format: 'link' }));
+      expect(response.status).toBe(200);
+      return (await response.json()) as { token: string; expires_at: string };
+    }
+
+    beforeEach(() => {
+      process.env.CALENDAR_LINK_KEY = 'a-key-for-the-tests';
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+      delete process.env.CALENDAR_LINK_KEY;
+    });
+
+    it('hands a member a token for the confirmation they can see, good for fifteen minutes', async () => {
+      vi.useFakeTimers({ now: new Date('2099-09-16T12:00:00Z') });
+      state.users = [{ id: CALLER, is_anonymous: false }];
+      const response = await load('generate-ics')(
+        get({ confirmation_id: CONFIRMATION_ID, format: 'link' }),
+      );
+
+      expect(response.headers.get('content-type')).toBe('application/json');
+      expect(response.headers.get('cache-control')).toBe('no-store');
+      expect(response.headers.get('content-disposition')).toBeNull();
+      const body = (await response.json()) as {
+        token: string;
+        expires_at: string;
+        expires_in: number;
+      };
+      expect(body.token).toMatch(/^\d+\.[A-Za-z0-9_-]{43}$/);
+      expect(body.expires_at).toBe('2099-09-16T12:15:00.000Z');
+      expect(body.expires_in).toBe(900);
+    });
+
+    it('hands no token to somebody who cannot see the confirmation', async () => {
+      state.rows = {};
+      const response = await load('generate-ics')(
+        get({ confirmation_id: CONFIRMATION_ID, format: 'link' }),
+      );
+      expect(response.status).toBe(404);
+      expect(await response.text()).not.toMatch(/\d+\.[A-Za-z0-9_-]{43}/);
+    });
+
+    it('hands no token when the deployment has no key, so the app falls back to the file', async () => {
+      delete process.env.CALENDAR_LINK_KEY;
+      expect(await minted()).toEqual({ token: null, expires_at: null, expires_in: null });
+    });
+
+    it('serves the file to a token with no bearer: text/calendar, inline, never cached', async () => {
+      const { token } = await minted();
+      state.reads = [];
+      state.tokens = [];
+
+      const response = await load('generate-ics')(
+        navigate({ confirmation_id: CONFIRMATION_ID, token }),
+      );
+
+      expect(response.status).toBe(200);
+      expect(response.headers.get('content-type')).toBe('text/calendar; charset=utf-8');
+      expect(response.headers.get('content-disposition')).toBe(
+        'inline; filename="sunday-crew-2099-09-17.ics"',
+      );
+      expect(response.headers.get('cache-control')).toBe('no-store');
+      expect(await response.text()).toContain('SUMMARY:Sunday Crew · Catch up');
+      // No bearer was looked up: the token was the whole of the authorisation.
+      expect(state.tokens).toEqual([]);
+    });
+
+    it('refuses a request with neither a token nor a bearer, and reads nothing', async () => {
+      const response = await load('generate-ics')(navigate({ confirmation_id: CONFIRMATION_ID }));
+      expect(response.status).toBe(401);
+      expect(state.reads).toEqual([]);
+    });
+
+    it('refuses an expired token, and reads nothing', async () => {
+      vi.useFakeTimers({ now: new Date('2099-09-16T12:00:00Z') });
+      const { token } = await minted();
+      state.reads = [];
+
+      vi.setSystemTime(new Date('2099-09-16T12:15:00Z'));
+      const response = await load('generate-ics')(
+        navigate({ confirmation_id: CONFIRMATION_ID, token }),
+      );
+
+      expect(response.status).toBe(404);
+      expect(await response.json()).toMatchObject({ reason: 'token_invalid' });
+      expect(state.reads).toEqual([]);
+    });
+
+    it('refuses a token made for another confirmation, and reads nothing', async () => {
+      const { token } = await minted(OTHER_ID);
+      state.reads = [];
+
+      const response = await load('generate-ics')(
+        navigate({ confirmation_id: CONFIRMATION_ID, token }),
+      );
+
+      expect(response.status).toBe(404);
+      expect(await response.json()).toMatchObject({ reason: 'token_invalid' });
+      expect(state.reads).toEqual([]);
+    });
+
+    it('refuses a tampered token, and says no more about it than about an expired one', async () => {
+      const { token } = await minted();
+      const [exp = '', mac = ''] = token.split('.');
+      state.reads = [];
+      const tampered = [
+        `${Number(exp) + 3600}.${mac}`,
+        `${exp}.${mac.slice(0, -1)}${mac.endsWith('A') ? 'B' : 'A'}`,
+        `${exp}.${'A'.repeat(43)}`,
+      ];
+
+      for (const bad of tampered) {
+        const response = await load('generate-ics')(
+          navigate({ confirmation_id: CONFIRMATION_ID, token: bad }),
+        );
+        expect(response.status).toBe(404);
+        expect(await response.json()).toMatchObject({ reason: 'token_invalid' });
+      }
+      const junk = await load('generate-ics')(
+        navigate({ confirmation_id: CONFIRMATION_ID, token: 'not-a-token' }),
+      );
+      expect(junk.status).toBe(400);
+      expect(state.reads).toEqual([]);
+    });
+
+    it('refuses every token while no key is configured', async () => {
+      const { token } = await minted();
+      delete process.env.CALENDAR_LINK_KEY;
+      state.reads = [];
+
+      const response = await load('generate-ics')(
+        navigate({ confirmation_id: CONFIRMATION_ID, token }),
+      );
+
+      expect(response.status).toBe(404);
+      expect(state.reads).toEqual([]);
+    });
+
+    it('never writes the token to a log line', async () => {
+      const lines: string[] = [];
+      const spies = (['log', 'warn', 'error'] as const).map((level) =>
+        vi
+          .spyOn(console, level)
+          .mockImplementation((...args: unknown[]) => void lines.push(args.map(String).join(' '))),
+      );
+      try {
+        const { token } = await minted();
+        await load('generate-ics')(navigate({ confirmation_id: CONFIRMATION_ID, token }));
+        await load('generate-ics')(
+          navigate({ confirmation_id: CONFIRMATION_ID, token: `${token}x` }),
+        );
+        const mac = token.split('.')[1] ?? '';
+        expect(lines.length).toBeGreaterThan(0);
+        for (const line of lines) expect(line).not.toContain(mac);
+      } finally {
+        for (const spy of spies) spy.mockRestore();
+      }
+    });
+  });
 });
 
 describe('request-email-updates', () => {

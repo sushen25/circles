@@ -289,6 +289,69 @@
       "title": "Sent \u00b7 suppressed, after the code"
     },
     {
+      "file": "AddToCalendarPreparing.dc.html",
+      "x": 0,
+      "y": 7800,
+      "w": 390,
+      "h": 844,
+      "page": "guest",
+      "title": "Add to calendar \u00b7 preparing"
+    },
+    {
+      "file": "AddToCalendarSlow.dc.html",
+      "x": 480,
+      "y": 7800,
+      "w": 390,
+      "h": 844,
+      "page": "guest",
+      "title": "Add to calendar \u00b7 still working, about 8 s"
+    },
+    {
+      "file": "AddToCalendarReady.dc.html",
+      "x": 960,
+      "y": 7800,
+      "w": 390,
+      "h": 844,
+      "page": "guest",
+      "title": "Add to calendar \u00b7 ready (iPhone, a link)"
+    },
+    {
+      "file": "AddToCalendarFailed.dc.html",
+      "x": 1440,
+      "y": 7800,
+      "w": 390,
+      "h": 844,
+      "page": "guest",
+      "title": "Add to calendar \u00b7 failed, retry in the row"
+    },
+    {
+      "file": "AddToCalendarAfterTap.dc.html",
+      "x": 1920,
+      "y": 7800,
+      "w": 390,
+      "h": 844,
+      "page": "guest",
+      "title": "Add to calendar \u00b7 after the tap (iPhone)"
+    },
+    {
+      "file": "AddToCalendarAfterTapAndroid.dc.html",
+      "x": 2400,
+      "y": 7800,
+      "w": 390,
+      "h": 844,
+      "page": "guest",
+      "title": "Add to calendar \u00b7 after the tap (Android)"
+    },
+    {
+      "file": "AddToCalendarInApp.dc.html",
+      "x": 0,
+      "y": 9100,
+      "w": 390,
+      "h": 844,
+      "page": "guest",
+      "title": "Add to calendar \u00b7 WhatsApp or Messenger"
+    },
+    {
       "file": "FirstCircle.dc.html",
       "x": 0,
       "y": 0,
@@ -1005,6 +1068,14 @@
       "w": 900,
       "page": "guest",
       "text": "Guest path, entirely on mobile web, in reading order. Row 1: link tapped from the group chat \u2192 Join \u2192 (returning with no session: Continue as) \u2192 Name \u2192 paint times \u2192 'none of these' branch \u2192 Sent with the one-step card: an address, a 'Save my place' switch on by default, one button. Row 4 holds its other states: switch off, the code, done, and the place saved with the emails failed; row 5 the signed-in member's one-button card, its done line, and the two lines for an address that cannot be emailed.\nRow 2: email verification and no-sign-in preferences \u2192 Save access (the account screen, still reached from the Continue-as prompt and the organiser gate, no longer from Sent) \u2192 what a member (not the organiser) sees of the options \u2192 Confirmed.\nRow 3: add-to-calendar sheet, rescheduled and cancelled states, morning-after attendance, and an inactive invite link.\nZero account prompts before the answer."
+    },
+    {
+      "id": "guest-note-calendar",
+      "x": 0,
+      "y": 7710,
+      "w": 900,
+      "page": "guest",
+      "text": "Add to calendar, over time (SUS-154). The file is fetched when the confirmed screen loads, so the sheet normally opens on the ready row. Preparing: the row is visibly pending (spinner after about 150 ms, aria-busy, 'Getting it ready\u2026'). After about 8 s it says 'Still working on it\u2026'. On failure the row keeps its place and offers 'Try again' inside it. Ready: the line says what the tap does on this device. On an iPhone the row is a plain link to the file, signed for 15 minutes (ADR 0063), so the tap is one navigation and iOS opens its own Add to Calendar: 'Opens your Calendar'. On Android and desktop the same link downloads an event file ('Downloads an event file'). After the tap: on an iPhone, 'Opening Calendar. If nothing appears, tap again.'; on Android, 'Saved. Open the file from your notifications or Downloads, then choose Calendar.'. Inside WhatsApp or Messenger the row keeps the file path ('Saves the event for Calendar') and says 'Saved. If nothing opened, open this page in your browser and try again.' A deployment with no signing key falls back to that file path everywhere."
     },
     {
       "id": "guest-note-avail",

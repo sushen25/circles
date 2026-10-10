@@ -37,6 +37,13 @@ export interface Download {
   contentType: string;
   filename: string;
   /**
+   * `attachment` (the default) is a download. `inline` is what iOS Safari wants
+   * for a calendar file reached by a link: it opens the system "Add to
+   * Calendar" sheet for one and offers to download the other. `none` is for an
+   * answer that is not a file at all and has no name to give.
+   */
+  disposition?: 'attachment' | 'inline' | 'none';
+  /**
    * Seconds a browser may reuse the answer for. **Zero means `no-store`**, not
    * "stale immediately": a file describing something that can be cancelled is
    * worth re-fetching, and a cache that serves the old one is wrong about when
@@ -50,6 +57,38 @@ interface DownloadSpec<Schema extends z.ZodType> {
   /** Parses the query string. A GET has no body to validate. */
   schema: Schema;
   handle: (context: DownloadHandling<z.infer<Schema>>) => Promise<Download>;
+  /**
+   * A second way in, for a request that carries a `token` in its query and no
+   * bearer: a navigation, which cannot send one. The token is the whole of the
+   * authorisation, so whatever this does must check it before it reads
+   * anything (ADR 0063). A request with a `token` never reaches `handle`, and
+   * one without never reaches this.
+   */
+  byToken?: (context: {
+    query: z.infer<Schema>;
+    service: Db;
+    request: Request;
+    requestId: string;
+  }) => Promise<Download>;
+}
+
+function answer(file: Download, requestId: string): Response {
+  const disposition = file.disposition ?? 'attachment';
+  return new Response(file.body, {
+    status: 200,
+    headers: {
+      ...CORS,
+      'content-type': file.contentType,
+      // The filename is quoted and ASCII by construction (`icsFilename`
+      // slugs it), so there is no header injection to worry about and no
+      // `filename*` encoding to get wrong.
+      ...(disposition === 'none'
+        ? {}
+        : { 'content-disposition': `${disposition}; filename="${file.filename}"` }),
+      'cache-control': file.maxAge === 0 ? 'no-store' : `private, max-age=${file.maxAge}`,
+      'x-request-id': requestId,
+    },
+  });
 }
 
 export function downloadHandler<Schema extends z.ZodType>(
@@ -74,6 +113,35 @@ export function downloadHandler<Schema extends z.ZodType>(
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
     if (request.method !== 'GET') {
       return fail(plainProblem('invalid_request', 405, 'That address takes a GET.', requestId));
+    }
+
+    if (spec.byToken !== undefined && new URL(request.url).searchParams.has('token')) {
+      const parsedLink = spec.schema.safeParse(
+        Object.fromEntries(new URL(request.url).searchParams.entries()),
+      );
+      if (!parsedLink.success) {
+        // Said the same as a bad token: nothing about which part was wrong.
+        return fail(plainProblem('invalid_request', 400, 'That link was not usable.', requestId));
+      }
+      try {
+        const file = await spec.byToken({
+          query: parsedLink.data,
+          service: asService(),
+          request,
+          requestId,
+        });
+        log('info', {
+          fn: spec.name,
+          request_id: requestId,
+          event: 'handled',
+          status: 200,
+          duration_ms: Date.now() - started,
+        });
+        return answer(file, requestId);
+      } catch (thrown) {
+        const problem = problemOf(thrown, requestId);
+        return fail(problem, problem.code);
+      }
     }
 
     const authorization = request.headers.get('authorization');
@@ -136,19 +204,7 @@ export function downloadHandler<Schema extends z.ZodType>(
         duration_ms: Date.now() - started,
       });
 
-      return new Response(file.body, {
-        status: 200,
-        headers: {
-          ...CORS,
-          'content-type': file.contentType,
-          // The filename is quoted and ASCII by construction (`icsFilename`
-          // slugs it), so there is no header injection to worry about and no
-          // `filename*` encoding to get wrong.
-          'content-disposition': `attachment; filename="${file.filename}"`,
-          'cache-control': file.maxAge === 0 ? 'no-store' : `private, max-age=${file.maxAge}`,
-          'x-request-id': requestId,
-        },
-      });
+      return answer(file, requestId);
     } catch (thrown) {
       const problem = problemOf(thrown, requestId);
       return fail(problem, problem.code);
