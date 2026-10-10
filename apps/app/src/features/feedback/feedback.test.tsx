@@ -4,12 +4,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { t } from '../../copy';
 import { FeedbackLink } from './FeedbackLink';
+import type * as FeedbackModule from './feedback';
 import { feedbackMailto, feedbackSubject, type FeedbackScreen } from './feedback';
 
 const mocks = vi.hoisted(() => ({ track: vi.fn(), open: vi.fn() }));
 vi.mock('../../analytics/track', () => ({ track: mocks.track }));
-vi.mock('./feedback', async (original) => ({
-  ...(await original<typeof import('./feedback')>()),
+vi.mock('./feedback', async () => ({
+  ...(await vi.importActual<typeof FeedbackModule>('./feedback')),
   openFeedbackMail: mocks.open,
 }));
 
