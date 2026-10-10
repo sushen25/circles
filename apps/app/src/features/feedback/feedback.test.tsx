@@ -1,5 +1,6 @@
 import { brand } from '@circles/config';
 import { act, fireEvent, render, screen } from '@testing-library/react';
+import { Platform } from 'react-native';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { t } from '../../copy';
@@ -96,5 +97,18 @@ describe('FeedbackLink', () => {
     expect(mocks.copy).toHaveBeenCalledWith(brand.supportEmail);
     expect(screen.getByRole('button', { name: 'Address copied' })).toBeTruthy();
     expect(mocks.track).toHaveBeenCalledTimes(1);
+  });
+
+  it('on a phone offers no Copy pill, which could not say the clipboard changed', () => {
+    const was = Platform.OS;
+    Platform.OS = 'ios';
+    try {
+      render(<FeedbackLink screen="sent" />);
+      fireEvent.click(screen.getByRole('button', { name: t('feedback', 'link') }));
+      expect(screen.getByText(`No mail app? Write to ${brand.supportEmail}`)).toBeTruthy();
+      expect(screen.queryByRole('button', { name: 'Copy address' })).toBeNull();
+    } finally {
+      Platform.OS = was;
+    }
   });
 });
