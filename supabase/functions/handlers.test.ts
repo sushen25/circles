@@ -2555,9 +2555,14 @@ describe('generate-ics', () => {
       expect(response.headers.get('content-type')).toBe('application/json');
       expect(response.headers.get('cache-control')).toBe('no-store');
       expect(response.headers.get('content-disposition')).toBeNull();
-      const body = (await response.json()) as { token: string; expires_at: string };
+      const body = (await response.json()) as {
+        token: string;
+        expires_at: string;
+        expires_in: number;
+      };
       expect(body.token).toMatch(/^\d+\.[A-Za-z0-9_-]{43}$/);
       expect(body.expires_at).toBe('2099-09-16T12:15:00.000Z');
+      expect(body.expires_in).toBe(900);
     });
 
     it('hands no token to somebody who cannot see the confirmation', async () => {
@@ -2571,7 +2576,7 @@ describe('generate-ics', () => {
 
     it('hands no token when the deployment has no key, so the app falls back to the file', async () => {
       delete process.env.CALENDAR_LINK_KEY;
-      expect(await minted()).toEqual({ token: null, expires_at: null });
+      expect(await minted()).toEqual({ token: null, expires_at: null, expires_in: null });
     });
 
     it('serves the file to a token with no bearer: text/calendar, inline, never cached', async () => {

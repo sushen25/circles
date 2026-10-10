@@ -125,7 +125,9 @@ export async function calendarFile(confirmationId: string): Promise<string> {
  * link is that token on the function's own address. **It is a credential for
  * a quarter of an hour**: it goes to the row's tap and nowhere else, not into
  * analytics, a log or storage, and `expiresAt` is what the caller refreshes
- * it by.
+ * it by. `expiresAt` is on **this device's clock**, worked out from the seconds
+ * the server says are left, so a phone whose clock is wrong still knows when
+ * its link runs out.
  */
 export type CalendarLink = { url: string; expiresAt: number };
 
@@ -143,13 +145,13 @@ export async function calendarLink(confirmationId: string): Promise<CalendarLink
   }
   const parsed = GenerateIcsLinkResponse.safeParse(data);
   if (!parsed.success) throw new FunctionError(undefined, 'generate-ics failed');
-  const { token, expires_at: expiresAt } = parsed.data;
-  if (token === null || expiresAt === null) return null;
+  const { token, expires_in: seconds } = parsed.data;
+  if (token === null || seconds === null) return null;
 
   const base = process.env.EXPO_PUBLIC_SUPABASE_URL;
   if (base === undefined || base === '') throw new FunctionError(undefined, 'generate-ics failed');
   const link = new URL(`${base.replace(/\/+$/, '')}/functions/v1/generate-ics`);
   link.searchParams.set('confirmation_id', confirmationId);
   link.searchParams.set('token', token);
-  return { url: link.toString(), expiresAt: Date.parse(expiresAt) };
+  return { url: link.toString(), expiresAt: Date.now() + seconds * 1000 };
 }
