@@ -20,7 +20,7 @@
  * A run that has finished and is not a success never waits.
  *
  * `check` is the last job of `check.yml`, which has several jobs (SUS-179), and
- * it does not exist until the others are done; while a run of that workflow for
+ * it does not exist until the others are done (GitHub creates a job's check run when the job starts); while a run of that workflow for
  * the commit has not finished the answer is "pending", not "none".
  *
  * Only runs named `check` that GitHub Actions itself created count. Any app can
@@ -167,12 +167,20 @@ async function main() {
   const startedAt = Date.now();
   const POLL_MS = 30_000;
 
+  // When the commit last looked like it had no run at all: `none` right after
+  // minutes of `pending` (the workflow finished, its `check` run is not listed
+  // yet) gets its grace from there, not from the start.
+  let noRunSince = startedAt;
   for (;;) {
     const elapsed = Math.round((Date.now() - startedAt) / 1000);
-    const verdict = judge(fetchRuns(repo, sha), fetchWorkflowRuns(repo, sha));
+    // Workflow runs first: a re-run that starts between the two reads then
+    // shows as pending, instead of the previous attempt's check run deciding.
+    const workflowRuns = fetchWorkflowRuns(repo, sha);
+    const verdict = judge(fetchRuns(repo, sha), workflowRuns);
+    if (verdict.state !== 'none') noRunSince = Date.now();
     const action = decide(verdict, {
       waiting,
-      noRunForSeconds: elapsed,
+      noRunForSeconds: Math.round((Date.now() - noRunSince) / 1000),
       graceSeconds,
     });
     if (action === 'done') {

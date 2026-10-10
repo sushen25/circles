@@ -231,7 +231,7 @@ const checkYamlRules = (doc, fail, scripts) => {
     fail('`check` has `continue-on-error`: a red verdict must be red');
   }
   const judging = (verdict.steps ?? []).filter(
-    (s) => typeof s?.run === 'string' && s.run.includes('check-verdict.mjs'),
+    (s) => typeof s?.run === 'string' && s.run.trim() === 'node scripts/check-verdict.mjs',
   );
   if (judging.length === 0) {
     fail('`check` does not run scripts/check-verdict.mjs, so nothing judges the other jobs');
@@ -263,6 +263,23 @@ const checkYamlRules = (doc, fail, scripts) => {
       fail(
         `\`${id}\` needs a \`timeout-minutes\` of 20 or less (30 was one job, and it was 27 minutes long)`,
       );
+    }
+  }
+
+  // 3b. Nothing in check.yml may fail quietly or skip part of a matrix.
+  for (const [id, job] of Object.entries(jobs)) {
+    const matrix = job?.strategy?.matrix ?? {};
+    if (matrix.include !== undefined || matrix.exclude !== undefined) {
+      fail(
+        `\`${id}\` uses matrix include/exclude: a shard could be dropped without \`shard\` changing`,
+      );
+    }
+    for (const step of job?.steps ?? []) {
+      if (step?.['continue-on-error'] !== undefined) {
+        fail(
+          `a step of \`${id}\` has \`continue-on-error\`: it could fail and \`check\` would go green`,
+        );
+      }
     }
   }
 
@@ -304,7 +321,15 @@ const checkYamlRules = (doc, fail, scripts) => {
       );
       continue;
     }
-    for (const { id, job, step } of uses) {
+    for (const { id, job, step, args } of uses) {
+      // The whole script is the one command: `|| true`, a pipe, `; true` or a
+      // second line would all let a red suite exit 0.
+      const expected = `pnpm run ${part}${args ? ` ${args}` : ''}`;
+      if (String(step.run).trim() !== expected || /[|&;\n]/.test(args)) {
+        fail(
+          `\`${id}\` runs \`pnpm run ${part}\` as more than that one command (\`${String(step.run).trim()}\`): its exit status could be hidden`,
+        );
+      }
       const jobIf = norm(job.if);
       const stepIf = norm(step.if);
       const fine = (cond) => cond === undefined || KIND_IF.test(cond);
@@ -584,6 +609,17 @@ for (const dir of DIRS) {
     }
 
     ciRules(path, file, doc);
+
+    // Branch protection matches a check by name and any Actions job will do:
+    // a quick job called `check` elsewhere would turn the required check green
+    // minutes before the real one exists (SUS-179).
+    if (file !== 'check.yml') {
+      for (const [id, job] of Object.entries(doc?.jobs ?? {})) {
+        if (id === 'check' || job?.name === 'check') {
+          problems.push(`${path}: job \`${id}\` is named \`check\`; only check.yml may have one`);
+        }
+      }
+    }
 
     for (const [jobName, job] of Object.entries(doc?.jobs ?? {})) {
       const steps = Array.isArray(job?.steps) ? job.steps : [];

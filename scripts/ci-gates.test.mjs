@@ -574,6 +574,49 @@ test('mutation: the shard is the matrix value, and every segment of pnpm check i
   assert.match(`${result.stdout}${result.stderr}`, /which is not a plain `pnpm run NAME`/);
 });
 
+test('mutation: a red suite cannot be hidden by the way it is run', () => {
+  for (const edit of [
+    (t) => t.replace('run: pnpm run check:stack', 'run: pnpm run check:stack || true'),
+    (t) => t.replace('run: pnpm run check:static', 'run: pnpm run check:static | tee out.log'),
+    (t) =>
+      t.replace(
+        'pnpm run test:e2e:live --shard="$SHARD"',
+        'pnpm run test:e2e:live --shard="$SHARD"; true',
+      ),
+    (t) =>
+      t.replace(
+        'run: node scripts/check-verdict.mjs',
+        'run: node scripts/check-verdict.mjs || true',
+      ),
+    (t) =>
+      t.replace('run: node scripts/check-verdict.mjs', 'run: echo node scripts/check-verdict.mjs'),
+    (t) =>
+      t.replace(
+        "shard: ['1/2', '2/2']",
+        "shard: ['1/2', '2/2']\n        exclude:\n          - shard: '2/2'",
+      ),
+    (t) =>
+      t.replace(
+        'uses: gitleaks/gitleaks-action@v2',
+        'continue-on-error: true\n        uses: gitleaks/gitleaks-action@v2',
+      ),
+  ]) {
+    const r = checkWorkflowsOn(edit);
+    assert.equal(r.status, 1, r.output);
+  }
+});
+
+test('mutation: another workflow may not have a job called check', () => {
+  const r = checkWorkflowsOn(null, '.github/workflows/preview.yml', (t) =>
+    t.replace(
+      /\njobs:\n/,
+      '\njobs:\n  check:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo ok\n',
+    ),
+  );
+  assert.equal(r.status, 1);
+  assert.match(r.output, /only check\.yml may have one/);
+});
+
 test('mutation: the live shards cover the whole suite', () => {
   let r = checkWorkflowsOn((t) => t.replace("shard: ['1/2', '2/2']", "shard: ['1/2']"));
   assert.equal(r.status, 1);

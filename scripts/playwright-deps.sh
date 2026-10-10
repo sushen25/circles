@@ -17,7 +17,11 @@ for attempt in 1 2 3; do
     exit 0
   fi
   echo "playwright install-deps $* did not finish (attempt $attempt of 3)" >&2
-  # A killed apt can leave dpkg half-configured; put it right before trying again.
+  # `timeout` runs as the runner user and cannot signal the root-owned
+  # `sudo sh -c "apt-get …"` below pnpm, so the hung apt-get is still holding
+  # the dpkg lock. Kill it by name, then put dpkg right before trying again.
+  sudo pkill -9 -x apt-get || true
+  sudo pkill -9 -x apt || true
   sudo dpkg --configure -a || true
 done
 echo "playwright install-deps $* failed three times" >&2
