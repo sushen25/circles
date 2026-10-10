@@ -39,12 +39,13 @@ jobs:
   wait-for-check:
     name: wait for check
     runs-on: ubuntu-latest
-    # `check` has a 30-minute limit and a median of 27, so the wait is longer.
+    # `check` is several jobs side by side (about 10 minutes, SUS-179); 45 leaves room for a slow run and a re-run.
     timeout-minutes: 45
     # No environment, so no secrets: it reads the checks API with the workflow's
     # own token and nothing else.
     permissions:
       contents: read
+      actions: read
       checks: read
     steps:
       - uses: actions/checkout@v4

@@ -6,7 +6,9 @@
     "node": ">=22"
   },
   "scripts": {
-    "check": "pnpm run format:check && pnpm run lint && pnpm run check:brand && pnpm run check:tokens && pnpm run typecheck && pnpm run check:imports && pnpm run check:migrations && pnpm run check:transitions && pnpm run check:events && pnpm run check:functions && pnpm run check:workflows && pnpm run check:docs && pnpm run test:unit && pnpm run db:test && pnpm run test:integration && pnpm run check:types && pnpm run test:e2e:smoke && pnpm run test:e2e:live",
+    "check": "pnpm run check:static && pnpm run check:stack && pnpm run test:e2e:live",
+    "check:static": "pnpm run format:check && pnpm run lint && pnpm run check:brand && pnpm run check:tokens && pnpm run typecheck && pnpm run check:imports && pnpm run check:migrations && pnpm run check:transitions && pnpm run check:events && pnpm run check:functions && pnpm run check:workflows && pnpm run check:docs && pnpm run test:unit",
+    "check:stack": "pnpm run db:test && pnpm run test:integration && pnpm run check:types && pnpm run test:e2e:smoke",
     "dev": "pnpm --filter app exec expo start",
     "dev:web": "pnpm --filter app exec expo start --web",
     "dev:ios": "pnpm --filter app run ios",
@@ -44,7 +46,7 @@
     "check:transitions": "node scripts/gen-transitions.mjs --check",
     "check:events": "node scripts/gen-events.mjs --check",
     "check:functions": "node scripts/gen-sql-functions.mjs --check",
-    "check:workflows": "node scripts/check-workflows.mjs && node --test scripts/ci-gates.test.mjs",
+    "check:workflows": "node scripts/check-workflows.mjs && node --experimental-strip-types --test scripts/ci-gates.test.mjs scripts/e2e-live-scopes.test.mjs",
     "check:docs": "node scripts/check-docs.mjs",
     "check:env": "node scripts/check-environment.mjs",
     "check:client-env": "node scripts/check-client-env.mjs"

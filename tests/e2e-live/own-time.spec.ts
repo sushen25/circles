@@ -1,3 +1,4 @@
+// @e2e: core
 import { expect, test, type Page } from './fixtures';
 import { addressFor, joinsAndAnswers, signedInAs, subscribesFromSent } from './journeys';
 import { lettersTo, runDispatcher } from './mail';

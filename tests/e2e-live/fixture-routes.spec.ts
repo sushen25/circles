@@ -1,3 +1,4 @@
+// @e2e: core
 import { expect, test } from './fixtures';
 
 /**

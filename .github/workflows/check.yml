@@ -1,5 +1,13 @@
 # The gate. It runs exactly what `pnpm check` runs locally (architecture §16),
 # because a CI that checks something different is a CI people learn to ignore.
+#
+# `pnpm check` is `check:static`, `check:stack` and `test:e2e:live`, and each
+# is a job here, side by side (SUS-179: one job took 27 of its 30 minutes, 15 of
+# them the live suite). The live suite is sharded across two runners. The last
+# job, named `check`, is the one verdict: `deploy-dev`, `deploy-prod`
+# (scripts/green-check.mjs) and the branch protection on `main` ask for a
+# check named `check`, and it succeeds only when every other job did.
+# `check:workflows` holds that shape in place.
 name: check
 
 on:
@@ -25,11 +33,12 @@ permissions:
   pull-requests: read
 
 jobs:
-  check:
-    name: check
+  scope:
+    name: scope
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-
+    timeout-minutes: 10
+    outputs:
+      kind: ${{ steps.scope.outputs.kind }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -40,15 +49,15 @@ jobs:
 
       - name: Look for secrets before doing anything else
         # Cheap, and the one failure where finishing the build first would be
-        # actively unhelpful.
+        # actively unhelpful: every other job waits for this one.
         uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: What kind of change is this
         id: scope
-        # The job always runs and always reports, even for prose. Skipping it
-        # with `paths-ignore` would skip gitleaks too, and a Markdown file is
+        # The workflow always runs and always reports, even for prose. Skipping
+        # it with `paths-ignore` would skip gitleaks too, and a Markdown file is
         # exactly where somebody pastes a token. It would also leave a required
         # status check permanently pending once branch protection is on.
         env:
@@ -77,6 +86,20 @@ jobs:
             echo "Only Markdown and \`.claude/\` changed. Secret scanning and \`format:check\` still ran; the suites cannot be affected by these files, so they did not." >> "$GITHUB_STEP_SUMMARY"
           fi
 
+  # `pnpm check:static`: formatting, lint, the small checks, typecheck and the
+  # unit tests. No database. For prose it is Prettier and the docs check.
+  static:
+    name: static
+    needs: scope
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # `check:migrations` compares with the base branch.
+          fetch-depth: 0
+
       - uses: pnpm/action-setup@v4
 
       - uses: actions/setup-node@v4
@@ -91,30 +114,58 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Prose only — formatting and the docs check
-        if: steps.scope.outputs.kind == 'prose'
+        if: needs.scope.outputs.kind == 'prose'
         run: pnpm run format:check && pnpm run check:docs
 
-      # Two engines since S1-31: Chromium for Chrome on Android and the Android
-      # in-app browsers, WebKit for mobile Safari and the iOS ones. The browser
-      # set is in the key, so a cache made before WebKit was added is not taken
-      # for one that has it.
+      - name: pnpm check:static
+        if: needs.scope.outputs.kind == 'code'
+        env:
+          # What `check:migrations` compares the migrations with: the pull
+          # request's base branch, so a PR stacked on another ticket's branch
+          # holds one new migration, not the stack's. Through the environment,
+          # never interpolated into the script.
+          MIGRATION_BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || 'origin/main' }}
+        run: pnpm run check:static
+
+  # `pnpm check:stack`: pgTAP, the integration suite, the generated types and
+  # the smoke suite, against a local Supabase.
+  database:
+    name: database
+    needs: scope
+    if: needs.scope.outputs.kind == 'code'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # The smoke suite is Chromium only.
       - name: Cache Playwright browsers
         id: playwright-cache
-        if: steps.scope.outputs.kind == 'code'
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-chromium-webkit-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          key: playwright-chromium-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
 
-      - if: steps.scope.outputs.kind == 'code' && steps.playwright-cache.outputs.cache-hit != 'true'
-        run: pnpm exec playwright install --with-deps chromium webkit
+      - name: Download Chromium
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        timeout-minutes: 6
+        run: pnpm exec playwright install chromium
 
-      # The cache holds the browsers, not the system libraries they load, and
-      # the runner image has Chromium's but not WebKit's (GStreamer, libwoff,
-      # libavif …). On a cache hit the step above is skipped, so this one is not.
-      - name: WebKit's system libraries
-        if: steps.scope.outputs.kind == 'code' && steps.playwright-cache.outputs.cache-hit == 'true'
-        run: pnpm exec playwright install-deps webkit
+      - name: Chromium's system libraries
+        timeout-minutes: 12
+        run: scripts/playwright-deps.sh chromium
 
       # Edge Functions import `@circles/domain` and `@circles/contracts` from
       # `dist/`, which is gitignored, so the runtime cannot even start without
@@ -125,11 +176,9 @@ jobs:
       # not `pnpm check`"); enabling `edge-runtime` here brings the lesson
       # along with it.
       - name: Build the workspace packages
-        if: steps.scope.outputs.kind == 'code'
         run: pnpm run build
 
       - name: Start Supabase
-        if: steps.scope.outputs.kind == 'code'
         # The workspace CLI, not `supabase/setup-cli`. There were two of them:
         # the action installed `latest` for this step while `pnpm check`'s own
         # `db:test` and `check:types` resolved the pinned devDependency through
@@ -137,33 +186,135 @@ jobs:
         # test against a CLI nobody has locally. The action also resolves
         # `latest` through the GitHub API, which rate-limited and failed a run.
         #
-        # `pnpm check` resets the database and runs pgTAP, `check:types`
+        # `check:stack` resets the database and runs pgTAP, `check:types`
         # generates types from the live schema, and `test:integration` drives
         # the real sign-in journey.
         #
         # **`inbucket` and `edge-runtime` are no longer excluded**, and were
         # until S1-14. That suite reads a sign-in code out of Mailpit and calls
         # `create-circle`, `redeem-invite` and `claim-identity` — without those
-        # two services `pnpm check` passes locally, where the whole stack is
-        # up, and fails here. AGENTS.md promises the two are the same command;
+        # two services the gate passes locally, where the whole stack is up, and
+        # fails here. AGENTS.md promises the two are the same command;
         # excluding a service the gate needs is how that promise quietly stops
         # being true.
         run: pnpm exec supabase start -x realtime,storage-api,imgproxy,studio,logflare,vector,supavisor
 
-      - name: pnpm check
-        if: steps.scope.outputs.kind == 'code'
-        env:
-          # What `check:migrations` compares the migrations with: the pull
-          # request's base branch, so a PR stacked on another ticket's branch
-          # holds one new migration, not the stack's. Through the environment,
-          # never interpolated into the script.
-          MIGRATION_BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || 'origin/main' }}
-        run: pnpm check
+      - name: pnpm check:stack
+        run: pnpm run check:stack
 
       - name: Upload the Playwright report
-        if: failure()
+        # Not `failure()`: a job that hit its timeout is cancelled, and that is
+        # exactly when the report is wanted.
+        if: ${{ !success() }}
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report
-          path: playwright-report/
+          name: playwright-report-smoke
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
           retention-days: 7
+
+  # `pnpm test:e2e:live`, in two shards on two runners, each with a stack of its
+  # own. Playwright splits the tests of all five projects between them.
+  live:
+    name: live (${{ matrix.shard }})
+    needs: scope
+    if: needs.scope.outputs.kind == 'code'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      # One shard failing says nothing about the other, and the second report
+      # is worth having.
+      fail-fast: false
+      matrix:
+        shard: ['1/2', '2/2']
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # Two engines since S1-31: Chromium for Chrome on Android and the Android
+      # in-app browsers, WebKit for mobile Safari and the iOS ones. The browser
+      # set is in the key, so a cache made before WebKit was added is not taken
+      # for one that has it.
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-webkit-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+
+      - name: Download Chromium and WebKit
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        timeout-minutes: 6
+        run: pnpm exec playwright install chromium webkit
+
+      # The cache holds the browsers, not the system libraries they load, and
+      # the runner image has Chromium's but not WebKit's (GStreamer, libwoff,
+      # libavif …). This step is an apt-get that has twice sat until the job's
+      # timeout (SUS-143), so it has a limit of its own and tries three times.
+      - name: WebKit's and Chromium's system libraries
+        timeout-minutes: 12
+        run: scripts/playwright-deps.sh chromium webkit
+
+      - name: Build the workspace packages
+        run: pnpm run build
+
+      - name: Start Supabase
+        run: pnpm exec supabase start -x realtime,storage-api,imgproxy,studio,logflare,vector,supavisor
+
+      - name: pnpm test:e2e:live (shard ${{ matrix.shard }})
+        env:
+          SHARD: ${{ matrix.shard }}
+        run: pnpm run test:e2e:live --shard="$SHARD"
+
+      - name: What the shard ran
+        if: always()
+        env:
+          SHARD: ${{ matrix.shard }}
+        run: node scripts/live-summary.mjs playwright-report/live-results.json "$SHARD"
+
+      - name: Upload the Playwright report and traces
+        # Not `failure()`: a job that hit its timeout is cancelled, and that is
+        # exactly when the report is wanted.
+        if: ${{ !success() }}
+        uses: actions/upload-artifact@v4
+        with:
+          # One per shard: the same name twice is an error.
+          name: playwright-report-live-${{ strategy.job-index }}
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # The verdict. Its name is the contract: `scripts/green-check.mjs`, the
+  # branch protection on `main` and `deploy-dev`'s wait all read a check named
+  # `check`. `if: always()` is what makes it a verdict: without it a failed
+  # dependency makes this job *skipped*, and a skipped required check counts as
+  # passing.
+  check:
+    name: check
+    needs: [scope, static, database, live]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Every suite job succeeded
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: node scripts/check-verdict.mjs

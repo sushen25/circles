@@ -19,6 +19,10 @@
  * with no run at all `--grace` seconds to get one before it counts as none.
  * A run that has finished and is not a success never waits.
  *
+ * `check` is the last job of `check.yml`, which has several jobs (SUS-179), and
+ * it does not exist until the others are done (GitHub creates a job's check run when the job starts); while a run of that workflow for
+ * the commit has not finished the answer is "pending", not "none".
+ *
  * Only runs named `check` that GitHub Actions itself created count. Any app can
  * create a check run with any name, and a gate that believed one named `check`
  * would be one an app can satisfy.
@@ -29,6 +33,8 @@ import { appendFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 
 export const CHECK_NAME = 'check';
+/** The workflow whose last job is `check`. */
+export const CHECK_WORKFLOW = 'check.yml';
 
 /**
  * @param {Array<{name?: string, status?: string, conclusion?: string | null, started_at?: string | null, id?: number, app?: {slug?: string} | null}>} runs
@@ -36,7 +42,25 @@ export const CHECK_NAME = 'check';
  *   `pending` can become green by waiting; `none` might (the run may not have
  *   been created yet); `red` cannot.
  */
-export function judge(runs) {
+export function judge(runs, workflowRuns = []) {
+  // `check` is the last job of its workflow (it `needs` all the others,
+  // SUS-179), and GitHub creates a job's check run when the job starts. For the
+  // ten minutes the suites run there is no `check` run at all, and a commit
+  // that is about to be green would look like one that never got a run — and
+  // `deploy-dev` would give up on it after its five minutes of grace. So the
+  // workflow run itself is asked first: while a run of `check.yml` for this
+  // commit has not finished, whatever `check` runs exist are not the verdict
+  // yet. That also covers a re-run, whose old `check` run is the previous
+  // attempt's.
+  const unfinished = (workflowRuns ?? []).filter(
+    (w) => w?.status !== 'completed' && (w?.path ?? CHECK_WORKFLOW).endsWith(CHECK_WORKFLOW),
+  );
+  if (unfinished.length > 0) {
+    return {
+      state: 'pending',
+      message: `the \`${CHECK_WORKFLOW}\` workflow is ${unfinished[0].status ?? 'in an unknown state'}, so its \`${CHECK_NAME}\` job has no verdict yet`,
+    };
+  }
   const ours = (runs ?? []).filter(
     (r) => r?.name === CHECK_NAME && r?.app?.slug === 'github-actions',
   );
@@ -106,6 +130,25 @@ const fetchRuns = (repo, sha) => {
     .map((line) => JSON.parse(line));
 };
 
+/** The runs of `check.yml` for a commit (`actions: read`). */
+const fetchWorkflowRuns = (repo, sha) => {
+  const body = execFileSync(
+    'gh',
+    [
+      'api',
+      '--paginate',
+      `repos/${repo}/actions/workflows/${CHECK_WORKFLOW}/runs?head_sha=${sha}&per_page=100`,
+      '--jq',
+      '.workflow_runs[]',
+    ],
+    { encoding: 'utf8' },
+  );
+  return body
+    .split('\n')
+    .filter(Boolean)
+    .map((line) => JSON.parse(line));
+};
+
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const summary = (text) => {
@@ -124,12 +167,20 @@ async function main() {
   const startedAt = Date.now();
   const POLL_MS = 30_000;
 
+  // When the commit last looked like it had no run at all: `none` right after
+  // minutes of `pending` (the workflow finished, its `check` run is not listed
+  // yet) gets its grace from there, not from the start.
+  let noRunSince = startedAt;
   for (;;) {
     const elapsed = Math.round((Date.now() - startedAt) / 1000);
-    const verdict = judge(fetchRuns(repo, sha));
+    // Workflow runs first: a re-run that starts between the two reads then
+    // shows as pending, instead of the previous attempt's check run deciding.
+    const workflowRuns = fetchWorkflowRuns(repo, sha);
+    const verdict = judge(fetchRuns(repo, sha), workflowRuns);
+    if (verdict.state !== 'none') noRunSince = Date.now();
     const action = decide(verdict, {
       waiting,
-      noRunForSeconds: elapsed,
+      noRunForSeconds: Math.round((Date.now() - noRunSince) / 1000),
       graceSeconds,
     });
     if (action === 'done') {

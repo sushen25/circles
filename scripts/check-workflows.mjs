@@ -37,7 +37,14 @@
  * - the release is tagged by one job that needs every production job, holds the
  *   only `contents: write` and reads no secret;
  * - `deploy-dev` waits for the commit's `check` before it deploys;
- * - `check` never cancels a run on `main`.
+ * - `check` never cancels a run on `main`;
+ * - `check.yml` is several jobs and one verdict (SUS-179): the job named
+ *   `check` needs all the others, runs `if: always()` and judges them with
+ *   `scripts/check-verdict.mjs`; the jobs run exactly the parts `pnpm check`
+ *   is made of (no more, no fewer); the live suite's shards cover the whole
+ *   suite. The commit's `check` is what `scripts/green-check.mjs`, the branch
+ *   protection and `deploy-dev` read, so a unit-test job that went green under
+ *   that name while the live suite was red would deploy a broken commit.
  */
 
 import { readFileSync, readdirSync } from 'node:fs';
@@ -138,6 +145,238 @@ const unconditional = (job, step) =>
   job.if === undefined &&
   step['continue-on-error'] === undefined &&
   job['continue-on-error'] === undefined;
+
+/**
+ * What `pnpm check` is made of: the `pnpm run NAME` parts of the root
+ * `package.json` script of that name, in order.
+ */
+export const partsOf = (scripts, name = 'check') => {
+  const segments = String(scripts?.[name] ?? '')
+    .split('&&')
+    .map((segment) => segment.trim());
+  const named = segments.map((segment) => /^pnpm run ([\w:.-]+)$/.exec(segment)?.[1]);
+  return {
+    parts: named.filter((part) => part !== undefined),
+    // Anything else (`node x.mjs`, a part with arguments, `;`, `||`) would be
+    // run locally and invisible to the comparison with the workflow.
+    unrecognised: segments.filter((_, i) => named[i] === undefined),
+  };
+};
+
+/** Every `pnpm run NAME [args]` in a run script, with whatever follows the name. */
+export const pnpmRunsIn = (text) =>
+  [...String(text ?? '').matchAll(/\bpnpm run ([\w:.-]+)([^\n&;|]*)/g)].map((m) => ({
+    name: m[1],
+    args: m[2].trim(),
+  }));
+
+/** Scripts a job may run that are not a part of `pnpm check`. */
+const SETUP_RUNS = ['build', 'format:check', 'check:docs'];
+
+/** The only conditions on a step or a job: the change is code, or it is prose. */
+const KIND_IF = /^(\$\{\{\s*)?needs\.scope\.outputs\.kind == '(code|prose)'(\s*\}\})?$/;
+
+/** `1/2`, `2/2`: every shard of one total, and no other. */
+export const coversAllShards = (shards) => {
+  const parsed = (shards ?? []).map((s) => /^(\d+)\/(\d+)$/.exec(String(s)));
+  if (parsed.length === 0 || parsed.some((m) => m === null)) return false;
+  const totals = new Set(parsed.map((m) => m[2]));
+  if (totals.size !== 1) return false;
+  const total = Number([...totals][0]);
+  const indexes = parsed.map((m) => Number(m[1])).sort((a, b) => a - b);
+  return indexes.length === total && indexes.every((n, i) => n === i + 1);
+};
+
+const checkYamlRules = (doc, fail, scripts) => {
+  const jobs = doc?.jobs ?? {};
+  const norm = (value) =>
+    typeof value === 'string' ? value.replace(/\s+/g, ' ').replace(/"/g, "'").trim() : value;
+
+  // 1. One verdict, named `check`.
+  const verdict = jobs.check;
+  if (!verdict) {
+    fail(
+      'has no job `check`: the commit would have no check run of that name, and nothing can deploy',
+    );
+    return;
+  }
+  if (verdict.name !== 'check') {
+    fail('the job `check` must have `name: check`: the check run is named after the job name');
+  }
+  for (const [id, job] of Object.entries(jobs)) {
+    if (id !== 'check' && job?.name === 'check') {
+      fail(
+        `\`${id}\` is also named \`check\`: two verdicts under one name, and the latest decides`,
+      );
+    }
+  }
+
+  // 2. It needs every other job, and runs whatever they did.
+  const others = Object.keys(jobs).filter((id) => id !== 'check');
+  const needed = needsOf(verdict);
+  for (const id of others) {
+    if (!needed.includes(id)) {
+      fail(
+        `\`check\` does not \`needs\` \`${id}\`: that job could fail and \`check\` would still go green`,
+      );
+    }
+  }
+  const verdictIf = norm(verdict.if);
+  if (verdictIf !== '${{ always() }}' && verdictIf !== 'always()') {
+    fail(
+      '`check` must run `if: ${{ always() }}`: when a job it needs fails it is otherwise skipped, and a skipped required check counts as passing',
+    );
+  }
+  if (verdict['continue-on-error'] !== undefined) {
+    fail('`check` has `continue-on-error`: a red verdict must be red');
+  }
+  const judging = (verdict.steps ?? []).filter(
+    (s) => typeof s?.run === 'string' && s.run.trim() === 'node scripts/check-verdict.mjs',
+  );
+  if (judging.length === 0) {
+    fail('`check` does not run scripts/check-verdict.mjs, so nothing judges the other jobs');
+  }
+  for (const step of judging) {
+    if (step.if !== undefined || step['continue-on-error'] !== undefined) {
+      fail('the step that runs scripts/check-verdict.mjs is conditional or may fail quietly');
+    }
+    if (!/toJSON\(\s*needs\s*\)/.test(JSON.stringify(step.env ?? {}))) {
+      fail('check-verdict.mjs is not given `toJSON(needs)`, so it has nothing to judge');
+    }
+  }
+
+  // 3. No suite job can fail quietly or hang for ever.
+  for (const id of others) {
+    const job = jobs[id];
+    if (job?.['continue-on-error'] !== undefined) {
+      fail(`\`${id}\` has \`continue-on-error\`: it could fail and \`check\` would go green`);
+    }
+    for (const step of job?.steps ?? []) {
+      if (step?.['continue-on-error'] !== undefined && /\bpnpm\b/.test(step.run ?? '')) {
+        fail(`a step of \`${id}\` that runs pnpm has \`continue-on-error\``);
+      }
+    }
+  }
+  for (const [id, job] of Object.entries(jobs)) {
+    const minutes = Number(job?.['timeout-minutes']);
+    if (!(minutes > 0 && minutes <= 20)) {
+      fail(
+        `\`${id}\` needs a \`timeout-minutes\` of 20 or less (30 was one job, and it was 27 minutes long)`,
+      );
+    }
+  }
+
+  // 3b. Nothing in check.yml may fail quietly or skip part of a matrix.
+  for (const [id, job] of Object.entries(jobs)) {
+    const matrix = job?.strategy?.matrix ?? {};
+    if (matrix.include !== undefined || matrix.exclude !== undefined) {
+      fail(
+        `\`${id}\` uses matrix include/exclude: a shard could be dropped without \`shard\` changing`,
+      );
+    }
+    for (const step of job?.steps ?? []) {
+      if (step?.['continue-on-error'] !== undefined) {
+        fail(
+          `a step of \`${id}\` has \`continue-on-error\`: it could fail and \`check\` would go green`,
+        );
+      }
+    }
+  }
+
+  // 4. The jobs run what `pnpm check` is made of: every part, and nothing more.
+  const { parts, unrecognised } = partsOf(scripts);
+  for (const segment of unrecognised) {
+    fail(
+      `package.json \`check\` runs \`${segment}\`, which is not a plain \`pnpm run NAME\`: the local gate would run something CI's jobs cannot be compared with`,
+    );
+  }
+  if (parts.length === 0) {
+    fail(
+      'package.json `check` is not a chain of `pnpm run …` parts, so what CI must run cannot be read',
+    );
+    return;
+  }
+  const seen = new Map(); // part -> [{job, step, args}]
+  for (const [id, job] of Object.entries(jobs)) {
+    for (const step of job?.steps ?? []) {
+      for (const { name, args } of pnpmRunsIn(step?.run)) {
+        if (parts.includes(name)) {
+          seen.set(name, [...(seen.get(name) ?? []), { id, job, step, args }]);
+        } else if (!SETUP_RUNS.includes(name)) {
+          fail(
+            `\`${id}\` runs \`pnpm run ${name}\`, which is not a part of \`pnpm check\` (${parts.join(', ')}): CI would run more than the local gate`,
+          );
+        }
+      }
+      if (/\bpnpm check\b/.test(step?.run ?? '')) {
+        fail(`\`${id}\` runs \`pnpm check\`; the jobs run its parts, one each`);
+      }
+    }
+  }
+  for (const part of parts) {
+    const uses = seen.get(part) ?? [];
+    if (uses.length === 0) {
+      fail(
+        `no job runs \`pnpm run ${part}\`, a part of \`pnpm check\`: CI would run less than the local gate`,
+      );
+      continue;
+    }
+    for (const { id, job, step, args } of uses) {
+      // The whole script is the one command: `|| true`, a pipe, `; true` or a
+      // second line would all let a red suite exit 0.
+      const expected = `pnpm run ${part}${args ? ` ${args}` : ''}`;
+      if (String(step.run).trim() !== expected || /[|&;\n]/.test(args)) {
+        fail(
+          `\`${id}\` runs \`pnpm run ${part}\` as more than that one command (\`${String(step.run).trim()}\`): its exit status could be hidden`,
+        );
+      }
+      const jobIf = norm(job.if);
+      const stepIf = norm(step.if);
+      const fine = (cond) => cond === undefined || KIND_IF.test(cond);
+      if (!fine(jobIf) || !fine(stepIf) || step['continue-on-error'] !== undefined) {
+        fail(
+          `\`${id}\` runs \`pnpm run ${part}\` under a condition other than the change being code (\`${jobIf ?? stepIf}\`)`,
+        );
+      }
+      if (/'prose'/.test(`${jobIf ?? ''}${stepIf ?? ''}`)) {
+        fail(`\`${id}\` runs \`pnpm run ${part}\` only for prose changes`);
+      }
+    }
+  }
+
+  // 5. A sharded part runs every shard.
+  for (const part of parts) {
+    for (const { id, job, args } of seen.get(part) ?? []) {
+      const matrix = job?.strategy?.matrix?.shard;
+      if (args.includes('--shard')) {
+        // The argument must be the matrix's value, through the step's
+        // environment: `--shard=1/2` typed in would run the first half twice.
+        const step = (job.steps ?? []).find((s) => pnpmRunsIn(s?.run).some((r) => r.name === part));
+        const bound =
+          /^--shard="?\$SHARD"?$/.test(args) &&
+          /^\$\{\{\s*matrix\.shard\s*\}\}$/.test(String(step?.env?.SHARD ?? '').trim());
+        const inline = /^--shard="?\$\{\{\s*matrix\.shard\s*\}\}"?$/.test(args);
+        if (!bound && !inline) {
+          fail(
+            `\`${id}\` runs \`${part}\` with \`${args}\`, not the matrix's shard (\`--shard="$SHARD"\` with \`SHARD: \${{ matrix.shard }}\`): every runner could run the same half`,
+          );
+        }
+        if (!coversAllShards(matrix)) {
+          fail(
+            `\`${id}\` shards \`${part}\` but its matrix is \`${JSON.stringify(matrix)}\`, not every shard of one total (1/2 and 2/2): part of the suite would never run`,
+          );
+        }
+        if (job?.strategy?.['fail-fast'] === true) {
+          fail(`\`${id}\` is \`fail-fast\`: the other shard's result would be lost`);
+        }
+      } else if (matrix !== undefined) {
+        fail(
+          `\`${id}\` has a shard matrix but runs \`${part}\` without --shard: every runner would run all of it`,
+        );
+      }
+    }
+  }
+};
 
 const ciRules = (path, file, doc) => {
   const jobs = doc?.jobs ?? {};
@@ -339,6 +578,15 @@ const ciRules = (path, file, doc) => {
         "the concurrency group must be exactly `check-${{ github.ref == 'refs/heads/main' && github.sha || github.ref }}`: a group holds one pending run, and a third push on `main` would cancel it",
       );
     }
+    let scripts;
+    try {
+      scripts = JSON.parse(readFileSync('package.json', 'utf8')).scripts;
+    } catch {
+      fail(
+        'package.json cannot be read from the working directory, so what CI must run is unknown',
+      );
+    }
+    checkYamlRules(doc, fail, scripts);
   }
 };
 
@@ -362,6 +610,17 @@ for (const dir of DIRS) {
 
     ciRules(path, file, doc);
 
+    // Branch protection matches a check by name and any Actions job will do:
+    // a quick job called `check` elsewhere would turn the required check green
+    // minutes before the real one exists (SUS-179).
+    if (file !== 'check.yml') {
+      for (const [id, job] of Object.entries(doc?.jobs ?? {})) {
+        if (id === 'check' || job?.name === 'check') {
+          problems.push(`${path}: job \`${id}\` is named \`check\`; only check.yml may have one`);
+        }
+      }
+    }
+
     for (const [jobName, job] of Object.entries(doc?.jobs ?? {})) {
       const steps = Array.isArray(job?.steps) ? job.steps : [];
 
@@ -373,6 +632,16 @@ for (const dir of DIRS) {
           problems.push(
             `${path} · ${jobName}: reads \`${name}\`, which only a job in the \`production\` environment may read`,
           );
+        }
+      }
+      // `green-check.mjs` reads the check runs and the runs of `check.yml`.
+      if (runText(job).includes('green-check.mjs')) {
+        for (const scope of ['checks', 'actions']) {
+          if ((job.permissions ?? {})[scope] !== 'read') {
+            problems.push(
+              `${path} · ${jobName}: runs green-check.mjs without \`${scope}: read\`, so it would be refused (or see no runs) when it is needed`,
+            );
+          }
         }
       }
       if (secrets.has('?')) {

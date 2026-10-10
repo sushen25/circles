@@ -1,3 +1,4 @@
+// @e2e: core
 import { expect, test, type Browser, type Page } from './fixtures';
 import { sendEvenings, signedInAs } from './journeys';
 import { circleOwnedBy, lockInFirstOption, planFor, signedInAccount, sql } from './stack';

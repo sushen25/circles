@@ -1,3 +1,4 @@
+// @e2e: core
 import { expect, test, type Page } from './fixtures';
 
 import { accountToSignInTo, circleOwnedBy, latestCodeFor, memberNamed, sql } from './stack';

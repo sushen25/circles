@@ -1,3 +1,4 @@
+// @e2e: locale
 import { expect, isHydrationError, test, type Page } from './fixtures';
 import { accountToSignInTo, latestCodeFor, memberNamed, sundayCrew } from './stack';
 

@@ -1,3 +1,4 @@
+// @e2e: core
 import { AxeBuilder } from '@axe-core/playwright';
 
 import { expect, test, type Page } from './fixtures';
@@ -17,7 +18,8 @@ import {
  * Accessibility on the four screens a guest and an organiser cannot avoid
  * (spec §10, manifesto §6; S1-31): Join, the availability editor, the
  * organiser's options and a guest's confirmed screen. axe finds nothing at
- * `serious` or above, in every project.
+ * `serious` or above, in both engines. What axe reads is the page, not the
+ * app that opened it, so the in-app and locale projects do not repeat it.
  *
  * And the editor at 200% text: nothing a person decides with is cut off.
  */
