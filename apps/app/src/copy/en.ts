@@ -69,6 +69,8 @@ export const en = {
     apple_or_device_calendar: 'Apple or device calendar',
     /** What the tap does on this device, under the row's title. */
     ready_ios: 'Saves the event for Calendar',
+    /** Where the tap is a link the phone opens itself (ADR 0063). */
+    ready_link_ios: 'Opens your Calendar',
     ready_android: 'Downloads an event file',
     ready_other: 'Downloads an event file',
     nothing_is_added_to_anyones_calendar_without:
@@ -80,6 +82,7 @@ export const en = {
     saved_android:
       'Saved. Open the file from your notifications or Downloads, then choose Calendar.',
     saved_other: 'Downloaded. Open the file to add it to your calendar.',
+    saved_link_ios: 'Opening Calendar. If nothing appears, tap again.',
     saved_in_app: 'Saved. If nothing opened, open this page in your browser and try again.',
     unsupported: "This device can't save the file yet. Open the link in a browser to download it.",
     /** In the row, beside "Try again". */
