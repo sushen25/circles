@@ -39,7 +39,7 @@ pnpm gen:functions     # re-render supabase/sql/functions/ into that migration (
 pnpm check:migrations  # fails if a migration already on origin/main was edited (inside pnpm check)
 pnpm check:docs        # links in docs/ resolve; each ADR's frontmatter, status line and README row agree (inside pnpm check)
 pnpm gen:tokens        # regenerate design tokens from docs/design/gen.py
-pnpm test:e2e          # Playwright: fixtures with no backend (smoke), then the journeys against the local stack in five browser projects (live)
+pnpm test:e2e          # Playwright: fixtures with no backend (smoke), then the journeys against the local stack (live): every spec in Chromium and WebKit, the ones tagged `// @e2e:` also in the in-app-browser and en-AU projects
 pnpm check:env <domain>  # a deployed environment from outside: HTTPS, HSTS, SPF/DKIM/DMARC
 pnpm mail [address]    # what the local mail catcher caught; with an address, the sign-in code
 ```
@@ -48,7 +48,10 @@ Nothing local sends a real email. `pnpm db:start` runs Mailpit alongside
 Postgres, and every message the stack produces is captured at
 `http://127.0.0.1:54324`.
 
-`pnpm check` is the whole gate and the `check` workflow runs exactly it. If it
+`pnpm check` is the whole gate and the `check` workflow runs exactly it, as
+parallel jobs: one for each of its parts (`check:static`, `check:stack`, and
+`test:e2e:live` in two shards), and a last job named `check` that is green only
+when all of them are. If it
 passes locally it passes there, and vice versa — **with one exception, and it is
 the one that bites**: CI also runs **gitleaks**, which `pnpm check` does not,
 and gitleaks scans the branch's _history_ rather than its working tree. So a

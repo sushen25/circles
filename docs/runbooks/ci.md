@@ -7,17 +7,140 @@ merge; the rest deploy.
 
 Runs on every pull request and on `main`. It runs **exactly `pnpm check`**,
 because a CI that checks something different from the local command is one
-people learn to ignore (architecture §16).
+people learn to ignore (architecture §16). Since SUS-179 it runs it as jobs
+side by side, because one job took 27 of its 30 minutes and the live suite was
+15 of them.
+
+`pnpm check` is three parts, and each is a script in the root `package.json`:
+
+| Part | What it is | CI job |
+|---|---|---|
+| `check:static` | Prettier, lint, the small checks (brand, tokens, imports, migrations, transitions, events, functions, workflows, docs), typecheck, unit tests. No database. | `static` |
+| `check:stack` | pgTAP (`db:test`), the integration suite, `check:types`, the smoke suite. Needs the local Supabase. | `database` |
+| `test:e2e:live` | The journeys against the local stack in five browser projects. | `live (1/2)` and `live (2/2)` |
+
+`scope` runs first and alone: gitleaks, then the change's kind
+(`scripts/ci-scope.mjs`). Every other job `needs` it. A Markdown-only change runs
+`scope` and `static` (Prettier and the docs check) and skips `database` and
+`live` on purpose.
 
 | Step | Why |
 |---|---|
-| gitleaks | First, before the build. Finishing a build before reporting a leaked secret helps nobody. |
+| gitleaks (`scope`) | First, before the build. Finishing a build before reporting a leaked secret helps nobody. |
 | `pnpm install --frozen-lockfile` | Catches a lockfile that was never updated — it has already caught one. |
-| Playwright browsers | Cached on the lockfile hash. |
-| `supabase start` | Database only. `pnpm check` resets it and runs pgTAP, and `check:types` generates types from the live schema. |
-| `pnpm check` | The gate. |
+| Playwright browsers | Cached on the lockfile hash. The system libraries are not, and `scripts/playwright-deps.sh` installs them (see "The apt step"). |
+| `supabase start` | `database` and each live shard start their own stack: database only, no studio or realtime. |
+| `pnpm run check:static`, `check:stack`, `test:e2e:live --shard=i/2` | The gate, a part to a job. |
 
-A failing run uploads the Playwright report as an artefact.
+### One verdict, and what it is named
+
+`deploy-dev`'s wait, `deploy-prod`'s plan and the branch protection on `main`
+all read one check run, named **`check`**. It is the last job of the workflow:
+it `needs` every other job, runs `if: ${{ always() }}` and runs
+`scripts/check-verdict.mjs`, which is green only when `scope`, `static`,
+`database` and `live` all **succeeded**. Cancelled, timed out, skipped and
+missing are all red, with one exception: on a prose-only change `database` and
+`live` were skipped on purpose.
+
+`if: always()` is the line that matters. Without it, a failed suite job makes
+`check` *skipped*, and a required check that was skipped counts as passing.
+Unit tests going green under the name `check` while the live suite is red or
+still running is the failure this shape exists to prevent, so `check:workflows`
+holds it in place: `check` needs every other job, has `always()`, runs the
+verdict script unconditionally, nothing else in `check.yml` is called `check`,
+no suite job may `continue-on-error`, every job has a `timeout-minutes` of 20
+or less, CI runs every part of `pnpm check` and no `pnpm run` that is not one,
+and the live job's shards are all of `1/N` to `N/N`. The tests for it are
+mutations: `scripts/ci-gates.test.mjs` takes each of those out of a copy of
+`check.yml` and expects `check:workflows` to fail.
+
+**The `check` run does not exist until the suites finish.** GitHub creates a job's
+check run when the job is scheduled, and `check` is scheduled last. For the ten
+minutes in between a commit has jobs named `static`, `database` and `live (1/2)`
+and no `check`, which `scripts/green-check.mjs` used to read as "no run":
+`deploy-dev` gives that five minutes of grace and then refuses. So
+`green-check.mjs` now also lists the commit's runs of `check.yml`
+(`actions: read`, beside `checks: read`) and calls the commit *pending* while
+one has not finished. A re-run is pending the same way, where the previous
+attempt's `check` run would otherwise decide. On the branch's own run:
+`green-check: refusing …: the check.yml workflow is in_progress, so its check job has no verdict yet`.
+
+**Branch protection needs no change.** It requires the status context `check`,
+and the job named `check` is that context. While the suites run the context is
+"expected", as it was while the old single job ran.
+
+### What it costs
+
+Measured from real runs of this change (SUS-179, PR #164); the before column is
+the architecture review's 60 runs of 9 October 2026.
+
+| Job | Before (one job) | After |
+|---|---|---|
+| `scope` | inside the job | RUN1_SCOPE |
+| `static` | about 4.4 min of the job | RUN1_STATIC |
+| `database` | about 6 min of the job | RUN1_DB |
+| `live (1/2)`, `live (2/2)` | 15.6 min of the job | RUN1_LIVE |
+| `check` | — | RUN1_CHECK |
+| **Run, wall clock** | **27.2 min median** (p90 28.1, max 28.6) | **RUN1_WALL** |
+
+OBSERVED_PLACEHOLDER
+
+The live suite is 372 runs now, not 556: Chromium and WebKit run every spec, and
+the two in-app-browser projects and the en-AU one run only the specs that say they
+need them.
+
+### Which live specs run where
+
+Each `tests/e2e-live/*.spec.ts` says what it depends on in a comment on its first
+lines, and `playwright.live.config.ts` builds the three optional projects from
+it (`tests/e2e-live/scopes.ts`):
+
+```ts
+// @e2e: core
+// @e2e: in-app-browser
+// @e2e: in-app-browser, locale
+```
+
+| Tag | Runs in | For a spec that |
+|---|---|---|
+| `core` | `android-chrome` (Chromium), `iphone-safari` (WebKit) | does not depend on which app opened the link or on the browser's locale. Every spec runs here, whatever it says. |
+| `in-app-browser` | also `whatsapp-android`, `messenger-ios` | meets the user agent: the in-app guard, the share sheet, being sent back in after storage was cleared, a link opened inside a chat, the touch editor in a WebView. |
+| `locale` | also `iphone-safari-en-au` | writes dates, or is a page a chat link lands on (a browser in another locale than the export's must hydrate cleanly, SUS-90). |
+
+Currently `in-app-browser` is `availability`, `continuity`, `first-run`, `guest`,
+`join`, `link-preview` and `plan-link`; `locale` is `availability`,
+`candidates`, `confirmation`, `guest`, `join`, `plan-link`, `served-html` and
+`zone-note`; the other 20 are `core`. **A new spec must say.** With no line,
+`pnpm check:workflows` fails and names the file and the three choices; a spec
+tagged `core` whose code reads the user agent, the share sheet or the second
+locale fails too. An untagged spec would otherwise run in two of five projects
+and nobody would see it was missing from the other three. If you rebase onto
+this and a spec of yours is named, that is the check working.
+
+### The apt step
+
+`playwright install-deps` sat in its apt step until the job's 30-minute timeout
+twice (SUS-143), on a step that takes under a minute. `scripts/playwright-deps.sh`
+gives each attempt three minutes, kills it and tries again, three times, with
+`dpkg --configure -a` between; the step has a 12-minute limit of its own, and
+the hang costs three minutes instead of the run. It is a retry and not a fix for
+whatever hangs apt: if it fires, the log says `did not finish (attempt n of 3)`.
+The system libraries cannot be cached (apt owns them), and they are 30 to 60
+seconds of a live job.
+
+### When it fails
+
+A failed `database` or `live` job uploads `playwright-report/` (the HTML report
+for the smoke and live suites, under `smoke/` and `live/`) and `test-results/`
+(traces, kept on the first retry, and failure screenshots) as the artefacts
+`playwright-report-smoke` and `playwright-report-live-<n>`, for seven days.
+Download one and `pnpm exec playwright show-report playwright-report/live`.
+The repository is public, so an artefact is downloadable by anyone: the suites
+run against a local stack with seeded people, and no secret is in a trace.
+
+Each live shard writes its run count and minutes to the job summary
+(`scripts/live-summary.mjs`), per project, so growth shows on the run's page
+before it shows on the clock.
 
 **It blocks what it should.** Verified on a throwaway PR: a `react` import in
 `packages/domain` fails with `domain is not allowed to import "react"
@@ -39,8 +162,9 @@ since 3 October 2026.
 `check` and `deploy-dev` start in the same second on the same push, so
 `deploy-dev` has a first job, `wait-for-check`, that polls the checks API for
 the commit's `check` run (`scripts/green-check.mjs --wait`) and a second, `deploy`,
-that `needs` it. The wait is up to 40 minutes (`check` has a 30-minute limit and
-a median near 27), and a commit with no `check` run at all gets five minutes to
+that `needs` it. The wait is up to 40 minutes (the longest a run can take is its slowest
+job's 15-minute limit plus the ones before it, and it was a single 30-minute
+job until SUS-179), and a commit with no `check` run at all gets five minutes to
 get one. A failed, cancelled or timed-out check fails the wait and nothing is
 deployed. A manual dispatch waits too. Until SUS-105 a formatting failure on
 29 September and a cancelled run on 2 October both reached dev.
@@ -50,7 +174,9 @@ has no wait to pass.
 
 ### How the check conclusion is looked up
 
-`scripts/green-check.mjs` calls `GET /repos/{repo}/commits/{sha}/check-runs`
+`scripts/green-check.mjs` first calls `GET /repos/{repo}/actions/workflows/check.yml/runs?head_sha={sha}`
+(`actions: read`): a run that has not finished makes the commit *pending*, because
+the `check` job is the last of its workflow and does not exist yet. Then it calls `GET /repos/{repo}/commits/{sha}/check-runs`
 with the workflow's own token (`checks: read`) and keeps the runs named `check`
 that **GitHub Actions** created, because any app can create a check run with any
 name. The latest by start time decides, so a re-run replaces the run before it.
@@ -230,7 +356,7 @@ What the repository does, and what only the founder can change. Checked with
 |---|---|---|---|
 | Required status `check` | on | A PR cannot merge red | done |
 | `enforce_admins` | **off** | The owner can merge past a red check, or push to `main` with no PR. That is how `ff3a132` (29 September) and PR #123 (3 October) reached `main` | Waiting on the founder (SUS-105 asks). Until then: **do not merge past a red check.** The workflows now backstop it: a red or unfinished `main` commit is not deployed to dev (`wait-for-check`) and `deploy-prod` refuses it |
-| "Require branches to be up to date" (`strict`) | **off** | A PR need not include `main` before it merges, so two PRs that are green separately first meet on `main` (`4611bcb`, 2 October) | Waiting on the founder, and on SUS-179: with it on, every stacked PR pays the 27-minute gate twice. Merge queue is the alternative. Until then: rebase before merging, as the ticket skills say |
+| "Require branches to be up to date" (`strict`) | **off** | A PR need not include `main` before it merges, so two PRs that are green separately first meet on `main` (`4611bcb`, 2 October) | Waiting on the founder, and on SUS-179: with it on, every stacked PR pays the gate twice (27 minutes before SUS-179, about 9 after). Merge queue is the alternative. Until then: rebase before merging, as the ticket skills say |
 
 `check.yml` no longer cancels a run on `main` (SUS-105): each `main` commit gets
 its own concurrency group, because a group holds one pending run and a third
