@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test';
 
+import { brand } from '@circles/config';
+
 /**
  * "Something off? Tell me" (SUS-170): on Sent, both Confirmed screens and
  * circle home, in view without scrolling at 390 wide and at 200% type, and
@@ -24,6 +26,7 @@ const SIZES = [
 ];
 
 const LINK = 'Something off? Tell me';
+const FALLBACK = `No mail app? Write to ${brand.supportEmail}`;
 
 test.describe('the feedback link', () => {
   for (const size of SIZES) {
@@ -45,6 +48,23 @@ test.describe('the feedback link', () => {
         for (const name of place.above) {
           const primary = (await page.getByRole('button', { name }).boundingBox())!;
           expect(primary.y + primary.height, name).toBeLessThanOrEqual(box.y);
+        }
+
+        // Nothing says the address before the tap; after it, the line and the
+        // way to copy it fit the same footer, and the link has not moved off.
+        await expect(page.getByText(FALLBACK)).toHaveCount(0);
+        await link.click();
+        for (const shown of [
+          page.getByText(FALLBACK),
+          page.getByRole('button', { name: 'Copy address' }),
+          link,
+        ]) {
+          await expect(shown).toBeVisible();
+          const at = (await shown.boundingBox())!;
+          expect(at.x).toBeGreaterThanOrEqual(0);
+          expect(at.x + at.width).toBeLessThanOrEqual(size.width);
+          expect(at.y).toBeGreaterThanOrEqual(0);
+          expect(at.y + at.height).toBeLessThanOrEqual(size.height);
         }
       });
     }

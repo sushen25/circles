@@ -1,5 +1,5 @@
 import { brand } from '@circles/config';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { t } from '../../copy';
@@ -7,7 +7,8 @@ import { FeedbackLink } from './FeedbackLink';
 import type * as FeedbackModule from './feedback';
 import { feedbackMailto, feedbackSubject, type FeedbackScreen } from './feedback';
 
-const mocks = vi.hoisted(() => ({ track: vi.fn(), open: vi.fn() }));
+const mocks = vi.hoisted(() => ({ track: vi.fn(), open: vi.fn(), copy: vi.fn() }));
+vi.mock('../../platform/share', () => ({ copyText: mocks.copy }));
 vi.mock('../../analytics/track', () => ({ track: mocks.track }));
 vi.mock('./feedback', async () => ({
   ...(await vi.importActual<typeof FeedbackModule>('./feedback')),
@@ -61,5 +62,39 @@ describe('FeedbackLink', () => {
     fireEvent.click(screen.getByRole('button', { name: t('feedback', 'link') }));
     expect(mocks.track).toHaveBeenCalledWith('feedback_opened', { screen: s });
     expect(mocks.open).toHaveBeenCalledWith(feedbackMailto(s));
+  });
+
+  it('says nothing before the tap, then gives the address in plain text, once, in a live region', () => {
+    render(<FeedbackLink screen="sent" />);
+    expect(screen.queryByText(/No mail app/)).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Copy address' })).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: t('feedback', 'link') }));
+    const line = screen.getByText(`No mail app? Write to ${brand.supportEmail}`);
+    expect(line.closest('[aria-live="polite"]')).not.toBeNull();
+    // The mail is still opened, and the tap is counted once.
+    expect(mocks.open).toHaveBeenCalledTimes(1);
+    expect(mocks.track).toHaveBeenCalledTimes(1);
+    // The region was there before the line, so it is announced when it arrives.
+    expect(document.querySelectorAll('[aria-live="polite"]').length).toBe(1);
+  });
+
+  it('shows nothing that identifies anyone: the line is the address and nothing else', () => {
+    render(<FeedbackLink screen="confirmed" />);
+    fireEvent.click(screen.getByRole('button', { name: t('feedback', 'link') }));
+    const text = document.body.textContent ?? '';
+    for (const secret of PRIVATE) expect(text).not.toContain(secret);
+  });
+
+  it('copies the address, and says so', async () => {
+    mocks.copy.mockResolvedValue(true);
+    render(<FeedbackLink screen="sent" />);
+    fireEvent.click(screen.getByRole('button', { name: t('feedback', 'link') }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Copy address' }));
+    });
+    expect(mocks.copy).toHaveBeenCalledWith(brand.supportEmail);
+    expect(screen.getByRole('button', { name: 'Address copied' })).toBeTruthy();
+    expect(mocks.track).toHaveBeenCalledTimes(1);
   });
 });
