@@ -260,7 +260,7 @@ describe('the circle home', () => {
     );
     wrap(<CircleHomeFlow id={CIRCLE} />);
 
-    expect(await screen.findByText('Finding a time')).toBeVisible();
+    expect((await screen.findAllByText('Finding a time'))[0]).toBeVisible();
     expect(screen.getByText('2 of 3 replied')).toBeVisible();
     fireEvent.click(screen.getByRole('button', { name: "See how it's looking" }));
     expect(push).toHaveBeenCalledWith({

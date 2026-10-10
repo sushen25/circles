@@ -210,3 +210,42 @@ export function circleHomeState(input: CircleHomeInput): CircleHomeState {
       return 'no_rush';
   }
 }
+
+/**
+ * The one filled action on circle home, per state (spec §5.2, manifesto §3.6).
+ *
+ * While a plan is live — `finding_a_time` (collecting or ready) or
+ * `locked_in` — the primary is that plan's own next step, never a new plan:
+ * a circle has one open plan at a time, so "Plan a catch-up" beside a running
+ * one would open a screen whose only job is to say no (ADR 0033, SUS-197).
+ * `askedAgain` is the reader whose answer an edit cleared (SUS-130): the way
+ * back to the grid leads for them. Without a live plan the primary starts one,
+ * or, in a circle of one, shares the link.
+ */
+export type CircleHomePrimary =
+  | 'see_how_its_looking'
+  | 'add_my_times'
+  | 'details'
+  | 'plan_a_catch_up'
+  | 'plan_another'
+  | 'invite';
+
+export function circleHomePrimary(
+  state: CircleHomeState,
+  options: { readonly askedAgain: boolean },
+): CircleHomePrimary {
+  switch (state) {
+    case 'finding_a_time':
+      return options.askedAgain ? 'add_my_times' : 'see_how_its_looking';
+    case 'locked_in':
+      return 'details';
+    case 'just_you':
+      return 'invite';
+    case 'about_time':
+      return 'plan_another';
+    case 'never_met':
+    case 'no_goal':
+    case 'no_rush':
+      return 'plan_a_catch_up';
+  }
+}

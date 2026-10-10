@@ -5,6 +5,7 @@ import { toISO } from '../shared/instant.js';
 import { zone } from '../shared/zone.js';
 import {
   cadenceState,
+  circleHomePrimary,
   circleHomeState,
   nextDueAt,
   nudgeDueDate,
@@ -127,6 +128,50 @@ describe('circleHomeState', () => {
     expect(circleHomeState({ ...base, circle: circle({ lastMetAt: undefined }) })).toBe(
       'never_met',
     );
+  });
+});
+
+describe('circleHomePrimary', () => {
+  const states = [
+    'finding_a_time',
+    'locked_in',
+    'just_you',
+    'about_time',
+    'never_met',
+    'no_goal',
+    'no_rush',
+  ] as const;
+
+  it('leads with the live plan’s own action while one is finding a time', () => {
+    expect(circleHomePrimary('finding_a_time', { askedAgain: false })).toBe('see_how_its_looking');
+  });
+
+  it('leads with the way back to the grid for somebody whose times an edit cleared', () => {
+    expect(circleHomePrimary('finding_a_time', { askedAgain: true })).toBe('add_my_times');
+  });
+
+  it('leads with the meetup’s details once it is locked in', () => {
+    expect(circleHomePrimary('locked_in', { askedAgain: false })).toBe('details');
+  });
+
+  it('starts a plan only where none is live (ADR 0033 refuses a second)', () => {
+    expect(circleHomePrimary('about_time', { askedAgain: false })).toBe('plan_another');
+    expect(circleHomePrimary('no_rush', { askedAgain: false })).toBe('plan_a_catch_up');
+    expect(circleHomePrimary('no_goal', { askedAgain: false })).toBe('plan_a_catch_up');
+    expect(circleHomePrimary('never_met', { askedAgain: false })).toBe('plan_a_catch_up');
+    expect(circleHomePrimary('just_you', { askedAgain: false })).toBe('invite');
+  });
+
+  it('never offers a new plan in a state with a live plan, whatever else is said', () => {
+    for (const askedAgain of [true, false]) {
+      expect(circleHomePrimary('finding_a_time', { askedAgain })).not.toMatch(/^plan_/);
+    }
+  });
+
+  it('has an answer for every state', () => {
+    for (const state of states) {
+      expect(circleHomePrimary(state, { askedAgain: false })).toBeTruthy();
+    }
   });
 });
 
