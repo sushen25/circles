@@ -140,8 +140,11 @@ function Confirmed({
   const router = useRouter();
   const view = confirmedOf(data, confirmation);
   const ids = { circle_id: data.circleId as CircleId, plan_id: data.planId as PlanId };
+  // Everything the file says that this screen reads (the plan's own title is not read here).
   const calendarVersion = [
     confirmation.id,
+    data.circleName,
+    data.zone,
     confirmation.startsAt,
     confirmation.endsAt,
     confirmation.placeName,
