@@ -84,7 +84,7 @@ test.describe('the fixture switch', () => {
 test.describe('the gallery', () => {
   test('lists every screen', async ({ page }) => {
     await page.goto('/gallery');
-    await expect(page.getByText('78 screens', { exact: false })).toBeVisible();
+    await expect(page.getByText('79 screens', { exact: false })).toBeVisible();
   });
 });
 
