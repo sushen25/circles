@@ -2621,7 +2621,7 @@ export const en = {
     panel2_title: "Times I'd actually be up for",
     panel2_days: 'Days',
     panel2_summary: 'Wed 16 from 6 pm · Thu 17, any time · Sat 19 afternoon',
-    panel2_private: 'Your friends only see the combined result, never this screen.',
+    panel2_private: 'Your friends see who can make a time, never your calendar or this screen.',
     panel2_send: 'Send my times',
     day_mon: 'Mon',
     day_tue: 'Tue',
