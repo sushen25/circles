@@ -31,7 +31,9 @@ export function effectiveNudgePolicy(circle: Circle, activeCount: number): Nudge
  *
  * `mutedNudges` is "Nudges to plan the next one" on notification settings
  * (`circle_members.muted_nudges`); `mutedAll` is the whole circle. Either is a
- * no.
+ * no. The stop link under every cadence nudge sets `mutedNudges`, with no
+ * sign-in (ADR 0067), so a person who never saw the settings screen can still
+ * say no and this is where it is heard.
  */
 function isNudgeable(member: Member): boolean {
   return isActive(member) && member.isPermanent && !member.mutedAll && !member.mutedNudges;

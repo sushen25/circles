@@ -81,6 +81,7 @@ export const CLIENT_ERROR_ROUTE_WORDS = [
   'j',
   'join',
   'mode',
+  'n',
   'name',
   'new',
   'no-quorum',

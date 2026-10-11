@@ -118,3 +118,25 @@ export async function issuePreferencesToken(
   if (error !== null) throw error;
   return data === null ? null : token;
 }
+
+/**
+ * The link under a cadence nudge (`about_time`): "Stop these reminders" opens
+ * `/n#<token>` (ADR 0067, ADR 0023).
+ *
+ * Minted per letter, at send time, for the contact the letter is going to, and
+ * reusable for a year — a stop link that died after the first tap, or after
+ * ninety days, would not be one. Its own purpose: a preferences token cannot
+ * stop nudges and this one cannot touch plan email.
+ *
+ * **Null means skip this job**: the contact is not verified, or belongs to
+ * nobody, so there is no person to nudge and nobody to stop.
+ */
+export async function issueNudgeStopToken(service: Db, contactId: string): Promise<string | null> {
+  const token = mintToken();
+  const { data, error } = await service.rpc('issue_nudge_stop_token', {
+    p_contact_id: contactId,
+    p_token_hash: await tokenHash(token),
+  });
+  if (error !== null) throw error;
+  return data === null ? null : token;
+}

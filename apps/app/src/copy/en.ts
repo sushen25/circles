@@ -1364,6 +1364,24 @@ export const en = {
     try_again: 'Try again',
     reference: 'Ref {reference}',
   },
+  nudgeStop: {
+    stop_these_reminders: 'Stop these reminders',
+    body: "These are the emails that say it's about time to plan the next catch-up. Stopping turns them off for you in every circle. Nothing else changes, and you can turn them back on in notification settings.",
+    stopping: 'Stopping',
+    done: "Done. You won't get these reminders.",
+    done_body:
+      'Emails about plans, and everything else, carry on as before. To turn the reminders back on, sign in and open notification settings.',
+    link_expired: 'This link has expired.',
+    link_expired_body:
+      'Use the link in the most recent reminder, or sign in and turn them off in notification settings.',
+    open_it_again: 'Open the link from your email again.',
+    open_it_again_body:
+      "The link is cleared from the address bar once it's opened, so a reload can't use it again.",
+    couldnt_stop: "Something went wrong, so the reminders weren't stopped. Please try again.",
+    youre_offline: "You're offline. Connect, then try again.",
+    try_again: 'Try again',
+    reference: 'Ref {reference}',
+  },
   emailVerified: {
     youll_hear_about_this_meetup_by_email: "You'll hear about this meetup by email.",
     youll_hear_about_these_meetups_by_email: "You'll hear about these meetups by email.",
@@ -1653,7 +1671,7 @@ export const en = {
       'Hosting, the database and email delivery are run by other companies on our behalf, so your details pass through them. They are there to run {brand}, not to market to you.',
     privacy_email_heading: 'What email you get',
     privacy_email_body:
-      'A sign-in code when you sign in. If you sign in to organise plans or start a quiet ask, letters about those and an occasional nudge to plan the next one; some of these can be turned off in notification settings. Anyone can ask for updates about a plan, and each of those emails has a stop link.',
+      'A sign-in code when you sign in. If you sign in to organise plans or start a quiet ask, letters about those; some of these can be turned off in notification settings. If you have a saved place in a circle that has a catch-up rhythm, you may get an occasional nudge to plan the next one, with a link in the email to stop it without signing in. Anyone can ask for updates about a plan, and each of those emails has a stop link.',
     privacy_calendar_heading: 'Your calendar stays yours',
     privacy_calendar_body:
       'Nobody in your circle sees your schedule, only which times work for the group. Calendar events on your phone never leave it.',
@@ -2132,7 +2150,7 @@ export const en = {
       "They see which options work for you, never a personal schedule. Before enough people are keen on a quiet ask, nobody sees anyone's answer.",
     what_email_you_get: 'What email you get',
     anyone_can_ask_for_plan_updates:
-      'Anyone can ask for updates about a plan, and each of those emails has a stop link. If you sign in to organise plans or start a quiet ask, you also get letters about those and an occasional nudge, some of which you can turn off in notification settings. We never sell addresses, and other companies deliver the email for us.',
+      'Anyone can ask for updates about a plan, and each of those emails has a stop link. If you sign in to organise plans or start a quiet ask, you also get letters about those, some of which you can turn off in notification settings. If you have a saved place in a circle that has a catch-up rhythm, you may get an occasional nudge to plan the next one, and it has a stop link. We never sell addresses, and other companies deliver the email for us.',
     to_have_your_details_removed:
       'To have your details removed, write to {support}. There is no delete button in the app yet.',
   },
@@ -2302,7 +2320,13 @@ export const en = {
     not_an_address: "That doesn't look like an email address.",
     email_me_about_this_meetup: 'Email me about this meetup',
     save_my_place: 'Save my place in {circle}',
-    get_back_from_any_phone: 'Get back from any phone.',
+    // The switch on (SUS-190, ADR 0067): an account is made, and the reminders can be stopped from their email.
+    makes_an_account:
+      'This makes you an account in {brand}, so you can get back in from any phone. Reminders about catching up can be stopped from the email itself.',
+    for_people_18_and_over: 'For people 18 and over. Read the',
+    terms: 'terms',
+    and: 'and',
+    privacy: 'privacy',
     nothing_is_saved: 'Nothing is saved.',
     kept_and_updates_on:
       "Done. We'll email {address} about this meetup, and your place in {circle} is saved: sign in with that address on any phone to get back to it.",

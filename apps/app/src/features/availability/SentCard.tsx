@@ -3,6 +3,7 @@ import { CONSENT } from '@circles/config';
 import {
   Button,
   Card,
+  InlineLink,
   Input,
   Notice,
   SettingRow,
@@ -55,6 +56,8 @@ export function SentCard({
   savePlace,
   onEmailChange,
   onSavePlaceChange,
+  onTerms,
+  onPrivacy,
   onSubmit,
   onNotNow,
 }: {
@@ -67,6 +70,8 @@ export function SentCard({
   savePlace?: boolean | undefined;
   onEmailChange?: ((email: string) => void) | undefined;
   onSavePlaceChange?: ((on: boolean) => void) | undefined;
+  onTerms?: (() => void) | undefined;
+  onPrivacy?: (() => void) | undefined;
   onSubmit?: (() => void) | undefined;
   onNotNow?: (() => void) | undefined;
 }) {
@@ -95,7 +100,7 @@ export function SentCard({
       {savePlace === undefined ? null : (
         <SettingRow
           title={t('sent', 'save_my_place', { circle: circleName ?? '' })}
-          detail={t('sent', savePlace ? 'get_back_from_any_phone' : 'nothing_is_saved')}
+          detail={t('sent', savePlace ? 'makes_an_account' : 'nothing_is_saved')}
         >
           <Toggle
             value={savePlace}
@@ -103,6 +108,14 @@ export function SentCard({
             label={t('sent', 'save_my_place', { circle: circleName ?? '' })}
           />
         </SettingRow>
+      )}
+      {/* Switch on: an account is made, so the policies are one tap away (SUS-190). */}
+      {savePlace !== true ? null : (
+        <Small>
+          {t('sent', 'for_people_18_and_over')}{' '}
+          <InlineLink onPress={onTerms}>{t('sent', 'terms')}</InlineLink> {t('sent', 'and')}{' '}
+          <InlineLink onPress={onPrivacy}>{t('sent', 'privacy')}</InlineLink>.
+        </Small>
       )}
       {problem === undefined ? null : <Notice kind="warn">{problemCopy(problem)}</Notice>}
       {reference === undefined ? null : <Small>{t('sent', 'reference', { reference })}</Small>}

@@ -34,6 +34,7 @@ export * from './request-email-updates.js';
 export * from './revise-plan.js';
 export * from './rotate-invite.js';
 export * from './shared.js';
+export * from './stop-nudges.js';
 export * from './submit-availability.js';
 export * from './track-events.js';
 export * from './verify-email-contact.js';

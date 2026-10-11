@@ -192,6 +192,42 @@ describe('nudgeRecipient', () => {
     });
   });
 
+  // SUS-190, ADR 0067. The stop link under a cadence nudge sets the same flag as
+  // the switch on notification settings, for a person who may never have signed
+  // in to find it, so the rule must hold for someone who got here by saving a
+  // place after sending their times.
+  describe('a nudge stopped from the letter', () => {
+    const stopped = (who: UserId) =>
+      crew().map((m) => (m.userId === who ? { ...m, mutedNudges: true, isPermanent: true } : m));
+
+    it.each(['owner', 'last_organiser', 'take_turns'] as const)(
+      'is never sent again under %s: the person is not asked, and nobody is asked in their place when it is theirs alone',
+      (nudgePolicy) => {
+        const input = {
+          circle: circle({ nudgePolicy }),
+          lastHappenedAttendees: everyone,
+          lastOrganiserId: OWNER,
+        };
+        const before = nudgeRecipient({ ...input, members: crew() });
+        expect(before).toBeDefined();
+        const after = nudgeRecipient({ ...input, members: stopped(before as UserId) });
+        expect(after).not.toBe(before);
+      },
+    );
+
+    it('is honoured by the choice too, so an owner fallback cannot reach someone who stopped it', () => {
+      const members = crew().map((m) => ({ ...m, mutedNudges: true }));
+      expect(
+        nudgeChoice({
+          circle: circle({ nudgePolicy: 'take_turns' }),
+          members,
+          lastHappenedAttendees: everyone,
+          lastOrganiserId: ann,
+        }),
+      ).toBeUndefined();
+    });
+  });
+
   describe('somebody nothing can reach', () => {
     // Review round 2: out of reach is not a no. The turn passes on and a last
     // organiser out of reach falls back to the owner, as one who left would.

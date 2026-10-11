@@ -87,7 +87,7 @@ the gallery's `partial` and `complete` fixtures show the reader and four others 
 `EnterCodeScreen` for the code). The two emailed pages are `/v` and `/e`, with
 their token in the fragment (`/v#<token>`, ADR 0023), as is re-entry at `/a`:
 the entry point takes the token out of the address bar before the router loads
-(`data/links/tokens.ts`). `EmailVerifyFlow` and `EmailPrefsFlow` need no session.
+(`data/links/tokens.ts`). `EmailVerifyFlow` and `EmailPrefsFlow` need no session. `/n#<token>` is the third: `NudgeStopFlow`, the stop link under a cadence nudge (ADR 0067), which asks for one tap and reads nothing on load.
 
 **One step on Sent, SUS-162:** the card is one address, the consent sentence
 (`CONSENT.text`), a "Save my place" switch on by default and one primary.

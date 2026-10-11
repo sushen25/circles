@@ -2,7 +2,7 @@
 import type { ReactNode } from 'react';
 
 import { EN_EMAIL, type EmailCopy } from '../copy.ts';
-import { circleLink, settingsLink } from '../links.ts';
+import { circleLink, nudgeStopLink, settingsLink } from '../links.ts';
 import type { AboutTimeInput } from '../types.ts';
 import { Layout } from './Layout.tsx';
 
@@ -13,7 +13,11 @@ export function aboutTimeCopy(input: AboutTimeInput): EmailCopy {
   });
 }
 
-/** The cadence nudge, to one person only (spec §5.8, the nudge policy). */
+/**
+ * The cadence nudge, to one person only (spec §5.8, the nudge policy). It says
+ * why it came and carries a stop link that needs no sign-in (ADR 0067), as well
+ * as the settings switch.
+ */
 export function AboutTime({ input }: { input: AboutTimeInput }): ReactNode {
   return (
     <Layout
@@ -23,6 +27,7 @@ export function AboutTime({ input }: { input: AboutTimeInput }): ReactNode {
         kind: 'reason',
         sentence: EN_EMAIL.footer.nudge(input.circleName),
         settingsUrl: settingsLink(input.origin),
+        stopUrl: nudgeStopLink(input.origin, input.stopToken),
       }}
     />
   );

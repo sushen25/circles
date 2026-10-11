@@ -66,6 +66,7 @@ Short records of decisions that shape the product or the code. A new ADR is requ
 | [0061](./0061-the-chasing-survey-never-holds-lock-it-in.md) | The chasing survey never holds Lock it in: an unanswered question is stored as not answered and counted on its own | proposed |
 | [0062](./0062-a-continue-as-pick-does-not-carry-the-quiet-ask-answer.md) | A Continue-as pick does not hand the taker the previous holder's quiet-ask answer | proposed |
 | [0065](./0065-co-members-see-the-circles-name-for-a-member-and-nothing-else.md) | Co-members see the circle's name for a member and nothing else of their name: no view of account names, and a rename leaves every circle alone | proposed |
+| [0067](./0067-every-cadence-nudge-carries-a-stop-link-and-the-sent-card-says-an-account-is-made.md) | Every cadence nudge carries a stop link that needs no sign-in, and the Sent card says an account is made | proposed |
 
 ## Template
 

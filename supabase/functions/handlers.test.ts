@@ -191,6 +191,7 @@ const handlers = {
   'request-email-updates': await serveOf('request-email-updates'),
   'verify-email-contact': await serveOf('verify-email-contact'),
   'manage-email-preferences': await serveOf('manage-email-preferences'),
+  'stop-nudges': await serveOf('stop-nudges'),
   'track-events': await serveOf('track-events'),
 };
 
@@ -3176,6 +3177,55 @@ describe('manage-email-preferences', () => {
 
     expect(response.status).toBe(400);
     expect(called('email_preferences')).toHaveLength(0);
+  });
+});
+
+describe('stop-nudges', () => {
+  const TOKEN = 'c'.repeat(43);
+
+  beforeEach(() => {
+    state.answer = (fn) => {
+      if (fn === 'take_rate_token') return { data: true, error: null };
+      if (fn === 'stop_nudges') return { data: { stopped: true }, error: null };
+      return { data: null, error: null };
+    };
+  });
+
+  it('stops the nudge with no sign-in, and answers nothing about whose it was', async () => {
+    const response = await load('stop-nudges')(postWithoutSession({ token: TOKEN }));
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ stopped: true });
+    // The database is given the digest, never the token.
+    const [call] = called('stop_nudges');
+    expect(Object.keys(call?.args ?? {})).toEqual(['p_token_hash']);
+    expect(JSON.stringify(call?.args)).not.toContain(TOKEN);
+  });
+
+  it('says link_expired for a token that is tampered with, expired or of another kind: one answer', async () => {
+    state.answer = (fn) => {
+      if (fn === 'take_rate_token') return { data: true, error: null };
+      return { data: null, error: { message: 'link_expired', code: 'P0001' } };
+    };
+
+    const response = await load('stop-nudges')(postWithoutSession({ token: TOKEN }));
+
+    expect(response.status).toBe(404);
+    expect(await response.json()).toMatchObject({ reason: 'link_expired' });
+  });
+
+  it('refuses a body that is not a token, before the database is asked', async () => {
+    const response = await load('stop-nudges')(postWithoutSession({ token: 'short' }));
+
+    expect(response.status).toBe(400);
+    expect(called('stop_nudges')).toHaveLength(0);
+  });
+
+  it('accepts nothing but the token: no action, no plan, no circle to aim it at', async () => {
+    await load('stop-nudges')(postWithoutSession({ token: TOKEN, circle_id: PLAN_ID }));
+
+    const [call] = called('stop_nudges');
+    expect(Object.keys(call?.args ?? {})).toEqual(['p_token_hash']);
   });
 });
 
