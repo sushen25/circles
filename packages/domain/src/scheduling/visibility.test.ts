@@ -60,6 +60,7 @@ describe('the answer-visibility rule (option A, ADR 0066)', () => {
       "Nobody's name is ever beside a time.",
       'No one is named for not replying. The group sees who can make it. Not your calendar.',
       'Nobody in your circle sees your schedule, only which times work for the group.',
+      'Your friends never see who can make each suggested time. They never see your calendar.',
     ]) {
       const problems = promiseProblems(answerVisibility, {
         ...agreeing,

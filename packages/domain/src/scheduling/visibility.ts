@@ -85,6 +85,8 @@ const FALSE_WHEN_CARDS_NAME_PEOPLE: readonly RegExp[] = [
   /nobody in your circle sees your schedule/i,
   /nobody can see one person'?s schedule/i,
   /only (ever )?see a combined result/i,
+  // The same words, negated: "never see who can make each time".
+  /\b(never|nobody|no one|won'?t|can'?t|cannot|not)\b[^.]{0,40}\b(see|sees|shown?)\b[^.]{0,20}who can make/i,
 ];
 
 /** Every way the copy and the rule disagree; empty when they agree. */
