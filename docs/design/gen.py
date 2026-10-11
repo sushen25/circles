@@ -446,6 +446,10 @@ S["AvailabilityOthersFirst"] = availability(day_grid(), time_panel(),
 # (packages/config/src/consent.ts, ADR 0048): update by hand on every consent version.
 CONSENT_2026_10_06 = "Only about this meetup: when it's locked in, moved, called off or needs your times again, one reminder, and one question after. Stop any time from the email itself."
 
+# The switch on says an account is made and that the catch-up reminders carry their own stop
+# (SUS-190, ADR 0067). Not the consent sentence: that one is recorded and versioned; this is a notice.
+SENT_ACCOUNT_LINE = "This makes you an account in Wenna, so you can get back in from any phone. Reminders about catching up can be stopped from the email itself."
+
 def sent_card(address="", switch="on", member=None):
     """The one-step card. `switch` is "on", "off" or None (no switch: the place is already saved).
     `member` (SUS-164): a signed-in member's confirmed address, shown as text in place of the
@@ -454,8 +458,10 @@ def sent_card(address="", switch="on", member=None):
     if switch is not None:
         on = switch == "on"
         rows.append(between(
-            stack(title("Save my place in Sunday Crew"), sm("Get back from any phone." if on else "Nothing is saved."), gap=2),
+            stack(title("Save my place in Sunday Crew"), sm(SENT_ACCOUNT_LINE if on else "Nothing is saved."), gap=2),
             f'<div class="toggle{" on" if on else ""}"><i></i></div>'))
+        if on:
+            rows.append(sm('For people 18 and over. Read the <a href="#">terms</a> and <a href="#">privacy</a>.'))
     return card(
         row(ic("mail", 20, T["ink2"]), title("Hear when it's locked in")),
         sm(f"We'll email you at {member}.") if member else (inp(address, ph=False) if address else inp("you@example.com", ph=True)),
@@ -831,6 +837,23 @@ S["EmailPrefs"] = shell(
         card(between(stack(title("Sunday Crew · Catch up, Thu 17 Sep"), sm("Confirmed time, changes, a reminder and one question after"), gap=2), '<div class="toggle on"><i></i></div>'), gap=0),
         sm("Turning this off stops emails for this meetup only. The plan itself isn't affected."),
         ter("Remove this email address entirely", plain=True),
+    )
+)
+
+# The page behind "Stop these reminders" in a cadence nudge (ADR 0067): one tap, and it does nothing
+# before it, so a mail gateway opening the link stops nothing.
+S["NudgeStop"] = shell(
+    top("", back=False, right=wordmark()) +
+    body(
+        stack(dl("Stop these reminders"), p("These are the emails that say it's about time to plan the next catch-up. Stopping turns them off for you in every circle. Nothing else changes, and you can turn them back on in notification settings."), gap=8),
+    ) +
+    foot(pri("Stop these reminders"))
+)
+
+S["NudgeStopDone"] = shell(
+    top("", back=False, right=wordmark()) +
+    body(
+        stack(dl("Done. You won't get these reminders."), p("Emails about plans, and everything else, carry on as before. To turn the reminders back on, sign in and open notification settings."), gap=8),
     )
 )
 
@@ -1283,7 +1306,7 @@ S["Privacy"] = shell(
         dl("What we keep, and who sees it"),
         card(row(ic("eye-off", 20, T["ink2"]), title("Your calendar stays on your phone")), p("If you turn on the calendar check, we read busy times on this device only, to grey out clashes. Event names never leave your phone."), gap=8),
         card(row(ic("people", 20, T["ink2"]), title("Friends see a combined result")), p("They see which options work for you, never a personal schedule. Before enough people are keen on a quiet ask, nobody sees anyone's answer."), gap=8),
-        card(row(ic("mail", 20, T["ink2"]), title("What email you get")), p("Anyone can ask for updates about a plan, and each of those emails has a stop link. If you sign in to organise plans or start a quiet ask, you also get letters about those and an occasional nudge, some of which you can turn off in notification settings. We never sell addresses, and other companies deliver the email for us."), gap=8),
+        card(row(ic("mail", 20, T["ink2"]), title("What email you get")), p("Anyone can ask for updates about a plan, and each of those emails has a stop link. If you sign in to organise plans or start a quiet ask, you also get letters about those, some of which you can turn off in notification settings. If you have a saved place in a circle that has a catch-up rhythm, you may get an occasional nudge to plan the next one, and it has a stop link. We never sell addresses, and other companies deliver the email for us."), gap=8),
         sm("To have your details removed, write to hello@wenna.app. There is no delete button in the app yet."),
     )
 )
@@ -1454,9 +1477,10 @@ emails = f'''
     {email_card("Turn on updates for Sunday Crew's catch-up", "One tap. Works for 24 hours.", stack(p("Tap below to get the confirmed time, changes and one reminder for this meetup by email. If this wasn't you, ignore it and nothing happens."), pri("Turn on updates"), sm("This is the only email you'll get unless you tap. No news, no offers."), gap=12))}
     {email_card("Locked in: Sunday Crew, Thu 17 Sep", "6:30–8:30 pm at Hope St Radio", stack(date("Thursday 17 September", 26), p("6:30–8:30 pm · Hope St Radio, Brunswick East"), p("Maya says: “Table's booked under my name. Come hungry.”"), sec("Add to calendar"), sm("<u>Stop emails for this meetup</u> · <u>Manage email preferences</u>"), gap=12))}
     {email_card("Reminder: Sunday Crew tonight, 6:30 pm", "Hope St Radio, Brunswick East", stack(p("See you at Hope St Radio at 6:30 pm. 5 going. If plans change, the link below is the place."), sec("Open the plan"), sm("<u>Stop emails for this meetup</u> · <u>Manage email preferences</u>"), gap=12))}
+    {email_card("Sunday Crew: about time?", "Your turn to plan, if you're keen.", stack(p("It's been about a month since Sunday Crew got together. Your turn to plan, if you're keen. No rush."), pri("Plan a catch-up"), sm("You're getting this because you're in Sunday Crew."), sm("Not for you? <u>Stop these reminders</u>. Turn these off in <u>notification settings</u>."), gap=12))}
   </div>
 </div>'''
-S["Emails"] = shell(emails, width=1400, minh=560)
+S["Emails"] = shell(emails, width=1400, minh=900)
 
 def push_row(kind, to, text, when):
     return f'<div class="between" style="align-items:flex-start;padding:10px 0;border-bottom:1px solid {T["line_soft"]};"><div class="stack" style="gap:2px;flex:1;"><div class="sm">{kind} · to {to}</div><div class="title" style="font-weight:500;">{text}</div></div><div class="sm" style="white-space:nowrap;">{when}</div></div>'
@@ -1816,7 +1840,7 @@ pages = [{"id":"first","name":"0 · First time, organiser"},
          {"id":"system","name":"6 · States, copy and components"},
          {"id":"loading","name":"7 · Loading and busy"}]
 
-titles = {"Main":"Join · invite landing","ContinueAs":"Continue as · returning member","Name":"Name","Availability":"Availability · partial","AvailabilityPicking":"Availability · days ticked","AvailabilityAdjusting":"Availability · adjusting a day","AvailabilityOthers":"Availability · what others said","AvailabilityOthersPicking":"Availability · others, days ticked","AvailabilityOthersAdjusting":"Availability · others, adjusting a day","AvailabilityOthersFirst":"Availability · first to answer","NoneWork":"None of these dates","Sent":"Sent · one step, switch on","SentSwitchOff":"Sent · switch off","SentCode":"Sent · the code","SentDone":"Sent · done","SentPartial":"Sent · place saved, emails failed","SentMember":"Sent · signed in, one button","SentMemberDone":"Sent · signed in, done","SentSuppressed":"Sent · address suppressed","SentSuppressedSaved":"Sent · suppressed, after the code","CheckEmail":"Check your email · app nudge","EmailVerified":"Email verified","EmailPrefs":"Email preferences · no sign-in","SaveAccess":"Save access · the account's other doors","CandidatesMember":"Candidates · member view","ConfirmedGuest":"Confirmed · guest","AddToCalendar":"Add to calendar sheet","RescheduledGuest":"Rescheduled · guest","CancelledGuest":"Cancelled · guest","WasThere":"Attendance · morning after","LinkInvalid":"Invite link inactive",
+titles = {"Main":"Join · invite landing","ContinueAs":"Continue as · returning member","Name":"Name","Availability":"Availability · partial","AvailabilityPicking":"Availability · days ticked","AvailabilityAdjusting":"Availability · adjusting a day","AvailabilityOthers":"Availability · what others said","AvailabilityOthersPicking":"Availability · others, days ticked","AvailabilityOthersAdjusting":"Availability · others, adjusting a day","AvailabilityOthersFirst":"Availability · first to answer","NoneWork":"None of these dates","Sent":"Sent · one step, switch on","SentSwitchOff":"Sent · switch off","SentCode":"Sent · the code","SentDone":"Sent · done","SentPartial":"Sent · place saved, emails failed","SentMember":"Sent · signed in, one button","SentMemberDone":"Sent · signed in, done","SentSuppressed":"Sent · address suppressed","SentSuppressedSaved":"Sent · suppressed, after the code","CheckEmail":"Check your email · app nudge","EmailVerified":"Email verified","EmailPrefs":"Email preferences · no sign-in","NudgeStop":"Stop reminders · no sign-in","NudgeStopDone":"Stop reminders · done","SaveAccess":"Save access · the account's other doors","CandidatesMember":"Candidates · member view","ConfirmedGuest":"Confirmed · guest","AddToCalendar":"Add to calendar sheet","RescheduledGuest":"Rescheduled · guest","CancelledGuest":"Cancelled · guest","WasThere":"Attendance · morning after","LinkInvalid":"Invite link inactive",
           "SignIn":"Sign in · returning organiser","SavePlace":"Save your place · the gate, before the share","EnterCode":"Enter code","YourName":"Your name · after sign-in","FirstCircle":"First circle · no account","InviteCircle":"Invite the circle","CircleHomeJoining":"Circle home · people joining","FirstPlan":"First plan · no account","EmptyCirclesList":"Circles · first run","CirclesList":"Circles list","CircleHome":"Circle home · finding a time","CircleHomeConfirmed":"Circle home · locked in","CircleHomeDue":"Circle home · about time","CreateCircle":"Create circle","ChooseMode":"Choose how to start","PlanSetup":"Plan setup","CustomWindow":"Custom window","PlanShared":"Plan shared · paste to chat","Waiting":"Waiting · no options yet","Candidates":"Candidates · partial replies","DeadlinePassed":"Replies closed · no decision","EditPlan":"Edit plan · reconfirm warning","ConfirmReview":"Confirm review","ConfirmedOrg":"Confirmed · organiser","ChangeTime":"Ask for new times","SetTime":"Set the time yourself","ConfirmReviewOwn":"Confirm review · a time of your own","EditLocked":"Edit this plan · locked in","ConfirmedGuestMoved":"Confirmed · guest, moved","CancelPlan":"Cancel plan","CancelledOrg":"Cancelled · organiser","NoQuorum":"No quorum","Outcome":"Did it happen?","PlanAnother":"Plan another · prefilled","Settings":"Circle settings","NotificationSettings":"Notification settings","Account":"Account","Privacy":"Privacy","Diagnostics":"Founder diagnostics","FounderAnalytics":"Founder analytics",
           "SparkSetup":"Quiet ask · setup","SparkWaiting":"Quiet ask · initiator waiting","InterestPrompt":"Interest prompt · member","ThresholdRole":"Threshold reached · initiator","Volunteer":"Started quietly · keen member","SparkOpenedMember":"Started quietly · other member","SparkExpired":"Expired · initiator",
           "PushAsk":"Push permission · contextual","CalendarExplain":"Calendar · before permission","CalendarPick":"Calendar · pick calendars","AvailabilityOverlay":"Availability · calendar overlay","CalendarDenied":"Calendar · denied",
@@ -1831,7 +1855,7 @@ def grid(names, page, per_row=6, y0=0):
 
 boards = []
 grid(["Main","ContinueAs","Name","Availability","NoneWork","Sent",
-      "CheckEmail","EmailVerified","EmailPrefs","SaveAccess","CandidatesMember","ConfirmedGuest",
+      "CheckEmail","EmailVerified","EmailPrefs","NudgeStop","NudgeStopDone","SaveAccess","CandidatesMember","ConfirmedGuest",
       "AddToCalendar","RescheduledGuest","CancelledGuest","WasThere","LinkInvalid","ConfirmedGuestMoved",
       "AvailabilityPicking","AvailabilityAdjusting","AvailabilityOthers","AvailabilityOthersPicking",
       "AvailabilityOthersAdjusting","AvailabilityOthersFirst",
@@ -1853,7 +1877,7 @@ grid(["PushAsk","CalendarExplain","CalendarPick","AvailabilityOverlay","Calendar
 boards.append(ab("ConversionMap.dc.html", 0, 0, "convert", w=1400, h=1100, title=titles["ConversionMap"]))
 grid(["ConfirmedGuestNudge","AppSheet","ReattachedNudge","SecondSent","AfterAttendance","InitiateGate","AppLanding"], "convert", per_row=7, y0=1260)
 grid(["EmptyCircle","Offline"], "system")
-boards.append(ab("Emails.dc.html", 2*GX, 0, "system", w=1400, h=560, title=titles["Emails"]))
+boards.append(ab("Emails.dc.html", 2*GX, 0, "system", w=1400, h=900, title=titles["Emails"]))
 boards.append(ab("Pushes.dc.html", 0, RY, "system", w=1180, h=520, title=titles["Pushes"]))
 boards.append(ab("ShareMessages.dc.html", 1180+120, RY, "system", w=1180, h=640, title=titles["ShareMessages"]))
 boards.append(ab("Components.dc.html", 0, 2*RY, "system", w=1180, h=1060, title=titles["Components"]))

@@ -3,11 +3,11 @@ adr: 27
 title: "The organiser's auth address is an email contact, verified by auth"
 status: accepted
 date: 2026-09-22
-amended_by: [50]
+amended_by: [50, 67]
 ---
 # ADR 0027: The organiser's auth address is an email contact, verified by auth
 
-_Status: accepted · 22 September 2026 · its last consequence amended by [ADR 0050](0050-verifying-an-address-promotes-only-the-same-persons-contacts.md)_
+_Status: accepted · 22 September 2026 · its last consequence amended by [ADR 0050](0050-verifying-an-address-promotes-only-the-same-persons-contacts.md); the cadence nudge to this address now carries a stop link, by [ADR 0067](0067-every-cadence-nudge-carries-a-stop-link-and-the-sent-card-says-an-account-is-made.md)_
 
 ## Context
 

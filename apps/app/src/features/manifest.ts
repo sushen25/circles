@@ -59,6 +59,11 @@ const SCREENS: ScreenEntry[] = [
     href: '/e',
   },
   {
+    screen: 'NudgeStop',
+    feature: 'communication',
+    href: '/n',
+  },
+  {
     screen: 'SaveAccess',
     feature: 'identity',
     href: '/j/[code]/save-access',

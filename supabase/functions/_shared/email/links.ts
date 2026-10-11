@@ -3,6 +3,7 @@ import {
   ShortCode,
   emailPreferencesUrl,
   emailVerifyUrl,
+  nudgeStopUrl,
   notificationSettingsUrl,
   planAttendanceUrl,
   planInviteUrl,
@@ -94,6 +95,16 @@ export function attendanceLink(at: string, planCode: string): string {
  */
 export function settingsLink(at: string): string {
   return notificationSettingsUrl(origin(at));
+}
+
+/**
+ * `/n#<token>` — "Stop these reminders" under a cadence nudge (ADR 0067). The
+ * page asks for one tap before it spends anything, so a mail gateway that opens
+ * the link stops nothing; the token is in the fragment like every emailed
+ * token (ADR 0023).
+ */
+export function nudgeStopLink(at: string, stopToken: string): string {
+  return nudgeStopUrl(origin(at), token(stopToken));
 }
 
 /** `/circles/<id>` — the about-time nudge is about a circle, not a plan. */

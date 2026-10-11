@@ -181,6 +181,8 @@ export type AboutTimeInput = Base & {
   readonly circleId: string;
   /** Whole weeks since the circle last met. */
   readonly weeksSince: number;
+  /** For "Stop these reminders" and `List-Unsubscribe`; minted for this letter (ADR 0067). */
+  readonly stopToken: string;
 };
 
 /**

@@ -6,6 +6,7 @@ import { optional } from '../_shared/env.ts';
 import type { EmailInput } from '../_shared/email/types.ts';
 import {
   issuePreferencesToken,
+  issueNudgeStopToken,
   issueReentryToken,
   issueVerificationToken,
 } from '../_shared/tokens.ts';
@@ -67,24 +68,35 @@ async function reentryOrSkip(
 
 /**
  * The cadence nudge, which is about a circle and has no plan: no short code,
- * no tokens — its one link is the circle's home, where the person is signed in
- * (spec §5.8: organiser letters carry no stop link) — and "about a month"
+ * one token — the stop link, which needs no sign-in (ADR 0067) — its one button
+ * is the circle's home, where the person is signed in, and "about a month"
  * worked out from the circle's last meetup now, in its zone.
  *
  * Answered before the plan kinds are, because every one of them would say
  * `plan_gone` for a job with no plan, and a cadence nudge that looks done and
  * sends nothing is exactly the trap S1-20 left written on this ticket.
  */
-function aboutTimeInput(circle: CircleContext | null, now: Instant): EmailInput | Skip {
+async function aboutTimeInput(
+  service: Db,
+  job: DueJob,
+  circle: CircleContext | null,
+  now: Instant,
+): Promise<EmailInput | Skip> {
   if (circle === null) return { skip: 'circle_gone' };
   const lastMet = circle.circle.lastMetAt;
   if (lastMet === undefined) return { skip: 'no_longer_due' };
+  // Its one token is the stop link (ADR 0067), minted for this letter and this
+  // contact. Null means the contact is not verified or is nobody's, and a nudge
+  // that cannot be stopped is not sent.
+  const stopToken = await issueNudgeStopToken(service, job.contact_id);
+  if (stopToken === null) return { skip: 'contact_unverified' };
   return {
     kind: 'about_time',
     origin: origin(),
     circleName: circle.circle.name,
     circleId: circle.circle.id,
     weeksSince: weeksSince(lastMet, now, circle.circle.zone),
+    stopToken,
   };
 }
 
@@ -102,7 +114,7 @@ export async function inputFor(
     return { kind: 'verify_email', origin: origin(), verifyToken };
   }
 
-  if (job.kind === 'about_time') return aboutTimeInput(circle, now);
+  if (job.kind === 'about_time') return await aboutTimeInput(service, job, circle, now);
 
   if (context === null || job.plan_short_code === null || job.circle_name === null) {
     return { skip: 'plan_gone' };

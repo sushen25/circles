@@ -101,6 +101,8 @@ export function Sent({
       emailsFailed={stage.kind === 'partial'}
       onEmailChange={one.setEmail}
       onSavePlaceChange={one.setSave}
+      onTerms={() => router.push('/terms')}
+      onPrivacy={() => router.push('/privacy')}
       onSubmit={() => void send()}
       onNotNow={() => {
         cancel();

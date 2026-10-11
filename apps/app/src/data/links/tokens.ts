@@ -4,7 +4,7 @@ import { fragmentLinkKind, parseTokenLink, type OpaqueToken } from '@circles/con
  * Emailed tokens, taken out of the address bar before the router sees them
  * (ADR 0023).
  *
- * `/a#<token>`, `/v#<token>` and `/e#<token>` carry their token in the
+ * `/a#<token>`, `/v#<token>`, `/e#<token>` and `/n#<token>` carry their token in the
  * fragment so that no server — the web host, a proxy, a scanner that records
  * URLs — ever holds it. The router would undo that: expo-router reads
  * `window.location` when its module is evaluated and writes the fragment back
@@ -17,7 +17,7 @@ import { fragmentLinkKind, parseTokenLink, type OpaqueToken } from '@circles/con
  * screen says to open the link from the email again: keeping the token anywhere
  * that survives a reload is keeping it somewhere else to leak from.
  */
-export type TokenKind = 'reentry' | 'verify' | 'preferences';
+export type TokenKind = 'reentry' | 'verify' | 'preferences' | 'nudge_stop';
 
 const held = new Map<TokenKind, OpaqueToken>();
 

@@ -1,4 +1,4 @@
-import { CONSENT } from '@circles/config';
+import { CONSENT, brand } from '@circles/config';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
@@ -120,7 +120,16 @@ describe('the card', () => {
 
     const toggle = await screen.findByRole('switch', SWITCH);
     expect(toggle).toHaveAttribute('aria-checked', 'true');
-    expect(screen.getByText('Get back from any phone.')).toBeVisible();
+    // The switch on says an account is made, that reminders can be stopped from the
+    // email itself, and links the policies (SUS-190, ADR 0067).
+    expect(
+      screen.getByText(
+        `This makes you an account in ${brand.name}, so you can get back in from any phone. Reminders about catching up can be stopped from the email itself.`,
+      ),
+    ).toBeVisible();
+    expect(screen.getByRole('link', { name: 'terms' })).toBeVisible();
+    expect(screen.getByRole('link', { name: 'privacy' })).toBeVisible();
+    expect(screen.getByText(/For people 18 and over/)).toBeVisible();
     expect(screen.queryByText(/Save access on every device/)).toBeNull();
 
     const sentence = screen.getByText((_, node) => node?.textContent === CONSENT.text);
@@ -132,6 +141,9 @@ describe('the card', () => {
     fireEvent.click(toggle);
     expect(toggle).toHaveAttribute('aria-checked', 'false');
     expect(screen.getByText('Nothing is saved.')).toBeVisible();
+    // Nothing is made, so there is nothing to explain or link.
+    expect(screen.queryByRole('link', { name: 'terms' })).toBeNull();
+    expect(screen.queryByText(/For people 18 and over/)).toBeNull();
   });
 
   it('shows no switch to somebody whose place is already saved', async () => {

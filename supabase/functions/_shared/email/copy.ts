@@ -287,6 +287,9 @@ export const EN_EMAIL = {
       `You're getting this because you're organising a catch-up for ${circleName}. ` +
       'It comes even with emails about plans you organise turned off, because the plan is waiting on you.',
     /** "Turn these off in notification settings." — where, not a stop link (ADR 0029). */
+    /** The cadence nudge's no-sign-in stop (ADR 0067), above the settings line. */
+    stopNudgesLead: 'Not for you?',
+    stopNudgesLabel: 'Stop these reminders',
     settingsLead: 'Turn these off in',
     settingsLabel: 'notification settings',
     nudge: (circleName: string) => `You're getting this because you're in ${circleName}.`,
