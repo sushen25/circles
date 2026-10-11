@@ -18,6 +18,8 @@ import { EMAIL_KINDS, type EmailKind, QUIET_KINDS, SUBSCRIBER_KINDS } from './ty
 const ORGANISER_KINDS = EMAIL_KINDS.filter(
   (kind) =>
     kind !== 'verify_email' &&
+    // Carries a stop link of its own that needs no sign-in (ADR 0067), below.
+    kind !== 'about_time' &&
     !(SUBSCRIBER_KINDS as readonly string[]).includes(kind) &&
     !(QUIET_KINDS as readonly string[]).includes(kind),
 );
@@ -100,7 +102,7 @@ describe('render', () => {
       const links = [...hrefs(email.html), ...Object.values(email.headers)];
       for (const link of links) {
         const [beforeHash] = link.split('#');
-        for (const label of ['verify', 'prefs', 'reentry'] as const) {
+        for (const label of ['verify', 'prefs', 'reentry', 'stop'] as const) {
           expect(beforeHash).not.toContain(fixtureToken(label));
         }
       }
@@ -332,6 +334,38 @@ describe('render', () => {
   });
 
   describe('the about-time email', () => {
+    // ADR 0067: every cadence nudge can be stopped from the letter, with no sign-in.
+    it('carries a stop link to /n# with its own token, and List-Unsubscribe to the same page', async () => {
+      const email = await render(SUNDAY_CREW.about_time);
+      const stop = `${ORIGIN}/n#${fixtureToken('stop')}`;
+      expect(hrefs(email.html).filter((href) => href === stop)).toHaveLength(1);
+      expect(email.text).toContain(EN_EMAIL.footer.stopNudgesLabel);
+      expect(email.text).toContain(stop);
+      expect(email.headers['List-Unsubscribe']).toBe(`<${stop}>`);
+      // One-click POST would put the token in a request log (ADR 0025).
+      expect(email.headers).not.toHaveProperty('List-Unsubscribe-Post');
+    });
+
+    it('still says why it came and where the switch is, and stops only the nudge', async () => {
+      const email = await render(SUNDAY_CREW.about_time);
+      expect(email.text).toContain(EN_EMAIL.footer.nudge('Sunday Crew'));
+      expect(hrefs(email.html).filter((href) => href.includes('/settings/'))).toEqual([
+        `${ORIGIN}/settings/notifications`,
+      ]);
+      // Not the plan-update links: those stop plan email, this stops the nudge.
+      expect(email.text).not.toContain(EN_EMAIL.footer.stopPlan);
+      expect(hrefs(email.html).some((href) => /\/[ae]#/.test(href))).toBe(false);
+    });
+
+    it('refuses a stop token that is not token-shaped, without quoting it', async () => {
+      const secret = 'not a token';
+      const failure = await render({ ...SUNDAY_CREW.about_time, stopToken: secret }).catch(
+        (error: unknown) => error,
+      );
+      expect(failure).toBeInstanceOf(EmailLinkError);
+      expect(String((failure as Error).message)).not.toContain(secret);
+    });
+
     // A weekly circle is asked five days after it met, which is no whole weeks
     // (review round 1): the letter said "a couple of weeks" for five days.
     it.each([

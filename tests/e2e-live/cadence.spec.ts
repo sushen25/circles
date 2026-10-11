@@ -228,4 +228,27 @@ test('swept by the dispatcher: a circle that met before its due date is a new cy
     ninas.getByText(/Plan the next one when the group's keen\. No rush\./),
   ).toBeVisible();
   await expect(ninas.getByText(/your turn/)).toHaveCount(0);
+
+  // SUS-190 (ADR 0067): the letter can be stopped from itself, with no sign-in.
+  // A fresh browser, because that is where an email link lands. Opening the
+  // link stops nothing; one tap does; a second is harmless; and it stopped
+  // Tom's nudges and nobody else's.
+  const mutedOf = (userId: string) =>
+    sql(`select muted_nudges from public.circle_members
+         where circle_id = '${circleId}' and user_id = '${userId}'`)[0]![0];
+  const stopLink = linkIn(letter, '/n', baseURL!);
+  const elsewhere = await (await browser.newContext()).newPage();
+  await elsewhere.goto(stopLink);
+  await expect(elsewhere.getByRole('button', { name: 'Stop these reminders' })).toBeVisible();
+  expect(await elsewhere.evaluate('location.hash')).toBe('');
+  expect(mutedOf(tom!.userId)).toBe('f');
+  await elsewhere.getByRole('button', { name: 'Stop these reminders' }).click();
+  await expect(elsewhere.getByText("Done. You won't get these reminders.")).toBeVisible();
+  expect(mutedOf(tom!.userId)).toBe('t');
+  expect(mutedOf(nina!.userId)).toBe('f');
+  // Again, from the same email: the link is not spent, and nothing breaks.
+  await elsewhere.goto(stopLink);
+  await elsewhere.getByRole('button', { name: 'Stop these reminders' }).click();
+  await expect(elsewhere.getByText("Done. You won't get these reminders.")).toBeVisible();
+  expect(mutedOf(tom!.userId)).toBe('t');
 });

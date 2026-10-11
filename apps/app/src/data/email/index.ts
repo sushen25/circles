@@ -3,6 +3,7 @@ import {
   ManageEmailPreferencesResponse,
   RequestEmailUpdatesRequest,
   RequestEmailUpdatesResponse,
+  StopNudgesResponse,
   VerifyEmailContactResponse,
   type IdempotencyKey,
   type OpaqueToken,
@@ -66,6 +67,14 @@ export function reloadCopy(): void {
 /** `/v#<token>`: verify the address the token was sent to. No session needed. */
 export async function verifyEmail(token: OpaqueToken): Promise<VerifyEmailContactResponse> {
   return await invokeFunction('verify-email-contact', { token }, VerifyEmailContactResponse);
+}
+
+/**
+ * `/n#<token>`: stop the cadence nudge, with no session (ADR 0067). Called only
+ * from the page's one button, never on load.
+ */
+export async function stopNudges(token: OpaqueToken): Promise<StopNudgesResponse> {
+  return await invokeFunction('stop-nudges', { token }, StopNudgesResponse);
 }
 
 export type PreferencesAction =

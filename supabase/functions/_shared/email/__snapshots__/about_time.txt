@@ -8,6 +8,8 @@ Plan a catch-up https://meet.example.com/circles/00000000-0000-4000-8000-0000000
 
 You're getting this because you're in Sunday Crew.
 
+Not for you? Stop these reminders https://meet.example.com/n#stop_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.
+
 Turn these off in notification settings https://meet.example.com/settings/notifications.
 
 Sent by Wenna

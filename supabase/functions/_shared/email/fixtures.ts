@@ -16,7 +16,7 @@ import type { EmailInput, EmailKind } from './types.ts';
 export const ORIGIN = 'https://meet.example.com';
 
 /** Token-shaped for the contract (`OpaqueToken`), and obviously not a real one. */
-export function fixtureToken(label: 'verify' | 'prefs' | 'reentry'): string {
+export function fixtureToken(label: 'verify' | 'prefs' | 'reentry' | 'stop'): string {
   return `${label}_`.padEnd(43, 'x');
 }
 
@@ -100,6 +100,7 @@ export const SUNDAY_CREW: { readonly [K in EmailKind]: Extract<EmailInput, { kin
     kind: 'about_time',
     circleId: '00000000-0000-4000-8000-000000000001',
     weeksSince: 5,
+    stopToken: fixtureToken('stop'),
   },
   threshold_initiator: { ...plan, kind: 'threshold_initiator' },
   quiet_expired: {

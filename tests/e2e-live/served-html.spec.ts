@@ -60,6 +60,7 @@ test.describe('the served HTML', () => {
       '/circles/new',
       '/a',
       '/e',
+      '/n',
       '/v',
       '/start',
     ];

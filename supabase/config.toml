@@ -525,6 +525,11 @@ verify_jwt = false
 [functions.manage-email-preferences]
 verify_jwt = false
 
+# The stop link under a cadence nudge (ADR 0067): opened with no session, so the
+# token in the body is the authorisation, as for the two above.
+[functions.stop-nudges]
+verify_jwt = false
+
 # The analytics ingest. The top of the funnel is measured before anybody has
 # joined anything — a link opened from a group chat precedes a session by
 # definition — so the gateway has no user JWT to check and refusing on its
