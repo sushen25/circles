@@ -289,7 +289,7 @@ Quiet asks exist only inside a private circle; there is no anonymous text or tar
 - Plan-level **I'm easy — count me in for whatever works for most people** toggle (the flexible response).
 - Explicit outcomes: submitted windows; flexible; interested but none of these dates work; **not enough notice — try me with more warning**; not this time. "None of these dates" opens a three-way choice rather than a bare decline.
 - Editing is allowed until confirmation or the deadline; drafts survive going offline and resubmit.
-- The privacy line reads: "Your friends will only see a combined result. They won't see your calendar or a personal schedule view."
+- The privacy line reads: "Your friends will see who can make each suggested time. They won't see your calendar, or your whole availability with your name on it."
 
 #### Optional device-calendar overlay (native, Slice 3)
 
@@ -314,7 +314,7 @@ Deterministic and versioned; no LLM. Enumerate 30-minute starts in the circle's 
 #### Presentation
 
 - **All active members** see the candidates before confirmation; only the organiser can confirm.
-- Each option shows the date and time on the circle's clock, naming the zone when the reader's own device is in a different one and never because another member's is ([ADR 0032](decisions/0032-the-circles-zone-is-shown-when-the-readers-device-differs.md)), "5 of 6 can make it", the names who can attend, a non-judgemental exception ("Doesn't work for Nina", "Alex hasn't answered"), and an explanation of its rank ("Best attendance", "One fewer, weekend", "Also four, a day later"). Dashed marks denote people who have not answered and never appear inside the "can make it" set.
+- Each option shows the date and time on the circle's clock, naming the zone when the reader's own device is in a different one and never because another member's is ([ADR 0032](decisions/0032-the-circles-zone-is-shown-when-the-readers-device-differs.md)), "5 of 6 can make it", the names who can attend, a non-judgemental exception ("Doesn't work for Nina", "Alex hasn't answered"), and an explanation of its rank ("Best attendance", "One fewer, weekend", "Also four, a day later"). Dashed marks denote people who have not answered and never appear inside the "can make it" set. Every member sees these names, not only the organiser: the group sees who can make each option on offer, who cannot and who has not answered, and nobody sees anyone's whole availability with their name on it. A card is a verdict on one stretch and never shows a window; the public sentences about this say both things plainly and a domain rule keeps them true ([ADR 0066](decisions/0066-the-group-sees-who-can-make-each-option-and-nobody-sees-whole-availability.md)).
 - Before any candidate exists the organiser sees a waiting state with what has come in; members see nothing until options exist.
 - No quorum: the closest near-misses, the blocking rule, and three actions: lower quorum, widen the window, close this attempt. Quorum is never lowered silently. Widening asks about every day for thirty days from the first, dropping any gaps, and says so before it does ([ADR 0047](decisions/0047-a-plan-may-ask-about-days-with-gaps.md)).
 
@@ -477,7 +477,7 @@ confirmed | ready | collecting ─cancel──▶ cancelled
 - A plan revision has at most one active confirmation; a confirmed time never changes as a side effect of later responses. The organiser changing it on purpose is not a side effect of a response: a move supersedes the confirmation inside the same revision and writes a new active one, so there is still at most one ([ADR 0051](decisions/0051-the-organiser-sets-the-final-plan.md)). An answer that arrives after lock-in changes nothing.
 - Raw device-calendar events never enter the backend.
 - Availability is scoped to one plan revision and never reused silently.
-- Availability is shown to other members only as counts, and to the editor as each other person's windows day by day with no identity and nothing linking their days; only from the current revision, never the reader's own, and only once one other answer with times is in ([ADR 0045](decisions/0045-the-editor-shows-what-others-have-said-as-counts.md)). Nobody's name is ever beside a time.
+- Availability is shown to other members only as counts, and to the editor as each other person's windows day by day with no identity and nothing linking their days; only from the current revision, never the reader's own, and only once one other answer with times is in ([ADR 0045](decisions/0045-the-editor-shows-what-others-have-said-as-counts.md)). Nobody's name is ever beside a window of times. The option cards name who can make each option on offer, who cannot and who has not answered, and show no window ([ADR 0066](decisions/0066-the-group-sees-who-can-make-each-option-and-nobody-sees-whole-availability.md)).
 - Quiet-ask initiator identity and individual interest answers are never exposed, before or after threshold.
 - A reattachment moves a membership only within a circle the guest already belongs to, never onto a saved-place member. (An emailed link taking a place *back* from a saved account whose own email is not the link's address is the one exception: [ADR 0049](decisions/0049-continue-as-resolves-a-code-only-while-it-is-live.md), decision 6.)
 - Plan-update email consent is scoped to one plan and is never a marketing consent.
@@ -564,7 +564,7 @@ The implementation is specified in the [technical architecture](./technical-arch
 
 The architecture holds the controls; the product commitments are:
 
-- Nobody's calendar leaves their phone; friends only ever see a combined result.
+- Nobody's calendar leaves their phone; friends see who can make each suggested time, never a calendar.
 - A quiet ask never reveals who asked or who answered what, in any surface.
 - Email is optional, per meetup, verified, and stoppable without sign-in; addresses are never shown to other members or sold, shared or enriched.
 - Invite links can be reset; leaving, deleting and exporting are always available.

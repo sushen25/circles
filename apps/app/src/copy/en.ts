@@ -192,8 +192,8 @@ export const en = {
     clocks_go_back: 'Clocks go back',
     im_easy: "I'm easy",
     count_me_in_for_whatever_works_for: 'Count me in for whatever works for most people',
-    your_friends_will_only_see_a_combined:
-      "Your friends will only see a combined result. They won't see your calendar or a personal schedule view.",
+    your_friends_see_who_can_make_each:
+      "Your friends will see who can make each suggested time. They won't see your calendar, or your whole availability with your name on it.",
     send_my_times: 'Send my times',
     sending: 'Sending',
     pick_or_easy: "Pick some days and a time, or turn on I'm easy.",
@@ -1650,7 +1650,7 @@ export const en = {
       'A sign-in code when you sign in. If you sign in to organise plans or start a quiet ask, letters about those and an occasional nudge to plan the next one; some of these can be turned off in notification settings. Anyone can ask for updates about a plan, and each of those emails has a stop link.',
     privacy_calendar_heading: 'Your calendar stays yours',
     privacy_calendar_body:
-      'Nobody in your circle sees your schedule, only which times work for the group. Calendar events on your phone never leave it.',
+      'The group sees who can make each time we suggest. Nobody sees your calendar, and nobody is shown your whole availability with your name on it. Calendar events on your phone never leave it.',
     privacy_leave_heading: 'Removing your details',
     privacy_leave_body:
       'A circle owner can remove a member. To have your details removed, write to {support}. There is no delete button in the app yet.',
@@ -1691,7 +1691,7 @@ export const en = {
     people_in_so_far: '{count} people are in so far',
     one_person_in_so_far: '1 person is in so far',
     no_account_or_app_needed_your_friends:
-      'No account or app needed. Your friends only ever see a combined result, never your calendar.',
+      'No account or app needed. Your friends see who can make each time, never your calendar.',
     choose_my_times: 'Choose my times',
     what_is_brand: 'What is {brand}?',
     opening_the_invite: 'Opening the invite',
@@ -2621,7 +2621,7 @@ export const en = {
     panel2_title: "Times I'd actually be up for",
     panel2_days: 'Days',
     panel2_summary: 'Wed 16 from 6 pm · Thu 17, any time · Sat 19 afternoon',
-    panel2_private: 'Your friends only see the combined result, never this screen.',
+    panel2_private: 'Your friends see who can make a time, never your calendar or this screen.',
     panel2_send: 'Send my times',
     day_mon: 'Mon',
     day_tue: 'Tue',
@@ -2654,13 +2654,13 @@ export const en = {
     promise1_body:
       "{brand} only ever asks what you'd be up for. It never connects to your calendar to guess, and no event title or calendar detail ever leaves your phone.",
     promise1_never: "Never: a calendar permission before you've answered.",
-    promise2_title: 'Friends see the result, not your answer.',
+    promise2_title: 'Friends see who can make a time, not your calendar.',
     promise2_body:
-      "Your days and times go in, a combined picture comes out. Nobody can open your reply. Nobody can see one person's schedule.",
-    promise2_never: 'Never: a screen that shows your week to the group.',
-    promise3_title: 'No one is named for not replying.',
+      'Your days and times go in. What comes out is who can make each suggested time. Nobody can open your reply, and nobody is shown your whole availability with your name on it.',
+    promise2_never: 'Never: your calendar, or your whole week with your name on it.',
+    promise3_title: 'Nobody is called out for not replying.',
     promise3_body:
-      "A plan that doesn't get there just fades. We say “not enough people were free this time”, never who. Interest that doesn't reach the group stays between you and {brand}.",
+      "Until you've answered, the options say so in one quiet line, and the whole group can read it. If a plan doesn't get there it just fades, and the message names no one: “not enough people were free this time”. Interest that doesn't reach the group stays between you and {brand}.",
     promise3_never: 'Never: a rejection count, a read receipt, a “3 declined”.',
     promise4_title: 'Nothing to keep you scrolling.',
     promise4_body:

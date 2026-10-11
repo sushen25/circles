@@ -231,7 +231,7 @@ export function AvailabilityScreen({
             disabled={locked}
           />
         </Row>
-        <Notice>{t('availability', 'your_friends_will_only_see_a_combined')}</Notice>
+        <Notice>{t('availability', 'your_friends_see_who_can_make_each')}</Notice>
         {problem === undefined ? null : <Notice kind="warn">{problem}</Notice>}
         {reference === undefined ? null : (
           <Small>{t('availability', 'reference', { reference })}</Small>

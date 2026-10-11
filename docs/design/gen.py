@@ -265,7 +265,7 @@ S["Join"] = shell(
         dxl("Sunday Crew is finding a time to catch up."),
         p("Maya shared this link. Pick the times you'd actually be up for. It takes about a minute, and nobody sees your calendar."),
         row(marks(["Maya","Alex","Tom","Jess","Sam"]), sm("5 people are in so far")),
-        notice("No account or app needed. Your friends only ever see a combined result, never your calendar."),
+        notice("No account or app needed. Your friends see who can make each time, never your calendar."),
     ) +
     foot(pri("Choose my times"), ter("What is Circles?"))
 )
@@ -388,7 +388,7 @@ def availability(grid_, panel_, answer_, minh, others=None, count="3 of 14 days"
             stack(*([line] if line else []), grid_, panel_, gap=14),
             answer_,
             between(stack(title("I'm easy"), sm("Count me in for whatever works for most people"), gap=2), '<div class="toggle"><i></i></div>'),
-            notice("Your friends will only see a combined result. They won't see your calendar or a personal schedule view.", "eye-off"),
+            notice("Your friends will see who can make each suggested time. They won't see your calendar, or your whole availability with your name on it.", "eye-off"),
             gap=20) +
         foot(pri("Send my times"), ter("None of these dates work for me", plain=True))
     , minh=minh, css=AV_CSS + (OTHERS_CSS if others else ""))

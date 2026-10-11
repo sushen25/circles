@@ -89,6 +89,9 @@ test('a member who has answered sees the same options, with nothing to confirm',
 
   await page.goto(`/p/${crew.planCode}`);
   await expect(page.getByText(/looks good for/)).toBeVisible();
+  // Option A (ADR 0066): a member sees the same names the organiser does, who
+  // has not answered beside each option.
+  await expect(page.getByText(/ haven't answered| hasn't answered/).first()).toBeVisible();
   await expect(page.getByRole('button', { name: 'Change my times' })).toBeVisible();
   await expect(page.getByRole('button', { name: /^Review / })).toHaveCount(0);
   await expect(page.getByRole('button', { name: /^Nudge/ })).toHaveCount(0);
