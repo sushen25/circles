@@ -46,6 +46,7 @@ const promises: PromiseSentence[] = [
     text: en.legal.privacy_calendar_body,
   },
   { id: 'site, promise 2', kind: 'sees_and_not_sees', text: en.site.promise2_body },
+  { id: 'site, mock caption', kind: 'sees_and_not_sees', text: en.site.panel2_private },
   { id: 'site, promise 3', kind: 'waiting', text: en.site.promise3_body },
   // Honest before this ticket and left as it was.
   {
