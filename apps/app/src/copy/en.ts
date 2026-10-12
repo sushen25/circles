@@ -554,6 +554,14 @@ export const en = {
     try_again: 'Try again',
     settings: 'Circle settings',
     marks_more: '+{count}',
+    // What the plan card's marks say aloud (SUS-198): who answered, then who
+    // has not. The members row says only who is in.
+    marks_names_and: '{names} and {last}',
+    marks_answered: '{names} answered',
+    marks_answered_one_waiting: "{answered} answered; {waiting} hasn't yet",
+    marks_answered_many_waiting: "{answered} answered; {waiting} haven't yet",
+    marks_none_answered_one: "{waiting} hasn't answered yet",
+    marks_none_answered_many: "{waiting} haven't answered yet",
     about_time_body:
       "It's been {period} since {circle} last got together. Plan the next one when the group's keen. No rush.",
     period_weekly: 'about a week',

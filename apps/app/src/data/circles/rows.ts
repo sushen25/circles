@@ -97,6 +97,43 @@ export async function repliesFor(
 }
 
 /**
+ * Who the plan asked, and which of them have answered, for the marks on the
+ * plan card (SUS-198).
+ *
+ * Read through `response_summaries`, which says who has answered and nothing
+ * else: to the organiser always, to a member only once options exist (spec
+ * §5.6: "who has answered is the organiser's to chase, not the circle's to
+ * watch"). Before that the view returns nothing, and nothing is the answer
+ * here too (`undefined`): the card then draws plain marks and its count says
+ * the rest, rather than a dashed outline the reader may not see.
+ *
+ * A card, not the home: unread, the home still shows.
+ */
+export async function answersFor(
+  client: Client,
+  plan: Pick<PlanRow, 'id' | 'revision' | 'organiser_user_id'>,
+  me: string | undefined,
+): Promise<{ userId: string; replied: boolean }[] | undefined> {
+  const [asked, summaries] = await Promise.all([
+    client
+      .from('plan_participants')
+      .select('user_id')
+      .eq('plan_id', plan.id)
+      .eq('revision', plan.revision),
+    client
+      .from('response_summaries')
+      .select('user_id')
+      .eq('plan_id', plan.id)
+      .eq('revision', plan.revision),
+  ]);
+  if (asked.error !== null || summaries.error !== null) return undefined;
+  const isOrganiser = me !== undefined && plan.organiser_user_id === me;
+  if (!isOrganiser && summaries.data.length === 0) return undefined;
+  const replied = new Set(summaries.data.flatMap((r) => (r.user_id === null ? [] : [r.user_id])));
+  return asked.data.map((p) => ({ userId: p.user_id, replied: replied.has(p.user_id) }));
+}
+
+/**
  * Whether the reader answered this plan before an edit cleared it, and has not
  * answered the question as it is now (SUS-130): their newest answer is to an
  * earlier revision. Their own rows only (`plan_responses_select_own`), which
