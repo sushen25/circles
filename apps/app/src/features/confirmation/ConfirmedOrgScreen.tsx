@@ -19,6 +19,7 @@ import {
 } from '../../components';
 import { Stack } from '../../components/layout';
 import { t } from '../../copy';
+import { FeedbackLink } from '../feedback/FeedbackLink';
 import { MARKS_MAX } from '../scheduling/parts';
 import type { AttendanceAction } from './ConfirmedGuestScreen';
 import { ConfirmedPlaceholder, type ConfirmedState } from './parts';
@@ -154,6 +155,7 @@ export function ConfirmedOrgScreen({
           variant="secondary"
           onPress={onAddToCalendar}
         />
+        <FeedbackLink screen="confirmed" />
       </Foot>
     </Screen>
   );

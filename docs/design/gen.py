@@ -200,6 +200,8 @@ def sec(t): return f'<div class="btn sec">{t}</div>'
 def ter(t, plain=False):
     """The quiet action (SUS-168): the soft accent button, or with plain=True the hairline one for letting go."""
     return f'<div class="ter{" plain" if plain else ""}">{t}</div>'
+# The quiet link to the founder (SUS-170): last in the footer of Sent, both Confirmed screens and circle home.
+FEEDBACK = ter("Something off? Tell me")
 def card(*parts, rec=False, gap=12, pad=18):
     return f'<div class="card{" rec" if rec else ""}" style="gap:{gap}px;padding:{pad}px;">' + "\n".join(parts) + '</div>'
 def chips(*items):
@@ -468,44 +470,44 @@ def sent_card(address="", switch="on", member=None):
 def sent_head():
     return stack(lbl("Sunday Crew"), dxl("Thanks, Nina. Your times are in."), p("Maya will pick a time once replies close on Tuesday. The plan will land in the group chat."), gap=10)
 
-S["Sent"] = shell(top("", back=False, right=wordmark()) + body(sent_head(), sent_card(), ter("Change my answer")))
+S["Sent"] = shell(top("", back=False, right=wordmark()) + body(sent_head(), sent_card(), ter("Change my answer")) + foot(FEEDBACK))
 
 # The switch off: today's path, the verification link and no account.
-S["SentSwitchOff"] = shell(top("", back=False, right=wordmark()) + body(sent_head(), sent_card("nina@example.com", switch="off"), ter("Change my answer")))
+S["SentSwitchOff"] = shell(top("", back=False, right=wordmark()) + body(sent_head(), sent_card("nina@example.com", switch="off"), ter("Change my answer")) + foot(FEEDBACK))
 
 # Done: the place is saved and this plan's updates are on. A live region.
 S["SentDone"] = shell(top("", back=False, right=wordmark()) + body(
     sent_head(),
     notice("Done. We'll email nina@example.com about this meetup, and your place in Sunday Crew is saved: sign in with that address on any phone to get back to it.", "check", "ok"),
-    ter("Change my answer")))
+    ter("Change my answer")) + foot(FEEDBACK))
 
 # Partial failure: signed in, the emails did not turn on. The card returns for the emails alone.
 S["SentPartial"] = shell(top("", back=False, right=wordmark()) + body(
     sent_head(),
     notice("Your place is saved. We couldn't turn on the emails; try again.", "shield", "warn"),
     sent_card("nina@example.com", switch=None),
-    ter("Change my answer")))
+    ter("Change my answer")) + foot(FEEDBACK))
 
 # A signed-in member with a confirmed address (SUS-164): their address as text, the
 # sentence directly above one button. No field, no switch, no other address (ADR 0055).
-S["SentMember"] = shell(top("", back=False, right=wordmark()) + body(sent_head(), sent_card(member="nina@example.com", switch=None), ter("Change my answer")))
+S["SentMember"] = shell(top("", back=False, right=wordmark()) + body(sent_head(), sent_card(member="nina@example.com", switch=None), ter("Change my answer")) + foot(FEEDBACK))
 
 # Done for the member: one line, a live region. The place was already saved.
 S["SentMemberDone"] = shell(top("", back=False, right=wordmark()) + body(
     sent_head(),
     notice("Done. We'll email nina@example.com about this meetup.", "check", "ok"),
-    ter("Change my answer")))
+    ter("Change my answer")) + foot(FEEDBACK))
 
 # The owner of a suppressed address (it bounced, or asked to stop) is told the
 # truth, and promised nothing: on the member's one button, and after the code.
 S["SentSuppressed"] = shell(top("", back=False, right=wordmark()) + body(
     sent_head(),
     notice("We can't send email to nina@example.com right now, so check the plan here.", "shield", "warn"),
-    ter("Change my answer")))
+    ter("Change my answer")) + foot(FEEDBACK))
 S["SentSuppressedSaved"] = shell(top("", back=False, right=wordmark()) + body(
     sent_head(),
     notice("Your place is saved. We can't send email to nina@example.com right now, so check the plan here.", "shield", "warn"),
-    ter("Change my answer")))
+    ter("Change my answer")) + foot(FEEDBACK))
 
 S["ConfirmedGuest"] = shell(
     top("Sunday Crew", back=False, right=ic("share", 22, T["invert_ink"])) +
@@ -518,7 +520,7 @@ S["ConfirmedGuest"] = shell(
              between(stack(title("You're going"), sm("Tap below if that changes"), gap=2), ic("check", 22, T["invert_accent"]))),
         p("Maya says: “Table's booked under my name. Come hungry.”"),
     ) +
-    foot(pri("Add to calendar"), ter("I can't make it after all", plain=True))
+    foot(pri("Add to calendar"), ter("I can't make it after all", plain=True), FEEDBACK)
 , invert=True)
 
 S["WasThere"] = shell(
@@ -568,7 +570,7 @@ S["CircleHome"] = shell(
         ),
         between(row(marks(["Maya","Nina","Alex","Tom","Jess","Sam"]), sm("6 members")), f'<div class="row" style="gap:6px;color:{T["accent_dark"]};font-weight:600;font-size:14px;white-space:nowrap;">{ic("link",18)}Invite link</div>'),
     ) +
-    foot(pri("Plan a catch-up"))
+    foot(pri("Plan a catch-up"), FEEDBACK)
 )
 
 S["CreateCircle"] = shell(
@@ -649,7 +651,7 @@ S["ConfirmedOrg"] = shell(
         between(stack(title("5 going · 1 to confirm"), sm("Alex hasn't said yet"), gap=2), marks(["Maya","Nina","Tom","Jess","Sam","Alex"], waiting=("Alex",))),
         stack(title("You're going"), ter("I can't make it after all"), ter("Cancel this plan", plain=True), gap=8),
     ) +
-    foot(pri("Share to group chat"), sec("Add to my calendar"))
+    foot(pri("Share to group chat"), sec("Add to my calendar"), FEEDBACK)
 , invert=True)
 
 S["NoQuorum"] = shell(
@@ -1186,7 +1188,7 @@ S["ConfirmedGuestMoved"] = shell(
              stack(title("The time moved. Are you coming?"), sm("Let everyone know below"), gap=2)),
         p("Maya says: “Come if you can.”"),
     ) +
-    foot(pri("Add to calendar"), ter("I can make it"), ter("I can't make it", plain=True))
+    foot(pri("Add to calendar"), ter("I can make it"), ter("I can't make it", plain=True), FEEDBACK)
 , invert=True, minh=900)
 
 S["CancelPlan"] = shell(
@@ -1226,7 +1228,7 @@ S["CircleHomeConfirmed"] = shell(
         card(between(stack(lbl("Last caught up"), date("Sat 8 Aug", 22), gap=4), stack(lbl("Next one"), date("Thu 17 Sep", 22), gap=4))),
         between(row(marks(["Maya","Nina","Alex","Tom","Jess","Sam"]), sm("6 members")), f'<div class="row" style="gap:6px;color:{T["accent_dark"]};font-weight:600;font-size:14px;white-space:nowrap;">{ic("link",18)}Invite link</div>'),
     ) +
-    foot(sec("Plan another"))
+    foot(sec("Plan another"), FEEDBACK)
 )
 
 S["CircleHomeDue"] = shell(
@@ -1237,7 +1239,7 @@ S["CircleHomeDue"] = shell(
         card(between(stack(lbl("Last caught up"), date("Thu 17 Sep", 22), gap=4), stack(lbl("Next one"), f'<div class="date" style="font-size:22px;">Nothing yet</div>', gap=4))),
         between(row(marks(["Maya","Nina","Alex","Tom","Jess","Sam"]), sm("6 members")), f'<div class="row" style="gap:6px;color:{T["accent_dark"]};font-weight:600;font-size:14px;white-space:nowrap;">{ic("link",18)}Invite link</div>'),
     ) +
-    foot(pri("Plan another"))
+    foot(pri("Plan another"), FEEDBACK)
 )
 
 S["PlanAnother"] = shell(
@@ -1512,7 +1514,7 @@ S["ConfirmedGuestNudge"] = shell(
         card(between(stack(title("5 going · 1 to confirm"), sm("Maya, Nina, Tom, Jess, Sam · Alex to confirm"), gap=2), marks(["Maya","Nina","Tom","Jess","Sam","Alex"], waiting=("Alex",)))),
         card(row(ic("clock", 20, T["invert_accent"]), title("Want a nudge on Thursday?")), p("The app sends one reminder two hours before, and nothing else. Or add it to your calendar below."), row(sec("Get the app"), gap=8), gap=10),
     ) +
-    foot(pri("Add to calendar"), ter("I can't make it after all", plain=True))
+    foot(pri("Add to calendar"), ter("I can't make it after all", plain=True), FEEDBACK)
 , invert=True, minh=900)
 
 S["AppSheet"] = shell(

@@ -19,6 +19,7 @@ import {
 } from '../../components';
 import { Row, Stack } from '../../components/layout';
 import { t } from '../../copy';
+import { FeedbackLink } from '../feedback/FeedbackLink';
 import type { Fixture } from '../../data/fixtures';
 import type { ScreenState } from '../state';
 import { CircleHomeJoiningScreen } from './CircleHomeJoiningScreen';
@@ -174,6 +175,7 @@ export function CircleHomeScreen({
       </Body>
       <Foot>
         <Button label={t('circleHome', 'plan_a_catch_up')} onPress={onNext} />
+        <FeedbackLink screen="circle_home" />
       </Foot>
     </Screen>
   );

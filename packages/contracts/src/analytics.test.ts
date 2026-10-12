@@ -75,6 +75,7 @@ describe('the analytics catalogue', () => {
       'app_nudge_tapped',
       'account_claimed',
       'app_first_open_linked',
+      'feedback_opened',
       'guest_started_circle',
       'organiser_draft_started',
       'organiser_gate_shown',
@@ -430,5 +431,26 @@ describe('client_error (SUS-112)', () => {
     };
     for (const value of Object.values(longest)) expect(value).toMatch(/^[A-Za-z0-9_./:+-]{1,40}$/);
     expect(validateEvent('client_error', longest)).not.toBeNull();
+  });
+});
+
+describe('feedback_opened (SUS-170)', () => {
+  it('takes one of the three screens and nothing else', () => {
+    for (const screen of ['sent', 'confirmed', 'circle_home']) {
+      expect(validateEvent('feedback_opened', { screen }), screen).not.toBeNull();
+    }
+    expect(validateEvent('feedback_opened', { screen: 'join' })).toBeNull();
+    expect(validateEvent('feedback_opened', {})).toBeNull();
+  });
+
+  it('has no free-text field: only the screen, and a free-text key is refused', () => {
+    expect(
+      Object.keys(catalogue.feedback_opened.payload.shape)
+        .filter((key) => key !== 'circle_id' && key !== 'plan_id')
+        .sort(),
+    ).toEqual(['screen']);
+    for (const extra of ['message', 'subject', 'body', 'note', 'text']) {
+      expect(validateEvent('feedback_opened', { screen: 'sent', [extra]: 'x' }), extra).toBeNull();
+    }
   });
 });
