@@ -186,7 +186,9 @@ export function ContinueAsFlow({ code, arrivedWithoutSession, onReattached }: Co
         memberUserId: member.member_user_id,
         idempotencyKey: key,
       });
-      track('member_reattached', { source: 'list' });
+      // The circle goes on the event so the founder's gate can count it in its
+      // cohort (ADR 0058); the person does not.
+      track('member_reattached', { source: 'list', circle_id: member.circle_id });
       onReattached('list');
     } catch (error) {
       const failure = failureOf(error);

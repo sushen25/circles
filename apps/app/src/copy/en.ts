@@ -1112,8 +1112,10 @@ export const en = {
     // Gates
     gates_founder: 'Decision gates · founder cohort',
     gates_external: 'Decision gates · external cohort',
-    gates_external_note:
-      'Pooled: nothing records which cohort a circle belongs to, so founder circles count here too until one does.',
+    gates_placement_note:
+      'An event that names no circle is placed by the circles its person belongs to. One that cannot be placed is in neither cohort.',
+    gates_cohort_circles_one: 'Counted over 1 circle in this cohort.',
+    gates_cohort_circles: 'Counted over {count} circles in this cohort.',
     gates_detail:
       'Each against its target in the spec, for the period. A gate that nothing computes yet says so and says what is missing.',
     target: 'Target {label}',

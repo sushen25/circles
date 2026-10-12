@@ -16,6 +16,9 @@ import { percent, waitOf } from './figures';
  * value and how many it rests on, and whether it is met, not met or has too few
  * answers to say. Whether it is met is `judgeGate`'s, in `@circles/contracts`.
  *
+ * Each cohort's gates are counted over that cohort's circles alone (ADR 0058);
+ * nothing is pooled, and the screen says how many circles each rests on.
+ *
  * A gate nothing computes reads "Not measured" with what is missing: never a
  * blank, never a zero.
  */
@@ -41,11 +44,9 @@ function Cohort({
   return (
     <Stack gap={10}>
       <Label>{title}</Label>
-      <Small>
-        {cohort === 'founder'
-          ? t('founderAnalytics', 'gates_detail')
-          : t('founderAnalytics', 'gates_external_note')}
-      </Small>
+      {cohort === 'founder' ? <Small>{t('founderAnalytics', 'gates_detail')}</Small> : null}
+      <Small>{circlesOf(data.cohort_circles[cohort] ?? 0)}</Small>
+      <Small>{t('founderAnalytics', 'gates_placement_note')}</Small>
       <Card gap={14}>
         {gates.map((gate, index) => (
           <Stack key={gate.id} gap={10}>
@@ -56,6 +57,13 @@ function Cohort({
       </Card>
     </Stack>
   );
+}
+
+/** How many circles a cohort's gates are counted over: a number, never which. */
+function circlesOf(count: number): string {
+  return count === 1
+    ? t('founderAnalytics', 'gates_cohort_circles_one')
+    : t('founderAnalytics', 'gates_cohort_circles', { count });
 }
 
 function GateRow({ gate, judged }: { gate: Gate; judged: JudgedGate }) {

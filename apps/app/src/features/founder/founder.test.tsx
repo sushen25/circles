@@ -83,6 +83,15 @@ describe('the screen, from a fixture', () => {
     expect(screen.getByText('1 m 40 s · 18 answers')).toBeTruthy();
   });
 
+  it('counts each cohort on its own and says how many circles it rests on', () => {
+    render(<AnalyticsScreen data={founderAnalyticsFixture} />);
+    expect(screen.queryByText(/pooled/i)).toBeNull();
+    expect(screen.getAllByText('Counted over 3 circles in this cohort.')).toHaveLength(2);
+    expect(screen.getAllByText(/is in neither cohort/)).toHaveLength(2);
+    // The external "confirm within a week" gate is the external cohort's 3 of 6.
+    expect(screen.getByText('50% · 3 of 6')).toBeTruthy();
+  });
+
   it('says "Not measured" for a gate no view computes, and what is missing', () => {
     render(<AnalyticsScreen data={founderAnalyticsFixture} />);
     expect(screen.getAllByText('Not measured')).toHaveLength(2);

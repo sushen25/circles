@@ -56,7 +56,13 @@ export const FounderAnalytics = z.object({
   /** The Monday the period starts on. */
   since: z.string(),
   north_star: z.array(NorthStarMonth),
-  gates: z.record(z.string(), GateNumbers),
+  /**
+   * Every gate's numbers, once per cohort (spec §11.4, ADR 0058): the key is
+   * the cohort, then the gate. Never pooled across cohorts.
+   */
+  gates: z.record(z.string(), z.record(z.string(), GateNumbers)),
+  /** How many circles each cohort has. A count, never which. */
+  cohort_circles: z.record(z.string(), Count),
   counters: z.record(z.string(), Count),
   events: z.array(EventRow),
 });
@@ -87,7 +93,7 @@ export type Gate = {
   /** Fewer answers than this and the gate says "too few to say". */
   minN: number;
   /**
-   * The key of `gates` that computes it, or null when nothing does: the screen
+   * The key of a cohort's `gates` that computes it, or null when nothing does: the screen
    * says "Not measured" and, from copy, what is missing.
    */
   measuredBy: string | null;
@@ -236,7 +242,8 @@ function passes(gate: Gate, value: number): boolean {
 
 /** Whether a gate is met, not met, or has too few answers to say. */
 export function judgeGate(gate: Gate, result: FounderAnalytics): JudgedGate {
-  const numbers = gate.measuredBy === null ? undefined : result.gates[gate.measuredBy];
+  const numbers =
+    gate.measuredBy === null ? undefined : result.gates[gate.cohort]?.[gate.measuredBy];
   if (numbers === undefined) return { status: 'not_measured' };
 
   if (gate.kind === 'count') {
@@ -571,8 +578,10 @@ export function isEmpty(result: FounderAnalytics): boolean {
     result.events.length === 0 &&
     result.north_star.length === 0 &&
     Object.values(result.counters).every((n) => n === 0) &&
-    Object.values(result.gates).every(
-      (g) => (g.denominator ?? 0) === 0 && (g.count ?? 0) === 0 && (g.n ?? 0) === 0,
+    Object.values(result.gates).every((cohort) =>
+      Object.values(cohort).every(
+        (g) => (g.denominator ?? 0) === 0 && (g.count ?? 0) === 0 && (g.n ?? 0) === 0,
+      ),
     )
   );
 }

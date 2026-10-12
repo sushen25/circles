@@ -13,7 +13,7 @@
 -- is a count of this file's scenario.
 
 begin;
-select plan(51);
+select plan(53);
 
 create or replace function pg_temp.make_user(id uuid, name text, permanent boolean default true)
 returns uuid language sql as $$
@@ -123,8 +123,8 @@ select throws_ok(
 );
 select is(
   (select array(select jsonb_object_keys(public.founder_analytics(pg_temp.d(2))) order by 1)),
-  array['counters', 'events', 'gates', 'north_star', 'since'],
-  'somebody on the allowlist gets the five parts'
+  array['cohort_circles', 'counters', 'events', 'gates', 'north_star', 'since'],
+  'somebody on the allowlist gets the six parts'
 );
 select is(
   public.founder_analytics(pg_temp.d(2)) ->> 'since',
@@ -138,9 +138,20 @@ select is(
 );
 select is(
   (select array(select jsonb_object_keys(public.founder_analytics(pg_temp.d(2)) -> 'gates') order by 1)),
+  array['external', 'founder'],
+  'the gates come once per cohort (spec §11.4, ADR 0058), never pooled'
+);
+select is(
+  (select array(select jsonb_object_keys(public.founder_analytics(pg_temp.d(2)) -> 'gates' -> 'founder') order by 1)),
   array['another_in_cadence', 'claim_moments', 'confirm_in_week', 'confirmed_meetup', 'email_verified',
         'happened', 'other_organiser', 'reattach', 'response_time', 'second_meetup', 'unchased'],
-  'every gate a view computes is in it, and a gate nothing computes is not (the screen says "Not measured")'
+  'every gate a view computes is in the founder cohort''s, and a gate nothing computes is not (the screen says "Not measured")'
+);
+select is(
+  (select array(select jsonb_object_keys(public.founder_analytics(pg_temp.d(2)) -> 'gates' -> 'external') order by 1)),
+  array['another_in_cadence', 'claim_moments', 'confirm_in_week', 'confirmed_meetup', 'email_verified',
+        'happened', 'other_organiser', 'reattach', 'response_time', 'second_meetup', 'unchased'],
+  'every gate a view computes is in the external cohort''s, and a gate nothing computes is not (the screen says "Not measured")'
 );
 
 -- ---------------------------------------------------------------------------
@@ -481,8 +492,10 @@ select is(
   'the wait from the link open to the answer is measured in seconds, with no person or plan beside it'
 );
 
-insert into analytics.events (event_id, event_name, schema_version, properties, occurred_at)
-select gen_random_uuid(), n, 1, case when n = 'member_reattached' then '{"source": "list"}'::jsonb else '{}' end,
+-- On Sunday Crew, which is an external-cohort circle: an event with no circle
+-- and no person to place it by is in neither cohort (410_circle_cohort.sql).
+insert into analytics.events (event_id, event_name, schema_version, circle_id, properties, occurred_at)
+select gen_random_uuid(), n, 1, (select circle_id from t), case when n = 'member_reattached' then '{"source": "list"}'::jsonb else '{}' end,
        pg_temp.at(3, '10:00')
 from (values
   ('session_missing_on_return'), ('session_missing_on_return'), ('session_missing_on_return'),
@@ -490,8 +503,8 @@ from (values
   ('member_reattached'), ('member_reattached'), ('member_reattached'), ('member_reattached')
 ) as v (n);
 -- Somebody arriving from an emailed link is a different population, in neither half.
-insert into analytics.events (event_id, event_name, schema_version, properties, occurred_at)
-select gen_random_uuid(), 'member_reattached', 1, '{"source": "email"}', pg_temp.at(3, '10:00')
+insert into analytics.events (event_id, event_name, schema_version, circle_id, properties, occurred_at)
+select gen_random_uuid(), 'member_reattached', 1, (select circle_id from t), '{"source": "email"}', pg_temp.at(3, '10:00')
 from generate_series(1, 5);
 select is(
   (select array[missing, reattached] from analytics.gate_reattach where day = pg_temp.d(3)),
@@ -545,7 +558,9 @@ values
   -- A saved member's one button: no route, nothing to verify, not a guest.
   (gen_random_uuid(), 'email_submitted', 1, '00000000-0000-0000-0000-0000000f0001', '{}', pg_temp.at(4, '10:00'));
 select is(
-  (select array[submitted, verified] from analytics.gate_email_verified where day = pg_temp.d(4)),
+  -- Summed over the cohorts: Sam is in no circle, so his submission is in none
+  -- (410_circle_cohort.sql has the split).
+  (select array[sum(submitted)::bigint, sum(verified)::bigint] from analytics.gate_email_verified where day = pg_temp.d(4)),
   array[3::bigint, 2::bigint],
   'of three guests who submitted an email, two confirmed it, by either route; a saved member''s one button is not a guest'
 );
@@ -561,8 +576,8 @@ select is(
   'a weekly circle that met and made another plan before the next week was out has initiated another within its cadence'
 );
 
-insert into analytics.events (event_id, event_name, schema_version, properties, occurred_at)
-select gen_random_uuid(), 'account_claimed', 1, jsonb_build_object('moment', m), pg_temp.at(5, '10:00')
+insert into analytics.events (event_id, event_name, schema_version, circle_id, properties, occurred_at)
+select gen_random_uuid(), 'account_claimed', 1, (select circle_id from t), jsonb_build_object('moment', m), pg_temp.at(5, '10:00')
 from unnest(array['organiser_gate', 'organiser_gate', 'after_answer']) m;
 select is(
   (select array[claims, elsewhere] from analytics.gate_claim_moments where day = pg_temp.d(5)),
@@ -603,17 +618,18 @@ select is(
   'a reported meetup somebody else was at is corroborated'
 );
 
--- The function reads the same numbers, summed over the period.
+-- The function reads the same numbers, summed over the period. Sunday Crew is
+-- an external-cohort circle, so its gates are in `external`.
 select pg_temp.act_as('00000000-0000-0000-0000-0000000f0004');
 select ok(
-  (public.founder_analytics(pg_temp.d(0)) -> 'gates' -> 'second_meetup' ->> 'count')::int >= 1
-  and (public.founder_analytics(pg_temp.d(0)) -> 'gates' -> 'reattach' ->> 'numerator')::int >= 4
-  and (public.founder_analytics(pg_temp.d(0)) -> 'gates' -> 'response_time' -> 'n') is not null
+  (public.founder_analytics(pg_temp.d(0)) -> 'gates' -> 'external' -> 'second_meetup' ->> 'count')::int >= 1
+  and (public.founder_analytics(pg_temp.d(0)) -> 'gates' -> 'external' -> 'reattach' ->> 'numerator')::int >= 4
+  and (public.founder_analytics(pg_temp.d(0)) -> 'gates' -> 'external' -> 'response_time' -> 'n') is not null
   and (public.founder_analytics(pg_temp.d(0)) -> 'counters' ->> 'plans_created')::int >= 2,
   'the function reads the same numbers, summed over the period'
 );
 select is(
-  (select array(select jsonb_object_keys(public.founder_analytics(pg_temp.d(0)) -> 'gates' -> 'response_time') order by 1)),
+  (select array(select jsonb_object_keys(public.founder_analytics(pg_temp.d(0)) -> 'gates' -> 'external' -> 'response_time') order by 1)),
   array['median_seconds', 'n'],
   'and a median gate says its median and how many answers it is the median of'
 );

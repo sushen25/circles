@@ -942,7 +942,9 @@ select is(
        -- `private.allowlist`, which is empty until somebody is put in it.
        -- `founder_analytics` (SUS-166) is the same kind: the same allowlist,
        -- checked against `auth.uid()`, and counts and ratios only.
-       'preview_for_code', 'founder_summary', 'founder_analytics',
+       -- `founder_set_circle_cohort` (SUS-178) is the same allowlist again,
+       -- and returns nothing.
+       'preview_for_code', 'founder_summary', 'founder_analytics', 'founder_set_circle_cohort',
        -- S1-24. The Join page before joining: a circle's name, its inviter's
        -- name and one initial per member, to whoever holds the invite secret —
        -- by its digest, so the secret is never a statement parameter.
