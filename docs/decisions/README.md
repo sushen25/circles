@@ -64,6 +64,7 @@ Short records of decisions that shape the product or the code. A new ADR is requ
 | [0059](./0059-continue-as-resolves-plan-codes-only.md) | Continue-as resolves plan codes only, never a circle's own code | proposed |
 | [0060](./0060-a-quiet-asks-initiator-is-not-inferable-from-member-data.md) | A quiet ask's initiator is not inferable from member data: who has saved a place and who has muted are each member's own | proposed |
 | [0061](./0061-the-chasing-survey-never-holds-lock-it-in.md) | The chasing survey never holds Lock it in: an unanswered question is stored as not answered and counted on its own | proposed |
+| [0062](./0062-a-continue-as-pick-does-not-carry-the-quiet-ask-answer.md) | A Continue-as pick does not hand the taker the previous holder's quiet-ask answer | proposed |
 
 ## Template
 

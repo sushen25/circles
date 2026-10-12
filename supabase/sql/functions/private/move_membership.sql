@@ -9,7 +9,10 @@
 -- finds their answers gone.
 --
 -- It decides nothing. Who may move what is the caller's question: this assumes
--- it has already been answered and does the writing.
+-- it has already been answered and does the writing. The one thing the caller
+-- can say is whether the person's own interest answer travels with the place
+-- (`circles.carry_interest`, transaction-local): it does for every move that
+-- proves the person, and does not for a pick from the Continue-as list.
 --
 -- `member_dayparts` and any re-entry token for the membership are absent below
 -- because they move themselves — both reference `circle_members` with
@@ -80,9 +83,27 @@ begin
   where n.user_id = p_from
     and n.plan_id in (select p.id from public.plans p where p.circle_id = p_circle_id);
 
-  update private.plan_interest i set user_id = p_to
-  where i.user_id = p_from
-    and i.plan_id in (select p.id from public.plans p where p.circle_id = p_circle_id);
+  -- The person's own quiet-ask answer moves only when the caller says the move
+  -- is the same person's (`circles.carry_interest`, on unless a caller turns it
+  -- off). A pick from the Continue-as list proves nothing about who tapped it,
+  -- and an answer that moved to the taker reached their screen as "your answer"
+  -- (`quiet_viewer_facts`), which is an individual interest answer read by
+  -- somebody else (SUS-182, ADR 0062). So on that path the taker starts with no
+  -- answer. While the ask is still `seeking` the row is deleted, as removal
+  -- does (`on_member_removed`), so the real member can answer again without
+  -- being counted twice. Once the ask has opened, interest is closed and the
+  -- count shown is the one it opened with, so the row stays where it was: under
+  -- an identity that is no longer a member, still counted, readable by nobody.
+  if coalesce(nullif(current_setting('circles.carry_interest', true), ''), 'on') = 'on' then
+    update private.plan_interest i set user_id = p_to
+    where i.user_id = p_from
+      and i.plan_id in (select p.id from public.plans p where p.circle_id = p_circle_id);
+  else
+    delete from private.plan_interest i
+    using public.plans p
+    where i.plan_id = p.id and i.user_id = p_from
+      and p.circle_id = p_circle_id and p.state = 'seeking';
+  end if;
 
   -- The measurements follow the person too, which is easy to miss because this
   -- is the one table here with no foreign key to `auth.users` — an event

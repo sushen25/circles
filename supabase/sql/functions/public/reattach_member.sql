@@ -266,11 +266,18 @@ begin
     where t.id = token.id;
   end if;
 
+  -- A pick from the list proves nothing about who tapped it, so the previous
+  -- holder's quiet-ask answer does not go to the taker (SUS-182, ADR 0062). The
+  -- emailed link proved the address, so its move carries everything, as before.
+  perform set_config('circles.carry_interest', case when p_reentry_token_hash is null then 'off' else 'on' end, true);
+
   if taking_back then
     perform private.hand_back_membership(target_circle, target, caller, token.contact_id);
   else
     perform private.move_membership(target_circle, target, caller);
   end if;
+
+  perform set_config('circles.carry_interest', 'on', true);
 
   -- And the lock is not taken on trust. If the membership is not the caller's by
   -- now, something moved it and this reattachment achieved nothing — so it says
