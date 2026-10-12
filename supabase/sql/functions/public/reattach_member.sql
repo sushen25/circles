@@ -169,6 +169,20 @@ begin
     raise exception 'member_not_found' using errcode = 'no_data_found';
   end if;
 
+  -- The list path needs a code that is live, and this function is not given one:
+  -- it takes a circle and a member. So it asks the question the code would have
+  -- answered (ADR 0059): has the circle a plan whose link is still a way back
+  -- in (`private.plan_live_for_continue_as`)? Without this, somebody who had
+  -- merely kept a circle's id and a guest's id from the time they were a member
+  -- needed no code at all. Same answer as a membership that is not there. The
+  -- emailed link proves an address instead, and is not asked.
+  if p_reentry_token_hash is null and not exists (
+    select 1 from public.plans pl
+    where pl.circle_id = target_circle and private.plan_live_for_continue_as(pl.id)
+  ) then
+    raise exception 'member_not_found' using errcode = 'no_data_found';
+  end if;
+
   -- The volume limit, **here** as well as in the Edge Function (ADR 0049): this
   -- function is granted to `authenticated`, so a client calling the RPC directly
   -- never meets the Edge Function's counters. A different scope from the Edge one,
@@ -292,7 +306,7 @@ end;
 $$;
 
 comment on function public.reattach_member(uuid, uuid, bytea) is
-  'Moves a guest membership and everything scoped to it onto the calling anonymous identity, from the Continue-as list or an emailed re-entry token (ADR 0006). Only in an active circle; a per-circle hourly limit on the list path; at most three list moves per membership per seven days, and a move made with a valid re-entry token is never refused by that cap (ADR 0049); never onto a saved-place member; but a valid re-entry token takes a place back from a saved account whose own address is not the link''s, moving that circle only (ADR 0049, decision 6).';
+  'Moves a guest membership and everything scoped to it onto the calling anonymous identity, from the Continue-as list or an emailed re-entry token (ADR 0006). Only in an active circle, and on the list path only while one of its plans is live (ADR 0059); a per-circle hourly limit on the list path; at most three list moves per membership per seven days, and a move made with a valid re-entry token is never refused by that cap (ADR 0049); never onto a saved-place member; but a valid re-entry token takes a place back from a saved account whose own address is not the link''s, moving that circle only (ADR 0049, decision 6).';
 
 revoke all on function public.reattach_member(uuid, uuid, bytea) from public;
 revoke all on function public.reattach_member(uuid, uuid, bytea) from anon, authenticated;

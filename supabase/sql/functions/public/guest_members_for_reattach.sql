@@ -37,10 +37,11 @@
 -- Saved-place members are excluded, so the list never names somebody this
 -- function could not then be used to reattach to.
 --
--- **A code opens the list only while it is live** (ADR 0049): the circle's own
--- code while the circle is active; a plan's code while the plan is asking or
--- options are on offer, or locked in and the meetup ended less than fourteen
--- days ago; never for a cancelled or expired plan or an archived circle. The
+-- **A code opens the list only while it is live** (ADR 0049, ADR 0059): a plan's
+-- code while the plan is asking or options are on offer, or locked in and the
+-- meetup ended less than fourteen days ago; never for a cancelled or expired
+-- plan or an archived circle, and never a circle's own code, which every member
+-- can read and which nothing rotates. The
 -- rule is `private.circles_open_to_continue_as`, shared with the link
 -- preview, so what the screen calls "not active" and what this refuses are
 -- one decision. This used to match any plan the circle had ever had, so an old

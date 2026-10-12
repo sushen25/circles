@@ -341,36 +341,47 @@ where m.circle_id = f.circle_id
                     where mm.circle_id = g.circle_id
                       and mm.display_name_snapshot like 'Filler %');
 
+-- The list is opened by a plan's link: a circle's own code opens nothing (ADR 0059),
+-- and §6.2's journey is somebody tapping "Locked in" in a chat, which is a `/p/:code` link.
+select pg_temp.act_as_postgres();
+insert into public.plans (
+  circle_id, mode, state, organiser_user_id, title, time_zone,
+  window_start, window_end, daily_start_local, daily_end_local,
+  duration_minutes, quorum, response_deadline, short_code
+)
+select pg_temp.circle_id(), 'named', 'collecting', '90000000-0000-0000-0000-000000000001',
+       'Catch up', 'Australia/Melbourne', date '2099-09-17', date '2099-09-20',
+       1050, 1350, 120, 2, timestamptz '2099-09-20T10:00:00Z', 'jnpden';
+
 select pg_temp.act_as('90000000-0000-0000-0000-000000000004', true);
 
 select bag_eq(
-  format($$ select display_name from public.guest_members_for_reattach(%L) $$,
-         (select short_code from fixture)),
+  $$ select display_name from public.guest_members_for_reattach('jnpden') $$,
   $$ values ('Nina'), ('Tom again'), ('One Too Many') $$,
   'the list is the circle''s active guests'
 );
 
 select isnt_empty(
-  format($$ select 1 from public.guest_members_for_reattach(%L) $$, (select short_code from fixture)),
+  $$ select 1 from public.guest_members_for_reattach('jnpden') $$,
   'a caller with no membership of the circle may still read it — that is the point'
 );
 
 select is(
-  (select count(*)::integer from public.guest_members_for_reattach((select short_code from fixture))
+  (select count(*)::integer from public.guest_members_for_reattach('jnpden')
    where display_name = 'Maya'),
   0,
   'the owner is not on it: a saved place cannot be reattached to'
 );
 
 select is(
-  (select count(*)::integer from public.guest_members_for_reattach((select short_code from fixture))
+  (select count(*)::integer from public.guest_members_for_reattach('jnpden')
    where display_name = 'Sam'),
   0,
   'nor is a saved-place member who joined by link'
 );
 
 select is(
-  (select count(*)::integer from public.guest_members_for_reattach((select short_code from fixture))
+  (select count(*)::integer from public.guest_members_for_reattach('jnpden')
    where display_name = 'Filler 1'),
   0,
   'nor a removed member'
@@ -399,32 +410,18 @@ select is(
 -- the *caller's* side — the earlier tests take the circle id from a fixture, which is
 -- exactly how this went unnoticed.
 select is(
-  (select circle_id from public.guest_members_for_reattach((select short_code from fixture))
+  (select circle_id from public.guest_members_for_reattach('jnpden')
    limit 1),
   pg_temp.circle_id(),
   'the list names the circle it is about, so Continue-as can actually call reattach'
 );
 
--- Round 14: "a circle **or plan link**" (spec §5.1), and §6.2's journey is somebody
--- tapping "Locked in" in a chat — which is a `/p/:code` link, not a circle's. Taking
--- only the circle's code meant that arrival could not reach the list at all.
-select pg_temp.act_as_postgres();
-insert into public.plans (
-  circle_id, mode, state, organiser_user_id, title, time_zone,
-  window_start, window_end, daily_start_local, daily_end_local,
-  duration_minutes, quorum, response_deadline, short_code
-)
-select pg_temp.circle_id(), 'named', 'collecting', '90000000-0000-0000-0000-000000000001',
-       'Catch up', 'Australia/Melbourne', date '2099-09-17', date '2099-09-20',
-       1050, 1350, 120, 2, timestamptz '2099-09-20T10:00:00Z', 'jnpden';
-
 select pg_temp.act_as('90000000-0000-0000-0000-000000000004', true);
 
-select bag_eq(
-  $$ select display_name from public.guest_members_for_reattach('jnpden') $$,
-  $$ select display_name from public.guest_members_for_reattach(
-       (select short_code from fixture)) $$,
-  'a plan''s code reaches the same list as its circle''s'
+select is(
+  (select count(*)::integer from public.guest_members_for_reattach((select short_code from fixture))),
+  0,
+  'the circle''s own code reaches no list at all (ADR 0059)'
 );
 
 select is(

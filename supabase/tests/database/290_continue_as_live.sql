@@ -162,7 +162,7 @@ language sql security definer as $$ delete from jobs.rate_counters $$;
 select pg_temp.act_as('29000000-0000-0000-0000-0000000000b1', true);
 
 select is(pg_temp.offered('kvpqmanx'), 2, 'a collecting plan''s code lists the circle''s guests');
-select is(pg_temp.offered(pg_temp.circle_code()), 2, 'the circle''s own code lists them too, while it is active');
+select is(pg_temp.offered(pg_temp.circle_code()), 0, 'the circle''s own code lists nobody, active or not (ADR 0059)');
 select is((select circle_name from public.preview_for_code('p', 'kvpqmanx')), 'Live Crew', 'and the link preview names the circle');
 
 select pg_temp.act_as_postgres();
@@ -259,7 +259,7 @@ select pg_temp.set_state('cancelled');
 select pg_temp.act_as('29000000-0000-0000-0000-0000000000b1', true);
 select is(pg_temp.offered('kvpqmanx'), 0, 'a cancelled plan''s code lists nobody');
 select is((select count(*)::int from public.preview_for_code('p', 'kvpqmanx')), 0, 'and the preview is the generic one, as for a code that never existed');
-select is(pg_temp.offered(pg_temp.circle_code()), 2, 'while the circle''s own code is unaffected by a plan ending');
+select is(pg_temp.offered(pg_temp.circle_code()), 0, 'and the circle''s own code lists nobody either, plan or no plan');
 
 select pg_temp.act_as_postgres();
 select pg_temp.set_state('collecting');
@@ -565,8 +565,10 @@ select private.circles_open_to_continue_as('kvpqmanx') as circle_id into tempora
 select is((select count(*)::integer from seen), 0, 'the rule itself, asked as the database, says nobody');
 
 -- An old audit row, from before the move recorded its source, counts as the
--- list's: the stricter reading.
+-- list's: the stricter reading. (The plan is asking again: a list move needs a
+-- live plan, ADR 0059.)
 select pg_temp.act_as_postgres();
+select pg_temp.set_state('collecting');
 update private.audit_log a set metadata = a.metadata - 'source'
 where a.action = 'circles.member_reattached' and a.metadata ->> 'source' = 'list';
 select pg_temp.act_as('29000000-0000-0000-0000-000000000105', true);
@@ -613,6 +615,17 @@ from (values ('10'), ('11'), ('12'), ('13')) as t(tag), generate_series(1, 10) n
 insert into public.circle_members (circle_id, user_id, display_name_snapshot)
 select pg_temp.burst_circle(), ('29000000-0000-0000-0010-0000000000' || lpad(n::text, 2, '0'))::uuid, 'Guest ' || n
 from generate_series(1, 10) n;
+
+-- A list move needs one of the circle's plans to be live (ADR 0059).
+insert into public.plans (
+  circle_id, mode, state, organiser_user_id, title, time_zone,
+  window_start, window_end, daily_start_local, daily_end_local,
+  duration_minutes, quorum, response_deadline, short_code
+)
+values (pg_temp.burst_circle(), 'named', 'collecting',
+        '29000000-0000-0000-0000-000000000001', 'Burst plan', 'Australia/Melbourne',
+        date '2099-09-17', date '2099-09-20', 1050, 1350, 120, 2,
+        timestamptz '2099-09-20T10:00:00Z', 'kvpqbrst');
 
 create or replace function pg_temp.bid(tag text, n integer) returns uuid
 language sql as $$

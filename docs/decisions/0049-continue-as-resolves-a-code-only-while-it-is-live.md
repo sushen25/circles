@@ -4,10 +4,11 @@ title: "Continue-as resolves a code only while it is live, and its limits are en
 status: proposed
 date: 2026-10-02
 amends: [6, 22]
+amended_by: [59]
 ---
 # ADR 0049: Continue-as resolves a code only while it is live, and its limits are enforced in SQL
 
-_Status: proposed · 2 October 2026, decision 6 added 3 October 2026 · amends [ADR 0006](0006-continue-as-reattachment-without-owner-approval.md) and [ADR 0022](0022-a-plan-link-admits-new-members-while-the-plan-is-asking.md), and spec §5.1_
+_Status: proposed (its circle-code branch is withdrawn by [ADR 0059](0059-continue-as-resolves-plan-codes-only.md)) · 2 October 2026, decision 6 added 3 October 2026 · amends [ADR 0006](0006-continue-as-reattachment-without-owner-approval.md) and [ADR 0022](0022-a-plan-link-admits-new-members-while-the-plan-is-asking.md), and spec §5.1_
 
 ## Context
 
@@ -48,7 +49,7 @@ returns the circle a code may still be used in, or nothing:
 
 | Code | Resolves while |
 |---|---|
-| a circle's | the circle is `active` |
+| a circle's | the circle is `active` (withdrawn by [ADR 0059](0059-continue-as-resolves-plan-codes-only.md): resolves never) |
 | a plan's | the circle is `active`, and the plan is `collecting` or `ready`; or `confirmed` or `completed` and its meetup **ended** less than `private.continue_as_window()` ago |
 | anything else (cancelled, expired, `draft`, `seeking`, an archived circle, an unknown code) | never; the answer is the same empty one |
 
@@ -301,7 +302,7 @@ is not counted toward the cap, as decided.
 - A plan still `confirmed` after N, because nobody answered "did it happen?",
   stops offering Continue-as; the organiser can still answer, and the people with
   an emailed link can still get back in. Nothing else about the plan changes.
-- The circle's own code is resolvable while the circle is active, as decided.
+- The circle's own code is resolvable while the circle is active, as decided (withdrawn by [ADR 0059](0059-continue-as-resolves-plan-codes-only.md)).
   No product link carries it today (plan links and the invite fragment are what
   the product shares), so this affects a direct RPC caller only.
 - Spec §5.1 and the architecture's Continue-as paragraph say so.

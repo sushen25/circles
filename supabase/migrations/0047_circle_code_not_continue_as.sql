@@ -1,0 +1,540 @@
+-- 0047_circle_code_not_continue_as
+--
+-- Continue-as resolves plan codes only (SUS-180, ADR 0059). A circle's own code
+-- opens no list and moves no place: every member can read it, nothing rotates
+-- it and no link the product shares carries it, so a member who had been
+-- removed could keep using it for as long as the circle existed.
+--
+-- And `reattach_member`'s list path, which takes a circle and a member rather
+-- than a code, now asks whether one of the circle's plans is live, so a caller
+-- who kept the two ids needs a live plan link as much as one who kept a code.
+--
+-- Changes (all function bodies, in the generated block below):
+--   * private.circles_open_to_continue_as: the circle-code branch is gone;
+--   * private.plan_live_for_continue_as (new): the one statement of "live";
+--   * public.reattach_member: the list path requires a live plan.
+-- No table changes.
+
+-- BEGIN GENERATED: function definitions (scripts/gen-sql-functions.mjs)
+
+-- supabase/sql/functions/private/circles_open_to_continue_as.sql
+-- ---------------------------------------------------------------------------
+-- The circle (if any) a short code may still be used to Continue-as in
+-- (spec §5.1, ADR 0049, ADR 0059).
+--
+-- A code is not a key forever. ADR 0006 accepted that Continue-as needs no
+-- owner approval, and ADR 0022 accepted a plan code in URLs and logs because it
+-- "admits for days, not for good" — so the list a code opens has to stop with
+-- the code's life, and this is the one place that says when:
+--
+--   * a **plan** code: while the circle is `active` and the plan is
+--     `collecting` or `ready`, or has been locked in (`confirmed`, and
+--     `completed` once the outcome is in) and its meetup ended less than
+--     `private.continue_as_window()` ago. `completed` is the same plan the
+--     morning after: refusing it would shut the people who come back to say
+--     "I was there" out the moment the organiser answered the question.
+--     `private.plan_live_for_continue_as` holds that rule;
+--   * **nothing else**. A circle's own code resolves to nothing (ADR 0059): it
+--     is readable by every member for as long as they are one, no link the
+--     product shares carries it, and nothing rotates it, so a member removed
+--     from the circle could keep using it for ever. Neither does a `cancelled`
+--     or `expired` plan, a quiet ask that has not found its footing (`draft`,
+--     `seeking`: never shared by link, §5.4), or an archived circle.
+--
+-- Empty for a code that matches none of these, and the caller cannot tell
+-- "unknown" from "no longer live", which is the point.
+-- ---------------------------------------------------------------------------
+
+create or replace function private.circles_open_to_continue_as(p_short_code text)
+returns setof uuid
+-- plpgsql, not sql, so the functions it reads are looked up when this runs and not when
+-- it is created: the generated block renders files in name order, and this one
+-- sorts before the ones it reads.
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+begin
+  return query
+  select pl.circle_id
+  from public.plans pl
+  where pl.short_code = p_short_code
+    and private.plan_live_for_continue_as(pl.id);
+end;
+$$;
+
+revoke all on function private.circles_open_to_continue_as(text) from public;
+revoke all on function private.circles_open_to_continue_as(text) from anon, authenticated;
+
+-- supabase/sql/functions/private/plan_live_for_continue_as.sql
+-- ---------------------------------------------------------------------------
+-- Whether a plan's code may still be used to Continue-as in its circle
+-- (ADR 0049, ADR 0059).
+--
+-- The one statement of the rule. `private.circles_open_to_continue_as` asks it
+-- of the plan a code names; `public.reattach_member` asks it of the circle a
+-- membership is in, because the list path takes a circle and a member and
+-- no code, and a caller who remembered both would otherwise need no code at all.
+--
+-- Live means the circle is `active` and the plan is `collecting` or `ready`, or
+-- `confirmed` or `completed` with a confirmation (active or completed) whose
+-- meetup ended less than `private.continue_as_window()` ago.
+-- ---------------------------------------------------------------------------
+
+create or replace function private.plan_live_for_continue_as(p_plan_id uuid)
+returns boolean
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+begin
+  return exists (
+    select 1
+    from public.plans pl
+    join public.circles c on c.id = pl.circle_id
+    where pl.id = p_plan_id
+      and c.status = 'active'
+      and (
+        pl.state in ('collecting', 'ready')
+        or (
+          pl.state in ('confirmed', 'completed')
+          and exists (
+            select 1 from public.meetup_confirmations mc
+            where mc.plan_id = pl.id
+              and mc.revision = pl.revision
+              and mc.status in ('active', 'completed')
+              and now() < mc.ends_at + private.continue_as_window()
+          )
+        )
+      )
+  );
+end;
+$$;
+
+revoke all on function private.plan_live_for_continue_as(uuid) from public;
+revoke all on function private.plan_live_for_continue_as(uuid) from anon, authenticated;
+
+-- supabase/sql/functions/public/guest_members_for_reattach.sql
+-- ---------------------------------------------------------------------------
+-- The "Continue as" list (spec §5.1, ADR 0006).
+--
+-- Somebody opens a circle or plan link with no session, or with a session that
+-- holds no membership of that circle. To offer "Continue as Priya" the page
+-- needs the circle's guest names — and nothing else. Display names only: no
+-- reply state, no email flag, no join time. That is not a nicety, it is the
+-- constraint ADR 0006 wrote down ("the continue-as list must never show reply
+-- status or email presence"), because the list is shown before anybody has
+-- proved they belong here.
+--
+-- Keyed by short code rather than circle id, like the link-preview route
+-- (§9.4): the short code is what the person actually has.
+--
+-- And it hands the circle id *back*, because `reattach_member` needs one and a
+-- session that has just signed in anonymously has no way to get it: RLS shows it no
+-- circle it is not a member of, and nothing else maps a code to an id. Without this
+-- the sequence §10 describes — call the list, then call `reattach-member` with what
+-- it returned — could not be completed by the client the contract is written for.
+-- The pgTAP tests missed it by passing a circle id from a `postgres`-side fixture;
+-- no client can do that. It reveals nothing: the caller already holds the code, and
+-- needs the id to make the very next call.
+--
+-- Granted to `authenticated` only, which includes an anonymous session but not
+-- the `anon` role. A visitor arriving with no session at all signs in
+-- anonymously first — the client has to do that anyway before it can reattach,
+-- so it costs the flow nothing.
+--
+-- That grant is **not** a volume control, and this comment used to claim it was:
+-- "scraping costs one anonymous identity per attempt". It does not. One
+-- anonymous session can call this as often as it likes with as many short codes
+-- as it likes, and Supabase's per-IP signup limit never comes into it. So the
+-- limit is here, in the function, where a client calling the RPC directly meets
+-- it too: thirty lookups per caller per hour, which is far more than a person
+-- opening a link will ever need and far less than a scrape.
+--
+-- Saved-place members are excluded, so the list never names somebody this
+-- function could not then be used to reattach to.
+--
+-- **A code opens the list only while it is live** (ADR 0049, ADR 0059): a plan's
+-- code while the plan is asking or options are on offer, or locked in and the
+-- meetup ended less than fourteen days ago; never for a cancelled or expired
+-- plan or an archived circle, and never a circle's own code, which every member
+-- can read and which nothing rotates. The
+-- rule is `private.circles_open_to_continue_as`, shared with the link
+-- preview, so what the screen calls "not active" and what this refuses are
+-- one decision. This used to match any plan the circle had ever had, so an old
+-- forwarded link listed every guest for ever.
+--
+-- The list still carries each person's user id rather than an opaque handle, so
+-- the id remains what `reattach_member` is called with. What bounds that is
+-- there, not here — the circle must be active, the per-circle limit and the
+-- cap apply to a direct call — and ADR 0049 says why a handle was not worth
+-- its cost and what is left over.
+-- ---------------------------------------------------------------------------
+
+-- `volatile`, not `stable`, because counting a lookup is a write. The cost is a
+-- function the planner cannot fold into a surrounding query; the benefit is that
+-- the limit cannot be skipped by the one caller it is meant for.
+create or replace function public.guest_members_for_reattach(p_short_code text)
+returns table (circle_id uuid, member_user_id uuid, display_name text)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  caller uuid := (select auth.uid());
+begin
+  if caller is null then
+    raise exception 'guest_members_for_reattach requires a signed-in actor'
+      using errcode = 'insufficient_privilege';
+  end if;
+
+  if not public.take_rate_token(
+    'roster_lookup', extensions.digest(caller::text, 'sha256'), 30, interval '1 hour'
+  ) then
+    raise exception 'too_many_requests' using errcode = 'too_many_rows';
+  end if;
+
+  return query
+  select m.circle_id, m.user_id, m.display_name_snapshot
+  from public.circle_members m
+  join public.circles c on c.id = m.circle_id
+  join public.profiles p on p.user_id = m.user_id
+  join auth.users u on u.id = m.user_id
+  where c.id in (select private.circles_open_to_continue_as(p_short_code))
+    and m.status = 'active'
+    -- Two records of one fact, and the stricter reading wins. `profiles` is
+    -- the durable record `handle_user_updated` maintains; `auth.users` is
+    -- Supabase's own. A row where they disagree is a row this list must not
+    -- name, whichever of the two is the stale one — "a saved-place member can
+    -- never be reattached to" is a privacy invariant, not a preference.
+    and not p.is_permanent
+    and u.is_anonymous
+  order by m.display_name_snapshot, m.user_id;
+end;
+$$;
+
+comment on function public.guest_members_for_reattach(text) is
+  'The Continue-as list: display names of a circle''s guest members, by short code. Never reply state, never email presence (ADR 0006).';
+
+revoke all on function public.guest_members_for_reattach(text) from public;
+revoke all on function public.guest_members_for_reattach(text) from anon, authenticated;
+grant execute on function public.guest_members_for_reattach(text) to authenticated;
+
+-- supabase/sql/functions/public/reattach_member.sql
+-- ---------------------------------------------------------------------------
+-- reattach_member
+--
+-- A guest comes back with no session — the expected path, not the rare one
+-- (ADR 0006: Safari drops script-writable storage after seven idle days, and
+-- chat in-app browsers isolate it). They sign in anonymously again, pick their
+-- name from the Continue-as list or arrive on an emailed `/a/<token>` link, and
+-- this moves the membership and everything scoped to it onto the new identity.
+--
+-- Two ways in, one path through. The list names the membership; the token
+-- authorises it. Everything after resolution is identical, which is the point
+-- ADR 0006 and §10 both make: "this reuses one reattachment path for both the
+-- manual and the emailed case".
+--
+-- The safeguards are all here rather than in the Edge Function, because they
+-- are the decision and not the throttle: the caller must be a guest, the target
+-- must be a guest (the one exception, an emailed link taking a place back from a
+-- saved account, is ADR 0049 decision 6), and a membership may be moved by the
+-- list at most three times in seven days. Enforced where it cannot be skipped.
+--
+-- **The old identity is not deleted here.** It can hold memberships in other
+-- circles; `circles.owner_user_id`, `circle_invites.created_by` and
+-- `plans.organiser_user_id` reference `auth.users` with no action, so a delete can
+-- *fail* at the worst moment; and `run_retention` already deletes anonymous
+-- identities with no memberships after thirty days (ADR 0014, §8.5).
+-- ---------------------------------------------------------------------------
+
+create or replace function public.reattach_member(
+  p_circle_id uuid default null,
+  p_target_user_id uuid default null,
+  p_reentry_token_hash bytea default null
+)
+returns public.circles
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  caller uuid := (select auth.uid());
+  target_circle uuid := p_circle_id;
+  target uuid := p_target_user_id;
+  token private.email_action_tokens;
+  chosen public.circles;
+  -- `member_reattached`'s analytics payload is `source: 'list' | 'email'`
+  -- (packages/contracts/src/analytics.ts), and the reattach rate by source is
+  -- what tells us whether the emailed path is worth its machinery. The function
+  -- is the only place that knows which one happened.
+  entry_source text := case when p_reentry_token_hash is null then 'list' else 'email' end;
+  -- The place is held by a saved account and the link may take it back (ADR 0049, 6).
+  taking_back boolean := false;
+begin
+  if caller is null then
+    raise exception 'reattach_member requires a signed-in actor'
+      using errcode = 'insufficient_privilege';
+  end if;
+
+  -- A saved-place identity does not reattach: it signs in. §10 — "if the
+  -- membership belongs to a permanent identity, the page offers that identity's
+  -- sign-in instead".
+  --
+  -- Three records of the same fact, and the strictest wins, which is the rule
+  -- this function already applies to the *target* and had no business not
+  -- applying to the caller. `auth_is_permanent()` reads the JWT, and a JWT
+  -- outlives the event it describes: `linkIdentity` converts the user in place,
+  -- so an access token issued minutes earlier keeps `is_anonymous: true` for the
+  -- rest of its hour (§14) while `auth.users` and `profiles` have already moved
+  -- on. For that hour the stale token was enough to take a *second* guest
+  -- membership and attach it to a saved place, where Continue-as can never move
+  -- it again.
+  if public.auth_is_permanent()
+    or exists (select 1 from public.profiles p where p.user_id = caller and p.is_permanent)
+    or exists (
+      select 1 from auth.users u where u.id = caller and not coalesce(u.is_anonymous, true)
+    )
+  then
+    -- With one exception: the emailed link, opened by the account its membership
+    -- now belongs to (§10: "if the browser already holds the right identity, it
+    -- simply routes to the plan"). `linkIdentity` keeps the user id, so the token
+    -- still names them. Nothing moves and nothing is spent. Anybody else signed in
+    -- is refused, and the client can tell the two apart.
+    if p_reentry_token_hash is not null then
+      select c.* into chosen
+      from private.email_action_tokens t
+      join public.circle_members m
+        on m.circle_id = t.membership_circle_id and m.user_id = t.membership_user_id
+      join public.circles c on c.id = t.membership_circle_id
+      where t.token_hash = p_reentry_token_hash
+        and t.purpose = 'reentry'
+        and t.membership_user_id = caller
+        and m.status = 'active';
+
+      if found then
+        return chosen;
+      end if;
+    end if;
+
+    raise exception 'caller_is_permanent' using errcode = 'insufficient_privilege';
+  end if;
+
+  if (p_reentry_token_hash is null) = (target is null) then
+    raise exception 'reattach_member takes a target membership or a re-entry token, not both and not neither'
+      using errcode = 'invalid_parameter_value';
+  end if;
+
+  if p_reentry_token_hash is not null then
+    -- Single-use, 7-day, bound to a membership (§14); spent below, in this
+    -- transaction, so a later failure rolls the spend back.
+    select * into token
+    from private.email_action_tokens t
+    where t.token_hash = p_reentry_token_hash
+      and t.purpose = 'reentry'
+      -- Unspent; or spent by `retire_reentry_links` when the place became a saved
+      -- account's, which is the link still being the member's to use (never a link
+      -- that already moved a place: that one has no `retired_at`).
+      and (t.used_at is null or t.retired_at is not null)
+      and t.expires_at > now();
+
+    if not found then
+      -- Before calling it invalid: a used or expired link to a membership that
+      -- is now a saved place is a link to an account (§10: the page offers that
+      -- identity's sign-in), and the client can only show that if told so.
+      if exists (
+        select 1
+        from private.email_action_tokens t
+        join public.profiles p on p.user_id = t.membership_user_id
+        where t.token_hash = p_reentry_token_hash and t.purpose = 'reentry' and p.is_permanent
+      ) then
+        raise exception 'target_is_permanent' using errcode = 'insufficient_privilege';
+      end if;
+
+      raise exception 'token_invalid' using errcode = 'no_data_found';
+    end if;
+
+    target_circle := token.membership_circle_id;
+    target := token.membership_user_id;
+  end if;
+
+  -- Serialises two reattachments of the same membership: without it both read
+  -- a chain of two and both decide they are the third.
+  select * into chosen from public.circles c where c.id = target_circle for update;
+  if not found then
+    raise exception 'member_not_found' using errcode = 'no_data_found';
+  end if;
+
+  if target = caller then
+    -- Already theirs — but *only* if it is. This return used to come before any
+    -- membership check at all, so any anonymous session that knew a circle's uuid
+    -- could name itself as the target and be handed the circle: the name, the
+    -- colour, the zone, the cadence, the short code. RLS refuses that same read,
+    -- and §9.4 exposes the name alone and nothing else. It was also an existence
+    -- oracle over circle uuids.
+    --
+    -- A genuine retry is served by the idempotency record before it ever reaches
+    -- this function, so nothing is lost by asking.
+    if not exists (
+      select 1 from public.circle_members m
+      where m.circle_id = target_circle and m.user_id = caller and m.status = 'active'
+    ) then
+      raise exception 'member_not_found' using errcode = 'no_data_found';
+    end if;
+
+    return chosen;
+  end if;
+
+  -- An archived circle is not somewhere anybody comes back to (ADR 0049), with
+  -- an emailed link or without. The same answer a membership that was never
+  -- there gets, so this tells nobody which of the two it was.
+  if chosen.status <> 'active' then
+    raise exception 'member_not_found' using errcode = 'no_data_found';
+  end if;
+
+  -- The list path needs a code that is live, and this function is not given one:
+  -- it takes a circle and a member. So it asks the question the code would have
+  -- answered (ADR 0059): has the circle a plan whose link is still a way back
+  -- in (`private.plan_live_for_continue_as`)? Without this, somebody who had
+  -- merely kept a circle's id and a guest's id from the time they were a member
+  -- needed no code at all. Same answer as a membership that is not there. The
+  -- emailed link proves an address instead, and is not asked.
+  if p_reentry_token_hash is null and not exists (
+    select 1 from public.plans pl
+    where pl.circle_id = target_circle and private.plan_live_for_continue_as(pl.id)
+  ) then
+    raise exception 'member_not_found' using errcode = 'no_data_found';
+  end if;
+
+  -- The volume limit, **here** as well as in the Edge Function (ADR 0049): this
+  -- function is granted to `authenticated`, so a client calling the RPC directly
+  -- never meets the Edge Function's counters. A different scope from the Edge one,
+  -- so neither eats the other's budget. A refusal raises and rolls the count back,
+  -- so this bounds *completed* moves: twenty a circle an hour is far above what
+  -- coming back needs and far below what taking people over needs.
+  --
+  -- The **list** path only. The emailed link is the way back for the rightful
+  -- member, so filling the hourly budget with takeovers must not turn it away; the
+  -- token has its own single-use, seven-day limit (and the Edge per-token counter).
+  if p_reentry_token_hash is null and not public.take_rate_token(
+    'reattach_circle_sql', extensions.digest(target_circle::text, 'sha256'), 20, interval '1 hour'
+  ) then
+    raise exception 'too_many_requests' using errcode = 'too_many_rows';
+  end if;
+
+  -- `for update` on the membership itself, not only on the circle. The circle lock
+  -- above serialises two reattachments; it does nothing about `claim_identity`,
+  -- which locks `circle_members` rows instead. Without this, a claim running on
+  -- another device could move the membership between this check and the move — and
+  -- the move would match no rows while the audit row, the event and a successful
+  -- answer all went out to a caller who had been given nothing.
+  if not exists (
+    select 1 from public.circle_members m
+    where m.circle_id = target_circle and m.user_id = target and m.status = 'active'
+    for update
+  ) then
+    raise exception 'member_not_found' using errcode = 'no_data_found';
+  end if;
+
+  -- Never onto a saved-place member, by either record: whichever is stale, the
+  -- answer has to be no. The one exception is an emailed link that proves an address
+  -- the account does not hold (ADR 0049, decision 6): that takes the place *back*.
+  if exists (
+    select 1 from public.profiles p where p.user_id = target and p.is_permanent
+  ) or not exists (
+    select 1 from auth.users u where u.id = target and coalesce(u.is_anonymous, false)
+  ) then
+    if p_reentry_token_hash is null
+      or not private.takeback_allowed(target_circle, target, token.contact_id)
+    then
+      raise exception 'target_is_permanent' using errcode = 'insufficient_privilege';
+    end if;
+    taking_back := true;
+  end if;
+
+  -- The caller already belongs here under their own name. Moving a second
+  -- membership onto them would collide with their own row, and the thing they
+  -- actually want is the session they are already holding.
+  if exists (
+    select 1 from public.circle_members m
+    where m.circle_id = target_circle and m.user_id = caller
+  ) then
+    raise exception 'already_member' using errcode = 'unique_violation';
+  end if;
+
+  -- Three per membership per seven days (ADR 0006), **counting only the moves made
+  -- by picking a name** (ADR 0049; `private.list_moves_this_week`). A move made with
+  -- an emailed re-entry link is never refused here, a take-back from a saved account
+  -- included, so a member with a live link can always return. What that leaves open
+  -- is in ADR 0049, decision 4.
+  if p_reentry_token_hash is null
+    and private.list_moves_this_week(target_circle, target) >= 3
+  then
+    raise exception 'reattach_limit' using errcode = 'too_many_rows';
+  end if;
+
+  -- The move itself lives in `private.move_membership`, shared with
+  -- `claim_identity`: one list of the tables a membership owns, because two
+  -- lists means one of them forgets a table and a guest comes back to find
+  -- their answers gone.
+  if p_reentry_token_hash is not null then
+    -- Spent here rather than on the way in. The early return above answers "already
+    -- theirs" for somebody who follows their own link while the session still works,
+    -- and burning the link for that is a link they cannot use when they actually
+    -- need it. Inside the same transaction either way, so a later failure rolls the
+    -- spend back with it.
+    -- A retired link is now simply used, and cannot take anything back twice.
+    update private.email_action_tokens t
+    set used_at = coalesce(t.used_at, now()), retired_at = null
+    where t.id = token.id;
+  end if;
+
+  if taking_back then
+    perform private.hand_back_membership(target_circle, target, caller, token.contact_id);
+  else
+    perform private.move_membership(target_circle, target, caller);
+  end if;
+
+  -- And the lock is not taken on trust. If the membership is not the caller's by
+  -- now, something moved it and this reattachment achieved nothing — so it says
+  -- so, rather than announcing a rejoin that did not happen.
+  if not exists (
+    select 1 from public.circle_members m
+    where m.circle_id = target_circle and m.user_id = caller and m.status = 'active'
+  ) then
+    raise exception 'member_not_found' using errcode = 'no_data_found';
+  end if;
+
+  -- Ids only (non-negotiable 8). The two ids are what makes the chain above
+  -- walkable, and `source` ('list' or 'email') is what lets the cap above count
+  -- only the moves it is for; a display name here would be the leak the
+  -- constraint on this table refuses anyway.
+  insert into private.audit_log (actor_user_id, action, resource_type, resource_id, metadata)
+  values (caller, 'circles.member_reattached', 'circle', target_circle,
+          jsonb_build_object('from_user_id', target, 'to_user_id', caller, 'source', entry_source,
+                             'from_saved_account', taking_back));
+
+  -- The owner's "Priya rejoined from a new device" (spec §5.1) starts here.
+  -- No name: the notification pipeline reads the roster for that.
+  -- A place taken back from a saved account is told the same way, with the account's
+  -- id on the event so both parties are named: no new channel (ADR 0049, 6).
+  perform jobs.emit('circles.member_reattached', 'circle', target_circle,
+    jsonb_build_object('circle_id', target_circle, 'user_id', caller, 'source', entry_source)
+    || case when taking_back
+         then jsonb_build_object('from_user_id', target, 'from_saved_account', true)
+         else '{}'::jsonb end);
+
+  return chosen;
+end;
+$$;
+
+comment on function public.reattach_member(uuid, uuid, bytea) is
+  'Moves a guest membership and everything scoped to it onto the calling anonymous identity, from the Continue-as list or an emailed re-entry token (ADR 0006). Only in an active circle, and on the list path only while one of its plans is live (ADR 0059); a per-circle hourly limit on the list path; at most three list moves per membership per seven days, and a move made with a valid re-entry token is never refused by that cap (ADR 0049); never onto a saved-place member; but a valid re-entry token takes a place back from a saved account whose own address is not the link''s, moving that circle only (ADR 0049, decision 6).';
+
+revoke all on function public.reattach_member(uuid, uuid, bytea) from public;
+revoke all on function public.reattach_member(uuid, uuid, bytea) from anon, authenticated;
+grant execute on function public.reattach_member(uuid, uuid, bytea) to authenticated;
+
+-- END GENERATED: function definitions
