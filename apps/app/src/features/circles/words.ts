@@ -99,6 +99,9 @@ export function domainCircle(facts: CadenceFacts): Circle {
 
 /** The "Next one" cell: the domain's cadence state in the spec's words. */
 export function nextOne(home: CircleHome, now = new Date()): string {
+  // The plan card above says "Finding a time"; "No rush" beside it would
+  // contradict it (SUS-197). The next one is that plan.
+  if (home.activePlan !== null) return t('circleHome', 'finding_a_time');
   // With a plan already out, the domain says so and there is no prompt to show.
   switch (cadenceState(domainCircle(home), fromISO(now.toISOString()), home.activePlan !== null)) {
     case 'no_goal':

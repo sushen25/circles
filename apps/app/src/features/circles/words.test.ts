@@ -33,7 +33,7 @@ describe('"Next one" on the circle home', () => {
     expect(nextOne(DUE, now)).toBe('Due soon');
   });
 
-  it('says no rush once a plan is already out, as the domain decides (review round 1)', () => {
+  it('names the plan once one is out, so it never contradicts the plan card (SUS-197)', () => {
     const planned = {
       ...DUE,
       activePlan: {
@@ -46,6 +46,6 @@ describe('"Next one" on the circle home', () => {
         asked: 3,
       },
     };
-    expect(nextOne(planned, now)).toBe('No rush');
+    expect(nextOne(planned, now)).toBe('Finding a time');
   });
 });

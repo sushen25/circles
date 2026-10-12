@@ -1,5 +1,5 @@
 import type { CircleId, PlanId } from '@circles/contracts';
-import { EN_SHARE_TEMPLATES } from '@circles/domain';
+import { circleHomePrimary, EN_SHARE_TEMPLATES } from '@circles/domain';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -122,6 +122,7 @@ export function HomeInState({ home, onBack }: { home: CircleHome; onBack: () => 
     // quiet screens, which offer the role to whoever may take it (§5.4).
     const unclaimed = plan.quiet === true && plan.organiserUserId === null;
     const marks = planMarks(home);
+    const primary = circleHomePrimary(state, { askedAgain: plan.askedAgain === true });
     return (
       <CircleHomeScreen
         {...shared}
@@ -156,9 +157,7 @@ export function HomeInState({ home, onBack }: { home: CircleHome; onBack: () => 
           void queryClient.invalidateQueries({ queryKey: ['plan-to-answer', plan.code] });
           router.push({ pathname: '/j/[code]', params: { code: plan.code } });
         }}
-        // Two ways to start now that the quiet ask is on (S2-03); with a plan
-        // running, either one shows that plan (ADR 0033).
-        onNext={() => router.push({ pathname: '/circles/[id]/plan/mode', params: { id } })}
+        primary={primary === 'add_my_times' ? 'add_my_times' : 'see_how_its_looking'}
       />
     );
   }

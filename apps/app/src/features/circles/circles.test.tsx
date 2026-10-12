@@ -227,6 +227,8 @@ describe('circle home, in the state the data puts it in', () => {
       pathname: '/circles/[id]/plan/[planId]/confirmed',
       params: { id: CIRCLE, planId: PLAN },
     });
+    // Planning another stays reachable, as the quiet action beneath (SUS-197).
+    expect(screen.getByRole('button', { name: 'Plan another' })).toBeVisible();
 
     shareMessage.mockResolvedValue('sheet');
     await act(async () => {
@@ -340,15 +342,27 @@ describe('circle home and the quiet ask (S2-03)', () => {
     });
   });
 
-  it('starts a catch-up by choosing how, now that there are two ways', async () => {
+  it("leads with the plan's own action and offers no second plan beside it (SUS-197, ADR 0033)", async () => {
     circleHome.mockResolvedValue(home({ activePlan: RUNNING }));
     wrap(<CircleHomeFlow id={CIRCLE} />);
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Plan a catch-up' }));
+    await screen.findAllByText('Finding a time');
+    expect(screen.queryByRole('button', { name: 'Plan a catch-up' })).toBeNull();
+    // One "See how it's looking", and it is the screen's primary.
+    fireEvent.click(screen.getByRole('button', { name: "See how it's looking" }));
     expect(push).toHaveBeenCalledWith({
-      pathname: '/circles/[id]/plan/mode',
-      params: { id: CIRCLE },
+      pathname: '/circles/[id]/plan/[planId]/candidates',
+      params: { id: CIRCLE, planId: PLAN },
     });
+  });
+
+  it('says the next one is the plan, not "No rush"', async () => {
+    circleHome.mockResolvedValue(home({ activePlan: RUNNING }));
+    wrap(<CircleHomeFlow id={CIRCLE} />);
+
+    await screen.findByText('Next one');
+    expect(screen.queryByText('No rush')).toBeNull();
+    expect(screen.getAllByText('Finding a time')).toHaveLength(2);
   });
 });
 
@@ -372,7 +386,7 @@ describe('circle home, for somebody whose times an edit cleared (SUS-130)', () =
     wrap(<CircleHomeFlow id={CIRCLE} />);
 
     expect(await screen.findByText(CLEARED)).toBeVisible();
-    expect(screen.getByText('Finding a time')).toBeVisible();
+    expect(screen.getAllByText('Finding a time')[0]).toBeVisible();
   });
 
   // Review round 2: the line asks for their times, so the card's button is the
@@ -415,7 +429,7 @@ describe('circle home, for somebody whose times an edit cleared (SUS-130)', () =
     );
     wrap(<CircleHomeFlow id={CIRCLE} />);
 
-    expect(await screen.findByText('Finding a time')).toBeVisible();
+    expect((await screen.findAllByText('Finding a time'))[0]).toBeVisible();
     expect(screen.queryByText(CLEARED)).toBeNull();
     expect(screen.getByRole('button', { name: "See how it's looking" })).toBeVisible();
     expect(screen.queryByRole('button', { name: 'Add my times' })).toBeNull();
@@ -481,7 +495,7 @@ describe('circle home, sharing the plan link again (SUS-132)', () => {
     );
     wrap(<CircleHomeFlow id={CIRCLE} />);
 
-    expect(await screen.findByText('Finding a time')).toBeVisible();
+    expect((await screen.findAllByText('Finding a time'))[0]).toBeVisible();
     expect(screen.queryByRole('button', SHARE)).toBeNull();
   });
 
@@ -550,7 +564,7 @@ describe('circle home, sharing the plan link again (SUS-132)', () => {
     );
     wrap(<CircleHomeFlow id={CIRCLE} />);
 
-    expect(await screen.findByText('Finding a time')).toBeVisible();
+    expect((await screen.findAllByText('Finding a time'))[0]).toBeVisible();
     expect(screen.queryByRole('button', SHARE)).toBeNull();
   });
 
