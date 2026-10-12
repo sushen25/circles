@@ -13,7 +13,7 @@
 -- is a count of this file's scenario.
 
 begin;
-select plan(53);
+select plan(55);
 
 create or replace function pg_temp.make_user(id uuid, name text, permanent boolean default true)
 returns uuid language sql as $$
@@ -445,6 +445,20 @@ select is(
   (select array[members, unchased] from analytics.gate_unchased where day = pg_temp.d(9)),
   array[3::bigint, 0::bigint],
   'and where they said they chased one of the one who answered, nobody counts as having answered unchased'
+);
+-- A confirmation whose organiser left the question alone (SUS-194) is in
+-- neither half of the share, and is counted on its own.
+update public.meetup_confirmations set chased_answer = null where id = :'second_meetup';
+select is(
+  (select array[members, unchased, unanswered] from analytics.gate_unchased where day = pg_temp.d(9)),
+  array[0::bigint, 0::bigint, 1::bigint],
+  'and a confirmation with the chasing question unanswered is counted separately: not as "no", and not in the members either'
+);
+update public.meetup_confirmations set chased_answer = 'one' where id = :'second_meetup';
+select is(
+  (select unanswered from analytics.gate_unchased where day = pg_temp.d(9)),
+  0::bigint,
+  'and answering it takes it out of that count'
 );
 select is(
   (select array[meetups, happened] from analytics.gate_happened where day = pg_temp.d(2)),

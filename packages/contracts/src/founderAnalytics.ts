@@ -34,6 +34,12 @@ export const GateNumbers = z.object({
   count: Count.optional(),
   median_seconds: z.number().nonnegative().nullable().optional(),
   n: Count.optional(),
+  /**
+   * Confirmations whose organiser left the chasing question alone (`unchased`
+   * only). Reported beside the share and in neither half of it: "not answered"
+   * is not "no" (SUS-194).
+   */
+  unanswered: Count.optional(),
 });
 export type GateNumbers = z.infer<typeof GateNumbers>;
 

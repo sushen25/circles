@@ -60,6 +60,22 @@ describe('the confirmed meetup', () => {
     expect(status.get(alex.id)).toBe('unknown');
   });
 
+  it('stores the chasing answer when given, and "not answered" when it is left out (SUS-194)', async () => {
+    const meetup = await lockedIn();
+    const answered = sql(
+      stack,
+      `select coalesce(chased_answer, 'null') from public.meetup_confirmations where id = '${meetup.confirmed.confirmation_id}'`,
+    );
+    expect(answered).toBe('one');
+    const { nextOneLockedIn } = await import('../testing/meetup.integration');
+    const next = await nextOneLockedIn(meetup);
+    const unanswered = sql(
+      stack,
+      `select coalesce(chased_answer, 'null') from public.meetup_confirmations where id = '${next.confirmationId}'`,
+    );
+    expect(unanswered).toBe('null');
+  });
+
   it("is past once it has ended by the database's clock, whatever the phone says", async () => {
     const { owner, planId, confirmed } = await lockedIn();
     sql(

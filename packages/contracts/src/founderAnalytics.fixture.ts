@@ -44,7 +44,7 @@ export const founderAnalyticsFixture: FounderAnalytics = {
   gates: {
     founder: {
       confirmed_meetup: { numerator: 3, denominator: 4 },
-      unchased: { numerator: 9, denominator: 12 },
+      unchased: { numerator: 9, denominator: 12, unanswered: 2 },
       response_time: { median_seconds: 100, n: 18 },
       happened: { numerator: 2, denominator: 2 },
       reattach: { numerator: 7, denominator: 8 },

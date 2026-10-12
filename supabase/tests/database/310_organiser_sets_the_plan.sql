@@ -10,7 +10,7 @@
 -- an answer arriving afterwards changes nothing.
 
 begin;
-select plan(61);
+select plan(62);
 
 create or replace function pg_temp.make_user(id uuid, name text)
 returns uuid language sql as $$
@@ -194,9 +194,9 @@ select throws_ok(
   'P0001', 'stale_availability', 'and so is a request that names no version'
 );
 select throws_ok(
-  format('select public.confirm_own_time(%L, %L, %L, %s, null)', (select plan_id from tp),
+  format('select public.confirm_own_time(%L, %L, %L, %s, ''lots'')', (select plan_id from tp),
     pg_temp.at('2099-09-18', 1140), pg_temp.at('2099-09-18', 1260), :v),
-  'P0001', 'chased_answer_required', 'the survey question is still required'
+  'P0001', 'chased_answer_required', 'a survey answer that is not none, one or more is refused'
 );
 select throws_ok(
   format('select public.confirm_own_time(%L, %L, %L, %s, ''none'')', (select plan_id from tp),
@@ -257,7 +257,7 @@ select pg_temp.mark() as m1 \gset
 select pg_temp.act_as('00000000-0000-0000-0000-0000000031a1');
 create temporary table own as
   select * from public.confirm_own_time((select plan_id from tp),
-    pg_temp.at('2099-09-18', 1140), pg_temp.at('2099-09-18', 1260), :v, 'one',
+    pg_temp.at('2099-09-18', 1140), pg_temp.at('2099-09-18', 1260), :v, null,
     'Hope St Radio', null, 'Come if you can');
 select pg_temp.act_as_postgres();
 grant select on own to authenticated;
@@ -271,6 +271,8 @@ select is((select quorum from public.plans where id = (select plan_id from tp)),
 select is((select available_user_ids from own), array['00000000-0000-0000-0000-0000000031a4']::uuid[],
   'only Jess, who is easy, could make it, and that is what was frozen');
 select is((select calendar_sequence from own), 0, 'its calendar entry begins at sequence zero');
+select ok((select chased_answer is null from own),
+  'and with the survey question left alone it is stored as not answered, which does not hold a lock-in back (SUS-194)');
 select is(
   (select count(*)::integer from public.attendance a where a.confirmation_id = (select id from own)
     and a.status = 'going'),

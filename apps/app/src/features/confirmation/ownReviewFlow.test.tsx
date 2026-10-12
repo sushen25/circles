@@ -104,13 +104,24 @@ describe('the organiser reviewing their own time', () => {
     expect(screen.getByRole('button', { name: 'Lock it in' })).toBeTruthy();
   });
 
-  it('asks the survey before it locks anything in', async () => {
+  it('asks the survey but never holds the lock-in for it', async () => {
     show(review());
     await screen.findByText('Lock it in?');
     await screen.findByText(/can make it ·/);
-    expect(lockIn().getAttribute('aria-disabled')).toBe('true');
-    fireEvent.click(screen.getByRole('checkbox', { name: 'One person' }));
     expect(lockIn().getAttribute('aria-disabled')).not.toBe('true');
+  });
+
+  it('locks in with the question unanswered: no answer is sent and none is recorded', async () => {
+    show(review());
+    await screen.findByText(/can make it ·/);
+    fireEvent.click(lockIn());
+
+    await waitFor(() => expect(confirmOwnTime).toHaveBeenCalledTimes(1));
+    expect(confirmOwnTime).toHaveBeenCalledWith(
+      expect.objectContaining({ planId: 'thu-17', chasedAnswer: undefined }),
+    );
+    await waitFor(() => expect(track).toHaveBeenCalledWith('meetup_confirmed', expect.anything()));
+    expect(track).not.toHaveBeenCalledWith('organiser_chased', expect.anything());
   });
 
   it('sends the stretch and the version of the names it showed, and says only counts and booleans', async () => {

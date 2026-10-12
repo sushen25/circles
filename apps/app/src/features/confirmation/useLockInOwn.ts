@@ -33,7 +33,8 @@ export type LockInOwnInput = {
   expectedInputVersion: number;
   invitedCount: number;
   belowQuorum: boolean;
-  chasedAnswer: ChasedAnswer;
+  /** Undefined when the organiser left the question alone (SUS-194). */
+  chasedAnswer?: ChasedAnswer | undefined;
   placeName: string | undefined;
   placeUrl: string | undefined;
   note: string | undefined;
@@ -120,7 +121,9 @@ export function useLockInOwn({
         own_time: true,
         below_quorum: input.belowQuorum,
       });
-      track('organiser_chased', { ...ids, answer: input.chasedAnswer });
+      if (input.chasedAnswer !== undefined) {
+        track('organiser_chased', { ...ids, answer: input.chasedAnswer });
+      }
       setProblem(undefined);
       setMoved(false);
       void client.invalidateQueries();

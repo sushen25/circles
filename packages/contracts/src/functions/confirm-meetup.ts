@@ -38,10 +38,13 @@ export const ConfirmDetails = {
   note: z.string().trim().min(1).max(NOTE_MAX_LENGTH).optional(),
   /**
    * "Did you have to chase anyone outside the app?" (spec §5.10). Two taps on
-   * the review screen, and the evidence for H2 — so it is required rather than
-   * optional: a survey nobody answers measures nothing, and `none` is an answer.
+   * the review screen, and the evidence for H2. **Optional**: "Lock it in" is the
+   * one decision the product exists to produce, and a research question never
+   * holds it (SUS-194). Left out, the confirmation is stored with no answer
+   * (`chased_answer` null), which the founder's analytics counts as "not
+   * answered" and never as `none`.
    */
-  chased_answer: z.enum(['none', 'one', 'more']),
+  chased_answer: z.enum(['none', 'one', 'more']).optional(),
 };
 
 /** Lock in one of the options the engine offered. */

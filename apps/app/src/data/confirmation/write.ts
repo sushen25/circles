@@ -16,7 +16,7 @@ import { FunctionError, invokeFunction, newIdempotencyKey, problemOf } from '../
  * whether a member may change their answer. This is the door to each.
  */
 
-export type ChasedAnswer = ConfirmOptionRequest['chased_answer'];
+export type ChasedAnswer = NonNullable<ConfirmOptionRequest['chased_answer']>;
 
 export type ConfirmInput = {
   planId: string;
@@ -29,7 +29,8 @@ export type ConfirmInput = {
    * new id, which is the bug the check exists to catch.
    */
   expectedSetId: string;
-  chasedAnswer: ChasedAnswer;
+  /** Left out when the organiser did not answer: stored as "not answered" (SUS-194). */
+  chasedAnswer?: ChasedAnswer | undefined;
   placeName?: string | undefined;
   placeUrl?: string | undefined;
   note?: string | undefined;

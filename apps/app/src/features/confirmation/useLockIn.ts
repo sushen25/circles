@@ -38,7 +38,8 @@ export type LockInInput = {
   candidateId: string;
   expectedSetId: string;
   invitedCount: number;
-  chasedAnswer: ChasedAnswer;
+  /** Undefined when the organiser left the question alone (SUS-194). */
+  chasedAnswer?: ChasedAnswer | undefined;
   placeName: string | undefined;
   placeUrl: string | undefined;
   note: string | undefined;
@@ -119,7 +120,9 @@ export function useLockIn({
         own_time: false,
         below_quorum: false,
       });
-      track('organiser_chased', { ...ids, answer: input.chasedAnswer });
+      if (input.chasedAnswer !== undefined) {
+        track('organiser_chased', { ...ids, answer: input.chasedAnswer });
+      }
       setProblem(undefined);
       // Circle home, the options and the plan page all describe this plan, and
       // every one of them is now wrong.

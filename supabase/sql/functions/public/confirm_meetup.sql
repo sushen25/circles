@@ -48,12 +48,12 @@ create or replace function public.confirm_meetup(
   -- accepted a set the organiser had never seen. The id is the one thing that
   -- changes whenever the set does.
   p_expected_set_id uuid,
-  -- "Did you have to chase anyone outside the app?" (spec §5.10). Required
-  -- here as well as in the request schema: this function is granted to
-  -- `authenticated`, so a client going straight to PostgREST is a client the
-  -- schema never saw, and the evidence for H2 is not optional because of the
-  -- door somebody came through. Ahead of the optional details for the ordinary
-  -- reason — a parameter with no default cannot follow one that has it.
+  -- "Did you have to chase anyone outside the app?" (spec §5.10). Optional for
+  -- the organiser: the review screen never holds "Lock it in" for it (SUS-194),
+  -- and null is stored as "not answered". It stays a parameter with no default,
+  -- ahead of the optional details (a parameter with no default cannot follow one
+  -- that has it), so a caller passes null rather than leaving it out. Anything
+  -- else than `none | one | more` is refused, whichever door it came through.
   p_chased_answer text,
   p_place_name text default null,
   p_place_url text default null,
@@ -94,7 +94,7 @@ begin
     raise exception 'not_the_organiser' using errcode = 'P0001';
   end if;
 
-  if p_chased_answer is null or p_chased_answer not in ('none', 'one', 'more') then
+  if p_chased_answer is not null and p_chased_answer not in ('none', 'one', 'more') then
     raise exception 'chased_answer_required' using errcode = 'P0001';
   end if;
 

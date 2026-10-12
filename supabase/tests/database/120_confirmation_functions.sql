@@ -169,9 +169,9 @@ select throws_ok(
 );
 
 select throws_ok(
-  format($$ select public.confirm_meetup(%L, '2099-09-17T08:30:00+00:00', pg_temp.set_id(), null) $$, pg_temp.plan_id()),
+  format($$ select public.confirm_meetup(%L, '2099-09-17T08:30:00+00:00', pg_temp.set_id(), 'lots') $$, pg_temp.plan_id()),
   'chased_answer_required',
-  'and the survey is required by the function as well as by the schema: this is callable directly'
+  'and an answer that is not none, one or more is refused by the function as well as by the schema: this is callable directly'
 );
 
 -- ---------------------------------------------------------------------------
