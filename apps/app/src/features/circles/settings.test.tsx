@@ -297,18 +297,20 @@ describe('who is a guest and who has saved their place (SUS-165)', () => {
     expect(screen.getByText(/^Guest · joined .*\b4\b/)).toBeVisible();
   });
 
-  it('says it to a guest too, and "You · guest" on their own row', async () => {
-    circleHome.mockResolvedValue(
-      home({
-        isOwner: false,
-        me: 'tom',
-      }),
-    );
+  it('says only "You · guest" on a guest’s own row, and when the rest joined (ADR 0060)', async () => {
+    // The data carries a saved-place state for the reader alone.
+    const base = home({ isOwner: false, me: 'tom' });
+    circleHome.mockResolvedValue({
+      ...base,
+      members: base.members.map((m) => (m.userId === 'tom' ? m : { ...m, savedPlace: null })),
+    });
     wrap(<SettingsFlow id={CIRCLE} />);
 
     expect(await screen.findByText('You · guest')).toBeVisible();
     expect(screen.getByText('Owner')).toBeVisible();
-    expect(screen.getByText(/^Place saved · joined .*\b3\b/)).toBeVisible();
+    expect(screen.getAllByText(/^Joined .*\b[34]\b/)).toHaveLength(2);
+    expect(screen.queryByText(/^Place saved/)).toBeNull();
+    expect(screen.queryByText(/^Guest ·/)).toBeNull();
   });
 });
 

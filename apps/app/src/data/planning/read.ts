@@ -7,6 +7,7 @@ import {
 
 import { authClient } from '../auth/client';
 import { daysOf } from '../planDays';
+import { planRoster } from './roster';
 import type { RosterMember } from '../scheduling';
 
 /**
@@ -14,7 +15,8 @@ import type { RosterMember } from '../scheduling';
  * everything EditPlan prefills, what ChangeTime and CancelPlan need to say
  * which day is off, and what the cancelled and rescheduled screens tell a
  * member. One read, through RLS as a member of the circle — every table here
- * has a member-select policy — so it calls no function.
+ * has a member-select policy — so it calls one function only, `plan_roster`,
+ * for names (ADR 0060).
  *
  * **Who is asked is the current revision's participants**, not the circle's
  * roster: `revise-plan` refuses to require somebody who was never asked
@@ -102,11 +104,7 @@ export async function planDetails(
 
   const [circle, roster, participants, required, confirmations, open] = await Promise.all([
     client.from('circles').select('name, owner_user_id').eq('id', plan.circle_id).maybeSingle(),
-    client
-      .from('circle_members')
-      .select('user_id, display_name_snapshot, status, joined_at')
-      .eq('circle_id', plan.circle_id)
-      .order('joined_at', { ascending: true }),
+    planRoster(client, plan.id),
     client
       .from('plan_participants')
       .select('user_id, joined_at')

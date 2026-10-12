@@ -208,6 +208,7 @@ Name; colour (solid, no image); primary IANA time zone defaulted from the creato
 - A plan's link also admits new members, but only while that plan is taking answers, and it cannot be revoked short of confirming or cancelling the plan ([ADR 0022](decisions/0022-a-plan-link-admits-new-members-while-the-plan-is-asking.md)). Resetting the circle link does not affect it.
 - Active members per circle: minimum 3 for quorum defaults, maximum 20 ([ADR 0012](decisions/0012-circle-member-cap-of-twenty.md)).
 - The interface shows who has joined but never exposes one member's availability to another as a personal schedule.
+- **Who has saved a place, and who has muted what, is each member's own** ([ADR 0060](decisions/0060-a-quiet-asks-initiator-is-not-inferable-from-member-data.md)). Circle settings says "You · guest" or "You · place saved" on the reader's own row and "Joined 3 Sep" on everyone else's. Only the circle owner also sees "Guest" or "Place saved" beside each name. A member never reads another's mute switches, and nobody reads the rows of members who have left.
 
 #### Circle home
 
@@ -268,7 +269,7 @@ Test whether private, threshold-based interest makes initiation feel safer and d
 
 #### Safety boundaries
 
-Quiet asks exist only inside a private circle; there is no anonymous text or targeting; the initiator is recorded server-side for abuse handling; members can mute quiet asks per circle; at most one active quiet ask per member per circle and three per circle in any seven days, whatever the circle's size — the limit is on what each member receives; in small groups the interface says people may still guess and never promises absolute anonymity. Notification and email copy for a quiet plan carries no organiser name until an organiser exists and never says who started it.
+Quiet asks exist only inside a private circle; there is no anonymous text or targeting; the initiator is recorded server-side for abuse handling; members can mute quiet asks per circle; at most one active quiet ask per member per circle and three per circle in any seven days, whatever the circle's size — the limit is on what each member receives; in small groups the interface says people may still guess and never promises absolute anonymity. No member can read another's saved-place state or mute switches, because starting a quiet ask takes a saved place and is refused after muting: the owner alone sees who has a saved place ([ADR 0060](decisions/0060-a-quiet-asks-initiator-is-not-inferable-from-member-data.md)). Notification and email copy for a quiet plan carries no organiser name until an organiser exists and never says who started it.
 
 #### Acceptance criteria
 
@@ -478,7 +479,7 @@ confirmed | ready | collecting ─cancel──▶ cancelled
 - Raw device-calendar events never enter the backend.
 - Availability is scoped to one plan revision and never reused silently.
 - Availability is shown to other members only as counts, and to the editor as each other person's windows day by day with no identity and nothing linking their days; only from the current revision, never the reader's own, and only once one other answer with times is in ([ADR 0045](decisions/0045-the-editor-shows-what-others-have-said-as-counts.md)). Nobody's name is ever beside a time.
-- Quiet-ask initiator identity and individual interest answers are never exposed, before or after threshold.
+- Quiet-ask initiator identity and individual interest answers are never exposed, before or after threshold. That includes by inference from data: a member never reads another member's saved-place state or mute switches ([ADR 0060](decisions/0060-a-quiet-asks-initiator-is-not-inferable-from-member-data.md)).
 - A reattachment moves a membership only within a circle the guest already belongs to, never onto a saved-place member. (An emailed link taking a place *back* from a saved account whose own email is not the link's address is the one exception: [ADR 0049](decisions/0049-continue-as-resolves-a-code-only-while-it-is-live.md), decision 6.)
 - Plan-update email consent is scoped to one plan and is never a marketing consent.
 - No client, log or analytics context ever holds a raw email address, token, note or event title. A plan's short code is not a token for this rule: it is in every link the product shares, by design, and what it admits to is bounded and visible ([ADR 0022](decisions/0022-a-plan-link-admits-new-members-while-the-plan-is-asking.md)). It still stays out of analytics payloads and our own function logs.

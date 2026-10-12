@@ -27,8 +27,13 @@ export type HomeMember = {
   /** ISO. The newest are the "just joined". */
   joinedAt: string;
   role: 'owner' | 'member';
-  /** Has an account (Apple, Google or an email code), rather than being a guest on the link. */
-  savedPlace: boolean;
+  /**
+   * Has an account (Apple, Google or an email code), rather than being a guest
+   * on the link. Known to the circle's owner for everybody and to a member for
+   * themselves; `null` for anybody else's, because who has a saved place narrows
+   * who could have started a quiet ask (ADR 0060).
+   */
+  savedPlace: boolean | null;
 };
 
 export type HomePlan = {
@@ -149,15 +154,25 @@ export async function circleHome(id: string): Promise<CircleHome | null> {
 
   const me = await whoAmI(client);
 
-  const [members, plans, morningAfter, myTurn, asking] = await Promise.all([
+  const [roster, ownSwitches, saved, plans, morningAfter, myTurn, asking] = await Promise.all([
+    // The roster view: active members and the columns a roster needs. The
+    // table itself is readable for the reader's own row alone (ADR 0060).
     client
-      .from('circle_members')
-      .select(
-        'user_id, display_name_snapshot, joined_at, role, muted_all, muted_quiet_asks, muted_nudges',
-      )
+      .from('circle_roster')
+      .select('user_id, display_name_snapshot, joined_at, role')
       .eq('circle_id', id)
-      .eq('status', 'active')
       .order('joined_at', { ascending: true }),
+    // The reader's own switches, and nobody else's: the table's one policy.
+    me === undefined
+      ? Promise.resolve({ data: null, error: null })
+      : client
+          .from('circle_members')
+          .select('muted_all, muted_quiet_asks, muted_nudges')
+          .eq('circle_id', id)
+          .eq('user_id', me)
+          .maybeSingle(),
+    // Everyone's for the owner, the reader's own for anybody else.
+    client.rpc('circle_saved_places', { p_circle_id: id }),
     plansFor(client, [id]),
     // A prompt, not the home: if it cannot be read the home still shows, and
     // the next read asks again.
@@ -167,21 +182,22 @@ export async function circleHome(id: string): Promise<CircleHome | null> {
     myTurnToPlan(client, id),
     quietAsksIn(client, id),
   ]);
-  if (members.error !== null) throw new Error(FAILED);
-  // Through the definer view, which only answers about people the reader
-  // shares an active circle with (ADR 0056). Asked about this roster alone, so
-  // a reader in many circles never meets the API's row cap.
-  const saved = await client
-    .from('member_profiles')
-    .select('user_id, has_saved_place')
-    .in(
-      'user_id',
-      members.data.map((m) => m.user_id),
-    );
-  if (saved.error !== null) throw new Error(FAILED);
-  const savedBy = new Set(
-    saved.data.filter((r) => r.has_saved_place === true).map((r) => r.user_id),
+  if (roster.error !== null || ownSwitches.error !== null || saved.error !== null) {
+    throw new Error(FAILED);
+  }
+  const members = roster.data.flatMap((m) =>
+    m.user_id === null || m.display_name_snapshot === null || m.joined_at === null
+      ? []
+      : [
+          {
+            ...m,
+            user_id: m.user_id,
+            display_name_snapshot: m.display_name_snapshot,
+            joined_at: m.joined_at,
+          },
+        ],
   );
+  const savedBy = new Map(saved.data.map((r) => [r.member_user_id, r.has_saved_place]));
 
   const finding = findingPlanOf(plans, id);
   const confirmed = plans.filter((p) => p.state === 'confirmed');
@@ -208,7 +224,7 @@ export async function circleHome(id: string): Promise<CircleHome | null> {
     };
   }
 
-  const own = members.data.find((m) => m.user_id === me);
+  const own = ownSwitches.data;
 
   return {
     id: circle.id,
@@ -225,13 +241,14 @@ export async function circleHome(id: string): Promise<CircleHome | null> {
     defaultQuorum: circle.default_quorum,
     isOwner: me !== undefined && circle.owner_user_id === me,
     me,
-    members: members.data.map((m) => ({
+    members: members.map((m) => ({
       userId: m.user_id,
       name: m.display_name_snapshot,
       joinedAt: m.joined_at,
       role: m.role === 'owner' ? 'owner' : 'member',
-      // An owner always has a saved place, whatever the view says.
-      savedPlace: m.role === 'owner' || savedBy.has(m.user_id),
+      // An owner always has a saved place. For anybody else it is known only
+      // to the owner, and to the member themselves.
+      savedPlace: m.role === 'owner' ? true : (savedBy.get(m.user_id) ?? null),
     })),
     activePlan:
       finding === undefined || replies === undefined
@@ -251,7 +268,7 @@ export async function circleHome(id: string): Promise<CircleHome | null> {
     morningAfter,
     myTurn,
     mine:
-      own === undefined
+      own === null
         ? null
         : {
             mutedAll: own.muted_all,

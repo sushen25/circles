@@ -45,7 +45,7 @@ export async function circlesList(): Promise<CircleSummary[]> {
 
   const ids = circles.map((c) => c.id);
   const [members, plans] = await Promise.all([
-    client.from('circle_members').select('circle_id').in('circle_id', ids).eq('status', 'active'),
+    client.from('circle_roster').select('circle_id').in('circle_id', ids),
     plansFor(client, ids),
   ]);
   if (members.error !== null) throw new Error(FAILED);

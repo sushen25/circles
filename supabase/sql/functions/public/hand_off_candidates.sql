@@ -4,16 +4,15 @@
 -- Every active member the plan's current revision is asking, but the
 -- organiser, with whether they have a saved place — the people
 -- `hand_off_target` could accept but for that. Somebody in the circle the plan
--- never asked is not listed: its letters could not reach them. The sheet shows the ones without one greyed out with
--- "needs a saved place" rather than letting a tap be refused, and the client
--- cannot tell on its own: `profiles` is readable by its owner alone.
+-- never asked is not listed: its letters could not reach them. For the circle's
+-- owner the sheet shows the ones without one greyed out with "needs a saved
+-- place" rather than letting a tap be refused.
 --
--- Whether somebody is a guest is not a secret in the circle — the
--- "Continue as" list names the circle's guests to anyone holding its link
--- (`guest_members_for_reattach`, ADR 0006) — but it is still only answered to
--- the one person with a use for it: the plan's organiser, while they are an
--- active member. Anybody else is refused as `not_the_organiser`, the refusal
--- the hand-off itself would give them.
+-- The flag is answered to the **owner** only; for any other organiser it is
+-- null, and the sheet offers everybody. Who has a saved place narrows who could
+-- have started a quiet ask (spec §5.4), so it is not read by a member for
+-- another member (ADR 0060). The organiser is refused as `not_the_organiser`
+-- when they are not the plan's organiser, an active member.
 --
 -- Names are the circle's own snapshots, as every other roster read shows.
 -- ---------------------------------------------------------------------------
@@ -44,7 +43,8 @@ begin
   end if;
 
   return query
-  select m.user_id, m.display_name_snapshot, coalesce(pr.is_permanent, false)
+  select m.user_id, m.display_name_snapshot,
+    case when public.auth_is_owner(plan.circle_id) then coalesce(pr.is_permanent, false) end
   from public.circle_members m
   left join public.profiles pr on pr.user_id = m.user_id
   join public.plan_participants pp
@@ -57,7 +57,7 @@ end;
 $$;
 
 comment on function public.hand_off_candidates(uuid) is
-  'The active members a plan''s current revision asks, but its organiser, each with whether they have a saved place: whom the organiser could hand it to. The calling organiser only (S2-05).';
+  'The active members a plan''s current revision asks, but its organiser, each with whether they have a saved place when the caller owns the circle, null otherwise: whom the organiser could hand it to. The calling organiser only (S2-05, ADR 0060).';
 
 revoke all on function public.hand_off_candidates(uuid) from public;
 revoke all on function public.hand_off_candidates(uuid) from anon, authenticated;

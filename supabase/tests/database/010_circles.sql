@@ -292,12 +292,16 @@ select throws_ok(
 
 update public.circle_members set muted_all = true
 where user_id = '00000000-0000-0000-0000-00000000a001';
+-- The owner's row is not visible to a co-member any more (ADR 0060), so what
+-- the attempt did is read as the database owner.
+select pg_temp.act_as_postgres();
 select is(
   (select muted_all from public.circle_members
    where user_id = '00000000-0000-0000-0000-00000000a001'),
   false,
   'and cannot mute somebody else'
 );
+select pg_temp.act_as('00000000-0000-0000-0000-00000000a002');
 
 -- ---------------------------------------------------------------------------
 -- The member cap.
@@ -393,10 +397,11 @@ select is(
 
 -- The column limit is the view's whole design (ADR 0032): a zone is close to
 -- a location, and no member's is readable by another. A column here is a
--- decision, not a tidy-up: `has_saved_place` is ADR 0056, tested in 360.
+-- decision, not a tidy-up: `has_saved_place` was ADR 0056 and is gone again
+-- (ADR 0060), tested in 430.
 select columns_are(
-  'public', 'member_profiles', array['user_id', 'display_name', 'has_saved_place'],
-  'member_profiles exposes a name, an id and whether a place is saved, and nothing else'
+  'public', 'member_profiles', array['user_id', 'display_name'],
+  'member_profiles exposes a name and an id, and nothing else'
 );
 
 select pg_temp.act_as('00000000-0000-0000-0000-00000000a009', true);
@@ -972,6 +977,10 @@ select is(
        -- each deciding for itself who may, and who the organiser could choose,
        -- answered to the organiser alone.
        'hand_off_organiser', 'extend_deadline', 'hand_off_candidates',
+       -- SUS-181. Who has saved a place, to the owner for everybody and to a
+       -- member for themselves; and names for the ids a plan screen mentions,
+       -- to an active member of its circle. `430_quiet_ask_initiator_hidden.sql`.
+       'circle_saved_places', 'plan_roster',
        -- S2-07. Whether "I was there" is the circle's first: security invoker,
        -- so it reads nothing RLS does not already show the caller.
        'after_attendance_facts',

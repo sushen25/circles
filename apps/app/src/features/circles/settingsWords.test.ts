@@ -36,17 +36,29 @@ describe('the detail line on a member row (SUS-165)', () => {
     expect(detailOf(rows, 'sam')).toMatch(/^Guest · joined .*\b4\b/);
   });
 
-  it('says it to everybody else too, not only the owner', () => {
-    const rows = memberRows(home('nina', ROSTER));
+  it('says only when they joined on another member’s row, whatever the member', () => {
+    // A member is not told who else has a saved place (ADR 0060): the data
+    // carries null for everybody but themselves.
+    const asNina = [
+      member({ userId: 'maya', role: 'owner' }),
+      member({ userId: 'nina' }),
+      member({ userId: 'sam', savedPlace: null, joinedAt: '2026-09-04T12:00:00Z' }),
+    ];
+    const rows = memberRows(home('nina', asNina));
     expect(detailOf(rows, 'maya')).toBe('Owner');
     expect(detailOf(rows, 'nina')).toBe('You · place saved');
-    expect(detailOf(rows, 'sam')).toMatch(/^Guest · joined .*\b4\b/);
+    expect(detailOf(rows, 'sam')).toMatch(/^Joined .*\b4\b/);
   });
 
-  it('says "You · guest" on a guest’s own row', () => {
-    const rows = memberRows(home('sam', ROSTER));
+  it('says "You · guest" on a guest’s own row, and only joined on the rest', () => {
+    const asSam = [
+      member({ userId: 'maya', role: 'owner' }),
+      member({ userId: 'nina', savedPlace: null }),
+      member({ userId: 'sam', savedPlace: false }),
+    ];
+    const rows = memberRows(home('sam', asSam));
     expect(detailOf(rows, 'sam')).toBe('You · guest');
-    expect(detailOf(rows, 'nina')).toMatch(/^Place saved · joined .*\b3\b/);
+    expect(detailOf(rows, 'nina')).toMatch(/^Joined .*\b3\b/);
   });
 
   it('never calls an owner a guest, whatever the flag says', () => {

@@ -422,6 +422,13 @@ export type Database = {
             referencedRelation: "circle_members"
             referencedColumns: ["circle_id", "user_id"]
           },
+          {
+            foreignKeyName: "member_dayparts_circle_id_user_id_fkey"
+            columns: ["circle_id", "user_id"]
+            isOneToOne: true
+            referencedRelation: "circle_roster"
+            referencedColumns: ["circle_id", "user_id"]
+          },
         ]
       }
       nudge_states: {
@@ -831,20 +838,49 @@ export type Database = {
       }
     }
     Views: {
+      circle_roster: {
+        Row: {
+          circle_id: string | null
+          display_name_snapshot: string | null
+          joined_at: string | null
+          role: string | null
+          user_id: string | null
+        }
+        Insert: {
+          circle_id?: string | null
+          display_name_snapshot?: string | null
+          joined_at?: string | null
+          role?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          circle_id?: string | null
+          display_name_snapshot?: string | null
+          joined_at?: string | null
+          role?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "circle_members_circle_id_fkey"
+            columns: ["circle_id"]
+            isOneToOne: false
+            referencedRelation: "circles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       member_profiles: {
         Row: {
           display_name: string | null
-          has_saved_place: boolean | null
           user_id: string | null
         }
         Insert: {
           display_name?: string | null
-          has_saved_place?: boolean | null
           user_id?: string | null
         }
         Update: {
           display_name?: string | null
-          has_saved_place?: boolean | null
           user_id?: string | null
         }
         Relationships: []
@@ -990,6 +1026,13 @@ export type Database = {
         Returns: Json
       }
       canonical_display_name: { Args: { value: string }; Returns: string }
+      circle_saved_places: {
+        Args: { p_circle_id: string }
+        Returns: {
+          has_saved_place: boolean
+          member_user_id: string
+        }[]
+      }
       claim_identity: {
         Args: {
           p_anonymous_user_id: string
@@ -1521,6 +1564,15 @@ export type Database = {
           window_end: string
         }
         Returns: string
+      }
+      plan_roster: {
+        Args: { p_plan_id: string }
+        Returns: {
+          active: boolean
+          display_name: string
+          joined_at: string
+          user_id: string
+        }[]
       }
       preview_for_code: {
         Args: { p_code: string; p_kind: string }
