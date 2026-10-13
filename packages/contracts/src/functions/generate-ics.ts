@@ -18,5 +18,41 @@ import { ConfirmationId } from '../ids.js';
  * `icsFor` throws rather than embedding one, and the link it does carry is the
  * plan's short link, which is a public path with no secret in it.
  */
-export const GenerateIcsRequest = z.object({ confirmation_id: ConfirmationId });
+/**
+ * Three ways in, one query shape:
+ *
+ * - **the file, with the bearer** (`format` absent): what the app fetched before
+ *   there were links, and still does when no link can be made;
+ * - **a link, with the bearer** (`format=link`): `{ token, expires_at }`, a
+ *   short-lived signed token for this one confirmation (ADR 0063);
+ * - **the file, with the token and no bearer** (`token`): what a plain
+ *   navigation sends, so iOS can open the system "Add to Calendar" sheet.
+ *
+ * The token is `<expiry seconds>.<base64url HMAC-SHA-256>`: 43 characters of
+ * signature. The shape is checked here so a malformed one is refused before
+ * anything is looked up; whether it is *good* is the function's to decide.
+ */
+export const CalendarToken = z.string().regex(/^\d{1,12}\.[A-Za-z0-9_-]{43}$/);
+
+export const GenerateIcsRequest = z.object({
+  confirmation_id: ConfirmationId,
+  format: z.literal('link').optional(),
+  token: CalendarToken.optional(),
+});
 export type GenerateIcsRequest = z.infer<typeof GenerateIcsRequest>;
+
+/**
+ * The answer to `format=link`. All three fields are null when the deployment has no
+ * `CALENDAR_LINK_KEY`, and the app then fetches the file itself.
+ */
+export const GenerateIcsLinkResponse = z.object({
+  token: CalendarToken.nullable(),
+  expires_at: z.iso.datetime().nullable(),
+  /**
+   * Seconds the token has left, as the server counts them. The app works out
+   * its own deadline from this and its own clock, never from `expires_at`
+   * against the phone's: a phone an hour fast would think every link dead.
+   */
+  expires_in: z.number().int().positive().nullable(),
+});
+export type GenerateIcsLinkResponse = z.infer<typeof GenerateIcsLinkResponse>;

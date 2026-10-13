@@ -4,7 +4,8 @@
  */
 export { confirmationViewOf, planConfirmation } from './read';
 export type { AttendanceRead, ConfirmationRead, ConfirmationView, PlanConfirmation } from './read';
-export { AttendanceError, calendarFile, confirmMeetup, setAttendance } from './write';
+export { AttendanceError, calendarFile, calendarLink, confirmMeetup, setAttendance } from './write';
+export type { CalendarLink } from './write';
 export { confirmOwnTime, editConfirmation, stretchOf } from './own';
 export type { ConfirmOwnTimeInput, EditConfirmationInput, Stretch } from './own';
 export type { ChasedAnswer, ConfirmInput } from './write';

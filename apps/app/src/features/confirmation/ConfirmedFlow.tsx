@@ -140,15 +140,37 @@ function Confirmed({
   const router = useRouter();
   const view = confirmedOf(data, confirmation);
   const ids = { circle_id: data.circleId as CircleId, plan_id: data.planId as PlanId };
+  // Everything the file says that this screen reads (the plan's own title is not read here).
+  const calendarVersion = JSON.stringify([
+    confirmation.id,
+    data.circleName,
+    data.zone,
+    confirmation.startsAt,
+    confirmation.endsAt,
+    confirmation.placeName,
+    confirmation.placeUrl,
+    confirmation.note,
+  ]);
   const calendar = useCalendar({
     circleId: data.circleId,
     planId: data.planId,
     confirmationId: confirmation.id,
+    version: calendarVersion,
     filename: calendarFilename(data, confirmation),
   });
   const own = useOwnAnswer(data, confirmation, queryKey);
   const [shareNotice, setShareNotice] = useState<string>();
   const origin = useOrigin();
+
+  // Fetch the calendar file as the screen loads, so the sheet, whenever it is
+  // opened, is usually ready (SUS-154). Without a backend there is no file.
+  const { prepare } = calendar;
+  const version = calendarVersion;
+  useEffect(() => {
+    if (hasBackend()) prepare();
+    // `prepare` is new every render and reads the latest state; the version is the key.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [version]);
 
   // `/p/:code/calendar`: the sheet is open on arrival, and counts as opened.
   const opened = useRef(false);
@@ -174,9 +196,12 @@ function Confirmed({
           ? t('addToCalendar', 'detail', { day, time: view.time })
           : t('addToCalendar', 'detail_place', { day, time: view.time, what: view.placeName })
       }
-      busy={calendar.busy}
+      phase={calendar.phase}
+      ready={calendar.ready}
+      problem={calendar.problem}
       status={calendar.status}
       onDevice={calendar.download}
+      onRetry={calendar.retry}
       onDismiss={calendar.hide}
     />
   );
