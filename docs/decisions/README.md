@@ -68,6 +68,7 @@ Short records of decisions that shape the product or the code. A new ADR is requ
 | [0063](./0063-the-calendar-file-is-served-at-a-link-with-a-short-lived-signed-token.md) | The calendar file is served at a link with a short-lived signed token | proposed |
 | [0064](./0064-join-limits-charge-the-person-asking-and-a-members-call-is-free.md) | Join limits charge the person asking, and a member's call is free | proposed |
 | [0065](./0065-co-members-see-the-circles-name-for-a-member-and-nothing-else.md) | Co-members see the circle's name for a member and nothing else of their name: no view of account names, and a rename leaves every circle alone | proposed |
+| [0066](./0066-the-group-sees-who-can-make-each-option-and-nobody-sees-whole-availability.md) | The group sees who can make each option, and nobody sees anyone's whole availability | proposed |
 | [0067](./0067-every-cadence-nudge-carries-a-stop-link-and-the-sent-card-says-an-account-is-made.md) | Every cadence nudge carries a stop link that needs no sign-in, and the Sent card says an account is made | proposed |
 
 ## Template
