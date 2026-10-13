@@ -202,12 +202,12 @@ select is(
 );
 
 -- ---------------------------------------------------------------------------
--- member_profiles: a name and an id, no saved-place state.
+-- No profile view: a co-member has nothing to read a saved-place state from.
 -- ---------------------------------------------------------------------------
 select pg_temp.act_as_postgres();
-select columns_are(
-  'public', 'member_profiles', array['user_id', 'display_name'],
-  'member_profiles holds a name and an id and says nothing about a saved place'
+select hasnt_view(
+  'public', 'member_profiles',
+  'there is no profile view to carry a saved-place state (ADR 0065)'
 );
 select pg_temp.act_as('00000000-0000-0000-0000-00000000d002');
 select is(
@@ -352,10 +352,10 @@ select ok(
   not exists (
     select 1 from information_schema.columns
     where table_schema = 'public'
-      and table_name in ('member_profiles', 'circle_roster')
+      and table_name = 'circle_roster'
       and column_name in ('has_saved_place', 'is_permanent', 'muted_quiet_asks', 'muted_all', 'muted_nudges')
   ),
-  'neither the profile view nor the roster view carries a saved-place or mute column'
+  'the roster view carries no saved-place or mute column'
 );
 select ok(
   not exists (

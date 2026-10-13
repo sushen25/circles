@@ -83,7 +83,7 @@ select has_table('public', 'profiles', 'profiles exists');
 select has_table('public', 'circles', 'circles exists');
 select has_table('public', 'circle_members', 'circle_members exists');
 select has_table('public', 'circle_invites', 'circle_invites exists');
-select has_view('public', 'member_profiles', 'member_profiles exists');
+select hasnt_view('public', 'member_profiles', 'member_profiles is gone: co-members read circle_roster (ADR 0065)');
 
 select ok(
   (select relrowsecurity from pg_class where oid = 'public.profiles'::regclass),
@@ -389,24 +389,23 @@ select is(
 );
 
 select is(
-  (select count(*)::integer from public.member_profiles
-   where user_id = '00000000-0000-0000-0000-00000000a001'),
+  (select count(*)::integer from public.circle_roster
+   where user_id = '00000000-0000-0000-0000-00000000a001'
+     and display_name_snapshot = 'Maya'),
   1,
-  'and sees a co-member’s current name through member_profiles'
+  'and sees a co-member through circle_roster, by the name the circle knows them by'
 );
 
--- The column limit is the view's whole design (ADR 0032): a zone is close to
--- a location, and no member's is readable by another. A column here is a
--- decision, not a tidy-up: `has_saved_place` was ADR 0056 and is gone again
--- (ADR 0060), tested in 430.
-select columns_are(
-  'public', 'member_profiles', array['user_id', 'display_name'],
-  'member_profiles exposes a name and an id, and nothing else'
+-- There is no view of account names (ADR 0065): `profiles` is readable by its
+-- owner alone, and co-members see the circle's own name for somebody.
+select hasnt_view(
+  'public', 'member_profiles',
+  'no view returns an account name to a co-member'
 );
 
 select pg_temp.act_as('00000000-0000-0000-0000-00000000a009', true);
 select is(
-  (select count(*)::integer from public.member_profiles),
+  (select count(*)::integer from public.circle_roster),
   0,
   'somebody who shares no circle sees no names at all'
 );
@@ -512,11 +511,12 @@ select lives_ok(
 rollback to savepoint before_name_reuse;
 
 -- ---------------------------------------------------------------------------
--- A rename cannot smuggle a duplicate past the index.
+-- A rename leaves the circle's name alone (ADR 0065).
 --
--- The roster shows the snapshot and `member_profiles` shows the profile, so a
--- rename that only touched the profile would have shown two people with one
--- name while the index saw nothing change.
+-- The roster shows `display_name_snapshot`, which is the name the circle knows
+-- somebody by and is set when they join. The account name is not shown to
+-- co-members, so changing it neither changes the roster nor can it make two
+-- people share a name in a circle.
 -- ---------------------------------------------------------------------------
 
 select pg_temp.act_as_postgres();
@@ -526,32 +526,23 @@ select is(
   (select display_name_snapshot from public.circle_members
    where circle_id = (select id from t_circle)
      and user_id = '00000000-0000-0000-0000-00000000a002'),
-  'Prya',
-  'an active membership follows the profile name'
+  'Nina',
+  'a rename does not touch the circle’s name for the member'
 );
 
-select throws_ok(
+select lives_ok(
   $$update public.profiles set display_name = 'Maya'
     where user_id = '00000000-0000-0000-0000-00000000a002'$$,
-  '23505',
-  null,
-  'and cannot be renamed to a co-member’s name'
+  'an account may take a co-member’s name: co-members never see it'
 );
-
-savepoint before_removed_rename;
-update public.circle_members set status = 'removed'
-where circle_id = (select id from t_circle)
-  and user_id = '00000000-0000-0000-0000-00000000a002';
-update public.profiles set display_name = 'Somebody Else'
-where user_id = '00000000-0000-0000-0000-00000000a002';
 select is(
-  (select display_name_snapshot from public.circle_members
-   where circle_id = (select id from t_circle)
-     and user_id = '00000000-0000-0000-0000-00000000a002'),
-  'Prya',
-  'a removed membership keeps the name it had — the snapshot stops following'
+  (select count(distinct public.canonical_display_name(display_name_snapshot))::integer
+   from public.circle_members
+   where circle_id = (select id from t_circle) and status = 'active'),
+  (select count(*)::integer from public.circle_members
+   where circle_id = (select id from t_circle) and status = 'active'),
+  'and the roster still has one name per person'
 );
-rollback to savepoint before_removed_rename;
 
 -- ---------------------------------------------------------------------------
 -- Creating a circle twice.
@@ -650,9 +641,9 @@ select throws_ok(
 -- ---------------------------------------------------------------------------
 -- A name has to be a name.
 --
--- `authenticated` may update `display_name` directly, and `sync_member_names`
--- pushes it to every active membership: a blank here is a blank roster entry
--- for the whole circle.
+-- `authenticated` may update `display_name` directly, and a blank here is a
+-- blank name wherever the account name is used (a new circle's owner row, a
+-- join from a plan).
 -- ---------------------------------------------------------------------------
 
 select throws_ok(

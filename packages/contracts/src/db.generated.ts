@@ -870,21 +870,6 @@ export type Database = {
           },
         ]
       }
-      member_profiles: {
-        Row: {
-          display_name: string | null
-          user_id: string | null
-        }
-        Insert: {
-          display_name?: string | null
-          user_id?: string | null
-        }
-        Update: {
-          display_name?: string | null
-          user_id?: string | null
-        }
-        Relationships: []
-      }
       plan_interest_counts: {
         Row: {
           keen_count: number | null

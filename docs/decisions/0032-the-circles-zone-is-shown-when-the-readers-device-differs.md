@@ -3,10 +3,11 @@ adr: 32
 title: "The circle's zone is shown when the reader's device differs, not when a member's does"
 status: accepted
 date: 2026-09-24
+amended_by: [65]
 ---
 # ADR 0032: The circle's zone is shown when the reader's device differs, not when a member's does
 
-_Status: accepted · 24 September 2026_
+_Status: accepted (the `member_profiles` view it kept is gone: [ADR 0065](0065-co-members-see-the-circles-name-for-a-member-and-nothing-else.md)) · 24 September 2026_
 
 ## Context
 
