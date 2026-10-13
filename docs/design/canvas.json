@@ -82,8 +82,26 @@
       "title": "Email preferences \u00b7 no sign-in"
     },
     {
-      "file": "SaveAccess.dc.html",
+      "file": "NudgeStop.dc.html",
       "x": 1440,
+      "y": 1300,
+      "w": 390,
+      "h": 844,
+      "page": "guest",
+      "title": "Stop reminders \u00b7 no sign-in"
+    },
+    {
+      "file": "NudgeStopDone.dc.html",
+      "x": 1920,
+      "y": 1300,
+      "w": 390,
+      "h": 844,
+      "page": "guest",
+      "title": "Stop reminders \u00b7 done"
+    },
+    {
+      "file": "SaveAccess.dc.html",
+      "x": 2400,
       "y": 1300,
       "w": 390,
       "h": 844,
@@ -92,8 +110,8 @@
     },
     {
       "file": "CandidatesMember.dc.html",
-      "x": 1920,
-      "y": 1300,
+      "x": 0,
+      "y": 2600,
       "w": 390,
       "h": 1000,
       "page": "guest",
@@ -101,8 +119,8 @@
     },
     {
       "file": "ConfirmedGuest.dc.html",
-      "x": 2400,
-      "y": 1300,
+      "x": 480,
+      "y": 2600,
       "w": 390,
       "h": 844,
       "page": "guest",
@@ -110,7 +128,7 @@
     },
     {
       "file": "AddToCalendar.dc.html",
-      "x": 0,
+      "x": 960,
       "y": 2600,
       "w": 390,
       "h": 844,
@@ -119,7 +137,7 @@
     },
     {
       "file": "RescheduledGuest.dc.html",
-      "x": 480,
+      "x": 1440,
       "y": 2600,
       "w": 390,
       "h": 844,
@@ -128,7 +146,7 @@
     },
     {
       "file": "CancelledGuest.dc.html",
-      "x": 960,
+      "x": 1920,
       "y": 2600,
       "w": 390,
       "h": 844,
@@ -137,7 +155,7 @@
     },
     {
       "file": "WasThere.dc.html",
-      "x": 1440,
+      "x": 2400,
       "y": 2600,
       "w": 390,
       "h": 844,
@@ -146,8 +164,8 @@
     },
     {
       "file": "LinkInvalid.dc.html",
-      "x": 1920,
-      "y": 2600,
+      "x": 0,
+      "y": 3900,
       "w": 390,
       "h": 844,
       "page": "guest",
@@ -155,8 +173,8 @@
     },
     {
       "file": "ConfirmedGuestMoved.dc.html",
-      "x": 2400,
-      "y": 2600,
+      "x": 480,
+      "y": 3900,
       "w": 390,
       "h": 900,
       "page": "guest",
@@ -164,7 +182,7 @@
     },
     {
       "file": "AvailabilityPicking.dc.html",
-      "x": 0,
+      "x": 960,
       "y": 3900,
       "w": 390,
       "h": 1300,
@@ -173,7 +191,7 @@
     },
     {
       "file": "AvailabilityAdjusting.dc.html",
-      "x": 480,
+      "x": 1440,
       "y": 3900,
       "w": 390,
       "h": 1400,
@@ -182,7 +200,7 @@
     },
     {
       "file": "AvailabilityOthers.dc.html",
-      "x": 960,
+      "x": 1920,
       "y": 3900,
       "w": 390,
       "h": 1320,
@@ -191,7 +209,7 @@
     },
     {
       "file": "AvailabilityOthersPicking.dc.html",
-      "x": 1440,
+      "x": 2400,
       "y": 3900,
       "w": 390,
       "h": 1300,
@@ -200,8 +218,8 @@
     },
     {
       "file": "AvailabilityOthersAdjusting.dc.html",
-      "x": 1920,
-      "y": 3900,
+      "x": 0,
+      "y": 5200,
       "w": 390,
       "h": 1500,
       "page": "guest",
@@ -209,8 +227,8 @@
     },
     {
       "file": "AvailabilityOthersFirst.dc.html",
-      "x": 2400,
-      "y": 3900,
+      "x": 480,
+      "y": 5200,
       "w": 390,
       "h": 1320,
       "page": "guest",
@@ -218,7 +236,7 @@
     },
     {
       "file": "SentSwitchOff.dc.html",
-      "x": 0,
+      "x": 960,
       "y": 5200,
       "w": 390,
       "h": 844,
@@ -227,7 +245,7 @@
     },
     {
       "file": "SentCode.dc.html",
-      "x": 480,
+      "x": 1440,
       "y": 5200,
       "w": 390,
       "h": 844,
@@ -236,7 +254,7 @@
     },
     {
       "file": "SentDone.dc.html",
-      "x": 960,
+      "x": 1920,
       "y": 5200,
       "w": 390,
       "h": 844,
@@ -245,7 +263,7 @@
     },
     {
       "file": "SentPartial.dc.html",
-      "x": 1440,
+      "x": 2400,
       "y": 5200,
       "w": 390,
       "h": 844,
@@ -254,8 +272,8 @@
     },
     {
       "file": "SentMember.dc.html",
-      "x": 1920,
-      "y": 5200,
+      "x": 0,
+      "y": 6500,
       "w": 390,
       "h": 844,
       "page": "guest",
@@ -263,8 +281,8 @@
     },
     {
       "file": "SentMemberDone.dc.html",
-      "x": 2400,
-      "y": 5200,
+      "x": 480,
+      "y": 6500,
       "w": 390,
       "h": 844,
       "page": "guest",
@@ -272,7 +290,7 @@
     },
     {
       "file": "SentSuppressed.dc.html",
-      "x": 0,
+      "x": 960,
       "y": 6500,
       "w": 390,
       "h": 844,
@@ -281,7 +299,7 @@
     },
     {
       "file": "SentSuppressedSaved.dc.html",
-      "x": 480,
+      "x": 1440,
       "y": 6500,
       "w": 390,
       "h": 844,
@@ -860,7 +878,7 @@
       "x": 960,
       "y": 0,
       "w": 1400,
-      "h": 560,
+      "h": 900,
       "page": "system",
       "title": "Email templates"
     },

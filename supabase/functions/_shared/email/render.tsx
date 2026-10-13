@@ -3,7 +3,7 @@ import { render as toHtml } from '@react-email/render';
 import type { ReactNode } from 'react';
 
 import type { EmailCopy } from './copy.ts';
-import { subscriberFooter } from './links.ts';
+import { nudgeStopLink, subscriberFooter } from './links.ts';
 import { AboutTime, aboutTimeCopy } from './templates/AboutTime.tsx';
 import { AskedAgain, askedAgainCopy } from './templates/AskedAgain.tsx';
 import { Cancelled, cancelledCopy } from './templates/Cancelled.tsx';
@@ -82,6 +82,11 @@ const TEMPLATES: { [K in EmailKind]: Template<Extract<EmailInput, { kind: K }>> 
  * to Gmail); this is transactional mail to a handful of people per plan.
  */
 function headersFor(input: EmailInput): Record<string, string> {
+  // The cadence nudge's stop link (ADR 0067), the same page as the footer's, so
+  // a mail client's own unsubscribe control reaches the same one tap.
+  if (input.kind === 'about_time') {
+    return { 'List-Unsubscribe': `<${nudgeStopLink(input.origin, input.stopToken)}>` };
+  }
   if (!isSubscriberInput(input)) return {};
   return { 'List-Unsubscribe': `<${subscriberFooter(input).manageUrl}>` };
 }

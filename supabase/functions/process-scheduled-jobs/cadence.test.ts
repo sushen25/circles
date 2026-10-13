@@ -321,19 +321,64 @@ describe('sending a cadence nudge', () => {
   const results = (calls: Calls) =>
     calls.filter((c) => c.fn === 'dispatch_job_result').map((c) => c.args);
 
+  const STOP_TOKEN_ID = '00000000-0000-4000-8000-00000000a0b1';
+  const answers = (fn: string) => {
+    if (fn === 'dispatch_circle_context') return circleContext();
+    if (fn === 'issue_nudge_stop_token') return STOP_TOKEN_ID;
+    return null;
+  };
+
   it('sends a job with no plan — the branch that would otherwise say plan_gone', async () => {
-    const { db, calls } = fakeDb((fn) =>
-      fn === 'dispatch_circle_context' ? circleContext() : null,
-    );
+    const { db, calls } = fakeDb(answers);
 
     const sent = await send(db, [job()], 'req', never);
 
     expect(sent.sent).toBe(1);
     expect(results(calls)[0]).toMatchObject({ p_outcome: 'sent' });
     expect(fetched).toHaveLength(1);
-    // The circle's home, where the person is signed in; no token anywhere.
+    // The button is the circle's home, where the person is signed in.
     expect(fetched[0]?.body).toContain(`https://app.test/circles/${CIRCLE}`);
     expect(fetched[0]?.body).toContain('Sunday Crew: about time?');
+  });
+
+  // SUS-190, ADR 0067: nobody receives a cadence nudge they cannot stop from the letter.
+  it('carries a stop link that needs no sign-in, in the letter and in List-Unsubscribe', async () => {
+    const { db, calls } = fakeDb(answers);
+
+    await send(db, [job()], 'req', never);
+
+    const body = JSON.parse(fetched[0]?.body ?? '{}') as {
+      HTML?: string;
+      Text?: string;
+      Headers?: Record<string, string>;
+    };
+    const link = /https:\/\/app\.test\/n#([A-Za-z0-9_-]{43})/.exec(body.Text ?? '');
+    expect(link, 'the stop link is in the letter').not.toBeNull();
+    const token = link?.[1] ?? '';
+    expect(body.HTML).toContain(`https://app.test/n#${token}`);
+    expect(body.Headers?.['List-Unsubscribe']).toBe(`<https://app.test/n#${token}>`);
+    // Minted for this letter and this contact, and stored as a digest: the
+    // database never saw the token itself.
+    const minted = calls.find((c) => c.fn === 'issue_nudge_stop_token');
+    expect(minted?.args['p_contact_id']).toBe(CONTACT);
+    expect(JSON.stringify(minted?.args)).not.toContain(token);
+    // No token in what the function records about the send.
+    expect(JSON.stringify(results(calls))).not.toContain(token);
+  });
+
+  it('does not send a nudge it cannot give a stop link to', async () => {
+    const { db, calls } = fakeDb((fn) =>
+      fn === 'dispatch_circle_context' ? circleContext() : null,
+    );
+
+    const sent = await send(db, [job()], 'req', never);
+
+    expect(sent.skipped).toBe(1);
+    expect(results(calls)[0]).toMatchObject({
+      p_outcome: 'skipped',
+      p_error: 'contact_unverified',
+    });
+    expect(fetched).toHaveLength(0);
   });
 
   it.each([

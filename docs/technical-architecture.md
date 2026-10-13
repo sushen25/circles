@@ -273,6 +273,7 @@ The client imports the same `packages/domain` the server uses, so the app can sh
 │   │   ├── request-email-updates/
 │   │   ├── verify-email-contact/
 │   │   ├── manage-email-preferences/
+│   │   ├── stop-nudges/
 │   │   ├── email-provider-webhook/
 │   │   ├── register-push-device/
 │   │   ├── generate-ics/
@@ -518,6 +519,7 @@ ready ─(response change)──▶ collecting ─ recalculate ──┘
 | `request-email-updates` | member | Normalise, dedupe per identity, create the contact and record the consent as given, under the version the client rendered if the server knows it ([ADR 0019](decisions/0019-consent-is-recorded-when-it-is-given.md), ADR 0048), enqueue the verification email — whose token is minted by the sender ([ADR 0020](decisions/0020-the-verification-token-is-minted-by-the-sender.md)). Answers identically for a new, verified, shared or suppressed address |
 | `verify-email-contact` | token | Consume the single-use token, verify **every contact of the same person holding that address** (the same identity, or one linked by a recorded reattachment: ADR 0050), drop subscriptions to finished plans and to circles the person has left, send the current state once if a meetup is already locked in |
 | `manage-email-preferences` | token | Show/disable subscriptions without sign-in |
+| `stop-nudges` | token | The link under a cadence nudge: turns off "Nudges to plan the next one" for the token's owner, without sign-in; its own token purpose, repeatable, reveals nothing ([ADR 0067](decisions/0067-every-cadence-nudge-carries-a-stop-link-and-the-sent-card-says-an-account-is-made.md)) |
 | `email-provider-webhook` | Resend signature | Dedupe by provider message id, record delivery, suppress on hard bounce/complaint |
 | `register-push-device` | permanent | Upsert Expo push token |
 | `generate-ics` | member | Standards-compliant `.ics` for a confirmation; no tokens in the file |

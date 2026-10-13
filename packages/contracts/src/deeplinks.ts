@@ -36,6 +36,13 @@ export type ReentryLink = z.infer<typeof ReentryLink>;
 export const EmailPreferencesLink = z.object({ token: OpaqueToken });
 export type EmailPreferencesLink = z.infer<typeof EmailPreferencesLink>;
 
+/**
+ * `/n#<token>` — stop the cadence nudge, no sign-in (ADR 0067). Asks for one tap
+ * before it does anything, and stays valid after use.
+ */
+export const NudgeStopLink = z.object({ token: OpaqueToken });
+export type NudgeStopLink = z.infer<typeof NudgeStopLink>;
+
 /** `/v#<token>` — email verification landing. Single use. */
 export const EmailVerifyLink = z.object({ token: OpaqueToken });
 export type EmailVerifyLink = z.infer<typeof EmailVerifyLink>;
@@ -53,6 +60,7 @@ export const DEEP_LINK_ROUTES = {
   planAttendance: '/p/:code/attendance',
   reentry: '/a',
   emailPreferences: '/e',
+  nudgeStop: '/n',
   emailVerify: '/v',
 } as const;
 
@@ -62,6 +70,7 @@ export const FRAGMENT_LINKS = {
   '/a': 'reentry',
   '/v': 'verify',
   '/e': 'preferences',
+  '/n': 'nudge_stop',
 } as const;
 export type FragmentLinkKind = (typeof FRAGMENT_LINKS)[keyof typeof FRAGMENT_LINKS];
 
@@ -114,6 +123,11 @@ export function emailVerifyUrl(origin: string, token: OpaqueToken): string {
 
 export function emailPreferencesUrl(origin: string, token: OpaqueToken): string {
   return `${origin.replace(/\/+$/, '')}/e#${token}`;
+}
+
+/** `https://…/n#<token>`: the stop link under a cadence nudge (ADR 0067). */
+export function nudgeStopUrl(origin: string, token: OpaqueToken): string {
+  return `${origin.replace(/\/+$/, '')}/n#${token}`;
 }
 
 /**

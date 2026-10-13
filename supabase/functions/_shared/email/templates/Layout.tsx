@@ -72,6 +72,11 @@ export type ReasonFooter = {
   readonly kind: 'reason';
   readonly sentence: string;
   readonly settingsUrl?: string | undefined;
+  /**
+   * A stop that needs no sign-in (ADR 0067): the cadence nudge's. The link
+   * opens a page that asks for one tap, so opening it spends nothing.
+   */
+  readonly stopUrl?: string | undefined;
 };
 
 export type Footer = SubscriberFooter | ReasonFooter | { readonly kind: 'none' };
@@ -105,6 +110,15 @@ function FooterBlock({ footer }: { footer: Footer }): ReactNode {
       <>
         <Hr style={{ borderColor: palette.line, margin: '20px 0 16px' }} />
         <Text style={small}>{footer.sentence}</Text>
+        {footer.stopUrl === undefined ? null : (
+          <Text style={small}>
+            {EN_EMAIL.footer.stopNudgesLead}{' '}
+            <Link href={footer.stopUrl} style={smallLink}>
+              {EN_EMAIL.footer.stopNudgesLabel}
+            </Link>
+            .
+          </Text>
+        )}
         {footer.settingsUrl === undefined ? null : (
           <Text style={small}>
             {EN_EMAIL.footer.settingsLead}{' '}

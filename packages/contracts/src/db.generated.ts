@@ -1504,6 +1504,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      issue_nudge_stop_token: {
+        Args: { p_contact_id: string; p_token_hash: string }
+        Returns: string
+      }
       issue_preferences_token: {
         Args: { p_contact_id: string; p_token_hash: string }
         Returns: string
@@ -1737,6 +1741,7 @@ export type Database = {
         Returns: Json
       }
       soft_quorum: { Args: { active_member_count: number }; Returns: number }
+      stop_nudges: { Args: { p_token_hash: string }; Returns: Json }
       store_candidate_set: {
         Args: {
           p_input_version: number

@@ -78,6 +78,9 @@ export type SentProps = {
   emailsFailed?: boolean | undefined;
   onEmailChange?: ((email: string) => void) | undefined;
   onSavePlaceChange?: ((on: boolean) => void) | undefined;
+  /** The terms and privacy links under the switch, shown while it is on. */
+  onTerms?: (() => void) | undefined;
+  onPrivacy?: (() => void) | undefined;
   /** The primary: Email me about this meetup. */
   onSubmit?: (() => void) | undefined;
   onNotNow?: (() => void) | undefined;
@@ -108,6 +111,8 @@ export function SentScreen({
   emailsFailed = false,
   onEmailChange,
   onSavePlaceChange,
+  onTerms,
+  onPrivacy,
   onSubmit,
   onNotNow,
   onChangeAnswer,
@@ -170,6 +175,8 @@ export function SentScreen({
             savePlace={savePlace}
             onEmailChange={onEmailChange}
             onSavePlaceChange={onSavePlaceChange}
+            onTerms={onTerms}
+            onPrivacy={onPrivacy}
             onSubmit={onSubmit}
             onNotNow={onNotNow}
           />
