@@ -44,6 +44,7 @@ async function refusalOf(error: unknown): Promise<{ status: number; reason?: str
 /** An organiser with an account, a circle, and a plan asking it. */
 async function organiserWithPlan(): Promise<{
   owner: SupabaseClient;
+  circleId: string;
   planId: string;
   code: string;
 }> {
@@ -82,7 +83,7 @@ async function organiserWithPlan(): Promise<{
   });
   expect(plan.error).toBeNull();
   const created = plan.data as { plan_id: string; short_code: string };
-  return { owner, planId: created.plan_id, code: created.short_code };
+  return { owner, circleId, planId: created.plan_id, code: created.short_code };
 }
 
 async function guest(role: string): Promise<SupabaseClient> {
@@ -212,5 +213,67 @@ describe('a stranger holding only a plan link', () => {
       { status: 404, reason: 'invite_inactive' },
       { status: 404, reason: 'invite_inactive' },
     ]);
+  });
+});
+
+describe('the join limits, reached for real (SUS-113)', () => {
+  /** A well-formed code that no plan has. */
+  function wrongCode(): string {
+    const alphabet = 'abcdefghjkmnpqrstuvwxyz23456789';
+    const bytes = globalThis.crypto.getRandomValues(new Uint8Array(10));
+    return [...bytes].map((byte) => alphabet[byte % alphabet.length]).join('');
+  }
+
+  const attempt = (client: SupabaseClient, code: string, name?: string) =>
+    client.functions.invoke('join-plan', {
+      body: {
+        idempotency_key: globalThis.crypto.randomUUID(),
+        plan_code: code,
+        ...(name === undefined ? {} : { display_name: name }),
+      },
+    });
+
+  it('stops a caller trying codes, without refusing anyone else on the same link', async () => {
+    const { code } = await organiserWithPlan();
+    // A fresh count for the local address, which everyone here shares.
+    sql(stack, 'delete from jobs.rate_counters');
+
+    const guesser = await guest('guesser');
+    const refusals: { status: number; reason?: string }[] = [];
+    // One caller may try thirty times an hour; the thirty-first is refused for
+    // volume, not for what it asked.
+    for (let n = 0; n < 31; n += 1) {
+      refusals.push(await refusalOf((await attempt(guesser, wrongCode(), 'Ada')).error));
+    }
+    expect(refusals.slice(0, 30).every((r) => r.reason === 'invite_inactive')).toBe(true);
+    expect(refusals[30]).toEqual({ status: 429, reason: 'too_many_requests' });
+
+    // Somebody else, from the same address and on the real code, is let in.
+    const ren = await guest('ren-after-guesser');
+    const joined = await attempt(ren, code, 'Ren');
+    expect(joined.error).toBeNull();
+
+    // And once a member, calling again as often as they like costs nothing:
+    // twelve calls is more than a non-member may make on one code in an hour.
+    for (let n = 0; n < 12; n += 1) {
+      expect((await attempt(ren, code)).error).toBeNull();
+    }
+  });
+  it('charges an invite link the same way: a member re-opening it costs nothing', async () => {
+    const { owner, circleId } = await organiserWithPlan();
+    const link = await owner.functions.invoke('get-invite-link', { body: { circle_id: circleId } });
+    expect(link.error).toBeNull();
+    const secret = (link.data as { invite_secret: string }).invite_secret;
+
+    const nina = await guest('nina-invite');
+    const redeem = (name: string) =>
+      nina.functions.invoke('redeem-invite', {
+        body: { idempotency_key: globalThis.crypto.randomUUID(), secret, display_name: name },
+      });
+    expect((await redeem('Nina')).error).toBeNull();
+    // More than the ten a stranger may spend on one link in an hour.
+    for (let n = 0; n < 12; n += 1) {
+      expect((await redeem('Nina')).error).toBeNull();
+    }
   });
 });
