@@ -248,6 +248,33 @@ describe('the answer line', () => {
   });
 });
 
+describe('across a clock change', () => {
+  it('reads the same local hours on days with rows of different lengths as one time (review round 7)', () => {
+    // Midnight to 6 am in Melbourne over the clocks going back (Sunday 4 April
+    // 2027): the Saturday row has 12 cells and the Sunday row 14.
+    const band: PlanTiming = {
+      ...WHOLE_DAYS,
+      window: { start: localDate('2027-04-03'), end: localDate('2027-04-04') },
+      daily: { startMin: 0, endMin: 6 * 60 },
+    };
+    const rows = dayRows(band, TWELVE, WORDS, 'en-AU');
+    expect(rows.map((row) => row.cells.length)).toEqual([12, 14]);
+    const reduce = editorReducer(rows, band);
+    const four = (length: number, from: number) =>
+      new Array(length).fill(false).map((_, i) => i >= from && i < from + 2);
+    const state = [
+      { type: 'toggle_day', day: 0 },
+      { type: 'toggle_day', day: 1 },
+      { type: 'paint', day: 0, cells: four(12, 8) },
+      { type: 'paint', day: 1, cells: four(14, 10) },
+    ].reduce((s, a) => reduce(s, a as EditorAction), emptyEditor(rows, band));
+
+    const line = answerLineOf(state, rows, band, TWELVE, 'en-AU');
+    expect(line?.shared).toBe(true);
+    expect(line?.time).toBe('4–5 am, set by the half hour');
+  });
+});
+
 describe('a list of days', () => {
   it('joins two or three with "and" for the sheet, and with commas for the line', () => {
     expect(dayList(['Thu 15'], 'and')).toBe('Thu 15');

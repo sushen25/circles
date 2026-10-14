@@ -241,16 +241,15 @@ export function answerLineOf(
   }
 
   // One time that is not a block, the same on every tapped day: its hours.
-  const bits = (day: number) => (state.days[day] ?? []).map(Number).join('');
-  if (tapped.every((day) => bits(day) === bits(tapped[0]!))) {
-    const row = rows[tapped[0]!]!;
-    const hours = rangeText(
-      cellsToWindows(row.date, state.days[tapped[0]!] ?? [], timing),
-      timing.zone,
-      format,
-    );
-    if (hours !== undefined)
-      return { days, time: t('availability', 'line_exact', { time: hours }), shared: true };
+  // Compared as local hours, not cells: across a clock change the same hours
+  // sit at different cell indices in rows of different lengths.
+  const kinds = tapped.map((day) => kindOf(state.days[day] ?? [], rows[day]!, timing, format));
+  if (kinds.every((kind) => kind.key === kinds[0]!.key) && kinds[0]!.hours !== '') {
+    return {
+      days,
+      time: t('availability', 'line_exact', { time: kinds[0]!.hours }),
+      shared: true,
+    };
   }
   return {
     days,
