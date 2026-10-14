@@ -15,15 +15,21 @@ const SIZES = [
 /** Nothing is wider than the window, so nothing scrolls sideways or is cut off at its edge. */
 async function expectNoSidewaysOverflow(page: Page) {
   const overflow = await page.evaluate(() => {
+    // Typed loosely: the test project is compiled without the DOM library.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const win = globalThis as any;
+    const document = win.document;
     const wide = document.documentElement.clientWidth;
     return {
       scroll: document.documentElement.scrollWidth - wide,
       cut: [...document.querySelectorAll('body *')]
-        .filter((el) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .filter((el: any) => {
           const box = el.getBoundingClientRect();
           return box.width > 0 && (box.left < -0.5 || box.right > wide + 0.5);
         })
-        .map((el) => `${el.tagName}.${el.className}`.slice(0, 80)),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .map((el: any) => `${el.tagName}.${el.className}`.slice(0, 80)),
     };
   });
   expect(overflow.scroll).toBeLessThanOrEqual(0);
@@ -71,9 +77,12 @@ for (const size of SIZES) {
       await expect(page.getByText(/Locked in|Thu 17 Sep/i).first()).toBeVisible();
       const grounds = await page.evaluate(
         ({ width, height }) => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const win = globalThis as any;
+          const document = win.document;
           const ground = (x: number, y: number) => {
             for (let el = document.elementFromPoint(x, y); el !== null; el = el.parentElement) {
-              const colour = getComputedStyle(el).backgroundColor;
+              const colour = win.getComputedStyle(el).backgroundColor;
               if (colour !== 'rgba(0, 0, 0, 0)') return colour;
             }
             return 'none';
