@@ -1,5 +1,6 @@
 import type { JoinPlanResponse, ShortCode } from '@circles/contracts';
 import { useRouter } from 'expo-router';
+import { useEffect, useRef } from 'react';
 
 import { track } from '../../../analytics/track';
 import { joinPlan } from '../../../data/membership';
@@ -26,6 +27,8 @@ export type PlanNameFlowProps = {
   onInactive: () => void;
   onJoined: () => void;
   onBack: () => void;
+  /** This step is an entry of its own in the history, over the screen it came from. */
+  isHistoryEntry?: boolean;
 };
 
 export function PlanNameFlow({
@@ -36,8 +39,9 @@ export function PlanNameFlow({
   onInactive,
   onJoined,
   onBack,
+  isHistoryEntry = false,
 }: PlanNameFlowProps) {
-  const joined = useJoinedFromPlan(code, onJoined);
+  const joined = useJoinedFromPlan(code, onJoined, isHistoryEntry);
   const haveAccount = useHaveAccount();
 
   const step = useNameStep<JoinPlanResponse>({
@@ -79,11 +83,26 @@ export function PlanNameFlow({
  * form that has been submitted. The event carries the circle and the door and
  * never the code (ADR 0022).
  */
-export function useJoinedFromPlan(code: ShortCode, onJoined: () => void) {
+export function useJoinedFromPlan(code: ShortCode, onJoined: () => void, dismissStep = false) {
   const router = useRouter();
+  // Whether this is still the screen the person is on. A join that lands after
+  // Back must not dismiss the entry underneath: the step has already gone.
+  const onScreen = useRef(true);
+  useEffect(() => {
+    onScreen.current = true;
+    return () => {
+      onScreen.current = false;
+    };
+  }, []);
   return (joined: JoinPlanResponse) => {
     track('circle_joined', { circle_id: joined.circle.id, source: 'plan_link' });
     onJoined();
+    // The name step is an entry of its own in the history (`?step=name`), over
+    // the screen it came from. The step is dismissed (and only the step: what
+    // is behind the plan link stays) and the screen under it replaced, so the
+    // plan link is one screen and not two, and Back does not return to a form
+    // that has been submitted.
+    if (dismissStep && onScreen.current) router.dismiss();
     router.replace({ pathname: '/j/[code]', params: { code } });
   };
 }
