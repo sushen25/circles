@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { color, faceFor, hit, radius } from '@circles/tokens';
 
 import { BodyText, Button, DisplayL, Icon, Sheet, Tertiary, usePalette } from '../../components';
+import { spaceToPress } from '../../components/keys';
 import { t } from '../../copy';
 import type { BlockKind } from './blocks';
 import type { SheetView } from './view';
@@ -73,6 +74,8 @@ function Choice({
         detail === undefined ? label : t('availability', 'choice_with_detail', { label, detail })
       }
       onPress={onPress}
+      // A radio gets Enter from react-native-web but not Space.
+      {...spaceToPress(onPress)}
       style={[
         styles.choice,
         { backgroundColor: palette.surface, borderColor: palette.lineStrong },
