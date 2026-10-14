@@ -277,6 +277,53 @@ test('a day can have its own time of day, and the line then lists each day', asy
   await expect(page.getByText('Evenings, from 5:30 pm')).toBeVisible();
 });
 
+test('on a wide window the Change time sheet and A time for each day sit in the centred column', async ({
+  page,
+}) => {
+  const crew = sundayCrew();
+  wholeDay(crew);
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await arriveAs(page, crew, 'Ren');
+  await evenings(page, 1, 3);
+
+  // The sheet: at most 480 wide, centred, on the bottom of the window, with the
+  // scrim across the whole of it (manifesto 5.3).
+  await changeTime(page).click();
+  const sheetDone = page.getByRole('button', { name: 'Done', exact: true });
+  // The sheet slides in; measure once it has stopped.
+  await expect
+    .poll(async () => {
+      const at = (await sheetDone.boundingBox())!;
+      return Math.round(at.y + at.height);
+    })
+    .toBeLessThanOrEqual(800);
+  let box = (await sheetDone.boundingBox())!;
+  expect(box.width).toBeCloseTo(480 - 2 * 22, 0);
+  expect(box.x + box.width / 2).toBeCloseTo(640, 0);
+  expect(box.y + box.height).toBeLessThanOrEqual(800);
+  expect(box.y + box.height).toBeGreaterThan(740);
+
+  // Beside the sheet is still the scrim: a tap there dismisses it.
+  await page.mouse.click(10, 790);
+  await expect(page.getByRole('radio')).toHaveCount(0);
+  await changeTime(page).click();
+  await expect(page.getByRole('radio')).toHaveCount(3);
+
+  // A time for each day: the heading and Done share the column.
+  await exactLink(page).click();
+  const heading = page.getByRole('heading', { name: 'A time for each day' });
+  await expect(heading).toBeVisible();
+  const h = (await heading.boundingBox())!;
+  box = (await sheetDone.boundingBox())!;
+  expect(h.x).toBeCloseTo(422, 0);
+  expect(box.x).toBeCloseTo(422, 0);
+  expect(box.width).toBeCloseTo(480 - 2 * 22, 0);
+  const sideways = await page.evaluate(
+    'document.documentElement.scrollWidth - document.documentElement.clientWidth',
+  );
+  expect(sideways).toBeLessThanOrEqual(0);
+});
+
 test('times set offline wait on the phone and go when the connection comes back', async ({
   page,
   context,

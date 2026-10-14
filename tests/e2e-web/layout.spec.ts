@@ -101,7 +101,7 @@ for (const size of SIZES) {
       await expectNoSidewaysOverflow(page);
     });
 
-    test('the Change time sheet sits in the column and on the bottom of the window', async ({
+    test('Your hours each evening: heading, day lines and Done share the column, Done in view', async ({
       page,
     }) => {
       await page.clock.setFixedTime(new Date('2026-10-12T09:00:00+11:00'));
@@ -111,44 +111,9 @@ for (const size of SIZES) {
         await tuesday.click();
         await expect(tuesday).toHaveAttribute('aria-pressed', 'true', { timeout: 1000 });
       }).toPass();
-      await page.getByRole('button', { name: /^Change the time for/ }).click();
-      const done = page.getByRole('button', { name: 'Done', exact: true });
-      await expect(done).toBeVisible();
-
-      // The sheet slides in; measure once it has stopped.
-      await expect
-        .poll(async () =>
-          Math.round((await done.boundingBox())!.y + (await done.boundingBox())!.height),
-        )
-        .toBeLessThanOrEqual(size.height);
-      const d = (await done.boundingBox())!;
-      const column = Math.min(size.width, COLUMN);
-      expect(d.width).toBeLessThanOrEqual(column);
-      expect(d.x + d.width / 2).toBeCloseTo(size.width / 2, 0);
-      expect(d.y + d.height).toBeLessThanOrEqual(size.height);
-      expect(d.y + d.height).toBeGreaterThan(size.height - 60);
-      await expectNoSidewaysOverflow(page);
-
-      // Beside a narrowed sheet is still the scrim: a tap there dismisses it.
-      if (size.width > COLUMN) {
-        await page.mouse.click(10, size.height - 10);
-        await expect(done).toHaveCount(0);
-      }
-    });
-
-    test('A time for each day: heading, day cards and Done share the column, Done in view', async ({
-      page,
-    }) => {
-      await page.clock.setFixedTime(new Date('2026-10-12T09:00:00+11:00'));
-      await page.goto('/j/abc');
-      const tuesday = page.getByRole('button', { name: /^Tuesday\D*15\D/ });
-      await expect(async () => {
-        await tuesday.click();
-        await expect(tuesday).toHaveAttribute('aria-pressed', 'true', { timeout: 1000 });
-      }).toPass();
-      await page.getByRole('button', { name: /^Change the time for/ }).click();
-      await page.getByRole('button', { name: 'A different time for each day' }).click();
-      const heading = page.getByRole('heading', { name: 'A time for each day' });
+      // The fixture plan is evenings only: one window, so no sheet, straight to the days.
+      await page.getByRole('button', { name: /^Adjust hours for/ }).click();
+      const heading = page.getByRole('heading', { name: 'Your hours each evening' });
       const done = page.getByRole('button', { name: 'Done', exact: true });
       await expect(heading).toBeVisible();
       await expect(done).toBeVisible();
