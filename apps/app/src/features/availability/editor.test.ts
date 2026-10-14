@@ -200,6 +200,15 @@ describe('days first, then a time once (ADR 0068)', () => {
     expect(plusSaturday.days[SAT]).toEqual(plusSaturday.days[TUE]);
   });
 
+  it('gives the next tap the morning that previous times painted, though Morning is not a choice (review round 3)', () => {
+    const { run, start } = setUp(WHOLE_DAYS);
+
+    const mornings = run(start, { type: 'usual', parts: ['weekday_morning'] });
+    expect(mornings.window).toBe('morning');
+    const plusSaturday = run(mornings, { type: 'toggle_day', day: SAT });
+    expect(on(plusSaturday.days[SAT]!)).toEqual([0, 1, 2, 3, 4, 5]);
+  });
+
   it('writes no draft for a window chosen with no day tapped: the answer stays the same array', () => {
     const { run, start } = setUp(EVENINGS);
 

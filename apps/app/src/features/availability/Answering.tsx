@@ -1,6 +1,7 @@
 import { fromISO, isTonightWindow, type OthersSaid } from '@circles/domain';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { BackHandler } from 'react-native';
 
 import {
   clearDraft,
@@ -126,6 +127,18 @@ export function Answering({
   // answer: clearing their last day is a choice, not an empty answer to fill.
   const [touched, setTouched] = useState(false);
   const [exact, setExact] = useState(false);
+
+  // The device's back button leaves the half hours for the answer, as the
+  // screen's own does, rather than the page (Android; the web has no such button
+  // and its browser's Back leaves the route, as it does from the sheet).
+  useEffect(() => {
+    if (!exact) return;
+    const hardware = BackHandler.addEventListener('hardwareBackPress', () => {
+      setExact(false);
+      return true;
+    });
+    return () => hardware.remove();
+  }, [exact]);
 
   // Previous times (ADR 0037's amendment, ADR 0068): the reader's own earlier
   // offers, only the parts this plan asks about, in one request. They start an

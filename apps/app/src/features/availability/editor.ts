@@ -12,6 +12,7 @@ import {
 import type { Span } from '../../data/availability';
 import {
   blockMask,
+  blocksFor,
   defaultWindow,
   offeredBlocks,
   usualCells,
@@ -113,7 +114,9 @@ function windowOfDays(
   const same =
     first < 0
       ? undefined
-      : windowsFor(timing).find((kind) => {
+      : // Any block the answer is exactly, Morning too: it is not one of the sheet's
+        // choices, but a tap after it should still extend it, not change it.
+        [...windowsFor(timing), ...blocksFor(timing)].find((kind) => {
           const mask = windowCells(kind, rows[first]!, timing);
           return mask !== undefined && mask.every((on, i) => on === days[first]![i]);
         });
