@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Modal, Pressable, StyleSheet, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { radius, space } from '@circles/tokens';
 
@@ -39,7 +39,9 @@ export function Sheet({ visible, onDismiss, label, dismissLabel, children }: Pro
         style={[styles.sheet, { backgroundColor: palette.ground, borderTopColor: palette.line }]}
       >
         <View style={[styles.handle, { backgroundColor: palette.line }]} />
-        {children}
+        {/* Bounded and scrolling: on a short viewport (a phone on its side) the
+            controls at the bottom stay reachable. */}
+        <ScrollView contentContainerStyle={styles.content}>{children}</ScrollView>
       </View>
     </Modal>
   );
@@ -58,7 +60,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.gutter,
     paddingBottom: 28,
     gap: 14,
+    maxHeight: '92%',
   },
+  content: { gap: 14 },
   handle: {
     alignSelf: 'center',
     width: 40,
