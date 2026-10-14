@@ -108,9 +108,8 @@ describe('previous times', () => {
       'aria-pressed',
       'true',
     );
-    // Evenings on weekdays and the daytime on weekends: the line says so, and
-    // the half hours are one tap away.
-    expect(screen.getByText(/9 am–5 pm.*evening|evening.*9 am–5 pm/)).toBeVisible();
+    // Evenings on weekdays and the daytime on weekends: the line says so in counts.
+    expect(screen.getByText('10 evenings, 4 daytimes')).toBeVisible();
   });
 
   it('tap only the parts the plan paints: a part it does not ask about adds nothing', async () => {
@@ -124,14 +123,14 @@ describe('previous times', () => {
   it('leave the grid empty when nothing was offered before, or when it would paint nothing here', async () => {
     usualTimes.mockResolvedValue([]);
     const first = open();
-    await screen.findByText('Which days could work?');
+    await screen.findByText('Which evenings could work?');
     await act(async () => undefined);
     expect(tapped()).toHaveLength(0);
     first.unmount();
 
     usualTimes.mockResolvedValue(['weekday_morning']);
     open();
-    await screen.findByText('Which days could work?');
+    await screen.findByText('Which evenings could work?');
     await act(async () => undefined);
     expect(tapped()).toHaveLength(0);
   });
@@ -139,7 +138,7 @@ describe('previous times', () => {
   it('leave the grid empty, and the editor working, when the read fails', async () => {
     usualTimes.mockRejectedValue(new Error('offline'));
     open();
-    await screen.findByText('Which days could work?');
+    await screen.findByText('Which evenings could work?');
     await act(async () => undefined);
     expect(tapped()).toHaveLength(0);
     expect(screen.getByRole('button', { name: 'Send my times' })).toBeDisabled();
@@ -149,7 +148,7 @@ describe('previous times', () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     usualTimes.mockResolvedValue([]);
     const first = open(client);
-    await screen.findByText('Which days could work?');
+    await screen.findByText('Which evenings could work?');
     await act(async () => undefined);
     expect(tapped()).toHaveLength(0);
     first.unmount();
@@ -164,7 +163,7 @@ describe('previous times', () => {
     let release: (parts: string[]) => void = () => undefined;
     usualTimes.mockReturnValue(new Promise<string[]>((resolve) => (release = resolve)));
     open();
-    await screen.findByText('Which days could work?');
+    await screen.findByText('Which evenings could work?');
     // They tap a day before the read comes back, then take it away again.
     fireEvent.click(screen.getAllByRole('button', { name: /^Monday/ })[0]!);
     await act(async () => release(['weekday_evening']));
@@ -200,7 +199,7 @@ describe('previous times', () => {
       answer: { status: 'none_work', windows: [], submittedAt: '2026-09-01T09:00:00Z' },
     });
     open();
-    await screen.findByText('Which days could work?');
+    await screen.findByText('Which evenings could work?');
     await act(async () => undefined);
     expect(tapped()).toHaveLength(0);
     await waitFor(() =>
@@ -214,7 +213,7 @@ describe('previous times', () => {
   it('never overwrite an answer already given', async () => {
     planToAnswer.mockResolvedValue(answerable);
     open();
-    await screen.findByText(/, .*evening$/);
+    await screen.findByText(/, but /);
     await act(async () => undefined);
     // The stored answer's three days, not the ten weekdays.
     expect(tapped()).toHaveLength(3);
@@ -268,7 +267,7 @@ describe('what the previous times are measured by', () => {
   it('never holds the start back for a read that does not come: it goes without the flag', async () => {
     usualTimes.mockReturnValue(new Promise(() => undefined));
     open();
-    await screen.findByText('Which days could work?');
+    await screen.findByText('Which evenings could work?');
     expect(track).not.toHaveBeenCalled();
     await waitFor(
       () => expect(track).toHaveBeenCalledWith('availability_started', { plan_id: PLAN.id }),
@@ -281,7 +280,7 @@ describe('what the previous times are measured by', () => {
   it('still counts an opening left before the read came back, without the flag', async () => {
     usualTimes.mockReturnValue(new Promise(() => undefined));
     const opened = open();
-    await screen.findByText('Which days could work?');
+    await screen.findByText('Which evenings could work?');
     expect(track).not.toHaveBeenCalledWith('availability_started', expect.anything());
     opened.unmount();
     expect(track).toHaveBeenCalledWith('availability_started', { plan_id: PLAN.id });

@@ -16,10 +16,13 @@ import { t } from '../../copy';
 import {
   blockSpan,
   offeredBlocks,
+  bandName,
+  onlyChoice,
   readsFromStart,
   usualCells,
   windowOfCells,
   windowsFor,
+  type BandName,
   type BlockKind,
   type BlockTiming,
 } from './blocks';
@@ -89,6 +92,12 @@ export type EditorView = {
   answerLine: AnswerLine | undefined;
   /** Every tile carries a number: the others have been read and there are enough to count. */
   counted: boolean;
+  /** The plan leaves one window: no sheet, no choices; the words name the band. */
+  single: boolean;
+  /** Where the plan's band sits: the words for it when `single`. */
+  band: BandName;
+  /** What every day is when `single`: "from 5:30 pm", "9 am–12 pm". */
+  singleTime: string | undefined;
   sheet: SheetView | undefined;
   /** "A time for each day": a card for each tapped day. */
   cards: DayCardView[];
@@ -140,8 +149,9 @@ export function editorView(
   });
 
   const tapped = tappedDays(state);
+  const only = onlyChoice(rows, timing);
   const sheet: SheetView | undefined =
-    tapped.length === 0
+    tapped.length === 0 || only !== undefined
       ? undefined
       : {
           covers: t('availability', 'sheet_covers', {
@@ -203,9 +213,13 @@ export function editorView(
       name: dayName(row.date, locale),
       spoken: row.spoken,
       time:
-        matched === undefined ? t('availability', 'own_hours', { hours }) : clockOf(matched, row),
+        matched === undefined
+          ? only === undefined
+            ? t('availability', 'own_hours', { hours })
+            : hours
+          : clockOf(matched, row),
       own: matched === undefined,
-      choices: offered
+      choices: (only !== undefined ? [] : offered)
         .filter((offer) => offer.days.includes(day))
         .map((offer) => ({
           kind: offer.kind,
@@ -231,8 +245,18 @@ export function editorView(
   return {
     grid,
     weekdays: weekdayHeadings(locale),
-    answerLine: answerLineOf(state, rows, timing, format, locale),
+    answerLine: answerLineOf(
+      state,
+      rows,
+      timing,
+      format,
+      locale,
+      only === undefined ? undefined : bandName(timing),
+    ),
     counted: others !== undefined,
+    single: only !== undefined,
+    band: bandName(timing),
+    singleTime: only === undefined || rows[0] === undefined ? undefined : clockOf(only, rows[0]),
     sheet,
     cards,
     canUseUsual: willPaint,

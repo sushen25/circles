@@ -119,6 +119,10 @@ describe('the copy file', () => {
       'word',
       'hours',
       'choice',
+      'thing',
+      'lead',
+      'exceptions',
+      'what',
       // SUS-198's: circle home's marks say who answered and who has not yet.
       'answered',
       'waiting',

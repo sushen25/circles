@@ -95,7 +95,7 @@ test('from the first repeat, a guest lands with their previous times tapped, and
 
   const second = planFor(crew.circleId, crew.ownerId);
   await page.goto(`/j/${second.code}`);
-  await expect(page.getByText('Which days could work?')).toBeVisible();
+  await expect(page.getByText('Which evenings could work?')).toBeVisible();
   // Tapped, with the line already written: the evenings the plan asks about.
   await expect(page.getByText('Evenings, from 5:30 pm')).toBeVisible();
   await expect(tapped(page).first()).toBeVisible();

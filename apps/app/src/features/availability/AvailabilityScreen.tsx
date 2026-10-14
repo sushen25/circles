@@ -16,6 +16,7 @@ import {
   Toggle,
   TopBar,
   type GridDay,
+  type GridPaint,
   Loading,
   useLoadingHold,
 } from '../../components';
@@ -44,6 +45,14 @@ export type AvailabilityProps = {
   state?: AvailabilityState | undefined;
   /** "Catch up · 12 – 23 Oct" */
   title?: string | undefined;
+  /** The question: "Which days could work?", or "Which evenings…" on a plan with one window. */
+  question?: string | undefined;
+  /** "None of these dates work for me", or its evenings and mornings form. */
+  noneLabel?: string | undefined;
+  /** The plan leaves one window: the link under the line is "Adjust hours". */
+  single?: boolean | undefined;
+  /** Dragging across days taps or untaps them. */
+  onPaintDays?: GridPaint | undefined;
   /** The one line of guidance under the question. */
   guide?: string | undefined;
   /** "Replies close Fri 23 Oct, 8:30 pm." */
@@ -78,6 +87,10 @@ export type AvailabilityProps = {
 export function AvailabilityScreen({
   state = 'default',
   title,
+  question,
+  noneLabel,
+  single = false,
+  onPaintDays,
   guide,
   closes,
   zoneNote,
@@ -160,7 +173,7 @@ export function AvailabilityScreen({
       <TopBar title={title} onBack={onBack} backLabel={t('common', 'back')} />
       <Body>
         <Stack>
-          <DisplayL>{t('availability', 'which_days_could_work')}</DisplayL>
+          <DisplayL>{question ?? t('availability', 'which_days_could_work')}</DisplayL>
           {guide === undefined ? null : <BodyText>{guide}</BodyText>}
         </Stack>
         {changed ? <Notice kind="warn">{t('availability', 'plan_changed')}</Notice> : null}
@@ -169,6 +182,7 @@ export function AvailabilityScreen({
           weekdays={weekdays}
           label={t('availability', 'days_group')}
           onToggle={onTick}
+          onPaint={onPaintDays}
           dimmed={dimmed}
         />
         <Stack gap={4}>
@@ -183,8 +197,10 @@ export function AvailabilityScreen({
                 <BodyText>{answerLine.time}</BodyText>
               </View>
               <Tertiary
-                label={t('availability', 'change_time')}
-                aria-label={t('availability', 'change_time_for', { days: answerLine.days })}
+                label={t('availability', single ? 'adjust_hours' : 'change_time')}
+                aria-label={t('availability', single ? 'adjust_hours_for' : 'change_time_for', {
+                  days: answerLine.days,
+                })}
                 disabled={flexible}
                 onPress={locked || flexible ? undefined : onChangeTime}
               />
@@ -219,7 +235,7 @@ export function AvailabilityScreen({
         />
         <Tertiary
           tone="plain"
-          label={t('availability', 'none_of_these_dates_work_for_me')}
+          label={noneLabel ?? t('availability', 'none_of_these_dates_work_for_me')}
           onPress={locked ? undefined : onNoneOfTheseDates}
         />
       </Foot>

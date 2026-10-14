@@ -63,6 +63,11 @@ export type EditorAction =
   | { type: 'paint'; day: number; cells: boolean[] }
   /** A tap on a day: it gets the current time of day, or loses its times. */
   | { type: 'toggle_day'; day: number }
+  /**
+   * A drag across days (`strokeDays`): the answer as the stroke leaves it, whole,
+   * so dragging back undoes what dragging forward did.
+   */
+  | { type: 'stroke'; days: boolean[][] }
   /** "Change time": this time of day on every tapped day, whatever they had. */
   | { type: 'set_window'; kind: BlockKind }
   /** "A time for each day": this time of day on this one day, and no other. */
@@ -131,6 +136,32 @@ export function editorFrom(
   const intervals = windows.map((w) => ({ start: fromISO(w.start), end: fromISO(w.end) }));
   const days = rows.map((row) => windowsToCells(row.date, intervals, timing));
   return withDays(days, windowOfDays(days, rows, timing), flexible);
+}
+
+/**
+ * A drag across the day grid, from the day it began on to the day the finger is
+ * on now (SUS-133, and as plan setup's picker does): each day in between, in
+ * date order, gets the opposite of what the first day was: the current time of
+ * day if it was empty, nothing if it had times. It is applied to the answer as
+ * it was when the stroke began (`base`), so a day a stroke crossed and left is
+ * given back, and a day that already has its own times keeps them.
+ */
+export function strokeDays(
+  base: readonly (readonly boolean[])[],
+  rows: readonly DayRow[],
+  timing: BlockTiming,
+  window: BlockKind,
+  anchor: number,
+  current: number,
+): boolean[][] {
+  const paint = !(base[anchor] ?? []).some(Boolean);
+  const [from, to] = anchor <= current ? [anchor, current] : [current, anchor];
+  return base.map((cells, day) => {
+    if (day < from || day > to) return [...cells];
+    if (!paint) return cells.map(() => false);
+    if (cells.some(Boolean)) return [...cells];
+    return windowCells(window, rows[day]!, timing) ?? [...cells];
+  });
 }
 
 /** The cells as windows: aligned, merged, sorted, ready to send. */
@@ -227,6 +258,8 @@ export function editorReducer(
           // A day painted empty is untapped: it is not the open one any more.
           open: action.cells.some(Boolean) || state.open !== action.day ? state.open : undefined,
         };
+      case 'stroke':
+        return answer(state, action.days);
       case 'toggle_day': {
         const row = rows[action.day];
         if (row === undefined) return state;

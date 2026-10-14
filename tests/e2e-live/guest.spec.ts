@@ -43,7 +43,7 @@ test('from the chat to Sent in a name and five taps, and the email offer decline
   await page.getByRole('button', { name: 'Continue' }).click();
 
   await expect(page).toHaveURL(new RegExp(`/j/${crew.planCode}$`));
-  await expect(page.getByText('Which days could work?')).toBeVisible();
+  await expect(page.getByText('Which evenings could work?')).toBeVisible();
   await expectNoPrompts(page, dialogs);
 
   const nina = memberNamed(crew.circleId, 'Nina');

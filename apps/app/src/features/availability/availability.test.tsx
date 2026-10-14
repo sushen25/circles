@@ -85,7 +85,10 @@ const dayButton = (weekday: string, date: number) =>
     name: new RegExp(`^${weekday}\\D*${date}(\\D|$)`),
   });
 const evening = () => screen.getByRole('radio', { name: /^Evening/ });
-const changeTime = () => screen.getByRole('button', { name: /^Change the time for/ });
+const changeTime = () =>
+  screen.getByRole('button', { name: /^(Change the time|Adjust hours) for/ });
+/** The same plan, asking about the whole day: Evening, Daytime and Any time are real choices. */
+const WHOLE = { ...PLAN, dailyStartMin: 9 * 60, dailyEndMin: 22 * 60 + 30 };
 
 /** Monday's evening, by one tap on the grid: the shortest answer there is. */
 function answerMonday() {
@@ -107,7 +110,7 @@ const byTheHalfHour = (weekday: string) =>
     screen.getByRole('button', { name: new RegExp(`^${weekday}.*Adjust by the half hour$`) }),
   );
 /** The line that lists each day when they differ (the stored answer's three). */
-const differing = () => screen.findByText(/, .*evening$/);
+const differing = () => screen.findByText(/, but /);
 /** Back from the half hours to the first screen. */
 function backToAnswer() {
   fireEvent.click(screen.getByRole('button', { name: 'Done' }));
@@ -139,7 +142,7 @@ beforeEach(() => {
 describe('painting and sending', () => {
   it('sends what was adjusted by the half hour as one merged window, then shows Sent', async () => {
     open();
-    await screen.findByText('Which days could work?');
+    await screen.findByText('Which evenings could work?');
 
     answerMonday();
     // 6:30–10 pm: the first two half hours and the last are taken off.
@@ -148,7 +151,7 @@ describe('painting and sending', () => {
     fireEvent.click(mondayAt('5:30', '6 pm'));
     fireEvent.click(mondayAt('6', '6:30 pm'));
     fireEvent.click(mondayAt('10', '10:30 pm'));
-    expect(screen.getByText('6:30–10 pm, your own hours')).toBeInTheDocument();
+    expect(screen.getAllByText('6:30–10 pm').length).toBeGreaterThan(0);
     backToAnswer();
     expect(screen.getByText('6:30–10 pm, set by the half hour')).toBeInTheDocument();
     await send();
@@ -174,7 +177,7 @@ describe('painting and sending', () => {
 
   it('counts opening it as starting, with the plan, for the time-to-answer median', async () => {
     open();
-    await screen.findByText('Which days could work?');
+    await screen.findByText('Which evenings could work?');
 
     await waitFor(() =>
       expect(track).toHaveBeenCalledWith('availability_started', {
@@ -186,11 +189,13 @@ describe('painting and sending', () => {
 
   it('will not send an empty answer, and says what would make it one', async () => {
     open();
-    await screen.findByText('Which days could work?');
+    await screen.findByText('Which evenings could work?');
 
     expect(screen.getByRole('button', { name: 'Send my times' })).toBeDisabled();
     // The guidance line is what says why: tap a day. There is no answer line yet.
-    expect(screen.getByText("Tap every day you'd be up for.")).toBeInTheDocument();
+    expect(
+      screen.getByText("Tap every evening you'd be up for, or drag across them."),
+    ).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^Change the time for/ })).toBeNull();
     fireEvent.click(dayButton('Monday', 14));
     expect(screen.getByRole('button', { name: 'Send my times' })).toBeEnabled();
@@ -198,7 +203,7 @@ describe('painting and sending', () => {
 
   it("sends I'm easy as flexible, with no windows, even with times painted underneath", async () => {
     open();
-    await screen.findByText('Which days could work?');
+    await screen.findByText('Which evenings could work?');
 
     answerMonday();
     fireEvent.click(screen.getByRole('switch', { name: "I'm easy" }));
@@ -224,8 +229,8 @@ describe('painting and sending', () => {
 
     // Days that differ: Change time goes straight to a time for each day.
     eachDay();
-    expect(screen.getByRole('heading', { name: 'A time for each day' })).toBeInTheDocument();
-    expect(screen.getByText('6:30–10:30 pm, your own hours')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Your hours each evening' })).toBeInTheDocument();
+    expect(screen.getAllByText('6:30–10:30 pm').length).toBeGreaterThan(0);
     byTheHalfHour('Monday');
     expect(mondayAt('5:30', '6 pm')).toHaveAttribute('aria-checked', 'false');
     expect(mondayAt('6:30', '7 pm')).toHaveAttribute('aria-checked', 'true');
@@ -235,7 +240,7 @@ describe('painting and sending', () => {
 describe('days first, then a time once (ADR 0068)', () => {
   it('answers "Tue, Thu and Sat evenings" in four taps: three days, then Send', async () => {
     open();
-    await screen.findByText('Which days could work?');
+    await screen.findByText('Which evenings could work?');
 
     fireEvent.click(dayButton('Tuesday', 15));
     fireEvent.click(dayButton('Thursday', 17));
@@ -264,7 +269,7 @@ describe('days first, then a time once (ADR 0068)', () => {
     };
 
     const tapped = open();
-    await screen.findByText('Which days could work?');
+    await screen.findByText('Which evenings could work?');
     answerMonday();
     await send();
     const { idempotencyKey, ...byTapping } = submitAnswer.mock.calls[0]![0];
@@ -289,7 +294,7 @@ describe('days first, then a time once (ADR 0068)', () => {
 
   it('keeps which day is open and the shared time off the device and out of the request', async () => {
     open();
-    await screen.findByText('Which days could work?');
+    await screen.findByText('Which evenings could work?');
 
     fireEvent.click(dayButton('Tuesday', 15));
     fireEvent.click(dayButton('Thursday', 17));
@@ -314,9 +319,11 @@ describe('days first, then a time once (ADR 0068)', () => {
 
   it('says what a tap did, on the day and in one answer line', async () => {
     open();
-    await screen.findByText('Which days could work?');
+    await screen.findByText('Which evenings could work?');
 
-    expect(screen.getByText("Tap every day you'd be up for.")).toBeInTheDocument();
+    expect(
+      screen.getByText("Tap every evening you'd be up for, or drag across them."),
+    ).toBeInTheDocument();
     expect(screen.getByText('Replies close', { exact: false })).toBeInTheDocument();
     expect(screen.queryByText('My answer')).toBeNull();
 
@@ -327,18 +334,44 @@ describe('days first, then a time once (ADR 0068)', () => {
     // One line: no per-day rows on this screen.
     expect(screen.queryByRole('button', { name: /Adjust by the half hour/ })).toBeNull();
 
+    // The plan leaves one window, so there is nothing to pick: the link is
+    // "Adjust hours", and it goes straight to the list of days.
+    expect(changeTime()).toHaveAccessibleName(/^Adjust hours for /);
+    fireEvent.click(changeTime());
+    expect(screen.queryByRole('radio')).toBeNull();
+    expect(screen.getByRole('heading', { name: 'Your hours each evening' })).toBeInTheDocument();
+    expect(
+      screen.getByText('Every evening is from 5:30 pm. Open one to change its hours.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Use one time for all days' })).toBeNull();
+  });
+
+  it('offers Evening, Daytime and Any time, and applies the pick to every tapped day, on a whole-day plan', async () => {
+    planToAnswer.mockResolvedValue({ plan: WHOLE, answer: null });
+    open();
+    await screen.findByText('Which days could work?');
+    expect(
+      screen.getByText("Tap every day you'd be up for, or drag across them."),
+    ).toBeInTheDocument();
+
+    fireEvent.click(dayButton('Tuesday', 15));
+    fireEvent.click(dayButton('Thursday', 17));
+    expect(screen.getByText('Evenings, from 5:30 pm')).toBeInTheDocument();
     fireEvent.click(changeTime());
     expect(evening()).toHaveAccessibleName('Evening, from 5:30 pm');
     expect(evening()).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('radio', { name: 'Daytime, 9 am–5 pm' })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'Any time' })).toBeInTheDocument();
     expect(screen.getByText(/^One answer covers /)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('radio', { name: /^Daytime/ }));
     fireEvent.click(screen.getByRole('button', { name: 'Done' }));
-    // Done lets go of the sheet and changes nothing: the line is as it was.
-    expect(screen.getByText('Evenings, from 5:30 pm')).toBeInTheDocument();
+    expect(screen.getByText('Daytime, 9 am–5 pm')).toBeInTheDocument();
   });
 
   it("opens one day's half hours at a time, and a choice sets one day alone", async () => {
-    planToAnswer.mockResolvedValue({ plan: PLAN, answer: answerable.answer });
+    planToAnswer.mockResolvedValue({ plan: WHOLE, answer: answerable.answer });
     open();
+    await screen.findByText('Which days could work?');
     await differing();
     expect(screen.queryAllByRole('checkbox', { name: / to / })).toHaveLength(0);
 
@@ -368,23 +401,20 @@ describe('days first, then a time once (ADR 0068)', () => {
     expect(dayButton('Monday', 14)).toHaveAccessibleName(/, 5:30–10:30 pm$/);
   });
 
-  it('sends Thursday evening and Tuesday afternoon as the windows painting them by hand would (ADR 0013)', async () => {
-    planToAnswer.mockResolvedValue({
-      plan: { ...PLAN, dailyStartMin: 9 * 60, dailyEndMin: 22 * 60 + 30 },
-      answer: null,
-    });
+  it('sends Thursday evening and Tuesday daytime as the windows painting them by hand would (ADR 0013)', async () => {
+    planToAnswer.mockResolvedValue({ plan: WHOLE, answer: null });
     open();
     await screen.findByText('Which days could work?');
 
     fireEvent.click(dayButton('Thursday', 17));
     fireEvent.click(dayButton('Tuesday', 15));
     eachDay();
-    fireEvent.click(screen.getByRole('button', { name: /^Afternoon, Tuesday/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Daytime, Tuesday/ }));
     backToAnswer();
-    expect(screen.getByText(/afternoon, .*evening$/)).toBeInTheDocument();
+    expect(screen.getByText(/^Daytimes, but evening on /)).toBeInTheDocument();
     await send();
 
-    // Melbourne is UTC+10: Tuesday 12–5 pm, Thursday 5:30–10:30 pm.
+    // Melbourne is UTC+10: Tuesday 9 am–5 pm, Thursday 5:30–10:30 pm.
     const { idempotencyKey, ...payload } = submitAnswer.mock.calls[0]![0];
     expect(idempotencyKey).toEqual(expect.any(String));
     expect(payload).toEqual({
@@ -392,15 +422,62 @@ describe('days first, then a time once (ADR 0068)', () => {
       revision: 1,
       status: 'windows',
       windows: [
-        { start: '2099-09-15T02:00:00.000Z', end: '2099-09-15T07:00:00.000Z' },
+        { start: '2099-09-14T23:00:00.000Z', end: '2099-09-15T07:00:00.000Z' },
         { start: '2099-09-17T07:30:00.000Z', end: '2099-09-17T12:30:00.000Z' },
       ],
     });
   });
 
+  it.each([
+    [
+      9 * 60,
+      12 * 60,
+      'mornings',
+      'Mornings, 9 am–12 pm',
+      '2099-09-13T23:00:00.000Z',
+      '2099-09-14T02:00:00.000Z',
+    ],
+    [
+      12 * 60,
+      17 * 60,
+      'afternoons',
+      'Afternoons, 12–5 pm',
+      '2099-09-14T02:00:00.000Z',
+      '2099-09-14T07:00:00.000Z',
+    ],
+  ])(
+    'asks which %s on a plan from %i to %i minutes, with nothing to pick, and sends its band as the window (ADR 0013)',
+    async (startMin, endMin, band, line, start, end) => {
+      planToAnswer.mockResolvedValue({
+        plan: { ...PLAN, dailyStartMin: startMin, dailyEndMin: endMin },
+        answer: null,
+      });
+      open();
+      await screen.findByText(`Which ${band} could work?`);
+      expect(
+        screen.getByRole('button', { name: new RegExp(`None of these ${band} work for me`) }),
+      ).toBeInTheDocument();
+
+      answerMonday();
+      expect(screen.getByText(line)).toBeInTheDocument();
+      expect(changeTime()).toHaveAccessibleName(/^Adjust hours for /);
+      await send();
+
+      const { idempotencyKey, ...payload } = submitAnswer.mock.calls[0]![0];
+      expect(idempotencyKey).toEqual(expect.any(String));
+      expect(payload).toEqual({
+        planId: PLAN.id,
+        revision: 1,
+        status: 'windows',
+        windows: [{ start, end }],
+      });
+    },
+  );
+
   it('takes the days back to one time with "Use one time for all days"', async () => {
-    planToAnswer.mockResolvedValue({ plan: PLAN, answer: answerable.answer });
+    planToAnswer.mockResolvedValue({ plan: WHOLE, answer: answerable.answer });
     open();
+    await screen.findByText('Which days could work?');
     await differing();
 
     eachDay();
@@ -442,7 +519,7 @@ describe('while an answer is on its way', () => {
     let arrive: (value: unknown) => void = () => undefined;
     submitAnswer.mockReturnValue(new Promise((resolve) => (arrive = resolve)));
     open();
-    await screen.findByText('Which days could work?');
+    await screen.findByText('Which evenings could work?');
 
     answerMonday();
     await send();
@@ -462,7 +539,7 @@ describe('a connection that goes nowhere', () => {
   it('keeps the times on the device and sends the same request when it can', async () => {
     submitAnswer.mockRejectedValueOnce(noAnswer());
     open();
-    await screen.findByText('Which days could work?');
+    await screen.findByText('Which evenings could work?');
 
     answerMonday();
     await send();
@@ -567,7 +644,7 @@ describe('round 2', () => {
     submitAnswer.mockRejectedValue(refusal('not_a_participant'));
     askToPlan.mockResolvedValue('failed');
     open();
-    await screen.findByText('Which days could work?');
+    await screen.findByText('Which evenings could work?');
 
     answerMonday();
     await send();
@@ -663,7 +740,7 @@ describe('round 6', () => {
     });
     open();
 
-    await screen.findByText('Which days could work?');
+    await screen.findByText('Which evenings could work?');
   });
 });
 
@@ -671,7 +748,7 @@ describe('when the server says no', () => {
   it('asks the new question when the plan changed under the answer', async () => {
     submitAnswer.mockRejectedValueOnce(refusal('stale_revision'));
     open();
-    await screen.findByText('Which days could work?');
+    await screen.findByText('Which evenings could work?');
     planToAnswer.mockResolvedValue({ plan: { ...PLAN, revision: 2 }, answer: null });
 
     answerMonday();
@@ -684,7 +761,7 @@ describe('when the server says no', () => {
   it('fetches the plan again, keeping the times, when days were taken away while it was open (ADR 0047)', async () => {
     submitAnswer.mockRejectedValueOnce(refusal('outside_plan_window'));
     open();
-    await screen.findByText('Which days could work?');
+    await screen.findByText('Which evenings could work?');
     // The organiser took Tuesday 15 away, which nobody had picked: the same
     // revision, one day fewer.
     const days = Array.from({ length: 14 }, (_, i) => `2099-09-${String(14 + i).padStart(2, '0')}`);
@@ -704,7 +781,7 @@ describe('when the server says no', () => {
 
   it('keeps unsent times when days are taken away and the plan is read again (ADR 0047, round 2)', async () => {
     const client = open();
-    await screen.findByText('Which days could work?');
+    await screen.findByText('Which evenings could work?');
     answerMonday();
     // Written to the device as it is painted, and not sent.
     await waitFor(async () => expect((await readDraft('nina', CODE))?.windows).toHaveLength(1));
@@ -724,7 +801,7 @@ describe('when the server says no', () => {
   it('says replies have closed when they have', async () => {
     submitAnswer.mockRejectedValueOnce(refusal('replies_closed'));
     open();
-    await screen.findByText('Which days could work?');
+    await screen.findByText('Which evenings could work?');
 
     answerMonday();
     await send();
@@ -736,7 +813,7 @@ describe('when the server says no', () => {
     submitAnswer.mockRejectedValueOnce(refusal('not_a_participant'));
     askToPlan.mockResolvedValue('asked');
     open();
-    await screen.findByText('Which days could work?');
+    await screen.findByText('Which evenings could work?');
 
     answerMonday();
     await send();
@@ -751,7 +828,7 @@ describe('when the server says no', () => {
   it('gives a reference to quote when something else went wrong, and keeps the times', async () => {
     submitAnswer.mockRejectedValueOnce(refusal(undefined));
     open();
-    await screen.findByText('Which days could work?');
+    await screen.findByText('Which evenings could work?');
 
     answerMonday();
     await send();
@@ -809,7 +886,7 @@ describe("the plan's own link, /p/:code", () => {
   it('is the editor for a member who has not answered a plan that is still asking', async () => {
     openLink();
 
-    await screen.findByText('Which days could work?');
+    await screen.findByText('Which evenings could work?');
     expect(screen.queryByText('how it is looking')).toBeNull();
   });
 
@@ -872,7 +949,7 @@ describe('an answer an edit cleared, with nothing on the device (SUS-130)', () =
     planToAnswer.mockResolvedValue({ plan: REVISED, answer: null, answeredEarlierRevision: false });
     open();
 
-    await screen.findByText('Which days could work?');
+    await screen.findByText('Which evenings could work?');
     expect(screen.queryByText(/The plan changed/)).toBeNull();
   });
 
@@ -884,7 +961,7 @@ describe('an answer an edit cleared, with nothing on the device (SUS-130)', () =
     });
     open();
 
-    await screen.findByText('Which days could work?');
+    await screen.findByText('Which evenings could work?');
     expect(screen.queryByText(/The plan changed/)).toBeNull();
   });
 });
@@ -897,7 +974,7 @@ describe('what the others have said (SUS-129)', () => {
     open();
     expect(
       await screen.findByText(
-        "Tap every day you'd be up for. The number is how many people can make it, you included once you tap.",
+        "Tap every evening you'd be up for, or drag across them. The number is how many people can make it, you included once you tap.",
       ),
     ).toBeInTheDocument();
     expect(othersSaid).toHaveBeenCalledWith(PLAN.id);
@@ -925,7 +1002,7 @@ describe('what the others have said (SUS-129)', () => {
   it('keeps the counts out of the draft on the device', async () => {
     othersSaid.mockResolvedValue(othersPartial);
     open();
-    await screen.findByText(/^Tap every day you'd be up for\. The number/);
+    await screen.findByText(/^Tap every evening you'd be up for, or drag across them\. The number/);
     answerMonday();
     await waitFor(async () => expect(await readDraft('nina', CODE)).toBeDefined());
     const draft = JSON.stringify(await readDraft('nina', CODE));
@@ -936,7 +1013,9 @@ describe('what the others have said (SUS-129)', () => {
     othersSaid.mockResolvedValue(othersFirst);
     open();
     // Below the threshold there is no number, so the line does not explain one.
-    expect(await screen.findByText("Tap every day you'd be up for.")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Tap every evening you'd be up for, or drag across them."),
+    ).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /could make it$/ })).toBeNull();
     await waitFor(() =>
       expect(track).toHaveBeenCalledWith('availability_others_read', {
@@ -949,7 +1028,7 @@ describe('what the others have said (SUS-129)', () => {
   it('sends the start as the editor opens, however long the read of the others takes (review round 2)', async () => {
     othersSaid.mockReturnValue(new Promise(() => undefined));
     open();
-    await screen.findByText('Which days could work?');
+    await screen.findByText('Which evenings could work?');
     await waitFor(() =>
       expect(track).toHaveBeenCalledWith('availability_started', {
         plan_id: PLAN.id,
@@ -970,30 +1049,34 @@ describe('what the others have said (SUS-129)', () => {
     );
     othersSaid.mockResolvedValue(othersPartial);
     const first = render(editor());
-    await screen.findByText(/^Tap every day you'd be up for\. The number/);
+    await screen.findByText(/^Tap every evening you'd be up for, or drag across them\. The number/);
     first.unmount();
 
     othersSaid.mockReset();
     othersSaid.mockRejectedValue(new Error('offline'));
     track.mockReset();
     render(editor());
-    await screen.findByText('Which days could work?');
+    await screen.findByText('Which evenings could work?');
     await waitFor(() =>
       expect(track).toHaveBeenCalledWith('availability_others_read', {
         plan_id: PLAN.id,
         others_shown: false,
       }),
     );
-    expect(screen.getByText("Tap every day you'd be up for.")).toBeInTheDocument();
+    expect(
+      screen.getByText("Tap every evening you'd be up for, or drag across them."),
+    ).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /could make it$/ })).toBeNull();
   });
 
   it('leaves the editor as it was when the read fails, and the answer still goes', async () => {
     othersSaid.mockRejectedValue(new Error('offline'));
     open();
-    await screen.findByText('Which days could work?');
+    await screen.findByText('Which evenings could work?');
     await waitFor(() => expect(othersSaid).toHaveBeenCalled());
-    expect(screen.getByText("Tap every day you'd be up for.")).toBeInTheDocument();
+    expect(
+      screen.getByText("Tap every evening you'd be up for, or drag across them."),
+    ).toBeInTheDocument();
 
     answerMonday();
     expect(screen.queryByText(/overlap/i)).toBeNull();

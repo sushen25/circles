@@ -43,20 +43,44 @@ above Send: the answer as a line.
   "Done". The time of day last chosen is the one a new tap gets.
 - **One answer line.** The tapped days in date order ("Thu 15, Tue 20, Thu 22",
   or the first three and "and 5 more") over the time of day they all have
-  ("Evenings, from 5:30 pm"). When the days differ it lists each with its own
-  ("Thu 15 evening, Tue 20 afternoon, Thu 22 6 – 9:30 pm"). It replaces the "My
-  answer" list on this screen.
-- **Change time is a sheet.** "When, on those days?" offers Evening, Afternoon
-  and Any time that day (on a plan about tonight, From now and Later tonight),
-  and picking one applies it to every tapped day. Only the choices the plan has
-  are offered, and two that are the same hours are offered once, so an evenings
-  plan offers Evening alone. Morning is not one of the three: it stays a time of
-  day the half hours and previous times can make, and the answer line names it.
+  ("Evenings, from 5:30 pm"). When the days differ it says the time most
+  share, then the exceptions: "Evenings, but daytime on Tue 20 and 6–9:30 pm on
+  Thu 22"; past three exceptions it is counts, "8 evenings, 4 daytimes"; a tie
+  goes to the time the earlier day has. It replaces the "My answer" list on this
+  screen.
+- **Change time is a sheet.** "When, on those days?" offers **Evening** (from 5:30
+  pm), **Daytime** (9 am to 5 pm) and **Any time that day** (on a plan about
+  tonight, From now and Later tonight), and picking one applies it to every
+  tapped day. Daytime is the domain's `daytime` shortcut (`shortcuts.ts`), morning
+  and afternoon together, so the app invents no band. Each choice is clipped to
+  the plan's hours, and the empty and the duplicate ones are dropped: Any time on
+  a noon to 5 pm plan is Daytime. Morning and Afternoon are no longer choices; a
+  morning or afternoon that previous times painted is kept and named.
+- **When the plan leaves one window there is nothing to pick.** If the choices,
+  clipped to the plan's band, come to one distinct window, there is no sheet and
+  there are no choice buttons anywhere. The first screen names the band by where
+  it sits: wholly before noon is **mornings**, wholly between noon and 5 pm
+  **afternoons**, wholly from 5 pm **evenings**, anything else **days**. So an
+  evenings plan asks "Which evenings could work?" (and "None of these evenings
+  work for me"), a 9 am to noon plan "Which mornings…", a noon to 5 pm plan
+  "Which afternoons…", and the answer line reads "Evenings, from 5:30 pm",
+  "Mornings, 9 am–12 pm", "Afternoons, 12–5 pm". The link under the line is
+  **Adjust hours**, and it goes straight to a plain list of the tapped days, each
+  with its hours, opening to its half hours ("Your hours each evening"). A plan
+  from 3 to 9 pm keeps Evening, Daytime (3 to 5 pm) and Any time, which still
+  differ. The organiser's plan-band preset is also called "Daytime"
+  (`planning/bands.ts`) but runs 9 am to 10:30 pm; the two are not the same word
+  for the same hours, and the organiser's side is unchanged here.
+- **Dragging across days taps them.** As in plan setup (SUS-133), a drag that
+  starts on an untapped day taps every day it crosses with the current time of
+  day, one that starts on a tapped day untaps them, a day that already has its
+  own times keeps them, and dragging back gives a crossed day back (`strokeDays`).
+  The counts change as on a tap.
 - **A time for each day lives on its own screen.** The sheet's link, "A
   different time for each day", opens it, and so does **Change time** when the
   tapped days already differ. Each tapped day is a card: the day, the time it
   covers, and a row of quick choices that are the sheet's presets (Evening,
-  Afternoon, Any time; only the ones the plan offers, once each), which set that
+  Daytime, Any time; only the ones the plan offers, once each), which set that
   day alone. A day whose hours match no choice selects none and says "{hours},
   your own hours". **By the half hour** opens that day's ADR 0009 cells with the
   counts by the half hour from ADR 0045, which is the only place they are shown.
@@ -111,7 +135,7 @@ day, is what says why.
   same answer.
 - A returning member's first tap on a pre-filled day unticks it. That is the whole
   of removing a day, and it is why the "Clear these days" button is gone.
-- The design canvas has seven availability boards: the first-time landing, three
+- The design canvas has eight availability boards: the first-time landing, three
   days tapped, Change time, a time for each day, the first screen with days that
   differ, the returning member and the first to
   answer. The three "Others" boards are gone, because every tile carries the

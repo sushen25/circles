@@ -131,7 +131,7 @@ test('a member whose times an edit cleared is told so, on the grid and on circle
 
   // Jess never answered: a revised plan is just a plan to her.
   await jess.goto(`/j/${plan.code}`);
-  await expect(jess.getByText('Which days could work?')).toBeVisible();
+  await expect(jess.getByText('Which evenings could work?')).toBeVisible();
   await expect(jess.getByText(changed)).toHaveCount(0);
   await jess.goto(`/circles/${circleId}`);
   await expect(jess.getByText('Finding a time').first()).toBeVisible();
@@ -143,7 +143,7 @@ test('a member whose times an edit cleared is told so, on the grid and on circle
   await nina.getByRole('button', { name: 'Send my times' }).click();
   await expect(nina).toHaveURL(new RegExp(`/j/${plan.code}/sent$`));
   await nina.goto(`/j/${plan.code}`);
-  await expect(nina.getByText('Which days could work?')).toBeVisible();
+  await expect(nina.getByText('Which evenings could work?')).toBeVisible();
   await expect(nina.getByText(changed)).toHaveCount(0);
   await nina.goto(`/circles/${circleId}`);
   await expect(nina.getByText('Finding a time').first()).toBeVisible();

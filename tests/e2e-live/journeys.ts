@@ -39,7 +39,7 @@ export async function downloadCalendarFile(page: Page): Promise<Download> {
  * day away, so a day already tapped is left alone.
  */
 export async function sendEvenings(page: Page, code: string, ...indices: number[]): Promise<void> {
-  await expect(page.getByText('Which days could work?')).toBeVisible();
+  await expect(page.getByText('Which evenings could work?')).toBeVisible();
   // The editor reads the member's previous times as it opens and, if there are
   // any, taps them: let that settle before looking at which days are tapped.
   await page.waitForLoadState('networkidle');

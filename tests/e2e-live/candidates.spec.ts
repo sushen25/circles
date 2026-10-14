@@ -25,7 +25,7 @@ import {
 
 /** Taps a day, which gives it the evening, and sends. The editor is S1-25's; this uses it. */
 async function answersIn(page: Page, code: string, day = 1): Promise<void> {
-  await expect(page.getByText('Which days could work?')).toBeVisible();
+  await expect(page.getByText('Which evenings could work?')).toBeVisible();
   await page.getByRole('group', { name: 'Days in this plan' }).getByRole('button').nth(day).click();
   await page.getByRole('button', { name: 'Send my times' }).click();
   await expect(page).toHaveURL(new RegExp(`/j/${code}/sent$`));

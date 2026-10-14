@@ -25,7 +25,7 @@ import type { DayRow } from './days';
  * What a block *is* on a given day is its cells there. A block that covers no
  * whole cell on a day does not exist on that day.
  */
-export type DayBlockKind = 'morning' | 'afternoon' | 'evening' | 'any_time';
+export type DayBlockKind = 'morning' | 'afternoon' | 'daytime' | 'evening' | 'any_time';
 /** Tonight's two (S2-06): the day is already whichever part of it it is. */
 export type TonightBlockKind = 'from_now' | 'later_tonight';
 export type BlockKind = DayBlockKind | TonightBlockKind;
@@ -48,12 +48,12 @@ export function blocksFor(timing: BlockTiming): readonly BlockKind[] {
 
 /**
  * The times of day the "Change time" sheet offers (SUS-206): Evening,
- * Afternoon, Any time that day; and on tonight's plan, From now and Later
+ * Daytime (9 am to 5 pm, the domain's `daytime`), Any time that day; and on tonight's plan, From now and Later
  * tonight. Morning is still a block (a day somebody's usual times painted can
  * be one, and the answer line names it), but it is not one of the three
  * choices: it is reached through the half hours.
  */
-export const WINDOWS: readonly BlockKind[] = ['evening', 'afternoon', 'any_time'];
+export const WINDOWS: readonly BlockKind[] = ['evening', 'daytime', 'any_time'];
 
 export function windowsFor(timing: BlockTiming): readonly BlockKind[] {
   return timing.tonight === undefined ? WINDOWS : TONIGHT_BLOCKS;
@@ -103,6 +103,7 @@ export function defaultWindow(rows: readonly DayRow[], timing: BlockTiming): Blo
 const SHORTCUT: Record<DayBlockKind, ShortcutKind> = {
   morning: 'morning',
   afternoon: 'afternoon',
+  daytime: 'daytime',
   evening: 'all_evening',
   any_time: 'any_time',
 };
@@ -184,7 +185,9 @@ export function dayTag(
   timing: BlockTiming,
 ): DayTag | undefined {
   if (!cells.some(Boolean)) return undefined;
-  for (const kind of blocksFor(timing)) {
+  // The plan's choices first, so a day is named as the sheet names it where
+  // a day-part is the same hours (Daytime on a plan from 3 pm, not Afternoon).
+  for (const kind of [...windowsFor(timing), ...blocksFor(timing)]) {
     const mask = blockMask(kind, row, timing);
     if (
       mask !== undefined &&
@@ -236,4 +239,45 @@ export function offeredBlocks(
     offers.push({ kind, days });
   }
   return offers;
+}
+
+/**
+ * What a plan's band is, by where it sits (SUS-206): wholly before noon is
+ * mornings, wholly between noon and 5 pm afternoons, wholly from 5 pm evenings,
+ * and anything else days.
+ */
+export type BandName = 'mornings' | 'afternoons' | 'evenings' | 'days';
+
+export function bandName(timing: PlanTiming): BandName {
+  const { startMin, endMin } = timing.daily;
+  if (endMin <= 12 * 60) return 'mornings';
+  if (startMin >= 12 * 60 && endMin <= 17 * 60) return 'afternoons';
+  if (startMin >= 17 * 60) return 'evenings';
+  return 'days';
+}
+
+/**
+ * The choices the plan's hours leave, clipped to the band with the empty and
+ * the duplicate ones dropped: on an evenings plan, Evening alone (Any time is
+ * the same hours); on 9 am to noon or noon to 5 pm, Daytime alone; on a plan
+ * from 3 to 9 pm, Evening, Daytime (3 to 5 pm) and Any time, which still differ.
+ * Tonight's plan keeps its two.
+ */
+export function planChoices(rows: readonly DayRow[], timing: BlockTiming): BlockKind[] {
+  return offeredBlocks(
+    rows.map((_, day) => day),
+    rows,
+    timing,
+    windowsFor(timing),
+  ).map((offer) => offer.kind);
+}
+
+/**
+ * The one window a plan leaves, or `undefined` when there is a real choice: no
+ * sheet and no choice buttons then, and the words name the band.
+ */
+export function onlyChoice(rows: readonly DayRow[], timing: BlockTiming): BlockKind | undefined {
+  if (timing.tonight !== undefined) return undefined;
+  const choices = planChoices(rows, timing);
+  return choices.length === 1 ? choices[0] : undefined;
 }

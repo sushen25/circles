@@ -2,7 +2,7 @@ import { localDate, zone, type PlanTiming } from '@circles/domain';
 import { describe, expect, it } from 'vitest';
 
 import { answerLineOf, dayList } from './answerLine';
-import type { BlockTiming } from './blocks';
+import { bandName, onlyChoice, type BlockTiming } from './blocks';
 import { dayRows, type RowWords } from './days';
 import { editorReducer, emptyEditor, type EditorAction, type EditorState } from './editor';
 
@@ -36,7 +36,9 @@ function setUp(timing: BlockTiming) {
   const reduce = editorReducer(rows, timing);
   const run = (...actions: EditorAction[]): EditorState =>
     actions.reduce(reduce, emptyEditor(rows, timing));
-  const line = (state: EditorState) => answerLineOf(state, rows, timing, TWELVE, 'en-AU');
+  // As the screen does: on a plan with one window the band names it.
+  const band = onlyChoice(rows, timing) === undefined ? undefined : bandName(timing);
+  const line = (state: EditorState) => answerLineOf(state, rows, timing, TWELVE, 'en-AU', band);
   const tap = (...days: number[]) => days.map((day) => ({ type: 'toggle_day', day }) as const);
   return { run, line, tap };
 }
@@ -79,14 +81,27 @@ describe('the answer line', () => {
     });
   });
 
-  it('says the afternoon with its hours', () => {
+  it('says daytime with its hours', () => {
     const { run, line, tap } = setUp(WHOLE_DAYS);
 
-    expect(line(run(...tap(1, 2), { type: 'set_window', kind: 'afternoon' }))).toEqual({
+    expect(line(run(...tap(1, 2), { type: 'set_window', kind: 'daytime' }))).toEqual({
       days: 'Tue 13, Wed 14',
-      time: 'Afternoons, 12–5 pm',
+      time: 'Daytime, 9 am–5 pm',
       shared: true,
     });
+  });
+
+  it('names the band on a plan with one window: mornings, afternoons, evenings', () => {
+    const at = (startMin: number, endMin: number) =>
+      setUp({ ...WHOLE_DAYS, daily: { startMin, endMin } });
+    for (const [band, time] of [
+      [[9 * 60, 12 * 60], 'Mornings, 9 am–12 pm'],
+      [[12 * 60, 17 * 60], 'Afternoons, 12–5 pm'],
+      [[17 * 60 + 30, 22 * 60 + 30], 'Evenings, from 5:30 pm'],
+    ] as const) {
+      const { run, line, tap } = at(band[0], band[1]);
+      expect(line(run(...tap(1, 2)))?.time).toBe(time);
+    }
   });
 
   it('says any time that day on the whole band', () => {
@@ -123,31 +138,107 @@ describe('the answer line', () => {
     ).toEqual({ days: 'Tue 13, Wed 14', time: '7–9 pm, set by the half hour', shared: true });
   });
 
-  it('lists each day with its own time when they differ, as the board writes it', () => {
-    const { run, line, tap } = setUp(WHOLE_DAYS);
+  describe('days that differ: the time most share, then the exceptions (SUS-206)', () => {
     const nine = new Array(27).fill(false).map((_, i) => i >= 18 && i < 25);
 
-    expect(
-      line(
-        run(
-          ...tap(3, 8, 10),
-          { type: 'set_day_window', day: 8, kind: 'afternoon' },
-          { type: 'paint', day: 10, cells: nine },
-        ),
-      ),
-    ).toEqual({
-      days: 'Thu 15, Tue 20, Thu 22',
-      time: 'Thu 15 evening, Tue 20 afternoon, Thu 22 6–9:30 pm',
-      shared: false,
+    it('names one exception, as the board writes it', () => {
+      const { run, line, tap } = setUp(WHOLE_DAYS);
+
+      expect(
+        line(run(...tap(3, 8), { type: 'set_day_window', day: 8, kind: 'daytime' })),
+      ).toMatchObject({
+        days: 'Thu 15, Tue 20',
+        time: 'Evenings, but daytime on Tue 20',
+        shared: false,
+      });
     });
-  });
 
-  it('names any time and the other times of day in the list too', () => {
-    const { run, line, tap } = setUp(WHOLE_DAYS);
+    it('names three exceptions together: "Evenings, but daytime on Tue 20 and 6–9:30 pm on Thu 22"', () => {
+      const { run, line, tap } = setUp(WHOLE_DAYS);
 
-    expect(
-      line(run(...tap(1, 2), { type: 'set_day_window', day: 2, kind: 'any_time' }))?.time,
-    ).toBe('Tue 13 evening, Wed 14 any time');
+      expect(
+        line(
+          run(
+            ...tap(3, 8, 10, 4),
+            { type: 'set_day_window', day: 8, kind: 'daytime' },
+            { type: 'paint', day: 10, cells: nine },
+          ),
+        )?.time,
+      ).toBe('Evenings, but daytime on Tue 20 and 6–9:30 pm on Thu 22');
+    });
+
+    it('says two days with the same exception as one: "daytime on Tue 20 and Wed 21"', () => {
+      const { run, line, tap } = setUp(WHOLE_DAYS);
+
+      expect(
+        line(
+          run(
+            ...tap(3, 4, 8, 9),
+            { type: 'set_day_window', day: 8, kind: 'daytime' },
+            { type: 'set_day_window', day: 9, kind: 'daytime' },
+          ),
+        )?.time,
+      ).toBe('Evenings, but daytime on Tue 20 and Wed 21');
+    });
+
+    it('turns to counts past three exceptions: "8 evenings, 4 daytimes"', () => {
+      const { run, line, tap } = setUp(WHOLE_DAYS);
+      const days = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+
+      expect(
+        line(
+          run(
+            ...tap(...days),
+            ...[8, 9, 10, 11].map(
+              (day) => ({ type: 'set_day_window', day, kind: 'daytime' }) as const,
+            ),
+          ),
+        )?.time,
+      ).toBe('8 evenings, 4 daytimes');
+    });
+
+    it('names exceptions by hours too, and one exception in the singular', () => {
+      const { run, line, tap } = setUp(WHOLE_DAYS);
+
+      expect(
+        line(run(...tap(0, 1, 2, 3), { type: 'set_day_window', day: 3, kind: 'daytime' }))?.time,
+      ).toBe('Evenings, but daytime on Thu 15');
+      expect(
+        line(
+          run(
+            ...tap(0, 1, 2, 3, 4),
+            { type: 'paint', day: 3, cells: nine },
+            { type: 'paint', day: 4, cells: nine },
+          ),
+        )?.time,
+      ).toBe('Evenings, but 6–9:30 pm on Thu 15 and Fri 16');
+    });
+
+    it('goes to the time the earlier day has on a tie', () => {
+      const { run, line, tap } = setUp(WHOLE_DAYS);
+
+      // Two evenings and two daytimes: the first day is an evening.
+      expect(
+        line(
+          run(
+            ...tap(0, 1, 2, 3),
+            { type: 'set_day_window', day: 2, kind: 'daytime' },
+            { type: 'set_day_window', day: 3, kind: 'daytime' },
+          ),
+        )?.time,
+      ).toBe('Evenings, but daytime on Wed 14 and Thu 15');
+      // And the other way round: the first day is a daytime.
+      expect(
+        line(
+          run(
+            ...tap(0, 1, 2, 3),
+            { type: 'set_window', kind: 'daytime' },
+            { type: 'set_day_window', day: 2, kind: 'evening' },
+            { type: 'set_day_window', day: 3, kind: 'evening' },
+          ),
+        )?.time,
+      ).toBe('Daytimes, but evening on Wed 14 and Thu 15');
+    });
   });
 
   it('says one shared time is shared, so Change time is the sheet', () => {

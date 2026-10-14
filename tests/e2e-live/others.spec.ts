@@ -23,7 +23,7 @@ async function arrives(page: Page, crew: Scenario, name: string): Promise<void> 
   if (await newHere.isVisible()) await newHere.click();
   await page.getByLabel('Your name').fill(name);
   await page.getByRole('button', { name: 'Continue' }).click();
-  await expect(page.getByText('Which days could work?')).toBeVisible();
+  await expect(page.getByText('Which evenings could work?')).toBeVisible();
 }
 
 test('a third guest sees the first two answers as counts, and no name', async ({
@@ -35,7 +35,9 @@ test('a third guest sees the first two answers as counts, and no name', async ({
   // Ren is first: there is no number to explain, so the line says only what to
   // do, and no tile carries a figure instead of a row of noughts.
   await arrives(page, crew, 'Ren');
-  await expect(page.getByText("Tap every day you'd be up for.", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("Tap every evening you'd be up for, or drag across them.", { exact: true }),
+  ).toBeVisible();
   await expect(days(page).nth(1)).not.toHaveAccessibleName(/could make it/);
   await sendEvenings(page, crew.planCode, 1, 3);
 
@@ -49,7 +51,7 @@ test('a third guest sees the first two answers as counts, and no name', async ({
   await arrives(lous, crew, 'Lou');
   await expect(
     lous.getByText(
-      "Tap every day you'd be up for. The number is how many people can make it, you included once you tap.",
+      "Tap every evening you'd be up for, or drag across them. The number is how many people can make it, you included once you tap.",
     ),
   ).toBeVisible();
   // In words on each day, and as a figure on the tile; a muted zero where neither picked.
@@ -70,8 +72,7 @@ test('a third guest sees the first two answers as counts, and no name', async ({
 
   // The half hours, from each day's card: the first day meets nobody, the
   // fourth both.
-  await lous.getByRole('button', { name: /^Change the time for/ }).click();
-  await lous.getByRole('button', { name: 'A different time for each day' }).click();
+  await lous.getByRole('button', { name: /^Adjust hours for/ }).click();
   const lines = lous.getByRole('button', { name: /Adjust by the half hour/ });
   await lines.nth(0).click();
   await expect(lous.getByText('Nobody else has picked this day yet.')).toBeVisible();

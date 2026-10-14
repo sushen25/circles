@@ -8,16 +8,14 @@ import { describe, expect, it, vi } from 'vitest';
  * A plan has one daily band, so with today's blocks this does not happen
  * on real dates: every day of a plan offers the same blocks. The editor still
  * has to be right if it ever does — a band per weekday, or a new block — so the
- * domain's answer for one day is taken away here: no afternoon on Tuesday 15.
+ * domain's answer for one day is taken away here: no daytime on Tuesday 15.
  */
 vi.mock('@circles/domain', async (original) => {
   const domain = await original<typeof Domain>();
   return {
     ...domain,
     applyShortcut: (...args: Parameters<typeof Domain.applyShortcut>) =>
-      args[0] === 'afternoon' && args[1] === '2026-09-15'
-        ? undefined
-        : domain.applyShortcut(...args),
+      args[0] === 'daytime' && args[1] === '2026-09-15' ? undefined : domain.applyShortcut(...args),
   };
 });
 
@@ -51,19 +49,19 @@ describe('a time of day on only some of the tapped days', () => {
 
   it('is offered for the days it exists on', () => {
     const offers = offeredBlocks([TUE, SAT], rows, TIMING, windowsFor(TIMING));
-    expect(offers.find((offer) => offer.kind === 'afternoon')).toEqual({
-      kind: 'afternoon',
+    expect(offers.find((offer) => offer.kind === 'daytime')).toEqual({
+      kind: 'daytime',
       days: [SAT],
     });
   });
 
   it('paints only those days, and is on only for tapped days that all have it', () => {
-    const afternoon = reduce(tapped, { type: 'set_window', kind: 'afternoon' });
+    const daytime = reduce(tapped, { type: 'set_window', kind: 'daytime' });
 
-    expect(afternoon.days[SAT]!.slice(6, 16)).toEqual(new Array(10).fill(true));
-    // Tuesday keeps what it had: the evening, since it has no afternoon.
-    expect(afternoon.days[TUE]).toEqual(tapped.days[TUE]);
-    expect(windowOn('afternoon', afternoon, rows, TIMING)).toBe(false);
+    expect(daytime.days[SAT]!.slice(0, 16)).toEqual(new Array(16).fill(true));
+    // Tuesday keeps what it had: the evening, since it has no daytime.
+    expect(daytime.days[TUE]).toEqual(tapped.days[TUE]);
+    expect(windowOn('daytime', daytime, rows, TIMING)).toBe(false);
   });
 
   it('says on the sheet that the choice covers the days it can', () => {
@@ -71,7 +69,7 @@ describe('a time of day on only some of the tapped days', () => {
 
     expect(view.sheet!.choices.map((choice) => choice.label)).toEqual([
       'Evening',
-      'Afternoon',
+      'Daytime',
       'Any time',
     ]);
   });

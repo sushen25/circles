@@ -52,7 +52,7 @@ test('no prompt of any kind on Join, Name or Availability: nothing is even asked
   await page.getByRole('button', { name: 'Continue' }).click();
 
   await expect(page).toHaveURL(new RegExp(`/j/${crew.planCode}$`));
-  await expect(page.getByText('Which days could work?')).toBeVisible();
+  await expect(page.getByText('Which evenings could work?')).toBeVisible();
   await expectNoPrompt(page);
   expect(asked, 'no prompt was asked about before the answer').toEqual([]);
 

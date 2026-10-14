@@ -73,7 +73,7 @@ test('a circle with no guests never asks "Have you answered this before?"', asyn
   // the join has landed; the editor's heading does. Reading the database before
   // it appears raced the join (SUS-86, once `sql()` stopped taking a second).
   await expect(page).toHaveURL(new RegExp(`/j/${crew.planCode}$`));
-  await expect(page.getByText('Which days could work?')).toBeVisible();
+  await expect(page.getByText('Which evenings could work?')).toBeVisible();
   expect(memberNamed(crew.circleId, 'Ren')).toBeDefined();
   expect(await page.evaluate('window.sawList === true')).toBe(false);
 });

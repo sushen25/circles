@@ -1,4 +1,16 @@
-import { BodyText, Body, Button, DisplayL, Foot, Screen, Tertiary, TopBar } from '../../components';
+import {
+  AnswerRow,
+  Body,
+  BodyText,
+  Button,
+  DisplayL,
+  Foot,
+  Screen,
+  Small,
+  Tertiary,
+  Track,
+  TopBar,
+} from '../../components';
 import { Stack } from '../../components/layout';
 import { t } from '../../copy';
 import type { BlockKind } from './blocks';
@@ -14,6 +26,11 @@ import type { DayCardView } from './view';
  */
 type Props = {
   title?: string | undefined;
+  /**
+   * The plan leaves one window, so there is nothing to choose: a plain list of
+   * the tapped days, each with its hours, opening to its half hours.
+   */
+  single?: { heading: string; body: string } | undefined;
   cards: readonly DayCardView[];
   busy?: boolean | undefined;
   onChoose?: ((day: number, kind: BlockKind) => void) | undefined;
@@ -25,6 +42,7 @@ type Props = {
 
 export function ExactHoursScreen({
   title,
+  single,
   cards,
   busy = false,
   onChoose,
@@ -38,29 +56,62 @@ export function ExactHoursScreen({
       <TopBar title={title} onBack={onDone} backLabel={t('availability', 'back_to_my_answer')} />
       <Body>
         <Stack>
-          <DisplayL>{t('availability', 'exact_title')}</DisplayL>
-          <BodyText>{t('availability', 'exact_body')}</BodyText>
+          <DisplayL>{single?.heading ?? t('availability', 'exact_title')}</DisplayL>
+          <BodyText>{single?.body ?? t('availability', 'exact_body')}</BodyText>
         </Stack>
-        <Stack gap={12}>
-          {cards.map((card) => (
-            <DayCard
-              key={card.key}
-              card={card}
-              dimmed={busy}
-              onChoose={onChoose}
-              onOpen={onOpen}
-              onPaint={onPaint}
-            />
-          ))}
-        </Stack>
+        {single === undefined ? (
+          <Stack gap={12}>
+            {cards.map((card) => (
+              <DayCard
+                key={card.key}
+                card={card}
+                dimmed={busy}
+                onChoose={onChoose}
+                onOpen={onOpen}
+                onPaint={onPaint}
+              />
+            ))}
+          </Stack>
+        ) : (
+          <Stack gap={0}>
+            {cards.map((card) => (
+              <AnswerRow
+                key={card.key}
+                date={card.name}
+                range={card.time}
+                label={t('availability', 'adjust_day', { day: card.spoken, time: card.range })}
+                open={card.open}
+                disabled={busy}
+                onToggle={() => onOpen?.(card.day)}
+              >
+                {card.peak === undefined ? null : <Small>{card.peak}</Small>}
+                <Track
+                  day={card.spoken}
+                  groupLabel={card.spoken}
+                  cells={card.cells}
+                  onChange={(cells) => onPaint?.(card.day, cells)}
+                  startMinutes={0}
+                  labels={card.labels}
+                  range={card.range}
+                  marks={card.marks}
+                  counts={card.counts}
+                  header={false}
+                  dimmed={busy}
+                />
+              </AnswerRow>
+            ))}
+          </Stack>
+        )}
       </Body>
       <Foot>
         <Button label={t('availability', 'done')} onPress={onDone} />
-        <Tertiary
-          tone="plain"
-          label={t('availability', 'use_one_time')}
-          onPress={busy ? undefined : onOneTime}
-        />
+        {single === undefined ? (
+          <Tertiary
+            tone="plain"
+            label={t('availability', 'use_one_time')}
+            onPress={busy ? undefined : onOneTime}
+          />
+        ) : null}
       </Foot>
     </Screen>
   );

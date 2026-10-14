@@ -10,7 +10,7 @@ import {
 
 import { t } from '../../copy';
 import type { AnswerablePlan } from '../../data/availability';
-import type { BlockKind } from './blocks';
+import type { BandName, BlockKind } from './blocks';
 import { dateWords, type RowWords } from './days';
 
 /**
@@ -21,11 +21,41 @@ import { dateWords, type RowWords } from './days';
 export const BLOCK_LABEL: Record<BlockKind, () => string> = {
   morning: () => t('availability', 'morning'),
   afternoon: () => t('availability', 'afternoon'),
+  daytime: () => t('availability', 'daytime'),
   evening: () => t('availability', 'evening'),
   any_time: () => t('availability', 'any_time'),
   from_now: () => t('availability', 'from_now'),
   later_tonight: () => t('availability', 'later_tonight'),
 };
+
+/** The word for what a guest is tapping, from the plan's band: "evening", "day". */
+const THING: Record<BandName, () => string> = {
+  mornings: () => t('availability', 'thing_morning'),
+  afternoons: () => t('availability', 'thing_afternoon'),
+  evenings: () => t('availability', 'thing_evening'),
+  days: () => t('availability', 'thing_day'),
+};
+export const thingOf = (band: BandName): string => THING[band]();
+
+/** The question the first screen asks: "Which evenings could work?", else "Which days…". */
+export function questionOf(band: BandName, onlyChoice: boolean): string {
+  if (!onlyChoice) return t('availability', 'which_days_could_work');
+  if (band === 'evenings') return t('availability', 'which_evenings_could_work');
+  if (band === 'mornings') return t('availability', 'which_mornings_could_work');
+  if (band === 'afternoons') return t('availability', 'which_afternoons_could_work');
+  return t('availability', 'which_days_could_work');
+}
+
+/** "None of these evenings work for me", where the plan has one band to name. */
+export function noneOf(band: BandName, onlyChoice: boolean): string {
+  if (onlyChoice && band === 'evenings')
+    return t('availability', 'none_of_these_evenings_work_for_me');
+  if (onlyChoice && band === 'mornings')
+    return t('availability', 'none_of_these_mornings_work_for_me');
+  if (onlyChoice && band === 'afternoons')
+    return t('availability', 'none_of_these_afternoons_work_for_me');
+  return t('availability', 'none_of_these_dates_work_for_me');
+}
 
 export const ROW_WORDS: RowWords = {
   cell: (day, from, to) => t('availability', 'cell', { day, from, to }),
@@ -60,8 +90,11 @@ export function closesOf(plan: AnswerablePlan, format: TimeFormat): string {
  * times, or the read failed) it says only what to do, because there is no
  * number to explain.
  */
-export function guideOf(counted: boolean): string {
-  return counted ? t('availability', 'guide_counted') : t('availability', 'guide_plain');
+export function guideOf(counted: boolean, band: BandName, onlyChoice: boolean): string {
+  const thing = thingOf(onlyChoice ? band : 'days');
+  return counted
+    ? t('availability', 'guide_counted', { thing })
+    : t('availability', 'guide_plain', { thing });
 }
 
 /**

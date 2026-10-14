@@ -59,6 +59,8 @@ test('the guest name screen opens with the cursor in the field, and no serious v
 
 test('the availability editor has no serious accessibility violations', async ({ page }) => {
   const crew = sundayCrew();
+  // A whole-day plan, so the sheet and the cards have choices to offer.
+  sql(`update public.plans set daily_start_local = 540 where id = '${crew.planId}'`);
   await page.goto(`/j/${crew.planCode}`);
   await page.getByLabel('Your name').fill('Ren');
   await page.getByRole('button', { name: 'Continue' }).click();
@@ -163,7 +165,7 @@ test('at 200% text, the editor cuts off none of its decisions', async ({ page },
   await page.goto(`/j/${crew.planCode}`);
   await page.getByLabel('Your name').fill('Ren');
   await page.getByRole('button', { name: 'Continue' }).click();
-  await expect(page.getByText('Which days could work?')).toBeVisible();
+  await expect(page.getByText('Which evenings could work?')).toBeVisible();
   await page.getByRole('group', { name: 'Days in this plan' }).getByRole('button').first().click();
 
   // The browser's own text zoom: every size in the app is in CSS pixels
@@ -177,9 +179,9 @@ test('at 200% text, the editor cuts off none of its decisions', async ({ page },
   });
 
   const decisions = [
-    page.getByRole('button', { name: /^Change the time for/ }),
+    page.getByRole('button', { name: /^Adjust hours for/ }),
     page.getByRole('switch', { name: "I'm easy" }),
-    page.getByRole('button', { name: 'None of these dates work for me' }),
+    page.getByRole('button', { name: 'None of these evenings work for me' }),
     page.getByRole('button', { name: 'Send my times' }),
   ];
   for (const decision of decisions) {

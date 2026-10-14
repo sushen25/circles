@@ -136,7 +136,7 @@ test('times waiting on the phone go when the person comes back to the tab', asyn
   await page.goto(`/j/${crew.planCode}`);
   await page.getByLabel('Your name').fill('Ren');
   await page.getByRole('button', { name: 'Continue' }).click();
-  await expect(page.getByText('Which days could work?')).toBeVisible();
+  await expect(page.getByText('Which evenings could work?')).toBeVisible();
   const ren = memberNamed(crew.circleId, 'Ren')!.userId;
 
   const api = `${stackConfig().apiUrl}/**`;

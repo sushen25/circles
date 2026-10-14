@@ -6,6 +6,7 @@ import {
   firstDayOf,
   memberNamed,
   planStopsAsking,
+  sql,
   stackConfig,
   sundayCrew,
   type Scenario,
@@ -28,17 +29,25 @@ async function arriveAs(page: Page, crew: Scenario, name: string): Promise<strin
   await page.goto(`/j/${crew.planCode}`);
   await page.getByLabel('Your name').fill(name);
   await page.getByRole('button', { name: 'Continue' }).click();
-  await expect(page.getByText('Which days could work?')).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: /^Which (evenings|days) could work\?$/ }),
+  ).toBeVisible();
   const member = memberNamed(crew.circleId, name);
   expect(member, `${name} joined`).toBeDefined();
   return member!.userId;
 }
 
+/** The same plan asking about the whole day: Evening, Daytime and Any time are real choices. */
+function wholeDay(crew: Scenario) {
+  sql(`update public.plans set daily_start_local = 540 where id = '${crew.planId}'`);
+}
+
 /** The plan's days, in the grid, in date order. */
 const days = (page: Page) =>
   page.getByRole('group', { name: 'Days in this plan' }).getByRole('button');
-/** "Change time" under the grid, which opens the sheet. */
+/** "Change time" under the grid, which opens the sheet ("Adjust hours" on a plan with one window). */
 const changeTime = (page: Page) => page.getByRole('button', { name: /^Change the time for/ });
+const adjustHours = (page: Page) => page.getByRole('button', { name: /^Adjust hours for/ });
 const exactLink = (page: Page) =>
   page.getByRole('button', { name: 'A different time for each day' });
 /** The first day's "By the half hour", which opens that day's cells. */
@@ -57,9 +66,9 @@ async function evenings(page: Page, ...indices: number[]) {
 
 /** From the first screen to the half hours of the first tapped day. */
 async function exactHours(page: Page) {
-  await changeTime(page).click();
-  await exactLink(page).click();
-  await expect(page.getByRole('heading', { name: 'A time for each day' })).toBeVisible();
+  // This plan asks about an evening only: nothing to pick, so no sheet.
+  await adjustHours(page).click();
+  await expect(page.getByRole('heading', { name: 'Your hours each evening' })).toBeVisible();
   await firstLine(page).click();
   await expect(firstLine(page)).toHaveAttribute('aria-expanded', 'true');
 }
@@ -141,6 +150,7 @@ test('an answer can be given from the keyboard alone, by days and a sheet, and a
   page,
 }) => {
   const crew = sundayCrew();
+  wholeDay(crew);
   const ren = await arriveAs(page, crew, 'Ren');
 
   await days(page).nth(0).focus();
@@ -157,9 +167,10 @@ test('an answer can be given from the keyboard alone, by days and a sheet, and a
   await firstLine(page).focus();
   await page.keyboard.press('Enter');
   await expect(firstLine(page)).toHaveAttribute('aria-expanded', 'true');
-  await cells(page).nth(0).focus();
+  // The whole-day plan has 27 half hours; the evening starts at the 18th, 5:30 pm.
+  await cells(page).nth(17).focus();
   await page.keyboard.press('Space');
-  await expect(cells(page).nth(0)).toHaveAttribute('aria-checked', 'false');
+  await expect(cells(page).nth(17)).toHaveAttribute('aria-checked', 'false');
   await page.getByRole('button', { name: 'Done', exact: true }).focus();
   await page.keyboard.press('Enter');
 
@@ -168,24 +179,48 @@ test('an answer can be given from the keyboard alone, by days and a sheet, and a
 
   const day = firstDayOf(crew.planId);
   expect(answerOf(crew.planId, ren)?.windows).toEqual([`${day} 18:00–22:30`]);
+  // (the whole-day plan's evening is the same 5:30 to 10:30 pm)
 });
 
-test('Change time offers only the times of day the plan has, and Done leaves the answer as it was', async ({
+test('a plan with one window has nothing to pick: the title names it, and Adjust hours goes to the list of days', async ({
   page,
 }) => {
   const crew = sundayCrew();
   await arriveAs(page, crew, 'Ren');
 
+  await expect(page.getByRole('heading', { name: 'Which evenings could work?' })).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'None of these evenings work for me' }),
+  ).toBeVisible();
+  await evenings(page, 1, 3);
+  await expect(page.getByText('Evenings, from 5:30 pm')).toBeVisible();
+  await expect(changeTime(page)).toHaveCount(0);
+  await adjustHours(page).click();
+  await expect(page.getByRole('radio')).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: 'Your hours each evening' })).toBeVisible();
+  await expect(page.getByText('Every evening is from 5:30 pm.', { exact: false })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Adjust by the half hour$/ })).toHaveCount(2);
+  await page.getByRole('button', { name: 'Done', exact: true }).click();
+  await expect(page.getByText('Evenings, from 5:30 pm')).toBeVisible();
+});
+
+test('on a whole-day plan Change time offers Evening, Daytime and Any time, and Done leaves the answer as it was', async ({
+  page,
+}) => {
+  const crew = sundayCrew();
+  wholeDay(crew);
+  await arriveAs(page, crew, 'Ren');
+
+  await expect(page.getByRole('heading', { name: 'Which days could work?' })).toBeVisible();
   await evenings(page, 1, 3);
   await changeTime(page).click();
   await expect(page.getByText(/^One answer covers /)).toBeVisible();
-  // The plan asks about 5:30 to 10:30 pm, so Evening and Any time are the same
-  // hours and only Evening is offered; Afternoon is not in the plan at all.
-  await expect(page.getByRole('radio')).toHaveCount(1);
+  await expect(page.getByRole('radio')).toHaveCount(3);
   await expect(page.getByRole('radio', { name: /^Evening/ })).toHaveAttribute(
     'aria-checked',
     'true',
   );
+  await expect(page.getByRole('radio', { name: /^Daytime, 9 am.5 pm$/ })).toBeVisible();
   await page.getByRole('button', { name: 'Done', exact: true }).click();
   await expect(page.getByRole('radio')).toHaveCount(0);
   await expect(page.getByText('Evenings, from 5:30 pm')).toBeVisible();
@@ -193,18 +228,24 @@ test('Change time offers only the times of day the plan has, and Done leaves the
 
 test('a day can have its own time of day, and the line then lists each day', async ({ page }) => {
   const crew = sundayCrew();
+  wholeDay(crew);
   await arriveAs(page, crew, 'Ren');
 
   await evenings(page, 1, 3);
   await changeTime(page).click();
   await exactLink(page).click();
-  // The plan asks about an evening only, so each card offers Evening alone, and
-  // it is selected; the half hours are a link away on each.
+  // Each card offers Evening, Daytime and Any time, the evening selected; the
+  // half hours are a link away on each.
   await expect(page.getByRole('button', { name: /^Evening, / })).toHaveCount(2);
+  await expect(page.getByRole('button', { name: /^Daytime, / })).toHaveCount(2);
   await expect(page.getByRole('button', { name: /^Evening, / }).first()).toHaveAttribute(
     'aria-pressed',
     'true',
   );
+  await page
+    .getByRole('button', { name: /^Daytime, / })
+    .nth(1)
+    .click();
 
   // One day's own hours: a quick choice is no longer selected on it.
   await page
@@ -219,7 +260,7 @@ test('a day can have its own time of day, and the line then lists each day', asy
   );
   await page.getByRole('button', { name: 'Done', exact: true }).click();
   // The days differ, so the line lists each, and Change time goes straight back.
-  await expect(page.getByText(/6–10:30 pm.*evening/)).toBeVisible();
+  await expect(page.getByText(/, but daytime on /)).toBeVisible();
   await changeTime(page).click();
   await expect(page.getByRole('heading', { name: 'A time for each day' })).toBeVisible();
   await page.getByRole('button', { name: 'Use one time for all days' }).click();
@@ -288,7 +329,7 @@ test('"not enough notice" is its own answer, not a decline', async ({ page }) =>
   const crew = sundayCrew();
   const ren = await arriveAs(page, crew, 'Ren');
 
-  await page.getByRole('button', { name: 'None of these dates work for me' }).click();
+  await page.getByRole('button', { name: 'None of these evenings work for me' }).click();
   await expect(page.getByText("Maya sees you'd like to come.", { exact: false })).toBeVisible();
   await page.getByRole('button', { name: 'Not enough notice' }).click();
 

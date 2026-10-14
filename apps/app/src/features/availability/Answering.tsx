@@ -10,6 +10,8 @@ import {
   type Draft,
   type OwnAnswer,
 } from '../../data/availability';
+import type { GridPaint } from '../../components';
+import { t } from '../../copy';
 import { OfflineScreen } from '../system/OfflineScreen';
 import { AvailabilityScreen } from './AvailabilityScreen';
 import type { BlockTiming } from './blocks';
@@ -19,6 +21,7 @@ import {
   editorFrom,
   editorReducer,
   emptyEditor,
+  strokeDays,
   type EditorAction,
   type EditorState,
 } from './editor';
@@ -27,7 +30,17 @@ import { useOthersSaid } from './useOthersSaid';
 import { usePreviousTimes, useStartedEvent } from './usePreviousTimes';
 import { useSendAnswer, type ReturnTo } from './useSendAnswer';
 import { editorView } from './view';
-import { ROW_WORDS, closesOf, guideOf, timeOfDay, titleOf, zoneNoteOf } from './words';
+import {
+  ROW_WORDS,
+  closesOf,
+  guideOf,
+  noneOf,
+  questionOf,
+  thingOf,
+  timeOfDay,
+  titleOf,
+  zoneNoteOf,
+} from './words';
 
 /**
  * One question, being answered: the editor, "none of these dates", and the
@@ -221,6 +234,28 @@ export function Answering({
     dispatch(action);
   };
 
+  // Dragging across the grid taps or untaps the days it crosses, from the day
+  // the stroke began on, and gives back a day it crossed and left (SUS-133).
+  const stroke = useRef<{ base: boolean[][]; anchor: number } | undefined>(undefined);
+  const strokeTo = (current: number) => {
+    if (stroke.current === undefined) return;
+    const { base, anchor } = stroke.current;
+    edit({
+      type: 'stroke',
+      days: strokeDays(base, rows, timing, state.window, anchor, current),
+    });
+  };
+  const paintDays: GridPaint = {
+    begin: (index) => {
+      stroke.current = { base: state.days, anchor: index };
+      strokeTo(index);
+    },
+    extend: strokeTo,
+    end: () => {
+      stroke.current = undefined;
+    },
+  };
+
   // "A time for each day": every tapped day is a card with the plan's quick
   // choices, and the half hours are one tap away on each.
   const openEach = () => setExact(true);
@@ -274,6 +309,17 @@ export function Answering({
     return (
       <ExactHoursScreen
         title={title}
+        single={
+          view.single
+            ? {
+                heading: t('availability', 'hours_title', { thing: thingOf(view.band) }),
+                body: t('availability', 'hours_body', {
+                  thing: thingOf(view.band),
+                  time: view.singleTime ?? '',
+                }),
+              }
+            : undefined
+        }
         cards={view.cards}
         busy={sending !== undefined}
         onChoose={(day, kind) => edit({ type: 'set_day_window', day, kind })}
@@ -295,7 +341,11 @@ export function Answering({
   return (
     <AvailabilityScreen
       title={title}
-      guide={guideOf(view.counted)}
+      question={questionOf(view.band, view.single)}
+      noneLabel={noneOf(view.band, view.single)}
+      single={view.single}
+      onPaintDays={paintDays}
+      guide={guideOf(view.counted, view.band, view.single)}
       closes={closesOf(plan, format)}
       zoneNote={zoneNoteOf(plan)}
       grid={view.grid}
@@ -309,9 +359,9 @@ export function Answering({
       busy={sending !== undefined}
       onTick={(day) => edit({ type: 'toggle_day', day })}
       onChangeTime={() => {
-        // The days share a time: the sheet. They differ: the screen that says
-        // each one's.
-        if (view.answerLine?.shared === false) openEach();
+        // The plan leaves one window, or the days differ: the screen that says
+        // each day's. The days share a time: the sheet.
+        if (view.single || view.answerLine?.shared === false) openEach();
         else setSheetOpen(true);
       }}
       onChooseWindow={(kind) => edit({ type: 'set_window', kind })}
