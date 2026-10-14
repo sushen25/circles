@@ -160,6 +160,40 @@ describe('previous times', () => {
     await prefilled(10);
   });
 
+  it('stop starting the answer once the person has changed anything: clearing their last day is a choice (review round 1)', async () => {
+    let release: (parts: string[]) => void = () => undefined;
+    usualTimes.mockReturnValue(new Promise<string[]>((resolve) => (release = resolve)));
+    open();
+    await screen.findByText('Which days could work?');
+    // They tap a day before the read comes back, then take it away again.
+    fireEvent.click(screen.getAllByRole('button', { name: /^Monday/ })[0]!);
+    await act(async () => release(['weekday_evening']));
+    fireEvent.click(screen.getAllByRole('button', { name: /^Monday/ })[0]!);
+    await act(async () => undefined);
+
+    expect(tapped()).toHaveLength(0);
+    expect(screen.getByRole('button', { name: 'Send my times' })).toBeDisabled();
+  });
+
+  it("start from this opening's read, not from what an earlier opening cached (review round 1)", async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    planToAnswer.mockResolvedValue({
+      plan: { ...PLAN, dailyStartMin: 9 * 60, dailyEndMin: 22 * 60 + 30 },
+      answer: null,
+    });
+    usualTimes.mockResolvedValue(['weekday_evening']);
+    const first = open(client);
+    await prefilled(10);
+    expect(screen.getByText(EVENINGS)).toBeVisible();
+    first.unmount();
+
+    // Since then they have offered afternoons instead, and the read says so.
+    usualTimes.mockResolvedValue(['weekday_afternoon']);
+    open(client);
+    expect(await screen.findByText('Afternoons, 12–5 pm')).toBeVisible();
+    expect(screen.queryByText(EVENINGS)).toBeNull();
+  });
+
   it('never overwrite an answer already given', async () => {
     planToAnswer.mockResolvedValue(answerable);
     open();

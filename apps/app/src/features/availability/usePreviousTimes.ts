@@ -30,8 +30,12 @@ export function usePreviousTimes(input: {
   });
   // Whether the answer began from the tap, even if it was edited afterwards.
   const [used, markUsed] = useState(false);
+  // Only this opening's read: what an earlier opening cached is never taken for
+  // what the person has offered since (it would start an answer from stale
+  // times), and a failed read offers nothing.
+  const fresh = userId !== undefined && read.isFetchedAfterMount && !read.isError;
   return {
-    parts: read.data,
+    parts: fresh ? read.data : undefined,
     used,
     markUsed: () => markUsed(true),
     /** Answered or failed for this opening; with no backend there is nothing to wait for. */

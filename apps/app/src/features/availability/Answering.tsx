@@ -122,6 +122,9 @@ export function Answering({
   // "Change time" and the half hours are views of the same answer: which one is
   // on show is the person's place in the screen, never stored or sent.
   const [sheetOpen, setSheetOpen] = useState(false);
+  // Once the person has changed anything, previous times no longer start the
+  // answer: clearing their last day is a choice, not an empty answer to fill.
+  const [touched, setTouched] = useState(false);
   const [exact, setExact] = useState(false);
 
   // Previous times (ADR 0037's amendment, ADR 0068): the reader's own earlier
@@ -174,7 +177,7 @@ export function Answering({
   // Previous times start an answer that has never been given: the days are
   // tapped and the line says what they are. View-only — a start, not an edit,
   // so it writes no draft until the person changes something.
-  const prefill = answer === null && opened === undefined && view.canUseUsual;
+  const prefill = answer === null && opened === undefined && !touched && view.canUseUsual;
   const prefilled = useRef(false);
   const parts = previous.parts;
   const markUsed = previous.markUsed;
@@ -191,9 +194,12 @@ export function Answering({
   const sending = phase.kind === 'sending' ? phase.status : undefined;
   const edit = (action: EditorAction) => {
     if (sending !== undefined) return;
-    // Ticking a day or opening one changes what is on screen, not the answer:
-    // it is not the first edit, and it writes no draft.
-    if (!VIEW_ONLY.has(action.type)) edited();
+    // Opening a day changes what is on screen, not the answer: it is not an
+    // edit, and it writes no draft.
+    if (!VIEW_ONLY.has(action.type)) {
+      edited();
+      setTouched(true);
+    }
     dispatch(action);
   };
 
