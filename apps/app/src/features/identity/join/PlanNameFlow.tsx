@@ -6,7 +6,6 @@ import { track } from '../../../analytics/track';
 import { joinPlan } from '../../../data/membership';
 import { NameScreen, type NameProblem } from '../NameScreen';
 import { useHaveAccount } from './haveAccount';
-import { nameStepPushed } from './nameStepBack';
 import { useNameStep } from './useNameStep';
 
 /**
@@ -28,6 +27,8 @@ export type PlanNameFlowProps = {
   onInactive: () => void;
   onJoined: () => void;
   onBack: () => void;
+  /** This step is an entry of its own in the history, over the screen it came from. */
+  isHistoryEntry?: boolean;
 };
 
 export function PlanNameFlow({
@@ -38,8 +39,9 @@ export function PlanNameFlow({
   onInactive,
   onJoined,
   onBack,
+  isHistoryEntry = false,
 }: PlanNameFlowProps) {
-  const joined = useJoinedFromPlan(code, onJoined);
+  const joined = useJoinedFromPlan(code, onJoined, isHistoryEntry);
   const haveAccount = useHaveAccount();
 
   const step = useNameStep<JoinPlanResponse>({
@@ -81,7 +83,7 @@ export function PlanNameFlow({
  * form that has been submitted. The event carries the circle and the door and
  * never the code (ADR 0022).
  */
-export function useJoinedFromPlan(code: ShortCode, onJoined: () => void) {
+export function useJoinedFromPlan(code: ShortCode, onJoined: () => void, dismissStep = false) {
   const router = useRouter();
   // Whether this is still the screen the person is on. A join that lands after
   // Back must not dismiss the entry underneath: the step has already gone.
@@ -100,7 +102,7 @@ export function useJoinedFromPlan(code: ShortCode, onJoined: () => void) {
     // is behind the plan link stays) and the screen under it replaced, so the
     // plan link is one screen and not two, and Back does not return to a form
     // that has been submitted.
-    if (nameStepPushed(code) && onScreen.current) router.dismiss();
+    if (dismissStep && onScreen.current) router.dismiss();
     router.replace({ pathname: '/j/[code]', params: { code } });
   };
 }

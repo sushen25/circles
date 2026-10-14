@@ -171,6 +171,7 @@ export function ContinueAsFlow({ code, arrivedWithoutSession, onReattached }: Co
     return (
       <PlanNameFlow
         key={nameAttempt}
+        isHistoryEntry={imNew && nameStepPushed(code)}
         code={code}
         circleName={title ?? ''}
         onInactive={() => setAskForInvite(true)}
