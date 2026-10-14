@@ -52,6 +52,24 @@ describe('Loading', () => {
   });
 });
 
+describe('Loading: noRetry (SUS-207)', () => {
+  it('offers no "Try again" at 20 s, whatever else is waiting on a query, or a retry it was given', () => {
+    const client = new QueryClient();
+    new QueryObserver(client, {
+      queryKey: ['other'],
+      queryFn: () => new Promise(() => undefined),
+    }).subscribe(() => undefined);
+    render(
+      <QueryClientProvider client={client}>
+        <Loading message="Setting up" shape="detail" noRetry onRetry={vi.fn()} />
+      </QueryClientProvider>,
+    );
+    tick(WAIT.retryAfter);
+    expect(screen.getByText('Still working on it…')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument();
+  });
+});
+
 describe('Loading: what it keeps and how it retries (SUS-157)', () => {
   it('draws its header at once, with the bar, before any skeleton', () => {
     render(<Loading message="Opening" shape="list" header={<p>the lockup</p>} />);
