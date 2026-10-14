@@ -69,6 +69,18 @@ export function freeFor(others: OthersSaid, spans: readonly Interval[]): number 
   return others.flexible + people;
 }
 
+/**
+ * The number on a day's tile (SUS-206): how many people could make the day.
+ * Before the reader taps it that is the others alone; once they tap it, they
+ * are one of the people who can, so it is one more, and untapping gives the
+ * same number back. A sum of the aggregate the database already returns and
+ * the reader's own choice, so it needs nothing new from the server and names
+ * nobody.
+ */
+export function headcount(othersFree: number, readerIncluded: boolean): number {
+  return Math.max(0, othersFree) + (readerIncluded ? 1 : 0);
+}
+
 /** How many others are free in each of a day's cells. */
 export function cellCounts(others: OthersSaid, cells: readonly Interval[]): number[] {
   return cells.map((cell) => freeFor(others, [cell]));

@@ -115,17 +115,36 @@ test.describe('secondary actions', () => {
 });
 
 test.describe('the controls actually work', () => {
-  test('a day and a block give an answer in words, and its line opens to the half hours', async ({
+  test('the first-time guest lands on an empty grid; a tap fills a day and counts them in, one line says the answer, and the half hours are behind Change time', async ({
     page,
   }) => {
+    // The clock is pinned to the week the screens show (12–23 October 2026), so
+    // nothing here depends on the day the suite runs.
+    await page.clock.setFixedTime(new Date('2026-10-12T09:00:00+11:00'));
     await page.goto('/j/abc');
 
-    // Sunday Crew's fixture: Tuesday 15 has no times yet, and two of the
-    // others could make it (SUS-129).
+    // Alex has not answered: the first thing is the question, one line, the
+    // grid, the footnote, and Send waiting (SUS-206).
+    await expect(page.getByRole('heading', { name: 'Which days could work?' })).toBeVisible();
+    await expect(
+      page.getByText(
+        "Tap every day you'd be up for. The number is how many people can make it, you included once you tap.",
+      ),
+    ).toBeVisible();
+    await expect(page.getByText(/^Replies close /)).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Send my times' })).toBeDisabled();
+    await expect(
+      page.getByRole('button', { name: 'None of these dates work for me' }),
+    ).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Change the time for/ })).toHaveCount(0);
+    await expect(page.getByText('My answer')).toHaveCount(0);
+
+    // Sunday Crew's fixture: two of the others could make Tuesday 15 (SUS-129).
     const tuesday = page.getByRole('button', {
-      name: /^Tuesday\D*15\D.*no times yet, 2 others could make it$/,
+      name: /^Tuesday\D*15\D.*2 others could make it$/,
     });
     await expect(tuesday).toHaveAttribute('aria-pressed', 'false');
+    await expect(tuesday).toContainText('2');
 
     // The page is server-rendered, so the day is clickable before React has
     // attached to it. Retry the whole interaction rather than only the
@@ -135,18 +154,26 @@ test.describe('the controls actually work', () => {
       await expect(tuesday).toHaveAttribute('aria-pressed', 'true', { timeout: 1000 });
     }).toPass();
 
-    // On an evening plan Evening and Any time are the same hours, so one
-    // block is offered for them (ADR 0024).
-    const chip = page.getByRole('checkbox', { name: /^Evening/ });
-    await expect(page.getByRole('checkbox', { name: /^Any time/ })).toHaveCount(0);
-    await chip.click();
-    await expect(chip).toHaveAttribute('aria-checked', 'true');
-    await expect(page.getByText('4 of 14 days')).toBeVisible();
+    // Tapped: the tile counts Alex in, and the answer is one line.
+    await expect(tuesday).toHaveAccessibleName(/you and 2 others can make it$/);
+    await expect(tuesday).toContainText('3');
+    await expect(page.getByText('Evenings, from 5:30 pm')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Send my times' })).toBeEnabled();
 
-    // Nothing scrolls sideways until a day is opened: no half hours on screen.
+    // On an evening plan Evening and Any time are the same hours, so one
+    // choice is offered for them (ADR 0024, ADR 0068).
+    await page.getByRole('button', { name: /^Change the time for/ }).click();
+    await expect(page.getByRole('radio', { name: /^Evening/ })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+    await expect(page.getByRole('radio', { name: /^Any time/ })).toHaveCount(0);
+
+    // Nothing scrolls sideways until the half hours are asked for.
     await expect(page.getByRole('checkbox', { name: / to / })).toHaveCount(0);
+    await page.getByRole('button', { name: 'Pick exact hours instead' }).click();
+    await expect(page.getByRole('heading', { name: 'Exact hours' })).toBeVisible();
     const line = page.getByRole('button', { name: /^Tuesday.*Adjust by the half hour$/ });
-    await line.click();
     await expect(line).toHaveAttribute('aria-expanded', 'true');
     const cells = page.getByRole('checkbox', { name: /^Tuesday.* to / });
     await expect(cells).toHaveCount(10);
@@ -156,28 +183,31 @@ test.describe('the controls actually work', () => {
     // (manifesto §6), so the shape is what matters: two runs, comma-separated.
     await cells.nth(3).click();
     await expect(page.getByText(/\d.*–.*,.*\d.*–/).first()).toBeVisible();
+
+    // Back: the answer line says it was set by the half hour.
+    await page.getByRole('button', { name: 'Done', exact: true }).click();
+    await expect(page.getByText(/set by the half hour|Different times/)).toBeVisible();
   });
 
-  test('a block chip is on for the ticked days, and a second tap takes it off again', async ({
-    page,
-  }) => {
+  test('a second tap takes a day away again, and its count with it', async ({ page }) => {
     await page.goto('/j/abc');
 
-    const tuesday = page.getByRole('button', { name: /^Tuesday\D*15\D.*no times yet\b/ });
+    const tuesday = page.getByRole('button', { name: /^Tuesday\D*15\D/ });
     await expect(async () => {
       await tuesday.click();
       await expect(tuesday).toHaveAttribute('aria-pressed', 'true', { timeout: 1000 });
     }).toPass();
-    await page.getByRole('button', { name: /^Friday\D*18\D.*no times yet\b/ }).click();
+    await page.getByRole('button', { name: /^Friday\D*18\D/ }).click();
+    await expect(page.getByText('Evenings, from 5:30 pm')).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Change the time for Tue.*Fri/ })).toBeVisible();
 
-    const chip = page.getByRole('checkbox', { name: /^Evening/ });
-    await chip.click();
-    await expect(chip).toHaveAttribute('aria-checked', 'true');
-    await expect(page.getByText('5 of 14 days')).toBeVisible();
-
-    await chip.click();
-    await expect(chip).toHaveAttribute('aria-checked', 'false');
-    await expect(page.getByText('3 of 14 days')).toBeVisible();
+    await tuesday.click();
+    await expect(tuesday).toHaveAttribute('aria-pressed', 'false');
+    await expect(tuesday).toContainText('2');
+    await page.getByRole('button', { name: /^Friday\D*18\D/ }).click();
+    // Nothing tapped: no answer line, and Send waits again.
+    await expect(page.getByText('Evenings, from 5:30 pm')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Send my times' })).toBeDisabled();
     expect(page.url()).toContain('/j/abc');
   });
 

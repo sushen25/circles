@@ -13,9 +13,9 @@ import { editorReducer, emptyEditor, type EditorAction, type EditorState } from 
 import { editorView } from './view';
 
 /**
- * What the editor says, worked out before anything renders (ADR 0024): the
- * day tags, the spoken labels, where each day sits in the calendar, the panel
- * and the answer in words.
+ * What the editor says, worked out before anything renders (ADR 0024, ADR
+ * 0068): the tiles and their spoken labels, where each day sits in the
+ * calendar, the sheet's choices and the exact hours in words.
  */
 
 const WORDS: RowWords = {
@@ -39,68 +39,31 @@ function setUp(timing: PlanTiming) {
   const rows = dayRows(timing, TWELVE, WORDS, 'en-AU');
   const reduce = editorReducer(rows, timing);
   const run = (...actions: EditorAction[]): EditorState =>
-    actions.reduce(reduce, emptyEditor(rows));
+    actions.reduce(reduce, emptyEditor(rows, timing));
   const view = (state: EditorState) => editorView(state, rows, timing, TWELVE, 'en-AU');
   return { rows, run, view };
 }
 
 describe('the day grid', () => {
-  it('tags a day by the block its times are exactly, and "Some" for anything else', () => {
+  it('shows a tapped day as selected and an untapped one as not, with no tag on either', () => {
     const { run, view } = setUp(EVENINGS);
     const cells = [false, true, true, true, true, true, true, true, true, true];
 
-    const grid = view(
-      run(
-        { type: 'whole_day', day: 1 },
-        { type: 'paint', day: 3, cells },
-        { type: 'tick', day: 5 },
-      ),
-    ).grid;
+    const grid = view(run({ type: 'toggle_day', day: 1 }, { type: 'paint', day: 3, cells })).grid;
 
-    expect(grid[0]).toMatchObject({ number: '14', tag: undefined, hasTimes: false });
-    // On an evenings plan the whole band is the evening, so "Eve", not "Any".
-    expect(grid[1]).toMatchObject({ tag: 'Eve', hasTimes: true, selected: false });
-    expect(grid[3]).toMatchObject({ tag: 'Some', hasTimes: true });
-    expect(grid[5]).toMatchObject({ tag: undefined, selected: true });
+    expect(grid[0]).toMatchObject({ number: '14', selected: false });
+    expect(grid[1]).toMatchObject({ selected: true, hasTimes: false });
+    expect(grid.every((day) => day.tag === undefined)).toBe(true);
+    // A day adjusted by the half hour is still a tapped day.
+    expect(grid[3]).toMatchObject({ selected: true });
   });
 
-  it('says the full date and the times, or that there are none, to a screen reader', () => {
+  it('says the full date, and the times once it is tapped, to a screen reader', () => {
     const { run, view } = setUp(EVENINGS);
-    const grid = view(run({ type: 'whole_day', day: 1 })).grid;
+    const grid = view(run({ type: 'toggle_day', day: 1 })).grid;
 
-    expect(grid[0]!.label).toBe('Monday 14 September, no times yet');
+    expect(grid[0]!.label).toBe('Monday 14 September');
     expect(grid[1]!.label).toBe('Tuesday 15 September, 5:30–10:30 pm');
-  });
-
-  it('tags the blocks of a whole-day plan: morning, afternoon, and the whole day as Any', () => {
-    const { run, view } = setUp(WHOLE_DAYS);
-    const state = run(
-      { type: 'tick', day: 0 },
-      { type: 'block', kind: 'morning' },
-      { type: 'done' },
-      { type: 'tick', day: 1 },
-      { type: 'block', kind: 'afternoon' },
-      { type: 'done' },
-      { type: 'whole_day', day: 2 },
-      { type: 'tick', day: 3 },
-      { type: 'block', kind: 'evening' },
-    );
-
-    expect(
-      view(state)
-        .grid.slice(0, 4)
-        .map((day) => day.tag),
-    ).toEqual(['Morn', 'Aft', 'Any', 'Eve']);
-  });
-
-  it('names the day after the chip that was tapped where two blocks are the same hours (round 1)', () => {
-    // A custom morning plan: Morning and Any time are both 9 am to noon, and
-    // only Morning is offered, so the day it paints must read "Morn".
-    const { run, view } = setUp({ ...EVENINGS, daily: { startMin: 9 * 60, endMin: 12 * 60 } });
-    const state = run({ type: 'tick', day: 0 }, { type: 'block', kind: 'morning' });
-
-    expect(view(state).panel!.blocks.map((b) => b.kind)).toEqual(['morning']);
-    expect(view(state).grid[0]!.tag).toBe('Morn');
   });
 
   it('puts each day under its weekday, Monday first, whatever day the plan starts on', () => {
@@ -121,58 +84,79 @@ describe('the day grid', () => {
   });
 });
 
-describe('the time panel', () => {
-  it('is not there until a day is ticked', () => {
+describe('the answer line and the sheet', () => {
+  it('has neither until a day is tapped', () => {
     const { run, view } = setUp(EVENINGS);
 
-    expect(view(run()).panel).toBeUndefined();
+    expect(view(run()).answerLine).toBeUndefined();
+    expect(view(run()).sheet).toBeUndefined();
   });
 
-  it('names up to three ticked days, then counts them', () => {
+  it('says the tapped days and their time in one line', () => {
     const { run, view } = setUp(EVENINGS);
-    const three = run({ type: 'tick', day: 1 }, { type: 'tick', day: 3 }, { type: 'tick', day: 5 });
-
-    expect(view(three).panel!.title).toBe('Tue 15, Thu 17, Sat 19');
-    const four = run(
-      { type: 'tick', day: 1 },
-      { type: 'tick', day: 3 },
-      { type: 'tick', day: 5 },
-      { type: 'tick', day: 8 },
+    const three = run(
+      { type: 'toggle_day', day: 1 },
+      { type: 'toggle_day', day: 3 },
+      { type: 'toggle_day', day: 5 },
     );
-    expect(view(four).panel!.title).toBe('4 days selected');
+
+    expect(view(three).answerLine).toEqual({
+      days: 'Tue 15, Thu 17, Sat 19',
+      time: 'Evenings, from 5:30 pm',
+    });
+    expect(view(three).sheet!.covers).toBe('One answer covers Tue 15, Thu 17 and Sat 19.');
   });
 
-  it('offers the blocks with their hours, on when every ticked day has them', () => {
-    const { run, view } = setUp(EVENINGS);
-
-    const ticked = run({ type: 'tick', day: 1 }, { type: 'tick', day: 3 });
-    expect(view(ticked).panel!.blocks).toEqual([
-      { kind: 'evening', label: 'Evening', detail: '5:30–10:30 pm', on: false },
-    ]);
-    expect(view(ticked).panel!.canClear).toBe(false);
-
-    const evening = run(
-      { type: 'tick', day: 1 },
-      { type: 'tick', day: 3 },
-      { type: 'block', kind: 'evening' },
-    );
-    expect(view(evening).panel!.blocks[0]!.on).toBe(true);
-    expect(view(evening).panel!.canClear).toBe(true);
-  });
-
-  it('gives each block of a whole-day plan its own hours', () => {
+  it('offers the choices with their hours, the picked one on', () => {
     const { run, view } = setUp(WHOLE_DAYS);
+    const tapped = run({ type: 'toggle_day', day: 5 });
 
-    expect(view(run({ type: 'tick', day: 5 })).panel!.blocks.map((b) => b.detail)).toEqual([
-      '9 am–12 pm',
-      '12–5 pm',
-      '5:30–10:30 pm',
-      '9 am–10:30 pm',
+    expect(view(tapped).sheet!.choices).toEqual([
+      { kind: 'evening', label: 'Evening', detail: 'from 5:30 pm', on: true },
+      { kind: 'afternoon', label: 'Afternoon', detail: '12–5 pm', on: false },
+      { kind: 'any_time', label: 'Any time', detail: undefined, on: false },
     ]);
+    const afternoon = run(
+      { type: 'toggle_day', day: 5 },
+      { type: 'set_window', kind: 'afternoon' },
+    );
+    expect(view(afternoon).sheet!.choices.map((c) => c.on)).toEqual([false, true, false]);
+  });
+
+  it('gives the same hours for the same time of day on several days, and says when they vary', () => {
+    const { run, view } = setUp(WHOLE_DAYS);
+    const several = run(
+      { type: 'toggle_day', day: 1 },
+      { type: 'toggle_day', day: 3 },
+      { type: 'toggle_day', day: 5 },
+    );
+
+    // Three different dates, one clock time: not "Times vary by day".
+    expect(view(several).sheet!.choices.map((c) => c.detail)).toEqual([
+      'from 5:30 pm',
+      '12–5 pm',
+      undefined,
+    ]);
+  });
+
+  it('offers only Evening on an evenings plan, because Any time is the same hours', () => {
+    const { run, view } = setUp(EVENINGS);
+
+    expect(view(run({ type: 'toggle_day', day: 1 })).sheet!.choices).toEqual([
+      { kind: 'evening', label: 'Evening', detail: 'from 5:30 pm', on: true },
+    ]);
+  });
+
+  it('turns none of the choices on once a day is adjusted by the half hour', () => {
+    const { run, view } = setUp(WHOLE_DAYS);
+    const cells = new Array(27).fill(false).map((_, i) => i > 20 && i < 24);
+    const adjusted = run({ type: 'toggle_day', day: 5 }, { type: 'paint', day: 5, cells });
+
+    expect(view(adjusted).sheet!.choices.every((choice) => !choice.on)).toBe(true);
   });
 });
 
-describe('my answer', () => {
+describe('the exact hours', () => {
   it('lists the days with times, in words, and nothing else', () => {
     const { run, view } = setUp(EVENINGS);
     const cells = [false, false, true, true, true, true, false, false, true, true];
@@ -209,7 +193,7 @@ describe('my answer', () => {
   });
 });
 
-describe('what the others have said (SUS-129)', () => {
+describe('what the others have said (SUS-129, SUS-206)', () => {
   /** One person's evening on a day of September 2026, Melbourne (UTC+10). */
   const evening = (day: number, from: string, to: string) =>
     interval(fromISO(`2026-09-${day}T${from}:00+10:00`), fromISO(`2026-09-${day}T${to}:00+10:00`));
@@ -241,14 +225,11 @@ describe('what the others have said (SUS-129)', () => {
     return { rows, run, view };
   }
 
-  it('says nothing at all when the others could not be read: the editor as it was', () => {
+  it('says nothing at all when the others could not be read: no figure on any tile', () => {
     const { run, view } = withOthers(EVENINGS, undefined);
-    const shown = view(
-      run({ type: 'tick', day: 3 }, { type: 'whole_day', day: 3 }, { type: 'open', day: 3 }),
-    );
-    expect(shown.othersLine).toBeUndefined();
+    const shown = view(run({ type: 'toggle_day', day: 3 }, { type: 'open', day: 3 }));
+    expect(shown.counted).toBe(false);
     expect(shown.grid.every((day) => day.others === undefined)).toBe(true);
-    expect(shown.panel?.blocks.every((block) => block.others === undefined)).toBe(true);
     expect(shown.answers[0]).toMatchObject({
       others: undefined,
       peak: undefined,
@@ -256,50 +237,39 @@ describe('what the others have said (SUS-129)', () => {
     });
   });
 
-  it('puts the legend above the grid and a figure on each day somebody could make', () => {
+  it('puts the others on an untapped day, a muted zero where nobody could make it', () => {
     const { run, view } = withOthers(EVENINGS, FIVE);
     const shown = view(run());
-    expect(shown.othersLine).toBe(
-      '5 of 6 have answered. The number on each day is how many of them could make it.',
-    );
-    expect(shown.grid[0]!.others).toBeUndefined();
-    expect(shown.grid[1]!.others).toBe('2');
+    expect(shown.counted).toBe(true);
+    expect(shown.grid[0]).toMatchObject({ others: '0', othersMuted: true });
+    expect(shown.grid[1]).toMatchObject({ others: '2', othersMuted: false });
     expect(shown.grid[3]!.others).toBe('5');
     expect(shown.grid[5]!.others).toBe('1');
     // In words for a screen reader; nothing added to a day nobody picked.
-    expect(shown.grid[3]!.label).toMatch(
-      /^Thursday 17 September, no times yet, 5 others could make it$/,
-    );
-    expect(shown.grid[5]!.label).toMatch(/, 1 other could make it$/);
-    expect(shown.grid[0]!.label).toMatch(/^Monday 14 September, no times yet$/);
+    expect(shown.grid[3]!.label).toBe('Thursday 17 September, 5 others could make it');
+    expect(shown.grid[5]!.label).toBe('Saturday 19 September, 1 other could make it');
+    expect(shown.grid[0]!.label).toBe('Monday 14 September');
   });
 
-  it('gives each block a third line: agreed, up to, or nobody yet', () => {
+  it('counts the reader once they tap: 5 others become 6, and untapping gives 5 back', () => {
     const { run, view } = withOthers(EVENINGS, FIVE);
-    const one = view(run({ type: 'tick', day: 3 })).panel!.blocks;
-    expect(one.map((block) => block.others)).toEqual(['5 free']);
-    const three = view(
-      run({ type: 'tick', day: 1 }, { type: 'tick', day: 3 }, { type: 'tick', day: 5 }),
-    ).panel!.blocks;
-    expect(three.map((block) => block.others)).toEqual(['Up to 5 free']);
-    const none = view(run({ type: 'tick', day: 0 })).panel!.blocks;
-    expect(none.map((block) => block.others)).toEqual(['Nobody yet']);
+    const tapped = run({ type: 'toggle_day', day: 3 });
+    expect(view(tapped).grid[3]).toMatchObject({ others: '6', selected: true, othersMuted: false });
+    expect(view(tapped).grid[3]!.label).toBe(
+      'Thursday 17 September, 5:30–10:30 pm, you and 5 others can make it',
+    );
+    const untapped = run({ type: 'toggle_day', day: 3 }, { type: 'toggle_day', day: 3 });
+    expect(view(untapped).grid[3]).toMatchObject({ others: '5', selected: false });
   });
 
-  it('counts a block by anyone with any half hour inside it, not the most at once', () => {
-    const timing = WHOLE_DAYS;
-    const { run, view } = withOthers(timing, {
-      ...FIVE,
-      withTimes: 2,
-      // Saturday 19th: one free in the morning, another late in the morning.
-      days: [[evening(19, '09:00', '09:30')], [evening(19, '11:30', '12:00')]],
-    });
-    const blocks = view(run({ type: 'tick', day: 5 })).panel!.blocks;
-    expect(blocks.find((block) => block.kind === 'morning')?.others).toBe('2 free');
-    expect(blocks.find((block) => block.kind === 'evening')?.others).toBe('Nobody yet');
+  it('shows 1 for the reader alone on a day nobody else could make, and says so', () => {
+    const { run, view } = withOthers(EVENINGS, FIVE);
+    const alone = view(run({ type: 'toggle_day', day: 0 })).grid[0]!;
+    expect(alone).toMatchObject({ others: '1', othersMuted: false });
+    expect(alone.label).toBe('Monday 14 September, 5:30–10:30 pm, only you so far');
   });
 
-  it('says how many others each line of the answer overlaps', () => {
+  it('says how many others each line of the exact hours overlaps', () => {
     const { run, view } = withOthers(EVENINGS, FIVE);
     const early = [true, false, false, false, false, false, false, false, false, false];
     const answers = view(
@@ -345,31 +315,21 @@ describe('what the others have said (SUS-129)', () => {
     expect(monday!.counts).toBeUndefined();
   });
 
-  it('teaches, below the threshold, and shows no counts anywhere', () => {
-    const { run, view } = withOthers(EVENINGS, NOBODY);
-    const shown = view(
-      run({ type: 'tick', day: 3 }, { type: 'whole_day', day: 3 }, { type: 'open', day: 3 }),
-    );
-    expect(shown.othersLine).toBe(
-      "You're the first to answer. As replies come in, each day will show how many could make it.",
-    );
-    expect(shown.grid.every((day) => day.others === undefined)).toBe(true);
-    expect(shown.panel!.blocks[0]!.others).toBeUndefined();
-    expect(shown.answers[0]).toMatchObject({
-      others: undefined,
-      peak: undefined,
-      counts: undefined,
-    });
+  it('shows no counts anywhere below the threshold: the first to answer, or others with no times', () => {
+    for (const said of [NOBODY, { ...NOBODY, answered: 2, flexible: 1 }]) {
+      const { run, view } = withOthers(EVENINGS, said);
+      const shown = view(run({ type: 'toggle_day', day: 3 }, { type: 'open', day: 3 }));
+      expect(shown.counted).toBe(false);
+      expect(shown.grid.every((day) => day.others === undefined)).toBe(true);
+      expect(shown.answers[0]).toMatchObject({
+        others: undefined,
+        peak: undefined,
+        counts: undefined,
+      });
+    }
   });
 
-  it('does not call it the first answer when others have said no or "I\'m easy"', () => {
-    const { run, view } = withOthers(EVENINGS, { ...NOBODY, answered: 2, flexible: 1 });
-    expect(view(run()).othersLine).toBe(
-      'Nobody else has given times yet. As they do, each day will show how many could make it.',
-    );
-  });
-
-  it('adds "I\'m easy" to every count, and counts the others besides a reader who has answered', () => {
+  it('adds "I\'m easy" to every count', () => {
     const { run, view } = withOthers(EVENINGS, {
       ...FIVE,
       answered: 4,
@@ -377,12 +337,8 @@ describe('what the others have said (SUS-129)', () => {
       flexible: 1,
       readerAnswered: true,
     });
-    const shown = view(run({ type: 'tick', day: 0 }));
-    expect(shown.othersLine).toBe(
-      '4 of the other 5 have answered. The number on each day is how many of them could make it.',
-    );
-    expect(shown.grid[0]!.others).toBe('1');
+    const shown = view(run({ type: 'toggle_day', day: 0 }));
+    expect(shown.grid[0]!.others).toBe('2');
     expect(shown.grid[3]!.others).toBe('6');
-    expect(shown.panel!.blocks[0]!.others).toBe('1 free');
   });
 });

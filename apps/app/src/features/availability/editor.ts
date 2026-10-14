@@ -10,7 +10,15 @@ import {
 } from '@circles/domain';
 
 import type { Span } from '../../data/availability';
-import { blockMask, offeredBlocks, usualCells, type BlockKind, type BlockTiming } from './blocks';
+import {
+  blockMask,
+  defaultWindow,
+  offeredBlocks,
+  usualCells,
+  windowsFor,
+  type BlockKind,
+  type BlockTiming,
+} from './blocks';
 import type { DayRow } from './days';
 
 /**
@@ -22,11 +30,14 @@ import type { DayRow } from './days';
  * identity (property-tested in the domain). Every action is a synchronous
  * state change and nothing waits on the network (manifesto §5.5).
  *
- * People pick days first and then a time once for all of them, so the state
- * also holds which days are ticked, which one is open for adjusting, and what
- * "Start over" cleared. Those three are **view state**: the draft on the device
- * and the request to the server are built from `days` and `flexible` alone
- * (`useSendAnswer`), so a selection never reaches storage or the network.
+ * People pick days first and then a time once for all of them (ADR 0068, which
+ * amends ADR 0024): tapping a day gives it the current time of day, so a tapped
+ * day is a day with times, and "Change time" gives every tapped day another
+ * one. The state also holds that time of day (`window`), which day is open for
+ * adjusting by the half hour, and what "Start over" cleared. Those three are
+ * **view state**: the draft on the device and the request to the server are
+ * built from `days` and `flexible` alone (`useSendAnswer`), so a choice of
+ * window never reaches storage or the network.
  *
  * "I'm easy" dims the editor and keeps what was there: somebody who turns it
  * on and off again gets back what they had, not an empty grid.
@@ -36,8 +47,11 @@ export type EditorState = {
   /** One `boolean[]` per row, as long as that row's cells. */
   days: boolean[][];
   flexible: boolean;
-  /** Ticked days, as row indices in date order. View state. */
-  ticked: readonly number[];
+  /**
+   * The time of day a newly tapped day gets, and the one "Change time" last
+   * applied. View state.
+   */
+  window: BlockKind;
   /** The one day open for adjusting by the half hour. View state. */
   open: number | undefined;
   /** What "Start over" cleared, until the next change to the answer. View state. */
@@ -49,45 +63,62 @@ export type EditorAction =
   | { type: 'paint'; day: number; cells: boolean[] }
   /** "Any time that day" / "Clear this day" on the open day. */
   | { type: 'whole_day'; day: number }
-  | { type: 'tick'; day: number }
-  | { type: 'done' }
-  /** A block chip: on or off for every ticked day it exists on. */
-  | { type: 'block'; kind: BlockKind }
-  | { type: 'clear_ticked' }
+  /** A tap on a day: it gets the current time of day, or loses its times. */
+  | { type: 'toggle_day'; day: number }
+  /** "Change time": this time of day on every tapped day, whatever they had. */
+  | { type: 'set_window'; kind: BlockKind }
   | { type: 'remove_day'; day: number }
   /** Opens a day for adjusting, or closes it if it is the one open. */
   | { type: 'open'; day: number }
+  /** Closes whichever day is open, on the way out of the half hours. */
+  | { type: 'close' }
   | { type: 'start_over' }
   | { type: 'undo' }
   | { type: 'flexible'; on: boolean }
   /**
-   * "Use my previous times": paints the day-parts the person has offered before onto the plan
+   * Previous times: paints the day-parts the person has offered before onto the plan
    * (ADR 0005). Added to what is there, never sent — it is a start the person
    * then changes, and Send is still theirs to press.
    */
   | { type: 'usual'; parts: readonly DayPart[] }
   | { type: 'load'; state: EditorState };
 
-function withDays(days: boolean[][], flexible = false): EditorState {
-  return { days, flexible, ticked: [], open: undefined, undo: undefined };
+function withDays(days: boolean[][], window: BlockKind, flexible = false): EditorState {
+  return { days, flexible, window, open: undefined, undo: undefined };
 }
 
-export function emptyEditor(rows: readonly DayRow[]): EditorState {
-  return withDays(rows.map((row) => row.cells.map(() => false)));
+export function emptyEditor(rows: readonly DayRow[], timing: BlockTiming): EditorState {
+  return withDays(
+    rows.map((row) => row.cells.map(() => false)),
+    defaultWindow(rows, timing),
+  );
+}
+
+/** The cells of `kind` on a day, or the cells of any time that day where it has none. */
+function windowCells(kind: BlockKind, row: DayRow, timing: BlockTiming): boolean[] | undefined {
+  return blockMask(kind, row, timing);
 }
 
 /** Stored windows back onto the grid, for reopening an answer or a draft. */
 export function editorFrom(
   rows: readonly DayRow[],
-  timing: PlanTiming,
+  timing: BlockTiming,
   windows: readonly Span[],
   flexible: boolean,
 ): EditorState {
   const intervals = windows.map((w) => ({ start: fromISO(w.start), end: fromISO(w.end) }));
-  return withDays(
-    rows.map((row) => windowsToCells(row.date, intervals, timing)),
-    flexible,
-  );
+  const days = rows.map((row) => windowsToCells(row.date, intervals, timing));
+  // A new tap gets the time of day the first answered day already has, so a
+  // reopened Afternoon answer grows by afternoons.
+  const first = days.findIndex((cells) => cells.some(Boolean));
+  const same =
+    first < 0
+      ? undefined
+      : windowsFor(timing).find((kind) => {
+          const mask = windowCells(kind, rows[first]!, timing);
+          return mask !== undefined && mask.every((on, i) => on === days[first]![i]);
+        });
+  return withDays(days, same ?? defaultWindow(rows, timing), flexible);
 }
 
 /** The cells as windows: aligned, merged, sorted, ready to send. */
@@ -112,27 +143,30 @@ export function hasTimes(state: EditorState, day: number): boolean {
 }
 
 /**
- * On when every ticked day the block exists on already has all of it. A chip
- * is a checkbox, not a mode (S1-25): it says whether something is true of the
- * answer for these days, and tapping it makes it true or untrue for all of
- * them at once.
+ * Whether every tapped day has exactly this time of day: the choice "Change
+ * time" shows as picked. Exactly, not "at least": a day adjusted by the half
+ * hour is no longer any of the three.
  */
-export function blockOn(
+export function windowOn(
   kind: BlockKind,
   state: EditorState,
   rows: readonly DayRow[],
   timing: BlockTiming,
 ): boolean {
-  let applies = false;
-  for (const day of state.ticked) {
-    const row = rows[day];
-    const mask = row === undefined ? undefined : blockMask(kind, row, timing);
-    if (mask === undefined) continue;
-    applies = true;
+  const tapped = tappedDays(state);
+  if (tapped.length === 0) return false;
+  return tapped.every((day) => {
+    const mask = blockMask(kind, rows[day]!, timing);
     const cells = state.days[day] ?? [];
-    if (!mask.every((wanted, i) => !wanted || cells[i] === true)) return false;
-  }
-  return applies;
+    return (
+      mask !== undefined && mask.length === cells.length && mask.every((on, i) => on === cells[i])
+    );
+  });
+}
+
+/** The days the person has tapped: the days with any time on them. */
+export function tappedDays(state: Pick<EditorState, 'days'>): number[] {
+  return state.days.flatMap((cells, day) => (cells.some(Boolean) ? [day] : []));
 }
 
 export function wholeDayOn(state: EditorState, day: number): boolean {
@@ -192,39 +226,50 @@ export function editorReducer(
           ),
         );
       }
-      case 'tick': {
-        const ticked = state.ticked.includes(action.day)
-          ? state.ticked.filter((day) => day !== action.day)
-          : [...state.ticked, action.day].sort((a, b) => a - b);
-        return { ...state, ticked };
+      case 'toggle_day': {
+        const row = rows[action.day];
+        if (row === undefined) return state;
+        if (hasTimes(state, action.day)) {
+          return {
+            ...answer(
+              state,
+              mapDays(
+                state,
+                (day) => day === action.day,
+                (cells) => cells.map(() => false),
+              ),
+            ),
+            open: state.open === action.day ? undefined : state.open,
+          };
+        }
+        const mask = windowCells(state.window, row, timing);
+        if (mask === undefined) return state;
+        return answer(
+          state,
+          mapDays(
+            state,
+            (day) => day === action.day,
+            () => mask,
+          ),
+        );
       }
-      case 'done':
-        return { ...state, ticked: [] };
-      case 'block': {
-        const offer = offeredBlocks(state.ticked, rows, timing).find((o) => o.kind === action.kind);
+      case 'set_window': {
+        const offer = offeredBlocks(tappedDays(state), rows, timing, windowsFor(timing)).find(
+          (o) => o.kind === action.kind,
+        );
         if (offer === undefined) return state;
-        const on = blockOn(action.kind, state, rows, timing);
-        return answer(
-          state,
-          mapDays(
+        return {
+          ...answer(
             state,
-            (day) => offer.days.includes(day),
-            (cells, day) => {
-              const mask = blockMask(action.kind, rows[day]!, timing)!;
-              return cells.map((painted, i) => (mask[i] === true ? !on : painted));
-            },
+            mapDays(
+              state,
+              (day) => offer.days.includes(day),
+              (_, day) => windowCells(action.kind, rows[day]!, timing)!,
+            ),
           ),
-        );
+          window: action.kind,
+        };
       }
-      case 'clear_ticked':
-        return answer(
-          state,
-          mapDays(
-            state,
-            (day) => state.ticked.includes(day),
-            (cells) => cells.map(() => false),
-          ),
-        );
       case 'remove_day':
         return {
           ...answer(
@@ -237,6 +282,8 @@ export function editorReducer(
           ),
           open: state.open === action.day ? undefined : state.open,
         };
+      case 'close':
+        return { ...state, open: undefined };
       case 'open':
         return { ...state, open: state.open === action.day ? undefined : action.day };
       case 'start_over':
@@ -244,7 +291,6 @@ export function editorReducer(
         return {
           ...state,
           days: state.days.map((cells) => cells.map(() => false)),
-          ticked: [],
           open: undefined,
           undo: state.days,
         };

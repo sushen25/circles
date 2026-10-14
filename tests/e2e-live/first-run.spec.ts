@@ -184,7 +184,6 @@ test('a new organiser reaches a shareable plan link with two typed inputs and no
   await page.getByRole('button', { name: 'Add my times' }).click();
   await expect(page).toHaveURL(new RegExp(`/j/${plan!.code}$`));
   await page.getByRole('group', { name: 'Days in this plan' }).getByRole('button').first().click();
-  await page.getByRole('checkbox', { name: /^Evening/ }).click();
   await page.getByRole('button', { name: 'Send my times' }).click();
   await expect(page.getByText('Thanks, Maya. Your times are in.')).toBeVisible();
   // An account is already told about this plan, so the guest offer is not made.

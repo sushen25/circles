@@ -3,25 +3,27 @@ import { localDate, zone, type PlanTiming } from '@circles/domain';
 import { describe, expect, it, vi } from 'vitest';
 
 /**
- * A block that exists on some ticked days and not others (ADR 0024).
+ * A time of day that exists on some tapped days and not others (ADR 0024, ADR 0068).
  *
- * A plan has one daily band, so with today's four blocks this does not happen
+ * A plan has one daily band, so with today's blocks this does not happen
  * on real dates: every day of a plan offers the same blocks. The editor still
  * has to be right if it ever does — a band per weekday, or a new block — so the
- * domain's answer for one day is taken away here: no morning on Tuesday 15.
+ * domain's answer for one day is taken away here: no afternoon on Tuesday 15.
  */
 vi.mock('@circles/domain', async (original) => {
   const domain = await original<typeof Domain>();
   return {
     ...domain,
     applyShortcut: (...args: Parameters<typeof Domain.applyShortcut>) =>
-      args[0] === 'morning' && args[1] === '2026-09-15' ? undefined : domain.applyShortcut(...args),
+      args[0] === 'afternoon' && args[1] === '2026-09-15'
+        ? undefined
+        : domain.applyShortcut(...args),
   };
 });
 
-const { offeredBlocks } = await import('./blocks');
+const { offeredBlocks, windowsFor } = await import('./blocks');
 const { dayRows } = await import('./days');
-const { editorReducer, emptyEditor, blockOn } = await import('./editor');
+const { editorReducer, emptyEditor, windowOn } = await import('./editor');
 const { editorView } = await import('./view');
 
 const TIMING: PlanTiming = {
@@ -39,29 +41,38 @@ const words = {
 const TUE = 1;
 const SAT = 5;
 
-describe('a block on only some of the ticked days', () => {
+describe('a time of day on only some of the tapped days', () => {
   const rows = dayRows(TIMING, { hour12: true }, words, 'en-AU');
   const reduce = editorReducer(rows, TIMING);
-  const ticked = [{ type: 'tick', day: TUE } as const, { type: 'tick', day: SAT } as const].reduce(
-    reduce,
-    emptyEditor(rows),
-  );
+  const tapped = [
+    { type: 'toggle_day', day: TUE } as const,
+    { type: 'toggle_day', day: SAT } as const,
+  ].reduce(reduce, emptyEditor(rows, TIMING));
 
   it('is offered for the days it exists on', () => {
-    expect(offeredBlocks([TUE, SAT], rows, TIMING)[0]).toEqual({ kind: 'morning', days: [SAT] });
+    const offers = offeredBlocks([TUE, SAT], rows, TIMING, windowsFor(TIMING));
+    expect(offers.find((offer) => offer.kind === 'afternoon')).toEqual({
+      kind: 'afternoon',
+      days: [SAT],
+    });
   });
 
-  it('paints only those days, and is on once they have it', () => {
-    const morning = reduce(ticked, { type: 'block', kind: 'morning' });
+  it('paints only those days, and is on only for tapped days that all have it', () => {
+    const afternoon = reduce(tapped, { type: 'set_window', kind: 'afternoon' });
 
-    expect(morning.days[SAT]!.slice(0, 6)).toEqual(new Array(6).fill(true));
-    expect(morning.days[TUE]!.some(Boolean)).toBe(false);
-    expect(blockOn('morning', morning, rows, TIMING)).toBe(true);
+    expect(afternoon.days[SAT]!.slice(6, 16)).toEqual(new Array(10).fill(true));
+    // Tuesday keeps what it had: the evening, since it has no afternoon.
+    expect(afternoon.days[TUE]).toEqual(tapped.days[TUE]);
+    expect(windowOn('afternoon', afternoon, rows, TIMING)).toBe(false);
   });
 
-  it('says so on the chip', () => {
-    const chip = editorView(ticked, rows, TIMING, { hour12: true }, 'en-AU').panel!.blocks[0]!;
+  it('says on the sheet that the choice covers the days it can', () => {
+    const view = editorView(tapped, rows, TIMING, { hour12: true }, 'en-AU');
 
-    expect(chip).toMatchObject({ label: 'Morning', detail: '9 am–12 pm · 1 of these 2 days' });
+    expect(view.sheet!.choices.map((choice) => choice.label)).toEqual([
+      'Evening',
+      'Afternoon',
+      'Any time',
+    ]);
   });
 });

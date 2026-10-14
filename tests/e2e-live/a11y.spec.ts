@@ -62,14 +62,21 @@ test('the availability editor has no serious accessibility violations', async ({
   await page.goto(`/j/${crew.planCode}`);
   await page.getByLabel('Your name').fill('Ren');
   await page.getByRole('button', { name: 'Continue' }).click();
-  await expect(page.getByText("Times I'd actually be up for")).toBeVisible();
-  // With a day open, so the half hours are in the tree too.
+  await expect(page.getByText('Which days could work?')).toBeVisible();
+  // With a day tapped, so the answer line and the sheet are in the tree...
   await page.getByRole('group', { name: 'Days in this plan' }).getByRole('button').first().click();
-  await page.getByRole('checkbox', { name: /^Evening/ }).click();
-  await page
-    .getByRole('button', { name: /Adjust by the half hour$/ })
-    .first()
-    .click();
+  await expect(page.getByText('Evenings, from 5:30 pm')).toBeVisible();
+  expect(await seriousViolations(page)).toEqual([]);
+
+  await page.getByRole('button', { name: /^Change the time for/ }).click();
+  await expect(page.getByRole('radio', { name: /^Evening/ })).toBeVisible();
+  expect(await seriousViolations(page)).toEqual([]);
+
+  // ...and with a day open, so the half hours are too.
+  await page.getByRole('button', { name: 'Pick exact hours instead' }).click();
+  await expect(
+    page.getByRole('button', { name: /Adjust by the half hour$/ }).first(),
+  ).toHaveAttribute('aria-expanded', 'true');
   expect(await seriousViolations(page)).toEqual([]);
 });
 
@@ -149,7 +156,7 @@ test('at 200% text, the editor cuts off none of its decisions', async ({ page },
   await page.goto(`/j/${crew.planCode}`);
   await page.getByLabel('Your name').fill('Ren');
   await page.getByRole('button', { name: 'Continue' }).click();
-  await expect(page.getByText("Times I'd actually be up for")).toBeVisible();
+  await expect(page.getByText('Which days could work?')).toBeVisible();
   await page.getByRole('group', { name: 'Days in this plan' }).getByRole('button').first().click();
 
   // The browser's own text zoom: every size in the app is in CSS pixels
@@ -163,7 +170,7 @@ test('at 200% text, the editor cuts off none of its decisions', async ({ page },
   });
 
   const decisions = [
-    page.getByRole('checkbox', { name: /^Evening/ }),
+    page.getByRole('button', { name: /^Change the time for/ }),
     page.getByRole('switch', { name: "I'm easy" }),
     page.getByRole('button', { name: 'None of these dates work for me' }),
     page.getByRole('button', { name: 'Send my times' }),

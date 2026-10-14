@@ -10,6 +10,7 @@ import {
   OTHERS_THRESHOLD,
   cellCounts,
   freeFor,
+  headcount,
   othersShown,
   peakOf,
   type OthersSaid,
@@ -150,5 +151,25 @@ describe('cellCounts and peakOf', () => {
       cells,
     );
     expect(counts).toEqual([0, 1, 1, 0, 0, 0, 0, 0, 0, 0]);
+  });
+});
+
+describe('headcount (SUS-206)', () => {
+  it('is the others alone until the reader taps the day', () => {
+    expect(headcount(3, false)).toBe(3);
+  });
+
+  it('counts the reader once they tap: 3 others become 4, and untapping gives 3 back', () => {
+    expect(headcount(3, true)).toBe(4);
+    expect(headcount(headcount(3, true) - 1, false)).toBe(3);
+  });
+
+  it('is 1 for the reader alone on a day nobody else could make, and 0 untapped', () => {
+    expect(headcount(0, true)).toBe(1);
+    expect(headcount(0, false)).toBe(0);
+  });
+
+  it('never goes below zero', () => {
+    expect(headcount(-2, false)).toBe(0);
   });
 });

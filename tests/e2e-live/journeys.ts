@@ -32,14 +32,22 @@ export async function downloadCalendarFile(page: Page): Promise<Download> {
   return download;
 }
 
-/** On the editor: ticks `indices`, turns Evening on, and sends. Waits for Sent. */
+/**
+ * On the editor: makes sure `indices` are tapped, which gives each the evening,
+ * and sends. Waits for Sent. A member with earlier answers lands with their
+ * previous times already tapped (ADR 0068), and a second tap would take such a
+ * day away, so a day already tapped is left alone.
+ */
 export async function sendEvenings(page: Page, code: string, ...indices: number[]): Promise<void> {
-  await expect(page.getByText("Times I'd actually be up for")).toBeVisible();
+  await expect(page.getByText('Which days could work?')).toBeVisible();
+  // The editor reads the member's previous times as it opens and, if there are
+  // any, taps them: let that settle before looking at which days are tapped.
+  await page.waitForLoadState('networkidle');
   for (const index of indices.length === 0 ? [1] : indices) {
-    await days(page).nth(index).click();
-    await expect(days(page).nth(index)).toHaveAttribute('aria-pressed', 'true');
+    const day = days(page).nth(index);
+    if ((await day.getAttribute('aria-pressed')) !== 'true') await day.click();
+    await expect(day).toHaveAttribute('aria-pressed', 'true');
   }
-  await page.getByRole('checkbox', { name: /^Evening/ }).click();
   await page.getByRole('button', { name: 'Send my times' }).click();
   await expect(page).toHaveURL(new RegExp(`/j/${code}/sent$`));
   // Sent itself, not only its URL: a hard navigation straight after the client

@@ -8,10 +8,10 @@ import { sundayCrew, type Scenario } from './stack';
  * read from `others_availability` as the guest, worked out by the domain, and
  * never with a name beside it.
  *
- * Three strangers arrive on the plan link in turn. The first is told they are
- * first; the third sees the first two answers as counts — on the days, on the
- * Evening chip, on the line of their answer and over the open day's half
- * hours — and neither of their names.
+ * Three strangers arrive on the plan link in turn. The first has no
+ * number to be shown; the third sees the first two answers as counts — on the tiles, in the
+ * words of each day, and over the open day's half hours — and neither of their
+ * names.
  */
 
 /** A stranger on the plan link: the name, then the editor. */
@@ -23,7 +23,7 @@ async function arrives(page: Page, crew: Scenario, name: string): Promise<void> 
   if (await newHere.isVisible()) await newHere.click();
   await page.getByLabel('Your name').fill(name);
   await page.getByRole('button', { name: 'Continue' }).click();
-  await expect(page.getByText("Times I'd actually be up for")).toBeVisible();
+  await expect(page.getByText('Which days could work?')).toBeVisible();
 }
 
 test('a third guest sees the first two answers as counts, and no name', async ({
@@ -32,10 +32,11 @@ test('a third guest sees the first two answers as counts, and no name', async ({
 }) => {
   const crew = sundayCrew();
 
-  // Ren is first, and is told so instead of being shown a row of noughts.
+  // Ren is first: there is no number to explain, so the line says only what to
+  // do, and no tile carries a figure instead of a row of noughts.
   await arrives(page, crew, 'Ren');
-  await expect(page.getByText(/^You're the first to answer\./)).toBeVisible();
-  await expect(days(page).nth(1)).toHaveAccessibleName(/, no times yet$/);
+  await expect(page.getByText("Tap every day you'd be up for.", { exact: true })).toBeVisible();
+  await expect(days(page).nth(1)).not.toHaveAccessibleName(/could make it/);
   await sendEvenings(page, crew.planCode, 1, 3);
 
   // Kit: the fourth and sixth days' evenings.
@@ -48,25 +49,29 @@ test('a third guest sees the first two answers as counts, and no name', async ({
   await arrives(lous, crew, 'Lou');
   await expect(
     lous.getByText(
-      '2 of 4 have answered. The number on each day is how many of them could make it.',
+      "Tap every day you'd be up for. The number is how many people can make it, you included once you tap.",
     ),
   ).toBeVisible();
-  // In words on each day; nothing on a day neither of them picked.
-  await expect(days(lous).nth(0)).toHaveAccessibleName(/, no times yet$/);
-  await expect(days(lous).nth(1)).toHaveAccessibleName(/, no times yet, 1 other could make it$/);
-  await expect(days(lous).nth(3)).toHaveAccessibleName(/, no times yet, 2 others could make it$/);
+  // In words on each day, and as a figure on the tile; a muted zero where neither picked.
+  await expect(days(lous).nth(0)).not.toHaveAccessibleName(/could make it/);
+  await expect(days(lous).nth(0)).toContainText('0');
+  await expect(days(lous).nth(1)).toHaveAccessibleName(/, 1 other could make it$/);
+  await expect(days(lous).nth(3)).toHaveAccessibleName(/, 2 others could make it$/);
   await expect(days(lous).nth(5)).toHaveAccessibleName(/, 1 other could make it$/);
 
-  // The fourth day's Evening: both of them.
+  // The fourth day, tapped: both of them, and Lou makes three.
   await days(lous).nth(3).click();
-  await expect(lous.getByRole('checkbox', { name: /^Evening, .*, 2 free$/ })).toBeVisible();
-  // With the first day too, the days differ.
+  await expect(days(lous).nth(3)).toHaveAccessibleName(/, you and 2 others can make it$/);
+  await expect(days(lous).nth(3)).toContainText('3');
+  // With the first day too: nobody else is free on it, so it is only Lou.
   await days(lous).nth(0).click();
-  await expect(lous.getByRole('checkbox', { name: /^Evening, .*, Up to 2 free$/ })).toBeVisible();
-  await lous.getByRole('checkbox', { name: /^Evening/ }).click();
+  await expect(days(lous).nth(0)).toHaveAccessibleName(/, only you so far$/);
+  await expect(days(lous).nth(0)).toContainText('1');
 
-  // The answer's lines: the first day meets nobody, the fourth both.
-  const lines = lous.getByRole('button', { name: /Adjust by the half hour$/ });
+  // The half hours: the first day meets nobody, the fourth both.
+  await lous.getByRole('button', { name: /^Change the time for/ }).click();
+  await lous.getByRole('button', { name: 'Pick exact hours instead' }).click();
+  const lines = lous.getByRole('button', { name: /Adjust by the half hour/ });
   await expect(lines.nth(0)).toHaveAccessibleName(/\. No overlap with anyone yet\. /);
   await expect(lines.nth(1)).toHaveAccessibleName(/\. Overlaps with 2 others\. /);
   await lines.nth(1).click();
@@ -74,6 +79,7 @@ test('a third guest sees the first two answers as counts, and no name', async ({
     lous.getByText(/^Others free, by the half hour\. The most is 2, 5:30.10:30\spm\.$/),
   ).toBeVisible();
   await expect(lous.getByRole('checkbox', { name: /\. 2 others free$/ }).first()).toBeVisible();
+  await lous.getByRole('button', { name: 'Done', exact: true }).click();
 
   // Counts, never names: neither Ren nor Kit is anywhere on Lou's screen.
   const text = await lous.locator('body').innerText();

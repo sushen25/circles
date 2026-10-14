@@ -17,32 +17,12 @@ import type { DayRow } from './days';
 
 /**
  * The editor's words for what the others have said (SUS-129, ADR 0045): the
- * line above the grid, the figure on a day, the third line on a block and on a
- * line of the answer, and the sentence and figures over an open day's half
- * hours. Every number comes from the domain (`freeFor`); this only says it.
+ * figure on a day, the third line on a line of the exact hours, and the
+ * sentence and figures over an open day's half hours. Every number comes from the domain (`freeFor`); this only says it.
  *
  * `undefined` everywhere means "say nothing": the read failed, is still on its
  * way, or there is no backend. The editor is then exactly as it was.
  */
-
-/** The line above the grid, or nothing when there is nothing to say. */
-export function othersLine(others: OthersSaid | undefined): string | undefined {
-  if (others === undefined) return undefined;
-  if (!othersShown(others)) {
-    return others.answered === 0
-      ? t('availability', 'others_first')
-      : t('availability', 'others_no_times_yet');
-  }
-  return others.readerAnswered
-    ? t('availability', 'others_answered_besides_you', {
-        count: others.answered,
-        total: Math.max(others.answered, others.asked - 1),
-      })
-    : t('availability', 'others_answered', {
-        count: others.answered,
-        total: Math.max(others.answered, others.asked),
-      });
-}
 
 /** The others to count with, or undefined below the threshold. */
 export function counted(others: OthersSaid | undefined): OthersSaid | undefined {
@@ -54,27 +34,22 @@ export function dayFree(others: OthersSaid, row: DayRow): number {
   return freeFor(others, row.cells);
 }
 
-/** "…, 5 others could make it" on a day's spoken label. */
-export function dayLabel(label: string, free: number): string {
+/**
+ * A day's spoken label with who could make it, in words and by number (SUS-206).
+ * An untapped day says how many others could; a tapped one says it is the
+ * reader and that many others, so the figure on the tile and the words agree.
+ */
+export function dayLabel(label: string, free: number, selected: boolean): string {
+  if (selected) {
+    if (free === 0) return t('availability', 'day_you_alone', { label });
+    return free === 1
+      ? t('availability', 'day_you_and_one', { label })
+      : t('availability', 'day_you_and_other', { label, count: free });
+  }
   if (free === 0) return label;
   return free === 1
     ? t('availability', 'day_others_one', { label })
     : t('availability', 'day_others_other', { label, count: free });
-}
-
-/**
- * A block's third line over the days it would paint: "3 free" when they
- * agree, "Up to 5 free" when they differ, "Nobody yet" for none.
- */
-export function blockLine(others: OthersSaid, spans: readonly Interval[]): string {
-  // One span per day, so each is asked about on its own.
-  const free = spans.map((span) => freeFor(others, [span]));
-  const most = Math.max(0, ...free);
-  const least = Math.min(...free);
-  if (most === 0) return t('availability', 'block_nobody_yet');
-  return least === most
-    ? t('availability', 'block_free', { count: most })
-    : t('availability', 'block_up_to_free', { count: most });
 }
 
 /** The cells of a day the reader has painted, as spans. */

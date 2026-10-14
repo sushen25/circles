@@ -5,7 +5,6 @@ import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 
 import { track } from '../../analytics/track';
-import { t } from '../../copy';
 import {
   clearDraft,
   othersSaid,
@@ -17,6 +16,7 @@ import {
 import { OfflineScreen } from '../system/OfflineScreen';
 import { AvailabilityScreen } from './AvailabilityScreen';
 import type { BlockTiming } from './blocks';
+import { ExactHoursScreen } from './ExactHoursScreen';
 import { dayRows, deviceTimeFormat } from './days';
 import {
   editorFrom,
@@ -29,7 +29,7 @@ import { NoneWorkScreen, type NoneWorkStatus } from './NoneWorkScreen';
 import { usePreviousTimes, useStartedEvent } from './usePreviousTimes';
 import { useSendAnswer, type ReturnTo } from './useSendAnswer';
 import { editorView } from './view';
-import { ROW_WORDS, introOf, timeOfDay, titleOf, zoneNoteOf } from './words';
+import { ROW_WORDS, closesOf, guideOf, timeOfDay, titleOf, zoneNoteOf } from './words';
 
 /**
  * One question, being answered: the editor, "none of these dates", and the
@@ -38,7 +38,7 @@ import { ROW_WORDS, introOf, timeOfDay, titleOf, zoneNoteOf } from './words';
  */
 export type AvailabilityStep = 'times' | 'none';
 
-const VIEW_ONLY: ReadonlySet<EditorAction['type']> = new Set(['tick', 'done', 'open']);
+const VIEW_ONLY: ReadonlySet<EditorAction['type']> = new Set(['open', 'close']);
 
 export type AnsweringProps = {
   code: string;
@@ -117,18 +117,20 @@ export function Answering({
         const windows = answer.status === 'windows' ? answer.windows : [];
         return editorFrom(rows, timing, windows, answer.status === 'flexible');
       }
-      return emptyEditor(rows);
+      return emptyEditor(rows, timing);
     };
-    // Tonight is one day: it opens ticked, so the two times are there at
-    // once rather than behind a tap on the only day there is. View state.
-    const initial = start();
-    return timing.tonight !== undefined && rows.length === 1
-      ? { ...initial, ticked: [0] }
-      : initial;
+    return start();
   });
 
-  // "Use my previous times" (ADR 0037's amendment): the reader's own earlier
-  // offers, only the parts this plan asks about, in one request.
+  // "Change time" and the half hours are views of the same answer: which one is
+  // on show is the person's place in the screen, never stored or sent.
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [exact, setExact] = useState(false);
+
+  // Previous times (ADR 0037's amendment, ADR 0068): the reader's own earlier
+  // offers, only the parts this plan asks about, in one request. They start an
+  // answer that has never been given — the days are tapped and the line says
+  // what they are — and are never sent: Send is still the person's.
   const previous = usePreviousTimes({
     planId: plan.id,
     userId,
@@ -185,7 +187,7 @@ export function Answering({
 
   // Opening the editor is the start of answering (§11.2's "median response
   // after link open" reads the last open before the answer), with whether
-  // "Use my previous times" was on show (SUS-159).
+  // previous times were on offer (SUS-159).
   const view = editorView(state, rows, timing, format, undefined, previous.parts, said);
   useStartedEvent({
     active: step === 'times' && answerable,
@@ -193,6 +195,20 @@ export function Answering({
     settled: previous.settled,
     offered: view.canUseUsual,
   });
+
+  // Previous times start an answer that has never been given: the days are
+  // tapped and the line says what they are. View-only — a start, not an edit,
+  // so it writes no draft until the person changes something.
+  const prefill = answer === null && opened === undefined && view.canUseUsual;
+  const prefilled = useRef(false);
+  const parts = previous.parts;
+  const markUsed = previous.markUsed;
+  useEffect(() => {
+    if (!prefill || prefilled.current || parts === undefined) return;
+    prefilled.current = true;
+    markUsed();
+    dispatch({ type: 'usual', parts });
+  }, [prefill, parts, markUsed]);
 
   // Whether this opening showed counts of what others said (SUS-129), once
   // its read has settled, so the answer time and the "I'm easy" share can be
@@ -241,7 +257,6 @@ export function Answering({
   }
 
   const problem = phase.kind === 'editing' ? phase.problem : undefined;
-  const offered = previous.parts;
 
   if (step === 'none') {
     return (
@@ -261,44 +276,54 @@ export function Answering({
     );
   }
 
+  if (exact) {
+    return (
+      <ExactHoursScreen
+        title={title}
+        answers={view.answers}
+        canUndo={view.canUndo}
+        busy={sending !== undefined}
+        onOpen={(day) => edit({ type: 'open', day })}
+        onPaint={(day, cells) => edit({ type: 'paint', day, cells })}
+        onWholeDay={(day) => edit({ type: 'whole_day', day })}
+        onRemoveDay={(day) => edit({ type: 'remove_day', day })}
+        onStartOver={() => edit({ type: 'start_over' })}
+        onUndo={() => edit({ type: 'undo' })}
+        onDone={() => {
+          edit({ type: 'close' });
+          setExact(false);
+        }}
+      />
+    );
+  }
+
   return (
     <AvailabilityScreen
       title={title}
-      count={t('availability', 'painted_of', { painted: view.painted, total: rows.length })}
-      intro={introOf(plan, format)}
+      guide={guideOf(view.counted)}
+      closes={closesOf(plan, format)}
       zoneNote={zoneNoteOf(plan)}
       grid={view.grid}
       weekdays={view.weekdays}
-      othersLine={view.othersLine}
-      panel={view.panel}
-      answers={view.answers}
-      canUndo={view.canUndo}
+      answerLine={view.answerLine}
+      sheet={view.sheet}
+      sheetOpen={sheetOpen}
       flexible={state.flexible}
       changed={changed}
       problem={problem}
       busy={sending !== undefined}
-      onTick={(day) => edit({ type: 'tick', day })}
-      onDone={() => edit({ type: 'done' })}
-      onBlock={(kind) => edit({ type: 'block', kind })}
-      onClearTicked={() => edit({ type: 'clear_ticked' })}
-      onOpen={(day) => edit({ type: 'open', day })}
-      onPaint={(day, cells) => edit({ type: 'paint', day, cells })}
-      onWholeDay={(day) => edit({ type: 'whole_day', day })}
-      onRemoveDay={(day) => edit({ type: 'remove_day', day })}
-      onStartOver={() => edit({ type: 'start_over' })}
-      onUndo={() => edit({ type: 'undo' })}
+      onTick={(day) => edit({ type: 'toggle_day', day })}
+      onChangeTime={() => setSheetOpen(true)}
+      onChooseWindow={(kind) => edit({ type: 'set_window', kind })}
+      onExactHours={() => {
+        setSheetOpen(false);
+        // The first tapped day opens, so the half hours are in view at once.
+        const first = view.answers[0];
+        if (first !== undefined && state.open === undefined) edit({ type: 'open', day: first.day });
+        setExact(true);
+      }}
+      onSheetDone={() => setSheetOpen(false)}
       onFlexible={(on) => edit({ type: 'flexible', on })}
-      // Counts as the person's edit, so it writes a draft like any other:
-      // they asked for it, and what it paints is theirs to change.
-      onUseUsual={
-        view.canUseUsual && offered !== undefined
-          ? () => {
-              previous.markUsed();
-              edit({ type: 'usual', parts: offered });
-            }
-          : undefined
-      }
-      previousHint={view.previousHint}
       onSend={() => void send(state.flexible ? 'flexible' : 'windows')}
       onNoneOfTheseDates={() =>
         router.push({

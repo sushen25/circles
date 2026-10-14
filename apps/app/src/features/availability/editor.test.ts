@@ -1,14 +1,15 @@
 import { localDate, zone, type PlanTiming } from '@circles/domain';
 import { describe, expect, it } from 'vitest';
 
-import { offeredBlocks } from './blocks';
+import { offeredBlocks, windowsFor } from './blocks';
 import { dayRows, type RowWords } from './days';
 import {
-  blockOn,
   editorFrom,
   editorReducer,
   emptyEditor,
   paintedDays,
+  tappedDays,
+  windowOn,
   windowsOf,
   type EditorAction,
   type EditorState,
@@ -39,7 +40,7 @@ function setUp(timing: PlanTiming) {
   const rows = dayRows(timing, { hour12: true }, WORDS, 'en-AU');
   const reduce = editorReducer(rows, timing);
   const run = (state: EditorState, ...actions: EditorAction[]) => actions.reduce(reduce, state);
-  return { rows, reduce, run, start: emptyEditor(rows) };
+  return { rows, reduce, run, start: emptyEditor(rows, timing) };
 }
 
 const on = (cells: readonly boolean[]) => cells.flatMap((c, i) => (c ? [i] : []));
@@ -62,16 +63,15 @@ describe('the answer as cells', () => {
   });
 });
 
-describe('days first, then a time once', () => {
-  it('answers "Tue, Thu and Sat evenings" with three ticks and one chip, the same windows the painter sent', () => {
+describe('days first, then a time once (ADR 0068)', () => {
+  it('answers "Tue, Thu and Sat evenings" with three taps, the same windows the painter sent', () => {
     const { rows, run, reduce, start } = setUp(EVENINGS);
 
     const picked = run(
       start,
-      { type: 'tick', day: TUE },
-      { type: 'tick', day: THU },
-      { type: 'tick', day: SAT },
-      { type: 'block', kind: 'evening' },
+      { type: 'toggle_day', day: TUE },
+      { type: 'toggle_day', day: THU },
+      { type: 'toggle_day', day: SAT },
     );
 
     // What S1-25's painter sent for the same three evenings, cell by cell.
@@ -85,89 +85,117 @@ describe('days first, then a time once', () => {
       { start: '2026-09-17T07:30:00.000Z', end: '2026-09-17T12:30:00.000Z' },
       { start: '2026-09-19T07:30:00.000Z', end: '2026-09-19T12:30:00.000Z' },
     ]);
-    // Still ticked: Afternoon plus Evening is two taps, and Done lets go.
-    expect(picked.ticked).toEqual([TUE, THU, SAT]);
-    expect(run(picked, { type: 'done' }).ticked).toEqual([]);
+    expect(tappedDays(picked)).toEqual([TUE, THU, SAT]);
   });
 
-  it('sets no time by ticking a day, and keeps the answer the same array so no draft is written', () => {
+  it('gives a tapped day the evening and starts on Evening', () => {
+    const { run, start } = setUp(WHOLE_DAYS);
+
+    expect(start.window).toBe('evening');
+    const tapped = run(start, { type: 'toggle_day', day: SAT });
+    // 5:30 pm to 10:30 pm of a 9 am band: the last ten half hours.
+    expect(on(tapped.days[SAT]!)).toEqual([17, 18, 19, 20, 21, 22, 23, 24, 25, 26]);
+  });
+
+  it('untaps a day by clearing it, and closes it if it was open', () => {
     const { run, start } = setUp(EVENINGS);
 
-    const ticked = run(start, { type: 'tick', day: THU }, { type: 'tick', day: TUE });
-    expect(ticked.ticked).toEqual([TUE, THU]);
-    expect(paintedDays(ticked)).toBe(0);
-    expect(ticked.days).toBe(start.days);
-    expect(run(ticked, { type: 'tick', day: TUE }).ticked).toEqual([THU]);
-    expect(run(ticked, { type: 'open', day: TUE }).days).toBe(start.days);
+    const tapped = run(start, { type: 'toggle_day', day: TUE }, { type: 'open', day: TUE });
+    const untapped = run(tapped, { type: 'toggle_day', day: TUE });
+    expect(paintedDays(untapped)).toBe(0);
+    expect(untapped.open).toBeUndefined();
   });
 
   it('offers only Evening on an evening plan, because Any time is the same hours', () => {
     const { rows } = setUp(EVENINGS);
 
-    expect(offeredBlocks([TUE, THU], rows, EVENINGS).map((o) => o.kind)).toEqual(['evening']);
-    expect(offeredBlocks([], rows, EVENINGS)).toEqual([]);
+    expect(
+      offeredBlocks([TUE, THU], rows, EVENINGS, windowsFor(EVENINGS)).map((o) => o.kind),
+    ).toEqual(['evening']);
+    expect(offeredBlocks([], rows, EVENINGS, windowsFor(EVENINGS))).toEqual([]);
   });
 
-  it('offers all four blocks on a whole-day plan', () => {
+  it('offers Evening, Afternoon and Any time on a whole-day plan, and never Morning', () => {
     const { rows } = setUp(WHOLE_DAYS);
 
-    expect(offeredBlocks([SAT], rows, WHOLE_DAYS).map((o) => o.kind)).toEqual([
-      'morning',
-      'afternoon',
-      'evening',
+    expect(
+      offeredBlocks([SAT], rows, WHOLE_DAYS, windowsFor(WHOLE_DAYS)).map((o) => o.kind),
+    ).toEqual(['evening', 'afternoon', 'any_time']);
+  });
+
+  it('offers Any time alone on a morning plan, where there is no evening or afternoon', () => {
+    const morning: PlanTiming = { ...EVENINGS, daily: { startMin: 9 * 60, endMin: 12 * 60 } };
+    const { rows, start } = setUp(morning);
+
+    expect(offeredBlocks([TUE], rows, morning, windowsFor(morning)).map((o) => o.kind)).toEqual([
       'any_time',
     ]);
+    expect(start.window).toBe('any_time');
   });
 
-  it('turns a block on for the ticked days only, and off again, leaving the rest of each day', () => {
+  it('gives every tapped day the chosen time, whatever each had, and keeps untapped days empty', () => {
     const { rows, run, start } = setUp(WHOLE_DAYS);
 
-    const morning = run(
+    const evenings = run(
       start,
-      { type: 'tick', day: TUE },
-      { type: 'tick', day: SAT },
-      { type: 'block', kind: 'morning' },
+      { type: 'toggle_day', day: TUE },
+      { type: 'toggle_day', day: SAT },
+      // Saturday was adjusted by the half hour.
+      {
+        type: 'paint',
+        day: SAT,
+        cells: [...new Array(4).fill(true), ...new Array(23).fill(false)],
+      },
     );
-    expect(blockOn('morning', morning, rows, WHOLE_DAYS)).toBe(true);
-    // 9 am to 12 pm is the first six half hours; Thursday was not ticked.
-    expect(on(morning.days[TUE]!)).toEqual([0, 1, 2, 3, 4, 5]);
-    expect(on(morning.days[SAT]!)).toEqual([0, 1, 2, 3, 4, 5]);
-    expect(on(morning.days[THU]!)).toEqual([]);
+    expect(windowOn('evening', evenings, rows, WHOLE_DAYS)).toBe(false);
 
-    const both = run(morning, { type: 'block', kind: 'afternoon' });
-    const afternoonOnly = run(both, { type: 'block', kind: 'morning' });
-    expect(blockOn('morning', afternoonOnly, rows, WHOLE_DAYS)).toBe(false);
-    expect(blockOn('afternoon', afternoonOnly, rows, WHOLE_DAYS)).toBe(true);
-    // 12 to 5 pm.
-    expect(on(afternoonOnly.days[SAT]!)).toEqual([6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
+    const afternoons = run(evenings, { type: 'set_window', kind: 'afternoon' });
+    // 12 to 5 pm: half hours 6 to 15 of a 9 am band.
+    expect(on(afternoons.days[TUE]!)).toEqual([6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
+    expect(afternoons.days[SAT]).toEqual(afternoons.days[TUE]);
+    expect(on(afternoons.days[THU]!)).toEqual([]);
+    expect(windowOn('afternoon', afternoons, rows, WHOLE_DAYS)).toBe(true);
+    expect(windowOn('evening', afternoons, rows, WHOLE_DAYS)).toBe(false);
+    expect(afternoons.window).toBe('afternoon');
   });
 
-  it('is on only when every ticked day already has the whole block', () => {
-    const { rows, run, start } = setUp(EVENINGS);
+  it('gives the next tapped day the time of day last chosen', () => {
+    const { run, start } = setUp(WHOLE_DAYS);
 
-    const tuesday = run(start, { type: 'tick', day: TUE }, { type: 'block', kind: 'evening' });
-    const plusThursday = run(tuesday, { type: 'tick', day: THU });
-    expect(blockOn('evening', plusThursday, rows, EVENINGS)).toBe(false);
-
-    // Off, so the tap paints it on both rather than clearing Tuesday.
-    const both = run(plusThursday, { type: 'block', kind: 'evening' });
-    expect(paintedDays(both)).toBe(2);
+    const later = run(
+      start,
+      { type: 'toggle_day', day: TUE },
+      { type: 'set_window', kind: 'afternoon' },
+      { type: 'toggle_day', day: THU },
+    );
+    expect(later.days[THU]).toEqual(later.days[TUE]);
   });
 
-  it('clears the ticked days, and only those', () => {
+  it('ignores a time of day the plan does not offer, and a choice with nothing tapped', () => {
     const { run, start } = setUp(EVENINGS);
 
-    const answered = run(
-      start,
-      { type: 'tick', day: TUE },
-      { type: 'tick', day: THU },
-      { type: 'block', kind: 'evening' },
-      { type: 'done' },
-      { type: 'tick', day: THU },
-      { type: 'clear_ticked' },
+    expect(run(start, { type: 'set_window', kind: 'afternoon' })).toBe(start);
+    const tapped = run(start, { type: 'toggle_day', day: TUE });
+    expect(run(tapped, { type: 'set_window', kind: 'afternoon' })).toBe(tapped);
+  });
+
+  it('reopens an answer with the new tap taking the time it already has', () => {
+    const { rows, run, start } = setUp(WHOLE_DAYS);
+
+    const stored = windowsOf(
+      run(start, { type: 'toggle_day', day: TUE }, { type: 'set_window', kind: 'afternoon' }),
+      rows,
+      WHOLE_DAYS,
     );
-    expect(on(answered.days[TUE]!)).toHaveLength(10);
-    expect(on(answered.days[THU]!)).toEqual([]);
+    const reopened = editorFrom(rows, WHOLE_DAYS, stored, false);
+    expect(reopened.window).toBe('afternoon');
+  });
+
+  it('writes no draft for a window chosen with no day tapped: the answer stays the same array', () => {
+    const { run, start } = setUp(EVENINGS);
+
+    expect(run(start, { type: 'open', day: TUE }).days).toBe(start.days);
+    expect(run(start, { type: 'close' }).days).toBe(start.days);
   });
 });
 
@@ -199,15 +227,13 @@ describe('start over', () => {
     const cells = [false, true, true, false, false, true, true, true, false, false];
     const answered = run(
       start,
-      { type: 'tick', day: TUE },
-      { type: 'block', kind: 'evening' },
+      { type: 'toggle_day', day: TUE },
       { type: 'paint', day: SAT, cells },
       { type: 'open', day: SAT },
     );
 
     const cleared = run(answered, { type: 'start_over' });
     expect(paintedDays(cleared)).toBe(0);
-    expect(cleared.ticked).toEqual([]);
     expect(cleared.open).toBeUndefined();
     expect(cleared.undo).toBeDefined();
 
@@ -221,8 +247,8 @@ describe('start over', () => {
     const { run, start } = setUp(EVENINGS);
     const cleared = run(start, { type: 'whole_day', day: TUE }, { type: 'start_over' });
 
-    // Ticking a day is not a change to the answer.
-    expect(run(cleared, { type: 'tick', day: THU }).undo).toBeDefined();
+    // Opening a day is not a change to the answer.
+    expect(run(cleared, { type: 'open', day: THU }).undo).toBeDefined();
     const changed = run(cleared, { type: 'whole_day', day: THU });
     expect(changed.undo).toBeUndefined();
     expect(run(changed, { type: 'undo' }).days).toEqual(changed.days);

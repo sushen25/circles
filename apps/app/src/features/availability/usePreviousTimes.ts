@@ -7,7 +7,7 @@ import { track } from '../../analytics/track';
 import { usualTimes } from '../../data/availability';
 
 /**
- * "Use my previous times" (ADR 0005, ADR 0037's amendment, SUS-159): what this
+ * Previous times (ADR 0005, ADR 0037's amendment, SUS-159, ADR 0068): what this
  * person has offered before in the plan's circle, limited to the parts this
  * plan asks about, read from the database in one request. Read again each time
  * the editor opens, because an answer given to another plan since may be the

@@ -88,7 +88,7 @@ export function dayNumber(date: LocalDate, locale?: string): string {
   return new Intl.DateTimeFormat(locale, { timeZone: 'UTC', day: 'numeric' }).format(noonOf(date));
 }
 
-/** "Tue 15": a ticked day named in the panel, and a day in the wrapped grid. */
+/** "Tue 15": a tapped day named in the answer line, and a day in the wrapped grid. */
 export function dayName(date: LocalDate, locale?: string): string {
   return new Intl.DateTimeFormat(locale, { timeZone: 'UTC', weekday: 'short', day: 'numeric' })
     .format(noonOf(date))
