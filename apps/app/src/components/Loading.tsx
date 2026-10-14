@@ -76,7 +76,15 @@ function useRetryWaiting(stuck: boolean): (() => void) | undefined {
       .then(() => client.refetchQueries({ predicate: same }));
 }
 
-export function Loading({ message, shape, topTitle, header, onBack, onRetry, noRetry = false }: Props) {
+export function Loading({
+  message,
+  shape,
+  topTitle,
+  header,
+  onBack,
+  onRetry,
+  noRetry = false,
+}: Props) {
   const shown = useDelayedShow(true, WAIT.skeletonAfter, 0);
   const { slow, stuck } = useSlow(true);
   const waitingQueries = useRetryWaiting(stuck && !noRetry);
