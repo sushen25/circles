@@ -179,18 +179,21 @@ export function Answering({
   // Opening the editor is the start of answering (§11.2's "median response
   // after link open" reads the last open before the answer), with whether
   // previous times were on offer (SUS-159).
+  // Only an answer never given is started from previous times: a stored
+  // "none of these", or a draft, is the person's own and is left as it is.
+  const startsEmpty = answer === null && opened === undefined;
   const view = editorView(state, rows, timing, format, undefined, previous.parts, said);
   useStartedEvent({
     active: step === 'times' && answerable,
     planId: plan.id,
     settled: previous.settled,
-    offered: view.canUseUsual,
+    offered: startsEmpty && view.canUseUsual,
   });
 
   // Previous times start an answer that has never been given: the days are
   // tapped and the line says what they are. View-only — a start, not an edit,
   // so it writes no draft until the person changes something.
-  const prefill = answer === null && opened === undefined && !touched && view.canUseUsual;
+  const prefill = startsEmpty && !touched && view.canUseUsual;
   const prefilled = useRef(false);
   const parts = previous.parts;
   const markUsed = previous.markUsed;

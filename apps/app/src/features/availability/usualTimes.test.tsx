@@ -194,6 +194,23 @@ describe('previous times', () => {
     expect(screen.queryByText(EVENINGS)).toBeNull();
   });
 
+  it('say nothing was offered when the answer on file is a "none of these", which they leave alone (review round 4)', async () => {
+    planToAnswer.mockResolvedValue({
+      plan: PLAN,
+      answer: { status: 'none_work', windows: [], submittedAt: '2026-09-01T09:00:00Z' },
+    });
+    open();
+    await screen.findByText('Which days could work?');
+    await act(async () => undefined);
+    expect(tapped()).toHaveLength(0);
+    await waitFor(() =>
+      expect(track).toHaveBeenCalledWith('availability_started', {
+        plan_id: PLAN.id,
+        usual_offered: false,
+      }),
+    );
+  });
+
   it('never overwrite an answer already given', async () => {
     planToAnswer.mockResolvedValue(answerable);
     open();
