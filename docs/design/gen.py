@@ -1723,6 +1723,9 @@ shape_confirmed = (
 S["LoadingCircleHome"] = loading_screen("Getting your circle", shape_home)
 S["LoadingOptions"] = loading_screen("Getting the options", shape_options)
 S["LoadingConfirmed"] = loading_screen("Getting the plan", shape_confirmed)
+# The first run's finish (SUS-207): the same sentence the screen announces, over the shape of the
+# share screen it resolves into, under the same bare bar. Its slow line and 20 s state are the shared ones.
+S["LoadingSettingUp"] = loading_screen("Setting up Walkies", shape_confirmed)
 S["LoadingSlowEight"] = loading_screen("Getting the options", shape_options, slow="Still working on it…")
 S["LoadingSlowTwenty"] = loading_screen("Getting the options", shape_options, slow="Still working on it…", retry=True)
 
@@ -1880,7 +1883,7 @@ titles = {"Main":"Join · invite landing","ContinueAs":"Continue as · returning
           "PushAsk":"Push permission · contextual","CalendarExplain":"Calendar · before permission","CalendarPick":"Calendar · pick calendars","AvailabilityOverlay":"Availability · calendar overlay","CalendarDenied":"Calendar · denied",
           "ConversionMap":"Guest → app · the map","ConfirmedGuestNudge":"Locked in · reminder nudge","AppSheet":"App sheet · four things a browser can't do","ReattachedNudge":"Rejoined · save your place","SecondSent":"Second response · app nudge","AfterAttendance":"After attendance · start a circle","InitiateGate":"Wants to organise · sign in first","AppLanding":"App first open · linked",
           "EmptyCircle":"Empty circle","Offline":"Offline and error","Emails":"Email templates","Pushes":"Push copy","ShareMessages":"Share-sheet messages","Components":"Components and tokens",
-          "LoadingCircleHome":"Loading · circle home","LoadingOptions":"Loading · options","LoadingConfirmed":"Loading · confirmed","LoadingSlowEight":"Loading · still working, about 8 s","LoadingSlowTwenty":"Loading · try again, about 20 s","BusyRow":"Busy · list row","BusyButtons":"Busy · buttons","AddToCalendarPreparing":"Add to calendar · preparing","AddToCalendarSlow":"Add to calendar · still working, about 8 s","AddToCalendarReady":"Add to calendar · ready (iPhone, a link)","AddToCalendarFailed":"Add to calendar · failed, retry in the row","AddToCalendarAfterTap":"Add to calendar · after the tap (iPhone)","AddToCalendarAfterTapAndroid":"Add to calendar · after the tap (Android)","AddToCalendarInApp":"Add to calendar · WhatsApp or Messenger","LoadingTiming":"Loading and busy · timing","LoadingMotion":"Loading and busy · reduced motion"}
+          "LoadingCircleHome":"Loading · circle home","LoadingOptions":"Loading · options","LoadingConfirmed":"Loading · confirmed","LoadingSettingUp":"First run · setting up the circle","LoadingSlowEight":"Loading · still working, about 8 s","LoadingSlowTwenty":"Loading · try again, about 20 s","BusyRow":"Busy · list row","BusyButtons":"Busy · buttons","AddToCalendarPreparing":"Add to calendar · preparing","AddToCalendarSlow":"Add to calendar · still working, about 8 s","AddToCalendarReady":"Add to calendar · ready (iPhone, a link)","AddToCalendarFailed":"Add to calendar · failed, retry in the row","AddToCalendarAfterTap":"Add to calendar · after the tap (iPhone)","AddToCalendarAfterTapAndroid":"Add to calendar · after the tap (Android)","AddToCalendarInApp":"Add to calendar · WhatsApp or Messenger","LoadingTiming":"Loading and busy · timing","LoadingMotion":"Loading and busy · reduced motion"}
 
 def grid(names, page, per_row=6, y0=0):
     for i, n in enumerate(names):
@@ -1917,6 +1920,8 @@ boards.append(ab("Emails.dc.html", 2*GX, 0, "system", w=1400, h=900, title=title
 boards.append(ab("Pushes.dc.html", 0, RY, "system", w=1180, h=520, title=titles["Pushes"]))
 boards.append(ab("ShareMessages.dc.html", 1180+120, RY, "system", w=1180, h=640, title=titles["ShareMessages"]))
 boards.append(ab("Components.dc.html", 0, 2*RY, "system", w=1180, h=1060, title=titles["Components"]))
+# The first run's finish while it waits (SUS-207): beside the first-run boards, in the gap after "SignIn".
+boards.append(ab("LoadingSettingUp.dc.html", 4*GX, RY, "first", title=titles["LoadingSettingUp"]))
 # Loading and busy (SUS-155): the phone boards in a row, then the wide ones.
 grid(["LoadingCircleHome","LoadingOptions","LoadingConfirmed","LoadingSlowEight","LoadingSlowTwenty","BusyRow"], "loading")
 boards.append(ab("BusyButtons.dc.html", 0, RY+400, "loading", w=900, title=titles["BusyButtons"]))

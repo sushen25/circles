@@ -38,6 +38,12 @@ type Props = {
   header?: ReactNode;
   onBack?: (() => void) | undefined;
   onRetry?: (() => void) | undefined;
+  /**
+   * For a wait that is not a query and must not be retried from here: the
+   * default "Try again" would refetch whatever else is on its way, and a screen
+   * that makes something once (the first run's finish) owns its own retry.
+   */
+  noRetry?: boolean | undefined;
 };
 
 /** A query that is still on its way to its first answer (or being asked again), and is wanted. */
@@ -70,11 +76,11 @@ function useRetryWaiting(stuck: boolean): (() => void) | undefined {
       .then(() => client.refetchQueries({ predicate: same }));
 }
 
-export function Loading({ message, shape, topTitle, header, onBack, onRetry }: Props) {
+export function Loading({ message, shape, topTitle, header, onBack, onRetry, noRetry = false }: Props) {
   const shown = useDelayedShow(true, WAIT.skeletonAfter, 0);
   const { slow, stuck } = useSlow(true);
-  const waitingQueries = useRetryWaiting(stuck);
-  const retry = onRetry ?? waitingQueries;
+  const waitingQueries = useRetryWaiting(stuck && !noRetry);
+  const retry = noRetry ? undefined : (onRetry ?? waitingQueries);
 
   return (
     <Screen>

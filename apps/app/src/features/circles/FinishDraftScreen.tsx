@@ -1,4 +1,14 @@
-import { Body, Button, DisplayL, Foot, Notice, Screen, Small, TopBar } from '../../components';
+import {
+  Body,
+  Button,
+  DisplayL,
+  Foot,
+  Loading,
+  Notice,
+  Screen,
+  Small,
+  TopBar,
+} from '../../components';
 import { Stack } from '../../components/layout';
 import { t } from '../../copy';
 
@@ -42,33 +52,35 @@ export function FinishDraftScreen({
   onRetry,
   onChangeTime,
 }: FinishDraftProps) {
+  if (problem === undefined) {
+    // The waiting state is the shared loading screen, shaped like the share
+    // screen the organiser lands on next (the same `detail` shape as
+    // PlanShared and InviteCircle, with the same bare top bar), so nothing
+    // moves when it resolves. No "Try again" of its own: the run is already in
+    // flight, and the problem states below carry their own buttons.
+    return (
+      <Loading message={t('finish', 'setting_up', { circle: circleName })} shape="detail" noRetry />
+    );
+  }
   return (
     <Screen>
       <TopBar title={circleName} />
       <Body>
-        {problem === undefined ? (
-          <Small accessibilityLiveRegion="polite">
-            {t('finish', 'setting_up', { circle: circleName })}
-          </Small>
-        ) : (
-          <Stack>
-            <DisplayL>{circleName}</DisplayL>
-            <Notice kind="warn">{problemCopy(problem, circleName)}</Notice>
-            {reference === undefined ? null : (
-              <Small>{t('finish', 'reference', { reference })}</Small>
-            )}
-          </Stack>
-        )}
-      </Body>
-      {problem === undefined ? null : (
-        <Foot>
-          {problem === 'too_late' || problem === 'time_passed' ? (
-            <Button label={t('finish', 'change_the_time')} onPress={onChangeTime} />
-          ) : (
-            <Button label={t('finish', 'try_again')} onPress={onRetry} />
+        <Stack>
+          <DisplayL>{circleName}</DisplayL>
+          <Notice kind="warn">{problemCopy(problem, circleName)}</Notice>
+          {reference === undefined ? null : (
+            <Small>{t('finish', 'reference', { reference })}</Small>
           )}
-        </Foot>
-      )}
+        </Stack>
+      </Body>
+      <Foot>
+        {problem === 'too_late' || problem === 'time_passed' ? (
+          <Button label={t('finish', 'change_the_time')} onPress={onChangeTime} />
+        ) : (
+          <Button label={t('finish', 'try_again')} onPress={onRetry} />
+        )}
+      </Foot>
     </Screen>
   );
 }
