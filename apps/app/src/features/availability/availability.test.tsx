@@ -359,6 +359,23 @@ describe('days first, then a time once (ADR 0068)', () => {
     expect(submitAnswer.mock.calls[0]![0].windows).toEqual(STORED);
   });
 
+  it('keeps Undo on the first screen after Start over and Done, and gives the answer back (review round 2)', async () => {
+    planToAnswer.mockResolvedValue({ plan: PLAN, answer: answerable.answer });
+    open();
+    await screen.findByText('Different times on different days');
+
+    exactHours();
+    fireEvent.click(screen.getByRole('button', { name: 'Start over' }));
+    backToAnswer();
+    // Nothing is tapped, so there is no answer line; the way back is still here.
+    expect(screen.getByText('Cleared.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
+    expect(await screen.findByText('Different times on different days')).toBeInTheDocument();
+    expect(screen.queryByText('Cleared.')).toBeNull();
+    await send();
+    expect(submitAnswer.mock.calls[0]![0].windows).toEqual(STORED);
+  });
+
   it("dims the days under I'm easy and gives them back when it is turned off", async () => {
     planToAnswer.mockResolvedValue({ plan: PLAN, answer: answerable.answer });
     open();

@@ -275,6 +275,7 @@ export function Answering({
       weekdays={view.weekdays}
       answerLine={view.answerLine}
       sheet={view.sheet}
+      canUndo={view.canUndo}
       sheetOpen={sheetOpen}
       flexible={state.flexible}
       changed={changed}
@@ -282,6 +283,7 @@ export function Answering({
       busy={sending !== undefined}
       onTick={(day) => edit({ type: 'toggle_day', day })}
       onChangeTime={() => setSheetOpen(true)}
+      onUndo={() => edit({ type: 'undo' })}
       onChooseWindow={(kind) => edit({ type: 'set_window', kind })}
       onExactHours={() => {
         setSheetOpen(false);

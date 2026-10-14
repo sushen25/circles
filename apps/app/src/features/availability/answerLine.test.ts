@@ -106,6 +106,15 @@ describe('the answer line', () => {
     });
   });
 
+  it('gives the hours when every tapped day has the same hours that are not a block (review round 2)', () => {
+    const { run, line, tap } = setUp(WHOLE_DAYS);
+    const cells = new Array(27).fill(false).map((_, i) => i >= 20 && i < 24);
+
+    expect(
+      line(run(...tap(1, 2), { type: 'paint', day: 1, cells }, { type: 'paint', day: 2, cells })),
+    ).toEqual({ days: 'Tue 13, Wed 14', time: '7–9 pm, set by the half hour' });
+  });
+
   it('says the days differ when two days have different times, and the half hours are the way to see them', () => {
     const { run, line, tap } = setUp(WHOLE_DAYS);
     const cells = new Array(27).fill(false).map((_, i) => i >= 20 && i < 24);

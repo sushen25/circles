@@ -99,6 +99,27 @@ function windowCells(kind: BlockKind, row: DayRow, timing: BlockTiming): boolean
   return blockMask(kind, row, timing);
 }
 
+/**
+ * The time of day a new tap should get: the one the first answered day already
+ * has, so a reopened Afternoon answer grows by afternoons, and the plan's
+ * default when the days are not exactly one of the plan's times of day.
+ */
+function windowOfDays(
+  days: readonly (readonly boolean[])[],
+  rows: readonly DayRow[],
+  timing: BlockTiming,
+): BlockKind {
+  const first = days.findIndex((cells) => cells.some(Boolean));
+  const same =
+    first < 0
+      ? undefined
+      : windowsFor(timing).find((kind) => {
+          const mask = windowCells(kind, rows[first]!, timing);
+          return mask !== undefined && mask.every((on, i) => on === days[first]![i]);
+        });
+  return same ?? defaultWindow(rows, timing);
+}
+
 /** Stored windows back onto the grid, for reopening an answer or a draft. */
 export function editorFrom(
   rows: readonly DayRow[],
@@ -108,17 +129,7 @@ export function editorFrom(
 ): EditorState {
   const intervals = windows.map((w) => ({ start: fromISO(w.start), end: fromISO(w.end) }));
   const days = rows.map((row) => windowsToCells(row.date, intervals, timing));
-  // A new tap gets the time of day the first answered day already has, so a
-  // reopened Afternoon answer grows by afternoons.
-  const first = days.findIndex((cells) => cells.some(Boolean));
-  const same =
-    first < 0
-      ? undefined
-      : windowsFor(timing).find((kind) => {
-          const mask = windowCells(kind, rows[first]!, timing);
-          return mask !== undefined && mask.every((on, i) => on === days[first]![i]);
-        });
-  return withDays(days, same ?? defaultWindow(rows, timing), flexible);
+  return withDays(days, windowOfDays(days, rows, timing), flexible);
 }
 
 /** The cells as windows: aligned, merged, sorted, ready to send. */
@@ -197,10 +208,11 @@ export function editorReducer(
         return action.state;
       case 'usual': {
         const usual = usualCells(rows, timing, action.parts);
-        return answer(
-          state,
-          state.days.map((cells, day) => cells.map((on, i) => on || usual[day]?.[i] === true)),
+        const days = state.days.map((cells, day) =>
+          cells.map((on, i) => on || usual[day]?.[i] === true),
         );
+        // A tap after previous times gets the time of day they painted.
+        return { ...answer(state, days), window: windowOfDays(days, rows, timing) };
       }
       case 'flexible':
         // A change of answer, from times to "I'm easy" or back: Start over's

@@ -191,6 +191,15 @@ describe('days first, then a time once (ADR 0068)', () => {
     expect(reopened.window).toBe('afternoon');
   });
 
+  it('gives the next tap the time of day previous times painted (review round 2)', () => {
+    const { run, start } = setUp(WHOLE_DAYS);
+
+    const afternoons = run(start, { type: 'usual', parts: ['weekday_afternoon'] });
+    expect(afternoons.window).toBe('afternoon');
+    const plusSaturday = run(afternoons, { type: 'toggle_day', day: SAT });
+    expect(plusSaturday.days[SAT]).toEqual(plusSaturday.days[TUE]);
+  });
+
   it('writes no draft for a window chosen with no day tapped: the answer stays the same array', () => {
     const { run, start } = setUp(EVENINGS);
 

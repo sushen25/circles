@@ -102,7 +102,9 @@ export function answerLineOf(
     return { days, time };
   }
 
-  if (tapped.length === 1) {
+  // One time that is not a block, the same on every tapped day: its hours.
+  const bits = (day: number) => (state.days[day] ?? []).map(Number).join('');
+  if (tapped.every((day) => bits(day) === bits(tapped[0]!))) {
     const row = rows[tapped[0]!]!;
     const hours = rangeText(
       cellsToWindows(row.date, state.days[tapped[0]!] ?? [], timing),
