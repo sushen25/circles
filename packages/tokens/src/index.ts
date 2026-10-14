@@ -14,6 +14,7 @@ export {
   circleColor,
   color,
   hit,
+  layout,
   markOverlap,
   radius,
   shadow,

@@ -193,6 +193,14 @@ const hit = px(
   'the tap target',
 );
 
+/**
+ * The widest the app's content gets, in points (manifesto 5.3, "Wide windows").
+ * Not read from the canvas: the artboards are phone-width, so the rule lives in
+ * the manifesto and here, and the test in the tokens package holds the two
+ * together.
+ */
+const layout = { column: 480 } as const;
+
 const cell = {
   height: px(declaration(rule('cell'), 'height', 'the availability cell rule'), 'the cell height'),
   gap: px(declaration(rule('track'), 'gap', 'the availability track rule'), 'the track gap'),
@@ -276,6 +284,7 @@ for (const [name, value] of Object.entries({
   hit,
   markOverlap,
   ...cell,
+  ...layout,
 })) {
   if (!Number.isFinite(value) || value <= 0) {
     throw new ExtractionError(`gen-tokens: extracted a nonsensical value for ${name}: ${value}`);
@@ -336,6 +345,9 @@ export const markOverlap = ${markOverlap};
 
 /** The availability track: a ten-cell half-hour grid (manifesto §5.4). */
 export const cell = ${JSON.stringify(cell, null, 2)} as const;
+
+/** The widest the app's content gets; wider windows centre it (manifesto §5.3). */
+export const layout = ${JSON.stringify(layout, null, 2)} as const;
 `;
 
 // ------------------------------------------------------- the email palette

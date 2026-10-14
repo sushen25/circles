@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { Pressable, ScrollView, StyleSheet, View, type ViewProps } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { hit, size, space } from '@circles/tokens';
+import { hit, layout, size, space } from '@circles/tokens';
 
 import { BrandMark } from './Brand';
 import { Icon } from './Icon';
@@ -14,6 +14,12 @@ import { InvertProvider, usePalette } from './theme';
  * scrolling body and a footer that holds the decision.
  *
  * `invert` is for the confirmed screen and nothing else (manifesto §5.1).
+ *
+ * On a window wider than `layout.column` the top bar, the body and the footer
+ * each sit in a centred column of that width (manifesto §5.3), while the
+ * ground fills the window and the body scrolls from anywhere on it. Each part
+ * draws its own column, so the three share the same bounds without the footer
+ * having to know about the body.
  */
 type ScreenProps = {
   children: ReactNode;
@@ -67,19 +73,21 @@ export function TopBar({ title, onBack, backLabel = 'Go back', right, left, mark
   const palette = usePalette();
 
   return (
-    <View style={styles.top}>
-      {left !== undefined ? (
-        <View style={styles.topLeft}>{left}</View>
-      ) : onBack ? (
-        <Pressable role="button" aria-label={backLabel} onPress={onBack} style={styles.topAction}>
-          <Icon name="back" color={palette.ink} />
-        </Pressable>
-      ) : (
-        <View style={styles.topAction} />
-      )}
-      {title ? <Title style={{ color: palette.ink2 }}>{title}</Title> : null}
-      {!title && mark ? <BrandMark size={24} /> : null}
-      <View style={[styles.topAction, styles.topRight]}>{right}</View>
+    <View style={styles.topRow}>
+      <View style={styles.top}>
+        {left !== undefined ? (
+          <View style={styles.topLeft}>{left}</View>
+        ) : onBack ? (
+          <Pressable role="button" aria-label={backLabel} onPress={onBack} style={styles.topAction}>
+            <Icon name="back" color={palette.ink} />
+          </Pressable>
+        ) : (
+          <View style={styles.topAction} />
+        )}
+        {title ? <Title style={{ color: palette.ink2 }}>{title}</Title> : null}
+        {!title && mark ? <BrandMark size={24} /> : null}
+        <View style={[styles.topAction, styles.topRight]}>{right}</View>
+      </View>
     </View>
   );
 }
@@ -89,11 +97,11 @@ export function Body({ children, style, ...props }: ViewProps & { children: Reac
   return (
     <ScrollView
       style={styles.bodyScroll}
-      contentContainerStyle={[styles.body, style]}
+      contentContainerStyle={styles.bodyOuter}
       keyboardShouldPersistTaps="handled"
       {...props}
     >
-      {children}
+      <View style={[styles.column, styles.body, style]}>{children}</View>
     </ScrollView>
   );
 }
@@ -101,8 +109,10 @@ export function Body({ children, style, ...props }: ViewProps & { children: Reac
 /** Where the decision lives. One primary action, at most. */
 export function Foot({ children, style, ...props }: ViewProps & { children: ReactNode }) {
   return (
-    <View style={[styles.foot, style]} {...props}>
-      {children}
+    <View style={styles.footRow}>
+      <View style={[styles.column, styles.foot, style]} {...props}>
+        {children}
+      </View>
     </View>
   );
 }
@@ -111,7 +121,17 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
   },
+  /** The width every part shares: the column, centred, never wider than the window. */
+  column: {
+    width: '100%',
+    maxWidth: layout.column,
+  },
+  topRow: {
+    alignItems: 'center',
+  },
   top: {
+    width: '100%',
+    maxWidth: layout.column,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -135,12 +155,19 @@ const styles = StyleSheet.create({
   bodyScroll: {
     flex: 1,
   },
+  bodyOuter: {
+    flexGrow: 1,
+    alignItems: 'center',
+  },
   body: {
+    flexGrow: 1,
     gap: space.section,
     paddingTop: 8,
     paddingHorizontal: space.gutter,
     paddingBottom: 24,
-    flexGrow: 1,
+  },
+  footRow: {
+    alignItems: 'center',
   },
   foot: {
     gap: 10,

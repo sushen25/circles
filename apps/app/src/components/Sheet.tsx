@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
-import { radius, space } from '@circles/tokens';
+import { layout, radius, space } from '@circles/tokens';
 
 import { usePalette } from './theme';
 
@@ -53,6 +53,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(34, 30, 25, 0.32)',
   },
   sheet: {
+    // The same column as the screen behind it, anchored to the window's bottom.
+    alignSelf: 'center',
+    width: '100%',
+    maxWidth: layout.column,
     borderTopLeftRadius: radius.sheet,
     borderTopRightRadius: radius.sheet,
     borderTopWidth: 1,
