@@ -128,6 +128,12 @@ for (const size of SIZES) {
       expect(d.y + d.height).toBeLessThanOrEqual(size.height);
       expect(d.y + d.height).toBeGreaterThan(size.height - 60);
       await expectNoSidewaysOverflow(page);
+
+      // Beside a narrowed sheet is still the scrim: a tap there dismisses it.
+      if (size.width > COLUMN) {
+        await page.mouse.click(10, size.height - 10);
+        await expect(done).toHaveCount(0);
+      }
     });
   });
 }
