@@ -219,6 +219,10 @@ export function Answering({
     dispatch(action);
   };
 
+  // "A time for each day": every tapped day is a card with the plan's quick
+  // choices, and the half hours are one tap away on each.
+  const openEach = () => setExact(true);
+
   const back = () => (router.canGoBack() ? router.back() : router.replace('/'));
   const title = titleOf(plan);
 
@@ -264,15 +268,16 @@ export function Answering({
     return (
       <ExactHoursScreen
         title={title}
-        answers={view.answers}
-        canUndo={view.canUndo}
+        cards={view.cards}
         busy={sending !== undefined}
+        onChoose={(day, kind) => edit({ type: 'set_day_window', day, kind })}
         onOpen={(day) => edit({ type: 'open', day })}
         onPaint={(day, cells) => edit({ type: 'paint', day, cells })}
-        onWholeDay={(day) => edit({ type: 'whole_day', day })}
-        onRemoveDay={(day) => edit({ type: 'remove_day', day })}
-        onStartOver={() => edit({ type: 'start_over' })}
-        onUndo={() => edit({ type: 'undo' })}
+        onOneTime={() => {
+          edit({ type: 'use_one_time' });
+          edit({ type: 'close' });
+          setExact(false);
+        }}
         onDone={() => {
           edit({ type: 'close' });
           setExact(false);
@@ -291,22 +296,22 @@ export function Answering({
       weekdays={view.weekdays}
       answerLine={view.answerLine}
       sheet={view.sheet}
-      canUndo={view.canUndo}
       sheetOpen={sheetOpen}
       flexible={state.flexible}
       changed={changed}
       problem={problem}
       busy={sending !== undefined}
       onTick={(day) => edit({ type: 'toggle_day', day })}
-      onChangeTime={() => setSheetOpen(true)}
-      onUndo={() => edit({ type: 'undo' })}
+      onChangeTime={() => {
+        // The days share a time: the sheet. They differ: the screen that says
+        // each one's.
+        if (view.answerLine?.shared === false) openEach();
+        else setSheetOpen(true);
+      }}
       onChooseWindow={(kind) => edit({ type: 'set_window', kind })}
       onExactHours={() => {
         setSheetOpen(false);
-        // The first tapped day opens, so the half hours are in view at once.
-        const first = view.answers[0];
-        if (first !== undefined && state.open === undefined) edit({ type: 'open', day: first.day });
-        setExact(true);
+        openEach();
       }}
       onSheetDone={() => setSheetOpen(false)}
       onFlexible={(on) => edit({ type: 'flexible', on })}

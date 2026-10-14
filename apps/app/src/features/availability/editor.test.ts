@@ -76,7 +76,7 @@ describe('days first, then a time once (ADR 0068)', () => {
 
     // What S1-25's painter sent for the same three evenings, cell by cell.
     const painter = [TUE, THU, SAT].reduce(
-      (state, day) => reduce(state, { type: 'whole_day', day }),
+      (state, day) => reduce(state, { type: 'paint', day, cells: new Array(10).fill(true) }),
       start,
     );
     expect(windowsOf(picked, rows, EVENINGS)).toEqual(windowsOf(painter, rows, EVENINGS));
@@ -218,84 +218,109 @@ describe('days first, then a time once (ADR 0068)', () => {
 });
 
 describe('adjusting one day', () => {
-  it('opens one day at a time, and removing a day closes it', () => {
+  it('opens one day at a time, and closes it again', () => {
     const { run, start } = setUp(EVENINGS);
 
     const open = run(start, { type: 'open', day: TUE }, { type: 'open', day: THU });
     expect(open.open).toBe(THU);
     expect(run(open, { type: 'open', day: THU }).open).toBeUndefined();
-
-    const removed = run(open, { type: 'whole_day', day: THU }, { type: 'remove_day', day: THU });
-    expect(removed.open).toBeUndefined();
-    expect(paintedDays(removed)).toBe(0);
-  });
-
-  it('fills a whole day in one tap, and clears it with the next', () => {
-    const { reduce, start } = setUp(EVENINGS);
-
-    const filled = reduce(start, { type: 'whole_day', day: 2 });
-    expect(filled.days[2]!.every(Boolean)).toBe(true);
-    expect(reduce(filled, { type: 'whole_day', day: 2 }).days[2]!.some(Boolean)).toBe(false);
+    expect(run(open, { type: 'close' }).open).toBeUndefined();
   });
 });
 
-describe('start over', () => {
-  it('clears everything, and Undo gives back exactly the answer that was there', () => {
-    const { rows, run, start } = setUp(EVENINGS);
-    const cells = [false, true, true, false, false, true, true, true, false, false];
-    const answered = run(
+describe('a time for each day (ADR 0068)', () => {
+  it('sets one day to a time of day and leaves the others as they are', () => {
+    const { rows, run, start } = setUp(WHOLE_DAYS);
+
+    const tapped = run(start, { type: 'toggle_day', day: THU }, { type: 'toggle_day', day: TUE });
+    const mixed = run(tapped, { type: 'set_day_window', day: TUE, kind: 'afternoon' });
+
+    expect(on(mixed.days[TUE]!)).toEqual([6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
+    expect(mixed.days[THU]).toEqual(tapped.days[THU]);
+    // The time a new tap gets is the shared one, not this day's.
+    expect(mixed.window).toBe('evening');
+    expect(windowOn('afternoon', mixed, rows, WHOLE_DAYS)).toBe(false);
+  });
+
+  it('sends Thursday evening and Tuesday afternoon as the windows painting those cells by hand does', () => {
+    const { rows, run, start } = setUp(WHOLE_DAYS);
+
+    const quick = run(
+      start,
+      { type: 'toggle_day', day: THU },
+      { type: 'toggle_day', day: TUE },
+      { type: 'set_day_window', day: TUE, kind: 'afternoon' },
+    );
+    // By hand: 5:30 to 10:30 pm is the last ten of 27 half hours from 9 am;
+    // 12 to 5 pm is the ten from the seventh.
+    const cells = (from: number) =>
+      new Array(27).fill(false).map((_, i) => i >= from && i < from + 10);
+    const byHand = run(
+      start,
+      { type: 'paint', day: THU, cells: cells(17) },
+      { type: 'paint', day: TUE, cells: cells(6) },
+    );
+
+    expect(windowsOf(quick, rows, WHOLE_DAYS)).toEqual(windowsOf(byHand, rows, WHOLE_DAYS));
+    expect(windowsOf(quick, rows, WHOLE_DAYS)).toEqual([
+      { start: '2026-09-15T02:00:00.000Z', end: '2026-09-15T07:00:00.000Z' },
+      { start: '2026-09-17T07:30:00.000Z', end: '2026-09-17T12:30:00.000Z' },
+    ]);
+  });
+
+  it('ignores a day that is not tapped, and a time of day the day does not have', () => {
+    const { run, start } = setUp(EVENINGS);
+
+    expect(run(start, { type: 'set_day_window', day: TUE, kind: 'evening' })).toBe(start);
+    const tapped = run(start, { type: 'toggle_day', day: TUE });
+    expect(run(tapped, { type: 'set_day_window', day: TUE, kind: 'afternoon' })).toBe(tapped);
+  });
+
+  it("takes the days back to one time: the sheet's last choice, or the plan's default", () => {
+    const { rows, run, start } = setUp(WHOLE_DAYS);
+    const mixed = run(
       start,
       { type: 'toggle_day', day: TUE },
-      { type: 'paint', day: SAT, cells },
-      { type: 'open', day: SAT },
+      { type: 'toggle_day', day: THU },
+      { type: 'set_day_window', day: TUE, kind: 'afternoon' },
     );
 
-    const cleared = run(answered, { type: 'start_over' });
-    expect(paintedDays(cleared)).toBe(0);
-    expect(cleared.open).toBeUndefined();
-    expect(cleared.undo).toBeDefined();
+    const one = run(mixed, { type: 'use_one_time' });
+    expect(one.days[TUE]).toEqual(one.days[THU]);
+    expect(windowOn('evening', one, rows, WHOLE_DAYS)).toBe(true);
 
-    const back = run(cleared, { type: 'undo' });
-    expect(back.days).toEqual(answered.days);
-    expect(windowsOf(back, rows, EVENINGS)).toEqual(windowsOf(answered, rows, EVENINGS));
-    expect(back.undo).toBeUndefined();
-  });
-
-  it('offers Undo only until the next change to the answer', () => {
-    const { run, start } = setUp(EVENINGS);
-    const cleared = run(start, { type: 'whole_day', day: TUE }, { type: 'start_over' });
-
-    // Opening a day is not a change to the answer.
-    expect(run(cleared, { type: 'open', day: THU }).undo).toBeDefined();
-    const changed = run(cleared, { type: 'whole_day', day: THU });
-    expect(changed.undo).toBeUndefined();
-    expect(run(changed, { type: 'undo' }).days).toEqual(changed.days);
-  });
-
-  it("ends the chance to undo when the answer becomes I'm easy, even if it is turned off again (round 2)", () => {
-    const { run, start } = setUp(EVENINGS);
-    const cleared = run(start, { type: 'whole_day', day: TUE }, { type: 'start_over' });
-
-    const easyAndBack = run(
-      cleared,
-      { type: 'flexible', on: true },
-      { type: 'flexible', on: false },
+    // After the sheet chose Afternoon, that is the one time.
+    const afternoons = run(
+      start,
+      { type: 'toggle_day', day: TUE },
+      { type: 'toggle_day', day: THU },
+      { type: 'set_window', kind: 'afternoon' },
+      { type: 'set_day_window', day: THU, kind: 'any_time' },
+      { type: 'use_one_time' },
     );
-    expect(easyAndBack.undo).toBeUndefined();
-    expect(run(easyAndBack, { type: 'undo' }).days).toEqual(cleared.days);
+    expect(afternoons.days[THU]).toEqual(afternoons.days[TUE]);
+    expect(on(afternoons.days[THU]!)).toEqual([6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
   });
 
-  it('does nothing to an empty answer, so there is nothing to undo', () => {
-    const { run, start } = setUp(EVENINGS);
+  it("falls back to the plan's default when the last time of day is one the sheet does not offer", () => {
+    const { run, start } = setUp(WHOLE_DAYS);
+    const mornings = run(start, { type: 'usual', parts: ['weekday_morning'] });
+    expect(mornings.window).toBe('morning');
 
-    expect(run(start, { type: 'start_over' }).undo).toBeUndefined();
+    const one = run(
+      mornings,
+      { type: 'set_day_window', day: TUE, kind: 'afternoon' },
+      { type: 'use_one_time' },
+    );
+    expect(one.window).toBe('evening');
+    expect(one.days[TUE]).toEqual(one.days[THU]);
   });
 });
 
 describe("I'm easy", () => {
   it('keeps what was there, so turning it off gives it back', () => {
     const { reduce, start } = setUp(EVENINGS);
-    const painted = reduce(start, { type: 'whole_day', day: 0 });
+    const painted = reduce(start, { type: 'toggle_day', day: 0 });
 
     const easy = reduce(painted, { type: 'flexible', on: true });
     expect(easy.flexible).toBe(true);

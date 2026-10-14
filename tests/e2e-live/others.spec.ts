@@ -68,12 +68,13 @@ test('a third guest sees the first two answers as counts, and no name', async ({
   await expect(days(lous).nth(0)).toHaveAccessibleName(/, only you so far$/);
   await expect(days(lous).nth(0)).toContainText('1');
 
-  // The half hours: the first day meets nobody, the fourth both.
+  // The half hours, from each day's card: the first day meets nobody, the
+  // fourth both.
   await lous.getByRole('button', { name: /^Change the time for/ }).click();
-  await lous.getByRole('button', { name: 'Pick exact hours instead' }).click();
+  await lous.getByRole('button', { name: 'A different time for each day' }).click();
   const lines = lous.getByRole('button', { name: /Adjust by the half hour/ });
-  await expect(lines.nth(0)).toHaveAccessibleName(/\. No overlap with anyone yet\. /);
-  await expect(lines.nth(1)).toHaveAccessibleName(/\. Overlaps with 2 others\. /);
+  await lines.nth(0).click();
+  await expect(lous.getByText('Nobody else has picked this day yet.')).toBeVisible();
   await lines.nth(1).click();
   await expect(
     lous.getByText(/^Others free, by the half hour\. The most is 2, 5:30.10:30\spm\.$/),

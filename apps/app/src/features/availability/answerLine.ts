@@ -23,8 +23,10 @@ import { tappedDays, type EditorState } from './editor';
 export type AnswerLine = {
   /** "Thu 15, Tue 20, Thu 22", or "Thu 15, Fri 16, Sat 17 and 5 more". */
   days: string;
-  /** "Evenings, from 5:30 pm" */
+  /** "Evenings, from 5:30 pm", or, when the days differ, each with its own. */
   time: string;
+  /** Every tapped day has the same time: "Change time" is the sheet, else the per-day screen. */
+  shared: boolean;
 };
 
 /** How many days are named before the rest are counted. */
@@ -71,11 +73,56 @@ function hoursOf(kind: BlockKind, row: DayRow, timing: BlockTiming, format: Time
   return rangeText([blockSpan(kind, row, timing)!], timing.zone, format)!;
 }
 
+const DAY_WORD: Partial<Record<DayTag, () => string>> = {
+  morning: () => t('availability', 'day_morning'),
+  afternoon: () => t('availability', 'day_afternoon'),
+  evening: () => t('availability', 'day_evening'),
+  any_time: () => t('availability', 'day_any_time'),
+  from_now: () => t('availability', 'day_from_now'),
+  later_tonight: () => t('availability', 'day_later_tonight'),
+};
+
+/**
+ * What one tapped day has, in a few words: its time of day when it is exactly
+ * one ("evening"), its hours otherwise ("6–9:30 pm").
+ */
+export function dayTime(
+  cells: readonly boolean[],
+  row: DayRow,
+  timing: BlockTiming,
+  format: TimeFormat,
+): string {
+  const tag = dayTag(cells, row, timing);
+  const word = tag === undefined ? undefined : DAY_WORD[tag];
+  if (word !== undefined) return word();
+  return rangeText(cellsToWindows(row.date, cells, timing), timing.zone, format) ?? '';
+}
+
+/** Days that differ, each with its own time: "Thu 15 evening, Tue 20 afternoon, Thu 22 6–9:30 pm". */
+function eachDay(
+  state: Pick<EditorState, 'days'>,
+  tapped: readonly number[],
+  rows: readonly DayRow[],
+  timing: BlockTiming,
+  format: TimeFormat,
+  locale?: string,
+): string {
+  return tapped
+    .map((day) =>
+      t('availability', 'line_day', {
+        day: dayName(rows[day]!.date, locale),
+        time: dayTime(state.days[day] ?? [], rows[day]!, timing, format),
+      }),
+    )
+    .join(', ');
+}
+
 /**
  * The answer in two lines, or undefined while no day is tapped. When every
  * tapped day has the same block it is named ("Evenings, from 5:30 pm"); one
- * day adjusted by the half hour says its hours; days that differ say so, and
- * the exact hours are one tap away.
+ * day adjusted by the half hour says its hours; days that differ are listed,
+ * each with its own time (`shared` is false, and Change time opens the screen
+ * that sets each day).
  */
 export function answerLineOf(
   state: Pick<EditorState, 'days'>,
@@ -93,13 +140,14 @@ export function answerLineOf(
   if (first !== undefined && first !== 'some' && tags.every((tag) => tag === first)) {
     const row = rows[tapped[0]!]!;
     const kind = first;
-    if (kind === 'any_time') return { days, time: t('availability', 'line_any_time') };
+    if (kind === 'any_time')
+      return { days, time: t('availability', 'line_any_time'), shared: true };
     const word = WORD[kind]!();
     const time =
       kind === 'evening' || kind === 'from_now' || kind === 'later_tonight'
         ? t('availability', 'line_from', { word, time: startsAt(kind, row, timing, format) })
         : t('availability', 'line_between', { word, time: hoursOf(kind, row, timing, format) });
-    return { days, time };
+    return { days, time, shared: true };
   }
 
   // One time that is not a block, the same on every tapped day: its hours.
@@ -112,7 +160,7 @@ export function answerLineOf(
       format,
     );
     if (hours !== undefined)
-      return { days, time: t('availability', 'line_exact', { time: hours }) };
+      return { days, time: t('availability', 'line_exact', { time: hours }), shared: true };
   }
-  return { days, time: t('availability', 'line_differs') };
+  return { days, time: eachDay(state, tapped, rows, timing, format, locale), shared: false };
 }

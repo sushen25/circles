@@ -45,7 +45,7 @@ export function ChangeTimeSheet({ visible, sheet, onChoose, onExactHours, onDone
               />
             ))}
           </View>
-          <Tertiary label={t('availability', 'pick_exact_hours')} onPress={onExactHours} />
+          <Tertiary label={t('availability', 'different_time_each_day')} onPress={onExactHours} />
           <Button label={t('availability', 'done')} onPress={onDone} />
         </>
       )}

@@ -34,8 +34,9 @@ import type { DayRow } from './days';
  * People pick days first and then a time once for all of them (ADR 0068, which
  * amends ADR 0024): tapping a day gives it the current time of day, so a tapped
  * day is a day with times, and "Change time" gives every tapped day another
- * one. The state also holds that time of day (`window`), which day is open for
- * adjusting by the half hour, and what "Start over" cleared. Those three are
+ * one; "A time for each day" gives one day another, and "By the half hour"
+ * opens a day's cells. The state also holds that time of day (`window`) and
+ * which day is open for adjusting by the half hour. Those two are
  * **view state**: the draft on the device and the request to the server are
  * built from `days` and `flexible` alone (`useSendAnswer`), so a choice of
  * window never reaches storage or the network.
@@ -55,26 +56,23 @@ export type EditorState = {
   window: BlockKind;
   /** The one day open for adjusting by the half hour. View state. */
   open: number | undefined;
-  /** What "Start over" cleared, until the next change to the answer. View state. */
-  undo: boolean[][] | undefined;
 };
 
 export type EditorAction =
   /** The adjust row: one day's cells, as the track painted them. */
   | { type: 'paint'; day: number; cells: boolean[] }
-  /** "Any time that day" / "Clear this day" on the open day. */
-  | { type: 'whole_day'; day: number }
   /** A tap on a day: it gets the current time of day, or loses its times. */
   | { type: 'toggle_day'; day: number }
   /** "Change time": this time of day on every tapped day, whatever they had. */
   | { type: 'set_window'; kind: BlockKind }
-  | { type: 'remove_day'; day: number }
+  /** "A time for each day": this time of day on this one day, and no other. */
+  | { type: 'set_day_window'; day: number; kind: BlockKind }
+  /** "Use one time for all days": the shared time of day on every tapped day. */
+  | { type: 'use_one_time' }
   /** Opens a day for adjusting, or closes it if it is the one open. */
   | { type: 'open'; day: number }
   /** Closes whichever day is open, on the way out of the half hours. */
   | { type: 'close' }
-  | { type: 'start_over' }
-  | { type: 'undo' }
   | { type: 'flexible'; on: boolean }
   /**
    * Previous times: paints the day-parts the person has offered before onto the plan
@@ -85,7 +83,7 @@ export type EditorAction =
   | { type: 'load'; state: EditorState };
 
 function withDays(days: boolean[][], window: BlockKind, flexible = false): EditorState {
-  return { days, flexible, window, open: undefined, undo: undefined };
+  return { days, flexible, window, open: undefined };
 }
 
 export function emptyEditor(rows: readonly DayRow[], timing: BlockTiming): EditorState {
@@ -183,14 +181,9 @@ export function tappedDays(state: Pick<EditorState, 'days'>): number[] {
   return state.days.flatMap((cells, day) => (cells.some(Boolean) ? [day] : []));
 }
 
-export function wholeDayOn(state: EditorState, day: number): boolean {
-  const cells = state.days[day] ?? [];
-  return cells.length > 0 && cells.every(Boolean);
-}
-
-/** A change to the answer itself, which is what ends the chance to undo. */
+/** A change to the answer itself. */
 function answer(state: EditorState, days: boolean[][]): EditorState {
-  return { ...state, days, undo: undefined };
+  return { ...state, days };
 }
 
 function mapDays(
@@ -220,7 +213,7 @@ export function editorReducer(
       case 'flexible':
         // A change of answer, from times to "I'm easy" or back: Start over's
         // Undo ends here as it does for any other (review round 2).
-        return { ...state, flexible: action.on, undo: undefined };
+        return { ...state, flexible: action.on };
       case 'paint':
         return answer(
           state,
@@ -230,17 +223,6 @@ export function editorReducer(
             () => action.cells,
           ),
         );
-      case 'whole_day': {
-        const fill = !wholeDayOn(state, action.day);
-        return answer(
-          state,
-          mapDays(
-            state,
-            (day) => day === action.day,
-            (cells) => cells.map(() => fill),
-          ),
-        );
-      }
       case 'toggle_day': {
         const row = rows[action.day];
         if (row === undefined) return state;
@@ -285,32 +267,45 @@ export function editorReducer(
           window: action.kind,
         };
       }
-      case 'remove_day':
+      case 'set_day_window': {
+        const row = rows[action.day];
+        const mask = row === undefined ? undefined : windowCells(action.kind, row, timing);
+        if (mask === undefined || !hasTimes(state, action.day)) return state;
+        return answer(
+          state,
+          mapDays(
+            state,
+            (day) => day === action.day,
+            () => mask,
+          ),
+        );
+      }
+      case 'use_one_time': {
+        // The sheet's last choice, or the plan's default where that was a
+        // block the sheet does not offer (a morning previous times painted).
+        const kind = windowsFor(timing).includes(state.window)
+          ? state.window
+          : defaultWindow(rows, timing);
+        const offer = offeredBlocks(tappedDays(state), rows, timing, windowsFor(timing)).find(
+          (o) => o.kind === kind,
+        );
+        if (offer === undefined) return state;
         return {
           ...answer(
             state,
             mapDays(
               state,
-              (day) => day === action.day,
-              (cells) => cells.map(() => false),
+              (day) => offer.days.includes(day),
+              (_, day) => windowCells(kind, rows[day]!, timing)!,
             ),
           ),
-          open: state.open === action.day ? undefined : state.open,
+          window: kind,
         };
+      }
       case 'close':
         return { ...state, open: undefined };
       case 'open':
         return { ...state, open: state.open === action.day ? undefined : action.day };
-      case 'start_over':
-        if (state.days.every((cells) => !cells.some(Boolean))) return state;
-        return {
-          ...state,
-          days: state.days.map((cells) => cells.map(() => false)),
-          open: undefined,
-          undo: state.days,
-        };
-      case 'undo':
-        return state.undo === undefined ? state : { ...state, days: state.undo, undo: undefined };
     }
   };
 }

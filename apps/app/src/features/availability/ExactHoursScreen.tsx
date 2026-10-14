@@ -1,41 +1,36 @@
-import { BodyText, Body, Button, DisplayL, Foot, Screen, TopBar } from '../../components';
+import { BodyText, Body, Button, DisplayL, Foot, Screen, Tertiary, TopBar } from '../../components';
 import { Stack } from '../../components/layout';
 import { t } from '../../copy';
-import { AnswerList } from './AnswerList';
-import type { AnswerView } from './view';
+import type { BlockKind } from './blocks';
+import { DayCard } from './DayCard';
+import type { DayCardView } from './view';
 
 /**
- * Exact hours (SUS-206, ADR 0068; the half-hour cells are ADR 0009): the one
- * place the answer is set day by day. Each tapped day is a line that opens to
- * its half hours, with what the others said by the half hour over them
- * (SUS-129). Presentational, like `AvailabilityScreen`; the container owns the
- * answer and comes back to the first screen on Done.
+ * "A time for each day" (SUS-206, ADR 0068; the half-hour cells are ADR 0009):
+ * the one place a day can differ from the others. Each tapped day is a card with
+ * the plan's quick choices, and "By the half hour" opens its cells. Done goes
+ * back to the first screen, and "Use one time for all days" goes back with the
+ * shared time. Presentational, like `AvailabilityScreen`.
  */
 type Props = {
   title?: string | undefined;
-  answers: readonly AnswerView[];
-  canUndo: boolean;
+  cards: readonly DayCardView[];
   busy?: boolean | undefined;
+  onChoose?: ((day: number, kind: BlockKind) => void) | undefined;
   onOpen?: ((day: number) => void) | undefined;
   onPaint?: ((day: number, cells: boolean[]) => void) | undefined;
-  onWholeDay?: ((day: number) => void) | undefined;
-  onRemoveDay?: ((day: number) => void) | undefined;
-  onStartOver?: (() => void) | undefined;
-  onUndo?: (() => void) | undefined;
+  onOneTime?: (() => void) | undefined;
   onDone?: (() => void) | undefined;
 };
 
 export function ExactHoursScreen({
   title,
-  answers,
-  canUndo,
+  cards,
   busy = false,
+  onChoose,
   onOpen,
   onPaint,
-  onWholeDay,
-  onRemoveDay,
-  onStartOver,
-  onUndo,
+  onOneTime,
   onDone,
 }: Props) {
   return (
@@ -46,20 +41,26 @@ export function ExactHoursScreen({
           <DisplayL>{t('availability', 'exact_title')}</DisplayL>
           <BodyText>{t('availability', 'exact_body')}</BodyText>
         </Stack>
-        <AnswerList
-          answers={answers}
-          canUndo={canUndo}
-          dimmed={busy}
-          onOpen={onOpen}
-          onPaint={onPaint}
-          onWholeDay={onWholeDay}
-          onRemoveDay={onRemoveDay}
-          onStartOver={onStartOver}
-          onUndo={onUndo}
-        />
+        <Stack gap={12}>
+          {cards.map((card) => (
+            <DayCard
+              key={card.key}
+              card={card}
+              dimmed={busy}
+              onChoose={onChoose}
+              onOpen={onOpen}
+              onPaint={onPaint}
+            />
+          ))}
+        </Stack>
       </Body>
       <Foot>
         <Button label={t('availability', 'done')} onPress={onDone} />
+        <Tertiary
+          tone="plain"
+          label={t('availability', 'use_one_time')}
+          onPress={busy ? undefined : onOneTime}
+        />
       </Foot>
     </Screen>
   );

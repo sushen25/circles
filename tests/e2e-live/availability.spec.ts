@@ -39,8 +39,9 @@ const days = (page: Page) =>
   page.getByRole('group', { name: 'Days in this plan' }).getByRole('button');
 /** "Change time" under the grid, which opens the sheet. */
 const changeTime = (page: Page) => page.getByRole('button', { name: /^Change the time for/ });
-const exactLink = (page: Page) => page.getByRole('button', { name: 'Pick exact hours instead' });
-/** The first day's line in the half hours, which is open when they open. */
+const exactLink = (page: Page) =>
+  page.getByRole('button', { name: 'A different time for each day' });
+/** The first day's "By the half hour", which opens that day's cells. */
 const firstLine = (page: Page) =>
   page.getByRole('button', { name: /Adjust by the half hour$/ }).first();
 /** The half hours of the open day. */
@@ -58,6 +59,8 @@ async function evenings(page: Page, ...indices: number[]) {
 async function exactHours(page: Page) {
   await changeTime(page).click();
   await exactLink(page).click();
+  await expect(page.getByRole('heading', { name: 'A time for each day' })).toBeVisible();
+  await firstLine(page).click();
   await expect(firstLine(page)).toHaveAttribute('aria-expanded', 'true');
 }
 
@@ -110,11 +113,9 @@ test('what is adjusted by the half hour is what is stored, and it comes back tha
   // 5:30–6:30 pm and 7:30–8 pm on the first day: two runs, so two windows.
   await evenings(page, 0);
   await exactHours(page);
-  // "Clear" and the day's name: the open day's own button.
-  await page.getByRole('button', { name: /^Clear / }).click();
-  await cells(page).nth(0).click();
-  await cells(page).nth(1).click();
-  await cells(page).nth(4).click();
+  // The evening, less 6:30 to 7:30 pm and 8 pm on: the cells that stay are
+  // the first two and the fifth.
+  for (const index of [2, 3, 5, 6, 7, 8, 9]) await cells(page).nth(index).click();
   await page.getByRole('button', { name: 'Done', exact: true }).click();
   await expect(page.getByText(/set by the half hour/)).toBeVisible();
   await page.getByRole('button', { name: 'Send my times' }).click();
@@ -153,6 +154,8 @@ test('an answer can be given from the keyboard alone, by days and a sheet, and a
   );
   await exactLink(page).focus();
   await page.keyboard.press('Enter');
+  await firstLine(page).focus();
+  await page.keyboard.press('Enter');
   await expect(firstLine(page)).toHaveAttribute('aria-expanded', 'true');
   await cells(page).nth(0).focus();
   await page.keyboard.press('Space');
@@ -185,6 +188,41 @@ test('Change time offers only the times of day the plan has, and Done leaves the
   );
   await page.getByRole('button', { name: 'Done', exact: true }).click();
   await expect(page.getByRole('radio')).toHaveCount(0);
+  await expect(page.getByText('Evenings, from 5:30 pm')).toBeVisible();
+});
+
+test('a day can have its own time of day, and the line then lists each day', async ({ page }) => {
+  const crew = sundayCrew();
+  await arriveAs(page, crew, 'Ren');
+
+  await evenings(page, 1, 3);
+  await changeTime(page).click();
+  await exactLink(page).click();
+  // The plan asks about an evening only, so each card offers Evening alone, and
+  // it is selected; the half hours are a link away on each.
+  await expect(page.getByRole('button', { name: /^Evening, / })).toHaveCount(2);
+  await expect(page.getByRole('button', { name: /^Evening, / }).first()).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+
+  // One day's own hours: a quick choice is no longer selected on it.
+  await page
+    .getByRole('button', { name: /Adjust by the half hour$/ })
+    .first()
+    .click();
+  await cells(page).nth(0).click();
+  await expect(page.getByText(/your own hours$/)).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Evening, / }).first()).toHaveAttribute(
+    'aria-pressed',
+    'false',
+  );
+  await page.getByRole('button', { name: 'Done', exact: true }).click();
+  // The days differ, so the line lists each, and Change time goes straight back.
+  await expect(page.getByText(/6–10:30 pm.*evening/)).toBeVisible();
+  await changeTime(page).click();
+  await expect(page.getByRole('heading', { name: 'A time for each day' })).toBeVisible();
+  await page.getByRole('button', { name: 'Use one time for all days' }).click();
   await expect(page.getByText('Evenings, from 5:30 pm')).toBeVisible();
 });
 

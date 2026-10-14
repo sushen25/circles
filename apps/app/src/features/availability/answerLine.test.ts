@@ -51,7 +51,11 @@ describe('the answer line', () => {
   it('names one day and the evening', () => {
     const { run, line, tap } = setUp(WHOLE_DAYS);
 
-    expect(line(run(...tap(3)))).toEqual({ days: 'Thu 15', time: 'Evenings, from 5:30 pm' });
+    expect(line(run(...tap(3)))).toEqual({
+      days: 'Thu 15',
+      time: 'Evenings, from 5:30 pm',
+      shared: true,
+    });
   });
 
   it('names three days in date order, as the artboard writes them', () => {
@@ -61,6 +65,7 @@ describe('the answer line', () => {
     expect(line(run(...tap(10, 3, 8)))).toEqual({
       days: 'Thu 15, Tue 20, Thu 22',
       time: 'Evenings, from 5:30 pm',
+      shared: true,
     });
   });
 
@@ -70,6 +75,7 @@ describe('the answer line', () => {
     expect(line(run(...tap(0, 1, 2, 3, 4, 5, 6, 7)))).toEqual({
       days: 'Mon 12, Tue 13, Wed 14 and 5 more',
       time: 'Evenings, from 5:30 pm',
+      shared: true,
     });
   });
 
@@ -79,6 +85,7 @@ describe('the answer line', () => {
     expect(line(run(...tap(1, 2), { type: 'set_window', kind: 'afternoon' }))).toEqual({
       days: 'Tue 13, Wed 14',
       time: 'Afternoons, 12–5 pm',
+      shared: true,
     });
   });
 
@@ -103,6 +110,7 @@ describe('the answer line', () => {
     expect(line(run(...tap(1), { type: 'paint', day: 1, cells }))).toEqual({
       days: 'Tue 13',
       time: '7–9 pm, set by the half hour',
+      shared: true,
     });
   });
 
@@ -112,17 +120,40 @@ describe('the answer line', () => {
 
     expect(
       line(run(...tap(1, 2), { type: 'paint', day: 1, cells }, { type: 'paint', day: 2, cells })),
-    ).toEqual({ days: 'Tue 13, Wed 14', time: '7–9 pm, set by the half hour' });
+    ).toEqual({ days: 'Tue 13, Wed 14', time: '7–9 pm, set by the half hour', shared: true });
   });
 
-  it('says the days differ when two days have different times, and the half hours are the way to see them', () => {
+  it('lists each day with its own time when they differ, as the board writes it', () => {
     const { run, line, tap } = setUp(WHOLE_DAYS);
-    const cells = new Array(27).fill(false).map((_, i) => i >= 20 && i < 24);
+    const nine = new Array(27).fill(false).map((_, i) => i >= 18 && i < 25);
 
-    expect(line(run(...tap(1, 2), { type: 'paint', day: 1, cells }))).toEqual({
-      days: 'Tue 13, Wed 14',
-      time: 'Different times on different days',
+    expect(
+      line(
+        run(
+          ...tap(3, 8, 10),
+          { type: 'set_day_window', day: 8, kind: 'afternoon' },
+          { type: 'paint', day: 10, cells: nine },
+        ),
+      ),
+    ).toEqual({
+      days: 'Thu 15, Tue 20, Thu 22',
+      time: 'Thu 15 evening, Tue 20 afternoon, Thu 22 6–9:30 pm',
+      shared: false,
     });
+  });
+
+  it('names any time and the other times of day in the list too', () => {
+    const { run, line, tap } = setUp(WHOLE_DAYS);
+
+    expect(
+      line(run(...tap(1, 2), { type: 'set_day_window', day: 2, kind: 'any_time' }))?.time,
+    ).toBe('Tue 13 evening, Wed 14 any time');
+  });
+
+  it('says one shared time is shared, so Change time is the sheet', () => {
+    const { run, line, tap } = setUp(WHOLE_DAYS);
+
+    expect(line(run(...tap(1, 2)))?.shared).toBe(true);
   });
 });
 

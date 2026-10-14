@@ -92,11 +92,22 @@ function answerMonday() {
   fireEvent.click(dayButton('Monday', 14));
 }
 
-/** From the first screen to the half hours: Change time, then the link. */
-function exactHours() {
+/**
+ * From the first screen to "A time for each day": Change time, then the sheet's
+ * link (days that already differ go straight there).
+ */
+function eachDay() {
   fireEvent.click(changeTime());
-  fireEvent.click(screen.getByRole('button', { name: 'Pick exact hours instead' }));
+  const link = screen.queryByRole('button', { name: 'A different time for each day' });
+  if (link !== null) fireEvent.click(link);
 }
+/** A day's own half hours, from its card. */
+const byTheHalfHour = (weekday: string) =>
+  fireEvent.click(
+    screen.getByRole('button', { name: new RegExp(`^${weekday}.*Adjust by the half hour$`) }),
+  );
+/** The line that lists each day when they differ (the stored answer's three). */
+const differing = () => screen.findByText(/, .*evening$/);
 /** Back from the half hours to the first screen. */
 function backToAnswer() {
   fireEvent.click(screen.getByRole('button', { name: 'Done' }));
@@ -131,14 +142,15 @@ describe('painting and sending', () => {
     await screen.findByText('Which days could work?');
 
     answerMonday();
-    // The half hours open on the first tapped day.
-    exactHours();
-    fireEvent.click(screen.getByRole('button', { name: /^Clear Monday/ }));
-    fireEvent.click(mondayAt('6:30', '7 pm'));
-    fireEvent.click(mondayAt('7', '7:30 pm'));
-    expect(screen.getByText('6:30–7:30 pm')).toBeInTheDocument();
+    // 6:30–10 pm: the first two half hours and the last are taken off.
+    eachDay();
+    byTheHalfHour('Monday');
+    fireEvent.click(mondayAt('5:30', '6 pm'));
+    fireEvent.click(mondayAt('6', '6:30 pm'));
+    fireEvent.click(mondayAt('10', '10:30 pm'));
+    expect(screen.getByText('6:30–10 pm, your own hours')).toBeInTheDocument();
     backToAnswer();
-    expect(screen.getByText('6:30–7:30 pm, set by the half hour')).toBeInTheDocument();
+    expect(screen.getByText('6:30–10 pm, set by the half hour')).toBeInTheDocument();
     await send();
 
     expect(submitAnswer).toHaveBeenCalledWith(
@@ -146,7 +158,7 @@ describe('painting and sending', () => {
         planId: PLAN.id,
         revision: 1,
         status: 'windows',
-        windows: [{ start: '2099-09-14T08:30:00.000Z', end: '2099-09-14T09:30:00.000Z' }],
+        windows: [{ start: '2099-09-14T08:30:00.000Z', end: '2099-09-14T12:00:00.000Z' }],
       }),
     );
     expect(replace).toHaveBeenCalledWith({ pathname: '/j/[code]/sent', params: { code: CODE } });
@@ -201,7 +213,7 @@ describe('painting and sending', () => {
     planToAnswer.mockResolvedValue({ plan: PLAN, answer: answerable.answer });
     open();
 
-    await screen.findByText('Different times on different days');
+    await differing();
     // The same days and ranges as were given, on the days and in one line.
     expect(dayButton('Monday', 14)).toHaveAccessibleName(/, 6:30–10:30 pm$/);
     expect(dayButton('Wednesday', 16)).toHaveAccessibleName(/, 7–9:30 pm$/);
@@ -210,7 +222,11 @@ describe('painting and sending', () => {
     expect(dayButton('Monday', 14)).toHaveAttribute('aria-pressed', 'true');
     expect(dayButton('Tuesday', 15)).toHaveAttribute('aria-pressed', 'false');
 
-    exactHours();
+    // Days that differ: Change time goes straight to a time for each day.
+    eachDay();
+    expect(screen.getByRole('heading', { name: 'A time for each day' })).toBeInTheDocument();
+    expect(screen.getByText('6:30–10:30 pm, your own hours')).toBeInTheDocument();
+    byTheHalfHour('Monday');
     expect(mondayAt('5:30', '6 pm')).toHaveAttribute('aria-checked', 'false');
     expect(mondayAt('6:30', '7 pm')).toHaveAttribute('aria-checked', 'true');
   });
@@ -271,7 +287,7 @@ describe('days first, then a time once (ADR 0068)', () => {
     expect(sentKey).toEqual(expect.any(String));
   });
 
-  it('keeps which day is open and what Start over cleared off the device and out of the request', async () => {
+  it('keeps which day is open and the shared time off the device and out of the request', async () => {
     open();
     await screen.findByText('Which days could work?');
 
@@ -280,12 +296,11 @@ describe('days first, then a time once (ADR 0068)', () => {
     // A tapped day has a time, so it is an answer and a draft is kept.
     await waitFor(async () => expect(await readDraft('nina', CODE)).toBeDefined());
 
-    exactHours();
-    fireEvent.click(screen.getByRole('button', { name: 'Start over' }));
+    eachDay();
+    byTheHalfHour('Tuesday');
     const stored = JSON.stringify(globalThis.localStorage);
     expect(stored).not.toMatch(/ticked|"open"|undo|"window"/);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
     backToAnswer();
     await send();
     expect(Object.keys(submitAnswer.mock.calls[0]![0]).sort()).toEqual([
@@ -321,71 +336,98 @@ describe('days first, then a time once (ADR 0068)', () => {
     expect(screen.getByText('Evenings, from 5:30 pm')).toBeInTheDocument();
   });
 
-  it('adjusts one day by the half hour, one day open at a time', async () => {
+  it("opens one day's half hours at a time, and a choice sets one day alone", async () => {
     planToAnswer.mockResolvedValue({ plan: PLAN, answer: answerable.answer });
     open();
-    await screen.findByText('Different times on different days');
+    await differing();
     expect(screen.queryAllByRole('checkbox', { name: / to / })).toHaveLength(0);
 
-    exactHours();
+    eachDay();
     const mondayLine = () =>
       screen.getByRole('button', { name: /^Monday.*Adjust by the half hour$/ });
+    expect(mondayLine()).toHaveAttribute('aria-expanded', 'false');
+    byTheHalfHour('Monday');
     expect(mondayLine()).toHaveAttribute('aria-expanded', 'true');
     fireEvent.click(mondayAt('5:30', '6 pm'));
-    expect(screen.getByText('5:30–10:30 pm', { selector: 'div' })).toBeInTheDocument();
+    fireEvent.click(mondayAt('6', '6:30 pm'));
+    // Monday's hours are now exactly the evening, as Thursday's already were.
+    expect(screen.getAllByText('from 5:30 pm')).toHaveLength(2);
 
-    fireEvent.click(screen.getByRole('button', { name: /^Wednesday.*Adjust by the half hour$/ }));
+    byTheHalfHour('Wednesday');
     expect(mondayLine()).toHaveAttribute('aria-expanded', 'false');
     expect(screen.queryAllByRole('checkbox', { name: /^Monday.* to / })).toHaveLength(0);
 
-    fireEvent.click(screen.getByRole('button', { name: /^Remove Wednesday/ }));
+    // Wednesday's own hours become the evening; Monday's are left as they were.
+    fireEvent.click(screen.getByRole('button', { name: /^Evening, Wednesday/ }));
+    expect(screen.getByRole('button', { name: /^Evening, Wednesday/ })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
     backToAnswer();
-    expect(dayButton('Wednesday', 16)).toHaveAttribute('aria-pressed', 'false');
+    expect(dayButton('Wednesday', 16)).toHaveAccessibleName(/, 5:30–10:30 pm$/);
+    expect(dayButton('Monday', 14)).toHaveAccessibleName(/, 5:30–10:30 pm$/);
   });
 
-  it('starts over in the half hours, and Undo gives back exactly the answer that was there', async () => {
-    planToAnswer.mockResolvedValue({ plan: PLAN, answer: answerable.answer });
+  it('sends Thursday evening and Tuesday afternoon as the windows painting them by hand would (ADR 0013)', async () => {
+    planToAnswer.mockResolvedValue({
+      plan: { ...PLAN, dailyStartMin: 9 * 60, dailyEndMin: 22 * 60 + 30 },
+      answer: null,
+    });
     open();
-    await screen.findByText('Different times on different days');
+    await screen.findByText('Which days could work?');
 
-    exactHours();
-    fireEvent.click(screen.getByRole('button', { name: 'Start over' }));
-    expect(screen.getByText('Cleared.')).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
-    expect(screen.queryByText('Cleared.')).toBeNull();
+    fireEvent.click(dayButton('Thursday', 17));
+    fireEvent.click(dayButton('Tuesday', 15));
+    eachDay();
+    fireEvent.click(screen.getByRole('button', { name: /^Afternoon, Tuesday/ }));
     backToAnswer();
+    expect(screen.getByText(/afternoon, .*evening$/)).toBeInTheDocument();
     await send();
-    expect(submitAnswer.mock.calls[0]![0].windows).toEqual(STORED);
+
+    // Melbourne is UTC+10: Tuesday 12–5 pm, Thursday 5:30–10:30 pm.
+    const { idempotencyKey, ...payload } = submitAnswer.mock.calls[0]![0];
+    expect(idempotencyKey).toEqual(expect.any(String));
+    expect(payload).toEqual({
+      planId: PLAN.id,
+      revision: 1,
+      status: 'windows',
+      windows: [
+        { start: '2099-09-15T02:00:00.000Z', end: '2099-09-15T07:00:00.000Z' },
+        { start: '2099-09-17T07:30:00.000Z', end: '2099-09-17T12:30:00.000Z' },
+      ],
+    });
   });
 
-  it('keeps Undo on the first screen after Start over and Done, and gives the answer back (review round 2)', async () => {
+  it('takes the days back to one time with "Use one time for all days"', async () => {
     planToAnswer.mockResolvedValue({ plan: PLAN, answer: answerable.answer });
     open();
-    await screen.findByText('Different times on different days');
+    await differing();
 
-    exactHours();
-    fireEvent.click(screen.getByRole('button', { name: 'Start over' }));
-    backToAnswer();
-    // Nothing is tapped, so there is no answer line; the way back is still here.
-    expect(screen.getByText('Cleared.')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
-    expect(await screen.findByText('Different times on different days')).toBeInTheDocument();
-    expect(screen.queryByText('Cleared.')).toBeNull();
+    eachDay();
+    fireEvent.click(screen.getByRole('button', { name: 'Use one time for all days' }));
+    // Back on the first screen, every tapped day with the evening.
+    expect(await screen.findByText('Evenings, from 5:30 pm')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'A time for each day' })).toBeNull();
     await send();
-    expect(submitAnswer.mock.calls[0]![0].windows).toEqual(STORED);
+    expect(submitAnswer.mock.calls[0]![0].windows).toEqual(
+      [14, 16, 17].map((date) => ({
+        start: `2099-09-${date}T07:30:00.000Z`,
+        end: `2099-09-${date}T12:30:00.000Z`,
+      })),
+    );
   });
 
   it("dims the days under I'm easy and gives them back when it is turned off", async () => {
     planToAnswer.mockResolvedValue({ plan: PLAN, answer: answerable.answer });
     open();
-    await screen.findByText('Different times on different days');
+    await differing();
 
     fireEvent.click(screen.getByRole('switch', { name: "I'm easy" }));
     expect(dayButton('Tuesday', 15)).toHaveAttribute('aria-disabled', 'true');
-    // Change time is out of play too: it opens nothing.
+    // Change time is out of play too: it opens neither the sheet nor the days.
     fireEvent.click(changeTime());
     expect(screen.queryByRole('radio', { name: /^Evening/ })).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'A time for each day' })).toBeNull();
     fireEvent.click(dayButton('Tuesday', 15));
     expect(dayButton('Tuesday', 15)).toHaveAttribute('aria-pressed', 'false');
 

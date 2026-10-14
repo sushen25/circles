@@ -76,7 +76,11 @@ test('the availability editor has no serious accessibility violations', async ({
   expect(await seriousViolations(page)).toEqual([]);
 
   // ...and with a day open, so the half hours are too.
-  await page.getByRole('button', { name: 'Pick exact hours instead' }).click();
+  await page.getByRole('button', { name: 'A different time for each day' }).click();
+  await page
+    .getByRole('button', { name: /Adjust by the half hour$/ })
+    .first()
+    .click();
   await expect(
     page.getByRole('button', { name: /Adjust by the half hour$/ }).first(),
   ).toHaveAttribute('aria-expanded', 'true');

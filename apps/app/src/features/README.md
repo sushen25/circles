@@ -36,7 +36,8 @@ flows do not, because the sheet it opened named a fixture circle.
 | `Availability.dc.html`            | `/j/[code]`                             | `AvailabilityScreen`        |
 | `AvailabilityPicking.dc.html`     | `/j/[code]` (three days tapped)         | `AvailabilityScreen`        |
 | `AvailabilityTime.dc.html`        | `/j/[code]` (Change time sheet)         | `ChangeTimeSheet`           |
-| `AvailabilityAdjusting.dc.html`   | `/j/[code]` (exact hours)               | `ExactHoursScreen`          |
+| `AvailabilityAdjusting.dc.html`   | `/j/[code]` (a time for each day)       | `ExactHoursScreen`          |
+| `AvailabilityMixed.dc.html`       | `/j/[code]` (days with different times) | `AvailabilityScreen`        |
 | `AvailabilityReturning.dc.html`   | `/j/[code]` (previous times pre-filled) | `AvailabilityScreen`        |
 | `AvailabilityOthersFirst.dc.html` | `/j/[code]` (first to answer)           | `AvailabilityScreen`        |
 | `AvailabilityOverlay.dc.html`     | `/j/[code]/overlay`                     | `AvailabilityOverlayScreen` |
@@ -70,14 +71,15 @@ first, then a time once. `AvailabilityScreen` is the question, one line of
 guidance, the day grid, the deadline footnote and, once any day is tapped, the
 answer in one line with "Change time". Tapping a day gives it the current time
 of day (Evening unless the plan has none); `ChangeTimeSheet` gives every tapped
-day another; "Pick exact hours instead" opens `ExactHoursScreen`
-(`AnswerList`: a line per day opening to its half-hour `Track`, with the others'
-counts by the half hour). Everything it shows is worked out in `view.ts` and
+day another; "A different time for each day" (or Change time, once the days
+differ) opens `ExactHoursScreen`, "A time for each day": a `DayCard` per day
+with the plan's quick choices, and "By the half hour" opening its `Track` with
+the others' counts by the half hour. Everything it shows is worked out in `view.ts` and
 `answerLine.ts` from the reducer in `editor.ts`; the blocks are the domain's
 shortcuts (`blocks.ts`). The chosen time of day and the open day are view state
 and never stored. A returning member's previous times land as taps, not as a
 button (`Answering`). `AvailabilityPicking`, `AvailabilityTime`,
-`AvailabilityAdjusting` and `AvailabilityReturning` are states of the same
+`AvailabilityAdjusting`, `AvailabilityMixed` and `AvailabilityReturning` are states of the same
 route, not routes of their own.
 
 **Counts of what others said, SUS-129 (ADR 0045), on the tiles in SUS-206:** the

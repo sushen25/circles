@@ -170,9 +170,10 @@ test.describe('the controls actually work', () => {
 
     // Nothing scrolls sideways until the half hours are asked for.
     await expect(page.getByRole('checkbox', { name: / to / })).toHaveCount(0);
-    await page.getByRole('button', { name: 'Pick exact hours instead' }).click();
-    await expect(page.getByRole('heading', { name: 'Exact hours' })).toBeVisible();
+    await page.getByRole('button', { name: 'A different time for each day' }).click();
+    await expect(page.getByRole('heading', { name: 'A time for each day' })).toBeVisible();
     const line = page.getByRole('button', { name: /^Tuesday.*Adjust by the half hour$/ });
+    await line.click();
     await expect(line).toHaveAttribute('aria-expanded', 'true');
     const cells = page.getByRole('checkbox', { name: /^Tuesday.* to / });
     await expect(cells).toHaveCount(10);
@@ -185,7 +186,7 @@ test.describe('the controls actually work', () => {
 
     // Back: the answer line says it was set by the half hour.
     await page.getByRole('button', { name: 'Done', exact: true }).click();
-    await expect(page.getByText(/set by the half hour|Different times/)).toBeVisible();
+    await expect(page.getByText(/set by the half hour/)).toBeVisible();
   });
 
   test('a second tap takes a day away again, and its count with it', async ({ page }) => {

@@ -5,7 +5,6 @@ import {
   othersShown,
   peakOf,
   rangeText,
-  type Interval,
   type OthersSaid,
   type TimeFormat,
 } from '@circles/domain';
@@ -50,20 +49,6 @@ export function dayLabel(label: string, free: number, selected: boolean): string
   return free === 1
     ? t('availability', 'day_others_one', { label })
     : t('availability', 'day_others_other', { label, count: free });
-}
-
-/** The cells of a day the reader has painted, as spans. */
-function paintedSpans(row: DayRow, cells: readonly boolean[]): Interval[] {
-  return row.cells.filter((_, index) => cells[index] === true);
-}
-
-/** "Overlaps with 3 others", for a line of the answer. */
-export function overlapLine(others: OthersSaid, row: DayRow, cells: readonly boolean[]): string {
-  const free = freeFor(others, paintedSpans(row, cells));
-  if (free === 0) return t('availability', 'overlap_none');
-  return free === 1
-    ? t('availability', 'overlap_one')
-    : t('availability', 'overlap_other', { count: free });
 }
 
 export type DayOthers = {

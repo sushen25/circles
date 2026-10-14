@@ -110,7 +110,7 @@ describe('previous times', () => {
     );
     // Evenings on weekdays and the daytime on weekends: the line says so, and
     // the half hours are one tap away.
-    expect(screen.getByText('Different times on different days')).toBeVisible();
+    expect(screen.getByText(/9 am–5 pm.*evening|evening.*9 am–5 pm/)).toBeVisible();
   });
 
   it('tap only the parts the plan paints: a part it does not ask about adds nothing', async () => {
@@ -214,7 +214,7 @@ describe('previous times', () => {
   it('never overwrite an answer already given', async () => {
     planToAnswer.mockResolvedValue(answerable);
     open();
-    await screen.findByText('Different times on different days');
+    await screen.findByText(/, .*evening$/);
     await act(async () => undefined);
     // The stored answer's three days, not the ten weekdays.
     expect(tapped()).toHaveLength(3);

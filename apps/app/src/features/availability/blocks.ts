@@ -60,6 +60,26 @@ export function windowsFor(timing: BlockTiming): readonly BlockKind[] {
 }
 
 /**
+ * Which of the plan's times of day a day's cells are exactly, or `undefined`
+ * where they are anything else (a day set by the half hour, or a morning that
+ * previous times painted). The first of `windowsFor` that matches, so where two
+ * are the same hours on this plan, the one the sheet offers is the one named.
+ */
+export function windowOfCells(
+  cells: readonly boolean[],
+  row: DayRow,
+  timing: BlockTiming,
+): BlockKind | undefined {
+  if (!cells.some(Boolean)) return undefined;
+  return windowsFor(timing).find((kind) => {
+    const mask = blockMask(kind, row, timing);
+    return (
+      mask !== undefined && mask.length === cells.length && mask.every((on, i) => on === cells[i])
+    );
+  });
+}
+
+/**
  * The time of day a day gets when it is tapped, until the person picks
  * another: the first of the plan's windows that exists on some day. Evening on
  * every ordinary plan with an evening in it.

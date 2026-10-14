@@ -205,12 +205,21 @@
       "w": 390,
       "h": 1300,
       "page": "guest",
-      "title": "Availability \u00b7 exact hours"
+      "title": "Availability \u00b7 a time for each day"
+    },
+    {
+      "file": "AvailabilityMixed.dc.html",
+      "x": 2400,
+      "y": 3900,
+      "w": 390,
+      "h": 980,
+      "page": "guest",
+      "title": "Availability \u00b7 days with different times"
     },
     {
       "file": "AvailabilityReturning.dc.html",
-      "x": 2400,
-      "y": 3900,
+      "x": 0,
+      "y": 5200,
       "w": 390,
       "h": 980,
       "page": "guest",
@@ -218,7 +227,7 @@
     },
     {
       "file": "AvailabilityOthersFirst.dc.html",
-      "x": 0,
+      "x": 480,
       "y": 5200,
       "w": 390,
       "h": 900,
@@ -227,7 +236,7 @@
     },
     {
       "file": "SentSwitchOff.dc.html",
-      "x": 480,
+      "x": 960,
       "y": 5200,
       "w": 390,
       "h": 844,
@@ -236,7 +245,7 @@
     },
     {
       "file": "SentCode.dc.html",
-      "x": 960,
+      "x": 1440,
       "y": 5200,
       "w": 390,
       "h": 844,
@@ -245,7 +254,7 @@
     },
     {
       "file": "SentDone.dc.html",
-      "x": 1440,
+      "x": 1920,
       "y": 5200,
       "w": 390,
       "h": 844,
@@ -254,7 +263,7 @@
     },
     {
       "file": "SentPartial.dc.html",
-      "x": 1920,
+      "x": 2400,
       "y": 5200,
       "w": 390,
       "h": 844,
@@ -263,8 +272,8 @@
     },
     {
       "file": "SentMember.dc.html",
-      "x": 2400,
-      "y": 5200,
+      "x": 0,
+      "y": 6500,
       "w": 390,
       "h": 844,
       "page": "guest",
@@ -272,7 +281,7 @@
     },
     {
       "file": "SentMemberDone.dc.html",
-      "x": 0,
+      "x": 480,
       "y": 6500,
       "w": 390,
       "h": 844,
@@ -281,7 +290,7 @@
     },
     {
       "file": "SentSuppressed.dc.html",
-      "x": 480,
+      "x": 960,
       "y": 6500,
       "w": 390,
       "h": 844,
@@ -290,7 +299,7 @@
     },
     {
       "file": "SentSuppressedSaved.dc.html",
-      "x": 960,
+      "x": 1440,
       "y": 6500,
       "w": 390,
       "h": 844,
@@ -1101,7 +1110,7 @@
       "y": -90,
       "w": 390,
       "page": "guest",
-      "text": "Days first, then a time once (ADR 0024, simplified by ADR 0068, SUS-206): the first-time guest lands on an empty grid and taps the days; each tile counts the guest in once tapped; one line says the answer; Change time is a sheet; the half hours are on their own screen (row 4, with a returning member who lands pre-filled and the first-to-answer state). 'I'm easy' is the plan-level flexible response (review 6.5)."
+      "text": "Days first, then a time once (ADR 0024, simplified by ADR 0068, SUS-206): the first-time guest lands on an empty grid and taps the days; each tile counts the guest in once tapped; one line says the answer; Change time is a sheet; each day can have its own time on its own screen, with the half hours behind a link, and the first screen then lists each day (row 4, with a returning member who lands pre-filled and the first-to-answer state). 'I'm easy' is the plan-level flexible response (review 6.5)."
     },
     {
       "id": "org-flow",

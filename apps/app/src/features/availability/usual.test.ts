@@ -82,7 +82,7 @@ describe('use my previous times', () => {
     const changed = run(
       start,
       { type: 'usual', parts: ['weekday_evening'] },
-      { type: 'remove_day', day: MON },
+      { type: 'toggle_day', day: MON },
     );
     expect(changed.days[MON]!.some(Boolean)).toBe(false);
     expect(changed.days[1]!.some(Boolean)).toBe(true);
@@ -93,7 +93,7 @@ describe('use my previous times', () => {
     const { run, start } = setUp(WEEK);
     expect(view(start, WEEK, ['weekday_evening']).canUseUsual).toBe(true);
     expect(view(start, WEEK, undefined).canUseUsual).toBe(false);
-    const painted = run(start, { type: 'whole_day', day: MON });
+    const painted = run(start, { type: 'toggle_day', day: MON });
     expect(view(painted, WEEK, ['weekday_evening']).canUseUsual).toBe(false);
     const easy = run(start, { type: 'flexible', on: true });
     expect(view(easy, WEEK, ['weekday_evening']).canUseUsual).toBe(false);

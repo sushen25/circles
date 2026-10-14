@@ -54,8 +54,6 @@ export type AvailabilityProps = {
   weekdays?: readonly string[] | undefined;
   /** The answer in a line, once any day is tapped. */
   answerLine?: AnswerLine | undefined;
-  /** Start over, in the half hours, has just cleared the answer. */
-  canUndo?: boolean | undefined;
   /** "Change time" is open. */
   sheetOpen?: boolean | undefined;
   sheet?: SheetView | undefined;
@@ -67,7 +65,6 @@ export type AvailabilityProps = {
   busy?: boolean | undefined;
   onTick?: ((day: number) => void) | undefined;
   onChangeTime?: (() => void) | undefined;
-  onUndo?: (() => void) | undefined;
   onChooseWindow?: ((kind: BlockKind) => void) | undefined;
   onExactHours?: (() => void) | undefined;
   onSheetDone?: (() => void) | undefined;
@@ -87,7 +84,6 @@ export function AvailabilityScreen({
   grid = [],
   weekdays = [],
   answerLine,
-  canUndo = false,
   sheetOpen = false,
   sheet,
   flexible = false,
@@ -97,7 +93,6 @@ export function AvailabilityScreen({
   busy = false,
   onTick,
   onChangeTime,
-  onUndo,
   onChooseWindow,
   onExactHours,
   onSheetDone,
@@ -180,12 +175,6 @@ export function AvailabilityScreen({
           {closes === undefined ? null : <Small>{closes}</Small>}
           {zoneNote === undefined ? null : <Small>{zoneNote}</Small>}
         </Stack>
-        {answerLine !== undefined || !canUndo ? null : (
-          <Between>
-            <Small accessibilityLiveRegion="polite">{t('availability', 'cleared')}</Small>
-            <Tertiary label={t('availability', 'undo')} onPress={locked ? undefined : onUndo} />
-          </Between>
-        )}
         {answerLine === undefined ? null : (
           <View style={dimmed && styles.dimmed}>
             <Between>

@@ -130,6 +130,8 @@ OTHERS_CSS = f"""
     .choice.on {{ border-color: {T['accent']}; background: {T['accent_soft']}; }}
     .choice .c1 {{ display: block; font-weight: 600; font-size: 17px; color: {T['ink']}; }}
     .choice .c2 {{ display: block; font-size: 13px; color: {T['ink2']}; }}
+    .qc {{ flex: 1; display: flex; align-items: center; justify-content: center; min-height: 44px; border-radius: 22px; border: 1.5px solid {T['line']}; background: {T['surface']}; font-family: Figtree; font-size: 14px; font-weight: 600; color: {T['ink']}; }}
+    .qc.on {{ border-color: {T['accent']}; background: {T['accent_soft']}; }}
     .ansline {{ display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }}
     .bchip .c3 {{ display: flex; align-items: center; gap: 4px; font-size: 12px; line-height: 1.25; color: {T['ink2']}; }}
     .bchip.on .c3 {{ color: #FFFFFF; }}
@@ -415,7 +417,7 @@ def time_sheet(days_, *choices_):
             f'<div style="width:40px;height:4px;border-radius:999px;background:{T["line"]};margin:0 auto 6px;"></div>'
             + stack(dl("When, on those days?"), p(f"One answer covers {days_}."), gap=6)
             + '<div class="stack" style="gap:10px;">' + "".join(choices_) + '</div>'
-            + ter("Pick exact hours instead") + pri("Done") + '</div>')
+            + ter("A different time for each day") + pri("Done") + '</div>')
 
 # 1 · The first-time guest lands: an empty grid, the others on the days, Send waiting.
 S["Availability"] = guest_answer(tile_grid(counts=OTHERS_DAYS), GUIDE, minh=900)
@@ -430,19 +432,33 @@ S["AvailabilityTime"] = guest_answer(tile_grid(selected=(15, 17, 19), counts=OTH
     line=answer_line("Tue 15, Thu 17, Sat 19", "Evenings, from 5:30 pm"), send_on=True, minh=980,
     sheet=time_sheet("Tue 15, Thu 17 and Sat 19", choice("Evening", "from 5:30 pm", on=True)))
 
-# 4 · Exact hours: the one place the answer is set day by day, with what the
-# others said by the half hour. Thursday is open.
+# 4 · A time for each day: each tapped day is a card with the plan's quick
+# choices (this plan is evenings and afternoons, so two) and a link to its half
+# hours. Thursday 17 is open, with what the others said over each half hour.
+def day_card(name, time_, choices, on=None, own=False, extra=""):
+    pills = "".join(f'<div class="qc{" on" if c == on else ""}">{c}</div>' for c in choices)
+    border = f"border:1.5px solid {T['accent']};" if own else f"border:1px solid {T['line']};"
+    link = "" if extra else ter("By the half hour")
+    return (f'<div style="background:{T["surface"]};{border}border-radius:16px;padding:14px 14px 12px;display:flex;flex-direction:column;gap:10px;">'
+            f'<div class="between" style="align-items:baseline;">{date(name, 20)}<span class="sm">{time_}</span></div>'
+            f'<div style="display:flex;gap:6px;">{pills}</div>{link}{extra}</div>')
+
 S["AvailabilityAdjusting"] = shell(
     top("Catch up · 14 Sep – 27 Sep") + body(
-        stack(dl("Exact hours"), p("Open a day to set it by the half hour. Each day can be different here."), gap=8),
-        f'<div class="stack" style="gap:8px;">{lbl("My answer")}' +
-        ans_row("Tue 15 Sep", "5:30–10:30 pm", overlap="Overlaps with 2 others") +
-        ans_row("Thu 17 Sep", "5:30–10:30 pm", open_=True, cells=[True] * 10, overlap="Overlaps with 5 others",
-                peak="Others free, by the half hour. The most is 5, 6:30–8:30 pm.", counts=THU_COUNTS) +
-        ans_row("Sat 19 Sep", "5:30–10:30 pm", overlap="Overlaps with 3 others") +
-        f'<div style="border-top:1px solid {T["line"]};padding-top:12px;">{mini("Start over", "x")}</div></div>',
-        gap=18) +
-    foot(pri("Done")), minh=1300, css=AV_CSS)
+        stack(dl("A time for each day"), p("Pick one for each day, or open a day to set it by the half hour."), gap=8),
+        day_card("Tue 15", "12–5 pm", ["Evening", "Afternoon", "Any time"], on="Afternoon"),
+        day_card("Thu 17", "6:30–8:30 pm, your own hours", ["Evening", "Afternoon", "Any time"], own=True, extra=(
+            sm("Others free, by the half hour. The most is 5, 6:30–8:30 pm.") +
+            '<div class="cnts">' + "".join(f'<span class="{"top" if k == 5 else ""}">{k or "·"}</span>' for k in THU_COUNTS) + '</div>' +
+            '<div class="track">' + "".join(f'<div class="cell{" on" if 2 <= i <= 5 else ""}"></div>' for i in range(10)) + '</div>' +
+            '<div class="ticks"><span>5:30 pm</span><span>8 pm</span><span>10:30 pm</span></div>' + ter("By the half hour"))),
+        day_card("Sat 19", "from 5:30 pm", ["Evening", "Afternoon", "Any time"], on="Evening"),
+        gap=14) +
+    foot(pri("Done"), ter("Use one time for all days", plain=True)), minh=1300, css=AV_CSS)
+
+# 4b · Back on the first screen with days that differ: each day, with its time.
+S["AvailabilityMixed"] = guest_answer(tile_grid(selected=(15, 17, 19), counts=OTHERS_DAYS), GUIDE,
+    line=answer_line("Tue 15, Thu 17, Sat 19", "Tue 15 afternoon, Thu 17 6:30–8:30 pm, Sat 19 evening"), send_on=True, minh=980)
 
 # 5 · A returning member with earlier times lands here: the weekday evenings
 # already tapped, the line already written, Send still theirs to press.
@@ -1871,7 +1887,7 @@ with open(os.path.join(out, "Main.dc.html"), "w") as f:
     f.write(S["Join"])
 os.remove(os.path.join(out, "Join.dc.html"))
 
-heights = {"FounderAnalytics":2100, "CheckEmail":960, "ConfirmedGuestNudge":900, "AppSheet":900, "Availability":900, "AvailabilityPicking":980, "AvailabilityTime":980, "AvailabilityAdjusting":1300, "AvailabilityReturning":980, "AvailabilityOthersFirst":900, "Candidates":1170, "NoQuorum":1080, "SetTime":1500, "ConfirmReviewOwn":980, "EditLocked":980, "ConfirmedGuestMoved":900, "DeadlinePassed":960, "Settings":980, "CandidatesMember":1000, "AvailabilityOverlay":1120, "LoadingOptions":1170, "LoadingSlowEight":1170, "LoadingSlowTwenty":1170, "BusyRow":760, "BusyButtons":1300, "LoadingTiming":560, "LoadingMotion":640}
+heights = {"FounderAnalytics":2100, "CheckEmail":960, "ConfirmedGuestNudge":900, "AppSheet":900, "Availability":900, "AvailabilityPicking":980, "AvailabilityTime":980, "AvailabilityAdjusting":1300, "AvailabilityMixed":980, "AvailabilityReturning":980, "AvailabilityOthersFirst":900, "Candidates":1170, "NoQuorum":1080, "SetTime":1500, "ConfirmReviewOwn":980, "EditLocked":980, "ConfirmedGuestMoved":900, "DeadlinePassed":960, "Settings":980, "CandidatesMember":1000, "AvailabilityOverlay":1120, "LoadingOptions":1170, "LoadingSlowEight":1170, "LoadingSlowTwenty":1170, "BusyRow":760, "BusyButtons":1300, "LoadingTiming":560, "LoadingMotion":640}
 def ab(file, x, y, page, w=W, h=None, title=None):
     d = {"file": file, "x": x, "y": y, "w": w, "h": h or heights.get(file.replace(".dc.html",""), H), "page": page}
     if title: d["title"] = title
@@ -1888,7 +1904,7 @@ pages = [{"id":"first","name":"0 · First time, organiser"},
          {"id":"system","name":"6 · States, copy and components"},
          {"id":"loading","name":"7 · Loading and busy"}]
 
-titles = {"Main":"Join · invite landing","ContinueAs":"Continue as · returning member","Name":"Name","Availability":"Availability · the first-time guest lands","AvailabilityPicking":"Availability · three days tapped","AvailabilityTime":"Availability · change the time","AvailabilityAdjusting":"Availability · exact hours","AvailabilityReturning":"Availability · returning member, pre-filled","AvailabilityOthersFirst":"Availability · first to answer","NoneWork":"None of these dates","Sent":"Sent · one step, switch on","SentSwitchOff":"Sent · switch off","SentCode":"Sent · the code","SentDone":"Sent · done","SentPartial":"Sent · place saved, emails failed","SentMember":"Sent · signed in, one button","SentMemberDone":"Sent · signed in, done","SentSuppressed":"Sent · address suppressed","SentSuppressedSaved":"Sent · suppressed, after the code","CheckEmail":"Check your email · app nudge","EmailVerified":"Email verified","EmailPrefs":"Email preferences · no sign-in","NudgeStop":"Stop reminders · no sign-in","NudgeStopDone":"Stop reminders · done","SaveAccess":"Save access · the account's other doors","CandidatesMember":"Candidates · member view","ConfirmedGuest":"Confirmed · guest","AddToCalendar":"Add to calendar sheet","RescheduledGuest":"Rescheduled · guest","CancelledGuest":"Cancelled · guest","WasThere":"Attendance · morning after","LinkInvalid":"Invite link inactive",
+titles = {"Main":"Join · invite landing","ContinueAs":"Continue as · returning member","Name":"Name","Availability":"Availability · the first-time guest lands","AvailabilityPicking":"Availability · three days tapped","AvailabilityTime":"Availability · change the time","AvailabilityAdjusting":"Availability · a time for each day","AvailabilityMixed":"Availability · days with different times","AvailabilityReturning":"Availability · returning member, pre-filled","AvailabilityOthersFirst":"Availability · first to answer","NoneWork":"None of these dates","Sent":"Sent · one step, switch on","SentSwitchOff":"Sent · switch off","SentCode":"Sent · the code","SentDone":"Sent · done","SentPartial":"Sent · place saved, emails failed","SentMember":"Sent · signed in, one button","SentMemberDone":"Sent · signed in, done","SentSuppressed":"Sent · address suppressed","SentSuppressedSaved":"Sent · suppressed, after the code","CheckEmail":"Check your email · app nudge","EmailVerified":"Email verified","EmailPrefs":"Email preferences · no sign-in","NudgeStop":"Stop reminders · no sign-in","NudgeStopDone":"Stop reminders · done","SaveAccess":"Save access · the account's other doors","CandidatesMember":"Candidates · member view","ConfirmedGuest":"Confirmed · guest","AddToCalendar":"Add to calendar sheet","RescheduledGuest":"Rescheduled · guest","CancelledGuest":"Cancelled · guest","WasThere":"Attendance · morning after","LinkInvalid":"Invite link inactive",
           "SignIn":"Sign in · returning organiser","SavePlace":"Save your place · the gate, before the share","EnterCode":"Enter code","YourName":"Your name · after sign-in","FirstCircle":"First circle · no account","InviteCircle":"Invite the circle","CircleHomeJoining":"Circle home · people joining","FirstPlan":"First plan · no account","EmptyCirclesList":"Circles · first run","CirclesList":"Circles list","CircleHome":"Circle home · finding a time","CircleHomeConfirmed":"Circle home · locked in","CircleHomeDue":"Circle home · about time","CreateCircle":"Create circle","ChooseMode":"Choose how to start","PlanSetup":"Plan setup","CustomWindow":"Custom window","PlanShared":"Plan shared · paste to chat","Waiting":"Waiting · no options yet","Candidates":"Candidates · partial replies","DeadlinePassed":"Replies closed · no decision","EditPlan":"Edit plan · reconfirm warning","ConfirmReview":"Confirm review","ConfirmedOrg":"Confirmed · organiser","ChangeTime":"Ask for new times","SetTime":"Set the time yourself","ConfirmReviewOwn":"Confirm review · a time of your own","EditLocked":"Edit this plan · locked in","ConfirmedGuestMoved":"Confirmed · guest, moved","CancelPlan":"Cancel plan","CancelledOrg":"Cancelled · organiser","NoQuorum":"No quorum","Outcome":"Did it happen?","PlanAnother":"Plan another · prefilled","Settings":"Circle settings","NotificationSettings":"Notification settings","Account":"Account","Privacy":"Privacy","Diagnostics":"Founder diagnostics","FounderAnalytics":"Founder analytics",
           "SparkSetup":"Quiet ask · setup","SparkWaiting":"Quiet ask · initiator waiting","InterestPrompt":"Interest prompt · member","ThresholdRole":"Threshold reached · initiator","Volunteer":"Started quietly · keen member","SparkOpenedMember":"Started quietly · other member","SparkExpired":"Expired · initiator",
           "PushAsk":"Push permission · contextual","CalendarExplain":"Calendar · before permission","CalendarPick":"Calendar · pick calendars","AvailabilityOverlay":"Availability · calendar overlay","CalendarDenied":"Calendar · denied",
@@ -1905,7 +1921,7 @@ boards = []
 grid(["Main","ContinueAs","Name","Availability","NoneWork","Sent",
       "CheckEmail","EmailVerified","EmailPrefs","NudgeStop","NudgeStopDone","SaveAccess","CandidatesMember","ConfirmedGuest",
       "AddToCalendar","RescheduledGuest","CancelledGuest","WasThere","LinkInvalid","ConfirmedGuestMoved",
-      "AvailabilityPicking","AvailabilityTime","AvailabilityAdjusting","AvailabilityReturning",
+      "AvailabilityPicking","AvailabilityTime","AvailabilityAdjusting","AvailabilityMixed","AvailabilityReturning",
       "AvailabilityOthersFirst",
       "SentSwitchOff","SentCode","SentDone","SentPartial",
       "SentMember","SentMemberDone","SentSuppressed","SentSuppressedSaved"], "guest")
@@ -1945,7 +1961,7 @@ annotations = [
     {"id":"first-note-sso","x":0,"y":-60,"w":390,"page":"first","text":"Nothing is created until the place is saved: the circle and the plan are held on this device, survive a reload and the sign-in round trip, and are gone 24 hours after the last change. Walking away at Save leaves nothing in the database. A signed-in organiser skips Save and Your name."},
     {"id":"guest-flow","x":0,"y":-190,"w":900,"page":"guest","text":"Guest path, entirely on mobile web, in reading order. Row 1: link tapped from the group chat → Join → (returning with no session: Continue as) → Name → paint times → 'none of these' branch → Sent with the one-step card: an address, a 'Save my place' switch on by default, one button. Row 4 holds its other states: switch off, the code, done, and the place saved with the emails failed; row 5 the signed-in member's one-button card, its done line, and the two lines for an address that cannot be emailed.\nRow 2: email verification and no-sign-in preferences → Save access (the account screen, still reached from the Continue-as prompt and the organiser gate, no longer from Sent) → what a member (not the organiser) sees of the options → Confirmed.\nRow 3: add-to-calendar sheet, rescheduled and cancelled states, morning-after attendance, and an inactive invite link.\nZero account prompts before the answer."},
     {"id":"guest-note-calendar","x":0,"y":6*RY-90,"w":900,"page":"guest","text":"Add to calendar, over time (SUS-154). The file is fetched when the confirmed screen loads, so the sheet normally opens on the ready row. Preparing: the row is visibly pending (spinner after about 150 ms, aria-busy, 'Getting it ready…'). After about 8 s it says 'Still working on it…'. On failure the row keeps its place and offers 'Try again' inside it. Ready: the line says what the tap does on this device. On an iPhone the row is a plain link to the file, signed for 15 minutes (ADR 0063), so the tap is one navigation and iOS opens its own Add to Calendar: 'Opens your Calendar'. On Android and desktop the same link downloads an event file ('Downloads an event file'). After the tap: on an iPhone, 'Opening Calendar. If nothing appears, tap again.'; on Android, 'Saved. Open the file from your notifications or Downloads, then choose Calendar.'. Inside WhatsApp or Messenger the row keeps the file path ('Saves the event for Calendar') and says 'Saved. If nothing opened, open this page in your browser and try again.' A deployment with no signing key falls back to that file path everywhere."},
-    {"id":"guest-note-avail","x":3*GX,"y":-90,"w":390,"page":"guest","text":"Days first, then a time once (ADR 0024, simplified by ADR 0068, SUS-206): the first-time guest lands on an empty grid and taps the days; each tile counts the guest in once tapped; one line says the answer; Change time is a sheet; the half hours are on their own screen (row 4, with a returning member who lands pre-filled and the first-to-answer state). 'I'm easy' is the plan-level flexible response (review 6.5)."},
+    {"id":"guest-note-avail","x":3*GX,"y":-90,"w":390,"page":"guest","text":"Days first, then a time once (ADR 0024, simplified by ADR 0068, SUS-206): the first-time guest lands on an empty grid and taps the days; each tile counts the guest in once tapped; one line says the answer; Change time is a sheet; each day can have its own time on its own screen, with the half hours behind a link, and the first screen then lists each day (row 4, with a returning member who lands pre-filled and the first-to-answer state). 'I'm easy' is the plan-level flexible response (review 6.5)."},
     {"id":"org-flow","x":0,"y":-210,"w":900,"page":"organiser","text":"Organiser path (signed in by email code). Row 1: sign in → code → first-run and populated circle lists → create circle → circle home while finding a time.\nRow 2: choose how to start → plan setup (+ custom window) → paste-to-chat moment → waiting with no options yet → candidates.\nRow 3: replies closed with no decision → edit plan with reconfirm warning → confirm review → confirmed → circle home locked in → change the time.\nRow 4: cancel → cancelled → no quorum → did it happen → circle home when it's about time → plan another, prefilled.\nRow 5: circle, notification and account settings, privacy, founder diagnostics.\nNo pricing prompt in MVP. Cadence copy never says 'on track' or 'overdue'."},
     {"id":"org-note-cand","x":5*GX,"y":RY-130,"w":390,"page":"organiser","text":"At most three options, each explains its rank, names who's in and who it doesn't work for. Never a heat map. The recommended card gets a 1.5px accent border, not a fill. Non-responders are never counted as available."},
     {"id":"quiet-flow","x":0,"y":-190,"w":900,"page":"quiet","text":"Quiet ask (spec 'quiet spark'). Setup → initiator waits with no counts → members get an aggregate prompt → at threshold (3) the initiator privately chooses to organise or ask for a volunteer (fixes the identity leak, review 6.1) → keen members and other members see 'started quietly' with counts only → or it expires with neutral copy.\nNo initiator name anywhere; no individual answers before threshold; no rejection counts."},

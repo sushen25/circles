@@ -43,19 +43,27 @@ above Send: the answer as a line.
   "Done". The time of day last chosen is the one a new tap gets.
 - **One answer line.** The tapped days in date order ("Thu 15, Tue 20, Thu 22",
   or the first three and "and 5 more") over the time of day they all have
-  ("Evenings, from 5:30 pm"; "Different times on different days" when they
-  differ). It replaces the "My answer" list on this screen.
+  ("Evenings, from 5:30 pm"). When the days differ it lists each with its own
+  ("Thu 15 evening, Tue 20 afternoon, Thu 22 6 – 9:30 pm"). It replaces the "My
+  answer" list on this screen.
 - **Change time is a sheet.** "When, on those days?" offers Evening, Afternoon
   and Any time that day (on a plan about tonight, From now and Later tonight),
   and picking one applies it to every tapped day. Only the choices the plan has
   are offered, and two that are the same hours are offered once, so an evenings
   plan offers Evening alone. Morning is not one of the three: it stays a time of
   day the half hours and previous times can make, and the answer line names it.
-- **The half hours live behind "Pick exact hours instead".** It opens the ADR 0009
-  half-hour grid on its own screen: a line per tapped day that opens to its cells,
-  "Any time that day" and "Remove day", Start over with Undo, and the counts by
-  the half hour from ADR 0045. This is the only place a day can differ from the
-  others, and the only place the others' counts by the half hour are shown.
+- **A time for each day lives on its own screen.** The sheet's link, "A
+  different time for each day", opens it, and so does **Change time** when the
+  tapped days already differ. Each tapped day is a card: the day, the time it
+  covers, and a row of quick choices that are the sheet's presets (Evening,
+  Afternoon, Any time; only the ones the plan offers, once each), which set that
+  day alone. A day whose hours match no choice selects none and says "{hours},
+  your own hours". **By the half hour** opens that day's ADR 0009 cells with the
+  counts by the half hour from ADR 0045, which is the only place they are shown.
+  **Done** goes back with the days as they are; **Use one time for all days**
+  goes back with the shared time, the sheet's last choice or the plan's default.
+  Nothing new is stored or sent: the cells are still the answer, and Start over,
+  Undo and Remove day are gone (untapping a day is how it is taken away).
 - **The number on a tile is everyone who could make the day, the reader once they
   tap.** Untapped it is the count of others (ADR 0045); tapped it is one more,
   `headcount` in the domain. A day nobody else could make shows a quiet zero.
@@ -103,7 +111,8 @@ day, is what says why.
   same answer.
 - A returning member's first tap on a pre-filled day unticks it. That is the whole
   of removing a day, and it is why the "Clear these days" button is gone.
-- The design canvas has six availability boards: the first-time landing, three
-  days tapped, Change time, exact hours, the returning member and the first to
+- The design canvas has seven availability boards: the first-time landing, three
+  days tapped, Change time, a time for each day, the first screen with days that
+  differ, the returning member and the first to
   answer. The three "Others" boards are gone, because every tile carries the
   count.
