@@ -8,6 +8,7 @@ import {
   Screen,
   Small,
   TopBar,
+  useLoadingHold,
 } from '../../components';
 import { Stack } from '../../components/layout';
 import { t } from '../../copy';
@@ -52,7 +53,9 @@ export function FinishDraftScreen({
   onRetry,
   onChangeTime,
 }: FinishDraftProps) {
-  if (problem === undefined) {
+  // A problem that arrives just after the skeleton appeared waits out its minimum display.
+  const waiting = useLoadingHold(problem === undefined);
+  if (waiting || problem === undefined) {
     // The waiting state is the shared loading screen, shaped like the share
     // screen the organiser lands on next (the same `detail` shape as
     // PlanShared and InviteCircle, with the same bare top bar), so nothing
