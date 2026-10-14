@@ -235,6 +235,22 @@ describe('Back from the name step (SUS-208)', () => {
   });
 });
 
+describe('a join that lands after Back (SUS-208)', () => {
+  it('dismisses nothing: the name step is no longer the entry on screen', async () => {
+    let finish: (value: ReturnType<typeof joined>) => void = () => undefined;
+    joinPlan.mockReturnValue(new Promise((resolve) => (finish = resolve)));
+    arrive();
+
+    fireEvent.click(await screen.findByRole('button', { name: "I'm new here" }));
+    await type('Ren');
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    await screen.findByText('Have you answered this before?');
+
+    await act(async () => finish(joined()));
+    expect(dismiss).not.toHaveBeenCalled();
+  });
+});
+
 describe('a guest, on a link that is no longer live', () => {
   it('is told the link is not active, and is never asked for a name or shown the list', async () => {
     // A cancelled or expired plan, a meetup long past and an archived circle all

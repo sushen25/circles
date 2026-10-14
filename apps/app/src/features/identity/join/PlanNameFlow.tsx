@@ -5,7 +5,7 @@ import { track } from '../../../analytics/track';
 import { joinPlan } from '../../../data/membership';
 import { NameScreen, type NameProblem } from '../NameScreen';
 import { useHaveAccount } from './haveAccount';
-import { nameStepPushed } from './nameStepBack';
+import { nameStepOpen, nameStepPushed } from './nameStepBack';
 import { useNameStep } from './useNameStep';
 
 /**
@@ -90,7 +90,7 @@ export function useJoinedFromPlan(code: ShortCode, onJoined: () => void) {
     // is behind the plan link stays) and the screen under it replaced, so the
     // plan link is one screen and not two, and Back does not return to a form
     // that has been submitted.
-    if (nameStepPushed(code)) router.dismiss();
+    if (nameStepPushed(code) && nameStepOpen(code)) router.dismiss();
     router.replace({ pathname: '/j/[code]', params: { code } });
   };
 }

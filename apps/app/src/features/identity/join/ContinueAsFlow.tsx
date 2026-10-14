@@ -11,7 +11,13 @@ import { ContinueAsScreen, type ContinueProblem } from '../ContinueAsScreen';
 import { LinkInvalidScreen } from '../LinkInvalidScreen';
 import { failureOf, isOffline } from './failure';
 import { useHaveAccount } from './haveAccount';
-import { nameStepBack, NAME_STEP, nameStepPushed, rememberNameStepPushed } from './nameStepBack';
+import {
+  nameStepBack,
+  NAME_STEP,
+  nameStepPushed,
+  rememberNameStepPushed,
+  setNameStepOpen,
+} from './nameStepBack';
 import { PlanNameFlow } from './PlanNameFlow';
 
 /**
@@ -64,6 +70,9 @@ export function ContinueAsFlow({ code, arrivedWithoutSession, onReattached }: Co
   const { step } = useLocalSearchParams<{ step?: string }>();
   const pathname = usePathname();
   const imNew = step === NAME_STEP;
+  useEffect(() => {
+    setNameStepOpen(code, imNew);
+  }, [code, imNew]);
   // Bumped by Back from a name step with nothing before it: the field starts empty again.
   const [nameAttempt, setNameAttempt] = useState(0);
   /**
