@@ -346,3 +346,33 @@ test('a signed-in organiser goes circle, plan, share with no gate', async ({ pag
   await expect(page.getByText('Save your place')).toHaveCount(0);
   expect(circleCountNamed(name)).toBe(1);
 });
+
+test('on a desktop window the "Setting up" wait sits in the same centred column as the screens around it', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await draftThroughThePlan(page, 'Sunday Crew');
+  // Hold the circle's creation so the wait stays on screen long enough to measure.
+  await page.route('**/functions/v1/create-circle', async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 6000));
+    await route.continue();
+  });
+  const email = `${globalThis.crypto.randomUUID()}@example.test`;
+  await signInByCode(page, email);
+  await page.getByLabel('Your name').fill('Maya');
+  await page.getByRole('button', { name: 'Continue' }).click();
+
+  const waiting = page.getByText('Setting up Sunday Crew');
+  await expect(waiting).toBeVisible();
+  const box = (await waiting.boundingBox())!;
+  // The column is 480 wide and centred in 1280, so its text starts 400 + 22 in
+  // and never runs past 400 + 480 (manifesto 5.3).
+  expect(box.x).toBeCloseTo(422, 0);
+  expect(box.x + box.width).toBeLessThanOrEqual(880);
+  const sideways = await page.evaluate(
+    'document.documentElement.scrollWidth - document.documentElement.clientWidth',
+  );
+  expect(sideways).toBeLessThanOrEqual(0);
+
+  await expect(page.getByText('Ask Sunday Crew.')).toBeVisible({ timeout: 20_000 });
+});

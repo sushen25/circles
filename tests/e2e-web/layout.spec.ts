@@ -135,5 +135,32 @@ for (const size of SIZES) {
         await expect(done).toHaveCount(0);
       }
     });
+
+    test('A time for each day: heading, day cards and Done share the column, Done in view', async ({
+      page,
+    }) => {
+      await page.clock.setFixedTime(new Date('2026-10-12T09:00:00+11:00'));
+      await page.goto('/j/abc');
+      const tuesday = page.getByRole('button', { name: /^Tuesday\D*15\D/ });
+      await expect(async () => {
+        await tuesday.click();
+        await expect(tuesday).toHaveAttribute('aria-pressed', 'true', { timeout: 1000 });
+      }).toPass();
+      await page.getByRole('button', { name: /^Change the time for/ }).click();
+      await page.getByRole('button', { name: 'A different time for each day' }).click();
+      const heading = page.getByRole('heading', { name: 'A time for each day' });
+      const done = page.getByRole('button', { name: 'Done', exact: true });
+      await expect(heading).toBeVisible();
+      await expect(done).toBeVisible();
+
+      const h = (await heading.boundingBox())!;
+      const d = (await done.boundingBox())!;
+      const column = Math.min(size.width, COLUMN);
+      expect(d.x).toBeCloseTo(h.x, 0);
+      expect(d.width).toBeCloseTo(column - 2 * 22, 0);
+      expect(d.x + d.width / 2).toBeCloseTo(size.width / 2, 0);
+      expect(d.y + d.height).toBeLessThanOrEqual(size.height);
+      await expectNoSidewaysOverflow(page);
+    });
   });
 }
