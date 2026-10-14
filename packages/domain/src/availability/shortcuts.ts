@@ -14,12 +14,7 @@ import type { LocalDate } from '../shared/local-date.js';
 import { fromLocal, fromLocalEnd, toLocal } from '../shared/zone.js';
 
 export type ShortcutKind =
-  | 'after_work'
-  | 'all_evening'
-  | 'morning'
-  | 'afternoon'
-  | 'daytime'
-  | 'any_time';
+  'after_work' | 'all_evening' | 'morning' | 'afternoon' | 'daytime' | 'any_time';
 
 /** Local minutes-of-day, before the plan's band is applied. */
 const SHORTCUT_BANDS: Record<ShortcutKind, { startMin: number; endMin: number } | 'whole_day'> = {
