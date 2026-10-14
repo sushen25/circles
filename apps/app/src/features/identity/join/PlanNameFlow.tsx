@@ -86,10 +86,11 @@ export function useJoinedFromPlan(code: ShortCode, onJoined: () => void) {
     track('circle_joined', { circle_id: joined.circle.id, source: 'plan_link' });
     onJoined();
     // The name step is an entry of its own in the history (`?step=name`), over
-    // the screen it came from. Both go, so the plan link is one screen and not
-    // two behind each other, and Back from it does not return to a form that
-    // has been submitted.
-    if (nameStepPushed(code)) router.dismissAll();
+    // the screen it came from. The step is dismissed (and only the step: what
+    // is behind the plan link stays) and the screen under it replaced, so the
+    // plan link is one screen and not two, and Back does not return to a form
+    // that has been submitted.
+    if (nameStepPushed(code)) router.dismiss();
     router.replace({ pathname: '/j/[code]', params: { code } });
   };
 }

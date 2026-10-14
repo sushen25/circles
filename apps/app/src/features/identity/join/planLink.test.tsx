@@ -23,12 +23,12 @@ const pushed = (target: { params?: Record<string, string> }) => {
 };
 const push = vi.fn(pushed);
 const back = vi.fn(() => setParams({}));
-const dismissAll = vi.fn();
+const dismiss = vi.fn();
 const where = { pathname: '/p/pnsundaycr' };
 vi.mock('expo-router', async () => {
   const { useSyncExternalStore } = await import('react');
   return {
-    useRouter: () => ({ replace, push, back, dismissAll, canGoBack: () => true }),
+    useRouter: () => ({ replace, push, back, dismiss, canGoBack: () => true }),
     usePathname: () => where.pathname,
     useLocalSearchParams: () =>
       useSyncExternalStore(
@@ -124,7 +124,7 @@ beforeEach(() => {
   for (const mock of [
     replace,
     push,
-    dismissAll,
+    dismiss,
     track,
     ownDisplayName,
     joinPlan,
@@ -217,7 +217,7 @@ describe('Back from the name step (SUS-208)', () => {
     await type('Ren');
 
     await waitFor(() => expect(replace).toHaveBeenCalledTimes(1));
-    expect(dismissAll).toHaveBeenCalledTimes(1);
+    expect(dismiss).toHaveBeenCalledTimes(1);
   });
 
   it('stays on the name step, with the field empty, when nothing comes before it', async () => {
