@@ -140,9 +140,8 @@ test.describe('the controls actually work', () => {
     await expect(page.getByText('My answer')).toHaveCount(0);
 
     // Sunday Crew's fixture: two of the others could make Tuesday 15 (SUS-129).
-    const tuesday = page.getByRole('button', {
-      name: /^Tuesday\D*15\D.*2 others could make it$/,
-    });
+    const tuesday = page.getByRole('button', { name: /^Tuesday\D*15\D/ });
+    await expect(tuesday).toHaveAccessibleName(/2 others could make it$/);
     await expect(tuesday).toHaveAttribute('aria-pressed', 'false');
     await expect(tuesday).toContainText('2');
 
@@ -199,7 +198,9 @@ test.describe('the controls actually work', () => {
     }).toPass();
     await page.getByRole('button', { name: /^Friday\D*18\D/ }).click();
     await expect(page.getByText('Evenings, from 5:30 pm')).toBeVisible();
-    await expect(page.getByRole('button', { name: /^Change the time for Tue.*Fri/ })).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: /^Change the time for .*Tue.*Fri/ }),
+    ).toBeVisible();
 
     await tuesday.click();
     await expect(tuesday).toHaveAttribute('aria-pressed', 'false');
