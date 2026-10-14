@@ -35,17 +35,13 @@ export function nameStepBack({
 /**
  * Which plan's name step this page load pushed. A module variable, not state,
  * because pushing the step remounts the screen; a reload clears it, which is
- * the point.
+ * the point. It is not cleared by going back: the entry stays reachable by the
+ * browser's Forward, and is still ours when it comes back.
  */
 let pushedFor: ShortCode | undefined;
 
 export function rememberNameStepPushed(code: ShortCode): void {
   pushedFor = code;
-}
-
-/** The step is no longer on the history stack above the list. */
-export function forgetNameStepPushed(): void {
-  pushedFor = undefined;
 }
 
 export function nameStepPushed(code: ShortCode): boolean {
