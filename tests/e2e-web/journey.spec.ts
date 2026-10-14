@@ -165,19 +165,33 @@ test.describe('the controls actually work', () => {
     await expect(page.getByRole('radio')).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Your hours each evening' })).toBeVisible();
 
-    // Nothing scrolls sideways until a day is opened.
-    await expect(page.getByRole('checkbox', { name: / to / })).toHaveCount(0);
-    const line = page.getByRole('button', { name: /^Tuesday.*Adjust by the half hour$/ });
+    // Nothing is painted or scrolled: a day's hours are From and to buttons.
+    await expect(page.getByRole('button', { name: /^Free from, / })).toHaveCount(0);
+    const line = page.getByRole('button', { name: /^Tuesday.*Set exact hours$/ });
     await line.click();
     await expect(line).toHaveAttribute('aria-expanded', 'true');
-    const cells = page.getByRole('checkbox', { name: /^Tuesday.* to / });
-    await expect(cells).toHaveCount(10);
+    await expect(page.getByRole('checkbox', { name: / to / })).toHaveCount(0);
+    await expect(
+      page.getByText("Set when you're free that day. Add a second time if there's a gap."),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: /^Free from, Tuesday.*, 5:30 pm$/ }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: /^Free until, Tuesday.*, 10:30 pm$/ }),
+    ).toBeVisible();
 
-    // The fill is the affordance; the text is the answer (manifesto §5.4).
-    // Asserted without pinning a clock format — times follow the device locale
-    // (manifesto §6), so the shape is what matters: two runs, comma-separated.
-    await cells.nth(3).click();
-    await expect(page.getByText(/\d.*–.*,.*\d.*–/).first()).toBeVisible();
+    // The fixture's others: Tuesday's two meet from 6:30 to 9:30 pm.
+    await expect(page.getByText(/^Most others are free /)).toBeVisible();
+
+    // Moving To to 8 pm sets the day's own hours; a second time, for a gap, is one tap away.
+    await page.getByRole('button', { name: /^Free until, Tuesday.*, 10:30 pm$/ }).click();
+    await page.getByRole('radio', { name: '8:00 pm', exact: true }).click();
+    await expect(
+      page.getByRole('button', { name: /^Free until, Tuesday.*, 8:00 pm$/ }),
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Add another time' }).click();
+    await expect(page.getByRole('button', { name: /^Free from, Tuesday/ })).toHaveCount(2);
 
     // Back: the answer line says it was set by the half hour.
     await page.getByRole('button', { name: 'Done', exact: true }).click();

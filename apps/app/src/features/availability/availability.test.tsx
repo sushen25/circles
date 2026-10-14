@@ -75,9 +75,16 @@ function open(step: 'times' | 'none' = 'times'): QueryClient {
   return client;
 }
 
-/** The date is in the runtime's locale ("Monday 14 September", "Monday September 14"). */
-const mondayAt = (from: string, to: string) =>
-  screen.getByRole('checkbox', { name: new RegExp(`^Monday.*14.*, ${from} to ${to}$`) });
+/** A day's From or To button ("Free from, Monday 14 September, 5:30 pm"), by what it says now. */
+const timeButton = (which: 'from' | 'to', weekday: string, time: string) =>
+  screen.getByRole('button', {
+    name: new RegExp(`^Free ${which === 'from' ? 'from' : 'until'}, ${weekday}.*, ${time}$`),
+  });
+/** Opens that button's picker and chooses a time from it. */
+const pick = (which: 'from' | 'to', weekday: string, now: string, time: string) => {
+  fireEvent.click(timeButton(which, weekday, now));
+  fireEvent.click(screen.getByRole('radio', { name: time }));
+};
 
 /** A day in the grid, by weekday and date: "Tuesday 15 September", then its times once tapped. */
 const dayButton = (weekday: string, date: number) =>
@@ -107,7 +114,7 @@ function eachDay() {
 /** A day's own half hours, from its card. */
 const byTheHalfHour = (weekday: string) =>
   fireEvent.click(
-    screen.getByRole('button', { name: new RegExp(`^${weekday}.*Adjust by the half hour$`) }),
+    screen.getByRole('button', { name: new RegExp(`^${weekday}.*Set exact hours$`) }),
   );
 /** The line that lists each day when they differ (the stored answer's three). */
 const differing = () => screen.findByText(/, but /);
@@ -145,12 +152,11 @@ describe('painting and sending', () => {
     await screen.findByText('Which evenings could work?');
 
     answerMonday();
-    // 6:30–10 pm: the first two half hours and the last are taken off.
+    // 6:30–10 pm: From moves to 6:30 and To to 10:00.
     eachDay();
     byTheHalfHour('Monday');
-    fireEvent.click(mondayAt('5:30', '6 pm'));
-    fireEvent.click(mondayAt('6', '6:30 pm'));
-    fireEvent.click(mondayAt('10', '10:30 pm'));
+    pick('from', 'Monday', '5:30 pm', '6:30 pm');
+    pick('to', 'Monday', '10:30 pm', '10:00 pm');
     expect(screen.getAllByText('6:30–10 pm').length).toBeGreaterThan(0);
     backToAnswer();
     expect(screen.getByText('6:30–10 pm, set by the half hour')).toBeInTheDocument();
@@ -232,8 +238,8 @@ describe('painting and sending', () => {
     expect(screen.getByRole('heading', { name: 'Your hours each evening' })).toBeInTheDocument();
     expect(screen.getAllByText('6:30–10:30 pm').length).toBeGreaterThan(0);
     byTheHalfHour('Monday');
-    expect(mondayAt('5:30', '6 pm')).toHaveAttribute('aria-checked', 'false');
-    expect(mondayAt('6:30', '7 pm')).toHaveAttribute('aria-checked', 'true');
+    expect(timeButton('from', 'Monday', '6:30 pm')).toBeInTheDocument();
+    expect(timeButton('to', 'Monday', '10:30 pm')).toBeInTheDocument();
   });
 });
 
@@ -332,7 +338,7 @@ describe('days first, then a time once (ADR 0068)', () => {
     expect(dayButton('Tuesday', 15)).toHaveAccessibleName(/, 5:30–10:30 pm$/);
     expect(screen.getByText('Evenings, from 5:30 pm')).toBeInTheDocument();
     // One line: no per-day rows on this screen.
-    expect(screen.queryByRole('button', { name: /Adjust by the half hour/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: /Set exact hours/ })).toBeNull();
 
     // The plan leaves one window, so there is nothing to pick: the link is
     // "Adjust hours", and it goes straight to the list of days.
@@ -373,22 +379,20 @@ describe('days first, then a time once (ADR 0068)', () => {
     open();
     await screen.findByText('Which days could work?');
     await differing();
-    expect(screen.queryAllByRole('checkbox', { name: / to / })).toHaveLength(0);
+    expect(screen.queryAllByRole('button', { name: /^Free from/ })).toHaveLength(0);
 
     eachDay();
-    const mondayLine = () =>
-      screen.getByRole('button', { name: /^Monday.*Adjust by the half hour$/ });
+    const mondayLine = () => screen.getByRole('button', { name: /^Monday.*Set exact hours$/ });
     expect(mondayLine()).toHaveAttribute('aria-expanded', 'false');
     byTheHalfHour('Monday');
     expect(mondayLine()).toHaveAttribute('aria-expanded', 'true');
-    fireEvent.click(mondayAt('5:30', '6 pm'));
-    fireEvent.click(mondayAt('6', '6:30 pm'));
+    pick('from', 'Monday', '6:30 pm', '5:30 pm');
     // Monday's hours are now exactly the evening, as Thursday's already were.
     expect(screen.getAllByText('from 5:30 pm')).toHaveLength(2);
 
     byTheHalfHour('Wednesday');
     expect(mondayLine()).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.queryAllByRole('checkbox', { name: /^Monday.* to / })).toHaveLength(0);
+    expect(screen.queryAllByRole('button', { name: /^Free from, Monday/ })).toHaveLength(0);
 
     // Wednesday's own hours become the evening; Monday's are left as they were.
     fireEvent.click(screen.getByRole('button', { name: /^Evening, Wednesday/ }));
@@ -399,6 +403,38 @@ describe('days first, then a time once (ADR 0068)', () => {
     backToAnswer();
     expect(dayButton('Wednesday', 16)).toHaveAccessibleName(/, 5:30–10:30 pm$/);
     expect(dayButton('Monday', 14)).toHaveAccessibleName(/, 5:30–10:30 pm$/);
+  });
+
+  it('sets two times in a day with From and to, and sends the windows painting those cells would (ADR 0013)', async () => {
+    planToAnswer.mockResolvedValue({ plan: WHOLE, answer: null });
+    open();
+    await screen.findByText('Which days could work?');
+
+    fireEvent.click(dayButton('Tuesday', 15));
+    eachDay();
+    byTheHalfHour('Tuesday');
+    // 12 to 4 pm, then a second time, 6:30 to 9 pm.
+    pick('from', 'Tuesday', '5:30 pm', '12:00 pm');
+    pick('to', 'Tuesday', '10:30 pm', '4:00 pm');
+    fireEvent.click(screen.getByRole('button', { name: 'Add another time' }));
+    // To first: a From can only go as far as its own To.
+    pick('to', 'Tuesday', '5:30 pm', '9:00 pm');
+    pick('from', 'Tuesday', '4:30 pm', '6:30 pm');
+    backToAnswer();
+    await send();
+
+    // Melbourne is UTC+10: noon to 4 pm and 6:30 to 9 pm on Tuesday 15.
+    const { idempotencyKey, ...payload } = submitAnswer.mock.calls[0]![0];
+    expect(idempotencyKey).toEqual(expect.any(String));
+    expect(payload).toEqual({
+      planId: PLAN.id,
+      revision: 1,
+      status: 'windows',
+      windows: [
+        { start: '2099-09-15T02:00:00.000Z', end: '2099-09-15T06:00:00.000Z' },
+        { start: '2099-09-15T08:30:00.000Z', end: '2099-09-15T11:00:00.000Z' },
+      ],
+    });
   });
 
   it('sends Thursday evening and Tuesday daytime as the windows painting them by hand would (ADR 0013)', async () => {

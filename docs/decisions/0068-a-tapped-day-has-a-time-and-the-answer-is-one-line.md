@@ -82,12 +82,34 @@ above Send: the answer as a line.
   covers, and a row of quick choices that are the sheet's presets (Evening,
   Daytime, Any time; only the ones the plan offers, once each), which set that
   day alone. A day whose hours match no choice selects none and says "{hours},
-  your own hours". **By the half hour** opens that day's ADR 0009 cells with the
-  counts by the half hour from ADR 0045, which is the only place they are shown.
+  your own hours". **Set exact hours** opens that day's hours as **From – to**
+  pairs (below). The half-hour cells stay the data model (ADR 0009) and the
+  answer is still stored as windows; only the UI stops painting them.
   **Done** goes back with the days as they are; **Use one time for all days**
   goes back with the shared time, the sheet's last choice or the plan's default.
   Nothing new is stored or sent: the cells are still the answer, and Start over,
   Undo and Remove day are gone (untapping a day is how it is taken away).
+- **A day's exact hours are From – to pairs, not a painted row.** Each pair is two
+  time buttons ("12:00 pm" to "4:00 pm") and a remove ×. A time button opens a
+  picker for that edge: half-hour steps, inside the plan's band for that day, a
+  From only before its own To and a To only after its own From (a half hour at
+  least: the domain keeps no minimum for a window, only that a meetup fits in one
+  somewhere). "Add another time" adds a second pair for a gap in the day, and
+  pairs that overlap or touch merge, because they set the same cells. The picker
+  is the app's `Sheet` with a list of radios, the same on the web and on a phone,
+  rather than a native time input, which offers every minute and no bounds and
+  differs by platform. A thin bar under the pairs shows the band with the hours
+  filled in and tick labels, decoration only and hidden from a screen reader. One
+  line about the others replaces the per-half-hour counts: "Most others are free
+  2–4 pm and 6–8 pm", the stretches where the count is at least three quarters
+  of that day's highest (and at least one), from the same aggregate counts, three
+  at most (the longest), and no line when nobody else is free that day. It
+  names nobody ([ADR 0066](0066-the-group-sees-who-can-make-each-option-and-nobody-sees-whole-availability.md));
+  with exactly one other answer in it is that person's stretches, the known gap
+  ADR 0066 records and this does not widen. The same editor opens from each day
+  card and from each row of the single-window plan's list. The painted track
+  stays only on the native calendar overlay screen (Slice 3), which is its own
+  design.
 - **The number on a tile is everyone who could make the day, the reader once they
   tap.** Untapped it is the count of others (ADR 0045); tapped it is one more,
   `headcount` in the domain. A day nobody else could make shows a quiet zero.

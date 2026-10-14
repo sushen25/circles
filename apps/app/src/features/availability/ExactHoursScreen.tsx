@@ -6,15 +6,14 @@ import {
   DisplayL,
   Foot,
   Screen,
-  Small,
   Tertiary,
-  Track,
   TopBar,
 } from '../../components';
 import { Stack } from '../../components/layout';
 import { t } from '../../copy';
 import type { BlockKind } from './blocks';
 import { DayCard } from './DayCard';
+import { HoursEditor } from './HoursEditor';
 import type { DayCardView } from './view';
 
 /**
@@ -84,20 +83,7 @@ export function ExactHoursScreen({
                 disabled={busy}
                 onToggle={() => onOpen?.(card.day)}
               >
-                {card.peak === undefined ? null : <Small>{card.peak}</Small>}
-                <Track
-                  day={card.spoken}
-                  groupLabel={card.spoken}
-                  cells={card.cells}
-                  onChange={(cells) => onPaint?.(card.day, cells)}
-                  startMinutes={0}
-                  labels={card.labels}
-                  range={card.range}
-                  marks={card.marks}
-                  counts={card.counts}
-                  header={false}
-                  dimmed={busy}
-                />
+                <HoursEditor card={card} dimmed={busy} onPaint={onPaint} />
               </AnswerRow>
             ))}
           </Stack>

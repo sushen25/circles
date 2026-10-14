@@ -50,11 +50,18 @@ const changeTime = (page: Page) => page.getByRole('button', { name: /^Change the
 const adjustHours = (page: Page) => page.getByRole('button', { name: /^Adjust hours for/ });
 const exactLink = (page: Page) =>
   page.getByRole('button', { name: 'A different time for each day' });
-/** The first day's "By the half hour", which opens that day's cells. */
-const firstLine = (page: Page) =>
-  page.getByRole('button', { name: /Adjust by the half hour$/ }).first();
-/** The half hours of the open day. */
-const cells = (page: Page) => page.getByRole('checkbox', { name: / to / });
+/** The first day's "Set exact hours", which opens that day's From – to pairs. */
+const firstLine = (page: Page) => page.getByRole('button', { name: /Set exact hours$/ }).first();
+/** A From or To button of the open day, by what it says now ("Free from, Monday 14 September, 5:30 pm"). */
+const timeButton = (page: Page, which: 'from' | 'to', time: string) =>
+  page.getByRole('button', {
+    name: new RegExp(`^Free ${which === 'from' ? 'from' : 'until'}, .*, ${time}$`),
+  });
+/** Opens that button's picker and chooses a time from it. */
+async function pick(page: Page, which: 'from' | 'to', now: string, time: string) {
+  await timeButton(page, which, now).click();
+  await page.getByRole('radio', { name: time, exact: true }).click();
+}
 
 /** Taps `indices` in the grid; each gets the evening. */
 async function evenings(page: Page, ...indices: number[]) {
@@ -113,18 +120,18 @@ test('three days tapped is the answer, in four taps, and it comes back as it was
   await expect(page.getByText('Evenings, from 5:30 pm')).toBeVisible();
 });
 
-test('what is adjusted by the half hour is what is stored, and it comes back that way', async ({
+test('what is set with From and to is what is stored, in two windows, and it comes back that way', async ({
   page,
 }) => {
   const crew = sundayCrew();
   const ren = await arriveAs(page, crew, 'Ren');
 
-  // 5:30–6:30 pm and 7:30–8 pm on the first day: two runs, so two windows.
+  // 5:30–6:30 pm and 7:30–8 pm on the first day: two pairs, so two windows.
   await evenings(page, 0);
   await exactHours(page);
-  // The evening, less 6:30 to 7:30 pm and 8 pm on: the cells that stay are
-  // the first two and the fifth.
-  for (const index of [2, 3, 5, 6, 7, 8, 9]) await cells(page).nth(index).click();
+  await pick(page, 'to', '10:30 pm', '6:30 pm');
+  await page.getByRole('button', { name: 'Add another time' }).click();
+  await pick(page, 'from', '7:00 pm', '7:30 pm');
   await page.getByRole('button', { name: 'Done', exact: true }).click();
   await expect(page.getByText(/set by the half hour/)).toBeVisible();
   await page.getByRole('button', { name: 'Send my times' }).click();
@@ -140,10 +147,10 @@ test('what is adjusted by the half hour is what is stored, and it comes back tha
   await expect(days(page).nth(0)).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByText(/set by the half hour/)).toBeVisible();
   await exactHours(page);
-  await expect(cells(page).nth(0)).toHaveAttribute('aria-checked', 'true');
-  await expect(cells(page).nth(1)).toHaveAttribute('aria-checked', 'true');
-  await expect(cells(page).nth(2)).toHaveAttribute('aria-checked', 'false');
-  await expect(cells(page).nth(4)).toHaveAttribute('aria-checked', 'true');
+  await expect(timeButton(page, 'from', '5:30 pm')).toBeVisible();
+  await expect(timeButton(page, 'to', '6:30 pm')).toBeVisible();
+  await expect(timeButton(page, 'from', '7:30 pm')).toBeVisible();
+  await expect(timeButton(page, 'to', '8:00 pm')).toBeVisible();
 });
 
 test('an answer can be given from the keyboard alone, by days and a sheet, and adjusted by the cell', async ({
@@ -167,10 +174,13 @@ test('an answer can be given from the keyboard alone, by days and a sheet, and a
   await firstLine(page).focus();
   await page.keyboard.press('Enter');
   await expect(firstLine(page)).toHaveAttribute('aria-expanded', 'true');
-  // The whole-day plan has 27 half hours; the evening starts at the 18th, 5:30 pm.
-  await cells(page).nth(17).focus();
+  // The picker is a list of radios a keyboard can reach: open it with Enter,
+  // choose 6 pm with Space.
+  await timeButton(page, 'from', '5:30 pm').focus();
+  await page.keyboard.press('Enter');
+  await page.getByRole('radio', { name: '6:00 pm', exact: true }).focus();
   await page.keyboard.press('Space');
-  await expect(cells(page).nth(17)).toHaveAttribute('aria-checked', 'false');
+  await expect(timeButton(page, 'from', '6:00 pm')).toBeVisible();
   await page.getByRole('button', { name: 'Done', exact: true }).focus();
   await page.keyboard.press('Enter');
 
@@ -199,7 +209,7 @@ test('a plan with one window has nothing to pick: the title names it, and Adjust
   await expect(page.getByRole('radio')).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Your hours each evening' })).toBeVisible();
   await expect(page.getByText('Every evening is from 5:30 pm.', { exact: false })).toBeVisible();
-  await expect(page.getByRole('button', { name: /Adjust by the half hour$/ })).toHaveCount(2);
+  await expect(page.getByRole('button', { name: /Set exact hours$/ })).toHaveCount(2);
   await page.getByRole('button', { name: 'Done', exact: true }).click();
   await expect(page.getByText('Evenings, from 5:30 pm')).toBeVisible();
 });
@@ -249,10 +259,10 @@ test('a day can have its own time of day, and the line then lists each day', asy
 
   // One day's own hours: a quick choice is no longer selected on it.
   await page
-    .getByRole('button', { name: /Adjust by the half hour$/ })
+    .getByRole('button', { name: /Set exact hours$/ })
     .first()
     .click();
-  await cells(page).nth(0).click();
+  await pick(page, 'from', '5:30 pm', '6:00 pm');
   await expect(page.getByText(/your own hours$/)).toBeVisible();
   await expect(page.getByRole('button', { name: /^Evening, / }).first()).toHaveAttribute(
     'aria-pressed',
@@ -267,7 +277,7 @@ test('a day can have its own time of day, and the line then lists each day', asy
   await expect(page.getByText('Evenings, from 5:30 pm')).toBeVisible();
 });
 
-test('times painted offline wait on the phone and go when the connection comes back', async ({
+test('times set offline wait on the phone and go when the connection comes back', async ({
   page,
   context,
 }) => {

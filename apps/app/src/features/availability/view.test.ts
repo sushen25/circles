@@ -8,7 +8,7 @@ import {
 } from '@circles/domain';
 import { describe, expect, it } from 'vitest';
 
-import { dayRows, gridSlots, type RowWords } from './days';
+import { dayRows, gridSlots } from './days';
 import { editorReducer, emptyEditor, type EditorAction, type EditorState } from './editor';
 import { editorView } from './view';
 
@@ -18,12 +18,6 @@ import { editorView } from './view';
  * calendar, the sheet's choices and the exact hours in words.
  */
 
-const WORDS: RowWords = {
-  cell: (day, from, to) => `${day}, ${from} to ${to}`,
-  repeated: (label) => label,
-  crossing: (label) => label,
-  clocksGoBack: 'Clocks go back',
-};
 const TWELVE = { hour12: true };
 
 /** Sunday Crew's fortnight: Monday 14 to Sunday 27 September, evenings. */
@@ -36,7 +30,7 @@ const EVENINGS: PlanTiming = {
 const WHOLE_DAYS: PlanTiming = { ...EVENINGS, daily: { startMin: 9 * 60, endMin: 22 * 60 + 30 } };
 
 function setUp(timing: PlanTiming) {
-  const rows = dayRows(timing, TWELVE, WORDS, 'en-AU');
+  const rows = dayRows(timing, 'en-AU');
   const reduce = editorReducer(rows, timing);
   const run = (...actions: EditorAction[]): EditorState =>
     actions.reduce(reduce, emptyEditor(rows, timing));
@@ -210,6 +204,88 @@ describe('what the plan leaves to choose (SUS-206)', () => {
   });
 });
 
+describe("an open day's hours: From – to pairs (SUS-206)", () => {
+  const open = (timing: PlanTiming, ...actions: EditorAction[]) => {
+    const { rows, run } = setUp(timing);
+    const state = run(...actions, { type: 'open', day: 3 });
+    return editorView(state, rows, timing, TWELVE, 'en-AU').cards.find((c) => c.day === 3)!.hours!;
+  };
+
+  it('is only there while the day is open', () => {
+    const { run, view } = setUp(WHOLE_DAYS);
+
+    expect(view(run({ type: 'toggle_day', day: 3 })).cards[0]!.hours).toBeUndefined();
+  });
+
+  it('says each pair with full minutes, and offers the times that edge may take', () => {
+    const hours = open(WHOLE_DAYS, { type: 'toggle_day', day: 3 });
+
+    expect(hours.ranges).toHaveLength(1);
+    expect(hours.ranges[0]).toMatchObject({
+      from: 17,
+      to: 27,
+      fromLabel: '5:30 pm',
+      toLabel: '10:30 pm',
+    });
+    // From: any time from the band's start to a half hour before its own To.
+    expect(hours.ranges[0]!.fromOptions.map((o) => o.label).slice(0, 3)).toEqual([
+      '9:00 am',
+      '9:30 am',
+      '10:00 am',
+    ]);
+    expect(hours.ranges[0]!.fromOptions.at(-1)!.label).toBe('10:00 pm');
+    // To: from a half hour after its own From to the band's end.
+    expect(hours.ranges[0]!.toOptions[0]!.label).toBe('6:00 pm');
+    expect(hours.ranges[0]!.toOptions.at(-1)!.label).toBe('10:30 pm');
+  });
+
+  it('reads two pairs, with room for none more once the day is full, and a bar with both filled', () => {
+    const cells = new Array(27)
+      .fill(false)
+      .map((_, i) => (i >= 6 && i < 14) || (i >= 19 && i < 24));
+    const hours = open(
+      WHOLE_DAYS,
+      { type: 'toggle_day', day: 3 },
+      { type: 'paint', day: 3, cells },
+    );
+
+    expect(hours.ranges.map((r) => [r.fromLabel, r.toLabel])).toEqual([
+      ['12:00 pm', '4:00 pm'],
+      ['6:30 pm', '9:00 pm'],
+    ]);
+    expect(hours.canRemove).toBe(true);
+    expect(hours.canAdd).toBe(true);
+    expect(hours.bar).toEqual([
+      { start: 6 / 27, end: 14 / 27 },
+      { start: 19 / 27, end: 24 / 27 },
+    ]);
+    expect(hours.ticks).toEqual(['9 am', '4 pm', '10:30 pm']);
+    const full = open(
+      WHOLE_DAYS,
+      { type: 'toggle_day', day: 3 },
+      { type: 'set_window', kind: 'any_time' },
+    );
+    expect(full.canAdd).toBe(false);
+    expect(full.canRemove).toBe(false);
+  });
+
+  it('keeps a clock change from making two buttons read alike', () => {
+    // Midnight to 6 am over the clocks going back: 2 am happens twice.
+    const band: PlanTiming = {
+      ...WHOLE_DAYS,
+      window: { start: localDate('2027-04-04'), end: localDate('2027-04-04') },
+      daily: { startMin: 0, endMin: 6 * 60 },
+    };
+    const { rows, run } = setUp(band);
+    const state = run({ type: 'toggle_day', day: 0 }, { type: 'open', day: 0 });
+    const hours = editorView(state, rows, band, TWELVE, 'en-AU').cards[0]!.hours!;
+    const labels = hours.ranges[0]!.toOptions.map((o) => o.label);
+
+    expect(new Set(labels).size).toBe(labels.length);
+    expect(labels.some((label) => /after the clocks go back/.test(label))).toBe(true);
+  });
+});
+
 describe('a time for each day', () => {
   it("is a card for each tapped day with the day, its time and the plan's choices", () => {
     const { run, view } = setUp(WHOLE_DAYS);
@@ -296,7 +372,7 @@ describe('what the others have said (SUS-129, SUS-206)', () => {
     const shown = view(run({ type: 'toggle_day', day: 3 }, { type: 'open', day: 3 }));
     expect(shown.counted).toBe(false);
     expect(shown.grid.every((day) => day.others === undefined)).toBe(true);
-    expect(shown.cards[0]).toMatchObject({ peak: undefined, counts: undefined });
+    expect(shown.cards[0]!.hours!.others).toBeUndefined();
   });
 
   it('puts the others on an untapped day, a muted zero where nobody could make it', () => {
@@ -331,32 +407,33 @@ describe('what the others have said (SUS-129, SUS-206)', () => {
     expect(alone.label).toBe('Monday 14 September, 5:30–10:30 pm, only you so far');
   });
 
-  it('opens a day with the sentence and a figure over each half hour', () => {
+  it('says when most others are free on an open day, in one line with no names or counts', () => {
     const { run, view } = withOthers(EVENINGS, FIVE);
     const [thursday] = view(run({ type: 'toggle_day', day: 3 }, { type: 'open', day: 3 })).cards;
-    expect(thursday!.peak).toBe('Others free, by the half hour. The most is 5, 6:30–8:30 pm.');
-    expect(thursday!.counts?.map((count) => count.text)).toEqual([
-      '2',
-      '3',
-      '5',
-      '5',
-      '5',
-      '5',
-      '3',
-      '2',
-      '2',
-      '2',
-    ]);
-    expect(thursday!.counts?.filter((count) => count.top)).toHaveLength(4);
-    // Each cell says it in words, so the figures can be hidden from a reader.
-    expect(thursday!.labels[2]).toMatch(/6:30 to 7 pm\. 5 others free$/);
+
+    // Thursday: all five from 6:30 to 8:30 pm, and the most is 5.
+    expect(thursday!.hours!.others).toBe('Most others are free 6:30–8:30 pm.');
   });
 
-  it('says a day nobody picked has nobody, with no figures', () => {
+  it('says two stretches with "and"', () => {
+    const { run, view } = withOthers(WHOLE_DAYS, {
+      ...FIVE,
+      days: [
+        [evening(17, '09:00', '11:00'), evening(17, '18:00', '20:00')],
+        [evening(17, '09:00', '11:00')],
+        [evening(17, '18:00', '20:00')],
+      ],
+    });
+    const [thursday] = view(run({ type: 'toggle_day', day: 3 }, { type: 'open', day: 3 })).cards;
+
+    expect(thursday!.hours!.others).toMatch(/^Most others are free .*9–11 am and 6–8 pm\.$/);
+  });
+
+  it('says nothing about the others on a day nobody else picked', () => {
     const { run, view } = withOthers(EVENINGS, FIVE);
     const [monday] = view(run({ type: 'toggle_day', day: 0 }, { type: 'open', day: 0 })).cards;
-    expect(monday!.peak).toBe('Nobody else has picked this day yet.');
-    expect(monday!.counts).toBeUndefined();
+
+    expect(monday!.hours!.others).toBeUndefined();
   });
 
   it('shows no counts anywhere below the threshold: the first to answer, or others with no times', () => {
@@ -365,7 +442,7 @@ describe('what the others have said (SUS-129, SUS-206)', () => {
       const shown = view(run({ type: 'toggle_day', day: 3 }, { type: 'open', day: 3 }));
       expect(shown.counted).toBe(false);
       expect(shown.grid.every((day) => day.others === undefined)).toBe(true);
-      expect(shown.cards[0]).toMatchObject({ peak: undefined, counts: undefined });
+      expect(shown.cards[0]!.hours!.others).toBeUndefined();
     }
   });
 

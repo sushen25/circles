@@ -11,7 +11,7 @@ import {
 import { t } from '../../copy';
 import type { AnswerablePlan } from '../../data/availability';
 import type { BandName, BlockKind } from './blocks';
-import { dateWords, type RowWords } from './days';
+import { dateWords } from './days';
 
 /**
  * The editor's sentences, from the copy file and the plan (spec §5.5). Kept
@@ -56,15 +56,6 @@ export function noneOf(band: BandName, onlyChoice: boolean): string {
     return t('availability', 'none_of_these_afternoons_work_for_me');
   return t('availability', 'none_of_these_dates_work_for_me');
 }
-
-export const ROW_WORDS: RowWords = {
-  cell: (day, from, to) => t('availability', 'cell', { day, from, to }),
-  repeated: (label) => t('availability', 'cell_repeated', { label }),
-  crossing: (label) => t('availability', 'cell_crossing', { label }),
-  get clocksGoBack() {
-    return t('availability', 'clocks_go_back');
-  },
-};
 
 /** "Catch up · 14 Sep – 27 Sep", in the device's own date order. */
 export function titleOf(plan: AnswerablePlan): string {

@@ -77,15 +77,22 @@ test('the availability editor has no serious accessibility violations', async ({
   await expect(page.getByRole('dialog', { name: 'When, on those days?' })).toBeVisible();
   expect(await seriousViolations(page)).toEqual([]);
 
-  // ...and with a day open, so the half hours are too.
+  // ...and with a day open, so its From – to pairs and the picker are too.
   await page.getByRole('button', { name: 'A different time for each day' }).click();
   await page
-    .getByRole('button', { name: /Adjust by the half hour$/ })
+    .getByRole('button', { name: /Set exact hours$/ })
     .first()
     .click();
-  await expect(
-    page.getByRole('button', { name: /Adjust by the half hour$/ }).first(),
-  ).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.getByRole('button', { name: /Set exact hours$/ }).first()).toHaveAttribute(
+    'aria-expanded',
+    'true',
+  );
+  expect(await seriousViolations(page)).toEqual([]);
+  await page
+    .getByRole('button', { name: /^Free from, / })
+    .first()
+    .click();
+  await expect(page.getByRole('dialog', { name: 'Free from' })).toBeVisible();
   expect(await seriousViolations(page)).toEqual([]);
 });
 

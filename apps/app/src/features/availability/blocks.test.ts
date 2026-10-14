@@ -30,17 +30,11 @@ const TIMING: PlanTiming = {
   durationMinutes: 120,
   zone: zone('Australia/Melbourne'),
 };
-const words = {
-  cell: (day: string, from: string, to: string) => `${day}, ${from} to ${to}`,
-  repeated: (label: string) => label,
-  crossing: (label: string) => label,
-  clocksGoBack: 'Clocks go back',
-};
 const TUE = 1;
 const SAT = 5;
 
 describe('a time of day on only some of the tapped days', () => {
-  const rows = dayRows(TIMING, { hour12: true }, words, 'en-AU');
+  const rows = dayRows(TIMING, 'en-AU');
   const reduce = editorReducer(rows, TIMING);
   const tapped = [
     { type: 'toggle_day', day: TUE } as const,

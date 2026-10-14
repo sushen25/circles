@@ -31,7 +31,6 @@ import { usePreviousTimes, useStartedEvent } from './usePreviousTimes';
 import { useSendAnswer, type ReturnTo } from './useSendAnswer';
 import { editorView } from './view';
 import {
-  ROW_WORDS,
   closesOf,
   guideOf,
   noneOf,
@@ -115,7 +114,7 @@ export function Answering({
       : base;
   }, [plan, openedAt]);
   const format = useMemo(() => deviceTimeFormat(), []);
-  const rows = useMemo(() => dayRows(timing, format, ROW_WORDS), [timing, format]);
+  const rows = useMemo(() => dayRows(timing), [timing]);
   const reducer = useMemo(() => editorReducer(rows, timing), [rows, timing]);
 
   // Where the answer starts: the device's draft when it is the newer of the

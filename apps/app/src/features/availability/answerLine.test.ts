@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import { answerLineOf, dayList } from './answerLine';
 import { bandName, onlyChoice, type BlockTiming } from './blocks';
-import { dayRows, type RowWords } from './days';
+import { dayRows } from './days';
 import { editorReducer, emptyEditor, type EditorAction, type EditorState } from './editor';
 
 /**
@@ -11,12 +11,6 @@ import { editorReducer, emptyEditor, type EditorAction, type EditorState } from 
  * of day they all have. One day, three and eight; each time of day; a day
  * adjusted by the half hour; days that differ.
  */
-const WORDS: RowWords = {
-  cell: (day, from, to) => `${day}, ${from} to ${to}`,
-  repeated: (label) => label,
-  crossing: (label) => label,
-  clocksGoBack: 'Clocks go back',
-};
 const TWELVE = { hour12: true };
 
 /** Monday 12 to Sunday 25 October 2026, 9 am to 10:30 pm every day. */
@@ -32,7 +26,7 @@ const EVENINGS: PlanTiming = {
 };
 
 function setUp(timing: BlockTiming) {
-  const rows = dayRows(timing, TWELVE, WORDS, 'en-AU');
+  const rows = dayRows(timing, 'en-AU');
   const reduce = editorReducer(rows, timing);
   const run = (...actions: EditorAction[]): EditorState =>
     actions.reduce(reduce, emptyEditor(rows, timing));
@@ -257,7 +251,7 @@ describe('across a clock change', () => {
       window: { start: localDate('2027-04-03'), end: localDate('2027-04-04') },
       daily: { startMin: 0, endMin: 6 * 60 },
     };
-    const rows = dayRows(band, TWELVE, WORDS, 'en-AU');
+    const rows = dayRows(band, 'en-AU');
     expect(rows.map((row) => row.cells.length)).toEqual([12, 14]);
     const reduce = editorReducer(rows, band);
     const four = (length: number, from: number) =>

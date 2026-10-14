@@ -2,7 +2,7 @@ import { fromISO, localDate, zone, type PlanTiming } from '@circles/domain';
 import { describe, expect, it } from 'vitest';
 
 import { offeredBlocks, windowsFor, type BlockTiming } from './blocks';
-import { dayRows, type RowWords } from './days';
+import { dayRows } from './days';
 import {
   editorReducer,
   emptyEditor,
@@ -17,12 +17,6 @@ import { editorView } from './view';
  * reducer and the view see them: what the pre-fill paints, that it paints
  * nothing else and sends nothing, and which choices a tonight plan offers.
  */
-const WORDS: RowWords = {
-  cell: (day, from, to) => `${day}, ${from} to ${to}`,
-  repeated: (label) => label,
-  crossing: (label) => label,
-  clocksGoBack: 'Clocks go back',
-};
 const MELBOURNE = zone('Australia/Melbourne');
 
 /** Monday 14 to Sunday 20 September, 9 am to 10:30 pm every day. */
@@ -37,7 +31,7 @@ const SAT = 5;
 const SUN = 6;
 
 function setUp(timing: BlockTiming) {
-  const rows = dayRows(timing, { hour12: true }, WORDS, 'en-AU');
+  const rows = dayRows(timing, 'en-AU');
   const reduce = editorReducer(rows, timing);
   const run = (state: EditorState, ...actions: EditorAction[]) => actions.reduce(reduce, state);
   return { rows, run, start: emptyEditor(rows, timing) };
@@ -48,7 +42,7 @@ const view = (
   timing: BlockTiming,
   usual?: Parameters<typeof editorView>[5],
 ) => {
-  const rows = dayRows(timing, { hour12: true }, WORDS, 'en-AU');
+  const rows = dayRows(timing, 'en-AU');
   return editorView(state, rows, timing, { hour12: true }, 'en-AU', usual);
 };
 

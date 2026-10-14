@@ -11,7 +11,7 @@ import {
   type TimeFormat,
 } from '@circles/domain';
 
-import type { CellCount, GridDay } from '../../components';
+import type { GridDay } from '../../components';
 import { t } from '../../copy';
 import {
   blockSpan,
@@ -26,10 +26,11 @@ import {
   type BlockKind,
   type BlockTiming,
 } from './blocks';
-import { dayName, dayNumber, gridSlots, weekdayHeadings, type DayRow, type Mark } from './days';
+import { dayName, dayNumber, gridSlots, weekdayHeadings, type DayRow } from './days';
+import { addRange, edgeOptions, rangesOf, type Range } from './hours';
 import { answerLineOf, dayList, tappedNames, type AnswerLine } from './answerLine';
 import { paintedDays, tappedDays, windowOn, type EditorState } from './editor';
-import { counted, dayFree, dayLabel, dayOthers } from './others';
+import { counted, dayFree, dayLabel, othersLine } from './others';
 import { BLOCK_LABEL } from './words';
 
 /**
@@ -72,17 +73,47 @@ export type DayCardView = {
   own: boolean;
   /** Only the choices this plan offers, and that exist on this day. */
   choices: DayChoiceView[];
-  /** The half hours are open. */
+  /** The day's hours are open for setting. */
   open: boolean;
   cells: boolean[];
-  labels: string[];
-  marks: Mark[];
-  /** The day's hours in words, for the track's name. */
+  /** The day's hours in words. */
   range: string;
-  /** Over the open day's cells: "Others free, by the half hour. The most is 5, …" */
-  peak?: string | undefined;
-  /** A figure over each of the open day's cells; absent on a day nobody else picked. */
-  counts?: CellCount[] | undefined;
+  /** The From – to pairs, while the day is open. */
+  hours: HoursView | undefined;
+};
+
+/** One time a picker can choose: a boundary between half hours, and its words. */
+export type TimeOption = { boundary: number; label: string };
+
+/** One From – to pair, with what each button says and what each picker offers. */
+export type RangeView = {
+  from: number;
+  to: number;
+  fromLabel: string;
+  toLabel: string;
+  fromOptions: TimeOption[];
+  toOptions: TimeOption[];
+};
+
+/**
+ * An open day's hours, set as From – to pairs instead of painted (SUS-206): the
+ * pairs, the thin bar that shows them against the band (decoration only), its
+ * tick labels, and the one line about the others.
+ */
+export type HoursView = {
+  ranges: RangeView[];
+  /** The number of half hours in the band: the pairs' boundaries run 0 to this. */
+  length: number;
+  /** Whether there is room for another pair. */
+  canAdd: boolean;
+  /** More than one pair, so a pair can be taken away. */
+  canRemove: boolean;
+  /** Each pair as fractions of the band, for the bar. */
+  bar: { start: number; end: number }[];
+  /** "9 am", "3 pm", "10:30 pm": the band's start, middle and end. */
+  ticks: string[];
+  /** "Most others are free 2–4 pm and 6–8 pm"; absent when nobody else is free. */
+  others: string | undefined;
 };
 
 export type EditorView = {
@@ -109,6 +140,58 @@ export type EditorView = {
    */
   canUseUsual: boolean;
 };
+
+/** "12:00 pm": a time of day with its minutes, so a button never reads "12 pm to 4 pm". */
+function exact(minutes: number, format: TimeFormat): string {
+  const said = formatMinutesOfDay(minutes, format);
+  return format.hour12 && !said.includes(':') ? said.replace(/^(\d+)/, '$1:00') : said;
+}
+
+/** An open day's pairs, bar and line: everything its hours editor shows (`hours.ts`). */
+function hoursView(
+  cells: readonly boolean[],
+  row: DayRow,
+  others: OthersSaid | undefined,
+  timing: BlockTiming,
+  format: TimeFormat,
+): HoursView {
+  const length = row.cells.length;
+  const zone = toZone(timing.zone);
+  const at = (boundary: number) => {
+    const instant = boundary < length ? row.cells[boundary]!.start : row.cells[length - 1]!.end;
+    return toLocal(instant, zone).minutesOfDay;
+  };
+  // What each boundary is called. The night the clocks go back, two of them are
+  // the same time on the clock: the second says so, or two buttons would read alike.
+  const seen = new Set<number>();
+  const words = Array.from({ length: length + 1 }, (_, boundary) => {
+    const minutes = at(boundary);
+    const again = seen.has(minutes);
+    seen.add(minutes);
+    const said = exact(minutes, format);
+    return again ? t('availability', 'time_again', { time: said }) : said;
+  });
+  const options = (which: 'from' | 'to', range: Range): TimeOption[] =>
+    edgeOptions(which, range, length).map((boundary) => ({ boundary, label: words[boundary]! }));
+  const ranges = rangesOf(cells);
+  return {
+    ranges: ranges.map((range) => ({
+      ...range,
+      fromLabel: words[range.from]!,
+      toLabel: words[range.to]!,
+      fromOptions: options('from', range),
+      toOptions: options('to', range),
+    })),
+    length,
+    canAdd: addRange(ranges, length).length > ranges.length,
+    canRemove: ranges.length > 1,
+    bar: ranges.map((range) => ({ start: range.from / length, end: range.to / length })),
+    ticks: [0, Math.round(length / 2), length].map((boundary) =>
+      formatMinutesOfDay(at(boundary), format),
+    ),
+    others: others === undefined ? undefined : othersLine(others, row, timing, format),
+  };
+}
 
 export function editorView(
   state: EditorState,
@@ -204,7 +287,6 @@ export function editorView(
     const row = rows[day]!;
     const cells = state.days[day] ?? [];
     const open = state.open === day;
-    const near = others === undefined || !open ? undefined : dayOthers(others, row, timing, format);
     const matched = windowOfCells(cells, row, timing);
     const hours = range(day) ?? '';
     return {
@@ -228,11 +310,8 @@ export function editorView(
         })),
       open,
       cells,
-      labels: near?.labels ?? row.cellLabels,
-      marks: row.marks,
       range: hours,
-      peak: near?.sentence,
-      counts: near?.counts,
+      hours: open ? hoursView(cells, row, others, timing, format) : undefined,
     };
   });
 

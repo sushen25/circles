@@ -2,10 +2,10 @@ import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { color, faceFor, hit, radius } from '@circles/tokens';
 
-import { Small, Tertiary, Track, usePalette } from '../../components';
-import { Stack } from '../../components/layout';
+import { Tertiary, usePalette } from '../../components';
 import { t } from '../../copy';
 import type { BlockKind } from './blocks';
+import { HoursEditor } from './HoursEditor';
 import type { DayCardView } from './view';
 
 /**
@@ -65,29 +65,12 @@ export function DayCard({ card, dimmed, onChoose, onOpen, onPaint }: Props) {
         ))}
       </View>
       <Tertiary
-        label={t('availability', 'by_the_half_hour')}
+        label={t('availability', 'set_exact_hours')}
         aria-label={t('availability', 'adjust_day', { day: card.spoken, time: card.range })}
         aria-expanded={card.open}
         onPress={dimmed ? undefined : () => onOpen?.(card.day)}
       />
-      {card.open ? (
-        <Stack gap={8}>
-          {card.peak === undefined ? null : <Small>{card.peak}</Small>}
-          <Track
-            day={card.spoken}
-            groupLabel={card.spoken}
-            cells={card.cells}
-            onChange={(cells) => onPaint?.(card.day, cells)}
-            startMinutes={0}
-            labels={card.labels}
-            range={card.range}
-            marks={card.marks}
-            counts={card.counts}
-            header={false}
-            dimmed={dimmed}
-          />
-        </Stack>
-      ) : null}
+      {card.open ? <HoursEditor card={card} dimmed={dimmed} onPaint={onPaint} /> : null}
     </View>
   );
 }

@@ -75,8 +75,9 @@ answer in one line with "Change time". Tapping a day gives it the current time
 of day (Evening unless the plan has none); `ChangeTimeSheet` gives every tapped
 day another; "A different time for each day" (or Change time, once the days
 differ; on a plan with one window, Adjust hours, with no sheet) opens `ExactHoursScreen`, "A time for each day": a `DayCard` per day
-with the plan's quick choices, and "By the half hour" opening its `Track` with
-the others' counts by the half hour. Everything it shows is worked out in `view.ts` and
+with the plan's quick choices, and "Set exact hours" opening `HoursEditor`: the
+day's hours as From – to pairs with a picker (`hours.ts` is the pure part), a
+thin bar, and one line about the others (the domain's `freeStretches`). Everything it shows is worked out in `view.ts` and
 `answerLine.ts` from the reducer in `editor.ts`; the blocks are the domain's
 shortcuts (`blocks.ts`). The chosen time of day and the open day are view state
 and never stored. A returning member's previous times land as taps, not as a

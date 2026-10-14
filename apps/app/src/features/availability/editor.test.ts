@@ -2,7 +2,7 @@ import { localDate, zone, type PlanTiming } from '@circles/domain';
 import { describe, expect, it } from 'vitest';
 
 import { offeredBlocks, windowsFor } from './blocks';
-import { dayRows, type RowWords } from './days';
+import { dayRows } from './days';
 import {
   editorFrom,
   editorReducer,
@@ -15,13 +15,6 @@ import {
   type EditorAction,
   type EditorState,
 } from './editor';
-
-const WORDS: RowWords = {
-  cell: (day, from, to) => `${day}, ${from} to ${to}`,
-  repeated: (label) => label,
-  crossing: (label) => label,
-  clocksGoBack: 'Clocks go back',
-};
 
 /** Monday 14 to Sunday 20 September, weekday-evening hours every day. */
 const EVENINGS: PlanTiming = {
@@ -38,7 +31,7 @@ const THU = 3;
 const SAT = 5;
 
 function setUp(timing: PlanTiming) {
-  const rows = dayRows(timing, { hour12: true }, WORDS, 'en-AU');
+  const rows = dayRows(timing, 'en-AU');
   const reduce = editorReducer(rows, timing);
   const run = (state: EditorState, ...actions: EditorAction[]) => actions.reduce(reduce, state);
   return { rows, reduce, run, start: emptyEditor(rows, timing) };

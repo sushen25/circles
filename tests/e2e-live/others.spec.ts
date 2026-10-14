@@ -10,7 +10,7 @@ import { sundayCrew, type Scenario } from './stack';
  *
  * Three strangers arrive on the plan link in turn. The first has no
  * number to be shown; the third sees the first two answers as counts — on the tiles, in the
- * words of each day, and over the open day's half hours — and neither of their
+ * words of each day, and as one line about when most are free — and neither of their
  * names.
  */
 
@@ -70,17 +70,14 @@ test('a third guest sees the first two answers as counts, and no name', async ({
   await expect(days(lous).nth(0)).toHaveAccessibleName(/, only you so far$/);
   await expect(days(lous).nth(0)).toContainText('1');
 
-  // The half hours, from each day's card: the first day meets nobody, the
-  // fourth both.
+  // The hours, from each day's row: the first day has nothing to say about the
+  // others, the fourth says when both of them are free.
   await lous.getByRole('button', { name: /^Adjust hours for/ }).click();
-  const lines = lous.getByRole('button', { name: /Adjust by the half hour/ });
+  const lines = lous.getByRole('button', { name: /Set exact hours/ });
   await lines.nth(0).click();
-  await expect(lous.getByText('Nobody else has picked this day yet.')).toBeVisible();
+  await expect(lous.getByText(/^Most others are free/)).toHaveCount(0);
   await lines.nth(1).click();
-  await expect(
-    lous.getByText(/^Others free, by the half hour\. The most is 2, 5:30.10:30\spm\.$/),
-  ).toBeVisible();
-  await expect(lous.getByRole('checkbox', { name: /\. 2 others free$/ }).first()).toBeVisible();
+  await expect(lous.getByText(/^Most others are free 5:30.10:30\spm\.$/)).toBeVisible();
   await lous.getByRole('button', { name: 'Done', exact: true }).click();
 
   // Counts, never names: neither Ren nor Kit is anywhere on Lou's screen.

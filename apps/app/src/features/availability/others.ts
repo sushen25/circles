@@ -1,23 +1,21 @@
 import {
   cellCounts,
   freeFor,
+  freeStretches,
   interval,
   othersShown,
-  peakOf,
   rangeText,
   type OthersSaid,
   type TimeFormat,
 } from '@circles/domain';
 
-import type { CellCount } from '../../components';
 import { t } from '../../copy';
 import type { BlockTiming } from './blocks';
 import type { DayRow } from './days';
 
 /**
  * The editor's words for what the others have said (SUS-129, ADR 0045): the
- * figure on a day, the third line on a line of the exact hours, and the
- * sentence and figures over an open day's half hours. Every number comes from the domain (`freeFor`); this only says it.
+ * figure on a day, and the line about the others under an open day's hours. Every number comes from the domain (`freeFor`); this only says it.
  *
  * `undefined` everywhere means "say nothing": the read failed, is still on its
  * way, or there is no backend. The editor is then exactly as it was.
@@ -51,46 +49,29 @@ export function dayLabel(label: string, free: number, selected: boolean): string
     : t('availability', 'day_others_other', { label, count: free });
 }
 
-export type DayOthers = {
-  /** "Others free, by the half hour. The most is 5, 6:30–8:30 pm." */
-  sentence: string;
-  /** A figure over each cell, or undefined on a day nobody else picked. */
-  counts: CellCount[] | undefined;
-  /** Each cell's spoken label, with how many are free in it. */
-  labels: string[];
-};
-
-/** What an open day shows over its half hours. */
-export function dayOthers(
+/**
+ * One line about the others for an open day (SUS-206): "Most others are free
+ * 2–4 pm and 6–8 pm". The stretches are the domain's (`freeStretches`) over the
+ * same per-half-hour counts the cells used to show; this only says them, and
+ * says nothing at all when nobody else is free that day.
+ */
+export function othersLine(
   others: OthersSaid,
   row: DayRow,
   timing: BlockTiming,
   format: TimeFormat,
-): DayOthers {
-  const free = cellCounts(others, row.cells);
-  const peak = peakOf(free);
-  const labels = row.cellLabels.map((label, index) => {
-    const count = free[index] ?? 0;
-    if (count === 0) return label;
-    return count === 1
-      ? t('availability', 'cell_others_one', { label })
-      : t('availability', 'cell_others_other', { label, count });
-  });
-  if (peak.most === 0) {
-    return { sentence: t('availability', 'peak_nobody'), counts: undefined, labels };
-  }
-  const runs = peak.runs.map(({ from, to }) =>
-    interval(row.cells[from]!.start, row.cells[to - 1]!.end),
+): string | undefined {
+  const stretches = freeStretches(cellCounts(others, row.cells));
+  if (stretches.length === 0) return undefined;
+  const times = stretches.map(({ from, to }) =>
+    rangeText([interval(row.cells[from]!.start, row.cells[to - 1]!.end)], timing.zone, format)!,
   );
-  return {
-    sentence: t('availability', 'peak', {
-      count: peak.most,
-      time: rangeText(runs, timing.zone, format)!,
-    }),
-    counts: free.map((count) => ({
-      text: count === 0 ? t('availability', 'cell_nobody') : String(count),
-      top: count === peak.most,
-    })),
-    labels,
-  };
+  const when =
+    times.length === 1
+      ? times[0]!
+      : t('availability', 'days_and', {
+          rest: times.slice(0, -1).join(', '),
+          last: times[times.length - 1]!,
+        });
+  return t('availability', 'others_free', { when });
 }
