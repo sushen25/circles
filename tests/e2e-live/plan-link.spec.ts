@@ -78,6 +78,58 @@ test('a circle with no guests never asks "Have you answered this before?"', asyn
   expect(await page.evaluate('window.sawList === true')).toBe(false);
 });
 
+test('Back from the name step stays on the plan link, whichever Back is pressed', async ({
+  page,
+}) => {
+  // Found on 14 Oct 2026: a mistyped name and a tap on Back landed on `/`, the
+  // marketing site, and the guest had to find the link in the chat again.
+  const crew = sundayCrew();
+  guestWhoAnswered(crew, 'Tom');
+  const onThePlanLink = new RegExp(`/[jp]/${crew.planCode}$`);
+
+  await page.goto(`/p/${crew.planCode}`);
+  await page.getByRole('button', { name: "I'm new here" }).click();
+  await expect(page.getByText('What should the group call you?')).toBeVisible();
+  await page.getByLabel('Your name').fill('Rne');
+
+  // The top bar's arrow returns to the step before: "Have you answered this before?".
+  await page.getByRole('button', { name: 'Back', exact: true }).click();
+  await expect(page.getByText('Have you answered this before?')).toBeVisible();
+  await expect(page).toHaveURL(onThePlanLink);
+
+  // The browser's Back does the same.
+  await page.getByRole('button', { name: "I'm new here" }).click();
+  await expect(page.getByText('What should the group call you?')).toBeVisible();
+  await page.goBack();
+  await expect(page.getByText('Have you answered this before?')).toBeVisible();
+  await expect(page).toHaveURL(onThePlanLink);
+});
+
+test('with nobody to continue as, the arrow stays on the plan link and the browser goes back to where the link came from', async ({
+  page,
+}) => {
+  // The name step is the plan link's landing here, so there is no step before
+  // it to return to. The top bar's arrow stays on the link (and empties the
+  // field); the browser's Back is the browser's: the page the guest came from,
+  // which is the chat for a link tapped there, and never the website's `/`.
+  const crew = sundayCrew();
+  const onThePlanLink = new RegExp(`/[jp]/${crew.planCode}$`);
+
+  await page.goto('about:blank');
+  await page.goto(`/j/${crew.planCode}`);
+  await expect(page.getByText('What should the group call you?')).toBeVisible();
+  const field = page.getByLabel('Your name');
+  await field.fill('Rne');
+
+  await page.getByRole('button', { name: 'Back', exact: true }).click();
+  await expect(page).toHaveURL(onThePlanLink);
+  await expect(page.getByText('What should the group call you?')).toBeVisible();
+  await expect(field).toHaveValue('');
+
+  await page.goBack();
+  await expect(page).toHaveURL('about:blank');
+});
+
 test('an account that is not a member sees one button naming the circle and itself, and joins', async ({
   page,
 }) => {

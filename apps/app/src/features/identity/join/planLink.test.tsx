@@ -11,12 +11,34 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
  */
 
 const replace = vi.fn();
-const push = vi.fn();
+// The name step is `?step=name` on the plan link's own address, so the mock keeps the
+// address's params and tells the screen when they change, as the router would.
+const address = { params: {} as Record<string, string>, listeners: new Set<() => void>() };
+const setParams = (params: Record<string, string>) => {
+  address.params = params;
+  address.listeners.forEach((l) => l());
+};
+const pushed = (target: { params?: Record<string, string> }) => {
+  if (target.params?.['step'] !== undefined) setParams(target.params);
+};
+const push = vi.fn(pushed);
+const back = vi.fn(() => setParams({}));
 const where = { pathname: '/p/pnsundaycr' };
-vi.mock('expo-router', () => ({
-  useRouter: () => ({ replace, push, back: vi.fn(), canGoBack: () => false }),
-  usePathname: () => where.pathname,
-}));
+vi.mock('expo-router', async () => {
+  const { useSyncExternalStore } = await import('react');
+  return {
+    useRouter: () => ({ replace, push, back, canGoBack: () => true }),
+    usePathname: () => where.pathname,
+    useLocalSearchParams: () =>
+      useSyncExternalStore(
+        (l) => {
+          address.listeners.add(l);
+          return () => address.listeners.delete(l);
+        },
+        () => address.params,
+      ),
+  };
+});
 const track = vi.fn();
 vi.mock('../../../analytics/track', () => ({ track: (...args: unknown[]) => track(...args) }));
 vi.mock('../../../data/auth/client', () => ({ hasBackend: () => true }));
@@ -110,6 +132,9 @@ beforeEach(() => {
   ]) {
     mock.mockReset();
   }
+  push.mockImplementation(pushed);
+  back.mockImplementation(() => setParams({}));
+  setParams({});
   planAccess.mockResolvedValue({ membership: 'not_member' });
   circleNameForCode.mockResolvedValue('Sunday Crew');
   guestMembersFor.mockResolvedValue({ kind: 'listed', members: [ALEX] });
@@ -165,6 +190,35 @@ describe('a guest, in a circle that has guests', () => {
     // The same key for a different name would be `idempotency_mismatch`, and the
     // duplicate-name path could never be recovered from.
     expect(second?.idempotencyKey).not.toBe(first?.idempotencyKey);
+  });
+});
+
+describe('Back from the name step (SUS-208)', () => {
+  it('returns to "Have you answered this before?" on the same plan link, and never to the website', async () => {
+    arrive();
+
+    fireEvent.click(await screen.findByRole('button', { name: "I'm new here" }));
+    // A step in the address, so the browser's own Back is the same Back.
+    expect(push).toHaveBeenCalledWith({ pathname: `/p/${CODE}`, params: { step: 'name' } });
+    await screen.findByText('What should the group call you?');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    expect(await screen.findByText('Have you answered this before?')).toBeTruthy();
+    expect(replace).not.toHaveBeenCalledWith('/');
+  });
+
+  it('stays on the name step, with the field empty, when nothing comes before it', async () => {
+    guestMembersFor.mockResolvedValue({ kind: 'listed', members: [] });
+    arrive();
+
+    const field = (await screen.findByLabelText('Your name')) as HTMLInputElement;
+    fireEvent.change(field, { target: { value: 'Rne' } });
+    expect(field.value).toBe('Rne');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }));
+    expect(((await screen.findByLabelText('Your name')) as HTMLInputElement).value).toBe('');
+    expect(replace).not.toHaveBeenCalled();
+    expect(push).not.toHaveBeenCalled();
   });
 });
 

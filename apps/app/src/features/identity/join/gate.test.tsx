@@ -13,6 +13,7 @@ const replace = vi.fn();
 vi.mock('expo-router', () => ({
   useRouter: () => ({ replace, push: vi.fn(), back: vi.fn(), canGoBack: () => false }),
   usePathname: () => '/j/pnsundaycr',
+  useLocalSearchParams: () => ({}),
 }));
 const track = vi.fn();
 vi.mock('../../../analytics/track', () => ({ track: (...args: unknown[]) => track(...args) }));

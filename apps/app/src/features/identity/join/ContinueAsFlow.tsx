@@ -1,6 +1,6 @@
 import type { GuestMemberOption, IdempotencyKey, ShortCode } from '@circles/contracts';
 import { useQuery } from '@tanstack/react-query';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, usePathname, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 
 import { track } from '../../../analytics/track';
@@ -11,6 +11,7 @@ import { ContinueAsScreen, type ContinueProblem } from '../ContinueAsScreen';
 import { LinkInvalidScreen } from '../LinkInvalidScreen';
 import { failureOf, isOffline } from './failure';
 import { useHaveAccount } from './haveAccount';
+import { nameStepBack, NAME_STEP, nameStepPushed, rememberNameStepPushed } from './nameStepBack';
 import { PlanNameFlow } from './PlanNameFlow';
 
 /**
@@ -57,7 +58,14 @@ export function ContinueAsFlow({ code, arrivedWithoutSession, onReattached }: Co
   const [problem, setProblem] = useState<ContinueProblem | undefined>();
   const [reference, setReference] = useState<string | undefined>();
   const [askForInvite, setAskForInvite] = useState(false);
-  const [imNew, setImNew] = useState(false);
+  // "I'm new here" is a step in the browser's history, not only in this
+  // component: it is the `?step=name` of the plan link's own address, so the
+  // browser's Back returns to the list, and a reload stays on the name step.
+  const { step } = useLocalSearchParams<{ step?: string }>();
+  const pathname = usePathname();
+  const imNew = step === NAME_STEP;
+  // Bumped by Back from a name step with nothing before it: the field starts empty again.
+  const [nameAttempt, setNameAttempt] = useState(0);
   /**
    * Joined, and waiting for the gate to notice. Until it re-reads membership
    * this page still thinks they are outside, and the list — read again — now
@@ -92,6 +100,28 @@ export function ContinueAsFlow({ code, arrivedWithoutSession, onReattached }: Co
   });
 
   const back = () => (router.canGoBack() ? router.back() : router.replace('/'));
+
+  const openNameStep = () => {
+    rememberNameStepPushed(code);
+    router.push({ pathname, params: { step: NAME_STEP } } as Parameters<typeof router.push>[0]);
+  };
+
+  /** Back from the name step: the step before it on this plan link, never the website. */
+  const backFromNameStep = (nobodyToBe: boolean) => {
+    switch (
+      nameStepBack({ nobodyToBe, pushedHere: nameStepPushed(code), canGoBack: router.canGoBack() })
+    ) {
+      case 'pop':
+        router.back();
+        return;
+      case 'to_list':
+        router.replace({ pathname } as Parameters<typeof router.replace>[0]);
+        return;
+      case 'start_over':
+        setNameAttempt((n) => n + 1);
+        return;
+    }
+  };
 
   if (joinedHere) {
     return (
@@ -140,6 +170,7 @@ export function ContinueAsFlow({ code, arrivedWithoutSession, onReattached }: Co
     }
     return (
       <PlanNameFlow
+        key={nameAttempt}
         code={code}
         circleName={title ?? ''}
         onInactive={() => setAskForInvite(true)}
@@ -147,8 +178,7 @@ export function ContinueAsFlow({ code, arrivedWithoutSession, onReattached }: Co
           setJoinedHere(true);
           onReattached();
         }}
-        // Back to the list when there is one to go back to; otherwise off the page.
-        onBack={nobodyToBe ? back : () => setImNew(false)}
+        onBack={() => backFromNameStep(nobodyToBe)}
       />
     );
   }
@@ -232,7 +262,7 @@ export function ContinueAsFlow({ code, arrivedWithoutSession, onReattached }: Co
         const member = byKey.get(option.key);
         if (member !== undefined) void pick(member);
       }}
-      onImNewHere={() => setImNew(true)}
+      onImNewHere={openNameStep}
       onSignIn={haveAccount}
       onBack={back}
     />
