@@ -62,19 +62,31 @@ export function setEdge(
 }
 
 /**
- * Another pair, for a gap in the day: an hour (two cells) starting a half hour
- * after the last pair ends, or ending a half hour before the first pair starts
- * when the band's end is too close, or nothing when the day has no room. The
- * half hour between keeps it from merging the moment it is added.
+ * Another pair, for a gap in the day: an hour (two cells) in the first free
+ * stretch that has room, with a half hour left between it and any pair it sits
+ * next to so it does not merge the moment it is added. The stretch after the
+ * last pair is tried first, then those between pairs in time order, then the one
+ * before the first; nothing when the day has no room.
  */
 export function addRange(ranges: readonly Range[], length: number): Range[] {
-  const first = ranges[0];
-  const last = ranges[ranges.length - 1];
-  if (last !== undefined && last.to + 1 < length) {
-    return [...ranges, { from: last.to + 1, to: Math.min(last.to + 3, length) }];
+  const taken = cellsOf(ranges, length);
+  const free: { start: number; end: number }[] = [];
+  for (let i = 0; i < length; i += 1) {
+    if (taken[i]) continue;
+    const last = free[free.length - 1];
+    if (last !== undefined && last.end === i) last.end = i + 1;
+    else free.push({ start: i, end: i + 1 });
   }
-  if (first !== undefined && first.from >= 2) {
-    return [{ from: Math.max(first.from - 3, 0), to: first.from - 1 }, ...ranges];
+  // After the last pair first, then the rest in time order.
+  const order = [...free.filter((f) => f.end === length), ...free.filter((f) => f.end !== length)];
+  for (const { start, end } of order) {
+    const from = start > 0 ? start + 1 : start;
+    const until = end < length ? end - 1 : end;
+    if (until - from >= 1) {
+      // Before the first pair it sits next to that pair; elsewhere, after the one before.
+      const at = start === 0 ? Math.max(from, until - 2) : from;
+      return rangesOf(cellsOf([...ranges, { from: at, to: Math.min(at + 2, until) }], length));
+    }
   }
   return [...ranges];
 }

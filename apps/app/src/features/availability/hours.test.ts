@@ -101,6 +101,35 @@ describe('changing a pair', () => {
     ]);
   });
 
+  it('adds in a gap between pairs when the pairs reach both ends of the band (review round 1)', () => {
+    expect(
+      addRange(
+        [
+          { from: 0, to: 4 },
+          { from: 20, to: 27 },
+        ],
+        LENGTH,
+      ),
+    ).toEqual([
+      { from: 0, to: 4 },
+      { from: 5, to: 7 },
+      { from: 20, to: 27 },
+    ]);
+    // And nothing when the only room is a single half hour between two pairs.
+    expect(
+      addRange(
+        [
+          { from: 0, to: 4 },
+          { from: 5, to: 27 },
+        ],
+        LENGTH,
+      ),
+    ).toEqual([
+      { from: 0, to: 4 },
+      { from: 5, to: 27 },
+    ]);
+  });
+
   it('adds before the first when the band ends too close, and nothing when the day is full', () => {
     expect(addRange([{ from: 10, to: 26 }], LENGTH)).toEqual([
       { from: 7, to: 9 },
