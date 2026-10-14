@@ -201,7 +201,7 @@ export const en = {
     sheet_dismiss: 'Close',
     different_time_each_day: 'A different time for each day',
     exact_title: 'A time for each day',
-    exact_body: 'Pick one for each day, or open a day to set it by the half hour.',
+    exact_body: 'Pick one for each day, or open a day to set exact hours.',
     own_hours: '{hours}, your own hours',
     use_one_time: 'Use one time for all days',
     day_choice: '{choice}, {day}',

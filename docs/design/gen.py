@@ -445,7 +445,7 @@ def day_card(name, time_, choices, on=None, own=False, extra=""):
 
 S["AvailabilityAdjusting"] = shell(
     top("Catch up · 14 Sep – 27 Sep") + body(
-        stack(dl("A time for each day"), p("Pick one for each day, or open a day to set it by the half hour."), gap=8),
+        stack(dl("A time for each day"), p("Pick one for each day, or open a day to set exact hours."), gap=8),
         day_card("Tue 15", "9 am – 5 pm", ["Evening", "Daytime", "Any time"], on="Daytime"),
         day_card("Thu 17", "12–4 pm and 6:30–9 pm, your own hours", ["Evening", "Daytime", "Any time"], own=True, extra=hours_block(
             [("12:00 pm", "4:00 pm"), ("6:30 pm", "9:00 pm")], [(6/27, 14/27), (19/27, 24/27)],
@@ -458,7 +458,7 @@ S["AvailabilityAdjusting"] = shell(
 # nothing outside it, and a To only after its From.
 S["AvailabilityPicker"] = shell(
     '<div style="opacity:.35;display:flex;flex-direction:column;flex-grow:1;">' + top("Catch up · 14 Sep – 27 Sep") + body(
-        stack(dl("A time for each day"), p("Pick one for each day, or open a day to set it by the half hour."), gap=8),
+        stack(dl("A time for each day"), p("Pick one for each day, or open a day to set exact hours."), gap=8),
         day_card("Thu 17", "12–4 pm, your own hours", ["Evening", "Daytime", "Any time"], own=True, extra=hours_block(
             [("12:00 pm", "4:00 pm")], [(6/27, 14/27)])), gap=14) + '</div>'
     + f'<div style="position:absolute;left:0;right:0;bottom:0;background:{T["ground"]};border-radius:22px 22px 0 0;border-top:1px solid {T["line"]};padding:8px 22px 28px;display:flex;flex-direction:column;gap:10px;">'
