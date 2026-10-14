@@ -23,12 +23,19 @@ export function Sheet({ visible, onDismiss, label, dismissLabel, children }: Pro
   const palette = usePalette();
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onDismiss}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onDismiss}
+      // react-native-web makes the modal's own element the dialog, and passes
+      // what it does not use to it: the name belongs there, not on the sheet
+      // inside it, which is not a dialog (axe: aria-dialog-name).
+      {...({ 'aria-label': label } as object)}
+    >
       <Pressable style={styles.scrim} role="button" aria-label={dismissLabel} onPress={onDismiss} />
       <View
         accessibilityViewIsModal
-        aria-modal
-        aria-label={label}
         style={[styles.sheet, { backgroundColor: palette.ground, borderTopColor: palette.line }]}
       >
         <View style={[styles.handle, { backgroundColor: palette.line }]} />

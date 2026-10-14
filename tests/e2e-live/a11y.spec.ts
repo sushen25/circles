@@ -70,6 +70,9 @@ test('the availability editor has no serious accessibility violations', async ({
 
   await page.getByRole('button', { name: /^Change the time for/ }).click();
   await expect(page.getByRole('radio', { name: /^Evening/ })).toBeVisible();
+  // The sheet is a dialog with a name, once the modal has taken focus (until
+  // then react-native-web has marked it modal without a role).
+  await expect(page.getByRole('dialog', { name: 'When, on those days?' })).toBeVisible();
   expect(await seriousViolations(page)).toEqual([]);
 
   // ...and with a day open, so the half hours are too.
