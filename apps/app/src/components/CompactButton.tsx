@@ -22,8 +22,8 @@ type CompactProps = Omit<PressableProps, 'children' | 'style'> &
   };
 
 /**
- * A button sized to its label, for the quieter actions: "Done", "Clear these
- * days", "Start over", "Undo" (ADR 0024), and every `Tertiary` (SUS-168).
+ * A button sized to its label, for the quieter actions: "Done", "Change
+ * time" (ADR 0024, ADR 0068), and every `Tertiary` (SUS-168).
  * Underlined text reads as a web link on a phone and hides its tap target;
  * this keeps the action a visible control while staying quieter than
  * Secondary. Still a 44pt target (manifesto §6). One shape, two tones: the soft

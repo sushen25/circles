@@ -185,6 +185,7 @@ export function AvailabilityScreen({
               <Tertiary
                 label={t('availability', 'change_time')}
                 aria-label={t('availability', 'change_time_for', { days: answerLine.days })}
+                disabled={flexible}
                 onPress={locked || flexible ? undefined : onChangeTime}
               />
             </Between>

@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { color, faceFor, hit, radius } from '@circles/tokens';
 
@@ -23,6 +23,10 @@ type Props = {
   onPaint?: ((day: number, cells: boolean[]) => void) | undefined;
 };
 
+/** `aria-pressed` on the web; native has no pressed state to announce, so `selected`. */
+const pressed = (on: boolean): Record<string, unknown> =>
+  Platform.OS === 'web' ? { 'aria-pressed': on } : { 'aria-selected': on };
+
 export function DayCard({ card, dimmed, onChoose, onOpen, onPaint }: Props) {
   const palette = usePalette();
 
@@ -45,7 +49,7 @@ export function DayCard({ card, dimmed, onChoose, onOpen, onPaint }: Props) {
           <Pressable
             key={choice.kind}
             role="button"
-            aria-pressed={choice.on}
+            {...pressed(choice.on)}
             aria-label={t('availability', 'day_choice', { choice: choice.label, day: card.spoken })}
             aria-disabled={dimmed}
             disabled={dimmed}

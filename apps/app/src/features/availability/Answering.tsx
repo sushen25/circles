@@ -1,7 +1,7 @@
 import { fromISO, isTonightWindow, type OthersSaid } from '@circles/domain';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
-import { BackHandler } from 'react-native';
+import { BackHandler, Platform } from 'react-native';
 
 import {
   clearDraft,
@@ -132,8 +132,10 @@ export function Answering({
   // screen's own does, rather than the page (Android; the web has no such button
   // and its browser's Back leaves the route, as it does from the sheet).
   useEffect(() => {
-    if (!exact) return;
+    // react-native-web logs an error if asked: there is no such button there.
+    if (!exact || Platform.OS === 'web') return;
     const hardware = BackHandler.addEventListener('hardwareBackPress', () => {
+      dispatch({ type: 'close' });
       setExact(false);
       return true;
     });
@@ -263,6 +265,10 @@ export function Answering({
       />
     );
   }
+
+  // Painting a day's last half hour off untaps it: with no day left there is
+  // nothing to give a time to, so the screen is the first one again.
+  if (exact && view.cards.length === 0) setExact(false);
 
   if (exact) {
     return (

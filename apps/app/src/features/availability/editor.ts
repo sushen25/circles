@@ -93,7 +93,7 @@ export function emptyEditor(rows: readonly DayRow[], timing: BlockTiming): Edito
   );
 }
 
-/** The cells of `kind` on a day, or the cells of any time that day where it has none. */
+/** The cells of `kind` on a day, or `undefined` where the plan has none of it there. */
 function windowCells(kind: BlockKind, row: DayRow, timing: BlockTiming): boolean[] | undefined {
   return blockMask(kind, row, timing);
 }
@@ -145,7 +145,7 @@ export function windowsOf(
   return merge(all).map((w) => ({ start: toISO(w.start), end: toISO(w.end) }));
 }
 
-/** "3 of 14 days": the days with any time on them. */
+/** How many days have any time on them. */
 export function paintedDays(state: EditorState): number {
   return state.days.filter((cells) => cells.some(Boolean)).length;
 }
@@ -215,14 +215,18 @@ export function editorReducer(
         // Undo ends here as it does for any other (review round 2).
         return { ...state, flexible: action.on };
       case 'paint':
-        return answer(
-          state,
-          mapDays(
+        return {
+          ...answer(
             state,
-            (day) => day === action.day,
-            () => action.cells,
+            mapDays(
+              state,
+              (day) => day === action.day,
+              () => action.cells,
+            ),
           ),
-        );
+          // A day painted empty is untapped: it is not the open one any more.
+          open: action.cells.some(Boolean) || state.open !== action.day ? state.open : undefined,
+        };
       case 'toggle_day': {
         const row = rows[action.day];
         if (row === undefined) return state;

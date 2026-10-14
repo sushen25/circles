@@ -217,6 +217,7 @@ export const en = {
     own_hours: '{hours}, your own hours',
     use_one_time: 'Use one time for all days',
     day_choice: '{choice}, {day}',
+    choice_with_detail: '{label}, {detail}',
     line_day: '{day} {time}',
     day_morning: 'morning',
     day_afternoon: 'afternoon',

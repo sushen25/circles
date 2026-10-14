@@ -60,6 +60,14 @@ export function windowsFor(timing: BlockTiming): readonly BlockKind[] {
 }
 
 /**
+ * Whether a time of day is said by where it starts ("from 5:30 pm") rather than
+ * by its hours ("12–5 pm"): the ones that run to the end of the plan's band.
+ * One rule for the sheet, the cards and the answer line.
+ */
+export const readsFromStart = (kind: BlockKind): boolean =>
+  kind === 'evening' || kind === 'from_now' || kind === 'later_tonight';
+
+/**
  * Which of the plan's times of day a day's cells are exactly, or `undefined`
  * where they are anything else (a day set by the half hour, or a morning that
  * previous times painted). The first of `windowsFor` that matches, so where two
@@ -159,13 +167,14 @@ export function usualCells(
 }
 
 /**
- * The block a day's cells are exactly, or `some` for anything else, or nothing when the day has no times.
+ * The block a day's cells are exactly, or `some` for anything else, or nothing
+ * when the day has no times.
  *
- * Asked in the order the blocks are listed, so the tag names the one that
- * was picked: where two blocks are the same cells, the one kept by
- * `offeredBlocks` is the first, and so is the one that names the day. On an
- * evenings plan a painted evening reads "Eve" rather than "Any"; on a 9 am to
- * noon plan a painted morning reads "Morn" (review round 1).
+ * Asked in the order the blocks are listed, so the tag names the one that was
+ * picked: where two blocks are the same cells, the one kept by `offeredBlocks`
+ * is the first, and so is the one that names the day. On an evenings plan a
+ * painted evening is Evening rather than Any time; on a 9 am to noon plan a
+ * painted morning is Morning (review round 1).
  */
 export type DayTag = BlockKind | 'some';
 

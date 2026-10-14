@@ -8,7 +8,14 @@ import {
 } from '@circles/domain';
 
 import { t } from '../../copy';
-import { blockSpan, dayTag, type BlockKind, type BlockTiming, type DayTag } from './blocks';
+import {
+  blockSpan,
+  dayTag,
+  readsFromStart,
+  type BlockKind,
+  type BlockTiming,
+  type DayTag,
+} from './blocks';
 import { dayName, type DayRow } from './days';
 import { tappedDays, type EditorState } from './editor';
 
@@ -143,10 +150,9 @@ export function answerLineOf(
     if (kind === 'any_time')
       return { days, time: t('availability', 'line_any_time'), shared: true };
     const word = WORD[kind]!();
-    const time =
-      kind === 'evening' || kind === 'from_now' || kind === 'later_tonight'
-        ? t('availability', 'line_from', { word, time: startsAt(kind, row, timing, format) })
-        : t('availability', 'line_between', { word, time: hoursOf(kind, row, timing, format) });
+    const time = readsFromStart(kind)
+      ? t('availability', 'line_from', { word, time: startsAt(kind, row, timing, format) })
+      : t('availability', 'line_between', { word, time: hoursOf(kind, row, timing, format) });
     return { days, time, shared: true };
   }
 

@@ -69,7 +69,9 @@ function Choice({
     <Pressable
       role="radio"
       aria-checked={on}
-      aria-label={detail === undefined ? label : `${label}, ${detail}`}
+      aria-label={
+        detail === undefined ? label : t('availability', 'choice_with_detail', { label, detail })
+      }
       onPress={onPress}
       style={[
         styles.choice,

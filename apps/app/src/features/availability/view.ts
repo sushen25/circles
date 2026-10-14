@@ -16,6 +16,7 @@ import { t } from '../../copy';
 import {
   blockSpan,
   offeredBlocks,
+  readsFromStart,
   usualCells,
   windowOfCells,
   windowsFor,
@@ -91,8 +92,6 @@ export type EditorView = {
   sheet: SheetView | undefined;
   /** "A time for each day": a card for each tapped day. */
   cards: DayCardView[];
-  /** Days with any time on them. */
-  painted: number;
   /**
    * Previous times can start this answer (ADR 0005, ADR 0037, ADR 0068): there
    * is something offered before, the answer is still empty and not "I'm easy",
@@ -163,7 +162,7 @@ export function editorView(
                 ? undefined
                 : !same
                   ? t('availability', 'times_vary')
-                  : offer.kind === 'evening' || offer.kind === 'from_now'
+                  : readsFromStart(offer.kind)
                     ? t('availability', 'line_from_time', {
                         time: formatMinutesOfDay(
                           toLocal(spans[0]!.start, toZone(timing.zone)).minutesOfDay,
@@ -185,7 +184,7 @@ export function editorView(
   const offered = offeredBlocks(tapped, rows, timing, windowsFor(timing));
   const clockOf = (kind: BlockKind, row: DayRow) => {
     const span = blockSpan(kind, row, timing)!;
-    return kind === 'evening' || kind === 'from_now'
+    return readsFromStart(kind)
       ? t('availability', 'line_from_time', {
           time: formatMinutesOfDay(toLocal(span.start, toZone(timing.zone)).minutesOfDay, format),
         })
@@ -236,7 +235,6 @@ export function editorView(
     counted: others !== undefined,
     sheet,
     cards,
-    painted: paintedDays(state),
     canUseUsual: willPaint,
   };
 }

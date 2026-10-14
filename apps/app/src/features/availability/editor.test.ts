@@ -268,6 +268,17 @@ describe('a time for each day (ADR 0068)', () => {
     ]);
   });
 
+  it('untaps a day painted empty, and it is no longer the open one (review round 5)', () => {
+    const { run, start } = setUp(EVENINGS);
+
+    const open = run(start, { type: 'toggle_day', day: THU }, { type: 'open', day: THU });
+    const emptied = run(open, { type: 'paint', day: THU, cells: new Array(10).fill(false) });
+    expect(paintedDays(emptied)).toBe(0);
+    expect(emptied.open).toBeUndefined();
+    // Tapped again later, it is not already expanded.
+    expect(run(emptied, { type: 'toggle_day', day: THU }).open).toBeUndefined();
+  });
+
   it('ignores a day that is not tapped, and a time of day the day does not have', () => {
     const { run, start } = setUp(EVENINGS);
 

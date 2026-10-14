@@ -64,12 +64,10 @@ const copy: CopyUnderRule = {
   },
   // The answering screen's lines about what others said: counts, no names.
   editorTemplates: [
-    ...keys(en.availability, 'others_'),
     ...keys(en.availability, 'day_others_'),
     // SUS-206: the tile counts the reader in, and the guidance line explains the number.
     ...keys(en.availability, 'day_you_'),
     ...keys(en.availability, 'guide_'),
-    ...keys(en.availability, 'overlap_'),
     ...keys(en.availability, 'peak'),
     ...keys(en.availability, 'cell_'),
   ],
