@@ -1,11 +1,12 @@
 import type { JoinPlanResponse, ShortCode } from '@circles/contracts';
 import { useRouter } from 'expo-router';
+import { useEffect, useRef } from 'react';
 
 import { track } from '../../../analytics/track';
 import { joinPlan } from '../../../data/membership';
 import { NameScreen, type NameProblem } from '../NameScreen';
 import { useHaveAccount } from './haveAccount';
-import { nameStepOpen, nameStepPushed } from './nameStepBack';
+import { nameStepPushed } from './nameStepBack';
 import { useNameStep } from './useNameStep';
 
 /**
@@ -82,6 +83,15 @@ export function PlanNameFlow({
  */
 export function useJoinedFromPlan(code: ShortCode, onJoined: () => void) {
   const router = useRouter();
+  // Whether this is still the screen the person is on. A join that lands after
+  // Back must not dismiss the entry underneath: the step has already gone.
+  const onScreen = useRef(true);
+  useEffect(() => {
+    onScreen.current = true;
+    return () => {
+      onScreen.current = false;
+    };
+  }, []);
   return (joined: JoinPlanResponse) => {
     track('circle_joined', { circle_id: joined.circle.id, source: 'plan_link' });
     onJoined();
@@ -90,7 +100,7 @@ export function useJoinedFromPlan(code: ShortCode, onJoined: () => void) {
     // is behind the plan link stays) and the screen under it replaced, so the
     // plan link is one screen and not two, and Back does not return to a form
     // that has been submitted.
-    if (nameStepPushed(code) && nameStepOpen(code)) router.dismiss();
+    if (nameStepPushed(code) && onScreen.current) router.dismiss();
     router.replace({ pathname: '/j/[code]', params: { code } });
   };
 }

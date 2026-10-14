@@ -47,20 +47,3 @@ export function rememberNameStepPushed(code: ShortCode): void {
 export function nameStepPushed(code: ShortCode): boolean {
   return pushedFor === code;
 }
-
-/**
- * Whether the name step's entry is the one on screen right now. Kept in step
- * with the address by `ContinueAsFlow`, which outlives the step, so a join that
- * finishes after Back (or after the browser's Back) finds it closed and
- * dismisses nothing.
- */
-let openFor: ShortCode | undefined;
-
-export function setNameStepOpen(code: ShortCode, open: boolean): void {
-  if (open) openFor = code;
-  else if (openFor === code) openFor = undefined;
-}
-
-export function nameStepOpen(code: ShortCode): boolean {
-  return openFor === code;
-}
