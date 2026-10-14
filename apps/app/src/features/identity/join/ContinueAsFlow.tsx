@@ -11,7 +11,13 @@ import { ContinueAsScreen, type ContinueProblem } from '../ContinueAsScreen';
 import { LinkInvalidScreen } from '../LinkInvalidScreen';
 import { failureOf, isOffline } from './failure';
 import { useHaveAccount } from './haveAccount';
-import { nameStepBack, NAME_STEP, nameStepPushed, rememberNameStepPushed } from './nameStepBack';
+import {
+  forgetNameStepPushed,
+  nameStepBack,
+  NAME_STEP,
+  nameStepPushed,
+  rememberNameStepPushed,
+} from './nameStepBack';
 import { PlanNameFlow } from './PlanNameFlow';
 
 /**
@@ -112,9 +118,11 @@ export function ContinueAsFlow({ code, arrivedWithoutSession, onReattached }: Co
       nameStepBack({ nobodyToBe, pushedHere: nameStepPushed(code), canGoBack: router.canGoBack() })
     ) {
       case 'pop':
+        forgetNameStepPushed();
         router.back();
         return;
       case 'to_list':
+        forgetNameStepPushed();
         router.replace({ pathname } as Parameters<typeof router.replace>[0]);
         return;
       case 'start_over':

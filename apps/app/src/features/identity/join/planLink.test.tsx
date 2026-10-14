@@ -23,11 +23,12 @@ const pushed = (target: { params?: Record<string, string> }) => {
 };
 const push = vi.fn(pushed);
 const back = vi.fn(() => setParams({}));
+const dismissAll = vi.fn();
 const where = { pathname: '/p/pnsundaycr' };
 vi.mock('expo-router', async () => {
   const { useSyncExternalStore } = await import('react');
   return {
-    useRouter: () => ({ replace, push, back, canGoBack: () => true }),
+    useRouter: () => ({ replace, push, back, dismissAll, canGoBack: () => true }),
     usePathname: () => where.pathname,
     useLocalSearchParams: () =>
       useSyncExternalStore(
@@ -123,6 +124,7 @@ beforeEach(() => {
   for (const mock of [
     replace,
     push,
+    dismissAll,
     track,
     ownDisplayName,
     joinPlan,
@@ -205,6 +207,17 @@ describe('Back from the name step (SUS-208)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Back' }));
     expect(await screen.findByText('Have you answered this before?')).toBeTruthy();
     expect(replace).not.toHaveBeenCalledWith('/');
+  });
+
+  it('goes with the step it was on when the join lands, so the plan link is one screen', async () => {
+    joinPlan.mockResolvedValue(joined());
+    arrive();
+
+    fireEvent.click(await screen.findByRole('button', { name: "I'm new here" }));
+    await type('Ren');
+
+    await waitFor(() => expect(replace).toHaveBeenCalledTimes(1));
+    expect(dismissAll).toHaveBeenCalledTimes(1);
   });
 
   it('stays on the name step, with the field empty, when nothing comes before it', async () => {

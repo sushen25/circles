@@ -5,6 +5,7 @@ import { track } from '../../../analytics/track';
 import { joinPlan } from '../../../data/membership';
 import { NameScreen, type NameProblem } from '../NameScreen';
 import { useHaveAccount } from './haveAccount';
+import { nameStepPushed } from './nameStepBack';
 import { useNameStep } from './useNameStep';
 
 /**
@@ -84,6 +85,11 @@ export function useJoinedFromPlan(code: ShortCode, onJoined: () => void) {
   return (joined: JoinPlanResponse) => {
     track('circle_joined', { circle_id: joined.circle.id, source: 'plan_link' });
     onJoined();
+    // The name step is an entry of its own in the history (`?step=name`), over
+    // the screen it came from. Both go, so the plan link is one screen and not
+    // two behind each other, and Back from it does not return to a form that
+    // has been submitted.
+    if (nameStepPushed(code)) router.dismissAll();
     router.replace({ pathname: '/j/[code]', params: { code } });
   };
 }

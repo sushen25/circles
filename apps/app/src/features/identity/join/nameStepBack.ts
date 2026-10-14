@@ -43,6 +43,11 @@ export function rememberNameStepPushed(code: ShortCode): void {
   pushedFor = code;
 }
 
+/** The step is no longer on the history stack above the list. */
+export function forgetNameStepPushed(): void {
+  pushedFor = undefined;
+}
+
 export function nameStepPushed(code: ShortCode): boolean {
   return pushedFor === code;
 }
