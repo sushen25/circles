@@ -75,7 +75,12 @@ export function someone(role: string): string {
  * been delivered, and a single read is a race that fails on a loaded machine
  * and passes on a quiet one.
  */
-export async function codeFor(mailpit: string, address: string): Promise<string> {
+export async function codeFor(
+  mailpit: string,
+  address: string,
+  /** A code already seen: keep polling until the newest mail carries a different one (a resend). */
+  except?: string,
+): Promise<string> {
   for (let attempt = 0; attempt < 40; attempt += 1) {
     const list = (await (await fetch(`${mailpit}/api/v1/messages?limit=50`)).json()) as {
       messages?: { ID: string; To?: { Address: string }[] }[];
@@ -87,11 +92,12 @@ export async function codeFor(mailpit: string, address: string): Promise<string>
         HTML?: string;
       };
       const code = /\b\d{6}\b/.exec(`${full.Text ?? ''}${full.HTML ?? ''}`)?.[0];
-      if (code !== undefined) return code;
-      throw new Error(
-        `No six-digit code for ${address}. If the mail holds a link instead, the ` +
-          'magic_link override in supabase/config.toml is not being applied.',
-      );
+      if (code !== undefined && code !== except) return code;
+      if (code === undefined)
+        throw new Error(
+          `No six-digit code for ${address}. If the mail holds a link instead, the ` +
+            'magic_link override in supabase/config.toml is not being applied.',
+        );
     }
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
