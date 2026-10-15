@@ -156,20 +156,15 @@ test.describe('the security headers', () => {
 
   // The routes whose HTML the router wrote: the three that carry a secret, the
   // front door, a gated screen and the not-found page.
-  const crew = sundayCrew();
-  const PAGES = [
-    `/p/${crew.planCode}`,
-    `/j/${crew.planCode}`,
-    '/join',
-    '/start',
-    '/sign-in',
-    '/nope',
-  ];
+  const pages = (): string[] => {
+    const crew = sundayCrew();
+    return [`/p/${crew.planCode}`, `/j/${crew.planCode}`, '/join', '/start', '/sign-in', '/nope'];
+  };
 
   test('every page carries a policy, nosniff and a permissions policy (SUS-119)', async ({
     request,
   }) => {
-    for (const path of PAGES) {
+    for (const path of pages()) {
       const response = await request.get(path);
       const headers = response.headers();
       const policy = headers['content-security-policy'] ?? '';
@@ -197,7 +192,7 @@ test.describe('the security headers', () => {
   // This reads the script out of the HTML the router actually wrote, so a router
   // that changes it fails here, not as a blank page in production.
   test('allows exactly the inline script the router wrote, by its hash', async ({ request }) => {
-    for (const path of PAGES) {
+    for (const path of pages()) {
       const response = await request.get(path);
       const policy = response.headers()['content-security-policy'] ?? '';
       const scripts = inlineScripts(await response.text());
