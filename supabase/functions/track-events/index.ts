@@ -3,6 +3,7 @@ import { acceptEvent, TrackEventsRequest, type TrackEventsResponse } from '@circ
 import { sha256Hex } from '../_shared/hash.ts';
 import { ingestHandler } from '../_shared/ingest.ts';
 import { log } from '../_shared/logging.ts';
+import { splitRecordable } from '../_shared/recordable.ts';
 import { callerAddress, enforce } from '../_shared/rate.ts';
 
 /**
@@ -113,12 +114,29 @@ Deno.serve(
         });
       }
 
-      if (rows.length > 0) {
+      // **One bad event costs one event.** `record_events` inserts the batch in
+      // one statement and `analytics.events` raises on a payload that carries
+      // content, so a single route pattern or string outside the table's rule
+      // used to take the other forty-nine with it (SUS-147). The same rule is
+      // applied here to each row on its own; the table's constraint stays as the
+      // backstop. What is kept of a dropped event is its catalogue name, counted.
+      const { keep, dropped } = splitRecordable(rows);
+      const droppedCount = rows.length - keep.length;
+      if (droppedCount > 0) {
+        log('warn', {
+          fn: 'track-events',
+          request_id: requestId,
+          event: 'events_dropped',
+          counts: dropped,
+        });
+      }
+
+      if (keep.length > 0) {
         // Through a function, because `analytics` is not a schema PostgREST
         // exposes and should not become one. Already stored is already
         // accepted: the client resends a batch it could not confirm, and the
         // second arrival of an event is the same event rather than a new one.
-        const { error } = await service.rpc('record_events', { p_rows: rows });
+        const { error } = await service.rpc('record_events', { p_rows: keep });
         if (error !== null) throw error;
 
         // A crash somebody read out to the founder (SUS-112, SUS-48's "a
@@ -128,7 +146,7 @@ Deno.serve(
         // insert, for every event the ingest accepted: a replay of an event id
         // already stored is a no-op on the row but is still a line, and the
         // client replays identical content, so the two agree.
-        for (const row of rows) {
+        for (const row of keep) {
           if (row.event_name !== 'client_error') continue;
           const p = row.properties as Record<string, unknown>;
           log('info', {
@@ -147,7 +165,7 @@ Deno.serve(
         }
       }
 
-      return { accepted: rows.length, rejected: body.events.length - rows.length };
+      return { accepted: keep.length, rejected: body.events.length - keep.length };
     },
   }),
 );
