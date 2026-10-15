@@ -150,9 +150,7 @@ describe('a guest, in a circle that has guests', () => {
     await screen.findByText('Have you answered this before?');
     fireEvent.click(screen.getByRole('button', { name: "I'm new here" }));
     // The `?step=name` step carries the line too, and not the list before it.
-    expect(
-      await screen.findByText('About a minute, and nobody sees your calendar.'),
-    ).toBeTruthy();
+    expect(await screen.findByText('About a minute, and nobody sees your calendar.')).toBeTruthy();
     await type('Ren');
 
     await waitFor(() => expect(joinPlan).toHaveBeenCalledTimes(1));
