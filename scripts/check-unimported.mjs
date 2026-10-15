@@ -83,10 +83,14 @@ function isRoot(file) {
   );
 }
 
+/** What may precede a quote for the string to be a module specifier. */
+const SPECIFIER_POSITION =
+  /(?:\bfrom|\bimport|\bimport\s*\(|\brequire\s*\(|\bvi\.(?:mock|importActual)\s*\(|\bnew URL\s*\()\s*$/;
+
 /**
  * The file with comments and template-literal text blanked (newlines kept), so
  * an `import` that is only written about is not read as one. Quoted strings
- * stay: they are where specifiers live, and a string ends at its line. A regex
+ * stay only where a specifier can stand, and a string ends at its line. A regex
  * literal holding a lone quote can confuse the rest of its line, no further.
  */
 export function withoutCommentsAndTemplates(text) {
@@ -115,7 +119,10 @@ export function withoutCommentsAndTemplates(text) {
       while (end < text.length && text[end] !== c && text[end] !== '\n')
         end += text[end] === '\\' ? 2 : 1;
       end = Math.min(end + 1, text.length);
-      out += text.slice(i, end);
+      // Only a string in a module-specifier position survives.
+      out += SPECIFIER_POSITION.test(out.slice(-40))
+        ? text.slice(i, end)
+        : c + blank(text.slice(i + 1, end - 1)) + c;
     } else {
       out += c;
       end = i + 1;
