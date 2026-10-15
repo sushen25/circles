@@ -62,6 +62,8 @@ test.describe('the served HTML', () => {
       '/a',
       '/e',
       '/n',
+      '/o',
+      '/q',
       '/v',
       '/start',
     ];

@@ -194,7 +194,7 @@ const handlers = {
   'request-email-updates': await serveOf('request-email-updates'),
   'verify-email-contact': await serveOf('verify-email-contact'),
   'manage-email-preferences': await serveOf('manage-email-preferences'),
-  'stop-nudges': await serveOf('stop-nudges'),
+  'stop-letters': await serveOf('stop-letters'),
   'track-events': await serveOf('track-events'),
 };
 
@@ -3560,27 +3560,31 @@ describe('manage-email-preferences', () => {
   });
 });
 
-describe('stop-nudges', () => {
+describe('stop-letters', () => {
   const TOKEN = 'c'.repeat(43);
 
   beforeEach(() => {
     state.answer = (fn) => {
       if (fn === 'take_rate_token') return { data: true, error: null };
-      if (fn === 'stop_nudges') return { data: { stopped: true }, error: null };
+      if (fn === 'stop_letters') return { data: { stopped: true }, error: null };
       return { data: null, error: null };
     };
   });
 
-  it('stops the nudge with no sign-in, and answers nothing about whose it was', async () => {
-    const response = await load('stop-nudges')(postWithoutSession({ token: TOKEN }));
+  it.each(['nudges', 'organiser', 'quiet'])(
+    'stops the %s family with no sign-in, and answers nothing about whose it was',
+    async (family) => {
+      const response = await load('stop-letters')(postWithoutSession({ token: TOKEN, family }));
 
-    expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ stopped: true });
-    // The database is given the digest, never the token.
-    const [call] = called('stop_nudges');
-    expect(Object.keys(call?.args ?? {})).toEqual(['p_token_hash']);
-    expect(JSON.stringify(call?.args)).not.toContain(TOKEN);
-  });
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({ stopped: true });
+      // The database is given the digest and the family, never the token.
+      const [call] = called('stop_letters');
+      expect(Object.keys(call?.args ?? {}).sort()).toEqual(['p_family', 'p_token_hash']);
+      expect(call?.args).toMatchObject({ p_family: family });
+      expect(JSON.stringify(call?.args)).not.toContain(TOKEN);
+    },
+  );
 
   it('says link_expired for a token that is tampered with, expired or of another kind: one answer', async () => {
     state.answer = (fn) => {
@@ -3588,24 +3592,33 @@ describe('stop-nudges', () => {
       return { data: null, error: { message: 'link_expired', code: 'P0001' } };
     };
 
-    const response = await load('stop-nudges')(postWithoutSession({ token: TOKEN }));
+    const response = await load('stop-letters')(
+      postWithoutSession({ token: TOKEN, family: 'organiser' }),
+    );
 
     expect(response.status).toBe(404);
     expect(await response.json()).toMatchObject({ reason: 'link_expired' });
   });
 
-  it('refuses a body that is not a token, before the database is asked', async () => {
-    const response = await load('stop-nudges')(postWithoutSession({ token: 'short' }));
-
-    expect(response.status).toBe(400);
-    expect(called('stop_nudges')).toHaveLength(0);
+  it('refuses a body that is not a token, or names no family, before the database is asked', async () => {
+    for (const body of [
+      { token: 'short', family: 'nudges' },
+      { token: TOKEN },
+      { token: TOKEN, family: 'plan_updates' },
+    ]) {
+      const response = await load('stop-letters')(postWithoutSession(body));
+      expect(response.status).toBe(400);
+    }
+    expect(called('stop_letters')).toHaveLength(0);
   });
 
-  it('accepts nothing but the token: no action, no plan, no circle to aim it at', async () => {
-    await load('stop-nudges')(postWithoutSession({ token: TOKEN, circle_id: PLAN_ID }));
+  it('accepts nothing but the token and the family: no action, no plan, no circle to aim it at', async () => {
+    await load('stop-letters')(
+      postWithoutSession({ token: TOKEN, family: 'nudges', circle_id: PLAN_ID }),
+    );
 
-    const [call] = called('stop_nudges');
-    expect(Object.keys(call?.args ?? {})).toEqual(['p_token_hash']);
+    const [call] = called('stop_letters');
+    expect(Object.keys(call?.args ?? {}).sort()).toEqual(['p_family', 'p_token_hash']);
   });
 });
 
@@ -4433,14 +4446,107 @@ describe('process-scheduled-jobs', () => {
       });
     });
 
-    it('still sends replies closed, which the plan is waiting on her for', async () => {
+    it('skips a replies-closed letter queued before she turned them off (ADR 0069)', async () => {
+      // ADR 0029 kept this one outside the switch; the stop link under it has
+      // to stop it, so it is inside since ADR 0069.
       capturing();
       planContext = undecided();
       withDue(dueJob({ kind: 'replies_closed', user_id: ORGANISER, organiser_email_muted: true }));
 
       await load('process-scheduled-jobs')(post({}, 'a-shared-secret'));
 
-      expect(called('dispatch_job_result')[0]?.args).toMatchObject({ p_outcome: 'sent' });
+      expect(called('dispatch_job_result')[0]?.args).toMatchObject({
+        p_outcome: 'skipped',
+        p_error: 'organiser_email_off',
+      });
+      expect(state.fetched.filter((url) => url.includes('capture.test'))).toHaveLength(0);
+    });
+
+    // SUS-110, ADR 0069: every letter to an account holder carries the stop
+    // link for its family, in the letter and in List-Unsubscribe, or is not sent.
+    describe.each([
+      [
+        'options_ready',
+        'organiser',
+        '/o',
+        { user_id: ORGANISER },
+        () =>
+          context({
+            best_candidate: { starts_at: '2026-09-17T08:30:00.000Z', available_count: 2 },
+          }),
+      ],
+      ['replies_closed', 'organiser', '/o', { user_id: ORGANISER }, undecided],
+      ['did_it_happen', 'organiser', '/o', { user_id: ORGANISER }, () => context()],
+      [
+        'threshold_initiator',
+        'quiet',
+        '/q',
+        { user_id: ORGANISER, subscribed: false },
+        () =>
+          context({
+            plan: { ...context().plan, mode: 'quiet', state: 'ready', organiser_user_id: null },
+            confirmation: null,
+            attendance: [],
+          }),
+      ],
+      [
+        'quiet_expired',
+        'quiet',
+        '/q',
+        { user_id: ORGANISER, subscribed: false, plan_state: 'expired' },
+        () => context(),
+      ],
+    ] as const)('the %s letter', (kind, family, path, job, plan) => {
+      it(`carries the ${family} stop link and List-Unsubscribe to the same page`, async () => {
+        const bodies: string[] = [];
+        process.env.EMAIL_CAPTURE_URL = 'http://capture.test';
+        process.env.EXPO_PUBLIC_APP_ORIGIN = 'https://app.test';
+        (globalThis as { fetch?: unknown }).fetch = (_url: string, init?: { body?: unknown }) => {
+          bodies.push(String(init?.body ?? ''));
+          return Promise.resolve(new Response(JSON.stringify({ ID: 'captured' })));
+        };
+        planContext = plan();
+        withDue(dueJob({ kind, ...job }));
+
+        await load('process-scheduled-jobs')(post({}, 'a-shared-secret'));
+
+        expect(called('dispatch_job_result')[0]?.args).toMatchObject({ p_outcome: 'sent' });
+        const body = JSON.parse(bodies[0] ?? '{}') as {
+          Text?: string;
+          Headers?: Record<string, string>;
+        };
+        const link = new RegExp(`https://app\\.test${path}#([A-Za-z0-9_-]{43})`).exec(
+          body.Text ?? '',
+        );
+        expect(link, 'the stop link is in the letter').not.toBeNull();
+        const token = link?.[1] ?? '';
+        expect(body.Headers?.['List-Unsubscribe']).toBe(`<https://app.test${path}#${token}>`);
+        // Minted for this letter's contact, for its own family only, and the
+        // database was given a digest: the token itself never reached it.
+        const minted = called('issue_stop_token');
+        expect(minted).toHaveLength(1);
+        expect(minted[0]?.args['p_contact_id']).toBe(CONTACT);
+        expect(minted[0]?.args['p_purpose']).toBe(`${family}_stop`);
+        expect(JSON.stringify(minted[0]?.args)).not.toContain(token);
+        expect(JSON.stringify(called('dispatch_job_result'))).not.toContain(token);
+      });
+
+      it('is not sent without one: no token means a skipped job', async () => {
+        capturing();
+        planContext = plan();
+        withDue(dueJob({ kind, ...job }));
+        const withToken = state.answer;
+        state.answer = (fn) =>
+          fn === 'issue_stop_token' ? { data: null, error: null } : withToken(fn);
+
+        await load('process-scheduled-jobs')(post({}, 'a-shared-secret'));
+
+        expect(called('dispatch_job_result')[0]?.args).toMatchObject({
+          p_outcome: 'skipped',
+          p_error: 'contact_unverified',
+        });
+        expect(state.fetched.filter((url) => url.includes('capture.test'))).toHaveLength(0);
+      });
     });
 
     it('does not send replies closed to somebody who is no longer who it is for (SUS-50 round 4)', async () => {

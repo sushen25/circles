@@ -3,13 +3,14 @@ import {
   ShortCode,
   emailPreferencesUrl,
   emailVerifyUrl,
-  nudgeStopUrl,
   notificationSettingsUrl,
   planAttendanceUrl,
   planInviteUrl,
   planOutcomeUrl,
   planUrl,
   reentryUrl,
+  stopLetterUrl,
+  type StopFamily,
 } from '@circles/contracts';
 
 import type { SubscriberFooter } from './templates/Layout.tsx';
@@ -98,13 +99,15 @@ export function settingsLink(at: string): string {
 }
 
 /**
- * `/n#<token>` — "Stop these reminders" under a cadence nudge (ADR 0067). The
- * page asks for one tap before it spends anything, so a mail gateway that opens
- * the link stops nothing; the token is in the fragment like every emailed
- * token (ADR 0023).
+ * `/n#<token>`, `/o#<token>` or `/q#<token>` — "Stop these reminders" under a
+ * cadence nudge (ADR 0067), "Stop emails about plans you organise" under an
+ * organiser's letter and "Stop emails about quiet asks" under a quiet ask's
+ * (ADR 0069). The page asks for one tap before it spends anything, so a mail
+ * gateway that opens the link stops nothing; the token is in the fragment like
+ * every emailed token (ADR 0023).
  */
-export function nudgeStopLink(at: string, stopToken: string): string {
-  return nudgeStopUrl(origin(at), token(stopToken));
+export function stopLink(at: string, family: StopFamily, stopToken: string): string {
+  return stopLetterUrl(origin(at), family, token(stopToken));
 }
 
 /** `/circles/<id>` — the about-time nudge is about a circle, not a plan. */

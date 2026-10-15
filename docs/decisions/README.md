@@ -28,11 +28,11 @@ Short records of decisions that shape the product or the code. A new ADR is requ
 | [0022](./0022-a-plan-link-admits-new-members-while-the-plan-is-asking.md) | A plan link admits new members while the plan is taking answers | accepted (one point narrowed by 0026; circle-of-one remark superseded by 0035; rate limits restated by 0064) |
 | [0023](./0023-emailed-tokens-travel-in-the-fragment.md) | Emailed tokens travel in the URL fragment, never the path | accepted |
 | [0024](./0024-availability-days-first-then-a-time-once.md) | Availability is answered days first, then a time once | accepted |
-| [0025](./0025-the-preferences-link-is-minted-with-each-email.md) | The preferences link is minted with each email, and both footer links open it | accepted (organiser-email question answered by 0029) |
+| [0025](./0025-the-preferences-link-is-minted-with-each-email.md) | The preferences link is minted with each email, and both footer links open it | accepted (organiser-email question answered by 0029; stop links on every account-holder letter by 0069) |
 | [0026](./0026-first-run-shares-a-plan-and-a-defaulted-quorum-follows-the-circle.md) | First run shares a plan, not an invite, and a defaulted quorum follows the circle | accepted |
 | [0027](./0027-the-organisers-auth-address-is-an-email-contact.md) | The organiser's auth address is an email contact, verified by auth | accepted |
 | [0028](./0028-an-invite-secret-is-derived-so-its-owner-can-see-it-again.md) | An invite secret is derived, so its owner can see it again | accepted |
-| [0029](./0029-an-organiser-turns-organiser-email-off-in-the-app.md) | An organiser turns organiser email off in the app, not by a link | accepted |
+| [0029](./0029-an-organiser-turns-organiser-email-off-in-the-app.md) | An organiser turns organiser email off in the app, not by a link | accepted (replies closed inside the switch, and a stop link on every organiser letter, by 0069) |
 | [0030](./0030-a-plan-may-ask-about-up-to-thirty-days.md) | A plan may ask about up to thirty days | accepted |
 | [0031](./0031-a-meetup-may-last-up-to-five-hours.md) | A meetup may last up to five hours | accepted |
 | [0032](./0032-the-circles-zone-is-shown-when-the-readers-device-differs.md) | The circle's zone is shown when the reader's device differs, not when a member's does | accepted |
@@ -41,7 +41,7 @@ Short records of decisions that shape the product or the code. A new ADR is requ
 | [0035](./0035-the-quiet-ask-at-twenty-members.md) | The quiet ask at twenty members: its threshold, its stop time, and what it does beside an open plan | accepted |
 | [0036](./0036-the-cadence-nudge-is-decided-once-per-cycle.md) | The cadence nudge is decided once per cycle, when circle home says it is about time | proposed |
 | [0037](./0037-usual-times-are-read-not-written.md) | A member's usual times are worked out when they are read, not written when they answer | proposed |
-| [0038](./0038-the-quiet-asks-initiator-is-written-to-at-their-own-address.md) | The quiet ask's initiator is written to at their own address | accepted |
+| [0038](./0038-the-quiet-asks-initiator-is-written-to-at-their-own-address.md) | The quiet ask's initiator is written to at their own address | accepted (both letters carry a stop link by 0069) |
 | [0039](./0039-replies-closed-is-told-per-deadline-and-once-a-day-later.md) | Replies closed is told once per deadline and once a day later; one more day is a day from now, once per revision | proposed |
 | [0040](./0040-the-served-html-is-a-shell.md) | The served HTML is a neutral shell; every screen renders on the device | proposed |
 | [0041](./0041-keen-members-may-take-the-role-as-soon-as-it-opens.md) | Keen members may take the organiser role as soon as a quiet ask opens, and the quiet ask's analytics name nobody | proposed |
@@ -71,6 +71,7 @@ Short records of decisions that shape the product or the code. A new ADR is requ
 | [0066](./0066-the-group-sees-who-can-make-each-option-and-nobody-sees-whole-availability.md) | The group sees who can make each option, and nobody sees anyone's whole availability | proposed |
 | [0067](./0067-every-cadence-nudge-carries-a-stop-link-and-the-sent-card-says-an-account-is-made.md) | Every cadence nudge carries a stop link that needs no sign-in, and the Sent card says an account is made | proposed |
 | [0068](./0068-a-tapped-day-has-a-time-and-the-answer-is-one-line.md) | A tapped day already has a time, and the answer is one line: the first screen asks only which days | proposed |
+| [0069](./0069-every-account-holder-letter-carries-a-stop-link-that-needs-no-sign-in.md) | Every letter to an account holder carries a stop link that needs no sign-in | proposed |
 
 ## Template
 

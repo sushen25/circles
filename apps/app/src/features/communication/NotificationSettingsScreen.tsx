@@ -30,7 +30,7 @@ import type { ScreenState } from '../state';
  * Every circle's switches are the reader's own membership row. Above them,
  * "Emails about plans you organise" is the reader's own profile (ADR 0029):
  * one switch, because the letters go to their address whichever circle the
- * plan is in. Its detail line says which one still comes, so it does not lie.
+ * plan is in. Its detail line names the three letters it covers, replies closed included (ADR 0069).
  */
 export type CircleNotificationRow = {
   circleId: string;
@@ -121,10 +121,7 @@ export function NotificationSettingsScreen({
           <Card>
             <SettingRow
               title={t('notificationSettings', 'emails_about_plans_you_organise')}
-              detail={t(
-                'notificationSettings',
-                'options_ready_and_did_it_happen_replies_closed_still_comes',
-              )}
+              detail={t('notificationSettings', 'options_ready_replies_closed_and_did_it_happen')}
             >
               <Toggle
                 value={organiserEmailOn}

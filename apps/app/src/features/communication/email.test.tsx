@@ -37,7 +37,7 @@ const requestEmailUpdates = vi.fn();
 const reloadCopy = vi.fn();
 const verifyEmail = vi.fn();
 const managePreferences = vi.fn();
-const stopNudges = vi.fn();
+const stopLetters = vi.fn();
 vi.mock('../../data/email', async (original) => ({
   ...(await original<typeof EmailData>()),
   requestEmailUpdates: (...args: unknown[]) => requestEmailUpdates(...args),
@@ -45,7 +45,7 @@ vi.mock('../../data/email', async (original) => ({
   canReloadCopy: () => true,
   verifyEmail: (...args: unknown[]) => verifyEmail(...args),
   managePreferences: (...args: unknown[]) => managePreferences(...args),
-  stopNudges: (...args: unknown[]) => stopNudges(...args),
+  stopLetters: (...args: unknown[]) => stopLetters(...args),
 }));
 
 // `record-nudge`, as a server that says yes once per moment and plan and replays
@@ -62,7 +62,7 @@ const { forgetSessionNudges } = await import('../growth/useNudge');
 const { forgetOneSteps } = await import('../availability/oneStep');
 const { EmailVerifyFlow } = await import('./EmailVerifyFlow');
 const { EmailPrefsFlow } = await import('./EmailPrefsFlow');
-const { NudgeStopFlow } = await import('./NudgeStopFlow');
+const { StopLettersFlow } = await import('./StopLettersFlow');
 const { heldToken, holdTokenForTests, releaseToken } = await import('../../data/links/tokens');
 const { noteSavedWith, takeSavedWith } = await import('../../data/auth/saved');
 const { FunctionError } = await import('../../data/functions');
@@ -338,14 +338,16 @@ describe('round 3', () => {
   it.each([
     ['verify', () => <EmailVerifyFlow />],
     ['preferences', () => <EmailPrefsFlow />],
-    ['nudge_stop', () => <NudgeStopFlow />],
+    ['nudge_stop', () => <StopLettersFlow family="nudges" />],
+    ['organiser_stop', () => <StopLettersFlow family="organiser" />],
+    ['quiet_stop', () => <StopLettersFlow family="quiet" />],
   ] as const)(
     'the %s page takes its token for itself: nothing later in this tab can use it',
     async (kind, page) => {
       holdTokenForTests(kind, TOKEN);
       verifyEmail.mockReturnValue(new Promise(() => undefined));
       managePreferences.mockReturnValue(new Promise(() => undefined));
-      stopNudges.mockReturnValue(new Promise(() => undefined));
+      stopLetters.mockReturnValue(new Promise(() => undefined));
       wrap(page());
 
       await waitFor(() => expect(heldToken(kind)).toBeUndefined());
@@ -465,75 +467,122 @@ describe('email preferences', () => {
   });
 });
 
-// SUS-190, ADR 0067: the page behind "Stop these reminders" in a cadence nudge.
-describe('the stop-reminders page', () => {
+// SUS-190, ADR 0067 and SUS-110, ADR 0069: the page behind the stop link under an
+// account-holder letter, once for each family of letters.
+const STOP_PAGES = [
+  {
+    family: 'nudges',
+    kind: 'nudge_stop',
+    title: 'Stop these reminders',
+    button: 'Stop these reminders',
+    says: /time to plan the next catch-up/,
+    done: "Done. You won't get these reminders.",
+  },
+  {
+    family: 'organiser',
+    kind: 'organiser_stop',
+    title: 'Stop emails about plans you organise',
+    button: 'Stop these emails',
+    says: /options are ready.*replies close.*the morning after/,
+    done: "Done. You won't get emails about plans you organise.",
+  },
+  {
+    family: 'quiet',
+    kind: 'quiet_stop',
+    title: 'Stop emails about quiet asks',
+    button: 'Stop these emails',
+    says: /a quiet ask you started/,
+    done: "Done. You won't get emails about quiet asks.",
+  },
+] as const;
+
+describe.each(STOP_PAGES)('the stop page for $family', (page) => {
   beforeEach(() => {
-    stopNudges.mockReset();
-    releaseToken('nudge_stop');
+    stopLetters.mockReset();
+    for (const { kind } of STOP_PAGES) releaseToken(kind);
   });
 
-  it('asks for one tap and spends nothing before it: opening the link stops no reminders', async () => {
-    holdTokenForTests('nudge_stop', TOKEN);
-    wrap(<NudgeStopFlow />);
+  it('says plainly what it stops and that settings turns it back on', async () => {
+    holdTokenForTests(page.kind, TOKEN);
+    wrap(<StopLettersFlow family={page.family} />);
 
-    expect(await screen.findByRole('button', { name: 'Stop these reminders' })).toBeVisible();
+    expect(await screen.findByRole('heading', { name: page.title })).toBeVisible();
+    expect(screen.getByText(page.says)).toBeVisible();
+    expect(screen.getByText(/turn them back on in notification settings/)).toBeVisible();
+  });
+
+  it('asks for one tap and spends nothing before it: opening the link stops nothing', async () => {
+    holdTokenForTests(page.kind, TOKEN);
+    wrap(<StopLettersFlow family={page.family} />);
+
+    expect(await screen.findByRole('button', { name: page.button })).toBeVisible();
     // A mail gateway that loads the page, runs its script and waits, changes nothing.
     await new Promise((resolve) => setTimeout(resolve, 50));
-    expect(stopNudges).not.toHaveBeenCalled();
+    expect(stopLetters).not.toHaveBeenCalled();
     expect(track).not.toHaveBeenCalled();
   });
 
-  it('stops them on the tap, says so, and tells nothing about whose they were', async () => {
-    holdTokenForTests('nudge_stop', TOKEN);
-    stopNudges.mockResolvedValue({ stopped: true });
-    wrap(<NudgeStopFlow />);
+  it('stops them on the tap, for its own family, and tells nothing about whose they were', async () => {
+    holdTokenForTests(page.kind, TOKEN);
+    stopLetters.mockResolvedValue({ stopped: true });
+    wrap(<StopLettersFlow family={page.family} />);
 
     await act(async () => {
-      fireEvent.click(await screen.findByRole('button', { name: 'Stop these reminders' }));
+      fireEvent.click(await screen.findByRole('button', { name: page.button }));
     });
 
-    expect(stopNudges).toHaveBeenCalledTimes(1);
-    expect(stopNudges).toHaveBeenCalledWith(TOKEN);
-    expect(await screen.findByText("Done. You won't get these reminders.")).toBeVisible();
+    expect(stopLetters).toHaveBeenCalledTimes(1);
+    expect(stopLetters).toHaveBeenCalledWith(page.family, TOKEN);
+    expect(await screen.findByText(page.done)).toBeVisible();
     expect(document.body.textContent).not.toMatch(/Sunday Crew|@/);
     // No event carries the token or says whose it is.
     expect(track).not.toHaveBeenCalled();
   });
 
+  it('does not use a token held for another family', async () => {
+    for (const other of STOP_PAGES.filter((o) => o.family !== page.family)) {
+      holdTokenForTests(other.kind, TOKEN);
+    }
+    wrap(<StopLettersFlow family={page.family} />);
+
+    expect(await screen.findByText('Open the link from your email again.')).toBeVisible();
+    expect(stopLetters).not.toHaveBeenCalled();
+  });
+
   it('says the link has expired, in one answer, for a tampered or other-kind token', async () => {
-    holdTokenForTests('nudge_stop', TOKEN);
-    stopNudges.mockRejectedValue(refusal('link_expired'));
-    wrap(<NudgeStopFlow />);
+    holdTokenForTests(page.kind, TOKEN);
+    stopLetters.mockRejectedValue(refusal('link_expired'));
+    wrap(<StopLettersFlow family={page.family} />);
 
     await act(async () => {
-      fireEvent.click(await screen.findByRole('button', { name: 'Stop these reminders' }));
+      fireEvent.click(await screen.findByRole('button', { name: page.button }));
     });
 
     expect(await screen.findByText('This link has expired.')).toBeVisible();
   });
 
   it('lets a failed tap be tried again, and never sends twice at once', async () => {
-    holdTokenForTests('nudge_stop', TOKEN);
-    stopNudges.mockRejectedValueOnce(new Error('down')).mockResolvedValue({ stopped: true });
-    wrap(<NudgeStopFlow />);
+    holdTokenForTests(page.kind, TOKEN);
+    stopLetters.mockRejectedValueOnce(new Error('down')).mockResolvedValue({ stopped: true });
+    wrap(<StopLettersFlow family={page.family} />);
 
     await act(async () => {
-      fireEvent.click(await screen.findByRole('button', { name: 'Stop these reminders' }));
+      fireEvent.click(await screen.findByRole('button', { name: page.button }));
     });
     await screen.findByText(/weren't stopped/);
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
     });
 
-    expect(await screen.findByText("Done. You won't get these reminders.")).toBeVisible();
-    expect(stopNudges).toHaveBeenCalledTimes(2);
+    expect(await screen.findByText(page.done)).toBeVisible();
+    expect(stopLetters).toHaveBeenCalledTimes(2);
   });
 
   it('says to open the link again when there is no token, as a reload would leave it', async () => {
-    wrap(<NudgeStopFlow />);
+    wrap(<StopLettersFlow family={page.family} />);
 
     expect(await screen.findByText('Open the link from your email again.')).toBeVisible();
-    expect(screen.queryByRole('button', { name: 'Stop these reminders' })).toBeNull();
-    expect(stopNudges).not.toHaveBeenCalled();
+    expect(screen.queryByRole('button', { name: page.button })).toBeNull();
+    expect(stopLetters).not.toHaveBeenCalled();
   });
 });

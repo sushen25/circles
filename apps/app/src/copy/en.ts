@@ -1399,20 +1399,40 @@ export const en = {
     try_again: 'Try again',
     reference: 'Ref {reference}',
   },
-  nudgeStop: {
-    stop_these_reminders: 'Stop these reminders',
-    body: "These are the emails that say it's about time to plan the next catch-up. Stopping turns them off for you in every circle. Nothing else changes, and you can turn them back on in notification settings.",
-    stopping: 'Stopping',
-    done: "Done. You won't get these reminders.",
-    done_body:
+  /**
+   * The page behind the stop link under an account-holder letter (ADR 0067,
+   * ADR 0069): one set of words per family, suffixed with its name.
+   */
+  stopLetters: {
+    stop_nudges: 'Stop these reminders',
+    button_nudges: 'Stop these reminders',
+    body_nudges:
+      "These are the emails that say it's about time to plan the next catch-up. Stopping turns them off for you in every circle. Nothing else changes, and you can turn them back on in notification settings.",
+    done_nudges: "Done. You won't get these reminders.",
+    done_body_nudges:
       'Emails about plans, and everything else, carry on as before. To turn the reminders back on, sign in and open notification settings.',
+    stop_organiser: 'Stop emails about plans you organise',
+    button_organiser: 'Stop these emails',
+    body_organiser:
+      'These are the emails about plans you organise: when options are ready, when replies close with nothing locked in, and the question the morning after. Stopping turns them off for you. Nothing else changes, and you can turn them back on in notification settings.',
+    done_organiser: "Done. You won't get emails about plans you organise.",
+    done_body_organiser:
+      'Updates you asked for about a plan, and everything else, carry on as before. To turn these emails back on, sign in and open notification settings.',
+    stop_quiet: 'Stop emails about quiet asks',
+    button_quiet: 'Stop these emails',
+    body_quiet:
+      "These are the emails about a quiet ask you started. Stopping turns quiet asks off for you in every circle, so you won't get these emails or be asked about anyone else's, and you can't start one until you turn them back on in notification settings. Nothing else changes.",
+    done_quiet: "Done. You won't get emails about quiet asks.",
+    done_body_quiet:
+      'Everything else carries on as before. To turn quiet asks back on, sign in and open notification settings.',
+    stopping: 'Stopping',
     link_expired: 'This link has expired.',
     link_expired_body:
-      'Use the link in the most recent reminder, or sign in and turn them off in notification settings.',
+      'Use the link in the most recent email, or sign in and turn them off in notification settings.',
     open_it_again: 'Open the link from your email again.',
     open_it_again_body:
       "The link is cleared from the address bar once it's opened, so a reload can't use it again.",
-    couldnt_stop: "Something went wrong, so the reminders weren't stopped. Please try again.",
+    couldnt_stop: "Something went wrong, so they weren't stopped. Please try again.",
     youre_offline: "You're offline. Connect, then try again.",
     try_again: 'Try again',
     reference: 'Ref {reference}',
@@ -1706,7 +1726,7 @@ export const en = {
       'Hosting, the database and email delivery are run by other companies on our behalf, so your details pass through them. They are there to run {brand}, not to market to you.',
     privacy_email_heading: 'What email you get',
     privacy_email_body:
-      'A sign-in code when you sign in. If you sign in to organise plans or start a quiet ask, letters about those; some of these can be turned off in notification settings. If you have a saved place in a circle that has a catch-up rhythm, you may get an occasional nudge to plan the next one, with a link in the email to stop it without signing in. Anyone can ask for updates about a plan, and each of those emails has a stop link.',
+      'A sign-in code when you sign in. If you sign in to organise plans or start a quiet ask, letters about those, each with a link in the email to stop that kind of letter without signing in; you can turn them back on in notification settings. If you have a saved place in a circle that has a catch-up rhythm, you may get an occasional nudge to plan the next one, with a link in the email to stop it without signing in. Anyone can ask for updates about a plan, and each of those emails has a stop link.',
     privacy_calendar_heading: 'Your calendar stays yours',
     privacy_calendar_body:
       'The group sees who can make each time we suggest. Nobody sees your calendar, and nobody is shown your whole availability with your name on it. Calendar events on your phone never leave it.',
@@ -1860,8 +1880,8 @@ export const en = {
     quiet_asks_in: 'Quiet asks in {circle}',
     nudges_in: 'Nudges to plan the next one in {circle}',
     emails_about_plans_you_organise: 'Emails about plans you organise',
-    options_ready_and_did_it_happen_replies_closed_still_comes:
-      "Options ready and did it happen. If replies close with nothing locked in, we'll still email you once.",
+    options_ready_replies_closed_and_did_it_happen:
+      'Options ready, replies closed with nothing locked in, and did it happen.',
     quiet_hours_title: 'Quiet hours are fixed for now',
     quiet_hours_body:
       'Nothing arrives between 9 pm and 8 am in your own time zone. Choosing your own hours comes later.',
@@ -2185,7 +2205,7 @@ export const en = {
       "They see which options work for you, never a personal schedule. Before enough people are keen on a quiet ask, nobody sees anyone's answer.",
     what_email_you_get: 'What email you get',
     anyone_can_ask_for_plan_updates:
-      'Anyone can ask for updates about a plan, and each of those emails has a stop link. If you sign in to organise plans or start a quiet ask, you also get letters about those, some of which you can turn off in notification settings. If you have a saved place in a circle that has a catch-up rhythm, you may get an occasional nudge to plan the next one, and it has a stop link. We never sell addresses, and other companies deliver the email for us.',
+      'Anyone can ask for updates about a plan, and each of those emails has a stop link. If you sign in to organise plans or start a quiet ask, you also get letters about those, and each has a stop link that works without signing in; you can turn them back on in notification settings. If you have a saved place in a circle that has a catch-up rhythm, you may get an occasional nudge to plan the next one, and it has a stop link. We never sell addresses, and other companies deliver the email for us.',
     to_have_your_details_removed:
       'To have your details removed, write to {support}. There is no delete button in the app yet.',
   },

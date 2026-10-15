@@ -6,7 +6,7 @@ import { optional } from '../_shared/env.ts';
 import type { EmailInput } from '../_shared/email/types.ts';
 import {
   issuePreferencesToken,
-  issueNudgeStopToken,
+  issueStopToken,
   issueReentryToken,
   issueVerificationToken,
 } from '../_shared/tokens.ts';
@@ -88,7 +88,7 @@ async function aboutTimeInput(
   // Its one token is the stop link (ADR 0067), minted for this letter and this
   // contact. Null means the contact is not verified or is nobody's, and a nudge
   // that cannot be stopped is not sent.
-  const stopToken = await issueNudgeStopToken(service, job.contact_id);
+  const stopToken = await issueStopToken(service, job.contact_id, 'nudges');
   if (stopToken === null) return { skip: 'contact_unverified' };
   return {
     kind: 'about_time',
@@ -126,6 +126,14 @@ export async function inputFor(
     planCode: job.plan_short_code,
   };
 
+  // The account-holder kinds each carry a stop link (ADR 0069), minted for this
+  // letter and this contact, after the checks that decide whether the letter is
+  // sent at all, so a letter that is skipped mints nothing. Null means the
+  // contact is not verified or is nobody's: a letter that cannot be stopped is
+  // not sent.
+  const stopTokenFor = async (family: 'organiser' | 'quiet'): Promise<string | null> =>
+    await issueStopToken(service, job.contact_id, family);
+
   switch (job.kind) {
     case 'options_ready': {
       const best = context.bestCandidate;
@@ -134,9 +142,12 @@ export async function inputFor(
       // idempotency key for this revision, and the organiser would never be
       // told the options were ready at all (review round 1).
       if (best === null) return { skip: 'retry:no_candidates' };
+      const stopToken = await stopTokenFor('organiser');
+      if (stopToken === null) return { skip: 'contact_unverified' };
       return {
         kind: 'options_ready',
         ...toOrganiser,
+        stopToken,
         bestStart: fromISO(best.startsAt),
         zone: context.planZone,
         availableCount: best.availableCount,
@@ -149,25 +160,33 @@ export async function inputFor(
       // theirs; the owner gets the fallback (spec §5.4.5) only while nobody
       // organises; anybody else — an organiser since removed, an owner since
       // superseded — gets nothing.
-      if (context.organiserUserId !== undefined) {
-        return job.user_id === context.organiserUserId
-          ? { kind: 'replies_closed', ...toOrganiser }
-          : { skip: 'not_the_organiser' };
-      }
-      if (
+      const toOwner =
+        context.organiserUserId === undefined &&
         context.eligibility.plan?.mode === 'quiet' &&
-        job.user_id === context.eligibility.circle.ownerUserId
+        job.user_id === context.eligibility.circle.ownerUserId;
+      if (
+        context.organiserUserId !== undefined ? job.user_id !== context.organiserUserId : !toOwner
       ) {
-        return { kind: 'replies_closed', ...toOrganiser, toOwner: true };
+        return { skip: 'not_the_organiser' };
       }
-      return { skip: 'not_the_organiser' };
+      const stopToken = await stopTokenFor('organiser');
+      if (stopToken === null) return { skip: 'contact_unverified' };
+      return {
+        kind: 'replies_closed',
+        ...toOrganiser,
+        stopToken,
+        ...(toOwner ? { toOwner: true } : {}),
+      };
     }
     case 'did_it_happen': {
       const confirmation = context.confirmation ?? context.supersededConfirmation;
       if (confirmation === null) return { skip: 'no_confirmation' };
+      const stopToken = await stopTokenFor('organiser');
+      if (stopToken === null) return { skip: 'contact_unverified' };
       return {
         kind: 'did_it_happen',
         ...toOrganiser,
+        stopToken,
         start: fromISO(confirmation.starts_at),
         zone: context.planZone,
       };
@@ -176,17 +195,24 @@ export async function inputFor(
     // addressed from `dispatch_quiet_audience`; nothing here reads who asked.
     // An ask somebody has already taken on, or that has closed, no longer
     // needs its initiator to pick the time.
-    case 'threshold_initiator':
+    case 'threshold_initiator': {
       if (context.organiserUserId !== undefined) return { skip: 'organiser_taken' };
-      return { kind: 'threshold_initiator', ...toOrganiser };
-    case 'quiet_expired':
+      const stopToken = await stopTokenFor('quiet');
+      if (stopToken === null) return { skip: 'contact_unverified' };
+      return { kind: 'threshold_initiator', ...toOrganiser, stopToken };
+    }
+    case 'quiet_expired': {
       if (job.circle_id === null) return { skip: 'plan_gone' };
+      const stopToken = await stopTokenFor('quiet');
+      if (stopToken === null) return { skip: 'contact_unverified' };
       return {
         kind: 'quiet_expired',
         origin: toOrganiser.origin,
         circleName: toOrganiser.circleName,
         circleId: job.circle_id,
+        stopToken,
       };
+    }
     // "The plan changed, add your times again" (ADR 0046), about the question
     // as it is now, and checked before a token is minted for it. Held
     // overnight by quiet hours, the plan may have stopped taking answers by

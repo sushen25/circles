@@ -37,11 +37,13 @@ export const EmailPreferencesLink = z.object({ token: OpaqueToken });
 export type EmailPreferencesLink = z.infer<typeof EmailPreferencesLink>;
 
 /**
- * `/n#<token>` — stop the cadence nudge, no sign-in (ADR 0067). Asks for one tap
- * before it does anything, and stays valid after use.
+ * `/n#<token>`, `/o#<token>` and `/q#<token>` — stop the cadence nudge, the
+ * organiser's letters or the quiet ask's letters, no sign-in (ADR 0067, ADR
+ * 0069). One page, told which family by the path. Asks for one tap before it
+ * does anything, and stays valid after use.
  */
-export const NudgeStopLink = z.object({ token: OpaqueToken });
-export type NudgeStopLink = z.infer<typeof NudgeStopLink>;
+export const LetterStopLink = z.object({ token: OpaqueToken });
+export type LetterStopLink = z.infer<typeof LetterStopLink>;
 
 /** `/v#<token>` — email verification landing. Single use. */
 export const EmailVerifyLink = z.object({ token: OpaqueToken });
@@ -61,6 +63,8 @@ export const DEEP_LINK_ROUTES = {
   reentry: '/a',
   emailPreferences: '/e',
   nudgeStop: '/n',
+  organiserStop: '/o',
+  quietStop: '/q',
   emailVerify: '/v',
 } as const;
 
@@ -71,6 +75,8 @@ export const FRAGMENT_LINKS = {
   '/v': 'verify',
   '/e': 'preferences',
   '/n': 'nudge_stop',
+  '/o': 'organiser_stop',
+  '/q': 'quiet_stop',
 } as const;
 export type FragmentLinkKind = (typeof FRAGMENT_LINKS)[keyof typeof FRAGMENT_LINKS];
 
@@ -125,9 +131,19 @@ export function emailPreferencesUrl(origin: string, token: OpaqueToken): string 
   return `${origin.replace(/\/+$/, '')}/e#${token}`;
 }
 
-/** `https://…/n#<token>`: the stop link under a cadence nudge (ADR 0067). */
-export function nudgeStopUrl(origin: string, token: OpaqueToken): string {
-  return `${origin.replace(/\/+$/, '')}/n#${token}`;
+/** The page for each family of letters that can be stopped from the letter (ADR 0069). */
+export const STOP_LINK_PATHS = { nudges: '/n', organiser: '/o', quiet: '/q' } as const;
+
+/**
+ * `https://…/n#<token>`, `/o#<token>` or `/q#<token>`: the stop link under a
+ * cadence nudge (ADR 0067), an organiser's letter or a quiet ask's (ADR 0069).
+ */
+export function stopLetterUrl(
+  origin: string,
+  family: keyof typeof STOP_LINK_PATHS,
+  token: OpaqueToken,
+): string {
+  return `${origin.replace(/\/+$/, '')}${STOP_LINK_PATHS[family]}#${token}`;
 }
 
 /**

@@ -12,7 +12,14 @@ function open(url: string) {
 }
 
 beforeEach(() => {
-  for (const kind of ['reentry', 'verify', 'preferences', 'nudge_stop'] as const)
+  for (const kind of [
+    'reentry',
+    'verify',
+    'preferences',
+    'nudge_stop',
+    'organiser_stop',
+    'quiet_stop',
+  ] as const)
     releaseToken(kind);
 });
 
@@ -22,6 +29,8 @@ describe('captureTokenFragment', () => {
     ['/e', 'preferences'],
     ['/a', 'reentry'],
     ['/n', 'nudge_stop'],
+    ['/o', 'organiser_stop'],
+    ['/q', 'quiet_stop'],
   ] as const)('takes %s#<token> out of the address bar and holds it as %s', (path, kind) => {
     open(`${path}#${TOKEN}`);
 

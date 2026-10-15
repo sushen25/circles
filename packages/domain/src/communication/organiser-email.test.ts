@@ -27,10 +27,11 @@ describe('the organiser-email switch', () => {
     ['options_ready', true, 'nothing'],
     ['did_it_happen', false, 'email'],
     ['did_it_happen', true, 'nothing'],
-    // Still sends: a plan five people answered is waiting on Sam alone.
+    // Stopped like the others since ADR 0069: a stop link under the letter
+    // has to stop it, so the switch it writes covers it too.
     ['replies_closed', false, 'email'],
-    ['replies_closed', true, 'email'],
-    // Its switch is "Nudges to plan the next one", per circle.
+    ['replies_closed', true, 'nothing'],
+    // Not an organiser kind: its switch is "Nudges to plan the next one", per circle.
     ['about_time', false, 'email'],
     ['about_time', true, 'email'],
   ];

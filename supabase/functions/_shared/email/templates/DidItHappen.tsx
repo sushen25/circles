@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 
 import { EN_EMAIL, type EmailCopy } from '../copy.ts';
 import { weekdayName } from '../format.ts';
-import { attendanceLink, outcomeLink, settingsLink, subscriberFooter } from '../links.ts';
+import { attendanceLink, outcomeLink, settingsLink, stopLink, subscriberFooter } from '../links.ts';
 import type { DidItHappenInput, DidItHappenParticipantInput } from '../types.ts';
 import { Layout } from './Layout.tsx';
 
@@ -37,6 +37,7 @@ export function DidItHappen({ input }: { input: DidItHappenInput }): ReactNode {
         kind: 'reason',
         sentence: EN_EMAIL.footer.organiser(input.circleName),
         settingsUrl: settingsLink(input.origin),
+        stop: { url: stopLink(input.origin, 'organiser', input.stopToken), family: 'organiser' },
       }}
     />
   );

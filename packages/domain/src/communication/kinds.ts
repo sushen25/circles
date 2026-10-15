@@ -84,11 +84,13 @@ export type NotificationSpec = {
    * this kind's **email** (ADR 0029). Push is untouched, and so is every kind
    * a subscription governs — that consent has its own stop link.
    *
-   * True for `options_ready` and `did_it_happen`, the working mail of a plan
-   * the organiser started. False for `replies_closed`, which still sends: it
-   * is the one message saying a plan other people answered is waiting on the
-   * organiser alone. False for `about_time`, whose switch is the per-circle
-   * "Nudges to plan the next one".
+   * True for the three letters about a plan the organiser runs:
+   * `options_ready`, `replies_closed` and `did_it_happen`. `replies_closed`
+   * was exempt under ADR 0029, because the plan waits on the organiser alone;
+   * ADR 0069 removed the exemption, since a stop link under it has to stop it
+   * (the founder's decision of 15 October 2026). False for `about_time`, whose
+   * switch is the per-circle "Nudges to plan the next one", and for the quiet
+   * ask's letters, whose switch is "Quiet asks".
    */
   readonly organiserEmailSwitch: boolean;
   /**
@@ -178,7 +180,7 @@ export const NOTIFICATION_KINDS: readonly NotificationSpec[] = [
     // screen — lock in the top option, hand it over, or give it one more day.
     kind: 'replies_closed',
     emailNeedsSubscription: false,
-    organiserEmailSwitch: false,
+    organiserEmailSwitch: true,
     audience: 'organiser',
     channels: ['push', 'email'],
     copyKey: 'push.replies_closed',

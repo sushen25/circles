@@ -6,7 +6,13 @@ import { EN_EMAIL } from './copy.ts';
 import { CHANGED_PLACE, MEMBER_NAMES, ORIGIN, SUNDAY_CREW, fixtureToken } from './fixtures.ts';
 import { EmailLinkError } from './links.ts';
 import { render } from './render.tsx';
-import { EMAIL_KINDS, type EmailKind, QUIET_KINDS, SUBSCRIBER_KINDS } from './types.ts';
+import {
+  EMAIL_KINDS,
+  type EmailKind,
+  QUIET_KINDS,
+  STOP_LINK_KINDS,
+  SUBSCRIBER_KINDS,
+} from './types.ts';
 
 /**
  * Every email the product can send, rendered against the Sunday Crew
@@ -15,17 +21,32 @@ import { EMAIL_KINDS, type EmailKind, QUIET_KINDS, SUBSCRIBER_KINDS } from './ty
  * would look.
  */
 
-const ORGANISER_KINDS = EMAIL_KINDS.filter(
-  (kind) =>
-    kind !== 'verify_email' &&
-    // Carries a stop link of its own that needs no sign-in (ADR 0067), below.
-    kind !== 'about_time' &&
-    !(SUBSCRIBER_KINDS as readonly string[]).includes(kind) &&
-    !(QUIET_KINDS as readonly string[]).includes(kind),
+/**
+ * Every letter to an account holder who did not opt in (ADR 0067, ADR 0069).
+ * Derived from the kinds, not listed twice: whatever is an email and is neither
+ * the verification letter nor a plan update is one of these, and has to be in
+ * `STOP_LINK_KINDS` with a link.
+ */
+const ACCOUNT_HOLDER_KINDS = EMAIL_KINDS.filter(
+  (kind) => kind !== 'verify_email' && !(SUBSCRIBER_KINDS as readonly string[]).includes(kind),
 );
 
-/** The organiser kinds whose footer says where their switch is (ADR 0029). */
-const POINTS_AT_SETTINGS: readonly string[] = ['options_ready', 'did_it_happen', 'about_time'];
+const STOP_KINDS = Object.keys(STOP_LINK_KINDS) as (keyof typeof STOP_LINK_KINDS)[];
+
+/** Where each family's link goes, and which fixture token is under it. */
+const STOP_PAGE = {
+  nudges: { path: '/n', token: fixtureToken('stop') },
+  organiser: { path: '/o', token: fixtureToken('organiser_stop') },
+  quiet: { path: '/q', token: fixtureToken('quiet_stop') },
+} as const;
+
+/** The kinds whose footer says where their switch is (ADR 0029). */
+const POINTS_AT_SETTINGS: readonly string[] = [
+  'options_ready',
+  'replies_closed',
+  'did_it_happen',
+  'about_time',
+];
 
 /** Every `href` in the HTML, decoded. */
 function hrefs(html: string): string[] {
@@ -102,7 +123,14 @@ describe('render', () => {
       const links = [...hrefs(email.html), ...Object.values(email.headers)];
       for (const link of links) {
         const [beforeHash] = link.split('#');
-        for (const label of ['verify', 'prefs', 'reentry', 'stop'] as const) {
+        for (const label of [
+          'verify',
+          'prefs',
+          'reentry',
+          'stop',
+          'organiser_stop',
+          'quiet_stop',
+        ] as const) {
           expect(beforeHash).not.toContain(fixtureToken(label));
         }
       }
@@ -139,29 +167,85 @@ describe('render', () => {
     });
   });
 
-  describe.each(ORGANISER_KINDS)('the organiser email %s', (kind) => {
-    it('says why it came, and offers no stop link that would not stop it', async () => {
+  it('gives every letter to an account holder a stop link, and nothing else is left out', () => {
+    // A kind added to the dispatcher without a family would be a letter that
+    // cannot be stopped from itself: fail here rather than ship it.
+    expect([...ACCOUNT_HOLDER_KINDS].sort()).toEqual([...STOP_KINDS].sort());
+    expect(STOP_LINK_KINDS).toEqual({
+      about_time: 'nudges',
+      options_ready: 'organiser',
+      replies_closed: 'organiser',
+      did_it_happen: 'organiser',
+      threshold_initiator: 'quiet',
+      quiet_expired: 'quiet',
+    });
+  });
+
+  it('writes the kind-to-family rule once: the switches and the table agree', () => {
+    const familyOf = (family: string) =>
+      STOP_KINDS.filter((kind) => STOP_LINK_KINDS[kind] === family).sort();
+    // The organiser's letters are exactly the kinds the organiser-email switch stops.
+    expect(familyOf('organiser')).toEqual(
+      NOTIFICATION_KINDS.filter((s) => s.organiserEmailSwitch)
+        .map((s) => s.kind)
+        .sort(),
+    );
+    // The quiet letters are exactly the two addressed to the initiator.
+    expect(familyOf('quiet')).toEqual([...QUIET_KINDS].sort());
+    // The SQL skip lists in `stop_letters` are proved by pgTAP 460, which queues
+    // all six kinds and checks each family's tap skips exactly its own.
+  });
+
+  describe.each(STOP_KINDS)('the account-holder email %s', (kind) => {
+    const family = STOP_LINK_KINDS[kind];
+    const { path, token } = STOP_PAGE[family];
+    const stop = `${ORIGIN}${path}#${token}`;
+
+    it('carries a stop link to its own family’s page, and List-Unsubscribe to the same one', async () => {
+      const email = await render(SUNDAY_CREW[kind]);
+      expect(hrefs(email.html).filter((href) => href === stop)).toHaveLength(1);
+      expect(email.text).toContain(EN_EMAIL.footer.stop[family].label);
+      expect(email.text).toContain(stop);
+      expect(email.headers['List-Unsubscribe']).toBe(`<${stop}>`);
+      // One-click POST would put the token in a request log (ADR 0025).
+      expect(email.headers).not.toHaveProperty('List-Unsubscribe-Post');
+    });
+
+    it('offers no plan-update link: the stop link is the only one that stops anything', async () => {
       const email = await render(SUNDAY_CREW[kind]);
       expect(hrefs(email.html).some((href) => /\/[aev]#/.test(href))).toBe(false);
       expect(email.text).not.toContain(EN_EMAIL.footer.stopPlan);
-      expect(email.headers).toEqual({});
+      // And no link to another family's page.
+      for (const other of Object.values(STOP_PAGE)) {
+        if (other.path === path) continue;
+        expect(hrefs(email.html).some((href) => href.startsWith(`${ORIGIN}${other.path}#`))).toBe(
+          false,
+        );
+      }
     });
 
-    it('says where to turn it off only when a switch in the app would, and carries no token', async () => {
-      // ADR 0029. Options ready and did it happen: "Emails about plans you
-      // organise". About time: "Nudges to plan the next one". Both are on
-      // /settings/notifications. Replies closed is stopped by neither, so it
-      // says it comes anyway rather than pointing at a switch that would lie.
+    it('says where the switch is only when a switch in the app stops it', async () => {
+      // ADR 0029 and ADR 0069. The organiser's three letters: "Emails about
+      // plans you organise". About time: "Nudges to plan the next one". Both
+      // are on /settings/notifications. The quiet ask's letters say nothing
+      // about settings.
       const email = await render(SUNDAY_CREW[kind]);
-      const settings = `${ORIGIN}/settings/notifications`;
       const links = hrefs(email.html).filter((href) => href.includes('/settings/'));
       if (POINTS_AT_SETTINGS.includes(kind)) {
-        expect(links).toEqual([settings]);
+        expect(links).toEqual([`${ORIGIN}/settings/notifications`]);
         expect(email.text).toContain(EN_EMAIL.footer.settingsLabel);
       } else {
         expect(links).toEqual([]);
-        expect(email.text).toContain(EN_EMAIL.footer.repliesClosed('Sunday Crew'));
       }
+    });
+
+    it('refuses a stop token that is not token-shaped, without quoting it', async () => {
+      const secret = 'not a token';
+      const failure = await render({ ...SUNDAY_CREW[kind], stopToken: secret }).catch(
+        (error: unknown) => error,
+      );
+      expect(failure).toBeInstanceOf(EmailLinkError);
+      expect(String((failure as Error).message)).not.toContain(secret);
     });
   });
 
@@ -174,11 +258,11 @@ describe('render', () => {
   });
 
   describe.each(QUIET_KINDS)('the quiet ask email %s', (kind) => {
-    it('says why it came and that nobody else got it, with no stop link and no token', async () => {
+    it('says why it came and that nobody else got it, with a stop link and no other token', async () => {
       const email = await render(SUNDAY_CREW[kind]);
       expect(email.text).toContain(EN_EMAIL.footer.quiet('Sunday Crew'));
       expect(hrefs(email.html).some((href) => /\/[aev]#|\/settings\//.test(href))).toBe(false);
-      expect(email.headers).toEqual({});
+      expect(email.headers['List-Unsubscribe']).toBe(`<${ORIGIN}/q#${fixtureToken('quiet_stop')}>`);
     });
 
     it('carries no count and no name, in its subject or its body', async () => {
@@ -192,11 +276,15 @@ describe('render', () => {
   });
 
   describe('the owner’s fallback', () => {
-    it('is its own letter: nothing to organise yet, nobody named, no switch', async () => {
+    it('is its own letter: nothing to organise yet, nobody named, and still stoppable', async () => {
       const email = await render({ ...SUNDAY_CREW.replies_closed, toOwner: true });
       expect(email.subject).toBe('Sunday Crew: nobody has picked a time yet');
       expect(email.text).toContain(EN_EMAIL.footer.owner('Sunday Crew'));
       expect(email.text).not.toMatch(/organising|keen|asked/);
+      // Sent to an owner who never opted in: it carries the organiser stop too.
+      expect(email.headers['List-Unsubscribe']).toBe(
+        `<${ORIGIN}/o#${fixtureToken('organiser_stop')}>`,
+      );
       for (const name of MEMBER_NAMES) expect(email.text).not.toMatch(new RegExp(`\\b${name}\\b`));
       await expect(`Subject: ${email.subject}\n\n${email.text}\n`).toMatchFileSnapshot(
         './__snapshots__/replies_closed_owner.txt',
@@ -339,7 +427,7 @@ describe('render', () => {
       const email = await render(SUNDAY_CREW.about_time);
       const stop = `${ORIGIN}/n#${fixtureToken('stop')}`;
       expect(hrefs(email.html).filter((href) => href === stop)).toHaveLength(1);
-      expect(email.text).toContain(EN_EMAIL.footer.stopNudgesLabel);
+      expect(email.text).toContain(EN_EMAIL.footer.stop.nudges.label);
       expect(email.text).toContain(stop);
       expect(email.headers['List-Unsubscribe']).toBe(`<${stop}>`);
       // One-click POST would put the token in a request log (ADR 0025).
@@ -355,15 +443,6 @@ describe('render', () => {
       // Not the plan-update links: those stop plan email, this stops the nudge.
       expect(email.text).not.toContain(EN_EMAIL.footer.stopPlan);
       expect(hrefs(email.html).some((href) => /\/[ae]#/.test(href))).toBe(false);
-    });
-
-    it('refuses a stop token that is not token-shaped, without quoting it', async () => {
-      const secret = 'not a token';
-      const failure = await render({ ...SUNDAY_CREW.about_time, stopToken: secret }).catch(
-        (error: unknown) => error,
-      );
-      expect(failure).toBeInstanceOf(EmailLinkError);
-      expect(String((failure as Error).message)).not.toContain(secret);
     });
 
     // A weekly circle is asked five days after it met, which is no whole weeks

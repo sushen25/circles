@@ -532,9 +532,9 @@ verify_jwt = false
 [functions.manage-email-preferences]
 verify_jwt = false
 
-# The stop link under a cadence nudge (ADR 0067): opened with no session, so the
-# token in the body is the authorisation, as for the two above.
-[functions.stop-nudges]
+# The stop link under an account-holder letter (ADR 0067, ADR 0069): opened with
+# no session, so the token in the body is the authorisation, as for the two above.
+[functions.stop-letters]
 verify_jwt = false
 
 # The analytics ingest. The top of the funnel is measured before anybody has

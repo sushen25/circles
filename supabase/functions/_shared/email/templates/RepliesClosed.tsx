@@ -2,7 +2,7 @@
 import type { ReactNode } from 'react';
 
 import { EN_EMAIL, type EmailCopy } from '../copy.ts';
-import { planLink } from '../links.ts';
+import { planLink, settingsLink, stopLink } from '../links.ts';
 import type { RepliesClosedInput } from '../types.ts';
 import { Layout } from './Layout.tsx';
 
@@ -17,9 +17,11 @@ export function repliesClosedCopy(input: RepliesClosedInput): EmailCopy {
  * deadline"). Opens the DeadlinePassed screen through the plan link. No
  * artboard row exists for it; the wording is the screen's three choices.
  *
- * Outside the organiser-email switch (ADR 0029): the plan other people
- * answered is waiting on the organiser alone. So no settings link, and a
- * footer that says it comes anyway.
+ * Since ADR 0069 this is stoppable like the other organiser letters, by the
+ * switch and by the stop link: ADR 0029 kept it outside the switch because a
+ * plan other people answered waits on the organiser alone, and the founder
+ * decided on 15 October 2026 that every account-holder letter can be stopped
+ * from the letter. The footer says why it came, as the others do.
  */
 export function RepliesClosed({ input }: { input: RepliesClosedInput }): ReactNode {
   return (
@@ -31,7 +33,9 @@ export function RepliesClosed({ input }: { input: RepliesClosedInput }): ReactNo
         sentence:
           input.toOwner === true
             ? EN_EMAIL.footer.owner(input.circleName)
-            : EN_EMAIL.footer.repliesClosed(input.circleName),
+            : EN_EMAIL.footer.organiser(input.circleName),
+        settingsUrl: settingsLink(input.origin),
+        stop: { url: stopLink(input.origin, 'organiser', input.stopToken), family: 'organiser' },
       }}
     />
   );

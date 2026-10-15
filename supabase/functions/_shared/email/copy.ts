@@ -280,16 +280,19 @@ export const EN_EMAIL = {
     organiser: (circleName: string) =>
       `You're getting this because you're organising a catch-up for ${circleName}.`,
     /**
-     * Replies closed is outside the organiser-email switch (ADR 0029), so its
-     * footer says so rather than pointing at a switch that would not stop it.
+     * The no-sign-in stop under an account-holder letter, above the settings
+     * line (ADR 0067 for the nudge, ADR 0069 for the others). Each says what it
+     * stops, in the words of the page it opens.
      */
-    repliesClosed: (circleName: string) =>
-      `You're getting this because you're organising a catch-up for ${circleName}. ` +
-      'It comes even with emails about plans you organise turned off, because the plan is waiting on you.',
-    /** "Turn these off in notification settings." — where, not a stop link (ADR 0029). */
-    /** The cadence nudge's no-sign-in stop (ADR 0067), above the settings line. */
-    stopNudgesLead: 'Not for you?',
-    stopNudgesLabel: 'Stop these reminders',
+    stop: {
+      nudges: { lead: 'Not for you?', label: 'Stop these reminders' },
+      organiser: {
+        lead: "Don't want these?",
+        label: 'Stop emails about plans you organise',
+      },
+      quiet: { lead: "Don't want these?", label: 'Stop emails about quiet asks' },
+    },
+    /** "Turn these off in notification settings." — where the switch is (ADR 0029). */
     settingsLead: 'Turn these off in',
     settingsLabel: 'notification settings',
     nudge: (circleName: string) => `You're getting this because you're in ${circleName}.`,

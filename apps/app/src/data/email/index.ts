@@ -3,7 +3,8 @@ import {
   ManageEmailPreferencesResponse,
   RequestEmailUpdatesRequest,
   RequestEmailUpdatesResponse,
-  StopNudgesResponse,
+  StopLettersResponse,
+  type StopFamily,
   VerifyEmailContactResponse,
   type IdempotencyKey,
   type OpaqueToken,
@@ -70,11 +71,15 @@ export async function verifyEmail(token: OpaqueToken): Promise<VerifyEmailContac
 }
 
 /**
- * `/n#<token>`: stop the cadence nudge, with no session (ADR 0067). Called only
- * from the page's one button, never on load.
+ * `/n#<token>`, `/o#<token>` or `/q#<token>`: stop the cadence nudge, the
+ * organiser's letters or the quiet ask's letters, with no session (ADR 0067, ADR
+ * 0069). Called only from the page's one button, never on load.
  */
-export async function stopNudges(token: OpaqueToken): Promise<StopNudgesResponse> {
-  return await invokeFunction('stop-nudges', { token }, StopNudgesResponse);
+export async function stopLetters(
+  family: StopFamily,
+  token: OpaqueToken,
+): Promise<StopLettersResponse> {
+  return await invokeFunction('stop-letters', { token, family }, StopLettersResponse);
 }
 
 export type PreferencesAction =
