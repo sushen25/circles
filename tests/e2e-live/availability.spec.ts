@@ -291,12 +291,16 @@ test('on a wide window the Change time sheet and A time for each day sit in the 
   await changeTime(page).click();
   const sheetDone = page.getByRole('button', { name: 'Done', exact: true });
   // The sheet slides in; measure once it has stopped.
+  let lastAt = '';
   await expect
     .poll(async () => {
       const at = (await sheetDone.boundingBox())!;
-      return Math.round(at.y + at.height);
+      const now = `${Math.round(at.x)},${Math.round(at.y)}`;
+      const still = now === lastAt;
+      lastAt = now;
+      return still;
     })
-    .toBeLessThanOrEqual(800);
+    .toBe(true);
   let box = (await sheetDone.boundingBox())!;
   expect(box.width).toBeCloseTo(480 - 2 * 22, 0);
   expect(box.x + box.width / 2).toBeCloseTo(640, 0);

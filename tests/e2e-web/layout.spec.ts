@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 
 /**
  * The app on a wide window (SUS-202, manifesto 5.3): one centred column,
@@ -34,6 +34,20 @@ async function expectNoSidewaysOverflow(page: Page) {
   });
   expect(overflow.scroll).toBeLessThanOrEqual(0);
   expect(overflow.cut).toEqual([]);
+}
+
+/** Waits until an element has stopped moving: the same position on two reads in a row. */
+async function expectStill(locator: Locator) {
+  let last = '';
+  await expect
+    .poll(async () => {
+      const at = (await locator.boundingBox())!;
+      const now = `${Math.round(at.x)},${Math.round(at.y)}`;
+      const still = now === last;
+      last = now;
+      return still;
+    })
+    .toBe(true);
 }
 
 for (const size of SIZES) {
@@ -120,12 +134,37 @@ for (const size of SIZES) {
 
       const h = (await heading.boundingBox())!;
       const d = (await done.boundingBox())!;
+      const gutter = 22;
       const column = Math.min(size.width, COLUMN);
+      const left = (size.width - column) / 2;
       expect(d.x).toBeCloseTo(h.x, 0);
-      expect(d.width).toBeCloseTo(column - 2 * 22, 0);
+      expect(d.width).toBeCloseTo(column - 2 * gutter, 0);
       expect(d.x + d.width / 2).toBeCloseTo(size.width / 2, 0);
       expect(d.y + d.height).toBeLessThanOrEqual(size.height);
       await expectNoSidewaysOverflow(page);
+
+      // A day's hours (HoursEditor) are inside the column too, and so is its picker sheet.
+      await page.getByRole('button', { name: /^Tuesday.*Set exact hours$/ }).click();
+      const until = page.getByRole('button', { name: /^Free until, Tuesday/ });
+      await expect(until).toBeVisible();
+      const u = (await until.boundingBox())!;
+      expect(u.x).toBeGreaterThanOrEqual(left + gutter - 1);
+      expect(u.x + u.width).toBeLessThanOrEqual(left + column - gutter + 1);
+      await expectNoSidewaysOverflow(page);
+
+      await until.click();
+      const option = page.getByRole('radio', { name: '8:00 pm', exact: true });
+      // The sheet slides in; measure once it has stopped.
+      await expectStill(option);
+      const o = (await option.boundingBox())!;
+      expect(o.width).toBeLessThanOrEqual(column - 2 * gutter + 1);
+      expect(o.x + o.width / 2).toBeCloseTo(size.width / 2, 0);
+      await expectNoSidewaysOverflow(page);
+      // Beside a narrowed sheet is still the scrim: a tap there dismisses it.
+      if (size.width > COLUMN) {
+        await page.mouse.click(10, size.height - 10);
+        await expect(option).toHaveCount(0);
+      }
     });
   });
 }
