@@ -35,6 +35,15 @@ test('an allowlisted account sees the north star, the gates, the funnel and adop
     await expect(page.getByText('Feature adoption')).toBeVisible();
     await expect(page.getByText('Previous times used when offered')).toBeVisible();
 
+    // The funnel can be read by where the organiser heard of us (SUS-171), and
+    // back to all of it. The counts are the stack's; the chips are what is checked.
+    await expect(page.getByRole('checkbox', { name: 'All', exact: true })).toBeChecked();
+    await page.getByRole('checkbox', { name: 'Reddit', exact: true }).click();
+    await expect(page.getByRole('checkbox', { name: 'Reddit', exact: true })).toBeChecked();
+    await expect(page.getByText(/counted under the answer of the circle's organiser/)).toBeVisible();
+    await page.getByRole('checkbox', { name: 'All', exact: true }).click();
+    await expect(page.getByRole('checkbox', { name: 'All', exact: true })).toBeChecked();
+
     // The period applies to every section, and a longer one is asked for again.
     await page.getByRole('checkbox', { name: 'Last 90 days' }).click();
     await expect(page.getByRole('checkbox', { name: 'Last 90 days' })).toBeChecked();
