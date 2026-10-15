@@ -266,7 +266,7 @@ cmd_overlap() {
     if [ $batch = 0 ] && ! git fetch -q origin "+refs/heads/$head:refs/remotes/origin/$head" "+refs/heads/$pbase:refs/remotes/origin/$pbase" 2>/dev/null; then
       bad="$bad #$num"; continue
     fi
-    files=$(git diff --name-only "origin/$pbase...origin/$head" 2>/dev/null) || { bad="$bad #$num"; continue; }
+    files=$(git -c core.quotePath=false diff --name-only "origin/$pbase...origin/$head" 2>/dev/null) || { bad="$bad #$num"; continue; }
     while IFS= read -r file; do
       [ -n "$file" ] || continue
       for p in "$@"; do

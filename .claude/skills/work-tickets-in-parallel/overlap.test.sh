@@ -23,7 +23,7 @@ mkdir big; for i in $(seq -w 1 150); do echo "$i" > "big/f$i.txt"; done
 git add .; git commit -qm big; git push -q origin big
 # stacked: on top of big, adds one file; against its real base it shows only that.
 git checkout -q -b stacked big
-echo s > stacked-only.txt; git add .; git commit -qm stacked; git push -q origin stacked
+echo s > stacked-only.txt; echo c > "big/café.txt"; git add .; git commit -qm stacked; git push -q origin stacked
 # gone: listed by gh but its branch is not on origin.
 git checkout -q main
 
@@ -49,6 +49,9 @@ out=$(run big/f150.txt 2>&1) && st=0 || st=$?
 out=$(run stacked-only.txt big/f001.txt 2>&1) && st=0 || st=$?
 { [ $st = 0 ] && [ "$out" = "PR #1 (big) touches big/f001.txt
 PR #2 (stacked) touches stacked-only.txt" ]; } && ok "a stacked PR shows only what it adds over its base" || bad "stacked: status $st, got: $out"
+
+out=$(run "big/café.txt" 2>&1) && st=0 || st=$?
+{ [ $st = 0 ] && [ "$out" = "PR #2 (stacked) touches big/café.txt" ]; } && ok "a non-ASCII file name still matches" || bad "non-ASCII: status $st, got: $out"
 
 out=$(run nothing/ 2>&1) && st=0 || st=$?
 { [ $st = 0 ] && [ "$out" = "no open PR touches those paths" ]; } && ok "no overlap says so" || bad "none: status $st, got: $out"

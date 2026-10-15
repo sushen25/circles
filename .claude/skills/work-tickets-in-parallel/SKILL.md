@@ -219,7 +219,7 @@ racing gates, new script and old mixed, never more than the limit inside.
 
 ```bash
 .claude/skills/work-tickets-in-parallel/gate-lock.test.sh   # ends "gate-lock: all passed"
-.claude/skills/work-tickets-in-parallel/overlap.test.sh     # five "ok" lines and no FAIL; a stand-in gh, a throwaway repo
+.claude/skills/work-tickets-in-parallel/overlap.test.sh     # six "ok" lines and no FAIL; a stand-in gh, a throwaway repo
 ```
 
 To check the driver itself without Docker or a ticket:
