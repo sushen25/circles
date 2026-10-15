@@ -41,7 +41,11 @@ export type TrackEventsRequest = z.infer<typeof TrackEventsRequest>;
 export const TrackEventsResponse = z.object({
   /** Validated against the catalogue and stored — or stored already, which is the same answer. */
   accepted: z.int().nonnegative(),
-  /** Not in the catalogue, or not the shape the catalogue declares. Dropped, never guessed at. */
+  /**
+   * Not in the catalogue, not the shape the catalogue declares, or carrying a string
+   * `analytics.events` would refuse (SUS-147). Dropped, never guessed at, and never
+   * at the cost of another event in the batch.
+   */
   rejected: z.int().nonnegative(),
 });
 export type TrackEventsResponse = z.infer<typeof TrackEventsResponse>;
