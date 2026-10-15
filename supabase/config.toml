@@ -500,11 +500,6 @@ enabled = true
 # JSON string passed through to pg-delta SQL formatting.
 # format_options = "{\"keywordCase\":\"upper\",\"indent\":2,\"maxWidth\":80,\"commaStyle\":\"trailing\"}"
 
-# The shared-package smoke test (ADR 0007). No JWT so it can be curled locally;
-# it reads nothing and returns two constants and a boolean.
-[functions.hello]
-verify_jwt = false
-
 # The engine, for the cases no member's request covers (architecture §9.1 marks
 # it internal). The bearer is `CRON_SECRET`, which is a shared secret and not a
 # Supabase JWT, so the gateway cannot be the thing that checks it — the function

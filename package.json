@@ -42,7 +42,7 @@
     "check:brand": "node scripts/check-brand.mjs",
     "check:tokens": "node --experimental-strip-types scripts/gen-tokens.ts --check",
     "check:types": "supabase gen types typescript --local | diff -u packages/contracts/src/db.generated.ts - || (echo \"check:types: packages/contracts/src/db.generated.ts is stale — run pnpm gen:types\" >&2; exit 1)",
-    "check:imports": "node scripts/check-import-map.mjs",
+    "check:imports": "node scripts/check-import-map.mjs && node --test scripts/import-map-pins.test.mjs",
     "check:migrations": "node scripts/check-migrations.mjs",
     "check:transitions": "node scripts/gen-transitions.mjs --check",
     "check:events": "node scripts/gen-events.mjs --check",
