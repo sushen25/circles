@@ -33,7 +33,7 @@ function input(overrides: Partial<ShareInput> = {}): ShareInput {
 describe('lockedInMessage', () => {
   it('is the ShareMessages artboard, word for word', () => {
     expect(lockedInMessage(input())).toBe(
-      'Locked in: Sunday Crew, Thu 17 Sep, 6:30–8:30 pm at Hope St Radio. ' +
+      'Locked in: Sunday Crew, Thu 17 Sep, 6:30–8:30 pm at Hope St Radio. Thursday it is. See you then. ' +
         `Details and add-to-calendar: ${LINK}`,
     );
   });
@@ -41,7 +41,7 @@ describe('lockedInMessage', () => {
   it('reads properly when there is no place yet', () => {
     const noPlace = confirmation({ placeName: undefined });
     expect(lockedInMessage(input({ confirmation: noPlace }))).toBe(
-      `Locked in: Sunday Crew, Thu 17 Sep, 6:30–8:30 pm. Details and add-to-calendar: ${LINK}`,
+      `Locked in: Sunday Crew, Thu 17 Sep, 6:30–8:30 pm. Thursday it is. See you then. Details and add-to-calendar: ${LINK}`,
     );
   });
 

@@ -871,6 +871,9 @@ export const en = {
      * in" and the counts are one sentence on two screens.
      */
     locked_in: 'Locked in',
+    /** The sign-off ADR 0043 gives every confirmation: the day, then the promise. */
+    it_is: '{weekday} it is.',
+    see_you_then: 'See you then.',
     time_place: '{time} · {what}',
     ready_to_paste_into_the_group_chat: 'Ready to paste into the group chat',
     going: '{count} going',
@@ -2584,7 +2587,7 @@ export const en = {
       "We're waiting on 4 replies before picking a time: {domain}/j/7f3k",
     locked_in: 'Locked in',
     locked_in_sunday_crew_thu_17_sep:
-      'Locked in: Sunday Crew, Thu 17 Sep, 6:30–8:30 pm at Hope St Radio. Details and add-to-calendar: {domain}/p/8k2v',
+      'Locked in: Sunday Crew, Thu 17 Sep, 6:30–8:30 pm at Hope St Radio. Thursday it is. See you then. Details and add-to-calendar: {domain}/p/8k2v',
     changed: 'Changed',
     change_of_plan_thursday_is_off_new:
       'Change of plan: Thursday is off. New times for the week after, please: {domain}/j/7f3k',
@@ -2698,6 +2701,7 @@ export const en = {
     reply_2: 'in',
     reply_3: 'see you then',
     locked_date: 'Thu 17 Sep',
+    locked_weekday: 'Thursday',
     locked_time: '6:30–8:30 pm',
     locked_place: 'Hope St Radio',
     open_plan_label: 'Open the Sunday Crew plan on {brand}',

@@ -57,7 +57,7 @@ describe('messageOf', () => {
   it("is the domain's locked-in sentence, with the plan's page and no secret", () => {
     const message = messageOf(lockedIn, confirmation, 'https://circles.test');
     expect(message).toMatch(/^Locked in: Sunday Crew, /);
-    expect(message).toContain('at Hope St Radio.');
+    expect(message).toContain('at Hope St Radio. Thursday it is. See you then. Details');
     expect(message).toMatch(/Details and add-to-calendar: https:\/\/circles\.test\/p\/pnsundaycr$/);
     expect(message).not.toContain('#');
   });

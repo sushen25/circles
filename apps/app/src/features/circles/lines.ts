@@ -4,7 +4,7 @@ import type { Member } from '../../components';
 import { t } from '../../copy';
 import type { CircleHome, CircleSummary } from '../../data/circles';
 import { dayWords } from '../planning/when';
-import { dateOf, timeOf } from '../scheduling/words';
+import { dateOf, timeOf, weekdayOf } from '../scheduling/words';
 import { domainCircle } from './words';
 
 /**
@@ -94,15 +94,17 @@ export function aboutTimeBody(home: CircleHome): string {
 /** The locked-in card: "Thu 17 Sep", then "6:30–8:30 pm · Hope St Radio", then who is going. */
 export function lockedInWords(home: CircleHome): {
   date: string;
+  weekday: string;
   time: string;
   detail: string;
   going: string;
 } {
   const meetup = home.lockedIn;
-  if (meetup === null) return { date: '', time: '', detail: '', going: '' };
+  if (meetup === null) return { date: '', weekday: '', time: '', detail: '', going: '' };
   const time = timeOf(meetup.startsAt, meetup.endsAt, home.zone);
   return {
     date: dateOf(meetup.startsAt, home.zone),
+    weekday: weekdayOf(meetup.startsAt, home.zone),
     time,
     detail:
       meetup.placeName === null

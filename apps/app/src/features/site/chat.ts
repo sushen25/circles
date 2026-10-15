@@ -65,6 +65,7 @@ export function afterThread(): string {
     EN_SHARE_TEMPLATES.lockedIn({
       circleName: circle,
       date: t('site', 'locked_date'),
+      weekday: t('site', 'locked_weekday'),
       time: t('site', 'locked_time'),
       place: t('site', 'locked_place'),
       url: EXAMPLE_URL,

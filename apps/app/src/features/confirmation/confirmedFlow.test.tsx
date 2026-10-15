@@ -91,6 +91,13 @@ describe('the organiser', () => {
     expect(screen.getByText("Alex hasn't said yet")).toBeTruthy();
   });
 
+  it('signs off with the day, on the screen and in the message', async () => {
+    show(<ConfirmedFlow target={{ planId: 'thu-17' }} />);
+    expect(await screen.findByText('Thursday it is.')).toBeTruthy();
+    expect(screen.getByText('See you then.')).toBeTruthy();
+    expect(screen.getByText(/Thursday it is\. See you then\. Details/)).toBeTruthy();
+  });
+
   it('shares exactly the message on screen, and records that the sheet opened', async () => {
     show(<ConfirmedFlow target={{ planId: 'thu-17' }} />);
     const message = (await screen.findByText(/^Locked in: Sunday Crew/)).textContent;
@@ -197,6 +204,8 @@ describe('a member', () => {
       screen.getByText("Maya says: “Table's booked under my name. Come hungry.”"),
     ).toBeTruthy();
     expect(screen.getByText('Open in Maps')).toBeTruthy();
+    expect(screen.getByText('Thursday it is.')).toBeTruthy();
+    expect(screen.getByText('See you then.')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Share to group chat' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Edit this plan' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Ask for new times' })).toBeNull();
