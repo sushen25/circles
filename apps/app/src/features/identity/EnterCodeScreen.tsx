@@ -114,6 +114,16 @@ export function EnterCodeScreen({
   onBack,
 }: EnterCodeProps) {
   const wait = useSecondsUntil(resendAt);
+  // A code that was refused is of no use to anyone: clear the boxes and put the
+  // cursor back in the first, so the next try is typing and not deleting six
+  // digits one by one (SUS-204). `problem` is reset when the next try starts,
+  // so a second wrong code does this again.
+  const dead = problem === 'wrong_code' || problem === 'expired';
+  useEffect(() => {
+    if (!dead) return;
+    onCodeChange?.('');
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only a new refusal matters
+  }, [dead]);
   const complete = code.length === 6;
   const resendDisabled = wait > 0;
 
@@ -133,6 +143,7 @@ export function EnterCodeScreen({
           onChangeText={(text) => onCodeChange?.(text)}
           onSubmitEditing={complete && !busy ? onContinue : undefined}
           autoFocus
+          refocusKey={dead}
         />
         {newCodeSent && problem === undefined ? (
           <Notice>{t('enterCode', 'new_code_sent')}</Notice>
