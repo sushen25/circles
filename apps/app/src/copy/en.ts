@@ -1771,6 +1771,7 @@ export const en = {
     this_link_isnt_active_any_more: "This link isn't active any more.",
     the_circles_owner_may_have_reset_it:
       "The circle's owner may have reset it. Ask whoever shared it for the current link. Anyone already in the circle still has their place.",
+    ask_for_a_new_plan_link: 'Ask whoever shared it for a new one.',
     you_need_the_invite: 'You need the invite link to join.',
     ask_whoever_shared_it:
       "This page is for people already in the circle. Ask whoever shared it for the circle's invite link.",
