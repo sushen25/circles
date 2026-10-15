@@ -246,6 +246,14 @@ jobs:
       # After the migrations, because a function deployed against a schema that
       # has not arrived yet fails on its first request rather than its first
       # deploy.
+      # Pins before bundles: every `npm:` entry exact and equal to what
+      # `pnpm-lock.yaml` resolves, every package in `deno.lock`, every function
+      # reading that lock frozen (ADR 0075). The edge runtime's bundler checks
+      # the hash of what the lock lists; this refuses a lock that does not list
+      # what the map names.
+      - name: Check the Edge Function pins and lock
+        run: pnpm run check:imports
+
       - name: Deploy Edge Functions
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_PROD_ACCESS_TOKEN }}

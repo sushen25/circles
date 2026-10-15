@@ -140,6 +140,15 @@ jobs:
           pnpm exec supabase link --project-ref "${{ secrets.SUPABASE_DEV_PROJECT_REF }}"
           pnpm exec supabase db push --linked
 
+      # Pins before bundles: every `npm:` entry exact and equal to what
+      # `pnpm-lock.yaml` resolves, every package in `deno.lock`, every function
+      # reading that lock frozen (ADR 0075). The edge runtime's bundler checks
+      # the hash of what the lock lists; this refuses a lock that does not list
+      # what the map names.
+      - name: Check the Edge Function pins and lock
+        if: steps.config.outputs.supabase == 'true'
+        run: pnpm run check:imports
+
       - name: Deploy Edge Functions
         if: steps.config.outputs.supabase == 'true'
         env:

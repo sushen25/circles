@@ -41,10 +41,20 @@ applied, Edge Functions deployed and answering, the web build serving on
 `sushen25s-team-circles--dev.expo.app`, and an EAS Update published to the
 `development` channel.
 
-`https://pcfekupwqrdfryeaqggx.supabase.co/functions/v1/hello` returns
-`{"domain":"@circles/domain","contracts":"@circles/contracts","validated":true}`,
-which closes the question ADR 0007 left open: the shared domain package really
-does load and run inside Deno, not only in the client and the test suites.
+The deploy smoke check needs no dedicated function. An empty body to
+`track-events` is refused by the schema and says so:
+
+```bash
+curl -s -w '\n%{http_code}\n' -X POST https://<ref>.supabase.co/functions/v1/track-events \
+  -H 'content-type: application/json' -d '{}'
+# {"error":"invalid_request","message":"Not usable: events.","reference":"…"}
+# 400
+```
+
+A `400` with that JSON body means the bundle booted, the import map resolved and
+`@circles/contracts`' zod schema ran inside Deno, which is the question ADR 0007 left
+open. A `503` or `BOOT_ERROR` means the bundle did not boot, and a `404` that
+the function is not deployed. Nothing is written.
 
 **`prod` is deployed** as of 15 September 2026: migrations `0001`–`0015`, all
 Edge Functions, and the web build on the custom domain of the day (since

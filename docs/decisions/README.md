@@ -72,6 +72,7 @@ Short records of decisions that shape the product or the code. A new ADR is requ
 | [0067](./0067-every-cadence-nudge-carries-a-stop-link-and-the-sent-card-says-an-account-is-made.md) | Every cadence nudge carries a stop link that needs no sign-in, and the Sent card says an account is made | proposed |
 | [0068](./0068-a-tapped-day-has-a-time-and-the-answer-is-one-line.md) | A tapped day already has a time, and the answer is one line: the first screen asks only which days | proposed |
 | [0069](./0069-every-account-holder-letter-carries-a-stop-link-that-needs-no-sign-in.md) | Every letter to an account holder carries a stop link that needs no sign-in | proposed |
+| [0075](./0075-edge-function-dependencies-are-exact-and-locked.md) | Edge Function dependencies are exact and locked | proposed |
 
 ## Template
 
