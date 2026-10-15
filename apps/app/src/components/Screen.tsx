@@ -151,6 +151,11 @@ const styles = StyleSheet.create({
   },
   topRight: {
     alignItems: 'flex-end',
+    // As wide as what is in it, never less than a target: a fixed 44 made
+    // "Sign in" wrap to two lines at 375 (SUS-204).
+    width: 'auto',
+    minWidth: hit,
+    flexShrink: 0,
   },
   bodyScroll: {
     flex: 1,
