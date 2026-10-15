@@ -126,7 +126,7 @@ export function Answering({
   // in the history (SUS-209). This page load pushed it, so this is the step's
   // editor, started from the first screen's answer. The first screen's own
   // address never gains the step, so which of the two this is does not change.
-  const handoff = handoffKey(code, plan);
+  const handoff = handoffKey(code, plan, userId);
   const hours = useHoursStep(code, handoff);
   const { exact, focused } = hours;
   const [state, dispatch] = useReducer(reducer, undefined, (): EditorState => {
@@ -150,6 +150,9 @@ export function Answering({
   const [touched, setTouched] = useState(() => hours.handed?.touched ?? false);
   const openHours = () => hours.open(state, touched);
   const closeHours = hours.close;
+  // Leaving the step waits for the answer to be handed back: the change and the
+  // pop in one tap would unmount the step before its last change was shared.
+  const [leaving, setLeaving] = useState(false);
 
   // The device's back button leaves the half hours for the answer, as the
   // screen's own does, rather than the page (Android; the web has no such button
@@ -159,11 +162,10 @@ export function Answering({
     if (!exact || Platform.OS === 'web') return;
     const hardware = BackHandler.addEventListener('hardwareBackPress', () => {
       dispatch({ type: 'close' });
-      closeHours();
+      setLeaving(true);
       return true;
     });
     return () => hardware.remove();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [exact]);
 
   // Previous times (ADR 0037's amendment, ADR 0068): the reader's own earlier
@@ -229,6 +231,10 @@ export function Answering({
       setTouched(answer.touched);
     },
   });
+  useEffect(() => {
+    if (leaving) closeHours();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [leaving]);
   useEffect(() => {
     if (noDays) closeHours();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -355,11 +361,11 @@ export function Answering({
         onOneTime={() => {
           edit({ type: 'use_one_time' });
           edit({ type: 'close' });
-          closeHours();
+          setLeaving(true);
         }}
         onDone={() => {
           edit({ type: 'close' });
-          closeHours();
+          setLeaving(true);
         }}
       />
     );

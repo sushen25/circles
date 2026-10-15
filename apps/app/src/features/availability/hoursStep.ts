@@ -65,8 +65,10 @@ export function handoffKey(
     windowEnd: string;
     days?: string[] | undefined;
   },
+  userId: string | undefined,
 ): string {
   return [
+    userId ?? '',
     code,
     plan.id,
     plan.revision,
