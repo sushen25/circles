@@ -54,7 +54,7 @@ export async function recordOpened(
   now: Date,
 ): Promise<void> {
   if (event.event_name !== 'planning.threshold_reached') return;
-  const threshold = context?.eligibility.plan.quietThreshold;
+  const threshold = context?.eligibility.plan?.quietThreshold;
   // A plan that is gone, or one with no threshold, has nothing to count.
   if (threshold === undefined) return;
 
