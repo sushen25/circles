@@ -2083,7 +2083,10 @@ insert into identity_tables (name, moves) values
   ('jobs.idempotent_requests', false),
   -- Who may read the numbers. Nothing to do with a membership, and a guest
   -- identity being merged into a saved place does not inherit it.
-  ('private.allowlist', false);
+  ('private.allowlist', false),
+  -- An event is history, not a membership: `user_id` is set null when the user
+  -- is deleted (SUS-191), and `move_membership` re-points the events it moves.
+  ('analytics.events', false);
 
 select bag_eq(
   $$ select distinct con.conrelid::regclass::text

@@ -47,13 +47,13 @@ $$;
 create or replace function pg_temp.contact_of(addr text, who uuid) returns uuid
 language sql security definer as $$
   select c.id from private.email_contacts c
-  where c.email_normalized = addr and c.user_id = who
+  where c.email_hash = extensions.digest(addr, 'sha256') and c.user_id = who
 $$;
 
 create or replace function pg_temp.status_of(addr text, who uuid) returns text
 language sql security definer as $$
   select c.status from private.email_contacts c
-  where c.email_normalized = addr and c.user_id = who
+  where c.email_hash = extensions.digest(addr, 'sha256') and c.user_id = who
 $$;
 
 /** A job the dispatcher has sent, as it will have recorded it. */
@@ -288,7 +288,7 @@ select pg_temp.act_as_postgres();
 select is(
   (select array_agg(distinct s.status) from private.email_subscriptions s
    join private.email_contacts c on c.id = s.contact_id
-   where c.email_normalized = 'nina@example.com'),
+   where c.email_hash = extensions.digest('nina@example.com', 'sha256')),
   array['withdrawn'],
   'every subscription at the address is withdrawn'
 );
@@ -297,7 +297,7 @@ select is(
    where o.event_name = 'communication.subscription_changed'
      and o.payload ->> 'status' = 'withdrawn'
      and (o.payload ->> 'contact_id')::uuid in (
-       select id from private.email_contacts where email_normalized = 'nina@example.com')),
+       select id from private.email_contacts where email_hash = extensions.digest('nina@example.com', 'sha256'))),
   2,
   'each with an event of its own'
 );
