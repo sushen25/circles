@@ -63,6 +63,25 @@ test('an import in a comment does not count', () => {
   assert.deepEqual(run(files).orphans, ['apps/app/src/features/DeadScreen.tsx']);
 });
 
+test('an import that is only commented out, or sits in a template string, does not count', () => {
+  for (const text of [
+    "/*\nimport { Dead } from './DeadScreen';\n*/\nexport const x = 1;\n",
+    "// const Dead = import('./DeadScreen');\nexport const x = 1;\n",
+    "const example = `\nimport { Dead } from './DeadScreen';\n`;\n",
+    "const url = 'http://x.test/';\n// import('./DeadScreen')\n",
+  ]) {
+    const files = repo({
+      'apps/app/src/features/DeadScreen.tsx': 'export const Dead = 1;\n',
+      'apps/app/src/features/Home.tsx': text,
+    });
+    assert.deepEqual(run(files).orphans, ['apps/app/src/features/DeadScreen.tsx'], text);
+  }
+});
+
+test('a real import after a comment marker inside a string is still read', () => {
+  assert.deepEqual(specifiers("const u = 'a//b';\nimport x from './x';\n"), ['./x']);
+});
+
 test('a file only its own test imports is reached: tests are entry points', () => {
   const files = repo({
     'apps/app/src/features/Helper.ts': 'export const h = 1;\n',
