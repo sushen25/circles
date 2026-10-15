@@ -131,11 +131,11 @@ export function Answering({
   // in the history (SUS-209). This page load pushed it, so this is the step's
   // editor, started from the first screen's answer. The first screen's own
   // address never gains the step, so which of the two this is does not change.
-  const {
-    code: _code,
-    step: stepParam,
-    ...otherParams
-  } = useLocalSearchParams<Record<string, string>>();
+  const params = useLocalSearchParams<Record<string, string>>();
+  const { step: stepParam } = params;
+  const otherParams = Object.fromEntries(
+    Object.entries(params).filter(([key]) => key !== 'code' && key !== 'step'),
+  );
   const exact = hoursStepShown(stepParam, code);
   const [state, dispatch] = useReducer(reducer, undefined, (): EditorState => {
     const start = (): EditorState => {
@@ -186,6 +186,7 @@ export function Answering({
       return true;
     });
     return () => hardware.remove();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [exact]);
 
   // Previous times (ADR 0037's amendment, ADR 0068): the reader's own earlier
