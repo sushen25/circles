@@ -216,6 +216,8 @@ describe('Save your place, the gate of the first run (ADR 0053)', () => {
 
   it('goes on to make the circle once the code is through, telling the draft first', async () => {
     Object.assign(session, { status: 'saved', userId: 'maya' });
+    // Asked before: the source question is the next describe's.
+    askToShow.mockResolvedValue({ suppressed: true, reason: 'already_shown' });
     auth.ownProfile.mockResolvedValue({ name: 'Maya', zone: 'Australia/Melbourne' });
     const onPassed = vi.fn().mockResolvedValue(undefined);
     wrap(<SignInFlow gate={{ place, onPassed }} />);
@@ -335,6 +337,7 @@ describe('Save your place, the gate of the first run (ADR 0053)', () => {
 
   it('asks a new account its name first', async () => {
     Object.assign(session, { status: 'saved', userId: 'maya' });
+    askToShow.mockResolvedValue({ suppressed: true, reason: 'already_shown' });
     wrap(<SignInFlow gate={{ place, onPassed: async () => undefined }} />);
     await sendCodeTo(ADDRESS);
     await enter('123456');
