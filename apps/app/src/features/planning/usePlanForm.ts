@@ -7,7 +7,7 @@ import {
   bandKind,
   canStep,
   cellsPerDay,
-  DAYTIME,
+  DAYS_AND_EVENINGS,
   EVENINGS,
   stepBand,
   type BandKind,
@@ -161,7 +161,10 @@ export function usePlanForm({
     onKind: (next: BandKind) => {
       setBandChosen(true);
       setBandMode(next === 'custom' ? 'custom' : undefined);
-      change({ band: next === 'evenings' ? EVENINGS : next === 'daytime' ? DAYTIME : band });
+      change({
+        band:
+          next === 'evenings' ? EVENINGS : next === 'days_and_evenings' ? DAYS_AND_EVENINGS : band,
+      });
     },
     onStep: (edge: 'start' | 'end', direction: 1 | -1) => {
       setBandChosen(true);

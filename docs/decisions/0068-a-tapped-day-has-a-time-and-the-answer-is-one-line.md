@@ -68,9 +68,9 @@ above Send: the answer as a line.
   **Adjust hours**, and it goes straight to a plain list of the tapped days, each
   with its hours, opening to its half hours ("Your hours each evening"). A plan
   from 3 to 9 pm keeps Evening, Daytime (3 to 5 pm) and Any time, which still
-  differ. The organiser's plan-band preset is also called "Daytime"
-  (`planning/bands.ts`) but runs 9 am to 10:30 pm; the two are not the same word
-  for the same hours, and the organiser's side is unchanged here.
+  differ. The organiser's plan-band preset used to be called "Daytime" too
+  (`planning/bands.ts`) but runs 9 am to 10:30 pm; SUS-210 renamed it "Days and
+  evenings", so "Daytime" now means only the guest's 9 am to 5 pm.
 - **Dragging across days taps them.** As in plan setup (SUS-133), a drag that
   starts on an untapped day taps every day it crosses with the current time of
   day, one that starts on a tapped day untaps them, a day that already has its

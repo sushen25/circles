@@ -2064,7 +2064,7 @@ export const en = {
     custom_day: 'Custom · 1 day',
     times_of_day: 'Times of day',
     evenings: 'Evenings',
-    daytime: 'Daytime',
+    days_and_evenings: 'Days and evenings',
     custom_times: 'Custom',
     band_line: '{time}',
     band_cells: '{count} half hours a day for everyone to look at',

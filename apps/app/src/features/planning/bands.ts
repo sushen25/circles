@@ -12,11 +12,11 @@ import type { Band } from './form';
  * cannot produce one (S1-02's third note).
  */
 export const EVENINGS: Band = { startMin: 17 * 60 + 30, endMin: 22 * 60 + 30 };
-export const DAYTIME: Band = { startMin: 9 * 60, endMin: 22 * 60 + 30 };
+export const DAYS_AND_EVENINGS: Band = { startMin: 9 * 60, endMin: 22 * 60 + 30 };
 /** Where "Custom" starts from when nothing custom has been chosen yet. */
 export const CUSTOM_START: Band = { startMin: 12 * 60, endMin: 17 * 60 };
 
-export type BandKind = 'evenings' | 'daytime' | 'custom';
+export type BandKind = 'evenings' | 'days_and_evenings' | 'custom';
 
 export function sameBand(a: Band, b: Band): boolean {
   return a.startMin === b.startMin && a.endMin === b.endMin;
@@ -24,7 +24,7 @@ export function sameBand(a: Band, b: Band): boolean {
 
 export function bandKind(band: Band): BandKind {
   if (sameBand(band, EVENINGS)) return 'evenings';
-  if (sameBand(band, DAYTIME)) return 'daytime';
+  if (sameBand(band, DAYS_AND_EVENINGS)) return 'days_and_evenings';
   return 'custom';
 }
 

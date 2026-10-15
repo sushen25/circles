@@ -8,6 +8,20 @@ describe('the copy file', () => {
     expect(Object.keys(en).length).toBeGreaterThanOrEqual(78);
   });
 
+  it("never gives the organiser's plan-hours preset and the guest's time choice one label (SUS-210)", () => {
+    // The preset is 9 am to 10:30 pm; the guest's Daytime is 9 am to 5 pm. One
+    // word for two spans is the clash SUS-210 removed, so neither may come back.
+    const organiser = en.planSetup.days_and_evenings;
+    const guest = en.availability.daytime;
+    expect(organiser).toBe('Days and evenings');
+    expect(guest).toBe('Daytime');
+    expect(organiser.toLowerCase()).not.toBe(guest.toLowerCase());
+    expect(Object.keys(en.planSetup)).not.toContain('daytime');
+    for (const [key, value] of Object.entries(en.planSetup)) {
+      expect(value as string, `planSetup.${key}`).not.toMatch(/\bday-?times?\b/i);
+    }
+  });
+
   it('names no product or domain literally, so a rename stays a config change', () => {
     for (const [screen, strings] of Object.entries(en)) {
       for (const [key, value] of Object.entries(strings)) {

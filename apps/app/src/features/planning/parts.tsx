@@ -1,7 +1,7 @@
 import { Chip, Chips, CompactButton, Label, Small, Tertiary, Title } from '../../components';
 import { Between, Row, Stack } from '../../components/layout';
 import { t } from '../../copy';
-import { DAYTIME, EVENINGS, type BandKind } from './bands';
+import { DAYS_AND_EVENINGS, EVENINGS, type BandKind } from './bands';
 import { bandWords } from './words';
 
 /**
@@ -86,7 +86,7 @@ export type BandPickerProps = {
 };
 
 /**
- * Evenings, daytime, or any hours at all — half an hour at a time, so the
+ * Evenings, days and evenings, or any hours at all — half an hour at a time, so the
  * picker cannot produce a band the domain would refuse (`band_unaligned`).
  * Custom hours say what they cost: every half hour is a cell somebody scrolls.
  */
@@ -124,10 +124,10 @@ export function BandPicker({ kind, from, to, cells, onKind, onStep, canStep }: B
           onPress={() => onKind('evenings')}
         />
         <Chip
-          label={t('planSetup', 'daytime')}
-          detail={bandWords(DAYTIME)}
-          selected={kind === 'daytime'}
-          onPress={() => onKind('daytime')}
+          label={t('planSetup', 'days_and_evenings')}
+          detail={bandWords(DAYS_AND_EVENINGS)}
+          selected={kind === 'days_and_evenings'}
+          onPress={() => onKind('days_and_evenings')}
         />
         <Chip
           label={t('planSetup', 'custom_times')}
