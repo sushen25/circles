@@ -244,22 +244,32 @@ test('an ask that opens is counted: quiet_threshold_reached, against nobody', as
     circleId,
     people: [maya, tom, jess],
   } = await savedPlaces('Maya', 'Tom', 'Jess');
-  const since = sql('select now()')[0]![0]!;
   const ask = askedInSql(circleId, maya!.userId);
   keenInSql(ask.id, tom!.userId);
   keenInSql(ask.id, jess!.userId);
   await runDispatcher();
-  // Marked here, after the setup, so a setup that breaks is still a failure.
-  // By name and time, not by plan: which ids the row carries is SUS-97's to
-  // decide (the other quiet events carry none), and it must carry no person.
-  test.fail(true, 'SUS-97: nothing emits quiet_threshold_reached yet');
-  const counted = () =>
-    sql(`select count(*), count(*) filter (where user_id is not null or anonymous_id is not null)
-         from analytics.events
-         where event_name = 'quiet_threshold_reached' and received_at >= '${since}'`)[0]!;
-  for (let attempt = 0; attempt < 10 && counted()[0] === '0'; attempt += 1) await runDispatcher();
-  expect(Number(counted()[0])).toBeGreaterThan(0);
-  expect(counted()[1]).toBe('0');
+  // The row is found by its id, which the dispatcher derives from this ask's
+  // outbox row (so a replay lands on it), and not by plan: it carries none.
+  // It carries no person, plan or circle either, only the threshold fixed when
+  // the ask was made (SUS-97, like the other quiet events), and its time is
+  // rounded down to the hour.
+  const row = () =>
+    sql(`select e.user_id is null and e.anonymous_id is null and e.plan_id is null and e.circle_id is null,
+                (e.properties ->> 'threshold')::int = p.quiet_threshold and e.properties = jsonb_build_object('threshold', p.quiet_threshold), e.occurred_at = date_trunc('hour', e.occurred_at),
+                e.received_at = date_trunc('hour', e.received_at)
+         from jobs.outbox o
+         join public.plans p on p.id = o.aggregate_id
+         join analytics.events e on e.event_id = (
+           substr(h.hex, 1, 8) || '-' || substr(h.hex, 9, 4) || '-' || substr(h.hex, 13, 4) || '-'
+           || substr(h.hex, 17, 4) || '-' || substr(h.hex, 21, 12))::uuid
+         cross join lateral (select encode(sha256(convert_to('quiet_threshold_reached:' || o.id, 'UTF8')), 'hex') as hex) h
+         where o.aggregate_id = '${ask.id}' and o.event_name = 'planning.threshold_reached'
+           and e.event_name = 'quiet_threshold_reached'`);
+  for (let attempt = 0; attempt < 10 && row().length === 0; attempt += 1) await runDispatcher();
+  expect(row()).toEqual([['t', 't', 't', 't']]);
+  // One more run: the replay-safe id means still one row.
+  await runDispatcher();
+  expect(row()).toHaveLength(1);
 });
 
 test('replies close with nobody organising: the owner, who never answered, may take it on then and not before', async ({
