@@ -10,8 +10,10 @@ import {
   UNATTRIBUTED_EVENTS,
   acceptEvent,
   catalogue,
+  isServerEvent,
   isUnattributed,
   validateEvent,
+  type EventName,
 } from './analytics';
 
 const entries = Object.entries(catalogue);
@@ -437,5 +439,29 @@ describe('client_error (SUS-112)', () => {
     };
     for (const value of Object.values(longest)) expect(value).toMatch(/^[A-Za-z0-9_./:+-]{1,40}$/);
     expect(validateEvent('client_error', longest)).not.toBeNull();
+  });
+});
+
+describe('who may record an event (SUS-185)', () => {
+  const SERVER_ONLY = [
+    'cadence_prompt_sent',
+    'candidate_set_generated',
+    'email_delivery_result',
+    'plan_expired',
+    'quiet_threshold_reached',
+  ];
+
+  it('gives every event a source, and only the server-side facts are server', () => {
+    const names = Object.keys(catalogue) as EventName[];
+    for (const name of names) expect(['client', 'server']).toContain(catalogue[name].source);
+    expect(names.filter(isServerEvent).sort()).toEqual(SERVER_ONLY);
+  });
+
+  it('keeps the crash report a client event: the error boundary sends it (SUS-112)', () => {
+    expect(isServerEvent('client_error')).toBe(false);
+  });
+
+  it('keeps the quiet ask events, which the app sends as nobody, client events', () => {
+    for (const name of UNATTRIBUTED_EVENTS) expect(isServerEvent(name)).toBe(false);
   });
 });

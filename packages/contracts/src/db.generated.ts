@@ -949,6 +949,14 @@ export type Database = {
           first_in_circle: boolean
         }[]
       }
+      analytics_member_ids: {
+        Args: {
+          p_circle_ids: string[]
+          p_plan_ids: string[]
+          p_user_id: string
+        }
+        Returns: Json
+      }
       auth_is_member: { Args: { circle_id: string }; Returns: boolean }
       auth_is_owner: { Args: { circle_id: string }; Returns: boolean }
       auth_is_permanent: { Args: never; Returns: boolean }
