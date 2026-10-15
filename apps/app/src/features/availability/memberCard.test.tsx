@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { resetHoursRouter } from '../../test/hours-router';
 
 /**
  * After sending, a signed-in member with a confirmed address (SUS-164): their
@@ -16,12 +17,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const push = vi.fn();
 const replace = vi.fn();
-vi.mock('expo-router', () => ({
-  useRouter: () => ({ push, replace, dismissTo: vi.fn(), back: vi.fn(), canGoBack: () => false }),
-  useFocusEffect: (effect: () => void) => effect(),
-  useLocalSearchParams: () => ({}),
-  Redirect: () => null,
-}));
+vi.mock('expo-router', async () => {
+  const { hoursRouter } = await import('../../test/hours-router');
+  return hoursRouter({ replace: (h) => replace(h), push: (h) => push(h) });
+});
 const track = vi.fn();
 vi.mock('../../analytics/track', () => ({ track: (...args: unknown[]) => track(...args) }));
 vi.mock('../../data/auth/client', () => ({ hasBackend: () => true }));
@@ -87,6 +86,7 @@ async function tap() {
 }
 
 beforeEach(() => {
+  resetHoursRouter();
   Object.assign(session, {
     status: 'guest',
     userId: 'nina',

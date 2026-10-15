@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { resetHoursRouter } from '../../test/hours-router';
 
 import type * as AvailabilityData from '../../data/availability';
 
@@ -13,9 +14,10 @@ import type * as AvailabilityData from '../../data/availability';
  * measured with booleans only. A plan about tonight offers From now and Later
  * tonight.
  */
-vi.mock('expo-router', () => ({
-  useRouter: () => ({ replace: vi.fn(), push: vi.fn(), back: vi.fn(), canGoBack: () => false }),
-}));
+vi.mock('expo-router', async () => {
+  const { hoursRouter } = await import('../../test/hours-router');
+  return hoursRouter({ replace: () => undefined, push: () => undefined });
+});
 const track = vi.fn();
 vi.mock('../../analytics/track', () => ({ track: (...args: unknown[]) => track(...args) }));
 vi.mock('../../data/auth/client', () => ({ hasBackend: () => true }));
@@ -54,6 +56,7 @@ const prefilled = (n: number) => waitFor(() => expect(tapped()).toHaveLength(n))
 const EVENINGS = 'Evenings, from 5:30 pm';
 
 beforeEach(() => {
+  resetHoursRouter();
   session.userId = 'nina';
   for (const mock of [planToAnswer, submitAnswer, usualTimes, track]) mock.mockReset();
   globalThis.localStorage.clear();

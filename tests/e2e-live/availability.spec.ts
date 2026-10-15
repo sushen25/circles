@@ -412,3 +412,76 @@ test('a plan past its deadline, still marked collecting, says replies have close
 
   await expect(page.getByText('Replies have closed for this one.')).toBeVisible();
 });
+
+test('browser Back from A time for each day returns to the first screen with the answer, and Forward reopens it', async ({
+  page,
+}) => {
+  const crew = sundayCrew();
+  wholeDay(crew);
+  await arriveAs(page, crew, 'Ren');
+  await evenings(page, 1, 3);
+  await changeTime(page).click();
+  await exactLink(page).click();
+  await expect(page.getByRole('heading', { name: 'A time for each day' })).toBeVisible();
+  await expect(page).toHaveURL(/step=hours/);
+  await page
+    .getByRole('button', { name: /^Daytime, / })
+    .nth(1)
+    .click();
+
+  await page.goBack();
+  await expect(page).toHaveURL(new RegExp(`/j/${crew.planCode}$`));
+  await expect(page.getByRole('heading', { name: 'Which days could work?' })).toBeVisible();
+  await expect(days(page).nth(1)).toHaveAttribute('aria-pressed', 'true');
+  await expect(days(page).nth(3)).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByText(/, but daytime on /)).toBeVisible();
+
+  await page.goForward();
+  await expect(page.getByRole('heading', { name: 'A time for each day' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Daytime, / }).nth(1)).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+
+  // Done is the same step back: one Back from the first screen leaves nothing
+  // behind it but where the person came from.
+  await page.getByRole('button', { name: 'Done', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Which days could work?' })).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`/j/${crew.planCode}$`));
+});
+
+test('browser Back from Your hours each evening returns to the first screen with the answer', async ({
+  page,
+}) => {
+  const crew = sundayCrew();
+  await arriveAs(page, crew, 'Ren');
+  await evenings(page, 1, 3);
+  await adjustHours(page).click();
+  await expect(page.getByRole('heading', { name: 'Your hours each evening' })).toBeVisible();
+
+  await page.goBack();
+  await expect(page.getByRole('heading', { name: 'Which evenings could work?' })).toBeVisible();
+  await expect(page.getByText('Evenings, from 5:30 pm')).toBeVisible();
+  await expect(days(page).nth(1)).toHaveAttribute('aria-pressed', 'true');
+
+  await page.goForward();
+  await expect(page.getByRole('heading', { name: 'Your hours each evening' })).toBeVisible();
+});
+
+test('a reload on the hours step lands on the first screen', async ({ page }) => {
+  const crew = sundayCrew();
+  await arriveAs(page, crew, 'Ren');
+  await evenings(page, 1);
+  await adjustHours(page).click();
+  await expect(page.getByRole('heading', { name: 'Your hours each evening' })).toBeVisible();
+
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'Which evenings could work?' })).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`/j/${crew.planCode}$`));
+  // The step opens again from there, and Back returns to the first screen.
+  await evenings(page, 1);
+  await adjustHours(page).click();
+  await expect(page.getByRole('heading', { name: 'Your hours each evening' })).toBeVisible();
+  await page.goBack();
+  await expect(page.getByRole('heading', { name: 'Which evenings could work?' })).toBeVisible();
+});

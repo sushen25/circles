@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { browserBack, resetHoursRouter } from '../../test/hours-router';
 
 import type * as AvailabilityData from '../../data/availability';
 
@@ -12,9 +13,10 @@ import type * as AvailabilityData from '../../data/availability';
 
 const replace = vi.fn();
 const push = vi.fn();
-vi.mock('expo-router', () => ({
-  useRouter: () => ({ replace, push, back: vi.fn(), canGoBack: () => false }),
-}));
+vi.mock('expo-router', async () => {
+  const { hoursRouter } = await import('../../test/hours-router');
+  return hoursRouter({ replace: (h) => replace(h), push: (h) => push(h) });
+});
 const track = vi.fn();
 vi.mock('../../analytics/track', () => ({ track: (...args: unknown[]) => track(...args) }));
 vi.mock('../../data/auth/client', () => ({ hasBackend: () => true }));
@@ -137,6 +139,7 @@ async function send() {
 }
 
 beforeEach(() => {
+  resetHoursRouter();
   session.userId = 'nina';
   for (const mock of [replace, push, track, planToAnswer, submitAnswer, askToPlan]) {
     mock.mockReset();
@@ -241,6 +244,23 @@ describe('painting and sending', () => {
     byTheHalfHour('Monday');
     expect(timeButton('from', 'Monday', '6:30 pm')).toBeInTheDocument();
     expect(timeButton('to', 'Monday', '10:30 pm')).toBeInTheDocument();
+  });
+});
+
+describe('the hours step is an entry of its own (SUS-209)', () => {
+  it('opens as ?step=hours, and the browser Back returns to the answer as it was', async () => {
+    open();
+    await screen.findByText('Which evenings could work?');
+    answerMonday();
+
+    eachDay();
+    expect(push).not.toHaveBeenCalled();
+    expect(screen.getByRole('heading', { name: 'Your hours each evening' })).toBeInTheDocument();
+
+    // The address's Back is the router's: the step goes, the answer stays.
+    act(() => browserBack());
+    expect(screen.getByText('Which evenings could work?')).toBeInTheDocument();
+    expect(dayButton('Monday', 14)).toHaveAttribute('aria-pressed', 'true');
   });
 });
 
