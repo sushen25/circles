@@ -1,6 +1,7 @@
 import { localDate } from '@circles/domain';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { tap } from '../../test/tap';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -137,7 +138,7 @@ describe('Plan another', () => {
     lastHappenedPlan.mockResolvedValue({ ...SEPTEMBER, quorumChosen: false });
     show(<PlanAnotherFlow id="sunday-crew" />);
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Ask the group' }));
+    await tap(screen.findByRole('button', { name: 'Ask the group' }));
 
     await waitFor(() => expect(createPlan).toHaveBeenCalledTimes(1));
     expect((createPlan.mock.calls[0]?.[0] as Planning.CreatePlanOptions).quorum).toBeUndefined();
@@ -146,7 +147,7 @@ describe('Plan another', () => {
   it('says the defaults were not used once something was changed', async () => {
     show(<PlanAnotherFlow id="sunday-crew" />);
 
-    fireEvent.click(await screen.findByRole('checkbox', { name: 'Coffee' }));
+    await tap(screen.findByRole('checkbox', { name: 'Coffee' }));
     fireEvent.click(screen.getByRole('button', { name: 'Ask the group' }));
 
     await waitFor(() => expect(createPlan).toHaveBeenCalledTimes(1));
@@ -163,7 +164,7 @@ describe('Plan another', () => {
     show(<PlanAnotherFlow id="sunday-crew" />);
     const ask = await screen.findByRole('button', { name: 'Ask the group' });
     vi.spyOn(Date, 'now').mockReturnValue(fixture.FIXTURE_NOW + 24 * 3_600_000);
-    fireEvent.click(ask);
+    await tap(ask);
 
     expect(await screen.findByText(/^Time has moved on since you opened this/)).toBeTruthy();
     expect(createPlan).not.toHaveBeenCalled();
@@ -174,7 +175,7 @@ describe('Plan another', () => {
   it('opens the full setup, filled in the same way, on Change', async () => {
     show(<PlanAnotherFlow id="sunday-crew" />);
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Change' }));
+    await tap(screen.findByRole('button', { name: 'Change' }));
 
     expect(await screen.findByText('New plan')).toBeTruthy();
     // The setup's heading is the category it was opened with.

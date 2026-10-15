@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen } from '@testing-library/react';
+import { tap } from '../../test/tap';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -106,7 +107,7 @@ describe('SUS-161: the footer keeps the decision', () => {
   it('says what a share did beside the button that asked, so the footer nudge is not answered offscreen', async () => {
     planCandidates.mockResolvedValue(fixture.ready);
     show(flow());
-    fireEvent.click(await screen.findByRole('button', { name: 'Share the link again' }));
+    await tap(screen.findByRole('button', { name: 'Share the link again' }));
     const copied = await screen.findByText(/^Copied/);
     expect(before(copied, button(/^Review/))).toBe(true);
 

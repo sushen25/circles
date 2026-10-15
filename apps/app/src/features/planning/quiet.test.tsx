@@ -1,6 +1,7 @@
 import { Instant, QuietViewResponse } from '@circles/contracts';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { tap } from '../../test/tap';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -212,8 +213,8 @@ describe('the person who asked (SparkWaiting)', () => {
   it('withdraws through cancel-plan with no note, and records nothing against them', async () => {
     show(<QuietPlanFlow planId={PLAN} circleId={CIRCLE} />);
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Withdraw the ask' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Withdraw' }));
+    await tap(screen.findByRole('button', { name: 'Withdraw the ask' }));
+    await tap(screen.findByRole('button', { name: 'Withdraw' }));
 
     await waitFor(() => expect(cancelPlan).toHaveBeenCalledTimes(1));
     expect(cancelPlan.mock.calls[0]?.[0]).toBe(PLAN);
@@ -256,7 +257,7 @@ describe('everybody else, while it asks (InterestPrompt)', () => {
 
     // Changing it is both buttons again, under a key of its own.
     fireEvent.click(screen.getByRole('button', { name: 'Change my answer' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Not this time' }));
+    await tap(screen.findByRole('button', { name: 'Not this time' }));
     await waitFor(() => expect(answerInterest).toHaveBeenCalledTimes(2));
     expect(answerInterest.mock.calls[1]?.slice(0, 2)).toEqual([PLAN, false]);
     expect(answerInterest.mock.calls[1]?.[2]).not.toBe(answerInterest.mock.calls[0]?.[2]);
@@ -268,7 +269,7 @@ describe('everybody else, while it asks (InterestPrompt)', () => {
     await screen.findByText("Thanks. We'll let you know if it opens up.");
 
     fireEvent.click(screen.getByRole('button', { name: 'Change my answer' }));
-    fireEvent.click(await screen.findByRole('button', { name: "I'm keen" }));
+    await tap(screen.findByRole('button', { name: "I'm keen" }));
     await waitFor(() => expect(track).toHaveBeenCalled());
 
     // Nothing: no answer, no plan, and (in the transport) nobody on the row.
@@ -302,7 +303,7 @@ describe('once it opens', () => {
     quietView.mockResolvedValue(OPENED);
     show(<QuietPlanFlow planId={PLAN} circleId={CIRCLE} />);
 
-    fireEvent.click(await screen.findByRole('button', { name: "I'll pick the time" }));
+    await tap(screen.findByRole('button', { name: "I'll pick the time" }));
 
     expect(await screen.findByText(`organiser gate: plan in ${CIRCLE}`)).toBeTruthy();
     expect(acceptOrganiser).not.toHaveBeenCalled();
@@ -329,7 +330,7 @@ describe('once it opens', () => {
     );
     show(<QuietPlanFlow planId={PLAN} circleId={CIRCLE} />);
 
-    fireEvent.click(await screen.findByRole('button', { name: "I'll pick the time" }));
+    await tap(screen.findByRole('button', { name: "I'll pick the time" }));
 
     expect(await screen.findByText('Someone else has just taken it on.')).toBeTruthy();
     expect(quietView.mock.calls.length).toBeGreaterThanOrEqual(2);
@@ -393,7 +394,7 @@ describe('SparkSetup', () => {
     vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-09-15T11:00:00.000Z'));
     show(<QuietSetupFlow id={CIRCLE} />);
 
-    fireEvent.click(await screen.findByRole('checkbox', { name: 'Tonight' }));
+    await tap(screen.findByRole('checkbox', { name: 'Tonight' }));
 
     expect(
       await screen.findByText('Too late to ask quietly about tonight. Pick a later window.'),
@@ -417,7 +418,7 @@ describe('SparkSetup', () => {
     show(<QuietSetupFlow id={CIRCLE} />);
 
     const invite = await screen.findByRole('button', { name: 'Invite people' });
-    fireEvent.click(invite);
+    await tap(invite);
 
     expect(push).toHaveBeenCalledWith({ pathname: '/circles/[id]/invite', params: { id: CIRCLE } });
   });
@@ -447,7 +448,7 @@ describe('SparkSetup', () => {
     );
     show(<QuietSetupFlow id={CIRCLE} />);
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Ask quietly' }));
+    await tap(screen.findByRole('button', { name: 'Ask quietly' }));
 
     expect(
       await screen.findByText(
@@ -465,7 +466,7 @@ describe('ChooseMode', () => {
 
     const card = await screen.findByRole('button', { name: /^See if people are keen\./ });
     expect(card.getAttribute('aria-label')).toMatch(/If 3 people are keen/);
-    fireEvent.click(card);
+    await tap(card);
 
     expect(await screen.findByText(`organiser gate: plan in ${CIRCLE}`)).toBeTruthy();
     expect(push).not.toHaveBeenCalled();
@@ -474,7 +475,7 @@ describe('ChooseMode', () => {
   it('goes straight to the setup for a saved place', async () => {
     show(<ChooseModeFlow id={CIRCLE} />);
 
-    fireEvent.click(await screen.findByRole('button', { name: /^See if people are keen\./ }));
+    await tap(screen.findByRole('button', { name: /^See if people are keen\./ }));
     expect(push).toHaveBeenCalledWith({
       pathname: '/circles/[id]/quiet/new',
       params: { id: CIRCLE },

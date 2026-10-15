@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { tap } from '../../test/tap';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -250,7 +251,7 @@ describe('the invite link in settings', () => {
     wrap(<SettingsFlow id={CIRCLE} />);
 
     const reset = async () => {
-      fireEvent.click(await screen.findByRole('button', { name: 'Reset link' }));
+      await tap(screen.findByRole('button', { name: 'Reset link' }));
       await act(async () => {
         fireEvent.click(
           within(screen.getByLabelText('Reset the invite link?')).getByRole('button', {
@@ -313,7 +314,7 @@ describe('the owner’s other settings', () => {
     removeMember.mockResolvedValue(undefined);
     wrap(<SettingsFlow id={CIRCLE} />);
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Remove Tom' }));
+    await tap(screen.findByRole('button', { name: 'Remove Tom' }));
     const sheet = screen.getByLabelText('Remove Tom?');
     expect(within(sheet).getByText(/Their times for plans still asking are deleted/)).toBeVisible();
     await act(async () => {
@@ -333,7 +334,7 @@ describe('the owner’s other settings', () => {
     fetchInviteSecret.mockResolvedValue(undefined);
     wrap(<SettingsFlow id={CIRCLE} />);
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Archive this circle' }));
+    await tap(screen.findByRole('button', { name: 'Archive this circle' }));
     await act(async () => {
       fireEvent.click(
         within(screen.getByLabelText('Archive Sunday Crew?')).getByRole('button', {
@@ -391,7 +392,7 @@ describe('a member who is not the owner', () => {
     wrap(<SettingsFlow id={CIRCLE} />);
 
     await act(async () => {
-      fireEvent.click(await screen.findByRole('switch', { name: 'Quiet asks' }));
+      await tap(screen.findByRole('switch', { name: 'Quiet asks' }));
     });
     await waitFor(() =>
       expect(saveMySwitches).toHaveBeenCalledWith(CIRCLE, { mutedQuietAsks: true }),
@@ -427,7 +428,7 @@ describe('a choice the server nearly always accepts', () => {
     wrap(<SettingsFlow id={CIRCLE} />);
 
     await act(async () => {
-      fireEvent.click(await screen.findByRole('switch', { name: 'Quiet asks' }));
+      await tap(screen.findByRole('switch', { name: 'Quiet asks' }));
     });
     expect(await screen.findByText("That didn't save. Try again.")).toBeVisible();
     expect(screen.getByRole('switch', { name: 'Quiet asks' }).getAttribute('aria-checked')).toBe(
