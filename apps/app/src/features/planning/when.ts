@@ -1,3 +1,7 @@
+import { formatMinutesOfDay, fromISO, toLocal, zone as toZone } from '@circles/domain';
+
+import { deviceTimeFormat } from '../availability/days';
+
 /**
  * An instant as a person reads it, in the circle's zone: "Tue 15 Sep, 6 pm".
  *
@@ -20,10 +24,20 @@ export function dayWords(iso: string, zone: string): string {
     .replace(',', '');
 }
 
-/** "Tue 15 Sep, 6 pm" — the minutes dropped on the hour in a 12-hour clock. */
+/**
+ * "Tue 15 Sep, 6 pm" or "Tue 15 Sep, 18:00": the one way a moment is written
+ * for the circle (SUS-204). The time is the domain's `formatMinutesOfDay` on
+ * the device's 12- or 24-hour preference, the same words the candidate cards
+ * and the availability editor use, so no two screens write one deadline two
+ * ways.
+ */
 export function whenWords(iso: string, zone: string): string {
-  const time = formatter(zone, { hour: 'numeric', minute: '2-digit' })
-    .format(new Date(iso))
-    .replace(/:00(?=\s?[AaPp]\.?\s?[Mm])/, '');
-  return `${dayWords(iso, zone)}, ${time}`;
+  const at = fromISO(iso);
+  let local;
+  try {
+    local = toLocal(at, toZone(zone));
+  } catch {
+    local = toLocal(at, toZone(new Intl.DateTimeFormat().resolvedOptions().timeZone));
+  }
+  return `${dayWords(iso, zone)}, ${formatMinutesOfDay(local.minutesOfDay, deviceTimeFormat())}`;
 }
