@@ -161,7 +161,7 @@ export function ContinueAsFlow({ code, arrivedWithoutSession, onReattached }: Co
   // person is told the link is not active rather than asked for a name that
   // could join nobody.
   if (circleName.data === null) {
-    return <LinkInvalidScreen reason="inactive" onBack={back} />;
+    return <LinkInvalidScreen reason="plan_inactive" onBack={back} />;
   }
 
   if ((imNew || nobodyToBe) && !signedIn) {
