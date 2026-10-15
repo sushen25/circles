@@ -1,6 +1,12 @@
-import { funnelOf, type FounderAnalytics } from '@circles/contracts';
+import {
+  FUNNEL_SOURCES,
+  funnelOf,
+  type FounderAnalytics,
+  type FunnelSourceFilter,
+} from '@circles/contracts';
+import { useState } from 'react';
 
-import { Card, Label, Small, Title } from '../../components';
+import { Card, Chip, Chips, Label, Small, Title } from '../../components';
 import { Divider, Stack } from '../../components/layout';
 import { copy, t } from '../../copy';
 import { percent } from './figures';
@@ -12,11 +18,29 @@ import { Line } from './Line';
  * totals and says what is not recorded (ADR 0041).
  */
 export function FunnelSection({ data }: { data: FounderAnalytics }) {
-  const stages = funnelOf(data);
+  const [by, setBy] = useState<FunnelSourceFilter | undefined>();
+  const stages = funnelOf(data, by);
   return (
     <Stack gap={10}>
       <Label>{t('founderAnalytics', 'funnel')}</Label>
       <Small>{t('founderAnalytics', 'funnel_detail')}</Small>
+      <Small>{t('founderAnalytics', 'funnel_source_group')}</Small>
+      <Chips>
+        <Chip
+          label={t('founderAnalytics', 'funnel_source_all')}
+          selected={by === undefined}
+          onPress={() => setBy(undefined)}
+        />
+        {FUNNEL_SOURCES.map((source) => (
+          <Chip
+            key={source}
+            label={words(`funnel_source_${source}`)}
+            selected={by === source}
+            onPress={() => setBy(source)}
+          />
+        ))}
+      </Chips>
+      {by === undefined ? null : <Small>{t('founderAnalytics', 'funnel_source_detail')}</Small>}
       <Card gap={14}>
         {stages.map((stage, index) => (
           <Stack key={stage.id} gap={8}>

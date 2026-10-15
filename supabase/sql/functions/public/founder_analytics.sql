@@ -24,6 +24,9 @@
 -- so ("Not measured"); a gate returned with a zero denominator is one with no
 -- data yet, which is a different sentence.
 --
+-- `by_source` is the same counters and event totals split by the owner's answer
+-- to "How did you hear about Wenna?", counts only (SUS-171).
+--
 -- The period is clamped to 400 days: it is a cost bound, not a rule, and the
 -- answer says from when it is.
 -- ---------------------------------------------------------------------------
@@ -124,6 +127,41 @@ begin
         from analytics.gate_second_meetup s
         where s.day >= v_from
       ) c
+    ),
+    -- The funnel by "How did you hear about Wenna?" (SUS-171): per source, the
+    -- same row counts and every event's total. A source is an answer to a
+    -- question, a circle's or an event's the owner's: nobody is named, and a
+    -- source with nothing in it comes back as empty objects.
+    'by_source', (
+      select jsonb_object_agg(s.source, jsonb_build_object(
+        'counters', (
+          select coalesce(jsonb_object_agg(c.counter, c.n), '{}'::jsonb)
+          from (
+            select f.counter, sum(f.n)::int as n
+            from analytics.funnel_counts f
+            where f.day >= v_from and f.source = s.source
+            group by f.counter
+            union all
+            select 'second_meetup_circles', coalesce(sum(g.circles), 0)::int
+            from analytics.gate_second_meetup g
+            where g.day >= v_from and g.source = s.source
+          ) c
+        ),
+        'events', (
+          select coalesce(jsonb_object_agg(x.event_name, x.n), '{}'::jsonb)
+          from (
+            select e.event_name, count(*)::int as n
+            from analytics.events e
+            join analytics.event_source es on es.event_id = e.id
+            where es.source = s.source
+              and (e.occurred_at at time zone 'UTC')::date >= v_from
+            group by e.event_name
+          ) x
+        )
+      ))
+      from (
+        values ('friend_group'), ('reddit'), ('meetup'), ('other'), ('skipped'), ('unknown')
+      ) as s(source)
     ),
     'events', (
       select coalesce(jsonb_agg(

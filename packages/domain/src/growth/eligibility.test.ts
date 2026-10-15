@@ -119,6 +119,25 @@ describe('nudgeEligibility: once per moment per plan', () => {
   });
 });
 
+describe('nudgeEligibility: the organiser source question', () => {
+  it('is asked once per account, whoever and wherever, with no plan', () => {
+    expect(nudgeEligibility('organiser_source', [], 'saved', NOW)).toEqual({ kind: 'show' });
+    expect(nudgeEligibility('organiser_source', [], 'guest', NOW)).toEqual({ kind: 'show' });
+    const asked = [row('organiser_source')];
+    expect(nudgeEligibility('organiser_source', asked, 'saved', NOW)).toEqual({
+      kind: 'skip',
+      reason: 'already_shown',
+    });
+  });
+
+  it('is not held by the one-per-session budget, and does not spend it', () => {
+    expect(
+      nudgeEligibility('organiser_source', [], 'saved', NOW, { shownThisSession: true }),
+    ).toEqual({ kind: 'show' });
+    expect(spendsSessionBudget('organiser_source')).toBe(false);
+  });
+});
+
 describe('nudgeEligibility: one per session', () => {
   it('holds a second saved-place or app prompt in the same session', () => {
     for (const moment of ['after_attendance_start_circle', 'second_response_app'] as const) {

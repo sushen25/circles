@@ -64,8 +64,16 @@ vi.mock('../../data/circles', () => ({
   newestCircleId: () => newestCircleId(),
 }));
 
+const askToShow = vi.fn();
+const recordAnswer = vi.fn();
+vi.mock('../../data/growth', () => ({
+  askToShow: (...a: unknown[]) => askToShow(...a),
+  recordAnswer: (...a: unknown[]) => recordAnswer(...a),
+}));
+
 const { resetClientErrors } = await import('../../analytics/clientError');
 const { SignInFlow } = await import('./SignInFlow');
+const { forgetSessionNudges } = await import('../growth/useNudge');
 const { WelcomeFlow } = await import('./WelcomeFlow');
 const { YourNameFlow } = await import('./YourNameFlow');
 
@@ -102,6 +110,8 @@ beforeEach(() => {
     track,
     belongsToAnyCircle,
     newestCircleId,
+    askToShow,
+    recordAnswer,
     ...Object.values(auth),
   ]) {
     mock.mockReset();
@@ -112,6 +122,9 @@ beforeEach(() => {
   auth.ownProfile.mockResolvedValue({ name: null, zone: null });
   belongsToAnyCircle.mockResolvedValue(false);
   newestCircleId.mockResolvedValue(undefined);
+  askToShow.mockResolvedValue({ suppressed: false });
+  recordAnswer.mockResolvedValue(undefined);
+  forgetSessionNudges();
 });
 
 afterEach(() => {
@@ -208,6 +221,83 @@ describe('Save your place, the gate of the first run (ADR 0053)', () => {
 
     await waitFor(() => expect(replace).toHaveBeenCalledWith('/circles/new/finish'));
     expect(onPassed).toHaveBeenCalledTimes(1);
+  });
+
+  describe('"How did you hear about Wenna?" (SUS-171)', () => {
+    const asked = () => askToShow.mock.calls.map(([target]) => target);
+    const sourceEvents = () => track.mock.calls.filter(([name]) => name === 'organiser_source');
+
+    async function throughTheCode() {
+      Object.assign(session, { status: 'saved', userId: 'maya' });
+      auth.ownProfile.mockResolvedValue({ name: 'Maya', zone: 'Australia/Melbourne' });
+      const onPassed = vi.fn().mockResolvedValue(undefined);
+      wrap(<SignInFlow gate={{ place, onPassed }} />);
+      await sendCodeTo(ADDRESS);
+      await enter('123456');
+      return onPassed;
+    }
+
+    it('is asked once the code is through and before the circle is made, with one tap on each answer', async () => {
+      const onPassed = await throughTheCode();
+      expect(await screen.findByText('How did you hear about Wenna?')).toBeVisible();
+      expect(replace).not.toHaveBeenCalled();
+      expect(onPassed).toHaveBeenCalledTimes(1);
+      expect(asked()).toEqual([{ moment: 'organiser_source', planId: undefined }]);
+      for (const name of ["A friend's group", 'Reddit', 'A meetup or club', 'Somewhere else']) {
+        expect(screen.getByRole('checkbox', { name })).toBeVisible();
+      }
+      expect(screen.getByRole('button', { name: 'Skip' })).toBeVisible();
+      expect(screen.queryByRole('textbox')).toBeNull();
+
+      fireEvent.click(screen.getByRole('checkbox', { name: 'Reddit' }));
+      expect(replace).toHaveBeenCalledWith('/circles/new/finish');
+      expect(sourceEvents()).toEqual([['organiser_source', { source: 'reddit' }]]);
+      // Nothing about the answer reaches the account's own record.
+      expect(recordAnswer).not.toHaveBeenCalled();
+    });
+
+    it('records a skip as skipped and goes straight on', async () => {
+      await throughTheCode();
+      fireEvent.click(await screen.findByRole('button', { name: 'Skip' }));
+      expect(replace).toHaveBeenCalledWith('/circles/new/finish');
+      expect(sourceEvents()).toEqual([['organiser_source', { source: 'skipped' }]]);
+    });
+
+    it('counts a choice once, whatever else is tapped', async () => {
+      await throughTheCode();
+      const meetup = await screen.findByRole('checkbox', { name: 'A meetup or club' });
+      fireEvent.click(meetup);
+      fireEvent.click(meetup);
+      fireEvent.click(screen.getByRole('button', { name: 'Skip' }));
+      expect(sourceEvents()).toHaveLength(1);
+      expect(replace).toHaveBeenCalledTimes(1);
+    });
+
+    it('never shows an account that has been asked before, and counts nothing', async () => {
+      askToShow.mockResolvedValue({ suppressed: true, reason: 'already_shown' });
+      await throughTheCode();
+      await waitFor(() => expect(replace).toHaveBeenCalledWith('/circles/new/finish'));
+      expect(screen.queryByText('How did you hear about Wenna?')).toBeNull();
+      expect(sourceEvents()).toEqual([]);
+    });
+
+    it('does not block on a server that cannot be asked', async () => {
+      askToShow.mockRejectedValue(new Error('offline'));
+      await throughTheCode();
+      await waitFor(() => expect(replace).toHaveBeenCalledWith('/circles/new/finish'));
+      expect(sourceEvents()).toEqual([]);
+    });
+
+    it('is not asked at the ordinary sign-in, where there is no gate', async () => {
+      Object.assign(session, { status: 'saved', userId: 'maya' });
+      auth.ownProfile.mockResolvedValue({ name: 'Maya', zone: 'Australia/Melbourne' });
+      newestCircleId.mockResolvedValue('c1');
+      wrap(<SignInFlow />);
+      await sendCodeTo(ADDRESS);
+      await enter('123456');
+      await waitFor(() => expect(replace).toHaveBeenCalledWith('/circles'));
+      expect(askToShow).not.toHaveBeenCalled();
+    });
   });
 
   it('asks a new account its name first', async () => {

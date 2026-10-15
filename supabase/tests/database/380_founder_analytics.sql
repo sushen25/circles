@@ -13,7 +13,7 @@
 -- is a count of this file's scenario.
 
 begin;
-select plan(55);
+select plan(64);
 
 create or replace function pg_temp.make_user(id uuid, name text, permanent boolean default true)
 returns uuid language sql as $$
@@ -123,8 +123,8 @@ select throws_ok(
 );
 select is(
   (select array(select jsonb_object_keys(public.founder_analytics(pg_temp.d(2))) order by 1)),
-  array['cohort_circles', 'counters', 'events', 'gates', 'north_star', 'since'],
-  'somebody on the allowlist gets the six parts'
+  array['by_source', 'cohort_circles', 'counters', 'events', 'gates', 'north_star', 'since'],
+  'somebody on the allowlist gets the seven parts'
 );
 select is(
   public.founder_analytics(pg_temp.d(2)) ->> 'since',
@@ -646,6 +646,74 @@ select is(
   (select array(select jsonb_object_keys(public.founder_analytics(pg_temp.d(0)) -> 'gates' -> 'external' -> 'response_time') order by 1)),
   array['median_seconds', 'n'],
   'and a median gate says its median and how many answers it is the median of'
+);
+
+-- ---------------------------------------------------------------------------
+-- By source (SUS-171): the funnel read by the owner's answer to "How did you
+-- hear about Wenna?". Counts, attributed through the circle's owner.
+-- ---------------------------------------------------------------------------
+select pg_temp.act_as_postgres();
+
+select is(
+  (select source from analytics.circle_source where circle_id = (select circle_id from t)),
+  'unknown',
+  'a circle whose owner was never asked is unknown'
+);
+
+insert into analytics.events (event_id, event_name, schema_version, user_id, properties, occurred_at)
+values
+  (gen_random_uuid(), 'organiser_source', 1, '00000000-0000-0000-0000-0000000f0001',
+   '{"source": "skipped"}', pg_temp.at(0, '08:00')),
+  (gen_random_uuid(), 'organiser_source', 1, '00000000-0000-0000-0000-0000000f0001',
+   '{"source": "reddit"}', pg_temp.at(0, '09:00'));
+
+select is(
+  (select source from analytics.organiser_source_of where user_id = '00000000-0000-0000-0000-0000000f0001'),
+  'reddit',
+  'an account''s latest answer is the one that counts'
+);
+select is(
+  (select source from analytics.circle_source where circle_id = (select circle_id from t)),
+  'reddit',
+  'and its circle is counted under it'
+);
+select is(
+  (select source from analytics.funnel_counts where counter = 'answers' and day = pg_temp.d(1)),
+  'reddit',
+  'a first response is counted under the circle owner''s source, not the member''s'
+);
+select is(
+  (select source from analytics.event_source es
+     join analytics.events e on e.id = es.event_id
+    where e.event_name = 'circle_joined' and e.user_id = '00000000-0000-0000-0000-0000000f0002'
+      and e.circle_id = '00000000-0000-0000-0000-00000000c1c1'),
+  null,
+  'an event for a circle that does not exist cannot be placed, so it is in no source'
+);
+
+select pg_temp.act_as('00000000-0000-0000-0000-0000000f0004');
+select ok(
+  (public.founder_analytics(pg_temp.d(0)) -> 'by_source' -> 'reddit' -> 'counters' ->> 'circles_created')::int >= 1
+  and (public.founder_analytics(pg_temp.d(0)) -> 'by_source' -> 'reddit' -> 'events' ->> 'organiser_source')::int = 2
+  and (public.founder_analytics(pg_temp.d(0)) -> 'by_source' -> 'reddit' -> 'counters' ->> 'second_meetup_circles')::int >= 1,
+  'the function returns the funnel for a source: counters, event totals and the second-meetup count'
+);
+select is(
+  (select array(select jsonb_object_keys(public.founder_analytics(pg_temp.d(0)) -> 'by_source') order by 1)),
+  array['friend_group', 'meetup', 'other', 'reddit', 'skipped', 'unknown'],
+  'every source is there, empty or not'
+);
+select ok(
+  (public.founder_analytics(pg_temp.d(0)) -> 'by_source')::text !~* '00000000-0000-0000-0000-0000000f000|Maya|Nina|Tom|Sam|Sunday',
+  'and names nobody: no id, no name, only counts'
+);
+
+select pg_temp.act_as_postgres();
+select ok(
+  not has_table_privilege('authenticated', 'analytics.organiser_source_of', 'select')
+  and not has_table_privilege('service_role', 'analytics.circle_source', 'select')
+  and not has_table_privilege('anon', 'analytics.event_source', 'select'),
+  'the views that pair an account with its source are readable by no role'
 );
 
 select * from finish();

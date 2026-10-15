@@ -31,6 +31,10 @@ import { type Instant, compare } from '../shared/instant.js';
  *   circle's first happened meetup: "Start a circle for another group".
  * - `organiser_gate` — a guest about to organise: save your place first. A
  *   gate rather than a nudge; recorded so the conversion map can be read.
+ * - `organiser_source` — "How did you hear about Wenna?", asked once per
+ *   account right after the gate's code is accepted (SUS-171). The row says
+ *   the question was asked and nothing about the answer: that is an analytics
+ *   event, never a column that joins a source to a person.
  * - `reattached_twice_app`, `locked_in_app`, `email_given_app`,
  *   `second_response_app` — the app prompts (Slice 3). One cap group.
  */
@@ -39,6 +43,7 @@ export const NUDGE_MOMENTS = [
   'email_given_app',
   'locked_in_app',
   'organiser_gate',
+  'organiser_source',
   'reattached_save_place',
   'reattached_twice_app',
   'second_response_app',
@@ -54,7 +59,8 @@ export function isNudgeMoment(value: string): value is NudgeMoment {
 /**
  * Which rules a moment is held to.
  *
- * - `offer` — the email card on Sent. Once per plan and nothing else: it is
+ * - `offer` — the email card on Sent, and the organiser source question
+ *   (once per person, not per plan). Once per plan and nothing else: it is
  *   the anonymous guest's own column of the map, not a conversion, so it
  *   neither spends nor respects the one-per-session budget.
  * - `saved_place` — the two prompts to save a place. Once, and one per session.
@@ -68,6 +74,7 @@ const GROUP: Record<NudgeMoment, NudgeGroup> = {
   reattached_save_place: 'saved_place',
   after_attendance_start_circle: 'saved_place',
   organiser_gate: 'gate',
+  organiser_source: 'offer',
   reattached_twice_app: 'app',
   locked_in_app: 'app',
   email_given_app: 'app',
@@ -89,7 +96,7 @@ export function nudgeGroupOf(moment: NudgeMoment): NudgeGroup {
  * yet a plan.
  */
 export function isPlanBoundMoment(moment: NudgeMoment): boolean {
-  return moment !== 'organiser_gate';
+  return moment !== 'organiser_gate' && moment !== 'organiser_source';
 }
 
 /** Who is being asked. `app` is a person using the installed app. */
@@ -165,6 +172,7 @@ const ONCE_PER_PERSON: ReadonlySet<NudgeMoment> = new Set([
   'reattached_save_place',
   'reattached_twice_app',
   'organiser_gate',
+  'organiser_source',
 ]);
 
 /**

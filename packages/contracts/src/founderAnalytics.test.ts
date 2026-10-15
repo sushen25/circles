@@ -5,6 +5,7 @@ import {
   FOUNDER_PERIODS,
   FUNNEL,
   FounderAnalytics,
+  FUNNEL_SOURCES,
   GATES,
   RATES,
   adoptionOf,
@@ -200,6 +201,28 @@ describe('the funnel', () => {
     expect(invitation?.steps[1]?.share).toBeCloseTo(29 / 41);
     expect(invitation?.steps[0]?.share).toBeNull();
     expect(stages.find((s) => s.id === 'quiet_ask')?.hasMissing).toBe(true);
+  });
+
+  it('reads the same funnel for one answer to "How did you hear about Wenna?"', () => {
+    const reddit = funnelOf(founderAnalyticsFixture, 'reddit');
+    const invitation = reddit.find((s) => s.id === 'invitation');
+    expect(invitation?.steps.map((s) => s.count)).toEqual([9, 6, 5]);
+    expect(invitation?.steps[1]?.share).toBeCloseTo(6 / 9);
+    expect(reddit.find((s) => s.id === 'activation')?.steps.map((s) => s.count)).toEqual([2, 1]);
+  });
+
+  it('adds up: the sources together are the circles the whole funnel counts', () => {
+    const made = (by?: Parameters<typeof funnelOf>[1]) =>
+      funnelOf(founderAnalyticsFixture, by).find((s) => s.id === 'acquisition')?.steps[0]?.count;
+    const sum = FUNNEL_SOURCES.reduce((n, source) => n + (made(source) ?? 0), 0);
+    expect(sum).toBe(made());
+  });
+
+  it('is zero for a source nobody came from, and for a result that predates the split', () => {
+    const none = funnelOf(founderAnalyticsFixture, 'meetup').flatMap((s) => s.steps);
+    expect(none.every((s) => s.count === 0 && s.share === null)).toBe(true);
+    const old = FounderAnalytics.parse({ ...founderAnalyticsFixture, by_source: undefined });
+    expect(old.by_source).toEqual({});
   });
 
   it('shows no conversion off a step that is zero', () => {

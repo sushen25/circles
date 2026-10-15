@@ -240,7 +240,7 @@ select is(
      (select pg_get_constraintdef(oid) from pg_constraint where conname = 'nudge_states_moment'),
      '''([a-z_]+)''::text', 'g') as m),
   array['after_attendance_start_circle', 'email_given_app', 'locked_in_app', 'organiser_gate',
-        'reattached_save_place', 'reattached_twice_app', 'second_response_app', 'sent_save_access'],
+        'organiser_source', 'reattached_save_place', 'reattached_twice_app', 'second_response_app', 'sent_save_access'],
   'the nudge moments the database accepts are exactly NUDGE_MOMENTS in packages/domain (analytics.test.ts holds the other half)'
 );
 

@@ -6,7 +6,7 @@ import {
   founderAnalyticsFixture,
 } from '@circles/contracts';
 import { QueryClient, QueryClientProvider, onlineManager } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -125,6 +125,24 @@ describe('the screen, from a fixture', () => {
     expect(screen.getByText('Invitation')).toBeTruthy();
     expect(screen.getByText('29 · 71% of the step before')).toBeTruthy();
     expect(screen.getByText(/Not measured: whether the threshold was reached/)).toBeTruthy();
+  });
+
+  it('reads the funnel by where the organiser heard of us, and back to all of it', () => {
+    render(<AnalyticsScreen data={founderAnalyticsFixture} />);
+    const chip = (name: string) => screen.getByRole('checkbox', { name });
+    expect(chip('All').getAttribute('aria-checked')).toBe('true');
+
+    fireEvent.click(chip('Reddit'));
+    expect(chip('Reddit').getAttribute('aria-checked')).toBe('true');
+    expect(screen.getByText('6 · 67% of the step before')).toBeTruthy();
+    expect(screen.queryByText('29 · 71% of the step before')).toBeNull();
+    expect(screen.getByText(/counted under the answer of the circle's organiser/)).toBeTruthy();
+
+    fireEvent.click(chip('Not asked'));
+    expect(screen.getByText('8 · 67% of the step before')).toBeTruthy();
+
+    fireEvent.click(chip('All'));
+    expect(screen.getByText('29 · 71% of the step before')).toBeTruthy();
   });
 
   it('shows adoption with a boolean split and the named rate', () => {
