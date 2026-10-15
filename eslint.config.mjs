@@ -8,46 +8,57 @@ import circles from './tooling/eslint-rules/index.mjs';
 import tseslint from 'typescript-eslint';
 
 /**
- * Architecture §7.2 is enforced here, in two halves:
+ * Architecture §7.2 is enforced here by one rule, `boundaries/dependencies`,
+ * whose `policies` say two things about every import in a layer:
  *
- *   `boundaries/element-types` — which *folders* may import which, by path.
+ *   `to: { element }` — which *folders* may import which, by path.
  *     Notably, inside `apps/app`, `data` and `platform` never import `features`.
- *   `boundaries/external`      — which *packages* each layer may import.
+ *   `to: { module }`  — which *packages* each layer may import.
  *     Notably, `packages/domain` may import nothing but `date-fns-tz`; a stray
  *     `import 'react'` there is a lint error, not a review comment.
  *
- * `apps/app` (S0-02) and `supabase/functions` (S0-06) do not exist yet; their
- * elements are declared now so those tickets inherit the rule rather than write it.
+ * The folder half was silent from S0-01 until SUS-215: `import/resolver` was
+ * unset, the plugin's default resolver only tries `.js`, and a relative import
+ * of a `.ts` or `.tsx` file therefore resolved to nothing, so the plugin never
+ * learned which folder it pointed at. `scripts/eslint-boundaries.test.mjs`
+ * lints one deliberate violation per rule and fails if any goes unreported.
+ *
+ * `apps/app` and `supabase/functions` elements were declared before those
+ * folders existed so that their tickets inherited the rule rather than wrote it.
  */
 const elements = [
-  // Tests first: `boundaries` takes the first pattern that matches, and a test
-  // is allowed the test libraries that the package it tests is not.
-  { type: 'package-test', pattern: 'packages/*/src/**/*.test.ts', mode: 'full' },
-  // And the app's own integration tests, for the same reason one layer along:
-  // they drive the real stack, so they reach for things the layer they sit in
-  // must never have — `node:child_process` to ask Postgres a question the
-  // client deliberately cannot ask, because PostgREST exposes only `public`.
-  // Narrow on purpose: `*.integration.test.ts`, not every test, so an ordinary
-  // unit test under `data/` keeps the layer's restrictions — and
-  // `*.integration.ts` for what those suites share (`data/testing/`), which
-  // nothing but an integration test may import.
-  {
-    type: 'app-integration-test',
-    pattern: ['apps/*/src/**/*.integration.test.ts', 'apps/*/src/**/*.integration.ts'],
-    mode: 'full',
-  },
-  { type: 'domain', pattern: 'packages/domain/**/*', mode: 'full' },
-  { type: 'contracts', pattern: 'packages/contracts/**/*', mode: 'full' },
-  { type: 'tokens', pattern: 'packages/tokens/**/*', mode: 'full' },
-  { type: 'config', pattern: 'packages/config/**/*', mode: 'full' },
-  { type: 'app-routes', pattern: 'apps/app/app/**/*', mode: 'full' },
-  { type: 'app-features', pattern: 'apps/app/src/features/**/*', mode: 'full' },
-  { type: 'app-components', pattern: 'apps/app/src/components/**/*', mode: 'full' },
-  { type: 'app-data', pattern: 'apps/app/src/data/**/*', mode: 'full' },
-  { type: 'app-platform', pattern: 'apps/app/src/platform/**/*', mode: 'full' },
-  { type: 'app-copy', pattern: 'apps/app/src/copy/**/*', mode: 'full' },
-  { type: 'app-analytics', pattern: 'apps/app/src/analytics/**/*', mode: 'full' },
-  { type: 'functions', pattern: 'supabase/functions/**/*', mode: 'full' },
+  // Each element is a folder, matched from the repository root (`partialMatch:
+  // false`), so a file belongs to the layer whose folder holds it and an import
+  // between two files of one layer is internal and not checked.
+  { type: 'domain', pattern: 'packages/domain', partialMatch: false },
+  { type: 'contracts', pattern: 'packages/contracts', partialMatch: false },
+  { type: 'tokens', pattern: 'packages/tokens', partialMatch: false },
+  { type: 'config', pattern: 'packages/config', partialMatch: false },
+  { type: 'app-routes', pattern: 'apps/app/app', partialMatch: false },
+  { type: 'app-features', pattern: 'apps/app/src/features', partialMatch: false },
+  { type: 'app-components', pattern: 'apps/app/src/components', partialMatch: false },
+  { type: 'app-data', pattern: 'apps/app/src/data', partialMatch: false },
+  { type: 'app-platform', pattern: 'apps/app/src/platform', partialMatch: false },
+  { type: 'app-copy', pattern: 'apps/app/src/copy', partialMatch: false },
+  { type: 'app-analytics', pattern: 'apps/app/src/analytics', partialMatch: false },
+  // Test support under `apps/app/src/test/`: stubs, and the tests that need
+  // the route layer (`+middleware`), which a feature's own test must not import.
+  { type: 'app-test', pattern: 'apps/app/src/test', partialMatch: false },
+  { type: 'functions', pattern: 'supabase/functions', partialMatch: false },
+];
+
+// Files are classified apart from folders. A test is allowed the test libraries
+// that the package it tests is not, and the app's integration tests drive the
+// real stack, so they reach for things the layer they sit in must never have:
+// `node:child_process` to ask Postgres a question the client deliberately
+// cannot ask, because PostgREST exposes only `public`. That is narrow on
+// purpose: `*.integration.test.ts`, not every test, so an ordinary unit test
+// under `data/` keeps the layer's restrictions. `*.integration.ts` is what
+// those suites share (`data/testing/`), which nothing but an integration test
+// may import.
+const files = [
+  { category: 'test', pattern: '**/*.test.{ts,tsx}' },
+  { category: 'integration', pattern: ['**/*.integration.ts', '**/*.integration.test.ts'] },
 ];
 
 const appLayers = [
@@ -80,6 +91,23 @@ const appExternals = [
   '@testing-library/*',
 ];
 
+const TEST = { categories: 'test' };
+const INTEGRATION = { categories: 'integration' };
+
+/**
+ * One policy: files of type `from` may import elements of the `elements`
+ * types and packages matching `packages`, and nothing else (the rule's
+ * default is disallow). Policies are evaluated in order and the last match
+ * wins, so each layer has exactly one.
+ */
+function allowImports(from, elements, packages, file) {
+  // A layer may always import itself.
+  const types = [...new Set([from, elements].flat(2))];
+  const allow = [{ to: { element: { type: types } } }];
+  if (packages.length > 0) allow.push({ to: { module: { source: packages } } });
+  return { from: { element: { type: from }, ...(file && { file }) }, allow };
+}
+
 export default tseslint.config(
   {
     ignores: [
@@ -107,83 +135,73 @@ export default tseslint.config(
         'supabase/functions/*/**/*',
       ],
       'boundaries/elements': elements,
+      'boundaries/files': files,
+      'import/resolver': {
+        node: { extensions: ['.ts', '.tsx', '.mts', '.cts', '.js', '.mjs', '.cjs', '.json'] },
+      },
     },
     rules: {
-      'boundaries/element-types': [
+      'boundaries/dependencies': [
         'error',
         {
           default: 'disallow',
-          message: '${file.type} is not allowed to import ${dependency.type} (architecture §7.2)',
-          rules: [
-            { from: ['domain'], allow: ['domain'] },
-            // A test may reach into any package's source; that is what it is for.
-            { from: ['package-test'], allow: ['domain', 'contracts', 'tokens', 'config'] },
-            {
-              from: ['app-integration-test'],
-              allow: [...appLayers, 'contracts', 'domain', 'tokens', 'config'],
-            },
-            { from: ['contracts'], allow: ['contracts', 'domain'] },
-            { from: ['tokens'], allow: ['tokens'] },
-            { from: ['config'], allow: ['config'] },
-            {
-              from: ['app-routes'],
-              allow: ['app-routes', 'app-features', ...appLayers, ...sharedPackages],
-            },
-            { from: ['app-features'], allow: [...appLayers, ...sharedPackages] },
-            {
-              from: ['app-components'],
-              allow: ['app-components', 'app-copy', 'tokens', 'domain', 'contracts'],
-            },
-            // `data` and `platform` never import `features`.
-            {
-              from: ['app-data', 'app-platform'],
-              allow: ['app-data', 'app-platform', 'contracts', 'domain', 'config'],
-            },
-            { from: ['app-copy'], allow: ['app-copy'] },
-            {
-              from: ['app-analytics'],
-              allow: ['app-analytics', 'app-data', 'contracts', 'domain', 'config'],
-            },
-            { from: ['functions'], allow: ['functions', 'contracts', 'domain', 'config'] },
-          ],
-        },
-      ],
-      'boundaries/external': [
-        'error',
-        {
-          default: 'disallow',
+          // Externals are checked too: `to: { module }` below is the package half.
+          checkAllOrigins: true,
+          // Imports inside one layer are checked too: the integration helpers
+          // (`data/testing/*.integration.ts`) sit in the same folder as the code
+          // that must not import them.
+          checkInternals: true,
           message:
-            '${file.type} is not allowed to import "${dependency.source}" (architecture §7.2)',
-          rules: [
+            '{{from.type}} is not allowed to import "{{dependency.source}}" (architecture §7.2)',
+          policies: [
             // The domain stays pure: no React, no Supabase, no Deno, no I/O.
             // `date-fns-tz` and nothing else — and `shared/zone.ts` is the only
             // file even that may reach, which `no-restricted-imports` enforces
             // below. The test libraries are deliberately absent: a `vitest`
             // import in `engine.ts` would compile and then fail on Deno, where
             // there is no `node_modules` to find it in.
-            { from: ['domain'], allow: ['date-fns-tz'] },
-            { from: ['contracts'], allow: ['@circles/domain', 'zod'] },
-            { from: ['tokens'], allow: [] },
-            { from: ['config'], allow: ['zod'] },
-            // Test-only, and only in a test: `tsconfig` keeps `*.test.ts` out of
-            // `dist`, so none of these can reach an Edge Function.
-            {
-              from: ['package-test'],
-              allow: ['@circles/*', 'date-fns-tz', 'zod', 'vitest', 'fast-check', 'ical.js'],
-            },
-            {
-              from: ['app-integration-test'],
-              allow: [...appExternals, 'node:child_process', 'node:path'],
-            },
-            { from: ['app-routes', ...appLayers], allow: appExternals },
-            {
-              // `@supabase/*` is the client an Edge Function reaches the database
-              // with — the service-role one in §7.4's step 4, and the
-              // caller-scoped one that makes `auth.uid()` mean the caller. It is
-              // allowed here and nowhere else: the domain importing it is the
-              // thing the dependency rule exists to stop.
-              from: ['functions'],
-              allow: [
+            allowImports('domain', ['domain'], ['date-fns-tz']),
+            allowImports('contracts', ['contracts', 'domain'], ['@circles/domain', 'zod']),
+            allowImports('tokens', ['tokens'], []),
+            allowImports('config', ['config'], ['zod']),
+            allowImports(
+              'app-routes',
+              ['app-routes', 'app-features', ...appLayers, ...sharedPackages],
+              appExternals,
+            ),
+            allowImports('app-features', [...appLayers, ...sharedPackages], appExternals),
+            allowImports(
+              'app-components',
+              ['app-components', 'app-copy', 'tokens', 'domain', 'contracts'],
+              appExternals,
+            ),
+            // `data` and `platform` never import `features`.
+            allowImports(
+              ['app-data', 'app-platform'],
+              ['app-data', 'app-platform', 'contracts', 'domain', 'config'],
+              appExternals,
+            ),
+            allowImports('app-copy', ['app-copy'], appExternals),
+            allowImports(
+              'app-analytics',
+              ['app-analytics', 'app-data', 'contracts', 'domain', 'config'],
+              appExternals,
+            ),
+            allowImports(
+              'app-test',
+              ['app-routes', ...appLayers, ...sharedPackages],
+              // Config tests read files: they are not app code and never ship.
+              [...appExternals, 'node:*'],
+            ),
+            allowImports(
+              'functions',
+              ['functions', 'contracts', 'domain', 'config'],
+              [
+                // `@supabase/*` is the client an Edge Function reaches the database
+                // with — the service-role one in §7.4's step 4, and the
+                // caller-scoped one that makes `auth.uid()` mean the caller. It is
+                // allowed here and nowhere else: the domain importing it is the
+                // thing the dependency rule exists to stop.
                 '@circles/*',
                 '@supabase/*',
                 'zod',
@@ -198,7 +216,30 @@ export default tseslint.config(
                 'npm:*',
                 'jsr:*',
               ],
+            ),
+            // Policies are evaluated in order and the last match wins, so these
+            // widen a layer for its tests, close the integration helpers to
+            // everyone, and open them again to the integration tests.
+            //
+            // A package's test may reach into any package's source; that is what
+            // it is for. Test-only, and only in a test: `tsconfig` keeps
+            // `*.test.ts` out of `dist`, so none of these can reach an Edge Function.
+            allowImports(
+              sharedPackages,
+              sharedPackages,
+              ['@circles/*', 'date-fns-tz', 'zod', 'vitest', 'fast-check', 'ical.js'],
+              TEST,
+            ),
+            {
+              from: { element: { type: 'app-*' } },
+              disallow: { to: { file: { categories: 'integration' } } },
             },
+            allowImports(
+              appLayers,
+              [...appLayers, ...sharedPackages],
+              [...appExternals, 'node:child_process', 'node:path'],
+              INTEGRATION,
+            ),
           ],
         },
       ],
