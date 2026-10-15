@@ -19,8 +19,15 @@ import type { OutboxEvent } from './events.ts';
  * `quiet_ask_created` and `quiet_interest_answered` (ADR 0041, ADR 0072): a plan
  * id here would let a query line an opened ask up against the unattributed
  * events, and through the plan against `private.plan_initiators`. The
- * timestamps are rounded down to the hour for the same reason. To the second,
- * they are a join to this event's own outbox row, which names the plan.
+ * timestamps are rounded down to the hour for the same reason.
+ *
+ * **What this does not hide.** The row's `event_id` is derived from its outbox
+ * row's id (so a replay lands on the same row), and the outbox row names the
+ * plan. So whoever can read both `analytics.events` and `jobs.outbox` (only
+ * `service_role` and `postgres`) can recompute the id and reach the plan, for
+ * as long as the outbox keeps the row: 30 days after it is processed. That
+ * reader learns nothing the outbox did not already say. The row is unlinkable
+ * from analytics alone, not from the whole database.
  * `threshold` is the number fixed when the ask was made (ADR 0035), never the
  * count of keen members.
  */
