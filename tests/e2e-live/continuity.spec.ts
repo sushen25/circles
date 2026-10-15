@@ -110,6 +110,7 @@ test('the "Get back in" link in a real email restores access without the list, o
   const other = await phone.newPage();
   await other.addInitScript({ content: WATCH_FOR_THE_LIST });
   await other.goto(link);
+  await other.getByRole('button', { name: 'Get back in' }).click();
 
   // A plan that is not asking any more has nothing to answer, so the way back
   // in lands on the circle, with the meetup on it.
@@ -125,6 +126,7 @@ test('the "Get back in" link in a real email restores access without the list, o
   // Single use: the same link again, in yet another browser, says so neutrally.
   const third = await (await browser.newContext()).newPage();
   await third.goto(link);
+  await third.getByRole('button', { name: 'Get back in' }).click();
   await expect(third.getByText('This link has expired.')).toBeVisible();
 });
 

@@ -126,6 +126,7 @@ test('five answers to a lock-in, a calendar file, the morning after, and circle 
   const phone = await browser.newContext();
   const tomsPage = await phone.newPage();
   await tomsPage.goto(`/a#${reentryTokenFor(crew, tom)}`);
+  await tomsPage.getByRole('button', { name: 'Get back in' }).click();
   await expect(tomsPage).toHaveURL(new RegExp(`/circles/${circleId}$`));
   await tomsPage.goto(`/p/${plan.code}`);
   await expect(tomsPage).toHaveURL(new RegExp(`/p/${plan.code}/confirmed$`));
