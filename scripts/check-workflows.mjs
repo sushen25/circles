@@ -463,6 +463,28 @@ const ciRules = (path, file, doc) => {
       else if (!unconditional(job, step))
         fail(`\`release.mjs tag\` is conditional or may fail quietly in \`${name}\``);
     }
+    // A rollback deploys a tag's commit but the deployment records the
+    // dispatched one; `record-deployed.mjs` writes the real one back for the
+    // next plan (SUS-212). `deployments: write` is held by the tagging job
+    // alone, which reads no secret, and by no other job.
+    const recorders = Object.entries(jobs).filter(
+      ([, job]) => job?.permissions?.deployments === 'write',
+    );
+    if (recorders.length !== 1 || !taggers.some(([name]) => name === recorders[0][0])) {
+      fail('exactly one job, the tagging job, may have `deployments: write`');
+    }
+    for (const [name, job] of recorders) {
+      const step = (job.steps ?? []).find(
+        (s) => typeof s?.run === 'string' && s.run.includes('record-deployed.mjs'),
+      );
+      if (!step) {
+        fail(
+          `\`${name}\` never runs \`record-deployed.mjs\`, so a rollback is not recorded and the next plan uses the wrong baseline`,
+        );
+      } else if (!unconditional(job, step)) {
+        fail(`\`record-deployed.mjs\` is conditional or may fail quietly in \`${name}\``);
+      }
+    }
     for (const [name, job] of production) {
       if (name !== 'plan' && !needsClosure(jobs, name).has('plan')) {
         fail(`\`${name}\` is in \`production\` but does not need \`plan\``);
