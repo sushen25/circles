@@ -143,3 +143,28 @@ export function zoneAtTwoInTheMorning(): string {
   if (ahead === 0) return 'Etc/UTC';
   return `Etc/GMT${ahead > 0 ? '-' : '+'}${Math.abs(ahead)}`;
 }
+
+/**
+ * A zone where it is about noon now, well outside quiet hours (9 pm–8 am),
+ * whenever the suite runs (SUS-216). The live users are made in
+ * `Australia/Melbourne`, which is in quiet hours from 10:00 to 21:00 UTC, so a
+ * test that waits for an account-holder's letter would be held overnight for
+ * eleven hours a day. The send path is the real one; only the recipient's
+ * clock is chosen. Same `Etc/GMT` sign rule as `zoneAtTwoInTheMorning`.
+ */
+export function zoneAtNoon(now: Date = new Date()): string {
+  let ahead = (12 - now.getUTCHours() + 24) % 24;
+  if (ahead > 12) ahead -= 24;
+  if (ahead === 0) return 'Etc/UTC';
+  return `Etc/GMT${ahead > 0 ? '-' : '+'}${Math.abs(ahead)}`;
+}
+
+/**
+ * Puts these account-holders where it is daytime now, so a letter to them is
+ * sent, not held (SUS-91, SUS-216). Their circle stays in Melbourne, so the
+ * times the page prints do not move.
+ */
+export function awakeNow(...userIds: string[]): void {
+  const list = userIds.map((id) => `'${id}'`).join(', ');
+  sql(`update public.profiles set time_zone = '${zoneAtNoon()}' where user_id in (${list})`);
+}

@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { expect, test } from './fixtures';
 import { addressFor, joinsAndAnswers, subscribesFromSent } from './journeys';
 import { headerOf, letterTo, lettersTo, linkIn, runDispatcher } from './mail';
-import { CLOSED, addressOf, closedWithAnOption } from './replies-closed';
+import { CLOSED, addressOf, awakeNow, closedWithAnOption } from './replies-closed';
 import {
   consentVersionOf,
   emailContactOf,
@@ -166,6 +166,8 @@ test('an organiser stops the organiser’s letters from the letter, signed out',
   baseURL,
 }) => {
   const { maya, plan } = await closedWithAnOption();
+  // Daytime for her, so the letter is sent rather than held until morning (SUS-216).
+  awakeNow(maya.userId);
   const flags = () =>
     sql(`select p.muted_organiser_email, m.muted_nudges, m.muted_quiet_asks, m.muted_all
          from public.profiles p join public.circle_members m on m.user_id = p.user_id
