@@ -1533,7 +1533,7 @@ export type Database = {
         Returns: Json
       }
       live_invite: {
-        Args: { p_circle_id: string }
+        Args: { p_circle_id: string; p_user_id: string }
         Returns: {
           invite_id: string
           secret_hash: string
@@ -1583,11 +1583,35 @@ export type Database = {
         }[]
       }
       reattach_member: {
-        Args: {
-          p_circle_id?: string
-          p_reentry_token_hash?: string
-          p_target_user_id?: string
+        Args: { p_circle_id?: string; p_target_user_id?: string }
+        Returns: {
+          cadence: string
+          cadence_snoozed_until: string | null
+          color: string
+          created_at: string
+          creation_key: string
+          default_area: string | null
+          default_duration_minutes: number
+          default_quorum: number | null
+          id: string
+          last_met_at: string | null
+          name: string
+          nudge_policy: string | null
+          owner_user_id: string
+          short_code: string
+          status: string
+          time_zone: string
+          updated_at: string
         }
+        SetofOptions: {
+          from: "*"
+          to: "circles"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      reattach_with_token: {
+        Args: { p_reentry_token_hash: string; p_user_id: string }
         Returns: {
           cadence: string
           cadence_snoozed_until: string | null
@@ -1635,7 +1659,11 @@ export type Database = {
         Returns: Json
       }
       redeem_invite: {
-        Args: { p_display_name: string; p_secret_hash: string }
+        Args: {
+          p_display_name: string
+          p_secret_hash: string
+          p_user_id: string
+        }
         Returns: {
           cadence: string
           cadence_snoozed_until: string | null

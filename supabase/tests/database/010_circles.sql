@@ -902,12 +902,15 @@ select is(
        'canonical_display_name', 'replace_response',
        -- `report_outcome` (S1-10) is the outcome write path.
        'report_outcome',
-       -- S1-13. The three identity-continuity calls a client makes: joining by
-       -- link, reading the Continue-as list, and moving a guest membership onto
-       -- the session in front of it. Each acts on `auth.uid()` and refuses on
-       -- its own; `claim_identity` is deliberately *not* here, because the
-       -- identity it acts on is an argument rather than the caller.
-       'redeem_invite', 'guest_members_for_reattach', 'reattach_member',
+       -- S1-13. The two identity-continuity calls a client makes: reading the
+       -- Continue-as list, and moving a guest membership onto the session in
+       -- front of it by picking a name from it. Each acts on `auth.uid()` and
+       -- refuses on its own. Absent on purpose, and the service role's
+       -- (SUS-114): `redeem_invite`, `reattach_with_token` and `claim_identity`,
+       -- which take the person as an argument, and the first two a digest the
+       -- database stores, which must not be a way in by itself. `live_invite`
+       -- is absent for the same reason: the digest stops at the server.
+       'guest_members_for_reattach', 'reattach_member',
        -- S1-15. The plan lifecycle's three. They sit in `public` because
        -- PostgREST exposes nothing else, not because they are public in any
        -- other sense: `issue_invite` is the owner's alone, `reask_audience` the
@@ -948,11 +951,9 @@ select is(
        -- service role's, so that nothing reaches it without the Turnstile check
        -- and the rate limits in `join-plan`. `170_join_from_plan.sql`.)
        'invite_preview',
-       -- S1-23. Running a circle, both the owner's alone and both refusing
-       -- anybody else by name: `live_invite` is the live link's id and digest
-       -- (never its secret, which the database does not have), and
-       -- `remove_member` the one way somebody is taken out.
-       'live_invite', 'remove_member',
+       -- S1-23. Running a circle: `remove_member` the owner's alone, the one
+       -- way somebody is taken out, refusing anybody else by name.
+       'remove_member',
        -- SUS-205. A member renames themself in one circle: the caller's own
        -- row, with no parameter naming anybody else. `470_rename_in_circle.sql`.
        'rename_in_circle',

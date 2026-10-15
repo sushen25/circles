@@ -30,6 +30,24 @@
 begin;
 select plan(56);
 
+-- SUS-114: the token form of reattachment is `reattach_with_token`, the service
+-- role's, called by its Edge Function with the person it verified. This is that
+-- call, made for whoever the test is acting as: it reads who that is, becomes
+-- the service role for the one call, and goes back.
+create or replace function pg_temp.reattach_token(h bytea) returns public.circles
+language plpgsql as $$
+declare
+  me uuid := auth.uid();
+  prev text := current_setting('role');
+  r public.circles;
+begin
+  perform set_config('role', 'service_role', true);
+  select * into r from public.reattach_with_token(me, h);
+  perform set_config('role', prev, true);
+  return r;
+end;
+$$;
+
 create or replace function pg_temp.uid(n integer, k integer) returns uuid
 language sql immutable as $$
   select ('29500000-0000-0000-' || lpad(n::text, 4, '0') || '-' || lpad(k::text, 12, '0'))::uuid
@@ -194,7 +212,7 @@ select is(private.list_moves_this_week(pg_temp.circle(1), pg_temp.uid(1, 2)), 1,
 
 select pg_temp.act_as(pg_temp.uid(1, 3), true);
 select is(
-  (select id from public.reattach_member(p_reentry_token_hash => pg_temp.digest_of('link-1'))),
+  (select id from pg_temp.reattach_token(pg_temp.digest_of('link-1'))),
   pg_temp.circle(1),
   '1: the real guest''s link takes the place back from the account'
 );
@@ -280,7 +298,7 @@ select pg_temp.act_as_postgres();
 select pg_temp.make_user(pg_temp.uid(1, 6), 'Late', true);
 select pg_temp.act_as(pg_temp.uid(1, 6), true);
 select throws_ok(
-  $$ select public.reattach_member(p_reentry_token_hash => extensions.digest('link-1', 'sha256')) $$,
+  $$ select pg_temp.reattach_token(extensions.digest('link-1', 'sha256')) $$,
   'token_invalid',
   '1: the spent link cannot be used again'
 );
@@ -302,7 +320,7 @@ select ok(
 
 select pg_temp.act_as(pg_temp.uid(2, 3), true);
 select is(
-  (select id from public.reattach_member(p_reentry_token_hash => pg_temp.digest_of('link-2'))),
+  (select id from pg_temp.reattach_token(pg_temp.digest_of('link-2'))),
   pg_temp.circle(2),
   '2: the retired link takes the place back'
 );
@@ -321,7 +339,7 @@ select pg_temp.act_as_postgres();
 select pg_temp.make_user(pg_temp.uid(2, 6), 'Late', true);
 select pg_temp.act_as(pg_temp.uid(2, 6), true);
 select throws_ok(
-  $$ select public.reattach_member(p_reentry_token_hash => extensions.digest('link-2', 'sha256')) $$,
+  $$ select pg_temp.reattach_token(extensions.digest('link-2', 'sha256')) $$,
   'token_invalid',
   '2: a second use is refused'
 );
@@ -334,7 +352,7 @@ select pg_temp.base(3);
 select pg_temp.take_and_save(3, 'guest-3@example.com', 'inplace');
 select pg_temp.act_as(pg_temp.uid(3, 3), true);
 select throws_ok(
-  $$ select public.reattach_member(p_reentry_token_hash => extensions.digest('link-3', 'sha256')) $$,
+  $$ select pg_temp.reattach_token(extensions.digest('link-3', 'sha256')) $$,
   'target_is_permanent',
   '3: an account whose own email is the link''s address keeps the place'
 );
@@ -355,7 +373,7 @@ select pg_temp.base(4);
 select pg_temp.take_and_save(4, 'Guest-4@EXAMPLE.com', 'inplace');
 select pg_temp.act_as(pg_temp.uid(4, 3), true);
 select throws_ok(
-  $$ select public.reattach_member(p_reentry_token_hash => extensions.digest('link-4', 'sha256')) $$,
+  $$ select pg_temp.reattach_token(extensions.digest('link-4', 'sha256')) $$,
   'target_is_permanent',
   '4: an address that differs only by case is the same address, and the account keeps the place'
 );
@@ -369,7 +387,7 @@ select pg_temp.base(5);
 select pg_temp.take_and_save(5, null, 'inplace');
 select pg_temp.act_as(pg_temp.uid(5, 3), true);
 select is(
-  (select id from public.reattach_member(p_reentry_token_hash => pg_temp.digest_of('link-5'))),
+  (select id from pg_temp.reattach_token(pg_temp.digest_of('link-5'))),
   pg_temp.circle(5),
   '5: an account with no email of its own has none to match, so the link takes the place back'
 );
@@ -386,7 +404,7 @@ values (gen_random_uuid(), 'google-6', pg_temp.uid(6, 2),
         jsonb_build_object('sub', 'google-6', 'email', 'GUEST-6@example.com'), 'google', now(), now());
 select pg_temp.act_as(pg_temp.uid(6, 3), true);
 select throws_ok(
-  $$ select public.reattach_member(p_reentry_token_hash => extensions.digest('link-6', 'sha256')) $$,
+  $$ select pg_temp.reattach_token(extensions.digest('link-6', 'sha256')) $$,
   'target_is_permanent',
   '6: an address on any of the account''s identities is the account''s own'
 );
@@ -400,7 +418,7 @@ select pg_temp.base(7);
 select pg_temp.act_as(pg_temp.uid(7, 2), true);
 select public.reattach_member(pg_temp.circle(7), pg_temp.uid(7, 1));
 select pg_temp.act_as(pg_temp.uid(7, 3), true);
-select public.reattach_member(p_reentry_token_hash => pg_temp.digest_of('link-7'));
+select pg_temp.reattach_token(pg_temp.digest_of('link-7'));
 select pg_temp.act_as_postgres();
 select is(pg_temp.holder(7), pg_temp.uid(7, 3), '7: the guest used the link legitimately');
 -- and later saves the place under a different address
@@ -411,7 +429,7 @@ update public.profiles set is_permanent = true where user_id = pg_temp.uid(7, 3)
 select pg_temp.make_user(pg_temp.uid(7, 6), 'Forwarded', true);
 select pg_temp.act_as(pg_temp.uid(7, 6), true);
 select throws_ok(
-  $$ select public.reattach_member(p_reentry_token_hash => extensions.digest('link-7', 'sha256')) $$,
+  $$ select pg_temp.reattach_token(extensions.digest('link-7', 'sha256')) $$,
   'target_is_permanent',
   '7: the same link, forwarded and replayed, takes nothing from the account it already served'
 );
@@ -431,7 +449,7 @@ select c.id, 'reentry', pg_temp.digest_of('owner-link-8'), now() + interval '1 d
 from private.email_contacts c where c.email_normalized = 'maya-guest-address-8@example.com';
 select pg_temp.act_as(pg_temp.uid(8, 3), true);
 select throws_ok(
-  $$ select public.reattach_member(p_reentry_token_hash => extensions.digest('owner-link-8', 'sha256')) $$,
+  $$ select pg_temp.reattach_token(extensions.digest('owner-link-8', 'sha256')) $$,
   'target_is_permanent',
   '8: a link cannot take a circle''s owner out of it'
 );
@@ -453,7 +471,7 @@ select pg_temp.act_as_postgres();
 update public.profiles set is_permanent = true where user_id = pg_temp.uid(9, 2);
 select pg_temp.act_as(pg_temp.uid(9, 3), true);
 select throws_ok(
-  $$ select public.reattach_member(p_reentry_token_hash => extensions.digest('link-9', 'sha256')) $$,
+  $$ select pg_temp.reattach_token(extensions.digest('link-9', 'sha256')) $$,
   'target_is_permanent',
   '9: only the auth record can say a holder is an account; a flag on its own is a no'
 );
@@ -475,7 +493,7 @@ select public.issue_reentry_token(pg_temp.circle(10),
   (select id from private.email_contacts where email_normalized = 'taker-10@example.com'),
   pg_temp.digest_of('taker-link-10'));
 select pg_temp.act_as(pg_temp.uid(10, 3), true);
-select public.reattach_member(p_reentry_token_hash => pg_temp.digest_of('link-10'));
+select pg_temp.reattach_token(pg_temp.digest_of('link-10'));
 select pg_temp.act_as_postgres();
 update auth.users
 set is_anonymous = false, email = 'guest-10@example.com', raw_app_meta_data = '{"is_anonymous": false}'
@@ -484,7 +502,7 @@ update public.profiles set is_permanent = true where user_id = pg_temp.uid(10, 3
 select pg_temp.make_user(pg_temp.uid(10, 6), 'Former taker, fresh', true);
 select pg_temp.act_as(pg_temp.uid(10, 6), true);
 select throws_ok(
-  $$ select public.reattach_member(p_reentry_token_hash => extensions.digest('taker-link-10', 'sha256')) $$,
+  $$ select pg_temp.reattach_token(extensions.digest('taker-link-10', 'sha256')) $$,
   'target_is_permanent',
   '10: a link minted for a later holder cannot take the place from the real guest''s saved account'
 );
@@ -502,7 +520,7 @@ select pg_temp.take_and_save(11, 'unused@example.com', 'claim');
 select pg_temp.act_as_postgres();
 select pg_temp.act_as(pg_temp.uid(11, 3), true);
 select throws_ok(
-  $$ select public.reattach_member(p_reentry_token_hash => extensions.digest('link-11', 'sha256')) $$,
+  $$ select pg_temp.reattach_token(extensions.digest('link-11', 'sha256')) $$,
   'target_is_permanent',
   '11: the guest''s link cannot take an existing member''s own place after a merge'
 );
@@ -526,7 +544,7 @@ select pg_temp.act_as_postgres();
 update public.plans set organiser_user_id = pg_temp.uid(12, 2) where circle_id = pg_temp.circle(12);
 select pg_temp.act_as(pg_temp.uid(12, 3), true);
 select throws_ok(
-  $$ select public.reattach_member(p_reentry_token_hash => extensions.digest('link-12', 'sha256')) $$,
+  $$ select pg_temp.reattach_token(extensions.digest('link-12', 'sha256')) $$,
   'target_is_permanent',
   '12: an account that organises an open plan keeps the place until the plan is over'
 );
@@ -557,7 +575,7 @@ update public.profiles set is_permanent = true where user_id = pg_temp.uid(13, 3
 select pg_temp.make_user(pg_temp.uid(13, 6), 'Former taker, fresh', true);
 select pg_temp.act_as(pg_temp.uid(13, 6), true);
 select throws_ok(
-  $$ select public.reattach_member(p_reentry_token_hash => extensions.digest('taker-link-13', 'sha256')) $$,
+  $$ select pg_temp.reattach_token(extensions.digest('taker-link-13', 'sha256')) $$,
   'target_is_permanent',
   '13: picking her own name back does not turn the taker''s link into a way to take her saved place'
 );
@@ -580,7 +598,7 @@ where id = pg_temp.uid(14, 2);
 update public.profiles set is_permanent = true where user_id = pg_temp.uid(14, 2);
 select pg_temp.act_as(pg_temp.uid(14, 3), true);
 select is(
-  (select id from public.reattach_member(p_reentry_token_hash => pg_temp.digest_of('late-link-14'))),
+  (select id from pg_temp.reattach_token(pg_temp.digest_of('late-link-14'))),
   pg_temp.circle(14),
   '14: a link minted after the pick, to the guest''s own address, takes the place back'
 );
@@ -608,7 +626,7 @@ update public.profiles set is_permanent = true where user_id = pg_temp.uid(15, 2
 select pg_temp.make_user(pg_temp.uid(15, 6), 'Guest, third device', true);
 select pg_temp.act_as(pg_temp.uid(15, 6), true);
 select is(
-  (select id from public.reattach_member(p_reentry_token_hash => pg_temp.digest_of('newest-link-15'))),
+  (select id from pg_temp.reattach_token(pg_temp.digest_of('newest-link-15'))),
   pg_temp.circle(15),
   '15: her newest letter, minted for her newer identity, takes the place back'
 );

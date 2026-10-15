@@ -9,6 +9,24 @@
 begin;
 select plan(12);
 
+-- SUS-114: `redeem_invite` is the service role's, called by its Edge Function
+-- with the person it verified. This is that call, made for whoever the test is
+-- acting as: it reads who that is, becomes the service role for the one call,
+-- and goes back, so the assertions below read as they always did.
+create or replace function pg_temp.redeem(h bytea, n text) returns public.circles
+language plpgsql as $$
+declare
+  me uuid := auth.uid();
+  prev text := current_setting('role');
+  r public.circles;
+begin
+  perform set_config('role', 'service_role', true);
+  select * into r from public.redeem_invite(me, h, n);
+  perform set_config('role', prev, true);
+  return r;
+end;
+$$;
+
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid
 language sql
@@ -79,7 +97,7 @@ select circle_id, extensions.digest('sunday-crew-live-secret', 'sha256'),
 from fixture;
 
 select pg_temp.act_as('16000000-0000-0000-0000-000000000002', true);
-select public.redeem_invite(extensions.digest('sunday-crew-live-secret', 'sha256'), 'Nina');
+select pg_temp.redeem(extensions.digest('sunday-crew-live-secret', 'sha256'), 'Nina');
 
 -- ---------------------------------------------------------------------------
 -- The allow: a stranger with the link.

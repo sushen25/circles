@@ -294,7 +294,7 @@ beforeEach(() => {
       };
     }
     if (fn === 'take_rate_token') return { data: true, error: null };
-    if (fn === 'redeem_invite' || fn === 'reattach_member') {
+    if (fn === 'redeem_invite' || fn === 'reattach_member' || fn === 'reattach_with_token') {
       return { data: CIRCLE_ROW, error: null };
     }
     return { data: null, error: null };
@@ -403,6 +403,9 @@ describe('redeem-invite', () => {
 
     const sent = called('redeem_invite')[0]?.args['p_secret_hash'];
     expect(sent).toMatch(/^\\x[0-9a-f]{64}$/);
+    // And names the person it verified, because the database function is the
+    // service role's and has no session of its own to read (SUS-114).
+    expect(called('redeem_invite')[0]?.args['p_user_id']).toBe(CALLER);
     expect(JSON.stringify(state.rpcs)).not.toContain(body.secret);
   });
 
@@ -804,8 +807,12 @@ describe('reattach-member', () => {
     const handler = load('reattach-member');
     expect((await handler(post({ idempotency_key: KEY, reentry_token: token }))).status).toBe(200);
 
-    const args = called('reattach_member')[0]?.args ?? {};
+    // The token form is its own, service-role function (SUS-114), and the
+    // list form is not called for it.
+    expect(called('reattach_member')).toHaveLength(0);
+    const args = called('reattach_with_token')[0]?.args ?? {};
     expect(args['p_reentry_token_hash']).toMatch(/^\\x[0-9a-f]{64}$/);
+    expect(args['p_user_id']).toBe(CALLER);
     expect(JSON.stringify(state.rpcs)).not.toContain(token);
 
     const scopes = called('take_rate_token').map((call) => call.args['p_scope']);
@@ -828,6 +835,12 @@ describe('reattach-member', () => {
 
     const scopes = called('take_rate_token').map((call) => call.args['p_scope']);
     expect(scopes.sort()).toEqual(['reattach_circle', 'reattach_ip']);
+    // The list form carries no token argument at all.
+    expect(called('reattach_member')[0]?.args).toEqual({
+      p_circle_id: '00000000-0000-4000-8000-0000000000c1',
+      p_target_user_id: '00000000-0000-4000-8000-0000000000a1',
+    });
+    expect(called('reattach_with_token')).toHaveLength(0);
   });
 
   it('refuses a request that names both a membership and a token', async () => {
@@ -843,6 +856,7 @@ describe('reattach-member', () => {
 
     expect(response.status).toBe(400);
     expect(called('reattach_member')).toHaveLength(0);
+    expect(called('reattach_with_token')).toHaveLength(0);
   });
 });
 

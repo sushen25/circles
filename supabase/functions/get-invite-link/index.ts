@@ -11,7 +11,7 @@ import { derivedInviteSecret } from '../_shared/secret.ts';
  *
  * The database has only the live invite's digest; the secret is *derived* from
  * the invite's id under `INVITE_LINK_KEY`. So this asks the database which
- * invite is live — `live_invite`, which is the owner's alone and refuses anybody
+ * invite is live — `live_invite`, the service role's, which answers the owner alone and refuses anybody
  * else with `not_the_owner` — derives the secret for it, and hands it back only
  * if its digest is the one stored. A link made before links were derived, or
  * under a different key, fails that check and comes back as `null`: the screen
@@ -25,8 +25,13 @@ Deno.serve(
   jsonHandler({
     name: 'get-invite-link',
     schema: GetInviteLinkRequest,
-    handle: async ({ body, caller, requestId }): Promise<GetInviteLinkResponse> => {
-      const { data, error } = await caller.rpc('live_invite', { p_circle_id: body.circle_id });
+    handle: async ({ body, actor, service, requestId }): Promise<GetInviteLinkResponse> => {
+      // The service role's, naming the owner it verified: the digest stops here and
+      // never reaches a client (SUS-114).
+      const { data, error } = await service.rpc('live_invite', {
+        p_circle_id: body.circle_id,
+        p_user_id: actor.userId,
+      });
       if (error !== null) throw error;
 
       const live = (data ?? [])[0];

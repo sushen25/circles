@@ -21,6 +21,24 @@
 begin;
 select plan(29);
 
+-- SUS-114: `redeem_invite` is the service role's, called by its Edge Function
+-- with the person it verified. This is that call, made for whoever the test is
+-- acting as: it reads who that is, becomes the service role for the one call,
+-- and goes back, so the assertions below read as they always did.
+create or replace function pg_temp.redeem(h bytea, n text) returns public.circles
+language plpgsql as $$
+declare
+  me uuid := auth.uid();
+  prev text := current_setting('role');
+  r public.circles;
+begin
+  perform set_config('role', 'service_role', true);
+  select * into r from public.redeem_invite(me, h, n);
+  perform set_config('role', prev, true);
+  return r;
+end;
+$$;
+
 create or replace function pg_temp.make_user(id uuid, name text, permanent boolean default true)
 returns uuid language sql as $$
   insert into auth.users (
@@ -191,7 +209,7 @@ select throws_ok(
 
 select pg_temp.act_as('00000000-0000-0000-0000-0000000009a4');
 select throws_ok(
-  $$select public.redeem_invite(extensions.digest('a link', 'sha256'), 'Gus')$$,
+  $$select pg_temp.redeem(extensions.digest('a link', 'sha256'), 'Gus')$$,
   'P0003', 'too_many_requests',
   'redeem_invite: refused once the caller has used a hundred and twenty an hour, an anonymous guest included'
 );

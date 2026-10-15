@@ -12,6 +12,24 @@
 begin;
 select plan(7);
 
+-- SUS-114: the token form of reattachment is `reattach_with_token`, the service
+-- role's, called by its Edge Function with the person it verified. This is that
+-- call, made for whoever the test is acting as: it reads who that is, becomes
+-- the service role for the one call, and goes back.
+create or replace function pg_temp.reattach_token(h bytea) returns public.circles
+language plpgsql as $$
+declare
+  me uuid := auth.uid();
+  prev text := current_setting('role');
+  r public.circles;
+begin
+  perform set_config('role', 'service_role', true);
+  select * into r from public.reattach_with_token(me, h);
+  perform set_config('role', prev, true);
+  return r;
+end;
+$$;
+
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid
 language sql
@@ -99,8 +117,7 @@ where user_id = '16500000-0000-0000-0000-000000000002';
 select pg_temp.act_as('16500000-0000-0000-0000-000000000002');
 
 select is(
-  (select id from public.reattach_member(
-    p_reentry_token_hash => extensions.digest('nina-reentry-link', 'sha256'))),
+  (select id from pg_temp.reattach_token(extensions.digest('nina-reentry-link', 'sha256'))),
   (select circle_id from fixture),
   'the account the link names gets its circle back'
 );
@@ -133,16 +150,14 @@ select is(
 -- ---------------------------------------------------------------------------
 select pg_temp.act_as('16500000-0000-0000-0000-000000000004');
 select throws_ok(
-  $$ select public.reattach_member(
-       p_reentry_token_hash => extensions.digest('nina-reentry-link', 'sha256')) $$,
+  $$ select pg_temp.reattach_token(extensions.digest('nina-reentry-link', 'sha256')) $$,
   'caller_is_permanent',
   'somebody else signed in cannot use Nina''s link to reach her circle'
 );
 
 select pg_temp.act_as('16500000-0000-0000-0000-000000000002');
 select throws_ok(
-  $$ select public.reattach_member(
-       p_reentry_token_hash => extensions.digest('tom-reentry-link', 'sha256')) $$,
+  $$ select pg_temp.reattach_token(extensions.digest('tom-reentry-link', 'sha256')) $$,
   'caller_is_permanent',
   'nor can Nina use Tom''s link to take his guest membership'
 );
@@ -155,8 +170,7 @@ where circle_id = (select circle_id from fixture)
 
 select pg_temp.act_as('16500000-0000-0000-0000-000000000002');
 select throws_ok(
-  $$ select public.reattach_member(
-       p_reentry_token_hash => extensions.digest('nina-reentry-link', 'sha256')) $$,
+  $$ select pg_temp.reattach_token(extensions.digest('nina-reentry-link', 'sha256')) $$,
   'caller_is_permanent',
   'a removed member is not handed back the circle they were removed from'
 );
