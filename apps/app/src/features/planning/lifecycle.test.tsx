@@ -309,7 +309,7 @@ describe('plan setup', () => {
 
     fireEvent.click(ask);
     expect(await screen.findByText(/^Something went wrong, so nothing was changed/)).toBeTruthy();
-    fireEvent.click(ask);
+    await tap(ask);
     await waitFor(() => expect(createPlan).toHaveBeenCalledTimes(2));
     // It may have made the plan: the same request, so the server can say so.
     expect(keyOf(1)).toBe(keyOf(0));
@@ -379,7 +379,7 @@ describe('cancelling', () => {
     show(<CancelPlanFlow id="sunday-crew" planId="thu-17" />);
     await tap(screen.findByRole('button', { name: 'Cancel the catch-up' }));
     expect(await screen.findByText(/^Something went wrong/)).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel the catch-up' }));
+    await tap(screen.getByRole('button', { name: 'Cancel the catch-up' }));
     await waitFor(() => expect(cancelPlan).toHaveBeenCalledTimes(2));
     expect(cancelPlan.mock.calls[1]?.[2]).toBe(cancelPlan.mock.calls[0]?.[2]);
   });
