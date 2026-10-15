@@ -14,3 +14,11 @@ export { brand } from './brand.js';
 export type { Brand } from './brand.js';
 export { CONSENT, CONSENT_VERSIONS, consentTextFor, isKnownConsentVersion } from './consent.js';
 export type { Consent } from './consent.js';
+export {
+  HYDRATE_SCRIPT,
+  PERMISSIONS_POLICY,
+  STATIC_PAGE_POLICY,
+  contentSecurityPolicy,
+  originOfUrl,
+  securityHeaders,
+} from './securityHeaders.js';

@@ -108,11 +108,38 @@ export function isHydrationError(message: string): boolean {
 
 type HydrationError = { url: string; message: string };
 
+/**
+ * A page tripping over the Content-Security-Policy (SUS-119). The browser
+ * reports it as a console message ("Refused to load…") and as a
+ * `securitypolicyviolation` event; the init script below turns the event into
+ * a console message of ours, so both engines are read the same way.
+ */
+const CSP_VIOLATION = /Content[- ]Security[- ]Policy|Refused to |csp-violation:/i;
+
+/** Whether a console message is the policy refusing something. Exported for its own test. */
+export function isCspViolation(message: string): boolean {
+  return CSP_VIOLATION.test(message);
+}
+
+const REPORT_CSP_VIOLATIONS = `
+  document.addEventListener('securitypolicyviolation', (event) => {
+    console.error('csp-violation: ' + event.violatedDirective + ' ' + event.blockedURI);
+  });
+`;
+
 /** Keeps every hydration error `page` throws. */
 function watchHydration(page: Page, errors: HydrationError[]): void {
   page.on('pageerror', (error) => {
     const message = `${error.name}: ${error.message}`;
     if (isHydrationError(message)) errors.push({ url: page.url(), message });
+  });
+}
+
+/** Keeps every Content-Security-Policy violation `page` reports. */
+function watchPolicy(page: Page, violations: HydrationError[]): void {
+  page.on('console', (message) => {
+    const text = message.text();
+    if (isCspViolation(text)) violations.push({ url: page.url(), message: text });
   });
 }
 
@@ -122,6 +149,7 @@ type Watch = {
   found: Leak[];
   pending: Promise<void>[];
   hydration: HydrationError[];
+  policy: HydrationError[];
 };
 
 /** Guards a context: every request kept and read for secrets, every page watched for hydration errors. */
@@ -134,8 +162,15 @@ function watch(context: BrowserContext, watching: Watch): void {
   context.on('response', (response) => {
     watching.pending.push(learnSecretFrom(response));
   });
-  for (const page of context.pages()) watchHydration(page, watching.hydration);
-  context.on('page', (page) => watchHydration(page, watching.hydration));
+  void context.addInitScript(REPORT_CSP_VIOLATIONS);
+  for (const page of context.pages()) {
+    watchHydration(page, watching.hydration);
+    watchPolicy(page, watching.policy);
+  }
+  context.on('page', (page) => {
+    watchHydration(page, watching.hydration);
+    watchPolicy(page, watching.policy);
+  });
 }
 
 export type Guard = {
@@ -151,7 +186,7 @@ export const test = base.extend<{ guard: Guard }>({
   guard: [
     async ({ context, browser }, use) => {
       clearRateCounters();
-      const watching: Watch = { seen: [], found: [], pending: [], hydration: [] };
+      const watching: Watch = { seen: [], found: [], pending: [], hydration: [], policy: [] };
       watch(context, watching);
 
       // Browsers the test opens itself — the email read on another device.
@@ -183,6 +218,7 @@ export const test = base.extend<{ guard: Guard }>({
       const leaks = watching.seen.flatMap(leaksIn);
       expect(leaks, 'no request carried an invite secret or an emailed token').toEqual([]);
       expect(watching.hydration, 'no page failed to hydrate (React #418)').toEqual([]);
+      expect(watching.policy, 'no page broke the Content-Security-Policy').toEqual([]);
     },
     { auto: true },
   ],

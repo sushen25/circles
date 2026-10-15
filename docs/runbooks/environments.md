@@ -48,8 +48,8 @@ does load and run inside Deno, not only in the client and the test suites.
 
 **`prod` is deployed** as of 15 September 2026: migrations `0001`–`0015`, all
 Edge Functions, and the web build on the custom domain of the day (since
-moved to `wenna.app`, SUS-99; `pnpm check:env wenna.app` should pass seven of
-seven once its records are in).
+moved to `wenna.app`, SUS-99; `pnpm check:env wenna.app` should pass eleven of
+eleven once its records are in).
 
 That is a deployed environment, **not a released product.** The client is still
 fixture-driven — `/join` renders a fixture and never reads the invite secret
@@ -402,7 +402,9 @@ must not look like one that did.
 pnpm check:env <domain>
 ```
 
-HTTPS, HSTS, `Referrer-Policy: no-referrer`, and SPF/DKIM/DMARC on `mail.<domain>`
+HTTPS, HSTS, `Referrer-Policy: no-referrer`, a `Content-Security-Policy` (with
+no `unsafe-inline` or `unsafe-eval` for scripts, and `frame-ancestors 'none'`),
+`X-Content-Type-Options: nosniff`, a `Permissions-Policy`, and SPF/DKIM/DMARC on `mail.<domain>`
 — queried against 1.1.1.1 rather than the system resolver, because a local cache
 will cheerfully serve a record that was deleted an hour ago. Not part of
 `pnpm check`: it needs the network and a domain that exists.
@@ -415,6 +417,29 @@ carry an invite secret in the fragment or a plan code in the path; it does not
 apply to redirects or to static assets, neither of which carries either. A
 route that sets the header itself takes precedence, so a server route is free
 to be stricter and cannot accidentally be laxer than this.
+
+The same block carries the other three (SUS-119), built by
+[`packages/config/src/securityHeaders.ts`](../../packages/config/src/securityHeaders.ts).
+The policy allows scripts from the app's own origin, from Cloudflare's
+Turnstile, and the one inline script Expo Router writes into every page — by a
+hash `app.config.ts` computes from that script, never typed. The live suite
+reads the script out of the served HTML and checks its hash is in the header, so
+a router upgrade that changes it fails a test instead of blanking the app.
+`connect-src` names the Supabase project from `EXPO_PUBLIC_SUPABASE_URL` at
+build time. Styles are `'unsafe-inline'`, because `react-native-web` writes
+them inline; that is the one concession. A page that needs a new origin (an
+analytics host, an embed) must add it there, and the live suite fails on any
+console message from the policy, so the omission is found before a deploy does.
+`deploy-prod` runs `check:env` after it deploys, so a **rollback to a release
+older than SUS-119 ends red** on these three checks; the rollback itself is not
+undone by it.
+
+**Dev routes.** Everything under `app/(dev)` (the gallery, the brand sheet, the
+fixture screens, `/settings/diagnostics`) answers not-found when
+`EXPO_PUBLIC_APP_ENV` is `production`, and `/_sitemap` is left out of the
+production export (the plugin's `sitemap: false`), so it answers 404. Other
+deployed environments redirect the fixtures to `/start` (SUS-140), and the
+smoke export keeps them for the gallery.
 
 ## Which header carries the caller's address
 
