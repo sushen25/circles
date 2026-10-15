@@ -1,6 +1,6 @@
 // `expo-router` pins `query-string` 7.1.3 (CommonJS), which `require`s
 // `decode-uri-component`. The fixed release of that (0.5.0, GHSA-vcc3-ghjq-m6fr)
-// is ESM-only, so `patches/query-string@7.1.3.patch` takes `.default`. This
+// is ESM-only, so the patch in `patches/` takes `.default`. This
 // resolves `query-string` the way `expo-router` does and proves the patch holds:
 // without it `parse` throws "decodeComponent is not a function" on the first
 // percent-encoded value. Run by `check:audit`; see docs/runbooks/ci.md.
