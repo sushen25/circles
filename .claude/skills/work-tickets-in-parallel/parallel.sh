@@ -252,9 +252,9 @@ cmd_overlap() {
   local limit=200 hit=0 n=0 bad="" num head pbase file p files prs refs=()
   prs=$(gh pr list --state open --limit "$limit" --json number,headRefName,baseRefName \
     --jq '.[] | [.number, .headRefName, .baseRefName] | @tsv')
-  # One fetch for every branch involved; if that fails, each PR is fetched alone.
+  # One fetch for every base branch and PR head (refs/pull/N/head, which is right for a fork too, where the head branch name means nothing on origin); if that fails, each PR is fetched alone.
   while IFS=$'\t' read -r num head pbase; do
-    [ -n "$num" ] && refs+=("+refs/heads/$head:refs/remotes/origin/$head" "+refs/heads/$pbase:refs/remotes/origin/$pbase")
+    [ -n "$num" ] && refs+=("+refs/pull/$num/head:refs/remotes/origin/pr/$num" "+refs/heads/$pbase:refs/remotes/origin/$pbase")
   done <<< "$prs"
   local batch=0
   [ ${#refs[@]} -eq 0 ] || ! git fetch -q origin "${refs[@]}" 2>/dev/null || batch=1
@@ -263,10 +263,10 @@ cmd_overlap() {
     n=$((n + 1))
     # A ref that is merely old would give a stale list, so a PR the batch fetch
     # did not cover must be fetched on its own, and that fetch must succeed.
-    if [ $batch = 0 ] && ! git fetch -q origin "+refs/heads/$head:refs/remotes/origin/$head" "+refs/heads/$pbase:refs/remotes/origin/$pbase" 2>/dev/null; then
+    if [ $batch = 0 ] && ! git fetch -q origin "+refs/pull/$num/head:refs/remotes/origin/pr/$num" "+refs/heads/$pbase:refs/remotes/origin/$pbase" 2>/dev/null; then
       bad="$bad #$num"; continue
     fi
-    files=$(git -c core.quotePath=false diff --name-only "origin/$pbase...origin/$head" 2>/dev/null) || { bad="$bad #$num"; continue; }
+    files=$(git -c core.quotePath=false diff --name-only "origin/$pbase...origin/pr/$num" 2>/dev/null) || { bad="$bad #$num"; continue; }
     while IFS= read -r file; do
       [ -n "$file" ] || continue
       for p in "$@"; do

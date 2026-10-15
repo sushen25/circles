@@ -24,7 +24,11 @@ git add .; git commit -qm big; git push -q origin big
 # stacked: on top of big, adds one file; against its real base it shows only that.
 git checkout -q -b stacked big
 echo s > stacked-only.txt; echo c > "big/café.txt"; git add .; git commit -qm stacked; git push -q origin stacked
-# gone: listed by gh but its branch is not on origin.
+git push -q origin big:refs/pull/1/head stacked:refs/pull/2/head
+# decoy: a branch on origin that shares a name with a fork PR's head but is unrelated.
+git checkout -q -b forky main; echo x > decoy.txt; git add .; git commit -qm decoy; git push -q origin forky
+git push -q origin big:refs/pull/4/head
+# PR 3 is listed by gh but has no head ref on origin.
 git checkout -q main
 
 mkdir "$tmp/bin"
@@ -53,6 +57,11 @@ PR #2 (stacked) touches stacked-only.txt" ]; } && ok "a stacked PR shows only wh
 out=$(run "big/café.txt" 2>&1) && st=0 || st=$?
 { [ $st = 0 ] && [ "$out" = "PR #2 (stacked) touches big/café.txt" ]; } && ok "a non-ASCII file name still matches" || bad "non-ASCII: status $st, got: $out"
 
+FAKE_PRS='4\tforky\tmain\n'; export FAKE_PRS
+out=$(run big/f150.txt decoy.txt 2>&1) && st=0 || st=$?
+{ [ $st = 0 ] && [ "$out" = "PR #4 (forky) touches big/f150.txt" ]; } && ok "the PR's own head is read, not an origin branch of the same name" || bad "fork: status $st, got: $out"
+
+FAKE_PRS='1\tbig\tmain\n2\tstacked\tbig\n'; export FAKE_PRS
 out=$(run nothing/ 2>&1) && st=0 || st=$?
 { [ $st = 0 ] && [ "$out" = "no open PR touches those paths" ]; } && ok "no overlap says so" || bad "none: status $st, got: $out"
 

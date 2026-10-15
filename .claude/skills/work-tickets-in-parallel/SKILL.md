@@ -64,7 +64,7 @@ Everything `implement-linear-ticket` needs, plus:
 | `parallel.sh gate` | in a worktree: `ticket.sh check` with the Playwright suites on this slot's ports, Mailpit on this slot's, and a `TMPDIR` of the slot's own (Metro's cache); at most `PARALLEL_GATES` (default 1) run at once, counted with lock directories in the shared `.git` (`gate-lock.sh`); a lock left by a dead process is cleared |
 | `parallel.sh sync [<ref>]` | in a worktree: take the patch off, rebase on `origin/main` (or `<ref>`), put the patch back |
 | `parallel.sh unslot` / `repatch` | in a worktree: take the patch off `config.toml` so a real change to it can be committed, then put it back |
-| `parallel.sh overlap <path>...` | which open PRs touch these paths or prefixes. Reads each PR's whole file list with `git diff --name-only <base>...<head>` after a fetch (so a stacked PR shows only what it adds, and a PR over 100 files is not cut short). A PR it cannot read is named on stderr and the exit status is 2: treat the answer as partial |
+| `parallel.sh overlap <path>...` | which open PRs touch these paths or prefixes. Reads each PR's whole file list with `git diff --name-only <base>...<PR head>` after a fetch of refs/pull/N/head (so a stacked PR shows only what it adds, and a PR over 100 files is not cut short). A PR it cannot read is named on stderr and the exit status is 2: treat the answer as partial |
 | `parallel.sh list` | every slot: ticket, branch, behind/ahead of `origin/main`, and every gate lock held, with its holder |
 | `parallel.sh rm <sus-n> [--force]` | stop the stack and drop its data, remove the worktree, free the slot; keeps the branch; refuses on uncommitted or unpushed work without `--force` |
 
@@ -219,7 +219,7 @@ racing gates, new script and old mixed, never more than the limit inside.
 
 ```bash
 .claude/skills/work-tickets-in-parallel/gate-lock.test.sh   # ends "gate-lock: all passed"
-.claude/skills/work-tickets-in-parallel/overlap.test.sh     # six "ok" lines and no FAIL; a stand-in gh, a throwaway repo
+.claude/skills/work-tickets-in-parallel/overlap.test.sh     # seven "ok" lines and no FAIL; a stand-in gh, a throwaway repo
 ```
 
 To check the driver itself without Docker or a ticket:
