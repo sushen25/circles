@@ -12,6 +12,7 @@ import type { Db } from '../_shared/db.ts';
 import { log } from '../_shared/logging.ts';
 import { supersedeClosing } from './closing.ts';
 import { type PlanContext, loadContext } from './context.ts';
+import { recordOpened } from './opened.ts';
 import { needsQuietAudience, withQuietAudience } from './quiet.ts';
 import {
   ANNOUNCED,
@@ -262,6 +263,12 @@ export async function drain(
         const { data, error } = await service.rpc('dispatch_enqueue', { p_jobs: rows });
         if (error !== null) throw error;
         result.jobs += (data as number | null) ?? 0;
+      }
+
+      // The ask opening is counted once its letters are queued (SUS-97). The
+      // row's id comes from the outbox row, so a retried event lands on it.
+      if (planId !== null) {
+        await recordOpened(service, event, contexts.get(planId) ?? null, requestId, new Date(now));
       }
 
       const { error } = await service.rpc('dispatch_event_result', { p_id: event.id });
