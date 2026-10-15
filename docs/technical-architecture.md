@@ -451,7 +451,7 @@ All ids are `uuid` (v7 where ordering helps). All tables have `created_at`, `upd
 
 | Table | Columns of note |
 |---|---|
-| `analytics.events` | `event_name`, `schema_version`, `user_id`, `anonymous_id`, `circle_id`, `plan_id`, `properties jsonb`, `occurred_at`, `received_at` — validated against the catalogue in the ingest function; no foreign keys (events outlive rows; deletion nulls identifiers); the table refuses a content key in `properties` |
+| `analytics.events` | `event_name`, `schema_version`, `user_id`, `anonymous_id`, `circle_id`, `plan_id`, `properties jsonb`, `occurred_at`, `received_at` — validated against the catalogue in the ingest function, which also applies the table's content rule to each row so one the table would refuse is dropped and counted by event name rather than raising and losing its batch (SUS-147); no foreign keys (events outlive rows; deletion nulls identifiers); the table refuses a content key in `properties` |
 | `private.audit_log` | `actor_user_id`, `action` (a dotted verb, `^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)*$`, ≤60), `resource_type` (an aggregate name), `resource_id`, `metadata` (same no-content rule as the outbox), `occurred_at` |
 
 ### 8.3 Plan state machine, enforced in one place
