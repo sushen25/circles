@@ -10,8 +10,15 @@
  * happen are replies to nothing.
  */
 
-import { type Instant, addMinutes, earliest, isAfter } from '../shared/instant.js';
-import { fromLocal } from '../shared/zone.js';
+import {
+  type Instant,
+  MINUTE_MILLIS,
+  addMinutes,
+  earliest,
+  instant,
+  isAfter,
+} from '../shared/instant.js';
+import { type Zone, fromLocal, offsetMinutes, toLocal } from '../shared/zone.js';
 import type { PlanTiming, WindowPreset } from './types.js';
 
 const HOUR = 60;
@@ -56,6 +63,11 @@ export function clampDeadline(deadline: Instant, latestStart: Instant): Instant 
  * enough for a group chat to notice and short enough that "tonight" still means
  * tonight.
  *
+ * The day-based defaults (a day, three days) are rounded up to the next whole
+ * hour in `zone`, so no deadline is shown on an odd minute. Tonight is not:
+ * its hour is already a promise about the evening, and rounding it would
+ * stretch an hour into nearly two.
+ *
  * Two invariants bound the answer, and they can conflict:
  *
  * - **Never after the last possible start** (spec §5.3) — replies that arrive
@@ -80,13 +92,41 @@ export function defaultDeadline(
   preset: WindowPreset,
   createdAt: Instant,
   latestStart: Instant,
+  zone: Zone,
 ): Instant | undefined {
   if (!isAfter(latestStart, createdAt)) return undefined;
-  const preferred = uncappedDefault(preset, createdAt, latestStart);
+  const preferred = uncappedDefault(preset, createdAt, latestStart, zone);
   return isAfter(preferred, createdAt) ? preferred : latestStart;
 }
 
-function uncappedDefault(preset: WindowPreset, createdAt: Instant, latestStart: Instant): Instant {
+/**
+ * Up to the next whole hour on the plan's own clock, so a default reads
+ * "Mon 12 Oct, 7:00 pm" and never "6:22 pm". Rounded up, never down: the
+ * organiser is never given less time than the preset promises. A moment already
+ * on the hour stays put. The cap at the last possible start is applied after.
+ */
+export function ceilToLocalHour(value: Instant, z: Zone): Instant {
+  const hourMillis = HOUR * MINUTE_MILLIS;
+  const up = (at: Instant): Instant => {
+    const offset = offsetMinutes(at, z) * MINUTE_MILLIS;
+    return instant(Math.ceil((at + offset) / hourMillis) * hourMillis - offset);
+  };
+  // The offset can differ at the boundary: a half-hour daylight-saving change
+  // (Lord Howe) lands the first guess on :30. Round again from there, which
+  // uses the offset that applies at the new moment; it only ever moves later.
+  let rounded = up(value);
+  for (let pass = 0; pass < 3 && toLocal(rounded, z).minutesOfDay % HOUR !== 0; pass += 1) {
+    rounded = up(rounded);
+  }
+  return rounded;
+}
+
+function uncappedDefault(
+  preset: WindowPreset,
+  createdAt: Instant,
+  latestStart: Instant,
+  zone: Zone,
+): Instant {
   switch (preset) {
     case 'tonight':
       return earliest(
@@ -95,13 +135,13 @@ function uncappedDefault(preset: WindowPreset, createdAt: Instant, latestStart: 
       );
     case 'this_weekend':
     case 'next_7_days':
-      return clampDeadline(addMinutes(createdAt, 24 * HOUR), latestStart);
+      return clampDeadline(ceilToLocalHour(addMinutes(createdAt, 24 * HOUR), zone), latestStart);
     case 'next_14_days':
-      return clampDeadline(addMinutes(createdAt, 72 * HOUR), latestStart);
+      return clampDeadline(ceilToLocalHour(addMinutes(createdAt, 72 * HOUR), zone), latestStart);
     case 'custom':
       // A custom window is whatever the person chose, so it gets the middle
       // default rather than a guess based on its length.
-      return clampDeadline(addMinutes(createdAt, 24 * HOUR), latestStart);
+      return clampDeadline(ceilToLocalHour(addMinutes(createdAt, 24 * HOUR), zone), latestStart);
   }
 }
 

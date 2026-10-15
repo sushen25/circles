@@ -68,7 +68,7 @@ Deno.serve(
         durationMinutes: plan.duration_minutes,
         zone: toZone(plan.time_zone),
       });
-      const deadline = defaultDeadline(plan.quiet_preset, at, latestStart);
+      const deadline = defaultDeadline(plan.quiet_preset, at, latestStart, toZone(plan.time_zone));
 
       const { error } = await service.rpc('record_interest', {
         p_plan_id: body.plan_id,

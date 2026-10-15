@@ -83,7 +83,7 @@ export function firstPlanPreview(
     };
   }
   const latest = lastPossibleStart({ ...resolved, durationMinutes, zone });
-  const deadline = defaultDeadline(preset, now, latest);
+  const deadline = defaultDeadline(preset, now, latest, zone);
 
   return {
     preset,
