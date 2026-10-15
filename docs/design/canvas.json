@@ -442,6 +442,24 @@
       "title": "Stop quiet-ask emails \u00b7 done"
     },
     {
+      "file": "EmailVerifyConfirm.dc.html",
+      "x": 0,
+      "y": 13000,
+      "w": 390,
+      "h": 844,
+      "page": "guest",
+      "title": "Email verify \u00b7 one tap first"
+    },
+    {
+      "file": "ReentryConfirm.dc.html",
+      "x": 480,
+      "y": 13000,
+      "w": 390,
+      "h": 844,
+      "page": "guest",
+      "title": "Get back in \u00b7 one tap first"
+    },
+    {
       "file": "FirstCircle.dc.html",
       "x": 0,
       "y": 0,

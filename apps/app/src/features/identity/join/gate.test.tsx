@@ -165,7 +165,34 @@ describe('session_missing_on_return', () => {
   });
 });
 
+async function tapGetBackIn() {
+  await act(async () => {
+    fireEvent.click(await screen.findByRole('button', { name: 'Get back in' }));
+  });
+}
+
 describe('ReentryFlow', () => {
+  it('asks for one tap and spends nothing before it: opening the link moves nobody', async () => {
+    render(wrap(<ReentryFlow token={'t'.repeat(40)} />));
+
+    expect(await screen.findByRole('button', { name: 'Get back in' })).toBeTruthy();
+    // A mail gateway that loads the page, runs its script and waits, changes nothing.
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(reattachWithToken).not.toHaveBeenCalled();
+    expect(replace).not.toHaveBeenCalled();
+  });
+
+  it('reattaches once, on the tap, with the screen\'s one idempotency key', async () => {
+    reattachWithToken.mockResolvedValue({ circle: { id: 'c1' } });
+    arrivalFor.mockResolvedValue({ kind: 'circle', id: 'c1' });
+    render(wrap(<ReentryFlow token={'t'.repeat(40)} />));
+
+    await tapGetBackIn();
+
+    await waitFor(() => expect(reattachWithToken).toHaveBeenCalledTimes(1));
+    expect(reattachWithToken).toHaveBeenCalledWith('t'.repeat(40), expect.any(String));
+  });
+
   it('tells somebody signed in to another account so, rather than "expired"', async () => {
     // `reattach_member` lets the account the link names straight through; what
     // is left refused as `caller_is_permanent` is somebody else signed in. That
@@ -183,6 +210,7 @@ describe('ReentryFlow', () => {
     );
 
     render(wrap(<ReentryFlow token={'t'.repeat(40)} />));
+    await tapGetBackIn();
 
     expect(await screen.findByText("You're signed in with a different account.")).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Sign out and continue' })).toBeTruthy();
@@ -200,6 +228,7 @@ describe('ReentryFlow', () => {
     it('lands a member on the meetup they have not said they made it to', async () => {
       morningAfterOf.mockResolvedValue({ ask: 'attendance', code: 'pnsundaycr' });
       render(wrap(<ReentryFlow token={'t'.repeat(40)} />));
+      await tapGetBackIn();
       await waitFor(() =>
         expect(replace).toHaveBeenCalledWith({
           pathname: '/p/[code]/attendance',
@@ -217,6 +246,7 @@ describe('ReentryFlow', () => {
       morningAfterOf.mockResolvedValue({ ask: 'attendance', code: 'oldmeetup' });
       arrivalFor.mockResolvedValue({ kind: 'plan', code: 'pnasking' });
       render(wrap(<ReentryFlow token={'t'.repeat(40)} />));
+      await tapGetBackIn();
       await waitFor(() =>
         expect(replace).toHaveBeenCalledWith({
           pathname: '/j/[code]',
@@ -229,6 +259,7 @@ describe('ReentryFlow', () => {
     it('goes where it always has when nothing is owed, or it cannot tell', async () => {
       morningAfterOf.mockRejectedValue(new Error('morning-after lookup failed'));
       render(wrap(<ReentryFlow token={'t'.repeat(40)} />));
+      await tapGetBackIn();
       await waitFor(() =>
         expect(replace).toHaveBeenCalledWith({
           pathname: '/circles/[id]',

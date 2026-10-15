@@ -51,6 +51,7 @@ test('the verification email’s link verifies the address, in a browser with no
   const elsewhere = await browser.newContext();
   const mail = await elsewhere.newPage();
   await mail.goto(link);
+  await mail.getByRole('button', { name: 'Turn on updates' }).click();
   await expect(mail.getByText("You'll hear about this meetup by email.")).toBeVisible();
   await expect(mail.getByText('Sunday Crew · Catch up')).toBeVisible();
   expect(emailContactOf(ren)).toBe('verified');
@@ -59,6 +60,7 @@ test('the verification email’s link verifies the address, in a browser with no
 
   // Single use: the same link again says so, neutrally.
   await mail.goto(link);
+  await mail.getByRole('button', { name: 'Turn on updates' }).click();
   await expect(mail.getByText('This link has expired.')).toBeVisible();
   await elsewhere.close();
 });

@@ -158,6 +158,7 @@ test('a member with no session, from the emailed way back in, lands on the quest
   const token = reentryTokenFor(crew, tom);
 
   await page.goto(`/a#${token}`);
+  await page.getByRole('button', { name: 'Get back in' }).click();
   await expect(page).toHaveURL(new RegExp(`/p/${crew.planCode}/attendance$`));
   await expect(page.getByText(/^Did you make it to .+'s catch-up\?$/)).toBeVisible();
   await page.getByRole('button', { name: 'I was there' }).click();
@@ -186,6 +187,7 @@ test('"I was there" on the circle\'s first meetup: a guest starts a circle of th
   const tom = guestInvited(crew, 'Tom');
   happenedTheOtherNight(crew.planId, crew.ownerId, [crew.ownerId, tom]);
   await page.goto(`/a#${reentryTokenFor(crew, tom)}`);
+  await page.getByRole('button', { name: 'Get back in' }).click();
   await page.getByRole('button', { name: 'I was there' }).click();
 
   await expect(page.getByText('Glad it happened.')).toBeVisible();
