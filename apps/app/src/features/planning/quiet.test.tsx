@@ -1,6 +1,6 @@
 import { Instant, QuietViewResponse } from '@circles/contracts';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { configure, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -13,8 +13,6 @@ import * as fixture from './fixtures';
  * asserted is which screen a view draws, what each tap sends, and that no
  * screen, request or event says who asked or what anybody answered.
  */
-
-configure({ asyncUtilTimeout: 5_000 });
 
 const push = vi.fn();
 const replace = vi.fn();

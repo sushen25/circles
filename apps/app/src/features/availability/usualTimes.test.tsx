@@ -269,11 +269,8 @@ describe('what the previous times are measured by', () => {
     open();
     await screen.findByText('Which evenings could work?');
     expect(track).not.toHaveBeenCalled();
-    await waitFor(
-      () => expect(track).toHaveBeenCalledWith('availability_started', { plan_id: PLAN.id }),
-      {
-        timeout: 3000,
-      },
+    await waitFor(() =>
+      expect(track).toHaveBeenCalledWith('availability_started', { plan_id: PLAN.id }),
     );
   });
 

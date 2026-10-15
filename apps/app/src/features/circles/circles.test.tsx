@@ -662,6 +662,6 @@ describe('circle home, sharing the plan link again (SUS-132)', () => {
     wrap(<CircleHomeFlow id={CIRCLE} />);
 
     expect(await screen.findByRole('button', SHARE)).toBeVisible();
-    await waitFor(() => expect(screen.queryByRole('button', SHARE)).toBeNull(), { timeout: 3000 });
+    await waitFor(() => expect(screen.queryByRole('button', SHARE)).toBeNull());
   });
 });
