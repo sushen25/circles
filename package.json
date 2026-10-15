@@ -7,7 +7,7 @@
   },
   "scripts": {
     "check": "pnpm run check:static && pnpm run check:stack && pnpm run test:e2e:live",
-    "check:static": "pnpm run format:check && pnpm run lint && pnpm run check:brand && pnpm run check:tokens && pnpm run typecheck && pnpm run check:imports && pnpm run check:audit && pnpm run check:migrations && pnpm run check:transitions && pnpm run check:events && pnpm run check:functions && pnpm run check:workflows && pnpm run check:docs && node scripts/check-unimported.mjs && node --experimental-strip-types --test scripts/check-unimported.test.mjs && pnpm run test:unit",
+    "check:static": "pnpm run format:check && pnpm run lint && pnpm run check:boundaries && pnpm run check:brand && pnpm run check:tokens && pnpm run typecheck && pnpm run check:imports && pnpm run check:audit && pnpm run check:migrations && pnpm run check:transitions && pnpm run check:events && pnpm run check:functions && pnpm run check:workflows && pnpm run check:docs && node scripts/check-unimported.mjs && node --experimental-strip-types --test scripts/check-unimported.test.mjs && pnpm run test:unit",
     "check:stack": "pnpm run db:test && pnpm run test:integration && pnpm run check:types && pnpm run test:e2e:smoke",
     "dev": "pnpm --filter app exec expo start",
     "dev:web": "pnpm --filter app exec expo start --web",
@@ -43,6 +43,7 @@
     "check:tokens": "node --experimental-strip-types scripts/gen-tokens.ts --check",
     "check:types": "supabase gen types typescript --local | diff -u packages/contracts/src/db.generated.ts - || (echo \"check:types: packages/contracts/src/db.generated.ts is stale — run pnpm gen:types\" >&2; exit 1)",
     "check:audit": "pnpm audit --prod --audit-level high && node --test scripts/query-string-patch.test.mjs",
+    "check:boundaries": "node --test scripts/eslint-boundaries.test.mjs",
     "check:imports": "node scripts/check-import-map.mjs && node --test scripts/import-map-pins.test.mjs",
     "check:migrations": "node scripts/check-migrations.mjs",
     "check:transitions": "node scripts/gen-transitions.mjs --check",
