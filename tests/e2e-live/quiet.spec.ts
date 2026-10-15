@@ -257,14 +257,15 @@ test('an ask that opens is counted: quiet_threshold_reached, against nobody', as
     sql(`select e.user_id is null and e.anonymous_id is null and e.plan_id is null and e.circle_id is null,
                 (e.properties ->> 'threshold')::int = p.quiet_threshold and e.properties = jsonb_build_object('threshold', p.quiet_threshold), e.occurred_at = date_trunc('hour', e.occurred_at),
                 e.received_at = date_trunc('hour', e.received_at)
-         from jobs.outbox o
-         join public.plans p on p.id = o.aggregate_id
+         from (select o.aggregate_id,
+                      encode(sha256(convert_to('quiet_threshold_reached:' || o.id, 'UTF8')), 'hex') as hex
+               from jobs.outbox o
+               where o.aggregate_id = '${ask.id}' and o.event_name = 'planning.threshold_reached') h
+         join public.plans p on p.id = h.aggregate_id
          join analytics.events e on e.event_id = (
            substr(h.hex, 1, 8) || '-' || substr(h.hex, 9, 4) || '-' || substr(h.hex, 13, 4) || '-'
            || substr(h.hex, 17, 4) || '-' || substr(h.hex, 21, 12))::uuid
-         cross join lateral (select encode(sha256(convert_to('quiet_threshold_reached:' || o.id, 'UTF8')), 'hex') as hex) h
-         where o.aggregate_id = '${ask.id}' and o.event_name = 'planning.threshold_reached'
-           and e.event_name = 'quiet_threshold_reached'`);
+         where e.event_name = 'quiet_threshold_reached'`);
   for (let attempt = 0; attempt < 10 && row().length === 0; attempt += 1) await runDispatcher();
   expect(row()).toEqual([['t', 't', 't', 't']]);
   // One more run: the replay-safe id means still one row.
