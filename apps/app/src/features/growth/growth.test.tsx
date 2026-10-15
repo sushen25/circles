@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { tap } from '../../test/tap';
 import { useSyncExternalStore, type ReactNode } from 'react';
 import { Text } from 'react-native';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -238,7 +239,7 @@ describe('Keep your place for good?', () => {
         {page}
       </ReattachedNudgeFlow>,
     );
-    fireEvent.click(await screen.findByRole('button', { name: 'Save my place' }));
+    await tap(screen.findByRole('button', { name: 'Save my place' }));
     fireEvent.change(await screen.findByLabelText('Your email'), {
       target: { value: 'kit@example.com' },
     });

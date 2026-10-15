@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { tap } from '../../test/tap';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -90,8 +91,8 @@ describe('notification settings', () => {
     wrap(<NotificationSettingsFlow />);
 
     await act(async () => {
-      fireEvent.click(
-        await screen.findByRole('switch', { name: 'Nudges to plan the next one in Sunday Crew' }),
+      await tap(
+        screen.findByRole('switch', { name: 'Nudges to plan the next one in Sunday Crew' }),
       );
     });
     expect(saveMySwitches).toHaveBeenCalledWith('c1', { mutedNudges: true });
@@ -112,7 +113,7 @@ describe('notification settings', () => {
   it('says quiet hours are fixed rather than pretending to change them', async () => {
     wrap(<NotificationSettingsFlow />);
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Change' }));
+    await tap(screen.findByRole('button', { name: 'Change' }));
     expect(screen.getByText(/9 pm and 8 am in your own time zone/)).toBeVisible();
   });
 
@@ -153,7 +154,7 @@ describe('notification settings', () => {
       wrap(<NotificationSettingsFlow />);
 
       await act(async () => {
-        fireEvent.click(await screen.findByRole('switch', { name }));
+        await tap(screen.findByRole('switch', { name }));
       });
       await waitFor(() =>
         expect(track).toHaveBeenCalledWith('organiser_email_changed', { enabled: false }),

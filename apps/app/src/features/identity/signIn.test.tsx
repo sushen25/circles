@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { tap } from '../../test/tap';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -483,7 +484,7 @@ describe('Your name', () => {
     auth.saveProfile.mockResolvedValue(undefined);
     wrap(<YourNameFlow />);
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Change' }));
+    await tap(screen.findByRole('button', { name: 'Change' }));
     fireEvent.change(screen.getByLabelText('Search time zones'), { target: { value: 'london' } });
     fireEvent.click(screen.getByRole('radio', { name: 'London' }));
     fireEvent.change(screen.getByLabelText('Your name'), { target: { value: 'Maya' } });
@@ -497,7 +498,7 @@ describe('Your name', () => {
   it('refuses an empty name before sending anything', async () => {
     wrap(<YourNameFlow />);
     await act(async () => {
-      fireEvent.click(await screen.findByRole('button', { name: 'Continue' }));
+      await tap(screen.findByRole('button', { name: 'Continue' }));
     });
     expect(screen.getByText('Add a name of up to 40 characters.')).toBeVisible();
     expect(auth.saveProfile).not.toHaveBeenCalled();

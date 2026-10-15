@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { tap } from '../../test/tap';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -108,7 +109,7 @@ describe('give it one more day', () => {
     const row = await screen.findByRole('button', {
       name: /^Give it one more day\. Reopens replies until /,
     });
-    fireEvent.click(row);
+    await tap(row);
 
     await waitFor(() => expect(extendDeadline).toHaveBeenCalledWith('thu-17'));
     await waitFor(() =>
@@ -151,7 +152,7 @@ describe('give it one more day', () => {
     );
     show(organiser());
 
-    fireEvent.click(await screen.findByRole('button', { name: /^Give it one more day\./ }));
+    await tap(screen.findByRole('button', { name: /^Give it one more day\./ }));
 
     expect(await screen.findByText('It has had its extra day already.')).toBeTruthy();
   });
@@ -162,8 +163,8 @@ describe('hand this to someone else', () => {
     handOffOrganiser.mockResolvedValue(undefined);
     show(organiser());
 
-    fireEvent.click(
-      await screen.findByRole('button', {
+    await tap(
+      screen.findByRole('button', {
         name: 'Hand this to someone else. Another member picks the time',
       }),
     );
@@ -200,9 +201,9 @@ describe('hand this to someone else', () => {
     );
     show(organiser());
 
-    fireEvent.click(await screen.findByRole('button', { name: /^Hand this to someone else/ }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Nina' }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Hand it to Nina' }));
+    await tap(screen.findByRole('button', { name: /^Hand this to someone else/ }));
+    await tap(screen.findByRole('button', { name: 'Nina' }));
+    await tap(screen.findByRole('button', { name: 'Hand it to Nina' }));
 
     expect(
       await screen.findByText('They need a saved place before they can organise.'),
@@ -213,7 +214,7 @@ describe('hand this to someone else', () => {
     handOffCandidates.mockResolvedValue([{ userId: 'sam', name: 'Sam', hasSavedPlace: false }]);
     show(organiser());
 
-    fireEvent.click(await screen.findByRole('button', { name: /^Hand this to someone else/ }));
+    await tap(screen.findByRole('button', { name: /^Hand this to someone else/ }));
 
     expect(
       await screen.findByText(

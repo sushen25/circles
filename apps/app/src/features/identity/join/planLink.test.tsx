@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { tap } from '../../../test/tap';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -171,7 +172,7 @@ describe('a guest, in a circle that has guests', () => {
     joinPlan.mockRejectedValue(refusal('invite_inactive'));
     arrive();
 
-    fireEvent.click(await screen.findByRole('button', { name: "I'm new here" }));
+    await tap(screen.findByRole('button', { name: "I'm new here" }));
     await type('Ren');
 
     expect(await screen.findByText('You need the invite link to join.')).toBeTruthy();
@@ -182,7 +183,7 @@ describe('a guest, in a circle that has guests', () => {
     joinPlan.mockRejectedValueOnce(refusal('duplicate_name')).mockResolvedValue(joined());
     arrive();
 
-    fireEvent.click(await screen.findByRole('button', { name: "I'm new here" }));
+    await tap(screen.findByRole('button', { name: "I'm new here" }));
     await type('Alex');
     expect(await screen.findByText(/already called Alex/)).toBeTruthy();
 
@@ -201,7 +202,7 @@ describe('Back from the name step (SUS-208)', () => {
   it('returns to "Have you answered this before?" on the same plan link, and never to the website', async () => {
     arrive();
 
-    fireEvent.click(await screen.findByRole('button', { name: "I'm new here" }));
+    await tap(screen.findByRole('button', { name: "I'm new here" }));
     // A step in the address, so the browser's own Back is the same Back.
     expect(push).toHaveBeenCalledWith({ pathname: `/p/${CODE}`, params: { step: 'name' } });
     await screen.findByText('What should the group call you?');
@@ -215,7 +216,7 @@ describe('Back from the name step (SUS-208)', () => {
     joinPlan.mockResolvedValue(joined());
     arrive();
 
-    fireEvent.click(await screen.findByRole('button', { name: "I'm new here" }));
+    await tap(screen.findByRole('button', { name: "I'm new here" }));
     await type('Ren');
 
     await waitFor(() => expect(replace).toHaveBeenCalledTimes(1));
@@ -243,7 +244,7 @@ describe('a join that lands after Back (SUS-208)', () => {
     joinPlan.mockReturnValue(new Promise((resolve) => (finish = resolve)));
     arrive();
 
-    fireEvent.click(await screen.findByRole('button', { name: "I'm new here" }));
+    await tap(screen.findByRole('button', { name: "I'm new here" }));
     await type('Ren');
     fireEvent.click(screen.getByRole('button', { name: 'Back' }));
     await screen.findByText('Have you answered this before?');
@@ -359,7 +360,7 @@ describe('an account that is not a member', () => {
     arrive();
 
     await act(async () => {
-      fireEvent.click(await screen.findByRole('button', { name: 'Join Sunday Crew as Maya' }));
+      await tap(screen.findByRole('button', { name: 'Join Sunday Crew as Maya' }));
     });
 
     expect(await screen.findByText(/already called Maya/)).toBeTruthy();
@@ -379,7 +380,7 @@ describe('an account that is not a member', () => {
     arrive();
 
     await act(async () => {
-      fireEvent.click(await screen.findByRole('button', { name: 'Join Sunday Crew' }));
+      await tap(screen.findByRole('button', { name: 'Join Sunday Crew' }));
     });
 
     expect(await screen.findByText('What should the group call you?')).toBeTruthy();
@@ -392,7 +393,7 @@ describe('an account that is not a member', () => {
     arrive();
 
     await act(async () => {
-      fireEvent.click(await screen.findByRole('button', { name: 'Join Sunday Crew as Maya' }));
+      await tap(screen.findByRole('button', { name: 'Join Sunday Crew as Maya' }));
     });
 
     expect(
@@ -409,7 +410,7 @@ describe('an account that is not a member', () => {
     arrive();
 
     await act(async () => {
-      fireEvent.click(await screen.findByRole('button', { name: 'Join Sunday Crew as Maya' }));
+      await tap(screen.findByRole('button', { name: 'Join Sunday Crew as Maya' }));
     });
 
     expect(await screen.findByText('You need the invite link to join.')).toBeTruthy();
@@ -486,7 +487,7 @@ describe('"I have an account" (ADR 0022, SUS-80)', () => {
     ownDisplayName.mockResolvedValue(null);
     arrive();
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Join Sunday Crew' }));
+    await tap(screen.findByRole('button', { name: 'Join Sunday Crew' }));
     await screen.findByLabelText('Your name');
     expect(screen.queryByRole('button', { name: 'I have an account' })).toBeNull();
   });

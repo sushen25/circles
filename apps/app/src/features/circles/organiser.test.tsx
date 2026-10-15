@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { tap } from '../../test/tap';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -185,7 +186,7 @@ describe('InviteCircle', () => {
     wrap(<InviteCircleFlow id={CIRCLE} />);
 
     await act(async () => {
-      fireEvent.click(await screen.findByRole('button', { name: 'Copy' }));
+      await tap(screen.findByRole('button', { name: 'Copy' }));
     });
     expect(copyText).toHaveBeenCalledWith(`https://circles.test/join#${SECRET}`);
     // The Copy button says so itself, where the tap was (ADR 0026's share screen).
@@ -305,7 +306,7 @@ describe('the first plan', () => {
     createFirstPlan.mockResolvedValue({ plan_id: PLAN, short_code: 'abcdefgh' });
     wrap(<FirstPlanFlow id={CIRCLE} />);
 
-    fireEvent.click(await screen.findByLabelText('This weekend'));
+    await tap(screen.findByLabelText('This weekend'));
     expect(screen.getByText('Catch up · this weekend')).toBeVisible();
     expect(screen.getByText('Replies close in 24 hours')).toBeVisible();
     await act(async () => {
