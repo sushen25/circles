@@ -9,7 +9,8 @@ import { sundayCrew, type Scenario } from './stack';
  * never with a name beside it.
  *
  * Three strangers arrive on the plan link in turn. The first has no
- * number to be shown; the third sees the first two answers as counts — on the tiles, in the
+ * number to be shown; the second sees the first's days as counts and no hours
+ * (one other answer is that person's answer, ADR 0066); the third sees the first two answers as counts — on the tiles, in the
  * words of each day, and as one line about when most are free — and neither of their
  * names.
  */
@@ -44,6 +45,20 @@ test('a third guest sees the first two answers as counts, and no name', async ({
   // Kit: the fourth and sixth days' evenings.
   const kits = await (await browser.newContext()).newPage();
   await arrives(kits, crew, 'Kit');
+  // With exactly one other answer in (SUS-211, ADR 0066): the tiles count Ren's
+  // days, and the hours line waits for a second answer. `others_availability`
+  // sends no hours until then, so there is nothing here for the line to say.
+  await expect(days(kits).nth(1)).toHaveAccessibleName(/, 1 other could make it$/);
+  await expect(days(kits).nth(3)).toHaveAccessibleName(/, 1 other could make it$/);
+  await expect(days(kits).nth(2)).not.toHaveAccessibleName(/could make it/);
+  await days(kits).nth(3).click();
+  await kits.getByRole('button', { name: /^Adjust hours for/ }).click();
+  await kits
+    .getByRole('button', { name: /Set exact hours/ })
+    .nth(0)
+    .click();
+  await expect(kits.getByText(/^Most others are free/)).toHaveCount(0);
+  await kits.getByRole('button', { name: 'Done', exact: true }).click();
   await sendEvenings(kits, crew.planCode, 3, 5);
 
   // Lou: Maya, Ren, Kit and Lou are asked, and two have answered.

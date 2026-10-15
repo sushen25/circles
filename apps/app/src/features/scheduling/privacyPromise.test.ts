@@ -130,6 +130,7 @@ describe('the privacy promise and the option cards', () => {
       withTimes: true,
       flexible: true,
       readerAnswered: true,
+      dayCounts: true,
       days: true,
     };
     expect(Object.keys(shape)).toEqual([
@@ -138,6 +139,7 @@ describe('the privacy promise and the option cards', () => {
       'withTimes',
       'flexible',
       'readerAnswered',
+      'dayCounts',
       'days',
     ]);
   });

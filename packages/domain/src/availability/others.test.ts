@@ -7,11 +7,15 @@ import { localDate, type LocalDate } from '../shared/local-date.js';
 import { fromLocal, zone, type Zone } from '../shared/zone.js';
 import { cellsFor } from './cells.js';
 import {
+  HOURS_THRESHOLD,
   OTHERS_THRESHOLD,
   cellCounts,
+  dayCountsOf,
+  dayFreeCount,
   freeFor,
   freeStretches,
   headcount,
+  hoursShown,
   othersShown,
   peakOf,
   type OthersSaid,
@@ -34,6 +38,7 @@ function said(overrides: Partial<OthersSaid> = {}): OthersSaid {
     withTimes: 0,
     flexible: 0,
     readerAnswered: false,
+    dayCounts: [],
     days: [],
     ...overrides,
   };
@@ -42,9 +47,9 @@ function said(overrides: Partial<OthersSaid> = {}): OthersSaid {
 describe('othersShown', () => {
   it('is one other with times: the founder chose one, and with one the counts are their answer', () => {
     expect(OTHERS_THRESHOLD).toBe(1);
-    expect(othersShown(said({ answered: 1, withTimes: 1, days: [[at(THU, H(18), H(20))]] }))).toBe(
-      true,
-    );
+    expect(
+      othersShown(said({ answered: 1, withTimes: 1, dayCounts: [{ date: THU, count: 1 }] })),
+    ).toBe(true);
   });
 
   it('is not met by nobody', () => {
@@ -58,6 +63,67 @@ describe('othersShown', () => {
   it('is not met by answers that say no', () => {
     // "None work", "more notice" and "not this time" are answers, not times.
     expect(othersShown(said({ answered: 2 }))).toBe(false);
+  });
+});
+
+describe('hoursShown (SUS-211)', () => {
+  const windows = [[at(THU, H(18), H(20))]];
+
+  it('waits for two others with times: the founder chose it on 15 October 2026', () => {
+    expect(HOURS_THRESHOLD).toBe(2);
+    expect(OTHERS_THRESHOLD).toBe(1);
+  });
+
+  it('is not met by one other: their hours would be their whole answer', () => {
+    expect(hoursShown(said({ answered: 1, withTimes: 1, days: windows }))).toBe(false);
+  });
+
+  it('is not met by one other with times and another who said "I\'m easy"', () => {
+    // Two have answered, but the only hours there are belong to one person.
+    expect(hoursShown(said({ answered: 2, withTimes: 1, flexible: 1, days: windows }))).toBe(false);
+  });
+
+  it('is met by two others with times, and needs the hours to have arrived', () => {
+    const two = said({ answered: 2, withTimes: 2, days: [windows[0]!, windows[0]!] });
+    expect(hoursShown(two)).toBe(true);
+    expect(hoursShown({ ...two, days: [] })).toBe(false);
+  });
+});
+
+describe('dayFreeCount and dayCountsOf (SUS-211)', () => {
+  it('counts a day from the day counts alone, with no hours', () => {
+    const one = said({
+      answered: 1,
+      withTimes: 1,
+      dayCounts: [
+        { date: THU, count: 1 },
+        { date: FRI, count: 1 },
+      ],
+    });
+    expect(one.days).toEqual([]);
+    expect(dayFreeCount(one, THU)).toBe(1);
+    expect(dayFreeCount(one, localDate('2026-09-19'))).toBe(0);
+  });
+
+  it('adds everyone who said "I\'m easy" to every day', () => {
+    expect(dayFreeCount(said({ flexible: 2, dayCounts: [{ date: THU, count: 1 }] }), THU)).toBe(3);
+    expect(dayFreeCount(said({ flexible: 2 }), FRI)).toBe(2);
+  });
+
+  it("works out the counts the database sends from each person's day, one per person per day", () => {
+    expect(
+      dayCountsOf(
+        [
+          [at(THU, H(18), H(19)), at(THU, H(20), H(21))],
+          [at(THU, H(18, 30), H(20, 30))],
+          [at(FRI, H(18, 30), H(20, 30))],
+        ],
+        MELBOURNE,
+      ),
+    ).toEqual([
+      { date: THU, count: 2 },
+      { date: FRI, count: 1 },
+    ]);
   });
 });
 

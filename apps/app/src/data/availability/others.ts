@@ -1,4 +1,4 @@
-import { fromISO, interval, type OthersSaid } from '@circles/domain';
+import { fromISO, interval, localDate, type OthersSaid } from '@circles/domain';
 import { z } from 'zod';
 
 import { authClient } from '../auth/client';
@@ -12,7 +12,8 @@ import { authClient } from '../auth/client';
  * `willing_windows` stay readable by their owner alone. The function decides
  * who may ask (an active member), what counts (the current revision, never
  * the reader's own) and the threshold; the domain works out every count from
- * what it returns (`freeFor`). Nothing here is stored or put in the draft: the
+ * what it returns (`dayFreeCount`, `freeFor`). It sends the hours only from two
+ * other answers with times (ADR 0066), so `days` is empty below that. Nothing here is stored or put in the draft: the
  * editor reads it again each time it opens.
  *
  * A malformed reply is treated as no reply. This is an optional read, like
@@ -25,6 +26,7 @@ const Reply = z.object({
   with_times: z.number().int().nonnegative(),
   flexible: z.number().int().nonnegative(),
   reader_answered: z.boolean(),
+  day_counts: z.array(z.object({ day: z.string(), count: z.number().int().positive() })),
   days: z.array(z.array(Window)),
 });
 
@@ -40,6 +42,7 @@ export async function othersSaid(planId: string): Promise<OthersSaid | undefined
     withTimes: reply.data.with_times,
     flexible: reply.data.flexible,
     readerAnswered: reply.data.reader_answered,
+    dayCounts: reply.data.day_counts.map(({ day, count }) => ({ date: localDate(day), count })),
     days: reply.data.days.map((windows) =>
       windows.map((w) => interval(fromISO(w.start), fromISO(w.end))),
     ),
