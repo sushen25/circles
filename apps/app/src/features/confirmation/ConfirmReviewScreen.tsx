@@ -16,6 +16,7 @@ import {
   TopBar,
   useLoadingHold,
   type Member,
+  TextArea,
 } from '../../components';
 import { Row, Stack } from '../../components/layout';
 import { t } from '../../copy';
@@ -191,12 +192,11 @@ export function ConfirmReviewScreen({
         </Stack>
         <Stack>
           <Label>{t('confirmReview', 'a_note_for_everyone')}</Label>
-          <Input
+          <TextArea
             aria-label={t('confirmReview', 'a_note_for_everyone')}
             placeholder={t('confirmReview', 'note_placeholder')}
             value={note}
             maxLength={NOTE_MAX_LENGTH}
-            multiline
             onChangeText={onNote}
           />
           <Small>{noteCount}</Small>

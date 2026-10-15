@@ -703,7 +703,7 @@ S["ConfirmReview"] = shell(
         stack(lbl("Lock it in?"), date("Thursday 17 September", 32), f'<div class="num" style="font-family:Newsreader,Georgia,serif;font-size:22px;color:{T["ink2"]};">6:30–8:30 pm</div>', gap=6),
         between(marks(["Maya","Nina","Tom","Jess","Sam"]), sm("5 of 6 can make it · Alex hasn't answered")),
         stack(lbl("Where"), inp("Hope St Radio"), inp("Address or map link, optional", ph=True), gap=8),
-        stack(lbl("A note for everyone"), f'<div class="input" style="height:auto;min-height:72px;align-items:flex-start;padding:14px 16px;">Table\'s booked under my name. Come hungry.</div>', gap=8),
+        stack(lbl("A note for everyone"), f'<div class="input" style="height:auto;min-height:120px;align-items:flex-start;padding:14px 16px;">Table\'s booked under my name. Come hungry.</div>', gap=8),
         notice("Alex hasn't replied. They'll see the plan and can say whether they're coming.", "clock", "warn"),
     ) +
     foot(pri("Lock it in"), sm("Times are frozen once locked. Later replies won't move it."))
@@ -1340,7 +1340,7 @@ S["ConfirmReviewOwn"] = shell(
         stack(lbl("Lock it in?"), date("Friday 18 September", 32), f'<div class="num" style="font-family:Newsreader,Georgia,serif;font-size:22px;color:{T["ink2"]};">7–9 pm</div>', gap=6),
         between(marks(["Nina","Tom","Alex"], waiting=("Alex",)), sm("2 of 6 can make it · Not you, Jess or Sam · Alex hasn't answered")),
         stack(lbl("Where"), inp("Hope St Radio"), inp("Address or map link, optional", ph=True), gap=8),
-        stack(lbl("A note for everyone"), f'<div class="input" style="height:auto;min-height:72px;align-items:flex-start;padding:14px 16px;">Come if you can.</div>', gap=8),
+        stack(lbl("A note for everyone"), f'<div class="input" style="height:auto;min-height:120px;align-items:flex-start;padding:14px 16px;">Come if you can.</div>', gap=8),
         # One caution in place of the unanswered warning: it is not an option,
         # and it says who did not put it down.
         notice("This isn't one of the options, and the plan asked for at least 4. Jess, Sam and Alex didn't put this time down. They'll see the plan and can say whether they're coming.", "shield", "warn"),
@@ -1357,7 +1357,7 @@ S["EditLocked"] = shell(
               between(stack(title("Sat 19 Sep"), sm("7–9 pm"), gap=2), ter("Change")),
               sm("You, Tom and Jess can make it · Doesn't work for Nina or Sam · Alex hasn't answered"), gap=8),
         stack(lbl("Where"), inp("Hope St Radio"), inp("Address or map link, optional", ph=True), gap=8),
-        stack(lbl("A note for everyone"), f'<div class="input" style="height:auto;min-height:72px;align-items:flex-start;padding:14px 16px;">Come if you can.</div>', sm("14 of 280"), gap=8),
+        stack(lbl("A note for everyone"), f'<div class="input" style="height:auto;min-height:120px;align-items:flex-start;padding:14px 16px;">Come if you can.</div>', sm("14 of 280"), gap=8),
         notice("Everyone sees the new time straight away, with Friday marked as moved. Anyone whose times cover it stays going without doing a thing. Nina, Sam and Alex are asked whether they can come.", "shield", "warn"),
     ) +
     foot(pri("Save changes"), ter("Keep Friday as it is"))
@@ -1381,7 +1381,7 @@ S["CancelPlan"] = shell(
     top("Back") +
     body(
         stack(dl("Cancel Thursday's catch-up?"), p("Everyone will see it's off. The circle's record isn't changed, and you can plan another any time."), gap=8),
-        stack(lbl("A short note, optional"), f'<div class="input" style="height:auto;min-height:72px;align-items:flex-start;padding:14px 16px;">Work thing came up, sorry all. Will try again in October.</div>', gap=8),
+        stack(lbl("A short note, optional"), f'<div class="input" style="height:auto;min-height:120px;align-items:flex-start;padding:14px 16px;">Work thing came up, sorry all. Will try again in October.</div>', gap=8),
         sm("We'll give you a message to paste into the group chat."),
     ) +
     foot(pri("Cancel the catch-up"), ter("Keep it"))

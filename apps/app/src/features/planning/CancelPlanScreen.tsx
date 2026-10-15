@@ -4,13 +4,13 @@ import {
   Button,
   DisplayL,
   Foot,
-  Input,
   Label,
   Notice,
   Screen,
   Small,
   Tertiary,
   TopBar,
+  TextArea,
 } from '../../components';
 import { Stack } from '../../components/layout';
 import { t } from '../../copy';
@@ -80,13 +80,12 @@ export function CancelPlanScreen(props: CancelPlanProps) {
         </Stack>
         <Stack>
           <Label>{t('cancelPlan', 'a_short_note_optional')}</Label>
-          <Input
+          <TextArea
             aria-label={t('cancelPlan', 'a_short_note_optional')}
             placeholder={t('cancelPlan', 'work_thing_came_up_sorry_all_will')}
             value={note}
             onChangeText={props.onNote}
             maxLength={NOTE_MAX}
-            multiline
             editable={!busy}
           />
           <Small>{t('cancelPlan', 'note_count', { count: note.length, total: NOTE_MAX })}</Small>
