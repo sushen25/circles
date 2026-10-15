@@ -160,7 +160,7 @@ its line from `lines.ts`), `/circles/create` (`CreateCircleFlow`, name, colour,
 cadence and area through `create-circle`) and `/circles/[id]/settings`
 (`SettingsFlow`: the link through `get-invite-link` / `rotate-invite`,
 cadence and nudge pickers, colour, the reader's quiet-asks switch, members
-with Remove through `remove-member`, Archive). Circle home picks its state with
+with Remove through `remove-member`, "Change my name here" on the reader's own row through `rename-in-circle`, Archive). Circle home picks its state with
 the domain's `circleHomeState` (`HomeInState`): finding a time
 (`CircleHomeScreen`), locked in (`CircleHomeConfirmedScreen`, "Details" to
 `/circles/[id]/plan/[planId]/confirmed`), just you (`EmptyCircleScreen`), about

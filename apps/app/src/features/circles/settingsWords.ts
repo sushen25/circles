@@ -94,6 +94,9 @@ export function memberRows(home: CircleHome): SettingsMember[] {
       name: member.name,
       detail,
       removable: mayRemoveMember({ viewerIsOwner: home.isOwner, targetIsOwner: owner }),
+      // Only the reader's own row, whoever the reader is: the owner renames
+      // nobody else (SUS-205).
+      renamable: you,
     };
   });
 }

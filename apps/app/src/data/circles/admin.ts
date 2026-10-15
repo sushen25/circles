@@ -1,6 +1,7 @@
 import {
   GetInviteLinkResponse,
   RemoveMemberResponse,
+  RenameInCircleResponse,
   RotateInviteResponse,
   type IdempotencyKey,
 } from '@circles/contracts';
@@ -62,5 +63,23 @@ export async function removeMember(
     'remove-member',
     { idempotency_key: idempotencyKey, circle_id: circleId, user_id: userId },
     RemoveMemberResponse,
+  );
+}
+
+/**
+ * "Change my name here": the name this one circle calls the caller (SUS-205).
+ * The caller's own membership only; the account name and every other circle
+ * keep theirs. The key is the caller's, one per name, so a retry of the same
+ * name after a lost response is answered from the record.
+ */
+export async function renameInCircle(
+  circleId: string,
+  displayName: string,
+  idempotencyKey: IdempotencyKey,
+): Promise<void> {
+  await invokeFunction(
+    'rename-in-circle',
+    { idempotency_key: idempotencyKey, circle_id: circleId, display_name: displayName },
+    RenameInCircleResponse,
   );
 }

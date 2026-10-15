@@ -12,6 +12,7 @@ import {
 import { RecordNudgeRequest } from './record-nudge.js';
 import { ReattachMemberRequest } from './reattach-member.js';
 import { RedeemInviteRequest } from './redeem-invite.js';
+import { RenameInCircleRequest } from './rename-in-circle.js';
 import { SubmitAvailabilityRequest } from './submit-availability.js';
 
 /**
@@ -21,6 +22,29 @@ import { SubmitAvailabilityRequest } from './submit-availability.js';
  */
 
 const KEY = '00000000-0000-4000-8000-000000000001';
+
+describe('RenameInCircleRequest', () => {
+  const body = {
+    idempotency_key: KEY,
+    circle_id: '00000000-0000-4000-8000-0000000000c1',
+    display_name: 'Nina B',
+  };
+
+  it("holds the new name to the join screen's rule and normalises it the same way", () => {
+    expect(RenameInCircleRequest.safeParse({ ...body, display_name: '   ' }).success).toBe(false);
+    expect(RenameInCircleRequest.safeParse({ ...body, display_name: 'a'.repeat(41) }).success).toBe(
+      false,
+    );
+    expect(
+      RenameInCircleRequest.parse({ ...body, display_name: '  Nina \n B ' }).display_name,
+    ).toBe('Nina B');
+  });
+
+  it('has no field that names another person', () => {
+    const parsed = RenameInCircleRequest.parse({ ...body, user_id: 'someone-else' });
+    expect(Object.keys(parsed).sort()).toEqual(['circle_id', 'display_name', 'idempotency_key']);
+  });
+});
 
 describe('JoinPlanRequest', () => {
   const body = { idempotency_key: KEY, plan_code: 'pnsundaycr' };

@@ -46,9 +46,9 @@ export const ProblemReason = z.enum([
   'invite_inactive',
   /** `redeem-invite`, `join-plan`: the circle holds the maximum active members (ADR 0012). */
   'circle_full',
-  /** `redeem-invite`, `join-plan`: somebody active in the circle already uses that name. */
+  /** `redeem-invite`, `join-plan`, `rename-in-circle`: somebody active in the circle already uses that name. */
   'duplicate_name',
-  /** `reattach-member`: no active guest membership answers to that id or token. */
+  /** `reattach-member`: no active guest membership answers to that id or token. `rename-in-circle`: the caller is not active in that circle. */
   'member_not_found',
   /** `reattach-member`: the target has a saved place, so it signs in instead. */
   'target_is_permanent',
@@ -65,7 +65,7 @@ export const ProblemReason = z.enum([
   /** `claim-identity`: the caller has not signed in, so there is no place to save. */
   'destination_is_not_permanent',
   /**
-   * `redeem-invite`, `join-plan`: the name is empty, or too long, once whitespace
+   * `redeem-invite`, `join-plan`, `rename-in-circle`: the name is empty, or too long, once whitespace
    * is collapsed — or, from `join-plan`, a guest joining sent none.
    */
   'display_name_unusable',

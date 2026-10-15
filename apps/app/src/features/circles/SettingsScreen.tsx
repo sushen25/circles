@@ -43,6 +43,8 @@ export type SettingsMember = {
   /** "You · owner", "Joined 3 Sep". */
   detail: string;
   removable: boolean;
+  /** The reader's own row: where they change the name this circle calls them. */
+  renamable: boolean;
 };
 
 export type InviteView =
@@ -86,6 +88,7 @@ export type SettingsProps = {
   onColorChange?: ((token: string) => void) | undefined;
   onQuietAsksChange?: ((on: boolean) => void) | undefined;
   onRemove?: ((userId: string) => void) | undefined;
+  onRename?: (() => void) | undefined;
   onArchiveThisCircle?: (() => void) | undefined;
   onBringBack?: (() => void) | undefined;
   onRetry?: (() => void) | undefined;
@@ -100,36 +103,42 @@ function fixtureMembers(): SettingsMember[] {
       name: t('settings', 'maya'),
       detail: t('settings', 'you_owner'),
       removable: false,
+      renamable: true,
     },
     {
       userId: 'nina',
       name: t('settings', 'nina'),
       detail: t('settings', 'joined_3_sep'),
       removable: true,
+      renamable: false,
     },
     {
       userId: 'alex',
       name: t('settings', 'alex'),
       detail: t('settings', 'guest_joined_3_sep'),
       removable: true,
+      renamable: false,
     },
     {
       userId: 'tom',
       name: t('settings', 'tom'),
       detail: t('settings', 'joined_4_sep'),
       removable: true,
+      renamable: false,
     },
     {
       userId: 'jess',
       name: t('settings', 'jess'),
       detail: t('settings', 'joined_4_sep'),
       removable: true,
+      renamable: false,
     },
     {
       userId: 'sam',
       name: t('settings', 'sam'),
       detail: t('settings', 'joined_5_sep'),
       removable: true,
+      renamable: false,
     },
   ];
 }
@@ -159,6 +168,7 @@ export function SettingsScreen({
   onColorChange,
   onQuietAsksChange,
   onRemove,
+  onRename,
   onArchiveThisCircle,
   onBringBack,
   onRetry,
@@ -289,6 +299,12 @@ export function SettingsScreen({
                       label={t('settings', 'remove')}
                       aria-label={t('settings', 'remove_name', { name: member.name })}
                       onPress={() => onRemove(member.userId)}
+                    />
+                  ) : null}
+                  {member.renamable && onRename !== undefined ? (
+                    <CompactButton
+                      label={t('settings', 'change_my_name_here')}
+                      onPress={onRename}
                     />
                   ) : null}
                 </SettingRow>

@@ -208,6 +208,7 @@ Name; colour (solid, no image); primary IANA time zone defaulted from the creato
 - A plan's link also admits new members, but only while that plan is taking answers, and it cannot be revoked short of confirming or cancelling the plan ([ADR 0022](decisions/0022-a-plan-link-admits-new-members-while-the-plan-is-asking.md)). Resetting the circle link does not affect it.
 - Active members per circle: minimum 3 for quorum defaults, maximum 20 ([ADR 0012](decisions/0012-circle-member-cap-of-twenty.md)).
 - The interface shows who has joined but never exposes one member's availability to another as a personal schedule.
+- **A member changes the name one circle calls them from that circle's settings** ("Change my name here", on their own row), without leaving and rejoining. It is the join screen's name field and rules; the account name and every other circle are untouched; the owner cannot rename anyone else; and the new name shows everywhere, a plan already locked in included ([ADR 0070](decisions/0070-a-member-changes-the-name-a-circle-calls-them-from-circle-settings.md)).
 - **Who has saved a place, and who has muted what, is each member's own** ([ADR 0060](decisions/0060-a-quiet-asks-initiator-is-not-inferable-from-member-data.md)). Circle settings says "You · guest" or "You · place saved" on the reader's own row and "Joined 3 Sep" on everyone else's. Only the circle owner also sees "Guest" or "Place saved" beside each name. A member never reads another's mute switches, and nobody reads the rows of members who have left.
 
 #### Circle home
