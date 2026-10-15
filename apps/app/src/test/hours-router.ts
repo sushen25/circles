@@ -71,6 +71,7 @@ export function hoursRouter(spies: Spies) {
         () => params,
       ),
     usePathname: () => '/j/plan',
+    useIsFocused: () => true,
     useFocusEffect: (effect: () => void) => {
       useEffect(() => {
         effect();

@@ -20,7 +20,7 @@ describe('the hours step (SUS-209)', () => {
   });
 
   it('hands the answer across for the plan it belongs to only', () => {
-    shareAnswer({ code: 'abc', state, touched: true, by: 'first' });
+    shareAnswer({ key: 'abc', state, touched: true, by: 'first' });
     expect(sharedFor('abc')?.state).toBe(state);
     expect(sharedFor('other')).toBeUndefined();
   });

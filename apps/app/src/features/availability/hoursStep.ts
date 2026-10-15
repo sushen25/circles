@@ -37,7 +37,8 @@ export function hoursStepShown(step: string | undefined, code: string): boolean 
 
 /** The answer as the last editor to change it left it; one plan link's, for this page load. */
 export type SharedAnswer = {
-  code: string;
+  /** The plan link and question it belongs to (`handoffKey`). */
+  key: string;
   state: EditorState;
   touched: boolean;
   /** Which of the two editors wrote it. */
@@ -50,7 +51,32 @@ export function shareAnswer(answer: SharedAnswer): void {
   shared = answer;
 }
 
-/** What the step starts from: the first screen's answer, when it is this plan's. */
-export function sharedFor(code: string): SharedAnswer | undefined {
-  return shared?.code === code ? shared : undefined;
+/**
+ * Whose answer it is: the link and the question as it is asked now, so an
+ * answer given to dates the organiser has since changed is never carried onto
+ * the new ones (the editor is remounted per revision and set of days).
+ */
+export function handoffKey(
+  code: string,
+  plan: {
+    id: string;
+    revision: number | string;
+    windowStart: string;
+    windowEnd: string;
+    days?: string[] | undefined;
+  },
+): string {
+  return [
+    code,
+    plan.id,
+    plan.revision,
+    plan.windowStart,
+    plan.windowEnd,
+    (plan.days ?? []).join(','),
+  ].join('|');
+}
+
+/** What the step starts from: the first screen's answer, when it is this question's. */
+export function sharedFor(key: string): SharedAnswer | undefined {
+  return shared?.key === key ? shared : undefined;
 }

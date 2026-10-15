@@ -1,6 +1,6 @@
 import { fromISO, isTonightWindow, type OthersSaid } from '@circles/domain';
-import { useFocusEffect, useLocalSearchParams, usePathname, useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { useRouter } from 'expo-router';
+import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { BackHandler, Platform } from 'react-native';
 
 import {
@@ -17,13 +17,8 @@ import { AvailabilityScreen } from './AvailabilityScreen';
 import type { BlockTiming } from './blocks';
 import { ExactHoursScreen } from './ExactHoursScreen';
 import { dayRows, deviceTimeFormat } from './days';
-import {
-  HOURS_STEP,
-  hoursStepShown,
-  rememberHoursStepPushed,
-  shareAnswer,
-  sharedFor,
-} from './hoursStep';
+import { handoffKey } from './hoursStep';
+import { useHoursHandoff, useHoursStep } from './useHoursStep';
 import {
   editorFrom,
   editorReducer,
@@ -131,16 +126,12 @@ export function Answering({
   // in the history (SUS-209). This page load pushed it, so this is the step's
   // editor, started from the first screen's answer. The first screen's own
   // address never gains the step, so which of the two this is does not change.
-  const params = useLocalSearchParams<Record<string, string>>();
-  const { step: stepParam } = params;
-  const otherParams = Object.fromEntries(
-    Object.entries(params).filter(([key]) => key !== 'code' && key !== 'step'),
-  );
-  const exact = hoursStepShown(stepParam, code);
+  const handoff = handoffKey(code, plan);
+  const hours = useHoursStep(code, handoff);
+  const { exact, focused } = hours;
   const [state, dispatch] = useReducer(reducer, undefined, (): EditorState => {
     const start = (): EditorState => {
-      const handed = exact ? sharedFor(code) : undefined;
-      if (handed !== undefined) return handed.state;
+      if (hours.handed !== undefined) return hours.handed.state;
       if (opened !== undefined) return editorFrom(rows, timing, opened.windows, opened.flexible);
       if (answer !== null) {
         const windows = answer.status === 'windows' ? answer.windows : [];
@@ -156,23 +147,9 @@ export function Answering({
   const [sheetOpen, setSheetOpen] = useState(false);
   // Once the person has changed anything, previous times no longer start the
   // answer: clearing their last day is a choice, not an empty answer to fill.
-  const [touched, setTouched] = useState(() =>
-    exact ? (sharedFor(code)?.touched ?? false) : false,
-  );
-  const pathname = usePathname();
-  const openHours = () => {
-    shareAnswer({ code, state, touched, by: 'first' });
-    rememberHoursStepPushed(code);
-    router.push({
-      pathname,
-      params: { ...otherParams, step: HOURS_STEP },
-    } as Parameters<typeof router.push>[0]);
-  };
-  const closeHours = () => {
-    if (!exact) return;
-    if (router.canGoBack()) router.back();
-    else router.replace({ pathname, params: otherParams } as Parameters<typeof router.replace>[0]);
-  };
+  const [touched, setTouched] = useState(() => hours.handed?.touched ?? false);
+  const openHours = () => hours.open(state, touched);
+  const closeHours = hours.close;
 
   // The device's back button leaves the half hours for the answer, as the
   // screen's own does, rather than the page (Android; the web has no such button
@@ -199,7 +176,7 @@ export function Answering({
     enabled: plan.acceptingAnswers,
   });
 
-  const said = useOthersSaid({ plan, userId, step, fixtureOthers });
+  const said = useOthersSaid({ plan, userId, step: exact ? 'none' : step, fixtureOthers });
 
   const { phase, send, savedAt, edited } = useSendAnswer({
     code,
@@ -233,7 +210,7 @@ export function Answering({
   const startsEmpty = answer === null && opened === undefined;
   const view = editorView(state, rows, timing, format, undefined, previous.parts, said);
   useStartedEvent({
-    active: step === 'times' && answerable,
+    active: step === 'times' && answerable && !exact,
     planId: plan.id,
     settled: previous.settled,
     offered: startsEmpty && view.canUseUsual,
@@ -242,34 +219,16 @@ export function Answering({
   // Painting a day's last half hour off untaps it: with no day left there is
   // nothing to give a time to, so the step is left for the first screen.
   const noDays = exact && view.cards.length === 0;
-  // The step hands every change back; the first screen takes it when it is in
-  // front again. The step is the only one to write, and the first screen the
-  // only one to read, and what was handed over is taken once.
-  useEffect(() => {
-    if (exact) shareAnswer({ code, state, touched, by: 'hours' });
-  }, [exact, code, state, touched]);
-  // A first screen that has just opened has nothing handed back to it: what an
-  // earlier editor of this plan left behind is not this screen's answer.
-  useEffect(() => {
-    if (!exact) shareAnswer({ code, state, touched, by: 'first' });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-  useFocusEffect(
-    useCallback(() => {
-      if (exact) return;
-      const handed = sharedFor(code);
-      if (handed?.by !== 'hours') return;
-      shareAnswer({ ...handed, by: 'first' });
-      dispatch({ type: 'load', state: handed.state });
-      setTouched(handed.touched);
-    }, [exact, code]),
-  );
-  // A reload (or a pasted address) on `?step=hours` shows the first screen, and
-  // the address says so.
-  const staleStep = !exact && stepParam === HOURS_STEP;
-  useEffect(() => {
-    if (staleStep) router.setParams({ step: undefined });
-  }, [staleStep, router]);
+  useHoursHandoff({
+    exact,
+    handoff,
+    state,
+    touched,
+    restore: (answer) => {
+      dispatch({ type: 'load', state: answer.state });
+      setTouched(answer.touched);
+    },
+  });
   useEffect(() => {
     if (noDays) closeHours();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -332,6 +291,8 @@ export function Answering({
 
   const back = () => (router.canGoBack() ? router.back() : router.replace('/'));
   const title = titleOf(plan);
+
+  if (!focused) return null;
 
   if (!answerable || phase.kind === 'closed') {
     return <AvailabilityScreen state="expired" title={title} onBack={back} />;
