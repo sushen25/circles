@@ -506,7 +506,7 @@ describe.each(STOP_PAGES)('the stop page for $family', (page) => {
     holdTokenForTests(page.kind, TOKEN);
     wrap(<StopLettersFlow family={page.family} />);
 
-    expect(await screen.findByText(page.title)).toBeVisible();
+    expect(await screen.findByRole('heading', { name: page.title })).toBeVisible();
     expect(screen.getByText(page.says)).toBeVisible();
     expect(screen.getByText(/turn them back on in notification settings/)).toBeVisible();
   });
