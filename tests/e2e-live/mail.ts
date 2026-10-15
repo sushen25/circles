@@ -40,6 +40,18 @@ async function read(id: string): Promise<Letter> {
   };
 }
 
+/**
+ * The header `name` of `letter`, as the mail catcher stored it (Mailpit lists
+ * each header's values), or undefined when the letter has none.
+ */
+export async function headerOf(letter: Letter, name: string): Promise<string | undefined> {
+  const base = stackConfig().mailUrl;
+  const response = await fetch(`${base}/api/v1/message/${letter.id}/headers`);
+  if (!response.ok) throw new Error(`the mail catcher answered ${response.status}`);
+  const headers = (await response.json()) as Record<string, string[]>;
+  return headers[name]?.[0];
+}
+
 /** Every letter to `address`, newest first. */
 export async function lettersTo(address: string): Promise<Letter[]> {
   return await Promise.all((await search(address)).map((listed) => read(listed.ID)));

@@ -1,7 +1,7 @@
 // @e2e: core
 import { expect, test } from './fixtures';
 import { joinsAndAnswers, signedInAs } from './journeys';
-import { letterTo, linkIn, runDispatcher } from './mail';
+import { headerOf, letterTo, linkIn, runDispatcher } from './mail';
 import {
   addressOf,
   answersKeen,
@@ -179,6 +179,63 @@ test('the initiator’s own letter opens Volunteer, not ThresholdRole: a letter 
   expect(sql(`select organiser_user_id from public.plans where id = '${ask.id}'`)[0]?.[0]).toBe(
     maya!.userId,
   );
+});
+
+// SUS-110, ADR 0069: the initiator's letter can be stopped from the letter
+// itself, with no sign-in: it stops quiet asks for her, which is what the
+// switch in circle settings does, and nothing else.
+test('the initiator stops the quiet ask’s letters from the letter, signed out', async ({
+  browser,
+  baseURL,
+}) => {
+  const {
+    circleId,
+    people: [maya, tom, jess],
+  } = await savedPlaces('Maya', 'Tom', 'Jess');
+  const ask = askedInSql(circleId, maya!.userId);
+  keenInSql(ask.id, tom!.userId);
+  keenInSql(ask.id, jess!.userId);
+  const written = () =>
+    sql(`select count(*) from jobs.notification_jobs
+         where plan_id = '${ask.id}' and kind = 'threshold_initiator'`)[0]![0];
+  for (let attempt = 0; attempt < 20 && written() === '0'; attempt += 1) await runDispatcher();
+  sql(`update jobs.notification_jobs set scheduled_for = now()
+       where plan_id = '${ask.id}' and status = 'scheduled'`);
+  const letter = await letterTo(addressOf(maya!.userId), /^Sunday Crew: enough people are keen$/);
+
+  const flags = (userId: string) =>
+    sql(`select p.muted_organiser_email, m.muted_nudges, m.muted_quiet_asks
+         from public.profiles p join public.circle_members m on m.user_id = p.user_id
+         where p.user_id = '${userId}' and m.circle_id = '${circleId}'`);
+  expect(flags(maya!.userId)).toEqual([['f', 'f', 'f']]);
+
+  const stopLink = linkIn(letter, '/q', baseURL!);
+  const header = await headerOf(letter, 'List-Unsubscribe');
+  const unsubscribe = new URL(header!.replace(/^<|>$/g, ''));
+  expect(`${unsubscribe.pathname}${unsubscribe.hash}`).toBe(
+    `${new URL(stopLink).pathname}${new URL(stopLink).hash}`,
+  );
+
+  const elsewhere = await (await browser.newContext()).newPage();
+  await elsewhere.goto(stopLink);
+  await expect(
+    elsewhere.getByRole('heading', { name: 'Stop emails about quiet asks' }),
+  ).toBeVisible();
+  expect(await elsewhere.evaluate('location.hash')).toBe('');
+  await elsewhere.waitForTimeout(500);
+  expect(flags(maya!.userId)).toEqual([['f', 'f', 'f']]);
+
+  await elsewhere.getByRole('button', { name: 'Stop these emails' }).click();
+  await expect(elsewhere.getByText("Done. You won't get emails about quiet asks.")).toBeVisible();
+  expect(flags(maya!.userId)).toEqual([['f', 'f', 't']]);
+  // Nobody else's quiet asks changed.
+  expect(flags(tom!.userId)).toEqual([['f', 'f', 'f']]);
+
+  // Again, from the same letter: harmless.
+  await elsewhere.goto(stopLink);
+  await elsewhere.getByRole('button', { name: 'Stop these emails' }).click();
+  await expect(elsewhere.getByText("Done. You won't get emails about quiet asks.")).toBeVisible();
+  expect(flags(maya!.userId)).toEqual([['f', 'f', 't']]);
 });
 
 test('an ask that opens is counted: quiet_threshold_reached, against nobody', async () => {

@@ -1,7 +1,8 @@
 // @e2e: core
 import { expect, test } from './fixtures';
 import { addressFor, joinsAndAnswers, subscribesFromSent } from './journeys';
-import { letterTo, lettersTo, linkIn, runDispatcher } from './mail';
+import { headerOf, letterTo, lettersTo, linkIn, runDispatcher } from './mail';
+import { CLOSED, addressOf, closedWithAnOption } from './replies-closed';
 import {
   consentVersionOf,
   emailContactOf,
@@ -10,6 +11,7 @@ import {
   lockInFirstOption,
   memberNamed,
   prefsTokenFor,
+  sql,
   subscriptionOf,
   sundayCrew,
 } from './stack';
@@ -149,4 +151,75 @@ test('one step: the switch on saves the place and turns on the updates, with one
   await letterTo(address, /^Locked in: Sunday Crew/);
   const subjects = (await lettersTo(address)).map((letter) => letter.subject);
   expect(subjects.filter((subject) => /^Turn on updates/.test(subject))).toEqual([]);
+});
+
+// SUS-110, ADR 0069: the organiser's letters can be stopped from the letter
+// itself, with no sign-in. Replies closed is the one that used to be outside
+// the switch, so it is the one to prove: its link is in the letter and in
+// List-Unsubscribe, opening it stops nothing, one tap does, a second is
+// harmless, it writes only the organiser flag, and the next letter of that
+// kind to her is not sent.
+test('an organiser stops the organiser’s letters from the letter, signed out', async ({
+  browser,
+  baseURL,
+}) => {
+  const { maya, plan } = await closedWithAnOption();
+  const flags = () =>
+    sql(`select p.muted_organiser_email, m.muted_nudges, m.muted_quiet_asks, m.muted_all
+         from public.profiles p join public.circle_members m on m.user_id = p.user_id
+         where p.user_id = '${maya.userId}' and m.status = 'active'`);
+  expect(flags()).toEqual([['f', 'f', 'f', 'f']]);
+
+  const letter = await letterTo(addressOf(maya.userId), CLOSED);
+  const stopLink = linkIn(letter, '/o', baseURL!);
+  // The header is the same page as the link in the body.
+  const header = await headerOf(letter, 'List-Unsubscribe');
+  expect(header).toBeDefined();
+  const unsubscribe = new URL(header!.replace(/^<|>$/g, ''));
+  expect(`${unsubscribe.pathname}${unsubscribe.hash}`).toBe(
+    `${new URL(stopLink).pathname}${new URL(stopLink).hash}`,
+  );
+  expect(await headerOf(letter, 'List-Unsubscribe-Post')).toBeUndefined();
+
+  // A fresh browser, because that is where an email link lands. Opening the
+  // link says what it stops and stops nothing.
+  const elsewhere = await (await browser.newContext()).newPage();
+  await elsewhere.goto(stopLink);
+  await expect(
+    elsewhere.getByRole('heading', { name: 'Stop emails about plans you organise' }),
+  ).toBeVisible();
+  await expect(elsewhere.getByRole('button', { name: 'Stop these emails' })).toBeVisible();
+  expect(await elsewhere.evaluate('location.hash')).toBe('');
+  await elsewhere.waitForTimeout(500);
+  expect(flags()).toEqual([['f', 'f', 'f', 'f']]);
+
+  // One tap stops them, and only them.
+  await elsewhere.getByRole('button', { name: 'Stop these emails' }).click();
+  await expect(
+    elsewhere.getByText("Done. You won't get emails about plans you organise."),
+  ).toBeVisible();
+  expect(flags()).toEqual([['t', 'f', 'f', 'f']]);
+
+  // Again, from the same letter: the link is not spent, and nothing breaks.
+  await elsewhere.goto(stopLink);
+  await elsewhere.getByRole('button', { name: 'Stop these emails' }).click();
+  await expect(
+    elsewhere.getByText("Done. You won't get emails about plans you organise."),
+  ).toBeVisible();
+  expect(flags()).toEqual([['t', 'f', 'f', 'f']]);
+
+  // The next letter of that kind is not sent: a replies-closed job written
+  // before she stopped, and due now, is skipped when it is read again.
+  sql(`insert into jobs.notification_jobs (
+         channel, kind, contact_id, plan_id, plan_revision, scheduled_for, idempotency_key)
+       select channel, kind, contact_id, plan_id, plan_revision, now(), repeat('9', 64)
+       from jobs.notification_jobs
+       where plan_id = '${plan.id}' and kind = 'replies_closed' and status = 'sent' limit 1`);
+  const queued = () =>
+    sql(`select status, last_error from jobs.notification_jobs
+         where idempotency_key = repeat('9', 64)`);
+  for (let attempt = 0; attempt < 20 && queued()[0]?.[0] === 'scheduled'; attempt += 1) {
+    await runDispatcher();
+  }
+  expect(queued()).toEqual([['skipped', 'organiser_email_off']]);
 });
