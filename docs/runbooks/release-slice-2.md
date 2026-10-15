@@ -37,14 +37,13 @@ until these are Done:
   the hosted auth templates. Slice 2 sends a lot more organiser-kind mail than
   Slice 1 did, and with no webhook a bounce is never recorded.
 
-- **SUS-97, `quiet_threshold_reached` recorded.** The catalogue declares it,
-  spec §15 lists it, and nothing emits it. The definition of done says an
-  event is emitted and schema-tested, and H5 is the hypothesis this slice
-  exists to test. Shipping without it means the cohort's first quiet asks
-  leave no record of which ones opened, apart from what `public.plans` still
-  shows. The queries under *Evidence* fall back to that, but it undercounts
-  (below). Waive this only knowingly, and write down that you did in
-  `cohort-1.md`.
+- **SUS-97, `quiet_threshold_reached` recorded.** Done: the dispatcher writes
+  one row when an ask opens, with no user, plan or circle and its times rounded
+  to the hour. Before the deploy that carries it, asks that open leave no row,
+  and the queries under *Evidence* fall back to `public.plans`, which
+  undercounts (below). The row has no circle, so it cannot be scoped to the
+  cohort or lined up against who organised: it counts every ask that opened on
+  the environment in the window.
 
 - **SUS-99, production on `wenna.app`.** The host every link carries is
   permanent once a link leaves the founder, so the domain moves before the
@@ -202,8 +201,6 @@ dispatcher.
   window is at most one cron tick, and they must reach the deadline screen and
   hand off inside it, so it is rare. Overnight, the second replaces the first.
   Known, open, and not a blocker unless the cohort hits it.
-- **SUS-97, if it was waived above.** Until the event exists, the H5 queries
-  read "the ask opened" from `public.plans`, and that is a lower bound.
 - **A nudge that got nowhere is not sent again until the circle next meets**
   (ADR 0036, Consequences). A snooze after the nudge, a plan that was cancelled
   or did not happen, or a letter held at send time all leave circle home saying
@@ -303,7 +300,9 @@ initiator takes the role in at least one.
 -- Asks made, opened, and organised by somebody else. Counts only.
 -- "Opened" from the plan alone is a lower bound: an ask that opened and was
 -- later cancelled, or ran past its last start, looks like one that never did.
--- Once SUS-97 lands, count `quiet_threshold_reached` rows instead.
+-- The catalogue's own count of asks that opened follows. It has no circle or
+-- plan on it (so it is the whole environment's, not the cohort's, and to the
+-- hour), and it exists only from the deploy that carries SUS-97.
 select count(*) as asks,
        count(*) filter (where p.state in ('collecting', 'ready', 'confirmed', 'completed')
                           or p.organiser_user_id is not null) as opened_at_least,
@@ -312,6 +311,13 @@ select count(*) as asks,
 from public.plans p join private.plan_initiators pi on pi.plan_id = p.id
 join cohort k on k.circle_id = p.circle_id
 where p.mode = 'quiet' and p.created_at between k.since and k.until;
+
+-- Asks that opened, counted from the event. Counts only; `occurred_at` is the
+-- hour, so use whole hours for the window.
+select count(*) as opened, min(properties ->> 'threshold') as smallest_threshold
+from analytics.events
+where event_name = 'quiet_threshold_reached'
+  and occurred_at between (select min(since) from cohort) and (select max(until) from cohort);
 
 -- Asks by people who had never organised a plan in that circle before.
 select count(*) as asks_by_a_non_organiser

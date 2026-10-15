@@ -162,7 +162,16 @@ export const catalogue = {
   // `role: 'initiator'` beside their id was the initiator, so version 2 has no
   // role (and the client could not know it: `accept-organiser` never says).
   // `quiet_threshold_reached` is not the client's to send: no answer tells it
-  // the ask opened (SUS-51 left it to the server, SUS-50).
+  // the ask opened (SUS-51 left it to the server). The dispatcher records it
+  // as it drains `planning.threshold_reached` (SUS-97), against nobody and with
+  // no plan or circle either, the same as the two above: a plan id would let a
+  // query line an opened ask up against their timing, and through the plan
+  // against the initiator. Its times are rounded to the hour for the same
+  // reason. Its id is derived from the outbox row (replay-safe), so a reader
+  // of both analytics and `jobs.outbox` can still reach the plan while the
+  // outbox keeps the row (30 days); from analytics alone it names nothing.
+  // `threshold` is the number fixed when the ask was made (ADR 0035), never
+  // how many were keen.
   quiet_ask_created: bare(2),
   quiet_interest_answered: bare(2),
   quiet_threshold_reached: serverEvent(1, { threshold: count }),

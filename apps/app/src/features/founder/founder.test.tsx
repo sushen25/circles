@@ -124,7 +124,7 @@ describe('the screen, from a fixture', () => {
     render(<AnalyticsScreen data={founderAnalyticsFixture} />);
     expect(screen.getByText('Invitation')).toBeTruthy();
     expect(screen.getByText('29 · 71% of the step before')).toBeTruthy();
-    expect(screen.getByText(/Not measured: whether the threshold was reached/)).toBeTruthy();
+    expect(screen.getByText(/Not measured: who took the role/)).toBeTruthy();
   });
 
   it('shows adoption with a boolean split and the named rate', () => {
