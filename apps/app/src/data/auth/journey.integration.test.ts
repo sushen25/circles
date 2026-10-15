@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { createClient } from '@supabase/supabase-js';
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
-import { codeFor, readStackConfig, someone } from '../testing/stack.integration';
+import { codeFor, readStackConfig, someone, sql } from '../testing/stack.integration';
 
 /**
  * The acceptance criterion, against the real thing.
@@ -30,8 +30,17 @@ let ANON_KEY = '';
 let MAILPIT = '';
 let DB_URL = '';
 
+let STACK: ReturnType<typeof readStackConfig> | undefined;
+
+/** The stack config, for the helpers that take the whole thing. */
+function stack(): ReturnType<typeof readStackConfig> {
+  if (STACK === undefined) throw new Error('readStack has not run');
+  return STACK;
+}
+
 function readStack(): void {
-  ({ url: SUPABASE_URL, anonKey: ANON_KEY, mailpit: MAILPIT, dbUrl: DB_URL } = readStackConfig());
+  STACK = readStackConfig();
+  ({ url: SUPABASE_URL, anonKey: ANON_KEY, mailpit: MAILPIT, dbUrl: DB_URL } = STACK);
 }
 
 /**
@@ -311,5 +320,101 @@ describe('a guest who joins a circle and then saves their place', () => {
     ]);
     expect(after.data?.some((m) => m.user_id === guestId)).toBe(false);
     expect(claimWasRecorded(existingId)).toBe(true);
+  });
+});
+
+/**
+ * How the real auth server says no to a sign-in code, and what the client makes
+ * of it.
+ *
+ * `signIn.test.tsx` covers the screen with `submitSignInCode` mocked to reject
+ * with an error the test wrote by hand, which proves the screen reacts to
+ * `wrong_code` and nothing about whether Auth ever produces an error that
+ * `authFailure` reads that way. These do: the error is whatever GoTrue sent.
+ * Break the mapping (drop `otp_expired` or `403` from `authFailure`) and they
+ * fail; break the server's behaviour and they fail too, which is the point.
+ */
+describe('a sign-in code the auth server refuses', () => {
+  /** The refusal as the module throws it, or a failed test if it let the code through. */
+  async function refusal(attempt: Promise<unknown>): Promise<unknown> {
+    try {
+      await attempt;
+    } catch (error) {
+      return error;
+    }
+    throw new Error('the auth server accepted a code it should have refused');
+  }
+
+  /** Six digits that are not `real`, whatever `real` is. */
+  const wrongFor = (real: string) => (real === '000000' ? '111111' : '000000');
+
+  it('reads a wrong code as wrong_code', async () => {
+    const { authFailure } = await import('../../features/identity/authFailure');
+    const { requestSignInCode, submitSignInCode } = await import('./providers/email');
+
+    const address = someone('wrong');
+    await requestSignInCode(address);
+    const real = await codeFor(MAILPIT, address);
+
+    const error = await refusal(submitSignInCode(address, wrongFor(real)));
+    // Auth answers a wrong code exactly as it answers an expired one: 403.
+    expect(error).toMatchObject({ status: 403 });
+    expect(authFailure(error)).toBe('wrong_code');
+
+    // The refusal did not spend the real code: a typo is not a lockout.
+    const signedIn = await submitSignInCode(address, real);
+    expect(signedIn.session.user.email).toBe(address);
+  });
+
+  it('reads a code past its expiry as wrong_code, the same screen as a typo', async () => {
+    const { authFailure } = await import('../../features/identity/authFailure');
+    const { requestSignInCode, submitSignInCode } = await import('./providers/email');
+
+    const address = someone('expired');
+    await requestSignInCode(address);
+    const code = await codeFor(MAILPIT, address);
+
+    // Age it rather than wait: `otp_expiry` is 600 seconds in config.toml. The
+    // token row and every `*_sent_at` on the user (which of them the server
+    // reads depends on whether the address was new), so the test does not
+    // depend on which one it is.
+    const aged = sql(
+      stack(),
+      `with t as (
+         update auth.one_time_tokens set created_at = created_at - interval '11 minutes'
+         where user_id = (select id from auth.users where email = '${address}') returning 1
+       ), u as (
+         update auth.users set
+           confirmation_sent_at = confirmation_sent_at - interval '11 minutes',
+           recovery_sent_at = recovery_sent_at - interval '11 minutes'
+         where email = '${address}' returning 1
+       ) select (select count(*) from t) || ',' || (select count(*) from u)`,
+    );
+    expect(aged).toBe('1,1');
+
+    const error = await refusal(submitSignInCode(address, code));
+    expect((error as { code?: string }).code).toBe('otp_expired');
+    expect(authFailure(error)).toBe('wrong_code');
+  });
+
+  it('refuses the first code once a second has been sent', async () => {
+    const { authFailure } = await import('../../features/identity/authFailure');
+    const { requestSignInCode, submitSignInCode } = await import('./providers/email');
+
+    const address = someone('resend');
+    await requestSignInCode(address);
+    const first = await codeFor(MAILPIT, address);
+
+    // The auth server will not send twice within `max_frequency` for one user.
+    await new Promise((resolve) => setTimeout(resolve, 1_500));
+    await requestSignInCode(address);
+    const second = await codeFor(MAILPIT, address, first);
+    expect(second).not.toBe(first);
+
+    const error = await refusal(submitSignInCode(address, first));
+    expect(authFailure(error)).toBe('wrong_code');
+
+    const signedIn = await submitSignInCode(address, second);
+    expect(signedIn.session.user.email).toBe(address);
   });
 });
