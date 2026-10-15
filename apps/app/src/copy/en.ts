@@ -1995,7 +1995,8 @@ export const en = {
     summary: '{duration} · {quorum}',
   },
   planSetup: {
-    plan_openly: 'Plan openly',
+    // The top bar before the plan has a title of its own (SUS-196); once it has, the bar is the title.
+    new_plan: 'New plan',
     catch_up: 'Catch up',
     what_are_we_doing: 'What are we doing?',
     dinner: 'Dinner',
@@ -2145,7 +2146,6 @@ export const en = {
     now_tell_the_group: 'Now tell the group.',
     paste_this_into_the_chat_where_everyone:
       'Paste this into the chat where everyone already is. People answer from the link.',
-    step_2_of_2: 'Step 2 of 2',
     ask_circle: 'Ask {circle}.',
     one_link_in_the_chat:
       "One link in the chat. Friends tap it, add a name, and say when they're free. No app, no account.",
@@ -2346,6 +2346,8 @@ export const en = {
     thanks_answer_in_anonymous: 'Thanks. Your answer is in.',
     organiser_picks:
       '{name} will pick a time once replies close on {day}. The plan will land in the group chat.',
+    // The organiser reads the plan from the other side: they pick, so it does not say a name (SUS-196).
+    you_pick: "You'll pick a time once replies close on {day}. Options appear as people answer.",
     time_gets_picked:
       'A time gets picked once replies close on {day}. The plan will land in the group chat.',
     // The one-step card (SUS-162): an address, the sentence, a switch, one button.

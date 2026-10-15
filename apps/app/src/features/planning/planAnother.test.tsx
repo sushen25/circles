@@ -178,7 +178,7 @@ describe('Plan another', () => {
 
     fireEvent.click(await screen.findByRole('button', { name: 'Change' }));
 
-    expect(await screen.findByText('Plan openly')).toBeTruthy();
+    expect(await screen.findByText('New plan')).toBeTruthy();
     // The setup's heading is the category it was opened with.
     expect(screen.getAllByText('Dinner').length).toBeGreaterThan(1);
   });
@@ -209,7 +209,7 @@ describe('Plan another', () => {
     lastHappenedPlan.mockResolvedValue(null);
     show(<PlanAnotherFlow id="sunday-crew" />);
 
-    expect(await screen.findByText('Plan openly')).toBeTruthy();
+    expect(await screen.findByText('New plan')).toBeTruthy();
   });
 
   it('shows a guest member the organiser gate here, in place of the form (S2-07)', async () => {

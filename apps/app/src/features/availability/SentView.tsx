@@ -80,8 +80,10 @@ export function Sent({
       ? t('sent', gaveTimes ? 'thanks_times_in_anonymous' : 'thanks_answer_in_anonymous')
       : t('sent', gaveTimes ? 'thanks_times_in' : 'thanks_answer_in', { name });
   const day = closingDay(plan);
-  const body =
-    plan.organiserName === null
+  // The organiser is the one who picks, so their own screen says "you" (SUS-196).
+  const body = organising
+    ? t('sent', 'you_pick', { day })
+    : plan.organiserName === null
       ? t('sent', 'time_gets_picked', { day })
       : t('sent', 'organiser_picks', { name: plan.organiserName, day });
 

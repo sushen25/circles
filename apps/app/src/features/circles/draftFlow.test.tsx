@@ -91,6 +91,8 @@ describe('the first circle, with no account', () => {
   it('holds the name and cadence as a draft and goes on, creating nothing', async () => {
     wrap(<FirstCircleFlow />);
 
+    // The first of the two numbered steps (SUS-196); the plan card is the second.
+    expect(await screen.findAllByText('Step 1 of 2')).not.toHaveLength(0);
     fireEvent.change(await screen.findByLabelText('Circle name'), {
       target: { value: ' Sunday  Crew ' },
     });
@@ -154,6 +156,7 @@ describe('the first plan, drafted', () => {
     wrap(<FirstPlanDraftFlow />);
 
     expect(await screen.findByText('Most of the group need to make it')).toBeVisible();
+    expect(screen.getByText('Step 2 of 2')).toBeVisible();
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Ask the group' }));
     });

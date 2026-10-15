@@ -64,7 +64,7 @@ export function PlanSetupScreen(props: PlanSetupProps) {
   return (
     <Screen>
       <TopBar
-        title={t('planSetup', 'plan_openly')}
+        title={t('planSetup', 'new_plan')}
         onBack={props.onBack}
         backLabel={t('common', 'back')}
       />

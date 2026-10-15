@@ -11,7 +11,6 @@ import {
   DisplayL,
   Foot,
   Icon,
-  Label,
   Screen,
   Small,
   Title,
@@ -37,8 +36,6 @@ import { t } from '../../copy';
  * app draws when the message arrives.
  */
 export type ShareScreenProps = {
-  /** "Step 2 of 2" on the first run; nothing when the screen is reached later. */
-  step?: string | undefined;
   title: string;
   intro: string;
   /** The message as the chat will show it, from the domain. */
@@ -67,7 +64,6 @@ export type ShareScreenProps = {
 };
 
 export function ShareScreen({
-  step,
   title,
   intro,
   message,
@@ -89,7 +85,6 @@ export function ShareScreen({
       <TopBar onBack={onBack} backLabel={t('common', 'back')} />
       <Body>
         <Stack>
-          {step === undefined ? null : <Label>{step}</Label>}
           <DisplayL>{title}</DisplayL>
           <BodyText>{intro}</BodyText>
         </Stack>

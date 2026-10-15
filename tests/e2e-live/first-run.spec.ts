@@ -108,6 +108,8 @@ test('a new organiser reaches a shareable plan link with two typed inputs and no
   // two typed inputs are the circle's name and, after the gate, the organiser's.
   let typed = 0;
   await expect(page.getByLabel('Circle name')).toBeVisible();
+  // Only the two drafting steps are numbered (SUS-196): this is the first.
+  await expect(page.getByText('Step 1 of 2').first()).toBeVisible();
   expect(await typedFieldsOnScreen(page), 'FirstCircle has one field').toBe(1);
   await page.getByLabel('Circle name').fill('Sunday Crew');
   typed += 1;
@@ -117,6 +119,7 @@ test('a new organiser reaches a shareable plan link with two typed inputs and no
   await expect(page.getByText('Your first catch-up')).toBeVisible();
   expect(await typedFieldsOnScreen(page), 'nothing to type on the first plan').toBe(0);
   await expect(page.getByText('Most of the group need to make it')).toBeVisible();
+  await expect(page.getByText('Step 2 of 2')).toBeVisible();
 
   // Anything on the card can be changed with no account: the full setup, over the
   // draft. Three hours instead of two, saved on the device and sent nowhere.
@@ -149,6 +152,10 @@ test('a new organiser reaches a shareable plan link with two typed inputs and no
 
   // Straight to the share screen: the circle and the plan are made on the way.
   await expect(page.getByText('Ask Sunday Crew.')).toBeVisible();
+  // The gate, the name and the finish sat between the plan and here, so this
+  // screen does not claim to be a numbered step (SUS-196).
+  // Earlier screens stay mounted underneath on the web stack: only what is on show counts.
+  await expect(page.getByText(/^Step \d of \d$/).locator('visible=true')).toHaveCount(0);
   expect(typed).toBe(2);
   expect(await page.evaluate('window.permissionAsks'), 'no permission was asked for').toEqual([]);
   // A circle of one asks for three: the placeholder that follows the circle as
@@ -186,6 +193,9 @@ test('a new organiser reaches a shareable plan link with two typed inputs and no
   await page.getByRole('group', { name: 'Days in this plan' }).getByRole('button').first().click();
   await page.getByRole('button', { name: 'Send my times' }).click();
   await expect(page.getByText('Thanks, Maya. Your times are in.')).toBeVisible();
+  // The organiser is the one who picks, and the line says so (SUS-196).
+  await expect(page.getByText(/^You'll pick a time once replies close on /)).toBeVisible();
+  await expect(page.getByText(/will pick a time/)).toHaveCount(0);
   // An account is already told about this plan, so the guest offer is not made.
   await expect(page.getByText("Hear when it's locked in")).toHaveCount(0);
 

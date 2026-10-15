@@ -356,6 +356,9 @@ describe('the plan message', () => {
     expect(message).not.toHaveTextContent('https://circles.test/j/abcdefgh');
     expect(screen.getByText('https://circles.test/j/abcdefgh')).toBeVisible();
     expect(screen.getByText('Sunday Crew is finding a time to catch up')).toBeVisible();
+    // Only the two drafting steps are numbered; this is what follows them (SUS-196).
+    expect(screen.getByText('Ask Sunday Crew.')).toBeVisible();
+    expect(screen.queryByText(/^Step \d of \d$/)).toBeNull();
 
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Copy' }));
