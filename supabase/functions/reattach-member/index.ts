@@ -15,27 +15,27 @@ import { callerAddress, enforce } from '../_shared/rate.ts';
  * next Edge Function has to remember to write again.
  *
  * What this adds is a per-address limit, because the rule ADR 0006 names is per
- * *membership* and a script does not have to use one membership.
+ * *membership* and a script does not have to use one membership, and a per-token
+ * one. The per-circle limit is the database's (ADR 0049).
  */
 Deno.serve(
   jsonHandler({
     name: 'reattach-member',
     schema: ReattachMemberRequest,
     guard: async ({ body, service, request }) => {
-      // Per circle as well as per address, because §9.1 says this endpoint is
-      // "rate-limited per circle" and the rule ADR 0006 names is per *membership*
-      // — which a script does not have to reuse. Requests spread across addresses
-      // and memberships had no counter scoped to the circle at all.
+      // No per-circle counter here, on purpose. The circle id is a value the
+      // caller chooses and is not a secret (it is in every email footer link), so
+      // a bucket keyed on it lets somebody who is not a member use up the
+      // allowance for the circle's real members. The per-circle limit is
+      // `public.reattach_member`'s (ADR 0049): it counts completed moves only,
+      // after the caller has been checked, and applies to a direct RPC call too.
       //
-      // The token path cannot be keyed by circle: the circle is inside the token,
-      // and only the database can read it. So it is keyed by the token's own
-      // digest, which is stricter — a single-use link tried four times is
+      // The token path cannot be keyed by circle either: the circle is inside the
+      // token, and only the database can read it. It is keyed by the token's own
+      // digest, which is stricter - a single-use link tried four times is
       // somebody guessing.
       await enforce(service, [
         { scope: 'reattach_ip', key: callerAddress(request), max: 10, window: '1 hour' },
-        ...(body.circle_id !== undefined
-          ? [{ scope: 'reattach_circle', key: body.circle_id, max: 20, window: '1 hour' }]
-          : []),
         ...(body.reentry_token !== undefined
           ? [
               {

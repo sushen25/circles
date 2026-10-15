@@ -44,9 +44,17 @@ Deno.serve(
         throw new Refusal('requires_saved_place', 'Save your place first, then start a plan.');
       }
 
+      // Keyed on the caller as well as the circle: a circle id is not a secret,
+      // and a counter on it alone would let somebody who is not a member use up
+      // the allowance for the circle's real members.
       await enforce(service, [
         { scope: 'create_plan', key: actor.userId, max: 30, window: '1 hour' },
-        { scope: 'create_plan_circle', key: body.circle_id, max: 30, window: '1 hour' },
+        {
+          scope: 'create_plan_circle',
+          key: `${body.circle_id}:${actor.userId}`,
+          max: 30,
+          window: '1 hour',
+        },
       ]);
     },
     handle: async ({ body, actor, caller, service }): Promise<CreatePlanResponse> => {
