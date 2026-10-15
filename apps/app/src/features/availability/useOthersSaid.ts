@@ -48,7 +48,12 @@ export function useOthersSaid(input: {
   const settled = userId === undefined || others.isFetchedAfterMount;
   // The read is on its way: the screen holds room for the longer guidance line
   // until it is back (SUS-136), so the counts arriving do not move the grid.
-  const pending = userId !== undefined && plan.acceptingAnswers && !others.isFetchedAfterMount;
+  const pending =
+    userId !== undefined &&
+    plan.acceptingAnswers &&
+    !others.isFetchedAfterMount &&
+    // Offline the query is paused, not on its way: no room is held for it.
+    others.fetchStatus !== 'paused';
   const shown = said !== undefined && othersShown(said);
   const reported = useRef(false);
   useEffect(() => {

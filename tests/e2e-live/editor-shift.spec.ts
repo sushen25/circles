@@ -41,11 +41,15 @@ for (const width of [390, 195]) {
     await kits.setViewportSize({ width, height: 844 });
     let release!: () => void;
     const held = new Promise<void>((resolve) => (release = resolve));
+    let hits = 0;
     await kits.route('**/rpc/others_availability', async (route) => {
+      hits += 1;
       await held;
       await route.continue();
     });
     await arrives(kits, crew, 'Kit');
+    // The read is out, so the position below is the one before the counts.
+    await expect.poll(() => hits).toBeGreaterThan(0);
     const before = await top(kits);
     release();
     await expect(days(kits).nth(1)).toHaveAccessibleName(/could make it$/);
