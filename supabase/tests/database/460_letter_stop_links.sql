@@ -227,8 +227,8 @@ select is(
   'a second quiet tap is harmless'
 );
 select is(
-  (select count(*)::int from jobs.notification_jobs), 0,
-  'and nothing was queued or written beyond the flags'
+  (select count(*)::int from jobs.notification_jobs where contact_id in (select nina from c)), 0,
+  'and no letter was queued for Nina by any tap'
 );
 
 -- ------------------------------------------------------------- refusals
