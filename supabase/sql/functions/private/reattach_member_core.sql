@@ -59,7 +59,8 @@ begin
   -- membership belongs to a permanent identity, the page offers that identity's
   -- sign-in instead".
   --
-  -- Three records of the same fact, and the strictest wins, which is the rule
+  -- Three records of the same fact on the list path (two on the token path,
+  -- where the JWT is the service role's and not the person's), and the strictest wins, which is the rule
   -- this function already applies to the *target* and had no business not
   -- applying to the caller. `auth_is_permanent()` reads the JWT, and a JWT
   -- outlives the event it describes: `linkIdentity` converts the user in place,
