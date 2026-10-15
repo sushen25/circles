@@ -38,6 +38,7 @@ pnpm gen:migration <name>  # the branch's one new, numbered migration; the gener
 pnpm gen:functions     # re-render supabase/sql/functions/ into that migration (ADR 0015)
 pnpm check:migrations  # fails if a migration already on origin/main was edited (inside pnpm check)
 pnpm check:docs        # links in docs/ resolve; each ADR's frontmatter, status line and README row agree (inside pnpm check)
+node scripts/check-unimported.mjs  # fails on a source file nothing imports; exemptions, each with a reason, are in that file (inside pnpm check:static)
 pnpm gen:tokens        # regenerate design tokens from docs/design/gen.py
 pnpm test:e2e          # Playwright: fixtures with no backend (smoke), then the journeys against the local stack (live): every spec in Chromium and WebKit, the ones tagged `// @e2e:` also in the in-app-browser and en-AU projects
 pnpm check:env <domain>  # a deployed environment from outside: HTTPS, HSTS, SPF/DKIM/DMARC
