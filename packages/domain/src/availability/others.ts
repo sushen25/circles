@@ -69,6 +69,18 @@ export function freeFor(others: OthersSaid, spans: readonly Interval[]): number 
   return others.flexible + people;
 }
 
+/**
+ * The number on a day's tile (SUS-206): how many people could make the day.
+ * Before the reader taps it that is the others alone; once they tap it, they
+ * are one of the people who can, so it is one more, and untapping gives the
+ * same number back. A sum of the aggregate the database already returns and
+ * the reader's own choice, so it needs nothing new from the server and names
+ * nobody.
+ */
+export function headcount(othersFree: number, readerIncluded: boolean): number {
+  return Math.max(0, othersFree) + (readerIncluded ? 1 : 0);
+}
+
 /** How many others are free in each of a day's cells. */
 export function cellCounts(others: OthersSaid, cells: readonly Interval[]): number[] {
   return cells.map((cell) => freeFor(others, [cell]));
@@ -92,4 +104,35 @@ export function peakOf(counts: readonly number[]): Peak {
     else runs.push({ from: index, to: index + 1 });
   });
   return { most, runs };
+}
+
+/**
+ * "Most others are free 2–4 pm and 6–8 pm" (SUS-206): the stretches of a day
+ * where the count is at or near the day's highest, as half-open cell ranges in
+ * time order, from the same per-half-hour counts the cells used to show. A cell
+ * is in when its count is at least `SHARE` of the day's most and at least 1,
+ * and adjacent ones run together; past `MOST_STRETCHES` the longest are kept.
+ * Counts and times only, never who: aggregate in, aggregate out. Empty when
+ * nobody else is free at any time that day.
+ */
+export const FREE_SHARE = 0.75;
+export const MOST_STRETCHES = 3;
+
+export function freeStretches(counts: readonly number[]): { from: number; to: number }[] {
+  const most = Math.max(0, ...counts);
+  if (most === 0) return [];
+  const floor = Math.max(1, Math.ceil(most * FREE_SHARE));
+  const runs: { from: number; to: number }[] = [];
+  counts.forEach((count, index) => {
+    if (count < floor) return;
+    const last = runs[runs.length - 1];
+    if (last !== undefined && last.to === index) last.to = index + 1;
+    else runs.push({ from: index, to: index + 1 });
+  });
+  if (runs.length <= MOST_STRETCHES) return runs;
+  // The longest, the earlier first on a tie, put back in time order.
+  return [...runs]
+    .sort((a, b) => b.to - b.from - (a.to - a.from) || a.from - b.from)
+    .slice(0, MOST_STRETCHES)
+    .sort((a, b) => a.from - b.from);
 }

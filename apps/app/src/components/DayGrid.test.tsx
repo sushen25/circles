@@ -148,4 +148,25 @@ describe('AnswerRow', () => {
     expect(screen.getByRole('button')).toHaveAttribute('aria-expanded', 'true');
     expect(screen.getByText('the half hours')).toBeInTheDocument();
   });
+
+  it('shows a figure on every day when it is given one, quietly where it is zero (SUS-206)', () => {
+    const { container } = render(
+      <DayGrid
+        days={[
+          day(0, { others: '0', othersMuted: true }),
+          day(1, { others: '3' }),
+          day(2, { others: '4', selected: true }),
+        ]}
+        weekdays={WEEKDAYS}
+        label="Days in this plan"
+      />,
+    );
+
+    const colourOf = (text: string) =>
+      getComputedStyle(screen.getByText(text, { selector: 'div' })).color;
+    expect(container.textContent).toContain('0');
+    // The zero is the muted ink, the three the day's own, the four the ground on the accent.
+    expect(colourOf('0')).not.toBe(colourOf('3'));
+    expect(colourOf('4')).not.toBe(colourOf('3'));
+  });
 });

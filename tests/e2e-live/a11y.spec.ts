@@ -59,17 +59,40 @@ test('the guest name screen opens with the cursor in the field, and no serious v
 
 test('the availability editor has no serious accessibility violations', async ({ page }) => {
   const crew = sundayCrew();
+  // A whole-day plan, so the sheet and the cards have choices to offer.
+  sql(`update public.plans set daily_start_local = 540 where id = '${crew.planId}'`);
   await page.goto(`/j/${crew.planCode}`);
   await page.getByLabel('Your name').fill('Ren');
   await page.getByRole('button', { name: 'Continue' }).click();
-  await expect(page.getByText("Times I'd actually be up for")).toBeVisible();
-  // With a day open, so the half hours are in the tree too.
+  await expect(page.getByText('Which days could work?')).toBeVisible();
+  // With a day tapped, so the answer line and the sheet are in the tree...
   await page.getByRole('group', { name: 'Days in this plan' }).getByRole('button').first().click();
-  await page.getByRole('checkbox', { name: /^Evening/ }).click();
+  await expect(page.getByText('Evenings, from 5:30 pm')).toBeVisible();
+  expect(await seriousViolations(page)).toEqual([]);
+
+  await page.getByRole('button', { name: /^Change the time for/ }).click();
+  await expect(page.getByRole('radio', { name: /^Evening/ })).toBeVisible();
+  // The sheet is a dialog with a name, once the modal has taken focus (until
+  // then react-native-web has marked it modal without a role).
+  await expect(page.getByRole('dialog', { name: 'When, on those days?' })).toBeVisible();
+  expect(await seriousViolations(page)).toEqual([]);
+
+  // ...and with a day open, so its From – to pairs and the picker are too.
+  await page.getByRole('button', { name: 'A different time for each day' }).click();
   await page
-    .getByRole('button', { name: /Adjust by the half hour$/ })
+    .getByRole('button', { name: /Set exact hours$/ })
     .first()
     .click();
+  await expect(page.getByRole('button', { name: /Set exact hours$/ }).first()).toHaveAttribute(
+    'aria-expanded',
+    'true',
+  );
+  expect(await seriousViolations(page)).toEqual([]);
+  await page
+    .getByRole('button', { name: /^Free from, / })
+    .first()
+    .click();
+  await expect(page.getByRole('dialog', { name: 'Free from' })).toBeVisible();
   expect(await seriousViolations(page)).toEqual([]);
 });
 
@@ -149,7 +172,7 @@ test('at 200% text, the editor cuts off none of its decisions', async ({ page },
   await page.goto(`/j/${crew.planCode}`);
   await page.getByLabel('Your name').fill('Ren');
   await page.getByRole('button', { name: 'Continue' }).click();
-  await expect(page.getByText("Times I'd actually be up for")).toBeVisible();
+  await expect(page.getByText('Which evenings could work?')).toBeVisible();
   await page.getByRole('group', { name: 'Days in this plan' }).getByRole('button').first().click();
 
   // The browser's own text zoom: every size in the app is in CSS pixels
@@ -163,9 +186,9 @@ test('at 200% text, the editor cuts off none of its decisions', async ({ page },
   });
 
   const decisions = [
-    page.getByRole('checkbox', { name: /^Evening/ }),
+    page.getByRole('button', { name: /^Adjust hours for/ }),
     page.getByRole('switch', { name: "I'm easy" }),
-    page.getByRole('button', { name: 'None of these dates work for me' }),
+    page.getByRole('button', { name: 'None of these evenings work for me' }),
     page.getByRole('button', { name: 'Send my times' }),
   ];
   for (const decision of decisions) {

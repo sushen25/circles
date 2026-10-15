@@ -4,15 +4,14 @@ import {
   localDate,
   toLocal,
   zone as toZone,
-  type DayPart,
   type LocalDate,
   type TimeFormat,
 } from '@circles/domain';
 
 import { t } from '../../copy';
 import type { AnswerablePlan } from '../../data/availability';
-import type { BlockKind, DayTag } from './blocks';
-import { dateWords, type RowWords } from './days';
+import type { BandName, BlockKind } from './blocks';
+import { dateWords } from './days';
 
 /**
  * The editor's sentences, from the copy file and the plan (spec §5.5). Kept
@@ -22,31 +21,41 @@ import { dateWords, type RowWords } from './days';
 export const BLOCK_LABEL: Record<BlockKind, () => string> = {
   morning: () => t('availability', 'morning'),
   afternoon: () => t('availability', 'afternoon'),
+  daytime: () => t('availability', 'daytime'),
   evening: () => t('availability', 'evening'),
   any_time: () => t('availability', 'any_time'),
   from_now: () => t('availability', 'from_now'),
   later_tonight: () => t('availability', 'later_tonight'),
 };
 
-/** The short word on a day in the grid. */
-export const TAG_WORD: Record<DayTag, () => string> = {
-  morning: () => t('availability', 'tag_morning'),
-  afternoon: () => t('availability', 'tag_afternoon'),
-  evening: () => t('availability', 'tag_evening'),
-  any_time: () => t('availability', 'tag_any_time'),
-  from_now: () => t('availability', 'tag_from_now'),
-  later_tonight: () => t('availability', 'tag_later_tonight'),
-  some: () => t('availability', 'tag_some'),
+/** The word for what a guest is tapping, from the plan's band: "evening", "day". */
+const THING: Record<BandName, () => string> = {
+  mornings: () => t('availability', 'thing_morning'),
+  afternoons: () => t('availability', 'thing_afternoon'),
+  evenings: () => t('availability', 'thing_evening'),
+  days: () => t('availability', 'thing_day'),
 };
+export const thingOf = (band: BandName): string => THING[band]();
 
-export const ROW_WORDS: RowWords = {
-  cell: (day, from, to) => t('availability', 'cell', { day, from, to }),
-  repeated: (label) => t('availability', 'cell_repeated', { label }),
-  crossing: (label) => t('availability', 'cell_crossing', { label }),
-  get clocksGoBack() {
-    return t('availability', 'clocks_go_back');
-  },
-};
+/** The question the first screen asks: "Which evenings could work?", else "Which days…". */
+export function questionOf(band: BandName, onlyChoice: boolean): string {
+  if (!onlyChoice) return t('availability', 'which_days_could_work');
+  if (band === 'evenings') return t('availability', 'which_evenings_could_work');
+  if (band === 'mornings') return t('availability', 'which_mornings_could_work');
+  if (band === 'afternoons') return t('availability', 'which_afternoons_could_work');
+  return t('availability', 'which_days_could_work');
+}
+
+/** "None of these evenings work for me", where the plan has one band to name. */
+export function noneOf(band: BandName, onlyChoice: boolean): string {
+  if (onlyChoice && band === 'evenings')
+    return t('availability', 'none_of_these_evenings_work_for_me');
+  if (onlyChoice && band === 'mornings')
+    return t('availability', 'none_of_these_mornings_work_for_me');
+  if (onlyChoice && band === 'afternoons')
+    return t('availability', 'none_of_these_afternoons_work_for_me');
+  return t('availability', 'none_of_these_dates_work_for_me');
+}
 
 /** "Catch up · 14 Sep – 27 Sep", in the device's own date order. */
 export function titleOf(plan: AnswerablePlan): string {
@@ -58,31 +67,25 @@ export function titleOf(plan: AnswerablePlan): string {
   return t('availability', 'title', { title: plan.title, dates });
 }
 
-const WHAT: Record<AnswerablePlan['category'], () => string> = {
-  catch_up: () => t('availability', 'what_catch_up'),
-  dinner: () => t('availability', 'what_dinner'),
-  drinks: () => t('availability', 'what_drinks'),
-  coffee: () => t('availability', 'what_coffee'),
-  activity: () => t('availability', 'what_activity'),
-};
-
-const DURATION: Record<AnswerablePlan['durationMinutes'], () => string> = {
-  60: () => t('availability', 'duration_60'),
-  90: () => t('availability', 'duration_90'),
-  120: () => t('availability', 'duration_120'),
-  180: () => t('availability', 'duration_180'),
-  240: () => t('availability', 'duration_240'),
-  300: () => t('availability', 'duration_300'),
-};
-
-/** "Catch-ups run about 2 hours. Replies close Tue 15 Sep, 6 pm." — in the plan's zone. */
-export function introOf(plan: AnswerablePlan, format: TimeFormat): string {
+/** "Replies close Fri 23 Oct, 8:30 pm." — in the plan's zone, under the grid. */
+export function closesOf(plan: AnswerablePlan, format: TimeFormat): string {
   const closes = toLocal(fromISO(plan.responseDeadline), toZone(plan.zone));
-  return t('availability', 'runs_about', {
-    what: WHAT[plan.category](),
-    duration: DURATION[plan.durationMinutes](),
+  return t('availability', 'replies_close', {
     deadline: `${dateWords(closes.date, 'short')}, ${formatMinutesOfDay(closes.minutesOfDay, format)}`,
   });
+}
+
+/**
+ * The one line of guidance. With counts on the days it says what the number
+ * means, the reader included once they tap; with none (nobody else has given
+ * times, or the read failed) it says only what to do, because there is no
+ * number to explain.
+ */
+export function guideOf(counted: boolean, band: BandName, onlyChoice: boolean): string {
+  const thing = thingOf(onlyChoice ? band : 'days');
+  return counted
+    ? t('availability', 'guide_counted', { thing })
+    : t('availability', 'guide_plain', { thing });
 }
 
 /**
@@ -107,29 +110,4 @@ export function timeOfDay(iso: string): string {
   return new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' }).format(
     new Date(iso),
   );
-}
-
-const PART_WORDS: Record<DayPart, () => string> = {
-  weekday_morning: () => t('availability', 'previous_weekday_morning'),
-  weekday_afternoon: () => t('availability', 'previous_weekday_afternoon'),
-  weekday_evening: () => t('availability', 'previous_weekday_evening'),
-  weekend_morning: () => t('availability', 'previous_weekend_morning'),
-  weekend_afternoon: () => t('availability', 'previous_weekend_afternoon'),
-  weekend_evening: () => t('availability', 'previous_weekend_evening'),
-};
-
-/**
- * What "Use my previous times" will paint, in the day-parts' own words:
- * "Weekday evenings and weekend afternoons". Only the parts that paint on this
- * plan are named, so the tap is informed (SUS-159). Words only; the parts are
- * never sent anywhere, and never put in an event.
- */
-export function previousWords(parts: readonly DayPart[]): string {
-  const words = parts.map((part) => PART_WORDS[part]());
-  const last = words[words.length - 1] ?? '';
-  const list =
-    words.length > 1
-      ? t('availability', 'previous_list_last', { rest: words.slice(0, -1).join(', '), last })
-      : last;
-  return list.charAt(0).toUpperCase() + list.slice(1);
 }

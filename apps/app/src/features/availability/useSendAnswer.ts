@@ -84,7 +84,7 @@ export type SendAnswerOptions = {
   onStale: () => void;
   onNarrowed?: (() => void) | undefined;
   returnTo?: ReturnTo | undefined;
-  /** The answer began from "Use my previous times", even if it was edited since (SUS-159). */
+  /** The answer began from previous times, even if it was edited since (SUS-159). */
   usedPrevious?: boolean | undefined;
 };
 

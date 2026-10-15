@@ -13,7 +13,8 @@ import { type Interval, intersect, interval } from '../shared/interval.js';
 import type { LocalDate } from '../shared/local-date.js';
 import { fromLocal, fromLocalEnd, toLocal } from '../shared/zone.js';
 
-export type ShortcutKind = 'after_work' | 'all_evening' | 'morning' | 'afternoon' | 'any_time';
+export type ShortcutKind =
+  'after_work' | 'all_evening' | 'morning' | 'afternoon' | 'daytime' | 'any_time';
 
 /** Local minutes-of-day, before the plan's band is applied. */
 const SHORTCUT_BANDS: Record<ShortcutKind, { startMin: number; endMin: number } | 'whole_day'> = {
@@ -21,6 +22,8 @@ const SHORTCUT_BANDS: Record<ShortcutKind, { startMin: number; endMin: number } 
   all_evening: { startMin: 17 * 60 + 30, endMin: 24 * 60 },
   morning: { startMin: 9 * 60, endMin: 12 * 60 },
   afternoon: { startMin: 12 * 60, endMin: 17 * 60 },
+  // Morning and afternoon together: what a guest means by "daytime" (SUS-206).
+  daytime: { startMin: 9 * 60, endMin: 17 * 60 },
   any_time: 'whole_day',
 };
 

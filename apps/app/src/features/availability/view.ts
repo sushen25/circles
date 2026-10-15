@@ -1,34 +1,37 @@
 import {
   cellsToWindows,
+  formatMinutesOfDay,
+  headcount,
   rangeText,
+  toLocal,
+  zone as toZone,
   type DayPart,
+  type Interval,
   type OthersSaid,
   type TimeFormat,
 } from '@circles/domain';
 
-import type { CellCount, GridDay } from '../../components';
+import type { GridDay } from '../../components';
 import { t } from '../../copy';
 import {
   blockSpan,
-  dayTag,
   offeredBlocks,
-  paintedParts,
+  bandName,
+  onlyChoice,
+  readsFromStart,
   usualCells,
+  windowOfCells,
+  windowsFor,
+  type BandName,
   type BlockKind,
   type BlockTiming,
 } from './blocks';
-import { dayName, dayNumber, gridSlots, weekdayHeadings, type DayRow, type Mark } from './days';
-import { blockOn, hasTimes, paintedDays, wholeDayOn, type EditorState } from './editor';
-import {
-  blockLine,
-  counted,
-  dayFree,
-  dayLabel,
-  dayOthers,
-  othersLine,
-  overlapLine,
-} from './others';
-import { BLOCK_LABEL, TAG_WORD, previousWords } from './words';
+import { dayName, dayNumber, gridSlots, weekdayHeadings, type DayRow } from './days';
+import { addRange, edgeOptions, rangesOf, type Range } from './hours';
+import { answerLineOf, dayList, tappedNames, type AnswerLine } from './answerLine';
+import { paintedDays, tappedDays, windowOn, type EditorState } from './editor';
+import { counted, dayFree, dayLabel, othersLine } from './others';
+import { BLOCK_LABEL } from './words';
 
 /**
  * Everything the editor screen shows, worked out from the answer (spec §5.5,
@@ -36,74 +39,159 @@ import { BLOCK_LABEL, TAG_WORD, previousWords } from './words';
  * can be tested without rendering it.
  */
 
-export type BlockView = {
+export type ChoiceView = {
   kind: BlockKind;
   /** "Evening" */
   label: string;
-  /** "5:30–10:30 pm", or "9 am–12 pm · 1 of these 3 days" when it is not on all of them. */
-  detail: string;
-  /** "3 free", "Up to 5 free", "Nobody yet": what others said (SUS-129). */
-  others?: string | undefined;
+  /** "from 5:30 pm", "12–5 pm"; absent on Any time, which is the whole day. */
+  detail?: string | undefined;
   on: boolean;
 };
 
-/** The card under the grid, once any day is ticked. */
-export type PanelView = {
-  /** "Tue 15, Thu 17, Sat 19", or "5 days selected". */
-  title: string;
-  blocks: BlockView[];
-  /** Some ticked day has times, so "Clear these days" does something. */
-  canClear: boolean;
+/** "Change time": what the sheet says and offers once any day is tapped. */
+export type SheetView = {
+  /** "One answer covers Thu 15, Tue 20 and Thu 22." */
+  covers: string;
+  choices: ChoiceView[];
 };
 
-/** One line of "My answer". */
-export type AnswerView = {
+/** One of the quick choices on a day's card: the same presets as the sheet. */
+export type DayChoiceView = { kind: BlockKind; label: string; on: boolean };
+
+/** A tapped day on "A time for each day" (SUS-206, ADR 0068). */
+export type DayCardView = {
   key: string;
   /** The row index, for the callbacks. */
   day: number;
-  /** "Tue 15 Sep" */
-  short: string;
-  /** "Tuesday 15 September" */
+  /** "Thu 15" */
+  name: string;
+  /** "Thursday 15 September" */
   spoken: string;
-  /** "5:30–10:30 pm", or "Not this day" for an open day with nothing left on it. */
-  range: string;
+  /** What the day covers: "from 5:30 pm", "12–5 pm", or "6–9:30 pm, your own hours". */
+  time: string;
+  /** The hours match none of the choices, so none is selected. */
+  own: boolean;
+  /** Only the choices this plan offers, and that exist on this day. */
+  choices: DayChoiceView[];
+  /** The day's hours are open for setting. */
   open: boolean;
   cells: boolean[];
-  labels: string[];
-  marks: Mark[];
-  /** Every cell on: "Any time that day" becomes "Clear this day". */
-  wholeDay: boolean;
-  /** "Overlaps with 3 others", when there are counts to show (SUS-129). */
-  others?: string | undefined;
-  /** Over the open day's cells: "Others free, by the half hour. The most is 5, …" */
-  peak?: string | undefined;
-  /** A figure over each of the open day's cells; absent on a day nobody else picked. */
-  counts?: CellCount[] | undefined;
+  /** The day's hours in words. */
+  range: string;
+  /** The From – to pairs, while the day is open. */
+  hours: HoursView | undefined;
+};
+
+/** One time a picker can choose: a boundary between half hours, and its words. */
+export type TimeOption = { boundary: number; label: string };
+
+/** One From – to pair, with what each button says and what each picker offers. */
+export type RangeView = {
+  from: number;
+  to: number;
+  fromLabel: string;
+  toLabel: string;
+  fromOptions: TimeOption[];
+  toOptions: TimeOption[];
+};
+
+/**
+ * An open day's hours, set as From – to pairs instead of painted (SUS-206): the
+ * pairs, the thin bar that shows them against the band (decoration only), its
+ * tick labels, and the one line about the others.
+ */
+export type HoursView = {
+  ranges: RangeView[];
+  /** The number of half hours in the band: the pairs' boundaries run 0 to this. */
+  length: number;
+  /** Whether there is room for another pair. */
+  canAdd: boolean;
+  /** More than one pair, so a pair can be taken away. */
+  canRemove: boolean;
+  /** Each pair as fractions of the band, for the bar. */
+  bar: { start: number; end: number }[];
+  /** "9 am", "3 pm", "10:30 pm": the band's start, middle and end. */
+  ticks: string[];
+  /** "Most others are free 2–4 pm and 6–8 pm"; absent when nobody else is free. */
+  others: string | undefined;
 };
 
 export type EditorView = {
   grid: GridDay[];
   weekdays: string[];
-  panel: PanelView | undefined;
-  answers: AnswerView[];
-  /** Days with any time on them. */
-  painted: number;
-  canUndo: boolean;
+  /** The one line under the grid; undefined while no day is tapped. */
+  answerLine: AnswerLine | undefined;
+  /** Every tile carries a number: the others have been read and there are enough to count. */
+  counted: boolean;
+  /** The plan leaves one window: no sheet, no choices; the words name the band. */
+  single: boolean;
+  /** Where the plan's band sits: the words for it when `single`. */
+  band: BandName;
+  /** What every day is when `single`: "from 5:30 pm", "9 am–12 pm". */
+  singleTime: string | undefined;
+  sheet: SheetView | undefined;
+  /** "A time for each day": a card for each tapped day. */
+  cards: DayCardView[];
   /**
-   * "Use my previous times" is on offer (ADR 0005, ADR 0037): there is
-   * something offered before, the answer is still empty and not "I'm easy",
-   * and it paints something on this plan. Offered to start an answer, never to
+   * Previous times can start this answer (ADR 0005, ADR 0037, ADR 0068): there
+   * is something offered before, the answer is still empty and not "I'm easy",
+   * and it paints something on this plan. Used to start an answer, never to
    * overwrite one.
    */
   canUseUsual: boolean;
-  /** What the tap will paint on this plan, in words; undefined when it is not on offer. */
-  previousHint: string | undefined;
-  /**
-   * The line above the grid: "5 of 6 have answered…", or "You're the first to
-   * answer…". Undefined when the others could not be read (SUS-129).
-   */
-  othersLine: string | undefined;
 };
+
+/** "12:00 pm": a time of day with its minutes, so a button never reads "12 pm to 4 pm". */
+function exact(minutes: number, format: TimeFormat): string {
+  const said = formatMinutesOfDay(minutes, format);
+  return format.hour12 && !said.includes(':') ? said.replace(/^(\d+)/, '$1:00') : said;
+}
+
+/** An open day's pairs, bar and line: everything its hours editor shows (`hours.ts`). */
+function hoursView(
+  cells: readonly boolean[],
+  row: DayRow,
+  others: OthersSaid | undefined,
+  timing: BlockTiming,
+  format: TimeFormat,
+): HoursView {
+  const length = row.cells.length;
+  const zone = toZone(timing.zone);
+  const at = (boundary: number) => {
+    const instant = boundary < length ? row.cells[boundary]!.start : row.cells[length - 1]!.end;
+    return toLocal(instant, zone).minutesOfDay;
+  };
+  // What each boundary is called. The night the clocks go back, two of them are
+  // the same time on the clock: the second says so, or two buttons would read alike.
+  const seen = new Set<number>();
+  const words = Array.from({ length: length + 1 }, (_, boundary) => {
+    const minutes = at(boundary);
+    const again = seen.has(minutes);
+    seen.add(minutes);
+    const said = exact(minutes, format);
+    return again ? t('availability', 'time_again', { time: said }) : said;
+  });
+  const options = (which: 'from' | 'to', range: Range): TimeOption[] =>
+    edgeOptions(which, range, length).map((boundary) => ({ boundary, label: words[boundary]! }));
+  const ranges = rangesOf(cells);
+  return {
+    ranges: ranges.map((range) => ({
+      ...range,
+      fromLabel: words[range.from]!,
+      toLabel: words[range.to]!,
+      fromOptions: options('from', range),
+      toOptions: options('to', range),
+    })),
+    length,
+    canAdd: addRange(ranges, length).length > ranges.length,
+    canRemove: ranges.length > 1,
+    bar: ranges.map((range) => ({ start: range.from / length, end: range.to / length })),
+    ticks: [0, Math.round(length / 2), length].map((boundary) =>
+      formatMinutesOfDay(at(boundary), format),
+    ),
+    others: others === undefined ? undefined : othersLine(others, row, timing, format),
+  };
+}
 
 export function editorView(
   state: EditorState,
@@ -122,91 +210,109 @@ export function editorView(
 
   const grid: GridDay[] = rows.map((row, day) => {
     const times = range(day);
-    const tag = dayTag(state.days[day] ?? [], row, timing);
+    const selected = times !== undefined;
     const free = others === undefined ? 0 : dayFree(others, row);
-    const label =
-      times === undefined
-        ? t('availability', 'day_no_times', { day: row.spoken })
-        : t('availability', 'day_with_times', { day: row.spoken, time: times });
+    // The number is everyone who could make the day, the reader once they tap
+    // it (SUS-206); a day nobody could make shows a muted zero.
+    const total = headcount(free, selected);
+    const label = selected
+      ? t('availability', 'day_with_times', { day: row.spoken, time: times })
+      : row.spoken;
     return {
       key: row.date,
       number: dayNumber(row.date, locale),
       name: dayName(row.date, locale),
-      tag: tag === undefined ? undefined : TAG_WORD[tag](),
-      label: dayLabel(label, free),
-      // No figure on a day nobody else has time on.
-      others: free > 0 ? String(free) : undefined,
+      label: others === undefined ? label : dayLabel(label, free, selected),
+      others: others === undefined ? undefined : String(total),
+      othersMuted: others !== undefined && total === 0,
       slot: slots[day]!,
-      selected: state.ticked.includes(day),
-      hasTimes: times !== undefined,
+      selected,
+      hasTimes: false,
     };
   });
 
-  const panel: PanelView | undefined =
-    state.ticked.length === 0
+  const tapped = tappedDays(state);
+  const only = onlyChoice(rows, timing);
+  const sheet: SheetView | undefined =
+    tapped.length === 0 || only !== undefined
       ? undefined
       : {
-          title:
-            state.ticked.length <= 3
-              ? state.ticked.map((day) => dayName(rows[day]!.date, locale)).join(', ')
-              : t('availability', 'days_selected', { count: state.ticked.length }),
-          blocks: offeredBlocks(state.ticked, rows, timing).map((offer) => {
-            const hours = [
-              ...new Set(
-                offer.days.map((day) =>
-                  rangeText([blockSpan(offer.kind, rows[day]!, timing)!], timing.zone, format)!,
-                ),
-              ),
+          covers: t('availability', 'sheet_covers', {
+            days: dayList(tappedNames(state, rows, locale), 'and'),
+          }),
+          choices: offeredBlocks(tapped, rows, timing, windowsFor(timing)).map((offer) => {
+            const first = rows[offer.days[0]!]!;
+            const spans = offer.days.map((day) => blockSpan(offer.kind, rows[day]!, timing)!);
+            // The same time of day on every day it is offered for: the clock on
+            // the plan's own zone, not the instant, which differs by date.
+            const clock = (span: Interval) => [
+              toLocal(span.start, toZone(timing.zone)).minutesOfDay,
+              toLocal(span.end, toZone(timing.zone)).minutesOfDay,
             ];
-            const time = hours.length === 1 ? hours[0]! : t('availability', 'times_vary');
+            const same = spans.every((span) => clock(span).join() === clock(spans[0]!).join());
+            const hours =
+              offer.kind === 'any_time'
+                ? undefined
+                : !same
+                  ? t('availability', 'times_vary')
+                  : readsFromStart(offer.kind)
+                    ? t('availability', 'line_from_time', {
+                        time: formatMinutesOfDay(
+                          toLocal(spans[0]!.start, toZone(timing.zone)).minutesOfDay,
+                          format,
+                        ),
+                      })
+                    : rangeText([blockSpan(offer.kind, first, timing)!], timing.zone, format);
             return {
               kind: offer.kind,
               label: BLOCK_LABEL[offer.kind](),
-              detail:
-                offer.days.length === state.ticked.length
-                  ? time
-                  : t('availability', 'block_some_days', {
-                      time,
-                      count: offer.days.length,
-                      total: state.ticked.length,
-                    }),
-              others:
-                others === undefined
-                  ? undefined
-                  : blockLine(
-                      others,
-                      offer.days.map((day) => blockSpan(offer.kind, rows[day]!, timing)!),
-                    ),
-              on: blockOn(offer.kind, state, rows, timing),
+              detail: hours,
+              on: windowOn(offer.kind, state, rows, timing),
             };
           }),
-          canClear: state.ticked.some((day) => hasTimes(state, day)),
         };
 
-  // The days with times, and the open one even once it has none left, so the
-  // row somebody is adjusting does not vanish under their finger.
-  const answers: AnswerView[] = rows.flatMap((row, day) => {
-    const open = state.open === day;
-    if (!open && !hasTimes(state, day)) return [];
+  // A card for each tapped day, with the choices this plan offers (the
+  // sheet's rule) that exist on it, and the half hours when it is open.
+  const offered = offeredBlocks(tapped, rows, timing, windowsFor(timing));
+  const clockOf = (kind: BlockKind, row: DayRow) => {
+    const span = blockSpan(kind, row, timing)!;
+    return readsFromStart(kind)
+      ? t('availability', 'line_from_time', {
+          time: formatMinutesOfDay(toLocal(span.start, toZone(timing.zone)).minutesOfDay, format),
+        })
+      : rangeText([span], timing.zone, format)!;
+  };
+  const cards: DayCardView[] = tapped.map((day) => {
+    const row = rows[day]!;
     const cells = state.days[day] ?? [];
-    const near = others === undefined || !open ? undefined : dayOthers(others, row, timing, format);
-    return [
-      {
-        key: row.date,
-        day,
-        short: row.short,
-        spoken: row.spoken,
-        range: range(day) ?? t('availability', 'not_this_day'),
-        open,
-        cells,
-        labels: near?.labels ?? row.cellLabels,
-        marks: row.marks,
-        wholeDay: wholeDayOn(state, day),
-        others: others === undefined ? undefined : overlapLine(others, row, cells),
-        peak: near?.sentence,
-        counts: near?.counts,
-      },
-    ];
+    const open = state.open === day;
+    const matched = windowOfCells(cells, row, timing);
+    const hours = range(day) ?? '';
+    return {
+      key: row.date,
+      day,
+      name: dayName(row.date, locale),
+      spoken: row.spoken,
+      time:
+        matched === undefined
+          ? only === undefined
+            ? t('availability', 'own_hours', { hours })
+            : hours
+          : clockOf(matched, row),
+      own: matched === undefined,
+      choices: (only !== undefined ? [] : offered)
+        .filter((offer) => offer.days.includes(day))
+        .map((offer) => ({
+          kind: offer.kind,
+          label: BLOCK_LABEL[offer.kind](),
+          on: offer.kind === matched,
+        })),
+      open,
+      cells,
+      range: hours,
+      hours: open ? hoursView(cells, row, others, timing, format) : undefined,
+    };
   });
 
   const willPaint =
@@ -218,17 +324,20 @@ export function editorView(
   return {
     grid,
     weekdays: weekdayHeadings(locale),
-    panel,
-    answers,
-    painted: paintedDays(state),
-    canUndo: state.undo !== undefined,
+    answerLine: answerLineOf(
+      state,
+      rows,
+      timing,
+      format,
+      locale,
+      only === undefined ? undefined : bandName(timing),
+    ),
+    counted: others !== undefined,
+    single: only !== undefined,
+    band: bandName(timing),
+    singleTime: only === undefined || rows[0] === undefined ? undefined : clockOf(only, rows[0]),
+    sheet,
+    cards,
     canUseUsual: willPaint,
-    previousHint:
-      willPaint && usual !== undefined
-        ? t('availability', 'use_my_previous_times_hint', {
-            parts: previousWords(paintedParts(rows, timing, usual)),
-          })
-        : undefined,
-    othersLine: othersLine(said),
   };
 }

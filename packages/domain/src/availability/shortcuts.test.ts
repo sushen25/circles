@@ -37,6 +37,10 @@ describe('on a weekday evening plan (17:30–22:30)', () => {
   it('lists only the shortcuts that can do something, so the UI hides the rest', () => {
     expect(availableShortcuts(DAY, p).sort()).toEqual(['after_work', 'all_evening', 'any_time']);
   });
+
+  it('offers no daytime either', () => {
+    expect(applyShortcut('daytime', DAY, p)).toBeUndefined();
+  });
 });
 
 describe('on a weekend day plan (09:00–22:30)', () => {
@@ -47,12 +51,33 @@ describe('on a weekend day plan (09:00–22:30)', () => {
     expect(band(applyShortcut('afternoon', DAY, p))).toEqual([12 * 60, 17 * 60]);
   });
 
+  it('daytime is morning and afternoon together, 9 am to 5 pm (SUS-206)', () => {
+    expect(band(applyShortcut('daytime', DAY, p))).toEqual([9 * 60, 17 * 60]);
+  });
+
   it('any time is the whole thirteen and a half hours', () => {
     expect(band(applyShortcut('any_time', DAY, p))).toEqual([9 * 60, 22 * 60 + 30]);
   });
 
   it('offers every shortcut', () => {
-    expect(availableShortcuts(DAY, p)).toHaveLength(5);
+    expect(availableShortcuts(DAY, p)).toHaveLength(6);
+  });
+});
+
+describe('daytime on bands that cut across it (SUS-206)', () => {
+  it('is clipped to a plan from 3 pm: 3 to 5 pm', () => {
+    const p = plan({ daily: { startMin: 15 * 60, endMin: 21 * 60 } });
+    expect(band(applyShortcut('daytime', DAY, p))).toEqual([15 * 60, 17 * 60]);
+  });
+
+  it('is the whole band of a morning plan, 9 am to noon', () => {
+    const p = plan({ daily: { startMin: 9 * 60, endMin: 12 * 60 } });
+    expect(band(applyShortcut('daytime', DAY, p))).toEqual([9 * 60, 12 * 60]);
+  });
+
+  it('is nothing on a plan that starts at 5 pm', () => {
+    const p = plan({ daily: { startMin: 17 * 60, endMin: 22 * 60 } });
+    expect(applyShortcut('daytime', DAY, p)).toBeUndefined();
   });
 });
 

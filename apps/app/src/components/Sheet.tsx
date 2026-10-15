@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Modal, Pressable, StyleSheet, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { radius, space } from '@circles/tokens';
 
@@ -23,16 +23,25 @@ export function Sheet({ visible, onDismiss, label, dismissLabel, children }: Pro
   const palette = usePalette();
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onDismiss}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onDismiss}
+      // react-native-web makes the modal's own element the dialog, and passes
+      // what it does not use to it: the name belongs there, not on the sheet
+      // inside it, which is not a dialog (axe: aria-dialog-name).
+      {...({ 'aria-label': label } as object)}
+    >
       <Pressable style={styles.scrim} role="button" aria-label={dismissLabel} onPress={onDismiss} />
       <View
         accessibilityViewIsModal
-        aria-modal
-        aria-label={label}
         style={[styles.sheet, { backgroundColor: palette.ground, borderTopColor: palette.line }]}
       >
         <View style={[styles.handle, { backgroundColor: palette.line }]} />
-        {children}
+        {/* Bounded and scrolling: on a short viewport (a phone on its side) the
+            controls at the bottom stay reachable. */}
+        <ScrollView contentContainerStyle={styles.content}>{children}</ScrollView>
       </View>
     </Modal>
   );
@@ -51,7 +60,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.gutter,
     paddingBottom: 28,
     gap: 14,
+    maxHeight: '92%',
   },
+  content: { gap: 14 },
   handle: {
     alignSelf: 'center',
     width: 40,

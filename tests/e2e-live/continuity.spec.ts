@@ -136,13 +136,12 @@ test('times waiting on the phone go when the person comes back to the tab', asyn
   await page.goto(`/j/${crew.planCode}`);
   await page.getByLabel('Your name').fill('Ren');
   await page.getByRole('button', { name: 'Continue' }).click();
-  await expect(page.getByText("Times I'd actually be up for")).toBeVisible();
+  await expect(page.getByText('Which evenings could work?')).toBeVisible();
   const ren = memberNamed(crew.circleId, 'Ren')!.userId;
 
   const api = `${stackConfig().apiUrl}/**`;
   await page.route(api, (route) => route.abort('internetdisconnected'));
   await page.getByRole('group', { name: 'Days in this plan' }).getByRole('button').first().click();
-  await page.getByRole('checkbox', { name: /^Evening/ }).click();
   await page.getByRole('button', { name: 'Send my times' }).click();
   await expect(page.getByText('Your times are saved on this phone.')).toBeVisible();
   expect(answerOf(crew.planId, ren)).toBeUndefined();

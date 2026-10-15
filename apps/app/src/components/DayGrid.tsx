@@ -53,6 +53,8 @@ export type GridDay = {
    * is hidden from a screen reader. Absent on every day, the grid is as it was.
    */
   others?: string | undefined;
+  /** The figure is a zero: shown quietly, since "0" is an answer too (SUS-206). */
+  othersMuted?: boolean | undefined;
   /**
    * Shown, faded and not pressable: a day in the past on the plan setup's
    * calendar, or one past the thirty-day cap. Its label has to say why.
@@ -193,6 +195,7 @@ function DayButton({
 }) {
   const palette = usePalette();
   const ink = day.selected ? palette.onAccent : day.hasTimes ? color.accentDark : palette.ink;
+  const figure = day.selected ? palette.onAccent : day.othersMuted === true ? palette.ink3 : ink;
   // A toggle button: `aria-pressed` on the web, where react-native-web passes
   // it through; `selected` on native, which has no pressed state to announce.
   const state: Record<string, unknown> =
@@ -224,8 +227,8 @@ function DayButton({
       ) : null}
       {day.others === undefined ? null : (
         <View style={styles.others} aria-hidden>
-          <Icon name="people" size={11} color={ink} />
-          <Text style={[styles.othersText, { color: ink }]}>{day.others}</Text>
+          <Icon name="people" size={11} color={figure} />
+          <Text style={[styles.othersText, { color: figure }]}>{day.others}</Text>
         </View>
       )}
       <Text style={[styles.number, { color: ink }]}>{wraps ? day.name : day.number}</Text>

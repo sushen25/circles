@@ -25,11 +25,10 @@ import {
 
 const NOTE = 'Times are Melbourne time.';
 
-/** Ticks a day, turns Evening on and sends. The editor is S1-25's; this uses it. */
+/** Taps a day, which gives it the evening, and sends. The editor is S1-25's; this uses it. */
 async function answersIn(page: Page, code: string): Promise<void> {
-  await expect(page.getByText("Times I'd actually be up for")).toBeVisible();
+  await expect(page.getByText('Which evenings could work?')).toBeVisible();
   await page.getByRole('group', { name: 'Days in this plan' }).getByRole('button').nth(1).click();
-  await page.getByRole('checkbox', { name: /^Evening/ }).click();
   await page.getByRole('button', { name: 'Send my times' }).click();
   await expect(page).toHaveURL(new RegExp(`/j/${code}/sent$`));
   // Sent itself, as `sendEvenings` waits for: a hard navigation straight after

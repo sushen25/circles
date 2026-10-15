@@ -1,8 +1,8 @@
 import { fromISO, localDate, zone, type PlanTiming } from '@circles/domain';
 import { describe, expect, it } from 'vitest';
 
-import { offeredBlocks, type BlockTiming } from './blocks';
-import { dayRows, type RowWords } from './days';
+import { offeredBlocks, windowsFor, type BlockTiming } from './blocks';
+import { dayRows } from './days';
 import {
   editorReducer,
   emptyEditor,
@@ -13,16 +13,10 @@ import {
 import { editorView } from './view';
 
 /**
- * "Use my previous times" (ADR 0005, SUS-159) and tonight's editor (S2-06), as the reducer
- * and the view see them: what the pre-fill paints, that it paints nothing
- * else and sends nothing, and which chips a tonight plan offers.
+ * Previous times (ADR 0005, SUS-159, ADR 0068) and tonight's editor (S2-06), as the
+ * reducer and the view see them: what the pre-fill paints, that it paints
+ * nothing else and sends nothing, and which choices a tonight plan offers.
  */
-const WORDS: RowWords = {
-  cell: (day, from, to) => `${day}, ${from} to ${to}`,
-  repeated: (label) => label,
-  crossing: (label) => label,
-  clocksGoBack: 'Clocks go back',
-};
 const MELBOURNE = zone('Australia/Melbourne');
 
 /** Monday 14 to Sunday 20 September, 9 am to 10:30 pm every day. */
@@ -37,10 +31,10 @@ const SAT = 5;
 const SUN = 6;
 
 function setUp(timing: BlockTiming) {
-  const rows = dayRows(timing, { hour12: true }, WORDS, 'en-AU');
+  const rows = dayRows(timing, 'en-AU');
   const reduce = editorReducer(rows, timing);
   const run = (state: EditorState, ...actions: EditorAction[]) => actions.reduce(reduce, state);
-  return { rows, run, start: emptyEditor(rows) };
+  return { rows, run, start: emptyEditor(rows, timing) };
 }
 
 const view = (
@@ -48,7 +42,7 @@ const view = (
   timing: BlockTiming,
   usual?: Parameters<typeof editorView>[5],
 ) => {
-  const rows = dayRows(timing, { hour12: true }, WORDS, 'en-AU');
+  const rows = dayRows(timing, 'en-AU');
   return editorView(state, rows, timing, { hour12: true }, 'en-AU', usual);
 };
 
@@ -82,7 +76,7 @@ describe('use my previous times', () => {
     const changed = run(
       start,
       { type: 'usual', parts: ['weekday_evening'] },
-      { type: 'remove_day', day: MON },
+      { type: 'toggle_day', day: MON },
     );
     expect(changed.days[MON]!.some(Boolean)).toBe(false);
     expect(changed.days[1]!.some(Boolean)).toBe(true);
@@ -93,7 +87,7 @@ describe('use my previous times', () => {
     const { run, start } = setUp(WEEK);
     expect(view(start, WEEK, ['weekday_evening']).canUseUsual).toBe(true);
     expect(view(start, WEEK, undefined).canUseUsual).toBe(false);
-    const painted = run(start, { type: 'whole_day', day: MON });
+    const painted = run(start, { type: 'toggle_day', day: MON });
     expect(view(painted, WEEK, ['weekday_evening']).canUseUsual).toBe(false);
     const easy = run(start, { type: 'flexible', on: true });
     expect(view(easy, WEEK, ['weekday_evening']).canUseUsual).toBe(false);
@@ -104,46 +98,23 @@ describe('use my previous times', () => {
       window: { start: localDate('2026-09-19'), end: localDate('2026-09-20') },
       daily: { startMin: 9 * 60, endMin: 12 * 60 },
     };
-    expect(view(emptyEditor(setUp(mornings).rows), mornings, ['weekday_evening']).canUseUsual).toBe(
-      false,
-    );
-  });
-
-  it("says what it will paint on this plan, in the day-parts' own words", () => {
-    const { start } = setUp(WEEK);
-    expect(view(start, WEEK, ['weekday_evening']).previousHint).toBe(
-      'Weekday evenings. Nothing is sent until you send it.',
-    );
-    expect(view(start, WEEK, ['weekday_evening', 'weekend_afternoon']).previousHint).toBe(
-      'Weekday evenings and weekend afternoons. Nothing is sent until you send it.',
-    );
     expect(
-      view(start, WEEK, ['weekday_morning', 'weekday_evening', 'weekend_morning']).previousHint,
-    ).toBe(
-      'Weekday mornings, weekday evenings and weekend mornings. Nothing is sent until you send it.',
-    );
+      view(emptyEditor(setUp(mornings).rows, mornings), mornings, ['weekday_evening']).canUseUsual,
+    ).toBe(false);
   });
 
-  it('names only the parts it paints here: a weekend part on a weekdays-only plan is left out', () => {
+  it('is on offer on a plan with weekdays when the habit names only weekday parts', () => {
     const weekdays: PlanTiming = {
       ...WEEK,
       window: { start: localDate('2026-09-14'), end: localDate('2026-09-16') },
     };
     const { start } = setUp(weekdays);
-    const said = view(start, weekdays, ['weekday_evening', 'weekend_morning']);
-    expect(said.canUseUsual).toBe(true);
-    expect(said.previousHint).toBe('Weekday evenings. Nothing is sent until you send it.');
+    // A weekend part on a weekdays-only plan paints nothing; the weekday part does.
+    expect(view(start, weekdays, ['weekday_evening', 'weekend_morning']).canUseUsual).toBe(true);
+    expect(view(start, weekdays, ['weekend_morning']).canUseUsual).toBe(false);
   });
 
-  it('says nothing when it is not on offer', () => {
-    const { run, start } = setUp(WEEK);
-    expect(view(start, WEEK, undefined).previousHint).toBeUndefined();
-    expect(view(start, WEEK, []).previousHint).toBeUndefined();
-    const painted = run(start, { type: 'whole_day', day: MON });
-    expect(view(painted, WEEK, ['weekday_evening']).previousHint).toBeUndefined();
-  });
-
-  it('is the same words after one answer as after several: the union is what is painted', () => {
+  it('paints the union of the parts, however many answers they came from', () => {
     const { rows, run, start } = setUp(WEEK);
     const all = run(start, {
       type: 'usual',
@@ -168,7 +139,7 @@ describe('tonight', () => {
 
   it('offers From now and Later tonight instead of the parts of the day', () => {
     const { rows } = setUp(TONIGHT);
-    expect(offeredBlocks([0], rows, TONIGHT).map((o) => o.kind)).toEqual([
+    expect(offeredBlocks([0], rows, TONIGHT, windowsFor(TONIGHT)).map((o) => o.kind)).toEqual([
       'from_now',
       'later_tonight',
     ]);
@@ -179,13 +150,15 @@ describe('tonight', () => {
 
   it('From now paints from the next half hour; Later tonight from 9 pm', () => {
     const { rows, run, start } = setUp(TONIGHT);
-    const ticked = run(start, { type: 'tick', day: 0 });
-    expect(windowsOf(run(ticked, { type: 'block', kind: 'from_now' }), rows, TONIGHT)).toEqual([
+    // Tapping the one day gives it From now; Change time moves it to Later tonight.
+    const tapped = run(start, { type: 'toggle_day', day: 0 });
+    expect(start.window).toBe('from_now');
+    expect(windowsOf(tapped, rows, TONIGHT)).toEqual([
       { start: '2026-09-15T10:00:00.000Z', end: '2026-09-15T13:30:00.000Z' },
     ]);
-    expect(windowsOf(run(ticked, { type: 'block', kind: 'later_tonight' }), rows, TONIGHT)).toEqual(
-      [{ start: '2026-09-15T11:00:00.000Z', end: '2026-09-15T13:30:00.000Z' }],
-    );
+    expect(
+      windowsOf(run(tapped, { type: 'set_window', kind: 'later_tonight' }), rows, TONIGHT),
+    ).toEqual([{ start: '2026-09-15T11:00:00.000Z', end: '2026-09-15T13:30:00.000Z' }]);
   });
 
   it('paints a previous evening only from now on, not the part of it already gone', () => {

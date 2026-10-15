@@ -109,11 +109,20 @@ describe('the copy file', () => {
       'band',
       'duration',
       'closes',
-      // SUS-159's: what "Use my previous times" will paint, in the day-parts'
-      // own words, and the list's last item.
+      // SUS-159's list, and SUS-206's: the first items and the last one.
       'parts',
       'rest',
       'last',
+      // SUS-206's: the answer line and the sheet name the tapped days, and "and 5 more".
+      'days',
+      'first',
+      'word',
+      'hours',
+      'choice',
+      'thing',
+      'lead',
+      'exceptions',
+      'what',
       // SUS-198's: circle home's marks say who answered and who has not yet.
       'answered',
       'waiting',

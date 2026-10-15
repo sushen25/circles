@@ -106,7 +106,7 @@ test('a name typed the moment the field appears is the name that is sent', async
   await expect(name, 'what was typed is still in the field').toHaveValue('Ren');
   await page.getByRole('button', { name: 'Continue' }).click();
 
-  await expect(page.getByText("Times I'd actually be up for")).toBeVisible();
+  await expect(page.getByText('Which evenings could work?')).toBeVisible();
   expect(memberNamed(crew.circleId, 'Ren'), 'the name typed is the name joined').toBeDefined();
 });
 

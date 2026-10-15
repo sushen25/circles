@@ -1,35 +1,45 @@
-import type { PlanId } from '@circles/contracts';
-import { fromISO, isTonightWindow, othersShown, type OthersSaid } from '@circles/domain';
-import { useQuery } from '@tanstack/react-query';
+import { fromISO, isTonightWindow, type OthersSaid } from '@circles/domain';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { BackHandler, Platform } from 'react-native';
 
-import { track } from '../../analytics/track';
-import { t } from '../../copy';
 import {
   clearDraft,
-  othersSaid,
   timingOf,
   type AnswerablePlan,
   type Draft,
   type OwnAnswer,
 } from '../../data/availability';
+import type { GridPaint } from '../../components';
+import { t } from '../../copy';
 import { OfflineScreen } from '../system/OfflineScreen';
 import { AvailabilityScreen } from './AvailabilityScreen';
 import type { BlockTiming } from './blocks';
+import { ExactHoursScreen } from './ExactHoursScreen';
 import { dayRows, deviceTimeFormat } from './days';
 import {
   editorFrom,
   editorReducer,
   emptyEditor,
+  strokeDays,
   type EditorAction,
   type EditorState,
 } from './editor';
 import { NoneWorkScreen, type NoneWorkStatus } from './NoneWorkScreen';
+import { useOthersSaid } from './useOthersSaid';
 import { usePreviousTimes, useStartedEvent } from './usePreviousTimes';
 import { useSendAnswer, type ReturnTo } from './useSendAnswer';
 import { editorView } from './view';
-import { ROW_WORDS, introOf, timeOfDay, titleOf, zoneNoteOf } from './words';
+import {
+  closesOf,
+  guideOf,
+  noneOf,
+  questionOf,
+  thingOf,
+  timeOfDay,
+  titleOf,
+  zoneNoteOf,
+} from './words';
 
 /**
  * One question, being answered: the editor, "none of these dates", and the
@@ -38,7 +48,7 @@ import { ROW_WORDS, introOf, timeOfDay, titleOf, zoneNoteOf } from './words';
  */
 export type AvailabilityStep = 'times' | 'none';
 
-const VIEW_ONLY: ReadonlySet<EditorAction['type']> = new Set(['tick', 'done', 'open']);
+const VIEW_ONLY: ReadonlySet<EditorAction['type']> = new Set(['open', 'close']);
 
 export type AnsweringProps = {
   code: string;
@@ -104,7 +114,7 @@ export function Answering({
       : base;
   }, [plan, openedAt]);
   const format = useMemo(() => deviceTimeFormat(), []);
-  const rows = useMemo(() => dayRows(timing, format, ROW_WORDS), [timing, format]);
+  const rows = useMemo(() => dayRows(timing), [timing]);
   const reducer = useMemo(() => editorReducer(rows, timing), [rows, timing]);
 
   // Where the answer starts: the device's draft when it is the newer of the
@@ -117,47 +127,44 @@ export function Answering({
         const windows = answer.status === 'windows' ? answer.windows : [];
         return editorFrom(rows, timing, windows, answer.status === 'flexible');
       }
-      return emptyEditor(rows);
+      return emptyEditor(rows, timing);
     };
-    // Tonight is one day: it opens ticked, so the two times are there at
-    // once rather than behind a tap on the only day there is. View state.
-    const initial = start();
-    return timing.tonight !== undefined && rows.length === 1
-      ? { ...initial, ticked: [0] }
-      : initial;
+    return start();
   });
 
-  // "Use my previous times" (ADR 0037's amendment): the reader's own earlier
-  // offers, only the parts this plan asks about, in one request.
+  // "Change time" and the half hours are views of the same answer: which one is
+  // on show is the person's place in the screen, never stored or sent.
+  const [sheetOpen, setSheetOpen] = useState(false);
+  // Once the person has changed anything, previous times no longer start the
+  // answer: clearing their last day is a choice, not an empty answer to fill.
+  const [touched, setTouched] = useState(false);
+  const [exact, setExact] = useState(false);
+
+  // The device's back button leaves the half hours for the answer, as the
+  // screen's own does, rather than the page (Android; the web has no such button
+  // and its browser's Back leaves the route, as it does from the sheet).
+  useEffect(() => {
+    // react-native-web logs an error if asked: there is no such button there.
+    if (!exact || Platform.OS === 'web') return;
+    const hardware = BackHandler.addEventListener('hardwareBackPress', () => {
+      dispatch({ type: 'close' });
+      setExact(false);
+      return true;
+    });
+    return () => hardware.remove();
+  }, [exact]);
+
+  // Previous times (ADR 0037's amendment, ADR 0068): the reader's own earlier
+  // offers, only the parts this plan asks about, in one request. They start an
+  // answer that has never been given — the days are tapped and the line says
+  // what they are — and are never sent: Send is still the person's.
   const previous = usePreviousTimes({
     planId: plan.id,
     userId,
     enabled: plan.acceptingAnswers,
   });
 
-  // What the others have said, as counts (SUS-129, ADR 0045). Read again each
-  // time the editor opens, and never kept: not in the draft, not on the
-  // device. A failed or offline read offers nothing — the editor is then
-  // exactly as it was — and the answer can still be sent.
-  const others = useQuery({
-    queryKey: ['others-said', plan.id, plan.revision, userId],
-    queryFn: async () => (await othersSaid(plan.id)) ?? null,
-    enabled: userId !== undefined && plan.acceptingAnswers,
-    // Once per opening, and only this opening's (review round 1): what an
-    // earlier opening read is never shown while this one's read is on its way
-    // or after it fails (`isFetchedAfterMount` below), is dropped once the
-    // editor closes, and is not read again while the editor stays open.
-    staleTime: 0,
-    gcTime: 0,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
-  });
-  const said =
-    userId === undefined
-      ? fixtureOthers
-      : others.isFetchedAfterMount && !others.isError
-        ? (others.data ?? undefined)
-        : undefined;
+  const said = useOthersSaid({ plan, userId, step, fixtureOthers });
 
   const { phase, send, savedAt, edited } = useSendAnswer({
     code,
@@ -185,27 +192,31 @@ export function Answering({
 
   // Opening the editor is the start of answering (§11.2's "median response
   // after link open" reads the last open before the answer), with whether
-  // "Use my previous times" was on show (SUS-159).
+  // previous times were on offer (SUS-159).
+  // Only an answer never given is started from previous times: a stored
+  // "none of these", or a draft, is the person's own and is left as it is.
+  const startsEmpty = answer === null && opened === undefined;
   const view = editorView(state, rows, timing, format, undefined, previous.parts, said);
   useStartedEvent({
     active: step === 'times' && answerable,
     planId: plan.id,
     settled: previous.settled,
-    offered: view.canUseUsual,
+    offered: startsEmpty && view.canUseUsual,
   });
 
-  // Whether this opening showed counts of what others said (SUS-129), once
-  // its read has settled, so the answer time and the "I'm easy" share can be
-  // compared with and without them. Its own event, not a field on the start:
-  // the start is never held back for an optional read (review round 2).
-  const settled = userId === undefined || others.isFetchedAfterMount;
-  const shown = said !== undefined && othersShown(said);
-  const reported = useRef(false);
+  // Previous times start an answer that has never been given: the days are
+  // tapped and the line says what they are. View-only — a start, not an edit,
+  // so it writes no draft until the person changes something.
+  const prefill = startsEmpty && !touched && view.canUseUsual;
+  const prefilled = useRef(false);
+  const parts = previous.parts;
+  const markUsed = previous.markUsed;
   useEffect(() => {
-    if (step !== 'times' || !answerable || !settled || reported.current) return;
-    reported.current = true;
-    track('availability_others_read', { plan_id: plan.id as PlanId, others_shown: shown });
-  }, [step, answerable, settled, shown, plan.id]);
+    if (!prefill || prefilled.current || parts === undefined) return;
+    prefilled.current = true;
+    markUsed();
+    dispatch({ type: 'usual', parts });
+  }, [prefill, parts, markUsed]);
 
   // While an answer is on its way it cannot change: the request has the
   // answer it was sent with, and a success clears the draft an edit would
@@ -213,11 +224,40 @@ export function Answering({
   const sending = phase.kind === 'sending' ? phase.status : undefined;
   const edit = (action: EditorAction) => {
     if (sending !== undefined) return;
-    // Ticking a day or opening one changes what is on screen, not the answer:
-    // it is not the first edit, and it writes no draft.
-    if (!VIEW_ONLY.has(action.type)) edited();
+    // Opening a day changes what is on screen, not the answer: it is not an
+    // edit, and it writes no draft.
+    if (!VIEW_ONLY.has(action.type)) {
+      edited();
+      setTouched(true);
+    }
     dispatch(action);
   };
+
+  // Dragging across the grid taps or untaps the days it crosses, from the day
+  // the stroke began on, and gives back a day it crossed and left (SUS-133).
+  const stroke = useRef<{ base: boolean[][]; anchor: number } | undefined>(undefined);
+  const strokeTo = (current: number) => {
+    if (stroke.current === undefined) return;
+    const { base, anchor } = stroke.current;
+    edit({
+      type: 'stroke',
+      days: strokeDays(base, rows, timing, state.window, anchor, current),
+    });
+  };
+  const paintDays: GridPaint = {
+    begin: (index) => {
+      stroke.current = { base: state.days, anchor: index };
+      strokeTo(index);
+    },
+    extend: strokeTo,
+    end: () => {
+      stroke.current = undefined;
+    },
+  };
+
+  // "A time for each day": every tapped day is a card with the plan's quick
+  // choices, and the half hours are one tap away on each.
+  const openEach = () => setExact(true);
 
   const back = () => (router.canGoBack() ? router.back() : router.replace('/'));
   const title = titleOf(plan);
@@ -241,7 +281,6 @@ export function Answering({
   }
 
   const problem = phase.kind === 'editing' ? phase.problem : undefined;
-  const offered = previous.parts;
 
   if (step === 'none') {
     return (
@@ -261,44 +300,76 @@ export function Answering({
     );
   }
 
+  // Painting a day's last half hour off untaps it: with no day left there is
+  // nothing to give a time to, so the screen is the first one again.
+  if (exact && view.cards.length === 0) setExact(false);
+
+  if (exact) {
+    return (
+      <ExactHoursScreen
+        title={title}
+        single={
+          view.single
+            ? {
+                heading: t('availability', 'hours_title', { thing: thingOf(view.band) }),
+                body: t('availability', 'hours_body', {
+                  thing: thingOf(view.band),
+                  time: view.singleTime ?? '',
+                }),
+              }
+            : undefined
+        }
+        cards={view.cards}
+        busy={sending !== undefined}
+        onChoose={(day, kind) => edit({ type: 'set_day_window', day, kind })}
+        onOpen={(day) => edit({ type: 'open', day })}
+        onPaint={(day, cells) => edit({ type: 'paint', day, cells })}
+        onOneTime={() => {
+          edit({ type: 'use_one_time' });
+          edit({ type: 'close' });
+          setExact(false);
+        }}
+        onDone={() => {
+          edit({ type: 'close' });
+          setExact(false);
+        }}
+      />
+    );
+  }
+
   return (
     <AvailabilityScreen
       title={title}
-      count={t('availability', 'painted_of', { painted: view.painted, total: rows.length })}
-      intro={introOf(plan, format)}
+      question={questionOf(view.band, view.single)}
+      noneLabel={noneOf(view.band, view.single)}
+      single={view.single}
+      onPaintDays={paintDays}
+      guide={guideOf(view.counted, view.band, view.single)}
+      closes={closesOf(plan, format)}
       zoneNote={zoneNoteOf(plan)}
       grid={view.grid}
       weekdays={view.weekdays}
-      othersLine={view.othersLine}
-      panel={view.panel}
-      answers={view.answers}
-      canUndo={view.canUndo}
+      answerLine={view.answerLine}
+      sheet={view.sheet}
+      sheetOpen={sheetOpen}
       flexible={state.flexible}
       changed={changed}
       problem={problem}
       busy={sending !== undefined}
-      onTick={(day) => edit({ type: 'tick', day })}
-      onDone={() => edit({ type: 'done' })}
-      onBlock={(kind) => edit({ type: 'block', kind })}
-      onClearTicked={() => edit({ type: 'clear_ticked' })}
-      onOpen={(day) => edit({ type: 'open', day })}
-      onPaint={(day, cells) => edit({ type: 'paint', day, cells })}
-      onWholeDay={(day) => edit({ type: 'whole_day', day })}
-      onRemoveDay={(day) => edit({ type: 'remove_day', day })}
-      onStartOver={() => edit({ type: 'start_over' })}
-      onUndo={() => edit({ type: 'undo' })}
+      onTick={(day) => edit({ type: 'toggle_day', day })}
+      onChangeTime={() => {
+        // The plan leaves one window, or the days differ: the screen that says
+        // each day's. The days share a time: the sheet.
+        if (view.single || view.answerLine?.shared === false) openEach();
+        else setSheetOpen(true);
+      }}
+      onChooseWindow={(kind) => edit({ type: 'set_window', kind })}
+      onExactHours={() => {
+        setSheetOpen(false);
+        openEach();
+      }}
+      onSheetDone={() => setSheetOpen(false)}
       onFlexible={(on) => edit({ type: 'flexible', on })}
-      // Counts as the person's edit, so it writes a draft like any other:
-      // they asked for it, and what it paints is theirs to change.
-      onUseUsual={
-        view.canUseUsual && offered !== undefined
-          ? () => {
-              previous.markUsed();
-              edit({ type: 'usual', parts: offered });
-            }
-          : undefined
-      }
-      previousHint={view.previousHint}
       onSend={() => void send(state.flexible ? 'flexible' : 'windows')}
       onNoneOfTheseDates={() =>
         router.push({

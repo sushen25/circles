@@ -43,25 +43,24 @@ test('from the chat to Sent in a name and five taps, and the email offer decline
   await page.getByRole('button', { name: 'Continue' }).click();
 
   await expect(page).toHaveURL(new RegExp(`/j/${crew.planCode}$`));
-  await expect(page.getByText("Times I'd actually be up for")).toBeVisible();
+  await expect(page.getByText('Which evenings could work?')).toBeVisible();
   await expectNoPrompts(page, dialogs);
 
   const nina = memberNamed(crew.circleId, 'Nina');
   expect(nina, 'Nina is a member of Sunday Crew').toBeDefined();
   expect(nina?.anonymous, 'as a guest, with no account').toBe(true);
 
-  // Three days and Evening; "I'm easy" stays off, so the answer is the times.
+  // Three days, each with the evening; "I'm easy" stays off, so the answer is the times.
   const days = page.getByRole('group', { name: 'Days in this plan' }).getByRole('button');
   for (const index of [0, 2, 4]) {
     await days.nth(index).click();
     await expect(days.nth(index)).toHaveAttribute('aria-pressed', 'true');
   }
-  await page.getByRole('checkbox', { name: /^Evening/ }).click();
   await expect(page.getByRole('switch', { name: "I'm easy" })).toHaveAttribute(
     'aria-checked',
     'false',
   );
-  await expect(page.getByText('3 of 7 days')).toBeVisible();
+  await expect(page.getByText('Evenings, from 5:30 pm')).toBeVisible();
   await page.getByRole('button', { name: 'Send my times' }).click();
 
   await expect(page).toHaveURL(new RegExp(`/j/${crew.planCode}/sent$`));

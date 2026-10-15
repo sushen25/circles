@@ -44,12 +44,14 @@ async function organiserWhoAnswered(page: Page, others: (crew: Scenario) => void
 
 /** The editor, opened on what was sent: day 1 ticked. Moves the answer to day 2. */
 async function movesToDay(page: Page, code: string, day: number): Promise<void> {
-  await expect(page.getByText("Times I'd actually be up for")).toBeVisible();
+  await expect(page.getByText('Which evenings could work?')).toBeVisible();
   // Prefilled: the stored answer is on the grid, not a blank one.
-  await expect(page.getByText(/^1 of \d+ days$/)).toBeVisible();
-  await page.getByRole('button', { name: /^Start over/ }).click();
+  await expect(days(page).nth(1)).toHaveAttribute('aria-pressed', 'true');
+  await expect(
+    page.getByRole('group', { name: 'Days in this plan' }).getByRole('button', { pressed: true }),
+  ).toHaveCount(1);
+  await days(page).nth(1).click();
   await days(page).nth(day).click();
-  await page.getByRole('checkbox', { name: /^Evening/ }).click();
   await page.getByRole('button', { name: 'Send my times' }).click();
   // Not the sent screen: back on the screen they came from.
   await expect(page).not.toHaveURL(new RegExp(`/j/${code}`));
@@ -104,9 +106,8 @@ test('the organiser opens their times from the waiting screen, and lands back on
   await expect(page.getByText('Waiting on the first reply.')).toBeVisible();
   await page.getByRole('button', { name: 'Change my times' }).click();
   await expect(page).toHaveURL(new RegExp(`/j/${plan.code}`));
-  await expect(page.getByText("Times I'd actually be up for")).toBeVisible();
+  await expect(page.getByText('Which evenings could work?')).toBeVisible();
   await days(page).nth(2).click();
-  await page.getByRole('checkbox', { name: /^Evening/ }).click();
   await page.getByRole('button', { name: 'Send my times' }).click();
 
   await expect(page).toHaveURL(new RegExp(`/candidates$`));

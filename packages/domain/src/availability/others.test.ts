@@ -10,6 +10,8 @@ import {
   OTHERS_THRESHOLD,
   cellCounts,
   freeFor,
+  freeStretches,
+  headcount,
   othersShown,
   peakOf,
   type OthersSaid,
@@ -150,5 +152,65 @@ describe('cellCounts and peakOf', () => {
       cells,
     );
     expect(counts).toEqual([0, 1, 1, 0, 0, 0, 0, 0, 0, 0]);
+  });
+});
+
+describe('headcount (SUS-206)', () => {
+  it('is the others alone until the reader taps the day', () => {
+    expect(headcount(3, false)).toBe(3);
+  });
+
+  it('counts the reader once they tap: 3 others become 4, and untapping gives 3 back', () => {
+    expect(headcount(3, true)).toBe(4);
+    expect(headcount(headcount(3, true) - 1, false)).toBe(3);
+  });
+
+  it('is 1 for the reader alone on a day nobody else could make, and 0 untapped', () => {
+    expect(headcount(0, true)).toBe(1);
+    expect(headcount(0, false)).toBe(0);
+  });
+
+  it('never goes below zero', () => {
+    expect(headcount(-2, false)).toBe(0);
+  });
+});
+
+describe('freeStretches (SUS-206)', () => {
+  it('is nothing when nobody else is free at any time that day', () => {
+    expect(freeStretches([0, 0, 0, 0])).toEqual([]);
+    expect(freeStretches([])).toEqual([]);
+  });
+
+  it('is the cells at the most, as one stretch when they are adjacent', () => {
+    expect(freeStretches([1, 3, 3, 3, 1, 0])).toEqual([{ from: 1, to: 4 }]);
+  });
+
+  it('includes cells near the most: three quarters of it, rounded up', () => {
+    // The most is 4, so 3 counts and 2 does not.
+    expect(freeStretches([2, 3, 4, 3, 2])).toEqual([{ from: 1, to: 4 }]);
+    // The most is 2, so 2 only (ceil of 1.5), and a lone 1 is out.
+    expect(freeStretches([1, 2, 2, 1])).toEqual([{ from: 1, to: 3 }]);
+  });
+
+  it('gives two stretches with a gap between, in time order', () => {
+    expect(freeStretches([3, 3, 1, 1, 3, 3, 3, 0])).toEqual([
+      { from: 0, to: 2 },
+      { from: 4, to: 7 },
+    ]);
+  });
+
+  it('is at least one other: a day only one other is free on shows that one stretch', () => {
+    expect(freeStretches([0, 1, 1, 0])).toEqual([{ from: 1, to: 3 }]);
+  });
+
+  it('keeps the three longest stretches past three, still in time order', () => {
+    const counts = [3, 0, 3, 3, 0, 3, 0, 3, 3, 3, 0, 3];
+    expect(freeStretches(counts)).toEqual(
+      [
+        { from: 2, to: 4 },
+        { from: 7, to: 10 },
+        { from: 0, to: 1 },
+      ].sort((a, b) => a.from - b.from),
+    );
   });
 });

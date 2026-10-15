@@ -3,10 +3,11 @@ adr: 24
 title: "Availability is answered days first, then a time once"
 status: accepted
 date: 2026-09-19
+amended_by: [68]
 ---
 # ADR 0024: Availability is answered days first, then a time once
 
-_Status: accepted · Date: 19 September 2026_
+_Status: accepted (what a tap does, and the screen's parts, are changed by [ADR 0068](0068-a-tapped-day-has-a-time-and-the-answer-is-one-line.md)) · Date: 19 September 2026_
 
 ## Context
 

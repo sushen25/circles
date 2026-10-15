@@ -64,12 +64,12 @@ const copy: CopyUnderRule = {
   },
   // The answering screen's lines about what others said: counts, no names.
   editorTemplates: [
-    ...keys(en.availability, 'others_'),
     ...keys(en.availability, 'day_others_'),
-    ...keys(en.availability, 'block_'),
-    ...keys(en.availability, 'overlap_'),
-    ...keys(en.availability, 'peak'),
-    ...keys(en.availability, 'cell_'),
+    // SUS-206: the tile counts the reader in, and the guidance line explains the number.
+    ...keys(en.availability, 'day_you_'),
+    ...keys(en.availability, 'guide_'),
+    // SUS-206: one line about when most others are free, in times and no names.
+    ...keys(en.availability, 'others_free'),
   ],
   promises,
 };
@@ -83,7 +83,7 @@ describe('the privacy promise and the option cards', () => {
     expect(copy.cardTemplates.canMake.length).toBeGreaterThanOrEqual(4);
     expect(copy.cardTemplates.cannot.length).toBeGreaterThanOrEqual(4);
     expect(copy.cardTemplates.waiting.length).toBeGreaterThanOrEqual(4);
-    expect(copy.editorTemplates.length).toBeGreaterThanOrEqual(10);
+    expect(copy.editorTemplates.length).toBeGreaterThanOrEqual(6);
   });
 
   it('describe the card the member really sees: names who can make it, who cannot, who is still to answer', () => {

@@ -17,9 +17,10 @@ import {
  * Tonight, end to end (S2-06, spec §5.3 and §5.5): the organiser picks
  * **Tonight** on the setup, the plan made is today alone with replies closing
  * within the hour, and the editor opens on its one day with **From now** and
- * **Later tonight**. Then **Use my previous times** (ADR 0005, ADR 0037,
- * SUS-159): from one earlier answer with times in a circle, the next plan
- * offers them, says what it will paint, and paints without sending.
+ * **Later tonight**. Then previous times (ADR 0005, ADR 0037, SUS-159, ADR
+ * 0068): from one earlier answer with times in a circle, the next plan opens
+ * with them already tapped and the answer line written, and sends nothing
+ * until the person does.
  *
  * Tonight is on the clock, so the circle is put in a zone where it is early
  * afternoon now — whatever hour the suite runs at, tonight is on offer. The
@@ -59,23 +60,31 @@ test('an organiser asks about tonight, and the editor asks about tonight', async
     from public.plans where id = '${plan!.id}'`);
   expect(row).toEqual(['t', 't', 't']);
 
-  // The organiser's own answer: one day, already ticked, and tonight's two times.
+  // The organiser's own answer: one day to tap, and tonight's two times behind
+  // Change time, From now first.
   await page.goto(`/j/${plan!.code}`);
-  await expect(page.getByText("Times I'd actually be up for")).toBeVisible();
-  await expect(page.getByRole('checkbox', { name: /^Later tonight/ })).toBeVisible();
-  await expect(page.getByRole('checkbox', { name: /^Evening/ })).toHaveCount(0);
-  await page.getByRole('checkbox', { name: /^From now/ }).click();
+  await expect(page.getByText('Which days could work?')).toBeVisible();
+  const today = page.getByRole('group', { name: 'Days in this plan' }).getByRole('button');
+  await today.click();
+  await expect(page.getByText(/^From now, from /)).toBeVisible();
+  await page.getByRole('button', { name: /^Change the time for/ }).click();
+  await expect(page.getByRole('radio', { name: /^From now/ })).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+  await expect(page.getByRole('radio', { name: /^Later tonight/ })).toBeVisible();
+  await expect(page.getByRole('radio', { name: /^Evening/ })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Done', exact: true }).click();
   await page.getByRole('button', { name: 'Send my times' }).click();
   await expect(page).toHaveURL(new RegExp(`/j/${plan!.code}/sent$`));
   expect(answerOf(plan!.id, mayaId)?.status).toBe('windows');
 });
 
-const PREVIOUS = { name: /^Use my previous times/ };
-/** What the tap will paint: the evenings the plan asks about, and nothing else. */
-const HINT =
-  /^(Weekday evenings|Weekend evenings|Weekday evenings and weekend evenings)\. Nothing is sent until you send it\.$/;
+/** The days the person has tapped. */
+const tapped = (page: Page) =>
+  page.getByRole('group', { name: 'Days in this plan' }).getByRole('button', { pressed: true });
 
-test('from the first repeat, a guest finds their previous times offered, painted and sent', async ({
+test('from the first repeat, a guest lands with their previous times tapped, and sends them', async ({
   page,
 }) => {
   const crew = sundayCrew();
@@ -86,16 +95,12 @@ test('from the first repeat, a guest finds their previous times offered, painted
 
   const second = planFor(crew.circleId, crew.ownerId);
   await page.goto(`/j/${second.code}`);
-  await expect(page.getByText("Times I'd actually be up for")).toBeVisible();
-  await expect(page.getByRole('button', PREVIOUS)).toBeVisible();
-  await expect(page.getByText(HINT)).toBeVisible();
-
-  await page.getByRole('button', PREVIOUS).click();
-  await expect(
-    page.getByRole('button', { name: /Adjust by the half hour$/ }).first(),
-  ).toBeVisible();
-  // Painted, not sent: Send is still theirs, and the offer is gone.
-  await expect(page.getByRole('button', PREVIOUS)).toHaveCount(0);
+  await expect(page.getByText('Which evenings could work?')).toBeVisible();
+  // Tapped, with the line already written: the evenings the plan asks about.
+  await expect(page.getByText('Evenings, from 5:30 pm')).toBeVisible();
+  await expect(tapped(page).first()).toBeVisible();
+  // Tapped, not sent: Send is still theirs, and there is no button to press first.
+  await expect(page.getByRole('button', { name: /^Use my previous times/ })).toHaveCount(0);
   expect(answerOf(second.id, ren)).toBeUndefined();
 
   await page.getByRole('button', { name: 'Send my times' }).click();
@@ -103,7 +108,7 @@ test('from the first repeat, a guest finds their previous times offered, painted
   expect(answerOf(second.id, ren)?.status).toBe('windows');
 });
 
-test('after several answers in a circle, the next plan offers them all and sends nothing', async ({
+test('after several answers in a circle, the next plan lands with them all tapped and sends nothing', async ({
   page,
 }) => {
   const mayaId = await asMaya(page);
@@ -120,13 +125,9 @@ test('after several answers in a circle, the next plan offers them all and sends
 
   const third = planFor(circleId, mayaId);
   await page.goto(`/j/${third.code}`);
-  await expect(page.getByText(HINT)).toBeVisible();
-  await page.getByRole('button', PREVIOUS).click();
-  await expect(
-    page.getByRole('button', { name: /Adjust by the half hour$/ }).first(),
-  ).toBeVisible();
-  // Painted, not sent: Send is still the person's, and the button is gone.
-  await expect(page.getByRole('button', PREVIOUS)).toHaveCount(0);
+  await expect(page.getByText('Evenings, from 5:30 pm')).toBeVisible();
+  // Tapped, not sent: Send is still the person's.
+  await expect(tapped(page).first()).toBeVisible();
   expect(answerOf(third.id, mayaId)).toBeUndefined();
   // And the word on no screen.
   await expect(page.getByText(/usual/i)).toHaveCount(0);

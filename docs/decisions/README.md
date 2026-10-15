@@ -70,6 +70,7 @@ Short records of decisions that shape the product or the code. A new ADR is requ
 | [0065](./0065-co-members-see-the-circles-name-for-a-member-and-nothing-else.md) | Co-members see the circle's name for a member and nothing else of their name: no view of account names, and a rename leaves every circle alone | proposed |
 | [0066](./0066-the-group-sees-who-can-make-each-option-and-nobody-sees-whole-availability.md) | The group sees who can make each option, and nobody sees anyone's whole availability | proposed |
 | [0067](./0067-every-cadence-nudge-carries-a-stop-link-and-the-sent-card-says-an-account-is-made.md) | Every cadence nudge carries a stop link that needs no sign-in, and the Sent card says an account is made | proposed |
+| [0068](./0068-a-tapped-day-has-a-time-and-the-answer-is-one-line.md) | A tapped day already has a time, and the answer is one line: the first screen asks only which days | proposed |
 
 ## Template
 

@@ -31,29 +31,31 @@ flows do not, because the sheet it opened named a fixture circle.
 
 ### availability
 
-| Artboard                              | Route                                   | Component                   |
-| ------------------------------------- | --------------------------------------- | --------------------------- |
-| `Availability.dc.html`                | `/j/[code]`                             | `AvailabilityScreen`        |
-| `AvailabilityPicking.dc.html`         | `/j/[code]` (days ticked)               | `AvailabilityScreen`        |
-| `AvailabilityAdjusting.dc.html`       | `/j/[code]` (a day open)                | `AvailabilityScreen`        |
-| `AvailabilityOthers.dc.html`          | `/j/[code]` (others' counts)            | `AvailabilityScreen`        |
-| `AvailabilityOthersPicking.dc.html`   | `/j/[code]` (counts, days ticked)       | `AvailabilityScreen`        |
-| `AvailabilityOthersAdjusting.dc.html` | `/j/[code]` (counts, a day open)        | `AvailabilityScreen`        |
-| `AvailabilityOthersFirst.dc.html`     | `/j/[code]` (first to answer)           | `AvailabilityScreen`        |
-| `AvailabilityOverlay.dc.html`         | `/j/[code]/overlay`                     | `AvailabilityOverlayScreen` |
-| `CalendarDenied.dc.html`              | `/j/[code]/calendar/denied`             | `CalendarDeniedScreen`      |
-| `CalendarExplain.dc.html`             | `/j/[code]/calendar`                    | `CalendarExplainScreen`     |
-| `CalendarPick.dc.html`                | `/j/[code]/calendar/pick`               | `CalendarPickScreen`        |
-| `NoneWork.dc.html`                    | `/j/[code]/none`                        | `NoneWorkScreen`            |
-| `Sent.dc.html`                        | `/j/[code]/sent`                        | `SentScreen`                |
-| `SentSwitchOff.dc.html`               | `/j/[code]/sent` (switch off)           | `SentScreen`                |
-| `SentCode.dc.html`                    | `/j/[code]/sent?state=code`             | `EnterCodeScreen`           |
-| `SentDone.dc.html`                    | `/j/[code]/sent?state=done`             | `SentScreen`                |
-| `SentPartial.dc.html`                 | `/j/[code]/sent?state=partial`          | `SentScreen`                |
-| `SentMember.dc.html`                  | `/j/[code]/sent?state=member`           | `SentScreen` (`SentCard`)   |
-| `SentMemberDone.dc.html`              | `/j/[code]/sent?state=joined`           | `SentScreen`                |
-| `SentSuppressed.dc.html`              | `/j/[code]/sent?state=suppressed`       | `SentScreen`                |
-| `SentSuppressedSaved.dc.html`         | `/j/[code]/sent?state=suppressed_saved` | `SentScreen`                |
+| Artboard                             | Route                                   | Component                   |
+| ------------------------------------ | --------------------------------------- | --------------------------- |
+| `Availability.dc.html`               | `/j/[code]`                             | `AvailabilityScreen`        |
+| `AvailabilityPicking.dc.html`        | `/j/[code]` (three days tapped)         | `AvailabilityScreen`        |
+| `AvailabilityTime.dc.html`           | `/j/[code]` (Change time sheet)         | `ChangeTimeSheet`           |
+| `AvailabilityAdjusting.dc.html`      | `/j/[code]` (a time for each day)       | `ExactHoursScreen`          |
+| `AvailabilityMixed.dc.html`          | `/j/[code]` (days with different times) | `AvailabilityScreen`        |
+| `AvailabilityOneChoice.dc.html`      | `/j/[code]` (a plan with one window)    | `AvailabilityScreen`        |
+| `AvailabilityOneChoiceHours.dc.html` | `/j/[code]` (its list of hours)         | `ExactHoursScreen`          |
+| `AvailabilityReturning.dc.html`      | `/j/[code]` (previous times pre-filled) | `AvailabilityScreen`        |
+| `AvailabilityOthersFirst.dc.html`    | `/j/[code]` (first to answer)           | `AvailabilityScreen`        |
+| `AvailabilityOverlay.dc.html`        | `/j/[code]/overlay`                     | `AvailabilityOverlayScreen` |
+| `CalendarDenied.dc.html`             | `/j/[code]/calendar/denied`             | `CalendarDeniedScreen`      |
+| `CalendarExplain.dc.html`            | `/j/[code]/calendar`                    | `CalendarExplainScreen`     |
+| `CalendarPick.dc.html`               | `/j/[code]/calendar/pick`               | `CalendarPickScreen`        |
+| `NoneWork.dc.html`                   | `/j/[code]/none`                        | `NoneWorkScreen`            |
+| `Sent.dc.html`                       | `/j/[code]/sent`                        | `SentScreen`                |
+| `SentSwitchOff.dc.html`              | `/j/[code]/sent` (switch off)           | `SentScreen`                |
+| `SentCode.dc.html`                   | `/j/[code]/sent?state=code`             | `EnterCodeScreen`           |
+| `SentDone.dc.html`                   | `/j/[code]/sent?state=done`             | `SentScreen`                |
+| `SentPartial.dc.html`                | `/j/[code]/sent?state=partial`          | `SentScreen`                |
+| `SentMember.dc.html`                 | `/j/[code]/sent?state=member`           | `SentScreen` (`SentCard`)   |
+| `SentMemberDone.dc.html`             | `/j/[code]/sent?state=joined`           | `SentScreen`                |
+| `SentSuppressed.dc.html`             | `/j/[code]/sent?state=suppressed`       | `SentScreen`                |
+| `SentSuppressedSaved.dc.html`        | `/j/[code]/sent?state=suppressed_saved` | `SentScreen`                |
 
 **Real since S1-25:** `/j/[code]` and `/j/[code]/none` render
 `AvailabilityFlow`, which reads the plan and the member's own answer, keeps a
@@ -66,21 +68,30 @@ still asking (`PlanLinkFlow`), and the member candidates screen otherwise.
 `Offline.dc.html` is a state of `/j/[code]` (`OfflineScreen`, offline and
 error); `/offline` renders it for the gallery.
 
-**Redesigned in S1-25b (ADR 0024):** days first, then a time once. The
-screen is `AvailabilityScreen` composing `DayPicker` (the day grid and the time
-panel) and `AnswerList` (the answer in words, a line opening to the day's
-half-hour `Track`). Everything it shows is worked out in `view.ts` from the
-reducer in `editor.ts`; the blocks are the domain's shortcuts (`blocks.ts`).
-Which days are ticked and which is open are view state and never stored.
-`AvailabilityPicking` and `AvailabilityAdjusting` are states of the same
+**Redesigned in S1-25b (ADR 0024), simplified in SUS-206 (ADR 0068):** days
+first, then a time once. `AvailabilityScreen` is the question, one line of
+guidance, the day grid, the deadline footnote and, once any day is tapped, the
+answer in one line with "Change time". Tapping a day gives it the current time
+of day (Evening unless the plan has none); `ChangeTimeSheet` gives every tapped
+day another; "A different time for each day" (or Change time, once the days
+differ; on a plan with one window, Adjust hours, with no sheet) opens `ExactHoursScreen`, "A time for each day": a `DayCard` per day
+with the plan's quick choices, and "Set exact hours" opening `HoursEditor`: the
+day's hours as From – to pairs with a picker (`hours.ts` is the pure part), a
+thin bar, and one line about the others (the domain's `freeStretches`). Everything it shows is worked out in `view.ts` and
+`answerLine.ts` from the reducer in `editor.ts`; the blocks are the domain's
+shortcuts (`blocks.ts`). The chosen time of day and the open day are view state
+and never stored. A returning member's previous times land as taps, not as a
+button (`Answering`). `AvailabilityPicking`, `AvailabilityTime`,
+`AvailabilityAdjusting`, `AvailabilityMixed` and `AvailabilityReturning` are states of the same
 route, not routes of their own.
 
-**Counts of what others said, SUS-129 (ADR 0045):** the four
-`AvailabilityOthers*` artboards are the same screen with
-`data/availability/others.ts` read on open (`others_availability`) and the
-counts worked out in `others.ts` from the domain's `freeFor`. With no backend,
-the gallery's `partial` and `complete` fixtures show the reader and four others answered and
-`empty` shows the first-to-answer line (`FixtureAnswering`).
+**Counts of what others said, SUS-129 (ADR 0045), on the tiles in SUS-206:** the
+figure on each day is `data/availability/others.ts` read on open
+(`others_availability`), worked out in `others.ts` from the domain's `freeFor`,
+and the reader once they tap (`headcount`). With no backend, the gallery's
+`partial` fixture is Alex's first-time landing with the four who have answered
+counted, `complete` opens on Alex's own answer, and `empty` shows the
+first-to-answer state with no counts (`FixtureAnswering`).
 
 **Real since S1-30:** `/j/[code]/sent` (`SentFlow`), `/j/[code]/check-email`
 (`CheckEmailFlow`) and `/j/[code]/save-access` (`SaveAccessFlow`, which uses

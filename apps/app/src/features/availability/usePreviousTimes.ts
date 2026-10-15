@@ -7,7 +7,7 @@ import { track } from '../../analytics/track';
 import { usualTimes } from '../../data/availability';
 
 /**
- * "Use my previous times" (ADR 0005, ADR 0037's amendment, SUS-159): what this
+ * Previous times (ADR 0005, ADR 0037's amendment, SUS-159, ADR 0068): what this
  * person has offered before in the plan's circle, limited to the parts this
  * plan asks about, read from the database in one request. Read again each time
  * the editor opens, because an answer given to another plan since may be the
@@ -30,8 +30,12 @@ export function usePreviousTimes(input: {
   });
   // Whether the answer began from the tap, even if it was edited afterwards.
   const [used, markUsed] = useState(false);
+  // Only this opening's read: what an earlier opening cached is never taken for
+  // what the person has offered since (it would start an answer from stale
+  // times), and a failed read offers nothing.
+  const fresh = userId !== undefined && read.isFetchedAfterMount && !read.isError;
   return {
-    parts: read.data,
+    parts: fresh ? read.data : undefined,
     used,
     markUsed: () => markUsed(true),
     /** Answered or failed for this opening; with no backend there is nothing to wait for. */

@@ -1,7 +1,11 @@
+import { StyleSheet, View } from 'react-native';
+
 import {
   Body,
   BodyText,
   Button,
+  DateText,
+  DayGrid,
   DisplayL,
   Foot,
   Notice,
@@ -12,47 +16,56 @@ import {
   Toggle,
   TopBar,
   type GridDay,
+  type GridPaint,
   Loading,
   useLoadingHold,
 } from '../../components';
-import { Row, Stack } from '../../components/layout';
+import { Between, Row, Stack } from '../../components/layout';
 import { t } from '../../copy';
-import { AnswerList } from './AnswerList';
+import type { AnswerLine } from './answerLine';
 import type { BlockKind } from './blocks';
-import { DayPicker } from './DayPicker';
-import type { AnswerView, PanelView } from './view';
+import { ChangeTimeSheet } from './ChangeTimeSheet';
+import type { SheetView } from './view';
 
 /**
  * Availability — `docs/design/Availability.dc.html` (spec §5.5, ADR 0024).
  *
  * Presentational: every string arrives worked out (`view.ts`) and every change
  * leaves as a callback, so the gallery can show each state and the container
- * (`Answering`) owns the plan, the draft and the network. Days first, then a
- * time once for all of them; the answer is listed in words, and a line opens to
- * adjust that day by the half hour. Nothing here is said by colour alone.
+ * (`Answering`) owns the plan, the draft and the network. Days first (ADR
+ * 0068): tapping a day gives it the usual time of day, one line says the whole
+ * answer, and "Change time" gives every tapped day another. The half hours
+ * live on their own screen (`ExactHoursScreen`). Nothing here is said by colour
+ * alone.
  */
 
 export type AvailabilityState = 'default' | 'loading' | 'error' | 'offline' | 'expired';
 
 export type AvailabilityProps = {
   state?: AvailabilityState | undefined;
-  /** "Catch up · 14–27 Sep" */
+  /** "Catch up · 12 – 23 Oct" */
   title?: string | undefined;
-  /** "3 of 14 days" */
-  count?: string | undefined;
-  /** "Catch-ups run about 2 hours. Replies close Tue 15 Sep, 6 pm." */
-  intro?: string | undefined;
+  /** The question: "Which days could work?", or "Which evenings…" on a plan with one window. */
+  question?: string | undefined;
+  /** "None of these dates work for me", or its evenings and mornings form. */
+  noneLabel?: string | undefined;
+  /** The plan leaves one window: the link under the line is "Adjust hours". */
+  single?: boolean | undefined;
+  /** Dragging across days taps or untaps them. */
+  onPaintDays?: GridPaint | undefined;
+  /** The one line of guidance under the question. */
+  guide?: string | undefined;
+  /** "Replies close Fri 23 Oct, 8:30 pm." */
+  closes?: string | undefined;
   /** "Times are Melbourne time.", when the device is somewhere else. */
   zoneNote?: string | undefined;
   grid?: readonly GridDay[] | undefined;
   weekdays?: readonly string[] | undefined;
-  /** Above the grid: what the others have said, or nothing (SUS-129). */
-  othersLine?: string | undefined;
-  /** The card under the grid; undefined while no day is ticked. */
-  panel?: PanelView | undefined;
-  answers?: readonly AnswerView[] | undefined;
-  /** "Start over" has just cleared the answer. */
-  canUndo?: boolean | undefined;
+  /** The answer in a line, once any day is tapped. */
+  answerLine?: AnswerLine | undefined;
+  /** "Change time" is open. */
+  sheetOpen?: boolean | undefined;
+  sheet?: SheetView | undefined;
   flexible?: boolean | undefined;
   /** The plan changed under a draft (the rescheduled state). */
   changed?: boolean | undefined;
@@ -60,20 +73,11 @@ export type AvailabilityProps = {
   reference?: string | undefined;
   busy?: boolean | undefined;
   onTick?: ((day: number) => void) | undefined;
-  onDone?: (() => void) | undefined;
-  onBlock?: ((kind: BlockKind) => void) | undefined;
-  onClearTicked?: (() => void) | undefined;
-  onOpen?: ((day: number) => void) | undefined;
-  onPaint?: ((day: number, cells: boolean[]) => void) | undefined;
-  onWholeDay?: ((day: number) => void) | undefined;
-  onRemoveDay?: ((day: number) => void) | undefined;
-  onStartOver?: (() => void) | undefined;
-  onUndo?: (() => void) | undefined;
+  onChangeTime?: (() => void) | undefined;
+  onChooseWindow?: ((kind: BlockKind) => void) | undefined;
+  onExactHours?: (() => void) | undefined;
+  onSheetDone?: (() => void) | undefined;
   onFlexible?: ((on: boolean) => void) | undefined;
-  /** "Use my previous times", when something was offered before and nothing is painted yet (ADR 0005). */
-  onUseUsual?: (() => void) | undefined;
-  /** Under it, what it will paint on this plan: "Weekday evenings and weekend afternoons. …" */
-  previousHint?: string | undefined;
   onSend?: (() => void) | undefined;
   onNoneOfTheseDates?: (() => void) | undefined;
   onRetry?: (() => void) | undefined;
@@ -83,33 +87,29 @@ export type AvailabilityProps = {
 export function AvailabilityScreen({
   state = 'default',
   title,
-  count,
-  intro,
+  question,
+  noneLabel,
+  single = false,
+  onPaintDays,
+  guide,
+  closes,
   zoneNote,
   grid = [],
   weekdays = [],
-  othersLine,
-  panel,
-  answers = [],
-  canUndo = false,
+  answerLine,
+  sheetOpen = false,
+  sheet,
   flexible = false,
   changed = false,
   problem,
   reference,
   busy = false,
   onTick,
-  onDone,
-  onBlock,
-  onClearTicked,
-  onOpen,
-  onPaint,
-  onWholeDay,
-  onRemoveDay,
-  onStartOver,
-  onUndo,
+  onChangeTime,
+  onChooseWindow,
+  onExactHours,
+  onSheetDone,
   onFlexible,
-  onUseUsual,
-  previousHint,
   onSend,
   onNoneOfTheseDates,
   onRetry,
@@ -162,7 +162,7 @@ export function AvailabilityScreen({
     );
   }
 
-  const canSend = flexible || answers.some((answer) => answer.cells.some(Boolean));
+  const canSend = flexible || answerLine !== undefined;
   // While an answer is on its way nothing that would change it is live: the
   // request carries the answer as it was when Send was pressed.
   const locked = busy;
@@ -170,55 +170,43 @@ export function AvailabilityScreen({
 
   return (
     <Screen>
-      <TopBar
-        title={title}
-        onBack={onBack}
-        backLabel={t('common', 'back')}
-        right={count === undefined ? undefined : <Small>{count}</Small>}
-      />
+      <TopBar title={title} onBack={onBack} backLabel={t('common', 'back')} />
       <Body>
         <Stack>
-          <DisplayL>{t('availability', 'times_id_actually_be_up_for')}</DisplayL>
-          {intro === undefined ? null : <BodyText>{intro}</BodyText>}
-          {zoneNote === undefined ? null : <Small>{zoneNote}</Small>}
+          <DisplayL>{question ?? t('availability', 'which_days_could_work')}</DisplayL>
+          {guide === undefined ? null : <BodyText>{guide}</BodyText>}
         </Stack>
         {changed ? <Notice kind="warn">{t('availability', 'plan_changed')}</Notice> : null}
-        {onUseUsual === undefined || dimmed ? null : (
-          <Stack>
-            <Tertiary
-              label={t('availability', 'use_my_previous_times')}
-              aria-label={
-                previousHint === undefined
-                  ? undefined
-                  : `${t('availability', 'use_my_previous_times')}. ${previousHint}`
-              }
-              onPress={onUseUsual}
-            />
-            {previousHint === undefined ? null : <Small>{previousHint}</Small>}
-          </Stack>
-        )}
-        <DayPicker
-          grid={grid}
+        <DayGrid
+          days={grid}
           weekdays={weekdays}
-          panel={panel}
-          othersLine={othersLine}
+          label={t('availability', 'days_group')}
+          onToggle={onTick}
+          onPaint={onPaintDays}
           dimmed={dimmed}
-          onTick={onTick}
-          onDone={onDone}
-          onBlock={onBlock}
-          onClearTicked={onClearTicked}
         />
-        <AnswerList
-          answers={answers}
-          canUndo={canUndo}
-          dimmed={dimmed}
-          onOpen={onOpen}
-          onPaint={onPaint}
-          onWholeDay={onWholeDay}
-          onRemoveDay={onRemoveDay}
-          onStartOver={onStartOver}
-          onUndo={onUndo}
-        />
+        <Stack gap={4}>
+          {closes === undefined ? null : <Small>{closes}</Small>}
+          {zoneNote === undefined ? null : <Small>{zoneNote}</Small>}
+        </Stack>
+        {answerLine === undefined ? null : (
+          <View style={dimmed && styles.dimmed}>
+            <Between>
+              <View style={styles.line} aria-live="polite">
+                <DateText style={styles.days}>{answerLine.days}</DateText>
+                <BodyText>{answerLine.time}</BodyText>
+              </View>
+              <Tertiary
+                label={t('availability', single ? 'adjust_hours' : 'change_time')}
+                aria-label={t('availability', single ? 'adjust_hours_for' : 'change_time_for', {
+                  days: answerLine.days,
+                })}
+                disabled={flexible}
+                onPress={locked || flexible ? undefined : onChangeTime}
+              />
+            </Between>
+          </View>
+        )}
         <Row>
           <Stack>
             <Title>{t('availability', 'im_easy')}</Title>
@@ -238,7 +226,6 @@ export function AvailabilityScreen({
         )}
       </Body>
       <Foot>
-        {canSend ? null : <Small>{t('availability', 'pick_or_easy')}</Small>}
         <Button
           label={t('availability', 'send_my_times')}
           busyLabel={t('availability', 'sending')}
@@ -248,10 +235,23 @@ export function AvailabilityScreen({
         />
         <Tertiary
           tone="plain"
-          label={t('availability', 'none_of_these_dates_work_for_me')}
+          label={noneLabel ?? t('availability', 'none_of_these_dates_work_for_me')}
           onPress={locked ? undefined : onNoneOfTheseDates}
         />
       </Foot>
+      <ChangeTimeSheet
+        visible={sheetOpen}
+        sheet={sheet}
+        onChoose={onChooseWindow}
+        onExactHours={onExactHours}
+        onDone={onSheetDone}
+      />
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  line: { flexShrink: 1, gap: 4 },
+  days: { fontSize: 24, lineHeight: 28 },
+  dimmed: { opacity: 0.45 },
+});
