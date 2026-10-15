@@ -113,9 +113,12 @@ jobs:
       # status line, so these are the two gates prose can fail.
       - run: pnpm install --frozen-lockfile
 
-      - name: Prose only — formatting and the docs check
+      # The unimported-file check reads Markdown and `.claude/` too: a script
+      # only a doc or a skill names is reached because of that mention, so
+      # deleting the mention is a change the check must see (SUS-145).
+      - name: Prose only — formatting, the docs check and the unimported-file check
         if: needs.scope.outputs.kind == 'prose'
-        run: pnpm run format:check && pnpm run check:docs
+        run: pnpm run format:check && pnpm run check:docs && node scripts/check-unimported.mjs
 
       - name: pnpm check:static
         if: needs.scope.outputs.kind == 'code'

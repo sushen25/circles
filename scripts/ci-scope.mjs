@@ -11,8 +11,9 @@
  *
  * Root Markdown is prose but not exempt from everything: `AGENTS.md`,
  * `README.md` and `CLAUDE.md` are formatted by Prettier (`docs/` is not), and
- * `check:docs` reads every link, so the caller still runs both on a prose
- * change. Prose skips the suites, not the gate.
+ * `check:docs` reads every link, and `check-unimported` reads them for the
+ * scripts they name, so the caller still runs all three on a prose change.
+ * Prose skips the suites, not the gate.
  *
  * Anything unrecognised is `code`. The cost of being wrong that way is a slow
  * run; the other way it is a broken main.
