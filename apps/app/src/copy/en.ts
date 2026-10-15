@@ -25,6 +25,20 @@ export const en = {
     still_working: 'Still working on it…',
     try_again: 'Try again',
   },
+  /**
+   * The one error block (SUS-200): the heading is each screen's own
+   * `couldnt_load`, and what is under it is the same everywhere.
+   */
+  loadError: {
+    reference: 'Ref {reference}',
+    /** The way out on a signed-in route. */
+    back_to_circles: 'Back to your circles',
+    /** The way out where "your circles" is the screen that failed. */
+    go_to_start: 'Go to the start',
+    /** The way out on a guest or plan-link route: the page again, from the address it has. */
+    reload_page: 'Reload this page',
+    open_link_again: 'Still stuck? Open the link from the chat again.',
+  },
   account: {
     account: 'Account',
     you: 'You',
@@ -1516,7 +1530,7 @@ export const en = {
     expired: 'That code has expired. Send a new one.',
     too_many_tries: "That's a lot of tries. Wait a few minutes, then send a new code.",
     couldnt_sign_in: "Something went wrong, so you're not signed in yet. Please try again.",
-    couldnt_send: "We couldn't send a new code. Please try again.",
+    couldnt_send: "We couldn't send the code. Try again in a moment.",
   },
   firstCircle: {
     step_1_of_2: 'Step 1 of 2',
@@ -2320,7 +2334,8 @@ export const en = {
     already_saved: 'Your place is already saved.',
     already_saved_body: "You're signed in, so you can get back to {circle} from any device.",
     back: 'Back',
-    couldnt_send: "Something went wrong, so the code didn't go. Please try again.",
+    couldnt_send: "We couldn't send the code. Try again in a moment.",
+    reference: 'Ref {reference}',
     too_many_tries: 'Too many codes asked for just now. Wait a few minutes, then try again.',
     youre_offline: "You're offline. Connect, then try again.",
   },
@@ -2603,7 +2618,8 @@ export const en = {
     well_bring_you_back_to_settings: "We'll bring you straight to your notification settings.",
     well_email_a_code: "We'll email a one-time code. No password.",
     not_an_address: "That doesn't look like an email address.",
-    couldnt_send: "We couldn't send a code just now. Please try again.",
+    couldnt_send: "We couldn't send the code. Try again in a moment.",
+    reference: 'Ref {reference}',
     too_many_tries: "That's a lot of codes for one address. Wait a few minutes, then try again.",
     youre_offline: "You're offline. Connect, then try again.",
   },

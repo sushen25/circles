@@ -15,6 +15,7 @@ import { t } from '../../copy';
 import type { Fixture } from '../../data/fixtures';
 import type { ScreenState } from '../state';
 import { AccountButton } from './parts';
+import { LoadFailed } from '../system/LoadFailed';
 
 /**
  * CirclesList — `docs/design/CirclesList.dc.html` (spec §5.2): each circle as
@@ -94,19 +95,13 @@ export function CirclesListScreen({
 
   if (state === 'error' || state === 'offline') {
     return (
-      <Screen>
-        {top}
-        <Body>
-          <DisplayL>
-            {state === 'offline'
-              ? t('circlesList', 'youre_offline')
-              : t('circlesList', 'couldnt_load')}
-          </DisplayL>
-        </Body>
-        <Foot>
-          <Button label={t('circlesList', 'try_again')} onPress={onRetry} />
-        </Foot>
-      </Screen>
+      <LoadFailed
+        state={state}
+        message={t('circlesList', state === 'offline' ? 'youre_offline' : 'couldnt_load')}
+        where="start"
+        top={top}
+        onRetry={onRetry}
+      />
     );
   }
 

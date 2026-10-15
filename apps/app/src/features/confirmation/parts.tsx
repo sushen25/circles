@@ -1,6 +1,7 @@
 import { t } from '../../copy';
 import { Loading } from '../../components';
 import { Placeholder } from '../scheduling/parts';
+import { LoadFailed, type LoadFailedWhere } from '../system/LoadFailed';
 
 /**
  * The states both confirmed screens share (manifesto §7). Loading, error and
@@ -15,26 +16,26 @@ export type ConfirmedState =
 export function ConfirmedPlaceholder({
   state,
   title,
+  where,
   onRetry,
   onBack,
 }: {
   state: ConfirmedState;
   title?: string | undefined;
+  /** The organiser's screen is a signed-in route; the guest's is a plan link. */
+  where: LoadFailedWhere;
   onRetry?: (() => void) | undefined;
   onBack?: (() => void) | undefined;
 }) {
   if (state === 'error' || state === 'offline') {
     return (
-      <Placeholder
+      <LoadFailed
+        state={state}
+        message={t('confirmedOrg', state === 'offline' ? 'youre_offline' : 'couldnt_load')}
+        where={where}
         topTitle={title}
-        message={
-          state === 'offline'
-            ? t('confirmedOrg', 'youre_offline')
-            : t('confirmedOrg', 'couldnt_load')
-        }
-        actionLabel={t('confirmedOrg', 'try_again')}
-        onAction={onRetry}
         onBack={onBack}
+        onRetry={onRetry}
       />
     );
   }

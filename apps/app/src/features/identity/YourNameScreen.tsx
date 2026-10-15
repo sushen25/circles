@@ -20,6 +20,7 @@ import { Between, Stack } from '../../components/layout';
 import { t } from '../../copy';
 import type { Fixture } from '../../data/fixtures';
 import type { ScreenState } from '../state';
+import { LoadFailed } from '../system/LoadFailed';
 
 /**
  * YourName — `docs/design/YourName.dc.html` (spec §5.1 step 3).
@@ -88,17 +89,13 @@ export function YourNameScreen({
 
   if (state === 'error' || state === 'offline') {
     return (
-      <Screen>
-        <TopBar onBack={onBack} backLabel={t('common', 'back')} />
-        <Body>
-          <DisplayL>
-            {state === 'offline' ? t('yourName', 'youre_offline') : t('yourName', 'couldnt_load')}
-          </DisplayL>
-        </Body>
-        <Foot>
-          <Button label={t('yourName', 'try_again')} onPress={onRetry} />
-        </Foot>
-      </Screen>
+      <LoadFailed
+        state={state}
+        message={t('yourName', state === 'offline' ? 'youre_offline' : 'couldnt_load')}
+        where="circles"
+        onBack={onBack}
+        onRetry={onRetry}
+      />
     );
   }
 

@@ -15,9 +15,9 @@ import {
   type Draft,
   type Span,
 } from '../../data/availability';
-import { FunctionError, newIdempotencyKey } from '../../data/functions';
+import { newIdempotencyKey } from '../../data/functions';
 import { askToPlan } from '../../data/membership';
-import { failureOf, isOffline } from '../identity/join/failure';
+import { failureOf, neverReachedServer } from '../identity/join/failure';
 import type { DayRow } from './days';
 import { windowsOf, type EditorState } from './editor';
 
@@ -214,7 +214,7 @@ export function useSendAnswer({
       }
 
       // No answer at all: the times wait here and go when they can.
-      if (isOffline() || (refusal instanceof FunctionError && refusal.problem === undefined)) {
+      if (neverReachedServer(refusal)) {
         setPhase({ kind: 'offline', status });
         return;
       }

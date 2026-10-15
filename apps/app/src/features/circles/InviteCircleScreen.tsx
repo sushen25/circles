@@ -17,6 +17,7 @@ import { t } from '../../copy';
 import type { Fixture } from '../../data/fixtures';
 import { ShareScreen } from '../sharing/ShareScreen';
 import type { ScreenState } from '../state';
+import { LoadFailed } from '../system/LoadFailed';
 
 /**
  * InviteCircle — `docs/design/InviteCircle.dc.html`.
@@ -80,19 +81,13 @@ export function InviteCircleScreen({
 
   if (state === 'error' || state === 'offline') {
     return (
-      <Screen>
-        <TopBar onBack={onBack} backLabel={t('common', 'back')} />
-        <Body>
-          <DisplayL>
-            {state === 'offline'
-              ? t('inviteCircle', 'youre_offline')
-              : t('inviteCircle', 'couldnt_load')}
-          </DisplayL>
-        </Body>
-        <Foot>
-          <Button label={t('inviteCircle', 'try_again')} onPress={onRetry} />
-        </Foot>
-      </Screen>
+      <LoadFailed
+        state={state}
+        message={t('inviteCircle', state === 'offline' ? 'youre_offline' : 'couldnt_load')}
+        where="circles"
+        onBack={onBack}
+        onRetry={onRetry}
+      />
     );
   }
 

@@ -22,6 +22,7 @@ import { t } from '../../copy';
 import type { Fixture } from '../../data/fixtures';
 import type { ScreenState } from '../state';
 import type { WhenChip } from './PlanControls';
+import { LoadFailed } from '../system/LoadFailed';
 
 /**
  * FirstPlan — `docs/design/FirstPlan.dc.html` (spec §5.1 step 7): one card of
@@ -163,17 +164,13 @@ export function FirstPlanScreen({
   }
   if (state === 'error' || state === 'offline') {
     return (
-      <Screen>
-        <TopBar onBack={onBack} backLabel={t('common', 'back')} />
-        <Body>
-          <DisplayL>
-            {state === 'offline' ? t('firstPlan', 'youre_offline') : t('firstPlan', 'couldnt_load')}
-          </DisplayL>
-        </Body>
-        <Foot>
-          <Button label={t('firstPlan', 'try_again')} onPress={onRetry} />
-        </Foot>
-      </Screen>
+      <LoadFailed
+        state={state}
+        message={t('firstPlan', state === 'offline' ? 'youre_offline' : 'couldnt_load')}
+        where="circles"
+        onBack={onBack}
+        onRetry={onRetry}
+      />
     );
   }
 

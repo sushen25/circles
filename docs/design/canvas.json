@@ -1000,6 +1000,33 @@
       "title": "Components and tokens"
     },
     {
+      "file": "LoadError.dc.html",
+      "x": 0,
+      "y": 3900,
+      "w": 390,
+      "h": 844,
+      "page": "system",
+      "title": "Error \u00b7 couldn't load, signed in"
+    },
+    {
+      "file": "LoadErrorGuest.dc.html",
+      "x": 480,
+      "y": 3900,
+      "w": 390,
+      "h": 844,
+      "page": "system",
+      "title": "Error \u00b7 couldn't load, guest"
+    },
+    {
+      "file": "SignInServerFailed.dc.html",
+      "x": 960,
+      "y": 3900,
+      "w": 390,
+      "h": 844,
+      "page": "system",
+      "title": "Sign in \u00b7 the server said no"
+    },
+    {
       "file": "LoadingSettingUp.dc.html",
       "x": 1920,
       "y": 1300,

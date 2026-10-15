@@ -82,7 +82,12 @@ export function ConfirmedOrgScreen({
   const loading = useLoadingHold(state === 'loading');
   if (loading || state !== 'default' || view === undefined) {
     return (
-      <ConfirmedPlaceholder state={loading ? 'loading' : state} onRetry={onRetry} onBack={onBack} />
+      <ConfirmedPlaceholder
+        state={loading ? 'loading' : state}
+        where="circles"
+        onRetry={onRetry}
+        onBack={onBack}
+      />
     );
   }
 

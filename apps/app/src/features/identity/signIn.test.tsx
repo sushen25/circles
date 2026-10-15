@@ -64,6 +64,7 @@ vi.mock('../../data/circles', () => ({
   newestCircleId: () => newestCircleId(),
 }));
 
+const { resetClientErrors } = await import('../../analytics/clientError');
 const { SignInFlow } = await import('./SignInFlow');
 const { WelcomeFlow } = await import('./WelcomeFlow');
 const { YourNameFlow } = await import('./YourNameFlow');
@@ -90,6 +91,7 @@ async function enter(code: string) {
 }
 
 beforeEach(() => {
+  resetClientErrors();
   focus.focused = true;
   focus.epoch = 0;
   where.pathname = '/';
@@ -223,6 +225,49 @@ describe('Save your place, the gate of the first run (ADR 0053)', () => {
     await enter('123456');
     await waitFor(() => expect(replace).toHaveBeenCalledWith('/circles'));
     expect(replace).not.toHaveBeenCalledWith('/circles/new/finish');
+  });
+});
+
+/** auth-js's class for both a dropped connection (status 0) and a 5xx answer (its status). */
+const authError = (status: number) =>
+  Object.assign(new Error('x'), { name: 'AuthRetryableFetchError', status });
+
+describe('"offline" only when the request never reached the server (SUS-200)', () => {
+  it('says the code could not be sent, with a reference, and keeps the address, when the server answered 500', async () => {
+    // The dev bug: POST /auth/v1/otp returned 500 and the screen blamed the connection.
+    auth.requestSignInCode.mockRejectedValueOnce(authError(500));
+    wrap(<SignInFlow />);
+    await sendCodeTo(ADDRESS);
+
+    expect(
+      await screen.findByText("We couldn't send the code. Try again in a moment."),
+    ).toBeVisible();
+    expect(screen.queryByText(/offline/)).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Your email')).toHaveValue(ADDRESS);
+    const [, payload] = track.mock.calls.find(([name]) => name === 'client_error')!;
+    expect(payload).toMatchObject({ source: 'request_failed', route: '/' });
+    expect(screen.getByText(`Ref ${(payload as { reference: string }).reference}`)).toBeVisible();
+  });
+
+  it('says "You\'re offline", with no reference and nothing reported, when the request never left', async () => {
+    auth.requestSignInCode.mockRejectedValueOnce(authError(0));
+    wrap(<SignInFlow />);
+    await sendCodeTo(ADDRESS);
+
+    expect(await screen.findByText("You're offline. Connect, then try again.")).toBeVisible();
+    expect(screen.queryByText(/^Ref /)).not.toBeInTheDocument();
+    expect(track.mock.calls.some(([name]) => name === 'client_error')).toBe(false);
+    expect(screen.getByLabelText('Your email')).toHaveValue(ADDRESS);
+  });
+
+  it('puts the reference under a code that could not be checked, too', async () => {
+    wrap(<SignInFlow />);
+    await sendCodeTo(ADDRESS);
+    auth.submitSignInCode.mockRejectedValueOnce(authError(503));
+    await enter('123456');
+
+    expect(await screen.findByText(/^Ref [2-9A-HJ-NP-Z]{8}$/)).toBeVisible();
+    expect(screen.queryByText(/offline/)).not.toBeInTheDocument();
   });
 });
 

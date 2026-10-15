@@ -6,7 +6,7 @@ import { track } from '../../analytics/track';
 import { t } from '../../copy';
 import { editConfirmation, stretchOf } from '../../data/confirmation';
 import { FunctionError } from '../../data/functions';
-import { isOffline } from '../identity/join/failure';
+import { neverReachedServer } from '../identity/join/failure';
 
 /**
  * Saving an edit to a locked-in plan (ADR 0051), and every way that can be
@@ -43,7 +43,7 @@ export type EditLockedSave = {
 };
 
 function problemOf(error: unknown): { problem: string; moved?: boolean } {
-  if (isOffline()) return { problem: t('editLocked', 'youre_offline') };
+  if (neverReachedServer(error)) return { problem: t('editLocked', 'youre_offline') };
   if (error instanceof NamesMoved) return { problem: t('editLocked', 'moved'), moved: true };
   if (!(error instanceof FunctionError)) return { problem: t('editLocked', 'problem_generic') };
   switch (error.reason) {

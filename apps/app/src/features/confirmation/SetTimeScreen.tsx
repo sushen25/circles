@@ -24,6 +24,7 @@ import { t } from '../../copy';
 import { Stepper } from '../planning/parts';
 import { MARKS_MAX, Placeholder } from '../scheduling/parts';
 import type { StretchView } from './stretch';
+import { LoadFailed } from '../system/LoadFailed';
 
 /**
  * SetTime — `docs/design/SetTime.dc.html` (spec §5.7, ADR 0051).
@@ -119,12 +120,13 @@ export function SetTimeScreen({
   }
   if (state === 'error' || state === 'offline') {
     return (
-      <Placeholder
+      <LoadFailed
+        state={state}
+        message={t('setTime', state === 'offline' ? 'youre_offline' : 'couldnt_load')}
+        where="circles"
         topTitle={backTitle}
-        message={state === 'offline' ? t('setTime', 'youre_offline') : t('setTime', 'couldnt_load')}
-        actionLabel={t('setTime', 'try_again')}
-        onAction={onRetry}
         onBack={onBack}
+        onRetry={onRetry}
       />
     );
   }

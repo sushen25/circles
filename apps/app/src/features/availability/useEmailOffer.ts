@@ -13,7 +13,7 @@ import {
   requestEmailUpdates,
 } from '../../data/email';
 import { newIdempotencyKey } from '../../data/functions';
-import { authFailure } from '../identity/authFailure';
+import { authFailure, failureReference } from '../identity/authFailure';
 import { failureOf } from '../identity/join/failure';
 import type { Nudge } from '../growth/useNudge';
 import type { OneStep } from './oneStep';
@@ -158,6 +158,7 @@ export function useEmailOffer({
     } catch (error) {
       if (savePlace) {
         const failure = authFailure(error);
+        setReference(failureReference(failure, error));
         setProblem(
           failure === 'offline'
             ? 'offline'

@@ -4,7 +4,6 @@ import {
   Body,
   BodyText,
   Button,
-  DisplayL,
   DisplayXL,
   Foot,
   Label,
@@ -18,6 +17,7 @@ import {
 import { Stack } from '../../components/layout';
 import { t } from '../../copy';
 import { SentCard, type SentProblem } from './SentCard';
+import { LoadFailed } from '../system/LoadFailed';
 
 export type { SentProblem };
 
@@ -129,17 +129,13 @@ export function SentScreen({
 
   if (state === 'error' || state === 'offline') {
     return (
-      <Screen>
-        <TopBar onBack={onBack} backLabel={t('common', 'back')} />
-        <Body>
-          <DisplayL>
-            {state === 'offline' ? t('sent', 'youre_offline') : t('sent', 'couldnt_load')}
-          </DisplayL>
-        </Body>
-        <Foot>
-          <Button label={t('sent', 'try_again')} onPress={onRetry} />
-        </Foot>
-      </Screen>
+      <LoadFailed
+        state={state}
+        message={t('sent', state === 'offline' ? 'youre_offline' : 'couldnt_load')}
+        where="guest"
+        onBack={onBack}
+        onRetry={onRetry}
+      />
     );
   }
 

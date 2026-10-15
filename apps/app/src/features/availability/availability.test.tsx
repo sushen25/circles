@@ -62,7 +62,8 @@ function refusal(reason: string | undefined) {
     'x',
   );
 }
-const noAnswer = () => new FunctionError(undefined, 'submit-availability failed');
+/** The call never left the device: `invokeFunction` marks a fetch that threw (SUS-200). */
+const noAnswer = () => new FunctionError(undefined, 'submit-availability failed', true);
 const stored = { response_id: 'r', revision: 1 };
 
 function open(step: 'times' | 'none' = 'times'): QueryClient {
@@ -872,6 +873,22 @@ describe('when the server says no', () => {
     await screen.findByText("Something didn't save.");
     expect(screen.getByText('Ref R1')).toBeInTheDocument();
     expect(screen.getByText(/send Maya this reference/)).toBeInTheDocument();
+    expect((await readDraft('nina', CODE))?.windows).toEqual([MONDAY_EVENING]);
+  });
+});
+
+describe('a server that answered is not an offline phone (SUS-200)', () => {
+  it('says something went wrong, not "saved on this phone", when the answer was a 5xx with no body', async () => {
+    // `FunctionsHttpError` with a body that is not a Problem: a gateway page. It reached the server.
+    submitAnswer.mockRejectedValueOnce(new FunctionError(undefined, 'submit-availability failed'));
+    open();
+    await screen.findByText('Which evenings could work?');
+
+    answerMonday();
+    await send();
+
+    await screen.findByText("Something didn't save.");
+    expect(screen.queryByText('Your times are saved on this phone.')).not.toBeInTheDocument();
     expect((await readDraft('nina', CODE))?.windows).toEqual([MONDAY_EVENING]);
   });
 });

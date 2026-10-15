@@ -12,6 +12,7 @@ import {
 import { Stack } from '../../components/layout';
 import { t } from '../../copy';
 import type { ScreenState } from '../state';
+import { LoadFailed } from '../system/LoadFailed';
 
 /**
  * The states the plan screens share (manifesto §7): loading, error and
@@ -50,17 +51,13 @@ export function PlanStateScreen({
   }
   if (state === 'error' || state === 'offline') {
     return (
-      <Screen>
-        <TopBar onBack={onBack} backLabel={t('common', 'back')} />
-        <Body>
-          <DisplayL>
-            {state === 'offline' ? t('planSetup', 'youre_offline') : t('planSetup', 'couldnt_load')}
-          </DisplayL>
-        </Body>
-        <Foot>
-          <Button label={t('planSetup', 'try_again')} onPress={onRetry} />
-        </Foot>
-      </Screen>
+      <LoadFailed
+        state={state}
+        message={t('planSetup', state === 'offline' ? 'youre_offline' : 'couldnt_load')}
+        where="circles"
+        onBack={onBack}
+        onRetry={onRetry}
+      />
     );
   }
   return (

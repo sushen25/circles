@@ -67,7 +67,12 @@ export function ConfirmedGuestScreen({
   const loading = useLoadingHold(state === 'loading');
   if (loading || state !== 'default' || view === undefined) {
     return (
-      <ConfirmedPlaceholder state={loading ? 'loading' : state} onRetry={onRetry} onBack={onBack} />
+      <ConfirmedPlaceholder
+        state={loading ? 'loading' : state}
+        where="guest"
+        onRetry={onRetry}
+        onBack={onBack}
+      />
     );
   }
 

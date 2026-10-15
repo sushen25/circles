@@ -7,7 +7,6 @@ import {
   Card,
   CircleHeader,
   DateText,
-  DisplayL,
   Foot,
   Label,
   Marks,
@@ -25,6 +24,7 @@ import type { Fixture } from '../../data/fixtures';
 import type { ScreenState } from '../state';
 import { MARKS_MAX, marksMore } from './lines';
 import { SettingsButton } from './parts';
+import { LoadFailed } from '../system/LoadFailed';
 
 /**
  * CircleHomeJoining — `docs/design/CircleHomeJoining.dc.html` (spec §5.1
@@ -91,19 +91,13 @@ export function CircleHomeJoiningScreen({
 
   if (state === 'error' || state === 'offline') {
     return (
-      <Screen>
-        <TopBar onBack={onBack} backLabel={t('common', 'back')} />
-        <Body>
-          <DisplayL>
-            {state === 'offline'
-              ? t('circleHome', 'youre_offline')
-              : t('circleHome', 'couldnt_load')}
-          </DisplayL>
-        </Body>
-        <Foot>
-          <Button label={t('circleHome', 'try_again')} onPress={onRetry} />
-        </Foot>
-      </Screen>
+      <LoadFailed
+        state={state}
+        message={t('circleHome', state === 'offline' ? 'youre_offline' : 'couldnt_load')}
+        where="circles"
+        onBack={onBack}
+        onRetry={onRetry}
+      />
     );
   }
 

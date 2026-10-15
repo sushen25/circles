@@ -51,6 +51,8 @@ export type SignInProps = {
   state?: ScreenState | undefined;
   email?: string | undefined;
   problem?: SignInProblem | undefined;
+  /** Under a failure that was not the person's doing (SUS-200): what they read out. */
+  reference?: string | undefined;
   busy?: boolean | undefined;
   returning?: boolean | 'settings' | undefined;
   place?: SignInPlace | undefined;
@@ -79,6 +81,7 @@ function problemCopy(problem: SignInProblem): string {
 export function SignInScreen({
   email = '',
   problem,
+  reference,
   busy = false,
   returning = false,
   place,
@@ -108,7 +111,15 @@ export function SignInScreen({
       />
     </Stack>
   );
-  const notice = problem === undefined ? null : <Notice kind="warn">{problemCopy(problem)}</Notice>;
+  const notice =
+    problem === undefined ? null : (
+      <Stack gap={8}>
+        <Notice kind="warn">{problemCopy(problem)}</Notice>
+        {reference === undefined ? null : (
+          <Small selectable>{t('signIn', 'reference', { reference })}</Small>
+        )}
+      </Stack>
+    );
   const button = (
     <Button
       label={t('signIn', 'send_me_a_code')}

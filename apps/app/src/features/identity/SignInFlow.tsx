@@ -20,7 +20,7 @@ import type { LinkRoute } from '../../data/auth/providers/email';
 import { belongsToAnyCircle, newestCircleId } from '../../data/circles';
 import { normaliseAddress } from '../../data/email';
 import { destinationAfterSignIn } from './afterSignIn';
-import { authFailure } from './authFailure';
+import { authFailure, failureReference } from './authFailure';
 import {
   CODE_LIFETIME_MS,
   EnterCodeScreen,
@@ -74,8 +74,7 @@ export type SignInFlowProps = {
   gate?: { place: SignInPlace; onPassed: () => Promise<void> } | undefined;
 };
 
-function emailProblem(error: unknown): SignInProblem {
-  const failure = authFailure(error);
+function emailProblem(failure: ReturnType<typeof authFailure>): SignInProblem {
   return failure === 'offline'
     ? 'offline'
     : failure === 'too_many'
@@ -136,6 +135,7 @@ export function SignInFlow({ returnTo, gate }: SignInFlowProps) {
           setReference(error.problem?.reference);
         } else {
           const failure = authFailure(error);
+          setReference(failureReference(failure, error));
           const expired = Date.now() - step.sentAt >= CODE_LIFETIME_MS;
           setCodeProblem(
             failure === 'offline'
@@ -205,6 +205,7 @@ export function SignInFlow({ returnTo, gate }: SignInFlowProps) {
           if (sending.current) return;
           sending.current = true;
           setCodeProblem(undefined);
+          setReference(undefined);
           setNewCodeSent(false);
           void send(step.address)
             .then((sent) => {
@@ -213,6 +214,7 @@ export function SignInFlow({ returnTo, gate }: SignInFlowProps) {
             })
             .catch((error: unknown) => {
               const failure = authFailure(error);
+              setReference(failureReference(failure, error));
               setCodeProblem(
                 failure === 'offline'
                   ? 'offline'
@@ -238,6 +240,7 @@ export function SignInFlow({ returnTo, gate }: SignInFlowProps) {
     <SignInScreen
       email={email}
       problem={problem}
+      reference={reference}
       busy={busy}
       returning={next === NOTIFICATION_SETTINGS_PATH ? 'settings' : next !== undefined}
       place={gate?.place}
@@ -263,13 +266,18 @@ export function SignInFlow({ returnTo, gate }: SignInFlowProps) {
         }
         setBusy(true);
         setProblem(undefined);
+        setReference(undefined);
         void send(address)
           .then((sent) => {
             setCodeText('');
             setNewCodeSent(false);
             setStep(sent);
           })
-          .catch((error: unknown) => setProblem(emailProblem(error)))
+          .catch((error: unknown) => {
+            const failure = authFailure(error);
+            setProblem(emailProblem(failure));
+            setReference(failureReference(failure, error));
+          })
           .finally(() => {
             sending.current = false;
             setBusy(false);

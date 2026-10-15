@@ -7,7 +7,7 @@ import { t } from '../../copy';
 import { calendarFile, calendarLink } from '../../data/confirmation';
 import { currentDevice, type Device } from '../../platform/device';
 import { openLink, saveFile } from '../../platform/download';
-import { isOffline } from '../identity/join/failure';
+import { neverReachedServer } from '../identity/join/failure';
 
 /**
  * The add-to-calendar sheet's state, and the download behind its one row.
@@ -119,12 +119,14 @@ export function useCalendar(target: CalendarTarget | undefined): Calendar {
       .then((ready) => {
         if (wanted.current === version) setState({ key: version, phase: 'ready', ...ready });
       })
-      .catch(() => {
+      .catch((error: unknown) => {
         if (wanted.current !== version) return;
         setState({
           key: version,
           phase: 'failed',
-          problem: isOffline() ? t('addToCalendar', 'offline') : t('addToCalendar', 'failed'),
+          problem: neverReachedServer(error)
+            ? t('addToCalendar', 'offline')
+            : t('addToCalendar', 'failed'),
         });
       });
   };

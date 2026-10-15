@@ -16,6 +16,7 @@ import { Stack } from '../../components/layout';
 import { t } from '../../copy';
 import { CandidateCard, CandidateHeader, Placeholder } from './parts';
 import type { CardView, HeaderView } from './view';
+import { LoadFailed } from '../system/LoadFailed';
 
 /**
  * CandidatesMember — `docs/design/CandidatesMember.dc.html` (spec §5.6).
@@ -88,15 +89,12 @@ export function CandidatesMemberScreen({
   }
   if (state === 'error' || state === 'offline') {
     return (
-      <Placeholder
-        message={
-          state === 'offline'
-            ? t('candidatesMember', 'youre_offline')
-            : t('candidatesMember', 'couldnt_load')
-        }
-        actionLabel={t('candidatesMember', 'try_again')}
-        onAction={onRetry}
+      <LoadFailed
+        state={state}
+        message={t('candidatesMember', state === 'offline' ? 'youre_offline' : 'couldnt_load')}
+        where="circles"
         onBack={onBack}
+        onRetry={onRetry}
       />
     );
   }

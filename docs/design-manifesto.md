@@ -247,8 +247,8 @@ A screen is not designed until all of these exist. From the spec's definition of
 2. **Empty** &mdash; before anyone has acted. Should teach, not apologise.
 3. **Partial** &mdash; the honest middle. Some replies, some silence. This is the *most common real state* and gets designed first, not last.
 4. **Loading** &mdash; only where a wait is real; otherwise optimistic.
-5. **Error** &mdash; plain language, a correlation ID, and a way forward.
-6. **Offline** &mdash; availability edits survive and resubmit.
+5. **Error** &mdash; plain language, a correlation ID, and a way forward: Try again, and a second way out for when trying again cannot help.
+6. **Offline** &mdash; availability edits survive and resubmit. Said only when the request never reached the server: a server that answered, a 5xx included, is an error with a reference, because reconnecting fixes nothing.
 7. **Permission denied** &mdash; full manual parity, no dead end, no nagging.
 8. **Expired / cancelled** &mdash; neutral, final, blameless.
 

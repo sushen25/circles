@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { track } from '../../analytics/track';
 import { t } from '../../copy';
 import { AttendanceError, setAttendance } from '../../data/confirmation';
-import { isOffline } from '../identity/join/failure';
+import { neverReachedServer } from '../identity/join/failure';
 
 /**
  * "I can't make it after all", and back (spec §5.7).
@@ -44,7 +44,7 @@ export function useAttendance(
     },
     onError: (error) => {
       setProblem(
-        isOffline()
+        neverReachedServer(error)
           ? t('confirmedGuest', 'youre_offline')
           : error instanceof AttendanceError && error.reason !== 'failed'
             ? t('confirmedGuest', 'refused')

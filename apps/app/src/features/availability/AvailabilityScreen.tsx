@@ -26,6 +26,7 @@ import type { AnswerLine } from './answerLine';
 import type { BlockKind } from './blocks';
 import { ChangeTimeSheet } from './ChangeTimeSheet';
 import type { SheetView } from './view';
+import { LoadFailed } from '../system/LoadFailed';
 
 /**
  * Availability — `docs/design/Availability.dc.html` (spec §5.5, ADR 0024).
@@ -129,19 +130,14 @@ export function AvailabilityScreen({
 
   if (state === 'error' || state === 'offline') {
     return (
-      <Screen>
-        <TopBar title={title} onBack={onBack} backLabel={t('common', 'back')} />
-        <Body>
-          <DisplayL>
-            {state === 'offline'
-              ? t('availability', 'youre_offline')
-              : t('availability', 'couldnt_load')}
-          </DisplayL>
-        </Body>
-        <Foot>
-          <Button label={t('availability', 'try_again')} onPress={onRetry} />
-        </Foot>
-      </Screen>
+      <LoadFailed
+        state={state}
+        message={t('availability', state === 'offline' ? 'youre_offline' : 'couldnt_load')}
+        where="guest"
+        topTitle={title}
+        onBack={onBack}
+        onRetry={onRetry}
+      />
     );
   }
 

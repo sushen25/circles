@@ -23,6 +23,7 @@ import { ChangeMyTimesFoot } from './PlanActions';
 import { CandidateCard, CandidateHeader, Placeholder } from './parts';
 import type { Unlock } from './unlock';
 import type { CardView, HeaderView } from './view';
+import { LoadFailed } from '../system/LoadFailed';
 
 /**
  * NoQuorum — `docs/design/NoQuorum.dc.html` (spec §5.6).
@@ -107,13 +108,12 @@ export function NoQuorumScreen({
   }
   if (state === 'error' || state === 'offline') {
     return (
-      <Placeholder
-        message={
-          state === 'offline' ? t('noQuorum', 'youre_offline') : t('noQuorum', 'couldnt_load')
-        }
-        actionLabel={t('noQuorum', 'try_again')}
-        onAction={onRetry}
+      <LoadFailed
+        state={state}
+        message={t('noQuorum', state === 'offline' ? 'youre_offline' : 'couldnt_load')}
+        where="circles"
         onBack={onBack}
+        onRetry={onRetry}
       />
     );
   }

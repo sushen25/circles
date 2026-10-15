@@ -21,6 +21,7 @@ import { Divider } from '../../components/layout';
 import { t } from '../../copy';
 import type { Fixture } from '../../data/fixtures';
 import type { ScreenState } from '../state';
+import { LoadFailed } from '../system/LoadFailed';
 
 /**
  * ContinueAs — somebody came back without their session (ADR 0006, spec §5.1).
@@ -110,19 +111,14 @@ export function ContinueAsScreen({
 
   if (state === 'error' || state === 'offline') {
     return (
-      <Screen>
-        <TopBar title={circleName} onBack={onBack} backLabel={t('common', 'back')} />
-        <Body>
-          <DisplayL>
-            {state === 'offline'
-              ? t('continueAs', 'youre_offline')
-              : t('continueAs', 'couldnt_load')}
-          </DisplayL>
-        </Body>
-        <Foot>
-          <Button label={t('continueAs', 'try_again')} onPress={onRetry} />
-        </Foot>
-      </Screen>
+      <LoadFailed
+        state={state}
+        message={t('continueAs', state === 'offline' ? 'youre_offline' : 'couldnt_load')}
+        where="guest"
+        topTitle={circleName}
+        onBack={onBack}
+        onRetry={onRetry}
+      />
     );
   }
 

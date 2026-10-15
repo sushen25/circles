@@ -8,7 +8,7 @@ import { hasBackend } from '../../data/auth/client';
 import { newestCircleId } from '../../data/circles';
 import { readDraft } from '../../data/draft';
 import { afterNaming, FINISH_PATH } from './afterSignIn';
-import { isOffline } from './join/failure';
+import { isOffline, neverReachedServer } from './join/failure';
 import { TimeZoneScreen } from './TimeZoneScreen';
 import { useSavedPlace } from './useSavedPlace';
 import { YourNameScreen, type YourNameProblem } from './YourNameScreen';
@@ -106,8 +106,8 @@ function LiveYourName() {
     setProblem(undefined);
     try {
       await saveProfile({ name: clean, zone });
-    } catch {
-      setProblem(isOffline() ? 'offline' : 'couldnt_save');
+    } catch (error) {
+      setProblem(neverReachedServer(error) ? 'offline' : 'couldnt_save');
       setBusy(false);
       saving.current = false;
       return;
