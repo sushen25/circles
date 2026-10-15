@@ -68,6 +68,8 @@ test('an import that is only commented out, or sits in a template string, does n
     "/*\nimport { Dead } from './DeadScreen';\n*/\nexport const x = 1;\n",
     "// const Dead = import('./DeadScreen');\nexport const x = 1;\n",
     "const example = `\nimport { Dead } from './DeadScreen';\n`;\n",
+    'export const example = "import(\'./DeadScreen\')";\n',
+    'export const example = \'from \' + "./DeadScreen";\n',
     "const url = 'http://x.test/';\n// import('./DeadScreen')\n",
   ]) {
     const files = repo({
