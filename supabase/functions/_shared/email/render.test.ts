@@ -1,5 +1,3 @@
-import { readFileSync } from 'node:fs';
-
 import { brand } from '@circles/config';
 import { NOTIFICATION_KINDS, QUIET_SENSITIVE_KINDS } from '@circles/domain';
 import { describe, expect, it } from 'vitest';
@@ -183,7 +181,7 @@ describe('render', () => {
     });
   });
 
-  it('writes the kind-to-family rule once: the switches, the table and the SQL skip lists agree', () => {
+  it('writes the kind-to-family rule once: the switches and the table agree', () => {
     const familyOf = (family: string) =>
       STOP_KINDS.filter((kind) => STOP_LINK_KINDS[kind] === family).sort();
     // The organiser's letters are exactly the kinds the organiser-email switch stops.
@@ -194,21 +192,8 @@ describe('render', () => {
     );
     // The quiet letters are exactly the two addressed to the initiator.
     expect(familyOf('quiet')).toEqual([...QUIET_KINDS].sort());
-    // `stop_letters` skips queued letters by the same lists.
-    const sql = readFileSync(
-      new URL('../../../sql/functions/public/stop_letters.sql', import.meta.url),
-      'utf8',
-    );
-    for (const [family, error] of [
-      ['organiser', 'organiser_email_off'],
-      ['quiet', 'quiet_asks_muted'],
-    ] as const) {
-      const block = sql.slice(sql.indexOf(`last_error = '${error}'`));
-      const kinds = [...(/j\.kind in \(([^)]*)\)/.exec(block)?.[1] ?? '').matchAll(/'([a-z_]+)'/g)]
-        .map((m) => m[1])
-        .sort();
-      expect(kinds, family).toEqual(familyOf(family));
-    }
+    // The SQL skip lists in `stop_letters` are proved by pgTAP 460, which queues
+    // all six kinds and checks each family's tap skips exactly its own.
   });
 
   describe.each(STOP_KINDS)('the account-holder email %s', (kind) => {
