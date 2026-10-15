@@ -56,6 +56,13 @@ export type AvailabilityProps = {
   onPaintDays?: GridPaint | undefined;
   /** The one line of guidance under the question. */
   guide?: string | undefined;
+  /**
+   * The longer line the guidance may become, held as room while the read of
+   * the others is on its way, so the grid does not move when it arrives
+   * (SUS-136). Never shown or read out; absent once the read has settled, so a
+   * failed read leaves the editor as it was.
+   */
+  guideRoom?: string | undefined;
   /** "Replies close Fri 23 Oct, 8:30 pm." */
   closes?: string | undefined;
   /** "Times are Melbourne time.", when the device is somewhere else. */
@@ -93,6 +100,7 @@ export function AvailabilityScreen({
   single = false,
   onPaintDays,
   guide,
+  guideRoom,
   closes,
   zoneNote,
   grid = [],
@@ -170,7 +178,23 @@ export function AvailabilityScreen({
       <Body>
         <Stack>
           <DisplayL>{question ?? t('availability', 'which_days_could_work')}</DisplayL>
-          {guide === undefined ? null : <BodyText>{guide}</BodyText>}
+          {guide === undefined ? null : guideRoom === undefined ? (
+            <BodyText>{guide}</BodyText>
+          ) : (
+            <View>
+              <View
+                style={styles.room}
+                accessibilityElementsHidden
+                importantForAccessibility="no-hide-descendants"
+                aria-hidden
+              >
+                <BodyText>{guideRoom}</BodyText>
+              </View>
+              <View style={styles.over}>
+                <BodyText>{guide}</BodyText>
+              </View>
+            </View>
+          )}
         </Stack>
         {changed ? <Notice kind="warn">{t('availability', 'plan_changed')}</Notice> : null}
         <DayGrid
@@ -250,4 +274,6 @@ const styles = StyleSheet.create({
   line: { flexShrink: 1, gap: 4 },
   days: { fontSize: 24, lineHeight: 28 },
   dimmed: { opacity: 0.45 },
+  room: { opacity: 0 },
+  over: { position: 'absolute', top: 0, left: 0, right: 0 },
 });
