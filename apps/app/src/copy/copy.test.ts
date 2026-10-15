@@ -8,7 +8,7 @@ describe('the copy file', () => {
     expect(Object.keys(en).length).toBeGreaterThanOrEqual(78);
   });
 
-  it('never gives the organiser\'s plan-hours preset and the guest\'s time choice one label (SUS-210)', () => {
+  it("never gives the organiser's plan-hours preset and the guest's time choice one label (SUS-210)", () => {
     // The preset is 9 am to 10:30 pm; the guest's Daytime is 9 am to 5 pm. One
     // word for two spans is the clash SUS-210 removed, so neither may come back.
     const organiser = en.planSetup.days_and_evenings;
