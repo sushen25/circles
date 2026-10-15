@@ -123,8 +123,8 @@ ends **red**. The deploy has already happened by then; red is how you find out.
   of `/j/abc234` as a chat app would. The card's `og:image` and its refresh must
   be on `EXPO_PUBLIC_APP_ORIGIN`, never the per-deployment `*.expo.app` host
   (SUS-128). The bundle it names must load as JavaScript and carry the deployed commit (the build id the export inlined), so a CDN still serving the last release is not a pass. It retries for two minutes while the CDN catches up.
-- `pnpm check:env <host>`: HTTPS, HSTS, the app's `Referrer-Policy`, SPF, DKIM,
-  the bounce MX and DMARC.
+- `pnpm check:env <host>`: HTTPS, HSTS, the app's `Referrer-Policy`, `Content-Security-Policy`,
+  `nosniff`, `Permissions-Policy`, SPF, DKIM, the bounce MX and DMARC.
 
 If both pass, a third job, `tag the release`, pushes the tag
 **`prod-<yyyymmdd>-<shortsha>`** (UTC date, first seven characters of the

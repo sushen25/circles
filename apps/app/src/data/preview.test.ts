@@ -402,6 +402,12 @@ describe("the card's headers", () => {
     expect(CARD_HEADERS['referrer-policy']).toBe('no-referrer');
     expect(CARD_HEADERS['x-content-type-options']).toBe('nosniff');
   });
+
+  it('cannot be framed, runs no script and has nothing to ask the device for (SUS-119)', () => {
+    expect(CARD_HEADERS['content-security-policy']).toContain("frame-ancestors 'none'");
+    expect(CARD_HEADERS['content-security-policy']).toContain("default-src 'none'");
+    expect(CARD_HEADERS['permissions-policy']).toContain('camera=()');
+  });
 });
 
 describe('paths that used to be trouble', () => {

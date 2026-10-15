@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { devRoutesAvailable } from './devRoutes';
+import { devRoutes } from './devRoutes';
 
 declare global {
   interface ImportMeta {
@@ -18,15 +18,22 @@ const ROUTE_FILES = import.meta.glob(['/app/**/*.{ts,tsx}'], {
   eager: true,
 });
 
-describe('devRoutesAvailable', () => {
+describe('devRoutes', () => {
   it('shows them in development and in a build with no backend', () => {
-    expect(devRoutesAvailable({ isDev: true, hasBackend: true })).toBe(true);
-    expect(devRoutesAvailable({ isDev: true, hasBackend: false })).toBe(true);
-    expect(devRoutesAvailable({ isDev: false, hasBackend: false })).toBe(true);
+    expect(devRoutes({ isDev: true, hasBackend: true, appEnv: 'development' })).toBe('shown');
+    expect(devRoutes({ isDev: true, hasBackend: false, appEnv: undefined })).toBe('shown');
+    expect(devRoutes({ isDev: false, hasBackend: false, appEnv: undefined })).toBe('shown');
+    expect(devRoutes({ isDev: false, hasBackend: false, appEnv: 'preview' })).toBe('shown');
   });
 
-  it('hides them in a production build that has a backend', () => {
-    expect(devRoutesAvailable({ isDev: false, hasBackend: true })).toBe(false);
+  it('sends them to the front door in a deployed build that has a backend', () => {
+    expect(devRoutes({ isDev: false, hasBackend: true, appEnv: 'preview' })).toBe('redirected');
+    expect(devRoutes({ isDev: false, hasBackend: true, appEnv: 'development' })).toBe('redirected');
+  });
+
+  it('answers not-found in the production environment, with or without a backend', () => {
+    expect(devRoutes({ isDev: false, hasBackend: true, appEnv: 'production' })).toBe('not-found');
+    expect(devRoutes({ isDev: false, hasBackend: false, appEnv: 'production' })).toBe('not-found');
   });
 });
 
@@ -51,6 +58,6 @@ describe('fixture routes', () => {
 
   it('has the guard itself in the group', () => {
     expect(Object.keys(ROUTE_FILES)).toContain('/app/(dev)/_layout.tsx');
-    expect(ROUTE_FILES['/app/(dev)/_layout.tsx']).toMatch(/devRoutesAvailable/);
+    expect(ROUTE_FILES['/app/(dev)/_layout.tsx']).toMatch(/devRoutes\(/);
   });
 });
