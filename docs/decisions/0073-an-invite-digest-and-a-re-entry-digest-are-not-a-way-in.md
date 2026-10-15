@@ -8,7 +8,7 @@ builds_on: [28, 49]
 ---
 # ADR 0073: A stored invite or re-entry digest is not a way in: the functions that take one are the service role's
 
-_Status: proposed · 15 October 2026 · amends [ADR 0071](0071-the-functions-a-client-can-call-carry-their-own-rate-limits.md) for `redeem_invite`, and builds on [ADR 0028](0028-an-invite-secret-is-derived-so-its-owner-can-see-it-again.md), which stores only a digest so that a copy of the database is not a set of working links, [ADR 0049](0049-continue-as-resolves-a-code-only-while-it-is-live.md), which defined the emailed re-entry path, whose per-person limit (ADR 0071) moves with the caller_
+_Status: proposed · 15 October 2026 · amends [ADR 0071](0071-the-functions-a-client-can-call-carry-their-own-rate-limits.md) for `redeem_invite`, and builds on [ADR 0028](0028-an-invite-secret-is-derived-so-its-owner-can-see-it-again.md), which stores only a digest so that a copy of the database is not a set of working links, [ADR 0049](0049-continue-as-resolves-a-code-only-while-it-is-live.md), which defined the emailed re-entry path_
 
 ## Context
 
