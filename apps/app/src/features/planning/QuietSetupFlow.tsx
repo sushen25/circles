@@ -116,6 +116,11 @@ function LiveQuietSetup({ id }: { id: string }) {
         state="empty"
         title={t('sparkSetup', 'nobody_title', { circle: data.name })}
         body={t('sparkSetup', 'nobody_body')}
+        // The link is the owner's to hand out; in a circle of one that is the
+        // reader, but the button is theirs only so it never fails when tapped.
+        action={data.isOwner ? t('sparkSetup', 'nobody_action') : undefined}
+        actionVariant="primary"
+        onAction={() => router.push({ pathname: '/circles/[id]/invite', params: { id } })}
         onBack={back}
       />
     );

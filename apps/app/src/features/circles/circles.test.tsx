@@ -296,6 +296,63 @@ describe('circle home, in the state the data puts it in', () => {
   });
 });
 
+/** Twenty active members: the cap (ADR 0012), with Nina's circle owned by Maya. */
+function fullHome(overrides: Partial<CircleData.CircleHome> = {}): CircleData.CircleHome {
+  return home({
+    name: 'Thursday Lot',
+    members: Array.from({ length: 20 }, (_, i) => ({
+      userId: i === 0 ? 'maya' : `m${i}`,
+      name: i === 0 ? 'Maya' : i === 1 ? 'Nina' : `Guest ${i}`,
+      joinedAt: '2026-01-01T00:00:00Z',
+      role: i === 0 ? ('owner' as const) : ('member' as const),
+      savedPlace: true,
+    })),
+    ...overrides,
+  });
+}
+
+describe('circle home at the member cap (SUS-199)', () => {
+  it('says the circle is full where it filled up, and offers no way to share it', async () => {
+    circleHome.mockResolvedValue(fullHome({ lastMetAt: null }));
+    wrap(<CircleHomeFlow id={CIRCLE} />);
+
+    expect(await screen.findByText('Thursday Lot is full (20 people)')).toBeVisible();
+    // "In so far" promises more to come.
+    expect(screen.queryByText(/in so far/)).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Share again' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Invite link' })).toBeNull();
+    // The way forward is still the plan, and settings.
+    expect(screen.getByRole('button', { name: 'Plan the first catch-up' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Circle settings' })).toBeVisible();
+  });
+
+  it('says it in place of the count, with the invite link gone, in every other state', async () => {
+    circleHome.mockResolvedValue(fullHome());
+    wrap(<CircleHomeFlow id={CIRCLE} />);
+
+    expect(await screen.findByText('Thursday Lot is full (20 people)')).toBeVisible();
+    expect(screen.queryByText('20 members')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Invite link' })).toBeNull();
+  });
+
+  it('is only said at the cap: nineteen still offer the link', async () => {
+    const nineteen = fullHome();
+    circleHome.mockResolvedValue({ ...nineteen, members: nineteen.members.slice(0, 19) });
+    wrap(<CircleHomeFlow id={CIRCLE} />);
+
+    expect(await screen.findByRole('button', { name: 'Invite link' })).toBeVisible();
+    expect(screen.queryByText(/is full/)).toBeNull();
+  });
+
+  it('is not said of an archived circle', async () => {
+    circleHome.mockResolvedValue(fullHome({ status: 'archived' }));
+    wrap(<CircleHomeFlow id={CIRCLE} />);
+
+    expect(await screen.findByText('Archived. Nobody gets prompts about it.')).toBeVisible();
+    expect(screen.queryByText(/is full/)).toBeNull();
+  });
+});
+
 describe('circle home and the quiet ask (S2-03)', () => {
   const RUNNING = {
     id: PLAN,

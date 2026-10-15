@@ -36,6 +36,7 @@ import {
   policyOptions,
 } from './settingsWords';
 import { ConfirmSheet, PickerSheet } from './sheets';
+import { fullHint, fullLine, isFull } from './words';
 
 /**
  * `/circles/:id/settings` (spec §5.2). The route is behind `MembershipGate`, so
@@ -84,11 +85,13 @@ function LiveSettings({ id }: { id: string }) {
   const keys = useRef(new Map<string, IdempotencyKey>());
 
   const owner = home.data !== undefined && home.data !== null && home.data.isOwner;
+  // At the cap there is no link card, so the secret is not fetched for one.
+  const atCap = home.data !== undefined && home.data !== null && isFull(home.data);
   // Whether the link can be shown; the secret itself stays in `invite.ts`.
   const link = useQuery({
     queryKey: ['invite-link-shown', id, session.userId],
     queryFn: async () => (await fetchInviteSecret(id)) !== undefined,
-    enabled: owner,
+    enabled: owner && !atCap,
     staleTime: Infinity,
   });
 
@@ -223,6 +226,8 @@ function LiveSettings({ id }: { id: string }) {
       canManage={canManage}
       ownerName={data.members.find((m) => m.role === 'owner')?.name ?? ''}
       invite={invite}
+      full={isFull(data) ? fullLine(data) : undefined}
+      fullHint={isFull(data) && canManage ? fullHint() : undefined}
       linkNote={linkNote}
       cadenceLabel={cadenceLabel(data.cadence)}
       policyLabel={policyLabel(policyOf(data))}

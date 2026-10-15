@@ -5,13 +5,16 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 
 import { track } from '../../analytics/track';
+import { t } from '../../copy';
 import { useSession } from '../../data/auth';
 import { hasBackend } from '../../data/auth/client';
 import { circleHome, fetchInviteSecret, heldInviteLink } from '../../data/circles';
 import { appOrigin } from '../../data/links/origin';
 import { copyText, shareMessage } from '../../platform/share';
 import { isOffline } from '../identity/join/failure';
+import { PlanStateScreen } from '../planning/states';
 import { InviteCircleScreen } from './InviteCircleScreen';
+import { fullHint, fullLine, isFull } from './words';
 
 /**
  * `/circles/:id/invite` — the link and the message, ready for the group chat.
@@ -56,13 +59,14 @@ function LiveInvite({ id }: { id: string }) {
     staleTime: 30_000,
   });
   const owner = home.data !== undefined && home.data !== null && home.data.isOwner;
+  const atCap = home.data !== undefined && home.data !== null && isFull(home.data);
   // After a reload the link is not in memory: the owner asks for it again
   // (ADR 0028). The query answers only whether it came back — the secret goes
   // to `invite.ts` and never into the cache.
   const shown = useQuery({
     queryKey: ['invite-link-shown', id, session.userId],
     queryFn: async () => (await fetchInviteSecret(id)) !== undefined,
-    enabled: owner && heldInviteLink(id, appOrigin()) === undefined,
+    enabled: owner && !atCap && heldInviteLink(id, appOrigin()) === undefined,
     staleTime: Infinity,
   });
 
@@ -75,6 +79,21 @@ function LiveInvite({ id }: { id: string }) {
       <InviteCircleScreen
         state={isOffline() ? 'offline' : 'error'}
         onRetry={() => void home.refetch()}
+        onBack={back}
+      />
+    );
+  }
+
+  // At the cap the link would only turn people away (ADR 0012): say so, and
+  // point at the one place that can make room.
+  if (isFull(home.data)) {
+    return (
+      <PlanStateScreen
+        state="empty"
+        title={fullLine(home.data)}
+        body={fullHint()}
+        action={owner ? t('circleHome', 'full_action') : undefined}
+        onAction={() => router.replace({ pathname: '/circles/[id]/settings', params: { id } })}
         onBack={back}
       />
     );

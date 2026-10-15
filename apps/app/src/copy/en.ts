@@ -581,6 +581,11 @@ export const en = {
     one_member: '1 member · {what}',
     member_count: '{count} members',
     one_member_count: '1 member',
+    // At the cap (ADR 0012): said instead of the count, and the link is not offered.
+    full: '{circle} is full ({count} people)',
+    full_hint:
+      'A circle holds up to {count} people. The invite link comes back once there is room.',
+    full_action: 'Circle settings',
     replies_close: 'Replies close {deadline}',
     replied: '{count} of {total} replied',
     asked_again:
@@ -2875,6 +2880,7 @@ export const en = {
     muted_action: 'Circle settings',
     nobody_title: "There's nobody else in {circle} to ask yet.",
     nobody_body: 'A quiet ask needs somebody to say they are keen. Invite people first.',
+    nobody_action: 'Invite people',
   },
   sparkWaiting: {
     sunday_crew: 'Sunday Crew',
