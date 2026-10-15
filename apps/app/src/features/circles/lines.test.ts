@@ -58,8 +58,8 @@ describe('the circles list line', () => {
   });
 
   it('says a circle with no goal has none, and one that has never met has not', () => {
-    expect(listLine(summary({ cadence: 'none' }), NOW)).toMatch(/· No goal set$/);
-    expect(listLine(summary({ cadence: 'none', lastMetAt: null }), NOW)).toBe('No goal set');
+    expect(listLine(summary({ cadence: 'none' }), NOW)).toMatch(/· Whenever suits$/);
+    expect(listLine(summary({ cadence: 'none', lastMetAt: null }), NOW)).toBe('Whenever suits');
     expect(listLine(summary({ lastMetAt: null }), NOW)).toBe('Not caught up yet');
   });
 

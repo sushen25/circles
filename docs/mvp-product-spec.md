@@ -214,7 +214,7 @@ Name; colour (solid, no image); primary IANA time zone defaulted from the creato
 
 #### Circle home
 
-Three designed states: **finding a time** (active plan card with reply count and deadline), **locked in** (next confirmed meetup with going count), and **about time** (cadence nudge with snooze and turn-off). Every state shows last caught up, next one, members and the invite link, and a single primary action. Cadence copy is "No rush", "Next one's due soon", "Nothing yet", "No goal set"; never "on track", "overdue" or a count of days since.
+Three designed states: **finding a time** (active plan card with reply count and deadline), **locked in** (next confirmed meetup with going count), and **about time** (cadence nudge with snooze and turn-off). Every state shows last caught up, next one, members and the invite link, and a single primary action. Cadence copy is "No rush", "Next one's due soon", "Nothing yet", "Whenever suits" (a circle with no goal); never "on track", "overdue" or a count of days since.
 
 No feed, chat, status posts, likes or generic calendar.
 
