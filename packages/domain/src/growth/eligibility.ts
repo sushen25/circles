@@ -31,7 +31,7 @@ import { type Instant, compare } from '../shared/instant.js';
  *   circle's first happened meetup: "Start a circle for another group".
  * - `organiser_gate` — a guest about to organise: save your place first. A
  *   gate rather than a nudge; recorded so the conversion map can be read.
- * - `organiser_source` — "How did you hear about Wenna?", asked once per
+ * - `organiser_source` — "How did you hear about {brand}?", asked once per
  *   account right after the gate's code is accepted (SUS-171). The row says
  *   the question was asked and nothing about the answer: that is an analytics
  *   event, never a column that joins a source to a person.

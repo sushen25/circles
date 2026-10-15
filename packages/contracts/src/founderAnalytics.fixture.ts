@@ -81,7 +81,7 @@ export const founderAnalyticsFixture: FounderAnalytics = {
     second_meetup_circles: 1,
   },
   // The same funnel by the organiser's answer to "How did you hear about
-  // Wenna?" (SUS-171): the circles sum to the six above, and `unknown` is an
+  // {brand}?" (SUS-171): the circles sum to the six above, and `unknown` is an
   // owner who was never asked.
   by_source: {
     friend_group: {

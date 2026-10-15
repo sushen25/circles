@@ -59,7 +59,7 @@ export const EventRow = z.object({
 export type EventRow = z.infer<typeof EventRow>;
 
 /**
- * The funnel's counts for one answer to "How did you hear about Wenna?"
+ * The funnel's counts for one answer to "How did you hear about {brand}?"
  * (SUS-171): the row counters and every event's total, attributed through the
  * circle's owner. `unknown` is an owner who was never asked.
  */
@@ -433,7 +433,7 @@ export type FunnelStepResult = { id: string; count: number; share: number | null
 export type FunnelStageResult = { id: string; steps: FunnelStepResult[]; hasMissing: boolean };
 
 /**
- * The funnel, whole or read for one answer to "How did you hear about Wenna?".
+ * The funnel, whole or read for one answer to "How did you hear about {brand}?".
  * Each row is counted under the source of the circle's owner, so a row with no
  * circle behind it (an event nobody can place) is in the whole and in no source.
  */

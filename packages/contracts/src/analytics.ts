@@ -98,7 +98,7 @@ export const catalogue = {
   organiser_gate_shown: event(1),
   organiser_gate_passed: event(1),
   app_first_open_linked: event(1),
-  // "How did you hear about Wenna?", once per account, after the gate's code is
+  // "How did you hear about {brand}?", once per account, after the gate's code is
   // accepted (SUS-171). One of five words and nothing else: no free text, and
   // the founder views read it by the account it came from without ever
   // returning that account (non-negotiable 8).

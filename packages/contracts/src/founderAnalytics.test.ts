@@ -203,7 +203,7 @@ describe('the funnel', () => {
     expect(stages.find((s) => s.id === 'quiet_ask')?.hasMissing).toBe(true);
   });
 
-  it('reads the same funnel for one answer to "How did you hear about Wenna?"', () => {
+  it('reads the same funnel for one answer to "How did you hear about {brand}?"', () => {
     const reddit = funnelOf(founderAnalyticsFixture, 'reddit');
     const invitation = reddit.find((s) => s.id === 'invitation');
     expect(invitation?.steps.map((s) => s.count)).toEqual([9, 6, 5]);

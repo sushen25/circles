@@ -299,11 +299,13 @@ test('"How did you hear about Wenna?" is asked once per account, counts one word
   browser,
 }) => {
   const email = `${globalThis.crypto.randomUUID()}@example.test`;
+  // This account's own events: other projects run this file at the same time.
   const sources = () =>
     sql(
-      `select properties::text from analytics.events where event_name = 'organiser_source' order by occurred_at`,
+      `select e.properties::text from analytics.events e join auth.users u on u.id = e.user_id
+        where e.event_name = 'organiser_source' and u.email = '${email}' order by e.occurred_at`,
     ).map(([properties]) => properties);
-  const before = sources().length;
+  const before = 0;
 
   await draftThroughThePlan(page, `Source ${globalThis.crypto.randomUUID().slice(0, 8)}`);
   await signInByCode(page, email, 'A meetup or club');

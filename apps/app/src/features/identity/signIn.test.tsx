@@ -71,6 +71,7 @@ vi.mock('../../data/growth', () => ({
   recordAnswer: (...a: unknown[]) => recordAnswer(...a),
 }));
 
+const { brand } = await import('@circles/config');
 const { resetClientErrors } = await import('../../analytics/clientError');
 const { SignInFlow } = await import('./SignInFlow');
 const { forgetSessionNudges } = await import('../growth/useNudge');
@@ -78,6 +79,7 @@ const { WelcomeFlow } = await import('./WelcomeFlow');
 const { YourNameFlow } = await import('./YourNameFlow');
 
 const ADDRESS = 'maya@example.com';
+const QUESTION = `How did you hear about ${brand.name}?`;
 
 function wrap(children: ReactNode) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -213,6 +215,7 @@ describe('Save your place, the gate of the first run (ADR 0053)', () => {
   });
 
   it('goes on to make the circle once the code is through, telling the draft first', async () => {
+    Object.assign(session, { status: 'saved', userId: 'maya' });
     auth.ownProfile.mockResolvedValue({ name: 'Maya', zone: 'Australia/Melbourne' });
     const onPassed = vi.fn().mockResolvedValue(undefined);
     wrap(<SignInFlow gate={{ place, onPassed }} />);
@@ -223,7 +226,7 @@ describe('Save your place, the gate of the first run (ADR 0053)', () => {
     expect(onPassed).toHaveBeenCalledTimes(1);
   });
 
-  describe('"How did you hear about Wenna?" (SUS-171)', () => {
+  describe('"How did you hear about {brand}?" (SUS-171)', () => {
     const asked = () => askToShow.mock.calls.map(([target]) => target);
     const sourceEvents = () => track.mock.calls.filter(([name]) => name === 'organiser_source');
 
@@ -239,7 +242,7 @@ describe('Save your place, the gate of the first run (ADR 0053)', () => {
 
     it('is asked once the code is through and before the circle is made, with one tap on each answer', async () => {
       const onPassed = await throughTheCode();
-      expect(await screen.findByText('How did you hear about Wenna?')).toBeVisible();
+      expect(await screen.findByText(QUESTION)).toBeVisible();
       expect(replace).not.toHaveBeenCalled();
       expect(onPassed).toHaveBeenCalledTimes(1);
       expect(asked()).toEqual([{ moment: 'organiser_source', planId: undefined }]);
@@ -289,7 +292,7 @@ describe('Save your place, the gate of the first run (ADR 0053)', () => {
       askToShow.mockClear();
       await throughTheCode();
       await waitFor(() => expect(replace).toHaveBeenCalledWith('/circles/new/finish'));
-      expect(screen.queryByText('How did you hear about Wenna?')).toBeNull();
+      expect(screen.queryByText(QUESTION)).toBeNull();
       expect(sourceEvents()).toHaveLength(1);
     });
 
@@ -307,7 +310,7 @@ describe('Save your place, the gate of the first run (ADR 0053)', () => {
       askToShow.mockResolvedValue({ suppressed: true, reason: 'already_shown' });
       await throughTheCode();
       await waitFor(() => expect(replace).toHaveBeenCalledWith('/circles/new/finish'));
-      expect(screen.queryByText('How did you hear about Wenna?')).toBeNull();
+      expect(screen.queryByText(QUESTION)).toBeNull();
       expect(sourceEvents()).toEqual([]);
     });
 
@@ -331,6 +334,7 @@ describe('Save your place, the gate of the first run (ADR 0053)', () => {
   });
 
   it('asks a new account its name first', async () => {
+    Object.assign(session, { status: 'saved', userId: 'maya' });
     wrap(<SignInFlow gate={{ place, onPassed: async () => undefined }} />);
     await sendCodeTo(ADDRESS);
     await enter('123456');

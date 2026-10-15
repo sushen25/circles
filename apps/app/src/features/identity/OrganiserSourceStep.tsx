@@ -35,7 +35,10 @@ export function OrganiserSourceStep({ onDone }: { onDone: () => void }) {
   // A server that cannot be reached (React Query pauses the question while the
   // browser is offline, and it then never answers) is not a reason to hold
   // somebody on a loading screen: this is the one optional thing on the way.
-  const pending = nudge.showing === 'pending';
+  // Also the session not yet being the new organiser's: on a device that
+  // publishes the signed-in session late, the person is still `none` for a moment
+  // and a skip said then is not the answer for them.
+  const pending = nudge.showing === 'pending' || session.userId === undefined;
   useEffect(() => {
     if (!pending) return;
     const timer = setTimeout(leave, WAIT_MS);
@@ -45,10 +48,10 @@ export function OrganiserSourceStep({ onDone }: { onDone: () => void }) {
 
   useEffect(() => {
     // A session still being read is not an answer: the sign-in has just landed.
-    if (nudge.showing === 'skip' && !session.isLoading) leave();
+    if (nudge.showing === 'skip' && !session.isLoading && session.userId !== undefined) leave();
     // `leave` only reads a ref and the parent's callback.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nudge.showing, session.isLoading]);
+  }, [nudge.showing, session.isLoading, session.userId]);
 
   if (nudge.showing !== 'show') return <WelcomeScreen state="loading" />;
 

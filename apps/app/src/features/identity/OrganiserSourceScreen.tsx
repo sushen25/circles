@@ -5,7 +5,7 @@ import { Stack } from '../../components/layout';
 import { t } from '../../copy';
 
 /**
- * OrganiserSource (SUS-171): "How did you hear about Wenna?", the one question
+ * OrganiserSource (SUS-171): "How did you hear about {brand}?", the one question
  * the organiser's gate asks, once per account, after the code is through. Four
  * answers and Skip; each is a single tap that goes straight on, and none of
  * them is a field. What was chosen is an analytics word and nothing else.
