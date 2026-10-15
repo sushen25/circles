@@ -149,6 +149,10 @@ describe('a guest, in a circle that has guests', () => {
 
     await screen.findByText('Have you answered this before?');
     fireEvent.click(screen.getByRole('button', { name: "I'm new here" }));
+    // The `?step=name` step carries the line too, and not the list before it.
+    expect(
+      await screen.findByText('About a minute, and nobody sees your calendar.'),
+    ).toBeTruthy();
     await type('Ren');
 
     await waitFor(() => expect(joinPlan).toHaveBeenCalledTimes(1));
@@ -285,6 +289,8 @@ describe('a guest, in a circle with no guests', () => {
 
     await screen.findByText('What should the group call you?');
     expect(screen.queryByText('Have you answered this before?')).toBeNull();
+    // SUS-203: the effort and the privacy line, with no organiser and no plan named.
+    expect(screen.getByText('About a minute, and nobody sees your calendar.')).toBeTruthy();
 
     await type('Ren');
     await waitFor(() => expect(joinPlan).toHaveBeenCalledTimes(1));

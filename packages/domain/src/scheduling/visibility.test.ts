@@ -33,6 +33,22 @@ describe('the answer-visibility rule (option A, ADR 0066)', () => {
     expect(promiseProblems(answerVisibility, agreeing)).toEqual([]);
   });
 
+  it('lets a line say only what is not seen, and holds it to that (SUS-203)', () => {
+    const line = (text: string): CopyUnderRule => ({
+      ...agreeing,
+      promises: [{ id: 'name step', kind: 'not_sees', text }],
+    });
+    expect(
+      promiseProblems(answerVisibility, line('About a minute, and nobody sees your calendar.')),
+    ).toEqual([]);
+    expect(promiseProblems(answerVisibility, line('About a minute.'))).toEqual([
+      'name step should say what the group does not see',
+    ]);
+    expect(
+      promiseProblems(answerVisibility, line('Nobody in your circle sees your schedule.')),
+    ).not.toEqual([]);
+  });
+
   it('fails when the cards stop naming people but the promise still says they do', () => {
     const hidden: CopyUnderRule = {
       ...agreeing,

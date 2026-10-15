@@ -334,6 +334,15 @@
       "title": "Sent \u00b7 the organiser, who picks"
     },
     {
+      "file": "NamePlanLink.dc.html",
+      "x": 480,
+      "y": 7800,
+      "w": 390,
+      "h": 844,
+      "page": "guest",
+      "title": "Name \u00b7 plan link"
+    },
+    {
       "file": "AddToCalendarPreparing.dc.html",
       "x": 0,
       "y": 9100,

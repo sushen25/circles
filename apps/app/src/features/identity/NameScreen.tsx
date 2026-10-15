@@ -45,6 +45,12 @@ export type NameProps = {
    * need to hear is that their profile is not being renamed.
    */
   forAccount?: boolean | undefined;
+  /**
+   * A plan link's name step (SUS-203): one line more under the heading, the effort
+   * and the privacy promise, because nothing else has said either yet. Not on a
+   * circle invite, whose context is spec §5.1's.
+   */
+  fromPlanLink?: boolean | undefined;
   onChangeText?: ((text: string) => void) | undefined;
   onNext?: (() => void) | undefined;
   onBack?: (() => void) | undefined;
@@ -82,6 +88,7 @@ export function NameScreen({
   reference,
   busy = false,
   forAccount = false,
+  fromPlanLink = false,
   onChangeText,
   onNext,
   onBack,
@@ -98,6 +105,9 @@ export function NameScreen({
               ? t('name', 'just_for_this_circle', { circle: circleName })
               : t('name', 'just_a_first_name_is_fine_no')}
           </BodyText>
+          {fromPlanLink ? (
+            <BodyText>{t('name', 'about_a_minute_and_nobody_sees_your_calendar')}</BodyText>
+          ) : null}
         </Stack>
         <Stack>
           <Label nativeID="guest-name-label">{t('name', 'your_name')}</Label>

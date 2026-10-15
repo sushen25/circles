@@ -50,7 +50,13 @@ export type PromiseKind =
   /** Says the group sees who can make each option, and what it does not see. */
   | 'sees_and_not_sees'
   /** Says who has not answered is shown, quietly, and no more than that. */
-  | 'waiting';
+  | 'waiting'
+  /**
+   * Says only what is not seen, with no word about what is: a short line at the
+   * moment of the ask (the plan link's name step, SUS-203). It may not promise
+   * more than the rule gives, and it may not claim the group sees nothing.
+   */
+  | 'not_sees';
 
 export type PromiseSentence = {
   readonly id: string;
@@ -122,6 +128,10 @@ export function promiseProblems(rule: AnswerVisibility, copy: CopyUnderRule): st
           `${id} says the group sees who can make each option, the rule says it does not`,
         );
       }
+      if (!rule.showsWholeAvailabilityWithName && !NOT_SEES.test(text)) {
+        problems.push(`${id} should say what the group does not see`);
+      }
+    } else if (kind === 'not_sees') {
       if (!rule.showsWholeAvailabilityWithName && !NOT_SEES.test(text)) {
         problems.push(`${id} should say what the group does not see`);
       }

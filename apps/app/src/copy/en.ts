@@ -1798,6 +1798,8 @@ export const en = {
     just_a_first_name_is_fine_no: 'Just a first name is fine. No email, no password.',
     just_for_this_circle:
       'This is only what {circle} will call you. Your account keeps its own name.',
+    // The plan link's name step only (SUS-203): effort and the privacy line, no names.
+    about_a_minute_and_nobody_sees_your_calendar: 'About a minute, and nobody sees your calendar.',
     your_name: 'Your name',
     your_first_name: 'Your first name',
     this_is_what_the_others_will_see:

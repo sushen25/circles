@@ -39,3 +39,17 @@ describe('the three name screens', () => {
     expect(screen.getByPlaceholderText('e.g. the name of your group chat')).toBeVisible();
   });
 });
+
+describe('the line about effort and the calendar (SUS-203)', () => {
+  const LINE = 'About a minute, and nobody sees your calendar.';
+
+  it('is on the plan link’s name step', () => {
+    render(<NameScreen circleName="Sunday Crew" fromPlanLink />);
+    expect(screen.getByText(LINE)).toBeVisible();
+  });
+
+  it('is not on the circle invite’s name screen, which has spec §5.1’s context', () => {
+    render(<NameScreen circleName="Sunday Crew" inviterName="Maya" />);
+    expect(screen.queryByText(LINE)).toBeNull();
+  });
+});
