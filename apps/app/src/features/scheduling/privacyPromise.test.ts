@@ -45,6 +45,12 @@ const promises: PromiseSentence[] = [
     kind: 'sees_and_not_sees',
     text: en.legal.privacy_calendar_body,
   },
+  // SUS-203: the plan link's name step, one line under the heading.
+  {
+    id: 'plan link, name step',
+    kind: 'not_sees',
+    text: en.name.about_a_minute_and_nobody_sees_your_calendar,
+  },
   { id: 'site, promise 2', kind: 'sees_and_not_sees', text: en.site.promise2_body },
   { id: 'site, mock caption', kind: 'sees_and_not_sees', text: en.site.panel2_private },
   { id: 'site, promise 3', kind: 'waiting', text: en.site.promise3_body },

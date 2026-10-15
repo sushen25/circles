@@ -67,6 +67,8 @@ test('a circle with no guests never asks "Have you answered this before?"', asyn
 
   await page.goto(`/j/${crew.planCode}`);
   await expect(page.getByText('What should the group call you?')).toBeVisible();
+  // SUS-203: the effort and the privacy line, before anything is typed.
+  await expect(page.getByText('About a minute, and nobody sees your calendar.')).toBeVisible();
   await typeName(page, 'Ren');
 
   // The name step and the editor share this URL, so the URL alone does not say

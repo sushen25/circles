@@ -62,6 +62,7 @@ export function PlanNameFlow({
       circleName={circleName}
       inviterName={null}
       forAccount={forAccount}
+      fromPlanLink
       value={step.name}
       refusedName={step.refusedName}
       problem={step.problem}
