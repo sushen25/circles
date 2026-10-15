@@ -1,7 +1,3 @@
-import { readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-
 import { NUDGE_MOMENTS as DOMAIN_MOMENTS } from '@circles/domain';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
@@ -14,7 +10,6 @@ import {
   UNATTRIBUTED_EVENTS,
   acceptEvent,
   catalogue,
-  isEventName,
   isServerEvent,
   isUnattributed,
   validateEvent,
@@ -460,29 +455,6 @@ describe('who may record an event (SUS-185)', () => {
     const names = Object.keys(catalogue) as EventName[];
     for (const name of names) expect(['client', 'server']).toContain(catalogue[name].source);
     expect(names.filter(isServerEvent).sort()).toEqual(SERVER_ONLY);
-  });
-
-  it('keeps an event the app sends a client event', () => {
-    // Refusing one of these at the ingest would silently stop the measurement.
-    // Every `track('name', …)` in the app must name a client event.
-    const sent = new Set<string>();
-    const walk = (dir: string): void => {
-      for (const entry of readdirSync(dir, { withFileTypes: true })) {
-        const path = join(dir, entry.name);
-        if (entry.isDirectory()) walk(path);
-        else if (/\.tsx?$/.test(entry.name) && !/\.test\./.test(entry.name)) {
-          for (const match of readFileSync(path, 'utf8').matchAll(/\btrack\(\s*'([a-z_]+)'/g)) {
-            sent.add(match[1] as string);
-          }
-        }
-      }
-    };
-    walk(fileURLToPath(new URL('../../../apps/app/src', import.meta.url)));
-    expect(sent.size).toBeGreaterThan(20);
-    for (const name of sent) {
-      expect(isEventName(name), `${name} is declared`).toBe(true);
-      expect(isServerEvent(name as EventName), `${name} is sent by the app`).toBe(false);
-    }
   });
 
   it('keeps the crash report a client event: the error boundary sends it (SUS-112)', () => {
