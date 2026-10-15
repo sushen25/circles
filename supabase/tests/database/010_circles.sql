@@ -953,6 +953,9 @@ select is(
        -- (never its secret, which the database does not have), and
        -- `remove_member` the one way somebody is taken out.
        'live_invite', 'remove_member',
+       -- SUS-205. A member renames themself in one circle: the caller's own
+       -- row, with no parameter naming anybody else. `470_rename_in_circle.sql`.
+       'rename_in_circle',
        -- S2-02. Taking the organiser role on an opened quiet ask: the caller's
        -- own, refusing anybody the rule does not admit. Creating one and
        -- answering one are the service role's (`create_quiet_ask`,
