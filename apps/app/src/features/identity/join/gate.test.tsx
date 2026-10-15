@@ -182,7 +182,7 @@ describe('ReentryFlow', () => {
     expect(replace).not.toHaveBeenCalled();
   });
 
-  it('reattaches once, on the tap, with the screen\'s one idempotency key', async () => {
+  it("reattaches once, on the tap, with the screen's one idempotency key", async () => {
     reattachWithToken.mockResolvedValue({ circle: { id: 'c1' } });
     arrivalFor.mockResolvedValue({ kind: 'circle', id: 'c1' });
     render(wrap(<ReentryFlow token={'t'.repeat(40)} />));
