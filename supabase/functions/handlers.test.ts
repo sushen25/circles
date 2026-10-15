@@ -111,6 +111,22 @@ const client = vi.hoisted(() => ({
   },
 }));
 
+// The catalogue bounds every string it declares to what the table accepts, so no
+// real event can reach the ingest's content check. The one test that needs a
+// row the table would refuse swaps `acceptEvent` for a moment (SUS-147).
+const catalogueHook = vi.hoisted(() => ({
+  accept: undefined as ((name: string, payload: unknown) => unknown) | undefined,
+}));
+vi.mock('@circles/contracts', async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return {
+    ...actual,
+    acceptEvent: (name: string, payload: unknown) =>
+      catalogueHook.accept?.(name, payload) ??
+      (actual['acceptEvent'] as (name: string, payload: unknown) => unknown)(name, payload),
+  };
+});
+
 vi.mock('./_shared/db.ts', () => ({
   asCaller: () => client,
   asService: () => client,
@@ -3268,6 +3284,50 @@ describe('track-events', () => {
     );
 
     expect(await response.json()).toMatchObject({ accepted: 1, rejected: 2 });
+  });
+
+  it('records the other 49 when one event of a batch carries a string the table would refuse', async () => {
+    // SUS-147. `record_events` inserts the batch in one statement and
+    // `analytics.events` raises on a payload that carries content, so one bad
+    // string used to cost the other forty-nine. The ingest now asks the same
+    // question first, on each row alone.
+    const events = Array.from({ length: 50 }, (_, index) => ({
+      ...EVENT,
+      event_id: `00000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`,
+      name: 'client_error',
+      properties: { route: index === 9 ? '/p/[code]' : '/p/:code' },
+    }));
+    catalogueHook.accept = (name, payload) => ({
+      name,
+      version: 1,
+      properties: payload,
+    });
+    const lines: string[] = [];
+    const keep = (line: unknown): void => {
+      lines.push(String(line));
+    };
+    const spies = [
+      vi.spyOn(console, 'log').mockImplementation(keep),
+      vi.spyOn(console, 'warn').mockImplementation(keep),
+    ];
+    let response: Response;
+    try {
+      response = await load('track-events')(post({ events }));
+    } finally {
+      for (const spy of spies) spy.mockRestore();
+      catalogueHook.accept = undefined;
+    }
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ accepted: 49, rejected: 1 });
+    const rows = called('record_events')[0]?.args['p_rows'] as Record<string, unknown>[];
+    expect(rows).toHaveLength(49);
+    expect(JSON.stringify(rows)).not.toContain('[code]');
+    const dropped = lines
+      .map((text) => JSON.parse(text) as Record<string, unknown>)
+      .find((entry) => entry['event'] === 'events_dropped');
+    expect(dropped?.['counts']).toEqual({ client_error: 1 });
+    expect(lines.join('\n')).not.toContain('[code]');
   });
 
   it('drops a key the catalogue does not declare without losing the event', async () => {
