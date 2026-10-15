@@ -1,4 +1,11 @@
-import { fixtures as domain, fromISO, interval, type OthersSaid } from '@circles/domain';
+import {
+  dayCountsOf,
+  fixtures as domain,
+  fromISO,
+  interval,
+  zone,
+  type OthersSaid,
+} from '@circles/domain';
 
 import type { PlanToAnswer } from '../availability';
 
@@ -155,30 +162,33 @@ function evening(day: number, from: string, to: string) {
   );
 }
 
+const partialDays = [
+  [evening(15, '17:30', '22:30')],
+  [evening(15, '18:30', '21:30')],
+  [evening(16, '17:30', '20:30')],
+  [evening(17, '17:30', '21:00')],
+  [evening(17, '18:00', '22:30')],
+  [evening(17, '18:30', '20:30')],
+  [evening(17, '18:30', '22:30')],
+  [evening(18, '17:30', '22:30')],
+  [evening(19, '17:30', '19:00')],
+  [evening(19, '17:30', '22:30')],
+  [evening(19, '19:00', '22:00')],
+  [evening(22, '17:30', '22:30')],
+  [evening(23, '17:30', '22:30')],
+  [evening(24, '17:30', '22:30')],
+  [evening(24, '18:30', '21:30')],
+  [evening(25, '17:30', '22:30')],
+];
+
 export const othersPartial: OthersSaid = {
   asked: 6,
   answered: 4,
   withTimes: 4,
   flexible: 0,
   readerAnswered: true,
-  days: [
-    [evening(15, '17:30', '22:30')],
-    [evening(15, '18:30', '21:30')],
-    [evening(16, '17:30', '20:30')],
-    [evening(17, '17:30', '21:00')],
-    [evening(17, '18:00', '22:30')],
-    [evening(17, '18:30', '20:30')],
-    [evening(17, '18:30', '22:30')],
-    [evening(18, '17:30', '22:30')],
-    [evening(19, '17:30', '19:00')],
-    [evening(19, '17:30', '22:30')],
-    [evening(19, '19:00', '22:00')],
-    [evening(22, '17:30', '22:30')],
-    [evening(23, '17:30', '22:30')],
-    [evening(24, '17:30', '22:30')],
-    [evening(24, '18:30', '21:30')],
-    [evening(25, '17:30', '22:30')],
-  ],
+  dayCounts: dayCountsOf(partialDays, zone('Australia/Melbourne')),
+  days: partialDays,
 };
 
 /** Nobody else has answered yet: "You're the first to answer." */
@@ -188,5 +198,6 @@ export const othersFirst: OthersSaid = {
   withTimes: 0,
   flexible: 0,
   readerAnswered: false,
+  dayCounts: [],
   days: [],
 };

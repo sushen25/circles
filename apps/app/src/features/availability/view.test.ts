@@ -1,4 +1,5 @@
 import {
+  dayCountsOf,
   fromISO,
   interval,
   localDate,
@@ -341,24 +342,31 @@ describe('what the others have said (SUS-129, SUS-206)', () => {
     interval(fromISO(`2026-09-${day}T${from}:00+10:00`), fromISO(`2026-09-${day}T${to}:00+10:00`));
   // Five of six in: all five meet on Thursday 17th from 6:30 to 8:30; two on
   // Tuesday 15th; one on Saturday 19th; nobody on Monday 14th.
-  const FIVE: OthersSaid = {
-    asked: 6,
-    answered: 5,
-    withTimes: 5,
-    flexible: 0,
-    readerAnswered: false,
-    days: [
-      [evening(15, '17:30', '22:30')],
-      [evening(15, '18:30', '21:30')],
-      [evening(17, '17:30', '20:30')],
-      [evening(17, '17:30', '21:00')],
-      [evening(17, '18:00', '22:30')],
-      [evening(17, '18:30', '20:30')],
-      [evening(17, '18:30', '22:30')],
-      [evening(19, '17:30', '19:00')],
-    ],
-  };
-  const NOBODY: OthersSaid = { ...FIVE, answered: 0, withTimes: 0, days: [] };
+  const MELBOURNE = zone('Australia/Melbourne');
+  /** What the database sends for these people: the day counts, and from two the hours. */
+  const saying = (
+    base: Omit<OthersSaid, 'dayCounts' | 'days'>,
+    days: OthersSaid['days'],
+  ): OthersSaid => ({
+    ...base,
+    dayCounts: dayCountsOf(days, MELBOURNE),
+    days: base.withTimes >= 2 ? days : [],
+  });
+  const FIVE_DAYS = [
+    [evening(15, '17:30', '22:30')],
+    [evening(15, '18:30', '21:30')],
+    [evening(17, '17:30', '20:30')],
+    [evening(17, '17:30', '21:00')],
+    [evening(17, '18:00', '22:30')],
+    [evening(17, '18:30', '20:30')],
+    [evening(17, '18:30', '22:30')],
+    [evening(19, '17:30', '19:00')],
+  ];
+  const FIVE: OthersSaid = saying(
+    { asked: 6, answered: 5, withTimes: 5, flexible: 0, readerAnswered: false },
+    FIVE_DAYS,
+  );
+  const NOBODY: OthersSaid = { ...FIVE, answered: 0, withTimes: 0, dayCounts: [], days: [] };
 
   function withOthers(timing: PlanTiming, others: OthersSaid | undefined) {
     const { rows, run } = setUp(timing);
@@ -416,14 +424,14 @@ describe('what the others have said (SUS-129, SUS-206)', () => {
   });
 
   it('says two stretches with "and"', () => {
-    const { run, view } = withOthers(WHOLE_DAYS, {
-      ...FIVE,
-      days: [
+    const { run, view } = withOthers(
+      WHOLE_DAYS,
+      saying({ ...FIVE, withTimes: 3 }, [
         [evening(17, '09:00', '11:00'), evening(17, '18:00', '20:00')],
         [evening(17, '09:00', '11:00')],
         [evening(17, '18:00', '20:00')],
-      ],
-    });
+      ]),
+    );
     const [thursday] = view(run({ type: 'toggle_day', day: 3 }, { type: 'open', day: 3 })).cards;
 
     expect(thursday!.hours!.others).toMatch(/^Most others are free .*9–11 am and 6–8 pm\.$/);
@@ -446,14 +454,62 @@ describe('what the others have said (SUS-129, SUS-206)', () => {
     }
   });
 
-  it('adds "I\'m easy" to every count', () => {
-    const { run, view } = withOthers(EVENINGS, {
-      ...FIVE,
-      answered: 4,
-      withTimes: 3,
-      flexible: 1,
-      readerAnswered: true,
+  describe('with exactly one other answer in (SUS-211, ADR 0066)', () => {
+    // Nina alone: Thursday 6:30 to 8:30 pm and Saturday 7 to 9 pm.
+    const ONE = saying(
+      { asked: 6, answered: 1, withTimes: 1, flexible: 0, readerAnswered: false },
+      [[evening(17, '18:30', '20:30')], [evening(19, '19:00', '21:00')]],
+    );
+
+    it('keeps the day counts: a figure on the days the one person gave times on', () => {
+      const { run, view } = withOthers(EVENINGS, ONE);
+      const shown = view(run({ type: 'toggle_day', day: 0 }));
+      expect(shown.counted).toBe(true);
+      expect(shown.grid[3]).toMatchObject({ others: '1', othersMuted: false });
+      expect(shown.grid[3]!.label).toBe('Thursday 17 September, 1 other could make it');
+      expect(shown.grid[5]!.others).toBe('1');
+      expect(shown.grid[1]!.others).toBe('0');
     });
+
+    it('says nothing about hours on an open day: the line waits for two', () => {
+      const { run, view } = withOthers(EVENINGS, ONE);
+      const [thursday] = view(run({ type: 'toggle_day', day: 3 }, { type: 'open', day: 3 })).cards;
+      expect(thursday!.hours!.others).toBeUndefined();
+    });
+
+    it('says nothing about hours even if the hours were sent: the screen asks as well', () => {
+      const { run, view } = withOthers(EVENINGS, {
+        ...ONE,
+        days: [[evening(17, '18:30', '20:30')]],
+      });
+      const [thursday] = view(run({ type: 'toggle_day', day: 3 }, { type: 'open', day: 3 })).cards;
+      expect(thursday!.hours!.others).toBeUndefined();
+    });
+
+    it('says nothing about hours when the second answer is "I\'m easy": no one else has hours to add', () => {
+      const { run, view } = withOthers(EVENINGS, { ...ONE, answered: 2, flexible: 1 });
+      const shown = view(run({ type: 'toggle_day', day: 3 }, { type: 'open', day: 3 }));
+      // One other with times, one "I'm easy", and the reader who just tapped.
+      expect(shown.grid[3]!.others).toBe('3');
+      expect(shown.cards[0]!.hours!.others).toBeUndefined();
+    });
+
+    it('says the line again at two others with times', () => {
+      const TWO = saying(
+        { asked: 6, answered: 2, withTimes: 2, flexible: 0, readerAnswered: false },
+        [[evening(17, '18:30', '20:30')], [evening(17, '18:30', '20:30')]],
+      );
+      const { run, view } = withOthers(EVENINGS, TWO);
+      const [thursday] = view(run({ type: 'toggle_day', day: 3 }, { type: 'open', day: 3 })).cards;
+      expect(thursday!.hours!.others).toBe('Most others are free 6:30–8:30 pm.');
+    });
+  });
+
+  it('adds "I\'m easy" to every count', () => {
+    const { run, view } = withOthers(
+      EVENINGS,
+      saying({ ...FIVE, answered: 4, withTimes: 3, flexible: 1, readerAnswered: true }, FIVE_DAYS),
+    );
     const shown = view(run({ type: 'toggle_day', day: 0 }));
     expect(shown.grid[0]!.others).toBe('2');
     expect(shown.grid[3]!.others).toBe('6');

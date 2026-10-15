@@ -7,7 +7,7 @@
 -- at all to somebody who is not an active member.
 
 begin;
-select plan(35);
+select plan(44);
 
 create or replace function pg_temp.make_user(id uuid, name text, anonymous boolean default false)
 returns uuid language sql as $$
@@ -165,13 +165,13 @@ select is(
 select is(
   pg_temp.seen_by('00000000-0000-0000-0000-0000000026a2'),
   jsonb_build_object('asked', 6, 'answered', 0, 'with_times', 0, 'flexible', 0,
-    'reader_answered', false, 'days', '[]'::jsonb),
+    'reader_answered', false, 'day_counts', '[]'::jsonb, 'days', '[]'::jsonb),
   'before anybody answers: six asked, nobody in, nothing to count'
 );
 
 select pg_temp.answer('00000000-0000-0000-0000-0000000026a1', 'flexible');
 select is(
-  pg_temp.seen_by('00000000-0000-0000-0000-0000000026a2') - 'days',
+  pg_temp.seen_by('00000000-0000-0000-0000-0000000026a2') - 'days' - 'day_counts',
   jsonb_build_object('asked', 6, 'answered', 1, 'with_times', 0, 'flexible', 1,
     'reader_answered', false),
   '"I''m easy" is an answer, and counted as flexible'
@@ -180,6 +180,11 @@ select is(
   pg_temp.seen_by('00000000-0000-0000-0000-0000000026a2') -> 'days',
   '[]'::jsonb,
   'but alone it does not meet the threshold'
+);
+select is(
+  pg_temp.seen_by('00000000-0000-0000-0000-0000000026a2') -> 'day_counts',
+  '[]'::jsonb,
+  'and gives no day a count either'
 );
 
 select pg_temp.answer('00000000-0000-0000-0000-0000000026a3', 'none_work');
@@ -193,9 +198,15 @@ select is(
   '[]'::jsonb,
   'and adds no time, so there is still nothing to count'
 );
+select is(
+  pg_temp.seen_by('00000000-0000-0000-0000-0000000026a2') -> 'day_counts',
+  '[]'::jsonb,
+  'on any day'
+);
 
 -- ---------------------------------------------------------------------------
--- One answer with times: the threshold, which is one (the founder's decision).
+-- One answer with times: the days are counted, the hours are withheld (the
+-- founder's decision of 15 October 2026, SUS-211, ADR 0066).
 -- ---------------------------------------------------------------------------
 
 -- Jess: Thursday 6:30–8:30 pm and Saturday 7–9 pm, and Saturday 9:30–10:30.
@@ -205,17 +216,26 @@ select pg_temp.answer('00000000-0000-0000-0000-0000000026a4', 'windows', jsonb_b
   pg_temp.win('2099-09-19', 1290, 1350)));
 
 select is(
-  pg_temp.seen_by('00000000-0000-0000-0000-0000000026a2') - 'days',
+  pg_temp.seen_by('00000000-0000-0000-0000-0000000026a2') - 'days' - 'day_counts',
   jsonb_build_object('asked', 6, 'answered', 3, 'with_times', 1, 'flexible', 1,
     'reader_answered', false),
-  'one other answer with times meets the threshold'
+  'one other answer with times meets the threshold for the days'
+);
+select is(
+  pg_temp.seen_by('00000000-0000-0000-0000-0000000026a2') -> 'day_counts',
+  jsonb_build_array(
+    jsonb_build_object('day', '2099-09-17', 'count', 1),
+    jsonb_build_object('day', '2099-09-19', 'count', 1)),
+  'and with exactly one, each day they gave times on carries a count of one'
 );
 select is(
   pg_temp.seen_by('00000000-0000-0000-0000-0000000026a2') -> 'days',
-  jsonb_build_array(
-    jsonb_build_array(pg_temp.win('2099-09-17', 1110, 1230)),
-    jsonb_build_array(pg_temp.win('2099-09-19', 1140, 1260), pg_temp.win('2099-09-19', 1290, 1350))),
-  'and with exactly one, the days are that person''s answer, one entry per day'
+  '[]'::jsonb,
+  'but not their hours: with one other answer with times no window is returned'
+);
+select ok(
+  pg_temp.seen_by('00000000-0000-0000-0000-0000000026a2')::text !~ '"(start|end)"',
+  'and nothing in the result is a start or an end, however it is read'
 );
 
 -- ---------------------------------------------------------------------------
@@ -226,22 +246,27 @@ select pg_temp.answer('00000000-0000-0000-0000-0000000026a2', 'windows', jsonb_b
   pg_temp.win('2099-09-17', 1050, 1140)));
 
 select is(
-  pg_temp.seen_by('00000000-0000-0000-0000-0000000026a2') - 'days',
+  pg_temp.seen_by('00000000-0000-0000-0000-0000000026a2') - 'days' - 'day_counts',
   jsonb_build_object('asked', 6, 'answered', 3, 'with_times', 1, 'flexible', 1,
     'reader_answered', true),
   'Nina, having answered, is not among the others she reads about'
 );
 select is(
-  pg_temp.seen_by('00000000-0000-0000-0000-0000000026a2') -> 'days',
+  pg_temp.seen_by('00000000-0000-0000-0000-0000000026a2') -> 'day_counts',
   jsonb_build_array(
-    jsonb_build_array(pg_temp.win('2099-09-17', 1110, 1230)),
-    jsonb_build_array(pg_temp.win('2099-09-19', 1140, 1260), pg_temp.win('2099-09-19', 1290, 1350))),
-  'and her own windows are not in what she reads'
+    jsonb_build_object('day', '2099-09-17', 'count', 1),
+    jsonb_build_object('day', '2099-09-19', 'count', 1)),
+  'and her own days are not in what she reads: Thursday counts Jess alone'
+);
+select is(
+  pg_temp.seen_by('00000000-0000-0000-0000-0000000026a4') -> 'day_counts',
+  jsonb_build_array(jsonb_build_object('day', '2099-09-17', 'count', 1)),
+  'while Jess reads Nina''s day and not her own'
 );
 select is(
   pg_temp.seen_by('00000000-0000-0000-0000-0000000026a4') -> 'days',
-  jsonb_build_array(jsonb_build_array(pg_temp.win('2099-09-17', 1050, 1140))),
-  'while Jess reads Nina''s and not her own'
+  '[]'::jsonb,
+  'with no hours, as Nina is the only other answer with times'
 );
 
 -- ---------------------------------------------------------------------------
@@ -259,14 +284,21 @@ select isnt(
   'a guest who is a member reads it too'
 );
 
+select is(
+  (select jsonb_build_array(r -> 'with_times', jsonb_array_length(r -> 'days'))
+   from (select pg_temp.seen_by('00000000-0000-0000-0000-0000000026a4') as r) x),
+  jsonb_build_array(2, 3),
+  'with exactly two other answers with times the hours come: Jess reads Nina''s day and Sam''s two'
+);
+
 create temporary table seen as
 select pg_temp.seen_by('00000000-0000-0000-0000-0000000026a6') as r;
 grant select on seen to authenticated;
 
 select is(
   (select array_agg(k order by k) from seen, jsonb_object_keys(r) as k),
-  array['answered', 'asked', 'days', 'flexible', 'reader_answered', 'with_times'],
-  'the result is numbers, a yes or no, and the days: nothing else'
+  array['answered', 'asked', 'day_counts', 'days', 'flexible', 'reader_answered', 'with_times'],
+  'the result is numbers, a yes or no, the day counts and the days: nothing else'
 );
 select is(
   (select count(*)::integer from seen, jsonb_array_elements(r -> 'days') as e,
@@ -303,6 +335,20 @@ select is(
   (select jsonb_array_length(r -> 'days') from seen),
   5,
   'five entries: one for each day each of three people gave times on'
+);
+select is(
+  (select r -> 'day_counts' from seen),
+  jsonb_build_array(
+    jsonb_build_object('day', '2099-09-17', 'count', 3),
+    jsonb_build_object('day', '2099-09-19', 'count', 1),
+    jsonb_build_object('day', '2099-09-20', 'count', 1)),
+  'with two or more answers with times both come: the day counts, one per person per day'
+);
+select is(
+  (select count(*)::integer from seen, jsonb_array_elements(r -> 'day_counts') as c
+   where (select array_agg(k order by k) from jsonb_object_keys(c) as k) <> array['count', 'day']),
+  0,
+  'and each day count is a date and a number, with nothing beside them'
 );
 select is(
   (select jsonb_agg(e order by ordinality) from seen, jsonb_array_elements(r -> 'days')
@@ -344,9 +390,14 @@ select is(
   'an answer from somebody no longer a member is not counted'
 );
 select is(
-  jsonb_array_length(pg_temp.seen_by('00000000-0000-0000-0000-0000000026a2') -> 'days'),
+  jsonb_array_length(pg_temp.seen_by('00000000-0000-0000-0000-0000000026a2') -> 'day_counts'),
   2,
   'and their days are gone from what others read'
+);
+select is(
+  pg_temp.seen_by('00000000-0000-0000-0000-0000000026a2') -> 'days',
+  '[]'::jsonb,
+  'and with only one left the hours go again: the line has to wait for two'
 );
 -- Back in the circle, but no longer asked: leaving took Sam off the plan's
 -- audience (`on_member_removed`), and joining again does not opt back in.
@@ -363,7 +414,7 @@ select is(
 select is(
   pg_temp.seen_by('00000000-0000-0000-0000-0000000026a2'),
   jsonb_build_object('asked', 4, 'answered', 0, 'with_times', 0, 'flexible', 0,
-    'reader_answered', false, 'days', '[]'::jsonb),
+    'reader_answered', false, 'day_counts', '[]'::jsonb, 'days', '[]'::jsonb),
   'and answers to the old one count for nothing: nobody has answered this one'
 );
 
@@ -372,8 +423,8 @@ select public.replace_response((select plan_id from tp), 2, 'windows',
   jsonb_build_array(pg_temp.win('2099-09-18', 1110, 1230)));
 select pg_temp.act_as_postgres();
 select is(
-  pg_temp.seen_by('00000000-0000-0000-0000-0000000026a2') -> 'days',
-  jsonb_build_array(jsonb_build_array(pg_temp.win('2099-09-18', 1110, 1230))),
+  pg_temp.seen_by('00000000-0000-0000-0000-0000000026a2') -> 'day_counts',
+  jsonb_build_array(jsonb_build_object('day', '2099-09-18', 'count', 1)),
   'an answer to the new question counts, and only it'
 );
 select is(

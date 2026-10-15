@@ -3,10 +3,11 @@ adr: 45
 title: "The availability editor shows what others have said, as counts"
 status: proposed
 date: 2026-10-01
+amended_by: [66]
 ---
 # ADR 0045: The availability editor shows what others have said, as counts
 
-_Status: proposed · 1 October 2026_
+_Status: proposed · 1 October 2026 · amended by [ADR 0066](0066-the-group-sees-who-can-make-each-option-and-nobody-sees-whole-availability.md) on 15 October 2026: at one other answer the day counts show, and the hours wait for two_
 
 ## Context
 
@@ -66,6 +67,10 @@ Thursday evening, not a combined result. The ticket recommended two. The
 founder chose one so that the second person to answer gets something to work
 from, and accepted the exposure. In a three-person group it identifies the
 person too, because the reader knows who else was asked.
+
+_Amended 15 October 2026 ([ADR 0066](0066-the-group-sees-who-can-make-each-option-and-nobody-sees-whole-availability.md), SUS-211):_ the day counts stay at one. The hours within a day, and the line made of
+them, wait for two other answers with times; `others_availability` returns no
+window before that.
 
 **2. "I'm easy" counts everywhere** (spec §5.6). A flexible answer adds one to
 every day, block, overlap and half-hour count. The ticket recommended leaving
@@ -137,8 +142,10 @@ per-day windows**:
 _What this exposes beyond counts per half hour:_ counts per half hour already
 show where windows start and end on a day. An entry adds **which start goes
 with which end**, and which windows on one day belong to one person. With
-threshold one and one other answer in, the entries are that person's answer,
-day by day, and the founder accepted that under decision 1.
+threshold one and one other answer in, the entries were that person's answer,
+day by day, and the founder accepted that under decision 1. Since SUS-211 the
+entries come from two other answers; one answer gets `day_counts`, a count for
+each day, instead.
 
 The ticket's acceptance line "nothing … in the function's result … holds an
 individual window" is amended to: the function's result holds no identifier

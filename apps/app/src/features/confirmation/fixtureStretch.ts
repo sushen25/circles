@@ -1,4 +1,5 @@
 import {
+  dayCountsOf,
   fromLocal,
   interval,
   localDate,
@@ -101,18 +102,21 @@ export function fixtureStretch(startsAt: string, endsAt: string): Stretch {
 }
 
 /** The others, as Maya reads them: each person's windows on each day, nobody named. */
+const othersDays = RESPONSES.filter(([id]) => id !== 'maya').flatMap(([, response]) => {
+  const byDay = new Map<string, ReturnType<typeof win>[]>();
+  for (const window of response.windows) {
+    const day = String(Math.floor(window.start / 86_400_000));
+    byDay.set(day, [...(byDay.get(day) ?? []), window]);
+  }
+  return [...byDay.values()];
+});
+
 export const fixtureOthers: OthersSaid = {
   asked: 6,
   answered: 4,
   withTimes: 4,
   flexible: 0,
   readerAnswered: true,
-  days: RESPONSES.filter(([id]) => id !== 'maya').flatMap(([, response]) => {
-    const byDay = new Map<string, ReturnType<typeof win>[]>();
-    for (const window of response.windows) {
-      const day = String(Math.floor(window.start / 86_400_000));
-      byDay.set(day, [...(byDay.get(day) ?? []), window]);
-    }
-    return [...byDay.values()];
-  }),
+  dayCounts: dayCountsOf(othersDays, ZONE),
+  days: othersDays,
 };

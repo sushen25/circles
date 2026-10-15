@@ -3,11 +3,12 @@ adr: 66
 title: "The group sees who can make each option, and nobody sees anyone's whole availability"
 status: proposed
 date: 2026-10-11
+amends: [45]
 builds_on: [45, 51]
 ---
 # ADR 0066: The group sees who can make each option, and nobody sees anyone's whole availability
 
-_Status: proposed · 11 October 2026 · amends spec §5.6 and §8.2 in wording only; builds on [ADR 0045](0045-the-editor-shows-what-others-have-said-as-counts.md) and [ADR 0051](0051-the-organiser-sets-the-final-plan.md)_
+_Status: proposed · 11 October 2026 · amended 15 October 2026 (SUS-211: the editor's hours wait for two other answers; the day counts do not) · amends spec §5.6 and §8.2 in wording only, and [ADR 0045](0045-the-editor-shows-what-others-have-said-as-counts.md) on the hours at one answer; builds on [ADR 0045](0045-the-editor-shows-what-others-have-said-as-counts.md) and [ADR 0051](0051-the-organiser-sets-the-final-plan.md)_
 
 ## Context
 
@@ -28,7 +29,7 @@ Checked in the code and the schema, not assumed.
 1. **On the cards.** For each option on offer (at most three): who can make it, who answered but cannot, and who has not answered. That is a yes or a no for one stretch of time, never a window. Once options exist, the header marks who has replied.
 2. **Across the cards.** Together the cards give a person's verdict on at most three suggested stretches, and the set changes as answers arrive. They do **not** show everything someone ticked: "can make it" means a window of theirs contains that stretch, or they said "I'm easy", and no card says what else they ticked. Somebody who watched the cards through a plan's life could collect several yes-or-no verdicts about a person on different stretches; that is the most it adds up to.
 3. **In the availability editor.** Counts only: how many others could make each day, block and half hour. The editor's text names nobody (SUS-129, ADR 0045), and `others_availability` returns no name, no id and nothing linking one person's days. This was checked: the copy has no name placeholder, and the read's shape is pinned in a test.
-4. **The one case that is not "counts".** ADR 0045 accepted that with exactly one other answer with times, the editor shows that person's windows, day by day, with no name. A reader who also knows, from the header marks, that only one person has answered can guess whose they are. So the public sentences promise what is always true, that nobody's whole availability is **shown with their name on it**, and do not promise that nobody could ever work it out. Raising that threshold would be a database change and is not done here.
+4. **The one case that is not "counts".** ADR 0045 accepted that with exactly one other answer with times, the editor shows that person's windows, day by day, with no name. A reader who also knows, from the header marks, that only one person has answered can guess whose they are. So the public sentences promise what is always true, that nobody's whole availability is **shown with their name on it**, and do not promise that nobody could ever work it out. _Amended 15 October 2026 (SUS-211): the hours half of this is closed. See "Amendment" below; the days half is not._
 5. **Beyond what the screens draw.** A signed-in member can also read, through the API, the rows the screens do not render: the near-miss options with who could make them, and each answer's kind (times, "I'm easy", none of these dates, more notice, not this time) once options exist. Never a window. Not changed here, because option B's database work is not being done; recorded so nobody reads the promises as stronger than they are.
 6. **The organiser** sees more: who has answered at all before options exist, and by name who a stretch of their own choosing works for (ADR 0051). Members do not.
 
@@ -64,5 +65,34 @@ The site's mock ("Theo hasn't answered") already matched the new promise and is 
 
 - The three promises are true of the product, and a test keeps them so.
 - Spec §5.6 and §8.2 now say the same thing, and the manifesto's §8 agrees with both.
-- The single-answer case in point 4 and the extra rows in point 5 are written down, not fixed. If the founder wants either closed, that is a new ticket with a database change.
+- The extra rows in point 5 are written down, not fixed. If the founder wants them closed, that is a new ticket with a database change. The single-answer case in point 4 is closed for hours and open for days, as the Amendment says.
 - The artboards for the answering screen and the join page change with their sentences, through `docs/design/gen.py`.
+
+## Amendment, 15 October 2026 (SUS-211): what the editor shows at one other answer
+
+The gap in point 4 was ticketed as SUS-211 with three options: show others' aggregates only from two answers (1), coarsen at one answer by keeping the day counts and withholding the hours (2), or leave it (3). On 15 October 2026 the founder chose **2**.
+
+**With exactly one other answer with times in, the editor shows:**
+
+- **a count on each day tile** (and in the day's spoken label): "1 other could make it" on each day that person gave times on, and nothing on the others. This is still that person's days, one day at a time, with no name. The founder accepted it in ADR 0045 and chose it again here, so that the second person to answer still has something to work from.
+
+**and does not show, and the database does not send:**
+
+- **the "Most others are free …" line** on the exact-hours card, or anything else derived from others' hours within a day. The hours line appears once **two other people have answered with times**. Until then `public.others_availability` returns an empty `days` list: no window, no start, no end. A direct call as a member gets the same, so the API shows nothing the screen does not.
+- The same holds on the organiser's day picker, which reads the same function: its day figures are counts, and it has no hours to show.
+
+**What returns at each number of other answers** (all from `public.others_availability`, migration `0054_others_hours_wait_for_two.sql`):
+
+| other answers with times | `day_counts` (a date and a count, per day) | `days` (each person's windows on a day) |
+|---|---|---|
+| none (including only "I'm easy" or "none of these") | empty | empty |
+| one | one entry for each day they gave times on, count 1 | empty |
+| two or more | one entry per day, counting people | one entry per person per day |
+
+"I'm easy" answers add to every day's figure on the client as before. They do not count towards the second answer: a flexible answer has no hours to add, so one person with times and one "I'm easy" is still one person's hours, and the line waits. This reads "two other answers" as two with times; it is stricter than counting any answer and is the reading that keeps the sentence true.
+
+**What the public wording says.** Unchanged. "Nobody is shown your whole availability with your name on it" was true before and is true now; it never promised that nobody could work out whose days a lone count is. The hours are now withheld, so the only thing a reader can still infer at one answer is which days that person could make, not when within them.
+
+**Where the rule lives.** `HOURS_THRESHOLD` in `packages/domain/src/availability/others.ts` is two and `OTHERS_THRESHOLD` stays one; `hoursShown` is the check the line makes on the client, and the SQL is the enforcement. pgTAP `260_others_availability.sql` pins the shapes at none, one and two; the unit tests pin the line and the tiles at one answer.
+
+**Alternatives.** Option 1 (no figures from one answer) would close the days half too, and was recommended in the ticket; the founder chose against it. Option 3 (leave it) was not chosen.

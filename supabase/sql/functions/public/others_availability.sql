@@ -25,11 +25,23 @@
 --     "5 of 6" here is the "5 of 6" everywhere else).
 --
 -- Beyond what per-half-hour counts show, an entry says which start goes with
--- which end on a day. With exactly one other answer in, the entries are that
--- person's answer, day by day: the founder accepted both (ADR 0045).
+-- which end on a day. So the entries are two things kept apart (SUS-211, ADR
+-- 0066):
 --
--- **The threshold is enforced here**, not on the client: below one other
--- answer with times, `days` is empty. "I'm easy" answers do not meet it alone.
+--   * `day_counts`: for each local day, how many other people gave times on it
+--     (a number and a date, nothing else). The tiles' figures come from here.
+--     With one other answer with times, this is that person's days; the
+--     founder accepted that, and chose it again on 15 October 2026.
+--   * `days`: the entries above, each person's windows on one day. The hours
+--     line ("Most others are free …") comes from them, and with one other
+--     answer they would be that person's hours, so they are **withheld
+--     until two other people have answered with times**.
+--
+-- **Both thresholds are enforced here**, not on the client: with no other
+-- answer with times, `day_counts` and `days` are both empty ("I'm easy"
+-- answers do not meet it alone); with exactly one, `days` is empty and
+-- `day_counts` is not. A flexible answer has no hours to give away, so the
+-- second threshold counts answers with times, not answers.
 --
 -- The caller must be an active member of the plan's circle; guests are
 -- anonymous sessions, and members too. For anybody else, and for a plan that
@@ -80,6 +92,7 @@ as $$
   -- One person's windows on one local day of the plan.
   entries as (
     select
+      (w.starts_at at time zone plan.time_zone)::date as day,
       jsonb_agg(
         jsonb_build_object('start', w.starts_at, 'end', w.ends_at)
         order by w.starts_at
@@ -98,8 +111,18 @@ as $$
     'with_times', c.with_times,
     'flexible', c.flexible,
     'reader_answered', c.reader_answered,
-    'days', case
+    'day_counts', case
       when c.with_times < 1 then '[]'::jsonb
+      else (
+        select coalesce(
+          jsonb_agg(jsonb_build_object('day', d.day, 'count', d.n) order by d.day),
+          '[]'::jsonb
+        )
+        from (select e.day, count(*)::integer as n from entries e group by e.day) d
+      )
+    end,
+    'days', case
+      when c.with_times < 2 then '[]'::jsonb
       else (
         select coalesce(
           jsonb_agg(e.windows order by e.first_start, e.last_end, e.windows::text),
@@ -114,7 +137,7 @@ as $$
 $$;
 
 comment on function public.others_availability(uuid) is
-  'For an active member answering a plan: how many it asks, how many others have answered (with times, "I''m easy"), whether the caller has, and each other person''s windows per day with nothing to say whose or to link days. Current revision only, never the caller''s own, empty below one other answer with times. Null for anybody else (SUS-129).';
+  'For an active member answering a plan: how many it asks, how many others have answered (with times, "I''m easy"), whether the caller has, and how many others gave times on each day, and (from two other answers with times) each other person''s windows per day with nothing to say whose or to link days. Current revision only, never the caller''s own. Null for anybody else (SUS-129).';
 
 revoke all on function public.others_availability(uuid) from public;
 revoke all on function public.others_availability(uuid) from anon, authenticated;

@@ -1,7 +1,8 @@
 import {
   cellCounts,
-  freeFor,
+  dayFreeCount,
   freeStretches,
+  hoursShown,
   interval,
   othersShown,
   rangeText,
@@ -26,9 +27,9 @@ export function counted(others: OthersSaid | undefined): OthersSaid | undefined 
   return others !== undefined && othersShown(others) ? others : undefined;
 }
 
-/** How many others could make a day: anyone with any half hour on it. */
+/** How many others could make a day: anyone who gave times on it, from the day counts. */
 export function dayFree(others: OthersSaid, row: DayRow): number {
-  return freeFor(others, row.cells);
+  return dayFreeCount(others, row.date);
 }
 
 /**
@@ -61,6 +62,9 @@ export function othersLine(
   timing: BlockTiming,
   format: TimeFormat,
 ): string | undefined {
+  // Two others with times, or no line: with one, the hours are that person's
+  // (ADR 0066). The database sends none then; this keeps the screen honest too.
+  if (!hoursShown(others)) return undefined;
   const stretches = freeStretches(cellCounts(others, row.cells));
   if (stretches.length === 0) return undefined;
   const times = stretches.map(({ from, to }) =>

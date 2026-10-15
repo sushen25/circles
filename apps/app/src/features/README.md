@@ -87,7 +87,7 @@ route, not routes of their own.
 
 **Counts of what others said, SUS-129 (ADR 0045), on the tiles in SUS-206:** the
 figure on each day is `data/availability/others.ts` read on open
-(`others_availability`), worked out in `others.ts` from the domain's `freeFor`,
+(`others_availability`), worked out in `others.ts` from the domain's `dayFreeCount` (the day counts, from one other answer) and `freeFor` (the hours line, from two: ADR 0066),
 and the reader once they tap (`headcount`). With no backend, the gallery's
 `partial` fixture is Alex's first-time landing with the four who have answered
 counted, `complete` opens on Alex's own answer, and `empty` shows the

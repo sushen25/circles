@@ -1,9 +1,6 @@
 import {
-  addDays,
+  dayFreeCount,
   formatMinutesOfDay,
-  freeFor,
-  fromLocal,
-  interval,
   localDate,
   othersShown,
   toLocal,
@@ -80,14 +77,9 @@ export function clockOf(
 }
 
 /** How many of the others could make some of a day: SUS-129's count, from the same read. */
-function othersOn(others: OthersSaid | undefined, day: string, zone: string): number | undefined {
+function othersOn(others: OthersSaid | undefined, day: string): number | undefined {
   if (others === undefined || !othersShown(others)) return undefined;
-  const z = toZone(zone);
-  const span = interval(
-    fromLocal(localDate(day), 0, z),
-    fromLocal(addDays(localDate(day), 1), 0, z),
-  );
-  const count = freeFor(others, [span]);
+  const count = dayFreeCount(others, localDate(day));
   return count > 0 ? count : undefined;
 }
 
@@ -109,7 +101,7 @@ export function gridDays(input: {
   return monthDays(month, today, [], today).map((day) => {
     const selected = day.date === pick.day;
     const tooFar = day.why === undefined && day.date > last;
-    const count = othersOn(others, day.date, plan.zone);
+    const count = othersOn(others, day.date);
     const words = dateWords(localDate(day.date), 'long');
     const label =
       day.why === 'past'

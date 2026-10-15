@@ -6,28 +6,46 @@
  * only, at every level: a day, a block of hours on a day, a line of the
  * reader's own answer, and each half hour. Nobody is named.
  *
- * Three rules, settled by the founder on 1 October 2026, live here and in
+ * Three rules, settled by the founder on 1 October 2026 and refined on 15
+ * October 2026 (SUS-211, ADR 0066), live here and in
  * `public.others_availability`:
  *
- * - **The threshold is one.** Counts show once at least one other person has
- *   answered with times. With exactly one, the counts are that person's
- *   answer; that was accepted. "I'm easy" answers alone do not meet it: they
- *   would put the same number on every day, which says nothing about which day.
+ * - **The day counts' threshold is one; the hours' is two.** The figure on a
+ *   day shows once at least one other person has answered with times. With
+ *   exactly one, the figures are that person's days; that was accepted. What
+ *   they were free *within* a day (the hours, and the "Most others are free …"
+ *   line made of them) waits until two others have answered with times, and
+ *   the database does not send it before. "I'm easy" answers alone meet
+ *   neither: they would put the same number on every day, which says nothing
+ *   about which day.
  * - **"I'm easy" counts everywhere** (spec §5.6): a flexible answer adds one to
  *   every day, block, overlap and half hour.
  * - **Free means any half hour.** Somebody counts for a block when they have any
  *   half hour inside it, and for a line of the answer when they share any half
  *   hour with it. The plan's duration does not come into it.
  *
- * Pure: the database gives the numbers and each other person's windows on each
- * day, with nothing to say whose they are or to link one day's to another's;
- * this works out every count from them.
+ * Pure: the database gives the numbers, how many others gave times on each day,
+ * and (from two) each other person's windows on each day, with nothing to say
+ * whose they are or to link one day's to another's; this works out every count
+ * from them.
  */
 
 import { type Interval, overlaps } from '../shared/interval.js';
+import { type LocalDate, localDate } from '../shared/local-date.js';
+import { toLocal, type Zone } from '../shared/zone.js';
 
-/** Counts show once this many others have answered with times. */
+/** The figure on a day shows once this many others have answered with times. */
 export const OTHERS_THRESHOLD = 1;
+
+/**
+ * The hours within a day (and anything made of them) show once this many
+ * others have answered with times. With one, they would be that person's own
+ * hours, day by day.
+ */
+export const HOURS_THRESHOLD = 2;
+
+/** How many other people gave times on a day (not counting "I'm easy"). */
+export type DayCount = { readonly date: LocalDate; readonly count: number };
 
 export type OthersSaid = {
   /** Everyone the plan's current revision is asking, the reader included. */
@@ -41,17 +59,60 @@ export type OthersSaid = {
   /** Whether the reader has an answer in to this revision. */
   readonly readerAnswered: boolean;
   /**
+   * For each day any other person gave times on, how many did. Empty below
+   * the day threshold, and never counts the reader's own answer.
+   */
+  readonly dayCounts: readonly DayCount[];
+  /**
    * One entry per other person per day they gave times on: that person's
    * windows on that day. In no particular order, and nothing links an entry to
    * a person or to the same person's entry on another day. Empty below the
-   * threshold, and never holds the reader's own answer.
+   * hours threshold (two others with times), and never holds the reader's own
+   * answer.
    */
   readonly days: readonly (readonly Interval[])[];
 };
 
-/** Whether there is anything to count: the threshold, as the database applies it. */
+/** Whether the days have anything to count: the threshold, as the database applies it. */
 export function othersShown(others: OthersSaid): boolean {
-  return others.withTimes >= OTHERS_THRESHOLD && others.days.length > 0;
+  return others.withTimes >= OTHERS_THRESHOLD && others.dayCounts.length > 0;
+}
+
+/**
+ * Whether the hours within a day may be shown, as the database applies it. The
+ * client asks as well, but the database does not send them below this, so a
+ * screen that forgot to ask would still have nothing to show.
+ */
+export function hoursShown(others: OthersSaid): boolean {
+  return others.withTimes >= HOURS_THRESHOLD && others.days.length > 0;
+}
+
+/**
+ * How many others could make a day, for the figure on its tile: everyone who
+ * said "I'm easy", and each person who gave times on it. Counts from
+ * `dayCounts`, so it needs no hours.
+ */
+export function dayFreeCount(others: OthersSaid, date: LocalDate): number {
+  const found = others.dayCounts.find((entry) => entry.date === date);
+  return others.flexible + (found?.count ?? 0);
+}
+
+/**
+ * The day counts that a list of per-person-per-day windows gives, as the
+ * database works them out (the local day each person's windows start on).
+ * For fixtures and tests: the app reads `dayCounts` from the database.
+ */
+export function dayCountsOf(days: readonly (readonly Interval[])[], z: Zone): DayCount[] {
+  const counts = new Map<string, number>();
+  for (const windows of days) {
+    const first = windows[0];
+    if (first === undefined) continue;
+    const date = toLocal(first.start, z).date;
+    counts.set(date, (counts.get(date) ?? 0) + 1);
+  }
+  return [...counts.entries()]
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    .map(([date, count]) => ({ date: localDate(date), count }));
 }
 
 /**
