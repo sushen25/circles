@@ -1,10 +1,17 @@
-import { acceptEvent, TrackEventsRequest, type TrackEventsResponse } from '@circles/contracts';
+import {
+  acceptEvent,
+  isServerEvent,
+  isUnattributed,
+  TrackEventsRequest,
+  type TrackEventsResponse,
+} from '@circles/contracts';
 
 import { sha256Hex } from '../_shared/hash.ts';
 import { ingestHandler } from '../_shared/ingest.ts';
 import { log } from '../_shared/logging.ts';
+import { memberIdsOf } from '../_shared/memberIds.ts';
 import { splitRecordable } from '../_shared/recordable.ts';
-import { callerAddress, enforce } from '../_shared/rate.ts';
+import { callerAddress, enforce, within } from '../_shared/rate.ts';
 
 /**
  * First-party analytics ingest (architecture §15).
@@ -21,6 +28,15 @@ import { callerAddress, enforce } from '../_shared/rate.ts';
  *    key or a value that could carry words (`jobs.carries_content`). Two
  *    defences, because this is the one endpoint whose whole job is to accept
  *    data a client made up.
+ *
+ * 4. **A caller records only what a caller can know** (SUS-185). An event the
+ *    catalogue marks `source: 'server'` is a fact that a function owns and
+ *    records with the service role; it is refused from every caller. A
+ *    `circle_id` or `plan_id` is kept only when the caller is an active member
+ *    of that circle, checked once for the whole batch, and is otherwise
+ *    nulled, so a script cannot file events against a group it is not in. The
+ *    two quiet-ask events are recorded against nobody, to the hour, whatever
+ *    the caller sent. `client_error` is the app's, and is capped per address.
  *
  * The response says how many of each and nothing about which: answering "was
  * *this* event accepted" one at a time would be a validation oracle for a
@@ -41,6 +57,21 @@ import { callerAddress, enforce } from '../_shared/rate.ts';
  * recorded as *now*. The event survives, in the only month we can defend.
  */
 const A_MONTH = 30 * 24 * 60 * 60 * 1000;
+
+/**
+ * How many crash reports one address may file a minute. A crash loop on a real
+ * device is a handful; a script posting `client_error` is what inflates the
+ * health email's counts and writes a log line per event. Over the limit they
+ * are dropped (and counted), not refused: the rest of the batch is still wanted.
+ */
+const CLIENT_ERRORS_PER_MINUTE = 30;
+
+/** An instant rounded down to the hour: fine enough for every count, too coarse to join on. */
+function toTheHour(instant: string): string {
+  const at = new Date(instant);
+  at.setUTCMinutes(0, 0, 0);
+  return at.toISOString();
+}
 
 function occurredAt(claimed: string, now: number): string {
   const at = Date.parse(claimed);
@@ -65,7 +96,7 @@ Deno.serve(
         { scope: 'track_ip', key: callerAddress(request), max: 600, window: '1 minute', cost },
       ]);
     },
-    handle: async ({ body, actor, service, requestId }): Promise<TrackEventsResponse> => {
+    handle: async ({ body, actor, service, request, requestId }): Promise<TrackEventsResponse> => {
       const rows = [];
       const now = Date.now();
 
@@ -87,6 +118,11 @@ Deno.serve(
           ? (await sha256Hex(body.anonymous_id)).replace(/^\\x/, '')
           : null;
 
+      // **Refused before anything is spent on them.** A server-side fact is
+      // recorded by the function that owns it; the name is the catalogue's
+      // (`accepted.name`), and the count is all that is kept of the refusal.
+      const refused: Record<string, number> = {};
+      const candidates = [];
       for (const event of body.events) {
         const accepted = acceptEvent(event.name, event.properties);
         if (accepted === null) continue;
@@ -95,22 +131,75 @@ Deno.serve(
         // or a new one deployed ahead of the server. Rejected rather than
         // stored under a version number that would make the two indistinguishable.
         if (accepted.version !== event.version) continue;
+        if (isServerEvent(accepted.name)) {
+          refused[accepted.name] = (refused[accepted.name] ?? 0) + 1;
+          continue;
+        }
+        candidates.push({ event, accepted });
+      }
 
+      // Crash reports are bounded per address, one counter charged for the
+      // batch's reports. Over the limit the reports are dropped, not the batch.
+      const crashes = candidates.filter(({ accepted }) => accepted.name === 'client_error');
+      let crashesAllowed = true;
+      if (crashes.length > 0) {
+        crashesAllowed = await within(service, {
+          scope: 'track_client_error',
+          key: callerAddress(request),
+          max: CLIENT_ERRORS_PER_MINUTE,
+          window: '1 minute',
+          cost: crashes.length,
+        });
+        if (!crashesAllowed) refused['client_error'] = crashes.length;
+      }
+      const wanted = crashesAllowed
+        ? candidates
+        : candidates.filter(({ accepted }) => accepted.name !== 'client_error');
+
+      // One lookup for the whole batch, and none at all when nobody is signed
+      // in: an anonymous caller is a member of nothing.
+      const mine = await memberIdsOf(
+        service,
+        actor?.userId,
+        wanted.map(({ accepted }) => accepted.properties.circle_id),
+        wanted.map(({ accepted }) => accepted.properties.plan_id),
+      );
+
+      for (const { event, accepted } of wanted) {
         // `circle_id` and `plan_id` are lifted out of the payload into their own
         // columns — the indexes are on those — and not left behind as well: a
-        // value in two places is two values that can disagree.
+        // value in two places is two values that can disagree. Kept only when
+        // the caller belongs to the circle (see `memberIds.ts`).
         const { circle_id: circleId, plan_id: planId, ...properties } = accepted.properties;
+
+        // **Recorded against nobody, to the hour, whatever the caller sent**
+        // (SUS-51, SUS-185). The client splits these into a request of their
+        // own and rounds the time, but a caller that does not is still stored
+        // as if it had: nothing here trusts it to.
+        const nobody = isUnattributed(accepted.name);
+        const at = occurredAt(event.occurred_at, now);
 
         rows.push({
           event_id: event.event_id,
           event_name: accepted.name,
           schema_version: accepted.version,
-          user_id: actor?.userId ?? null,
-          anonymous_id: anonymousId,
-          circle_id: typeof circleId === 'string' ? circleId : null,
-          plan_id: typeof planId === 'string' ? planId : null,
+          user_id: nobody ? null : (actor?.userId ?? null),
+          anonymous_id: nobody ? null : anonymousId,
+          circle_id: typeof circleId === 'string' && mine.circles.has(circleId) ? circleId : null,
+          plan_id: typeof planId === 'string' && mine.plans.has(planId) ? planId : null,
           properties,
-          occurred_at: occurredAt(event.occurred_at, now),
+          occurred_at: nobody ? toTheHour(at) : at,
+          // Absent means `now()`, to the millisecond, in `record_events`.
+          ...(nobody ? { received_at: toTheHour(new Date(now).toISOString()) } : {}),
+        });
+      }
+
+      if (Object.keys(refused).length > 0) {
+        log('warn', {
+          fn: 'track-events',
+          request_id: requestId,
+          event: 'events_refused',
+          counts: refused,
         });
       }
 
