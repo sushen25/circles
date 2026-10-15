@@ -1,9 +1,9 @@
 import { useFonts } from 'expo-font';
-import { Stack, router, useSegments } from 'expo-router';
+import { Stack, router, useGlobalSearchParams, usePathname, useSegments } from 'expo-router';
 import Head from 'expo-router/head';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
@@ -76,25 +76,28 @@ const queryClient = new QueryClient({
 /**
  * The ways out of an error screen (SUS-200). On the web a way out that is a full
  * page load does not depend on the router or on any state the failure left
- * behind; on a phone the router's own `replace` is all there is.
+ * behind; on a phone the router's own `replace` is all there is, and "reload"
+ * replaces the screen with itself, so the plan and its parameters stay.
  */
-const exits: Exits = {
-  circles: () => router.replace('/circles'),
-  start: () => {
-    if (Platform.OS === 'web' && typeof globalThis.location?.assign === 'function') {
-      globalThis.location.assign('/');
-      return;
-    }
-    router.replace('/');
-  },
-  reload: () => {
-    if (Platform.OS === 'web' && typeof globalThis.location?.reload === 'function') {
-      globalThis.location.reload();
-      return;
-    }
-    router.replace('/');
-  },
-};
+function exitsFor(here: { pathname: string; params: Record<string, string | string[]> }): Exits {
+  return {
+    circles: () => router.replace('/circles'),
+    start: () => {
+      if (Platform.OS === 'web' && typeof globalThis.location?.assign === 'function') {
+        globalThis.location.assign('/');
+        return;
+      }
+      router.replace('/');
+    },
+    reload: () => {
+      if (Platform.OS === 'web' && typeof globalThis.location?.reload === 'function') {
+        globalThis.location.reload();
+        return;
+      }
+      router.replace({ pathname: here.pathname, params: here.params } as never);
+    },
+  };
+}
 
 export default function RootLayout() {
   // Newsreader and Figtree, one registered face per weight (see
@@ -120,6 +123,10 @@ export default function RootLayout() {
   // this commit, so an effect would still hold the screen before it. The
   // router's segments name the file that matched, never the address.
   setCurrentRoute(useSegments());
+
+  const pathname = usePathname();
+  const params = useGlobalSearchParams();
+  const exits = useMemo(() => exitsFor({ pathname, params }), [pathname, params]);
 
   // Script errors and rejected promises on the web, which never reach a render
   // and so never reach the boundary.

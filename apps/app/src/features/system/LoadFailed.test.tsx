@@ -11,6 +11,9 @@ import { showableReference } from './useFailureReference';
 const track = vi.fn();
 vi.mock('../../analytics/track', () => ({ track: (...args: unknown[]) => track(...args) }));
 
+const session = { status: 'saved' as string };
+vi.mock('../../data/auth/session', () => ({ useSession: () => session }));
+
 const exits = (): Exits => ({ circles: vi.fn(), start: vi.fn(), reload: vi.fn() });
 
 function show(
@@ -36,6 +39,7 @@ function show(
 beforeEach(() => {
   track.mockReset();
   resetClientErrors();
+  session.status = 'saved';
 });
 
 describe('LoadFailed: the reference (SUS-200)', () => {
@@ -119,6 +123,16 @@ describe('LoadFailed: the second way out', () => {
     const wired = show('circles');
     fireEvent.click(screen.getByRole('button', { name: 'Back to your circles' }));
     expect(wired.circles).toHaveBeenCalledOnce();
+  });
+
+  it('gives a guest on a screen that is usually an account\'s the guest exit, not "your circles"', () => {
+    // A plan link reaches the member's candidates and the confirmed screen as a guest.
+    session.status = 'guest';
+    const wired = show('circles');
+    expect(screen.queryByRole('button', { name: 'Back to your circles' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Reload this page' }));
+    expect(wired.reload).toHaveBeenCalledOnce();
+    expect(wired.circles).not.toHaveBeenCalled();
   });
 
   it('goes to the start where "your circles" is the screen that failed', () => {
