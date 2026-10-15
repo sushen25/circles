@@ -91,18 +91,19 @@ const appExternals = [
   '@testing-library/*',
 ];
 
+const TEST = { categories: 'test' };
+const INTEGRATION = { categories: 'integration' };
+
 /**
  * One policy: files of type `from` may import elements of the `elements`
  * types and packages matching `packages`, and nothing else (the rule's
  * default is disallow). Policies are evaluated in order and the last match
  * wins, so each layer has exactly one.
  */
-const TEST = { categories: 'test' };
-const INTEGRATION = { categories: 'integration' };
-
 function allowImports(from, elements, packages, file) {
-  const allow = [];
-  if (elements.length > 0) allow.push({ to: { element: { type: elements } } });
+  // A layer may always import itself.
+  const types = [...new Set([from, elements].flat(2))];
+  const allow = [{ to: { element: { type: types } } }];
   if (packages.length > 0) allow.push({ to: { module: { source: packages } } });
   return { from: { element: { type: from }, ...(file && { file }) }, allow };
 }
@@ -146,6 +147,10 @@ export default tseslint.config(
           default: 'disallow',
           // Externals are checked too: `to: { module }` below is the package half.
           checkAllOrigins: true,
+          // Imports inside one layer are checked too: the integration helpers
+          // (`data/testing/*.integration.ts`) sit in the same folder as the code
+          // that must not import them.
+          checkInternals: true,
           message:
             '{{from.type}} is not allowed to import "{{dependency.source}}" (architecture §7.2)',
           policies: [

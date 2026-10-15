@@ -22,6 +22,11 @@ async function violations(filePath, code) {
 
 // Each `to` names a file or package that exists, so the import resolves.
 const mustFail = [
+  [
+    'a layer’s own code does not import its integration helper',
+    'apps/app/src/data/x.ts',
+    './testing/stack.integration',
+  ],
   ['data never imports features', 'apps/app/src/data/x.ts', '../features/circles/CircleHomeFlow'],
   [
     'platform never imports features',
@@ -77,6 +82,7 @@ const mustFail = [
 ];
 
 const mustPass = [
+  ['a layer imports itself', 'apps/app/src/data/x.ts', './preview'],
   ['features import data', 'apps/app/src/features/x.ts', '../data/preview'],
   ['data imports the domain', 'apps/app/src/data/x.ts', '@circles/domain'],
   ['the domain imports date-fns-tz', 'packages/domain/src/x.ts', 'date-fns-tz'],
