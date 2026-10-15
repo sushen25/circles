@@ -4633,6 +4633,37 @@ describe('process-scheduled-jobs', () => {
       expect(new Set(enqueued().map((job) => job.idempotency_key)).size).toBe(1);
     });
 
+    it('writes no letter for a deadline a hand-off has already announced to its new organiser (SUS-96)', async () => {
+      withContact();
+      planContext = undecided();
+      const answer = state.answer;
+      state.answer = (fn, args) =>
+        fn === 'dispatch_handed_off_since' ? { data: true, error: null } : answer(fn, args);
+      events = [closedAt({})];
+      await load('process-scheduled-jobs')(post({}, 'a-shared-secret'));
+
+      expect(called('dispatch_handed_off_since')[0]?.args).toEqual({
+        p_plan_id: PLAN_ID,
+        p_since: new Date(DEADLINE).toISOString(),
+      });
+      expect(enqueued()).toEqual([]);
+      // The event is still finished with, or it would be drained for ever.
+      expect(called('dispatch_event_result')).toHaveLength(1);
+    });
+
+    it('still writes the letter a day later, which the sweep itself holds back after a hand-off', async () => {
+      withContact();
+      planContext = undecided();
+      const answer = state.answer;
+      state.answer = (fn, args) =>
+        fn === 'dispatch_handed_off_since' ? { data: true, error: null } : answer(fn, args);
+      events = [closedAt({ follow_up: '+24h' })];
+      await load('process-scheduled-jobs')(post({}, 'a-shared-secret'));
+
+      expect(called('dispatch_handed_off_since')).toEqual([]);
+      expect(enqueued().map((job) => job.kind)).toEqual(['replies_closed']);
+    });
+
     it('tells the organiser a plan was handed to that replies have closed', async () => {
       withContact();
       planContext = undecided();

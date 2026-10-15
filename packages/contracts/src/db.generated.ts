@@ -1277,6 +1277,10 @@ export type Database = {
         Args: { p_error?: string; p_id: string }
         Returns: undefined
       }
+      dispatch_handed_off_since: {
+        Args: { p_plan_id: string; p_since: string }
+        Returns: boolean
+      }
       dispatch_health: { Args: { p_claim?: boolean }; Returns: Json }
       dispatch_health_due: { Args: never; Returns: boolean }
       dispatch_job_result: {
