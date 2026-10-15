@@ -13,10 +13,15 @@ import { OrganiserSourceScreen } from './OrganiserSourceScreen';
  *
  * "Once per account" is `record-nudge`'s `organiser_source` row, which says the
  * account was asked and holds no answer. The answer goes only to the analytics
- * event, with nothing else in it. A server that cannot be asked, an account that
+ * event, with nothing else in it; the account's own row says only that the
+ * question was answered, the same for every choice, so it cannot be asked again
+ * on this device after a sign-out either. A server that cannot be asked, an account that
  * has been asked before and a device with no backend all read as `skip`, and the
  * person is on their way without having seen anything: nothing blocks on this.
  */
+/** How long the question may take to be asked before the person is sent on without it. */
+const WAIT_MS = 4000;
+
 export function OrganiserSourceStep({ onDone }: { onDone: () => void }) {
   const session = useSession();
   const nudge = useNudge('organiser_source');
@@ -26,6 +31,17 @@ export function OrganiserSourceStep({ onDone }: { onDone: () => void }) {
     left.current = true;
     onDone();
   };
+
+  // A server that cannot be reached (React Query pauses the question while the
+  // browser is offline, and it then never answers) is not a reason to hold
+  // somebody on a loading screen: this is the one optional thing on the way.
+  const pending = nudge.showing === 'pending';
+  useEffect(() => {
+    if (!pending) return;
+    const timer = setTimeout(leave, WAIT_MS);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pending]);
 
   useEffect(() => {
     // A session still being read is not an answer: the sign-in has just landed.
@@ -41,6 +57,10 @@ export function OrganiserSourceStep({ onDone }: { onDone: () => void }) {
       onChoose={(source: OrganiserSource) => {
         if (left.current) return;
         track('organiser_source', { source });
+        // Answered, as far as this session is concerned, whichever way: a chip
+        // and Skip are recorded alike on the account, which says it was asked
+        // and nothing about what it said. The event is the only place a source is.
+        nudge.tap();
         leave();
       }}
     />

@@ -310,11 +310,11 @@ test('"How did you hear about Wenna?" is asked once per account, counts one word
   await expect(page).toHaveURL(/\/name$/);
 
   // The event is one word and nothing else; the account's own record holds only
-  // that it was asked, with no answer on it.
+  // that it was answered, the same for every choice.
   await expect.poll(() => sources().length, { timeout: 20_000 }).toBe(before + 1);
   expect(sources().at(-1)).toBe('{"source": "meetup"}');
   const asked = sql(
-    `select n.answer is null from nudge_states n join auth.users u on u.id = n.user_id
+    `select n.answer = 'tapped' from nudge_states n join auth.users u on u.id = n.user_id
       where u.email = '${email}' and n.moment = 'organiser_source'`,
   );
   expect(asked).toEqual([['t']]);

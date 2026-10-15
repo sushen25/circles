@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -252,8 +252,13 @@ describe('Save your place, the gate of the first run (ADR 0053)', () => {
       fireEvent.click(screen.getByRole('checkbox', { name: 'Reddit' }));
       expect(replace).toHaveBeenCalledWith('/circles/new/finish');
       expect(sourceEvents()).toEqual([['organiser_source', { source: 'reddit' }]]);
-      // Nothing about the answer reaches the account's own record.
-      expect(recordAnswer).not.toHaveBeenCalled();
+      // The account's own record says it was answered, the same for every choice.
+      expect(recordAnswer).toHaveBeenCalledTimes(1);
+      expect(recordAnswer.mock.calls[0]?.[0]).toEqual({
+        moment: 'organiser_source',
+        planId: undefined,
+      });
+      expect(recordAnswer.mock.calls[0]?.[1]).toBe('tapped');
     });
 
     it('records a skip as skipped and goes straight on', async () => {
@@ -261,6 +266,31 @@ describe('Save your place, the gate of the first run (ADR 0053)', () => {
       fireEvent.click(await screen.findByRole('button', { name: 'Skip' }));
       expect(replace).toHaveBeenCalledWith('/circles/new/finish');
       expect(sourceEvents()).toEqual([['organiser_source', { source: 'skipped' }]]);
+      expect(recordAnswer.mock.calls[0]?.[1]).toBe('tapped');
+    });
+
+    it('goes on without the question when the server never answers, rather than waiting for ever', async () => {
+      askToShow.mockReturnValue(new Promise(() => undefined));
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      await throughTheCode();
+      expect(replace).not.toHaveBeenCalled();
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(4100);
+      });
+      expect(replace).toHaveBeenCalledWith('/circles/new/finish');
+      expect(sourceEvents()).toEqual([]);
+    });
+
+    it('is not asked again in this session by the same account at another gate', async () => {
+      await throughTheCode();
+      fireEvent.click(await screen.findByRole('button', { name: 'Skip' }));
+      cleanup();
+      replace.mockReset();
+      askToShow.mockClear();
+      await throughTheCode();
+      await waitFor(() => expect(replace).toHaveBeenCalledWith('/circles/new/finish'));
+      expect(screen.queryByText('How did you hear about Wenna?')).toBeNull();
+      expect(sourceEvents()).toHaveLength(1);
     });
 
     it('counts a choice once, whatever else is tapped', async () => {
