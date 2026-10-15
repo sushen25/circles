@@ -80,7 +80,27 @@ export const founderAnalyticsFixture: FounderAnalytics = {
     corroborated: 3,
     second_meetup_circles: 1,
   },
+  // The same funnel by the organiser's answer to "How did you hear about
+  // {brand}?" (SUS-171): the circles sum to the six above, and `unknown` is an
+  // owner who was never asked.
+  by_source: {
+    friend_group: {
+      counters: { circles_created: 3, circles_activated: 2, answers: 12, plans_created: 4 },
+      events: { circle_join_opened: 20, circle_joined: 15, availability_submitted: 26 },
+    },
+    reddit: {
+      counters: { circles_created: 2, circles_activated: 1, answers: 5, plans_created: 3 },
+      events: { circle_join_opened: 9, circle_joined: 6, availability_submitted: 10 },
+    },
+    unknown: {
+      counters: { circles_created: 1, circles_activated: 1, answers: 7, plans_created: 2 },
+      events: { circle_join_opened: 12, circle_joined: 8, availability_submitted: 14 },
+    },
+  },
   events: [
+    total('organiser_source', '2026-09-07', 5),
+    split('organiser_source', '2026-09-07', 'source', 'friend_group', 3),
+    split('organiser_source', '2026-09-07', 'source', 'reddit', 2),
     total('circle_join_opened', '2026-09-07', 41),
     total('circle_joined', '2026-09-07', 29),
     total('availability_started', '2026-09-07', 80),
@@ -111,5 +131,6 @@ export const emptyFounderAnalytics: FounderAnalytics = {
   gates: {},
   cohort_circles: {},
   counters: {},
+  by_source: {},
   events: [],
 };

@@ -79,7 +79,12 @@ async function draftThroughThePlan(page: Page, circleName: string): Promise<void
   await expect(page.getByText("Your plan's ready. Save your place.")).toBeVisible();
 }
 
-async function signInByCode(page: Page, email: string): Promise<void> {
+/**
+ * `answer` is what a new organiser says at the gate to "How did you hear about
+ * Wenna?" (SUS-171): a chip's name, or `Skip`. Left out, the sign-in is not at the
+ * gate and nothing is asked.
+ */
+async function signInByCode(page: Page, email: string, answer?: string): Promise<void> {
   await page.getByLabel('Your email').fill(email);
   await page.getByRole('button', { name: 'Send me a code' }).click();
   await expect(page.getByText(`Sent to ${email}.`, { exact: false })).toBeVisible();
@@ -92,6 +97,11 @@ async function signInByCode(page: Page, email: string): Promise<void> {
   await expect(code).toHaveAttribute('inputmode', 'numeric');
   await code.fill(await latestCodeFor(email));
   await page.getByRole('button', { name: 'Continue' }).click();
+  if (answer === undefined) return;
+  await expect(page.getByText('How did you hear about Wenna?')).toBeVisible();
+  await page
+    .getByRole(answer === 'Skip' ? 'button' : 'checkbox', { name: answer, exact: true })
+    .click();
 }
 
 test('a new organiser reaches a shareable plan link with two typed inputs and no permission asks', async ({
@@ -141,7 +151,7 @@ test('a new organiser reaches a shareable plan link with two typed inputs and no
     requests.filter((request) => /create-circle|create-plan/.test(request)),
     'nothing is sent to be made before the place is saved',
   ).toEqual([]);
-  await signInByCode(page, email);
+  await signInByCode(page, email, 'Reddit');
 
   await expect(page).toHaveURL(/\/name$/);
   await expect(page.getByLabel('Your name')).toBeVisible();
@@ -284,6 +294,48 @@ test('where the browser has a share sheet, "Share to group chat" hands it the pl
   await expect(page.getByText('Copied', { exact: true })).toHaveCount(0);
 });
 
+test('"How did you hear about Wenna?" is asked once per account, counts one word, and names nobody', async ({
+  page,
+  browser,
+}) => {
+  const email = `${globalThis.crypto.randomUUID()}@example.test`;
+  // This account's own events: other projects run this file at the same time.
+  const sources = () =>
+    sql(
+      `select e.properties::text from analytics.events e join auth.users u on u.id = e.user_id
+        where e.event_name = 'organiser_source' and u.email = '${email}' order by e.occurred_at`,
+    ).map(([properties]) => properties);
+  const before = 0;
+
+  await draftThroughThePlan(page, `Source ${globalThis.crypto.randomUUID().slice(0, 8)}`);
+  await signInByCode(page, email, 'A meetup or club');
+  await expect(page).toHaveURL(/\/name$/);
+
+  // The event is one word and nothing else; the account's own record holds only
+  // that it was answered, the same for every choice.
+  await expect.poll(() => sources().length, { timeout: 20_000 }).toBe(before + 1);
+  expect(sources().at(-1)).toBe('{"source": "meetup"}');
+  const asked = sql(
+    `select n.answer = 'tapped' from nudge_states n join auth.users u on u.id = n.user_id
+      where u.email = '${email}' and n.moment = 'organiser_source'`,
+  );
+  expect(asked).toEqual([['t']]);
+
+  // The same account at the gate on another device: not asked again.
+  const other = await browser.newContext();
+  const second = await other.newPage();
+  await draftThroughThePlan(second, `Source ${globalThis.crypto.randomUUID().slice(0, 8)}`);
+  await second.getByLabel('Your email').fill(email);
+  await second.getByRole('button', { name: 'Send me a code' }).click();
+  await expect(second.getByLabel('Code', { exact: true })).toBeVisible();
+  await second.getByLabel('Code', { exact: true }).fill(await latestCodeFor(email));
+  await second.getByRole('button', { name: 'Continue' }).click();
+  await expect(second).not.toHaveURL(/\/circles\/new\/save$/);
+  await expect(second.getByText('How did you hear about Wenna?')).toHaveCount(0);
+  expect(sources().length).toBe(before + 1);
+  await other.close();
+});
+
 test('abandoning at the gate creates nothing, and a reload keeps the draft', async ({ page }) => {
   const name = `Abandon ${globalThis.crypto.randomUUID().slice(0, 8)}`;
   await draftThroughThePlan(page, name);
@@ -332,7 +384,7 @@ test('the draft survives the email code, and the circle is made only after it', 
   await page.reload();
   await expect(page.getByText("Your plan's ready. Save your place.")).toBeVisible();
   const second = `${globalThis.crypto.randomUUID()}@example.test`;
-  await signInByCode(page, second);
+  await signInByCode(page, second, 'Skip');
   await page.getByLabel('Your name').fill('Maya');
   await page.getByRole('button', { name: 'Continue' }).click();
 
@@ -368,7 +420,7 @@ test('on a desktop window the "Setting up" wait sits in the same centred column 
     await route.continue();
   });
   const email = `${globalThis.crypto.randomUUID()}@example.test`;
-  await signInByCode(page, email);
+  await signInByCode(page, email, 'Skip');
   await page.getByLabel('Your name').fill('Maya');
   await page.getByRole('button', { name: 'Continue' }).click();
 

@@ -1127,6 +1127,17 @@ export const en = {
     period_group: 'Period',
     from_date: 'From {date}. Weeks start on Monday, in UTC.',
     never_split: 'Nothing here is split by person, circle or plan.',
+    // The funnel by "How did you hear about {brand}?" (SUS-171).
+    funnel_source_group: 'Read by where the organiser heard of us',
+    funnel_source_detail:
+      "Each row is counted under the answer of the circle's organiser. Events nobody can place are in All only.",
+    funnel_source_all: 'All',
+    funnel_source_friend_group: "A friend's group",
+    funnel_source_reddit: 'Reddit',
+    funnel_source_meetup: 'A meetup or club',
+    funnel_source_other: 'Somewhere else',
+    funnel_source_skipped: 'Skipped',
+    funnel_source_unknown: 'Not asked',
     // Neutral on purpose: it is on screen while the allowlist is still being asked,
     // and must not tell anybody else the route exists.
     loading: 'Getting things ready',
@@ -2649,6 +2660,20 @@ export const en = {
     reference: 'Ref {reference}',
     too_many_tries: "That's a lot of codes for one address. Wait a few minutes, then try again.",
     youre_offline: "You're offline. Connect, then try again.",
+  },
+  /**
+   * "How did you hear about {brand}?", asked once, right after the organiser's
+   * code is accepted (SUS-171). Four answers and a way past; no typing.
+   */
+  organiserSource: {
+    heading: 'How did you hear about {brand}?',
+    detail:
+      'One tap, or skip. We only count the answers; they are never tied to a name or an email.',
+    friend_group: "A friend's group",
+    reddit: 'Reddit',
+    meetup: 'A meetup or club',
+    other: 'Somewhere else',
+    skip: 'Skip',
   },
   site: {
     brand: '{brand}',

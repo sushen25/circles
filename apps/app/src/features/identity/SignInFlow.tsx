@@ -27,6 +27,7 @@ import {
   RESEND_AFTER_MS,
   type EnterCodeProblem,
 } from './EnterCodeScreen';
+import { OrganiserSourceStep } from './OrganiserSourceStep';
 import { SignInScreen, type SignInPlace, type SignInProblem } from './SignInScreen';
 
 /**
@@ -96,6 +97,9 @@ export function SignInFlow({ returnTo, gate }: SignInFlowProps) {
   const [codeProblem, setCodeProblem] = useState<EnterCodeProblem | undefined>();
   const [reference, setReference] = useState<string | undefined>();
   const [newCodeSent, setNewCodeSent] = useState(false);
+  // Where to go once "How did you hear?" is out of the way (SUS-171); set only
+  // at the first run's gate, after the code is through.
+  const [onward, setOnward] = useState<string | undefined>();
   const started = useRef(false);
   const sending = useRef(false);
 
@@ -111,6 +115,10 @@ export function SignInFlow({ returnTo, gate }: SignInFlowProps) {
     await requestSignInCode(address);
     return { kind: 'code', address, via: { kind: 'sign_in' }, sentAt: Date.now() };
   };
+
+  if (onward !== undefined) {
+    return <OrganiserSourceStep onDone={() => router.replace(onward)} />;
+  }
 
   if (step.kind === 'code') {
     const confirm = async () => {
@@ -183,9 +191,16 @@ export function SignInFlow({ returnTo, gate }: SignInFlowProps) {
         // Unknown: Your name reads the profile again and says what it finds.
       }
       if (gate !== undefined) await gate.onPassed().catch(() => undefined);
-      router.replace(
-        destinationAfterSignIn({ next, draft: gate !== undefined, hasName, circleId }),
-      );
+      const destination = destinationAfterSignIn({
+        next,
+        draft: gate !== undefined,
+        hasName,
+        circleId,
+      });
+      // The organiser's gate asks where they heard of us, once, on the way
+      // (SUS-171); the step answers `skip` by itself for anyone asked before.
+      if (gate === undefined) router.replace(destination);
+      else setOnward(destination);
     };
 
     return (

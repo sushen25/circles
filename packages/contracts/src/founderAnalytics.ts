@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { catalogue, isEventName, type EventName } from './analytics.js';
+import { ORGANISER_SOURCES, catalogue, isEventName, type EventName } from './analytics.js';
 
 /**
  * The founder's analytics screen (SUS-166): what `public.founder_analytics`
@@ -58,6 +58,21 @@ export const EventRow = z.object({
 });
 export type EventRow = z.infer<typeof EventRow>;
 
+/**
+ * The funnel's counts for one answer to "How did you hear about {brand}?"
+ * (SUS-171): the row counters and every event's total, attributed through the
+ * circle's owner. `unknown` is an owner who was never asked.
+ */
+export const SourceNumbers = z.object({
+  counters: z.record(z.string(), Count),
+  events: z.record(z.string(), Count),
+});
+export type SourceNumbers = z.infer<typeof SourceNumbers>;
+
+/** The sources the funnel can be read by, in the order the screen offers them. */
+export const FUNNEL_SOURCES = [...ORGANISER_SOURCES, 'unknown'] as const;
+export type FunnelSourceFilter = (typeof FUNNEL_SOURCES)[number];
+
 export const FounderAnalytics = z.object({
   /** The Monday the period starts on. */
   since: z.string(),
@@ -70,6 +85,8 @@ export const FounderAnalytics = z.object({
   /** How many circles each cohort has. A count, never which. */
   cohort_circles: z.record(z.string(), Count),
   counters: z.record(z.string(), Count),
+  /** The funnel split by the organiser's answer; never which organiser. */
+  by_source: z.record(z.string(), SourceNumbers).default({}),
   events: z.array(EventRow),
 });
 export type FounderAnalytics = z.infer<typeof FounderAnalytics>;
@@ -290,7 +307,17 @@ function eventTotal(result: FounderAnalytics, event: string): number {
   return total;
 }
 
-function sourceCount(result: FounderAnalytics, source: FunnelSource): number {
+function sourceCount(
+  result: FounderAnalytics,
+  source: FunnelSource,
+  by: FunnelSourceFilter | undefined,
+): number {
+  if (by !== undefined) {
+    const numbers = result.by_source[by];
+    return 'event' in source
+      ? (numbers?.events[source.event] ?? 0)
+      : (numbers?.counters[source.counter] ?? 0);
+  }
   return 'event' in source
     ? eventTotal(result, source.event)
     : (result.counters[source.counter] ?? 0);
@@ -405,11 +432,16 @@ export const FUNNEL: readonly FunnelStage[] = [
 export type FunnelStepResult = { id: string; count: number; share: number | null };
 export type FunnelStageResult = { id: string; steps: FunnelStepResult[]; hasMissing: boolean };
 
-export function funnelOf(result: FounderAnalytics): FunnelStageResult[] {
+/**
+ * The funnel, whole or read for one answer to "How did you hear about {brand}?".
+ * Each row is counted under the source of the circle's owner, so a row with no
+ * circle behind it (an event nobody can place) is in the whole and in no source.
+ */
+export function funnelOf(result: FounderAnalytics, by?: FunnelSourceFilter): FunnelStageResult[] {
   return FUNNEL.map((stage) => {
     let previous: number | undefined;
     const steps = stage.steps.map((step) => {
-      const count = sourceCount(result, step.source);
+      const count = sourceCount(result, step.source, by);
       const share =
         step.ofPrevious === true && previous !== undefined && previous > 0
           ? count / previous
