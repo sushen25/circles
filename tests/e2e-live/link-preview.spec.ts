@@ -95,6 +95,74 @@ test.describe('the preview fetcher', () => {
   });
 });
 
+test.describe('the /og route, which nothing else requests', () => {
+  // The same answer in every project, so it is asked in one.
+  const once = () =>
+    test.skip(test.info().project.name !== 'android-chrome', 'the same in every project');
+
+  test('answers a preview fetcher with the card, whose every address is the app’s own', async ({
+    request,
+  }) => {
+    once();
+    const crew = sundayCrew();
+    const response = await request.get(`/og/j?c=${crew.planCode}`, {
+      headers: { 'user-agent': WHATSAPP_PREVIEW },
+      maxRedirects: 0,
+    });
+    expect(response.status()).toBe(200);
+    const headers = response.headers();
+    expect(headers['content-type']).toMatch(/^text\/html; charset=utf-8$/i);
+    expect(headers['cache-control']).toBe('no-store');
+    expect(headers['referrer-policy']).toBe('no-referrer');
+    expect(headers['x-content-type-options']).toBe('nosniff');
+
+    const html = await response.text();
+    expect(isCard(html)).toBe(true);
+    expect(html).toMatch(/<meta property="og:title" content="[^"]*Sunday Crew/);
+
+    // Nothing the card points at is on another origin: not the image, not the
+    // refresh, not a link. A fetcher follows `og:image` itself, so an address
+    // elsewhere would be a request the product sends to a third party.
+    const origin = new URL(response.url()).origin;
+    const addresses = [...html.matchAll(/(?:content|href|src)="(https?:\/\/[^"]+)"/g)].map(
+      (m) => m[1]!,
+    );
+    const refresh = html.match(/http-equiv="refresh" content="0; url=([^"]+)"/)?.[1];
+    if (refresh) addresses.push(refresh);
+    expect(addresses.length, 'the card names an image and a destination').toBeGreaterThanOrEqual(2);
+    for (const address of addresses) {
+      expect(new URL(address.replaceAll('&amp;', '&')).origin, address).toBe(origin);
+    }
+
+    // And the image it names is there, and is an image.
+    const image = html.match(/<meta property="og:image" content="([^"]+)"/)?.[1];
+    expect(image, 'the card names an image').toBeTruthy();
+    const picture = await request.get(image!, { headers: { 'user-agent': WHATSAPP_PREVIEW } });
+    expect(picture.status()).toBe(200);
+    expect(picture.headers()['content-type']).toMatch(/^image\//);
+  });
+
+  test('sends a person on to the page, and anything it does not know to the front door', async ({
+    request,
+  }) => {
+    once();
+    const crew = sundayCrew();
+    const person = await request.get(`/og/p?c=${crew.planCode}`, {
+      headers: { 'user-agent': PINTEREST_IN_APP },
+      maxRedirects: 0,
+    });
+    expect(person.status()).toBe(302);
+    expect(new URL(person.headers()['location']!).pathname).toBe(`/p/${crew.planCode}`);
+
+    const unknown = await request.get('/og/nope', {
+      headers: { 'user-agent': WHATSAPP_PREVIEW },
+      maxRedirects: 0,
+    });
+    expect(unknown.status()).toBe(302);
+    expect(new URL(unknown.headers()['location']!).pathname).toBe('/');
+  });
+});
+
 test('the exported server bundle carries the app config the card trusts', async () => {
   test.skip(test.info().project.name !== 'android-chrome', 'one build, asked once');
   // SUS-128. The server bundle never has the `EXPO_PUBLIC_*` variables on EAS

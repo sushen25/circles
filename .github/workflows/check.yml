@@ -202,6 +202,12 @@ jobs:
       - name: pnpm check:stack
         run: pnpm run check:stack
 
+      - name: What the smoke suite ran
+        # The smoke suite retries twice in CI; this is where a test that needed
+        # them is named (SUS-124).
+        if: always()
+        run: node scripts/live-summary.mjs playwright-report/smoke-results.json "" "Smoke suite"
+
       - name: Upload the Playwright report
         # Not `failure()`: a job that hit its timeout is cancelled, and that is
         # exactly when the report is wanted.
