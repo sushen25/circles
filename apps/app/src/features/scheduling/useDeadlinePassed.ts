@@ -11,7 +11,7 @@ import {
   handOffCandidates,
   handOffOrganiser,
 } from '../../data/scheduling';
-import { isOffline } from '../identity/join/failure';
+import { neverReachedServer } from '../identity/join/failure';
 
 /**
  * The replies-closed screen's two actions that are not locking something in
@@ -48,7 +48,7 @@ export type DeadlinePassedActions = {
 };
 
 function problemOf(error: unknown): string {
-  if (isOffline()) return t('deadlinePassed', 'problem_offline');
+  if (neverReachedServer(error)) return t('deadlinePassed', 'problem_offline');
   if (!(error instanceof FunctionError)) return t('deadlinePassed', 'problem_generic');
   switch (error.reason) {
     case 'not_the_organiser':

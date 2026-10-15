@@ -1,6 +1,7 @@
 import { t } from '../../copy';
 import { Loading } from '../../components';
 import { Placeholder } from '../scheduling/parts';
+import { LoadFailed } from '../system/LoadFailed';
 import type { MorningAfterWords } from './morningAfter';
 
 /**
@@ -42,11 +43,12 @@ export function MorningPlaceholder({
     case 'error':
     case 'offline':
       return (
-        <Placeholder
+        <LoadFailed
+          state={state}
           message={t(screen, state === 'offline' ? 'youre_offline' : 'couldnt_load')}
-          actionLabel={t(screen, 'try_again')}
-          onAction={onRetry}
+          where="circles"
           onBack={onBack}
+          onRetry={onRetry}
         />
       );
     case 'denied':

@@ -19,6 +19,7 @@ import { Between, Stack } from '../../components/layout';
 import { t } from '../../copy';
 import { Placeholder } from '../scheduling/parts';
 import { NOTE_MAX_LENGTH, PLACE_NAME_MAX_LENGTH, PLACE_URL_MAX_LENGTH } from './review';
+import { LoadFailed } from '../system/LoadFailed';
 
 /**
  * EditLocked — `docs/design/EditLocked.dc.html` (spec §5.7, ADR 0051).
@@ -105,14 +106,13 @@ export function EditLockedScreen({
   }
   if (state === 'error' || state === 'offline') {
     return (
-      <Placeholder
+      <LoadFailed
+        state={state}
+        message={t('editLocked', state === 'offline' ? 'youre_offline' : 'couldnt_load')}
+        where="circles"
         topTitle={back}
-        message={
-          state === 'offline' ? t('editLocked', 'youre_offline') : t('editLocked', 'couldnt_load')
-        }
-        actionLabel={t('editLocked', 'try_again')}
-        onAction={onRetry}
         onBack={onBack}
+        onRetry={onRetry}
       />
     );
   }

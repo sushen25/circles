@@ -30,8 +30,19 @@ export const CLIENT_ERROR_CLASSES = [
 ] as const;
 export type ClientErrorClass = (typeof CLIENT_ERROR_CLASSES)[number];
 
-/** Where it was caught: the screen's boundary, or the window's two listeners. */
-export const CLIENT_ERROR_SOURCES = ['boundary', 'window_error', 'unhandled_rejection'] as const;
+/**
+ * Where it was caught: the screen's boundary, the window's two listeners, or
+ * (SUS-200) a failure the app handled and showed a reference for: a screen that
+ * could not load (`load_failed`) and a request that failed on a screen that
+ * stays up, like sending the sign-in code (`request_failed`).
+ */
+export const CLIENT_ERROR_SOURCES = [
+  'boundary',
+  'window_error',
+  'unhandled_rejection',
+  'load_failed',
+  'request_failed',
+] as const;
 export type ClientErrorSource = (typeof CLIENT_ERROR_SOURCES)[number];
 
 /**

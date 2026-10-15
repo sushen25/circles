@@ -13,6 +13,7 @@ export { DayGrid, type GridDay, type GridPaint } from './DayGrid';
 export { Icon, type IconName } from './Icon';
 export { Input } from './Input';
 export { ListRow } from './ListRow';
+export { LoadError, type LoadErrorExit } from './LoadError';
 export { Loading } from './Loading';
 export { Marks, type Member } from './Marks';
 export { Notice } from './Notice';

@@ -2,7 +2,6 @@ import {
   Body,
   BodyText,
   Button,
-  DisplayL,
   DisplayXL,
   Foot,
   Loading,
@@ -15,6 +14,7 @@ import {
 } from '../../components';
 import { t } from '../../copy';
 import type { ScreenState } from '../state';
+import { LoadFailed } from '../system/LoadFailed';
 
 /**
  * JoinAsAccount — somebody with an account opens a plan link to a circle they
@@ -75,19 +75,14 @@ export function JoinAsAccountScreen({
 
   if (state === 'error' || state === 'offline') {
     return (
-      <Screen>
-        <TopBar title={circleName} onBack={onBack} backLabel={t('common', 'back')} />
-        <Body>
-          <DisplayL>
-            {state === 'offline'
-              ? t('joinAsAccount', 'youre_offline')
-              : t('joinAsAccount', 'couldnt_load')}
-          </DisplayL>
-        </Body>
-        <Foot>
-          <Button label={t('joinAsAccount', 'try_again')} onPress={onRetry} />
-        </Foot>
-      </Screen>
+      <LoadFailed
+        state={state}
+        message={t('joinAsAccount', state === 'offline' ? 'youre_offline' : 'couldnt_load')}
+        where="guest"
+        topTitle={circleName}
+        onBack={onBack}
+        onRetry={onRetry}
+      />
     );
   }
 

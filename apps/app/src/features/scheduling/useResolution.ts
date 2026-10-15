@@ -14,7 +14,7 @@ import {
   previewWiderWindow,
   widenWindow,
 } from '../../data/scheduling';
-import { isOffline } from '../identity/join/failure';
+import { neverReachedServer } from '../identity/join/failure';
 import { lowerTarget } from './unlock';
 
 /**
@@ -57,7 +57,7 @@ export type Resolution = {
 class OptionsMoved extends Error {}
 
 function problemOf(error: unknown): string {
-  if (isOffline()) return t('noQuorum', 'youre_offline');
+  if (neverReachedServer(error)) return t('noQuorum', 'youre_offline');
   if (error instanceof OptionsMoved) return t('noQuorum', 'problem_stale');
   if (!(error instanceof FunctionError)) return t('noQuorum', 'problem_generic');
   switch (error.reason) {

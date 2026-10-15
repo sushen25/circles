@@ -366,6 +366,13 @@ describe('client_error (SUS-112)', () => {
     }
   });
 
+  it('accepts a failure the app handled: a screen that would not load, a request that failed (SUS-200)', () => {
+    for (const source of ['load_failed', 'request_failed']) {
+      expect(validateEvent('client_error', { ...ok, source }), source).not.toBeNull();
+    }
+    expect(validateEvent('client_error', { ...ok, source: 'anything_else' })).toBeNull();
+  });
+
   it('refuses free text in every field', () => {
     const refused: Record<string, unknown[]> = {
       route: [

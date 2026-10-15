@@ -21,6 +21,7 @@ import { Divider, Stack } from '../../components/layout';
 import { t } from '../../copy';
 import type { Fixture } from '../../data/fixtures';
 import type { ScreenState } from '../state';
+import { LoadFailed } from '../system/LoadFailed';
 
 /**
  * Account — `docs/design/Account.dc.html` (spec §5.2): your name and time
@@ -95,15 +96,13 @@ export function AccountScreen({
   }
   if (state === 'error' || state === 'offline') {
     return (
-      <Screen>
-        {top}
-        <Body>
-          <DisplayL>
-            {state === 'offline' ? t('account', 'youre_offline') : t('account', 'couldnt_load')}
-          </DisplayL>
-          <Button label={t('account', 'try_again')} onPress={onRetry} />
-        </Body>
-      </Screen>
+      <LoadFailed
+        state={state}
+        message={t('account', state === 'offline' ? 'youre_offline' : 'couldnt_load')}
+        where="circles"
+        top={top}
+        onRetry={onRetry}
+      />
     );
   }
 

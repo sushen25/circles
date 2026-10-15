@@ -7,7 +7,7 @@ import { t } from '../../copy';
 import { confirmMeetup, type ChasedAnswer } from '../../data/confirmation';
 import { FunctionError } from '../../data/functions';
 import { planCandidates } from '../../data/scheduling';
-import { isOffline } from '../identity/join/failure';
+import { neverReachedServer } from '../identity/join/failure';
 import { candidateIn } from './review';
 
 /**
@@ -54,7 +54,7 @@ export type LockIn = {
 };
 
 function problemOf(error: unknown): { problem: string; already?: boolean } {
-  if (isOffline()) return { problem: t('confirmReview', 'youre_offline') };
+  if (neverReachedServer(error)) return { problem: t('confirmReview', 'youre_offline') };
   if (error instanceof OptionsMoved) return { problem: t('confirmReview', 'moved') };
   if (!(error instanceof FunctionError)) return { problem: t('confirmReview', 'problem_generic') };
   switch (error.reason) {

@@ -835,6 +835,36 @@ S["Offline"] = shell(
     foot(pri("Try again"))
 )
 
+# The one error block (SUS-200): the screen's own sentence, a short reference, Try again and a
+# second way out. The reference is small and selectable; it is a request id the functions logged,
+# or one the device made and sent with a client error report, and it never holds a token, a plan
+# code, an address or a name. "Try again" is the same words as the one Loading offers at 20 s.
+S["LoadError"] = shell(
+    top("") +
+    body(stack(dl("We couldn't load this plan."), sm("Ref K7M2QX4P"), gap=8)) +
+    foot(pri("Try again"), ter("Back to your circles"))
+)
+# A guest or a plan link has no account to go back to: the page again, and the line says what
+# to do when that is not enough.
+S["LoadErrorGuest"] = shell(
+    top("") +
+    body(stack(dl("We couldn't load this circle."), sm("Ref 4TQ9HX2B"), gap=8)) +
+    foot(pri("Try again"), ter("Reload this page"), sm("Still stuck? Open the link from the chat again."))
+)
+# "You're offline" only when the request never reached the server. A server that answered, a 5xx
+# included, is "couldn't send", with a reference, and the address stays where it was typed.
+S["SignInServerFailed"] = shell(
+    body(
+        f'<div style="height:96px;"></div>',
+        wordmark(),
+        stack(dxl("Make room for each other."), p("Find a time your friends are actually up for, without chasing everyone or sharing calendars."), gap=12),
+        stack(lbl("Your email"), inp("maya@example.com"), gap=8),
+        sm("We'll email a one-time code. No password. Friends you invite never need an account."),
+        stack(notice("We couldn't send the code. Try again in a moment.", "shield", "warn"), sm("Ref 9WJ3P6KD"), gap=8),
+        pad="8px 22px 24px") +
+    foot(pri("Send me a code"))
+)
+
 # --- Component sheet (wide) ---
 def sheet_section(t, *parts):
     return f'<div class="stack" style="gap:14px;">{lbl(t)}' + "".join(parts) + '</div>'
@@ -1971,7 +2001,7 @@ titles = {"Main":"Join · invite landing","ContinueAs":"Continue as · returning
           "SparkSetup":"Quiet ask · setup","SparkWaiting":"Quiet ask · initiator waiting","InterestPrompt":"Interest prompt · member","ThresholdRole":"Threshold reached · initiator","Volunteer":"Started quietly · keen member","SparkOpenedMember":"Started quietly · other member","SparkExpired":"Expired · initiator",
           "PushAsk":"Push permission · contextual","CalendarExplain":"Calendar · before permission","CalendarPick":"Calendar · pick calendars","AvailabilityOverlay":"Availability · calendar overlay","CalendarDenied":"Calendar · denied",
           "ConversionMap":"Guest → app · the map","ConfirmedGuestNudge":"Locked in · reminder nudge","AppSheet":"App sheet · four things a browser can't do","ReattachedNudge":"Rejoined · save your place","SecondSent":"Second response · app nudge","AfterAttendance":"After attendance · start a circle","InitiateGate":"Wants to organise · sign in first","AppLanding":"App first open · linked",
-          "EmptyCircle":"Empty circle","Offline":"Offline and error","Emails":"Email templates","Pushes":"Push copy","ShareMessages":"Share-sheet messages","Components":"Components and tokens",
+          "EmptyCircle":"Empty circle","Offline":"Offline and error","LoadError":"Error · couldn't load, signed in","LoadErrorGuest":"Error · couldn't load, guest","SignInServerFailed":"Sign in · the server said no","Emails":"Email templates","Pushes":"Push copy","ShareMessages":"Share-sheet messages","Components":"Components and tokens",
           "LoadingCircleHome":"Loading · circle home","LoadingOptions":"Loading · options","LoadingConfirmed":"Loading · confirmed","LoadingSettingUp":"First run · setting up the circle","LoadingSlowEight":"Loading · still working, about 8 s","LoadingSlowTwenty":"Loading · try again, about 20 s","BusyRow":"Busy · list row","BusyButtons":"Busy · buttons","AddToCalendarPreparing":"Add to calendar · preparing","AddToCalendarSlow":"Add to calendar · still working, about 8 s","AddToCalendarReady":"Add to calendar · ready (iPhone, a link)","AddToCalendarFailed":"Add to calendar · failed, retry in the row","AddToCalendarAfterTap":"Add to calendar · after the tap (iPhone)","AddToCalendarAfterTapAndroid":"Add to calendar · after the tap (Android)","AddToCalendarInApp":"Add to calendar · WhatsApp or Messenger","LoadingTiming":"Loading and busy · timing","LoadingMotion":"Loading and busy · reduced motion"}
 
 def grid(names, page, per_row=6, y0=0):
@@ -2011,6 +2041,8 @@ boards.append(ab("Emails.dc.html", 2*GX, 0, "system", w=1400, h=1240, title=titl
 boards.append(ab("Pushes.dc.html", 0, RY, "system", w=1180, h=520, title=titles["Pushes"]))
 boards.append(ab("ShareMessages.dc.html", 1180+120, RY, "system", w=1180, h=640, title=titles["ShareMessages"]))
 boards.append(ab("Components.dc.html", 0, 2*RY, "system", w=1180, h=1060, title=titles["Components"]))
+# The one error block and the sign-in failure that is not "offline" (SUS-200): below the component sheet.
+grid(["LoadError","LoadErrorGuest","SignInServerFailed"], "system", per_row=3, y0=3*RY)
 # The first run's finish while it waits (SUS-207): beside the first-run boards, in the gap after "SignIn".
 boards.append(ab("LoadingSettingUp.dc.html", 4*GX, RY, "first", title=titles["LoadingSettingUp"]))
 # Loading and busy (SUS-155): the phone boards in a row, then the wide ones.

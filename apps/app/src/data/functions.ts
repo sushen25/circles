@@ -19,6 +19,12 @@ export class FunctionError extends Error {
     /** What the server said, when it said something. Undefined means no answer. */
     readonly problem: Problem | undefined,
     message: string,
+    /**
+     * The call failed before anything came back (a dropped connection), as
+     * opposed to the server answering with a refusal or a 5xx (SUS-200). Only
+     * this is "offline"; `data/reach.ts` is the one place that reads it.
+     */
+    readonly unreached = false,
   ) {
     super(message);
     this.name = 'FunctionError';
@@ -69,7 +75,12 @@ export async function invokeFunction<T extends z.ZodType>(
   const { data, error } = await authClient().functions.invoke(name, { body });
   if (error !== null) {
     const problem = await problemOf(error);
-    throw new FunctionError(problem, problem?.message ?? `${name} failed`);
+    // Read from the error's class, never its message: functions-js throws
+    // `FunctionsFetchError` when fetch itself failed, and `FunctionsHttpError` or
+    // `FunctionsRelayError` when something answered.
+    const unreached =
+      problem === undefined && (error as { name?: unknown }).name === 'FunctionsFetchError';
+    throw new FunctionError(problem, problem?.message ?? `${name} failed`, unreached);
   }
   return response.parse(data);
 }

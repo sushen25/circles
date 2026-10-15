@@ -23,7 +23,7 @@ import {
 import { newIdempotencyKey } from '../../data/functions';
 import { appOrigin } from '../../data/links/origin';
 import { copyText } from '../../platform/share';
-import { isOffline } from '../identity/join/failure';
+import { isOffline, neverReachedServer } from '../identity/join/failure';
 import { showHomeAtOnce, type HomeChange } from './optimisticHome';
 import { SettingsScreen, type InviteView } from './SettingsScreen';
 import {
@@ -140,9 +140,11 @@ function LiveSettings({ id }: { id: string }) {
     try {
       await updateCircle(id, patch);
       await refresh();
-    } catch {
+    } catch (error) {
       void refresh();
-      setProblem(isOffline() ? t('settings', 'youre_offline') : t('settings', 'couldnt_save'));
+      setProblem(
+        neverReachedServer(error) ? t('settings', 'youre_offline') : t('settings', 'couldnt_save'),
+      );
     }
   };
 
@@ -179,9 +181,9 @@ function LiveSettings({ id }: { id: string }) {
         await refresh();
       }
       close();
-    } catch {
+    } catch (error) {
       setSheetProblem(
-        isOffline()
+        neverReachedServer(error)
           ? t('settings', 'youre_offline')
           : asking.kind === 'reset'
             ? t('settings', 'couldnt_reset')

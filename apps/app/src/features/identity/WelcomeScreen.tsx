@@ -1,14 +1,7 @@
-import {
-  BrandLockup,
-  Body,
-  BodyText,
-  Button,
-  Loading,
-  Screen,
-  useLoadingHold,
-} from '../../components';
+import { BrandLockup, Loading, useLoadingHold } from '../../components';
 import { t } from '../../copy';
 import type { ScreenState } from '../state';
+import { LoadFailed } from '../system/LoadFailed';
 
 /**
  * What `/` shows while it works out where to send somebody who is signed in
@@ -38,15 +31,13 @@ export function WelcomeScreen({ state, onRetry }: WelcomeProps) {
 
   if (state === 'error' || state === 'offline') {
     return (
-      <Screen>
-        <Body>
-          <BrandLockup />
-          <BodyText>
-            {state === 'offline' ? t('welcome', 'youre_offline') : t('welcome', 'couldnt_load')}
-          </BodyText>
-          <Button label={t('welcome', 'try_again')} onPress={onRetry} />
-        </Body>
-      </Screen>
+      <LoadFailed
+        state={state}
+        message={t('welcome', state === 'offline' ? 'youre_offline' : 'couldnt_load')}
+        where="circles"
+        header={<BrandLockup />}
+        onRetry={onRetry}
+      />
     );
   }
 

@@ -25,6 +25,7 @@ import { t } from '../../copy';
 import type { Fixture } from '../../data/fixtures';
 import type { ScreenState } from '../state';
 import { colorName } from './CreateCircleScreen';
+import { LoadFailed } from '../system/LoadFailed';
 
 /**
  * Settings — `docs/design/Settings.dc.html` (spec §5.2): the invite link with
@@ -170,15 +171,13 @@ export function SettingsScreen({
   }
   if (state === 'error' || state === 'offline') {
     return (
-      <Screen>
-        {top}
-        <Body>
-          <DisplayL>
-            {state === 'offline' ? t('settings', 'youre_offline') : t('settings', 'couldnt_load')}
-          </DisplayL>
-          <Button label={t('settings', 'try_again')} onPress={onRetry} />
-        </Body>
-      </Screen>
+      <LoadFailed
+        state={state}
+        message={t('settings', state === 'offline' ? 'youre_offline' : 'couldnt_load')}
+        where="circles"
+        top={top}
+        onRetry={onRetry}
+      />
     );
   }
 

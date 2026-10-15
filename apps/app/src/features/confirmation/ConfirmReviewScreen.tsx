@@ -22,6 +22,7 @@ import { t } from '../../copy';
 import type { ChasedAnswer } from '../../data/confirmation';
 import { MARKS_MAX, Placeholder } from '../scheduling/parts';
 import { NOTE_MAX_LENGTH, PLACE_NAME_MAX_LENGTH, PLACE_URL_MAX_LENGTH } from './review';
+import { LoadFailed } from '../system/LoadFailed';
 
 /**
  * ConfirmReview — `docs/design/ConfirmReview.dc.html` (spec §5.7, §5.10).
@@ -124,16 +125,13 @@ export function ConfirmReviewScreen({
   }
   if (state === 'error' || state === 'offline') {
     return (
-      <Placeholder
+      <LoadFailed
+        state={state}
+        message={t('confirmReview', state === 'offline' ? 'youre_offline' : 'couldnt_load')}
+        where="circles"
         topTitle={back}
-        message={
-          state === 'offline'
-            ? t('confirmReview', 'youre_offline')
-            : t('confirmReview', 'couldnt_load')
-        }
-        actionLabel={t('confirmReview', 'try_again')}
-        onAction={onRetry}
         onBack={onBack}
+        onRetry={onRetry}
       />
     );
   }

@@ -20,6 +20,7 @@ import { Divider, Stack } from '../../components/layout';
 import { t } from '../../copy';
 import type { Fixture } from '../../data/fixtures';
 import type { ScreenState } from '../state';
+import { LoadFailed } from '../system/LoadFailed';
 
 /**
  * NotificationSettings — `docs/design/NotificationSettings.dc.html` (spec
@@ -97,17 +98,13 @@ export function NotificationSettingsScreen({
   }
   if (state === 'error' || state === 'offline') {
     return (
-      <Screen>
-        {top}
-        <Body>
-          <DisplayL>
-            {state === 'offline'
-              ? t('notificationSettings', 'youre_offline')
-              : t('notificationSettings', 'couldnt_load')}
-          </DisplayL>
-          <Button label={t('notificationSettings', 'try_again')} onPress={onRetry} />
-        </Body>
-      </Screen>
+      <LoadFailed
+        state={state}
+        message={t('notificationSettings', state === 'offline' ? 'youre_offline' : 'couldnt_load')}
+        where="circles"
+        top={top}
+        onRetry={onRetry}
+      />
     );
   }
 

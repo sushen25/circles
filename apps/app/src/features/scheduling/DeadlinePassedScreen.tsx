@@ -25,6 +25,7 @@ import { t } from '../../copy';
 import type { ExtensionView, HandOffRow } from './deadline';
 import { CandidateCard, CandidateHeader, Placeholder } from './parts';
 import type { CardView, HeaderView } from './view';
+import { LoadFailed } from '../system/LoadFailed';
 
 /**
  * DeadlinePassed — `docs/design/DeadlinePassed.dc.html` (spec §5.7, S2-05).
@@ -116,13 +117,12 @@ export function DeadlinePassedScreen({
   }
   if (state === 'error' || state === 'offline') {
     return (
-      <Placeholder
-        message={
-          state === 'offline' ? t('candidates', 'youre_offline') : t('candidates', 'couldnt_load')
-        }
-        actionLabel={t('candidates', 'try_again')}
-        onAction={onRetry}
+      <LoadFailed
+        state={state}
+        message={t('candidates', state === 'offline' ? 'youre_offline' : 'couldnt_load')}
+        where="circles"
         onBack={onBack}
+        onRetry={onRetry}
       />
     );
   }

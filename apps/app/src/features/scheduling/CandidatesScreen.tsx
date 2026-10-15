@@ -19,6 +19,7 @@ import { t } from '../../copy';
 import { ChangeMyTimesButton, ChangeMyTimesNote, hasChangeMyTimes } from './PlanActions';
 import { CandidateCard, CandidateHeader, Placeholder, SetTimeRow } from './parts';
 import type { CardView, HeaderView } from './view';
+import { LoadFailed } from '../system/LoadFailed';
 
 /**
  * Candidates — `docs/design/Candidates.dc.html` (spec §5.6), the organiser's.
@@ -108,13 +109,12 @@ export function CandidatesScreen({
   }
   if (state === 'error' || state === 'offline') {
     return (
-      <Placeholder
-        message={
-          state === 'offline' ? t('candidates', 'youre_offline') : t('candidates', 'couldnt_load')
-        }
-        actionLabel={t('candidates', 'try_again')}
-        onAction={onRetry}
+      <LoadFailed
+        state={state}
+        message={t('candidates', state === 'offline' ? 'youre_offline' : 'couldnt_load')}
+        where="circles"
         onBack={onBack}
+        onRetry={onRetry}
       />
     );
   }

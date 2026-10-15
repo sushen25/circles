@@ -30,6 +30,8 @@ export type SaveAccessProps = {
   circleName?: string | undefined;
   email?: string | undefined;
   problem?: SaveAccessProblem | undefined;
+  /** Under a failure that was not the person's doing (SUS-200). */
+  reference?: string | undefined;
   busy?: boolean | undefined;
   onEmailChange?: ((email: string) => void) | undefined;
   onSendCode?: (() => void) | undefined;
@@ -55,6 +57,7 @@ export function SaveAccessScreen({
   circleName = '',
   email = '',
   problem,
+  reference,
   busy = false,
   onEmailChange,
   onSendCode,
@@ -102,6 +105,9 @@ export function SaveAccessScreen({
         </Stack>
         <Small>{t('saveAccess', 'well_send_a_one_time_code_this')}</Small>
         {problem === undefined ? null : <Notice kind="warn">{problemCopy(problem)}</Notice>}
+        {problem === undefined || reference === undefined ? null : (
+          <Small selectable>{t('saveAccess', 'reference', { reference })}</Small>
+        )}
       </Body>
       <Foot>
         <Button

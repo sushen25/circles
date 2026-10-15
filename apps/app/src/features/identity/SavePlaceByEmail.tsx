@@ -9,7 +9,7 @@ import {
 } from '../../data/auth';
 import { hasBackend } from '../../data/auth/client';
 import { normaliseAddress } from '../../data/email';
-import { authFailure } from './authFailure';
+import { authFailure, failureReference } from './authFailure';
 import {
   CODE_LIFETIME_MS,
   EnterCodeScreen,
@@ -59,8 +59,9 @@ export type SavePlaceByEmailProps = {
   onBack: () => void;
 };
 
-function sendProblem(error: unknown): SaveAccessProblem & EnterCodeProblem {
-  const failure = authFailure(error);
+function sendProblem(
+  failure: ReturnType<typeof authFailure>,
+): SaveAccessProblem & EnterCodeProblem {
   return failure === 'offline'
     ? 'offline'
     : failure === 'too_many'
@@ -104,6 +105,7 @@ export function SavePlaceByEmail({
           setReference(error.problem?.reference);
         } else {
           const failure = authFailure(error);
+          setReference(failureReference(failure, error));
           const expired = Date.now() - step.sentAt >= CODE_LIFETIME_MS;
           setCodeProblem(
             failure === 'offline'
@@ -137,12 +139,17 @@ export function SavePlaceByEmail({
         onContinue={() => void confirm()}
         onSendNewCode={() => {
           setCodeProblem(undefined);
+          setReference(undefined);
           void requestLinkCode(step.address)
             .then((route) => {
               setStep({ ...step, route, sentAt: Date.now() });
               setNewCodeSent(true);
             })
-            .catch((error: unknown) => setCodeProblem(sendProblem(error)));
+            .catch((error: unknown) => {
+              const failure = authFailure(error);
+              setReference(failureReference(failure, error));
+              setCodeProblem(sendProblem(failure));
+            });
         }}
         onBack={start === undefined ? () => setStep({ kind: 'email' }) : onBack}
       />
@@ -154,6 +161,7 @@ export function SavePlaceByEmail({
       circleName={circleName}
       email={email}
       problem={emailProblem}
+      reference={reference}
       busy={busy}
       onEmailChange={setEmail}
       onSendCode={() => {
@@ -165,9 +173,14 @@ export function SavePlaceByEmail({
         if (!live) return;
         setBusy(true);
         setEmailProblem(undefined);
+        setReference(undefined);
         void requestLinkCode(address)
           .then((route) => setStep({ kind: 'code', address, route, sentAt: Date.now() }))
-          .catch((error: unknown) => setEmailProblem(sendProblem(error)))
+          .catch((error: unknown) => {
+            const failure = authFailure(error);
+            setReference(failureReference(failure, error));
+            setEmailProblem(sendProblem(failure));
+          })
           .finally(() => setBusy(false));
       }}
       onNotNow={onNotNow}

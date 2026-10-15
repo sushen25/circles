@@ -4,7 +4,6 @@ import {
   Button,
   Card,
   DisplayL,
-  Foot,
   Loading,
   Notice,
   Screen,
@@ -17,6 +16,7 @@ import {
 } from '../../components';
 import { Row, Stack } from '../../components/layout';
 import { t } from '../../copy';
+import { LoadFailed } from '../system/LoadFailed';
 
 /**
  * EmailPrefs — `docs/design/EmailPrefs.dc.html` (spec §5.8, ADR 0019).
@@ -105,22 +105,13 @@ export function EmailPrefsScreen({
     case 'error':
     case 'offline':
       return (
-        <Screen>
-          <TopBar />
-          <Body>
-            <DisplayL>
-              {state === 'offline'
-                ? t('emailPrefs', 'youre_offline')
-                : t('emailPrefs', 'couldnt_load')}
-            </DisplayL>
-            {reference === undefined ? null : (
-              <Small>{t('emailPrefs', 'reference', { reference })}</Small>
-            )}
-          </Body>
-          <Foot>
-            <Button label={t('emailPrefs', 'try_again')} onPress={onRetry} />
-          </Foot>
-        </Screen>
+        <LoadFailed
+          state={state}
+          message={t('emailPrefs', state === 'offline' ? 'youre_offline' : 'couldnt_load')}
+          where="guest"
+          reference={reference}
+          onRetry={onRetry}
+        />
       );
     default:
       break;

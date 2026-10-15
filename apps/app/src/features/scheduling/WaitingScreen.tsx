@@ -16,6 +16,7 @@ import { t } from '../../copy';
 import { ChangeMyTimesFoot } from './PlanActions';
 import { CandidateHeader, Placeholder, SetTimeRow } from './parts';
 import type { HeaderView } from './view';
+import { LoadFailed } from '../system/LoadFailed';
 
 /**
  * Waiting — `docs/design/Waiting.dc.html` (spec §5.6): "before any candidate
@@ -81,11 +82,12 @@ export function WaitingScreen({
   }
   if (state === 'error' || state === 'offline') {
     return (
-      <Placeholder
-        message={state === 'offline' ? t('waiting', 'youre_offline') : t('waiting', 'couldnt_load')}
-        actionLabel={t('waiting', 'try_again')}
-        onAction={onRetry}
+      <LoadFailed
+        state={state}
+        message={t('waiting', state === 'offline' ? 'youre_offline' : 'couldnt_load')}
+        where="circles"
         onBack={onBack}
+        onRetry={onRetry}
       />
     );
   }
