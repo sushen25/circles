@@ -285,19 +285,37 @@ jobs:
   # that reads no secret and never sees one; `apply` keeps `contents: read`.
   # Not in `production`, so it does not ask for the approval a second time. It
   # runs only if `apply` succeeded, smoke test included. A rollback names the
-  # tag it redeployed and creates none.
+  # tag it redeployed, creates none, and records the commit it deployed on the
+  # deployment (`deployments: write`, for that one call).
   tag:
     name: tag the release
     needs: [plan, apply]
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # `deployments: write` is for one call: adding a status to this run's
+    # deployment that names the commit a rollback deployed (SUS-212).
     permissions:
       contents: write
+      deployments: write
 
     steps:
+      # The dispatched commit's scripts, not the deployed one's: a rollback
+      # deploys an older release, which may predate record-deployed.mjs. On a
+      # forward deploy the two are the same commit.
       - uses: actions/checkout@v4
         with:
-          ref: ${{ needs.plan.outputs.sha }}
+          ref: ${{ github.sha }}
+      # GitHub's deployment records the dispatched commit; a rollback deployed
+      # another. The next plan's baseline reads this instead.
+      - name: Record the commit that was deployed
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ github.sha }}
+          SHA: ${{ needs.plan.outputs.sha }}
+          ROLLBACK: ${{ needs.plan.outputs.rollback }}
+          RUN_ID: ${{ github.run_id }}
+        run: node scripts/record-deployed.mjs --repo "$REPO" --head "$HEAD_SHA" --deployed "$SHA" --rollback "$ROLLBACK" --run "$RUN_ID"
       - name: Tag the deployed commit
         env:
           SHA: ${{ needs.plan.outputs.sha }}
