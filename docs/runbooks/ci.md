@@ -600,6 +600,18 @@ Nothing is excepted by lowering `--audit-level` or by `|| true`.
 | GHSA-86w9-cpqp-85rv | `node-forge` 1.4.0 | No patched release exists. Reached only through `expo-updates`' `@expo/code-signing-certificates`, which runs in the build when update signing is on. It never ships in the app and parses no user input. | When a patched `node-forge` is published, or before turning on update signing (SUS-123). |
 | GHSA-vfj7-8cjw-p6xm | `braces` 3.0.3 | No patched 3.x release exists. Reached through Expo's dev server and Metro file matching, which handle the repository's own paths, never user input. | When a patched `braces` is published. |
 
+One override carries a patch. `expo-router` pins `query-string` 7.1.3, which
+`require`s `decode-uri-component`; the fixed `decode-uri-component` (0.5.0,
+GHSA-vcc3-ghjq-m6fr, a crafted percent-encoded URL freezes the tab) is ESM-only,
+so a `require` of it returns a namespace, not the function. `patches/` holds a
+three-line patch to `query-string` that takes `.default`, and
+`scripts/query-string-patch.test.mjs`, which `check:audit` runs, fails if it
+ever stops working. (The `smoke` journey specs also would, with
+`stringify is not a function`.)
+`query-string` 8 and 9 are no way out: they export only a default, and
+`expo-router` calls `queryString.stringify` on the namespace. Drop the patch when
+`expo-router` stops using `query-string`.
+
 Dependencies that were overridden to patched versions are listed in the
 `pnpm.overrides` block of the root `package.json`. Drop an override once the
 parent's own range includes the patched version; `pnpm why <name>` shows it.
