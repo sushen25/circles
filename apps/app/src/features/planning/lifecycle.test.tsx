@@ -129,7 +129,9 @@ describe('plan setup', () => {
     show(<PlanSetupFlow id="sunday-crew" />);
 
     expect(await screen.findByText('Sunday Crew is already finding a time')).toBeTruthy();
-    expect(screen.getByText('Catch up')).toBeTruthy();
+    // The plan's own title, in the bar and on its card; never "Plan openly" (SUS-196).
+    expect(screen.getAllByText('Catch up')).toHaveLength(2);
+    expect(screen.queryByText('Plan openly')).toBeNull();
     expect(screen.getByText('5 of 6 replied')).toBeTruthy();
     expect(screen.getByText(/^Replies close /)).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Ask the group' })).toBeNull();

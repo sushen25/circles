@@ -101,7 +101,6 @@ export function PlanSharedScreen({
 
   return (
     <ShareScreen
-      step={again === undefined ? t('planShared', 'step_2_of_2') : undefined}
       title={again?.title ?? t('planShared', 'ask_circle', { circle: circleName })}
       intro={again?.intro ?? t('planShared', 'one_link_in_the_chat')}
       message={message}

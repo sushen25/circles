@@ -246,6 +246,25 @@ describe('the organiser answering their own plan (ADR 0026)', () => {
     });
   });
 
+  it('talks to the organiser as the one who picks, and to a member about the organiser (SUS-196)', async () => {
+    Object.assign(session, { status: 'saved', userId: 'maya', isAnonymous: false });
+    const mine = wrap(<SentFlow code={PLAN.code} />);
+    await screen.findByText(/Your times are in\./);
+    expect(
+      screen.getByText(
+        /^You'll pick a time once replies close on \w+\. Options appear as people answer\.$/,
+      ),
+    ).toBeVisible();
+    expect(screen.queryByText(/will pick a time/)).toBeNull();
+    mine.unmount();
+
+    Object.assign(session, { status: 'guest', userId: 'nina', isAnonymous: true });
+    wrap(<SentFlow code={PLAN.code} />);
+    await screen.findByText(/Your times are in\./);
+    expect(screen.getByText(/^Maya will pick a time once replies close on \w+\./)).toBeVisible();
+    expect(screen.queryByText(/You'll pick a time/)).toBeNull();
+  });
+
   it('still offers a saved member who is not the organiser the email card', async () => {
     // Round 1: an account is not the same thing as the organiser. Only the
     // organiser hears about their own plan without subscribing (§5.8); every

@@ -54,11 +54,7 @@ export type PlanInProgressProps = {
 export function PlanInProgressScreen(props: PlanInProgressProps) {
   return (
     <Screen>
-      <TopBar
-        title={t('planSetup', 'plan_openly')}
-        onBack={props.onBack}
-        backLabel={t('common', 'back')}
-      />
+      <TopBar title={props.planTitle} onBack={props.onBack} backLabel={t('common', 'back')} />
       <Body>
         <Stack>
           <DisplayL>{t('planSetup', 'in_progress_title', { circle: props.circleName })}</DisplayL>
