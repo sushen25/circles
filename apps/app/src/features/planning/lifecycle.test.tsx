@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { configure, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -8,16 +8,13 @@ import type * as CircleData from '../../data/circles';
 import { FunctionError } from '../../data/functions';
 import type * as Planning from '../../data/planning';
 import * as fixture from './fixtures';
+import { tap } from '../../test/tap';
 
 /**
  * Making a plan, calling it off, and what the plan's link does once it is off
  * or reopened (S1-26). The server is mocked; what is asserted is what the
  * screens send and where they go.
  */
-
-// The preview waits for the form to settle (`SETTLE_MS`) before it asks, so a
-// full parallel run can take longer than the default second to show it.
-configure({ asyncUtilTimeout: 5_000 });
 
 const push = vi.fn();
 const replace = vi.fn();
@@ -233,7 +230,7 @@ describe('plan setup', () => {
       ),
     );
     show(<PlanSetupFlow id="sunday-crew" />);
-    fireEvent.click(await screen.findByRole('button', { name: 'Ask the group' }));
+    await tap(screen.findByRole('button', { name: 'Ask the group' }));
 
     // The circle is read again, and what it now says is drawn.
     expect(await screen.findByText('Sunday Crew is already finding a time')).toBeTruthy();
@@ -271,7 +268,7 @@ describe('plan setup', () => {
 
   it('sends what was changed, and says the defaults were not used', async () => {
     show(<PlanSetupFlow id="sunday-crew" />);
-    fireEvent.click(await screen.findByRole('checkbox', { name: 'Dinner' }));
+    await tap(screen.findByRole('checkbox', { name: 'Dinner' }));
     fireEvent.click(screen.getByRole('checkbox', { name: 'This weekend' }));
     fireEvent.click(screen.getByRole('checkbox', { name: '1.5 hrs' }));
     fireEvent.click(screen.getByRole('button', { name: 'One fewer person' }));
@@ -312,7 +309,7 @@ describe('plan setup', () => {
 
     fireEvent.click(ask);
     expect(await screen.findByText(/^Something went wrong, so nothing was changed/)).toBeTruthy();
-    fireEvent.click(ask);
+    await tap(ask);
     await waitFor(() => expect(createPlan).toHaveBeenCalledTimes(2));
     // It may have made the plan: the same request, so the server can say so.
     expect(keyOf(1)).toBe(keyOf(0));
@@ -325,7 +322,7 @@ describe('plan setup', () => {
 
   it('shows what would be made now when the clock has moved on, before making it', async () => {
     show(<PlanSetupFlow id="sunday-crew" />);
-    fireEvent.click(await screen.findByRole('checkbox', { name: 'Next 7 days' }));
+    await tap(screen.findByRole('checkbox', { name: 'Next 7 days' }));
     // A day later, the form still open.
     vi.spyOn(Date, 'now').mockReturnValue(fixture.FIXTURE_NOW + 24 * 3_600_000);
     fireEvent.click(screen.getByRole('button', { name: 'Ask the group' }));
@@ -380,9 +377,9 @@ describe('cancelling', () => {
   it('retries a dropped cancel with the same key, and a new note with a new one', async () => {
     cancelPlan.mockRejectedValueOnce(new FunctionError(undefined, 'no answer'));
     show(<CancelPlanFlow id="sunday-crew" planId="thu-17" />);
-    fireEvent.click(await screen.findByRole('button', { name: 'Cancel the catch-up' }));
+    await tap(screen.findByRole('button', { name: 'Cancel the catch-up' }));
     expect(await screen.findByText(/^Something went wrong/)).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel the catch-up' }));
+    await tap(screen.getByRole('button', { name: 'Cancel the catch-up' }));
     await waitFor(() => expect(cancelPlan).toHaveBeenCalledTimes(2));
     expect(cancelPlan.mock.calls[1]?.[2]).toBe(cancelPlan.mock.calls[0]?.[2]);
   });
@@ -535,7 +532,7 @@ describe('asking again', () => {
     planDetails.mockResolvedValue(fixture.asking);
     const { EditPlanFlow } = await import('./EditPlanFlow');
     show(<EditPlanFlow id="sunday-crew" planId="thu-17" />);
-    fireEvent.click(await screen.findByRole('button', { name: 'Cancel this plan' }));
+    await tap(screen.findByRole('button', { name: 'Cancel this plan' }));
     expect(push).toHaveBeenCalledWith({
       pathname: '/circles/[id]/plan/[planId]/cancel',
       params: { id: 'sunday-crew', planId: 'thu-17' },
