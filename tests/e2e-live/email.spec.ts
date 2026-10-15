@@ -1,4 +1,6 @@
 // @e2e: core
+import { randomUUID } from 'node:crypto';
+
 import { expect, test } from './fixtures';
 import { addressFor, joinsAndAnswers, subscribesFromSent } from './journeys';
 import { headerOf, letterTo, lettersTo, linkIn, runDispatcher } from './mail';
@@ -210,14 +212,16 @@ test('an organiser stops the organiser’s letters from the letter, signed out',
 
   // The next letter of that kind is not sent: a replies-closed job written
   // before she stopped, and due now, is skipped when it is read again.
+  // A key of its own: the suite runs this in five browser projects against one database.
+  const key = (randomUUID() + randomUUID()).replaceAll('-', '').slice(0, 64);
   sql(`insert into jobs.notification_jobs (
          channel, kind, contact_id, plan_id, plan_revision, scheduled_for, idempotency_key)
-       select channel, kind, contact_id, plan_id, plan_revision, now(), repeat('9', 64)
+       select channel, kind, contact_id, plan_id, plan_revision, now(), '${key}'
        from jobs.notification_jobs
        where plan_id = '${plan.id}' and kind = 'replies_closed' and status = 'sent' limit 1`);
   const queued = () =>
     sql(`select status, last_error from jobs.notification_jobs
-         where idempotency_key = repeat('9', 64)`);
+         where idempotency_key = '${key}'`);
   for (let attempt = 0; attempt < 20 && queued()[0]?.[0] === 'scheduled'; attempt += 1) {
     await runDispatcher();
   }
