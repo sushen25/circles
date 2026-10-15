@@ -11,7 +11,7 @@
 #   parallel.sh gate                (in a worktree) ticket.sh check on this slot's ports, at most PARALLEL_GATES (default 1) at once
 #   parallel.sh sync [<ref>]        (in a worktree) rebase on origin/main (or <ref>) without losing the slot
 #   parallel.sh unslot / repatch    (in a worktree) take the slot's patch off config.toml to commit a real change, put it back
-#   parallel.sh overlap <path>...   which open PRs touch these paths
+#   parallel.sh overlap <path>...   which open PRs touch these paths (full diff against each PR's base; exit 2 if any PR could not be read)
 #   parallel.sh list                every worktree: slot, branch, ports, ahead/behind, stack
 #   parallel.sh rm <sus-n> [--force] stop the stack, throw its data away, remove the worktree, free the slot
 #
@@ -241,17 +241,45 @@ cmd_unslot() { here_slot >/dev/null; unpatch_config "$top"; echo "config.toml is
 
 cmd_repatch() { local s; s=$(here_slot); patch_config "$top" "$s"; echo "slot $s restored"; }
 
+# Each PR's files come from git, not from `gh pr list --json files`, which stops
+# at 100 files and says nothing about it (SUS-148). The diff is against the PR's
+# own base, so a stacked PR shows only what it adds. A PR whose list cannot be
+# read in full is named, and the exit status is 2: a partial answer is never
+# presented as a complete one.
 cmd_overlap() {
   [ $# -gt 0 ] || die "usage: overlap <path-or-prefix>..."
   gh auth status >/dev/null 2>&1 || die "gh is not authenticated (gh auth login)"
-  local hit=0 line
-  while IFS=$'\t' read -r num head file; do
-    for p in "$@"; do
-      case $file in "$p"*) echo "PR #$num ($head) touches $file"; hit=1 ;; esac
-    done
-  done < <(gh pr list --state open --limit 50 --json number,headRefName,files \
-    --jq '.[] | . as $pr | .files[] | [$pr.number, $pr.headRefName, .path] | @tsv')
-  [ $hit = 1 ] || echo "no open PR touches those paths"
+  local limit=200 hit=0 n=0 bad="" num head pbase file p files prs refs=()
+  prs=$(gh pr list --state open --limit "$limit" --json number,headRefName,baseRefName \
+    --jq '.[] | [.number, .headRefName, .baseRefName] | @tsv')
+  # One fetch for every branch involved; if that fails, each PR is fetched alone.
+  while IFS=$'\t' read -r num head pbase; do
+    [ -n "$num" ] && refs+=("+refs/heads/$head:refs/remotes/origin/$head" "+refs/heads/$pbase:refs/remotes/origin/$pbase")
+  done <<< "$prs"
+  local batch=0
+  [ ${#refs[@]} -eq 0 ] || ! git fetch -q origin "${refs[@]}" 2>/dev/null || batch=1
+  while IFS=$'\t' read -r num head pbase; do
+    [ -n "$num" ] || continue
+    n=$((n + 1))
+    # A ref that is merely old would give a stale list, so a PR the batch fetch
+    # did not cover must be fetched on its own, and that fetch must succeed.
+    if [ $batch = 0 ] && ! git fetch -q origin "+refs/heads/$head:refs/remotes/origin/$head" "+refs/heads/$pbase:refs/remotes/origin/$pbase" 2>/dev/null; then
+      bad="$bad #$num"; continue
+    fi
+    files=$(git diff --name-only "origin/$pbase...origin/$head" 2>/dev/null) || { bad="$bad #$num"; continue; }
+    while IFS= read -r file; do
+      [ -n "$file" ] || continue
+      for p in "$@"; do
+        case $file in "$p"*) echo "PR #$num ($head) touches $file"; hit=1 ;; esac
+      done
+    done <<< "$files"
+  done <<< "$prs"
+  [ $hit = 1 ] || echo "no open PR${bad:+ whose files could be read} touches those paths"
+  if [ "$n" -ge "$limit" ]; then bad="$bad (more than $limit open PRs: the rest were not looked at)"; fi
+  if [ -n "$bad" ]; then
+    echo "INCOMPLETE: could not read the full file list of:$bad. Treat the result above as partial." >&2
+    return 2
+  fi
 }
 
 cmd_list() {
