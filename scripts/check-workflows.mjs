@@ -484,6 +484,15 @@ const ciRules = (path, file, doc) => {
       } else if (!unconditional(job, step)) {
         fail(`\`record-deployed.mjs\` is conditional or may fail quietly in \`${name}\``);
       }
+      // The dispatched commit's scripts: a rollback's tag may predate them.
+      const checkout = (job.steps ?? []).find((s) =>
+        String(s?.uses ?? '').startsWith('actions/checkout'),
+      );
+      if (checkout?.with?.ref !== '${{ github.sha }}') {
+        fail(
+          `\`${name}\` must check out \`\${{ github.sha }}\`: on a rollback the deployed tag may not have \`record-deployed.mjs\``,
+        );
+      }
     }
     for (const [name, job] of production) {
       if (name !== 'plan' && !needsClosure(jobs, name).has('plan')) {

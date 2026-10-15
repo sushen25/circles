@@ -118,33 +118,46 @@ const gh = (...a) => execFileSync('gh', a, { encoding: 'utf8' });
 /** The description the `tag` job gives a rollback's deployment: `deployed:<40 hex>`. */
 export const RECORDED = /^deployed:([0-9a-f]{40})$/;
 
+/** Who writes the `deployed:` status: the `tag` job's own token. */
+export const RECORDER = 'github-actions[bot]';
+
 /**
  * Production's baselines from its deployments, newest first, each
- * `{ sha, state, description }` (state and description are the latest status's).
+ * `{ sha, state, recorded }`: `state` is the latest status's, `recorded` the
+ * commit a `deployed:` status from {@link RECORDER} names, if any.
  *
  * `code` is what is actually live: the newest successful deployment's recorded
  * commit when a rollback wrote one, else the commit it was dispatched on.
  * `schema` is the newest successful deployment that was not a rollback, because
  * only those apply migrations; a rollback's dispatched commit never migrated.
+ * `inactive` counts as successful: GitHub only marks a deployment inactive
+ * after it succeeded, when a later one replaced it.
  */
 export function pickBaselines(rows) {
-  const ok = rows.filter((r) => r.state === 'success');
+  const ok = rows.filter((r) => r.state === 'success' || r.state === 'inactive');
   if (ok.length === 0) return { code: null, schema: null };
-  const recorded = (r) => RECORDED.exec(r.description ?? '')?.[1];
   return {
-    code: recorded(ok[0]) ?? ok[0].sha,
-    schema: ok.find((r) => !recorded(r))?.sha ?? null,
+    code: ok[0].recorded ?? ok[0].sha,
+    schema: ok.find((r) => !r.recorded)?.sha ?? null,
   };
+}
+
+/** A deployment's row from its statuses, newest first. */
+export function rowOf(sha, statuses) {
+  const recorded = statuses
+    .filter((s) => s.state === 'success' && s.creator?.login === RECORDER)
+    .map((s) => RECORDED.exec(s.description ?? '')?.[1])
+    .find(Boolean);
+  return { sha, state: statuses[0]?.state ?? '', recorded: recorded ?? null };
 }
 
 function deploymentRows(repo) {
   const deployments = JSON.parse(
-    gh('api', `repos/${repo}/deployments?environment=production&per_page=30`),
+    gh('api', `repos/${repo}/deployments?environment=production&per_page=100`),
   );
-  return deployments.map((d) => {
-    const [status] = JSON.parse(gh('api', `repos/${repo}/deployments/${d.id}/statuses?per_page=1`));
-    return { sha: d.sha, state: status?.state ?? '', description: status?.description ?? '' };
-  });
+  return deployments.map((d) =>
+    rowOf(d.sha, JSON.parse(gh('api', `repos/${repo}/deployments/${d.id}/statuses?per_page=20`))),
+  );
 }
 
 function lastDeployed(repo) {

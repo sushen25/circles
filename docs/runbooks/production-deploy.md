@@ -196,9 +196,15 @@ Edge Functions and shared code from the commit the rollback deployed (the
 recorded `deployed:<sha>`), so it shows what coming forward changes. Migrations
 are listed from the last *forward* deployment, because a rollback applies none;
 the plan says so when the two differ. A rollback whose deployment carries no
-record (one made before SUS-212) falls back to the dispatched commit and can
-under-list functions. The dry-run in `apply` prints the CLI's own migration
-list, which is the one to trust; `functions deploy` deploys all of them anyway.
+record (one made before SUS-212, or one whose *Record the commit that was
+deployed* step failed) falls back to the dispatched commit and can under-list
+functions and migrations. **If that step fails, re-run the `tag` job** (it is
+safe to repeat: it finds this run's own deployment by run id) before the next
+deploy. A deploy or rollback that failed part-way (after `functions deploy` or
+`db push`, before the smoke test) also leaves production differing from the last
+successful deployment, and the plan cannot see that. The dry-run in `apply`
+prints the CLI's own migration list, which is the one to trust;
+`functions deploy` deploys all of them anyway.
 
 ### Walking it once
 

@@ -299,9 +299,12 @@ jobs:
       deployments: write
 
     steps:
+      # The dispatched commit's scripts, not the deployed one's: a rollback
+      # deploys an older release, which may predate record-deployed.mjs. On a
+      # forward deploy the two are the same commit.
       - uses: actions/checkout@v4
         with:
-          ref: ${{ needs.plan.outputs.sha }}
+          ref: ${{ github.sha }}
       # GitHub's deployment records the dispatched commit; a rollback deployed
       # another. The next plan's baseline reads this instead.
       - name: Record the commit that was deployed
@@ -311,7 +314,8 @@ jobs:
           HEAD_SHA: ${{ github.sha }}
           SHA: ${{ needs.plan.outputs.sha }}
           ROLLBACK: ${{ needs.plan.outputs.rollback }}
-        run: node scripts/record-deployed.mjs --repo "$REPO" --head "$HEAD_SHA" --deployed "$SHA" --rollback "$ROLLBACK"
+          RUN_ID: ${{ github.run_id }}
+        run: node scripts/record-deployed.mjs --repo "$REPO" --head "$HEAD_SHA" --deployed "$SHA" --rollback "$ROLLBACK" --run "$RUN_ID"
       - name: Tag the deployed commit
         env:
           SHA: ${{ needs.plan.outputs.sha }}
