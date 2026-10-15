@@ -414,6 +414,24 @@ describe('SparkSetup', () => {
     expect(screen.queryByRole('button', { name: 'Ask quietly' })).toBeNull();
   });
 
+  it('leads the owner of a circle of one to inviting people', async () => {
+    circleHome.mockResolvedValue({ ...HOME, isOwner: true, members: HOME.members.slice(0, 1) });
+    show(<QuietSetupFlow id={CIRCLE} />);
+
+    const invite = await screen.findByRole('button', { name: 'Invite people' });
+    fireEvent.click(invite);
+
+    expect(push).toHaveBeenCalledWith({ pathname: '/circles/[id]/invite', params: { id: CIRCLE } });
+  });
+
+  it('offers no Invite button to anybody who cannot hand out the link', async () => {
+    circleHome.mockResolvedValue({ ...HOME, isOwner: false, members: HOME.members.slice(0, 1) });
+    show(<QuietSetupFlow id={CIRCLE} />);
+
+    expect(await screen.findByText("There's nobody else in Sunday Crew to ask yet.")).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Invite people' })).toBeNull();
+  });
+
   it('draws the organiser gate in place of the form for a guest', async () => {
     session.current = { status: 'guest', userId: 'alex', isAnonymous: true, isLoading: false };
     show(<QuietSetupFlow id={CIRCLE} />);

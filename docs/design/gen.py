@@ -774,6 +774,15 @@ S["SparkSetup"] = shell(
     foot(pri("Ask quietly"))
 )
 
+# A quiet ask in a circle of one (SUS-199): the way forward is the invite.
+S["SparkNobody"] = shell(
+    top("See if people are keen") +
+    body(
+        stack(dl("There's nobody else in Thursday Lot to ask yet."), p("A quiet ask needs somebody to say they are keen. Invite people first."), gap=8),
+    ) +
+    foot(pri("Invite people"))
+)
+
 S["InterestPrompt"] = shell(
     top("", back=False, right=wordmark()) +
     body(
@@ -1106,6 +1115,34 @@ S["CircleHomeJoining"] = shell(
     ) +
     foot(pri("Plan the first catch-up"))
 )
+
+# At the member cap (ADR 0012, SUS-199): said in place of the count, and the
+# link is not offered, since it could only turn the next person away.
+S["CircleHomeFull"] = shell(
+    top("", right=ic("gear", 22, T["ink2"])) +
+    body(
+        row('<div class="icon-sq" style="width:52px;height:52px;font-size:26px;">T</div>', stack(dl("Thursday Lot"), sm("20 members · about monthly"), gap=2)),
+        card(row(marks(["Maya","Nina","Tom","Jess","Sam"]), sm("Thursday Lot is full (20 people)")), gap=0),
+        card(lbl("Ready when you are"), p("You don't have to wait for everyone. Start a catch-up now and anyone who joins later can still add their times."), rec=True),
+        card(between(stack(lbl("Last caught up"), f'<div class="date" style="font-size:22px;">Not yet</div>', gap=4), stack(lbl("Next one"), f'<div class="date" style="font-size:22px;">Up to you</div>', gap=4))),
+    ) +
+    foot(pri("Plan the first catch-up"))
+)
+
+S["SettingsFull"] = shell(
+    top("Thursday Lot") +
+    body(
+        dl("Circle settings"),
+        card(lbl("Thursday Lot is full (20 people)"), sm("A circle holds up to 20 people. The invite link comes back once there is room."), gap=10),
+        card(li("", "Catch up", "About monthly", right=f'<div class="sm">Change</div>'), divider(),
+             li("", "Who gets nudged to plan the next one", "Take turns", right=f'<div class="sm">Change</div>'), divider(),
+             li("", "Quiet asks", "On", right='<div class="toggle on"><i></i></div>'), gap=0, pad=6),
+        stack(lbl("Members"),
+              card(li(marks(["Maya"], large=True), "Maya", "You · owner", right=""), divider(),
+                   li(marks(["Nina"], large=True), "Nina", "Place saved · joined 3 Sep", right=f'<div class="sm">Remove</div>'), gap=0, pad=6), gap=8),
+        ter("Archive this circle", plain=True),
+        gap=18)
+, minh=760)
 
 S["FirstPlan"] = shell(
     top("Sunday Crew") +
@@ -2004,6 +2041,8 @@ titles = {"Main":"Join · invite landing","ContinueAs":"Continue as · returning
           "EmptyCircle":"Empty circle","Offline":"Offline and error","LoadError":"Error · couldn't load, signed in","LoadErrorGuest":"Error · couldn't load, guest","SignInServerFailed":"Sign in · the server said no","Emails":"Email templates","Pushes":"Push copy","ShareMessages":"Share-sheet messages","Components":"Components and tokens",
           "LoadingCircleHome":"Loading · circle home","LoadingOptions":"Loading · options","LoadingConfirmed":"Loading · confirmed","LoadingSettingUp":"First run · setting up the circle","LoadingSlowEight":"Loading · still working, about 8 s","LoadingSlowTwenty":"Loading · try again, about 20 s","BusyRow":"Busy · list row","BusyButtons":"Busy · buttons","AddToCalendarPreparing":"Add to calendar · preparing","AddToCalendarSlow":"Add to calendar · still working, about 8 s","AddToCalendarReady":"Add to calendar · ready (iPhone, a link)","AddToCalendarFailed":"Add to calendar · failed, retry in the row","AddToCalendarAfterTap":"Add to calendar · after the tap (iPhone)","AddToCalendarAfterTapAndroid":"Add to calendar · after the tap (Android)","AddToCalendarInApp":"Add to calendar · WhatsApp or Messenger","LoadingTiming":"Loading and busy · timing","LoadingMotion":"Loading and busy · reduced motion"}
 
+titles.update({"CircleHomeFull":"Circle home · full (20 people)","SettingsFull":"Circle settings · full","SparkNobody":"Quiet ask · nobody to ask yet"})
+
 def grid(names, page, per_row=6, y0=0):
     for i, n in enumerate(names):
         r, c = divmod(i, per_row)
@@ -2031,8 +2070,8 @@ grid(["EmptyCirclesList","CirclesList","CreateCircle","InviteCircle","CircleHome
       "DeadlinePassed","EditPlan","ConfirmReview","ConfirmedOrg","CircleHomeConfirmed","ChangeTime",
       "CancelPlan","CancelledOrg","NoQuorum","Outcome","CircleHomeDue","PlanAnother",
       "Settings","NotificationSettings","Account","Privacy","Diagnostics",
-      "SetTime","ConfirmReviewOwn","EditLocked","FounderAnalytics"], "organiser")
-grid(["SparkSetup","SparkWaiting","InterestPrompt","ThresholdRole","Volunteer","SparkOpenedMember","SparkExpired"], "quiet")
+      "SetTime","ConfirmReviewOwn","EditLocked","FounderAnalytics","CircleHomeFull","SettingsFull"], "organiser")
+grid(["SparkSetup","SparkWaiting","InterestPrompt","ThresholdRole","Volunteer","SparkOpenedMember","SparkExpired","SparkNobody"], "quiet")
 grid(["PushAsk","CalendarExplain","CalendarPick","AvailabilityOverlay","CalendarDenied"], "native")
 boards.append(ab("ConversionMap.dc.html", 0, 0, "convert", w=1400, h=1100, title=titles["ConversionMap"]))
 grid(["ConfirmedGuestNudge","AppSheet","ReattachedNudge","SecondSent","AfterAttendance","InitiateGate","AppLanding"], "convert", per_row=7, y0=1260)

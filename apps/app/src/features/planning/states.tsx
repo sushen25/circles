@@ -25,6 +25,7 @@ export function PlanStateScreen({
   title,
   body,
   action,
+  actionVariant = 'secondary',
   onAction,
   onRetry,
   onBack,
@@ -34,6 +35,8 @@ export function PlanStateScreen({
   title?: string | undefined;
   body?: string | undefined;
   action?: string | undefined;
+  /** The statement's way forward leads when it is the only thing to do. */
+  actionVariant?: 'primary' | 'secondary' | undefined;
   onAction?: (() => void) | undefined;
   onRetry?: (() => void) | undefined;
   onBack?: (() => void) | undefined;
@@ -71,7 +74,7 @@ export function PlanStateScreen({
       </Body>
       {action === undefined ? null : (
         <Foot>
-          <Button label={action} variant="secondary" onPress={onAction} />
+          <Button label={action} variant={actionVariant} onPress={onAction} />
         </Foot>
       )}
     </Screen>

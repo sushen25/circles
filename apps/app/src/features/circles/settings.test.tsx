@@ -51,6 +51,7 @@ vi.mock('../../data/circles', async (original) => ({
 }));
 
 const { SettingsFlow } = await import('./SettingsFlow');
+const { InviteCircleFlow } = await import('./InviteCircleFlow');
 const { keepInviteSecret } = await import('../../data/circles');
 const { forgetInviteSecretsForTests } = await import('../../data/circles/invite');
 
@@ -137,6 +138,62 @@ beforeEach(() => {
   circleHome.mockResolvedValue(home());
   updateCircle.mockResolvedValue(undefined);
   saveMySwitches.mockResolvedValue(undefined);
+});
+
+describe('a circle at the member cap (SUS-199)', () => {
+  const twenty = () =>
+    Array.from({ length: 20 }, (_, i) => ({
+      userId: i === 0 ? 'maya' : `m${i}`,
+      name: i === 0 ? 'Maya' : i === 1 ? 'Nina' : `Guest ${i}`,
+      joinedAt: '2026-09-03T00:00:00Z',
+      role: i === 0 ? ('owner' as const) : ('member' as const),
+      savedPlace: true,
+    }));
+
+  it('says it is full in place of the link, and never asks for the link', async () => {
+    circleHome.mockResolvedValue(home({ name: 'Thursday Lot', members: twenty() }));
+    wrap(<SettingsFlow id={CIRCLE} />);
+
+    expect(await screen.findByText('Thursday Lot is full (20 people)')).toBeVisible();
+    expect(screen.getByText(/The invite link comes back once there is room/)).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Copy link' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Reset link' })).toBeNull();
+    expect(fetchInviteSecret).not.toHaveBeenCalled();
+    // The way to make room is still here.
+    expect(screen.getByRole('button', { name: 'Remove Guest 2' })).toBeVisible();
+  });
+
+  it('tells a member who is not the owner it is full, without the owner’s hint', async () => {
+    circleHome.mockResolvedValue(
+      home({ name: 'Thursday Lot', members: twenty(), isOwner: false, me: 'nina' }),
+    );
+    wrap(<SettingsFlow id={CIRCLE} />);
+
+    expect(await screen.findByText('Thursday Lot is full (20 people)')).toBeVisible();
+    expect(screen.queryByText(/invite link comes back/)).toBeNull();
+  });
+
+  it('says so on the invite screen too, with settings as the way on', async () => {
+    circleHome.mockResolvedValue(home({ name: 'Thursday Lot', members: twenty() }));
+    wrap(<InviteCircleFlow id={CIRCLE} />);
+
+    expect(await screen.findByText('Thursday Lot is full (20 people)')).toBeVisible();
+    expect(fetchInviteSecret).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Circle settings' }));
+    expect(replace).toHaveBeenCalledWith({
+      pathname: '/circles/[id]/settings',
+      params: { id: CIRCLE },
+    });
+  });
+
+  it('still shows the link at nineteen', async () => {
+    fetchInviteSecret.mockResolvedValue(undefined);
+    circleHome.mockResolvedValue(home({ members: twenty().slice(0, 19) }));
+    wrap(<SettingsFlow id={CIRCLE} />);
+
+    expect(await screen.findByRole('button', { name: 'Reset link' })).toBeVisible();
+    expect(screen.queryByText(/is full/)).toBeNull();
+  });
 });
 
 describe('the invite link in settings', () => {

@@ -23,7 +23,9 @@ import { useNudgeActions } from './useNudgeActions';
 import { useShareLink } from './useShareLink';
 import {
   cadenceWords,
+  fullLine,
   homeSubtitle,
+  isFull,
   joiningSubtitle,
   justJoined,
   lastCaughtUp,
@@ -76,13 +78,19 @@ export function HomeInState({ home, onBack }: { home: CircleHome; onBack: () => 
   const shareLink = useShareLink(home);
 
   const members = home.members.map((m) => ({ name: m.name }));
-  const memberCount =
-    home.members.length === 1
+  // At the cap the link would only turn the next person away (ADR 0012), so
+  // the home says the circle is full in place of the count and offers no way
+  // to share it. The domain decides (`canAddMember`); the home never counts.
+  const full = isFull(home);
+  const memberCount = full
+    ? fullLine(home)
+    : home.members.length === 1
       ? t('circleHome', 'one_member_count')
       : t('circleHome', 'member_count', { count: home.members.length });
-  const invite = home.isOwner
-    ? () => router.push({ pathname: '/circles/[id]/invite', params: { id } })
-    : undefined;
+  const invite =
+    home.isOwner && !full
+      ? () => router.push({ pathname: '/circles/[id]/invite', params: { id } })
+      : undefined;
   const settings = () => router.push({ pathname: '/circles/[id]/settings', params: { id } });
   const planNew = () => router.push({ pathname: '/circles/[id]/plan/new', params: { id } });
   // "Plan another" is the circle's second plan and after: prefilled from the
@@ -252,6 +260,7 @@ export function HomeInState({ home, onBack }: { home: CircleHome; onBack: () => 
       lastCaughtUp={lastCaughtUp(home)}
       nextOne={nextOne(home)}
       firstPlan={home.lastMetAt === null}
+      full={full ? fullLine(home) : undefined}
       onShareAgain={invite}
       onSettings={settings}
       onNext={planNew}

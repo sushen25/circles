@@ -60,6 +60,13 @@ export type SettingsProps = {
   canManage?: boolean | undefined;
   ownerName?: string | undefined;
   invite?: InviteView | undefined;
+  /**
+   * "Thursday Lot is full (20 people)": at the cap the link card gives way to
+   * this, since the link could only turn the next person away (ADR 0012).
+   */
+  full?: string | undefined;
+  /** What the owner can do about it; the owner's alone. */
+  fullHint?: string | undefined;
   /** What the last link action did: "Copied", "New link ready…". */
   linkNote?: string | undefined;
   cadenceLabel?: string | undefined;
@@ -133,6 +140,8 @@ export function SettingsScreen({
   canManage = true,
   ownerName = t('settings', 'maya'),
   invite = { kind: 'shown', display: t('settings', 'domain_join_7f3k') },
+  full,
+  fullHint,
   linkNote,
   cadenceLabel = t('settings', 'about_monthly'),
   policyLabel = t('settings', 'take_turns'),
@@ -187,7 +196,12 @@ export function SettingsScreen({
       <Body>
         <DisplayL>{t('settings', 'circle_settings')}</DisplayL>
         {problem === undefined ? null : <Notice kind="warn">{problem}</Notice>}
-        {canManage ? (
+        {full !== undefined ? (
+          <Card>
+            <Label>{full}</Label>
+            {fullHint === undefined ? null : <Small>{fullHint}</Small>}
+          </Card>
+        ) : canManage ? (
           <Card>
             <Label>{t('settings', 'invite_link')}</Label>
             {invite.kind === 'loading' ? <Small>{t('settings', 'link_loading')}</Small> : null}

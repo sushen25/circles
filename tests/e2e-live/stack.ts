@@ -172,6 +172,40 @@ export function sundayCrew({ withPlan = true }: { withPlan?: boolean } = {}): Sc
   return { circleId, planCode, planId, ownerId, secret };
 }
 
+/**
+ * Guests join `circleId` until it holds exactly `member_cap()` active members
+ * (ADR 0012): the cap is read from the database, never typed here, so a change
+ * to it changes this too. Rows only — the same ones `redeem-invite` writes.
+ */
+export function fillToCap(circleId: string): void {
+  sql(`
+    do $$
+    declare member uuid;
+    begin
+      while (select count(*) from public.circle_members m
+             where m.circle_id = '${circleId}' and m.status = 'active') < public.member_cap()
+      loop
+        member := gen_random_uuid();
+        insert into auth.users (
+          id, instance_id, aud, role, email, is_anonymous, raw_app_meta_data, raw_user_meta_data,
+          created_at, updated_at
+        ) values (
+          member, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+          null, true, '{"is_anonymous": true}',
+          '{"display_name": "Guest", "time_zone": "Australia/Melbourne"}', now(), now()
+        );
+        insert into public.circle_members (circle_id, user_id, display_name_snapshot)
+        values ('${circleId}', member, 'Guest ' || left(member::text, 6));
+        insert into public.plan_participants (plan_id, revision, user_id)
+        select p.id, 1, member from public.plans p
+        where p.circle_id = '${circleId}'
+        on conflict do nothing;
+      end loop;
+    end;
+    $$;
+  `);
+}
+
 /** The active member of the circle by display name, and whether that identity is a guest. */
 export function memberNamed(
   circleId: string,

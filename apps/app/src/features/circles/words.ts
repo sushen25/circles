@@ -1,4 +1,12 @@
-import { cadenceState, fromISO, zone as toZone, type Cadence, type Circle } from '@circles/domain';
+import {
+  canAddMember,
+  cadenceState,
+  fromISO,
+  memberLimits,
+  zone as toZone,
+  type Cadence,
+  type Circle,
+} from '@circles/domain';
 
 import { t } from '../../copy';
 import type { CircleHome, HomeMember } from '../../data/circles';
@@ -21,8 +29,29 @@ export function cadenceWords(cadence: Cadence): string {
   return CADENCE[cadence]();
 }
 
+/**
+ * Whether the circle is at its cap (ADR 0012): the domain's `canAddMember` over
+ * the active members the home already reads, so the screen asks nothing new of
+ * the database. An archived circle is not "full", it is closed.
+ */
+export function isFull(home: CircleHome): boolean {
+  return home.status === 'active' && !canAddMember(home.members.length);
+}
+
+/** "Thursday Lot is full (20 people)" — said instead of the count, neutral. */
+export function fullLine(home: CircleHome): string {
+  return t('circleHome', 'full', { circle: home.name, count: home.members.length });
+}
+
+/** The cap, for the sentence that says what the circle holds. */
+export function fullHint(): string {
+  return t('circleHome', 'full_hint', { count: memberLimits.max });
+}
+
 /** "3 in so far · about monthly" — while the circle is filling. */
 export function joiningSubtitle(home: CircleHome): string {
+  // "In so far" promises more to come; a full circle is not filling.
+  if (isFull(home)) return homeSubtitle(home);
   return t('circleHomeJoining', 'in_so_far', {
     count: home.members.length,
     what: cadenceWords(home.cadence),

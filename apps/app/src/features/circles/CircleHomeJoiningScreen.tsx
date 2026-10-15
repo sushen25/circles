@@ -48,6 +48,8 @@ export type CircleHomeJoiningProps = {
   nextOne?: string | undefined;
   /** False once the circle has met: then it is not the *first* catch-up. */
   firstPlan?: boolean | undefined;
+  /** "Thursday Lot is full (20 people)": said in place of "Share again" at the cap. */
+  full?: string | undefined;
   /** The owner's alone; without it there is no "Share again". */
   onShareAgain?: (() => void) | undefined;
   onSettings?: (() => void) | undefined;
@@ -70,6 +72,7 @@ export function CircleHomeJoiningScreen({
   lastCaughtUp = t('circleHomeJoining', 'not_yet'),
   nextOne = t('circleHomeJoining', 'up_to_you'),
   firstPlan = true,
+  full,
   onShareAgain,
   onSettings,
   onRetry,
@@ -121,6 +124,7 @@ export function CircleHomeJoiningScreen({
           <Small accessibilityLiveRegion="polite">
             {joined ?? t('circleHomeJoining', 'nobody_yet')}
           </Small>
+          {full === undefined ? null : <Small accessibilityLiveRegion="polite">{full}</Small>}
           {onShareAgain === undefined ? null : (
             <Tertiary label={t('circleHomeJoining', 'share_again')} onPress={onShareAgain} />
           )}

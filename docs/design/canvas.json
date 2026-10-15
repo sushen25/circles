@@ -802,6 +802,24 @@
       "title": "Founder analytics"
     },
     {
+      "file": "CircleHomeFull.dc.html",
+      "x": 480,
+      "y": 6500,
+      "w": 390,
+      "h": 844,
+      "page": "organiser",
+      "title": "Circle home \u00b7 full (20 people)"
+    },
+    {
+      "file": "SettingsFull.dc.html",
+      "x": 960,
+      "y": 6500,
+      "w": 390,
+      "h": 844,
+      "page": "organiser",
+      "title": "Circle settings \u00b7 full"
+    },
+    {
       "file": "SparkSetup.dc.html",
       "x": 0,
       "y": 0,
@@ -863,6 +881,15 @@
       "h": 844,
       "page": "quiet",
       "title": "Expired \u00b7 initiator"
+    },
+    {
+      "file": "SparkNobody.dc.html",
+      "x": 480,
+      "y": 1300,
+      "w": 390,
+      "h": 844,
+      "page": "quiet",
+      "title": "Quiet ask \u00b7 nobody to ask yet"
     },
     {
       "file": "PushAsk.dc.html",
