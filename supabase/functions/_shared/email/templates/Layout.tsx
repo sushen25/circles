@@ -11,6 +11,7 @@ import { Preview } from '@react-email/preview';
 import { Section } from '@react-email/section';
 import { Text } from '@react-email/text';
 import { brand } from '@circles/config';
+import type { StopFamily } from '@circles/contracts';
 import type { ReactNode } from 'react';
 
 import { EN_EMAIL, type EmailCopy } from '../copy.ts';
@@ -64,19 +65,21 @@ export type SubscriberFooter = {
 };
 
 /**
- * A sentence saying why this arrived, and — where a switch in the app stops it
- * — a line saying where that switch is (ADR 0029). Not a subscription, so no
- * stop link and no token: the reader has an account and signs in.
+ * A sentence saying why this arrived, a stop link that needs no sign-in (ADR
+ * 0067, ADR 0069), and — where a switch in the app stops it — a line saying
+ * where that switch is (ADR 0029). Not a subscription, so no preferences link:
+ * the reader has an account.
  */
 export type ReasonFooter = {
   readonly kind: 'reason';
   readonly sentence: string;
   readonly settingsUrl?: string | undefined;
   /**
-   * A stop that needs no sign-in (ADR 0067): the cadence nudge's. The link
-   * opens a page that asks for one tap, so opening it spends nothing.
+   * A stop that needs no sign-in (ADR 0067, ADR 0069), and which family of
+   * letters it stops, for the words beside it. The link opens a page that asks
+   * for one tap, so opening it spends nothing.
    */
-  readonly stopUrl?: string | undefined;
+  readonly stop?: { readonly url: string; readonly family: StopFamily } | undefined;
 };
 
 export type Footer = SubscriberFooter | ReasonFooter | { readonly kind: 'none' };
@@ -110,11 +113,11 @@ function FooterBlock({ footer }: { footer: Footer }): ReactNode {
       <>
         <Hr style={{ borderColor: palette.line, margin: '20px 0 16px' }} />
         <Text style={small}>{footer.sentence}</Text>
-        {footer.stopUrl === undefined ? null : (
+        {footer.stop === undefined ? null : (
           <Text style={small}>
-            {EN_EMAIL.footer.stopNudgesLead}{' '}
-            <Link href={footer.stopUrl} style={smallLink}>
-              {EN_EMAIL.footer.stopNudgesLabel}
+            {EN_EMAIL.footer.stop[footer.stop.family].lead}{' '}
+            <Link href={footer.stop.url} style={smallLink}>
+              {EN_EMAIL.footer.stop[footer.stop.family].label}
             </Link>
             .
           </Text>

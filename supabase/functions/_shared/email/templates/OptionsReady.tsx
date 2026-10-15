@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 
 import { EN_EMAIL, type EmailCopy } from '../copy.ts';
 import { countInWords, weekdayName } from '../format.ts';
-import { planLink, settingsLink } from '../links.ts';
+import { planLink, settingsLink, stopLink } from '../links.ts';
 import type { OptionsReadyInput } from '../types.ts';
 import { Layout } from './Layout.tsx';
 
@@ -25,6 +25,7 @@ export function OptionsReady({ input }: { input: OptionsReadyInput }): ReactNode
         kind: 'reason',
         sentence: EN_EMAIL.footer.organiser(input.circleName),
         settingsUrl: settingsLink(input.origin),
+        stop: { url: stopLink(input.origin, 'organiser', input.stopToken), family: 'organiser' },
       }}
     />
   );

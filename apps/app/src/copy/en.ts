@@ -1399,20 +1399,40 @@ export const en = {
     try_again: 'Try again',
     reference: 'Ref {reference}',
   },
-  nudgeStop: {
-    stop_these_reminders: 'Stop these reminders',
-    body: "These are the emails that say it's about time to plan the next catch-up. Stopping turns them off for you in every circle. Nothing else changes, and you can turn them back on in notification settings.",
-    stopping: 'Stopping',
-    done: "Done. You won't get these reminders.",
-    done_body:
+  /**
+   * The page behind the stop link under an account-holder letter (ADR 0067,
+   * ADR 0069): one set of words per family, suffixed with its name.
+   */
+  stopLetters: {
+    stop_nudges: 'Stop these reminders',
+    button_nudges: 'Stop these reminders',
+    body_nudges:
+      "These are the emails that say it's about time to plan the next catch-up. Stopping turns them off for you in every circle. Nothing else changes, and you can turn them back on in notification settings.",
+    done_nudges: "Done. You won't get these reminders.",
+    done_body_nudges:
       'Emails about plans, and everything else, carry on as before. To turn the reminders back on, sign in and open notification settings.',
+    stop_organiser: 'Stop emails about plans you organise',
+    button_organiser: 'Stop these emails',
+    body_organiser:
+      'These are the emails about plans you organise: when options are ready, when replies close with nothing locked in, and the question the morning after. Stopping turns them off for you. Nothing else changes, and you can turn them back on in notification settings.',
+    done_organiser: "Done. You won't get emails about plans you organise.",
+    done_body_organiser:
+      'Updates you asked for about a plan, and everything else, carry on as before. To turn these emails back on, sign in and open notification settings.',
+    stop_quiet: 'Stop emails about quiet asks',
+    button_quiet: 'Stop these emails',
+    body_quiet:
+      "These are the emails about a quiet ask you started. Stopping turns quiet asks off for you in every circle, so you won't get these emails or be asked about anyone else's, and you can't start one until you turn them back on in notification settings. Nothing else changes.",
+    done_quiet: "Done. You won't get emails about quiet asks.",
+    done_body_quiet:
+      'Everything else carries on as before. To turn quiet asks back on, sign in and open notification settings.',
+    stopping: 'Stopping',
     link_expired: 'This link has expired.',
     link_expired_body:
-      'Use the link in the most recent reminder, or sign in and turn them off in notification settings.',
+      'Use the link in the most recent email, or sign in and turn them off in notification settings.',
     open_it_again: 'Open the link from your email again.',
     open_it_again_body:
       "The link is cleared from the address bar once it's opened, so a reload can't use it again.",
-    couldnt_stop: "Something went wrong, so the reminders weren't stopped. Please try again.",
+    couldnt_stop: "Something went wrong, so they weren't stopped. Please try again.",
     youre_offline: "You're offline. Connect, then try again.",
     try_again: 'Try again',
     reference: 'Ref {reference}',
@@ -1860,8 +1880,8 @@ export const en = {
     quiet_asks_in: 'Quiet asks in {circle}',
     nudges_in: 'Nudges to plan the next one in {circle}',
     emails_about_plans_you_organise: 'Emails about plans you organise',
-    options_ready_and_did_it_happen_replies_closed_still_comes:
-      "Options ready and did it happen. If replies close with nothing locked in, we'll still email you once.",
+    options_ready_replies_closed_and_did_it_happen:
+      'Options ready, replies closed with nothing locked in, and did it happen.',
     quiet_hours_title: 'Quiet hours are fixed for now',
     quiet_hours_body:
       'Nothing arrives between 9 pm and 8 am in your own time zone. Choosing your own hours comes later.',

@@ -16,7 +16,9 @@ import type { EmailInput, EmailKind } from './types.ts';
 export const ORIGIN = 'https://meet.example.com';
 
 /** Token-shaped for the contract (`OpaqueToken`), and obviously not a real one. */
-export function fixtureToken(label: 'verify' | 'prefs' | 'reentry' | 'stop'): string {
+export function fixtureToken(
+  label: 'verify' | 'prefs' | 'reentry' | 'stop' | 'organiser_stop' | 'quiet_stop',
+): string {
   return `${label}_`.padEnd(43, 'x');
 }
 
@@ -26,6 +28,7 @@ const END = fromLocal(localDate('2026-09-17'), 20 * 60 + 30, MELBOURNE);
 
 const circle = { origin: ORIGIN, circleName: 'Sunday Crew' };
 const plan = { ...circle, planCode: 'pnemab' };
+const organiser = { ...plan, stopToken: fixtureToken('organiser_stop') };
 const subscriber = {
   ...plan,
   prefsToken: fixtureToken('prefs'),
@@ -87,14 +90,14 @@ export const SUNDAY_CREW: { readonly [K in EmailKind]: Extract<EmailInput, { kin
     zone: MELBOURNE,
   },
   options_ready: {
-    ...plan,
+    ...organiser,
     kind: 'options_ready',
     bestStart: START,
     zone: MELBOURNE,
     availableCount: 5,
   },
-  replies_closed: { ...plan, kind: 'replies_closed' },
-  did_it_happen: { ...plan, kind: 'did_it_happen', start: START, zone: MELBOURNE },
+  replies_closed: { ...organiser, kind: 'replies_closed' },
+  did_it_happen: { ...organiser, kind: 'did_it_happen', start: START, zone: MELBOURNE },
   about_time: {
     ...circle,
     kind: 'about_time',
@@ -102,11 +105,16 @@ export const SUNDAY_CREW: { readonly [K in EmailKind]: Extract<EmailInput, { kin
     weeksSince: 5,
     stopToken: fixtureToken('stop'),
   },
-  threshold_initiator: { ...plan, kind: 'threshold_initiator' },
+  threshold_initiator: {
+    ...plan,
+    kind: 'threshold_initiator',
+    stopToken: fixtureToken('quiet_stop'),
+  },
   quiet_expired: {
     ...circle,
     kind: 'quiet_expired',
     circleId: '00000000-0000-4000-8000-000000000001',
+    stopToken: fixtureToken('quiet_stop'),
   },
   // Maya moved the window on by a day; availability still runs 5:30–10:30 pm.
   asked_again: {

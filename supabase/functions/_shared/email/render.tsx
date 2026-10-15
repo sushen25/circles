@@ -3,7 +3,7 @@ import { render as toHtml } from '@react-email/render';
 import type { ReactNode } from 'react';
 
 import type { EmailCopy } from './copy.ts';
-import { nudgeStopLink, subscriberFooter } from './links.ts';
+import { stopLink, subscriberFooter } from './links.ts';
 import { AboutTime, aboutTimeCopy } from './templates/AboutTime.tsx';
 import { AskedAgain, askedAgainCopy } from './templates/AskedAgain.tsx';
 import { Cancelled, cancelledCopy } from './templates/Cancelled.tsx';
@@ -26,7 +26,13 @@ import {
 import { Reminder, reminderCopy } from './templates/Reminder.tsx';
 import { RepliesClosed, repliesClosedCopy } from './templates/RepliesClosed.tsx';
 import { VerifyEmail, verifyEmailCopy } from './templates/VerifyEmail.tsx';
-import { type EmailInput, type EmailKind, type RenderedEmail, SUBSCRIBER_KINDS } from './types.ts';
+import {
+  type EmailInput,
+  type EmailKind,
+  type RenderedEmail,
+  STOP_LINK_KINDS,
+  SUBSCRIBER_KINDS,
+} from './types.ts';
 
 /**
  * `render(input) → { subject, html, text, headers }` for every kind of email
@@ -82,13 +88,22 @@ const TEMPLATES: { [K in EmailKind]: Template<Extract<EmailInput, { kind: K }>> 
  * to Gmail); this is transactional mail to a handful of people per plan.
  */
 function headersFor(input: EmailInput): Record<string, string> {
-  // The cadence nudge's stop link (ADR 0067), the same page as the footer's, so
-  // a mail client's own unsubscribe control reaches the same one tap.
-  if (input.kind === 'about_time') {
-    return { 'List-Unsubscribe': `<${nudgeStopLink(input.origin, input.stopToken)}>` };
+  // The account-holder kinds' stop link (ADR 0067, ADR 0069), the same page as
+  // the footer's, so a mail client's own unsubscribe control reaches the same
+  // one tap. Every kind in `STOP_LINK_KINDS` has a token or was not sent.
+  if (isStoppableInput(input)) {
+    return {
+      'List-Unsubscribe': `<${stopLink(input.origin, STOP_LINK_KINDS[input.kind], input.stopToken)}>`,
+    };
   }
   if (!isSubscriberInput(input)) return {};
   return { 'List-Unsubscribe': `<${subscriberFooter(input).manageUrl}>` };
+}
+
+type StoppableInput = Extract<EmailInput, { kind: keyof typeof STOP_LINK_KINDS }>;
+
+function isStoppableInput(input: EmailInput): input is StoppableInput {
+  return input.kind in STOP_LINK_KINDS;
 }
 
 type SubscriberInput = Extract<EmailInput, { kind: (typeof SUBSCRIBER_KINDS)[number] }>;

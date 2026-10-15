@@ -64,6 +64,16 @@ const SCREENS: ScreenEntry[] = [
     href: '/n',
   },
   {
+    screen: 'OrganiserStop',
+    feature: 'communication',
+    href: '/o',
+  },
+  {
+    screen: 'QuietStop',
+    feature: 'communication',
+    href: '/q',
+  },
+  {
     screen: 'SaveAccess',
     feature: 'identity',
     href: '/j/[code]/save-access',

@@ -119,13 +119,13 @@ describe('notification settings', () => {
   describe('emails about plans you organise (ADR 0029)', () => {
     const name = 'Emails about plans you organise';
 
-    it('is one switch for the person, above the circles, and says which email still comes', async () => {
+    it('is one switch for the person, above the circles, and says which emails it stops', async () => {
       wrap(<NotificationSettingsFlow />);
 
       expect(await screen.findByRole('switch', { name })).toHaveAttribute('aria-checked', 'true');
       expect(screen.getAllByRole('switch', { name })).toHaveLength(1);
-      // The detail line is what keeps the switch from lying about replies closed.
-      expect(screen.getByText(/we'll still email you once/)).toBeVisible();
+      // Replies closed is covered too since ADR 0069: the detail line names it.
+      expect(screen.getByText(/replies closed with nothing locked in/)).toBeVisible();
     });
 
     it('shows it off when the profile has it off', async () => {

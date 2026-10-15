@@ -10,6 +10,8 @@ Open the plan https://meet.example.com/p/pnemab
 
 You're getting this because you asked Sunday Crew quietly. Nobody else gets this email.
 
+Don't want these? Stop emails about quiet asks https://meet.example.com/q#quiet_stop_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.
+
 Sent by Wenna
 
 Questions? Write to hello@wenna.app

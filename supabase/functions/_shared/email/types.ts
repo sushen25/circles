@@ -1,3 +1,4 @@
+import type { StopFamily } from '@circles/contracts';
 import type { Instant, LocalDate, NotificationKind, Zone } from '@circles/domain';
 
 /**
@@ -36,8 +37,13 @@ type ToSubscriber = Base & {
   readonly reentryToken: string | null;
 };
 
-/** An organiser kind, sent by email until they have the app (review C6). */
-type ToOrganiser = Base & { readonly planCode: string };
+/**
+ * An organiser kind, sent by email until they have the app (review C6). Its
+ * reader is an account holder who did not opt in, so it carries a stop link
+ * that needs no sign-in: `stopToken`, minted for this letter and this contact
+ * (ADR 0069).
+ */
+type ToOrganiser = Base & { readonly planCode: string; readonly stopToken: string };
 
 /**
  * No circle name, deliberately: until the link is tapped the recipient is
@@ -199,6 +205,8 @@ export type ThresholdInitiatorInput = ToOrganiser & { readonly kind: 'threshold_
 export type QuietExpiredInput = Base & {
   readonly kind: 'quiet_expired';
   readonly circleId: string;
+  /** For "Stop emails about quiet asks" and `List-Unsubscribe`; minted for this letter (ADR 0069). */
+  readonly stopToken: string;
 };
 
 export type EmailInput =
@@ -247,6 +255,21 @@ export const QUIET_KINDS = [
   'quiet_expired',
 ] as const satisfies readonly EmailKind[];
 
+/**
+ * The kinds that go to an account holder who did not opt in, each with the
+ * family of letters its stop link stops (ADR 0067, ADR 0069). Every one carries
+ * a stop link and `List-Unsubscribe`; a kind added here without a template that
+ * renders the link fails the render tests.
+ */
+export const STOP_LINK_KINDS = {
+  about_time: 'nudges',
+  options_ready: 'organiser',
+  replies_closed: 'organiser',
+  did_it_happen: 'organiser',
+  threshold_initiator: 'quiet',
+  quiet_expired: 'quiet',
+} as const satisfies Partial<Record<EmailKind, StopFamily>>;
+
 /** The plan-update kinds, which carry the two footer links and a re-entry link. */
 export const SUBSCRIBER_KINDS = [
   'locked_in',
@@ -266,7 +289,7 @@ export type RenderedEmail = {
   readonly text: string;
   /**
    * `List-Unsubscribe` for the plan-update kinds (RFC 2369): the preferences
-   * link. No `List-Unsubscribe-Post` — see `render.tsx`.
+   * link; and for the account-holder kinds, their stop link (ADR 0069). No `List-Unsubscribe-Post` — see `render.tsx`.
    */
   readonly headers: Readonly<Record<string, string>>;
 };

@@ -8,6 +8,8 @@ See the options https://meet.example.com/p/pnemab
 
 You're getting this because you're organising a catch-up for Sunday Crew.
 
+Don't want these? Stop emails about plans you organise https://meet.example.com/o#organiser_stop_xxxxxxxxxxxxxxxxxxxxxxxxxxxx.
+
 Turn these off in notification settings https://meet.example.com/settings/notifications.
 
 Sent by Wenna

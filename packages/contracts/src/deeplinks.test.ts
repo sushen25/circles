@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   emailPreferencesUrl,
-  nudgeStopUrl,
+  stopLetterUrl,
   emailVerifyUrl,
   fragmentLinkKind,
   notificationSettingsUrl,
@@ -28,7 +28,9 @@ describe('emailed links (ADR 0023)', () => {
       reentryUrl('https://example.test/', TOKEN),
       emailVerifyUrl('https://example.test', TOKEN),
       emailPreferencesUrl('https://example.test', TOKEN),
-      nudgeStopUrl('https://example.test', TOKEN),
+      stopLetterUrl('https://example.test', 'nudges', TOKEN),
+      stopLetterUrl('https://example.test', 'organiser', TOKEN),
+      stopLetterUrl('https://example.test', 'quiet', TOKEN),
     ]) {
       const [beforeHash, hash] = url.split('#');
       expect(beforeHash).not.toContain(TOKEN);
@@ -43,6 +45,8 @@ describe('emailed links (ADR 0023)', () => {
     expect(fragmentLinkKind('/v')).toBe('verify');
     expect(fragmentLinkKind('/e')).toBe('preferences');
     expect(fragmentLinkKind('/n')).toBe('nudge_stop');
+    expect(fragmentLinkKind('/o')).toBe('organiser_stop');
+    expect(fragmentLinkKind('/q')).toBe('quiet_stop');
     expect(fragmentLinkKind('/p/abcdef')).toBeNull();
   });
 

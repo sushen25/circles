@@ -1,3 +1,4 @@
+import type { StopFamily } from '@circles/contracts';
 import type { Db } from './db.ts';
 import { sha256Hex } from './hash.ts';
 
@@ -120,21 +121,39 @@ export async function issuePreferencesToken(
 }
 
 /**
- * The link under a cadence nudge (`about_time`): "Stop these reminders" opens
- * `/n#<token>` (ADR 0067, ADR 0023).
+ * Which stop token each family of account-holder letters carries. One purpose
+ * per family, so a token under one family's letter stops nothing in another's
+ * (`stop_letters` refuses a token of any other purpose).
+ */
+const STOP_PURPOSE = {
+  nudges: 'nudge_stop',
+  organiser: 'organiser_stop',
+  quiet: 'quiet_stop',
+} as const satisfies Record<StopFamily, string>;
+
+/**
+ * The link under an account-holder letter: "Stop these reminders" under a
+ * cadence nudge (`/n#<token>`, ADR 0067), "Stop emails about plans you
+ * organise" under an organiser's letter (`/o#<token>`) and "Stop emails about
+ * quiet asks" under a quiet ask's (`/q#<token>`) — ADR 0069, ADR 0023.
  *
  * Minted per letter, at send time, for the contact the letter is going to, and
  * reusable for a year — a stop link that died after the first tap, or after
- * ninety days, would not be one. Its own purpose: a preferences token cannot
- * stop nudges and this one cannot touch plan email.
+ * ninety days, would not be one. Its own purpose per family: a preferences
+ * token cannot stop these and none of these can touch plan email.
  *
  * **Null means skip this job**: the contact is not verified, or belongs to
- * nobody, so there is no person to nudge and nobody to stop.
+ * nobody, so there is no account holder to write to and nobody to stop.
  */
-export async function issueNudgeStopToken(service: Db, contactId: string): Promise<string | null> {
+export async function issueStopToken(
+  service: Db,
+  contactId: string,
+  family: StopFamily,
+): Promise<string | null> {
   const token = mintToken();
-  const { data, error } = await service.rpc('issue_nudge_stop_token', {
+  const { data, error } = await service.rpc('issue_stop_token', {
     p_contact_id: contactId,
+    p_purpose: STOP_PURPOSE[family],
     p_token_hash: await tokenHash(token),
   });
   if (error !== null) throw error;

@@ -2,7 +2,7 @@
 import type { ReactNode } from 'react';
 
 import { EN_EMAIL, type EmailCopy } from '../copy.ts';
-import { circleLink, nudgeStopLink, settingsLink } from '../links.ts';
+import { circleLink, settingsLink, stopLink } from '../links.ts';
 import type { AboutTimeInput } from '../types.ts';
 import { Layout } from './Layout.tsx';
 
@@ -27,7 +27,7 @@ export function AboutTime({ input }: { input: AboutTimeInput }): ReactNode {
         kind: 'reason',
         sentence: EN_EMAIL.footer.nudge(input.circleName),
         settingsUrl: settingsLink(input.origin),
-        stopUrl: nudgeStopLink(input.origin, input.stopToken),
+        stop: { url: stopLink(input.origin, 'nudges', input.stopToken), family: 'nudges' },
       }}
     />
   );

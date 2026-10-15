@@ -98,7 +98,7 @@ first-to-answer state with no counts (`FixtureAnswering`).
 `EnterCodeScreen` for the code). The two emailed pages are `/v` and `/e`, with
 their token in the fragment (`/v#<token>`, ADR 0023), as is re-entry at `/a`:
 the entry point takes the token out of the address bar before the router loads
-(`data/links/tokens.ts`). `EmailVerifyFlow` and `EmailPrefsFlow` need no session. `/n#<token>` is the third: `NudgeStopFlow`, the stop link under a cadence nudge (ADR 0067), which asks for one tap and reads nothing on load.
+(`data/links/tokens.ts`). `EmailVerifyFlow` and `EmailPrefsFlow` need no session. `/n#<token>`, `/o#<token>` and `/q#<token>` are the next three: `StopLettersFlow`, the stop link under a cadence nudge (ADR 0067), under an organiser's letter and under a quiet ask's (ADR 0069), which asks for one tap, says what it stops, and reads nothing on load.
 
 **One step on Sent, SUS-162:** the card is one address, the consent sentence
 (`CONSENT.text`), a "Save my place" switch on by default and one primary.
@@ -185,6 +185,9 @@ the locked-in home's "Plan another", open `/circles/[id]/plan/another`.
 | `EmailPrefs.dc.html`           | `/e` (`#token`)           | `EmailPrefsScreen`           |
 | `EmailVerified.dc.html`        | `/v` (`#token`)           | `EmailVerifiedScreen`        |
 | `NotificationSettings.dc.html` | `/settings/notifications` | `NotificationSettingsScreen` |
+| `NudgeStop.dc.html`            | `/n` (`#token`)           | `StopLettersScreen`          |
+| `OrganiserStop.dc.html`        | `/o` (`#token`)           | `StopLettersScreen`          |
+| `QuietStop.dc.html`            | `/q` (`#token`)           | `StopLettersScreen`          |
 | `PushAsk.dc.html`              | `/settings/push`          | `PushAskScreen`              |
 
 **Real since S1-23:** `/settings/notifications` (`NotificationSettingsFlow`):

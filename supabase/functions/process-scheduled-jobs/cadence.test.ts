@@ -324,7 +324,7 @@ describe('sending a cadence nudge', () => {
   const STOP_TOKEN_ID = '00000000-0000-4000-8000-00000000a0b1';
   const answers = (fn: string) => {
     if (fn === 'dispatch_circle_context') return circleContext();
-    if (fn === 'issue_nudge_stop_token') return STOP_TOKEN_ID;
+    if (fn === 'issue_stop_token') return STOP_TOKEN_ID;
     return null;
   };
 
@@ -359,8 +359,9 @@ describe('sending a cadence nudge', () => {
     expect(body.Headers?.['List-Unsubscribe']).toBe(`<https://app.test/n#${token}>`);
     // Minted for this letter and this contact, and stored as a digest: the
     // database never saw the token itself.
-    const minted = calls.find((c) => c.fn === 'issue_nudge_stop_token');
+    const minted = calls.find((c) => c.fn === 'issue_stop_token');
     expect(minted?.args['p_contact_id']).toBe(CONTACT);
+    expect(minted?.args['p_purpose']).toBe('nudge_stop');
     expect(JSON.stringify(minted?.args)).not.toContain(token);
     // No token in what the function records about the send.
     expect(JSON.stringify(results(calls))).not.toContain(token);
