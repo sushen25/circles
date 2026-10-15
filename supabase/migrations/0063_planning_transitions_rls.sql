@@ -1,4 +1,4 @@
--- 0055_planning_transitions_rls
+-- 0063_planning_transitions_rls
 --
 -- `planning.transitions` is the one table in the five schemas the app owns
 -- that had row-level security off. No client role could reach it anyway
