@@ -103,6 +103,6 @@ describe.each(['Australia/Sydney', 'Pacific/Kiritimati'])('a device in %s', (dev
     );
     // Three days on from 08:30 in Los Angeles, rounded up to the hour, whatever
     // day it is on the device.
-    expect(await screen.findByText(/Mon Oct 5, 9 AM/)).toBeTruthy();
+    expect(await screen.findByText(/Mon Oct 5, 9 am/)).toBeTruthy();
   });
 });

@@ -1,7 +1,8 @@
-import { formatMinutesOfDay, formatRange, fromISO, toLocal, zone as toZone } from '@circles/domain';
+import { formatRange, fromISO, toLocal, zone as toZone } from '@circles/domain';
 
 import { t } from '../../copy';
 import { dateWords, deviceTimeFormat } from '../availability/days';
+import { whenWords } from '../planning/when';
 
 /**
  * How an option is written on a candidate card (spec §5.6).
@@ -50,8 +51,7 @@ export function timeOf(startIso: string, endIso: string, zone: string): string {
 
 /** "Tue 15 Sep, 6 pm" — when replies close, in the circle's zone. */
 export function deadlineOf(iso: string, zone: string): string {
-  const local = toLocal(fromISO(iso), toZone(zone));
-  return `${dateWords(local.date, 'short')}, ${formatMinutesOfDay(local.minutesOfDay, deviceTimeFormat())}`;
+  return whenWords(iso, zone);
 }
 
 /**
